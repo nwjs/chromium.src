@@ -23,8 +23,9 @@ class ChromeosONC(policy_base.PolicyTestBase):
   ONC_PATH = os.path.join(pyauto.PyUITest.DataDir(), 'chromeos', 'cros')
 
   def setUp(self):
+    self.CleanupFlimflamDirsOnChromeOS()
     policy_base.PolicyTestBase.setUp(self)
-    pyauto.PyUITest.RunSuperuserActionOnChromeOS('CleanFlimflamDir')
+    self.LoginWithTestAccount()
 
   def _ReadONCFileAndSet(self, filename):
     """Reads the specified ONC file and sends it as a policy.
@@ -34,7 +35,7 @@ class ChromeosONC(policy_base.PolicyTestBase):
                 all be stored in the path defined by ONC_PATH.
     """
     with open(os.path.join(self.ONC_PATH, filename)) as fp:
-      self.SetPolicies({'OpenNetworkConfiguration': fp.read()})
+      self.SetUserPolicy({'OpenNetworkConfiguration': fp.read()})
 
   def _VerifyRememberedWifiNetworks(self, wifi_expect):
     """Verify the list of remembered networks contains those in wifi_expect.
@@ -88,29 +89,47 @@ class ChromeosONC(policy_base.PolicyTestBase):
   def testONCAddPSKWifi(self):
     """Test adding WPA network."""
     wifi_networks = {
-        'ssid-wpa': 'PSK',
+        'ssid-wpa': 'WPA',
     }
     self._ReadONCFileAndSet('network-wifi-wpa.onc')
     self._VerifyRememberedWifiNetworks(wifi_networks)
 
   def testAddBacktoBackONC(self):
     """Test adding three different ONC files one after the other."""
+    test_dict = {
+      'network-wifi-none.onc': { 'ssid-none': '' },
+      'network-wifi-wep.onc': { 'ssid-wep': 'WEP' },
+      'network-wifi-wpa.onc': { 'ssid-wpa': 'WPA' },
+    }
+
+    for onc, wifi_networks in test_dict.iteritems():
+      self._ReadONCFileAndSet(onc)
+      self._VerifyRememberedWifiNetworks(wifi_networks)
+
+  def testAddBacktoBackONC2(self):
+    """Test adding three different ONC files one after the other.
+
+    Due to inconsistent behaviors as addressed in crosbug.com/27862
+    this test does not perform a network scan/verification between
+    the setting of policies.
+    """
+
     wifi_networks = {
-        'ssid-none': '',
-        'ssid-wep': 'WEP',
-        'ssid-wpa': 'PSK',
+      'ssid-wpa': 'WPA',
     }
 
     self._ReadONCFileAndSet('network-wifi-none.onc')
     self._ReadONCFileAndSet('network-wifi-wep.onc')
     self._ReadONCFileAndSet('network-wifi-wpa.onc')
+
+    # Verify that only the most recent onc is updated.
     self._VerifyRememberedWifiNetworks(wifi_networks)
 
   def testAddONCWithUnknownFields(self):
     """Test adding an ONC file with unknown fields."""
     wifi_networks = {
         'ssid-none': '',
-        'ssid-wpa': 'PSK'
+        'ssid-wpa': 'WPA'
     }
 
     self._ReadONCFileAndSet('network-multiple-unknown.onc')

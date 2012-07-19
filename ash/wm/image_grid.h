@@ -4,14 +4,13 @@
 
 #ifndef ASH_WM_IMAGE_GRID_H_
 #define ASH_WM_IMAGE_GRID_H_
-#pragma once
 
+#include "ash/ash_export.h"
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
-#include "ash/ash_export.h"
-#include "ui/gfx/compositor/layer.h"
-#include "ui/gfx/compositor/layer_delegate.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_delegate.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 
@@ -123,8 +122,8 @@ class ASH_EXPORT ImageGrid {
   void SetSize(const gfx::Size& size);
 
   // Sets the grid to a position and size such that the inner edges of the top,
-  // bottom, left and right images will be flush with |content_bounds|.
-  void SetContentBounds(const gfx::Rect& content_bounds);
+  // bottom, left and right images will be flush with |content_bounds_in_dip|.
+  void SetContentBounds(const gfx::Rect& content_bounds_in_dip);
 
  private:
   // Delegate responsible for painting a specific image on a layer.
@@ -139,6 +138,8 @@ class ASH_EXPORT ImageGrid {
 
     // ui::LayerDelegate implementation:
     virtual void OnPaintLayer(gfx::Canvas* canvas) OVERRIDE;
+    virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
+    virtual base::Closure PrepareForLayerBoundsChange() OVERRIDE;
 
    private:
     friend class TestAPI;

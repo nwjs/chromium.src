@@ -7,11 +7,10 @@
 
 #ifndef SYNC_ENGINE_NET_URL_TRANSLATOR_H_
 #define SYNC_ENGINE_NET_URL_TRANSLATOR_H_
-#pragma once
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 
 // Convenience wrappers around CgiEscapePath(), used by gaia_auth.
 std::string CgiEscapeString(const char* src);
@@ -23,6 +22,6 @@ std::string MakeSyncServerPath(const std::string& path,
 
 std::string MakeSyncQueryString(const std::string& client_id);
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_NET_URL_TRANSLATOR_H_

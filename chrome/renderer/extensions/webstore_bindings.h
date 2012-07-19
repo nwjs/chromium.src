@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_EXTENSIONS_WEBSTORE_BINDINGS_H_
 #define CHROME_RENDERER_EXTENSIONS_WEBSTORE_BINDINGS_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/renderer/extensions/chrome_v8_extension.h"
@@ -21,7 +20,7 @@ class WebstoreBindings : public ChromeV8Extension,
   explicit WebstoreBindings(ExtensionDispatcher* dispatcher,
                             ChromeV8Context* context);
 
-  // IPC::Channel::Listener
+  // IPC::Listener
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
  private:

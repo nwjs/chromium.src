@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_SERVICE_CLOUD_PRINT_CLOUD_PRINT_AUTH_H_
 #define CHROME_SERVICE_CLOUD_PRINT_CLOUD_PRINT_AUTH_H_
-#pragma once
 
 #include <string>
 
@@ -41,7 +40,6 @@ class CloudPrintAuth
                  const base::DictionaryValue* print_sys_settings,
                  const gaia::OAuthClientInfo& oauth_client_info,
                  const std::string& proxy_id);
-  virtual ~CloudPrintAuth();
 
   // Note:
   //
@@ -75,7 +73,7 @@ class CloudPrintAuth
 
   // CloudPrintURLFetcher::Delegate implementation.
   virtual CloudPrintURLFetcher::ResponseAction HandleJSONData(
-      const content::URLFetcher* source,
+      const net::URLFetcher* source,
       const GURL& url,
       base::DictionaryValue* json_data,
       bool succeeded) OVERRIDE;
@@ -83,6 +81,9 @@ class CloudPrintAuth
   virtual std::string GetAuthHeader() OVERRIDE;
 
  private:
+  friend class base::RefCountedThreadSafe<CloudPrintAuth>;
+  virtual ~CloudPrintAuth();
+
   Client* client_;
   gaia::OAuthClientInfo oauth_client_info_;
   scoped_ptr<gaia::GaiaOAuthClient> oauth_client_;

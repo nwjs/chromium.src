@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CONTENT_SETTINGS_CONTENT_SETTINGS_PREF_PROVIDER_H_
 #define CHROME_BROWSER_CONTENT_SETTINGS_CONTENT_SETTINGS_PREF_PROVIDER_H_
-#pragma once
 
 // A content settings provider that takes its settings out of the pref service.
 
@@ -88,6 +87,7 @@ class PrefProvider : public ObservableProvider,
       const base::Value* value,
       DictionaryValue* pattern_pairs_settings);
 
+  void MigrateObsoleteClearOnExitPref();
   void MigrateObsoleteContentSettingsPatternPref();
   void MigrateObsoleteGeolocationPref();
   void MigrateObsoleteNotificationsPrefs();

@@ -58,22 +58,35 @@ class DaemonController {
     // TODO(sergeyu): Current implementations don't return this value.
     RESULT_CANCELLED = 2,
 
+    // Failed to access host directory.
+    RESULT_FAILED_DIRECTORY = 3
+
     // TODO(sergeyu): Add more error codes when we know how to handle
     // them in the webapp.
   };
 
-  // The callback for GetConfig(). |config| is set to NULL in case of
-  // an error. Otherwise it is a dictionary that contains the
-  // following values: host_id and xmpp_login, which may be empty if
-  // the host is not initialized yet. The config must not contain any
-  // security sensitive information, such as authentication tokens and
-  // private keys.
+  // Callback type for GetConfig(). If the host is configured then a dictionary
+  // is returned containing host_id and xmpp_login, with security-sensitive
+  // fields filtered out. An empty dictionary is returned if the host is not
+  // configured, and NULL if the configuration is corrupt or cannot be read.
   typedef base::Callback<void (scoped_ptr<base::DictionaryValue> config)>
       GetConfigCallback;
 
   // Callback used for asynchronous operations, e.g. when
   // starting/stopping the service.
   typedef base::Callback<void (AsyncResult result)> CompletionCallback;
+
+  // Callback type for GetVersion().
+  typedef base::Callback<void (const std::string&)> GetVersionCallback;
+
+  // Callback type for GetUsageStatsConsent(). |supported| indicates whether
+  // crash dump reporting is supported by the host. |allowed| indicates if
+  // crash dump reporting is allowed by the user. |set_by_policy| carries
+  // information whether the crash dump reporting is controlled by policy.
+  typedef base::Callback<void (
+      bool supported,
+      bool allowed,
+      bool set_by_policy)> GetUsageStatsConsentCallback;
 
   virtual ~DaemonController() {}
 
@@ -86,7 +99,8 @@ class DaemonController {
   virtual State GetState() = 0;
 
   // Queries current host configuration. The |callback| is called
-  // after configuration is read.
+  // after the configuration is read, and any values that might be security
+  // sensitive have been filtered out.
   virtual void GetConfig(const GetConfigCallback& callback) = 0;
 
   // Start the daemon process. This may require that the daemon be
@@ -98,14 +112,14 @@ class DaemonController {
   // into SetConfig() and Start() once we have basic host setup flow
   // working.
   virtual void SetConfigAndStart(scoped_ptr<base::DictionaryValue> config,
-                                 const CompletionCallback& done_callback) = 0;
+                                 bool consent,
+                                 const CompletionCallback& done) = 0;
 
   // Updates current host configuration with the values specified in
-  // |config|. Following parameters in the config cannot be changed
-  // using this function: host_id, xmpp_login. Implementation must not
-  // change these fields and must return an error if the webapp tries
-  // to change these values. Changes must come to effect before the
-  // call completes.
+  // |config|. Changes must take effect before the call completes.
+  // Any value in the existing configuration that isn't specified in |config|
+  // is preserved. |config| must not contain host_id or xmpp_login values,
+  // because implementations of this method cannot change them.
   virtual void UpdateConfig(scoped_ptr<base::DictionaryValue> config,
                             const CompletionCallback& done_callback) = 0;
 
@@ -116,6 +130,18 @@ class DaemonController {
   // As with Start, Stop may return before the operation is complete--poll
   // GetState until the state is STATE_STOPPED.
   virtual void Stop(const CompletionCallback& done_callback) = 0;
+
+  // Caches the native handle of the plugin window so it can be used to focus
+  // elevation prompts properly.
+  virtual void SetWindow(void* window_handle) = 0;
+
+  // Get the version of the daemon as a dotted decimal string of the form
+  // major.minor.build.patch, if it is installed, or "" otherwise.
+  virtual void GetVersion(const GetVersionCallback& done_callback) = 0;
+
+  // Get the user's consent to crash reporting.
+  virtual void GetUsageStatsConsent(
+      const GetUsageStatsConsentCallback& done) = 0;
 
   static scoped_ptr<DaemonController> Create();
 };

@@ -7,6 +7,7 @@
 
 #include "base/message_loop.h"
 #include "base/md5.h"
+#include "media/audio/null_audio_sink.h"
 #include "media/base/filter_collection.h"
 #include "media/base/message_loop_factory.h"
 #include "media/base/pipeline.h"
@@ -17,8 +18,8 @@
 
 namespace media {
 
-// Empty MD5 hash string.  Used to verify videos which have decoded no frames.
-extern const char kNullVideoHash[];
+// Empty MD5 hash string.  Used to verify empty audio or video tracks.
+extern const char kNullHash[];
 
 // Integration tests for Pipeline. Real demuxers, real decoders, and
 // base renderer implementations are used to verify pipeline functionality. The
@@ -37,6 +38,14 @@ class PipelineIntegrationTestBase {
   bool WaitUntilOnEnded();
   PipelineStatus WaitUntilEndedOrError();
   bool Start(const std::string& url, PipelineStatus expected_status);
+  // Enable playback with audio and video hashing enabled.  Frame dropping and
+  // audio underflow will be disabled to ensure consistent hashes.
+  bool Start(const std::string& url, PipelineStatus expected_status,
+             bool hashing_enabled);
+  // Initialize the pipeline and ignore any status updates.  Useful for testing
+  // invalid audio/video clips which don't have deterministic results.
+  bool Start(const std::string& url);
+
   void Play();
   void Pause();
   bool Seek(base::TimeDelta seek_time);
@@ -48,21 +57,30 @@ class PipelineIntegrationTestBase {
 
   // Returns the MD5 hash of all video frames seen.  Should only be called once
   // after playback completes.  First time hashes should be generated with
-  // --video-threads=1 to ensure correctness.
+  // --video-threads=1 to ensure correctness.  Pipeline must have been started
+  // with hashing enabled.
   std::string GetVideoHash();
+
+  // Returns the MD5 hash of all audio frames seen.  Should only be called once
+  // after playback completes.  Pipeline must have been started with hashing
+  // enabled.
+  std::string GetAudioHash();
 
  protected:
   MessageLoop message_loop_;
   base::MD5Context md5_context_;
+  bool hashing_enabled_;
   scoped_ptr<MessageLoopFactory> message_loop_factory_;
   scoped_refptr<Pipeline> pipeline_;
   scoped_refptr<FFmpegVideoDecoder> decoder_;
   scoped_refptr<VideoRendererBase> renderer_;
+  scoped_refptr<NullAudioSink> audio_sink_;
   bool ended_;
   PipelineStatus pipeline_status_;
 
-  void OnStatusCallback(PipelineStatus expected_status,
-                        PipelineStatus status);
+  void OnStatusCallbackChecked(PipelineStatus expected_status,
+                               PipelineStatus status);
+  void OnStatusCallback(PipelineStatus status);
   PipelineStatusCB QuitOnStatusCB(PipelineStatus expected_status);
   void OnEnded(PipelineStatus status);
   void OnError(PipelineStatus status);

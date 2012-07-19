@@ -4,39 +4,35 @@
 
 #ifndef WEBKIT_FILEAPI_FILE_SYSTEM_URL_REQUEST_JOB_H_
 #define WEBKIT_FILEAPI_FILE_SYSTEM_URL_REQUEST_JOB_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_proxy.h"
 #include "base/platform_file.h"
 #include "net/http/http_byte_range.h"
 #include "net/url_request/url_request_job.h"
+#include "webkit/fileapi/file_system_url.h"
+#include "webkit/fileapi/fileapi_export.h"
 
 class GURL;
 class FilePath;
 
-namespace net {
-class FileStream;
-}
-
 namespace webkit_blob {
-class ShareableFileReference;
+class FileStreamReader;
 }
 
 namespace fileapi {
 class FileSystemContext;
 
 // A request job that handles reading filesystem: URLs
-class FileSystemURLRequestJob : public net::URLRequestJob {
+class FILEAPI_EXPORT_PRIVATE FileSystemURLRequestJob
+    : public net::URLRequestJob {
  public:
   FileSystemURLRequestJob(
       net::URLRequest* request,
-      FileSystemContext* file_system_context,
-      scoped_refptr<base::MessageLoopProxy> file_thread_proxy);
+      FileSystemContext* file_system_context);
 
   // URLRequestJob methods:
   virtual void Start() OVERRIDE;
@@ -60,21 +56,17 @@ class FileSystemURLRequestJob : public net::URLRequestJob {
   virtual ~FileSystemURLRequestJob();
 
   void StartAsync();
-  void DidCreateSnapshot(
+  void DidGetMetadata(
       base::PlatformFileError error_code,
       const base::PlatformFileInfo& file_info,
-      const FilePath& platform_path,
-      const scoped_refptr<webkit_blob::ShareableFileReference>& file_ref);
-  void DidOpen(base::PlatformFileError error_code,
-               base::PassPlatformFile file, bool created);
+      const FilePath& platform_path);
   void DidRead(int result);
   void NotifyFailed(int rv);
 
   FileSystemContext* file_system_context_;
-  scoped_refptr<base::MessageLoopProxy> file_thread_proxy_;
   base::WeakPtrFactory<FileSystemURLRequestJob> weak_factory_;
-  scoped_ptr<net::FileStream> stream_;
-  scoped_refptr<webkit_blob::ShareableFileReference> snapshot_ref_;
+  scoped_ptr<webkit_blob::FileStreamReader> reader_;
+  FileSystemURL url_;
   bool is_directory_;
   scoped_ptr<net::HttpResponseInfo> response_info_;
   int64 remaining_bytes_;

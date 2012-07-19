@@ -30,13 +30,15 @@ class ResourceDispatcherHostImpl;
 class RedirectToFileResourceHandler : public LayeredResourceHandler {
  public:
   RedirectToFileResourceHandler(
-      ResourceHandler* next_handler,
+      scoped_ptr<ResourceHandler> next_handler,
       int process_id,
       ResourceDispatcherHostImpl* resource_dispatcher_host);
+  virtual ~RedirectToFileResourceHandler();
 
   // ResourceHandler implementation:
   virtual bool OnResponseStarted(int request_id,
-                                 ResourceResponse* response) OVERRIDE;
+                                 ResourceResponse* response,
+                                 bool* defer) OVERRIDE;
   virtual bool OnWillStart(int request_id,
                            const GURL& url,
                            bool* defer) OVERRIDE;
@@ -45,20 +47,20 @@ class RedirectToFileResourceHandler : public LayeredResourceHandler {
                           int* buf_size,
                           int min_size) OVERRIDE;
   virtual bool OnReadCompleted(int request_id,
-                               int* bytes_read) OVERRIDE;
+                               int bytes_read,
+                               bool* defer) OVERRIDE;
   virtual bool OnResponseCompleted(int request_id,
                                    const net::URLRequestStatus& status,
                                    const std::string& security_info) OVERRIDE;
-  virtual void OnRequestClosed() OVERRIDE;
 
  private:
-  virtual ~RedirectToFileResourceHandler();
   void DidCreateTemporaryFile(base::PlatformFileError error_code,
                               base::PassPlatformFile file_handle,
                               const FilePath& file_path);
   void DidWriteToFile(int result);
   bool WriteMore();
   bool BufIsFull() const;
+  void ResumeIfDeferred();
 
   base::WeakPtrFactory<RedirectToFileResourceHandler> weak_factory_;
 
@@ -84,8 +86,7 @@ class RedirectToFileResourceHandler : public LayeredResourceHandler {
   // file created as  a result of the download.
   scoped_refptr<webkit_blob::ShareableFileReference> deletable_file_;
 
-  // True if OnRequestClosed() has already been called.
-  bool request_was_closed_;
+  bool did_defer_ ;
 
   bool completed_during_write_;
   net::URLRequestStatus completed_status_;

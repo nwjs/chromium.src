@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_SCREEN_LOCKER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_SCREEN_LOCKER_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/time.h"
 #include "chrome/browser/chromeos/login/help_app_launcher.h"
 #include "chrome/browser/chromeos/login/login_status_consumer.h"
@@ -93,9 +92,6 @@ class ScreenLocker : public LoginStatusConsumer {
   // Hide the screen locker.
   static void Hide();
 
-  // Notifies that PowerManager rejected UnlockScreen request.
-  static void UnlockScreenFailed();
-
   // Returns the tester
   static test::ScreenLockerTester* GetTester();
 
@@ -144,6 +140,9 @@ class ScreenLocker : public LoginStatusConsumer {
   // Delegate to forward all login status events to.
   // Tests can use this to receive login status events.
   LoginStatusConsumer* login_status_consumer_;
+
+  // Number of bad login attempts in a row.
+  int incorrect_passwords_count_;
 
   DISALLOW_COPY_AND_ASSIGN(ScreenLocker);
 };

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PREFS_PREF_MODEL_ASSOCIATOR_H_
 #define CHROME_BROWSER_PREFS_PREF_MODEL_ASSOCIATOR_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -14,8 +13,8 @@
 #include "base/compiler_specific.h"
 #include "base/threading/non_thread_safe.h"
 #include "chrome/browser/prefs/pref_service.h"
-#include "chrome/browser/sync/api/syncable_service.h"
-#include "chrome/browser/sync/api/sync_data.h"
+#include "sync/api/sync_data.h"
+#include "sync/api/syncable_service.h"
 
 namespace sync_pb {
 class PreferenceSpecifics;
@@ -29,22 +28,24 @@ class Value;
 // TODO(sync): Merge this into PrefService once we separate the profile
 // PrefService from the local state PrefService.
 class PrefModelAssociator
-    : public SyncableService,
+    : public syncer::SyncableService,
       public base::NonThreadSafe {
  public:
   PrefModelAssociator();
   virtual ~PrefModelAssociator();
 
-  // SyncableService implementation.
-  virtual SyncDataList GetAllSyncData(syncable::ModelType type) const OVERRIDE;
-  virtual SyncError ProcessSyncChanges(
+  // syncer::SyncableService implementation.
+  virtual syncer::SyncDataList GetAllSyncData(
+      syncer::ModelType type) const OVERRIDE;
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE;
-  virtual SyncError MergeDataAndStartSyncing(
-      syncable::ModelType type,
-      const SyncDataList& initial_sync_data,
-      scoped_ptr<SyncChangeProcessor> sync_processor) OVERRIDE;
-  virtual void StopSyncing(syncable::ModelType type) OVERRIDE;
+      const syncer::SyncChangeList& change_list) OVERRIDE;
+  virtual syncer::SyncError MergeDataAndStartSyncing(
+      syncer::ModelType type,
+      const syncer::SyncDataList& initial_sync_data,
+      scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
+      scoped_ptr<syncer::SyncErrorFactory> sync_error_factory) OVERRIDE;
+  virtual void StopSyncing(syncer::ModelType type) OVERRIDE;
 
   // Returns the list of preference names that are registered as syncable, and
   // hence should be monitored for changes.
@@ -83,7 +84,7 @@ class PrefModelAssociator
   // provided.
   static bool CreatePrefSyncData(const std::string& name,
                                  const base::Value& value,
-                                 SyncData* sync_data);
+                                 syncer::SyncData* sync_data);
 
   // Extract preference value and name from sync specifics.
   base::Value* ReadPreferenceSpecifics(
@@ -93,7 +94,7 @@ class PrefModelAssociator
  protected:
   friend class ProfileSyncServicePreferenceTest;
 
-  typedef std::map<std::string, SyncData> SyncDataMap;
+  typedef std::map<std::string, syncer::SyncData> SyncDataMap;
 
   // Create an association for a given preference. If |sync_pref| is valid,
   // signifying that sync has data for this preference, we reconcile their data
@@ -103,9 +104,9 @@ class PrefModelAssociator
   // Note: We do not modify the sync data for preferences that are either
   // controlled by policy (are not user modifiable) or have their default value
   // (are not user controlled).
-  void InitPrefAndAssociate(const SyncData& sync_pref,
+  void InitPrefAndAssociate(const syncer::SyncData& sync_pref,
                             const std::string& pref_name,
-                            SyncChangeList* sync_changes);
+                            syncer::SyncChangeList* sync_changes);
 
   static base::Value* MergeListValues(
       const base::Value& from_value, const base::Value& to_value);
@@ -140,8 +141,11 @@ class PrefModelAssociator
   // The PrefService we are syncing to.
   PrefService* pref_service_;
 
-  // Sync's SyncChange handler. We push all our changes through this.
-  scoped_ptr<SyncChangeProcessor> sync_processor_;
+  // Sync's syncer::SyncChange handler. We push all our changes through this.
+  scoped_ptr<syncer::SyncChangeProcessor> sync_processor_;
+
+  // Sync's error handler. We use this to create sync errors.
+  scoped_ptr<syncer::SyncErrorFactory> sync_error_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(PrefModelAssociator);
 };

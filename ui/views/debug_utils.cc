@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,10 +12,9 @@
 #include <iostream>
 #endif
 
-namespace views {
-
 #ifndef NDEBUG
 
+namespace views {
 namespace {
 void PrintViewHierarchyImp(const View* view, int indent) {
   std::wostringstream buf;
@@ -31,11 +30,11 @@ void PrintViewHierarchyImp(const View* view, int indent) {
   buf << L' ';
   buf << view;
 
-  VLOG(1) << buf.str();
+  DVLOG(1) << buf.str();
   std::cout << buf.str() << std::endl;
 
   for (int i = 0, count = view->child_count(); i < count; ++i)
-    PrintViewHierarchyImp(view->GetChildViewAt(i), indent + 2);
+    PrintViewHierarchyImp(view->child_at(i), indent + 2);
 }
 
 void PrintFocusHierarchyImp(const View* view, int indent) {
@@ -51,11 +50,11 @@ void PrintFocusHierarchyImp(const View* view, int indent) {
   buf << L' ';
   buf << view;
 
-  VLOG(1) << buf.str();
+  DVLOG(1) << buf.str();
   std::cout << buf.str() << std::endl;
 
   if (view->child_count() > 0)
-    PrintFocusHierarchyImp(view->GetChildViewAt(0), indent + 2);
+    PrintFocusHierarchyImp(view->child_at(0), indent + 2);
 
   const View* next_focusable = view->GetNextFocusableView();
   if (next_focusable)

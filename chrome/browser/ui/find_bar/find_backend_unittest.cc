@@ -8,22 +8,22 @@
 #include "chrome/browser/ui/find_bar/find_bar_state.h"
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/web_contents_tester.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/web_contents_tester.h"
 
 using content::BrowserThread;
 using content::WebContents;
 using content::WebContentsTester;
 
-class FindBackendTest : public TabContentsWrapperTestHarness {
+class FindBackendTest : public TabContentsTestHarness {
  public:
   FindBackendTest()
-      : TabContentsWrapperTestHarness(),
+      : TabContentsTestHarness(),
         browser_thread_(BrowserThread::UI, &message_loop_) {}
 
  private:
@@ -39,19 +39,19 @@ string16 FindPrepopulateText(WebContents* contents) {
 
 }  // end namespace
 
-// This test takes two TabContents objects, searches in both of them and
+// This test takes two WebContents objects, searches in both of them and
 // tests the internal state for find_text and find_prepopulate_text.
 TEST_F(FindBackendTest, InternalState) {
-  FindTabHelper* find_tab_helper = contents_wrapper()->find_tab_helper();
-  // Initial state for the TabContents is blank strings.
+  FindTabHelper* find_tab_helper = tab_contents()->find_tab_helper();
+  // Initial state for the WebContents is blank strings.
   EXPECT_EQ(string16(), FindPrepopulateText(contents()));
   EXPECT_EQ(string16(), find_tab_helper->find_text());
 
-  // Get another TabContents object ready.
+  // Get another WebContents object ready.
   WebContents* contents2 =
       WebContentsTester::CreateTestWebContents(profile(), NULL);
-  TabContentsWrapper wrapper2(contents2);
-  FindTabHelper* find_tab_helper2 = wrapper2.find_tab_helper();
+  TabContents tab_contents(contents2);
+  FindTabHelper* find_tab_helper2 = tab_contents.find_tab_helper();
 
   // No search has still been issued, strings should be blank.
   EXPECT_EQ(string16(), FindPrepopulateText(contents()));
@@ -63,7 +63,7 @@ TEST_F(FindBackendTest, InternalState) {
   string16 search_term2 = ASCIIToUTF16(" but the economy ");
   string16 search_term3 = ASCIIToUTF16(" eated it.       ");
 
-  // Start searching in the first TabContents, searching forwards but not case
+  // Start searching in the first WebContents, searching forwards but not case
   // sensitive (as indicated by the last two params).
   find_tab_helper->StartFinding(search_term1, true, false);
 
@@ -74,7 +74,7 @@ TEST_F(FindBackendTest, InternalState) {
   EXPECT_EQ(search_term1, FindPrepopulateText(contents2));
   EXPECT_EQ(string16(), find_tab_helper2->find_text());
 
-  // Now search in the other TabContents, searching forwards but not case
+  // Now search in the other WebContents, searching forwards but not case
   // sensitive (as indicated by the last two params).
   find_tab_helper2->StartFinding(search_term2, true, false);
 
@@ -85,7 +85,7 @@ TEST_F(FindBackendTest, InternalState) {
   EXPECT_EQ(search_term2, FindPrepopulateText(contents2));
   EXPECT_EQ(search_term2, find_tab_helper2->find_text());
 
-  // Search again in the first TabContents, searching forwards but not case
+  // Search again in the first WebContents, searching forwards but not case
   // find_tab_helper (as indicated by the last two params).
   find_tab_helper->StartFinding(search_term3, true, false);
 

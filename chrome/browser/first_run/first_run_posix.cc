@@ -139,12 +139,18 @@ bool ProcessMasterPreferences(const FilePath& user_data_dir,
 
   out_prefs->new_tabs = install_prefs->GetFirstRunTabs();
 
+  internal::SetRLZPref(out_prefs, install_prefs.get());
+
   if (!internal::CopyPrefFile(user_data_dir, master_prefs_path))
     return true;
 
   internal::SetupMasterPrefsFromInstallPrefs(out_prefs,
       install_prefs.get());
 
+  // TODO(mirandac): Refactor skip-first-run-ui process into regular first run
+  // import process.  http://crbug.com/49647
+  // Note we are skipping all other master preferences if skip-first-run-ui
+  // is *not* specified. (That is, we continue only if skipping first run ui.)
   if (!internal::SkipFirstRunUI(install_prefs.get()))
     return true;
 

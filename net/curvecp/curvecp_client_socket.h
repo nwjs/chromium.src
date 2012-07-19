@@ -4,7 +4,6 @@
 
 #ifndef NET_CURVECP_CURVECP_CLIENT_SOCKET_H_
 #define NET_CURVECP_CURVECP_CLIENT_SOCKET_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "net/base/completion_callback.h"
@@ -30,7 +29,7 @@ class CurveCPClientSocket : public StreamSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(IPEndPoint* address) const OVERRIDE;
   virtual const BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;

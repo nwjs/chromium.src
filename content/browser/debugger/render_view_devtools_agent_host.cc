@@ -11,7 +11,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/site_instance_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/devtools_messages.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/devtools_agent_host_registry.h"
@@ -60,7 +60,8 @@ bool DevToolsAgentHostRegistry::IsDebuggerAttached(WebContents* web_contents) {
   DevToolsManager* devtools_manager = DevToolsManager::GetInstance();
   if (!devtools_manager)
     return false;
-  RenderViewHostDelegate* delegate = static_cast<TabContents*>(web_contents);
+  RenderViewHostDelegate* delegate =
+      static_cast<WebContentsImpl*>(web_contents);
   for (Instances::iterator it = g_instances.Get().begin();
        it != g_instances.Get().end(); ++it) {
     if (it->first->GetDelegate() != delegate)

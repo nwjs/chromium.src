@@ -12,7 +12,7 @@
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/web_contents.h"
@@ -30,6 +30,18 @@ const int kMinContentsSize = 50;
 }  // end namespace
 
 
+@interface GraySplitView : NSSplitView
+- (NSColor*)dividerColor;
+@end
+
+
+@implementation GraySplitView
+- (NSColor*)dividerColor {
+  return [NSColor darkGrayColor];
+}
+@end
+
+
 @interface DevToolsController (Private)
 - (void)showDevToolsContents:(WebContents*)devToolsContents
                  withProfile:(Profile*)profile;
@@ -43,14 +55,20 @@ const int kMinContentsSize = 50;
 
 - (id)init {
   if ((self = [super init])) {
-    splitView_.reset([[NSSplitView alloc] initWithFrame:NSZeroRect]);
+    splitView_.reset([[GraySplitView alloc] initWithFrame:NSZeroRect]);
     [splitView_ setDividerStyle:NSSplitViewDividerStyleThin];
     [splitView_ setVertical:NO];
     [splitView_ setAutoresizingMask:NSViewWidthSizable|NSViewHeightSizable];
+    [splitView_ setDelegate:self];
 
     dockToRight_ = NO;
   }
   return self;
+}
+
+- (void)dealloc {
+  [splitView_ setDelegate:nil];
+  [super dealloc];
 }
 
 - (NSView*)view {
@@ -64,7 +82,7 @@ const int kMinContentsSize = 50;
 - (void)updateDevToolsForWebContents:(WebContents*)contents
                          withProfile:(Profile*)profile {
   // Get current devtools content.
-  TabContentsWrapper* devToolsTab = contents ?
+  TabContents* devToolsTab = contents ?
       DevToolsWindow::GetDevToolsContents(contents) : NULL;
   WebContents* devToolsContents = devToolsTab ?
       devToolsTab->web_contents() : NULL;
@@ -208,6 +226,10 @@ const int kMinContentsSize = 50;
   if ([[splitView_ subviews] indexOfObject:subview] == 1)
     return NO;
   return YES;
+}
+
+-(void)splitViewWillResizeSubviews:(NSNotification *)notification {
+  [[splitView_ window] disableScreenUpdatesUntilFlush];
 }
 
 @end

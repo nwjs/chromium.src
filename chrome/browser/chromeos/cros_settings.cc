@@ -10,13 +10,13 @@
 #include "base/stl_util.h"
 #include "base/string_util.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/cros_settings_provider.h"
 #include "chrome/browser/chromeos/device_settings_provider.h"
 #include "chrome/browser/chromeos/login/signed_settings_helper.h"
 #include "chrome/browser/chromeos/stub_cros_settings_provider.h"
-#include "chrome/browser/ui/webui/options2/chromeos/system_settings_provider2.h"
+#include "chrome/browser/chromeos/system_settings_provider.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/net/gaia/gaia_auth_util.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
@@ -107,17 +107,32 @@ void CrosSettings::RemoveFromList(const std::string& path,
 bool CrosSettings::FindEmailInList(const std::string& path,
                                    const std::string& email) const {
   DCHECK(CalledOnValidThread());
-  base::StringValue email_value(email);
-  const base::ListValue* value(
-      static_cast<const base::ListValue*>(GetPref(path)));
-  if (value) {
-    if (value->Find(email_value) != value->end())
+  std::string canonicalized_email(
+      gaia::CanonicalizeEmail(gaia::SanitizeEmail(email)));
+  std::string wildcard_email;
+  std::string::size_type at_pos = canonicalized_email.find('@');
+  if (at_pos != std::string::npos) {
+    wildcard_email =
+        std::string("*").append(canonicalized_email.substr(at_pos));
+  }
+
+  const base::ListValue* list;
+  if (!GetList(path, &list))
+    return false;
+  for (base::ListValue::const_iterator entry(list->begin());
+       entry != list->end();
+       ++entry) {
+    std::string entry_string;
+    if (!(*entry)->GetAsString(&entry_string)) {
+      NOTREACHED();
+      continue;
+    }
+    std::string canonicalized_entry(
+        gaia::CanonicalizeEmail(gaia::SanitizeEmail(entry_string)));
+
+    if (canonicalized_entry == canonicalized_email ||
+        canonicalized_entry == wildcard_email) {
       return true;
-    std::string::size_type at_pos = email.find('@');
-    if (at_pos != std::string::npos) {
-      base::StringValue wildcarded_value(
-          std::string("*").append(email.substr(at_pos)));
-      return value->Find(wildcarded_value) != value->end();
     }
   }
   return false;
@@ -219,13 +234,16 @@ const base::Value* CrosSettings::GetPref(const std::string& path) const {
   return NULL;
 }
 
-bool CrosSettings::PrepareTrustedValues(const base::Closure& callback) const {
+CrosSettingsProvider::TrustedStatus CrosSettings::PrepareTrustedValues(
+    const base::Closure& callback) const {
   DCHECK(CalledOnValidThread());
   for (size_t i = 0; i < providers_.size(); ++i) {
-    if (!providers_[i]->PrepareTrustedValues(callback))
-      return false;
+    CrosSettingsProvider::TrustedStatus status =
+        providers_[i]->PrepareTrustedValues(callback);
+    if (status != CrosSettingsProvider::TRUSTED)
+      return status;
   }
-  return true;
+  return CrosSettingsProvider::TRUSTED;
 }
 
 bool CrosSettings::GetBoolean(const std::string& path,
@@ -286,7 +304,7 @@ CrosSettings::CrosSettings() {
         new DeviceSettingsProvider(notify_cb, SignedSettingsHelper::Get()));
   }
   // System settings are not mocked currently.
-  AddSettingsProvider(new options2::SystemSettingsProvider(notify_cb));
+  AddSettingsProvider(new SystemSettingsProvider(notify_cb));
 }
 
 CrosSettings::~CrosSettings() {

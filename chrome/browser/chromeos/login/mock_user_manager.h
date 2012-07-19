@@ -4,11 +4,12 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_MOCK_USER_MANAGER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_MOCK_USER_MANAGER_H_
-#pragma once
 
 #include <string>
 
 #include "base/file_path.h"
+#include "base/memory/weak_ptr.h"
+#include "chrome/browser/chromeos/login/user_image.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -20,29 +21,43 @@ class MockUserManager : public UserManager {
   virtual ~MockUserManager();
 
   MOCK_CONST_METHOD0(GetUsers, const UserList&(void));
-  MOCK_METHOD1(UserLoggedIn, void(const std::string&));
+  MOCK_METHOD2(UserLoggedIn, void(const std::string&, bool));
   MOCK_METHOD0(DemoUserLoggedIn, void(void));
   MOCK_METHOD0(GuestUserLoggedIn, void(void));
   MOCK_METHOD1(EphemeralUserLoggedIn, void(const std::string&));
+  MOCK_METHOD0(InitializeWallpaper, void(void));
+  MOCK_METHOD1(UserSelected, void(const std::string&));
+  MOCK_METHOD0(SessionStarted, void(void));
   MOCK_METHOD2(RemoveUser, void(const std::string&, RemoveUserDelegate*));
   MOCK_METHOD1(RemoveUserFromList, void(const std::string&));
   MOCK_CONST_METHOD1(IsKnownUser, bool(const std::string&));
   MOCK_CONST_METHOD1(FindUser, const User*(const std::string&));
-  MOCK_CONST_METHOD1(IsDisplayNameUnique, bool(const std::string&));
   MOCK_METHOD2(SaveUserOAuthStatus, void(const std::string&,
                                          User::OAuthTokenStatus));
+  MOCK_METHOD2(SaveUserDisplayName, void(const std::string&,
+                                         const string16&));
+  MOCK_CONST_METHOD1(GetUserDisplayName, string16(const std::string&));
   MOCK_METHOD2(SaveUserDisplayEmail, void(const std::string&,
                                           const std::string&));
-  MOCK_METHOD0(GetUserWallpaperIndex, int(void));
-  MOCK_METHOD1(SaveUserWallpaperIndex, void(int));
+  MOCK_METHOD3(GetLoggedInUserWallpaperProperties, void(User::WallpaperType*,
+                                                        int*,
+                                                        base::Time*));
+  MOCK_METHOD2(SaveLoggedInUserWallpaperProperties, void(User::WallpaperType,
+                                                         int));
   MOCK_CONST_METHOD1(GetUserDisplayEmail, std::string(const std::string&));
   MOCK_METHOD2(SaveUserDefaultImageIndex, void(const std::string&, int));
-  MOCK_METHOD2(SaveUserImage, void(const std::string&, const SkBitmap&));
+  MOCK_METHOD2(SaveUserImage, void(const std::string&, const UserImage&));
+  MOCK_METHOD1(SetLoggedInUserCustomWallpaperLayout,void(
+      ash::WallpaperLayout));
   MOCK_METHOD2(SaveUserImageFromFile, void(const std::string&,
                                            const FilePath&));
+  MOCK_METHOD4(SaveUserWallpaperFromFile, void(
+      const std::string&,
+      const FilePath&,
+      ash::WallpaperLayout,
+      base::WeakPtr<WallpaperDelegate>));
   MOCK_METHOD1(SaveUserImageFromProfileImage, void(const std::string&));
   MOCK_METHOD1(DownloadProfileImage, void(const std::string&));
-  MOCK_METHOD0(LoadKeyStore, void(void));
   MOCK_CONST_METHOD0(IsCurrentUserOwner, bool(void));
   MOCK_CONST_METHOD0(IsCurrentUserNew, bool(void));
   MOCK_CONST_METHOD0(IsCurrentUserEphemeral, bool(void));
@@ -50,6 +65,7 @@ class MockUserManager : public UserManager {
   MOCK_CONST_METHOD0(IsLoggedInAsDemoUser, bool(void));
   MOCK_CONST_METHOD0(IsLoggedInAsGuest, bool(void));
   MOCK_CONST_METHOD0(IsLoggedInAsStub, bool(void));
+  MOCK_CONST_METHOD0(IsSessionStarted, bool(void));
   MOCK_METHOD1(AddObserver, void(UserManager::Observer*));
   MOCK_METHOD1(RemoveObserver, void(UserManager::Observer*));
   MOCK_METHOD0(NotifyLocalStateChanged, void(void));

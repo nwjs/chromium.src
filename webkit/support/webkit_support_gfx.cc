@@ -28,7 +28,7 @@ namespace webkit_support {
 // Note that the NOTREACHED() macro will result in a crash. This is preferable
 // to calling exit() / abort(), since the latter may not surfce the problem as
 // crash reports, making it hard to tell where the problem is.
-#define NOTREACHED(msg) *((int*)0) = 3
+#define NOTREACHED(msg) *((volatile int*)0) = 3
 #define DCHECK(condition) \
   if (!(condition)) fprintf(stderr, "DCHECK failed: " #condition ".")
 
@@ -672,6 +672,20 @@ bool EncodeBGRAPNGWithChecksum(const unsigned char* input,
   std::vector<Comment> comments;
   comments.push_back(Comment("checksum", checksum));
   return Encode(input, FORMAT_BGRA,
+      width, height, row_byte_width, discard_transparency,
+      comments, output);
+}
+
+bool EncodeRGBAPNGWithChecksum(const unsigned char* input,
+                               int width,
+                               int height,
+                               int row_byte_width,
+                               bool discard_transparency,
+                               const std::string& checksum,
+                               std::vector<unsigned char>* output) {
+  std::vector<Comment> comments;
+  comments.push_back(Comment("checksum", checksum));
+  return Encode(input, FORMAT_RGBA,
       width, height, row_byte_width, discard_transparency,
       comments, output);
 }

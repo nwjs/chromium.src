@@ -8,9 +8,12 @@
 
 #include "base/i18n/rtl.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/search_engines/util.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "grit/generated_resources.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -28,26 +31,28 @@ const int kInterLineSpacing = 5;
 }  // namespace
 
 // static
-void FirstRunBubble::Show(Profile* profile,
+void FirstRunBubble::Show(Browser* browser,
                           GtkWidget* anchor,
                           const gfx::Rect& rect) {
-  new FirstRunBubble(profile, anchor, rect);
+  first_run::LogFirstRunMetric(first_run::FIRST_RUN_BUBBLE_SHOWN);
+
+  new FirstRunBubble(browser, anchor, rect);
 }
 
 void FirstRunBubble::BubbleClosing(BubbleGtk* bubble, bool closed_by_escape) {
   // TODO(port): Enable parent window
 }
 
-FirstRunBubble::FirstRunBubble(Profile* profile,
+FirstRunBubble::FirstRunBubble(Browser* browser,
                                GtkWidget* anchor,
                                const gfx::Rect& rect)
-    : profile_(profile),
+    : browser_(browser),
       bubble_(NULL) {
-  ThemeServiceGtk* theme_service = ThemeServiceGtk::GetFrom(profile_);
+  GtkThemeService* theme_service = GtkThemeService::GetFrom(browser->profile());
   GtkWidget* title = theme_service->BuildLabel("", ui::kGdkBlack);
   char* markup = g_markup_printf_escaped(kSearchLabelMarkup,
       l10n_util::GetStringFUTF8(IDS_FR_BUBBLE_TITLE,
-          GetDefaultSearchEngineName(profile_)).c_str());
+          GetDefaultSearchEngineName(browser->profile())).c_str());
   gtk_label_set_markup(GTK_LABEL(title), markup);
   g_free(markup);
 
@@ -70,8 +75,15 @@ FirstRunBubble::FirstRunBubble(Profile* profile,
 
   BubbleGtk::ArrowLocationGtk arrow_location = !base::i18n::IsRTL() ?
       BubbleGtk::ARROW_LOCATION_TOP_LEFT : BubbleGtk::ARROW_LOCATION_TOP_RIGHT;
-  bubble_ = BubbleGtk::Show(anchor, &rect, content, arrow_location,
-      true /*match_system_theme*/, true /*grab_input*/, theme_service, this);
+  bubble_ = BubbleGtk::Show(anchor,
+                            &rect,
+                            content,
+                            arrow_location,
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
+                            theme_service,
+                            this);
   DCHECK(bubble_);
 }
 
@@ -83,9 +95,11 @@ void FirstRunBubble::HandleDestroy(GtkWidget* sender) {
 }
 
 void FirstRunBubble::HandleChangeLink(GtkWidget* sender) {
-  // Get |profile_|'s browser before closing the bubble, which deletes |this|.
-  Browser* browser = BrowserList::GetLastActiveWithProfile(profile_);
+  first_run::LogFirstRunMetric(first_run::FIRST_RUN_BUBBLE_CHANGE_INVOKED);
+
+  // Cache browser_ before closing the bubble, which deletes |this|.
+  Browser* browser = browser_;
   bubble_->Close();
   if (browser)
-    browser->OpenSearchEngineOptionsDialog();
+    chrome::ShowSearchEngineSettings(browser);
 }

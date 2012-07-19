@@ -6,7 +6,9 @@
 
 #include <stdio.h>
 #include <string.h>
+
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -35,6 +37,9 @@
 const char kEchoServerURL[] = "websocket/tests/hybi/echo-with-no-extension";
 
 const char kCloseServerURL[] = "websocket/tests/hybi/close";
+
+const char kCloseWithCodeAndReasonServerURL[] =
+    "websocket/tests/hybi/close-code-and-reason";
 
 const char kProtocolTestServerURL[] =
     "websocket/tests/hybi/protocol-test?protocol=";
@@ -73,6 +78,25 @@ struct WebSocketEvent {
   bool was_clean;
   uint16_t close_code;
   pp::Var var;
+};
+
+class ReleaseResourceDelegate : public TestCompletionCallback::Delegate {
+ public:
+  explicit ReleaseResourceDelegate(const PPB_Core* core_interface,
+                                   PP_Resource resource)
+      : core_interface_(core_interface),
+        resource_(resource) {
+  }
+
+  // TestCompletionCallback::Delegate implementation.
+  virtual void OnCallback(void* user_data, int32_t result) {
+    if (resource_)
+      core_interface_->ReleaseResource(resource_);
+  }
+
+ private:
+  const PPB_Core* core_interface_;
+  PP_Resource resource_;
 };
 
 class TestWebSocketAPI : public pp::WebSocketAPI {
@@ -198,6 +222,7 @@ void TestWebSocket::RunTests(const std::string& filter) {
   RUN_TEST_WITH_REFERENCE_CHECK(BinarySendReceive, filter);
   RUN_TEST_WITH_REFERENCE_CHECK(StressedSendReceive, filter);
   RUN_TEST_WITH_REFERENCE_CHECK(BufferedAmount, filter);
+  RUN_TEST_WITH_REFERENCE_CHECK(AbortCalls, filter);
 
   RUN_TEST_WITH_REFERENCE_CHECK(CcInterfaces, filter);
 
@@ -274,20 +299,19 @@ PP_Resource TestWebSocket::Connect(const std::string& url,
   if (!ws)
     return 0;
   PP_Var url_var = CreateVarString(url);
-  TestCompletionCallback callback(instance_->pp_instance(), force_async_);
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
   uint32_t protocol_count = 0U;
   if (protocol.size()) {
     protocols[0] = CreateVarString(protocol);
     protocol_count = 1U;
   }
-  *result = websocket_interface_->Connect(
+  callback.WaitForResult(websocket_interface_->Connect(
       ws, url_var, protocols, protocol_count,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
+      callback.GetCallback().pp_completion_callback()));
   ReleaseVar(url_var);
   if (protocol.size())
     ReleaseVar(protocols[0]);
-  if (*result == PP_OK_COMPLETIONPENDING)
-    *result = callback.WaitForResult();
+  *result = callback.result();
   return ws;
 }
 
@@ -353,20 +377,21 @@ std::string TestWebSocket::TestInvalidConnect() {
   PP_Resource ws = websocket_interface_->Create(instance_->pp_instance());
   ASSERT_TRUE(ws);
 
-  TestCompletionCallback callback(instance_->pp_instance(), force_async_);
-  int32_t result = websocket_interface_->Connect(
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+  callback.WaitForResult(websocket_interface_->Connect(
       ws, PP_MakeUndefined(), protocols, 1U,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_EQ(PP_ERROR_BADARGUMENT, result);
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_BADARGUMENT, callback.result());
 
-  result = websocket_interface_->Connect(
+  callback.WaitForResult(websocket_interface_->Connect(
       ws, PP_MakeUndefined(), protocols, 1U,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_EQ(PP_ERROR_INPROGRESS, result);
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_INPROGRESS, callback.result());
 
   core_interface_->ReleaseResource(ws);
 
   for (int i = 0; kInvalidURLs[i]; ++i) {
+    int32_t result;
     ws = Connect(kInvalidURLs[i], &result, "");
     ASSERT_TRUE(ws);
     ASSERT_EQ(PP_ERROR_BADARGUMENT, result);
@@ -390,18 +415,16 @@ std::string TestWebSocket::TestProtocols() {
 
   PP_Resource ws = websocket_interface_->Create(instance_->pp_instance());
   ASSERT_TRUE(ws);
-  TestCompletionCallback callback(instance_->pp_instance(), force_async_);
-  int32_t result = websocket_interface_->Connect(
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+  callback.WaitForResult(websocket_interface_->Connect(
       ws, url, bad_protocols, 2U,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  if (result == PP_OK_COMPLETIONPENDING)
-    result = callback.WaitForResult();
-  ASSERT_EQ(PP_ERROR_BADARGUMENT, result);
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_BADARGUMENT, callback.result());
   core_interface_->ReleaseResource(ws);
 
   ws = websocket_interface_->Create(instance_->pp_instance());
   ASSERT_TRUE(ws);
-  result = websocket_interface_->Connect(
+  int32_t result = websocket_interface_->Connect(
       ws, url, good_protocols, 2U, PP_BlockUntilComplete());
   ASSERT_EQ(PP_ERROR_BLOCKS_MAIN_THREAD, result);
   core_interface_->ReleaseResource(ws);
@@ -446,23 +469,82 @@ std::string TestWebSocket::TestValidConnect() {
 
 std::string TestWebSocket::TestInvalidClose() {
   PP_Var reason = CreateVarString("close for test");
-  TestCompletionCallback callback(instance_->pp_instance());
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+  TestCompletionCallback async_callback(instance_->pp_instance(), PP_REQUIRED);
 
   // Close before connect.
   PP_Resource ws = websocket_interface_->Create(instance_->pp_instance());
-  int32_t result = websocket_interface_->Close(
+  callback.WaitForResult(websocket_interface_->Close(
       ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_EQ(PP_ERROR_FAILED, result);
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_FAILED, callback.result());
   core_interface_->ReleaseResource(ws);
 
   // Close with bad arguments.
+  int32_t result;
   ws = Connect(GetFullURL(kEchoServerURL), &result, "");
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
-  result = websocket_interface_->Close(ws, 1U, reason,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_EQ(PP_ERROR_NOACCESS, result);
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, 1U, reason, callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_NOACCESS, callback.result());
+  core_interface_->ReleaseResource(ws);
+
+  // Close with PP_VARTYPE_NULL.
+  ws = Connect(GetFullURL(kEchoServerURL), &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, PP_MakeNull(),
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_BADARGUMENT, callback.result());
+  core_interface_->ReleaseResource(ws);
+
+  // Close with PP_VARTYPE_NULL and ongoing receive message.
+  ws = Connect(GetFullURL(kEchoServerURL), &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  PP_Var receive_message_var;
+  result = websocket_interface_->ReceiveMessage(
+      ws, &receive_message_var,
+      async_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, PP_MakeNull(),
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_BADARGUMENT, callback.result());
+  const char* send_message = "hi";
+  PP_Var send_message_var = CreateVarString(send_message);
+  result = websocket_interface_->SendMessage(ws, send_message_var);
+  ReleaseVar(send_message_var);
+  ASSERT_EQ(PP_OK, result);
+  async_callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_OK, async_callback.result());
+  ASSERT_TRUE(AreEqualWithString(receive_message_var, send_message));
+  ReleaseVar(receive_message_var);
+  core_interface_->ReleaseResource(ws);
+
+  // Close twice.
+  ws = Connect(GetFullURL(kEchoServerURL), &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      async_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  // Call another Close() before previous one is in progress.
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_ERROR_INPROGRESS, result);
+  async_callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_OK, async_callback.result());
+  // Call another Close() after previous one is completed.
+  // This Close() must do nothing and reports no error.
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_OK, callback.result());
   core_interface_->ReleaseResource(ws);
 
   ReleaseVar(reason);
@@ -474,38 +556,58 @@ std::string TestWebSocket::TestValidClose() {
   PP_Var reason = CreateVarString("close for test");
   PP_Var url = CreateVarString(GetFullURL(kEchoServerURL).c_str());
   PP_Var protocols[] = { PP_MakeUndefined() };
-  TestCompletionCallback callback(instance_->pp_instance());
-  TestCompletionCallback another_callback(instance_->pp_instance());
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+  TestCompletionCallback another_callback(
+      instance_->pp_instance(), callback_type());
 
   // Close.
   int32_t result;
   PP_Resource ws = Connect(GetFullURL(kEchoServerURL), &result, "");
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
-  result = websocket_interface_->Close(ws,
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = callback.WaitForResult();
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      callback.GetCallback().pp_completion_callback()));
+  CHECK_CALLBACK_BEHAVIOR(callback);
+  ASSERT_EQ(PP_OK, callback.result());
+  core_interface_->ReleaseResource(ws);
+
+  // Close without code and reason.
+  ws = Connect(GetFullURL(kEchoServerURL), &result, "");
+  ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NOT_SPECIFIED, reason,
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_OK, callback.result());
+  core_interface_->ReleaseResource(ws);
+
+  // Close with PP_VARTYPE_UNDEFINED.
+  ws = Connect(GetFullURL(kEchoServerURL), &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, PP_MakeUndefined(),
+      callback.GetCallback().pp_completion_callback()));
+  CHECK_CALLBACK_BEHAVIOR(callback);
+  ASSERT_EQ(PP_OK, callback.result());
   core_interface_->ReleaseResource(ws);
 
   // Close in connecting.
   // The ongoing connect failed with PP_ERROR_ABORTED, then the close is done
   // successfully.
   ws = websocket_interface_->Create(instance_->pp_instance());
-  result = websocket_interface_->Connect(ws, url, protocols, 0U,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
+  result = websocket_interface_->Connect(
+      ws, url, protocols, 0U, callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = websocket_interface_->Close(ws,
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(
-          another_callback).pp_completion_callback());
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      another_callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = callback.WaitForResult();
-  ASSERT_EQ(PP_ERROR_ABORTED, result);
-  result = another_callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_ERROR_ABORTED, callback.result());
+  another_callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_OK, another_callback.result());
   core_interface_->ReleaseResource(ws);
 
   // Close in closing.
@@ -514,17 +616,16 @@ std::string TestWebSocket::TestValidClose() {
   ws = Connect(GetFullURL(kEchoServerURL), &result, "");
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
-  result = websocket_interface_->Close(ws,
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = websocket_interface_->Close(ws,
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(
-          another_callback).pp_completion_callback());
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      another_callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_ERROR_INPROGRESS, result);
-  result = callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_OK, callback.result());
   core_interface_->ReleaseResource(ws);
 
   // Close with ongoing receive message.
@@ -532,18 +633,51 @@ std::string TestWebSocket::TestValidClose() {
   ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
   PP_Var receive_message_var;
-  result = websocket_interface_->ReceiveMessage(ws, &receive_message_var,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
+  result = websocket_interface_->ReceiveMessage(
+      ws, &receive_message_var,
+      callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = websocket_interface_->Close(ws,
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(
-          another_callback).pp_completion_callback());
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      another_callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = callback.WaitForResult();
-  ASSERT_EQ(PP_ERROR_ABORTED, result);
-  result = another_callback.WaitForResult();
+  callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_ERROR_ABORTED, callback.result());
+  another_callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_OK, another_callback.result());
+  core_interface_->ReleaseResource(ws);
+
+  // Close with PP_VARTYPE_UNDEFINED and ongoing receive message.
+  ws = Connect(GetFullURL(kEchoServerURL), &result, "");
+  ASSERT_TRUE(ws);
   ASSERT_EQ(PP_OK, result);
+  result = websocket_interface_->ReceiveMessage(
+      ws, &receive_message_var,
+      callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, PP_MakeUndefined(),
+      another_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_ERROR_ABORTED, callback.result());
+  another_callback.WaitForResult(PP_OK_COMPLETIONPENDING);
+  ASSERT_EQ(PP_OK, another_callback.result());
+  core_interface_->ReleaseResource(ws);
+
+  // Server initiated closing handshake.
+  ws = Connect(GetFullURL(kCloseWithCodeAndReasonServerURL), &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  // Text messsage "1000 bye" requests the server to initiate closing handshake
+  // with code being 1000 and reason being "bye".
+  PP_Var close_request_var = CreateVarString("1000 bye");
+  result = websocket_interface_->SendMessage(ws, close_request_var);
+  ReleaseVar(close_request_var);
+  callback.WaitForResult(websocket_interface_->ReceiveMessage(
+      ws, &receive_message_var,
+      callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_ERROR_FAILED, callback.result());
   core_interface_->ReleaseResource(ws);
 
   ReleaseVar(reason);
@@ -591,14 +725,11 @@ std::string TestWebSocket::TestTextSendReceive() {
   ASSERT_EQ(PP_OK, result);
 
   // Receive echoed 'hello pepper'.
-  TestCompletionCallback callback(instance_->pp_instance(), force_async_);
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
   PP_Var received_message;
-  result = websocket_interface_->ReceiveMessage(ws, &received_message,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_FALSE(result != PP_OK && result != PP_OK_COMPLETIONPENDING);
-  if (result == PP_OK_COMPLETIONPENDING)
-    result = callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(websocket_interface_->ReceiveMessage(
+      ws, &received_message, callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_OK, callback.result());
   ASSERT_TRUE(AreEqualWithString(received_message, message));
   ReleaseVar(received_message);
   core_interface_->ReleaseResource(ws);
@@ -623,14 +754,11 @@ std::string TestWebSocket::TestBinarySendReceive() {
   ASSERT_EQ(PP_OK, result);
 
   // Receive echoed binary.
-  TestCompletionCallback callback(instance_->pp_instance(), force_async_);
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
   PP_Var received_message;
-  result = websocket_interface_->ReceiveMessage(ws, &received_message,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
-  ASSERT_TRUE(result == PP_OK || result == PP_OK_COMPLETIONPENDING);
-  if (result == PP_OK_COMPLETIONPENDING)
-    result = callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(websocket_interface_->ReceiveMessage(
+      ws, &received_message, callback.GetCallback().pp_completion_callback()));
+  ASSERT_EQ(PP_OK, callback.result());
   ASSERT_TRUE(AreEqualWithBinary(received_message, binary));
   ReleaseVar(received_message);
   core_interface_->ReleaseResource(ws);
@@ -652,29 +780,41 @@ std::string TestWebSocket::TestStressedSendReceive() {
   for (uint32_t i = 0; i < binary.size(); ++i)
     binary[i] = i;
   PP_Var binary_var = CreateVarBinary(binary);
+  // Prepare very large binary data over 64KiB. Object serializer in
+  // ppapi_proxy has a limitation of 64KiB as maximum return PP_Var data size
+  // to SRPC. In case received data over 64KiB exists, a specific code handles
+  // this large data via asynchronous callback from main thread. This data
+  // intends to test the code.
+  std::vector<uint8_t> large_binary(65 * 1024);
+  for (uint32_t i = 0; i < large_binary.size(); ++i)
+    large_binary[i] = i & 0xff;
+  PP_Var large_binary_var = CreateVarBinary(large_binary);
 
   // Send many messages.
+  int32_t result;
   for (int i = 0; i < 256; ++i) {
-    int32_t result = websocket_interface_->SendMessage(ws, text_var);
+    result = websocket_interface_->SendMessage(ws, text_var);
     ASSERT_EQ(PP_OK, result);
     result = websocket_interface_->SendMessage(ws, binary_var);
     ASSERT_EQ(PP_OK, result);
   }
+  result = websocket_interface_->SendMessage(ws, large_binary_var);
+  ASSERT_EQ(PP_OK, result);
   ReleaseVar(text_var);
   ReleaseVar(binary_var);
+  ReleaseVar(large_binary_var);
 
   // Receive echoed data.
-  for (int i = 0; i < 512; ++i) {
-    TestCompletionCallback callback(instance_->pp_instance(), force_async_);
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+  for (int i = 0; i <= 512; ++i) {
     PP_Var received_message;
-    int32_t result = websocket_interface_->ReceiveMessage(
-        ws, &received_message, static_cast<pp::CompletionCallback>(
-            callback).pp_completion_callback());
-    ASSERT_TRUE(result == PP_OK || result == PP_OK_COMPLETIONPENDING);
-    if (result == PP_OK_COMPLETIONPENDING)
-      result = callback.WaitForResult();
-    ASSERT_EQ(PP_OK, result);
-    if (i & 1) {
+    callback.WaitForResult(websocket_interface_->ReceiveMessage(
+        ws, &received_message,
+        callback.GetCallback().pp_completion_callback()));
+    ASSERT_EQ(PP_OK, callback.result());
+    if (i == 512) {
+      ASSERT_TRUE(AreEqualWithBinary(received_message, large_binary));
+    } else if (i & 1) {
       ASSERT_TRUE(AreEqualWithBinary(received_message, binary));
     } else {
       ASSERT_TRUE(AreEqualWithString(received_message, text));
@@ -712,16 +852,16 @@ std::string TestWebSocket::TestBufferedAmount() {
   // Close connection.
   std::string reason_str = "close while busy";
   PP_Var reason = CreateVarString(reason_str.c_str());
-  TestCompletionCallback callback(instance_->pp_instance());
-  result = websocket_interface_->Close(ws,
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
-      static_cast<pp::CompletionCallback>(callback).pp_completion_callback());
+  TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason,
+      callback.GetCallback().pp_completion_callback());
   ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
   ASSERT_EQ(PP_WEBSOCKETREADYSTATE_CLOSING,
       websocket_interface_->GetReadyState(ws));
 
-  result = callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  callback.WaitForResult(result);
+  ASSERT_EQ(PP_OK, callback.result());
   ASSERT_EQ(PP_WEBSOCKETREADYSTATE_CLOSED,
       websocket_interface_->GetReadyState(ws));
 
@@ -750,6 +890,176 @@ std::string TestWebSocket::TestBufferedAmount() {
   PASS();
 }
 
+std::string TestWebSocket::TestAbortCalls() {
+  // Test abort behaviors where a WebSocket PP_Resource is released while
+  // each function is in-flight on the WebSocket PP_Resource.
+  std::vector<uint8_t> large_binary(65 * 1024);
+  PP_Var large_var = CreateVarBinary(large_binary);
+
+  // Firstly, test the behavior for SendMessage().
+  // This function doesn't require a callback, but operation will be done
+  // asynchronously in WebKit and browser process.
+  int32_t result;
+  std::string url = GetFullURL(kEchoServerURL);
+  PP_Resource ws = Connect(url, &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  result = websocket_interface_->SendMessage(ws, large_var);
+  ASSERT_EQ(PP_OK, result);
+  core_interface_->ReleaseResource(ws);
+
+  // Following tests make sure the behavior for functions which require a
+  // callback. The callback must get a PP_ERROR_ABORTED.
+  // Test the behavior for Connect().
+  ws = websocket_interface_->Create(instance_->pp_instance());
+  ASSERT_TRUE(ws);
+  PP_Var url_var = CreateVarString(url);
+  TestCompletionCallback connect_callback(
+      instance_->pp_instance(), callback_type());
+  result = websocket_interface_->Connect(
+      ws, url_var, NULL, 0,
+      connect_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  core_interface_->ReleaseResource(ws);
+  connect_callback.WaitForResult(result);
+  ASSERT_EQ(PP_ERROR_ABORTED, connect_callback.result());
+  ReleaseVar(url_var);
+
+  // Test the behavior for Close().
+  ws = Connect(url, &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  PP_Var reason_var = CreateVarString("abort");
+  TestCompletionCallback close_callback(
+      instance_->pp_instance(), callback_type());
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, reason_var,
+      close_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  core_interface_->ReleaseResource(ws);
+  close_callback.WaitForResult(result);
+  ASSERT_EQ(PP_ERROR_ABORTED, close_callback.result());
+  ReleaseVar(reason_var);
+
+  // Test the behavior for ReceiveMessage().
+  // Firstly, make sure the simplest case to wait for data which never arrives.
+  ws = Connect(url, &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  PP_Var receive_var;
+  TestCompletionCallback receive_callback(
+      instance_->pp_instance(), callback_type());
+  result = websocket_interface_->ReceiveMessage(
+      ws, &receive_var,
+      receive_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  core_interface_->ReleaseResource(ws);
+  receive_callback.WaitForResult(result);
+  ASSERT_EQ(PP_ERROR_ABORTED, receive_callback.result());
+
+  // Release the resource in the close completion callback.
+  ws = Connect(url, &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, PP_MakeUndefined(),
+      close_callback.GetCallback().pp_completion_callback());
+  ReleaseResourceDelegate close_delegate(core_interface_, ws);
+  close_callback.SetDelegate(&close_delegate);
+  close_callback.WaitForResult(result);
+  CHECK_CALLBACK_BEHAVIOR(close_callback);
+  ASSERT_EQ(PP_OK, close_callback.result());
+
+  // Release the resource in the aborting receive completion callback which is
+  // introduced by calling Close().
+  ws = Connect(url, &result, "");
+  ASSERT_TRUE(ws);
+  ASSERT_EQ(PP_OK, result);
+  result = websocket_interface_->ReceiveMessage(
+      ws, &receive_var,
+      receive_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  ReleaseResourceDelegate receive_delegate(core_interface_, ws);
+  receive_callback.SetDelegate(&receive_delegate);
+  result = websocket_interface_->Close(
+      ws, PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, PP_MakeUndefined(),
+      close_callback.GetCallback().pp_completion_callback());
+  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
+  receive_callback.WaitForResult(result);
+  CHECK_CALLBACK_BEHAVIOR(receive_callback);
+  ASSERT_EQ(PP_ERROR_ABORTED, receive_callback.result());
+  close_callback.WaitForResult(result);
+  CHECK_CALLBACK_BEHAVIOR(close_callback);
+  ASSERT_EQ(PP_ERROR_ABORTED, close_callback.result());
+
+  // Test the behavior where receive process might be in-flight.
+  const char* text = "yukarin";
+  PP_Var text_var = CreateVarString(text);
+
+  // Each trial sends 17 messages and receives just |trial| number of
+  // message(s) before releasing the WebSocket. The WebSocket is released while
+  // the next message is going to be received.
+  for (int trial = 1; trial <= 16; trial++) {
+    ws = Connect(url, &result, "");
+    ASSERT_TRUE(ws);
+    ASSERT_EQ(PP_OK, result);
+    for (int i = 0; i <= 16; ++i) {
+      result = websocket_interface_->SendMessage(ws, text_var);
+      ASSERT_EQ(PP_OK, result);
+    }
+    TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+    PP_Var var;
+    for (int i = 0; i < trial; ++i) {
+      callback.WaitForResult(websocket_interface_->ReceiveMessage(
+          ws, &var, callback.GetCallback().pp_completion_callback()));
+      ASSERT_EQ(PP_OK, callback.result());
+      ASSERT_TRUE(AreEqualWithString(var, text));
+      ReleaseVar(var);
+    }
+    result = websocket_interface_->ReceiveMessage(
+        ws, &var, callback.GetCallback().pp_completion_callback());
+    core_interface_->ReleaseResource(ws);
+    if (result != PP_OK) {
+      callback.WaitForResult(result);
+      ASSERT_EQ(PP_ERROR_ABORTED, callback.result());
+    }
+  }
+  // Same test, but the last receiving message is large message over 64KiB.
+  for (int trial = 1; trial <= 16; trial++) {
+    ws = Connect(url, &result, "");
+    ASSERT_TRUE(ws);
+    ASSERT_EQ(PP_OK, result);
+    for (int i = 0; i <= 16; ++i) {
+      if (i == trial)
+        result = websocket_interface_->SendMessage(ws, large_var);
+      else
+        result = websocket_interface_->SendMessage(ws, text_var);
+      ASSERT_EQ(PP_OK, result);
+    }
+    TestCompletionCallback callback(instance_->pp_instance(), callback_type());
+    PP_Var var;
+    for (int i = 0; i < trial; ++i) {
+      callback.WaitForResult(websocket_interface_->ReceiveMessage(
+          ws, &var, callback.GetCallback().pp_completion_callback()));
+      ASSERT_EQ(PP_OK, callback.result());
+      ASSERT_TRUE(AreEqualWithString(var, text));
+      ReleaseVar(var);
+    }
+    result = websocket_interface_->ReceiveMessage(
+        ws, &var, callback.GetCallback().pp_completion_callback());
+    core_interface_->ReleaseResource(ws);
+    if (result != PP_OK) {
+      callback.WaitForResult(result);
+      ASSERT_EQ(PP_ERROR_ABORTED, callback.result());
+    }
+  }
+
+  ReleaseVar(large_var);
+  ReleaseVar(text_var);
+
+  PASS();
+}
+
 std::string TestWebSocket::TestCcInterfaces() {
   // C++ bindings is simple straightforward, then just verifies interfaces work
   // as a interface bridge fine.
@@ -766,15 +1076,15 @@ std::string TestWebSocket::TestCcInterfaces() {
   ASSERT_TRUE(AreEqualWithString(ws.GetURL().pp_var(), ""));
 
   // Check communication interfaces (connect, send, receive, and close).
-  TestCompletionCallback connect_callback(instance_->pp_instance());
-  int32_t result = ws.Connect(pp::Var(GetFullURL(kCloseServerURL)), NULL, 0U,
-      connect_callback);
-  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = connect_callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  TestCompletionCallback connect_callback(
+      instance_->pp_instance(), callback_type());
+  connect_callback.WaitForResult(ws.Connect(
+      pp::Var(GetFullURL(kCloseServerURL)), NULL, 0U, connect_callback));
+  CHECK_CALLBACK_BEHAVIOR(connect_callback);
+  ASSERT_EQ(PP_OK, connect_callback.result());
 
   std::string text_message("hello C++");
-  result = ws.SendMessage(pp::Var(text_message));
+  int32_t result = ws.SendMessage(pp::Var(text_message));
   ASSERT_EQ(PP_OK, result);
 
   std::vector<uint8_t> binary(256);
@@ -785,38 +1095,40 @@ std::string TestWebSocket::TestCcInterfaces() {
   ASSERT_EQ(PP_OK, result);
 
   pp::Var text_receive_var;
-  TestCompletionCallback text_receive_callback(instance_->pp_instance());
-  result = ws.ReceiveMessage(&text_receive_var, text_receive_callback);
-  if (result == PP_OK_COMPLETIONPENDING)
-    result = text_receive_callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  TestCompletionCallback text_receive_callback(
+      instance_->pp_instance(), callback_type());
+  text_receive_callback.WaitForResult(
+      ws.ReceiveMessage(&text_receive_var, text_receive_callback));
+  ASSERT_EQ(PP_OK, text_receive_callback.result());
   ASSERT_TRUE(
       AreEqualWithString(text_receive_var.pp_var(), text_message.c_str()));
 
   pp::Var binary_receive_var;
-  TestCompletionCallback binary_receive_callback(instance_->pp_instance());
-  result = ws.ReceiveMessage(&binary_receive_var, binary_receive_callback);
-  if (result == PP_OK_COMPLETIONPENDING)
-    result = binary_receive_callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  TestCompletionCallback binary_receive_callback(
+      instance_->pp_instance(), callback_type());
+  binary_receive_callback.WaitForResult(
+      ws.ReceiveMessage(&binary_receive_var, binary_receive_callback));
+  ASSERT_EQ(PP_OK, binary_receive_callback.result());
   ASSERT_TRUE(AreEqualWithBinary(binary_receive_var.pp_var(), binary));
 
-  TestCompletionCallback close_callback(instance_->pp_instance());
+  TestCompletionCallback close_callback(
+      instance_->pp_instance(), callback_type());
   std::string reason("bye");
-  result = ws.Close(
-      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, pp::Var(reason), close_callback);
-  ASSERT_EQ(PP_OK_COMPLETIONPENDING, result);
-  result = close_callback.WaitForResult();
-  ASSERT_EQ(PP_OK, result);
+  close_callback.WaitForResult(ws.Close(
+      PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, pp::Var(reason), close_callback));
+  CHECK_CALLBACK_BEHAVIOR(close_callback);
+  ASSERT_EQ(PP_OK, close_callback.result());
 
   // Check initialized properties access.
   ASSERT_EQ(0, ws.GetBufferedAmount());
   ASSERT_EQ(PP_WEBSOCKETSTATUSCODE_NORMAL_CLOSURE, ws.GetCloseCode());
-  ASSERT_TRUE(AreEqualWithString(ws.GetCloseReason().pp_var(), reason.c_str()));
+  ASSERT_TRUE(
+      AreEqualWithString(ws.GetCloseReason().pp_var(), reason.c_str()));
   ASSERT_EQ(true, ws.GetCloseWasClean());
   ASSERT_TRUE(AreEqualWithString(ws.GetProtocol().pp_var(), ""));
   ASSERT_EQ(PP_WEBSOCKETREADYSTATE_CLOSED, ws.GetReadyState());
-  ASSERT_TRUE(AreEqualWithString(ws.GetURL().pp_var(), GetFullURL(kCloseServerURL).c_str()));
+  ASSERT_TRUE(AreEqualWithString(
+      ws.GetURL().pp_var(), GetFullURL(kCloseServerURL).c_str()));
 
   PASS();
 }

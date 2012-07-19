@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 
 #include <errno.h>
 #include <link.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -18,29 +19,33 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/eintr_wrapper.h"
+#include "base/global_descriptors_posix.h"
+#include "base/json/string_escape.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
+#include "base/posix/unix_domain_socket.h"
 #include "base/rand_util.h"
 #include "chrome/nacl/nacl_listener.h"
-#include "content/common/unix_domain_socket_posix.h"
+#include "crypto/nss_util.h"
+#include "ipc/ipc_descriptors.h"
 #include "ipc/ipc_switches.h"
-#include "native_client/src/trusted/service_runtime/sel_memory.h"
+#include "sandbox/linux/services/libc_urandom_override.h"
 
 namespace {
-
-bool g_suid_sandbox_active;
 
 // The child must mimic the behavior of zygote_main_linux.cc on the child
 // side of the fork. See zygote_main_linux.cc:HandleForkRequest from
 //   if (!child) {
 // Note: this code doesn't attempt to support SELINUX or the SECCOMP sandbox.
-void BecomeNaClLoader(const std::vector<int>& child_fds) {
+void BecomeNaClLoader(const std::vector<int>& child_fds,
+                      size_t prereserved_sandbox_size) {
   VLOG(1) << "NaCl loader: setting up IPC descriptor";
   // don't need zygote FD any more
   if (HANDLE_EINTR(close(kNaClZygoteDescriptor)) != 0)
     LOG(ERROR) << "close(kNaClZygoteDescriptor) failed.";
-  // Set up browser descriptor as expected by Chrome on fd 3
-  // The zygote takes care of putting the sandbox IPC channel on fd 5
+  // Set up browser descriptor on fd 3 and IPC as expected by Chrome.
+  base::GlobalDescriptors::GetInstance()->Set(kPrimaryIPCChannel,
+      kPrimaryIPCChannel + base::GlobalDescriptors::kBaseDescriptor);
   int zfd = dup2(child_fds[kNaClBrowserFDIndex], kNaClBrowserDescriptor);
   if (zfd != kNaClBrowserDescriptor) {
     LOG(ERROR) << "Could not initialize kNaClBrowserDescriptor";
@@ -49,13 +54,15 @@ void BecomeNaClLoader(const std::vector<int>& child_fds) {
 
   MessageLoopForIO main_message_loop;
   NaClListener listener;
+  listener.set_prereserved_sandbox_size(prereserved_sandbox_size);
   listener.Listen();
   _exit(0);
 }
 
 // Some of this code was lifted from
 // content/browser/zygote_main_linux.cc:ForkWithRealPid()
-void HandleForkRequest(const std::vector<int>& child_fds) {
+void HandleForkRequest(const std::vector<int>& child_fds,
+                       size_t prereserved_sandbox_size) {
   VLOG(1) << "nacl_helper: forking";
   pid_t childpid = fork();
   if (childpid < 0) {
@@ -93,7 +100,7 @@ void HandleForkRequest(const std::vector<int>& child_fds) {
     if (HANDLE_EINTR(close(child_fds[kNaClParentFDIndex])) != 0)
       LOG(ERROR) << "close(child_fds[kNaClParentFDIndex]) failed";
     if (validack) {
-      BecomeNaClLoader(child_fds);
+      BecomeNaClLoader(child_fds, prereserved_sandbox_size);
     } else {
       LOG(ERROR) << "Failed to synch with zygote";
     }
@@ -118,17 +125,17 @@ void HandleForkRequest(const std::vector<int>& child_fds) {
 
 }  // namespace
 
-static const char kNaClHelperAtZero[] = "at-zero";
+static const char kNaClHelperReservedAtZero[] = "reserved_at_zero";
 static const char kNaClHelperRDebug[] = "r_debug";
 
 /*
- * Since we were started by the bootstrap program rather than in the
+ * Since we were started by nacl_helper_bootstrap rather than in the
  * usual way, the debugger cannot figure out where our executable
  * or the dynamic linker or the shared libraries are in memory,
  * so it won't find any symbols.  But we can fake it out to find us.
  *
- * The zygote passes --r_debug=0xXXXXXXXXXXXXXXXX.  The bootstrap
- * program replaces the Xs with the address of its _r_debug
+ * The zygote passes --r_debug=0xXXXXXXXXXXXXXXXX.
+ * nacl_helper_bootstrap replaces the Xs with the address of its _r_debug
  * structure.  The debugger will look for that symbol by name to
  * discover the addresses of key dynamic linker data structures.
  * Since all it knows about is the original main executable, which
@@ -140,11 +147,11 @@ static const char kNaClHelperRDebug[] = "r_debug";
  * Hereafter, if someone attaches a debugger (or examines a core dump),
  * the debugger will find all the symbols in the normal way.
  */
-static void check_r_debug(char *argv0) {
+static void CheckRDebug(char *argv0) {
   std::string r_debug_switch_value =
       CommandLine::ForCurrentProcess()->GetSwitchValueASCII(kNaClHelperRDebug);
   if (!r_debug_switch_value.empty()) {
-    char *endp = NULL;
+    char *endp;
     uintptr_t r_debug_addr = strtoul(r_debug_switch_value.c_str(), &endp, 0);
     if (r_debug_addr != 0 && *endp == '\0') {
       struct r_debug *bootstrap_r_debug = (struct r_debug *) r_debug_addr;
@@ -167,19 +174,55 @@ static void check_r_debug(char *argv0) {
   }
 }
 
+/*
+ * The zygote passes --reserved_at_zero=0xXXXXXXXX.
+ * nacl_helper_bootstrap replaces the Xs with the amount of prereserved
+ * sandbox memory.
+ *
+ * CheckReservedAtZero parses the value of the argument reserved_at_zero
+ * and returns the amount of prereserved sandbox memory.
+ */
+static size_t CheckReservedAtZero() {
+  size_t prereserved_sandbox_size = 0;
+  std::string reserved_at_zero_switch_value =
+      CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          kNaClHelperReservedAtZero);
+  if (!reserved_at_zero_switch_value.empty()) {
+    char *endp;
+    prereserved_sandbox_size =
+        strtoul(reserved_at_zero_switch_value.c_str(), &endp, 0);
+    if (*endp != '\0')
+      LOG(ERROR) << "Could not parse reserved_at_zero argument value of "
+                 << reserved_at_zero_switch_value;
+  }
+  return prereserved_sandbox_size;
+}
+
 int main(int argc, char *argv[]) {
   CommandLine::Init(argc, argv);
   base::AtExitManager exit_manager;
   base::RandUint64();  // acquire /dev/urandom fd before sandbox is raised
+#if !defined(CHROMIUM_SELINUX)
+  // Allows NSS to fopen() /dev/urandom.
+  sandbox::InitLibcUrandomOverrides();
+#endif
+#if defined(USE_NSS)
+  // Configure NSS for use inside the NaCl process.
+  // The fork check has not caused problems for NaCl, but this appears to be
+  // best practice (see other places LoadNSSLibraries is called.)
+  crypto::DisableNSSForkCheck();
+  // Without this line on Linux, HMAC::Init will instantiate a singleton that
+  // in turn attempts to open a file.  Disabling this behavior avoids a ~70 ms
+  // stall the first time HMAC is used.
+  crypto::ForceNSSNoDBInit();
+  // Load shared libraries before sandbox is raised.
+  // NSS is needed to perform hashing for validation caching.
+  crypto::LoadNSSLibraries();
+#endif
   std::vector<int> empty; // for SendMsg() calls
+  size_t prereserved_sandbox_size = CheckReservedAtZero();
 
-  check_r_debug(argv[0]);
-
-  g_suid_sandbox_active = (NULL != getenv("SBX_D"));
-
-  if (CommandLine::ForCurrentProcess()->HasSwitch(kNaClHelperAtZero)) {
-    g_nacl_prereserved_sandbox_addr = (void *) (uintptr_t) 0x10000;
-  }
+  CheckRDebug(argv[0]);
 
   // Send the zygote a message to let it know we are ready to help
   if (!UnixDomainSocket::SendMsg(kNaClZygoteDescriptor,
@@ -198,21 +241,22 @@ int main(int argc, char *argv[]) {
     if (msglen == 0 || (msglen == -1 && errno == ECONNRESET)) {
       // EOF from the browser. Goodbye!
       _exit(0);
-    }
-    if (msglen == sizeof(kNaClForkRequest) - 1 &&
-        memcmp(buf, kNaClForkRequest, msglen) == 0) {
+    } else if (msglen < 0) {
+      LOG(ERROR) << "nacl_helper: receive from zygote failed, errno = "
+                 << errno;
+    } else if (msglen == sizeof(kNaClForkRequest) - 1 &&
+               memcmp(buf, kNaClForkRequest, msglen) == 0) {
       if (kNaClParentFDIndex + 1 == fds.size()) {
-        HandleForkRequest(fds);
+        HandleForkRequest(fds, prereserved_sandbox_size);
         continue;  // fork succeeded. Note: child does not return
       } else {
         LOG(ERROR) << "nacl_helper: unexpected number of fds, got "
                    << fds.size();
       }
     } else {
-      if (msglen != 0) {
-        LOG(ERROR) << "nacl_helper unrecognized request: %s";
-        _exit(-1);
-      }
+      LOG(ERROR) << "nacl_helper unrecognized request: "
+                 << base::GetDoubleQuotedJson(std::string(buf, buf + msglen));
+      _exit(-1);
     }
     // if fork fails, send PID=-1 to zygote
     if (!UnixDomainSocket::SendMsg(kNaClZygoteDescriptor, &badpid,

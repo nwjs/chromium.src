@@ -14,6 +14,7 @@
 #include <algorithm>
 
 #include "base/command_line.h"
+#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
@@ -51,6 +52,7 @@ const wchar_t kStageRollingback[] = L"rollingback";
 const wchar_t kStageUncompressing[] = L"uncompressing";
 const wchar_t kStageUnpacking[] = L"unpacking";
 const wchar_t kStageUpdatingChannels[] = L"updating_channels";
+const wchar_t kStageCreatingVisualManifest[] = L"creating_visual_manifest";
 
 const wchar_t* const kStages[] = {
   NULL,
@@ -70,6 +72,7 @@ const wchar_t* const kStages[] = {
   kStageRemovingOldVersions,
   kStageFinishing,
   kStageConfiguringAutoLaunch,
+  kStageCreatingVisualManifest,
 };
 
 COMPILE_ASSERT(installer::NUM_STAGES == arraysize(kStages),
@@ -168,34 +171,34 @@ CommandLine InstallUtil::GetChromeUninstallCmd(
   return CommandLine(CommandLine::NO_PROGRAM);
 }
 
-Version* InstallUtil::GetChromeVersion(BrowserDistribution* dist,
-                                       bool system_install) {
+void InstallUtil::GetChromeVersion(BrowserDistribution* dist,
+                                   bool system_install,
+                                   Version* version) {
   DCHECK(dist);
   RegKey key;
   HKEY reg_root = (system_install) ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
   LONG result = key.Open(reg_root, dist->GetVersionKey().c_str(),
                          KEY_QUERY_VALUE);
 
-  std::wstring version_str;
+  string16 version_str;
   if (result == ERROR_SUCCESS)
     result = key.ReadValue(google_update::kRegVersionField, &version_str);
 
-  Version* ret = NULL;
+  *version = Version();
   if (result == ERROR_SUCCESS && !version_str.empty()) {
-    VLOG(1) << "Existing " << dist->GetApplicationName()
-            << " version found " << version_str;
-    ret = Version::GetVersionFromString(WideToASCII(version_str));
+    VLOG(1) << "Existing " << dist->GetAppShortCutName() << " version found "
+            << version_str;
+    *version = Version(WideToASCII(version_str));
   } else {
     DCHECK_EQ(ERROR_FILE_NOT_FOUND, result);
-    VLOG(1) << "No existing " << dist->GetApplicationName()
+    VLOG(1) << "No existing " << dist->GetAppShortCutName()
             << " install found.";
   }
-
-  return ret;
 }
 
-Version* InstallUtil::GetCriticalUpdateVersion(BrowserDistribution* dist,
-                                               bool system_install) {
+void InstallUtil::GetCriticalUpdateVersion(BrowserDistribution* dist,
+                                           bool system_install,
+                                           Version* version) {
   DCHECK(dist);
   RegKey key;
   HKEY reg_root = (system_install) ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
@@ -207,18 +210,16 @@ Version* InstallUtil::GetCriticalUpdateVersion(BrowserDistribution* dist,
     result = key.ReadValue(google_update::kRegCriticalVersionField,
                            &version_str);
 
-  Version* ret = NULL;
+  *version = Version();
   if (result == ERROR_SUCCESS && !version_str.empty()) {
-    VLOG(1) << "Critical Update version for " << dist->GetApplicationName()
+    VLOG(1) << "Critical Update version for " << dist->GetAppShortCutName()
             << " found " << version_str;
-    ret = Version::GetVersionFromString(WideToASCII(version_str));
+    *version = Version(WideToASCII(version_str));
   } else {
     DCHECK_EQ(ERROR_FILE_NOT_FOUND, result);
-    VLOG(1) << "No existing " << dist->GetApplicationName()
+    VLOG(1) << "No existing " << dist->GetAppShortCutName()
             << " install found.";
   }
-
-  return ret;
 }
 
 bool InstallUtil::IsOSSupported() {
@@ -232,10 +233,10 @@ bool InstallUtil::IsOSSupported() {
 }
 
 void InstallUtil::AddInstallerResultItems(bool system_install,
-                                          const std::wstring& state_key,
+                                          const string16& state_key,
                                           installer::InstallStatus status,
                                           int string_resource_id,
-                                          const std::wstring* const launch_cmd,
+                                          const string16* const launch_cmd,
                                           WorkItemList* install_list) {
   DCHECK(install_list);
   const HKEY root = system_install ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
@@ -248,7 +249,7 @@ void InstallUtil::AddInstallerResultItems(bool system_install,
                                        installer::kInstallerError,
                                        static_cast<DWORD>(status), true);
   if (string_resource_id != 0) {
-    std::wstring msg = installer::GetLocalizedString(string_resource_id);
+    string16 msg = installer::GetLocalizedString(string_resource_id);
     install_list->AddSetRegValueWorkItem(root, state_key,
         installer::kInstallerResultUIString, msg, true);
   }
@@ -259,7 +260,7 @@ void InstallUtil::AddInstallerResultItems(bool system_install,
 }
 
 void InstallUtil::UpdateInstallerStage(bool system_install,
-                                       const std::wstring& state_key_path,
+                                       const string16& state_key_path,
                                        installer::InstallerStage stage) {
   DCHECK_LE(static_cast<installer::InstallerStage>(0), stage);
   DCHECK_GT(installer::NUM_STAGES, stage);
@@ -325,7 +326,7 @@ bool CheckIsChromeSxSProcess() {
   // Also return true if we are running from Chrome SxS installed path.
   FilePath exe_dir;
   PathService::Get(base::DIR_EXE, &exe_dir);
-  std::wstring chrome_sxs_dir(installer::kGoogleChromeInstallSubDir2);
+  string16 chrome_sxs_dir(installer::kGoogleChromeInstallSubDir2);
   chrome_sxs_dir.append(installer::kSxSSuffix);
   return FilePath::CompareEqualIgnoreCase(exe_dir.BaseName().value(),
                                           installer::kInstallBinaryDir) &&
@@ -338,11 +339,30 @@ bool InstallUtil::IsChromeSxSProcess() {
   return sxs;
 }
 
+bool InstallUtil::HasDelegateExecuteHandler(BrowserDistribution* dist,
+                                            const string16& chrome_exe) {
+  bool found = false;
+  bool system_install = !IsPerUserInstall(chrome_exe.c_str());
+  Version version;
+  GetChromeVersion(dist, system_install, &version);
+  if (!version.IsValid()) {
+    LOG(ERROR) << __FUNCTION__ << " failed to determine version of "
+               << dist->GetAppShortCutName() << " installed at " << chrome_exe;
+  } else {
+    FilePath handler(
+        FilePath(chrome_exe).DirName()
+            .AppendASCII(version.GetString())
+            .Append(installer::kDelegateExecuteExe));
+    found = file_util::PathExists(handler);
+  }
+  return found;
+}
+
 // This method tries to delete a registry key and logs an error message
-// in case of failure. It returns true if deletion is successful,
-// otherwise false.
+// in case of failure. It returns true if deletion is successful (or the key did
+// not exist), otherwise false.
 bool InstallUtil::DeleteRegistryKey(HKEY root_key,
-                                    const std::wstring& key_path) {
+                                    const string16& key_path) {
   VLOG(1) << "Deleting registry key " << key_path;
   LONG result = ::SHDeleteKey(root_key, key_path.c_str());
   if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND) {
@@ -354,20 +374,19 @@ bool InstallUtil::DeleteRegistryKey(HKEY root_key,
 }
 
 // This method tries to delete a registry value and logs an error message
-// in case of failure. It returns true if deletion is successful,
-// otherwise false.
+// in case of failure. It returns true if deletion is successful (or the key did
+// not exist), otherwise false.
 bool InstallUtil::DeleteRegistryValue(HKEY reg_root,
-                                      const std::wstring& key_path,
-                                      const std::wstring& value_name) {
-  RegKey key(reg_root, key_path.c_str(), KEY_ALL_ACCESS);
-  VLOG(1) << "Deleting registry value " << value_name;
-  if (key.HasValue(value_name.c_str())) {
-    LONG result = key.DeleteValue(value_name.c_str());
-    if (result != ERROR_SUCCESS) {
-      LOG(ERROR) << "Failed to delete registry value: " << value_name
-                 << " error: " << result;
-      return false;
-    }
+                                      const string16& key_path,
+                                      const string16& value_name) {
+  RegKey key;
+  LONG result = key.Open(reg_root, key_path.c_str(), KEY_SET_VALUE);
+  if (result == ERROR_SUCCESS)
+    result = key.DeleteValue(value_name.c_str());
+  if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND) {
+    LOG(ERROR) << "Failed to delete registry value: " << value_name
+               << " error: " << result;
+    return false;
   }
   return true;
 }
@@ -375,15 +394,15 @@ bool InstallUtil::DeleteRegistryValue(HKEY reg_root,
 // static
 InstallUtil::ConditionalDeleteResult InstallUtil::DeleteRegistryKeyIf(
     HKEY root_key,
-    const std::wstring& key_to_delete_path,
-    const std::wstring& key_to_test_path,
+    const string16& key_to_delete_path,
+    const string16& key_to_test_path,
     const wchar_t* value_name,
     const RegistryValuePredicate& predicate) {
   DCHECK(root_key);
   DCHECK(value_name);
   ConditionalDeleteResult delete_result = NOT_FOUND;
   RegKey key;
-  std::wstring actual_value;
+  string16 actual_value;
   if (key.Open(root_key, key_to_test_path.c_str(),
                KEY_QUERY_VALUE) == ERROR_SUCCESS &&
       key.ReadValue(value_name, &actual_value) == ERROR_SUCCESS &&
@@ -406,7 +425,7 @@ InstallUtil::ConditionalDeleteResult InstallUtil::DeleteRegistryValueIf(
   DCHECK(value_name);
   ConditionalDeleteResult delete_result = NOT_FOUND;
   RegKey key;
-  std::wstring actual_value;
+  string16 actual_value;
   if (key.Open(root_key, key_path,
                KEY_QUERY_VALUE | KEY_SET_VALUE) == ERROR_SUCCESS &&
       key.ReadValue(value_name, &actual_value) == ERROR_SUCCESS &&
@@ -422,7 +441,7 @@ InstallUtil::ConditionalDeleteResult InstallUtil::DeleteRegistryValueIf(
   return delete_result;
 }
 
-bool InstallUtil::ValueEquals::Evaluate(const std::wstring& value) const {
+bool InstallUtil::ValueEquals::Evaluate(const string16& value) const {
   return value == value_to_match_;
 }
 
@@ -440,13 +459,13 @@ int InstallUtil::GetInstallReturnCode(installer::InstallStatus status) {
 }
 
 // static
-void InstallUtil::MakeUninstallCommand(const std::wstring& program,
-                                       const std::wstring& arguments,
+void InstallUtil::MakeUninstallCommand(const string16& program,
+                                       const string16& arguments,
                                        CommandLine* command_line) {
   *command_line = CommandLine::FromString(L"\"" + program + L"\" " + arguments);
 }
 
-std::wstring InstallUtil::GetCurrentDate() {
+string16 InstallUtil::GetCurrentDate() {
   static const wchar_t kDateFormat[] = L"yyyyMMdd";
   wchar_t date_str[arraysize(kDateFormat)] = {0};
   int len = GetDateFormatW(LOCALE_INVARIANT, 0, NULL, kDateFormat,
@@ -457,5 +476,75 @@ std::wstring InstallUtil::GetCurrentDate() {
     PLOG(DFATAL) << "GetDateFormat";
   }
 
-  return std::wstring(date_str, len);
+  return string16(date_str, len);
+}
+
+// Open |path| with minimal access to obtain information about it, returning
+// true and populating |handle| on success.
+// static
+bool InstallUtil::ProgramCompare::OpenForInfo(const FilePath& path,
+                                              base::win::ScopedHandle* handle) {
+  DCHECK(handle);
+  handle->Set(base::CreatePlatformFile(path, base::PLATFORM_FILE_OPEN, NULL,
+                                       NULL));
+  return handle->IsValid();
+}
+
+// Populate |info| for |handle|, returning true on success.
+// static
+bool InstallUtil::ProgramCompare::GetInfo(const base::win::ScopedHandle& handle,
+                                          BY_HANDLE_FILE_INFORMATION* info) {
+  DCHECK(handle.IsValid());
+  return GetFileInformationByHandle(
+      const_cast<base::win::ScopedHandle&>(handle), info) != 0;
+}
+
+InstallUtil::ProgramCompare::ProgramCompare(const FilePath& path_to_match)
+    : path_to_match_(path_to_match),
+      file_handle_(base::kInvalidPlatformFileValue),
+      file_info_() {
+  DCHECK(!path_to_match_.empty());
+  if (!OpenForInfo(path_to_match_, &file_handle_)) {
+    PLOG(WARNING) << "Failed opening " << path_to_match_.value()
+                  << "; falling back to path string comparisons.";
+  } else if (!GetInfo(file_handle_, &file_info_)) {
+    PLOG(WARNING) << "Failed getting information for "
+                  << path_to_match_.value()
+                  << "; falling back to path string comparisons.";
+    file_handle_.Close();
+  }
+}
+
+InstallUtil::ProgramCompare::~ProgramCompare() {
+}
+
+bool InstallUtil::ProgramCompare::Evaluate(const string16& value) const {
+  // Suss out the exe portion of the value, which is expected to be a command
+  // line kinda (or exactly) like:
+  // "c:\foo\bar\chrome.exe" -- "%1"
+  FilePath program(CommandLine::FromString(value).GetProgram());
+  if (program.empty()) {
+    LOG(WARNING) << "Failed to parse an executable name from command line: \""
+                 << value << "\"";
+    return false;
+  }
+
+  // Try the simple thing first: do the paths happen to match?
+  if (FilePath::CompareEqualIgnoreCase(path_to_match_.value(), program.value()))
+    return true;
+
+  // If the paths don't match and we couldn't open the expected file, we've done
+  // our best.
+  if (!file_handle_.IsValid())
+    return false;
+
+  // Open the program and see if it references the expected file.
+  base::win::ScopedHandle handle;
+  BY_HANDLE_FILE_INFORMATION info = {};
+
+  return (OpenForInfo(program, &handle) &&
+          GetInfo(handle, &info) &&
+          info.dwVolumeSerialNumber == file_info_.dwVolumeSerialNumber &&
+          info.nFileIndexHigh == file_info_.nFileIndexHigh &&
+          info.nFileIndexLow == file_info_.nFileIndexLow);
 }

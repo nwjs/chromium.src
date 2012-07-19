@@ -8,8 +8,8 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "content/renderer/media/audio_input_message_filter.h"
 #include "media/audio/audio_parameters.h"
@@ -36,8 +36,6 @@ class PepperPlatformAudioInputImpl
       public AudioInputMessageFilter::Delegate,
       public base::RefCountedThreadSafe<PepperPlatformAudioInputImpl> {
  public:
-  virtual ~PepperPlatformAudioInputImpl();
-
   // Factory function, returns NULL on failure. StreamCreated() will be called
   // when the stream is created.
   static PepperPlatformAudioInputImpl* Create(
@@ -52,7 +50,20 @@ class PepperPlatformAudioInputImpl
   virtual void StopCapture() OVERRIDE;
   virtual void ShutDown() OVERRIDE;
 
+  // AudioInputMessageFilter::Delegate.
+  virtual void OnStreamCreated(base::SharedMemoryHandle handle,
+                               base::SyncSocket::Handle socket_handle,
+                               uint32 length) OVERRIDE;
+  virtual void OnVolume(double volume) OVERRIDE;
+  virtual void OnStateChanged(AudioStreamState state) OVERRIDE;
+  virtual void OnDeviceReady(const std::string&) OVERRIDE;
+
+ protected:
+  virtual ~PepperPlatformAudioInputImpl();
+
  private:
+  friend class base::RefCountedThreadSafe<PepperPlatformAudioInputImpl>;
+
   PepperPlatformAudioInputImpl();
 
   bool Initialize(
@@ -67,14 +78,6 @@ class PepperPlatformAudioInputImpl
   void StartCaptureOnIOThread();
   void StopCaptureOnIOThread();
   void ShutDownOnIOThread();
-
-  // AudioInputMessageFilter::Delegate.
-  virtual void OnStreamCreated(base::SharedMemoryHandle handle,
-                               base::SyncSocket::Handle socket_handle,
-                               uint32 length) OVERRIDE;
-  virtual void OnVolume(double volume) OVERRIDE;
-  virtual void OnStateChanged(AudioStreamState state) OVERRIDE;
-  virtual void OnDeviceReady(const std::string&) OVERRIDE;
 
   void OnDeviceOpened(int request_id,
                       bool succeeded,

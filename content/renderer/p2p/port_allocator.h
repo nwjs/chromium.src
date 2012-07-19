@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 #define CONTENT_RENDERER_P2P_PORT_ALLOCATOR_H_
 
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "net/base/net_util.h"
 #include "third_party/libjingle/source/talk/p2p/client/basicportallocator.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLLoaderClient.h"
@@ -33,9 +34,11 @@ class P2PPortAllocator : public cricket::BasicPortAllocator {
                    const webkit_glue::P2PTransport::Config& config);
   virtual ~P2PPortAllocator();
 
-  virtual cricket::PortAllocatorSession* CreateSession(
-      const std::string& name,
-      const std::string& session_type) OVERRIDE;
+  virtual cricket::PortAllocatorSession* CreateSessionInternal(
+      const std::string& content_name,
+      int component,
+      const std::string& ice_username_fragment,
+      const std::string& ice_password) OVERRIDE;
 
  private:
   friend class P2PPortAllocatorSession;
@@ -52,8 +55,10 @@ class P2PPortAllocatorSession : public cricket::BasicPortAllocatorSession,
  public:
   P2PPortAllocatorSession(
       P2PPortAllocator* allocator,
-      const std::string& name,
-      const std::string& session_type);
+      const std::string& content_name,
+      int component,
+      const std::string& ice_username_fragment,
+      const std::string& ice_password);
   virtual ~P2PPortAllocatorSession();
 
   // WebKit::WebURLLoaderClient overrides.
@@ -87,8 +92,6 @@ class P2PPortAllocatorSession : public cricket::BasicPortAllocatorSession,
   scoped_ptr<WebKit::WebURLLoader> relay_session_request_;
   int relay_session_attempts_;
   std::string relay_session_response_;
-  std::string relay_username_;
-  std::string relay_password_;
   talk_base::SocketAddress relay_ip_;
   int relay_udp_port_;
   int relay_tcp_port_;

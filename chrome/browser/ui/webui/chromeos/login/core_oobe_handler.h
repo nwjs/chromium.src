@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_CHROMEOS_LOGIN_CORE_OOBE_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_CHROMEOS_LOGIN_CORE_OOBE_HANDLER_H_
-#pragma once
 
 #include "chrome/browser/chromeos/login/version_info_updater.h"
 #include "chrome/browser/ui/webui/chromeos/login/base_screen_handler.h"
@@ -50,8 +49,8 @@ class CoreOobeHandler : public BaseScreenHandler,
 
  private:
   // Handlers for JS WebUI messages.
-  void OnInitialized(const base::ListValue* args);
-  void OnToggleAccessibility(const base::ListValue* args);
+  void HandleInitialized(const base::ListValue* args);
+  void HandleSkipUpdateEnrollAfterEula(const base::ListValue* args);
 
   // Calls javascript to sync OOBE UI visibility with show_oobe_ui_.
   void UpdateOobeUIVisibility();

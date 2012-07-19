@@ -4,6 +4,8 @@
 
 #include "chrome/browser/policy/policy_service_stub.h"
 
+#include "base/message_loop.h"
+
 namespace policy {
 
 PolicyServiceStub::PolicyServiceStub() {}
@@ -18,14 +20,19 @@ void PolicyServiceStub::RemoveObserver(PolicyDomain domain,
                                        const std::string& component_id,
                                        Observer* observer) {}
 
-const PolicyMap* PolicyServiceStub::GetPolicies(
+const PolicyMap& PolicyServiceStub::GetPolicies(
     PolicyDomain domain,
     const std::string& component_id) const {
-  return NULL;
+  return kEmpty_;
 };
 
 bool PolicyServiceStub::IsInitializationComplete() const {
   return true;
+}
+
+void PolicyServiceStub::RefreshPolicies(const base::Closure& callback) {
+  if (!callback.is_null())
+    callback.Run();
 }
 
 }  // namespace policy

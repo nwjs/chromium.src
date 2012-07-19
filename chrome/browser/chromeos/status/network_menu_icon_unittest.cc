@@ -12,8 +12,24 @@
 
 namespace {
 
-// Compares each pixel in two bitmaps for testing.
-bool CompareTwoBitmaps(const SkBitmap& a, const SkBitmap& b, int log_level) {
+// Compares each pixel in the 1x representation of two images for testing.
+// TODO(pkotwicz): Compare pixels of all bitmaps contained within image.
+bool CompareTwoImages(const gfx::ImageSkia& image_a,
+                      const gfx::ImageSkia& image_b,
+                      int log_level) {
+  CHECK(!image_a.isNull());
+  CHECK(!image_b.isNull());
+
+  gfx::ImageSkiaRep image_rep_a =
+      image_a.GetRepresentation(ui::SCALE_FACTOR_100P);
+  CHECK_EQ(ui::SCALE_FACTOR_100P, image_rep_a.scale_factor());
+  gfx::ImageSkiaRep image_rep_b =
+      image_b.GetRepresentation(ui::SCALE_FACTOR_100P);
+  CHECK_EQ(ui::SCALE_FACTOR_100P, image_rep_b.scale_factor());
+
+  SkBitmap a = image_rep_a.sk_bitmap();
+  SkBitmap b = image_rep_b.sk_bitmap();
+
   CHECK(!a.empty());
   CHECK(!b.empty());
   if (a.getSize() != b.getSize()) {
@@ -67,74 +83,88 @@ class NetworkMenuIconTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     cros_ = CrosLibrary::Get()->GetNetworkLibrary();
     // Ethernet connected = WIRED icon, no badges.
-    ethernet_connected_bitmap_ = NetworkMenuIcon::GenerateBitmapFromComponents(
-        *rb_.GetBitmapNamed(IDR_STATUSBAR_WIRED),
+    ethernet_connected_image_ = NetworkMenuIcon::GenerateImageFromComponents(
+        *rb_.GetImageSkiaNamed(IDR_STATUSBAR_WIRED),
         NULL, NULL, NULL, NULL);
     // Ethernet disonnected = WIRED icon + DISCONNECTED badge.
-    ethernet_disconnected_bitmap_ =
-        NetworkMenuIcon::GenerateBitmapFromComponents(
-            *rb_.GetBitmapNamed(IDR_STATUSBAR_WIRED),
+    ethernet_disconnected_image_ =
+        NetworkMenuIcon::GenerateImageFromComponents(
+            *rb_.GetImageSkiaNamed(IDR_STATUSBAR_WIRED),
             NULL, NULL, NULL,
-            rb_.GetBitmapNamed(IDR_STATUSBAR_NETWORK_DISCONNECTED));
+            rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_DISCONNECTED));
     // Wifi connected, strength = 100% = ARCS4 icon, no badges.
-    wifi_connected_100_bitmap_ = NetworkMenuIcon::GenerateBitmapFromComponents(
-        NetworkMenuIcon::GetBitmap(
+    wifi_connected_100_image_ = NetworkMenuIcon::GenerateImageFromComponents(
+        NetworkMenuIcon::GetImage(
             NetworkMenuIcon::ARCS,
-            NetworkMenuIcon::NumBitmaps(NetworkMenuIcon::ARCS) - 1,
+            NetworkMenuIcon::NumImages(NetworkMenuIcon::ARCS) - 1,
             NetworkMenuIcon::COLOR_DARK),
         NULL, NULL, NULL, NULL);
     // Wifi connected, strength = 50%, encrypted = ARCS2 icon + SECURE badge.
-    wifi_encrypted_50_bitmap_ = NetworkMenuIcon::GenerateBitmapFromComponents(
-        NetworkMenuIcon::GetBitmap(NetworkMenuIcon::ARCS, 3,
-                                   NetworkMenuIcon::COLOR_DARK),
-        NULL, NULL, NULL, rb_.GetBitmapNamed(IDR_STATUSBAR_NETWORK_SECURE));
+    wifi_encrypted_50_image_ = NetworkMenuIcon::GenerateImageFromComponents(
+        NetworkMenuIcon::GetImage(NetworkMenuIcon::ARCS, 3,
+                                  NetworkMenuIcon::COLOR_DARK),
+        NULL, NULL, NULL,
+        rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_SECURE_DARK));
     // Wifi disconnected (strength = 0%) = ARCS0 icon.
-    wifi_disconnected_bitmap_ = NetworkMenuIcon::GenerateBitmapFromComponents(
-        NetworkMenuIcon::GetBitmap(NetworkMenuIcon::ARCS, 0,
-                                   NetworkMenuIcon::COLOR_DARK),
+    wifi_disconnected_image_ = NetworkMenuIcon::GenerateImageFromComponents(
+        NetworkMenuIcon::GetImage(NetworkMenuIcon::ARCS, 0,
+                                  NetworkMenuIcon::COLOR_DARK),
         NULL, NULL, NULL, NULL);
     // Wifi connecting = IDR_STATUSBAR_NETWORK_ARCS1 (faded).
-    wifi_connecting_bitmap_ = NetworkMenuIcon::GenerateConnectingBitmap(
-        NetworkMenuIcon::GetBitmap(NetworkMenuIcon::ARCS, 1,
-                                   NetworkMenuIcon::COLOR_DARK));
-    // 3G connected, strength = 100% = BARS4 icon + 3G badge.
-    cellular_connected_100_bitmap_ =
-        NetworkMenuIcon::GenerateBitmapFromComponents(
-            NetworkMenuIcon::GetBitmap(
-                NetworkMenuIcon::BARS,
-                NetworkMenuIcon::NumBitmaps(NetworkMenuIcon::BARS) - 1,
+    wifi_connecting_image_ = NetworkMenuIcon::GenerateConnectingImage(
+        NetworkMenuIcon::GetImage(NetworkMenuIcon::ARCS, 1,
+                                  NetworkMenuIcon::COLOR_DARK));
+    // 4G connected, strength = 50% = BARS4 icon + 4G badge.
+    wimax_connected_50_image_ =
+        NetworkMenuIcon::GenerateImageFromComponents(
+            NetworkMenuIcon::GetImage(
+                NetworkMenuIcon::BARS, 3,
                 NetworkMenuIcon::COLOR_DARK),
-        NULL, NULL, NULL, rb_.GetBitmapNamed(IDR_STATUSBAR_NETWORK_3G));
+        rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_4G_DARK), NULL, NULL, NULL);
+    // 3G connected, strength = 100% = BARS4 icon + 3G badge.
+    cellular_connected_100_image_ =
+        NetworkMenuIcon::GenerateImageFromComponents(
+            NetworkMenuIcon::GetImage(
+                NetworkMenuIcon::BARS,
+                NetworkMenuIcon::NumImages(NetworkMenuIcon::BARS) - 1,
+                NetworkMenuIcon::COLOR_DARK),
+        rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_3G_DARK), NULL, NULL, NULL);
     // 3G connected, strength = 50%, roaming = BARS2 icon + roaming & 3G badges.
-    cellular_roaming_50_bitmap_ = NetworkMenuIcon::GenerateBitmapFromComponents(
-        NetworkMenuIcon::GetBitmap(NetworkMenuIcon::BARS, 3,
-                                   NetworkMenuIcon::COLOR_DARK),
-        rb_.GetBitmapNamed(IDR_STATUSBAR_NETWORK_ROAMING), NULL,
-        NULL, rb_.GetBitmapNamed(IDR_STATUSBAR_NETWORK_3G));
+    cellular_roaming_50_image_ = NetworkMenuIcon::GenerateImageFromComponents(
+        NetworkMenuIcon::GetImage(NetworkMenuIcon::BARS, 3,
+                                  NetworkMenuIcon::COLOR_DARK),
+        rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_3G_DARK), NULL, NULL,
+        rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_ROAMING_DARK));
     // 3G disconnected (strength = 0%) = BARS0 icon + 3G badge.
-    cellular_disconnected_bitmap_ =
-        NetworkMenuIcon::GenerateBitmapFromComponents(
-            NetworkMenuIcon::GetBitmap(NetworkMenuIcon::BARS, 0,
-                                       NetworkMenuIcon::COLOR_DARK),
-            NULL, NULL, NULL, rb_.GetBitmapNamed(IDR_STATUSBAR_NETWORK_3G));
+    cellular_disconnected_image_ =
+        NetworkMenuIcon::GenerateImageFromComponents(
+            NetworkMenuIcon::GetImage(NetworkMenuIcon::BARS, 0,
+                                      NetworkMenuIcon::COLOR_DARK),
+            rb_.GetImageSkiaNamed(IDR_STATUSBAR_NETWORK_3G_DARK), NULL, NULL,
+            NULL);
     // 3G connecting = IDR_STATUSBAR_NETWORK_BARS1 (faded).
-    cellular_connecting_bitmap_ = NetworkMenuIcon::GenerateConnectingBitmap(
-        NetworkMenuIcon::GetBitmap(NetworkMenuIcon::BARS, 1,
-                                   NetworkMenuIcon::COLOR_DARK));
+    cellular_connecting_image_ = NetworkMenuIcon::GenerateConnectingImage(
+        NetworkMenuIcon::GetImage(NetworkMenuIcon::BARS, 1,
+                                  NetworkMenuIcon::COLOR_DARK));
   }
 
   virtual void TearDown() OVERRIDE {
   }
 
  protected:
-  void SetConnected(Network* network, bool connected) {
+  void SetConnected(Network* network) {
     Network::TestApi test_network(network);
-    test_network.SetConnected(connected);
+    test_network.SetConnected();
   }
 
-  void SetConnecting(Network* network, bool connecting) {
+  void SetConnecting(Network* network) {
     Network::TestApi test_network(network);
-    test_network.SetConnecting(connecting);
+    test_network.SetConnecting();
+  }
+
+  void SetDisconnected(Network* network) {
+    Network::TestApi test_network(network);
+    test_network.SetDisconnected();
   }
 
   void SetActive(Network* network, bool active) {
@@ -160,19 +190,19 @@ class NetworkMenuIconTest : public testing::Test {
     test_network.SetRoamingState(roaming);
   }
 
-  bool CompareBitmaps(const SkBitmap& icon, const SkBitmap& base) {
-    if (CompareTwoBitmaps(icon, base, 1))
+  bool CompareImages(const gfx::ImageSkia& icon, const gfx::ImageSkia& base) {
+    if (CompareTwoImages(icon, base, 1))
       return true;
-    EXPECT_FALSE(CompareTwoBitmaps(icon, ethernet_connected_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, ethernet_disconnected_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, wifi_connected_100_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, wifi_encrypted_50_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, wifi_disconnected_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, wifi_connecting_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, cellular_connected_100_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, cellular_roaming_50_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, cellular_disconnected_bitmap_, 2));
-    EXPECT_FALSE(CompareTwoBitmaps(icon, cellular_connecting_bitmap_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, ethernet_connected_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, ethernet_disconnected_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, wifi_connected_100_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, wifi_encrypted_50_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, wifi_disconnected_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, wifi_connecting_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, cellular_connected_100_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, cellular_roaming_50_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, cellular_disconnected_image_, 2));
+    EXPECT_FALSE(CompareTwoImages(icon, cellular_connecting_image_, 2));
     return false;
   }
 
@@ -180,76 +210,77 @@ class NetworkMenuIconTest : public testing::Test {
   ScopedStubCrosEnabler cros_stub_;
   NetworkLibrary* cros_;
   ResourceBundle& rb_;
-  SkBitmap ethernet_connected_bitmap_;
-  SkBitmap ethernet_disconnected_bitmap_;
-  SkBitmap wifi_connected_100_bitmap_;
-  SkBitmap wifi_encrypted_50_bitmap_;
-  SkBitmap wifi_disconnected_bitmap_;
-  SkBitmap wifi_connecting_bitmap_;
-  SkBitmap cellular_connected_100_bitmap_;
-  SkBitmap cellular_roaming_50_bitmap_;
-  SkBitmap cellular_disconnected_bitmap_;
-  SkBitmap cellular_connecting_bitmap_;
+  gfx::ImageSkia ethernet_connected_image_;
+  gfx::ImageSkia ethernet_disconnected_image_;
+  gfx::ImageSkia wifi_connected_100_image_;
+  gfx::ImageSkia wifi_encrypted_50_image_;
+  gfx::ImageSkia wifi_disconnected_image_;
+  gfx::ImageSkia wifi_connecting_image_;
+  gfx::ImageSkia wimax_connected_50_image_;
+  gfx::ImageSkia cellular_connected_100_image_;
+  gfx::ImageSkia cellular_roaming_50_image_;
+  gfx::ImageSkia cellular_disconnected_image_;
+  gfx::ImageSkia cellular_connecting_image_;
 };
 
 // Compare icon cache results against expected results fron SetUp().
 TEST_F(NetworkMenuIconTest, EthernetIcon) {
   Network* network = cros_->FindNetworkByPath("eth1");
   ASSERT_NE(static_cast<const Network*>(NULL), network);
-  SetConnected(network, true);
-  SkBitmap icon = NetworkMenuIcon::GetBitmap(network,
-                                             NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, ethernet_connected_bitmap_));
+  SetConnected(network);
+  gfx::ImageSkia icon = NetworkMenuIcon::GetImage(network,
+                                                  NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, ethernet_connected_image_));
 
-  SetConnected(network, false);
-  icon = NetworkMenuIcon::GetBitmap(network,
-                                    NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, ethernet_disconnected_bitmap_));
+  SetDisconnected(network);
+  icon = NetworkMenuIcon::GetImage(network,
+                                   NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, ethernet_disconnected_image_));
 }
 
 TEST_F(NetworkMenuIconTest, WifiIcon) {
   WifiNetwork* network = cros_->FindWifiNetworkByPath("wifi1");
   ASSERT_NE(static_cast<const Network*>(NULL), network);
-  SkBitmap icon = NetworkMenuIcon::GetBitmap(network,
-                                             NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, wifi_connected_100_bitmap_));
+  gfx::ImageSkia icon = NetworkMenuIcon::GetImage(network,
+                                                  NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, wifi_connected_100_image_));
 
   SetStrength(network, 50);
   SetEncryption(network, SECURITY_RSN);
-  icon = NetworkMenuIcon::GetBitmap(network,
-                                    NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, wifi_encrypted_50_bitmap_));
+  icon = NetworkMenuIcon::GetImage(network,
+                                   NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, wifi_encrypted_50_image_));
 
-  SetConnected(network, false);
+  SetDisconnected(network);
   SetStrength(network, 0);
   SetEncryption(network, SECURITY_NONE);
-  icon = NetworkMenuIcon::GetBitmap(network,
-                                    NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, wifi_disconnected_bitmap_));
+  icon = NetworkMenuIcon::GetImage(network,
+                                   NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, wifi_disconnected_image_));
 }
 
 TEST_F(NetworkMenuIconTest, CellularIcon) {
   CellularNetwork* network = cros_->FindCellularNetworkByPath("cellular1");
   ASSERT_NE(static_cast<const Network*>(NULL), network);
-  SetConnected(network, true);
+  SetConnected(network);
   SetStrength(network, 100);
   SetRoamingState(network, ROAMING_STATE_HOME);
-  SkBitmap icon = NetworkMenuIcon::GetBitmap(network,
-                                             NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, cellular_connected_100_bitmap_));
+  gfx::ImageSkia icon = NetworkMenuIcon::GetImage(network,
+                                                  NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, cellular_connected_100_image_));
 
   SetStrength(network, 50);
   SetRoamingState(network, ROAMING_STATE_ROAMING);
-  icon = NetworkMenuIcon::GetBitmap(network,
-                                    NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, cellular_roaming_50_bitmap_));
+  icon = NetworkMenuIcon::GetImage(network,
+                                   NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, cellular_roaming_50_image_));
 
-  SetConnected(network, false);
+  SetDisconnected(network);
   SetStrength(network, 0);
   SetRoamingState(network, ROAMING_STATE_HOME);
-  icon = NetworkMenuIcon::GetBitmap(network,
-                                    NetworkMenuIcon::COLOR_DARK);
-  EXPECT_TRUE(CompareBitmaps(icon, cellular_disconnected_bitmap_));
+  icon = NetworkMenuIcon::GetImage(network,
+                                   NetworkMenuIcon::COLOR_DARK);
+  EXPECT_TRUE(CompareImages(icon, cellular_disconnected_image_));
 }
 
 namespace {
@@ -294,66 +325,66 @@ class TestNetworkMenuIcon : public NetworkMenuIcon {
 
 TEST_F(NetworkMenuIconTest, StatusIconMenuMode) {
   TestNetworkMenuIcon menu_icon(NetworkMenuIcon::MENU_MODE);
-  SkBitmap icon;
+  gfx::ImageSkia icon;
 
   // Set cellular1 to connecting.
   CellularNetwork* cellular1 = cros_->FindCellularNetworkByPath("cellular1");
   ASSERT_NE(static_cast<const Network*>(NULL), cellular1);
   SetRoamingState(cellular1, ROAMING_STATE_HOME);  // Clear romaing state
-  SetConnecting(cellular1, true);
+  SetConnecting(cellular1);
 
   // For MENU_MODE, we always display the connecting icon (cellular1).
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, cellular_connecting_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, cellular_connecting_image_));
 
   // Set cellular1 to connected; ethernet icon should be shown.
-  SetConnected(cellular1, true);
+  SetConnected(cellular1);
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, ethernet_connected_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, ethernet_connected_image_));
 
   // Set ethernet to inactive/disconnected; wifi icon should be shown.
   Network* eth1 = cros_->FindNetworkByPath("eth1");
   ASSERT_NE(static_cast<const Network*>(NULL), eth1);
   SetActive(eth1, false);
-  SetConnected(eth1, false);
+  SetDisconnected(eth1);
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, wifi_connected_100_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, wifi_connected_100_image_));
 }
 
 TEST_F(NetworkMenuIconTest, StatusIconDropdownMode) {
   TestNetworkMenuIcon menu_icon(NetworkMenuIcon::DROPDOWN_MODE);
-  SkBitmap icon;
+  gfx::ImageSkia icon;
 
   // Set wifi1 to connecting.
   WifiNetwork* wifi1 = cros_->FindWifiNetworkByPath("wifi1");
   ASSERT_NE(static_cast<const Network*>(NULL), wifi1);
-  SetConnecting(wifi1, true);
+  SetConnecting(wifi1);
 
   // For DROPDOWN_MODE, we prioritize the connected network (ethernet).
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, ethernet_connected_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, ethernet_connected_image_));
 
   // Set ethernet to inactive/disconnected.
   Network* ethernet = cros_->FindNetworkByPath("eth1");
   ASSERT_NE(static_cast<const Network*>(NULL), ethernet);
   SetActive(ethernet, false);
-  SetConnected(ethernet, false);
+  SetDisconnected(ethernet);
 
   // Icon should now be cellular connected icon.
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, cellular_connected_100_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, cellular_connected_100_image_));
 
-  // Set cellular1 to disconnected; Icon should now be wifi connecting icon.
+  // Set cellular1 to disconnected; Icon should now be wimax icon.
   CellularNetwork* cellular1 = cros_->FindCellularNetworkByPath("cellular1");
   ASSERT_NE(static_cast<const Network*>(NULL), cellular1);
-  SetConnected(cellular1, false);
+  SetDisconnected(cellular1);
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, wifi_connecting_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, wimax_connected_50_image_));
 
   // Set wifi1 to connected. Icon should now be wifi connected icon.
-  SetConnected(wifi1, true);
+  SetConnected(wifi1);
   icon = menu_icon.GetIconAndText(NULL);
-  EXPECT_TRUE(CompareBitmaps(icon, wifi_connected_100_bitmap_));
+  EXPECT_TRUE(CompareImages(icon, wifi_connected_100_image_));
 }
 
 }  // namespace chromeos

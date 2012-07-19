@@ -5,13 +5,15 @@
 #ifndef CHROME_BROWSER_CHROMEOS_CHOOSE_MOBILE_NETWORK_DIALOG_H_
 #define CHROME_BROWSER_CHROMEOS_CHOOSE_MOBILE_NETWORK_DIALOG_H_
 
-#include "chrome/browser/ui/webui/html_dialog_ui.h"
+#include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/web_dialogs/web_dialog_delegate.h"
 
 namespace chromeos {
 
 // Dialog for manual selection of cellular network.
-class ChooseMobileNetworkDialog : private HtmlDialogUIDelegate {
+class ChooseMobileNetworkDialog : public ui::WebDialogDelegate {
  public:
   // Shows the dialog box.
   static void ShowDialog(gfx::NativeWindow owning_window);
@@ -19,7 +21,7 @@ class ChooseMobileNetworkDialog : private HtmlDialogUIDelegate {
  private:
   ChooseMobileNetworkDialog();
 
-  // Overridden from HtmlDialogUI::Delegate:
+  // Overridden from ui::WebDialogDelegate:
   virtual ui::ModalType GetDialogModalType() const OVERRIDE;
   virtual string16 GetDialogTitle() const OVERRIDE;
   virtual GURL GetDialogContentURL() const OVERRIDE;

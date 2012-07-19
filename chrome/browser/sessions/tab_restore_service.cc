@@ -15,7 +15,7 @@
 #include "base/metrics/histogram.h"
 #include "base/stl_util.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_tab_helper.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
@@ -23,7 +23,7 @@
 #include "chrome/browser/sessions/session_types.h"
 #include "chrome/browser/sessions/tab_restore_service_delegate.h"
 #include "chrome/browser/sessions/tab_restore_service_observer.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/ntp/app_launcher_handler.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -68,7 +68,8 @@ const size_t TabRestoreService::kMaxEntries = 25;
 // . When the user closes a tab a command of type
 //   kCommandSelectedNavigationInTab is written identifying the tab and
 //   the selected index, then a kCommandPinnedState command if the tab was
-//   pinned and kCommandSetExtensionAppID if the tab has an app id. This is
+//   pinned and kCommandSetExtensionAppID if the tab has an app id and
+//   the user agent override if it was using one.  This is
 //   followed by any number of kCommandUpdateTabNavigation commands (1 per
 //   navigation entry).
 // . When the user closes a window a kCommandSelectedNavigationInTab command
@@ -83,6 +84,7 @@ static const SessionCommand::id_type kCommandSelectedNavigationInTab = 4;
 static const SessionCommand::id_type kCommandPinnedState = 5;
 static const SessionCommand::id_type kCommandSetExtensionAppID = 6;
 static const SessionCommand::id_type kCommandSetWindowAppName = 7;
+static const SessionCommand::id_type kCommandSetTabUserAgentOverride = 8;
 
 // Number of entries (not commands) before we clobber the file and write
 // everything.
@@ -217,18 +219,18 @@ void TabRestoreService::RemoveObserver(TabRestoreServiceObserver* observer) {
   observer_list_.RemoveObserver(observer);
 }
 
-void TabRestoreService::CreateHistoricalTab(NavigationController* tab,
+void TabRestoreService::CreateHistoricalTab(content::WebContents* contents,
                                             int index) {
   if (restoring_)
     return;
 
   TabRestoreServiceDelegate* delegate =
-      TabRestoreServiceDelegate::FindDelegateForController(tab, NULL);
+      TabRestoreServiceDelegate::FindDelegateForWebContents(contents);
   if (closing_delegates_.find(delegate) != closing_delegates_.end())
     return;
 
   scoped_ptr<Tab> local_tab(new Tab());
-  PopulateTab(local_tab.get(), index, delegate, tab);
+  PopulateTab(local_tab.get(), index, delegate, &contents->GetController());
   if (local_tab->navigations.empty())
     return;
 
@@ -306,6 +308,21 @@ void TabRestoreService::RestoreMostRecentEntry(
     return;
 
   RestoreEntryById(delegate, entries_.front()->id, UNKNOWN);
+}
+
+TabRestoreService::Tab* TabRestoreService::RemoveTabEntryById(
+    SessionID::id_type id) {
+  Entries::iterator i = GetEntryIteratorById(id);
+  if (i == entries_.end())
+    return NULL;
+
+  Entry* entry = *i;
+  if (entry->type != TAB)
+    return NULL;
+
+  Tab* tab = static_cast<Tab*>(entry);
+  entries_.erase(i);
+  return tab;
 }
 
 void TabRestoreService::RestoreEntryById(TabRestoreServiceDelegate* delegate,
@@ -405,7 +422,7 @@ void TabRestoreService::RestoreEntryById(TabRestoreServiceDelegate* delegate,
     delegate->ShowBrowserWindow();
 
     if (disposition == CURRENT_TAB && current_delegate &&
-        current_delegate->GetSelectedWebContents()) {
+        current_delegate->GetActiveWebContents()) {
       current_delegate->CloseTab();
     }
   } else {
@@ -424,6 +441,11 @@ void TabRestoreService::LoadTabsFromLastSession() {
   if (load_state_ != NOT_LOADED || entries_.size() == kMaxEntries)
     return;
 
+#if !defined(ENABLE_SESSION_SERVICE)
+  // If sessions are not stored in the SessionService, default to
+  // |LOADED_LAST_SESSION| state.
+  load_state_ = LOADING | LOADED_LAST_SESSION;
+#else
   load_state_ = LOADING;
 
   SessionService* session_service =
@@ -440,6 +462,7 @@ void TabRestoreService::LoadTabsFromLastSession() {
   } else {
     load_state_ |= LOADED_LAST_SESSION;
   }
+#endif
 
   // Request the tabs closed in the last session. If the last session crashed,
   // this won't contain the tabs/window that were open at the point of the
@@ -449,6 +472,10 @@ void TabRestoreService::LoadTabsFromLastSession() {
           base::Bind(&TabRestoreService::OnGotLastSessionCommands,
                      base::Unretained(this))),
       &load_consumer_);
+}
+
+bool TabRestoreService::IsLoaded() const {
+  return !(load_state_ & (NOT_LOADED | LOADING));
 }
 
 void TabRestoreService::Shutdown() {
@@ -509,13 +536,12 @@ void TabRestoreService::PopulateTab(Tab* tab,
     tab->current_navigation_index = 0;
   tab->tabstrip_index = index;
 
-  TabContentsWrapper* wrapper =
-      TabContentsWrapper::GetCurrentWrapperForContents(
-          controller->GetWebContents());
-  // wrapper is NULL in some browser tests.
-  if (wrapper) {
-    const Extension* extension =
-        wrapper->extension_tab_helper()->extension_app();
+  TabContents* tab_contents =
+      TabContents::FromWebContents(controller->GetWebContents());
+  // tab_contents is NULL in some browser tests.
+  if (tab_contents) {
+    const extensions::Extension* extension =
+        tab_contents->extension_tab_helper()->extension_app();
     if (extension)
       tab->extension_app_id = extension->id();
   }
@@ -663,6 +689,12 @@ void TabRestoreService::ScheduleCommandsForTab(const Tab& tab,
     ScheduleCommand(
         CreateSetTabExtensionAppIDCommand(kCommandSetExtensionAppID, tab.id,
                                           tab.extension_app_id));
+  }
+
+  if (!tab.user_agent_override.empty()) {
+    ScheduleCommand(
+        CreateSetTabUserAgentOverrideCommand(kCommandSetTabUserAgentOverride,
+                                             tab.id, tab.user_agent_override));
   }
 
   // Then write the navigations.
@@ -832,7 +864,7 @@ void TabRestoreService::CreateEntriesFromCommands(
         current_window = new Window();
         current_window->selected_tab_index = payload.selected_tab_index;
         current_window->timestamp = Time::FromInternalValue(payload.timestamp);
-        entries->push_back(current_window);
+        entries.push_back(current_window);
         id_to_entry[payload.window_id] = current_window;
         break;
       }
@@ -865,7 +897,7 @@ void TabRestoreService::CreateEntriesFromCommands(
           current_tab = new Tab();
           id_to_entry[payload.id] = current_tab;
           current_tab->timestamp = Time::FromInternalValue(payload.timestamp);
-          entries->push_back(current_tab);
+          entries.push_back(current_tab);
         }
         current_tab->current_navigation_index = payload.index;
         break;
@@ -924,6 +956,21 @@ void TabRestoreService::CreateEntriesFromCommands(
           return;
         }
         current_tab->extension_app_id.swap(extension_app_id);
+        break;
+      }
+
+      case kCommandSetTabUserAgentOverride: {
+        if (!current_tab) {
+          // Should be in a tab when we get this.
+          return;
+        }
+        SessionID::id_type tab_id;
+        std::string user_agent_override;
+        if (!RestoreSetTabUserAgentOverrideCommand(command, &tab_id,
+                                                   &user_agent_override)) {
+          return;
+        }
+        current_tab->user_agent_override.swap(user_agent_override);
         break;
       }
 

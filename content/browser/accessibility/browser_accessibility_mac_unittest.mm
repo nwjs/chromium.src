@@ -13,11 +13,16 @@
 #import "testing/gtest_mac.h"
 #import "ui/base/test/ui_cocoa_test_helper.h"
 
+using content::AccessibilityNodeData;
+
 @interface MockAccessibilityDelegate :
     NSView<BrowserAccessibilityDelegateCocoa>
 
 - (NSPoint)accessibilityPointInScreen:(BrowserAccessibilityCocoa*)accessibility;
 - (void)doDefaultAction:(int32)accessibilityObjectId;
+- (void)accessibilitySetTextSelection:(int32)accId
+                          startOffset:(int32)startOffset
+                            endOffset:(int32)endOffset;
 - (void)performShowMenuAction:(BrowserAccessibilityCocoa*)accessibility;
 - (void)setAccessibilityFocus:(BOOL)focus
               accessibilityId:(int32)accessibilityObjectId;
@@ -32,6 +37,10 @@
   return NSZeroPoint;
 }
 - (void)doDefaultAction:(int32)accessibilityObjectId {
+}
+- (void)accessibilitySetTextSelection:(int32)accId
+                          startOffset:(int32)startOffset
+                            endOffset:(int32)endOffset {
 }
 - (void)performShowMenuAction:(BrowserAccessibilityCocoa*)accessibility {
 }
@@ -49,27 +58,27 @@ class BrowserAccessibilityTest : public ui::CocoaTest {
  public:
   virtual void SetUp() {
     CocoaTest::SetUp();
-    WebAccessibility root;
+    AccessibilityNodeData root;
     root.id = 1000;
     root.location.set_width(500);
     root.location.set_height(100);
-    root.role = WebAccessibility::ROLE_WEB_AREA;
-    root.string_attributes[WebAccessibility::ATTR_HELP] =
+    root.role = AccessibilityNodeData::ROLE_WEB_AREA;
+    root.string_attributes[AccessibilityNodeData::ATTR_HELP] =
         ASCIIToUTF16("HelpText");
 
-    WebAccessibility child1;
+    AccessibilityNodeData child1;
     child1.id = 1001;
     child1.name = ASCIIToUTF16("Child1");
     child1.location.set_width(250);
     child1.location.set_height(100);
-    child1.role = WebAccessibility::ROLE_BUTTON;
+    child1.role = AccessibilityNodeData::ROLE_BUTTON;
 
-    WebAccessibility child2;
+    AccessibilityNodeData child2;
     child2.id = 1002;
     child2.location.set_x(250);
     child2.location.set_width(250);
     child2.location.set_height(100);
-    child2.role = WebAccessibility::ROLE_HEADING;
+    child2.role = AccessibilityNodeData::ROLE_HEADING;
 
     root.children.push_back(child1);
     root.children.push_back(child2);
@@ -77,7 +86,7 @@ class BrowserAccessibilityTest : public ui::CocoaTest {
     delegate_.reset([[MockAccessibilityDelegate alloc] init]);
     manager_.reset(
         BrowserAccessibilityManager::Create(delegate_, root, NULL));
-    accessibility_.reset([manager_->GetRoot()->toBrowserAccessibilityCocoa()
+    accessibility_.reset([manager_->GetRoot()->ToBrowserAccessibilityCocoa()
         retain]);
   }
 

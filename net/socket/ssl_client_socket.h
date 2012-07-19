@@ -4,14 +4,12 @@
 
 #ifndef NET_SOCKET_SSL_CLIENT_SOCKET_H_
 #define NET_SOCKET_SSL_CLIENT_SOCKET_H_
-#pragma once
 
 #include <string>
 
 #include "net/base/completion_callback.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
-#include "net/base/ssl_client_cert_type.h"
 #include "net/socket/ssl_socket.h"
 #include "net/socket/stream_socket.h"
 
@@ -20,8 +18,6 @@ namespace net {
 class CertVerifier;
 class ServerBoundCertService;
 class SSLCertRequestInfo;
-class SSLHostInfo;
-class SSLHostInfoFactory;
 class SSLInfo;
 class TransportSecurityState;
 
@@ -31,24 +27,20 @@ struct SSLClientSocketContext {
   SSLClientSocketContext()
       : cert_verifier(NULL),
         server_bound_cert_service(NULL),
-        transport_security_state(NULL),
-        ssl_host_info_factory(NULL) {}
+        transport_security_state(NULL) {}
 
   SSLClientSocketContext(CertVerifier* cert_verifier_arg,
                          ServerBoundCertService* server_bound_cert_service_arg,
                          TransportSecurityState* transport_security_state_arg,
-                         SSLHostInfoFactory* ssl_host_info_factory_arg,
                          const std::string& ssl_session_cache_shard_arg)
       : cert_verifier(cert_verifier_arg),
         server_bound_cert_service(server_bound_cert_service_arg),
         transport_security_state(transport_security_state_arg),
-        ssl_host_info_factory(ssl_host_info_factory_arg),
         ssl_session_cache_shard(ssl_session_cache_shard_arg) {}
 
   CertVerifier* cert_verifier;
   ServerBoundCertService* server_bound_cert_service;
   TransportSecurityState* transport_security_state;
-  SSLHostInfoFactory* ssl_host_info_factory;
   // ssl_session_cache_shard is an opaque string that identifies a shard of the
   // SSL session cache. SSL sockets with the same ssl_session_cache_shard may
   // resume each other's SSL sessions but we'll never sessions between shards.
@@ -132,17 +124,13 @@ class NET_EXPORT SSLClientSocket : public SSLSocket {
   // server bound certificates are not supported.
   virtual ServerBoundCertService* GetServerBoundCertService() const = 0;
 
-  // Returns true if a domain bound certificate was sent on this connection.
+  // Returns true if a channel ID was sent on this connection.
   // This may be useful for protocols, like SPDY, which allow the same
   // connection to be shared between multiple domains, each of which need
-  // a domain bound certificate.
-  virtual bool WasDomainBoundCertSent() const;
+  // a channel ID.
+  virtual bool WasChannelIDSent() const;
 
-  // Returns the type of the domain bound cert that was sent, or
-  // CLIENT_CERT_INVALID_TYPE if none was sent.
-  virtual SSLClientCertType domain_bound_cert_type() const;
-
-  virtual SSLClientCertType set_domain_bound_cert_type(SSLClientCertType type);
+  virtual void set_channel_id_sent(bool channel_id_sent);
 
  private:
   // True if NPN was responded to, independent of selecting SPDY or HTTP.
@@ -151,9 +139,8 @@ class NET_EXPORT SSLClientSocket : public SSLSocket {
   bool was_spdy_negotiated_;
   // Protocol that we negotiated with the server.
   NextProto protocol_negotiated_;
-  // Type of the domain bound cert that was sent, or CLIENT_CERT_INVALID_TYPE
-  // if none was sent.
-  SSLClientCertType domain_bound_cert_type_;
+  // True if a channel ID was sent.
+  bool channel_id_sent_;
 };
 
 }  // namespace net

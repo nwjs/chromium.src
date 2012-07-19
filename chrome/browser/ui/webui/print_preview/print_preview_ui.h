@@ -4,20 +4,22 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_PRINT_PREVIEW_PRINT_PREVIEW_UI_H_
 #define CHROME_BROWSER_UI_WEBUI_PRINT_PREVIEW_PRINT_PREVIEW_UI_H_
-#pragma once
 
 #include <string>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/ref_counted_memory.h"
 #include "base/time.h"
 #include "chrome/browser/printing/print_preview_data_service.h"
-#include "chrome/browser/ui/webui/constrained_html_ui.h"
+#include "ui/web_dialogs/constrained_web_dialog_ui.h"
 
 class PrintPreviewDataService;
 class PrintPreviewHandler;
 struct PrintHostMsg_DidGetPreviewPageCount_Params;
+
+namespace base {
+class RefCountedBytes;
+}
 
 namespace gfx {
 class Rect;
@@ -27,7 +29,7 @@ namespace printing {
 struct PageSizeMargins;
 }
 
-class PrintPreviewUI : public ConstrainedHtmlUI {
+class PrintPreviewUI : public ui::ConstrainedWebDialogUI {
  public:
   explicit PrintPreviewUI(content::WebUI* web_ui);
   virtual ~PrintPreviewUI();
@@ -36,12 +38,13 @@ class PrintPreviewUI : public ConstrainedHtmlUI {
   // |printing::COMPLETE_PREVIEW_DOCUMENT_INDEX| to get the entire preview
   // document.
   void GetPrintPreviewDataForIndex(int index,
-                                   scoped_refptr<RefCountedBytes>* data);
+                                   scoped_refptr<base::RefCountedBytes>* data);
 
   // Sets the print preview |data|. |index| is zero-based, and can be
   // |printing::COMPLETE_PREVIEW_DOCUMENT_INDEX| to set the entire preview
   // document.
-  void SetPrintPreviewDataForIndex(int index, const RefCountedBytes* data);
+  void SetPrintPreviewDataForIndex(int index,
+                                   const base::RefCountedBytes* data);
 
   // Clear the existing print preview data.
   void ClearAllPreviewData();
@@ -58,7 +61,7 @@ class PrintPreviewUI : public ConstrainedHtmlUI {
   bool source_is_modifiable() { return source_is_modifiable_; }
 
   // Set |source_is_modifiable_| for |print_preview_tab|'s PrintPreviewUI.
-  static void SetSourceIsModifiable(TabContentsWrapper* print_preview_tab,
+  static void SetSourceIsModifiable(TabContents* print_preview_tab,
                                     bool source_is_modifiable);
 
   // Determines whether to cancel a print preview request based on
@@ -136,6 +139,10 @@ class PrintPreviewUI : public ConstrainedHtmlUI {
   // Reload the printers list.
   void OnReloadPrintersList();
 
+  // Notifies the WebUI that the pdf print scaling option is disabled by
+  // default.
+  void OnPrintPreviewScalingDisabled();
+
  private:
   friend class PrintPreviewHandlerTest;
   FRIEND_TEST_ALL_PREFIXES(PrintPreviewHandlerTest, StickyMarginsCustom);
@@ -173,9 +180,6 @@ class PrintPreviewUI : public ConstrainedHtmlUI {
 
   // Keeps track of whether OnClosePrintPreviewTab() has been called or not.
   bool tab_closed_;
-
-  // True if the user visited the page directly, false if it's a live UI.
-  bool is_dummy_;
 
   DISALLOW_COPY_AND_ASSIGN(PrintPreviewUI);
 };

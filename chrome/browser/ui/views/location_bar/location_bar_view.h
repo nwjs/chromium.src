@@ -4,32 +4,34 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_LOCATION_BAR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_LOCATION_BAR_VIEW_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/autocomplete/autocomplete_edit.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/search_engines/template_url_service_observer.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
+#include "chrome/browser/ui/search/search_model_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "chrome/browser/ui/views/dropdown_bar_host.h"
 #include "chrome/browser/ui/views/dropdown_bar_host_delegate.h"
 #include "chrome/browser/ui/views/extensions/extension_popup.h"
+#include "chrome/browser/ui/zoom/zoom_controller.h"
+#include "content/public/browser/notification_observer.h"
+#include "content/public/browser/notification_registrar.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/drag_controller.h"
 
 #if defined(USE_AURA)
-#include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
-#elif defined(OS_WIN)
-#include "chrome/browser/ui/views/omnibox/omnibox_view_win.h"
+#include "ui/compositor/layer_animation_observer.h"
 #endif
 
+class ActionBoxButtonView;
 class ChromeToMobileView;
 class CommandUpdater;
 class ContentSettingBubbleModelDelegate;
@@ -45,17 +47,21 @@ class PageActionImageView;
 class Profile;
 class SelectedKeywordView;
 class StarView;
-class TabContentsWrapper;
+class SuggestedTextView;
+class TabContents;
 class TemplateURLService;
+class ZoomView;
+
+namespace chrome {
+namespace search {
+class SearchModel;
+}
+}
 
 namespace views {
 class BubbleDelegateView;
 class Widget;
 }
-
-#if defined(OS_WIN) || defined(USE_AURA)
-class SuggestedTextView;
-#endif
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -69,8 +75,9 @@ class LocationBarView : public LocationBar,
                         public LocationBarTesting,
                         public views::View,
                         public views::DragController,
-                        public AutocompleteEditController,
+                        public OmniboxEditController,
                         public DropdownBarHostDelegate,
+                        public chrome::search::SearchModelObserver,
                         public TemplateURLServiceObserver,
                         public content::NotificationObserver {
  public:
@@ -81,13 +88,16 @@ class LocationBarView : public LocationBar,
   virtual void SetFocusAndSelection(bool select_all) OVERRIDE;
   virtual void SetAnimationOffset(int offset) OVERRIDE;
 
+  // chrome::search::SearchModelObserver:
+  virtual void ModeChanged(const chrome::search::Mode& mode) OVERRIDE;
+
   // Returns the offset used while animating.
   int animation_offset() const { return animation_offset_; }
 
   class Delegate {
    public:
     // Should return the current tab contents.
-    virtual TabContentsWrapper* GetTabContentsWrapper() const = 0;
+    virtual TabContents* GetTabContents() const = 0;
 
     // Returns the InstantController, or NULL if there isn't one.
     virtual InstantController* GetInstant() = 0;
@@ -144,11 +154,14 @@ class LocationBarView : public LocationBar,
                   CommandUpdater* command_updater,
                   ToolbarModel* model,
                   Delegate* delegate,
+                  chrome::search::SearchModel* search_model,
                   Mode mode);
 
   virtual ~LocationBarView();
 
-  void Init();
+  // Initializes the LocationBarView. See ToolbarView::Init() for a description
+  // of |popup_parent_view|.
+  void Init(views::View* popup_parent_view);
 
   // True if this instance has been initialized by calling Init, which can only
   // be called when the receiving instance is attached to a view container.
@@ -170,12 +183,21 @@ class LocationBarView : public LocationBar,
   // Returns the delegate.
   Delegate* delegate() const { return delegate_; }
 
+  // Sets the tooltip for the zoom icon.
+  void SetZoomIconTooltipPercent(int zoom_percent);
+
+  // Sets the zoom icon state.
+  void SetZoomIconState(ZoomController::ZoomIconState zoom_icon_state);
+
+  // Shows the zoom bubble.
+  void ShowZoomBubble(int zoom_percent);
+
   // Sets |preview_enabled| for the PageAction View associated with this
   // |page_action|. If |preview_enabled| is true, the view will display the
   // PageActions icon even though it has not been activated by the extension.
   // This is used by the ExtensionInstalledBubble to preview what the icon
   // will look like for the user upon installation of the extension.
-  void SetPreviewEnabledPageAction(ExtensionAction *page_action,
+  void SetPreviewEnabledPageAction(ExtensionAction* page_action,
                                    bool preview_enabled);
 
   // Retrieves the PageAction View which is associated with |page_action|.
@@ -194,14 +216,12 @@ class LocationBarView : public LocationBar,
   // appears, not where the icons are shown).
   gfx::Point GetLocationEntryOrigin() const;
 
-#if defined(OS_WIN) || defined(USE_AURA)
   // Invoked from OmniboxViewWin to show the instant suggestion.
   void SetInstantSuggestion(const string16& text,
                             bool animate_to_complete);
 
   // Returns the current instant suggestion text.
   string16 GetInstantSuggestion() const;
-#endif
 
   // Sets whether the location entry can accept focus.
   void SetLocationEntryFocusable(bool focusable);
@@ -231,6 +251,10 @@ class LocationBarView : public LocationBar,
 
   const gfx::Font& font() const { return font_; }
 
+  // See description above field.
+  void set_view_to_focus(views::View* view) { view_to_focus_ = view; }
+  views::View* view_to_focus() { return view_to_focus_; }
+
 #if defined(OS_WIN) && !defined(USE_AURA)
   // Event Handlers
   virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
@@ -246,7 +270,11 @@ class LocationBarView : public LocationBar,
 
   views::View* location_entry_view() const { return location_entry_view_; }
 
-  // AutocompleteEditController
+  chrome::search::SearchModel* search_model() const {
+    return search_model_;
+  }
+
+  // Overridden from OmniboxEditController:
   virtual void OnAutocompleteAccept(const GURL& url,
                                     WindowOpenDisposition disposition,
                                     content::PageTransition transition,
@@ -259,13 +287,14 @@ class LocationBarView : public LocationBar,
   virtual SkBitmap GetFavicon() const OVERRIDE;
   virtual string16 GetTitle() const OVERRIDE;
   virtual InstantController* GetInstant() OVERRIDE;
-  virtual TabContentsWrapper* GetTabContentsWrapper() const OVERRIDE;
+  virtual TabContents* GetTabContents() const OVERRIDE;
 
   // Overridden from views::View:
   virtual std::string GetClassName() const OVERRIDE;
   virtual bool SkipDefaultKeyEventProcessing(const views::KeyEvent& event)
       OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
+  virtual bool HasFocus() const OVERRIDE;
 
   // Overridden from views::DragController:
   virtual void WriteDragDataForView(View* sender,
@@ -292,8 +321,8 @@ class LocationBarView : public LocationBar,
   virtual void InvalidatePageActions() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
   virtual void Revert() OVERRIDE;
-  virtual const OmniboxView* location_entry() const OVERRIDE;
-  virtual OmniboxView* location_entry() OVERRIDE;
+  virtual const OmniboxView* GetLocationEntry() const OVERRIDE;
+  virtual OmniboxView* GetLocationEntry() OVERRIDE;
   virtual LocationBarTesting* GetLocationBarForTesting() OVERRIDE;
 
   // Overridden from LocationBarTesting:
@@ -311,16 +340,24 @@ class LocationBarView : public LocationBar,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // Returns the height of the control without the top and bottom
+  // edges(i.e.  the height of the edit control inside).  If
+  // |use_preferred_size| is true this will be the preferred height,
+  // otherwise it will be the current height.
+  int GetInternalHeight(bool use_preferred_size);
+
+  // Space between items in the location bar.
+  static int GetItemPadding();
+
+  // Space between the edges and the items next to them.
+  static int GetEdgeItemPadding();
+
   // Thickness of the left and right edges of the omnibox, in normal mode.
   static const int kNormalHorizontalEdgeThickness;
   // Thickness of the top and bottom edges of the omnibox.
   static const int kVerticalEdgeThickness;
-  // Space between items in the location bar.
-  static const int kItemPadding;
   // Amount of padding built into the standard omnibox icons.
   static const int kIconInternalPadding;
-  // Space between the edges and the items next to them.
-  static const int kEdgeItemPadding;
   // Space between the edge and a bubble.
   static const int kBubbleHorizontalPadding;
 
@@ -333,6 +370,24 @@ class LocationBarView : public LocationBar,
   friend class PageActionImageView;
   friend class PageActionWithBadgeView;
   typedef std::vector<PageActionWithBadgeView*> PageActionViews;
+
+#if defined(USE_AURA)
+  // Observer that informs the LocationBarView when the animation is done.
+  class FadeAnimationObserver : public ui::ImplicitAnimationObserver {
+   public:
+    explicit FadeAnimationObserver(LocationBarView* location_bar_view);
+    virtual ~FadeAnimationObserver();
+
+    // ui::ImplicitAnimationObserver overrides:
+    virtual void OnImplicitAnimationsCompleted() OVERRIDE;
+
+   private:
+    // The location bar view being animated.  Not owned.
+    LocationBarView* location_bar_view_;
+
+    DISALLOW_COPY_AND_ASSIGN(FadeAnimationObserver);
+  };
+#endif  // USE_AURA
 
   // Returns the amount of horizontal space (in pixels) out of
   // |location_bar_width| that is not taken up by the actual text in
@@ -364,7 +419,6 @@ class LocationBarView : public LocationBar,
   // Sets the visibility of view to new_vis.
   void ToggleVisibility(bool new_vis, views::View* view);
 
-#if defined(OS_WIN) || defined(USE_AURA)
 #if !defined(USE_AURA)
   // Helper for the Mouse event handlers that does all the real work.
   void OnMouseEvent(const views::MouseEvent& event, UINT msg);
@@ -373,15 +427,23 @@ class LocationBarView : public LocationBar,
   // Returns true if the suggest text is valid.
   bool HasValidSuggestText() const;
 
-#if !defined(USE_AURA)
-  // Returns |location_entry_| cast to OmniboxViewWin, or NULL if
-  // |location_entry_| is of a different type.
-  OmniboxViewWin* GetOmniboxViewWin();
-#endif
-#endif
-
   // Helper to show the first run info bubble.
   void ShowFirstRunBubbleInternal();
+
+  // Draw the background and the left border.
+  void PaintActionBoxBackground(gfx::Canvas* canvas,
+                                const gfx::Rect& content_rect);
+
+#if defined(USE_AURA)
+  // Fade in the location bar view so the icons come in gradually.
+  void StartFadeAnimation();
+
+  // Stops the fade animation, if it is playing.  Otherwise does nothing.
+  void StopFadeAnimation();
+
+  // Cleans up layers used for the animation.
+  void CleanupFadeAnimation();
+#endif
 
   // The Autocomplete Edit field.
   scoped_ptr<OmniboxView> location_entry_;
@@ -397,6 +459,10 @@ class LocationBarView : public LocationBar,
 
   // Our delegate.
   Delegate* delegate_;
+
+  // Weak, owned by browser.
+  // This is null if there is no browser instance.
+  chrome::search::SearchModel* search_model_;
 
   // This is the string of text from the autocompletion session that the user
   // entered or selected.
@@ -432,11 +498,9 @@ class LocationBarView : public LocationBar,
   // Shown if the user has selected a keyword.
   SelectedKeywordView* selected_keyword_view_;
 
-#if defined(OS_WIN) || defined(USE_AURA)
   // View responsible for showing suggested text. This is NULL when there is no
   // suggested text.
   SuggestedTextView* suggested_text_view_;
-#endif
 
   // Shown if the selected url has a corresponding keyword.
   KeywordHintView* keyword_hint_view_;
@@ -444,11 +508,20 @@ class LocationBarView : public LocationBar,
   // The content setting views.
   ContentSettingViews content_setting_views_;
 
+  // The zoom icon.
+  ZoomView* zoom_view_;
+
+  // The current page actions.
+  std::vector<ExtensionAction*> page_actions_;
+
   // The page action icon views.
   PageActionViews page_action_views_;
 
   // The star.
   StarView* star_view_;
+
+  // The action box button (plus).
+  ActionBoxButtonView* action_box_button_view_;
 
   // The Chrome To Mobile page action icon view.
   ChromeToMobileView* chrome_to_mobile_view_;
@@ -472,6 +545,18 @@ class LocationBarView : public LocationBar,
   // the widget so that we can draw the curved edges that attach to the toolbar
   // in the right location.
   int animation_offset_;
+
+  // Used to register for notifications received by NotificationObserver.
+  content::NotificationRegistrar registrar_;
+
+  // The view to give focus to. This is either |this| or the
+  // LocationBarContainer.
+  views::View* view_to_focus_;
+
+#if defined(USE_AURA)
+  // Observer for a fade-in animation.
+  scoped_ptr<FadeAnimationObserver> fade_animation_observer_;
+#endif
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(LocationBarView);
 };

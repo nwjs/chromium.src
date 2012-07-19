@@ -21,7 +21,7 @@
 #include "content/common/gpu/gpu_messages.h"
 #include "content/port/browser/render_widget_host_view_port.h"
 #include "content/public/browser/browser_thread.h"
-#include "ui/gfx/gl/gl_switches.h"
+#include "ui/gl/gl_switches.h"
 
 #if defined(TOOLKIT_GTK)
 // These two #includes need to come after gpu_messages.h.
@@ -179,6 +179,12 @@ void GpuProcessHostUIShim::SimulateHang() {
 GpuProcessHostUIShim::~GpuProcessHostUIShim() {
   DCHECK(CalledOnValidThread());
   g_hosts_by_id.Pointer()->Remove(host_id_);
+
+  DictionaryValue* dict = new DictionaryValue();
+  dict->SetInteger("level", logging::LOG_ERROR);
+  dict->SetString("header", "GpuProcessHostUIShim");
+  dict->SetString("message", "GPU Process Crashed.");
+  GpuDataManagerImpl::GetInstance()->AddLogMessage(dict);
 }
 
 bool GpuProcessHostUIShim::OnControlMessageReceived(
@@ -202,7 +208,7 @@ bool GpuProcessHostUIShim::OnControlMessageReceived(
     IPC_MESSAGE_HANDLER(GpuHostMsg_ResizeView, OnResizeView)
 #endif
 
-#if defined(OS_MACOSX) || defined(USE_AURA)
+#if defined(USE_AURA)
     IPC_MESSAGE_HANDLER(GpuHostMsg_AcceleratedSurfaceNew,
                         OnAcceleratedSurfaceNew)
 #endif
@@ -283,59 +289,16 @@ void GpuProcessHostUIShim::OnResizeView(int32 surface_id,
 
 #endif
 
-#if defined(OS_MACOSX) || defined(USE_AURA)
+#if defined(USE_AURA)
 
 void GpuProcessHostUIShim::OnAcceleratedSurfaceNew(
     const GpuHostMsg_AcceleratedSurfaceNew_Params& params) {
-  ScopedSendOnIOThread delayed_send(
-      host_id_,
-      new AcceleratedSurfaceMsg_NewACK(
-          params.route_id,
-          params.surface_handle,
-          TransportDIB::DefaultHandleValue()));
-
   RenderWidgetHostViewPort* view = GetRenderWidgetHostViewFromSurfaceID(
       params.surface_id);
   if (!view)
     return;
-
-  uint64 surface_handle = params.surface_handle;
-  TransportDIB::Handle shm_handle = TransportDIB::DefaultHandleValue();
-
-#if defined(OS_MACOSX)
-  if (params.create_transport_dib) {
-    scoped_ptr<base::SharedMemory> shared_memory(new base::SharedMemory());
-    if (shared_memory->CreateAnonymous(params.width * params.height * 4)) {
-      // Create a local handle for RWHVMac to map the SHM.
-      TransportDIB::Handle local_handle;
-      if (!shared_memory->ShareToProcess(0 /* pid, not needed */,
-                                         &local_handle)) {
-        return;
-      } else {
-        view->AcceleratedSurfaceSetTransportDIB(params.window,
-                                                params.width,
-                                                params.height,
-                                                local_handle);
-        // Create a remote handle for the GPU process to map the SHM.
-        if (!shared_memory->ShareToProcess(0 /* pid, not needed */,
-                                           &shm_handle)) {
-          return;
-        }
-      }
-    }
-  } else {
-    view->AcceleratedSurfaceSetIOSurface(params.window,
-                                         params.width,
-                                         params.height,
-                                         surface_handle);
-  }
-#else  // defined(USE_AURA)
   view->AcceleratedSurfaceNew(
-      params.width, params.height, &surface_handle, &shm_handle);
-#endif
-  delayed_send.Cancel();
-  Send(new AcceleratedSurfaceMsg_NewACK(
-      params.route_id, surface_handle, shm_handle));
+      params.width, params.height, params.surface_handle);
 }
 
 #endif
@@ -357,7 +320,7 @@ void GpuProcessHostUIShim::OnAcceleratedSurfaceBuffersSwapped(
 
   ScopedSendOnIOThread delayed_send(
       host_id_,
-      new AcceleratedSurfaceMsg_BuffersSwappedACK(params.route_id));
+      new AcceleratedSurfaceMsg_BufferPresented(params.route_id, 0));
 
   RenderWidgetHostViewPort* view = GetRenderWidgetHostViewFromSurfaceID(
       params.surface_id);
@@ -381,7 +344,7 @@ void GpuProcessHostUIShim::OnAcceleratedSurfacePostSubBuffer(
 
   ScopedSendOnIOThread delayed_send(
       host_id_,
-      new AcceleratedSurfaceMsg_PostSubBufferACK(params.route_id));
+      new AcceleratedSurfaceMsg_BufferPresented(params.route_id, 0));
 
   RenderWidgetHostViewPort* view =
       GetRenderWidgetHostViewFromSurfaceID(params.surface_id);

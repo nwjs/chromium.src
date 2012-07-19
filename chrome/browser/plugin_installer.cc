@@ -14,7 +14,7 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/plugin_installer_observer.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/download_id.h"
 #include "content/public/browser/download_item.h"
@@ -22,12 +22,16 @@
 #include "content/public/browser/download_save_info.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/resource_context.h"
 #include "content/public/browser/resource_dispatcher_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/url_request/url_request.h"
+#include "webkit/plugins/npapi/plugin_group.h"
 
+using content::BrowserContext;
 using content::BrowserThread;
 using content::DownloadItem;
+using content::DownloadManager;
 using content::ResourceDispatcherHost;
 
 namespace {
@@ -41,9 +45,13 @@ void BeginDownload(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   ResourceDispatcherHost* rdh = ResourceDispatcherHost::Get();
-  scoped_ptr<net::URLRequest> request(new net::URLRequest(url, NULL));
+  scoped_ptr<net::URLRequest> request(new net::URLRequest(
+      url,
+      NULL,
+      resource_context->GetRequestContext()));
   net::Error error = rdh->BeginDownload(
       request.Pass(),
+      false,  // is_content_initiated
       resource_context,
       render_process_host_id,
       render_view_host_routing_id,
@@ -58,24 +66,72 @@ void BeginDownload(
   }
 }
 
-}
+}  // namespace
 
 PluginInstaller::PluginInstaller(const std::string& identifier,
-                                 const GURL& plugin_url,
-                                 const GURL& help_url,
                                  const string16& name,
                                  bool url_for_display,
-                                 bool requires_authorization)
-    : state_(kStateIdle),
-      identifier_(identifier),
-      plugin_url_(plugin_url),
-      help_url_(help_url),
+                                 const GURL& plugin_url,
+                                 const GURL& help_url)
+    : identifier_(identifier),
       name_(name),
       url_for_display_(url_for_display),
-      requires_authorization_(requires_authorization) {
+      plugin_url_(plugin_url),
+      help_url_(help_url),
+      state_(INSTALLER_STATE_IDLE) {
 }
 
 PluginInstaller::~PluginInstaller() {
+}
+
+void PluginInstaller::AddVersion(const Version& version,
+                                 SecurityStatus status) {
+  DCHECK(versions_.find(version) == versions_.end());
+  versions_[version] = status;
+}
+
+PluginInstaller::SecurityStatus PluginInstaller::GetSecurityStatus(
+    const webkit::WebPluginInfo& plugin) const {
+  // If there are no versions defined, the plug-in should require authorization.
+  if (versions_.empty())
+    return SECURITY_STATUS_REQUIRES_AUTHORIZATION;
+
+  Version version;
+  webkit::npapi::PluginGroup::CreateVersionFromString(plugin.version, &version);
+  if (!version.IsValid())
+    version = Version("0");
+
+  // |lower_bound| returns the latest version that is not newer than |version|.
+  std::map<Version, SecurityStatus, VersionComparator>::const_iterator it =
+      versions_.lower_bound(version);
+  // If there is at least one version defined, everything older than the oldest
+  // defined version is considered out-of-date.
+  if (it == versions_.end())
+    return SECURITY_STATUS_OUT_OF_DATE;
+
+  return it->second;
+}
+
+bool PluginInstaller::VersionComparator::operator() (const Version& lhs,
+                                                     const Version& rhs) const {
+  // Keep versions ordered by newest (biggest) first.
+  return lhs.CompareTo(rhs) > 0;
+}
+
+// static
+bool PluginInstaller::ParseSecurityStatus(
+    const std::string& status_str,
+    PluginInstaller::SecurityStatus* status) {
+  if (status_str == "up_to_date")
+    *status = SECURITY_STATUS_UP_TO_DATE;
+  else if (status_str == "out_of_date")
+    *status = SECURITY_STATUS_OUT_OF_DATE;
+  else if (status_str == "requires_authorization")
+    *status = SECURITY_STATUS_REQUIRES_AUTHORIZATION;
+  else
+    return false;
+
+  return true;
 }
 
 void PluginInstaller::OnDownloadUpdated(DownloadItem* download) {
@@ -84,8 +140,8 @@ void PluginInstaller::OnDownloadUpdated(DownloadItem* download) {
     case DownloadItem::IN_PROGRESS:
       return;
     case DownloadItem::COMPLETE: {
-      DCHECK_EQ(kStateDownloading, state_);
-      state_ = kStateIdle;
+      DCHECK_EQ(INSTALLER_STATE_DOWNLOADING, state_);
+      state_ = INSTALLER_STATE_IDLE;
       FOR_EACH_OBSERVER(PluginInstallerObserver, observers_,
                         DownloadFinished());
       break;
@@ -95,8 +151,8 @@ void PluginInstaller::OnDownloadUpdated(DownloadItem* download) {
       break;
     }
     case DownloadItem::REMOVING: {
-      DCHECK_EQ(kStateDownloading, state_);
-      state_ = kStateIdle;
+      DCHECK_EQ(INSTALLER_STATE_DOWNLOADING, state_);
+      state_ = INSTALLER_STATE_IDLE;
       break;
     }
     case DownloadItem::INTERRUPTED: {
@@ -136,27 +192,26 @@ void PluginInstaller::RemoveWeakObserver(
   weak_observers_.RemoveObserver(observer);
 }
 
-void PluginInstaller::StartInstalling(TabContentsWrapper* wrapper) {
-  DCHECK(state_ == kStateIdle);
+void PluginInstaller::StartInstalling(TabContents* tab_contents) {
+  DCHECK_EQ(INSTALLER_STATE_IDLE, state_);
   DCHECK(!url_for_display_);
-  state_ = kStateDownloading;
+  state_ = INSTALLER_STATE_DOWNLOADING;
   FOR_EACH_OBSERVER(PluginInstallerObserver, observers_, DownloadStarted());
-  content::WebContents* web_contents = wrapper->web_contents();
-  DownloadService* download_service =
-      DownloadServiceFactory::GetForProfile(wrapper->profile());
+  content::WebContents* web_contents = tab_contents->web_contents();
+  DownloadManager* download_manager =
+      BrowserContext::GetDownloadManager(tab_contents->profile());
   download_util::RecordDownloadSource(
       download_util::INITIATED_BY_PLUGIN_INSTALLER);
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
       base::Bind(&BeginDownload,
                  plugin_url_,
-                 wrapper->profile()->GetResourceContext(),
+                 tab_contents->profile()->GetResourceContext(),
                  web_contents->GetRenderProcessHost()->GetID(),
                  web_contents->GetRenderViewHost()->GetRoutingID(),
                  base::Bind(&PluginInstaller::DownloadStarted,
                             base::Unretained(this),
-                            make_scoped_refptr(
-                                download_service->GetDownloadManager()))));
+                            make_scoped_refptr(download_manager))));
 }
 
 void PluginInstaller::DownloadStarted(
@@ -176,7 +231,7 @@ void PluginInstaller::DownloadStarted(
 }
 
 void PluginInstaller::OpenDownloadURL(content::WebContents* web_contents) {
-  DCHECK(state_ == kStateIdle);
+  DCHECK_EQ(INSTALLER_STATE_IDLE, state_);
   DCHECK(url_for_display_);
   web_contents->OpenURL(content::OpenURLParams(
       plugin_url_,
@@ -187,13 +242,13 @@ void PluginInstaller::OpenDownloadURL(content::WebContents* web_contents) {
 }
 
 void PluginInstaller::DownloadError(const std::string& msg) {
-  DCHECK(state_ == kStateDownloading);
-  state_ = kStateIdle;
+  DCHECK_EQ(INSTALLER_STATE_DOWNLOADING, state_);
+  state_ = INSTALLER_STATE_IDLE;
   FOR_EACH_OBSERVER(PluginInstallerObserver, observers_, DownloadError(msg));
 }
 
 void PluginInstaller::DownloadCancelled() {
-  DCHECK(state_ == kStateDownloading);
-  state_ = kStateIdle;
+  DCHECK_EQ(INSTALLER_STATE_DOWNLOADING, state_);
+  state_ = INSTALLER_STATE_IDLE;
   FOR_EACH_OBSERVER(PluginInstallerObserver, observers_, DownloadCancelled());
 }

@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_TEXTFIELD_TEXTFIELD_VIEWS_MODEL_H_
 #define UI_VIEWS_CONTROLS_TEXTFIELD_TEXTFIELD_VIEWS_MODEL_H_
-#pragma once
 
 #include <list>
 #include <vector>
@@ -152,9 +151,11 @@ class VIEWS_EXPORT TextfieldViewsModel {
   // render_text_'s selection model is set to |sel|.
   void SelectSelectionModel(const gfx::SelectionModel& sel);
 
-  // Selects all text.
+  // Select the entire text range. If |reversed| is true, the range will end at
+  // the logical beginning of the text; this generally shows the leading portion
+  // of text that overflows its display area.
   // The current composition text will be confirmed.
-  void SelectAll();
+  void SelectAll(bool reversed);
 
   // Selects the word at which the cursor is currently positioned.
   // The current composition text will be confirmed.
@@ -185,7 +186,7 @@ class VIEWS_EXPORT TextfieldViewsModel {
   bool Copy();
 
   // Pastes text from the clipboard at current cursor position. Returns true
-  // if text has changed after pasting.
+  // if any text is pasted.
   bool Paste();
 
   // Tells if any text is selected, even if the selection is in composition
@@ -208,7 +209,7 @@ class VIEWS_EXPORT TextfieldViewsModel {
   void GetTextRange(ui::Range* range) const;
 
   // Sets composition text and attributes. If there is composition text already,
-  // it’ll be replaced by the new one. Otherwise, current selection will be
+  // it'll be replaced by the new one. Otherwise, current selection will be
   // replaced. If there is no selection, the composition text will be inserted
   // at the insertion point.
   // Any changes to the model except text insertion will confirm the current

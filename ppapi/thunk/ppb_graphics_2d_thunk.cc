@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ppapi/c/dev/ppb_graphics_2d_dev.h"
 #include "ppapi/c/pp_completion_callback.h"
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/ppb_graphics_2d.h"
+#include "ppapi/shared_impl/tracked_callback.h"
 #include "ppapi/thunk/enter.h"
 #include "ppapi/thunk/ppb_graphics_2d_api.h"
 #include "ppapi/thunk/resource_creation_api.h"
@@ -70,12 +72,25 @@ void ReplaceContents(PP_Resource graphics_2d, PP_Resource image_data) {
   enter.object()->ReplaceContents(image_data);
 }
 
-int32_t Flush(PP_Resource graphics_2d,
-              PP_CompletionCallback callback) {
+int32_t Flush(PP_Resource graphics_2d, PP_CompletionCallback callback) {
   EnterGraphics2D enter(graphics_2d, callback, true);
   if (enter.failed())
     return enter.retval();
-  return enter.SetResult(enter.object()->Flush(callback));
+  return enter.SetResult(enter.object()->Flush(enter.callback()));
+}
+
+PP_Bool SetScale(PP_Resource graphics_2d, float scale) {
+  EnterGraphics2D enter(graphics_2d, true);
+  if (enter.failed())
+    return PP_FALSE;
+  return PP_FromBool(enter.object()->SetScale(scale));
+}
+
+float GetScale(PP_Resource graphics_2d) {
+  EnterGraphics2D enter(graphics_2d, true);
+  if (enter.failed())
+    return 0.0f;
+  return enter.object()->GetScale();
 }
 
 const PPB_Graphics2D g_ppb_graphics_2d_thunk = {
@@ -88,10 +103,19 @@ const PPB_Graphics2D g_ppb_graphics_2d_thunk = {
   &Flush
 };
 
+const PPB_Graphics2D_Dev g_ppb_graphics_2d_dev_thunk = {
+  &SetScale,
+  &GetScale
+};
+
 }  // namespace
 
 const PPB_Graphics2D_1_0* GetPPB_Graphics2D_1_0_Thunk() {
   return &g_ppb_graphics_2d_thunk;
+}
+
+const PPB_Graphics2D_Dev_0_1* GetPPB_Graphics2D_Dev_0_1_Thunk() {
+  return &g_ppb_graphics_2d_dev_thunk;
 }
 
 }  // namespace thunk

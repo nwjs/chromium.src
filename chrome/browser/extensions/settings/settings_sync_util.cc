@@ -41,14 +41,14 @@ void PopulateAppSettingSpecifics(
 
 }  // namespace
 
-SyncData CreateData(
+syncer::SyncData CreateData(
     const std::string& extension_id,
     const std::string& key,
     const Value& value,
-    syncable::ModelType type) {
+    syncer::ModelType type) {
   sync_pb::EntitySpecifics specifics;
   switch (type) {
-    case syncable::EXTENSION_SETTINGS:
+    case syncer::EXTENSION_SETTINGS:
       PopulateExtensionSettingSpecifics(
           extension_id,
           key,
@@ -56,7 +56,7 @@ SyncData CreateData(
           specifics.mutable_extension_setting());
       break;
 
-    case syncable::APP_SETTINGS:
+    case syncer::APP_SETTINGS:
       PopulateAppSettingSpecifics(
           extension_id,
           key,
@@ -68,34 +68,41 @@ SyncData CreateData(
       NOTREACHED();
   }
 
-  return SyncData::CreateLocalData(extension_id + "/" + key, key, specifics);
+  return syncer::SyncData::CreateLocalData(
+      extension_id + "/" + key, key, specifics);
 }
 
-SyncChange CreateAdd(
+syncer::SyncChange CreateAdd(
     const std::string& extension_id,
     const std::string& key,
     const Value& value,
-    syncable::ModelType type) {
-  return SyncChange(
-      SyncChange::ACTION_ADD, CreateData(extension_id, key, value, type));
+    syncer::ModelType type) {
+  return syncer::SyncChange(
+      FROM_HERE,
+      syncer::SyncChange::ACTION_ADD,
+      CreateData(extension_id, key, value, type));
 }
 
-SyncChange CreateUpdate(
+syncer::SyncChange CreateUpdate(
     const std::string& extension_id,
     const std::string& key,
     const Value& value,
-    syncable::ModelType type) {
-  return SyncChange(
-      SyncChange::ACTION_UPDATE, CreateData(extension_id, key, value, type));
+    syncer::ModelType type) {
+  return syncer::SyncChange(
+      FROM_HERE,
+      syncer::SyncChange::ACTION_UPDATE,
+      CreateData(extension_id, key, value, type));
 }
 
-SyncChange CreateDelete(
+syncer::SyncChange CreateDelete(
     const std::string& extension_id,
     const std::string& key,
-    syncable::ModelType type) {
+    syncer::ModelType type) {
   DictionaryValue no_value;
-  return SyncChange(
-      SyncChange::ACTION_DELETE, CreateData(extension_id, key, no_value, type));
+  return syncer::SyncChange(
+      FROM_HERE,
+      syncer::SyncChange::ACTION_DELETE,
+      CreateData(extension_id, key, no_value, type));
 }
 
 }  // namespace settings_sync_util

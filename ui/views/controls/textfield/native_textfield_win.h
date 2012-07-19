@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_TEXTFIELD_NATIVE_TEXTFIELD_WIN_H_
 #define UI_VIEWS_CONTROLS_TEXTFIELD_NATIVE_TEXTFIELD_WIN_H_
-#pragma once
 
 #include <atlbase.h>
 #include <atlapp.h>
@@ -12,13 +11,16 @@
 #include <atlctrls.h>
 #include <atlmisc.h>
 #include <oleacc.h>
+#include <peninputpanel.h>
 #include <tom.h>  // For ITextDocument, a COM interface to CRichEditCtrl
 #include <vsstyle.h>
 
+#include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "base/win/scoped_comptr.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/gfx/insets.h"
+#include "ui/base/win/extra_sdk_defines.h"
 #include "ui/views/controls/textfield/native_textfield_wrapper.h"
 
 namespace gfx {
@@ -27,7 +29,7 @@ class SelectionModel;
 
 namespace views {
 
-class Menu2;
+class MenuRunner;
 class NativeViewHost;
 class Textfield;
 
@@ -67,7 +69,7 @@ class NativeTextfieldWin
   virtual void UpdateText() OVERRIDE;
   virtual void AppendText(const string16& text) OVERRIDE;
   virtual string16 GetSelectedText() const OVERRIDE;
-  virtual void SelectAll() OVERRIDE;
+  virtual void SelectAll(bool reversed) OVERRIDE;
   virtual void ClearSelection() OVERRIDE;
   virtual void UpdateBorder() OVERRIDE;
   virtual void UpdateTextColor() OVERRIDE;
@@ -118,10 +120,13 @@ class NativeTextfieldWin
     MSG_WM_CONTEXTMENU(OnContextMenu)
     MSG_WM_COPY(OnCopy)
     MSG_WM_CUT(OnCut)
+    MESSAGE_HANDLER_EX(WM_GETOBJECT, OnGetObject)
     MESSAGE_HANDLER_EX(WM_IME_CHAR, OnImeChar)
     MESSAGE_HANDLER_EX(WM_IME_STARTCOMPOSITION, OnImeStartComposition)
     MESSAGE_HANDLER_EX(WM_IME_COMPOSITION, OnImeComposition)
     MESSAGE_HANDLER_EX(WM_IME_ENDCOMPOSITION, OnImeEndComposition)
+    MESSAGE_HANDLER_EX(WM_POINTERDOWN, OnPointerDown)
+    MESSAGE_HANDLER_EX(WM_POINTERUP, OnPointerUp)
     MSG_WM_KEYDOWN(OnKeyDown)
     MSG_WM_LBUTTONDBLCLK(OnLButtonDblClk)
     MSG_WM_LBUTTONDOWN(OnLButtonDown)
@@ -179,10 +184,13 @@ class NativeTextfieldWin
   void OnContextMenu(HWND window, const POINT& point);
   void OnCopy();
   void OnCut();
+  LRESULT OnGetObject(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeChar(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeStartComposition(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeComposition(UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT OnImeEndComposition(UINT message, WPARAM wparam, LPARAM lparam);
+  LRESULT OnPointerDown(UINT message, WPARAM wparam, LPARAM lparam);
+  LRESULT OnPointerUp(UINT message, WPARAM wparam, LPARAM lparam);
   void OnKeyDown(TCHAR key, UINT repeat_count, UINT flags);
   void OnLButtonDblClk(UINT keys, const CPoint& point);
   void OnLButtonDown(UINT keys, const CPoint& point);
@@ -265,13 +273,16 @@ class NativeTextfieldWin
 
   // The contents of the context menu for the edit.
   scoped_ptr<ui::SimpleMenuModel> context_menu_contents_;
-  scoped_ptr<Menu2> context_menu_;
+  scoped_ptr<MenuRunner> context_menu_runner_;
 
   // Border insets.
   gfx::Insets content_insets_;
 
   // This interface is useful for accessing the CRichEditCtrl at a low level.
   mutable base::win::ScopedComPtr<ITextDocument> text_object_model_;
+
+  // To support the Windows virtual keyboard when used with a touch screen.
+  base::win::ScopedComPtr<ITextInputPanel> keyboard_;
 
   // The position and the length of the ongoing composition string.
   // These values are used for removing a composition string from a search

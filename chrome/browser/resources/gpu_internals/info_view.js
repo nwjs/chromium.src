@@ -79,7 +79,9 @@ cr.define('gpu', function() {
         'css_animation': 'CSS Animation',
         'compositing': 'Compositing',
         'webgl': 'WebGL',
-        'multisampling': 'WebGL multisampling'
+        'multisampling': 'WebGL multisampling',
+        'flash_3d': 'Flash 3D',
+        'flash_stage3d': 'Flash Stage3D'
       };
       var statusLabelMap = {
         'disabled_software': 'Software only. Hardware acceleration disabled.',
@@ -204,11 +206,11 @@ cr.define('gpu', function() {
 
       // Crash list
       jstProcess(new JsEvalContext({values: browserBridge.crashList}),
-                 document.getElementById('crash-list'));
+                 $('crash-list'));
 
       // Log messages
       jstProcess(new JsEvalContext({values: browserBridge.logMessages}),
-                 document.getElementById('log-messages'));
+                 $('log-messages'));
     },
 
     createProblemEl_: function(problem) {

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_SYNC_BACKEND_REGISTRAR_H_
 #define CHROME_BROWSER_SYNC_GLUE_SYNC_BACKEND_REGISTRAR_H_
-#pragma once
 
 #include <map>
 #include <vector>
@@ -13,16 +12,16 @@
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
-#include "chrome/browser/sync/internal_api/sync_manager.h"
-#include "sync/engine/model_safe_worker.h"
-#include "sync/syncable/model_type.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
+#include "sync/internal_api/public/sync_manager.h"
 
 class MessageLoop;
 class Profile;
 
-namespace sync_api {
+namespace syncer {
 struct UserShare;
-}  // namespace sync_api
+}  // namespace syncer
 
 namespace browser_sync {
 
@@ -32,14 +31,13 @@ class UIModelWorker;
 // A class that keep track of the workers, change processors, and
 // routing info for the enabled sync types, and also routes change
 // events to the right processors.
-class SyncBackendRegistrar : public ModelSafeWorkerRegistrar,
-                             public sync_api::SyncManager::ChangeDelegate {
+class SyncBackendRegistrar : public syncer::SyncManager::ChangeDelegate {
  public:
   // |initial_types| contains the initial set of types to sync
   // (initially put in the passive group).  |name| is used for
   // debugging.  Does not take ownership of |profile| or |sync_loop|.
   // Must be created on the UI thread.
-  SyncBackendRegistrar(syncable::ModelTypeSet initial_types,
+  SyncBackendRegistrar(syncer::ModelTypeSet initial_types,
                        const std::string& name,
                        Profile* profile,
                        MessageLoop* sync_loop);
@@ -66,9 +64,9 @@ class SyncBackendRegistrar : public ModelSafeWorkerRegistrar,
   // not already there (initially put in the passive group).
   // |types_to_remove| and |types_to_add| must be disjoint.  Returns
   // the set of newly-added types.  Must be called on the UI thread.
-  syncable::ModelTypeSet ConfigureDataTypes(
-      syncable::ModelTypeSet types_to_add,
-      syncable::ModelTypeSet types_to_remove);
+  syncer::ModelTypeSet ConfigureDataTypes(
+      syncer::ModelTypeSet types_to_add,
+      syncer::ModelTypeSet types_to_remove);
 
   // Must be called from the UI thread. (See destructor comment.)
   void StopOnUIThread();
@@ -79,51 +77,48 @@ class SyncBackendRegistrar : public ModelSafeWorkerRegistrar,
   // Activates the given data type (which should belong to the given
   // group) and starts the given change processor.  Must be called
   // from |group|'s native thread.
-  void ActivateDataType(syncable::ModelType type,
-                        ModelSafeGroup group,
+  void ActivateDataType(syncer::ModelType type,
+                        syncer::ModelSafeGroup group,
                         ChangeProcessor* change_processor,
-                        sync_api::UserShare* user_share);
+                        syncer::UserShare* user_share);
 
   // Deactivates the given type if necessary.  Must be called from the
   // UI thread and not |type|'s native thread.  Yes, this is
   // surprising: see http://crbug.com/92804.
-  void DeactivateDataType(syncable::ModelType type);
+  void DeactivateDataType(syncer::ModelType type);
 
   // Returns true only between calls to ActivateDataType(type, ...)
   // and DeactivateDataType(type).  Used only by tests.
-  bool IsTypeActivatedForTest(syncable::ModelType type) const;
+  bool IsTypeActivatedForTest(syncer::ModelType type) const;
 
   // SyncManager::ChangeDelegate implementation.  May be called from
   // any thread.
   virtual void OnChangesApplied(
-      syncable::ModelType model_type,
-      const sync_api::BaseTransaction* trans,
-      const sync_api::ImmutableChangeRecordList& changes) OVERRIDE;
-  virtual void OnChangesComplete(syncable::ModelType model_type) OVERRIDE;
+      syncer::ModelType model_type,
+      const syncer::BaseTransaction* trans,
+      const syncer::ImmutableChangeRecordList& changes) OVERRIDE;
+  virtual void OnChangesComplete(syncer::ModelType model_type) OVERRIDE;
 
-  // ModelSafeWorkerRegistrar implementation.  May be called from any
-  // thread.
-  virtual void GetWorkers(
-      std::vector<ModelSafeWorker*>* out) OVERRIDE;
-  virtual void GetModelSafeRoutingInfo(ModelSafeRoutingInfo* out) OVERRIDE;
+  void GetWorkers(std::vector<syncer::ModelSafeWorker*>* out);
+  void GetModelSafeRoutingInfo(syncer::ModelSafeRoutingInfo* out);
 
  private:
-  typedef std::map<ModelSafeGroup,
-                   scoped_refptr<ModelSafeWorker> > WorkerMap;
+  typedef std::map<syncer::ModelSafeGroup,
+                   scoped_refptr<syncer::ModelSafeWorker> > WorkerMap;
 
   // Returns the change processor for the given model, or NULL if none
   // exists.  Must be called from |group|'s native thread.
-  ChangeProcessor* GetProcessor(syncable::ModelType type) const;
+  ChangeProcessor* GetProcessor(syncer::ModelType type) const;
 
   // Must be called with |lock_| held.  Simply returns the change
   // processor for the given type, if it exists.  May be called from
   // any thread.
-  ChangeProcessor* GetProcessorUnsafe(syncable::ModelType type) const;
+  ChangeProcessor* GetProcessorUnsafe(syncer::ModelType type) const;
 
   // Return true if |model_type| lives on the current thread.  Must be
   // called with |lock_| held.  May be called on any thread.
   bool IsCurrentThreadSafeForModel(
-      syncable::ModelType model_type) const;
+      syncer::ModelType model_type) const;
 
   // Name used for debugging.
   const std::string name_;
@@ -146,14 +141,14 @@ class SyncBackendRegistrar : public ModelSafeWorkerRegistrar,
   // destroyed.  Unless a worker is no longer needed because all types
   // that get routed to it have been disabled (from syncing). In that
   // case, we'll destroy on demand *after* routing any dependent types
-  // to GROUP_PASSIVE, so that the syncapi doesn't call into garbage.
+  // to syncer::GROUP_PASSIVE, so that the syncapi doesn't call into garbage.
   // If a key is present, it means at least one ModelType that routes
   // to that model safe group is being synced.
   WorkerMap workers_;
-  ModelSafeRoutingInfo routing_info_;
+  syncer::ModelSafeRoutingInfo routing_info_;
 
   // The change processors that handle the different data types.
-  std::map<syncable::ModelType, ChangeProcessor*> processors_;
+  std::map<syncer::ModelType, ChangeProcessor*> processors_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncBackendRegistrar);
 };

@@ -4,23 +4,15 @@
 
 #ifndef CONTENT_BROWSER_SYSTEM_MESSAGE_WINDOW_WIN_H_
 #define CONTENT_BROWSER_SYSTEM_MESSAGE_WINDOW_WIN_H_
-#pragma once
 
 #include <windows.h>
 
 #include "base/basictypes.h"
 #include "content/common/content_export.h"
 
-typedef LRESULT (*VolumeNameFunc)(LPCWSTR drive,
-                                  LPWSTR volume_name,
-                                  unsigned int volume_name_len);
-
 class CONTENT_EXPORT SystemMessageWindowWin {
  public:
   SystemMessageWindowWin();
-  // Only for use in unit tests.
-  explicit SystemMessageWindowWin::SystemMessageWindowWin(
-      VolumeNameFunc volumeNameFunc);
 
   virtual ~SystemMessageWindowWin();
 
@@ -43,8 +35,8 @@ class CONTENT_EXPORT SystemMessageWindowWin {
     return ::DefWindowProc(hwnd, message, wparam, lparam);
   }
 
+  HMODULE instance_;
   HWND window_;
-  VolumeNameFunc volume_name_func_;
 
   DISALLOW_COPY_AND_ASSIGN(SystemMessageWindowWin);
 };

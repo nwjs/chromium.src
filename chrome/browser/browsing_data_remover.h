@@ -4,21 +4,23 @@
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_REMOVER_H_
 #define CHROME_BROWSER_BROWSING_DATA_REMOVER_H_
-#pragma once
 
 #include <set>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop_helpers.h"
 #include "base/observer_list.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/synchronization/waitable_event_watcher.h"
 #include "base/time.h"
 #include "chrome/browser/cancelable_request.h"
+#include "chrome/browser/pepper_flash_settings_manager.h"
 #include "chrome/browser/prefs/pref_member.h"
+#include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "googleurl/src/gurl.h"
+#include "webkit/dom_storage/dom_storage_context.h"
 #include "webkit/quota/quota_types.h"
 
 class ExtensionSpecialStoragePolicy;
@@ -26,7 +28,6 @@ class IOThread;
 class Profile;
 
 namespace content {
-class DOMStorageContext;
 class PluginDataRemover;
 }
 
@@ -46,7 +47,8 @@ class QuotaManager;
 // visits in url database, downloads, cookies ...
 
 class BrowsingDataRemover : public content::NotificationObserver,
-                            public base::WaitableEventWatcher::Delegate {
+                            public base::WaitableEventWatcher::Delegate,
+                            public PepperFlashSettingsManager::Client {
  public:
   // Time period ranges available when doing browsing data removals.
   enum TimePeriod {
@@ -73,6 +75,7 @@ class BrowsingDataRemover : public content::NotificationObserver,
     REMOVE_PASSWORDS = 1 << 10,
     REMOVE_WEBSQL = 1 << 11,
     REMOVE_SERVER_BOUND_CERTS = 1 << 12,
+    REMOVE_CONTENT_LICENSES = 1 << 13,
 
     // "Site data" includes cookies, appcache, file systems, indexedDBs, local
     // storage, webSQL, and plugin data.
@@ -89,14 +92,18 @@ class BrowsingDataRemover : public content::NotificationObserver,
     NotificationDetails();
     NotificationDetails(const NotificationDetails& details);
     NotificationDetails(base::Time removal_begin,
-                       int removal_mask);
+                       int removal_mask,
+                       int origin_set_mask);
     ~NotificationDetails();
 
     // The beginning of the removal time range.
     base::Time removal_begin;
 
-    // The removal mask (see the RemoveDataMask enum for details)
+    // The removal mask (see the RemoveDataMask enum for details).
     int removal_mask;
+
+    // The origin set mask (see BrowsingDataHelper::OriginSetMask for details).
+    int origin_set_mask;
   };
 
   // Observer is notified when the removal is done. Done means keywords have
@@ -119,8 +126,9 @@ class BrowsingDataRemover : public content::NotificationObserver,
   BrowsingDataRemover(Profile* profile, TimePeriod time_period,
                       base::Time delete_end);
 
-  // Removes the specified items related to browsing for all origins.
-  void Remove(int remove_mask);
+  // Removes the specified items related to browsing for all origins that match
+  // the provided |origin_set_mask| (see BrowsingDataHelper::OriginSetMask).
+  void Remove(int remove_mask, int origin_set_mask);
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -159,8 +167,8 @@ class BrowsingDataRemover : public content::NotificationObserver,
     STATE_DONE
   };
 
-  // BrowsingDataRemover deletes itself (using DeleteTask) and is not supposed
-  // to be deleted by other objects so make destructor private and DeleteTask
+  // BrowsingDataRemover deletes itself (using DeleteHelper) and is not supposed
+  // to be deleted by other objects so make destructor private and DeleteHelper
   // a friend.
   friend class base::DeleteHelper<BrowsingDataRemover>;
   virtual ~BrowsingDataRemover();
@@ -178,13 +186,17 @@ class BrowsingDataRemover : public content::NotificationObserver,
   virtual void OnWaitableEventSignaled(
       base::WaitableEvent* waitable_event) OVERRIDE;
 
+  // PepperFlashSettingsManager::Client implementation.
+  virtual void OnDeauthorizeContentLicensesCompleted(uint32 request_id,
+                                                     bool success) OVERRIDE;
+
   // Removes the specified items related to browsing for a specific host. If the
-  // provided |origin| is empty, data is removed for all origins. If
-  // |remove_protected_origins| is true, then data is removed even if the origin
-  // is otherwise protected (e.g. as an installed application).
+  // provided |origin| is empty, data is removed for all origins. The
+  // |origin_set_mask| parameter defines the set of origins from which data
+  // should be removed (protected, unprotected, or both).
   void RemoveImpl(int remove_mask,
                   const GURL& origin,
-                  bool remove_protected_origins);
+                  int origin_set_mask);
 
   // If we're not waiting on anything, notifies observers and deletes this
   // object.
@@ -207,6 +219,28 @@ class BrowsingDataRemover : public content::NotificationObserver,
   // Performs the actual work to delete the cache.
   void DoClearCache(int rv);
 
+#if !defined(DISABLE_NACL)
+  // Callback for when the NaCl cache has been deleted. Invokes
+  // NotifyAndDeleteIfDone.
+  void ClearedNaClCache();
+
+  // Invokes the ClearedNaClCache on the UI thread.
+  void ClearedNaClCacheOnIOThread();
+
+  // Invoked on the IO thread to delete the NaCl cache.
+  void ClearNaClCacheOnIOThread();
+#endif
+
+  // Invoked on the UI thread to delete local storage.
+  void ClearLocalStorageOnUIThread();
+
+  // Callback to deal with the list gathered in ClearLocalStorageOnUIThread.
+  void OnGotLocalStorageUsageInfo(
+      const std::vector<dom_storage::DomStorageContext::UsageInfo>& infos);
+
+  // Callback on deletion of local storage data. Invokes NotifyAndDeleteIfDone.
+  void OnLocalStorageCleared();
+
   // Invoked on the IO thread to delete all storage types managed by the quota
   // system: AppCache, Databases, FileSystems.
   void ClearQuotaManagedDataOnIOThread();
@@ -218,7 +252,9 @@ class BrowsingDataRemover : public content::NotificationObserver,
 
   // Callback responding to deletion of a single quota managed origin's
   // persistent data
-  void OnQuotaManagedOriginDeletion(quota::QuotaStatusCode);
+  void OnQuotaManagedOriginDeletion(const GURL& origin,
+                                    quota::StorageType type,
+                                    quota::QuotaStatusCode);
 
   // Called to check whether all temporary and persistent origin data that
   // should be deleted has been deleted. If everything's good to go, invokes
@@ -247,15 +283,7 @@ class BrowsingDataRemover : public content::NotificationObserver,
   base::Time CalculateBeginDeleteTime(TimePeriod time_period);
 
   // Returns true if we're all done.
-  bool all_done() {
-    return registrar_.IsEmpty() && !waiting_for_clear_cache_ &&
-           !waiting_for_clear_cookies_count_&&
-           !waiting_for_clear_history_ &&
-           !waiting_for_clear_networking_history_ &&
-           !waiting_for_clear_server_bound_certs_ &&
-           !waiting_for_clear_plugin_data_ &&
-           !waiting_for_clear_quota_managed_data_;
-  }
+  bool AllDone();
 
   // Setter for removing_; DCHECKs that we can only start removing if we're not
   // already removing, and vice-versa.
@@ -269,6 +297,9 @@ class BrowsingDataRemover : public content::NotificationObserver,
   // The QuotaManager is owned by the profile; we can use a raw pointer here,
   // and rely on the profile to destroy the object whenever it's reasonable.
   quota::QuotaManager* quota_manager_;
+
+  // The DOMStorageContext is owned by the profile; we'll store a raw pointer.
+  content::DOMStorageContext* dom_storage_context_;
 
   // 'Protected' origins are not subject to data removal.
   scoped_refptr<ExtensionSpecialStoragePolicy> special_storage_policy_;
@@ -293,16 +324,23 @@ class BrowsingDataRemover : public content::NotificationObserver,
   scoped_ptr<content::PluginDataRemover> plugin_data_remover_;
   base::WaitableEventWatcher watcher_;
 
+  // Used to deauthorize content licenses for Pepper Flash.
+  scoped_ptr<PepperFlashSettingsManager> pepper_flash_settings_manager_;
+  uint32 deauthorize_content_licenses_request_id_;
+
   // True if we're waiting for various data to be deleted.
   // These may only be accessed from UI thread in order to avoid races!
   bool waiting_for_clear_cache_;
+  bool waiting_for_clear_nacl_cache_;
   // Non-zero if waiting for cookies to be cleared.
   int waiting_for_clear_cookies_count_;
   bool waiting_for_clear_history_;
+  bool waiting_for_clear_local_storage_;
   bool waiting_for_clear_networking_history_;
   bool waiting_for_clear_server_bound_certs_;
   bool waiting_for_clear_plugin_data_;
   bool waiting_for_clear_quota_managed_data_;
+  bool waiting_for_clear_content_licenses_;
 
   // Tracking how many origins need to be deleted, and whether we're finished
   // gathering origins.
@@ -315,8 +353,8 @@ class BrowsingDataRemover : public content::NotificationObserver,
   // The origin for the current removal operation.
   GURL remove_origin_;
 
-  // Should data for protected origins be removed?
-  bool remove_protected_;
+  // From which types of origins should we remove data?
+  int origin_set_mask_;
 
   ObserverList<Observer> observer_list_;
 

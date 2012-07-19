@@ -252,7 +252,6 @@ void OpenSLESOutputStream::FillBufferQueue() {
   // TODO(xians): Get an accurate delay estimation.
   uint32 hardware_delay = buffer_size_bytes_;
   size_t num_filled_bytes = callback_->OnMoreData(
-      this,
       audio_data_[active_queue_],
       buffer_size_bytes_,
       AudioBuffersState(0, hardware_delay));
@@ -273,7 +272,7 @@ void OpenSLESOutputStream::FillBufferQueue() {
   if (SL_RESULT_SUCCESS != err)
     HandleError(err);
 
-  active_queue_ = ++active_queue_ % kNumOfQueuesInBuffer;
+  active_queue_ = (active_queue_  + 1) % kNumOfQueuesInBuffer;
 }
 
 void OpenSLESOutputStream::SetupAudioBuffer() {

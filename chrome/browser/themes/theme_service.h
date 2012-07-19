@@ -4,11 +4,11 @@
 
 #ifndef CHROME_BROWSER_THEMES_THEME_SERVICE_H_
 #define CHROME_BROWSER_THEMES_THEME_SERVICE_H_
-#pragma once
 
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
@@ -20,12 +20,15 @@
 
 class BrowserThemePack;
 class ThemeServiceTest;
-class Extension;
 class FilePath;
 class Profile;
 
 namespace color_utils {
 struct HSL;
+}
+
+namespace extensions {
+class Extension;
 }
 
 namespace gfx {
@@ -35,7 +38,6 @@ class Image;
 namespace ui {
 class ResourceBundle;
 }
-using ui::ResourceBundle;
 
 #ifdef __OBJC__
 @class NSString;
@@ -93,6 +95,11 @@ class ThemeService : public base::NonThreadSafe,
     COLOR_NTP_SECTION_LINK_UNDERLINE,
     COLOR_CONTROL_BACKGROUND,
     COLOR_BUTTON_BACKGROUND,
+
+    COLOR_SEARCH_NTP_BACKGROUND,
+    COLOR_SEARCH_SEARCH_BACKGROUND,
+    COLOR_SEARCH_DEFAULT_BACKGROUND,
+    COLOR_SEARCH_SEPARATOR_LINE,
 
     // These colors don't have constant default values. They are derived from
     // the runtime value of other colors.
@@ -156,11 +163,12 @@ class ThemeService : public base::NonThreadSafe,
 
   // Overridden from ui::ThemeProvider:
   virtual SkBitmap* GetBitmapNamed(int id) const OVERRIDE;
+  virtual gfx::ImageSkia* GetImageSkiaNamed(int id) const OVERRIDE;
   virtual SkColor GetColor(int id) const OVERRIDE;
   virtual bool GetDisplayProperty(int id, int* result) const OVERRIDE;
   virtual bool ShouldUseNativeFrame() const OVERRIDE;
   virtual bool HasCustomImage(int id) const OVERRIDE;
-  virtual RefCountedMemory* GetRawData(int id) const OVERRIDE;
+  virtual base::RefCountedMemory* GetRawData(int id) const OVERRIDE;
 #if defined(OS_MACOSX)
   virtual NSImage* GetNSImageNamed(int id, bool allow_default) const OVERRIDE;
   virtual NSColor* GetNSImageColorNamed(int id,
@@ -177,7 +185,7 @@ class ThemeService : public base::NonThreadSafe,
 #endif
 
   // Set the current theme to the theme defined in |extension|.
-  virtual void SetTheme(const Extension* extension);
+  virtual void SetTheme(const extensions::Extension* extension);
 
   // Reset the theme to default.
   virtual void UseDefaultTheme();
@@ -280,7 +288,7 @@ class ThemeService : public base::NonThreadSafe,
 
   // Implementation of SetTheme() (and the fallback from LoadThemePrefs() in
   // case we don't have a theme pack).
-  void BuildFromExtension(const Extension* extension);
+  void BuildFromExtension(const extensions::Extension* extension);
 
 #if defined(TOOLKIT_GTK)
   // Loads an image and flips it horizontally if |rtl_enabled| is true.
@@ -302,7 +310,7 @@ class ThemeService : public base::NonThreadSafe,
   mutable NSGradientMap nsgradient_cache_;
 #endif
 
-  ResourceBundle& rb_;
+  ui::ResourceBundle& rb_;
   Profile* profile_;
 
   scoped_refptr<BrowserThemePack> theme_pack_;

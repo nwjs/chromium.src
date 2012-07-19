@@ -111,15 +111,17 @@ cr.define('cr.ui', function() {
     },
 
     /**
-     * Called by the view when the user does a mousedown or mouseup on the list.
-     * @param {!Event} e The browser mousedown event.
+     * Called by the view when the user does a mousedown, mouseup, TOUCH_START
+     * and TOUCH_END on the list.
+     * @param {!Event} e The browser mouse or TouchHandler event.
      * @param {number} index The index that was under the mouse pointer, -1 if
      *     none.
      */
-    handleMouseDownUp: function(e, index) {
+    handlePointerDownUp: function(e, index) {
       var sm = this.selectionModel;
       var anchorIndex = sm.anchorIndex;
-      var isDown = e.type == 'mousedown';
+      var isDown = (e.type == 'mousedown' ||
+                    e.type == cr.ui.TouchHandler.EventType.TOUCH_START);
 
       sm.beginChange();
 
@@ -127,10 +129,9 @@ cr.define('cr.ui', function() {
         // On Mac we always clear the selection if the user clicks a blank area.
         // On Windows, we only clear the selection if neither Shift nor Ctrl are
         // pressed.
-        if (cr.isMac) {
+        if (cr.isMac || cr.isChromeOS) {
           sm.leadIndex = sm.anchorIndex = -1;
-          if (sm.multiple)
-            sm.unselectAll();
+          sm.unselectAll();
         } else if (!isDown && !e.shiftKey && !e.ctrlKey)
           // Keep anchor and lead indexes. Note that this is intentionally
           // different than on the Mac.
@@ -262,7 +263,7 @@ cr.define('cr.ui', function() {
           } else {
             sm.selectRange(anchorIndex, newIndex);
           }
-        } else if (e.ctrlKey && !cr.isMac) {
+        } else if (e.ctrlKey && !cr.isMac && !cr.isChromeOS) {
           // Setting the lead index is done above.
           // Mac does not allow you to change the lead.
         } else {

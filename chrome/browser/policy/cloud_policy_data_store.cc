@@ -33,14 +33,16 @@ CloudPolicyDataStore::CloudPolicyDataStore(
       policy_register_type_(policy_register_type),
       policy_type_(policy_type),
       known_machine_id_(false),
+      reregister_(false),
       token_cache_loaded_(false),
+      policy_fetching_enabled_(true),
       device_mode_(DEVICE_MODE_PENDING) {}
 
 void CloudPolicyDataStore::SetDeviceToken(const std::string& device_token,
                                           bool from_cache) {
   DCHECK(token_cache_loaded_ != from_cache);
   if (!token_cache_loaded_) {
-    // The cache should be the first to set the token. (It may be "")
+    // The cache should be the first to set the token (it may be empty).
     DCHECK(from_cache);
     token_cache_loaded_ = true;
   } else {
@@ -112,8 +114,17 @@ void CloudPolicyDataStore::set_known_machine_id(bool known_machine_id) {
   known_machine_id_ = known_machine_id;
 }
 
+void CloudPolicyDataStore::set_policy_fetching_enabled(
+    bool policy_fetching_enabled) {
+  policy_fetching_enabled_ = policy_fetching_enabled;
+}
+
 void CloudPolicyDataStore::set_device_mode(DeviceMode device_mode) {
   device_mode_ = device_mode;
+}
+
+void CloudPolicyDataStore::set_reregister(bool reregister) {
+  reregister_ = reregister;
 }
 
 const std::string& CloudPolicyDataStore::device_token() const {
@@ -153,6 +164,10 @@ bool CloudPolicyDataStore::token_cache_loaded() const {
   return token_cache_loaded_;
 }
 
+bool CloudPolicyDataStore::policy_fetching_enabled() const {
+  return policy_fetching_enabled_;
+}
+
 const std::string& CloudPolicyDataStore::user_name() const {
   return user_name_;
 }
@@ -167,6 +182,10 @@ bool CloudPolicyDataStore::known_machine_id() const {
 
 DeviceMode CloudPolicyDataStore::device_mode() const {
   return device_mode_;
+}
+
+bool CloudPolicyDataStore::reregister() const {
+  return reregister_;
 }
 
 #if defined(OS_CHROMEOS)

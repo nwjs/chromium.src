@@ -4,15 +4,15 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_TOOLBAR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_TOOLBAR_VIEW_H_
-#pragma once
 
 #include <set>
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
-#include "chrome/browser/command_updater.h"
+#include "chrome/browser/command_observer.h"
 #include "chrome/browser/prefs/pref_member.h"
+#include "chrome/browser/ui/search/search_model_observer.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/reload_button.h"
@@ -25,7 +25,14 @@
 
 class BrowserActionsContainer;
 class Browser;
+class LocationBarContainer;
 class WrenchMenu;
+
+namespace chrome {
+namespace search {
+class SearchModel;
+}
+}
 
 namespace views {
 class MenuListener;
@@ -36,8 +43,9 @@ class ToolbarView : public views::AccessiblePaneView,
                     public views::MenuButtonListener,
                     public ui::AcceleratorProvider,
                     public LocationBarView::Delegate,
+                    public chrome::search::SearchModelObserver,
                     public content::NotificationObserver,
-                    public CommandUpdater::CommandObserver,
+                    public CommandObserver,
                     public views::ButtonListener {
  public:
   // The view class name.
@@ -46,8 +54,11 @@ class ToolbarView : public views::AccessiblePaneView,
   explicit ToolbarView(Browser* browser);
   virtual ~ToolbarView();
 
-  // Create the contents of the Browser Toolbar
-  void Init();
+  // Create the contents of the Browser Toolbar. |location_bar_parent| is the
+  // view the LocationBarContainer is added to. |popup_parent_view| is the
+  // View to add the omnibox popup view to.
+  // TODO(sky): clearly describe when |popup_parent_view| is used.
+  void Init(views::View* location_bar_parent, views::View* popup_parent_view);
 
   // Updates the toolbar (and transitively the location bar) with the states of
   // the specified |tab|.  If |should_restore_state| is true, we're switching
@@ -69,17 +80,25 @@ class ToolbarView : public views::AccessiblePaneView,
   // Remove a menu listener.
   void RemoveMenuListener(views::MenuListener* listener);
 
-  // Gets a bitmap with the icon for the app menu and any overlaid notification
+  // Gets an image with the icon for the app menu and any overlaid notification
   // badge.
-  SkBitmap GetAppMenuIcon(views::CustomButton::ButtonState state);
+  gfx::ImageSkia GetAppMenuIcon(views::CustomButton::ButtonState state);
 
   virtual bool GetAcceleratorInfo(int id, ui::Accelerator* accel);
+
+  // Layout toolbar for the various modes when --enable-instant-extended-api
+  // is specified. Depending on the toolbar mode, this can result in
+  // some toolbar children views change in visibility.
+  void LayoutForSearch();
 
   // Accessors...
   Browser* browser() const { return browser_; }
   BrowserActionsContainer* browser_actions() const { return browser_actions_; }
   ReloadButton* reload_button() const { return reload_; }
   LocationBarView* location_bar() const { return location_bar_; }
+  LocationBarContainer* location_bar_container() const {
+    return location_bar_container_;
+  }
   views::MenuButton* app_menu() const { return app_menu_; }
 
   // Overridden from AccessiblePaneView
@@ -91,7 +110,7 @@ class ToolbarView : public views::AccessiblePaneView,
                                    const gfx::Point& point) OVERRIDE;
 
   // Overridden from LocationBarView::Delegate:
-  virtual TabContentsWrapper* GetTabContentsWrapper() const OVERRIDE;
+  virtual TabContents* GetTabContents() const OVERRIDE;
   virtual InstantController* GetInstant() OVERRIDE;
   virtual views::Widget* CreateViewsBubble(
       views::BubbleDelegateView* bubble_delegate) OVERRIDE;
@@ -105,7 +124,10 @@ class ToolbarView : public views::AccessiblePaneView,
                             bool show_history) OVERRIDE;
   virtual void OnInputInProgress(bool in_progress) OVERRIDE;
 
-  // Overridden from CommandUpdater::CommandObserver:
+  // Overridden from chrome::search::SearchModelObserver:
+  virtual void ModeChanged(const chrome::search::Mode& mode) OVERRIDE;
+
+  // Overridden from CommandObserver:
   virtual void EnabledStateChangedForCommand(int id, bool enabled) OVERRIDE;
 
   // Overridden from views::ButtonListener:
@@ -124,6 +146,7 @@ class ToolbarView : public views::AccessiblePaneView,
   // Overridden from views::View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual void Layout() OVERRIDE;
+  virtual bool HitTest(const gfx::Point& l) const OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual bool GetDropFormats(
       int* formats,
@@ -181,7 +204,14 @@ class ToolbarView : public views::AccessiblePaneView,
 
   // Gets a badge for the wrench icon corresponding to the number of
   // unacknowledged background pages in the system.
-  SkBitmap GetBackgroundPageBadge();
+  gfx::ImageSkia GetBackgroundPageBadge();
+
+  // Layout the location bar for the Extended Instant NTP.
+  void LayoutLocationBarNTP();
+
+  // Sets the bounds of the LocationBarContainer. |bounds| is in the coordinates
+  // of |this|.
+  void SetLocationBarContainerBounds(const gfx::Rect& bounds);
 
   scoped_ptr<BackForwardMenuModel> back_menu_model_;
   scoped_ptr<BackForwardMenuModel> forward_menu_model_;
@@ -195,6 +225,7 @@ class ToolbarView : public views::AccessiblePaneView,
   ReloadButton* reload_;
   views::ImageButton* home_;
   LocationBarView* location_bar_;
+  LocationBarContainer* location_bar_container_;
   BrowserActionsContainer* browser_actions_;
   views::MenuButton* app_menu_;
   Browser* browser_;

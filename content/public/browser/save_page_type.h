@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_SAVE_PAGE_TYPE_H_
 #define CONTENT_PUBLIC_BROWSER_SAVE_PAGE_TYPE_H_
-#pragma once
 
 namespace content {
 
@@ -14,7 +13,12 @@ enum SavePageType {
   // User chose to save only the HTML of the page.
   SAVE_PAGE_TYPE_AS_ONLY_HTML = 0,
   // User chose to save complete-html page.
-  SAVE_PAGE_TYPE_AS_COMPLETE_HTML = 1
+  SAVE_PAGE_TYPE_AS_COMPLETE_HTML = 1,
+  // User chose to save complete-html page as MHTML.
+  SAVE_PAGE_TYPE_AS_MHTML = 2,
+
+  // Insert new values BEFORE this value.
+  SAVE_PAGE_TYPE_MAX,
 };
 
 }

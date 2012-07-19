@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_GPU_CLIENT_COMMAND_BUFFER_PROXY_IMPL_H_
 #define CONTENT_COMMON_GPU_CLIENT_COMMAND_BUFFER_PROXY_IMPL_H_
-#pragma once
 
 #if defined(ENABLE_GPU)
 
@@ -15,14 +14,14 @@
 #include "gpu/ipc/command_buffer_proxy.h"
 
 #include "base/callback.h"
-#include "base/memory/linked_ptr.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/hash_tables.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "content/common/gpu/client/gpu_video_decode_accelerator_host.h"
 #include "gpu/command_buffer/common/command_buffer.h"
 #include "gpu/command_buffer/common/command_buffer_shared.h"
-#include "ipc/ipc_channel.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_listener.h"
 
 class GpuChannelHost;
 struct GPUCommandBufferConsoleMessage;
@@ -34,10 +33,10 @@ class SharedMemory;
 
 // Client side proxy that forwards messages synchronously to a
 // CommandBufferStub.
-class CommandBufferProxyImpl :
-    public CommandBufferProxy,
-    public IPC::Channel::Listener,
-    public base::SupportsWeakPtr<CommandBufferProxyImpl> {
+class CommandBufferProxyImpl
+    : public CommandBufferProxy,
+      public IPC::Listener,
+      public base::SupportsWeakPtr<CommandBufferProxyImpl> {
  public:
   typedef base::Callback<void(
       const std::string& msg, int id)> GpuConsoleMessageCallback;
@@ -51,11 +50,11 @@ class CommandBufferProxyImpl :
   // Note that the GpuVideoDecodeAccelerator may still fail to be created in
   // the GPU process, even if this returns non-NULL. In this case the client is
   // notified of an error later.
-  scoped_refptr<GpuVideoDecodeAcceleratorHost> CreateVideoDecoder(
+  GpuVideoDecodeAcceleratorHost* CreateVideoDecoder(
       media::VideoCodecProfile profile,
       media::VideoDecodeAccelerator::Client* client);
 
-  // IPC::Channel::Listener implementation:
+  // IPC::Listener implementation:
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
   virtual void OnChannelError() OVERRIDE;
 
@@ -65,6 +64,10 @@ class CommandBufferProxyImpl :
   virtual bool SetSurfaceVisible(bool visible) OVERRIDE;
   virtual bool DiscardBackbuffer() OVERRIDE;
   virtual bool EnsureBackbuffer() OVERRIDE;
+  virtual uint32 InsertSyncPoint() OVERRIDE;
+  virtual void WaitSyncPoint(uint32 sync_point) OVERRIDE;
+  virtual bool SignalSyncPoint(uint32 sync_point,
+                               const base::Closure& callback) OVERRIDE;
   virtual void SetMemoryAllocationChangedCallback(
       const base::Callback<void(const GpuMemoryAllocationForRenderer&)>&
           callback) OVERRIDE;
@@ -103,6 +106,10 @@ class CommandBufferProxyImpl :
   GpuChannelHost* channel() const { return channel_; }
 
  private:
+  typedef std::map<int32, gpu::Buffer> TransferBufferMap;
+  typedef std::map<int, GpuVideoDecodeAcceleratorHost*> Decoders;
+  typedef base::hash_map<uint32, base::Closure> SignalTaskMap;
+
   // Send an IPC message over the GPU channel. This is private to fully
   // encapsulate the channel; all callers of this function must explicitly
   // verify that the context has not been lost.
@@ -115,17 +122,16 @@ class CommandBufferProxyImpl :
   void OnEchoAck();
   void OnConsoleMessage(const GPUCommandBufferConsoleMessage& message);
   void OnSetMemoryAllocation(const GpuMemoryAllocationForRenderer& allocation);
+  void OnSignalSyncPointAck(uint32 id);
 
   // Try to read an updated copy of the state from shared memory.
   void TryUpdateState();
 
   // Local cache of id to transfer buffer mapping.
-  typedef std::map<int32, gpu::Buffer> TransferBufferMap;
   TransferBufferMap transfer_buffers_;
 
   // Zero or more video decoder hosts owned by this proxy, keyed by their
   // decoder_route_id.
-  typedef std::map<int, scoped_refptr<GpuVideoDecodeAcceleratorHost> > Decoders;
   Decoders video_decoder_hosts_;
 
   // The last cached state received from the service.
@@ -152,6 +158,10 @@ class CommandBufferProxyImpl :
       memory_allocation_changed_callback_;
 
   GpuConsoleMessageCallback console_message_callback_;
+
+  // Tasks to be invoked in SignalSyncPoint responses.
+  uint32 next_signal_id_;
+  SignalTaskMap signal_tasks_;
 
   DISALLOW_COPY_AND_ASSIGN(CommandBufferProxyImpl);
 };

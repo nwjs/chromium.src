@@ -11,6 +11,14 @@
 
 namespace ppapi {
 
+PPB_X509Certificate_Fields::PPB_X509Certificate_Fields() {}
+
+PPB_X509Certificate_Fields::PPB_X509Certificate_Fields(
+    const PPB_X509Certificate_Fields& fields) {
+  scoped_ptr<ListValue> new_values(fields.values_.DeepCopy());
+  values_.Swap(new_values.get());
+}
+
 void PPB_X509Certificate_Fields::SetField(
     PP_X509Certificate_Private_Field field,
     base::Value* value) {
@@ -84,9 +92,9 @@ PPB_X509Certificate_Private_Shared::PPB_X509Certificate_Private_Shared(
 PPB_X509Certificate_Private_Shared::PPB_X509Certificate_Private_Shared(
     ResourceObjectType type,
     PP_Instance instance,
-    PPB_X509Certificate_Fields* fields)
+    const PPB_X509Certificate_Fields& fields)
     : Resource(type, instance),
-      fields_(fields) {
+      fields_(new PPB_X509Certificate_Fields(fields)) {
 }
 
 PPB_X509Certificate_Private_Shared::~PPB_X509Certificate_Private_Shared() {

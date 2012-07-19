@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_QUOTA_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_QUOTA_HELPER_H_
-#pragma once
 
 #include <list>
 #include <string>
@@ -30,7 +29,6 @@ class MockBrowsingDataQuotaHelper : public BrowsingDataQuotaHelper {
 
   FetchResultCallback callback_;
   std::list<QuotaInfo> response_;
-  Profile* profile_;
 };
 
 #endif  // CHROME_BROWSER_MOCK_BROWSING_DATA_QUOTA_HELPER_H_

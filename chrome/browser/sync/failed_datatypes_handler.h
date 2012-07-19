@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_FAILED_DATATYPES_HANDLER_H_
 #define CHROME_BROWSER_SYNC_FAILED_DATATYPES_HANDLER_H_
-#pragma once
 
 #include <string>
 
@@ -29,28 +28,28 @@ class FailedDatatypesHandler {
   // Called with the result of sync configuration. The types with errors
   // are obtained from the |result|.
   bool UpdateFailedDatatypes(
-      const std::list<SyncError>& errors,
+      const std::list<syncer::SyncError>& errors,
       FailureType failure_type);
 
   // Called when the user has chosen a new set of datatypes to sync. We clear
   // the current list of failed types and retry them once more.
   void OnUserChoseDatatypes();
 
-  // Returns the types that are failing.
-  syncable::ModelTypeSet GetFailedTypes() const;
+  // Returns a list of all the errors this class has recorded.
+  std::vector<syncer::SyncError> GetAllErrors() const;
 
+  // Returns the types that are failing.
+  syncer::ModelTypeSet GetFailedTypes() const;
+
+ private:
   // Returns if there are any failed types.
   bool AnyFailedDatatype() const;
 
-  // Gets the error string giving more info about each type that is failing.
-  std::string GetErrorString() const;
-
- private:
   // List of dataypes that failed at startup.
-  std::list<SyncError> startup_errors_;
+  std::vector<syncer::SyncError> startup_errors_;
 
   // List of datatypes that failed at runtime.
-  std::list<SyncError> runtime_errors_;
+  std::vector<syncer::SyncError> runtime_errors_;
 
   ProfileSyncService* service_;
 

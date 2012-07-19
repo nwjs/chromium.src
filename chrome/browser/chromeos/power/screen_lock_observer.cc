@@ -4,17 +4,17 @@
 
 #include "chrome/browser/chromeos/power/screen_lock_observer.h"
 
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
 #include "chrome/browser/extensions/system/system_api.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 
 namespace chromeos {
 
 ScreenLockObserver::ScreenLockObserver() {
-  DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(this);
+  DBusThreadManager::Get()->GetSessionManagerClient()->AddObserver(this);
 }
 
 ScreenLockObserver::~ScreenLockObserver() {
-  DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(this);
+  DBusThreadManager::Get()->GetSessionManagerClient()->RemoveObserver(this);
 }
 
 void ScreenLockObserver::UnlockScreen() {

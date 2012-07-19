@@ -12,7 +12,9 @@ template is the path to a .json policy template file.'''
 
 from __future__ import with_statement
 from optparse import OptionParser
+import re
 import sys
+import textwrap
 
 
 CHROME_MANDATORY_SUBKEY = 'SOFTWARE\\\\Policies\\\\Google\\\\Chrome'
@@ -73,6 +75,38 @@ def _OutputGeneratedWarningForC(f, template_file_path):
             '//\n\n')
 
 
+COMMENT_WRAPPER = textwrap.TextWrapper()
+COMMENT_WRAPPER.width = 80
+COMMENT_WRAPPER.initial_indent = '// '
+COMMENT_WRAPPER.subsequent_indent = '// '
+COMMENT_WRAPPER.replace_whitespace = False
+
+
+# Writes a comment, each line prefixed by // and wrapped to 80 spaces.
+def _OutputComment(f, comment):
+  for line in comment.splitlines():
+    if len(line) == 0:
+      f.write('//')
+    else:
+      f.write(COMMENT_WRAPPER.fill(line))
+    f.write('\n')
+
+
+PH_PATTERN = re.compile('<ph[^>]*>([^<]*|[^<]*<ex>([^<]*)</ex>[^<]*)</ph>')
+
+
+# Simplistic grit placeholder stripper.
+def _RemovePlaceholders(text):
+  result = ''
+  pos = 0
+  for m in PH_PATTERN.finditer(text):
+    result += text[pos:m.start(0)]
+    result += m.group(2) or m.group(1)
+    pos = m.end(0)
+  result += text[pos:]
+  return result;
+
+
 # Returns a tuple with details about the given policy:
 # (name, type, list_of_platforms, is_deprecated, is_device_policy)
 def _GetPolicyDetails(policy):
@@ -130,7 +164,6 @@ def _WritePolicyConstantHeader(template_file_contents, args, opts):
 
     f.write('#ifndef CHROME_COMMON_POLICY_CONSTANTS_H_\n'
             '#define CHROME_COMMON_POLICY_CONSTANTS_H_\n'
-            '#pragma once\n'
             '\n'
             '#include <string>\n'
             '\n'
@@ -296,6 +329,9 @@ RESERVED_IDS = 2
 def _WritePolicyProto(file, policy, fields):
   if policy.get('device_only', False):
     return
+  desc = '\n'.join(map(str.strip,
+                       _RemovePlaceholders(policy['desc']).splitlines()))
+  _OutputComment(file, _RemovePlaceholders(policy['caption']) + '\n\n' + desc)
   file.write('message %sProto {\n' % policy['name'])
   file.write('  optional PolicyOptions policy_options = 1;\n')
   file.write('  optional %s %s = 2;\n' %

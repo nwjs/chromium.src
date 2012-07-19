@@ -8,6 +8,7 @@
 #include "base/bind_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/threading/thread_local.h"
+#include "third_party/libjingle/source/talk/base/nullsocketserver.h"
 
 namespace jingle_glue {
 
@@ -43,7 +44,7 @@ JingleThreadWrapper* JingleThreadWrapper::current() {
 }
 
 JingleThreadWrapper::JingleThreadWrapper(MessageLoop* message_loop)
-    : talk_base::Thread(NULL),
+    : talk_base::Thread(new talk_base::NullSocketServer()),
       message_loop_(message_loop),
       send_allowed_(false),
       last_task_id_(0),
@@ -59,6 +60,7 @@ JingleThreadWrapper::JingleThreadWrapper(MessageLoop* message_loop)
 }
 
 JingleThreadWrapper::~JingleThreadWrapper() {
+  Clear(NULL, talk_base::MQID_ANY, NULL);
 }
 
 void JingleThreadWrapper::WillDestroyCurrentMessageLoop() {
@@ -68,7 +70,9 @@ void JingleThreadWrapper::WillDestroyCurrentMessageLoop() {
   talk_base::ThreadManager::Instance()->SetCurrentThread(NULL);
   talk_base::MessageQueueManager::Instance()->Remove(this);
   message_loop_->RemoveDestructionObserver(this);
+  talk_base::SocketServer* ss = socketserver();
   delete this;
+  delete ss;
 }
 
 void JingleThreadWrapper::Post(

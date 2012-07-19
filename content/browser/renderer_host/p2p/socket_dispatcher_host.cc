@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -72,22 +72,15 @@ class P2PSocketDispatcherHost::DnsRequest {
       return;
     }
 
-    if (addresses_.head() == NULL) {
+    // TODO(szym): Redundant check. http://crbug.com/126211
+    if (addresses_.empty()) {
       LOG(ERROR) << "Received 0 addresses when trying to resolve address for "
                  << host_name_;
       done_callback_.Run(net::IPAddressNumber());
       return;
     }
 
-    net::IPEndPoint end_point;
-    if (!end_point.FromSockAddr(addresses_.head()->ai_addr,
-                                addresses_.head()->ai_addrlen)) {
-      LOG(ERROR) << "Received invalid address for " << host_name_;
-      done_callback_.Run(net::IPAddressNumber());
-      return;
-    }
-
-    done_callback_.Run(end_point.address());
+    done_callback_.Run(addresses_.front().address());
   }
 
   int32 routing_id_;
@@ -104,14 +97,6 @@ P2PSocketDispatcherHost::P2PSocketDispatcherHost(
     content::ResourceContext* resource_context)
     : resource_context_(resource_context),
       monitoring_networks_(false) {
-}
-
-P2PSocketDispatcherHost::~P2PSocketDispatcherHost() {
-  DCHECK(sockets_.empty());
-  DCHECK(dns_requests_.empty());
-
-  if (monitoring_networks_)
-    net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
 }
 
 void P2PSocketDispatcherHost::OnChannelClosing() {
@@ -148,6 +133,21 @@ bool P2PSocketDispatcherHost::OnMessageReceived(const IPC::Message& message,
   return handled;
 }
 
+void P2PSocketDispatcherHost::OnIPAddressChanged() {
+  // Notify the renderer about changes to list of network interfaces.
+  BrowserThread::PostTask(
+      BrowserThread::FILE, FROM_HERE, base::Bind(
+          &P2PSocketDispatcherHost::DoGetNetworkList, this));
+}
+
+P2PSocketDispatcherHost::~P2PSocketDispatcherHost() {
+  DCHECK(sockets_.empty());
+  DCHECK(dns_requests_.empty());
+
+  if (monitoring_networks_)
+    net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
+}
+
 P2PSocketHost* P2PSocketDispatcherHost::LookupSocket(
     int32 routing_id, int socket_id) {
   SocketsMap::iterator it = sockets_.find(
@@ -177,29 +177,6 @@ void P2PSocketDispatcherHost::OnStopNetworkNotifications(
   notifications_routing_ids_.erase(msg.routing_id());
 }
 
-void P2PSocketDispatcherHost::OnIPAddressChanged() {
-  // Notify the renderer about changes to list of network interfaces.
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE, base::Bind(
-          &P2PSocketDispatcherHost::DoGetNetworkList, this));
-}
-
-void P2PSocketDispatcherHost::DoGetNetworkList() {
-  net::NetworkInterfaceList list;
-  net::GetNetworkList(&list);
-  BrowserThread::PostTask(
-      BrowserThread::IO, FROM_HERE, base::Bind(
-          &P2PSocketDispatcherHost::SendNetworkList, this, list));
-}
-
-void P2PSocketDispatcherHost::SendNetworkList(
-    const net::NetworkInterfaceList& list) {
-  for (std::set<int>::iterator it = notifications_routing_ids_.begin();
-       it != notifications_routing_ids_.end(); ++it) {
-    Send(new P2PMsg_NetworkListChanged(*it, list));
-  }
-}
-
 void P2PSocketDispatcherHost::OnGetHostAddress(const IPC::Message& msg,
                                                const std::string& host_name,
                                                int32 request_id) {
@@ -209,16 +186,6 @@ void P2PSocketDispatcherHost::OnGetHostAddress(const IPC::Message& msg,
   request->Resolve(host_name, base::Bind(
       &P2PSocketDispatcherHost::OnAddressResolved,
       base::Unretained(this), request));
-}
-
-void P2PSocketDispatcherHost::OnAddressResolved(
-    DnsRequest* request,
-    const net::IPAddressNumber& result) {
-  Send(new P2PMsg_GetHostAddressResult(
-      request->routing_id(), request->request_id(), result));
-
-  dns_requests_.erase(request);
-  delete request;
 }
 
 void P2PSocketDispatcherHost::OnCreateSocket(
@@ -284,6 +251,32 @@ void P2PSocketDispatcherHost::OnDestroySocket(const IPC::Message& msg,
   } else {
     LOG(ERROR) << "Received P2PHostMsg_DestroySocket for invalid socket_id.";
   }
+}
+
+void P2PSocketDispatcherHost::DoGetNetworkList() {
+  net::NetworkInterfaceList list;
+  net::GetNetworkList(&list);
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE, base::Bind(
+          &P2PSocketDispatcherHost::SendNetworkList, this, list));
+}
+
+void P2PSocketDispatcherHost::SendNetworkList(
+    const net::NetworkInterfaceList& list) {
+  for (std::set<int>::iterator it = notifications_routing_ids_.begin();
+       it != notifications_routing_ids_.end(); ++it) {
+    Send(new P2PMsg_NetworkListChanged(*it, list));
+  }
+}
+
+void P2PSocketDispatcherHost::OnAddressResolved(
+    DnsRequest* request,
+    const net::IPAddressNumber& result) {
+  Send(new P2PMsg_GetHostAddressResult(
+      request->routing_id(), request->request_id(), result));
+
+  dns_requests_.erase(request);
+  delete request;
 }
 
 }  // namespace content

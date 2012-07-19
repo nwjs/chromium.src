@@ -71,7 +71,7 @@ void StreamCreatedCallback(void* user_data, int32_t result) {
   const int kInvalidIntHandle = int(nacl::kInvalidHandle);
   int sync_socket_handle = kInvalidIntHandle;
   int shared_memory_handle = kInvalidIntHandle;
-  uint32_t shared_memory_size = 0;
+  uint32_t audio_buffer_size = 0;
   if (PP_OK != audioTrusted->GetSyncSocket(data->audio_id,
                                            &sync_socket_handle)) {
     return;
@@ -81,12 +81,14 @@ void StreamCreatedCallback(void* user_data, int32_t result) {
   }
   if (PP_OK != audioTrusted->GetSharedMemory(data->audio_id,
                                              &shared_memory_handle,
-                                             &shared_memory_size)) {
+                                             &audio_buffer_size)) {
     return;
   }
   if (kInvalidIntHandle == shared_memory_handle) {
     return;
   }
+  size_t total_shared_memory_size =
+      ppapi_proxy::TotalAudioSharedMemorySizeInBytes(audio_buffer_size);
   nacl::DescWrapperFactory factory;
   NaClHandle nacl_shm_handle = NaClHandle(shared_memory_handle);
   NaClHandle nacl_sync_handle = NaClHandle(sync_socket_handle);
@@ -95,7 +97,7 @@ void StreamCreatedCallback(void* user_data, int32_t result) {
     return;
   }
   nacl::scoped_ptr<nacl::DescWrapper> shm_wrapper(factory.ImportShmHandle(
-      nacl_shm_dup_handle, shared_memory_size));
+      nacl_shm_dup_handle, total_shared_memory_size));
   NaClHandle nacl_sync_dup_handle = NaClDuplicateNaClHandle(nacl_sync_handle);
   if (nacl::kInvalidHandle == nacl_sync_dup_handle) {
     return;
@@ -104,11 +106,15 @@ void StreamCreatedCallback(void* user_data, int32_t result) {
       factory.ImportSyncSocketHandle(nacl_sync_dup_handle));
   NaClDesc *nacl_shm = shm_wrapper->desc();
   NaClDesc *nacl_socket = socket_wrapper->desc();
+  NaClSrpcChannel* nacl_srpc_channel = ppapi_proxy::GetMainSrpcChannel(
+      data->instance_id);
+  if (NULL == nacl_srpc_channel)
+    return;
   static_cast<void>(PppAudioRpcClient::PPP_Audio_StreamCreated(
-      ppapi_proxy::GetMainSrpcChannel(data->instance_id),
+      nacl_srpc_channel,
       data->audio_id,
       nacl_shm,
-      shared_memory_size,
+      audio_buffer_size,
       nacl_socket));
 }
 

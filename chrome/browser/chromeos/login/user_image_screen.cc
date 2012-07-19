@@ -10,7 +10,9 @@
 #include "chrome/browser/chromeos/login/default_user_images.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
 #include "chrome/browser/chromeos/login/screen_observer.h"
+#include "chrome/browser/chromeos/login/user_image.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_service.h"
 #include "grit/generated_resources.h"
@@ -18,6 +20,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/image/image_skia.h"
 
 namespace chromeos {
 
@@ -80,6 +83,10 @@ void UserImageScreen::Hide() {
     actor_->Hide();
 }
 
+std::string UserImageScreen::GetName() const {
+  return WizardController::kUserImageScreenName;
+}
+
 void UserImageScreen::OnCaptureSuccess() {
   if (!actor_)
     return;
@@ -107,9 +114,10 @@ void UserImageScreen::StopCamera() {
   camera_controller_.Stop();
 }
 
-void UserImageScreen::OnPhotoTaken(const SkBitmap& image) {
+void UserImageScreen::OnPhotoTaken(const gfx::ImageSkia& image) {
   UserManager* user_manager = UserManager::Get();
-  user_manager->SaveUserImage(user_manager->GetLoggedInUser().email(), image);
+  user_manager->SaveUserImage(user_manager->GetLoggedInUser().email(),
+                              UserImage(image));
 
   get_screen_observer()->OnExit(ScreenObserver::USER_IMAGE_SELECTED);
 
@@ -161,9 +169,10 @@ void UserImageScreen::Observe(int type,
     }
     case chrome::NOTIFICATION_PROFILE_IMAGE_UPDATED: {
       // We've got a new profile image.
-      if (actor_)
+      if (actor_) {
         actor_->AddProfileImage(
-            *content::Details<const SkBitmap>(details).ptr());
+            *content::Details<const gfx::ImageSkia>(details).ptr());
+      }
       break;
     }
     case chrome::NOTIFICATION_PROFILE_IMAGE_UPDATE_FAILED: {

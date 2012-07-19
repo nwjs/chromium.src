@@ -5,25 +5,28 @@
 #ifndef WEBKIT_MEDIA_WEBMEDIAPLAYER_DELEGATE_H_
 #define WEBKIT_MEDIA_WEBMEDIAPLAYER_DELEGATE_H_
 
+namespace WebKit {
+class WebMediaPlayer;
+}
 namespace webkit_media {
-
-class WebMediaPlayerImpl;
 
 // An interface to allow a WebMediaPlayerImpl to communicate changes of state
 // to objects that need to know.
 class WebMediaPlayerDelegate {
  public:
   WebMediaPlayerDelegate() {}
-  virtual ~WebMediaPlayerDelegate() {}
 
   // The specified player started playing media.
-  virtual void DidPlay(WebMediaPlayerImpl* player) {}
+  virtual void DidPlay(WebKit::WebMediaPlayer* player) {}
 
   // The specified player stopped playing media.
-  virtual void DidPause(WebMediaPlayerImpl* player) {}
+  virtual void DidPause(WebKit::WebMediaPlayer* player) {}
 
   // The specified player was destroyed. Do not call any methods on it.
-  virtual void PlayerGone(WebMediaPlayerImpl* player) {}
+  virtual void PlayerGone(WebKit::WebMediaPlayer* player) {}
+
+ protected:
+  virtual ~WebMediaPlayerDelegate() {}
 };
 
 }  // namespace webkit_media

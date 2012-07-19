@@ -24,7 +24,7 @@
 
 #include <vector>
 
-#include "content/renderer/media/audio_device.h"
+#include "base/synchronization/lock.h"
 #include "media/base/audio_renderer_sink.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebVector.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAudioSourceProvider.h"
@@ -38,7 +38,6 @@ class RenderAudioSourceProvider
       public media::AudioRendererSink {
  public:
   RenderAudioSourceProvider();
-  virtual ~RenderAudioSourceProvider();
 
   // WebKit::WebAudioSourceProvider implementation.
 
@@ -57,10 +56,13 @@ class RenderAudioSourceProvider
   virtual void Stop() OVERRIDE;
   virtual void Play() OVERRIDE;
   virtual void Pause(bool flush) OVERRIDE;
+  virtual void SetPlaybackRate(float rate) OVERRIDE;
   virtual bool SetVolume(double volume) OVERRIDE;
-  virtual void GetVolume(double* volume) OVERRIDE;
-  virtual void Initialize(
-      const media::AudioParameters& params, RenderCallback* renderer) OVERRIDE;
+  virtual void Initialize(const media::AudioParameters& params,
+                          RenderCallback* renderer) OVERRIDE;
+
+ protected:
+  virtual ~RenderAudioSourceProvider();
 
  private:
   // Set to true when Initialize() is called.
@@ -69,7 +71,6 @@ class RenderAudioSourceProvider
   int sample_rate_;
 
   bool is_running_;
-  double volume_;
   media::AudioRendererSink::RenderCallback* renderer_;
   WebKit::WebAudioSourceProviderClient* client_;
 

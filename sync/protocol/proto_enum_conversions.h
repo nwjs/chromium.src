@@ -4,7 +4,6 @@
 
 #ifndef SYNC_PROTOCOL_PROTO_ENUM_CONVERSIONS_H_
 #define SYNC_PROTOCOL_PROTO_ENUM_CONVERSIONS_H_
-#pragma once
 
 // Keep this file in sync with the .proto files in this directory.
 
@@ -14,7 +13,7 @@
 // Utility functions to get the string equivalent for some sync proto
 // enums.
 
-namespace browser_sync {
+namespace syncer {
 
 // The returned strings (which don't have to be freed) are in ASCII.
 // The result of passing in an invalid enum value is undefined.
@@ -23,10 +22,10 @@ const char* GetBrowserTypeString(
     sync_pb::SessionWindow::BrowserType browser_type);
 
 const char* GetPageTransitionString(
-    sync_pb::TabNavigation::PageTransition page_transition);
+    sync_pb::SyncEnums::PageTransition page_transition);
 
 const char* GetPageTransitionQualifierString(
-    sync_pb::TabNavigation::PageTransitionQualifier
+    sync_pb::SyncEnums::PageTransitionQualifier
         page_transition_qualifier);
 
 const char* GetUpdatesSourceString(
@@ -42,6 +41,9 @@ const char* GetActionString(sync_pb::SyncEnums::Action action);
 const char* GetDeviceTypeString(
     sync_pb::SessionHeader::DeviceType device_type);
 
-}  // namespace browser_sync
+const char* GetFaviconTypeString(
+    sync_pb::SessionTab::FaviconType favicon_type);
+
+}  // namespace syncer
 
 #endif  // SYNC_PROTOCOL_PROTO_ENUM_CONVERSIONS_H_

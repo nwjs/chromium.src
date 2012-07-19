@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -51,12 +51,6 @@ class InterfaceList {
   };
 
   typedef std::map<std::string, InterfaceInfo> NameToInterfaceInfoMap;
-
-  // Registers the Flash-specific interfaces.
-  //
-  // TODO(brettw) these should be moved somewhere separately so we can compile
-  // the proxy for NaCl without Flash interface support.
-  void AddFlashInterfaces();
 
   void AddProxy(ApiID id, InterfaceProxy::Factory factory);
 

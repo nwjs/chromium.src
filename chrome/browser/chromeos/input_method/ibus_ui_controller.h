@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -8,7 +8,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_INPUT_METHOD_IBUS_UI_CONTROLLER_H_
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_IBUS_UI_CONTROLLER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -17,11 +16,18 @@
 #include "base/observer_list.h"
 #include "third_party/mozc/session/candidates_lite.pb.h"
 
+namespace gfx {
+class Rect;
+}  // namespace gfx
+
 namespace chromeos {
 namespace input_method {
 
 // A key for attaching the |ibus_service_panel_| object to |ibus_|.
 const char kPanelObjectKey[] = "panel-object";
+
+class InputMethodDescriptor;
+typedef std::vector<InputMethodDescriptor> InputMethodDescriptors;
 
 // The struct represents the input method lookup table (list of candidates).
 // Used for InputMethodUpdateLookupTableMonitorFunction.
@@ -82,7 +88,8 @@ class IBusUiController {
     virtual void OnHidePreeditText() = 0;
 
     // Called when the cursor location is set.
-    virtual void OnSetCursorLocation(int x, int y, int width, int height) = 0;
+    virtual void OnSetCursorLocation(const gfx::Rect& cusor_location,
+                                     const gfx::Rect& composition_head) = 0;
 
     // Called when the auxiliary text is updated.
     virtual void OnUpdateAuxiliaryText(const std::string& text,
@@ -140,6 +147,9 @@ class IBusUiController {
   // sent to the ibus-daemon
   virtual void NotifyPageDown() = 0;
 };
+
+bool IsActiveForTesting(const std::string& input_method_id,
+                        const InputMethodDescriptors* descriptors);
 
 }  // namespace input_method
 }  // namespace chromeos

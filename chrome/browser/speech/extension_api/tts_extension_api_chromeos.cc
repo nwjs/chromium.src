@@ -12,10 +12,10 @@
 #include "base/message_loop.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/speech_synthesizer_client.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api_controller.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api_platform.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/speech_synthesizer_client.h"
 
 using base::DoubleToString;
 
@@ -46,6 +46,8 @@ class ExtensionTtsPlatformImplChromeOs
       const UtteranceContinuousParameters& params);
 
   virtual bool StopSpeaking();
+
+  virtual bool IsSpeaking();
 
   virtual bool SendsEvent(TtsEventType event_type);
 
@@ -163,6 +165,11 @@ bool ExtensionTtsPlatformImplChromeOs::StopSpeaking() {
   return true;
 }
 
+bool ExtensionTtsPlatformImplChromeOs::IsSpeaking() {
+  // Defers to controller's utterance based detection of is speaking.
+  return true;
+}
+
 bool ExtensionTtsPlatformImplChromeOs::SendsEvent(TtsEventType event_type) {
   return (event_type == TTS_EVENT_START ||
           event_type == TTS_EVENT_END ||
@@ -213,7 +220,7 @@ void ExtensionTtsPlatformImplChromeOs::ContinuePollingIfSpeechIsNotFinished(
           &ExtensionTtsPlatformImplChromeOs::PollUntilSpeechFinishes,
           weak_ptr_factory_.GetWeakPtr(),
           utterance_id),
-      kSpeechCheckDelayIntervalMs);
+      base::TimeDelta::FromMilliseconds(kSpeechCheckDelayIntervalMs));
 }
 
 void ExtensionTtsPlatformImplChromeOs::AppendSpeakOption(

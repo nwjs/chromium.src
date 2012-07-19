@@ -52,6 +52,7 @@ WHITELISTED_LICENSES = [
     'BSL (v1.0)',
     # TODO(phajdan.jr): Make licensecheck not print the comma after 3.1.
     'BSL (v1.0) GPL (v3.1,)',
+    'GPL (v2 or later) with Bison parser exception',
     'GPL (v3 or later) with Bison parser exception',
     'GPL with Bison parser exception',
     'ISC',
@@ -136,6 +137,8 @@ PATH_SPECIFIC_WHITELISTED_LICENSES = {
 
         # TODO(phajdan.jr): Make licensecheck not print the comma after 3.1.
         'GPL (v3.1,)',
+
+        'GPL (v3 or later)',
     ],
     'net/disk_cache/hash.cc': [  # http://crbug.com/98100
         'UNKNOWN',
@@ -164,6 +167,7 @@ PATH_SPECIFIC_WHITELISTED_LICENSES = {
     ],
     'third_party/WebKit/Source/JavaScriptCore/tests/mozilla': [
         'GPL',
+        'GPL (v2 or later)',
         'GPL (unversioned/unknown version)',
     ],
     'third_party/active_doc': [  # http://crbug.com/98113
@@ -241,6 +245,24 @@ PATH_SPECIFIC_WHITELISTED_LICENSES = {
     'third_party/libpng': [  # http://crbug.com/98318
         'UNKNOWN',
     ],
+
+    # The following files lack license headers, but are trivial.
+    'third_party/libusb/src/libusb/os/poll_posix.h': [
+        'UNKNOWN',
+    ],
+    'third_party/libusb/src/libusb/version.h': [
+        'UNKNOWN',
+    ],
+    'third_party/libusb/src/autogen.sh': [
+        'UNKNOWN',
+    ],
+    'third_party/libusb/src/config.h': [
+        'UNKNOWN',
+    ],
+    'third_party/libusb/src/msvc/config.h': [
+        'UNKNOWN',
+    ],
+
     'third_party/libvpx/source': [  # http://crbug.com/98319
         'UNKNOWN',
     ],

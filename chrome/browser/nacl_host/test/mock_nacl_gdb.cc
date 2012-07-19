@@ -9,12 +9,24 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/process_util.h"
 
 static const char kArgs[] = "--args";
 static const char kEvalCommand[] = "--eval-command";
+static const char kCommand[] = "--command";
 static const char kNaClIrt[] = "nacl-irt ";
 static const char kPass[] = "PASS";
+static const char kDump[] = "dump binary value ";
+static const char kAttach[] = "attach ";
+
+// Send message to child nacl_helper
+void SendMessage(const char* arg) {
+  const char* file_end = strchr(arg, ' ');
+  CHECK(file_end);
+  char buf = '\0';
+  file_util::WriteFile(FilePath(FilePath::StringType(arg, file_end)), &buf, 1);
+}
 
 int main(int argc, char** argv) {
   scoped_ptr<base::Environment> env(base::Environment::Create());
@@ -34,6 +46,8 @@ int main(int argc, char** argv) {
   PCHECK(irt_file);
   fclose(irt_file);
   int i = 3;
+  bool has_attach_cmd = false;
+  char* message_pipe = NULL;
   // Skip additional --eval-command parameters.
   while (i < argc) {
     if (strcmp(argv[i], kArgs) == 0) {
@@ -44,10 +58,31 @@ int main(int argc, char** argv) {
       i += 2;
       // Command line shouldn't end with --eval-command switch without value.
       CHECK_LE(i, argc);
+      if (strncmp(argv[i - 1], kDump, sizeof(kDump) - 1) == 0) {
+        message_pipe = argv[i - 1] + sizeof(kDump) - 1;
+      } else if (strncmp(argv[i - 1], kAttach, sizeof(kAttach) - 1) == 0) {
+        has_attach_cmd = true;
+      }
+      continue;
+    }
+    if (strcmp(argv[i], kCommand) == 0) {
+      // Command line shouldn't end with --command switch without value.
+      i += 2;
+      CHECK_LE(i, argc);
+      std::string nacl_gdb_script(argv[i - 1]);
+      file_util::WriteFile(FilePath::FromUTF8Unsafe(nacl_gdb_script),
+                           kPass, strlen(kPass));
       continue;
     }
     // Unknown argument.
     NOTREACHED() << "Invalid argument " << argv[i];
+  }
+  if (has_attach_cmd) {
+    CHECK_EQ(i, argc);
+    CHECK(message_pipe);
+    // Test passed, so we can let NaCl launching to continue.
+    SendMessage(message_pipe);
+    return 0;
   }
   // --args switch must be present.
   CHECK_LT(i, argc);

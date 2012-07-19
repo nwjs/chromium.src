@@ -4,68 +4,35 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_SPEECH_RECOGNITION_MANAGER_DELEGATE_H_
 #define CONTENT_PUBLIC_BROWSER_SPEECH_RECOGNITION_MANAGER_DELEGATE_H_
-#pragma once
 
 #include <string>
 
+#include "base/callback_forward.h"
 #include "content/public/common/speech_recognition_error.h"
-
-namespace gfx {
-class Rect;
-}
 
 namespace content {
 
+class SpeechRecognitionEventListener;
 struct SpeechRecognitionResult;
 
 // Allows embedders to display the current state of recognition, for getting the
 // user's permission and for fetching optional request information.
 class SpeechRecognitionManagerDelegate {
  public:
-  // Describes the microphone errors that are reported via ShowMicError.
-  enum MicError {
-    MIC_ERROR_NO_DEVICE_AVAILABLE = 0,
-    MIC_ERROR_DEVICE_IN_USE
-  };
-
   virtual ~SpeechRecognitionManagerDelegate() {}
 
-  // Get the optional request information if available.
-  virtual void GetRequestInfo(bool* can_report_metrics,
-                              std::string* request_info) = 0;
+  // Get the optional diagnostic hardware information if available.
+  virtual void GetDiagnosticInformation(bool* can_report_metrics,
+                                        std::string* hardware_info) = 0;
 
-  // Called when recognition has been requested from point |element_rect_| on
-  // the view port for the given caller. The embedder should call the
-  // StartRecognition or CancelRecognition methods on SpeechInutManager in
-  // response.
-  virtual void ShowRecognitionRequested(int caller_id,
-                                        int render_process_id,
-                                        int render_view_id,
-                                        const gfx::Rect& element_rect) = 0;
+  // Checks (asynchronously) if current setup allows speech recognition.
+  virtual void CheckRecognitionIsAllowed(
+      int session_id,
+      base::Callback<void(int session_id, bool is_allowed)> callback) = 0;
 
-  // Called when recognition is starting up.
-  virtual void ShowWarmUp(int caller_id) = 0;
-
-  // Called when recognition has started.
-  virtual void ShowRecognizing(int caller_id) = 0;
-
-  // Called when recording has started.
-  virtual void ShowRecording(int caller_id) = 0;
-
-  // Continuously updated with the current input volume.
-  virtual void ShowInputVolume(int caller_id,
-                               float volume,
-                               float noise_volume) = 0;
-
-  // Called when no microphone has been found.
-  virtual void ShowMicError(int caller_id, MicError error) = 0;
-
-  // Called when there has been a error with the recognition.
-  virtual void ShowRecognizerError(int caller_id,
-                                   SpeechRecognitionErrorCode error) = 0;
-
-  // Called when recognition has ended or has been canceled.
-  virtual void DoClose(int caller_id) = 0;
+  // Checks whether the delegate is interested (returning a non NULL ptr) or not
+  // (returning NULL) in receiving a copy of all sessions events.
+  virtual SpeechRecognitionEventListener* GetEventListener() = 0;
 };
 
 }  // namespace content

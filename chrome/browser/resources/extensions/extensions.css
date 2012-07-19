@@ -64,12 +64,12 @@ html.loading * {
   -webkit-padding-start: 10px;
 }
 
-#get-more-extensions {
+#footer-section {
   background: url('chrome://theme/IDR_WEBSTORE_ICON_32') no-repeat left center;
   font-size: 1.25em;
 }
 
-#get-more-extensions > a {
+#footer-section > a {
   -webkit-margin-start: 42px;
   line-height: 32px;
 }
@@ -78,8 +78,10 @@ html.loading * {
   height: 3em;
 }
 
+.loading #no-extensions,
+.loading #footer-section,
 #extension-settings-list:not(.empty-extension-list) ~ #no-extensions,
-.empty-extension-list ~ #get-more-extensions {
+.empty-extension-list ~ #footer-section {
   display: none;
 }
 
@@ -123,7 +125,7 @@ html[dir='rtl'] .extension-list-item {
 }
 
 .extension-description,
-.extension-list-item-wrapper.disabled-extension .extension-details,
+.extension-list-item-wrapper.inactive-extension .extension-details,
 .enable-checkbox input:disabled + .enable-checkbox-text {
   color: rgb(151, 156, 160);
 }
@@ -147,10 +149,10 @@ html[dir='rtl'] .extension-list-item {
   font-weight: bold;
 }
 
-.extension-list-item-wrapper.disabled-extension .enabled-text,
-.extension-list-item-wrapper:not(.disabled-extension) .enable-text,
-.extension-list-item-wrapper.disabled-extension .optional-controls,
-.extension-list-item-wrapper.disabled-extension .butter-bar {
+.extension-list-item-wrapper.inactive-extension .enabled-text,
+.extension-list-item-wrapper:not(.inactive-extension) .enable-text,
+.extension-list-item-wrapper.inactive-extension .optional-controls,
+.extension-list-item-wrapper.inactive-extension .butter-bar {
   display: none;
 }
 
@@ -167,17 +169,40 @@ html[dir='rtl'] .extension-list-item {
   display: inline-block;
 }
 
-.butter-bar {
-  background: rgb(255, 242, 153);
+.install-warnings a {
+  -webkit-margin-start: 0;
+}
+
+.butter-bar,
+.install-warnings,
+.extension-warnings {
   border-radius: 3px;
   margin-top: 5px;
   padding: 2px 5px;
+}
+
+.butter-bar {
+  background: rgb(255, 242, 153);
+}
+
+.install-warnings,
+.extension-warnings {
+  background: pink;
+}
+
+.install-warnings ul,
+.extension-warnings ul {
+  margin: 0;
 }
 
 #font-measuring-div {
   /* Remove from the flow and hide. */
   position: absolute;
   visibility: hidden;
+}
+
+.extension-commands-config {
+  float: right;
 }
 
 /* Overlays */
@@ -188,6 +213,16 @@ html[dir='rtl'] .extension-list-item {
 
 #overlay .page:not(.showing) {
   display: none;
+}
+
+#dropTargetOverlay {
+  color: rgb(48, 57, 66);
+  font-size: 18px;
+  text-align: center;
+}
+
+#dropTargetOverlay div {
+  margin: 1em;
 }
 
 /* Trash */
@@ -213,4 +248,22 @@ html[dir='rtl'] #extension-settings .trash {
 
 .extension-list-item-wrapper.may-not-disable .trash {
   visibility: hidden;
+}
+
+.may-not-disable .optional-controls {
+  display: none;
+}
+
+.page:not(.dev-mode) #dev-controls {
+  display: none;
+}
+
+/* Managed mode */
+
+.page:not(.managed-mode) #managed-mode-banner {
+  display: none;
+}
+
+.managed-mode .more-extensions-link {
+  display: none;
 }

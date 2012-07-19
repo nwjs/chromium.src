@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_DEVTOOLS_BRIDGE_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_DEVTOOLS_BRIDGE_H_
-#pragma once
 
 #include <string>
 
@@ -25,12 +24,12 @@ class ExtensionDevToolsBridge : public content::DevToolsClientHost {
 
   // DevToolsClientHost, called when the tab inspected by this client is
   // closing.
-  virtual void InspectedTabClosing() OVERRIDE;
+  virtual void InspectedContentsClosing() OVERRIDE;
 
   // DevToolsClientHost, called to dispatch a message on this client.
   virtual void DispatchOnInspectorFrontend(const std::string& message) OVERRIDE;
 
-  virtual void TabReplaced(content::WebContents* new_tab) OVERRIDE;
+  virtual void ContentsReplaced(content::WebContents* new_contents) OVERRIDE;
 
  private:
   virtual void FrameNavigating(const std::string& url) OVERRIDE {}

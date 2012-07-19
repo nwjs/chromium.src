@@ -46,18 +46,19 @@
 #include "chrome/test/automation/tab_proxy.h"
 #include "chrome/test/automation/window_proxy.h"
 #include "chrome/test/base/chrome_process_util.h"
+#include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/test_switches.h"
 #include "content/common/debug_flags.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/net_util.h"
-#include "ui/gfx/gl/gl_implementation.h"
+#include "ui/gl/gl_implementation.h"
 
 #if defined(OS_WIN)
 #include "base/win/windows_version.h"
 #endif
 
 #if defined(USE_AURA)
-#include "ui/gfx/compositor/compositor_switches.h"
+#include "ui/compositor/compositor_switches.h"
 #endif
 
 using base::Time;
@@ -131,31 +132,11 @@ void UITestBase::TearDown() {
   if (launcher_.get())
     launcher_->TerminateConnection();
 
-  // Make sure that we didn't encounter any assertion failures
-  logging::AssertionList assertions;
-  logging::GetFatalAssertions(&assertions);
+  CheckErrorsAndCrashes();
+}
 
-  // If there were errors, get all the error strings for display.
-  std::wstring failures =
-    L"The following error(s) occurred in the application during this test:";
-  if (assertions.size() > expected_errors_) {
-    logging::AssertionList::const_iterator iter = assertions.begin();
-    for (; iter != assertions.end(); ++iter) {
-      failures.append(L"\n\n");
-      failures.append(*iter);
-    }
-  }
-  EXPECT_EQ(expected_errors_, assertions.size()) << failures;
-
-  int actual_crashes = GetCrashCount();
-
-  std::wstring error_msg =
-      L"Encountered an unexpected crash in the program during this test.";
-  if (expected_crashes_ > 0 && actual_crashes == 0) {
-    error_msg += L"  ";
-    error_msg += kFailedNoCrashService;
-  }
-  EXPECT_EQ(expected_crashes_, actual_crashes) << error_msg;
+AutomationProxy* UITestBase::automation() const {
+  return launcher_->automation();
 }
 
 int UITestBase::action_timeout_ms() {
@@ -183,10 +164,6 @@ ProxyLauncher::LaunchState UITestBase::DefaultLaunchState() {
   return state;
 }
 
-bool UITestBase::ShouldFilterInet() {
-  return true;
-}
-
 void UITestBase::SetLaunchSwitches() {
   // All flags added here should also be added in ExtraChromeFlags() in
   // chrome/test/pyautolib/pyauto.py as well to take effect for all tests
@@ -200,6 +177,8 @@ void UITestBase::SetLaunchSwitches() {
     launch_arguments_.AppendSwitch(switches::kEnableFileCookies);
   if (dom_automation_enabled_)
     launch_arguments_.AppendSwitch(switches::kDomAutomationController);
+  // Allow off-store extension installs.
+  launch_arguments_.AppendSwitch(switches::kEnableEasyOffStoreExtensionInstall);
   if (!homepage_.empty()) {
     // Pass |homepage_| both as an arg (so that it opens on startup) and to the
     // homepage switch (so that the homepage is set).
@@ -249,42 +228,6 @@ void UITestBase::LaunchBrowser(const CommandLine& arguments,
   state.clear_profile = clear_profile;
   ASSERT_TRUE(launcher_->LaunchBrowser(state));
 }
-
-#if !defined(OS_MACOSX)
-bool UITestBase::LaunchAnotherBrowserBlockUntilClosed(
-    const CommandLine& cmdline) {
-  ProxyLauncher::LaunchState state = DefaultLaunchState();
-  state.command.AppendArguments(cmdline, false);
-  return launcher_->LaunchAnotherBrowserBlockUntilClosed(state);
-}
-
-bool UITestBase::LaunchAnotherBrowserNoUrlArg(const CommandLine& cmdline) {
-  // Clear the homepage temporarily, and reset the launch switches, so that the
-  // URL argument doesn't get added.
-
-  std::string homepage_original;
-  std::swap(homepage_original, homepage_);
-
-  CommandLine launch_arguments_original(launch_arguments_);
-  launch_arguments_ = CommandLine(launch_arguments_.GetProgram());
-
-  SetLaunchSwitches();
-
-  ProxyLauncher::LaunchState state = DefaultLaunchState();
-
-  // But do add the --homepage switch
-  state.command.AppendSwitchASCII(switches::kHomePage, homepage_original);
-
-  state.command.AppendArguments(cmdline, false);
-  bool result = launcher_->LaunchAnotherBrowserBlockUntilClosed(state);
-
-  // Reset launch_arguments_ and homepage_ to their original values.
-  std::swap(homepage_original, homepage_);
-  std::swap(launch_arguments_original, launch_arguments_);
-
-  return result;
-}
-#endif
 
 void UITestBase::QuitBrowser() {
   launcher_->QuitBrowser();
@@ -449,26 +392,10 @@ void UITestBase::WaitUntilTabCount(int tab_count) {
   ADD_FAILURE() << "Timeout reached in WaitUntilTabCount";
 }
 
-FilePath UITestBase::GetDownloadDirectory() {
-  scoped_refptr<TabProxy> tab_proxy(GetActiveTab());
-  EXPECT_TRUE(tab_proxy.get());
-  if (!tab_proxy.get())
-    return FilePath();
-
-  FilePath download_directory;
-  EXPECT_TRUE(tab_proxy->GetDownloadDirectory(&download_directory));
-  return download_directory;
-}
-
 const FilePath::CharType* UITestBase::GetExecutablePath() {
   if (launch_arguments_.HasSwitch(switches::kEnableChromiumBranding))
     return chrome::kBrowserProcessExecutablePathChromium;
   return chrome::kBrowserProcessExecutablePath;
-}
-
-void UITestBase::CloseBrowserAsync(BrowserProxy* browser) const {
-  ASSERT_TRUE(automation()->Send(
-      new AutomationMsg_CloseBrowserRequestAsync(browser->handle())));
 }
 
 bool UITestBase::CloseBrowser(BrowserProxy* browser,
@@ -525,7 +452,7 @@ FilePath UITestBase::ComputeTypicalUserDataSource(
   return source_history_file;
 }
 
-int UITestBase::GetCrashCount() {
+int UITestBase::GetCrashCount() const {
   FilePath crash_dump_path;
   PathService::Get(chrome::DIR_CRASH_DUMPS, &crash_dump_path);
   int actual_crashes = file_util::CountFilesCreatedAfter(
@@ -539,6 +466,44 @@ int UITestBase::GetCrashCount() {
   return actual_crashes;
 }
 
+std::string UITestBase::CheckErrorsAndCrashes() const {
+  // Make sure that we didn't encounter any assertion failures
+  logging::AssertionList assertions;
+  logging::GetFatalAssertions(&assertions);
+
+  // If there were errors, get all the error strings for display.
+  std::wstring failures =
+      L"The following error(s) occurred in the application during this test:";
+  if (assertions.size() > expected_errors_) {
+    logging::AssertionList::const_iterator iter = assertions.begin();
+    for (; iter != assertions.end(); ++iter) {
+      failures += L"\n\n";
+      failures += *iter;
+    }
+  }
+  EXPECT_EQ(expected_errors_, assertions.size()) << failures;
+
+  int actual_crashes = GetCrashCount();
+
+  std::wstring error_msg =
+      L"Encountered an unexpected crash in the program during this test.";
+  if (expected_crashes_ > 0 && actual_crashes == 0) {
+    error_msg += L"  ";
+    error_msg += kFailedNoCrashService;
+  }
+  EXPECT_EQ(expected_crashes_, actual_crashes) << error_msg;
+
+  std::wstring wide_result;
+  if (expected_errors_ != assertions.size()) {
+    wide_result += failures;
+    wide_result += L"\n\n";
+  }
+  if (expected_crashes_ != actual_crashes)
+    wide_result += error_msg;
+
+  return std::string(wide_result.begin(), wide_result.end());
+}
+
 void UITestBase::SetBrowserDirectory(const FilePath& dir) {
   browser_directory_ = dir;
 }
@@ -550,6 +515,17 @@ void UITestBase::AppendBrowserLaunchSwitch(const char* name) {
 void UITestBase::AppendBrowserLaunchSwitch(const char* name,
                                            const char* value) {
   launch_arguments_.AppendSwitchASCII(name, value);
+}
+
+bool UITestBase::BeginTracing(const std::string& categories) {
+  return automation()->BeginTracing(categories);
+}
+
+std::string UITestBase::EndTracing() {
+  std::string json_trace_output;
+  if (!automation()->EndTracing(&json_trace_output))
+    return "";
+  return json_trace_output;
 }
 
 // UITest methods
@@ -609,7 +585,7 @@ DictionaryValue* UITest::GetLocalState() {
 DictionaryValue* UITest::GetDefaultProfilePreferences() {
   FilePath path;
   PathService::Get(chrome::DIR_USER_DATA, &path);
-  path = path.AppendASCII(chrome::kInitialProfile);
+  path = path.AppendASCII(TestingProfile::kTestUserProfileDir);
   return LoadDictionaryValueFromPath(path.Append(chrome::kPreferencesFilename));
 }
 
@@ -647,51 +623,6 @@ bool UITest::EvictFileFromSystemCacheWrapper(const FilePath& path) {
     base::PlatformThread::Sleep(kDelay);
   }
   return false;
-}
-
-void UITest::WaitForGeneratedFileAndCheck(
-    const FilePath& generated_file,
-    const FilePath& original_file,
-    bool compare_files,
-    bool need_equal,
-    bool delete_generated_file) {
-  // Check whether the target file has been generated.
-  base::PlatformFileInfo previous, current;
-  bool exist = false;
-  const int kCycles = 20;
-  const TimeDelta kDelay = TestTimeouts::action_timeout() / kCycles;
-  for (int i = 0; i < kCycles; ++i) {
-    if (exist) {
-      file_util::GetFileInfo(generated_file, &current);
-      if (current.size == previous.size)
-        break;
-      previous = current;
-    } else if (file_util::PathExists(generated_file)) {
-      file_util::GetFileInfo(generated_file, &previous);
-      exist = true;
-    }
-    base::PlatformThread::Sleep(kDelay);
-  }
-  EXPECT_TRUE(exist);
-
-  if (compare_files) {
-    // Check whether the generated file is equal with original file according to
-    // parameter: need_equal.
-    int64 generated_file_size = 0;
-    int64 original_file_size = 0;
-
-    EXPECT_TRUE(file_util::GetFileSize(generated_file, &generated_file_size));
-    EXPECT_TRUE(file_util::GetFileSize(original_file, &original_file_size));
-    if (need_equal) {
-      EXPECT_EQ(generated_file_size, original_file_size);
-      EXPECT_TRUE(file_util::ContentsEqual(generated_file, original_file));
-    } else {
-      EXPECT_NE(generated_file_size, original_file_size);
-      EXPECT_FALSE(file_util::ContentsEqual(generated_file, original_file));
-    }
-  }
-  if (delete_generated_file)
-    EXPECT_TRUE(file_util::DieFileDie(generated_file, false));
 }
 
 bool UITest::WaitUntilJavaScriptCondition(TabProxy* tab,
@@ -760,14 +691,6 @@ std::string UITest::WaitUntilCookieNonEmpty(TabProxy* tab,
   return std::string();
 }
 
-bool UITest::WaitForDownloadShelfVisible(BrowserProxy* browser) {
-  return WaitForDownloadShelfVisibilityChange(browser, true);
-}
-
-bool UITest::WaitForDownloadShelfInvisible(BrowserProxy* browser) {
-  return WaitForDownloadShelfVisibilityChange(browser, false);
-}
-
 bool UITest::WaitForFindWindowVisibilityChange(BrowserProxy* browser,
                                                bool wait_for_open) {
   const int kCycles = 10;
@@ -810,44 +733,4 @@ void UITest::TerminateBrowser() {
   ASSERT_TRUE(profile_prefs->GetBoolean(prefs::kSessionExitedCleanly,
                                         &exited_cleanly));
   ASSERT_TRUE(exited_cleanly);
-}
-
-void UITest::NavigateToURLAsync(const GURL& url) {
-  scoped_refptr<TabProxy> tab_proxy(GetActiveTab());
-  ASSERT_TRUE(tab_proxy.get());
-  ASSERT_TRUE(tab_proxy->NavigateToURLAsync(url));
-}
-
-bool UITest::WaitForDownloadShelfVisibilityChange(BrowserProxy* browser,
-                                                  bool wait_for_open) {
-  const int kCycles = 10;
-  const TimeDelta kDelay = TestTimeouts::action_timeout() / kCycles;
-  int fail_count = 0;
-  int incorrect_state_count = 0;
-  base::Time start = base::Time::Now();
-  for (int i = 0; i < kCycles; i++) {
-    bool visible = !wait_for_open;
-    if (!browser->IsShelfVisible(&visible)) {
-      fail_count++;
-      continue;
-    }
-    if (visible == wait_for_open) {
-      LOG(INFO) << "Elapsed time: " << (base::Time::Now() - start).InSecondsF()
-                << " seconds"
-                << " call failed " << fail_count << " times"
-                << " state was incorrect " << incorrect_state_count << " times";
-      return true;  // Got the download shelf.
-    }
-    incorrect_state_count++;
-
-    // Give it a chance to catch up.
-    base::PlatformThread::Sleep(kDelay);
-  }
-
-  LOG(INFO) << "Elapsed time: " << (base::Time::Now() - start).InSecondsF()
-            << " seconds"
-            << " call failed " << fail_count << " times"
-            << " state was incorrect " << incorrect_state_count << " times";
-  ADD_FAILURE() << "Timeout reached in " << __FUNCTION__;
-  return false;
 }

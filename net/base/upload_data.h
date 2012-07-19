@@ -4,7 +4,6 @@
 
 #ifndef NET_BASE_UPLOAD_DATA_H_
 #define NET_BASE_UPLOAD_DATA_H_
-#pragma once
 
 #include <vector>
 
@@ -129,8 +128,9 @@ class NET_EXPORT UploadData
     // Returns the number of bytes remaining to read.
     uint64 BytesRemaining();
 
-    // Resets the offset to zero, so that the element can be reread.
-    void ResetOffset() { offset_ = 0; }
+    // Resets the offset to zero and closes the file stream if opened, so
+    // that the element can be reread.
+    void ResetOffset();
 
    private:
     // Returns a FileStream opened for reading for this element, positioned
@@ -174,8 +174,6 @@ class NET_EXPORT UploadData
     FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionTest,
                              UploadFileSmallerThanLength);
     FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionSpdy2Test,
-                             UploadFileSmallerThanLength);
-    FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionSpdy21Test,
                              UploadFileSmallerThanLength);
     FRIEND_TEST_ALL_PREFIXES(HttpNetworkTransactionSpdy3Test,
                              UploadFileSmallerThanLength);

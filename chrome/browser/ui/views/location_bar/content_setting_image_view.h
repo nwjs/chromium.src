@@ -4,11 +4,11 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_CONTENT_SETTING_IMAGE_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_CONTENT_SETTING_IMAGE_VIEW_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
+#include "chrome/browser/ui/views/location_bar/touchable_location_bar_view.h"
 #include "chrome/common/content_settings_types.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/views/controls/image_view.h"
@@ -32,9 +32,11 @@ class SlideAnimation;
 
 class ContentSettingsDelegateView;
 
-class ContentSettingImageView : public views::ImageView,
-                                public ui::AnimationDelegate,
-                                public views::Widget::Observer {
+class ContentSettingImageView
+    : public views::ImageView,
+      public ui::AnimationDelegate,
+      public views::Widget::Observer,
+      public TouchableLocationBarView {
  public:
   ContentSettingImageView(ContentSettingsType content_type,
                           LocationBarView* parent);
@@ -54,6 +56,9 @@ class ContentSettingImageView : public views::ImageView,
 
   // views::Widget::Observer override:
   virtual void OnWidgetClosing(views::Widget* widget) OVERRIDE;
+
+  // TouchableLocationBarView.
+  virtual int GetBuiltInHorizontalPadding() const OVERRIDE;
 
  private:
   // views::ImageView overrides:

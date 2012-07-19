@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 #ifndef CHROME_BROWSER_WEBDATA_AUTOFILL_PROFILE_SYNCABLE_SERVICE_H_
 #define CHROME_BROWSER_WEBDATA_AUTOFILL_PROFILE_SYNCABLE_SERVICE_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -14,15 +13,15 @@
 #include "base/synchronization/lock.h"
 #include "base/threading/non_thread_safe.h"
 #include "chrome/browser/autofill/autofill_type.h"
-#include "chrome/browser/sync/api/sync_change.h"
-#include "chrome/browser/sync/api/sync_data.h"
-#include "chrome/browser/sync/api/sync_error.h"
-#include "chrome/browser/sync/api/syncable_service.h"
 #include "chrome/browser/webdata/autofill_change.h"
 #include "chrome/browser/webdata/autofill_entry.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_types.h"
+#include "sync/api/sync_change.h"
+#include "sync/api/sync_data.h"
+#include "sync/api/sync_error.h"
+#include "sync/api/syncable_service.h"
 #include "sync/protocol/autofill_specifics.pb.h"
 
 class AutofillProfile;
@@ -38,25 +37,27 @@ extern const char kAutofillProfileTag[];
 // local->cloud syncs. Then for each cloud change we receive
 // ProcessSyncChanges() and for each local change Observe() is called.
 class AutofillProfileSyncableService
-    : public SyncableService,
+    : public syncer::SyncableService,
       public content::NotificationObserver,
       public base::NonThreadSafe {
  public:
   explicit AutofillProfileSyncableService(WebDataService* web_data_service);
   virtual ~AutofillProfileSyncableService();
 
-  static syncable::ModelType model_type() { return syncable::AUTOFILL_PROFILE; }
+  static syncer::ModelType model_type() { return syncer::AUTOFILL_PROFILE; }
 
-  // SyncableService implementation.
-  virtual SyncError MergeDataAndStartSyncing(
-      syncable::ModelType type,
-      const SyncDataList& initial_sync_data,
-      scoped_ptr<SyncChangeProcessor> sync_processor) OVERRIDE;
-  virtual void StopSyncing(syncable::ModelType type) OVERRIDE;
-  virtual SyncDataList GetAllSyncData(syncable::ModelType type) const OVERRIDE;
-  virtual SyncError ProcessSyncChanges(
+  // syncer::SyncableService implementation.
+  virtual syncer::SyncError MergeDataAndStartSyncing(
+      syncer::ModelType type,
+      const syncer::SyncDataList& initial_sync_data,
+      scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
+      scoped_ptr<syncer::SyncErrorFactory> sync_error_factory) OVERRIDE;
+  virtual void StopSyncing(syncer::ModelType type) OVERRIDE;
+  virtual syncer::SyncDataList GetAllSyncData(
+      syncer::ModelType type) const OVERRIDE;
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE;
+      const syncer::SyncChangeList& change_list) OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -121,13 +122,15 @@ class AutofillProfileSyncableService
   // found substitutes it for the new one, otherwise adds a new profile. Returns
   // iterator pointing to added/updated profile.
   GUIDToProfileMap::iterator CreateOrUpdateProfile(
-      const SyncData& data, GUIDToProfileMap* profile_map, DataBundle* bundle);
+      const syncer::SyncData& data,
+      GUIDToProfileMap* profile_map,
+      DataBundle* bundle);
 
   // Syncs |change| to the cloud.
   void ActOnChange(const AutofillProfileChange& change);
 
-  // Creates SyncData based on supplied |profile|.
-  static SyncData CreateData(const AutofillProfile& profile);
+  // Creates syncer::SyncData based on supplied |profile|.
+  static syncer::SyncData CreateData(const AutofillProfile& profile);
 
   AutofillTable* GetAutofillTable() const;
 
@@ -150,7 +153,7 @@ class AutofillProfileSyncableService
 
   // For unit-tests.
   AutofillProfileSyncableService();
-  void set_sync_processor(SyncChangeProcessor* sync_processor) {
+  void set_sync_processor(syncer::SyncChangeProcessor* sync_processor) {
     sync_processor_.reset(sync_processor);
   }
 
@@ -162,7 +165,9 @@ class AutofillProfileSyncableService
   ScopedVector<AutofillProfile> profiles_;
   GUIDToProfileMap profiles_map_;
 
-  scoped_ptr<SyncChangeProcessor> sync_processor_;
+  scoped_ptr<syncer::SyncChangeProcessor> sync_processor_;
+
+  scoped_ptr<syncer::SyncErrorFactory> sync_error_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(AutofillProfileSyncableService);
 };

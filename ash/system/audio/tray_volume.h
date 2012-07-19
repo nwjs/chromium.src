@@ -4,11 +4,9 @@
 
 #ifndef ASH_SYSTEM_AUDIO_TRAY_VOLUME_H_
 #define ASH_SYSTEM_AUDIO_TRAY_VOLUME_H_
-#pragma once
 
 #include "ash/system/audio/audio_observer.h"
 #include "ash/system/tray/tray_image_item.h"
-#include "base/memory/scoped_ptr.h"
 
 namespace ash {
 namespace internal {
@@ -36,7 +34,7 @@ class TrayVolume : public TrayImageItem,
   // Overridden from AudioObserver.
   virtual void OnVolumeChanged(float percent) OVERRIDE;
 
-  scoped_ptr<tray::VolumeView> volume_view_;
+  tray::VolumeView* volume_view_;
 
   // Was |volume_view_| created for CreateDefaultView() rather than
   // CreateDetailedView()?  Used to avoid resetting |volume_view_|

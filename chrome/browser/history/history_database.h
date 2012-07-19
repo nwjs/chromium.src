@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_HISTORY_HISTORY_DATABASE_H_
 #define CHROME_BROWSER_HISTORY_HISTORY_DATABASE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -154,6 +153,7 @@ class HistoryDatabase : public DownloadDatabase,
 #if defined(OS_ANDROID)
   // AndroidProviderBackend uses the |db_|.
   friend class AndroidProviderBackend;
+  FRIEND_TEST_ALL_PREFIXES(AndroidURLsMigrationTest, MigrateToVersion22);
 #endif
   friend class InMemoryURLIndexTest;
   FRIEND_TEST_ALL_PREFIXES(IconMappingMigrationTest, TestIconMappingMigration);

@@ -4,9 +4,9 @@
 
 #ifndef ASH_SYSTEM_TRAY_UPDATE_H_
 #define ASH_SYSTEM_TRAY_UPDATE_H_
-#pragma once
 
 #include "ash/system/tray/tray_image_item.h"
+#include "base/memory/scoped_ptr.h"
 
 namespace views {
 class View;
@@ -23,6 +23,10 @@ class ASH_EXPORT UpdateObserver {
 
 namespace internal {
 
+namespace tray {
+class UpdateNagger;
+}
+
 class TrayUpdate : public TrayImageItem,
                    public UpdateObserver {
  public:
@@ -33,12 +37,15 @@ class TrayUpdate : public TrayImageItem,
   // Overridden from TrayImageItem.
   virtual bool GetInitialVisibility() OVERRIDE;
   virtual views::View* CreateDefaultView(user::LoginStatus status) OVERRIDE;
-  virtual void DestroyDefaultView() OVERRIDE;
+  virtual views::View* CreateDetailedView(user::LoginStatus status) OVERRIDE;
+  virtual void DestroyDetailedView() OVERRIDE;
 
   // Overridden from UpdateObserver.
   virtual void OnUpdateRecommended() OVERRIDE;
 
-  scoped_ptr<views::View> default_;
+  // Used to nag the user in case the tray has been hidden too long with an
+  // unseen update notification.
+  scoped_ptr<tray::UpdateNagger> nagger_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayUpdate);
 };

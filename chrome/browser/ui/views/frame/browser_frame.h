@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_FRAME_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_FRAME_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/logging.h"
@@ -66,7 +65,6 @@ class BrowserFrame : public views::Widget {
   void TabStripDisplayModeChanged();
 
   // Overridden from views::Widget:
-  virtual bool IsMaximized() const OVERRIDE;
   virtual views::internal::RootView* CreateRootView() OVERRIDE;
   virtual views::NonClientFrameView* CreateNonClientFrameView() OVERRIDE;
   virtual bool GetAccelerator(int command_id,

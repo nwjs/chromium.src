@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_MOCK_UPDATE_SCREEN_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_MOCK_UPDATE_SCREEN_H_
-#pragma once
 
 #include "chrome/browser/chromeos/login/update_screen.h"
 #include "chrome/browser/chromeos/login/update_screen_actor.h"
@@ -34,6 +33,8 @@ class MockUpdateScreenActor : public UpdateScreenActor {
   MOCK_METHOD0(PrepareToShow, void());
   MOCK_METHOD0(ShowManualRebootInfo, void());
   MOCK_METHOD1(SetProgress, void(int progress));
+  MOCK_METHOD1(ShowEstimatedTimeLeft, void(bool enable));
+  MOCK_METHOD1(SetEstimatedTimeLeft, void(const base::TimeDelta& time));
   MOCK_METHOD1(ShowCurtain, void(bool enable));
   MOCK_METHOD1(ShowPreparingUpdatesInfo, void(bool enable));
 

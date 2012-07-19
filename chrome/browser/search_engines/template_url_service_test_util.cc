@@ -8,14 +8,19 @@
 #include "base/message_loop.h"
 #include "base/path_service.h"
 #include "base/scoped_temp_dir.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
+#include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/search_engines/search_terms_data.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/pref_names.h"
+#include "chrome/test/base/testing_pref_service.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -60,9 +65,8 @@ class TemplateURLServiceTestingProfile : public TestingProfile {
     io_thread_.StartIOThread();
   }
 
-  virtual WebDataService* GetWebDataService(ServiceAccessType access) {
-    return service_.get();
-  }
+  static scoped_refptr<RefcountedProfileKeyedService>
+      GetWebDataServiceForTemplateURLServiceTestingProfile(Profile* profile);
 
  private:
   scoped_refptr<WebDataService> service_;
@@ -70,6 +74,7 @@ class TemplateURLServiceTestingProfile : public TestingProfile {
   content::TestBrowserThread db_thread_;
   content::TestBrowserThread io_thread_;
 };
+
 
 // Trivial subclass of TemplateURLService that records the last invocation of
 // SetKeywordSearchTermsForURL.
@@ -126,13 +131,29 @@ void TemplateURLServiceTestingProfile::TearDown() {
   io_thread_.Stop();
 
   // Clean up the test directory.
-  if (service_.get())
-    service_->Shutdown();
+  if (service_.get()) {
+    service_->ShutdownOnUIThread();
+    service_ = NULL;
+  }
   // Note that we must ensure the DB thread is stopped after WDS
   // shutdown (so it can commit pending transactions) but before
   // deleting the test profile directory, otherwise we may not be
   // able to delete it due to an open transaction.
+  // Schedule another task on the DB thread to notify us that it's safe to
+  // carry on with the test.
+  base::WaitableEvent done(false, false);
+  BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+      base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+  done.Wait();
   db_thread_.Stop();
+}
+
+scoped_refptr<RefcountedProfileKeyedService>
+TemplateURLServiceTestingProfile::
+    GetWebDataServiceForTemplateURLServiceTestingProfile(Profile* profile) {
+  TemplateURLServiceTestingProfile* test_profile =
+      reinterpret_cast<TemplateURLServiceTestingProfile*>(profile);
+  return test_profile->service_;
 }
 
 TemplateURLServiceTestUtil::TemplateURLServiceTestUtil()
@@ -145,6 +166,10 @@ TemplateURLServiceTestUtil::~TemplateURLServiceTestUtil() {
 
 void TemplateURLServiceTestUtil::SetUp() {
   profile_.reset(new TemplateURLServiceTestingProfile());
+  WebDataServiceFactory::GetInstance()->SetTestingFactory(
+      profile_.get(), TemplateURLServiceTestingProfile::
+          GetWebDataServiceForTemplateURLServiceTestingProfile);
+
   profile_->SetUp();
   TemplateURLService* service = static_cast<TemplateURLService*>(
       TemplateURLServiceFactory::GetInstance()->SetTestingFactoryAndUse(
@@ -157,7 +182,7 @@ void TemplateURLServiceTestUtil::TearDown() {
     profile_->TearDown();
     profile_.reset();
   }
-  UIThreadSearchTermsData::SetGoogleBaseURL(NULL);
+  UIThreadSearchTermsData::SetGoogleBaseURL(std::string());
 
   // Flush the message loop to make application verifiers happy.
   message_loop_.RunAllPending();
@@ -195,7 +220,8 @@ void TemplateURLServiceTestUtil::ChangeModelToLoadState() {
   model()->ChangeToLoadedState();
   // Initialize the web data service so that the database gets updated with
   // any changes made.
-  model()->service_ = profile_->GetWebDataService(Profile::EXPLICIT_ACCESS);
+  model()->service_ = WebDataServiceFactory::GetForProfile(
+      profile_.get(), Profile::EXPLICIT_ACCESS);
 }
 
 void TemplateURLServiceTestUtil::ClearModel() {
@@ -217,17 +243,64 @@ string16 TemplateURLServiceTestUtil::GetAndClearSearchTerm() {
       static_cast<TestingTemplateURLService*>(model())->GetAndClearSearchTerm();
 }
 
-void TemplateURLServiceTestUtil::SetGoogleBaseURL(
-    const std::string& base_url) const {
-  UIThreadSearchTermsData::SetGoogleBaseURL(new std::string(base_url));
+void TemplateURLServiceTestUtil::SetGoogleBaseURL(const GURL& base_url) const {
+  DCHECK(base_url.is_valid());
+  UIThreadSearchTermsData data(profile_.get());
+  GoogleURLTracker::UpdatedDetails urls(GURL(data.GoogleBaseURLValue()),
+                                        base_url);
+  UIThreadSearchTermsData::SetGoogleBaseURL(base_url.spec());
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_GOOGLE_URL_UPDATED,
-      content::NotificationService::AllSources(),
-      content::NotificationService::NoDetails());
+      content::Source<Profile>(profile_.get()),
+      content::Details<GoogleURLTracker::UpdatedDetails>(&urls));
+}
+
+void TemplateURLServiceTestUtil::SetManagedDefaultSearchPreferences(
+    bool enabled,
+    const std::string& name,
+    const std::string& keyword,
+    const std::string& search_url,
+    const std::string& suggest_url,
+    const std::string& icon_url,
+    const std::string& encodings) {
+  TestingPrefService* pref_service = profile_->GetTestingPrefService();
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderEnabled,
+                               Value::CreateBooleanValue(enabled));
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderName,
+                               Value::CreateStringValue(name));
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderKeyword,
+                               Value::CreateStringValue(keyword));
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderSearchURL,
+                               Value::CreateStringValue(search_url));
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderSuggestURL,
+                               Value::CreateStringValue(suggest_url));
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderIconURL,
+                               Value::CreateStringValue(icon_url));
+  pref_service->SetManagedPref(prefs::kDefaultSearchProviderEncodings,
+                               Value::CreateStringValue(encodings));
+  model()->Observe(chrome::NOTIFICATION_DEFAULT_SEARCH_POLICY_CHANGED,
+                   content::NotificationService::AllSources(),
+                   content::NotificationService::NoDetails());
+}
+
+void TemplateURLServiceTestUtil::RemoveManagedDefaultSearchPreferences() {
+  TestingPrefService* pref_service = profile_->GetTestingPrefService();
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderEnabled);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderName);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderKeyword);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderSearchURL);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderSuggestURL);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderIconURL);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderEncodings);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderID);
+  pref_service->RemoveManagedPref(prefs::kDefaultSearchProviderPrepopulateID);
+  model()->Observe(chrome::NOTIFICATION_DEFAULT_SEARCH_POLICY_CHANGED,
+                   content::NotificationService::AllSources(),
+                   content::NotificationService::NoDetails());
 }
 
 TemplateURLService* TemplateURLServiceTestUtil::model() const {
-  return TemplateURLServiceFactory::GetForProfile(profile());
+  return TemplateURLServiceFactory::GetForProfile(profile_.get());
 }
 
 TestingProfile* TemplateURLServiceTestUtil::profile() const {

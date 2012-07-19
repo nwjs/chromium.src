@@ -4,7 +4,6 @@
 
 #ifndef UI_OAK_OAK_WINDOW_H_
 #define UI_OAK_OAK_WINDOW_H_
-#pragma once
 
 #include "ui/oak/oak_tree_model.h"
 #include "ui/views/controls/tree/tree_view_controller.h"
@@ -33,7 +32,7 @@ class OakWindow : public views::WidgetDelegateView,
   virtual bool CanMaximize() const OVERRIDE;
   virtual string16 GetWindowTitle() const OVERRIDE;
   virtual views::View* GetContentsView() OVERRIDE;
-  virtual SkBitmap GetWindowIcon() OVERRIDE;
+  virtual gfx::ImageSkia GetWindowIcon() OVERRIDE;
   virtual bool ShouldShowWindowIcon() const OVERRIDE;
   virtual void DeleteDelegate() OVERRIDE;
 

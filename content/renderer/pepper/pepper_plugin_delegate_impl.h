@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_RENDERER_PEPPER_PEPPER_PLUGIN_DELEGATE_IMPL_H_
 #define CONTENT_RENDERER_PEPPER_PEPPER_PLUGIN_DELEGATE_IMPL_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -42,6 +41,7 @@ struct ChannelHandle;
 }
 
 namespace ppapi {
+class PepperFilePath;
 class PPB_X509Certificate_Fields;
 }
 
@@ -52,18 +52,15 @@ class Range;
 namespace webkit {
 struct WebPluginInfo;
 namespace ppapi {
-class PepperFilePath;
 class PluginInstance;
 class PluginModule;
 }
 }
 
 namespace WebKit {
-class WebFileChooserCompletion;
 class WebGamepads;
 class WebMouseEvent;
 struct WebCompositionUnderline;
-struct WebFileChooserParams;
 }
 
 namespace content {
@@ -97,6 +94,13 @@ class PepperPluginDelegateImpl
       const webkit::WebPluginInfo& webplugin_info,
       bool* pepper_plugin_was_registered);
 
+  // Creates a browser plugin instance given the process handle, and channel
+  // handle to access the guest renderer.
+  // If the plugin fails to initialize then return NULL.
+  scoped_refptr<webkit::ppapi::PluginModule> CreateBrowserPluginModule(
+      const IPC::ChannelHandle& channel_handle,
+      int guest_process_id);
+
   // Called by RenderView to tell us about painting events, these two functions
   // just correspond to the WillInitiatePaint, DidInitiatePaint and
   // DidFlushPaint hooks in RenderView.
@@ -119,7 +123,6 @@ class PepperPluginDelegateImpl
 
   // Called by RenderView when ViewMsg_PpapiBrokerChannelCreated.
   void OnPpapiBrokerChannelCreated(int request_id,
-                                   base::ProcessHandle broker_process_handle,
                                    const IPC::ChannelHandle& handle);
 
   // Removes broker from pending_connect_broker_ if present. Returns true if so.
@@ -162,12 +165,23 @@ class PepperPluginDelegateImpl
       webkit::ppapi::PluginInstance* instance) OVERRIDE;
   virtual void PluginSelectionChanged(
       webkit::ppapi::PluginInstance* instance) OVERRIDE;
+  virtual void SimulateImeSetComposition(
+      const string16& text,
+      const std::vector<WebKit::WebCompositionUnderline>& underlines,
+      int selection_start,
+      int selection_end) OVERRIDE;
+  virtual void SimulateImeConfirmComposition(const string16& text) OVERRIDE;
   virtual void PluginCrashed(webkit::ppapi::PluginInstance* instance) OVERRIDE;
   virtual void InstanceCreated(
       webkit::ppapi::PluginInstance* instance) OVERRIDE;
   virtual void InstanceDeleted(
       webkit::ppapi::PluginInstance* instance) OVERRIDE;
+  virtual scoped_ptr< ::ppapi::thunk::ResourceCreationAPI>
+      CreateResourceCreationAPI(
+          webkit::ppapi::PluginInstance* instance) OVERRIDE;
   virtual SkBitmap* GetSadPluginBitmap() OVERRIDE;
+  virtual WebKit::WebPlugin* CreatePluginReplacement(
+      const FilePath& file_path) OVERRIDE;
   virtual uint32_t GetAudioHardwareOutputSampleRate() OVERRIDE;
   virtual uint32_t GetAudioHardwareOutputBufferSize() OVERRIDE;
   virtual PlatformAudioOutput* CreateAudioOutput(
@@ -193,18 +207,15 @@ class PepperPluginDelegateImpl
                                           int total,
                                           bool final_result) OVERRIDE;
   virtual void SelectedFindResultChanged(int identifier, int index) OVERRIDE;
-  virtual bool RunFileChooser(
-      const WebKit::WebFileChooserParams& params,
-      WebKit::WebFileChooserCompletion* chooser_completion) OVERRIDE;
   virtual bool AsyncOpenFile(const FilePath& path,
                              int flags,
                              const AsyncOpenFileCallback& callback) OVERRIDE;
   virtual bool AsyncOpenFileSystemURL(
       const GURL& path,
       int flags,
-      const AsyncOpenFileCallback& callback) OVERRIDE;
+      const AsyncOpenFileSystemURLCallback& callback) OVERRIDE;
   virtual bool OpenFileSystem(
-      const GURL& url,
+      const GURL& origin_url,
       fileapi::FileSystemType type,
       long long size,
       fileapi::FileSystemCallbackDispatcher* dispatcher) OVERRIDE;
@@ -237,23 +248,25 @@ class PepperPluginDelegateImpl
   virtual void WillUpdateFile(const GURL& file_path) OVERRIDE;
   virtual void DidUpdateFile(const GURL& file_path, int64_t delta) OVERRIDE;
   virtual base::PlatformFileError OpenFile(
-      const webkit::ppapi::PepperFilePath& path,
+      const ppapi::PepperFilePath& path,
       int flags,
       base::PlatformFile* file) OVERRIDE;
   virtual base::PlatformFileError RenameFile(
-      const webkit::ppapi::PepperFilePath& from_path,
-      const webkit::ppapi::PepperFilePath& to_path) OVERRIDE;
+      const ppapi::PepperFilePath& from_path,
+      const ppapi::PepperFilePath& to_path) OVERRIDE;
   virtual base::PlatformFileError DeleteFileOrDir(
-      const webkit::ppapi::PepperFilePath& path,
+      const ppapi::PepperFilePath& path,
       bool recursive) OVERRIDE;
   virtual base::PlatformFileError CreateDir(
-      const webkit::ppapi::PepperFilePath& path) OVERRIDE;
+      const ppapi::PepperFilePath& path) OVERRIDE;
   virtual base::PlatformFileError QueryFile(
-      const webkit::ppapi::PepperFilePath& path,
+      const ppapi::PepperFilePath& path,
       base::PlatformFileInfo* info) OVERRIDE;
   virtual base::PlatformFileError GetDirContents(
-      const webkit::ppapi::PepperFilePath& path,
-      webkit::ppapi::DirContents* contents) OVERRIDE;
+      const ppapi::PepperFilePath& path,
+      ppapi::DirContents* contents) OVERRIDE;
+  virtual base::PlatformFileError CreateTemporaryFile(
+      base::PlatformFile* file) OVERRIDE;
   virtual void SyncGetFileSystemPlatformPath(
       const GURL& url,
       FilePath* platform_path) OVERRIDE;
@@ -270,9 +283,12 @@ class PepperPluginDelegateImpl
       webkit::ppapi::PPB_TCPSocket_Private_Impl* socket,
       uint32 socket_id,
       const PP_NetAddress_Private& addr) OVERRIDE;
-  virtual void TCPSocketSSLHandshake(uint32 socket_id,
-                                     const std::string& server_name,
-                                     uint16_t server_port) OVERRIDE;
+  virtual void TCPSocketSSLHandshake(
+      uint32 socket_id,
+      const std::string& server_name,
+      uint16_t server_port,
+      const std::vector<std::vector<char> >& trusted_certs,
+      const std::vector<std::vector<char> >& untrusted_certs) OVERRIDE;
   virtual void TCPSocketRead(uint32 socket_id, int32_t bytes_to_read) OVERRIDE;
   virtual void TCPSocketWrite(uint32 socket_id,
                               const std::string& buffer) OVERRIDE;
@@ -345,7 +361,6 @@ class PepperPluginDelegateImpl
   virtual void SaveURLAs(const GURL& url) OVERRIDE;
   virtual webkit_glue::P2PTransport* CreateP2PTransport() OVERRIDE;
   virtual double GetLocalTimeZoneOffset(base::Time t) OVERRIDE;
-  virtual std::string GetFlashCommandLineArgs() OVERRIDE;
   virtual base::SharedMemory* CreateAnonymousSharedMemory(uint32_t size)
       OVERRIDE;
   virtual ::ppapi::Preferences GetPreferences() OVERRIDE;
@@ -363,6 +378,7 @@ class PepperPluginDelegateImpl
       PP_DeviceType_Dev type,
       const EnumerateDevicesCallback& callback) OVERRIDE;
   virtual webkit_glue::ClipboardClient* CreateClipboardClient() const OVERRIDE;
+  virtual std::string GetDeviceID() OVERRIDE;
 
   // RenderViewObserver implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -373,9 +389,11 @@ class PepperPluginDelegateImpl
                              bool succeeded,
                              const PP_NetAddress_Private& local_addr,
                              const PP_NetAddress_Private& remote_addr);
-  void OnTCPSocketSSLHandshakeACK(uint32 plugin_dispatcher_id,
-                                  uint32 socket_id,
-                                  bool succeeded);
+  void OnTCPSocketSSLHandshakeACK(
+      uint32 plugin_dispatcher_id,
+      uint32 socket_id,
+      bool succeeded,
+      const ppapi::PPB_X509Certificate_Fields& certificate_fields);
   void OnTCPSocketReadACK(uint32 plugin_dispatcher_id,
                           uint32 socket_id,
                           bool succeeded,
@@ -442,6 +460,9 @@ class PepperPluginDelegateImpl
   MouseLockDispatcher::LockTarget* GetOrCreateLockTargetAdapter(
       webkit::ppapi::PluginInstance* instance);
   void UnSetAndDeleteLockTargetAdapter(webkit::ppapi::PluginInstance* instance);
+
+  MouseLockDispatcher* GetMouseLockDispatcher(
+      webkit::ppapi::PluginInstance* instance);
 
   // Pointer to the RenderView that owns us.
   RenderViewImpl* render_view_;

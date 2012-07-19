@@ -39,36 +39,40 @@ namespace {
 MSVC_PUSH_DISABLE_WARNING(4748)
 #endif
 
+int* NullPointer() {
+  return reinterpret_cast<int*>(NULL);
+}
+
 void ThreadUnresponsive_UI() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_DB() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_WEBKIT() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_FILE() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_FILE_USER_BLOCKING() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_PROCESS_LAUNCHER() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_CACHE() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 void ThreadUnresponsive_IO() {
-  CHECK(false);
+  *NullPointer() = __LINE__;
 }
 
 #if defined(COMPILER_MSVC)
@@ -104,7 +108,7 @@ void CrashBecauseThreadWasUnresponsive(BrowserThread::ID thread_id) {
     // should warn if our switch becomes outdated.
   }
 
-  CHECK(false);  // Shouldn't be reached.
+  CHECK(false) << "Unknown thread was unresponsive.";  // Shouldn't be reached.
 }
 
 }  // namespace
@@ -374,8 +378,11 @@ void ThreadWatcher::GotNoResponse() {
   unresponsive_count_histogram_->Add(unresponding_thread_count);
 
   // Crash the browser if the watched thread is to be crashed on hang and if the
-  // number of other threads responding is equal to live_threads_threshold_.
-  if (crash_on_hang_ && responding_thread_count <= live_threads_threshold_) {
+  // number of other threads responding is less than or equal to
+  // live_threads_threshold_ and at least one other thread is responding.
+  if (crash_on_hang_ &&
+      responding_thread_count > 0 &&
+      responding_thread_count <= live_threads_threshold_) {
     static bool crashed_once = false;
     if (!crashed_once) {
       crashed_once = true;

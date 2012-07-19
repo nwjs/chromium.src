@@ -1,12 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_DETACHABLE_TOOLBAR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_DETACHABLE_TOOLBAR_VIEW_H_
-#pragma once
 
 #include "ui/views/accessible_pane_view.h"
+
+namespace gfx {
+class ImageSkia;
+}
 
 struct SkRect;
 
@@ -34,9 +37,12 @@ class DetachableToolbarView : public views::AccessiblePaneView {
   // Paints the background (including the theme image behind content area) when
   // the bar/shelf is attached to the top toolbar.  |background_origin| is the
   // origin to use for painting the theme image.
-  static void PaintBackgroundAttachedMode(gfx::Canvas* canvas,
-                                          views::View* view,
-                                          const gfx::Point& background_origin);
+  static void PaintBackgroundAttachedMode(
+      gfx::Canvas* canvas,
+      views::View* view,
+      const gfx::Point& background_origin,
+      SkColor toolbar_background_color,
+      gfx::ImageSkia* toolbar_background_image);
 
   // Calculate the rect for the content area of the bar/shelf. This is only
   // needed when the bar/shelf is detached from the Chrome frame (otherwise the
@@ -79,9 +85,9 @@ class DetachableToolbarView : public views::AccessiblePaneView {
                                    int x,
                                    int height,
                                    int vertical_padding,
-                                   const SkColor& top_color,
-                                   const SkColor& middle_color,
-                                   const SkColor& bottom_color);
+                                   SkColor top_color,
+                                   SkColor middle_color,
+                                   SkColor bottom_color);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DetachableToolbarView);

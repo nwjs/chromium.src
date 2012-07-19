@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_KEYBINDING_REGISTRY_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_KEYBINDING_REGISTRY_H_
-#pragma once
 
 #include <string>
 
@@ -14,8 +13,11 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
 
-class Extension;
 class Profile;
+
+namespace extensions {
+
+class Extension;
 
 // The ExtensionKeybindingRegistry is a class that handles the cross-platform
 // logic for keyboard accelerators. See platform-specific implementations for
@@ -25,6 +27,10 @@ class ExtensionKeybindingRegistry : public content::NotificationObserver {
   explicit ExtensionKeybindingRegistry(Profile* profile);
   virtual ~ExtensionKeybindingRegistry();
 
+  // Enables/Disables general shortcut handing in Chrome. Implemented in
+  // platform-specific ExtensionKeybindingsRegistry* files.
+  static void SetShortcutHandlingSuspended(bool suspended);
+
   // Overridden from content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
@@ -32,9 +38,16 @@ class ExtensionKeybindingRegistry : public content::NotificationObserver {
 
  protected:
   // Add extension keybinding for the events defined by the |extension|.
-  virtual void AddExtensionKeybinding(const Extension* extension) = 0;
-  // Remove extension bindings for |extension|.
-  virtual void RemoveExtensionKeybinding(const Extension* extension) = 0;
+  // |command_name| is optional, but if not blank then only the command
+  // specified will be added.
+  virtual void AddExtensionKeybinding(
+      const Extension* extension,
+      const std::string& command_name) = 0;
+  // Remove extension bindings for |extension|. |command_name| is optional,
+  // but if not blank then only the command specified will be added.
+  virtual void RemoveExtensionKeybinding(
+      const Extension* extension,
+      const std::string& command_name) = 0;
 
   // Make sure all extensions registered have keybindings added.
   void Init();
@@ -52,5 +65,7 @@ class ExtensionKeybindingRegistry : public content::NotificationObserver {
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionKeybindingRegistry);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_KEYBINDING_REGISTRY_H_

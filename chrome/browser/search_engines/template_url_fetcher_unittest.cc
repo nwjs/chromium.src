@@ -47,12 +47,12 @@ class TemplateURLFetcherTest : public testing::Test {
   virtual void SetUp() OVERRIDE {
     test_util_.SetUp();
     test_util_.StartIOThread();
-    ASSERT_TRUE(test_util_.profile());
-    ASSERT_TRUE(
-        TemplateURLFetcherFactory::GetForProfile(test_util_.profile()));
+    TestingProfile* profile = test_util_.profile();
+    ASSERT_TRUE(profile);
+    ASSERT_TRUE(TemplateURLFetcherFactory::GetForProfile(profile));
 
-    test_util_.profile()->CreateRequestContext();
-    ASSERT_TRUE(test_util_.profile()->GetRequestContext());
+    profile->CreateRequestContext();
+    ASSERT_TRUE(profile->GetRequestContext());
     ASSERT_TRUE(test_server_.Start());
   }
 
@@ -287,12 +287,11 @@ TEST_F(TemplateURLFetcherTest, ExplicitBeforeLoadTest) {
 
 TEST_F(TemplateURLFetcherTest, DuplicateKeywordsTest) {
   string16 keyword(ASCIIToUTF16("test"));
-
-  TemplateURL* t_url = new TemplateURL();
-  t_url->SetURL("http://example.com/");
-  t_url->set_keyword(keyword);
-  t_url->set_short_name(keyword);
-  test_util_.model()->Add(t_url);
+  TemplateURLData data;
+  data.short_name = keyword;
+  data.SetKeyword(keyword);
+  data.SetURL("http://example.com/");
+  test_util_.model()->Add(new TemplateURL(test_util_.profile(), data));
   test_util_.ChangeModelToLoadState();
 
   ASSERT_TRUE(test_util_.model()->GetTemplateURLForKeyword(keyword));

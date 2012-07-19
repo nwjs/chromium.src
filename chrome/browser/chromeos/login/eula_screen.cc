@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "chrome/browser/chromeos/cros/cryptohome_library.h"
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/login/screen_observer.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
 
 namespace chromeos {
 
@@ -37,6 +38,10 @@ void EulaScreen::Hide() {
   actor_->Hide();
 }
 
+std::string EulaScreen::GetName() const {
+  return WizardController::kEulaScreenName;
+}
+
 bool EulaScreen::IsTpmEnabled() const {
   return chromeos::CrosLibrary::Get()->GetCryptohomeLibrary()->TpmIsEnabled();
 }
@@ -58,7 +63,7 @@ GURL EulaScreen::GetOemEulaUrl() const {
 }
 
 void EulaScreen::OnExit(bool accepted, bool is_usage_stats_checked) {
-  get_screen_observer()->set_usage_statistics_reporting(is_usage_stats_checked);
+  get_screen_observer()->SetUsageStatisticsReporting(is_usage_stats_checked);
   get_screen_observer()->OnExit(accepted
                    ? ScreenObserver::EULA_ACCEPTED
                    : ScreenObserver::EULA_BACK);
@@ -80,7 +85,7 @@ void EulaScreen::OnPasswordFetched(const std::string& tpm_password) {
 }
 
 bool EulaScreen::IsUsageStatsEnabled() const {
-  return get_screen_observer()->usage_statistics_reporting();
+  return get_screen_observer()->GetUsageStatisticsReporting();
 }
 
 void EulaScreen::OnActorDestroyed(EulaScreenActor* actor) {

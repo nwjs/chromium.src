@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_MENU_MENU_DELEGATE_H_
 #define UI_VIEWS_CONTROLS_MENU_MENU_DELEGATE_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -114,9 +113,9 @@ class VIEWS_EXPORT MenuDelegate {
   // other than a mouse event.
   virtual void ExecuteCommand(int id, int mouse_event_flags);
 
-  // Returns true if the specified mouse event is one the user can use
-  // to trigger, or accept, the mouse. Defaults to left or right mouse buttons.
-  virtual bool IsTriggerableEvent(MenuItemView* view, const MouseEvent& e);
+  // Returns true if the specified event is one the user can use to trigger, or
+  // accept, the item. Defaults to left or right mouse buttons or tap.
+  virtual bool IsTriggerableEvent(MenuItemView* view, const Event& e);
 
   // Invoked to determine if drops can be accepted for a submenu. This is
   // ONLY invoked for menus that have submenus and indicates whether or not
@@ -202,6 +201,14 @@ class VIEWS_EXPORT MenuDelegate {
 
   // Invoked prior to a menu being hidden.
   virtual void WillHideMenu(MenuItemView* menu);
+
+  // Creates and returns a new border for the menu, or NULL if no border is
+  // needed. Caller owns the returned object.
+  virtual Border* CreateMenuBorder();
+
+  // Creates and returns a new background for the menu, or NULL if no
+  // background is needed. Caller owns the returned object.
+  virtual Background* CreateMenuBackground();
 };
 
 }  // namespace views

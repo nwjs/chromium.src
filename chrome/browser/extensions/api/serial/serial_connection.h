@@ -4,18 +4,18 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_SERIAL_SERIAL_CONNECTION_H_
 #define CHROME_BROWSER_EXTENSIONS_API_SERIAL_SERIAL_CONNECTION_H_
-#pragma once
 
 #include <set>
 #include <string>
 
-#include "base/gtest_prod_util.h"
+#include "base/memory/ref_counted.h"
+#include "base/platform_file.h"
 #include "chrome/browser/extensions/api/api_resource.h"
-
-FORWARD_DECLARE_TEST(SerialConnectionTest, ValidPortNamePatterns);
-FORWARD_DECLARE_TEST(SerialConnectionTest, InvalidPortNamePatterns);
+#include "net/base/io_buffer.h"
 
 namespace extensions {
+
+extern const char kSerialConnectionNotFoundError[];
 
 class APIResourceEventNotifier;
 
@@ -24,35 +24,43 @@ class APIResourceEventNotifier;
 class SerialConnection : public APIResource {
  public:
   SerialConnection(const std::string& port,
+                   int bitrate,
                    APIResourceEventNotifier* event_notifier);
   virtual ~SerialConnection();
 
-  bool Open();
-  void Close();
+  virtual bool Open();
+  virtual void Close();
+  virtual void Flush();
 
-  int Read(unsigned char* byte);
-  int Write(const std::string& data);
+  virtual int Read(uint8* byte);
+  virtual int Write(scoped_refptr<net::IOBuffer> io_buffer, int byte_count);
 
-  typedef std::set<std::string> StringSet;
+  struct ControlSignals {
+    // Sent from workstation to device. The should_set_ values indicate whether
+    // SetControlSignals should change the given signal (true) or else leave it
+    // as-is (false).
+    bool should_set_dtr;
+    bool dtr;
+    bool should_set_rts;
+    bool rts;
 
-  // Returns true if the given port name (e.g., "/dev/tty.usbmodemXXX")
-  // matches that of a serial port that exists on this machine.
-  static bool DoesPortExist(const StringSet& port_patterns,
-                            const std::string& port_name);
+    // Received by workstation from device. DCD (Data Carrier Detect) is
+    // equivalent to RLSD (Receive Line Signal Detect) on some platforms.
+    bool dcd;
+    bool cts;
+  };
+
+  virtual bool GetControlSignals(ControlSignals &control_signals);
+  virtual bool SetControlSignals(const ControlSignals &control_signals);
+
+ protected:
+  // Do platform-specific work after a successful Open().
+  bool PostOpen();
 
  private:
-  // TODO(miket): expose this functionality via API. Otherwise developers have
-  // to guess at valid names.
-  static StringSet GenerateValidSerialPortNames();
-
-  // Returns a StringSet of patterns to be used with MatchPattern.
-  static StringSet GenerateValidPatterns();
-
   std::string port_;
-  int fd_;
-
-  FRIEND_TEST_ALL_PREFIXES(::SerialConnectionTest, ValidPortNamePatterns);
-  FRIEND_TEST_ALL_PREFIXES(::SerialConnectionTest, InvalidPortNamePatterns);
+  int bitrate_;
+  base::PlatformFile file_;
 };
 
 }  // namespace extensions

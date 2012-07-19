@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,10 +7,10 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/session_manager_client.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/session_manager_client.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -34,8 +34,10 @@ void EnterpriseExtensionObserver::Observe(
   if (content::Source<Profile>(source).ptr() != profile_) {
     return;
   }
-  Extension* extension = content::Details<Extension>(details).ptr();
-  if (extension->location() != Extension::EXTERNAL_POLICY_DOWNLOAD) {
+  extensions::Extension* extension =
+      content::Details<extensions::Extension>(details).ptr();
+  if (extension->location() !=
+      extensions::Extension::EXTERNAL_POLICY_DOWNLOAD) {
     return;
   }
   BrowserThread::PostTask(

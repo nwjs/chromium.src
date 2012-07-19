@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,15 +8,17 @@
 #include "chrome/browser/extensions/app_notification_test_util.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/extension_test_util.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
+using extensions::Extension;
 
 namespace util = app_notification_test_util;
 
@@ -97,16 +99,14 @@ TEST_F(AppNotificationManagerTest, Simple) {
 
 // Test that AppNotificationManager correctly listens to EXTENSION_UNINSTALLED
 // notifications and removes associated data when that happens.
-#ifdef ADDRESS_SANITIZER
-// This test crashes under ASan, see http://crbug.com/100156
-#define MAYBE_ExtensionUninstall DISABLED_ExtensionUninstall
-#else
-#define MAYBE_ExtensionUninstall ExtensionUninstall
-#endif
-TEST_F(AppNotificationManagerTest, MAYBE_ExtensionUninstall) {
+TEST_F(AppNotificationManagerTest, ExtensionUninstall) {
   // Add some items from two test extension ids.
-  std::string id1 = extension_test_util::MakeId("id1");
-  std::string id2 = extension_test_util::MakeId("id2");
+  scoped_refptr<Extension> extension1 =
+      extension_test_util::CreateExtensionWithID("id1");
+  scoped_refptr<Extension> extension2 =
+      extension_test_util::CreateExtensionWithID("id2");
+  std::string id1 = extension1->id();
+  std::string id2 = extension2->id();
   AppNotificationList list1;
   AppNotificationList list2;
   util::AddNotifications(&list1, id1, 5, "foo1");
@@ -120,7 +120,7 @@ TEST_F(AppNotificationManagerTest, MAYBE_ExtensionUninstall) {
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_EXTENSION_UNINSTALLED,
       content::Source<Profile>(profile_.get()),
-      content::Details<const std::string>(&id1));
+      content::Details<const Extension>(extension1.get()));
 
   // The id1 items should be gone but the id2 items should still be there.
   EXPECT_EQ(NULL, mgr_->GetLast(id1));

@@ -13,8 +13,8 @@
 #include "chrome/common/pref_names.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/update_engine_client.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/update_engine_client.h"
 #else
 #include "chrome/browser/upgrade_detector.h"
 #endif
@@ -60,7 +60,7 @@ void DispatchEvent(const std::string& event_name, const ListValue& args) {
   std::string json_args;
   base::JSONWriter::Write(&args, &json_args);
   extension_event_router->DispatchEventToRenderers(
-      event_name, json_args, NULL, GURL());
+      event_name, json_args, NULL, GURL(), extensions::EventFilteringInfo());
 }
 
 }  // namespace
@@ -73,8 +73,7 @@ bool GetIncognitoModeAvailabilityFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(
       value >= 0 &&
       value < static_cast<int>(arraysize(kIncognitoModeAvailabilityStrings)));
-  result_.reset(
-      Value::CreateStringValue(kIncognitoModeAvailabilityStrings[value]));
+  SetResult(Value::CreateStringValue(kIncognitoModeAvailabilityStrings[value]));
   return true;
 }
 
@@ -134,7 +133,7 @@ bool GetUpdateStatusFunction::RunImpl() {
   DictionaryValue* dict = new DictionaryValue();
   dict->SetString(kStateKey, state);
   dict->SetDouble(kDownloadProgressKey, download_progress);
-  result_.reset(dict);
+  SetResult(dict);
 
   return true;
 }

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_TEST_PROFILE_SYNC_SERVICE_H_
 #define CHROME_BROWSER_SYNC_TEST_PROFILE_SYNC_SERVICE_H_
-#pragma once
 
 #include <string>
 
@@ -12,7 +11,9 @@
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/sync/glue/data_type_manager_impl.h"
+#include "chrome/browser/sync/invalidations/invalidator_storage.h"
 #include "chrome/browser/sync/profile_sync_service.h"
+#include "chrome/browser/sync/sync_prefs.h"
 #include "chrome/test/base/profile_mock.h"
 #include "sync/test/engine/test_id_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -34,6 +35,7 @@ class SyncBackendHostForProfileSyncTest : public SyncBackendHost {
   SyncBackendHostForProfileSyncTest(
       Profile* profile,
       const base::WeakPtr<SyncPrefs>& sync_prefs,
+      const base::WeakPtr<InvalidatorStorage>& invalidator_storage,
       bool set_initial_sync_ended_on_init,
       bool synchronous_init,
       bool fail_initial_download,
@@ -42,11 +44,12 @@ class SyncBackendHostForProfileSyncTest : public SyncBackendHost {
 
   MOCK_METHOD1(RequestNudge, void(const tracked_objects::Location&));
 
-  // Called when a nudge comes in.
-  void SimulateSyncCycleCompletedInitialSyncEnded(
-      const tracked_objects::Location&);
-
-  virtual void StartConfiguration(const base::Closure& callback) OVERRIDE;
+  virtual void RequestConfigureSyncer(
+      syncer::ConfigureReason reason,
+      syncer::ModelTypeSet types_to_config,
+      const syncer::ModelSafeRoutingInfo& routing_info,
+      const base::Callback<void(syncer::ModelTypeSet)>& ready_task,
+      const base::Closure& retry_callback) OVERRIDE;
 
   static void SetHistoryServiceExpectations(ProfileMock* profile);
 
@@ -79,7 +82,7 @@ class TestProfileSyncService : public ProfileSyncService {
   void SetInitialSyncEndedForAllTypes();
 
   virtual void OnBackendInitialized(
-      const browser_sync::WeakHandle<browser_sync::JsBackend>& backend,
+      const syncer::WeakHandle<syncer::JsBackend>& backend,
       bool success) OVERRIDE;
 
   virtual void Observe(int type,
@@ -94,7 +97,7 @@ class TestProfileSyncService : public ProfileSyncService {
   void fail_initial_download();
   void set_use_real_database();
 
-  browser_sync::TestIdFactory* id_factory();
+  syncer::TestIdFactory* id_factory();
 
   // Override of ProfileSyncService::GetBackendForTest() with a more
   // specific return type (since C++ supports covariant return types)
@@ -106,14 +109,13 @@ class TestProfileSyncService : public ProfileSyncService {
   virtual void CreateBackend() OVERRIDE;
 
  private:
-  browser_sync::TestIdFactory id_factory_;
+  syncer::TestIdFactory id_factory_;
 
   bool synchronous_backend_initialization_;
 
   // Set to true when a mock data type manager is being used and the configure
   // step is performed synchronously.
   bool synchronous_sync_configuration_;
-  bool set_expect_resume_expectations_;
 
   base::Closure callback_;
   bool set_initial_sync_ended_on_init_;

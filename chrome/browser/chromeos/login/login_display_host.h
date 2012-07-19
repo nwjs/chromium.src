@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_DISPLAY_HOST_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_DISPLAY_HOST_H_
-#pragma once
 
 #include <string>
 
@@ -52,9 +51,6 @@ class LoginDisplayHost {
 
   // Enable/disable shutdown button.
   virtual void SetShutdownButtonEnabled(bool enable) = 0;
-
-  // Toggles whether status area is enabled.
-  virtual void SetStatusAreaEnabled(bool enable) = 0;
 
   // Toggles status area visibility.
   virtual void SetStatusAreaVisible(bool visible) = 0;

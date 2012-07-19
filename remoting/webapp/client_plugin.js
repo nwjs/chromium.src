@@ -49,6 +49,9 @@ remoting.ClientPlugin.prototype.isSupportedVersion = function() {};
 remoting.ClientPlugin.Feature = {
   HIGH_QUALITY_SCALING: 'highQualityScaling',
   INJECT_KEY_EVENT: 'injectKeyEvent',
+  NOTIFY_CLIENT_DIMENSIONS: 'notifyClientDimensions',
+  PAUSE_VIDEO: 'pauseVideo',
+  REMAP_KEY: 'remapKey',
   SEND_CLIPBOARD_ITEM: 'sendClipboardItem'
 };
 
@@ -59,7 +62,7 @@ remoting.ClientPlugin.Feature = {
 remoting.ClientPlugin.prototype.hasFeature = function(feature) {};
 
 /**
- * @return {Element} HTML element that correspods to the plugin.
+ * @return {HTMLEmbedElement} HTML element that corresponds to the plugin.
  */
 remoting.ClientPlugin.prototype.element = function() {};
 
@@ -91,12 +94,6 @@ remoting.ClientPlugin.prototype.connect = function(
     authenticationMethods, authenticationTag) {};
 
 /**
- * @param {boolean} scaleToFit True if scale-to-fit should be enabled.
- */
-remoting.ClientPlugin.prototype.setScaleToFit =
-    function(scaleToFit) {};
-
-/**
  * Release all currently pressed keys.
  */
 remoting.ClientPlugin.prototype.releaseAllKeys = function() {};
@@ -109,6 +106,15 @@ remoting.ClientPlugin.prototype.releaseAllKeys = function() {};
  */
 remoting.ClientPlugin.prototype.injectKeyEvent =
     function(usbKeycode, pressed) {};
+
+/**
+ * Remap one USB keycode to another in all subsequent key events.
+ *
+ * @param {number} fromKeycode The USB-style code of the key to remap.
+ * @param {number} toKeycode The USB-style code to remap the key to.
+ */
+remoting.ClientPlugin.prototype.remapKey =
+    function(fromKeycode, toKeycode) {};
 
 /**
  * Returns an associative array with a set of stats for this connection.
@@ -124,3 +130,20 @@ remoting.ClientPlugin.prototype.getPerfStats = function() {};
  * @param {string} item The clipboard item.
  */
 remoting.ClientPlugin.prototype.sendClipboardItem = function(mimeType, item) {};
+
+/**
+ * Notifies the host that the client has the specified dimensions.
+ *
+ * @param {number} width The available client width.
+ * @param {number} height The available client height.
+ */
+remoting.ClientPlugin.prototype.notifyClientDimensions =
+    function(width, height) {};
+
+/**
+ * Requests that the host pause or resume sending video updates.
+ *
+ * @param {boolean} pause True to suspend video updates, false otherwise.
+ */
+remoting.ClientPlugin.prototype.pauseVideo =
+    function(pause) {};

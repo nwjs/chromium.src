@@ -88,10 +88,11 @@ Request::Request(int request_id,
                  net::URLRequestContext* url_request_context)
     : delegate_(delegate),
       request_id_(request_id),
-      url_request_(new net::URLRequest(GURL(base_url + info.filename), this)),
+      url_request_(new net::URLRequest(GURL(base_url + info.filename),
+                                       this,
+                                       url_request_context)),
       info_(info),
       response_code_(0) {
-  url_request_->set_context(url_request_context);
   url_request_->set_load_flags(net::LOAD_BYPASS_CACHE |
                                net::LOAD_DISABLE_CACHE |
                                net::LOAD_DO_NOT_SAVE_COOKIES |
@@ -297,7 +298,7 @@ void HttpPipeliningCompatibilityClient::Start(
   http_transaction_factory_.reset(
       net::HttpNetworkLayer::CreateFactory(session.get()));
 
-  url_request_context_ = new net::URLRequestContext;
+  url_request_context_.reset(new net::URLRequestContext);
   url_request_context_->CopyFrom(url_request_context);
   url_request_context_->set_http_transaction_factory(
       http_transaction_factory_.get());
@@ -348,6 +349,7 @@ void HttpPipeliningCompatibilityClient::StartTestRequests() {
 
 void HttpPipeliningCompatibilityClient::OnCanaryFinished(
     internal::PipelineTestRequest::Status status) {
+  canary_request_.reset();
   bool success = (status == internal::PipelineTestRequest::STATUS_SUCCESS);
   UMA_HISTOGRAM_BOOLEAN("NetConnectivity.Pipeline.CanarySuccess", success);
   if (success) {
@@ -436,24 +438,18 @@ internal::PipelineTestRequest::Status ProcessStatsResponse(
 
 namespace {
 
-void DeleteClient(HttpPipeliningCompatibilityClient* client) {
-  delete client;
-}
-
-void DelayedDeleteClient(HttpPipeliningCompatibilityClient* client, int rv) {
-  content::BrowserThread::PostTask(
-      content::BrowserThread::IO,
-      FROM_HERE,
-      base::Bind(&DeleteClient, client));
+void DeleteClient(IOThread* io_thread, int /* rv */) {
+  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
+  io_thread->globals()->http_pipelining_compatibility_client.reset();
 }
 
 void CollectPipeliningCapabilityStatsOnIOThread(
     const std::string& pipeline_test_server,
-    net::URLRequestContextGetter* url_request_context_getter) {
+    IOThread* io_thread) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::IO));
 
   net::URLRequestContext* url_request_context =
-      url_request_context_getter->GetURLRequestContext();
+      io_thread->globals()->system_request_context.get();
   if (!url_request_context->proxy_service()->config().proxy_rules().empty()) {
     // Pipelining with explicitly configured proxies is disabled for now.
     return;
@@ -467,12 +463,14 @@ void CollectPipeliningCapabilityStatsOnIOThread(
   if (trial) {
     return;
   }
-  // After April 14, 2012, the trial will disable itself.
-  trial = new base::FieldTrial(kTrialName, kDivisor,
-                               "disable_test", 2012, 4, 14);
+  // After May 4, 2012, the trial will disable itself.
+  trial = base::FieldTrialList::FactoryGetFieldTrial(
+      kTrialName, kDivisor, "disable_test", 2012, 5, 4, NULL);
 
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
   if (channel == chrome::VersionInfo::CHANNEL_CANARY) {
+    probability_to_run_test = 100;
+  } else if (channel == chrome::VersionInfo::CHANNEL_DEV) {
     probability_to_run_test = 100;
   }
 
@@ -513,8 +511,9 @@ void CollectPipeliningCapabilityStatsOnIOThread(
       new HttpPipeliningCompatibilityClient(NULL);
   client->Start(pipeline_test_server, requests,
                 HttpPipeliningCompatibilityClient::PIPE_TEST_CANARY_AND_STATS,
-                base::Bind(&DelayedDeleteClient, client),
-                url_request_context_getter->GetURLRequestContext());
+                base::Bind(&DeleteClient, io_thread),
+                url_request_context);
+  io_thread->globals()->http_pipelining_compatibility_client.reset(client);
 }
 
 }  // anonymous namespace
@@ -530,8 +529,7 @@ void CollectPipeliningCapabilityStatsOnUIThread(
       FROM_HERE,
       base::Bind(&CollectPipeliningCapabilityStatsOnIOThread,
                  pipeline_test_server,
-                 make_scoped_refptr(
-                     io_thread->system_url_request_context_getter())));
+                 io_thread));
 }
 
 }  // namespace chrome_browser_net

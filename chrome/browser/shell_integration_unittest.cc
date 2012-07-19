@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,7 +16,7 @@
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths_internal.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -24,6 +24,7 @@
 #include "chrome/installer/util/browser_distribution.h"
 #elif defined(OS_POSIX) && !defined(OS_MACOSX)
 #include "base/environment.h"
+#include "chrome/browser/shell_integration_linux.h"
 #endif
 
 #define FPL FILE_PATH_LITERAL
@@ -92,8 +93,8 @@ TEST(ShellIntegrationTest, GetDesktopShortcutTemplate) {
         temp_dir.path().AppendASCII(kTemplateFilename),
         kTestData1, strlen(kTestData1)));
     std::string contents;
-    ASSERT_TRUE(ShellIntegration::GetDesktopShortcutTemplate(&env,
-                                                             &contents));
+    ASSERT_TRUE(ShellIntegrationLinux::GetDesktopShortcutTemplate(&env,
+                                                                  &contents));
     EXPECT_EQ(kTestData1, contents);
   }
 
@@ -110,8 +111,8 @@ TEST(ShellIntegrationTest, GetDesktopShortcutTemplate) {
             .AppendASCII(kTemplateFilename),
         kTestData2, strlen(kTestData2)));
     std::string contents;
-    ASSERT_TRUE(ShellIntegration::GetDesktopShortcutTemplate(&env,
-                                                             &contents));
+    ASSERT_TRUE(ShellIntegrationLinux::GetDesktopShortcutTemplate(&env,
+                                                                  &contents));
     EXPECT_EQ(kTestData2, contents);
   }
 
@@ -132,13 +133,13 @@ TEST(ShellIntegrationTest, GetDesktopShortcutTemplate) {
             .AppendASCII(kTemplateFilename),
         kTestData2, strlen(kTestData2)));
     std::string contents;
-    ASSERT_TRUE(ShellIntegration::GetDesktopShortcutTemplate(&env,
-                                                             &contents));
+    ASSERT_TRUE(ShellIntegrationLinux::GetDesktopShortcutTemplate(&env,
+                                                                  &contents));
     EXPECT_EQ(kTestData1, contents);
   }
 }
 
-TEST(ShellIntegrationTest, GetDesktopShortcutFilename) {
+TEST(ShellIntegrationTest, GetWebShortcutFilename) {
   const struct {
     const FilePath::CharType* path;
     const char* url;
@@ -155,7 +156,7 @@ TEST(ShellIntegrationTest, GetDesktopShortcutFilename) {
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(test_cases); i++) {
     EXPECT_EQ(std::string(chrome::kBrowserProcessExecutableName) + "-" +
               test_cases[i].path,
-              ShellIntegration::GetDesktopShortcutFilename(
+              ShellIntegrationLinux::GetWebShortcutFilename(
                   GURL(test_cases[i].url)).value()) <<
         " while testing " << test_cases[i].url;
   }
@@ -352,37 +353,44 @@ TEST(ShellIntegrationTest, GetDesktopFileContents) {
     SCOPED_TRACE(i);
     EXPECT_EQ(
         test_cases[i].expected_output,
-        ShellIntegration::GetDesktopFileContents(
+        ShellIntegrationLinux::GetDesktopFileContents(
             test_cases[i].template_contents,
             web_app::GenerateApplicationNameFromURL(GURL(test_cases[i].url)),
             GURL(test_cases[i].url),
             "",
+            false,
+            FilePath(),
             ASCIIToUTF16(test_cases[i].title),
-            test_cases[i].icon_name));
+            test_cases[i].icon_name,
+            FilePath()));
   }
 }
 #elif defined(OS_WIN)
-TEST(ShellIntegrationTest, GetChromiumAppIdTest) {
+TEST(ShellIntegrationTest, GetAppModelIdForProfileTest) {
+  const string16 base_app_id(
+      BrowserDistribution::GetDistribution()->GetBaseAppId());
+
   // Empty profile path should get chrome::kBrowserAppID
   FilePath empty_path;
-  EXPECT_EQ(BrowserDistribution::GetDistribution()->GetBrowserAppId(),
-            ShellIntegration::GetChromiumAppId(empty_path));
+  EXPECT_EQ(base_app_id,
+            ShellIntegration::GetAppModelIdForProfile(base_app_id, empty_path));
 
   // Default profile path should get chrome::kBrowserAppID
   FilePath default_user_data_dir;
   chrome::GetDefaultUserDataDirectory(&default_user_data_dir);
   FilePath default_profile_path =
       default_user_data_dir.AppendASCII(chrome::kInitialProfile);
-  EXPECT_EQ(BrowserDistribution::GetDistribution()->GetBrowserAppId(),
-            ShellIntegration::GetChromiumAppId(default_profile_path));
+  EXPECT_EQ(base_app_id,
+            ShellIntegration::GetAppModelIdForProfile(base_app_id,
+                                                      default_profile_path));
 
   // Non-default profile path should get chrome::kBrowserAppID joined with
   // profile info.
   FilePath profile_path(FILE_PATH_LITERAL("root"));
   profile_path = profile_path.Append(FILE_PATH_LITERAL("udd"));
   profile_path = profile_path.Append(FILE_PATH_LITERAL("User Data - Test"));
-  EXPECT_EQ(BrowserDistribution::GetDistribution()->GetBrowserAppId() +
-            L".udd.UserDataTest",
-            ShellIntegration::GetChromiumAppId(profile_path));
+  EXPECT_EQ(base_app_id + L".udd.UserDataTest",
+            ShellIntegration::GetAppModelIdForProfile(base_app_id,
+                                                      profile_path));
 }
 #endif

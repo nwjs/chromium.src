@@ -18,7 +18,7 @@ class PolicyPrefsTestCases(object):
 
   # Each policy has an entry with a tuple (Pref, Value, Pages, OS)
   #
-  # |Pref| is the preference key for simple policies that map directly to a
+  # |Pref| is the preference key for simple user policies that map directly to a
   #        preference (Refer to
   #        chrome/browser/policy/configuration_policy_handler_list.cc).
   #        Otherwise, set as None.
@@ -34,6 +34,9 @@ class PolicyPrefsTestCases(object):
   #      platforms are 'win', 'mac', 'linux', and 'chromeos'. The list can be
   #      empty to skip the policy or set to OS_ALL if applicable to all
   #      platforms.
+  #
+  # ChromeOS device policies are also listed but are currently not tested by
+  # policy_prefs_ui.py.
   [INDEX_PREF, INDEX_VALUE, INDEX_PAGES, INDEX_OS] = range(4)
   OS_ALL = ['win', 'mac', 'linux', 'chromeos']
   policies = {
@@ -95,7 +98,7 @@ class PolicyPrefsTestCases(object):
     'MediaCacheSize': ('kMediaCacheSize', 200, [], ['win', 'mac', 'linux']),
     'DownloadDirectory': (None, '${user_home}/test-downloads', [BROWSER],
                           ['win', 'mac', 'linux']),
-    'ClearSiteDataOnExit': ('kClearSiteDataOnExit', True, [CONTENT], OS_ALL),
+    'ClearSiteDataOnExit': (None, True, [CONTENT], OS_ALL),
     # TODO(joaodasilva): Should be BROWSER. http://crbug.com/97749
     'ProxyMode': (None, 'direct', [], ['win', 'mac', 'linux']),
     # TODO(joaodasilva): Should be BROWSER. http://crbug.com/97749
@@ -134,9 +137,12 @@ class PolicyPrefsTestCases(object):
     'ExtensionInstallForcelist':
       ('kExtensionInstallForceList', ['lcncmkcnkcdbbanbjakcencbaoegdjlp;' +
        'https://clients2.google.com/service/update2/crx'], [], OS_ALL),
+    'ExtensionInstallSources':
+        ('kExtensionAllowedInstallSites', ['https://www.corp.monkey.net/*'],
+         [], OS_ALL),
     'ShowHomeButton': ('kShowHomeButton', True, [BROWSER], OS_ALL),
     'DeveloperToolsDisabled': ('kDevToolsDisabled', True, [], OS_ALL),
-    'RestoreOnStartup': (None, 0, [BROWSER], OS_ALL),
+    'RestoreOnStartup': (None, 5, [BROWSER], OS_ALL),
     # TODO(joaodasilva): Should be BROWSER. http://crbug.com/97749
     'RestoreOnStartupURLs':
         ('kURLsToRestoreOnStartup', ['chromium.org'], [], OS_ALL),
@@ -170,6 +176,8 @@ class PolicyPrefsTestCases(object):
         ('kManagedDefaultNotificationsSetting', 2, [CONTENT], OS_ALL),
     'DefaultGeolocationSetting':
         ('kManagedDefaultGeolocationSetting', 2, [CONTENT], OS_ALL),
+    'DefaultMediaStreamSetting':
+        ('kManagedDefaultMediaStreamSetting', 2, [CONTENT], OS_ALL),
     'AutoSelectCertificateForUrls':
         ('kManagedAutoSelectCertificateForUrls',
          ['{\'pattern\':\'https://example.com\',' +
@@ -233,6 +241,14 @@ class PolicyPrefsTestCases(object):
         ('kPrintPreviewDisabled', True, [], ['win', 'mac', 'linux']),
     'BackgroundModeEnabled':
         ('kBackgroundModeEnabled', True, [BROWSER], ['win', 'linux']),
+    'RestrictSigninToPattern': ('kGoogleServicesUsernamePattern',
+                                '.*@google.com', [], ['win', 'mac', 'linux']),
+    'DisableSafeBrowsingProceedAnyway':
+        ('kSafeBrowsingProceedAnywayDisabled', True, [], OS_ALL),
+    # TODO(joaodasilva): this policy affects the BROWSER settings page but
+    # is only included in official builds.
+    'SpellCheckServiceEnabled':
+        ('kSpellCheckUseSpellingService', False, [], OS_ALL),
 
     # ChromeOS-only policies:
     # TODO(frankf): Add prefs for these after crosbug.com/28756 is fixed.
@@ -244,6 +260,7 @@ class PolicyPrefsTestCases(object):
     'GDataDisabled': (None, True, [], ['chromeos']),
     'GDataDisabledOverCellular':
         (None, True, [], ['chromeos']),
+    'PinnedLauncherApps': (None, [], [], ['chromeos']),
 
     # ChromeOS Device policies:
     'DevicePolicyRefreshRate': (None, 300000, [], ['chromeos']),
@@ -268,6 +285,10 @@ class PolicyPrefsTestCases(object):
     'DeviceStartUpUrls': (None, ['http://google.com'], [], ['chromeos']),
     'DeviceAppPack': (None, [], [], ['chromeos']),
     'DeviceAutoUpdateDisabled': (None, True, [], ['chromeos']),
+    'DeviceTargetVersionPrefix': (None, '1412.', [], ['chromeos']),
+    'DeviceUpdateScatterFactor': (None, '7200', [], ['chromeos']),
+    'DeviceUpdateAllowedConnectionTypes': (None, [], [], ['chromeos']),
+    'ReportDeviceLocation': (None, False, [], ['chromeos']),
 
     # Chrome Frame policies:
     'ChromeFrameRendererSettings': (None, 0, [], []),

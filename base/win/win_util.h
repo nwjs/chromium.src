@@ -21,7 +21,6 @@
 
 #ifndef BASE_WIN_WIN_UTIL_H_
 #define BASE_WIN_WIN_UTIL_H_
-#pragma once
 
 #include <windows.h>
 
@@ -78,6 +77,10 @@ BASE_EXPORT bool SetStringValueForPropertyStore(
 // Win7.
 BASE_EXPORT bool SetAppIdForPropertyStore(IPropertyStore* property_store,
                                           const wchar_t* app_id);
+
+// Sets the DualModeApp property to true in |property_store|. The function is
+// intended for tagging dual mode applications in Win8.
+BASE_EXPORT bool SetDualModeForPropertyStore(IPropertyStore* property_store);
 
 // Adds the specified |command| using the specified |name| to the AutoRun key.
 // |root_key| could be HKCU or HKLM or the root of any user hive.

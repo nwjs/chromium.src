@@ -6,47 +6,18 @@
 
 #include <string>
 
-#include "base/command_line.h"
-#include "base/compiler_specific.h"
-#include "base/file_path.h"
-#include "base/file_util.h"
-#include "base/memory/scoped_ptr.h"
-#include "base/path_service.h"
-#include "base/string_util.h"
 #include "build/build_config.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/content_settings/host_content_settings_map.h"
-#include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
-#include "chrome/browser/profiles/off_the_record_profile_io_data.h"
-#include "chrome/browser/profiles/profile_dependency_manager.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/sync_prefs.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
-#include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/common/json_pref_store.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/render_messages.h"
-#include "content/public/browser/browser_thread.h"
-#include "content/public/browser/download_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "ui/base/resource/resource_bundle.h"
 
-using base::Time;
-using base::TimeDelta;
-
-// A pointer to the request context for the default profile.  See comments on
-// Profile::GetDefaultRequestContext.
-net::URLRequestContextGetter* Profile::default_request_context_;
-
-namespace {
-
-}  // namespace
+#if defined(OS_CHROMEOS)
+#include "base/command_line.h"
+#include "chrome/common/chrome_switches.h"
+#endif
 
 Profile::Profile()
     : restored_last_session_(false),
@@ -61,11 +32,6 @@ Profile* Profile::FromBrowserContext(content::BrowserContext* browser_context) {
 
 // static
 Profile* Profile::FromWebUI(content::WebUI* web_ui) {
-  // TODO(dhollowa): Crash diagnosis http://crbug.com/97802
-  CHECK(web_ui);
-  CHECK(web_ui->GetWebContents());
-  CHECK(web_ui->GetWebContents()->GetBrowserContext());
-
   return FromBrowserContext(web_ui->GetWebContents()->GetBrowserContext());
 }
 
@@ -90,11 +56,8 @@ void Profile::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterBooleanPref(prefs::kSafeBrowsingReportingEnabled,
                              false,
                              PrefService::UNSYNCABLE_PREF);
-  // TODO(erg): kSpeechRecognitionFilterProfanities should also be moved to
-  // speech_input_extension_manager.cc, but is more involved because of
-  // BrowserContext/Profile confusion because of ChromeSpeechInputPreferences.
-  prefs->RegisterBooleanPref(prefs::kSpeechRecognitionFilterProfanities,
-                             true,
+  prefs->RegisterBooleanPref(prefs::kSafeBrowsingProceedAnywayDisabled,
+                             false,
                              PrefService::UNSYNCABLE_PREF);
   prefs->RegisterBooleanPref(prefs::kDisableExtensions,
                              false,
@@ -130,10 +93,6 @@ void Profile::RegisterUserPrefs(PrefService* prefs) {
 #endif
 }
 
-// static
-net::URLRequestContextGetter* Profile::GetDefaultRequestContext() {
-  return default_request_context_;
-}
 
 std::string Profile::GetDebugName() {
   std::string name = GetPath().BaseName().MaybeAsASCII();

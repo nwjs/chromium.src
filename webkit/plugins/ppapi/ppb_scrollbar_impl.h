@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,10 +7,12 @@
 
 #include <vector>
 
+#include "base/compiler_specific.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "ppapi/thunk/ppb_scrollbar_api.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebScrollbarClient.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginScrollbarClient.h"
 #include "ui/gfx/rect.h"
 #include "webkit/plugins/ppapi/ppb_widget_impl.h"
 
@@ -19,7 +21,7 @@ namespace ppapi {
 
 class PPB_Scrollbar_Impl : public PPB_Widget_Impl,
                            public ::ppapi::thunk::PPB_Scrollbar_API,
-                           public WebKit::WebScrollbarClient {
+                           public WebKit::WebPluginScrollbarClient {
  public:
   static PP_Resource Create(PP_Instance instance, bool vertical);
 
@@ -49,20 +51,20 @@ class PPB_Scrollbar_Impl : public PPB_Widget_Impl,
       const ::ppapi::InputEventData& data) OVERRIDE;
   virtual void SetLocationInternal(const PP_Rect* location) OVERRIDE;
 
-  // WebKit::WebScrollbarClient implementation.
-  virtual void valueChanged(WebKit::WebScrollbar* scrollbar) OVERRIDE;
-  virtual void overlayChanged(WebKit::WebScrollbar* scrollbar) OVERRIDE;
-  virtual void invalidateScrollbarRect(WebKit::WebScrollbar* scrollbar,
+  // WebKit::WebPluginScrollbarClient implementation.
+  virtual void valueChanged(WebKit::WebPluginScrollbar* scrollbar) OVERRIDE;
+  virtual void overlayChanged(WebKit::WebPluginScrollbar* scrollbar) OVERRIDE;
+  virtual void invalidateScrollbarRect(WebKit::WebPluginScrollbar* scrollbar,
                                        const WebKit::WebRect& rect) OVERRIDE;
   virtual void getTickmarks(
-      WebKit::WebScrollbar* scrollbar,
+      WebKit::WebPluginScrollbar* scrollbar,
       WebKit::WebVector<WebKit::WebRect>* tick_marks) const OVERRIDE;
 
   void NotifyInvalidate();
 
   gfx::Rect dirty_;
   std::vector<WebKit::WebRect> tickmarks_;
-  scoped_ptr<WebKit::WebScrollbar> scrollbar_;
+  scoped_ptr<WebKit::WebPluginScrollbar> scrollbar_;
 
   // Used so that the post task for Invalidate doesn't keep an extra reference.
   base::WeakPtrFactory<PPB_Scrollbar_Impl> weak_ptr_factory_;

@@ -14,11 +14,10 @@
 <include src="settings_dialog.js"></include>
 <if expr="pp_ifdef('chromeos')">
   <include src="../chromeos/user_images_grid.js"></include>
+  <include src="../shared/js/chromeos/ui_account_tweaks.js"></include>
   <include src="chromeos/cellular_plan_element.js"></include>
   <include src="chromeos/change_picture_options.js"></include>
   <include src="chromeos/internet_detail_ip_config_list.js"></include>
-  <include src="chromeos/internet_network_element.js"></include>
-  <include src="chromeos/internet_options.js"></include>
   <include src="chromeos/internet_detail.js"></include>
   <include src="chromeos/network_list.js"></include>
   <include src="chromeos/preferred_networks.js"></include>
@@ -29,24 +28,24 @@
   <include src="chromeos/proxy_rules_list.js"></include>
   <include src="chromeos/accounts_user_list.js"></include>
   <include src="chromeos/accounts_user_name_edit.js"></include>
+  <include src="chromeos/display_options.js"></include>
   <include src="chromeos/keyboard_overlay.js"></include>
   <include src="chromeos/pointer_overlay.js"></include>
-  <include src="chromeos/virtual_keyboard.js"></include>
-  <include src="chromeos/virtual_keyboard_list.js"></include>
   var AccountsOptions = options.AccountsOptions;
   var ChangePictureOptions = options.ChangePictureOptions;
-  var InternetOptions = options.InternetOptions;
   var DetailsInternetPage = options.internet.DetailsInternetPage;
+  var DisplayOptions = options.DisplayOptions;
   var BluetoothOptions = options.BluetoothOptions;
   var BluetoothPairing = options.BluetoothPairing;
   var KeyboardOverlay = options.KeyboardOverlay;
   var PointerOverlay = options.PointerOverlay;
+  var UIAccountTweaks = uiAccountTweaks.UIAccountTweaks;
 </if>
 <if expr="pp_ifdef('chromeos') and pp_ifdef('use_ash')">
   <include src="chromeos/set_wallpaper_options.js"></include>
   var SetWallpaperOptions = options.SetWallpaperOptions;
 </if>
-<if expr="not is_win and not is_macosx">
+<if expr="pp_ifdef('use_nss')">
   <include src="certificate_tree.js"></include>
   <include src="certificate_manager.js"></include>
   <include src="certificate_restore_overlay.js"></include>
@@ -73,11 +72,10 @@
 <include src="content_settings_ui.js"></include>
 <include src="cookies_list.js"></include>
 <include src="cookies_view.js"></include>
+<include src="cookies_view_app.js"></include>
 <include src="font_settings.js"></include>
-<if expr="pp_ifdef('enable_register_protocol_handler')">
-  <include src="handler_options.js"></include>
-  <include src="handler_options_list.js"></include>
-</if>
+<include src="handler_options.js"></include>
+<include src="handler_options_list.js"></include>
 <include src="home_page_overlay.js"></include>
 <include src="import_data_overlay.js"></include>
 <include src="instant_confirm_overlay.js"></include>
@@ -85,13 +83,16 @@
 <include src="language_list.js"></include>
 <include src="language_options.js"></include>
 <include src="manage_profile_overlay.js"></include>
+<include src="media_gallery_list.js"></include>
+<include src="media_gallery_manager_overlay.js"></include>
+<include src="options_focus_manager.js"></include>
 <include src="password_manager.js"></include>
 <include src="password_manager_list.js"></include>
 <include src="profiles_icon_grid.js"></include>
 <include src="search_engine_manager.js"></include>
 <include src="search_engine_manager_engine_list.js"></include>
 <include src="search_page.js"></include>
-<include src="session_restore_overlay.js"></include>
+<include src="spelling_confirm_overlay.js"></include>
 <include src="startup_overlay.js"></include>
 <include src="../sync_setup_overlay.js"></include>
 <include src="../uber/uber_utils.js"></include>

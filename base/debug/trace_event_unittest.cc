@@ -58,10 +58,10 @@ class TraceEventTestFixture : public testing::Test {
     json_output_.json_output.clear();
   }
 
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     old_thread_name_ = PlatformThread::GetName();
   }
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     if (TraceLog::GetInstance())
       EXPECT_FALSE(TraceLog::GetInstance()->IsEnabled());
     PlatformThread::SetName(old_thread_name_ ? old_thread_name_  : "");
@@ -99,7 +99,8 @@ void TraceEventTestFixture::OnTraceDataCollected(
   trace_buffer_.Finish();
 
   scoped_ptr<Value> root;
-  root.reset(base::JSONReader::Read(json_output_.json_output, false));
+  root.reset(base::JSONReader::Read(json_output_.json_output,
+                                    JSON_PARSE_RFC | JSON_DETACHABLE_CHILDREN));
 
   if (!root.get()) {
     LOG(ERROR) << json_output_.json_output;

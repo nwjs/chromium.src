@@ -98,41 +98,6 @@ MouseEvent::MouseEvent(const MouseEvent& model, View* source, View* target)
     : LocatedEvent(model, source, target) {
 }
 
-MouseEvent::MouseEvent(const TouchEvent& touch)
-    : LocatedEvent(touch.native_event()) {
-  // The location of the event is correctly extracted from the native event. But
-  // it is necessary to update the event type.
-  ui::EventType mtype = ui::ET_UNKNOWN;
-  switch (touch.type()) {
-    case ui::ET_TOUCH_RELEASED:
-      mtype = ui::ET_MOUSE_RELEASED;
-      break;
-    case ui::ET_TOUCH_PRESSED:
-      mtype = ui::ET_MOUSE_PRESSED;
-      break;
-    case ui::ET_TOUCH_MOVED:
-      mtype = ui::ET_MOUSE_MOVED;
-      break;
-    default:
-      NOTREACHED() << "Invalid mouse event.";
-  }
-  set_type(mtype);
-
-  // It may not be possible to extract the button-information necessary for a
-  // MouseEvent from the native event for a TouchEvent, so the flags are
-  // explicitly updated as well. The button is approximated from the touchpoint
-  // identity.
-  int new_flags = flags() & ~(ui::EF_LEFT_MOUSE_BUTTON |
-                              ui::EF_RIGHT_MOUSE_BUTTON |
-                              ui::EF_MIDDLE_MOUSE_BUTTON);
-  int button = ui::EF_LEFT_MOUSE_BUTTON;
-  if (touch.identity() == 1)
-    button = ui::EF_RIGHT_MOUSE_BUTTON;
-  else if (touch.identity() == 2)
-    button = ui::EF_MIDDLE_MOUSE_BUTTON;
-  set_flags(new_flags | button);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // MouseWheelEvent, public:
 
@@ -178,6 +143,45 @@ TouchEvent::TouchEvent(const TouchEvent& model, View* source, View* target)
       force_(model.force_) {
 }
 
+TouchEvent::~TouchEvent() {
+}
+
+ui::EventType TouchEvent::GetEventType() const {
+  return type();
+}
+
+gfx::Point TouchEvent::GetLocation() const {
+  return location();
+}
+
+int TouchEvent::GetTouchId() const {
+  return touch_id_;
+}
+
+int TouchEvent::GetEventFlags() const {
+  return flags();
+}
+
+base::TimeDelta TouchEvent::GetTimestamp() const {
+  return base::TimeDelta::FromMilliseconds(time_stamp().ToDoubleT() * 1000);
+}
+
+float TouchEvent::RadiusX() const {
+  return radius_x_;
+}
+
+float TouchEvent::RadiusY() const {
+  return radius_y_;
+}
+
+float TouchEvent::RotationAngle() const {
+  return rotation_angle_;
+}
+
+float TouchEvent::Force() const {
+  return force_;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // TouchEvent, private:
 
@@ -208,8 +212,7 @@ const int MouseWheelEvent::kWheelDelta = 53;
 GestureEvent::GestureEvent(const GestureEvent& model, View* source,
                            View* target)
     : LocatedEvent(model, source, target),
-      delta_x_(model.delta_x_),
-      delta_y_(model.delta_y_) {
+      details_(model.details_) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,15 +220,23 @@ GestureEvent::GestureEvent(const GestureEvent& model, View* source,
 
 GestureEvent::GestureEvent(const GestureEvent& model, View* root)
     : LocatedEvent(model, root),
-      delta_x_(model.delta_x_),
-      delta_y_(model.delta_y_) {
+      details_(model.details_) {
 }
 
 GestureEvent::GestureEvent(ui::EventType type, int x, int y, int flags)
     : LocatedEvent(type, gfx::Point(x, y), flags),
-      delta_x_(0),
-      delta_y_(0) {
+      details_(type, 0.f, 0.f) {
 }
+
+GestureEvent::~GestureEvent() {
+}
+
+#if !defined(USE_AURA)
+int GestureEvent::GetLowestTouchId() const {
+  // TODO:
+  return 0;
+}
+#endif
 
 GestureEventForTest::GestureEventForTest(ui::EventType type,
                                          int x,

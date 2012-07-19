@@ -13,7 +13,6 @@
 #include "base/string_util.h"
 #include "base/win/scoped_gdi_object.h"
 #include "skia/ext/skia_utils_win.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
@@ -24,6 +23,7 @@
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/icon_util.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/controls/table/table_view_observer.h"
 
@@ -1225,7 +1225,7 @@ LRESULT TableView::OnCustomDraw(NMLVCUSTOMDRAW* draw_info) {
       LRESULT r = CDRF_DODEFAULT;
       // First let's take care of painting the right icon.
       if (table_type_ == ICON_AND_TEXT) {
-        SkBitmap image = model_->GetIcon(model_index);
+        gfx::ImageSkia image = model_->GetIcon(model_index);
         if (!image.isNull()) {
           // Get the rect that holds the icon.
           RECT icon_rect, client_rect;
@@ -1259,12 +1259,12 @@ LRESULT TableView::OnCustomDraw(NMLVCUSTOMDRAW* draw_info) {
               // NOTE: This may be invoked without the ListView filling in the
               // background (or rather windows paints background, then invokes
               // this twice). As such, we always fill in the background.
-              canvas.sk_canvas()->drawColor(
+              canvas.DrawColor(
                   skia::COLORREFToSkColor(GetSysColor(bg_color_index)),
                   SkXfermode::kSrc_Mode);
               // + 1 for padding (we declared the image as 18x18 in the list-
               // view when they are 16x16 so we get an extra pixel of padding).
-              canvas.DrawBitmapInt(image, 0, 0,
+              canvas.DrawImageInt(image, 0, 0,
                                    image.width(), image.height(),
                                    1, 1,
                                    gfx::kFaviconSize, gfx::kFaviconSize, true);

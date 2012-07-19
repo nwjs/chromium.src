@@ -10,48 +10,31 @@
 #include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/web_contents.h"
 #include "webkit/glue/web_intent_service_data.h"
 
 using content::WebContents;
 
 // static
-void Browser::RegisterIntentHandlerHelper(WebContents* tab,
-                                          const string16& action,
-                                          const string16& type,
-                                          const string16& href,
-                                          const string16& title,
-                                          const string16& disposition) {
-  if (!web_intents::IsWebIntentsEnabled())
+void Browser::RegisterIntentHandlerHelper(
+    WebContents* tab,
+    const webkit_glue::WebIntentServiceData& data,
+    bool user_gesture) {
+  TabContents* tab_contents = TabContents::FromWebContents(tab);
+  if (!tab_contents || tab_contents->profile()->IsOffTheRecord())
     return;
 
-  TabContentsWrapper* tcw = TabContentsWrapper::GetCurrentWrapperForContents(
-      tab);
-  if (!tcw || tcw->profile()->IsOffTheRecord())
+  if (!web_intents::IsWebIntentsEnabledForProfile(tab_contents->profile()))
     return;
 
   FaviconService* favicon_service =
-      tcw->profile()->GetFaviconService(Profile::EXPLICIT_ACCESS);
-
-  // |href| can be relative to originating URL. Resolve if necessary.
-  GURL service_url(href);
-  if (!service_url.is_valid()) {
-    const GURL& url = tab->GetURL();
-    service_url = url.Resolve(href);
-  }
-
-  webkit_glue::WebIntentServiceData service;
-  service.service_url = service_url;
-  service.action = action;
-  service.type = type;
-  service.title = title;
-  service.setDisposition(disposition);
+      tab_contents->profile()->GetFaviconService(Profile::EXPLICIT_ACCESS);
 
   RegisterIntentHandlerInfoBarDelegate::MaybeShowIntentInfoBar(
-      tcw->infobar_tab_helper(),
-      WebIntentsRegistryFactory::GetForProfile(tcw->profile()),
-      service,
+      tab_contents->infobar_tab_helper(),
+      WebIntentsRegistryFactory::GetForProfile(tab_contents->profile()),
+      data,
       favicon_service,
       tab->GetURL());
 }

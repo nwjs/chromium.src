@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_editor_view.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::Time;
@@ -65,7 +65,7 @@ class BookmarkEditorViewTest : public testing::Test {
   }
 
   void SetTitleText(const std::wstring& title) {
-    editor_->title_tf_.SetText(title);
+    editor_->title_tf_->SetText(title);
   }
 
   void SetURLText(const std::wstring& text) {
@@ -132,7 +132,8 @@ class BookmarkEditorViewTest : public testing::Test {
 // Makes sure the tree model matches that of the bookmark bar model.
 TEST_F(BookmarkEditorViewTest, ModelsMatch) {
   CreateEditor(profile_.get(), NULL,
-               BookmarkEditor::EditDetails::AddNodeInFolder(NULL, -1),
+               BookmarkEditor::EditDetails::AddNodeInFolder(
+                   NULL, -1, GURL(), string16()),
                BookmarkEditorView::SHOW_TREE);
   BookmarkEditorView::EditorNode* editor_root = editor_tree_model()->GetRoot();
   // The root should have two or three children: bookmark bar, other bookmarks
@@ -263,7 +264,8 @@ TEST_F(BookmarkEditorViewTest, MoveToNewParent) {
 // Brings up the editor, creating a new URL on the bookmark bar.
 TEST_F(BookmarkEditorViewTest, NewURL) {
   CreateEditor(profile_.get(), NULL,
-               BookmarkEditor::EditDetails::AddNodeInFolder(NULL, -1),
+               BookmarkEditor::EditDetails::AddNodeInFolder(
+                   NULL, -1, GURL(), string16()),
                BookmarkEditorView::SHOW_TREE);
 
   SetURLText(UTF8ToWide(GURL(base_path() + "a").spec()));

@@ -1,9 +1,10 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "ash/drag_drop/drag_image_view.h"
 
+#include "ash/wm/shadow_types.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -22,6 +23,7 @@ Widget* CreateDragWidget() {
   params.transparent = true;
   drag_widget->Init(params);
   drag_widget->SetOpacity(0xFF);
+  SetShadowType(drag_widget->GetNativeView(), SHADOW_TYPE_NONE);
   return drag_widget;
 }
 }
@@ -32,7 +34,7 @@ DragImageView::DragImageView() : views::ImageView() {
   widget_->SetAlwaysOnTop(true);
 
   // We are owned by the DragDropController.
-  set_parent_owned(false);
+  set_owned_by_client();
 }
 
 DragImageView::~DragImageView() {

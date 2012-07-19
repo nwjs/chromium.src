@@ -4,16 +4,23 @@
 
 #include "chrome/browser/ui/webui/policy_ui.h"
 
+#include <vector>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/hash_tables.h"
+#include "base/stl_util.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/policy/cloud_policy_cache_base.h"
 #include "chrome/browser/policy/cloud_policy_data_store.h"
+#include "chrome/browser/policy/policy_error_map.h"
+#include "chrome/browser/policy/policy_service.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/time_format.h"
@@ -28,7 +35,14 @@
 #include "chrome/browser/chromeos/login/user_manager.h"
 #endif
 
-using content::WebContents;
+const char PolicyUIHandler::kLevel[] = "level";
+const char PolicyUIHandler::kName[] = "name";
+const char PolicyUIHandler::kScope[] = "scope";
+const char PolicyUIHandler::kSet[] = "set";
+const char PolicyUIHandler::kStatus[] = "status";
+const char PolicyUIHandler::kValue[] = "value";
+
+namespace {
 
 ChromeWebUIDataSource* CreatePolicyUIHTMLSource() {
   ChromeWebUIDataSource* source =
@@ -40,8 +54,7 @@ ChromeWebUIDataSource* CreatePolicyUIHTMLSource() {
   source->AddLocalizedString("fetchPoliciesText", IDS_POLICY_FETCH);
   source->AddLocalizedString("devicePoliciesBoxTitle",
                              IDS_POLICY_DEVICE_POLICIES);
-  source->AddLocalizedString("userPoliciesBoxTitle",
-                             IDS_POLICY_USER_POLICIES);
+  source->AddLocalizedString("userPoliciesBoxTitle", IDS_POLICY_USER_POLICIES);
   source->AddLocalizedString("enrollmentDomainText",
                              IDS_POLICY_ENROLLMENT_DOMAIN);
   source->AddLocalizedString("clientIdText", IDS_POLICY_CLIENT_ID);
@@ -49,8 +62,7 @@ ChromeWebUIDataSource* CreatePolicyUIHTMLSource() {
   source->AddLocalizedString("lastFetchedText", IDS_POLICY_LAST_FETCHED);
   source->AddLocalizedString("fetchIntervalText", IDS_POLICY_FETCH_INTERVAL);
   source->AddLocalizedString("serverStatusText", IDS_POLICY_SERVER_STATUS);
-  source->AddLocalizedString("showUnsentPoliciesText",
-                             IDS_POLICY_SHOW_UNSENT);
+  source->AddLocalizedString("showUnsentPoliciesText", IDS_POLICY_SHOW_UNSENT);
   source->AddLocalizedString("filterPoliciesText", IDS_POLICY_FILTER);
   source->AddLocalizedString("noPoliciesSet",IDS_POLICY_NO_POLICIES_SET);
   source->AddLocalizedString("appliesToTableHeader", IDS_POLICY_APPLIES_TO);
@@ -71,34 +83,101 @@ ChromeWebUIDataSource* CreatePolicyUIHTMLSource() {
   return source;
 }
 
+string16 GetPolicyScopeString(policy::PolicyScope scope) {
+  switch (scope) {
+    case policy::POLICY_SCOPE_USER:
+      return l10n_util::GetStringUTF16(IDS_POLICY_SCOPE_USER);
+    case policy::POLICY_SCOPE_MACHINE:
+      return l10n_util::GetStringUTF16(IDS_POLICY_SCOPE_MACHINE);
+  }
+  NOTREACHED();
+  return string16();
+}
+
+string16 GetPolicyLevelString(policy::PolicyLevel level) {
+  switch (level) {
+    case policy::POLICY_LEVEL_RECOMMENDED:
+      return l10n_util::GetStringUTF16(IDS_POLICY_LEVEL_RECOMMENDED);
+    case policy::POLICY_LEVEL_MANDATORY:
+      return l10n_util::GetStringUTF16(IDS_POLICY_LEVEL_MANDATORY);
+  }
+  NOTREACHED();
+  return string16();
+}
+
+base::DictionaryValue* GetPolicyDetails(
+    const policy::PolicyDefinitionList::Entry* policy_definition,
+    const policy::PolicyMap::Entry* policy_value,
+    const string16& error_message) {
+  base::DictionaryValue* details = new base::DictionaryValue();
+  details->SetString(PolicyUIHandler::kName,
+                     ASCIIToUTF16(policy_definition->name));
+  details->SetBoolean(PolicyUIHandler::kSet, true);
+  details->SetString(PolicyUIHandler::kLevel,
+                     GetPolicyLevelString(policy_value->level));
+  details->SetString(PolicyUIHandler::kScope,
+                     GetPolicyScopeString(policy_value->scope));
+  details->Set(PolicyUIHandler::kValue, policy_value->value->DeepCopy());
+  if (error_message.empty()) {
+    details->SetString(PolicyUIHandler::kStatus,
+                       l10n_util::GetStringUTF16(IDS_OK));
+  } else {
+    details->SetString(PolicyUIHandler::kStatus, error_message);
+  }
+  return details;
+}
+
+base::DictionaryValue* GetPolicyErrorDetails(const std::string& policy_name,
+                                             bool is_set) {
+  base::DictionaryValue* details = new base::DictionaryValue();
+  details->SetString(PolicyUIHandler::kName, ASCIIToUTF16(policy_name));
+  details->SetBoolean(PolicyUIHandler::kSet, is_set);
+  details->SetString(PolicyUIHandler::kLevel, "");
+  details->SetString(PolicyUIHandler::kScope, "");
+  details->SetString(PolicyUIHandler::kValue, "");
+  if (is_set)
+    details->SetString(PolicyUIHandler::kStatus,
+                       l10n_util::GetStringUTF16(IDS_POLICY_UNKNOWN));
+  else
+    details->SetString(PolicyUIHandler::kStatus,
+                       l10n_util::GetStringUTF16(IDS_POLICY_NOT_SET));
+  return details;
+}
+
+string16 CreateStatusMessageString(
+    policy::CloudPolicySubsystem::ErrorDetails error_details) {
+  static int error_to_string_id[] = {
+    IDS_POLICY_STATUS_OK,
+    IDS_POLICY_STATUS_NETWORK_ERROR,
+    IDS_POLICY_STATUS_NETWORK_ERROR,  // this is also a network error.
+    IDS_POLICY_STATUS_DMTOKEN_ERROR,
+    IDS_POLICY_STATUS_LOCAL_ERROR,
+    IDS_POLICY_STATUS_SIGNATURE_ERROR,
+    IDS_POLICY_STATUS_SERIAL_ERROR,
+  };
+  DCHECK(static_cast<size_t>(error_details) < arraysize(error_to_string_id));
+  return l10n_util::GetStringUTF16(error_to_string_id[error_details]);
+}
+
+}  // namespace
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // PolicyUIHandler
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-PolicyUIHandler::PolicyUIHandler() {
-  policy::ConfigurationPolicyReader* managed_platform =
-      policy::ConfigurationPolicyReader::CreateManagedPlatformPolicyReader();
-  policy::ConfigurationPolicyReader* managed_cloud =
-      policy::ConfigurationPolicyReader::CreateManagedCloudPolicyReader();
-  policy::ConfigurationPolicyReader* recommended_platform =
-      policy::ConfigurationPolicyReader::
-          CreateRecommendedPlatformPolicyReader();
-  policy::ConfigurationPolicyReader* recommended_cloud =
-      policy::ConfigurationPolicyReader::CreateRecommendedCloudPolicyReader();
-  policy_status_.reset(new policy::PolicyStatus(managed_platform,
-                                                managed_cloud,
-                                                recommended_platform,
-                                                recommended_cloud));
-  policy_status_->AddObserver(this);
-}
+PolicyUIHandler::PolicyUIHandler()
+    : ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {}
 
 PolicyUIHandler::~PolicyUIHandler() {
-  policy_status_->RemoveObserver(this);
+  GetPolicyService()->RemoveObserver(
+      policy::POLICY_DOMAIN_CHROME, "", this);
 }
 
 void PolicyUIHandler::RegisterMessages() {
+  GetPolicyService()->AddObserver(
+      policy::POLICY_DOMAIN_CHROME, "", this);
   web_ui()->RegisterMessageCallback(
       "requestData",
       base::Bind(&PolicyUIHandler::HandleRequestData,
@@ -109,33 +188,107 @@ void PolicyUIHandler::RegisterMessages() {
                  base::Unretained(this)));
 }
 
-void PolicyUIHandler::OnPolicyValuesChanged() {
-  SendDataToUI(true);
+void PolicyUIHandler::OnPolicyUpdated(policy::PolicyDomain domain,
+                                      const std::string& component_id,
+                                      const policy::PolicyMap& previous,
+                                      const policy::PolicyMap& current) {
+  DCHECK(domain == policy::POLICY_DOMAIN_CHROME);
+  DCHECK(component_id.empty());
+  SendDataToUI();
 }
 
-void PolicyUIHandler::HandleRequestData(const ListValue* args) {
-  SendDataToUI(false);
+// static
+scoped_ptr<base::ListValue> PolicyUIHandler::GetPolicyStatusList(
+    const policy::PolicyMap& policies,
+    bool* any_policies_set) {
+  scoped_ptr<base::ListValue> result(new base::ListValue());
+  // Make a copy that can be modified, since some policy values are modified
+  // before being displayed.
+  policy::PolicyMap policy_map;
+  policy_map.CopyFrom(policies);
+
+  // Get a list of all the errors in the policy values.
+  const policy::ConfigurationPolicyHandlerList* handler_list =
+      g_browser_process->browser_policy_connector()->GetHandlerList();
+  policy::PolicyErrorMap errors;
+  handler_list->ApplyPolicySettings(policy_map, NULL, &errors);
+  handler_list->PrepareForDisplaying(&policy_map);
+
+  // Append each known policy and its status.
+  *any_policies_set = false;
+  std::vector<base::DictionaryValue*> unset_policies;
+  base::hash_set<std::string> known_names;
+  const policy::PolicyDefinitionList* policy_list =
+      policy::GetChromePolicyDefinitionList();
+  for (const policy::PolicyDefinitionList::Entry* policy = policy_list->begin;
+       policy != policy_list->end; ++policy) {
+    known_names.insert(policy->name);
+    const policy::PolicyMap::Entry* entry = policy_map.Get(policy->name);
+    string16 error_message = errors.GetErrors(policy->name);
+    if (entry) {
+      *any_policies_set = true;
+      result->Append(GetPolicyDetails(policy, entry, error_message));
+    } else {
+      unset_policies.push_back(GetPolicyErrorDetails(policy->name, false));
+    }
+  }
+
+  // Append unrecognized policy names.
+  for (policy::PolicyMap::const_iterator it = policy_map.begin();
+       it != policy_map.end(); ++it) {
+    if (!ContainsKey(known_names, it->first))
+      result->Append(GetPolicyErrorDetails(it->first, true));
+  }
+
+  // Append policies that aren't currently configured to the end.
+  for (std::vector<base::DictionaryValue*>::const_iterator it =
+           unset_policies.begin();
+       it != unset_policies.end(); ++it) {
+    result->Append(*it);
+  }
+
+  return result.Pass();
 }
 
-void PolicyUIHandler::HandleFetchPolicy(const ListValue* args) {
-  g_browser_process->browser_policy_connector()->RefreshPolicies();
+void PolicyUIHandler::HandleRequestData(const base::ListValue* args) {
+  SendDataToUI();
 }
 
-void PolicyUIHandler::SendDataToUI(bool is_policy_update) {
-  DictionaryValue results;
-  bool any_policies_set;
-  ListValue* list = policy_status_->GetPolicyStatusList(&any_policies_set);
+void PolicyUIHandler::HandleFetchPolicy(const base::ListValue* args) {
+  // Fetching policy can potentially take a while due to cloud policy fetches.
+  // Use a WeakPtr to make sure the callback is invalidated if the tab is closed
+  // before the fetching completes.
+  GetPolicyService()->RefreshPolicies(
+      base::Bind(&PolicyUIHandler::OnRefreshDone,
+                 weak_factory_.GetWeakPtr()));
+}
+
+void PolicyUIHandler::OnRefreshDone() {
+  web_ui()->CallJavascriptFunction("Policy.refreshDone");
+}
+
+void PolicyUIHandler::SendDataToUI() {
+  policy::PolicyService* service = GetPolicyService();
+  bool any_policies_set = false;
+  base::ListValue* list =
+      GetPolicyStatusList(
+          service->GetPolicies(policy::POLICY_DOMAIN_CHROME, std::string()),
+          &any_policies_set).release();
+  base::DictionaryValue results;
   results.Set("policies", list);
   results.SetBoolean("anyPoliciesSet", any_policies_set);
-  DictionaryValue* dict = GetStatusData();
+  base::DictionaryValue* dict = GetStatusData();
   results.Set("status", dict);
-  results.SetBoolean("isPolicyUpdate", is_policy_update);
-
   web_ui()->CallJavascriptFunction("Policy.returnData", results);
 }
 
-DictionaryValue* PolicyUIHandler::GetStatusData() {
-  DictionaryValue* results = new DictionaryValue();
+policy::PolicyService* PolicyUIHandler::GetPolicyService() {
+  Profile* profile = Profile::FromWebUI(web_ui());
+  return profile->GetPolicyService();
+}
+
+base::DictionaryValue* PolicyUIHandler::GetStatusData() {
+  base::DictionaryValue* results = new base::DictionaryValue();
   policy::BrowserPolicyConnector* connector =
       g_browser_process->browser_policy_connector();
 
@@ -212,22 +365,6 @@ string16 PolicyUIHandler::GetPolicyFetchInterval(const char* refresh_pref) {
       base::TimeDelta::FromMilliseconds(prefs->GetInteger(refresh_pref)));
 }
 
-// static
-string16 PolicyUIHandler::CreateStatusMessageString(
-    policy::CloudPolicySubsystem::ErrorDetails error_details) {
-  static int error_to_string_id[] = {
-    IDS_POLICY_STATUS_OK,
-    IDS_POLICY_STATUS_NETWORK_ERROR,
-    IDS_POLICY_STATUS_NETWORK_ERROR,  // this is also a network error.
-    IDS_POLICY_STATUS_DMTOKEN_ERROR,
-    IDS_POLICY_STATUS_LOCAL_ERROR,
-    IDS_POLICY_STATUS_SIGNATURE_ERROR,
-    IDS_POLICY_STATUS_SERIAL_ERROR,
-  };
-  DCHECK(static_cast<size_t>(error_details) < arraysize(error_to_string_id));
-  return l10n_util::GetStringUTF16(error_to_string_id[error_details]);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // PolicyUI
@@ -239,7 +376,7 @@ PolicyUI::PolicyUI(content::WebUI* web_ui) : WebUIController(web_ui) {
 
   // Set up the chrome://policy/ source.
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(CreatePolicyUIHTMLSource());
+  ChromeURLDataManager::AddDataSource(profile, CreatePolicyUIHTMLSource());
 }
 
 PolicyUI::~PolicyUI() {

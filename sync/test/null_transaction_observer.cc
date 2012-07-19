@@ -6,10 +6,12 @@
 
 #include "base/memory/weak_ptr.h"
 
+namespace syncer {
 namespace syncable {
 
-browser_sync::WeakHandle<TransactionObserver> NullTransactionObserver() {
-  return browser_sync::MakeWeakHandle(base::WeakPtr<TransactionObserver>());
+syncer::WeakHandle<TransactionObserver> NullTransactionObserver() {
+  return syncer::MakeWeakHandle(base::WeakPtr<TransactionObserver>());
 }
 
 }  // namespace syncable
+}  // namespace syncer

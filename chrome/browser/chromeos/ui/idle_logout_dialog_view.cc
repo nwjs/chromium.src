@@ -4,12 +4,17 @@
 
 #include "chrome/browser/chromeos/ui/idle_logout_dialog_view.h"
 
+#include "ash/shell.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/time.h"
 #include "base/string_number_conversions.h"
+#include "base/utf_string_conversions.h"
+#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_metrics.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/session_manager_client.h"
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -24,7 +29,7 @@ namespace {
 // Global singleton instance of our dialog class.
 chromeos::IdleLogoutDialogView* g_instance = NULL;
 
-const int kIdleLogoutDialogMaxWidth = 400;
+const int kIdleLogoutDialogMaxWidth = 300;
 const int kCountdownUpdateIntervalMs = 1000;
 
 }  // namespace
@@ -50,7 +55,8 @@ KioskModeSettings* IdleLogoutSettingsProvider::GetKioskModeSettings() {
 }
 
 void IdleLogoutSettingsProvider::LogoutCurrentUser(IdleLogoutDialogView*) {
-  BrowserList::AttemptUserExit();
+  KioskModeMetrics::Get()->SessionEnded();
+  DBusThreadManager::Get()->GetSessionManagerClient()->StopSession();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,18 +70,14 @@ void IdleLogoutDialogView::ShowDialog() {
   // called, in which case we reset g_instance there if not already reset.
   if (!g_instance) {
     g_instance = new IdleLogoutDialogView();
-    g_instance->Init();
-    g_instance->Show();
+    g_instance->InitAndShow();
   }
 }
 
 // static
 void IdleLogoutDialogView::CloseDialog() {
-  if (g_instance) {
-    g_instance->set_closed();
+  if (g_instance)
     g_instance->Close();
-    g_instance = NULL;
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,68 +98,50 @@ views::View* IdleLogoutDialogView::GetContentsView() {
   return this;
 }
 
-void IdleLogoutDialogView::DeleteDelegate() {
-  // There isn't a delegate method that is called on close and is 'not' called
-  // async; this can cause an issue with us setting the g_instance to NULL
-  // 'after' another Show call has been called on it. So instead, we rely on
-  // CloseIdleLogoutDialog to set g_instance to NULL; in the case that we get
-  // closed by any other way than CloseIdleLogoutDialog, we check if our
-  // 'closed' state is set - if not, then we set it and set g_instance to null,
-  // since that means that CloseIdleLogoutDialog was never called.
-  if (!this->is_closed()) {
-    g_instance->set_closed();
-    g_instance = NULL;
-  }
-
-  delete this;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // IdleLogoutDialog private methods
 IdleLogoutDialogView::IdleLogoutDialogView()
     : restart_label_(NULL),
-      warning_label_(NULL),
       weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
   if (!IdleLogoutDialogView::provider_)
     IdleLogoutDialogView::provider_ = new IdleLogoutSettingsProvider();
 }
 
 IdleLogoutDialogView::~IdleLogoutDialogView() {
+  if (this == g_instance)
+    g_instance = NULL;
 }
 
-void IdleLogoutDialogView::Init() {
+void IdleLogoutDialogView::InitAndShow() {
   KioskModeSettings* settings =
       IdleLogoutDialogView::provider_->GetKioskModeSettings();
   if (!settings->is_initialized()) {
-    settings->Initialize(base::Bind(&IdleLogoutDialogView::Init,
+    settings->Initialize(base::Bind(&IdleLogoutDialogView::InitAndShow,
                                     weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
-  warning_label_ = new views::Label(
-      l10n_util::GetStringUTF16(IDS_IDLE_LOGOUT_WARNING));
-  warning_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
-  warning_label_->SetMultiLine(true);
-  warning_label_->SetFont(rb.GetFont(ui::ResourceBundle::BaseFont));
-  warning_label_->SizeToFit(kIdleLogoutDialogMaxWidth);
-
   restart_label_ = new views::Label();
   restart_label_->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
-  restart_label_->SetFont(rb.GetFont(ui::ResourceBundle::BoldFont));
+  restart_label_->SetMultiLine(true);
+  restart_label_->SetFont(rb.GetFont(ui::ResourceBundle::BaseFont));
 
   views::GridLayout* layout = views::GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
   views::ColumnSet* column_set = layout->AddColumnSet(0);
   column_set->AddColumn(views::GridLayout::FILL, views::GridLayout::CENTER, 1,
-                        views::GridLayout::USE_PREF, 0, 0);
+                        views::GridLayout::FIXED, kIdleLogoutDialogMaxWidth, 0);
   layout->StartRow(0, 0);
-  layout->AddView(warning_label_);
-  layout->AddPaddingRow(0, views::kUnrelatedControlVerticalSpacing);
+  layout->AddPaddingRow(0, views::kRelatedControlHorizontalSpacing);
   layout->StartRow(0, 0);
   layout->AddView(restart_label_);
+  layout->AddPaddingRow(0, views::kRelatedControlHorizontalSpacing);
+
+  // We're initialized, show the dialog.
+  Show();
 }
 
 void IdleLogoutDialogView::Show() {
@@ -170,8 +154,15 @@ void IdleLogoutDialogView::Show() {
 
   UpdateCountdown();
 
-  views::Widget::CreateWindow(this);
-  GetWidget()->SetAlwaysOnTop(true);
+  // If the apps list is displayed, we should show as it's child. Not doing
+  // so will cause the apps list to disappear.
+  gfx::NativeWindow app_list = ash::Shell::GetInstance()->GetAppListWindow();
+  if (app_list) {
+    views::Widget::CreateWindowWithParent(this, app_list);
+  } else {
+    views::Widget::CreateWindow(this);
+    GetWidget()->SetAlwaysOnTop(true);
+  }
   GetWidget()->Show();
 
   // Update countdown every 1 second.
@@ -187,6 +178,10 @@ void IdleLogoutDialogView::Close() {
   if (timer_.IsRunning())
     timer_.Stop();
   GetWidget()->Close();
+
+  // We just closed our dialog. The global
+  // instance is invalid now, set it to null.
+  g_instance = NULL;
 }
 
 void IdleLogoutDialogView::UpdateCountdown() {

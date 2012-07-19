@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_WEB_UI_H_
 #define CONTENT_PUBLIC_BROWSER_WEB_UI_H_
-#pragma once
 
 #include <vector>
 
@@ -51,6 +50,11 @@ class CONTENT_EXPORT WebUI {
 
   virtual WebUIController* GetController() const = 0;
   virtual void SetController(WebUIController* controller) = 0;
+
+  // Returns the device scale of the monitor that the renderer is on.
+  // Whenever possible, WebUI should push resources with this scale to
+  // Javascript.
+  virtual float GetDeviceScale() const = 0;
 
   // Returns true if the favicon should be hidden for the current tab.
   virtual bool ShouldHideFavicon() const = 0;

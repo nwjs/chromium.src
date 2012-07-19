@@ -59,22 +59,6 @@ class MouseWatcher::Observer : public MessageLoopForUI::Observer {
         break;
     }
   }
-#elif defined(USE_WAYLAND)
-  virtual MessageLoopForUI::Observer::EventStatus WillProcessEvent(
-      base::wayland::WaylandEvent* event) OVERRIDE {
-    switch (event->type) {
-      case base::wayland::WAYLAND_MOTION:
-        HandleGlobalMouseMoveEvent(MouseWatcherHost::MOUSE_MOVE);
-        break;
-      case base::wayland::WAYLAND_POINTER_FOCUS:
-        if (!event->pointer_focus.state)
-          HandleGlobalMouseMoveEvent(MouseWatcherHost::MOUSE_EXIT);
-        break;
-      default:
-        break;
-    }
-    return EVENT_CONTINUE;
-  }
 #elif defined(USE_AURA)
   virtual base::EventStatus WillProcessEvent(
       const base::NativeEvent& event) OVERRIDE {
@@ -111,9 +95,9 @@ class MouseWatcher::Observer : public MessageLoopForUI::Observer {
             FROM_HERE,
             base::Bind(&Observer::NotifyListener,
                        notify_listener_factory_.GetWeakPtr()),
-            event_type ==
-                MouseWatcherHost::MOUSE_MOVE ? kNotifyListenerTimeMs :
-                    mouse_watcher_->notify_on_exit_time_ms_);
+            event_type == MouseWatcherHost::MOUSE_MOVE ?
+                base::TimeDelta::FromMilliseconds(kNotifyListenerTimeMs) :
+                mouse_watcher_->notify_on_exit_time_);
       }
     } else {
       // Mouse moved quickly out of the host and then into it again, so cancel
@@ -146,7 +130,8 @@ MouseWatcher::MouseWatcher(MouseWatcherHost* host,
                            MouseWatcherListener* listener)
     : host_(host),
       listener_(listener),
-      notify_on_exit_time_ms_(kNotifyListenerTimeMs) {
+      notify_on_exit_time_(base::TimeDelta::FromMilliseconds(
+          kNotifyListenerTimeMs)) {
 }
 
 MouseWatcher::~MouseWatcher() {

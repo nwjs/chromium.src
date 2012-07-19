@@ -6,10 +6,11 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/view_messages.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -33,11 +34,11 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
   ui_test_utils::NavigateToURL(browser(), empty_url);
 
   RenderViewHostImpl* rvh = static_cast<RenderViewHostImpl*>(
-      browser()->GetSelectedWebContents()->GetRenderViewHost());
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost());
 
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-                                                     ASCIIToUTF16("!false;"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(), ASCIIToUTF16("!false;")));
     EXPECT_EQ(Value::TYPE_BOOLEAN, value->GetType());
     bool bool_value;
     EXPECT_TRUE(value->GetAsBoolean(&bool_value));
@@ -46,8 +47,8 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // Execute the script 'true' and make sure we get back true.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-                                                     ASCIIToUTF16("true;"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(), ASCIIToUTF16("true;")));
     EXPECT_EQ(Value::TYPE_BOOLEAN, value->GetType());
     bool bool_value;
     EXPECT_TRUE(value->GetAsBoolean(&bool_value));
@@ -56,8 +57,8 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // Execute the script 'false' and make sure we get back false.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-                                                     ASCIIToUTF16("false;"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(), ASCIIToUTF16("false;")));
     EXPECT_EQ(Value::TYPE_BOOLEAN, value->GetType());
     bool bool_value;
     EXPECT_TRUE(value->GetAsBoolean(&bool_value));
@@ -66,8 +67,8 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // And now, for something completely different, try a number.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-                                                     ASCIIToUTF16("42;"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(), ASCIIToUTF16("42;")));
     EXPECT_EQ(Value::TYPE_INTEGER, value->GetType());
     int int_value;
     EXPECT_TRUE(value->GetAsInteger(&int_value));
@@ -76,8 +77,8 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // Try a floating point number.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-                                                     ASCIIToUTF16("42.2;"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(), ASCIIToUTF16("42.2;")));
     EXPECT_EQ(Value::TYPE_DOUBLE, value->GetType());
     double double_value;
     EXPECT_TRUE(value->GetAsDouble(&double_value));
@@ -86,8 +87,9 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // Let's check out string.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-        ASCIIToUTF16("\"something completely different\";"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("\"something completely different\";")));
     EXPECT_EQ(Value::TYPE_STRING, value->GetType());
     std::string string_value;
     EXPECT_TRUE(value->GetAsString(&string_value));
@@ -96,8 +98,9 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // Regular expressions might be fun.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-        ASCIIToUTF16("/finder.*foo/g;"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("/finder.*foo/g;")));
     EXPECT_EQ(Value::TYPE_STRING, value->GetType());
     std::string string_value;
     EXPECT_TRUE(value->GetAsString(&string_value));
@@ -107,8 +110,9 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
   // Let's test some date conversions.  First up, epoch.  Can't use 0 because
   // that means uninitialized, so use the next best thing.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-        ASCIIToUTF16("new Date(1);"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("new Date(1);")));
     EXPECT_EQ(Value::TYPE_DOUBLE, value->GetType());
     double date_seconds;
     EXPECT_TRUE(value->GetAsDouble(&date_seconds));
@@ -127,8 +131,9 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // Test date with a real date input.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-        ASCIIToUTF16("new Date(Date.UTC(2006, 7, 16, 12, 0, 15));"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("new Date(Date.UTC(2006, 7, 16, 12, 0, 15));")));
     EXPECT_EQ(Value::TYPE_DOUBLE, value->GetType());
     double date_seconds;
     EXPECT_TRUE(value->GetAsDouble(&date_seconds));
@@ -148,8 +153,9 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest,
 
   // And something more complicated - get an array back as a list.
   {
-    Value* value = rvh->ExecuteJavascriptAndGetValue(string16(),
-        ASCIIToUTF16("new Array(\"one\", 2, false);"));
+    scoped_ptr<Value> value(
+        rvh->ExecuteJavascriptAndGetValue(string16(),
+            ASCIIToUTF16("new Array(\"one\", 2, false);")));
     EXPECT_EQ(Value::TYPE_LIST, value->GetType());
     ListValue* list_value;
     EXPECT_TRUE(value->GetAsList(&list_value));
@@ -201,7 +207,7 @@ class RenderViewHostTestWebContentsObserver
 IN_PROC_BROWSER_TEST_F(RenderViewHostTest, FrameNavigateSocketAddress) {
   ASSERT_TRUE(test_server()->Start());
   RenderViewHostTestWebContentsObserver observer(
-      browser()->GetSelectedWebContents());
+      chrome::GetActiveWebContents(browser()));
 
   GURL test_url = test_server()->GetURL("files/simple.html");
   ui_test_utils::NavigateToURL(browser(), test_url);
@@ -214,7 +220,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostTest, FrameNavigateSocketAddress) {
 IN_PROC_BROWSER_TEST_F(RenderViewHostTest, BaseURLParam) {
   ASSERT_TRUE(test_server()->Start());
   RenderViewHostTestWebContentsObserver observer(
-      browser()->GetSelectedWebContents());
+      chrome::GetActiveWebContents(browser()));
 
   // Base URL is not set if it is the same as the URL.
   GURL test_url = test_server()->GetURL("files/simple.html");

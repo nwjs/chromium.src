@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_RENDERER_PEPPER_PEPPER_PARENT_CONTEXT_PROVIDER_H_
 #define CONTENT_RENDERER_PEPPER_PEPPER_PARENT_CONTEXT_PROVIDER_H_
-#pragma once
 
 #include "base/basictypes.h"
 
@@ -16,12 +15,12 @@ namespace content {
 // parent context for display to the screen.
 class PepperParentContextProvider {
  public:
-  virtual ~PepperParentContextProvider();
   virtual WebGraphicsContext3DCommandBufferImpl*
       GetParentContextForPlatformContext3D() = 0;
 
  protected:
   PepperParentContextProvider();
+  virtual ~PepperParentContextProvider();
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PepperParentContextProvider);

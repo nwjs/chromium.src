@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebSettings.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 #include "webkit/glue/webpreferences.h"
@@ -21,7 +22,7 @@ using WebKit::WebView;
 WebViewHost* WebViewHost::Create(GtkWidget* parent_view,
                                  TestWebViewDelegate* delegate,
                                  WebDevToolsAgentClient* dev_tools_client,
-                                 const WebPreferences& prefs) {
+                                 const webkit_glue::WebPreferences& prefs) {
   WebViewHost* host = new WebViewHost();
 
   host->view_ = WebWidgetHost::CreateWidget(parent_view, host);
@@ -30,6 +31,7 @@ WebViewHost* WebViewHost::Create(GtkWidget* parent_view,
   host->webwidget_ = WebView::create(delegate);
   host->webview()->setDevToolsAgentClient(dev_tools_client);
   prefs.Apply(host->webview());
+  host->webview()->settings()->setExperimentalCSSGridLayoutEnabled(true);
   host->webview()->initializeMainFrame(delegate);
   host->webwidget_->layout();
 

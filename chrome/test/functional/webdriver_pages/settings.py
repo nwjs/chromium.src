@@ -6,6 +6,7 @@ import types
 
 import selenium.common.exceptions
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 def _FocusField(driver, list_elem, field_elem):
@@ -416,8 +417,8 @@ class ManageExceptionsPage(object):
     behavior_list = list_elem.find_elements_by_xpath(
         './/*[@role="listitem"][@class="deletable-item"]'
         '//*[@class="exception-setting"][@displaymode="static"]')
-    assert (len(pattern_list) == len(behavior_list),
-            'Number of patterns does not match the behaviors.')
+    assert len(pattern_list) == len(behavior_list), \
+           'Number of patterns does not match the behaviors.'
     return dict(zip(pattern_list, [b.text.lower() for b in behavior_list]))
 
   def GetBehaviorForPattern(self, pattern, incognito=False):
@@ -429,8 +430,8 @@ class ManageExceptionsPage(object):
      """
     if incognito:
       self._AssertIncognitoAvailable()
-    assert (self.GetExceptions(incognito).has_key(pattern),
-            'No displayed host name matches pattern "%s"' % pattern)
+    assert self.GetExceptions(incognito).has_key(pattern), \
+           'No displayed host name matches pattern "%s"' % pattern
     return self.GetExceptions(incognito)[pattern]
 
   def SetBehaviorForPattern(self, pattern, behavior, incognito=False):
@@ -468,3 +469,180 @@ class ManageExceptionsPage(object):
     pattern_elem = listitem_elem.find_element_by_tag_name('input')
     _FocusField(self._driver, list_elem, pattern_elem)
     pattern_elem.send_keys('\n')
+
+
+class RestoreOnStartupType(object):
+  NEW_TAB_PAGE = 5
+  RESTORE_SESSION = 1
+  RESTORE_URLS = 4
+
+
+class BasicSettingsPage(object):
+  """The basic settings page."""
+  _URL = 'chrome://settings-frame/settings'
+
+  @staticmethod
+  def FromNavigation(driver):
+    """Creates an instance of BasicSetting page by navigating to it."""
+    driver.get(BasicSettingsPage._URL)
+    return BasicSettingsPage(driver)
+
+  def __init__(self, driver):
+    self._driver = driver
+    assert self._URL == driver.current_url
+
+  def SetOnStartupOptions(self, on_startup_option):
+    """Set on-startup options.
+
+    Args:
+      on_startup_option: option types for on start up settings.
+
+    Raises:
+      AssertionError when invalid startup option type is provided.
+    """
+    if on_startup_option == RestoreOnStartupType.NEW_TAB_PAGE:
+      startup_option_elem = self._driver.find_element_by_id('startup-newtab')
+    elif on_startup_option == RestoreOnStartupType.RESTORE_SESSION:
+      startup_option_elem = self._driver.find_element_by_id(
+          'startup-restore-session')
+    elif on_startup_option == RestoreOnStartupType.RESTORE_URLS:
+      startup_option_elem = self._driver.find_element_by_id(
+          'startup-show-pages')
+    else:
+      raise AssertionError('Invalid value for restore start up option!')
+    startup_option_elem.click()
+
+  def _GoToStartupSetPages(self):
+    self._driver.find_element_by_id('startup-set-pages').click()
+
+  def _FillStartupURL(self, url):
+    list = DynamicList(self._driver, self._driver.find_element_by_id(
+                       'startupPagesList'))
+    list.Add(url + '\n')
+
+  def AddStartupPage(self, url):
+    """Add a startup URL.
+
+    Args:
+      url: A startup url.
+    """
+    self._GoToStartupSetPages()
+    self._FillStartupURL(url)
+    self._driver.find_element_by_id('startup-overlay-confirm').click()
+    self._driver.get(self._URL)
+
+  def UseCurrentPageForStartup(self, title_list):
+    """Use current pages and verify page url show up in settings.
+
+    Args:
+      title_list: startup web page title list.
+    """
+    self._GoToStartupSetPages()
+    self._driver.find_element_by_id('startupUseCurrentButton').click()
+    self._driver.find_element_by_id('startup-overlay-confirm').click()
+    def is_current_page_visible(driver):
+      title_elem_list = driver.find_elements_by_xpath(
+          '//*[contains(@class, "title")][text()="%s"]' % title_list[0])
+      if len(title_elem_list) == 0:
+        return False
+      return True
+    WebDriverWait(self._driver, 10).until(is_current_page_visible)
+    self._driver.get(self._URL)
+
+  def VerifyStartupURLs(self, title_list):
+    """Verify saved startup URLs appear in set page UI.
+
+    Args:
+      title_list: A list of startup page title.
+
+    Raises:
+      AssertionError when start up URLs do not appear in set page UI.
+    """
+    self._GoToStartupSetPages()
+    for i in range(len(title_list)):
+      try:
+        self._driver.find_element_by_xpath(
+            '//*[contains(@class, "title")][text()="%s"]' % title_list[i])
+      except selenium.common.exceptions.NoSuchElementException:
+        raise AssertionError("Current page %s did not appear as startup page."
+            % title_list[i])
+    self._driver.find_element_by_id('startup-overlay-cancel').click()
+
+  def CancelStartupURLSetting(self, url):
+    """Cancel start up URL settings.
+
+    Args:
+      url: A startup url.
+    """
+    self._GoToStartupSetPages()
+    self._FillStartupURL(url)
+    self._driver.find_element_by_id('startup-overlay-cancel').click()
+    self._driver.get(self._URL)
+
+
+class CookiesAndSiteDataSettings(object):
+  """The overlay for managing cookies on the Content Settings page."""
+
+  _URL = 'chrome://settings-frame/cookies'
+
+  @staticmethod
+  def FromNavigation(driver):
+    """Creates an instance of the dialog by navigating directly to it.
+
+    Args:
+      driver: The remote WebDriver instance for managing content type.
+    """
+    driver.get(CookiesAndSiteDataSettings._URL)
+    return CookiesAndSiteDataSettings(driver)
+
+  def __init__(self, driver):
+    self._driver = driver
+    assert self._URL == driver.current_url
+    self._list_elem = driver.find_element_by_id('cookies-list')
+
+  def GetSiteNameList(self):
+    """Returns a list of the site names.
+
+    This is a public function since the test needs to check if the site is
+    deleted.
+    """
+    site_list = [p.text for p in
+                 self._list_elem.find_elements_by_xpath(
+                     './/*[contains(@class, "deletable-item")]'
+                     '//div[@class="cookie-site"]')]
+    return site_list
+
+  def _GetCookieNameList(self):
+    """Returns a list where each item is the list of cookie names of each site.
+
+    Example: site1 | cookie1 cookie2
+             site2 | cookieA
+             site3 | cookieA cookie1 cookieB
+
+    Returns:
+      A cookie names list such as:
+      [ ['cookie1', 'cookie2'], ['cookieA'], ['cookieA', 'cookie1', 'cookieB'] ]
+    """
+    cookie_name_list = []
+    for elem in self._list_elem.find_elements_by_xpath(
+        './/*[@role="listitem"]'):
+      elem.click()
+      cookie_name_list.append([c.text for c in
+            elem.find_elements_by_xpath('.//div[@class="cookie-item"]')])
+    return cookie_name_list
+
+  def DeleteSiteData(self, site):
+    """Delete a site entry with its cookies in cookies content settings.
+
+    Args:
+      site: The site string as it appears in the UI.
+    """
+    delete_button_list = self._list_elem.find_elements_by_class_name(
+        'row-delete-button')
+    site_list = self.GetSiteNameList()
+    for i in range(len(site_list)):
+      if site_list[i] == site:
+        # Highlight the item so the close button shows up, then delete button
+        # shows up, then click on the delete button.
+        ActionChains(self._driver).move_to_element(
+            delete_button_list[i]).click().perform()

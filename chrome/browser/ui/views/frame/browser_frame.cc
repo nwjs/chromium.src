@@ -4,12 +4,13 @@
 
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 
-#include "base/i18n/rtl.h"
 #include "base/chromeos/chromeos_version.h"
+#include "base/i18n/rtl.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window_state.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -49,8 +50,9 @@ void BrowserFrame::InitBrowserFrame() {
   if (browser_view_->browser()->is_type_tabbed()) {
     // Typed panel/popup can only return a size once the widget has been
     // created.
-    params.bounds = browser_view_->browser()->GetSavedWindowBounds();
-    params.show_state = browser_view_->browser()->GetSavedWindowShowState();
+    params.bounds = chrome::GetSavedWindowBounds(browser_view_->browser());
+    params.show_state =
+        chrome::GetSavedWindowShowState(browser_view_->browser());
   }
   if (browser_view_->IsPanel()) {
     // We need to set the top-most bit when the panel window is created.
@@ -111,16 +113,6 @@ void BrowserFrame::TabStripDisplayModeChanged() {
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserFrame, views::Widget overrides:
 
-bool BrowserFrame::IsMaximized() const {
-#if defined(OS_CHROMEOS) && !defined(USE_AURA)
-  if (base::chromeos::IsRunningOnChromeOS()) {
-    return !IsFullscreen() &&
-        (browser_view_->IsBrowserTypeNormal() || Widget::IsMaximized());
-  }
-#endif
-  return Widget::IsMaximized();
-}
-
 views::internal::RootView* BrowserFrame::CreateRootView() {
   root_view_ = new BrowserRootView(browser_view_, this);
   return root_view_;
@@ -133,7 +125,7 @@ views::NonClientFrameView* BrowserFrame::CreateNonClientFrameView() {
   } else {
 #endif
     browser_frame_view_ =
-        browser::CreateBrowserNonClientFrameView(this, browser_view_);
+        chrome::CreateBrowserNonClientFrameView(this, browser_view_);
 #if defined(OS_WIN) && !defined(USE_AURA)
   }
 #endif

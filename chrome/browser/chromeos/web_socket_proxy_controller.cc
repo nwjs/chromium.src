@@ -33,7 +33,7 @@
 namespace {
 
 class ProxyLifetime
-    : public net::NetworkChangeNotifier::OnlineStateObserver,
+    : public net::NetworkChangeNotifier::ConnectionTypeObserver,
       public content::NotificationObserver {
  public:
   ProxyLifetime()
@@ -47,14 +47,14 @@ class ProxyLifetime
     web_socket_proxy_thread_.message_loop()->PostTask(
         FROM_HERE,
         base::Bind(&ProxyLifetime::ProxyCallback, base::Unretained(this)));
-    net::NetworkChangeNotifier::AddOnlineStateObserver(this);
+    net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
     registrar_.Add(
         this, chrome::NOTIFICATION_WEB_SOCKET_PROXY_STARTED,
         content::NotificationService::AllSources());
   }
 
   virtual ~ProxyLifetime() {
-    net::NetworkChangeNotifier::RemoveOnlineStateObserver(this);
+    net::NetworkChangeNotifier::RemoveConnectionTypeObserver(this);
   }
 
   virtual void Observe(int type, const content::NotificationSource& source,
@@ -69,8 +69,9 @@ class ProxyLifetime
   }
 
  private:
-  // net::NetworkChangeNotifier::OnlineStateObserver implementation.
-  virtual void OnOnlineStateChanged(bool online) OVERRIDE {
+  // net::NetworkChangeNotifier::ConnectionTypeObserver implementation.
+  virtual void OnConnectionTypeChanged(
+      net::NetworkChangeNotifier::ConnectionType type) OVERRIDE {
     DCHECK(chromeos::WebSocketProxyController::IsInitiated());
     base::AutoLock alk(lock_);
     if (server_)
@@ -101,12 +102,12 @@ class ProxyLifetime
         MessageLoop::current()->PostDelayedTask(
             FROM_HERE,
             base::Bind(&ProxyLifetime::ProxyCallback, base::Unretained(this)),
-            delay_ms_);
+            base::TimeDelta::FromMilliseconds(delay_ms_));
       }
     }
   }
 
-  // Delay between next attempt to run proxy.
+  // Delay in milliseconds between next attempt to run proxy.
   int volatile delay_ms_;
 
   // Proxy listens for incoming websocket connections on this port.

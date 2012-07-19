@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_INSPECT_UI_H_
 #define CHROME_BROWSER_UI_WEBUI_INSPECT_UI_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "content/public/browser/notification_observer.h"
@@ -26,6 +25,8 @@ class InspectUI : public content::WebUIController,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  void StopListeningNotifications();
 
   scoped_refptr<WorkerCreationDestructionListener> observer_;
 

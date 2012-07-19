@@ -43,7 +43,6 @@
 
 #ifndef BASE_TIMER_H_
 #define BASE_TIMER_H_
-#pragma once
 
 // IMPORTANT: If you change timer code, make sure that all tests (including
 // disabled ones) from timer_unittests.cc pass locally. Some are disabled
@@ -108,6 +107,7 @@ class BASE_EXPORT Timer {
   void Reset();
 
   const base::Closure& user_task() const { return user_task_; }
+  const TimeTicks& desired_run_time() const { return desired_run_time_; }
 
  protected:
   // Used to initiate a new delayed task.  This has the side-effect of disabling

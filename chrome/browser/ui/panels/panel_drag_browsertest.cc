@@ -2,14 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/message_loop.h"
 #include "chrome/browser/ui/panels/base_panel_browser_test.h"
 #include "chrome/browser/ui/panels/detached_panel_strip.h"
 #include "chrome/browser/ui/panels/docked_panel_strip.h"
-#include "chrome/browser/ui/panels/overflow_panel_strip.h"
 #include "chrome/browser/ui/panels/native_panel.h"
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_drag_controller.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
+#include "chrome/browser/ui/panels/test_panel_mouse_watcher.h"
+
+// Refactor has only been done for Win and Mac panels so far.
+#if defined(OS_WIN) || defined(OS_MACOSX)
 
 class PanelDragBrowserTest : public BasePanelBrowserTest {
  public:
@@ -22,15 +26,18 @@ class PanelDragBrowserTest : public BasePanelBrowserTest {
   virtual void SetUpOnMainThread() OVERRIDE {
     BasePanelBrowserTest::SetUpOnMainThread();
 
-    // All the tests here assume 800x600 work area. Do the check now.
-    DCHECK(PanelManager::GetInstance()->work_area().width() == 800);
-    DCHECK(PanelManager::GetInstance()->work_area().height() == 600);
+    // All the tests here assume using mocked 800x600 screen area for the
+    // primary monitor. Do the check now.
+    gfx::Rect primary_screen_area = PanelManager::GetInstance()->
+        display_settings_provider()->GetPrimaryScreenArea();
+    DCHECK(primary_screen_area.width() == 800);
+    DCHECK(primary_screen_area.height() == 600);
   }
 
   // Drag |panel| from its origin by the offset |delta|.
   void DragPanelByDelta(Panel* panel, const gfx::Point& delta) {
     scoped_ptr<NativePanelTesting> panel_testing(
-        NativePanelTesting::Create(panel->native_panel()));
+        CreateNativePanelTesting(panel));
     gfx::Point mouse_location(panel->GetBounds().origin());
     panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
     panel_testing->DragTitlebar(mouse_location.Add(delta));
@@ -41,7 +48,7 @@ class PanelDragBrowserTest : public BasePanelBrowserTest {
   void DragPanelToMouseLocation(Panel* panel,
                                 const gfx::Point& new_mouse_location) {
     scoped_ptr<NativePanelTesting> panel_testing(
-        NativePanelTesting::Create(panel->native_panel()));
+        CreateNativePanelTesting(panel));
     gfx::Point mouse_location(panel->GetBounds().origin());
     panel_testing->PressLeftMouseButtonTitlebar(panel->GetBounds().origin());
     panel_testing->DragTitlebar(new_mouse_location);
@@ -77,37 +84,13 @@ class PanelDragBrowserTest : public BasePanelBrowserTest {
   }
 };
 
-IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, NotDraggable) {
-  Panel* panel = CreatePanel("panel");
-  // This is used to simulate making a docked panel not draggable.
-  panel->set_has_temporary_layout(true);
-  Panel* panel2 = CreatePanel("panel2");
-
-  scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
-  gfx::Rect bounds = panel->GetBounds();
-  gfx::Point mouse_location = bounds.origin();
-  panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
-  EXPECT_EQ(bounds.x(), panel->GetBounds().x());
-  mouse_location.Offset(-50, 10);
-  panel_testing->DragTitlebar(mouse_location);
-  EXPECT_EQ(bounds.x(), panel->GetBounds().x());
-  panel_testing->FinishDragTitlebar();
-  EXPECT_EQ(bounds.x(), panel->GetBounds().x());
-
-  // Reset the simulation hack so that the panel can be closed correctly.
-  panel->set_has_temporary_layout(false);
-  panel->Close();
-  panel2->Close();
-}
-
 IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragOneDockedPanel) {
   static const int big_delta_x = 70;
   static const int big_delta_y = 30;  // Do not exceed the threshold to detach.
 
   Panel* panel = CreateDockedPanel("1", gfx::Rect(0, 0, 100, 100));
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Rect panel_old_bounds = panel->GetBounds();
 
   // Drag left.
@@ -199,9 +182,9 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragTwoDockedPanels) {
   Panel* panel1 = CreateDockedPanel("1", gfx::Rect(0, 0, 100, 100));
   Panel* panel2 = CreateDockedPanel("2", gfx::Rect(0, 0, 100, 100));
   scoped_ptr<NativePanelTesting> panel1_testing(
-      NativePanelTesting::Create(panel1->native_panel()));
+      CreateNativePanelTesting(panel1));
   scoped_ptr<NativePanelTesting> panel2_testing(
-      NativePanelTesting::Create(panel2->native_panel()));
+      CreateNativePanelTesting(panel2));
   gfx::Point position1 = panel1->GetBounds().origin();
   gfx::Point position2 = panel2->GetBounds().origin();
 
@@ -294,9 +277,9 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   Panel* panel2 = CreateDockedPanel("2", gfx::Rect(0, 0, 100, 100));
   Panel* panel3 = CreateDockedPanel("3", gfx::Rect(0, 0, 100, 100));
   scoped_ptr<NativePanelTesting> panel2_testing(
-      NativePanelTesting::Create(panel2->native_panel()));
+      CreateNativePanelTesting(panel2));
   scoped_ptr<NativePanelTesting> panel3_testing(
-      NativePanelTesting::Create(panel3->native_panel()));
+      CreateNativePanelTesting(panel3));
   gfx::Point position1 = panel1->GetBounds().origin();
   gfx::Point position2 = panel2->GetBounds().origin();
   gfx::Point position3 = panel3->GetBounds().origin();
@@ -422,6 +405,96 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
   PanelManager::GetInstance()->CloseAll();
 }
 
+IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragMinimizedPanel) {
+  // We'll simulate mouse movements for test.
+  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
+  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
+
+  Panel* panel = CreatePanel("panel1");
+  scoped_ptr<NativePanelTesting> panel_testing(
+      CreateNativePanelTesting(panel));
+
+  panel->Minimize();
+  EXPECT_EQ(Panel::MINIMIZED, panel->expansion_state());
+
+  // Hover over minimized panel to bring up titlebar.
+  gfx::Point hover_point(panel->GetBounds().origin());
+  MoveMouseAndWaitForExpansionStateChange(panel, hover_point);
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  // Verify we can drag a minimized panel.
+  gfx::Rect panel_old_bounds = panel->GetBounds();
+  gfx::Point mouse_location = panel_old_bounds.origin();
+  panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
+  EXPECT_EQ(panel_old_bounds, panel->GetBounds());
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  mouse_location.Offset(-70, 0);
+  panel_testing->DragTitlebar(mouse_location);
+  gfx::Rect panel_new_bounds = panel_old_bounds;
+  panel_new_bounds.Offset(-70, 0);
+  EXPECT_EQ(panel_new_bounds, panel->GetBounds());
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  // Verify panel returns to fully minimized state after dragging ends once
+  // mouse moves away from panel.
+  panel_testing->FinishDragTitlebar();
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  MoveMouseAndWaitForExpansionStateChange(panel, mouse_location);
+  EXPECT_EQ(Panel::MINIMIZED, panel->expansion_state());
+
+  panel->Close();
+}
+
+IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest,
+                       DragMinimizedPanelWhileDrawingAttention) {
+  // We'll simulate mouse movements for test.
+  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
+  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
+
+  Panel* panel = CreatePanel("panel1");
+  scoped_ptr<NativePanelTesting> panel_testing(
+      CreateNativePanelTesting(panel));
+  CreatePanel("panel2");
+
+  panel->Minimize();
+  EXPECT_EQ(Panel::MINIMIZED, panel->expansion_state());
+
+  panel->FlashFrame(true);
+  EXPECT_TRUE(panel->IsDrawingAttention());
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  // Drag the panel. Verify panel stays in title-only state after attention is
+  // cleared because it is being dragged.
+  gfx::Rect panel_old_bounds = panel->GetBounds();
+  gfx::Point mouse_location = panel_old_bounds.origin();
+  panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
+  EXPECT_EQ(panel_old_bounds, panel->GetBounds());
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  mouse_location.Offset(-70, 0);
+  panel_testing->DragTitlebar(mouse_location);
+  gfx::Rect panel_new_bounds = panel_old_bounds;
+  panel_new_bounds.Offset(-70, 0);
+  EXPECT_EQ(panel_new_bounds, panel->GetBounds());
+
+  panel->FlashFrame(false);
+  EXPECT_FALSE(panel->IsDrawingAttention());
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  // Verify panel returns to fully minimized state after dragging ends once
+  // mouse moves away from the panel.
+  panel_testing->FinishDragTitlebar();
+  EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  mouse_location.Offset(0, -50);
+  MoveMouseAndWaitForExpansionStateChange(panel, mouse_location);
+  EXPECT_EQ(Panel::MINIMIZED, panel->expansion_state());
+
+  PanelManager::GetInstance()->CloseAll();
+}
+
 IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDockedPanelOnDrag) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   PanelDragController* drag_controller = panel_manager->drag_controller();
@@ -436,7 +509,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDockedPanelOnDrag) {
   ASSERT_EQ(4, docked_strip->num_panels());
 
   scoped_ptr<NativePanelTesting> panel1_testing(
-      NativePanelTesting::Create(panel1->native_panel()));
+      CreateNativePanelTesting(panel1));
   gfx::Point position1 = panel1->GetBounds().origin();
   gfx::Point position2 = panel2->GetBounds().origin();
   gfx::Point position3 = panel3->GetBounds().origin();
@@ -471,7 +544,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDockedPanelOnDrag) {
     // Closing another panel while dragging in progress will keep the dragging
     // panel intact.
     // We have:  P1*  P4  P3
-    CloseWindowAndWait(panel2->browser());
+    CloseWindowAndWait(panel2);
     EXPECT_TRUE(drag_controller->IsDragging());
     EXPECT_EQ(panel1, drag_controller->dragging_panel());
 
@@ -526,7 +599,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDockedPanelOnDrag) {
     // Closing another panel while dragging in progress will keep the dragging
     // panel intact.
     // We have:  P1*  P4
-    CloseWindowAndWait(panel3->browser());
+    CloseWindowAndWait(panel3);
     EXPECT_TRUE(drag_controller->IsDragging());
     EXPECT_EQ(panel1, drag_controller->dragging_panel());
 
@@ -574,7 +647,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDockedPanelOnDrag) {
 
     // Closing the dragging panel should end the drag.
     // We have:  P4
-    CloseWindowAndWait(panel1->browser());
+    CloseWindowAndWait(panel1);
     EXPECT_FALSE(drag_controller->IsDragging());
 
     ASSERT_EQ(1, docked_strip->num_panels());
@@ -592,7 +665,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragOneDetachedPanel) {
   // Test that the detached panel can be dragged almost anywhere except getting
   // close to the bottom of the docked area to trigger the attach.
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Point origin = panel->GetBounds().origin();
 
   panel_testing->PressLeftMouseButtonTitlebar(origin);
@@ -645,7 +718,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDetachedPanelOnDrag) {
   ASSERT_EQ(4, detached_strip->num_panels());
 
   scoped_ptr<NativePanelTesting> panel1_testing(
-      NativePanelTesting::Create(panel1->native_panel()));
+      CreateNativePanelTesting(panel1));
   gfx::Point panel1_old_position = panel1->GetBounds().origin();
   gfx::Point panel2_position = panel2->GetBounds().origin();
   gfx::Point panel3_position = panel3->GetBounds().origin();
@@ -674,7 +747,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDetachedPanelOnDrag) {
 
     // Closing another panel while dragging in progress will keep the dragging
     // panel intact.
-    CloseWindowAndWait(panel2->browser());
+    CloseWindowAndWait(panel2);
     EXPECT_TRUE(drag_controller->IsDragging());
     EXPECT_EQ(panel1, drag_controller->dragging_panel());
 
@@ -688,6 +761,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDetachedPanelOnDrag) {
 
     // Cancel the drag.
     panel1_testing->CancelDragTitlebar();
+    WaitForBoundsAnimationFinished(panel1);
     EXPECT_FALSE(drag_controller->IsDragging());
 
     ASSERT_EQ(3, detached_strip->num_panels());
@@ -720,7 +794,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDetachedPanelOnDrag) {
 
     // Closing another panel while dragging in progress will keep the dragging
     // panel intact.
-    CloseWindowAndWait(panel3->browser());
+    CloseWindowAndWait(panel3);
     EXPECT_TRUE(drag_controller->IsDragging());
     EXPECT_EQ(panel1, drag_controller->dragging_panel());
 
@@ -759,7 +833,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, CloseDetachedPanelOnDrag) {
     EXPECT_EQ(panel4_position, panel4->GetBounds().origin());
 
     // Closing the dragging panel should end the drag.
-    CloseWindowAndWait(panel1->browser());
+    CloseWindowAndWait(panel1);
     EXPECT_FALSE(drag_controller->IsDragging());
 
     ASSERT_EQ(1, detached_strip->num_panels());
@@ -784,7 +858,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, Detach) {
 
   // Press on title-bar.
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Point mouse_location(panel->GetBounds().origin());
   panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
 
@@ -839,7 +913,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAndCancel) {
 
   // Press on title-bar.
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Point mouse_location(panel->GetBounds().origin());
   panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
 
@@ -895,7 +969,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, Attach) {
 
   // Press on title-bar.
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Point mouse_location(panel->GetBounds().origin());
   panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
 
@@ -954,7 +1028,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachAndCancel) {
 
   // Press on title-bar.
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Point mouse_location(panel->GetBounds().origin());
   panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
 
@@ -1008,7 +1082,7 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAttachAndCancel) {
 
   // Press on title-bar.
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   gfx::Point mouse_location(panel->GetBounds().origin());
   panel_testing->PressLeftMouseButtonTitlebar(mouse_location);
 
@@ -1055,78 +1129,68 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachAttachAndCancel) {
   panel_manager->CloseAll();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithOverflow) {
+IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithSqueeze) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   DockedPanelStrip* docked_strip = panel_manager->docked_strip();
   DetachedPanelStrip* detached_strip = panel_manager->detached_strip();
-  OverflowPanelStrip* overflow_strip = panel_manager->overflow_strip();
 
   gfx::Point drag_delta_to_detach = GetDragDeltaToDetach();
 
-  // Create some docked and overflow panels.
-  //   docked:    P1  P2  P3
-  //   overflow:  P4  P5
+  // Create some docked panels.
+  //   docked:    P1  P2  P3  P4  P5
   Panel* panel1 = CreateDockedPanel("1", gfx::Rect(0, 0, 200, 100));
   Panel* panel2 = CreateDockedPanel("2", gfx::Rect(0, 0, 200, 100));
   Panel* panel3 = CreateDockedPanel("3", gfx::Rect(0, 0, 200, 100));
-  Panel* panel4 = CreateOverflowPanel("4", gfx::Rect(0, 0, 200, 100));
-  Panel* panel5 = CreateOverflowPanel("5", gfx::Rect(0, 0, 200, 100));
+  Panel* panel4 = CreateDockedPanel("4", gfx::Rect(0, 0, 200, 100));
+  Panel* panel5 = CreateDockedPanel("5", gfx::Rect(0, 0, 200, 100));
   ASSERT_EQ(0, detached_strip->num_panels());
-  ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(2, overflow_strip->num_panels());
-
-  gfx::Point docked_position1 = panel1->GetBounds().origin();
-  gfx::Point docked_position2 = panel2->GetBounds().origin();
-  gfx::Point docked_position3 = panel3->GetBounds().origin();
+  ASSERT_EQ(5, docked_strip->num_panels());
 
   // Drag to detach the middle docked panel.
   // Expect to have:
   //   detached:  P2
-  //   docked:    P1  P3  P4
-  //   overflow:  P5
+  //   docked:    P1  P3  P4 P5
+  gfx::Point panel2_docked_position = panel2->GetBounds().origin();
   DragPanelByDelta(panel2, drag_delta_to_detach);
   ASSERT_EQ(1, detached_strip->num_panels());
-  ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(1, overflow_strip->num_panels());
+  ASSERT_EQ(4, docked_strip->num_panels());
   EXPECT_EQ(PanelStrip::DOCKED, panel1->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DETACHED, panel2->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel4->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel5->panel_strip()->type());
-  EXPECT_EQ(docked_position1, panel1->GetBounds().origin());
-  gfx::Point panel2_new_position = docked_position2.Add(drag_delta_to_detach);
+  EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
+  gfx::Point panel2_new_position =
+      panel2_docked_position.Add(drag_delta_to_detach);
   EXPECT_EQ(panel2_new_position, panel2->GetBounds().origin());
-  EXPECT_EQ(docked_position2, panel3->GetBounds().origin());
-  EXPECT_EQ(docked_position3, panel4->GetBounds().origin());
 
   // Drag to detach the left-most docked panel.
   // Expect to have:
   //   detached:  P2  P4
   //   docked:    P1  P3  P5
+  gfx::Point panel4_docked_position = panel4->GetBounds().origin();
   DragPanelByDelta(panel4, drag_delta_to_detach);
   ASSERT_EQ(2, detached_strip->num_panels());
   ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(0, overflow_strip->num_panels());
   EXPECT_EQ(PanelStrip::DOCKED, panel1->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DETACHED, panel2->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DETACHED, panel4->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
-  EXPECT_EQ(docked_position1, panel1->GetBounds().origin());
   EXPECT_EQ(panel2_new_position, panel2->GetBounds().origin());
-  EXPECT_EQ(docked_position2, panel3->GetBounds().origin());
-  gfx::Point panel4_new_position = docked_position3.Add(drag_delta_to_detach);
+  gfx::Point panel4_new_position =
+      panel4_docked_position.Add(drag_delta_to_detach);
   EXPECT_EQ(panel4_new_position, panel4->GetBounds().origin());
-  EXPECT_EQ(docked_position3, panel5->GetBounds().origin());
 
   // Drag to detach the right-most docked panel.
   // Expect to have:
   //   detached:  P1  P2  P4
   //   docked:    P3  P5
+  gfx::Point docked_position1 = panel1->GetBounds().origin();
+  gfx::Point docked_position2 = panel3->GetBounds().origin();
+
   DragPanelByDelta(panel1, drag_delta_to_detach);
   ASSERT_EQ(3, detached_strip->num_panels());
   ASSERT_EQ(2, docked_strip->num_panels());
-  ASSERT_EQ(0, overflow_strip->num_panels());
   EXPECT_EQ(PanelStrip::DETACHED, panel1->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DETACHED, panel2->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
@@ -1135,108 +1199,150 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DetachWithOverflow) {
   gfx::Point panel1_new_position = docked_position1.Add(drag_delta_to_detach);
   EXPECT_EQ(panel1_new_position, panel1->GetBounds().origin());
   EXPECT_EQ(panel2_new_position, panel2->GetBounds().origin());
-  EXPECT_EQ(docked_position1, panel3->GetBounds().origin());
   EXPECT_EQ(panel4_new_position, panel4->GetBounds().origin());
+
+  // No more squeeze, docked panels should stay put.
+  EXPECT_EQ(docked_position1, panel3->GetBounds().origin());
+  EXPECT_EQ(panel1->GetBounds().width(), panel1->GetRestoredBounds().width());
   EXPECT_EQ(docked_position2, panel5->GetBounds().origin());
+  EXPECT_EQ(panel2->GetBounds().width(), panel2->GetRestoredBounds().width());
 
   panel_manager->CloseAll();
 }
 
-IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachWithOverflow) {
+IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, AttachWithSqueeze) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   DockedPanelStrip* docked_strip = panel_manager->docked_strip();
   DetachedPanelStrip* detached_strip = panel_manager->detached_strip();
-  OverflowPanelStrip* overflow_strip = panel_manager->overflow_strip();
 
-  // Create some detached, docked and overflow panels.
+  // Create some detached, docked panels.
   //   detached:  P1  P2  P3
-  //   docked:    P4  P5  P6
-  //   overflow:  P7
+  //   docked:    P4  P5  P6  P7
   Panel* panel1 = CreateDetachedPanel("1", gfx::Rect(100, 300, 200, 100));
   Panel* panel2 = CreateDetachedPanel("2", gfx::Rect(200, 300, 200, 100));
   Panel* panel3 = CreateDetachedPanel("3", gfx::Rect(400, 300, 200, 100));
   Panel* panel4 = CreateDockedPanel("4", gfx::Rect(0, 0, 200, 100));
   Panel* panel5 = CreateDockedPanel("5", gfx::Rect(0, 0, 200, 100));
   Panel* panel6 = CreateDockedPanel("6", gfx::Rect(0, 0, 200, 100));
-  Panel* panel7 = CreateOverflowPanel("7", gfx::Rect(0, 0, 200, 100));
+  Panel* panel7 = CreateDockedPanel("7", gfx::Rect(0, 0, 200, 100));
   ASSERT_EQ(3, detached_strip->num_panels());
-  ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(1, overflow_strip->num_panels());
+  ASSERT_EQ(4, docked_strip->num_panels());
 
   gfx::Point detached_position1 = panel1->GetBounds().origin();
   gfx::Point detached_position2 = panel2->GetBounds().origin();
   gfx::Point detached_position3 = panel3->GetBounds().origin();
-  gfx::Point docked_position1 = panel4->GetBounds().origin();
-  gfx::Point docked_position2 = panel5->GetBounds().origin();
-  gfx::Point docked_position3 = panel6->GetBounds().origin();
+  gfx::Point docked_position4 = panel4->GetBounds().origin();
+  gfx::Point docked_position5 = panel5->GetBounds().origin();
+  gfx::Point docked_position6 = panel6->GetBounds().origin();
+  gfx::Point docked_position7 = panel7->GetBounds().origin();
 
   // Drag to attach a detached panel between 2 docked panels.
   // Expect to have:
   //   detached:  P1  P2
-  //   docked:    P4  P3  P5
-  //   overflow:  P6  P7
+  //   docked:    P4  P3  P5  P6  P7
   gfx::Point drag_to_location(panel5->GetBounds().x() + 10,
                               panel5->GetBounds().y());
   DragPanelToMouseLocation(panel3, drag_to_location);
   ASSERT_EQ(2, detached_strip->num_panels());
-  ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(2, overflow_strip->num_panels());
+  ASSERT_EQ(5, docked_strip->num_panels());
   EXPECT_EQ(PanelStrip::DETACHED, panel1->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DETACHED, panel2->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel4->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel6->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel7->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel6->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel7->panel_strip()->type());
   EXPECT_EQ(detached_position1, panel1->GetBounds().origin());
   EXPECT_EQ(detached_position2, panel2->GetBounds().origin());
-  EXPECT_EQ(docked_position2, panel3->GetBounds().origin());
-  EXPECT_EQ(docked_position1, panel4->GetBounds().origin());
-  EXPECT_EQ(docked_position3, panel5->GetBounds().origin());
+
+  // Wait for active states to settle.
+  MessageLoopForUI::current()->RunAllPending();
+
+  // Panel positions should have shifted because of the "squeeze" mode.
+  EXPECT_NE(docked_position4, panel4->GetBounds().origin());
+  EXPECT_LT(panel4->GetBounds().width(), panel4->GetRestoredBounds().width());
+  EXPECT_NE(docked_position5, panel5->GetBounds().origin());
+  EXPECT_LT(panel5->GetBounds().width(), panel5->GetRestoredBounds().width());
+
+#if defined(OS_WIN)
+  // The panel we dragged becomes the active one.
+  EXPECT_EQ(true, panel3->IsActive());
+  EXPECT_EQ(panel3->GetBounds().width(), panel3->GetRestoredBounds().width());
+
+  EXPECT_NE(docked_position6, panel6->GetBounds().origin());
+#else
+  // The last panel is active so these positions do not change.
+  // TODO (ABurago) this is wrong behavior, a panel should activate
+  // when it is dragged. Change the test when the behavior is fixed.
+  EXPECT_EQ(true, panel7->IsActive());
+  EXPECT_EQ(panel7->GetBounds().width(), panel7->GetRestoredBounds().width());
+
+  EXPECT_EQ(docked_position6, panel6->GetBounds().origin());
+#endif
+  EXPECT_EQ(docked_position7, panel7->GetBounds().origin());
 
   // Drag to attach a detached panel to most-right.
   // Expect to have:
   //   detached:  P1
-  //   docked:    P2  P4  P3
-  //   overflow:  P5  P6  P7
+  //   docked:    P2  P4  P3  P5  P6  P7
   gfx::Point drag_to_location2(panel4->GetBounds().right() + 10,
                                panel4->GetBounds().y());
   DragPanelToMouseLocation(panel2, drag_to_location2);
   ASSERT_EQ(1, detached_strip->num_panels());
-  ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(3, overflow_strip->num_panels());
+  ASSERT_EQ(6, docked_strip->num_panels());
   EXPECT_EQ(PanelStrip::DETACHED, panel1->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel2->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel4->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel5->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel6->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel7->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel6->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel7->panel_strip()->type());
   EXPECT_EQ(detached_position1, panel1->GetBounds().origin());
-  EXPECT_EQ(docked_position1, panel2->GetBounds().origin());
-  EXPECT_EQ(docked_position3, panel3->GetBounds().origin());
-  EXPECT_EQ(docked_position2, panel4->GetBounds().origin());
 
   // Drag to attach a detached panel to most-left.
   // Expect to have:
-  //   docked:    P2  P4  P1
-  //   overflow:  P3  P5  P6  P7
+  //   docked:    P2  P4  P1  P3  P5  P6  P7
   gfx::Point drag_to_location3(panel3->GetBounds().x() - 10,
                                panel3->GetBounds().y());
   DragPanelToMouseLocation(panel1, drag_to_location3);
   ASSERT_EQ(0, detached_strip->num_panels());
-  ASSERT_EQ(3, docked_strip->num_panels());
-  ASSERT_EQ(4, overflow_strip->num_panels());
+  ASSERT_EQ(7, docked_strip->num_panels());
   EXPECT_EQ(PanelStrip::DOCKED, panel1->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel2->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel3->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel3->panel_strip()->type());
   EXPECT_EQ(PanelStrip::DOCKED, panel4->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel5->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel6->panel_strip()->type());
-  EXPECT_EQ(PanelStrip::IN_OVERFLOW, panel7->panel_strip()->type());
-  EXPECT_EQ(docked_position3, panel1->GetBounds().origin());
-  EXPECT_EQ(docked_position1, panel2->GetBounds().origin());
-  EXPECT_EQ(docked_position2, panel4->GetBounds().origin());
+  EXPECT_EQ(PanelStrip::DOCKED, panel5->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel6->panel_strip()->type());
+  EXPECT_EQ(PanelStrip::DOCKED, panel7->panel_strip()->type());
 
   panel_manager->CloseAll();
 }
+
+IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragDetachedPanelToTop) {
+  // Setup the test areas to have top-aligned bar excluded from work area.
+  const gfx::Rect primary_screen_area(0, 0, 800, 600);
+  const gfx::Rect work_area(0, 10, 800, 590);
+  SetTestingAreas(primary_screen_area, work_area);
+
+  PanelManager* panel_manager = PanelManager::GetInstance();
+  Panel* panel = CreateDetachedPanel("1", gfx::Rect(300, 200, 250, 200));
+
+  // Drag up the panel. Expect that the panel should not go outside the top of
+  // the work area.
+  gfx::Point drag_to_location(250, 0);
+  DragPanelToMouseLocation(panel, drag_to_location);
+  EXPECT_EQ(PanelStrip::DETACHED, panel->panel_strip()->type());
+  EXPECT_EQ(drag_to_location.x(), panel->GetBounds().origin().x());
+  EXPECT_EQ(work_area.y(), panel->GetBounds().origin().y());
+
+  // Drag down the panel. Expect that the panel can be dragged without
+  // constraint.
+  drag_to_location = gfx::Point(280, 150);
+  DragPanelToMouseLocation(panel, drag_to_location);
+  EXPECT_EQ(PanelStrip::DETACHED, panel->panel_strip()->type());
+  EXPECT_EQ(drag_to_location, panel->GetBounds().origin());
+
+  panel_manager->CloseAll();
+}
+
+#endif // OS_WIN || OS_MACOSX

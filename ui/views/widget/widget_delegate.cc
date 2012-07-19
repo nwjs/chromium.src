@@ -5,7 +5,7 @@
 #include "ui/views/widget/widget_delegate.h"
 
 #include "base/utf_string_conversions.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/views/bubble/bubble_delegate.h"
 #include "ui/views/view.h"
 #include "ui/views/views_delegate.h"
@@ -77,14 +77,14 @@ bool WidgetDelegate::ShouldShowWindowTitle() const {
   return true;
 }
 
-SkBitmap WidgetDelegate::GetWindowAppIcon() {
+gfx::ImageSkia WidgetDelegate::GetWindowAppIcon() {
   // Use the window icon as app icon by default.
   return GetWindowIcon();
 }
 
 // Returns the icon to be displayed in the window.
-SkBitmap WidgetDelegate::GetWindowIcon() {
-  return SkBitmap();
+gfx::ImageSkia WidgetDelegate::GetWindowIcon() {
+  return gfx::ImageSkia();
 }
 
 bool WidgetDelegate::ShouldShowWindowIcon() const {
@@ -140,6 +140,14 @@ NonClientFrameView* WidgetDelegate::CreateNonClientFrameView(Widget* widget) {
 
 bool WidgetDelegate::WillProcessWorkAreaChange() const {
   return false;
+}
+
+bool WidgetDelegate::HasHitTestMask() const {
+  return false;
+}
+
+void WidgetDelegate::GetHitTestMask(gfx::Path* mask) const {
+  DCHECK(mask);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

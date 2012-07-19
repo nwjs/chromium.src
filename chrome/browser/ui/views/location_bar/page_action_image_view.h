@@ -4,15 +4,15 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_PAGE_ACTION_IMAGE_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_PAGE_ACTION_IMAGE_VIEW_H_
-#pragma once
 
 #include <map>
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/ui/views/extensions/extension_popup.h"
+#include "chrome/common/extensions/extension_action.h"
+#include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/image_view.h"
 
 class Browser;
@@ -29,9 +29,10 @@ class MenuRunner;
 // given PageAction and notify the extension when the icon is clicked.
 class PageActionImageView : public views::ImageView,
                             public ImageLoadingTracker::Observer,
-                            public ExtensionContextMenuModel::PopupDelegate,
                             public views::Widget::Observer,
-                            public content::NotificationObserver {
+                            public views::ContextMenuController,
+                            public content::NotificationObserver,
+                            public ExtensionAction::IconAnimation::Observer {
  public:
   PageActionImageView(LocationBarView* owner,
                       ExtensionAction* page_action,
@@ -51,19 +52,18 @@ class PageActionImageView : public views::ImageView,
   virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
   virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
-  virtual void ShowContextMenu(const gfx::Point& p,
-                               bool is_mouse_gesture) OVERRIDE;
 
   // Overridden from ImageLoadingTracker.
   virtual void OnImageLoaded(const gfx::Image& image,
                              const std::string& extension_id,
                              int index) OVERRIDE;
 
-  // Overridden from ExtensionContextMenuModelModel::Delegate
-  virtual void InspectPopup(ExtensionAction* action) OVERRIDE;
-
   // Overridden from views::Widget::Observer
   virtual void OnWidgetClosing(views::Widget* widget) OVERRIDE;
+
+  // Overridden from views::ContextMenuController.
+  virtual void ShowContextMenuForView(View* source,
+                                      const gfx::Point& point) OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -75,14 +75,21 @@ class PageActionImageView : public views::ImageView,
   virtual bool CanHandleAccelerators() const OVERRIDE;
 
   // Called to notify the PageAction that it should determine whether to be
-  // visible or hidden. |contents| is the TabContents that is active, |url| is
+  // visible or hidden. |contents| is the WebContents that is active, |url| is
   // the current page URL.
   void UpdateVisibility(content::WebContents* contents, const GURL& url);
 
   // Either notify listeners or show a popup depending on the page action.
-  void ExecuteAction(int button, bool inspect_with_devtools);
+  void ExecuteAction(int button);
 
  private:
+  // Overridden from ExtensionAction::IconAnimation::Observer.
+  virtual void OnIconChanged(
+      const ExtensionAction::IconAnimation& animation) OVERRIDE;
+
+  // Shows the popup, with the given URL.
+  void ShowPopupWithURL(const GURL& popup_url);
+
   // Hides the active popup, if there is one.
   void HidePopup();
 
@@ -127,6 +134,10 @@ class PageActionImageView : public views::ImageView,
   scoped_ptr<ui::Accelerator> keybinding_;
 
   scoped_ptr<views::MenuRunner> menu_runner_;
+
+  // Fade-in animation for the icon with observer scoped to this.
+  ExtensionAction::IconAnimation::ScopedObserver
+      scoped_icon_animation_observer_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(PageActionImageView);
 };

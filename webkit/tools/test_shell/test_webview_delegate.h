@@ -45,7 +45,6 @@
 #include <gdk/gdk.h>
 #endif
 
-struct WebPreferences;
 class GURL;
 class TestShell;
 class WebWidgetHost;
@@ -133,8 +132,9 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
       WebKit::WebFrame* frame, const WebKit::WebString& message);
   virtual void setStatusText(const WebKit::WebString& text);
   virtual void startDragging(
-      const WebKit::WebDragData& data, WebKit::WebDragOperationsMask mask,
-      const WebKit::WebImage& image, const WebKit::WebPoint& offset);
+      WebKit::WebFrame* frame, const WebKit::WebDragData& data,
+      WebKit::WebDragOperationsMask mask, const WebKit::WebImage& image,
+      const WebKit::WebPoint& offset);
   virtual void navigateBackForwardSoon(int offset);
   virtual int historyBackListCount();
   virtual int historyForwardListCount();
@@ -200,7 +200,6 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
       WebKit::WebFrame*, const WebKit::WebURLError&);
   virtual void didCommitProvisionalLoad(
       WebKit::WebFrame*, bool is_new_navigation);
-  virtual void didClearWindowObject(WebKit::WebFrame*);
   virtual void didReceiveTitle(
       WebKit::WebFrame*, const WebKit::WebString& title,
       WebKit::WebTextDirection direction);
@@ -241,6 +240,8 @@ class TestWebViewDelegate : public WebKit::WebViewClient,
   virtual webkit::npapi::WebPluginDelegate* CreatePluginDelegate(
       const FilePath& url,
       const std::string& mime_type) OVERRIDE;
+  virtual WebKit::WebPlugin* CreatePluginReplacement(
+      const FilePath& file_path) OVERRIDE;
   virtual void CreatedPluginWindow(
       gfx::PluginWindowHandle handle) OVERRIDE;
   virtual void WillDestroyPluginWindow(

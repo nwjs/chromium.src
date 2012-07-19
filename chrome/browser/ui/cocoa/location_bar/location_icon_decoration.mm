@@ -7,6 +7,8 @@
 #include "base/sys_string_conversions.h"
 #import "chrome/browser/bookmarks/bookmark_pasteboard_helper_mac.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -40,10 +42,7 @@ bool LocationIconDecoration::IsDraggable() {
 
   // Do not drag if the user has been editing the location bar, or the
   // location bar is at the NTP.
-  if (owner_->location_entry()->IsEditingOrEmpty())
-    return false;
-
-  return true;
+  return (!owner_->GetLocationEntry()->IsEditingOrEmpty());
 }
 
 NSPasteboard* LocationIconDecoration::GetDragPasteboard() {
@@ -97,7 +96,7 @@ bool LocationIconDecoration::AcceptsMousePress() {
 bool LocationIconDecoration::OnMousePressed(NSRect frame) {
   // Do not show page info if the user has been editing the location
   // bar, or the location bar is at the NTP.
-  if (owner_->location_entry()->IsEditingOrEmpty())
+  if (owner_->GetLocationEntry()->IsEditingOrEmpty())
     return true;
 
   WebContents* tab = owner_->GetWebContents();
@@ -107,13 +106,14 @@ bool LocationIconDecoration::OnMousePressed(NSRect frame) {
     NOTREACHED();
     return true;
   }
-  Browser* browser = Browser::GetBrowserForController(&controller, NULL);
-  browser->ShowPageInfo(tab, nav_entry->GetURL(), nav_entry->GetSSL(), true);
+  Browser* browser = browser::FindBrowserWithWebContents(tab);
+  chrome::ShowPageInfo(browser, tab, nav_entry->GetURL(), nav_entry->GetSSL(),
+                       true);
   return true;
 }
 
 NSString* LocationIconDecoration::GetToolTip() {
-  if (owner_->location_entry()->IsEditingOrEmpty())
+  if (owner_->GetLocationEntry()->IsEditingOrEmpty())
     return nil;
   else
     return l10n_util::GetNSStringWithFixup(IDS_TOOLTIP_LOCATION_ICON);

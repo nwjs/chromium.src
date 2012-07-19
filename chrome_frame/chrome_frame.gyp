@@ -79,6 +79,7 @@
       'dependencies': [
         '../base/base.gyp:test_support_base',
         '../chrome/app/policy/cloud_policy_codegen.gyp:policy',
+        '../chrome/chrome.gyp:test_support_common',
         '../net/net.gyp:net',
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
@@ -306,6 +307,7 @@
         '../chrome/chrome.gyp:browser',
         '../chrome/chrome.gyp:debugger',
         '../chrome/chrome.gyp:image_pre_reader',
+        '../chrome/chrome.gyp:test_support_common',
         '../chrome/chrome.gyp:test_support_ui',
         '../chrome/chrome.gyp:utility',
         '../content/content.gyp:content_gpu',
@@ -382,7 +384,6 @@
         '../chrome/chrome.gyp:browser',
         '../chrome/chrome.gyp:debugger',
         '../chrome/chrome.gyp:renderer',
-        '../chrome/chrome.gyp:syncapi_core',
         '../chrome/chrome.gyp:test_support_common',
         '../chrome/chrome_resources.gyp:chrome_resources',
         '../content/content.gyp:content_app',
@@ -391,6 +392,7 @@
         '../net/net.gyp:net',
         '../net/net.gyp:net_test_support',
         '../skia/skia.gyp:skia',
+        '../sync/sync.gyp:syncapi_core',
         '../testing/gtest.gyp:gtest',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
@@ -423,7 +425,7 @@
         'test/net/test_automation_resource_message_filter.cc',
         'test/net/test_automation_resource_message_filter.h',
         '<(SHARED_INTERMEDIATE_DIR)/chrome_frame/chrome_tab.h',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources.rc',
+        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
         'test_utils.cc',
         'test_utils.h',
       ],
@@ -772,11 +774,11 @@
           'dependencies': [
             '../breakpad/breakpad.gyp:breakpad_handler',
             '../chrome/chrome.gyp:automation',
-            # Make the archive build happy.
-            '../chrome/chrome.gyp:syncapi_core',
             # Installer
             '../chrome/chrome.gyp:installer_util',
             '../google_update/google_update.gyp:google_update',
+            # Make the archive build happy.
+            '../sync/sync.gyp:syncapi_core',
             # Crash Reporting
             'crash_reporting/crash_reporting.gyp:crash_report',
           ],
@@ -799,7 +801,7 @@
             '/Fo', '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj',
             '/c', '<(RULE_INPUT_PATH)',
           ],
-          'process_outputs_as_sources': 0,
+          'process_outputs_as_sources': 1,
           'message':
               'Assembling <(RULE_INPUT_PATH) to ' \
               '<(INTERMEDIATE_DIR)\<(RULE_INPUT_ROOT).obj.',
@@ -891,11 +893,11 @@
           'dependencies': [
             '../breakpad/breakpad.gyp:breakpad_handler_dll',
             '../chrome/chrome.gyp:automation',
-            # Make the archive build happy.
-            '../chrome/chrome.gyp:syncapi_core',
             # Installer
             '../chrome/chrome.gyp:installer_util',
             '../google_update/google_update.gyp:google_update',
+            # Make the archive build happy.
+            '../sync/sync.gyp:syncapi_core',
             # Crash Reporting
             'crash_reporting/crash_reporting.gyp:crash_report',
           ],

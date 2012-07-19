@@ -8,7 +8,6 @@
 #include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/cros/mock_library_loader.h"
 #include "chrome/browser/chromeos/login/auth_attempt_state.h"
 #include "chrome/browser/chromeos/login/mock_auth_attempt_state_resolver.h"
 #include "chrome/browser/chromeos/login/mock_url_fetchers.h"
@@ -17,16 +16,16 @@
 #include "chrome/common/net/gaia/gaia_auth_consumer.h"
 #include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using content::BrowserThread;
 using ::testing::AnyNumber;
 using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::_;
+using content::BrowserThread;
 
 namespace chromeos {
 
@@ -42,25 +41,10 @@ class OnlineAttemptTest : public testing::Test {
   virtual ~OnlineAttemptTest() {}
 
   virtual void SetUp() {
-    CrosLibrary::TestApi* test_api = CrosLibrary::Get()->GetTestApi();
-
-    MockLibraryLoader* loader = new MockLibraryLoader();
-    ON_CALL(*loader, Load(_))
-        .WillByDefault(Return(true));
-    EXPECT_CALL(*loader, Load(_))
-        .Times(AnyNumber());
-
-    // Passes ownership of |loader| to CrosLibrary.
-    test_api->SetLibraryLoader(loader, true);
-
     attempt_.reset(new OnlineAttempt(false, &state_, resolver_.get()));
   }
 
   virtual void TearDown() {
-    // Prevent bogus gMock leak check from firing.
-    chromeos::CrosLibrary::TestApi* test_api =
-        chromeos::CrosLibrary::Get()->GetTestApi();
-    test_api->SetLibraryLoader(NULL, false);
   }
 
   void RunFailureTest(const GoogleServiceAuthError& error) {
@@ -246,9 +230,9 @@ TEST_F(OnlineAttemptTest, LoginServiceUnavailable) {
 
 TEST_F(OnlineAttemptTest, CaptchaErrorOutputted) {
   GoogleServiceAuthError auth_error =
-      GoogleServiceAuthError::FromCaptchaChallenge(
+      GoogleServiceAuthError::FromClientLoginCaptchaChallenge(
           "CCTOKEN",
-          GURL("http://www.google.com/accounts/Captcha?ctoken=CCTOKEN"),
+          GURL("http://accounts.google.com/Captcha?ctoken=CCTOKEN"),
           GURL("http://www.google.com/login/captcha"));
   RunFailureTest(auth_error);
 }

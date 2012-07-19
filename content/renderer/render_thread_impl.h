@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_RENDERER_RENDER_THREAD_IMPL_H_
 #define CONTENT_RENDERER_RENDER_THREAD_IMPL_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -30,7 +29,7 @@ class AudioMessageFilter;
 class CompositorThread;
 class DBMessageFilter;
 class DevToolsAgentFilter;
-struct DOMStorageMsg_Event_Params;
+class DomStorageDispatcher;
 class GpuChannelHost;
 class IndexedDBDispatcher;
 class RendererWebKitPlatformSupportImpl;
@@ -38,11 +37,11 @@ class SkBitmap;
 class VideoCaptureImplManager;
 struct ViewMsg_New_Params;
 class WebDatabaseObserverImpl;
+class WebGraphicsContext3DCommandBufferImpl;
 
 namespace WebKit {
 class WebMediaStreamCenter;
 class WebMediaStreamCenterClient;
-class WebStorageEventDispatcher;
 }
 
 namespace base {
@@ -54,6 +53,9 @@ class ScopedCOMInitializer;
 }
 
 namespace content {
+class AudioRendererMixerManager;
+class BrowserPluginChannelManager;
+class BrowserPluginRegistry;
 class MediaStreamCenter;
 class RenderProcessObserver;
 }
@@ -66,7 +68,7 @@ class Extension;
 // instances live.  The RenderThread supports an API that is used by its
 // consumer to talk indirectly to the RenderViews and supporting objects.
 // Likewise, it provides an API for the RenderViews to talk back to the main
-// process (i.e., their corresponding TabContents).
+// process (i.e., their corresponding WebContentsImpl).
 //
 // Most of the communication occurs in the form of IPC messages.  They are
 // routed to the RenderThread according to the routing IDs of the messages.
@@ -96,8 +98,9 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   virtual IPC::SyncChannel* GetChannel() OVERRIDE;
   virtual std::string GetLocale() OVERRIDE;
   virtual IPC::SyncMessageFilter* GetSyncMessageFilter() OVERRIDE;
-  virtual void AddRoute(int32 routing_id,
-                        IPC::Channel::Listener* listener) OVERRIDE;
+  virtual scoped_refptr<base::MessageLoopProxy> GetIOMessageLoopProxy()
+      OVERRIDE;
+  virtual void AddRoute(int32 routing_id, IPC::Listener* listener) OVERRIDE;
   virtual void RemoveRoute(int32 routing_id) OVERRIDE;
   virtual int GenerateRoutingID() OVERRIDE;
   virtual void AddFilter(IPC::ChannelProxy::MessageFilter* filter) OVERRIDE;
@@ -127,6 +130,7 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   virtual void PreCacheFont(const LOGFONT& log_font) OVERRIDE;
   virtual void ReleaseCachedFonts() OVERRIDE;
 #endif
+  virtual void UpdateHistograms(int sequence_number) OVERRIDE;
 
   // content::ChildThread:
   virtual bool IsWebFrameValid(WebKit::WebFrame* frame) OVERRIDE;
@@ -164,8 +168,20 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
     return compositor_thread_.get();
   }
 
+  content::BrowserPluginRegistry* browser_plugin_registry() const {
+    return browser_plugin_registry_.get();
+  }
+
+  content::BrowserPluginChannelManager* browser_plugin_channel_manager() const {
+    return browser_plugin_channel_manager_.get();
+  }
+
   AppCacheDispatcher* appcache_dispatcher() const {
     return appcache_dispatcher_.get();
+  }
+
+  DomStorageDispatcher* dom_storage_dispatcher() const {
+    return dom_storage_dispatcher_.get();
   }
 
   AudioInputMessageFilter* audio_input_message_filter() {
@@ -201,13 +217,24 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   // not sent for at least one notification delay.
   void PostponeIdleNotification();
 
+  // Returns a graphics context shared among all
+  // RendererGpuVideoDecoderFactories, or NULL on error.  Context remains owned
+  // by this class and must be null-tested before each use to detect context
+  // loss.  The returned WeakPtr<> is only valid on the compositor thread when
+  // threaded compositing is enabled.
+  base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> GetGpuVDAContext3D();
+
+  // AudioRendererMixerManager instance which manages renderer side mixer
+  // instances shared based on configured audio parameters.  Lazily created on
+  // first call.
+  content::AudioRendererMixerManager* GetAudioRendererMixerManager();
+
  private:
   virtual bool OnControlMessageReceived(const IPC::Message& msg) OVERRIDE;
 
   void Init();
 
   void OnSetZoomLevelForCurrentURL(const std::string& host, double zoom_level);
-  void OnDOMStorageEvent(const DOMStorageMsg_Event_Params& params);
   void OnSetCSSColors(const std::vector<CSSColors::CSSColorMapping>& colors);
   void OnCreateNewView(const ViewMsg_New_Params& params);
   void OnTransferBitmap(const SkBitmap& bitmap, int resource_id);
@@ -220,9 +247,11 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
 
   // These objects live solely on the render thread.
   scoped_ptr<AppCacheDispatcher> appcache_dispatcher_;
+  scoped_ptr<DomStorageDispatcher> dom_storage_dispatcher_;
   scoped_ptr<IndexedDBDispatcher> main_thread_indexed_db_dispatcher_;
   scoped_ptr<RendererWebKitPlatformSupportImpl> webkit_platform_support_;
-  scoped_ptr<WebKit::WebStorageEventDispatcher> dom_storage_event_dispatcher_;
+  scoped_ptr<content::BrowserPluginChannelManager>
+      browser_plugin_channel_manager_;
 
   // Used on the render thread and deleted by WebKit at shutdown.
   content::MediaStreamCenter* media_stream_center_;
@@ -274,8 +303,13 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
 
   bool compositor_initialized_;
   scoped_ptr<CompositorThread> compositor_thread_;
+  scoped_ptr<content::BrowserPluginRegistry> browser_plugin_registry_;
 
   ObserverList<content::RenderProcessObserver> observers_;
+
+  scoped_ptr<WebGraphicsContext3DCommandBufferImpl> gpu_vda_context3d_;
+
+  scoped_ptr<content::AudioRendererMixerManager> audio_renderer_mixer_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderThreadImpl);
 };

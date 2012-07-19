@@ -4,7 +4,6 @@
 
 #ifndef DBUS_MOCK_OBJECT_PROXY_H_
 #define DBUS_MOCK_OBJECT_PROXY_H_
-#pragma once
 
 #include <string>
 
@@ -20,19 +19,25 @@ class MockObjectProxy : public ObjectProxy {
   MockObjectProxy(Bus* bus,
                   const std::string& service_name,
                   const ObjectPath& object_path);
-  virtual ~MockObjectProxy();
 
   MOCK_METHOD2(CallMethodAndBlock, Response*(MethodCall* method_call,
                                              int timeout_ms));
   MOCK_METHOD3(CallMethod, void(MethodCall* method_call,
                                 int timeout_ms,
                                 ResponseCallback callback));
+  MOCK_METHOD4(CallMethodWithErrorCallback, void(MethodCall* method_call,
+                                                 int timeout_ms,
+                                                 ResponseCallback callback,
+                                                 ErrorCallback error_callback));
   MOCK_METHOD4(ConnectToSignal,
                void(const std::string& interface_name,
                     const std::string& signal_name,
                     SignalCallback signal_callback,
                     OnConnectedCallback on_connected_callback));
   MOCK_METHOD0(Detach, void());
+
+ protected:
+  virtual ~MockObjectProxy();
 };
 
 }  // namespace dbus

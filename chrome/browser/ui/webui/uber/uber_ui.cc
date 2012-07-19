@@ -6,15 +6,20 @@
 
 #include "base/stl_util.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/browser/ui/webui/extensions/extensions_ui.h"
-#include "chrome/browser/ui/webui/options2/options_ui2.h"
+#include "chrome/browser/ui/webui/options2/options_ui.h"
+#include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_set.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/notification_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "grit/browser_resources.h"
@@ -57,10 +62,31 @@ ChromeWebUIDataSource* CreateUberHTMLSource() {
   source->AddString("settingsHost",
                     ASCIIToUTF16(chrome::kChromeUISettingsHost));
 
+  source->set_use_json_js_format_v2();
+
   return source;
 }
 
-ChromeWebUIDataSource* CreateUberFrameHTMLSource() {
+// Determines whether the user has an active extension of the given type.
+bool HasExtensionType(Profile* profile, const char* extensionType) {
+  const ExtensionSet* extensionSet =
+      profile->GetExtensionService()->extensions();
+
+  for (ExtensionSet::const_iterator iter = extensionSet->begin();
+       iter != extensionSet->end(); ++iter) {
+    extensions::Extension::URLOverrideMap map =
+        (*iter)->GetChromeURLOverrides();
+    extensions::Extension::URLOverrideMap::const_iterator result =
+        map.find(std::string(extensionType));
+
+    if (result != map.end())
+      return true;
+  }
+
+  return false;
+}
+
+ChromeWebUIDataSource* CreateUberFrameHTMLSource(Profile* profile) {
   ChromeWebUIDataSource* source =
       new ChromeWebUIDataSource(chrome::kChromeUIUberFrameHost);
 
@@ -68,9 +94,9 @@ ChromeWebUIDataSource* CreateUberFrameHTMLSource() {
   source->add_resource_path("uber_frame.js", IDR_UBER_FRAME_JS);
   source->set_default_resource(IDR_UBER_FRAME_HTML);
 
-  // TODO(jhawkins): Attempt to get rid of IDS_PRODUCT_OS_NAME.
+  // TODO(jhawkins): Attempt to get rid of IDS_SHORT_PRODUCT_OS_NAME.
 #if defined(OS_CHROMEOS)
-  source->AddLocalizedString("shortProductName", IDS_PRODUCT_OS_NAME);
+  source->AddLocalizedString("shortProductName", IDS_SHORT_PRODUCT_OS_NAME);
 #else
   source->AddLocalizedString("shortProductName", IDS_SHORT_PRODUCT_NAME);
 #endif  // defined(OS_CHROMEOS)
@@ -88,6 +114,10 @@ ChromeWebUIDataSource* CreateUberFrameHTMLSource() {
   source->AddString("settingsHost",
                     ASCIIToUTF16(chrome::kChromeUISettingsHost));
   source->AddLocalizedString("settingsDisplayName", IDS_SETTINGS_TITLE);
+  bool overridesHistory = HasExtensionType(profile,
+      chrome::kChromeUIHistoryHost);
+  source->AddString("overridesHistory",
+                    ASCIIToUTF16(overridesHistory ? "yes" : "no"));
 
   return source;
 }
@@ -96,15 +126,7 @@ ChromeWebUIDataSource* CreateUberFrameHTMLSource() {
 
 UberUI::UberUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(CreateUberHTMLSource());
-
-  // The user may use a virtual (short) URL to get to the page. To avoid
-  // duplicate uber tabs, clear the virtual URL so that the omnibox will show
-  // the real URL. http://crbug.com/111878.
-  NavigationController* controller = &web_ui->GetWebContents()->GetController();
-  NavigationEntry* pending_entry = controller->GetPendingEntry();
-  if (pending_entry && !pending_entry->IsViewSourceMode())
-    pending_entry->SetVirtualURL(GURL());
+  ChromeURLDataManager::AddDataSource(profile, CreateUberHTMLSource());
 
   RegisterSubpage(chrome::kChromeUIExtensionsFrameURL);
   RegisterSubpage(chrome::kChromeUIHelpFrameURL);
@@ -125,11 +147,24 @@ void UberUI::RegisterSubpage(const std::string& page_url) {
   sub_uis_[page_url] = webui;
 }
 
+void UberUI::ClearPendingVirtualURL() {
+  // A virtual (short) URL may be used to load an uber page. To avoid duplicate
+  // uber tabs, clear the virtual URL so that the omnibox will show the real
+  // URL. http://crbug.com/111878.
+  const NavigationController& controller =
+      web_ui()->GetWebContents()->GetController();
+  NavigationEntry* pending_entry = controller.GetPendingEntry();
+  if (pending_entry && !pending_entry->IsViewSourceMode())
+    pending_entry->SetVirtualURL(GURL());
+}
+
 void UberUI::RenderViewCreated(RenderViewHost* render_view_host) {
   for (SubpageMap::iterator iter = sub_uis_.begin(); iter != sub_uis_.end();
        ++iter) {
     iter->second->GetController()->RenderViewCreated(render_view_host);
   }
+
+  ClearPendingVirtualURL();
 }
 
 void UberUI::RenderViewReused(RenderViewHost* render_view_host) {
@@ -137,13 +172,8 @@ void UberUI::RenderViewReused(RenderViewHost* render_view_host) {
        ++iter) {
     iter->second->GetController()->RenderViewReused(render_view_host);
   }
-}
 
-void UberUI::DidBecomeActiveForReusedRenderView() {
-  for (SubpageMap::iterator iter = sub_uis_.begin(); iter != sub_uis_.end();
-       ++iter) {
-    iter->second->GetController()->DidBecomeActiveForReusedRenderView();
-  }
+  ClearPendingVirtualURL();
 }
 
 bool UberUI::OverrideHandleWebUIMessage(const GURL& source_url,
@@ -169,9 +199,42 @@ bool UberUI::OverrideHandleWebUIMessage(const GURL& source_url,
 
 UberFrameUI::UberFrameUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(
-      CreateUberFrameHTMLSource());
+  ChromeURLDataManager::AddDataSource(profile,
+      CreateUberFrameHTMLSource(profile));
+
+  // Register as an observer for when extensions are loaded and unloaded.
+  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_LOADED,
+      content::Source<Profile>(profile));
+  registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_UNLOADED,
+      content::Source<Profile>(profile));
 }
 
 UberFrameUI::~UberFrameUI() {
+}
+
+void UberFrameUI::Observe(int type, const content::NotificationSource& source,
+                          const content::NotificationDetails& details) {
+  switch (type) {
+    // We listen for notifications that indicate an extension has been loaded
+    // (i.e., has been installed and/or enabled) or unloaded (i.e., has been
+    // uninstalled and/or disabled). If one of these events has occurred, then
+    // we must update the behavior of the History navigation element so that
+    // it opens the history extension if one is installed and enabled or
+    // opens the default history page if one is uninstalled or disabled.
+    case chrome::NOTIFICATION_EXTENSION_LOADED:
+    case chrome::NOTIFICATION_EXTENSION_UNLOADED: {
+      Profile* profile = Profile::FromWebUI(web_ui());
+      bool overridesHistory = HasExtensionType(profile,
+          chrome::kChromeUIHistoryHost);
+      scoped_ptr<Value> controlsValue(
+          Value::CreateStringValue(chrome::kChromeUIHistoryHost));
+      scoped_ptr<Value> overrideValue(
+          Value::CreateStringValue(overridesHistory ? "yes" : "no"));
+      web_ui()->CallJavascriptFunction(
+          "uber_frame.setNavigationOverride", *controlsValue, *overrideValue);
+      break;
+    }
+    default:
+      NOTREACHED();
+  }
 }

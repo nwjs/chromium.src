@@ -80,6 +80,7 @@ int InitSocketPoolHelper(const GURL& request_url,
                          const BoundNetLog& net_log,
                          int num_preconnect_streams,
                          ClientSocketHandle* socket_handle,
+                         const OnHostResolutionCallback& resolution_callback,
                          const CompletionCallback& callback) {
   scoped_refptr<TransportSocketParams> tcp_params;
   scoped_refptr<HttpProxySocketParams> http_proxy_params;
@@ -112,11 +113,35 @@ int InitSocketPoolHelper(const GURL& request_url,
   std::string connection_group = origin_host_port.ToString();
   DCHECK(!connection_group.empty());
   if (using_ssl) {
-    std::string prefix;
-    if (ssl_config_for_origin.tls1_enabled) {
-      prefix = "ssl/";
-    } else {
-      prefix = "sslv3/";
+    // All connections in a group should use the same SSLConfig settings.
+    // Encode version_max in the connection group's name, unless it's the
+    // default version_max. (We want the common case to use the shortest
+    // encoding). A version_max of TLS 1.1 is encoded as "ssl(max:3.2)/"
+    // rather than "tlsv1.1/" because the actual protocol version, which
+    // is selected by the server, may not be TLS 1.1. Do not encode
+    // version_min in the connection group's name because version_min
+    // should be the same for all connections, whereas version_max may
+    // change for version fallbacks.
+    std::string prefix = "ssl/";
+    if (ssl_config_for_origin.version_max !=
+        SSLConfigService::default_version_max()) {
+      switch (ssl_config_for_origin.version_max) {
+        case SSL_PROTOCOL_VERSION_TLS1_2:
+          prefix = "ssl(max:3.3)/";
+          break;
+        case SSL_PROTOCOL_VERSION_TLS1_1:
+          prefix = "ssl(max:3.2)/";
+          break;
+        case SSL_PROTOCOL_VERSION_TLS1:
+          prefix = "ssl(max:3.1)/";
+          break;
+        case SSL_PROTOCOL_VERSION_SSL3:
+          prefix = "sslv3/";
+          break;
+        default:
+          CHECK(false);
+          break;
+      }
     }
     connection_group = prefix + connection_group;
   }
@@ -126,7 +151,8 @@ int InitSocketPoolHelper(const GURL& request_url,
     tcp_params = new TransportSocketParams(origin_host_port,
                                            request_priority,
                                            disable_resolver_cache,
-                                           ignore_limits);
+                                           ignore_limits,
+                                           resolution_callback);
   } else {
     ProxyServer proxy_server = proxy_info.proxy_server();
     proxy_host_port.reset(new HostPortPair(proxy_server.host_port_pair()));
@@ -134,7 +160,8 @@ int InitSocketPoolHelper(const GURL& request_url,
         new TransportSocketParams(*proxy_host_port,
                                   request_priority,
                                   disable_resolver_cache,
-                                  ignore_limits));
+                                  ignore_limits,
+                                  resolution_callback));
 
     if (proxy_info.is_http() || proxy_info.is_https()) {
       std::string user_agent;
@@ -344,13 +371,14 @@ int InitSocketHandleForHttpRequest(
     const SSLConfig& ssl_config_for_proxy,
     const BoundNetLog& net_log,
     ClientSocketHandle* socket_handle,
+    const OnHostResolutionCallback& resolution_callback,
     const CompletionCallback& callback) {
   DCHECK(socket_handle);
   return InitSocketPoolHelper(
       request_url, request_extra_headers, request_load_flags, request_priority,
       session, proxy_info, force_spdy_over_ssl, want_spdy_over_npn,
       ssl_config_for_origin, ssl_config_for_proxy, false, net_log, 0,
-      socket_handle, callback);
+      socket_handle, resolution_callback, callback);
 }
 
 int InitSocketHandleForRawConnect(
@@ -372,7 +400,8 @@ int InitSocketHandleForRawConnect(
   return InitSocketPoolHelper(
       request_url, request_extra_headers, request_load_flags, request_priority,
       session, proxy_info, false, false, ssl_config_for_origin,
-      ssl_config_for_proxy, true, net_log, 0, socket_handle, callback);
+      ssl_config_for_proxy, true, net_log, 0, socket_handle,
+      OnHostResolutionCallback(), callback);
 }
 
 int PreconnectSocketsForHttpRequest(
@@ -392,7 +421,8 @@ int PreconnectSocketsForHttpRequest(
       request_url, request_extra_headers, request_load_flags, request_priority,
       session, proxy_info, force_spdy_over_ssl, want_spdy_over_npn,
       ssl_config_for_origin, ssl_config_for_proxy, false, net_log,
-      num_preconnect_streams, NULL, CompletionCallback());
+      num_preconnect_streams, NULL, OnHostResolutionCallback(),
+      CompletionCallback());
 }
 
 }  // namespace net

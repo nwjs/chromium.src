@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,8 +8,10 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_node_data.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
+#include "chrome/browser/event_disposition.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/common/pref_names.h"
@@ -34,11 +36,12 @@ using views::MenuItemView;
 // both IE and FF restrict the max width of a menu.
 static const int kMaxMenuWidth = 400;
 
-BookmarkMenuDelegate::BookmarkMenuDelegate(Profile* profile,
+BookmarkMenuDelegate::BookmarkMenuDelegate(Browser* browser,
                                            PageNavigator* navigator,
                                            views::Widget* parent,
                                            int first_menu_id)
-    : profile_(profile),
+    : browser_(browser),
+      profile_(browser->profile()),
       page_navigator_(navigator),
       parent_(parent),
       menu_(NULL),
@@ -111,8 +114,10 @@ string16 BookmarkMenuDelegate::GetTooltipText(
 }
 
 bool BookmarkMenuDelegate::IsTriggerableEvent(views::MenuItemView* menu,
-                                              const views::MouseEvent& e) {
-  return event_utils::IsPossibleDispositionEvent(e);
+                                              const views::Event& e) {
+  return e.type() == ui::ET_GESTURE_TAP ||
+         e.type() == ui::ET_GESTURE_TAP_DOWN ||
+         event_utils::IsPossibleDispositionEvent(e);
 }
 
 void BookmarkMenuDelegate::ExecuteCommand(int id, int mouse_event_flags) {
@@ -122,11 +127,9 @@ void BookmarkMenuDelegate::ExecuteCommand(int id, int mouse_event_flags) {
   std::vector<const BookmarkNode*> selection;
   selection.push_back(node);
 
-  WindowOpenDisposition initial_disposition =
-      event_utils::DispositionFromEventFlags(mouse_event_flags);
-
-  bookmark_utils::OpenAll(parent_->GetNativeWindow(), profile_, page_navigator_,
-                          selection, initial_disposition);
+  bookmark_utils::OpenAll(
+      parent_->GetNativeWindow(), page_navigator_, selection,
+      chrome::DispositionFromEventFlags(mouse_event_flags));
   bookmark_utils::RecordBookmarkLaunch(location_);
 }
 
@@ -270,6 +273,7 @@ bool BookmarkMenuDelegate::ShowContextMenu(MenuItemView* source,
   context_menu_.reset(
       new BookmarkContextMenu(
           parent_,
+          browser_,
           profile_,
           page_navigator_,
           nodes[0]->parent(),
@@ -316,11 +320,13 @@ void BookmarkMenuDelegate::BookmarkNodeFaviconChanged(
     return;  // We're not showing a menu item for the node.
 
   // Iterate through the menus looking for the menu containing node.
-  for (NodeToMenuMap::iterator i = node_to_menu_map_.begin();
+  for (NodeToMenuMap::iterator i(node_to_menu_map_.begin());
        i != node_to_menu_map_.end(); ++i) {
     MenuItemView* menu_item = i->second->GetMenuItemByID(menu_pair->second);
     if (menu_item) {
-      menu_item->SetIcon(model->GetFavicon(node));
+      const gfx::Image& favicon = model->GetFavicon(node);
+      menu_item->SetIcon(
+          favicon.IsEmpty() ? SkBitmap() : *favicon.ToSkBitmap());
       return;
     }
   }
@@ -328,8 +334,11 @@ void BookmarkMenuDelegate::BookmarkNodeFaviconChanged(
   if (parent_menu_item_) {
     MenuItemView* menu_item = parent_menu_item_->GetMenuItemByID(
         menu_pair->second);
-    if (menu_item)
-      menu_item->SetIcon(model->GetFavicon(node));
+    if (menu_item) {
+      const gfx::Image& favicon = model->GetFavicon(node);
+      menu_item->SetIcon(
+          favicon.IsEmpty() ? SkBitmap() : *favicon.ToSkBitmap());
+    }
   }
 }
 
@@ -344,7 +353,7 @@ void BookmarkMenuDelegate::WillRemoveBookmarks(
 
   // Remove the menu items.
   std::set<MenuItemView*> changed_parent_menus;
-  for (std::vector<const BookmarkNode*>::const_iterator i = bookmarks.begin();
+  for (std::vector<const BookmarkNode*>::const_iterator i(bookmarks.begin());
        i != bookmarks.end(); ++i) {
     NodeToMenuIDMap::iterator node_to_menu = node_to_menu_id_map_.find(*i);
     if (node_to_menu != node_to_menu_id_map_.end()) {
@@ -365,27 +374,25 @@ void BookmarkMenuDelegate::WillRemoveBookmarks(
   // is the DCHECK.
   DCHECK(changed_parent_menus.size() <= 1);
 
-  for (std::set<MenuItemView*>::const_iterator i = changed_parent_menus.begin();
-       i != changed_parent_menus.end(); ++i) {
+  for (std::set<MenuItemView*>::const_iterator i(changed_parent_menus.begin());
+       i != changed_parent_menus.end(); ++i)
     (*i)->ChildrenChanged();
-  }
 
-  // Remove any descendants of the removed nodes in node_to_menu_id_map_.
-  for (NodeToMenuIDMap::iterator i = node_to_menu_id_map_.begin();
+  // Remove any descendants of the removed nodes in |node_to_menu_id_map_|.
+  for (NodeToMenuIDMap::iterator i(node_to_menu_id_map_.begin());
        i != node_to_menu_id_map_.end(); ) {
     bool ancestor_removed = false;
-    for (std::vector<const BookmarkNode*>::const_iterator j = bookmarks.begin();
+    for (std::vector<const BookmarkNode*>::const_iterator j(bookmarks.begin());
          j != bookmarks.end(); ++j) {
       if (i->first->HasAncestor(*j)) {
         ancestor_removed = true;
         break;
       }
     }
-    if (ancestor_removed) {
+    if (ancestor_removed)
       node_to_menu_id_map_.erase(i++);
-    } else {
+    else
       ++i;
-    }
   }
 }
 
@@ -435,8 +442,8 @@ void BookmarkMenuDelegate::BuildMenuForPermanentNode(
   }
   int id = *next_menu_id;
   (*next_menu_id)++;
-  SkBitmap* folder_icon = ResourceBundle::GetSharedInstance().
-      GetBitmapNamed(IDR_BOOKMARK_BAR_FOLDER);
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  gfx::ImageSkia* folder_icon = rb.GetImageSkiaNamed(IDR_BOOKMARK_BAR_FOLDER);
   MenuItemView* submenu = menu->AppendSubMenuWithIcon(
       id, node->GetTitle(), *folder_icon);
   BuildMenu(node, 0, submenu, next_menu_id);
@@ -448,22 +455,21 @@ void BookmarkMenuDelegate::BuildMenu(const BookmarkNode* parent,
                                      MenuItemView* menu,
                                      int* next_menu_id) {
   DCHECK(parent->empty() || start_child_index < parent->child_count());
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   for (int i = start_child_index; i < parent->child_count(); ++i) {
     const BookmarkNode* node = parent->GetChild(i);
     int id = *next_menu_id;
 
     (*next_menu_id)++;
     if (node->is_url()) {
-      SkBitmap icon = profile_->GetBookmarkModel()->GetFavicon(node);
-      if (icon.width() == 0) {
-        icon = *ResourceBundle::GetSharedInstance().
-            GetBitmapNamed(IDR_DEFAULT_FAVICON);
-      }
-      menu->AppendMenuItemWithIcon(id, node->GetTitle(), icon);
+      const gfx::Image& image = profile_->GetBookmarkModel()->GetFavicon(node);
+      const gfx::ImageSkia* icon = image.IsEmpty() ?
+          rb.GetImageSkiaNamed(IDR_DEFAULT_FAVICON) : image.ToImageSkia();
+      menu->AppendMenuItemWithIcon(id, node->GetTitle(), *icon);
       node_to_menu_id_map_[node] = id;
     } else if (node->is_folder()) {
-      SkBitmap* folder_icon = ResourceBundle::GetSharedInstance().
-          GetBitmapNamed(IDR_BOOKMARK_BAR_FOLDER);
+      gfx::ImageSkia* folder_icon =
+          rb.GetImageSkiaNamed(IDR_BOOKMARK_BAR_FOLDER);
       MenuItemView* submenu = menu->AppendSubMenuWithIcon(
           id, node->GetTitle(), *folder_icon);
       node_to_menu_id_map_[node] = id;
@@ -476,7 +482,7 @@ void BookmarkMenuDelegate::BuildMenu(const BookmarkNode* parent,
 }
 
 MenuItemView* BookmarkMenuDelegate::GetMenuByID(int id) {
-  for (NodeToMenuMap::const_iterator i = node_to_menu_map_.begin();
+  for (NodeToMenuMap::const_iterator i(node_to_menu_map_.begin());
        i != node_to_menu_map_.end(); ++i) {
     MenuItemView* menu = i->second->GetMenuItemByID(id);
     if (menu)

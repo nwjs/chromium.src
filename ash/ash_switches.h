@@ -4,7 +4,6 @@
 
 #ifndef ASH_ASH_SWITCHES_H_
 #define ASH_ASH_SWITCHES_H_
-#pragma once
 
 #include "ash/ash_export.h"
 
@@ -16,13 +15,16 @@ namespace switches {
 // see chromeos::LoginUtil::GetOffTheRecordCommandLine().)
 
 // Please keep alphabetized.
-ASH_EXPORT extern const char kDisableAshUberTray[];
+ASH_EXPORT extern const char kAshDebugShortcuts[];
 ASH_EXPORT extern const char kAshEnableOak[];
+ASH_EXPORT extern const char kAshExtendedDesktop[];
+ASH_EXPORT extern const char kAshNotifyDisabled[];
+ASH_EXPORT extern const char kAshTouchHud[];
+ASH_EXPORT extern const char kAshVirtualScreenCoordinates[];
+ASH_EXPORT extern const char kAshWindowAnimationsDisabled[];
 ASH_EXPORT extern const char kAuraGoogleDialogFrames[];
 ASH_EXPORT extern const char kAuraLegacyPowerButton[];
 ASH_EXPORT extern const char kAuraNoShadows[];
-ASH_EXPORT extern const char kAuraWindowAnimationsDisabled[];
-ASH_EXPORT extern const char kAuraPanelManager[];
 
 }  // namespace switches
 }  // namespace ash

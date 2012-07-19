@@ -33,26 +33,29 @@
         '../media/media.gyp:media',
         '../net/net.gyp:net',
         '../skia/skia.gyp:skia',
-        '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:webkit',
+        '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
         '../ui/ui.gyp:ui',
         '../v8/tools/gyp/v8.gyp:v8',
-        '../webkit/support/webkit_support.gyp:appcache',
-        '../webkit/support/webkit_support.gyp:database',
-        '../webkit/support/webkit_support.gyp:fileapi',
-        '../webkit/support/webkit_support.gyp:glue',
-        '../webkit/support/webkit_support.gyp:quota',
         '../webkit/support/webkit_support.gyp:webkit_support',
       ],
       'include_dirs': [
         '..',
       ],
       'sources': [
+        'shell/geolocation/shell_access_token_store.cc',
+        'shell/geolocation/shell_access_token_store.h',
+        'shell/layout_test_controller.cc',
+        'shell/layout_test_controller.h',
         'shell/layout_test_controller_bindings.cc',
         'shell/layout_test_controller_bindings.h',
+        'shell/layout_test_controller_host.cc',
+        'shell/layout_test_controller_host.h',
         'shell/paths_mac.h',
         'shell/paths_mac.mm',
         'shell/shell.cc',
         'shell/shell.h',
+        'shell/shell_android.cc',
+        'shell/shell_aura.cc',
         'shell/shell_gtk.cc',
         'shell/shell_mac.mm',
         'shell/shell_win.cc',
@@ -69,12 +72,8 @@
         'shell/shell_content_browser_client.h',
         'shell/shell_content_client.cc',
         'shell/shell_content_client.h',
-        'shell/shell_content_plugin_client.cc',
-        'shell/shell_content_plugin_client.h',
         'shell/shell_content_renderer_client.cc',
         'shell/shell_content_renderer_client.h',
-        'shell/shell_content_utility_client.cc',
-        'shell/shell_content_utility_client.h',
         'shell/shell_devtools_delegate.cc',
         'shell/shell_devtools_delegate.h',
         'shell/shell_download_manager_delegate.cc',
@@ -84,6 +83,9 @@
         'shell/shell_javascript_dialog_mac.mm',
         'shell/shell_javascript_dialog_win.cc',
         'shell/shell_javascript_dialog.h',
+        'shell/shell_login_dialog_mac.mm',
+        'shell/shell_login_dialog.cc',
+        'shell/shell_login_dialog.h',
         'shell/shell_main_delegate.cc',
         'shell/shell_main_delegate.h',
         'shell/shell_messages.cc',
@@ -92,12 +94,10 @@
         'shell/shell_network_delegate.h',
         'shell/shell_render_process_observer.cc',
         'shell/shell_render_process_observer.h',
-        'shell/shell_render_view_host_observer.cc',
-        'shell/shell_render_view_host_observer.h',
-        'shell/shell_render_view_observer.cc',
-        'shell/shell_render_view_observer.h',
         'shell/shell_resource_context.cc',
         'shell/shell_resource_context.h',
+        'shell/shell_resource_dispatcher_host_delegate.cc',
+        'shell/shell_resource_dispatcher_host_delegate.h',
         'shell/shell_switches.cc',
         'shell/shell_switches.h',
         'shell/shell_url_request_context_getter.cc',
@@ -132,6 +132,45 @@
             },
           },
         }],  # OS=="win"
+        ['OS!="android"', {
+          'dependencies': [
+            # This dependency is for running DRT against the content shell, and
+            # this combination is not yet supported on Android.
+            '../webkit/support/webkit_support.gyp:webkit_support',
+          ],
+        }, {  # else: OS=="android"
+          'dependencies': [
+            'content_shell_jni_headers',
+          ],
+          'include_dirs': [
+            '<(SHARED_INTERMEDIATE_DIR)/content/shell',
+          ],
+        }],  # OS=="android"
+        ['use_aura==1', {
+          'sources/': [
+            ['exclude', 'shell/shell_gtk.cc'],
+            ['exclude', 'shell/shell_win.cc'],
+          ],
+        }],  # use_aura==1
+        ['inside_chromium_build==0 or component!="shared_library"', {
+          'dependencies': [
+            '<(webkit_src_dir)/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore_test_support',
+            '<(webkit_src_dir)/Source/WTF/WTF.gyp/WTF.gyp:wtf',
+          ],
+          'include_dirs': [
+            # Required for WebTestingSupport.cpp to find our custom config.h.
+            'shell/',
+            '<(webkit_src_dir)/Source/WebKit/chromium/public',
+            # WARNING: Do not view this particular case as a precedent for
+            # including WebCore headers in the content shell.
+            '<(webkit_src_dir)/Source/WebCore/testing/v8', # for WebCoreTestSupport.h needed  to link in window.internals code.
+          ],
+          'sources': [
+            'shell/config.h',
+            '<(webkit_src_dir)/Source/WebKit/chromium/src/WebTestingSupport.cpp',
+            '<(webkit_src_dir)/Source/WebKit/chromium/public/WebTestingSupport.h',
+          ],
+        }],
       ],
     },
     {
@@ -179,7 +218,6 @@
         'content_shell_resources',
         '<(DEPTH)/net/net.gyp:net_resources',
         '<(DEPTH)/ui/ui.gyp:ui_resources',
-        '<(DEPTH)/ui/ui.gyp:ui_resources_standard',
       ],
       'variables': {
         'repack_path': '<(DEPTH)/tools/grit/grit/format/repack.py',
@@ -192,29 +230,29 @@
               '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/shell_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources_standard/ui_resources_standard.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/devtools_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
-            ],
-            'conditions': [
-              ['OS != "mac"', {
-                'pak_inputs': [
-                  '<(SHARED_INTERMEDIATE_DIR)/ui/gfx/gfx_resources.pak',
-                ]
-              }],
             ],
           },
           'inputs': [
             '<(repack_path)',
             '<@(pak_inputs)',
           ],
-          'outputs': [
-            '<(PRODUCT_DIR)/content_shell.pak',
-          ],
           'action': ['python', '<(repack_path)', '<@(_outputs)',
                      '<@(pak_inputs)'],
+          'conditions': [
+            ['OS!="android"', {
+              'outputs': [
+                '<(PRODUCT_DIR)/content_shell.pak',
+              ],
+            }, {
+              'outputs': [
+                '<(PRODUCT_DIR)/content_shell/assets/content_shell.pak',
+              ],
+            }],
+          ],
         },
       ],
     },
@@ -365,6 +403,7 @@
           'product_name': '<(content_shell_product_name) Framework',
           'mac_bundle': 1,
           'mac_bundle_resources': [
+            'shell/mac/English.lproj/HttpAuth.xib',
             'shell/mac/English.lproj/MainMenu.xib',
             '<(PRODUCT_DIR)/content_shell.pak'
           ],
@@ -443,33 +482,170 @@
               ],
             },
           ],
+          'conditions': [
+            ['component=="shared_library"', {
+              'xcode_settings': {
+                'LD_RUNPATH_SEARCH_PATHS': [
+                  # Get back from Content Shell.app/Contents/Frameworks/
+                  #                                 Helper.app/Contents/MacOS
+                  '@loader_path/../../../../../..',
+                ],
+              },
+            }],
+          ],
         },  # target content_shell_helper_app
       ],
     }],  # OS=="mac"
     ['OS=="android"', {
       'targets': [
         {
+          # TODO(jrg): Update this action and other jni generators to only
+          # require specifying the java directory and generate the rest.
+          'target_name': 'content_shell_jni_headers',
+          'type': 'none',
+          'variables': {
+            'java_sources': [
+              'shell/android/java/src/org/chromium/content_shell/ShellManager.java',
+              'shell/android/java/src/org/chromium/content_shell/Shell.java',
+            ],
+            'jni_headers': [
+              '<(SHARED_INTERMEDIATE_DIR)/content/shell/jni/shell_manager_jni.h',
+              '<(SHARED_INTERMEDIATE_DIR)/content/shell/jni/shell_jni.h',
+            ],
+          },
+          'includes': [ '../build/jni_generator.gypi' ],
+        },
+        {
+          'target_name': 'libcontent_shell_content_view',
+          'type': 'shared_library',
+          'dependencies': [
+            'content_shell_jni_headers',
+            'content_shell_lib',
+            'content_shell_pak',
+            # Skia is necessary to ensure the dependencies needed by
+            # WebContents are included.
+            '../skia/skia.gyp:skia',
+            '<(DEPTH)/media/media.gyp:player_android',
+          ],
+          'include_dirs': [
+            '<(SHARED_INTERMEDIATE_DIR)/content/shell',
+          ],
+          'sources': [
+            'shell/android/shell_library_loader.cc',
+            'shell/android/shell_library_loader.h',
+            'shell/android/shell_manager.cc',
+            'shell/android/shell_manager.h',
+          ],
+          'sources!': [
+            'shell/shell_main.cc',
+            'shell/shell_main.h',
+          ],
+          'conditions': [
+            ['android_build_type==1', {
+              'ldflags': [
+                '-lgabi++',  # For rtti
+              ],
+            }],
+          ],
+        },
+        {
           'target_name': 'content_shell_apk',
           'type': 'none',
           'actions': [
             {
+              'action_name': 'copy_base_jar',
+              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_base.jar'],
+              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_base.jar'],
+              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
+            },
+            {
+              'action_name': 'copy_net_jar',
+              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_net.jar'],
+              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_net.jar'],
+              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
+            },
+            {
+              'action_name': 'copy_media_jar',
+              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_media.jar'],
+              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_media.jar'],
+              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
+            },
+            {
+              'action_name': 'copy_content_jar',
+              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_content.jar'],
+              'outputs': ['<(PRODUCT_DIR)/content_shell/java/libs/chromium_content.jar'],
+              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
+            },
+            {
+              'action_name': 'copy_and_strip_so',
+              'inputs': ['<(SHARED_LIB_DIR)/libcontent_shell_content_view.so'],
+              'outputs': ['<(PRODUCT_DIR)/content_shell/libs/<(android_app_abi)/libcontent_shell_content_view.so'],
+              'action': [
+                '<!(/bin/echo -n $STRIP)',
+                '--strip-unneeded',  # All symbols not needed for relocation.
+                '<@(_inputs)',
+                '-o',
+                '<@(_outputs)',
+              ],
+            },
+            {
               'action_name': 'content_shell_apk',
               'inputs': [
-                '<(DEPTH)/content/shell/android/content_shell_apk.xml',
+                'shell/android/java/content_shell_apk.xml',
+                'shell/android/java/AndroidManifest.xml',
                 '<!@(find shell/android/java -name "*.java")',
+                '<!@(find shell/android/res -name "*")',
+                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_base.jar',
+                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_net.jar',
+                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_media.jar',
+                '<(PRODUCT_DIR)/content_shell/java/libs/chromium_content.jar',
+                '<(PRODUCT_DIR)/content_shell/assets/content_shell.pak',
+                '<(PRODUCT_DIR)/content_shell/libs/<(android_app_abi)/libcontent_shell_content_view.so',
               ],
               'outputs': [
                 # Awkwardly, we build a Debug APK even when gyp is in
                 # Release mode.  I don't think it matters (e.g. we're
                 # probably happy to not codesign) but naming should be
                 # fixed.
-                '<(PRODUCT_DIR)/ContentShell-debug.apk',
+                '<(PRODUCT_DIR)/content_shell/ContentShell-debug.apk',
+              ],
+              'action': [
+                # Pass the build type to ant. Currently it only assumes
+                # debug mode in java. Release mode will break the current
+                # workflow.
+                # 'shell/content_shell_ant_helper.sh',
+                'ant',
+                '-DPRODUCT_DIR=<(ant_build_out)',
+                '-DAPP_ABI=<(android_app_abi)',
+                '-buildfile',
+                'shell/android/java/content_shell_apk.xml',
+                # '<(CONFIGURATION_NAME)',
+              ]
+            }
+          ],
+        },
+        {
+          'target_name': 'content_shell_test_apk',
+          'type': 'none',
+          'dependencies': [
+            'content_shell_apk',
+          ],
+          'actions': [
+            {
+              'action_name': 'content_shell_test_generate_apk',
+              'inputs': [
+                '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
+                '<(DEPTH)/content/shell/android/javatests/AndroidManifest.xml',
+              ],
+              'outputs': [
+                '<(PRODUCT_DIR)/content_shell_test/ContentShellTest-debug.apk',
               ],
               'action': [
                 'ant',
-                '-DPRODUCT_DIR=<(PRODUCT_DIR)',
+                '-DPRODUCT_DIR=<(ant_build_out)',
+                '-DAPP_ABI=<(android_app_abi)',
                 '-buildfile',
-                '<(DEPTH)/content/shell/android/content_shell_apk.xml',
+                '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
               ]
             }
           ],

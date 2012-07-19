@@ -7,7 +7,6 @@
 
 #ifndef JINGLE_NOTIFIER_BASE_PROXY_RESOLVING_CLIENT_SOCKET_H_
 #define JINGLE_NOTIFIER_BASE_PROXY_RESOLVING_CLIENT_SOCKET_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -34,10 +33,12 @@ namespace notifier {
 
 class ProxyResolvingClientSocket : public net::StreamSocket {
  public:
-  // Constructs a new ProxyResolvingClientSocket. |socket_factory| is the
-  // ClientSocketFactory that will be used by the underlying HttpNetworkSession.
-  // If |socket_factory| is NULL, the default socket factory
-  // (net::ClientSocketFactory::GetDefaultFactory()) will be used.
+  // Constructs a new ProxyResolvingClientSocket. |socket_factory| is
+  // the ClientSocketFactory that will be used by the underlying
+  // HttpNetworkSession.  If |socket_factory| is NULL, the default
+  // socket factory (net::ClientSocketFactory::GetDefaultFactory())
+  // will be used.  |dest_host_port_pair| is the destination for this
+  // socket.  The hostname must be non-empty and the port must be > 0.
   ProxyResolvingClientSocket(
       net::ClientSocketFactory* socket_factory,
       const scoped_refptr<net::URLRequestContextGetter>& request_context_getter,
@@ -56,7 +57,7 @@ class ProxyResolvingClientSocket : public net::StreamSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(net::AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(net::IPEndPoint* address) const OVERRIDE;
   virtual const net::BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;

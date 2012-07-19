@@ -34,6 +34,9 @@ class ExtensionTtsPlatformImpl {
   // Stop speaking immediately and return true on success.
   virtual bool StopSpeaking() = 0;
 
+  // Returns whether any speech is on going.
+  virtual bool IsSpeaking() = 0;
+
   // Return true if this platform implementation will fire the given event.
   // All platform implementations must fire the TTS_EVENT_END event at a
   // minimum.
@@ -49,6 +52,9 @@ class ExtensionTtsPlatformImpl {
 
  protected:
   ExtensionTtsPlatformImpl() {}
+
+  // On some platforms this may be a leaky singleton - do not rely on the
+  // destructor being called!  http://crbug.com/122026
   virtual ~ExtensionTtsPlatformImpl() {}
 
   std::string error_;

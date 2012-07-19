@@ -4,7 +4,6 @@
 
 #ifndef BASE_SHARED_MEMORY_H_
 #define BASE_SHARED_MEMORY_H_
-#pragma once
 
 #include "build/build_config.h"
 
@@ -170,7 +169,7 @@ class BASE_EXPORT SharedMemory {
   // identifier is not portable.
   SharedMemoryHandle handle() const;
 
-#if defined(OS_POSIX)
+#if defined(OS_POSIX) && !defined(OS_NACL)
   // Returns a unique identifier for this shared memory segment. Inode numbers
   // are technically only unique to a single filesystem. However, we always
   // allocate shared memory backing files from the same directory, so will end
@@ -224,7 +223,7 @@ class BASE_EXPORT SharedMemory {
   void Unlock();
 
  private:
-#if defined(OS_POSIX)
+#if defined(OS_POSIX) && !defined(OS_NACL)
   bool PrepareMapFile(FILE *fp);
   bool FilePathForMemoryName(const std::string& mem_name, FilePath* path);
   void LockOrUnlockCommon(int function);

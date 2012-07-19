@@ -4,13 +4,16 @@
 
 #ifndef CHROME_BROWSER_NET_CHROME_COOKIE_NOTIFICATION_DETAILS_H_
 #define CHROME_BROWSER_NET_CHROME_COOKIE_NOTIFICATION_DETAILS_H_
-#pragma once
 
 #include "net/cookies/cookie_monster.h"
 
+namespace net {
+class CanonicalCookie;
+}
+
 struct ChromeCookieDetails {
  public:
-  ChromeCookieDetails(const net::CookieMonster::CanonicalCookie* cookie_copy,
+  ChromeCookieDetails(const net::CanonicalCookie* cookie_copy,
                       bool is_removed,
                       net::CookieMonster::Delegate::ChangeCause cause)
       : cookie(cookie_copy),
@@ -18,7 +21,7 @@ struct ChromeCookieDetails {
         cause(cause) {
   }
 
-  const net::CookieMonster::CanonicalCookie* cookie;
+  const net::CanonicalCookie* cookie;
   bool removed;
   net::CookieMonster::Delegate::ChangeCause cause;
 };

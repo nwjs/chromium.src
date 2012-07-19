@@ -4,7 +4,6 @@
 
 #ifndef NET_TEST_BASE_TEST_SERVER_H_
 #define NET_TEST_BASE_TEST_SERVER_H_
-#pragma once
 
 #include <string>
 #include <utility>
@@ -66,6 +65,8 @@ class BaseTestServer {
       OCSP_OK,
       OCSP_REVOKED,
       OCSP_INVALID,
+      OCSP_UNAUTHORIZED,
+      OCSP_UNKNOWN,
     };
 
     // Bitmask of bulk encryption algorithms that the test server supports
@@ -83,6 +84,15 @@ class BaseTestServer {
       // dependencies and not be available on all machines. Clients may not
       // be able to connect if only 3DES is specified.
       BULK_CIPHER_3DES   = (1 << 3),
+    };
+
+    // NOTE: the values of these enumerators are passed to the the Python test
+    // server. Do not change them.
+    enum TLSIntolerantLevel {
+      TLS_INTOLERANT_NONE = 0,
+      TLS_INTOLERANT_ALL = 1,  // Intolerant of all TLS versions.
+      TLS_INTOLERANT_TLS1_1 = 2,  // Intolerant of TLS 1.1 or higher.
+      TLS_INTOLERANT_TLS1_2 = 3,  // Intolerant of TLS 1.2 or higher.
     };
 
     // Initialize a new HTTPSOptions using CERT_OK as the certificate.
@@ -126,6 +136,10 @@ class BaseTestServer {
     // causes it to log session cache actions and echo the log on
     // /ssl-session-cache.
     bool record_resume;
+
+    // If not TLS_INTOLERANT_NONE, the server will abort any handshake that
+    // negotiates an intolerant TLS version in order to test version fallback.
+    TLSIntolerantLevel tls_intolerant;
   };
 
   // Pass as the 'host' parameter during construction to server on 127.0.0.1

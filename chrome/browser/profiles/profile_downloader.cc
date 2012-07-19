@@ -28,9 +28,10 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
-#include "content/public/common/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
+#include "net/url_request/url_request_status.h"
 #include "skia/ext/image_operations.h"
 
 using content::BrowserThread;
@@ -139,7 +140,7 @@ bool ProfileDownloader::GetProfileNameAndImageURL(const std::string& data,
   int error_code = -1;
   std::string error_message;
   scoped_ptr<base::Value> root_value(base::JSONReader::ReadAndReturnError(
-      data, false, &error_code, &error_message));
+      data, base::JSON_PARSE_RFC, &error_code, &error_message));
   if (!root_value.get()) {
     LOG(ERROR) << "Error while parsing user entry response: "
                << error_message;
@@ -209,7 +210,7 @@ void ProfileDownloader::Start() {
   if (!service) {
     // This can happen in some test paths.
     LOG(WARNING) << "User has no token service";
-    delegate_->OnDownloadComplete(this, false);
+    delegate_->OnProfileDownloadFailure(this);
     return;
   }
 
@@ -244,8 +245,8 @@ std::string ProfileDownloader::GetProfilePictureURL() const {
 
 void ProfileDownloader::StartFetchingImage() {
   VLOG(1) << "Fetching user entry with token: " << auth_token_;
-  user_entry_fetcher_.reset(content::URLFetcher::Create(
-      GURL(kUserEntryURL), content::URLFetcher::GET, this));
+  user_entry_fetcher_.reset(net::URLFetcher::Create(
+      GURL(kUserEntryURL), net::URLFetcher::GET, this));
   user_entry_fetcher_->SetRequestContext(
       delegate_->GetBrowserProfile()->GetRequestContext());
   user_entry_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
@@ -275,15 +276,18 @@ void ProfileDownloader::StartFetchingOAuth2AccessToken() {
 
 ProfileDownloader::~ProfileDownloader() {}
 
-void ProfileDownloader::OnURLFetchComplete(const content::URLFetcher* source) {
+void ProfileDownloader::OnURLFetchComplete(const net::URLFetcher* source) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   std::string data;
   source->GetResponseAsString(&data);
-  if (source->GetResponseCode() != 200) {
-    DVLOG(1) << "Response code is " << source->GetResponseCode();
-    DVLOG(1) << "Url is " << source->GetURL().spec();
-    DVLOG(1) << "Data is " << data;
-    delegate_->OnDownloadComplete(this, false);
+  if (source->GetStatus().status() != net::URLRequestStatus::SUCCESS ||
+      source->GetResponseCode() != 200) {
+    LOG(WARNING) << "Fetching profile data failed";
+    DVLOG(1) << "  Status: " << source->GetStatus().status();
+    DVLOG(1) << "  Error: " << source->GetStatus().error();
+    DVLOG(1) << "  Response code: " << source->GetResponseCode();
+    DVLOG(1) << "  Url: " << source->GetURL().spec();
+    delegate_->OnProfileDownloadFailure(this);
     return;
   }
 
@@ -291,25 +295,30 @@ void ProfileDownloader::OnURLFetchComplete(const content::URLFetcher* source) {
     std::string image_url;
     if (!GetProfileNameAndImageURL(data, &profile_full_name_, &image_url,
         delegate_->GetDesiredImageSideLength())) {
-      delegate_->OnDownloadComplete(this, false);
+      delegate_->OnProfileDownloadFailure(this);
+      return;
+    }
+    if (!delegate_->NeedsProfilePicture()) {
+      VLOG(1) << "Skipping profile picture download";
+      delegate_->OnProfileDownloadSuccess(this);
       return;
     }
     if (IsDefaultProfileImageURL(image_url)) {
       VLOG(1) << "User has default profile picture";
       picture_status_ = PICTURE_DEFAULT;
-      delegate_->OnDownloadComplete(this, true);
+      delegate_->OnProfileDownloadSuccess(this);
       return;
     }
     if (!image_url.empty() && image_url == delegate_->GetCachedPictureURL()) {
       VLOG(1) << "Picture URL matches cached picture URL";
       picture_status_ = PICTURE_CACHED;
-      delegate_->OnDownloadComplete(this, true);
+      delegate_->OnProfileDownloadSuccess(this);
       return;
     }
     VLOG(1) << "Fetching profile image from " << image_url;
     picture_url_ = image_url;
-    profile_image_fetcher_.reset(content::URLFetcher::Create(
-        GURL(image_url), content::URLFetcher::GET, this));
+    profile_image_fetcher_.reset(net::URLFetcher::Create(
+        GURL(image_url), net::URLFetcher::GET, this));
     profile_image_fetcher_->SetRequestContext(
         delegate_->GetBrowserProfile()->GetRequestContext());
     profile_image_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
@@ -337,12 +346,12 @@ void ProfileDownloader::OnImageDecoded(const ImageDecoder* decoder,
       image_size,
       image_size);
   picture_status_ = PICTURE_SUCCESS;
-  delegate_->OnDownloadComplete(this, true);
+  delegate_->OnProfileDownloadSuccess(this);
 }
 
 void ProfileDownloader::OnDecodeImageFailed(const ImageDecoder* decoder) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  delegate_->OnDownloadComplete(this, false);
+  delegate_->OnProfileDownloadFailure(this);
 }
 
 void ProfileDownloader::Observe(
@@ -365,7 +374,7 @@ void ProfileDownloader::Observe(
     if (token_details->service() ==
         GaiaConstants::kGaiaOAuth2LoginRefreshToken) {
       LOG(WARNING) << "ProfileDownloader: token request failed";
-      delegate_->OnDownloadComplete(this, false);
+      delegate_->OnProfileDownloadFailure(this);
     }
   }
 }
@@ -380,5 +389,5 @@ void ProfileDownloader::OnGetTokenSuccess(const std::string& access_token) {
 // Callback for OAuth2AccessTokenFetcher on failure.
 void ProfileDownloader::OnGetTokenFailure(const GoogleServiceAuthError& error) {
   LOG(WARNING) << "ProfileDownloader: token request using refresh token failed";
-  delegate_->OnDownloadComplete(this, false);
+  delegate_->OnProfileDownloadFailure(this);
 }

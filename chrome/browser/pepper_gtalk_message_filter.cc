@@ -4,23 +4,20 @@
 
 #include "chrome/browser/pepper_gtalk_message_filter.h"
 
-#include "chrome/browser/simple_message_box.h"
 #include "content/public/browser/browser_thread.h"
 #include "grit/generated_resources.h"
 #include "ppapi/proxy/ppapi_messages.h"
 #include "ppapi/shared_impl/api_id.h"
 #include "ui/base/l10n/l10n_util.h"
 
-#if defined(USE_AURA)
+#if defined(USE_ASH)
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
+#include "chrome/browser/ui/simple_message_box.h"
 #include "ui/aura/window.h"
 #endif
 
-PepperGtalkMessageFilter::PepperGtalkMessageFilter() {
-}
-
-PepperGtalkMessageFilter::~PepperGtalkMessageFilter() {}
+PepperGtalkMessageFilter::PepperGtalkMessageFilter() {}
 
 void PepperGtalkMessageFilter::OverrideThreadForMessage(
     const IPC::Message& message,
@@ -40,19 +37,24 @@ bool PepperGtalkMessageFilter::OnMessageReceived(const IPC::Message& msg,
   return handled;
 }
 
+PepperGtalkMessageFilter::~PepperGtalkMessageFilter() {}
+
 void PepperGtalkMessageFilter::OnTalkGetPermission(uint32 plugin_dispatcher_id,
                                                    PP_Resource resource) {
-
   bool user_response = false;
-#if defined(USE_AURA)
-  string16 title = l10n_util::GetStringUTF16(
+#if defined(USE_ASH)
+  const string16 title = l10n_util::GetStringUTF16(
       IDS_GTALK_SCREEN_SHARE_DIALOG_TITLE);
-  string16 message = l10n_util::GetStringUTF16(
+  const string16 message = l10n_util::GetStringUTF16(
       IDS_GTALK_SCREEN_SHARE_DIALOG_MESSAGE);
 
-  aura::Window* parent = ash::Shell::GetInstance()->GetContainer(
+  aura::Window* parent = ash::Shell::GetContainer(
+      ash::Shell::GetActiveRootWindow(),
       ash::internal::kShellWindowId_SystemModalContainer);
-  user_response = browser::ShowYesNoBox(parent, title, message);
+  user_response = chrome::ShowMessageBox(parent, title, message,
+      chrome::MESSAGE_BOX_TYPE_QUESTION) == chrome::MESSAGE_BOX_RESULT_YES;
+#else
+  NOTIMPLEMENTED();
 #endif
   Send(new PpapiMsg_PPBTalk_GetPermissionACK(ppapi::API_ID_PPB_TALK,
                                              plugin_dispatcher_id,

@@ -1,13 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_SAD_TAB_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_SAD_TAB_VIEW_H_
-#pragma once
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "chrome/browser/ui/sad_tab_types.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/link_listener.h"
 #include "ui/views/view.h"
@@ -37,14 +37,7 @@ class SadTabView : public views::View,
                    public views::LinkListener,
                    public views::ButtonListener {
  public:
-  // NOTE: Do not remove or reorder the elements in this enum, and only add new
-  // items at the end. We depend on these specific values in a histogram.
-  enum Kind {
-    CRASHED = 0,  // Tab crashed.  Display the "Aw, Snap!" page.
-    KILLED        // Tab killed.  Display the "He's dead, Jim!" tab page.
-  };
-
-  SadTabView(content::WebContents* web_contents, Kind kind);
+  SadTabView(content::WebContents* web_contents, chrome::SadTabKind kind);
   virtual ~SadTabView();
 
   // Overridden from views::View:
@@ -69,7 +62,7 @@ class SadTabView : public views::View,
   views::Link* CreateLink(const string16& text);
 
   content::WebContents* web_contents_;
-  Kind kind_;
+  chrome::SadTabKind kind_;
   bool painted_;
   const gfx::Font& base_font_;
   views::Label* message_;

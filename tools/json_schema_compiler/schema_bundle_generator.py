@@ -7,6 +7,7 @@ import cpp_util
 
 import json
 import os
+import re
 
 # TODO(miket/asargent) - parameterize this.
 SOURCE_BASE_PATH = 'chrome/common/extensions/api'
@@ -34,7 +35,6 @@ class SchemaBundleGenerator(object):
     c.Append()
     c.Append('#ifndef %s' % ifndef_name)
     c.Append('#define %s' % ifndef_name)
-    c.Append('#pragma once')
     c.Append()
     c.Concat(body_code)
     c.Append()
@@ -77,13 +77,14 @@ class SchemaBundleGenerator(object):
     c.Append("public:")
     c.Sblock("static void RegisterAll(ExtensionFunctionRegistry* registry) {")
     for namespace in self._model.namespaces.values():
+      namespace_name = self.CapitalizeFirstLetter(namespace.name.replace(
+          "experimental.", ""))
       for function in namespace.functions.values():
-        namespace_name = self.CapitalizeFirstLetter(namespace.name.replace(
-            "experimental.", ""))
+        if function.nocompile:
+          continue
         function_name = namespace_name + self.CapitalizeFirstLetter(
             function.name)
-        c.Append("registry->RegisterFunction<%sFunction>();" % (
-            function_name))
+        c.Append("registry->RegisterFunction<%sFunction>();" % function_name)
     c.Eblock("}")
     c.Eblock("};")
     c.Append()
@@ -127,7 +128,8 @@ class SchemaBundleGenerator(object):
       namespace = self._model.namespaces[api.get('namespace')]
       # JSON parsing code expects lists of schemas, so dump a singleton list.
       json_content = json.dumps([api], indent=2)
-      json_content = json_content.replace('"', '\\"')
+      # Escape all double-quotes. Ignore already-escaped double-quotes.
+      json_content = re.sub('(?<!\\\\)"', '\\"', json_content)
       lines = json_content.split('\n')
       c.Append('(*schemas)["%s"] = ' % namespace.name)
       for index, line in enumerate(lines):

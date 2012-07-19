@@ -243,3 +243,28 @@
   fun:base::::MultipleThreadMain::ThreadMain
   fun:base::::ThreadFunc
 }
+{
+  bug_123112
+  ThreadSanitizer:Race
+  fun:media::AUAudioOutputStream::Stop
+  fun:media::AudioOutputDispatcherImpl::StopStream
+  fun:media::AudioOutputProxy::Stop
+  fun:media::AudioOutputController::DoStopCloseAndClearStream
+  fun:media::AudioOutputController::DoClose
+  fun:base::internal::RunnableAdapter::Run
+}
+{
+  bug_133074_a
+  ThreadSanitizer:Race
+  fun:CAMutex::~CAMutex
+  fun:AudioQueueDispose
+  fun:media::PCMQueueOutAudioOutputStream::Close
+}
+{
+   bug_133074_b
+   ThreadSanitizer:Race
+   fun:media::AUAudioOutputStream::Stop
+   fun:media::AudioOutputMixer::ClosePhysicalStream
+   fun:media::AudioOutputMixer::Shutdown
+   fun:media::AudioManagerBase::ShutdownOnAudioThread
+}

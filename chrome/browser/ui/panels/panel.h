@@ -4,43 +4,59 @@
 
 #ifndef CHROME_BROWSER_UI_PANELS_PANEL_H_
 #define CHROME_BROWSER_UI_PANELS_PANEL_H_
-#pragma once
 
-#include "chrome/browser/ui/browser_window.h"
+#include <string>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/tabs/tab_strip_model_observer.h"
+#include "base/string16.h"
+#include "chrome/browser/command_updater.h"
+#include "chrome/browser/sessions/session_id.h"
+#include "chrome/browser/ui/base_window.h"
 #include "chrome/browser/ui/panels/panel_constants.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/gfx/rect.h"
 
+class Browser;
+class BrowserWindow;
+class GURL;
 class NativePanel;
+class PanelHost;
 class PanelManager;
 class PanelStrip;
+class Profile;
+class SkBitmap;
 
-// A platform independent implementation of BrowserWindow for Panels.  This
-// class would get the first crack at all the BrowserWindow calls for Panels and
-// do one or more of the following:
+namespace content {
+class WebContents;
+struct NativeWebKeyboardEvent;
+}
+
+namespace extensions {
+class WindowController;
+}
+
+// A platform independent implementation of BaseWindow for Panels.
+// This class gets the first crack at all the BaseWindow calls for Panels and
+// does one or more of the following:
 // - Do nothing.  The function is not relevant to Panels.
-// - Throw an exceptions.  The function shouldn't be called for Panels.
 // - Do Panel specific platform independent processing and then invoke the
-//   function on the platform specific BrowserWindow member.  For example,
-//   Panel size is restricted to certain limits.
+//   function on the platform specific member. For example, restrict panel
+//   size to certain limits.
 // - Invoke an appropriate PanelManager function to do stuff that might affect
-//   other Panels.  For example deleting a panel would rearrange other panels.
-class Panel : public BrowserWindow,
-              public TabStripModelObserver,
+//   other Panels. For example deleting a panel would rearrange other panels.
+class Panel : public BaseWindow,
+              public CommandUpdater::CommandUpdaterDelegate,
               public content::NotificationObserver {
  public:
   enum ExpansionState {
-   // The panel is fully expanded with both title-bar and the client-area.
-   EXPANDED,
-   // The panel is shown with the title-bar only.
-   TITLE_ONLY,
-   // The panel is shown with 3-pixel line.
-   MINIMIZED
+    // The panel is fully expanded with both title-bar and the client-area.
+    EXPANDED,
+    // The panel is shown with the title-bar only.
+    TITLE_ONLY,
+    // The panel is shown with 3-pixel line.
+    MINIMIZED
   };
 
   // Controls how the attention should be drawn.
@@ -54,17 +70,24 @@ class Panel : public BrowserWindow,
     USE_SYSTEM_ATTENTION = 0x02
   };
 
-  // The panel can be minimized to 4-pixel lines.
-  static const int kMinimizedPanelHeight = 4;
-
   virtual ~Panel();
 
   // Returns the PanelManager associated with this panel.
   PanelManager* manager() const;
 
-  // Gets the extension that a panel is created from.
-  // Returns NULL if it cannot be found.
-  const Extension* GetExtension() const;
+  const std::string& app_name() const { return app_name_; }
+  const SessionID& session_id() const { return session_id_; }
+  extensions::WindowController* extension_window_controller() const {
+    return extension_window_controller_.get();
+  }
+  const std::string extension_id() const;
+
+  virtual CommandUpdater* command_updater();
+  virtual Profile* profile() const;
+
+  // Returns web contents of the panel, if any. There may be none if web
+  // contents have not been added to the panel yet.
+  virtual content::WebContents* GetWebContents() const;
 
   void SetExpansionState(ExpansionState new_expansion_state);
 
@@ -83,134 +106,36 @@ class Panel : public BrowserWindow,
 
   int TitleOnlyHeight() const;
 
-  // Returns the size of the panel when it is iconified, as shown on the
-  // overflow area.
-  gfx::Size IconOnlySize() const;
+  // Returns true if the panel can be minimized or restored, depending on the
+  // strip the panel is in.
+  bool CanMinimize() const;
+  bool CanRestore() const;
 
-  // BrowserWindow overrides.
+  // BaseWindow overrides.
+  virtual bool IsActive() const OVERRIDE;
+  virtual bool IsMaximized() const OVERRIDE;
+  virtual bool IsMinimized() const OVERRIDE;
+  virtual bool IsFullscreen() const OVERRIDE;
+  virtual gfx::NativeWindow GetNativeWindow() OVERRIDE;
+  virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
+  virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void ShowInactive() OVERRIDE;
-  virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
   virtual void Close() OVERRIDE;
   virtual void Activate() OVERRIDE;
   virtual void Deactivate() OVERRIDE;
-  virtual bool IsActive() const OVERRIDE;
-  virtual void FlashFrame(bool flash) OVERRIDE;
-  virtual bool IsAlwaysOnTop() const OVERRIDE;
-  virtual gfx::NativeWindow GetNativeHandle() OVERRIDE;
-  virtual BrowserWindowTesting* GetBrowserWindowTesting() OVERRIDE;
-  virtual StatusBubble* GetStatusBubble() OVERRIDE;
-  virtual void ToolbarSizeChanged(bool is_animating) OVERRIDE;
-  virtual void UpdateTitleBar() OVERRIDE;
-  virtual void BookmarkBarStateChanged(
-      BookmarkBar::AnimateChangeType change_type) OVERRIDE;
-  virtual void UpdateDevTools() OVERRIDE;
-  virtual void SetDevToolsDockSide(DevToolsDockSide side) OVERRIDE;
-  virtual void UpdateLoadingAnimations(bool should_animate) OVERRIDE;
-  virtual void SetStarredState(bool is_starred) OVERRIDE;
-  virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
-  virtual gfx::Rect GetBounds() const OVERRIDE;
-  virtual bool IsMaximized() const OVERRIDE;
-  virtual bool IsMinimized() const OVERRIDE;
   virtual void Maximize() OVERRIDE;
   virtual void Minimize() OVERRIDE;
   virtual void Restore() OVERRIDE;
-  virtual void EnterFullscreen(
-      const GURL& url, FullscreenExitBubbleType type) OVERRIDE;
-  virtual void ExitFullscreen() OVERRIDE;
-  virtual void UpdateFullscreenExitBubbleContent(
-      const GURL& url,
-      FullscreenExitBubbleType bubble_type) OVERRIDE;
-  virtual bool IsFullscreen() const OVERRIDE;
-  virtual bool IsFullscreenBubbleVisible() const OVERRIDE;
-  virtual LocationBar* GetLocationBar() const OVERRIDE;
-  virtual void SetFocusToLocationBar(bool select_all) OVERRIDE;
-  virtual void UpdateReloadStopState(bool is_loading, bool force) OVERRIDE;
-  virtual void UpdateToolbar(TabContentsWrapper* contents,
-                             bool should_restore_state) OVERRIDE;
-  virtual void FocusToolbar() OVERRIDE;
-  virtual void FocusAppMenu() OVERRIDE;
-  virtual void FocusBookmarksToolbar() OVERRIDE;
-  virtual void FocusChromeOSStatus() OVERRIDE;
-  virtual void RotatePaneFocus(bool forwards) OVERRIDE;
-  virtual bool IsBookmarkBarVisible() const OVERRIDE;
-  virtual bool IsBookmarkBarAnimating() const OVERRIDE;
-  virtual bool IsTabStripEditable() const OVERRIDE;
-  virtual bool IsToolbarVisible() const OVERRIDE;
-  virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
-  virtual bool IsPanel() const OVERRIDE;
-  virtual void DisableInactiveFrame() OVERRIDE;
-  virtual void ConfirmAddSearchProvider(const TemplateURL* template_url,
-                                        Profile* profile) OVERRIDE;
-  virtual void ToggleBookmarkBar() OVERRIDE;
-  virtual void ShowAboutChromeDialog() OVERRIDE;
-  virtual void ShowUpdateChromeDialog() OVERRIDE;
-  virtual void ShowTaskManager() OVERRIDE;
-  virtual void ShowBackgroundPages() OVERRIDE;
-  virtual void ShowBookmarkBubble(
-      const GURL& url, bool already_bookmarked) OVERRIDE;
-  virtual void ShowChromeToMobileBubble() OVERRIDE;
-#if defined(ENABLE_ONE_CLICK_SIGNIN)
-  virtual void ShowOneClickSigninBubble(
-      const base::Closure& learn_more_callback,
-      const base::Closure& advanced_callback) OVERRIDE;
-#endif
-  virtual bool IsDownloadShelfVisible() const OVERRIDE;
-  virtual DownloadShelf* GetDownloadShelf() OVERRIDE;
-  virtual void ConfirmBrowserCloseWithPendingDownloads() OVERRIDE;
-  virtual void UserChangedTheme() OVERRIDE;
-  virtual int GetExtraRenderViewHeight() const OVERRIDE;
-  virtual void WebContentsFocused(content::WebContents* contents) OVERRIDE;
-  virtual void ShowPageInfo(Profile* profile,
-                            const GURL& url,
-                            const content::SSLStatus& ssl,
-                            bool show_history) OVERRIDE;
-  virtual void ShowWebsiteSettings(Profile* profile,
-                                   TabContentsWrapper* tab_contents_wrapper,
-                                   const GURL& url,
-                                   const content::SSLStatus& ssl,
-                                   bool show_history) OVERRIDE;
-  virtual void ShowAppMenu() OVERRIDE;
-  virtual bool PreHandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event,
-      bool* is_keyboard_shortcut) OVERRIDE;
-  virtual void HandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
-  virtual void ShowCreateWebAppShortcutsDialog(
-      TabContentsWrapper* tab_contents) OVERRIDE;
-  virtual void ShowCreateChromeAppShortcutsDialog(
-      Profile* profile, const Extension* app) OVERRIDE;
-  virtual void Cut() OVERRIDE;
-  virtual void Copy() OVERRIDE;
-  virtual void Paste() OVERRIDE;
-#if defined(OS_MACOSX)
-  virtual void OpenTabpose() OVERRIDE;
-  virtual void EnterPresentationMode(
-      const GURL& url,
-      FullscreenExitBubbleType bubble_type) OVERRIDE;
-  virtual void ExitPresentationMode() OVERRIDE;
-  virtual bool InPresentationMode() OVERRIDE;
-#endif
-  virtual void ShowInstant(TabContentsWrapper* preview) OVERRIDE;
-  virtual void HideInstant() OVERRIDE;
-  virtual gfx::Rect GetInstantBounds() OVERRIDE;
-  virtual WindowOpenDisposition GetDispositionForPopupBounds(
-      const gfx::Rect& bounds) OVERRIDE;
-  virtual FindBar* CreateFindBar() OVERRIDE;
-#if defined(OS_CHROMEOS)
-  virtual void ShowMobileSetup() OVERRIDE;
-  virtual void ShowKeyboardOverlay(gfx::NativeWindow owning_window) OVERRIDE;
-#endif
-  virtual void ResizeDueToAutoResize(content::WebContents* web_contents,
-                                     const gfx::Size& new_size) OVERRIDE;
-  virtual void ShowAvatarBubble(content::WebContents* web_contents,
-                                const gfx::Rect& rect) OVERRIDE;
-  virtual void ShowAvatarBubbleFromAvatarButton() OVERRIDE;
+  virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
+  virtual void SetDraggableRegion(SkRegion* region) OVERRIDE;
+  virtual void FlashFrame(bool flash) OVERRIDE;
+  virtual bool IsAlwaysOnTop() const OVERRIDE;
 
-  // TabStripModelObserver overrides.
-  virtual void TabInsertedAt(TabContentsWrapper* contents,
-                             int index,
-                             bool foreground) OVERRIDE;
+  // Overridden from CommandUpdater::CommandUpdaterDelegate:
+  virtual void ExecuteCommandWithDisposition(
+      int id,
+      WindowOpenDisposition disposition) OVERRIDE;
 
   // content::NotificationObserver overrides.
   virtual void Observe(int type,
@@ -218,19 +143,23 @@ class Panel : public BrowserWindow,
                        const content::NotificationDetails& details) OVERRIDE;
 
   // Construct a native panel BrowserWindow implementation for the specified
-  // |browser|.
+  // |browser|. (legacy)
   static NativePanel* CreateNativePanel(Browser* browser,
                                         Panel* panel,
                                         const gfx::Rect& bounds);
 
-  // Gets the extension from the browser that a panel is created from.
-  // Returns NULL if it cannot be found.
-  static const Extension* GetExtensionFromBrowser(Browser* browser);
+  // Construct a native panel implementation.
+  static NativePanel* CreateNativePanel(Panel* panel,
+                                        const gfx::Rect& bounds);
+
+  NativePanel* native_panel() const { return native_panel_; }
 
   // Invoked when the native panel has detected a mouse click on the
-  // panel's titlebar. Behavior of the click may be modified as
-  // indicated by |modifier|.
+  // panel's titlebar, minimize or restore buttons. Behavior of the
+  // click may be modified as indicated by |modifier|.
   void OnTitlebarClicked(panel::ClickModifier modifier);
+  void OnMinimizeButtonClicked(panel::ClickModifier modifier);
+  void OnRestoreButtonClicked(panel::ClickModifier modifier);
 
   // Used on platforms where the panel cannot determine its window size
   // until the window has been created. (e.g. GTK)
@@ -239,14 +168,18 @@ class Panel : public BrowserWindow,
   // Asynchronous completion of panel close request.
   void OnNativePanelClosed();
 
-  NativePanel* native_panel() { return native_panel_; }
-  Browser* browser() const { return browser_; }
+  // Legacy accessors.
+  virtual Browser* browser() const;
+  virtual BrowserWindow* browser_window() const;
 
-  // May be NULL if panel is newly created and has not been positioned yet.
+  // May be NULL if:
+  // * panel is newly created and has not been positioned yet.
+  // * panel is being closed asynchronously.
+  // Please use it with caution.
   PanelStrip* panel_strip() const { return panel_strip_; }
 
   // Sets the current panel strip that contains this panel.
-  void SetPanelStrip(PanelStrip* new_strip);
+  void set_panel_strip(PanelStrip* new_strip) { panel_strip_ = new_strip; }
 
   ExpansionState expansion_state() const { return expansion_state_; }
   const gfx::Size& min_size() const { return min_size_; }
@@ -255,23 +188,24 @@ class Panel : public BrowserWindow,
 
   bool in_preview_mode() const { return in_preview_mode_; }
 
-  bool draggable() const;
-
-  bool CanResizeByMouse() const;
+  panel::Resizability CanResizeByMouse() const;
 
   AttentionMode attention_mode() const { return attention_mode_; }
   void set_attention_mode(AttentionMode attention_mode) {
     attention_mode_ = attention_mode;
   }
 
-  // The restored size is the size of the panel when it is expanded.
-  gfx::Size restored_size() const { return restored_size_; }
-  void set_restored_size(const gfx::Size& size) { restored_size_ = size; }
+  // The full size is the size of the panel when it is detached or expanded
+  // in the docked strip and squeezing mode is not on.
+  gfx::Size full_size() const { return full_size_; }
+  void set_full_size(const gfx::Size& size) { full_size_ = size; }
 
   // Panel must be initialized to be "fully created" and ready for use.
   // Only called by PanelManager.
   bool initialized() const { return initialized_; }
-  void Initialize(const gfx::Rect& bounds);
+  virtual void Initialize(const gfx::Rect& bounds, Browser* browser);  // legacy
+  virtual void Initialize(Profile* profile, const GURL& url,
+                          const gfx::Rect& bounds);
 
   // This is different from BrowserWindow::SetBounds():
   // * SetPanelBounds() is only called by PanelManager to manage its position.
@@ -282,14 +216,40 @@ class Panel : public BrowserWindow,
   // Updates the panel bounds instantly without any animation.
   void SetPanelBoundsInstantly(const gfx::Rect& bounds);
 
+  // Ensures that the panel's size does not exceed the display area by
+  // updating maximum and full size of the panel. This is called each time
+  // when display settings are changed. Note that bounds are not updated here
+  // and the call of setting bounds or refreshing layout should be called after
+  // this.
+  void LimitSizeToDisplayArea(const gfx::Rect& display_area);
+
   // Sets whether the panel will auto resize according to its content.
   void SetAutoResizable(bool resizable);
+
+  // Configures the web contents for auto resize, including configurations
+  // on the renderer and detecting renderer changes.
+  void EnableWebContentsAutoResize(content::WebContents* web_contents);
+
+  // Invoked when the preferred window size of the given panel might need to
+  // get changed due to the contents being auto-resized.
+  void OnContentsAutoResized(const gfx::Size& new_content_size);
+
+  // Resizes the panel and sets the origin. Invoked when the panel is resized
+  // via the mouse.
+  void OnWindowResizedByMouse(const gfx::Rect& new_bounds);
 
   // Sets minimum and maximum size for the panel.
   void SetSizeRange(const gfx::Size& min_size, const gfx::Size& max_size);
 
-  // Sets whether the panel app icon is visible in the taskbar.
-  void SetAppIconVisibility(bool visible);
+  // Updates the maximum size of the panel so that it's never smaller than the
+  // panel's desired size. Note that even if the user resizes the panel smaller
+  // later, the increased maximum size will still be in effect. Since it's not
+  // possible currently to switch the panel back to autosizing from
+  // user-resizable, it should not be a problem.
+  void IncreaseMaxSize(const gfx::Size& desired_panel_size);
+
+  // Handles keyboard events coming back from the renderer.
+  void HandleKeyboardEvent(const content::NativeWebKeyboardEvent& event);
 
   // Whether the panel window is always on top.
   void SetAlwaysOnTop(bool on_top);
@@ -303,37 +263,79 @@ class Panel : public BrowserWindow,
   // enables the resize mouse cursors when mouse is hovering over the edges.
   void EnableResizeByMouse(bool enable);
 
-  // Newly created panels may be placed in a temporary layout until their
-  // final position is determined.
-  bool has_temporary_layout() const { return has_temporary_layout_; }
-  void set_has_temporary_layout(bool temporary) {
-    has_temporary_layout_ = temporary;
-  }
+  // Sets whether the minimize or restore button, if any, are visible.
+  void UpdateMinimizeRestoreButtonVisibility();
 
   // Changes the preferred size to acceptable based on min_size() and max_size()
-  void ClampSize(gfx::Size* size) const;
+  gfx::Size ClampSize(const gfx::Size& size) const;
+
+  // Called when the panel's active state changes.
+  // |active| is true if panel became active.
+  void OnActiveStateChanged(bool active);
+
+  // Called when the panel starts/ends the user resizing.
+  void OnPanelStartUserResizing();
+  void OnPanelEndUserResizing();
+
+  // Gives beforeunload handlers the chance to cancel the close.
+  virtual bool ShouldCloseWindow();
+
+  // Invoked when the window containing us is closing. Performs the necessary
+  // cleanup.
+  virtual void OnWindowClosing();
+
+  // Executes a command if it's enabled.
+  // Returns true if the command is executed.
+  bool ExecuteCommandIfEnabled(int id);
+
+  // Gets the title of the window from the web contents.
+  string16 GetWindowTitle() const;
+
+  // Gets the Favicon of the web contents.
+  virtual SkBitmap GetCurrentPageIcon() const;
+
+  // Updates the title bar to display the current title and icon.
+  void UpdateTitleBar();
+
+  // Updates UI to reflect change in loading state.
+  void LoadingStateChanged(bool is_loading);
+
+  // Updates UI to reflect that the web cotents receives the focus.
+  void WebContentsFocused(content::WebContents* contents);
 
  protected:
-  virtual void DestroyBrowser() OVERRIDE;
+  // Panel can only be created using PanelManager::CreatePanel() or subclass.
+  // |app_name| is the default title for Panels when the page content does not
+  // provide a title. For extensions, this is usually the application name
+  // generated from the extension id.
+  Panel(const std::string& app_name,
+        const gfx::Size& min_size, const gfx::Size& max_size);
 
  private:
   friend class PanelManager;
   friend class PanelBrowserTest;
-  FRIEND_TEST_ALL_PREFIXES(PanelBrowserTest, RestoredBounds);
+  friend class OldPanelBrowserTest;
 
-  // Panel can only be created using PanelManager::CreatePanel().
-  // |requested_size| is the desired size for the panel, but actual
-  // size may differ after panel layout.
-  Panel(Browser* browser, const gfx::Size& requested_size);
+  enum MaxSizePolicy {
+    // Default maximum size is proportional to the work area.
+    DEFAULT_MAX_SIZE,
+    // Custom maximum size is used when the panel is resized by the user.
+    CUSTOM_MAX_SIZE
+  };
 
-  // Configures the web contents for auto resize, including configurations
-  // on the renderer and detecting renderer changes.
-  void EnableWebContentsAutoResize(content::WebContents* web_contents);
+  // Initialize state for all supported commands.
+  void InitCommandState();
 
   // Configures the renderer for auto resize (if auto resize is enabled).
   void ConfigureAutoResize(content::WebContents* web_contents);
 
-  Browser* browser_;  // Weak, owned by native panel.
+  // Prepares a title string for display (removes embedded newlines, etc).
+  static void FormatTitleForDisplay(string16* title);
+
+  // The application name that is also the name of the window when the
+  // page content does not provide a title.
+  // This name should be set when the panel is created.
+  const std::string app_name_;
 
   // Current collection of panels to which this panel belongs. This determines
   // the panel's screen layout.
@@ -341,13 +343,9 @@ class Panel : public BrowserWindow,
 
   bool initialized_;
 
-  // Newly created panels may be placed in a temporary layout until their
-  // final position is determined.
-  bool has_temporary_layout_;
-
   // Stores the full size of the panel so we can restore it after it's
-  // been minimized.
-  gfx::Size restored_size_;
+  // been minimized or squeezed due to lack of space in the strip.
+  gfx::Size full_size_;
 
   // This is the minimum size that the panel can shrink to.
   gfx::Size min_size_;
@@ -355,6 +353,8 @@ class Panel : public BrowserWindow,
   // This is the size beyond which the panel is not going to grow to accomodate
   // the growing content and WebKit would add the scrollbars in such case.
   gfx::Size max_size_;
+
+  MaxSizePolicy max_size_policy_;
 
   // True if this panel auto resizes based on content.
   bool auto_resizable_;
@@ -376,7 +376,13 @@ class Panel : public BrowserWindow,
 
   ExpansionState expansion_state_;
 
+  // The CommandUpdater manages the window commands.
+  CommandUpdater command_updater_;
+
   content::NotificationRegistrar registrar_;
+  const SessionID session_id_;
+  scoped_ptr<extensions::WindowController> extension_window_controller_;
+  scoped_ptr<PanelHost> panel_host_;
 
   DISALLOW_COPY_AND_ASSIGN(Panel);
 };

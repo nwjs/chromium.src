@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_TEST_RELIABILITY_AUTOMATED_UI_TESTS_H_
 #define CHROME_TEST_RELIABILITY_AUTOMATED_UI_TESTS_H_
-#pragma once
 
 // This takes an input file of commands, which consist of a series of
 // actions, and runs every command, reporting the status of each one
@@ -105,6 +104,7 @@
 
 #include "chrome/test/reliability/automated_ui_test_base.h"
 #include "chrome/test/ui/ui_test.h"
+#include "third_party/libxml/chromium/libxml_utils.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 
 namespace base {

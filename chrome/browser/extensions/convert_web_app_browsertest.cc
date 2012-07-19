@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -17,6 +17,8 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 
+using extensions::APIPermission;
+
 class ExtensionFromWebAppTest
     : public InProcessBrowserTest, public content::NotificationObserver {
  protected:
@@ -24,7 +26,7 @@ class ExtensionFromWebAppTest
   }
 
   std::string expected_extension_id_;
-  const Extension* installed_extension_;
+  const extensions::Extension* installed_extension_;
 
  private:
   // InProcessBrowserTest
@@ -37,8 +39,8 @@ class ExtensionFromWebAppTest
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) {
     if (type == chrome::NOTIFICATION_EXTENSION_INSTALLED) {
-      const Extension* extension =
-          content::Details<const Extension>(details).ptr();
+      const extensions::Extension* extension =
+          content::Details<const extensions::Extension>(details).ptr();
       if (extension->id() == expected_extension_id_) {
         installed_extension_ = extension;
         MessageLoopForUI::current()->Quit();
@@ -74,9 +76,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionFromWebAppTest, Basic) {
 
   ASSERT_EQ(2u, installed_extension_->GetActivePermissions()->apis().size());
   EXPECT_TRUE(installed_extension_->HasAPIPermission(
-      ExtensionAPIPermission::kGeolocation));
+      APIPermission::kGeolocation));
   EXPECT_TRUE(installed_extension_->HasAPIPermission(
-      ExtensionAPIPermission::kNotification));
+      APIPermission::kNotification));
 
   ASSERT_EQ(3u, installed_extension_->icons().map().size());
   EXPECT_EQ("icons/16.png", installed_extension_->icons().Get(

@@ -19,8 +19,8 @@ namespace remoting {
 class ATL_NO_VTABLE ElevatedControllerWin
     : public ATL::CComObjectRootEx<ATL::CComSingleThreadModel>,
       public ATL::CComCoClass<ElevatedControllerWin, &CLSID_ElevatedController>,
-      public ATL::IDispatchImpl<IDaemonControl, &IID_IDaemonControl,
-                                &LIBID_ChromotingElevatedControllerLib, 1, 0> {
+      public ATL::IDispatchImpl<IDaemonControl2, &IID_IDaemonControl2,
+                                &LIBID_ChromotingElevatedControllerLib, 1, 1> {
  public:
   ElevatedControllerWin();
 
@@ -29,10 +29,16 @@ class ATL_NO_VTABLE ElevatedControllerWin
 
   // IDaemonControl implementation.
   STDMETHOD(GetConfig)(BSTR* config_out);
+  STDMETHOD(GetVersion)(BSTR* version_out);
   STDMETHOD(SetConfig)(BSTR config);
+  STDMETHOD(SetOwnerWindow)(LONG_PTR owner_window);
   STDMETHOD(StartDaemon)();
   STDMETHOD(StopDaemon)();
   STDMETHOD(UpdateConfig)(BSTR config);
+
+  // IDaemonControl2 implementation.
+  STDMETHOD(GetUsageStatsConsent)(BOOL* allowed, BOOL* set_by_policy);
+  STDMETHOD(SetUsageStatsConsent)(BOOL allowed);
 
   DECLARE_NO_REGISTRY()
 
@@ -41,8 +47,12 @@ class ATL_NO_VTABLE ElevatedControllerWin
 
   BEGIN_COM_MAP(ElevatedControllerWin)
     COM_INTERFACE_ENTRY(IDaemonControl)
+    COM_INTERFACE_ENTRY(IDaemonControl2)
     COM_INTERFACE_ENTRY(IDispatch)
   END_COM_MAP()
+
+  // Handle of the owner window (if any) for any UI to be shown.
+  HWND owner_window_;
 
   DECLARE_PROTECT_FINAL_CONSTRUCT()
 };

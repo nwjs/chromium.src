@@ -24,11 +24,11 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/jankometer.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/service/service_process_control.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -69,8 +69,6 @@ Time* shutdown_started_ = NULL;
 ShutdownType shutdown_type_ = NOT_VALID;
 int shutdown_num_processes_;
 int shutdown_num_processes_slow_;
-
-bool delete_resources_on_shutdown = true;
 
 const char kShutdownMsFile[] = "chrome_shutdown_ms.txt";
 
@@ -121,11 +119,6 @@ bool ShutdownPreThreadsStop() {
   chromeos::BootTimesLoader::Get()->AddLogoutTimeMarker(
       "BrowserShutdownStarted", false);
 #endif
-  // During shutdown we will end up some blocking operations.  But the
-  // work needs to get done and we're going to wait for them no matter
-  // what thread they're on, so don't worry about it slowing down
-  // shutdown.
-  base::ThreadRestrictions::SetIOAllowed(true);
 
   // Shutdown the IPC channel to the service processes.
   ServiceProcessControl::GetInstance()->Disconnect();
@@ -185,9 +178,6 @@ void ShutdownPostThreadsStop(bool restart_last_session) {
   // Uninstall Jank-O-Meter here after the IO thread is no longer running.
   UninstallJankometer();
 
-  if (delete_resources_on_shutdown)
-    ResourceBundle::CleanupSharedInstance();
-
 #if defined(OS_WIN)
   if (!browser_util::IsBrowserAlreadyRunning() &&
       shutdown_type_ != browser_shutdown::END_SESSION) {
@@ -239,7 +229,7 @@ void ShutdownPostThreadsStop(bool restart_last_session) {
   }
 
 #if defined(OS_CHROMEOS)
-  BrowserList::NotifyAndTerminate(false);
+  browser::NotifyAndTerminate(false);
 #endif
 
   ChromeURLDataManager::DeleteDataSources();

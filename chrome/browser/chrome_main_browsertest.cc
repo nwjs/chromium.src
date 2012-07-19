@@ -9,7 +9,10 @@
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -19,131 +22,111 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/test_launcher.h"
 #include "net/base/net_util.h"
 
-// These tests don't apply to the Mac version; see
-// LaunchAnotherBrowserBlockUntilClosed for details.
+// These tests don't apply to the Mac version; see GetCommandLineForRelaunch
+// for details.
 #if !defined(OS_MACOSX)
 
 class ChromeMainTest : public InProcessBrowserTest {
  public:
-  ChromeMainTest()
-      : InProcessBrowserTest(),
-        new_command_line_(CommandLine::ForCurrentProcess()->GetProgram()) {
+  ChromeMainTest() {}
+
+  void Relaunch(const CommandLine& new_command_line) {
+    base::LaunchProcess(new_command_line, base::LaunchOptions(), NULL);
   }
-
-  virtual void SetUpOnMainThread() OVERRIDE {
-    CommandLine::SwitchMap switches =
-        CommandLine::ForCurrentProcess()->GetSwitches();
-    switches.erase(switches::kUserDataDir);
-    switches.erase(test_launcher::kGTestFilterFlag);
-
-    for (CommandLine::SwitchMap::const_iterator iter = switches.begin();
-          iter != switches.end(); ++iter) {
-      new_command_line_.AppendSwitchNative((*iter).first, (*iter).second);
-    }
-
-    FilePath user_data_dir;
-    PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
-    new_command_line_.AppendSwitchPath(switches::kUserDataDir, user_data_dir);
-
-    new_command_line_.AppendSwitchASCII(
-        test_launcher::kGTestFilterFlag, test_launcher::kEmptyTestName);
-  }
-
-  void Relaunch() {
-    base::LaunchProcess(new_command_line_, base::LaunchOptions(), NULL);
-  }
-
- protected:
-  CommandLine new_command_line_;
 };
 
 // Make sure that the second invocation creates a new window.
 IN_PROC_BROWSER_TEST_F(ChromeMainTest, SecondLaunch) {
   ui_test_utils::BrowserAddedObserver observer;
-  Relaunch();
+  Relaunch(GetCommandLineForRelaunch());
   observer.WaitForSingleNewBrowser();
-  ASSERT_EQ(BrowserList::GetBrowserCount(browser()->profile()), 2u);
+  ASSERT_EQ(2u, browser::GetBrowserCount(browser()->profile()));
 }
 
 IN_PROC_BROWSER_TEST_F(ChromeMainTest, ReuseBrowserInstanceWhenOpeningFile) {
   FilePath test_file_path = ui_test_utils::GetTestFilePath(
       FilePath(), FilePath().AppendASCII("empty.html"));
-  new_command_line_.AppendArgPath(test_file_path);
+  CommandLine new_command_line(GetCommandLineForRelaunch());
+  new_command_line.AppendArgPath(test_file_path);
   ui_test_utils::WindowedNotificationObserver observer(
-        content::NOTIFICATION_TAB_ADDED,
+        chrome::NOTIFICATION_TAB_ADDED,
         content::NotificationService::AllSources());
-  Relaunch();
+  Relaunch(new_command_line);
   observer.Wait();
 
   GURL url = net::FilePathToFileURL(test_file_path);
-  content::WebContents* tab = browser()->GetSelectedWebContents();
+  content::WebContents* tab = chrome::GetActiveWebContents(browser());
   ASSERT_EQ(url, tab->GetController().GetActiveEntry()->GetVirtualURL());
 }
 
+// ChromeMainTest.SecondLaunchWithIncognitoUrl is flaky on Win and Linux.
+// http://crbug.com/130395
+#if defined(OS_WIN) || defined(OS_LINUX)
+#define MAYBE_SecondLaunchWithIncognitoUrl DISABLED_SecondLaunchWithIncognitoUrl
+#else
+#define MAYBE_SecondLaunchWithIncognitoUrl SecondLaunchWithIncognitoUrl
+#endif
 
-IN_PROC_BROWSER_TEST_F(ChromeMainTest, SecondLaunchWithIncognitoUrl) {
+IN_PROC_BROWSER_TEST_F(ChromeMainTest, MAYBE_SecondLaunchWithIncognitoUrl) {
   // We should start with one normal window.
-  ASSERT_EQ(1u,
-            BrowserList::GetBrowserCountForType(browser()->profile(), true));
+  ASSERT_EQ(1u, browser::GetTabbedBrowserCount(browser()->profile()));
 
   // Run with --incognito switch and an URL specified.
   FilePath test_file_path = ui_test_utils::GetTestFilePath(
       FilePath(), FilePath().AppendASCII("empty.html"));
-  new_command_line_.AppendSwitch(switches::kIncognito);
-  new_command_line_.AppendArgPath(test_file_path);
+  CommandLine new_command_line(GetCommandLineForRelaunch());
+  new_command_line.AppendSwitch(switches::kIncognito);
+  new_command_line.AppendArgPath(test_file_path);
 
-  Relaunch();
+  Relaunch(new_command_line);
 
   // There should be one normal and one incognito window now.
   ui_test_utils::BrowserAddedObserver observer;
-  Relaunch();
+  Relaunch(new_command_line);
   observer.WaitForSingleNewBrowser();
   ASSERT_EQ(2u, BrowserList::size());
 
-  ASSERT_EQ(1u,
-            BrowserList::GetBrowserCountForType(browser()->profile(), true));
+  ASSERT_EQ(1u, browser::GetTabbedBrowserCount(browser()->profile()));
 }
 
 IN_PROC_BROWSER_TEST_F(ChromeMainTest, SecondLaunchFromIncognitoWithNormalUrl) {
   // We should start with one normal window.
-  ASSERT_EQ(1u,
-            BrowserList::GetBrowserCountForType(browser()->profile(), true));
+  ASSERT_EQ(1u, browser::GetTabbedBrowserCount(browser()->profile()));
 
   // Create an incognito window.
-  browser()->NewIncognitoWindow();
+  chrome::NewIncognitoWindow(browser());
 
   ASSERT_EQ(2u, BrowserList::size());
-  ASSERT_EQ(1u,
-            BrowserList::GetBrowserCountForType(browser()->profile(), true));
+  ASSERT_EQ(1u, browser::GetTabbedBrowserCount(browser()->profile()));
 
   // Close the first window.
   Profile* profile = browser()->profile();
   ui_test_utils::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_BROWSER_CLOSED,
         content::NotificationService::AllSources());
-  browser()->CloseWindow();
+  chrome::CloseWindow(browser());
   observer.Wait();
 
   // There should only be the incognito window open now.
   ASSERT_EQ(1u, BrowserList::size());
-  ASSERT_EQ(0u, BrowserList::GetBrowserCountForType(profile, true));
+  ASSERT_EQ(0u, browser::GetTabbedBrowserCount(profile));
 
   // Run with just an URL specified, no --incognito switch.
   FilePath test_file_path = ui_test_utils::GetTestFilePath(
       FilePath(), FilePath().AppendASCII("empty.html"));
-  new_command_line_.AppendArgPath(test_file_path);
+  CommandLine new_command_line(GetCommandLineForRelaunch());
+  new_command_line.AppendArgPath(test_file_path);
   ui_test_utils::WindowedNotificationObserver tab_observer(
-        content::NOTIFICATION_TAB_ADDED,
+        chrome::NOTIFICATION_TAB_ADDED,
         content::NotificationService::AllSources());
-  Relaunch();
+  Relaunch(new_command_line);
   tab_observer.Wait();
 
   // There should be one normal and one incognito window now.
   ASSERT_EQ(2u, BrowserList::size());
-  ASSERT_EQ(1u, BrowserList::GetBrowserCountForType(profile, true));
+  ASSERT_EQ(1u, browser::GetTabbedBrowserCount(profile));
 }
 
 #endif  // !OS_MACOSX

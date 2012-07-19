@@ -20,7 +20,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/view_type_utils.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/pref_names.h"
@@ -36,7 +37,6 @@
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "net/base/net_util.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityOrigin.h"
@@ -142,8 +142,6 @@ class GeolocationConfirmInfoBarDelegate : public ConfirmInfoBarDelegate {
  private:
 
   // ConfirmInfoBarDelegate:
-  virtual bool ShouldExpire(
-      const content::LoadCommittedDetails& details) const OVERRIDE;
   virtual gfx::Image* GetIcon() const OVERRIDE;
   virtual Type GetInfoBarType() const OVERRIDE;
   virtual string16 GetMessageText() const OVERRIDE;
@@ -157,9 +155,6 @@ class GeolocationConfirmInfoBarDelegate : public ConfirmInfoBarDelegate {
   int render_process_id_;
   int render_view_id_;
   int bridge_id_;
-  // The unique id of the committed NavigationEntry of the TabContents that we
-  // were opened for. Used to help expire on navigations.
-  int committed_contents_unique_id_;
 
   GURL requesting_frame_url_;
   std::string display_languages_;
@@ -184,18 +179,7 @@ GeolocationConfirmInfoBarDelegate::GeolocationConfirmInfoBarDelegate(
       display_languages_(display_languages) {
   const NavigationEntry* committed_entry =
       infobar_helper->web_contents()->GetController().GetLastCommittedEntry();
-  committed_contents_unique_id_ = committed_entry ?
-      committed_entry->GetUniqueID() : 0;
-}
-
-bool GeolocationConfirmInfoBarDelegate::ShouldExpire(
-    const content::LoadCommittedDetails& details) const {
-  if (details.did_replace_entry || !details.is_navigation_to_different_page())
-    return false;
-  return committed_contents_unique_id_ != details.entry->GetUniqueID() ||
-      content::PageTransitionStripQualifier(
-          details.entry->GetTransitionType()) ==
-              content::PAGE_TRANSITION_RELOAD;
+  set_contents_unique_id(committed_entry ? committed_entry->GetUniqueID() : 0);
 }
 
 gfx::Image* GeolocationConfirmInfoBarDelegate::GetIcon() const {
@@ -527,15 +511,14 @@ void GeolocationInfoBarQueueController::ClearPendingInfoBarRequestsForTab(
 InfoBarTabHelper* GeolocationInfoBarQueueController::GetInfoBarHelper(
     int render_process_id,
     int render_view_id) {
-  WebContents* tab_contents =
+  WebContents* web_contents =
       tab_util::GetWebContentsByID(render_process_id, render_view_id);
+  if (!web_contents)
+    return NULL;
+  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
   if (!tab_contents)
     return NULL;
-  TabContentsWrapper* wrapper =
-      TabContentsWrapper::GetCurrentWrapperForContents(tab_contents);
-  if (!wrapper)
-    return NULL;
-  return wrapper->infobar_tab_helper();
+  return tab_contents->infobar_tab_helper();
 }
 
 bool GeolocationInfoBarQueueController::AlreadyShowingInfoBar(
@@ -584,6 +567,14 @@ ChromeGeolocationPermissionContext::ChromeGeolocationPermissionContext(
          new GeolocationInfoBarQueueController(this, profile))) {
 }
 
+void ChromeGeolocationPermissionContext::RegisterUserPrefs(
+    PrefService *user_prefs) {
+#if defined(OS_ANDROID)
+  user_prefs->RegisterBooleanPref(prefs::kGeolocationEnabled, true,
+                                  PrefService::UNSYNCABLE_PREF);
+#endif
+}
+
 ChromeGeolocationPermissionContext::~ChromeGeolocationPermissionContext() {
 }
 
@@ -601,16 +592,27 @@ void ChromeGeolocationPermissionContext::RequestGeolocationPermission(
   }
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+#if defined(OS_ANDROID)
+  // Check to see if the feature in its entirety has been disabled.
+  // This must happen before other services (e.g. tabs, extensions)
+  // get an opportunity to allow the geolocation request.
+  if (!profile_->GetPrefs()->GetBoolean(prefs::kGeolocationEnabled)) {
+    NotifyPermissionSet(render_process_id, render_view_id, bridge_id,
+                        requesting_frame, callback, false);
+    return;
+  }
+#endif
+
   ExtensionService* extension_service = profile_->GetExtensionService();
   if (extension_service) {
-    const Extension* extension =
+    const extensions::Extension* extension =
         extension_service->extensions()->GetExtensionOrAppByURL(
             ExtensionURLInfo(
                 WebSecurityOrigin::createFromString(
                     UTF8ToUTF16(requesting_frame.spec())),
                 requesting_frame));
     if (extension &&
-        extension->HasAPIPermission(ExtensionAPIPermission::kGeolocation)) {
+        extension->HasAPIPermission(extensions::APIPermission::kGeolocation)) {
       // Make sure the extension is in the calling process.
       if (extension_service->process_map()->Contains(
               extension->id(), render_process_id)) {
@@ -623,8 +625,7 @@ void ChromeGeolocationPermissionContext::RequestGeolocationPermission(
 
   WebContents* web_contents =
       tab_util::GetWebContentsByID(render_process_id, render_view_id);
-  if (!web_contents || web_contents->GetViewType() !=
-          content::VIEW_TYPE_TAB_CONTENTS) {
+  if (chrome::GetViewType(web_contents) != chrome::VIEW_TYPE_TAB_CONTENTS) {
     // The tab may have gone away, or the request may not be from a tab at all.
     // TODO(mpcomplete): the request could be from a background page or
     // extension popup (tab_contents will have a different ViewType). But why do
@@ -683,7 +684,7 @@ void ChromeGeolocationPermissionContext::NotifyPermissionSet(
     bool allowed) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  // TabContents may have gone away (or not exists for extension).
+  // WebContents may have gone away (or not exists for extension).
   TabSpecificContentSettings* content_settings =
       TabSpecificContentSettings::Get(render_process_id, render_view_id);
   if (content_settings) {

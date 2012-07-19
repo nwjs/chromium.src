@@ -20,9 +20,10 @@
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
 #include "net/url_request/url_request.h"
+#include "net/url_request/url_request_context.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_operation.h"
-#include "webkit/fileapi/file_system_util.h"
+#include "webkit/fileapi/file_system_url.h"
 
 using net::URLRequest;
 using net::URLRequestJob;
@@ -30,20 +31,10 @@ using net::URLRequestStatus;
 
 namespace fileapi {
 
-static FilePath GetRelativePath(const GURL& url) {
-  FilePath relative_path;
-  GURL unused_url;
-  FileSystemType unused_type;
-  CrackFileSystemURL(url, &unused_url, &unused_type, &relative_path);
-  return relative_path;
-}
-
 FileSystemDirURLRequestJob::FileSystemDirURLRequestJob(
-    URLRequest* request, FileSystemContext* file_system_context,
-    scoped_refptr<base::MessageLoopProxy> file_thread_proxy)
-    : URLRequestJob(request),
+    URLRequest* request, FileSystemContext* file_system_context)
+    : URLRequestJob(request, request->context()->network_delegate()),
       file_system_context_(file_system_context),
-      file_thread_proxy_(file_thread_proxy),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
 }
 
@@ -52,7 +43,6 @@ FileSystemDirURLRequestJob::~FileSystemDirURLRequestJob() {
 
 bool FileSystemDirURLRequestJob::ReadRawData(net::IOBuffer* dest, int dest_size,
                                              int *bytes_read) {
-
   int count = std::min(dest_size, static_cast<int>(data_.size()));
   if (count > 0) {
     memcpy(dest->data(), data_.data(), count);
@@ -87,14 +77,15 @@ bool FileSystemDirURLRequestJob::GetCharset(std::string* charset) {
 void FileSystemDirURLRequestJob::StartAsync() {
   if (!request_)
     return;
-  FileSystemOperationInterface* operation = GetNewOperation(request_->url());
+  url_ = FileSystemURL(request_->url());
+  FileSystemOperationInterface* operation = GetNewOperation();
   if (!operation) {
     NotifyDone(URLRequestStatus(URLRequestStatus::FAILED,
                                 net::ERR_INVALID_URL));
     return;
   }
   operation->ReadDirectory(
-      request_->url(),
+      url_,
       base::Bind(&FileSystemDirURLRequestJob::DidReadDirectory, this));
 }
 
@@ -114,7 +105,7 @@ void FileSystemDirURLRequestJob::DidReadDirectory(
     return;
 
   if (data_.empty()) {
-    FilePath relative_path = GetRelativePath(request_->url());
+    FilePath relative_path = url_.path();
 #if defined(OS_POSIX)
     relative_path = FilePath(FILE_PATH_LITERAL("/") + relative_path.value());
 #endif
@@ -131,8 +122,8 @@ void FileSystemDirURLRequestJob::DidReadDirectory(
   }
 
   if (has_more) {
-    GetNewOperation(request_->url())->ReadDirectory(
-        request_->url(),
+    GetNewOperation()->ReadDirectory(
+        url_,
         base::Bind(&FileSystemDirURLRequestJob::DidReadDirectory, this));
   } else {
     set_expected_content_size(data_.size());
@@ -141,10 +132,8 @@ void FileSystemDirURLRequestJob::DidReadDirectory(
 }
 
 FileSystemOperationInterface*
-FileSystemDirURLRequestJob::GetNewOperation(const GURL& url) {
-  return file_system_context_->CreateFileSystemOperation(
-      url,
-      file_thread_proxy_);
+FileSystemDirURLRequestJob::GetNewOperation() {
+  return file_system_context_->CreateFileSystemOperation(url_);
 }
 
 }  // namespace fileapi

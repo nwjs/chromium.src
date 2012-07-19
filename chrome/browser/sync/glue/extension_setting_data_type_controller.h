@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_EXTENSION_SETTING_DATA_TYPE_CONTROLLER_H__
 #define CHROME_BROWSER_SYNC_GLUE_EXTENSION_SETTING_DATA_TYPE_CONTROLLER_H__
-#pragma once
 
 #include <string>
 
@@ -14,7 +13,10 @@
 class Profile;
 class ProfileSyncComponentsFactory;
 class ProfileSyncService;
+
+namespace syncer {
 class SyncableService;
+}
 
 namespace extensions {
 class SettingsFrontend;
@@ -27,17 +29,18 @@ class ExtensionSettingDataTypeController
  public:
   ExtensionSettingDataTypeController(
       // Either EXTENSION_SETTINGS or APP_SETTINGS.
-      syncable::ModelType type,
+      syncer::ModelType type,
       ProfileSyncComponentsFactory* profile_sync_factory,
       Profile* profile,
       ProfileSyncService* profile_sync_service);
-  virtual ~ExtensionSettingDataTypeController();
 
   // NonFrontendDataTypeController implementation
-  virtual syncable::ModelType type() const OVERRIDE;
-  virtual browser_sync::ModelSafeGroup model_safe_group() const OVERRIDE;
+  virtual syncer::ModelType type() const OVERRIDE;
+  virtual syncer::ModelSafeGroup model_safe_group() const OVERRIDE;
 
  private:
+  virtual ~ExtensionSettingDataTypeController();
+
   // NonFrontendDataTypeController implementation.
   virtual bool PostTaskOnBackendThread(
       const tracked_objects::Location& from_here,
@@ -45,7 +48,7 @@ class ExtensionSettingDataTypeController
   virtual bool StartModels() OVERRIDE;
 
   // Either EXTENSION_SETTINGS or APP_SETTINGS.
-  syncable::ModelType type_;
+  syncer::ModelType type_;
 
   // These only used on the UI thread.
   Profile* profile_;

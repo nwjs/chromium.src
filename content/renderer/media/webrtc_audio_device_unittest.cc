@@ -75,13 +75,6 @@ class AudioUtilNoHardware : public AudioUtilInterface {
   DISALLOW_COPY_AND_ASSIGN(AudioUtilNoHardware);
 };
 
-bool IsRunningHeadless() {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  if (env->HasVar("CHROME_HEADLESS"))
-    return true;
-  return false;
-}
-
 // Return true if at least one element in the array matches |value|.
 bool FindElementInArray(int* array, int size, int value) {
   return (std::find(&array[0], &array[0] + size, value) != &array[size]);
@@ -106,7 +99,7 @@ bool HardwareSampleRatesAreValid() {
 
   if (!FindElementInArray(valid_input_rates, arraysize(valid_input_rates),
                           input_sample_rate)) {
-    DLOG(WARNING) << "Non-supported input sample rate detected.";
+    LOG(WARNING) << "Non-supported input sample rate detected.";
     return false;
   }
 
@@ -115,7 +108,7 @@ bool HardwareSampleRatesAreValid() {
       static_cast<int>(audio_hardware::GetOutputSampleRate());
   if (!FindElementInArray(valid_output_rates, arraysize(valid_output_rates),
                           output_sample_rate)) {
-    DLOG(WARNING) << "Non-supported output sample rate detected.";
+    LOG(WARNING) << "Non-supported output sample rate detected.";
     return false;
   }
 
@@ -239,16 +232,16 @@ TEST_F(WebRTCAudioDeviceTest, TestValidOutputRates) {
 TEST_F(WebRTCAudioDeviceTest, Construct) {
   AudioUtilNoHardware audio_util(48000, 48000, CHANNEL_LAYOUT_MONO);
   SetAudioUtilCallback(&audio_util);
-  scoped_refptr<WebRtcAudioDeviceImpl> audio_device(
+  scoped_refptr<WebRtcAudioDeviceImpl> webrtc_audio_device(
       new WebRtcAudioDeviceImpl());
 
-  audio_device->SetSessionId(1);
+  webrtc_audio_device->SetSessionId(1);
 
   WebRTCAutoDelete<webrtc::VoiceEngine> engine(webrtc::VoiceEngine::Create());
   ASSERT_TRUE(engine.valid());
 
   ScopedWebRTCPtr<webrtc::VoEBase> base(engine.get());
-  int err = base->Init(audio_device);
+  int err = base->Init(webrtc_audio_device);
   EXPECT_EQ(0, err);
   EXPECT_EQ(0, base->Terminate());
 }
@@ -260,8 +253,10 @@ TEST_F(WebRTCAudioDeviceTest, Construct) {
 // verify that streaming starts correctly.
 // Disabled when running headless since the bots don't have the required config.
 TEST_F(WebRTCAudioDeviceTest, StartPlayout) {
-  if (IsRunningHeadless())
+  if (!has_output_devices_) {
+    LOG(WARNING) << "No output device detected.";
     return;
+  }
 
   AudioUtil audio_util;
   SetAudioUtilCallback(&audio_util);
@@ -278,15 +273,15 @@ TEST_F(WebRTCAudioDeviceTest, StartPlayout) {
   EXPECT_CALL(media_observer(),
       OnDeleteAudioStream(_, 1)).Times(AnyNumber());
 
-  scoped_refptr<WebRtcAudioDeviceImpl> audio_device(
+  scoped_refptr<WebRtcAudioDeviceImpl> webrtc_audio_device(
       new WebRtcAudioDeviceImpl());
-  audio_device->SetSessionId(1);
+  webrtc_audio_device->SetSessionId(1);
   WebRTCAutoDelete<webrtc::VoiceEngine> engine(webrtc::VoiceEngine::Create());
   ASSERT_TRUE(engine.valid());
 
   ScopedWebRTCPtr<webrtc::VoEBase> base(engine.get());
   ASSERT_TRUE(base.valid());
-  int err = base->Init(audio_device);
+  int err = base->Init(webrtc_audio_device);
   ASSERT_EQ(0, err);
 
   int ch = base->CreateChannel();
@@ -303,12 +298,11 @@ TEST_F(WebRTCAudioDeviceTest, StartPlayout) {
 
   EXPECT_EQ(0, base->StartPlayout(ch));
 
-  EXPECT_TRUE(event.TimedWait(
-      base::TimeDelta::FromMilliseconds(TestTimeouts::action_timeout_ms())));
+  EXPECT_TRUE(event.TimedWait(TestTimeouts::action_timeout()));
   WaitForIOThreadCompletion();
 
-  EXPECT_TRUE(audio_device->playing());
-  EXPECT_FALSE(audio_device->recording());
+  EXPECT_TRUE(webrtc_audio_device->playing());
+  EXPECT_FALSE(webrtc_audio_device->recording());
   EXPECT_EQ(ch, media_process->channel_id());
   EXPECT_EQ(webrtc::kPlaybackPerChannel, media_process->type());
   EXPECT_EQ(80, media_process->packet_size());
@@ -332,8 +326,10 @@ TEST_F(WebRTCAudioDeviceTest, StartPlayout) {
 // that the audio capturing starts as it should.
 // Disabled when running headless since the bots don't have the required config.
 TEST_F(WebRTCAudioDeviceTest, StartRecording) {
-  if (IsRunningHeadless())
+  if (!has_input_devices_ || !has_output_devices_) {
+    LOG(WARNING) << "Missing audio devices.";
     return;
+  }
 
   AudioUtil audio_util;
   SetAudioUtilCallback(&audio_util);
@@ -345,15 +341,15 @@ TEST_F(WebRTCAudioDeviceTest, StartRecording) {
   // for new interfaces, like OnSetAudioStreamRecording(). When done, add
   // EXPECT_CALL() macros here.
 
-  scoped_refptr<WebRtcAudioDeviceImpl> audio_device(
+  scoped_refptr<WebRtcAudioDeviceImpl> webrtc_audio_device(
       new WebRtcAudioDeviceImpl());
-  audio_device->SetSessionId(1);
+  webrtc_audio_device->SetSessionId(1);
   WebRTCAutoDelete<webrtc::VoiceEngine> engine(webrtc::VoiceEngine::Create());
   ASSERT_TRUE(engine.valid());
 
   ScopedWebRTCPtr<webrtc::VoEBase> base(engine.get());
   ASSERT_TRUE(base.valid());
-  int err = base->Init(audio_device);
+  int err = base->Init(webrtc_audio_device);
   ASSERT_EQ(0, err);
 
   int ch = base->CreateChannel();
@@ -377,12 +373,11 @@ TEST_F(WebRTCAudioDeviceTest, StartRecording) {
   EXPECT_EQ(0, network->RegisterExternalTransport(ch, *transport.get()));
   EXPECT_EQ(0, base->StartSend(ch));
 
-  EXPECT_TRUE(event.TimedWait(
-      base::TimeDelta::FromMilliseconds(TestTimeouts::action_timeout_ms())));
+  EXPECT_TRUE(event.TimedWait(TestTimeouts::action_timeout()));
   WaitForIOThreadCompletion();
 
-  EXPECT_FALSE(audio_device->playing());
-  EXPECT_TRUE(audio_device->recording());
+  EXPECT_FALSE(webrtc_audio_device->playing());
+  EXPECT_TRUE(webrtc_audio_device->recording());
   EXPECT_EQ(ch, media_process->channel_id());
   EXPECT_EQ(webrtc::kRecordingPerChannel, media_process->type());
   EXPECT_EQ(80, media_process->packet_size());
@@ -399,8 +394,10 @@ TEST_F(WebRTCAudioDeviceTest, StartRecording) {
 // Uses WebRtcAudioDeviceImpl to play a local wave file.
 // Disabled when running headless since the bots don't have the required config.
 TEST_F(WebRTCAudioDeviceTest, PlayLocalFile) {
-  if (IsRunningHeadless())
+  if (!has_output_devices_) {
+    LOG(WARNING) << "No output device detected.";
     return;
+  }
 
   std::string file_path(
       GetTestDataPath(FILE_PATH_LITERAL("speechmusic_mono_16kHz.pcm")));
@@ -420,16 +417,16 @@ TEST_F(WebRTCAudioDeviceTest, PlayLocalFile) {
   EXPECT_CALL(media_observer(),
       OnDeleteAudioStream(_, 1)).Times(AnyNumber());
 
-  scoped_refptr<WebRtcAudioDeviceImpl> audio_device(
+  scoped_refptr<WebRtcAudioDeviceImpl> webrtc_audio_device(
       new WebRtcAudioDeviceImpl());
-  audio_device->SetSessionId(1);
+  webrtc_audio_device->SetSessionId(1);
 
   WebRTCAutoDelete<webrtc::VoiceEngine> engine(webrtc::VoiceEngine::Create());
   ASSERT_TRUE(engine.valid());
 
   ScopedWebRTCPtr<webrtc::VoEBase> base(engine.get());
   ASSERT_TRUE(base.valid());
-  int err = base->Init(audio_device);
+  int err = base->Init(webrtc_audio_device);
   ASSERT_EQ(0, err);
 
   int ch = base->CreateChannel();
@@ -468,8 +465,10 @@ TEST_F(WebRTCAudioDeviceTest, PlayLocalFile) {
 // TODO(henrika): improve quality by using a wideband codec, enabling noise-
 // suppressions etc.
 TEST_F(WebRTCAudioDeviceTest, FullDuplexAudioWithAGC) {
-  if (IsRunningHeadless())
+  if (!has_output_devices_ || !has_input_devices_) {
+    LOG(WARNING) << "Missing audio devices.";
     return;
+  }
 
   AudioUtil audio_util;
   SetAudioUtilCallback(&audio_util);
@@ -486,15 +485,15 @@ TEST_F(WebRTCAudioDeviceTest, FullDuplexAudioWithAGC) {
   EXPECT_CALL(media_observer(),
       OnDeleteAudioStream(_, 1)).Times(AnyNumber());
 
-  scoped_refptr<WebRtcAudioDeviceImpl> audio_device(
+  scoped_refptr<WebRtcAudioDeviceImpl> webrtc_audio_device(
       new WebRtcAudioDeviceImpl());
-  audio_device->SetSessionId(1);
+  webrtc_audio_device->SetSessionId(1);
   WebRTCAutoDelete<webrtc::VoiceEngine> engine(webrtc::VoiceEngine::Create());
   ASSERT_TRUE(engine.valid());
 
   ScopedWebRTCPtr<webrtc::VoEBase> base(engine.get());
   ASSERT_TRUE(base.valid());
-  int err = base->Init(audio_device);
+  int err = base->Init(webrtc_audio_device);
   ASSERT_EQ(0, err);
 
   ScopedWebRTCPtr<webrtc::VoEAudioProcessing> audio_processing(engine.get());

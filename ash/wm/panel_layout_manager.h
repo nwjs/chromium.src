@@ -4,13 +4,16 @@
 
 #ifndef ASH_WM_PANEL_LAYOUT_MANAGER_H_
 #define ASH_WM_PANEL_LAYOUT_MANAGER_H_
-#pragma once
 
 #include <list>
 
 #include "ash/ash_export.h"
+#include "ash/launcher/launcher_icon_observer.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "ui/aura/client/activation_change_observer.h"
 #include "ui/aura/layout_manager.h"
 
 namespace aura {
@@ -21,7 +24,13 @@ namespace gfx {
 class Rect;
 }
 
+namespace views {
+class Widget;
+}
+
 namespace ash {
+class Launcher;
+
 namespace internal {
 
 // PanelLayoutManager is responsible for organizing panels within the
@@ -33,7 +42,10 @@ namespace internal {
 // its layout manager to this instance, e.g.:
 // panel_container->SetLayoutManager(new PanelLayoutManager(panel_container));
 
-class ASH_EXPORT PanelLayoutManager : public aura::LayoutManager {
+class ASH_EXPORT PanelLayoutManager
+    : public aura::LayoutManager,
+      public ash::LauncherIconObserver,
+      public aura::client::ActivationChangeObserver {
  public:
   explicit PanelLayoutManager(aura::Window* panel_container);
   virtual ~PanelLayoutManager();
@@ -43,20 +55,51 @@ class ASH_EXPORT PanelLayoutManager : public aura::LayoutManager {
 
   void ToggleMinimize(aura::Window* panel);
 
+  void SetLauncher(ash::Launcher* launcher);
+
   // Overridden from aura::LayoutManager:
   virtual void OnWindowResized() OVERRIDE;
   virtual void OnWindowAddedToLayout(aura::Window* child) OVERRIDE;
   virtual void OnWillRemoveWindowFromLayout(aura::Window* child) OVERRIDE;
+  virtual void OnWindowRemovedFromLayout(aura::Window* child) OVERRIDE;
   virtual void OnChildWindowVisibilityChanged(aura::Window* child,
                                               bool visibile) OVERRIDE;
   virtual void SetChildBounds(aura::Window* child,
                               const gfx::Rect& requested_bounds) OVERRIDE;
 
+  // Overridden from ash::LauncherIconObserver
+  virtual void OnLauncherIconPositionsChanged() OVERRIDE;
+
+  // Overridden from aura::client::ActivationChangeObserver
+  virtual void OnWindowActivated(aura::Window* active,
+                                 aura::Window* old_active) OVERRIDE;
+
  private:
+  friend class PanelLayoutManagerTest;
+
   typedef std::list<aura::Window*> PanelList;
 
   // Called whenever the panel layout might change.
   void Relayout();
+
+  // Called whenever the panel stacking order needs to be updated (e.g. focus
+  // changes or a panel is moved).
+  void UpdateStacking(aura::Window* active_panel);
+
+  // Trigger a delayed task to update the callout. We use this because
+  // otherwise, ShadowController::OnWindowPropertyChanged may be invoked after
+  // we've already updated the callout, causing the drop shadow to be stacked on
+  // top of the callout rather than the other way around.
+  // TODO(dcheng): Possibly a bug in the shadow controller. If a window is
+  // focused but not stacked at the top, I don't think its shadow should be
+  // drawn on top of "higher" windows.
+  void UpdateCallout(aura::Window* active_window);
+
+  // Don't call this directly. Only UpdateCallout() should call this method.
+  void ShowCalloutHelper(aura::Window* active_panel);
+
+  // For testing.
+  views::Widget* callout_widget() const { return callout_widget_.get(); }
 
   // Parent window associated with this layout manager.
   aura::Window* panel_container_;
@@ -64,8 +107,16 @@ class ASH_EXPORT PanelLayoutManager : public aura::LayoutManager {
   bool in_layout_;
   // Ordered list of unowned pointers to panel windows.
   PanelList panel_windows_;
-
+  // The panel being dragged.
   aura::Window* dragged_panel_;
+  // The launcher we are observing for launcher icon changes.
+  Launcher* launcher_;
+  // The last active panel. Used to maintain stacking even if no panels are
+  // currently focused.
+  aura::Window* last_active_panel_;
+  // Manage the callout for the focused panel, if any.
+  scoped_ptr<views::Widget> callout_widget_;
+  base::WeakPtrFactory<PanelLayoutManager> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(PanelLayoutManager);
 };

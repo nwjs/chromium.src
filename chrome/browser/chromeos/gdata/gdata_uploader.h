@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_GDATA_UPLOADER_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_UPLOADER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -12,8 +11,10 @@
 
 #include "base/basictypes.h"
 #include "base/memory/weak_ptr.h"
+#include "base/platform_file.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "chrome/browser/chromeos/gdata/gdata_params.h"
+#include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 #include "googleurl/src/gurl.h"
 
 namespace content {
@@ -22,27 +23,58 @@ class DownloadItem;
 
 namespace gdata {
 
-class GDataFileSystem;
-struct UploadFileInfo;
+class DocumentsServiceInterface;
 
-class GDataUploader {
+class GDataUploaderInterface {
  public:
-  explicit GDataUploader(GDataFileSystem* file_system);
-  virtual ~GDataUploader();
+  ~GDataUploaderInterface() {}
 
-  // Uploads a file specified by |upload_file_info|. Transfers ownership.
+  // Uploads a new file specified by |upload_file_info|. Transfers ownership.
   // Returns the upload_id.
-  int UploadFile(scoped_ptr<UploadFileInfo> upload_file_info);
+  //
+  // WARNING: This is not mockable by gmock because it takes scoped_ptr<>.
+  // See "Announcing scoped_ptr<>::Pass(). The latest in pointer ownership
+  // technology!" thread on chromium-dev.
+  virtual int UploadNewFile(scoped_ptr<UploadFileInfo> upload_file_info) = 0;
+
+  // Uploads an existing file (a file that already exists on Drive)
+  // specified by |local_file_path|. The existing file on Drive will be
+  // updated. Returns the upload_id. |callback| is run upon completion or
+  // failure.
+  virtual int UploadExistingFile(
+      const GURL& upload_location,
+      const FilePath& gdata_file_path,
+      const FilePath& local_file_path,
+      int64 file_size,
+      const std::string& content_type,
+      const UploadFileInfo::UploadCompletionCallback& callback) = 0;
 
   // Updates attributes of streaming upload.
-  void UpdateUpload(int upload_id, content::DownloadItem* download);
+  virtual void UpdateUpload(int upload_id,
+                            content::DownloadItem* download) = 0;
 
   // Returns the count of bytes confirmed as uploaded so far.
-  int64 GetUploadedBytes(int upload_id) const;
+  virtual int64 GetUploadedBytes(int upload_id) const = 0;
+};
 
-  // TODO(achuith): Make this private.
-  // Destroys |upload_file_info|.
-  void DeleteUpload(UploadFileInfo* upload_file_info);
+class GDataUploader : public GDataUploaderInterface {
+ public:
+  explicit GDataUploader(DocumentsServiceInterface* documents_service);
+  virtual ~GDataUploader();
+
+  // GDataUploaderInterface overrides.
+  virtual int UploadNewFile(
+      scoped_ptr<UploadFileInfo> upload_file_info) OVERRIDE;
+  virtual int UploadExistingFile(
+      const GURL& upload_location,
+      const FilePath& gdata_file_path,
+      const FilePath& local_file_path,
+      int64 file_size,
+      const std::string& content_type,
+      const UploadFileInfo::UploadCompletionCallback& callback) OVERRIDE;
+  virtual void UpdateUpload(
+      int upload_id, content::DownloadItem* download) OVERRIDE;
+  virtual int64 GetUploadedBytes(int upload_id) const OVERRIDE;
 
  private:
   // Lookup UploadFileInfo* in pending_uploads_.
@@ -68,19 +100,34 @@ class GDataUploader {
       int bytes_to_read,
       int bytes_read);
 
+  // Calls DocumentsService's ResumeUpload with the current upload info.
+  void ResumeUpload(int upload_id);
+
   // DocumentsService callback for ResumeUpload.
   void OnResumeUploadResponseReceived(int upload_id,
                                       const ResumeUploadResponse& response,
                                       scoped_ptr<DocumentEntry> entry);
 
-  // When upload completes, move the file into the gdata cache.
-  void MoveFileToCache(UploadFileInfo* upload_file_info);
+  // Initiate the upload.
+  void InitiateUpload(UploadFileInfo* uploader_file_info);
 
   // Handle failed uploads.
-  void UploadFailed(UploadFileInfo* upload_file_info);
+  void UploadFailed(scoped_ptr<UploadFileInfo> upload_file_info,
+                    GDataFileError error);
 
-  // Private data.
-  GDataFileSystem* file_system_;
+  // Removes |upload_id| from UploadFileInfoMap |pending_uploads_|.
+  // Note that this does not delete the UploadFileInfo object itself,
+  // because it may still be in use by an asynchronous function.
+  void RemoveUpload(int upload_id);
+
+  // Starts uploading a file with |upload_file_info|. Returns a new upload
+  // ID assigned to |upload_file_info|.
+  int StartUploadFile(scoped_ptr<UploadFileInfo> upload_file_info);
+
+  // Pointers to DocumentsServiceInterface object owned by GDataSystemService.
+  // The lifetime of this object is guaranteed to exceed that of the
+  // GDataUploader instance.
+  DocumentsServiceInterface* documents_service_;
 
   int next_upload_id_;  // id counter.
 

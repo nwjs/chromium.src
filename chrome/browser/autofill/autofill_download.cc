@@ -18,10 +18,10 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
-#include "content/public/common/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_response_headers.h"
+#include "net/url_request/url_fetcher.h"
 #include "third_party/libjingle/source/talk/xmllite/xmlparser.h"
 
 namespace {
@@ -171,8 +171,8 @@ bool AutofillDownloadManager::StartRequest(
 
   // Id is ignored for regular chrome, in unit test id's for fake fetcher
   // factory will be 0, 1, 2, ...
-  content::URLFetcher* fetcher = content::URLFetcher::Create(
-      fetcher_id_for_unittest_++, GURL(request_url), content::URLFetcher::POST,
+  net::URLFetcher* fetcher = net::URLFetcher::Create(
+      fetcher_id_for_unittest_++, GURL(request_url), net::URLFetcher::POST,
       this);
   url_fetchers_[fetcher] = request_data;
   fetcher->SetAutomaticallyRetryOn5xx(false);
@@ -239,9 +239,9 @@ std::string AutofillDownloadManager::GetCombinedSignature(
 }
 
 void AutofillDownloadManager::OnURLFetchComplete(
-    const content::URLFetcher* source) {
-  std::map<content::URLFetcher *, FormRequestData>::iterator it =
-      url_fetchers_.find(const_cast<content::URLFetcher*>(source));
+    const net::URLFetcher* source) {
+  std::map<net::URLFetcher *, FormRequestData>::iterator it =
+      url_fetchers_.find(const_cast<net::URLFetcher*>(source));
   if (it == url_fetchers_.end()) {
     // Looks like crash on Mac is possibly caused with callback entering here
     // with unknown fetcher when network is refreshed.

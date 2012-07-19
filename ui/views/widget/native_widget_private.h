@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_WIDGET_NATIVE_WIDGET_PRIVATE_H_
 #define UI_VIEWS_WIDGET_NATIVE_WIDGET_PRIVATE_H_
-#pragma once
 
 #include "base/string16.h"
 #include "ui/base/ui_base_types.h"
@@ -13,6 +12,7 @@
 #include "ui/views/widget/native_widget.h"
 
 namespace gfx {
+class ImageSkia;
 class Rect;
 }
 
@@ -66,6 +66,9 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget,
 
   // Returns true if any mouse button is currently down.
   static bool IsMouseButtonDown();
+
+  // Returns true if any touch device is currently down.
+  static bool IsTouchDown();
 
   // Initializes the NativeWidget.
   virtual void InitNativeWidget(const Widget::InitParams& params) = 0;
@@ -122,11 +125,11 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget,
       ui::AccessibilityTypes::Event event_type) = 0;
 
   // Sets or releases event capturing for this native widget.
-  virtual void SetMouseCapture() = 0;
-  virtual void ReleaseMouseCapture() = 0;
+  virtual void SetCapture() = 0;
+  virtual void ReleaseCapture() = 0;
 
-  // Returns true if this native widget is capturing mouse events.
-  virtual bool HasMouseCapture() const = 0;
+  // Returns true if this native widget is capturing events.
+  virtual bool HasCapture() const = 0;
 
   // Returns the InputMethod for this native widget.
   // Note that all widgets in a widget hierarchy share the same input method.
@@ -150,8 +153,8 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget,
   // Sets the Window icons. |window_icon| is a 16x16 icon suitable for use in
   // a title bar. |app_icon| is a larger size for use in the host environment
   // app switching UI.
-  virtual void SetWindowIcons(const SkBitmap& window_icon,
-                              const SkBitmap& app_icon) = 0;
+  virtual void SetWindowIcons(const gfx::ImageSkia& window_icon,
+                              const gfx::ImageSkia& app_icon) = 0;
 
   // Update native accessibility properties on the native window.
   virtual void SetAccessibleName(const string16& name) = 0;
@@ -205,7 +208,7 @@ class VIEWS_EXPORT NativeWidgetPrivate : public NativeWidget,
   virtual void SetCursor(gfx::NativeCursor cursor) = 0;
   virtual void ClearNativeFocus() = 0;
   virtual void FocusNativeView(gfx::NativeView native_view) = 0;
-  virtual gfx::Rect GetWorkAreaBoundsInScreen() const = 0;
+  virtual gfx::Rect GetWorkAreaScreenBounds() const = 0;
   virtual void SetInactiveRenderingDisabled(bool value) = 0;
   virtual Widget::MoveLoopResult RunMoveLoop() = 0;
   virtual void EndMoveLoop() = 0;

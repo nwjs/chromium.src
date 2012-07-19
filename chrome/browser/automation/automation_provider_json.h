@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_AUTOMATION_AUTOMATION_PROVIDER_JSON_H_
 #define CHROME_BROWSER_AUTOMATION_AUTOMATION_PROVIDER_JSON_H_
-#pragma once
 
 #include <string>
 
@@ -16,7 +15,6 @@
 class AutomationId;
 class AutomationProvider;
 class Browser;
-class Extension;
 class Profile;
 
 namespace base {
@@ -27,6 +25,10 @@ class Value;
 namespace content {
 class RenderViewHost;
 class WebContents;
+}
+
+namespace extensions {
+class Extension;
 }
 
 namespace IPC {
@@ -114,7 +116,7 @@ bool GetExtensionFromJSONArgs(
     base::DictionaryValue* args,
     const std::string& key,
     Profile* profile,
-    const Extension** extension,
+    const extensions::Extension** extension,
     std::string* error) WARN_UNUSED_RESULT;
 
 // Gets the enabled extension specified by the given dictionary |args|. |args|
@@ -125,7 +127,7 @@ bool GetEnabledExtensionFromJSONArgs(
     base::DictionaryValue* args,
     const std::string& key,
     Profile* profile,
-    const Extension** extension,
+    const extensions::Extension** extension,
     std::string* error) WARN_UNUSED_RESULT;
 
 #endif  // CHROME_BROWSER_AUTOMATION_AUTOMATION_PROVIDER_JSON_H_

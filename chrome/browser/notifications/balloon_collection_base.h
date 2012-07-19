@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_NOTIFICATIONS_BALLOON_COLLECTION_BASE_H_
 #define CHROME_BROWSER_NOTIFICATIONS_BALLOON_COLLECTION_BASE_H_
-#pragma once
 
 #include <deque>
 #include <string>
@@ -47,6 +46,10 @@ class BalloonCollectionBase {
   virtual void CloseAll();
 
   const Balloons& balloons() const { return balloons_; }
+
+  // Returns the balloon matching the given notification id, or
+  // NULL if there is no matching balloon.
+  Balloon* FindBalloonById(const std::string& notification_id);
 
   // Returns the balloon matching the given notification, or
   // NULL if there is no matching balloon.

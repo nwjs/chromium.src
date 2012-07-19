@@ -6,20 +6,20 @@
 
 #include "base/bind.h"
 #include "base/utf_string_conversions.h"
-#include "content/browser/load_from_memory_cache_details.h"
 #include "content/browser/renderer_host/resource_dispatcher_host_impl.h"
-#include "content/public/browser/resource_request_details.h"
 #include "content/browser/renderer_host/resource_request_info_impl.h"
 #include "content/browser/ssl/ssl_cert_error_handler.h"
 #include "content/browser/ssl/ssl_policy.h"
 #include "content/browser/ssl/ssl_request_info.h"
-#include "content/browser/tab_contents/navigation_entry_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/navigation_entry_impl.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/ssl_status_serialization.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/load_from_memory_cache_details.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/resource_request_details.h"
 #include "content/public/common/ssl_status.h"
 #include "net/url_request/url_request.h"
 
@@ -35,14 +35,15 @@ using content::SSLStatus;
 using content::WebContents;
 
 // static
-void SSLManager::OnSSLCertificateError(SSLErrorHandler::Delegate* delegate,
-                                       const content::GlobalRequestID& id,
-                                       const ResourceType::Type resource_type,
-                                       const GURL& url,
-                                       int render_process_id,
-                                       int render_view_id,
-                                       const net::SSLInfo& ssl_info,
-                                       bool fatal) {
+void SSLManager::OnSSLCertificateError(
+    const base::WeakPtr<SSLErrorHandler::Delegate>& delegate,
+    const content::GlobalRequestID& id,
+    const ResourceType::Type resource_type,
+    const GURL& url,
+    int render_process_id,
+    int render_view_id,
+    const net::SSLInfo& ssl_info,
+    bool fatal) {
   DCHECK(delegate);
   DVLOG(1) << "OnSSLCertificateError() cert_error: "
            << net::MapCertStatusToNetError(ssl_info.cert_status)
@@ -86,10 +87,10 @@ SSLManager::SSLManager(NavigationControllerImpl* controller)
   // Subscribe to various notifications.
   registrar_.Add(
       this, content::NOTIFICATION_RESOURCE_RESPONSE_STARTED,
-      content::Source<WebContents>(controller_->tab_contents()));
+      content::Source<WebContents>(controller_->web_contents()));
   registrar_.Add(
       this, content::NOTIFICATION_RESOURCE_RECEIVED_REDIRECT,
-      content::Source<WebContents>(controller_->tab_contents()));
+      content::Source<WebContents>(controller_->web_contents()));
   registrar_.Add(
       this, content::NOTIFICATION_LOAD_FROM_MEMORY_CACHE,
       content::Source<NavigationController>(controller_));
@@ -157,7 +158,7 @@ void SSLManager::Observe(int type,
       break;
     case content::NOTIFICATION_LOAD_FROM_MEMORY_CACHE:
       DidLoadFromMemoryCache(
-          content::Details<LoadFromMemoryCacheDetails>(details).ptr());
+          content::Details<content::LoadFromMemoryCacheDetails>(details).ptr());
       break;
     case content::NOTIFICATION_SSL_INTERNAL_STATE_CHANGED:
       DidChangeSSLInternalState();
@@ -167,18 +168,19 @@ void SSLManager::Observe(int type,
   }
 }
 
-void SSLManager::DidLoadFromMemoryCache(LoadFromMemoryCacheDetails* details) {
+void SSLManager::DidLoadFromMemoryCache(
+    content::LoadFromMemoryCacheDetails* details) {
   // Simulate loading this resource through the usual path.
   // Note that we specify SUB_RESOURCE as the resource type as WebCore only
   // caches sub-resources.
   // This resource must have been loaded with no filtering because filtered
   // resouces aren't cachable.
   scoped_refptr<SSLRequestInfo> info(new SSLRequestInfo(
-      details->url(),
+      details->url,
       ResourceType::SUB_RESOURCE,
-      details->pid(),
-      details->ssl_cert_id(),
-      details->ssl_cert_status()));
+      details->pid,
+      details->cert_id,
+      details->cert_status));
 
   // Simulate loading this resource through the usual path.
   policy()->OnRequestStarted(info.get());
@@ -219,7 +221,7 @@ void SSLManager::UpdateEntry(NavigationEntryImpl* entry) {
 
   SSLStatus original_ssl_status = entry->GetSSL();  // Copy!
 
-  policy()->UpdateEntry(entry, controller_->tab_contents());
+  policy()->UpdateEntry(entry, controller_->web_contents());
 
   if (!entry->GetSSL().Equals(original_ssl_status)) {
     content::NotificationService::current()->Notify(

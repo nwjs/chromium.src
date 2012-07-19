@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_EXAMPLES_BUTTON_EXAMPLE_H_
 #define UI_VIEWS_EXAMPLES_BUTTON_EXAMPLE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -12,6 +11,8 @@
 #include "ui/views/examples/example_base.h"
 
 namespace views {
+
+class ImageButton;
 class View;
 
 namespace examples {
@@ -29,15 +30,16 @@ class ButtonExample : public ExampleBase, public ButtonListener {
   // Overridden from ButtonListener:
   virtual void ButtonPressed(Button* sender, const Event& event) OVERRIDE;
 
-  // The only control in this test.
-  TextButton* button_;
+  // Example buttons.
+  TextButton* text_button_;
+  ImageButton* image_button_;
 
   // Values used to modify the look and feel of the button.
   TextButton::TextAlignment alignment_;
   bool use_native_theme_border_;
-  const SkBitmap* icon_;
+  const gfx::ImageSkia* icon_;
 
-  // The number of times the button is pressed.
+  // The number of times the buttons are pressed.
   int count_;
 
   DISALLOW_COPY_AND_ASSIGN(ButtonExample);

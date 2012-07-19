@@ -8,15 +8,26 @@
 #include <deque>
 #include <iterator>
 
-#include "chrome/browser/autocomplete/network_action_predictor_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/captive_portal/captive_portal_service_factory.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/download/download_service_factory.h"
+#include "chrome/browser/extensions/api/commands/command_service_factory.h"
+#include "chrome/browser/extensions/api/discovery/suggested_links_registry_factory.h"
+#include "chrome/browser/extensions/extension_system_factory.h"
+#include "chrome/browser/google/google_url_tracker_factory.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/history/shortcuts_backend_factory.h"
 #include "chrome/browser/intents/web_intents_registry_factory.h"
+#include "chrome/browser/media_gallery/media_gallery_registry_factory.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/plugin_prefs_factory.h"
+#include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
+#include "chrome/browser/predictors/predictor_database_factory.h"
+#include "chrome/browser/predictors/resource_prefetch_predictor_factory.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_proxy_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -29,14 +40,26 @@
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/token_service_factory.h"
+#include "chrome/browser/speech/chrome_speech_recognition_preferences.h"
 #include "chrome/browser/speech/speech_input_extension_manager.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/browser/tabs/pinned_tab_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
+#include "chrome/browser/ui/tabs/pinned_tab_service_factory.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager_factory.h"
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache_factory.h"
+#include "chrome/browser/user_style_sheet_watcher_factory.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
+
+#if defined(ENABLE_CONFIGURATION_POLICY)
+#include "chrome/browser/policy/managed_mode_policy_provider_factory.h"
+#endif
+
+#if defined(USE_AURA)
+#include "chrome/browser/ui/gesture_prefs_observer_factory_aura.h"
+#endif
 
 #ifndef NDEBUG
 #include "base/command_line.h"
@@ -166,8 +189,15 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
   if (built_factories_)
     return;
 
+#if defined(ENABLE_BACKGROUND)
   BackgroundContentsServiceFactory::GetInstance();
-#if !defined(OS_ANDROID)
+#endif
+  BookmarkModelFactory::GetInstance();
+#if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
+  captive_portal::CaptivePortalServiceFactory::GetInstance();
+#endif
+  ChromeURLDataManagerFactory::GetInstance();
+#if defined(ENABLE_PRINTING)
   CloudPrintProxyServiceFactory::GetInstance();
 #endif
   CookieSettings::Factory::GetInstance();
@@ -175,9 +205,22 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
   DesktopNotificationServiceFactory::GetInstance();
 #endif
   DownloadServiceFactory::GetInstance();
+#if defined(ENABLE_EXTENSIONS)
+  extensions::CommandServiceFactory::GetInstance();
+  extensions::SuggestedLinksRegistryFactory::GetInstance();
+  extensions::ExtensionSystemFactory::GetInstance();
+#endif
   FindBarStateFactory::GetInstance();
+#if defined(USE_AURA)
+  GesturePrefsObserverFactoryAura::GetInstance();
+#endif
   GlobalErrorServiceFactory::GetInstance();
-  NetworkActionPredictorFactory::GetInstance();
+  GoogleURLTrackerFactory::GetInstance();
+  HistoryServiceFactory::GetInstance();
+#if defined(ENABLE_CONFIGURATION_POLICY)
+  ManagedModePolicyProviderFactory::GetInstance();
+#endif
+  MediaGalleryRegistryFactory::GetInstance();
   NTPResourceCacheFactory::GetInstance();
   PasswordStoreFactory::GetInstance();
   PersonalDataManagerFactory::GetInstance();
@@ -185,27 +228,34 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
   PinnedTabServiceFactory::GetInstance();
 #endif
   PluginPrefsFactory::GetInstance();
+  predictors::AutocompleteActionPredictorFactory::GetInstance();
+  predictors::PredictorDatabaseFactory::GetInstance();
+  predictors::ResourcePrefetchPredictorFactory::GetInstance();
+  prerender::PrerenderManagerFactory::GetInstance();
+  ProfileSyncServiceFactory::GetInstance();
 #if defined(ENABLE_PROTECTOR_SERVICE)
   protector::ProtectorServiceFactory::GetInstance();
 #endif
-  prerender::PrerenderManagerFactory::GetInstance();
-  ProfileSyncServiceFactory::GetInstance();
+#if defined(ENABLE_SESSION_SERVICE)
   SessionServiceFactory::GetInstance();
+#endif
+  ShortcutsBackendFactory::GetInstance();
   SigninManagerFactory::GetInstance();
 #if defined(ENABLE_INPUT_SPEECH)
   SpeechInputExtensionManager::InitializeFactory();
+  ChromeSpeechRecognitionPreferences::InitializeFactory();
 #endif
   SpellCheckFactory::GetInstance();
   TabRestoreServiceFactory::GetInstance();
+  TemplateURLFetcherFactory::GetInstance();
+  TemplateURLServiceFactory::GetInstance();
 #if defined(ENABLE_THEMES)
   ThemeServiceFactory::GetInstance();
 #endif
-  TemplateURLFetcherFactory::GetInstance();
-  TemplateURLServiceFactory::GetInstance();
   TokenServiceFactory::GetInstance();
-#if defined(ENABLE_WEB_INTENTS)
+  UserStyleSheetWatcherFactory::GetInstance();
+  WebDataServiceFactory::GetInstance();
   WebIntentsRegistryFactory::GetInstance();
-#endif
 
   built_factories_ = true;
 }

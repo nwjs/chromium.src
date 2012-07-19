@@ -4,11 +4,11 @@
 
 #ifndef SYNC_TEST_TEST_DIRECTORY_BACKING_STORE_H_
 #define SYNC_TEST_TEST_DIRECTORY_BACKING_STORE_H_
-#pragma once
 
 #include "base/gtest_prod_util.h"
 #include "sync/syncable/directory_backing_store.h"
 
+namespace syncer {
 namespace syncable {
 
 // This implementation of DirectoryBackingStore does not manage its own
@@ -49,5 +49,6 @@ class TestDirectoryBackingStore : public DirectoryBackingStore {
 };
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_TEST_TEST_DIRECTORY_BACKING_STORE_H_

@@ -4,13 +4,13 @@
 
 #ifndef UI_VIEWS_IME_INPUT_METHOD_BRIDGE_H_
 #define UI_VIEWS_IME_INPUT_METHOD_BRIDGE_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "ui/base/ime/text_input_client.h"
+#include "ui/gfx/rect.h"
 #include "ui/views/ime/input_method_base.h"
 
 namespace ui {
@@ -53,6 +53,8 @@ class InputMethodBridge : public InputMethodBase,
   virtual ui::TextInputType GetTextInputType() const OVERRIDE;
   virtual bool CanComposeInline() const OVERRIDE;
   virtual gfx::Rect GetCaretBounds() OVERRIDE;
+  virtual bool GetCompositionCharacterBounds(uint32 index,
+                                             gfx::Rect* rect) OVERRIDE;
   virtual bool HasCompositionText() OVERRIDE;
   virtual bool GetTextRange(ui::Range* range) OVERRIDE;
   virtual bool GetCompositionTextRange(ui::Range* range) OVERRIDE;
@@ -71,6 +73,10 @@ class InputMethodBridge : public InputMethodBase,
 
  private:
   void UpdateViewFocusState();
+
+  // Returns a rectangle converted from |rect| from a focused View's coordinate
+  // system to that of the screen.
+  gfx::Rect ConvertRectToFocusedView(const gfx::Rect& rect);
 
   ui::InputMethod* const host_;
   bool context_focused_;

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_DISPLAY_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_LOGIN_DISPLAY_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -30,9 +29,6 @@ class LoginDisplay : public RemoveUserDelegate {
 
     // Returns name of the currently connected network.
     virtual string16 GetConnectedNetworkName() = 0;
-
-    // Users decides to sign in into captive portal.
-    virtual void FixCaptivePortal() = 0;
 
     // Sets the displayed email for the next login attempt with |CompleteLogin|.
     // If it succeeds, user's displayed email value will be updated to |email|.

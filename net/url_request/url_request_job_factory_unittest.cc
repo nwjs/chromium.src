@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,8 @@
 
 #include "base/bind.h"
 #include "base/memory/weak_ptr.h"
+#include "net/url_request/url_request.h"
+#include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_job.h"
 #include "net/url_request/url_request_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -17,11 +19,11 @@ namespace {
 class MockURLRequestJob : public URLRequestJob {
  public:
   MockURLRequestJob(URLRequest* request, const URLRequestStatus& status)
-      : URLRequestJob(request),
+      : URLRequestJob(request, request->context()->network_delegate()),
         status_(status),
         ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {}
 
-  virtual void Start() {
+  virtual void Start() OVERRIDE {
     // Start reading asynchronously so that all error reporting and data
     // callbacks happen as they would for network requests.
     MessageLoop::current()->PostTask(
@@ -29,6 +31,9 @@ class MockURLRequestJob : public URLRequestJob {
         base::Bind(&MockURLRequestJob::StartAsync,
                    weak_factory_.GetWeakPtr()));
   }
+
+ protected:
+  virtual ~MockURLRequestJob() {}
 
  private:
   void StartAsync() {
@@ -42,7 +47,7 @@ class MockURLRequestJob : public URLRequestJob {
 
 class DummyProtocolHandler : public URLRequestJobFactory::ProtocolHandler {
  public:
-  virtual URLRequestJob* MaybeCreateJob(URLRequest* request) const {
+  virtual URLRequestJob* MaybeCreateJob(URLRequest* request) const OVERRIDE {
     return new MockURLRequestJob(
         request, URLRequestStatus(URLRequestStatus::SUCCESS, OK));
   }
@@ -52,9 +57,10 @@ class DummyInterceptor : public URLRequestJobFactory::Interceptor {
  public:
   DummyInterceptor()
       : did_intercept_(false),
-        handle_all_protocols_(false) { }
+        handle_all_protocols_(false) {
+  }
 
-  virtual URLRequestJob* MaybeIntercept(URLRequest* request) const {
+  virtual URLRequestJob* MaybeIntercept(URLRequest* request) const OVERRIDE {
     did_intercept_ = true;
     return new MockURLRequestJob(
         request,
@@ -63,17 +69,17 @@ class DummyInterceptor : public URLRequestJobFactory::Interceptor {
 
   virtual URLRequestJob* MaybeInterceptRedirect(
       const GURL& /* location */,
-      URLRequest* /* request */) const {
+      URLRequest* /* request */) const OVERRIDE {
     return NULL;
   }
 
   virtual URLRequestJob* MaybeInterceptResponse(
-      URLRequest* /* request */) const {
+      URLRequest* /* request */) const OVERRIDE {
     return NULL;
   }
 
   virtual bool WillHandleProtocol(
-      const std::string& /* protocol */) const {
+      const std::string& /* protocol */) const OVERRIDE {
     return handle_all_protocols_;
   }
 
@@ -83,9 +89,8 @@ class DummyInterceptor : public URLRequestJobFactory::Interceptor {
 
 TEST(URLRequestJobFactoryTest, NoProtocolHandler) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
-  TestURLRequest request(GURL("foo://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequestContext request_context;
+  TestURLRequest request(GURL("foo://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();
@@ -95,12 +100,11 @@ TEST(URLRequestJobFactoryTest, NoProtocolHandler) {
 
 TEST(URLRequestJobFactoryTest, BasicProtocolHandler) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   job_factory.SetProtocolHandler("foo", new DummyProtocolHandler);
-  TestURLRequest request(GURL("foo://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequest request(GURL("foo://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();
@@ -109,21 +113,20 @@ TEST(URLRequestJobFactoryTest, BasicProtocolHandler) {
 }
 
 TEST(URLRequestJobFactoryTest, DeleteProtocolHandler) {
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   job_factory.SetProtocolHandler("foo", new DummyProtocolHandler);
   job_factory.SetProtocolHandler("foo", NULL);
 }
 
 TEST(URLRequestJobFactoryTest, BasicInterceptor) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   job_factory.AddInterceptor(new DummyInterceptor);
-  TestURLRequest request(GURL("http://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequest request(GURL("http://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();
@@ -133,12 +136,11 @@ TEST(URLRequestJobFactoryTest, BasicInterceptor) {
 
 TEST(URLRequestJobFactoryTest, InterceptorNeedsValidSchemeStill) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   job_factory.AddInterceptor(new DummyInterceptor);
-  TestURLRequest request(GURL("foo://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequest request(GURL("foo://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();
@@ -148,13 +150,12 @@ TEST(URLRequestJobFactoryTest, InterceptorNeedsValidSchemeStill) {
 
 TEST(URLRequestJobFactoryTest, InterceptorOverridesProtocolHandler) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   job_factory.SetProtocolHandler("foo", new DummyProtocolHandler);
   job_factory.AddInterceptor(new DummyInterceptor);
-  TestURLRequest request(GURL("foo://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequest request(GURL("foo://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();
@@ -164,13 +165,12 @@ TEST(URLRequestJobFactoryTest, InterceptorOverridesProtocolHandler) {
 
 TEST(URLRequestJobFactoryTest, InterceptorDoesntInterceptUnknownProtocols) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   DummyInterceptor* interceptor = new DummyInterceptor;
   job_factory.AddInterceptor(interceptor);
-  TestURLRequest request(GURL("foo://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequest request(GURL("foo://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();
@@ -179,14 +179,13 @@ TEST(URLRequestJobFactoryTest, InterceptorDoesntInterceptUnknownProtocols) {
 
 TEST(URLRequestJobFactoryTest, InterceptorInterceptsHandledUnknownProtocols) {
   TestDelegate delegate;
-  scoped_refptr<URLRequestContext> request_context(new TestURLRequestContext);
   URLRequestJobFactory job_factory;
-  request_context->set_job_factory(&job_factory);
+  TestURLRequestContext request_context;
+  request_context.set_job_factory(&job_factory);
   DummyInterceptor* interceptor = new DummyInterceptor;
   interceptor->handle_all_protocols_ = true;
   job_factory.AddInterceptor(interceptor);
-  TestURLRequest request(GURL("foo://bar"), &delegate);
-  request.set_context(request_context);
+  TestURLRequest request(GURL("foo://bar"), &delegate, &request_context);
   request.Start();
 
   MessageLoop::current()->Run();

@@ -16,6 +16,7 @@
 #include "grit/generated_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util_mac.h"
+#include "ui/gfx/image/image_skia.h"
 
 namespace {
 
@@ -31,7 +32,7 @@ const struct ColumnWidth {
   int maxWidth;  // If this is -1, 1.5*minColumWidth is used as max width.
 } columnWidths[] = {
   // Note that arraysize includes the trailing \0. That's intended.
-  { IDS_TASK_MANAGER_PAGE_COLUMN, 120, 600 },
+  { IDS_TASK_MANAGER_TASK_COLUMN, 120, 600 },
   { IDS_TASK_MANAGER_PROFILE_NAME_COLUMN, 60, 200 },
   { IDS_TASK_MANAGER_PHYSICAL_MEM_COLUMN,
       arraysize("800 MiB") * kCharWidth, -1 },
@@ -225,7 +226,7 @@ class SortHelper {
       initWithIdentifier:[NSNumber numberWithInt:columnId]]);
 
   NSTextAlignment textAlignment =
-      (columnId == IDS_TASK_MANAGER_PAGE_COLUMN ||
+      (columnId == IDS_TASK_MANAGER_TASK_COLUMN ||
        columnId == IDS_TASK_MANAGER_PROFILE_NAME_COLUMN) ?
           NSLeftTextAlignment : NSRightTextAlignment;
 
@@ -241,7 +242,7 @@ class SortHelper {
   [column.get() setEditable:NO];
 
   // The page column should by default be sorted ascending.
-  BOOL ascending = columnId == IDS_TASK_MANAGER_PAGE_COLUMN;
+  BOOL ascending = columnId == IDS_TASK_MANAGER_TASK_COLUMN;
 
   scoped_nsobject<NSSortDescriptor> sortDescriptor([[NSSortDescriptor alloc]
       initWithKey:[NSString stringWithFormat:@"%d", columnId]
@@ -276,7 +277,7 @@ class SortHelper {
 - (void)setUpTableColumns {
   for (NSTableColumn* column in [tableView_ tableColumns])
     [tableView_ removeTableColumn:column];
-  NSTableColumn* nameColumn = [self addColumnWithId:IDS_TASK_MANAGER_PAGE_COLUMN
+  NSTableColumn* nameColumn = [self addColumnWithId:IDS_TASK_MANAGER_TASK_COLUMN
                                             visible:YES];
   // |nameColumn| displays an icon for every row -- this is done by an
   // NSButtonCell.
@@ -432,7 +433,7 @@ class SortHelper {
   DCHECK_LT(static_cast<size_t>(row), viewToModelMap_.size());
   row = viewToModelMap_[row];
   switch (columnId) {
-    case IDS_TASK_MANAGER_PAGE_COLUMN:  // Process
+    case IDS_TASK_MANAGER_TASK_COLUMN:  // Process
       return base::SysUTF16ToNSString(model_->GetResourceTitle(row));
 
     case IDS_TASK_MANAGER_PROFILE_NAME_COLUMN:  // Profile Name
@@ -513,7 +514,7 @@ class SortHelper {
                           row:(NSInteger)rowIndex {
   // NSButtonCells expect an on/off state as objectValue. Their title is set
   // in |tableView:dataCellForTableColumn:row:| below.
-  if ([[tableColumn identifier] intValue] == IDS_TASK_MANAGER_PAGE_COLUMN) {
+  if ([[tableColumn identifier] intValue] == IDS_TASK_MANAGER_TASK_COLUMN) {
     return [NSNumber numberWithInt:NSOffState];
   }
 
@@ -527,7 +528,7 @@ class SortHelper {
   NSCell* cell = [tableColumn dataCellForRow:rowIndex];
 
   // Set the favicon and title for the task in the name column.
-  if ([[tableColumn identifier] intValue] == IDS_TASK_MANAGER_PAGE_COLUMN) {
+  if ([[tableColumn identifier] intValue] == IDS_TASK_MANAGER_TASK_COLUMN) {
     DCHECK([cell isKindOfClass:[NSButtonCell class]]);
     NSButtonCell* buttonCell = static_cast<NSButtonCell*>(cell);
     NSString* title = [self modelTextForRow:rowIndex
@@ -624,7 +625,7 @@ int TaskManagerMac::RowCount() const {
   return model_->ResourceCount();
 }
 
-SkBitmap TaskManagerMac::GetIcon(int r) const {
+gfx::ImageSkia TaskManagerMac::GetIcon(int r) const {
   return model_->GetResourceIcon(r);
 }
 

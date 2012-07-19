@@ -9,6 +9,7 @@
 #include "base/memory/ref_counted.h"
 
 namespace media {
+class Decryptor;
 class ChunkDemuxerClient;
 class DataSource;
 class FFmpegVideoDecoder;
@@ -43,20 +44,16 @@ bool BuildMediaSourceCollection(
     media::ChunkDemuxerClient* client,
     media::MessageLoopFactory* message_loop_factory,
     media::FilterCollection* filter_collection,
+    media::Decryptor* decryptor,
     scoped_refptr<media::FFmpegVideoDecoder>* video_decoder);
 
 // Builds the required filters for handling regular URLs and adds them to
 // |filter_collection| and fills |video_decoder| returning true if successful.
-//
-// |local_source| refers to whether the data being fetched requires network
-// access.
-//
-// TODO(scherkus): a data source should be able to tell us this.
 void BuildDefaultCollection(
     const scoped_refptr<media::DataSource>& data_source,
-    bool local_source,
     media::MessageLoopFactory* message_loop_factory,
     media::FilterCollection* filter_collection,
+    media::Decryptor* decryptor,
     scoped_refptr<media::FFmpegVideoDecoder>* video_decoder);
 
 }  // webkit_media

@@ -18,17 +18,19 @@
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/page_transition_types.h"
 #include "grit/generated_resources.h"
 #include "net/base/mock_host_resolver.h"
@@ -56,11 +58,18 @@ class TaskManagerBrowserTest : public ExtensionBrowserTest {
   TaskManagerModel* model() const {
     return TaskManager::GetInstance()->model();
   }
+ protected:
+  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
+    ExtensionBrowserTest::SetUpCommandLine(command_line);
+
+    // Do not prelaunch the GPU process for these tests because it will show
+    // up in task manager but whether it appears before or after the new tab
+    // renderer process is not well defined.
+    command_line->AppendSwitch(switches::kDisableGpuProcessPrelaunch);
+  }
 };
 
-// Flaky crashes on ChromeOS (triggers pure virtual function call), see
-// http://crbug.com/92297 for details
-#if defined(OS_CHROMEOS) || defined(OS_MACOSX) || defined(OS_LINUX)
+#if defined(OS_MACOSX) || defined(OS_LINUX)
 #define MAYBE_ShutdownWhileOpen DISABLED_ShutdownWhileOpen
 #else
 #define MAYBE_ShutdownWhileOpen ShutdownWhileOpen
@@ -96,9 +105,9 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest, NoticeTabContentsChanges) {
 
   // Close the tab and verify that we notice.
   WebContents* first_tab =
-      browser()->GetTabContentsWrapperAt(0)->web_contents();
+      chrome::GetTabContentsAt(browser(), 0)->web_contents();
   ASSERT_TRUE(first_tab);
-  browser()->CloseTabContents(first_tab);
+  chrome::CloseWebContents(browser(), first_tab);
   TaskManagerBrowserTestUtil::WaitForResourceChange(2);
 }
 
@@ -256,7 +265,7 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest, NoticeAppTabs) {
   ASSERT_TRUE(LoadExtension(
       test_data_dir_.AppendASCII("packaged_app")));
   ExtensionService* service = browser()->profile()->GetExtensionService();
-  const Extension* extension =
+  const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
 
   // Browser and the New Tab Page.
@@ -387,7 +396,7 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest,
   // manager is still visible. Make sure we don't crash and the extension
   // gets reloaded and noticed in the task manager.
   InfoBarTabHelper* infobar_helper =
-      browser()->GetSelectedTabContentsWrapper()->infobar_tab_helper();
+      chrome::GetActiveTabContents(browser())->infobar_tab_helper();
   ASSERT_EQ(1U, infobar_helper->infobar_count());
   ConfirmInfoBarDelegate* delegate = infobar_helper->
       GetInfoBarDelegateAt(0)->AsConfirmInfoBarDelegate();
@@ -424,7 +433,7 @@ IN_PROC_BROWSER_TEST_F(TaskManagerBrowserTest, MAYBE_ReloadExtension) {
   EXPECT_TRUE(model()->GetResourceExtension(1) == NULL);
   ASSERT_TRUE(model()->GetResourceExtension(2) != NULL);
 
-  const Extension* extension = model()->GetResourceExtension(2);
+  const extensions::Extension* extension = model()->GetResourceExtension(2);
   ASSERT_TRUE(extension != NULL);
 
   // Reload the extension a few times and make sure our resource count

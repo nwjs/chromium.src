@@ -13,19 +13,29 @@
 #include "base/location.h"
 #include "sync/engine/syncer_proto_util.h"
 #include "sync/engine/syncer_util.h"
-#include "sync/engine/syncproto.h"
 #include "sync/sessions/sync_session.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/mutable_entry.h"
+#include "sync/syncable/read_transaction.h"
+#include "sync/syncable/syncable_proto_util.h"
+#include "sync/syncable/syncable_util.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/util/time.h"
-
-using syncable::WriteTransaction;
-using syncable::MutableEntry;
-using syncable::Entry;
 
 using std::set;
 using std::string;
 using std::vector;
+using sync_pb::CommitResponse;
 
+namespace syncer {
+
+using sessions::OrderedCommitSet;
+using sessions::StatusController;
+using sessions::SyncSession;
+using sessions::ConflictProgress;
+using syncable::WriteTransaction;
+using syncable::MutableEntry;
+using syncable::Entry;
 using syncable::BASE_VERSION;
 using syncable::GET_BY_ID;
 using syncable::ID;
@@ -41,14 +51,15 @@ using syncable::SERVER_VERSION;
 using syncable::SYNCER;
 using syncable::SYNCING;
 
-namespace browser_sync {
+ProcessCommitResponseCommand::ProcessCommitResponseCommand(
+      const sessions::OrderedCommitSet& commit_set,
+      const sync_pb::ClientToServerMessage& commit_message,
+      const sync_pb::ClientToServerResponse& commit_response)
+  : commit_set_(commit_set),
+    commit_message_(commit_message),
+    commit_response_(commit_response) {
+}
 
-using sessions::OrderedCommitSet;
-using sessions::StatusController;
-using sessions::SyncSession;
-using sessions::ConflictProgress;
-
-ProcessCommitResponseCommand::ProcessCommitResponseCommand() {}
 ProcessCommitResponseCommand::~ProcessCommitResponseCommand() {}
 
 std::set<ModelSafeGroup> ProcessCommitResponseCommand::GetGroupsToChange(
@@ -57,102 +68,74 @@ std::set<ModelSafeGroup> ProcessCommitResponseCommand::GetGroupsToChange(
 
   syncable::Directory* dir = session.context()->directory();
   syncable::ReadTransaction trans(FROM_HERE, dir);
-  const StatusController& status = session.status_controller();
-  for (size_t i = 0; i < status.commit_ids().size(); ++i) {
+  for (size_t i = 0; i < commit_set_.Size(); ++i) {
     groups_with_commits.insert(
-        GetGroupForModelType(status.GetUnrestrictedCommitModelTypeAt(i),
+        GetGroupForModelType(commit_set_.GetModelTypeAt(i),
                              session.routing_info()));
   }
 
   return groups_with_commits;
 }
 
-SyncerError ProcessCommitResponseCommand::ModelNeutralExecuteImpl(
-    sessions::SyncSession* session) {
-  const StatusController& status = session->status_controller();
-  const ClientToServerResponse& response(status.commit_response());
-  const vector<syncable::Id>& commit_ids(status.commit_ids());
-
-  if (!response.has_commit()) {
-    // TODO(sync): What if we didn't try to commit anything?
-    LOG(WARNING) << "Commit response has no commit body!";
-    return SERVER_RESPONSE_VALIDATION_FAILED;
-  }
-
-  const CommitResponse& cr = response.commit();
-  int commit_count = commit_ids.size();
-  if (cr.entryresponse_size() != commit_count) {
-    LOG(ERROR) << "Commit response has wrong number of entries! Expected:" <<
-               commit_count << " Got:" << cr.entryresponse_size();
-    for (int i = 0 ; i < cr.entryresponse_size() ; i++) {
-      LOG(ERROR) << "Response #" << i << " Value: " <<
-                 cr.entryresponse(i).response_type();
-      if (cr.entryresponse(i).has_error_message())
-        LOG(ERROR) << "  " << cr.entryresponse(i).error_message();
-    }
-    return SERVER_RESPONSE_VALIDATION_FAILED;
-  }
-  return SYNCER_OK;
-}
 
 SyncerError ProcessCommitResponseCommand::ModelChangingExecuteImpl(
     SyncSession* session) {
   SyncerError result = ProcessCommitResponse(session);
   ExtensionsActivityMonitor* monitor = session->context()->extensions_monitor();
-  if (session->status_controller().HasBookmarkCommitActivity() &&
-      session->status_controller().syncer_status()
-          .num_successful_bookmark_commits == 0) {
-    monitor->PutRecords(session->extensions_activity());
+
+  // This is to be run on one model only: the bookmark model.
+  if (session->status_controller().HasBookmarkCommitActivity()) {
+    // If the commit failed, return the data to the ExtensionsActivityMonitor.
+    if (session->status_controller().
+        model_neutral_state().num_successful_bookmark_commits == 0) {
+      monitor->PutRecords(session->extensions_activity());
+    }
+    // Clear our cached data in either case.
     session->mutable_extensions_activity()->clear();
   }
+
   return result;
 }
 
 SyncerError ProcessCommitResponseCommand::ProcessCommitResponse(
     SyncSession* session) {
   syncable::Directory* dir = session->context()->directory();
-
   StatusController* status = session->mutable_status_controller();
-  const ClientToServerResponse& response(status->commit_response());
-  const CommitResponse& cr = response.commit();
-  const sync_pb::CommitMessage& commit_message =
-      status->commit_message().commit();
+  const CommitResponse& cr = commit_response_.commit();
+  const sync_pb::CommitMessage& commit_message = commit_message_.commit();
 
-  // If we try to commit a parent and child together and the parent conflicts
-  // the child will have a bad parent causing an error. As this is not a
-  // critical error, we trap it and don't LOG(ERROR). To enable this we keep
-  // a map of conflicting new folders.
   int transient_error_commits = 0;
   int conflicting_commits = 0;
   int error_commits = 0;
   int successes = 0;
-  set<syncable::Id> conflicting_new_folder_ids;
+
   set<syncable::Id> deleted_folders;
   ConflictProgress* conflict_progress = status->mutable_conflict_progress();
-  OrderedCommitSet::Projection proj = status->commit_id_projection();
+  OrderedCommitSet::Projection proj = status->commit_id_projection(
+      commit_set_);
+
   if (!proj.empty()) { // Scope for WriteTransaction.
     WriteTransaction trans(FROM_HERE, SYNCER, dir);
     for (size_t i = 0; i < proj.size(); i++) {
-      CommitResponse::ResponseType response_type =
-          ProcessSingleCommitResponse(&trans, cr.entryresponse(proj[i]),
-                                      commit_message.entries(proj[i]),
-                                      status->GetCommitIdAt(proj[i]),
-                                      &conflicting_new_folder_ids,
-                                      &deleted_folders);
+      CommitResponse::ResponseType response_type = ProcessSingleCommitResponse(
+          &trans,
+          cr.entryresponse(proj[i]),
+          commit_message.entries(proj[i]),
+          commit_set_.GetCommitIdAt(proj[i]),
+          &deleted_folders);
       switch (response_type) {
         case CommitResponse::INVALID_MESSAGE:
           ++error_commits;
           break;
         case CommitResponse::CONFLICT:
           ++conflicting_commits;
-          // Only server CONFLICT responses will activate conflict resolution.
           conflict_progress->AddServerConflictingItemById(
-              status->GetCommitIdAt(proj[i]));
+              commit_set_.GetCommitIdAt(proj[i]));
           break;
         case CommitResponse::SUCCESS:
           // TODO(sync): worry about sync_rate_ rate calc?
           ++successes;
-          if (status->GetCommitModelTypeAt(proj[i]) == syncable::BOOKMARKS)
+          if (commit_set_.GetModelTypeAt(proj[i]) == syncer::BOOKMARKS)
             status->increment_num_successful_bookmark_commits();
           status->increment_num_successful_commits();
           break;
@@ -168,18 +151,38 @@ SyncerError ProcessCommitResponseCommand::ProcessCommitResponse(
     }
   }
 
-  SyncerUtil::MarkDeletedChildrenSynced(dir, &deleted_folders);
+  MarkDeletedChildrenSynced(dir, &deleted_folders);
 
   int commit_count = static_cast<int>(proj.size());
-  if (commit_count == (successes + conflicting_commits)) {
-    // We consider conflicting commits as a success because things will work out
-    // on their own when we receive them.  Flags will be set so that
-    // HasMoreToSync() will cause SyncScheduler to enter another sync cycle to
-    // handle this condition.
+  if (commit_count == successes) {
     return SYNCER_OK;
   } else if (error_commits > 0) {
     return SERVER_RETURN_UNKNOWN_ERROR;
   } else if (transient_error_commits > 0) {
+    return SERVER_RETURN_TRANSIENT_ERROR;
+  } else if (conflicting_commits > 0) {
+    // This means that the server already has an item with this version, but
+    // we haven't seen that update yet.
+    //
+    // A well-behaved client should respond to this by proceeding to the
+    // download updates phase, fetching the conflicting items, then attempting
+    // to resolve the conflict.  That's not what this client does.
+    //
+    // We don't currently have any code to support that exceptional control
+    // flow.  We don't intend to add any because this response code will be
+    // deprecated soon.  Instead, we handle this in the same way that we handle
+    // transient errors.  We abort the current sync cycle, wait a little while,
+    // then try again.  The retry sync cycle will attempt to download updates
+    // which should be sufficient to trigger client-side conflict resolution.
+    //
+    // Not treating this as an error would be dangerous.  There's a risk that
+    // the commit loop would loop indefinitely.  The loop won't exit until the
+    // number of unsynced items hits zero or an error is detected.  If we're
+    // constantly receiving conflict responses and we don't treat them as
+    // errors, there would be no reason to leave that loop.
+    //
+    // TODO: Remove this option when the CONFLICT return value is fully
+    // deprecated.
     return SERVER_RETURN_TRANSIENT_ERROR;
   } else {
     LOG(FATAL) << "Inconsistent counts when processing commit response";
@@ -187,7 +190,7 @@ SyncerError ProcessCommitResponseCommand::ProcessCommitResponse(
   }
 }
 
-void LogServerError(const CommitResponse_EntryResponse& res) {
+void LogServerError(const sync_pb::CommitResponse_EntryResponse& res) {
   if (res.has_error_message())
     LOG(WARNING) << "  " << res.error_message();
   else
@@ -197,14 +200,11 @@ void LogServerError(const CommitResponse_EntryResponse& res) {
 CommitResponse::ResponseType
 ProcessCommitResponseCommand::ProcessSingleCommitResponse(
     syncable::WriteTransaction* trans,
-    const sync_pb::CommitResponse_EntryResponse& pb_server_entry,
+    const sync_pb::CommitResponse_EntryResponse& server_entry,
     const sync_pb::SyncEntity& commit_request_entry,
     const syncable::Id& pre_commit_id,
-    std::set<syncable::Id>* conflicting_new_folder_ids,
     set<syncable::Id>* deleted_folders) {
 
-  const CommitResponse_EntryResponse& server_entry =
-      *static_cast<const CommitResponse_EntryResponse*>(&pb_server_entry);
   MutableEntry local_entry(trans, GET_BY_ID, pre_commit_id);
   CHECK(local_entry.good());
   bool syncing_was_set = local_entry.Get(SYNCING);
@@ -229,10 +229,6 @@ ProcessCommitResponseCommand::ProcessSingleCommitResponse(
   }
   if (CommitResponse::CONFLICT == response) {
     DVLOG(1) << "Conflict Committing: " << local_entry;
-    // TODO(nick): conflicting_new_folder_ids is a purposeless anachronism.
-    if (!pre_commit_id.ServerKnows() && local_entry.Get(IS_DIR)) {
-      conflicting_new_folder_ids->insert(pre_commit_id);
-    }
     return response;
   }
   if (CommitResponse::RETRY == response) {
@@ -252,8 +248,10 @@ ProcessCommitResponseCommand::ProcessSingleCommitResponse(
   DCHECK_EQ(CommitResponse::SUCCESS, response) << response;
   // Check to see if we've been given the ID of an existing entry. If so treat
   // it as an error response and retry later.
-  if (pre_commit_id != server_entry.id()) {
-    Entry e(trans, GET_BY_ID, server_entry.id());
+  const syncable::Id& server_entry_id =
+      SyncableIdFromProto(server_entry.id_string());
+  if (pre_commit_id != server_entry_id) {
+    Entry e(trans, GET_BY_ID, server_entry_id);
     if (e.good()) {
       LOG(ERROR) << "Got duplicate id when commiting id: " << pre_commit_id <<
                  ". Treating as an error return";
@@ -272,7 +270,7 @@ ProcessCommitResponseCommand::ProcessSingleCommitResponse(
 
 const string& ProcessCommitResponseCommand::GetResultingPostCommitName(
     const sync_pb::SyncEntity& committed_entry,
-    const CommitResponse_EntryResponse& entry_response) {
+    const sync_pb::CommitResponse_EntryResponse& entry_response) {
   const string& response_name =
       SyncerProtoUtil::NameFromCommitEntryResponse(entry_response);
   if (!response_name.empty())
@@ -282,7 +280,7 @@ const string& ProcessCommitResponseCommand::GetResultingPostCommitName(
 
 bool ProcessCommitResponseCommand::UpdateVersionAfterCommit(
     const sync_pb::SyncEntity& committed_entry,
-    const CommitResponse_EntryResponse& entry_response,
+    const sync_pb::CommitResponse_EntryResponse& entry_response,
     const syncable::Id& pre_commit_id,
     syncable::MutableEntry* local_entry) {
   int64 old_version = local_entry->Get(BASE_VERSION);
@@ -302,8 +300,8 @@ bool ProcessCommitResponseCommand::UpdateVersionAfterCommit(
   }
   if (bad_commit_version) {
     LOG(ERROR) << "Bad version in commit return for " << *local_entry
-               << " new_id:" << entry_response.id() << " new_version:"
-               << entry_response.version();
+               << " new_id:" << SyncableIdFromProto(entry_response.id_string())
+               << " new_version:" << entry_response.version();
     return false;
   }
 
@@ -318,34 +316,35 @@ bool ProcessCommitResponseCommand::UpdateVersionAfterCommit(
 }
 
 bool ProcessCommitResponseCommand::ChangeIdAfterCommit(
-    const CommitResponse_EntryResponse& entry_response,
+    const sync_pb::CommitResponse_EntryResponse& entry_response,
     const syncable::Id& pre_commit_id,
     syncable::MutableEntry* local_entry) {
   syncable::WriteTransaction* trans = local_entry->write_transaction();
-  if (entry_response.id() != pre_commit_id) {
+  const syncable::Id& entry_response_id =
+      SyncableIdFromProto(entry_response.id_string());
+  if (entry_response_id != pre_commit_id) {
     if (pre_commit_id.ServerKnows()) {
       // The server can sometimes generate a new ID on commit; for example,
       // when committing an undeletion.
       DVLOG(1) << " ID changed while committing an old entry. "
-               << pre_commit_id << " became " << entry_response.id() << ".";
+               << pre_commit_id << " became " << entry_response_id << ".";
     }
-    MutableEntry same_id(trans, GET_BY_ID, entry_response.id());
+    MutableEntry same_id(trans, GET_BY_ID, entry_response_id);
     // We should trap this before this function.
     if (same_id.good()) {
-      LOG(ERROR) << "ID clash with id " << entry_response.id()
+      LOG(ERROR) << "ID clash with id " << entry_response_id
                  << " during commit " << same_id;
       return false;
     }
-    SyncerUtil::ChangeEntryIDAndUpdateChildren(
-        trans, local_entry, entry_response.id());
-    DVLOG(1) << "Changing ID to " << entry_response.id();
+    ChangeEntryIDAndUpdateChildren(trans, local_entry, entry_response_id);
+    DVLOG(1) << "Changing ID to " << entry_response_id;
   }
   return true;
 }
 
 void ProcessCommitResponseCommand::UpdateServerFieldsAfterCommit(
     const sync_pb::SyncEntity& committed_entry,
-    const CommitResponse_EntryResponse& entry_response,
+    const sync_pb::CommitResponse_EntryResponse& entry_response,
     syncable::MutableEntry* local_entry) {
 
   // We just committed an entry successfully, and now we want to make our view
@@ -396,7 +395,7 @@ void ProcessCommitResponseCommand::UpdateServerFieldsAfterCommit(
 
 void ProcessCommitResponseCommand::OverrideClientFieldsAfterCommit(
     const sync_pb::SyncEntity& committed_entry,
-    const CommitResponse_EntryResponse& entry_response,
+    const sync_pb::CommitResponse_EntryResponse& entry_response,
     syncable::MutableEntry* local_entry) {
   if (committed_entry.deleted()) {
     // If an entry's been deleted, nothing else matters.
@@ -436,7 +435,7 @@ void ProcessCommitResponseCommand::OverrideClientFieldsAfterCommit(
 
 void ProcessCommitResponseCommand::ProcessSuccessfulCommitResponse(
     const sync_pb::SyncEntity& committed_entry,
-    const CommitResponse_EntryResponse& entry_response,
+    const sync_pb::CommitResponse_EntryResponse& entry_response,
     const syncable::Id& pre_commit_id, syncable::MutableEntry* local_entry,
     bool syncing_was_set, set<syncable::Id>* deleted_folders) {
   DCHECK(local_entry->Get(IS_UNSYNCED));
@@ -445,8 +444,8 @@ void ProcessCommitResponseCommand::ProcessSuccessfulCommitResponse(
   if (!UpdateVersionAfterCommit(committed_entry, entry_response, pre_commit_id,
                                 local_entry)) {
     LOG(ERROR) << "Bad version in commit return for " << *local_entry
-               << " new_id:" << entry_response.id() << " new_version:"
-               << entry_response.version();
+               << " new_id:" << SyncableIdFromProto(entry_response.id_string())
+               << " new_version:" << entry_response.version();
     return;
   }
 
@@ -479,4 +478,4 @@ void ProcessCommitResponseCommand::ProcessSuccessfulCommitResponse(
   }
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

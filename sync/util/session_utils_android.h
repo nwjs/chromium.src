@@ -4,11 +4,10 @@
 
 #ifndef SYNC_UTIL_SESSION_UTILS_ANDROID_H_
 #define SYNC_UTIL_SESSION_UTILS_ANDROID_H_
-#pragma once
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 namespace internal {
 
 // Return the unique identifier of this device.
@@ -21,6 +20,6 @@ std::string GetModel();
 bool IsTabletUi();
 
 }  // namespace internal
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_SESSION_UTILS_ANDROID_H_

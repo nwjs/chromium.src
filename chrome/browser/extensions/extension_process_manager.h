@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_PROCESS_MANAGER_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_PROCESS_MANAGER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -12,12 +11,13 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "content/public/common/view_type.h"
+#include "base/memory/weak_ptr.h"
+#include "base/time.h"
+#include "chrome/common/view_type.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
 class Browser;
-class Extension;
 class ExtensionHost;
 class GURL;
 class Profile;
@@ -27,42 +27,56 @@ class RenderViewHost;
 class SiteInstance;
 };
 
+namespace extensions {
+class Extension;
+}
+
 // Manages dynamic state of running Chromium extensions. There is one instance
 // of this class per Profile. OTR Profiles have a separate instance that keeps
 // track of split-mode extensions only.
 class ExtensionProcessManager : public content::NotificationObserver {
  public:
+  typedef std::set<ExtensionHost*> ExtensionHostSet;
+  typedef ExtensionHostSet::const_iterator const_iterator;
+
   static ExtensionProcessManager* Create(Profile* profile);
   virtual ~ExtensionProcessManager();
+
+  const ExtensionHostSet& background_hosts() const {
+    return background_hosts_;
+  }
+
+  typedef std::set<content::RenderViewHost*> ViewSet;
+  const ViewSet GetAllViews() const;
 
   // Creates a new ExtensionHost with its associated view, grouping it in the
   // appropriate SiteInstance (and therefore process) based on the URL and
   // profile.
-  virtual ExtensionHost* CreateViewHost(const Extension* extension,
+  virtual ExtensionHost* CreateViewHost(const extensions::Extension* extension,
                                         const GURL& url,
                                         Browser* browser,
-                                        content::ViewType view_type);
+                                        chrome::ViewType view_type);
   ExtensionHost* CreateViewHost(const GURL& url,
                                 Browser* browser,
-                                content::ViewType view_type);
-  ExtensionHost* CreatePopupHost(const Extension* extension,
+                                chrome::ViewType view_type);
+  ExtensionHost* CreatePopupHost(const extensions::Extension* extension,
                                  const GURL& url,
                                  Browser* browser);
   ExtensionHost* CreatePopupHost(const GURL& url, Browser* browser);
-  ExtensionHost* CreateDialogHost(const GURL& url, Browser* browser);
-  ExtensionHost* CreateInfobarHost(const Extension* extension,
+  ExtensionHost* CreateDialogHost(const GURL& url);
+  ExtensionHost* CreateInfobarHost(const extensions::Extension* extension,
                                    const GURL& url,
                                    Browser* browser);
   ExtensionHost* CreateInfobarHost(const GURL& url,
                                    Browser* browser);
-  ExtensionHost* CreateShellHost(const Extension* extension, const GURL& url);
 
   // Open the extension's options page.
-  void OpenOptionsPage(const Extension* extension, Browser* browser);
+  void OpenOptionsPage(const extensions::Extension* extension,
+                       Browser* browser);
 
   // Creates a new UI-less extension instance.  Like CreateViewHost, but not
   // displayed anywhere.
-  virtual void CreateBackgroundHost(const Extension* extension,
+  virtual void CreateBackgroundHost(const extensions::Extension* extension,
                                     const GURL& url);
 
   // Gets the ExtensionHost for the background page for an extension, or NULL if
@@ -76,7 +90,7 @@ class ExtensionProcessManager : public content::NotificationObserver {
 
   // Registers a RenderViewHost as hosting a given extension.
   void RegisterRenderViewHost(content::RenderViewHost* render_view_host,
-                              const Extension* extension);
+                              const extensions::Extension* extension);
 
   // Unregisters a RenderViewHost as hosting any extension.
   void UnregisterRenderViewHost(content::RenderViewHost* render_view_host);
@@ -86,16 +100,25 @@ class ExtensionProcessManager : public content::NotificationObserver {
   std::set<content::RenderViewHost*> GetRenderViewHostsForExtension(
       const std::string& extension_id);
 
-  // Returns true if |host| is managed by this process manager.
-  bool HasExtensionHost(ExtensionHost* host) const;
+  // Returns the extension associated with the specified RenderViewHost, or
+  // NULL.
+  const extensions::Extension* GetExtensionForRenderViewHost(
+      content::RenderViewHost* render_view_host);
+
+  // Returns true if the (lazy) background host for the given extension has
+  // already been sent the unload event and is shutting down.
+  bool IsBackgroundHostClosing(const std::string& extension_id);
 
   // Getter and setter for the lazy background page's keepalive count. This is
   // the count of how many outstanding "things" are keeping the page alive.
   // When this reaches 0, we will begin the process of shutting down the page.
   // "Things" include pending events, resource loads, and API calls.
-  int GetLazyKeepaliveCount(const Extension* extension);
-  int IncrementLazyKeepaliveCount(const Extension* extension);
-  int DecrementLazyKeepaliveCount(const Extension* extension);
+  int GetLazyKeepaliveCount(const extensions::Extension* extension);
+  int IncrementLazyKeepaliveCount(const extensions::Extension* extension);
+  int DecrementLazyKeepaliveCount(const extensions::Extension* extension);
+
+  void IncrementLazyKeepaliveCountForView(
+      content::RenderViewHost* render_view_host);
 
   // Handles a response to the ShouldUnload message, used for lazy background
   // pages.
@@ -108,11 +131,6 @@ class ExtensionProcessManager : public content::NotificationObserver {
   // when network activity is idle for lazy background pages.
   void OnNetworkRequestStarted(content::RenderViewHost* render_view_host);
   void OnNetworkRequestDone(content::RenderViewHost* render_view_host);
-
-  typedef std::set<ExtensionHost*> ExtensionHostSet;
-  typedef ExtensionHostSet::const_iterator const_iterator;
-  const_iterator begin() const { return all_hosts_.begin(); }
-  const_iterator end() const { return all_hosts_.end(); }
 
  protected:
   explicit ExtensionProcessManager(Profile* profile);
@@ -134,10 +152,7 @@ class ExtensionProcessManager : public content::NotificationObserver {
 
   content::NotificationRegistrar registrar_;
 
-  // The set of all ExtensionHosts managed by this process manager.
-  ExtensionHostSet all_hosts_;
-
-  // The set of running viewless background extensions.
+  // The set of ExtensionHosts running viewless background extensions.
   ExtensionHostSet background_hosts_;
 
   // A SiteInstance related to the SiteInstance for all extensions in
@@ -155,7 +170,7 @@ class ExtensionProcessManager : public content::NotificationObserver {
   // We also keep a cache of the host's view type, because that information
   // is not accessible at registration/deregistration time.
   typedef std::map<content::RenderViewHost*,
-      content::ViewType> ExtensionRenderViews;
+      chrome::ViewType> ExtensionRenderViews;
   ExtensionRenderViews all_extension_views_;
 
   // Close the given |host| iff it's a background page.
@@ -163,19 +178,34 @@ class ExtensionProcessManager : public content::NotificationObserver {
 
   // Ensure browser object is not null except for certain situations.
   void EnsureBrowserWhenRequired(Browser* browser,
-                                 content::ViewType view_type);
+                                 chrome::ViewType view_type);
 
   // These are called when the extension transitions between idle and active.
   // They control the process of closing the background page when idle.
-  void OnLazyBackgroundPageIdle(const std::string& extension_id);
+  void OnLazyBackgroundPageIdle(const std::string& extension_id,
+                                int sequence_id);
   void OnLazyBackgroundPageActive(const std::string& extension_id);
+  void CloseLazyBackgroundPageNow(const std::string& extension_id);
 
   // Updates a potentially-registered RenderViewHost once it has been
   // associated with a WebContents. This allows us to gather information that
   // was not available when the host was first registered.
   void UpdateRegisteredRenderView(content::RenderViewHost* render_view_host);
 
+  // Clears background page data for this extension.
+  void ClearBackgroundPageData(const std::string& extension_id);
+
   BackgroundPageDataMap background_page_data_;
+
+  // The time to delay between an extension becoming idle and
+  // sending a ShouldUnload message; read from command-line switch.
+  base::TimeDelta event_page_idle_time_;
+
+  // The time to delay between sending a ShouldUnload message and
+  // sending a Unload message; read from command-line switch.
+  base::TimeDelta event_page_unloading_time_;
+
+  base::WeakPtrFactory<ExtensionProcessManager> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionProcessManager);
 };

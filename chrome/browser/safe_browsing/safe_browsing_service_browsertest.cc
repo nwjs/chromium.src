@@ -6,11 +6,16 @@
 // and a test protocol manager. It is used to test logics in safebrowsing
 // service.
 
+#include <algorithm>
+
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/file_path.h"
 #include "base/memory/ref_counted.h"
-#include "base/metrics/histogram.h"
+#include "base/path_service.h"
 #include "base/scoped_temp_dir.h"
+#include "base/string_split.h"
+#include "base/test/thread_test_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prerender/prerender_manager.h"
@@ -21,18 +26,21 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/safe_browsing_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
-#include "content/test/test_browser_thread.h"
 #include "crypto/sha2.h"
+#include "net/cookies/cookie_store.h"
+#include "sql/connection.h"
+#include "sql/statement.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-using base::Histogram;
-using base::StatisticsRecorder;
 using content::BrowserThread;
 using content::InterstitialPage;
 using content::WebContents;
@@ -194,15 +202,11 @@ class TestProtocolManager :  public SafeBrowsingProtocolManager {
  public:
   TestProtocolManager(SafeBrowsingService* sb_service,
                       const std::string& client_name,
-                      const std::string& client_key,
-                      const std::string& wrapped_key,
                       net::URLRequestContextGetter* request_context_getter,
-                      const std::string& info_url_prefix,
-                      const std::string& mackey_url_prefix,
+                      const std::string& url_prefix,
                       bool disable_auto_update)
-      : SafeBrowsingProtocolManager(sb_service, client_name, client_key,
-                                    wrapped_key, request_context_getter,
-                                    info_url_prefix, mackey_url_prefix,
+      : SafeBrowsingProtocolManager(sb_service, client_name,
+                                    request_context_getter, url_prefix,
                                     disable_auto_update),
         sb_service_(sb_service),
         delay_ms_(0) {
@@ -249,16 +253,12 @@ class TestSBProtocolManagerFactory : public SBProtocolManagerFactory {
   virtual SafeBrowsingProtocolManager* CreateProtocolManager(
       SafeBrowsingService* sb_service,
       const std::string& client_name,
-      const std::string& client_key,
-      const std::string& wrapped_key,
       net::URLRequestContextGetter* request_context_getter,
-      const std::string& info_url_prefix,
-      const std::string& mackey_url_prefix,
+      const std::string& url_prefix,
       bool disable_auto_update) {
     pm_ = new TestProtocolManager(
-        sb_service, client_name, client_key, wrapped_key,
-        request_context_getter, info_url_prefix, mackey_url_prefix,
-        disable_auto_update);
+        sb_service, client_name, request_context_getter,
+        url_prefix, disable_auto_update);
     return pm_;
   }
   TestProtocolManager* GetProtocolManager() {
@@ -281,19 +281,6 @@ MATCHER_P(IsUnsafeResourceFor, url, "") {
   return (arg.url.spec() == url.spec() &&
           arg.threat_type != SafeBrowsingService::SAFE);
 }
-
-namespace {
-
-void QuitUIThread() {
-  MessageLoopForUI::current()->Quit();
-}
-
-void QuitFromIOThread() {
-  BrowserThread::PostTask(
-      BrowserThread::UI, FROM_HERE, base::Bind(&QuitUIThread));
-}
-
-}  // namespace
 
 // Tests the safe browsing blocking page in a browser.
 class SafeBrowsingServiceTest : public InProcessBrowserTest {
@@ -381,7 +368,7 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
   }
 
   bool ShowingInterstitialPage() {
-    WebContents* contents = browser()->GetSelectedWebContents();
+    WebContents* contents = chrome::GetActiveWebContents(browser());
     InterstitialPage* interstitial_page = contents->GetInterstitialPage();
     return interstitial_page != NULL;
   }
@@ -418,12 +405,19 @@ class SafeBrowsingServiceTest : public InProcessBrowserTest {
  protected:
   StrictMock<MockObserver> observer_;
 
+  // Temporary profile dir for test cases that create a second profile.  This is
+  // owned by the SafeBrowsingServiceTest object so that it will not get
+  // destructed until after the test Browser has been torn down, since the
+  // ImportantFileWriter may still be modifying it after the Profile object has
+  // been destroyed.
+  ScopedTempDir temp_profile_dir_;
+
   // Waits for pending tasks on the IO thread to complete. This is useful
   // to wait for the SafeBrowsingService to finish loading/stopping.
   void WaitForIOThread() {
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE, base::Bind(&QuitFromIOThread));
-    ui_test_utils::RunMessageLoop();  // Will stop from |QuitUIThread|.
+    scoped_refptr<base::ThreadTestHelper> io_helper(new base::ThreadTestHelper(
+        BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO)));
+    ASSERT_TRUE(io_helper->Run());
   }
 
  private:
@@ -514,9 +508,9 @@ class TestSBClient
     : public base::RefCountedThreadSafe<TestSBClient>,
       public SafeBrowsingService::Client {
  public:
-  TestSBClient() : result_(SafeBrowsingService::SAFE),
-                   safe_browsing_service_(g_browser_process->
-                                          safe_browsing_service()) {
+  TestSBClient()
+    : result_(SafeBrowsingService::SAFE),
+      safe_browsing_service_(g_browser_process->safe_browsing_service()) {
   }
 
   int GetResult() {
@@ -540,6 +534,9 @@ class TestSBClient
   }
 
  private:
+  friend class base::RefCountedThreadSafe<TestSBClient>;
+  virtual ~TestSBClient() {}
+
   void CheckDownloadUrlOnIOThread(const std::vector<GURL>& url_chain) {
     safe_browsing_service_->CheckDownloadUrl(url_chain, this);
   }
@@ -732,10 +729,9 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceTest, StartAndStop) {
   EXPECT_TRUE(csd_service->enabled());
 
   // Add a new Profile. SBS should keep running.
-  ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  ASSERT_TRUE(temp_profile_dir_.CreateUniqueTempDir());
   scoped_ptr<Profile> profile2(Profile::CreateProfile(
-      temp_dir.path(), NULL, Profile::CREATE_MODE_SYNCHRONOUS));
+      temp_profile_dir_.path(), NULL, Profile::CREATE_MODE_SYNCHRONOUS));
   ASSERT_TRUE(profile2.get() != NULL);
   PrefService* pref_service2 = profile2->GetPrefs();
   EXPECT_TRUE(pref_service2->GetBoolean(prefs::kSafeBrowsingEnabled));
@@ -771,3 +767,119 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceTest, StartAndStop) {
 }
 
 }  // namespace
+
+class SafeBrowsingServiceCookieTest : public InProcessBrowserTest {
+ public:
+  SafeBrowsingServiceCookieTest() {}
+
+  virtual void SetUpCommandLine(CommandLine* command_line) {
+    // We need to start the test server to get the host&port in the url.
+    ASSERT_TRUE(test_server()->Start());
+
+    // Makes sure the auto update is not triggered. This test will force the
+    // update when needed.
+    command_line->AppendSwitch(switches::kSbDisableAutoUpdate);
+
+    // Point to the testing server for all SafeBrowsing requests.
+    GURL url_prefix = test_server()->GetURL(
+        "expect-and-set-cookie?expect=a%3db"
+        "&set=c%3dd%3b%20Expires=Fri,%2001%20Jan%202038%2001:01:01%20GMT"
+        "&data=foo#");
+    command_line->AppendSwitchASCII(switches::kSbURLPrefix, url_prefix.spec());
+  }
+
+  virtual bool SetUpUserDataDirectory() {
+    FilePath cookie_path(SafeBrowsingService::GetCookieFilePathForTesting());
+    EXPECT_FALSE(file_util::PathExists(cookie_path));
+
+    FilePath test_dir;
+    if (!PathService::Get(chrome::DIR_TEST_DATA, &test_dir)) {
+      EXPECT_TRUE(false);
+      return false;
+    }
+
+    // Initialize the SafeBrowsing cookies with a pre-created cookie store.  It
+    // contains a single cookie, for domain 127.0.0.1, with value a=b, and
+    // expires in 2038.
+    FilePath initial_cookies = test_dir.AppendASCII("safe_browsing")
+        .AppendASCII("Safe Browsing Cookies");
+    if (!file_util::CopyFile(initial_cookies, cookie_path)) {
+      EXPECT_TRUE(false);
+      return false;
+    }
+
+    sql::Connection db;
+    if (!db.Open(cookie_path)) {
+      EXPECT_TRUE(false);
+      return false;
+    }
+    // Ensure the host value in the cookie file matches the test server we will
+    // be connecting to.
+    sql::Statement smt(db.GetUniqueStatement(
+        "UPDATE cookies SET host_key = ?"));
+    if (!smt.is_valid()) {
+      EXPECT_TRUE(false);
+      return false;
+    }
+    if (!smt.BindString(0, test_server()->host_port_pair().host())) {
+      EXPECT_TRUE(false);
+      return false;
+    }
+    if (!smt.Run()) {
+      EXPECT_TRUE(false);
+      return false;
+    }
+
+    return InProcessBrowserTest::SetUpUserDataDirectory();
+  }
+
+  virtual void TearDownInProcessBrowserTestFixture() {
+    InProcessBrowserTest::TearDownInProcessBrowserTestFixture();
+
+    sql::Connection db;
+    FilePath cookie_path(SafeBrowsingService::GetCookieFilePathForTesting());
+    ASSERT_TRUE(db.Open(cookie_path));
+
+    sql::Statement smt(db.GetUniqueStatement(
+        "SELECT name, value FROM cookies ORDER BY name"));
+    ASSERT_TRUE(smt.is_valid());
+
+    ASSERT_TRUE(smt.Step());
+    ASSERT_EQ("a", smt.ColumnString(0));
+    ASSERT_EQ("b", smt.ColumnString(1));
+    ASSERT_TRUE(smt.Step());
+    ASSERT_EQ("c", smt.ColumnString(0));
+    ASSERT_EQ("d", smt.ColumnString(1));
+    EXPECT_FALSE(smt.Step());
+  }
+
+  virtual void SetUpOnMainThread() {
+    sb_service_ = g_browser_process->safe_browsing_service();
+    ASSERT_TRUE(sb_service_ != NULL);
+  }
+
+  virtual void CleanUpOnMainThread() {
+    sb_service_ = NULL;
+  }
+
+  void ForceUpdate() {
+    sb_service_->protocol_manager_->ForceScheduleNextUpdate(0);
+  }
+
+  scoped_refptr<SafeBrowsingService> sb_service_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(SafeBrowsingServiceCookieTest);
+};
+
+// Test that a Safe Browsing database update request both sends cookies and can
+// save cookies.
+IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceCookieTest, TestSBUpdateCookies) {
+  ui_test_utils::WindowedNotificationObserver observer(
+      chrome::NOTIFICATION_SAFE_BROWSING_UPDATE_COMPLETE,
+      content::Source<SafeBrowsingService>(sb_service_.get()));
+  BrowserThread::PostTask(
+      BrowserThread::IO, FROM_HERE,
+      base::Bind(&SafeBrowsingServiceCookieTest::ForceUpdate, this));
+  observer.Wait();
+}

@@ -4,6 +4,8 @@
 
 #include "base/memory/ref_counted.h"
 #include "base/stringprintf.h"
+#include "chrome/browser/extensions/api/dns/host_resolver_wrapper.h"
+#include "chrome/browser/extensions/api/dns/mock_host_resolver_creator.h"
 #include "chrome/browser/extensions/api/socket/socket_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
@@ -12,7 +14,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "net/base/mock_host_resolver.h"
 #include "net/test/test_server.h"
+
+using extensions::Extension;
 
 namespace utils = extension_function_test_utils;
 
@@ -23,12 +28,29 @@ const int kPort = 8888;
 
 class SocketApiTest : public PlatformAppApiTest {
  public:
-  static std::string GenerateCreateFunctionArgs(const std::string& protocol,
-                                                const std::string& address,
-                                                int port) {
-    return base::StringPrintf("[\"%s\", \"%s\", %d]", protocol.c_str(),
-                              address.c_str(), port);
+  SocketApiTest() : resolver_event_(true, false),
+                    resolver_creator_(
+                        new extensions::MockHostResolverCreator()) {
   }
+
+  void SetUpOnMainThread() OVERRIDE {
+    extensions::HostResolverWrapper::GetInstance()->SetHostResolverForTesting(
+        resolver_creator_->CreateMockHostResolver());
+  }
+
+  void CleanUpOnMainThread() OVERRIDE {
+    extensions::HostResolverWrapper::GetInstance()->
+        SetHostResolverForTesting(NULL);
+    resolver_creator_->DeleteMockHostResolver();
+  }
+
+ private:
+  base::WaitableEvent resolver_event_;
+
+  // The MockHostResolver asserts that it's used on the same thread on which
+  // it's created, which is actually a stronger rule than its real counterpart.
+  // But that's fine; it's good practice.
+  scoped_refptr<extensions::MockHostResolverCreator> resolver_creator_;
 };
 
 }  // namespace
@@ -41,9 +63,9 @@ IN_PROC_BROWSER_TEST_F(SocketApiTest, SocketUDPCreateGood) {
   socket_create_function->set_extension(empty_extension.get());
   socket_create_function->set_has_callback(true);
 
-  scoped_ptr<base::Value> result(utils::RunFunctionAndReturnResult(
+  scoped_ptr<base::Value> result(utils::RunFunctionAndReturnSingleResult(
       socket_create_function,
-      GenerateCreateFunctionArgs("udp", kHostname, kPort),
+      "[\"udp\"]",
       browser(), utils::NONE));
   ASSERT_EQ(base::Value::TYPE_DICTIONARY, result->GetType());
   DictionaryValue *value = static_cast<DictionaryValue*>(result.get());
@@ -60,9 +82,9 @@ IN_PROC_BROWSER_TEST_F(SocketApiTest, SocketTCPCreateGood) {
   socket_create_function->set_extension(empty_extension.get());
   socket_create_function->set_has_callback(true);
 
-  scoped_ptr<base::Value> result(utils::RunFunctionAndReturnResult(
+  scoped_ptr<base::Value> result(utils::RunFunctionAndReturnSingleResult(
       socket_create_function,
-      GenerateCreateFunctionArgs("udp", kHostname, kPort),
+      "[\"tcp\"]",
       browser(), utils::NONE));
   ASSERT_EQ(base::Value::TYPE_DICTIONARY, result->GetType());
   DictionaryValue *value = static_cast<DictionaryValue*>(result.get());
@@ -83,7 +105,7 @@ IN_PROC_BROWSER_TEST_F(SocketApiTest, SocketCreateBad) {
   // that doesn't run in production. Fix this when we're able to.
   utils::RunFunctionAndReturnError(
       socket_create_function,
-      GenerateCreateFunctionArgs("xxxx", kHostname, kPort),
+      "[\"xxxx\"]",
       browser(), utils::NONE);
 }
 
@@ -97,6 +119,9 @@ IN_PROC_BROWSER_TEST_F(SocketApiTest, SocketUDPExtension) {
   net::HostPortPair host_port_pair = test_server->host_port_pair();
   int port = host_port_pair.port();
   ASSERT_TRUE(port > 0);
+
+  // Test that sendTo() is properly resolving hostnames.
+  host_port_pair.set_host("LOCALhost");
 
   ResultCatcher catcher;
   catcher.RestrictToProfile(browser()->profile());
@@ -121,6 +146,9 @@ IN_PROC_BROWSER_TEST_F(SocketApiTest, SocketTCPExtension) {
   net::HostPortPair host_port_pair = test_server->host_port_pair();
   int port = host_port_pair.port();
   ASSERT_TRUE(port > 0);
+
+  // Test that connect() is properly resolving hostnames.
+  host_port_pair.set_host("lOcAlHoSt");
 
   ResultCatcher catcher;
   catcher.RestrictToProfile(browser()->profile());

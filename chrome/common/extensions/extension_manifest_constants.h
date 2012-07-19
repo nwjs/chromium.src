@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_EXTENSIONS_EXTENSION_MANIFEST_CONSTANTS_H_
 #define CHROME_COMMON_EXTENSIONS_EXTENSION_MANIFEST_CONSTANTS_H_
-#pragma once
 
 #include <string>
 
@@ -19,7 +18,7 @@ namespace extension_manifest_keys {
   extern const char kBackgroundAllowJsAccess[];
   extern const char kBackgroundPage[];
   extern const char kBackgroundPageLegacy[];
-  extern const char kBackgroundTransient[];
+  extern const char kBackgroundPersistent[];
   extern const char kBackgroundScripts[];
   extern const char kBrowserAction[];
   extern const char kBrowseURLs[];
@@ -93,13 +92,18 @@ namespace extension_manifest_keys {
   extern const char kPageActionPopupPath[];
   extern const char kPageActions[];
   extern const char kPermissions[];
-  extern const char kPlatformApp[];
+  extern const char kPlatformAppBackground[];
+  extern const char kPlatformAppBackgroundPage[];
+  extern const char kPlatformAppBackgroundScripts[];
   extern const char kPlugins[];
   extern const char kPluginsPath[];
   extern const char kPluginsPublic[];
   extern const char kPublicKey[];
   extern const char kRequirements[];
   extern const char kRunAt[];
+  extern const char kSandboxedPages[];
+  extern const char kSandboxedPagesCSP[];
+  extern const char kScriptBadge[];
   extern const char kShiftKey[];
   extern const char kShortcutKey[];
   extern const char kSignature[];
@@ -144,7 +148,6 @@ namespace extension_manifest_values {
   extern const char kKeybindingPlatformMac[];
   extern const char kKeybindingPlatformWin[];
   extern const char kLaunchContainerPanel[];
-  extern const char kLaunchContainerShell[];
   extern const char kLaunchContainerTab[];
   extern const char kLaunchContainerWindow[];
   extern const char kPageActionKeybindingEvent[];
@@ -159,6 +162,7 @@ namespace extension_manifest_values {
 namespace extension_manifest_errors {
   extern const char kAppsNotEnabled[];
   extern const char kBackgroundPermissionNeeded[];
+  extern const char kBackgroundRequiredForPlatformApps[];
   extern const char kCannotAccessPage[];
   extern const char kCannotChangeExtensionID[];
   extern const char kCannotClaimAllHostsInExtent[];
@@ -170,7 +174,6 @@ namespace extension_manifest_errors {
   extern const char kDisabledByPolicy[];
   extern const char kExperimentalFlagRequired[];
   extern const char kExpectString[];
-  extern const char kFeatureNotAllowed[];
   extern const char kInvalidAllFrames[];
   extern const char kInvalidBackground[];
   extern const char kInvalidBackgroundAllowJsAccess[];
@@ -178,8 +181,8 @@ namespace extension_manifest_errors {
   extern const char kInvalidBackgroundScript[];
   extern const char kInvalidBackgroundScripts[];
   extern const char kInvalidBackgroundInHostedApp[];
-  extern const char kInvalidBackgroundTransient[];
-  extern const char kInvalidBackgroundTransientNoPage[];
+  extern const char kInvalidBackgroundPersistent[];
+  extern const char kInvalidBackgroundPersistentNoPage[];
   extern const char kInvalidBrowserAction[];
   extern const char kInvalidBrowseURL[];
   extern const char kInvalidBrowseURLs[];
@@ -216,8 +219,10 @@ namespace extension_manifest_errors {
   extern const char kInvalidInputComponentType[];
   extern const char kInvalidIntent[];
   extern const char kInvalidIntentDisposition[];
+  extern const char kInvalidIntentDispositionInPlatformApp[];
   extern const char kInvalidIntentHref[];
   extern const char kInvalidIntentHrefEmpty[];
+  extern const char kInvalidIntentHrefInPlatformApp[];
   extern const char kInvalidIntentHrefOldAndNewKey[];
   extern const char kInvalidIntentPageInHostedApp[];
   extern const char kInvalidIntents[];
@@ -233,10 +238,9 @@ namespace extension_manifest_errors {
   extern const char kInvalidKeyBindingDescription[];
   extern const char kInvalidKeyBindingDictionary[];
   extern const char kInvalidKeyBindingMissingPlatform[];
+  extern const char kInvalidKeyBindingTooMany[];
   extern const char kInvalidKeyBindingUnknownPlatform[];
   extern const char kInvalidLaunchContainer[];
-  extern const char kInvalidLaunchContainerForNonPlatform[];
-  extern const char kInvalidLaunchContainerForPlatform[];
   extern const char kInvalidLaunchValue[];
   extern const char kInvalidLaunchValueContainer[];
   extern const char kInvalidManifest[];
@@ -277,6 +281,10 @@ namespace extension_manifest_errors {
   extern const char kInvalidRequirement[];
   extern const char kInvalidRequirements[];
   extern const char kInvalidRunAt[];
+  extern const char kInvalidSandboxedPagesList[];
+  extern const char kInvalidSandboxedPage[];
+  extern const char kInvalidSandboxedPagesCSP[];
+  extern const char kInvalidScriptBadge[];
   extern const char kInvalidSignature[];
   extern const char kInvalidTheme[];
   extern const char kInvalidThemeColors[];
@@ -311,10 +319,13 @@ namespace extension_manifest_errors {
   extern const char kMultipleOverrides[];
   extern const char kNoWildCardsInPaths[];
   extern const char kPermissionNotAllowed[];
-  extern const char kPlatformAppFlagRequired[];
+  extern const char kPlatformAppNeedsManifestVersion2[];
   extern const char kOneUISurfaceOnly[];
   extern const char kReservedMessageFound[];
-  extern const char kWebContentMustBeEnabled[];
+  extern const char kScriptBadgeRequiresFlag[];
+  extern const char kScriptBadgeIconIgnored[];
+  extern const char kScriptBadgeTitleIgnored[];
+  extern const char kWebRequestConflictsWithLazyBackground[];
 #if defined(OS_CHROMEOS)
   extern const char kIllegalPlugins[];
 #endif

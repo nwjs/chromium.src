@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_NAVIGATION_CONTROLLER_H_
 #define CONTENT_PUBLIC_BROWSER_NAVIGATION_CONTROLLER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -24,11 +23,11 @@ class SessionStorageNamespace;
 class WebContents;
 struct Referrer;
 
-// A NavigationController maintains the back-forward list for a single tab and
+// A NavigationController maintains the back-forward list for a WebContents and
 // manages all navigation within that list.
 //
-// The NavigationController also owns all WebContents for the tab. This is to
-// make sure that we have at most one WebContents instance per type.
+// Each NavigationController belongs to one WebContents; each WebContents has
+// exactly one NavigationController.
 class NavigationController {
  public:
   enum ReloadType {
@@ -37,9 +36,9 @@ class NavigationController {
     RELOAD_IGNORING_CACHE     // Reload bypassing the cache, aka shift-reload.
   };
 
-  // Creates navigation entry and translates the virtual url to a real one.
-  // Used when navigating to a new URL using LoadURL.  Extra headers are
-  // separated by \n.
+  // Creates a navigation entry and translates the virtual url to a real one.
+  // This is a general call; prefer LoadURL[FromRenderer]/TransferURL below.
+  // Extra headers are separated by \n.
   CONTENT_EXPORT static NavigationEntry* CreateNavigationEntry(
       const GURL& url,
       const Referrer& referrer,
@@ -54,8 +53,8 @@ class NavigationController {
 
   virtual ~NavigationController() {}
 
-  // Returns the web contents associated with this controller. Non-NULL except
-  // during set-up of the tab.
+  // Returns the web contents associated with this controller. It can never be
+  // NULL.
   virtual WebContents* GetWebContents() const = 0;
 
   // Get/set the browser context for this controller. It can never be NULL.
@@ -72,6 +71,17 @@ class NavigationController {
   virtual void Restore(int selected_navigation,
                        bool from_last_session,
                        std::vector<NavigationEntry*>* entries) = 0;
+
+  // Entries -------------------------------------------------------------------
+
+  // There are two basic states for entries: pending and committed. When an
+  // entry is navigated to, a request is sent to the server. While that request
+  // has not been responded to, the NavigationEntry is pending. Once data is
+  // received for that entry, that NavigationEntry is committed.
+
+  // A transient entry is an entry that, when the user navigates away, is
+  // removed and discarded rather than being added to the back-forward list.
+  // Transient entries are useful for interstitial pages and the like.
 
   // Active entry --------------------------------------------------------------
 
@@ -156,6 +166,16 @@ class NavigationController {
                                    PageTransition type,
                                    const std::string& extra_headers) = 0;
 
+  // Same as LoadURL, but allows overriding the user agent of the
+  // NavigationEntry before it loads.
+  // TODO(dfalcantara): Consolidate the LoadURL* interfaces.
+  virtual void LoadURLWithUserAgentOverride(const GURL& url,
+                                            const Referrer& referrer,
+                                            PageTransition type,
+                                            bool is_renderer_initiated,
+                                            const std::string& extra_headers,
+                                            bool is_overriding_user_agent) = 0;
+
   // Behaves like LoadURL() and LoadURLFromRenderer() but marks the new
   // navigation as being transferred from one RVH to another. In this case the
   // browser can recycle the old request once the new renderer wants to
@@ -179,6 +199,7 @@ class NavigationController {
   // Navigation relative to the "current entry"
   virtual bool CanGoBack() const = 0;
   virtual bool CanGoForward() const = 0;
+  virtual bool CanGoToOffset(int offset) const = 0;
   virtual void GoBack() = 0;
   virtual void GoForward() = 0;
 

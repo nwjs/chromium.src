@@ -4,7 +4,6 @@
 
 #ifndef CHROME_FRAME_TEST_NET_FAKE_EXTERNAL_TAB_H_
 #define CHROME_FRAME_TEST_NET_FAKE_EXTERNAL_TAB_H_
-#pragma once
 
 #include <string>
 
@@ -107,11 +106,6 @@ class CFUrlRequestUnittestRunner
 
   // content::BrowserMainParts implementation.
   virtual void PreEarlyInitialization() OVERRIDE;
-  virtual void PostEarlyInitialization() OVERRIDE {}
-  virtual void PreMainMessageLoopStart() OVERRIDE {}
-  virtual MessageLoop* GetMainMessageLoop() OVERRIDE;
-  virtual void PostMainMessageLoopStart() OVERRIDE {}
-  virtual void ToolkitInitialized() OVERRIDE {}
   virtual int PreCreateThreads() OVERRIDE;
   virtual void PreMainMessageLoopRun() OVERRIDE;
   virtual bool MainMessageLoopRun(int* result_code) OVERRIDE;

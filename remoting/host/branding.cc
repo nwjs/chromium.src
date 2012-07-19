@@ -35,7 +35,7 @@ const FilePath::CharType kConfigDir[] =
 namespace remoting {
 
 #if defined(OS_WIN)
-const char kWindowsServiceName[] = "chromoting";
+const wchar_t kWindowsServiceName[] = L"chromoting";
 #endif
 
 FilePath GetConfigDir() {

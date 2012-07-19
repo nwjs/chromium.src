@@ -26,6 +26,7 @@
 #include "chrome/common/translate_errors.h"
 #include "content/public/common/common_param_traits.h"
 #include "content/public/common/webkit_param_traits.h"
+#include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_platform_file.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -229,16 +230,13 @@ IPC_MESSAGE_CONTROL0(ChromeViewMsg_VisitedLink_Reset)
 IPC_MESSAGE_CONTROL1(ChromeViewMsg_SetContentSettingRules,
                      RendererContentSettingRules /* rules */)
 
-// Tells the render view to load all blocked plugins.
-IPC_MESSAGE_ROUTED0(ChromeViewMsg_LoadBlockedPlugins)
+// Tells the render view to load all blocked plugins with the given identifier.
+IPC_MESSAGE_ROUTED1(ChromeViewMsg_LoadBlockedPlugins,
+                    std::string /* identifier */)
 
 // Asks the renderer to send back stats on the WebCore cache broken down by
 // resource types.
 IPC_MESSAGE_CONTROL0(ChromeViewMsg_GetCacheResourceStats)
-
-// Asks the renderer to send back Histograms.
-IPC_MESSAGE_CONTROL1(ChromeViewMsg_GetRendererHistograms,
-                     int /* sequence number of Renderer Histograms. */)
 
 // Tells the renderer to create a FieldTrial, and by using a 100% probability
 // for the FieldTrial, forces the FieldTrial to have assigned group name.
@@ -247,8 +245,6 @@ IPC_MESSAGE_CONTROL2(ChromeViewMsg_SetFieldTrialGroup,
                      std::string /* group name that was assigned. */)
 
 #if defined(USE_TCMALLOC)
-// Asks the renderer to send back tcmalloc stats.
-IPC_MESSAGE_CONTROL0(ChromeViewMsg_GetRendererTcmalloc)
 // Asks the renderer to enable/disable Tcmalloc heap profiling.
 // Note: filename_prefix arg is effectively ignored since the render process
 // will be unable to write files to disk. Instead use WriteTcmallocHeapProfile
@@ -347,7 +343,7 @@ IPC_MESSAGE_ROUTED0(ChromeViewMsg_GetFPS)
 IPC_MESSAGE_ROUTED0(ChromeViewMsg_SetAsInterstitial)
 
 //-----------------------------------------------------------------------------
-// TabContents messages
+// Misc messages
 // These are messages sent from the renderer to the browser process.
 
 // Provides the contents for the given page that was loaded recently.
@@ -463,6 +459,10 @@ IPC_MESSAGE_ROUTED0(ChromeViewMsg_CancelledDownloadingPlugin)
 // chrome:// URLs.
 IPC_MESSAGE_ROUTED0(ChromeViewHostMsg_OpenAboutPlugins)
 
+// Tells the browser that there was an error loading a plug-in.
+IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_CouldNotLoadPlugin,
+                    FilePath /* plugin_path */)
+
 // Specifies the URL as the first parameter (a wstring) and thumbnail as
 // binary data as the second parameter.
 IPC_MESSAGE_ROUTED3(ChromeViewHostMsg_Thumbnail,
@@ -482,14 +482,14 @@ IPC_MESSAGE_ROUTED3(ChromeViewHostMsg_ForwardMessageToExternalHost,
 
 // A renderer sends this to the browser process when it wants to start
 // a new instance of the Native Client process. The browser will launch
-// the process and return a handle to an IMC channel.
-IPC_SYNC_MESSAGE_CONTROL2_3(ChromeViewHostMsg_LaunchNaCl,
-                            std::wstring /* url for the NaCl module */,
+// the process and return an IPC channel handle. This handle will only
+// be valid if the NaCl IPC proxy is enabled.
+IPC_SYNC_MESSAGE_CONTROL2_2(ChromeViewHostMsg_LaunchNaCl,
+                            GURL /* manifest_url */,
                             int /* socket count */,
                             std::vector<nacl::FileDescriptor>
                                 /* imc channel handles */,
-                            base::ProcessHandle /* NaCl process handle */,
-                            base::ProcessId /* NaCl process id */)
+                            IPC::ChannelHandle /* ipc_channel_handle */)
 
 // Notification that the page has an OpenSearch description document
 // associated with it.
@@ -511,9 +511,6 @@ IPC_MESSAGE_CONTROL2(ChromeViewHostMsg_RendererHistograms,
                      std::vector<std::string>)
 
 #if defined USE_TCMALLOC
-// Send back tcmalloc stats output.
-IPC_MESSAGE_CONTROL1(ChromeViewHostMsg_RendererTcmalloc,
-                     std::string  /* tcmalloc debug output */)
 // Send back tcmalloc profile to write to a file.
 IPC_MESSAGE_CONTROL2(ChromeViewHostMsg_WriteTcmallocHeapProfile_ACK,
                      FilePath::StringType  /* filepath */,
@@ -537,8 +534,9 @@ IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_BlockedOutdatedPlugin,
 
 // Notifies when a plugin couldn't be loaded because it requires
 // user authorization.
-IPC_MESSAGE_ROUTED1(ChromeViewHostMsg_BlockedUnauthorizedPlugin,
-                    string16 /* name */)
+IPC_MESSAGE_ROUTED2(ChromeViewHostMsg_BlockedUnauthorizedPlugin,
+                    string16 /* name */,
+                    std::string /* plug-in group identifier */)
 
 // Provide the browser process with information about the WebCore resource
 // cache and current renderer framerate.

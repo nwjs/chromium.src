@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_MENU_MENU_HOST_H_
 #define UI_VIEWS_CONTROLS_MENU_MENU_HOST_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "ui/gfx/rect.h"
@@ -61,6 +60,7 @@ class MenuHost : public Widget {
   virtual bool ShouldReleaseCaptureOnMouseReleased() const OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
   virtual void OnNativeWidgetDestroyed() OVERRIDE;
+  virtual void OnOwnerClosing() OVERRIDE;
 
   // The view we contain.
   SubmenuView* submenu_;

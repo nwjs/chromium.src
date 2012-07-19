@@ -7,12 +7,15 @@
 
 #include "chrome/installer/setup/install_worker.h"
 
+#include <oaidl.h>
 #include <shlobj.h>
 #include <time.h>
+
 #include <vector>
 
 #include "base/command_line.h"
 #include "base/file_path.h"
+#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
@@ -773,6 +776,44 @@ void AddInstallWorkItems(const InstallationState& original_state,
         WorkItem::ALWAYS_MOVE);
   }
 
+  // Install kVisualElementsManifest if it is present in |src_path|. No need to
+  // make this a conditional work item as if the file is not there now, it will
+  // never be.
+  if (file_util::PathExists(
+          src_path.Append(installer::kVisualElementsManifest))) {
+    install_list->AddMoveTreeWorkItem(
+        src_path.Append(installer::kVisualElementsManifest).value(),
+        target_path.Append(installer::kVisualElementsManifest).value(),
+        temp_path.value(),
+        WorkItem::ALWAYS_MOVE);
+  } else {
+    // We do not want to have an old VisualElementsManifest pointing to an old
+    // version directory. Delete it as there wasn't a new one to replace it.
+    install_list->AddDeleteTreeWorkItem(
+        target_path.Append(installer::kVisualElementsManifest),
+        temp_path);
+  }
+
+  // For the component build to work with the installer, we need to drop a
+  // config file and a manifest by chrome.exe. These files are only found in
+  // the archive if this is a component build.
+#if defined(COMPONENT_BUILD)
+  static const FilePath::CharType kChromeExeConfig[] =
+      FILE_PATH_LITERAL("chrome.exe.config");
+  static const FilePath::CharType kChromeExeManifest[] =
+      FILE_PATH_LITERAL("chrome.exe.manifest");
+  install_list->AddMoveTreeWorkItem(
+      src_path.Append(kChromeExeConfig).value(),
+      target_path.Append(kChromeExeConfig).value(),
+      temp_path.value(),
+      WorkItem::ALWAYS_MOVE);
+  install_list->AddMoveTreeWorkItem(
+      src_path.Append(kChromeExeManifest).value(),
+      target_path.Append(kChromeExeManifest).value(),
+      temp_path.value(),
+      WorkItem::ALWAYS_MOVE);
+#endif  // defined(COMPONENT_BUILD)
+
   // In the past, we copied rather than moved for system level installs so that
   // the permissions of %ProgramFiles% would be picked up.  Now that |temp_path|
   // is in %ProgramFiles% for system level installs (and in %LOCALAPPDATA%
@@ -788,14 +829,6 @@ void AddInstallWorkItems(const InstallationState& original_state,
       temp_path.value(),
       check_for_duplicates ? WorkItem::CHECK_DUPLICATES :
                              WorkItem::ALWAYS_MOVE);
-
-  // Copy the default Dictionaries only if the folder doesn't exist already.
-  // TODO(grt): Use AddMoveTreeWorkItem in a conditional WorkItemList, which
-  // will be more efficient in space and time.
-  install_list->AddCopyTreeWorkItem(
-      src_path.Append(installer::kDictionaries).value(),
-      target_path.Append(installer::kDictionaries).value(),
-      temp_path.value(), WorkItem::IF_NOT_PRESENT);
 
   // Delete any old_chrome.exe if present (ignore failure if it's in use).
   install_list->AddDeleteTreeWorkItem(
@@ -821,6 +854,9 @@ void AddInstallWorkItems(const InstallationState& original_state,
 
     AddVersionKeyWorkItems(root, product->distribution(), new_version,
                            add_language_identifier, install_list);
+
+    AddDelegateExecuteWorkItems(installer_state, src_path, new_version,
+                                *product, install_list);
   }
 
   if (installer_state.is_multi_install()) {
@@ -1023,6 +1059,129 @@ void AddChromeFrameWorkItems(const InstallationState& original_state,
     } else {
       NOTREACHED() << "What happened to Chrome?";
     }
+  }
+}
+
+void AddDelegateExecuteWorkItems(const InstallerState& installer_state,
+                                 const FilePath& src_path,
+                                 const Version& new_version,
+                                 const Product& product,
+                                 WorkItemList* list) {
+  string16 handler_class_uuid;
+  string16 type_lib_uuid;
+  string16 type_lib_version;
+  string16 interface_uuid;
+  BrowserDistribution* distribution = product.distribution();
+  if (!distribution->GetDelegateExecuteHandlerData(
+          &handler_class_uuid, &type_lib_uuid, &type_lib_version,
+          &interface_uuid)) {
+    VLOG(1) << "No DelegateExecute verb handler processing to do for "
+            << distribution->GetAppShortCutName();
+    return;
+  }
+
+  HKEY root = installer_state.root_key();
+  const bool is_install =
+      (installer_state.operation() != InstallerState::UNINSTALL);
+  string16 delegate_execute_path(L"Software\\Classes\\CLSID\\");
+  delegate_execute_path.append(handler_class_uuid);
+  string16 typelib_path(L"Software\\Classes\\TypeLib\\");
+  typelib_path.append(type_lib_uuid);
+  string16 interface_path(L"Software\\Classes\\Interface\\");
+  interface_path.append(interface_uuid);
+
+  // Add work items to register the handler iff it is present.  Remove its
+  // registration otherwise since builds after r132190 included it when it
+  // wasn't strictly necessary.
+  // TODO(grt): remove the extra check for the .exe when it's ever-present;
+  // see also shell_util.cc's GetProgIdEntries.
+  if (is_install &&
+      file_util::PathExists(src_path.AppendASCII(new_version.GetString())
+          .Append(kDelegateExecuteExe))) {
+    VLOG(1) << "Adding registration items for DelegateExecute verb handler.";
+
+    // The path to the exe (in the version directory).
+    FilePath delegate_execute(
+        installer_state.target_path().AppendASCII(new_version.GetString()));
+    delegate_execute = delegate_execute.Append(kDelegateExecuteExe);
+
+    // Command-line featuring the quoted path to the exe.
+    string16 command(1, L'"');
+    command.append(delegate_execute.value()).append(1, L'"');
+
+    // Register the CommandExecuteImpl class at
+    // Software\Classes\CLSID\{5C65F4B0-3651-4514-B207-D10CB699B14B}
+    list->AddCreateRegKeyWorkItem(root, delegate_execute_path);
+    list->AddSetRegValueWorkItem(root, delegate_execute_path, L"",
+                                 L"CommandExecuteImpl Class", true);
+    string16 subkey(delegate_execute_path);
+    subkey.append(L"\\LocalServer32");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", command, true);
+    list->AddSetRegValueWorkItem(root, subkey, L"ServerExecutable",
+                                 delegate_execute.value(), true);
+
+    subkey.assign(delegate_execute_path).append(L"\\Programmable");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+
+    subkey.assign(delegate_execute_path).append(L"\\TypeLib");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", type_lib_uuid, true);
+
+    subkey.assign(delegate_execute_path).append(L"\\Version");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", type_lib_version, true);
+
+    // Register the DelegateExecuteLib type library at
+    // Software\Classes\TypeLib\{4E805ED8-EBA0-4601-9681-12815A56EBFD}
+    list->AddCreateRegKeyWorkItem(root, typelib_path);
+
+    string16 version_key(typelib_path);
+    version_key.append(1, L'\\').append(type_lib_version);
+    list->AddCreateRegKeyWorkItem(root, version_key);
+    list->AddSetRegValueWorkItem(root, version_key, L"", L"DelegateExecuteLib",
+                                 true);
+
+    subkey.assign(version_key).append(L"\\FLAGS");
+    const DWORD flags = LIBFLAG_FRESTRICTED | LIBFLAG_FCONTROL;
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", flags, true);
+
+    subkey.assign(version_key).append(L"\\0");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+
+    subkey.append(L"\\win32");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", delegate_execute.value(),
+                                 true);
+
+    subkey.assign(version_key).append(L"\\HELPDIR");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"",
+                                 delegate_execute.DirName().value(), true);
+
+    // Register to ICommandExecuteImpl interface at
+    // Software\Classes\Interface\{0BA0D4E9-2259-4963-B9AE-A839F7CB7544}
+    list->AddCreateRegKeyWorkItem(root, interface_path);
+    list->AddSetRegValueWorkItem(root, interface_path, L"",
+                                 L"ICommandExecuteImpl", true);
+
+    subkey.assign(interface_path).append(L"\\ProxyStubClsid32");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", kPSOAInterfaceUuid, true);
+
+    subkey.assign(interface_path).append(L"\\TypeLib");
+    list->AddCreateRegKeyWorkItem(root, subkey);
+    list->AddSetRegValueWorkItem(root, subkey, L"", type_lib_uuid, true);
+    list->AddSetRegValueWorkItem(root, subkey, L"Version", type_lib_version,
+                                 true);
+
+  } else {
+    VLOG(1) << "Adding unregistration items for DelegateExecute verb handler.";
+
+    list->AddDeleteRegKeyWorkItem(root, delegate_execute_path);
+    list->AddDeleteRegKeyWorkItem(root, typelib_path);
+    list->AddDeleteRegKeyWorkItem(root, interface_path);
   }
 }
 

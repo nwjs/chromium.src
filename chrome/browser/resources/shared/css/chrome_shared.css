@@ -2,147 +2,64 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
-/* Styles common to WebUI pages that share the options pages style */
-body {
-  cursor: default;
-  font-size: 13px;
+/* This file holds CSS that should be shared, in theory, by all user-visible
+ * chrome:// pages. */
+
+@import url("chrome://resources/css/widgets.css");
+<if expr="pp_ifdef('chromeos')">
+  @import url("chrome://resources/css/chromeos/ui_account_tweaks.css");
+</if>
+
+/* Prevent CSS from overriding the hidden property. */
+[hidden] {
+  display: none !important;
 }
 
-a:link {
-  color: rgb(63, 110, 194);
+html.loading * {
+  -webkit-transition-delay: 0 !important;
+  -webkit-transition-duration: 0 !important;
+}
+
+body {
+  cursor: default;
+  margin: 0;
+}
+
+p {
+  line-height: 1.8em;
+}
+
+h1,
+h2,
+h3 {
+  -webkit-user-select: none;
+  font-weight: normal;
+  /* Makes the vertical size of the text the same for all fonts. */
+  line-height: 1;
+}
+
+h1 {
+  font-size: 1.5em;
+}
+
+h2 {
+  font-size: 1.3em;
+  margin-bottom: 0.4em;
+}
+
+h3 {
+  color: black;
+  font-size: 1.2em;
+  margin-bottom: 0.8em;
+}
+
+a {
+  color: rgb(17, 85, 204);
+  text-decoration: underline;
 }
 
 a:active {
-  color: rgb(37, 64, 113);
-}
-
-#navbar-content-title {
-  -webkit-padding-end: 24px;
-  -webkit-user-select: none;
-  color: #333;
-  cursor: pointer;
-  font-size: 200%;
-  font-weight: normal;
-  margin: 0;
-  padding-bottom: 14px;
-  padding-top: 13px;
-  text-align: end;
-  text-shadow: white 0 1px 2px;
-}
-
-#main-content {
-  bottom: 0;
-  display: -webkit-box;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-
-#navbar {
-  margin: 0;
-}
-
-#navbar-container {
-  -webkit-border-end: 1px solid rgb(198, 201, 206);
-  background-color: #f1f1f1;
-  bottom: 0;
-  /* We set both left and right for the sake of RTL. */
-  left: 0;
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 216px;
-  z-index: 2;
-}
-
-html.hide-menu #navbar-container {
-  display: none;
-}
-
-#navbar-container > ul {
-  -webkit-user-select: none;
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
-}
-
-.navbar-item {
-  -webkit-padding-end: 24px;
-  -webkit-padding-start: 0;
-  border-bottom: 1px solid transparent;
-  border-top: 1px solid transparent;
-  color: #333;
-  cursor: pointer;
-  display: block;
-  font-size: 105%;
-  outline: none;
-  padding-bottom: 7px;
-  padding-top: 7px;
-  text-align: end;
-  text-shadow: white 0 1px 1px;
-}
-
-.navbar-item:focus,
-.navbar-item-selected {
-  border-bottom: 1px solid rgb(143, 170, 217);
-  border-top: 1px solid rgb(143, 170, 217);
-}
-
-.navbar-item-selected {
-  -webkit-box-shadow: 0 1px 0 #f7f7f7;
-  background-color: rgb(187, 206, 233);
-  color: black;
-  text-shadow: rgb(187, 206, 233) 0 1px 1px;
-}
-
-#mainview {
-  -webkit-box-align: stretch;
-  -webkit-padding-start: 216px;
-  bottom: 0;
-  left: 0;
-  margin: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 1;
-}
-
-html.hide-menu #mainview {
-  -webkit-padding-start: 0;
-}
-
-#mainview-content {
-  min-height: 100%;
-  position: relative;
-}
-
-#page-container {
-  box-sizing: border-box;
-  max-width: 888px;
-  min-width: 600px;
-  padding: 0 24px;
-}
-
-div.disabled {
-  color: #888;
-}
-
-/* TEXT */
-input[type='password'],
-input[type='text'],
-input[type='url'],
-input:not([type]) {
-  -webkit-border-radius: 2px;
-  border: 1px solid #aaa;
-  box-sizing: border-box;
-  font: inherit;
-  height: 2em;
-  padding: 4px;
-}
-
-input[type='text']:disabled {
-  color: #888;
+  color: rgb(5, 37, 119);
 }
 
 /* Elements that need to be LTR even in an RTL context, but should align
@@ -179,7 +96,7 @@ html[dir='rtl'] select.weakrtl option {
   direction: ltr;
 }
 
-/* WebKit does not honor alignment for text specified via placeholder attrib.
+/* WebKit does not honor alignment for text specified via placeholder attribute.
  * This CSS is a workaround. Please remove once WebKit bug is fixed.
  * https://bugs.webkit.org/show_bug.cgi?id=63367
  */
@@ -188,15 +105,52 @@ html[dir='rtl'] .weakrtl input::-webkit-input-placeholder {
   direction: rtl;
 }
 
-.page h1 {
-  -webkit-padding-end: 24px;
-  -webkit-user-select: none;
-  border-bottom: 1px solid #eee;
-  color: #333;
-  font-size: 200%;
-  font-weight: normal;
-  margin: 0;
-  padding-bottom: 4px;
-  padding-top: 13px;
-  text-shadow: white 0 1px 2px;
+/* Rules to make it easier to hit targets when using a coarse pointer like
+ * a touch screen.
+ */
+@media (pointer:coarse) {
+  list input[type='input'],
+  list input[type='password'],
+  list input[type='search'],
+  list input[type='text'],
+  list input[type='url'] {
+    margin: 0;
+    padding: 3px 3px 2px 3px;
+  }
+
+  /* Margins are not touchable.  Use padding on the inner label instead to
+    increase the size of the touch target. */
+  .checkbox,
+  .radio {
+    margin: 0;
+  }
+
+  .checkbox label,
+  .radio label {
+    padding-bottom: 7px;
+    padding-top: 7px;
+  }
+
+  li > button.link-button {
+    padding-bottom: 8px;
+    padding-top: 8px;
+  }
+
+  :-webkit-any(button,
+               input[type='button'],
+               input[type='submit'],
+               select):not(.custom-appearance):not(.link-button) {
+    margin-bottom: 6px;
+    margin-top: 6px;
+  }
+
+  list :-webkit-any(
+      button,
+      input[type='button'],
+      input[type='submit'],
+      select):not(.custom-appearance):not(.link-button) {
+    margin: 0;
+    padding-bottom: 0;
+    padding-top: 3px;
+  }
 }

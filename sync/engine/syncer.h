@@ -4,28 +4,25 @@
 
 #ifndef SYNC_ENGINE_SYNCER_H_
 #define SYNC_ENGINE_SYNCER_H_
-#pragma once
 
 #include <utility>
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "sync/engine/conflict_resolver.h"
 #include "sync/engine/syncer_types.h"
-#include "sync/engine/syncproto.h"
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/sessions/sync_session.h"
-#include "sync/syncable/model_type.h"
 #include "sync/util/extensions_activity_monitor.h"
+
+namespace syncer {
 
 namespace syncable {
 class Entry;
 class MutableEntry;
 }  // namespace syncable
-
-namespace browser_sync {
 
 enum SyncerStep {
   SYNCER_BEGIN,
@@ -36,12 +33,9 @@ enum SyncerStep {
   PROCESS_UPDATES,
   STORE_TIMESTAMPS,
   APPLY_UPDATES,
-  BUILD_COMMIT_REQUEST,
-  POST_COMMIT_MESSAGE,
-  PROCESS_COMMIT_RESPONSE,
+  COMMIT,
   RESOLVE_CONFLICTS,
   APPLY_UPDATES_TO_RESOLVE_CONFLICTS,
-  CLEAR_PRIVATE_DATA,  // TODO(tim): Rename 'private' to 'user'.
   SYNCER_END
 };
 
@@ -111,6 +105,6 @@ void CopyServerFields(syncable::Entry* src, syncable::MutableEntry* dest);
 void ClearServerData(syncable::MutableEntry* entry);
 const char* SyncerStepToString(const SyncerStep);
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_SYNCER_H_

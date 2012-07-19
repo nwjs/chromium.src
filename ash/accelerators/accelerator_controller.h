@@ -4,7 +4,6 @@
 
 #ifndef ASH_ACCELERATORS_ACCELERATOR_CONTROLLER_H_
 #define ASH_ACCELERATORS_ACCELERATOR_CONTROLLER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -24,6 +23,7 @@ namespace ash {
 class BrightnessControlDelegate;
 class CapsLockDelegate;
 class ImeControlDelegate;
+class KeyboardBrightnessControlDelegate;
 class ScreenshotDelegate;
 class VolumeControlDelegate;
 
@@ -56,6 +56,18 @@ class ASH_EXPORT AcceleratorController : public ui::AcceleratorTarget {
   // Returns true if an accelerator was activated.
   bool Process(const ui::Accelerator& accelerator);
 
+  // Returns true if the |accelerator| is registered.
+  bool IsRegistered(const ui::Accelerator& accelerator) const;
+
+  // Returns true if the |accelerator| is one of the |reserved_actions_|.
+  bool IsReservedAccelerator(const ui::Accelerator& accelerator) const;
+
+  // Performs the specified action. The |accelerator| may provide additional
+  // data the action needs. Returns whether an action was performed
+  // successfully.
+  bool PerformAction(int action,
+                     const ui::Accelerator& accelerator);
+
   // Overridden from ui::AcceleratorTarget:
   virtual bool AcceleratorPressed(const ui::Accelerator& accelerator) OVERRIDE;
   virtual bool CanHandleAccelerators() const OVERRIDE;
@@ -65,6 +77,9 @@ class ASH_EXPORT AcceleratorController : public ui::AcceleratorTarget {
   void SetCapsLockDelegate(scoped_ptr<CapsLockDelegate> caps_lock_delegate);
   void SetImeControlDelegate(
       scoped_ptr<ImeControlDelegate> ime_control_delegate);
+  void SetKeyboardBrightnessControlDelegate(
+      scoped_ptr<KeyboardBrightnessControlDelegate>
+      keyboard_brightness_control_delegate);
   void SetScreenshotDelegate(
       scoped_ptr<ScreenshotDelegate> screenshot_delegate);
   void SetVolumeControlDelegate(
@@ -72,6 +87,10 @@ class ASH_EXPORT AcceleratorController : public ui::AcceleratorTarget {
 
   BrightnessControlDelegate* brightness_control_delegate() const {
     return brightness_control_delegate_.get();
+  }
+
+  VolumeControlDelegate* volume_control_delegate() const {
+    return volume_control_delegate_.get();
   }
 
  private:
@@ -89,6 +108,8 @@ class ASH_EXPORT AcceleratorController : public ui::AcceleratorTarget {
   scoped_ptr<BrightnessControlDelegate> brightness_control_delegate_;
   scoped_ptr<CapsLockDelegate> caps_lock_delegate_;
   scoped_ptr<ImeControlDelegate> ime_control_delegate_;
+  scoped_ptr<KeyboardBrightnessControlDelegate>
+      keyboard_brightness_control_delegate_;
   scoped_ptr<ScreenshotDelegate> screenshot_delegate_;
   scoped_ptr<VolumeControlDelegate> volume_control_delegate_;
 
@@ -96,8 +117,12 @@ class ASH_EXPORT AcceleratorController : public ui::AcceleratorTarget {
   // the implementation.
   std::map<ui::Accelerator, int> accelerators_;
 
-  // Actions allowed when the user is not signed in or screen is locked
+  // Actions allowed when the user is not signed in.
   std::set<int> actions_allowed_at_login_screen_;
+  // Actions allowed when the screen is locked.
+  std::set<int> actions_allowed_at_lock_screen_;
+  // Reserved actions. See accelerator_table.h for details.
+  std::set<int> reserved_actions_;
 
   DISALLOW_COPY_AND_ASSIGN(AcceleratorController);
 };

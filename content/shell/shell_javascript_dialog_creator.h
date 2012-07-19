@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_SHELL_SHELL_JAVASCRIPT_DIALOG_CREATOR_H_
 #define CONTENT_SHELL_SHELL_JAVASCRIPT_DIALOG_CREATOR_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -24,7 +23,7 @@ class ShellJavaScriptDialogCreator : public JavaScriptDialogCreator {
       WebContents* web_contents,
       const GURL& origin_url,
       const std::string& accept_lang,
-      ui::JavascriptMessageType javascript_message_type,
+      JavaScriptMessageType javascript_message_type,
       const string16& message_text,
       const string16& default_prompt_text,
       const DialogClosedCallback& callback,

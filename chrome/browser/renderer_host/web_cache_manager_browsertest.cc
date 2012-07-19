@@ -8,6 +8,8 @@
 #include "base/process_util.h"
 #include "chrome/browser/renderer_host/web_cache_manager.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/render_process_host.h"
@@ -29,30 +31,30 @@ IN_PROC_BROWSER_TEST_F(WebCacheManagerBrowserTest, CrashOnceOnly) {
 
   ui_test_utils::NavigateToURL(browser(), url);
 
-  browser()->NewTab();
+  chrome::NewTab(browser());
   ui_test_utils::NavigateToURL(browser(), url);
 
-  WebContents* tab = browser()->GetWebContentsAt(0);
+  WebContents* tab = chrome::GetWebContentsAt(browser(), 0);
   ASSERT_TRUE(tab != NULL);
   base::KillProcess(tab->GetRenderProcessHost()->GetHandle(),
                     content::RESULT_CODE_KILLED, true);
 
-  browser()->ActivateTabAt(0, true);
-  browser()->NewTab();
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::NewTab(browser());
   ui_test_utils::NavigateToURL(browser(), url);
 
-  browser()->ActivateTabAt(0, true);
-  browser()->NewTab();
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::NewTab(browser());
   ui_test_utils::NavigateToURL(browser(), url);
 
   // We would have crashed at the above line with the bug.
 
-  browser()->ActivateTabAt(0, true);
-  browser()->CloseTab();
-  browser()->ActivateTabAt(0, true);
-  browser()->CloseTab();
-  browser()->ActivateTabAt(0, true);
-  browser()->CloseTab();
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::CloseTab(browser());
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::CloseTab(browser());
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::CloseTab(browser());
 
   ui_test_utils::NavigateToURL(browser(), url);
 

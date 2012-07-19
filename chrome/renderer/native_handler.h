@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_NATIVE_HANDLER_H_
 #define CHROME_RENDERER_NATIVE_HANDLER_H_
-#pragma once
 
 #include "base/bind.h"
 #include "base/memory/linked_ptr.h"
@@ -29,7 +28,7 @@ class NativeHandler {
 
   // Create an object with bindings to the native functions defined through
   // RouteFunction().
-  v8::Handle<v8::Object> NewInstance();
+  virtual v8::Handle<v8::Object> NewInstance();
 
  protected:
   typedef v8::Handle<v8::Value> (*HandlerFunc)(const v8::Arguments&);

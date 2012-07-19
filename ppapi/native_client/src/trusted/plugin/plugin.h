@@ -25,6 +25,7 @@
 #include "native_client/src/trusted/plugin/service_runtime.h"
 #include "native_client/src/trusted/plugin/utility.h"
 
+#include "ppapi/c/private/ppb_nacl_private.h"
 #include "ppapi/cpp/private/var_private.h"
 // for pp::VarPrivate
 #include "ppapi/cpp/private/instance_private.h"
@@ -318,9 +319,6 @@ class Plugin : public pp::InstancePrivate {
 
  private:
   NACL_DISALLOW_COPY_AND_ASSIGN(Plugin);
-#ifndef HACK_FOR_MACOS_HANG_REMOVED
-  void XYZZY(const nacl::string& url, pp::VarPrivate js_callback);
-#endif  // HACK_FOR_MACOS_HANG_REMOVED
   // Prevent construction and destruction from outside the class:
   // must use factory New() method instead.
   explicit Plugin(PP_Instance instance);
@@ -520,6 +518,11 @@ class Plugin : public pp::InstancePrivate {
   const FileDownloader* FindFileDownloader(PP_Resource url_loader) const;
 
   int64_t time_of_last_progress_event_;
+
+  // Whether we are using IPC-based PPAPI proxy.
+  bool using_ipc_proxy_;
+
+  const PPB_NaCl_Private* nacl_interface_;
 };
 
 }  // namespace plugin

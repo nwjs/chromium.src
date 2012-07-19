@@ -35,10 +35,13 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(
+      const views::GestureEvent& event) OVERRIDE;
 
  protected:
   // ImageButton overrides:
-  virtual SkBitmap GetImageToPaint() OVERRIDE;
+  virtual gfx::ImageSkia GetImageToPaint(
+      ui::ScaleFactor scale_factor) OVERRIDE;
 
  private:
   class EscapeEventFilter;
@@ -53,6 +56,17 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
     SNAP_NONE
   };
 
+  // Initializes the snap-gesture based on the event. This should only be called
+  // when the event is confirmed to have started a snap gesture.
+  void ProcessStartEvent(const views::LocatedEvent& event);
+
+  // Updates the snap-state based on the current event. This should only be
+  // called after the snap gesture has already started.
+  void ProcessUpdateEvent(const views::LocatedEvent& event);
+
+  // Returns true if the window was snapped. Returns false otherwise.
+  bool ProcessEndEvent(const views::LocatedEvent& event);
+
   // Cancels snap behavior.
   void Cancel();
 
@@ -60,9 +74,9 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   void InstallEventFilter();
   void UninstallEventFilter();
 
-  // Updates the snap position from the current location. This is invoked by
+  // Updates the snap position from the event location. This is invoked by
   // |update_timer_|.
-  void UpdateSnapFromCursorScreenPoint();
+  void UpdateSnapFromEventLocation();
 
   // Updates |snap_type_| based on a mouse drag.
   void UpdateSnap(const gfx::Point& location);
@@ -71,7 +85,7 @@ class ASH_EXPORT FrameMaximizeButton : public views::ImageButton {
   SnapType SnapTypeForLocation(const gfx::Point& location) const;
 
   // Returns the bounds of the resulting window for the specified type.
-  gfx::Rect BoundsForType(SnapType type) const;
+  gfx::Rect ScreenBoundsForType(SnapType type) const;
 
   // Converts location to screen coordinates and returns it. These are the
   // coordinates used by the SnapSizer.

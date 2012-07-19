@@ -67,21 +67,17 @@ void NotifyProcessOutput(Profile* profile,
 
 }  // namespace
 
-TerminalPrivateFunction::TerminalPrivateFunction() {
-}
+TerminalPrivateFunction::TerminalPrivateFunction() {}
 
-TerminalPrivateFunction::~TerminalPrivateFunction() {
-}
+TerminalPrivateFunction::~TerminalPrivateFunction() {}
 
 bool TerminalPrivateFunction::RunImpl() {
   return RunTerminalFunction();
 }
 
-OpenTerminalProcessFunction::OpenTerminalProcessFunction() : command_(NULL) {
-}
+OpenTerminalProcessFunction::OpenTerminalProcessFunction() : command_(NULL) {}
 
-OpenTerminalProcessFunction::~OpenTerminalProcessFunction() {
-}
+OpenTerminalProcessFunction::~OpenTerminalProcessFunction() {}
 
 bool OpenTerminalProcessFunction::RunTerminalFunction() {
   if (args_->GetSize() != 1)
@@ -118,8 +114,10 @@ void OpenTerminalProcessFunction::OpenOnFileThread() {
       base::Bind(&OpenTerminalProcessFunction::RespondOnUIThread, this, pid));
 }
 
+SendInputToTerminalProcessFunction::~SendInputToTerminalProcessFunction() {}
+
 void OpenTerminalProcessFunction::RespondOnUIThread(pid_t pid) {
-  result_.reset(new base::FundamentalValue(pid));
+  SetResult(new base::FundamentalValue(pid));
   SendResponse(true);
 }
 
@@ -149,9 +147,11 @@ void SendInputToTerminalProcessFunction::SendInputOnFileThread(pid_t pid,
 }
 
 void SendInputToTerminalProcessFunction::RespondOnUIThread(bool success) {
-  result_.reset(new base::FundamentalValue(success));
+  SetResult(new base::FundamentalValue(success));
   SendResponse(true);
 }
+
+CloseTerminalProcessFunction::~CloseTerminalProcessFunction() {}
 
 bool CloseTerminalProcessFunction::RunTerminalFunction() {
   if (args_->GetSize() != 1)
@@ -176,9 +176,11 @@ void CloseTerminalProcessFunction::CloseOnFileThread(pid_t pid) {
 }
 
 void CloseTerminalProcessFunction::RespondOnUIThread(bool success) {
-  result_.reset(new base::FundamentalValue(success));
+  SetResult(new base::FundamentalValue(success));
   SendResponse(true);
 }
+
+OnTerminalResizeFunction::~OnTerminalResizeFunction() {}
 
 bool OnTerminalResizeFunction::RunTerminalFunction() {
   if (args_->GetSize() != 3)
@@ -215,6 +217,6 @@ void OnTerminalResizeFunction::OnResizeOnFileThread(pid_t pid,
 }
 
 void OnTerminalResizeFunction::RespondOnUIThread(bool success) {
-  result_.reset(new base::FundamentalValue(success));
+  SetResult(new base::FundamentalValue(success));
   SendResponse(true);
 }

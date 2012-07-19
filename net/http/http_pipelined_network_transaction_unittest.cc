@@ -5,6 +5,7 @@
 #include <string>
 
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/memory/scoped_vector.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -113,11 +114,20 @@ class HttpPipelinedNetworkTransactionTest : public testing::Test {
     data_vector_.push_back(data);
   }
 
-  HttpRequestInfo* GetRequestInfo(const char* filename) {
+  enum RequestInfoOptions {
+    REQUEST_DEFAULT,
+    REQUEST_MAIN_RESOURCE,
+  };
+
+  HttpRequestInfo* GetRequestInfo(
+      const char* filename, RequestInfoOptions options = REQUEST_DEFAULT) {
     std::string url = StringPrintf("http://localhost/%s", filename);
     HttpRequestInfo* request_info = new HttpRequestInfo;
     request_info->url = GURL(url);
     request_info->method = "GET";
+    if (options == REQUEST_MAIN_RESOURCE) {
+      request_info->load_flags = LOAD_MAIN_FRAME;
+    }
     request_info_vector_.push_back(request_info);
     return request_info;
   }
@@ -176,32 +186,32 @@ class HttpPipelinedNetworkTransactionTest : public testing::Test {
     ExpectResponse("two.html", two_transaction, SYNCHRONOUS);
   }
 
-  void CompleteFourRequests() {
+  void CompleteFourRequests(RequestInfoOptions options) {
     scoped_ptr<HttpNetworkTransaction> one_transaction(
         new HttpNetworkTransaction(session_.get()));
     TestCompletionCallback one_callback;
     EXPECT_EQ(ERR_IO_PENDING,
-              one_transaction->Start(GetRequestInfo("one.html"),
+              one_transaction->Start(GetRequestInfo("one.html", options),
                                      one_callback.callback(), BoundNetLog()));
     EXPECT_EQ(OK, one_callback.WaitForResult());
 
     HttpNetworkTransaction two_transaction(session_.get());
     TestCompletionCallback two_callback;
     EXPECT_EQ(ERR_IO_PENDING,
-              two_transaction.Start(GetRequestInfo("two.html"),
+              two_transaction.Start(GetRequestInfo("two.html", options),
                                     two_callback.callback(), BoundNetLog()));
 
     HttpNetworkTransaction three_transaction(session_.get());
     TestCompletionCallback three_callback;
     EXPECT_EQ(ERR_IO_PENDING,
-              three_transaction.Start(GetRequestInfo("three.html"),
+              three_transaction.Start(GetRequestInfo("three.html", options),
                                       three_callback.callback(),
                                       BoundNetLog()));
 
     HttpNetworkTransaction four_transaction(session_.get());
     TestCompletionCallback four_callback;
     EXPECT_EQ(ERR_IO_PENDING,
-              four_transaction.Start(GetRequestInfo("four.html"),
+              four_transaction.Start(GetRequestInfo("four.html", options),
                                      four_callback.callback(), BoundNetLog()));
 
     ExpectResponse("one.html", *one_transaction.get(), SYNCHRONOUS);
@@ -218,7 +228,7 @@ class HttpPipelinedNetworkTransactionTest : public testing::Test {
   DeterministicMockClientSocketFactory factory_;
   ClientSocketPoolHistograms histograms_;
   MockTransportClientSocketPool pool_;
-  std::vector<scoped_refptr<DeterministicSocketData> > data_vector_;
+  ScopedVector<DeterministicSocketData> data_vector_;
   TestCompletionCallback callback_;
   ScopedVector<HttpRequestInfo> request_info_vector_;
   bool default_pipelining_enabled_;
@@ -316,7 +326,50 @@ TEST_F(HttpPipelinedNetworkTransactionTest, ReusesOnSpaceAvailable) {
   };
   AddExpectedConnection(reads, arraysize(reads), writes, arraysize(writes));
 
-  CompleteFourRequests();
+  CompleteFourRequests(REQUEST_DEFAULT);
+
+  ClientSocketPoolManager::set_max_sockets_per_group(
+      HttpNetworkSession::NORMAL_SOCKET_POOL, old_max_sockets);
+}
+
+TEST_F(HttpPipelinedNetworkTransactionTest, WontPipelineMainResource) {
+  int old_max_sockets = ClientSocketPoolManager::max_sockets_per_group(
+      HttpNetworkSession::NORMAL_SOCKET_POOL);
+  ClientSocketPoolManager::set_max_sockets_per_group(
+      HttpNetworkSession::NORMAL_SOCKET_POOL, 1);
+  Initialize(false);
+
+  MockWrite writes[] = {
+    MockWrite(SYNCHRONOUS, 0, "GET /one.html HTTP/1.1\r\n"
+              "Host: localhost\r\n"
+              "Connection: keep-alive\r\n\r\n"),
+    MockWrite(SYNCHRONOUS, 4, "GET /two.html HTTP/1.1\r\n"
+              "Host: localhost\r\n"
+              "Connection: keep-alive\r\n\r\n"),
+    MockWrite(SYNCHRONOUS, 8, "GET /three.html HTTP/1.1\r\n"
+              "Host: localhost\r\n"
+              "Connection: keep-alive\r\n\r\n"),
+    MockWrite(SYNCHRONOUS, 12, "GET /four.html HTTP/1.1\r\n"
+              "Host: localhost\r\n"
+              "Connection: keep-alive\r\n\r\n"),
+  };
+  MockRead reads[] = {
+    MockRead(SYNCHRONOUS, 1, "HTTP/1.1 200 OK\r\n"),
+    MockRead(SYNCHRONOUS, 2, "Content-Length: 8\r\n\r\n"),
+    MockRead(SYNCHRONOUS, 3, "one.html"),
+    MockRead(SYNCHRONOUS, 5, "HTTP/1.1 200 OK\r\n"),
+    MockRead(SYNCHRONOUS, 6, "Content-Length: 8\r\n\r\n"),
+    MockRead(SYNCHRONOUS, 7, "two.html"),
+    MockRead(SYNCHRONOUS, 9, "HTTP/1.1 200 OK\r\n"),
+    MockRead(SYNCHRONOUS, 10, "Content-Length: 10\r\n\r\n"),
+    MockRead(SYNCHRONOUS, 11, "three.html"),
+    MockRead(SYNCHRONOUS, 13, "HTTP/1.1 200 OK\r\n"),
+    MockRead(SYNCHRONOUS, 14, "Content-Length: 9\r\n\r\n"),
+    MockRead(SYNCHRONOUS, 15, "four.html"),
+  };
+  AddExpectedConnection(reads, arraysize(reads), writes, arraysize(writes));
+
+  CompleteFourRequests(REQUEST_MAIN_RESOURCE);
 
   ClientSocketPoolManager::set_max_sockets_per_group(
       HttpNetworkSession::NORMAL_SOCKET_POOL, old_max_sockets);
@@ -669,7 +722,7 @@ TEST_F(HttpPipelinedNetworkTransactionTest, PipelinesImmediatelyIfKnownGood) {
   };
   AddExpectedConnection(reads, arraysize(reads), writes, arraysize(writes));
 
-  CompleteFourRequests();
+  CompleteFourRequests(REQUEST_DEFAULT);
 
   HttpNetworkTransaction second_one_transaction(session_.get());
   TestCompletionCallback second_one_callback;
@@ -780,7 +833,7 @@ TEST_F(HttpPipelinedNetworkTransactionTest, OpenPipelinesWhileBinding) {
   // We need to make sure that the response that triggers OnPipelineFeedback(OK)
   // is called in between when task #3 is scheduled and when it runs. The
   // DataRunnerObserver does that.
-  DataRunnerObserver observer(data_vector_[0].get(), 3);
+  DataRunnerObserver observer(data_vector_[0], 3);
   MessageLoop::current()->AddTaskObserver(&observer);
   data_vector_[0]->SetStop(4);
   MessageLoop::current()->RunAllPending();
@@ -795,15 +848,15 @@ TEST_F(HttpPipelinedNetworkTransactionTest, OpenPipelinesWhileBinding) {
 TEST_F(HttpPipelinedNetworkTransactionTest, ProxyChangesWhileConnecting) {
   Initialize(false);
 
-  scoped_refptr<DeterministicSocketData> data(
+  scoped_ptr<DeterministicSocketData> data(
       new DeterministicSocketData(NULL, 0, NULL, 0));
   data->set_connect_data(MockConnect(ASYNC, ERR_CONNECTION_REFUSED));
-  factory_.AddSocketDataProvider(data);
+  factory_.AddSocketDataProvider(data.get());
 
-  scoped_refptr<DeterministicSocketData> data2(
+  scoped_ptr<DeterministicSocketData> data2(
       new DeterministicSocketData(NULL, 0, NULL, 0));
   data2->set_connect_data(MockConnect(ASYNC, ERR_FAILED));
-  factory_.AddSocketDataProvider(data2);
+  factory_.AddSocketDataProvider(data2.get());
 
   HttpNetworkTransaction transaction(session_.get());
   EXPECT_EQ(ERR_IO_PENDING,
@@ -863,10 +916,10 @@ TEST_F(HttpPipelinedNetworkTransactionTest,
        ForcedPipelineConnectionErrorFailsBoth) {
   Initialize(true);
 
-  scoped_refptr<DeterministicSocketData> data(
+  scoped_ptr<DeterministicSocketData> data(
       new DeterministicSocketData(NULL, 0, NULL, 0));
   data->set_connect_data(MockConnect(ASYNC, ERR_FAILED));
-  factory_.AddSocketDataProvider(data);
+  factory_.AddSocketDataProvider(data.get());
 
   scoped_ptr<HttpNetworkTransaction> one_transaction(
       new HttpNetworkTransaction(session_.get()));
@@ -943,10 +996,10 @@ TEST_F(HttpPipelinedNetworkTransactionTest, ForcedPipelineOrder) {
   MockRead reads[] = {
     MockRead(ASYNC, ERR_FAILED, 1),
   };
-  scoped_refptr<DeterministicSocketData> data(new DeterministicSocketData(
+  scoped_ptr<DeterministicSocketData> data(new DeterministicSocketData(
       reads, arraysize(reads), writes, arraysize(writes)));
   data->set_connect_data(MockConnect(ASYNC, OK));
-  factory_.AddSocketDataProvider(data);
+  factory_.AddSocketDataProvider(data.get());
 
   scoped_ptr<HttpNetworkTransaction> one_transaction(
       new HttpNetworkTransaction(session_.get()));

@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_CHANGE_PROCESSOR_MOCK_H__
 #define CHROME_BROWSER_SYNC_GLUE_CHANGE_PROCESSOR_MOCK_H__
-#pragma once
 
 #include "chrome/browser/sync/glue/change_processor.h"
-#include "sync/syncable/syncable.h"
-#include "sync/util/unrecoverable_error_handler.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/util/unrecoverable_error_handler.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace browser_sync {
@@ -19,8 +18,8 @@ class ChangeProcessorMock
   ChangeProcessorMock();
   virtual ~ChangeProcessorMock();
   MOCK_METHOD2(ApplyChangesFromSyncModel,
-               void(const sync_api::BaseTransaction*,
-                    const sync_api::ImmutableChangeRecordList&));
+               void(const syncer::BaseTransaction*,
+                    const syncer::ImmutableChangeRecordList&));
   MOCK_METHOD0(CommitChangesFromSyncModel, void());
   MOCK_METHOD1(StartImpl, void(Profile*));
   MOCK_METHOD0(StopImpl, void());
@@ -30,6 +29,10 @@ class ChangeProcessorMock
   MOCK_METHOD2(OnSingleDatatypeUnrecoverableError,
                      void(const tracked_objects::Location&,
                           const std::string&));
+  MOCK_METHOD3(CreateAndUploadError,
+                   syncer::SyncError(const tracked_objects::Location&,
+                             const std::string&,
+                             syncer::ModelType));
 
 };
 

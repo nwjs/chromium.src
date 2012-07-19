@@ -4,7 +4,6 @@
 
 #ifndef IPC_IPC_EXPORT_H_
 #define IPC_IPC_EXPORT_H_
-#pragma once
 
 // Defines IPC_EXPORT so that functionality implemented by the IPC module can be
 // exported to consumers.
@@ -19,7 +18,11 @@
 #endif  // defined(IPC_IMPLEMENTATION)
 
 #else  // defined(WIN32)
+#if defined(IPC_IMPLEMENTATION)
 #define IPC_EXPORT __attribute__((visibility("default")))
+#else
+#define IPC_EXPORT
+#endif
 #endif
 
 #else  // defined(COMPONENT_BUILD)

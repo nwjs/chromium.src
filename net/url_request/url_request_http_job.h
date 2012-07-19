@@ -4,7 +4,6 @@
 
 #ifndef NET_URL_REQUEST_URL_REQUEST_HTTP_JOB_H_
 #define NET_URL_REQUEST_URL_REQUEST_HTTP_JOB_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -29,7 +28,7 @@ class URLRequestContext;
 
 // A URLRequestJob subclass that is built on top of HttpTransaction.  It
 // provides an implementation for both HTTP and HTTPS.
-class URLRequestHttpJob : public URLRequestJob {
+class NET_EXPORT URLRequestHttpJob : public URLRequestJob {
  public:
   static URLRequestJob* Factory(URLRequest* request,
                                 const std::string& scheme);
@@ -93,15 +92,12 @@ class URLRequestHttpJob : public URLRequestJob {
   virtual HostPortPair GetSocketAddress() const OVERRIDE;
   virtual void NotifyURLRequestDestroyed() OVERRIDE;
 
-  // Keep a reference to the url request context to be sure it's not deleted
-  // before us.
-  scoped_refptr<const URLRequestContext> context_;
-
   HttpRequestInfo request_info_;
   const HttpResponseInfo* response_info_;
 
   std::vector<std::string> response_cookies_;
   size_t response_cookies_save_index_;
+  base::Time response_date_;
 
   // Auth states for proxy and origin server.
   AuthState proxy_auth_state_;
@@ -118,7 +114,8 @@ class URLRequestHttpJob : public URLRequestJob {
 
   scoped_ptr<HttpTransaction> transaction_;
 
-  // This is used to supervise traffic and enforce exponential back-off.
+  // This is used to supervise traffic and enforce exponential
+  // back-off.  May be NULL.
   scoped_refptr<URLRequestThrottlerEntryInterface> throttling_entry_;
 
   // Indicated if an SDCH dictionary was advertised, and hence an SDCH
@@ -141,6 +138,8 @@ class URLRequestHttpJob : public URLRequestJob {
     ABORTED,
     FINISHED
   };
+
+  typedef base::RefCountedData<bool> SharedBoolean;
 
   class HttpFilterContext;
 
@@ -170,8 +169,12 @@ class URLRequestHttpJob : public URLRequestJob {
       const std::string& cookie_line,
       const std::vector<CookieStore::CookieInfo>& cookie_infos);
   void DoStartTransaction();
-  void OnCookieSaved(bool cookie_status);
-  void CookieHandled();
+
+  // See the implementation for a description of save_next_cookie_running and
+  // callback_pending.
+  void OnCookieSaved(scoped_refptr<SharedBoolean> save_next_cookie_running,
+                     scoped_refptr<SharedBoolean> callback_pending,
+                     bool cookie_status);
 
   // Some servers send the body compressed, but specify the content length as
   // the uncompressed size. If this is the case, we return true in order

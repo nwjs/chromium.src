@@ -10,7 +10,6 @@
 
 #ifndef CHROME_RENDERER_EXTENSIONS_APP_BINDINGS_H_
 #define CHROME_RENDERER_EXTENSIONS_APP_BINDINGS_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/renderer/extensions/chrome_v8_extension.h"
@@ -27,7 +26,7 @@ class AppBindings : public ChromeV8Extension, public ChromeV8ExtensionHandler {
                        ChromeV8Context* context);
 
  private:
-  // IPC::Channel::Listener
+  // IPC::Listener
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   v8::Handle<v8::Value> GetIsInstalled(const v8::Arguments& args);
@@ -35,12 +34,15 @@ class AppBindings : public ChromeV8Extension, public ChromeV8ExtensionHandler {
   v8::Handle<v8::Value> GetDetails(const v8::Arguments& args);
   v8::Handle<v8::Value> GetDetailsForFrame(const v8::Arguments& args);
   v8::Handle<v8::Value> GetAppNotifyChannel(const v8::Arguments& args);
+  v8::Handle<v8::Value> GetInstallState(const v8::Arguments& args);
+  v8::Handle<v8::Value> GetRunningState(const v8::Arguments& args);
 
   v8::Handle<v8::Value> GetDetailsForFrameImpl(WebKit::WebFrame* frame);
 
   void OnGetAppNotifyChannelResponse(const std::string& channel_id,
                                      const std::string& error,
                                      int callback_id);
+  void OnAppInstallStateResponse(const std::string& state, int callback_id);
 
   DISALLOW_COPY_AND_ASSIGN(AppBindings);
 };

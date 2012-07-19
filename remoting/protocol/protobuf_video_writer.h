@@ -10,11 +10,8 @@
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "remoting/protocol/buffered_socket_writer.h"
 #include "remoting/protocol/video_writer.h"
-
-namespace base {
-class MessageLoopProxy;
-}  // namespace base
 
 namespace net {
 class StreamSocket;
@@ -23,12 +20,11 @@ class StreamSocket;
 namespace remoting {
 namespace protocol {
 
-class BufferedSocketWriter;
 class Session;
 
 class ProtobufVideoWriter : public VideoWriter {
  public:
-  ProtobufVideoWriter(base::MessageLoopProxy* message_loop);
+  ProtobufVideoWriter();
   virtual ~ProtobufVideoWriter();
 
   // VideoWriter interface.
@@ -40,7 +36,7 @@ class ProtobufVideoWriter : public VideoWriter {
   // VideoStub interface.
   virtual void ProcessVideoPacket(scoped_ptr<VideoPacket> packet,
                                   const base::Closure& done) OVERRIDE;
-  virtual int GetPendingPackets() OVERRIDE;
+  virtual int GetPendingVideoPackets() OVERRIDE;
 
  private:
   void OnChannelReady(scoped_ptr<net::StreamSocket> socket);
@@ -52,7 +48,7 @@ class ProtobufVideoWriter : public VideoWriter {
   // TODO(sergeyu): Remove |channel_| and let |buffered_writer_| own it.
   scoped_ptr<net::StreamSocket> channel_;
 
-  scoped_refptr<BufferedSocketWriter> buffered_writer_;
+  BufferedSocketWriter buffered_writer_;
 
   DISALLOW_COPY_AND_ASSIGN(ProtobufVideoWriter);
 };

@@ -12,9 +12,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_trial.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -33,7 +33,7 @@ using content::Referrer;
 
 namespace {
 
-// User actions on the sync promo (aka "Sign in to Chrome").
+// User actions on the sync promo, i.e., "Sign in to Chrome".
 enum SyncPromoUserFlowActionEnums {
   SYNC_PROMO_VIEWED,
   SYNC_PROMO_LEARN_MORE_CLICKED,
@@ -55,8 +55,8 @@ enum SyncPromoUserFlowActionEnums {
 };
 
 // This was added because of the need to change the existing UMA enum for the
-// sync promo mid-flight. Ideally these values would be contiguous, but the
-// real world is not always ideal.
+// sync promo mid-flight. Ideally these values would be contiguous, but the real
+// world is not always ideal.
 static bool IsValidUserFlowAction(int action) {
   return (action >= SYNC_PROMO_FIRST_VALID_JS_ACTION &&
           action <= SYNC_PROMO_LAST_VALID_JS_ACTION) ||
@@ -67,6 +67,7 @@ static bool IsValidUserFlowAction(int action) {
 
 SyncPromoHandler::SyncPromoHandler(ProfileManager* profile_manager)
     : SyncSetupHandler(profile_manager),
+      prefs_(NULL),
       window_already_closed_(false) {
 }
 
@@ -91,7 +92,7 @@ void SyncPromoHandler::RegisterMessages() {
   if (!web_ui()->GetWebContents()->GetController().GetActiveEntry()->
           IsViewSourceMode()) {
     // Listen to see if the tab we're in gets closed.
-    registrar_.Add(this, content::NOTIFICATION_TAB_CLOSING,
+    registrar_.Add(this, chrome::NOTIFICATION_TAB_CLOSING,
         content::Source<NavigationController>(
             &web_ui()->GetWebContents()->GetController()));
     // Listen to see if the window we're in gets closed.
@@ -99,25 +100,32 @@ void SyncPromoHandler::RegisterMessages() {
         content::NotificationService::AllSources());
   }
 
-  web_ui()->RegisterMessageCallback("SyncPromo:Close",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:Close",
       base::Bind(&SyncPromoHandler::HandleCloseSyncPromo,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncPromo:Initialize",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:Initialize",
       base::Bind(&SyncPromoHandler::HandleInitializeSyncPromo,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncPromo:RecordSignInAttempts",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:RecordSignInAttempts",
       base::Bind(&SyncPromoHandler::HandleRecordSignInAttempts,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncPromo:RecordThrobberTime",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:RecordThrobberTime",
       base::Bind(&SyncPromoHandler::HandleRecordThrobberTime,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncPromo:ShowAdvancedSettings",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:ShowAdvancedSettings",
       base::Bind(&SyncPromoHandler::HandleShowAdvancedSettings,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncPromo:UserFlowAction",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:UserFlowAction",
       base::Bind(&SyncPromoHandler::HandleUserFlowAction,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncPromo:UserSkipped",
+  web_ui()->RegisterMessageCallback(
+      "SyncPromo:UserSkipped",
       base::Bind(&SyncPromoHandler::HandleUserSkipped,
                  base::Unretained(this)));
   SyncSetupHandler::RegisterMessages();
@@ -136,10 +144,10 @@ void SyncPromoHandler::DisplayConfigureSync(bool show_advanced,
     SyncSetupHandler::DisplayConfigureSync(true, passphrase_failed);
   } else {
     // If no passphrase is required then skip the configure pane and sync
-    // everything by default. This makes the first run experience simpler.
-    // Note, there's an advanced link in the sync promo that takes users
-    // to Settings where the configure pane is not skipped.
-    service->OnUserChoseDatatypes(true, syncable::ModelTypeSet());
+    // everything by default. This makes the first run experience simpler. Note,
+    // there's an advanced link in the sync promo that takes users to Settings
+    // where the configure pane is not skipped.
+    service->OnUserChoseDatatypes(true, syncer::ModelTypeSet());
     ConfigureSyncDone();
   }
 }
@@ -148,7 +156,7 @@ void SyncPromoHandler::Observe(int type,
                                const content::NotificationSource& source,
                                const content::NotificationDetails& details) {
   switch (type) {
-    case content::NOTIFICATION_TAB_CLOSING: {
+    case chrome::NOTIFICATION_TAB_CLOSING: {
       if (!window_already_closed_)
         RecordUserFlowAction(SYNC_PROMO_CLOSED_TAB);
       break;
@@ -156,7 +164,7 @@ void SyncPromoHandler::Observe(int type,
     case chrome::NOTIFICATION_BROWSER_CLOSING: {
       // Make sure we're in the tab strip of the closing window.
       Browser* browser = content::Source<Browser>(source).ptr();
-      if (browser->tabstrip_model()->GetWrapperIndex(
+      if (browser->tab_strip_model()->GetIndexOfWebContents(
               web_ui()->GetWebContents()) != TabStripModel::kNoTab) {
         RecordUserFlowAction(SYNC_PROMO_CLOSED_WINDOW);
         window_already_closed_ = true;
@@ -181,11 +189,10 @@ void SyncPromoHandler::HandleCloseSyncPromo(const base::ListValue* args) {
   if (!username.empty())
     prefs_->SetBoolean(prefs::kSyncPromoShowNTPBubble, true);
 
-  // If the browser window is being closed then don't try to navigate to
-  // another URL. This prevents the browser window from flashing during
-  // close.
+  // If the browser window is being closed then don't try to navigate to another
+  // URL. This prevents the browser window from flashing during close.
   Browser* browser =
-      BrowserList::FindBrowserWithWebContents(web_ui()->GetWebContents());
+      browser::FindBrowserWithWebContents(web_ui()->GetWebContents());
   if (!browser || !browser->IsAttemptingToCloseBrowser()) {
     GURL url = SyncPromoUI::GetNextPageURLForSyncPromoURL(
         web_ui()->GetWebContents()->GetURL());
@@ -267,4 +274,10 @@ void SyncPromoHandler::RecordUserFlowAction(int action) {
   // Send an enumeration to our single user flow histogram.
   UMA_HISTOGRAM_ENUMERATION("SyncPromo.UserFlow", action,
                             SYNC_PROMO_BUCKET_BOUNDARY);
+}
+
+void SyncPromoHandler::CloseUI() {
+  // Callers should not ever try to close the promo UI (should only call
+  // CloseUI() if the user is already logged in).
+  NOTREACHED() << "Cannot close the promo UI";
 }

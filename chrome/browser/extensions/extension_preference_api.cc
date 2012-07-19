@@ -5,8 +5,8 @@
 #include "chrome/browser/extensions/extension_preference_api.h"
 
 #include <map>
+#include <utility>
 
-#include "base/json/json_writer.h"
 #include "base/memory/singleton.h"
 #include "base/stl_util.h"
 #include "base/stringprintf.h"
@@ -18,16 +18,19 @@
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_prefs_scope.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_error_utils.h"
-#include "chrome/common/extensions/extension_permission_set.h"
+#include "chrome/common/extensions/permissions/api_permission.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 
 namespace keys = extension_preference_api_constants;
 namespace helpers = extension_preference_helpers;
+
+using extensions::APIPermission;
 
 namespace {
 
@@ -39,61 +42,71 @@ struct PrefMappingEntry {
   const char* browser_pref;
 
   // Permission required to access this preference.
-  // Use ExtensionAPIPermission::kInvalid for |permission| to express that no
+  // Use APIPermission::kInvalid for |permission| to express that no
   // permission is necessary.
-  ExtensionAPIPermission::ID permission;
+  APIPermission::ID permission;
 };
 
 const char kOnPrefChangeFormat[] = "types.ChromeSetting.%s.onChange";
 
 PrefMappingEntry kPrefMapping[] = {
+#if defined(OS_CHROMEOS)
+  { "protectedContentEnabled",
+    prefs::kEnableCrosDRM,
+    APIPermission::kPrivacy
+  },
+#endif  // defined(OS_CHROMEOS)
   { "alternateErrorPagesEnabled",
     prefs::kAlternateErrorPagesEnabled,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "autofillEnabled",
     prefs::kAutofillEnabled,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "hyperlinkAuditingEnabled",
     prefs::kEnableHyperlinkAuditing,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "instantEnabled",
     prefs::kInstantEnabled,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "managedModeEnabled",
     prefs::kInManagedMode,
-    ExtensionAPIPermission::kManagedMode
+    APIPermission::kManagedModePrivate
   },
   { "networkPredictionEnabled",
     prefs::kNetworkPredictionEnabled,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "proxy",
     prefs::kProxy,
-    ExtensionAPIPermission::kProxy
+    APIPermission::kProxy
   },
   { "referrersEnabled",
     prefs::kEnableReferrers,
-    ExtensionAPIPermission::kPrivacy
-  },
-  { "searchSuggestEnabled",
-    prefs::kSearchSuggestEnabled,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "safeBrowsingEnabled",
     prefs::kSafeBrowsingEnabled,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
+  },
+  { "searchSuggestEnabled",
+    prefs::kSearchSuggestEnabled,
+    APIPermission::kPrivacy
+  },
+  { "spellingServiceEnabled",
+    prefs::kSpellCheckUseSpellingService,
+    APIPermission::kPrivacy
   },
   { "thirdPartyCookiesAllowed",
     prefs::kBlockThirdPartyCookies,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   },
   { "translationServiceEnabled",
     prefs::kEnableTranslate,
-    ExtensionAPIPermission::kPrivacy
+    APIPermission::kPrivacy
   }
 };
 
@@ -131,32 +144,6 @@ class InvertBooleanTransformer : public PrefTransformerInterface {
   }
 };
 
-// Returns a string constant (defined in the API) indicating the level of
-// control this extension has over the specified preference.
-const char* GetLevelOfControl(
-    Profile* profile,
-    const std::string& extension_id,
-    const std::string& browser_pref,
-    bool incognito) {
-  PrefService* prefs = incognito ? profile->GetOffTheRecordPrefs()
-                                 : profile->GetPrefs();
-  const PrefService::Preference* pref =
-      prefs->FindPreference(browser_pref.c_str());
-  CHECK(pref);
-  ExtensionPrefs* ep = profile->GetExtensionService()->extension_prefs();
-
-  if (!pref->IsExtensionModifiable())
-    return keys::kNotControllable;
-
-  if (ep->DoesExtensionControlPref(extension_id, browser_pref, incognito))
-    return keys::kControlledByThisExtension;
-
-  if (ep->CanExtensionControlPref(extension_id, browser_pref, incognito))
-    return keys::kControllableByThisExtension;
-
-  return keys::kControlledByOtherExtensions;
-}
-
 class PrefMapping {
  public:
   static PrefMapping* GetInstance() {
@@ -165,7 +152,7 @@ class PrefMapping {
 
   bool FindBrowserPrefForExtensionPref(const std::string& extension_pref,
                                        std::string* browser_pref,
-                                       ExtensionAPIPermission::ID* permission) {
+                                       APIPermission::ID* permission) {
     PrefMap::iterator it = mapping_.find(extension_pref);
     if (it != mapping_.end()) {
       *browser_pref = it->second.first;
@@ -177,7 +164,7 @@ class PrefMapping {
 
   bool FindEventForBrowserPref(const std::string& browser_pref,
                                std::string* event_name,
-                               ExtensionAPIPermission::ID* permission) {
+                               APIPermission::ID* permission) {
     PrefMap::iterator it = event_mapping_.find(browser_pref);
     if (it != event_mapping_.end()) {
       *event_name = it->second.first;
@@ -233,7 +220,7 @@ class PrefMapping {
   }
 
   typedef std::map<std::string,
-                   std::pair<std::string, ExtensionAPIPermission::ID> >
+                   std::pair<std::string, APIPermission::ID> >
           PrefMap;
 
   // Mapping from extension pref keys to browser pref keys and permissions.
@@ -283,7 +270,7 @@ void ExtensionPreferenceEventRouter::OnPrefChanged(
   bool incognito = (pref_service != profile_->GetPrefs());
 
   std::string event_name;
-  ExtensionAPIPermission::ID permission = ExtensionAPIPermission::kInvalid;
+  APIPermission::ID permission = APIPermission::kInvalid;
   bool rv = PrefMapping::GetInstance()->FindEventForBrowserPref(
       browser_pref, &event_name, &permission);
   DCHECK(rv);
@@ -300,40 +287,17 @@ void ExtensionPreferenceEventRouter::OnPrefChanged(
   dict->Set(keys::kValue,
             transformer->BrowserToExtensionPref(pref->GetValue()));
   if (incognito) {
-    ExtensionPrefs* ep = extension_service->extension_prefs();
+    extensions::ExtensionPrefs* ep = extension_service->extension_prefs();
     dict->SetBoolean(keys::kIncognitoSpecific,
                      ep->HasIncognitoPrefValue(browser_pref));
   }
 
-  ExtensionEventRouter* router = profile_->GetExtensionEventRouter();
-  if (!router || !router->HasEventListener(event_name))
-    return;
-  const ExtensionSet* extensions = extension_service->extensions();
-  for (ExtensionSet::const_iterator it = extensions->begin();
-       it != extensions->end(); ++it) {
-    std::string extension_id = (*it)->id();
-    // TODO(bauerb): Only iterate over registered event listeners.
-    if (router->ExtensionHasEventListener(extension_id, event_name) &&
-        (*it)->HasAPIPermission(permission) &&
-        (!incognito || extension_service->CanCrossIncognito(*it))) {
-      std::string level_of_control =
-          GetLevelOfControl(profile_, extension_id, browser_pref, incognito);
-      dict->SetString(keys::kLevelOfControl, level_of_control);
-
-      std::string json_args;
-      base::JSONWriter::Write(&args, &json_args);
-
-      DispatchEvent(extension_id, event_name, json_args);
-    }
-  }
-}
-
-void ExtensionPreferenceEventRouter::DispatchEvent(
-    const std::string& extension_id,
-    const std::string& event_name,
-    const std::string& json_args) {
-  profile_->GetExtensionEventRouter()->DispatchEventToExtension(
-      extension_id, event_name, json_args, NULL, GURL());
+  helpers::DispatchEventToExtensions(profile_,
+                                     event_name,
+                                     &args,
+                                     permission,
+                                     incognito,
+                                     browser_pref);
 }
 
 PreferenceFunction::~PreferenceFunction() { }
@@ -341,7 +305,7 @@ PreferenceFunction::~PreferenceFunction() { }
 bool PreferenceFunction::ValidateBrowserPref(
     const std::string& extension_pref_key,
     std::string* browser_pref_key) {
-  ExtensionAPIPermission::ID permission = ExtensionAPIPermission::kInvalid;
+  APIPermission::ID permission = APIPermission::kInvalid;
   EXTENSION_FUNCTION_VALIDATE(
       PrefMapping::GetInstance()->FindBrowserPrefForExtensionPref(
           extension_pref_key, browser_pref_key, &permission));
@@ -386,7 +350,8 @@ bool GetPreferenceFunction::RunImpl() {
 
   // Retrieve level of control.
   std::string level_of_control =
-      GetLevelOfControl(profile_, extension_id(), browser_pref, incognito);
+      helpers::GetLevelOfControl(profile_, extension_id(), browser_pref,
+                                 incognito);
   result->SetString(keys::kLevelOfControl, level_of_control);
 
   // Retrieve pref value.
@@ -397,12 +362,13 @@ bool GetPreferenceFunction::RunImpl() {
 
   // Retrieve incognito status.
   if (incognito) {
-    ExtensionPrefs* ep = profile_->GetExtensionService()->extension_prefs();
+    extensions::ExtensionPrefs* ep =
+        profile_->GetExtensionService()->extension_prefs();
     result->SetBoolean(keys::kIncognitoSpecific,
                        ep->HasIncognitoPrefValue(browser_pref));
   }
 
-  result_.reset(result.release());
+  SetResult(result.release());
   return true;
 }
 
@@ -417,7 +383,8 @@ bool SetPreferenceFunction::RunImpl() {
   Value* value = NULL;
   EXTENSION_FUNCTION_VALIDATE(details->Get(keys::kValue, &value));
 
-  ExtensionPrefsScope scope = kExtensionPrefsScopeRegular;
+  extensions::ExtensionPrefsScope scope =
+      extensions::kExtensionPrefsScopeRegular;
   if (details->HasKey(keys::kScopeKey)) {
     std::string scope_str;
     EXTENSION_FUNCTION_VALIDATE(
@@ -427,8 +394,9 @@ bool SetPreferenceFunction::RunImpl() {
   }
 
   // Check incognito scope.
-  bool incognito = (scope == kExtensionPrefsScopeIncognitoPersistent ||
-                    scope == kExtensionPrefsScopeIncognitoSessionOnly);
+  bool incognito =
+      (scope == extensions::kExtensionPrefsScopeIncognitoPersistent ||
+       scope == extensions::kExtensionPrefsScopeIncognitoSessionOnly);
   if (incognito) {
     // Regular profiles can't access incognito unless include_incognito is true.
     if (!profile()->IsOffTheRecord() && !include_incognito()) {
@@ -444,7 +412,7 @@ bool SetPreferenceFunction::RunImpl() {
     }
   }
 
-  if (scope == kExtensionPrefsScopeIncognitoSessionOnly &&
+  if (scope == extensions::kExtensionPrefsScopeIncognitoSessionOnly &&
       !profile_->HasOffTheRecordProfile()) {
     error_ = keys::kIncognitoSessionOnlyErrorMessage;
     return false;
@@ -454,7 +422,8 @@ bool SetPreferenceFunction::RunImpl() {
   std::string browser_pref;
   if (!ValidateBrowserPref(pref_key, &browser_pref))
     return false;
-  ExtensionPrefs* prefs = profile_->GetExtensionService()->extension_prefs();
+  extensions::ExtensionPrefs* prefs =
+      profile_->GetExtensionService()->extension_prefs();
   const PrefService::Preference* pref =
       prefs->pref_service()->FindPreference(browser_pref.c_str());
   CHECK(pref);
@@ -488,7 +457,8 @@ bool ClearPreferenceFunction::RunImpl() {
   DictionaryValue* details = NULL;
   EXTENSION_FUNCTION_VALIDATE(args_->GetDictionary(1, &details));
 
-  ExtensionPrefsScope scope = kExtensionPrefsScopeRegular;
+  extensions::ExtensionPrefsScope scope =
+      extensions::kExtensionPrefsScopeRegular;
   if (details->HasKey(keys::kScopeKey)) {
     std::string scope_str;
     EXTENSION_FUNCTION_VALIDATE(
@@ -498,8 +468,9 @@ bool ClearPreferenceFunction::RunImpl() {
   }
 
   // Check incognito scope.
-  bool incognito = (scope == kExtensionPrefsScopeIncognitoPersistent ||
-                    scope == kExtensionPrefsScopeIncognitoSessionOnly);
+  bool incognito =
+      (scope == extensions::kExtensionPrefsScopeIncognitoPersistent ||
+       scope == extensions::kExtensionPrefsScopeIncognitoSessionOnly);
   if (incognito) {
     // We don't check incognito permissions here, as an extension should be
     // always allowed to clear its own settings.
@@ -516,7 +487,8 @@ bool ClearPreferenceFunction::RunImpl() {
   if (!ValidateBrowserPref(pref_key, &browser_pref))
     return false;
 
-  ExtensionPrefs* prefs = profile_->GetExtensionService()->extension_prefs();
+  extensions::ExtensionPrefs* prefs =
+      profile_->GetExtensionService()->extension_prefs();
   prefs->RemoveExtensionControlledPref(extension_id(), browser_pref, scope);
   return true;
 }

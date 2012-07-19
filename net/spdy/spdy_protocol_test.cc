@@ -12,8 +12,8 @@
 namespace {
 
 enum SpdyProtocolTestTypes {
-  SPDY2,
-  SPDY3,
+  SPDY2 = 2,
+  SPDY3 = 3,
 };
 
 } // namespace
@@ -24,18 +24,15 @@ class SpdyProtocolTest
     : public ::testing::TestWithParam<SpdyProtocolTestTypes> {
  protected:
   virtual void SetUp() {
-    spdy_version_ = (GetParam() == SPDY2) ? 2 : 3;
+    spdy_version_ = GetParam();
   }
 
-  virtual void TearDown() {}
-
-  bool IsSpdy2() { return spdy_version_ < 3; }
+  bool IsSpdy2() { return spdy_version_ == SPDY2; }
 
   // Version of SPDY protocol to be used.
   int spdy_version_;
 };
 
-//-----------------------------------------------------------------------------
 // All tests are run with two different SPDY versions: SPDY/2 and SPDY/3.
 INSTANTIATE_TEST_CASE_P(SpdyProtocolTests,
                         SpdyProtocolTest,
@@ -92,7 +89,7 @@ TEST_P(SpdyProtocolTest, ControlFrameStructs) {
   SpdyFramer framer(spdy_version_);
   SpdyHeaderBlock headers;
 
-  const uint8 credential_slot = (IsSpdy2()) ? 0 : 5;
+  const uint8 credential_slot = IsSpdy2() ? 0 : 5;
 
   scoped_ptr<SpdySynStreamControlFrame> syn_frame(framer.CreateSynStream(
       123, 456, 2, credential_slot, CONTROL_FLAG_FIN, false, &headers));
@@ -215,7 +212,7 @@ TEST_P(SpdyProtocolTest, TestSpdySettingsFrame) {
   SpdyFramer framer(spdy_version_);
 
   // Create a settings frame with no settings.
-  SpdySettings settings;
+  SettingsMap settings;
   scoped_ptr<SpdySettingsControlFrame> settings_frame(
       framer.CreateSettings(settings));
   EXPECT_EQ(framer.protocol_version(), settings_frame->version());
@@ -229,32 +226,34 @@ TEST_P(SpdyProtocolTest, TestSpdySettingsFrame) {
     SettingsFlagsAndId::FromWireFormat(spdy_version_, 0x00000000),
     SettingsFlagsAndId::FromWireFormat(spdy_version_, 0xffffffff),
     SettingsFlagsAndId::FromWireFormat(spdy_version_, 0xff000001),
-    SettingsFlagsAndId::FromWireFormat(spdy_version_, 0xffffffff),
     SettingsFlagsAndId::FromWireFormat(spdy_version_, 0x01000002),
-    SettingsFlagsAndId(3, 1)
+    SettingsFlagsAndId(6, 9)
   };
 
   for (size_t index = 0; index < arraysize(ids); ++index) {
-    settings.insert(settings.end(), std::make_pair(ids[index], index));
+    SettingsFlagsAndId flags_and_id = ids[index];
+    SpdySettingsIds id = static_cast<SpdySettingsIds>(flags_and_id.id());
+    SpdySettingsFlags flags =
+        static_cast<SpdySettingsFlags>(flags_and_id.flags());
+    settings[id] = SettingsFlagsAndValue(flags, index);
     settings_frame.reset(framer.CreateSettings(settings));
     EXPECT_EQ(framer.protocol_version(), settings_frame->version());
     EXPECT_TRUE(settings_frame->is_control_frame());
     EXPECT_EQ(SETTINGS, settings_frame->type());
     EXPECT_EQ(index + 1, settings_frame->num_entries());
 
-    SpdySettings parsed_settings;
+    SettingsMap parsed_settings;
     EXPECT_TRUE(framer.ParseSettings(settings_frame.get(), &parsed_settings));
     EXPECT_EQ(settings.size(), parsed_settings.size());
-    SpdySettings::const_iterator it = parsed_settings.begin();
-    int pos = 0;
-    while (it != parsed_settings.end()) {
-      SettingsFlagsAndId parsed = it->first;
-      uint32 value = it->second;
-      EXPECT_EQ(ids[pos].flags(), parsed.flags());
-      EXPECT_EQ(ids[pos].id(), parsed.id());
-      EXPECT_EQ(static_cast<uint32>(pos), value);
-      ++it;
-      ++pos;
+    for (SettingsMap::const_iterator it = parsed_settings.begin();
+         it != parsed_settings.end();
+         it++) {
+      SettingsMap::const_iterator it2 = settings.find(it->first);
+      EXPECT_EQ(it->first, it2->first);
+      SettingsFlagsAndValue parsed = it->second;
+      SettingsFlagsAndValue created = it2->second;
+      EXPECT_EQ(created.first, parsed.first);
+      EXPECT_EQ(created.second, parsed.second);
     }
   }
 }
@@ -273,10 +272,9 @@ TEST_P(SpdyProtocolTest, HasHeaderBlock) {
   }
 }
 
-//-----------------------------------------------------------------------------
-// All tests are run with two different SPDY versions: SPDY/2 and SPDY/3.
 class SpdyProtocolDeathTest : public SpdyProtocolTest {};
 
+// All tests are run with two different SPDY versions: SPDY/2 and SPDY/3.
 INSTANTIATE_TEST_CASE_P(SpdyProtocolDeathTests,
                         SpdyProtocolDeathTest,
                         ::testing::Values(SPDY2, SPDY3));

@@ -4,15 +4,20 @@
 
 #include "chrome/browser/extensions/extension_tab_util.h"
 
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/sessions/restore_tab_helper.h"
-#include "chrome/browser/extensions/extension_tabs_module_constants.h"
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
+#include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/net/url_fixer_upper.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sessions/session_id.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/url_constants.h"
@@ -21,8 +26,7 @@
 #include "content/public/browser/web_contents.h"
 #include "googleurl/src/gurl.h"
 
-namespace keys = extension_tabs_module_constants;
-namespace errors = extension_manifest_errors;
+namespace keys = extensions::tabs_constants;
 
 using content::NavigationEntry;
 using content::WebContents;
@@ -35,51 +39,23 @@ int ExtensionTabUtil::GetWindowIdOfTabStripModel(
     const TabStripModel* tab_strip_model) {
   for (BrowserList::const_iterator it = BrowserList::begin();
        it != BrowserList::end(); ++it) {
-    if ((*it)->tabstrip_model() == tab_strip_model)
+    if ((*it)->tab_strip_model() == tab_strip_model)
       return GetWindowId(*it);
   }
   return -1;
 }
 
-// TODO(sky): this function should really take a TabContentsWrapper.
 int ExtensionTabUtil::GetTabId(const WebContents* web_contents) {
-  const TabContentsWrapper* tab =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
-  return tab ? tab->restore_tab_helper()->session_id().id() : -1;
+  return SessionID::IdForTab(TabContents::FromWebContents(web_contents));
 }
 
 std::string ExtensionTabUtil::GetTabStatusText(bool is_loading) {
   return is_loading ? keys::kStatusValueLoading : keys::kStatusValueComplete;
 }
 
-// TODO(sky): this function should really take a TabContentsWrapper.
 int ExtensionTabUtil::GetWindowIdOfTab(const WebContents* web_contents) {
-  const TabContentsWrapper* tab =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
-  return tab ? tab->restore_tab_helper()->window_id().id() : -1;
-}
-
-// Return the type name for a browser window type.
-std::string ExtensionTabUtil::GetWindowTypeText(const Browser* browser) {
-  if (browser->is_type_popup())
-    return keys::kWindowTypeValuePopup;
-  if (browser->is_type_panel())
-    return keys::kWindowTypeValuePanel;
-  if (browser->is_app())
-    return keys::kWindowTypeValueApp;
-  return keys::kWindowTypeValueNormal;
-}
-
-// Return the state name for a browser window state.
-std::string ExtensionTabUtil::GetWindowShowStateText(const Browser* browser) {
-  BrowserWindow* window = browser->window();
-  if (window->IsMinimized())
-    return keys::kShowStateValueMinimized;
-  if (window->IsFullscreen())
-    return keys::kShowStateValueFullscreen;
-  if (window->IsMaximized())
-    return keys::kShowStateValueMaximized;
-  return keys::kShowStateValueNormal;
+  return SessionID::IdForWindowContainingTab(
+      TabContents::FromWebContents(web_contents));
 }
 
 DictionaryValue* ExtensionTabUtil::CreateTabValue(const WebContents* contents) {
@@ -95,7 +71,7 @@ DictionaryValue* ExtensionTabUtil::CreateTabValue(const WebContents* contents) {
 
 ListValue* ExtensionTabUtil::CreateTabList(const Browser* browser) {
   ListValue* tab_list = new ListValue();
-  TabStripModel* tab_strip = browser->tabstrip_model();
+  TabStripModel* tab_strip = browser->tab_strip_model();
   for (int i = 0; i < tab_strip->count(); ++i) {
     tab_list->Append(ExtensionTabUtil::CreateTabValue(
         tab_strip->GetTabContentsAt(i)->web_contents(), tab_strip, i));
@@ -164,8 +140,8 @@ bool ExtensionTabUtil::GetTabStripModel(const WebContents* web_contents,
 
   for (BrowserList::const_iterator it = BrowserList::begin();
       it != BrowserList::end(); ++it) {
-    TabStripModel* tab_strip = (*it)->tabstrip_model();
-    int index = tab_strip->GetWrapperIndex(web_contents);
+    TabStripModel* tab_strip = (*it)->tab_strip_model();
+    int index = tab_strip->GetIndexOfWebContents(web_contents);
     if (index != -1) {
       *tab_strip_model = tab_strip;
       *tab_index = index;
@@ -177,12 +153,12 @@ bool ExtensionTabUtil::GetTabStripModel(const WebContents* web_contents,
 }
 
 bool ExtensionTabUtil::GetDefaultTab(Browser* browser,
-                                     TabContentsWrapper** contents,
+                                     TabContents** contents,
                                      int* tab_id) {
   DCHECK(browser);
   DCHECK(contents);
 
-  *contents = browser->GetSelectedTabContentsWrapper();
+  *contents = chrome::GetActiveTabContents(browser);
   if (*contents) {
     if (tab_id)
       *tab_id = ExtensionTabUtil::GetTabId((*contents)->web_contents());
@@ -197,7 +173,7 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
                                   bool include_incognito,
                                   Browser** browser,
                                   TabStripModel** tab_strip,
-                                  TabContentsWrapper** contents,
+                                  TabContents** contents,
                                   int* tab_index) {
   Profile* incognito_profile =
       include_incognito && profile->HasOffTheRecordProfile() ?
@@ -207,12 +183,10 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
     Browser* target_browser = *iter;
     if (target_browser->profile() == profile ||
         target_browser->profile() == incognito_profile) {
-      TabStripModel* target_tab_strip = target_browser->tabstrip_model();
+      TabStripModel* target_tab_strip = target_browser->tab_strip_model();
       for (int i = 0; i < target_tab_strip->count(); ++i) {
-        TabContentsWrapper* target_contents =
-            target_tab_strip->GetTabContentsAt(i);
-        if (target_contents->restore_tab_helper()->session_id().id() ==
-            tab_id) {
+        TabContents* target_contents = target_tab_strip->GetTabContentsAt(i);
+        if (SessionID::IdForTab(target_contents) == tab_id) {
           if (browser)
             *browser = target_browser;
           if (tab_strip)
@@ -230,7 +204,7 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
 }
 
 GURL ExtensionTabUtil::ResolvePossiblyRelativeURL(const std::string& url_string,
-                                                  const Extension* extension) {
+    const extensions::Extension* extension) {
   GURL url = GURL(url_string);
   if (!url.is_valid())
     url = extension->GetResourceURL(url_string);
@@ -245,4 +219,47 @@ bool ExtensionTabUtil::IsCrashURL(const GURL& url) {
   return (fixed_url.SchemeIs(chrome::kChromeUIScheme) &&
           (fixed_url.host() == chrome::kChromeUIBrowserCrashHost ||
            fixed_url.host() == chrome::kChromeUICrashHost));
+}
+
+void ExtensionTabUtil::CreateTab(WebContents* web_contents,
+                                 const std::string& extension_id,
+                                 WindowOpenDisposition disposition,
+                                 const gfx::Rect& initial_pos,
+                                 bool user_gesture) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  Browser* browser = browser::FindOrCreateTabbedBrowser(profile);
+  TabContents* tab_contents = new TabContents(web_contents);
+  chrome::NavigateParams params(browser, tab_contents);
+
+  // The extension_app_id parameter ends up as app_name in the Browser
+  // which causes the Browser to return true for is_app().  This affects
+  // among other things, whether the location bar gets displayed.
+  // TODO(mpcomplete): This seems wrong. What if the extension content is hosted
+  // in a tab?
+  if (disposition == NEW_POPUP)
+    params.extension_app_id = extension_id;
+
+  params.disposition = disposition;
+  params.window_bounds = initial_pos;
+  params.window_action = chrome::NavigateParams::SHOW_WINDOW;
+  params.user_gesture = user_gesture;
+  chrome::Navigate(&params);
+}
+
+// static
+void ExtensionTabUtil::ForEachTab(
+    const base::Callback<void(WebContents*)>& callback) {
+  for (TabContentsIterator iterator; !iterator.done(); ++iterator)
+    callback.Run((*iterator)->web_contents());
+}
+
+// static
+extensions::WindowController* ExtensionTabUtil::GetWindowControllerOfTab(
+    const WebContents* web_contents) {
+  Browser* browser = browser::FindBrowserWithWebContents(web_contents);
+  if (browser != NULL)
+    return browser->extension_window_controller();
+
+  return NULL;
 }

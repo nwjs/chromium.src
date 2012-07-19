@@ -5,10 +5,12 @@
 #include "chrome/browser/themes/theme_service.h"
 
 #include "base/bind.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/browser_theme_pack.h"
 #include "chrome/common/chrome_constants.h"
@@ -17,16 +19,23 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/user_metrics.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "grit/ui_resources.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/image/image_skia.h"
 
 #if defined(OS_WIN) && !defined(USE_AURA)
 #include "ui/views/widget/native_widget_win.h"
 #endif
 
+#if defined(USE_AURA) && !defined(USE_ASH) && defined(OS_LINUX)
+#include "ui/base/linux_ui.h"
+#endif
+
 using content::BrowserThread;
 using content::UserMetricsAction;
+using extensions::Extension;
+using ui::ResourceBundle;
 
 // Strings used in alignment properties.
 const char* ThemeService::kAlignmentCenter = "center";
@@ -67,7 +76,7 @@ SkColor IncreaseLightness(SkColor color, double percent) {
 // Default colors.
 #if defined(USE_AURA)
 // TODO(jamescook): Revert this when Aura is using its own window frame
-// implementation by default, specifically BrowserNonClientFrameViewAura.
+// implementation by default, specifically BrowserNonClientFrameViewAsh.
 const SkColor kDefaultColorFrame = SkColorSetRGB(109, 109, 109);
 const SkColor kDefaultColorFrameInactive = SkColorSetRGB(176, 176, 176);
 #else
@@ -113,6 +122,12 @@ const SkColor kDefaultColorNTPSectionText = SK_ColorBLACK;
 const SkColor kDefaultColorNTPSectionLink = SkColorSetRGB(6, 55, 116);
 const SkColor kDefaultColorControlBackground = SkColorSetARGB(0, 0, 0, 0);
 const SkColor kDefaultColorButtonBackground = SkColorSetARGB(0, 0, 0, 0);
+const SkColor kDefaultColorSearchNTPBackground = SkColorSetRGB(245, 245, 245);
+const SkColor kDefaultColorSearchSearchBackground =
+    SkColorSetRGB(245, 245, 245);
+const SkColor kDefaultColorSearchDefaultBackground =
+    SkColorSetRGB(245, 245, 245);
+const SkColor kDefaultColorSearchSeparator = SkColorSetRGB(200, 200, 200);
 #if defined(OS_MACOSX)
 const SkColor kDefaultColorToolbarButtonStroke = SkColorSetARGB(75, 81, 81, 81);
 const SkColor kDefaultColorToolbarButtonStrokeInactive =
@@ -234,6 +249,12 @@ const gfx::Image* ThemeService::GetImageNamed(int id) const {
   if (theme_pack_.get())
     image = theme_pack_->GetImageNamed(id);
 
+#if defined(USE_AURA) && !defined(USE_ASH) && defined(OS_LINUX)
+  const ui::LinuxUI* linux_ui = ui::LinuxUI::instance();
+  if (!image && linux_ui)
+    image = linux_ui->GetThemeImageNamed(id);
+#endif
+
   if (!image)
     image = &rb_.GetNativeImageNamed(id);
 
@@ -241,17 +262,20 @@ const gfx::Image* ThemeService::GetImageNamed(int id) const {
 }
 
 SkBitmap* ThemeService::GetBitmapNamed(int id) const {
-  DCHECK(CalledOnValidThread());
+  const gfx::Image* image = GetImageNamed(id);
+  if (!image)
+    return NULL;
 
-  SkBitmap* bitmap = NULL;
+  return const_cast<SkBitmap*>(image->ToSkBitmap());
+}
 
-  if (theme_pack_.get())
-    bitmap = theme_pack_->GetBitmapNamed(id);
-
-  if (!bitmap)
-    bitmap = rb_.GetBitmapNamed(id);
-
-  return bitmap;
+gfx::ImageSkia* ThemeService::GetImageSkiaNamed(int id) const {
+  const gfx::Image* image = GetImageNamed(id);
+  if (!image)
+    return NULL;
+  // TODO(pkotwicz): Remove this const cast.  The gfx::Image interface returns
+  // its images const. GetImageSkiaNamed() also should but has many callsites.
+  return const_cast<gfx::ImageSkia*>(image->ToImageSkia());
 }
 
 SkColor ThemeService::GetColor(int id) const {
@@ -260,6 +284,12 @@ SkColor ThemeService::GetColor(int id) const {
   SkColor color;
   if (theme_pack_.get() && theme_pack_->GetColor(id, &color))
     return color;
+
+#if defined(USE_AURA) && !defined(USE_ASH) && defined(OS_LINUX)
+  const ui::LinuxUI* linux_ui = ui::LinuxUI::instance();
+  if (linux_ui && linux_ui->GetColor(id, &color))
+    return color;
+#endif
 
   // For backward compat with older themes, some newer colors are generated from
   // older ones if they are missing.
@@ -306,18 +336,18 @@ bool ThemeService::HasCustomImage(int id) const {
   return false;
 }
 
-RefCountedMemory* ThemeService::GetRawData(int id) const {
+base::RefCountedMemory* ThemeService::GetRawData(int id) const {
   // Check to see whether we should substitute some images.
   int ntp_alternate;
   GetDisplayProperty(NTP_LOGO_ALTERNATE, &ntp_alternate);
   if (id == IDR_PRODUCT_LOGO && ntp_alternate != 0)
     id = IDR_PRODUCT_LOGO_WHITE;
 
-  RefCountedMemory* data = NULL;
+  base::RefCountedMemory* data = NULL;
   if (theme_pack_.get())
     data = theme_pack_->GetRawData(id);
   if (!data)
-    data = rb_.LoadDataResourceBytes(id);
+    data = rb_.LoadDataResourceBytes(id, ui::SCALE_FACTOR_100P);
 
   return data;
 }
@@ -508,6 +538,14 @@ SkColor ThemeService::GetDefaultColor(int id) {
       return kDefaultColorControlBackground;
     case COLOR_BUTTON_BACKGROUND:
       return kDefaultColorButtonBackground;
+    case COLOR_SEARCH_NTP_BACKGROUND:
+      return kDefaultColorSearchNTPBackground;
+    case COLOR_SEARCH_SEARCH_BACKGROUND:
+      return kDefaultColorSearchSearchBackground;
+    case COLOR_SEARCH_DEFAULT_BACKGROUND:
+      return kDefaultColorSearchDefaultBackground;
+    case COLOR_SEARCH_SEPARATOR_LINE:
+      return kDefaultColorSearchSeparator;
 #if defined(OS_MACOSX)
     case COLOR_TOOLBAR_BUTTON_STROKE:
       return kDefaultColorToolbarButtonStroke;

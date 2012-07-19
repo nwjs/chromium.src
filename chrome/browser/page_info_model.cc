@@ -13,6 +13,7 @@
 #include "base/string16.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/page_info_model_observer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/ssl_error_info.h"
@@ -228,7 +229,7 @@ PageInfoModel::PageInfoModel(Profile* profile,
         ASCIIToUTF16(ssl_version_str));
 
     bool did_fallback = (ssl.connection_status &
-                         net::SSL_CONNECTION_SSL3_FALLBACK) != 0;
+                         net::SSL_CONNECTION_VERSION_FALLBACK) != 0;
     bool no_renegotiation =
         (ssl.connection_status &
         net::SSL_CONNECTION_NO_RENEGOTIATION_EXTENSION) != 0;
@@ -255,7 +256,7 @@ PageInfoModel::PageInfoModel(Profile* profile,
     }
 
     if (did_fallback) {
-      // For now, only SSLv3 fallback will trigger a warning icon.
+      // For now, only SSL/TLS version fallback will trigger a warning icon.
       if (icon_id < ICON_STATE_WARNING_MINOR)
         icon_id = ICON_STATE_WARNING_MINOR;
       description += ASCIIToUTF16("\n\n");
@@ -278,8 +279,8 @@ PageInfoModel::PageInfoModel(Profile* profile,
   }
 
   // Request the number of visits.
-  HistoryService* history = profile->GetHistoryService(
-      Profile::EXPLICIT_ACCESS);
+  HistoryService* history = HistoryServiceFactory::GetForProfile(
+      profile, Profile::EXPLICIT_ACCESS);
   if (show_history && history) {
     history->GetVisibleVisitCountToHost(
         url,

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_SPEECH_RECOGNITION_PREFERENCES_H_
 #define CONTENT_PUBLIC_BROWSER_SPEECH_RECOGNITION_PREFERENCES_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 
@@ -13,10 +12,7 @@ namespace content {
 class SpeechRecognitionPreferences
     : public base::RefCountedThreadSafe<SpeechRecognitionPreferences> {
  public:
-  // Only to be called on the IO thread.
   virtual bool FilterProfanities() const = 0;
-
-  virtual void SetFilterProfanities(bool filter_profanities) = 0;
 
  protected:
   virtual ~SpeechRecognitionPreferences() {}

@@ -16,7 +16,7 @@
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
-#include "ui/gfx/compositor/layer.h"
+#include "ui/compositor/layer.h"
 
 using std::make_pair;
 
@@ -68,23 +68,22 @@ Shadow::Style GetShadowStyleForWindowLosingActive(
 
 }  // namespace
 
-ShadowController::ShadowController() {
+ShadowController::ShadowController()
+    : ALLOW_THIS_IN_INITIALIZER_LIST(observer_manager_(this)) {
   aura::Env::GetInstance()->AddObserver(this);
   // Watch for window activation changes.
-  Shell::GetRootWindow()->AddObserver(this);
+  aura::client::GetActivationClient(Shell::GetPrimaryRootWindow())->
+      AddObserver(this);
 }
 
 ShadowController::~ShadowController() {
-  for (WindowShadowMap::const_iterator it = window_shadows_.begin();
-       it != window_shadows_.end(); ++it) {
-    it->first->RemoveObserver(this);
-  }
-  Shell::GetRootWindow()->RemoveObserver(this);
+  aura::client::GetActivationClient(Shell::GetPrimaryRootWindow())->
+      RemoveObserver(this);
   aura::Env::GetInstance()->RemoveObserver(this);
 }
 
 void ShadowController::OnWindowInitialized(aura::Window* window) {
-  window->AddObserver(this);
+  observer_manager_.Add(window);
   SetShadowType(window, GetShadowTypeFromWindow(window));
   HandlePossibleShadowVisibilityChange(window);
 }
@@ -96,23 +95,35 @@ void ShadowController::OnWindowPropertyChanged(aura::Window* window,
     HandlePossibleShadowVisibilityChange(window);
     return;
   }
-  if (key == aura::client::kRootWindowActiveWindowKey) {
-    HandleWindowActivationChange(
-        window->GetProperty(aura::client::kRootWindowActiveWindowKey),
-        reinterpret_cast<aura::Window*>(old));
-    return;
-  }
 }
 
 void ShadowController::OnWindowBoundsChanged(aura::Window* window,
-                                             const gfx::Rect& bounds) {
+                                             const gfx::Rect& old_bounds,
+                                             const gfx::Rect& new_bounds) {
   Shadow* shadow = GetShadowForWindow(window);
   if (shadow)
-    shadow->SetContentBounds(gfx::Rect(bounds.size()));
+    shadow->SetContentBounds(gfx::Rect(new_bounds.size()));
 }
 
 void ShadowController::OnWindowDestroyed(aura::Window* window) {
   window_shadows_.erase(window);
+  observer_manager_.Remove(window);
+}
+
+void ShadowController::OnWindowActivated(aura::Window* gaining_active,
+                                         aura::Window* losing_active) {
+  if (gaining_active) {
+    Shadow* shadow = GetShadowForWindow(gaining_active);
+    if (shadow && !ShouldUseSmallShadowForWindow(gaining_active))
+      shadow->SetStyle(Shadow::STYLE_ACTIVE);
+  }
+  if (losing_active) {
+    Shadow* shadow = GetShadowForWindow(losing_active);
+    if (shadow && !ShouldUseSmallShadowForWindow(losing_active)) {
+      shadow->SetStyle(GetShadowStyleForWindowLosingActive(losing_active,
+                                                           gaining_active));
+    }
+  }
 }
 
 bool ShadowController::ShouldShowShadowForWindow(aura::Window* window) const {
@@ -131,23 +142,6 @@ bool ShadowController::ShouldShowShadowForWindow(aura::Window* window) const {
 Shadow* ShadowController::GetShadowForWindow(aura::Window* window) {
   WindowShadowMap::const_iterator it = window_shadows_.find(window);
   return it != window_shadows_.end() ? it->second.get() : NULL;
-}
-
-void ShadowController::HandleWindowActivationChange(
-    aura::Window* gaining_active,
-    aura::Window* losing_active) {
-  if (gaining_active) {
-    Shadow* shadow = GetShadowForWindow(gaining_active);
-    if (shadow && !ShouldUseSmallShadowForWindow(gaining_active))
-      shadow->SetStyle(Shadow::STYLE_ACTIVE);
-  }
-  if (losing_active) {
-    Shadow* shadow = GetShadowForWindow(losing_active);
-    if (shadow && !ShouldUseSmallShadowForWindow(losing_active)) {
-      shadow->SetStyle(GetShadowStyleForWindowLosingActive(losing_active,
-                                                           gaining_active));
-    }
-  }
 }
 
 void ShadowController::HandlePossibleShadowVisibilityChange(

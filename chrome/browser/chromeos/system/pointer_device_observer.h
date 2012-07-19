@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_SYSTEM_POINTER_DEVICE_OBSERVER_H_
 #define CHROME_BROWSER_CHROMEOS_SYSTEM_POINTER_DEVICE_OBSERVER_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -18,7 +17,11 @@ class PointerDeviceObserver : public DeviceHierarchyObserver {
   PointerDeviceObserver();
   virtual ~PointerDeviceObserver();
 
+  // Start observing device hierarchy.
   void Init();
+
+  // Check for presence of devices.
+  void CheckDevices();
 
   class Observer {
    public:
@@ -28,9 +31,6 @@ class PointerDeviceObserver : public DeviceHierarchyObserver {
    protected:
     Observer() {}
     virtual ~Observer();
-
-   private:
-    DISALLOW_COPY_AND_ASSIGN(Observer);
   };
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -42,13 +42,13 @@ class PointerDeviceObserver : public DeviceHierarchyObserver {
   virtual void DeviceRemoved(int device_id) OVERRIDE {}
   virtual void DeviceKeyPressedOrReleased(int device_id) OVERRIDE {}
 
-  // Check for input devices.
+  // Check for pointer devices.
   void CheckTouchpadExists();
   void CheckMouseExists();
 
-  // Callback for input device checks.
-  void TouchpadExists(bool* exists);
-  void MouseExists(bool* exists);
+  // Callback for pointer device checks.
+  void OnTouchpadExists(bool* exists);
+  void OnMouseExists(bool* exists);
 
   ObserverList<Observer> observers_;
 

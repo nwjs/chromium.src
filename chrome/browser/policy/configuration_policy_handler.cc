@@ -24,8 +24,10 @@
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/search_engines/search_terms_data.h"
 #include "chrome/browser/search_engines/template_url.h"
-#include "chrome/common/content_settings.h"
+#include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/extensions/extension.h"
 #include "chrome/common/pref_names.h"
+#include "content/public/browser/notification_service.h"
 #include "grit/generated_resources.h"
 #include "policy/policy_constants.h"
 
@@ -200,6 +202,139 @@ bool TypeCheckingPolicyHandler::CheckAndGetValue(const PolicyMap& policies,
     return false;
   }
   return true;
+}
+
+// ExtensionListPolicyHandler implementation -----------------------------------
+
+ExtensionListPolicyHandler::ExtensionListPolicyHandler(const char* policy_name,
+                                                       const char* pref_path,
+                                                       bool allow_wildcards)
+    : TypeCheckingPolicyHandler(policy_name, base::Value::TYPE_LIST),
+      pref_path_(pref_path),
+      allow_wildcards_(allow_wildcards) {}
+
+ExtensionListPolicyHandler::~ExtensionListPolicyHandler() {}
+
+bool ExtensionListPolicyHandler::CheckPolicySettings(
+    const PolicyMap& policies,
+    PolicyErrorMap* errors) {
+  return CheckAndGetList(policies, errors, NULL);
+}
+
+void ExtensionListPolicyHandler::ApplyPolicySettings(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  const Value* value = policies.GetValue(policy_name());
+  if (value)
+    prefs->SetValue(pref_path(), value->DeepCopy());
+}
+
+const char* ExtensionListPolicyHandler::pref_path() const {
+  return pref_path_;
+}
+
+bool ExtensionListPolicyHandler::CheckAndGetList(
+    const PolicyMap& policies,
+    PolicyErrorMap* errors,
+    const base::ListValue** extension_ids) {
+  if (extension_ids)
+    *extension_ids = NULL;
+
+  const base::Value* value = NULL;
+  if (!CheckAndGetValue(policies, errors, &value))
+    return false;
+
+  if (!value)
+    return true;
+
+  const base::ListValue* list_value = NULL;
+  if (!value->GetAsList(&list_value)) {
+    NOTREACHED();
+    return false;
+  }
+
+  // Check that the list contains valid extension ID strings only.
+  for (base::ListValue::const_iterator entry(list_value->begin());
+       entry != list_value->end(); ++entry) {
+    std::string id;
+    if (!(*entry)->GetAsString(&id)) {
+      errors->AddError(policy_name(),
+                       entry - list_value->begin(),
+                       IDS_POLICY_TYPE_ERROR,
+                       ValueTypeToString(base::Value::TYPE_STRING));
+      return false;
+    }
+    if (!(allow_wildcards_ && id == "*") &&
+        !extensions::Extension::IdIsValid(id)) {
+      errors->AddError(policy_name(),
+                       entry - list_value->begin(),
+                       IDS_POLICY_VALUE_FORMAT_ERROR);
+      return false;
+    }
+  }
+
+  if (extension_ids)
+    *extension_ids = list_value;
+
+  return true;
+}
+
+// ExtensionURLPatternListPolicyHandler implementation -------------------------
+
+ExtensionURLPatternListPolicyHandler::ExtensionURLPatternListPolicyHandler(
+    const char* policy_name,
+    const char* pref_path)
+    : TypeCheckingPolicyHandler(policy_name, base::Value::TYPE_LIST),
+      pref_path_(pref_path) {}
+
+ExtensionURLPatternListPolicyHandler::~ExtensionURLPatternListPolicyHandler() {}
+
+bool ExtensionURLPatternListPolicyHandler::CheckPolicySettings(
+    const PolicyMap& policies,
+    PolicyErrorMap* errors) {
+  const base::Value* value = NULL;
+  if (!CheckAndGetValue(policies, errors, &value))
+    return false;
+
+  if (!value)
+    return true;
+
+  const base::ListValue* list_value = NULL;
+  if (!value->GetAsList(&list_value)) {
+    NOTREACHED();
+    return false;
+  }
+
+  // Check that the list contains valid URLPattern strings only.
+  for (base::ListValue::const_iterator entry(list_value->begin());
+       entry != list_value->end(); ++entry) {
+    std::string url_pattern_string;
+    if (!(*entry)->GetAsString(&url_pattern_string)) {
+      errors->AddError(policy_name(),
+                       entry - list_value->begin(),
+                       IDS_POLICY_TYPE_ERROR,
+                       ValueTypeToString(base::Value::TYPE_STRING));
+      return false;
+    }
+
+    URLPattern pattern(URLPattern::SCHEME_ALL);
+    if (pattern.Parse(url_pattern_string) != URLPattern::PARSE_SUCCESS) {
+      errors->AddError(policy_name(),
+                       entry - list_value->begin(),
+                       IDS_POLICY_VALUE_FORMAT_ERROR);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void ExtensionURLPatternListPolicyHandler::ApplyPolicySettings(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  const Value* value = policies.GetValue(policy_name());
+  if (value)
+    prefs->SetValue(pref_path_, value->DeepCopy());
 }
 
 // SimplePolicyHandler implementation ------------------------------------------
@@ -514,44 +649,48 @@ void DefaultSearchPolicyHandler::ApplyPolicySettings(const PolicyMap& policies,
     prefs->SetString(prefs::kDefaultSearchProviderEncodings, std::string());
     prefs->SetString(prefs::kDefaultSearchProviderKeyword, std::string());
     prefs->SetString(prefs::kDefaultSearchProviderInstantURL, std::string());
-    return;
+  } else {
+    // The search URL is required.  The other entries are optional.  Just make
+    // sure that they are all specified via policy, so that the regular prefs
+    // aren't used.
+    const Value* dummy;
+    std::string url;
+    if (DefaultSearchURLIsValid(policies, &dummy, &url)) {
+      for (std::vector<ConfigurationPolicyHandler*>::const_iterator handler =
+           handlers_.begin(); handler != handlers_.end(); ++handler)
+        (*handler)->ApplyPolicySettings(policies, prefs);
+
+      EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderSuggestURL);
+      EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderIconURL);
+      EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderEncodings);
+      EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderKeyword);
+      EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderInstantURL);
+
+      // For the name and keyword, default to the host if not specified.  If
+      // there is no host (file: URLs?  Not sure), use "_" to guarantee that the
+      // keyword is non-empty.
+      std::string name, keyword;
+      std::string host(GURL(url).host());
+      if (host.empty())
+        host = "_";
+      if (!prefs->GetString(prefs::kDefaultSearchProviderName, &name) ||
+          name.empty())
+        prefs->SetString(prefs::kDefaultSearchProviderName, host);
+      if (!prefs->GetString(prefs::kDefaultSearchProviderKeyword, &keyword) ||
+          keyword.empty())
+        prefs->SetString(prefs::kDefaultSearchProviderKeyword, host);
+
+      // And clear the IDs since these are not specified via policy.
+      prefs->SetString(prefs::kDefaultSearchProviderID, std::string());
+      prefs->SetString(prefs::kDefaultSearchProviderPrepopulateID,
+                       std::string());
+    }
   }
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_DEFAULT_SEARCH_POLICY_CHANGED,
+      content::NotificationService::AllSources(),
+      content::NotificationService::NoDetails());
 
-  // The search URL is required.  The other entries are optional.  Just make
-  // sure that they are all specified via policy, so that the regular prefs
-  // aren't used.
-  const Value* dummy;
-  std::string url;
-  if (DefaultSearchURLIsValid(policies, &dummy, &url)) {
-    std::vector<ConfigurationPolicyHandler*>::const_iterator handler;
-    for (handler = handlers_.begin() ; handler != handlers_.end(); ++handler)
-      (*handler)->ApplyPolicySettings(policies, prefs);
-
-    EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderSuggestURL);
-    EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderIconURL);
-    EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderEncodings);
-    EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderKeyword);
-    EnsureStringPrefExists(prefs, prefs::kDefaultSearchProviderInstantURL);
-
-    // For the name and keyword, default to the host if not specified.  If there
-    // is no host (file: URLs?  Not sure), use "_" to guarantee that the keyword
-    // is non-empty.
-    std::string name, keyword;
-    std::string host(GURL(url).host());
-    if (host.empty())
-      host = "_";
-    if (!prefs->GetString(prefs::kDefaultSearchProviderName, &name) ||
-        name.empty())
-      prefs->SetString(prefs::kDefaultSearchProviderName, host);
-    if (!prefs->GetString(prefs::kDefaultSearchProviderKeyword, &keyword) ||
-        keyword.empty())
-      prefs->SetString(prefs::kDefaultSearchProviderKeyword, host);
-
-    // And clear the IDs since these are not specified via policy.
-    prefs->SetString(prefs::kDefaultSearchProviderID, std::string());
-    prefs->SetString(prefs::kDefaultSearchProviderPrepopulateID,
-                     std::string());
-  }
 }
 
 bool DefaultSearchPolicyHandler::CheckIndividualPolicies(
@@ -585,9 +724,8 @@ bool DefaultSearchPolicyHandler::DefaultSearchProviderIsDisabled(
   const Value* provider_enabled =
       policies.GetValue(key::kDefaultSearchProviderEnabled);
   bool enabled = true;
-  return provider_enabled &&
-         provider_enabled->GetAsBoolean(&enabled) &&
-         !enabled;
+  return provider_enabled && provider_enabled->GetAsBoolean(&enabled) &&
+      !enabled;
 }
 
 bool DefaultSearchPolicyHandler::DefaultSearchURLIsValid(
@@ -595,12 +733,14 @@ bool DefaultSearchPolicyHandler::DefaultSearchURLIsValid(
     const Value** url_value,
     std::string* url_string) {
   *url_value = policies.GetValue(key::kDefaultSearchProviderSearchURL);
-  if (!*url_value || !(*url_value)->GetAsString(url_string))
+  if (!*url_value || !(*url_value)->GetAsString(url_string) ||
+      url_string->empty())
     return false;
-  TemplateURL t_url;
-  t_url.SetURL(*url_string);
+  TemplateURLData data;
+  data.SetURL(*url_string);
   SearchTermsData search_terms_data;
-  return t_url.url_ref().SupportsReplacementUsingTermsData(search_terms_data);
+  return TemplateURL(NULL, data).SupportsReplacementUsingTermsData(
+      search_terms_data);
 }
 
 void DefaultSearchPolicyHandler::EnsureStringPrefExists(
@@ -955,51 +1095,179 @@ void JavascriptPolicyHandler::ApplyPolicySettings(const PolicyMap& policies,
   }
 }
 
+// ClearSiteDataOnExitPolicyHandler implementation -----------------------------
+
+ClearSiteDataOnExitPolicyHandler::ClearSiteDataOnExitPolicyHandler()
+    : TypeCheckingPolicyHandler(key::kClearSiteDataOnExit,
+                                Value::TYPE_BOOLEAN) {
+}
+
+ClearSiteDataOnExitPolicyHandler::~ClearSiteDataOnExitPolicyHandler() {
+}
+
+bool ClearSiteDataOnExitPolicyHandler::CheckPolicySettings(
+    const PolicyMap& policies,
+    PolicyErrorMap* errors) {
+  ContentSetting content_setting = CONTENT_SETTING_DEFAULT;
+  if (ClearSiteDataEnabled(policies) &&
+      GetContentSetting(policies, &content_setting) &&
+      content_setting == CONTENT_SETTING_ALLOW) {
+    errors->AddError(key::kDefaultCookiesSetting,
+                     IDS_POLICY_OVERRIDDEN,
+                     policy_name());
+  }
+
+  return TypeCheckingPolicyHandler::CheckPolicySettings(policies, errors);
+}
+
+void ClearSiteDataOnExitPolicyHandler::ApplyPolicySettings(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  if (ClearSiteDataEnabled(policies)) {
+    ContentSetting content_setting = CONTENT_SETTING_DEFAULT;
+    if (!GetContentSetting(policies, &content_setting) ||
+        content_setting == CONTENT_SETTING_ALLOW) {
+      prefs->SetValue(
+          prefs::kManagedDefaultCookiesSetting,
+          Value::CreateIntegerValue(CONTENT_SETTING_SESSION_ONLY));
+    }
+  }
+}
+
+bool ClearSiteDataOnExitPolicyHandler::ClearSiteDataEnabled(
+    const PolicyMap& policies) {
+  const base::Value* value = NULL;
+  PolicyErrorMap errors;
+  bool clear_site_data = false;
+
+  return (CheckAndGetValue(policies, &errors, &value) &&
+          value &&
+          value->GetAsBoolean(&clear_site_data) &&
+          clear_site_data);
+}
+
+// static
+bool ClearSiteDataOnExitPolicyHandler::GetContentSetting(
+    const PolicyMap& policies,
+    ContentSetting* content_setting) {
+  const base::Value* value = policies.GetValue(key::kDefaultCookiesSetting);
+  int setting = CONTENT_SETTING_DEFAULT;
+  if (value && value->GetAsInteger(&setting)) {
+    *content_setting = static_cast<ContentSetting>(setting);
+    return true;
+  }
+
+  return false;
+}
+
 // RestoreOnStartupPolicyHandler implementation --------------------------------
 
 RestoreOnStartupPolicyHandler::RestoreOnStartupPolicyHandler()
-    : SimplePolicyHandler(key::kRestoreOnStartup,
-                          prefs::kRestoreOnStartup,
-                          Value::TYPE_INTEGER) {
+    : TypeCheckingPolicyHandler(key::kRestoreOnStartup,
+                                Value::TYPE_INTEGER) {
 }
 
 RestoreOnStartupPolicyHandler::~RestoreOnStartupPolicyHandler() {
 }
 
+void RestoreOnStartupPolicyHandler::ApplyPolicySettings(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  const Value* restore_on_startup_value = policies.GetValue(policy_name());
+  if (restore_on_startup_value) {
+    int restore_on_startup;
+    if (!restore_on_startup_value->GetAsInteger(&restore_on_startup))
+      return;
+
+    if (restore_on_startup == SessionStartupPref::kPrefValueHomePage)
+      ApplyPolicySettingsFromHomePage(policies, prefs);
+    else
+      prefs->SetInteger(prefs::kRestoreOnStartup, restore_on_startup);
+  }
+}
+
+void RestoreOnStartupPolicyHandler::ApplyPolicySettingsFromHomePage(
+    const PolicyMap& policies,
+    PrefValueMap* prefs) {
+  const base::Value* homepage_is_new_tab_page_value =
+      policies.GetValue(key::kHomepageIsNewTabPage);
+  if (!homepage_is_new_tab_page_value) {
+    // The policy is enforcing 'open the homepage on startup' but not
+    // enforcing what the homepage should be. Don't set any prefs.
+    return;
+  }
+
+  bool homepage_is_new_tab_page;
+  if (!homepage_is_new_tab_page_value->GetAsBoolean(&homepage_is_new_tab_page))
+    return;
+
+  if (homepage_is_new_tab_page) {
+    prefs->SetInteger(prefs::kRestoreOnStartup,
+                      SessionStartupPref::kPrefValueNewTab);
+  } else {
+    const base::Value* homepage_value =
+        policies.GetValue(key::kHomepageLocation);
+    if (!homepage_value || !homepage_value->IsType(base::Value::TYPE_STRING)) {
+      // The policy is enforcing 'open the homepage on startup' but not
+      // enforcing what the homepage should be. Don't set any prefs.
+      return;
+    }
+    ListValue* url_list = new ListValue();
+    url_list->Append(homepage_value->DeepCopy());
+    prefs->SetInteger(prefs::kRestoreOnStartup,
+                      SessionStartupPref::kPrefValueURLs);
+    prefs->SetValue(prefs::kURLsToRestoreOnStartup, url_list);
+  }
+}
+
 bool RestoreOnStartupPolicyHandler::CheckPolicySettings(
     const PolicyMap& policies,
     PolicyErrorMap* errors) {
-  if (!SimplePolicyHandler::CheckPolicySettings(policies, errors))
+  if (!TypeCheckingPolicyHandler::CheckPolicySettings(policies, errors))
     return false;
 
-  // If the restore urls at start up policy is set, session cookies are treated
-  // as permanent cookies and site data needed to restore the session is not
-  // cleared so we have to warn the user in that case.
   const base::Value* restore_policy = policies.GetValue(key::kRestoreOnStartup);
 
   if (restore_policy) {
     int restore_value;
-    if (restore_policy->GetAsInteger(&restore_value) &&
-        SessionStartupPref::PrefValueToType(restore_value) ==
-            SessionStartupPref::LAST) {
+    if (restore_policy->GetAsInteger(&restore_value)) {
+      switch (restore_value) {
+        case SessionStartupPref::kPrefValueHomePage:
+          errors->AddError(policy_name(), IDS_POLICY_VALUE_DEPRECATED);
+          break;
+        case SessionStartupPref::kPrefValueLast: {
+          // If the "restore last session" policy is set, session cookies are
+          // treated as permanent cookies and site data needed to restore the
+          // session is not cleared so we have to warn the user in that case.
+          const base::Value* cookies_policy =
+              policies.GetValue(key::kCookiesSessionOnlyForUrls);
+          const base::ListValue *cookies_value;
+          if (cookies_policy && cookies_policy->GetAsList(&cookies_value) &&
+              !cookies_value->empty()) {
+            errors->AddError(key::kCookiesSessionOnlyForUrls,
+                             IDS_POLICY_OVERRIDDEN,
+                             key::kRestoreOnStartup);
+          }
 
-      const base::Value* cookies_policy =
-          policies.GetValue(key::kCookiesSessionOnlyForUrls);
-      const base::ListValue *cookies_value;
-      if (cookies_policy && cookies_policy->GetAsList(&cookies_value) &&
-          !cookies_value->empty()) {
-        errors->AddError(key::kCookiesSessionOnlyForUrls,
-                         IDS_POLICY_OVERRIDDEN,
-                         key::kRestoreOnStartup);
-      }
-
-      const base::Value* exit_policy =
-          policies.GetValue(key::kClearSiteDataOnExit);
-      bool exit_value;
-      if (exit_policy && exit_policy->GetAsBoolean(&exit_value) && exit_value) {
-        errors->AddError(key::kClearSiteDataOnExit,
-                         IDS_POLICY_OVERRIDDEN,
-                         key::kRestoreOnStartup);
+          const base::Value* exit_policy =
+              policies.GetValue(key::kClearSiteDataOnExit);
+          bool exit_value;
+          if (exit_policy &&
+              exit_policy->GetAsBoolean(&exit_value) && exit_value) {
+            errors->AddError(key::kClearSiteDataOnExit,
+                             IDS_POLICY_OVERRIDDEN,
+                             key::kRestoreOnStartup);
+          }
+          break;
+        }
+        case SessionStartupPref::kPrefValueURLs:
+        case SessionStartupPref::kPrefValueNewTab:
+          // No error
+          break;
+        default:
+          errors->AddError(policy_name(),
+                           IDS_POLICY_OUT_OF_RANGE_ERROR,
+                           base::IntToString(restore_value));
       }
     }
   }

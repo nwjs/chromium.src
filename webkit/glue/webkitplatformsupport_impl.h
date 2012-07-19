@@ -10,6 +10,7 @@
 #include "base/threading/thread_local_storage.h"
 #include "base/timer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebKitPlatformSupport.h"
+#include "ui/base/layout.h"
 #include "webkit/glue/resource_loader_bridge.h"
 #include "webkit/glue/webkit_glue_export.h"
 
@@ -17,7 +18,9 @@
 #include "webkit/glue/webthemeengine_impl_win.h"
 #elif defined(OS_MACOSX)
 #include "webkit/glue/webthemeengine_impl_mac.h"
-#elif defined(OS_POSIX)
+#elif defined(OS_ANDROID)
+#include "webkit/glue/webthemeengine_impl_android.h"
+#elif defined(OS_POSIX) && !defined(OS_ANDROID)
 #include "webkit/glue/webthemeengine_impl_linux.h"
 #endif
 
@@ -60,6 +63,13 @@ class WEBKIT_GLUE_EXPORT WebKitPlatformSupportImpl :
       const WebKit::WebURL& url);
   virtual size_t memoryUsageMB();
   virtual size_t actualMemoryUsageMB();
+#if defined(OS_ANDROID)  // Other OSes just use the default values.
+  virtual size_t lowMemoryUsageMB() OVERRIDE;
+  virtual size_t highMemoryUsageMB() OVERRIDE;
+  virtual size_t highUsageDeltaMB() OVERRIDE;
+#endif
+  virtual bool processMemorySizesInBytes(size_t* private_bytes,
+                                         size_t* shared_bytes);
   virtual WebKit::WebURLLoader* createURLLoader();
   virtual WebKit::WebSocketStreamHandle* createSocketStreamHandle();
   virtual WebKit::WebString userAgent(const WebKit::WebURL& url);
@@ -119,7 +129,8 @@ class WEBKIT_GLUE_EXPORT WebKitPlatformSupportImpl :
 
   // Returns the raw data for a resource.  This resource must have been
   // specified as BINDATA in the relevant .rc file.
-  virtual base::StringPiece GetDataResource(int resource_id) = 0;
+  virtual base::StringPiece GetDataResource(int resource_id,
+                                            ui::ScaleFactor scale_factor) = 0;
 
   // Returns the list of plugins.
   virtual void GetPlugins(bool refresh,

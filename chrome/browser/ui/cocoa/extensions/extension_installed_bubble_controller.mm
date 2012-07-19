@@ -33,6 +33,7 @@
 
 using content::BrowserThread;
 using extensions::BundleInstaller;
+using extensions::Extension;
 
 // C++ class that receives EXTENSION_LOADED notifications and proxies them back
 // to |controller|.
@@ -112,7 +113,7 @@ class ExtensionLoadedNotificationObserver
                !extension->page_action()->default_icon_path().empty()) {
       type_ = extension_installed_bubble::kPageAction;
     } else {
-      NOTREACHED();  // kGeneric installs handled in the extension_install_ui.
+      NOTREACHED();  // kGeneric installs handled in extension_install_prompt.
     }
 
     if (type_ == extension_installed_bubble::kBundle) {

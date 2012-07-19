@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/login/login_prompt.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -52,6 +53,10 @@ class CancelLoginDialog : public content::NotificationObserver {
 class ExtensionWebRequestApiTest : public ExtensionApiTest {
  public:
   virtual void SetUpInProcessBrowserTestFixture() {
+    // TODO(battre): remove this when declarative webRequest API becomes stable.
+    CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kEnableExperimentalExtensionApis);
+
     ExtensionApiTest::SetUpInProcessBrowserTestFixture();
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(StartTestServer());
@@ -79,7 +84,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestAuthRequired) {
       message_;
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestBlocking) {
+// This test times out regularly on win_rel trybots. See http://crbug.com/122178
+#if defined(OS_WIN)
+#define MAYBE_WebRequestBlocking DISABLED_WebRequestBlocking
+#else
+#define MAYBE_WebRequestBlocking WebRequestBlocking
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, MAYBE_WebRequestBlocking) {
   ASSERT_TRUE(RunExtensionSubtest("webrequest", "test_blocking.html")) <<
       message_;
 }
@@ -89,13 +100,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestNewTab) {
   ASSERT_TRUE(RunExtensionSubtest("webrequest", "test_newTab.html"))
       << message_;
 
-  WebContents* tab = browser()->GetSelectedWebContents();
+  WebContents* tab = chrome::GetActiveWebContents(browser());
   ui_test_utils::WaitForLoadStop(tab);
 
   ResultCatcher catcher;
 
   ExtensionService* service = browser()->profile()->GetExtensionService();
-  const Extension* extension =
+  const extensions::Extension* extension =
       service->GetExtensionById(last_loaded_extension_id_, false);
   GURL url = extension->GetResourceURL("newTab/a.html");
 
@@ -114,4 +125,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestNewTab) {
   tab->GetRenderViewHost()->ForwardMouseEvent(mouse_event);
 
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestDeclarative) {
+  ASSERT_TRUE(RunExtensionSubtest("webrequest", "test_declarative.html")) <<
+      message_;
 }

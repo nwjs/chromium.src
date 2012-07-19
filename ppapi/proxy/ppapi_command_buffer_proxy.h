@@ -4,7 +4,6 @@
 
 #ifndef PPAPI_PROXY_COMMAND_BUFFER_PROXY_H_
 #define PPAPI_PROXY_COMMAND_BUFFER_PROXY_H_
-#pragma once
 
 #include "base/callback.h"
 #include "base/hash_tables.h"
@@ -36,6 +35,10 @@ class PPAPI_PROXY_EXPORT PpapiCommandBufferProxy : public CommandBufferProxy {
   virtual bool SetSurfaceVisible(bool visible) OVERRIDE;
   virtual bool DiscardBackbuffer() OVERRIDE;
   virtual bool EnsureBackbuffer() OVERRIDE;
+  virtual uint32 InsertSyncPoint() OVERRIDE;
+  virtual void WaitSyncPoint(uint32 sync_point) OVERRIDE;
+  virtual bool SignalSyncPoint(uint32 sync_point,
+                               const base::Closure& callback) OVERRIDE;
   virtual void SetMemoryAllocationChangedCallback(
       const base::Callback<void(const GpuMemoryAllocationForRenderer&)>&
           callback) OVERRIDE;
@@ -66,7 +69,7 @@ class PPAPI_PROXY_EXPORT PpapiCommandBufferProxy : public CommandBufferProxy {
 
  private:
   bool Send(IPC::Message* msg);
-  void UpdateState(const gpu::CommandBuffer::State& state);
+  void UpdateState(const gpu::CommandBuffer::State& state, bool success);
 
   typedef base::hash_map<int32, gpu::Buffer> TransferBufferMap;
   TransferBufferMap transfer_buffers_;

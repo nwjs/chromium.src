@@ -4,7 +4,6 @@
 
 #ifndef UI_GFX_RENDER_TEXT_WIN_H_
 #define UI_GFX_RENDER_TEXT_WIN_H_
-#pragma once
 
 #include <usp10.h>
 
@@ -13,6 +12,7 @@
 #include <vector>
 
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/scoped_vector.h"
 #include "ui/gfx/render_text.h"
 
 namespace gfx {
@@ -68,10 +68,9 @@ class RenderTextWin : public RenderText {
   // Overridden from RenderText:
   virtual base::i18n::TextDirection GetTextDirection() OVERRIDE;
   virtual Size GetStringSize() OVERRIDE;
+  virtual int GetBaseline() OVERRIDE;
   virtual SelectionModel FindCursorPosition(const Point& point) OVERRIDE;
-  virtual size_t IndexOfAdjacentGrapheme(
-      size_t index,
-      LogicalCursorDirection direction) OVERRIDE;
+  virtual std::vector<FontSpan> GetFontSpansForTesting() OVERRIDE;
 
  protected:
   // Overridden from RenderText:
@@ -95,6 +94,12 @@ class RenderTextWin : public RenderText {
   void ItemizeLogicalText();
   void LayoutVisualText();
 
+  // Helper function to update the font on a text run after font substitution.
+  void ApplySubstituteFont(internal::TextRun* run, const Font& font);
+
+  // Returns the number of characters in |run| that have missing glyphs.
+  int CountCharsWithMissingGlyphs(internal::TextRun* run) const;
+
   // Returns a vector of linked fonts corresponding to |font|.
   const std::vector<Font>* GetLinkedFonts(const Font& font) const;
 
@@ -106,8 +111,8 @@ class RenderTextWin : public RenderText {
   // Given a |run|, returns the SelectionModel that contains the logical first
   // or last caret position inside (not at a boundary of) the run.
   // The returned value represents a cursor/caret position without a selection.
-  SelectionModel FirstSelectionModelInsideRun(internal::TextRun* run);
-  SelectionModel LastSelectionModelInsideRun(internal::TextRun* run);
+  SelectionModel FirstSelectionModelInsideRun(const internal::TextRun* run);
+  SelectionModel LastSelectionModelInsideRun(const internal::TextRun* run);
 
   // Cached HDC for performing Uniscribe API calls.
   static HDC cached_hdc_;
@@ -115,10 +120,16 @@ class RenderTextWin : public RenderText {
   // Cached map from font names to vectors of linked fonts.
   static std::map<std::string, std::vector<Font> > cached_linked_fonts_;
 
+  // Cached map of system fonts, from file names to font families.
+  static std::map<std::string, std::string> cached_system_fonts_;
+
+  // Cached map from font name to the last successful substitute font used.
+  static std::map<std::string, Font> successful_substitute_fonts_;
+
   SCRIPT_CONTROL script_control_;
   SCRIPT_STATE script_state_;
 
-  std::vector<internal::TextRun*> runs_;
+  ScopedVector<internal::TextRun> runs_;
   Size string_size_;
 
   // A common vertical baseline for all the text runs. This is computed as the

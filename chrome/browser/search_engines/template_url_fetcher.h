@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_FETCHER_H_
 #define CHROME_BROWSER_SEARCH_ENGINES_TEMPLATE_URL_FETCHER_H_
-#pragma once
 
 #include "base/memory/scoped_vector.h"
 #include "base/string16.h"
@@ -55,7 +54,7 @@ class TemplateURLFetcher : public ProfileKeyedService {
                         ProviderType provider_type);
 
   // The current number of outstanding requests.
-  int requests_count() const { return requests_->size(); }
+  int requests_count() const { return requests_.size(); }
 
  private:
   // A RequestDelegate is created to download each OSDD. When done downloading

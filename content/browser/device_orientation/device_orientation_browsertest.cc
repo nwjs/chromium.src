@@ -6,6 +6,7 @@
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/browser/device_orientation/orientation.h"
@@ -29,9 +30,13 @@ class MockProvider : public Provider {
   virtual void RemoveObserver(Observer* observer) {
     removed_observer_ = true;
   }
+
   Orientation orientation_;
   bool added_observer_;
   bool removed_observer_;
+
+ private:
+  virtual ~MockProvider() {}
 };
 
 class DeviceOrientationBrowserTest : public InProcessBrowserTest {
@@ -49,8 +54,12 @@ class DeviceOrientationBrowserTest : public InProcessBrowserTest {
 
 // crbug.com/113952
 IN_PROC_BROWSER_TEST_F(DeviceOrientationBrowserTest, BasicTest) {
-  const Orientation kTestOrientation(true, 1, true, 2, true, 3, true, true);
-  scoped_refptr<MockProvider> provider(new MockProvider(kTestOrientation));
+  Orientation test_orientation;
+  test_orientation.set_alpha(1);
+  test_orientation.set_beta(2);
+  test_orientation.set_gamma(3);
+  test_orientation.set_absolute(true);
+  scoped_refptr<MockProvider> provider(new MockProvider(test_orientation));
   Provider::SetInstanceForTests(provider.get());
 
   // The test page will register an event handler for orientation events,
@@ -63,7 +72,7 @@ IN_PROC_BROWSER_TEST_F(DeviceOrientationBrowserTest, BasicTest) {
 
   // Check that the page got the event it expected and that the provider
   // saw requests for adding and removing an observer.
-  EXPECT_EQ("pass", browser()->GetSelectedWebContents()->GetURL().ref());
+  EXPECT_EQ("pass", chrome::GetActiveWebContents(browser())->GetURL().ref());
   EXPECT_TRUE(provider->added_observer_);
   EXPECT_TRUE(provider->removed_observer_);
 }

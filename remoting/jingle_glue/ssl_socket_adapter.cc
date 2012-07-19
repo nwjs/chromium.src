@@ -13,7 +13,7 @@
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
 #include "net/base/ssl_config_service.h"
-#include "net/base/sys_addrinfo.h"
+#include "net/base/transport_security_state.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/url_request/url_request_context.h"
 
@@ -27,10 +27,10 @@ SSLSocketAdapter::SSLSocketAdapter(AsyncSocket* socket)
     : SSLAdapter(socket),
       ignore_bad_cert_(false),
       cert_verifier_(net::CertVerifier::CreateDefault()),
+      transport_security_state_(new net::TransportSecurityState()),
       ssl_state_(SSLSTATE_NONE),
-      read_state_(IOSTATE_NONE),
-      write_state_(IOSTATE_NONE),
-      data_transferred_(0) {
+      read_pending_(false),
+      write_pending_(false) {
   transport_socket_ = new TransportSocket(socket, this);
 }
 
@@ -63,14 +63,14 @@ int SSLSocketAdapter::BeginSSL() {
   // are correct for us, so we don't use the config service to initialize this
   // object.
   net::SSLConfig ssl_config;
-  net::SSLClientSocketContext context;
-  context.cert_verifier = cert_verifier_.get();
+  net::SSLClientSocketContext context(
+      cert_verifier_.get(), NULL, transport_security_state_.get(), "");
 
   transport_socket_->set_addr(talk_base::SocketAddress(hostname_, 0));
   ssl_socket_.reset(
       net::ClientSocketFactory::GetDefaultFactory()->CreateSSLClientSocket(
           transport_socket_, net::HostPortPair(hostname_, 443), ssl_config,
-          NULL /* ssl_host_info */, context));
+          context));
 
   int result = ssl_socket_->Connect(
       base::Bind(&SSLSocketAdapter::OnConnected, base::Unretained(this)));
@@ -84,64 +84,102 @@ int SSLSocketAdapter::BeginSSL() {
 }
 
 int SSLSocketAdapter::Send(const void* buf, size_t len) {
-  if (ssl_state_ != SSLSTATE_CONNECTED) {
-    return AsyncSocketAdapter::Send(buf, len);
-  } else {
-    scoped_refptr<net::IOBuffer> transport_buf(new net::IOBuffer(len));
-    memcpy(transport_buf->data(), buf, len);
-
-    int result = ssl_socket_->Write(transport_buf, len,
-                                    net::CompletionCallback());
-    if (result == net::ERR_IO_PENDING) {
-      SetError(EWOULDBLOCK);
-    }
-    transport_buf = NULL;
-    return result;
+  if (ssl_state_ == SSLSTATE_ERROR) {
+    SetError(EINVAL);
+    return -1;
   }
+
+  if (ssl_state_ == SSLSTATE_NONE) {
+    // Propagate the call to underlying socket if SSL is not connected
+    // yet (connection is not encrypted until StartSSL() is called).
+    return AsyncSocketAdapter::Send(buf, len);
+  }
+
+  if (write_pending_) {
+    SetError(EWOULDBLOCK);
+    return -1;
+  }
+
+  write_buffer_ = new net::DrainableIOBuffer(new net::IOBuffer(len), len);
+  memcpy(write_buffer_->data(), buf, len);
+
+  DoWrite();
+
+  return len;
 }
 
 int SSLSocketAdapter::Recv(void* buf, size_t len) {
   switch (ssl_state_) {
-    case SSLSTATE_NONE:
+    case SSLSTATE_NONE: {
       return AsyncSocketAdapter::Recv(buf, len);
+    }
 
-    case SSLSTATE_WAIT:
+    case SSLSTATE_WAIT: {
       SetError(EWOULDBLOCK);
       return -1;
+    }
 
-    case SSLSTATE_CONNECTED:
-      switch (read_state_) {
-        case IOSTATE_NONE: {
-          transport_buf_ = new net::IOBuffer(len);
-          int result = ssl_socket_->Read(
-              transport_buf_, len,
-              base::Bind(&SSLSocketAdapter::OnRead, base::Unretained(this)));
-          if (result >= 0) {
-            memcpy(buf, transport_buf_->data(), len);
-          }
+    case SSLSTATE_CONNECTED: {
+      if (read_pending_) {
+        SetError(EWOULDBLOCK);
+        return -1;
+      }
 
-          if (result == net::ERR_IO_PENDING) {
-            read_state_ = IOSTATE_PENDING;
-            SetError(EWOULDBLOCK);
-          } else {
-            if (result < 0) {
-              SetError(result);
-              VLOG(1) << "Socket error " << result;
-            }
-            transport_buf_ = NULL;
-          }
-          return result;
-        }
-        case IOSTATE_PENDING:
+      int bytes_read = 0;
+
+      // Process any data we have left from the previous read.
+      if (read_buffer_) {
+        int size = std::min(read_buffer_->RemainingCapacity(),
+                            static_cast<int>(len));
+        memcpy(buf, read_buffer_->data(), size);
+        read_buffer_->set_offset(read_buffer_->offset() + size);
+        if (!read_buffer_->RemainingCapacity())
+          read_buffer_ = NULL;
+
+        if (size == static_cast<int>(len))
+          return size;
+
+        // If we didn't fill the caller's buffer then dispatch a new
+        // Read() in case there's more data ready.
+        buf = reinterpret_cast<char*>(buf) + size;
+        len -= size;
+        bytes_read = size;
+        DCHECK(!read_buffer_);
+      }
+
+      // Dispatch a Read() request to the SSL layer.
+      read_buffer_ = new net::GrowableIOBuffer();
+      read_buffer_->SetCapacity(len);
+      int result = ssl_socket_->Read(
+          read_buffer_, len,
+          base::Bind(&SSLSocketAdapter::OnRead, base::Unretained(this)));
+      if (result >= 0)
+        memcpy(buf, read_buffer_->data(), len);
+
+      if (result == net::ERR_IO_PENDING) {
+        read_pending_ = true;
+        if (bytes_read) {
+          return bytes_read;
+        } else {
           SetError(EWOULDBLOCK);
           return -1;
-
-        case IOSTATE_COMPLETE:
-          memcpy(buf, transport_buf_->data(), len);
-          transport_buf_ = NULL;
-          read_state_ = IOSTATE_NONE;
-          return data_transferred_;
+        }
       }
+
+      if (result < 0) {
+        SetError(EINVAL);
+        ssl_state_ = SSLSTATE_ERROR;
+        LOG(ERROR) << "Error reading from SSL socket " << result;
+        return -1;
+      }
+      read_buffer_ = NULL;
+      return result + bytes_read;
+    }
+
+    case SSLSTATE_ERROR: {
+      SetError(EINVAL);
+      return -1;
+    }
   }
 
   NOTREACHED();
@@ -158,17 +196,60 @@ void SSLSocketAdapter::OnConnected(int result) {
 }
 
 void SSLSocketAdapter::OnRead(int result) {
-  DCHECK(read_state_ == IOSTATE_PENDING);
-  read_state_ = IOSTATE_COMPLETE;
-  data_transferred_ = result;
+  DCHECK(read_pending_);
+  read_pending_ = false;
+  if (result > 0) {
+    DCHECK_GE(read_buffer_->capacity(), result);
+    read_buffer_->SetCapacity(result);
+  } else {
+    if (result < 0)
+      ssl_state_ = SSLSTATE_ERROR;
+  }
   AsyncSocketAdapter::OnReadEvent(this);
 }
 
-void SSLSocketAdapter::OnWrite(int result) {
-  DCHECK(write_state_ == IOSTATE_PENDING);
-  write_state_ = IOSTATE_COMPLETE;
-  data_transferred_ = result;
+void SSLSocketAdapter::OnWritten(int result) {
+  DCHECK(write_pending_);
+  write_pending_ = false;
+  if (result >= 0) {
+    write_buffer_->DidConsume(result);
+    if (!write_buffer_->BytesRemaining()) {
+      write_buffer_ = NULL;
+    } else {
+      DoWrite();
+    }
+  } else {
+    ssl_state_ = SSLSTATE_ERROR;
+  }
   AsyncSocketAdapter::OnWriteEvent(this);
+}
+
+void SSLSocketAdapter::DoWrite() {
+  DCHECK_GT(write_buffer_->BytesRemaining(), 0);
+  DCHECK(!write_pending_);
+
+  while (true) {
+    int result = ssl_socket_->Write(
+        write_buffer_, write_buffer_->BytesRemaining(),
+        base::Bind(&SSLSocketAdapter::OnWritten, base::Unretained(this)));
+
+    if (result > 0) {
+      write_buffer_->DidConsume(result);
+      if (!write_buffer_->BytesRemaining()) {
+        write_buffer_ = NULL;
+        return;
+      }
+      continue;
+    }
+
+    if (result == net::ERR_IO_PENDING) {
+      write_pending_ = true;
+    } else {
+      SetError(EINVAL);
+      ssl_state_ = SSLSTATE_ERROR;
+    }
+    return;
+  }
 }
 
 void SSLSocketAdapter::OnConnectEvent(talk_base::AsyncSocket* socket) {
@@ -218,23 +299,13 @@ bool TransportSocket::IsConnectedAndIdle() const {
   return false;
 }
 
-int TransportSocket::GetPeerAddress(net::AddressList* address) const {
+int TransportSocket::GetPeerAddress(net::IPEndPoint* address) const {
   talk_base::SocketAddress socket_address = socket_->GetRemoteAddress();
-
-  // libjingle supports only IPv4 addresses.
-  sockaddr_in ipv4addr;
-  socket_address.ToSockAddr(&ipv4addr);
-
-  struct addrinfo ai;
-  memset(&ai, 0, sizeof(ai));
-  ai.ai_family = ipv4addr.sin_family;
-  ai.ai_socktype = SOCK_STREAM;
-  ai.ai_protocol = IPPROTO_TCP;
-  ai.ai_addr = reinterpret_cast<struct sockaddr*>(&ipv4addr);
-  ai.ai_addrlen = sizeof(ipv4addr);
-
-  *address = net::AddressList::CreateByCopyingFirstAddress(&ai);
-  return net::OK;
+  if (jingle_glue::SocketAddressToIPEndPoint(socket_address, address)) {
+    return net::OK;
+  } else {
+    return net::ERR_FAILED;
+  }
 }
 
 int TransportSocket::GetLocalAddress(net::IPEndPoint* address) const {

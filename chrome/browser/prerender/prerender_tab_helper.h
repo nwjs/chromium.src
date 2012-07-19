@@ -10,7 +10,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "googleurl/src/gurl.h"
 
-class TabContentsWrapper;
+class TabContents;
 
 namespace prerender {
 
@@ -20,13 +20,14 @@ class PrerenderManager;
 // to compare PLT's with prerendering enabled and disabled.
 class PrerenderTabHelper : public content::WebContentsObserver {
  public:
-  explicit PrerenderTabHelper(TabContentsWrapper* tab);
+  explicit PrerenderTabHelper(TabContents* tab);
   virtual ~PrerenderTabHelper();
 
   // content::WebContentsObserver implementation.
   virtual void ProvisionalChangeToMainFrameUrl(
       const GURL& url,
-      const GURL& opener_url) OVERRIDE;
+      const GURL& opener_url,
+      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidStopLoading() OVERRIDE;
   virtual void DidStartProvisionalLoadForFrame(
       int64 frame_id,
@@ -34,31 +35,33 @@ class PrerenderTabHelper : public content::WebContentsObserver {
       const GURL& validated_url,
       bool is_error_page,
       content::RenderViewHost* render_view_host) OVERRIDE;
-
+  virtual void DidCommitProvisionalLoadForFrame(
+      int64 frame_id,
+      bool is_main_frame,
+      const GURL& validated_url,
+      content::PageTransition transition_type,
+      content::RenderViewHost* render_view_host) OVERRIDE;
   // Called when this prerendered TabContents has just been swapped in.
   void PrerenderSwappedIn();
 
-  void UpdateTargetURL(int32 page_id, const GURL& url);
-
  private:
-  // The data we store for a hover (time the hover occurred & URL).
-  class HoverData;
+  // Helper class to compute pixel-based stats on the paint progress
+  // between when a prerendered page is swapped in and when the onload event
+  // fires.
+  class PixelStats;
+  scoped_ptr<PixelStats> pixel_stats_;
 
   // Retrieves the PrerenderManager, or NULL, if none was found.
   PrerenderManager* MaybeGetPrerenderManager() const;
 
-  // Returns whether the TabContents being observed is currently prerendering.
+  // Returns whether the WebContents being observed is currently prerendering.
   bool IsPrerendering();
 
-  // Records histogram information for the current hover, based on whether
-  // it was used or not.  Will not do anything if there is no current hover.
-  // Also resets the hover to no hover.
-  void MaybeLogCurrentHover(bool was_used);
+  // Returns whether the WebContents being observed was prerendered.
+  bool IsPrerendered();
 
-  bool IsTopSite(const GURL& url);
-
-  // TabContentsWrapper we're created for.
-  TabContentsWrapper* tab_;
+  // TabContents we're created for.
+  TabContents* tab_;
 
   // System time at which the current load was started for the purpose of
   // the perceived page load time (PPLT).
@@ -68,13 +71,6 @@ class PrerenderTabHelper : public content::WebContentsObserver {
   // a applicable (in cases when a prerender that was still loading was
   // swapped in).
   base::TimeTicks actual_load_start_;
-
-  // Information about the last hover for each hover threshold.
-  scoped_array<HoverData> last_hovers_;
-
-  // Information about the current hover independent of thresholds.
-  GURL current_hover_url_;
-  base::TimeTicks current_hover_time_;
 
   // Current URL being loaded.
   GURL url_;

@@ -4,16 +4,18 @@
 
 #ifndef CHROME_BROWSER_NOTIFICATIONS_NOTIFICATION_UI_MANAGER_H_
 #define CHROME_BROWSER_NOTIFICATIONS_NOTIFICATION_UI_MANAGER_H_
-#pragma once
 
 #include <string>
 #include <vector>
+
+#include "base/basictypes.h"
 
 class BalloonCollection;
 class GURL;
 class Notification;
 class NotificationPrefsManager;
 class PrefService;
+class Profile;
 
 // This virtual interface is used to manage the UI surfaces for desktop
 // notifications. There is one instance per profile.

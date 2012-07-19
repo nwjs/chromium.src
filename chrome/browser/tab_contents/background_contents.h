@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_TAB_CONTENTS_BACKGROUND_CONTENTS_H_
 #define CHROME_BROWSER_TAB_CONTENTS_BACKGROUND_CONTENTS_H_
-#pragma once
 
 #include <string>
 
@@ -21,7 +20,7 @@ namespace content {
 class SiteInstance;
 };
 
-// This class consumes TabContents. It can host a renderer, but does not
+// This class consumes WebContents. It can host a renderer, but does not
 // have any visible display.
 class BackgroundContents : public content::WebContentsDelegate,
                            public content::WebContentsObserver,

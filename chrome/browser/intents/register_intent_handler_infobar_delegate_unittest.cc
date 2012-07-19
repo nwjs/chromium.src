@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/synchronization/waitable_event.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/intents/register_intent_handler_infobar_delegate.h"
 #include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/intents/web_intents_registry_factory.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/glue/web_intent_service_data.h"
@@ -35,28 +36,30 @@ MockWebIntentsRegistry* BuildForProfile(Profile* profile) {
 }
 
 class RegisterIntentHandlerInfoBarDelegateTest
-    : public TabContentsWrapperTestHarness {
+    : public TabContentsTestHarness {
  protected:
   RegisterIntentHandlerInfoBarDelegateTest()
-      : ui_thread_(BrowserThread::UI, MessageLoopForUI::current()) {}
+      : ui_thread_(BrowserThread::UI, MessageLoopForUI::current()),
+        db_thread_(BrowserThread::DB, MessageLoopForUI::current()) {}
 
   virtual void SetUp() {
-    TabContentsWrapperTestHarness::SetUp();
+    TabContentsTestHarness::SetUp();
 
-    profile()->CreateWebDataService(false);
+    profile()->CreateWebDataService();
     web_intents_registry_ = BuildForProfile(profile());
   }
 
   virtual void TearDown() {
     web_intents_registry_ = NULL;
 
-    TabContentsWrapperTestHarness::TearDown();
+    TabContentsTestHarness::TearDown();
   }
 
   MockWebIntentsRegistry* web_intents_registry_;
 
  private:
   content::TestBrowserThread ui_thread_;
+  content::TestBrowserThread db_thread_;
 
   DISALLOW_COPY_AND_ASSIGN(RegisterIntentHandlerInfoBarDelegateTest);
 };
@@ -67,7 +70,7 @@ TEST_F(RegisterIntentHandlerInfoBarDelegateTest, Accept) {
   service.action = ASCIIToUTF16("http://webintents.org/share");
   service.type = ASCIIToUTF16("text/url");
   RegisterIntentHandlerInfoBarDelegate delegate(
-      contents_wrapper()->infobar_tab_helper(),
+      tab_contents()->infobar_tab_helper(),
       WebIntentsRegistryFactory::GetForProfile(profile()),
       service, NULL, GURL());
 

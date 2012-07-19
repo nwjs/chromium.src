@@ -4,7 +4,6 @@
 
 #ifndef NET_URL_REQUEST_URL_REQUEST_DATA_JOB_H_
 #define NET_URL_REQUEST_URL_REQUEST_DATA_JOB_H_
-#pragma once
 
 #include <string>
 
@@ -15,7 +14,7 @@ namespace net {
 
 class URLRequest;
 
-class URLRequestDataJob : public URLRequestSimpleJob {
+class NET_EXPORT URLRequestDataJob : public URLRequestSimpleJob {
  public:
   explicit URLRequestDataJob(URLRequest* request);
 

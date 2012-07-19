@@ -4,8 +4,8 @@
 
 #ifndef ASH_LAUNCHER_LAUNCHER_BUTTON_H_
 #define ASH_LAUNCHER_LAUNCHER_BUTTON_H_
-#pragma once
 
+#include "base/memory/scoped_ptr.h"
 #include "ui/views/controls/button/custom_button.h"
 #include "ui/views/controls/image_view.h"
 
@@ -19,10 +19,23 @@ class LauncherButton : public views::CustomButton {
  public:
   // Used to indicate the current state of the button.
   enum State {
-    STATE_NORMAL  = 0,
-    STATE_HOVERED = 1 << 0,
-    STATE_RUNNING = 1 << 1,
-    STATE_ACTIVE  = 1 << 2
+    // Nothing special. Usually represents an app shortcut item with no running
+    // instance.
+    STATE_NORMAL    = 0,
+    // Button has mouse hovering on it.
+    STATE_HOVERED   = 1 << 0,
+    // Underlying LauncherItem has a running instance.
+    //   e.g. A TYPE_TABBED item that has a window.
+    STATE_RUNNING   = 1 << 1,
+    // Underlying LauncherItem is active (i.e. has focus).
+    STATE_ACTIVE    = 1 << 2,
+    // Underlying LauncherItem needs user's attention.
+    STATE_ATTENTION = 1 << 3,
+    // Underlying LauncherItem has pending operations.
+    //   e.g. A TYPE_APP_SHORTCUT item whose corresponding app is being
+    //        installed.
+    STATE_PENDING   = 1 << 4,
+    STATE_FOCUSED   = 1 << 5,
   };
 
   virtual ~LauncherButton();
@@ -32,7 +45,7 @@ class LauncherButton : public views::CustomButton {
                                 LauncherButtonHost* host);
 
   // Sets the image to display for this entry.
-  void SetImage(const SkBitmap& image);
+  void SetImage(const gfx::ImageSkia& image);
 
   // |state| is or'd into the current state.
   void AddState(State state);
@@ -52,9 +65,12 @@ class LauncherButton : public views::CustomButton {
    public:
     IconView();
     virtual ~IconView();
-    virtual bool HitTest(const gfx::Point& l) const OVERRIDE;
+
     void set_icon_size(int icon_size) { icon_size_ = icon_size; }
     int icon_size() const { return icon_size_; }
+
+    // views::View overrides.
+    virtual bool HitTest(const gfx::Point& l) const OVERRIDE;
 
    private:
     // Set to non-zero to force icons to be resized to fit within a square,
@@ -69,15 +85,16 @@ class LauncherButton : public views::CustomButton {
   virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
   virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseMoved(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
   virtual void Layout() OVERRIDE;
-  virtual bool GetTooltipText(const gfx::Point& p,
-                              string16* tooltip) const OVERRIDE;
+  virtual void OnFocus() OVERRIDE;
+  virtual void OnBlur() OVERRIDE;
 
   // Sets the icon image with a shadow.
-  void SetShadowedImage(const SkBitmap& bitmap);
+  void SetShadowedImage(const gfx::ImageSkia& bitmap);
   // Override for custom initialization.
   virtual void Init();
   // Override to subclass IconView.
@@ -86,17 +103,28 @@ class LauncherButton : public views::CustomButton {
   LauncherButtonHost* host() const { return host_; }
 
  private:
-  // Updates the parts of the button to reflect the current state_. This may
-  // add or remove views, layout and paint.
+  class BarView;
+  class IconPulseAnimation;
+
+  // Returns true if the shelf is horizontal. If this returns false the shelf is
+  // vertical.
+  bool IsShelfHorizontal() const;
+
+  // Updates the parts of the button to reflect the current |state_| and
+  // alignment. This may add or remove views, layout and paint.
   void UpdateState();
 
   LauncherButtonHost* host_;
   IconView* icon_view_;
   // Draws a bar underneath the image to represent the state of the application.
-  views::ImageView* bar_;
+  BarView* bar_;
   // The current state of the application, multiple values of AppState are or'd
   // together.
   int state_;
+
+  // Runs a pulse animation for |icon_view_|. It is created when button state
+  // has a STATE_PENDING bit and destroyed when that bit is clear.
+  scoped_ptr<IconPulseAnimation> icon_pulse_animation_;
 
   DISALLOW_COPY_AND_ASSIGN(LauncherButton);
 };
@@ -104,4 +132,4 @@ class LauncherButton : public views::CustomButton {
 }  // namespace internal
 }  // namespace ash
 
-#endif  // ASH_LAUNCHER_APP_LAUNCHER_BUTTON_H_
+#endif  // ASH_LAUNCHER_LAUNCHER_BUTTON_H_

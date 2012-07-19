@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_SUGGESTED_TEXT_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_SUGGESTED_TEXT_VIEW_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/views/controls/label.h"
 
-class AutocompleteEditModel;
+class OmniboxEditModel;
 
 // SuggestedTextView is used to show the suggest text in the LocationBar.
 // Invoke |StartAnimation| to start an animation that when done invokes
@@ -18,7 +17,7 @@ class AutocompleteEditModel;
 class SuggestedTextView : public views::Label,
                           public ui::AnimationDelegate {
  public:
-  explicit SuggestedTextView(AutocompleteEditModel* edit_model);
+  explicit SuggestedTextView(OmniboxEditModel* edit_model);
   virtual ~SuggestedTextView();
 
   // Starts the animation. If the animation is currently running it is stopped
@@ -45,7 +44,7 @@ class SuggestedTextView : public views::Label,
   // Resets the background color.
   void UpdateBackgroundColor();
 
-  AutocompleteEditModel* edit_model_;
+  OmniboxEditModel* edit_model_;
 
   scoped_ptr<ui::Animation> animation_;
 

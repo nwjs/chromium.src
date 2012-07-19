@@ -4,7 +4,6 @@
 //
 #ifndef CONTENT_RENDERER_MEDIA_AUDIO_HARDWARE_H_
 #define CONTENT_RENDERER_MEDIA_AUDIO_HARDWARE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "content/common/content_export.h"
@@ -27,10 +26,6 @@ CONTENT_EXPORT int GetInputSampleRate();
 // Must be called from RenderThreadImpl::current().
 // Must be used in conjunction with AUDIO_PCM_LOW_LATENCY.
 CONTENT_EXPORT size_t GetOutputBufferSize();
-
-// Computes a buffer size based on the given |sample_rate|. Must be used in
-// conjunction with AUDIO_PCM_LINEAR.
-CONTENT_EXPORT size_t GetHighLatencyOutputBufferSize(int sample_rate);
 
 // Fetch the audio channel layout for the default input device.
 // Must be called from RenderThreadImpl::current().

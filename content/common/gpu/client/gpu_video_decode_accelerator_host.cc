@@ -13,6 +13,10 @@
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_message_utils.h"
 
+#if defined(OS_WIN)
+#include "content/public/common/sandbox_init.h"
+#endif  // OS_WIN
+
 using media::VideoDecodeAccelerator;
 
 GpuVideoDecodeAcceleratorHost::GpuVideoDecodeAcceleratorHost(
@@ -25,8 +29,6 @@ GpuVideoDecodeAcceleratorHost::GpuVideoDecodeAcceleratorHost(
   DCHECK(channel_);
   DCHECK(client_);
 }
-
-GpuVideoDecodeAcceleratorHost::~GpuVideoDecodeAcceleratorHost() {}
 
 void GpuVideoDecodeAcceleratorHost::OnChannelError() {
   DLOG(ERROR) << "GpuVideoDecodeAcceleratorHost::OnChannelError()";
@@ -65,9 +67,20 @@ bool GpuVideoDecodeAcceleratorHost::Initialize(
 void GpuVideoDecodeAcceleratorHost::Decode(
     const media::BitstreamBuffer& bitstream_buffer) {
   DCHECK(CalledOnValidThread());
+  base::SharedMemoryHandle buffer_handle = bitstream_buffer.handle();
+#if defined(OS_WIN)
+  if (!content::BrokerDuplicateHandle(bitstream_buffer.handle(),
+                                      channel_->gpu_pid(),
+                                      &buffer_handle, 0,
+                                      DUPLICATE_SAME_ACCESS)) {
+    NOTREACHED() << "Failed to duplicate buffer handler";
+    return;
+  }
+#endif  // OS_WIN
+
   Send(new AcceleratedVideoDecoderMsg_Decode(
-      decoder_route_id_, bitstream_buffer.handle(),
-      bitstream_buffer.id(), bitstream_buffer.size()));
+      decoder_route_id_, buffer_handle, bitstream_buffer.id(),
+      bitstream_buffer.size()));
 }
 
 void GpuVideoDecodeAcceleratorHost::AssignPictureBuffers(
@@ -109,16 +122,26 @@ void GpuVideoDecodeAcceleratorHost::Destroy() {
   channel_->RemoveRoute(decoder_route_id_);
   client_ = NULL;
   Send(new AcceleratedVideoDecoderMsg_Destroy(decoder_route_id_));
+  delete this;
 }
+
+GpuVideoDecodeAcceleratorHost::~GpuVideoDecodeAcceleratorHost() {}
 
 void GpuVideoDecodeAcceleratorHost::Send(IPC::Message* message) {
   // After OnChannelError is called, the client should no longer send
-  // messages to the gpu channel through this object.
-  DCHECK(channel_);
-  if (!channel_ || !channel_->Send(message)) {
+  // messages to the gpu channel through this object.  But queued posted tasks
+  // can still be draining, so we're forgiving and simply ignore them.
+  bool error = false;
+  if (!channel_) {
+    delete message;
+    DLOG(ERROR) << "Send(" << message->type() << ") after error ignored";
+    error = true;
+  } else if (!channel_->Send(message)) {
     DLOG(ERROR) << "Send(" << message->type() << ") failed";
-    OnErrorNotification(PLATFORM_FAILURE);
+    error = true;
   }
+  if (error)
+    OnErrorNotification(PLATFORM_FAILURE);
 }
 
 void GpuVideoDecodeAcceleratorHost::OnBitstreamBufferProcessed(
@@ -130,10 +153,13 @@ void GpuVideoDecodeAcceleratorHost::OnBitstreamBufferProcessed(
 
 void GpuVideoDecodeAcceleratorHost::OnProvidePictureBuffer(
     uint32 num_requested_buffers,
-    const gfx::Size& buffer_size) {
+    const gfx::Size& buffer_size,
+    uint32 texture_target) {
   DCHECK(CalledOnValidThread());
-  if (client_)
-    client_->ProvidePictureBuffers(num_requested_buffers, buffer_size);
+  if (client_) {
+    client_->ProvidePictureBuffers(
+        num_requested_buffers, buffer_size, texture_target);
+  }
 }
 
 void GpuVideoDecodeAcceleratorHost::OnDismissPictureBuffer(
@@ -170,4 +196,5 @@ void GpuVideoDecodeAcceleratorHost::OnErrorNotification(uint32 error) {
     return;
   client_->NotifyError(
       static_cast<media::VideoDecodeAccelerator::Error>(error));
+  client_ = NULL;
 }

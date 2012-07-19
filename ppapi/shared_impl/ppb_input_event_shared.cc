@@ -26,7 +26,10 @@ InputEventData::InputEventData()
       character_text(),
       composition_target_segment(-1),
       composition_selection_start(0),
-      composition_selection_end(0) {
+      composition_selection_end(0),
+      touches(),
+      changed_touches(),
+      target_touches() {
 }
 
 InputEventData::~InputEventData() {
@@ -125,6 +128,219 @@ void PPB_InputEvent_Shared::GetIMESelection(uint32_t* start, uint32_t* end) {
     *start = data_.composition_selection_start;
   if (end)
     *end = data_.composition_selection_end;
+}
+
+void PPB_InputEvent_Shared::AddTouchPoint(PP_TouchListType list,
+                                          const PP_TouchPoint& point) {
+  switch (list) {
+    case PP_TOUCHLIST_TYPE_TOUCHES:
+      data_.touches.push_back(point);
+      break;
+    case PP_TOUCHLIST_TYPE_CHANGEDTOUCHES:
+      data_.changed_touches.push_back(point);
+      break;
+    case PP_TOUCHLIST_TYPE_TARGETTOUCHES:
+      data_.target_touches.push_back(point);
+      break;
+    default:
+      break;
+  }
+}
+
+uint32_t PPB_InputEvent_Shared::GetTouchCount(PP_TouchListType list) {
+  switch (list) {
+    case PP_TOUCHLIST_TYPE_TOUCHES:
+      return data_.touches.size();
+    case PP_TOUCHLIST_TYPE_CHANGEDTOUCHES:
+      return data_.changed_touches.size();
+    case PP_TOUCHLIST_TYPE_TARGETTOUCHES:
+      return data_.target_touches.size();
+  }
+
+  return 0;
+}
+
+PP_TouchPoint PPB_InputEvent_Shared::GetTouchByIndex(PP_TouchListType list,
+                                                     uint32_t index) {
+  std::vector<PP_TouchPoint>* points;
+  switch (list) {
+    case PP_TOUCHLIST_TYPE_TOUCHES:
+      points = &data_.touches;
+      break;
+    case PP_TOUCHLIST_TYPE_CHANGEDTOUCHES:
+      points = &data_.changed_touches;
+      break;
+    case PP_TOUCHLIST_TYPE_TARGETTOUCHES:
+      points = &data_.target_touches;
+      break;
+    default:
+      return PP_MakeTouchPoint();
+  }
+  if (index >= points->size()) {
+    return PP_MakeTouchPoint();
+  }
+  return points->at(index);
+}
+
+PP_TouchPoint PPB_InputEvent_Shared::GetTouchById(PP_TouchListType list,
+                                                  uint32_t id) {
+  const std::vector<PP_TouchPoint>* points;
+  switch (list) {
+    case PP_TOUCHLIST_TYPE_TOUCHES:
+      points = &data_.touches;
+      break;
+    case PP_TOUCHLIST_TYPE_CHANGEDTOUCHES:
+      points = &data_.changed_touches;
+      break;
+    case PP_TOUCHLIST_TYPE_TARGETTOUCHES:
+      points = &data_.target_touches;
+      break;
+    default:
+      return PP_MakeTouchPoint();
+  }
+  for (size_t i = 0; i < points->size(); i++) {
+    if (points->at(i).id == id)
+      return points->at(i);
+  }
+  return PP_MakeTouchPoint();
+}
+
+//static
+PP_Resource PPB_InputEvent_Shared::CreateIMEInputEvent(
+    ResourceObjectType type,
+    PP_Instance instance,
+    PP_InputEvent_Type event_type,
+    PP_TimeTicks time_stamp,
+    struct PP_Var text,
+    uint32_t segment_number,
+    const uint32_t* segment_offsets,
+    int32_t target_segment,
+    uint32_t selection_start,
+    uint32_t selection_end) {
+  if (event_type != PP_INPUTEVENT_TYPE_IME_COMPOSITION_START &&
+      event_type != PP_INPUTEVENT_TYPE_IME_COMPOSITION_UPDATE &&
+      event_type != PP_INPUTEVENT_TYPE_IME_COMPOSITION_END &&
+      event_type != PP_INPUTEVENT_TYPE_IME_TEXT)
+    return 0;
+
+  InputEventData data;
+  data.event_type = event_type;
+  data.event_time_stamp = time_stamp;
+  if (text.type == PP_VARTYPE_STRING) {
+    StringVar* text_str = StringVar::FromPPVar(text);
+    if (!text_str)
+      return 0;
+    data.character_text = text_str->value();
+  }
+  data.composition_target_segment = target_segment;
+  if (segment_number != 0) {
+    data.composition_segment_offsets.assign(
+        &segment_offsets[0], &segment_offsets[segment_number + 1]);
+  }
+  data.composition_selection_start = selection_start;
+  data.composition_selection_end = selection_end;
+
+  return (new PPB_InputEvent_Shared(type, instance, data))->GetReference();
+}
+
+//static
+PP_Resource PPB_InputEvent_Shared::CreateKeyboardInputEvent(
+    ResourceObjectType type,
+    PP_Instance instance,
+    PP_InputEvent_Type event_type,
+    PP_TimeTicks time_stamp,
+    uint32_t modifiers,
+    uint32_t key_code,
+    struct PP_Var character_text) {
+  if (event_type != PP_INPUTEVENT_TYPE_RAWKEYDOWN &&
+      event_type != PP_INPUTEVENT_TYPE_KEYDOWN &&
+      event_type != PP_INPUTEVENT_TYPE_KEYUP &&
+      event_type != PP_INPUTEVENT_TYPE_CHAR)
+    return 0;
+
+  InputEventData data;
+  data.event_type = event_type;
+  data.event_time_stamp = time_stamp;
+  data.event_modifiers = modifiers;
+  data.key_code = key_code;
+  if (character_text.type == PP_VARTYPE_STRING) {
+    StringVar* text_str = StringVar::FromPPVar(character_text);
+    if (!text_str)
+      return 0;
+    data.character_text = text_str->value();
+  }
+
+  return (new PPB_InputEvent_Shared(type, instance, data))->GetReference();
+}
+
+//static
+PP_Resource PPB_InputEvent_Shared::CreateMouseInputEvent(
+    ResourceObjectType type,
+    PP_Instance instance,
+    PP_InputEvent_Type event_type,
+    PP_TimeTicks time_stamp,
+    uint32_t modifiers,
+    PP_InputEvent_MouseButton mouse_button,
+    const PP_Point* mouse_position,
+    int32_t click_count,
+    const PP_Point* mouse_movement) {
+  if (event_type != PP_INPUTEVENT_TYPE_MOUSEDOWN &&
+      event_type != PP_INPUTEVENT_TYPE_MOUSEUP &&
+      event_type != PP_INPUTEVENT_TYPE_MOUSEMOVE &&
+      event_type != PP_INPUTEVENT_TYPE_MOUSEENTER &&
+      event_type != PP_INPUTEVENT_TYPE_MOUSELEAVE)
+    return 0;
+
+  InputEventData data;
+  data.event_type = event_type;
+  data.event_time_stamp = time_stamp;
+  data.event_modifiers = modifiers;
+  data.mouse_button = mouse_button;
+  data.mouse_position = *mouse_position;
+  data.mouse_click_count = click_count;
+  data.mouse_movement = *mouse_movement;
+
+  return (new PPB_InputEvent_Shared(type, instance, data))->GetReference();
+}
+
+//static
+PP_Resource PPB_InputEvent_Shared::CreateWheelInputEvent(
+    ResourceObjectType type,
+    PP_Instance instance,
+    PP_TimeTicks time_stamp,
+    uint32_t modifiers,
+    const PP_FloatPoint* wheel_delta,
+    const PP_FloatPoint* wheel_ticks,
+    PP_Bool scroll_by_page) {
+  InputEventData data;
+  data.event_type = PP_INPUTEVENT_TYPE_WHEEL;
+  data.event_time_stamp = time_stamp;
+  data.event_modifiers = modifiers;
+  data.wheel_delta = *wheel_delta;
+  data.wheel_ticks = *wheel_ticks;
+  data.wheel_scroll_by_page = PP_ToBool(scroll_by_page);
+
+  return (new PPB_InputEvent_Shared(type, instance, data))->GetReference();
+}
+
+// static
+PP_Resource PPB_InputEvent_Shared::CreateTouchInputEvent(
+    ResourceObjectType type,
+    PP_Instance instance,
+    PP_InputEvent_Type event_type,
+    PP_TimeTicks time_stamp,
+    uint32_t modifiers) {
+  if (event_type != PP_INPUTEVENT_TYPE_TOUCHSTART &&
+      event_type != PP_INPUTEVENT_TYPE_TOUCHMOVE &&
+      event_type != PP_INPUTEVENT_TYPE_TOUCHEND &&
+      event_type != PP_INPUTEVENT_TYPE_TOUCHCANCEL)
+    return 0;
+
+  InputEventData data;
+  data.event_type = event_type;
+  data.event_time_stamp = time_stamp;
+  data.event_modifiers = modifiers;
+  return (new PPB_InputEvent_Shared(type, instance, data))->GetReference();
 }
 
 }  // namespace ppapi

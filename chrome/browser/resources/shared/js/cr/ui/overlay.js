@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// This file exists to share common overlay behaviors.
-
+/**
+ * @fileoverview Provides dialog-like behaviors for the tracing UI.
+ */
 cr.define('cr.ui.overlay', function() {
 
   /**
@@ -21,19 +22,6 @@ cr.define('cr.ui.overlay', function() {
    * Makes initializations which must hook at the document level.
    */
   function globalInitialization() {
-    // Listen to focus events and make sure focus doesn't move outside of a
-    // visible overlay .page.
-    document.addEventListener('focus', function(e) {
-      var overlay = getTopOverlay();
-      var page = overlay ? overlay.querySelector('.page:not([hidden])') : null;
-      if (!page || page.contains(e.target))
-        return;
-
-      var focusElement = page.querySelector('button, input, list, select, a');
-      if (focusElement)
-        focusElement.focus();
-    }, true);
-
     // Close the overlay on escape.
     document.addEventListener('keydown', function(e) {
       if (e.keyCode == 27) {  // Escape

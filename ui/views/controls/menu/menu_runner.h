@@ -4,11 +4,9 @@
 
 #ifndef UI_VIEWS_CONTROLS_MENU_MENU_RUNNER_H_
 #define UI_VIEWS_CONTROLS_MENU_MENU_RUNNER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 
 namespace views {
@@ -17,6 +15,7 @@ class MenuButton;
 class Widget;
 
 namespace internal {
+class DisplayChangeListener;
 class MenuRunnerImpl;
 }
 
@@ -94,8 +93,30 @@ class VIEWS_EXPORT MenuRunner {
  private:
   internal::MenuRunnerImpl* holder_;
 
+  scoped_ptr<internal::DisplayChangeListener> display_change_listener_;
+
   DISALLOW_COPY_AND_ASSIGN(MenuRunner);
 };
+
+namespace internal {
+
+// DisplayChangeListener is intended to listen for changes in the display size
+// and cancel the menu. DisplayChangeListener is created when the menu is
+// shown.
+class DisplayChangeListener {
+ public:
+  virtual ~DisplayChangeListener() {}
+
+  // Creates the platform specified DisplayChangeListener, or NULL if there
+  // isn't one. Caller owns the returned value.
+  static DisplayChangeListener* Create(Widget* parent,
+                                       MenuRunner* runner);
+
+ protected:
+  DisplayChangeListener() {}
+};
+
+}
 
 }  // namespace views
 

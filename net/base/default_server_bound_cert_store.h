@@ -4,7 +4,6 @@
 
 #ifndef NET_BASE_DEFAULT_SERVER_BOUND_CERT_STORE_H_
 #define NET_BASE_DEFAULT_SERVER_BOUND_CERT_STORE_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -74,8 +73,9 @@ class NET_EXPORT DefaultServerBoundCertStore : public ServerBoundCertStore {
                                        base::Time delete_end) OVERRIDE;
   virtual void DeleteAll() OVERRIDE;
   virtual void GetAllServerBoundCerts(
-      std::vector<ServerBoundCert>* server_bound_certs) OVERRIDE;
+      ServerBoundCertList* server_bound_certs) OVERRIDE;
   virtual int GetCertCount() OVERRIDE;
+  virtual void SetForceKeepSessionState() OVERRIDE;
 
  private:
   static const size_t kMaxCerts;
@@ -129,8 +129,6 @@ typedef base::RefCountedThreadSafe<DefaultServerBoundCertStore::PersistentStore>
 class NET_EXPORT DefaultServerBoundCertStore::PersistentStore
     : public RefcountedPersistentStore {
  public:
-  virtual ~PersistentStore() {}
-
   // Initializes the store and retrieves the existing certs. This will be
   // called only once at startup. Note that the certs are individually allocated
   // and that ownership is transferred to the caller upon return.
@@ -141,15 +139,18 @@ class NET_EXPORT DefaultServerBoundCertStore::PersistentStore
 
   virtual void DeleteServerBoundCert(const ServerBoundCert& cert) = 0;
 
-  // Sets the value of the user preference whether the persistent storage
-  // must be deleted upon destruction.
-  virtual void SetClearLocalStateOnExit(bool clear_local_state) = 0;
+  // When invoked, instructs the store to keep session related data on
+  // destruction.
+  virtual void SetForceKeepSessionState() = 0;
 
   // Flush the store and post the given Task when complete.
   virtual void Flush(const base::Closure& completion_task) = 0;
 
  protected:
+  friend class base::RefCountedThreadSafe<PersistentStore>;
+
   PersistentStore();
+  virtual ~PersistentStore();
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PersistentStore);

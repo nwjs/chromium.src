@@ -1,4 +1,4 @@
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -55,6 +55,9 @@
         'pdf_metafile_cg_mac.h',
         'pdf_metafile_skia.h',
         'pdf_metafile_skia.cc',
+        'print_destination_interface.h',
+        'print_destination_none.cc',
+        'print_destination_win.cc',
         'printed_document_gtk.cc',
         'printed_document.cc',
         'printed_document.h',
@@ -87,6 +90,11 @@
         ],
       },
       'conditions': [
+        ['enable_printing!=1', {
+          'sources/': [
+            ['exclude', '.'],
+          ],
+        }],
         ['toolkit_uses_gtk == 0',{
             'sources/': [['exclude', '_cairo\\.cc$']]
         }],
@@ -140,6 +148,9 @@
             'backend/win_helper.cc',
             'backend/win_helper.h',
             'backend/print_backend_win.cc',
+          ],
+          'sources!': [
+            'print_destination_none.cc',
           ],
         }],
         ['chromeos==1 or use_aura==1',{
@@ -209,6 +220,12 @@
         'units_unittest.cc',
       ],
       'conditions': [
+        ['enable_printing!=1', {
+          'sources/': [
+            ['exclude', '.'],
+            ['include', 'run_all_unittests.cc'],
+          ],
+        }],
         ['toolkit_uses_gtk == 0', {'sources/': [['exclude', '_gtk_unittest\\.cc$']]}],
         ['OS!="mac"', {'sources/': [['exclude', '_mac_unittest\\.(cc|mm?)$']]}],
         ['OS!="win"', {'sources/': [['exclude', '_win_unittest\\.cc$']]}],

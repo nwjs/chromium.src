@@ -18,7 +18,7 @@ namespace {
 // OnKeyReleased() methods.
 class TestCombobox : public views::Combobox {
  public:
-  TestCombobox(ui::ComboboxModel* model)
+  explicit TestCombobox(ui::ComboboxModel* model)
       : Combobox(model),
         key_handled_(false),
         key_received_(false) {
@@ -85,11 +85,9 @@ class NativeComboboxViewsTest : public ViewsTestBase {
   // ::testing::Test:
   virtual void SetUp() {
     ViewsTestBase::SetUp();
-    Widget::SetPureViews(true);
   }
 
   virtual void TearDown() {
-    Widget::SetPureViews(false);
     if (widget_)
       widget_->Close();
     ViewsTestBase::TearDown();

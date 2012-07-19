@@ -200,6 +200,9 @@ _ENUM_LISTS = {
       'GL_TEXTURE_BINDING_2D',
       'GL_TEXTURE_BINDING_CUBE_MAP',
       'GL_UNPACK_ALIGNMENT',
+      'GL_UNPACK_FLIP_Y_CHROMIUM',
+      'GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM',
+      'GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM',
       'GL_VIEWPORT',
     ],
     'invalid': [
@@ -210,12 +213,7 @@ _ENUM_LISTS = {
     'type': 'GLenum',
     'valid': [
       'GL_TEXTURE_2D',
-      'GL_TEXTURE_CUBE_MAP_POSITIVE_X',
-      'GL_TEXTURE_CUBE_MAP_NEGATIVE_X',
-      'GL_TEXTURE_CUBE_MAP_POSITIVE_Y',
-      'GL_TEXTURE_CUBE_MAP_NEGATIVE_Y',
-      'GL_TEXTURE_CUBE_MAP_POSITIVE_Z',
-      'GL_TEXTURE_CUBE_MAP_NEGATIVE_Z',
+      'GL_TEXTURE_CUBE_MAP',
     ],
     'invalid': [
       'GL_PROXY_TEXTURE_CUBE_MAP',
@@ -339,10 +337,10 @@ _ENUM_LISTS = {
   'Capability': {
     'type': 'GLenum',
     'valid': [
+      'GL_DITHER',  # 1st one is a non-cached value so autogen unit tests work.
       'GL_BLEND',
       'GL_CULL_FACE',
       'GL_DEPTH_TEST',
-      'GL_DITHER',
       'GL_POLYGON_OFFSET_FILL',
       'GL_SAMPLE_ALPHA_TO_COVERAGE',
       'GL_SAMPLE_COVERAGE',
@@ -587,6 +585,9 @@ _ENUM_LISTS = {
     'valid': [
       'GL_PACK_ALIGNMENT',
       'GL_UNPACK_ALIGNMENT',
+      'GL_UNPACK_FLIP_Y_CHROMIUM',
+      'GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM',
+      'GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM',
     ],
     'invalid': [
       'GL_PACK_SWAP_BYTES',
@@ -615,6 +616,19 @@ _ENUM_LISTS = {
     ],
   },
   'PixelType': {
+    'type': 'GLenum',
+    'valid': [
+      'GL_UNSIGNED_BYTE',
+      'GL_UNSIGNED_SHORT_5_6_5',
+      'GL_UNSIGNED_SHORT_4_4_4_4',
+      'GL_UNSIGNED_SHORT_5_5_5_1',
+    ],
+    'invalid': [
+      'GL_SHORT',
+      'GL_INT',
+    ],
+  },
+  'ReadPixelType': {
     'type': 'GLenum',
     'valid': [
       'GL_UNSIGNED_BYTE',
@@ -756,12 +770,12 @@ _ENUM_LISTS = {
 # GL commands. 'dev' is true if it's a dev interface.
 _PEPPER_INTERFACES = [
   {'name': '', 'dev': False},
-  {'name': 'InstancedArrays', 'dev': True},
-  {'name': 'FramebufferBlit', 'dev': True},
-  {'name': 'FramebufferMultisample', 'dev': True},
-  {'name': 'ChromiumEnableFeature', 'dev': True},
-  {'name': 'ChromiumMapSub', 'dev': True},
-  {'name': 'Query', 'dev': True},
+  {'name': 'InstancedArrays', 'dev': False},
+  {'name': 'FramebufferBlit', 'dev': False},
+  {'name': 'FramebufferMultisample', 'dev': False},
+  {'name': 'ChromiumEnableFeature', 'dev': False},
+  {'name': 'ChromiumMapSub', 'dev': False},
+  {'name': 'Query', 'dev': False},
 ]
 
 # This table specifies types and other special data for the commands that
@@ -853,13 +867,25 @@ _FUNCTION_INFO = {
     'error_value': 'GL_FRAMEBUFFER_UNSUPPORTED',
     'result': ['GLenum'],
   },
-  'Clear': {'decoder_func': 'DoClear'},
+  'Clear': {
+    'type': 'Manual',
+    'cmd_args': 'GLbitfield mask'
+  },
   'ClearColor': {'decoder_func': 'DoClearColor'},
   'ClearDepthf': {
     'decoder_func': 'DoClearDepthf',
     'gl_test_func': 'glClearDepth',
   },
   'ColorMask': {'decoder_func': 'DoColorMask', 'expectation': False},
+  'ConsumeTextureCHROMIUM': {
+    'decoder_func': 'DoConsumeTextureCHROMIUM',
+    'type': 'PUT',
+    'data_type': 'GLbyte',
+    'count': 64,
+    'unit_test': False,
+    'extension': True,
+    'chromium': True,
+  },
   'ClearStencil': {'decoder_func': 'DoClearStencil'},
   'EnableFeatureCHROMIUM': {
     'type': 'Custom',
@@ -937,6 +963,7 @@ _FUNCTION_INFO = {
   'DetachShader': {'decoder_func': 'DoDetachShader'},
   'Disable': {
     'decoder_func': 'DoDisable',
+    'impl_func': False,
   },
   'DisableVertexAttribArray': {
     'decoder_func': 'DoDisableVertexAttribArray',
@@ -954,6 +981,7 @@ _FUNCTION_INFO = {
   },
   'Enable': {
     'decoder_func': 'DoEnable',
+    'impl_func': False,
   },
   'EnableVertexAttribArray': {
     'decoder_func': 'DoEnableVertexAttribArray',
@@ -985,6 +1013,15 @@ _FUNCTION_INFO = {
     'gl_test_func': 'glGenBuffersARB',
     'resource_type': 'Buffer',
     'resource_types': 'Buffers',
+  },
+  'GenMailboxCHROMIUM': {
+    'type': 'Manual',
+    'cmd_args': 'GLuint bucket_id',
+    'result': ['SizedResult<GLint>'],
+    'client_test': False,
+    'unit_test': False,
+    'extension': True,
+    'chromium': True,
   },
   'GenFramebuffers': {
     'type': 'GENn',
@@ -1105,6 +1142,7 @@ _FUNCTION_INFO = {
     'type': 'GETn',
     'decoder_func': 'DoGetProgramiv',
     'result': ['SizedResult<GLint>'],
+    'expectation': False,
   },
   'GetProgramInfoCHROMIUM': {
     'type': 'Custom',
@@ -1222,7 +1260,11 @@ _FUNCTION_INFO = {
     'decoder_func': 'DoIsBuffer',
     'expectation': False,
   },
-  'IsEnabled': {'type': 'Is'},
+  'IsEnabled': {
+    'type': 'Is',
+    'decoder_func': 'DoIsEnabled',
+    'impl_func': False,
+  },
   'IsFramebuffer': {
     'type': 'Is',
     'decoder_func': 'DoIsFramebuffer',
@@ -1275,6 +1317,15 @@ _FUNCTION_INFO = {
       'extension': True,
       'chromium': True,
   },
+  'ProduceTextureCHROMIUM': {
+    'decoder_func': 'DoProduceTextureCHROMIUM',
+    'type': 'PUT',
+    'data_type': 'GLbyte',
+    'count': 64,
+    'unit_test': False,
+    'extension': True,
+    'chromium': True,
+  },
   'RenderbufferStorage': {
     'decoder_func': 'DoRenderbufferStorage',
     'gl_test_func': 'glRenderbufferStorageEXT',
@@ -1299,7 +1350,7 @@ _FUNCTION_INFO = {
     'client_test': False,
     'cmd_args':
         'GLint x, GLint y, GLsizei width, GLsizei height, '
-        'GLenumReadPixelFormat format, GLenumPixelType type, '
+        'GLenumReadPixelFormat format, GLenumReadPixelType type, '
         'uint32 pixels_shm_id, uint32 pixels_shm_offset, '
         'uint32 result_shm_id, uint32 result_shm_offset',
     'result': ['uint32'],
@@ -1509,6 +1560,9 @@ _FUNCTION_INFO = {
                   'GLsizei stride, GLuint offset',
       'client_test': False,
   },
+  'Viewport': {
+    'decoder_func': 'DoViewport',
+  },
   'ResizeCHROMIUM': {
       'type': 'Custom',
       'impl_func': False,
@@ -1559,6 +1613,12 @@ _FUNCTION_INFO = {
    },
   'TexImageIOSurface2DCHROMIUM': {
     'decoder_func': 'DoTexImageIOSurface2DCHROMIUM',
+    'unit_test': False,
+    'extension': True,
+    'chromium': True,
+  },
+  'CopyTextureCHROMIUM': {
+    'decoder_func': 'DoCopyTextureCHROMIUM',
     'unit_test': False,
     'extension': True,
     'chromium': True,
@@ -1638,6 +1698,12 @@ _FUNCTION_INFO = {
     'client_test': False,
     'gl_test_func': 'glGetQueryObjectuiv',
     'pepper_interface': 'Query',
+  },
+  'BindUniformLocationCHROMIUM': {
+    'type': 'GLchar',
+    'bucket': True,
+    'needs_size': True,
+    'gl_test_func': 'DoBindUniformLocationCHROMIUM',
   },
 }
 
@@ -2361,7 +2427,7 @@ class TodoHandler(CustomHandler):
                 func.MakeTypedOriginalArgString("")))
     file.Write("  // TODO: for now this is a no-op\n")
     file.Write(
-        "  SetGLError(GL_INVALID_OPERATION, \"gl%s not implemented\");\n" %
+        "  SetGLError(GL_INVALID_OPERATION, \"gl%s\", \"not implemented\");\n" %
         func.name)
     if func.return_type != "void":
       file.Write("  return 0;\n")
@@ -2376,7 +2442,7 @@ class TodoHandler(CustomHandler):
         "    uint32 immediate_data_size, const gles2::%s& c) {\n" % func.name)
     file.Write("  // TODO: for now this is a no-op\n")
     file.Write(
-        "  SetGLError(GL_INVALID_OPERATION, \"gl%s not implemented\");\n" %
+        "  SetGLError(GL_INVALID_OPERATION, \"gl%s\", \"not implemented\");\n" %
         func.name)
     file.Write("  return error::kNoError;\n")
     file.Write("}\n")
@@ -2687,7 +2753,7 @@ TEST_F(%(test_name)s, %(name)sInvalidArgs%(arg_index)d_%(value_index)d) {
       for arg in func.GetOriginalArgs():
         arg.WriteClientSideValidationCode(file, func)
       code = """  if (Is%(type)sReservedId(%(id)s)) {
-    SetGLError(GL_INVALID_OPERATION, "%(name)s: %(id)s reserved id");
+    SetGLError(GL_INVALID_OPERATION, "%(name)s\", \"%(id)s reserved id");
     return;
   }
   Bind%(type)sHelper(%(arg_string)s);
@@ -3335,7 +3401,7 @@ class GETnHandler(TypeHandler):
   if (error == GL_NO_ERROR) {
     result->SetNumResults(num_values);
   } else {
-    SetGLError(error, NULL);
+    SetGLError(error, "", "");
   }
   return error::kNoError;
 }
@@ -3769,9 +3835,7 @@ TEST_F(%(test_name)s, %(name)sValidArgsCountTooLarge) {
         # the location of the second element of the 2nd uniform.
         # defined in GLES2DecoderBase::SetupShaderForUniform
         gl_arg_strings.append("3")
-        arg_strings.append(
-            "program_manager()->SwizzleLocation(ProgramManager::"
-            "ProgramInfo::GetFakeLocation(1, 1))")
+        arg_strings.append("ProgramManager::MakeFakeLocation(1, 1)")
       elif count == 1:
         # the number of elements that gl will be called with.
         gl_arg_strings.append("3")
@@ -4627,14 +4691,13 @@ class UniformLocationArgument(Argument):
 
   def WriteGetCode(self, file):
     """Writes the code to get an argument from a command structure."""
-    code = """  %s %s = program_manager()->UnswizzleLocation(
-      static_cast<%s>(c.%s));
+    code = """  %s %s = static_cast<%s>(c.%s);
 """
     file.Write(code % (self.type, self.name, self.type, self.name))
 
   def GetValidArg(self, func, offset, index):
     """Gets a valid value for this argument."""
-    return "program_manager()->SwizzleLocation(%d)" % (offset + 1)
+    return "%d" % (offset + 1)
 
 
 class DataSizeArgument(Argument):
@@ -4666,7 +4729,7 @@ class SizeArgument(Argument):
   def WriteValidationCode(self, file, func):
     """overridden from Argument."""
     file.Write("  if (%s < 0) {\n" % self.name)
-    file.Write("    SetGLError(GL_INVALID_VALUE, \"gl%s: %s < 0\");\n" %
+    file.Write("    SetGLError(GL_INVALID_VALUE, \"gl%s\", \"%s < 0\");\n" %
                (func.original_name, self.name))
     file.Write("    return error::kNoError;\n")
     file.Write("  }\n")
@@ -4674,7 +4737,7 @@ class SizeArgument(Argument):
   def WriteClientSideValidationCode(self, file, func):
     """overridden from Argument."""
     file.Write("  if (%s < 0) {\n" % self.name)
-    file.Write("    SetGLError(GL_INVALID_VALUE, \"gl%s: %s < 0\");\n" %
+    file.Write("    SetGLError(GL_INVALID_VALUE, \"gl%s\", \"%s < 0\");\n" %
                (func.original_name, self.name))
     file.Write("    return;\n")
     file.Write("  }\n")
@@ -4693,11 +4756,6 @@ class SizeNotNegativeArgument(SizeArgument):
   def WriteValidationCode(self, file, func):
     """overridden from SizeArgument."""
     pass
-    #file.Write("  if (%s < 0) {\n" % self.name)
-    #file.Write("    SetGLError(GL_INVALID_VALUE, \"gl%s: %s < 0\");\n" %
-    #           (func.original_name, self.name))
-    #file.Write("    return error::kNoError;\n")
-    #file.Write("  }\n")
 
 
 class EnumBaseArgument(Argument):
@@ -4715,7 +4773,7 @@ class EnumBaseArgument(Argument):
   def WriteValidationCode(self, file, func):
     file.Write("  if (!validators_->%s.IsValid(%s)) {\n" %
         (ToUnderscore(self.type_name), self.name))
-    file.Write("    SetGLError(%s, \"gl%s: %s %s\");\n" %
+    file.Write("    SetGLError(%s, \"gl%s\", \"%s %s\");\n" %
                (self.gl_error, func.original_name, self.name, self.gl_error))
     file.Write("    return error::kNoError;\n")
     file.Write("  }\n")
@@ -6049,7 +6107,11 @@ const size_t GLES2Util::enum_to_string_table_len_ =
     file.Write(_LICENSE)
     file.Write(_DO_NOT_EDIT_WARNING)
 
+    file.Write("#ifndef GL_GLEXT_PROTOTYPES\n")
+    file.Write("#define GL_GLEXT_PROTOTYPES\n")
+    file.Write("#endif\n")
     file.Write("#include <GLES2/gl2.h>\n")
+    file.Write("#include <GLES2/gl2ext.h>\n")
     file.Write("#include \"ppapi/lib/gl/gles2/gl2ext_ppapi.h\"\n\n")
 
     for func in self.original_functions:

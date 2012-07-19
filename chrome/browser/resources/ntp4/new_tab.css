@@ -73,7 +73,9 @@ html[dir='rtl'] #notification-container {
   background: no-repeat;
   background-color: transparent;
   /* TODO(estade): this should animate between states. */
-  background-image: url('../../../../ui/resources/close_bar.png');
+  background-image: -webkit-image-set(
+      url('../../../../ui/resources/default_100_percent/close_bar.png') 1x,
+      url('../../../../ui/resources/default_200_percent/close_bar.png') 2x);
   border: 0;
   cursor: default;
   display: inline-block;
@@ -84,11 +86,19 @@ html[dir='rtl'] #notification-container {
 
 .close-button:hover,
 .close-button:focus {
-  background-image: url('../../../../ui/resources/close_bar_h.png');
+  background-image: -webkit-image-set(
+      url('../../../../ui/resources/default_100_percent/close_bar_hover.png')
+          1x,
+      url('../../../../ui/resources/default_200_percent/close_bar_hover.png')
+          2x);
 }
 
 .close-button:active {
-  background-image: url('../../../../ui/resources/close_bar_p.png');
+  background-image: -webkit-image-set(
+      url('../../../../ui/resources/default_100_percent/close_bar_pressed.png')
+          1x,
+      url('../../../../ui/resources/default_200_percent/close_bar_pressed.png')
+          2x);
 }
 
 .link-button {
@@ -175,6 +185,9 @@ html[dir='rtl'] #attribution {
 
 #logo-img {
   margin-top: 4px;
+
+  /* TODO: Remove once http://crbug.com/135179 is fixed */
+  content: url('chrome://theme/IDR_PRODUCT_LOGO');
 }
 
 body.bare-minimum #footer {
@@ -208,7 +221,7 @@ body.bare-minimum #dot-list {
   border: none;
   color: inherit;
   cursor: pointer;
-  font-size: 1.1em;
+  font: inherit;
   /* Leave room for the scrollbar. */
   margin-left: 13px;
   margin-right: 13px;
@@ -351,15 +364,16 @@ html[dir='rtl'] #footer.showing-trash-mode #trash.drag-target .lid {
   z-index: 5;
 }
 
-#chrome-web-store-href {
+#chrome-web-store-link {
   -webkit-padding-end: 12px;
   /* Match transition delay of recently closed button. */
   -webkit-transition-delay: 100ms;
   color: inherit;
   cursor: pointer;
-  display: none;
+  display: inline-block;
   margin: 0;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 #chrome-web-store-title {
@@ -370,7 +384,7 @@ html[dir='rtl'] #footer.showing-trash-mode #trash.drag-target .lid {
   line-height: 49px;
 }
 
-#chrome-web-store-href:hover {
+#chrome-web-store-link:hover {
   color: #666;
 }
 
@@ -378,12 +392,8 @@ html[dir='rtl'] #chrome-web-store-title {
   background-position-x: left;
 }
 
-/* Show the chrome web store footer link when the experiment is turned on. */
-.enable-cws-experiment #chrome-web-store-href {
-  display: inline-block;
-}
-
 #vertical-separator {
+  -webkit-box-ordinal-group: 3;
   background-color: rgb(178, 178, 178);
   display: none;
   height: 20px;
@@ -393,13 +403,12 @@ html[dir='rtl'] #chrome-web-store-title {
 }
 
 /* Show the separator only if one of the menus is visible. */
-.enable-cws-experiment
-    .footer-menu-button:not(.invisible) ~ #vertical-separator {
-  display: inline-block;
+.footer-menu-button:not(.invisible) ~ #vertical-separator {
+  display: block;
 }
 
 /* In trash mode, hide the menus and web store link. */
-#footer.showing-trash-mode #chrome-web-store-href,
+#footer.showing-trash-mode #chrome-web-store-link,
 #footer.showing-trash-mode .menu-container {
   -webkit-transition-delay: 0;
   opacity: 0;
@@ -407,17 +416,20 @@ html[dir='rtl'] #chrome-web-store-title {
 }
 
 #footer .menu-container {
-  -webkit-flex-align: center;
-  /* Put menus in a flexbox so the order can easily be swapped. */
-  display: -webkit-flexbox;
+  -webkit-box-align: center;
+  /* Put menus in a box so the order can easily be swapped. */
+  display: -webkit-box;
   height: 100%;
   margin: 0;
 }
 
-/* Put the recently closed menu to the left when it's not visible. */
 #recently-closed-menu-button.invisible {
-  -webkit-flex-order: -1;
   visibility: hidden;
+}
+
+#recently-closed-menu-button:not(.invisible) {
+  /* Put the recently closed menu to the right when it's visible. */
+  -webkit-box-ordinal-group: 2;
 }
 
 #other-sessions-menu-button.invisible {

@@ -4,13 +4,11 @@
 
 #ifndef CHROME_BROWSER_HISTORY_TOP_SITES_DATABASE_H_
 #define CHROME_BROWSER_HISTORY_TOP_SITES_DATABASE_H_
-#pragma once
 
 #include <map>
 #include <string>
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/ref_counted.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/history/url_database.h"  // For DBCloseScoper.
 #include "sql/meta_table.h"

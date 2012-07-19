@@ -2,14 +2,14 @@
   "name" : "Platform App Context Menus Test Extension",
   "version" : "0.1",
   "manifest_version": 2,
-  "permissions": [ "contextMenus" ],
+  "permissions": [
+    "experimental",
+    "appWindow",
+    "contextMenus"
+  ],
   "app": {
-    "launch": {
-      "local_path": "main.html",
-      "container": "shell",
-      "width": 250,
-      "height": 250
+    "background": {
+      "scripts": ["test.js"]
     }
-  },
-  "platform_app": true
+  }
 }

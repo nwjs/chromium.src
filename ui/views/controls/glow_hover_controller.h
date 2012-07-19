@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_GLOW_HOVER_CONTROLLER_H_
 #define UI_VIEWS_CONTROLS_GLOW_HOVER_CONTROLLER_H_
-#pragma once
 
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
@@ -12,10 +11,9 @@
 
 namespace gfx {
 class Canvas;
+class ImageSkia;
 class Point;
 }
-
-class SkBitmap;
 
 namespace views {
 
@@ -59,7 +57,7 @@ class VIEWS_EXPORT GlowHoverController : public ui::AnimationDelegate {
 
   // If the hover is currently visible it is drawn to the supplied canvas.
   // |mask_image| is used to determine what parts of the canvas to draw on.
-  void Draw(gfx::Canvas* canvas, const SkBitmap& mask_image) const;
+  void Draw(gfx::Canvas* canvas, const gfx::ImageSkia& mask_image) const;
 
   // ui::AnimationDelegate overrides:
   virtual void AnimationEnded(const ui::Animation* animation) OVERRIDE;

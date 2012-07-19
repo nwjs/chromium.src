@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_BASE_ANIMATION_TWEEN_H_
 #define UI_BASE_ANIMATION_TWEEN_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "ui/base/ui_export.h"
@@ -22,6 +21,7 @@ class UI_EXPORT Tween {
     EASE_IN_OUT,   // Slow in and out, fast in the middle.
     FAST_IN_OUT,   // Fast in and out, slow in the middle.
     EASE_OUT_SNAP, // Fast in, slow out, snap to final value.
+    SMOOTH_IN_OUT, // Smooth, consistent speeds in and out (sine wave).
     ZERO,          // Returns a value of 0 always.
   };
 

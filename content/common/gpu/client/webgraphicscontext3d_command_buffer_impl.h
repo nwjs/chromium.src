@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_GPU_CLIENT_WEBGRAPHICSCONTEXT3D_COMMAND_BUFFER_IMPL_H_
 #define CONTENT_COMMON_GPU_CLIENT_WEBGRAPHICSCONTEXT3D_COMMAND_BUFFER_IMPL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -17,7 +16,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebGraphicsContext3D.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
-#include "ui/gfx/gl/gpu_preference.h"
+#include "ui/gl/gpu_preference.h"
 #include "ui/gfx/native_widget_types.h"
 
 #if defined(USE_SKIA)
@@ -58,10 +57,12 @@ using WebKit::WGC3Dsizeiptr;
 // context...
 class WebGraphicsContext3DSwapBuffersClient {
  public:
-  virtual ~WebGraphicsContext3DSwapBuffersClient() { }
   virtual void OnViewContextSwapBuffersPosted() = 0;
   virtual void OnViewContextSwapBuffersComplete() = 0;
   virtual void OnViewContextSwapBuffersAborted() = 0;
+
+ protected:
+  virtual ~WebGraphicsContext3DSwapBuffersClient() {}
 };
 
 class WebGraphicsContext3DErrorMessageCallback;
@@ -77,6 +78,11 @@ class WebGraphicsContext3DCommandBufferImpl
       const base::WeakPtr<WebGraphicsContext3DSwapBuffersClient>& swap_client);
 
   virtual ~WebGraphicsContext3DCommandBufferImpl();
+
+  void InitializeWithCommandBuffer(
+      CommandBufferProxy* command_buffer,
+      const Attributes& attributes,
+      bool bind_generates_resources);
 
   bool Initialize(const Attributes& attributes,
                   bool bind_generates_resources,
@@ -122,6 +128,13 @@ class WebGraphicsContext3DCommandBufferImpl
       const GURL& active_url,
       content::CauseForGpuLaunch cause);
 
+  // Create & initialize a WebGraphicsContext3DCommandBufferImpl.  Return NULL
+  // on any failure.
+  static WebGraphicsContext3DCommandBufferImpl* CreateOffscreenContext(
+      GpuChannelHostFactory* factory,
+      const WebGraphicsContext3D::Attributes& attributes,
+      const GURL& active_url);
+
   //----------------------------------------------------------------------
   // WebGraphicsContext3D methods
 
@@ -136,6 +149,9 @@ class WebGraphicsContext3DCommandBufferImpl
   virtual bool isGLES2Compliant();
 
   virtual bool setParentContext(WebGraphicsContext3D* parent_context);
+
+  virtual unsigned int insertSyncPoint();
+  virtual void waitSyncPoint(unsigned int);
 
   virtual void reshape(int width, int height);
 
@@ -550,10 +566,15 @@ class WebGraphicsContext3DCommandBufferImpl
   virtual void getQueryObjectuivEXT(
       WebGLId query, WGC3Denum pname, WGC3Duint* params);
 
+  virtual void copyTextureCHROMIUM(WGC3Denum target, WebGLId source_id,
+                                   WebGLId dest_id, WGC3Dint level,
+                                   WGC3Denum internal_format);
+
+  virtual void bindUniformLocationCHROMIUM(WebGLId program, WGC3Dint location,
+                                           const WGC3Dchar* uniform);
+
  protected:
-#if WEBKIT_USING_SKIA
   virtual GrGLInterface* onCreateGrGLInterface();
-#endif
 
  private:
   // These are the same error codes as used by EGL.

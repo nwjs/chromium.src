@@ -13,6 +13,7 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/extensions/command.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_error_utils.h"
 #include "chrome/common/extensions/extension_file_util.h"
@@ -26,6 +27,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
+
+using extensions::Extension;
 
 namespace keys = extension_manifest_keys;
 namespace values = extension_manifest_values;
@@ -91,13 +94,13 @@ static scoped_refptr<Extension> LoadManifest(const std::string& dir,
 static scoped_refptr<Extension> LoadManifestStrict(
     const std::string& dir,
     const std::string& test_file) {
-  return LoadManifest(dir, test_file, Extension::STRICT_ERROR_CHECKS);
+  return LoadManifest(dir, test_file, Extension::NO_FLAGS);
 }
 
-static ExtensionAction* LoadAction(const std::string& manifest) {
+static scoped_ptr<ExtensionAction> LoadAction(const std::string& manifest) {
   scoped_refptr<Extension> extension = LoadManifest("page_action",
       manifest);
-  return new ExtensionAction(*(extension->page_action()));
+  return extension->page_action()->CopyForTest();
 }
 
 static void LoadActionAndExpectError(const std::string& manifest,
@@ -176,6 +179,10 @@ TEST(ExtensionTest, GetResourceURLAndPath) {
                                       "bar/../baz.js").spec());
   EXPECT_EQ(extension->url().spec() + "baz.js",
             Extension::GetResourceURL(extension->url(), "../baz.js").spec());
+
+  // Test that absolute-looking paths ("/"-prefixed) are pasted correctly.
+  EXPECT_EQ(extension->url().spec() + "test.html",
+            extension->GetResourceURL("/test.html").spec());
 }
 
 TEST(ExtensionTest, GetAbsolutePathNoError) {
@@ -183,7 +190,10 @@ TEST(ExtensionTest, GetAbsolutePathNoError) {
       "absolute.json");
   EXPECT_TRUE(extension.get());
   std::string err;
-  EXPECT_TRUE(extension_file_util::ValidateExtension(extension.get(), &err));
+  Extension::InstallWarningVector warnings;
+  EXPECT_TRUE(extension_file_util::ValidateExtension(extension.get(),
+                                                     &err, &warnings));
+  EXPECT_EQ(0U, warnings.size());
 
   EXPECT_EQ(extension->path().AppendASCII("test.html").value(),
             extension->GetResource("test.html").GetFilePath().value());
@@ -195,7 +205,7 @@ TEST(ExtensionTest, LoadPageActionHelper) {
   scoped_ptr<ExtensionAction> action;
 
   // First try with an empty dictionary.
-  action.reset(LoadAction("page_action_empty.json"));
+  action = LoadAction("page_action_empty.json");
   ASSERT_TRUE(action != NULL);
 
   // Now setup some values to use in the action.
@@ -204,7 +214,7 @@ TEST(ExtensionTest, LoadPageActionHelper) {
   std::string img1("image1.png");
   std::string img2("image2.png");
 
-  action.reset(LoadAction("page_action.json"));
+  action = LoadAction("page_action.json");
   ASSERT_TRUE(NULL != action.get());
   ASSERT_EQ(id, action->id());
 
@@ -215,20 +225,20 @@ TEST(ExtensionTest, LoadPageActionHelper) {
   ASSERT_EQ(img2, (*action->icon_paths())[1]);
 
   // Same test with explicitly set type.
-  action.reset(LoadAction("page_action_type.json"));
+  action = LoadAction("page_action_type.json");
   ASSERT_TRUE(NULL != action.get());
 
   // Try an action without id key.
-  action.reset(LoadAction("page_action_no_id.json"));
+  action = LoadAction("page_action_no_id.json");
   ASSERT_TRUE(NULL != action.get());
 
   // Then try without the name key. It's optional, so no error.
-  action.reset(LoadAction("page_action_no_name.json"));
+  action = LoadAction("page_action_no_name.json");
   ASSERT_TRUE(NULL != action.get());
   ASSERT_TRUE(action->GetTitle(1).empty());
 
   // Then try without the icon paths key.
-  action.reset(LoadAction("page_action_no_icon.json"));
+  action = LoadAction("page_action_no_icon.json");
   ASSERT_TRUE(NULL != action.get());
 
   // Now test that we can parse the new format for page actions.
@@ -236,7 +246,7 @@ TEST(ExtensionTest, LoadPageActionHelper) {
   const std::string kIcon("image1.png");
   const std::string kPopupHtmlFile("a_popup.html");
 
-  action.reset(LoadAction("page_action_new_format.json"));
+  action = LoadAction("page_action_new_format.json");
   ASSERT_TRUE(action.get());
   ASSERT_EQ(kTitle, action->GetTitle(1));
   ASSERT_EQ(0u, action->icon_paths()->size());
@@ -246,7 +256,7 @@ TEST(ExtensionTest, LoadPageActionHelper) {
       errors::kInvalidPageActionDefaultTitle);
 
   // Invalid name should give an error only with no title.
-  action.reset(LoadAction("page_action_invalid_name.json"));
+  action = LoadAction("page_action_invalid_name.json");
   ASSERT_TRUE(NULL != action.get());
   ASSERT_EQ(kTitle, action->GetTitle(1));
 
@@ -260,7 +270,7 @@ TEST(ExtensionTest, LoadPageActionHelper) {
   // Only use "popup", expect success.
   scoped_refptr<Extension> extension = LoadManifest("page_action",
              "page_action_popup.json");
-  action.reset(LoadAction("page_action_popup.json"));
+  action = LoadAction("page_action_popup.json");
   ASSERT_TRUE(NULL != action.get());
   ASSERT_STREQ(
       extension->url().Resolve(kPopupHtmlFile).spec().c_str(),
@@ -275,14 +285,14 @@ TEST(ExtensionTest, LoadPageActionHelper) {
 
   // Use only "default_popup", expect success.
   extension = LoadManifest("page_action", "page_action_popup.json");
-  action.reset(LoadAction("page_action_default_popup.json"));
+  action = LoadAction("page_action_default_popup.json");
   ASSERT_TRUE(NULL != action.get());
   ASSERT_STREQ(
       extension->url().Resolve(kPopupHtmlFile).spec().c_str(),
       action->GetPopupUrl(ExtensionAction::kDefaultTabId).spec().c_str());
 
   // Setting default_popup to "" is the same as having no popup.
-  action.reset(LoadAction("page_action_empty_default_popup.json"));
+  action = LoadAction("page_action_empty_default_popup.json");
   ASSERT_TRUE(NULL != action.get());
   EXPECT_FALSE(action->HasPopup(ExtensionAction::kDefaultTabId));
   ASSERT_STREQ(
@@ -290,7 +300,7 @@ TEST(ExtensionTest, LoadPageActionHelper) {
       action->GetPopupUrl(ExtensionAction::kDefaultTabId).spec().c_str());
 
   // Setting popup to "" is the same as having no popup.
-  action.reset(LoadAction("page_action_empty_popup.json"));
+  action = LoadAction("page_action_empty_popup.json");
 
   ASSERT_TRUE(NULL != action.get());
   EXPECT_FALSE(action->HasPopup(ExtensionAction::kDefaultTabId));
@@ -453,8 +463,7 @@ TEST(ExtensionTest, ImageCaching) {
   values.SetString(keys::kName, "test");
   values.SetString(keys::kVersion, "0.1");
   scoped_refptr<Extension> extension(Extension::Create(
-      path, Extension::INVALID, values, Extension::STRICT_ERROR_CHECKS,
-      &errors));
+      path, Extension::INVALID, values, Extension::NO_FLAGS, &errors));
   ASSERT_TRUE(extension.get());
 
   // Create an ExtensionResource pointing at an icon.
@@ -566,13 +575,13 @@ TEST(ExtensionTest, GetPermissionMessages_ManyApiPermissions) {
   extension = LoadManifest("permissions", "many-apis.json");
   std::vector<string16> warnings = extension->GetPermissionMessageStrings();
   ASSERT_EQ(6u, warnings.size());
-  EXPECT_EQ("Your data on api.flickr.com",
+  EXPECT_EQ("Access your data on api.flickr.com",
             UTF16ToUTF8(warnings[0]));
-  EXPECT_EQ("Your bookmarks", UTF16ToUTF8(warnings[1]));
-  EXPECT_EQ("Your physical location", UTF16ToUTF8(warnings[2]));
-  EXPECT_EQ("Your browsing history", UTF16ToUTF8(warnings[3]));
-  EXPECT_EQ("Your tabs and browsing activity", UTF16ToUTF8(warnings[4]));
-  EXPECT_EQ("Your list of apps, extensions, and themes",
+  EXPECT_EQ("Read and modify your bookmarks", UTF16ToUTF8(warnings[1]));
+  EXPECT_EQ("Detect your physical location", UTF16ToUTF8(warnings[2]));
+  EXPECT_EQ("Read and modify your browsing history", UTF16ToUTF8(warnings[3]));
+  EXPECT_EQ("Access your tabs and browsing activity", UTF16ToUTF8(warnings[4]));
+  EXPECT_EQ("Manage your apps, extensions, and themes",
             UTF16ToUTF8(warnings[5]));
 }
 
@@ -581,7 +590,7 @@ TEST(ExtensionTest, GetPermissionMessages_ManyHosts) {
   extension = LoadManifest("permissions", "many-hosts.json");
   std::vector<string16> warnings = extension->GetPermissionMessageStrings();
   ASSERT_EQ(1u, warnings.size());
-  EXPECT_EQ("Your data on encrypted.google.com and www.google.com",
+  EXPECT_EQ("Access your data on encrypted.google.com and www.google.com",
             UTF16ToUTF8(warnings[0]));
 }
 
@@ -595,7 +604,7 @@ TEST(ExtensionTest, GetPermissionMessages_Plugins) {
   ASSERT_EQ(0u, warnings.size());
 #else
   ASSERT_EQ(1u, warnings.size());
-  EXPECT_EQ("All data on your computer and the websites you visit",
+  EXPECT_EQ("Access all data on your computer and the websites you visit",
             UTF16ToUTF8(warnings[0]));
 #endif
 }
@@ -607,62 +616,62 @@ TEST(ExtensionTest, WantsFileAccess) {
   // <all_urls> permission
   extension = LoadManifest("permissions", "permissions_all_urls.json");
   EXPECT_TRUE(extension->wants_file_access());
-  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, NULL, NULL));
+  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, -1, NULL, NULL));
   extension = LoadManifest(
       "permissions", "permissions_all_urls.json", Extension::ALLOW_FILE_ACCESS);
   EXPECT_TRUE(extension->wants_file_access());
-  EXPECT_TRUE(extension->CanExecuteScriptOnPage(file_url, NULL, NULL));
+  EXPECT_TRUE(extension->CanExecuteScriptOnPage(file_url, -1, NULL, NULL));
 
   // file:///* permission
   extension = LoadManifest("permissions", "permissions_file_scheme.json");
   EXPECT_TRUE(extension->wants_file_access());
-  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, NULL, NULL));
+  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, -1, NULL, NULL));
   extension = LoadManifest("permissions", "permissions_file_scheme.json",
       Extension::ALLOW_FILE_ACCESS);
   EXPECT_TRUE(extension->wants_file_access());
-  EXPECT_TRUE(extension->CanExecuteScriptOnPage(file_url, NULL, NULL));
+  EXPECT_TRUE(extension->CanExecuteScriptOnPage(file_url, -1, NULL, NULL));
 
   // http://* permission
   extension = LoadManifest("permissions", "permissions_http_scheme.json");
   EXPECT_FALSE(extension->wants_file_access());
-  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, NULL, NULL));
+  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, -1, NULL, NULL));
   extension = LoadManifest("permissions", "permissions_http_scheme.json",
       Extension::ALLOW_FILE_ACCESS);
   EXPECT_FALSE(extension->wants_file_access());
-  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, NULL, NULL));
+  EXPECT_FALSE(extension->CanExecuteScriptOnPage(file_url, -1, NULL, NULL));
 
   // <all_urls> content script match
   extension = LoadManifest("permissions", "content_script_all_urls.json");
   EXPECT_TRUE(extension->wants_file_access());
   EXPECT_FALSE(extension->CanExecuteScriptOnPage(
-      file_url, &extension->content_scripts()[0], NULL));
+      file_url, -1, &extension->content_scripts()[0], NULL));
   extension = LoadManifest("permissions", "content_script_all_urls.json",
       Extension::ALLOW_FILE_ACCESS);
   EXPECT_TRUE(extension->wants_file_access());
   EXPECT_TRUE(extension->CanExecuteScriptOnPage(
-      file_url, &extension->content_scripts()[0], NULL));
+      file_url, -1, &extension->content_scripts()[0], NULL));
 
   // file:///* content script match
   extension = LoadManifest("permissions", "content_script_file_scheme.json");
   EXPECT_TRUE(extension->wants_file_access());
   EXPECT_FALSE(extension->CanExecuteScriptOnPage(
-      file_url, &extension->content_scripts()[0], NULL));
+      file_url, -1, &extension->content_scripts()[0], NULL));
   extension = LoadManifest("permissions", "content_script_file_scheme.json",
       Extension::ALLOW_FILE_ACCESS);
   EXPECT_TRUE(extension->wants_file_access());
   EXPECT_TRUE(extension->CanExecuteScriptOnPage(
-      file_url, &extension->content_scripts()[0], NULL));
+      file_url, -1, &extension->content_scripts()[0], NULL));
 
   // http://* content script match
   extension = LoadManifest("permissions", "content_script_http_scheme.json");
   EXPECT_FALSE(extension->wants_file_access());
   EXPECT_FALSE(extension->CanExecuteScriptOnPage(
-      file_url, &extension->content_scripts()[0], NULL));
+      file_url, -1, &extension->content_scripts()[0], NULL));
   extension = LoadManifest("permissions", "content_script_http_scheme.json",
       Extension::ALLOW_FILE_ACCESS);
   EXPECT_FALSE(extension->wants_file_access());
   EXPECT_FALSE(extension->CanExecuteScriptOnPage(
-      file_url, &extension->content_scripts()[0], NULL));
+      file_url, -1, &extension->content_scripts()[0], NULL));
 }
 
 TEST(ExtensionTest, ExtraFlags) {
@@ -678,52 +687,107 @@ TEST(ExtensionTest, ExtraFlags) {
   EXPECT_FALSE(extension->from_webstore());
 }
 
+TEST(ExtensionTest, BrowserActionSynthesizesCommand) {
+  scoped_refptr<Extension> extension;
+
+  extension = LoadManifest("api_test/browser_action/synthesized",
+                           "manifest.json");
+  // An extension with a browser action but no extension command specified
+  // should get a command assigned to it.
+  const extensions::Command* command = extension->browser_action_command();
+  ASSERT_TRUE(command != NULL);
+  ASSERT_EQ(ui::VKEY_UNKNOWN, command->accelerator().key_code());
+}
+
 // Base class for testing the CanExecuteScriptOnPage and CanCaptureVisiblePage
 // methods of Extension for extensions with various permissions.
 class ExtensionScriptAndCaptureVisibleTest : public testing::Test {
- public:
-  ExtensionScriptAndCaptureVisibleTest() {
-    PathService::Get(chrome::DIR_TEST_DATA, &dirpath_);
+ protected:
+  ExtensionScriptAndCaptureVisibleTest()
+      : http_url("http://www.google.com"),
+        http_url_with_path("http://www.google.com/index.html"),
+        https_url("https://www.google.com"),
+        file_url("file:///foo/bar"),
+        favicon_url("chrome://favicon/http://www.google.com"),
+        extension_url("chrome-extension://" +
+            Extension::GenerateIdForPath(FilePath(FILE_PATH_LITERAL("foo")))),
+        settings_url("chrome://settings"),
+        about_url("about:flags") {
+    urls_.insert(http_url);
+    urls_.insert(http_url_with_path);
+    urls_.insert(https_url);
+    urls_.insert(file_url);
+    urls_.insert(favicon_url);
+    urls_.insert(extension_url);
+    urls_.insert(settings_url);
+    urls_.insert(about_url);
   }
 
   bool Allowed(const Extension* extension, const GURL& url) {
-    return (extension->CanExecuteScriptOnPage(url, NULL, NULL) &&
-            extension->CanCaptureVisiblePage(url, NULL));
+    return Allowed(extension, url, -1);
+  }
+
+  bool Allowed(const Extension* extension, const GURL& url, int tab_id) {
+    return (extension->CanExecuteScriptOnPage(url, tab_id, NULL, NULL) &&
+            extension->CanCaptureVisiblePage(url, tab_id, NULL));
   }
 
   bool CaptureOnly(const Extension* extension, const GURL& url) {
-    return !extension->CanExecuteScriptOnPage(url, NULL, NULL) &&
-        extension->CanCaptureVisiblePage(url, NULL);
+    return CaptureOnly(extension, url, -1);
+  }
+
+  bool CaptureOnly(const Extension* extension, const GURL& url, int tab_id) {
+    return !extension->CanExecuteScriptOnPage(url, tab_id, NULL, NULL) &&
+            extension->CanCaptureVisiblePage(url, tab_id, NULL);
   }
 
   bool Blocked(const Extension* extension, const GURL& url) {
-    return !(extension->CanExecuteScriptOnPage(url, NULL, NULL) ||
-             extension->CanCaptureVisiblePage(url, NULL));
+    return Blocked(extension, url, -1);
   }
 
- protected:
-  FilePath dirpath_;
+  bool Blocked(const Extension* extension, const GURL& url, int tab_id) {
+    return !(extension->CanExecuteScriptOnPage(url, tab_id, NULL, NULL) ||
+             extension->CanCaptureVisiblePage(url, tab_id, NULL));
+  }
+
+  bool AllowedExclusivelyOnTab(
+      const Extension* extension,
+      const std::set<GURL>& allowed_urls,
+      int tab_id) {
+    bool result = true;
+    for (std::set<GURL>::iterator it = urls_.begin(); it != urls_.end(); ++it) {
+      const GURL& url = *it;
+      if (allowed_urls.count(url))
+        result &= Allowed(extension, url, tab_id);
+      else
+        result &= Blocked(extension, url, tab_id);
+    }
+    return result;
+  }
+
+  // URLs that are "safe" to provide scripting and capture visible tab access
+  // to if the permissions allow it.
+  const GURL http_url;
+  const GURL http_url_with_path;
+  const GURL https_url;
+  const GURL file_url;
+
+  // We should allow host permission but not scripting permission for favicon
+  // urls.
+  const GURL favicon_url;
+
+  // URLs that regular extensions should never get access to.
+  const GURL extension_url;
+  const GURL settings_url;
+  const GURL about_url;
+
+ private:
+  // The set of all URLs above.
+  std::set<GURL> urls_;
 };
 
 TEST_F(ExtensionScriptAndCaptureVisibleTest, Permissions) {
   scoped_refptr<Extension> extension;
-  // URLs that are "safe" to provide scripting and capture visible tab access
-  // to if the permissions allow it.
-  GURL http_url("http://www.google.com");
-  GURL https_url("https://www.google.com");
-  GURL file_url("file:///foo/bar");
-
-  // We should allow host permission but not scripting permission for favicon
-  // urls.
-  GURL favicon_url("chrome://favicon/http://www.google.com");
-
-  std::string dummy_id =
-      Extension::GenerateIdForPath(FilePath(FILE_PATH_LITERAL("whatever")));
-
-  // URLs that regular extensions should never get access to.
-  GURL extension_url("chrome-extension://" + dummy_id);
-  GURL settings_url("chrome://settings");
-  GURL about_url("about:flags");
 
   // Test <all_urls> for regular extensions.
   extension = LoadManifestStrict("script_and_capture",
@@ -757,8 +821,9 @@ TEST_F(ExtensionScriptAndCaptureVisibleTest, Permissions) {
   // for favicon access, we require the explicit pattern chrome://favicon/*.
   std::string error;
   extension = LoadManifestUnchecked("script_and_capture",
-      "extension_wildcard_chrome.json", Extension::INTERNAL,
-      Extension::NO_FLAGS, &error);
+                                    "extension_wildcard_chrome.json",
+                                    Extension::INTERNAL, Extension::NO_FLAGS,
+                                    &error);
   EXPECT_TRUE(extension == NULL);
   EXPECT_EQ(ExtensionErrorUtils::FormatErrorMessage(
       errors::kInvalidPermissionScheme, base::IntToString(1)), error);
@@ -779,7 +844,7 @@ TEST_F(ExtensionScriptAndCaptureVisibleTest, Permissions) {
 
   // Component extensions with <all_urls> should get everything.
   extension = LoadManifest("script_and_capture", "extension_component_all.json",
-      Extension::COMPONENT, Extension::STRICT_ERROR_CHECKS);
+      Extension::COMPONENT, Extension::NO_FLAGS);
   EXPECT_TRUE(Allowed(extension, http_url));
   EXPECT_TRUE(Allowed(extension, https_url));
   EXPECT_TRUE(Allowed(extension, settings_url));
@@ -790,7 +855,7 @@ TEST_F(ExtensionScriptAndCaptureVisibleTest, Permissions) {
   // Component extensions should only get access to what they ask for.
   extension = LoadManifest("script_and_capture",
       "extension_component_google.json", Extension::COMPONENT,
-      Extension::STRICT_ERROR_CHECKS);
+      Extension::NO_FLAGS);
   EXPECT_TRUE(Allowed(extension, http_url));
   EXPECT_TRUE(Blocked(extension, https_url));
   EXPECT_TRUE(Blocked(extension, file_url));
@@ -799,6 +864,74 @@ TEST_F(ExtensionScriptAndCaptureVisibleTest, Permissions) {
   EXPECT_TRUE(Blocked(extension, about_url));
   EXPECT_TRUE(Blocked(extension, extension_url));
   EXPECT_FALSE(extension->HasHostPermission(settings_url));
+}
+
+TEST_F(ExtensionScriptAndCaptureVisibleTest, TabSpecific) {
+  scoped_refptr<Extension> extension =
+      LoadManifestStrict("script_and_capture", "tab_specific.json");
+
+  EXPECT_EQ(NULL, extension->GetTabSpecificHostPermissions(0));
+  EXPECT_EQ(NULL, extension->GetTabSpecificHostPermissions(1));
+  EXPECT_EQ(NULL, extension->GetTabSpecificHostPermissions(2));
+
+  std::set<GURL> no_urls;
+
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 0));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 1));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 2));
+
+  URLPatternSet allowed_hosts;
+    allowed_hosts.AddPattern(URLPattern(URLPattern::SCHEME_ALL,
+                                        http_url.spec()));
+  std::set<GURL> allowed_urls;
+    allowed_urls.insert(http_url);
+    // http_url_with_path() will also be allowed, because Extension should be
+    // considering the security origin of the URL not the URL itself, and
+    // http_url is in allowed_hosts.
+    allowed_urls.insert(http_url_with_path);
+
+  extension->SetTabSpecificHostPermissions(0, allowed_hosts);
+  EXPECT_EQ(allowed_hosts, *extension->GetTabSpecificHostPermissions(0));
+
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, allowed_urls, 0));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 1));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 2));
+
+  extension->ClearTabSpecificHostPermissions(0);
+  EXPECT_EQ(NULL, extension->GetTabSpecificHostPermissions(0));
+
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 0));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 1));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 2));
+
+  std::set<GURL> more_allowed_urls = allowed_urls;
+    more_allowed_urls.insert(https_url);
+  URLPatternSet more_allowed_hosts = allowed_hosts;
+    more_allowed_hosts.AddPattern(URLPattern(URLPattern::SCHEME_ALL,
+                                             https_url.spec()));
+
+  extension->SetTabSpecificHostPermissions(0, allowed_hosts);
+  EXPECT_EQ(allowed_hosts, *extension->GetTabSpecificHostPermissions(0));
+  extension->SetTabSpecificHostPermissions(1, more_allowed_hosts);
+  EXPECT_EQ(more_allowed_hosts, *extension->GetTabSpecificHostPermissions(1));
+
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, allowed_urls, 0));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, more_allowed_urls, 1));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 2));
+
+  extension->ClearTabSpecificHostPermissions(0);
+  EXPECT_EQ(NULL, extension->GetTabSpecificHostPermissions(0));
+
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 0));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, more_allowed_urls, 1));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 2));
+
+  extension->ClearTabSpecificHostPermissions(1);
+  EXPECT_EQ(NULL, extension->GetTabSpecificHostPermissions(1));
+
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 0));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 1));
+  EXPECT_TRUE(AllowedExclusivelyOnTab(extension, no_urls, 2));
 }
 
 TEST(ExtensionTest, GenerateId) {
@@ -861,7 +994,7 @@ static scoped_refptr<Extension> MakeSyncTestExtension(
 
   std::string error;
   scoped_refptr<Extension> extension = Extension::Create(
-      extension_path, location, source, Extension::STRICT_ERROR_CHECKS, &error);
+      extension_path, location, source, Extension::NO_FLAGS, &error);
   EXPECT_TRUE(extension);
   EXPECT_EQ("", error);
   return extension;
@@ -935,177 +1068,16 @@ TEST(ExtensionTest, OnlyDisplayAppsInLauncher) {
   EXPECT_TRUE(app->ShouldDisplayInLauncher());
 }
 
-TEST(ExtensionTest, ExtensionKeybindingParsing) {
-  const ui::Accelerator None = ui::Accelerator();
-  const ui::Accelerator ShiftF =
-      ui::Accelerator(ui::VKEY_F, true, false, false);
-  const ui::Accelerator CtrlF =
-      ui::Accelerator(ui::VKEY_F, false, true, false);
-  const ui::Accelerator AltF =
-      ui::Accelerator(ui::VKEY_F, false, false, true);
-  const ui::Accelerator CtrlShiftF =
-      ui::Accelerator(ui::VKEY_F, true, true, false);
-  const ui::Accelerator AltShiftF =
-      ui::Accelerator(ui::VKEY_F, true, false, true);
+TEST(ExtensionTest, OnlySyncInternal) {
+  scoped_refptr<Extension> extension_internal(
+      MakeSyncTestExtension(EXTENSION, GURL(), GURL(),
+                            Extension::INTERNAL, 0, FilePath()));
+  EXPECT_TRUE(extension_internal->IsSyncable());
 
-  const struct {
-    bool expected_result;
-    ui::Accelerator accelerator;
-    const char* command_name;
-    const char* key;
-    const char* description;
-  } kTests[] = {
-    // Negative test (one or more missing required fields). We don't need to
-    // test |command_name| being blank as it is used as a key in the manifest,
-    // so it can't be blank (and we DCHECK when it is).
-    { false, None, "command", "",       "" },
-    { false, None, "command", "Ctrl+f", "" },
-    { false, None, "command", "",       "description" },
-    // Ctrl+Alt is not permitted, see MSDN link in comments in Parse function.
-    { false, None, "command", "Ctrl+Alt+F", "description" },
-    // Unsupported shortcuts/too many, or missing modifier.
-    { false, None, "command", "A",                "description" },
-    { false, None, "command", "F10",              "description" },
-    { false, None, "command", "Ctrl+1",           "description" },
-    { false, None, "command", "Ctrl+F+G",         "description" },
-    { false, None, "command", "Ctrl+Alt+Shift+G", "description" },
-    // Basic tests.
-    { true, CtrlF,      "command", "Ctrl+F",       "description" },
-    { true, ShiftF,     "command", "Shift+F",      "description" },
-    { true, AltF,       "command", "Alt+F",        "description" },
-    { true, CtrlShiftF, "command", "Ctrl+Shift+F", "description" },
-    { true, AltShiftF,  "command", "Alt+Shift+F",  "description" },
-    // Order tests.
-    { true, CtrlF,      "command", "F+Ctrl",       "description" },
-    { true, ShiftF,     "command", "F+Shift",      "description" },
-    { true, AltF,       "command", "F+Alt",        "description" },
-    { true, CtrlShiftF, "command", "F+Ctrl+Shift", "description" },
-    { true, CtrlShiftF, "command", "F+Shift+Ctrl", "description" },
-    { true, AltShiftF,  "command", "F+Alt+Shift",  "description" },
-    { true, AltShiftF,  "command", "F+Shift+Alt",  "description" },
-    // Case insensitivity is not OK.
-    { false, CtrlF, "command", "Ctrl+f", "description" },
-    { false, CtrlF, "command", "cTrL+F", "description" },
-    // Skipping description is OK for browser- and pageActions.
-    { true, CtrlF, "_execute_browser_action", "Ctrl+F", "" },
-    { true, CtrlF, "_execute_page_action",   "Ctrl+F", "" },
-  };
-
-  // TODO(finnur): test Command/Options on Mac when implemented.
-
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(kTests); ++i) {
-    // First parse the command as a simple string.
-    scoped_ptr<DictionaryValue> command(new DictionaryValue);
-    command->SetString("suggested_key", kTests[i].key);
-    command->SetString("description", kTests[i].description);
-
-    SCOPED_TRACE(std::string("Command name: |") + kTests[i].command_name +
-                 "| key: |" + kTests[i].key +
-                 "| description: |" + kTests[i].description +
-                 "| index: " + base::IntToString(i));
-
-    Extension::ExtensionKeybinding keybinding;
-    string16 error;
-    bool result =
-        keybinding.Parse(command.get(), kTests[i].command_name, i, &error);
-
-    EXPECT_EQ(kTests[i].expected_result, result);
-    if (result) {
-      EXPECT_STREQ(kTests[i].description, keybinding.description().c_str());
-      EXPECT_STREQ(kTests[i].command_name, keybinding.command_name().c_str());
-      EXPECT_EQ(kTests[i].accelerator, keybinding.accelerator());
-    }
-
-    // Now parse the command as a dictionary of multiple values.
-    command.reset(new DictionaryValue);
-    DictionaryValue* key_dict = new DictionaryValue();
-    key_dict->SetString("default", kTests[i].key);
-    key_dict->SetString("windows", kTests[i].key);
-    key_dict->SetString("mac", kTests[i].key);
-    command->Set("suggested_key", key_dict);
-    command->SetString("description", kTests[i].description);
-
-    result = keybinding.Parse(command.get(), kTests[i].command_name, i, &error);
-
-    EXPECT_EQ(kTests[i].expected_result, result);
-    if (result) {
-      EXPECT_STREQ(kTests[i].description, keybinding.description().c_str());
-      EXPECT_STREQ(kTests[i].command_name, keybinding.command_name().c_str());
-      EXPECT_EQ(kTests[i].accelerator, keybinding.accelerator());
-    }
-  }
-}
-
-TEST(ExtensionTest, ExtensionKeybindingParsingFallback) {
-  std::string description = "desc";
-  std::string command_name = "foo";
-
-  // Test that platform specific keys are honored on each platform, despite
-  // fallback being given.
-  scoped_ptr<DictionaryValue> command(new DictionaryValue);
-  DictionaryValue* key_dict = new DictionaryValue();
-  key_dict->SetString("default",  "Ctrl+Shift+D");
-  key_dict->SetString("windows",  "Ctrl+Shift+W");
-  key_dict->SetString("mac",      "Ctrl+Shift+M");
-  key_dict->SetString("linux",    "Ctrl+Shift+L");
-  key_dict->SetString("chromeos", "Ctrl+Shift+C");
-  command->Set("suggested_key", key_dict);
-  command->SetString("description", description);
-
-  Extension::ExtensionKeybinding keybinding;
-  string16 error;
-  EXPECT_TRUE(keybinding.Parse(command.get(), command_name, 0, &error));
-  EXPECT_STREQ(description.c_str(), keybinding.description().c_str());
-  EXPECT_STREQ(command_name.c_str(), keybinding.command_name().c_str());
-
-#if defined(OS_WIN)
-  ui::Accelerator accelerator(ui::VKEY_W, true, true, false);
-#elif defined(OS_MACOSX)
-  ui::Accelerator accelerator(ui::VKEY_M, true, true, false);
-#elif defined(OS_CHROMEOS)
-  ui::Accelerator accelerator(ui::VKEY_C, true, true, false);
-#elif defined(OS_LINUX)
-  ui::Accelerator accelerator(ui::VKEY_L, true, true, false);
-#else
-  ui::Accelerator accelerator(ui::VKEY_D, true, true, false);
-#endif
-  EXPECT_EQ(accelerator, keybinding.accelerator());
-
-  // Misspell a platform.
-  key_dict->SetString("windosw", "Ctrl+M");
-  EXPECT_FALSE(keybinding.Parse(command.get(), command_name, 0, &error));
-  EXPECT_TRUE(key_dict->Remove("windosw", NULL));
-
-  // Now remove platform specific keys (leaving just "default") and make sure
-  // every platform falls back to the default.
-  EXPECT_TRUE(key_dict->Remove("windows", NULL));
-  EXPECT_TRUE(key_dict->Remove("mac", NULL));
-  EXPECT_TRUE(key_dict->Remove("linux", NULL));
-  EXPECT_TRUE(key_dict->Remove("chromeos", NULL));
-  EXPECT_TRUE(keybinding.Parse(command.get(), command_name, 0, &error));
-  EXPECT_EQ(ui::VKEY_D, keybinding.accelerator().key_code());
-
-  // Now remove "default", leaving no option but failure. Or, in the words of
-  // the immortal Adam Savage: "Failure is always an option".
-  EXPECT_TRUE(key_dict->Remove("default", NULL));
-  EXPECT_FALSE(keybinding.Parse(command.get(), command_name, 0, &error));
-
-  // Now add only a valid platform that we are not running on to make sure devs
-  // are notified of errors on other platforms.
-#if defined(OS_WIN)
-  key_dict->SetString("mac", "Ctrl+Shift+M");
-#else
-  key_dict->SetString("windows", "Ctrl+Shift+W");
-#endif
-  EXPECT_FALSE(keybinding.Parse(command.get(), command_name, 0, &error));
-
-  // Make sure Mac specific keys are not processed on other platforms.
-#if !defined(OS_MACOSX)
-  key_dict->SetString("windows", "Command+Shift+M");
-  EXPECT_FALSE(keybinding.Parse(command.get(), command_name, 0, &error));
-  key_dict->SetString("windows", "Options+Shift+M");
-  EXPECT_FALSE(keybinding.Parse(command.get(), command_name, 0, &error));
-#endif
+  scoped_refptr<Extension> extension_noninternal(
+      MakeSyncTestExtension(EXTENSION, GURL(), GURL(),
+                            Extension::COMPONENT, 0, FilePath()));
+  EXPECT_FALSE(extension_noninternal->IsSyncable());
 }
 
 // These last 2 tests don't make sense on Chrome OS, where extension plugins

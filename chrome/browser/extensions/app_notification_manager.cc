@@ -16,12 +16,13 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/notification_service.h"
+#include "sync/api/sync_error_factory.h"
 #include "sync/protocol/app_notification_specifics.pb.h"
 #include "sync/protocol/sync.pb.h"
 
 using content::BrowserThread;
 
-typedef std::map<std::string, SyncData> SyncDataMap;
+typedef std::map<std::string, syncer::SyncData> SyncDataMap;
 
 namespace {
 
@@ -53,9 +54,9 @@ void RemoveByGuid(AppNotificationList* list, const std::string& guid) {
     list->erase(iter);
 }
 
-void PopulateGuidToSyncDataMap(const SyncDataList& sync_data,
+void PopulateGuidToSyncDataMap(const syncer::SyncDataList& sync_data,
                                SyncDataMap* data_map) {
-  for (SyncDataList::const_iterator iter = sync_data.begin();
+  for (syncer::SyncDataList::const_iterator iter = sync_data.begin();
        iter != sync_data.end(); ++iter) {
     (*data_map)[iter->GetSpecifics().app_notification().guid()] = *iter;
   }
@@ -71,14 +72,6 @@ AppNotificationManager::AppNotificationManager(Profile* profile)
   registrar_.Add(this,
                  chrome::NOTIFICATION_EXTENSION_UNINSTALLED,
                  content::Source<Profile>(profile_));
-}
-
-AppNotificationManager::~AppNotificationManager() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // Post a task to delete our storage on the file thread.
-  BrowserThread::DeleteSoon(BrowserThread::FILE,
-                            FROM_HERE,
-                            storage_.release());
 }
 
 void AppNotificationManager::Init() {
@@ -141,17 +134,6 @@ const AppNotificationList* AppNotificationManager::GetAll(
   return NULL;
 }
 
-AppNotificationList& AppNotificationManager::GetAllInternal(
-    const std::string& extension_id) {
-  NotificationMap::iterator found = notifications_->find(extension_id);
-  if (found == notifications_->end()) {
-    (*notifications_)[extension_id] = AppNotificationList();
-    found = notifications_->find(extension_id);
-  }
-  CHECK(found != notifications_->end());
-  return found->second;
-}
-
 const AppNotification* AppNotificationManager::GetLast(
     const std::string& extension_id) {
   if (!loaded())
@@ -193,7 +175,194 @@ void AppNotificationManager::Observe(
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   CHECK(type == chrome::NOTIFICATION_EXTENSION_UNINSTALLED);
-  ClearAll(*content::Details<const std::string>(details).ptr());
+  ClearAll(content::Details<const extensions::Extension>(details).ptr()->id());
+}
+
+syncer::SyncDataList AppNotificationManager::GetAllSyncData(
+    syncer::ModelType type) const {
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(loaded());
+  DCHECK_EQ(syncer::APP_NOTIFICATIONS, type);
+  syncer::SyncDataList data;
+  for (NotificationMap::const_iterator iter = notifications_->begin();
+      iter != notifications_->end(); ++iter) {
+
+    // Skip local notifications since they should not be synced.
+    const AppNotificationList list = (*iter).second;
+    for (AppNotificationList::const_iterator list_iter = list.begin();
+        list_iter != list.end(); ++list_iter) {
+      const AppNotification* notification = (*list_iter).get();
+      if (notification->is_local()) {
+        continue;
+      }
+      data.push_back(CreateSyncDataFromNotification(*notification));
+    }
+  }
+
+  return data;
+}
+
+syncer::SyncError AppNotificationManager::ProcessSyncChanges(
+    const tracked_objects::Location& from_here,
+    const syncer::SyncChangeList& change_list) {
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(loaded());
+  if (!models_associated_) {
+    return sync_error_factory_->CreateAndUploadError(
+        FROM_HERE,
+        "Models not yet associated.");
+  }
+
+  AutoReset<bool> processing_changes(&processing_syncer_changes_, true);
+
+  syncer::SyncError error;
+  for (syncer::SyncChangeList::const_iterator iter = change_list.begin();
+       iter != change_list.end(); ++iter) {
+    syncer::SyncData sync_data = iter->sync_data();
+    DCHECK_EQ(syncer::APP_NOTIFICATIONS, sync_data.GetDataType());
+    syncer::SyncChange::SyncChangeType change_type = iter->change_type();
+
+    scoped_ptr<AppNotification> new_notif(CreateNotificationFromSyncData(
+        sync_data));
+    if (!new_notif.get()) {
+      NOTREACHED() << "Failed to read notification.";
+      continue;
+    }
+    const AppNotification* existing_notif = GetNotification(
+        new_notif->extension_id(), new_notif->guid());
+    if (existing_notif && existing_notif->is_local()) {
+      NOTREACHED() << "Matched with notification marked as local";
+      error = sync_error_factory_->CreateAndUploadError(
+          FROM_HERE,
+          "ProcessSyncChanges received a local only notification" +
+              syncer::SyncChange::ChangeTypeToString(change_type));
+      continue;
+    }
+
+    switch (change_type) {
+      case syncer::SyncChange::ACTION_ADD:
+        if (!existing_notif) {
+          Add(new_notif.release());
+        } else {
+          DLOG(ERROR) << "Got ADD change for an existing item.\n"
+                      << "Existing item: " << existing_notif->ToString()
+                      << "\nItem in ADD change: " << new_notif->ToString();
+        }
+        break;
+      case syncer::SyncChange::ACTION_DELETE:
+        if (existing_notif) {
+          Remove(new_notif->extension_id(), new_notif->guid());
+        } else {
+          // This should never happen. But we are seeting this sometimes, and
+          // it stops all of sync. See bug http://crbug.com/108088
+          // So until we figure out the root cause, log an error and ignore.
+          DLOG(ERROR) << "Got DELETE change for non-existing item.\n"
+                      << "Item in DELETE change: " << new_notif->ToString();
+        }
+        break;
+      case syncer::SyncChange::ACTION_UPDATE:
+        // Although app notifications are immutable from the model perspective,
+        // sync can send UPDATE changes due to encryption / meta-data changes.
+        // So ignore UPDATE changes when the exitsing and new notification
+        // objects are the same. Log an error otherwise.
+        if (!existing_notif) {
+          DLOG(ERROR) << "Got UPDATE change for non-existing item."
+                      << "Item in UPDATE change: " << new_notif->ToString();
+        } else if (!existing_notif->Equals(*new_notif)) {
+          DLOG(ERROR) << "Got invalid UPDATE change:"
+                      << "New and existing notifications should be the same.\n"
+                      << "Existing item: " << existing_notif->ToString() << "\n"
+                      << "Item in UPDATE change: " << new_notif->ToString();
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  return error;
+}
+
+syncer::SyncError AppNotificationManager::MergeDataAndStartSyncing(
+    syncer::ModelType type,
+    const syncer::SyncDataList& initial_sync_data,
+    scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
+    scoped_ptr<syncer::SyncErrorFactory> sync_error_factory) {
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  // AppNotificationDataTypeController ensures that modei is fully should before
+  // this method is called by waiting until the load notification is received
+  // from AppNotificationManager.
+  DCHECK(loaded());
+  DCHECK_EQ(type, syncer::APP_NOTIFICATIONS);
+  DCHECK(!sync_processor_.get());
+  DCHECK(sync_processor.get());
+  DCHECK(sync_error_factory.get());
+  sync_processor_ = sync_processor.Pass();
+  sync_error_factory_ = sync_error_factory.Pass();
+
+  // We may add, or remove notifications here, so ensure we don't step on
+  // our own toes.
+  AutoReset<bool> processing_changes(&processing_syncer_changes_, true);
+
+  SyncDataMap local_data_map;
+  PopulateGuidToSyncDataMap(GetAllSyncData(syncer::APP_NOTIFICATIONS),
+                            &local_data_map);
+
+  for (syncer::SyncDataList::const_iterator iter = initial_sync_data.begin();
+       iter != initial_sync_data.end(); ++iter) {
+    const syncer::SyncData& sync_data = *iter;
+    DCHECK_EQ(syncer::APP_NOTIFICATIONS, sync_data.GetDataType());
+    scoped_ptr<AppNotification> sync_notif(CreateNotificationFromSyncData(
+        sync_data));
+    CHECK(sync_notif.get());
+    const AppNotification* local_notif = GetNotification(
+        sync_notif->extension_id(), sync_notif->guid());
+    if (local_notif) {
+      local_data_map.erase(sync_notif->guid());
+      // Local notification should always match with sync notification as
+      // notifications are immutable.
+      if (local_notif->is_local() || !sync_notif->Equals(*local_notif)) {
+        return sync_error_factory_->CreateAndUploadError(
+             FROM_HERE,
+            "MergeDataAndStartSyncing failed: local notification and sync "
+            "notification have same guid but different data.");
+      }
+    } else {
+      // Sync model has a notification that local model does not, add it.
+      Add(sync_notif.release());
+    }
+  }
+
+  // TODO(munjal): crbug.com/10059. Work with Lingesh/Antony to resolve.
+  syncer::SyncChangeList new_changes;
+  for (SyncDataMap::const_iterator iter = local_data_map.begin();
+      iter != local_data_map.end(); ++iter) {
+    new_changes.push_back(
+        syncer::SyncChange(FROM_HERE,
+                           syncer::SyncChange::ACTION_ADD,
+                           iter->second));
+  }
+
+  syncer::SyncError error;
+  if (new_changes.size() > 0)
+    error = sync_processor_->ProcessSyncChanges(FROM_HERE, new_changes);
+  models_associated_ = !error.IsSet();
+  return error;
+}
+
+void AppNotificationManager::StopSyncing(syncer::ModelType type) {
+  DCHECK_EQ(type, syncer::APP_NOTIFICATIONS);
+  models_associated_ = false;
+  sync_processor_.reset();
+  sync_error_factory_.reset();
+}
+
+AppNotificationManager::~AppNotificationManager() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  // Post a task to delete our storage on the file thread.
+  BrowserThread::DeleteSoon(BrowserThread::FILE,
+                            FROM_HERE,
+                            storage_.release());
 }
 
 void AppNotificationManager::LoadOnFileThread(const FilePath& storage_path) {
@@ -276,233 +445,15 @@ void AppNotificationManager::DeleteOnFileThread(
   storage_->Delete(extension_id);
 }
 
-SyncDataList AppNotificationManager::GetAllSyncData(
-    syncable::ModelType type) const {
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(loaded());
-  DCHECK_EQ(syncable::APP_NOTIFICATIONS, type);
-  SyncDataList data;
-  for (NotificationMap::const_iterator iter = notifications_->begin();
-      iter != notifications_->end(); ++iter) {
-
-    // Skip local notifications since they should not be synced.
-    const AppNotificationList list = (*iter).second;
-    for (AppNotificationList::const_iterator list_iter = list.begin();
-        list_iter != list.end(); ++list_iter) {
-      const AppNotification* notification = (*list_iter).get();
-      if (notification->is_local()) {
-        continue;
-      }
-      data.push_back(CreateSyncDataFromNotification(*notification));
-    }
+AppNotificationList& AppNotificationManager::GetAllInternal(
+    const std::string& extension_id) {
+  NotificationMap::iterator found = notifications_->find(extension_id);
+  if (found == notifications_->end()) {
+    (*notifications_)[extension_id] = AppNotificationList();
+    found = notifications_->find(extension_id);
   }
-
-  return data;
-}
-
-SyncError AppNotificationManager::ProcessSyncChanges(
-    const tracked_objects::Location& from_here,
-    const SyncChangeList& change_list) {
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(loaded());
-  if (!models_associated_)
-    return SyncError(FROM_HERE, "Models not yet associated.",
-                     syncable::APP_NOTIFICATIONS);
-
-  AutoReset<bool> processing_changes(&processing_syncer_changes_, true);
-
-  SyncError error;
-  for (SyncChangeList::const_iterator iter = change_list.begin();
-       iter != change_list.end(); ++iter) {
-    SyncData sync_data = iter->sync_data();
-    DCHECK_EQ(syncable::APP_NOTIFICATIONS, sync_data.GetDataType());
-    SyncChange::SyncChangeType change_type = iter->change_type();
-
-    scoped_ptr<AppNotification> new_notif(CreateNotificationFromSyncData(
-        sync_data));
-    if (!new_notif.get()) {
-      NOTREACHED() << "Failed to read notification.";
-      continue;
-    }
-    const AppNotification* existing_notif = GetNotification(
-        new_notif->extension_id(), new_notif->guid());
-    if (existing_notif && existing_notif->is_local()) {
-      NOTREACHED() << "Matched with notification marked as local";
-      error = SyncError(FROM_HERE,
-          "ProcessSyncChanges received a local only notification" +
-          SyncChange::ChangeTypeToString(change_type),
-          syncable::APP_NOTIFICATIONS);
-      continue;
-    }
-
-    switch (change_type) {
-      case SyncChange::ACTION_ADD:
-        if (!existing_notif) {
-          Add(new_notif.release());
-        } else {
-          DLOG(ERROR) << "Got ADD change for an existing item.\n"
-                      << "Existing item: " << existing_notif->ToString()
-                      << "\nItem in ADD change: " << new_notif->ToString();
-        }
-        break;
-      case SyncChange::ACTION_DELETE:
-        if (existing_notif) {
-          Remove(new_notif->extension_id(), new_notif->guid());
-        } else {
-          // This should never happen. But we are seeting this sometimes, and
-          // it stops all of sync. See bug http://crbug.com/108088
-          // So until we figure out the root cause, log an error and ignore.
-          DLOG(ERROR) << "Got DELETE change for non-existing item.\n"
-                      << "Item in DELETE change: " << new_notif->ToString();
-        }
-        break;
-      case SyncChange::ACTION_UPDATE:
-        // Although app notifications are immutable from the model perspective,
-        // sync can send UPDATE changes due to encryption / meta-data changes.
-        // So ignore UPDATE changes when the exitsing and new notification
-        // objects are the same. Log an error otherwise.
-        if (!existing_notif) {
-          DLOG(ERROR) << "Got UPDATE change for non-existing item."
-                      << "Item in UPDATE change: " << new_notif->ToString();
-        } else if (!existing_notif->Equals(*new_notif)) {
-          DLOG(ERROR) << "Got invalid UPDATE change:"
-                      << "New and existing notifications should be the same.\n"
-                      << "Existing item: " << existing_notif->ToString() << "\n"
-                      << "Item in UPDATE change: " << new_notif->ToString();
-        }
-        break;
-      default:
-        break;
-    }
-  }
-
-  return error;
-}
-
-SyncError AppNotificationManager::MergeDataAndStartSyncing(
-    syncable::ModelType type,
-    const SyncDataList& initial_sync_data,
-    scoped_ptr<SyncChangeProcessor> sync_processor) {
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  // AppNotificationDataTypeController ensures that modei is fully should before
-  // this method is called by waiting until the load notification is received
-  // from AppNotificationManager.
-  DCHECK(loaded());
-  DCHECK_EQ(type, syncable::APP_NOTIFICATIONS);
-  DCHECK(!sync_processor_.get());
-  DCHECK(sync_processor.get());
-  sync_processor_ = sync_processor.Pass();
-
-  // We may add, or remove notifications here, so ensure we don't step on
-  // our own toes.
-  AutoReset<bool> processing_changes(&processing_syncer_changes_, true);
-
-  SyncDataMap local_data_map;
-  PopulateGuidToSyncDataMap(GetAllSyncData(syncable::APP_NOTIFICATIONS),
-                            &local_data_map);
-
-  for (SyncDataList::const_iterator iter = initial_sync_data.begin();
-       iter != initial_sync_data.end(); ++iter) {
-    const SyncData& sync_data = *iter;
-    DCHECK_EQ(syncable::APP_NOTIFICATIONS, sync_data.GetDataType());
-    scoped_ptr<AppNotification> sync_notif(CreateNotificationFromSyncData(
-        sync_data));
-    CHECK(sync_notif.get());
-    const AppNotification* local_notif = GetNotification(
-        sync_notif->extension_id(), sync_notif->guid());
-    if (local_notif) {
-      local_data_map.erase(sync_notif->guid());
-      // Local notification should always match with sync notification as
-      // notifications are immutable.
-      if (local_notif->is_local() || !sync_notif->Equals(*local_notif)) {
-        return SyncError(FROM_HERE,
-            "MergeDataAndStartSyncing failed: local notification and sync "
-            "notification have same guid but different data.",
-            syncable::APP_NOTIFICATIONS);
-      }
-    } else {
-      // Sync model has a notification that local model does not, add it.
-      Add(sync_notif.release());
-    }
-  }
-
-  // TODO(munjal): crbug.com/10059. Work with Lingesh/Antony to resolve.
-  SyncChangeList new_changes;
-  for (SyncDataMap::const_iterator iter = local_data_map.begin();
-      iter != local_data_map.end(); ++iter) {
-    new_changes.push_back(SyncChange(SyncChange::ACTION_ADD, iter->second));
-  }
-
-  SyncError error;
-  if (new_changes.size() > 0)
-    error = sync_processor_->ProcessSyncChanges(FROM_HERE, new_changes);
-  models_associated_ = !error.IsSet();
-  return error;
-}
-
-void AppNotificationManager::StopSyncing(syncable::ModelType type) {
-  DCHECK_EQ(type, syncable::APP_NOTIFICATIONS);
-  models_associated_ = false;
-  sync_processor_.reset();
-}
-
-void AppNotificationManager::SyncAddChange(const AppNotification& notif) {
-  // Skip if either:
-  // - Notification is marked as local.
-  // - Sync is not enabled by user.
-  // - Change is generated from within the manager.
-  if (notif.is_local() || !models_associated_ || processing_syncer_changes_)
-    return;
-
-  // TODO(munjal): crbug.com/10059. Work with Lingesh/Antony to resolve.
-
-  SyncChangeList changes;
-  SyncData sync_data = CreateSyncDataFromNotification(notif);
-  changes.push_back(SyncChange(SyncChange::ACTION_ADD, sync_data));
-  sync_processor_->ProcessSyncChanges(FROM_HERE, changes);
-}
-
-void AppNotificationManager::SyncRemoveChange(const AppNotification& notif) {
-  // Skip if either:
-  // - Sync is not enabled by user.
-  // - Change is generated from within the manager.
-  if (notif.is_local() || !models_associated_) {
-    return;
-  }
-
-  SyncChangeList changes;
-  SyncData sync_data = CreateSyncDataFromNotification(notif);
-  changes.push_back(SyncChange(SyncChange::ACTION_DELETE, sync_data));
-  sync_processor_->ProcessSyncChanges(FROM_HERE, changes);
-}
-
-void AppNotificationManager::SyncClearAllChange(
-  const AppNotificationList& list) {
-  // Skip if either:
-  // - Sync is not enabled by user.
-  // - Change is generated from within the manager.
-  if (!models_associated_ || processing_syncer_changes_)
-    return;
-
-  SyncChangeList changes;
-  for (AppNotificationList::const_iterator iter = list.begin();
-      iter != list.end(); ++iter) {
-    const AppNotification& notif = *iter->get();
-    // Skip notifications marked as local.
-    if (notif.is_local())
-      continue;
-    changes.push_back(SyncChange(
-        SyncChange::ACTION_DELETE,
-        CreateSyncDataFromNotification(notif)));
-  }
-  sync_processor_->ProcessSyncChanges(FROM_HERE, changes);
-}
-
-const AppNotification* AppNotificationManager::GetNotification(
-    const std::string& extension_id, const std::string& guid) {
-  DCHECK(loaded());
-  const AppNotificationList& list = GetAllInternal(extension_id);
-  return FindByGuid(list, guid);
+  CHECK(found != notifications_->end());
+  return found->second;
 }
 
 void AppNotificationManager::Remove(const std::string& extension_id,
@@ -525,8 +476,74 @@ void AppNotificationManager::Remove(const std::string& extension_id,
       content::Details<const std::string>(&extension_id));
 }
 
+const AppNotification* AppNotificationManager::GetNotification(
+    const std::string& extension_id, const std::string& guid) {
+  DCHECK(loaded());
+  const AppNotificationList& list = GetAllInternal(extension_id);
+  return FindByGuid(list, guid);
+}
+
+void AppNotificationManager::SyncAddChange(const AppNotification& notif) {
+  // Skip if either:
+  // - Notification is marked as local.
+  // - Sync is not enabled by user.
+  // - Change is generated from within the manager.
+  if (notif.is_local() || !models_associated_ || processing_syncer_changes_)
+    return;
+
+  // TODO(munjal): crbug.com/10059. Work with Lingesh/Antony to resolve.
+
+  syncer::SyncChangeList changes;
+  syncer::SyncData sync_data = CreateSyncDataFromNotification(notif);
+  changes.push_back(
+      syncer::SyncChange(FROM_HERE,
+                         syncer::SyncChange::ACTION_ADD,
+                         sync_data));
+  sync_processor_->ProcessSyncChanges(FROM_HERE, changes);
+}
+
+void AppNotificationManager::SyncRemoveChange(const AppNotification& notif) {
+  // Skip if either:
+  // - Sync is not enabled by user.
+  // - Change is generated from within the manager.
+  if (notif.is_local() || !models_associated_) {
+    return;
+  }
+
+  syncer::SyncChangeList changes;
+  syncer::SyncData sync_data = CreateSyncDataFromNotification(notif);
+  changes.push_back(
+      syncer::SyncChange(FROM_HERE,
+                         syncer::SyncChange::ACTION_DELETE,
+                         sync_data));
+  sync_processor_->ProcessSyncChanges(FROM_HERE, changes);
+}
+
+void AppNotificationManager::SyncClearAllChange(
+  const AppNotificationList& list) {
+  // Skip if either:
+  // - Sync is not enabled by user.
+  // - Change is generated from within the manager.
+  if (!models_associated_ || processing_syncer_changes_)
+    return;
+
+  syncer::SyncChangeList changes;
+  for (AppNotificationList::const_iterator iter = list.begin();
+      iter != list.end(); ++iter) {
+    const AppNotification& notif = *iter->get();
+    // Skip notifications marked as local.
+    if (notif.is_local())
+      continue;
+    changes.push_back(syncer::SyncChange(
+        FROM_HERE,
+        syncer::SyncChange::ACTION_DELETE,
+        CreateSyncDataFromNotification(notif)));
+  }
+  sync_processor_->ProcessSyncChanges(FROM_HERE, changes);
+}
+
 // static
-SyncData AppNotificationManager::CreateSyncDataFromNotification(
+syncer::SyncData AppNotificationManager::CreateSyncDataFromNotification(
     const AppNotification& notification) {
   DCHECK(!notification.is_local());
   sync_pb::EntitySpecifics specifics;
@@ -540,13 +557,13 @@ SyncData AppNotificationManager::CreateSyncDataFromNotification(
   notif_specifics->set_link_text(notification.link_text());
   notif_specifics->set_link_url(notification.link_url().spec());
   notif_specifics->set_title(notification.title());
-  return SyncData::CreateLocalData(
+  return syncer::SyncData::CreateLocalData(
       notif_specifics->guid(), notif_specifics->app_id(), specifics);
 }
 
 // static
 AppNotification* AppNotificationManager::CreateNotificationFromSyncData(
-    const SyncData& sync_data) {
+    const syncer::SyncData& sync_data) {
   sync_pb::AppNotification specifics =
       sync_data.GetSpecifics().app_notification();
 

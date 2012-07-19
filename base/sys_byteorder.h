@@ -2,13 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// This is a convenience header to pull in the platform-specific
-// headers that define functions for byte-order conversion,
-// particularly: ntohs(), htons(), ntohl(), htonl(). Prefer including
-// this file instead of directly writing the #if / #else, since it
-// avoids duplicating the platform-specific selections.
-// This header also provides ntohll() and htonll() for byte-order conversion
-// for 64-bit integers.
+// This header defines cross-platform ByteSwap() implementations for 16, 32 and
+// 64-bit values, and NetToHostXX() / HostToNextXX() functions equivalent to
+// the traditional ntohX() and htonX() functions.
+// Use the functions defined here rather than using the platform-specific
+// functions directly.
 
 #ifndef BASE_SYS_BYTEORDER_H_
 #define BASE_SYS_BYTEORDER_H_
@@ -68,6 +66,30 @@ inline uint64 ByteSwap(uint64 x) {
   return swap64(x);
 #else
   return bswap_64(x);
+#endif
+}
+
+// Converts the bytes in |x| from host order (endianness) to little endian, and
+// returns the result.
+inline uint16 ByteSwapToLE16(uint16 x) {
+#if defined(ARCH_CPU_LITTLE_ENDIAN)
+  return x;
+#else
+  return ByteSwap(x);
+#endif
+}
+inline uint32 ByteSwapToLE32(uint32 x) {
+#if defined(ARCH_CPU_LITTLE_ENDIAN)
+  return x;
+#else
+  return ByteSwap(x);
+#endif
+}
+inline uint64 ByteSwapToLE64(uint64 x) {
+#if defined(ARCH_CPU_LITTLE_ENDIAN)
+  return x;
+#else
+  return ByteSwap(x);
 #endif
 }
 

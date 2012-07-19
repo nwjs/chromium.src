@@ -8,11 +8,14 @@
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
+#include "base/file_util.h"
 #include "base/mac/bundle_locations.h"
 #include "base/mac/mac_util.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_nsobject.h"
 #include "base/synchronization/lock.h"
 #include "base/sys_string_conversions.h"
+#include "ui/base/resource/resource_handle.h"
 #include "ui/gfx/image/image.h"
 
 namespace ui {
@@ -34,29 +37,39 @@ FilePath GetResourcesPakFilePath(NSString* name, NSString* mac_locale) {
     resource_path = [base::mac::FrameworkBundle() pathForResource:name
                                                            ofType:@"pak"];
   }
-  if (!resource_path)
-    return FilePath();
+
+  if (!resource_path) {
+    // Return just the name of the pack file.
+    return FilePath(base::SysNSStringToUTF8(name) + ".pak");
+  }
+
   return FilePath([resource_path fileSystemRepresentation]);
 }
 
 }  // namespace
 
-// static
-FilePath ResourceBundle::GetResourcesFilePath() {
-  return GetResourcesPakFilePath(@"chrome", nil);
+void ResourceBundle::LoadCommonResources() {
+  AddDataPackFromPath(GetResourcesPakFilePath(@"chrome", nil),
+                      SCALE_FACTOR_100P);
+  AddDataPackFromPath(GetResourcesPakFilePath(@"theme_resources_standard", nil),
+                      SCALE_FACTOR_100P);
+  AddDataPackFromPath(GetResourcesPakFilePath(@"ui_resources_standard", nil),
+                      SCALE_FACTOR_100P);
+
+  // On Windows and ChromeOS we load either the 1x resource or the 2x resource.
+  // On Mac we load both and let the UI framework decide which one to use.
+#if defined(ENABLE_HIDPI)
+  if (base::mac::IsOSLionOrLater()) {
+    AddDataPackFromPath(GetResourcesPakFilePath(@"theme_resources_2x", nil),
+                        SCALE_FACTOR_200P);
+    AddDataPackFromPath(GetResourcesPakFilePath(@"ui_resources_2x", nil),
+                        SCALE_FACTOR_200P);
+  }
+#endif
 }
 
-// static
-FilePath ResourceBundle::GetLargeIconResourcesFilePath() {
-  // Only load the large resource pak when running on 10.7 or later.
-  if (base::mac::IsOSLionOrLater())
-    return GetResourcesPakFilePath(@"theme_resources_2x", nil);
-  else
-    return FilePath();
-}
-
-// static
-FilePath ResourceBundle::GetLocaleFilePath(const std::string& app_locale) {
+FilePath ResourceBundle::GetLocaleFilePath(const std::string& app_locale,
+                                           bool test_file_exists) {
   NSString* mac_locale = base::SysUTF8ToNSString(app_locale);
 
   // Mac OS X uses "_" instead of "-", so swap to get a Mac-style value.
@@ -67,68 +80,82 @@ FilePath ResourceBundle::GetLocaleFilePath(const std::string& app_locale) {
   if ([mac_locale isEqual:@"en_US"])
     mac_locale = @"en";
 
-  return GetResourcesPakFilePath(@"locale", mac_locale);
+  FilePath locale_file_path = GetResourcesPakFilePath(@"locale", mac_locale);
+
+  if (delegate_) {
+    locale_file_path =
+        delegate_->GetPathForLocalePack(locale_file_path, app_locale);
+  }
+
+  // Don't try to load empty values or values that are not absolute paths.
+  if (locale_file_path.empty() || !locale_file_path.IsAbsolute())
+    return FilePath();
+
+  if (test_file_exists && !file_util::PathExists(locale_file_path))
+    return FilePath();
+
+  return locale_file_path;
 }
 
-gfx::Image& ResourceBundle::GetNativeImageNamed(int resource_id) {
+gfx::Image& ResourceBundle::GetNativeImageNamed(int resource_id, ImageRTL rtl) {
+  // Flipped images are not used on Mac.
+  DCHECK_EQ(rtl, RTL_DISABLED);
+
   // Check to see if the image is already in the cache.
   {
     base::AutoLock lock(*images_and_fonts_lock_);
-    ImageMap::const_iterator found = images_.find(resource_id);
-    if (found != images_.end()) {
-      if (!found->second->HasRepresentation(gfx::Image::kImageRepCocoa)) {
+    if (images_.count(resource_id)) {
+      if (!images_[resource_id].HasRepresentation(gfx::Image::kImageRepCocoa)) {
         DLOG(WARNING) << "ResourceBundle::GetNativeImageNamed() is returning a"
           << " cached gfx::Image that isn't backed by an NSImage. The image"
           << " will be converted, rather than going through the NSImage loader."
           << " resource_id = " << resource_id;
       }
-      return *found->second;
+      return images_[resource_id];
     }
   }
 
-  // Load the raw data from the resource pack.
-  scoped_refptr<RefCountedStaticMemory> data(
-      LoadDataResourceBytes(resource_id));
+  gfx::Image image;
+  if (delegate_)
+    image = delegate_->GetNativeImageNamed(resource_id, rtl);
 
-  // Create a data object from the raw bytes.
-  scoped_nsobject<NSData> ns_data([[NSData alloc] initWithBytes:data->front()
-                                                         length:data->size()]);
+  if (image.IsEmpty()) {
+    scoped_nsobject<NSImage> ns_image;
+    for (size_t i = 0; i < data_packs_.size(); ++i) {
+      scoped_refptr<base::RefCountedStaticMemory> data(
+          data_packs_[i]->GetStaticMemory(resource_id));
+      if (!data.get())
+        continue;
 
-  // Create the image from the data. The gfx::Image will take ownership of this.
-  scoped_nsobject<NSImage> ns_image([[NSImage alloc] initWithData:ns_data]);
-
-  // Cache the converted image.
-  if (ns_image.get()) {
-    // Load a high resolution version of the icon if available.
-    if (large_icon_resources_data_) {
-      scoped_refptr<RefCountedStaticMemory> large_data(
-          LoadResourceBytes(large_icon_resources_data_, resource_id));
-      if (large_data.get()) {
-        scoped_nsobject<NSData> ns_large_data(
-            [[NSData alloc] initWithBytes:large_data->front()
-                                   length:large_data->size()]);
-        NSImageRep* image_rep =
-            [NSBitmapImageRep imageRepWithData:ns_large_data];
+      scoped_nsobject<NSData> ns_data(
+          [[NSData alloc] initWithBytes:data->front()
+                                 length:data->size()]);
+      if (!ns_image.get()) {
+        ns_image.reset([[NSImage alloc] initWithData:ns_data]);
+      } else {
+        NSImageRep* image_rep = [NSBitmapImageRep imageRepWithData:ns_data];
         if (image_rep)
           [ns_image addRepresentation:image_rep];
       }
     }
 
-    base::AutoLock lock(*images_and_fonts_lock_);
-
-    // Another thread raced the load and has already cached the image.
-    if (images_.count(resource_id)) {
-      return *images_[resource_id];
+    if (!ns_image.get()) {
+      LOG(WARNING) << "Unable to load image with id " << resource_id;
+      NOTREACHED();  // Want to assert in debug mode.
+      return GetEmptyImage();
     }
 
-    gfx::Image* image = new gfx::Image(ns_image.release());
-    images_[resource_id] = image;
-    return *image;
+    image = gfx::Image(ns_image.release());
   }
 
-  LOG(WARNING) << "Unable to load image with id " << resource_id;
-  NOTREACHED();  // Want to assert in debug mode.
-  return *GetEmptyImage();
+  base::AutoLock lock(*images_and_fonts_lock_);
+
+  // Another thread raced the load and has already cached the image.
+  if (images_.count(resource_id))
+    return images_[resource_id];
+
+  images_[resource_id] = image;
+  return images_[resource_id];
 }
 
 }  // namespace ui

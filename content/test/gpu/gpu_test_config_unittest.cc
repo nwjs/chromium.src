@@ -28,20 +28,20 @@ TEST_F(GPUTestConfigTest, EmptyValues) {
 
 TEST_F(GPUTestConfigTest, SetGPUInfo) {
   content::GPUInfo gpu_info;
-  gpu_info.vendor_id = 0x10de;
-  gpu_info.device_id = 0x0640;
+  gpu_info.gpu.vendor_id = 0x10de;
+  gpu_info.gpu.device_id = 0x0640;
   GPUTestBotConfig config;
   EXPECT_TRUE(config.SetGPUInfo(gpu_info));
   EXPECT_EQ(1u, config.gpu_vendor().size());
-  EXPECT_EQ(gpu_info.vendor_id, config.gpu_vendor()[0]);
-  EXPECT_EQ(gpu_info.device_id, config.gpu_device_id());
+  EXPECT_EQ(gpu_info.gpu.vendor_id, config.gpu_vendor()[0]);
+  EXPECT_EQ(gpu_info.gpu.device_id, config.gpu_device_id());
 
-  gpu_info.vendor_id = 0x8086;
-  gpu_info.device_id = 0x0046;
+  gpu_info.gpu.vendor_id = 0x8086;
+  gpu_info.gpu.device_id = 0x0046;
   EXPECT_TRUE(config.SetGPUInfo(gpu_info));
   EXPECT_EQ(1u, config.gpu_vendor().size());
-  EXPECT_EQ(gpu_info.vendor_id, config.gpu_vendor()[0]);
-  EXPECT_EQ(gpu_info.device_id, config.gpu_device_id());
+  EXPECT_EQ(gpu_info.gpu.vendor_id, config.gpu_vendor()[0]);
+  EXPECT_EQ(gpu_info.gpu.device_id, config.gpu_device_id());
 }
 
 TEST_F(GPUTestConfigTest, IsValid) {
@@ -140,6 +140,37 @@ TEST_F(GPUTestConfigTest, Matches) {
   }
 }
 
+TEST_F(GPUTestConfigTest, StringMatches) {
+  GPUTestBotConfig config;
+  config.set_os(GPUTestConfig::kOsWin7);
+  config.set_build_type(GPUTestConfig::kBuildTypeRelease);
+  config.AddGPUVendor(0x10de);
+  config.set_gpu_device_id(0x0640);
+  EXPECT_TRUE(config.IsValid());
+
+  EXPECT_TRUE(config.Matches(""));
+
+  // os matching
+  EXPECT_TRUE(config.Matches("WIN"));
+  EXPECT_TRUE(config.Matches("WIN7"));
+  EXPECT_FALSE(config.Matches("MAC"));
+  EXPECT_TRUE(config.Matches("WIN7 LINUX"));
+
+  // gpu vendor matching
+  EXPECT_TRUE(config.Matches("NVIDIA"));
+  EXPECT_TRUE(config.Matches("NVIDIA AMD"));
+  EXPECT_FALSE(config.Matches("INTEL"));
+
+  // build type matching
+  EXPECT_TRUE(config.Matches("RELEASE"));
+  EXPECT_TRUE(config.Matches("RELEASE DEBUG"));
+  EXPECT_FALSE(config.Matches("DEBUG"));
+
+  // exact matching
+  EXPECT_TRUE(config.Matches("WIN7 RELEASE NVIDIA 0X0640"));
+  EXPECT_FALSE(config.Matches("WIN7 RELEASE NVIDIA 0X0641"));
+}
+
 TEST_F(GPUTestConfigTest, OverlapsWith) {
   {  // os
     // win vs win7
@@ -212,8 +243,8 @@ TEST_F(GPUTestConfigTest, OverlapsWith) {
 TEST_F(GPUTestConfigTest, LoadCurrentConfig) {
   GPUTestBotConfig config;
   content::GPUInfo gpu_info;
-  gpu_info.vendor_id = 0x10de;
-  gpu_info.device_id = 0x0640;
+  gpu_info.gpu.vendor_id = 0x10de;
+  gpu_info.gpu.device_id = 0x0640;
   EXPECT_TRUE(config.LoadCurrentConfig(&gpu_info));
   EXPECT_TRUE(config.IsValid());
 }

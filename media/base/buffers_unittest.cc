@@ -25,11 +25,12 @@ class TestBuffer : public Buffer {
         size_(size) {
   }
 
-  virtual ~TestBuffer() {}
-
   // Buffer implementation.
   virtual const uint8* GetData() const OVERRIDE { return data_; }
   virtual int GetDataSize() const OVERRIDE { return size_; }
+
+ protected:
+  virtual ~TestBuffer() {}
 
  private:
   const uint8* data_;
@@ -79,11 +80,6 @@ TEST(BufferTest, IsEndOfStream) {
 
   buffer = new TestBuffer(kData, kDataSize);
   EXPECT_FALSE(buffer->IsEndOfStream());
-}
-
-TEST(BufferTest, GetDecryptConfig) {
-  scoped_refptr<TestBuffer> buffer = new TestBuffer();
-  EXPECT_FALSE(buffer->GetDecryptConfig());
 }
 
 }  // namespace media

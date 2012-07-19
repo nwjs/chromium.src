@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_BOOKMARKS_BOOKMARK_EDITOR_BASE_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_BOOKMARKS_BOOKMARK_EDITOR_BASE_CONTROLLER_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -34,6 +33,8 @@ class BookmarkModel;
   NSWindow* parentWindow_;  // weak
   Profile* profile_;  // weak
   const BookmarkNode* parentNode_;  // weak; owned by the model
+  GURL url_;  // This and title_ are only used for new urls.
+  string16 title_;
   BookmarkEditor::Configuration configuration_;
   NSString* initialName_;
   NSString* displayName_;  // Bound to a text field in the dialog.
@@ -56,10 +57,13 @@ class BookmarkModel;
 @property(nonatomic, copy) NSArray* tableSelectionPaths;
 
 // Designated initializer.  Derived classes should call through to this init.
+// |url| and |title| are only used for BookmarkNode::Type::NEW_URL.
 - (id)initWithParentWindow:(NSWindow*)parentWindow
                    nibName:(NSString*)nibName
                    profile:(Profile*)profile
                     parent:(const BookmarkNode*)parent
+                       url:(const GURL&)url
+                     title:(const string16&)title
              configuration:(BookmarkEditor::Configuration)configuration;
 
 // Run the bookmark editor as a modal sheet.  Does not block.
@@ -114,6 +118,8 @@ class BookmarkModel;
 - (BookmarkModel*)bookmarkModel;
 - (Profile*)profile;
 - (const BookmarkNode*)parentNode;
+- (const GURL&)url;
+- (const string16&)title;
 
 @end
 

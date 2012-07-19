@@ -4,154 +4,54 @@
 
 #include "content/browser/speech/input_tag_speech_dispatcher_host.h"
 
+#include "base/bind.h"
 #include "base/lazy_instance.h"
-#include "content/browser/speech/speech_recognition_manager_impl.h"
-#include "content/browser/speech/speech_recognizer_impl.h"
 #include "content/common/speech_recognition_messages.h"
+#include "content/public/browser/speech_recognition_manager.h"
 #include "content/public/browser/speech_recognition_preferences.h"
+#include "content/public/browser/speech_recognition_session_config.h"
+#include "content/public/browser/speech_recognition_session_context.h"
 
-using content::BrowserThread;
+using content::SpeechRecognitionManager;
+using content::SpeechRecognitionSessionConfig;
+using content::SpeechRecognitionSessionContext;
+
+namespace {
+const uint32 kMaxHypothesesForSpeechInputTag = 6;
+}
 
 namespace speech {
+SpeechRecognitionManager* InputTagSpeechDispatcherHost::manager_for_tests_;
 
-//----------------------------- Callers -----------------------------
-
-// A singleton class to map the tuple
-// (render-process-id, render-view-id, requestid) to a single ID which is passed
-// through rest of the speech code.
-class InputTagSpeechDispatcherHost::Callers {
- public:
-  // Creates a new ID for a given tuple.
-  int CreateId(int render_process_id, int render_view_id, int request_id);
-
-  // Returns the ID for a tuple assuming the ID was created earlier.
-  int GetId(int render_process_id, int render_view_id, int request_id);
-
-  // Removes the ID and associated tuple from the map.
-  void RemoveId(int id);
-
-  // Getters for the various tuple elements for the given ID.
-  int render_process_id(int id);
-  int render_view_id(int id);
-  int request_id(int id);
-
- private:
-  struct CallerInfo {
-    int render_process_id;
-    int render_view_id;
-    int request_id;
-  };
-  friend struct base::DefaultLazyInstanceTraits<Callers>;
-
-  Callers();
-
-  std::map<int, CallerInfo> callers_;
-  int next_id_;
-};
-
-static base::LazyInstance<InputTagSpeechDispatcherHost::Callers>
-    g_callers = LAZY_INSTANCE_INITIALIZER;
-
-InputTagSpeechDispatcherHost::Callers::Callers()
-    : next_id_(1) {
-}
-
-int InputTagSpeechDispatcherHost::Callers::GetId(int render_process_id,
-                                                 int render_view_id,
-                                                 int request_id) {
-  for (std::map<int, CallerInfo>::iterator it = callers_.begin();
-      it != callers_.end(); it++) {
-    const CallerInfo& item = it->second;
-    if (item.render_process_id == render_process_id &&
-        item.render_view_id == render_view_id &&
-        item.request_id == request_id) {
-      return it->first;
-    }
-  }
-
-  // Not finding an entry here is valid since a cancel/stop may have been issued
-  // by the renderer and before it received our response the user may have
-  // clicked the button to stop again. The caller of this method should take
-  // care of this case.
-  return 0;
-}
-
-int InputTagSpeechDispatcherHost::Callers::CreateId(int render_process_id,
-                                                    int render_view_id,
-                                                    int request_id) {
-  CallerInfo info;
-  info.render_process_id = render_process_id;
-  info.render_view_id = render_view_id;
-  info.request_id = request_id;
-  callers_[next_id_] = info;
-  return next_id_++;
-}
-
-void InputTagSpeechDispatcherHost::Callers::RemoveId(int id) {
-  callers_.erase(id);
-}
-
-int InputTagSpeechDispatcherHost::Callers::render_process_id(
-    int id) {
-  return callers_[id].render_process_id;
-}
-
-int InputTagSpeechDispatcherHost::Callers::render_view_id(
-    int id) {
-  return callers_[id].render_view_id;
-}
-
-int InputTagSpeechDispatcherHost::Callers::request_id(int id) {
-  return callers_[id].request_id;
-}
-
-//----------------------- InputTagSpeechDispatcherHost ----------------------
-
-SpeechRecognitionManagerImpl* InputTagSpeechDispatcherHost::manager_;
-
-void InputTagSpeechDispatcherHost::set_manager(
-    SpeechRecognitionManagerImpl* manager) {
-  manager_ = manager;
+void InputTagSpeechDispatcherHost::SetManagerForTests(
+    SpeechRecognitionManager* manager) {
+  manager_for_tests_ = manager;
 }
 
 InputTagSpeechDispatcherHost::InputTagSpeechDispatcherHost(
     int render_process_id,
-    net::URLRequestContextGetter* context_getter,
-    content::SpeechRecognitionPreferences* recognition_preferences,
-    media::AudioManager* audio_manager)
+    net::URLRequestContextGetter* url_request_context_getter,
+    content::SpeechRecognitionPreferences* recognition_preferences)
     : render_process_id_(render_process_id),
-      may_have_pending_requests_(false),
-      context_getter_(context_getter),
-      recognition_preferences_(recognition_preferences),
-      audio_manager_(audio_manager) {
-  // This is initialized by Browser. Do not add any non-trivial
-  // initialization here, instead do it lazily when required (e.g. see the
-  // method |manager()|) or add an Init() method.
+      url_request_context_getter_(url_request_context_getter),
+      recognition_preferences_(recognition_preferences) {
+  // Do not add any non-trivial initialization here, instead do it lazily when
+  // required (e.g. see the method |manager()|) or add an Init() method.
 }
 
 InputTagSpeechDispatcherHost::~InputTagSpeechDispatcherHost() {
-  // If the renderer crashed for some reason or if we didn't receive a proper
-  // Cancel/Stop call for an existing session, cancel such active sessions now.
-  // We first check if this dispatcher received any speech IPC requst so that
-  // we don't end up creating the speech input manager for web pages which don't
-  // use speech input.
-  if (may_have_pending_requests_)
-    manager()->CancelAllRequestsWithDelegate(this);
+  if (SpeechRecognitionManager* sr_manager = manager())
+    sr_manager->AbortAllSessionsForListener(this);
 }
 
-SpeechRecognitionManagerImpl* InputTagSpeechDispatcherHost::manager() {
-  if (manager_)
-    return manager_;
-#if defined(ENABLE_INPUT_SPEECH)
-  return SpeechRecognitionManagerImpl::GetInstance();
-#else
-  return NULL;
-#endif
+SpeechRecognitionManager* InputTagSpeechDispatcherHost::manager() {
+  if (manager_for_tests_)
+    return manager_for_tests_;
+  return SpeechRecognitionManager::GetInstance();
 }
 
 bool InputTagSpeechDispatcherHost::OnMessageReceived(
     const IPC::Message& message, bool* message_was_ok) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_EX(InputTagSpeechDispatcherHost, message,
                            *message_was_ok)
@@ -163,77 +63,109 @@ bool InputTagSpeechDispatcherHost::OnMessageReceived(
                         OnStopRecording)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
-  if (handled)
-    may_have_pending_requests_ = true;
   return handled;
 }
 
 void InputTagSpeechDispatcherHost::OnStartRecognition(
-    const InputTagSpeechHostMsg_StartRecognition_Params &params) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  int caller_id = g_callers.Get().CreateId(
-      render_process_id_, params.render_view_id, params.request_id);
-  manager()->StartRecognition(this, caller_id,
-                              render_process_id_,
-                              params.render_view_id, params.element_rect,
-                              params.language, params.grammar,
-                              params.origin_url,
-                              context_getter_.get(),
-                              recognition_preferences_.get());
+    const InputTagSpeechHostMsg_StartRecognition_Params& params) {
+
+  SpeechRecognitionSessionContext context;
+  context.render_process_id = render_process_id_;
+  context.render_view_id = params.render_view_id;
+  context.request_id = params.request_id;
+  context.element_rect = params.element_rect;
+
+  SpeechRecognitionSessionConfig config;
+  config.language = params.language;
+  if (!params.grammar.empty()) {
+    config.grammars.push_back(
+        content::SpeechRecognitionGrammar(params.grammar));
+  }
+  config.max_hypotheses = kMaxHypothesesForSpeechInputTag;
+  config.origin_url = params.origin_url;
+  config.initial_context = context;
+  config.url_request_context_getter = url_request_context_getter_.get();
+  if (recognition_preferences_) {
+    config.filter_profanities = recognition_preferences_->FilterProfanities();
+  } else {
+    config.filter_profanities = false;
+  }
+  config.event_listener = this;
+
+  int session_id = manager()->CreateSession(config);
+  DCHECK_NE(session_id, content::SpeechRecognitionManager::kSessionIDInvalid);
+  manager()->StartSession(session_id);
 }
 
 void InputTagSpeechDispatcherHost::OnCancelRecognition(int render_view_id,
                                                        int request_id) {
-  int caller_id = g_callers.Get().GetId(
-      render_process_id_, render_view_id, request_id);
-  if (caller_id) {
-    manager()->CancelRecognition(caller_id);
-    // Request sequence ended so remove mapping.
-    g_callers.Get().RemoveId(caller_id);
-  }
+  int session_id = manager()->GetSession(render_process_id_,
+                                         render_view_id,
+                                         request_id);
+
+  // The renderer might provide an invalid |request_id| if the session was not
+  // started as expected, e.g., due to unsatisfied security requirements.
+  if (session_id != SpeechRecognitionManager::kSessionIDInvalid)
+    manager()->AbortSession(session_id);
 }
 
 void InputTagSpeechDispatcherHost::OnStopRecording(int render_view_id,
                                                    int request_id) {
-  int caller_id = g_callers.Get().GetId(
-      render_process_id_, render_view_id, request_id);
-  if (caller_id)
-    manager()->StopRecording(caller_id);
+  int session_id = manager()->GetSession(render_process_id_,
+                                         render_view_id,
+                                         request_id);
+
+  // The renderer might provide an invalid |request_id| if the session was not
+  // started as expected, e.g., due to unsatisfied security requirements.
+  if (session_id != SpeechRecognitionManager::kSessionIDInvalid)
+    manager()->StopAudioCaptureForSession(session_id);
 }
 
-void InputTagSpeechDispatcherHost::SetRecognitionResult(
-    int caller_id, const content::SpeechRecognitionResult& result) {
-  VLOG(1) << "InputTagSpeechDispatcherHost::SetRecognitionResult enter";
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  int caller_render_view_id = g_callers.Get().render_view_id(caller_id);
-  int caller_request_id = g_callers.Get().request_id(caller_id);
-  Send(new InputTagSpeechMsg_SetRecognitionResult(caller_render_view_id,
-                                                  caller_request_id,
-                                                  result));
-  VLOG(1) << "InputTagSpeechDispatcherHost::SetRecognitionResult exit";
+// -------- SpeechRecognitionEventListener interface implementation -----------
+void InputTagSpeechDispatcherHost::OnRecognitionResult(
+      int session_id, const content::SpeechRecognitionResult& result) {
+  VLOG(1) << "InputTagSpeechDispatcherHost::OnRecognitionResult enter";
+
+  const SpeechRecognitionSessionContext& context =
+      manager()->GetSessionContext(session_id);
+
+  Send(new InputTagSpeechMsg_SetRecognitionResult(
+      context.render_view_id,
+      context.request_id,
+      result));
+  VLOG(1) << "InputTagSpeechDispatcherHost::OnRecognitionResult exit";
 }
 
-void InputTagSpeechDispatcherHost::DidCompleteRecording(int caller_id) {
-  VLOG(1) << "InputTagSpeechDispatcherHost::DidCompleteRecording enter";
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  int caller_render_view_id = g_callers.Get().render_view_id(caller_id);
-  int caller_request_id = g_callers.Get().request_id(caller_id);
-  Send(new InputTagSpeechMsg_RecordingComplete(caller_render_view_id,
-                                               caller_request_id));
-  VLOG(1) << "InputTagSpeechDispatcherHost::DidCompleteRecording exit";
+void InputTagSpeechDispatcherHost::OnAudioEnd(int session_id) {
+  VLOG(1) << "InputTagSpeechDispatcherHost::OnAudioEnd enter";
+
+  const SpeechRecognitionSessionContext& context =
+      manager()->GetSessionContext(session_id);
+
+  Send(new InputTagSpeechMsg_RecordingComplete(context.render_view_id,
+                                               context.request_id));
+  VLOG(1) << "InputTagSpeechDispatcherHost::OnAudioEnd exit";
 }
 
-void InputTagSpeechDispatcherHost::DidCompleteRecognition(int caller_id) {
-  VLOG(1) << "InputTagSpeechDispatcherHost::DidCompleteRecognition enter";
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  int caller_render_view_id =
-    g_callers.Get().render_view_id(caller_id);
-  int caller_request_id = g_callers.Get().request_id(caller_id);
-  Send(new InputTagSpeechMsg_RecognitionComplete(caller_render_view_id,
-                                                 caller_request_id));
-  // Request sequence ended, so remove mapping.
-  g_callers.Get().RemoveId(caller_id);
-  VLOG(1) << "InputTagSpeechDispatcherHost::DidCompleteRecognition exit";
+void InputTagSpeechDispatcherHost::OnRecognitionEnd(int session_id) {
+  VLOG(1) << "InputTagSpeechDispatcherHost::OnRecognitionEnd enter";
+  const SpeechRecognitionSessionContext& context =
+      manager()->GetSessionContext(session_id);
+  Send(new InputTagSpeechMsg_RecognitionComplete(context.render_view_id,
+                                                 context.request_id));
+  VLOG(1) << "InputTagSpeechDispatcherHost::OnRecognitionEnd exit";
 }
+
+// The events below are currently not used by x-webkit-speech implementation.
+void InputTagSpeechDispatcherHost::OnRecognitionStart(int session_id) {}
+void InputTagSpeechDispatcherHost::OnAudioStart(int session_id) {}
+void InputTagSpeechDispatcherHost::OnSoundStart(int session_id) {}
+void InputTagSpeechDispatcherHost::OnSoundEnd(int session_id) {}
+void InputTagSpeechDispatcherHost::OnRecognitionError(
+    int session_id, const content::SpeechRecognitionError& error) {}
+void InputTagSpeechDispatcherHost::OnAudioLevelsChange(
+    int session_id, float volume, float noise_volume) {}
+void InputTagSpeechDispatcherHost::OnEnvironmentEstimationComplete(
+    int session_id) {}
 
 }  // namespace speech

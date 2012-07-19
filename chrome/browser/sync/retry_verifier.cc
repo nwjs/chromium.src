@@ -7,8 +7,8 @@
 #include <algorithm>
 
 #include "base/logging.h"
-#include "sync/engine/polling_constants.h"
-#include "sync/sessions/session_state.h"
+#include "sync/internal_api/public/engine/polling_constants.h"
+#include "sync/internal_api/public/sessions/sync_session_snapshot.h"
 
 namespace browser_sync {
 
@@ -17,18 +17,18 @@ namespace {
 // the next retry.
 DelayInfo CalculateDelay(int64 current_delay) {
   int64 backoff_s = std::max(static_cast<int64>(1), current_delay *
-                             browser_sync::kBackoffRandomizationFactor);
+                             syncer::kBackoffRandomizationFactor);
 
   DelayInfo delay_info;
   delay_info.min_delay = backoff_s + (-1 * current_delay/
-                             browser_sync::kBackoffRandomizationFactor);
+                             syncer::kBackoffRandomizationFactor);
   delay_info.max_delay = backoff_s + current_delay/2;
 
   delay_info.min_delay = std::max(static_cast<int64>(1),
-      std::min(delay_info.min_delay, browser_sync::kMaxBackoffSeconds));
+      std::min(delay_info.min_delay, syncer::kMaxBackoffSeconds));
 
   delay_info.max_delay = std::max(static_cast<int64>(1),
-      std::min(delay_info.max_delay, browser_sync::kMaxBackoffSeconds));
+      std::min(delay_info.max_delay, syncer::kMaxBackoffSeconds));
 
   return delay_info;
 }
@@ -79,21 +79,21 @@ RetryVerifier::~RetryVerifier() {
 
 // Initializes the state for verification.
 void RetryVerifier::Initialize(
-    const browser_sync::sessions::SyncSessionSnapshot& snap) {
+    const syncer::sessions::SyncSessionSnapshot& snap) {
   retry_count_ = 0;
-  last_sync_time_ = snap.sync_start_time;
+  last_sync_time_ = snap.sync_start_time();
   FillDelayTable(delay_table_, kMaxRetry);
   done_ = false;
   success_ = false;
 }
 
 void RetryVerifier::VerifyRetryInterval(
-    const browser_sync::sessions::SyncSessionSnapshot& snap) {
+    const syncer::sessions::SyncSessionSnapshot& snap) {
   DCHECK(retry_count_ < kMaxRetry);
   if (retry_count_ == 0) {
-    if (snap.sync_start_time != last_sync_time_) {
+    if (snap.sync_start_time() != last_sync_time_) {
       retry_count_++;
-      last_sync_time_ = snap.sync_start_time;
+      last_sync_time_ = snap.sync_start_time();
     }
     success_ = true;
     return;
@@ -101,10 +101,10 @@ void RetryVerifier::VerifyRetryInterval(
 
   // Check if the sync start time has changed. If so indicates a new sync
   // has taken place.
-  if (snap.sync_start_time != last_sync_time_) {
-    base::TimeDelta delta = snap.sync_start_time - last_sync_time_;
+  if (snap.sync_start_time() != last_sync_time_) {
+    base::TimeDelta delta = snap.sync_start_time() - last_sync_time_;
     success_ = IsRetryOnTime(delay_table_,retry_count_ -1, delta);
-    last_sync_time_ = snap.sync_start_time;
+    last_sync_time_ = snap.sync_start_time();
     ++retry_count_;
     done_ = (retry_count_ >= kMaxRetry);
     return;

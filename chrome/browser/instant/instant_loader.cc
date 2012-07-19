@@ -22,12 +22,13 @@
 #include "chrome/browser/instant/instant_loader_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
+#include "chrome/browser/tab_contents/thumbnail_generator.h"
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/constrained_window_tab_helper_delegate.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper_delegate.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/render_messages.h"
@@ -91,7 +92,7 @@ void AddPreviewUsageForHistogram(TemplateURLID template_url_id,
   }
 }
 
-SessionStorageNamespace* GetSessionStorageNamespace(TabContentsWrapper* tab) {
+SessionStorageNamespace* GetSessionStorageNamespace(TabContents* tab) {
   return tab->web_contents()->GetController().GetSessionStorageNamespace();
 }
 
@@ -179,16 +180,16 @@ void InstantLoader::FrameLoadObserver::Observe(
   }
 }
 
-// TabContentsDelegateImpl -----------------------------------------------------
+// WebContentsDelegateImpl -----------------------------------------------------
 
-class InstantLoader::TabContentsDelegateImpl
+class InstantLoader::WebContentsDelegateImpl
     : public content::WebContentsDelegate,
       public CoreTabHelperDelegate,
       public ConstrainedWindowTabHelperDelegate,
       public content::NotificationObserver,
       public content::WebContentsObserver {
  public:
-  explicit TabContentsDelegateImpl(InstantLoader* loader);
+  explicit WebContentsDelegateImpl(InstantLoader* loader);
 
   // Invoked prior to loading a new URL.
   void PrepareForNewLoad();
@@ -246,11 +247,11 @@ class InstantLoader::TabContentsDelegateImpl
       content::NavigationType navigation_type) OVERRIDE;
 
   // CoreTabHelperDelegate:
-  virtual void SwapTabContents(TabContentsWrapper* old_tc,
-                               TabContentsWrapper* new_tc) OVERRIDE;
+  virtual void SwapTabContents(TabContents* old_tc,
+                               TabContents* new_tc) OVERRIDE;
 
   // ConstrainedWindowTabHelperDelegate:
-  virtual void WillShowConstrainedWindow(TabContentsWrapper* source) OVERRIDE;
+  virtual void WillShowConstrainedWindow(TabContents* source) OVERRIDE;
   virtual bool ShouldFocusConstrainedWindow() OVERRIDE;
 
   // content::WebContentsObserver:
@@ -260,7 +261,8 @@ class InstantLoader::TabContentsDelegateImpl
       bool is_main_frame,
       const GURL& validated_url,
       int error_code,
-      const string16& error_description) OVERRIDE;
+      const string16& error_description,
+      content::RenderViewHost* render_view_host) OVERRIDE;
 
  private:
   typedef std::vector<scoped_refptr<history::HistoryAddPageArgs> >
@@ -302,10 +304,10 @@ class InstantLoader::TabContentsDelegateImpl
   // True if the user typed in the search box before the page loaded.
   bool user_typed_before_load_;
 
-  DISALLOW_COPY_AND_ASSIGN(TabContentsDelegateImpl);
+  DISALLOW_COPY_AND_ASSIGN(WebContentsDelegateImpl);
 };
 
-InstantLoader::TabContentsDelegateImpl::TabContentsDelegateImpl(
+InstantLoader::WebContentsDelegateImpl::WebContentsDelegateImpl(
     InstantLoader* loader)
     : content::WebContentsObserver(loader->preview_contents()->web_contents()),
       loader_(loader),
@@ -318,18 +320,18 @@ InstantLoader::TabContentsDelegateImpl::TabContentsDelegateImpl(
       content::Source<WebContents>(loader->preview_contents()->web_contents()));
 }
 
-void InstantLoader::TabContentsDelegateImpl::PrepareForNewLoad() {
+void InstantLoader::WebContentsDelegateImpl::PrepareForNewLoad() {
   user_typed_before_load_ = false;
   waiting_for_new_page_ = true;
   add_page_vector_.clear();
   UnregisterForPaintNotifications();
 }
 
-void InstantLoader::TabContentsDelegateImpl::PreviewPainted() {
+void InstantLoader::WebContentsDelegateImpl::PreviewPainted() {
   loader_->PreviewPainted();
 }
 
-void InstantLoader::TabContentsDelegateImpl::SetLastHistoryURLAndPrune(
+void InstantLoader::WebContentsDelegateImpl::SetLastHistoryURLAndPrune(
     const GURL& url) {
   if (add_page_vector_.empty())
     return;
@@ -344,9 +346,9 @@ void InstantLoader::TabContentsDelegateImpl::SetLastHistoryURLAndPrune(
                          add_page_vector_.end());
 }
 
-void InstantLoader::TabContentsDelegateImpl::CommitHistory(
+void InstantLoader::WebContentsDelegateImpl::CommitHistory(
     bool supports_instant) {
-  TabContentsWrapper* tab = loader_->preview_contents();
+  TabContents* tab = loader_->preview_contents();
   if (tab->profile()->IsOffTheRecord())
     return;
 
@@ -392,36 +394,40 @@ void InstantLoader::TabContentsDelegateImpl::CommitHistory(
   }
 }
 
-void InstantLoader::TabContentsDelegateImpl::RegisterForPaintNotifications(
+void InstantLoader::WebContentsDelegateImpl::RegisterForPaintNotifications(
     RenderWidgetHost* render_widget_host) {
   DCHECK(registered_render_widget_host_ == NULL);
   registered_render_widget_host_ = render_widget_host;
   content::Source<RenderWidgetHost> source =
       content::Source<RenderWidgetHost>(registered_render_widget_host_);
-  registrar_.Add(this, content::NOTIFICATION_RENDER_WIDGET_HOST_DID_PAINT,
-                 source);
+  registrar_.Add(
+      this,
+      content::NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+      source);
   registrar_.Add(this, content::NOTIFICATION_RENDER_WIDGET_HOST_DESTROYED,
                  source);
 }
 
-void InstantLoader::TabContentsDelegateImpl::UnregisterForPaintNotifications() {
+void InstantLoader::WebContentsDelegateImpl::UnregisterForPaintNotifications() {
   if (registered_render_widget_host_) {
     content::Source<RenderWidgetHost> source =
         content::Source<RenderWidgetHost>(registered_render_widget_host_);
-    registrar_.Remove(this, content::NOTIFICATION_RENDER_WIDGET_HOST_DID_PAINT,
-                      source);
+    registrar_.Remove(
+        this,
+        content::NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+        source);
     registrar_.Remove(this, content::NOTIFICATION_RENDER_WIDGET_HOST_DESTROYED,
                       source);
     registered_render_widget_host_ = NULL;
   }
 }
 
-void InstantLoader::TabContentsDelegateImpl::Observe(
+void InstantLoader::WebContentsDelegateImpl::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   switch (type) {
-    case content::NOTIFICATION_RENDER_WIDGET_HOST_DID_PAINT:
+    case content::NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE:
       UnregisterForPaintNotifications();
       PreviewPainted();
       break;
@@ -436,7 +442,7 @@ void InstantLoader::TabContentsDelegateImpl::Observe(
   }
 }
 
-void InstantLoader::TabContentsDelegateImpl::NavigationStateChanged(
+void InstantLoader::WebContentsDelegateImpl::NavigationStateChanged(
     const WebContents* source,
     unsigned changed_flags) {
   if (!loader_->ready() && !registered_render_widget_host_ &&
@@ -454,46 +460,46 @@ void InstantLoader::TabContentsDelegateImpl::NavigationStateChanged(
   }
 }
 
-void InstantLoader::TabContentsDelegateImpl::AddNavigationHeaders(
+void InstantLoader::WebContentsDelegateImpl::AddNavigationHeaders(
     const GURL& url,
     std::string* headers) {
   net::HttpUtil::AppendHeaderIfMissing(kInstantHeader, kInstantHeaderValue,
                                        headers);
 }
 
-bool InstantLoader::TabContentsDelegateImpl::ShouldSuppressDialogs() {
+bool InstantLoader::WebContentsDelegateImpl::ShouldSuppressDialogs() {
   // Any message shown during instant cancels instant, so we suppress them.
   return true;
 }
 
-void InstantLoader::TabContentsDelegateImpl::BeforeUnloadFired(
+void InstantLoader::WebContentsDelegateImpl::BeforeUnloadFired(
     WebContents* tab,
     bool proceed,
     bool* proceed_to_fire_unload) {
 }
 
-void InstantLoader::TabContentsDelegateImpl::SetFocusToLocationBar(
+void InstantLoader::WebContentsDelegateImpl::SetFocusToLocationBar(
     bool select_all) {
 }
 
-bool InstantLoader::TabContentsDelegateImpl::ShouldFocusPageAfterCrash() {
+bool InstantLoader::WebContentsDelegateImpl::ShouldFocusPageAfterCrash() {
   return false;
 }
 
-void InstantLoader::TabContentsDelegateImpl::WebContentsFocused(
+void InstantLoader::WebContentsDelegateImpl::WebContentsFocused(
     WebContents* contents) {
   loader_->delegate_->InstantLoaderContentsFocused();
 }
 
-void InstantLoader::TabContentsDelegateImpl::LostCapture() {
+void InstantLoader::WebContentsDelegateImpl::LostCapture() {
   CommitFromMouseReleaseIfNecessary();
 }
 
-void InstantLoader::TabContentsDelegateImpl::DragEnded() {
+void InstantLoader::WebContentsDelegateImpl::DragEnded() {
   CommitFromMouseReleaseIfNecessary();
 }
 
-bool InstantLoader::TabContentsDelegateImpl::CanDownload(
+bool InstantLoader::WebContentsDelegateImpl::CanDownload(
         RenderViewHost* render_view_host,
         int request_id,
         const std::string& request_method) {
@@ -501,19 +507,19 @@ bool InstantLoader::TabContentsDelegateImpl::CanDownload(
   return false;
 }
 
-void InstantLoader::TabContentsDelegateImpl::HandleMouseUp() {
+void InstantLoader::WebContentsDelegateImpl::HandleMouseUp() {
   CommitFromMouseReleaseIfNecessary();
 }
 
-void InstantLoader::TabContentsDelegateImpl::HandleMouseActivate() {
+void InstantLoader::WebContentsDelegateImpl::HandleMouseActivate() {
   is_mouse_down_from_activate_ = true;
 }
 
-bool InstantLoader::TabContentsDelegateImpl::OnGoToEntryOffset(int offset) {
+bool InstantLoader::WebContentsDelegateImpl::OnGoToEntryOffset(int offset) {
   return false;
 }
 
-bool InstantLoader::TabContentsDelegateImpl::ShouldAddNavigationToHistory(
+bool InstantLoader::WebContentsDelegateImpl::ShouldAddNavigationToHistory(
     const history::HistoryAddPageArgs& add_page_args,
     content::NavigationType navigation_type) {
   if (waiting_for_new_page_ &&
@@ -530,21 +536,21 @@ bool InstantLoader::TabContentsDelegateImpl::ShouldAddNavigationToHistory(
 
 // If this is being called, something is swapping in to our preview_contents_
 // before we've added it to the tab strip.
-void InstantLoader::TabContentsDelegateImpl::SwapTabContents(
-    TabContentsWrapper* old_tc,
-    TabContentsWrapper* new_tc) {
+void InstantLoader::WebContentsDelegateImpl::SwapTabContents(
+    TabContents* old_tc,
+    TabContents* new_tc) {
   loader_->ReplacePreviewContents(old_tc, new_tc);
 }
 
-bool InstantLoader::TabContentsDelegateImpl::ShouldFocusConstrainedWindow() {
+bool InstantLoader::WebContentsDelegateImpl::ShouldFocusConstrainedWindow() {
   // Return false so that constrained windows are not initially focused. If
   // we did otherwise the preview would prematurely get committed when focus
   // goes to the constrained window.
   return false;
 }
 
-void InstantLoader::TabContentsDelegateImpl::WillShowConstrainedWindow(
-    TabContentsWrapper* source) {
+void InstantLoader::WebContentsDelegateImpl::WillShowConstrainedWindow(
+    TabContents* source) {
   if (!loader_->ready()) {
     // A constrained window shown for an auth may not paint. Show the preview
     // contents.
@@ -553,10 +559,10 @@ void InstantLoader::TabContentsDelegateImpl::WillShowConstrainedWindow(
   }
 }
 
-bool InstantLoader::TabContentsDelegateImpl::OnMessageReceived(
+bool InstantLoader::WebContentsDelegateImpl::OnMessageReceived(
     const IPC::Message& message) {
   bool handled = true;
-  IPC_BEGIN_MESSAGE_MAP(TabContentsDelegateImpl, message)
+  IPC_BEGIN_MESSAGE_MAP(WebContentsDelegateImpl, message)
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_SetSuggestions, OnSetSuggestions)
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_InstantSupportDetermined,
                         OnInstantSupportDetermined)
@@ -565,12 +571,13 @@ bool InstantLoader::TabContentsDelegateImpl::OnMessageReceived(
   return handled;
 }
 
-void InstantLoader::TabContentsDelegateImpl::DidFailProvisionalLoad(
+void InstantLoader::WebContentsDelegateImpl::DidFailProvisionalLoad(
     int64 frame_id,
     bool is_main_frame,
     const GURL& validated_url,
     int error_code,
-    const string16& error_description) {
+    const string16& error_description,
+    content::RenderViewHost* render_view_host) {
   if (validated_url == loader_->url_) {
     // This typically happens with downloads (which are disabled with
     // instant active). To ensure the download happens when the user presses
@@ -579,11 +586,11 @@ void InstantLoader::TabContentsDelegateImpl::DidFailProvisionalLoad(
   }
 }
 
-void InstantLoader::TabContentsDelegateImpl::OnSetSuggestions(
+void InstantLoader::WebContentsDelegateImpl::OnSetSuggestions(
     int32 page_id,
     const std::vector<std::string>& suggestions,
     InstantCompleteBehavior behavior) {
-  TabContentsWrapper* source = loader_->preview_contents();
+  TabContents* source = loader_->preview_contents();
   NavigationEntry* entry =
       source->web_contents()->GetController().GetActiveEntry();
   if (!entry || page_id != entry->GetPageID())
@@ -595,7 +602,7 @@ void InstantLoader::TabContentsDelegateImpl::OnSetSuggestions(
     loader_->SetCompleteSuggestedText(UTF8ToUTF16(suggestions[0]), behavior);
 }
 
-void InstantLoader::TabContentsDelegateImpl::OnInstantSupportDetermined(
+void InstantLoader::WebContentsDelegateImpl::OnInstantSupportDetermined(
     int32 page_id,
     bool result) {
   WebContents* source = loader_->preview_contents()->web_contents();
@@ -615,7 +622,7 @@ void InstantLoader::TabContentsDelegateImpl::OnInstantSupportDetermined(
     loader_->PageDoesntSupportInstant(user_typed_before_load_);
 }
 
-void InstantLoader::TabContentsDelegateImpl
+void InstantLoader::WebContentsDelegateImpl
     ::CommitFromMouseReleaseIfNecessary() {
   bool was_down = is_mouse_down_from_activate_;
   is_mouse_down_from_activate_ = false;
@@ -641,14 +648,14 @@ InstantLoader::InstantLoader(InstantLoaderDelegate* delegate,
 InstantLoader::~InstantLoader() {
   registrar_.RemoveAll();
 
-  // Delete the TabContents before the delegate as the TabContents holds a
-  // reference to the delegate.
+  // Delete the TabContents before the delegate as the TabContents
+  // holds a reference to the delegate.
   if (preview_contents())
     AddPreviewUsageForHistogram(template_url_id_, PREVIEW_DELETED, group_);
   preview_contents_.reset();
 }
 
-bool InstantLoader::Update(TabContentsWrapper* tab_contents,
+bool InstantLoader::Update(TabContents* tab_contents,
                            const TemplateURL* template_url,
                            const GURL& url,
                            content::PageTransition transition_type,
@@ -695,15 +702,19 @@ bool InstantLoader::Update(TabContentsWrapper* tab_contents,
   if (created_preview_contents)
     CreatePreviewContents(tab_contents);
 
+  // Carry over the user agent override setting to the new entry.
+  content::NavigationEntry* entry =
+      tab_contents->web_contents()->GetController().GetActiveEntry();
+  bool override_user_agent = entry && entry->GetIsOverridingUserAgent();
+
   if (template_url) {
     DCHECK(template_url_id_ == template_url->id());
     if (!created_preview_contents) {
       if (is_determining_if_page_supports_instant()) {
-        // The page hasn't loaded yet. We'll send the script down when it does.
+        // The page hasn't loaded yet. Note it, but send down the text anyway.
         frame_load_observer_->set_text(user_text_);
         frame_load_observer_->set_verbatim(verbatim);
         preview_tab_contents_delegate_->set_user_typed_before_load();
-        return true;
       }
       // TODO: support real cursor position.
       int text_length = static_cast<int>(user_text_.size());
@@ -727,15 +738,17 @@ bool InstantLoader::Update(TabContentsWrapper* tab_contents,
             complete_suggested_text_.substr(user_text_.size());
       }
     } else {
-      LoadInstantURL(tab_contents, template_url, transition_type, user_text_,
-                     verbatim);
+      LoadInstantURL(template_url, transition_type, user_text_, verbatim,
+          override_user_agent);
     }
   } else {
     DCHECK(template_url_id_ == 0);
     preview_tab_contents_delegate_->PrepareForNewLoad();
     frame_load_observer_.reset(NULL);
-    preview_contents_->web_contents()->GetController().LoadURL(
-        url_, content::Referrer(), transition_type, std::string());
+
+    preview_contents_->web_contents()->GetController().
+        LoadURLWithUserAgentOverride(url_, content::Referrer(), transition_type,
+            false, std::string(), override_user_agent);
   }
   return true;
 }
@@ -771,9 +784,9 @@ bool InstantLoader::IsMouseDownFromActivate() {
       preview_tab_contents_delegate_->is_mouse_down_from_activate();
 }
 
-TabContentsWrapper* InstantLoader::ReleasePreviewContents(
+TabContents* InstantLoader::ReleasePreviewContents(
     InstantCommitType type,
-    TabContentsWrapper* tab_contents) {
+    TabContents* tab_contents) {
   if (!preview_contents_.get())
     return NULL;
 
@@ -832,6 +845,10 @@ TabContentsWrapper* InstantLoader::ReleasePreviewContents(
         base::Histogram::kUmaTargetedHistogramFlag);
     histogram->Add(tab_contents == NULL || session_storage_namespace_ ==
         GetSessionStorageNamespace(tab_contents));
+    // Now that the ownership is being passed to the caller, the thumbnailer
+    // needs to resume taking thumbnails.
+    if (preview_contents_->thumbnail_generator())
+      preview_contents_->thumbnail_generator()->set_enabled(true);
   }
   session_storage_namespace_ = NULL;
   return preview_contents_.release();
@@ -845,7 +862,7 @@ void InstantLoader::CommitInstantLoader() {
   delegate_->CommitInstantLoader(this);
 }
 
-void InstantLoader::MaybeLoadInstantURL(TabContentsWrapper* tab_contents,
+void InstantLoader::MaybeLoadInstantURL(TabContents* tab_contents,
                                         const TemplateURL* template_url) {
   DCHECK(template_url_id_ == template_url->id());
 
@@ -855,9 +872,14 @@ void InstantLoader::MaybeLoadInstantURL(TabContentsWrapper* tab_contents,
   if (preview_contents_.get())
     return;
 
+  // Carry over the user agent override setting to the new entry.
+  content::NavigationEntry* entry =
+      tab_contents->web_contents()->GetController().GetActiveEntry();
+  bool override_user_agent = entry && entry->GetIsOverridingUserAgent();
+
   CreatePreviewContents(tab_contents);
-  LoadInstantURL(tab_contents, template_url, content::PAGE_TRANSITION_GENERATED,
-                 string16(), true);
+  LoadInstantURL(template_url, content::PAGE_TRANSITION_GENERATED, string16(),
+                 true, override_user_agent);
 }
 
 bool InstantLoader::IsNavigationPending() const {
@@ -1027,11 +1049,11 @@ void InstantLoader::SendBoundsToPage(bool force_if_waiting) {
   }
 }
 
-void InstantLoader::ReplacePreviewContents(TabContentsWrapper* old_tc,
-                                           TabContentsWrapper* new_tc) {
+void InstantLoader::ReplacePreviewContents(TabContents* old_tc,
+                                           TabContents* new_tc) {
   DCHECK(old_tc == preview_contents_);
   // We release here without deleting so that the caller still has reponsibility
-  // for deleting the TabContentsWrapper.
+  // for deleting the TabContents.
   ignore_result(preview_contents_.release());
   preview_contents_.reset(new_tc);
   session_storage_namespace_ = GetSessionStorageNamespace(new_tc);
@@ -1065,7 +1087,7 @@ void InstantLoader::ReplacePreviewContents(TabContentsWrapper* old_tc,
     ShowPreview();
 }
 
-void InstantLoader::SetupPreviewContents(TabContentsWrapper* tab_contents) {
+void InstantLoader::SetupPreviewContents(TabContents* tab_contents) {
   preview_contents_->web_contents()->SetDelegate(
       preview_tab_contents_delegate_.get());
   preview_contents_->blocked_content_tab_helper()->SetAllContentsBlocked(true);
@@ -1073,6 +1095,10 @@ void InstantLoader::SetupPreviewContents(TabContentsWrapper* tab_contents) {
       preview_tab_contents_delegate_.get());
   preview_contents_->core_tab_helper()->set_delegate(
       preview_tab_contents_delegate_.get());
+  // Disables thumbnailing while the web contents is shown as preview to avoid
+  // generating unnecessary thumbnails.
+  if (preview_contents_->thumbnail_generator())
+    preview_contents_->thumbnail_generator()->set_enabled(false);
 
 #if defined(OS_MACOSX)
   // If |preview_contents_| does not currently have a RWHV, we will call
@@ -1098,25 +1124,32 @@ void InstantLoader::SetupPreviewContents(TabContentsWrapper* tab_contents) {
   gfx::Rect tab_bounds;
   tab_contents->web_contents()->GetView()->GetContainerBounds(&tab_bounds);
   preview_contents_->web_contents()->GetView()->SizeContents(tab_bounds.size());
+
+  // Carry over the user agent override string.
+  const std::string& override =
+      tab_contents->web_contents()->GetUserAgentOverride();
+  preview_contents_->web_contents()->SetUserAgentOverride(override);
 }
 
-void InstantLoader::CreatePreviewContents(TabContentsWrapper* tab_contents) {
+void InstantLoader::CreatePreviewContents(TabContents* tab_contents) {
   WebContents* new_contents = WebContents::Create(
       tab_contents->profile(), NULL, MSG_ROUTING_NONE, NULL, NULL);
-  preview_contents_.reset(new TabContentsWrapper(new_contents));
+  preview_contents_.reset(new TabContents(new_contents));
   AddPreviewUsageForHistogram(template_url_id_, PREVIEW_CREATED, group_);
   session_storage_namespace_ = GetSessionStorageNamespace(tab_contents);
-  preview_tab_contents_delegate_.reset(new TabContentsDelegateImpl(this));
+  preview_tab_contents_delegate_.reset(new WebContentsDelegateImpl(this));
   SetupPreviewContents(tab_contents);
 
-  preview_contents_->web_contents()->ShowContents();
+  // TODO(beng): investigate if we can avoid this and instead rely on the
+  //             visibility of the WebContentsView
+  preview_contents_->web_contents()->WasRestored();
 }
 
-void InstantLoader::LoadInstantURL(TabContentsWrapper* tab_contents,
-                                   const TemplateURL* template_url,
+void InstantLoader::LoadInstantURL(const TemplateURL* template_url,
                                    content::PageTransition transition_type,
                                    const string16& user_text,
-                                   bool verbatim) {
+                                   bool verbatim,
+                                   bool override_user_agent) {
   preview_tab_contents_delegate_->PrepareForNewLoad();
 
   // Load the instant URL. We don't reflect the url we load in url() as
@@ -1127,16 +1160,18 @@ void InstantLoader::LoadInstantURL(TabContentsWrapper* tab_contents,
   // functionality so that embeded tags (like {google:baseURL}) are escaped
   // correctly.
   // TODO(sky): having to use a replaceable url is a bit of a hack here.
-  GURL instant_url(
-      template_url->instant_url_ref().ReplaceSearchTermsUsingProfile(
-          tab_contents->profile(), string16(), -1, string16()));
+  GURL instant_url(template_url->instant_url_ref().ReplaceSearchTerms(
+      TemplateURLRef::SearchTermsArgs(string16())));
   CommandLine* cl = CommandLine::ForCurrentProcess();
   if (cl->HasSwitch(switches::kInstantURL))
     instant_url = GURL(cl->GetSwitchValueASCII(switches::kInstantURL));
-  preview_contents_->web_contents()->GetController().LoadURL(
-      instant_url, content::Referrer(), transition_type, std::string());
+
+  preview_contents_->web_contents()->GetController().
+      LoadURLWithUserAgentOverride(instant_url, content::Referrer(),
+          transition_type, false, std::string(), override_user_agent);
+
   RenderViewHost* host = preview_contents_->web_contents()->GetRenderViewHost();
-  preview_contents_->web_contents()->HideContents();
+  preview_contents_->web_contents()->WasHidden();
 
   // If user_text is empty, this must be a preload of the search homepage. In
   // that case, send down a SearchBoxResize message, which will switch the page

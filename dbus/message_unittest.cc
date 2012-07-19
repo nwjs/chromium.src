@@ -107,6 +107,11 @@ TEST(MessageTest, AppendAndPopFileDescriptor) {
 
   // Append stdout.
   dbus::FileDescriptor temp(1);
+  // Descriptor should not be valid until checked.
+  ASSERT_FALSE(temp.is_valid());
+  // NB: thread IO requirements not relevant for unit tests.
+  temp.CheckValidity();
+  ASSERT_TRUE(temp.is_valid());
   writer.AppendFileDescriptor(temp);
 
   dbus::FileDescriptor fd_value;
@@ -115,6 +120,10 @@ TEST(MessageTest, AppendAndPopFileDescriptor) {
   ASSERT_TRUE(reader.HasMoreData());
   ASSERT_TRUE(reader.PopFileDescriptor(&fd_value));
   ASSERT_FALSE(reader.HasMoreData());
+  // Descriptor is not valid until explicitly checked.
+  ASSERT_FALSE(fd_value.is_valid());
+  fd_value.CheckValidity();
+  ASSERT_TRUE(fd_value.is_valid());
 
   // Stdout should be returned but we cannot check the descriptor
   // value because stdout will be dup'd.  Instead check st_rdev
@@ -556,12 +565,12 @@ TEST(MessageTest, GetAndSetHeaders) {
   EXPECT_EQ(0U, message->GetSerial());
   EXPECT_EQ(0U, message->GetReplySerial());
 
-  message->SetDestination("org.chromium.destination");
-  message->SetPath(dbus::ObjectPath("/org/chromium/path"));
-  message->SetInterface("org.chromium.interface");
-  message->SetMember("member");
-  message->SetErrorName("org.chromium.error");
-  message->SetSender(":1.2");
+  EXPECT_TRUE(message->SetDestination("org.chromium.destination"));
+  EXPECT_TRUE(message->SetPath(dbus::ObjectPath("/org/chromium/path")));
+  EXPECT_TRUE(message->SetInterface("org.chromium.interface"));
+  EXPECT_TRUE(message->SetMember("member"));
+  EXPECT_TRUE(message->SetErrorName("org.chromium.error"));
+  EXPECT_TRUE(message->SetSender(":1.2"));
   message->SetSerial(123);
   message->SetReplySerial(456);
 
@@ -573,4 +582,49 @@ TEST(MessageTest, GetAndSetHeaders) {
   EXPECT_EQ(":1.2", message->GetSender());
   EXPECT_EQ(123U, message->GetSerial());
   EXPECT_EQ(456U, message->GetReplySerial());
+}
+
+TEST(MessageTest, SetInvalidHeaders) {
+  scoped_ptr<dbus::Response> message(dbus::Response::CreateEmpty());
+  EXPECT_EQ("", message->GetDestination());
+  EXPECT_EQ(dbus::ObjectPath(""), message->GetPath());
+  EXPECT_EQ("", message->GetInterface());
+  EXPECT_EQ("", message->GetMember());
+  EXPECT_EQ("", message->GetErrorName());
+  EXPECT_EQ("", message->GetSender());
+
+  // Empty element between periods.
+  EXPECT_FALSE(message->SetDestination("org..chromium"));
+  // Trailing '/' is only allowed for the root path.
+  EXPECT_FALSE(message->SetPath(dbus::ObjectPath("/org/chromium/")));
+  // Interface name cannot contain '/'.
+  EXPECT_FALSE(message->SetInterface("org/chromium/interface"));
+  // Member name cannot begin with a digit.
+  EXPECT_FALSE(message->SetMember("1member"));
+  // Error name cannot begin with a period.
+  EXPECT_FALSE(message->SetErrorName(".org.chromium.error"));
+  // Disallowed characters.
+  EXPECT_FALSE(message->SetSender("?!#*"));
+
+  EXPECT_EQ("", message->GetDestination());
+  EXPECT_EQ(dbus::ObjectPath(""), message->GetPath());
+  EXPECT_EQ("", message->GetInterface());
+  EXPECT_EQ("", message->GetMember());
+  EXPECT_EQ("", message->GetErrorName());
+  EXPECT_EQ("", message->GetSender());
+}
+
+TEST(MessageTest, ToString_LongString) {
+  const std::string kLongString(1000, 'o');
+
+  scoped_ptr<dbus::Response> message(dbus::Response::CreateEmpty());
+  dbus::MessageWriter writer(message.get());
+  writer.AppendString(kLongString);
+
+  ASSERT_EQ("message_type: MESSAGE_METHOD_RETURN\n"
+            "signature: s\n\n"
+            "string \"oooooooooooooooooooooooooooooooooooooooooooooooo"
+            "oooooooooooooooooooooooooooooooooooooooooooooooooooo... "
+            "(1000 bytes in total)\"\n",
+            message->ToString());
 }

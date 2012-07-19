@@ -40,6 +40,8 @@
       'sources': [
         'drt_application_mac.h',
         'drt_application_mac.mm',
+        'gc_extension.cc',
+        'gc_extension.h',
         'platform_support.h',
         'platform_support_android.cc',
         'platform_support_linux.cc',
@@ -47,6 +49,8 @@
         'platform_support_win.cc',
         'test_media_stream_client.cc',
         'test_media_stream_client.h',
+        'test_stream_texture_factory_android.cc',
+        'test_stream_texture_factory_android.h',
         'test_webkit_platform_support.cc',
         'test_webkit_platform_support.h',
         'test_webmessageportchannel.cc',

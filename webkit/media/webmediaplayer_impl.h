@@ -48,12 +48,15 @@
 #ifndef WEBKIT_MEDIA_WEBMEDIAPLAYER_IMPL_H_
 #define WEBKIT_MEDIA_WEBMEDIAPLAYER_IMPL_H_
 
+#include <string>
+
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
 #include "googleurl/src/gurl.h"
 #include "media/base/audio_renderer_sink.h"
+#include "media/base/decryptor.h"
 #include "media/base/filters.h"
 #include "media/base/message_loop_factory.h"
 #include "media/base/pipeline.h"
@@ -61,6 +64,8 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebAudioSourceProvider.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayer.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayerClient.h"
+#include "webkit/media/crypto/key_systems.h"
+#include "webkit/media/crypto/proxy_decryptor.h"
 
 class RenderAudioSourceProvider;
 
@@ -70,6 +75,7 @@ class WebFrame;
 }
 
 namespace media {
+class AudioRendererSink;
 class MediaLog;
 }
 
@@ -99,17 +105,25 @@ class WebMediaPlayerImpl
   // filter if they wish to hear any sound coming out the speakers, otherwise
   // audio data is discarded and media plays back based on wall clock time.
   //
+  // When calling this, the |audio_source_provider| and
+  // |audio_renderer_sink| arguments should be the same object.
+  //
+  // TODO(scherkus): Remove WebAudioSourceProvider parameter once we
+  // refactor RenderAudioSourceProvider to live under webkit/media/
+  // instead of content/renderer/, see http://crbug.com/136442
+
   WebMediaPlayerImpl(WebKit::WebFrame* frame,
                      WebKit::WebMediaPlayerClient* client,
                      base::WeakPtr<WebMediaPlayerDelegate> delegate,
                      media::FilterCollection* collection,
                      WebKit::WebAudioSourceProvider* audio_source_provider,
+                     media::AudioRendererSink* audio_renderer_sink,
                      media::MessageLoopFactory* message_loop_factory,
                      MediaStreamClient* media_stream_client,
                      media::MediaLog* media_log);
   virtual ~WebMediaPlayerImpl();
 
-  virtual void load(const WebKit::WebURL& url);
+  virtual void load(const WebKit::WebURL& url, CORSMode cors_mode);
   virtual void cancelLoad();
 
   // Playback controls.
@@ -130,16 +144,12 @@ class WebMediaPlayerImpl
   // Methods for painting.
   virtual void setSize(const WebKit::WebSize& size);
 
-#if WEBKIT_USING_SKIA
   // This variant (without alpha) is just present during staging of this API
   // change. Later we will again only have one virtual paint().
   virtual void paint(WebKit::WebCanvas* canvas, const WebKit::WebRect& rect);
   virtual void paint(WebKit::WebCanvas* canvas,
                      const WebKit::WebRect& rect,
                      uint8_t alpha);
-#else
-  virtual void paint(WebKit::WebCanvas* canvas, const WebKit::WebRect& rect);
-#endif
 
   // True if the loaded media has a playable video/audio track.
   virtual bool hasVideo() const;
@@ -163,10 +173,11 @@ class WebMediaPlayerImpl
   virtual WebKit::WebMediaPlayer::NetworkState networkState() const;
   virtual WebKit::WebMediaPlayer::ReadyState readyState() const;
 
-  virtual unsigned long long bytesLoaded() const;
+  virtual bool didLoadingProgress() const;
   virtual unsigned long long totalBytes() const;
 
   virtual bool hasSingleSecurityOrigin() const;
+  virtual bool didPassCORSAccessCheck() const;
   virtual WebKit::WebMediaPlayer::MovieLoadType movieLoadType() const;
 
   virtual float mediaTimeForTimeValue(float timeValue) const;
@@ -181,8 +192,39 @@ class WebMediaPlayerImpl
 
   virtual WebKit::WebAudioSourceProvider* audioSourceProvider();
 
+  // TODO(acolwell): Remove once new sourceAddId() signature is checked into
+  // WebKit.
+  virtual AddIdStatus sourceAddId(const WebKit::WebString& id,
+                                  const WebKit::WebString& type);
+  virtual AddIdStatus sourceAddId(
+      const WebKit::WebString& id,
+      const WebKit::WebString& type,
+      const WebKit::WebVector<WebKit::WebString>& codecs);
+  virtual bool sourceRemoveId(const WebKit::WebString& id);
+  virtual WebKit::WebTimeRanges sourceBuffered(const WebKit::WebString& id);
+  // TODO(acolwell): Remove non-id version when http://webk.it/83788 fix lands.
   virtual bool sourceAppend(const unsigned char* data, unsigned length);
+  virtual bool sourceAppend(const WebKit::WebString& id,
+                            const unsigned char* data,
+                            unsigned length);
+  virtual bool sourceAbort(const WebKit::WebString& id);
   virtual void sourceEndOfStream(EndOfStreamStatus status);
+
+  virtual MediaKeyException generateKeyRequest(
+      const WebKit::WebString& key_system,
+      const unsigned char* init_data,
+      unsigned init_data_length);
+
+  virtual MediaKeyException addKey(const WebKit::WebString& key_system,
+                                   const unsigned char* key,
+                                   unsigned key_length,
+                                   const unsigned char* init_data,
+                                   unsigned init_data_length,
+                                   const WebKit::WebString& session_id);
+
+  virtual MediaKeyException cancelKeyRequest(
+      const WebKit::WebString& key_system,
+      const WebKit::WebString& session_id);
 
   // As we are closing the tab or even the browser, |main_loop_| is destroyed
   // even before this object gets destructed, so we need to know when
@@ -196,13 +238,29 @@ class WebMediaPlayerImpl
   void OnPipelineSeek(media::PipelineStatus status);
   void OnPipelineEnded(media::PipelineStatus status);
   void OnPipelineError(media::PipelineStatus error);
-  void OnNetworkEvent(media::NetworkEvent type);
   void OnDemuxerOpened();
+  void OnKeyAdded(const std::string& key_system, const std::string& session_id);
+  void OnKeyError(const std::string& key_system,
+                  const std::string& session_id,
+                  media::Decryptor::KeyError error_code,
+                  int system_code);
+  void OnKeyMessage(const std::string& key_system,
+                    const std::string& session_id,
+                    scoped_array<uint8> message,
+                    int message_length,
+                    const std::string& default_url);
+  void OnNeedKey(const std::string& key_system,
+                 const std::string& session_id,
+                 scoped_array<uint8> init_data,
+                 int init_data_size);
   void SetOpaque(bool);
 
  private:
   // Called after asynchronous initialization of a data source completed.
   void DataSourceInitialized(const GURL& gurl, media::PipelineStatus status);
+
+  // Called when the data source is downloading or paused.
+  void NotifyDownloading(bool is_downloading);
 
   // Finishes starting the pipeline due to a call to load().
   void StartPipeline();
@@ -245,6 +303,10 @@ class WebMediaPlayerImpl
   scoped_refptr<media::Pipeline> pipeline_;
   bool started_;
 
+  // The currently selected key system. Empty string means that no key system
+  // has been selected.
+  WebKit::WebString current_key_system_;
+
   scoped_ptr<media::MessageLoopFactory> message_loop_factory_;
 
   // Playback state.
@@ -277,10 +339,6 @@ class WebMediaPlayerImpl
 
   MediaStreamClient* media_stream_client_;
 
-#if WEBKIT_USING_CG
-  scoped_ptr<skia::PlatformCanvas> skia_canvas_;
-#endif
-
   scoped_refptr<media::MediaLog> media_log_;
 
   // Since accelerated compositing status is only known after the first layout,
@@ -290,6 +348,13 @@ class WebMediaPlayerImpl
   bool incremented_externally_allocated_memory_;
 
   WebKit::WebAudioSourceProvider* audio_source_provider_;
+
+  scoped_refptr<media::AudioRendererSink> audio_renderer_sink_;
+
+  bool is_local_source_;
+
+  // The decryptor that manages decryption keys and decrypts encrypted frames.
+  ProxyDecryptor decryptor_;
 
   DISALLOW_COPY_AND_ASSIGN(WebMediaPlayerImpl);
 };

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_TEST_INTEGRATION_SESSIONS_HELPER_H_
 #define CHROME_BROWSER_SYNC_TEST_INTEGRATION_SESSIONS_HELPER_H_
-#pragma once
 
 #include <algorithm>
 #include <vector>
@@ -13,7 +12,7 @@
 #include "chrome/browser/sessions/session_types.h"
 #include "chrome/browser/sync/glue/synced_session.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
-#include "sync/engine/nigori_util.h"
+#include "sync/syncable/nigori_util.h"
 
 class GURL;
 

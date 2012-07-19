@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_PANELS_PANEL_MOUSE_WATCHER_H_
 #define CHROME_BROWSER_UI_PANELS_PANEL_MOUSE_WATCHER_H_
-#pragma once
 
 #include "base/gtest_prod_util.h"
 #include "base/observer_list.h"
@@ -29,11 +28,15 @@ class PanelMouseWatcher {
   void AddObserver(PanelMouseWatcherObserver* observer);
   void RemoveObserver(PanelMouseWatcherObserver* observer);
 
+  // Returns current mouse position. This may be different from the
+  // mouse position in NotifyMouseMovement.
+  virtual gfx::Point GetMousePosition() const = 0;
+
  protected:
   PanelMouseWatcher();
 
   // |mouse_position| is in screen coordinates.
-  void NotifyMouseMovement(const gfx::Point& mouse_position);
+  virtual void NotifyMouseMovement(const gfx::Point& mouse_position);
 
   // Returns true if watching mouse movements.
   virtual bool IsActive() const = 0;
@@ -42,7 +45,7 @@ class PanelMouseWatcher {
   friend class PanelMouseWatcherTest;
   FRIEND_TEST_ALL_PREFIXES(PanelMouseWatcherTest, StartStopWatching);
   friend class BasePanelBrowserTest;
-  FRIEND_TEST_ALL_PREFIXES(PanelOverflowBrowserTest, FullScreenMode);
+  friend class OldBasePanelBrowserTest;
 
   // Start/stop tracking mouse movements.
   virtual void Start() = 0;

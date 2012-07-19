@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_DROPDOWN_BAR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_DROPDOWN_BAR_VIEW_H_
-#pragma once
 
 #include "chrome/browser/ui/views/dropdown_bar_host.h"
 #include "chrome/browser/ui/views/dropdown_bar_host_delegate.h"
@@ -12,6 +11,7 @@
 
 namespace gfx {
 class Canvas;
+class ImageSkia;
 }  // namespace gfx
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,10 +40,10 @@ class DropdownBarView : public views::AccessiblePaneView,
   // Returns the DropdownBarHost that manages this view.
   DropdownBarHost* host() const { return host_; }
 
-  void SetBackground(const SkBitmap* left_alpha_mask,
-                     const SkBitmap* right_alpha_mask);
-  void SetBorder(int left_border_bitmap_id, int middle_border_bitmap_id,
-                 int right_border_bitmap_id);
+  void SetBackground(const gfx::ImageSkia* left_alpha_mask,
+                     const gfx::ImageSkia* right_alpha_mask);
+  void SetBorder(int left_border_image_id, int middle_border_image_id,
+                 int right_border_image_id);
 
  private:
   // The dropdown bar host that controls this view.

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_SYNC_PROMO_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_SYNC_PROMO_SYNC_PROMO_HANDLER_H_
-#pragma once
 
 #include "chrome/browser/ui/webui/sync_setup_handler.h"
 
@@ -33,6 +32,9 @@ class SyncPromoHandler : public SyncSetupHandler {
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // LoginUIService::LoginUI implementation.
+  virtual void CloseUI() OVERRIDE;
 
  protected:
   virtual void ShowSetupUI() OVERRIDE;

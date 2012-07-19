@@ -10,8 +10,7 @@
 #include "ppapi/c/pp_time.h"
 #include "ppapi/c/pp_var.h"
 #include "ppapi/proxy/interface_proxy.h"
-#include "ppapi/proxy/proxy_non_thread_safe_ref_count.h"
-#include "ppapi/shared_impl/function_group_base.h"
+#include "ppapi/proxy/proxy_completion_callback_factory.h"
 #include "ppapi/shared_impl/host_resource.h"
 #include "ppapi/shared_impl/ppb_instance_shared.h"
 #include "ppapi/thunk/ppb_instance_api.h"
@@ -40,10 +39,7 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   // InterfaceProxy implementation.
   virtual bool OnMessageReceived(const IPC::Message& msg);
 
-  // FunctionGroupBase overrides.
-  ppapi::thunk::PPB_Instance_FunctionAPI* AsPPB_Instance_FunctionAPI() OVERRIDE;
-
-  // PPB_Instance_FunctionAPI implementation.
+  // PPB_Instance_API implementation.
   virtual PP_Bool BindGraphics(PP_Instance instance,
                                PP_Resource device) OVERRIDE;
   virtual PP_Bool IsFullFrame(PP_Instance instance) OVERRIDE;
@@ -67,12 +63,8 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   virtual PP_Bool SetFullscreen(PP_Instance instance,
                                 PP_Bool fullscreen) OVERRIDE;
   virtual PP_Bool GetScreenSize(PP_Instance instance,
-                                     PP_Size* size) OVERRIDE;
-  virtual PP_Bool FlashIsFullscreen(PP_Instance instance) OVERRIDE;
-  virtual PP_Bool FlashSetFullscreen(PP_Instance instance,
-                                    PP_Bool fullscreen) OVERRIDE;
-  virtual PP_Bool FlashGetScreenSize(PP_Instance instance, PP_Size* size)
-      OVERRIDE;
+                                PP_Size* size) OVERRIDE;
+  virtual thunk::PPB_Flash_API* GetFlashAPI() OVERRIDE;
   virtual void SampleGamepads(PP_Instance instance,
                               PP_GamepadsSampleData* data) OVERRIDE;
   virtual int32_t RequestInputEvents(PP_Instance instance,
@@ -87,6 +79,30 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   virtual void ZoomLimitsChanged(PP_Instance instance,
                                  double minimum_factor,
                                  double maximium_factor) OVERRIDE;
+  virtual void PostMessage(PP_Instance instance, PP_Var message) OVERRIDE;
+  virtual PP_Bool SetCursor(PP_Instance instance,
+                            PP_MouseCursor_Type type,
+                            PP_Resource image,
+                            const PP_Point* hot_spot) OVERRIDE;
+  virtual int32_t LockMouse(PP_Instance instance,
+                            scoped_refptr<TrackedCallback> callback) OVERRIDE;
+  virtual void UnlockMouse(PP_Instance instance) OVERRIDE;
+  virtual PP_Bool GetDefaultPrintSettings(
+      PP_Instance instance,
+      PP_PrintSettings_Dev* print_settings) OVERRIDE;
+  virtual void SetTextInputType(PP_Instance instance,
+                                PP_TextInput_Type type) OVERRIDE;
+  virtual void UpdateCaretPosition(PP_Instance instance,
+                                   const PP_Rect& caret,
+                                   const PP_Rect& bounding_box) OVERRIDE;
+  virtual void CancelCompositionText(PP_Instance instance) OVERRIDE;
+  virtual void SelectionChanged(PP_Instance instance) OVERRIDE;
+  virtual void UpdateSurroundingText(PP_Instance instance,
+                                     const char* text,
+                                     uint32_t caret,
+                                     uint32_t anchor) OVERRIDE;
+
+#if !defined(OS_NACL)
   virtual PP_Var ResolveRelativeToDocument(
       PP_Instance instance,
       PP_Var relative,
@@ -99,10 +115,7 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   virtual PP_Var GetPluginInstanceURL(
       PP_Instance instance,
       PP_URLComponents_Dev* components) OVERRIDE;
-  virtual void PostMessage(PP_Instance instance, PP_Var message) OVERRIDE;
-  virtual int32_t LockMouse(PP_Instance instance,
-                            PP_CompletionCallback callback) OVERRIDE;
-  virtual void UnlockMouse(PP_Instance instance) OVERRIDE;
+#endif  // !defined(OS_NACL)
 
   static const ApiID kApiID = API_ID_PPB_INSTANCE;
 
@@ -132,12 +145,6 @@ class PPB_Instance_Proxy : public InterfaceProxy,
   void OnHostMsgGetScreenSize(PP_Instance instance,
                               PP_Bool* result,
                               PP_Size* size);
-  void OnHostMsgFlashSetFullscreen(PP_Instance instance,
-                                   PP_Bool fullscreen,
-                                   PP_Bool* result);
-  void OnHostMsgFlashGetScreenSize(PP_Instance instance,
-                                   PP_Bool* result,
-                                   PP_Size* size);
   void OnHostMsgRequestInputEvents(PP_Instance instance,
                                    bool is_filtering,
                                    uint32_t event_classes);
@@ -149,6 +156,24 @@ class PPB_Instance_Proxy : public InterfaceProxy,
                             SerializedVarReceiveInput message);
   void OnHostMsgLockMouse(PP_Instance instance);
   void OnHostMsgUnlockMouse(PP_Instance instance);
+  void OnHostMsgGetDefaultPrintSettings(PP_Instance instance,
+                                        PP_PrintSettings_Dev* settings,
+                                        bool* result);
+  void OnHostMsgSetCursor(PP_Instance instance,
+                          int32_t type,
+                          const ppapi::HostResource& custom_image,
+                          const PP_Point& hot_spot);
+  void OnHostMsgSetTextInputType(PP_Instance instance, PP_TextInput_Type type);
+  void OnHostMsgUpdateCaretPosition(PP_Instance instance,
+                                    const PP_Rect& caret,
+                                    const PP_Rect& bounding_box);
+  void OnHostMsgCancelCompositionText(PP_Instance instance);
+  void OnHostMsgUpdateSurroundingText(
+      PP_Instance instance,
+      const std::string& text,
+      uint32_t caret,
+      uint32_t anchor);
+#if !defined(OS_NACL)
   void OnHostMsgResolveRelativeToDocument(PP_Instance instance,
                                           SerializedVarReceiveInput relative,
                                           SerializedVarReturnValue result);
@@ -162,14 +187,14 @@ class PPB_Instance_Proxy : public InterfaceProxy,
                                SerializedVarReturnValue result);
   void OnHostMsgGetPluginInstanceURL(PP_Instance instance,
                                      SerializedVarReturnValue result);
+#endif  // !defined(OS_NACL)
 
   // Host -> Plugin message handlers.
   void OnPluginMsgMouseLockComplete(PP_Instance instance, int32_t result);
 
   void MouseLockCompleteInHost(int32_t result, PP_Instance instance);
 
-  pp::CompletionCallbackFactory<PPB_Instance_Proxy,
-                                ProxyNonThreadSafeRefCount> callback_factory_;
+  ProxyCompletionCallbackFactory<PPB_Instance_Proxy> callback_factory_;
 };
 
 }  // namespace proxy

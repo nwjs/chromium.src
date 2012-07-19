@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_VIEW_H_
-#pragma once
 
 #include "build/build_config.h"
 
@@ -12,9 +11,12 @@
 #include "ui/views/controls/native/native_view_host.h"
 
 class Browser;
-class Extension;
 class ExtensionHost;
 class ExtensionView;
+
+namespace extensions {
+class Extension;
+}
 
 namespace content {
 class RenderViewHost;
@@ -37,7 +39,7 @@ class ExtensionView : public views::NativeViewHost {
 
   ExtensionHost* host() const { return host_; }
   Browser* browser() const { return browser_; }
-  const Extension* extension() const;
+  const extensions::Extension* extension() const;
   content::RenderViewHost* render_view_host() const;
   void DidStopLoading();
   void SetIsClipped(bool is_clipped);

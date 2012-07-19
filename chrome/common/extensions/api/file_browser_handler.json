@@ -1,0 +1,94 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+  {
+    "namespace":"fileBrowserHandler",
+    "platforms": ["chromeos"],
+    "types": [
+      {
+        "id": "FileHandlerExecuteEventDetails",
+        "type": "object",
+        "description": "Event details payload for fileBrowserHandler.onExecute event.",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": { "type": "any" },
+            "description": "Array of Entry instances representing files that are targets of this action (selected in ChromeOS file browser)."
+          },
+          "tab_id" : {
+            "type": "integer",
+            "optional": true,
+            "description": "The ID of the tab that raised this event. Tab IDs are unique within a browser session."
+          }
+        }
+      }
+    ],
+
+    "events": [
+      {
+        "name": "onExecute",
+        "type": "function",
+        "description": "Fired when file system action is executed from ChromeOS file browser.",
+        "parameters": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "File browser action id as specified in the listener component's manifest."
+          },
+          {
+            "name": "details",
+            "$ref": "FileHandlerExecuteEventDetails",
+            "description": "File handler execute event details."
+          }
+        ]
+      }
+    ],
+
+    "functions": [
+      {
+        "name": "selectFile",
+        "type": "function",
+        "description": "Prompts user to select file path under which a new file will be created. When the user selects file, the file gets created or, if it already existed, truncated. The function has to be called with a user gesture.",
+        "parameters": [
+          {
+            "name": "selectionParams",
+            "type": "object",
+            "description": "Parameters that will be used to create a new file.",
+            "properties": {
+              "suggestedName": {
+                  "type": "string",
+                  "description": "Suggested name for the new file."
+              }
+            } 
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "description": "Function called upon completion.",
+            "parameters": [
+              {
+                "name": "result",
+                "description": "Result of the method.",
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean",
+                    "description": "Has the file been selected."
+                  },
+                  "entry": {
+                    "type": "object",
+                    "constructor": "Entry",
+                    "optional": true,
+                    "description": "Selected file entry. It will be null if a file hasn't been selected."
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

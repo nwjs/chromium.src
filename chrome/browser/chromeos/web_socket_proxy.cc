@@ -32,7 +32,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/sha1.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
@@ -464,11 +464,11 @@ class SSLChan : public MessageLoopForIO::Watcher {
       DCHECK(host_->data());
     }
 
+   protected:
     virtual ~DerivedIOBufferWithSize() {
       data_ = NULL;  // We do not own memory, bypass base class destructor.
     }
 
-   protected:
     scoped_refptr<net::IOBuffer> host_;
   };
 
@@ -618,7 +618,7 @@ class SSLChan : public MessageLoopForIO::Watcher {
       cert_verifier_.reset(net::CertVerifier::CreateDefault());
     ssl_context.cert_verifier = cert_verifier_.get();
     socket_.reset(factory->CreateSSLClientSocket(
-        handle, host_port_pair_, ssl_config_, NULL, ssl_context));
+        handle, host_port_pair_, ssl_config_, ssl_context));
     if (!socket_.get()) {
       LOG(WARNING) << "Failed to create an SSL client socket.";
       OnSSLHandshakeCompleted(net::ERR_UNEXPECTED);
@@ -1270,7 +1270,7 @@ Conn::Status Conn::ConsumeHeader(struct evbuffer* evb) {
         FetchExtensionIdFromOrigin(GetOrigin());
     std::string passport(requested_parameters_["passport"]);
     requested_parameters_.erase("passport");
-    if (!browser::InternalAuthVerification::VerifyPassport(
+    if (!chrome::InternalAuthVerification::VerifyPassport(
         passport, "web_socket_proxy", requested_parameters_)) {
       return STATUS_ABORT;
     }
@@ -1362,7 +1362,7 @@ Conn::Status Conn::ConsumeDestframe(struct evbuffer* evb) {
   map["extension_id"] = FetchExtensionIdFromOrigin(GetOrigin());
   if (!destaddr_.empty())
     map["addr"] = destaddr_;
-  if (!browser::InternalAuthVerification::VerifyPassport(
+  if (!chrome::InternalAuthVerification::VerifyPassport(
       passport, "web_socket_proxy", map)) {
     return STATUS_ABORT;
   }
@@ -1481,8 +1481,10 @@ bool Conn::TryConnectDest(const struct sockaddr* addr, socklen_t addrlen) {
         destchan_.write_fd(),
         NULL, &OnDestchanWrite, &OnDestchanError,
         evkey_));
-    net::AddressList addrlist = net::AddressList::CreateFromSockaddr(
-        addr, addrlen, SOCK_STREAM, IPPROTO_TCP);
+    net::IPEndPoint endpoint;
+    if (!endpoint.FromSockAddr(addr, addrlen))
+      return false;
+    net::AddressList addrlist(endpoint);
     net::HostPortPair host_port_pair(destname_, destport_);
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE, base::Bind(

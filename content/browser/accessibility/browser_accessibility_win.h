@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_ACCESSIBILITY_BROWSER_ACCESSIBILITY_WIN_H_
 #define CONTENT_BROWSER_ACCESSIBILITY_BROWSER_ACCESSIBILITY_WIN_H_
-#pragma once
 
 #include <atlbase.h>
 #include <atlcom.h>
@@ -13,13 +12,13 @@
 
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "content/browser/accessibility/browser_accessibility.h"
 #include "content/common/content_export.h"
 #include "third_party/iaccessible2/ia2_api_all.h"
 #include "third_party/isimpledom/ISimpleDOMDocument.h"
 #include "third_party/isimpledom/ISimpleDOMNode.h"
 #include "third_party/isimpledom/ISimpleDOMText.h"
-#include "webkit/glue/webaccessibility.h"
 
 class BrowserAccessibilityRelation;
 
@@ -27,8 +26,6 @@ namespace ui {
 enum TextBoundaryDirection;
 enum TextBoundaryType;
 }
-
-using webkit_glue::WebAccessibility;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -96,10 +93,11 @@ BrowserAccessibilityWin
   //
   // BrowserAccessibility methods.
   //
-  CONTENT_EXPORT virtual void PreInitialize();
-  CONTENT_EXPORT virtual void PostInitialize();
-  CONTENT_EXPORT virtual void NativeAddReference();
-  CONTENT_EXPORT virtual void NativeReleaseReference();
+  CONTENT_EXPORT virtual void PreInitialize() OVERRIDE;
+  CONTENT_EXPORT virtual void PostInitialize() OVERRIDE;
+  CONTENT_EXPORT virtual void NativeAddReference() OVERRIDE;
+  CONTENT_EXPORT virtual void NativeReleaseReference() OVERRIDE;
+  CONTENT_EXPORT virtual bool IsNative() const OVERRIDE;
 
   //
   // IAccessible methods.
@@ -767,32 +765,33 @@ BrowserAccessibilityWin
   BrowserAccessibilityWin* GetTargetFromChildID(const VARIANT& var_id);
 
   // Initialize the role and state metadata from the role enum and state
-  // bitmasks defined in webkit/glue/webaccessibility.h.
+  // bitmasks defined in AccessibilityNodeData.
   void InitRoleAndState();
 
   // Retrieve the value of an attribute from the string attribute map and
   // if found and nonempty, allocate a new BSTR (with SysAllocString)
   // and return S_OK. If not found or empty, return S_FALSE.
   HRESULT GetStringAttributeAsBstr(
-      WebAccessibility::StringAttribute attribute, BSTR* value_bstr);
+      content::AccessibilityNodeData::StringAttribute attribute,
+      BSTR* value_bstr);
 
   // If the string attribute |attribute| is present, add its value as an
   // IAccessible2 attribute with the name |ia2_attr|.
   void StringAttributeToIA2(
-      WebAccessibility::StringAttribute attribute, const char* ia2_attr);
+      content::AccessibilityNodeData::StringAttribute attribute,
+      const char* ia2_attr);
 
   // If the bool attribute |attribute| is present, add its value as an
   // IAccessible2 attribute with the name |ia2_attr|.
   void BoolAttributeToIA2(
-      WebAccessibility::BoolAttribute attribute, const char* ia2_attr);
+      content::AccessibilityNodeData::BoolAttribute attribute,
+      const char* ia2_attr);
 
   // If the int attribute |attribute| is present, add its value as an
   // IAccessible2 attribute with the name |ia2_attr|.
   void IntAttributeToIA2(
-      WebAccessibility::IntAttribute attribute, const char* ia2_attr);
-
-  // Escape a string like it would be escaped for a URL or HTML form.
-  string16 Escape(const string16& str);
+      content::AccessibilityNodeData::IntAttribute attribute,
+      const char* ia2_attr);
 
   // Get the text of this node for the purposes of IAccessibleText - it may
   // be the name, it may be the value, etc. depending on the role.

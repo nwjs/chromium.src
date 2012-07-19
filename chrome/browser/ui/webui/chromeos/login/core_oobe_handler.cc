@@ -9,6 +9,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chrome/common/chrome_version_info.h"
 #include "content/public/browser/web_ui.h"
@@ -20,7 +21,7 @@ namespace {
 
 // JS API callbacks names.
 const char kJsApiScreenStateInitialize[] = "screenStateInitialize";
-const char kJsApiToggleAccessibility[] = "toggleAccessibility";
+const char kJsApiSkipUpdateEnrollAfterEula[] = "skipUpdateEnrollAfterEula";
 
 }  // namespace
 
@@ -60,20 +61,24 @@ void CoreOobeHandler::Initialize() {
 }
 
 void CoreOobeHandler::RegisterMessages() {
-  web_ui()->RegisterMessageCallback(kJsApiToggleAccessibility,
-      base::Bind(&CoreOobeHandler::OnToggleAccessibility,
-                 base::Unretained(this)));
   web_ui()->RegisterMessageCallback(kJsApiScreenStateInitialize,
-      base::Bind(&CoreOobeHandler::OnInitialized,
+      base::Bind(&CoreOobeHandler::HandleInitialized,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(kJsApiSkipUpdateEnrollAfterEula,
+      base::Bind(&CoreOobeHandler::HandleSkipUpdateEnrollAfterEula,
                  base::Unretained(this)));
 }
 
-void CoreOobeHandler::OnInitialized(const base::ListValue* args) {
+void CoreOobeHandler::HandleInitialized(const base::ListValue* args) {
   oobe_ui_->InitializeHandlers();
 }
 
-void CoreOobeHandler::OnToggleAccessibility(const base::ListValue* args) {
-  accessibility::ToggleSpokenFeedback(web_ui());
+void CoreOobeHandler::HandleSkipUpdateEnrollAfterEula(
+    const base::ListValue* args) {
+  WizardController* controller = WizardController::default_controller();
+  DCHECK(controller);
+  if (controller)
+    controller->SkipUpdateEnrollAfterEula();
 }
 
 void CoreOobeHandler::ShowOobeUI(bool show) {
@@ -88,8 +93,13 @@ void CoreOobeHandler::ShowOobeUI(bool show) {
 
 void CoreOobeHandler::UpdateOobeUIVisibility() {
   // Don't show version label on the stable channel by default.
-  base::FundamentalValue show_version(
-      chrome::VersionInfo::GetChannel() != chrome::VersionInfo::CHANNEL_STABLE);
+  bool should_show_version = true;
+  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+  if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
+      channel == chrome::VersionInfo::CHANNEL_BETA) {
+    should_show_version = false;
+  }
+  base::FundamentalValue show_version(should_show_version);
   web_ui()->CallJavascriptFunction("cr.ui.Oobe.showVersion", show_version);
   base::FundamentalValue show_value(show_oobe_ui_);
   web_ui()->CallJavascriptFunction("cr.ui.Oobe.showOobeUI", show_value);

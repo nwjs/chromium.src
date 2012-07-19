@@ -33,7 +33,7 @@ void ResourceDispatcherHostDelegate::DownloadStarting(
     int child_id,
     int route_id,
     int request_id,
-    bool is_new_request,
+    bool is_content_initiated,
     ScopedVector<ResourceThrottle>* throttles) {
 }
 
@@ -69,12 +69,14 @@ bool ResourceDispatcherHostDelegate::ShouldForceDownloadResource(
 
 void ResourceDispatcherHostDelegate::OnResponseStarted(
     net::URLRequest* request,
+    ResourceContext* resource_context,
     ResourceResponse* response,
-    IPC::Message::Sender* sender) {
+    IPC::Sender* sender) {
 }
 
 void ResourceDispatcherHostDelegate::OnRequestRedirected(
     net::URLRequest* request,
+    ResourceContext* resource_context,
     ResourceResponse* response) {
 }
 

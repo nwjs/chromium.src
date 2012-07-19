@@ -4,24 +4,29 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_API_RESOURCE_EVENT_NOTIFIER_H_
 #define CHROME_BROWSER_EXTENSIONS_API_API_RESOURCE_EVENT_NOTIFIER_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "base/values.h"
+#include "chrome/browser/usb/usb_device.h"
 #include "googleurl/src/gurl.h"
 
 class ExtensionEventRouter;
 class Profile;
+
+namespace base {
+class ListValue;
+}
 
 namespace extensions {
 
 enum APIResourceEventType {
   API_RESOURCE_EVENT_CONNECT_COMPLETE,
   API_RESOURCE_EVENT_DATA_READ,
-  API_RESOURCE_EVENT_WRITE_COMPLETE
+  API_RESOURCE_EVENT_WRITE_COMPLETE,
+  API_RESOURCE_EVENT_TRANSFER_COMPLETE,
 };
 
 extern const char kSrcIdKey[];
@@ -44,21 +49,37 @@ class APIResourceEventNotifier
                            Profile* profile,
                            const std::string& src_extension_id, int src_id,
                            const GURL& src_url);
-  virtual ~APIResourceEventNotifier();
 
   virtual void OnConnectComplete(int result_code);
-  virtual void OnDataRead(int result_code, const std::string& data);
+
+  // Takes ownership of data.
+  virtual void OnDataRead(int result_code,
+                          base::ListValue* data,
+                          const std::string& address,
+                          int port);
+
   virtual void OnWriteComplete(int result_code);
+
+  virtual void OnTransferComplete(UsbTransferStatus status,
+                                  const std::string& error,
+                                  base::BinaryValue* data);
 
   static std::string APIResourceEventTypeToString(
       APIResourceEventType event_type);
 
  private:
-  void DispatchEvent(DictionaryValue* event);
-  void DispatchEventOnUIThread(DictionaryValue* event);
+  friend class base::RefCountedThreadSafe<APIResourceEventNotifier>;
+  friend class MockAPIResourceEventNotifier;
+
+  virtual ~APIResourceEventNotifier();
+
+  void DispatchEvent(const std::string &extension, DictionaryValue* event);
+  void DispatchEventOnUIThread(const std::string& extension,
+                               DictionaryValue* event);
   DictionaryValue* CreateAPIResourceEvent(APIResourceEventType event_type);
 
-  void SendEventWithResultCode(APIResourceEventType event_type,
+  void SendEventWithResultCode(const std::string& extension,
+                               APIResourceEventType event_type,
                                int result_code);
 
   ExtensionEventRouter* router_;

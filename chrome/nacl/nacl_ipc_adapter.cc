@@ -12,6 +12,7 @@
 #include "base/location.h"
 #include "base/memory/scoped_ptr.h"
 #include "build/build_config.h"
+#include "native_client/src/trusted/desc/nacl_desc_custom.h"
 
 namespace {
 
@@ -42,6 +43,56 @@ BufferSizeStatus GetBufferStatus(const char* data, size_t len) {
   return MESSAGE_IS_TRUNCATED;
 }
 
+// This object allows the NaClDesc to hold a reference to a NaClIPCAdapter and
+// forward calls to it.
+struct DescThunker {
+  explicit DescThunker(NaClIPCAdapter* adapter_param)
+      : adapter(adapter_param) {
+  }
+  scoped_refptr<NaClIPCAdapter> adapter;
+};
+
+NaClIPCAdapter* ToAdapter(void* handle) {
+  return static_cast<DescThunker*>(handle)->adapter.get();
+}
+
+// NaClDescCustom implementation.
+void NaClDescCustomDestroy(void* handle) {
+  delete static_cast<DescThunker*>(handle);
+}
+
+ssize_t NaClDescCustomSendMsg(void* handle, const NaClImcTypedMsgHdr* msg,
+                              int /* flags */) {
+  if (msg->iov_length != 1)
+    return -1;
+  return static_cast<ssize_t>(
+      ToAdapter(handle)->Send(static_cast<char*>(msg->iov[0].base),
+                              msg->iov[0].length));
+}
+
+ssize_t NaClDescCustomRecvMsg(void* handle, NaClImcTypedMsgHdr* msg,
+                              int /* flags */) {
+  if (msg->iov_length != 1)
+    return -1;
+  msg->ndesc_length = 0;  // Messages with descriptors aren't supported yet.
+  return static_cast<ssize_t>(
+      ToAdapter(handle)->BlockingReceive(static_cast<char*>(msg->iov[0].base),
+                                         msg->iov[0].length));
+}
+
+NaClDesc* MakeNaClDescCustom(NaClIPCAdapter* adapter) {
+  NaClDescCustomFuncs funcs = NACL_DESC_CUSTOM_FUNCS_INITIALIZER;
+  funcs.Destroy = NaClDescCustomDestroy;
+  funcs.SendMsg = NaClDescCustomSendMsg;
+  funcs.RecvMsg = NaClDescCustomRecvMsg;
+  // NaClDescMakeCustomDesc gives us a reference on the returned NaClDesc.
+  return NaClDescMakeCustomDesc(new DescThunker(adapter), &funcs);
+}
+
+void DeleteChannel(IPC::Channel* channel) {
+  delete channel;
+}
+
 }  // namespace
 
 class NaClIPCAdapter::RewrittenMessage
@@ -54,15 +105,18 @@ class NaClIPCAdapter::RewrittenMessage
   void SetData(const NaClIPCAdapter::NaClMessageHeader& header,
                const void* payload, size_t payload_length);
 
-  int Read(char* dest_buffer, int dest_buffer_size);
+  int Read(char* dest_buffer, size_t dest_buffer_size);
 
  private:
+  friend class base::RefCounted<RewrittenMessage>;
+  ~RewrittenMessage() {}
+
   scoped_array<char> data_;
-  int data_len_;
+  size_t data_len_;
 
   // Offset into data where the next read will happen. This will be equal to
   // data_len_ when all data has been consumed.
-  int data_read_cursor_;
+  size_t data_read_cursor_;
 };
 
 NaClIPCAdapter::RewrittenMessage::RewrittenMessage()
@@ -75,8 +129,8 @@ void NaClIPCAdapter::RewrittenMessage::SetData(
     const void* payload,
     size_t payload_length) {
   DCHECK(!data_.get() && data_len_ == 0);
-  int header_len = sizeof(NaClIPCAdapter::NaClMessageHeader);
-  data_len_ = header_len + static_cast<int>(payload_length);
+  size_t header_len = sizeof(NaClIPCAdapter::NaClMessageHeader);
+  data_len_ = header_len + payload_length;
   data_.reset(new char[data_len_]);
 
   memcpy(data_.get(), &header, sizeof(NaClIPCAdapter::NaClMessageHeader));
@@ -84,15 +138,16 @@ void NaClIPCAdapter::RewrittenMessage::SetData(
 }
 
 int NaClIPCAdapter::RewrittenMessage::Read(char* dest_buffer,
-                                           int dest_buffer_size) {
-  int bytes_to_write = std::min(dest_buffer_size,
-                                data_len_ - data_read_cursor_);
+                                           size_t dest_buffer_size) {
+  CHECK(data_len_ >= data_read_cursor_);
+  size_t bytes_to_write = std::min(dest_buffer_size,
+                                   data_len_ - data_read_cursor_);
   if (bytes_to_write == 0)
     return 0;
 
   memcpy(dest_buffer, &data_[data_read_cursor_], bytes_to_write);
   data_read_cursor_ += bytes_to_write;
-  return bytes_to_write;
+  return static_cast<int>(bytes_to_write);
 }
 
 NaClIPCAdapter::LockedData::LockedData() : channel_closed_(false) {
@@ -115,6 +170,8 @@ NaClIPCAdapter::NaClIPCAdapter(const IPC::ChannelHandle& handle,
       locked_data_() {
   io_thread_data_.channel_.reset(
       new IPC::Channel(handle, IPC::Channel::MODE_SERVER, this));
+  task_runner_->PostTask(FROM_HERE,
+      base::Bind(&NaClIPCAdapter::ConnectChannelOnIOThread, this));
 }
 
 NaClIPCAdapter::NaClIPCAdapter(scoped_ptr<IPC::Channel> channel,
@@ -124,9 +181,6 @@ NaClIPCAdapter::NaClIPCAdapter(scoped_ptr<IPC::Channel> channel,
       task_runner_(runner),
       locked_data_() {
   io_thread_data_.channel_ = channel.Pass();
-}
-
-NaClIPCAdapter::~NaClIPCAdapter() {
 }
 
 // Note that this message is controlled by the untrusted code. So we should be
@@ -195,7 +249,7 @@ int NaClIPCAdapter::Send(const char* input_data, size_t input_data_len) {
 }
 
 int NaClIPCAdapter::BlockingReceive(char* output_buffer,
-                                    int output_buffer_size) {
+                                    size_t output_buffer_size) {
   int retval = 0;
   {
     base::AutoLock lock(lock_);
@@ -223,6 +277,16 @@ void NaClIPCAdapter::CloseChannel() {
   task_runner_->PostTask(FROM_HERE,
       base::Bind(&NaClIPCAdapter::CloseChannelOnIOThread, this));
 }
+
+NaClDesc* NaClIPCAdapter::MakeNaClDesc() {
+  return MakeNaClDescCustom(this);
+}
+
+#if defined(OS_POSIX)
+int NaClIPCAdapter::TakeClientFileDescriptor() {
+  return io_thread_data_.channel_->TakeClientFileDescriptor();
+}
+#endif
 
 bool NaClIPCAdapter::OnMessageReceived(const IPC::Message& message) {
   {
@@ -255,7 +319,14 @@ void NaClIPCAdapter::OnChannelError() {
   CloseChannel();
 }
 
-int NaClIPCAdapter::LockedReceive(char* output_buffer, int output_buffer_size) {
+NaClIPCAdapter::~NaClIPCAdapter() {
+  // Make sure the channel is deleted on the IO thread.
+  task_runner_->PostTask(FROM_HERE,
+      base::Bind(&DeleteChannel, io_thread_data_.channel_.release()));
+}
+
+int NaClIPCAdapter::LockedReceive(char* output_buffer,
+                                  size_t output_buffer_size) {
   lock_.AssertAcquired();
 
   if (locked_data_.to_be_received_.empty())
@@ -316,18 +387,23 @@ bool NaClIPCAdapter::SendCompleteMessage(const char* buffer,
   return true;
 }
 
-void NaClIPCAdapter::CloseChannelOnIOThread() {
-  io_thread_data_.channel_->Close();
-}
-
-void NaClIPCAdapter::SendMessageOnIOThread(scoped_ptr<IPC::Message> message) {
-  io_thread_data_.channel_->Send(message.release());
-}
-
 void NaClIPCAdapter::ClearToBeSent() {
   lock_.AssertAcquired();
 
   // Don't let the string keep its buffer behind our back.
   std::string empty;
   locked_data_.to_be_sent_.swap(empty);
+}
+
+void NaClIPCAdapter::ConnectChannelOnIOThread() {
+  if (!io_thread_data_.channel_->Connect())
+    NOTREACHED();
+}
+
+void NaClIPCAdapter::CloseChannelOnIOThread() {
+  io_thread_data_.channel_->Close();
+}
+
+void NaClIPCAdapter::SendMessageOnIOThread(scoped_ptr<IPC::Message> message) {
+  io_thread_data_.channel_->Send(message.release());
 }

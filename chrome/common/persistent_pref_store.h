@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_PERSISTENT_PREF_STORE_H_
 #define CHROME_COMMON_PERSISTENT_PREF_STORE_H_
-#pragma once
 
 #include <string>
 
@@ -15,8 +14,6 @@
 // the data to some backing store.
 class PersistentPrefStore : public PrefStore {
  public:
-  virtual ~PersistentPrefStore() {}
-
   // Unique integer code for each type of error so we can report them
   // distinctly in a histogram.
   // NOTE: Don't change the order here as it will change the server's meaning
@@ -65,6 +62,10 @@ class PersistentPrefStore : public PrefStore {
   // Removes the value for |key|.
   virtual void RemoveValue(const std::string& key) = 0;
 
+  // Marks that the |key| with empty ListValue/DictionaryValue needs to be
+  // persisted.
+  virtual void MarkNeedsEmptyValue(const std::string& key) = 0;
+
   // Whether the store is in a pseudo-read-only mode where changes are not
   // actually persisted to disk.  This happens in some cases when there are
   // read errors during startup.
@@ -85,6 +86,9 @@ class PersistentPrefStore : public PrefStore {
 
   // Lands any pending writes to disk.
   virtual void CommitPendingWrite() = 0;
+
+ protected:
+  virtual ~PersistentPrefStore() {}
 };
 
 #endif  // CHROME_COMMON_PERSISTENT_PREF_STORE_H_

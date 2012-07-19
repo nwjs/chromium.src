@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_CUSTOM_FRAME_VIEW_ASH_H_
 #define ASH_WM_CUSTOM_FRAME_VIEW_ASH_H_
-#pragma once
 
 #include "ash/ash_export.h"
 #include "base/memory/scoped_ptr.h"
@@ -25,7 +24,7 @@ class Widget;
 namespace ash {
 
 // A NonClientFrameView used for dialogs and other non-browser windows.
-// See also views::CustomFrameView and BrowserNonClientFrameViewAura.
+// See also views::CustomFrameView and BrowserNonClientFrameViewAsh.
 class ASH_EXPORT CustomFrameViewAsh : public views::NonClientFrameView,
                                       public views::ButtonListener {
  public:
@@ -34,6 +33,21 @@ class ASH_EXPORT CustomFrameViewAsh : public views::NonClientFrameView,
 
   CustomFrameViewAsh();
   virtual ~CustomFrameViewAsh();
+
+  // For testing.
+  class TestApi {
+    public:
+     explicit TestApi(CustomFrameViewAsh* frame) : frame_(frame) {
+     }
+
+     views::ImageButton* maximize_button() const {
+       return frame_->maximize_button_;
+     }
+
+    private:
+     TestApi();
+     CustomFrameViewAsh* frame_;
+  };
 
   void Init(views::Widget* frame);
 

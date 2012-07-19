@@ -92,6 +92,14 @@ class AndroidProviderBackend {
                                  const std::vector<string16>& selection_args,
                                  int* deleted_count);
 
+  // Deletes the matched history, returns true on success, false on error.
+  // The number of deleted row is returned in |deleted_count|.
+  // The url row is kept and the visit count is reset if the matched url
+  // is bookmarked.
+  bool DeleteHistory(const std::string& selection,
+                     const std::vector<string16>& selection_args,
+                     int* deleted_count);
+
   // SearchTerms --------------------------------------------------------------
   //
   // Returns the result of the given query.
@@ -173,6 +181,10 @@ class AndroidProviderBackend {
     ThumbnailDatabase* thumbnail_db_;
     // Whether the transaction was committed.
     bool committed_;
+    // The count of the nested transaction in history database.
+    const int history_transaction_nesting_;
+    // The count of the nested transaction in thumbnail database.
+    const int thumbnail_transaction_nesting_;
 
     DISALLOW_COPY_AND_ASSIGN(ScopedTransaction);
   };
@@ -180,7 +192,8 @@ class AndroidProviderBackend {
   // Runs the given update and returns the number of updated rows in
   // |update_count| and return true on success, false on error.
   //
-  // The notifications of change is returned in |notifications|.
+  // The notifications are returned in |notifications| and the ownership of them
+  // is transfered to caller.
   //
   // |row| is the value to update.
   // |selection| is the SQL WHERE clause without 'WHERE'.
@@ -192,7 +205,8 @@ class AndroidProviderBackend {
                        HistoryNotifications* notifications);
 
   // Inserts the given values and returns the URLID of the inserted row.
-  // The notifications of change is returned in |notifications|.
+  // The notifications are returned in |notifications| and the ownership of them
+  // is transfered to caller.
   AndroidURLID InsertHistoryAndBookmark(const HistoryAndBookmarkRow& values,
                                         HistoryNotifications* notifications);
 
@@ -201,13 +215,24 @@ class AndroidProviderBackend {
   // |selection| is the SQL WHERE clause without 'WHERE'.
   // |selection_args| is the arguments for the WHERE clause.
   //
-  // The notifications of change is returned in |notifications|.
-  //
+  // The notifications are returned in |notifications| and the ownership of them
+  // is transfered to the caller.
   // if |selection| is empty all history and bookmarks are deleted.
   bool DeleteHistoryAndBookmarks(const std::string& selection,
                                  const std::vector<string16>& selection_args,
                                  int* deleted_count,
                                  HistoryNotifications* notifications);
+
+  // Deletes the matched history, returns true on success, false on error.
+  // The number of deleted row is returned in |deleted_count|.
+  // The notifications are returned in |notifications| and the ownership of them
+  // is transfered to caller.
+  // The url row is kept and the visit is reset if the matched url is
+  // bookmarked.
+  bool DeleteHistory(const std::string& selection,
+                     const std::vector<string16>& selection_args,
+                     int* deleted_count,
+                     HistoryNotifications* notifications);
 
   // Initializes and updates tables if necessary.
   bool EnsureInitializedAndUpdated();
@@ -247,11 +272,10 @@ class AndroidProviderBackend {
       const std::vector<SearchRow::ColumnID>& projections,
       std::string* result_column);
 
-  // Runs the given query on |virtual_table| and returns true if succeeds, the
-  // selected URLID and url are returned in |rows|.
+  // Runs the given query on history_bookmark virtual table and returns true if
+  // succeeds, the selected URLID and url are returned in |rows|.
   bool GetSelectedURLs(const std::string& selection,
                        const std::vector<string16>& selection_args,
-                       const char* virtual_table,
                        TableIDRows* rows);
 
   // Runs the given query on search_terms table and returns true on success,
@@ -274,6 +298,14 @@ class AndroidProviderBackend {
       const std::string& selection,
       const std::vector<string16>& selection_args,
       const std::string& sort_order);
+
+  // Delete the given urls' history, returns true on success, or false on error.
+  // If |delete_bookmarks| is set, the bookmarks are deleted as well.
+  // The notifications are returned in |notifications| and the ownership of them
+  // is transfered to caller.
+  bool DeleteHistoryInternal(const TableIDRows& urls,
+                             bool delete_bookmarks,
+                             HistoryNotifications* notifications);
 
   void BroadcastNotifications(const HistoryNotifications& notifications);
 

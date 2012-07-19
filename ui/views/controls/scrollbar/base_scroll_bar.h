@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_SCROLLBAR_BASE_SCROLL_BAR_H_
 #define UI_VIEWS_CONTROLS_SCROLLBAR_BASE_SCROLL_BAR_H_
-#pragma once
 
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/image_button.h"
@@ -99,6 +98,12 @@ class VIEWS_EXPORT BaseScrollBar : public ScrollBar,
   virtual int GetScrollIncrement(bool is_page, bool is_positive);
 
  private:
+  // Changes to 'pushed' state and starts a timer to scroll repeatedly.
+  void ProcessPressEvent(const LocatedEvent& event);
+
+  // Resets state to 'normal' and stops the repeater.
+  void ResetState();
+
   // Called when the mouse is pressed down in the track area.
   void TrackClicked();
 

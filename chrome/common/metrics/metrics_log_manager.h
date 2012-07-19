@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_METRICS_METRICS_LOG_MANAGER_H_
 #define CHROME_COMMON_METRICS_METRICS_LOG_MANAGER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -28,6 +27,7 @@ class MetricsLogManager {
     // Exposed to reduce code churn as we transition from the XML pipeline to
     // the protocol buffer pipeline.
     bool empty() const;
+    size_t length() const;
     void swap(SerializedLog& log);
 
     std::string xml;
@@ -37,6 +37,12 @@ class MetricsLogManager {
   enum LogType {
     INITIAL_LOG,  // The first log of a session.
     ONGOING_LOG,  // Subsequent logs in a session.
+    NO_LOG,       // Placeholder value for when there is no log.
+  };
+
+  enum StoreType {
+    NORMAL_STORE,       // A standard store operation.
+    PROVISIONAL_STORE,  // A store operation that can be easily reverted later.
   };
 
   // Takes ownership of |log|, which has type |log_type|, and makes it the
@@ -64,8 +70,13 @@ class MetricsLogManager {
 
   // Returns true if there is a protobuf log that needs to be uploaded.
   // In the case that an XML upload needs to be re-issued due to a previous
-  // failure, has_staged_log() will return true while this returns false.
+  // failure, has_staged_log() can return true while this returns false.
   bool has_staged_log_proto() const;
+
+  // Returns true if there is an xml log that needs to be uploaded.
+  // In the case that a protobuf upload needs to be re-issued due to a previous
+  // failure, has_staged_log() can return true while this returns false.
+  bool has_staged_log_xml() const;
 
   // The text of the staged log, in compressed XML or protobuf format. Empty if
   // there is no staged log, or if compression of the staged log failed.
@@ -80,6 +91,11 @@ class MetricsLogManager {
   // This is useful to prevent needlessly re-issuing successful protobuf uploads
   // due to XML upload failures.
   void DiscardStagedLogProto();
+
+  // Discards the XML data in the staged log.
+  // This is useful to prevent needlessly re-issuing successful XML uploads
+  // due to protobuf upload failures.
+  void DiscardStagedLogXml();
 
   // Closes and discards |current_log|.
   void DiscardCurrentLog();
@@ -96,8 +112,18 @@ class MetricsLogManager {
   void ResumePausedLog();
 
   // Saves the staged log, then clears staged_log().
+  // If |store_type| is PROVISIONAL_STORE, it can be dropped from storage with
+  // a later call to DiscardLastProvisionalStore (if it hasn't already been
+  // staged again).
+  // This is intended to be used when logs are being saved while an upload is in
+  // progress, in case the upload later succeeds.
   // This can only be called if has_staged_log() is true.
-  void StoreStagedLogAsUnsent();
+  void StoreStagedLogAsUnsent(StoreType store_type);
+
+  // Discards the last log stored with StoreStagedLogAsUnsent with |store_type|
+  // set to PROVISIONAL_STORE, as long as it hasn't already been re-staged. If
+  // the log is no longer present, this is a no-op.
+  void DiscardLastProvisionalStore();
 
   // Sets the threshold for how large an onging log can be and still be written
   // to persistant storage. Ongoing logs larger than this will be discarded
@@ -142,7 +168,9 @@ class MetricsLogManager {
   // |max_ongoing_log_store_size_|).
   // NOTE: This clears the contents of |log_text| (to avoid an expensive
   // string copy), so the log should be discarded after this call.
-  void StoreLog(SerializedLog* log_text, LogType log_type);
+  void StoreLog(SerializedLog* log_text,
+                LogType log_type,
+                StoreType store_type);
 
   // Compresses current_log_ into compressed_log.
   void CompressCurrentLog(SerializedLog* compressed_log);
@@ -156,6 +184,7 @@ class MetricsLogManager {
 
   // A paused, previously-current log.
   scoped_ptr<MetricsLogBase> paused_log_;
+  LogType paused_log_type_;
 
   // Helper class to handle serialization/deserialization of logs for persistent
   // storage. May be NULL.
@@ -176,6 +205,15 @@ class MetricsLogManager {
   std::vector<SerializedLog> unsent_ongoing_logs_;
 
   size_t max_ongoing_log_store_size_;
+
+  // The index and type of the last provisional store. If nothing has been
+  // provisionally stored, or the last provisional store has already been
+  // re-staged, the index will be -1;
+  // This is necessary because during an upload there are two logs (staged
+  // and current) and a client might store them in either order, so it's
+  // not necessarily the case that the provisional store is the last store.
+  int last_provisional_store_index_;
+  LogType last_provisional_store_type_;
 
   DISALLOW_COPY_AND_ASSIGN(MetricsLogManager);
 };

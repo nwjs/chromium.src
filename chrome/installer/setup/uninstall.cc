@@ -139,7 +139,7 @@ void ClearRlzProductState() {
   rlz_lib::ClearProductState(rlz_lib::CHROME, points);
 
   // If chrome has been reactivated, clear all events for this brand as well.
-  std::wstring reactivation_brand_wide;
+  string16 reactivation_brand_wide;
   if (GoogleUpdateSettings::GetReactivationBrand(&reactivation_brand_wide)) {
     std::string reactivation_brand(WideToASCII(reactivation_brand_wide));
     rlz_lib::SupplementaryBranding branding(reactivation_brand.c_str());
@@ -158,7 +158,7 @@ namespace installer {
 // to kill them.
 void CloseAllChromeProcesses() {
   for (int j = 0; j < 4; ++j) {
-    std::wstring wnd_class(L"Chrome_WidgetWin_");
+    string16 wnd_class(L"Chrome_WidgetWin_");
     wnd_class.append(base::IntToString16(j));
     HWND window = FindWindowEx(NULL, NULL, wnd_class.c_str(), NULL);
     while (window) {
@@ -220,33 +220,6 @@ void CloseChromeFrameHelperProcess() {
   }
 }
 
-// This method tries to figure out if current user has registered Chrome.
-// It returns true iff there is a registered browser that will launch the
-// same chrome.exe as the current installation.
-bool CurrentUserHasDefaultBrowser(const InstallerState& installer_state) {
-  using base::win::RegistryKeyIterator;
-  const HKEY root = HKEY_LOCAL_MACHINE;
-  ProgramCompare open_command_pred(
-      installer_state.target_path().Append(kChromeExe));
-  std::wstring client_open_path;
-  RegKey client_open_key;
-  std::wstring reg_exe;
-  for (RegistryKeyIterator iter(root, ShellUtil::kRegStartMenuInternet);
-       iter.Valid(); ++iter) {
-    client_open_path.assign(ShellUtil::kRegStartMenuInternet)
-        .append(1, L'\\')
-        .append(iter.Name())
-        .append(ShellUtil::kRegShellOpen);
-    if (client_open_key.Open(root, client_open_path.c_str(),
-                             KEY_QUERY_VALUE) == ERROR_SUCCESS &&
-        client_open_key.ReadValue(L"", &reg_exe) == ERROR_SUCCESS &&
-        open_command_pred.Evaluate(reg_exe)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // This method deletes Chrome shortcut folder from Windows Start menu. It
 // checks system_uninstall to see if the shortcut is in all users start menu
 // or current user start menu.
@@ -263,10 +236,14 @@ void DeleteChromeShortcuts(const InstallerState& installer_state,
   FilePath shortcut_path;
   if (installer_state.system_install()) {
     PathService::Get(base::DIR_COMMON_START_MENU, &shortcut_path);
-    if (!ShellUtil::RemoveChromeDesktopShortcut(product.distribution(),
-        ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL, false)) {
-      ShellUtil::RemoveChromeDesktopShortcut(product.distribution(),
-          ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL, true);
+    if (!ShellUtil::RemoveChromeDesktopShortcut(
+        product.distribution(),
+        ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL,
+        ShellUtil::SHORTCUT_NO_OPTIONS)) {
+      ShellUtil::RemoveChromeDesktopShortcut(
+          product.distribution(),
+          ShellUtil::CURRENT_USER | ShellUtil::SYSTEM_LEVEL,
+          ShellUtil::SHORTCUT_ALTERNATE);
     }
 
     ShellUtil::RemoveChromeQuickLaunchShortcut(product.distribution(),
@@ -274,9 +251,9 @@ void DeleteChromeShortcuts(const InstallerState& installer_state,
   } else {
     PathService::Get(base::DIR_START_MENU, &shortcut_path);
     if (!ShellUtil::RemoveChromeDesktopShortcut(product.distribution(),
-        ShellUtil::CURRENT_USER, false)) {
+        ShellUtil::CURRENT_USER, ShellUtil::SHORTCUT_NO_OPTIONS)) {
       ShellUtil::RemoveChromeDesktopShortcut(product.distribution(),
-          ShellUtil::CURRENT_USER, true);
+          ShellUtil::CURRENT_USER, ShellUtil::SHORTCUT_ALTERNATE);
     }
 
     ShellUtil::RemoveChromeQuickLaunchShortcut(product.distribution(),
@@ -285,8 +262,7 @@ void DeleteChromeShortcuts(const InstallerState& installer_state,
   if (shortcut_path.empty()) {
     LOG(ERROR) << "Failed to get location for shortcut.";
   } else {
-    const std::wstring product_name(
-        product.distribution()->GetAppShortCutName());
+    const string16 product_name(product.distribution()->GetAppShortCutName());
     shortcut_path = shortcut_path.Append(product_name);
 
     FilePath shortcut_link(shortcut_path.Append(product_name + L".lnk"));
@@ -533,7 +509,7 @@ bool ShouldDeleteProfile(const InstallerState& installer_state,
 }
 
 bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
-                                  const std::wstring& browser_entry_suffix,
+                                  const string16& browser_entry_suffix,
                                   const FilePath& target_path,
                                   InstallStatus* exit_code) {
   DCHECK(exit_code);
@@ -544,20 +520,31 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
 
   FilePath chrome_exe(target_path.Append(kChromeExe));
 
-  // Delete Software\Classes\ChromeHTML,
-  std::wstring html_prog_id(ShellUtil::kRegClasses);
+  // Delete Software\Classes\ChromeHTML.
+  // For user-level installs we now only write these entries in HKCU, but since
+  // old installs did install them to HKLM we will try to remove them in HKLM as
+  // well anyways.
+  string16 html_prog_id(ShellUtil::kRegClasses);
   html_prog_id.push_back(FilePath::kSeparators[0]);
   html_prog_id.append(ShellUtil::kChromeHTMLProgId);
   html_prog_id.append(browser_entry_suffix);
   InstallUtil::DeleteRegistryKey(root, html_prog_id);
 
+  // Delete Software\Classes\Chrome (Same comment as above applies for this too)
+  string16 chrome_app_id(ShellUtil::kRegClasses);
+  chrome_app_id.push_back(FilePath::kSeparators[0]);
+  // Append the requested suffix manually here (as ShellUtil::GetBrowserModelId
+  // would otherwise try to figure out the currently installed suffix).
+  chrome_app_id.append(dist->GetBaseAppId() + browser_entry_suffix);
+  InstallUtil::DeleteRegistryKey(root, chrome_app_id);
+
   // Delete all Start Menu Internet registrations that refer to this Chrome.
   {
     using base::win::RegistryKeyIterator;
-    ProgramCompare open_command_pred(chrome_exe);
-    std::wstring client_name;
-    std::wstring client_key;
-    std::wstring open_key;
+    InstallUtil::ProgramCompare open_command_pred(chrome_exe);
+    string16 client_name;
+    string16 client_key;
+    string16 open_key;
     for (RegistryKeyIterator iter(root, ShellUtil::kRegStartMenuInternet);
          iter.Valid(); ++iter) {
       client_name.assign(iter.Name());
@@ -577,7 +564,7 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
         if (root == HKEY_LOCAL_MACHINE) {
           InstallUtil::DeleteRegistryValueIf(
               HKEY_USERS,
-              std::wstring(L".DEFAULT\\").append(
+              string16(L".DEFAULT\\").append(
                   ShellUtil::kRegStartMenuInternet).c_str(),
               L"", InstallUtil::ValueEquals(client_name));
         }
@@ -587,10 +574,10 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
 
   // Delete Software\RegisteredApplications\Chromium
   InstallUtil::DeleteRegistryValue(root, ShellUtil::kRegRegisteredApplications,
-      dist->GetApplicationName() + browser_entry_suffix);
+      dist->GetBaseAppName() + browser_entry_suffix);
 
   // Delete Software\Classes\Applications\chrome.exe
-  std::wstring app_key(ShellUtil::kRegClasses);
+  string16 app_key(ShellUtil::kRegClasses);
   app_key.push_back(FilePath::kSeparators[0]);
   app_key.append(L"Applications");
   app_key.push_back(FilePath::kSeparators[0]);
@@ -598,13 +585,13 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   InstallUtil::DeleteRegistryKey(root, app_key);
 
   // Delete the App Paths key that lets explorer find Chrome.
-  std::wstring app_path_key(ShellUtil::kAppPathsRegistryKey);
+  string16 app_path_key(ShellUtil::kAppPathsRegistryKey);
   app_path_key.push_back(FilePath::kSeparators[0]);
   app_path_key.append(installer::kChromeExe);
   InstallUtil::DeleteRegistryKey(root, app_path_key);
 
   // Cleanup OpenWithList
-  std::wstring open_with_key;
+  string16 open_with_key;
   for (int i = 0; ShellUtil::kFileAssociations[i] != NULL; i++) {
     open_with_key.assign(ShellUtil::kRegClasses);
     open_with_key.push_back(FilePath::kSeparators[0]);
@@ -624,14 +611,13 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   // lives in HKLM.
   InstallUtil::DeleteRegistryValueIf(
       root, ShellUtil::kRegStartMenuInternet, L"",
-      InstallUtil::ValueEquals(dist->GetApplicationName() +
-                               browser_entry_suffix));
+      InstallUtil::ValueEquals(dist->GetBaseAppName() + browser_entry_suffix));
 
   // Delete each protocol association if it references this Chrome.
-  ProgramCompare open_command_pred(chrome_exe);
-  std::wstring parent_key(ShellUtil::kRegClasses);
-  const std::wstring::size_type base_length = parent_key.size();
-  std::wstring child_key;
+  InstallUtil::ProgramCompare open_command_pred(chrome_exe);
+  string16 parent_key(ShellUtil::kRegClasses);
+  const string16::size_type base_length = parent_key.size();
+  string16 child_key;
   for (const wchar_t* const* proto =
            &ShellUtil::kPotentialProtocolAssociations[0];
        *proto != NULL;
@@ -652,7 +638,8 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   return true;
 }
 
-void RemoveChromeLegacyRegistryKeys(BrowserDistribution* dist) {
+void RemoveChromeLegacyRegistryKeys(BrowserDistribution* dist,
+                                    const string16& chrome_exe) {
   // We used to register Chrome to handle crx files, but this turned out
   // to be not worth the hassle. Remove these old registry entries if
   // they exist. See: http://codereview.chromium.org/210007
@@ -665,24 +652,35 @@ const wchar_t kChromeExtProgId[] = L"ChromiumExt";
 
   HKEY roots[] = { HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER };
   for (size_t i = 0; i < arraysize(roots); ++i) {
-    std::wstring suffix;
-    if (roots[i] == HKEY_LOCAL_MACHINE &&
-        !ShellUtil::GetUserSpecificDefaultBrowserSuffix(dist, &suffix))
-      suffix = L"";
+    string16 suffix;
+    if (roots[i] == HKEY_LOCAL_MACHINE)
+      suffix = ShellUtil::GetCurrentInstallationSuffix(dist, chrome_exe);
 
     // Delete Software\Classes\ChromeExt,
-    std::wstring ext_prog_id(ShellUtil::kRegClasses);
+    string16 ext_prog_id(ShellUtil::kRegClasses);
     ext_prog_id.push_back(FilePath::kSeparators[0]);
     ext_prog_id.append(kChromeExtProgId);
     ext_prog_id.append(suffix);
     InstallUtil::DeleteRegistryKey(roots[i], ext_prog_id);
 
     // Delete Software\Classes\.crx,
-    std::wstring ext_association(ShellUtil::kRegClasses);
+    string16 ext_association(ShellUtil::kRegClasses);
     ext_association.append(L"\\");
     ext_association.append(chrome::kExtensionFileExtension);
     InstallUtil::DeleteRegistryKey(roots[i], ext_association);
   }
+}
+
+// Builds and executes a work item list to remove DelegateExecute verb handler
+// work items for |product|.  This will be a noop for products whose
+// corresponding BrowserDistribution implementations do not publish
+// DelegateExecute data via an implementation of GetDelegateExecuteHandlerData.
+bool ProcessDelegateExecuteWorkItems(const InstallerState& installer_state,
+                                     const Product& product) {
+  scoped_ptr<WorkItemList> item_list(WorkItem::CreateNoRollbackWorkItemList());
+  AddDelegateExecuteWorkItems(installer_state, FilePath(), Version(), product,
+                              item_list.get());
+  return item_list->Do();
 }
 
 bool ProcessChromeFrameWorkItems(const InstallationState& original_state,
@@ -692,7 +690,7 @@ bool ProcessChromeFrameWorkItems(const InstallationState& original_state,
   if (!product.is_chrome_frame())
     return false;
 
-  scoped_ptr<WorkItemList> item_list(WorkItem::CreateWorkItemList());
+  scoped_ptr<WorkItemList> item_list(WorkItem::CreateNoRollbackWorkItemList());
   AddChromeFrameWorkItems(original_state, installer_state, setup_path,
                           Version(), product, item_list.get());
   return item_list->Do();
@@ -706,15 +704,16 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
                                bool force_uninstall,
                                const CommandLine& cmd_line) {
   InstallStatus status = installer::UNINSTALL_CONFIRMED;
-  std::wstring suffix;
-  if (!ShellUtil::GetUserSpecificDefaultBrowserSuffix(product.distribution(),
-                                                      &suffix))
-    suffix = L"";
-
   BrowserDistribution* browser_dist = product.distribution();
+  const string16 chrome_exe(
+      installer_state.target_path().Append(installer::kChromeExe).value());
+
+  const string16 suffix(ShellUtil::GetCurrentInstallationSuffix(browser_dist,
+                                                                chrome_exe));
+
   bool is_chrome = product.is_chrome();
 
-  VLOG(1) << "UninstallProduct: " << browser_dist->GetApplicationName();
+  VLOG(1) << "UninstallProduct: " << browser_dist->GetAppShortCutName();
 
   if (force_uninstall) {
     // Since --force-uninstall command line option is used, we are going to
@@ -729,11 +728,15 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
         status != installer::UNINSTALL_DELETE_PROFILE)
       return status;
 
-    // Check if we need admin rights to cleanup HKLM. If we do, try to launch
-    // another uninstaller (silent) in elevated mode to do HKLM cleanup.
+    // Check if we need admin rights to cleanup HKLM (the conditions for
+    // requiring a cleanup are the same as the conditions to do the actual
+    // cleanup where DeleteChromeRegistrationKeys() is invoked for
+    // HKEY_LOCAL_MACHINE below). If we do, try to launch another uninstaller
+    // (silent) in elevated mode to do HKLM cleanup.
     // And continue uninstalling in the current process also to do HKCU cleanup.
     if (remove_all &&
-        (!suffix.empty() || CurrentUserHasDefaultBrowser(installer_state)) &&
+        ShellUtil::QuickIsChromeRegisteredInHKLM(
+            browser_dist, chrome_exe, suffix) &&
         !::IsUserAnAdmin() &&
         base::win::GetVersion() >= base::win::VERSION_VISTA &&
         !cmd_line.HasSwitch(installer::switches::kRunAsAdmin)) {
@@ -759,12 +762,8 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   if (is_chrome) {
     ClearRlzProductState();
 
-    if (auto_launch_util::WillLaunchAtLogin(
-        installer_state.target_path(),
-        ASCIIToUTF16(chrome::kInitialProfile))) {
-      auto_launch_util::SetWillLaunchAtLogin(
-          false, FilePath(), ASCIIToUTF16(chrome::kInitialProfile));
-    }
+    auto_launch_util::DisableAllAutoStartFeatures(
+        ASCIIToUTF16(chrome::kInitialProfile));
   }
 
   // First delete shortcuts from Start->Programs, Desktop & Quick Launch.
@@ -775,7 +774,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
 
   // Note that we must retrieve the distribution-specific data before deleting
   // product.GetVersionKey().
-  std::wstring distribution_data(browser_dist->GetDistributionData(reg_root));
+  string16 distribution_data(browser_dist->GetDistributionData(reg_root));
 
   // Remove Control Panel uninstall link and Omaha product key.
   InstallUtil::DeleteRegistryKey(reg_root, browser_dist->GetUninstallRegPath());
@@ -791,16 +790,55 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   // Registration data is put in HKCU for both system level and user level
   // installs.
   InstallStatus ret = installer::UNKNOWN_STATUS;
-  DeleteChromeRegistrationKeys(product.distribution(), HKEY_CURRENT_USER,
-                               suffix, installer_state.target_path(), &ret);
+  DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, suffix,
+                               installer_state.target_path(), &ret);
 
-  // Registration data is put in HKLM for system level and possibly user level
-  // installs (when Chrome is made the default browser at install-time).
-  if (installer_state.system_install() || remove_all &&
-      (!suffix.empty() || CurrentUserHasDefaultBrowser(installer_state))) {
-    DeleteChromeRegistrationKeys(product.distribution(), HKEY_LOCAL_MACHINE,
-                                 suffix, installer_state.target_path(), &ret);
+  // If the user's Chrome is registered with a suffix: it is possible that old
+  // unsuffixed registrations were left in HKCU (e.g. if this install was
+  // previously installed with no suffix in HKCU (old suffix rules if the user
+  // is not an admin (or declined UAC at first run)) and later had to be
+  // suffixed when fully registered in HKLM (e.g. when later making Chrome
+  // default through the UI)).
+  // Remove remaining HKCU entries with no suffix if any.
+  if (!suffix.empty()) {
+    DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, string16(),
+                                 installer_state.target_path(), &ret);
+
+    // For similar reasons it is possible in very few installs (from 21.0.1180.0
+    // and fixed shortly after) to be installed with the new-style suffix, but
+    // have some old-style suffix registrations left behind.
+    string16 old_style_suffix;
+    if (ShellUtil::GetOldUserSpecificRegistrySuffix(&old_style_suffix) &&
+        suffix != old_style_suffix) {
+      DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER,
+                                   old_style_suffix,
+                                   installer_state.target_path(), &ret);
+    }
   }
+
+  // Chrome is registered in HKLM for all system-level installs and for
+  // user-level installs for which Chrome has been made the default browser.
+  // Always remove the HKLM registration for system-level installs.  For
+  // user-level installs, only remove it if both: 1) this uninstall isn't a self
+  // destruct following the installation of a system-level Chrome (because the
+  // system-level Chrome owns the HKLM registration now), and 2) this user has
+  // made Chrome their default browser (i.e. has shell integration entries
+  // registered with |suffix| (note: |suffix| will be the empty string if
+  // required as it is obtained by GetCurrentInstallationSuffix() above)).
+  // TODO(gab): This can still leave parts of a suffixed install behind. To be
+  // able to remove them we would need to be able to remove only suffixed
+  // entries (as it is now some of the shell integration entries are unsuffixed;
+  // thus removing suffixed installs is prohibited in HKLM if !|remove_all| for
+  // now).
+  if (installer_state.system_install() ||
+      (remove_all &&
+       ShellUtil::QuickIsChromeRegisteredInHKLM(
+           browser_dist, chrome_exe, suffix))) {
+    DeleteChromeRegistrationKeys(browser_dist, HKEY_LOCAL_MACHINE, suffix,
+                                 installer_state.target_path(), &ret);
+  }
+
+  ProcessDelegateExecuteWorkItems(installer_state, product);
 
   if (!is_chrome) {
     ProcessChromeFrameWorkItems(original_state, installer_state, setup_path,
@@ -824,7 +862,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
       // Delete media player registry key that exists only in HKLM.
       // We don't delete this key in SxS uninstall or Chrome Frame uninstall
       // as we never set the key for those products.
-      std::wstring reg_path(installer::kMediaPlayerRegPath);
+      string16 reg_path(installer::kMediaPlayerRegPath);
       reg_path.push_back(FilePath::kSeparators[0]);
       reg_path.append(installer::kChromeExe);
       InstallUtil::DeleteRegistryKey(HKEY_LOCAL_MACHINE, reg_path);

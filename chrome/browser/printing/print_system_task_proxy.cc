@@ -15,7 +15,6 @@
 #include "base/string_util.h"
 #include "base/values.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_handler.h"
-#include "chrome/browser/ui/webui/print_preview/sticky_settings.h"
 #include "chrome/common/child_process_logging.h"
 #include "printing/backend/print_backend.h"
 #include "printing/print_job_constants.h"
@@ -117,8 +116,8 @@ using content::BrowserThread;
 
 namespace {
 
+const char kPrinterId[] = "printerId";
 const char kDisableColorOption[] = "disableColorOption";
-const char kSetColorAsDefault[] = "setColorAsDefault";
 const char kSetDuplexAsDefault[] = "setDuplexAsDefault";
 const char kPrinterColorModelForBlack[] = "printerColorModelForBlack";
 const char kPrinterColorModelForColor[] = "printerColorModelForColor";
@@ -314,36 +313,19 @@ PrintSystemTaskProxy::PrintSystemTaskProxy(
       has_logged_printers_count_(has_logged_printers_count) {
 }
 
-#if defined(UNIT_TEST) && defined(USE_CUPS)
-// Only used for testing.
-PrintSystemTaskProxy::PrintSystemTaskProxy() {
-}
-#endif
-
 PrintSystemTaskProxy::~PrintSystemTaskProxy() {
 }
 
 void PrintSystemTaskProxy::GetDefaultPrinter() {
   VLOG(1) << "Get default printer start";
-  printing::StickySettings* sticky_settings =
-      PrintPreviewHandler::GetStickySettings();
 
   std::string* default_printer = NULL;
-  if (sticky_settings->printer_name() == NULL)
-    default_printer = new std::string(print_backend_->GetDefaultPrinterName());
-  else
-    default_printer = new std::string(*sticky_settings->printer_name());
+  default_printer = new std::string(print_backend_->GetDefaultPrinterName());
 
   VLOG(1) << "Get default printer finished, found: "
           << *default_printer;
 
-  std::string* cloud_print_data = NULL;
-  if (sticky_settings->printer_cloud_print_data() != NULL) {
-    cloud_print_data =
-        new std::string(*sticky_settings->printer_cloud_print_data());
-  } else {
-    cloud_print_data = new std::string;
-  }
+  std::string* cloud_print_data = new std::string;
 
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
@@ -559,6 +541,7 @@ void PrintSystemTaskProxy::GetPrinterCapabilities(
                                  printer_color_space_for_black));
 
   DictionaryValue settings_info;
+  settings_info.SetString(kPrinterId, printer_name);
   settings_info.SetBoolean(kDisableColorOption, disable_color_options);
   if (printer_color_space_for_color == printing::UNKNOWN_COLOR_MODEL)
     printer_color_space_for_color = printing::COLOR;
@@ -566,17 +549,8 @@ void PrintSystemTaskProxy::GetPrinterCapabilities(
   if (printer_color_space_for_black == printing::UNKNOWN_COLOR_MODEL)
     printer_color_space_for_black = printing::GRAY;
 
-  if (disable_color_options ||
-      PrintPreviewHandler::GetStickySettings()->color_model() ==
-          printing::UNKNOWN_COLOR_MODEL) {
-    settings_info.SetBoolean(kSetColorAsDefault, set_color_as_default);
-  } else {
-    settings_info.SetBoolean(
-        kSetColorAsDefault,
-        printing::isColorModelSelected(
-            PrintPreviewHandler::GetStickySettings()->color_model()));
-  }
-
+  settings_info.SetBoolean(printing::kSettingSetColorAsDefault,
+                           set_color_as_default);
   settings_info.SetBoolean(kSetDuplexAsDefault, set_duplex_as_default);
   settings_info.SetInteger(kPrinterColorModelForColor,
                            printer_color_space_for_color);

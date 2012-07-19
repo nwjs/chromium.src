@@ -16,8 +16,10 @@ PowerSupplyStatus::PowerSupplyStatus()
       battery_is_full(false),
       battery_seconds_to_empty(0),
       battery_seconds_to_full(0),
-      battery_percentage(0) {
-}
+      averaged_battery_time_to_empty(0),
+      averaged_battery_time_to_full(0),
+      battery_percentage(0),
+      is_calculating_battery_time(false) {}
 
 std::string PowerSupplyStatus::ToString() const {
   std::string result;
@@ -39,6 +41,15 @@ std::string PowerSupplyStatus::ToString() const {
   base::StringAppendF(&result,
                       "battery_seconds_to_full = %"PRId64" ",
                       battery_seconds_to_full);
+  base::StringAppendF(&result,
+                      "averaged_battery_time_to_empty = %"PRId64" ",
+                      averaged_battery_time_to_empty);
+  base::StringAppendF(&result,
+                      "averaged_battery_time_to_full = %"PRId64" ",
+                      averaged_battery_time_to_full);
+  base::StringAppendF(&result,
+                      "is_calculating_battery_time = %s ",
+                      is_calculating_battery_time ? "true" : "false");
   return result;
 }
 #endif  // !defined(OS_CHROMEOS)

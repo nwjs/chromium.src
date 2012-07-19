@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_WEB_CONTENTS_VIEW_WIN_DELEGATE_H_
 #define CONTENT_PUBLIC_BROWSER_WEB_CONTENTS_VIEW_WIN_DELEGATE_H_
-#pragma once
 
 #if defined(TOOLKIT_GTK)
 #include <gtk/gtk.h>
@@ -60,8 +59,8 @@ class CONTENT_EXPORT WebContentsViewDelegate {
                           ui::FocusStoreGtk* focus_store) = 0;
 
   // Returns the top widget that contains |view| passed in from WrapView. This
-  // is exposed through TabContentsViewGtk::GetNativeView() when a wrapper is
-  // supplied to a TabContentsViewGtk.
+  // is exposed through WebContentsViewGtk::GetNativeView() when a wrapper is
+  // supplied to a WebContentsViewGtk.
   virtual gfx::NativeView GetNativeView() const = 0;
 
   // Handles a focus event from the renderer process.
@@ -79,10 +78,6 @@ class CONTENT_EXPORT WebContentsViewDelegate {
   virtual NSObject<RenderWidgetHostViewMacDelegate>*
       CreateRenderWidgetHostViewDelegate(
           RenderWidgetHost* render_widget_host) = 0;
-
-  // Notifications that the native view was created/destroyed.
-  virtual void NativeViewCreated(NSView* view) = 0;
-  virtual void NativeViewDestroyed(NSView* view) = 0;
 #endif
 };
 

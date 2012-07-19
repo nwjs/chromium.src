@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_RENDER_VIEW_HOST_H_
 #define CONTENT_PUBLIC_BROWSER_RENDER_VIEW_HOST_H_
-#pragma once
 
 #include "base/values.h"
 #include "content/common/content_export.h"
@@ -16,10 +15,17 @@
 class FilePath;
 class GURL;
 struct WebDropData;
+
+namespace webkit_glue {
 struct WebPreferences;
+}
 
 namespace gfx {
 class Point;
+}
+
+namespace ui {
+struct SelectedFileInfo;
 }
 
 namespace WebKit {
@@ -30,11 +36,11 @@ struct WebPluginAction;
 
 namespace content {
 
+class ChildProcessSecurityPolicy;
 class RenderViewHostDelegate;
 class SessionStorageNamespace;
 class SiteInstance;
 struct CustomContextMenuContext;
-struct SelectedFileInfo;
 
 // A RenderViewHost is responsible for creating and talking to a RenderView
 // object in a child process. It exposes a high level API to users, for things
@@ -46,7 +52,7 @@ struct SelectedFileInfo;
 //
 // The intent of this interface is to provide a view-agnostic communication
 // conduit with a renderer. This is so we can build HTML views not only as
-// TabContents (see TabContents for an example) but also as views, etc.
+// WebContents (see WebContents for an example) but also as views, etc.
 class CONTENT_EXPORT RenderViewHost : virtual public RenderWidgetHost {
  public:
   // Returns the RenderViewHost given its ID and the ID of its render process.
@@ -56,6 +62,13 @@ class CONTENT_EXPORT RenderViewHost : virtual public RenderWidgetHost {
   // Downcasts from a RenderWidgetHost to a RenderViewHost.  Required
   // because RenderWidgetHost is a virtual base class.
   static RenderViewHost* From(RenderWidgetHost* rwh);
+
+  // Checks that the given renderer can request |url|, if not it sets it to
+  // about:blank.
+  // |empty_allowed| must be set to false for navigations for security reasons.
+  static void FilterURL(int renderer_id,
+                        bool empty_allowed,
+                        GURL* url);
 
   virtual ~RenderViewHost() {}
 
@@ -119,14 +132,17 @@ class CONTENT_EXPORT RenderViewHost : virtual public RenderWidgetHost {
       const WebDropData& drop_data,
       const gfx::Point& client_pt,
       const gfx::Point& screen_pt,
-      WebKit::WebDragOperationsMask operations_allowed) = 0;
+      WebKit::WebDragOperationsMask operations_allowed,
+      int key_modifiers) = 0;
   virtual void DragTargetDragOver(
       const gfx::Point& client_pt,
       const gfx::Point& screen_pt,
-      WebKit::WebDragOperationsMask operations_allowed) = 0;
+      WebKit::WebDragOperationsMask operations_allowed,
+      int key_modifiers) = 0;
   virtual void DragTargetDragLeave() = 0;
   virtual void DragTargetDrop(const gfx::Point& client_pt,
-                              const gfx::Point& screen_pt) = 0;
+                              const gfx::Point& screen_pt,
+                              int key_modifiers) = 0;
 
   // Instructs the RenderView to automatically resize and send back updates
   // for the new size.
@@ -192,7 +208,7 @@ class CONTENT_EXPORT RenderViewHost : virtual public RenderWidgetHost {
   // base::PlatformFileFlags enum which specify which file permissions should
   // be granted to the renderer.
   virtual void FilesSelectedInChooser(
-      const std::vector<SelectedFileInfo>& files,
+      const std::vector<ui::SelectedFileInfo>& files,
       int permissions) = 0;
 
   virtual RenderViewHostDelegate* GetDelegate() const = 0;
@@ -245,8 +261,12 @@ class CONTENT_EXPORT RenderViewHost : virtual public RenderWidgetHost {
 
   virtual void ToggleSpeechInput() = 0;
 
+  // Returns the current WebKit preferences.
+  virtual webkit_glue::WebPreferences GetWebkitPreferences() = 0;
+
   // Passes a list of Webkit preferences to the renderer.
-  virtual void UpdateWebkitPreferences(const WebPreferences& prefs) = 0;
+  virtual void UpdateWebkitPreferences(
+      const webkit_glue::WebPreferences& prefs) = 0;
 };
 
 }  // namespace content

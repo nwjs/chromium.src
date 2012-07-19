@@ -1,11 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef WEBKIT_FILE_SYSTEM_FILE_SYSTEM_URL_REQUEST_JOB_FACTORY_H_
-#define WEBKIT_FILE_SYSTEM_FILE_SYSTEM_URL_REQUEST_JOB_FACTORY_H_
+#ifndef WEBKIT_FILEAPI_FILE_SYSTEM_URL_REQUEST_JOB_FACTORY_H_
+#define WEBKIT_FILEAPI_FILE_SYSTEM_URL_REQUEST_JOB_FACTORY_H_
 
 #include "net/url_request/url_request_job_factory.h"
+
+#include "webkit/fileapi/fileapi_export.h"
 
 namespace base {
 class MessageLoopProxy;
@@ -18,10 +20,9 @@ class FileSystemContext;
 // |context|'s lifetime should exceed the lifetime of the ProtocolHandler.
 // Currently, this is only used by ProfileIOData which owns |context| and the
 // ProtocolHandler.
-net::URLRequestJobFactory::ProtocolHandler*
-CreateFileSystemProtocolHandler(FileSystemContext* context,
-                                base::MessageLoopProxy* file_loop_proxy);
+FILEAPI_EXPORT net::URLRequestJobFactory::ProtocolHandler*
+    CreateFileSystemProtocolHandler(FileSystemContext* context);
 
 }  // namespace fileapi
 
-#endif  // WEBKIT_FILE_SYSTEM_FILE_SYSTEM_URL_REQUEST_JOB_FACTORY_H_
+#endif  // WEBKIT_FILEAPI_FILE_SYSTEM_URL_REQUEST_JOB_FACTORY_H_

@@ -30,14 +30,13 @@ remoting.ConnectionHistory = function() {
   /** @type {remoting.ConnectionHistory} */
   var that = this;
   var closeButton = document.getElementById('close-connection-history');
-  closeButton.addEventListener('click', function() { that.hide(); }, false);
+  closeButton.addEventListener('click', this.hide.bind(this), false);
   /** @param {Event} event Event identifying which button was clicked. */
   var setFilter = function(event) { that.setFilter_(event.target); };
-  var clearHistory = function() { that.clearHistory_(); };
   this.viewAll_.addEventListener('click', setFilter, false);
   this.viewOutgoing_.addEventListener('click', setFilter, false);
   this.viewIncoming_.addEventListener('click', setFilter, false);
-  this.clear_.addEventListener('click', clearHistory, false);
+  this.clear_.addEventListener('click', this.clearHistory_.bind(this), false);
 };
 
 /** @enum {string} */
@@ -166,7 +165,7 @@ remoting.ConnectionHistory.prototype.load = function() {
   var history = [];
   // Remove existing entries from the DOM and repopulate.
   // TODO(jamiewalch): Enforce the filter.
-  this.historyEntries_.innerHTML = '';
+  this.historyEntries_.innerText = '';
   for (var i in history) {
     var connection = new remoting.ConnectionHistory.Entry(history[i]);
     if (connection.valid) {

@@ -24,10 +24,6 @@
 #include "webkit/glue/webdropdata.h"
 #include "webkit/glue/webkit_glue.h"
 
-#if WEBKIT_USING_CG
-#include "skia/ext/skia_utils_mac.h"
-#endif
-
 using WebKit::WebClipboard;
 using WebKit::WebData;
 using WebKit::WebDragData;
@@ -214,11 +210,7 @@ void WebClipboardImpl::writeImage(
   ScopedClipboardWriterGlue scw(client_);
 
   if (!image.isNull()) {
-#if WEBKIT_USING_SKIA
     const SkBitmap& bitmap = image.getSkBitmap();
-#elif WEBKIT_USING_CG
-    const SkBitmap& bitmap = gfx::CGImageToSkBitmap(image.getCGImageRef());
-#endif
     SkAutoLockPixels locked(bitmap);
     scw.WriteBitmapFromPixels(bitmap.getPixels(), image.size());
   }
@@ -243,8 +235,10 @@ void WebClipboardImpl::writeDataObject(const WebDragData& data) {
 
   WebDropData data_object(data);
   // TODO(dcheng): Properly support text/uri-list here.
-  scw.WriteText(data_object.plain_text);
-  scw.WriteHTML(data_object.text_html, "");
+  if (!data_object.text.is_null())
+    scw.WriteText(data_object.text.string());
+  if (!data_object.html.is_null())
+    scw.WriteHTML(data_object.html.string(), "");
   // If there is no custom data, avoid calling WritePickledData. This ensures
   // that ScopedClipboardWriterGlue's dtor remains a no-op if the page didn't
   // modify the DataTransfer object, which is important to avoid stomping on

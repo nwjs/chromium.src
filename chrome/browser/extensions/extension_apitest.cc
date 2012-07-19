@@ -7,11 +7,11 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_test_api.h"
+#include "chrome/browser/extensions/api/test/test_api.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -101,11 +101,12 @@ void ExtensionApiTest::SetUpInProcessBrowserTestFixture() {
   test_config_.reset(new DictionaryValue());
   test_config_->SetString(kTestDataDirectory,
                           net::FilePathToFileURL(test_data_dir_).spec());
-  ExtensionTestGetConfigFunction::set_test_config_state(test_config_.get());
+  extensions::TestGetConfigFunction::set_test_config_state(
+      test_config_.get());
 }
 
 void ExtensionApiTest::TearDownInProcessBrowserTestFixture() {
-  ExtensionTestGetConfigFunction::set_test_config_state(NULL);
+  extensions::TestGetConfigFunction::set_test_config_state(NULL);
   test_config_.reset(NULL);
 }
 
@@ -150,8 +151,13 @@ bool ExtensionApiTest::RunPageTest(const std::string& page_url) {
   return RunExtensionSubtest("", page_url);
 }
 
+bool ExtensionApiTest::RunPageTest(const std::string& page_url,
+                                   int flags) {
+  return RunExtensionSubtest("", page_url, flags);
+}
+
 bool ExtensionApiTest::RunPlatformAppTest(const char* extension_name) {
-  return RunExtensionTestImpl(extension_name, "", kFlagLaunchAppShell);
+  return RunExtensionTestImpl(extension_name, "", kFlagLaunchPlatformApp);
 }
 
 // Load |extension_name| extension and/or |page_url| and wait for
@@ -162,14 +168,14 @@ bool ExtensionApiTest::RunExtensionTestImpl(const char* extension_name,
   bool enable_incognito = (flags & kFlagEnableIncognito) != 0;
   bool enable_fileaccess = (flags & kFlagEnableFileAccess) != 0;
   bool load_as_component = (flags & kFlagLoadAsComponent) != 0;
-  bool launch_shell = (flags & kFlagLaunchAppShell) != 0;
+  bool launch_platform_app = (flags & kFlagLaunchPlatformApp) != 0;
   bool use_incognito = (flags & kFlagUseIncognito) != 0;
 
   ResultCatcher catcher;
   DCHECK(!std::string(extension_name).empty() || !page_url.empty()) <<
       "extension_name and page_url cannot both be empty";
 
-  const Extension* extension = NULL;
+  const extensions::Extension* extension = NULL;
   if (!std::string(extension_name).empty()) {
     FilePath extension_path = test_data_dir_.AppendASCII(extension_name);
     if (load_as_component) {
@@ -203,13 +209,12 @@ bool ExtensionApiTest::RunExtensionTestImpl(const char* extension_name,
     else
       ui_test_utils::NavigateToURL(browser(), url);
 
-  } else if (launch_shell) {
-    Browser::OpenApplication(
-        browser()->profile(),
-        extension,
-        extension_misc::LAUNCH_SHELL,
-        GURL(),
-        NEW_WINDOW);
+  } else if (launch_platform_app) {
+    application_launch::LaunchParams params(browser()->profile(), extension,
+                                            extension_misc::LAUNCH_NONE,
+                                            NEW_WINDOW);
+    params.command_line = CommandLine::ForCurrentProcess();
+    application_launch::OpenApplication(params);
   }
 
   if (!catcher.GetNextResult()) {
@@ -221,15 +226,15 @@ bool ExtensionApiTest::RunExtensionTestImpl(const char* extension_name,
 }
 
 // Test that exactly one extension is loaded, and return it.
-const Extension* ExtensionApiTest::GetSingleLoadedExtension() {
+const extensions::Extension* ExtensionApiTest::GetSingleLoadedExtension() {
   ExtensionService* service = browser()->profile()->GetExtensionService();
 
-  const Extension* extension = NULL;
+  const extensions::Extension* extension = NULL;
   for (ExtensionSet::const_iterator it = service->extensions()->begin();
        it != service->extensions()->end(); ++it) {
     // Ignore any component extensions. They are automatically loaded into all
     // profiles and aren't the extension we're looking for here.
-    if ((*it)->location() == Extension::COMPONENT)
+    if ((*it)->location() == extensions::Extension::COMPONENT)
       continue;
 
     if (extension != NULL) {
@@ -287,9 +292,7 @@ void PlatformAppApiTest::SetUpCommandLine(CommandLine* command_line) {
 
   // If someone is using this class, we're going to insist on management of the
   // relevant flags. If these flags are already set, die.
-  DCHECK(!command_line->HasSwitch(switches::kEnablePlatformApps));
   DCHECK(!command_line->HasSwitch(switches::kEnableExperimentalExtensionApis));
 
   command_line->AppendSwitch(switches::kEnableExperimentalExtensionApis);
-  command_line->AppendSwitch(switches::kEnablePlatformApps);
 }

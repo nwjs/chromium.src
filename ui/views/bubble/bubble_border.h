@@ -4,19 +4,21 @@
 
 #ifndef UI_VIEWS_BUBBLE_BUBBLE_BORDER_H_
 #define UI_VIEWS_BUBBLE_BUBBLE_BORDER_H_
-#pragma once
 
+#include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 
-class SkBitmap;
+namespace gfx {
+class ImageSkia;
+}
 
 namespace views {
 
 // Renders a border, with optional arrow, and a custom dropshadow.
 // This can be used to produce floating "bubble" objects with rounded corners.
-class VIEWS_EXPORT BubbleBorder : public views::Border {
+class VIEWS_EXPORT BubbleBorder : public Border {
  public:
   // Possible locations for the (optional) arrow.
   // 0 bit specifies left or right.
@@ -103,8 +105,8 @@ class VIEWS_EXPORT BubbleBorder : public views::Border {
   // given the rect to point to and the size of the contained contents.  This
   // depends on the arrow location, so if you change that, you should call this
   // again to find out the new coordinates.
-  gfx::Rect GetBounds(const gfx::Rect& position_relative_to,
-                      const gfx::Size& contents_size) const;
+  virtual gfx::Rect GetBounds(const gfx::Rect& position_relative_to,
+                              const gfx::Size& contents_size) const;
 
   // Sets a fixed offset for the arrow from the beginning of corresponding edge.
   // The arrow will still point to the same location but the bubble will shift
@@ -112,11 +114,14 @@ class VIEWS_EXPORT BubbleBorder : public views::Border {
   // overflow it differ from desired.
   int SetArrowOffset(int offset, const gfx::Size& contents_size);
 
-  // Overridden from views::Border:
+  // Overridden from Border:
   virtual void GetInsets(gfx::Insets* insets) const OVERRIDE;
 
   // How many pixels the bubble border is from the edge of the images.
   int border_thickness() const;
+
+ protected:
+  virtual ~BubbleBorder();
 
  private:
   struct BorderImages;
@@ -124,28 +129,21 @@ class VIEWS_EXPORT BubbleBorder : public views::Border {
   // Loads images if necessary.
   static BorderImages* GetBorderImages(Shadow shadow);
 
-  virtual ~BubbleBorder();
-
-  // Overridden from views::Border:
-  virtual void Paint(const views::View& view,
+  // Overridden from Border:
+  virtual void Paint(const View& view,
                      gfx::Canvas* canvas) const OVERRIDE;
 
   void DrawEdgeWithArrow(gfx::Canvas* canvas,
                          bool is_horizontal,
-                         SkBitmap* edge,
-                         SkBitmap* arrow,
+                         gfx::ImageSkia* edge,
+                         gfx::ImageSkia* arrow,
                          int start_x,
                          int start_y,
                          int before_arrow,
                          int after_arrow,
                          int offset) const;
 
-  void DrawArrowInterior(gfx::Canvas* canvas,
-                         bool is_horizontal,
-                         int tip_x,
-                         int tip_y,
-                         int shift_x,
-                         int shift_y) const;
+  void DrawArrowInterior(gfx::Canvas* canvas, float tip_x, float tip_y) const;
 
   // Border graphics.
   struct BorderImages* images_;
@@ -173,12 +171,12 @@ class VIEWS_EXPORT BubbleBorder : public views::Border {
 
 // A Background that clips itself to the specified BubbleBorder and uses
 // the background color of the BubbleBorder.
-class VIEWS_EXPORT BubbleBackground : public views::Background {
+class VIEWS_EXPORT BubbleBackground : public Background {
  public:
   explicit BubbleBackground(BubbleBorder* border) : border_(border) {}
 
-  // Background overrides.
-  virtual void Paint(gfx::Canvas* canvas, views::View* view) const OVERRIDE;
+  // Overridden from Background:
+  virtual void Paint(gfx::Canvas* canvas, View* view) const OVERRIDE;
 
  private:
   BubbleBorder* border_;

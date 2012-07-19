@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/c/pp_stdint.h"
 #include "ppapi/c/pp_time.h"
 
@@ -55,9 +56,16 @@ class Flash {
   static Var GetCommandLineArgs(Module* module);
   static void PreloadFontWin(const void* logfontw);
   static bool IsRectTopmost(const InstanceHandle& instance, const Rect& rect);
-  static int32_t InvokePrinting(const InstanceHandle& instance);
   static void UpdateActivity(const InstanceHandle& instance);
+  static Var GetDeviceID(const InstanceHandle& instance);
+  static Var GetSetting(const InstanceHandle& instance,
+                        PP_FlashSetting setting);
+  static bool SetCrashData(const InstanceHandle& instance,
+                           PP_FlashCrashKey key,
+                           const pp::Var& value);
 
+  // PPB_Flash_Print.
+  static bool InvokePrinting(const InstanceHandle& instance);
 };
 
 }  // namespace flash

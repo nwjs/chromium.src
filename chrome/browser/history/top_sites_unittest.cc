@@ -15,6 +15,7 @@
 #include "chrome/browser/history/history_database.h"
 #include "chrome/browser/history/history_marshaling.h"
 #include "chrome/browser/history/history_notifications.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_unittest_base.h"
 #include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/history/top_sites_backend.h"
@@ -28,7 +29,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/tools/profiles/thumbnail-inl.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -58,6 +59,8 @@ class WaitForHistoryTask : public HistoryDBTask {
   }
 
  private:
+  virtual ~WaitForHistoryTask() {}
+
   DISALLOW_COPY_AND_ASSIGN(WaitForHistoryTask);
 };
 
@@ -112,14 +115,15 @@ class TopSitesQuerier {
 
 // Extracts the data from |t1| into a SkBitmap. This is intended for usage of
 // thumbnail data, which is stored as jpgs.
-SkBitmap ExtractThumbnail(const RefCountedMemory& t1) {
+SkBitmap ExtractThumbnail(const base::RefCountedMemory& t1) {
   scoped_ptr<SkBitmap> image(gfx::JPEGCodec::Decode(t1.front(),
                                                     t1.size()));
   return image.get() ? *image : SkBitmap();
 }
 
 // Returns true if t1 and t2 contain the same data.
-bool ThumbnailsAreEqual(RefCountedMemory* t1, RefCountedMemory* t2) {
+bool ThumbnailsAreEqual(base::RefCountedMemory* t1,
+                        base::RefCountedMemory* t2) {
   if (!t1 || !t2)
     return false;
   if (t1->size() != t2->size())
@@ -156,18 +160,18 @@ class TopSitesTest : public HistoryUnitTestBase {
 
   // Gets the thumbnail for |url| from TopSites.
   SkBitmap GetThumbnail(const GURL& url) {
-    scoped_refptr<RefCountedMemory> data;
+    scoped_refptr<base::RefCountedMemory> data;
     return top_sites()->GetPageThumbnail(url, &data) ?
         ExtractThumbnail(*data.get()) : SkBitmap();
   }
 
   // Creates a bitmap of the specified color. Caller takes ownership.
   gfx::Image CreateBitmap(SkColor color) {
-    SkBitmap* thumbnail = new SkBitmap;
-    thumbnail->setConfig(SkBitmap::kARGB_8888_Config, 4, 4);
-    thumbnail->allocPixels();
-    thumbnail->eraseColor(color);
-    return gfx::Image(thumbnail);  // takes ownership.
+    SkBitmap thumbnail;
+    thumbnail.setConfig(SkBitmap::kARGB_8888_Config, 4, 4);
+    thumbnail.allocPixels();
+    thumbnail.eraseColor(color);
+    return gfx::Image(thumbnail);  // adds ref.
   }
 
   // Forces top sites to load top sites from history, then recreates top sites.
@@ -200,11 +204,12 @@ class TopSitesTest : public HistoryUnitTestBase {
   CancelableRequestConsumer* consumer() { return &consumer_; }
   TestingProfile* profile() {return profile_.get();}
   HistoryService* history_service() {
-    return profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+    return HistoryServiceFactory::GetForProfile(profile_.get(),
+                                                Profile::EXPLICIT_ACCESS);
   }
 
   MostVisitedURLList GetPrepopulatePages() {
-    return TopSites::GetPrepopulatePages();
+    return top_sites()->GetPrepopulatePages();
   }
 
   // Returns true if the TopSitesQuerier contains the prepopulate data starting
@@ -269,8 +274,9 @@ class TopSitesTest : public HistoryUnitTestBase {
   }
 
   // Returns true if the thumbnail equals the specified bytes.
-  bool ThumbnailEqualsBytes(const gfx::Image& image, RefCountedMemory* bytes) {
-    scoped_refptr<RefCountedBytes> encoded_image;
+  bool ThumbnailEqualsBytes(const gfx::Image& image,
+                            base::RefCountedMemory* bytes) {
+    scoped_refptr<base::RefCountedBytes> encoded_image;
     gfx::Image copy(image);  // EncodeBitmap() doesn't accept const images.
     TopSites::EncodeBitmap(&copy, &encoded_image);
     return ThumbnailsAreEqual(encoded_image, bytes);
@@ -311,7 +317,7 @@ class TopSitesTest : public HistoryUnitTestBase {
   bool IsTopSitesLoaded() { return top_sites()->loaded_; }
 
   bool AddPrepopulatedPages(MostVisitedURLList* urls) {
-    return TopSites::AddPrepopulatedPages(urls);
+    return top_sites()->AddPrepopulatedPages(urls);
   }
 
  private:
@@ -537,7 +543,7 @@ TEST_F(TopSitesTest, ThumbnailRemoved) {
   EXPECT_TRUE(top_sites()->SetPageThumbnail(url, &thumbnail, medium_score));
 
   // Make sure the thumbnail was actually set.
-  scoped_refptr<RefCountedMemory> result;
+  scoped_refptr<base::RefCountedMemory> result;
   EXPECT_TRUE(top_sites()->GetPageThumbnail(url, &result));
   EXPECT_TRUE(ThumbnailEqualsBytes(thumbnail, result.get()));
 
@@ -567,7 +573,7 @@ TEST_F(TopSitesTest, GetPageThumbnail) {
   gfx::Image thumbnail(CreateBitmap(SK_ColorWHITE));
   ThumbnailScore score(0.5, true, true, base::Time::Now());
 
-  scoped_refptr<RefCountedMemory> result;
+  scoped_refptr<base::RefCountedMemory> result;
   EXPECT_TRUE(top_sites()->SetPageThumbnail(url1.url, &thumbnail, score));
   EXPECT_TRUE(top_sites()->GetPageThumbnail(url1.url, &result));
 
@@ -641,7 +647,7 @@ TEST_F(TopSitesTest, SaveToDB) {
     EXPECT_EQ(asdf_title, querier.urls()[0].title);
     ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(querier, 1));
 
-    scoped_refptr<RefCountedMemory> read_data;
+    scoped_refptr<base::RefCountedMemory> read_data;
     EXPECT_TRUE(top_sites()->GetPageThumbnail(asdf_url, &read_data));
     EXPECT_TRUE(ThumbnailEqualsBytes(tmp_bitmap, read_data.get()));
   }
@@ -706,7 +712,7 @@ TEST_F(TopSitesTest, RealDatabase) {
     EXPECT_EQ(asdf_title, querier.urls()[0].title);
     ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(querier, 1));
 
-    scoped_refptr<RefCountedMemory> read_data;
+    scoped_refptr<base::RefCountedMemory> read_data;
     EXPECT_TRUE(top_sites()->GetPageThumbnail(asdf_url, &read_data));
     EXPECT_TRUE(ThumbnailEqualsBytes(asdf_thumbnail, read_data.get()));
   }
@@ -731,7 +737,7 @@ TEST_F(TopSitesTest, RealDatabase) {
   RefreshTopSitesAndRecreate();
 
   {
-    scoped_refptr<RefCountedMemory> read_data;
+    scoped_refptr<base::RefCountedMemory> read_data;
     TopSitesQuerier querier;
     querier.QueryTopSites(top_sites(), false);
 
@@ -760,7 +766,7 @@ TEST_F(TopSitesTest, RealDatabase) {
                                             medium_score));
   RefreshTopSitesAndRecreate();
   {
-    scoped_refptr<RefCountedMemory> read_data;
+    scoped_refptr<base::RefCountedMemory> read_data;
     EXPECT_TRUE(top_sites()->GetPageThumbnail(google3_url, &read_data));
     EXPECT_TRUE(ThumbnailEqualsBytes(weewar_bitmap, read_data.get()));
   }
@@ -780,7 +786,7 @@ TEST_F(TopSitesTest, RealDatabase) {
   // Check that the thumbnail was updated.
   RefreshTopSitesAndRecreate();
   {
-    scoped_refptr<RefCountedMemory> read_data;
+    scoped_refptr<base::RefCountedMemory> read_data;
     EXPECT_TRUE(top_sites()->GetPageThumbnail(google3_url, &read_data));
     EXPECT_FALSE(ThumbnailEqualsBytes(weewar_bitmap, read_data.get()));
     EXPECT_TRUE(ThumbnailEqualsBytes(green_bitmap, read_data.get()));
@@ -854,59 +860,6 @@ TEST_F(TopSitesTest, DeleteNotifications) {
     querier.QueryTopSites(top_sites(), false);
 
     ASSERT_EQ(GetPrepopulatePages().size(), querier.urls().size());
-    ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(querier, 0));
-  }
-}
-
-TEST_F(TopSitesTest, PinnedURLsDeleted) {
-  GURL google1_url("http://google.com");
-  GURL google2_url("http://google.com/redirect");
-  GURL google3_url("http://www.google.com");
-  string16 google_title(ASCIIToUTF16("Google"));
-  GURL news_url("http://news.google.com");
-  string16 news_title(ASCIIToUTF16("Google News"));
-
-  AddPageToHistory(google1_url, google_title);
-  AddPageToHistory(news_url, news_title);
-
-  RefreshTopSitesAndRecreate();
-
-  {
-    TopSitesQuerier querier;
-    querier.QueryTopSites(top_sites(), false);
-
-    // Take into account prepopulated URLs.
-    ASSERT_EQ(GetPrepopulatePages().size() + 2, querier.urls().size());
-  }
-
-  top_sites()->AddPinnedURL(news_url, 3);
-  EXPECT_TRUE(top_sites()->IsURLPinned(news_url));
-
-  DeleteURL(news_url);
-  WaitForHistory();
-
-  {
-    TopSitesQuerier querier;
-    querier.QueryTopSites(top_sites(), false);
-
-    // Take into account prepopulated URLs.
-    ASSERT_EQ(GetPrepopulatePages().size() + 1, querier.urls().size());
-    EXPECT_FALSE(top_sites()->IsURLPinned(news_url));
-  }
-
-  history_service()->ExpireHistoryBetween(
-      std::set<GURL>(), base::Time(), base::Time(),
-      consumer(), base::Bind(&TopSitesTest::EmptyCallback,
-                             base::Unretained(this))),
-  WaitForHistory();
-
-  {
-    TopSitesQuerier querier;
-    querier.QueryTopSites(top_sites(), false);
-
-    // Take into account prepopulated URLs.
-    ASSERT_EQ(GetPrepopulatePages().size(), querier.urls().size());
-    EXPECT_FALSE(top_sites()->IsURLPinned(google1_url));
     ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(querier, 0));
   }
 }
@@ -1097,7 +1050,7 @@ TEST_F(TopSitesTest, AddTemporaryThumbnail) {
                                             medium_score));
 
   // We shouldn't get the thumnail back though (the url isn't in to sites yet).
-  scoped_refptr<RefCountedMemory> out;
+  scoped_refptr<base::RefCountedMemory> out;
   EXPECT_FALSE(top_sites()->GetPageThumbnail(unknown_url, &out));
   // But we should be able to get the temporary page thumbnail score.
   ThumbnailScore out_score;
@@ -1207,104 +1160,6 @@ TEST_F(TopSitesTest, Blacklisting) {
   }
 }
 
-// Tests variations of pinning/unpinning urls.
-TEST_F(TopSitesTest, PinnedURLs) {
-  MostVisitedURLList pages;
-  MostVisitedURL url, url1;
-  url.url = GURL("http://bbc.com/");
-  url.redirects.push_back(url.url);
-  pages.push_back(url);
-  url1.url = GURL("http://google.com/");
-  url1.redirects.push_back(url1.url);
-  pages.push_back(url1);
-
-  SetTopSites(pages);
-
-  EXPECT_FALSE(top_sites()->IsURLPinned(GURL("http://bbc.com/")));
-
-  {
-    TopSitesQuerier q;
-    q.QueryTopSites(top_sites(), true);
-    ASSERT_EQ(2u + GetPrepopulatePages().size(), q.urls().size());
-    EXPECT_EQ("http://bbc.com/", q.urls()[0].url.spec());
-    EXPECT_EQ("http://google.com/", q.urls()[1].url.spec());
-    ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(q, 2));
-  }
-
-  top_sites()->AddPinnedURL(GURL("http://google.com/"), 3);
-  EXPECT_FALSE(top_sites()->IsURLPinned(GURL("http://bbc.com/")));
-  EXPECT_FALSE(top_sites()->IsURLPinned(GetPrepopulatePages()[0].url));
-
-  {
-    TopSitesQuerier q;
-    q.QueryTopSites(top_sites(), true);
-    ASSERT_EQ(4u, q.urls().size());
-    EXPECT_EQ("http://bbc.com/", q.urls()[0].url.spec());
-    ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(q, 1));
-    EXPECT_EQ("http://google.com/", q.urls()[3].url.spec());
-  }
-
-  top_sites()->RemovePinnedURL(GURL("http://google.com/"));
-  EXPECT_FALSE(top_sites()->IsURLPinned(GURL("http://google.com/")));
-  {
-    TopSitesQuerier q;
-    q.QueryTopSites(top_sites(), true);
-
-    ASSERT_EQ(2u + GetPrepopulatePages().size(), q.urls().size());
-    EXPECT_EQ("http://bbc.com/", q.urls()[0].url.spec());
-    EXPECT_EQ("http://google.com/", q.urls()[1].url.spec());
-    ASSERT_NO_FATAL_FAILURE(ContainsPrepopulatePages(q, 2));
-  }
-
-  GURL prepopulate_url = GetPrepopulatePages()[0].url;
-  top_sites()->AddPinnedURL(GURL("http://bbc.com"), 1);
-  top_sites()->AddPinnedURL(prepopulate_url, 0);
-  {
-    TopSitesQuerier q;
-    q.QueryTopSites(top_sites(), true);
-
-    ASSERT_EQ(3u + GetPrepopulatePages().size() - 1, q.urls().size());
-    EXPECT_EQ(prepopulate_url, q.urls()[0].url);
-    EXPECT_EQ("http://bbc.com/", q.urls()[1].url.spec());
-    EXPECT_EQ("http://google.com/", q.urls()[2].url.spec());
-    if (GetPrepopulatePages().size() > 1)
-      EXPECT_EQ(GetPrepopulatePages()[1].url, q.urls()[3].url);
-  }
-
-  // Recreate and make sure state remains the same.
-  RecreateTopSitesAndBlock();
-  {
-    TopSitesQuerier q;
-    q.QueryTopSites(top_sites(), true);
-
-    ASSERT_EQ(3u + GetPrepopulatePages().size() - 1, q.urls().size());
-    EXPECT_EQ(prepopulate_url, q.urls()[0].url);
-    EXPECT_EQ("http://bbc.com/", q.urls()[1].url.spec());
-    EXPECT_EQ("http://google.com/", q.urls()[2].url.spec());
-    if (GetPrepopulatePages().size() > 1)
-      EXPECT_EQ(GetPrepopulatePages()[1].url, q.urls()[3].url);
-  }
-}
-
-// Tests blacklisting and pinning.
-TEST_F(TopSitesTest, BlacklistingAndPinnedURLs) {
-  MostVisitedURLList prepopulate_urls = GetPrepopulatePages();
-  if (prepopulate_urls.size() < 2)
-    return;
-
-  top_sites()->AddPinnedURL(prepopulate_urls[0].url, 1);
-  top_sites()->AddBlacklistedURL(prepopulate_urls[1].url);
-
-  {
-    TopSitesQuerier q;
-    q.QueryTopSites(top_sites(), true);
-
-    ASSERT_LE(2u, q.urls().size());
-    EXPECT_EQ(GURL(), q.urls()[0].url);
-    EXPECT_EQ(prepopulate_urls[0].url, q.urls()[1].url);
-  }
-}
-
 // Makes sure prepopulated pages exist.
 TEST_F(TopSitesTest, AddPrepopulatedPages) {
   TopSitesQuerier q;
@@ -1359,7 +1214,8 @@ TEST_F(TopSitesUnloadTest, UnloadHistoryTest) {
   profile()->CreateHistoryService(false, false);
   profile()->CreateTopSites();
   profile()->BlockUntilTopSitesLoaded();
-  profile()->GetHistoryService(Profile::EXPLICIT_ACCESS)->UnloadBackend();
+  HistoryServiceFactory::GetForProfile(
+      profile(), Profile::EXPLICIT_ACCESS)->UnloadBackend();
   profile()->BlockUntilHistoryProcessesPendingRequests();
 }
 
@@ -1386,7 +1242,8 @@ TEST_F(TopSitesUnloadTest, UnloadWithMigration) {
       chrome::NOTIFICATION_TOP_SITES_LOADED,
       content::Source<Profile>(profile()));
   profile()->CreateTopSites();
-  profile()->GetHistoryService(Profile::EXPLICIT_ACCESS)->UnloadBackend();
+  HistoryServiceFactory::GetForProfile(
+      profile(), Profile::EXPLICIT_ACCESS)->UnloadBackend();
   profile()->BlockUntilHistoryProcessesPendingRequests();
   observer.Wait();
 }

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_COLOR_CHOOSER_H_
 #define CONTENT_PUBLIC_BROWSER_COLOR_CHOOSER_H_
-#pragma once
 
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -17,7 +16,7 @@ class WebContents;
 class ColorChooser {
  public:
   static ColorChooser* Create(int identifier,
-                              WebContents* tab,
+                              WebContents* web_contents,
                               SkColor initial_color);
   ColorChooser(int identifier) : identifier_(identifier) {}
   virtual ~ColorChooser() {}

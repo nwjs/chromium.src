@@ -14,7 +14,8 @@
 #include "base/timer.h"
 #include "base/version.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/tracing.h"
@@ -24,9 +25,14 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
+#include "content/test/gpu/gpu_test_config.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
+
+#if defined(OS_WIN)
+#include "base/win/windows_version.h"
+#endif
 
 // Run with --vmodule=latency_tests=1 to print verbose latency info.
 
@@ -107,7 +113,8 @@ class LatencyTest
       query_instant_(Query::EventPhase() ==
                      Query::Phase(TRACE_EVENT_PHASE_INSTANT)),
       // These queries are initialized in RunTest.
-      query_swaps_(Query::Bool(false)),
+      query_begin_swaps_(Query::Bool(false)),
+      query_end_swaps_(Query::Bool(false)),
       query_inputs_(Query::Bool(false)),
       query_blits_(Query::Bool(false)),
       query_clears_(Query::Bool(false)),
@@ -165,8 +172,13 @@ class LatencyTest
   // Query INSTANT events.
   Query query_instant_;
 
-  // Query "swaps" which is SwapBuffers for GL and UpdateRect for software.
-  Query query_swaps_;
+  // Query begin of "swaps" which is SwapBuffers for GL and UpdateRect for
+  // software.
+  Query query_begin_swaps_;
+
+  // Query end of "swaps" which is SwapBuffers for GL and UpdateRect for
+  // software.
+  Query query_end_swaps_;
 
   // Query mouse input entry events in browser process (ForwardMouseEvent).
   Query query_inputs_;
@@ -212,15 +224,10 @@ class LatencyTest
 
 void LatencyTest::SetUpCommandLine(CommandLine* command_line) {
   BrowserPerfTest::SetUpCommandLine(command_line);
-  // This enables DOM automation for tab contents.
-  EnableDOMAutomation();
   if (CommandLine::ForCurrentProcess()->
       HasSwitch(switches::kEnableThreadedCompositing)) {
     command_line->AppendSwitch(switches::kEnableThreadedCompositing);
   }
-  // Default behavior is to thumbnail the tab after 0.5 seconds, causing
-  // a nasty frame hitch and disturbing the latency test. Fix that:
-  command_line->AppendSwitch(switches::kEnableInBrowserThumbnailing);
   command_line->AppendSwitch(switches::kDisableBackgroundNetworking);
 }
 
@@ -237,15 +244,45 @@ void LatencyTest::RunTest(LatencyTestMode mode,
   mode_ = mode;
   verbose_ = (logging::GetVlogLevel("latency_tests") > 0);
 
+  // Linux Intel uses mesa driver, where multisampling is not supported.
+  // Multisampling is also not supported on virtualized mac os.
+  // The latency test uses the multisampling blit trace event to determine when
+  // the compositor is consuming the webgl context, so it currently doesn't work
+  // without multisampling. Since the Latency test does not depend much on the
+  // GPU, let's just skip testing on Intel since the data is redundant with
+  // other non-Intel bots.
+  GPUTestBotConfig test_bot;
+  test_bot.LoadCurrentConfig(NULL);
+  const std::vector<uint32>& gpu_vendor = test_bot.gpu_vendor();
+#if defined(OS_LINUX)
+  if (gpu_vendor.size() == 1 && gpu_vendor[0] == 0x8086)
+    return;
+#endif  // defined(OS_LINUX)
+#if defined(OS_MACOSX)
+  if (gpu_vendor.size() == 1 && gpu_vendor[0] == 0x15AD)
+    return;
+#endif  // defined(OS_MACOSX)
+
+#if defined(OS_WIN)
+  // Latency test doesn't work on WinXP. crbug.com/128066
+  if (base::win::OSInfo::GetInstance()->version() == base::win::VERSION_XP)
+    return;
+#endif
+
   // Construct queries for searching trace events via TraceAnalyzer.
   if (mode_ == kWebGL) {
-    query_swaps_ = query_instant_ &&
+    query_begin_swaps_ = query_instant_ &&
         Query::EventName() == Query::String("SwapBuffers") &&
         Query::EventArg("width") != Query::Int(kWebGLCanvasWidth);
+    query_end_swaps_ = query_instant_ &&
+        Query::EventName() == Query::String("CompositorSwapBuffersComplete");
   } else if (mode_ == kSoftware) {
     // Software updates need to have x=0 and y=0 to contain the input color.
-    query_swaps_ = query_instant_ &&
+    query_begin_swaps_ = query_instant_ &&
         Query::EventName() == Query::String("UpdateRect") &&
+        Query::EventArg("x+y") == Query::Int(0);
+    query_end_swaps_ = query_instant_ &&
+        Query::EventName() == Query::String("UpdateRectComplete") &&
         Query::EventArg("x+y") == Query::Int(0);
   }
   query_inputs_ = query_instant_ &&
@@ -256,7 +293,7 @@ void LatencyTest::RunTest(LatencyTestMode mode,
   query_clears_ = query_instant_ &&
       Query::EventName() == Query::String("DoClear") &&
       Query::EventArg("green") == Query::Int(kClearColorGreen);
-  Query query_width_swaps = query_swaps_;
+  Query query_width_swaps = query_begin_swaps_;
   if (mode_ == kSoftware) {
     query_width_swaps = query_instant_ &&
         Query::EventName() == Query::String("UpdateRectWidth") &&
@@ -390,10 +427,12 @@ double LatencyTest::CalculateLatency() {
     //  - onscreen swaps.
     //  - DoClear calls that contain the mouse x coordinate.
     //  - mouse events.
-    analyzer_->FindEvents(query_swaps_ || query_inputs_ ||
-                          query_blits_ || query_clears_, &events);
+    analyzer_->FindEvents(query_begin_swaps_ || query_end_swaps_ ||
+                          query_inputs_ || query_blits_ || query_clears_,
+                          &events);
   } else if (mode_ == kSoftware) {
-    analyzer_->FindEvents(query_swaps_ || query_inputs_, &events);
+    analyzer_->FindEvents(query_begin_swaps_ || query_end_swaps_ ||
+                          query_inputs_, &events);
   } else {
     NOTREACHED() << "invalid mode";
   }
@@ -407,12 +446,19 @@ double LatencyTest::CalculateLatency() {
   std::vector<int> latencies;
   printf("Measured latency (in number of frames) for each frame:\n");
   for (size_t i = 0; i < events.size(); ++i) {
-    if (query_swaps_.Evaluate(*events[i])) {
+    if (query_end_swaps_.Evaluate(*events[i])) {
+      size_t end_swap_pos = i;
+
       // Compositor context swap buffers.
       ++swap_count;
       // Don't analyze first few swaps, because they are filling the rendering
       // pipeline and may be unstable.
       if (swap_count > kIgnoreBeginFrames) {
+        // First, find the beginning of this swap.
+        size_t begin_swap_pos = 0;
+        EXPECT_TRUE(FindLastOf(events, query_begin_swaps_, end_swap_pos,
+                               &begin_swap_pos));
+
         int mouse_x = 0;
         if (mode_ == kWebGL) {
           // Trace backwards through the events to find the input event that
@@ -420,16 +466,16 @@ double LatencyTest::CalculateLatency() {
 
           // Step 1: Find the last blit (which will be the WebGL blit).
           size_t blit_pos = 0;
-          EXPECT_TRUE(FindLastOf(events, query_blits_, i, &blit_pos));
+          EXPECT_TRUE(FindLastOf(events, query_blits_, begin_swap_pos,
+                                 &blit_pos));
           // Skip this SwapBuffers if the blit has already been consumed by a
           // previous SwapBuffers. This means the current frame did not receive
           // an update from WebGL.
-          EXPECT_GT(blit_pos, previous_blit_pos);
           if (blit_pos == previous_blit_pos) {
             if (verbose_)
-              printf(" %03d: ERROR\n", swap_count);
+              printf(" %03d: MISS_BLIT\n", swap_count);
             else
-              printf(" ERROR");
+              printf(" MISS_BLIT");
             continue;
           }
           previous_blit_pos = blit_pos;
@@ -441,21 +487,26 @@ double LatencyTest::CalculateLatency() {
           mouse_x = events[clear_pos]->GetKnownArgAsInt("red");
         } else if (mode_ == kSoftware) {
           // The software path gets the mouse_x directly from the DIB colors.
-          mouse_x = events[i]->GetKnownArgAsInt("color");
+          mouse_x = events[begin_swap_pos]->GetKnownArgAsInt("color");
         }
 
         // Find the corresponding mouse input.
         size_t input_pos = 0;
         Query query_mouse_event = query_inputs_ &&
             Query::EventArg("x") == Query::Int(mouse_x);
-        EXPECT_TRUE(FindLastOf(events, query_mouse_event, i, &input_pos));
+        EXPECT_TRUE(FindLastOf(events, query_mouse_event, begin_swap_pos,
+                               &input_pos));
 
         // Step 4: Find the nearest onscreen SwapBuffers to this input event.
-        size_t closest_swap = 0;
+        size_t closest_swap_to_input = 0;
         size_t second_closest_swap = 0;
-        EXPECT_TRUE(FindClosest(events, query_swaps_, input_pos,
-                                       &closest_swap, &second_closest_swap));
-        int latency = CountMatches(events, query_swaps_, closest_swap, i);
+        EXPECT_TRUE(FindClosest(events, query_end_swaps_, input_pos,
+                                &closest_swap_to_input, &second_closest_swap));
+
+        // Calculate latency by counting the number of swaps between the input
+        // event and the corresponding on-screen end-of-swap.
+        int latency = CountMatches(events, query_end_swaps_,
+                                   closest_swap_to_input, end_swap_pos);
         latencies.push_back(latency);
         if (verbose_)
           printf(" %03d: %d\n", swap_count, latency);
@@ -537,7 +588,7 @@ std::string LatencyTest::GetUrl(int flags) {
 void LatencyTest::GetMeanFrameTimeMicros(int* frame_time) const {
   TraceEventVector events;
   // Search for compositor swaps (or UpdateRects in the software path).
-  analyzer_->FindEvents(query_swaps_, &events);
+  analyzer_->FindEvents(query_end_swaps_, &events);
   RateStats stats;
   ASSERT_TRUE(GetRateStats(events, &stats, NULL));
 
@@ -547,8 +598,8 @@ void LatencyTest::GetMeanFrameTimeMicros(int* frame_time) const {
 }
 
 void LatencyTest::SendInput() {
-  content::RenderViewHost* rvh = browser()->GetSelectedTabContentsWrapper()->
-      web_contents()->GetRenderViewHost();
+  content::RenderViewHost* rvh =
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost();
   WebKit::WebMouseEvent mouse_event;
   mouse_event.movementX = 1;
   mouse_x_ += mouse_event.movementX;

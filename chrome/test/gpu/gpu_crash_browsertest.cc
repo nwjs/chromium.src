@@ -6,6 +6,7 @@
 #include "base/path_service.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
@@ -13,7 +14,7 @@
 #include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/gfx/gl/gl_implementation.h"
+#include "ui/gl/gl_implementation.h"
 
 namespace {
 
@@ -22,7 +23,7 @@ void SimulateGPUCrash(Browser* browser) {
   ui_test_utils::NavigateToURLWithDisposition(browser,
       GURL(chrome::kChromeUIGpuCrashURL), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_NONE);
-  browser->SelectPreviousTab();
+  chrome::SelectPreviousTab(browser);
   LOG(ERROR) << "SimulateGPUCrash, after CloseTab";
 }
 
@@ -31,9 +32,6 @@ void SimulateGPUCrash(Browser* browser) {
 class GPUCrashTest : public InProcessBrowserTest {
  protected:
   virtual void SetUpCommandLine(CommandLine* command_line) {
-    EnableDOMAutomation();
-    InProcessBrowserTest::SetUpCommandLine(command_line);
-
     // GPU tests require gpu acceleration.
     // We do not care which GL backend is used.
     command_line->AppendSwitchASCII(switches::kUseGL, "any");
@@ -46,13 +44,8 @@ class GPUCrashTest : public InProcessBrowserTest {
   FilePath gpu_test_dir_;
 };
 
-// Currently Kill timeout on GPU Debug bots: http://crbug.com/101513
-#if !defined(NDEBUG)
-#define MAYBE_Kill DISABLED_Kill
-#else
-#define MAYBE_Kill Kill
-#endif
-IN_PROC_BROWSER_TEST_F(GPUCrashTest, MAYBE_Kill) {
+// Currently Kill times out on GPU bots: http://crbug.com/101513
+IN_PROC_BROWSER_TEST_F(GPUCrashTest, DISABLED_Kill) {
   ui_test_utils::DOMMessageQueue message_queue;
 
   ui_test_utils::NavigateToURL(

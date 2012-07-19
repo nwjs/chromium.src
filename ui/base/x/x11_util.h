@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_X_X11_UTIL_H_
 #define UI_BASE_X_X11_UTIL_H_
-#pragma once
 
 // This file declares utility functions for X11 (Linux only).
 //
@@ -18,6 +17,7 @@
 #include "base/basictypes.h"
 #include "ui/base/events.h"
 #include "ui/base/ui_export.h"
+#include "ui/gfx/point.h"
 
 typedef unsigned long Atom;
 typedef unsigned long XID;
@@ -35,6 +35,7 @@ typedef struct _GtkWindow GtkWindow;
 namespace gfx {
 class Rect;
 }
+class SkBitmap;
 
 namespace ui {
 
@@ -89,6 +90,11 @@ UI_EXPORT void RefCustomXCursor(::Cursor cursor);
 
 // Decreases the refcount of the custom cursor, and destroys it if it reaches 0.
 UI_EXPORT void UnrefCustomXCursor(::Cursor cursor);
+
+// Creates a XcursorImage and copies the SkBitmap |bitmap| on it. |bitmap|
+// should be non-null. Caller owns the returned object.
+UI_EXPORT XcursorImage* SkBitmapToXcursorImage(const SkBitmap* bitmap,
+                                               const gfx::Point& hotspot);
 #endif
 
 // These functions do not cache their results --------------------------
@@ -113,6 +119,9 @@ UI_EXPORT GtkWindow* GetGtkWindowFromX11Window(XID xid);
 // headers, this is returned as a void*.
 UI_EXPORT void* GetVisualFromGtkWidget(GtkWidget* widget);
 #endif  // defined(TOOLKIT_GTK)
+
+// Sets _GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED on |window|.
+UI_EXPORT void SetHideTitlebarWhenMaximizedProperty(XID window);
 
 // Return the number of bits-per-pixel for a pixmap of the given depth
 UI_EXPORT int BitsPerPixelForPixmapDepth(Display* display, int depth);
@@ -177,6 +186,9 @@ class EnumerateWindowsDelegate {
 // windows up to a depth of |max_depth|.
 UI_EXPORT bool EnumerateAllWindows(EnumerateWindowsDelegate* delegate,
                                    int max_depth);
+
+// Enumerates the top-level windows of the current display.
+UI_EXPORT void EnumerateTopLevelWindows(ui::EnumerateWindowsDelegate* delegate);
 
 // Returns all children windows of a given window in top-to-bottom stacking
 // order.

@@ -19,7 +19,6 @@
 #include "webkit/fileapi/file_system_util.h"
 #include "webkit/fileapi/mock_file_system_options.h"
 #include "webkit/fileapi/obfuscated_file_util.h"
-#include "webkit/fileapi/quota_file_util.h"
 #include "webkit/fileapi/sandbox_mount_point_provider.h"
 #include "webkit/quota/quota_types.h"
 
@@ -66,7 +65,6 @@ class FileSystemQuotaClientTest : public testing::Test {
  protected:
   FileSystemQuotaClient* NewQuotaClient(bool is_incognito) {
     return new FileSystemQuotaClient(
-        base::MessageLoopProxy::current(),
         file_system_context_, is_incognito);
   }
 
@@ -132,12 +130,12 @@ class FileSystemQuotaClientTest : public testing::Test {
     FileSystemType type = QuotaStorageTypeToFileSystemType(storage_type);
     FileSystemFileUtil* file_util = file_system_context_->GetFileUtil(type);
 
-    FileSystemPath path(GURL(origin_url), type, file_path);
+    FileSystemURL url(GURL(origin_url), type, file_path);
     scoped_ptr<FileSystemOperationContext> context(
         CreateFileSystemOperationContext());
 
     base::PlatformFileError result =
-        file_util->CreateDirectory(context.get(), path, false, false);
+        file_util->CreateDirectory(context.get(), url, false, false);
     if (result != base::PLATFORM_FILE_OK)
       return false;
     return true;
@@ -154,17 +152,17 @@ class FileSystemQuotaClientTest : public testing::Test {
         sandbox_provider()->GetFileUtil();
 
     FileSystemType type = QuotaStorageTypeToFileSystemType(storage_type);
-    FileSystemPath path(GURL(origin_url), type, file_path);
+    FileSystemURL url(GURL(origin_url), type, file_path);
     scoped_ptr<FileSystemOperationContext> context(
         CreateFileSystemOperationContext());
 
     bool created = false;
     if (base::PLATFORM_FILE_OK !=
-        file_util->EnsureFileExists(context.get(), path, &created))
+        file_util->EnsureFileExists(context.get(), url, &created))
       return false;
     EXPECT_TRUE(created);
     if (base::PLATFORM_FILE_OK !=
-        file_util->Truncate(context.get(), path, file_size))
+        file_util->Truncate(context.get(), url, file_size))
       return false;
     return true;
   }
@@ -251,6 +249,7 @@ class FileSystemQuotaClientTest : public testing::Test {
   }
 
   ScopedTempDir data_dir_;
+  MessageLoop message_loop_;
   scoped_refptr<FileSystemContext> file_system_context_;
   base::WeakPtrFactory<FileSystemQuotaClientTest> weak_factory_;
   int64 usage_;

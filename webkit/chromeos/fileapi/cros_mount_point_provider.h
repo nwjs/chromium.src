@@ -59,18 +59,24 @@ class CrosMountPointProvider
       fileapi::FileSystemType type,
       const FilePath& virtual_path) OVERRIDE;
   virtual bool IsRestrictedFileName(const FilePath& filename) const OVERRIDE;
-  virtual std::vector<FilePath> GetRootDirectories() const OVERRIDE;
   virtual fileapi::FileSystemFileUtil* GetFileUtil() OVERRIDE;
   virtual FilePath GetPathForPermissionsCheck(const FilePath& virtual_path)
       const OVERRIDE;
   virtual fileapi::FileSystemOperationInterface* CreateFileSystemOperation(
-      const GURL& origin_url,
-      fileapi::FileSystemType file_system_type,
-      const FilePath& virtual_path,
-      base::MessageLoopProxy* file_proxy,
+      const fileapi::FileSystemURL& url,
       fileapi::FileSystemContext* context) const OVERRIDE;
+  virtual webkit_blob::FileStreamReader* CreateFileStreamReader(
+    const fileapi::FileSystemURL& path,
+    int64 offset,
+    fileapi::FileSystemContext* context) const OVERRIDE;
+  virtual fileapi::FileStreamWriter* CreateFileStreamWriter(
+    const fileapi::FileSystemURL& url,
+    int64 offset,
+    fileapi::FileSystemContext* context) const OVERRIDE;
+  virtual fileapi::FileSystemQuotaUtil* GetQuotaUtil() OVERRIDE;
 
   // fileapi::ExternalFileSystemMountPointProvider overrides.
+  virtual std::vector<FilePath> GetRootDirectories() const OVERRIDE;
   virtual void GrantFullAccessToExtension(
       const std::string& extension_id) OVERRIDE;
   virtual void GrantFileAccessToExtension(
@@ -87,8 +93,6 @@ class CrosMountPointProvider
                               FilePath* virtual_path) OVERRIDE;
 
  private:
-  class GetFileSystemRootPathTask;
-
   // Representation of a mount point exposed by this external mount point
   // provider.
   struct MountPoint {
@@ -97,7 +101,7 @@ class CrosMountPointProvider
                FileSystemLocation loc,
                fileapi::RemoteFileSystemProxyInterface* proxy);
     virtual ~MountPoint();
-    // Virtual web path, relative to external root in filesytem URLs.
+    // Virtual web path, relative to external root in filesystem URLs.
     // For example, in "filesystem://.../external/foo/bar/" this path would
     // map to "foo/bar/".
     const FilePath web_root_path;

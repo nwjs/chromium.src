@@ -13,12 +13,15 @@
 #include "content/public/common/content_switches.h"
 #include "content/shell/shell.h"
 #include "content/shell/shell_browser_context.h"
-#include "content/shell/shell_content_browser_client.h"
 #include "content/shell/shell_devtools_delegate.h"
 #include "content/shell/shell_switches.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/net_module.h"
-#include "ui/base/clipboard/clipboard.h"
+
+#if defined(OS_ANDROID)
+#include "net/base/network_change_notifier.h"
+#include "net/android/network_change_notifier_factory.h"
+#endif
 
 namespace content {
 
@@ -35,10 +38,6 @@ ShellBrowserMainParts::ShellBrowserMainParts(
     const content::MainFunctionParams& parameters)
     : BrowserMainParts(),
       devtools_delegate_(NULL) {
-  ShellContentBrowserClient* shell_browser_client =
-      static_cast<ShellContentBrowserClient*>(
-          content::GetContentClient()->browser());
-  shell_browser_client->set_shell_browser_main_parts(this);
 }
 
 ShellBrowserMainParts::~ShellBrowserMainParts() {
@@ -49,16 +48,21 @@ void ShellBrowserMainParts::PreMainMessageLoopStart() {
 }
 #endif
 
-MessageLoop* ShellBrowserMainParts::GetMainMessageLoop() {
-  return NULL;
+void ShellBrowserMainParts::PostMainMessageLoopStart() {
+#if defined(OS_ANDROID)
+  MessageLoopForUI::current()->Start();
+#endif
 }
 
-int ShellBrowserMainParts::PreCreateThreads() {
-  return 0;
+void ShellBrowserMainParts::PreEarlyInitialization() {
+#if defined(OS_ANDROID)
+  net::NetworkChangeNotifier::SetFactory(
+      new net::android::NetworkChangeNotifierFactory());
+#endif
 }
 
 void ShellBrowserMainParts::PreMainMessageLoopRun() {
-  browser_context_.reset(new ShellBrowserContext(this));
+  browser_context_.reset(new ShellBrowserContext);
 
   Shell::PlatformInitialize();
   net::NetModule::SetResourceProvider(Shell::PlatformResourceProvider);
@@ -90,16 +94,6 @@ void ShellBrowserMainParts::PostMainMessageLoopRun() {
   if (devtools_delegate_)
     devtools_delegate_->Stop();
   browser_context_.reset();
-}
-
-bool ShellBrowserMainParts::MainMessageLoopRun(int* result_code) {
-  return false;
-}
-
-ui::Clipboard* ShellBrowserMainParts::GetClipboard() {
-  if (!clipboard_.get())
-    clipboard_.reset(new ui::Clipboard());
-  return clipboard_.get();
 }
 
 }  // namespace

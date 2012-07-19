@@ -4,21 +4,23 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_BROWSER_WINDOW_UTILS_H_
 #define CHROME_BROWSER_UI_COCOA_BROWSER_WINDOW_UTILS_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
 class Browser;
+
+namespace content {
 struct NativeWebKeyboardEvent;
+}
 
 @interface BrowserWindowUtils : NSObject
 
 // Returns YES if keyboard event should be handled.
-+ (BOOL)shouldHandleKeyboardEvent:(const NativeWebKeyboardEvent&)event;
++ (BOOL)shouldHandleKeyboardEvent:(const content::NativeWebKeyboardEvent&)event;
 
 // Determines the command associated with the keyboard event.
 // Returns -1 if no command found.
-+ (int)getCommandId:(const NativeWebKeyboardEvent&)event;
++ (int)getCommandId:(const content::NativeWebKeyboardEvent&)event;
 
 // NSWindow must be a ChromeEventProcessingWindow.
 + (BOOL)handleKeyboardEvent:(NSEvent*)event

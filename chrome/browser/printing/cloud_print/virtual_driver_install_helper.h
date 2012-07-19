@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_PRINTING_CLOUD_PRINT_VIRTUAL_DRIVER_INSTALL_HELPER_H_
 #define CHROME_BROWSER_PRINTING_CLOUD_PRINT_VIRTUAL_DRIVER_INSTALL_HELPER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
@@ -24,6 +23,10 @@ class VirtualDriverInstallHelper
   static void SetUpUninstall();
 
  private:
+  friend class base::RefCountedThreadSafe<VirtualDriverInstallHelper>;
+
+  ~VirtualDriverInstallHelper() {}
+
   void InstallVirtualDriverTask();
   void UninstallVirtualDriverTask();
 };

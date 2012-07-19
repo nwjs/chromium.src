@@ -6,26 +6,26 @@
 
 #include "base/logging.h"
 
-namespace browser_sync {
+namespace syncer {
 
 FakeExtensionsActivityMonitor::FakeExtensionsActivityMonitor() {}
 
 FakeExtensionsActivityMonitor::~FakeExtensionsActivityMonitor() {
-  DCHECK(non_thread_safe_.CalledOnValidThread());
+  DCHECK(CalledOnValidThread());
 }
 
 void FakeExtensionsActivityMonitor::GetAndClearRecords(Records* buffer) {
-  DCHECK(non_thread_safe_.CalledOnValidThread());
+  DCHECK(CalledOnValidThread());
   buffer->clear();
   buffer->swap(records_);
 }
 
 void FakeExtensionsActivityMonitor::PutRecords(const Records& records) {
-  DCHECK(non_thread_safe_.CalledOnValidThread());
+  DCHECK(CalledOnValidThread());
   for (Records::const_iterator i = records.begin(); i != records.end(); ++i) {
     records_[i->first].extension_id = i->second.extension_id;
     records_[i->first].bookmark_write_count += i->second.bookmark_write_count;
   }
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

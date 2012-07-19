@@ -28,8 +28,8 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/common/url_fetcher.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
 using base::Time;
@@ -343,8 +343,8 @@ void ExtensionDownloader::StartUpdateCheck(ManifestFetchData* fetch_data) {
     }
 
     current_manifest_fetch_.swap(scoped_fetch_data);
-    manifest_fetcher_.reset(content::URLFetcher::Create(
-        kManifestFetcherId, fetch_data->full_url(), content::URLFetcher::GET,
+    manifest_fetcher_.reset(net::URLFetcher::Create(
+        kManifestFetcherId, fetch_data->full_url(), net::URLFetcher::GET,
         this));
     manifest_fetcher_->SetRequestContext(request_context_);
     manifest_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
@@ -355,7 +355,7 @@ void ExtensionDownloader::StartUpdateCheck(ManifestFetchData* fetch_data) {
 }
 
 void ExtensionDownloader::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   VLOG(2) << source->GetResponseCode() << " " << source->GetURL();
 
   if (source == manifest_fetcher_.get()) {
@@ -542,6 +542,13 @@ void ExtensionDownloader::FetchUpdatedExtension(const std::string& id,
                                                 const GURL& url,
                                                 const std::string& hash,
                                                 const std::string& version) {
+  if (!url.is_valid()) {
+    // TODO(asargent): This can sometimes be invalid. See crbug.com/130881.
+    LOG(ERROR) << "Invalid URL: '" << url.possibly_invalid_spec()
+               << "' for extension " << id;
+    return;
+  }
+
   for (std::deque<ExtensionFetch>::const_iterator iter =
            extensions_pending_.begin();
        iter != extensions_pending_.end(); ++iter) {
@@ -555,8 +562,8 @@ void ExtensionDownloader::FetchUpdatedExtension(const std::string& id,
       extensions_pending_.push_back(ExtensionFetch(id, url, hash, version));
     }
   } else {
-    extension_fetcher_.reset(content::URLFetcher::Create(
-        kExtensionFetcherId, url, content::URLFetcher::GET, this));
+    extension_fetcher_.reset(net::URLFetcher::Create(
+        kExtensionFetcherId, url, net::URLFetcher::GET, this));
     extension_fetcher_->SetRequestContext(request_context_);
     extension_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
                                      net::LOAD_DO_NOT_SAVE_COOKIES |
@@ -576,7 +583,7 @@ void ExtensionDownloader::FetchUpdatedExtension(const std::string& id,
 }
 
 void ExtensionDownloader::OnCRXFetchComplete(
-    const content::URLFetcher* source,
+    const net::URLFetcher* source,
     const GURL& url,
     const net::URLRequestStatus& status,
     int response_code) {

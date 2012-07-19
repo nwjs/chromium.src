@@ -4,7 +4,6 @@
 
 #ifndef UI_GFX_RENDER_TEXT_LINUX_H_
 #define UI_GFX_RENDER_TEXT_LINUX_H_
-#pragma once
 
 #include <pango/pango.h>
 #include <vector>
@@ -22,10 +21,9 @@ class RenderTextLinux : public RenderText {
   // Overridden from RenderText:
   virtual base::i18n::TextDirection GetTextDirection() OVERRIDE;
   virtual Size GetStringSize() OVERRIDE;
+  virtual int GetBaseline() OVERRIDE;
   virtual SelectionModel FindCursorPosition(const Point& point) OVERRIDE;
-  virtual size_t IndexOfAdjacentGrapheme(
-      size_t index,
-      LogicalCursorDirection direction) OVERRIDE;
+  virtual std::vector<FontSpan> GetFontSpansForTesting() OVERRIDE;
 
  protected:
   // Overridden from RenderText:

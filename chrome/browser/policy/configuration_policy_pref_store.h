@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_CONFIGURATION_POLICY_PREF_STORE_H_
 #define CHROME_BROWSER_POLICY_CONFIGURATION_POLICY_PREF_STORE_H_
-#pragma once
 
 #include <string>
 
@@ -30,7 +29,6 @@ class ConfigurationPolicyPrefStore
   // Does not take ownership of |service|. Only policies of the given |level|
   // will be mapped.
   ConfigurationPolicyPrefStore(PolicyService* service, PolicyLevel level);
-  virtual ~ConfigurationPolicyPrefStore();
 
   // PrefStore methods:
   virtual void AddObserver(PrefStore::Observer* observer) OVERRIDE;
@@ -42,18 +40,24 @@ class ConfigurationPolicyPrefStore
 
   // PolicyService::Observer methods:
   virtual void OnPolicyUpdated(PolicyDomain domain,
-                               const std::string& component_id) OVERRIDE;
+                               const std::string& component_id,
+                               const PolicyMap& previous,
+                               const PolicyMap& current) OVERRIDE;
   virtual void OnPolicyServiceInitialized() OVERRIDE;
 
   // Creates a ConfigurationPolicyPrefStore that only provides policies that
   // have POLICY_LEVEL_MANDATORY level.
-  static ConfigurationPolicyPrefStore* CreateMandatoryPolicyPrefStore();
+  static ConfigurationPolicyPrefStore* CreateMandatoryPolicyPrefStore(
+      PolicyService* policy_service);
 
   // Creates a ConfigurationPolicyPrefStore that only provides policies that
   // have POLICY_LEVEL_RECOMMENDED level.
-  static ConfigurationPolicyPrefStore* CreateRecommendedPolicyPrefStore();
+  static ConfigurationPolicyPrefStore* CreateRecommendedPolicyPrefStore(
+      PolicyService* policy_service);
 
  private:
+  virtual ~ConfigurationPolicyPrefStore();
+
   // Refreshes policy information, rereading policy from the policy service and
   // sending out change notifications as appropriate.
   void Refresh();

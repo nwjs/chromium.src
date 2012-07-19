@@ -9,13 +9,13 @@
 #include "base/i18n/rtl.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/global_error.h"
-#include "chrome/browser/ui/global_error_service.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error.h"
+#include "chrome/browser/ui/global_error/global_error_service.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/gtk_util.h"
@@ -52,8 +52,8 @@ GlobalErrorBubble::GlobalErrorBubble(Browser* browser,
   gtk_container_set_border_width(GTK_CONTAINER(content), kContentBorder);
   g_signal_connect(content, "destroy", G_CALLBACK(OnDestroyThunk), this);
 
-  ThemeServiceGtk* theme_service =
-      ThemeServiceGtk::GetFrom(browser_->profile());
+  GtkThemeService* theme_service =
+      GtkThemeService::GetFrom(browser_->profile());
 
   int resource_id = error_->GetBubbleViewIconResourceID();
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
@@ -117,8 +117,9 @@ GlobalErrorBubble::GlobalErrorBubble(Browser* browser,
                             NULL,
                             content,
                             arrow_location,
-                            true,  // match_system_theme
-                            true,  // grab_input
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
                             theme_service,
                             this);  // error_
 }
@@ -163,7 +164,7 @@ GlobalErrorBubbleViewBase* GlobalErrorBubbleViewBase::ShowBubbleView(
     const base::WeakPtr<GlobalError>& error) {
   BrowserWindowGtk* browser_window =
       BrowserWindowGtk::GetBrowserWindowForNativeWindow(
-          browser->window()->GetNativeHandle());
+          browser->window()->GetNativeWindow());
   GtkWidget* anchor = browser_window->GetToolbar()->GetAppMenuButton();
 
   // The bubble will be automatically deleted when it's closed.

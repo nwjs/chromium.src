@@ -13,14 +13,40 @@
 #include "base/win/windows_version.h"
 #endif
 
+#if defined(TOOLKIT_GTK)
+#include <gtk/gtk.h>
+#endif
+
 namespace gfx {
+
+namespace {
+
+// Checks whether |range| contains |index|. This is not the same as calling
+// |range.Contains(ui::Range(index))| - as that would return true when
+// |index| == |range.end()|.
+bool IndexInRange(const ui::Range& range, size_t index) {
+  return index >= range.start() && index < range.end();
+}
+
+// A test utility function to set the application default text direction.
+void SetRTL(bool rtl) {
+  // Override the current locale/direction.
+  base::i18n::SetICUDefaultLocale(rtl ? "he" : "en");
+#if defined(TOOLKIT_GTK)
+  // Do the same for GTK, which does not rely on the ICU default locale.
+  gtk_widget_set_default_direction(rtl ? GTK_TEXT_DIR_RTL : GTK_TEXT_DIR_LTR);
+#endif
+  EXPECT_EQ(rtl, base::i18n::IsRTL());
+}
+
+}  // namespace
 
 class RenderTextTest : public testing::Test {
 };
 
 TEST_F(RenderTextTest, DefaultStyle) {
   // Defaults to empty text with no styles.
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   EXPECT_TRUE(render_text->text().empty());
   EXPECT_TRUE(render_text->style_ranges().empty());
 
@@ -41,7 +67,7 @@ TEST_F(RenderTextTest, DefaultStyle) {
 
 TEST_F(RenderTextTest, CustomDefaultStyle) {
   // Test a custom default style.
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   StyleRange color;
   color.foreground = SK_ColorRED;
   render_text->set_default_style(color);
@@ -67,7 +93,7 @@ TEST_F(RenderTextTest, CustomDefaultStyle) {
 }
 
 TEST_F(RenderTextTest, ApplyStyleRange) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(ASCIIToUTF16("01234"));
   EXPECT_EQ(1U, render_text->style_ranges().size());
 
@@ -206,7 +232,7 @@ static void SetTextWith2ExtraStyles(RenderText* render_text) {
 
 TEST_F(RenderTextTest, StyleRangesAdjust) {
   // Test that style ranges adjust to the text size.
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(ASCIIToUTF16("abcdef"));
   EXPECT_EQ(1U, render_text->style_ranges().size());
   EXPECT_EQ(ui::Range(0, 6), render_text->style_ranges()[0].range);
@@ -311,7 +337,7 @@ void TestVisualCursorMotionInObscuredField(RenderText* render_text,
 TEST_F(RenderTextTest, PasswordCensorship) {
   const string16 seuss = ASCIIToUTF16("hop on pop");
   const string16 no_seuss = ASCIIToUTF16("**********");
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
 
   // GetObscuredText returns asterisks when the obscured bit is set.
   render_text->SetText(seuss);
@@ -324,7 +350,6 @@ TEST_F(RenderTextTest, PasswordCensorship) {
 
 // TODO(benrg): No Windows implementation yet.
 #if !defined(OS_WIN)
-
   render_text->SetObscured(true);
 
   // Surrogate pairs are counted as one code point.
@@ -354,6 +379,42 @@ TEST_F(RenderTextTest, PasswordCensorship) {
 #endif  // !defined(OS_WIN)
 }
 
+TEST_F(RenderTextTest, GetTextDirection) {
+  const bool was_rtl = base::i18n::IsRTL();
+  // Ensure that text direction is set by the first strong character direction.
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
+  for (size_t i = 0; i < 2; ++i) {
+    // Toggle the application default text direction (to try each direction).
+    SetRTL(!base::i18n::IsRTL());
+
+    // Blank strings (and those without directionality) default to LTR.
+    render_text->SetText(string16());
+    EXPECT_EQ(base::i18n::LEFT_TO_RIGHT, render_text->GetTextDirection());
+    render_text->SetText(ASCIIToUTF16(" "));
+    EXPECT_EQ(base::i18n::LEFT_TO_RIGHT, render_text->GetTextDirection());
+
+    // Pure LTR.
+    render_text->SetText(ASCIIToUTF16("abc"));
+    EXPECT_EQ(base::i18n::LEFT_TO_RIGHT, render_text->GetTextDirection());
+    // LTR-RTL
+    render_text->SetText(WideToUTF16(L"abc\x05d0\x05d1\x05d2"));
+    EXPECT_EQ(base::i18n::LEFT_TO_RIGHT, render_text->GetTextDirection());
+    // LTR-RTL-LTR.
+    render_text->SetText(WideToUTF16(L"a"L"\x05d1"L"b"));
+    EXPECT_EQ(base::i18n::LEFT_TO_RIGHT, render_text->GetTextDirection());
+    // Pure RTL.
+    render_text->SetText(WideToUTF16(L"\x05d0\x05d1\x05d2"));
+    EXPECT_EQ(base::i18n::RIGHT_TO_LEFT, render_text->GetTextDirection());
+    // RTL-LTR
+    render_text->SetText(WideToUTF16(L"\x05d0\x05d1\x05d2"L"abc"));
+    EXPECT_EQ(base::i18n::RIGHT_TO_LEFT, render_text->GetTextDirection());
+    // RTL-LTR-RTL.
+    render_text->SetText(WideToUTF16(L"\x05d0"L"a"L"\x05d1"));
+    EXPECT_EQ(base::i18n::RIGHT_TO_LEFT, render_text->GetTextDirection());
+  }
+  EXPECT_EQ(was_rtl, base::i18n::IsRTL());
+}
+
 void RunMoveCursorLeftRightTest(RenderText* render_text,
     const std::vector<SelectionModel>& expected,
     VisualCursorDirection direction) {
@@ -369,7 +430,7 @@ void RunMoveCursorLeftRightTest(RenderText* render_text,
 }
 
 TEST_F(RenderTextTest, MoveCursorLeftRightInLtr) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
 
   // Pure LTR.
   render_text->SetText(ASCIIToUTF16("abc"));
@@ -393,7 +454,7 @@ TEST_F(RenderTextTest, MoveCursorLeftRightInLtr) {
 }
 
 TEST_F(RenderTextTest, MoveCursorLeftRightInLtrRtl) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   // LTR-RTL
   render_text->SetText(WideToUTF16(L"abc\x05d0\x05d1\x05d2"));
   // The last one is the expected END position.
@@ -421,7 +482,7 @@ TEST_F(RenderTextTest, MoveCursorLeftRightInLtrRtl) {
 }
 
 TEST_F(RenderTextTest, MoveCursorLeftRightInLtrRtlLtr) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   // LTR-RTL-LTR.
   render_text->SetText(WideToUTF16(L"a"L"\x05d1"L"b"));
   std::vector<SelectionModel> expected;
@@ -442,52 +503,35 @@ TEST_F(RenderTextTest, MoveCursorLeftRightInLtrRtlLtr) {
 }
 
 TEST_F(RenderTextTest, MoveCursorLeftRightInRtl) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   // Pure RTL.
   render_text->SetText(WideToUTF16(L"\x05d0\x05d1\x05d2"));
   render_text->MoveCursor(LINE_BREAK, CURSOR_RIGHT, false);
   std::vector<SelectionModel> expected;
 
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#else
-  expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-#endif
   expected.push_back(SelectionModel(1, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(2, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(3, CURSOR_BACKWARD));
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-#else
-  expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#endif
   RunMoveCursorLeftRightTest(render_text.get(), expected, CURSOR_LEFT);
 
   expected.clear();
 
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-#else
-  expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#endif
   expected.push_back(SelectionModel(2, CURSOR_FORWARD));
   expected.push_back(SelectionModel(1, CURSOR_FORWARD));
   expected.push_back(SelectionModel(0, CURSOR_FORWARD));
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#else
-  expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-#endif
   RunMoveCursorLeftRightTest(render_text.get(), expected, CURSOR_RIGHT);
 }
 
 TEST_F(RenderTextTest, MoveCursorLeftRightInRtlLtr) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   // RTL-LTR
   render_text->SetText(WideToUTF16(L"\x05d0\x05d1\x05d2"L"abc"));
   render_text->MoveCursor(LINE_BREAK, CURSOR_RIGHT, false);
   std::vector<SelectionModel> expected;
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(1, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(2, CURSOR_BACKWARD));
@@ -496,21 +540,9 @@ TEST_F(RenderTextTest, MoveCursorLeftRightInRtlLtr) {
   expected.push_back(SelectionModel(4, CURSOR_FORWARD));
   expected.push_back(SelectionModel(3, CURSOR_FORWARD));
   expected.push_back(SelectionModel(6, CURSOR_FORWARD));
-#else
-  expected.push_back(SelectionModel(6, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(5, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(4, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(1, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(2, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(3, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#endif
-
   RunMoveCursorLeftRightTest(render_text.get(), expected, CURSOR_LEFT);
 
   expected.clear();
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(6, CURSOR_FORWARD));
   expected.push_back(SelectionModel(4, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(5, CURSOR_BACKWARD));
@@ -519,54 +551,28 @@ TEST_F(RenderTextTest, MoveCursorLeftRightInRtlLtr) {
   expected.push_back(SelectionModel(1, CURSOR_FORWARD));
   expected.push_back(SelectionModel(0, CURSOR_FORWARD));
   expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#else
-  expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(2, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(1, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(0, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(4, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(5, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(6, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(6, CURSOR_FORWARD));
-#endif
   RunMoveCursorLeftRightTest(render_text.get(), expected, CURSOR_RIGHT);
 }
 
 TEST_F(RenderTextTest, MoveCursorLeftRightInRtlLtrRtl) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   // RTL-LTR-RTL.
   render_text->SetText(WideToUTF16(L"\x05d0"L"a"L"\x05d1"));
   render_text->MoveCursor(LINE_BREAK, CURSOR_RIGHT, false);
   std::vector<SelectionModel> expected;
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(1, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(1, CURSOR_FORWARD));
   expected.push_back(SelectionModel(3, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-#else
-  expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(3, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(1, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(1, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#endif
   RunMoveCursorLeftRightTest(render_text.get(), expected, CURSOR_LEFT);
 
   expected.clear();
-#if defined(OS_LINUX)
   expected.push_back(SelectionModel(3, CURSOR_FORWARD));
   expected.push_back(SelectionModel(2, CURSOR_FORWARD));
   expected.push_back(SelectionModel(2, CURSOR_BACKWARD));
   expected.push_back(SelectionModel(0, CURSOR_FORWARD));
   expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-#else
-  expected.push_back(SelectionModel(0, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(0, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(2, CURSOR_BACKWARD));
-  expected.push_back(SelectionModel(2, CURSOR_FORWARD));
-  expected.push_back(SelectionModel(3, CURSOR_FORWARD));
-#endif
   RunMoveCursorLeftRightTest(render_text.get(), expected, CURSOR_RIGHT);
 }
 
@@ -575,7 +581,7 @@ TEST_F(RenderTextTest, MoveCursorLeftRightInRtlLtrRtl) {
 // to test 2 characters belong to the same grapheme.
 #if defined(OS_LINUX)
 TEST_F(RenderTextTest, MoveCursorLeftRight_ComplexScript) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
 
   render_text->SetText(WideToUTF16(L"\x0915\x093f\x0915\x094d\x0915"));
   EXPECT_EQ(0U, render_text->cursor_position());
@@ -606,6 +612,13 @@ TEST_F(RenderTextTest, GraphemePositions) {
   // LTR ab, LTR 2-character grapheme, LTR cd.
   const string16 kText2 = WideToUTF16(L"ab"L"\x0915\x093f"L"cd");
 
+  // The below is 'MUSICAL SYMBOL G CLEF', which is represented in UTF-16 as
+  // two characters forming the surrogate pair 0x0001D11E.
+  const std::string kSurrogate = "\xF0\x9D\x84\x9E";
+
+  // LTR ab, UTF16 surrogate pair, LTR cd.
+  const string16 kText3 = UTF8ToUTF16("ab" + kSurrogate + "cd");
+
   struct {
     string16 text;
     size_t index;
@@ -634,6 +647,15 @@ TEST_F(RenderTextTest, GraphemePositions) {
     { kText2, 6, 5, 6 },
     { kText2, 7, 6, 6 },
     { kText2, 50, 6, 6 },
+    { kText3, 0, 0, 1 },
+    { kText3, 1, 0, 2 },
+    { kText3, 2, 1, 4 },
+    { kText3, 3, 2, 4 },
+    { kText3, 4, 2, 5 },
+    { kText3, 5, 4, 6 },
+    { kText3, 6, 5, 6 },
+    { kText3, 7, 6, 6 },
+    { kText3, 50, 6, 6 },
   };
 
   // TODO(asvitkine): Disable tests that fail on XP bots due to lack of complete
@@ -643,7 +665,7 @@ TEST_F(RenderTextTest, GraphemePositions) {
     return;
 #endif
 
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     render_text->SetText(cases[i].text);
 
@@ -679,14 +701,8 @@ TEST_F(RenderTextTest, EdgeSelectionModels) {
     { kLatin,       base::i18n::LEFT_TO_RIGHT },
     { kLTRGrapheme, base::i18n::LEFT_TO_RIGHT },
     { kHindiLatin,  base::i18n::LEFT_TO_RIGHT },
-#if defined(OS_LINUX)
-    // On Linux, the whole string is displayed RTL, rather than individual runs.
     { kRTLGrapheme, base::i18n::RIGHT_TO_LEFT },
     { kHebrewLatin, base::i18n::RIGHT_TO_LEFT },
-#else
-    { kRTLGrapheme, base::i18n::LEFT_TO_RIGHT },
-    { kHebrewLatin, base::i18n::LEFT_TO_RIGHT },
-#endif
   };
 
   // TODO(asvitkine): Disable tests that fail on XP bots due to lack of complete
@@ -696,7 +712,7 @@ TEST_F(RenderTextTest, EdgeSelectionModels) {
     return;
 #endif
 
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
     render_text->SetText(cases[i].text);
     bool ltr = (cases[i].expected_text_direction == base::i18n::LEFT_TO_RIGHT);
@@ -711,8 +727,39 @@ TEST_F(RenderTextTest, EdgeSelectionModels) {
   }
 }
 
-TEST_F(RenderTextTest, MoveCursorLeftRightWithSelection) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+TEST_F(RenderTextTest, SelectAll) {
+  const wchar_t* const cases[] = {
+    L"abc",
+    L"a"L"\x5d0\x5d1",
+    L"a"L"\x5d1"L"b",
+    L"\x5d0\x5d1\x5d2",
+    L"\x5d0\x5d1"L"a",
+    L"\x5d0"L"a"L"\x5d1",
+  };
+
+  // Ensure that SelectAll respects the |reversed| argument regardless of
+  // application locale and text content directionality.
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
+  const SelectionModel expected_reversed(ui::Range(3, 0), CURSOR_FORWARD);
+  const SelectionModel expected_forwards(ui::Range(0, 3), CURSOR_BACKWARD);
+  const bool was_rtl = base::i18n::IsRTL();
+
+  for (size_t i = 0; i < 2; ++i) {
+    SetRTL(!base::i18n::IsRTL());
+    for (size_t j = 0; j < ARRAYSIZE_UNSAFE(cases); j++) {
+      render_text->SetText(WideToUTF16(cases[j]));
+      render_text->SelectAll(false);
+      EXPECT_EQ(render_text->selection_model(), expected_forwards);
+      render_text->SelectAll(true);
+      EXPECT_EQ(render_text->selection_model(), expected_reversed);
+    }
+  }
+
+  EXPECT_EQ(was_rtl, base::i18n::IsRTL());
+}
+
+  TEST_F(RenderTextTest, MoveCursorLeftRightWithSelection) {
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(WideToUTF16(L"abc\x05d0\x05d1\x05d2"));
   // Left arrow on select ranging (6, 4).
   render_text->MoveCursor(LINE_BREAK, CURSOR_RIGHT, false);
@@ -816,7 +863,7 @@ void MoveLeftRightByWordVerifier(RenderText* render_text,
 }
 
 TEST_F(RenderTextTest, MoveLeftRightByWordInBidiText) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
 
   // For testing simplicity, each word is a 3-character word.
   std::vector<const wchar_t*> test;
@@ -851,7 +898,7 @@ TEST_F(RenderTextTest, MoveLeftRightByWordInBidiText) {
 }
 
 TEST_F(RenderTextTest, MoveLeftRightByWordInBidiText_TestEndOfText) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
 
   render_text->SetText(WideToUTF16(L"ab\x05E1"));
   // Moving the cursor by word from "abC|" to the left should return "|abC".
@@ -884,7 +931,7 @@ TEST_F(RenderTextTest, MoveLeftRightByWordInBidiText_TestEndOfText) {
 }
 
 TEST_F(RenderTextTest, MoveLeftRightByWordInTextWithMultiSpaces) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(WideToUTF16(L"abc     def"));
   render_text->MoveCursorTo(SelectionModel(5, CURSOR_FORWARD));
   render_text->MoveCursor(WORD_BREAK, CURSOR_RIGHT, false);
@@ -896,7 +943,7 @@ TEST_F(RenderTextTest, MoveLeftRightByWordInTextWithMultiSpaces) {
 }
 
 TEST_F(RenderTextTest, MoveLeftRightByWordInChineseText) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(WideToUTF16(L"\x6211\x4EEC\x53BB\x516C\x56ED\x73A9"));
   render_text->MoveCursor(LINE_BREAK, CURSOR_LEFT, false);
   EXPECT_EQ(0U, render_text->cursor_position());
@@ -914,7 +961,7 @@ TEST_F(RenderTextTest, MoveLeftRightByWordInChineseText) {
 #endif
 
 TEST_F(RenderTextTest, StringSizeSanity) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(UTF8ToUTF16("Hello World"));
   const Size string_size = render_text->GetStringSize();
   EXPECT_GT(string_size.width(), 0);
@@ -923,7 +970,7 @@ TEST_F(RenderTextTest, StringSizeSanity) {
 
 TEST_F(RenderTextTest, StringSizeEmptyString) {
   const Font font;
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetFontList(FontList(font));
 
   render_text->SetText(string16());
@@ -935,7 +982,7 @@ TEST_F(RenderTextTest, StringSizeEmptyString) {
 }
 
 TEST_F(RenderTextTest, StringSizeBoldWidth) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(UTF8ToUTF16("Hello World"));
 
   const int plain_width = render_text->GetStringSize().width();
@@ -943,12 +990,22 @@ TEST_F(RenderTextTest, StringSizeBoldWidth) {
 
   // Apply a bold style and check that the new width is greater.
   StyleRange bold;
-  bold.font_style |= gfx::Font::BOLD;
+  bold.font_style |= Font::BOLD;
   render_text->set_default_style(bold);
   render_text->ApplyDefaultStyle();
 
   const int bold_width = render_text->GetStringSize().width();
   EXPECT_GT(bold_width, plain_width);
+
+  // Now, apply a plain style over the first word only.
+  StyleRange plain;
+  plain.font_style = Font::NORMAL;
+  plain.range = ui::Range(0, 5);
+  render_text->ApplyStyleRange(plain);
+
+  const int plain_bold_width = render_text->GetStringSize().width();
+  EXPECT_GT(plain_bold_width, plain_width);
+  EXPECT_LT(plain_bold_width, bold_width);
 }
 
 TEST_F(RenderTextTest, StringSizeHeight) {
@@ -966,7 +1023,7 @@ TEST_F(RenderTextTest, StringSizeHeight) {
   EXPECT_GT(larger_font.GetHeight(), default_font.GetHeight());
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); i++) {
-    scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+    scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
     render_text->SetFontList(FontList(default_font));
     render_text->SetText(cases[i].text);
 
@@ -980,8 +1037,15 @@ TEST_F(RenderTextTest, StringSizeHeight) {
   }
 }
 
+TEST_F(RenderTextTest, GetBaselineSanity) {
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
+  render_text->SetText(UTF8ToUTF16("Hello World"));
+  const int baseline = render_text->GetBaseline();
+  EXPECT_GT(baseline, 0);
+}
+
 TEST_F(RenderTextTest, CursorBoundsInReplacementMode) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(ASCIIToUTF16("abcdefg"));
   render_text->SetDisplayRect(Rect(100, 17));
   SelectionModel sel_b(1, CURSOR_FORWARD);
@@ -994,7 +1058,7 @@ TEST_F(RenderTextTest, CursorBoundsInReplacementMode) {
 }
 
 TEST_F(RenderTextTest, OriginForDrawing) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(ASCIIToUTF16("abcdefg"));
   render_text->SetFontList(FontList("Arial, 13px"));
 
@@ -1016,12 +1080,88 @@ TEST_F(RenderTextTest, OriginForDrawing) {
   EXPECT_EQ(origin.y(), 1);
 }
 
+TEST_F(RenderTextTest, SameFontForParentheses) {
+  struct {
+    const char16 left_char;
+    const char16 right_char;
+  } punctuation_pairs[] = {
+    { '(', ')' },
+    { '{', '}' },
+    { '<', '>' },
+  };
+  struct {
+    string16 text;
+  } cases[] = {
+    // English(English)
+    { WideToUTF16(L"Hello World(a)") },
+    // English(English)English
+    { WideToUTF16(L"Hello World(a)Hello World") },
+
+    // Japanese(English)
+    { WideToUTF16(L"\x6328\x62f6(a)") },
+    // Japanese(English)Japanese
+    { WideToUTF16(L"\x6328\x62f6(a)\x6328\x62f6") },
+    // English(Japanese)English
+    { WideToUTF16(L"Hello World(\x6328\x62f6)Hello World") },
+
+    // Hindi(English)
+    { WideToUTF16(L"\x0915\x093f(a)") },
+    // Hindi(English)Hindi
+    { WideToUTF16(L"\x0915\x093f(a)\x0915\x093f") },
+    // English(Hindi)English
+    { WideToUTF16(L"Hello World(\x0915\x093f)Hello World") },
+
+    // Hebrew(English)
+    { WideToUTF16(L"\x05e0\x05b8(a)") },
+    // Hebrew(English)Hebrew
+    { WideToUTF16(L"\x05e0\x05b8(a)\x05e0\x05b8") },
+    // English(Hebrew)English
+    { WideToUTF16(L"Hello World(\x05e0\x05b8)Hello World") },
+  };
+
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
+  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(cases); ++i) {
+    string16 text = cases[i].text;
+    const size_t start_paren_char_index = text.find('(');
+    ASSERT_NE(string16::npos, start_paren_char_index);
+    const size_t end_paren_char_index = text.find(')');
+    ASSERT_NE(string16::npos, end_paren_char_index);
+
+    for (size_t j = 0; j < ARRAYSIZE_UNSAFE(punctuation_pairs); ++j) {
+      text[start_paren_char_index] = punctuation_pairs[j].left_char;
+      text[end_paren_char_index] = punctuation_pairs[j].right_char;
+      render_text->SetText(text);
+
+      const std::vector<RenderText::FontSpan> spans =
+          render_text->GetFontSpansForTesting();
+
+      int start_paren_span_index = -1;
+      int end_paren_span_index = -1;
+      for (size_t k = 0; k < spans.size(); ++k) {
+        if (IndexInRange(spans[k].second, start_paren_char_index))
+          start_paren_span_index = k;
+        if (IndexInRange(spans[k].second, end_paren_char_index))
+          end_paren_span_index = k;
+      }
+      ASSERT_NE(-1, start_paren_span_index);
+      ASSERT_NE(-1, end_paren_span_index);
+
+      const Font& start_font = spans[start_paren_span_index].first;
+      const Font& end_font = spans[end_paren_span_index].first;
+      EXPECT_EQ(start_font.GetFontName(), end_font.GetFontName());
+      EXPECT_EQ(start_font.GetFontSize(), end_font.GetFontSize());
+      EXPECT_EQ(start_font.GetStyle(), end_font.GetStyle());
+    }
+  }
+}
+
 TEST_F(RenderTextTest, DisplayRectShowsCursorLTR) {
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(WideToUTF16(L"abcdefghijklmnopqrstuvwxzyabcdefg"));
   render_text->MoveCursorTo(SelectionModel(render_text->text().length(),
                                            CURSOR_FORWARD));
   int width = render_text->GetStringSize().width();
+  ASSERT_GT(width, 10);
 
   // Ensure that the cursor is placed at the width of its preceding text.
   render_text->SetDisplayRect(Rect(width + 10, 1));
@@ -1046,6 +1186,7 @@ TEST_F(RenderTextTest, DisplayRectShowsCursorLTR) {
       L"\x5d8\x5d9\x5da\x5db\x5dc\x5dd\x5de\x5df"));
   render_text->MoveCursorTo(SelectionModel(0, CURSOR_FORWARD));
   width = render_text->GetStringSize().width();
+  ASSERT_GT(width, 10);
 
   // Ensure that the cursor is placed at the width of its preceding text.
   render_text->SetDisplayRect(Rect(width + 10, 1));
@@ -1067,14 +1208,15 @@ TEST_F(RenderTextTest, DisplayRectShowsCursorLTR) {
 }
 
 TEST_F(RenderTextTest, DisplayRectShowsCursorRTL) {
-  // Set the locale to Hebrew for RTL UI.
-  std::string locale = l10n_util::GetApplicationLocale("");
-  base::i18n::SetICUDefaultLocale("he");
+  // Set the application default text direction to RTL.
+  const bool was_rtl = base::i18n::IsRTL();
+  SetRTL(true);
 
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   render_text->SetText(WideToUTF16(L"abcdefghijklmnopqrstuvwxzyabcdefg"));
   render_text->MoveCursorTo(SelectionModel(0, CURSOR_FORWARD));
   int width = render_text->GetStringSize().width();
+  ASSERT_GT(width, 10);
 
   // Ensure that the cursor is placed at the width of its preceding text.
   render_text->SetDisplayRect(Rect(width + 10, 1));
@@ -1100,6 +1242,7 @@ TEST_F(RenderTextTest, DisplayRectShowsCursorRTL) {
   render_text->MoveCursorTo(SelectionModel(render_text->text().length(),
                                            CURSOR_FORWARD));
   width = render_text->GetStringSize().width();
+  ASSERT_GT(width, 10);
 
   // Ensure that the cursor is placed at the width of its preceding text.
   render_text->SetDisplayRect(Rect(width + 10, 1));
@@ -1119,8 +1262,9 @@ TEST_F(RenderTextTest, DisplayRectShowsCursorRTL) {
   EXPECT_EQ(render_text->display_rect().width() - width - 1,
             render_text->GetUpdatedCursorBounds().x());
 
-  // Reset locale.
-  base::i18n::SetICUDefaultLocale(locale);
+  // Reset the application default text direction to LTR.
+  SetRTL(was_rtl);
+  EXPECT_EQ(was_rtl, base::i18n::IsRTL());
 }
 
 }  // namespace gfx

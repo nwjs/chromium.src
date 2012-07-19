@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_USER_SCRIPT_LISTENER_H_
 #define CHROME_BROWSER_EXTENSIONS_USER_SCRIPT_LISTENER_H_
-#pragma once
 
 #include <deque>
 #include <list>
@@ -18,13 +17,15 @@
 #include "content/public/browser/notification_registrar.h"
 #include "webkit/glue/resource_type.h"
 
-class Extension;
 class GURL;
 class URLPattern;
 
 namespace content {
 class ResourceThrottle;
 }
+
+namespace extensions {
+class Extension;
 
 // This class handles delaying of resource loads that depend on unloaded user
 // scripts. For each request that comes in, we check if it depends on a user
@@ -95,7 +96,8 @@ class UserScriptListener
 
   // Helper to collect the extension's user script URL patterns in a list and
   // return it.
-  void CollectURLPatterns(const Extension* extension, URLPatterns* patterns);
+  void CollectURLPatterns(const Extension* extension,
+                          URLPatterns* patterns);
 
   // content::NotificationObserver
   virtual void Observe(int type,
@@ -106,5 +108,7 @@ class UserScriptListener
 
   DISALLOW_COPY_AND_ASSIGN(UserScriptListener);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_USER_SCRIPT_LISTENER_H_

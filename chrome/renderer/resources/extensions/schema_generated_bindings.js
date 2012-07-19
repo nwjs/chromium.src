@@ -5,13 +5,18 @@
 // This script contains privileged chrome extension related javascript APIs.
 // It is loaded by pages whose URL has the chrome-extension protocol.
 
+  // TODO(battre): cleanup the usage of packages everywhere, as described here
+  // http://codereview.chromium.org/10392008/diff/38/chrome/renderer/resources/extensions/schema_generated_bindings.js
+
   require('json_schema');
   require('event_bindings');
-  var natives = requireNative('schema_generated_bindings');
-  var GetExtensionAPIDefinition = natives.GetExtensionAPIDefinition;
+  var GetExtensionAPIDefinition =
+      requireNative('apiDefinitions').GetExtensionAPIDefinition;
   var sendRequest = require('sendRequest').sendRequest;
-
+  var utils = require('utils');
+  var isDevChannel = requireNative('channel').IsDevChannel;
   var chromeHidden = requireNative('chrome_hidden').GetChromeHidden();
+  var schemaUtils = require('schemaUtils');
 
   // The object to generate the bindings for "internal" APIs in, so that
   // extensions can't directly call them (without access to chromeHidden),
@@ -21,163 +26,6 @@
   // having strict permissions and aren't generated *anywhere* unless needed.
   var internalAPIs = {};
   chromeHidden.internalAPIs = internalAPIs;
-
-  function forEach(dict, f) {
-    for (key in dict) {
-      if (dict.hasOwnProperty(key))
-        f(key, dict[key]);
-    }
-  }
-
-  // Validate arguments.
-  var schemaValidator = new chromeHidden.JSONSchemaValidator();
-  chromeHidden.validate = function(args, parameterSchemas) {
-    if (args.length > parameterSchemas.length)
-      throw new Error("Too many arguments.");
-
-    for (var i = 0; i < parameterSchemas.length; i++) {
-      if (i in args && args[i] !== null && args[i] !== undefined) {
-        schemaValidator.resetErrors();
-        schemaValidator.validate(args[i], parameterSchemas[i]);
-        if (schemaValidator.errors.length == 0)
-          continue;
-
-        var message = "Invalid value for argument " + (i + 1) + ". ";
-        for (var i = 0, err; err = schemaValidator.errors[i]; i++) {
-          if (err.path) {
-            message += "Property '" + err.path + "': ";
-          }
-          message += err.message;
-          message = message.substring(0, message.length - 1);
-          message += ", ";
-        }
-        message = message.substring(0, message.length - 2);
-        message += ".";
-
-        throw new Error(message);
-      } else if (!parameterSchemas[i].optional) {
-        throw new Error("Parameter " + (i + 1) + " is required.");
-      }
-    }
-  };
-
-  // Generate all possible signatures for a given API function.
-  function getSignatures(parameterSchemas) {
-    if (parameterSchemas.length === 0)
-      return [[]];
-
-    var signatures = [];
-    var remaining = getSignatures(parameterSchemas.slice(1));
-    for (var i = 0; i < remaining.length; i++)
-      signatures.push([parameterSchemas[0]].concat(remaining[i]))
-
-    if (parameterSchemas[0].optional)
-      return signatures.concat(remaining);
-    return signatures;
-  };
-
-  // Return true if arguments match a given signature's schema.
-  function argumentsMatchSignature(args, candidateSignature) {
-    if (args.length != candidateSignature.length)
-      return false;
-
-    for (var i = 0; i < candidateSignature.length; i++) {
-      var argType =  chromeHidden.JSONSchemaValidator.getType(args[i]);
-      if (!schemaValidator.isValidSchemaType(argType, candidateSignature[i]))
-        return false;
-    }
-    return true;
-  };
-
-  // Finds the function signature for the given arguments.
-  function resolveSignature(args, definedSignature) {
-    var candidateSignatures = getSignatures(definedSignature);
-    for (var i = 0; i < candidateSignatures.length; i++) {
-      if (argumentsMatchSignature(args, candidateSignatures[i]))
-        return candidateSignatures[i];
-    }
-    return null;
-  };
-
-  // Returns a string representing the defined signature of the API function.
-  // Example return value for chrome.windows.getCurrent:
-  // "windows.getCurrent(optional object populate, function callback)"
-  function getParameterSignatureString(name, definedSignature) {
-    var getSchemaTypeString = function(schema) {
-      var schemaTypes = schemaValidator.getAllTypesForSchema(schema);
-      var typeName = schemaTypes.join(" or ") + " " + schema.name;
-      if (schema.optional)
-        return "optional " + typeName;
-      return typeName;
-    };
-
-    var typeNames = definedSignature.map(getSchemaTypeString);
-    return name + "(" + typeNames.join(", ") + ")";
-  };
-
-  // Returns a string representing a call to an API function.
-  // Example return value for call: chrome.windows.get(1, callback) is:
-  // "windows.get(int, function)"
-  function getArgumentSignatureString(name, args) {
-    var typeNames = args.map(chromeHidden.JSONSchemaValidator.getType);
-    return name + "(" + typeNames.join(", ") + ")";
-  };
-
-  // Finds the correct signature for the given arguments, then validates the
-  // arguments against that signature. Returns a 'normalized' arguments list
-  // where nulls are inserted where optional parameters were omitted.
-  function normalizeArgumentsAndValidate(args, funDef) {
-    if (funDef.allowAmbiguousOptionalArguments) {
-      chromeHidden.validate(args, funDef.definition.parameters);
-      return args;
-    }
-
-    var definedSignature = funDef.definition.parameters;
-    var resolvedSignature = resolveSignature(args, definedSignature);
-    if (!resolvedSignature)
-      throw new Error("Invocation of form " +
-          getArgumentSignatureString(funDef.name, args) +
-          " doesn't match definition " +
-          getParameterSignatureString(funDef.name, definedSignature));
-
-    chromeHidden.validate(args, resolvedSignature);
-
-    var normalizedArgs = [];
-    var ai = 0;
-    for (var si = 0; si < definedSignature.length; si++) {
-      if (definedSignature[si] === resolvedSignature[ai])
-        normalizedArgs.push(args[ai++]);
-      else
-        normalizedArgs.push(null);
-    }
-    return normalizedArgs;
-  };
-
-  // Validates that a given schema for an API function is not ambiguous.
-  function isFunctionSignatureAmbiguous(functionDef) {
-    if (functionDef.allowAmbiguousOptionalArguments)
-      return false;
-
-    var signaturesAmbiguous = function(signature1, signature2) {
-      if (signature1.length != signature2.length)
-        return false;
-
-      for (var i = 0; i < signature1.length; i++) {
-        if (!schemaValidator.checkSchemaOverlap(signature1[i], signature2[i]))
-          return false;
-      }
-      return true;
-    };
-
-    var candidateSignatures = getSignatures(functionDef.parameters);
-    for (var i = 0; i < candidateSignatures.length; i++) {
-      for (var j = i + 1; j < candidateSignatures.length; j++) {
-        if (signaturesAmbiguous(candidateSignatures[i], candidateSignatures[j]))
-          return true;
-      }
-    }
-    return false;
-  };
 
   // Stores the name and definition of each API function, with methods to
   // modify their behaviour (such as a custom way to handle requests to the
@@ -298,9 +146,12 @@
     // The functions in the schema are in list form, so we move them into a
     // dictionary for easier access.
     var self = this;
-    self.parameters = {};
+    self.functionSchemas = {};
     schema.functions.forEach(function(f) {
-      self.parameters[f.name] = f.parameters;
+      self.functionSchemas[f.name] = {
+        name: f.name,
+        definition: f
+      }
     });
   };
 
@@ -347,7 +198,7 @@
   }
 
   chromeHidden.onLoad.addListener(function(extensionId,
-                                           isExtensionProcess,
+                                           contextType,
                                            isIncognitoProcess,
                                            manifestVersion) {
     var apiDefinitions = GetExtensionAPIDefinition();
@@ -384,7 +235,7 @@
           if (!isSchemaNodeSupported(t, platform, manifestVersion))
             return;
 
-          schemaValidator.addTypes(t);
+          schemaUtils.schemaValidator.addTypes(t);
           if (t.type == 'object' && customTypes[t.id]) {
             customTypes[t.id].prototype.setSchema(t);
           }
@@ -395,7 +246,7 @@
       // based on the presence of "unprivileged" and whether this is an
       // extension process (versus e.g. a content script).
       function isSchemaAccessAllowed(itemSchema) {
-        return isExtensionProcess ||
+        return (contextType == 'BLESSED_EXTENSION') ||
                apiDef.unprivileged ||
                itemSchema.unprivileged;
       }
@@ -438,7 +289,8 @@
           // to do that we would need to better factor this code so that it
           // doesn't depend on so much v8::Extension machinery.
           if (chromeHidden.validateAPI &&
-              isFunctionSignatureAmbiguous(apiFunction.definition)) {
+              schemaUtils.isFunctionSignatureAmbiguous(
+                  apiFunction.definition)) {
             throw new Error(
                 apiFunction.name + ' has ambiguous optional arguments. ' +
                 'To implement custom disambiguation logic, add ' +
@@ -452,7 +304,7 @@
             if (this.updateArgumentsPreValidate)
               args = this.updateArgumentsPreValidate.apply(this, args);
 
-            args = normalizeArgumentsAndValidate(args, this);
+            args = schemaUtils.normalizeArgumentsAndValidate(args, this);
             if (this.updateArgumentsPostValidate)
               args = this.updateArgumentsPostValidate.apply(this, args);
 
@@ -467,9 +319,8 @@
 
             // Validate return value if defined - only in debug.
             if (chromeHidden.validateCallbacks &&
-                chromeHidden.validate &&
                 this.definition.returns) {
-              chromeHidden.validate([retval], [this.definition.returns]);
+              schemaUtils.validate([retval], [this.definition.returns]);
             }
             return retval;
           }).bind(apiFunction);
@@ -510,7 +361,7 @@
         if (!properties)
           return;
 
-        forEach(properties, function(propertyName, propertyDef) {
+        utils.forEach(properties, function(propertyName, propertyDef) {
           if (propertyName in m)
             return;  // TODO(kalman): be strict like functions/events somehow.
           if (!isSchemaNodeSupported(propertyDef, platform, manifestVersion))
@@ -522,9 +373,14 @@
 
           var value = propertyDef.value;
           if (value) {
-            if (propertyDef.type === 'integer') {
+            // Values may just have raw types as defined in the JSON, such
+            // as "WINDOW_ID_NONE": { "value": -1 }. We handle this here.
+            // TODO(kalman): enforce that things with a "value" property can't
+            // define their own types.
+            var type = propertyDef.type || typeof(value);
+            if (type === 'integer' || type === 'number') {
               value = parseInt(value);
-            } else if (propertyDef.type === 'boolean') {
+            } else if (type === 'boolean') {
               value = value === "true";
             } else if (propertyDef["$ref"]) {
               var constructor = customTypes[propertyDef["$ref"]];
@@ -539,15 +395,13 @@
               constructor.apply(value, args);
               // Recursively add properties.
               addProperties(value, propertyDef);
-            } else if (propertyDef.type === 'object') {
+            } else if (type === 'object') {
               // Recursively add properties.
               addProperties(value, propertyDef);
-            } else if (propertyDef.type !== 'string') {
-              throw "NOT IMPLEMENTED (extension_api.json error): Cannot " +
-                  "parse values for type \"" + propertyDef.type + "\"";
+            } else if (type !== 'string') {
+              throw new Error("NOT IMPLEMENTED (extension_api.json error): " +
+                  "Cannot parse values for type \"" + type + "\"");
             }
-          }
-          if (value) {
             m[propertyName] = value;
           }
         });
@@ -573,7 +427,7 @@
         apiFunctions: new NamespacedAPIFunctions(apiDef.namespace,
                                                  apiFunctions),
         apiDefinitions: apiDefinitions,
-      }, extensionId);
+      }, extensionId, contextType);
     });
 
     // TODO(mihaip): remove this alias once the webstore stops calling

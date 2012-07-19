@@ -1,12 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_SIGNED_SETTINGS_MIGRATION_HELPER_H_
 #define CHROME_BROWSER_CHROMEOS_SIGNED_SETTINGS_MIGRATION_HELPER_H_
-#pragma once
 
-#include "chrome/browser/chromeos/login/ownership_status_checker.h"
+#include "base/memory/weak_ptr.h"
+#include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/chromeos/login/signed_settings_helper.h"
 #include "chrome/browser/prefs/pref_value_map.h"
 #include "content/public/browser/notification_observer.h"
@@ -48,7 +48,7 @@ class SignedSettingsMigrationHelper : public content::NotificationObserver {
                        bool current_user_is_owner);
 
   content::NotificationRegistrar registrar_;
-  scoped_ptr<OwnershipStatusChecker> ownership_checker_;
+  base::WeakPtrFactory<SignedSettingsMigrationHelper> ptr_factory_;
   PrefValueMap migration_values_;
 
   DISALLOW_COPY_AND_ASSIGN(SignedSettingsMigrationHelper);

@@ -71,6 +71,8 @@ CONFORMANCE_TEST(conformance_more_functions_drawElementsBadArgs,
   "conformance/more/functions/drawElementsBadArgs.html");
 CONFORMANCE_TEST(conformance_more_functions_isTests,
   "conformance/more/functions/isTests.html");
+CONFORMANCE_TEST(conformance_more_functions_isTestsBadArgs,
+  "conformance/more/functions/isTestsBadArgs.html");
 CONFORMANCE_TEST(conformance_more_functions_readPixels,
   "conformance/more/functions/readPixels.html");
 CONFORMANCE_TEST(conformance_more_functions_readPixelsBadArgs,
@@ -119,6 +121,10 @@ CONFORMANCE_TEST(conformance_more_glsl_uniformOutOfBounds,
   "conformance/more/glsl/uniformOutOfBounds.html");
 CONFORMANCE_TEST(conformance_attribs_gl_enable_vertex_attrib,
   "conformance/attribs/gl-enable-vertex-attrib.html");
+CONFORMANCE_TEST(conformance_attribs_gl_vertex_attrib_render,
+  "conformance/attribs/gl-vertex-attrib-render.html");
+CONFORMANCE_TEST(conformance_attribs_gl_disabled_vertex_attrib,
+  "conformance/attribs/gl-disabled-vertex-attrib.html");
 CONFORMANCE_TEST(conformance_attribs_gl_vertex_attrib_zero_issues,
   "conformance/attribs/gl-vertex-attrib-zero-issues.html");
 CONFORMANCE_TEST(conformance_attribs_gl_vertex_attrib,
@@ -153,12 +159,20 @@ CONFORMANCE_TEST(conformance_canvas_drawingbuffer_static_canvas_test,
   "conformance/canvas/drawingbuffer-static-canvas-test.html");
 CONFORMANCE_TEST(conformance_canvas_drawingbuffer_test,
   "conformance/canvas/drawingbuffer-test.html");
+CONFORMANCE_TEST(conformance_canvas_framebuffer_bindings_unaffected_on_resize,
+  "conformance/canvas/framebuffer-bindings-unaffected-on-resize.html");
+CONFORMANCE_TEST(conformance_canvas_texture_bindings_unaffected_on_resize,
+  "conformance/canvas/texture-bindings-unaffected-on-resize.html");
 CONFORMANCE_TEST(conformance_canvas_viewport_unchanged_upon_resize,
   "conformance/canvas/viewport-unchanged-upon-resize.html");
 CONFORMANCE_TEST(conformance_context_constants,
   "conformance/context/constants.html");
+CONFORMANCE_TEST(conformance_context_context_attribute_preserve_drawing_buffer,
+  "conformance/context/context-attribute-preserve-drawing-buffer.html");
 CONFORMANCE_TEST(conformance_context_context_attributes_alpha_depth_stencil_antialias,
   "conformance/context/context-attributes-alpha-depth-stencil-antialias.html");
+CONFORMANCE_TEST(conformance_context_context_creation_and_destruction,
+  "conformance/context/context-creation-and-destruction.html");
 CONFORMANCE_TEST(conformance_context_context_lost_restored,
   "conformance/context/context-lost-restored.html");
 CONFORMANCE_TEST(conformance_context_context_lost,
@@ -173,8 +187,18 @@ CONFORMANCE_TEST(conformance_context_premultiplyalpha_test,
   "conformance/context/premultiplyalpha-test.html");
 CONFORMANCE_TEST(conformance_context_resource_sharing_test,
   "conformance/context/resource-sharing-test.html");
+CONFORMANCE_TEST(conformance_extensions_get_extension,
+  "conformance/extensions/get-extension.html");
 CONFORMANCE_TEST(conformance_extensions_oes_standard_derivatives,
   "conformance/extensions/oes-standard-derivatives.html");
+CONFORMANCE_TEST(conformance_extensions_oes_texture_float_with_canvas,
+  "conformance/extensions/oes-texture-float-with-canvas.html");
+CONFORMANCE_TEST(conformance_extensions_oes_texture_float_with_image_data,
+  "conformance/extensions/oes-texture-float-with-image-data.html");
+CONFORMANCE_TEST(conformance_extensions_oes_texture_float_with_image,
+  "conformance/extensions/oes-texture-float-with-image.html");
+CONFORMANCE_TEST(conformance_extensions_oes_texture_float_with_video,
+  "conformance/extensions/oes-texture-float-with-video.html");
 CONFORMANCE_TEST(conformance_extensions_oes_texture_float,
   "conformance/extensions/oes-texture-float.html");
 CONFORMANCE_TEST(conformance_extensions_oes_vertex_array_object,
@@ -185,6 +209,8 @@ CONFORMANCE_TEST(conformance_extensions_webgl_debug_shaders,
   "conformance/extensions/webgl-debug-shaders.html");
 CONFORMANCE_TEST(conformance_extensions_webgl_compressed_texture_s3tc,
   "conformance/extensions/webgl-compressed-texture-s3tc.html");
+CONFORMANCE_TEST(conformance_extensions_ext_texture_filter_anisotropic,
+  "conformance/extensions/ext-texture-filter-anisotropic.html");
 CONFORMANCE_TEST(conformance_limits_gl_min_attribs,
   "conformance/limits/gl-min-attribs.html");
 CONFORMANCE_TEST(conformance_limits_gl_max_texture_dimensions,
@@ -223,6 +249,8 @@ CONFORMANCE_TEST(conformance_programs_get_active_test,
   "conformance/programs/get-active-test.html");
 CONFORMANCE_TEST(conformance_programs_gl_bind_attrib_location_test,
   "conformance/programs/gl-bind-attrib-location-test.html");
+CONFORMANCE_TEST(conformance_programs_gl_bind_attrib_location_long_names_test,
+  "conformance/programs/gl-bind-attrib-location-long-names-test.html");
 CONFORMANCE_TEST(conformance_programs_gl_get_active_attribute,
   "conformance/programs/gl-get-active-attribute.html");
 CONFORMANCE_TEST(conformance_programs_gl_get_active_uniform,
@@ -235,16 +263,22 @@ CONFORMANCE_TEST(conformance_programs_invalid_UTF_16,
   "conformance/programs/invalid-UTF-16.html");
 CONFORMANCE_TEST(conformance_programs_program_test,
   "conformance/programs/program-test.html");
+CONFORMANCE_TEST(conformance_programs_use_program_crash_with_discard_in_fragment_shader,
+  "conformance/programs/use-program-crash-with-discard-in-fragment-shader.html");
 CONFORMANCE_TEST(conformance_reading_read_pixels_pack_alignment,
   "conformance/reading/read-pixels-pack-alignment.html");
 CONFORMANCE_TEST(conformance_reading_read_pixels_test,
   "conformance/reading/read-pixels-test.html");
 CONFORMANCE_TEST(conformance_renderbuffers_framebuffer_object_attachment,
   "conformance/renderbuffers/framebuffer-object-attachment.html");
+CONFORMANCE_TEST(conformance_renderbuffers_framebuffer_state_restoration,
+  "conformance/renderbuffers/framebuffer-state-restoration.html");
 CONFORMANCE_TEST(conformance_renderbuffers_framebuffer_test,
   "conformance/renderbuffers/framebuffer-test.html");
 CONFORMANCE_TEST(conformance_renderbuffers_renderbuffer_initialization,
   "conformance/renderbuffers/renderbuffer-initialization.html");
+CONFORMANCE_TEST(conformance_rendering_culling,
+  "conformance/rendering/culling.html");
 CONFORMANCE_TEST(conformance_rendering_draw_arrays_out_of_bounds,
   "conformance/rendering/draw-arrays-out-of-bounds.html");
 CONFORMANCE_TEST(conformance_rendering_draw_elements_out_of_bounds,
@@ -289,12 +323,36 @@ CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_array_buff
   "conformance/textures/tex-image-and-sub-image-2d-with-array-buffer-view.html");
 CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_canvas,
   "conformance/textures/tex-image-and-sub-image-2d-with-canvas.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_canvas_rgb565,
+  "conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgb565.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_canvas_rgba4444,
+  "conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgba4444.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_canvas_rgba5551,
+  "conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgba5551.html");
 CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_data,
   "conformance/textures/tex-image-and-sub-image-2d-with-image-data.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_data_rgb565,
+  "conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgb565.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_data_rgba4444,
+  "conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgba4444.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_data_rgba5551,
+  "conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgba5551.html");
 CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image,
   "conformance/textures/tex-image-and-sub-image-2d-with-image.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_rgb565,
+  "conformance/textures/tex-image-and-sub-image-2d-with-image-rgb565.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_rgba4444,
+  "conformance/textures/tex-image-and-sub-image-2d-with-image-rgba4444.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_image_rgba5551,
+  "conformance/textures/tex-image-and-sub-image-2d-with-image-rgba5551.html");
 CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_video,
   "conformance/textures/tex-image-and-sub-image-2d-with-video.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_video_rgb565,
+  "conformance/textures/tex-image-and-sub-image-2d-with-video-rgb565.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_video_rgba4444,
+  "conformance/textures/tex-image-and-sub-image-2d-with-video-rgba4444.html");
+CONFORMANCE_TEST(conformance_textures_tex_image_and_sub_image_2d_with_video_rgba5551,
+  "conformance/textures/tex-image-and-sub-image-2d-with-video-rgba5551.html");
 CONFORMANCE_TEST(conformance_textures_tex_image_and_uniform_binding_bugs,
   "conformance/textures/tex-image-and-uniform-binding-bugs.html");
 CONFORMANCE_TEST(conformance_textures_tex_image_with_format_and_type,
@@ -313,6 +371,8 @@ CONFORMANCE_TEST(conformance_textures_texture_active_bind_2,
   "conformance/textures/texture-active-bind-2.html");
 CONFORMANCE_TEST(conformance_textures_texture_active_bind,
   "conformance/textures/texture-active-bind.html");
+CONFORMANCE_TEST(conformance_textures_texture_attachment_formats,
+  "conformance/textures/texture-attachment-formats.html");
 CONFORMANCE_TEST(conformance_textures_texture_clear,
   "conformance/textures/texture-clear.html");
 CONFORMANCE_TEST(conformance_textures_texture_complete,
@@ -331,12 +391,18 @@ CONFORMANCE_TEST(conformance_textures_texture_size_cube_maps,
   "conformance/textures/texture-size-cube-maps.html");
 CONFORMANCE_TEST(conformance_textures_texture_transparent_pixels_initialized,
   "conformance/textures/texture-transparent-pixels-initialized.html");
+CONFORMANCE_TEST(conformance_textures_texture_upload_cube_maps,
+  "conformance/textures/texture-upload-cube-maps.html");
 CONFORMANCE_TEST(conformance_typedarrays_array_buffer_crash,
   "conformance/typedarrays/array-buffer-crash.html");
 CONFORMANCE_TEST(conformance_typedarrays_array_buffer_view_crash,
   "conformance/typedarrays/array-buffer-view-crash.html");
 CONFORMANCE_TEST(conformance_typedarrays_array_unit_tests,
   "conformance/typedarrays/array-unit-tests.html");
+CONFORMANCE_TEST(conformance_typedarrays_data_view_crash,
+  "conformance/typedarrays/data-view-crash.html");
+CONFORMANCE_TEST(conformance_typedarrays_data_view_test,
+  "conformance/typedarrays/data-view-test.html");
 CONFORMANCE_TEST(conformance_uniforms_gl_uniform_arrays,
   "conformance/uniforms/gl-uniform-arrays.html");
 CONFORMANCE_TEST(conformance_uniforms_gl_uniform_bool,
@@ -347,6 +413,8 @@ CONFORMANCE_TEST(conformance_uniforms_gl_unknown_uniform,
   "conformance/uniforms/gl-unknown-uniform.html");
 CONFORMANCE_TEST(conformance_uniforms_null_uniform_location,
   "conformance/uniforms/null-uniform-location.html");
+CONFORMANCE_TEST(conformance_uniforms_uniform_default_values,
+  "conformance/uniforms/uniform-default-values.html");
 CONFORMANCE_TEST(conformance_uniforms_uniform_location,
   "conformance/uniforms/uniform-location.html");
 CONFORMANCE_TEST(conformance_uniforms_uniform_samplers_test,
@@ -555,14 +623,22 @@ CONFORMANCE_TEST(conformance_glsl_misc_embedded_struct_definitions_forbidden,
   "conformance/glsl/misc/embedded-struct-definitions-forbidden.html");
 CONFORMANCE_TEST(conformance_glsl_misc_glsl_function_nodes,
   "conformance/glsl/misc/glsl-function-nodes.html");
+CONFORMANCE_TEST(conformance_glsl_misc_glsl_vertex_branch,
+  "conformance/glsl/misc/glsl-vertex-branch.html");
 CONFORMANCE_TEST(conformance_glsl_misc_glsl_long_variable_names,
   "conformance/glsl/misc/glsl-long-variable-names.html");
 CONFORMANCE_TEST(conformance_glsl_misc_non_ascii_comments_vert,
   "conformance/glsl/misc/non-ascii-comments.vert.html");
 CONFORMANCE_TEST(conformance_glsl_misc_non_ascii_vert,
   "conformance/glsl/misc/non-ascii.vert.html");
+CONFORMANCE_TEST(conformance_glsl_misc_re_compile_re_link,
+  "conformance/glsl/misc/re-compile-re-link.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_256_character_define,
+  "conformance/glsl/misc/shader-with-256-character-define.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_256_character_identifier_frag,
   "conformance/glsl/misc/shader-with-256-character-identifier.frag.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_257_character_define,
+  "conformance/glsl/misc/shader-with-257-character-define.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_257_character_identifier_frag,
   "conformance/glsl/misc/shader-with-257-character-identifier.frag.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with__webgl_identifier_vert,
@@ -579,6 +655,8 @@ CONFORMANCE_TEST(conformance_glsl_misc_shader_with_clipvertex_vert,
   "conformance/glsl/misc/shader-with-clipvertex.vert.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_conditional_scoping,
   "conformance/glsl/misc/shader-with-conditional-scoping.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_conditional_scoping_negative,
+  "conformance/glsl/misc/shader-with-conditional-scoping-negative.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_default_precision_frag,
   "conformance/glsl/misc/shader-with-default-precision.frag.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_default_precision_vert,
@@ -589,8 +667,8 @@ CONFORMANCE_TEST(conformance_glsl_misc_shader_with_dfdx_no_ext_frag,
   "conformance/glsl/misc/shader-with-dfdx-no-ext.frag.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_dfdx_frag,
   "conformance/glsl/misc/shader-with-dfdx.frag.html");
-CONFORMANCE_TEST(conformance_glsl_misc_shader_with_do_scoping,
-  "conformance/glsl/misc/shader-with-do-scoping.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_do_loop,
+  "conformance/glsl/misc/shader-with-do-loop.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_error_directive,
   "conformance/glsl/misc/shader-with-error-directive.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_explicit_int_cast_vert,
@@ -609,6 +687,10 @@ CONFORMANCE_TEST(conformance_glsl_misc_shader_with_function_scoped_struct,
   "conformance/glsl/misc/shader-with-function-scoped-struct.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_functional_scoping,
   "conformance/glsl/misc/shader-with-functional-scoping.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_comma_assignment,
+  "conformance/glsl/misc/shader-with-comma-assignment.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_comma_conditional_assignment,
+  "conformance/glsl/misc/shader-with-comma-conditional-assignment.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_glcolor_vert,
   "conformance/glsl/misc/shader-with-glcolor.vert.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_gles_1_frag,
@@ -639,10 +721,14 @@ CONFORMANCE_TEST(conformance_glsl_misc_shader_with_long_line,
   "conformance/glsl/misc/shader-with-long-line.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_non_ascii_error_frag,
   "conformance/glsl/misc/shader-with-non-ascii-error.frag.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_non_reserved_words,
+  "conformance/glsl/misc/shader-with-non-reserved-words.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_precision_frag,
   "conformance/glsl/misc/shader-with-precision.frag.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_quoted_error_frag,
   "conformance/glsl/misc/shader-with-quoted-error.frag.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_reserved_words,
+  "conformance/glsl/misc/shader-with-reserved-words.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_undefined_preprocessor_symbol_frag,
   "conformance/glsl/misc/shader-with-undefined-preprocessor-symbol.frag.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_uniform_in_loop_condition_vert,
@@ -665,6 +751,8 @@ CONFORMANCE_TEST(conformance_glsl_misc_shader_with_version_130_vert,
   "conformance/glsl/misc/shader-with-version-130.vert.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_with_webgl_identifier_vert,
   "conformance/glsl/misc/shader-with-webgl-identifier.vert.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_while_loop,
+  "conformance/glsl/misc/shader-with-while-loop.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shader_without_precision_frag,
   "conformance/glsl/misc/shader-without-precision.frag.html");
 CONFORMANCE_TEST(conformance_glsl_misc_shared,
@@ -675,6 +763,8 @@ CONFORMANCE_TEST(conformance_glsl_misc_struct_nesting_under_maximum,
   "conformance/glsl/misc/struct-nesting-under-maximum.html");
 CONFORMANCE_TEST(conformance_glsl_misc_uniform_location_length_limits,
   "conformance/glsl/misc/uniform-location-length-limits.html");
+CONFORMANCE_TEST(conformance_glsl_misc_shader_with_short_circuiting_operators,
+  "conformance/glsl/misc/shader-with-short-circuiting-operators.html");
 CONFORMANCE_TEST(conformance_glsl_reserved__webgl_field_vert,
   "conformance/glsl/reserved/_webgl_field.vert.html");
 CONFORMANCE_TEST(conformance_glsl_reserved__webgl_function_vert,
@@ -703,6 +793,288 @@ CONFORMANCE_TEST(conformance_glsl_variables_gl_frontfacing,
   "conformance/glsl/variables/gl-frontfacing.html");
 CONFORMANCE_TEST(conformance_glsl_variables_gl_pointcoord,
   "conformance/glsl/variables/gl-pointcoord.html");
+CONFORMANCE_TEST(conformance_ogles_GL_abs_abs_001_to_006,
+  "conformance/ogles/GL/abs/abs_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_acos_acos_001_to_006,
+  "conformance/ogles/GL/acos/acos_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_all_all_001_to_004,
+  "conformance/ogles/GL/all/all_001_to_004.html");
+CONFORMANCE_TEST(conformance_ogles_GL_any_any_001_to_004,
+  "conformance/ogles/GL/any/any_001_to_004.html");
+CONFORMANCE_TEST(conformance_ogles_GL_array_array_001_to_006,
+  "conformance/ogles/GL/array/array_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_asin_asin_001_to_006,
+  "conformance/ogles/GL/asin/asin_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_atan_atan_001_to_008,
+  "conformance/ogles/GL/atan/atan_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_atan_atan_009_to_012,
+  "conformance/ogles/GL/atan/atan_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_biConstants_biConstants_001_to_008,
+  "conformance/ogles/GL/biConstants/biConstants_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_biConstants_biConstants_009_to_016,
+  "conformance/ogles/GL/biConstants/biConstants_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_biuDepthRange_biuDepthRange_001_to_002,
+  "conformance/ogles/GL/biuDepthRange/biuDepthRange_001_to_002.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_001_to_008,
+  "conformance/ogles/GL/build/build_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_009_to_016,
+  "conformance/ogles/GL/build/build_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_017_to_024,
+  "conformance/ogles/GL/build/build_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_025_to_032,
+  "conformance/ogles/GL/build/build_025_to_032.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_033_to_040,
+  "conformance/ogles/GL/build/build_033_to_040.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_041_to_048,
+  "conformance/ogles/GL/build/build_041_to_048.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_049_to_056,
+  "conformance/ogles/GL/build/build_049_to_056.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_057_to_064,
+  "conformance/ogles/GL/build/build_057_to_064.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_065_to_072,
+  "conformance/ogles/GL/build/build_065_to_072.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_073_to_080,
+  "conformance/ogles/GL/build/build_073_to_080.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_081_to_088,
+  "conformance/ogles/GL/build/build_081_to_088.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_089_to_096,
+  "conformance/ogles/GL/build/build_089_to_096.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_097_to_104,
+  "conformance/ogles/GL/build/build_097_to_104.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_105_to_112,
+  "conformance/ogles/GL/build/build_105_to_112.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_113_to_120,
+  "conformance/ogles/GL/build/build_113_to_120.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_121_to_128,
+  "conformance/ogles/GL/build/build_121_to_128.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_129_to_136,
+  "conformance/ogles/GL/build/build_129_to_136.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_137_to_144,
+  "conformance/ogles/GL/build/build_137_to_144.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_145_to_152,
+  "conformance/ogles/GL/build/build_145_to_152.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_153_to_160,
+  "conformance/ogles/GL/build/build_153_to_160.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_161_to_168,
+  "conformance/ogles/GL/build/build_161_to_168.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_169_to_176,
+  "conformance/ogles/GL/build/build_169_to_176.html");
+CONFORMANCE_TEST(conformance_ogles_GL_build_build_177_to_178,
+  "conformance/ogles/GL/build/build_177_to_178.html");
+CONFORMANCE_TEST(conformance_ogles_GL_built_in_varying_array_out_of_bounds_built_in_varying_array_out_of_bounds_001_to_001,
+  "conformance/ogles/GL/built_in_varying_array_out_of_bounds/built_in_varying_array_out_of_bounds_001_to_001.html");
+CONFORMANCE_TEST(conformance_ogles_GL_ceil_ceil_001_to_006,
+  "conformance/ogles/GL/ceil/ceil_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_clamp_clamp_001_to_006,
+  "conformance/ogles/GL/clamp/clamp_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_control_flow_control_flow_001_to_008,
+  "conformance/ogles/GL/control_flow/control_flow_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_control_flow_control_flow_009_to_010,
+  "conformance/ogles/GL/control_flow/control_flow_009_to_010.html");
+CONFORMANCE_TEST(conformance_ogles_GL_cos_cos_001_to_006,
+  "conformance/ogles/GL/cos/cos_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_cross_cross_001_to_002,
+  "conformance/ogles/GL/cross/cross_001_to_002.html");
+CONFORMANCE_TEST(conformance_ogles_GL_default_default_001_to_001,
+  "conformance/ogles/GL/default/default_001_to_001.html");
+CONFORMANCE_TEST(conformance_ogles_GL_degrees_degrees_001_to_006,
+  "conformance/ogles/GL/degrees/degrees_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_discard_discard_001_to_002,
+  "conformance/ogles/GL/discard/discard_001_to_002.html");
+CONFORMANCE_TEST(conformance_ogles_GL_distance_distance_001_to_006,
+  "conformance/ogles/GL/distance/distance_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_dot_dot_001_to_006,
+  "conformance/ogles/GL/dot/dot_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_equal_equal_001_to_008,
+  "conformance/ogles/GL/equal/equal_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_equal_equal_009_to_012,
+  "conformance/ogles/GL/equal/equal_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_exp_exp_001_to_008,
+  "conformance/ogles/GL/exp/exp_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_exp_exp_009_to_012,
+  "conformance/ogles/GL/exp/exp_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_exp2_exp2_001_to_008,
+  "conformance/ogles/GL/exp2/exp2_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_exp2_exp2_009_to_012,
+  "conformance/ogles/GL/exp2/exp2_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_faceforward_faceforward_001_to_006,
+  "conformance/ogles/GL/faceforward/faceforward_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_floor_floor_001_to_006,
+  "conformance/ogles/GL/floor/floor_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_fract_fract_001_to_006,
+  "conformance/ogles/GL/fract/fract_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_001_to_008,
+  "conformance/ogles/GL/functions/functions_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_009_to_016,
+  "conformance/ogles/GL/functions/functions_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_017_to_024,
+  "conformance/ogles/GL/functions/functions_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_025_to_032,
+  "conformance/ogles/GL/functions/functions_025_to_032.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_033_to_040,
+  "conformance/ogles/GL/functions/functions_033_to_040.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_041_to_048,
+  "conformance/ogles/GL/functions/functions_041_to_048.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_049_to_056,
+  "conformance/ogles/GL/functions/functions_049_to_056.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_057_to_064,
+  "conformance/ogles/GL/functions/functions_057_to_064.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_065_to_072,
+  "conformance/ogles/GL/functions/functions_065_to_072.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_073_to_080,
+  "conformance/ogles/GL/functions/functions_073_to_080.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_081_to_088,
+  "conformance/ogles/GL/functions/functions_081_to_088.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_089_to_096,
+  "conformance/ogles/GL/functions/functions_089_to_096.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_097_to_104,
+  "conformance/ogles/GL/functions/functions_097_to_104.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_105_to_112,
+  "conformance/ogles/GL/functions/functions_105_to_112.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_113_to_120,
+  "conformance/ogles/GL/functions/functions_113_to_120.html");
+CONFORMANCE_TEST(conformance_ogles_GL_functions_functions_121_to_126,
+  "conformance/ogles/GL/functions/functions_121_to_126.html");
+CONFORMANCE_TEST(conformance_ogles_GL_gl_FragCoord_gl_FragCoord_001_to_003,
+  "conformance/ogles/GL/gl_FragCoord/gl_FragCoord_001_to_003.html");
+CONFORMANCE_TEST(conformance_ogles_GL_gl_FrontFacing_gl_FrontFacing_001_to_001,
+  "conformance/ogles/GL/gl_FrontFacing/gl_FrontFacing_001_to_001.html");
+CONFORMANCE_TEST(conformance_ogles_GL_greaterThan_greaterThan_001_to_008,
+  "conformance/ogles/GL/greaterThan/greaterThan_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_greaterThanEqual_greaterThanEqual_001_to_008,
+  "conformance/ogles/GL/greaterThanEqual/greaterThanEqual_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_inversesqrt_inversesqrt_001_to_006,
+  "conformance/ogles/GL/inversesqrt/inversesqrt_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_length_length_001_to_006,
+  "conformance/ogles/GL/length/length_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_lessThan_lessThan_001_to_008,
+  "conformance/ogles/GL/lessThan/lessThan_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_lessThanEqual_lessThanEqual_001_to_008,
+  "conformance/ogles/GL/lessThanEqual/lessThanEqual_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_log_log_001_to_008,
+  "conformance/ogles/GL/log/log_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_log_log_009_to_012,
+  "conformance/ogles/GL/log/log_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_log2_log2_001_to_008,
+  "conformance/ogles/GL/log2/log2_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_log2_log2_009_to_012,
+  "conformance/ogles/GL/log2/log2_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat_mat_001_to_008,
+  "conformance/ogles/GL/mat/mat_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat_mat_009_to_016,
+  "conformance/ogles/GL/mat/mat_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat_mat_017_to_024,
+  "conformance/ogles/GL/mat/mat_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat_mat_025_to_032,
+  "conformance/ogles/GL/mat/mat_025_to_032.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat_mat_033_to_040,
+  "conformance/ogles/GL/mat/mat_033_to_040.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat_mat_041_to_046,
+  "conformance/ogles/GL/mat/mat_041_to_046.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mat3_mat3_001_to_006,
+  "conformance/ogles/GL/mat3/mat3_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_matrixCompMult_matrixCompMult_001_to_004,
+  "conformance/ogles/GL/matrixCompMult/matrixCompMult_001_to_004.html");
+CONFORMANCE_TEST(conformance_ogles_GL_max_max_001_to_006,
+  "conformance/ogles/GL/max/max_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_min_min_001_to_006,
+  "conformance/ogles/GL/min/min_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mix_mix_001_to_006,
+  "conformance/ogles/GL/mix/mix_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_mod_mod_001_to_008,
+  "conformance/ogles/GL/mod/mod_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_normalize_normalize_001_to_006,
+  "conformance/ogles/GL/normalize/normalize_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_not_not_001_to_004,
+  "conformance/ogles/GL/not/not_001_to_004.html");
+CONFORMANCE_TEST(conformance_ogles_GL_notEqual_notEqual_001_to_008,
+  "conformance/ogles/GL/notEqual/notEqual_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_notEqual_notEqual_009_to_012,
+  "conformance/ogles/GL/notEqual/notEqual_009_to_012.html");
+CONFORMANCE_TEST(conformance_ogles_GL_operators_operators_001_to_008,
+  "conformance/ogles/GL/operators/operators_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_operators_operators_009_to_016,
+  "conformance/ogles/GL/operators/operators_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_operators_operators_017_to_024,
+  "conformance/ogles/GL/operators/operators_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_operators_operators_025_to_026,
+  "conformance/ogles/GL/operators/operators_025_to_026.html");
+CONFORMANCE_TEST(conformance_ogles_GL_pow_pow_001_to_008,
+  "conformance/ogles/GL/pow/pow_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_pow_pow_009_to_016,
+  "conformance/ogles/GL/pow/pow_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_pow_pow_017_to_024,
+  "conformance/ogles/GL/pow/pow_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_radians_radians_001_to_006,
+  "conformance/ogles/GL/radians/radians_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_reflect_reflect_001_to_006,
+  "conformance/ogles/GL/reflect/reflect_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_refract_refract_001_to_006,
+  "conformance/ogles/GL/refract/refract_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_sign_sign_001_to_006,
+  "conformance/ogles/GL/sign/sign_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_sin_sin_001_to_006,
+  "conformance/ogles/GL/sin/sin_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_smoothstep_smoothstep_001_to_006,
+  "conformance/ogles/GL/smoothstep/smoothstep_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_sqrt_sqrt_001_to_006,
+  "conformance/ogles/GL/sqrt/sqrt_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_step_step_001_to_006,
+  "conformance/ogles/GL/step/step_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_001_to_008,
+  "conformance/ogles/GL/struct/struct_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_009_to_016,
+  "conformance/ogles/GL/struct/struct_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_017_to_024,
+  "conformance/ogles/GL/struct/struct_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_025_to_032,
+  "conformance/ogles/GL/struct/struct_025_to_032.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_033_to_040,
+  "conformance/ogles/GL/struct/struct_033_to_040.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_041_to_048,
+  "conformance/ogles/GL/struct/struct_041_to_048.html");
+CONFORMANCE_TEST(conformance_ogles_GL_struct_struct_049_to_056,
+  "conformance/ogles/GL/struct/struct_049_to_056.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_001_to_008,
+  "conformance/ogles/GL/swizzlers/swizzlers_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_009_to_016,
+  "conformance/ogles/GL/swizzlers/swizzlers_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_017_to_024,
+  "conformance/ogles/GL/swizzlers/swizzlers_017_to_024.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_025_to_032,
+  "conformance/ogles/GL/swizzlers/swizzlers_025_to_032.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_033_to_040,
+  "conformance/ogles/GL/swizzlers/swizzlers_033_to_040.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_041_to_048,
+  "conformance/ogles/GL/swizzlers/swizzlers_041_to_048.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_049_to_056,
+  "conformance/ogles/GL/swizzlers/swizzlers_049_to_056.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_057_to_064,
+  "conformance/ogles/GL/swizzlers/swizzlers_057_to_064.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_065_to_072,
+  "conformance/ogles/GL/swizzlers/swizzlers_065_to_072.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_073_to_080,
+  "conformance/ogles/GL/swizzlers/swizzlers_073_to_080.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_081_to_088,
+  "conformance/ogles/GL/swizzlers/swizzlers_081_to_088.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_089_to_096,
+  "conformance/ogles/GL/swizzlers/swizzlers_089_to_096.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_097_to_104,
+  "conformance/ogles/GL/swizzlers/swizzlers_097_to_104.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_105_to_112,
+  "conformance/ogles/GL/swizzlers/swizzlers_105_to_112.html");
+CONFORMANCE_TEST(conformance_ogles_GL_swizzlers_swizzlers_113_to_120,
+  "conformance/ogles/GL/swizzlers/swizzlers_113_to_120.html");
+CONFORMANCE_TEST(conformance_ogles_GL_tan_tan_001_to_006,
+  "conformance/ogles/GL/tan/tan_001_to_006.html");
+CONFORMANCE_TEST(conformance_ogles_GL_vec_vec_001_to_008,
+  "conformance/ogles/GL/vec/vec_001_to_008.html");
+CONFORMANCE_TEST(conformance_ogles_GL_vec_vec_009_to_016,
+  "conformance/ogles/GL/vec/vec_009_to_016.html");
+CONFORMANCE_TEST(conformance_ogles_GL_vec_vec_017_to_018,
+  "conformance/ogles/GL/vec/vec_017_to_018.html");
+CONFORMANCE_TEST(conformance_ogles_GL_vec3_vec3_001_to_008,
+  "conformance/ogles/GL/vec3/vec3_001_to_008.html");
 
 #endif  // CHROME_TEST_GPU_WEBGL_CONFORMANCE_TEST_LIST_AUTOGEN_H_
 

@@ -8,13 +8,13 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/tracked_objects.h"
-#include "chrome/browser/sync/api/fake_syncable_service.h"
 #include "chrome/browser/sync/glue/data_type_controller_mock.h"
 #include "chrome/browser/sync/glue/fake_generic_change_processor.h"
 #include "chrome/browser/sync/profile_sync_components_factory_mock.h"
 #include "chrome/browser/sync/profile_sync_service_mock.h"
 #include "chrome/test/base/profile_mock.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
+#include "sync/api/fake_syncable_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -41,7 +41,7 @@ class SyncUIDataTypeControllerTest : public testing::Test {
  public:
   SyncUIDataTypeControllerTest()
       : ui_thread_(BrowserThread::UI, &message_loop_),
-        type_(syncable::PREFERENCES),
+        type_(syncer::PREFERENCES),
         change_processor_(new FakeGenericChangeProcessor()) {}
 
   virtual void SetUp() {
@@ -65,6 +65,7 @@ class SyncUIDataTypeControllerTest : public testing::Test {
   void SetStartExpectations() {
     // Ownership gets passed to caller of CreateGenericChangeProcessor.
     change_processor_.reset(new FakeGenericChangeProcessor());
+    EXPECT_CALL(model_load_callback_, Run(_, _));
     EXPECT_CALL(*profile_sync_factory_, GetSyncableServiceForType(type_)).
         WillOnce(Return(syncable_service_.AsWeakPtr()));
     EXPECT_CALL(*profile_sync_factory_, CreateSharedChangeProcessor()).
@@ -81,6 +82,15 @@ class SyncUIDataTypeControllerTest : public testing::Test {
     EXPECT_CALL(profile_sync_service_, DeactivateDataType(type_));
   }
 
+  void Start() {
+    preference_dtc_->LoadModels(
+        base::Bind(&ModelLoadCallbackMock::Run,
+                   base::Unretained(&model_load_callback_)));
+    preference_dtc_->StartAssociating(
+        base::Bind(&StartCallbackMock::Run,
+                   base::Unretained(&start_callback_)));
+  }
+
   void PumpLoop() {
     message_loop_.RunAllPending();
   }
@@ -90,11 +100,12 @@ class SyncUIDataTypeControllerTest : public testing::Test {
   ProfileMock profile_;
   scoped_ptr<ProfileSyncComponentsFactoryMock> profile_sync_factory_;
   ProfileSyncServiceMock profile_sync_service_;
-  const syncable::ModelType type_;
+  const syncer::ModelType type_;
   StartCallbackMock start_callback_;
+  ModelLoadCallbackMock model_load_callback_;
   scoped_refptr<UIDataTypeController> preference_dtc_;
   scoped_ptr<FakeGenericChangeProcessor> change_processor_;
-  FakeSyncableService syncable_service_;
+  syncer::FakeSyncableService syncable_service_;
 };
 
 // Start the DTC. Verify that the callback is called with OK, the
@@ -106,8 +117,7 @@ TEST_F(SyncUIDataTypeControllerTest, Start) {
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  preference_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, preference_dtc_->state());
   EXPECT_TRUE(syncable_service_.syncing());
 }
@@ -121,8 +131,7 @@ TEST_F(SyncUIDataTypeControllerTest, StartStop) {
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  preference_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, preference_dtc_->state());
   EXPECT_TRUE(syncable_service_.syncing());
   preference_dtc_->Stop();
@@ -140,8 +149,7 @@ TEST_F(SyncUIDataTypeControllerTest, StartStopFirstRun) {
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  preference_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::RUNNING, preference_dtc_->state());
   EXPECT_TRUE(syncable_service_.syncing());
   preference_dtc_->Stop();
@@ -157,12 +165,11 @@ TEST_F(SyncUIDataTypeControllerTest, StartAssociationFailed) {
   EXPECT_CALL(start_callback_,
               Run(DataTypeController::ASSOCIATION_FAILED, _));
   syncable_service_.set_merge_data_and_start_syncing_error(
-      SyncError(FROM_HERE, "Error", type_));
+      syncer::SyncError(FROM_HERE, "Error", type_));
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  preference_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::DISABLED, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
   preference_dtc_->Stop();
@@ -181,17 +188,16 @@ TEST_F(SyncUIDataTypeControllerTest,
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  preference_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
 }
 
 // Start the DTC, but then trigger an unrecoverable error. Verify the syncer
 // gets stopped and the DTC is in NOT_RUNNING state.
-TEST_F(SyncUIDataTypeControllerTest, OnUnrecoverableError) {
+TEST_F(SyncUIDataTypeControllerTest, OnSingleDatatypeUnrecoverableError) {
   SetActivateExpectations();
-  EXPECT_CALL(profile_sync_service_, OnUnrecoverableError(_,_)).
+  EXPECT_CALL(profile_sync_service_, DisableBrokenDatatype(_,_,_)).
       WillOnce(InvokeWithoutArgs(preference_dtc_.get(),
                                  &UIDataTypeController::Stop));
   SetStopExpectations();
@@ -199,10 +205,9 @@ TEST_F(SyncUIDataTypeControllerTest, OnUnrecoverableError) {
 
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());
-  preference_dtc_->Start(
-      base::Bind(&StartCallbackMock::Run, base::Unretained(&start_callback_)));
+  Start();
   EXPECT_TRUE(syncable_service_.syncing());
-  preference_dtc_->OnUnrecoverableError(FROM_HERE, "Test");
+  preference_dtc_->OnSingleDatatypeUnrecoverableError(FROM_HERE, "Test");
   PumpLoop();
   EXPECT_EQ(DataTypeController::NOT_RUNNING, preference_dtc_->state());
   EXPECT_FALSE(syncable_service_.syncing());

@@ -4,12 +4,20 @@
 
 #include "chrome/browser/ui/intents/web_intent_picker_model.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model_observer.h"
 #include "grit/ui_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
+
+namespace {
+
+const size_t kMaxSuggestionCount = 5;  // Maximum number of visible suggestions.
+
+}  // namespace
 
 WebIntentPickerModel::WebIntentPickerModel()
     : observer_(NULL) {
@@ -22,17 +30,23 @@ WebIntentPickerModel::~WebIntentPickerModel() {
 void WebIntentPickerModel::AddInstalledService(const string16& title,
                                                const GURL& url,
                                                Disposition disposition) {
+  // TODO(groby): Revisit to remove O(n^2) complexity.
+  for (size_t i = 0; i < installed_services_.size(); ++i) {
+    InstalledService* service = installed_services_[i];
+    if (service->title == title && service->url == url &&
+        service->disposition == disposition)
+      return;
+  }
   installed_services_.push_back(new InstalledService(title, url, disposition));
   if (observer_)
     observer_->OnModelChanged(this);
 }
 
 void WebIntentPickerModel::RemoveInstalledServiceAt(size_t index) {
-  DCHECK(index < installed_services_.size());
-  std::vector<InstalledService*>::iterator iter =
-      installed_services_.begin() + index;
-  delete *iter;
-  installed_services_.erase(iter);
+  DCHECK_LT(index, installed_services_.size());
+  InstalledService* service = installed_services_[index];
+  installed_services_.erase(installed_services_.begin() + index);
+  delete service;
   if (observer_)
     observer_->OnModelChanged(this);
 }
@@ -48,7 +62,7 @@ void WebIntentPickerModel::Clear() {
 
 const WebIntentPickerModel::InstalledService&
     WebIntentPickerModel::GetInstalledServiceAt(size_t index) const {
-  DCHECK(index < installed_services_.size());
+  DCHECK_LT(index, installed_services_.size());
   return *installed_services_[index];
 }
 
@@ -68,7 +82,7 @@ size_t WebIntentPickerModel::GetInstalledServiceCount() const {
 
 void WebIntentPickerModel::UpdateFaviconAt(size_t index,
                                            const gfx::Image& image) {
-  DCHECK(index < installed_services_.size());
+  DCHECK_LT(index, installed_services_.size());
   installed_services_[index]->favicon = image;
   if (observer_)
     observer_->OnFaviconChanged(this, index);
@@ -84,23 +98,22 @@ void WebIntentPickerModel::AddSuggestedExtension(const string16& title,
 }
 
 void WebIntentPickerModel::RemoveSuggestedExtensionAt(size_t index) {
-  DCHECK(index < suggested_extensions_.size());
-  std::vector<SuggestedExtension*>::iterator iter =
-      suggested_extensions_.begin() + index;
-  delete *iter;
-  suggested_extensions_.erase(iter);
+  DCHECK_LT(index, suggested_extensions_.size());
+  SuggestedExtension* extension = suggested_extensions_[index];
+  suggested_extensions_.erase(suggested_extensions_.begin() + index);
+  delete extension;
   if (observer_)
     observer_->OnModelChanged(this);
 }
 
 const WebIntentPickerModel::SuggestedExtension&
     WebIntentPickerModel::GetSuggestedExtensionAt(size_t index) const {
-  DCHECK(index < suggested_extensions_.size());
+  DCHECK_LT(index, suggested_extensions_.size());
   return *suggested_extensions_[index];
 }
 
 size_t WebIntentPickerModel::GetSuggestedExtensionCount() const {
-  return suggested_extensions_.size();
+  return std::min(suggested_extensions_.size(), kMaxSuggestionCount);
 }
 
 void WebIntentPickerModel::SetSuggestedExtensionIconWithId(
@@ -120,8 +133,11 @@ void WebIntentPickerModel::SetSuggestedExtensionIconWithId(
 
 void WebIntentPickerModel::SetInlineDisposition(const GURL& url) {
   inline_disposition_url_ = url;
-  if (observer_)
-    observer_->OnInlineDisposition(this, url);
+  if (observer_) {
+    const InstalledService* service = GetInstalledServiceWithURL(url);
+    DCHECK(service);
+    observer_->OnInlineDisposition(service->title, url);
+  }
 }
 
 bool WebIntentPickerModel::IsInlineDisposition() const {

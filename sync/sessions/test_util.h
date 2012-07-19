@@ -5,14 +5,13 @@
 // Utils to simulate various outcomes of a sync session.
 #ifndef SYNC_SESSIONS_TEST_UTIL_H_
 #define SYNC_SESSIONS_TEST_UTIL_H_
-#pragma once
 
 #include "sync/engine/syncer.h"
 #include "sync/sessions/sync_session.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace syncer {
 namespace sessions {
 namespace test_util {
 
@@ -47,6 +46,6 @@ ACTION_P(SimulateSessionsCommitDelayUpdate, poll) {
 
 }  // namespace test_util
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_SESSIONS_TEST_UTIL_H_

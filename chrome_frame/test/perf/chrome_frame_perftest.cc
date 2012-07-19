@@ -340,7 +340,7 @@ class ChromeFrameStartupTest : public ChromeFramePerfTestBase {
 
       // TODO(beng): Can't shut down so quickly. Figure out why, and fix. If we
       // do, we crash.
-      base::PlatformThread::Sleep(50);
+      base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(50));
     }
 
     std::string times;
@@ -833,7 +833,7 @@ class ChromeFrameActiveXMemoryTest : public MemoryTestBase {
     PrintResults(test_name_.c_str());
 
     CoFreeUnusedLibraries();
-    base::PlatformThread::Sleep(100);
+    base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
   }
 
   void NavigateImpl(const std::string& url) {
@@ -1569,9 +1569,10 @@ TEST(TestAsPerfTest, MetaTag_createproxy) {
         "AutomationProvider::InitializeChannel");
 
     external_tab_navigate_monitor[i].set_interesting_event(
-        "ExternalTabContainer::Navigate");
+        "ExternalTabContainerWin::Navigate");
 
-    renderer_main_monitor[i].set_start_event("ExternalTabContainer::Navigate");
+    renderer_main_monitor[i].set_start_event(
+        "ExternalTabContainerWin::Navigate");
     renderer_main_monitor[i].set_end_event("RendererMain");
 
     pre_read_chrome_monitor[i].set_interesting_event("PreReadImage");

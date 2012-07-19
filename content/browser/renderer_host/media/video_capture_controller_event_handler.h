@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,8 +43,8 @@ class CONTENT_EXPORT VideoCaptureControllerEventHandler {
                            int height,
                            int frame_rate) = 0;
 
-  // Report that this object can be deleted.
-  virtual void OnReadyToDelete(const VideoCaptureControllerID& id) = 0;
+  // The capture session has been paused. No more frame will be sent.
+  virtual void OnPaused(const VideoCaptureControllerID& id) = 0;
 
  protected:
   virtual ~VideoCaptureControllerEventHandler() {}

@@ -24,10 +24,19 @@ class MockPluginDelegate : public PluginDelegate {
   virtual void PluginCaretPositionChanged(PluginInstance* instance);
   virtual void PluginRequestedCancelComposition(PluginInstance* instance);
   virtual void PluginSelectionChanged(PluginInstance* instance);
+  virtual void SimulateImeSetComposition(
+      const string16& text,
+      const std::vector<WebKit::WebCompositionUnderline>& underlines,
+      int selection_start,
+      int selection_end);
+  virtual void SimulateImeConfirmComposition(const string16& text);
   virtual void PluginCrashed(PluginInstance* instance);
   virtual void InstanceCreated(PluginInstance* instance);
   virtual void InstanceDeleted(PluginInstance* instance);
+  virtual scoped_ptr< ::ppapi::thunk::ResourceCreationAPI>
+      CreateResourceCreationAPI(PluginInstance* instance);
   virtual SkBitmap* GetSadPluginBitmap();
+  virtual WebKit::WebPlugin* CreatePluginReplacement(const FilePath& file_path);
   virtual PlatformImage2D* CreateImage2D(int width, int height);
   virtual PlatformContext3D* CreateContext3D();
   virtual PlatformVideoDecoder* CreateVideoDecoder(
@@ -52,17 +61,15 @@ class MockPluginDelegate : public PluginDelegate {
                                           int total,
                                           bool final_result);
   virtual void SelectedFindResultChanged(int identifier, int index);
-  virtual bool RunFileChooser(
-      const WebKit::WebFileChooserParams& params,
-      WebKit::WebFileChooserCompletion* chooser_completion);
   virtual bool AsyncOpenFile(const FilePath& path,
                              int flags,
                              const AsyncOpenFileCallback& callback);
-  virtual bool AsyncOpenFileSystemURL(const GURL& path,
-                                      int flags,
-                                      const AsyncOpenFileCallback& callback);
+  virtual bool AsyncOpenFileSystemURL(
+      const GURL& path,
+      int flags,
+      const AsyncOpenFileSystemURLCallback& callback);
   virtual bool OpenFileSystem(
-      const GURL& url,
+      const GURL& origin_url,
       fileapi::FileSystemType type,
       long long size,
       fileapi::FileSystemCallbackDispatcher* dispatcher);
@@ -89,18 +96,26 @@ class MockPluginDelegate : public PluginDelegate {
                                    const AvailableSpaceCallback& callback);
   virtual void WillUpdateFile(const GURL& file_path);
   virtual void DidUpdateFile(const GURL& file_path, int64_t delta);
-  virtual base::PlatformFileError OpenFile(const PepperFilePath& path,
-                                           int flags,
-                                           base::PlatformFile* file);
-  virtual base::PlatformFileError RenameFile(const PepperFilePath& from_path,
-                                             const PepperFilePath& to_path);
-  virtual base::PlatformFileError DeleteFileOrDir(const PepperFilePath& path,
-                                                  bool recursive);
-  virtual base::PlatformFileError CreateDir(const PepperFilePath& path);
-  virtual base::PlatformFileError QueryFile(const PepperFilePath& path,
-                                            base::PlatformFileInfo* info);
-  virtual base::PlatformFileError GetDirContents(const PepperFilePath& path,
-                                                 DirContents* contents);
+  virtual base::PlatformFileError OpenFile(
+      const ::ppapi::PepperFilePath& path,
+      int flags,
+      base::PlatformFile* file);
+  virtual base::PlatformFileError RenameFile(
+      const ::ppapi::PepperFilePath& from_path,
+      const ::ppapi::PepperFilePath& to_path);
+  virtual base::PlatformFileError DeleteFileOrDir(
+      const ::ppapi::PepperFilePath& path,
+      bool recursive);
+  virtual base::PlatformFileError CreateDir(
+      const ::ppapi::PepperFilePath& path);
+  virtual base::PlatformFileError QueryFile(
+      const ::ppapi::PepperFilePath& path,
+      base::PlatformFileInfo* info);
+  virtual base::PlatformFileError GetDirContents(
+      const ::ppapi::PepperFilePath& path,
+      ::ppapi::DirContents* contents);
+  virtual base::PlatformFileError CreateTemporaryFile(
+      base::PlatformFile* file);
   virtual void SyncGetFileSystemPlatformPath(const GURL& url,
                                              FilePath* platform_path);
   virtual scoped_refptr<base::MessageLoopProxy>
@@ -114,9 +129,12 @@ class MockPluginDelegate : public PluginDelegate {
       PPB_TCPSocket_Private_Impl* socket,
       uint32 socket_id,
       const PP_NetAddress_Private& addr);
-  virtual void TCPSocketSSLHandshake(uint32 socket_id,
-                                     const std::string& server_name,
-                                     uint16_t server_port);
+  virtual void TCPSocketSSLHandshake(
+      uint32 socket_id,
+      const std::string& server_name,
+      uint16_t server_port,
+      const std::vector<std::vector<char> >& trusted_certs,
+      const std::vector<std::vector<char> >& untrusted_certs);
   virtual void TCPSocketRead(uint32 socket_id, int32_t bytes_to_read);
   virtual void TCPSocketWrite(uint32 socket_id, const std::string& buffer);
   virtual void TCPSocketDisconnect(uint32 socket_id);
@@ -171,7 +189,6 @@ class MockPluginDelegate : public PluginDelegate {
   virtual void SaveURLAs(const GURL& url);
   virtual webkit_glue::P2PTransport* CreateP2PTransport();
   virtual double GetLocalTimeZoneOffset(base::Time t);
-  virtual std::string GetFlashCommandLineArgs();
   virtual base::SharedMemory* CreateAnonymousSharedMemory(uint32_t size);
   virtual ::ppapi::Preferences GetPreferences();
   virtual bool LockMouse(PluginInstance* instance);
@@ -186,6 +203,7 @@ class MockPluginDelegate : public PluginDelegate {
   virtual int EnumerateDevices(PP_DeviceType_Dev type,
                                const EnumerateDevicesCallback& callback);
   virtual webkit_glue::ClipboardClient* CreateClipboardClient() const;
+  virtual std::string GetDeviceID();
 };
 
 }  // namespace ppapi

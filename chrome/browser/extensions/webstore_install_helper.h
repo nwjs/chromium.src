@@ -4,15 +4,14 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_WEBSTORE_INSTALL_HELPER_H_
 #define CHROME_BROWSER_EXTENSIONS_WEBSTORE_INSTALL_HELPER_H_
-#pragma once
 
 #include <vector>
 
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "content/public/browser/utility_process_host_client.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 class SkBitmap;
@@ -27,15 +26,18 @@ class UtilityProcessHost;
 }
 
 namespace net {
+class URLFetcher;
 class URLRequestContextGetter;
 }
+
+namespace extensions {
 
 // This is a class to help dealing with webstore-provided data. It manages
 // sending work to the utility process for parsing manifests and
 // fetching/decoding icon data. Clients must implement the
 // WebstoreInstallHelper::Delegate interface to receive the parsed data.
 class WebstoreInstallHelper : public content::UtilityProcessHostClient,
-                              public content::URLFetcherDelegate {
+                              public net::URLFetcherDelegate {
  public:
   class Delegate {
    public:
@@ -58,6 +60,9 @@ class WebstoreInstallHelper : public content::UtilityProcessHostClient,
         const std::string& id,
         InstallHelperResultCode result_code,
         const std::string& error_message) = 0;
+
+   protected:
+    virtual ~Delegate() {}
   };
 
   // Only one of |icon_data| (based64-encoded icon data) or |icon_url| can be
@@ -78,8 +83,8 @@ class WebstoreInstallHelper : public content::UtilityProcessHostClient,
   void ReportResultsIfComplete();
   void ReportResultFromUIThread();
 
-  // Implementing the content::URLFetcherDelegate interface.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // Implementing the net::URLFetcherDelegate interface.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Implementing pieces of the UtilityProcessHostClient interface.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -108,7 +113,7 @@ class WebstoreInstallHelper : public content::UtilityProcessHostClient,
   std::vector<unsigned char> fetched_icon_data_;
 
   // For fetching the icon, if needed.
-  scoped_ptr<content::URLFetcher> url_fetcher_;
+  scoped_ptr<net::URLFetcher> url_fetcher_;
   net::URLRequestContextGetter* context_getter_; // Only usable on UI thread.
 
   base::WeakPtr<content::UtilityProcessHost> utility_host_;
@@ -128,5 +133,7 @@ class WebstoreInstallHelper : public content::UtilityProcessHostClient,
   // manifest.
   Delegate::InstallHelperResultCode parse_error_;
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_WEBSTORE_INSTALL_HELPER_H_

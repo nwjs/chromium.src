@@ -4,12 +4,11 @@
 
 #ifndef ASH_WM_SHADOW_H_
 #define ASH_WM_SHADOW_H_
-#pragma once
 
+#include "ash/ash_export.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
-#include "ash/ash_export.h"
-#include "ui/gfx/compositor/layer_animation_observer.h"
+#include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/rect.h"
 
 namespace ui {

@@ -4,6 +4,7 @@
 
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/trusted/ppb_audio_trusted.h"
+#include "ppapi/shared_impl/tracked_callback.h"
 #include "ppapi/thunk/enter.h"
 #include "ppapi/thunk/thunk.h"
 #include "ppapi/thunk/ppb_audio_api.h"
@@ -17,7 +18,7 @@ namespace {
 typedef EnterResource<PPB_Audio_API> EnterAudio;
 
 PP_Resource Create(PP_Instance instance_id) {
-  EnterFunction<ResourceCreationAPI> enter(instance_id, true);
+  EnterResourceCreation enter(instance_id);
   if (enter.failed())
     return 0;
   return enter.functions()->CreateAudioTrusted(instance_id);
@@ -29,7 +30,8 @@ int32_t Open(PP_Resource audio_id,
   EnterAudio enter(audio_id, callback, true);
   if (enter.failed())
     return enter.retval();
-  return enter.SetResult(enter.object()->OpenTrusted(config_id, callback));
+  return enter.SetResult(enter.object()->OpenTrusted(config_id,
+                                                     enter.callback()));
 }
 
 int32_t GetSyncSocket(PP_Resource audio_id, int* sync_socket) {

@@ -27,6 +27,7 @@ namespace {
 ChromeWebUIDataSource* CreateTaskManagerUIHTMLSource() {
   ChromeWebUIDataSource* source =
       new ChromeWebUIDataSource(chrome::kChromeUITaskManagerHost);
+  source->set_use_json_js_format_v2();
 
   source->AddLocalizedString("closeWindow", IDS_CLOSE);
   source->AddLocalizedString("title",IDS_TASK_MANAGER_TITLE);
@@ -35,7 +36,7 @@ ChromeWebUIDataSource* CreateTaskManagerUIHTMLSource() {
   source->AddLocalizedString("killChromeOS", IDS_TASK_MANAGER_KILL_CHROMEOS);
   source->AddLocalizedString("processIDColumn",
                              IDS_TASK_MANAGER_PROCESS_ID_COLUMN);
-  source->AddLocalizedString("pageColumn", IDS_TASK_MANAGER_PAGE_COLUMN);
+  source->AddLocalizedString("taskColumn", IDS_TASK_MANAGER_TASK_COLUMN);
   source->AddLocalizedString("profileNameColumn",
                              IDS_TASK_MANAGER_PROFILE_NAME_COLUMN);
   source->AddLocalizedString("netColumn", IDS_TASK_MANAGER_NET_COLUMN);
@@ -91,5 +92,5 @@ TaskManagerUI::TaskManagerUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   // Set up the chrome://taskmanager/ source.
   ChromeWebUIDataSource* html_source = CreateTaskManagerUIHTMLSource();
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 }

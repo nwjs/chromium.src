@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_CHILD_THREAD_H_
 #define CONTENT_COMMON_CHILD_THREAD_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -12,13 +11,18 @@
 #include "base/tracked_objects.h"
 #include "content/common/content_export.h"
 #include "content/common/message_router.h"
+#include "ipc/ipc_message.h"  // For IPC_MESSAGE_LOG_ENABLED.
 #include "webkit/glue/resource_loader_bridge.h"
 
 class FileSystemDispatcher;
 class MessageLoop;
 class QuotaDispatcher;
-class ResourceDispatcher;
 class SocketStreamDispatcher;
+
+namespace content {
+class ChildHistogramMessageFilter;
+class ResourceDispatcher;
+}
 
 namespace IPC {
 class SyncChannel;
@@ -30,8 +34,7 @@ class WebFrame;
 }
 
 // The main thread of a child process derives from this class.
-class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
-                                   public IPC::Message::Sender {
+class CONTENT_EXPORT ChildThread : public IPC::Listener, public IPC::Sender {
  public:
   // Creates the thread.
   ChildThread();
@@ -39,14 +42,14 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
   explicit ChildThread(const std::string& channel_name);
   virtual ~ChildThread();
 
-  // IPC::Message::Sender implementation:
+  // IPC::Sender implementation:
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
   // See documentation on MessageRouter for AddRoute and RemoveRoute
-  void AddRoute(int32 routing_id, IPC::Channel::Listener* listener);
+  void AddRoute(int32 routing_id, IPC::Listener* listener);
   void RemoveRoute(int32 routing_id);
 
-  IPC::Channel::Listener* ResolveRoute(int32 routing_id);
+  IPC::Listener* ResolveRoute(int32 routing_id);
 
   IPC::SyncChannel* channel() { return channel_.get(); }
 
@@ -61,7 +64,7 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
   // but on windows the child process directly allocates the block.
   base::SharedMemory* AllocateSharedMemory(size_t buf_size);
 
-  ResourceDispatcher* resource_dispatcher();
+  content::ResourceDispatcher* resource_dispatcher();
 
   SocketStreamDispatcher* socket_stream_dispatcher() {
     return socket_stream_dispatcher_.get();
@@ -78,6 +81,10 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
   // Safe to call on any thread, as long as it's guaranteed that the thread's
   // lifetime is less than the main thread.
   IPC::SyncMessageFilter* sync_message_filter();
+
+  content::ChildHistogramMessageFilter* child_histogram_message_filter() const {
+    return histogram_message_filter_.get();
+  }
 
   MessageLoop* message_loop();
 
@@ -100,8 +107,7 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
 #endif
 
   virtual void OnSetProfilerStatus(tracked_objects::ThreadData::Status status);
-  virtual void OnGetChildProfilerData(int sequence_number,
-                                      const std::string& process_type);
+  virtual void OnGetChildProfilerData(int sequence_number);
 
   virtual void OnDumpHandles();
 
@@ -112,9 +118,13 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
  private:
   void Init();
 
-  // IPC::Channel::Listener implementation:
+  // IPC::Listener implementation:
   virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
   virtual void OnChannelError() OVERRIDE;
+
+#if defined(USE_TCMALLOC)
+  void OnGetTcmallocStats();
+#endif
 
   std::string channel_name_;
   scoped_ptr<IPC::SyncChannel> channel_;
@@ -126,7 +136,7 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
   MessageRouter router_;
 
   // Handles resource loads for this process.
-  scoped_ptr<ResourceDispatcher> resource_dispatcher_;
+  scoped_ptr<content::ResourceDispatcher> resource_dispatcher_;
 
   // Handles SocketStream for this process.
   scoped_ptr<SocketStreamDispatcher> socket_stream_dispatcher_;
@@ -140,6 +150,8 @@ class CONTENT_EXPORT ChildThread : public IPC::Channel::Listener,
   scoped_ptr<FileSystemDispatcher> file_system_dispatcher_;
 
   scoped_ptr<QuotaDispatcher> quota_dispatcher_;
+
+  scoped_refptr<content::ChildHistogramMessageFilter> histogram_message_filter_;
 
   DISALLOW_COPY_AND_ASSIGN(ChildThread);
 };

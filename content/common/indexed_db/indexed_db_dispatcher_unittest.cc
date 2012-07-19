@@ -12,6 +12,11 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBCallbacks.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBTransaction.h"
 
+using content::IndexedDBKey;
+using content::SerializedScriptValue;
+using WebKit::WebVector;
+using WebKit::WebString;
+
 class FakeWebIDBTransaction : public WebKit::WebIDBTransaction {
  public:
   FakeWebIDBTransaction() {}
@@ -22,7 +27,7 @@ TEST(IndexedDBDispatcherTest, ValueSizeTest) {
   data.resize(kMaxIDBValueSizeInBytes / sizeof(char16) + 1, 'x');
   const bool kIsNull = false;
   const bool kIsInvalid = false;
-  const content::SerializedScriptValue value(kIsNull, kIsInvalid, data);
+  const SerializedScriptValue value(kIsNull, kIsInvalid, data);
   const int32 dummy_id = -1;
 
   {
@@ -37,6 +42,8 @@ TEST(IndexedDBDispatcherTest, ValueSizeTest) {
         static_cast<WebKit::WebIDBCallbacks*>(NULL),
         dummy_id,
         FakeWebIDBTransaction(),
+        WebVector<WebString>(),
+        WebVector<WebVector<WebKit::WebIDBKey> >(),
         &ec);
     EXPECT_NE(ec, 0);
   }

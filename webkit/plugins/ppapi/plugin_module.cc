@@ -24,21 +24,22 @@
 #include "ppapi/c/dev/ppb_file_chooser_dev.h"
 #include "ppapi/c/dev/ppb_find_dev.h"
 #include "ppapi/c/dev/ppb_font_dev.h"
-#include "ppapi/c/dev/ppb_fullscreen_dev.h"
 #include "ppapi/c/dev/ppb_gles_chromium_texture_mapping_dev.h"
+#include "ppapi/c/dev/ppb_graphics_2d_dev.h"
 #include "ppapi/c/dev/ppb_layer_compositor_dev.h"
 #include "ppapi/c/dev/ppb_memory_dev.h"
 #include "ppapi/c/dev/ppb_opengles2ext_dev.h"
+#include "ppapi/c/dev/ppb_printing_dev.h"
 #include "ppapi/c/dev/ppb_resource_array_dev.h"
 #include "ppapi/c/dev/ppb_scrollbar_dev.h"
 #include "ppapi/c/dev/ppb_testing_dev.h"
 #include "ppapi/c/dev/ppb_text_input_dev.h"
-#include "ppapi/c/dev/ppb_transport_dev.h"
 #include "ppapi/c/dev/ppb_url_util_dev.h"
 #include "ppapi/c/dev/ppb_var_deprecated.h"
 #include "ppapi/c/dev/ppb_video_capture_dev.h"
 #include "ppapi/c/dev/ppb_video_decoder_dev.h"
 #include "ppapi/c/dev/ppb_video_layer_dev.h"
+#include "ppapi/c/dev/ppb_view_dev.h"
 #include "ppapi/c/dev/ppb_widget_dev.h"
 #include "ppapi/c/dev/ppb_zoom_dev.h"
 #include "ppapi/c/pp_module.h"
@@ -56,6 +57,7 @@
 #include "ppapi/c/ppb_image_data.h"
 #include "ppapi/c/ppb_instance.h"
 #include "ppapi/c/ppb_messaging.h"
+#include "ppapi/c/ppb_mouse_cursor.h"
 #include "ppapi/c/ppb_mouse_lock.h"
 #include "ppapi/c/ppb_opengles2.h"
 #include "ppapi/c/ppb_url_loader.h"
@@ -69,6 +71,7 @@
 #include "ppapi/c/private/ppb_file_ref_private.h"
 #include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/c/private/ppb_flash_clipboard.h"
+#include "ppapi/c/private/ppb_flash_device_id.h"
 #include "ppapi/c/private/ppb_flash_file.h"
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
@@ -108,8 +111,6 @@
 #include "webkit/plugins/ppapi/ppapi_interface_factory.h"
 #include "webkit/plugins/ppapi/ppapi_plugin_instance.h"
 #include "webkit/plugins/ppapi/ppb_directory_reader_impl.h"
-#include "webkit/plugins/ppapi/ppb_flash_clipboard_impl.h"
-#include "webkit/plugins/ppapi/ppb_flash_file_impl.h"
 #include "webkit/plugins/ppapi/ppb_flash_impl.h"
 #include "webkit/plugins/ppapi/ppb_flash_menu_impl.h"
 #include "webkit/plugins/ppapi/ppb_gpu_blacklist_private_impl.h"
@@ -154,12 +155,6 @@ PluginModuleSet* GetLivePluginSet() {
   return &live_plugin_libs;
 }
 
-base::MessageLoopProxy* GetMainThreadMessageLoop() {
-  CR_DEFINE_STATIC_LOCAL(scoped_refptr<base::MessageLoopProxy>, proxy,
-                         (base::MessageLoopProxy::current()));
-  return proxy.get();
-}
-
 // PPB_Core --------------------------------------------------------------------
 
 void AddRefResource(PP_Resource resource) {
@@ -182,7 +177,7 @@ void CallOnMainThread(int delay_in_msec,
                       PP_CompletionCallback callback,
                       int32_t result) {
   if (callback.func) {
-    GetMainThreadMessageLoop()->PostDelayedTask(
+    PpapiGlobals::Get()->GetMainThreadMessageLoop()->PostDelayedTask(
         FROM_HERE,
         base::Bind(callback.func, callback.user_data, result),
         base::TimeDelta::FromMilliseconds(delay_in_msec));
@@ -190,7 +185,8 @@ void CallOnMainThread(int delay_in_msec,
 }
 
 PP_Bool IsMainThread() {
-  return BoolToPPBool(GetMainThreadMessageLoop()->BelongsToCurrentThread());
+  return BoolToPPBool(PpapiGlobals::Get()->
+      GetMainThreadMessageLoop()->BelongsToCurrentThread());
 }
 
 const PPB_Core core_interface = {
@@ -295,6 +291,7 @@ const void* GetInterface(const char* name) {
   #include "ppapi/thunk/interfaces_ppb_public_stable.h"
   #include "ppapi/thunk/interfaces_ppb_public_dev.h"
   #include "ppapi/thunk/interfaces_ppb_private.h"
+  #include "ppapi/thunk/interfaces_ppb_private_flash.h"
 
   #undef UNPROXIED_API
   #undef PROXIED_IFACE
@@ -309,32 +306,6 @@ const void* GetInterface(const char* name) {
     return ::ppapi::thunk::GetPPB_BufferTrusted_0_1_Thunk();
   if (strcmp(name, PPB_CORE_INTERFACE_1_0) == 0)
     return &core_interface;
-  if (strcmp(name, PPB_FILECHOOSER_TRUSTED_INTERFACE_0_5) == 0)
-    return ::ppapi::thunk::GetPPB_FileChooser_Trusted_0_5_Thunk();
-  if (strcmp(name, PPB_FLASH_INTERFACE_11_0) == 0)
-    return PPB_Flash_Impl::GetInterface11();
-  if (strcmp(name, PPB_FLASH_INTERFACE_12_0) == 0)
-    return PPB_Flash_Impl::GetInterface12_0();
-  if (strcmp(name, PPB_FLASH_INTERFACE_12_1) == 0)
-    return PPB_Flash_Impl::GetInterface12_1();
-  if (strcmp(name, PPB_FLASH_CLIPBOARD_INTERFACE_4_0) == 0)
-    return ::ppapi::thunk::GetPPB_Flash_Clipboard_4_0_Thunk();
-  if (strcmp(name, PPB_FLASH_CLIPBOARD_INTERFACE_3_0) == 0)
-    return ::ppapi::thunk::GetPPB_Flash_Clipboard_3_0_Thunk();
-  if (strcmp(name, PPB_FLASH_CLIPBOARD_INTERFACE_3_LEGACY) == 0)
-    return ::ppapi::thunk::GetPPB_Flash_Clipboard_3_0_Thunk();
-  if (strcmp(name, PPB_FLASH_FILE_FILEREF_INTERFACE) == 0)
-    return PPB_Flash_File_FileRef_Impl::GetInterface();
-  if (strcmp(name, PPB_FLASH_FILE_MODULELOCAL_INTERFACE) == 0)
-    return PPB_Flash_File_ModuleLocal_Impl::GetInterface();
-  if (strcmp(name, PPB_FLASH_MENU_INTERFACE_0_2) == 0)
-    return ::ppapi::thunk::GetPPB_Flash_Menu_0_2_Thunk();
-  if (strcmp(name, PPB_FLASH_MESSAGELOOP_INTERFACE_0_1) == 0)
-    return ::ppapi::thunk::GetPPB_Flash_MessageLoop_0_1_Thunk();
-  if (strcmp(name, PPB_FLASH_TCPSOCKET_INTERFACE_0_2) == 0)
-    return ::ppapi::thunk::GetPPB_TCPSocket_Private_0_3_Thunk();
-  if (strcmp(name, PPB_FULLSCREEN_DEV_INTERFACE_0_5) == 0)
-    return ::ppapi::thunk::GetPPB_Fullscreen_1_0_Thunk();
   if (strcmp(name, PPB_GPU_BLACKLIST_INTERFACE) == 0)
     return PPB_GpuBlacklist_Private_Impl::GetInterface();
   if (strcmp(name, PPB_GRAPHICS_3D_TRUSTED_INTERFACE_1_0) == 0)
@@ -347,17 +318,19 @@ const void* GetInterface(const char* name) {
     return ::ppapi::thunk::GetPPB_Instance_Private_0_1_Thunk();
   if (strcmp(name, PPB_OPENGLES2_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetInterface();
-  if (strcmp(name, PPB_OPENGLES2_INSTANCEDARRAYS_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_OPENGLES2_INSTANCEDARRAYS_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetInstancedArraysInterface();
-  if (strcmp(name, PPB_OPENGLES2_FRAMEBUFFERBLIT_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_OPENGLES2_FRAMEBUFFERBLIT_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetFramebufferBlitInterface();
-  if (strcmp(name, PPB_OPENGLES2_FRAMEBUFFERMULTISAMPLE_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_OPENGLES2_FRAMEBUFFERMULTISAMPLE_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetFramebufferMultisampleInterface();
-  if (strcmp(name, PPB_OPENGLES2_CHROMIUMENABLEFEATURE_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_OPENGLES2_CHROMIUMENABLEFEATURE_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetChromiumEnableFeatureInterface();
-  if (strcmp(name, PPB_OPENGLES2_CHROMIUMMAPSUB_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_OPENGLES2_CHROMIUMMAPSUB_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetChromiumMapSubInterface();
-  if (strcmp(name, PPB_OPENGLES2_QUERY_DEV_INTERFACE) == 0)
+  if (strcmp(name, PPB_OPENGLES2_CHROMIUMMAPSUB_DEV_INTERFACE_1_0) == 0)
+    return ::ppapi::PPB_OpenGLES2_Shared::GetChromiumMapSubInterface();
+  if (strcmp(name, PPB_OPENGLES2_QUERY_INTERFACE) == 0)
     return ::ppapi::PPB_OpenGLES2_Shared::GetQueryInterface();
   if (strcmp(name, PPB_PROXY_PRIVATE_INTERFACE) == 0)
     return PPB_Proxy_Impl::GetInterface();
@@ -431,7 +404,8 @@ PluginModule::EntryPoints::EntryPoints()
 
 PluginModule::PluginModule(const std::string& name,
                            const FilePath& path,
-                           PluginDelegate::ModuleLifetime* lifetime_delegate)
+                           PluginDelegate::ModuleLifetime* lifetime_delegate,
+                           const ::ppapi::PpapiPermissions& perms)
     : lifetime_delegate_(lifetime_delegate),
       callback_tracker_(new ::ppapi::CallbackTracker),
       is_in_destructor_(false),
@@ -440,14 +414,15 @@ PluginModule::PluginModule(const std::string& name,
       library_(NULL),
       name_(name),
       path_(path),
-      reserve_instance_id_(NULL) {
+      permissions_(perms),
+      reserve_instance_id_(NULL),
+      nacl_ipc_proxy_(false) {
   // Ensure the globals object is created.
   if (!host_globals)
     host_globals = new HostGlobals;
 
   memset(&entry_points_, 0, sizeof(entry_points_));
   pp_module_ = HostGlobals::Get()->AddModule(this);
-  GetMainThreadMessageLoop();  // Initialize the main thread message loop.
   GetLivePluginSet()->insert(this);
 }
 
@@ -516,6 +491,29 @@ void PluginModule::InitAsProxied(
   out_of_process_proxy_.reset(out_of_process_proxy);
 }
 
+void PluginModule::InitAsProxiedNaCl(
+    scoped_ptr<PluginDelegate::OutOfProcessProxy> out_of_process_proxy,
+    PP_Instance instance) {
+  // TODO(bbudge) We need to switch the mode of the PluginModule on a
+  // per-instance basis. Fix this so out_of_process_proxy and other
+  // state is stored in a map, indexed by instance.
+  nacl_ipc_proxy_ = true;
+  InitAsProxied(out_of_process_proxy.release());
+  // InitAsProxied (for the trusted/out-of-process case) initializes only the
+  // module, and one or more instances are added later. In this case, the
+  // PluginInstance was already created as in-process, so we missed the proxy
+  // AddInstance step and must do it now.
+  out_of_process_proxy_->AddInstance(instance);
+
+  // In NaCl, we need to tell the instance to reset itself as proxied. This will
+  // clear cached interface pointers and send DidCreate (etc) to the plugin
+  // side of the proxy.
+  PluginInstance* plugin_instance = host_globals->GetInstance(instance);
+  if (!plugin_instance)
+    return;
+  plugin_instance->ResetAsProxied();
+}
+
 // static
 const PPB_Core* PluginModule::GetCore() {
   return &core_interface;
@@ -527,14 +525,7 @@ PluginModule::GetInterfaceFunc PluginModule::GetLocalGetInterfaceFunc() {
 }
 
 PluginInstance* PluginModule::CreateInstance(PluginDelegate* delegate) {
-  PluginInstance* instance(NULL);
-  const void* ppp_instance = GetPluginInterface(PPP_INSTANCE_INTERFACE_1_1);
-  if (ppp_instance) {
-    instance = PluginInstance::Create1_1(delegate, this, ppp_instance);
-  } else if ((ppp_instance = GetPluginInterface(PPP_INSTANCE_INTERFACE_1_0))) {
-    instance = PluginInstance::Create1_0(delegate, this, ppp_instance);
-  }
-
+  PluginInstance* instance = PluginInstance::Create(delegate, this);
   if (!instance) {
     LOG(WARNING) << "Plugin doesn't support instance interface, failing.";
     return NULL;
@@ -569,6 +560,11 @@ void PluginModule::InstanceDeleted(PluginInstance* instance) {
   if (out_of_process_proxy_.get())
     out_of_process_proxy_->RemoveInstance(instance->pp_instance());
   instances_.erase(instance);
+
+  if (nacl_ipc_proxy_) {
+    out_of_process_proxy_.reset();
+    reserve_instance_id_ = NULL;
+  }
 }
 
 scoped_refptr< ::ppapi::CallbackTracker> PluginModule::GetCallbackTracker() {

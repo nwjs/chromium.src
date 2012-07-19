@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_DEFAULT_USER_IMAGES_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_DEFAULT_USER_IMAGES_H_
 
 #include <cstddef>  // for size_t
 #include <string>
 
-class SkBitmap;
+namespace gfx {
+class ImageSkia;
+}
 
 namespace chromeos {
 
@@ -31,7 +32,7 @@ std::string GetDefaultImageUrl(int index);
 bool IsDefaultImageUrl(const std::string url, int* image_id);
 
 // Returns bitmap of default user image with specified index.
-const SkBitmap& GetDefaultImage(int index);
+const gfx::ImageSkia& GetDefaultImage(int index);
 
 // Resource IDs of default user images.
 extern const int kDefaultImageResources[];

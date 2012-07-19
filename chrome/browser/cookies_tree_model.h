@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_COOKIES_TREE_MODEL_H_
 #define CHROME_BROWSER_COOKIES_TREE_MODEL_H_
-#pragma once
 
 // TODO(viettrungluu): This header file #includes far too much and has too much
 // inline code (which shouldn't be inline).
@@ -24,11 +23,14 @@
 #include "chrome/browser/browsing_data_indexed_db_helper.h"
 #include "chrome/browser/browsing_data_local_storage_helper.h"
 #include "chrome/browser/browsing_data_quota_helper.h"
+#include "chrome/browser/local_data_container.h"
 #include "chrome/common/content_settings.h"
-#include "net/cookies/cookie_monster.h"
+#include "chrome/common/extensions/extension_set.h"
+#include "net/base/server_bound_cert_store.h"
 #include "ui/base/models/tree_node_model.h"
 
 class BrowsingDataCookieHelper;
+class BrowsingDataServerBoundCertHelper;
 class CookieSettings;
 class CookiesTreeModel;
 class CookieTreeAppCacheNode;
@@ -37,16 +39,23 @@ class CookieTreeCookieNode;
 class CookieTreeCookiesNode;
 class CookieTreeDatabaseNode;
 class CookieTreeDatabasesNode;
-class CookieTreeFileSystemsNode;
 class CookieTreeFileSystemNode;
+class CookieTreeFileSystemsNode;
+class CookieTreeHostNode;
+class CookieTreeIndexedDBNode;
+class CookieTreeIndexedDBsNode;
 class CookieTreeLocalStorageNode;
 class CookieTreeLocalStoragesNode;
 class CookieTreeQuotaNode;
+class CookieTreeServerBoundCertNode;
+class CookieTreeServerBoundCertsNode;
 class CookieTreeSessionStorageNode;
 class CookieTreeSessionStoragesNode;
-class CookieTreeIndexedDBNode;
-class CookieTreeIndexedDBsNode;
-class CookieTreeOriginNode;
+class ExtensionSpecialStoragePolicy;
+
+namespace net {
+class CanonicalCookie;
+}
 
 // CookieTreeNode -------------------------------------------------------------
 // The base node type in the Cookies, Databases, and Local Storage options
@@ -62,7 +71,7 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
     enum NodeType {
       TYPE_NONE,
       TYPE_ROOT,  // This is used for CookieTreeRootNode nodes.
-      TYPE_ORIGIN,  // This is used for CookieTreeOriginNode nodes.
+      TYPE_HOST,  // This is used for CookieTreeHostNode nodes.
       TYPE_COOKIES,  // This is used for CookieTreeCookiesNode nodes.
       TYPE_COOKIE,  // This is used for CookieTreeCookieNode nodes.
       TYPE_DATABASES,  // This is used for CookieTreeDatabasesNode.
@@ -78,88 +87,41 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
       TYPE_FILE_SYSTEMS,  // This is used for CookieTreeFileSystemsNode.
       TYPE_FILE_SYSTEM,  // This is used for CookieTreeFileSystemNode.
       TYPE_QUOTA,  // This is used for CookieTreeQuotaNode.
+      TYPE_SERVER_BOUND_CERTS, // Used for CookieTreeServerBoundCertsNode.
+      TYPE_SERVER_BOUND_CERT, // Used for CookieTreeServerBoundCertNode.
     };
 
-    // TODO(viettrungluu): Figure out whether we want to store |origin| as a
-    // |string16| or a (UTF-8) |std::string|, and convert.
-    explicit DetailedInfo(const string16& origin)
-        : origin(origin),
-          node_type(TYPE_NONE),
-          cookie(NULL),
-          database_info(NULL),
-          local_storage_info(NULL),
-          session_storage_info(NULL),
-          appcache_info(NULL),
-          indexed_db_info(NULL),
-          file_system_info(NULL),
-          quota_info(NULL) {}
+    DetailedInfo();
+    ~DetailedInfo();
 
-    DetailedInfo& Init(NodeType type) {
-      DCHECK_EQ(TYPE_NONE, node_type);
-      node_type = type;
-      return *this;
-    }
-
-    DetailedInfo& InitCookie(
-        const net::CookieMonster::CanonicalCookie* cookie) {
-      Init(TYPE_COOKIE);
-      this->cookie = cookie;
-      return *this;
-    }
-
+    DetailedInfo& Init(NodeType type);
+    DetailedInfo& InitHost(const std::string& app_id,
+                           const std::string& app_name);
+    DetailedInfo& InitCookie(const net::CanonicalCookie* cookie);
     DetailedInfo& InitDatabase(
-        const BrowsingDataDatabaseHelper::DatabaseInfo* database_info) {
-      Init(TYPE_DATABASE);
-      this->database_info = database_info;
-      return *this;
-    }
-
+        const BrowsingDataDatabaseHelper::DatabaseInfo* database_info);
     DetailedInfo& InitLocalStorage(
         const BrowsingDataLocalStorageHelper::LocalStorageInfo*
-        local_storage_info) {
-      Init(TYPE_LOCAL_STORAGE);
-      this->local_storage_info = local_storage_info;
-      return *this;
-    }
-
+        local_storage_info);
     DetailedInfo& InitSessionStorage(
         const BrowsingDataLocalStorageHelper::LocalStorageInfo*
-        session_storage_info) {
-      Init(TYPE_SESSION_STORAGE);
-      this->session_storage_info = session_storage_info;
-      return *this;
-    }
-
-    DetailedInfo& InitAppCache(const appcache::AppCacheInfo* appcache_info) {
-      Init(TYPE_APPCACHE);
-      this->appcache_info = appcache_info;
-      return *this;
-    }
-
+        session_storage_info);
+    DetailedInfo& InitAppCache(const GURL& origin,
+                               const appcache::AppCacheInfo* appcache_info);
     DetailedInfo& InitIndexedDB(
-        const BrowsingDataIndexedDBHelper::IndexedDBInfo* indexed_db_info) {
-      Init(TYPE_INDEXED_DB);
-      this->indexed_db_info = indexed_db_info;
-      return *this;
-    }
-
+        const BrowsingDataIndexedDBHelper::IndexedDBInfo* indexed_db_info);
     DetailedInfo& InitFileSystem(
-        const BrowsingDataFileSystemHelper::FileSystemInfo* file_system_info) {
-      Init(TYPE_FILE_SYSTEM);
-      this->file_system_info = file_system_info;
-      return *this;
-    }
-
+        const BrowsingDataFileSystemHelper::FileSystemInfo* file_system_info);
     DetailedInfo& InitQuota(
-        const BrowsingDataQuotaHelper::QuotaInfo* quota_info) {
-      Init(TYPE_QUOTA);
-      this->quota_info = quota_info;
-      return *this;
-    }
+        const BrowsingDataQuotaHelper::QuotaInfo* quota_info);
+    DetailedInfo& InitServerBoundCert(
+        const net::ServerBoundCertStore::ServerBoundCert* server_bound_cert);
 
-    string16 origin;
+    std::string app_name;
+    std::string app_id;
     NodeType node_type;
-    const net::CookieMonster::CanonicalCookie* cookie;
+    GURL origin;
+    const net::CanonicalCookie* cookie;
     const BrowsingDataDatabaseHelper::DatabaseInfo* database_info;
     const BrowsingDataLocalStorageHelper::LocalStorageInfo* local_storage_info;
     const BrowsingDataLocalStorageHelper::LocalStorageInfo*
@@ -168,6 +130,7 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
     const BrowsingDataIndexedDBHelper::IndexedDBInfo* indexed_db_info;
     const BrowsingDataFileSystemHelper::FileSystemInfo* file_system_info;
     const BrowsingDataQuotaHelper::QuotaInfo* quota_info;
+    const net::ServerBoundCertStore::ServerBoundCert* server_bound_cert;
   };
 
   CookieTreeNode() {}
@@ -187,15 +150,9 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
   virtual DetailedInfo GetDetailedInfo() const = 0;
 
  protected:
-  class NodeTitleComparator {
-   public:
-    bool operator() (const CookieTreeNode* lhs, const CookieTreeNode* rhs);
-  };
-
   void AddChildSortedByTitle(CookieTreeNode* new_child);
 
  private:
-
   DISALLOW_COPY_AND_ASSIGN(CookieTreeNode);
 };
 
@@ -206,7 +163,9 @@ class CookieTreeRootNode : public CookieTreeNode {
   explicit CookieTreeRootNode(CookiesTreeModel* model);
   virtual ~CookieTreeRootNode();
 
-  CookieTreeOriginNode* GetOrCreateOriginNode(const GURL& url);
+  CookieTreeHostNode* GetOrCreateHostNode(const GURL& url,
+                                          const std::string& app_id,
+                                          const std::string& app_name);
 
   // CookieTreeNode methods:
   virtual CookiesTreeModel* GetModel() const OVERRIDE;
@@ -218,19 +177,23 @@ class CookieTreeRootNode : public CookieTreeNode {
   DISALLOW_COPY_AND_ASSIGN(CookieTreeRootNode);
 };
 
-// CookieTreeOriginNode -------------------------------------------------------
-class CookieTreeOriginNode : public CookieTreeNode {
+// CookieTreeHostNode -------------------------------------------------------
+class CookieTreeHostNode : public CookieTreeNode {
  public:
-  // Returns the origin node's title to use for a given URL.
-  static std::wstring TitleForUrl(const GURL& url);
+  // Returns the host node's title to use for a given URL.
+  static string16 TitleForUrl(const GURL& url,
+                              const std::string& app_id,
+                              const std::string& app_name);
 
-  explicit CookieTreeOriginNode(const GURL& url);
-  virtual ~CookieTreeOriginNode();
+  explicit CookieTreeHostNode(const GURL& url,
+                              const std::string& app_id,
+                              const std::string& app_name);
+  virtual ~CookieTreeHostNode();
 
   // CookieTreeNode methods:
   virtual DetailedInfo GetDetailedInfo() const OVERRIDE;
 
-  // CookieTreeOriginNode methods:
+  // CookieTreeHostNode methods:
   CookieTreeCookiesNode* GetOrCreateCookiesNode();
   CookieTreeDatabasesNode* GetOrCreateDatabasesNode();
   CookieTreeLocalStoragesNode* GetOrCreateLocalStoragesNode();
@@ -238,8 +201,11 @@ class CookieTreeOriginNode : public CookieTreeNode {
   CookieTreeAppCachesNode* GetOrCreateAppCachesNode();
   CookieTreeIndexedDBsNode* GetOrCreateIndexedDBsNode();
   CookieTreeFileSystemsNode* GetOrCreateFileSystemsNode();
+  CookieTreeServerBoundCertsNode* GetOrCreateServerBoundCertsNode();
   CookieTreeQuotaNode* UpdateOrCreateQuotaNode(
       std::list<BrowsingDataQuotaHelper::QuotaInfo>::iterator quota_info);
+
+  std::string canonicalized_host() const { return canonicalized_host_; }
 
   // Creates an content exception for this origin of type
   // CONTENT_SETTINGS_TYPE_COOKIES.
@@ -248,6 +214,10 @@ class CookieTreeOriginNode : public CookieTreeNode {
 
   // True if a content exception can be created for this origin.
   bool CanCreateContentException() const;
+
+  const std::string& app_id() const { return app_id_; }
+  const std::string& app_name() const { return app_name_; }
+  const std::string GetHost() const;
 
  private:
   // Pointers to the cookies, databases, local and session storage and appcache
@@ -263,11 +233,17 @@ class CookieTreeOriginNode : public CookieTreeNode {
   CookieTreeIndexedDBsNode* indexed_dbs_child_;
   CookieTreeFileSystemsNode* file_systems_child_;
   CookieTreeQuotaNode* quota_child_;
+  CookieTreeServerBoundCertsNode* server_bound_certs_child_;
+
+  std::string app_id_;
+  std::string app_name_;
 
   // The URL for which this node was initially created.
   GURL url_;
 
-  DISALLOW_COPY_AND_ASSIGN(CookieTreeOriginNode);
+  std::string canonicalized_host_;
+
+  DISALLOW_COPY_AND_ASSIGN(CookieTreeHostNode);
 };
 
 // CookieTreeCookieNode ------------------------------------------------------
@@ -278,7 +254,7 @@ class CookieTreeCookieNode : public CookieTreeNode {
   // The cookie should remain valid at least as long as the
   // CookieTreeCookieNode is valid.
   explicit CookieTreeCookieNode(
-      std::list<net::CookieMonster::CanonicalCookie>::iterator cookie);
+      std::list<net::CanonicalCookie>::iterator cookie);
   virtual ~CookieTreeCookieNode();
 
   // CookieTreeNode methods:
@@ -288,7 +264,7 @@ class CookieTreeCookieNode : public CookieTreeNode {
  private:
   // cookie_ is expected to remain valid as long as the CookieTreeCookieNode is
   // valid.
-  std::list<net::CookieMonster::CanonicalCookie>::iterator cookie_;
+  std::list<net::CanonicalCookie>::iterator cookie_;
 
   DISALLOW_COPY_AND_ASSIGN(CookieTreeCookieNode);
 };
@@ -559,9 +535,52 @@ class CookieTreeQuotaNode : public CookieTreeNode {
   DISALLOW_COPY_AND_ASSIGN(CookieTreeQuotaNode);
 };
 
+// CookieTreeServerBoundCertNode ---------------------------------------------
+class CookieTreeServerBoundCertNode : public CookieTreeNode {
+ public:
+  friend class CookieTreeServerBoundCertsNode;
+
+  // The iterator should remain valid at least as long as the
+  // CookieTreeServerBoundCertNode is valid.
+  explicit CookieTreeServerBoundCertNode(
+      net::ServerBoundCertStore::ServerBoundCertList::iterator cert);
+  virtual ~CookieTreeServerBoundCertNode();
+
+  // CookieTreeNode methods:
+  virtual void DeleteStoredObjects() OVERRIDE;
+  virtual DetailedInfo GetDetailedInfo() const OVERRIDE;
+
+ private:
+  // server_bound_cert_ is expected to remain valid as long as the
+  // CookieTreeServerBoundCertNode is valid.
+  net::ServerBoundCertStore::ServerBoundCertList::iterator server_bound_cert_;
+
+  DISALLOW_COPY_AND_ASSIGN(CookieTreeServerBoundCertNode);
+};
+
+class CookieTreeServerBoundCertsNode : public CookieTreeNode {
+ public:
+  CookieTreeServerBoundCertsNode();
+  virtual ~CookieTreeServerBoundCertsNode();
+
+  virtual DetailedInfo GetDetailedInfo() const OVERRIDE;
+
+  void AddServerBoundCertNode(CookieTreeServerBoundCertNode* child) {
+    AddChildSortedByTitle(child);
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(CookieTreeServerBoundCertsNode);
+};
+
 // CookiesTreeModel -----------------------------------------------------------
 class CookiesTreeModel : public ui::TreeNodeModel<CookieTreeNode> {
  public:
+  CookiesTreeModel(const ContainerMap& apps_map,
+                   ExtensionSpecialStoragePolicy* special_storage_policy,
+                   bool group_by_cookie_source);
+  virtual ~CookiesTreeModel();
+
   // Because non-cookie nodes are fetched in a background thread, they are not
   // present at the time the Model is created. The Model then notifies its
   // observers for every item added from databases, local storage, and
@@ -573,22 +592,27 @@ class CookiesTreeModel : public ui::TreeNodeModel<CookieTreeNode> {
     virtual void TreeModelEndBatch(CookiesTreeModel* model) {}
   };
 
-  CookiesTreeModel(
-      BrowsingDataCookieHelper* cookie_helper,
-      BrowsingDataDatabaseHelper* database_helper,
-      BrowsingDataLocalStorageHelper* local_storage_helper,
-      BrowsingDataLocalStorageHelper* session_storage_helper,
-      BrowsingDataAppCacheHelper* appcache_helper,
-      BrowsingDataIndexedDBHelper* indexed_db_helper,
-      BrowsingDataFileSystemHelper* file_system_helper,
-      BrowsingDataQuotaHelper* quota_helper,
-      bool use_cookie_source);
-  virtual ~CookiesTreeModel();
+  // This class defines the scope for batch updates. It can be created as a
+  // local variable and the destructor will terminate the batch update, if one
+  // has been started.
+  class ScopedBatchUpdateNotifier {
+   public:
+    ScopedBatchUpdateNotifier(CookiesTreeModel* model,
+                              CookieTreeNode* node);
+    ~ScopedBatchUpdateNotifier();
+
+    void StartBatchUpdate();
+
+   private:
+    CookiesTreeModel* model_;
+    CookieTreeNode* node_;
+    bool batch_in_progress_;
+  };
 
   // ui::TreeModel methods:
   // Returns the set of icons for the nodes in the tree. You only need override
   // this if you don't want to use the default folder icons.
-  virtual void GetIcons(std::vector<SkBitmap>* icons) OVERRIDE;
+  virtual void GetIcons(std::vector<gfx::ImageSkia>* icons) OVERRIDE;
 
   // Returns the index of the icon to use for |node|. Return -1 to use the
   // default icon. The index is relative to the list of icons returned from
@@ -597,10 +621,20 @@ class CookiesTreeModel : public ui::TreeNodeModel<CookieTreeNode> {
 
   // CookiesTreeModel methods:
   void DeleteAllStoredObjects();
+
+  // Deletes a specific node in the tree, identified by |cookie_node|, and its
+  // subtree.
   void DeleteCookieNode(CookieTreeNode* cookie_node);
 
   // Filter the origins to only display matched results.
-  void UpdateSearchResults(const std::wstring& filter);
+  void UpdateSearchResults(const string16& filter);
+
+  // Returns the set of extensions which protect the data item represented by
+  // this node from deletion.
+  // Returns NULL if the node doesn't represent a protected data item or the
+  // special storage policy is NULL.
+  const ExtensionSet* ExtensionsProtectingNode(
+      const CookieTreeNode& cookie_node);
 
   // Manages CookiesTreeModel::Observers. This will also call
   // TreeNodeModel::AddObserver so that it gets all the proper notifications.
@@ -609,93 +643,79 @@ class CookiesTreeModel : public ui::TreeNodeModel<CookieTreeNode> {
   virtual void AddCookiesTreeObserver(Observer* observer);
   virtual void RemoveCookiesTreeObserver(Observer* observer);
 
+  // Methods that update the model based on the data retrieved by the browsing
+  // data helpers.
+  void PopulateAppCacheInfo(LocalDataContainer* container);
+  void PopulateCookieInfo(LocalDataContainer* container);
+  void PopulateDatabaseInfo(LocalDataContainer* container);
+  void PopulateLocalStorageInfo(LocalDataContainer* container);
+  void PopulateSessionStorageInfo(LocalDataContainer* container);
+  void PopulateIndexedDBInfo(LocalDataContainer* container);
+  void PopulateFileSystemInfo(LocalDataContainer* container);
+  void PopulateQuotaInfo(LocalDataContainer* container);
+  void PopulateServerBoundCertInfo(LocalDataContainer* container);
+
+  BrowsingDataCookieHelper* GetCookieHelper(const std::string& app_id);
+  LocalDataContainer* GetLocalDataContainer(const std::string& app_id);
+
  private:
   enum CookieIconIndex {
     ORIGIN = 0,
     COOKIE = 1,
     DATABASE = 2
   };
-  typedef std::list<net::CookieMonster::CanonicalCookie> CookieList;
-  typedef std::list<BrowsingDataDatabaseHelper::DatabaseInfo>
-      DatabaseInfoList;
-  typedef std::list<BrowsingDataLocalStorageHelper::LocalStorageInfo>
-      LocalStorageInfoList;
-  typedef std::list<BrowsingDataLocalStorageHelper::LocalStorageInfo>
-      SessionStorageInfoList;
-  typedef std::list<BrowsingDataIndexedDBHelper::IndexedDBInfo>
-      IndexedDBInfoList;
-  typedef std::list<BrowsingDataFileSystemHelper::FileSystemInfo>
-      FileSystemInfoList;
-  typedef std::list<BrowsingDataQuotaHelper::QuotaInfo> QuotaInfoArray;
-
-  void OnAppCacheModelInfoLoaded();
-  void OnCookiesModelInfoLoaded(const net::CookieList& cookie_list);
-  void OnDatabaseModelInfoLoaded(const DatabaseInfoList& database_info);
-  void OnLocalStorageModelInfoLoaded(
-      const LocalStorageInfoList& local_storage_info);
-  void OnSessionStorageModelInfoLoaded(
-      const LocalStorageInfoList& local_storage_info);
-  void OnIndexedDBModelInfoLoaded(
-      const IndexedDBInfoList& indexed_db_info);
-  void OnFileSystemModelInfoLoaded(
-      const FileSystemInfoList& file_system_info);
-  void OnQuotaModelInfoLoaded(const QuotaInfoArray& quota_info);
-
-  void PopulateAppCacheInfoWithFilter(const std::wstring& filter);
-  void PopulateCookieInfoWithFilter(const std::wstring& filter);
-  void PopulateDatabaseInfoWithFilter(const std::wstring& filter);
-  void PopulateLocalStorageInfoWithFilter(const std::wstring& filter);
-  void PopulateSessionStorageInfoWithFilter(const std::wstring& filter);
-  void PopulateIndexedDBInfoWithFilter(const std::wstring& filter);
-  void PopulateFileSystemInfoWithFilter(const std::wstring& filter);
-  void PopulateQuotaInfoWithFilter(const std::wstring& filter);
 
   void NotifyObserverBeginBatch();
   void NotifyObserverEndBatch();
 
-  scoped_refptr<BrowsingDataAppCacheHelper> appcache_helper_;
-  scoped_refptr<BrowsingDataCookieHelper> cookie_helper_;
-  scoped_refptr<BrowsingDataDatabaseHelper> database_helper_;
-  scoped_refptr<BrowsingDataLocalStorageHelper> local_storage_helper_;
-  scoped_refptr<BrowsingDataLocalStorageHelper> session_storage_helper_;
-  scoped_refptr<BrowsingDataIndexedDBHelper> indexed_db_helper_;
-  scoped_refptr<BrowsingDataFileSystemHelper> file_system_helper_;
-  scoped_refptr<BrowsingDataQuotaHelper> quota_helper_;
+  void PopulateAppCacheInfoWithFilter(LocalDataContainer* container,
+                                      ScopedBatchUpdateNotifier* notifier,
+                                      const string16& filter);
+  void PopulateCookieInfoWithFilter(LocalDataContainer* container,
+                                    ScopedBatchUpdateNotifier* notifier,
+                                    const string16& filter);
+  void PopulateDatabaseInfoWithFilter(LocalDataContainer* container,
+                                      ScopedBatchUpdateNotifier* notifier,
+                                      const string16& filter);
+  void PopulateLocalStorageInfoWithFilter(LocalDataContainer* container,
+                                          ScopedBatchUpdateNotifier* notifier,
+                                          const string16& filter);
+  void PopulateSessionStorageInfoWithFilter(LocalDataContainer* container,
+                                            ScopedBatchUpdateNotifier* notifier,
+                                            const string16& filter);
+  void PopulateIndexedDBInfoWithFilter(LocalDataContainer* container,
+                                       ScopedBatchUpdateNotifier* notifier,
+                                       const string16& filter);
+  void PopulateFileSystemInfoWithFilter(LocalDataContainer* container,
+                                        ScopedBatchUpdateNotifier* notifier,
+                                        const string16& filter);
+  void PopulateQuotaInfoWithFilter(LocalDataContainer* container,
+                                   ScopedBatchUpdateNotifier* notifier,
+                                   const string16& filter);
+  void PopulateServerBoundCertInfoWithFilter(
+      LocalDataContainer* container,
+      ScopedBatchUpdateNotifier* notifier,
+      const string16& filter);
 
-  std::map<GURL, std::list<appcache::AppCacheInfo> > appcache_info_;
-  CookieList cookie_list_;
-  DatabaseInfoList database_info_list_;
-  LocalStorageInfoList local_storage_info_list_;
-  LocalStorageInfoList session_storage_info_list_;
-  IndexedDBInfoList indexed_db_info_list_;
-  FileSystemInfoList file_system_info_list_;
-  QuotaInfoArray quota_info_list_;
+  // Map of app ids to LocalDataContainer objects to use when retrieving
+  // locally stored data.
+  ContainerMap app_data_map_;
+
+  // The extension special storage policy; see ExtensionsProtectingNode() above.
+  scoped_refptr<ExtensionSpecialStoragePolicy> special_storage_policy_;
 
   // The CookiesTreeModel maintains a separate list of observers that are
   // specifically of the type CookiesTreeModel::Observer.
   ObserverList<Observer> cookies_observer_list_;
 
+  // If true, use the CanonicalCookie::Source attribute to group cookies.
+  // Otherwise, use the CanonicalCookie::Domain attribute.
+  bool group_by_cookie_source_;
+
   // If this is non-zero, then this model is batching updates (there's a lot of
   // notifications coming down the pipe). This is an integer is used to balance
   // calls to Begin/EndBatch() if they're called in a nested manner.
   int batch_update_;
-
-  // If true, use the CanonicalCookie::Source attribute to group cookies.
-  // Otherwise, use the CanonicalCookie::Domain attribute.
-  bool use_cookie_source_;
-
-  base::WeakPtrFactory<CookiesTreeModel> weak_ptr_factory_;
-
-  friend class CookieTreeAppCacheNode;
-  friend class CookieTreeCookieNode;
-  friend class CookieTreeDatabaseNode;
-  friend class CookieTreeLocalStorageNode;
-  friend class CookieTreeSessionStorageNode;
-  friend class CookieTreeIndexedDBNode;
-  friend class CookieTreeFileSystemNode;
-  friend class CookieTreeQuotaNode;
-
-  DISALLOW_COPY_AND_ASSIGN(CookiesTreeModel);
 };
 
 #endif  // CHROME_BROWSER_COOKIES_TREE_MODEL_H_

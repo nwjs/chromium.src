@@ -12,6 +12,7 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/stringize_macros.h"
+#include "net/socket/ssl_server_socket.h"
 #include "remoting/base/plugin_message_loop_proxy.h"
 #include "remoting/host/plugin/constants.h"
 #include "remoting/host/plugin/host_log_handler.h"
@@ -114,6 +115,7 @@ class HostNPPlugin : public remoting::PluginMessageLoopProxy::Delegate {
       return false;
     }
 #endif  // OS_MACOSX
+    net::EnableSSLServerSockets();
     return true;
   }
 
@@ -159,6 +161,12 @@ class HostNPPlugin : public remoting::PluginMessageLoopProxy::Delegate {
       timers_[timer_id] = task;
     }
     return true;
+  }
+
+  void SetWindow(NPWindow* np_window) {
+    if (scriptable_object_) {
+      ScriptableFromObject(scriptable_object_)->SetWindow(np_window);
+    }
   }
 
   static void NPDelayedTaskSpringboard(NPP npp, uint32_t timer_id) {
@@ -419,6 +427,10 @@ NPError HandleEvent(NPP instance, void* ev) {
 
 NPError SetWindow(NPP instance, NPWindow* pNPWindow) {
   VLOG(2) << "SetWindow";
+  HostNPPlugin* plugin = PluginFromInstance(instance);
+  if (plugin) {
+    plugin->SetWindow(pNPWindow);
+  }
   return NPERR_NO_ERROR;
 }
 

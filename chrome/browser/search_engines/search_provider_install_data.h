@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SEARCH_ENGINES_SEARCH_PROVIDER_INSTALL_DATA_H_
 #define CHROME_BROWSER_SEARCH_ENGINES_SEARCH_PROVIDER_INSTALL_DATA_H_
-#pragma once
 
 #include <string>
 
@@ -97,7 +96,7 @@ class SearchProviderInstallData : public WebDataServiceConsumer,
   scoped_ptr<SearchHostToURLsMap> provider_map_;
 
   // The list of template urls that are owned by the class.
-  ScopedVector<const TemplateURL> template_urls_;
+  ScopedVector<TemplateURL> template_urls_;
 
   // The security origin for the default search provider.
   std::string default_search_origin_;

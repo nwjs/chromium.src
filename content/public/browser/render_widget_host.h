@@ -4,16 +4,17 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_RENDER_WIDGET_HOST_H_
 #define CONTENT_PUBLIC_BROWSER_RENDER_WIDGET_HOST_H_
-#pragma once
 
+#include "base/callback.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/keyboard_listener.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "ipc/ipc_channel.h"
+#include "ipc/ipc_sender.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
 #include "ui/gfx/size.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
 
 #if defined(TOOLKIT_GTK)
 #include "ui/base/x/x11_util.h"
@@ -47,44 +48,36 @@ class RenderWidgetHostView;
 // There are two situations in which this object, a RenderWidgetHost, can be
 // instantiated:
 //
-// 1. By a TabContents as the communication conduit for a rendered web page.
-//    The TabContents instantiates a derived class: RenderViewHost.
-// 2. By a TabContents as the communication conduit for a select widget. The
-//    TabContents instantiates the RenderWidgetHost directly.
+// 1. By a WebContents as the communication conduit for a rendered web page.
+//    The WebContents instantiates a derived class: RenderViewHost.
+// 2. By a WebContents as the communication conduit for a select widget. The
+//    WebContents instantiates the RenderWidgetHost directly.
 //
-// For every TabContents there are several objects in play that need to be
+// For every WebContents there are several objects in play that need to be
 // properly destroyed or cleaned up when certain events occur.
 //
-// - TabContents - the TabContents itself, and its associated HWND.
+// - WebContents - the WebContents itself, and its associated HWND.
 // - RenderViewHost - representing the communication conduit with the child
 //   process.
 // - RenderWidgetHostView - the view of the web page content, message handler,
 //   and plugin root.
 //
-// Normally, the TabContents contains a child RenderWidgetHostView that renders
+// Normally, the WebContents contains a child RenderWidgetHostView that renders
 // the contents of the loaded page. It has a WS_CLIPCHILDREN style so that it
 // does no painting of its own.
 //
 // The lifetime of the RenderWidgetHostView is tied to the render process. If
 // the render process dies, the RenderWidgetHostView goes away and all
-// references to it must become NULL. If the TabContents finds itself without a
-// RenderWidgetHostView, it paints Sad Tab instead.
+// references to it must become NULL.
 //
 // RenderViewHost (a RenderWidgetHost subclass) is the conduit used to
-// communicate with the RenderView and is owned by the TabContents. If the
+// communicate with the RenderView and is owned by the WebContents. If the
 // render process crashes, the RenderViewHost remains and restarts the render
 // process if needed to continue navigation.
 //
-// The TabContents is itself owned by the NavigationController in which it
-// resides.
-//
 // Some examples of how shutdown works:
 //
-// When a tab is closed (either by the user, the web page calling window.close,
-// etc) the TabStrip destroys the associated NavigationController, which calls
-// Destroy on each TabContents it owns.
-//
-// For a TabContents, its Destroy method tells the RenderViewHost to
+// For a WebContents, its Destroy method tells the RenderViewHost to
 // shut down the render process and die.
 //
 // When the render process is destroyed it destroys the View: the
@@ -92,24 +85,24 @@ class RenderWidgetHostView;
 //
 // For select popups, the situation is a little different. The RenderWidgetHost
 // associated with the select popup owns the view and itself (is responsible
-// for destroying itself when the view is closed). The TabContents's only
+// for destroying itself when the view is closed). The WebContents's only
 // responsibility is to select popups is to create them when it is told to. When
 // the View is destroyed via an IPC message (for when WebCore destroys the
 // popup, e.g. if the user selects one of the options), or because
 // WM_CANCELMODE is received by the view, the View schedules the destruction of
-// the render process. However in this case since there's no TabContents
+// the render process. However in this case since there's no WebContents
 // container, when the render process is destroyed, the RenderWidgetHost just
 // deletes itself, which is safe because no one else should have any references
-// to it (the TabContents does not).
+// to it (the WebContents does not).
 //
 // It should be noted that the RenderViewHost, not the RenderWidgetHost,
 // handles IPC messages relating to the render process going away, since the
-// way a RenderViewHost (TabContents) handles the process dying is different to
+// way a RenderViewHost (WebContents) handles the process dying is different to
 // the way a select popup does. As such the RenderWidgetHostView handles these
 // messages for select popups. This placement is more out of convenience than
 // anything else. When the view is live, these messages are forwarded to it by
 // the RenderWidgetHost's IPC message map.
-class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Sender {
+class CONTENT_EXPORT RenderWidgetHost : public IPC::Sender {
  public:
   // Free all backing stores used for rendering to drop memory usage.
   static void RemoveAllBackingStores();
@@ -172,20 +165,23 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Sender {
 
   // Copies the given subset of the backing store into the given (uninitialized)
   // PlatformCanvas. If |src_rect| is empty, the whole contents is copied.
-  // Returns true on success, false otherwise. When accelerated compositing is
-  // active, the contents is copied from the compositing surface.
+  // NOTE: |src_rect| is not supported yet when accelerated compositing is
+  // active (http://crbug.com/118571) and the whole content is always copied
+  // regardless of |src_rect|.
   // If non empty |accelerated_dest_size| is given and accelerated compositing
   // is active, the content is shrinked so that it fits in
   // |accelerated_dest_size|. If |accelerated_dest_size| is larger than the
   // contens size, the content is not resized. If |accelerated_dest_size| is
   // empty, the size copied from the source contents is used.
-  // NOTE: |src_rect| is not supported yet when accelerated compositing is
-  // active (http://crbug.com/118571) and the whole content is always copied
-  // regardless of |src_rect|.
-  virtual bool CopyFromBackingStore(const gfx::Rect& src_rect,
+  // |callback| is invoked with true on success, false otherwise. |output| can
+  // be initialized even on failure.
+  // NOTE: |callback| is called synchronously if the backing store is available.
+  // When accelerated compositing is active, it is called asynchronously on Aura
+  // and synchronously on the other platforms.
+  virtual void CopyFromBackingStore(const gfx::Rect& src_rect,
                                     const gfx::Size& accelerated_dest_size,
+                                    const base::Callback<void(bool)>& callback,
                                     skia::PlatformCanvas* output) = 0;
-
 #if defined(TOOLKIT_GTK)
   // Paint the backing store into the target's |dest_rect|.
   virtual bool CopyFromBackingStoreToGtkWindow(const gfx::Rect& dest_rect,
@@ -196,9 +192,8 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Sender {
                                                CGContextRef target) = 0;
 #endif
 
-  // Enable renderer accessibility. This should only be called when a
-  // screenreader is detected.
-  virtual void EnableRendererAccessibility() = 0;
+  // Send a command to the renderer to turn on full accessibility.
+  virtual void EnableFullAccessibilityMode() = 0;
 
   // Forwards the given message to the renderer. These are called by
   // the view when it has received a message.
@@ -220,6 +215,9 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Sender {
   // never cache this pointer since it can become NULL if the renderer crashes,
   // instead you should always ask for it using the accessor.
   virtual RenderWidgetHostView* GetView() const = 0;
+
+  // Returns true if the renderer is loading, false if not.
+  virtual bool IsLoading() const = 0;
 
   // Returns true if this is a RenderViewHost, false if not.
   virtual bool IsRenderView() const = 0;
@@ -261,9 +259,8 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Sender {
   // Called to notify the RenderWidget that it has been resized.
   virtual void WasResized() = 0;
 
-  // Access to the implementation's
-  // IPC::Channel::Listener::OnMessageReceived.  Intended only for
-  // test code.
+  // Access to the implementation's IPC::Listener::OnMessageReceived. Intended
+  // only for test code.
 
   // Add a keyboard listener that can handle key presses without requiring
   // focus.
@@ -271,6 +268,9 @@ class CONTENT_EXPORT RenderWidgetHost : public IPC::Channel::Sender {
 
   // Remove a keyboard listener.
   virtual void RemoveKeyboardListener(KeyboardListener* listener) = 0;
+
+  // Update the device scale factor.
+  virtual void SetDeviceScaleFactor(float scale) = 0;
 
  protected:
   friend class RenderWidgetHostImpl;

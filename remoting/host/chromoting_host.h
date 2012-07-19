@@ -18,9 +18,8 @@
 #include "remoting/host/desktop_environment.h"
 #include "remoting/host/host_key_pair.h"
 #include "remoting/host/host_status_observer.h"
+#include "remoting/host/mouse_move_observer.h"
 #include "remoting/host/ui_strings.h"
-#include "remoting/jingle_glue/jingle_thread.h"
-#include "remoting/jingle_glue/signal_strategy.h"
 #include "remoting/protocol/authenticator.h"
 #include "remoting/protocol/session_manager.h"
 #include "remoting/protocol/connection_to_client.h"
@@ -33,6 +32,7 @@ class SessionConfig;
 class CandidateSessionConfig;
 }  // namespace protocol
 
+class AudioScheduler;
 class Capturer;
 class ChromotingHostContext;
 class DesktopEnvironment;
@@ -64,14 +64,15 @@ class ScreenRecorder;
 //    incoming connection.
 class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
                        public ClientSession::EventHandler,
-                       public protocol::SessionManager::Listener {
+                       public protocol::SessionManager::Listener,
+                       public MouseMoveObserver {
  public:
   // The caller must ensure that |context|, |signal_strategy| and
   // |environment| out-live the host.
   ChromotingHost(ChromotingHostContext* context,
                  SignalStrategy* signal_strategy,
                  DesktopEnvironment* environment,
-                 const protocol::NetworkSettings& network_settings);
+                 scoped_ptr<protocol::SessionManager> session_manager);
 
   // Asynchronously start the host process.
   //
@@ -90,7 +91,7 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
   void AddStatusObserver(HostStatusObserver* observer);
   void RemoveStatusObserver(HostStatusObserver* observer);
 
-  // This method may be called only form
+  // This method may be called only from
   // HostStatusObserver::OnClientAuthenticated() to reject the new
   // client.
   void RejectAuthenticatingClient();
@@ -103,6 +104,10 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
   // factory before all authenticators it created are deleted.
   void SetAuthenticatorFactory(
       scoped_ptr<protocol::AuthenticatorFactory> authenticator_factory);
+
+  // Sets the maximum duration of any session. By default, a session has no
+  // maximum duration.
+  void SetMaximumSessionDuration(const base::TimeDelta& max_session_duration);
 
   ////////////////////////////////////////////////////////////////////////////
   // ClientSession::EventHandler implementation.
@@ -123,17 +128,22 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
       protocol::Session* session,
       protocol::SessionManager::IncomingSessionResponse* response) OVERRIDE;
 
+  // MouseMoveObserver interface.
+  virtual void OnLocalMouseMoved(const SkIPoint& new_pos) OVERRIDE;
+
   // Sets desired configuration for the protocol. Ownership of the
   // |config| is transferred to the object. Must be called before Start().
   void set_protocol_config(protocol::CandidateSessionConfig* config);
 
-  // Notify all active client sessions that local input has been detected, and
-  // that remote input should be ignored for a short time.
-  void LocalMouseMoved(const SkIPoint& new_pos);
-
   // Pause or unpause the session. While the session is paused, remote input
-  // is ignored.
+  // is ignored. Can be called from any thread.
   void PauseSession(bool pause);
+
+  // Disconnects all active clients. Clients are disconnected
+  // asynchronously when this method is called on a thread other than
+  // the network thread. Potentically this may cause disconnection of
+  // clients that were not connected when this method is called.
+  void DisconnectAllClients();
 
   const UiStrings& ui_strings() { return ui_strings_; }
 
@@ -158,14 +168,9 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
 
   virtual ~ChromotingHost();
 
-  std::string GenerateHostAuthToken(const std::string& encoded_client_token);
-
-  void AddAuthenticatedClient(ClientSession* client,
-                              const protocol::SessionConfig& config,
-                              const std::string& jid);
-
   void StopScreenRecorder();
-  void OnScreenRecorderStopped();
+  void StopAudioScheduler();
+  void OnRecorderStopped();
 
   // Called from Shutdown() or OnScreenRecorderStopped() to finish shutdown.
   void ShutdownFinish();
@@ -176,11 +181,10 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
   // Parameters specified when the host was created.
   ChromotingHostContext* context_;
   DesktopEnvironment* desktop_environment_;
-  protocol::NetworkSettings network_settings_;
+  scoped_ptr<protocol::SessionManager> session_manager_;
 
   // Connection objects.
   SignalStrategy* signal_strategy_;
-  scoped_ptr<protocol::SessionManager> session_manager_;
 
   // Must be used on the network thread only.
   ObserverList<HostStatusObserver> status_observers_;
@@ -188,14 +192,14 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
   // The connections to remote clients.
   ClientList clients_;
 
-  // Session manager for the host process.
-  // TODO(sergeyu): Do we need to have one screen recorder per client?
+  // Schedulers for audio and video capture.
+  // TODO(sergeyu): Do we need to have one set of schedulers per client?
   scoped_refptr<ScreenRecorder> recorder_;
+  scoped_refptr<AudioScheduler> audio_scheduler_;
 
-  // Number of screen recorders that are currently being
-  // stopped. Normally set to 0 or 1, but in some cases it may be
-  // greater than 1, particularly if when second client can connect
-  // immediately after previous one disconnected.
+  // Number of screen recorders and audio schedulers that are currently being
+  // stopped. Used to delay shutdown if one or more recorders/schedulers are
+  // asynchronously shutting down.
   int stopping_recorders_;
 
   // Tracks the internal state of the host.
@@ -218,6 +222,9 @@ class ChromotingHost : public base::RefCountedThreadSafe<ChromotingHost>,
   // TODO(sergeyu): The following members do not belong to
   // ChromotingHost and should be moved elsewhere.
   UiStrings ui_strings_;
+
+  // The maximum duration of any session.
+  base::TimeDelta max_session_duration_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromotingHost);
 };

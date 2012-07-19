@@ -4,11 +4,11 @@
 
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache.h"
 
+#include "base/memory/ref_counted_memory.h"
 #include "base/string16.h"
 #include "base/string_piece.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "base/memory/ref_counted_memory.h"
 #include "chrome/browser/google/google_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
@@ -19,6 +19,7 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::BrowserThread;
@@ -34,7 +35,7 @@ NTPResourceCache::NTPResourceCache(Profile* profile) : profile_(profile) {}
 
 NTPResourceCache::~NTPResourceCache() {}
 
-RefCountedMemory* NTPResourceCache::GetNewTabHTML(bool is_incognito) {
+base::RefCountedMemory* NTPResourceCache::GetNewTabHTML(bool is_incognito) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   // Android uses same html/css for incognito NTP and normal NTP
   if (!new_tab_html_.get())
@@ -42,7 +43,7 @@ RefCountedMemory* NTPResourceCache::GetNewTabHTML(bool is_incognito) {
   return new_tab_html_.get();
 }
 
-RefCountedMemory* NTPResourceCache::GetNewTabCSS(bool is_incognito) {
+base::RefCountedMemory* NTPResourceCache::GetNewTabCSS(bool is_incognito) {
   // This is used for themes, which are not currently supported on Android.
   NOTIMPLEMENTED();
   return NULL;
@@ -60,7 +61,7 @@ void NTPResourceCache::CreateNewTabHTML() {
   // Show the profile name in the title and most visited labels if the current
   // profile is not the default.
   DictionaryValue localized_strings;
-  localized_strings.SetString("hasattribution", "false");
+  localized_strings.SetBoolean("hasattribution", false);
   localized_strings.SetString("title",
       l10n_util::GetStringUTF16(IDS_NEW_TAB_TITLE));
   localized_strings.SetString("mostvisited",
@@ -73,7 +74,8 @@ void NTPResourceCache::CreateNewTabHTML() {
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(&localized_strings);
 
   base::StringPiece new_tab_html(ResourceBundle::GetSharedInstance().
-      GetRawDataResource(IDR_NEW_TAB_4_HTML));
+      GetRawDataResource(IDR_NEW_TAB_4_HTML,
+                         ui::SCALE_FACTOR_NONE));
 
   const char* new_tab_link = kLearnMoreIncognitoUrl;
   string16 learnMoreLink = ASCIIToUTF16(

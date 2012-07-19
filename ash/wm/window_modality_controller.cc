@@ -4,9 +4,14 @@
 
 #include "ash/wm/window_modality_controller.h"
 
+#include <algorithm>
+
 #include "ash/wm/window_util.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/client/capture_client.h"
+#include "ui/aura/env.h"
 #include "ui/aura/event.h"
+#include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/base/ui_base_types.h"
 
@@ -57,9 +62,13 @@ namespace internal {
 // WindowModalityController, public:
 
 WindowModalityController::WindowModalityController() {
+  aura::Env::GetInstance()->AddObserver(this);
 }
 
 WindowModalityController::~WindowModalityController() {
+  aura::Env::GetInstance()->RemoveObserver(this);
+  for (size_t i = 0; i < windows_.size(); ++i)
+    windows_[i]->RemoveObserver(this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,17 +81,14 @@ bool WindowModalityController::PreHandleKeyEvent(aura::Window* target,
 
 bool WindowModalityController::PreHandleMouseEvent(aura::Window* target,
                                                    aura::MouseEvent* event) {
-  aura::Window* modal_transient_child = wm::GetWindowModalTransient(target);
-  if (modal_transient_child && event->type() == ui::ET_MOUSE_PRESSED)
-    wm::ActivateWindow(modal_transient_child);
-  return !!modal_transient_child;
+  return ProcessLocatedEvent(target, event);
 }
 
 ui::TouchStatus WindowModalityController::PreHandleTouchEvent(
     aura::Window* target,
     aura::TouchEvent* event) {
-  // TODO: make touch work with modals.
-  return ui::TOUCH_STATUS_UNKNOWN;
+  return ProcessLocatedEvent(target, event) ? ui::TOUCH_STATUS_CONTINUE :
+                                              ui::TOUCH_STATUS_UNKNOWN;
 }
 
 ui::GestureStatus WindowModalityController::PreHandleGestureEvent(
@@ -90,6 +96,39 @@ ui::GestureStatus WindowModalityController::PreHandleGestureEvent(
     aura::GestureEvent* event) {
   // TODO: make gestures work with modals.
   return ui::GESTURE_STATUS_UNKNOWN;
+}
+
+void WindowModalityController::OnWindowInitialized(aura::Window* window) {
+  windows_.push_back(window);
+  window->AddObserver(this);
+}
+
+void WindowModalityController::OnWindowVisibilityChanged(
+    aura::Window* window,
+    bool visible) {
+  if (visible && window->GetProperty(aura::client::kModalKey) ==
+      ui::MODAL_TYPE_WINDOW) {
+    // Make sure no other window has capture, otherwise |window| won't get mouse
+    // events.
+    aura::Window* capture_window = aura::client::GetCaptureWindow(window);
+    if (capture_window)
+      capture_window->ReleaseCapture();
+  }
+}
+
+void WindowModalityController::OnWindowDestroyed(aura::Window* window) {
+  windows_.erase(std::find(windows_.begin(), windows_.end(), window));
+  window->RemoveObserver(this);
+}
+
+bool WindowModalityController::ProcessLocatedEvent(aura::Window* target,
+                                                   aura::LocatedEvent* event) {
+  aura::Window* modal_transient_child = wm::GetWindowModalTransient(target);
+  if (modal_transient_child && (event->type() == ui::ET_MOUSE_PRESSED ||
+                                event->type() == ui::ET_TOUCH_PRESSED)) {
+    wm::ActivateWindow(modal_transient_child);
+  }
+  return !!modal_transient_child;
 }
 
 }  // namespace internal

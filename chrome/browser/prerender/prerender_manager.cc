@@ -4,7 +4,10 @@
 
 #include "chrome/browser/prerender/prerender_manager.h"
 
+#include <algorithm>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -18,13 +21,14 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/cancelable_request.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
-#include "chrome/browser/history/top_sites.h"
 #include "chrome/browser/prerender/prerender_condition.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/browser/prerender/prerender_final_status.h"
+#include "chrome/browser/prerender/prerender_handle.h"
 #include "chrome/browser/prerender/prerender_histograms.h"
 #include "chrome/browser/prerender/prerender_history.h"
+#include "chrome/browser/prerender/prerender_local_predictor.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
 #include "chrome/browser/prerender/prerender_tracker.h"
@@ -32,7 +36,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper_delegate.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/prerender_messages.h"
@@ -47,6 +51,7 @@
 #include "content/public/browser/session_storage_namespace.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "content/public/browser/web_contents_view.h"
 
 using content::BrowserThread;
 using content::RenderViewHost;
@@ -66,9 +71,6 @@ const int kPeriodicCleanupIntervalMs = 1000;
 
 // Time interval before a new prerender is allowed.
 const int kMinTimeBetweenPrerendersMs = 500;
-
-// Time window for which we record old navigations, in milliseconds.
-const int kNavigationRecordWindowMs = 5000;
 
 // Valid HTTP methods for prerendering.
 const char* const kValidHttpMethods[] = {
@@ -106,10 +108,8 @@ bool NeedMatchCompleteDummyForFinalStatus(FinalStatus final_status) {
       final_status != FINAL_STATUS_MANAGER_SHUTDOWN &&
       final_status != FINAL_STATUS_APP_TERMINATING &&
       final_status != FINAL_STATUS_WINDOW_OPENER &&
-      final_status != FINAL_STATUS_FRAGMENT_MISMATCH &&
       final_status != FINAL_STATUS_CACHE_OR_HISTORY_CLEARED &&
       final_status != FINAL_STATUS_CANCELLED &&
-      final_status != FINAL_STATUS_SESSION_STORAGE_NAMESPACE_MISMATCH &&
       final_status != FINAL_STATUS_DEVTOOLS_ATTACHED &&
       final_status != FINAL_STATUS_CROSS_SITE_NAVIGATION_PENDING;
 }
@@ -122,7 +122,7 @@ class PrerenderManager::OnCloseTabContentsDeleter
           PrerenderManager::OnCloseTabContentsDeleter> {
  public:
   OnCloseTabContentsDeleter(PrerenderManager* manager,
-                            TabContentsWrapper* tab)
+                            TabContents* tab)
       : manager_(manager),
         tab_(tab) {
     tab_->web_contents()->SetDelegate(this);
@@ -156,7 +156,7 @@ class PrerenderManager::OnCloseTabContentsDeleter
   }
 
   PrerenderManager* manager_;
-  scoped_ptr<TabContentsWrapper> tab_;
+  scoped_ptr<TabContents> tab_;
 
   DISALLOW_COPY_AND_ASSIGN(OnCloseTabContentsDeleter);
 };
@@ -171,16 +171,6 @@ int PrerenderManager::prerenders_per_session_count_ = 0;
 PrerenderManager::PrerenderManagerMode PrerenderManager::mode_ =
     PRERENDER_MODE_ENABLED;
 
-struct PrerenderManager::PrerenderContentsData {
-  PrerenderContents* contents_;
-  base::Time start_time_;
-  PrerenderContentsData(PrerenderContents* contents, base::Time start_time)
-      : contents_(contents),
-        start_time_(start_time) {
-    CHECK(contents);
-  }
-};
-
 struct PrerenderManager::NavigationRecord {
   GURL url_;
   base::TimeTicks time_;
@@ -188,60 +178,6 @@ struct PrerenderManager::NavigationRecord {
       : url_(url),
         time_(time) {
   }
-};
-
-class PrerenderManager::MostVisitedSites
-    : public content::NotificationObserver {
- public:
-  explicit MostVisitedSites(Profile* profile) :
-      profile_(profile) {
-    history::TopSites* top_sites = GetTopSites();
-    if (top_sites) {
-      registrar_.Add(this, chrome::NOTIFICATION_TOP_SITES_CHANGED,
-                     content::Source<history::TopSites>(top_sites));
-    }
-
-    UpdateMostVisited();
-  }
-
-  void UpdateMostVisited() {
-    history::TopSites* top_sites = GetTopSites();
-    if (top_sites) {
-      top_sites->GetMostVisitedURLs(
-          &topsites_consumer_,
-          base::Bind(&prerender::PrerenderManager::MostVisitedSites::
-              OnMostVisitedURLsAvailable, base::Unretained(this)));
-    }
-  }
-
-  void OnMostVisitedURLsAvailable(const history::MostVisitedURLList& data) {
-    urls_.clear();
-    for (int i = 0; i < static_cast<int>(data.size()); i++)
-      urls_.insert(data[i].url);
-  }
-
-  void Observe(int type,
-               const content::NotificationSource& source,
-               const content::NotificationDetails& details) {
-    DCHECK_EQ(type, chrome::NOTIFICATION_TOP_SITES_CHANGED);
-    UpdateMostVisited();
-  }
-
-  bool IsTopSite(const GURL& url) const {
-    return (urls_.count(url) > 0);
-  }
-
- private:
-  history::TopSites* GetTopSites() const {
-    if (profile_)
-      return profile_->GetTopSites();
-    return NULL;
-  }
-
-  CancelableRequestConsumer topsites_consumer_;
-  Profile* profile_;
-  content::NotificationRegistrar registrar_;
-  std::set<GURL> urls_;
 };
 
 PrerenderManager::PrerenderManager(Profile* profile,
@@ -254,7 +190,8 @@ PrerenderManager::PrerenderManager(Profile* profile,
           base::TimeDelta::FromMilliseconds(kMinTimeBetweenPrerendersMs)),
       weak_factory_(this),
       prerender_history_(new PrerenderHistory(kHistoryLength)),
-      histograms_(new PrerenderHistograms()) {
+      histograms_(new PrerenderHistograms()),
+      local_predictor_(new PrerenderLocalPredictor(this)) {
   // There are some assumptions that the PrerenderManager is on the UI thread.
   // Any other checks simply make sure that the PrerenderManager is accessed on
   // the same thread that it was created on.
@@ -268,61 +205,76 @@ void PrerenderManager::Shutdown() {
   DoShutdown();
 }
 
-bool PrerenderManager::AddPrerenderFromLinkRelPrerender(
+PrerenderHandle* PrerenderManager::AddPrerenderFromLinkRelPrerender(
     int process_id,
     int route_id,
     const GURL& url,
-    const content::Referrer& referrer) {
+    const content::Referrer& referrer,
+    const gfx::Size& size) {
 #if defined(OS_ANDROID)
   // TODO(jcivelli): http://crbug.com/113322 We should have an option to disable
   //                link-prerender and enable omnibox-prerender only.
   return false;
 #else
-  std::pair<int, int> child_route_id_pair = std::make_pair(process_id,
-                                                           route_id);
+  DCHECK(!size.IsEmpty());
+  if (PrerenderData* parent_prerender_data =
+          FindPrerenderDataForChildAndRoute(process_id, route_id)) {
+    // Instead of prerendering from inside of a running prerender, we will defer
+    // this request until its launcher is made visible.
+    if (PrerenderContents* contents = parent_prerender_data->contents_) {
+      pending_prerender_list_.push_back(
+          linked_ptr<PrerenderData>(new PrerenderData(this)));
+      PrerenderHandle* prerender_handle =
+          new PrerenderHandle(pending_prerender_list_.back().get());
+      contents->AddPendingPrerender(
+          prerender_handle->weak_ptr_factory_.GetWeakPtr(),
+          url, referrer, size);
+      return prerender_handle;
+    }
+  }
 
-  return AddPrerender(ORIGIN_LINK_REL_PRERENDER, child_route_id_pair,
-                      url, referrer, NULL);
+  // Unit tests pass in a process_id == -1.
+  SessionStorageNamespace* session_storage_namespace = NULL;
+  if (process_id != -1) {
+    RenderViewHost* source_render_view_host =
+        RenderViewHost::FromID(process_id, route_id);
+    if (!source_render_view_host)
+      return NULL;
+    session_storage_namespace =
+        source_render_view_host->GetSessionStorageNamespace();
+  }
+
+  return AddPrerender(ORIGIN_LINK_REL_PRERENDER,
+                      process_id, url, referrer, size,
+                      session_storage_namespace);
 #endif
 }
 
-bool PrerenderManager::AddPrerenderFromOmnibox(
+PrerenderHandle* PrerenderManager::AddPrerenderFromOmnibox(
     const GURL& url,
-    SessionStorageNamespace* session_storage_namespace) {
+    SessionStorageNamespace* session_storage_namespace,
+    const gfx::Size& size) {
   if (!IsOmniboxEnabled(profile_))
-    return false;
-  return AddPrerender(ORIGIN_OMNIBOX, std::make_pair(-1, -1), url,
-                      content::Referrer(), session_storage_namespace);
+    return NULL;
+  return AddPrerender(ORIGIN_OMNIBOX, -1, url, content::Referrer(), size,
+                      session_storage_namespace);
 }
 
 void PrerenderManager::DestroyPrerenderForRenderView(
     int process_id, int view_id, FinalStatus final_status) {
   DCHECK(CalledOnValidThread());
-  PrerenderContentsDataList::iterator it =
-      FindPrerenderContentsForChildRouteIdPair(
-          std::make_pair(process_id, view_id));
-  if (it != prerender_list_.end()) {
-    PrerenderContents* prerender_contents = it->contents_;
-    prerender_contents->Destroy(final_status);
+  if (PrerenderData* prerender_data =
+          FindPrerenderDataForChildAndRoute(process_id, view_id)) {
+    prerender_data->contents_->Destroy(final_status);
   }
 }
 
 void PrerenderManager::CancelAllPrerenders() {
   DCHECK(CalledOnValidThread());
-  while (!prerender_list_.empty()) {
-    PrerenderContentsData data = prerender_list_.front();
-    DCHECK(data.contents_);
-    data.contents_->Destroy(FINAL_STATUS_CANCELLED);
-  }
-}
-
-void PrerenderManager::CancelOmniboxPrerenders() {
-  DCHECK(CalledOnValidThread());
-  for (PrerenderContentsDataList::iterator it = prerender_list_.begin();
-       it != prerender_list_.end(); ) {
-    PrerenderContentsDataList::iterator cur = it++;
-    if (cur->contents_->origin() == ORIGIN_OMNIBOX)
-      cur->contents_->Destroy(FINAL_STATUS_CANCELLED);
+  while (!active_prerender_list_.empty()) {
+    PrerenderContents* prerender_contents =
+        active_prerender_list_.front()->contents();
+    prerender_contents->Destroy(FINAL_STATUS_CANCELLED);
   }
 }
 
@@ -331,24 +283,34 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
   DCHECK(CalledOnValidThread());
   DCHECK(!IsWebContentsPrerendering(web_contents));
 
-  scoped_ptr<PrerenderContents> prerender_contents(
-      GetEntryButNotSpecifiedWC(url, web_contents));
-  if (prerender_contents.get() == NULL)
+  RenderViewHost* old_render_view_host = web_contents->GetRenderViewHost();
+
+  DeleteOldEntries();
+  DeletePendingDeleteEntries();
+  PrerenderData* prerender_data = FindPrerenderData(
+          url, old_render_view_host->GetSessionStorageNamespace());
+  if (!prerender_data)
     return false;
+  DCHECK(prerender_data->contents_);
+  if (IsNoSwapInExperiment(prerender_data->contents_->experiment_id()))
+    return false;
+
+  if (TabContents* new_tab_contents =
+      prerender_data->contents_->prerender_contents()) {
+    if (web_contents == new_tab_contents->web_contents())
+      return false;  // Do not swap in to ourself.
+  }
+
+  scoped_ptr<PrerenderContents> prerender_contents(prerender_data->contents_);
+  std::list<linked_ptr<PrerenderData> >::iterator to_erase =
+      FindIteratorForPrerenderContents(prerender_contents.get());
+  DCHECK(active_prerender_list_.end() != to_erase);
+  DCHECK_EQ(prerender_data, to_erase->get());
+  active_prerender_list_.erase(to_erase);
 
   // Do not use the prerendered version if there is an opener object.
   if (web_contents->HasOpener()) {
     prerender_contents.release()->Destroy(FINAL_STATUS_WINDOW_OPENER);
-    return false;
-  }
-
-  // Even if we match, the location.hash might be different. Record this as a
-  // separate final status.
-  GURL matching_url;
-  bool url_matches = prerender_contents->MatchesURL(url, &matching_url);
-  DCHECK(url_matches);
-  if (url_matches && url.ref() != matching_url.ref()) {
-    prerender_contents.release()->Destroy(FINAL_STATUS_FRAGMENT_MISMATCH);
     return false;
   }
 
@@ -378,23 +340,7 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
     return false;
   }
 
-  // If the session storage namespaces don't match, cancel the prerender.
-  RenderViewHost* old_render_view_host = web_contents->GetRenderViewHost();
-  RenderViewHost* new_render_view_host =
-      prerender_contents->prerender_contents()->web_contents()->
-          GetRenderViewHost();
-  DCHECK(old_render_view_host);
-  DCHECK(new_render_view_host);
-  if (old_render_view_host->GetSessionStorageNamespace() !=
-      new_render_view_host->GetSessionStorageNamespace()) {
-    DestroyAndMarkMatchCompleteAsUsed(
-        prerender_contents.release(),
-        FINAL_STATUS_SESSION_STORAGE_NAMESPACE_MISMATCH);
-    return false;
-  }
-
-  // If we don't want to use prerenders at all, we are done.
-  // For bookkeeping purposes, we need to mark this TabContents to
+  // For bookkeeping purposes, we need to mark this WebContents to
   // reflect that it would have been prerendered.
   if (GetMode() == PRERENDER_MODE_EXPERIMENT_NO_USE_GROUP) {
     MarkWebContentsAsWouldBePrerendered(web_contents);
@@ -412,6 +358,8 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
   if (!prerender_tracker_->TryUse(child_id, route_id))
     return false;
 
+  // At this point, we've determined that we will use the prerender.
+
   if (!prerender_contents->load_start_time().is_null()) {
     histograms_->RecordTimeUntilUsed(GetCurrentTimeTicks() -
                                      prerender_contents->load_start_time(),
@@ -422,14 +370,20 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
   histograms_->RecordUsedPrerender(prerender_contents->origin());
   prerender_contents->set_final_status(FINAL_STATUS_USED);
 
+  RenderViewHost* new_render_view_host =
+      prerender_contents->prerender_contents()->web_contents()->
+          GetRenderViewHost();
   new_render_view_host->Send(
       new PrerenderMsg_SetIsPrerendering(new_render_view_host->GetRoutingID(),
                                          false));
 
-  TabContentsWrapper* new_tab_contents =
+  // Start pending prerender requests from the PrerenderContents, if there are
+  // any.
+  prerender_contents->StartPendingPrerenders();
+
+  TabContents* new_tab_contents =
       prerender_contents->ReleasePrerenderContents();
-  TabContentsWrapper* old_tab_contents =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
+  TabContents* old_tab_contents = TabContents::FromWebContents(web_contents);
   DCHECK(new_tab_contents);
   DCHECK(old_tab_contents);
 
@@ -459,10 +413,6 @@ bool PrerenderManager::MaybeUsePrerenderedPage(WebContents* web_contents,
   DCHECK(prerender_tab_helper != NULL);
   prerender_tab_helper->PrerenderSwappedIn();
 
-  // Start pending prerender requests from the PrerenderContents, if there are
-  // any.
-  prerender_contents->StartPendingPrerenders();
-
   if (old_tab_contents->web_contents()->NeedToFireBeforeUnload()) {
     // Schedule the delete to occur after the tab has run its unload handlers.
     on_close_tab_contents_deleters_.push_back(
@@ -485,56 +435,54 @@ void PrerenderManager::MoveEntryToPendingDelete(PrerenderContents* entry,
                                                 FinalStatus final_status) {
   DCHECK(CalledOnValidThread());
   DCHECK(entry);
-  DCHECK(!IsPendingDelete(entry));
+  // Confirm this entry has not already been moved to the pending delete list.
+  DCHECK_EQ(0, std::count(pending_delete_list_.begin(),
+                          pending_delete_list_.end(), entry));
 
-  for (PrerenderContentsDataList::iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
-       ++it) {
-    if (it->contents_ == entry) {
-      bool swapped_in_dummy_replacement = false;
+  std::list<linked_ptr<PrerenderData> >::iterator it =
+      FindIteratorForPrerenderContents(entry);
 
-      // If this PrerenderContents is being deleted due to a cancellation,
-      // we need to create a dummy replacement for PPLT accounting purposes
-      // for the Match Complete group.
-      // This is the case if the cancellation is for any reason that would not
-      // occur in the control group case.
-      if (entry->match_complete_status() ==
-          PrerenderContents::MATCH_COMPLETE_DEFAULT &&
-          NeedMatchCompleteDummyForFinalStatus(final_status)) {
-        // TODO(tburkard): I'd like to DCHECK that we are actually prerendering.
-        // However, what if new conditions are added and
-        // NeedMatchCompleteDummyForFinalStatus, is not being updated.  Not sure
-        // what's the best thing to do here.  For now, I will just check whether
-        // we are actually prerendering.
-        if (ActuallyPrerendering()) {
-          entry->set_match_complete_status(
-              PrerenderContents::MATCH_COMPLETE_REPLACED);
-          PrerenderContents* dummy_replacement_prerender_contents =
-              CreatePrerenderContents(
-                  entry->prerender_url(),
-                  entry->referrer(),
-                  entry->origin(),
-                  entry->experiment_id());
-          if (dummy_replacement_prerender_contents &&
-              dummy_replacement_prerender_contents->Init()) {
-            dummy_replacement_prerender_contents->
-                AddAliasURLsFromOtherPrerenderContents(entry);
-            dummy_replacement_prerender_contents->set_match_complete_status(
-                PrerenderContents::MATCH_COMPLETE_REPLACEMENT);
-            it->contents_ = dummy_replacement_prerender_contents;
-            swapped_in_dummy_replacement = true;
-          }
-        }
-      }
-      if (!swapped_in_dummy_replacement)
-        prerender_list_.erase(it);
-      break;
+  // If this PrerenderContents is being deleted due to a cancellation,
+  // we need to create a dummy replacement for PPLT accounting purposes
+  // for the Match Complete group.
+  // This is the case if the cancellation is for any reason that would not
+  // occur in the control group case.
+  if (it != active_prerender_list_.end()) {
+    if (entry->match_complete_status() ==
+            PrerenderContents::MATCH_COMPLETE_DEFAULT &&
+        NeedMatchCompleteDummyForFinalStatus(final_status) &&
+        ActuallyPrerendering()) {
+      // TODO(tburkard): I'd like to DCHECK that we are actually prerendering.
+      // However, what if new conditions are added and
+      // NeedMatchCompleteDummyForFinalStatus, is not being updated.  Not sure
+      // what's the best thing to do here.  For now, I will just check whether
+      // we are actually prerendering.
+      entry->set_match_complete_status(
+          PrerenderContents::MATCH_COMPLETE_REPLACED);
+      PrerenderContents* dummy_replacement_prerender_contents =
+          CreatePrerenderContents(entry->prerender_url(), entry->referrer(),
+                                  entry->origin(), entry->experiment_id());
+      dummy_replacement_prerender_contents->MakeIntoDummyReplacementOf(entry);
+      DCHECK(dummy_replacement_prerender_contents);
+
+      dummy_replacement_prerender_contents->set_match_complete_status(
+          PrerenderContents::MATCH_COMPLETE_REPLACEMENT_PENDING);
+      DCHECK(dummy_replacement_prerender_contents->Init());
+      dummy_replacement_prerender_contents->
+          AddAliasURLsFromOtherPrerenderContents(entry);
+      dummy_replacement_prerender_contents->set_match_complete_status(
+          PrerenderContents::MATCH_COMPLETE_REPLACEMENT);
+
+      it->get()->contents_ = dummy_replacement_prerender_contents;
+    } else {
+      active_prerender_list_.erase(it);
     }
   }
+
   AddToHistory(entry);
   pending_delete_list_.push_back(entry);
 
-  // Destroy the old TabContents relatively promptly to reduce resource usage,
+  // Destroy the old WebContents relatively promptly to reduce resource usage,
   // and in the case of HTML5 media, reduce the change of playing any sound.
   PostCleanupTask();
 }
@@ -565,6 +513,10 @@ void PrerenderManager::RecordPerceivedPageLoadTime(
         perceived_page_load_time, was_prerender, was_complete_prerender, url);
     prerender_manager->histograms_->RecordPercentLoadDoneAtSwapin(
         fraction_plt_elapsed_at_swap_in);
+    if (prerender_manager->local_predictor_.get()) {
+      prerender_manager->local_predictor_->
+          OnPLTEventForURL(url, perceived_page_load_time);
+    }
   }
 }
 
@@ -637,13 +589,14 @@ bool PrerenderManager::IsNoUseGroup() {
 bool PrerenderManager::IsWebContentsPrerendering(
     WebContents* web_contents) const {
   DCHECK(CalledOnValidThread());
-  for (PrerenderContentsDataList::const_iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
+  for (std::list<linked_ptr<PrerenderData> >::const_iterator it =
+           active_prerender_list_.begin();
+       it != active_prerender_list_.end();
        ++it) {
-    TabContentsWrapper* prerender_tab_contents_wrapper =
-        it->contents_->prerender_contents();
-    if (prerender_tab_contents_wrapper &&
-        prerender_tab_contents_wrapper->web_contents() == web_contents) {
+    TabContents* prerender_tab_contents =
+        it->get()->contents_->prerender_contents();
+    if (prerender_tab_contents &&
+        prerender_tab_contents->web_contents() == web_contents) {
       return true;
     }
   }
@@ -653,20 +606,13 @@ bool PrerenderManager::IsWebContentsPrerendering(
            pending_delete_list_.begin();
        it != pending_delete_list_.end();
        ++it) {
-    TabContentsWrapper* prerender_tab_contents_wrapper =
-        (*it)->prerender_contents();
-    if (prerender_tab_contents_wrapper &&
-        prerender_tab_contents_wrapper->web_contents() == web_contents)
+    TabContents* prerender_tab_contents = (*it)->prerender_contents();
+    if (prerender_tab_contents &&
+        prerender_tab_contents->web_contents() == web_contents)
       return true;
   }
 
   return false;
-}
-
-bool PrerenderManager::DidPrerenderFinishLoading(const GURL& url) const {
-  DCHECK(CalledOnValidThread());
-  PrerenderContents* contents = FindEntry(url);
-  return contents ? contents->has_finished_loading() : false;
 }
 
 void PrerenderManager::MarkWebContentsAsPrerendered(WebContents* web_contents) {
@@ -677,14 +623,23 @@ void PrerenderManager::MarkWebContentsAsPrerendered(WebContents* web_contents) {
 void PrerenderManager::MarkWebContentsAsWouldBePrerendered(
     WebContents* web_contents) {
   DCHECK(CalledOnValidThread());
-  would_be_prerendered_tab_contents_set_.insert(web_contents);
+  would_be_prerendered_map_[web_contents] = true;
 }
 
 void PrerenderManager::MarkWebContentsAsNotPrerendered(
     WebContents* web_contents) {
   DCHECK(CalledOnValidThread());
   prerendered_tab_contents_set_.erase(web_contents);
-  would_be_prerendered_tab_contents_set_.erase(web_contents);
+  WouldBePrerenderedMap::iterator it =
+      would_be_prerendered_map_.find(web_contents);
+  if (it != would_be_prerendered_map_.end()) {
+    bool first_time = it->second;
+    if (first_time) {
+      it->second = false;
+    } else {
+      would_be_prerendered_map_.erase(it);
+    }
+  }
 }
 
 bool PrerenderManager::IsWebContentsPrerendered(
@@ -696,19 +651,7 @@ bool PrerenderManager::IsWebContentsPrerendered(
 bool PrerenderManager::WouldWebContentsBePrerendered(
     WebContents* web_contents) const {
   DCHECK(CalledOnValidThread());
-  return would_be_prerendered_tab_contents_set_.count(web_contents) > 0;
-}
-
-bool PrerenderManager::IsOldRenderViewHost(
-    const RenderViewHost* render_view_host) const {
-  for (std::list<TabContentsWrapper*>::const_iterator it =
-           old_tab_contents_list_.begin();
-       it != old_tab_contents_list_.end();
-       ++it) {
-    if ((*it)->web_contents()->GetRenderViewHost() == render_view_host)
-      return true;
-  }
-  return false;
+  return would_be_prerendered_map_.count(web_contents) > 0;
 }
 
 bool PrerenderManager::HasRecentlyBeenNavigatedTo(const GURL& url) {
@@ -787,28 +730,6 @@ void PrerenderManager::AddCondition(const PrerenderCondition* condition) {
   prerender_conditions_.push_back(condition);
 }
 
-bool PrerenderManager::IsTopSite(const GURL& url) {
-  if (!most_visited_.get())
-    most_visited_.reset(new MostVisitedSites(profile_));
-  return most_visited_->IsTopSite(url);
-}
-
-bool PrerenderManager::IsPendingEntry(const GURL& url) const {
-  DCHECK(CalledOnValidThread());
-  for (PrerenderContentsDataList::const_iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
-       ++it) {
-    if (it->contents_->IsPendingEntry(url))
-      return true;
-  }
-  return false;
-}
-
-bool PrerenderManager::IsPrerendering(const GURL& url) const {
-  DCHECK(CalledOnValidThread());
-  return (FindEntry(url) != NULL);
-}
-
 void PrerenderManager::RecordNavigation(const GURL& url) {
   DCHECK(CalledOnValidThread());
 
@@ -817,43 +738,138 @@ void PrerenderManager::RecordNavigation(const GURL& url) {
 }
 
 // protected
+PrerenderManager::PrerenderData::PrerenderData(PrerenderManager* manager)
+    : manager_(manager), contents_(NULL), handle_count_(0) {
+}
+
+PrerenderManager::PrerenderData::PrerenderData(PrerenderManager* manager,
+                                               PrerenderContents* contents)
+    : manager_(manager), contents_(contents), handle_count_(0) {
+}
+
+void PrerenderManager::PrerenderData::OnNewHandle() {
+  DCHECK(contents_ || handle_count_ == 0) <<
+      "Cannot create multiple handles to a pending prerender.";
+  ++handle_count_;
+}
+
+void PrerenderManager::PrerenderData::OnNavigateAwayByHandle() {
+  // TODO(gavinp): Implement reasonable behaviour for navigation away from
+  // launcher. We can't just call OnCancel, because many cases have redirect
+  // chains that will eventually lead to the correct prerendered page, and we
+  // don't want to delete our prerender just as it is going to be used.
+
+  if (!contents_) {
+    DCHECK_EQ(1, handle_count_);
+    // Pending prerenders are not maintained in the active_prerender_list_, so
+    // they will not get normal expiry. Since this prerender hasn't even been
+    // launched yet, and it's held by a page that is being prerendered, we will
+    // just delete it.
+    manager_->DestroyPendingPrerenderData(this);
+  }
+}
+
+void PrerenderManager::PrerenderData::OnCancelByHandle() {
+  DCHECK_LE(1, handle_count_);
+  DCHECK(contents_ || handle_count_ == 1);
+
+  if (--handle_count_ == 0) {
+    if (contents_) {
+      // This will eventually remove this object from active_prerender_list_,
+      // triggering the linked_ptr auto deletion.
+      contents_->Destroy(FINAL_STATUS_CANCELLED);
+    } else {
+      manager_->DestroyPendingPrerenderData(this);
+    }
+  }
+}
+
+PrerenderManager::PrerenderData::~PrerenderData() {
+}
+
 void PrerenderManager::SetPrerenderContentsFactory(
     PrerenderContents::Factory* prerender_contents_factory) {
   DCHECK(CalledOnValidThread());
   prerender_contents_factory_.reset(prerender_contents_factory);
 }
 
+void PrerenderManager::StartPendingPrerender(
+    PrerenderHandle* existing_prerender_handle,
+    Origin origin,
+    int process_id,
+    const GURL& url,
+    const content::Referrer& referrer,
+    const gfx::Size& size,
+    content::SessionStorageNamespace* session_storage_namespace) {
+  DCHECK(existing_prerender_handle);
+  DCHECK(existing_prerender_handle->IsValid());
+  DCHECK(existing_prerender_handle->IsPending());
+
+  DVLOG(6) << "StartPendingPrerender";
+  DVLOG(6) << "existing_prerender_handle->handle_count_ = " <<
+      existing_prerender_handle->prerender_data_->handle_count_;
+
+  DCHECK(process_id == -1 || session_storage_namespace);
+
+  scoped_ptr<PrerenderHandle> swap_prerender_handle(AddPrerender(
+      origin, process_id, url, referrer, size, session_storage_namespace));
+  if (swap_prerender_handle.get()) {
+    // AddPrerender has returned a new prerender handle to us. We want to make
+    // |existing_prerender_handle| active, so swap the underlying PrerenderData
+    // between the two handles, and delete our old handle (which will release
+    // our entry in the pending_prerender_list_).
+    existing_prerender_handle->SwapPrerenderDataWith(
+        swap_prerender_handle.get());
+    swap_prerender_handle->OnCancel();
+    return;
+  }
+
+  // We could not start our Prerender. Canceling the existing handle will make
+  // it return false for PrerenderHandle::IsPending(), and will release the
+  // PrerenderData from pending_prerender_list_.
+  existing_prerender_handle->OnCancel();
+}
+
+void PrerenderManager::DestroyPendingPrerenderData(
+    PrerenderData* pending_prerender_data) {
+  for (std::list<linked_ptr<PrerenderData> >::iterator
+           it = pending_prerender_list_.begin();
+       it != pending_prerender_list_.end();
+       ++it) {
+    if (it->get() == pending_prerender_data) {
+      DCHECK_GE(1, it->get()->handle_count_);
+      pending_prerender_list_.erase(it);
+      return;
+    }
+  }
+  NOTREACHED();
+}
+
 void PrerenderManager::DoShutdown() {
   DestroyAllContents(FINAL_STATUS_MANAGER_SHUTDOWN);
   STLDeleteElements(&prerender_conditions_);
-  on_close_tab_contents_deleters_.reset();
+  on_close_tab_contents_deleters_.clear();
   profile_ = NULL;
+
+  DCHECK(active_prerender_list_.empty());
 }
 
 // private
-bool PrerenderManager::AddPrerender(
+PrerenderHandle* PrerenderManager::AddPrerender(
     Origin origin,
-    const std::pair<int, int>& child_route_id_pair,
+    int process_id,
     const GURL& url_arg,
     const content::Referrer& referrer,
+    const gfx::Size& size,
     SessionStorageNamespace* session_storage_namespace) {
   DCHECK(CalledOnValidThread());
 
   if (!IsEnabled())
-    return false;
+    return NULL;
 
   if (origin == ORIGIN_LINK_REL_PRERENDER &&
       IsGoogleSearchResultURL(referrer.url)) {
     origin = ORIGIN_GWS_PRERENDER;
-  }
-
-  // If the referring page is prerendering, defer the prerender.
-  PrerenderContentsDataList::iterator source_prerender =
-      FindPrerenderContentsForChildRouteIdPair(child_route_id_pair);
-  if (source_prerender != prerender_list_.end()) {
-    source_prerender->contents_->AddPendingPrerender(
-        origin, url_arg, referrer);
-    return true;
   }
 
   DeleteOldEntries();
@@ -861,18 +877,22 @@ bool PrerenderManager::AddPrerender(
 
   GURL url = url_arg;
   GURL alias_url;
-  if (IsControlGroup() && MaybeGetQueryStringBasedAliasURL(url, &alias_url))
+  uint8 experiment = GetQueryStringBasedExperiment(url_arg);
+  bool control_group_behavior =
+      IsControlGroup() || IsControlGroupExperiment(experiment);
+  if (control_group_behavior &&
+      MaybeGetQueryStringBasedAliasURL(url, &alias_url)) {
     url = alias_url;
+  }
 
   // From here on, we will record a FinalStatus so we need to register with the
   // histogram tracking.
   histograms_->RecordPrerender(origin, url_arg);
 
-  uint8 experiment = GetQueryStringBasedExperiment(url_arg);
-
-  if (FindEntry(url)) {
+  if (PrerenderData* preexisting_prerender_data =
+          FindPrerenderData(url, session_storage_namespace)) {
     RecordFinalStatus(origin, experiment, FINAL_STATUS_DUPLICATE);
-    return false;
+    return new PrerenderHandle(preexisting_prerender_data);
   }
 
   // Do not prerender if there are too many render processes, and we would
@@ -890,7 +910,7 @@ bool PrerenderManager::AddPrerender(
           profile_, url) &&
       !content::RenderProcessHost::run_renderer_in_process()) {
     RecordFinalStatus(origin, experiment, FINAL_STATUS_TOO_MANY_PROCESSES);
-    return false;
+    return NULL;
   }
 #endif
 
@@ -900,81 +920,39 @@ bool PrerenderManager::AddPrerender(
     // this doesn't make sense as the next prerender request will be triggered
     // by a navigation and is unlikely to be the same site.
     RecordFinalStatus(origin, experiment, FINAL_STATUS_RATE_LIMIT_EXCEEDED);
-    return false;
-  }
-
-  RenderViewHost* source_render_view_host = NULL;
-  if (child_route_id_pair.first != -1) {
-    source_render_view_host =
-        RenderViewHost::FromID(child_route_id_pair.first,
-                               child_route_id_pair.second);
-    // Don't prerender page if parent RenderViewHost no longer exists, or it has
-    // no view.  The latter should only happen when the RenderView has closed.
-    if (!source_render_view_host || !source_render_view_host->GetView()) {
-      RecordFinalStatus(origin, experiment,
-                        FINAL_STATUS_SOURCE_RENDER_VIEW_CLOSED);
-      return false;
-    }
-  }
-
-  if (!session_storage_namespace && source_render_view_host) {
-    session_storage_namespace =
-        source_render_view_host->GetSessionStorageNamespace();
+    return NULL;
   }
 
   PrerenderContents* prerender_contents = CreatePrerenderContents(
       url, referrer, origin, experiment);
   if (!prerender_contents || !prerender_contents->Init())
-    return false;
+    return NULL;
 
   histograms_->RecordPrerenderStarted(origin);
 
   // TODO(cbentzel): Move invalid checks here instead of PrerenderContents?
-  PrerenderContentsData data(prerender_contents, GetCurrentTime());
-
-  prerender_list_.push_back(data);
+  active_prerender_list_.push_back(
+      linked_ptr<PrerenderData>(new PrerenderData(this, prerender_contents)));
+  PrerenderHandle* prerender_handle =
+      new PrerenderHandle(active_prerender_list_.back().get());
 
   last_prerender_start_time_ = GetCurrentTimeTicks();
 
-  if (!IsControlGroup()) {
-    data.contents_->StartPrerendering(source_render_view_host,
-                                      session_storage_namespace);
+  gfx::Size contents_size =
+      size.IsEmpty() ? config_.default_tab_bounds.size() : size;
+
+  prerender_contents->StartPrerendering(process_id, contents_size,
+                                        session_storage_namespace,
+                                        control_group_behavior);
+
+  while (active_prerender_list_.size() > config_.max_elements) {
+    prerender_contents = active_prerender_list_.front()->contents_;
+    DCHECK(prerender_contents);
+    prerender_contents->Destroy(FINAL_STATUS_EVICTED);
   }
-  while (prerender_list_.size() > config_.max_elements) {
-    data = prerender_list_.front();
-    prerender_list_.pop_front();
-    data.contents_->Destroy(FINAL_STATUS_EVICTED);
-  }
+
   StartSchedulingPeriodicCleanups();
-  return true;
-}
-
-PrerenderContents* PrerenderManager::GetEntry(const GURL& url) {
-  return GetEntryButNotSpecifiedWC(url, NULL);
-}
-
-PrerenderContents* PrerenderManager::GetEntryButNotSpecifiedWC(
-    const GURL& url,
-    WebContents* wc) {
-  DCHECK(CalledOnValidThread());
-  DeleteOldEntries();
-  DeletePendingDeleteEntries();
-  for (PrerenderContentsDataList::iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
-       ++it) {
-    PrerenderContents* prerender_contents = it->contents_;
-    if (prerender_contents->MatchesURL(url, NULL) &&
-        !IsNoSwapInExperiment(prerender_contents->experiment_id())) {
-      if (!prerender_contents->prerender_contents() ||
-          !wc ||
-          prerender_contents->prerender_contents()->web_contents() != wc) {
-        prerender_list_.erase(it);
-        return prerender_contents;
-      }
-    }
-  }
-  // Entry not found.
-  return NULL;
+  return prerender_handle;
 }
 
 void PrerenderManager::StartSchedulingPeriodicCleanups() {
@@ -987,10 +965,7 @@ void PrerenderManager::StartSchedulingPeriodicCleanups() {
       &PrerenderManager::PeriodicCleanup);
 }
 
-void PrerenderManager::MaybeStopSchedulingPeriodicCleanups() {
-  if (!prerender_list_.empty())
-    return;
-
+void PrerenderManager::StopSchedulingPeriodicCleanups() {
   DCHECK(CalledOnValidThread());
   repeating_timer_.Stop();
 }
@@ -999,22 +974,22 @@ void PrerenderManager::PeriodicCleanup() {
   DCHECK(CalledOnValidThread());
   DeleteOldTabContents();
   DeleteOldEntries();
+  if (active_prerender_list_.empty())
+    StopSchedulingPeriodicCleanups();
 
   // Grab a copy of the current PrerenderContents pointers, so that we
   // will not interfere with potential deletions of the list.
   std::vector<PrerenderContents*> prerender_contents;
-  for (PrerenderContentsDataList::iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
-       ++it) {
-    DCHECK(it->contents_);
-    prerender_contents.push_back(it->contents_);
+  prerender_contents.reserve(active_prerender_list_.size());
+  for (std::list<linked_ptr<PrerenderData> >::iterator
+           it = active_prerender_list_.begin();
+      it != active_prerender_list_.end();
+      ++it) {
+    prerender_contents.push_back(it->get()->contents_);
   }
-  for (std::vector<PrerenderContents*>::iterator it =
-           prerender_contents.begin();
-       it != prerender_contents.end();
-       ++it) {
-    (*it)->DestroyWhenUsingTooManyResources();
-  }
+  std::for_each(prerender_contents.begin(), prerender_contents.end(),
+                std::mem_fun(
+                    &PrerenderContents::DestroyWhenUsingTooManyResources));
 
   DeletePendingDeleteEntries();
 }
@@ -1032,21 +1007,20 @@ base::TimeDelta PrerenderManager::GetMaxAge() const {
       base::TimeDelta::FromSeconds(300) : config_.max_age);
 }
 
-bool PrerenderManager::IsPrerenderElementFresh(const base::Time start) const {
+bool PrerenderManager::IsPrerenderFresh(const base::TimeTicks start) const {
   DCHECK(CalledOnValidThread());
-  base::Time now = GetCurrentTime();
-  return (now - start < GetMaxAge());
+  return GetCurrentTimeTicks() - start < GetMaxAge();
 }
 
 void PrerenderManager::DeleteOldEntries() {
   DCHECK(CalledOnValidThread());
-  while (!prerender_list_.empty()) {
-    PrerenderContentsData data = prerender_list_.front();
-    if (IsPrerenderElementFresh(data.start_time_))
+  while (!active_prerender_list_.empty()) {
+    PrerenderContents* contents = active_prerender_list_.front()->contents_;
+    DCHECK(contents);
+    if (IsPrerenderFresh(contents->load_start_time()))
       return;
-    data.contents_->Destroy(FINAL_STATUS_TIMED_OUT);
+    contents->Destroy(FINAL_STATUS_TIMED_OUT);
   }
-  MaybeStopSchedulingPeriodicCleanups();
 }
 
 base::Time PrerenderManager::GetCurrentTime() const {
@@ -1068,19 +1042,6 @@ PrerenderContents* PrerenderManager::CreatePrerenderContents(
       referrer, origin, experiment_id);
 }
 
-bool PrerenderManager::IsPendingDelete(PrerenderContents* entry) const {
-  DCHECK(CalledOnValidThread());
-  for (std::list<PrerenderContents*>::const_iterator it =
-          pending_delete_list_.begin();
-       it != pending_delete_list_.end();
-       ++it) {
-    if (*it == entry)
-      return true;
-  }
-
-  return false;
-}
-
 void PrerenderManager::DeletePendingDeleteEntries() {
   while (!pending_delete_list_.empty()) {
     PrerenderContents* contents = pending_delete_list_.front();
@@ -1089,38 +1050,53 @@ void PrerenderManager::DeletePendingDeleteEntries() {
   }
 }
 
-PrerenderContents* PrerenderManager::FindEntry(const GURL& url) const {
-  DCHECK(CalledOnValidThread());
-  for (PrerenderContentsDataList::const_iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
+PrerenderManager::PrerenderData* PrerenderManager::FindPrerenderData(
+    const GURL& url,
+    const SessionStorageNamespace* session_storage_namespace) {
+  for (std::list<linked_ptr<PrerenderData> >::iterator
+           it = active_prerender_list_.begin();
+       it != active_prerender_list_.end();
        ++it) {
-    if (it->contents_->MatchesURL(url, NULL))
-      return it->contents_;
+    PrerenderContents* prerender_contents = it->get()->contents_;
+    if (prerender_contents->Matches(url, session_storage_namespace))
+      return it->get();
   }
-  // Entry not found.
   return NULL;
 }
 
-std::list<PrerenderManager::PrerenderContentsData>::iterator
-    PrerenderManager::FindPrerenderContentsForChildRouteIdPair(
-        const std::pair<int, int>& child_route_id_pair) {
-  PrerenderContentsDataList::iterator it = prerender_list_.begin();
-  for (; it != prerender_list_.end(); ++it) {
-    PrerenderContents* prerender_contents = it->contents_;
+PrerenderManager::PrerenderData*
+PrerenderManager::FindPrerenderDataForChildAndRoute(
+    const int child_id, const int route_id) {
+  for (std::list<linked_ptr<PrerenderData> >::iterator
+           it = active_prerender_list_.begin();
+       it != active_prerender_list_.end();
+       ++it) {
+    PrerenderContents* prerender_contents = it->get()->contents_;
 
-    int child_id;
-    int route_id;
-    bool has_child_id = prerender_contents->GetChildId(&child_id);
-    bool has_route_id = has_child_id &&
-                        prerender_contents->GetRouteId(&route_id);
+    int contents_child_id;
+    if (!prerender_contents->GetChildId(&contents_child_id))
+      continue;
+    int contents_route_id;
+    if (!prerender_contents->GetRouteId(&contents_route_id))
+      continue;
 
-    if (has_child_id && has_route_id &&
-        child_id == child_route_id_pair.first &&
-        route_id == child_route_id_pair.second) {
-      break;
-    }
+    if (contents_child_id == child_id && contents_route_id == route_id)
+      return it->get();
   }
-  return it;
+  return NULL;
+}
+
+std::list<linked_ptr<PrerenderManager::PrerenderData> >::iterator
+PrerenderManager::FindIteratorForPrerenderContents(
+    PrerenderContents* prerender_contents) {
+  for (std::list<linked_ptr<PrerenderData> >::iterator
+           it = active_prerender_list_.begin();
+       it != active_prerender_list_.end();
+       ++it) {
+    if (prerender_contents == it->get()->contents_)
+      return it;
+  }
+  return active_prerender_list_.end();
 }
 
 bool PrerenderManager::DoesRateLimitAllowPrerender() const {
@@ -1136,7 +1112,7 @@ bool PrerenderManager::DoesRateLimitAllowPrerender() const {
 
 void PrerenderManager::DeleteOldTabContents() {
   while (!old_tab_contents_list_.empty()) {
-    TabContentsWrapper* tab_contents = old_tab_contents_list_.front();
+    TabContents* tab_contents = old_tab_contents_list_.front();
     old_tab_contents_list_.pop_front();
     // TODO(dominich): should we use Instant Unload Handler here?
     delete tab_contents;
@@ -1157,7 +1133,7 @@ void PrerenderManager::CleanUpOldNavigations() {
 }
 
 void PrerenderManager::ScheduleDeleteOldTabContents(
-    TabContentsWrapper* tab,
+    TabContents* tab,
     OnCloseTabContentsDeleter* deleter) {
   old_tab_contents_list_.push_back(tab);
   PostCleanupTask();
@@ -1182,23 +1158,21 @@ void PrerenderManager::AddToHistory(PrerenderContents* contents) {
 
 Value* PrerenderManager::GetActivePrerendersAsValue() const {
   ListValue* list_value = new ListValue();
-  for (PrerenderContentsDataList::const_iterator it = prerender_list_.begin();
-       it != prerender_list_.end();
+  for (std::list<linked_ptr<PrerenderData> >::const_iterator it =
+           active_prerender_list_.begin();
+       it != active_prerender_list_.end();
        ++it) {
-    Value* prerender_value = it->contents_->GetAsValue();
-    if (!prerender_value)
-      continue;
-    list_value->Append(prerender_value);
+    if (Value* prerender_value = it->get()->contents_->GetAsValue())
+      list_value->Append(prerender_value);
   }
   return list_value;
 }
 
 void PrerenderManager::DestroyAllContents(FinalStatus final_status) {
   DeleteOldTabContents();
-  while (!prerender_list_.empty()) {
-    PrerenderContentsData data = prerender_list_.front();
-    prerender_list_.pop_front();
-    data.contents_->Destroy(final_status);
+  while (!active_prerender_list_.empty()) {
+    PrerenderContents* contents = active_prerender_list_.front()->contents_;
+    contents->Destroy(final_status);
   }
   DeletePendingDeleteEntries();
 }

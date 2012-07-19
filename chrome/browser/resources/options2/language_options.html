@@ -6,6 +6,7 @@
       <span>&nbsp;</span>
       <span class="link"><span class="link-color"></span></span>
     </div>
+    <!-- TODO(kevers): Fix format of i18n-content labels -->
     <div class="language-options-header">
       <div i18n-content="add_language_instructions"></div>
 <if expr="pp_ifdef('chromeos')">
@@ -22,6 +23,9 @@
         </div>
         <div id="language-options-list-dropmarker"></div>
       </div>
+<!-- Chrome uses the native OS spellchecker in OS X, so don't display the
+     dictionary pane. -->
+<if expr="not is_macosx">
       <div class="language-options-right">
         <h3 id="language-options-language-name"></h3>
 <if expr="os == 'win32' or pp_ifdef('chromeos')">
@@ -51,17 +55,21 @@
         </div>
 <if expr="pp_ifdef('chromeos')">
         <h3 i18n-content="input_method"></h3>
+        <div id="language-options-input-method-proto" class="input-method"
+            hidden>
+          <div class="checkbox">
+            <label>
+              <input type="checkbox">
+              <span class="input-method-label"></span>
+            </label>
+          </div>
+        </div>
         <div id="language-options-input-method-list"
              class="language-options-contents">
         </div>
 </if>
-<if expr="pp_ifdef('chromeos') and pp_ifdef('use_virtual_keyboard')">
-        <div class="language-options-contents">
-          <button id="language-options-virtual-keyboard"
-                  i18n-content="virtual_keyboard_button"></button>
-        </div>
-</if>
       </div>
+</if>
     </div>
     <div class="language-options-footer">
 <if expr="pp_ifdef('chromeos')">

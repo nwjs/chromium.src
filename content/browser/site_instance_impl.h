@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_SITE_INSTANCE_IMPL_H_
 #define CONTENT_BROWSER_SITE_INSTANCE_IMPL_H_
-#pragma once
 
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/common/content_export.h"
@@ -26,6 +25,7 @@ class CONTENT_EXPORT SiteInstanceImpl : public content::SiteInstance,
   virtual  content::RenderProcessHost* GetProcess() OVERRIDE;
   virtual const GURL& GetSite() const OVERRIDE;
   virtual SiteInstance* GetRelatedSiteInstance(const GURL& url) OVERRIDE;
+  virtual bool IsRelatedSiteInstance(const SiteInstance* instance) OVERRIDE;
   virtual content::BrowserContext* GetBrowserContext() const OVERRIDE;
 
   // Set the web site that this SiteInstance is rendering pages for.
@@ -110,8 +110,6 @@ class CONTENT_EXPORT SiteInstanceImpl : public content::SiteInstance,
 
   // Whether SetSite has been called.
   bool has_site_;
-
-  FRIEND_TEST_ALL_PREFIXES(RenderViewHostManagerTest, NewTabPageProcesses);
 
   DISALLOW_COPY_AND_ASSIGN(SiteInstanceImpl);
 };

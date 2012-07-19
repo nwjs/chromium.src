@@ -21,7 +21,7 @@
         "parameters": [
           {
             "type": "any",
-            "name": "any",
+            "name": "anyName",
             "optional": true
           },
           {
@@ -46,6 +46,19 @@
                 "type": "any"
               }
             ]
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onAnyFired",
+        "type": "function",
+        "description": "Fired when anything is ready.",
+        "parameters": [
+          {
+            "name": "something",
+            "type": "any"
           }
         ]
       }

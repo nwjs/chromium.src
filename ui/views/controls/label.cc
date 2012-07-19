@@ -15,6 +15,7 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/canvas.h"
@@ -81,17 +82,17 @@ void Label::SetAutoColorReadabilityEnabled(bool enabled) {
   RecalculateColors();
 }
 
-void Label::SetEnabledColor(const SkColor& color) {
+void Label::SetEnabledColor(SkColor color) {
   requested_enabled_color_ = color;
   RecalculateColors();
 }
 
-void Label::SetDisabledColor(const SkColor& color) {
+void Label::SetDisabledColor(SkColor color) {
   requested_disabled_color_ = color;
   RecalculateColors();
 }
 
-void Label::SetBackgroundColor(const SkColor& color) {
+void Label::SetBackgroundColor(SkColor color) {
   background_color_ = color;
   RecalculateColors();
 }
@@ -355,31 +356,15 @@ gfx::Font Label::GetDefaultFont() {
 }
 
 void Label::Init(const string16& text, const gfx::Font& font) {
-  static bool initialized = false;
-  static SkColor kDefaultEnabledColor;
-  static SkColor kDefaultDisabledColor;
-  static SkColor kDefaultBackgroundColor;
-  if (!initialized) {
-#if defined(OS_WIN)
-    kDefaultEnabledColor = color_utils::GetSysSkColor(COLOR_WINDOWTEXT);
-    kDefaultDisabledColor = color_utils::GetSysSkColor(COLOR_GRAYTEXT);
-    kDefaultBackgroundColor = color_utils::GetSysSkColor(COLOR_WINDOW);
-#else
-    // TODO(beng): source from theme provider.
-    kDefaultEnabledColor = SK_ColorBLACK;
-    kDefaultDisabledColor = SK_ColorGRAY;
-    kDefaultBackgroundColor = SK_ColorWHITE;
-#endif
-
-    initialized = true;
-  }
-
   contains_mouse_ = false;
   font_ = font;
   text_size_valid_ = false;
-  requested_enabled_color_ = kDefaultEnabledColor;
-  requested_disabled_color_ = kDefaultDisabledColor;
-  background_color_ = kDefaultBackgroundColor;
+  requested_enabled_color_ = ui::NativeTheme::instance()->GetSystemColor(
+      ui::NativeTheme::kColorId_LabelEnabledColor);
+  requested_disabled_color_ = ui::NativeTheme::instance()->GetSystemColor(
+      ui::NativeTheme::kColorId_LabelDisabledColor);
+  background_color_ = ui::NativeTheme::instance()->GetSystemColor(
+      ui::NativeTheme::kColorId_LabelBackgroundColor);
   auto_color_readability_ = true;
   RecalculateColors();
   horiz_alignment_ = ALIGN_CENTER;

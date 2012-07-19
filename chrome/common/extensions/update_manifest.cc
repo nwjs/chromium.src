@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,8 +12,8 @@
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/version.h"
-#include "chrome/common/libxml_utils.h"
 #include "libxml/tree.h"
+#include "third_party/libxml/chromium/libxml_utils.h"
 
 static const char* kExpectedGupdateProtocol = "2.0";
 static const char* kExpectedGupdateXmlns =
@@ -165,8 +165,8 @@ static bool ParseSingleAppTag(xmlNode* app_node, xmlNs* xml_namespace,
     *error_detail = "Missing version for updatecheck.";
     return false;
   }
-  scoped_ptr<Version> version(Version::GetVersionFromString(result->version));
-  if (!version.get()) {
+  Version version(result->version);
+  if (!version.IsValid()) {
     *error_detail = "Invalid version: '";
     *error_detail += result->version;
     *error_detail += "'.";
@@ -176,9 +176,8 @@ static bool ParseSingleAppTag(xmlNode* app_node, xmlNs* xml_namespace,
   // Get the minimum browser version (not required).
   result->browser_min_version = GetAttribute(updatecheck, "prodversionmin");
   if (result->browser_min_version.length()) {
-    scoped_ptr<Version> browser_min_version(
-      Version::GetVersionFromString(result->browser_min_version));
-    if (!browser_min_version.get()) {
+    Version browser_min_version(result->browser_min_version);
+    if (!browser_min_version.IsValid()) {
       *error_detail = "Invalid prodversionmin: '";
       *error_detail += result->browser_min_version;
       *error_detail += "'.";

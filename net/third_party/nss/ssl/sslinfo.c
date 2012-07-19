@@ -97,11 +97,11 @@ SSL_GetChannelInfo(PRFileDesc *fd, SSLChannelInfo *info, PRUintn len)
 	} else if (ss->ssl3.initialized) { 	/* SSL3 and TLS */
 	    ssl_GetSpecReadLock(ss);
 	    /* XXX  The cipher suite should be in the specs and this
-	     * function should get it from crSpec rather than from the "hs".
+	     * function should get it from cwSpec rather than from the "hs".
 	     * See bug 275744 comment 69.
 	     */
 	    inf.cipherSuite           = ss->ssl3.hs.cipher_suite;
-	    inf.compressionMethod     = ss->ssl3.crSpec->compression_method;
+	    inf.compressionMethod     = ss->ssl3.cwSpec->compression_method;
 	    ssl_ReleaseSpecReadLock(ss);
 	    inf.compressionMethodName =
 		ssl_GetCompressionMethodName(inf.compressionMethod);
@@ -336,7 +336,7 @@ SSL_GetNegotiatedHostInfo(PRFileDesc *fd)
             ss->ssl3.initialized) { /* TLS */
             SECItem *crsName;
             ssl_GetSpecReadLock(ss); /*********************************/
-            crsName = &ss->ssl3.crSpec->srvVirtName;
+            crsName = &ss->ssl3.cwSpec->srvVirtName;
             if (crsName->data) {
                 sniName = SECITEM_DupItem(crsName);
             }
@@ -376,8 +376,13 @@ SSL_ExportKeyingMaterial(PRFileDesc *fd,
 	return SECFailure;
     }
 
+    ssl_GetRecvBufLock(ss);
+    ssl_GetSSL3HandshakeLock(ss);
+
     if (ss->version < SSL_LIBRARY_VERSION_3_1_TLS) {
 	PORT_SetError(SSL_ERROR_UNSUPPORTED_VERSION);
+	ssl_ReleaseSSL3HandshakeLock(ss);
+	ssl_ReleaseRecvBufLock(ss);
 	return SECFailure;
     }
 
@@ -388,13 +393,17 @@ SSL_ExportKeyingMaterial(PRFileDesc *fd,
     }
     val = PORT_Alloc(valLen);
     if (!val) {
+	ssl_ReleaseSSL3HandshakeLock(ss);
+	ssl_ReleaseRecvBufLock(ss);
 	return SECFailure;
     }
     i = 0;
+
     PORT_Memcpy(val + i, &ss->ssl3.hs.client_random.rand, SSL3_RANDOM_LENGTH);
     i += SSL3_RANDOM_LENGTH;
     PORT_Memcpy(val + i, &ss->ssl3.hs.server_random.rand, SSL3_RANDOM_LENGTH);
     i += SSL3_RANDOM_LENGTH;
+
     if (hasContext) {
 	val[i++] = contextLen >> 8;
 	val[i++] = contextLen;
@@ -415,6 +424,8 @@ SSL_ExportKeyingMaterial(PRFileDesc *fd,
 					 valLen, out, outLen);
     }
     ssl_ReleaseSpecReadLock(ss);
+    ssl_ReleaseSSL3HandshakeLock(ss);
+    ssl_ReleaseRecvBufLock(ss);
 
     PORT_ZFree(val, valLen);
     return rv;

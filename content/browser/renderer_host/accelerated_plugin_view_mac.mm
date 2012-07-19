@@ -11,9 +11,9 @@
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
 #include "content/public/browser/browser_thread.h"
 #import "ui/base/cocoa/underlay_opengl_hosting_window.h"
-#include "ui/gfx/gl/gl_context.h"
-#include "ui/gfx/gl/gl_switches.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
+#include "ui/gl/gl_context.h"
+#include "ui/gl/gl_switches.h"
 
 using content::BrowserThread;
 
@@ -180,31 +180,6 @@ using content::BrowserThread;
   [glContext_ makeCurrentContext];
 }
 
-- (void)viewWillMoveToWindow:(NSWindow*)newWindow {
-  TRACE_EVENT1("browser", "AcceleratedPluginView::viewWillMoveToWindow",
-               "newWindow", newWindow);
-  // Inform the window hosting this accelerated view that it needs to be
-  // transparent.
-  if (![self isHiddenOrHasHiddenAncestor]) {
-    if ([[self window] conformsToProtocol:@protocol(UnderlayableSurface)]) {
-      [static_cast<id<UnderlayableSurface> >([self window])
-          underlaySurfaceRemoved];
-    }
-    if ([newWindow conformsToProtocol:@protocol(UnderlayableSurface)])
-      [static_cast<id<UnderlayableSurface> >(newWindow) underlaySurfaceAdded];
-  }
-}
-
-- (void)viewDidHide {
-  TRACE_EVENT0("browser", "AcceleratedPluginView::viewDidHide");
-  [super viewDidHide];
-
-  if ([[self window] conformsToProtocol:@protocol(UnderlayableSurface)]) {
-    [static_cast<id<UnderlayableSurface> >([self window])
-        underlaySurfaceRemoved];
-  }
-}
-
 - (void)viewDidUnhide {
   TRACE_EVENT0("browser", "AcceleratedPluginView::viewDidUnhide");
   [super viewDidUnhide];
@@ -212,10 +187,6 @@ using content::BrowserThread;
   // Delay context creation until view unhide, see http://crbug.com/109151
   if (renderWidgetHostView_ && !glContext_) {
     [self initOpenGLContext];
-  }
-
-  if ([[self window] conformsToProtocol:@protocol(UnderlayableSurface)]) {
-    [static_cast<id<UnderlayableSurface> >([self window]) underlaySurfaceAdded];
   }
 }
 

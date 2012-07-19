@@ -2,19 +2,30 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file. */
 
+html.col-resize * {
+  cursor: col-resize !important;
+}
+
 /* Outer frame of the dialog. */
 body {
-   -webkit-box-flex: 1;
-   -webkit-box-orient: vertical;
-   -webkit-transition: opacity 70ms linear;
-   -webkit-user-select: none;
-   display: -webkit-box;
-   height: 100%;
-   margin: 0;
-   opacity: 0;
-   padding: 0;
-   position: absolute;
-   width: 100%;
+  -webkit-box-flex: 1;
+  -webkit-box-orient: vertical;
+  -webkit-transition: opacity 70ms linear;
+  -webkit-user-select: none;
+  cursor: default;
+  display: -webkit-box;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+body.loaded {
+  /* Do not use display:none because list will calculate metrics incorrectly. */
+  /*display: -webkit-box;*/
+  opacity: 1;
 }
 
 button,
@@ -125,25 +136,31 @@ input[type='submit'][disabled]:hover {
 }
 
 .progress-bar {
-  border: 1px solid #999;
+  background-image: -webkit-linear-gradient(top, #e9e9e9 0, #f9f9f9 100%);
+  border: 1px solid #a1a1a1;
+  border-radius: 3px;
   margin-top: 3px;
-  padding: 1px;
   width: 320px;
 }
 
 .progress-track {
-  -webkit-animation-duration: 800ms;
-  -webkit-animation-iteration-count: infinite;
-  -webkit-animation-name: bg;
-  -webkit-animation-timing-function: linear;
-  background-color: #ccc;
-  background-image: -webkit-linear-gradient(315deg, transparent,
-      transparent 33%, rgba(0, 0, 0, 0.12) 33%, rgba(0, 0, 0, 0.12) 66%,
-      transparent 66%, transparent);
-  background-position: 0 0;
-  background-repeat: repeat-x;
-  background-size: 16px 8px;
-  height: 5px;
+  background-color: rgb(76, 86, 106);
+  border: 1px solid black;
+  border-radius: 3px;
+  height: 6px;
+  margin: -1px;
+}
+
+.progress-track:before {
+  background-image: -webkit-linear-gradient(top, rgb(89, 103, 128) 0,
+                                                 rgb(76, 86, 106) 100%);
+  border: 1px solid rgb(124, 133, 147);
+  border-bottom-color: rgb(116, 124, 136);
+  border-radius: 3px;
+  border-top-color: rgb(173, 181, 195);
+  content: '';
+  display: block;
+  height: 4px;
 }
 
 @-webkit-keyframes bg {
@@ -170,6 +187,7 @@ input[type='submit'][disabled]:hover {
   -webkit-box-align: stretch;
   -webkit-box-flex: 1;
   -webkit-box-orient: horizontal;
+  background-color: white;  /* Makes #drag-image-container invisible. */
   display: -webkit-box;
   overflow: hidden;
   position: relative;
@@ -186,73 +204,72 @@ input[type='submit'][disabled]:hover {
 /* Roots list at the left. */
 .dialog-sidebar {
   -webkit-box-flex: 0;
-  -webkit-transition: margin-left 180ms ease;
   background-color: #e6e6e6;
-  margin-left: -168px;
   overflow: hidden;
   position: relative;
   width: 168px;
 }
 
-.dialog-container[sidebar] .dialog-sidebar {
-  margin-left: 0;
+/* A vertical splitter between the roots list and the file list. It is actually
+  a transparent area centered on the roots list right border.*/
+div.sidebar-splitter {
+  -webkit-box-flex: 0;
+  cursor: col-resize;
+  margin-left: -4px;  /* +1px to accomodate the roots list border */
+  margin-right: -3px;
+  position: relative;
+  width: 7px;
+  z-index: 2;
 }
 
 /* Roots list at the left. */
-list.roots-list {
-  border-right: 1px solid #d2d2d2;
+#roots-list {
+  border-right: 1px solid rgb(170, 170, 170);
 }
 
-list.roots-list > * {
+#roots-list > * {
   background-color: #e6e6e6;
+  background-image: none;
   border: none;
-  border-radius: 0;
   height: 39px;
   margin: 0;
   padding: 0 5px;
 }
 
-list.roots-list > [lead][selected],
-list.roots-list > [lead],
-list.roots-list > [selected],
-list.roots-list > [anchor] {
-  background-color: rgb(204, 219, 243);
-  background-image: none;
-  border-bottom: 1px solid rgb(195, 210, 233);
-  border-top: 1px solid rgb(195, 210, 233);
-  height: 37px;
+#roots-list > :hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.05);
 }
 
-list.roots-list > [lead]:hover,
-list.roots-list > [lead][selected]:hover,
-list.roots-list > [selected]:hover,
-list.roots-list > [anchor]:hover {
-  background-color: rgb(193, 211, 236) !important;
-  border-bottom: 1px solid transparent !important;
-  border-top: 1px solid transparent !important;
-  height: 37px !important;
+#roots-list > .accepts,
+#roots-list > [lead][selected],
+#roots-list > [lead],
+#roots-list > [selected],
+#roots-list > [anchor] {
+  background-color: rgb(204, 204, 204);
 }
 
-list.roots-list li.root-item {
+#roots-list > .accepts:hover,
+#roots-list > [lead]:hover,
+#roots-list > [lead][selected]:hover,
+#roots-list > [selected]:hover,
+#roots-list > [anchor]:hover {
+  background-color: rgb(192, 192, 192);
+}
+
+#roots-list li.root-item {
   -webkit-box-align: center;
   display: -webkit-box;
+  line-height: 22px;  /* To accomodate for icons. */
   padding-left: 11px;
 }
 
-li.root-item > * {
-  display: block;
-  margin-right: 5px;
-}
-
 li.root-item > .root-label {
-  max-width: 90px;
+  -webkit-box-flex: 1;
+  margin-right: 5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-li.root-item > .spacer {
-  -webkit-box-flex: 1;
 }
 
 .root-label {
@@ -261,48 +278,34 @@ li.root-item > .spacer {
   background-repeat: no-repeat;
 }
 
-.breadcrumbs .root-label {
-  -webkit-padding-start: 34px;
-  background-position: left center;
-}
-
-.root-label[icon=downloads] {
+.root-label[type=downloads] {
   background-image: url('../images/downloads_28x28.png');
 }
 
-.breadcrumbs .root-label[icon=downloads] {
-  background-image: url('../images/downloads_24x24.png');
+.root-label[type=gdata] {
+  background-image: url('../images/gdrive_28x28.png');
 }
 
-.root-label[icon=gdata] {
-  background-image: url('../images/gdata_28x28.png');
-}
-
-.breadcrumbs .root-label[icon=gdata] {
-  background-image: url('../images/gdata_24x24.png');
-}
-
-.root-label[icon=archive] {
+.root-label[type=archive] {
   background-image: url('../images/archive_28x28.png');
 }
 
-.breadcrumbs .root-label[icon=archive] {
-  background-image: url('../images/archive_24x24.png');
+.root-label[type=removable] {
+  background-image: url('../images/device_usb_28x28.png');
 }
 
-.root-label[icon=removable],
-.root-label[icon=unreadable] {
-  background-image: url('../images/usb_source_28x28.png');
-  background-position: 0 -3px;
+.root-label[type=removable][subType=sd] {
+  background-image: url('../images/device_sd_28x28.png');
 }
 
-.breadcrumbs .root-label[icon=removable] {
-  background-image: url('../images/usb_source_24x24.png');
+.root-label[type=removable][subType=optical] {
+  background-image: url('../images/device_optical_28x28.png');
 }
 
-.dialog-container[sidebar] .breadcrumbs .root-label {
-  -webkit-padding-start: 0;
-  background-image: none;
+/* TODO(kaznacheev): consider a better icon for subType=unknown.
+   Also find out if we need an icon for subType=mobile */
+.root-label[type=removable][subType=unknown] {
+  background-image: url('../images/device_hd_28x28.png');
 }
 
 div.root-eject {
@@ -310,17 +313,25 @@ div.root-eject {
   background-image: url('../images/eject.png');
   background-position: center center;
   background-repeat: no-repeat;
-  background-size: 10px 8px;
   cursor: pointer;
   height: 20px;
-  margin-bottom: 2px;
-  margin-right: 3px;
-  opacity: 0.5;
+  margin-right: 6px;
+  opacity: 0;
   width: 20px;
 }
 
 div.root-eject:hover {
   opacity: 1;
+}
+
+.root-item[selected] > div.root-eject:not(:hover),
+.root-item:hover > div.root-eject:not(:hover) {
+  opacity: 0.7;
+}
+
+.root-item[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* Breadcrumbs and things under the title but above the list view. */
@@ -330,60 +341,9 @@ div.root-eject:hover {
   -webkit-transition: all 180ms ease;
   display: -webkit-box;
   margin-bottom: 7px;
+  margin-left: 0;
   margin-right: 10px;
   margin-top: 5px;
- }
-
-/* Container for the detail and thumbnail (not implemented yet) list views. */
-.dialog-container[sidebar] .dialog-header {
-  margin-left: 0;
-}
-
-/* Close sidebar button. */
-div.close-sidebar {
-  background-color: white;
-  background-image: url('../images/close_sidebar.png');
-  background-position: center center;
-  background-repeat: no-repeat;
-  border: 1px solid #d2d2d2;
-  border-right: none;
-  cursor: pointer;
-  display: none;
-  height: 26px;
-  position: absolute;
-  right: 0;
-  top: 6px;
-  width: 14px;
-  z-index: 10;
-}
-
-div.close-sidebar:hover {
-  background-color: rgba(240, 240, 240, 1);
-}
-
-/* Open sidebar button. */
-div.dialog-header div.open-sidebar {
-  background-color: white;
-  background-image: url('../images/open_sidebar.png');
-  background-position: center center;
-  background-repeat: no-repeat;
-  cursor: pointer;
-  height: 28px;
-  margin-right: 10px;
-  margin-top: 1px;
-  width: 15px;
-}
-
-div.open-sidebar:hover {
-  background-color: rgba(240, 240, 240, 1);
-}
-
-.dialog-container[sidebar] div.open-sidebar {
-  display: none;
-}
-
-.dialog-container[sidebar] div.close-sidebar {
-  display: block;
 }
 
 /* Container for the detail and thumbnail list views. */
@@ -394,19 +354,16 @@ div.open-sidebar:hover {
   border-top: 1px solid #d4d4d4;
   display: -webkit-box;
   overflow: hidden;
-}
-
-.dialog-container[sidebar] .dialog-body {
-  -webkit-border-bottom-left-radius: 0;
-  -webkit-border-top-left-radius: 0;
+  position: relative;
 }
 
 /* Container for the ok/cancel buttons. */
 .dialog-footer {
   -webkit-box-align: center;
   -webkit-box-orient: horizontal;
+  border-top: 1px solid #d2d2d2;
   display: -webkit-box;
-  margin: 0 15px 15px;
+  padding: 10px 17px 14px 15px;
 }
 
 .dialog-footer:not([progress]) .progress-bar,
@@ -415,8 +372,7 @@ div.open-sidebar:hover {
 }
 
 .dialog-footer[progress] .ok,
-.dialog-footer[progress] .filename-label,
-.dialog-footer[progress] .filename-input {
+.dialog-footer[progress] #filename-input-box {
   display: none;
 }
 
@@ -431,6 +387,7 @@ div.open-sidebar:hover {
   -webkit-box-flex: 1;
   -webkit-box-orient: horizontal;
   -webkit-margin-end: 5px;
+  -webkit-margin-start: 10px;
   display: -webkit-box;
   line-height: 20px;
   overflow: hidden;
@@ -443,10 +400,6 @@ div.open-sidebar:hover {
 
 .breadcrumbs > [collapsed] {
   width: 1em;
-}
-
-.dialog-container[sidebar] .breadcrumbs {
-  margin-left: 10px;
 }
 
 /* A single directory name in the list of path breadcrumbs. */
@@ -481,6 +434,7 @@ div.open-sidebar:hover {
   background-position: center center;
   background-repeat: no-repeat;
   border: 1px solid transparent;
+  border-radius: 2px;
   height: 29px;
   width: 29px;
 }
@@ -501,34 +455,24 @@ div.open-sidebar:hover {
   background-color: #f1f1f1;
 }
 
-/* button:hover and button[disabled]:hover rules must be override by placing
- * the following four rules after them.
- */
-div.detail-view {
-  background-image: url('../images/icon_list_view.png');
+#search-box {
+  background: url('../images/icon_search.png') no-repeat scroll 4px 3.5px;
+  display: -webkit-box;
+  height: 25px;
+  margin-right: 10px;
+  padding-left: 22px;
 }
 
-div.thumbnail-view {
-  background-image: url('../images/icon_thumb_view.png');
-  margin-left: -1px;
+#search-box,
+#filename-input-box input {
+  border: 1px solid #BBB;
+  border-radius: 2px;
 }
 
-
-button.settings {
-  display: none;
-  margin-left: 8px;
-  width: 57px;
-  /* Temporary solution not to uglify settings button */
-  height:30px;
-}
-
-[gdata] button.settings {
-  background-image: url('../images/settings_button.png');
-  display: block;
-}
-
-[gdata] button.settings:active {
-  background-image: url('../images/settings_button_pressed.png');
+/* When detail-view is not disabled (thus thumbnail view is disabled), push
+   it up a little, to make it's right glowing border visible while focused.*/
+button#detail-view:not([disabled]) {
+  z-index: 2;
 }
 
 .filelist-panel {
@@ -537,7 +481,7 @@ button.settings {
   display: -webkit-box;
 }
 
-.list-container {
+#list-container {
   -webkit-box-flex: 1;
   display: -webkit-box;
   position: relative;
@@ -588,62 +532,168 @@ button.settings {
   width: 100%;
 }
 
-/* An item in the thumbnail view. */
+/* Common styles for the grid view and draggable thumbnails. */
 .thumbnail-item {
-  height: 145px;
-  margin-left: 5px;
-  margin-right: 5px;  
-  margin-top: 10px;
+  padding: 0;
+  position: relative;
   text-align: center;
-  width: 120px;
 }
 
-.thumbnail-item > input[type='checkbox'] {
+.thumbnail-frame {
+  bottom: 0;
   left: 0;
+  overflow: hidden;
   position: absolute;
+  right: 0;
   top: 0;
 }
 
-/* When changing these properties please preserve these conditions:
-   1. width == height (so that the rotated thumbnail does not look off-center)
-   2. width % 8 == 0 (to minimize rounding errors in the centering code) */
-div.img-container {
-  height: 112px;
-  margin: 4px;
-  overflow: hidden;
+.img-container {
   position: relative;
-  width: 112px;
 }
 
-div.img-container > img {
+.img-container > img {
   -webkit-user-drag: none;
   position: absolute;
 }
 
-.list-container list > *,
-.list-container grid > * {
+.thumbnail-bottom {
+  -webkit-box-align: center;
+  -webkit-box-orient: horizontal;
+  -webkit-box-pack: center;
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  padding: 0 5px;
+  position: absolute;
+  right: 0;
+}
+
+.thumbnail-bottom .filename-label {
+  -webkit-box-flex: 1;
+}
+
+/* Styles specific for the grid view. */
+
+/* The item width and margins are chosen so that the standard File Open/Save
+   dialogs have three nicely aligned columns of thumbnails. */
+.thumbnail-grid .thumbnail-item {
+  border: 2px solid transparent;  /* Selection will make the border visible. */
+  height: 182px;
+  margin-left: 8px;
+  margin-top: 7px;
+  width: 242px;
+}
+
+.thumbnail-grid .thumbnail-frame {
+  background-image: url(../images/hashed_bg.gif);
+  border: 1px solid rgb(217, 217, 217);
+}
+
+.thumbnail-grid .thumbnail-item[selected] .thumbnail-frame,
+.thumbnail-grid .thumbnail-item:hover .thumbnail-frame {
+  border-color: white;
+}
+
+.thumbnail-grid .img-container {
+  height: 100%;
+  width: 100%;
+}
+
+.thumbnail-grid .thumbnail-bottom {
+  background: rgba(0, 0, 0, 0.75);
+  color: #eee;
+  height: 30px;
+}
+
+.thumbnail-item .thumbnail-bottom .file-checkbox {
+  left: 9px;
+  position: absolute;
+  top: 10px;
+}
+
+/* Show the file name differently if the checkbox is present */
+.thumbnail-bottom.show-checkbox {
+  -webkit-box-pack: start;
+  padding-left: 28px;
+  text-align: left;
+}
+
+/* In the full page mode we can afford to show thumbnails as large as 320x240
+   with no downscaling. */
+body[type='full-page'] .thumbnail-grid .thumbnail-item {
+  height: 242px;
+  margin-left: 21px;
+  margin-top: 20px;
+  width: 322px;
+}
+
+body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
+  height: 34px;
+}
+
+/* Padding counterweights negative margins of items, thus eliminating scroll
+   bar when it's not needed. Max height is set to fit 8 items before showing
+   scroll bar. */
+#default-actions-list {
+  max-height: 328px;
+  padding: 1px 0;
+}
+
+#default-actions-list > li {
+  display: -webkit-box;
+}
+
+#default-actions-list > li > * {
+  display: block;
+  padding: 0 5px;
+}
+
+#default-actions-list > li > img {
+  height: 16px;
+  padding-top: 12px;
+}
+
+
+#list-container list > *,
+#list-container grid > *,
+#default-actions-list > * {
   background-image: none;
   border-radius: 0;
   line-height: 30px;
 }
 
-.list-container list > [selected],
-.list-container grid > [selected] {
+#list-container list > [selected],
+#list-container grid > [selected],
+#default-actions-list > [selected] {
   background-color: rgb(203, 219, 241);
-  border-color: rgb(224, 233, 247);
 }
 
-.list-container list > .accepts[selected],
-.list-container list > [selected]:hover,
-.list-container grid > [selected]:hover {
+#list-container list > li.table-row[selected],
+#default-actions-list > li[selected] {
+  border-top: 1px solid rgb(224, 233, 247);
+}
+
+#list-container list > .accepts[selected],
+#list-container grid > .accepts[selected],
+#list-container list > [selected]:hover,
+#list-container grid > [selected]:hover,
+#default-actions-list > [selected]:hover {
   background-color: rgb(193, 211, 236);
 }
 
-.list-container list > .accepts,
-.list-container list > :hover,
-.list-container grid > :hover {
-  background-color: rgb(242, 246, 250);
-  border-color: rgb(242, 246, 250);
+#list-container list > .accepts,
+#list-container grid > .accepts,
+#list-container list > :hover,
+#list-container grid > :hover,
+#default-actions-list > :hover {
+  background-color: #f1f1f1;
+}
+
+#list-container.nohover list > :not([selected]):hover,
+#list-container.nohover grid > :not([selected]):hover {
+  background-color: transparent;
+  border-color: transparent;
 }
 
 .table-row-cell .filename-label,
@@ -694,11 +744,6 @@ input.rename {
   width: 114px;
 }
 
-.thumbnail-grid li,
-.detail-table list li {
-  -webkit-user-drag: element;
-}
-
 /* The cr.ui.Table representing the detailed file list. */
 .detail-table {
   border: 0;
@@ -737,45 +782,53 @@ input.rename {
   padding-left: 39px;
 }
 
-.preview-thumbnails > div {
+.preview-thumbnails > .thumbnail {
+  -webkit-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  background-color: #F2F2F2;
+  border: 1px solid #fff;
   height: 45px;
   margin: 0 0 0 -39px;  /* Show 7 pixels of the overlapped image */
   position: relative;
   width: 45px;
 }
 
-.preview-thumbnails > div > div.img-container {
+.preview-thumbnails > .thumbnail > .img-container {
   height: 45px;
-  margin: 0;
+  overflow: hidden;
   width: 45px;
 }
 
-.preview-thumbnails > div {
-  -webkit-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  background-color: #F2F2F2;
-  border: 1px solid #fff;
-}
-
-.preview-thumbnails > div > div.popup {
+.preview-thumbnails > .popup {
   -webkit-transform: translate(0, 3px) scale(0.95);
-  -webkit-transition: all 180ms ease-in;
-  -webkit-transition-delay: 300ms;
   background-color: #F2F2F2;
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px #F0F0F0,
               0 0 0 2px #D0D0D0,
               2px 2px 6px rgba(0, 0, 0, 0.2);
-  margin: 0;
+  margin: 6px 0 0 -40px;
   opacity: 0;
   pointer-events: none;
   position: absolute;
   z-index: 1;
 }
 
-.preview-thumbnails > div:hover > div.popup {
+.preview-thumbnails > .popup > img {
+  -webkit-user-drag: none;
+}
+
+.preview-thumbnails > * {
+  -webkit-transition: all 180ms ease-in;
+  -webkit-transition-delay: 300ms;
+}
+
+.preview-thumbnails.has-zoom:hover > .popup {
   -webkit-transform: translate(0, 0) scale(1.0);
   opacity: 1;
   pointer-events: auto;
+}
+
+.preview-thumbnails.has-zoom:hover > .thumbnail {
+  opacity: 0;
 }
 
 /* cr.ui.Table has a black focus border by default, which we don't want. */
@@ -806,7 +859,7 @@ input.rename {
   color: #888;
   content: '\00a0';
   position: relative;
-  top: 0;
+  top: 1px;
 }
 
 .table-header-sort-image-asc::after {
@@ -817,7 +870,7 @@ input.rename {
   color: #888;
   content: '\00a0';
   position: relative;
-  top: 0;
+  top: -1px;
 }
 
 
@@ -827,7 +880,7 @@ input.rename {
 
 /* Text label in a table header. */
 .table-header-label {
-  margin: 5px 10px 0 10px;
+  margin: 5px 10px 0 9px;
 }
 
 .table-row-cell > * {
@@ -855,8 +908,8 @@ input.rename {
 }
 
 #select-all-checkbox {
-  -webkit-margin-end: 10px;
-  -webkit-margin-start: 0;
+  -webkit-margin-end: 11px;
+  -webkit-margin-start: 1px;
   margin-bottom: 0;
   margin-top: 0;
   /* 1px below text */
@@ -864,29 +917,26 @@ input.rename {
   top: 1px;
 }
 
-li.thumbnail-item .file-checkbox {
-  -webkit-margin-start: 7px;
-  margin-top: 6px;
-  opacity: 0;
-}
-
-li.table-row:hover .file-checkbox,
-li.table-row:hover .pin,
-li.thumbnail-item:hover .file-checkbox {
+#list-container li.table-row:hover .file-checkbox,
+#list-container li.table-row:hover .pin,
+#list-container li.thumbnail-item:hover .file-checkbox {
   opacity: 0.5;
 }
 
 .file-checkbox:hover,
 .pin:hover,
-li.table-row[selected] .file-checkbox,
-li.table-row[selected] .pin,
-li.table-row .pin:checked,
-li.thumbnail-item[selected] .file-checkbox {
+#list-container li.table-row[selected] .file-checkbox,
+#list-container li.table-row[selected] .pin,
+#list-container li.table-row .pin:checked,
+#list-container li.thumbnail-item[selected] .file-checkbox {
   opacity: 1 !important;
 }
 
-li.table-row {
-  line-height: 38px;
+#list-container li.table-row,
+#default-actions-list li {
+  border: none;
+  border-top: 1px solid transparent;
+  line-height: 39px;
   padding-bottom: 1px;
   padding-top: 1px;
 }
@@ -913,10 +963,6 @@ li.table-row {
   background-image: url(../images/filetype_device.png);
 }
 
-.detail-icon[iconType='doc'] {
-  background-image: url(../images/filetype_doc.png);
-}
-
 .detail-icon[iconType='excel'] {
   background-image: url(../images/filetype_excel.png);
 }
@@ -941,22 +987,6 @@ li.table-row {
   background-image: url(../images/filetype_ppt.png);
 }
 
-.detail-icon[iconType='presentation'] {
-  background-image: url(../images/filetype_presentation.png);
-}
-
-.detail-icon[iconType='spreadsheet'] {
-  background-image: url(../images/filetype_spreadsheet.png);
-}
-
-.detail-icon[iconType='text'] {
-  background-image: url(../images/filetype_text.png);
-}
-
-.detail-icon[iconType='unreadable'] {
-  background-image: url(../images/filetype_unreadable_device.png);
-}
-
 .detail-icon[iconType='video'] {
   background-image: url(../images/filetype_video.png);
 }
@@ -966,60 +996,23 @@ li.table-row {
 }
 
 .detail-icon[iconType='gdoc'] {
-  background-image: url(../images/filetype_doc.png);
+  background-image: url(../images/filetype_gdoc.png);
 }
 
 .detail-icon[iconType='gsheet'] {
-  background-image: url(../images/filetype_spreadsheet.png);
+  background-image: url(../images/filetype_gsheet.png);
 }
 
 .detail-icon[iconType='gslides'] {
-  background-image: url(../images/filetype_presentation.png);
+  background-image: url(../images/filetype_gslides.png);
 }
 
 .detail-icon[iconType='gdraw'] {
-  background-image: url(../images/filetype_drawing.png);
+  background-image: url(../images/filetype_gdraw.png);
 }
 
 .detail-icon[iconType='gtable'] {
-  background-image: url(../images/filetype_table.png);
-}
-
-/* The filename text in the preview pane. */
-.preview-filename {
-  -webkit-margin-start: 8px;
-  color: #666;
-  font-weight: bold;
-  margin-top: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The preview image. */
-.preview-img {
-  margin-top: 10px;
-  max-height: 300px;
-  max-width: 190px;
-}
-
-.preview-img.thumbnail {
-  -webkit-background-clip: content-box;
-  /* Checkboard background to distinguish images with alpha channels, from
-   * ../images/preview-background.png
-   */
-  background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAAlwSFlzAAAOTQAADiYBwNzaZQAAAAd0SU1FB9sDExUSAaQ/5TMAAAAZdEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVBXgQ4XAAAAQ0lEQVRYw+3VsQkAMQwDQOfJRt7r9/FQ3ilDuAiBUy84UKFVVX8M0t2TenxxOQAAAAAAAAB7+ueZaQIAAAAAAIC3AQceAAfi8EmRSgAAAABJRU5ErkJggg==);
-  border: 1px #666 solid;
-  padding: 1px;
-}
-
-.preview-img[src=''] {
-  visibility: hidden;
-}
-
-/* Decoration when multiple images are selected. */
-.preview-img.multiple-selected {
-  -webkit-box-shadow: 5px 5px 0 #aaa;
+  background-image: url(../images/filetype_gtable.png);
 }
 
 .metadata-item {
@@ -1040,6 +1033,13 @@ li.table-row {
 .delete-button {
   -webkit-margin-end: 8px;
   -webkit-margin-start: 8px;
+}
+
+.delete-button[disabled] {
+  /* Copied colors from cr-button:disabled */
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #999;
+  pointer-events: none;
 }
 
 .task-item {
@@ -1072,16 +1072,6 @@ li.table-row {
   white-space: nowrap;
 }
 
-.dialog-footer .filename-label {
-  -webkit-box-orient: horizontal;
-  background-color: white;
-  color: #666;
-  display: -webkit-box;
-  font-weight: bold;
-  padding-right: 4px;
-  padding-top: 4px;
-}
-
 .detail-name > * {
   -webkit-box-align: center;
   display: -webkit-box;
@@ -1089,25 +1079,44 @@ li.table-row {
 
 /* Overriding input.common[type='checkbox'] rule in common.css. */
 .detail-name > input.common[type='checkbox'] {
-  -webkit-margin-end: 3px;
+  -webkit-margin-end: 4px;
+  -webkit-margin-start: -1px;
 }
 
-.detail-name > .file-checkbox::before,
+list .detail-name > .file-checkbox::before,
 .pin::before {
   /* Invisible area that reacts on mouse events. */
   content: '';
   display: -webkit-box;
   height: 38px;
-  left: -4px;
+  left: -8px;
   position: absolute;
+  right: -9px;
   top: -14px;
-  width: 17px;
 }
 
-.filename-input {
+#filename-input-box {
+  -webkit-box-align: center;
   -webkit-box-flex: 1;
-  -webkit-box-orient: horizontal;
   display: -webkit-box;
+}
+
+#filename-input-box input {
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+  padding: 1px 2px;
+}
+
+#filename-input-box .filename-label {
+  -webkit-box-orient: horizontal;
+  background-color: white;
+  color: #333;
+  display: -webkit-box;
+  padding-right: 4px;
+}
+
+body:not([type='saveas-file']) #filename-input-box {
+  display: none;
 }
 
 /* A horizontal spring. */
@@ -1126,9 +1135,9 @@ li.table-row {
 
 /* GData-specfic styles */
 
-[gdata][offline] .table-row-cell > :not(.gdata-present),
-[gdata][offline] .thumbnail-item > :not(.gdata-present) {
-  color: #808080;
+[gdata][connection='offline'] .dim-offline,
+[gdata][connection='metered'] .dim-metered {
+  opacity: 0.4;
 }
 
 /* Overlay pane covering the entire file manager window (e.g. image editor)*/
@@ -1154,22 +1163,27 @@ li.table-row {
   z-index: -1;  /* below .dialog-container */
 }
 
-#drag-image-container > * {
+#drag-image-container > .thumbnail-item {
   background-color: rgb(203, 219, 241);
   border: 1px solid white; /* transparent white */
   cursor: default;
   display: inline-block;
+  height: 140px;
   line-height: 20px;
   margin: 0 0 0 -100px;
   overflow: hidden;
-  padding: 0 3px;
   position: relative; /* to allow overlap */
-  text-overflow: ellipsis;
   white-space: pre;
+  width: 120px;
 }
 
-#drag-image-container > li input[type=checkbox] {
-  display: none;
+/* When changing these properties please preserve these conditions:
+   1. width == height (so that the rotated thumbnail does not look off-center)
+   2. width % 8 == 0 (to minimize rounding errors in the centering code) */
+#drag-image-container .img-container {
+  height: 112px;
+  margin: 4px;
+  width: 112px;
 }
 
 menu.file-context-menu {
@@ -1207,43 +1221,241 @@ div.shade[fadein] {
 }
 
 /* Message panel for unmounted GData */
-.dialog-container:not([unmounted]) .dialog-body > div.unmounted-panel,
-.dialog-container[unmounted] .dialog-body > div:not(.unmounted-panel) {
+#unmounted-panel {
+  bottom: 0;
+  color: #333;
   display: none;
-}
-
-div.unmounted-panel {
+  left: 0;
   padding-left: 50px;
   padding-top: 20px;
+  position: absolute;
+  right: 0;
+  top: 0;
 }
 
-div.unmounted-panel > * {
+.dialog-container[gdata='mounting'] #unmounted-panel,
+.dialog-container[gdata='error'] #unmounted-panel {
+  display: block;
+}
+
+.dialog-container[gdata='unmounted'] .filelist-panel,
+.dialog-container[gdata='mounting'] .filelist-panel,
+.dialog-container[gdata='error'] .filelist-panel {
+  /* Hide file list when GData is not mounted.
+     Use opacity to avoid manual resizing.*/
+  opacity: 0;
+}
+
+#unmounted-panel > * {
   height: 22px;
   margin-bottom: 10px;
 }
 
-div.unmounted-panel > div {
+#unmounted-panel > * {
   -webkit-box-align: center;
   -webkit-box-orient: horizontal;
   -webkit-box-pack: start;
+  display: none;
+}
+
+#unmounted-panel > .loading {
+  position: relative;
+}
+
+#unmounted-panel > .loading > .spinner-box {
+  bottom: 0;
+  position: absolute;
+  right: 100%;
+  top: 0;
+  width: 40px;
+}
+
+[gdata='mounting'] #unmounted-panel > .loading,
+[gdata='mounting'] #unmounted-panel > .progress,
+[gdata='error'] #unmounted-panel > .error,
+#unmounted-panel.retry-enabled > .retry,
+#unmounted-panel.retry-enabled > .learn-more {
   display: -webkit-box;
 }
 
-.unmounted-panel > .gdata.loading,
-.unmounted-panel > .gdata.error {
-  margin-left: -30px;  /* Room for the spinner.*/
-  padding-left: 30px;
+#unmounted-panel > .progress {
+  color: #999;
+  margin-top: -10px;
 }
 
-.unmounted-panel > .gdata.loading {
-  background-image: url(../images/spinner.svg);
-  background-position: 0 center;
-  background-repeat: no-repeat;
+.plain-link {
+  color: rgb(17, 85, 204);
+  cursor: pointer;
 }
 
-.unmounted-panel:not([loading]) > .gdata.loading,
-.unmounted-panel:not([error]) > .gdata.error,
-.unmounted-panel:not([retry]) > .gdata.retry,
-.unmounted-panel:not([retry]) > .gdata.learn-more {
+body[ash] .dialog-title,
+body[type='full-page'] [invisibleif='full-page'],
+body:not([type='full-page']) [visibleif='full-page'],
+body:not([type='saveas-file']) [visibleif='saveas-file'],
+body:not([type='saveas-file']):not([type='full-page'])
+    [visibleif='saveas-file full-page'] {
   display: none;
+}
+
+#gdata-settings {
+  overflow: hidden;
+  text-align: left;
+  width: 54px;
+}
+
+#gdata-settings img {
+  margin-left: 12px;
+}
+
+#gdata-settings span.disclosureindicator {
+  float: none;
+  margin-left: 1px;
+}
+
+/* To animate the #gdata-settings element to invisibility we set every property
+  that affects its horizontal size to 0. */
+.dialog-container:not([gdata]) #gdata-settings {
+  border-color: transparent;  /* Changing only the color to preserve layout. */
+  border-left-width: 0;
+  border-right-width: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  width: 0;
+}
+
+.dialog-container:not([gdata]) #gdata-settings > * {
+  display: none;
+}
+
+.buttonbar > * {
+  position: relative;
+}
+
+.buttonbar .tooltip {
+  right: -12px;
+  top: 35px;
+}
+
+/* Tooltips */
+.tooltip {
+  -webkit-border-radius: 0;
+  -webkit-box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  -webkit-box-sizing: border-box;
+  background: #2d2d2d;
+  box-shadow: 1px 2px 4px #ccc;
+  color: white;
+  display: block;
+  font-size: 11px;
+  font-weight: bold;
+  height: 29px;
+  line-height: 29px;
+  margin-left: -20px;
+  min-width: 50px;
+  opacity: 0;
+  outline: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0 10px;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  top: 5px;
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.tooltip:after,
+.tooltip:before {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: transparent;
+  content: '';
+  display: block;
+  margin-left: -5px;
+  position: absolute;
+  right: 24px;
+  top: -5px;
+}
+
+.tooltip:after {
+  border-bottom: 5px solid #2d2d2d;
+}
+
+.tooltip:before {
+  border-bottom: 5px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Show with delay, disappear instantly */
+@-webkit-keyframes tooltip-show {
+  0% { opacity: 0; }
+  90% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+:hover > .tooltip {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: 1;
+  -webkit-animation-name: tooltip-show;
+  -webkit-animation-timing-function: linear;
+  opacity: 1;
+}
+
+#no-search-results {
+  bottom: 0;
+  display: none;
+  left: 0;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: 28px;  /* Leave room for the file list header. */
+}
+
+.dialog-container:not([gdrive-welcome='page']) #no-search-results[show] {
+  display: block;
+}
+
+#gdata-space-info {
+  -webkit-box-pack: justify;
+  display: -webkit-box;
+}
+
+#gdata-space-info-label {
+  display: block;
+}
+
+#gdata-space-info > div {
+  -webkit-box-flex: 1;
+  border: 1px solid rgb(192, 192, 192);
+  display: block;
+  height: 11px;
+  margin: 8px 0 9px 10px;
+}
+
+#gdata-space-info-bar[pending] {
+  -webkit-animation-duration: 800ms;
+  -webkit-animation-iteration-count: infinite;
+  -webkit-animation-name: bg;
+  -webkit-animation-timing-function: linear;
+  background-color: rgb(192, 192, 192);
+  background-image: -webkit-linear-gradient(315deg, transparent,
+      transparent 33%, rgba(0, 0, 0, 0.12) 33%, rgba(0, 0, 0, 0.12) 66%,
+      transparent 66%, transparent);
+  background-position: 0 0;
+  background-repeat: repeat-x;
+  background-size: 16px 8px;
+}
+
+#gdata-space-info-bar {
+  background-color: rgb(192, 192, 192);
+  border: 1px solid rgb(255, 255, 255);
+  box-sizing: border-box;
+  height: 100%;
+  width: 50%;
+}
+
+#list-container .table-header-inner {
+  height: 100%;
+}
+
+#list-container .table-header-cell:hover {
+  background-color: #f2f2f2;
 }

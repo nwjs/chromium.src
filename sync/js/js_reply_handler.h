@@ -4,13 +4,12 @@
 
 #ifndef SYNC_JS_JS_REPLY_HANDLER_H_
 #define SYNC_JS_JS_REPLY_HANDLER_H_
-#pragma once
 
 // See README.js for design comments.
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 
 class JsArgList;
 
@@ -25,6 +24,6 @@ class JsReplyHandler {
   virtual ~JsReplyHandler() {}
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_JS_JS_REPLY_HANDLER_H_

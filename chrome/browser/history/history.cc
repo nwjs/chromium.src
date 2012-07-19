@@ -32,6 +32,8 @@
 #include "base/string_util.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/autocomplete/history_url_provider.h"
+#include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_notifications.h"
@@ -40,6 +42,7 @@
 #include "chrome/browser/history/in_memory_history_backend.h"
 #include "chrome/browser/history/in_memory_url_index.h"
 #include "chrome/browser/history/top_sites.h"
+#include "chrome/browser/history/visit_database.h"
 #include "chrome/browser/history/visit_filter.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -127,6 +130,13 @@ class HistoryService::BackendDelegate : public HistoryBackend::Delegate {
                    history_service_.get(), backend_id));
   }
 
+  virtual void NotifyVisitDBObserversOnAddVisit(
+      const history::BriefVisitInfo& info) OVERRIDE {
+    // Since the notification method can be run on any thread, we can
+    // call it right away.
+    history_service_->NotifyVisitDBObserversOnAddVisit(info);
+  }
+
  private:
   scoped_refptr<HistoryService> history_service_;
   MessageLoop* message_loop_;
@@ -143,7 +153,9 @@ HistoryService::HistoryService()
       current_backend_id_(-1),
       bookmark_service_(NULL),
       no_db_(false),
-      needs_top_sites_migration_(false) {
+      needs_top_sites_migration_(false),
+      visit_database_observers_(
+          new ObserverListThreadSafe<history::VisitDatabaseObserver>()) {
 }
 
 HistoryService::HistoryService(Profile* profile)
@@ -153,7 +165,9 @@ HistoryService::HistoryService(Profile* profile)
       current_backend_id_(-1),
       bookmark_service_(NULL),
       no_db_(false),
-      needs_top_sites_migration_(false) {
+      needs_top_sites_migration_(false),
+      visit_database_observers_(
+          new ObserverListThreadSafe<history::VisitDatabaseObserver>()) {
   DCHECK(profile_);
   registrar_.Add(this, chrome::NOTIFICATION_HISTORY_URLS_DELETED,
                  content::Source<Profile>(profile_));
@@ -249,6 +263,23 @@ history::URLDatabase* HistoryService::InMemoryDatabase() {
   if (in_memory_backend_.get())
     return in_memory_backend_->db();
   return NULL;
+}
+
+void HistoryService::ShutdownOnUIThread() {
+  // It's possible that bookmarks haven't loaded and history is waiting for
+  // bookmarks to complete loading. In such a situation history can't shutdown
+  // (meaning if we invoked history_service_->Cleanup now, we would
+  // deadlock). To break the deadlock we tell BookmarkModel it's about to be
+  // deleted so that it can release the signal history is waiting on, allowing
+  // history to shutdown (history_service_->Cleanup to complete). In such a
+  // scenario history sees an incorrect view of bookmarks, but it's better
+  // than a deadlock.
+  BookmarkModel* bookmark_model = static_cast<BookmarkModel*>(
+      BookmarkModelFactory::GetForProfileIfExists(profile_));
+  if (bookmark_model)
+    bookmark_model->Shutdown();
+
+  Cleanup();
 }
 
 void HistoryService::SetSegmentPresentationIndex(int64 segment_id, int index) {
@@ -372,12 +403,13 @@ void HistoryService::AddPage(const history::HistoryAddPageArgs& add_page_args) {
                         add_page_args.Clone()));
 }
 
-void HistoryService::AddPageNoVisitForBookmark(const GURL& url) {
+void HistoryService::AddPageNoVisitForBookmark(const GURL& url,
+                                               const string16& title) {
   if (!CanAddURL(url))
     return;
 
   ScheduleAndForget(PRIORITY_NORMAL,
-                    &HistoryBackend::AddPageNoVisitForBookmark, url);
+                    &HistoryBackend::AddPageNoVisitForBookmark, url, title);
 }
 
 void HistoryService::SetPageTitle(const GURL& url,
@@ -483,6 +515,12 @@ void HistoryService::GetFaviconForURL(
            page_url, icon_types);
 }
 
+void HistoryService::GetFaviconForID(FaviconService::GetFaviconRequest* request,
+                                     history::FaviconID id) {
+  Schedule(PRIORITY_NORMAL, &HistoryBackend::GetFaviconForID, NULL, request,
+           id);
+}
+
 void HistoryService::SetFavicon(const GURL& page_url,
                                 const GURL& icon_url,
                                 const std::vector<unsigned char>& image_data,
@@ -492,7 +530,8 @@ void HistoryService::SetFavicon(const GURL& page_url,
 
   ScheduleAndForget(PRIORITY_NORMAL, &HistoryBackend::SetFavicon,
       page_url, icon_url,
-      scoped_refptr<RefCountedMemory>(new RefCountedBytes(image_data)),
+      scoped_refptr<base::RefCountedMemory>(
+          new base::RefCountedBytes(image_data)),
       icon_type);
 }
 
@@ -646,13 +685,14 @@ HistoryService::Handle HistoryService::QueryMostVisitedURLs(
 HistoryService::Handle HistoryService::QueryFilteredURLs(
     int result_count,
     const history::VisitFilter& filter,
+    bool extended_info,
     CancelableRequestConsumerBase* consumer,
-    const QueryMostVisitedURLsCallback& callback) {
+    const QueryFilteredURLsCallback& callback) {
   return Schedule(PRIORITY_NORMAL,
                   &HistoryBackend::QueryFilteredURLs,
                   consumer,
-                  new history::QueryMostVisitedURLsRequest(callback),
-                  result_count, filter);
+                  new history::QueryFilteredURLsRequest(callback),
+                  result_count, filter, extended_info);
 }
 
 void HistoryService::Observe(int type,
@@ -681,7 +721,7 @@ void HistoryService::Observe(int type,
       if (deleted_details->all_history)
         visited_links->DeleteAllURLs();
       else  // Delete individual ones.
-        visited_links->DeleteURLs(deleted_details->urls);
+        visited_links->DeleteURLs(deleted_details->rows);
       break;
     }
 
@@ -707,14 +747,18 @@ bool HistoryService::Init(const FilePath& history_dir,
   bookmark_service_ = bookmark_service;
   no_db_ = no_db;
 
-  if (profile_ && !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableHistoryQuickProvider)) {
+#if !defined(OS_ANDROID)
+  // History quick provider is enabled on all platforms other than Android.
+  // TODO(jcivelli): Enable the History Quick Provider on Android and figure out
+  // why it reports the wrong results for some pages.
+  if (profile_) {
     std::string languages =
         profile_->GetPrefs()->GetString(prefs::kAcceptLanguages);
     in_memory_url_index_.reset(
         new history::InMemoryURLIndex(profile_, history_dir_, languages));
     in_memory_url_index_->Init();
   }
+#endif  // !OS_ANDROID
 
   // Create the history backend.
   LoadBackendIfNecessary();
@@ -885,4 +929,20 @@ void HistoryService::StartTopSitesMigration(int backend_id) {
 void HistoryService::OnTopSitesReady() {
   ScheduleAndForget(PRIORITY_NORMAL,
                     &HistoryBackend::MigrateThumbnailsDatabase);
+}
+
+void HistoryService::AddVisitDatabaseObserver(
+    history::VisitDatabaseObserver* observer) {
+  visit_database_observers_->AddObserver(observer);
+}
+
+void HistoryService::RemoveVisitDatabaseObserver(
+    history::VisitDatabaseObserver* observer) {
+  visit_database_observers_->RemoveObserver(observer);
+}
+
+void HistoryService::NotifyVisitDBObserversOnAddVisit(
+    const history::BriefVisitInfo& info) {
+  visit_database_observers_->Notify(
+      &history::VisitDatabaseObserver::OnAddVisit, info);
 }

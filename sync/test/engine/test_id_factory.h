@@ -6,14 +6,13 @@
 
 #ifndef SYNC_TEST_ENGINE_TEST_ID_FACTORY_H_
 #define SYNC_TEST_ENGINE_TEST_ID_FACTORY_H_
-#pragma once
 
 #include <string>
 
 #include "base/string_number_conversions.h"
 #include "sync/syncable/syncable_id.h"
 
-namespace browser_sync {
+namespace syncer {
 
 class TestIdFactory {
  public:
@@ -67,7 +66,7 @@ class TestIdFactory {
   int next_value_;
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_TEST_ENGINE_TEST_ID_FACTORY_H_
 

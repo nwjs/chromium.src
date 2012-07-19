@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,7 @@
 #include "ppapi/c/ppb_file_ref.h"
 #include "ppapi/shared_impl/ppb_file_ref_shared.h"
 #include "ppapi/shared_impl/var.h"
+#include "webkit/glue/webkit_glue_export.h"
 
 namespace webkit {
 namespace ppapi {
@@ -20,7 +21,8 @@ using ::ppapi::StringVar;
 
 class PPB_FileSystem_Impl;
 
-class PPB_FileRef_Impl : public ::ppapi::PPB_FileRef_Shared {
+class WEBKIT_GLUE_EXPORT PPB_FileRef_Impl
+    : public ::ppapi::PPB_FileRef_Shared {
  public:
   PPB_FileRef_Impl(const ::ppapi::PPB_FileRef_CreateInfo& info,
                    PPB_FileSystem_Impl* file_system);
@@ -34,18 +36,23 @@ class PPB_FileRef_Impl : public ::ppapi::PPB_FileRef_Shared {
 
   // The returned object will have a refcount of 0 (just like "new").
   static PPB_FileRef_Impl* CreateExternal(PP_Instance instance,
-                                          const FilePath& external_file_path);
+                                          const FilePath& external_file_path,
+                                          const std::string& display_name);
 
   // PPB_FileRef_API implementation (not provided by PPB_FileRef_Shared).
   virtual PP_Resource GetParent() OVERRIDE;
-  virtual int32_t MakeDirectory(PP_Bool make_ancestors,
-                                PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t Touch(PP_Time last_access_time,
-                        PP_Time last_modified_time,
-                        PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t Delete(PP_CompletionCallback callback) OVERRIDE;
-  virtual int32_t Rename(PP_Resource new_file_ref,
-                         PP_CompletionCallback callback) OVERRIDE;
+  virtual int32_t MakeDirectory(
+      PP_Bool make_ancestors,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t Touch(
+      PP_Time last_access_time,
+      PP_Time last_modified_time,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t Delete(
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
+  virtual int32_t Rename(
+      PP_Resource new_file_ref,
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
   virtual PP_Var GetAbsolutePath();
 
   PPB_FileSystem_Impl* file_system() const { return file_system_.get(); }

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SPELLCHECKER_SPELLCHECK_MESSAGE_FILTER_H_
 #define CHROME_BROWSER_SPELLCHECKER_SPELLCHECK_MESSAGE_FILTER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -18,7 +17,6 @@ class SpellingServiceClient;
 class SpellCheckMessageFilter : public content::BrowserMessageFilter {
  public:
   explicit SpellCheckMessageFilter(int render_process_id);
-  virtual ~SpellCheckMessageFilter();
 
   // content::BrowserMessageFilter implementation.
   virtual void OverrideThreadForMessage(
@@ -28,6 +26,8 @@ class SpellCheckMessageFilter : public content::BrowserMessageFilter {
                                  bool* message_was_ok) OVERRIDE;
 
  private:
+  virtual ~SpellCheckMessageFilter();
+
   void OnSpellCheckerRequestDictionary();
   void OnNotifyChecked(const string16& word, bool misspelled);
 #if !defined(OS_MACOSX)
@@ -40,6 +40,8 @@ class SpellCheckMessageFilter : public content::BrowserMessageFilter {
   // text. We send the given results to a renderer.
   void OnTextCheckComplete(
       int tag,
+      bool success,
+      const string16& text,
       const std::vector<SpellCheckResult>& results);
 
   // Checks the user profile and sends a JSON-RPC request to the Spelling
@@ -59,9 +61,10 @@ class SpellCheckMessageFilter : public content::BrowserMessageFilter {
   // A JSON-RPC client that calls the Spelling service in the background.
   scoped_ptr<SpellingServiceClient> client_;
 
+#if !defined(OS_MACOSX)
   int route_id_;
   int identifier_;
-  int document_tag_;
+#endif
 };
 
 #endif  // CHROME_BROWSER_SPELLCHECKER_SPELLCHECK_MESSAGE_FILTER_H_

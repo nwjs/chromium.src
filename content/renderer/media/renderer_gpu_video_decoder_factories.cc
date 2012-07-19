@@ -4,6 +4,9 @@
 
 #include "content/renderer/media/renderer_gpu_video_decoder_factories.h"
 
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+
 #include "base/bind.h"
 #include "base/synchronization/waitable_event.h"
 #include "content/common/child_thread.h"
@@ -15,11 +18,14 @@
 RendererGpuVideoDecoderFactories::~RendererGpuVideoDecoderFactories() {}
 RendererGpuVideoDecoderFactories::RendererGpuVideoDecoderFactories(
     GpuChannelHost* gpu_channel_host, MessageLoop* message_loop,
-    WebGraphicsContext3DCommandBufferImpl* wgc3dcbi)
+    const base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>& context)
     : message_loop_(message_loop),
-      gpu_channel_host_(gpu_channel_host) {
+      gpu_channel_host_(gpu_channel_host),
+      context_(context) {
+  DCHECK(context_);
+  context_->DetachFromThread();
   if (MessageLoop::current() == message_loop_) {
-    AsyncGetContext(wgc3dcbi, NULL);
+    AsyncGetContext(NULL);
     return;
   }
   // Threaded compositor requires us to wait for the context to be acquired.
@@ -29,15 +35,14 @@ RendererGpuVideoDecoderFactories::RendererGpuVideoDecoderFactories(
       // Unretained to avoid ref/deref'ing |*this|, which is not yet stored in a
       // scoped_refptr.  Safe because the Wait() below keeps us alive until this
       // task completes.
-      base::Unretained(this), wgc3dcbi, &waiter));
+      base::Unretained(this), &waiter));
   waiter.Wait();
 }
 
 void RendererGpuVideoDecoderFactories::AsyncGetContext(
-    WebGraphicsContext3DCommandBufferImpl* wgc3dcbi,
     base::WaitableEvent* waiter) {
-  wgc3dcbi->makeContextCurrent();
-  context_ = wgc3dcbi->AsWeakPtr();
+  if (context_)
+    context_->makeContextCurrent();
   if (waiter)
     waiter->Signal();
 }
@@ -75,7 +80,7 @@ void RendererGpuVideoDecoderFactories::AsyncCreateVideoDecodeAccelerator(
 bool RendererGpuVideoDecoderFactories::CreateTextures(
     int32 count, const gfx::Size& size,
     std::vector<uint32>* texture_ids,
-    uint32* texture_target) {
+    uint32 texture_target) {
   DCHECK_NE(MessageLoop::current(), message_loop_);
   bool success = false;
   base::WaitableEvent waiter(false, false);
@@ -88,8 +93,9 @@ bool RendererGpuVideoDecoderFactories::CreateTextures(
 
 void RendererGpuVideoDecoderFactories::AsyncCreateTextures(
     int32 count, const gfx::Size& size, std::vector<uint32>* texture_ids,
-    uint32* texture_target, bool* success, base::WaitableEvent* waiter) {
+    uint32 texture_target, bool* success, base::WaitableEvent* waiter) {
   DCHECK_EQ(MessageLoop::current(), message_loop_);
+  DCHECK(texture_target);
   if (!context_) {
     *success = false;
     waiter->Signal();
@@ -98,17 +104,18 @@ void RendererGpuVideoDecoderFactories::AsyncCreateTextures(
   gpu::gles2::GLES2Implementation* gles2 = context_->GetImplementation();
   texture_ids->resize(count);
   gles2->GenTextures(count, &texture_ids->at(0));
-  *texture_target = GL_TEXTURE_2D;
   for (int i = 0; i < count; ++i) {
     gles2->ActiveTexture(GL_TEXTURE0);
     uint32 texture_id = texture_ids->at(i);
-    gles2->BindTexture(*texture_target, texture_id);
-    gles2->TexParameteri(*texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    gles2->TexParameteri(*texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    gles2->TexParameterf(*texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    gles2->TexParameterf(*texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    gles2->TexImage2D(*texture_target, 0, GL_RGBA, size.width(), size.height(),
-                      0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    gles2->BindTexture(texture_target, texture_id);
+    gles2->TexParameteri(texture_target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gles2->TexParameteri(texture_target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gles2->TexParameterf(texture_target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    gles2->TexParameterf(texture_target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if (texture_target == GL_TEXTURE_2D) {
+      gles2->TexImage2D(texture_target, 0, GL_RGBA, size.width(), size.height(),
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    }
   }
   // We need a glFlush here to guarantee the decoder (in the GPU process) can
   // use the texture ids we return here.  Since textures are expected to be

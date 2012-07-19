@@ -4,10 +4,10 @@
 
 #ifndef CHROME_RENDERER_PRINT_WEB_VIEW_HELPER_H_
 #define CHROME_RENDERER_PRINT_WEB_VIEW_HELPER_H_
-#pragma once
 
 #include <vector>
 
+#include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/shared_memory.h"
 #include "base/time.h"
@@ -18,6 +18,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCanvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrameClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebNode.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebPrintParams.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebViewClient.h"
 #include "ui/gfx/size.h"
 
@@ -55,22 +56,22 @@ class PrepareFrameAndViewForPrint {
     return use_browser_overlays_;
   }
 
-  const gfx::Size& GetPrintCanvasSize() const {
-    return print_canvas_size_;
+  gfx::Size GetPrintCanvasSize() const {
+    return gfx::Size(web_print_params_.printContentArea.width,
+                     web_print_params_.printContentArea.height);
   }
 
   void FinishPrinting();
 
  private:
-  void StartPrinting(const gfx::Size& print_params);
+  void StartPrinting(const WebKit::WebPrintParams& webkit_print_params);
 
   WebKit::WebFrame* frame_;
   WebKit::WebNode node_to_print_;
   WebKit::WebView* web_view_;
-  gfx::Size print_canvas_size_;
+  WebKit::WebPrintParams web_print_params_;
   gfx::Size prev_view_size_;
   gfx::Size prev_scroll_offset_;
-  int dpi_;
   int expected_pages_count_;
   bool use_browser_overlays_;
   bool finished_;
@@ -160,6 +161,25 @@ class PrintWebViewHelper
   // Returns true if the current destination printer is PRINT_TO_PDF.
   bool IsPrintToPdfRequested(const base::DictionaryValue& settings);
 
+  // Returns the print scaling option to retain/scale/crop the source page size
+  // to fit the printable area of the paper.
+  //
+  // We retain the source page size when the current destination printer is
+  // SAVE_AS_PDF.
+  //
+  // We crop the source page size to fit the printable area or we print only the
+  // left top page contents when
+  // (1) Source is PDF and the user has requested not to fit to printable area
+  // via |job_settings|.
+  // (2) Source is PDF. This is the first preview request and print scaling
+  // option is disabled for initiator renderer plugin.
+  //
+  // In all other cases, we scale the source page to fit the printable area.
+  WebKit::WebPrintScalingOption GetPrintScalingOption(
+      bool source_is_html,
+      const base::DictionaryValue& job_settings,
+      const PrintMsg_Print_Params& params);
+
   // Initiate print preview.
   void OnInitiatePrintPreview();
 
@@ -200,7 +220,7 @@ class PrintWebViewHelper
 
   // Initialize print page settings with default settings.
   // Used only for native printing workflow.
-  bool InitPrintSettings();
+  bool InitPrintSettings(bool fit_to_paper_size);
 
   // Initialize print page settings with default settings and prepare the frame
   // for print. A new PrepareFrameAndViewForPrint is created to fulfill the
@@ -216,8 +236,7 @@ class PrintWebViewHelper
   // copies, page range, etc.
   bool UpdatePrintSettings(WebKit::WebFrame* frame,
                            const WebKit::WebNode& node,
-                           const base::DictionaryValue& passed_job_settings,
-                           bool print_for_preview);
+                           const base::DictionaryValue& passed_job_settings);
 
   // Get final print settings from the user.
   // Return false if the user cancels or on error.
@@ -287,7 +306,6 @@ class PrintWebViewHelper
       int page_index,
       const PrintMsg_Print_Params& default_params,
       bool ignore_css_margins,
-      bool fit_to_page,
       double* scale_factor,
       printing::PageSizeMargins* page_layout_in_points);
 
@@ -298,8 +316,7 @@ class PrintWebViewHelper
       const WebKit::WebNode& node,
       PrepareFrameAndViewForPrint* prepare,
       const PrintMsg_Print_Params& params,
-      bool ignore_css_margins,
-      bool fit_to_page);
+      bool ignore_css_margins);
 
   // Given the |device| and |canvas| to draw on, prints the appropriate headers
   // and footers using strings from |header_footer_info| on to the canvas.
@@ -332,9 +349,6 @@ class PrintWebViewHelper
   // Scripted printing will be blocked for a limited amount of time.
   void IncrementScriptedPrintCount();
 
-  // Displays the print job error message to the user.
-  void DisplayPrintJobError();
-
   void RequestPrintPreview(PrintPreviewRequestType type);
 
   // Checks whether print preview should continue or not.
@@ -356,10 +370,6 @@ class PrintWebViewHelper
   bool is_print_ready_metafile_sent_;
   bool ignore_css_margins_;
 
-  // True if we need to auto fit to page else false.
-  // NOTE: When we print to pdf, we don't fit to page.
-  bool fit_to_page_;
-
   // Used for scripted initiated printing blocking.
   base::Time last_cancelled_script_print_;
   int user_cancelled_scripted_print_count_;
@@ -368,6 +378,9 @@ class PrintWebViewHelper
   // Let the browser process know of a printing failure. Only set to false when
   // the failure came from the browser in the first place.
   bool notify_browser_of_print_failure_;
+
+  // True, when printing from print preview.
+  bool print_for_preview_;
 
   scoped_ptr<PrintMsg_PrintPages_Params> old_print_pages_params_;
 
@@ -392,8 +405,7 @@ class PrintWebViewHelper
     // Create the print preview document. |pages| is empty to print all pages.
     bool CreatePreviewDocument(PrintMsg_Print_Params* params,
                                const std::vector<int>& pages,
-                               bool ignore_css_margins,
-                               bool fit_to_page);
+                               bool ignore_css_margins);
 
     // Called after a page gets rendered. |page_time| is how long the
     // rendering took.
@@ -429,7 +441,7 @@ class PrintWebViewHelper
     bool generate_draft_pages() const;
     printing::PreviewMetafile* metafile();
     const PrintMsg_Print_Params& print_params() const;
-    const gfx::Size& GetPrintCanvasSize() const;
+    gfx::Size GetPrintCanvasSize() const;
     int last_error() const;
 
    private:

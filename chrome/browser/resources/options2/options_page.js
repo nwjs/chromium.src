@@ -10,7 +10,7 @@ cr.define('options', function() {
    * Base class for options page.
    * @constructor
    * @param {string} name Options page name.
-   * @param {string} title Options page title, used for navigation bar.
+   * @param {string} title Options page title, used for history.
    * @extends {EventTarget}
    */
   function OptionsPage(name, title, pageDivName) {
@@ -19,6 +19,7 @@ cr.define('options', function() {
     this.pageDivName = pageDivName;
     this.pageDiv = $(this.pageDivName);
     this.tab = null;
+    this.lastFocusedElement = null;
   }
 
   /** @const */ var HORIZONTAL_OFFSET = 155;
@@ -42,12 +43,6 @@ cr.define('options', function() {
    * @protected
    */
   OptionsPage.registeredOverlayPages = {};
-
-  /**
-   * Whether or not |initialize| has been called.
-   * @private
-   */
-  OptionsPage.initialized_ = false;
 
   /**
    * Gets the default page (to be shown on initial load).
@@ -240,6 +235,11 @@ cr.define('options', function() {
     if (!overlay || !overlay.canShowPage())
       return false;
 
+    // Save the currently focused element in the page for restoration later.
+    var currentPage = this.getTopmostVisiblePage();
+    if (currentPage)
+      currentPage.lastFocusedElement = document.activeElement;
+
     if ((!rootPage || !rootPage.sticky) && overlay.parentPage)
       this.showPageByName(overlay.parentPage.name, false);
 
@@ -250,6 +250,8 @@ cr.define('options', function() {
 
     // Update tab title.
     this.setTitle_(overlay.title);
+
+    $('searchBox').setAttribute('aria-hidden', true);
 
     return true;
   };
@@ -280,6 +282,15 @@ cr.define('options', function() {
   };
 
   /**
+   * Restores the last focused element on a given page.
+   */
+  OptionsPage.restoreLastFocusedElement_ = function() {
+    var currentPage = this.getTopmostVisiblePage();
+    if (currentPage.lastFocusedElement)
+      currentPage.lastFocusedElement.focus();
+  };
+
+  /**
    * Closes the visible overlay. Updates the history state after closing the
    * overlay.
    */
@@ -292,19 +303,27 @@ cr.define('options', function() {
 
     if (overlay.didClosePage) overlay.didClosePage();
     this.updateHistoryState_(false, {ignoreHash: true});
+
+    this.restoreLastFocusedElement_();
+    if (!this.isOverlayVisible_())
+      $('searchBox').removeAttribute('aria-hidden');
   };
 
   /**
    * Cancels (closes) the overlay, due to the user pressing <Esc>.
    */
   OptionsPage.cancelOverlay = function() {
+    // Blur the active element to ensure any changed pref value is saved.
+    document.activeElement.blur();
     var overlay = this.getVisibleOverlay_();
     // Let the overlay handle the <Esc> if it wants to.
-    if (overlay.handleCancel)
+    if (overlay.handleCancel) {
       overlay.handleCancel();
-    else
+      this.restoreLastFocusedElement_();
+    } else {
       this.closeOverlay();
-  }
+    }
+  };
 
   /**
    * Hides the visible overlay. Does not affect the history state.
@@ -540,10 +559,7 @@ cr.define('options', function() {
    */
   OptionsPage.initialize = function() {
     chrome.send('coreOptionsInitialize');
-    this.initialized_ = true;
     uber.onContentFrameLoaded();
-
-    this.fixedHeaders_ = document.querySelectorAll('header');
 
     document.addEventListener('scroll', this.handleScroll_.bind(this));
 
@@ -581,9 +597,6 @@ cr.define('options', function() {
    */
   OptionsPage.handleScroll_ = function() {
     this.updateAllFrozenElementPositions_();
-    this.updateAllHeaderElementPositions_();
-
-    uber.invokeMethodOnParent('adjustToScroll', document.body.scrollLeft);
   };
 
   /**
@@ -594,17 +607,6 @@ cr.define('options', function() {
     var frozenElements = document.querySelectorAll('.frozen');
     for (var i = 0; i < frozenElements.length; i++)
       this.updateFrozenElementHorizontalPosition_(frozenElements[i]);
-  };
-
-  /**
-   * Update the start margin of all the position: fixed; header elements.
-   * @private
-   */
-  OptionsPage.updateAllHeaderElementPositions_ = function() {
-    var adjust = isRTL() ? 1 : -1;
-    var marginStart = document.body.scrollLeft * adjust + 'px';
-    for (var i = 0; i < this.fixedHeaders_.length; ++i)
-      this.fixedHeaders_[i].style.webkitMarginStart = marginStart;
   };
 
   /**
@@ -629,16 +631,14 @@ cr.define('options', function() {
     }
   };
 
-  /**
-   * Re-initializes the C++ handlers if necessary. This is called if the
-   * handlers are torn down and recreated but the DOM may not have been (in
-   * which case |initialize| won't be called again). If |initialize| hasn't been
-   * called, this does nothing (since it will be later, once the DOM has
-   * finished loading).
-   */
-  OptionsPage.reinitializeCore = function() {
-    if (!this.initialized_)
-      chrome.send('coreOptionsInitialize');
+  OptionsPage.setPepperFlashSettingsEnabled = function(enabled) {
+    if (enabled) {
+      document.documentElement.setAttribute(
+          'enablePepperFlashSettings', '');
+    } else {
+      document.documentElement.removeAttribute(
+          'enablePepperFlashSettings');
+    }
   };
 
   OptionsPage.prototype = {
@@ -708,14 +708,16 @@ cr.define('options', function() {
       } else {
         this.pageDiv.classList.add('showing-banner');
 
-        var text = bannerDiv.querySelector('.managed-prefs-text');
+        var text = bannerDiv.querySelector('#managed-prefs-text');
         if (controlledByPolicy && !controlledByExtension) {
-          text.textContent = templateData.policyManagedPrefsBannerText;
-        } else if (!controlledByPolicy && controlledByExtension) {
-          text.textContent = templateData.extensionManagedPrefsBannerText;
-        } else if (controlledByPolicy && controlledByExtension) {
           text.textContent =
-              templateData.policyAndExtensionManagedPrefsBannerText;
+              loadTimeData.getString('policyManagedPrefsBannerText');
+        } else if (!controlledByPolicy && controlledByExtension) {
+          text.textContent =
+              loadTimeData.getString('extensionManagedPrefsBannerText');
+        } else if (controlledByPolicy && controlledByExtension) {
+          text.textContent = loadTimeData.getString(
+              'policyAndExtensionManagedPrefsBannerText');
         }
       }
     },
@@ -742,6 +744,7 @@ cr.define('options', function() {
       }
       return !this.pageDiv.hidden;
     },
+
     /**
      * Sets page visibility.
      * @type {boolean}
@@ -773,8 +776,15 @@ cr.define('options', function() {
       var pageDiv = this.pageDiv;
       var container = this.container;
 
-      if (visible)
+      if (visible) {
         uber.invokeMethodOnParent('beginInterceptingEvents');
+        this.pageDiv.removeAttribute('aria-hidden');
+        if (this.parentPage)
+          this.parentPage.pageDiv.setAttribute('aria-hidden', true);
+      } else {
+        if (this.parentPage)
+          this.parentPage.pageDiv.removeAttribute('aria-hidden');
+      }
 
       if (container.hidden != visible) {
         if (visible) {

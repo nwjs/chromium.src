@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PROFILES_PROFILE_IO_DATA_H_
 #define CHROME_BROWSER_PROFILES_PROFILE_IO_DATA_H_
-#pragma once
 
 #include <string>
 
@@ -31,6 +30,7 @@ class TransportSecurityPersister;
 
 namespace chrome_browser_net {
 class HttpServerPropertiesManager;
+class ResourcePrefetchPredictorObserver;
 }
 
 namespace net {
@@ -74,27 +74,22 @@ class ProfileIOData {
   // These should only be called at most once each. Ownership is reversed when
   // they get called, from ProfileIOData owning ChromeURLRequestContext to vice
   // versa.
-  scoped_refptr<ChromeURLRequestContext> GetMainRequestContext() const;
-  scoped_refptr<ChromeURLRequestContext> GetMediaRequestContext() const;
-  scoped_refptr<ChromeURLRequestContext> GetExtensionsRequestContext() const;
-  scoped_refptr<ChromeURLRequestContext> GetIsolatedAppRequestContext(
-      scoped_refptr<ChromeURLRequestContext> main_context,
+  ChromeURLRequestContext* GetMainRequestContext() const;
+  ChromeURLRequestContext* GetMediaRequestContext() const;
+  ChromeURLRequestContext* GetExtensionsRequestContext() const;
+  ChromeURLRequestContext* GetIsolatedAppRequestContext(
+      ChromeURLRequestContext* main_context,
       const std::string& app_id) const;
 
   // These are useful when the Chrome layer is called from the content layer
   // with a content::ResourceContext, and they want access to Chrome data for
   // that profile.
   ExtensionInfoMap* GetExtensionInfoMap() const;
-  HostContentSettingsMap* GetHostContentSettingsMap() const;
   CookieSettings* GetCookieSettings() const;
 
 #if defined(ENABLE_NOTIFICATIONS)
   DesktopNotificationService* GetNotificationService() const;
 #endif
-
-  BooleanPrefMember* clear_local_state_on_exit()  const {
-    return &clear_local_state_on_exit_;
-  }
 
   IntegerPrefMember* session_startup_pref() const {
     return &session_startup_pref_;
@@ -115,16 +110,35 @@ class ProfileIOData {
   chrome_browser_net::HttpServerPropertiesManager*
       http_server_properties_manager() const;
 
+  bool is_incognito() const {
+    return is_incognito_;
+  }
+
+  chrome_browser_net::ResourcePrefetchPredictorObserver*
+      resource_prefetch_predictor_observer() const {
+    return resource_prefetch_predictor_observer_.get();
+  }
+
+  // Initialize the member needed to track the metrics enabled state. This is
+  // only to be called on the UI thread.
+  void InitializeMetricsEnabledStateOnUIThread();
+
+  // Returns whether or not metrics reporting is enabled in the browser instance
+  // on which this profile resides. This is safe for use from the IO thread, and
+  // should only be called from there.
+  bool GetMetricsEnabledStateOnIOThread() const;
+
  protected:
   class AppRequestContext : public ChromeURLRequestContext {
    public:
     AppRequestContext();
-    virtual ~AppRequestContext();
 
     void SetCookieStore(net::CookieStore* cookie_store);
     void SetHttpTransactionFactory(net::HttpTransactionFactory* http_factory);
 
    private:
+    virtual ~AppRequestContext();
+
     scoped_refptr<net::CookieStore> cookie_store_;
     scoped_ptr<net::HttpTransactionFactory> http_factory_;
   };
@@ -136,17 +150,16 @@ class ProfileIOData {
     ~ProfileParams();
 
     FilePath path;
-    bool is_incognito;
-    bool clear_local_state_on_exit;
     std::string accept_language;
     std::string accept_charset;
     std::string referrer_charset;
     IOThread* io_thread;
-    scoped_refptr<HostContentSettingsMap> host_content_settings_map;
     scoped_refptr<CookieSettings> cookie_settings;
     scoped_refptr<net::SSLConfigService> ssl_config_service;
     scoped_refptr<net::CookieMonster::Delegate> cookie_monster_delegate;
     scoped_refptr<ExtensionInfoMap> extension_info_map;
+    scoped_ptr<chrome_browser_net::ResourcePrefetchPredictorObserver>
+        resource_prefetch_predictor_observer_;
 
 #if defined(ENABLE_NOTIFICATIONS)
     DesktopNotificationService* notification_service;
@@ -169,6 +182,8 @@ class ProfileIOData {
 
   void InitializeOnUIThread(Profile* profile);
   void ApplyProfileParamsToContext(ChromeURLRequestContext* context) const;
+
+  void SetUpJobFactoryDefaults(net::URLRequestJobFactory* job_factory) const;
 
   // Lazy initializes the ProfileIOData object the first time a request context
   // is requested. The lazy logic is implemented here. The actual initialization
@@ -206,16 +221,17 @@ class ProfileIOData {
     return proxy_service_.get();
   }
 
-  net::URLRequestJobFactory* job_factory() const {
-    return job_factory_.get();
-  }
-
   void set_http_server_properties_manager(
       chrome_browser_net::HttpServerPropertiesManager* manager) const;
 
   ChromeURLRequestContext* main_request_context() const {
-    return main_request_context_;
+    return main_request_context_.get();
   }
+
+  // Destroys the ResourceContext first, to cancel any URLRequests that are
+  // using it still, before we destroy the member variables that those
+  // URLRequests may be accessing.
+  void DestroyResourceContext();
 
  private:
   class ResourceContext : public content::ResourceContext {
@@ -223,12 +239,13 @@ class ProfileIOData {
     explicit ResourceContext(ProfileIOData* io_data);
     virtual ~ResourceContext();
 
-   private:
-    friend class ProfileIOData;
-
     // ResourceContext implementation:
     virtual net::HostResolver* GetHostResolver() OVERRIDE;
     virtual net::URLRequestContext* GetRequestContext() OVERRIDE;
+
+   private:
+    friend class ProfileIOData;
+
     void EnsureInitialized();
 
     ProfileIOData* const io_data_;
@@ -237,7 +254,7 @@ class ProfileIOData {
     net::URLRequestContext* request_context_;
   };
 
-  typedef base::hash_map<std::string, scoped_refptr<ChromeURLRequestContext> >
+  typedef base::hash_map<std::string, ChromeURLRequestContext*>
       AppRequestContextMap;
 
   // --------------------------------------------
@@ -250,18 +267,31 @@ class ProfileIOData {
 
   // Does an on-demand initialization of a RequestContext for the given
   // isolated app.
-  virtual scoped_refptr<ChromeURLRequestContext> InitializeAppRequestContext(
-      scoped_refptr<ChromeURLRequestContext> main_context,
+  virtual ChromeURLRequestContext* InitializeAppRequestContext(
+      ChromeURLRequestContext* main_context,
       const std::string& app_id) const = 0;
 
   // These functions are used to transfer ownership of the lazily initialized
   // context from ProfileIOData to the URLRequestContextGetter.
-  virtual scoped_refptr<ChromeURLRequestContext>
+  virtual ChromeURLRequestContext*
       AcquireMediaRequestContext() const = 0;
-  virtual scoped_refptr<ChromeURLRequestContext>
+  virtual ChromeURLRequestContext*
       AcquireIsolatedAppRequestContext(
-          scoped_refptr<ChromeURLRequestContext> main_context,
+          ChromeURLRequestContext* main_context,
           const std::string& app_id) const = 0;
+
+  // The order *DOES* matter for the majority of these member variables, so
+  // don't move them around unless you know what you're doing!
+  // General rules:
+  //   * ResourceContext references the URLRequestContexts, so
+  //   URLRequestContexts must outlive ResourceContext, hence ResourceContext
+  //   should be destroyed first.
+  //   * URLRequestContexts reference a whole bunch of members, so
+  //   URLRequestContext needs to be destroyed before them.
+  //   * Therefore, ResourceContext should be listed last, and then the
+  //   URLRequestContexts, and then the URLRequestContext members.
+  //   * Note that URLRequestContext members have a directed dependency graph
+  //   too, so they must themselves be ordered correctly.
 
   // Tracks whether or not we've been lazily initialized.
   mutable bool initialized_;
@@ -272,10 +302,18 @@ class ProfileIOData {
 
   // Member variables which are pointed to by the various context objects.
   mutable BooleanPrefMember enable_referrers_;
-  mutable BooleanPrefMember clear_local_state_on_exit_;
   mutable BooleanPrefMember safe_browsing_enabled_;
   // TODO(marja): Remove session_startup_pref_ if no longer needed.
   mutable IntegerPrefMember session_startup_pref_;
+
+  // The state of metrics reporting in the browser that this profile runs on.
+  // Unfortunately, since ChromeOS has a separate representation of this state,
+  // we need to make one available based on the platform.
+#if defined(OS_CHROMEOS)
+  bool enable_metrics_;
+#else
+  BooleanPrefMember enable_metrics_;
+#endif
 
   // Pointed to by NetworkDelegate.
   mutable scoped_ptr<policy::URLBlacklistManager> url_blacklist_manager_;
@@ -289,35 +327,35 @@ class ProfileIOData {
       fraudulent_certificate_reporter_;
   mutable scoped_ptr<net::ProxyService> proxy_service_;
   mutable scoped_ptr<net::TransportSecurityState> transport_security_state_;
-  mutable scoped_ptr<net::URLRequestJobFactory> job_factory_;
   mutable scoped_ptr<chrome_browser_net::HttpServerPropertiesManager>
       http_server_properties_manager_;
-
-  // Pointed to by ResourceContext.
-
-  // TODO(willchan): Remove from ResourceContext.
-  mutable scoped_refptr<ExtensionInfoMap> extension_info_map_;
-  mutable scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
-  mutable scoped_refptr<CookieSettings> cookie_settings_;
 
 #if defined(ENABLE_NOTIFICATIONS)
   mutable DesktopNotificationService* notification_service_;
 #endif
-
-  mutable ResourceContext resource_context_;
 
   mutable scoped_ptr<TransportSecurityPersister>
       transport_security_persister_;
 
   // These are only valid in between LazyInitialize() and their accessor being
   // called.
-  mutable scoped_refptr<ChromeURLRequestContext> main_request_context_;
-  mutable scoped_refptr<ChromeURLRequestContext> extensions_request_context_;
+  mutable scoped_ptr<ChromeURLRequestContext> main_request_context_;
+  mutable scoped_ptr<ChromeURLRequestContext> extensions_request_context_;
   // One AppRequestContext per isolated app.
   mutable AppRequestContextMap app_request_context_map_;
 
+  mutable scoped_ptr<ResourceContext> resource_context_;
+
+  mutable scoped_refptr<ExtensionInfoMap> extension_info_map_;
+  mutable scoped_refptr<CookieSettings> cookie_settings_;
+
+  mutable scoped_ptr<chrome_browser_net::ResourcePrefetchPredictorObserver>
+      resource_prefetch_predictor_observer_;
+
   // TODO(jhawkins): Remove once crbug.com/102004 is fixed.
   bool initialized_on_UI_thread_;
+
+  bool is_incognito_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileIOData);
 };

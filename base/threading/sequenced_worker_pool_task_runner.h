@@ -4,7 +4,6 @@
 
 #ifndef BASE_THREADING_SEQUENCED_WORKER_POOL_TASK_RUNNER_H_
 #define BASE_THREADING_SEQUENCED_WORKER_POOL_TASK_RUNNER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/callback_forward.h"
@@ -32,17 +31,10 @@ class BASE_EXPORT SequencedWorkerPoolTaskRunner : public SequencedTaskRunner {
   // TaskRunner implementation
   virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
                                const Closure& task,
-                               int64 delay_ms) OVERRIDE;
-  virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
-                               const Closure& task,
                                TimeDelta delay) OVERRIDE;
   virtual bool RunsTasksOnCurrentThread() const OVERRIDE;
 
   // SequencedTaskRunner implementation
-  virtual bool PostNonNestableDelayedTask(
-      const tracked_objects::Location& from_here,
-      const Closure& task,
-      int64 delay_ms) OVERRIDE;
   virtual bool PostNonNestableDelayedTask(
       const tracked_objects::Location& from_here,
       const Closure& task,
@@ -53,10 +45,6 @@ class BASE_EXPORT SequencedWorkerPoolTaskRunner : public SequencedTaskRunner {
 
   // Helper function for posting a delayed task. Asserts that the delay is
   // zero because non-zero delays are not yet supported.
-  bool PostDelayedTaskAssertZeroDelay(
-      const tracked_objects::Location& from_here,
-      const Closure& task,
-      int64 delay_ms);
   bool PostDelayedTaskAssertZeroDelay(
       const tracked_objects::Location& from_here,
       const Closure& task,
@@ -71,4 +59,4 @@ class BASE_EXPORT SequencedWorkerPoolTaskRunner : public SequencedTaskRunner {
 
 }  // namespace base
 
-#endif  // BASE_THREADING_SEQUENCED_TASK_RUNNER_IMPL_H_
+#endif  // BASE_THREADING_SEQUENCED_WORKER_POOL_TASK_RUNNER_H_

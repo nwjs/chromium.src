@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 // implementation files, this header contains the reusable components.
 
 #include "base/memory/scoped_ptr.h"
+#include "ui/base/layout.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -20,16 +21,31 @@
 namespace gfx {
 namespace test {
 
-SkBitmap* CreateBitmap(int width, int height) {
-  SkBitmap* bitmap = new SkBitmap();
-  bitmap->setConfig(SkBitmap::kARGB_8888_Config, width, height);
-  bitmap->allocPixels();
-  bitmap->eraseRGB(255, 0, 0);
+#if defined(OS_MACOSX)
+
+void SetSupportedScaleFactorsTo1xAnd2x() {
+  std::vector<ui::ScaleFactor> supported_scale_factors;
+  supported_scale_factors.push_back(ui::SCALE_FACTOR_100P);
+  supported_scale_factors.push_back(ui::SCALE_FACTOR_200P);
+  ui::test::SetSupportedScaleFactors(supported_scale_factors);
+}
+
+#endif  // OS_MACOSX
+
+const SkBitmap CreateBitmap(int width, int height) {
+  SkBitmap bitmap;
+  bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
+  bitmap.allocPixels();
+  bitmap.eraseRGB(255, 0, 0);
   return bitmap;
 }
 
 gfx::Image CreateImage() {
-  return gfx::Image(CreateBitmap(100, 50));
+  return CreateImage(100, 50);
+}
+
+gfx::Image CreateImage(int width, int height) {
+  return gfx::Image(CreateBitmap(width, height));
 }
 
 bool IsEqual(const gfx::Image& image1, const gfx::Image& image2) {
@@ -65,15 +81,15 @@ bool IsEmpty(const gfx::Image& image) {
 }
 
 PlatformImage CreatePlatformImage() {
-  scoped_ptr<SkBitmap> bitmap(CreateBitmap(25, 25));
+  const SkBitmap bitmap(CreateBitmap(25, 25));
 #if defined(OS_MACOSX)
-  NSImage* image = gfx::SkBitmapToNSImage(*(bitmap.get()));
+  NSImage* image = gfx::SkBitmapToNSImage(bitmap);
   base::mac::NSObjectRetain(image);
   return image;
 #elif defined(TOOLKIT_GTK)
-  return gfx::GdkPixbufFromSkBitmap(bitmap.get());
+  return gfx::GdkPixbufFromSkBitmap(bitmap);
 #else
-  return bitmap.release();
+  return bitmap;
 #endif
 }
 
@@ -93,7 +109,23 @@ PlatformImage ToPlatformType(const gfx::Image& image) {
 #elif defined(TOOLKIT_GTK)
   return image.ToGdkPixbuf();
 #else
-  return image.ToSkBitmap();
+  return *image.ToSkBitmap();
+#endif
+}
+
+bool IsPlatformImageValid(PlatformImage image) {
+#if defined(OS_MACOSX) || defined(TOOLKIT_GTK)
+  return image != NULL;
+#else
+  return !image.isNull();
+#endif
+}
+
+bool PlatformImagesEqual(PlatformImage image1, PlatformImage image2) {
+#if defined(OS_MACOSX) || defined(TOOLKIT_GTK)
+  return image1 == image2;
+#else
+  return image1.getPixels() == image2.getPixels();
 #endif
 }
 

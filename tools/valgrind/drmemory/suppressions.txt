@@ -62,6 +62,11 @@ name=http://code.google.com/p/drmemory/issues/detail?id=68 (UNADDR 2)
 ...
 ntdll.dll!RtlValidateUnicodeString
 
+UNADDRESSABLE ACCESS
+name=http://crbug.com/131304
+avcodec-54.dll!avpriv_vorbis_parse_reset
+avcodec-54.dll!avpriv_vorbis_parse_reset
+
 ############################
 # TODO(timurrrr): investigate these
 UNADDRESSABLE ACCESS
@@ -237,6 +242,12 @@ name=prefetches in igdumd32.dll
 instruction=prefetch*
 igdumd32.dll!*
 
+# prefetch of unaddressable memory in ffmpeg
+WARNING
+name=http://crbug.com/134979 prefetches in ffmpeg
+instruction=prefetch*
+avcodec-*.dll!*
+
 UNADDRESSABLE ACCESS
 name=http://code.google.com/p/drmemory/issues/detail?id=582 bizarre cl-generated read-beyond-TOS
 instruction=mov    0xfffffffc(%esp) -> %eax
@@ -263,6 +274,12 @@ INVALID HEAP ARGUMENT
 name=http://crbug.com/101717 (4)
 *!scoped_ptr<_OBJECT_NAME_INFORMATION>::~scoped_ptr<_OBJECT_NAME_INFORMATION>
 *!sandbox::GetPathFromHandle
+
+WARNING
+name=http://code.google.com/p/drmemory/issues/detail?id=899 deleting bitmap which is probably safe
+system call NtGdiDeleteObjectApp
+*!skia::`anonymous namespace'::Bitmap::~Bitmap
+*!skia::`anonymous namespace'::Bitmap::`scalar deleting destructor'
 
 ############################
 # Real issues in Chromium
@@ -304,7 +321,7 @@ system call NtGdiDeleteObjectApp
 # GDI usage errors in 3rd-party components
 WARNING
 name=http://crbug.com/119552 a
-system call NtGdiDeleteObjectApp                            
+system call NtGdiDeleteObjectApp
 ...
 *!OmniboxViewWin::*
 
@@ -317,7 +334,7 @@ system call Nt*
 WARNING
 name=http://crbug.com/119552 c
 # optional gdi32.dll frame followed by user32.dll
-# TODO(bruening): once have 
+# TODO(bruening): once have
 # http://code.google.com/p/drmemory/issues/detail?id=846
 # I would do "gdi32.dll!...\nuser32.dll!*"
 *32.dll!*
@@ -336,5 +353,5 @@ riched20.dll!*
 WARNING
 name=http://crbug.com/120157
 # "ReleaseDC called from different thread than GetDC"
-system call NtUserCallOneParam.RELEASEDC                    
+system call NtUserCallOneParam.RELEASEDC
 *!*FontCache::CacheElement::~CacheElement

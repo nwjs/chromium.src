@@ -54,7 +54,9 @@ class InputMethodEngineImpl
         context_id_(-1) {}
 
   ~InputMethodEngineImpl() {
-    input_method::InputMethodManager::GetInstance()->RemoveActiveIme(ibus_id_);
+    input_method::InputMethodManager* manager =
+        input_method::InputMethodManager::GetInstance();
+    manager->RemoveInputMethodExtension(ibus_id_);
   }
 
   bool Init(InputMethodEngine::Observer* observer,
@@ -179,7 +181,7 @@ bool InputMethodEngineImpl::Init(InputMethodEngine::Observer* observer,
 
   observer_ = observer;
   engine_id_ = engine_id;
-  manager->AddActiveIme(ibus_id_, engine_name, layouts, language);
+  manager->AddInputMethodExtension(ibus_id_, engine_name, layouts, language);
   return true;
 }
 
@@ -300,6 +302,7 @@ bool InputMethodEngineImpl::SetCandidates(
   std::vector<input_method::IBusEngineController::Candidate> ibus_candidates;
 
   candidate_ids_.clear();
+  candidate_indexes_.clear();
   for (std::vector<Candidate>::const_iterator ix = candidates.begin();
        ix != candidates.end(); ++ix) {
     ibus_candidates.push_back(input_method::IBusEngineController::Candidate());
@@ -346,7 +349,7 @@ bool InputMethodEngineImpl::SetMenuItems(const std::vector<MenuItem>& items) {
         new input_method::IBusEngineController::EngineProperty;
     if (!MenuItemToProperty(*item, property)) {
       delete property;
-      LOG(ERROR) << "Bad menu item";
+      DVLOG(1) << "Bad menu item";
       return false;
     }
     properties.push_back(property);
@@ -414,7 +417,7 @@ bool InputMethodEngineImpl::MenuItemToProperty(
         new input_method::IBusEngineController::EngineProperty;
     if (!MenuItemToProperty(*child, new_property)) {
       delete new_property;
-      LOG(ERROR) << "Bad menu item child";
+      DVLOG(1) << "Bad menu item child";
       return false;
     }
     property->children.push_back(new_property);
@@ -432,7 +435,7 @@ bool InputMethodEngineImpl::UpdateMenuItems(
     input_method::IBusEngineController::EngineProperty* new_property =
         new input_method::IBusEngineController::EngineProperty();
     if (!MenuItemToProperty(*item, new_property)) {
-      LOG(ERROR) << "Bad menu item";
+      DVLOG(1) << "Bad menu item";
       delete new_property;
       return false;
     }
@@ -511,7 +514,7 @@ void InputMethodEngineImpl::OnCandidateClicked(unsigned int index,
   } else if (button & input_method::IBusEngineController::MOUSE_BUTTON_3_MASK) {
     pressed_button = MOUSE_BUTTON_RIGHT;
   } else {
-    LOG(ERROR) << "Unknown button: " << button;
+    DVLOG(1) << "Unknown button: " << button;
     pressed_button = MOUSE_BUTTON_LEFT;
   }
 
@@ -522,8 +525,7 @@ void InputMethodEngineImpl::OnCandidateClicked(unsigned int index,
 class InputMethodEngineStub : public InputMethodEngine {
  public:
   InputMethodEngineStub()
-      : observer_(NULL), active_(false), next_context_id_(1),
-        context_id_(-1) {}
+      : observer_(NULL), active_(false) {}
 
   ~InputMethodEngineStub() {
   }
@@ -536,7 +538,7 @@ class InputMethodEngineStub : public InputMethodEngine {
             const char* language,
             const std::vector<std::string>& layouts,
             std::string* error) {
-    VLOG(0) << "Init";
+    DVLOG(1) << "Init";
     return true;
   }
 
@@ -545,71 +547,71 @@ class InputMethodEngineStub : public InputMethodEngine {
                               int selection_end, int cursor,
                               const std::vector<SegmentInfo>& segments,
                               std::string* error) {
-    VLOG(0) << "SetComposition";
+    DVLOG(1) << "SetComposition";
     return true;
   }
 
   virtual bool ClearComposition(int context_id, std::string* error) {
-    VLOG(0) << "ClearComposition";
+    DVLOG(1) << "ClearComposition";
     return true;
   }
 
   virtual bool CommitText(int context_id,
                           const char* text, std::string* error) {
-    VLOG(0) << "CommitText";
+    DVLOG(1) << "CommitText";
     return true;
   }
 
   virtual bool SetCandidateWindowVisible(bool visible, std::string* error) {
-    VLOG(0) << "SetCandidateWindowVisible";
+    DVLOG(1) << "SetCandidateWindowVisible";
     return true;
   }
 
   virtual void SetCandidateWindowCursorVisible(bool visible) {
-    VLOG(0) << "SetCandidateWindowCursorVisible";
+    DVLOG(1) << "SetCandidateWindowCursorVisible";
   }
 
   virtual void SetCandidateWindowVertical(bool vertical) {
-    VLOG(0) << "SetCandidateWindowVertical";
+    DVLOG(1) << "SetCandidateWindowVertical";
   }
 
   virtual void SetCandidateWindowPageSize(int size) {
-    VLOG(0) << "SetCandidateWindowPageSize";
+    DVLOG(1) << "SetCandidateWindowPageSize";
   }
 
   virtual void SetCandidateWindowAuxText(const char* text) {
-    VLOG(0) << "SetCandidateWindowAuxText";
+    DVLOG(1) << "SetCandidateWindowAuxText";
   }
 
   virtual void SetCandidateWindowAuxTextVisible(bool visible) {
-    VLOG(0) << "SetCandidateWindowAuxTextVisible";
+    DVLOG(1) << "SetCandidateWindowAuxTextVisible";
   }
 
   virtual bool SetCandidates(int context_id,
                              const std::vector<Candidate>& candidates,
                              std::string* error) {
-    VLOG(0) << "SetCandidates";
+    DVLOG(1) << "SetCandidates";
     return true;
   }
 
   virtual bool SetCursorPosition(int context_id, int candidate_id,
                                  std::string* error) {
-    VLOG(0) << "SetCursorPosition";
+    DVLOG(1) << "SetCursorPosition";
     return true;
   }
 
   virtual bool SetMenuItems(const std::vector<MenuItem>& items) {
-    VLOG(0) << "SetMenuItems";
+    DVLOG(1) << "SetMenuItems";
     return true;
   }
 
   virtual bool UpdateMenuItems(const std::vector<MenuItem>& items) {
-    VLOG(0) << "UpdateMenuItems";
+    DVLOG(1) << "UpdateMenuItems";
     return true;
   }
 
   virtual bool IsActive() const {
-    VLOG(0) << "IsActive";
+    DVLOG(1) << "IsActive";
     return active_;
   }
 
@@ -623,12 +625,6 @@ class InputMethodEngineStub : public InputMethodEngine {
 
   // True when this IME is active, false if deactive.
   bool active_;
-
-  // Next id that will be assigned to a context.
-  int next_context_id_;
-
-  // ID that is used for the current input context.  False if there is no focus.
-  int context_id_;
 
   // User specified id of this IME.
   std::string engine_id_;
@@ -652,7 +648,7 @@ InputMethodEngine* InputMethodEngine::CreateEngine(
 
   if (!new_engine->Init(observer, engine_name, extension_id, engine_id,
                         description, language, layouts, error)) {
-    LOG(ERROR) << "Init() failed.";
+    DVLOG(1) << "Init() failed.";
     delete new_engine;
     new_engine = NULL;
   }

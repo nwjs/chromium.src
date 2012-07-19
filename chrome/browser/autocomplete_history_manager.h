@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_AUTOCOMPLETE_HISTORY_MANAGER_H_
 #define CHROME_BROWSER_AUTOCOMPLETE_HISTORY_MANAGER_H_
-#pragma once
 
 #include <vector>
 
@@ -50,6 +49,9 @@ class AutocompleteHistoryManager : public content::WebContentsObserver,
       const std::vector<int>& autofill_unique_ids);
   void OnFormSubmitted(const webkit::forms::FormData& form);
 
+  // Must be public for the external delegate to use.
+  void OnRemoveAutocompleteEntry(const string16& name, const string16& value);
+
   // Sets our external delegate.
   void SetExternalDelegate(AutofillExternalDelegate* delegate);
 
@@ -74,8 +76,6 @@ class AutocompleteHistoryManager : public content::WebContentsObserver,
   }
 
  private:
-  void OnRemoveAutocompleteEntry(const string16& name, const string16& value);
-
   Profile* profile_;
   scoped_refptr<WebDataService> web_data_service_;
 

@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_GLOBAL_ERROR_BADGE_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_GLOBAL_ERROR_BADGE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/ui/global_error.h"
+#include "chrome/browser/ui/global_error/global_error.h"
 
 // Non-modal GlobalError implementation that warns the user if extensions
 // created warnings or errors. If the user clicks on the wrench menu, the user

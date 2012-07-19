@@ -5,7 +5,6 @@
 #include "chrome/browser/prefs/pref_service.h"
 
 #include <algorithm>
-#include <string>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -115,9 +114,11 @@ class ReadErrorHandler : public PersistentPrefStore::ReadErrorDelegate {
 }  // namespace
 
 // static
-PrefService* PrefService::CreatePrefService(const FilePath& pref_filename,
-                                            PrefStore* extension_prefs,
-                                            bool async) {
+PrefService* PrefService::CreatePrefService(
+    const FilePath& pref_filename,
+    policy::PolicyService* policy_service,
+    PrefStore* extension_prefs,
+    bool async) {
   using policy::ConfigurationPolicyPrefStore;
 
 #if defined(OS_LINUX)
@@ -135,9 +136,11 @@ PrefService* PrefService::CreatePrefService(const FilePath& pref_filename,
 
 #if defined(ENABLE_CONFIGURATION_POLICY)
   ConfigurationPolicyPrefStore* managed =
-      ConfigurationPolicyPrefStore::CreateMandatoryPolicyPrefStore();
+      ConfigurationPolicyPrefStore::CreateMandatoryPolicyPrefStore(
+          policy_service);
   ConfigurationPolicyPrefStore* recommended =
-      ConfigurationPolicyPrefStore::CreateRecommendedPolicyPrefStore();
+      ConfigurationPolicyPrefStore::CreateRecommendedPolicyPrefStore(
+          policy_service);
 #else
   ConfigurationPolicyPrefStore* managed = NULL;
   ConfigurationPolicyPrefStore* recommended = NULL;
@@ -222,6 +225,7 @@ PrefService::~PrefService() {
   user_pref_store_ = NULL;
   default_store_ = NULL;
   pref_sync_associator_.reset();
+  pref_notifier_.reset();
 }
 
 void PrefService::InitFromStorage(bool async) {
@@ -530,6 +534,16 @@ void PrefService::RegisterInt64Pref(const char* path,
       sync_status);
 }
 
+void PrefService::RegisterUint64Pref(const char* path,
+                                     uint64 default_value,
+                                     PrefSyncStatus sync_status) {
+  DCHECK(IsProfilePrefService(this));
+  RegisterPreference(
+      path,
+      Value::CreateStringValue(base::Uint64ToString(default_value)),
+      sync_status);
+}
+
 bool PrefService::GetBoolean(const char* path) const {
   DCHECK(CalledOnValidThread());
 
@@ -684,6 +698,40 @@ const DictionaryValue* PrefService::GetDictionary(const char* path) const {
   return static_cast<const DictionaryValue*>(value);
 }
 
+const base::Value* PrefService::GetUserPrefValue(const char* path) const {
+  DCHECK(CalledOnValidThread());
+
+  const Preference* pref = FindPreference(path);
+  if (!pref) {
+    NOTREACHED() << "Trying to get an unregistered pref: " << path;
+    return NULL;
+  }
+
+  // Look for an existing preference in the user store. If it doesn't
+  // exist, return NULL.
+  base::Value* value = NULL;
+  if (user_pref_store_->GetMutableValue(path, &value) != PrefStore::READ_OK)
+    return NULL;
+
+  if (!value->IsType(pref->GetType())) {
+    NOTREACHED() << "Pref value type doesn't match registered type.";
+    return NULL;
+  }
+
+  return value;
+}
+
+const base::Value* PrefService::GetDefaultPrefValue(const char* path) const {
+  DCHECK(CalledOnValidThread());
+  // Lookup the preference in the default store.
+  const base::Value* value = NULL;
+  if (default_store_->GetValue(path, &value) != PrefStore::READ_OK) {
+    NOTREACHED() << "Default value missing for pref: " << path;
+    return NULL;
+  }
+  return value;
+}
+
 const ListValue* PrefService::GetList(const char* path) const {
   DCHECK(CalledOnValidThread());
 
@@ -726,6 +774,23 @@ void PrefService::RegisterPreference(const char* path,
   base::Value::Type orig_type = default_value->GetType();
   DCHECK(orig_type != Value::TYPE_NULL && orig_type != Value::TYPE_BINARY) <<
          "invalid preference type: " << orig_type;
+
+  // For ListValue and DictionaryValue with non empty default, empty value
+  // for |path| needs to be persisted in |user_pref_store_|. So that
+  // non empty default is not used when user sets an empty ListValue or
+  // DictionaryValue.
+  bool needs_empty_value = false;
+  if (orig_type == base::Value::TYPE_LIST) {
+    const base::ListValue* list = NULL;
+    if (default_value->GetAsList(&list) && !list->empty())
+      needs_empty_value = true;
+  } else if (orig_type == base::Value::TYPE_DICTIONARY) {
+    const base::DictionaryValue* dict = NULL;
+    if (default_value->GetAsDictionary(&dict) && !dict->empty())
+      needs_empty_value = true;
+  }
+  if (needs_empty_value)
+    user_pref_store_->MarkNeedsEmptyValue(path);
 
   // Hand off ownership.
   default_store_->SetDefaultValue(path, scoped_value.release());
@@ -810,6 +875,27 @@ int64 PrefService::GetInt64(const char* path) const {
   return val;
 }
 
+void PrefService::SetUint64(const char* path, uint64 value) {
+  SetUserPrefValue(path, Value::CreateStringValue(base::Uint64ToString(value)));
+}
+
+uint64 PrefService::GetUint64(const char* path) const {
+  DCHECK(CalledOnValidThread());
+
+  const Preference* pref = FindPreference(path);
+  if (!pref) {
+    NOTREACHED() << "Trying to read an unregistered pref: " << path;
+    return 0;
+  }
+  std::string result("0");
+  bool rv = pref->GetValue()->GetAsString(&result);
+  DCHECK(rv);
+
+  uint64 val;
+  base::StringToUint64(result, &val);
+  return val;
+}
+
 Value* PrefService::GetMutableUserPref(const char* path,
                                        base::Value::Type type) {
   CHECK(type == Value::TYPE_DICTIONARY || type == Value::TYPE_LIST);
@@ -828,8 +914,7 @@ Value* PrefService::GetMutableUserPref(const char* path,
   // Look for an existing preference in the user store. If it doesn't
   // exist or isn't the correct type, create a new user preference.
   Value* value = NULL;
-  if (user_pref_store_->GetMutableValue(path, &value)
-          != PersistentPrefStore::READ_OK ||
+  if (user_pref_store_->GetMutableValue(path, &value) != PrefStore::READ_OK ||
       !value->IsType(type)) {
     if (type == Value::TYPE_DICTIONARY) {
       value = new DictionaryValue;
@@ -866,7 +951,7 @@ void PrefService::SetUserPrefValue(const char* path, Value* new_value) {
   user_pref_store_->SetValue(path, owned_value.release());
 }
 
-SyncableService* PrefService::GetSyncableService() {
+syncer::SyncableService* PrefService::GetSyncableService() {
   return pref_sync_associator_.get();
 }
 

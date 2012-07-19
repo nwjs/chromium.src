@@ -42,7 +42,6 @@ int PpapiCommandBufferProxy::GetRouteID() const {
 }
 
 bool PpapiCommandBufferProxy::Echo(const base::Closure& callback) {
-  NOTIMPLEMENTED();
   return false;
 }
 
@@ -59,6 +58,21 @@ bool PpapiCommandBufferProxy::DiscardBackbuffer() {
 bool PpapiCommandBufferProxy::EnsureBackbuffer() {
   NOTIMPLEMENTED();
   return true;
+}
+
+uint32 PpapiCommandBufferProxy::InsertSyncPoint() {
+  NOTIMPLEMENTED();
+  return 0;
+}
+
+void PpapiCommandBufferProxy::WaitSyncPoint(uint32 sync_point) {
+  NOTIMPLEMENTED();
+}
+
+bool PpapiCommandBufferProxy::SignalSyncPoint(uint32 sync_point,
+                                              const base::Closure& callback) {
+  NOTIMPLEMENTED();
+  return false;
 }
 
 void PpapiCommandBufferProxy::SetMemoryAllocationChangedCallback(
@@ -100,9 +114,10 @@ gpu::CommandBuffer::State PpapiCommandBufferProxy::GetState() {
   // Send will flag state with lost context if IPC fails.
   if (last_state_.error == gpu::error::kNoError) {
     gpu::CommandBuffer::State state;
+    bool success = false;
     if (Send(new PpapiHostMsg_PPBGraphics3D_GetState(
-             ppapi::API_ID_PPB_GRAPHICS_3D, resource_, &state))) {
-      UpdateState(state);
+             ppapi::API_ID_PPB_GRAPHICS_3D, resource_, &state, &success))) {
+      UpdateState(state, success);
     }
   }
 
@@ -133,10 +148,11 @@ gpu::CommandBuffer::State PpapiCommandBufferProxy::FlushSync(int32 put_offset,
     // Send will flag state with lost context if IPC fails.
     if (last_state_.error == gpu::error::kNoError) {
       gpu::CommandBuffer::State state;
+      bool success = false;
       if (Send(new PpapiHostMsg_PPBGraphics3D_Flush(
                ppapi::API_ID_PPB_GRAPHICS_3D, resource_, put_offset,
-              last_known_get, &state))) {
-        UpdateState(state);
+              last_known_get, &state, &success))) {
+        UpdateState(state, success);
       }
     }
   } else {
@@ -260,13 +276,19 @@ bool PpapiCommandBufferProxy::Send(IPC::Message* msg) {
 }
 
 void PpapiCommandBufferProxy::UpdateState(
-    const gpu::CommandBuffer::State& state) {
+    const gpu::CommandBuffer::State& state,
+    bool success) {
   // Handle wraparound. It works as long as we don't have more than 2B state
   // updates in flight across which reordering occurs.
-  if (state.generation - last_state_.generation < 0x80000000U)
-    last_state_ = state;
+  if (success) {
+    if (state.generation - last_state_.generation < 0x80000000U) {
+      last_state_ = state;
+    }
+  } else {
+    last_state_.error = gpu::error::kLostContext;
+    ++last_state_.generation;
+  }
 }
 
 }  // namespace proxy
 }  // namespace ppapi
-

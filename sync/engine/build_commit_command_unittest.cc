@@ -5,12 +5,21 @@
 #include "sync/engine/build_commit_command.h"
 #include "sync/test/engine/syncer_command_test.h"
 
-namespace browser_sync {
+namespace syncer {
 
 // A test fixture for tests exercising ClearDataCommandTest.
 class BuildCommitCommandTest : public SyncerCommandTest {
  protected:
-  BuildCommitCommandTest() {}
+  BuildCommitCommandTest()
+    : batch_commit_set_(ModelSafeRoutingInfo()),
+      command_(batch_commit_set_, &commit_message_) {
+  }
+
+ private:
+  sessions::OrderedCommitSet batch_commit_set_;
+  sync_pb::ClientToServerMessage commit_message_;
+
+ protected:
   BuildCommitCommand command_;
 
  private:
@@ -93,6 +102,4 @@ TEST_F(BuildCommitCommandTest, InterpolatePosition) {
       command_.InterpolatePosition(0, BuildCommitCommand::GetGap()*2 + 1));
 }
 
-}  // namespace browser_sync
-
-
+}  // namespace syncer

@@ -18,7 +18,7 @@
 #include "chrome/browser/printing/cloud_print/cloud_print_proxy_service_factory.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/service/service_process_control.h"
-#include "chrome/browser/ui/browser_init.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/service_messages.h"
@@ -32,8 +32,9 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "ipc/ipc_descriptors.h"
+#include "ipc/ipc_multiprocess_test.h"
 #include "ipc/ipc_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -77,7 +78,7 @@ void ShutdownTask() {
   g_service_process->Shutdown();
 }
 
-class TestStartupClientChannelListener : public IPC::Channel::Listener {
+class TestStartupClientChannelListener : public IPC::Listener {
  public:
   virtual bool OnMessageReceived(const IPC::Message& message) { return false; }
 };
@@ -264,7 +265,7 @@ void SetServiceEnabledExpectations(MockServiceIPCServer* server) {
   server->SetServiceEnabledExpectations();
 }
 
-MULTIPROCESS_TEST_MAIN(CloudPrintMockService_StartEnabledWaitForQuit) {
+MULTIPROCESS_IPC_TEST_MAIN(CloudPrintMockService_StartEnabledWaitForQuit) {
   return CloudPrintMockService_Main(
       base::Bind(&SetServiceEnabledExpectations));
 }
@@ -273,13 +274,13 @@ void SetServiceWillBeDisabledExpectations(MockServiceIPCServer* server) {
   server->SetWillBeDisabledExpectations();
 }
 
-MULTIPROCESS_TEST_MAIN(CloudPrintMockService_StartEnabledExpectDisabled) {
+MULTIPROCESS_IPC_TEST_MAIN(CloudPrintMockService_StartEnabledExpectDisabled) {
   return CloudPrintMockService_Main(
       base::Bind(&SetServiceWillBeDisabledExpectations));
 }
 
 class CloudPrintProxyPolicyStartupTest : public base::MultiProcessTest,
-                                         public IPC::Channel::Listener {
+                                         public IPC::Listener {
  public:
   CloudPrintProxyPolicyStartupTest();
   ~CloudPrintProxyPolicyStartupTest();
@@ -293,7 +294,7 @@ class CloudPrintProxyPolicyStartupTest : public base::MultiProcessTest,
   bool Send(IPC::Message* message);
   void ShutdownAndWaitForExitWithTimeout(base::ProcessHandle handle);
 
-  // IPC::Channel::Listener implementation
+  // IPC::Listener implementation
   virtual bool OnMessageReceived(const IPC::Message& message) { return false; }
   virtual void OnChannelConnected(int32 peer_pid);
 
@@ -303,10 +304,10 @@ class CloudPrintProxyPolicyStartupTest : public base::MultiProcessTest,
 
   bool LaunchBrowser(const CommandLine& command_line, Profile* profile) {
     int return_code = 0;
-    BrowserInit browser_init;
-    return BrowserInit::ProcessCmdLineImpl(command_line, FilePath(), false,
-                                           profile, BrowserInit::Profiles(),
-                                           &return_code, &browser_init);
+    StartupBrowserCreator browser_creator;
+    return StartupBrowserCreator::ProcessCmdLineImpl(
+        command_line, FilePath(), false, profile,
+        StartupBrowserCreator::Profiles(), &return_code, &browser_creator);
   }
 
  protected:
@@ -422,7 +423,7 @@ void CloudPrintProxyPolicyStartupTest::ShutdownAndWaitForExitWithTimeout(
   int exit_code = -100;
   bool exited =
       base::WaitForExitCodeWithTimeout(handle, &exit_code,
-                                       TestTimeouts::action_timeout_ms());
+                                       TestTimeouts::action_timeout());
   EXPECT_TRUE(exited);
   EXPECT_EQ(exit_code, 0);
   base::CloseProcessHandle(handle);

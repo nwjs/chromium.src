@@ -12,7 +12,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browsing_data_file_system_helper.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_usage_cache.h"
@@ -70,6 +70,7 @@ class BrowsingDataFileSystemHelperTest : public testing::Test {
         io_thread_(BrowserThread::IO, &message_loop_) {
     profile_.reset(new TestingProfile());
     helper_ = BrowsingDataFileSystemHelper::Create(profile_.get());
+    message_loop_.RunAllPending();
     canned_helper_ = new CannedBrowsingDataFileSystemHelper(profile_.get());
   }
   virtual ~BrowsingDataFileSystemHelperTest() {

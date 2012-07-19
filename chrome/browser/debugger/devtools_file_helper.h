@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_DEBUGGER_DEVTOOLS_FILE_HELPER_H_
 #define CHROME_BROWSER_DEBUGGER_DEVTOOLS_FILE_HELPER_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -17,12 +16,11 @@ class Profile;
 
 class DevToolsFileHelper {
  public:
-  static void WriteFile(const FilePath& path, const std::string& content);
-
   class Delegate {
    public:
     virtual ~Delegate() {}
-    virtual void FileSavedAs(const std::string& url, const FilePath& path) = 0;
+    virtual void FileSavedAs(const std::string& url) = 0;
+    virtual void AppendedTo(const std::string& url) = 0;
   };
 
   DevToolsFileHelper(Profile* profile, Delegate* delegate);
@@ -35,11 +33,20 @@ class DevToolsFileHelper {
             const std::string& content,
             bool save_as);
 
+  // Append |content| to the file that has been associated with given |url|.
+  // The |url| can be associated with a file via calling Save method.
+  // If the Save method has not been called for this |url|, then
+  // Append method does nothing.
+  void Append(const std::string& url, const std::string& content);
+
   void FileSelected(const std::string& url,
                     const FilePath& path,
                     const std::string& content);
 
  private:
+  static void WriteFile(const FilePath& path, const std::string& content);
+  static void AppendToFile(const FilePath& path, const std::string& content);
+
   class SaveAsDialog;
 
   Profile* profile_;

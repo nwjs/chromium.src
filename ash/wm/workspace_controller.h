@@ -4,26 +4,14 @@
 
 #ifndef ASH_WM_WORKSPACE_CONTROLLER_H_
 #define ASH_WM_WORKSPACE_CONTROLLER_H_
-#pragma once
 
 #include "ash/ash_export.h"
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
-#include "ui/aura/window_observer.h"
-#include "ui/base/models/simple_menu_model.h"
+#include "ui/aura/client/activation_change_observer.h"
 
 namespace aura {
 class Window;
-}
-
-namespace gfx {
-class Point;
-class Size;
-}
-
-namespace views {
-class MenuRunner;
-class Widget;
 }
 
 namespace ash {
@@ -38,44 +26,25 @@ class WorkspaceManager;
 // various workspace pieces: WorkspaceManager, WorkspaceLayoutManager and
 // WorkspaceEventFilter.
 class ASH_EXPORT WorkspaceController :
-      public aura::WindowObserver,
-      public ui::SimpleMenuModel::Delegate {
+    public aura::client::ActivationChangeObserver {
  public:
   explicit WorkspaceController(aura::Window* viewport);
   virtual ~WorkspaceController();
-
-  void ToggleOverview();
 
   // Returns the workspace manager that this controller owns.
   WorkspaceManager* workspace_manager() {
     return workspace_manager_.get();
   }
 
-  // Shows the menu allowing you to configure various aspects of workspaces.
-  void ShowMenu(views::Widget* widget, const gfx::Point& location);
-
   // Sets the size of the grid.
   void SetGridSize(int grid_size);
 
-  // aura::WindowObserver overrides:
-  virtual void OnWindowPropertyChanged(aura::Window* window,
-                                       const void* key,
-                                       intptr_t old) OVERRIDE;
-
-  // ui::SimpleMenuModel::Delegate overrides:
-  virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;
-  virtual bool IsCommandIdEnabled(int command_id) const OVERRIDE;
-  virtual void ExecuteCommand(int command_id) OVERRIDE;
-  virtual bool GetAcceleratorForCommandId(
-      int command_id,
-      ui::Accelerator* accelerator) OVERRIDE;
+  // aura::client::ActivationChangeObserver overrides:
+  virtual void OnWindowActivated(aura::Window* window,
+                                 aura::Window* old_active) OVERRIDE;
 
  private:
   friend class WorkspaceControllerTestHelper;
-
-  enum MenuItem {
-    MENU_CHANGE_WALLPAPER,
-  };
 
   aura::Window* viewport_;
 
@@ -86,10 +55,6 @@ class ASH_EXPORT WorkspaceController :
 
   // Owned by |viewport_|.
   WorkspaceEventFilter* event_filter_;
-
-#if !defined(OS_MACOSX)
-  scoped_ptr<views::MenuRunner> menu_runner_;
-#endif
 
   DISALLOW_COPY_AND_ASSIGN(WorkspaceController);
 };

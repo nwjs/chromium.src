@@ -34,6 +34,8 @@
         'property.cc',
         'property.h',
         'scoped_dbus_error.h',
+        'string_util.cc',
+        'string_util.h',
         'values_util.cc',
         'values_util.h',
       ],
@@ -90,9 +92,28 @@
         'message_unittest.cc',
         'mock_unittest.cc',
         'property_unittest.cc',
+        'string_util_unittest.cc',
         'test_service.cc',
         'test_service.h',
         'values_util_unittest.cc',
+      ],
+      'include_dirs': [
+        '..',
+      ],
+    },
+    {
+      'target_name': 'dbus_test_server',
+      'type': 'executable',
+      'dependencies': [
+        '../base/base.gyp:test_support_base',
+        '../base/base.gyp:base',
+        '../build/linux/system.gyp:dbus',
+        'dbus',
+      ],
+      'sources': [
+        'test_server.cc',
+        'test_service.cc',
+        'test_service.h',
       ],
       'include_dirs': [
         '..',

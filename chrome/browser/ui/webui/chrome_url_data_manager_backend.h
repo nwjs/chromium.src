@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_WEBUI_CHROME_URL_DATA_MANAGER_BACKEND_H_
 #define CHROME_BROWSER_UI_WEBUI_CHROME_URL_DATA_MANAGER_BACKEND_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -17,8 +16,11 @@
 
 class ChromeURLDataManagerBackend;
 class GURL;
-class RefCountedMemory;
 class URLRequestChromeJob;
+
+namespace base {
+class RefCountedMemory;
+}
 
 namespace net {
 class URLRequest;
@@ -44,7 +46,7 @@ class ChromeURLDataManagerBackend {
   void AddDataSource(ChromeURLDataManager::DataSource* source);
 
   // DataSource invokes this. Sends the data to the URLRequest.
-  void DataAvailable(RequestID request_id, RefCountedMemory* bytes);
+  void DataAvailable(RequestID request_id, base::RefCountedMemory* bytes);
 
   static net::URLRequestJob* Factory(net::URLRequest* request,
                                      const std::string& scheme);

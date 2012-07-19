@@ -1,17 +1,18 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_ANIMATION_BOUNDS_ANIMATOR_H_
 #define UI_VIEWS_ANIMATION_BOUNDS_ANIMATOR_H_
-#pragma once
 
 #include <map>
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
+#include "base/observer_list.h"
 #include "ui/base/animation/animation_container_observer.h"
 #include "ui/base/animation/animation_delegate.h"
+#include "ui/base/animation/tween.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/views_export.h"
 
@@ -21,14 +22,8 @@ class SlideAnimation;
 
 namespace views {
 
-class BoundsAnimator;
+class BoundsAnimatorObserver;
 class View;
-
-class BoundsAnimatorObserver {
- public:
-  // Invoked when all animations are complete.
-  virtual void OnBoundsAnimatorDone(BoundsAnimator* animator) = 0;
-};
 
 // Bounds animator is responsible for animating the bounds of a view from the
 // the views current location and size to a target position and size. To use
@@ -64,6 +59,10 @@ class VIEWS_EXPORT BoundsAnimator : public ui::AnimationDelegate,
   // invoking |AnimateViewTo|.
   void SetTargetBounds(View* view, const gfx::Rect& target);
 
+  // Returns the target bounds for the specified view. If |view| is not
+  // animating its current bounds is returned.
+  gfx::Rect GetTargetBounds(View* view);
+
   // Sets the animation for the specified view. BoundsAnimator takes ownership
   // of the specified animation.
   void SetAnimationForView(View* view, ui::SlideAnimation* animation);
@@ -92,9 +91,15 @@ class VIEWS_EXPORT BoundsAnimator : public ui::AnimationDelegate,
   // size. Any views marked for deletion are deleted.
   void Cancel();
 
-  void set_observer(BoundsAnimatorObserver* observer) {
-    observer_ = observer;
-  }
+  // Overrides default animation duration. |duration_ms| is the new duration in
+  // milliseconds.
+  void SetAnimationDuration(int duration_ms);
+
+  // Sets the tween type for new animations. Default is EASE_OUT.
+  void set_tween_type(ui::Tween::Type type) { tween_type_ = type; }
+
+  void AddObserver(BoundsAnimatorObserver* observer);
+  void RemoveObserver(BoundsAnimatorObserver* observer);
 
  protected:
   // Creates the animation to use for animating views.
@@ -165,7 +170,7 @@ class VIEWS_EXPORT BoundsAnimator : public ui::AnimationDelegate,
   // Parent of all views being animated.
   View* parent_;
 
-  BoundsAnimatorObserver* observer_;
+  ObserverList<BoundsAnimatorObserver> observers_;
 
   // All animations we create up with the same container.
   scoped_refptr<ui::AnimationContainer> container_;
@@ -181,6 +186,10 @@ class VIEWS_EXPORT BoundsAnimator : public ui::AnimationDelegate,
   // the timer (AnimationContainerProgressed is invoked) the parent_ is asked
   // to repaint these bounds.
   gfx::Rect repaint_bounds_;
+
+  int animation_duration_ms_;
+
+  ui::Tween::Type tween_type_;
 
   DISALLOW_COPY_AND_ASSIGN(BoundsAnimator);
 };

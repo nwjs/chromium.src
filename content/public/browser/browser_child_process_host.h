@@ -4,14 +4,13 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_BROWSER_CHILD_PROCESS_HOST_H_
 #define CONTENT_PUBLIC_BROWSER_BROWSER_CHILD_PROCESS_HOST_H_
-#pragma once
 
 #include "base/process_util.h"
 #include "base/string16.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/common/process_type.h"
-#include "ipc/ipc_message.h"
+#include "ipc/ipc_sender.h"
 
 class CommandLine;
 class FilePath;
@@ -24,7 +23,7 @@ struct ChildProcessData;
 
 // This represents child processes of the browser process, i.e. plugins. They
 // will get terminated at browser shutdown.
-class CONTENT_EXPORT BrowserChildProcessHost : public IPC::Message::Sender {
+class CONTENT_EXPORT BrowserChildProcessHost : public IPC::Sender {
  public:
   // Used to create a child process host. The delegate must outlive this object.
   static BrowserChildProcessHost* Create(
@@ -34,6 +33,7 @@ class CONTENT_EXPORT BrowserChildProcessHost : public IPC::Message::Sender {
   virtual ~BrowserChildProcessHost() {}
 
   // Derived classes call this to launch the child process asynchronously.
+  // Takes ownership of |cmd_line|.
   virtual void Launch(
 #if defined(OS_WIN)
       const FilePath& exposed_dir,

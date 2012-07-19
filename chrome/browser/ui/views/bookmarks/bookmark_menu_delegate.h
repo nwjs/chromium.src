@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_MENU_DELEGATE_H_
 #define CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_MENU_DELEGATE_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -17,6 +16,7 @@
 #include "ui/views/controls/menu/menu_delegate.h"
 
 class BookmarkNode;
+class Browser;
 class Profile;
 
 namespace content {
@@ -50,7 +50,7 @@ class BookmarkMenuDelegate : public BaseBookmarkModelObserver,
     HIDE_PERMANENT_FOLDERS
   };
 
-  BookmarkMenuDelegate(Profile* profile,
+  BookmarkMenuDelegate(Browser* browser,
                        content::PageNavigator* navigator,
                        views::Widget* parent,
                        int first_menu_id);
@@ -93,7 +93,7 @@ class BookmarkMenuDelegate : public BaseBookmarkModelObserver,
   // MenuDelegate like methods (see class description for details).
   string16 GetTooltipText(int id, const gfx::Point& p) const;
   bool IsTriggerableEvent(views::MenuItemView* menu,
-                          const views::MouseEvent& e);
+                          const views::Event& e);
   void ExecuteCommand(int id, int mouse_event_flags);
   bool GetDropFormats(
       views::MenuItemView* menu,
@@ -161,6 +161,7 @@ class BookmarkMenuDelegate : public BaseBookmarkModelObserver,
   // Returns the menu whose id is |id|.
   views::MenuItemView* GetMenuByID(int id);
 
+  Browser* browser_;
   Profile* profile_;
 
   content::PageNavigator* page_navigator_;

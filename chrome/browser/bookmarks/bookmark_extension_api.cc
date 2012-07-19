@@ -31,6 +31,7 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
@@ -43,6 +44,7 @@ namespace keys = bookmark_extension_api_constants;
 using base::TimeDelta;
 using content::BrowserThread;
 using content::WebContents;
+
 typedef QuotaLimitHeuristic::Bucket Bucket;
 typedef QuotaLimitHeuristic::Config Config;
 typedef QuotaLimitHeuristic::BucketList BucketList;
@@ -92,7 +94,7 @@ void BookmarksFunction::Run() {
   if (success) {
     content::NotificationService::current()->Notify(
         chrome::NOTIFICATION_EXTENSION_BOOKMARKS_API_INVOKED,
-        content::Source<const Extension>(GetExtension()),
+        content::Source<const extensions::Extension>(GetExtension()),
         content::Details<const BookmarksFunction>(this));
   }
   SendResponse(success);
@@ -146,7 +148,7 @@ void BookmarkExtensionEventRouter::DispatchEvent(Profile *profile,
                                                  const std::string& json_args) {
   if (profile->GetExtensionEventRouter()) {
     profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-        event_name, json_args, NULL, GURL());
+        event_name, json_args, NULL, GURL(), extensions::EventFilteringInfo());
   }
 }
 
@@ -322,7 +324,7 @@ bool GetBookmarksFunction::RunImpl() {
     bookmark_extension_helpers::AddNode(node, json.get(), false);
   }
 
-  result_.reset(json.release());
+  SetResult(json.release());
   return true;
 }
 
@@ -345,7 +347,7 @@ bool GetBookmarkChildrenFunction::RunImpl() {
     bookmark_extension_helpers::AddNode(child, json.get(), false);
   }
 
-  result_.reset(json.release());
+  SetResult(json.release());
   return true;
 }
 
@@ -364,7 +366,7 @@ bool GetBookmarkRecentFunction::RunImpl() {
     const BookmarkNode* node = *i;
     bookmark_extension_helpers::AddNode(node, json, false);
   }
-  result_.reset(json);
+  SetResult(json);
   return true;
 }
 
@@ -373,7 +375,7 @@ bool GetBookmarkTreeFunction::RunImpl() {
   scoped_ptr<ListValue> json(new ListValue());
   const BookmarkNode* node = model->root_node();
   bookmark_extension_helpers::AddNode(node, json.get(), true);
-  result_.reset(json.release());
+  SetResult(json.release());
   return true;
 }
 
@@ -393,7 +395,7 @@ bool GetBookmarkSubTreeFunction::RunImpl() {
     return false;
   }
   bookmark_extension_helpers::AddNode(node, json.get(), true);
-  result_.reset(json.release());
+  SetResult(json.release());
   return true;
 }
 
@@ -414,7 +416,7 @@ bool SearchBookmarksFunction::RunImpl() {
     bookmark_extension_helpers::AddNode(node, json, false);
   }
 
-  result_.reset(json);
+  SetResult(json);
   return true;
 }
 
@@ -520,7 +522,7 @@ bool CreateBookmarkFunction::RunImpl() {
 
   DictionaryValue* ret =
       bookmark_extension_helpers::GetNodeDictionary(node, false, false);
-  result_.reset(ret);
+  SetResult(ret);
 
   return true;
 }
@@ -599,7 +601,7 @@ bool MoveBookmarkFunction::RunImpl() {
 
   DictionaryValue* ret =
       bookmark_extension_helpers::GetNodeDictionary(node, false, false);
-  result_.reset(ret);
+  SetResult(ret);
 
   return true;
 }
@@ -657,7 +659,7 @@ bool UpdateBookmarkFunction::RunImpl() {
 
   DictionaryValue* ret =
       bookmark_extension_helpers::GetNodeDictionary(node, false, false);
-  result_.reset(ret);
+  SetResult(ret);
 
   return true;
 }
@@ -874,13 +876,15 @@ void BookmarksIOFunction::ShowSelectFileDialog(SelectFileDialog::Type type,
   // Balanced in one of the three callbacks of SelectFileDialog:
   // either FileSelectionCanceled, MultiFilesSelected, or FileSelected
   AddRef();
-  select_file_dialog_ = SelectFileDialog::Create(this);
-  SelectFileDialog::FileTypeInfo file_type_info;
-  file_type_info.extensions.resize(1);
-  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("html"));
 
   WebContents* web_contents = dispatcher()->delegate()->
       GetAssociatedWebContents();
+
+  select_file_dialog_ = SelectFileDialog::Create(
+      this, new ChromeSelectFilePolicy(web_contents));
+  SelectFileDialog::FileTypeInfo file_type_info;
+  file_type_info.extensions.resize(1);
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("html"));
 
   // |tab_contents| can be NULL (for background pages), which is fine. In such
   // a case if file-selection dialogs are forbidden by policy, we will not
@@ -891,7 +895,6 @@ void BookmarksIOFunction::ShowSelectFileDialog(SelectFileDialog::Type type,
                                   &file_type_info,
                                   0,
                                   FILE_PATH_LITERAL(""),
-                                  web_contents,
                                   NULL,
                                   NULL);
 }

@@ -18,21 +18,6 @@ RenderWidgetFullscreen* RenderWidgetFullscreen::Create(int32 opener_id) {
   return widget.release();
 }
 
-WebWidget* RenderWidgetFullscreen::CreateWebWidget() {
-  // TODO(boliu): Handle full screen render widgets here.
-  return RenderWidget::CreateWebWidget(this);
-}
-
-void RenderWidgetFullscreen::Init(int32 opener_id) {
-  DCHECK(!webwidget_);
-
-  RenderWidget::DoInit(
-      opener_id,
-      CreateWebWidget(),
-      new ViewHostMsg_CreateFullscreenWidget(
-          opener_id, &routing_id_, &surface_id_));
-}
-
 void RenderWidgetFullscreen::show(WebKit::WebNavigationPolicy) {
   DCHECK(!did_show_) << "received extraneous Show call";
   DCHECK_NE(MSG_ROUTING_NONE, routing_id_);
@@ -46,5 +31,22 @@ void RenderWidgetFullscreen::show(WebKit::WebNavigationPolicy) {
 }
 
 RenderWidgetFullscreen::RenderWidgetFullscreen()
-    : RenderWidget(WebKit::WebPopupTypeNone, WebKit::WebScreenInfo()) {
+    : RenderWidget(WebKit::WebPopupTypeNone, WebKit::WebScreenInfo(), false) {
+}
+
+RenderWidgetFullscreen::~RenderWidgetFullscreen() {}
+
+WebWidget* RenderWidgetFullscreen::CreateWebWidget() {
+  // TODO(boliu): Handle full screen render widgets here.
+  return RenderWidget::CreateWebWidget(this);
+}
+
+void RenderWidgetFullscreen::Init(int32 opener_id) {
+  DCHECK(!webwidget_);
+
+  RenderWidget::DoInit(
+      opener_id,
+      CreateWebWidget(),
+      new ViewHostMsg_CreateFullscreenWidget(
+          opener_id, &routing_id_, &surface_id_));
 }

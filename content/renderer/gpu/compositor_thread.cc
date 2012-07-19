@@ -42,10 +42,6 @@ class CompositorThread::InputHandlerWrapper
                    render_view_impl_, params));
   }
 
-  virtual ~InputHandlerWrapper() {
-    input_handler_->setClient(NULL);
-  }
-
   int routing_id() const { return routing_id_; }
   WebKit::WebCompositorInputHandler* input_handler() const {
     return input_handler_;
@@ -66,6 +62,12 @@ class CompositorThread::InputHandlerWrapper
   }
 
  private:
+  friend class base::RefCountedThreadSafe<InputHandlerWrapper>;
+
+  virtual ~InputHandlerWrapper() {
+    input_handler_->setClient(NULL);
+  }
+
   CompositorThread* compositor_thread_;
   int routing_id_;
   WebKit::WebCompositorInputHandler* input_handler_;
@@ -79,7 +81,7 @@ class CompositorThread::InputHandlerWrapper
 
 //------------------------------------------------------------------------------
 
-CompositorThread::CompositorThread(IPC::Channel::Listener* main_listener)
+CompositorThread::CompositorThread(IPC::Listener* main_listener)
     : thread_("Compositor") {
   filter_ =
       new InputEventFilter(main_listener,

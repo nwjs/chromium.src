@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_OWNERSHIP_SERVICE_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_OWNERSHIP_SERVICE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -12,7 +11,6 @@
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "chrome/browser/chromeos/login/owner_key_utils.h"
 #include "chrome/browser/chromeos/login/owner_manager.h"
@@ -34,6 +32,11 @@ class OwnershipService : public content::NotificationObserver {
     OWNERSHIP_NONE,
     OWNERSHIP_TAKEN
   };
+
+  // Callback function type. The status code is guaranteed to be different from
+  // OWNERSHIP_UNKNOWN. The bool parameter is true iff the currently logged in
+  // user is the owner.
+  typedef base::Callback<void(OwnershipService::Status, bool)> Callback;
 
   // Returns the singleton instance of the OwnershipService.
   static OwnershipService* GetSharedInstance();
@@ -88,6 +91,10 @@ class OwnershipService : public content::NotificationObserver {
   // occasionally block doing i/o.
   virtual Status GetStatus(bool blocking);
 
+  // Determines the ownership status on the FILE thread and calls the |callback|
+  // with the result.
+  virtual void GetStatusAsync(const Callback& callback);
+
  protected:
   OwnershipService();
 
@@ -105,6 +112,10 @@ class OwnershipService : public content::NotificationObserver {
 
   // Sets ownership status. May be called on either thread.
   void SetStatus(Status new_status);
+
+  // Used by |CheckOwnershipAsync| to call the callback with the result.
+  static void ReturnStatus(const Callback& callback,
+                           std::pair<OwnershipService::Status, bool> status);
 
   static void UpdateOwnerKey(OwnershipService* service,
                              const content::BrowserThread::ID thread_id,

@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_POWER_RESUME_OBSERVER_H_
 #define CHROME_BROWSER_CHROMEOS_POWER_RESUME_OBSERVER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/power_manager_client.h"
 
 namespace chromeos {
 

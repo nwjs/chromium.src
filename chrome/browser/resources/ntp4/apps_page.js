@@ -5,8 +5,6 @@
 cr.define('ntp', function() {
   'use strict';
 
-  var localStrings = new LocalStrings;
-
   var APP_LAUNCH = {
     // The histogram buckets (keep in sync with extension_constants.h).
     NTP_APPS_MAXIMIZED: 0,
@@ -28,8 +26,6 @@ cr.define('ntp', function() {
     OUTSIDE_NTP: 4
   };
   var DRAG_SOURCE_LIMIT = DRAG_SOURCE.OUTSIDE_NTP + 1;
-
-  /** @const */ var appInstallHintTileLimit = 10;
 
   /**
    * App context menu. The class is designed to be used as a singleton with
@@ -97,7 +93,7 @@ cr.define('ntp', function() {
       this.menu.appendChild(button);
       cr.ui.decorate(button, cr.ui.MenuItem);
       if (textId)
-        button.textContent = localStrings.getString(textId);
+        button.textContent = loadTimeData.getString(textId);
       return button;
     },
 
@@ -266,7 +262,7 @@ cr.define('ntp', function() {
 
       this.addEventListener('mousedown', this.onMousedown_, true);
       this.addEventListener('keydown', this.onKeydown_);
-      this.addEventListener('blur', this.onBlur_, true);
+      this.addEventListener('keyup', this.onKeyup_);
     },
 
     /**
@@ -443,7 +439,7 @@ cr.define('ntp', function() {
     setBounds: function(size, x, y) {
       var imgSize = size * APP_IMG_SIZE_FRACTION;
       this.appImgContainer_.style.width = this.appImgContainer_.style.height =
-          this.useSmallIcon_ ? '16px' : imgSize + 'px';
+          toCssPx(this.useSmallIcon_ ? 16 : imgSize);
       if (this.useSmallIcon_) {
         // 3/4 is the ratio of 96px to 128px (the used height and full height
         // of icons in apps).
@@ -451,16 +447,16 @@ cr.define('ntp', function() {
         // The -2 is for the div border to improve the visual alignment for the
         // icon div.
         this.imgDiv_.style.width = this.imgDiv_.style.height =
-            (iconSize - 2) + 'px';
+            toCssPx(iconSize - 2);
         // Margins set to get the icon placement right and the text to line up.
         this.imgDiv_.style.marginTop = this.imgDiv_.style.marginBottom =
-            ((imgSize - iconSize) / 2) + 'px';
+            toCssPx((imgSize - iconSize) / 2);
       }
 
-      this.style.width = this.style.height = size + 'px';
-      this.style.left = x + 'px';
-      this.style.right = x + 'px';
-      this.style.top = y + 'px';
+      this.style.width = this.style.height = toCssPx(size);
+      this.style.left = toCssPx(x);
+      this.style.right = toCssPx(x);
+      this.style.top = toCssPx(y);
 
       if (this.currentBubbleShowing_)
         this.currentBubbleShowing_.resizeAndReposition();
@@ -501,6 +497,33 @@ cr.define('ntp', function() {
         e.preventDefault();
         e.stopPropagation();
       }
+      this.onKeyboardUsed_(e.keyCode);
+    },
+
+    /**
+     * Invoked when the user releases a key while the app is focused.
+     * @param {Event} e The key event.
+     * @private
+     */
+    onKeyup_: function(e) {
+      this.onKeyboardUsed_(e.keyCode);
+    },
+
+    /**
+     * Called when the keyboard has been used (key down or up). The .click-focus
+     * hack is removed if the user presses a key that can change focus.
+     * @param {number} keyCode The key code of the keyboard event.
+     * @private
+     */
+    onKeyboardUsed_: function(keyCode) {
+      switch (keyCode) {
+        case 9:  // Tab.
+        case 37:  // Left arrow.
+        case 38:  // Up arrow.
+        case 39:  // Right arrow.
+        case 40:  // Down arrow.
+          this.classList.remove('click-focus');
+      }
     },
 
     /**
@@ -534,14 +557,6 @@ cr.define('ntp', function() {
       // This class is here so we don't show the focus state for apps that
       // gain keyboard focus via mouse clicking.
       this.classList.add('click-focus');
-    },
-
-    /**
-     * This app is losing keyboard focus.
-     * @param {Event} e The event.
-     */
-    onBlur_: function(e) {
-      this.classList.remove('click-focus');
     },
 
     /**
@@ -650,16 +665,6 @@ cr.define('ntp', function() {
     initialize: function() {
       this.classList.add('apps-page');
 
-      if (templateData.appInstallHintEnabled) {
-        this.appInstallHint_ = $('app-install-hint-template').cloneNode(true);
-        this.appInstallHint_.addEventListener('click', function(e) {
-          chrome.send('recordAppLaunchByURL',
-              [encodeURIComponent(this.href),
-               APP_LAUNCH.NTP_WEBSTORE_PLUS_ICON]);
-        });
-        this.content_.appendChild(this.appInstallHint_);
-      }
-
       this.addEventListener('cardselected', this.onCardSelected_);
       // Add event listeners for two events, so we can temporarily suppress
       // the app notification bubbles when the app card slides in and out of
@@ -674,30 +679,23 @@ cr.define('ntp', function() {
     },
 
     /**
-     * Creates an app DOM element and places it at the last position on the
-     * page.
+     * Highlight a newly installed app as it's added to the NTP.
      * @param {Object} appData The data object that describes the app.
-     * @param {boolean=} animate If true, the app tile plays an animation.
      */
-    appendApp: function(appData, animate) {
-      if (animate) {
-        // Select the page and scroll all the way down so the animation is
-        // visible.
-        ntp.getCardSlider().selectCardByValue(this);
-        this.content_.scrollTop = this.content_.scrollHeight;
-      }
-
-      this.appendTile(new App(appData), animate);
-      this.hintStateMayHaveChanged_();
+    insertAndHighlightApp: function(appData) {
+      ntp.getCardSlider().selectCardByValue(this);
+      this.content_.scrollTop = this.content_.scrollHeight;
+      this.insertApp(appData, true);
     },
 
     /**
      * Similar to appendApp, but it respects the app_launch_ordinal field of
      * |appData|.
      * @param {Object} appData The data that describes the app.
+     * @param {boolean} animate Whether to animate the insertion.
      */
-    insertApp: function(appData) {
-      var index = 0;
+    insertApp: function(appData, animate) {
+      var index = this.tileElements_.length;
       for (var i = 0; i < this.tileElements_.length; i++) {
         if (appData.app_launch_ordinal <
             this.tileElements_[i].firstChild.appData.app_launch_ordinal) {
@@ -706,8 +704,7 @@ cr.define('ntp', function() {
         }
       }
 
-      this.addTileAt(new App(appData), index, false);
-      this.hintStateMayHaveChanged_();
+      this.addTileAt(new App(appData), index, animate);
     },
 
     /**
@@ -783,12 +780,13 @@ cr.define('ntp', function() {
 
     /** @inheritDoc */
     doDragOver: function(e) {
+      // Only animatedly re-arrange if the user is currently dragging an app.
       var tile = ntp.getCurrentlyDraggingTile();
-      if (tile && !tile.querySelector('.app')) {
+      if (tile && tile.querySelector('.app')) {
+        TilePage.prototype.doDragOver.call(this, e);
+      } else {
         e.preventDefault();
         this.setDropEffect(e.dataTransfer);
-      } else {
-        TilePage.prototype.doDragOver.call(this, e);
       }
     },
 
@@ -904,81 +902,6 @@ cr.define('ntp', function() {
         ntp.setCurrentDropEffect(dataTransfer, 'move');
       else
         ntp.setCurrentDropEffect(dataTransfer, 'copy');
-    },
-
-    /**
-     * Called when we may need to change app install hint visibility.
-     * @private
-     */
-    hintStateMayHaveChanged_: function() {
-      if (this.updateHintState_())
-        this.repositionTiles_();
-      else
-        this.repositionHint_();
-    },
-
-    /**
-     * Updates whether the app install hint is visible. Returns true if we need
-     * to reposition other tiles (because webstore app changed visibility).
-     * @private
-     */
-    updateHintState_: function() {
-      if (!this.appInstallHint_)
-        return;
-
-      var appsPages = document.querySelectorAll('.apps-page');
-      var numTiles = this.tileElements_.length;
-      var showHint =
-          numTiles < appInstallHintTileLimit && appsPages.length == 1;
-      this.appInstallHint_.hidden = !showHint;
-
-      var webstoreApp = this.querySelector('.webstore');
-      if (!webstoreApp)
-        return false;
-
-      var webstoreTile = findAncestorByClass(webstoreApp, 'tile');
-      if (showHint) {
-        if (!webstoreTile.classList.contains('real'))
-          return false;
-
-        webstoreTile.classList.remove('real');
-        return true;
-      }
-
-      if (webstoreTile.classList.contains('real'))
-        return false;
-
-      webstoreTile.classList.add('real');
-      return true;
-    },
-
-    /**
-     * Repositions the app tile hint (to be called when tiles move).
-     * @private
-     */
-    repositionHint_: function() {
-      if (!this.appInstallHint_ || this.appInstallHint_.hidden)
-        return;
-
-      var index = this.tileElements_.length;
-      var layout = this.layoutValues_;
-      var col = index % layout.numRowTiles;
-      var row = Math.floor(index / layout.numRowTiles);
-      var realX = this.tileGrid_.offsetLeft +
-          col * layout.colWidth + layout.leftMargin;
-      var realY = this.tileGrid_.offsetTop + row * layout.rowHeight;
-
-      this.appInstallHint_.style.left = realX + 'px';
-      this.appInstallHint_.style.right = realX + 'px';
-      this.appInstallHint_.style.top = realY + 'px';
-      this.appInstallHint_.style.width = layout.tileWidth + 'px';
-      this.appInstallHint_.style.height = layout.tileWidth + 'px';
-    },
-
-    /** @inheritDoc */
-    repositionTiles_: function(ignoreNode) {
-      TilePage.prototype.repositionTiles_.call(this, ignoreNode);
-      this.repositionHint_();
     },
   };
 

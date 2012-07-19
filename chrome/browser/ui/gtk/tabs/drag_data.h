@@ -1,16 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_GTK_TABS_DRAG_DATA_H_
 #define CHROME_BROWSER_UI_GTK_TABS_DRAG_DATA_H_
-#pragma once
 
 #include <vector>
 
 #include "base/basictypes.h"
 
-class TabContentsWrapper;
+class TabContents;
 class TabGtk;
 
 namespace content {
@@ -22,7 +21,7 @@ struct DraggedTabData {
  public:
   DraggedTabData();
   DraggedTabData(TabGtk* tab,
-                 TabContentsWrapper* contents,
+                 TabContents* contents,
                  content::WebContentsDelegate* original_delegate,
                  int source_model_index,
                  bool pinned,
@@ -37,7 +36,7 @@ struct DraggedTabData {
   TabGtk* tab_;
 
   // The TabContents being dragged.
-  TabContentsWrapper* contents_;
+  TabContents* contents_;
 
   // The original content::WebContentsDelegate of |contents|, before it was
   // detached from the browser window. We store this so that we can forward
@@ -90,7 +89,7 @@ class DragData {
   int non_mini_tab_count() const { return non_mini_tab_count_; }
 
   // Convenience for |source_tab_drag_data()->contents_|.
-  TabContentsWrapper* GetSourceTabContentsWrapper();
+  TabContents* GetSourceTabContents();
 
   // Convenience for |source_tab_drag_data()->contents_->web_contents()|.
   content::WebContents* GetSourceWebContents();

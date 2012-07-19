@@ -6,16 +6,19 @@
 
 #include "base/json/json_writer.h"
 #include "base/values.h"
+#include "chrome/browser/extensions/api/extension_action/extension_page_actions_api_constants.h"
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_event_names.h"
 #include "chrome/browser/extensions/extension_event_router.h"
-#include "chrome/browser/extensions/api/extension_action/extension_page_actions_api_constants.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/extension_tabs_module_constants.h"
-#include "chrome/browser/extensions/extension_window_controller.h"
+#include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -28,7 +31,7 @@
 #endif
 
 namespace events = extension_event_names;
-namespace tab_keys = extension_tabs_module_constants;
+namespace tab_keys = extensions::tabs_constants;
 namespace page_action_keys = extension_page_actions_api_constants;
 
 using content::NavigationController;
@@ -82,7 +85,7 @@ void ExtensionBrowserEventRouter::Init() {
 #elif defined(OS_MACOSX)
   // Needed for when no suitable window can be passed to an extension as the
   // currently focused window.
-  registrar_.Add(this, content::NOTIFICATION_NO_KEY_WINDOW,
+  registrar_.Add(this, chrome::NOTIFICATION_NO_KEY_WINDOW,
                  content::NotificationService::AllSources());
 #endif
 
@@ -94,10 +97,10 @@ void ExtensionBrowserEventRouter::Init() {
 
     // Also catch up our internal bookkeeping of tab entries.
     Browser* browser = *iter;
-    if (browser->tabstrip_model()) {
-      for (int i = 0; i < browser->tabstrip_model()->count(); ++i) {
+    if (browser->tab_strip_model()) {
+      for (int i = 0; i < browser->tab_strip_model()->count(); ++i) {
         WebContents* contents =
-            browser->GetTabContentsWrapperAt(i)->web_contents();
+            chrome::GetTabContentsAt(browser, i)->web_contents();
         int tab_id = ExtensionTabUtil::GetTabId(contents);
         tab_entries_[tab_id] = TabEntry();
       }
@@ -124,26 +127,26 @@ ExtensionBrowserEventRouter::~ExtensionBrowserEventRouter() {
 #endif
 }
 
-void ExtensionBrowserEventRouter::OnBrowserAdded(const Browser* browser) {
+void ExtensionBrowserEventRouter::OnBrowserAdded(Browser* browser) {
   RegisterForBrowserNotifications(browser);
 }
 
 void ExtensionBrowserEventRouter::RegisterForBrowserNotifications(
-    const Browser* browser) {
+    Browser* browser) {
   if (!profile_->IsSameProfile(browser->profile()))
     return;
   // Start listening to TabStripModel events for this browser.
-  browser->tabstrip_model()->AddObserver(this);
+  browser->tab_strip_model()->AddObserver(this);
 
   // If this is a new window, it isn't ready at this point, so we register to be
   // notified when it is. If this is an existing window, this is a no-op that we
   // just do to reduce code complexity.
   registrar_.Add(this, chrome::NOTIFICATION_BROWSER_WINDOW_READY,
-      content::Source<const Browser>(browser));
+      content::Source<Browser>(browser));
 
-  for (int i = 0; i < browser->tabstrip_model()->count(); ++i) {
+  for (int i = 0; i < browser->tab_strip_model()->count(); ++i) {
     RegisterForTabNotifications(
-        browser->GetTabContentsWrapperAt(i)->web_contents());
+        chrome::GetTabContentsAt(browser, i)->web_contents());
   }
 }
 
@@ -153,10 +156,10 @@ void ExtensionBrowserEventRouter::RegisterForTabNotifications(
       this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(&contents->GetController()));
 
-  // Observing TAB_CONTENTS_DESTROYED is necessary because it's
+  // Observing NOTIFICATION_WEB_CONTENTS_DESTROYED is necessary because it's
   // possible for tabs to be created, detached and then destroyed without
   // ever having been re-attached and closed. This happens in the case of
-  // a devtools TabContents that is opened in window, docked, then closed.
+  // a devtools WebContents that is opened in window, docked, then closed.
   registrar_.Add(this, content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
                  content::Source<WebContents>(contents));
 }
@@ -169,7 +172,7 @@ void ExtensionBrowserEventRouter::UnregisterForTabNotifications(
       content::Source<WebContents>(contents));
 }
 
-void ExtensionBrowserEventRouter::OnBrowserWindowReady(const Browser* browser) {
+void ExtensionBrowserEventRouter::OnBrowserWindowReady(Browser* browser) {
   ListValue args;
 
   DCHECK(browser->extension_window_controller());
@@ -183,15 +186,15 @@ void ExtensionBrowserEventRouter::OnBrowserWindowReady(const Browser* browser) {
   DispatchEvent(browser->profile(), events::kOnWindowCreated, json_args);
 }
 
-void ExtensionBrowserEventRouter::OnBrowserRemoved(const Browser* browser) {
+void ExtensionBrowserEventRouter::OnBrowserRemoved(Browser* browser) {
   if (!profile_->IsSameProfile(browser->profile()))
     return;
 
   // Stop listening to TabStripModel events for this browser.
-  browser->tabstrip_model()->RemoveObserver(this);
+  browser->tab_strip_model()->RemoveObserver(this);
 
   registrar_.Remove(this, chrome::NOTIFICATION_BROWSER_WINDOW_READY,
-      content::Source<const Browser>(browser));
+      content::Source<Browser>(browser));
 
   DispatchSimpleBrowserEvent(browser->profile(),
                              ExtensionTabUtil::GetWindowId(browser),
@@ -214,7 +217,7 @@ void ExtensionBrowserEventRouter::ActiveWindowChanged(
 #endif
 
 void ExtensionBrowserEventRouter::OnBrowserSetLastActive(
-    const Browser* browser) {
+    Browser* browser) {
   Profile* window_profile = NULL;
   int window_id = extension_misc::kUnknownWindowId;
   if (browser && profile_->IsSameProfile(browser->profile())) {
@@ -265,7 +268,7 @@ void ExtensionBrowserEventRouter::TabCreatedAt(WebContents* contents,
   RegisterForTabNotifications(contents);
 }
 
-void ExtensionBrowserEventRouter::TabInsertedAt(TabContentsWrapper* contents,
+void ExtensionBrowserEventRouter::TabInsertedAt(TabContents* contents,
                                                 int index,
                                                 bool active) {
   // If tab is new, send created event.
@@ -293,7 +296,7 @@ void ExtensionBrowserEventRouter::TabInsertedAt(TabContentsWrapper* contents,
   DispatchEvent(contents->profile(), events::kOnTabAttached, json_args);
 }
 
-void ExtensionBrowserEventRouter::TabDetachedAt(TabContentsWrapper* contents,
+void ExtensionBrowserEventRouter::TabDetachedAt(TabContents* contents,
                                                 int index) {
   if (!GetTabEntry(contents->web_contents())) {
     // The tab was removed. Don't send detach event.
@@ -318,7 +321,7 @@ void ExtensionBrowserEventRouter::TabDetachedAt(TabContentsWrapper* contents,
 }
 
 void ExtensionBrowserEventRouter::TabClosingAt(TabStripModel* tab_strip_model,
-                                               TabContentsWrapper* contents,
+                                               TabContents* contents,
                                                int index) {
   int tab_id = ExtensionTabUtil::GetTabId(contents->web_contents());
 
@@ -342,8 +345,8 @@ void ExtensionBrowserEventRouter::TabClosingAt(TabStripModel* tab_strip_model,
 }
 
 void ExtensionBrowserEventRouter::ActiveTabChanged(
-    TabContentsWrapper* old_contents,
-    TabContentsWrapper* new_contents,
+    TabContents* old_contents,
+    TabContents* new_contents,
     int index,
     bool user_gesture) {
   ListValue args;
@@ -381,7 +384,7 @@ void ExtensionBrowserEventRouter::TabSelectionChanged(
 
   for (size_t i = 0; i < new_selection.size(); ++i) {
     int index = new_selection[i];
-    TabContentsWrapper* contents = tab_strip_model->GetTabContentsAt(index);
+    TabContents* contents = tab_strip_model->GetTabContentsAt(index);
     if (!contents)
       break;
     int tab_id = ExtensionTabUtil::GetTabId(contents->web_contents());
@@ -406,7 +409,7 @@ void ExtensionBrowserEventRouter::TabSelectionChanged(
   DispatchEvent(profile, events::kOnTabHighlighted, json_args);
 }
 
-void ExtensionBrowserEventRouter::TabMoved(TabContentsWrapper* contents,
+void ExtensionBrowserEventRouter::TabMoved(TabContents* contents,
                                            int from_index,
                                            int to_index) {
   ListValue args;
@@ -451,7 +454,7 @@ void ExtensionBrowserEventRouter::DispatchEvent(Profile* profile,
     return;
 
   profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-      event_name, json_args, profile, GURL());
+      event_name, json_args, profile, GURL(), extensions::EventFilteringInfo());
 }
 
 void ExtensionBrowserEventRouter::DispatchEventToExtension(
@@ -563,10 +566,10 @@ void ExtensionBrowserEventRouter::Observe(
     registrar_.Remove(this, content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
         content::Source<WebContents>(contents));
   } else if (type == chrome::NOTIFICATION_BROWSER_WINDOW_READY) {
-    const Browser* browser = content::Source<const Browser>(source).ptr();
+    Browser* browser = content::Source<Browser>(source).ptr();
     OnBrowserWindowReady(browser);
 #if defined(OS_MACOSX)
-  } else if (type == content::NOTIFICATION_NO_KEY_WINDOW) {
+  } else if (type == chrome::NOTIFICATION_NO_KEY_WINDOW) {
     OnBrowserSetLastActive(NULL);
 #endif
   } else {
@@ -574,7 +577,7 @@ void ExtensionBrowserEventRouter::Observe(
   }
 }
 
-void ExtensionBrowserEventRouter::TabChangedAt(TabContentsWrapper* contents,
+void ExtensionBrowserEventRouter::TabChangedAt(TabContents* contents,
                                                int index,
                                                TabChangeType change_type) {
   TabUpdated(contents->web_contents(), false);
@@ -582,15 +585,15 @@ void ExtensionBrowserEventRouter::TabChangedAt(TabContentsWrapper* contents,
 
 void ExtensionBrowserEventRouter::TabReplacedAt(
     TabStripModel* tab_strip_model,
-    TabContentsWrapper* old_contents,
-    TabContentsWrapper* new_contents,
+    TabContents* old_contents,
+    TabContents* new_contents,
     int index) {
   TabClosingAt(tab_strip_model, old_contents, index);
   TabInsertedAt(new_contents, index, tab_strip_model->active_index() == index);
 }
 
 void ExtensionBrowserEventRouter::TabPinnedStateChanged(
-    TabContentsWrapper* contents,
+    TabContents* contents,
     int index) {
   TabStripModel* tab_strip = NULL;
   int tab_index;
@@ -628,32 +631,43 @@ void ExtensionBrowserEventRouter::DispatchOldPageActionEvent(
   DispatchEventToExtension(profile, extension_id, "pageActions", json_args);
 }
 
+void ExtensionBrowserEventRouter::BrowserActionExecuted(
+    const ExtensionAction& browser_action,
+    Browser* browser) {
+  Profile* profile = browser->profile();
+  TabContents* tab_contents = NULL;
+  int tab_id = 0;
+  if (!ExtensionTabUtil::GetDefaultTab(browser, &tab_contents, &tab_id))
+    return;
+  ExtensionActionExecuted(profile, browser_action, tab_contents);
+}
+
 void ExtensionBrowserEventRouter::PageActionExecuted(
     Profile* profile,
-    const std::string& extension_id,
-    const std::string& page_action_id,
+    const ExtensionAction& page_action,
     int tab_id,
     const std::string& url,
     int button) {
-  DispatchOldPageActionEvent(profile, extension_id, page_action_id, tab_id, url,
-                             button);
-  TabContentsWrapper* tab_contents = NULL;
+  DispatchOldPageActionEvent(profile, page_action.extension_id(),
+                             page_action.id(), tab_id, url, button);
+  TabContents* tab_contents = NULL;
   if (!ExtensionTabUtil::GetTabById(tab_id, profile, profile->IsOffTheRecord(),
                                     NULL, NULL, &tab_contents, NULL)) {
     return;
   }
-  DispatchEventWithTab(profile, extension_id, "pageAction.onClicked",
-                       tab_contents->web_contents(), true);
+  ExtensionActionExecuted(profile, page_action, tab_contents);
 }
 
-void ExtensionBrowserEventRouter::BrowserActionExecuted(
-    Profile* profile, const std::string& extension_id, Browser* browser) {
-  TabContentsWrapper* tab_contents = NULL;
-  int tab_id = 0;
-  if (!ExtensionTabUtil::GetDefaultTab(browser, &tab_contents, &tab_id))
+void ExtensionBrowserEventRouter::ScriptBadgeExecuted(
+    Profile* profile,
+    const ExtensionAction& script_badge,
+    int tab_id) {
+  TabContents* tab_contents = NULL;
+  if (!ExtensionTabUtil::GetTabById(tab_id, profile, profile->IsOffTheRecord(),
+                                    NULL, NULL, &tab_contents, NULL)) {
     return;
-  DispatchEventWithTab(profile, extension_id, "browserAction.onClicked",
-                       tab_contents->web_contents(), true);
+  }
+  ExtensionActionExecuted(profile, script_badge, tab_contents);
 }
 
 void ExtensionBrowserEventRouter::CommandExecuted(
@@ -669,4 +683,30 @@ void ExtensionBrowserEventRouter::CommandExecuted(
                            extension_id,
                            "experimental.keybinding.onCommand",
                            json_args);
+}
+
+void ExtensionBrowserEventRouter::ExtensionActionExecuted(
+    Profile* profile,
+    const ExtensionAction& extension_action,
+    TabContents* tab_contents) {
+  const char* event_name = NULL;
+  switch (extension_action.action_type()) {
+    case ExtensionAction::TYPE_BROWSER:
+      event_name = "browserAction.onClicked";
+      break;
+    case ExtensionAction::TYPE_PAGE:
+      event_name = "pageAction.onClicked";
+      break;
+    case ExtensionAction::TYPE_SCRIPT_BADGE:
+      event_name = "scriptBadge.onClicked";
+      break;
+  }
+
+  if (event_name) {
+    DispatchEventWithTab(profile,
+                         extension_action.extension_id(),
+                         event_name,
+                         tab_contents->web_contents(),
+                         true);
+  }
 }

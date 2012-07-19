@@ -8,6 +8,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/point.h"
+#include "ui/views/bubble/bubble_delegate.h"
 #include "ui/views/test/test_views_delegate.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/views_delegate.h"
@@ -35,20 +36,20 @@ typedef NativeWidgetWin NativeWidgetPlatform;
 #if defined(USE_AURA)
 class NativeWidgetCapture : public NativeWidgetPlatform {
  public:
-  NativeWidgetCapture(internal::NativeWidgetDelegate* delegate)
+  explicit NativeWidgetCapture(internal::NativeWidgetDelegate* delegate)
       : NativeWidgetPlatform(delegate),
         mouse_capture_(false) {}
   virtual ~NativeWidgetCapture() {}
 
-  virtual void SetMouseCapture() OVERRIDE {
+  virtual void SetCapture() OVERRIDE {
     mouse_capture_ = true;
   }
-  virtual void ReleaseMouseCapture() OVERRIDE {
+  virtual void ReleaseCapture() OVERRIDE {
     if (mouse_capture_)
       delegate()->OnMouseCaptureLost();
     mouse_capture_ = false;
   }
-  virtual bool HasMouseCapture() const OVERRIDE {
+  virtual bool HasCapture() const OVERRIDE {
     return mouse_capture_;
   }
 
@@ -141,7 +142,7 @@ Widget* CreateChildNativeWidget() {
 
 bool WidgetHasMouseCapture(const Widget* widget) {
   return static_cast<const internal::NativeWidgetPrivate*>(widget->
-      native_widget())->HasMouseCapture();
+      native_widget())->HasCapture();
 }
 
 ui::WindowShowState GetWidgetShowState(const Widget* widget) {
@@ -399,7 +400,7 @@ class OwnershipTestNativeWidgetPlatform : public NativeWidgetPlatformForTest {
 // A Widget subclass that updates a bag of state when it is destroyed.
 class OwnershipTestWidget : public Widget {
  public:
-  OwnershipTestWidget(OwnershipTestState* state) : state_(state) {}
+  explicit OwnershipTestWidget(OwnershipTestState* state) : state_(state) {}
   virtual ~OwnershipTestWidget() {
     state_->widget_deleted = true;
   }
@@ -732,6 +733,22 @@ TEST_F(WidgetObserverTest, DISABLED_VisibilityChange) {
   EXPECT_EQ(child2, widget_shown());
 
   toplevel->CloseNow();
+}
+
+TEST_F(WidgetObserverTest, DestroyBubble) {
+  Widget* anchor = CreateTopLevelPlatformWidget();
+  View* view = new View;
+  anchor->SetContentsView(view);
+  anchor->Show();
+
+  BubbleDelegateView* bubble_delegate =
+      new BubbleDelegateView(view, BubbleBorder::NONE);
+  Widget* bubble_widget(BubbleDelegateView::CreateBubble(bubble_delegate));
+  bubble_widget->Show();
+  bubble_widget->CloseNow();
+
+  anchor->Hide();
+  anchor->CloseNow();
 }
 
 #if !defined(USE_AURA) && defined(OS_WIN)

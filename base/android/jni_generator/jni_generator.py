@@ -1,8 +1,11 @@
-#!/usr/bin/python
-#
+#!/usr/bin/env python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+# TODO (qinmin): Need to refactor this file as base should not know about
+# higher level concepts. Currently this file has knowledge about higher level
+# java classes.
 
 """Extracts native methods from a Java file and generates the JNI bindings.
 If you change this, please run and update the tests."""
@@ -16,7 +19,7 @@ from string import Template
 import subprocess
 import sys
 import textwrap
-
+import zipfile
 
 UNKNOWN_JAVA_TYPE_PREFIX = 'UNKNOWN_JAVA_TYPE: '
 
@@ -40,7 +43,6 @@ class Param(object):
   def __init__(self, **kwargs):
     self.datatype = kwargs['datatype']
     self.name = kwargs['name']
-    self.cpp_class_name = kwargs.get('cpp_class_name', None)
 
 
 class NativeMethod(object):
@@ -59,12 +61,9 @@ class NativeMethod(object):
         self.params[0].datatype == 'int' and
         self.params[0].name.startswith('native')):
       self.type = 'method'
-      if self.params[0].cpp_class_name:
-        self.p0_type = self.params[0].cpp_class_name
-      else:
-        self.p0_type = self.params[0].name[len('native'):]
-    elif self.static:
-      self.type = 'function'
+      self.p0_type = self.params[0].name[len('native'):]
+      if kwargs.get('native_class_name'):
+        self.p0_type = kwargs['native_class_name']
     else:
       self.type = 'function'
     self.method_id_var_name = kwargs.get('method_id_var_name', None)
@@ -146,36 +145,42 @@ def JavaParamToJni(param):
       'Ljava/util/Vector',
   ]
   app_param_list = [
-      'Lorg/chromium/chromeview/ChromeView',
-      'Lcom/android/chrome/Tab',
-      'Lorg/chromium/chromeview/TouchPoint',
       'Landroid/graphics/SurfaceTexture',
-      'Lorg/chromium/chromeview/ChromeViewClient',
-      'Lcom/android/chrome/JSModalDialog',
-      'Lcom/android/chrome/infobar/InfoBarContainer$NativeInfoBar',
-      'Lcom/android/chrome/OmniboxSuggestion',
-      ('Lcom/android/chrome/preferences/ChromeNativePreferences$'
+      'Lcom/google/android/apps/chrome/AutofillData',
+      'Lcom/google/android/apps/chrome/ChromeBrowserProvider$BookmarkNode',
+      'Lcom/google/android/apps/chrome/ChromeHttpAuthHandler',
+      'Lcom/google/android/apps/chrome/ChromeContextMenuInfo',
+      'Lcom/google/android/apps/chrome/OmniboxSuggestion',
+      'Lcom/google/android/apps/chrome/PageInfoViewer',
+      'Lcom/google/android/apps/chrome/Tab',
+      'Lcom/google/android/apps/chrome/database/SQLiteCursor',
+      'Lcom/google/android/apps/chrome/infobar/InfoBarContainer',
+      'Lcom/google/android/apps/chrome/infobar/InfoBarContainer$NativeInfoBar',
+      ('Lcom/google/android/apps/chrome/preferences/ChromeNativePreferences$'
        'PasswordListObserver'),
-      'Lorg/chromium/chromeview/SandboxedProcessArgs',
-      'Lorg/chromium/chromeview/SandboxedProcessConnection',
-      'Lorg/chromium/chromeview/SandboxedProcessService',
-      'Lcom/android/chrome/ChromeBrowserProvider$BookmarkNode',
-      'Lcom/android/chrome/database/SQLiteCursor',
-      ('Lorg/chromium/chromeview/ChromeView$'
-       'FindResultReceivedListener$FindNotificationDetails'),
-      'Lorg/chromium/chromeview/ChromeView$ChromeViewContextMenuInfo',
-      'Lorg/chromium/chromeview/AutofillData',
-      'Lorg/chromium/chromeview/JavaInputStream',
-      'Lorg/chromium/chromeview/ChromeVideoView',
-      'Lorg/chromium/chromeview/ChromeHttpAuthHandler',
       'Lorg/chromium/base/SystemMessageHandler',
-      'Lorg/chromium/chromeview/SelectFileDialog',
-      'Lorg/chromium/chromeview/SurfaceTextureListener',
-      'Lorg/chromium/chromeview/DeviceOrientation',
-      'Lorg/chromium/chromeview/MediaPlayerListener',
-      'Lorg/chromium/chromeview/DeviceInfo',
-      'Lorg/chromium/chromeview/LocationProvider',
-      'Lcom/android/chrome/PageInfoViewer',
+      'Lorg/chromium/chrome/browser/JSModalDialog',
+      'Lorg/chromium/chrome/browser/SelectFileDialog',
+      'Lorg/chromium/content/browser/ContentVideoView',
+      'Lorg/chromium/content/browser/ContentViewClient',
+      'Lorg/chromium/content/browser/ContentViewCore',
+      'Lorg/chromium/content/browser/ContentHttpAuthHandler',
+      'Lorg/chromium/content/browser/DeviceOrientation',
+      'Lorg/chromium/content/browser/FileChooserParams',
+      'Lorg/chromium/content/browser/FindNotificationDetails',
+      'Lorg/chromium/content/browser/InterceptedRequestData',
+      'Lorg/chromium/content/browser/JavaInputStream',
+      'Lorg/chromium/content/browser/LocationProvider',
+      'Lorg/chromium/content/browser/SandboxedProcessArgs',
+      'Lorg/chromium/content/browser/SandboxedProcessConnection',
+      'Lorg/chromium/content/app/SandboxedProcessService',
+      'Lorg/chromium/content/browser/TouchPoint',
+      'Lorg/chromium/content/browser/WaitableNativeEvent',
+      'Lorg/chromium/content/common/DeviceInfo',
+      'Lorg/chromium/content/common/SurfaceTextureListener',
+      'Lorg/chromium/media/MediaPlayerListener',
+      'Lorg/chromium/net/NetworkChangeNotifier',
+      'Lorg/chromium/net/ProxyChangeListener',
   ]
   if param == 'byte[][]':
     return '[[B'
@@ -214,16 +219,13 @@ def ParseParams(params):
   if not params:
     return []
   ret = []
-  re_comment = re.compile(r'.*?\/\* (.*) \*\/')
   for p in [p.strip() for p in params.split(',')]:
     items = p.split(' ')
     if 'final' in items:
       items.remove('final')
-    comment = re.match(re_comment, p)
     param = Param(
         datatype=items[0],
         name=(items[1] if len(items) > 1 else 'p%s' % len(ret)),
-        cpp_class_name=comment.group(1) if comment else None
     )
     ret += [param]
   return ret
@@ -243,6 +245,14 @@ def GetUnknownDatatypes(items):
   return unknown_types
 
 
+def ExtractJNINamespace(contents):
+  re_jni_namespace = re.compile('.*?@JNINamespace\("(.*?)"\)')
+  m = re.findall(re_jni_namespace, contents)
+  if not m:
+    return ''
+  return m[0]
+
+
 def ExtractFullyQualifiedJavaClassName(java_file_name, contents):
   re_package = re.compile('.*?package (.*?);')
   matches = re.findall(re_package, contents)
@@ -256,16 +266,20 @@ def ExtractNatives(contents):
   """Returns a list of dict containing information about a native method."""
   contents = contents.replace('\n', '')
   natives = []
-  re_native = re.compile(r'(@NativeCall(\(\"(.*?)\"\)))?\s*'
-                         '(\w+\s\w+|\w+|\s+)\s*?native (\S*?) (\w+?)\((.*?)\);')
-  matches = re.findall(re_native, contents)
-  for match in matches:
+  re_native = re.compile(r'(@NativeClassQualifiedName'
+                         '\(\"(?P<native_class_name>.*?)\"\))?\s*'
+                         '(@NativeCall(\(\"(?P<java_class_name>.*?)\"\)))?\s*'
+                         '(?P<qualifiers>\w+\s\w+|\w+|\s+)\s*?native '
+                         '(?P<return>\S*?) '
+                         '(?P<name>\w+?)\((?P<params>.*?)\);')
+  for match in re.finditer(re_native, contents):
     native = NativeMethod(
-        static='static' in match[3],
-        java_class_name=match[2],
-        return_type=match[4],
-        name=match[5].replace('native', ''),
-        params=ParseParams(match[6]))
+        static='static' in match.group('qualifiers'),
+        java_class_name=match.group('java_class_name'),
+        native_class_name=match.group('native_class_name'),
+        return_type=match.group('return'),
+        name=match.group('name').replace('native', ''),
+        params=ParseParams(match.group('params')))
     natives += [native]
   return natives
 
@@ -425,10 +439,14 @@ class JNIFromJavaSource(object):
 
   def __init__(self, contents, fully_qualified_class):
     contents = self._RemoveComments(contents)
+    jni_namespace = ExtractJNINamespace(contents)
     natives = ExtractNatives(contents)
     called_by_natives = ExtractCalledByNatives(contents)
+    if len(natives) == 0 and len(called_by_natives) == 0:
+      raise SyntaxError('Unable to find any JNI methods for %s.' %
+                        fully_qualified_class)
     inl_header_file_generator = InlHeaderFileGenerator(
-        '', fully_qualified_class, natives, called_by_natives)
+        jni_namespace, fully_qualified_class, natives, called_by_natives)
     self.content = inl_header_file_generator.GetContent()
 
   def _RemoveComments(self, contents):
@@ -501,20 +519,20 @@ using base::android::ScopedJavaLocalRef;
 namespace {
 $CLASS_PATH_DEFINITIONS
 }  // namespace
+
+$OPEN_NAMESPACE
 $FORWARD_DECLARATIONS
 
 // Step 2: method stubs.
 $METHOD_STUBS
 
 // Step 3: GetMethodIDs and RegisterNatives.
-$OPEN_NAMESPACE
-
 static void GetMethodIDsImpl(JNIEnv* env) {
 $GET_METHOD_IDS_IMPL
 }
 
 static bool RegisterNativesImpl(JNIEnv* env) {
-  ${NAMESPACE}GetMethodIDsImpl(env);
+  GetMethodIDsImpl(env);
 $REGISTER_NATIVES_IMPL
   return true;
 }
@@ -651,7 +669,8 @@ ${KMETHODS}
     template = Template("""
 static ${RETURN} ${NAME}(JNIEnv* env, ${PARAMS});
 """)
-    values = {'RETURN': JavaDataTypeToC(native.return_type),
+    values = {'NAMESPACE': self.GetNamespaceString(),
+              'RETURN': JavaDataTypeToC(native.return_type),
               'NAME': native.name,
               'PARAMS': self.GetParamsInDeclaration(native)}
     return template.substitute(values)
@@ -679,6 +698,7 @@ static ${RETURN} ${NAME}(JNIEnv* env, ${PARAMS_IN_DECLARATION}) {
     values = {
         'RETURN': return_type,
         'SCOPED_RETURN': scoped_return_type,
+        'NAMESPACE': self.GetNamespaceString(),
         'NAME': native.name,
         'PARAMS_IN_DECLARATION': self.GetParamsInDeclaration(native),
         'PARAM0_NAME': native.params[0].name,
@@ -852,7 +872,9 @@ def WrapOutput(output):
   ret = []
   for line in output.splitlines():
     if len(line) < 80:
-      ret.append(line.rstrip())
+      stripped = line.rstrip()
+      if len(ret) == 0 or len(ret[-1]) or len(stripped):
+        ret.append(stripped)
     else:
       first_line_indent = ' ' * (len(line) - len(line.lstrip()))
       subsequent_indent =  first_line_indent + ' ' * 4
@@ -866,10 +888,39 @@ def WrapOutput(output):
   return '\n'.join(ret)
 
 
-def GenerateJNIHeaders(input_files, output_files, use_javap, namespace):
+def ExtractInputFiles(jar_file, input_files, out_dirs):
+  """Extracts input files from jar and returns them as list of filenames.
+
+  The input files are extracted to the same directory that the generated jni
+  headers will be placed in.  This is passed as an argument to script.
+
+  Args:
+    jar_file: the jar file containing the input files to extract
+    input_files: the list of files to extract from the jar file
+    out_dirs: the name of the directories to extract to
+
+  Returns:
+    a list of file names of extracted input files
+  """
+  jar_file = zipfile.ZipFile(jar_file)
+  extracted_file_names = []
+
+  for (input_file, out_dir) in zip(input_files, out_dirs):
+    out_dir = os.path.join(out_dir, os.path.dirname(input_file))
+    if not os.path.exists(out_dir):
+      os.makedirs(out_dir)
+    extracted_file_name = os.path.join(out_dir, os.path.basename(input_file))
+    with open(extracted_file_name, 'w') as outfile:
+      outfile.write(jar_file.read(input_file))
+    extracted_file_names.append(extracted_file_name)
+
+  return extracted_file_names
+
+
+def GenerateJNIHeaders(input_files, output_files, namespace):
   for i in xrange(len(input_files)):
     try:
-      if use_javap:
+      if os.path.splitext(input_files[i])[1] == '.class':
         jni_from_javap = JNIFromJavaP.CreateFromClass(input_files[i], namespace)
         output = jni_from_javap.GetContent()
       else:
@@ -924,10 +975,10 @@ See SampleForTests.java for more details.
                            help='Saves the output to file(s) (the first half of'
                            ' args specify the java input files, the second'
                            ' half specify the header output files.')
-  option_parser.add_option('-p', dest='javap_class',
-                           action='store_true',
-                           default=False,
-                           help='Uses javap to extract the methods from a'
+  option_parser.add_option('-j', dest='jar_file',
+                           help='Extract the list of input files from'
+                           ' a specified jar file.'
+                           ' Uses javap to extract the methods from a'
                            ' pre-compiled class. Input files should point'
                            ' to pre-compiled Java .class files.')
   option_parser.add_option('-n', dest='namespace',
@@ -940,8 +991,11 @@ See SampleForTests.java for more details.
     output_files = input_files[len(input_files) / 2:]
     input_files = input_files[:len(input_files) / 2]
   CheckFilenames(input_files, output_files)
-  GenerateJNIHeaders(input_files, output_files, options.javap_class,
-                     options.namespace)
+  if options.jar_file:
+    # CheckFileNames guarantees same length for inputs and outputs
+    out_dirs = map(os.path.dirname, output_files)
+    input_files = ExtractInputFiles(options.jar_file, input_files, out_dirs)
+  GenerateJNIHeaders(input_files, output_files, options.namespace)
 
 
 if __name__ == '__main__':

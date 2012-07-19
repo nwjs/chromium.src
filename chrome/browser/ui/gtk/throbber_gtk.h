@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_THROBBER_GTK_H_
 #define CHROME_BROWSER_UI_GTK_THROBBER_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -17,15 +16,15 @@
 #include "ui/base/gtk/owned_widget_gtk.h"
 #include "ui/gfx/image/image.h"
 
+class GtkThemeService;
 class SkBitmap;
-class ThemeServiceGtk;
 
 // An animating throbber.
 class ThrobberGtk : public ui::AnimationDelegate,
                     public content::NotificationObserver {
  public:
   // |theme_service| must not be NULL.
-  explicit ThrobberGtk(ThemeServiceGtk* theme_service);
+  explicit ThrobberGtk(GtkThemeService* theme_service);
   virtual ~ThrobberGtk();
 
   // Start or stop the throbbing animation.
@@ -55,7 +54,7 @@ class ThrobberGtk : public ui::AnimationDelegate,
   content::NotificationRegistrar registrar_;
 
   // The theme service. Weak pointer.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   // The actual GtkWidget.
   ui::OwnedWidgetGtk widget_;

@@ -4,12 +4,10 @@
 
 #ifndef CHROME_TEST_LOGGING_WIN_FILE_LOGGER_H_
 #define CHROME_TEST_LOGGING_WIN_FILE_LOGGER_H_
-#pragma once
 
 #include <guiddef.h>
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "base/win/event_trace_controller.h"
 

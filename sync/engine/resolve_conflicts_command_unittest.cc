@@ -5,14 +5,14 @@
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "sync/engine/resolve_conflicts_command.h"
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/sessions/sync_session.h"
-#include "sync/syncable/model_type.h"
 #include "sync/syncable/syncable_id.h"
 #include "sync/test/engine/fake_model_worker.h"
 #include "sync/test/engine/syncer_command_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace syncer {
 
 namespace {
 
@@ -26,8 +26,8 @@ class ResolveConflictsCommandTest : public SyncerCommandTest {
         make_scoped_refptr(new FakeModelWorker(GROUP_UI)));
     workers()->push_back(
         make_scoped_refptr(new FakeModelWorker(GROUP_PASSWORD)));
-    (*mutable_routing_info())[syncable::BOOKMARKS] = GROUP_UI;
-    (*mutable_routing_info())[syncable::PASSWORDS] = GROUP_PASSWORD;
+    (*mutable_routing_info())[syncer::BOOKMARKS] = GROUP_UI;
+    (*mutable_routing_info())[syncer::PASSWORDS] = GROUP_PASSWORD;
     SyncerCommandTest::SetUp();
   }
 
@@ -48,4 +48,4 @@ TEST_F(ResolveConflictsCommandTest, GetGroupsToChange) {
 
 }  // namespace
 
-}  // namespace browser_sync
+}  // namespace syncer

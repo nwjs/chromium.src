@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_LAYOUT_GRID_LAYOUT_H_
 #define UI_VIEWS_LAYOUT_GRID_LAYOUT_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -306,7 +305,7 @@ class VIEWS_EXPORT ColumnSet {
   // ID of this ColumnSet.
   int id() const { return id_; }
 
-  int num_columns() { return static_cast<int>(columns_.size()); }
+  int num_columns() const { return static_cast<int>(columns_.size()); }
 
  private:
   friend class GridLayout;

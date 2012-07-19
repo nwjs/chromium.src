@@ -4,9 +4,14 @@
 
 #include "chrome/common/extensions/extension_messages.h"
 
+#include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/manifest.h"
 #include "content/public/common/common_param_traits.h"
+
+using extensions::APIPermission;
+using extensions::Extension;
+using extensions::PermissionSet;
 
 ExtensionMsg_Loaded_Params::ExtensionMsg_Loaded_Params()
     : location(Extension::INVALID),
@@ -19,6 +24,9 @@ ExtensionMsg_Loaded_Params::ExtensionMsg_Loaded_Params(
     : manifest(extension->manifest()->value()->DeepCopy()),
       location(extension->location()),
       path(extension->path()),
+      apis(extension->GetActivePermissions()->apis()),
+      explicit_hosts(extension->GetActivePermissions()->explicit_hosts()),
+      scriptable_hosts(extension->GetActivePermissions()->scriptable_hosts()),
       id(extension->id()),
       creation_flags(extension->creation_flags()) {
 }
@@ -30,8 +38,13 @@ scoped_refptr<Extension>
   scoped_refptr<Extension> extension(
       Extension::Create(path, location, *manifest, creation_flags,
                         &error));
-  if (!extension.get())
+  if (!extension.get()) {
     DLOG(ERROR) << "Error deserializing extension: " << error;
+    return extension;
+  }
+
+  extension->SetActivePermissions(
+        new PermissionSet(apis, explicit_hosts, scriptable_hosts));
 
   return extension;
 }
@@ -107,22 +120,22 @@ void ParamTraits<URLPatternSet>::Log(const param_type& p, std::string* l) {
   LogParam(p.patterns(), l);
 }
 
-void ParamTraits<ExtensionAPIPermission::ID>::Write(
+void ParamTraits<APIPermission::ID>::Write(
     Message* m, const param_type& p) {
   WriteParam(m, static_cast<int>(p));
 }
 
-bool ParamTraits<ExtensionAPIPermission::ID>::Read(
+bool ParamTraits<APIPermission::ID>::Read(
     const Message* m, PickleIterator* iter, param_type* p) {
   int api_id = -2;
   if (!ReadParam(m, iter, &api_id))
     return false;
 
-  *p = static_cast<ExtensionAPIPermission::ID>(api_id);
+  *p = static_cast<APIPermission::ID>(api_id);
   return true;
 }
 
-void ParamTraits<ExtensionAPIPermission::ID>::Log(
+void ParamTraits<APIPermission::ID>::Log(
     const param_type& p, std::string* l) {
   LogParam(static_cast<int>(p), l);
 }
@@ -133,6 +146,9 @@ void ParamTraits<ExtensionMsg_Loaded_Params>::Write(Message* m,
   WriteParam(m, p.path);
   WriteParam(m, *(p.manifest));
   WriteParam(m, p.creation_flags);
+  WriteParam(m, p.apis);
+  WriteParam(m, p.explicit_hosts);
+  WriteParam(m, p.scriptable_hosts);
 }
 
 bool ParamTraits<ExtensionMsg_Loaded_Params>::Read(const Message* m,
@@ -142,7 +158,10 @@ bool ParamTraits<ExtensionMsg_Loaded_Params>::Read(const Message* m,
   return ReadParam(m, iter, &p->location) &&
          ReadParam(m, iter, &p->path) &&
          ReadParam(m, iter, p->manifest.get()) &&
-         ReadParam(m, iter, &p->creation_flags);
+         ReadParam(m, iter, &p->creation_flags) &&
+         ReadParam(m, iter, &p->apis) &&
+         ReadParam(m, iter, &p->explicit_hosts) &&
+         ReadParam(m, iter, &p->scriptable_hosts);
 }
 
 void ParamTraits<ExtensionMsg_Loaded_Params>::Log(const param_type& p,

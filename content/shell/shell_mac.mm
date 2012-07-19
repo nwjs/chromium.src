@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #import "base/mac/cocoa_protocols.h"
 #import "base/memory/scoped_nsobject.h"
@@ -15,8 +16,19 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "content/shell/resource.h"
+#include "content/shell/shell_switches.h"
 #include "googleurl/src/gurl.h"
 #import "ui/base/cocoa/underlay_opengl_hosting_window.h"
+
+#if !defined(MAC_OS_X_VERSION_10_7) || \
+    MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_7
+
+enum {
+  NSWindowCollectionBehaviorFullScreenPrimary = 1 << 7,
+  NSWindowCollectionBehaviorFullScreenAuxiliary = 1 << 8
+};
+
+#endif // MAC_OS_X_VERSION_10_7
 
 // Receives notification that the window is closing so that it can start the
 // tear-down process. Is responsible for deleting itself when done.
@@ -142,13 +154,20 @@ void Shell::PlatformSetIsLoading(bool loading) {
 }
 
 void Shell::PlatformCreateWindow(int width, int height) {
-  NSRect initial_window_bounds = NSMakeRect(0, 0, width, height);
+  NSRect initial_window_bounds =
+      NSMakeRect(0, 0, width, height + kURLBarHeight);
+  NSRect content_rect = initial_window_bounds;
+  NSUInteger style_mask = NSTitledWindowMask |
+                          NSClosableWindowMask |
+                          NSMiniaturizableWindowMask |
+                          NSResizableWindowMask;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree)) {
+    content_rect = NSOffsetRect(initial_window_bounds, -10000, -10000);
+    style_mask = NSBorderlessWindowMask;
+  }
   window_ = [[UnderlayOpenGLHostingWindow alloc]
-      initWithContentRect:initial_window_bounds
-                styleMask:(NSTitledWindowMask |
-                           NSClosableWindowMask |
-                           NSMiniaturizableWindowMask |
-                           NSResizableWindowMask )
+      initWithContentRect:content_rect
+                styleMask:style_mask
                   backing:NSBackingStoreBuffered
                     defer:NO];
   [window_ setTitle:kWindowTitle];
@@ -159,6 +178,12 @@ void Shell::PlatformCreateWindow(int width, int height) {
   min_size = [content convertSize:min_size toView:nil];
   // Note that this takes window coordinates.
   [window_ setContentMinSize:min_size];
+
+  // Set the shell window to participate in Lion Fullscreen mode. Set
+  // Setting this flag has no effect on Snow Leopard or earlier.
+  NSUInteger collectionBehavior = [window_ collectionBehavior];
+  collectionBehavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+  [window_ setCollectionBehavior:collectionBehavior];
 
   // Rely on the window delegate to clean us up rather than immediately
   // releasing when the window gets closed. We use the delegate to do
@@ -215,6 +240,11 @@ void Shell::PlatformSetContents() {
 
 void Shell::PlatformResizeSubViews() {
   // Not needed; subviews are bound.
+}
+
+void Shell::PlatformSetTitle(const string16& title) {
+  NSString* title_string = base::SysUTF16ToNSString(title);
+  [window_ setTitle:title_string];
 }
 
 void Shell::Close() {

@@ -4,7 +4,6 @@
 
 #include "net/cookies/cookie_store_unittest.h"
 
-#include <time.h>
 #include <string>
 
 #include "base/basictypes.h"
@@ -18,9 +17,11 @@
 #include "base/threading/thread.h"
 #include "base/time.h"
 #include "googleurl/src/gurl.h"
+#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/cookies/cookie_monster_store_test.h"  // For CookieStore mock
 #include "net/cookies/cookie_util.h"
+#include "net/cookies/parsed_cookie.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -39,12 +40,14 @@ class NewMockPersistentCookieStore
   MOCK_METHOD1(Load, void(const LoadedCallback& loaded_callback));
   MOCK_METHOD2(LoadCookiesForKey, void(const std::string& key,
                                        const LoadedCallback& loaded_callback));
-  MOCK_METHOD1(AddCookie, void(const CookieMonster::CanonicalCookie& cc));
-  MOCK_METHOD1(UpdateCookieAccessTime,
-               void(const CookieMonster::CanonicalCookie& cc));
-  MOCK_METHOD1(DeleteCookie, void(const CookieMonster::CanonicalCookie& cc));
-  MOCK_METHOD1(SetClearLocalStateOnExit, void(bool clear_local_state));
+  MOCK_METHOD1(AddCookie, void(const CanonicalCookie& cc));
+  MOCK_METHOD1(UpdateCookieAccessTime, void(const CanonicalCookie& cc));
+  MOCK_METHOD1(DeleteCookie, void(const CanonicalCookie& cc));
   MOCK_METHOD1(Flush, void(const base::Closure& callback));
+  MOCK_METHOD0(SetForceKeepSessionState, void());
+
+ private:
+  virtual ~NewMockPersistentCookieStore() {}
 };
 
 const char* kTopLevelDomainPlus1 = "http://www.harvard.edu";
@@ -71,281 +74,6 @@ class GetCookieListCallback : public CookieCallback {
  private:
   CookieList cookies_;
 };
-
-class ParsedCookieTest : public testing::Test { };
-
-}  // namespace
-
-TEST(ParsedCookieTest, TestBasic) {
-  CookieMonster::ParsedCookie pc("a=b");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_FALSE(pc.IsSecure());
-  EXPECT_EQ("a", pc.Name());
-  EXPECT_EQ("b", pc.Value());
-}
-
-TEST(ParsedCookieTest, TestQuoted) {
-  // These are some quoting cases which the major browsers all
-  // handle differently.  I've tested Internet Explorer 6, Opera 9.6,
-  // Firefox 3, and Safari Windows 3.2.1.  We originally tried to match
-  // Firefox closely, however we now match Internet Explorer and Safari.
-  const char* values[] = {
-    // Trailing whitespace after a quoted value.  The whitespace after
-    // the quote is stripped in all browsers.
-    "\"zzz \"  ",              "\"zzz \"",
-    // Handling a quoted value with a ';', like FOO="zz;pp"  ;
-    // IE and Safari: "zz;
-    // Firefox and Opera: "zz;pp"
-    "\"zz;pp\" ;",             "\"zz",
-    // Handling a value with multiple quoted parts, like FOO="zzz "   "ppp" ;
-    // IE and Safari: "zzz "   "ppp";
-    // Firefox: "zzz ";
-    // Opera: <rejects cookie>
-    "\"zzz \"   \"ppp\" ",     "\"zzz \"   \"ppp\"",
-    // A quote in a value that didn't start quoted.  like FOO=A"B ;
-    // IE, Safari, and Firefox: A"B;
-    // Opera: <rejects cookie>
-    "A\"B",                    "A\"B",
-  };
-
-  for (size_t i = 0; i < arraysize(values); i += 2) {
-    std::string input(values[i]);
-    std::string expected(values[i + 1]);
-
-    CookieMonster::ParsedCookie pc(
-        "aBc=" + input + " ; path=\"/\"  ; httponly ");
-    EXPECT_TRUE(pc.IsValid());
-    EXPECT_FALSE(pc.IsSecure());
-    EXPECT_TRUE(pc.IsHttpOnly());
-    EXPECT_TRUE(pc.HasPath());
-    EXPECT_EQ("aBc", pc.Name());
-    EXPECT_EQ(expected, pc.Value());
-
-    // If a path was quoted, the path attribute keeps the quotes.  This will
-    // make the cookie effectively useless, but path parameters aren't supposed
-    // to be quoted.  Bug 1261605.
-    EXPECT_EQ("\"/\"", pc.Path());
-  }
-}
-
-TEST(ParsedCookieTest, TestNameless) {
-  CookieMonster::ParsedCookie pc("BLAHHH; path=/; secure;");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_TRUE(pc.IsSecure());
-  EXPECT_TRUE(pc.HasPath());
-  EXPECT_EQ("/", pc.Path());
-  EXPECT_EQ("", pc.Name());
-  EXPECT_EQ("BLAHHH", pc.Value());
-}
-
-TEST(ParsedCookieTest, TestAttributeCase) {
-  CookieMonster::ParsedCookie pc("BLAHHH; Path=/; sECuRe; httpONLY");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_TRUE(pc.IsSecure());
-  EXPECT_TRUE(pc.IsHttpOnly());
-  EXPECT_TRUE(pc.HasPath());
-  EXPECT_EQ("/", pc.Path());
-  EXPECT_EQ("", pc.Name());
-  EXPECT_EQ("BLAHHH", pc.Value());
-  EXPECT_EQ(3U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, TestDoubleQuotedNameless) {
-  CookieMonster::ParsedCookie pc("\"BLA\\\"HHH\"; path=/; secure;");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_TRUE(pc.IsSecure());
-  EXPECT_TRUE(pc.HasPath());
-  EXPECT_EQ("/", pc.Path());
-  EXPECT_EQ("", pc.Name());
-  EXPECT_EQ("\"BLA\\\"HHH\"", pc.Value());
-  EXPECT_EQ(2U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, QuoteOffTheEnd) {
-  CookieMonster::ParsedCookie pc("a=\"B");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("a", pc.Name());
-  EXPECT_EQ("\"B", pc.Value());
-  EXPECT_EQ(0U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, MissingName) {
-  CookieMonster::ParsedCookie pc("=ABC");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("", pc.Name());
-  EXPECT_EQ("ABC", pc.Value());
-  EXPECT_EQ(0U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, MissingValue) {
-  CookieMonster::ParsedCookie pc("ABC=;  path = /wee");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("ABC", pc.Name());
-  EXPECT_EQ("", pc.Value());
-  EXPECT_TRUE(pc.HasPath());
-  EXPECT_EQ("/wee", pc.Path());
-  EXPECT_EQ(1U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, Whitespace) {
-  CookieMonster::ParsedCookie pc("  A  = BC  ;secure;;;   httponly");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("A", pc.Name());
-  EXPECT_EQ("BC", pc.Value());
-  EXPECT_FALSE(pc.HasPath());
-  EXPECT_FALSE(pc.HasDomain());
-  EXPECT_TRUE(pc.IsSecure());
-  EXPECT_TRUE(pc.IsHttpOnly());
-  // We parse anything between ; as attributes, so we end up with two
-  // attributes with an empty string name and value.
-  EXPECT_EQ(4U, pc.NumberOfAttributes());
-}
-TEST(ParsedCookieTest, MultipleEquals) {
-  CookieMonster::ParsedCookie pc("  A=== BC  ;secure;;;   httponly");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("A", pc.Name());
-  EXPECT_EQ("== BC", pc.Value());
-  EXPECT_FALSE(pc.HasPath());
-  EXPECT_FALSE(pc.HasDomain());
-  EXPECT_TRUE(pc.IsSecure());
-  EXPECT_TRUE(pc.IsHttpOnly());
-  EXPECT_EQ(4U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, MACKey) {
-  CookieMonster::ParsedCookie pc("foo=bar; MAC-Key=3900ac9anw9incvw9f");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("foo", pc.Name());
-  EXPECT_EQ("bar", pc.Value());
-  EXPECT_EQ("3900ac9anw9incvw9f", pc.MACKey());
-  EXPECT_EQ(1U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, MACAlgorithm) {
-  CookieMonster::ParsedCookie pc("foo=bar; MAC-Algorithm=hmac-sha-1");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("foo", pc.Name());
-  EXPECT_EQ("bar", pc.Value());
-  EXPECT_EQ("hmac-sha-1", pc.MACAlgorithm());
-  EXPECT_EQ(1U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, MACKeyAndMACAlgorithm) {
-  CookieMonster::ParsedCookie pc(
-        "foo=bar; MAC-Key=voiae-09fj0302nfqf; MAC-Algorithm=hmac-sha-256");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("foo", pc.Name());
-  EXPECT_EQ("bar", pc.Value());
-  EXPECT_EQ("voiae-09fj0302nfqf", pc.MACKey());
-  EXPECT_EQ("hmac-sha-256", pc.MACAlgorithm());
-  EXPECT_EQ(2U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, QuotedTrailingWhitespace) {
-  CookieMonster::ParsedCookie pc("ANCUUID=\"zohNumRKgI0oxyhSsV3Z7D\"  ; "
-                                      "expires=Sun, 18-Apr-2027 21:06:29 GMT ; "
-                                      "path=/  ;  ");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("ANCUUID", pc.Name());
-  // Stripping whitespace after the quotes matches all other major browsers.
-  EXPECT_EQ("\"zohNumRKgI0oxyhSsV3Z7D\"", pc.Value());
-  EXPECT_TRUE(pc.HasExpires());
-  EXPECT_TRUE(pc.HasPath());
-  EXPECT_EQ("/", pc.Path());
-  EXPECT_EQ(2U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, TrailingWhitespace) {
-  CookieMonster::ParsedCookie pc("ANCUUID=zohNumRKgI0oxyhSsV3Z7D  ; "
-                                      "expires=Sun, 18-Apr-2027 21:06:29 GMT ; "
-                                      "path=/  ;  ");
-  EXPECT_TRUE(pc.IsValid());
-  EXPECT_EQ("ANCUUID", pc.Name());
-  EXPECT_EQ("zohNumRKgI0oxyhSsV3Z7D", pc.Value());
-  EXPECT_TRUE(pc.HasExpires());
-  EXPECT_TRUE(pc.HasPath());
-  EXPECT_EQ("/", pc.Path());
-  EXPECT_EQ(2U, pc.NumberOfAttributes());
-}
-
-TEST(ParsedCookieTest, TooManyPairs) {
-  std::string blankpairs;
-  blankpairs.resize(CookieMonster::ParsedCookie::kMaxPairs - 1, ';');
-
-  CookieMonster::ParsedCookie pc1(blankpairs + "secure");
-  EXPECT_TRUE(pc1.IsValid());
-  EXPECT_TRUE(pc1.IsSecure());
-
-  CookieMonster::ParsedCookie pc2(blankpairs + ";secure");
-  EXPECT_TRUE(pc2.IsValid());
-  EXPECT_FALSE(pc2.IsSecure());
-}
-
-// TODO(erikwright): some better test cases for invalid cookies.
-TEST(ParsedCookieTest, InvalidWhitespace) {
-  CookieMonster::ParsedCookie pc("    ");
-  EXPECT_FALSE(pc.IsValid());
-}
-
-TEST(ParsedCookieTest, InvalidTooLong) {
-  std::string maxstr;
-  maxstr.resize(CookieMonster::ParsedCookie::kMaxCookieSize, 'a');
-
-  CookieMonster::ParsedCookie pc1(maxstr);
-  EXPECT_TRUE(pc1.IsValid());
-
-  CookieMonster::ParsedCookie pc2(maxstr + "A");
-  EXPECT_FALSE(pc2.IsValid());
-}
-
-TEST(ParsedCookieTest, InvalidEmpty) {
-  CookieMonster::ParsedCookie pc("");
-  EXPECT_FALSE(pc.IsValid());
-}
-
-TEST(ParsedCookieTest, EmbeddedTerminator) {
-  CookieMonster::ParsedCookie pc1("AAA=BB\0ZYX");
-  CookieMonster::ParsedCookie pc2("AAA=BB\rZYX");
-  CookieMonster::ParsedCookie pc3("AAA=BB\nZYX");
-  EXPECT_TRUE(pc1.IsValid());
-  EXPECT_EQ("AAA", pc1.Name());
-  EXPECT_EQ("BB", pc1.Value());
-  EXPECT_TRUE(pc2.IsValid());
-  EXPECT_EQ("AAA", pc2.Name());
-  EXPECT_EQ("BB", pc2.Value());
-  EXPECT_TRUE(pc3.IsValid());
-  EXPECT_EQ("AAA", pc3.Name());
-  EXPECT_EQ("BB", pc3.Value());
-}
-
-TEST(ParsedCookieTest, ParseTokensAndValues) {
-  EXPECT_EQ("hello",
-            CookieMonster::ParsedCookie::ParseTokenString(
-                "hello\nworld"));
-  EXPECT_EQ("fs!!@",
-            CookieMonster::ParsedCookie::ParseTokenString(
-                "fs!!@;helloworld"));
-  EXPECT_EQ("hello world\tgood",
-            CookieMonster::ParsedCookie::ParseTokenString(
-                "hello world\tgood\rbye"));
-  EXPECT_EQ("A",
-            CookieMonster::ParsedCookie::ParseTokenString(
-                "A=B=C;D=E"));
-  EXPECT_EQ("hello",
-            CookieMonster::ParsedCookie::ParseValueString(
-                "hello\nworld"));
-  EXPECT_EQ("fs!!@",
-            CookieMonster::ParsedCookie::ParseValueString(
-                "fs!!@;helloworld"));
-  EXPECT_EQ("hello world\tgood",
-            CookieMonster::ParsedCookie::ParseValueString(
-                "hello world\tgood\rbye"));
-  EXPECT_EQ("A=B=C",
-            CookieMonster::ParsedCookie::ParseValueString(
-                "A=B=C;D=E"));
-}
-
-namespace {
 
 struct CookieMonsterTestTraits {
   static scoped_refptr<CookieStore> Create() {
@@ -461,8 +189,7 @@ class CookieMonsterTest : public CookieStoreTest<CookieMonsterTestTraits> {
     return callback.num_deleted();
   }
 
-  bool DeleteCanonicalCookie(CookieMonster*cm,
-                             const CookieMonster::CanonicalCookie& cookie) {
+  bool DeleteCanonicalCookie(CookieMonster*cm, const CanonicalCookie& cookie) {
     DCHECK(cm);
     SetCookieCallback callback;
     cm->DeleteCanonicalCookieAsync(
@@ -757,6 +484,10 @@ ACTION_P(PushCallbackAction, callback_vector) {
   callback_vector->push(arg1);
 }
 
+ACTION_P2(DeleteSessionCookiesAction, cookie_monster, callback) {
+  cookie_monster->DeleteSessionCookiesAsync(callback->AsCallback());
+}
+
 }  // namespace
 
 // This test suite verifies the task deferral behaviour of the CookieMonster.
@@ -853,7 +584,7 @@ class DeferredCookieTaskTest : public CookieMonsterTest {
   testing::InSequence in_sequence_;
   // Holds cookies to be returned from PersistentCookieStore::Load or
   // PersistentCookieStore::LoadCookiesForKey.
-  std::vector<CookieMonster::CanonicalCookie*> loaded_cookies_;
+  std::vector<CanonicalCookie*> loaded_cookies_;
   // Stores the callback passed from the CookieMonster to the
   // PersistentCookieStore::Load
   CookieMonster::PersistentCookieStore::LoadedCallback loaded_callback_;
@@ -1076,8 +807,8 @@ TEST_F(DeferredCookieTaskTest, DeferredDeleteAllForHostCookies) {
 }
 
 TEST_F(DeferredCookieTaskTest, DeferredDeleteCanonicalCookie) {
-  std::vector<CookieMonster::CanonicalCookie*> cookies;
-  CookieMonster::CanonicalCookie cookie = BuildCanonicalCookie(
+  std::vector<CanonicalCookie*> cookies;
+  CanonicalCookie cookie = BuildCanonicalCookie(
       "www.google.com", "X=1; path=/", base::Time::Now());
 
   MockDeleteCookieCallback delete_cookie_callback;
@@ -1091,6 +822,22 @@ TEST_F(DeferredCookieTaskTest, DeferredDeleteCanonicalCookie) {
       DeleteCanonicalCookieAction(
       &cookie_monster(), cookie, &delete_cookie_callback));
   EXPECT_CALL(delete_cookie_callback, Invoke(false)).WillOnce(
+      QuitCurrentMessageLoop());
+
+  CompleteLoadingAndWait();
+}
+
+TEST_F(DeferredCookieTaskTest, DeferredDeleteSessionCookies) {
+  MockDeleteCallback delete_callback;
+
+  BeginWith(DeleteSessionCookiesAction(
+      &cookie_monster(), &delete_callback));
+
+  WaitForLoadCall();
+
+  EXPECT_CALL(delete_callback, Invoke(false)).WillOnce(
+      DeleteSessionCookiesAction(&cookie_monster(), &delete_callback));
+  EXPECT_CALL(delete_callback, Invoke(false)).WillOnce(
       QuitCurrentMessageLoop());
 
   CompleteLoadingAndWait();
@@ -1132,94 +879,6 @@ TEST_F(DeferredCookieTaskTest, DeferredTaskOrder) {
   CompleteLoadingAndWait();
 }
 
-TEST_F(CookieMonsterTest, TestCookieDateParsing) {
-  const struct {
-    const char* str;
-    const bool valid;
-    const time_t epoch;
-  } tests[] = {
-    { "Sat, 15-Apr-17 21:01:22 GMT",           true, 1492290082 },
-    { "Thu, 19-Apr-2007 16:00:00 GMT",         true, 1176998400 },
-    { "Wed, 25 Apr 2007 21:02:13 GMT",         true, 1177534933 },
-    { "Thu, 19/Apr\\2007 16:00:00 GMT",        true, 1176998400 },
-    { "Fri, 1 Jan 2010 01:01:50 GMT",          true, 1262307710 },
-    { "Wednesday, 1-Jan-2003 00:00:00 GMT",    true, 1041379200 },
-    { ", 1-Jan-2003 00:00:00 GMT",             true, 1041379200 },
-    { " 1-Jan-2003 00:00:00 GMT",              true, 1041379200 },
-    { "1-Jan-2003 00:00:00 GMT",               true, 1041379200 },
-    { "Wed,18-Apr-07 22:50:12 GMT",            true, 1176936612 },
-    { "WillyWonka  , 18-Apr-07 22:50:12 GMT",  true, 1176936612 },
-    { "WillyWonka  , 18-Apr-07 22:50:12",      true, 1176936612 },
-    { "WillyWonka  ,  18-apr-07   22:50:12",   true, 1176936612 },
-    { "Mon, 18-Apr-1977 22:50:13 GMT",         true, 230251813 },
-    { "Mon, 18-Apr-77 22:50:13 GMT",           true, 230251813 },
-    // If the cookie came in with the expiration quoted (which in terms of
-    // the RFC you shouldn't do), we will get string quoted.  Bug 1261605.
-    { "\"Sat, 15-Apr-17\\\"21:01:22\\\"GMT\"", true, 1492290082 },
-    // Test with full month names and partial names.
-    { "Partyday, 18- April-07 22:50:12",       true, 1176936612 },
-    { "Partyday, 18 - Apri-07 22:50:12",       true, 1176936612 },
-    { "Wednes, 1-Januar-2003 00:00:00 GMT",    true, 1041379200 },
-    // Test that we always take GMT even with other time zones or bogus
-    // values.  The RFC says everything should be GMT, and in the worst case
-    // we are 24 hours off because of zone issues.
-    { "Sat, 15-Apr-17 21:01:22",               true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 GMT-2",         true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 GMT BLAH",      true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 GMT-0400",      true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 GMT-0400 (EDT)",true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 DST",           true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 -0400",         true, 1492290082 },
-    { "Sat, 15-Apr-17 21:01:22 (hello there)", true, 1492290082 },
-    // Test that if we encounter multiple : fields, that we take the first
-    // that correctly parses.
-    { "Sat, 15-Apr-17 21:01:22 11:22:33",      true, 1492290082 },
-    { "Sat, 15-Apr-17 ::00 21:01:22",          true, 1492290082 },
-    { "Sat, 15-Apr-17 boink:z 21:01:22",       true, 1492290082 },
-    // We take the first, which in this case is invalid.
-    { "Sat, 15-Apr-17 91:22:33 21:01:22",      false, 0 },
-    // amazon.com formats their cookie expiration like this.
-    { "Thu Apr 18 22:50:12 2007 GMT",          true, 1176936612 },
-    // Test that hh:mm:ss can occur anywhere.
-    { "22:50:12 Thu Apr 18 2007 GMT",          true, 1176936612 },
-    { "Thu 22:50:12 Apr 18 2007 GMT",          true, 1176936612 },
-    { "Thu Apr 22:50:12 18 2007 GMT",          true, 1176936612 },
-    { "Thu Apr 18 22:50:12 2007 GMT",          true, 1176936612 },
-    { "Thu Apr 18 2007 22:50:12 GMT",          true, 1176936612 },
-    { "Thu Apr 18 2007 GMT 22:50:12",          true, 1176936612 },
-    // Test that the day and year can be anywhere if they are unambigious.
-    { "Sat, 15-Apr-17 21:01:22 GMT",           true, 1492290082 },
-    { "15-Sat, Apr-17 21:01:22 GMT",           true, 1492290082 },
-    { "15-Sat, Apr 21:01:22 GMT 17",           true, 1492290082 },
-    { "15-Sat, Apr 21:01:22 GMT 2017",         true, 1492290082 },
-    { "15 Apr 21:01:22 2017",                  true, 1492290082 },
-    { "15 17 Apr 21:01:22",                    true, 1492290082 },
-    { "Apr 15 17 21:01:22",                    true, 1492290082 },
-    { "Apr 15 21:01:22 17",                    true, 1492290082 },
-    { "2017 April 15 21:01:22",                true, 1492290082 },
-    { "15 April 2017 21:01:22",                true, 1492290082 },
-    // Some invalid dates
-    { "98 April 17 21:01:22",                    false, 0 },
-    { "Thu, 012-Aug-2008 20:49:07 GMT",          false, 0 },
-    { "Thu, 12-Aug-31841 20:49:07 GMT",          false, 0 },
-    { "Thu, 12-Aug-9999999999 20:49:07 GMT",     false, 0 },
-    { "Thu, 999999999999-Aug-2007 20:49:07 GMT", false, 0 },
-    { "Thu, 12-Aug-2007 20:61:99999999999 GMT",  false, 0 },
-    { "IAintNoDateFool",                         false, 0 },
-  };
-
-  Time parsed_time;
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(tests); ++i) {
-    parsed_time = CookieMonster::ParseCookieTime(tests[i].str);
-    if (!tests[i].valid) {
-      EXPECT_FALSE(!parsed_time.is_null()) << tests[i].str;
-      continue;
-    }
-    EXPECT_TRUE(!parsed_time.is_null()) << tests[i].str;
-    EXPECT_EQ(tests[i].epoch, parsed_time.ToTimeT()) << tests[i].str;
-  }
-}
-
 TEST_F(CookieMonsterTest, TestCookieDeleteAll) {
   scoped_refptr<MockPersistentCookieStore> store(
       new MockPersistentCookieStore);
@@ -1235,19 +894,34 @@ TEST_F(CookieMonsterTest, TestCookieDeleteAll) {
 
   EXPECT_EQ(2, DeleteAll(cm));
   EXPECT_EQ("", GetCookiesWithOptions(cm, url_google_, options));
-
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  // If a cookie is persistent then its commands will be recorded.
+  // Each above cookie has 2 commands: 1 for add and 1 for delete.
+  EXPECT_EQ(4u, store->commands().size());
+#else
   EXPECT_EQ(0u, store->commands().size());
+#endif
 
   // Create a persistent cookie.
   EXPECT_TRUE(SetCookie(cm, url_google_,
                         std::string(kValidCookieLine) +
                         "; expires=Mon, 18-Apr-22 22:50:13 GMT"));
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  ASSERT_EQ(5u, store->commands().size());
+  EXPECT_EQ(CookieStoreCommand::ADD, store->commands()[4].type);
+#else
   ASSERT_EQ(1u, store->commands().size());
   EXPECT_EQ(CookieStoreCommand::ADD, store->commands()[0].type);
+#endif
 
   EXPECT_EQ(1, DeleteAll(cm));  // sync_to_store = true.
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  ASSERT_EQ(6u, store->commands().size());
+  EXPECT_EQ(CookieStoreCommand::REMOVE, store->commands()[5].type);
+#else
   ASSERT_EQ(2u, store->commands().size());
   EXPECT_EQ(CookieStoreCommand::REMOVE, store->commands()[1].type);
+#endif
 
   EXPECT_EQ("", GetCookiesWithOptions(cm, url_google_, options));
 }
@@ -1528,7 +1202,7 @@ TEST_F(CookieMonsterTest, DontImportDuplicateCookies) {
   // be careful not to have any duplicate creation times at all (as it's a
   // violation of a CookieMonster invariant) even if Time::Now() doesn't
   // move between calls.
-  std::vector<CookieMonster::CanonicalCookie*> initial_cookies;
+  std::vector<CanonicalCookie*> initial_cookies;
 
   // Insert 4 cookies with name "X" on path "/", with varying creation
   // dates. We expect only the most recent one to be preserved following
@@ -1613,7 +1287,7 @@ TEST_F(CookieMonsterTest, DontImportDuplicateCreationTimes) {
   // four with the earlier time as creation times.  We should only get
   // two cookies remaining, but which two (other than that there should
   // be one from each set) will be random.
-  std::vector<CookieMonster::CanonicalCookie*> initial_cookies;
+  std::vector<CanonicalCookie*> initial_cookies;
   AddCookieToList("www.google.com", "X=1; path=/", now, &initial_cookies);
   AddCookieToList("www.google.com", "X=2; path=/", now, &initial_cookies);
   AddCookieToList("www.google.com", "X=3; path=/", now, &initial_cookies);
@@ -1682,8 +1356,13 @@ TEST_F(CookieMonsterTest, Delegate) {
   EXPECT_TRUE(
       SetCookie(cm, url_google_, "a=val1; path=/path1; "
                                 "expires=Mon, 18-Apr-22 22:50:13 GMT"));
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  ASSERT_EQ(5u, store->commands().size());
+  EXPECT_EQ(CookieStoreCommand::ADD, store->commands()[4].type);
+#else
   ASSERT_EQ(1u, store->commands().size());
   EXPECT_EQ(CookieStoreCommand::ADD, store->commands()[0].type);
+#endif
   ASSERT_EQ(1u, delegate->changes().size());
   EXPECT_FALSE(delegate->changes()[0].second);
   EXPECT_EQ(url_google_.host(), delegate->changes()[0].first.Domain());
@@ -1700,9 +1379,15 @@ TEST_F(CookieMonsterTest, Delegate) {
                          "a=val2; path=/path1; httponly; "
                          "expires=Mon, 18-Apr-22 22:50:14 GMT",
                          allow_httponly));
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  ASSERT_EQ(7u, store->commands().size());
+  EXPECT_EQ(CookieStoreCommand::REMOVE, store->commands()[5].type);
+  EXPECT_EQ(CookieStoreCommand::ADD, store->commands()[6].type);
+#else
   ASSERT_EQ(3u, store->commands().size());
   EXPECT_EQ(CookieStoreCommand::REMOVE, store->commands()[1].type);
   EXPECT_EQ(CookieStoreCommand::ADD, store->commands()[2].type);
+#endif
   ASSERT_EQ(2u, delegate->changes().size());
   EXPECT_EQ(url_google_.host(), delegate->changes()[0].first.Domain());
   EXPECT_TRUE(delegate->changes()[0].second);
@@ -1753,7 +1438,11 @@ TEST_F(CookieMonsterTest, SetCookieWithDetails) {
   EXPECT_EQ("B", it->Value());
   EXPECT_EQ("www.google.izzle", it->Domain());
   EXPECT_EQ("/foo", it->Path());
-  EXPECT_FALSE(it->DoesExpire());
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  EXPECT_TRUE(it->IsPersistent());
+#else
+  EXPECT_FALSE(it->IsPersistent());
+#endif
   EXPECT_FALSE(it->IsSecure());
   EXPECT_FALSE(it->IsHttpOnly());
 
@@ -1879,7 +1568,7 @@ TEST_F(CookieMonsterTest, UniqueCreationTime) {
 
   // Now we check
   CookieList cookie_list(GetAllCookies(cm));
-  typedef std::map<int64, CookieMonster::CanonicalCookie> TimeCookieMap;
+  typedef std::map<int64, CanonicalCookie> TimeCookieMap;
   TimeCookieMap check_map;
   for (CookieList::const_iterator it = cookie_list.begin();
        it != cookie_list.end(); it++) {
@@ -1979,7 +1668,7 @@ TEST_F(CookieMonsterTest, BackingStoreCommunication) {
     for (int output_index = 0; output_index < 2; output_index++) {
       int input_index = output_index * 2;
       const CookiesInputInfo* input = &input_info[input_index];
-      const CookieMonster::CanonicalCookie* output = &cookies[output_index];
+      const CanonicalCookie* output = &cookies[output_index];
 
       EXPECT_EQ(input->name, output->Name());
       EXPECT_EQ(input->value, output->Value());
@@ -2043,7 +1732,15 @@ TEST_F(CookieMonsterTest, CookieListOrdering) {
 // get rid of cookies when we should).  The perftest is probing for
 // whether garbage collection happens when it shouldn't.  See comments
 // before that test for more details.
-TEST_F(CookieMonsterTest, GarbageCollectionTriggers) {
+
+// Disabled on Windows, see crbug.com/126095
+#if defined(OS_WIN)
+#define MAYBE_GarbageCollectionTriggers DISABLED_GarbageCollectionTriggers
+#else
+#define MAYBE_GarbageCollectionTriggers GarbageCollectionTriggers
+#endif
+
+TEST_F(CookieMonsterTest, MAYBE_GarbageCollectionTriggers) {
   // First we check to make sure that a whole lot of recent cookies
   // doesn't get rid of anything after garbage collection is checked for.
   {
@@ -2109,35 +1806,6 @@ TEST_F(CookieMonsterTest, GarbageCollectionTriggers) {
   }
 }
 
-// This test checks that setting a cookie forcing it to be a session only
-// cookie works as expected.
-TEST_F(CookieMonsterTest, ForceSessionOnly) {
-  scoped_refptr<CookieMonster> cm(new CookieMonster(NULL, NULL));
-  CookieOptions options;
-
-  // Set a persistent cookie, but force it to be a session cookie.
-  options.set_force_session();
-  ASSERT_TRUE(SetCookieWithOptions(
-      cm, url_google_,
-      std::string(kValidCookieLine) + "; expires=Mon, 18-Apr-22 22:50:13 GMT",
-      options));
-
-  // Get the canonical cookie.
-  CookieList cookie_list = GetAllCookies(cm);
-  ASSERT_EQ(1U, cookie_list.size());
-  ASSERT_FALSE(cookie_list[0].IsPersistent());
-
-  // Use a past expiry date to delete the cookie, but force it to session only.
-  ASSERT_TRUE(SetCookieWithOptions(
-      cm, url_google_,
-      std::string(kValidCookieLine) + "; expires=Mon, 18-Apr-1977 22:50:13 GMT",
-      options));
-
-  // Check that the cookie was deleted.
-  cookie_list = GetAllCookies(cm);
-  ASSERT_EQ(0U, cookie_list.size());
-}
-
 // This test checks that keep expired cookies flag is working.
 TEST_F(CookieMonsterTest, KeepExpiredCookies) {
   scoped_refptr<CookieMonster> cm(new CookieMonster(NULL, NULL));
@@ -2175,7 +1843,7 @@ class FlushablePersistentStore : public CookieMonster::PersistentCookieStore {
   FlushablePersistentStore() : flush_count_(0) {}
 
   void Load(const LoadedCallback& loaded_callback) {
-    std::vector<CookieMonster::CanonicalCookie*> out_cookies;
+    std::vector<CanonicalCookie*> out_cookies;
     MessageLoop::current()->PostTask(FROM_HERE,
       base::Bind(&net::LoadedCallbackTask::Run,
                  new net::LoadedCallbackTask(loaded_callback, out_cookies)));
@@ -2186,10 +1854,10 @@ class FlushablePersistentStore : public CookieMonster::PersistentCookieStore {
     Load(loaded_callback);
   }
 
-  void AddCookie(const CookieMonster::CanonicalCookie&) {}
-  void UpdateCookieAccessTime(const CookieMonster::CanonicalCookie&) {}
-  void DeleteCookie(const CookieMonster::CanonicalCookie&) {}
-  void SetClearLocalStateOnExit(bool clear_local_state) {}
+  void AddCookie(const CanonicalCookie&) {}
+  void UpdateCookieAccessTime(const CanonicalCookie&) {}
+  void DeleteCookie(const CanonicalCookie&) {}
+  void SetForceKeepSessionState() {}
 
   void Flush(const base::Closure& callback) {
     ++flush_count_;
@@ -2202,6 +1870,8 @@ class FlushablePersistentStore : public CookieMonster::PersistentCookieStore {
   }
 
  private:
+  virtual ~FlushablePersistentStore() {}
+
   volatile int flush_count_;
 };
 
@@ -2220,6 +1890,8 @@ class CallbackCounter : public base::RefCountedThreadSafe<CallbackCounter> {
 
  private:
   friend class base::RefCountedThreadSafe<CallbackCounter>;
+  ~CallbackCounter() {}
+
   volatile int callback_count_;
 };
 
@@ -2277,36 +1949,6 @@ TEST_F(CookieMonsterTest, FlushStore) {
   ASSERT_EQ(3, counter->callback_count());
 }
 
-TEST_F(CookieMonsterTest, GetCookieSourceFromURL) {
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://example.com")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://example.com/")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://example.com/test")));
-  EXPECT_EQ("file:///tmp/test.html",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("file:///tmp/test.html")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://example.com:1234/")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("https://example.com/")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://user:pwd@example.com/")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://example.com/test?foo")));
-  EXPECT_EQ("http://example.com/",
-            CookieMonster::CanonicalCookie::GetCookieSourceFromURL(
-                GURL("http://example.com/test#foo")));
-}
-
 TEST_F(CookieMonsterTest, HistogramCheck) {
   scoped_refptr<CookieMonster> cm(new CookieMonster(NULL, NULL));
   // Should match call in InitializeHistograms, but doesn't really matter
@@ -2332,8 +1974,13 @@ TEST_F(CookieMonsterTest, HistogramCheck) {
   // kValidCookieLine creates a session cookie.
   ASSERT_TRUE(SetCookie(cm, url_google_, kValidCookieLine));
   expired_histogram->SnapshotSample(&histogram_set_1);
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  EXPECT_EQ(histogram_set_2.TotalCount() + 1,
+            histogram_set_1.TotalCount());
+#else
   EXPECT_EQ(histogram_set_2.TotalCount(),
             histogram_set_1.TotalCount());
+#endif
 }
 
 namespace {
@@ -2403,7 +2050,7 @@ class MultiThreadedCookieMonsterTest : public CookieMonsterTest {
   }
 
   void DeleteCanonicalCookieTask(CookieMonster* cm,
-                                 const CookieMonster::CanonicalCookie& cookie,
+                                 const CanonicalCookie& cookie,
                                  SetCookieCallback* callback) {
     cm->DeleteCanonicalCookieAsync(
         cookie,
@@ -2567,44 +2214,15 @@ TEST_F(MultiThreadedCookieMonsterTest, ThreadCheckDeleteCanonicalCookie) {
   EXPECT_TRUE(callback.result());
 }
 
-TEST_F(CookieMonsterTest, ShortLivedSessionCookies) {
-  scoped_refptr<MockPersistentCookieStore> store(
-      new MockPersistentCookieStore);
-  scoped_refptr<CookieMonster> cm(new CookieMonster(store, NULL));
-
-  // Create a short-lived session cookie.
-  CookieOptions options;
-  options.set_force_session();
-  Time current = Time::Now();
-  EXPECT_TRUE(SetCookieWithOptions(cm, url_google_,
-                                   std::string(kValidCookieLine) +
-                                   "; max-age=10",
-                                   options));
-
-  // FindCookiesForKey asserts that its caller holds this lock.
-  base::AutoLock auto_lock(cm->lock_);
-
-  // Get cookies before the cookie has expired.
-  std::vector<CookieMonster::CanonicalCookie*> cookies;
-  cm->FindCookiesForKey(cm->GetKey(url_google_.host()), url_google_,
-                        CookieOptions(), current, false, &cookies);
-  EXPECT_EQ(1U, cookies.size());
-
-  // Get cookies after the cookie has expired.
-  cookies.clear();
-  cm->FindCookiesForKey(cm->GetKey(url_google_.host()), url_google_,
-                        CookieOptions(), current + TimeDelta::FromSeconds(20),
-                        false, &cookies);
-  EXPECT_EQ(0U, cookies.size());
-}
-
 TEST_F(CookieMonsterTest, InvalidExpiryTime) {
-  CookieMonster::ParsedCookie pc(
-      std::string(kValidCookieLine) + "; expires=Blarg arg arg");
-  scoped_ptr<CookieMonster::CanonicalCookie> cookie(
-      CookieMonster::CanonicalCookie::Create(url_google_, pc));
+  ParsedCookie pc(std::string(kValidCookieLine) + "; expires=Blarg arg arg");
+  scoped_ptr<CanonicalCookie> cookie(CanonicalCookie::Create(url_google_, pc));
 
-  ASSERT_FALSE(cookie->DoesExpire());
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  ASSERT_TRUE(cookie->IsPersistent());
+#else
+  ASSERT_FALSE(cookie->IsPersistent());
+#endif
 }
 
 // Test that CookieMonster writes session cookies into the underlying
@@ -2681,7 +2299,11 @@ TEST_F(CookieMonsterTest, PersisentCookieStorageTest) {
   // persistent storage.
   EXPECT_TRUE(SetCookie(cm, url_google_, "B=Bar"));
   this->MatchCookieLines("A=Foo; B=Bar", GetCookies(cm, url_google_));
+#if defined(ENABLE_PERSISTENT_SESSION_COOKIES)
+  EXPECT_EQ(6u, store->commands().size());
+#else
   EXPECT_EQ(5u, store->commands().size());
+#endif
 }
 
 }  // namespace net

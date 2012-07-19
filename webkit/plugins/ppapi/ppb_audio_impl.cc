@@ -112,8 +112,9 @@ PP_Bool PPB_Audio_Impl::StopPlayback() {
   return PP_TRUE;
 }
 
-int32_t PPB_Audio_Impl::OpenTrusted(PP_Resource config,
-                                    PP_CompletionCallback create_callback) {
+int32_t PPB_Audio_Impl::OpenTrusted(
+    PP_Resource config,
+    scoped_refptr<TrackedCallback> create_callback) {
   // Validate the config and keep a reference to it.
   EnterResourceNoLock<PPB_AudioConfig_API> enter(config, true);
   if (enter.failed())
@@ -135,7 +136,7 @@ int32_t PPB_Audio_Impl::OpenTrusted(PP_Resource config,
   // At this point, we are guaranteeing ownership of the completion
   // callback.  Audio promises to fire the completion callback
   // once and only once.
-  SetCreateCallback(new TrackedCallback(this, create_callback));
+  SetCreateCallback(create_callback);
 
   return PP_OK_COMPLETIONPENDING;
 }
@@ -153,7 +154,8 @@ void PPB_Audio_Impl::OnSetStreamInfo(
     base::SharedMemoryHandle shared_memory_handle,
     size_t shared_memory_size,
     base::SyncSocket::Handle socket_handle) {
-  SetStreamInfo(shared_memory_handle, shared_memory_size, socket_handle);
+  SetStreamInfo(pp_instance(), shared_memory_handle, shared_memory_size,
+                socket_handle);
 }
 
 }  // namespace ppapi

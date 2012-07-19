@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_DEVICE_TOKEN_FETCHER_H_
 #define CHROME_BROWSER_POLICY_DEVICE_TOKEN_FETCHER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -51,6 +50,7 @@ class DeviceTokenFetcher {
 
   virtual void SetUnmanagedState();
   virtual void SetSerialNumberInvalidState();
+  virtual void SetMissingLicensesState();
 
   // Cancels any pending work on this fetcher and resets it to inactive state.
   void Reset();
@@ -74,6 +74,8 @@ class DeviceTokenFetcher {
     STATE_UNMANAGED,
     // The device is not enlisted for the domain.
     STATE_BAD_SERIAL,
+    // The licenses for the domain have expired or have been exhausted.
+    STATE_MISSING_LICENSES,
     // Error, retry later.
     STATE_ERROR,
     // Temporary error. Retry sooner.

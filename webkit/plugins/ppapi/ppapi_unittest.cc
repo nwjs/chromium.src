@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 
 #include "ppapi/c/pp_var.h"
 #include "ppapi/c/ppp_instance.h"
+#include "ppapi/shared_impl/ppapi_permissions.h"
 #include "webkit/plugins/ppapi/mock_plugin_delegate.h"
 #include "webkit/plugins/ppapi/plugin_module.h"
 #include "webkit/plugins/ppapi/ppapi_interface_factory.h"
@@ -75,17 +76,15 @@ void PpapiUnittest::SetUp() {
   delegate_.reset(NewPluginDelegate());
 
   // Initialize the mock module.
-  module_ = new PluginModule("Mock plugin", FilePath(), this);
+  module_ = new PluginModule("Mock plugin", FilePath(), this,
+                             ::ppapi::PpapiPermissions());
   PluginModule::EntryPoints entry_points;
   entry_points.get_interface = &MockGetInterface;
   entry_points.initialize_module = &MockInitializeModule;
   ASSERT_TRUE(module_->InitAsInternalPlugin(entry_points));
 
   // Initialize the mock instance.
-  instance_ = PluginInstance::Create1_0(
-      delegate_.get(),
-      module(),
-      GetMockInterface(PPP_INSTANCE_INTERFACE_1_0));
+  instance_ = PluginInstance::Create(delegate_.get(), module());
 
 }
 

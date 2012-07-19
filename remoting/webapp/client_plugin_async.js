@@ -58,6 +58,7 @@ remoting.ClientPluginAsync = function(plugin) {
   this.plugin.addEventListener('message', function(event) {
       that.handleMessage_(event.data);
     }, false);
+  window.setTimeout(this.showPluginForClickToPlay_.bind(this), 500);
 };
 
 /**
@@ -81,27 +82,30 @@ remoting.ClientPluginAsync.prototype.API_VERSION_ = 6;
 remoting.ClientPluginAsync.prototype.API_MIN_VERSION_ = 5;
 
 /**
- * @param {string} message_str Message from the plugin.
+ * @param {string} messageStr Message from the plugin.
  */
-remoting.ClientPluginAsync.prototype.handleMessage_ = function(message_str) {
+remoting.ClientPluginAsync.prototype.handleMessage_ = function(messageStr) {
   var message = /** @type {{method:string, data:Object.<string,string>}} */
-      JSON.parse(message_str);
+      jsonParseSafe(messageStr);
 
-  if (!('method' in message) || !('data' in message)) {
-    console.error('Received invalid message from the plugin: ' + message_str);
+  if (!message || !('method' in message) || !('data' in message)) {
+    console.error('Received invalid message from the plugin: ' + messageStr);
     return;
   }
 
   if (message.method == 'hello') {
+    // Reset the size in case we had to enlarge it to support click-to-play.
+    this.plugin.width = 0;
+    this.plugin.height = 0;
     if (typeof message.data['apiVersion'] != 'number' ||
         typeof message.data['apiMinVersion'] != 'number') {
-      console.error('Received invalid hello message: ' + message_str);
+      console.error('Received invalid hello message: ' + messageStr);
       return;
     }
     this.pluginApiVersion_ = /** @type {number} */ message.data['apiVersion'];
     if (this.pluginApiVersion_ >= 7) {
       if (typeof message.data['apiFeatures'] != 'string') {
-        console.error('Received invalid hello message: ' + message_str);
+        console.error('Received invalid hello message: ' + messageStr);
         return;
       }
       this.pluginApiFeatures_ =
@@ -120,13 +124,13 @@ remoting.ClientPluginAsync.prototype.handleMessage_ = function(message_str) {
     }
   } else if (message.method == 'sendOutgoingIq') {
     if (typeof message.data['iq'] != 'string') {
-      console.error('Received invalid sendOutgoingIq message: ' + message_str);
+      console.error('Received invalid sendOutgoingIq message: ' + messageStr);
       return;
     }
     this.onOutgoingIqHandler(message.data['iq']);
   } else if (message.method == 'logDebugMessage') {
     if (typeof message.data['message'] != 'string') {
-      console.error('Received invalid logDebugMessage message: ' + message_str);
+      console.error('Received invalid logDebugMessage message: ' + messageStr);
       return;
     }
     this.onDebugMessageHandler(message.data['message']);
@@ -135,7 +139,7 @@ remoting.ClientPluginAsync.prototype.handleMessage_ = function(message_str) {
         !(message.data['state'] in remoting.ClientSession.State) ||
         typeof message.data['error'] != 'string') {
       console.error('Received invalid onConnectionState message: ' +
-                    message_str);
+                    messageStr);
       return;
     }
 
@@ -153,7 +157,7 @@ remoting.ClientPluginAsync.prototype.handleMessage_ = function(message_str) {
   } else if (message.method == 'onDesktopSize') {
     if (typeof message.data['width'] != 'number' ||
         typeof message.data['height'] != 'number') {
-      console.error('Received invalid onDesktopSize message: ' + message_str);
+      console.error('Received invalid onDesktopSize message: ' + messageStr);
       return;
     }
     this.desktopWidth = /** @type {number} */ message.data['width'];
@@ -167,12 +171,12 @@ remoting.ClientPluginAsync.prototype.handleMessage_ = function(message_str) {
         typeof message.data['decodeLatency'] != 'number' ||
         typeof message.data['renderLatency'] != 'number' ||
         typeof message.data['roundtripLatency'] != 'number') {
-      console.error('Received incorrect onPerfStats message: ' + message_str);
+      console.error('Received incorrect onPerfStats message: ' + messageStr);
       return;
     }
     this.perfStats_ =
         /** @type {remoting.ClientSession.PerfStats} */ message.data;
-  } else if (message.method = 'injectClipboardItem') {
+  } else if (message.method == 'injectClipboardItem') {
     if (typeof message.data['mimeType'] != 'string' ||
         typeof message.data['item'] != 'string') {
       console.error('Received incorrect injectClipboardItem message.');
@@ -181,6 +185,10 @@ remoting.ClientPluginAsync.prototype.handleMessage_ = function(message_str) {
     if (remoting.clipboard) {
       remoting.clipboard.fromHost(message.data['mimeType'],
                                   message.data['item']);
+    }
+  } else if (message.method == 'onFirstFrameReceived') {
+    if (remoting.clientSession) {
+      remoting.clientSession.onFirstFrameReceived();
     }
   }
 }
@@ -193,7 +201,7 @@ remoting.ClientPluginAsync.prototype.cleanup = function() {
 };
 
 /**
- * @return {Element} HTML element that correspods to the plugin.
+ * @return {HTMLEmbedElement} HTML element that correspods to the plugin.
  */
 remoting.ClientPluginAsync.prototype.element = function() {
   return this.plugin;
@@ -286,16 +294,6 @@ remoting.ClientPluginAsync.prototype.connect = function(
 };
 
 /**
- * @param {boolean} scaleToFit True if scale-to-fit should be enabled.
- */
-remoting.ClientPluginAsync.prototype.setScaleToFit = function(scaleToFit) {
-  // scaleToFit() will be removed in future versions of the plugin.
-  if (this.plugin && typeof this.plugin.setScaleToFit === 'function')
-    this.plugin.setScaleToFit(scaleToFit);
-};
-
-
-/**
  * Release all currently pressed keys.
  */
 remoting.ClientPluginAsync.prototype.releaseAllKeys = function() {
@@ -313,8 +311,23 @@ remoting.ClientPluginAsync.prototype.injectKeyEvent =
     function(usbKeycode, pressed) {
   this.plugin.postMessage(JSON.stringify(
       { method: 'injectKeyEvent', data: {
-          'usb_keycode': usbKeycode,
+          'usbKeycode': usbKeycode,
           'pressed': pressed}
+      }));
+};
+
+/**
+ * Remap one USB keycode to another in all subsequent key events.
+ *
+ * @param {number} fromKeycode The USB-style code of the key to remap.
+ * @param {number} toKeycode The USB-style code to remap the key to.
+ */
+remoting.ClientPluginAsync.prototype.remapKey =
+    function(fromKeycode, toKeycode) {
+  this.plugin.postMessage(JSON.stringify(
+      { method: 'remapKey', data: {
+          'fromKeycode': fromKeycode,
+          'toKeycode': toKeycode}
       }));
 };
 
@@ -340,4 +353,53 @@ remoting.ClientPluginAsync.prototype.sendClipboardItem =
   this.plugin.postMessage(JSON.stringify(
       { method: 'sendClipboardItem',
         data: { mimeType: mimeType, item: item }}));
+};
+
+/**
+ * Notifies the host that the client has the specified dimensions.
+ *
+ * @param {number} width The available client width.
+ * @param {number} height The available client height.
+ */
+remoting.ClientPluginAsync.prototype.notifyClientDimensions =
+    function(width, height) {
+  if (!this.hasFeature(remoting.ClientPlugin.Feature.NOTIFY_CLIENT_DIMENSIONS))
+    return;
+  this.plugin.postMessage(JSON.stringify(
+      { method: 'notifyClientDimensions',
+        data: { width: width, height: height }}));
+};
+
+/**
+ * Requests that the host pause or resume sending video updates.
+ *
+ * @param {boolean} pause True to suspend video updates, false otherwise.
+ */
+remoting.ClientPluginAsync.prototype.pauseVideo =
+    function(pause) {
+  if (!this.hasFeature(remoting.ClientPlugin.Feature.PAUSE_VIDEO))
+    return;
+  this.plugin.postMessage(JSON.stringify(
+      { method: 'pauseVideo', data: { pause: pause }}));
+};
+
+/**
+ * If we haven't yet received a "hello" message from the plugin, change its
+ * size so that the user can confirm it if click-to-play is enabled, or can
+ * see the "this plugin is disabled" message if it is actually disabled.
+ * @private
+ */
+remoting.ClientPluginAsync.prototype.showPluginForClickToPlay_ = function() {
+  if (!this.helloReceived_) {
+    var width = 200;
+    var height = 200;
+    this.plugin.width = width;
+    this.plugin.height = height;
+    // Center the plugin just underneath the "Connnecting..." dialog.
+    var parentNode = this.plugin.parentNode;
+    var dialog = document.getElementById('client-dialog');
+    var dialogRect = dialog.getBoundingClientRect();
+    parentNode.style.top = (dialogRect.bottom + 16) + 'px';
+    parentNode.style.left = (window.innerWidth - width) / 2 + 'px';
+  }
 };

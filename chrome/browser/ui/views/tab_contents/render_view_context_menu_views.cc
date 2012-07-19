@@ -33,6 +33,15 @@ RenderViewContextMenuViews::RenderViewContextMenuViews(
 RenderViewContextMenuViews::~RenderViewContextMenuViews() {
 }
 
+#if !defined(OS_WIN)
+// static
+RenderViewContextMenuViews* RenderViewContextMenuViews::Create(
+    content::WebContents* tab_contents,
+    const content::ContextMenuParams& params) {
+  return new RenderViewContextMenuViews(tab_contents, params);
+}
+#endif  // OS_WIN
+
 void RenderViewContextMenuViews::RunMenuAt(views::Widget* parent,
                                            const gfx::Point& point) {
   if (menu_runner_->RunMenuAt(parent, NULL, gfx::Rect(point, gfx::Size()),
@@ -40,12 +49,6 @@ void RenderViewContextMenuViews::RunMenuAt(views::Widget* parent,
       views::MenuRunner::MENU_DELETED)
     return;
 }
-
-#if defined(OS_WIN)
-void RenderViewContextMenuViews::SetExternal() {
-  external_ = true;
-}
-#endif
 
 void RenderViewContextMenuViews::UpdateMenuItemStates() {
   menu_delegate_->BuildMenu(menu_);
@@ -61,6 +64,11 @@ void RenderViewContextMenuViews::PlatformInit() {
   UpdateMenuItemStates();
 }
 
+void RenderViewContextMenuViews::PlatformCancel() {
+  DCHECK(menu_runner_.get());
+  menu_runner_->Cancel();
+}
+
 bool RenderViewContextMenuViews::GetAcceleratorForCommandId(
     int command_id,
     ui::Accelerator* accel) {
@@ -68,32 +76,34 @@ bool RenderViewContextMenuViews::GetAcceleratorForCommandId(
   // that Ctrl+C, Ctrl+V, Ctrl+X, Ctrl-A, etc do what they normally do.
   switch (command_id) {
     case IDC_CONTENT_CONTEXT_UNDO:
-      *accel = ui::Accelerator(ui::VKEY_Z, false, true, false);
+      *accel = ui::Accelerator(ui::VKEY_Z, ui::EF_CONTROL_DOWN);
       return true;
 
     case IDC_CONTENT_CONTEXT_REDO:
       // TODO(jcampan): should it be Ctrl-Y?
-      *accel = ui::Accelerator(ui::VKEY_Z, true, true, false);
+      *accel = ui::Accelerator(ui::VKEY_Z,
+                               ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN);
       return true;
 
     case IDC_CONTENT_CONTEXT_CUT:
-      *accel = ui::Accelerator(ui::VKEY_X, false, true, false);
+      *accel = ui::Accelerator(ui::VKEY_X, ui::EF_CONTROL_DOWN);
       return true;
 
     case IDC_CONTENT_CONTEXT_COPY:
-      *accel = ui::Accelerator(ui::VKEY_C, false, true, false);
+      *accel = ui::Accelerator(ui::VKEY_C, ui::EF_CONTROL_DOWN);
       return true;
 
     case IDC_CONTENT_CONTEXT_PASTE:
-      *accel = ui::Accelerator(ui::VKEY_V, false, true, false);
+      *accel = ui::Accelerator(ui::VKEY_V, ui::EF_CONTROL_DOWN);
       return true;
 
     case IDC_CONTENT_CONTEXT_PASTE_AND_MATCH_STYLE:
-      *accel = ui::Accelerator(ui::VKEY_V, true, true, false);
+      *accel = ui::Accelerator(ui::VKEY_V,
+                               ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN);
       return true;
 
     case IDC_CONTENT_CONTEXT_SELECTALL:
-      *accel = ui::Accelerator(ui::VKEY_A, false, true, false);
+      *accel = ui::Accelerator(ui::VKEY_A, ui::EF_CONTROL_DOWN);
       return true;
 
     default:

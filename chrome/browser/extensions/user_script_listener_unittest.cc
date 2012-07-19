@@ -14,15 +14,17 @@
 #include "chrome/common/extensions/extension_file_util.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/resource_controller.h"
 #include "content/public/browser/resource_throttle.h"
-#include "content/public/browser/resource_throttle_controller.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_test_job.h"
 #include "net/url_request/url_request_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using content::ResourceController;
 using content::ResourceThrottle;
-using content::ResourceThrottleController;
+
+namespace extensions {
 
 namespace {
 
@@ -31,7 +33,7 @@ const char kNotMatchingUrl[] = "http://example.com/";
 const char kTestData[] = "Hello, World!";
 
 class ThrottleController : public base::SupportsUserData::Data,
-                           public ResourceThrottleController {
+                           public ResourceController {
  public:
   ThrottleController(net::URLRequest* request, ResourceThrottle* throttle)
       : request_(request),
@@ -39,7 +41,7 @@ class ThrottleController : public base::SupportsUserData::Data,
     throttle_->set_controller_for_testing(this);
   }
 
-  // ResourceThrottleController implementation:
+  // ResourceController implementation:
   virtual void Resume() {
     request_->Start();
   }
@@ -120,9 +122,10 @@ class UserScriptListenerTest
 
  protected:
   TestURLRequest* StartTestRequest(net::URLRequest::Delegate* delegate,
-                                   const std::string& url_string) {
+                                   const std::string& url_string,
+                                   TestURLRequestContext* context) {
     GURL url(url_string);
-    TestURLRequest* request = new TestURLRequest(url, delegate);
+    TestURLRequest* request = new TestURLRequest(url, delegate, context);
 
     ResourceThrottle* throttle =
         listener_->CreateResourceThrottle(url, ResourceType::MAIN_FRAME);
@@ -149,7 +152,7 @@ class UserScriptListenerTest
         .AppendASCII("Extensions")
         .AppendASCII("behllobkkfkfnphdnhnkndlbkcpglgmj")
         .AppendASCII("1.0.0.0");
-    extensions::UnpackedInstaller::Create(service_)->Load(extension_path);
+    UnpackedInstaller::Create(service_)->Load(extension_path);
   }
 
   void UnloadTestExtension() {
@@ -168,7 +171,9 @@ TEST_F(UserScriptListenerTest, DelayAndUpdate) {
   MessageLoop::current()->RunAllPending();
 
   TestDelegate delegate;
-  scoped_ptr<TestURLRequest> request(StartTestRequest(&delegate, kMatchingUrl));
+  TestURLRequestContext context;
+  scoped_ptr<TestURLRequest> request(
+      StartTestRequest(&delegate, kMatchingUrl, &context));
   ASSERT_FALSE(request->is_pending());
 
   content::NotificationService::current()->Notify(
@@ -184,7 +189,9 @@ TEST_F(UserScriptListenerTest, DelayAndUnload) {
   MessageLoop::current()->RunAllPending();
 
   TestDelegate delegate;
-  scoped_ptr<TestURLRequest> request(StartTestRequest(&delegate, kMatchingUrl));
+  TestURLRequestContext context;
+  scoped_ptr<TestURLRequest> request(
+      StartTestRequest(&delegate, kMatchingUrl, &context));
   ASSERT_FALSE(request->is_pending());
 
   UnloadTestExtension();
@@ -204,7 +211,9 @@ TEST_F(UserScriptListenerTest, DelayAndUnload) {
 
 TEST_F(UserScriptListenerTest, NoDelayNoExtension) {
   TestDelegate delegate;
-  scoped_ptr<TestURLRequest> request(StartTestRequest(&delegate, kMatchingUrl));
+  TestURLRequestContext context;
+  scoped_ptr<TestURLRequest> request(
+      StartTestRequest(&delegate, kMatchingUrl, &context));
 
   // The request should be started immediately.
   ASSERT_TRUE(request->is_pending());
@@ -218,8 +227,10 @@ TEST_F(UserScriptListenerTest, NoDelayNotMatching) {
   MessageLoop::current()->RunAllPending();
 
   TestDelegate delegate;
+  TestURLRequestContext context;
   scoped_ptr<TestURLRequest> request(StartTestRequest(&delegate,
-                                                      kNotMatchingUrl));
+                                                      kNotMatchingUrl,
+                                                      &context));
 
   // The request should be started immediately.
   ASSERT_TRUE(request->is_pending());
@@ -246,7 +257,9 @@ TEST_F(UserScriptListenerTest, MultiProfile) {
       content::Details<Extension>(extension.get()));
 
   TestDelegate delegate;
-  scoped_ptr<TestURLRequest> request(StartTestRequest(&delegate, kMatchingUrl));
+  TestURLRequestContext context;
+  scoped_ptr<TestURLRequest> request(
+      StartTestRequest(&delegate, kMatchingUrl, &context));
   ASSERT_FALSE(request->is_pending());
 
   // When the first profile's user scripts are ready, the request should still
@@ -269,3 +282,5 @@ TEST_F(UserScriptListenerTest, MultiProfile) {
 }
 
 }  // namespace
+
+}  // namespace extensions

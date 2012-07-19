@@ -12,6 +12,11 @@
 /// This file defines the WebSocket interface providing bi-directional,
 /// full-duplex, communications over a single TCP socket.
 
+// Windows headers will redefine SendMessage.
+#ifdef SendMessage
+#undef SendMessage
+#endif
+
 namespace pp {
 
 class CompletionCallback;
@@ -94,7 +99,7 @@ class WebSocket : public Resource {
   /// equal to 1000 or in the range 3000 to 4999.
   /// <code>PP_ERROR_NOACCESS</code> corresponds to an InvalidAccessError in
   /// the WebSocket API specification. Returns <code>PP_ERROR_INPROGRESS</code>
-  /// if this is not the first call to Close().
+  /// if a previous call to Close() is not finished.
   int32_t Close(uint16_t code, const Var& reason,
                 const CompletionCallback& callback);
 

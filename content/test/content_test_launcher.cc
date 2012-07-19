@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/test_launcher.h"
+#include "content/public/test/test_launcher.h"
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
@@ -16,7 +16,7 @@
 
 #if defined(OS_WIN)
 #include "content/public/app/startup_helper_win.h"
-#include "sandbox/src/sandbox_types.h"
+#include "sandbox/win/src/sandbox_types.h"
 #endif  // defined(OS_WIN)
 
 class ContentTestLauncherDelegate : public test_launcher::TestLauncherDelegate {

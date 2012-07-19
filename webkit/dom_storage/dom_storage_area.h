@@ -4,19 +4,19 @@
 
 #ifndef WEBKIT_DOM_STORAGE_DOM_STORAGE_AREA_H_
 #define WEBKIT_DOM_STORAGE_DOM_STORAGE_AREA_H_
-#pragma once
 
 #include "base/file_path.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/nullable_string16.h"
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
-#include "webkit/dom_storage/dom_storage_database.h"
 #include "webkit/dom_storage/dom_storage_types.h"
 
 namespace dom_storage {
 
+class DomStorageDatabaseAdapter;
 class DomStorageMap;
 class DomStorageTaskRunner;
 
@@ -31,13 +31,22 @@ class DomStorageArea
   static FilePath DatabaseFileNameFromOrigin(const GURL& origin);
   static GURL OriginFromDatabaseFileName(const FilePath& file_name);
 
-  DomStorageArea(int64 namespace_id,
-                 const GURL& origin,
+  // Local storage. Backed on disk if directory is nonempty.
+  DomStorageArea(const GURL& origin,
                  const FilePath& directory,
+                 DomStorageTaskRunner* task_runner);
+
+  // Session storage.
+  DomStorageArea(int64 namespace_id,
+                 const std::string& persistent_namespace_id,
+                 const GURL& origin,
                  DomStorageTaskRunner* task_runner);
 
   const GURL& origin() const { return origin_; }
   int64 namespace_id() const { return namespace_id_; }
+
+  // Writes a copy of the current set of values in the area to the |map|.
+  void ExtractValues(ValuesMap* map);
 
   unsigned Length();
   NullableString16 Key(unsigned index);
@@ -47,7 +56,9 @@ class DomStorageArea
   bool RemoveItem(const string16& key, string16* old_value);
   bool Clear();
 
-  DomStorageArea* ShallowCopy(int64 destination_namespace_id);
+  DomStorageArea* ShallowCopy(
+      int64 destination_namespace_id,
+      const std::string& destination_persistent_namespace_id);
 
   bool HasUncommittedChanges() const;
 
@@ -74,6 +85,7 @@ class DomStorageArea
   FRIEND_TEST_ALL_PREFIXES(DomStorageAreaTest, CommitChangesAtShutdown);
   FRIEND_TEST_ALL_PREFIXES(DomStorageAreaTest, DeleteOrigin);
   FRIEND_TEST_ALL_PREFIXES(DomStorageAreaTest, PurgeMemory);
+  FRIEND_TEST_ALL_PREFIXES(DomStorageContextTest, PersistentIds);
   friend class base::RefCountedThreadSafe<DomStorageArea>;
 
   struct CommitBatch {
@@ -95,21 +107,22 @@ class DomStorageArea
   // task sequence when complete.
   CommitBatch* CreateCommitBatchIfNeeded();
   void OnCommitTimer();
-  void CommitChanges();
+  void CommitChanges(const CommitBatch* commit_batch);
   void OnCommitComplete();
 
   void ShutdownInCommitSequence();
 
   int64 namespace_id_;
+  std::string persistent_namespace_id_;
   GURL origin_;
   FilePath directory_;
   scoped_refptr<DomStorageTaskRunner> task_runner_;
   scoped_refptr<DomStorageMap> map_;
-  scoped_ptr<DomStorageDatabase> backing_;
+  scoped_ptr<DomStorageDatabaseAdapter> backing_;
   bool is_initial_import_done_;
   bool is_shutdown_;
   scoped_ptr<CommitBatch> commit_batch_;
-  scoped_ptr<CommitBatch> in_flight_commit_batch_;
+  int commit_batches_in_flight_;
 };
 
 }  // namespace dom_storage

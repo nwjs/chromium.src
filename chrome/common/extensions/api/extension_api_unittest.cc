@@ -5,6 +5,7 @@
 #include "chrome/common/extensions/api/extension_api.h"
 
 #include <string>
+#include <vector>
 
 #include "base/file_path.h"
 #include "base/file_util.h"
@@ -26,15 +27,17 @@ class TestFeatureProvider : public FeatureProvider {
       : context_(context) {
   }
 
-  virtual scoped_ptr<Feature> GetFeature(const std::string& name) OVERRIDE {
-    scoped_ptr<Feature> result(new Feature());
+  virtual Feature* GetFeature(const std::string& name) OVERRIDE {
+    Feature* result = new Feature();
     result->set_name(name);
     result->extension_types()->insert(Extension::TYPE_EXTENSION);
     result->contexts()->insert(context_);
-    return result.Pass();
+    to_destroy_.push_back(make_linked_ptr(result));
+    return result;
   }
 
  private:
+  std::vector<linked_ptr<Feature> > to_destroy_;
   Feature::Context context_;
 };
 
@@ -350,15 +353,15 @@ TEST(ExtensionAPI, GetAPINameFromFullName) {
 TEST(ExtensionAPI, DefaultConfigurationFeatures) {
   scoped_ptr<ExtensionAPI> api(ExtensionAPI::CreateWithDefaultConfiguration());
 
-  scoped_ptr<Feature> bookmarks(api->GetFeature("bookmarks"));
-  scoped_ptr<Feature> bookmarks_create(api->GetFeature("bookmarks.create"));
+  Feature* bookmarks = api->GetFeature("bookmarks");
+  Feature* bookmarks_create = api->GetFeature("bookmarks.create");
 
   struct {
     Feature* feature;
     // TODO(aa): More stuff to test over time.
   } test_data[] = {
-    { bookmarks.get() },
-    { bookmarks_create.get() }
+    { bookmarks },
+    { bookmarks_create }
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(test_data); ++i) {
@@ -408,9 +411,78 @@ TEST(ExtensionAPI, FeaturesRequireContexts) {
     api.RegisterSchema("test", base::StringPiece(schema_source));
     api.LoadAllSchemas();
 
-    scoped_ptr<Feature> feature(api.GetFeature("test"));
-    EXPECT_EQ(test_data[i].expect_success, feature.get() != NULL) << i;
+    Feature* feature = api.GetFeature("test");
+    EXPECT_EQ(test_data[i].expect_success, feature != NULL) << i;
   }
+}
+
+static void GetDictionaryFromList(const DictionaryValue* schema,
+                                  const std::string& list_name,
+                                  const int list_index,
+                                  DictionaryValue** out) {
+  ListValue* list;
+  EXPECT_TRUE(schema->GetList(list_name, &list));
+  EXPECT_TRUE(list->GetDictionary(list_index, out));
+}
+
+TEST(ExtensionAPI, TypesHaveNamespace) {
+  FilePath manifest_path;
+  PathService::Get(chrome::DIR_TEST_DATA, &manifest_path);
+  manifest_path = manifest_path.AppendASCII("extensions")
+      .AppendASCII("extension_api_unittest")
+      .AppendASCII("types_have_namespace.json");
+
+  std::string manifest_str;
+  ASSERT_TRUE(file_util::ReadFileToString(manifest_path, &manifest_str))
+      << "Failed to load: " << manifest_path.value();
+
+  ExtensionAPI api;
+  api.RegisterSchema("test.foo", manifest_str);
+  api.LoadAllSchemas();
+
+  const DictionaryValue* schema = api.GetSchema("test.foo");
+
+  DictionaryValue* dict;
+  DictionaryValue* sub_dict;
+  std::string type;
+
+  GetDictionaryFromList(schema, "types", 0, &dict);
+  EXPECT_TRUE(dict->GetString("id", &type));
+  EXPECT_EQ("test.foo.TestType", type);
+  EXPECT_TRUE(dict->GetString("customBindings", &type));
+  EXPECT_EQ("test.foo.TestType", type);
+  EXPECT_TRUE(dict->GetDictionary("properties", &sub_dict));
+  DictionaryValue* property;
+  EXPECT_TRUE(sub_dict->GetDictionary("foo", &property));
+  EXPECT_TRUE(property->GetString("$ref", &type));
+  EXPECT_EQ("test.foo.OtherType", type);
+  EXPECT_TRUE(sub_dict->GetDictionary("bar", &property));
+  EXPECT_TRUE(property->GetString("$ref", &type));
+  EXPECT_EQ("fully.qualified.Type", type);
+
+  GetDictionaryFromList(schema, "functions", 0, &dict);
+  GetDictionaryFromList(dict, "parameters", 0, &sub_dict);
+  EXPECT_TRUE(sub_dict->GetString("$ref", &type));
+  EXPECT_EQ("test.foo.TestType", type);
+  EXPECT_TRUE(dict->GetDictionary("returns", &sub_dict));
+  EXPECT_TRUE(sub_dict->GetString("$ref", &type));
+  EXPECT_EQ("fully.qualified.Type", type);
+
+  GetDictionaryFromList(schema, "functions", 1, &dict);
+  GetDictionaryFromList(dict, "parameters", 0, &sub_dict);
+  EXPECT_TRUE(sub_dict->GetString("$ref", &type));
+  EXPECT_EQ("fully.qualified.Type", type);
+  EXPECT_TRUE(dict->GetDictionary("returns", &sub_dict));
+  EXPECT_TRUE(sub_dict->GetString("$ref", &type));
+  EXPECT_EQ("test.foo.TestType", type);
+
+  GetDictionaryFromList(schema, "events", 0, &dict);
+  GetDictionaryFromList(dict, "parameters", 0, &sub_dict);
+  EXPECT_TRUE(sub_dict->GetString("$ref", &type));
+  EXPECT_EQ("test.foo.TestType", type);
+  GetDictionaryFromList(dict, "parameters", 1, &sub_dict);
+  EXPECT_TRUE(sub_dict->GetString("$ref", &type));
+  EXPECT_EQ("fully.qualified.Type", type);
 }
 
 }  // namespace

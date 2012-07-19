@@ -13,7 +13,8 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/user_metrics.h"
@@ -26,12 +27,14 @@ using content::UserMetricsAction;
 BookmarkContextMenuController::BookmarkContextMenuController(
     gfx::NativeWindow parent_window,
     BookmarkContextMenuControllerDelegate* delegate,
+    Browser* browser,
     Profile* profile,
     PageNavigator* navigator,
     const BookmarkNode* parent,
     const std::vector<const BookmarkNode*>& selection)
     : parent_window_(parent_window),
       delegate_(delegate),
+      browser_(browser),
       profile_(profile),
       navigator_(navigator),
       parent_(parent),
@@ -125,7 +128,7 @@ void BookmarkContextMenuController::ExecuteCommand(int id) {
         content::RecordAction(
             UserMetricsAction("BookmarkBar_ContextMenu_OpenAllIncognito"));
       }
-      bookmark_utils::OpenAll(parent_window_, profile_, navigator_, selection_,
+      bookmark_utils::OpenAll(parent_window_, navigator_, selection_,
                               initial_disposition);
       break;
     }
@@ -168,10 +171,15 @@ void BookmarkContextMenuController::ExecuteCommand(int id) {
       int index;
       const BookmarkNode* parent =
           bookmark_utils::GetParentForNewNodes(parent_, selection_, &index);
+      GURL url;
+      string16 title;
+      bookmark_utils::GetURLAndTitleToBookmark(
+          chrome::GetActiveWebContents(browser_), &url, &title);
       BookmarkEditor::Show(
           parent_window_,
           profile_,
-          BookmarkEditor::EditDetails::AddNodeInFolder(parent, index),
+          BookmarkEditor::EditDetails::AddNodeInFolder(
+              parent, index, url, title),
           BookmarkEditor::SHOW_TREE);
       break;
     }
@@ -197,17 +205,14 @@ void BookmarkContextMenuController::ExecuteCommand(int id) {
 
     case IDC_BOOKMARK_MANAGER: {
       content::RecordAction(UserMetricsAction("ShowBookmarkManager"));
-      Browser* browser = BrowserList::GetLastActiveWithProfile(profile_);
-      if (!browser) NOTREACHED();
-
       if (selection_.size() != 1)
-        browser->OpenBookmarkManager();
+        chrome::ShowBookmarkManager(browser_);
       else if (selection_[0]->is_folder())
-        browser->OpenBookmarkManagerForNode(selection_[0]->id());
+        chrome::ShowBookmarkManagerForNode(browser_, selection_[0]->id());
       else if (parent_)
-        browser->OpenBookmarkManagerForNode(parent_->id());
+        chrome::ShowBookmarkManagerForNode(browser_, parent_->id());
       else
-        browser->OpenBookmarkManager();
+        chrome::ShowBookmarkManager(browser_);
       break;
     }
 
@@ -251,8 +256,6 @@ bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
       profile_->GetPrefs()->GetBoolean(prefs::kEditBookmarksEnabled);
   IncognitoModePrefs::Availability incognito_avail =
       IncognitoModePrefs::GetAvailability(profile_->GetPrefs());
-  bool is_bookmark_bar_node = selection_.size() == 1 &&
-                              selection_[0] == model_->bookmark_bar_node();
   switch (command_id) {
     case IDC_BOOKMARK_BAR_OPEN_INCOGNITO:
       return !profile_->IsOffTheRecord() &&
@@ -261,15 +264,13 @@ bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
     case IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO:
       return HasURLs() &&
              !profile_->IsOffTheRecord() &&
-             incognito_avail != IncognitoModePrefs::DISABLED &&
-             !is_bookmark_bar_node;
+             incognito_avail != IncognitoModePrefs::DISABLED;
 
     case IDC_BOOKMARK_BAR_OPEN_ALL:
-      return HasURLs() && !is_bookmark_bar_node;
+      return HasURLs();
     case IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW:
       return HasURLs() &&
-             incognito_avail != IncognitoModePrefs::FORCED &&
-             !is_bookmark_bar_node;
+             incognito_avail != IncognitoModePrefs::FORCED;
 
     case IDC_BOOKMARK_BAR_RENAME_FOLDER:
     case IDC_BOOKMARK_BAR_EDIT:

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_CROS_SETTINGS_NAMES_H_
 #define CHROME_BROWSER_CHROMEOS_CROS_SETTINGS_NAMES_H_
-#pragma once
 
 namespace chromeos {
 
@@ -32,6 +31,7 @@ extern const char kReleaseChannelDelegated[];
 extern const char kReportDeviceVersionInfo[];
 extern const char kReportDeviceActivityTimes[];
 extern const char kReportDeviceBootMode[];
+extern const char kReportDeviceLocation[];
 
 extern const char kAppPack[];
 

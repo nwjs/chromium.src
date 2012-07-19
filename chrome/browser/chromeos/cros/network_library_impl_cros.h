@@ -75,66 +75,48 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
 
   //////////////////////////////////////////////////////////////////////////////
   // Calbacks.
-  static void NetworkStatusChangedHandler(
-      void* object, const char* path, const char* key, const GValue* value);
   void UpdateNetworkStatus(
       const std::string& path, const std::string& key, const Value& value);
 
-  static void NetworkDevicePropertyChangedHandler(
-      void* object, const char* path, const char* key, const GValue* gvalue);
   void UpdateNetworkDeviceStatus(
       const std::string& path, const std::string& key, const Value& value);
   // Cellular specific updates. Returns false if update was ignored / reverted
   // and notification should be skipped.
   bool UpdateCellularDeviceStatus(NetworkDevice* device, PropertyIndex index);
 
-  static void PinOperationCallback(void* object,
-                                   const char* path,
-                                   NetworkMethodErrorType error,
-                                   const char* error_message);
+  void PinOperationCallback(const std::string& path,
+                            NetworkMethodErrorType error,
+                            const std::string& error_message);
 
-  static void CellularRegisterCallback(void* object,
-                                       const char* path,
-                                       NetworkMethodErrorType error,
-                                       const char* error_message);
+  void CellularRegisterCallback(const std::string& path,
+                                NetworkMethodErrorType error,
+                                const std::string& error_message);
 
-  static void ConfigureServiceCallback(void* object,
-                                       const char* service_path,
-                                       NetworkMethodErrorType error,
-                                       const char* error_message);
+  void NetworkConnectCallback(const std::string& service_path,
+                              NetworkMethodErrorType error,
+                              const std::string& error_message);
 
-  static void NetworkConnectCallback(void* object,
-                                     const char* service_path,
-                                     NetworkMethodErrorType error,
-                                     const char* error_message);
+  void WifiServiceUpdateAndConnect(const std::string& service_path,
+                                   const base::DictionaryValue* properties);
+  void VPNServiceUpdateAndConnect(const std::string& service_path,
+                                  const base::DictionaryValue* properties);
 
-  static void WifiServiceUpdateAndConnect(
-      void* object, const char* service_path, GHashTable* ghash);
-  static void VPNServiceUpdateAndConnect(
-      void* object, const char* service_path, GHashTable* ghash);
+  void NetworkManagerStatusChangedHandler(const std::string& path,
+                                          const std::string& key,
+                                          const base::Value& value);
+  void NetworkManagerUpdate(const std::string& manager_path,
+                            const base::DictionaryValue* properties);
 
-  static void NetworkManagerStatusChangedHandler(
-      void* object, const char* path, const char* key, const GValue* value);
-  static void NetworkManagerUpdate(
-      void* object, const char* manager_path, GHashTable* ghash);
-
-  static void DataPlanUpdateHandler(
-      void* object,
-      const char* modem_service_path,
-      const chromeos::CellularDataPlanList* data_plan_list);
-
-  static void NetworkServiceUpdate(
-      void* object, const char* service_path, GHashTable* ghash);
-  static void RememberedNetworkServiceUpdate(
-      void* object, const char* service_path, GHashTable* ghash);
-  static void ProfileUpdate(
-      void* object, const char* profile_path, GHashTable* ghash);
-  static void NetworkDeviceUpdate(
-      void* object, const char* device_path, GHashTable* ghash);
+  void NetworkServiceUpdate(const std::string& service_path,
+                            const base::DictionaryValue* properties);
+  void RememberedNetworkServiceUpdate(const std::string& service_path,
+                                      const base::DictionaryValue* properties);
+  void NetworkDeviceUpdate(const std::string& device_path,
+                           const base::DictionaryValue* properties);
 
  private:
   // This processes all Manager update messages.
-  void NetworkManagerStatusChanged(const char* key, const Value* value);
+  bool NetworkManagerStatusChanged(const std::string& key, const Value* value);
   void ParseNetworkManager(const DictionaryValue& dict);
   void UpdateTechnologies(const ListValue* technologies, int* bitfieldp);
   void UpdateAvailableTechnologies(const ListValue* technologies);
@@ -149,8 +131,8 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
 
   void UpdateRememberedNetworks(const ListValue* profiles);
   void RequestRememberedNetworksUpdate();
-  void UpdateRememberedServiceList(const char* profile_path,
-                                   const ListValue* profile_entries);
+  void UpdateProfile(const std::string& profile_path,
+                     const DictionaryValue* properties);
   Network* ParseRememberedNetwork(const std::string& service_path,
                                   const DictionaryValue& info);
 
@@ -167,23 +149,24 @@ class NetworkLibraryImplCros : public NetworkLibraryImplBase  {
         NetworkLibrary* cros, const NetworkDevice* device) OVERRIDE {}
   };
 
-  typedef std::map<std::string, chromeos::NetworkPropertiesMonitor>
-          NetworkPropertiesMonitorMap;
+  typedef std::map<std::string, CrosNetworkWatcher*> NetworkWatcherMap;
+
+  base::WeakPtrFactory<NetworkLibraryImplCros> weak_ptr_factory_;
 
   // For monitoring network manager status changes.
-  NetworkPropertiesMonitor network_manager_monitor_;
+  scoped_ptr<CrosNetworkWatcher> network_manager_watcher_;
 
   // For monitoring data plan changes to the connected cellular network.
-  DataPlanUpdateMonitor data_plan_monitor_;
+  scoped_ptr<CrosNetworkWatcher> data_plan_watcher_;
 
   // Network device observer.
   scoped_ptr<NetworkLibraryDeviceObserver> network_device_observer_;
 
   // Map of monitored networks.
-  NetworkPropertiesMonitorMap montitored_networks_;
+  NetworkWatcherMap monitored_networks_;
 
   // Map of monitored devices.
-  NetworkPropertiesMonitorMap montitored_devices_;
+  NetworkWatcherMap monitored_devices_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkLibraryImplCros);
 };

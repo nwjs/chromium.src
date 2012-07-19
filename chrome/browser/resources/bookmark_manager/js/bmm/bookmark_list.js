@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,10 +6,10 @@
 //            that handles the loading and the events from the bookmark backend.
 
 cr.define('bmm', function() {
-  const List = cr.ui.List;
-  const ListItem = cr.ui.ListItem;
-  const ArrayDataModel = cr.ui.ArrayDataModel;
-  const ContextMenuButton = cr.ui.ContextMenuButton;
+  var List = cr.ui.List;
+  var ListItem = cr.ui.ListItem;
+  var ArrayDataModel = cr.ui.ArrayDataModel;
+  var ContextMenuButton = cr.ui.ContextMenuButton;
 
   var list;
 
@@ -20,7 +20,6 @@ cr.define('bmm', function() {
    * @extends {ArrayDataModel}
    */
   function BookmarksArrayDataModel(items) {
-    this.bookmarksArrayDataModelArray_ = items;
     ArrayDataModel.call(this, items);
   }
 
@@ -33,10 +32,8 @@ cr.define('bmm', function() {
      * @return {number} The index of the found node or -1 if not found.
      */
     findIndexById: function(id) {
-      var arr = this.bookmarksArrayDataModelArray_;
-      var length = arr.length
-      for (var i = 0; i < length; i++) {
-        if (arr[i].id == id)
+      for (var i = 0; i < this.length; i++) {
+        if (this.item(i).id == id)
           return i;
       }
       return -1;
@@ -247,7 +244,7 @@ cr.define('bmm', function() {
         // We create a new data model with updated items in the right order.
         var dataModel = this.dataModel;
         var items = {};
-        for (var i = this.dataModel.length -1 ; i >= 0; i--) {
+        for (var i = this.dataModel.length - 1; i >= 0; i--) {
           var bookmarkNode = dataModel.item(i);
           items[bookmarkNode.id] = bookmarkNode;
         }
@@ -472,7 +469,7 @@ cr.define('bmm', function() {
 
         labelInput = doc.createElement('input');
         labelInput.placeholder =
-            localStrings.getString('name_input_placeholder');
+            loadTimeData.getString('name_input_placeholder');
         replaceAllChildren(labelEl, labelInput);
         labelInput.value = title;
 
@@ -481,7 +478,7 @@ cr.define('bmm', function() {
           urlInput.type = 'url';
           urlInput.required = true;
           urlInput.placeholder =
-              localStrings.getString('url_input_placeholder');
+              loadTimeData.getString('url_input_placeholder');
 
           // We also need a name for the input for the CSS to work.
           urlInput.name = '-url-input-' + cr.createUid();
@@ -510,7 +507,7 @@ cr.define('bmm', function() {
           });
           urlInput.addEventListener('keydown', handleKeydown);
           urlInput.addEventListener('blur', handleBlur);
-          cr.ui.limitInputWidth(urlInput, this, 100);
+          cr.ui.limitInputWidth(urlInput, this, 200);
         }
 
       } else {
@@ -542,7 +539,7 @@ cr.define('bmm', function() {
                 var sm = this.parentNode.selectionModel;
                 sm.selectedIndex = sm.leadIndex = sm.anchorIndex = index;
 
-                alert(localStrings.getString('invalid_url'));
+                alert(loadTimeData.getString('invalid_url'));
               }
               urlInput.focus();
               urlInput.select();

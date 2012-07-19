@@ -4,7 +4,6 @@
 
 #ifndef DBUS_MESSAGE_H_
 #define DBUS_MESSAGE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -90,12 +89,12 @@ class Message {
   DBusMessage* raw_message() { return raw_message_; }
 
   // Sets the destination, the path, the interface, the member, etc.
-  void SetDestination(const std::string& destination);
-  void SetPath(const ObjectPath& path);
-  void SetInterface(const std::string& interface);
-  void SetMember(const std::string& member);
-  void SetErrorName(const std::string& error_name);
-  void SetSender(const std::string& sender);
+  bool SetDestination(const std::string& destination);
+  bool SetPath(const ObjectPath& path);
+  bool SetInterface(const std::string& interface);
+  bool SetMember(const std::string& member);
+  bool SetErrorName(const std::string& error_name);
+  bool SetSender(const std::string& sender);
   void SetSerial(uint32 serial);
   void SetReplySerial(uint32 reply_serial);
   // SetSignature() does not exist as we cannot do it.
@@ -114,7 +113,8 @@ class Message {
   uint32 GetReplySerial();
 
   // Returns the string representation of this message. Useful for
-  // debugging.
+  // debugging. The output is truncated as needed (ex. strings are truncated
+  // if longer than a certain limit defined in the .cc file).
   std::string ToString();
 
  protected:

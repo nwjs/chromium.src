@@ -30,10 +30,10 @@ FileChooser_Trusted::FileChooser_Trusted() : save_as_(false) {
 
 FileChooser_Trusted::FileChooser_Trusted(const InstanceHandle& instance,
                                          PP_FileChooserMode_Dev mode,
-                                         const Var& accept_mime_types,
+                                         const Var& accept_types,
                                          bool save_as,
                                          const std::string& suggested_file_name)
-    : FileChooser_Dev(instance, mode, accept_mime_types),
+    : FileChooser_Dev(instance, mode, accept_types),
       save_as_(save_as),
       suggested_file_name_(suggested_file_name) {
 }
@@ -67,6 +67,7 @@ int32_t FileChooser_Trusted::Show(
     ChooseCallbackData0_5* data = new ChooseCallbackData0_5;
     data->file_chooser = pp_resource();
     data->output = callback.output();
+    data->original_callback = callback.pp_completion_callback();
 
     return get_interface<PPB_FileChooserTrusted_0_5>()->ShowWithoutUserGesture(
         pp_resource(),

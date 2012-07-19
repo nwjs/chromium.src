@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_BROWSER_MESSAGE_FILTER_H_
 #define CONTENT_PUBLIC_BROWSER_BROWSER_MESSAGE_FILTER_H_
-#pragma once
 
 #include "base/process.h"
 #include "content/common/content_export.h"
@@ -19,12 +18,11 @@ namespace content {
 
 // Base class for message filters in the browser process.  You can receive and
 // send messages on any thread.
-class CONTENT_EXPORT BrowserMessageFilter :
-    public IPC::ChannelProxy::MessageFilter,
-    public IPC::Message::Sender {
+class CONTENT_EXPORT BrowserMessageFilter
+    : public IPC::ChannelProxy::MessageFilter,
+      public IPC::Sender {
  public:
   BrowserMessageFilter();
-  virtual ~BrowserMessageFilter();
 
   // IPC::ChannelProxy::MessageFilter methods.  If you override them, make sure
   // to call them as well.  These are always called on the IO thread.
@@ -34,9 +32,8 @@ class CONTENT_EXPORT BrowserMessageFilter :
   // DON'T OVERRIDE THIS!  Override the other version below.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
-  // IPC::Message::Sender implementation.  Can be called on any thread.  Can't
-  // send sync messages (since we don't want to block the browser on any other
-  // process).
+  // IPC::Sender implementation.  Can be called on any thread.  Can't send sync
+  // messages (since we don't want to block the browser on any other process).
   virtual bool Send(IPC::Message* message) OVERRIDE;
 
   // If you want the given message to be dispatched to your OnMessageReceived on
@@ -70,12 +67,14 @@ class CONTENT_EXPORT BrowserMessageFilter :
   // Checks that the given message can be dispatched on the UI thread, depending
   // on the platform.  If not, returns false and an error ot the sender.
   static bool CheckCanDispatchOnUI(const IPC::Message& message,
-                                   IPC::Message::Sender* sender);
+                                   IPC::Sender* sender);
 
- protected:
   // Call this if a message couldn't be deserialized.  This kills the renderer.
   // Can be called on any thread.
   virtual void BadMessageReceived();
+
+ protected:
+  virtual ~BrowserMessageFilter();
 
  private:
   // Dispatches a message to the derived class.

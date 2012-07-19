@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_BASE_ANIMATION_SLIDE_ANIMATION_H_
 #define UI_BASE_ANIMATION_SLIDE_ANIMATION_H_
-#pragma once
 
 #include "ui/base/animation/linear_animation.h"
 #include "ui/base/animation/tween.h"
@@ -70,6 +69,8 @@ class UI_EXPORT SlideAnimation : public LinearAnimation {
   virtual double GetCurrentValue() const OVERRIDE;
   bool IsShowing() const { return showing_; }
   bool IsClosing() const { return !showing_ && value_end_ < value_current_; }
+
+  class TestApi;
 
  private:
   // Overridden from Animation.

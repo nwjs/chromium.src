@@ -7,12 +7,10 @@
 
 #ifndef SYNC_TEST_ENGINE_TEST_SYNCABLE_UTILS_H_
 #define SYNC_TEST_ENGINE_TEST_SYNCABLE_UTILS_H_
-#pragma once
 
 #include <string>
 
-#include "sync/syncable/syncable.h"
-
+namespace syncer {
 namespace syncable {
 
 class BaseTransaction;
@@ -37,5 +35,6 @@ Id GetOnlyEntryWithName(BaseTransaction* rtrans,
                         const std::string& name);
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_TEST_ENGINE_TEST_SYNCABLE_UTILS_H_

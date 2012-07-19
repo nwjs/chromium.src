@@ -8,6 +8,7 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/callback.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
@@ -16,6 +17,7 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "base/version.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
@@ -23,8 +25,7 @@
 #include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/customization_document.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/session_manager_client.h"
+#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/chromeos/login/helper.h"
 #include "chrome/browser/chromeos/login/login_display_host.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
@@ -32,19 +33,23 @@
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/system/statistics_provider.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/policy/browser_policy_connector.h"
+#include "chrome/browser/policy/policy_service.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/dialog_style.h"
-#include "chrome/browser/ui/views/window.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/net/gaia/google_service_auth_error.h"
+#include "chrome/common/net/url_util.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/session_manager_client.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
+#include "content/public/browser/user_metrics.h"
 #include "grit/generated_resources.h"
 #include "net/http/http_auth_cache.h"
 #include "net/http/http_network_session.h"
@@ -61,33 +66,31 @@ namespace {
 // Url for setting up sync authentication.
 const char kSettingsSyncLoginURL[] = "chrome://settings/personal";
 
-// URL that will be opened when user logs in first time on the device.
-const char kGetStartedURLPattern[] =
-    "http://www.gstatic.com/chromebook/gettingstarted/index-%s.html";
+// Major version where we still show GSG as "Release Notes" after the update.
+const long int kReleaseNotesTargetRelease = 19;
 
-// Divider that starts parameters in URL.
-const char kGetStartedParamsStartMark[] = "#";
+// Getting started guide URL, will be opened as in app window for each new
+// user who logs on the device.
+const char kGetStartedURLPattern[] =
+    "http://gweb-gettingstartedguide.appspot.com/";
 
 // Parameter to be added to GetStarted URL that contains board.
-const char kGetStartedBoardParam[] = "board=%s";
+const char kGetStartedBoardParam[] = "board";
 
 // Parameter to be added to GetStarted URL
-// when first user signs in for the first time.
-// TODO(nkostylev): Uncomment once server side supports new param format.
-// const char kGetStartedOwnerParam[] = "/first";
-const char kGetStartedOwnerParam[] = "first";
+// when first user signs in for the first time (OOBE case).
+const char kGetStartedOwnerParam[] = "owner";
+const char kGetStartedOwnerParamValue[] = "true";
+const char kGetStartedInitialLocaleParam[] = "initial_locale";
 
 // URL for account creation.
 const char kCreateAccountURL[] =
-    "https://www.google.com/accounts/NewAccount?service=mail";
+    "https://accounts.google.com/NewAccount?service=mail";
 
 // ChromeVox tutorial URL (used in place of "getting started" url when
 // accessibility is enabled).
 const char kChromeVoxTutorialURLPattern[] =
     "http://www.chromevox.com/tutorial/index.html?lang=%s";
-
-// Landing URL when launching Guest mode to fix captive portal.
-const char kCaptivePortalLaunchURL[] = "http://www.google.com/";
 
 // Delay for transferring the auth cache to the system profile.
 const long int kAuthCacheTransferDelayMs = 2000;
@@ -98,8 +101,8 @@ const long int kSafeModeRestartUiDelayMs = 30000;
 // Makes a call to the policy subsystem to reload the policy when we detect
 // authentication change.
 void RefreshPoliciesOnUIThread() {
-  if (g_browser_process->browser_policy_connector())
-    g_browser_process->browser_policy_connector()->RefreshPolicies();
+  if (g_browser_process->policy_service())
+    g_browser_process->policy_service()->RefreshPolicies(base::Closure());
 }
 
 // Copies any authentication details that were entered in the login profile in
@@ -140,6 +143,7 @@ ExistingUserController::ExistingUserController(LoginDisplayHost* host)
       is_owner_login_(false),
       offline_failed_(false),
       is_login_in_progress_(false),
+      password_changed_(false),
       do_auto_enrollment_(false) {
   DCHECK(current_controller_ == NULL);
   current_controller_ = this;
@@ -148,7 +152,13 @@ ExistingUserController::ExistingUserController(LoginDisplayHost* host)
                  chrome::NOTIFICATION_LOGIN_USER_IMAGE_CHANGED,
                  content::NotificationService::AllSources());
   registrar_.Add(this,
+                 chrome::NOTIFICATION_POLICY_USER_LIST_CHANGED,
+                 content::NotificationService::AllSources());
+  registrar_.Add(this,
                  chrome::NOTIFICATION_AUTH_SUPPLIED,
+                 content::NotificationService::AllSources());
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_SESSION_STARTED,
                  content::NotificationService::AllSources());
   cros_settings_->AddSettingsObserver(kAccountsPrefShowUserNamesOnSignIn, this);
   cros_settings_->AddSettingsObserver(kAccountsPrefAllowNewUser, this);
@@ -209,8 +219,17 @@ void ExistingUserController::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED) {
-    // Signed settings changed notify views and update them.
+  if (type == chrome::NOTIFICATION_SESSION_STARTED) {
+    // Stop listening to any notification once session has started.
+    // Sign in screen objects are marked for deletion with DeleteSoon so
+    // make sure no object would be used after session has started.
+    // http://crbug.com/125276
+    registrar_.RemoveAll();
+    return;
+  }
+  if (type == chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED ||
+      type == chrome::NOTIFICATION_POLICY_USER_LIST_CHANGED) {
+    // Signed settings or user list changed. Notify views and update them.
     const chromeos::UserList& users = chromeos::UserManager::Get()->GetUsers();
     UpdateLoginDisplay(users);
     return;
@@ -238,7 +257,7 @@ void ExistingUserController::Observe(
         base::Bind(&TransferContextAuthenticationsOnIOThread,
                    default_profile_context_getter,
                    browser_process_context_getter),
-        kAuthCacheTransferDelayMs);
+        base::TimeDelta::FromMilliseconds(kAuthCacheTransferDelayMs));
   }
   if (type != chrome::NOTIFICATION_LOGIN_USER_IMAGE_CHANGED)
     return;
@@ -270,6 +289,7 @@ ExistingUserController::~ExistingUserController() {
 //
 
 void ExistingUserController::CreateAccount() {
+  content::RecordAction(content::UserMetricsAction("Login.CreateAccount"));
   guest_mode_url_ =
       google_util::AppendGoogleLocaleParam(GURL(kCreateAccountURL));
   LoginAsGuest();
@@ -277,11 +297,6 @@ void ExistingUserController::CreateAccount() {
 
 string16 ExistingUserController::GetConnectedNetworkName() {
   return GetCurrentNetworkName(CrosLibrary::Get()->GetNetworkLibrary());
-}
-
-void ExistingUserController::FixCaptivePortal() {
-  guest_mode_url_ = GURL(kCaptivePortalLaunchURL);
-  LoginAsGuest();
 }
 
 void ExistingUserController::SetDisplayEmail(const std::string& email) {
@@ -342,7 +357,6 @@ void ExistingUserController::Login(const std::string& username,
                                    const std::string& password) {
   if (username.empty() || password.empty())
     return;
-  SetStatusAreaEnabled(false);
   // Disable clicking on other windows.
   login_display_->SetUIEnabled(false);
 
@@ -378,7 +392,6 @@ void ExistingUserController::Login(const std::string& username,
 }
 
 void ExistingUserController::LoginAsDemoUser() {
-  SetStatusAreaEnabled(false);
   // Disable clicking on other windows.
   login_display_->SetUIEnabled(false);
   // TODO(rkc): Add a CHECK to make sure demo logins are allowed once
@@ -393,26 +406,39 @@ void ExistingUserController::LoginAsDemoUser() {
       l10n_util::GetStringUTF8(IDS_CHROMEOS_ACC_LOGIN_SIGNIN_DEMOUSER));
 }
 
-
-
 void ExistingUserController::LoginAsGuest() {
-  SetStatusAreaEnabled(false);
   // Disable clicking on other windows.
   login_display_->SetUIEnabled(false);
 
-  // Check allow_guest in case this call is fired from key accelerator.
+  CrosSettingsProvider::TrustedStatus status =
+      cros_settings_->PrepareTrustedValues(
+          base::Bind(&ExistingUserController::LoginAsGuest,
+                     weak_factory_.GetWeakPtr()));
   // Must not proceed without signature verification.
-  if (!cros_settings_->PrepareTrustedValues(
-      base::Bind(&ExistingUserController::LoginAsGuest,
-                 weak_factory_.GetWeakPtr()))) {
-    // Value of AllowGuest setting is still not verified.
-    // Another attempt will be invoked again after verification completion.
+  if (status == CrosSettingsProvider::PERMANENTLY_UNTRUSTED) {
+    login_display_->ShowError(IDS_LOGIN_ERROR_OWNER_KEY_LOST, 1,
+                              HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT);
+    // Reenable clicking on other windows and status area.
+    login_display_->SetUIEnabled(true);
+    display_email_.clear();
+    return;
+  } else if (status != CrosSettingsProvider::TRUSTED) {
+    // Value of AllowNewUser setting is still not verified.
+    // Another attempt will be invoked after verification completion.
     return;
   }
+
   bool allow_guest;
   cros_settings_->GetBoolean(kAccountsPrefAllowGuest, &allow_guest);
   if (!allow_guest) {
-    // Disallowed.
+    // Disallowed. The UI should normally not show the guest pod but if for some
+    // reason this has been made available to the user here is the time to tell
+    // this nicely.
+    login_display_->ShowError(IDS_LOGIN_ERROR_WHITELIST, 1,
+                              HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT);
+    // Reenable clicking on other windows and status area.
+    login_display_->SetUIEnabled(true);
+    display_email_.clear();
     return;
   }
 
@@ -437,19 +463,32 @@ void ExistingUserController::OnUserSelected(const std::string& username) {
 void ExistingUserController::OnStartEnterpriseEnrollment() {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kEnableDevicePolicy)) {
-    ownership_checker_.reset(new OwnershipStatusChecker());
-    ownership_checker_->Check(base::Bind(
-        &ExistingUserController::OnEnrollmentOwnershipCheckCompleted,
-        base::Unretained(this)));
+    OwnershipService::GetSharedInstance()->GetStatusAsync(
+        base::Bind(&ExistingUserController::OnEnrollmentOwnershipCheckCompleted,
+                   weak_factory_.GetWeakPtr()));
   }
 }
 
 void ExistingUserController::OnEnrollmentOwnershipCheckCompleted(
     OwnershipService::Status status,
     bool current_user_is_owner) {
-  if (status == OwnershipService::OWNERSHIP_NONE)
+  if (status == OwnershipService::OWNERSHIP_NONE) {
     ShowEnrollmentScreen(false, std::string());
-  ownership_checker_.reset();
+  } else if (status == OwnershipService::OWNERSHIP_TAKEN) {
+    // On a device that is already owned we might want to allow users to
+    // re-enroll if the policy information is invalid.
+    CrosSettingsProvider::TrustedStatus trusted_status =
+        CrosSettings::Get()->PrepareTrustedValues(
+            base::Bind(
+                &ExistingUserController::OnEnrollmentOwnershipCheckCompleted,
+                weak_factory_.GetWeakPtr(), status, current_user_is_owner));
+    if (trusted_status == CrosSettingsProvider::PERMANENTLY_UNTRUSTED)
+      ShowEnrollmentScreen(false, std::string());
+  } else {
+    // OwnershipService::GetStatusAsync is supposed to return either
+    // OWNERSHIP_NONE or OWNERSHIP_TAKEN.
+    NOTREACHED();
+  }
 }
 
 void ExistingUserController::ShowEnrollmentScreen(bool is_auto_enrollment,
@@ -482,7 +521,7 @@ void ExistingUserController::OnLoginFailure(const LoginFailure& failure) {
         base::Bind(&SessionManagerClient::StopSession,
                    base::Unretained(DBusThreadManager::Get()->
                                     GetSessionManagerClient())),
-        kSafeModeRestartUiDelayMs);
+        base::TimeDelta::FromMilliseconds(kSafeModeRestartUiDelayMs));
   } else if (!online_succeeded_for_.empty()) {
     ShowGaiaPasswordChanged(online_succeeded_for_);
   } else {
@@ -499,29 +538,11 @@ void ExistingUserController::OnLoginFailure(const LoginFailure& failure) {
       else
         ShowError(IDS_LOGIN_ERROR_OFFLINE_FAILED_NETWORK_NOT_CONNECTED, error);
     } else {
-      // Network is connected.
-      const Network* active_network = network->active_network();
       // TODO(nkostylev): Cleanup rest of ClientLogin related code.
       if (failure.reason() == LoginFailure::NETWORK_AUTH_FAILED &&
           failure.error().state() ==
               GoogleServiceAuthError::HOSTED_NOT_ALLOWED) {
         ShowError(IDS_LOGIN_ERROR_AUTHENTICATING_HOSTED, error);
-      } else if ((active_network && active_network->restricted_pool()) ||
-                 (failure.reason() == LoginFailure::NETWORK_AUTH_FAILED &&
-                  failure.error().state() ==
-                      GoogleServiceAuthError::SERVICE_UNAVAILABLE)) {
-        // Use explicit captive portal state (restricted_pool()) or implicit
-        // one.
-        // SERVICE_UNAVAILABLE is generated in 2 cases:
-        // 1. ClientLogin returns ServiceUnavailable code.
-        // 2. Internet connectivity may be behind the captive portal.
-        // Suggesting user to try sign in to a portal in Guest mode.
-        bool allow_guest;
-        cros_settings_->GetBoolean(kAccountsPrefAllowGuest, &allow_guest);
-        if (allow_guest)
-          ShowError(IDS_LOGIN_ERROR_CAPTIVE_PORTAL, error);
-        else
-          ShowError(IDS_LOGIN_ERROR_CAPTIVE_PORTAL_NO_GUEST_MODE, error);
       } else {
         if (!is_known_user)
           ShowError(IDS_LOGIN_ERROR_AUTHENTICATING_NEW, error);
@@ -531,7 +552,6 @@ void ExistingUserController::OnLoginFailure(const LoginFailure& failure) {
     }
     // Reenable clicking on other windows and status area.
     login_display_->SetUIEnabled(true);
-    SetStatusAreaEnabled(true);
   }
 
   if (login_status_consumer_)
@@ -549,13 +569,20 @@ void ExistingUserController::OnLoginSuccess(
   is_login_in_progress_ = false;
   offline_failed_ = false;
   bool known_user = UserManager::Get()->IsKnownUser(username);
+  // TODO(ivankr): remove this as soon as .forget_usernames is removed.
   bool login_only =
       CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kLoginScreen) == WizardController::kLoginScreenName;
-  ready_for_browser_launch_ = known_user || login_only;
+  bool skip_image_screen =
+      WizardController::default_controller()->skip_user_image_selection();
+  ready_for_browser_launch_ = known_user || login_only || skip_image_screen;
 
   bool has_cookies =
       login_performer_->auth_mode() == LoginPerformer::AUTH_MODE_EXTENSION;
+
+  // Login performer will be gone so cache this value to use
+  // once profile is loaded.
+  password_changed_ = login_performer_->password_changed();
 
   // LoginPerformer instance will delete itself once online auth result is OK.
   // In case of failure it'll bring up ScreenLock and ask for
@@ -576,11 +603,12 @@ void ExistingUserController::OnLoginSuccess(
 
   display_email_.clear();
 
-  // Notifiy LoginDisplay to allow it provide visual feedback to user.
+  // Notify LoginDisplay to allow it provide visual feedback to user.
   login_display_->OnLoginSuccess(username);
 }
 
 void ExistingUserController::OnProfilePrepared(Profile* profile) {
+  OptionallyShowReleaseNotes(profile);
   if (!ready_for_browser_launch_) {
     // Don't specify start URLs if the administrator has configured the start
     // URLs via policy.
@@ -602,12 +630,12 @@ void ExistingUserController::OnProfilePrepared(Profile* profile) {
 #endif
   } else {
     LoginUtils::Get()->DoBrowserLaunch(profile, host_);
-    // Inform |login_status_consumer_| about successful login after
-    // browser launch.  Set most params to empty since they're not needed.
-    if (login_status_consumer_)
-      login_status_consumer_->OnLoginSuccess("", "", false, false);
     host_ = NULL;
   }
+  // Inform |login_status_consumer_| about successful login. Set most params to
+  // empty since they're not needed.
+  if (login_status_consumer_)
+    login_status_consumer_->OnLoginSuccess("", "", false, false);
   login_display_->OnFadeOut();
 }
 
@@ -632,7 +660,7 @@ void ExistingUserController::OnOffTheRecordLoginSuccess() {
 
 void ExistingUserController::OnPasswordChangeDetected() {
   // Must not proceed without signature verification.
-  if (!cros_settings_->PrepareTrustedValues(
+  if (CrosSettingsProvider::TRUSTED != cros_settings_->PrepareTrustedValues(
       base::Bind(&ExistingUserController::OnPasswordChangeDetected,
                  weak_factory_.GetWeakPtr()))) {
     // Value of owner email is still not verified.
@@ -640,12 +668,19 @@ void ExistingUserController::OnPasswordChangeDetected() {
     return;
   }
 
+  // True if user has already made an attempt to enter old password and failed.
+  bool show_invalid_old_password_error =
+      login_performer_->password_changed_callback_count() > 1;
+
   // Passing 'false' here enables "full sync" mode in the dialog,
   // which disables the requirement for the old owner password,
   // allowing us to recover from a lost owner password/homedir.
   // TODO(gspencer): We shouldn't have to erase stateful data when
   // doing this.  See http://crosbug.com/9115 http://crosbug.com/7792
-  PasswordChangedView* view = new PasswordChangedView(this, false);
+  PasswordChangedView* view = new PasswordChangedView(
+      this,
+      false,  // Allow removal of existing cryptohome, perform full migration.
+      show_invalid_old_password_error);
   views::Widget* window = views::Widget::CreateWindowWithParent(
       view, GetNativeWindow());
   window->SetAlwaysOnTop(true);
@@ -662,7 +697,20 @@ void ExistingUserController::WhiteListCheckFailed(const std::string& email) {
 
   // Reenable clicking on other windows and status area.
   login_display_->SetUIEnabled(true);
-  SetStatusAreaEnabled(true);
+
+  if (login_status_consumer_) {
+    login_status_consumer_->OnLoginFailure(LoginFailure(
+          LoginFailure::WHITELIST_CHECK_FAILED));
+  }
+
+  display_email_.clear();
+}
+
+void ExistingUserController::PolicyLoadFailed() {
+  ShowError(IDS_LOGIN_ERROR_OWNER_KEY_LOST, "");
+
+  // Reenable clicking on other windows and status area.
+  login_display_->SetUIEnabled(true);
 
   display_email_.clear();
 }
@@ -712,71 +760,129 @@ gfx::NativeWindow ExistingUserController::GetNativeWindow() const {
 
 void ExistingUserController::InitializeStartUrls() const {
   std::vector<std::string> start_urls;
+  // Guide URL is not added to start URLs as it should be passed as an app.
+  std::string guide_url;
+
   PrefService* prefs = g_browser_process->local_state();
-  const std::string current_locale =
-      StringToLowerASCII(prefs->GetString(prefs::kApplicationLocale));
-  std::string start_url;
   const base::ListValue *urls;
-  if (UserManager::Get()->IsLoggedInAsDemoUser() &&
-      CrosSettings::Get()->GetList(kStartUpUrls, &urls)) {
-    // the demo user will get its start urls from the special policy if it is
-    // set.
-    for (base::ListValue::const_iterator it = urls->begin();
-         it != urls->end(); ++it) {
-      std::string url;
-      if ((*it)->GetAsString(&url))
-        start_urls.push_back(url);
+  if (UserManager::Get()->IsLoggedInAsDemoUser()) {
+    if (CrosSettings::Get()->GetList(kStartUpUrls, &urls)) {
+      // the demo user will get its start urls from the special policy if it is
+      // set.
+      for (base::ListValue::const_iterator it = urls->begin();
+           it != urls->end(); ++it) {
+        std::string url;
+        if ((*it)->GetAsString(&url))
+          start_urls.push_back(url);
+      }
     }
   } else {
     if (prefs->GetBoolean(prefs::kSpokenFeedbackEnabled)) {
       const char* url = kChromeVoxTutorialURLPattern;
-      start_url = base::StringPrintf(url, current_locale.c_str());
+      const std::string current_locale =
+          StringToLowerASCII(prefs->GetString(prefs::kApplicationLocale));
+      std::string vox_url = base::StringPrintf(url, current_locale.c_str());
+      start_urls.push_back(vox_url);
     } else {
-      const char* url = kGetStartedURLPattern;
-      start_url = base::StringPrintf(url, current_locale.c_str());
-      std::string params_str;
-#if 0
-      const char kMachineInfoBoard[] = "CHROMEOS_RELEASE_BOARD";
-      std::string board;
-      system::StatisticsProvider* provider =
-          system::StatisticsProvider::GetInstance();
-      if (!provider->GetMachineStatistic(kMachineInfoBoard, &board))
-        LOG(ERROR) << "Failed to get board information";
-      if (!board.empty()) {
-        params_str.append(base::StringPrintf(kGetStartedBoardParam,
-                                             board.c_str()));
-      }
-#endif
-      if (is_owner_login_)
-        params_str.append(kGetStartedOwnerParam);
-      if (!params_str.empty()) {
-        params_str.insert(0, kGetStartedParamsStartMark);
-        start_url.append(params_str);
-      }
+      guide_url = GetGettingStartedGuideURL();
     }
-    start_urls.push_back(start_url);
   }
 
   ServicesCustomizationDocument* customization =
       ServicesCustomizationDocument::GetInstance();
   if (!ServicesCustomizationDocument::WasApplied() &&
       customization->IsReady()) {
-    std::string locale = g_browser_process->GetApplicationLocale();
-    std::string initial_start_page =
-        customization->GetInitialStartPage(locale);
-    if (!initial_start_page.empty())
-      start_urls.push_back(initial_start_page);
+    // Since we don't use OEM start URL anymore, just mark as applied.
     customization->ApplyCustomization();
   }
 
-  for (size_t i = 0; i < start_urls.size(); ++i)
-    CommandLine::ForCurrentProcess()->AppendArg(start_urls[i]);
+  if (!guide_url.empty()) {
+    CommandLine::ForCurrentProcess()->AppendSwitchASCII(switches::kApp,
+                                                        guide_url);
+    // NTP would open in the background, app window with GSG would be focused
+    // so that user won't have an empty desktop after GSG is closed.
+    CommandLine::ForCurrentProcess()->AppendArg(chrome::kChromeUINewTabURL);
+  } else {
+    // We should not be adding any start URLs if guide
+    // is defined as it launches as a standalone app window.
+    for (size_t i = 0; i < start_urls.size(); ++i)
+      CommandLine::ForCurrentProcess()->AppendArg(start_urls[i]);
+  }
 }
 
-void ExistingUserController::SetStatusAreaEnabled(bool enable) {
-  if (!host_)
+std::string ExistingUserController::GetGettingStartedGuideURL() const {
+  GURL guide_url(kGetStartedURLPattern);
+  std::string board;
+  const char kMachineInfoBoard[] = "CHROMEOS_RELEASE_BOARD";
+  system::StatisticsProvider* provider =
+      system::StatisticsProvider::GetInstance();
+  if (!provider->GetMachineStatistic(kMachineInfoBoard, &board))
+    LOG(ERROR) << "Failed to get board information";
+  if (!board.empty()) {
+    guide_url = chrome_common_net::AppendQueryParameter(guide_url,
+                                                         kGetStartedBoardParam,
+                                                         board);
+  }
+  if (is_owner_login_) {
+    guide_url = chrome_common_net::AppendQueryParameter(
+        guide_url,
+        kGetStartedOwnerParam,
+        kGetStartedOwnerParamValue);
+  }
+  guide_url = google_util::AppendGoogleLocaleParam(guide_url);
+  guide_url = chrome_common_net::AppendQueryParameter(
+      guide_url,
+      kGetStartedInitialLocaleParam,
+      WizardController::GetInitialLocale());
+  return guide_url.spec();
+}
+
+void ExistingUserController::OptionallyShowReleaseNotes(
+    Profile* profile) const {
+  // TODO(nkostylev): Fix WizardControllerFlowTest case.
+  if (!profile || KioskModeSettings::Get()->IsKioskModeEnabled())
     return;
-  host_->SetStatusAreaEnabled(enable);
+  PrefService* prefs = profile->GetPrefs();
+  chrome::VersionInfo version_info;
+  // New users would get this info with default getting started guide.
+  // In password changed case 2 options are available:
+  // 1. Cryptohome removed, pref is gone, not yet synced, recreate
+  //    with latest version.
+  // 2. Cryptohome migrated, pref is available. To simplify implementation
+  //    update version here too. Unlikely that user signs in first time on
+  //    the machine after update with password changed.
+  if (UserManager::Get()->IsCurrentUserNew() || password_changed_) {
+    prefs->SetString(prefs::kChromeOSReleaseNotesVersion,
+                     version_info.Version());
+    return;
+  }
+
+  std::string prev_version_pref =
+      prefs->GetString(prefs::kChromeOSReleaseNotesVersion);
+  Version prev_version(prev_version_pref);
+  if (!prev_version.IsValid())
+    prev_version = Version("0.0.0.0");
+  Version current_version(version_info.Version());
+
+  if (!current_version.components().size()) {
+    NOTREACHED() << "Incorrect version " << current_version.GetString();
+    return;
+  }
+
+  // No "Release Notes" content yet for upgrade from M19 to later release.
+  if (prev_version.components()[0] >= kReleaseNotesTargetRelease)
+    return;
+
+  // Otherwise, trigger on major version change.
+  if (current_version.components()[0] > prev_version.components()[0]) {
+    std::string release_notes_url = GetGettingStartedGuideURL();
+    if (!release_notes_url.empty()) {
+      CommandLine::ForCurrentProcess()->AppendSwitchASCII(switches::kApp,
+                                                          release_notes_url);
+      prefs->SetString(prefs::kChromeOSReleaseNotesVersion,
+                       current_version.GetString());
+    }
+  }
 }
 
 void ExistingUserController::ShowError(int error_id,
@@ -787,6 +893,8 @@ void ExistingUserController::ShowError(int error_id,
   // for end users, developers can see details string in Chrome logs.
   VLOG(1) << details;
   HelpAppLauncher::HelpTopic help_topic_id;
+  NetworkLibrary* network_library = CrosLibrary::Get()->GetNetworkLibrary();
+  bool is_offline = !network_library || !network_library->Connected();
   switch (login_performer_->error().state()) {
     case GoogleServiceAuthError::CONNECTION_FAILED:
       help_topic_id = HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT_OFFLINE;
@@ -798,7 +906,7 @@ void ExistingUserController::ShowError(int error_id,
       help_topic_id = HelpAppLauncher::HELP_HOSTED_ACCOUNT;
       break;
     default:
-      help_topic_id = login_performer_->login_timed_out() ?
+      help_topic_id = is_offline ?
           HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT_OFFLINE :
           HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT;
       break;
@@ -815,7 +923,6 @@ void ExistingUserController::ShowGaiaPasswordChanged(
                                           User::OAUTH_TOKEN_STATUS_INVALID);
 
   login_display_->SetUIEnabled(true);
-  SetStatusAreaEnabled(true);
   login_display_->ShowGaiaPasswordChanged(username);
 }
 

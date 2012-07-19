@@ -4,7 +4,6 @@
 
 #ifndef ASH_SYSTEM_BRIGHTNESS_TRAY_BRIGHTNESS_H_
 #define ASH_SYSTEM_BRIGHTNESS_TRAY_BRIGHTNESS_H_
-#pragma once
 
 #include "ash/system/brightness/brightness_observer.h"
 #include "ash/system/tray/system_tray_item.h"
@@ -41,6 +40,7 @@ class TrayBrightness : public SystemTrayItem,
   virtual void DestroyTrayView() OVERRIDE;
   virtual void DestroyDefaultView() OVERRIDE;
   virtual void DestroyDetailedView() OVERRIDE;
+  virtual void UpdateAfterLoginStatusChange(user::LoginStatus status) OVERRIDE;
 
   // Overridden from BrightnessObserver.
   virtual void OnBrightnessChanged(double percent,
@@ -48,7 +48,7 @@ class TrayBrightness : public SystemTrayItem,
 
   base::WeakPtrFactory<TrayBrightness> weak_ptr_factory_;
 
-  scoped_ptr<tray::BrightnessView> brightness_view_;
+  tray::BrightnessView* brightness_view_;
 
   // Was |brightness_view_| created for CreateDefaultView() rather than
   // CreateDetailedView()?  Used to avoid resetting |brightness_view_|

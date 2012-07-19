@@ -4,13 +4,16 @@
 
 #ifndef UI_GFX_CANVAS_H_
 #define UI_GFX_CANVAS_H_
-#pragma once
+
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "skia/ext/platform_canvas.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/shadow_value.h"
 
 class SkBitmap;
 
@@ -20,7 +23,6 @@ class Transform;
 
 namespace gfx {
 
-class Brush;
 class Rect;
 class Font;
 class Point;
@@ -94,20 +96,43 @@ class UI_EXPORT Canvas {
     NO_SUBPIXEL_RENDERING = 1 << 13,
   };
 
-  // Creates an empty canvas.
+  // Creates an empty canvas with scale factor of 1x.
   Canvas();
 
+  // Creates canvas with provided DIP |size| and a scale factor of 1x.
   // If this canvas is not opaque, it's explicitly cleared to transparent before
   // being returned.
+  // TODO(pkotwicz): Remove this constructor.
   Canvas(const gfx::Size& size, bool is_opaque);
 
-  // Constructs a canvas the size of the provided |bitmap|, and draws the
-  // bitmap into it.
-  Canvas(const SkBitmap& bitmap, bool is_opaque);
+  // Creates canvas with provided DIP |size| and |scale_factor|.
+  // If this canvas is not opaque, it's explicitly cleared to transparent before
+  // being returned.
+  Canvas(const gfx::Size& size,
+         ui::ScaleFactor scale_factor,
+         bool is_opaque);
 
-  explicit Canvas(SkCanvas* canvas);
+  // Constructs a canvas with the size and the scale factor of the
+  // provided |image_rep|, and draws the |image_rep| into it.
+  Canvas(const gfx::ImageSkiaRep& image_rep, bool is_opaque);
+
+  // Sets scale factor to |scale_factor|.
+  // Only scales canvas if |scale_canvas| is true.
+  Canvas(SkCanvas* canvas,
+         ui::ScaleFactor scale_factor,
+         bool scale_canvas);
 
   virtual ~Canvas();
+
+  // Recreates the backing platform canvas with DIP |size| and |scale_factor|.
+  // If the canvas is not opaque, it is explicitly cleared.
+  // This method is public so that canvas_skia_paint can recreate the platform
+  // canvas after having initialized the canvas.
+  // TODO(pkotwicz): Push the scale factor into skia::PlatformCanvas such that
+  // this method can be private.
+  void RecreateBackingCanvas(const gfx::Size& size,
+                             ui::ScaleFactor scale_factor,
+                             bool is_opaque);
 
   // Compute the size required to draw some text with the provided font.
   // Attempts to fit the text with the provided width and height. Increases
@@ -148,7 +173,12 @@ class UI_EXPORT Canvas {
                           int flags);
 
   // Extracts a bitmap from the contents of this canvas.
+  // TODO(pkotwicz): Remove ExtractBitmap once all callers use
+  // ExtractImageSkiaRep instead.
   SkBitmap ExtractBitmap() const;
+
+  // Extracts an ImageSkiaRep from the contents of this canvas.
+  gfx::ImageSkiaRep ExtractImageSkiaRep() const;
 
   // Draws a dashed rectangle of the specified color.
   void DrawDashedRect(const gfx::Rect& rect, SkColor color);
@@ -168,12 +198,29 @@ class UI_EXPORT Canvas {
   // call Restore() more times than Save*().
   void Restore() ;
 
-  // Returns true if the clip is non-empty.
+  // Adds |rect| to the current clip. Returns true if the resulting clip is
+  // non-empty.
   bool ClipRect(const gfx::Rect& rect);
+
+  // Adds |path| to the current clip. Returns true if the resulting clip is
+  // non-empty.
+  bool ClipPath(const SkPath& path);
+
+  // Returns the bounds of the current clip (in local coordinates) in the
+  // |bounds| parameter, and returns true if it is non empty.
+  bool GetClipBounds(gfx::Rect* bounds);
 
   void Translate(const gfx::Point& point);
 
   void Scale(int x_scale, int y_scale);
+
+  // Fills the entire canvas' bitmap (restricted to current clip) with
+  // specified |color| using a transfer mode of SkXfermode::kSrcOver_Mode.
+  void DrawColor(SkColor color);
+
+  // Fills the entire canvas' bitmap (restricted to current clip) with
+  // specified |color| and |mode|.
+  void DrawColor(SkColor color, SkXfermode::Mode mode);
 
   // Fills |rect| with |color| using a transfer mode of
   // SkXfermode::kSrcOver_Mode.
@@ -194,44 +241,78 @@ class UI_EXPORT Canvas {
   // NOTE: if you need a single pixel line, use DrawLine.
   void DrawRect(const gfx::Rect& rect, SkColor color, SkXfermode::Mode mode);
 
-  // Draws the given rectangle with the given paint's parameters.
+  // Draws the given rectangle with the given |paint| parameters.
   void DrawRect(const gfx::Rect& rect, const SkPaint& paint);
+
+  // Draw the given point with the given |paint| parameters.
+  void DrawPoint(const gfx::Point& p, const SkPaint& paint);
 
   // Draws a single pixel line with the specified color.
   void DrawLine(const gfx::Point& p1, const gfx::Point& p2, SkColor color);
 
-  // Draws a bitmap with the origin at the specified location. The upper left
-  // corner of the bitmap is rendered at the specified location.
-  void DrawBitmapInt(const SkBitmap& bitmap, int x, int y);
+  // Draws a line with the given |paint| parameters.
+  void DrawLine(const gfx::Point& p1,
+                const gfx::Point& p2,
+                const SkPaint& paint);
 
-  // Draws a bitmap with the origin at the specified location, using the
+  // Draws a circle with the given |paint| parameters.
+  void DrawCircle(const gfx::Point& center_point,
+                  int radius,
+                  const SkPaint& paint);
+
+  // Draws the given rectangle with rounded corners of |radius| using the
+  // given |paint| parameters.
+  void DrawRoundRect(const gfx::Rect& rect, int radius, const SkPaint& paint);
+
+  // Draws the given path using the given |paint| parameters.
+  void DrawPath(const SkPath& path, const SkPaint& paint);
+
+  // Draws an image with the origin at the specified location. The upper left
+  // corner of the bitmap is rendered at the specified location.
+  // Parameters are specified relative to current canvas scale not in pixels.
+  // Thus, x is 2 pixels if canvas scale = 2 & |x| = 1.
+  void DrawImageInt(const gfx::ImageSkia&, int x, int y);
+
+  // Draws an image with the origin at the specified location, using the
   // specified paint. The upper left corner of the bitmap is rendered at the
   // specified location.
-  void DrawBitmapInt(const SkBitmap& bitmap,
-                     int x, int y,
-                     const SkPaint& paint);
+  // Parameters are specified relative to current canvas scale not in pixels.
+  // Thus, |x| is 2 pixels if canvas scale = 2 & |x| = 1.
+  void DrawImageInt(const gfx::ImageSkia& image,
+                    int x, int y,
+                    const SkPaint& paint);
 
-  // Draws a portion of a bitmap in the specified location. The src parameters
+  // Draws a portion of an image in the specified location. The src parameters
   // correspond to the region of the bitmap to draw in the region defined
   // by the dest coordinates.
   //
   // If the width or height of the source differs from that of the destination,
-  // the bitmap will be scaled. When scaling down, it is highly recommended
-  // that you call buildMipMap(false) on your bitmap to ensure that it has
-  // a mipmap, which will result in much higher-quality output. Set |filter|
-  // to use filtering for bitmaps, otherwise the nearest-neighbor algorithm
-  // is used for resampling.
+  // the image will be scaled. When scaling down, a mipmap will be generated.
+  // Set |filter| to use filtering for images, otherwise the nearest-neighbor
+  // algorithm is used for resampling.
   //
   // An optional custom SkPaint can be provided.
-  void DrawBitmapInt(const SkBitmap& bitmap,
-                     int src_x, int src_y, int src_w, int src_h,
-                     int dest_x, int dest_y, int dest_w, int dest_h,
-                     bool filter);
-  void DrawBitmapInt(const SkBitmap& bitmap,
-                     int src_x, int src_y, int src_w, int src_h,
-                     int dest_x, int dest_y, int dest_w, int dest_h,
-                     bool filter,
-                     const SkPaint& paint);
+  // Parameters are specified relative to current canvas scale not in pixels.
+  // Thus, |x| is 2 pixels if canvas scale = 2 & |x| = 1.
+  void DrawImageInt(const gfx::ImageSkia& image,
+                    int src_x, int src_y, int src_w, int src_h,
+                    int dest_x, int dest_y, int dest_w, int dest_h,
+                    bool filter);
+  void DrawImageInt(const gfx::ImageSkia& image,
+                    int src_x, int src_y, int src_w, int src_h,
+                    int dest_x, int dest_y, int dest_w, int dest_h,
+                    bool filter,
+                    const SkPaint& paint);
+
+  // Draws an |image| with the top left corner at |x| and |y|, clipped to
+  // |path|.
+  // Parameters are specified relative to current canvas scale not in pixels.
+  // Thus, x is 2 pixels if canvas scale = 2 & |x| = 1.
+  void DrawImageInPath(const gfx::ImageSkia& image,
+                       int x,
+                       int y,
+                       const SkPath& path,
+                       const SkPaint& paint);
 
   // Draws text with the specified color, font and location. The text is
   // aligned to the left, vertically centered, clipped to the region. If the
@@ -254,14 +335,29 @@ class UI_EXPORT Canvas {
                      int x, int y, int w, int h,
                      int flags);
 
+  // Similar to above DrawStringInt method but with text shadows support.
+  // Currently it's only implemented for canvas skia.
+  void DrawStringWithShadows(const string16& text,
+                             const gfx::Font& font,
+                             SkColor color,
+                             const gfx::Rect& text_bounds,
+                             int flags,
+                             const ShadowValues& shadows);
+
   // Draws a dotted gray rectangle used for focus purposes.
   void DrawFocusRect(const gfx::Rect& rect);
 
   // Tiles the image in the specified region.
-  void TileImageInt(const SkBitmap& bitmap,
+  // Parameters are specified relative to current canvas scale not in pixels.
+  // Thus, |x| is 2 pixels if canvas scale = 2 & |x| = 1.
+  void TileImageInt(const gfx::ImageSkia& image,
                     int x, int y, int w, int h);
-  void TileImageInt(const SkBitmap& bitmap,
+  void TileImageInt(const gfx::ImageSkia& image,
                     int src_x, int src_y,
+                    int dest_x, int dest_y, int w, int h);
+  void TileImageInt(const gfx::ImageSkia& image,
+                    int src_x, int src_y,
+                    float tile_scale_x, float tile_scale_y,
                     int dest_x, int dest_y, int w, int h);
 
   // Returns a native drawing context for platform specific drawing routines to
@@ -275,7 +371,6 @@ class UI_EXPORT Canvas {
   // Apply transformation on the canvas.
   void Transform(const ui::Transform& transform);
 
-#if defined(OS_WIN)
   // Draws the given string with the beginning and/or the end using a fade
   // gradient. When truncating the head
   // |desired_characters_to_truncate_from_head| specifies the maximum number of
@@ -287,28 +382,45 @@ class UI_EXPORT Canvas {
       const gfx::Font& font,
       SkColor color,
       const gfx::Rect& display_rect);
-#endif
 
   skia::PlatformCanvas* platform_canvas() const { return owned_canvas_.get(); }
   SkCanvas* sk_canvas() const { return canvas_; }
+  ui::ScaleFactor scale_factor() const { return scale_factor_; }
 
  private:
   // Test whether the provided rectangle intersects the current clip rect.
   bool IntersectsClipRectInt(int x, int y, int w, int h);
+  bool IntersectsClipRect(const gfx::Rect& rect);
 
-#if defined(OS_WIN)
-  // Draws text with the specified color, font and location. The text is
-  // aligned to the left, vertically centered, clipped to the region. If the
-  // text is too big, it is truncated and '...' is added to the end.
-  void DrawStringInt(const string16& text,
-                     HFONT font,
-                     SkColor color,
-                     int x, int y, int w, int h,
-                     int flags);
-#endif
+  // Sets the canvas' scale factor to |scale_factor|. This affects
+  // the scale factor at which drawing bitmaps occurs and the scale factor of
+  // the image rep returned by Canvas::ExtractImageSkiaRep().
+  // If |scale_canvas| is true, scales the canvas by |scale_factor|.
+  void ApplyScaleFactor(ui::ScaleFactor scale_factor, bool scale_canvas);
+
+  // Returns the image rep which best matches the canvas |scale_factor_|.
+  // Returns a null image rep if |image| contains no image reps.
+  // Builds mip map for returned image rep if necessary.
+  //
+  // An optional additional user defined scale can be provided.
+  const gfx::ImageSkiaRep& GetImageRepToPaint(
+      const gfx::ImageSkia& image) const;
+  const gfx::ImageSkiaRep& GetImageRepToPaint(
+      const gfx::ImageSkia& image,
+      float user_defined_scale_factor_x,
+      float user_defined_scale_factor_y)  const;
 
   scoped_ptr<skia::PlatformCanvas> owned_canvas_;
   SkCanvas* canvas_;
+
+  // True if the scale factor scales the canvas and the inverse
+  // canvas scale should be applied when the destructor is called.
+  bool scale_factor_scales_canvas_;
+
+  // The device scale factor at which drawing on this canvas occurs.
+  // An additional scale can be applied via Canvas::Scale(). However,
+  // Canvas::Scale() does not affect |scale_factor_|.
+  ui::ScaleFactor scale_factor_;
 
   DISALLOW_COPY_AND_ASSIGN(Canvas);
 };

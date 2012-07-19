@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,10 +10,17 @@
 #include "base/memory/ref_counted_memory.h"
 #include "base/message_loop.h"
 #include "base/path_service.h"
+#include "base/string16.h"
+#include "base/string_util.h"
+#include "chrome/browser/download/download_prefs.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
+#include "googleurl/src/url_canon.h"
+#include "googleurl/src/url_util.h"
 
 #if defined(OS_CHROMEOS)
+#include "ash/shell.h"
+#include "ash/shell_delegate.h"
 #include "content/public/browser/browser_thread.h"
 #endif
 
@@ -87,14 +94,17 @@ void ScreenshotSource::SendSavedScreenshot(const std::string& screenshot_path,
   std::string filename = screenshot_path.substr(
       strlen(kSavedScreenshotsBasePath));
 
-  FilePath fileshelf_path;
-  if (!PathService::Get(chrome::DIR_DEFAULT_DOWNLOADS, &fileshelf_path)) {
-    CacheAndSendScreenshot(screenshot_path, request_id, read_bytes);
-    return;
-  }
+  url_canon::RawCanonOutputT<char16> decoded;
+  url_util::DecodeURLEscapeSequences(
+      filename.data(), filename.size(), &decoded);
+  // Screenshot filenames don't use non-ascii characters.
+  std::string decoded_filename = UTF16ToASCII(string16(
+      decoded.data(), decoded.length()));
 
   int64 file_size = 0;
-  FilePath file = fileshelf_path.Append(filename);
+  DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(
+      ash::Shell::GetInstance()->delegate()->GetCurrentBrowserContext());
+  FilePath file = download_prefs->download_path().Append(decoded_filename);
   if (!file_util::GetFileSize(file, &file_size)) {
     CacheAndSendScreenshot(screenshot_path, request_id, read_bytes);
     return;
@@ -114,5 +124,5 @@ void ScreenshotSource::CacheAndSendScreenshot(
     int request_id,
     ScreenshotDataPtr bytes) {
   cached_screenshots_[screenshot_path] = bytes;
-  SendResponse(request_id, new RefCountedBytes(*bytes));
+  SendResponse(request_id, new base::RefCountedBytes(*bytes));
 }

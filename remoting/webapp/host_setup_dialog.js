@@ -16,9 +16,8 @@ remoting.HostSetupFlow = function(sequence) {
   this.sequence_ = sequence;
   this.currentStep_ = 0;
   this.state_ = sequence[0];
-
   this.pin = '';
-  this.hostConfig = '';
+  this.consent = false;
 };
 
 /** @enum {number} */
@@ -32,21 +31,20 @@ remoting.HostSetupFlow.State = {
   INSTALL_HOST: 2,
 
   // Processing states.
-  REGISTERING_HOST: 3,
-  STARTING_HOST: 4,
-  UPDATING_PIN: 5,
-  STOPPING_HOST: 6,
+  STARTING_HOST: 3,
+  UPDATING_PIN: 4,
+  STOPPING_HOST: 5,
 
   // Done states.
-  HOST_STARTED: 7,
-  UPDATED_PIN: 8,
-  HOST_STOPPED: 9,
+  HOST_STARTED: 6,
+  UPDATED_PIN: 7,
+  HOST_STOPPED: 8,
 
   // Failure states.
-  REGISTRATION_FAILED: 10,
-  START_HOST_FAILED: 11,
-  UPDATE_PIN_FAILED: 12,
-  STOP_HOST_FAILED: 13
+  REGISTRATION_FAILED: 9,
+  START_HOST_FAILED: 10,
+  UPDATE_PIN_FAILED: 11,
+  STOP_HOST_FAILED: 12
 };
 
 /** @return {remoting.HostSetupFlow.State} Current state of the flow. */
@@ -55,7 +53,7 @@ remoting.HostSetupFlow.prototype.getState = function() {
 };
 
 /**
- * @param {remoting.DaemonPlugin.AsyncResult} result Result of the
+ * @param {remoting.HostController.AsyncResult} result Result of the
  * current step.
  * @return {remoting.HostSetupFlow.State} New state.
  */
@@ -63,7 +61,7 @@ remoting.HostSetupFlow.prototype.switchToNextStep = function(result) {
   if (this.state_ == remoting.HostSetupFlow.State.NONE) {
     return this.state_;
   }
-  if (result == remoting.DaemonPlugin.AsyncResult.OK) {
+  if (result == remoting.HostController.AsyncResult.OK) {
     // If the current step was successful then switch to the next
     // step in the sequence.
     if (this.currentStep_ < this.sequence_.length - 1) {
@@ -72,15 +70,17 @@ remoting.HostSetupFlow.prototype.switchToNextStep = function(result) {
     } else {
       this.state_ = remoting.HostSetupFlow.State.NONE;
     }
-  } else if (result == remoting.DaemonPlugin.AsyncResult.CANCELLED) {
+  } else if (result == remoting.HostController.AsyncResult.CANCELLED) {
     // Stop the setup flow if user rejected one of the actions.
     this.state_ = remoting.HostSetupFlow.State.NONE;
   } else {
     // Current step failed, so switch to corresponding error state.
-    if (this.state_ == remoting.HostSetupFlow.State.REGISTERING_HOST) {
-      this.state_ = remoting.HostSetupFlow.State.REGISTRATION_FAILED;
-    } else if (this.state_ == remoting.HostSetupFlow.State.STARTING_HOST) {
-      this.state_ = remoting.HostSetupFlow.State.START_HOST_FAILED;
+    if (this.state_ == remoting.HostSetupFlow.State.STARTING_HOST) {
+      if (result == remoting.HostController.AsyncResult.FAILED_DIRECTORY) {
+        this.state_ = remoting.HostSetupFlow.State.REGISTRATION_FAILED;
+      } else {
+        this.state_ = remoting.HostSetupFlow.State.START_HOST_FAILED;
+      }
     } else if (this.state_ == remoting.HostSetupFlow.State.UPDATING_PIN) {
       this.state_ = remoting.HostSetupFlow.State.UPDATE_PIN_FAILED;
     } else if (this.state_ == remoting.HostSetupFlow.State.STOPPING_HOST) {
@@ -94,11 +94,12 @@ remoting.HostSetupFlow.prototype.switchToNextStep = function(result) {
 };
 
 /**
- * @param {remoting.DaemonPlugin} daemon The parent daemon plugin instance.
+ * @param {remoting.HostController} hostController The HostController
+ * responsible for the host daemon.
  * @constructor
  */
-remoting.HostSetupDialog = function(daemon) {
-  this.daemon_ = daemon;
+remoting.HostSetupDialog = function(hostController) {
+  this.hostController_ = hostController;
   this.pinEntry_ = document.getElementById('daemon-pin-entry');
   this.pinConfirm_ = document.getElementById('daemon-pin-confirm');
   this.pinErrorDiv_ = document.getElementById('daemon-pin-error-div');
@@ -123,7 +124,23 @@ remoting.HostSetupDialog = function(daemon) {
       event.preventDefault();
     }
   };
+  /** @param {Event} event A keypress event. */
+  var noDigitsInPin = function(event) {
+    if (event.which == 13) {
+      return;  // Otherwise the "submit" action can't be triggered by Enter.
+    }
+    if ((event.which >= 48) && (event.which <= 57)) {
+      return;
+    }
+    event.preventDefault();
+  };
   this.pinEntry_.addEventListener('keypress', onDaemonPinEntryKeyPress, false);
+  this.pinEntry_.addEventListener('keypress', noDigitsInPin, false);
+  this.pinConfirm_.addEventListener('keypress', noDigitsInPin, false);
+
+  this.usageStats_ = document.getElementById('usagestats-consent');
+  this.usageStatsCheckbox_ =
+      document.getElementById('usagestats-consent-checkbox');
 };
 
 /**
@@ -133,14 +150,45 @@ remoting.HostSetupDialog = function(daemon) {
  * @return {void} Nothing.
  */
 remoting.HostSetupDialog.prototype.showForStart = function() {
+  // Although we don't need an access token in order to start the host,
+  // using callWithToken here ensures consistent error handling in the
+  // case where the refresh token is invalid.
+  remoting.oauth2.callWithToken(this.showForStartWithToken_.bind(this),
+                                remoting.defaultOAuthErrorHandler);
+};
+
+/**
+ * @param {string} token The OAuth2 token.
+ * @private
+ */
+remoting.HostSetupDialog.prototype.showForStartWithToken_ = function(token) {
+  /** @type {remoting.HostSetupDialog} */
+  var that = this;
+
+  /**
+   * @param {boolean} supported True if crash dump reporting is supported by
+   *     the host.
+   * @param {boolean} allowed True if crash dump reporting is allowed.
+   * @param {boolean} set_by_policy True if crash dump reporting is controlled
+   *     by policy.
+   */
+  var onGetConsent = function(supported, allowed, set_by_policy) {
+    that.usageStats_.hidden = !supported;
+    that.usageStatsCheckbox_.checked = allowed;
+    that.usageStatsCheckbox_.disabled = set_by_policy;
+  };
+  this.usageStats_.hidden = false;
+  this.usageStatsCheckbox_.checked = true;
+  this.hostController_.getConsent(onGetConsent);
+
   var flow = [
       remoting.HostSetupFlow.State.ASK_PIN,
-      remoting.HostSetupFlow.State.REGISTERING_HOST,
       remoting.HostSetupFlow.State.STARTING_HOST,
       remoting.HostSetupFlow.State.HOST_STARTED];
 
   if (navigator.platform.indexOf('Mac') != -1 &&
-      this.daemon_.state() == remoting.DaemonPlugin.State.NOT_INSTALLED) {
+      this.hostController_.state() ==
+      remoting.HostController.State.NOT_INSTALLED) {
     flow.unshift(remoting.HostSetupFlow.State.INSTALL_HOST);
   }
 
@@ -153,6 +201,7 @@ remoting.HostSetupDialog.prototype.showForStart = function() {
  * @return {void} Nothing.
  */
 remoting.HostSetupDialog.prototype.showForPin = function() {
+  this.usageStats_.hidden = true;
   this.startNewFlow_(
       [remoting.HostSetupFlow.State.ASK_PIN,
        remoting.HostSetupFlow.State.UPDATING_PIN,
@@ -198,7 +247,7 @@ remoting.HostSetupDialog.prototype.startNewFlow_ = function(sequence) {
  * @private
  */
 remoting.HostSetupDialog.prototype.updateState_ = function() {
-  remoting.daemonPlugin.updateDom();
+  remoting.hostController.updateDom();
 
   /** @param {string} tag */
   function showProcessingMessage(tag) {
@@ -206,10 +255,17 @@ remoting.HostSetupDialog.prototype.updateState_ = function() {
     l10n.localizeElementFromTag(messageDiv, tag);
     remoting.setMode(remoting.AppMode.HOST_SETUP_PROCESSING);
   }
-  /** @param {string} tag */
-  function showDoneMessage(tag) {
+  /** @param {string} tag1
+   *  @param {string=} opt_tag2 */
+  function showDoneMessage(tag1, opt_tag2) {
     var messageDiv = document.getElementById('host-setup-done-message');
-    l10n.localizeElementFromTag(messageDiv, tag);
+    l10n.localizeElementFromTag(messageDiv, tag1);
+    messageDiv = document.getElementById('host-setup-done-message-2');
+    if (opt_tag2) {
+      l10n.localizeElementFromTag(messageDiv, opt_tag2);
+    } else {
+      messageDiv.innerText = '';
+    }
     remoting.setMode(remoting.AppMode.HOST_SETUP_DONE);
   }
   /** @param {string} tag */
@@ -228,9 +284,6 @@ remoting.HostSetupDialog.prototype.updateState_ = function() {
     remoting.setMode(remoting.AppMode.HOST_SETUP_INSTALL);
     window.location =
         'http://dl.google.com/chrome-remote-desktop/chromeremotedesktop.dmg';
-  } else if (state == remoting.HostSetupFlow.State.REGISTERING_HOST) {
-    showProcessingMessage(/*i18n-content*/'HOST_SETUP_STARTING');
-    this.registerHost_();
   } else if (state == remoting.HostSetupFlow.State.STARTING_HOST) {
     showProcessingMessage(/*i18n-content*/'HOST_SETUP_STARTING');
     this.startHost_();
@@ -241,7 +294,10 @@ remoting.HostSetupDialog.prototype.updateState_ = function() {
     showProcessingMessage(/*i18n-content*/'HOST_SETUP_STOPPING');
     this.stopHost_();
   } else if (state == remoting.HostSetupFlow.State.HOST_STARTED) {
-    showDoneMessage(/*i18n-content*/'HOST_SETUP_STARTED');
+    // TODO(jamiewalch): Only display the second string if the computer's power
+    // management settings indicate that it's necessary.
+    showDoneMessage(/*i18n-content*/'HOST_SETUP_STARTED',
+                    /*i18n-content*/'HOST_SETUP_STARTED_DISABLE_SLEEP');
   } else if (state == remoting.HostSetupFlow.State.UPDATED_PIN) {
     showDoneMessage(/*i18n-content*/'HOST_SETUP_UPDATED_PIN');
   } else if (state == remoting.HostSetupFlow.State.HOST_STOPPED) {
@@ -258,111 +314,7 @@ remoting.HostSetupDialog.prototype.updateState_ = function() {
 };
 
 /**
- * Registers new host.
- * TODO(jamiewalch): This doesn't feel like it belongs here. I think it would be
- * better as a member of daemon_plugin, alongside unregister.
- */
-remoting.HostSetupDialog.prototype.registerHost_ = function() {
-  /** @type {remoting.HostSetupDialog} */
-  var that = this;
-  /** @type {remoting.HostSetupFlow} */
-  var flow = this.flow_;
-
-  /** @return {string} */
-  function generateUuid() {
-    var random = new Uint16Array(8);
-    window.crypto.getRandomValues(random);
-    /** @type {Array.<string>} */
-    var e = new Array();
-    for (var i = 0; i < 8; i++) {
-      e[i] = (/** @type {number} */random[i] + 0x10000).
-          toString(16).substring(1);
-    }
-    return e[0] + e[1] + '-' + e[2] + "-" + e[3] + '-' +
-        e[4] + '-' + e[5] + e[6] + e[7];
-  }
-
-  var newHostId = generateUuid();
-  // TODO(jamiewalch): Create an unprivileged API to get the host id from the
-  // plugin instead of storing it locally (crbug.com/121518).
-  window.localStorage.setItem('me2me-host-id', newHostId);
-
-  /** @param {string} privateKey
-   *  @param {XMLHttpRequest} xhr */
-  function onRegistered(privateKey, xhr) {
-    if (flow !== that.flow_ ||
-        flow.getState() != remoting.HostSetupFlow.State.REGISTERING_HOST) {
-      console.error('Host setup was interrupted when registering the host');
-      return;
-    }
-
-    var success = (xhr.status == 200);
-
-    if (success) {
-      // TODO(sergeyu): Calculate HMAC of the PIN instead of storing it
-      // in plaintext.
-      flow.hostConfig = JSON.stringify({
-          xmpp_login: remoting.oauth2.getCachedEmail(),
-          oauth_refresh_token: remoting.oauth2.getRefreshToken(),
-          host_id: newHostId,
-          host_name: that.daemon_.getHostName(),
-          host_secret_hash: 'plain:' + window.btoa(flow.pin),
-          private_key: privateKey
-        });
-    } else {
-      console.log('Failed to register the host. Status: ' + xhr.status +
-                  ' response: ' + xhr.responseText);
-    }
-
-    flow.switchToNextStep(success ? remoting.DaemonPlugin.AsyncResult.OK :
-                          remoting.DaemonPlugin.AsyncResult.FAILED);
-    that.updateState_();
-  }
-
-  /**
-   * @param {string} privateKey
-   * @param {string} publicKey
-   * @param {string} oauthToken
-   */
-  function doRegisterHost(privateKey, publicKey, oauthToken) {
-    if (flow !== that.flow_ ||
-        flow.getState() != remoting.HostSetupFlow.State.REGISTERING_HOST) {
-      console.error('Host setup was interrupted when generating key pair');
-      return;
-    }
-
-    var headers = {
-      'Authorization': 'OAuth ' + oauthToken,
-      'Content-type' : 'application/json; charset=UTF-8'
-    };
-
-    var newHostDetails = { data: {
-       hostId: newHostId,
-       hostName: that.daemon_.getHostName(),
-       publicKey: publicKey
-    } };
-    remoting.xhr.post(
-        'https://www.googleapis.com/chromoting/v1/@me/hosts/',
-        /** @param {XMLHttpRequest} xhr */
-        function (xhr) { onRegistered(privateKey, xhr); },
-        JSON.stringify(newHostDetails),
-        headers);
-  }
-
-  this.daemon_.generateKeyPair(
-      /** @param {string} privateKey
-       *  @param {string} publicKey */
-      function(privateKey, publicKey) {
-      remoting.oauth2.callWithToken(
-          /** @param {string} oauthToken */
-          function(oauthToken) {
-            doRegisterHost(privateKey, publicKey, oauthToken);
-          });
-      });
-};
-
-/**
- * Starts the host process after it's registered.
+ * Registers and starts the host.
  */
 remoting.HostSetupDialog.prototype.startHost_ = function() {
   /** @type {remoting.HostSetupDialog} */
@@ -370,7 +322,7 @@ remoting.HostSetupDialog.prototype.startHost_ = function() {
   /** @type {remoting.HostSetupFlow} */
   var flow = this.flow_;
 
-  /** @param {remoting.DaemonPlugin.AsyncResult} result */
+  /** @param {remoting.HostController.AsyncResult} result */
   function onHostStarted(result) {
     if (flow !== that.flow_ ||
         flow.getState() != remoting.HostSetupFlow.State.STARTING_HOST) {
@@ -381,7 +333,7 @@ remoting.HostSetupDialog.prototype.startHost_ = function() {
     flow.switchToNextStep(result);
     that.updateState_();
   }
-  this.daemon_.start(this.flow_.hostConfig, onHostStarted);
+  this.hostController_.start(this.flow_.pin, this.flow_.consent, onHostStarted);
 };
 
 remoting.HostSetupDialog.prototype.updatePin_ = function() {
@@ -390,7 +342,7 @@ remoting.HostSetupDialog.prototype.updatePin_ = function() {
   /** @type {remoting.HostSetupFlow} */
   var flow = this.flow_;
 
-  /** @param {remoting.DaemonPlugin.AsyncResult} result */
+  /** @param {remoting.HostController.AsyncResult} result */
   function onPinUpdated(result) {
     if (flow !== that.flow_ ||
         flow.getState() != remoting.HostSetupFlow.State.UPDATING_PIN) {
@@ -402,10 +354,7 @@ remoting.HostSetupDialog.prototype.updatePin_ = function() {
     that.updateState_();
   }
 
-  var newConfig = JSON.stringify({
-          host_secret_hash: 'plain:' + window.btoa(flow.pin)
-      });
-  this.daemon_.updateConfig(newConfig, onPinUpdated);
+  this.hostController_.updatePin(flow.pin, onPinUpdated);
 }
 
 /**
@@ -417,7 +366,7 @@ remoting.HostSetupDialog.prototype.stopHost_ = function() {
   /** @type {remoting.HostSetupFlow} */
   var flow = this.flow_;
 
-  /** @param {remoting.DaemonPlugin.AsyncResult} result */
+  /** @param {remoting.HostController.AsyncResult} result */
   function onHostStopped(result) {
     if (flow !== that.flow_ ||
         flow.getState() != remoting.HostSetupFlow.State.STOPPING_HOST) {
@@ -425,11 +374,10 @@ remoting.HostSetupDialog.prototype.stopHost_ = function() {
       return;
     }
 
-    that.daemon_.unregister();
     flow.switchToNextStep(result);
     that.updateState_();
   }
-  this.daemon_.stop(onHostStopped);
+  this.hostController_.stop(onHostStopped);
 };
 
 /** @private */
@@ -456,7 +404,9 @@ remoting.HostSetupDialog.prototype.onPinSubmit_ = function() {
   }
   this.pinErrorDiv_.hidden = true;
   this.flow_.pin = pin1;
-  this.flow_.switchToNextStep(remoting.DaemonPlugin.AsyncResult.OK);
+  this.flow_.consent = !this.usageStats_.hidden &&
+      (this.usageStatsCheckbox_.value == "on");
+  this.flow_.switchToNextStep(remoting.HostController.AsyncResult.OK);
   this.updateState_();
 };
 
@@ -485,27 +435,27 @@ remoting.HostSetupDialog.validPin_ = function(pin) {
     }
   }
   return true;
-}
+};
 
 /**
  * @return {void} Nothing.
  */
 remoting.HostSetupDialog.prototype.onInstallDialogOk = function() {
-  var state = this.daemon_.state();
-  if (state == remoting.DaemonPlugin.State.STOPPED) {
-    this.flow_.switchToNextStep(remoting.DaemonPlugin.AsyncResult.OK);
+  var state = this.hostController_.state();
+  if (state == remoting.HostController.State.STOPPED) {
+    this.flow_.switchToNextStep(remoting.HostController.AsyncResult.OK);
     this.updateState_();
   } else {
     remoting.setMode(remoting.AppMode.HOST_SETUP_INSTALL_PENDING);
   }
-}
+};
 
 /**
  * @return {void} Nothing.
  */
 remoting.HostSetupDialog.prototype.onInstallDialogRetry = function() {
   remoting.setMode(remoting.AppMode.HOST_SETUP_INSTALL);
-}
+};
 
 /** @type {remoting.HostSetupDialog} */
 remoting.hostSetupDialog = null;

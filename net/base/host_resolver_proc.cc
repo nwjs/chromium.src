@@ -236,7 +236,15 @@ int SystemHostResolverProc(const std::string& host,
     return ERR_NAME_NOT_RESOLVED;
   }
 
-  *addrlist = AddressList::CreateByAdoptingFromSystem(ai);
+#if defined(OS_ANDROID)
+  // Workaround for Android's getaddrinfo leaving ai==NULL without an error.
+  // http://crbug.com/134142
+  if (ai == NULL)
+    return ERR_NAME_NOT_RESOLVED;
+#endif
+
+  *addrlist = AddressList::CreateFromAddrinfo(ai);
+  freeaddrinfo(ai);
   return OK;
 }
 

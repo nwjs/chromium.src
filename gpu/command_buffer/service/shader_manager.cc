@@ -1,8 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "gpu/command_buffer/service/shader_manager.h"
+
+#include <utility>
+
 #include "base/logging.h"
 #include "base/string_util.h"
 
@@ -13,7 +16,8 @@ ShaderManager::ShaderInfo::ShaderInfo(GLuint service_id, GLenum shader_type)
       : use_count_(0),
         service_id_(service_id),
         shader_type_(shader_type),
-        valid_(false) {
+        valid_(false),
+        source_compiled_(false) {
 }
 
 ShaderManager::ShaderInfo::~ShaderInfo() {
@@ -51,6 +55,16 @@ const ShaderManager::ShaderInfo::VariableInfo*
         const std::string& name) const {
   VariableMap::const_iterator it = attrib_map_.find(name);
   return it != attrib_map_.end() ? &it->second : NULL;
+}
+
+const std::string* ShaderManager::ShaderInfo::GetAttribMappedName(
+    const std::string& original_name) const {
+  for (VariableMap::const_iterator it = attrib_map_.begin();
+       it != attrib_map_.end(); ++it) {
+    if (it->second.name == original_name)
+      return &(it->first);
+  }
+  return NULL;
 }
 
 const ShaderManager::ShaderInfo::VariableInfo*

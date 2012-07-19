@@ -9,10 +9,10 @@
 #include "base/process_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/common/logging_chrome.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -195,7 +195,7 @@ void HungRendererDialogGtk::ShowForWebContents(WebContents* hung_contents) {
 
       GdkPixbuf* pixbuf = NULL;
       if (favicon.width() > 0)
-        pixbuf = gfx::GdkPixbufFromSkBitmap(&favicon);
+        pixbuf = gfx::GdkPixbufFromSkBitmap(favicon);
       gtk_list_store_set(model_, &tree_iter,
           COL_FAVICON, pixbuf,
           COL_TITLE, title.c_str(),
@@ -252,7 +252,7 @@ void HungRendererDialogGtk::OnResponse(GtkWidget* dialog, int response_id) {
 
 }  // namespace
 
-namespace browser {
+namespace chrome {
 
 void ShowHungRendererDialog(WebContents* contents) {
   if (!logging::DialogsAreSuppressed()) {
@@ -267,4 +267,4 @@ void HideHungRendererDialog(WebContents* contents) {
     g_instance->EndForWebContents(contents);
 }
 
-}  // namespace browser
+}  // namespace chrome

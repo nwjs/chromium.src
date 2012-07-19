@@ -5,35 +5,42 @@
 #include "chrome/common/chrome_content_client.h"
 
 #include "base/command_line.h"
+#include "base/cpu.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/string_number_conversions.h"
-#include "base/stringprintf.h"
 #include "base/string_split.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "build/build_config.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
+#include "chrome/common/pepper_flash.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/common/url_constants.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/pepper_plugin_info.h"
 #include "content/public/common/url_constants.h"
 #include "grit/common_resources.h"
+#include "ppapi/shared_impl/ppapi_permissions.h"
 #include "remoting/client/plugin/pepper_entrypoints.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "webkit/glue/user_agent.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/plugin_constants.h"
 
-#include "flapper_version.h"  // In <(SHARED_INTERMEDIATE_DIR).
+#include "flapper_version.h"  // In SHARED_INTERMEDIATE_DIR.
 
 #if defined(OS_WIN)
 #include "base/win/registry.h"
 #include "base/win/windows_version.h"
-#include "sandbox/src/sandbox.h"
+#include "sandbox/win/src/sandbox.h"
 #elif defined(OS_MACOSX)
 #include "chrome/common/chrome_sandbox_type_mac.h"
 #endif
@@ -46,11 +53,15 @@ const char kPDFPluginExtension[] = "pdf";
 const char kPDFPluginDescription[] = "Portable Document Format";
 const char kPDFPluginPrintPreviewMimeType
    [] = "application/x-google-chrome-print-preview-pdf";
+const uint32 kPDFPluginPermissions = ppapi::PERMISSION_PRIVATE |
+                                     ppapi::PERMISSION_DEV;
 
 const char kNaClPluginName[] = "Native Client";
 const char kNaClPluginMimeType[] = "application/x-nacl";
 const char kNaClPluginExtension[] = "nexe";
 const char kNaClPluginDescription[] = "Native Client Executable";
+const uint32 kNaClPluginPermissions = ppapi::PERMISSION_PRIVATE |
+                                      ppapi::PERMISSION_DEV;
 
 const char kNaClOldPluginName[] = "Chrome NaCl";
 
@@ -71,10 +82,6 @@ const FilePath::CharType kRemotingViewerPluginPath[] =
 // Use a consistent MIME-type regardless of branding.
 const char kRemotingViewerPluginMimeType[] =
     "application/vnd.chromium.remoting-viewer";
-// TODO(garykac): Remove the old MIME-type once client code no longer needs it.
-// Tracked in crbug.com/112532.
-const char kRemotingViewerPluginOldMimeType[] =
-    "pepper-application/x-chromoting";
 #endif
 
 // Appends the known built-in plugins to the given vector. Some built-in
@@ -105,6 +112,7 @@ void ComputeBuiltInPlugins(std::vector<content::PepperPluginInfo>* plugins) {
           kPDFPluginDescription);
       pdf.mime_types.push_back(pdf_mime_type);
       pdf.mime_types.push_back(print_preview_pdf_mime_type);
+      pdf.permissions = kPDFPluginPermissions;
       plugins->push_back(pdf);
 
       skip_pdf_file_check = true;
@@ -125,6 +133,7 @@ void ComputeBuiltInPlugins(std::vector<content::PepperPluginInfo>* plugins) {
                                                kNaClPluginExtension,
                                                kNaClPluginDescription);
       nacl.mime_types.push_back(nacl_mime_type);
+      nacl.permissions = kNaClPluginPermissions;
       plugins->push_back(nacl);
 
       skip_nacl_file_check = true;
@@ -178,11 +187,6 @@ void ComputeBuiltInPlugins(std::vector<content::PepperPluginInfo>* plugins) {
       std::string(),
       std::string());
   info.mime_types.push_back(remoting_mime_type);
-  webkit::WebPluginMimeType old_remoting_mime_type(
-      kRemotingViewerPluginOldMimeType,
-      std::string(),
-      std::string());
-  info.mime_types.push_back(old_remoting_mime_type);
   info.internal_entry_points.get_interface = remoting::PPP_GetInterface;
   info.internal_entry_points.initialize_module =
       remoting::PPP_InitializeModule;
@@ -192,7 +196,8 @@ void ComputeBuiltInPlugins(std::vector<content::PepperPluginInfo>* plugins) {
 #endif
 }
 
-void AddPepperFlash(std::vector<content::PepperPluginInfo>* plugins) {
+content::PepperPluginInfo CreatePepperFlashInfo(const FilePath& path,
+                                                const std::string& version) {
   content::PepperPluginInfo plugin;
 
   // Flash being out of process is handled separately than general plugins
@@ -200,46 +205,13 @@ void AddPepperFlash(std::vector<content::PepperPluginInfo>* plugins) {
   plugin.is_out_of_process = !CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kPpapiFlashInProcess);
   plugin.name = kFlashPluginName;
-
-  std::string flash_version;  // Should be something like 11.2 or 11.2.123.45.
-
-  // Prefer Pepper Flash specified from the command-line.
-  const CommandLine::StringType flash_path =
-      CommandLine::ForCurrentProcess()->GetSwitchValueNative(
-          switches::kPpapiFlashPath);
-  if (!flash_path.empty()) {
-    plugin.path = FilePath(flash_path);
-
-    // Also get the version from the command-line.
-    flash_version = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-        switches::kPpapiFlashVersion);
-  } else {
-    // Use the bundled Pepper Flash if it's enabled and available.
-    // It's currently only enabled by default on Linux ia32 and x64.
-#if defined(FLAPPER_AVAILABLE) && defined(OS_LINUX) && \
-    (defined(ARCH_CPU_X86) || defined(ARCH_CPU_X86_64))
-    bool bundled_flapper_enabled = true;
-#else
-    bool bundled_flapper_enabled = CommandLine::ForCurrentProcess()->HasSwitch(
-        switches::kEnableBundledPpapiFlash);
-#endif
-    bundled_flapper_enabled &= !CommandLine::ForCurrentProcess()->HasSwitch(
-                                   switches::kDisableBundledPpapiFlash);
-    if (!bundled_flapper_enabled)
-      return;
-
-#if defined(FLAPPER_AVAILABLE)
-    if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &plugin.path))
-      return;
-    flash_version = FLAPPER_VERSION_STRING;
-#else
-    LOG(ERROR) << "PPAPI Flash not included at build time.";
-    return;
-#endif  // FLAPPER_AVAILABLE
-  }
+  plugin.path = path;
+  plugin.permissions = ppapi::PERMISSION_DEV |
+                       ppapi::PERMISSION_PRIVATE |
+                       ppapi::PERMISSION_BYPASS_USER_GESTURE;
 
   std::vector<std::string> flash_version_numbers;
-  base::SplitString(flash_version, '.', &flash_version_numbers);
+  base::SplitString(version, '.', &flash_version_numbers);
   if (flash_version_numbers.size() < 1)
     flash_version_numbers.push_back("11");
   // |SplitString()| puts in an empty string given an empty string. :(
@@ -263,7 +235,64 @@ void AddPepperFlash(std::vector<content::PepperPluginInfo>* plugins) {
                                           kFlashPluginSplExtension,
                                           kFlashPluginSplDescription);
   plugin.mime_types.push_back(spl_mime_type);
-  plugins->push_back(plugin);
+
+  return plugin;
+}
+
+void AddPepperFlashFromCommandLine(
+    std::vector<content::PepperPluginInfo>* plugins) {
+  const CommandLine::StringType flash_path =
+      CommandLine::ForCurrentProcess()->GetSwitchValueNative(
+          switches::kPpapiFlashPath);
+  if (flash_path.empty())
+    return;
+
+  // Also get the version from the command-line. Should be something like 11.2
+  // or 11.2.123.45.
+  std::string flash_version =
+      CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kPpapiFlashVersion);
+
+  plugins->push_back(
+      CreatePepperFlashInfo(FilePath(flash_path), flash_version));
+}
+
+bool GetBundledPepperFlash(content::PepperPluginInfo* plugin,
+                           bool* override_npapi_flash) {
+#if defined(FLAPPER_AVAILABLE)
+  // Ignore bundled Pepper Flash if there is Pepper Flash specified from the
+  // command-line.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kPpapiFlashPath))
+    return false;
+
+  bool force_disable = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableBundledPpapiFlash);
+  if (force_disable)
+    return false;
+
+// For Linux ia32, Flapper requires SSE2.
+#if defined(OS_LINUX) && defined(ARCH_CPU_X86)
+  if (!base::CPU().has_sse2())
+    return false;
+#endif  // ARCH_CPU_X86
+
+  FilePath flash_path;
+  if (!PathService::Get(chrome::FILE_PEPPER_FLASH_PLUGIN, &flash_path))
+    return false;
+  // It is an error to have FLAPPER_AVAILABLE defined but then not having the
+  // plugin file in place, but this happens in Chrome OS builds.
+  // Use --disable-bundled-ppapi-flash to skip this.
+  DCHECK(file_util::PathExists(flash_path));
+
+  bool force_enable = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableBundledPpapiFlash);
+
+  *plugin = CreatePepperFlashInfo(flash_path, FLAPPER_VERSION_STRING);
+  *override_npapi_flash = force_enable || IsPepperFlashEnabledByDefault();
+  return true;
+#else
+  return false;
+#endif  // FLAPPER_AVAILABLE
 }
 
 #if defined(OS_WIN)
@@ -340,11 +369,32 @@ void ChromeContentClient::SetGpuInfo(const content::GPUInfo& gpu_info) {
 void ChromeContentClient::AddPepperPlugins(
     std::vector<content::PepperPluginInfo>* plugins) {
   ComputeBuiltInPlugins(plugins);
-  AddPepperFlash(plugins);
+  AddPepperFlashFromCommandLine(plugins);
+
+  // Don't try to register Pepper Flash if there exists a Pepper Flash field
+  // trial. It will be registered separately.
+  if (!ConductingPepperFlashFieldTrial() && IsPepperFlashEnabledByDefault()) {
+    content::PepperPluginInfo plugin;
+    bool add_at_beginning = false;
+    if (GetBundledPepperFlash(&plugin, &add_at_beginning))
+      plugins->push_back(plugin);
+  }
 }
 
 void ChromeContentClient::AddNPAPIPlugins(
     webkit::npapi::PluginList* plugin_list) {
+}
+
+void ChromeContentClient::AddAdditionalSchemes(
+    std::vector<std::string>* standard_schemes,
+    std::vector<std::string>* savable_schemes) {
+  standard_schemes->push_back(kExtensionScheme);
+  savable_schemes->push_back(kExtensionScheme);
+  standard_schemes->push_back(kExtensionResourceScheme);
+  savable_schemes->push_back(kExtensionResourceScheme);
+#if defined(OS_CHROMEOS)
+  standard_schemes->push_back(kCrosScheme);
+#endif
 }
 
 bool ChromeContentClient::HasWebUIScheme(const GURL& url) const {
@@ -367,26 +417,32 @@ bool ChromeContentClient::CanHandleWhileSwappedOut(
   return false;
 }
 
-std::string ChromeContentClient::GetUserAgent(bool* overriding) const {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kUserAgent)) {
-    *overriding = true;
-    return CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-        switches::kUserAgent);
-  } else {
-    *overriding = false;
-    chrome::VersionInfo version_info;
-    std::string product("Chrome/");
-    product += version_info.is_valid() ? version_info.Version() : "0.0.0.0";
-    return webkit_glue::BuildUserAgentFromProduct(product);
+std::string ChromeContentClient::GetUserAgent() const {
+  chrome::VersionInfo version_info;
+  std::string product("Chrome/");
+  product += version_info.is_valid() ? version_info.Version() : "0.0.0.0";
+#if defined(OS_ANDROID)
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(switches::kTabletUi)) {
+    product += " Mobile";
   }
+#endif
+  return webkit_glue::BuildUserAgentFromProduct(product);
 }
 
 string16 ChromeContentClient::GetLocalizedString(int message_id) const {
   return l10n_util::GetStringUTF16(message_id);
 }
 
-base::StringPiece ChromeContentClient::GetDataResource(int resource_id) const {
-  return ResourceBundle::GetSharedInstance().GetRawDataResource(resource_id);
+base::StringPiece ChromeContentClient::GetDataResource(
+    int resource_id,
+    ui::ScaleFactor scale_factor) const {
+  return ResourceBundle::GetSharedInstance().GetRawDataResource(
+      resource_id, scale_factor);
+}
+
+gfx::Image& ChromeContentClient::GetNativeImageNamed(int resource_id) const {
+  return ResourceBundle::GetSharedInstance().GetNativeImageNamed(resource_id);
 }
 
 #if defined(OS_WIN)
@@ -406,6 +462,15 @@ bool ChromeContentClient::SandboxPlugin(CommandLine* command_line,
   if (base::win::GetVersion() <= base::win::VERSION_XP ||
       CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableFlashSandbox)) {
+    return false;
+  }
+
+  // Add policy for the plugin proxy window pump event
+  // used by WebPluginDelegateProxy::HandleInputEvent().
+  if (policy->AddRule(sandbox::TargetPolicy::SUBSYS_HANDLES,
+                      sandbox::TargetPolicy::HANDLES_DUP_ANY,
+                      L"Event") != sandbox::SBOX_ALL_OK) {
+    NOTREACHED();
     return false;
   }
 
@@ -456,5 +521,13 @@ bool ChromeContentClient::GetSandboxProfileForSandboxType(
   return false;
 }
 #endif
+
+bool ChromeContentClient::GetBundledFieldTrialPepperFlash(
+    content::PepperPluginInfo* plugin,
+    bool* override_npapi_flash) {
+  if (!ConductingPepperFlashFieldTrial())
+    return false;
+  return GetBundledPepperFlash(plugin, override_npapi_flash);
+}
 
 }  // namespace chrome

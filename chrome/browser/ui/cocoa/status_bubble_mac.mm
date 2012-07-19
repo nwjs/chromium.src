@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,6 +18,7 @@
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #import "third_party/GTM/AppKit/GTMNSBezierPath+RoundRect.h"
 #import "third_party/GTM/AppKit/GTMNSColor+Luminance.h"
+#include "ui/base/cocoa/window_size_constants.h"
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/point.h"
 
@@ -172,7 +173,7 @@ void StatusBubbleMac::SetURL(const GURL& url, const std::string& languages) {
     MessageLoop::current()->PostDelayedTask(FROM_HERE,
         base::Bind(&StatusBubbleMac::ExpandBubble,
                    expand_timer_factory_.GetWeakPtr()),
-        kExpandHoverDelay);
+        base::TimeDelta::FromMilliseconds(kExpandHoverDelay));
   }
 }
 
@@ -359,7 +360,7 @@ void StatusBubbleMac::UpdateDownloadShelfVisibility(bool visible) {
 void StatusBubbleMac::Create() {
   DCHECK(!window_);
 
-  window_ = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1)
+  window_ = [[NSWindow alloc] initWithContentRect:ui::kWindowSizeDeterminedLater
                                         styleMask:NSBorderlessWindowMask
                                           backing:NSBackingStoreBuffered
                                             defer:YES];
@@ -446,8 +447,18 @@ void StatusBubbleMac::SetState(StatusBubbleState state) {
   if (state == state_)
     return;
 
-  if (state == kBubbleHidden)
-    [window_ setFrame:NSMakeRect(0, 0, 1, 1) display:YES];
+  if (state == kBubbleHidden) {
+    // When hidden (with alpha of 0), make the window have the minimum size,
+    // while still keeping the same origin. It's important to not set the
+    // origin to 0,0 as that will cause the window to use more space in
+    // Expose/Mission Control. See http://crbug.com/81969.
+    //
+    // Also, doing it this way instead of detaching the window avoids bugs with
+    // Spaces and Cmd-`. See http://crbug.com/31821 and http://crbug.com/61629.
+    NSRect frame = [window_ frame];
+    frame.size = NSMakeSize(1, 1);
+    [window_ setFrame:frame display:YES];
+  }
 
   if ([delegate_ respondsToSelector:@selector(statusBubbleWillEnterState:)])
     [delegate_ statusBubbleWillEnterState:state];
@@ -514,7 +525,7 @@ void StatusBubbleMac::StartTimer(int64 delay_ms) {
 
   MessageLoop::current()->PostDelayedTask(FROM_HERE,
       base::Bind(&StatusBubbleMac::TimerFired, timer_factory_.GetWeakPtr()),
-      delay_ms);
+      base::TimeDelta::FromMilliseconds(delay_ms));
 }
 
 void StatusBubbleMac::CancelTimer() {

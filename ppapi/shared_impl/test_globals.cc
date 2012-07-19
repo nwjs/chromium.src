@@ -32,12 +32,25 @@ CallbackTracker* TestGlobals::GetCallbackTrackerForInstance(
   return callback_tracker_.get();
 }
 
-FunctionGroupBase* TestGlobals::GetFunctionAPI(PP_Instance inst, ApiID id) {
+thunk::PPB_Instance_API* TestGlobals::GetInstanceAPI(
+    PP_Instance instance) {
+  return NULL;
+}
+
+thunk::ResourceCreationAPI* TestGlobals::GetResourceCreationAPI(
+    PP_Instance instance) {
   return NULL;
 }
 
 PP_Module TestGlobals::GetModuleForInstance(PP_Instance instance) {
   return 0;
+}
+
+std::string TestGlobals::GetCmdLine() {
+  return std::string();
+}
+
+void TestGlobals::PreCacheFontForFlash(const void* /* logfontw */) {
 }
 
 base::Lock* TestGlobals::GetProxyLock() {

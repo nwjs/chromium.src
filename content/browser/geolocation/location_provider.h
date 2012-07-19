@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,6 @@
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_LOCATION_PROVIDER_H_
 #define CONTENT_BROWSER_GEOLOCATION_LOCATION_PROVIDER_H_
-#pragma once
 
 #include <map>
 
@@ -19,11 +18,11 @@
 #include "base/threading/non_thread_safe.h"
 #include "content/common/content_export.h"
 
-struct Geoposition;
 class GURL;
 
 namespace content {
 class AccessTokenStore;
+struct Geoposition;
 }
 
 namespace net {
@@ -69,13 +68,13 @@ class CONTENT_EXPORT LocationProviderBase
   virtual bool StartProvider(bool high_accuracy) = 0;
   virtual void StopProvider() = 0;
   // Gets the current best position estimate.
-  virtual void GetPosition(Geoposition* position) = 0;
+  virtual void GetPosition(content::Geoposition* position) = 0;
   // Provides a hint to the provider that new location data is needed as soon
   // as possible. Default implementation does nothing.
   virtual void UpdatePosition() {}
   // Delegated to the provider by GeolocationArbitrator. See the corresponding
   // method on that class for more details.
-  virtual void OnPermissionGranted(const GURL& requesting_frame) {}
+  virtual void OnPermissionGranted() {}
 
   bool has_listeners() const;
 

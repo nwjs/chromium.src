@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -117,14 +117,14 @@ void InstallerState::Initialize(const CommandLine& command_line,
         AddProductFromPreferences(BrowserDistribution::CHROME_BROWSER, prefs,
                                   machine_state);
     VLOG(1) << (is_uninstall ? "Uninstall" : "Install")
-            << " distribution: " << p->distribution()->GetApplicationName();
+            << " distribution: " << p->distribution()->GetAppShortCutName();
   }
   if (prefs.install_chrome_frame()) {
     Product* p =
         AddProductFromPreferences(BrowserDistribution::CHROME_FRAME, prefs,
                                   machine_state);
     VLOG(1) << (is_uninstall ? "Uninstall" : "Install")
-            << " distribution: " << p->distribution()->GetApplicationName();
+            << " distribution: " << p->distribution()->GetAppShortCutName();
   }
 
   BrowserDistribution* operand = NULL;
@@ -285,7 +285,7 @@ Product* InstallerState::AddProductInDirectory(const FilePath* product_dir,
     state_key_ = the_product.distribution()->GetStateKey();
 
   products_.push_back(product->release());
-  return products_[products_->size() - 1];
+  return products_[products_.size() - 1];
 }
 
 Product* InstallerState::AddProduct(scoped_ptr<Product>* product) {
@@ -350,7 +350,7 @@ bool InstallerState::RemoveProduct(const Product* product) {
   ScopedVector<Product>::iterator it =
       std::find(products_.begin(), products_.end(), product);
   if (it != products_.end()) {
-    products_->erase(it);
+    products_.weak_erase(it);
     return true;
   }
   return false;
@@ -412,7 +412,7 @@ Version* InstallerState::GetCurrentVersion(
     if (version == NULL)
       version = &product_state->version();
 
-    current_version.reset(version->Clone());
+    current_version.reset(new Version(*version));
   }
 
   return current_version.release();
@@ -467,7 +467,7 @@ void InstallerState::RemoveOldVersionDirectories(
     const Version& new_version,
     Version* existing_version,
     const FilePath& temp_path) const {
-  scoped_ptr<Version> version;
+  Version version;
   std::vector<FilePath> key_files;
   scoped_ptr<WorkItem> item;
 
@@ -478,12 +478,12 @@ void InstallerState::RemoveOldVersionDirectories(
   for (FilePath next_version = version_enum.Next(); !next_version.empty();
        next_version = version_enum.Next()) {
     FilePath dir_name(next_version.BaseName());
-    version.reset(Version::GetVersionFromString(WideToASCII(dir_name.value())));
+    version = Version(WideToASCII(dir_name.value()));
     // Delete the version folder if it is less than the new version and not
     // equal to the old version (if we have an old version).
-    if (version.get() &&
-        version->CompareTo(new_version) < 0 &&
-        (existing_version == NULL || !version->Equals(*existing_version))) {
+    if (version.IsValid() &&
+        version.CompareTo(new_version) < 0 &&
+        (existing_version == NULL || !version.Equals(*existing_version))) {
       // Collect the key files (relative to the version dir) for all products.
       key_files.clear();
       std::for_each(products_.begin(), products_.end(),

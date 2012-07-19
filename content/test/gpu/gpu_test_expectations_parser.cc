@@ -41,6 +41,7 @@ enum Token {
   kConfigNVidia,
   kConfigAMD,
   kConfigIntel,
+  kConfigVMWare,
   // build type
   kConfigRelease,
   kConfigDebug,
@@ -49,6 +50,7 @@ enum Token {
   kExpectationFail,
   kExpectationFlaky,
   kExpectationTimeout,
+  kExpectationSkip,
   // separator
   kSeparatorColon,
   kSeparatorEqual,
@@ -80,12 +82,14 @@ const TokenInfo kTokenData[] = {
   { "nvidia", 0x10DE },
   { "amd", 0x1002 },
   { "intel", 0x8086 },
+  { "vmware", 0x15ad },
   { "release", GPUTestConfig::kBuildTypeRelease },
   { "debug", GPUTestConfig::kBuildTypeDebug },
   { "pass", GPUTestExpectationsParser::kGpuTestPass },
   { "fail", GPUTestExpectationsParser::kGpuTestFail },
   { "flaky", GPUTestExpectationsParser::kGpuTestFlaky },
   { "timeout", GPUTestExpectationsParser::kGpuTestTimeout },
+  { "skip", GPUTestExpectationsParser::kGpuTestSkip },
   { ":", 0 },
   { "=", 0 },
 };
@@ -127,6 +131,20 @@ Token ParseToken(const std::string& word) {
       return static_cast<Token>(i);
   }
   return kTokenWord;
+}
+
+// reference name can have the last character as *.
+bool NamesMatching(const std::string& ref, const std::string& test_name) {
+  size_t len = ref.length();
+  if (len == 0)
+    return false;
+  if (ref[len - 1] == '*') {
+    if (test_name.length() > len -1 &&
+        ref.compare(0, len - 1, test_name, 0, len - 1) == 0)
+      return true;
+    return false;
+  }
+  return (ref == test_name);
 }
 
 }  // namespace anonymous
@@ -185,7 +203,7 @@ int32 GPUTestExpectationsParser::GetTestExpectation(
     const std::string& test_name,
     const GPUTestBotConfig& bot_config) const {
   for (size_t i = 0; i < entries_.size(); ++i) {
-    if (entries_[i].test_name == test_name &&
+    if (NamesMatching(entries_[i].test_name, test_name) &&
         bot_config.Matches(entries_[i].test_config))
       return entries_[i].test_expectation;
   }
@@ -195,6 +213,47 @@ int32 GPUTestExpectationsParser::GetTestExpectation(
 const std::vector<std::string>&
 GPUTestExpectationsParser::GetErrorMessages() const {
   return error_messages_;
+}
+
+bool GPUTestExpectationsParser::ParseConfig(
+    const std::string& config_data, GPUTestConfig* config) {
+  DCHECK(config);
+  std::vector<std::string> tokens;
+  base::SplitStringAlongWhitespace(config_data, &tokens);
+
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    Token token = ParseToken(tokens[i]);
+    switch (token) {
+      case kConfigWinXP:
+      case kConfigWinVista:
+      case kConfigWin7:
+      case kConfigWin:
+      case kConfigMacLeopard:
+      case kConfigMacSnowLeopard:
+      case kConfigMacLion:
+      case kConfigMac:
+      case kConfigLinux:
+      case kConfigChromeOS:
+      case kConfigNVidia:
+      case kConfigAMD:
+      case kConfigIntel:
+      case kConfigVMWare:
+      case kConfigRelease:
+      case kConfigDebug:
+      case kConfigGPUDeviceID:
+        if (token == kConfigGPUDeviceID) {
+          if (!UpdateTestConfig(config, tokens[i], 0))
+            return false;
+        } else {
+          if (!UpdateTestConfig(config, token, 0))
+            return false;
+        }
+        break;
+      default:
+        return false;
+    }
+  }
+  return true;
 }
 
 bool GPUTestExpectationsParser::ParseLine(
@@ -225,6 +284,7 @@ bool GPUTestExpectationsParser::ParseLine(
       case kConfigNVidia:
       case kConfigAMD:
       case kConfigIntel:
+      case kConfigVMWare:
       case kConfigRelease:
       case kConfigDebug:
       case kConfigGPUDeviceID:
@@ -279,6 +339,7 @@ bool GPUTestExpectationsParser::ParseLine(
       case kExpectationFail:
       case kExpectationFlaky:
       case kExpectationTimeout:
+      case kExpectationSkip:
         // TEST_EXPECTATIONS
         if (stage != kLineParserEqual && stage != kLineParserExpectations) {
           PushErrorMessage(kErrorMessage[kErrorIllegalEntry],
@@ -340,6 +401,7 @@ bool GPUTestExpectationsParser::UpdateTestConfig(
     case kConfigNVidia:
     case kConfigAMD:
     case kConfigIntel:
+    case kConfigVMWare:
       {
         uint32 gpu_vendor =
             static_cast<uint32>(kTokenData[token].flag);

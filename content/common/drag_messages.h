@@ -16,14 +16,20 @@
 
 IPC_ENUM_TRAITS(WebKit::WebDragOperation)
 
+IPC_STRUCT_TRAITS_BEGIN(WebDropData::FileInfo)
+  IPC_STRUCT_TRAITS_MEMBER(path)
+  IPC_STRUCT_TRAITS_MEMBER(display_name)
+IPC_STRUCT_TRAITS_END()
+
 IPC_STRUCT_TRAITS_BEGIN(WebDropData)
   IPC_STRUCT_TRAITS_MEMBER(url)
   IPC_STRUCT_TRAITS_MEMBER(url_title)
   IPC_STRUCT_TRAITS_MEMBER(download_metadata)
+  IPC_STRUCT_TRAITS_MEMBER(referrer_policy)
   IPC_STRUCT_TRAITS_MEMBER(filenames)
   IPC_STRUCT_TRAITS_MEMBER(filesystem_id)
-  IPC_STRUCT_TRAITS_MEMBER(plain_text)
-  IPC_STRUCT_TRAITS_MEMBER(text_html)
+  IPC_STRUCT_TRAITS_MEMBER(text)
+  IPC_STRUCT_TRAITS_MEMBER(html)
   IPC_STRUCT_TRAITS_MEMBER(html_base_url)
   IPC_STRUCT_TRAITS_MEMBER(file_description_filename)
   IPC_STRUCT_TRAITS_MEMBER(file_contents)
@@ -32,22 +38,25 @@ IPC_STRUCT_TRAITS_END()
 
 // Messages sent from the browser to the renderer.
 
-IPC_MESSAGE_ROUTED4(DragMsg_TargetDragEnter,
+IPC_MESSAGE_ROUTED5(DragMsg_TargetDragEnter,
                     WebDropData /* drop_data */,
                     gfx::Point /* client_pt */,
                     gfx::Point /* screen_pt */,
-                    WebKit::WebDragOperationsMask /* ops_allowed */)
+                    WebKit::WebDragOperationsMask /* ops_allowed */,
+                    int /* key_modifiers */)
 
-IPC_MESSAGE_ROUTED3(DragMsg_TargetDragOver,
+IPC_MESSAGE_ROUTED4(DragMsg_TargetDragOver,
                     gfx::Point /* client_pt */,
                     gfx::Point /* screen_pt */,
-                    WebKit::WebDragOperationsMask /* ops_allowed */)
+                    WebKit::WebDragOperationsMask /* ops_allowed */,
+                    int /* key_modifiers */)
 
 IPC_MESSAGE_ROUTED0(DragMsg_TargetDragLeave)
 
-IPC_MESSAGE_ROUTED2(DragMsg_TargetDrop,
+IPC_MESSAGE_ROUTED3(DragMsg_TargetDrop,
                     gfx::Point /* client_pt */,
-                    gfx::Point /* screen_pt */)
+                    gfx::Point /* screen_pt */,
+                    int /* key_modifiers */)
 
 // Notifies the renderer of updates in mouse position of an in-progress
 // drag.  if |ended| is true, then the user has ended the drag operation.

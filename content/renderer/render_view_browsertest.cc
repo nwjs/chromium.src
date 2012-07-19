@@ -11,8 +11,9 @@
 #include "content/common/view_messages.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/common/bindings_policy.h"
+#include "content/public/test/render_view_test.h"
 #include "content/renderer/render_view_impl.h"
-#include "content/test/render_view_test.h"
+#include "content/test/mock_keyboard.h"
 #include "net/base/net_errors.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
@@ -25,18 +26,195 @@
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "webkit/glue/web_io_operators.h"
 
+#if defined(OS_LINUX) && !defined(USE_AURA)
+#include "ui/base/gtk/event_synthesis_gtk.h"
+#endif
+
+#if defined(USE_AURA)
+#include "ui/aura/event.h"
+#endif
+
+#if defined(USE_AURA) && defined(USE_X11)
+#include <X11/Xlib.h>
+#include "ui/base/events.h"
+#include "ui/base/keycodes/keyboard_code_conversion.h"
+#include "ui/base/x/x11_util.h"
+#endif
+
 using WebKit::WebFrame;
 using WebKit::WebInputEvent;
 using WebKit::WebMouseEvent;
 using WebKit::WebString;
 using WebKit::WebTextDirection;
 using WebKit::WebURLError;
+using content::NativeWebKeyboardEvent;
+
+namespace {
+#if defined(USE_AURA) && defined(USE_X11)
+// Converts MockKeyboard::Modifiers to ui::EventFlags.
+int ConvertMockKeyboardModifier(MockKeyboard::Modifiers modifiers) {
+  static struct ModifierMap {
+    MockKeyboard::Modifiers src;
+    int dst;
+  } kModifierMap[] = {
+    { MockKeyboard::LEFT_SHIFT, ui::EF_SHIFT_DOWN },
+    { MockKeyboard::RIGHT_SHIFT, ui::EF_SHIFT_DOWN },
+    { MockKeyboard::LEFT_CONTROL, ui::EF_CONTROL_DOWN },
+    { MockKeyboard::RIGHT_CONTROL, ui::EF_CONTROL_DOWN },
+    { MockKeyboard::LEFT_ALT,  ui::EF_ALT_DOWN },
+    { MockKeyboard::RIGHT_ALT, ui::EF_ALT_DOWN },
+  };
+  int flags = 0;
+  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(kModifierMap); ++i) {
+    if (kModifierMap[i].src & modifiers) {
+      flags |= kModifierMap[i].dst;
+    }
+  }
+  return flags;
+}
+#endif
+}
 
 class RenderViewImplTest : public content::RenderViewTest {
  public:
+  RenderViewImplTest() {
+    // Attach a pseudo keyboard device to this object.
+    mock_keyboard_.reset(new MockKeyboard());
+  }
+
   RenderViewImpl* view() {
     return static_cast<RenderViewImpl*>(view_);
   }
+
+  // Sends IPC messages that emulates a key-press event.
+  int SendKeyEvent(MockKeyboard::Layout layout,
+                   int key_code,
+                   MockKeyboard::Modifiers modifiers,
+                   string16* output) {
+#if defined(OS_WIN)
+    // Retrieve the Unicode character for the given tuple (keyboard-layout,
+    // key-code, and modifiers).
+    // Exit when a keyboard-layout driver cannot assign a Unicode character to
+    // the tuple to prevent sending an invalid key code to the RenderView object.
+    CHECK(mock_keyboard_.get());
+    CHECK(output);
+    int length = mock_keyboard_->GetCharacters(layout, key_code, modifiers,
+                                               output);
+    if (length != 1)
+      return -1;
+
+    // Create IPC messages from Windows messages and send them to our
+    // back-end.
+    // A keyboard event of Windows consists of three Windows messages:
+    // WM_KEYDOWN, WM_CHAR, and WM_KEYUP.
+    // WM_KEYDOWN and WM_KEYUP sends virtual-key codes. On the other hand,
+    // WM_CHAR sends a composed Unicode character.
+    MSG msg1 = { NULL, WM_KEYDOWN, key_code, 0 };
+#if defined(USE_AURA)
+    aura::KeyEvent evt1(msg1, false);
+    NativeWebKeyboardEvent keydown_event(&evt1);
+#else
+    NativeWebKeyboardEvent keydown_event(msg1);
+#endif
+    SendNativeKeyEvent(keydown_event);
+
+    MSG msg2 = { NULL, WM_CHAR, (*output)[0], 0 };
+#if defined(USE_AURA)
+    aura::KeyEvent evt2(msg2, true);
+    NativeWebKeyboardEvent char_event(&evt2);
+#else
+    NativeWebKeyboardEvent char_event(msg2);
+#endif
+    SendNativeKeyEvent(char_event);
+
+    MSG msg3 = { NULL, WM_KEYUP, key_code, 0 };
+#if defined(USE_AURA)
+    aura::KeyEvent evt3(msg3, false);
+    NativeWebKeyboardEvent keyup_event(&evt3);
+#else
+    NativeWebKeyboardEvent keyup_event(msg3);
+#endif
+    SendNativeKeyEvent(keyup_event);
+
+    return length;
+#elif defined(USE_AURA) && defined(USE_X11)
+    // We ignore |layout|, which means we are only testing the layout of the
+    // current locale. TODO(mazda): fix this to respect |layout|.
+    CHECK(output);
+    const int flags = ConvertMockKeyboardModifier(modifiers);
+
+    XEvent xevent1;
+    InitXKeyEventForTesting(ui::ET_KEY_PRESSED,
+                            static_cast<ui::KeyboardCode>(key_code),
+                            flags,
+                            &xevent1);
+    aura::KeyEvent event1(&xevent1, false);
+    NativeWebKeyboardEvent keydown_event(&event1);
+    SendNativeKeyEvent(keydown_event);
+
+    XEvent xevent2;
+    InitXKeyEventForTesting(ui::ET_KEY_PRESSED,
+                            static_cast<ui::KeyboardCode>(key_code),
+                            flags,
+                            &xevent2);
+    aura::KeyEvent event2(&xevent2, true);
+    NativeWebKeyboardEvent char_event(&event2);
+    SendNativeKeyEvent(char_event);
+
+    XEvent xevent3;
+    InitXKeyEventForTesting(ui::ET_KEY_RELEASED,
+                            static_cast<ui::KeyboardCode>(key_code),
+                            flags,
+                            &xevent3);
+    aura::KeyEvent event3(&xevent3, false);
+    NativeWebKeyboardEvent keyup_event(&event3);
+    SendNativeKeyEvent(keyup_event);
+
+    long c = GetCharacterFromKeyCode(static_cast<ui::KeyboardCode>(key_code),
+                                     flags);
+    output->assign(1, static_cast<char16>(c));
+    return 1;
+#elif defined(OS_LINUX)
+    // We ignore |layout|, which means we are only testing the layout of the
+    // current locale. TODO(estade): fix this to respect |layout|.
+    std::vector<GdkEvent*> events;
+    ui::SynthesizeKeyPressEvents(
+        NULL, static_cast<ui::KeyboardCode>(key_code),
+        modifiers & (MockKeyboard::LEFT_CONTROL | MockKeyboard::RIGHT_CONTROL),
+        modifiers & (MockKeyboard::LEFT_SHIFT | MockKeyboard::RIGHT_SHIFT),
+        modifiers & (MockKeyboard::LEFT_ALT | MockKeyboard::RIGHT_ALT),
+        &events);
+
+    guint32 unicode_key = 0;
+    for (size_t i = 0; i < events.size(); ++i) {
+      // Only send the up/down events for key press itself (skip the up/down
+      // events for the modifier keys).
+      if ((i + 1) == (events.size() / 2) || i == (events.size() / 2)) {
+        unicode_key = gdk_keyval_to_unicode(events[i]->key.keyval);
+        NativeWebKeyboardEvent webkit_event(events[i]);
+        SendNativeKeyEvent(webkit_event);
+
+        // Need to add a char event after the key down.
+        if (webkit_event.type == WebKit::WebInputEvent::RawKeyDown) {
+          NativeWebKeyboardEvent char_event = webkit_event;
+          char_event.type = WebKit::WebInputEvent::Char;
+          char_event.skip_in_browser = true;
+          SendNativeKeyEvent(char_event);
+        }
+      }
+      gdk_event_free(events[i]);
+    }
+
+    output->assign(1, static_cast<char16>(unicode_key));
+    return 1;
+#else
+    NOTIMPLEMENTED();
+    return L'\0';
+#endif
+  }
+
+ private:
+  scoped_ptr<MockKeyboard> mock_keyboard_;
 };
 
 // Test that we get form state change notifications when input fields change.
@@ -1256,16 +1434,13 @@ TEST_F(RenderViewImplTest, FindTitleForIntentsPage) {
   const IPC::Message* msg = render_thread_->sink().GetUniqueMessageMatching(
       IntentsHostMsg_RegisterIntentService::ID);
   ASSERT_TRUE(msg);
-  string16 action;
-  string16 type;
-  string16 href;
-  string16 title;
-  string16 disposition;
-  IntentsHostMsg_RegisterIntentService::Read(
-      msg, &action, &type, &href, &title, &disposition);
-  EXPECT_EQ(ASCIIToUTF16("a"), action);
-  EXPECT_EQ(ASCIIToUTF16("t"), type);
-  EXPECT_EQ(ASCIIToUTF16("title"), title);
+  webkit_glue::WebIntentServiceData service_data;
+  bool user_gesture = true;
+  IntentsHostMsg_RegisterIntentService::Read(msg, &service_data, &user_gesture);
+  EXPECT_EQ(ASCIIToUTF16("a"), service_data.action);
+  EXPECT_EQ(ASCIIToUTF16("t"), service_data.type);
+  EXPECT_EQ(ASCIIToUTF16("title"), service_data.title);
+  EXPECT_FALSE(user_gesture);
 }
 
 TEST_F(RenderViewImplTest, ContextMenu) {
@@ -1289,4 +1464,117 @@ TEST_F(RenderViewImplTest, ContextMenu) {
 
   EXPECT_TRUE(render_thread_->sink().GetUniqueMessageMatching(
       ViewHostMsg_ContextMenu::ID));
+}
+
+TEST_F(RenderViewImplTest, TestBackForward) {
+  LoadHTML("<div id=pagename>Page A</div>");
+  WebKit::WebHistoryItem page_a_item = GetMainFrame()->currentHistoryItem();
+  int was_page_a = -1;
+  string16 check_page_a =
+      ASCIIToUTF16(
+          "Number(document.getElementById('pagename').innerHTML == 'Page A')");
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_a, &was_page_a));
+  EXPECT_EQ(1, was_page_a);
+
+  LoadHTML("<div id=pagename>Page B</div>");
+  int was_page_b = -1;
+  string16 check_page_b =
+      ASCIIToUTF16(
+          "Number(document.getElementById('pagename').innerHTML == 'Page B')");
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_b, &was_page_b));
+  EXPECT_EQ(1, was_page_b);
+
+  LoadHTML("<div id=pagename>Page C</div>");
+  int was_page_c = -1;
+  string16 check_page_c =
+      ASCIIToUTF16(
+          "Number(document.getElementById('pagename').innerHTML == 'Page C')");
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_c, &was_page_c));
+  EXPECT_EQ(1, was_page_b);
+
+  WebKit::WebHistoryItem forward_item = GetMainFrame()->currentHistoryItem();
+  GoBack(GetMainFrame()->previousHistoryItem());
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_b, &was_page_b));
+  EXPECT_EQ(1, was_page_b);
+
+  GoForward(forward_item);
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_c, &was_page_c));
+  EXPECT_EQ(1, was_page_c);
+
+  GoBack(GetMainFrame()->previousHistoryItem());
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_b, &was_page_b));
+  EXPECT_EQ(1, was_page_b);
+
+  forward_item = GetMainFrame()->currentHistoryItem();
+  GoBack(page_a_item);
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_a, &was_page_a));
+  EXPECT_EQ(1, was_page_a);
+
+  GoForward(forward_item);
+  EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(check_page_b, &was_page_b));
+  EXPECT_EQ(1, was_page_b);
+}
+
+TEST_F(RenderViewImplTest, GetCompositionCharacterBoundsTest) {
+  LoadHTML("<textarea id=\"test\"></textarea>");
+  ExecuteJavaScript("document.getElementById('test').focus();");
+
+  const string16 empty_string = UTF8ToUTF16("");
+  const std::vector<WebKit::WebCompositionUnderline> empty_underline;
+  std::vector<gfx::Rect> bounds;
+  view()->OnSetFocus(true);
+  view()->OnSetInputMethodActive(true);
+
+  // ASCII composition
+  const string16 ascii_composition = UTF8ToUTF16("aiueo");
+  view()->OnImeSetComposition(ascii_composition, empty_underline, 0, 0);
+  view()->GetCompositionCharacterBounds(&bounds);
+  ASSERT_EQ(ascii_composition.size(), bounds.size());
+  for (size_t i = 0; i < bounds.size(); ++i)
+    EXPECT_LT(0, bounds[i].width());
+  view()->OnImeConfirmComposition(empty_string, ui::Range::InvalidRange());
+
+  // Non surrogate pair unicode character.
+  const string16 unicode_composition = UTF8ToUTF16(
+      "\xE3\x81\x82\xE3\x81\x84\xE3\x81\x86\xE3\x81\x88\xE3\x81\x8A");
+  view()->OnImeSetComposition(unicode_composition, empty_underline, 0, 0);
+  view()->GetCompositionCharacterBounds(&bounds);
+  ASSERT_EQ(unicode_composition.size(), bounds.size());
+  for (size_t i = 0; i < bounds.size(); ++i)
+    EXPECT_LT(0, bounds[i].width());
+  view()->OnImeConfirmComposition(empty_string, ui::Range::InvalidRange());
+
+  // Surrogate pair character.
+  const string16 surrogate_pair_char = UTF8ToUTF16("\xF0\xA0\xAE\x9F");
+  view()->OnImeSetComposition(surrogate_pair_char,
+                              empty_underline,
+                              0,
+                              0);
+  view()->GetCompositionCharacterBounds(&bounds);
+  ASSERT_EQ(surrogate_pair_char.size(), bounds.size());
+  EXPECT_LT(0, bounds[0].width());
+  EXPECT_EQ(0, bounds[1].width());
+  view()->OnImeConfirmComposition(empty_string, ui::Range::InvalidRange());
+
+  // Mixed string.
+  const string16 surrogate_pair_mixed_composition =
+      surrogate_pair_char + UTF8ToUTF16("\xE3\x81\x82") + surrogate_pair_char +
+      UTF8ToUTF16("b") + surrogate_pair_char;
+  const size_t utf16_length = 8UL;
+  const bool is_surrogate_pair_empty_rect[8] = {
+    false, true, false, false, true, false, false, true };
+  view()->OnImeSetComposition(surrogate_pair_mixed_composition,
+                              empty_underline,
+                              0,
+                              0);
+  view()->GetCompositionCharacterBounds(&bounds);
+  ASSERT_EQ(utf16_length, bounds.size());
+  for (size_t i = 0; i < utf16_length; ++i) {
+    if (is_surrogate_pair_empty_rect[i]) {
+      EXPECT_EQ(0, bounds[i].width());
+    } else {
+      EXPECT_LT(0, bounds[i].width());
+    }
+  }
+  view()->OnImeConfirmComposition(empty_string, ui::Range::InvalidRange());
 }

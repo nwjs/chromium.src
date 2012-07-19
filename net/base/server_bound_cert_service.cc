@@ -15,9 +15,10 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
+#include "base/metrics/histogram.h"
 #include "base/rand_util.h"
 #include "base/stl_util.h"
-#include "base/threading/worker_pool.h"
+#include "base/task_runner.h"
 #include "crypto/ec_private_key.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/net_errors.h"
@@ -46,16 +47,56 @@ bool IsSupportedCertType(uint8 type) {
   }
 }
 
+// Used by the GetDomainBoundCertResult histogram to record the final
+// outcome of each GetDomainBoundCert call.  Do not re-use values.
+enum GetCertResult {
+  // Synchronously found and returned an existing domain bound cert.
+  SYNC_SUCCESS = 0,
+  // Generated and returned a domain bound cert asynchronously.
+  ASYNC_SUCCESS = 1,
+  // Generation request was cancelled before the cert generation completed.
+  ASYNC_CANCELLED = 2,
+  // Cert generation failed.
+  ASYNC_FAILURE_KEYGEN = 3,
+  ASYNC_FAILURE_CREATE_CERT = 4,
+  ASYNC_FAILURE_EXPORT_KEY = 5,
+  ASYNC_FAILURE_UNKNOWN = 6,
+  // GetDomainBoundCert was called with invalid arguments.
+  INVALID_ARGUMENT = 7,
+  // We don't support any of the cert types the server requested.
+  UNSUPPORTED_TYPE = 8,
+  // Server asked for a different type of certs while we were generating one.
+  TYPE_MISMATCH = 9,
+  // Couldn't start a worker to generate a cert.
+  WORKER_FAILURE = 10,
+  GET_CERT_RESULT_MAX
+};
+
+void RecordGetDomainBoundCertResult(GetCertResult result) {
+  UMA_HISTOGRAM_ENUMERATION("DomainBoundCerts.GetDomainBoundCertResult", result,
+                            GET_CERT_RESULT_MAX);
+}
+
+void RecordGetCertTime(base::TimeDelta request_time) {
+  UMA_HISTOGRAM_CUSTOM_TIMES("DomainBoundCerts.GetCertTime",
+                             request_time,
+                             base::TimeDelta::FromMilliseconds(1),
+                             base::TimeDelta::FromMinutes(5),
+                             50);
+}
+
 }  // namespace
 
 // Represents the output and result callback of a request.
 class ServerBoundCertServiceRequest {
  public:
-  ServerBoundCertServiceRequest(const CompletionCallback& callback,
+  ServerBoundCertServiceRequest(base::TimeTicks request_start,
+                                const CompletionCallback& callback,
                                 SSLClientCertType* type,
                                 std::string* private_key,
                                 std::string* cert)
-      : callback_(callback),
+      : request_start_(request_start),
+        callback_(callback),
         type_(type),
         private_key_(private_key),
         cert_(cert) {
@@ -63,6 +104,7 @@ class ServerBoundCertServiceRequest {
 
   // Ensures that the result callback will never be made.
   void Cancel() {
+    RecordGetDomainBoundCertResult(ASYNC_CANCELLED);
     callback_.Reset();
     type_ = NULL;
     private_key_ = NULL;
@@ -75,6 +117,31 @@ class ServerBoundCertServiceRequest {
             SSLClientCertType type,
             const std::string& private_key,
             const std::string& cert) {
+    switch (error) {
+      case OK: {
+        base::TimeDelta request_time = base::TimeTicks::Now() - request_start_;
+        UMA_HISTOGRAM_CUSTOM_TIMES("DomainBoundCerts.GetCertTimeAsync",
+                                   request_time,
+                                   base::TimeDelta::FromMilliseconds(1),
+                                   base::TimeDelta::FromMinutes(5),
+                                   50);
+        RecordGetCertTime(request_time);
+        RecordGetDomainBoundCertResult(ASYNC_SUCCESS);
+        break;
+      }
+      case ERR_KEY_GENERATION_FAILED:
+        RecordGetDomainBoundCertResult(ASYNC_FAILURE_KEYGEN);
+        break;
+      case ERR_ORIGIN_BOUND_CERT_GENERATION_FAILED:
+        RecordGetDomainBoundCertResult(ASYNC_FAILURE_CREATE_CERT);
+        break;
+      case ERR_PRIVATE_KEY_EXPORT_FAILED:
+        RecordGetDomainBoundCertResult(ASYNC_FAILURE_EXPORT_KEY);
+        break;
+      default:
+        RecordGetDomainBoundCertResult(ASYNC_FAILURE_UNKNOWN);
+        break;
+    }
     if (!callback_.is_null()) {
       *type_ = type;
       *private_key_ = private_key;
@@ -87,6 +154,7 @@ class ServerBoundCertServiceRequest {
   bool canceled() const { return callback_.is_null(); }
 
  private:
+  base::TimeTicks request_start_;
   CompletionCallback callback_;
   SSLClientCertType* type_;
   std::string* private_key_;
@@ -96,6 +164,7 @@ class ServerBoundCertServiceRequest {
 // ServerBoundCertServiceWorker runs on a worker thread and takes care of the
 // blocking process of performing key generation. Deletes itself eventually
 // if Start() succeeds.
+// TODO(mattm): don't use locking and explicit cancellation.
 class ServerBoundCertServiceWorker {
  public:
   ServerBoundCertServiceWorker(
@@ -111,13 +180,12 @@ class ServerBoundCertServiceWorker {
         error_(ERR_FAILED) {
   }
 
-  bool Start() {
+  bool Start(const scoped_refptr<base::TaskRunner>& task_runner) {
     DCHECK_EQ(MessageLoop::current(), origin_loop_);
 
-    return base::WorkerPool::PostTask(
+    return task_runner->PostTask(
         FROM_HERE,
-        base::Bind(&ServerBoundCertServiceWorker::Run, base::Unretained(this)),
-        true /* task is slow */);
+        base::Bind(&ServerBoundCertServiceWorker::Run, base::Unretained(this)));
   }
 
   // Cancel is called from the origin loop when the ServerBoundCertService is
@@ -138,6 +206,8 @@ class ServerBoundCertServiceWorker {
                                                   &expiration_time_,
                                                   &private_key_,
                                                   &cert_);
+    DVLOG(1) << "GenerateCert " << server_identifier_ << " " << type_
+             << " returned " << error_;
 #if defined(USE_NSS)
     // Detach the thread from NSPR.
     // Calling NSS functions attaches the thread to NSPR, which stores
@@ -285,8 +355,10 @@ class ServerBoundCertServiceJob {
 const char ServerBoundCertService::kEPKIPassword[] = "";
 
 ServerBoundCertService::ServerBoundCertService(
-    ServerBoundCertStore* server_bound_cert_store)
+    ServerBoundCertStore* server_bound_cert_store,
+    const scoped_refptr<base::TaskRunner>& task_runner)
     : server_bound_cert_store_(server_bound_cert_store),
+      task_runner_(task_runner),
       requests_(0),
       cert_store_hits_(0),
       inflight_joins_(0) {}
@@ -312,18 +384,25 @@ int ServerBoundCertService::GetDomainBoundCert(
     std::string* cert,
     const CompletionCallback& callback,
     RequestHandle* out_req) {
+  DVLOG(1) << __FUNCTION__ << " " << origin << " "
+           << (requested_types.empty() ? -1 : requested_types[0])
+           << (requested_types.size() > 1 ? "..." : "");
   DCHECK(CalledOnValidThread());
+  base::TimeTicks request_start = base::TimeTicks::Now();
 
   *out_req = NULL;
 
   if (callback.is_null() || !private_key || !cert || origin.empty() ||
       requested_types.empty()) {
+    RecordGetDomainBoundCertResult(INVALID_ARGUMENT);
     return ERR_INVALID_ARGUMENT;
   }
 
   std::string domain = GetDomainForHost(GURL(origin).host());
-  if (domain.empty())
+  if (domain.empty()) {
+    RecordGetDomainBoundCertResult(INVALID_ARGUMENT);
     return ERR_INVALID_ARGUMENT;
+  }
 
   SSLClientCertType preferred_type = CLIENT_CERT_INVALID_TYPE;
   for (size_t i = 0; i < requested_types.size(); ++i) {
@@ -333,6 +412,7 @@ int ServerBoundCertService::GetDomainBoundCert(
     }
   }
   if (preferred_type == CLIENT_CERT_INVALID_TYPE) {
+    RecordGetDomainBoundCertResult(UNSUPPORTED_TYPE);
     // None of the requested types are supported.
     return ERR_CLIENT_AUTH_CERT_TYPE_UNSUPPORTED;
   }
@@ -358,7 +438,13 @@ int ServerBoundCertService::GetDomainBoundCert(
       DVLOG(1) << "Cert store had cert of wrong type " << *type << " for "
                << domain;
     } else {
+      DVLOG(1) << "Cert store had valid cert for " << domain
+               << " of type " << *type;
       cert_store_hits_++;
+      RecordGetDomainBoundCertResult(SYNC_SUCCESS);
+      base::TimeDelta request_time = base::TimeTicks::Now() - request_start;
+      UMA_HISTOGRAM_TIMES("DomainBoundCerts.GetCertTimeSync", request_time);
+      RecordGetCertTime(request_time);
       return OK;
     }
   }
@@ -382,6 +468,7 @@ int ServerBoundCertService::GetDomainBoundCert(
       // misconfigured.  Since we only store one type of cert per domain, we
       // are unable to handle this well.  Just return an error and let the first
       // job finish.
+      RecordGetDomainBoundCertResult(TYPE_MISMATCH);
       return ERR_ORIGIN_BOUND_CERT_GENERATION_TYPE_MISMATCH;
     }
     inflight_joins_++;
@@ -392,18 +479,19 @@ int ServerBoundCertService::GetDomainBoundCert(
             preferred_type,
             this);
     job = new ServerBoundCertServiceJob(worker, preferred_type);
-    if (!worker->Start()) {
+    if (!worker->Start(task_runner_)) {
       delete job;
       delete worker;
       // TODO(rkn): Log to the NetLog.
       LOG(ERROR) << "ServerBoundCertServiceWorker couldn't be started.";
+      RecordGetDomainBoundCertResult(WORKER_FAILURE);
       return ERR_INSUFFICIENT_RESOURCES;  // Just a guess.
     }
     inflight_[domain] = job;
   }
 
-  ServerBoundCertServiceRequest* request =
-      new ServerBoundCertServiceRequest(callback, type, private_key, cert);
+  ServerBoundCertServiceRequest* request = new ServerBoundCertServiceRequest(
+      request_start, callback, type, private_key, cert);
   job->AddRequest(request);
   *out_req = request;
   return ERR_IO_PENDING;
@@ -421,9 +509,10 @@ int ServerBoundCertService::GenerateCert(const std::string& server_identifier,
                                          base::Time* expiration_time,
                                          std::string* private_key,
                                          std::string* cert) {
-  base::Time now = base::Time::Now();
+  base::TimeTicks start = base::TimeTicks::Now();
+  base::Time not_valid_before = base::Time::Now();
   base::Time not_valid_after =
-      now + base::TimeDelta::FromDays(kValidityPeriodInDays);
+      not_valid_before + base::TimeDelta::FromDays(kValidityPeriodInDays);
   std::string der_cert;
   std::vector<uint8> private_key_info;
   switch (type) {
@@ -437,7 +526,7 @@ int ServerBoundCertService::GenerateCert(const std::string& server_identifier,
           key.get(),
           server_identifier,
           serial_number,
-          now,
+          not_valid_before,
           not_valid_after,
           &der_cert)) {
         DLOG(ERROR) << "Unable to create x509 cert for client";
@@ -462,8 +551,13 @@ int ServerBoundCertService::GenerateCert(const std::string& server_identifier,
 
   private_key->swap(key_out);
   cert->swap(der_cert);
-  *creation_time = now;
+  *creation_time = not_valid_before;
   *expiration_time = not_valid_after;
+  UMA_HISTOGRAM_CUSTOM_TIMES("DomainBoundCerts.GenerateCertTime",
+                             base::TimeTicks::Now() - start,
+                             base::TimeDelta::FromMilliseconds(1),
+                             base::TimeDelta::FromMinutes(5),
+                             50);
   return OK;
 }
 
@@ -485,9 +579,11 @@ void ServerBoundCertService::HandleResult(const std::string& server_identifier,
                                           const std::string& cert) {
   DCHECK(CalledOnValidThread());
 
-  server_bound_cert_store_->SetServerBoundCert(
-      server_identifier, type, creation_time, expiration_time, private_key,
-      cert);
+  if (error == OK) {
+    server_bound_cert_store_->SetServerBoundCert(
+        server_identifier, type, creation_time, expiration_time, private_key,
+        cert);
+  }
 
   std::map<std::string, ServerBoundCertServiceJob*>::iterator j;
   j = inflight_.find(server_identifier);

@@ -26,6 +26,7 @@ PrerenderManager* PrerenderManagerFactory::GetForProfile(
       GetInstance()->GetServiceForProfile(profile, true));
 }
 
+// static
 PrerenderManagerFactory* PrerenderManagerFactory::GetInstance() {
   return Singleton<PrerenderManagerFactory>::get();
 }
@@ -33,7 +34,7 @@ PrerenderManagerFactory* PrerenderManagerFactory::GetInstance() {
 PrerenderManagerFactory::PrerenderManagerFactory()
     : ProfileKeyedServiceFactory("PrerenderManager",
                                  ProfileDependencyManager::GetInstance()) {
-  DependsOn(ExtensionSystemFactory::GetInstance());
+  DependsOn(extensions::ExtensionSystemFactory::GetInstance());
 }
 
 PrerenderManagerFactory::~PrerenderManagerFactory() {
@@ -42,7 +43,7 @@ PrerenderManagerFactory::~PrerenderManagerFactory() {
 ProfileKeyedService* PrerenderManagerFactory::BuildServiceInstanceFor(
     Profile* profile) const {
   CHECK(g_browser_process->prerender_tracker());
-  PrerenderManager* prerender_manager = new prerender::PrerenderManager(
+  PrerenderManager* prerender_manager = new PrerenderManager(
       profile, g_browser_process->prerender_tracker());
 #if defined(OS_CHROMEOS)
   if (chromeos::CrosLibrary::Get()) {
@@ -58,4 +59,4 @@ bool PrerenderManagerFactory::ServiceHasOwnInstanceInIncognito() {
   return true;
 }
 
-}  // end namespace prerender
+}  // namespace prerender

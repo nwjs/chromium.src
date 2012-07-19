@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_TAB_MODAL_CONFIRM_DIALOG_WEBUI_H_
 #define CHROME_BROWSER_UI_WEBUI_TAB_MODAL_CONFIRM_DIALOG_WEBUI_H_
-#pragma once
 
 #if !(defined(USE_AURA) || defined(OS_CHROMEOS))
 #error Tab-modal confirm dialog should be shown with native UI.
@@ -12,24 +11,27 @@
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/ui/webui/html_dialog_ui.h"
+#include "ui/web_dialogs/web_dialog_delegate.h"
 
-class ConstrainedHtmlUIDelegate;
-class TabContentsWrapper;
+class TabContents;
 class TabModalConfirmDialogDelegate;
+
+namespace ui {
+class ConstrainedWebDialogDelegate;
+}
 
 // Displays a tab-modal dialog, i.e. a dialog that will block the current page
 // but still allow the user to switch to a different page.
 // To display the dialog, allocate this object on the heap. It will open the
 // dialog from its constructor and then delete itself when the user dismisses
 // the dialog.
-class TabModalConfirmDialogWebUI : public HtmlDialogUIDelegate {
+class TabModalConfirmDialogWebUI : public ui::WebDialogDelegate {
  public:
   TabModalConfirmDialogWebUI(
       TabModalConfirmDialogDelegate* dialog_delegate,
-      TabContentsWrapper* wrapper);
+      TabContents* tab_contents);
 
-  // HtmlDialogUIDelegate implementation.
+  // ui::WebDialogDelegate implementation.
   virtual ui::ModalType GetDialogModalType() const OVERRIDE;
   virtual string16 GetDialogTitle() const OVERRIDE;
   virtual GURL GetDialogContentURL() const OVERRIDE;
@@ -42,8 +44,8 @@ class TabModalConfirmDialogWebUI : public HtmlDialogUIDelegate {
                                bool* out_close_dialog) OVERRIDE;
   virtual bool ShouldShowDialogTitle() const OVERRIDE;
 
-  ConstrainedHtmlUIDelegate* constrained_html_ui_delegate() {
-    return constrained_html_ui_delegate_;
+  ui::ConstrainedWebDialogDelegate* constrained_web_dialog_delegate() {
+    return constrained_web_dialog_delegate_;
   }
 
  private:
@@ -52,7 +54,7 @@ class TabModalConfirmDialogWebUI : public HtmlDialogUIDelegate {
   scoped_ptr<TabModalConfirmDialogDelegate> delegate_;
 
   // Deletes itself.
-  ConstrainedHtmlUIDelegate* constrained_html_ui_delegate_;
+  ui::ConstrainedWebDialogDelegate* constrained_web_dialog_delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(TabModalConfirmDialogWebUI);
 };

@@ -4,7 +4,7 @@
 
 #include "sync/sessions/test_util.h"
 
-namespace browser_sync {
+namespace syncer {
 namespace sessions {
 namespace test_util {
 
@@ -22,7 +22,7 @@ void SimulateDownloadUpdatesFailed(sessions::SyncSession* session,
 
 void SimulateCommitFailed(sessions::SyncSession* session,
                           SyncerStep begin, SyncerStep end) {
-  session->mutable_status_controller()->set_last_post_commit_result(
+  session->mutable_status_controller()->set_commit_result(
       SERVER_RETURN_TRANSIENT_ERROR);
 }
 
@@ -38,7 +38,12 @@ void SimulateSuccess(sessions::SyncSession* session,
     ADD_FAILURE() << "Shouldn't have more to sync";
   }
   ASSERT_EQ(0U, session->status_controller().num_server_changes_remaining());
-  ASSERT_EQ(0U, session->status_controller().unsynced_handles().size());
+  session->SetFinished();
+  if (end == SYNCER_END) {
+    session->mutable_status_controller()->set_last_download_updates_result(
+        SYNCER_OK);
+    session->mutable_status_controller()->set_commit_result(SYNCER_OK);
+  }
 }
 
 void SimulateThrottledImpl(sessions::SyncSession* session,
@@ -58,4 +63,4 @@ void SimulateSessionsCommitDelayUpdateImpl(sessions::SyncSession* session,
 
 }  // namespace test_util
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer

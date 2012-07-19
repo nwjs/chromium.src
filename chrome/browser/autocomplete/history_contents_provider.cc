@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,8 +10,10 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/url_constants.h"
 #include "googleurl/src/url_util.h"
@@ -26,7 +28,7 @@ namespace {
 // time it will take.
 const int kDaysToSearch = 30;
 
-}  // end namespace
+}  // namespace
 
 HistoryContentsProvider::MatchReference::MatchReference(
     const history::URLResult* result,
@@ -44,9 +46,10 @@ bool HistoryContentsProvider::MatchReference::CompareRelevance(
   return lhs.result->last_visit() > rhs.result->last_visit();
 }
 
-HistoryContentsProvider::HistoryContentsProvider(ACProviderListener* listener,
-                                                 Profile* profile,
-                                                 bool body_only)
+HistoryContentsProvider::HistoryContentsProvider(
+    AutocompleteProviderListener* listener,
+    Profile* profile,
+    bool body_only)
     : HistoryProvider(listener, profile, "HistoryContents"),
       star_title_count_(0),
       star_contents_count_(0),
@@ -63,9 +66,11 @@ void HistoryContentsProvider::Start(const AutocompleteInput& input,
   matches_.clear();
 
   if (input.text().empty() || (input.type() == AutocompleteInput::INVALID) ||
+      (input.type() == AutocompleteInput::FORCED_QUERY) ||
       !profile_ ||
       // The history service or bookmark bar model must exist.
-      !(profile_->GetHistoryService(Profile::EXPLICIT_ACCESS) ||
+      !(HistoryServiceFactory::GetForProfile(profile_,
+                                             Profile::EXPLICIT_ACCESS) ||
         profile_->GetBookmarkModel())) {
     Stop();
     return;
@@ -128,7 +133,8 @@ void HistoryContentsProvider::Start(const AutocompleteInput& input,
 
   if (input.matches_requested() == AutocompleteInput::ALL_MATCHES) {
     HistoryService* history =
-        profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+        HistoryServiceFactory::GetForProfile(profile_,
+                                             Profile::EXPLICIT_ACCESS);
     if (history) {
       done_ = false;
 

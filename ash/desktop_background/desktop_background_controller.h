@@ -4,13 +4,19 @@
 
 #ifndef ASH_DESKTOP_BACKGROUND_DESKTOP_BACKGROUND_CONTROLLER_H_
 #define ASH_DESKTOP_BACKGROUND_DESKTOP_BACKGROUND_CONTROLLER_H_
-#pragma once
 
 #include "ash/ash_export.h"
 #include "ash/desktop_background/desktop_background_resources.h"
 #include "base/basictypes.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/gfx/image/image_skia.h"
 
-class SkBitmap;
+namespace aura {
+class RootWindow;
+}
 
 namespace ash {
 
@@ -18,15 +24,22 @@ class UserWallpaperDelegate {
  public:
   virtual ~UserWallpaperDelegate() {}
 
-  // Gets the index of user selected wallpaper.
-  virtual const int GetUserWallpaperIndex() = 0;
+  // Initialize wallpaper.
+  virtual void InitializeWallpaper() = 0;
 
-  // Open the set wallpaper page in the browser.
+  // Opens the set wallpaper page in the browser.
   virtual void OpenSetWallpaperPage() = 0;
+
+  // Returns true if user can open set wallpaper page. Only guest user returns
+  // false currently.
+  virtual bool CanOpenSetWallpaperPage() = 0;
+
+  // Notifies delegate that wallpaper animation has finished.
+  virtual void OnWallpaperAnimationFinished() = 0;
 };
 
-// A class to listen for login and desktop background change events and set the
-// corresponding default wallpaper in Aura shell.
+// Loads selected desktop wallpaper from file system asynchronously and updates
+// background layer if loaded successfully.
 class ASH_EXPORT DesktopBackgroundController {
  public:
   enum BackgroundMode {
@@ -37,26 +50,75 @@ class ASH_EXPORT DesktopBackgroundController {
   DesktopBackgroundController();
   virtual ~DesktopBackgroundController();
 
-  // Get the desktop background mode.
+  // Gets the desktop background mode.
   BackgroundMode desktop_background_mode() const {
     return desktop_background_mode_;
   }
 
-  // Change the desktop background image to user selected wallpaper.
-  void OnDesktopBackgroundChanged();
+  gfx::ImageSkia GetWallpaper() const;
 
-  // Sets the desktop background to image mode and create a new background
-  // widget with |wallpaper| and image |layout|.
-  void SetDesktopBackgroundImageMode(const SkBitmap& wallpaper,
-                                     ImageLayout layout);
+  WallpaperLayout GetWallpaperLayout() const;
 
-  // Sets the desktop background to solid color mode and create a solid color
-  // layout.
-  void SetDesktopBackgroundSolidColorMode();
+  // Provides current image on the background, or empty SkBitmap if there is
+  // no image, e.g. background is solid color.
+  SkBitmap GetCurrentWallpaperImage();
+
+  // Initialize root window's background.
+  void OnRootWindowAdded(aura::RootWindow* root_window);
+
+  // Loads default wallpaper at |index| asynchronously and sets to current
+  // wallpaper after loaded.
+  void SetDefaultWallpaper(int index);
+
+  // Sets the user selected custom wallpaper. Called when user selected a file
+  // from file system or changed the layout of wallpaper.
+  void SetCustomWallpaper(const gfx::ImageSkia& wallpaper,
+                          WallpaperLayout layout);
+
+  // Cancels the current wallpaper loading operation.
+  void CancelPendingWallpaperOperation();
+
+  // Sets the desktop background to solid color mode and creates a solid
+  // |color| layout.
+  void SetDesktopBackgroundSolidColorMode(SkColor color);
+
+  // Creates an empty wallpaper. Some tests require a wallpaper widget is ready
+  // when running. However, the wallpaper widgets are now created asynchronously
+  // . If loading a real wallpaper, there are cases that these tests crash
+  // because the required widget is not ready. This function synchronously
+  // creates an empty widget for those tests to prevent crashes. An example test
+  // is SystemGestureEventFilterTest.ThreeFingerSwipe.
+  void CreateEmptyWallpaper();
 
  private:
+  // An operation to asynchronously loads wallpaper.
+  class WallpaperOperation;
+
+  struct WallpaperData;
+
+  // Creates a new background widget using the current wallpapaer image and
+  // use it as a background of the |root_window|. Deletes the old widget if any.
+  void SetDesktopBackgroundImage(aura::RootWindow* root_window);
+
+  // Update the background of all root windows using the current wallpaper image
+  // in |current_wallpaper_|.
+  void UpdateDesktopBackgroundImageMode();
+
+  // Creates a new background widget and sets the background mode to image mode.
+  // Called after wallpaper loaded successfully.
+  void OnWallpaperLoadCompleted(scoped_refptr<WallpaperOperation> wo);
+
   // Can change at runtime.
   BackgroundMode desktop_background_mode_;
+
+  SkColor background_color_;
+
+  // The current wallpaper.
+  scoped_ptr<WallpaperData> current_wallpaper_;
+
+  scoped_refptr<WallpaperOperation> wallpaper_op_;
+
+  base::WeakPtrFactory<DesktopBackgroundController> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopBackgroundController);
 };

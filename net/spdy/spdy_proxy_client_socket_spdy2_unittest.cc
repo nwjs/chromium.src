@@ -110,7 +110,7 @@ class SpdyProxyClientSocketSpdy2Test : public PlatformTest {
   scoped_ptr<SpdyProxyClientSocket> sock_;
   TestCompletionCallback read_callback_;
   TestCompletionCallback write_callback_;
-  scoped_refptr<DeterministicSocketData> data_;
+  scoped_ptr<DeterministicSocketData> data_;
 
  private:
   scoped_refptr<HttpNetworkSession> session_;
@@ -150,9 +150,10 @@ SpdyProxyClientSocketSpdy2Test::SpdyProxyClientSocketSpdy2Test()
       proxy_(ProxyServer::SCHEME_HTTPS, proxy_host_port_),
       endpoint_host_port_proxy_pair_(endpoint_host_port_pair_, proxy_),
       transport_params_(new TransportSocketParams(proxy_host_port_,
-                                            LOWEST,
-                                            false,
-                                            false)) {
+                                                  LOWEST,
+                                                  false,
+                                                  false,
+                                                  OnHostResolutionCallback())) {
 }
 
 void SpdyProxyClientSocketSpdy2Test::TearDown() {
@@ -169,7 +170,8 @@ void SpdyProxyClientSocketSpdy2Test::Initialize(MockRead* reads,
                                            size_t reads_count,
                                            MockWrite* writes,
                                            size_t writes_count) {
-  data_ = new DeterministicSocketData(reads, reads_count, writes, writes_count);
+  data_.reset(new DeterministicSocketData(reads, reads_count,
+                                          writes, writes_count));
   data_->set_connect_data(connect_data_);
   data_->SetStop(2);
 
@@ -318,7 +320,7 @@ SpdyProxyClientSocketSpdy2Test::ConstructConnectRequestFrame() {
     SYN_STREAM,
     kStreamId,
     0,
-    net::ConvertRequestPriorityToSpdyPriority(LOWEST),
+    net::ConvertRequestPriorityToSpdyPriority(LOWEST, 2),
     CONTROL_FLAG_NONE,
     false,
     INVALID,
@@ -345,7 +347,7 @@ SpdyProxyClientSocketSpdy2Test::ConstructConnectAuthRequestFrame() {
     SYN_STREAM,
     kStreamId,
     0,
-    net::ConvertRequestPriorityToSpdyPriority(LOWEST),
+    net::ConvertRequestPriorityToSpdyPriority(LOWEST, 2),
     CONTROL_FLAG_NONE,
     false,
     INVALID,
@@ -551,7 +553,7 @@ TEST_F(SpdyProxyClientSocketSpdy2Test, GetPeerAddressReturnsCorrectValues) {
 
   Initialize(reads, arraysize(reads), writes, arraysize(writes));
 
-  net::AddressList addr;
+  net::IPEndPoint addr;
   EXPECT_EQ(ERR_SOCKET_NOT_CONNECTED, sock_->GetPeerAddress(&addr));
 
   AssertConnectSucceeds();

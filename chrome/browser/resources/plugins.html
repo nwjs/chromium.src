@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <title i18n-content="pluginsTitle"></title>
 <link rel="stylesheet" href="plugins.css"/>
+<if expr="pp_ifdef('chromeos')">
+  <link rel="stylesheet"
+      href="chrome://resources/css/chromeos/ui_account_tweaks.css">
+</if>
 </head>
 <body i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
 <div id="body-container" style="visibility:hidden">
@@ -77,9 +81,9 @@
               </div>
             </div>
             <div jsselect="plugin_files" class="plugin-details">
-              <div class="showInTmiMode">
+              <div class="show-in-tmi-mode plugin-file">
                 <div jsvalues=
-                  ".className:isPluginEnabled($this) ? 'plugin-file-enabled' : 'plugin-file-disabled'">
+                  ".className:isPluginEnabled($this) ? 'plugin-enabled' : 'plugin-disabled'">
                   <div><table><tr>
                     <td class="plugin-details-label"
                         i18n-content="pluginName">NAME:</td>
@@ -116,7 +120,7 @@
                           i18n-content="pluginDisabledByPolicy">(DISABLED_BY_POLICY)</span>
                       <span jsdisplay="enabledMode == 'enabledByPolicy'"
                           i18n-content="pluginEnabledByPolicy">(ENABLED_BY_POLICY)</span>
-                      <span>
+                      <span guest-visibility="disabled">
                         <a
                           class="disable-plugin-link"
                           jsvalues=".path:path"
@@ -164,7 +168,7 @@
               </div>
             </div>
           </div>
-          <div class="plugin-actions">
+          <div class="plugin-actions" guest-visibility="disabled">
             <span>
               <a
                 class="disable-group-link"
@@ -184,7 +188,7 @@
             <input
                 class="always-allow" type="checkbox"
                 jsvalues=
-                    ".identifier:id; id:id + '-always-allowed'; .checked:alwaysAllowed">
+                    ".identifier:id; id:id + '-always-allowed'; .checked:alwaysAllowed; disabled:!isPluginEnabled($this)">
             <label jsvalues="for:id + '-always-allowed'"
                 i18n-content="alwaysAllowed"></label>
           </div>
@@ -196,10 +200,16 @@
     </div>
   </div>
 </div>
+<script src="chrome://resources/js/util.js"></script>
+<script src="chrome://resources/js/cr.js"></script>
 <script src="chrome://plugins/plugins.js"></script>
-<script src="chrome://plugins/strings.js"></script>
-<script src="chrome://resources/js/i18n_template.js"></script>
-<script src="chrome://resources/js/i18n_process.js"></script>
+<if expr="pp_ifdef('chromeos')">
+  <script src="chrome://resources/js/chromeos/ui_account_tweaks.js"></script>
+</if>
+
+<script src="chrome://resources/js/load_time_data.js"></script>
 <script src="chrome://resources/js/jstemplate_compiled.js"></script>
+<script src="chrome://plugins/strings.js"></script>
+<script src="chrome://resources/js/i18n_template2.js"></script>
 </body>
 </html>

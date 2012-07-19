@@ -21,12 +21,23 @@ void WebDropData::PopulateWebDropData(IDataObject* data_object,
     if (test_url.is_valid())
       drop_data->url = test_url;
   }
-  ui::ClipboardUtil::GetFilenames(data_object, &drop_data->filenames);
-  ui::ClipboardUtil::GetPlainText(data_object, &drop_data->plain_text);
-  std::string base_url;
-  ui::ClipboardUtil::GetHtml(data_object, &drop_data->text_html, &base_url);
-  if (!base_url.empty()) {
-    drop_data->html_base_url = GURL(base_url);
+  std::vector<string16> filenames;
+  ui::ClipboardUtil::GetFilenames(data_object, &filenames);
+  for (size_t i = 0; i < filenames.size(); ++i)
+    drop_data->filenames.push_back(FileInfo(filenames[i], string16()));
+  string16 text;
+  ui::ClipboardUtil::GetPlainText(data_object, &text);
+  if (!text.empty()) {
+    drop_data->text = NullableString16(text, false);
+  }
+  string16 html;
+  std::string html_base_url;
+  ui::ClipboardUtil::GetHtml(data_object, &html, &html_base_url);
+  if (!html.empty()) {
+    drop_data->html = NullableString16(html, false);
+  }
+  if (!html_base_url.empty()) {
+    drop_data->html_base_url = GURL(html_base_url);
   }
   ui::ClipboardUtil::GetWebCustomData(data_object,
       &drop_data->custom_data);

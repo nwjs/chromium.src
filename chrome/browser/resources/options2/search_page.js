@@ -12,7 +12,7 @@ cr.define('options', function() {
   function SearchBubble(text) {
     var el = cr.doc.createElement('div');
     SearchBubble.decorate(el);
-    el.textContent = text;
+    el.content = text;
     return el;
   }
 
@@ -27,6 +27,10 @@ cr.define('options', function() {
     decorate: function() {
       this.className = 'search-bubble';
 
+      this.innards_ = cr.doc.createElement('div');
+      this.innards_.className = 'search-bubble-innards';
+      this.appendChild(this.innards_);
+
       // We create a timer to periodically update the position of the bubbles.
       // While this isn't all that desirable, it's the only sure-fire way of
       // making sure the bubbles stay in the correct location as sections
@@ -34,9 +38,17 @@ cr.define('options', function() {
       this.intervalId = setInterval(this.updatePosition.bind(this), 250);
     },
 
-  /**
-   * Attach the bubble to the element.
-   */
+    /**
+     * Sets the text message in the bubble.
+     * @param {string} text The text the bubble will show.
+     */
+    set content(text) {
+      this.innards_.textContent = text;
+    },
+
+    /**
+     * Attach the bubble to the element.
+     */
     attachTo: function(element) {
       var parent = element.parentElement;
       if (!parent)
@@ -102,8 +114,9 @@ cr.define('options', function() {
    * @constructor
    */
   function SearchPage() {
-    OptionsPage.call(this, 'search', templateData.searchPageTabTitle,
-        'searchPage');
+    OptionsPage.call(this, 'search',
+                     loadTimeData.getString('searchPageTabTitle'),
+                     'searchPage');
   }
 
   cr.addSingletonGetter(SearchPage);
@@ -230,11 +243,8 @@ cr.define('options', function() {
 
       if (active) {
         this.setSearchText_(this.searchField.value);
-        $('search-page-search-field-container').appendChild(this.searchField);
         this.searchField.focus();
       } else {
-        $('browser-options-search-field-container').appendChild(
-            this.searchField);
         // After hiding all page content, remove any search results.
         this.unhighlightMatches_();
         this.removeSearchBubbles_();
@@ -300,8 +310,7 @@ cr.define('options', function() {
         page = pagesToSearch[key];
         var elements = page.pageDiv.querySelectorAll('section');
         for (var i = 0, node; node = elements[i]; i++) {
-          if (!node.hidden)
-            node.classList.add('search-hidden');
+          node.classList.add('search-hidden');
         }
       }
 
@@ -314,11 +323,10 @@ cr.define('options', function() {
           var elements =
               page.pageDiv.querySelectorAll('section');
           for (var i = 0, node; node = elements[i]; i++) {
-            if (!node.hidden) {
-              if (this.performReplace_(regEx, replaceString, node)) {
-                node.classList.remove('search-hidden');
+            if (this.performReplace_(regEx, replaceString, node)) {
+              node.classList.remove('search-hidden');
+              if (!node.hidden)
                 foundMatches = true;
-              }
             }
           }
         }

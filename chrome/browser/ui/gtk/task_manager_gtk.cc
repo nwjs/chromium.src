@@ -21,22 +21,23 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_tree.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/gtk/menu_gtk.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "grit/chromium_strings.h"
 #include "grit/ui_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
+#include "ui/base/gtk/menu_label_accelerator_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/gtk_util.h"
 #include "ui/gfx/image/image.h"
-#include "ui/gfx/linux_util.h"
 
 namespace {
 
@@ -55,7 +56,7 @@ const gint kTaskManagerPurgeMemory = 3;
 
 enum TaskManagerColumn {
   kTaskManagerIcon,
-  kTaskManagerPage,
+  kTaskManagerTask,
   kTaskManagerProfileName,
   kTaskManagerSharedMem,
   kTaskManagerPrivateMem,
@@ -81,8 +82,8 @@ static const GdkColor kHighlightColor = GDK_COLOR_RGB(0xff, 0xfa, 0xcd);
 
 TaskManagerColumn TaskManagerResourceIDToColumnID(int id) {
   switch (id) {
-    case IDS_TASK_MANAGER_PAGE_COLUMN:
-      return kTaskManagerPage;
+    case IDS_TASK_MANAGER_TASK_COLUMN:
+      return kTaskManagerTask;
     case IDS_TASK_MANAGER_PROFILE_NAME_COLUMN:
       return kTaskManagerProfileName;
     case IDS_TASK_MANAGER_SHARED_MEM_COLUMN:
@@ -117,8 +118,8 @@ TaskManagerColumn TaskManagerResourceIDToColumnID(int id) {
 
 int TaskManagerColumnIDToResourceID(int id) {
   switch (id) {
-    case kTaskManagerPage:
-      return IDS_TASK_MANAGER_PAGE_COLUMN;
+    case kTaskManagerTask:
+      return IDS_TASK_MANAGER_TASK_COLUMN;
     case kTaskManagerProfileName:
       return IDS_TASK_MANAGER_PROFILE_NAME_COLUMN;
     case kTaskManagerSharedMem:
@@ -156,7 +157,7 @@ int TaskManagerColumnIDToResourceID(int id) {
 //
 // We need colid - 1 because the gtk_tree_view function is asking for the
 // column index, not the column id, and both kTaskManagerIcon and
-// kTaskManagerPage are in the same column index, so all column IDs are off by
+// kTaskManagerTask are in the same column index, so all column IDs are off by
 // one.
 int TreeViewColumnIndexFromID(TaskManagerColumn colid) {
   return colid - 1;
@@ -176,7 +177,9 @@ bool TreeViewColumnIsVisible(GtkWidget* treeview, TaskManagerColumn colid) {
   return gtk_tree_view_column_get_visible(column);
 }
 
-void TreeViewInsertColumnWithPixbuf(GtkWidget* treeview, int resid) {
+// The task column is special because it has an icon and it gets special
+// treatment with respect to resizing the columns.
+void TreeViewInsertTaskColumn(GtkWidget* treeview, int resid) {
   int colid = TaskManagerResourceIDToColumnID(resid);
   GtkTreeViewColumn* column = gtk_tree_view_column_new();
   gtk_tree_view_column_set_title(column,
@@ -225,6 +228,19 @@ void TreeViewInsertColumn(GtkWidget* treeview, int resid) {
                                l10n_util::GetStringUTF8(resid).c_str());
 }
 
+// Set the current width of the column without forcing a fixed or maximum
+// width as gtk_tree_view_column_set_[fixed|maximum]_width() would. This would
+// basically be gtk_tree_view_column_set_width() except that there is no such
+// function. It turns out that other applications have done similar hacks to do
+// the same thing - search the web for that nonexistent function name! :)
+void TreeViewColumnSetWidth(GtkTreeViewColumn* column, gint width) {
+  column->width = width;
+  column->resized_width = width;
+  column->use_resized_width = TRUE;
+  // Needed for use_resized_width to be effective.
+  gtk_widget_queue_resize(column->tree_view);
+}
+
 }  // namespace
 
 class TaskManagerGtk::ContextMenuController
@@ -233,7 +249,7 @@ class TaskManagerGtk::ContextMenuController
   explicit ContextMenuController(TaskManagerGtk* task_manager)
       : task_manager_(task_manager) {
     menu_model_.reset(new ui::SimpleMenuModel(this));
-    for (int i = kTaskManagerPage; i <= kTaskManagerLastVisibleColumn; i++) {
+    for (int i = kTaskManagerTask; i <= kTaskManagerLastVisibleColumn; i++) {
       menu_model_->AddCheckItemWithStringId(
           i, TaskManagerColumnIDToResourceID(i));
     }
@@ -452,7 +468,7 @@ void TaskManagerGtk::Init() {
   }
 
   gtk_dialog_add_button(GTK_DIALOG(dialog_),
-      gfx::ConvertAcceleratorsFromWindowsStyle(
+      ui::ConvertAcceleratorsFromWindowsStyle(
           l10n_util::GetStringUTF8(IDS_TASK_MANAGER_KILL)).c_str(),
       kTaskManagerResponseKill);
 
@@ -521,6 +537,10 @@ void TaskManagerGtk::Init() {
 }
 
 void TaskManagerGtk::SetInitialDialogSize() {
+  // Hook up to the realize event so we can size the task column to the
+  // size of the leftover space after packing the other columns.
+  g_signal_connect(treeview_, "realize",
+                   G_CALLBACK(OnTreeViewRealizeThunk), this);
   // If we previously saved the dialog's bounds, use them.
   if (g_browser_process->local_state()) {
     const DictionaryValue* placement_pref =
@@ -566,10 +586,10 @@ void TaskManagerGtk::CreateTaskManagerTreeview() {
   process_list_sort_ = gtk_tree_model_sort_new_with_model(
       GTK_TREE_MODEL(process_list_));
   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(process_list_sort_),
-                                  kTaskManagerPage,
+                                  kTaskManagerTask,
                                   ComparePage, this, NULL);
   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(process_list_sort_),
-                                  kTaskManagerPage,
+                                  kTaskManagerTask,
                                   CompareProfileName, this, NULL);
   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(process_list_sort_),
                                   kTaskManagerSharedMem,
@@ -610,9 +630,8 @@ void TaskManagerGtk::CreateTaskManagerTreeview() {
   treeview_ = gtk_tree_view_new_with_model(process_list_sort_);
 
   // Insert all the columns.
-  TreeViewInsertColumnWithPixbuf(treeview_, IDS_TASK_MANAGER_PAGE_COLUMN);
-  TreeViewInsertColumnWithPixbuf(treeview_,
-                                 IDS_TASK_MANAGER_PROFILE_NAME_COLUMN);
+  TreeViewInsertTaskColumn(treeview_, IDS_TASK_MANAGER_TASK_COLUMN);
+  TreeViewInsertColumn(treeview_, IDS_TASK_MANAGER_PROFILE_NAME_COLUMN);
   TreeViewInsertColumn(treeview_, IDS_TASK_MANAGER_SHARED_MEM_COLUMN);
   TreeViewInsertColumn(treeview_, IDS_TASK_MANAGER_PRIVATE_MEM_COLUMN);
   TreeViewInsertColumn(treeview_, IDS_TASK_MANAGER_CPU_COLUMN);
@@ -664,7 +683,7 @@ std::string TaskManagerGtk::GetModelText(int row, int col_id) {
     return std::string();
 
   switch (col_id) {
-    case IDS_TASK_MANAGER_PAGE_COLUMN:  // Process
+    case IDS_TASK_MANAGER_TASK_COLUMN:  // Process
       return UTF16ToUTF8(model_->GetResourceTitle(row));
 
     case IDS_TASK_MANAGER_PROFILE_NAME_COLUMN:  // Profile name
@@ -718,18 +737,18 @@ GdkPixbuf* TaskManagerGtk::GetModelIcon(int row) {
       ui::ResourceBundle::GetSharedInstance().GetBitmapNamed(
           IDR_DEFAULT_FAVICON)->pixelRef()) {
     return static_cast<GdkPixbuf*>(g_object_ref(
-        ThemeServiceGtk::GetDefaultFavicon(true)->ToGdkPixbuf()));
+        GtkThemeService::GetDefaultFavicon(true).ToGdkPixbuf()));
   }
 
-  return gfx::GdkPixbufFromSkBitmap(&icon);
+  return gfx::GdkPixbufFromSkBitmap(icon);
 }
 
 void TaskManagerGtk::SetRowDataFromModel(int row, GtkTreeIter* iter) {
   GdkPixbuf* icon = GetModelIcon(row);
-  std::string page = GetModelText(row, IDS_TASK_MANAGER_PAGE_COLUMN);
+  std::string task = GetModelText(row, IDS_TASK_MANAGER_TASK_COLUMN);
   std::string profile_name =
       GetModelText(row, IDS_TASK_MANAGER_PROFILE_NAME_COLUMN);
-  gchar* page_markup = g_markup_escape_text(page.c_str(), page.length());
+  gchar* task_markup = g_markup_escape_text(task.c_str(), task.length());
   std::string shared_mem =
       GetModelText(row, IDS_TASK_MANAGER_SHARED_MEM_COLUMN);
   std::string priv_mem = GetModelText(row, IDS_TASK_MANAGER_PRIVATE_MEM_COLUMN);
@@ -775,7 +794,7 @@ void TaskManagerGtk::SetRowDataFromModel(int row, GtkTreeIter* iter) {
       highlight_background_resources_;
   gtk_list_store_set(process_list_, iter,
                      kTaskManagerIcon, icon,
-                     kTaskManagerPage, page_markup,
+                     kTaskManagerTask, task_markup,
                      kTaskManagerProfileName, profile_name.c_str(),
                      kTaskManagerSharedMem, shared_mem.c_str(),
                      kTaskManagerPrivateMem, priv_mem.c_str(),
@@ -793,7 +812,7 @@ void TaskManagerGtk::SetRowDataFromModel(int row, GtkTreeIter* iter) {
                      is_background ? &kHighlightColor : NULL,
                      -1);
   g_object_unref(icon);
-  g_free(page_markup);
+  g_free(task_markup);
 }
 
 void TaskManagerGtk::KillSelectedProcesses() {
@@ -894,6 +913,37 @@ void TaskManagerGtk::OnResponse(GtkWidget* dialog, int response_id) {
   } else if (response_id == kTaskManagerPurgeMemory) {
     MemoryPurger::PurgeAll();
   }
+}
+
+void TaskManagerGtk::OnTreeViewRealize(GtkTreeView* treeview) {
+  // Five columns show by default: the task column, the memory column, the CPU
+  // column, the network column, and the FPS column. Initially we set the task
+  // tolumn to take all the extra space, with the other columns being sized to
+  // fit the column names. Here we turn off the expand property of the first
+  // column (to make the table behave sanely when the user resizes it), and set
+  // the effective sizes of all five default columns to the automatically chosen
+  // sizes before any rows are added. This causes them to stay at those sizes
+  // even if the data would overflow, preventing a horizontal scroll bar from
+  // appearing due to the row data.
+  static const TaskManagerColumn dfl_columns[] = {kTaskManagerPrivateMem,
+                                                  kTaskManagerCPU,
+                                                  kTaskManagerNetwork,
+                                                  kTaskManagerFPS};
+  GtkTreeViewColumn* column = NULL;
+  gint width;
+  for (size_t i = 0; i < arraysize(dfl_columns); ++i) {
+    column = gtk_tree_view_get_column(treeview,
+        TreeViewColumnIndexFromID(dfl_columns[i]));
+    width = gtk_tree_view_column_get_width(column);
+    TreeViewColumnSetWidth(column, width);
+  }
+  // Do the task column separately since it's a little different.
+  column = gtk_tree_view_get_column(treeview,
+      TreeViewColumnIndexFromID(kTaskManagerTask));
+  width = gtk_tree_view_column_get_width(column);
+  // Turn expanding back off to make resizing columns behave sanely.
+  gtk_tree_view_column_set_expand(column, FALSE);
+  TreeViewColumnSetWidth(column, width);
 }
 
 void TaskManagerGtk::OnSelectionChanged(GtkTreeSelection* selection) {

@@ -7,16 +7,18 @@
 #include "base/json/json_writer.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/extensions/settings/settings_frontend.h"
 #include "chrome/browser/extensions/settings/settings_namespace.h"
 #include "chrome/browser/extensions/settings/settings_sync_util.h"
-#include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/api/sync_change.h"
-#include "chrome/browser/sync/api/sync_change_processor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "sync/api/sync_change.h"
+#include "sync/api/sync_change_processor.h"
+#include "sync/api/sync_error_factory.h"
+#include "sync/api/sync_error_factory_mock.h"
 
 namespace extensions {
 
@@ -29,37 +31,37 @@ using settings_namespace::ToString;
 namespace {
 
 // TODO(kalman): test both EXTENSION_SETTINGS and APP_SETTINGS.
-const syncable::ModelType kModelType = syncable::EXTENSION_SETTINGS;
+const syncer::ModelType kModelType = syncer::EXTENSION_SETTINGS;
 
-class NoopSyncChangeProcessor : public SyncChangeProcessor {
+class NoopSyncChangeProcessor : public syncer::SyncChangeProcessor {
  public:
-  virtual SyncError ProcessSyncChanges(
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE {
-    return SyncError();
+      const syncer::SyncChangeList& change_list) OVERRIDE {
+    return syncer::SyncError();
   }
 
   virtual ~NoopSyncChangeProcessor() {};
 };
 
-class SyncChangeProcessorDelegate : public SyncChangeProcessor {
+class SyncChangeProcessorDelegate : public syncer::SyncChangeProcessor {
  public:
-  explicit SyncChangeProcessorDelegate(SyncChangeProcessor* recipient)
+  explicit SyncChangeProcessorDelegate(syncer::SyncChangeProcessor* recipient)
       : recipient_(recipient) {
     DCHECK(recipient_);
   }
   virtual ~SyncChangeProcessorDelegate() {}
 
-  // SyncChangeProcessor implementation.
-  virtual SyncError ProcessSyncChanges(
+  // syncer::SyncChangeProcessor implementation.
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE {
+      const syncer::SyncChangeList& change_list) OVERRIDE {
     return recipient_->ProcessSyncChanges(from_here, change_list);
   }
 
  private:
   // The recipient of all sync changes.
-  SyncChangeProcessor* recipient_;
+  syncer::SyncChangeProcessor* recipient_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncChangeProcessorDelegate);
 };
@@ -97,7 +99,7 @@ class ExtensionSettingsApiTest : public ExtensionApiTest {
         settings_namespace, normal_action, incognito_action, NULL, true);
   }
 
-  void InitSync(SyncChangeProcessor* sync_processor) {
+  void InitSync(syncer::SyncChangeProcessor* sync_processor) {
     MessageLoop::current()->RunAllPending();
     InitSyncWithSyncableService(
         sync_processor,
@@ -105,7 +107,7 @@ class ExtensionSettingsApiTest : public ExtensionApiTest {
               GetBackendForSync(kModelType));
   }
 
-  void SendChanges(const SyncChangeList& change_list) {
+  void SendChanges(const syncer::SyncChangeList& change_list) {
     MessageLoop::current()->RunAllPending();
     SendChangesToSyncableService(
         change_list,
@@ -157,16 +159,20 @@ class ExtensionSettingsApiTest : public ExtensionApiTest {
   }
 
   void InitSyncWithSyncableService(
-      SyncChangeProcessor* sync_processor, SyncableService* settings_service) {
+      syncer::SyncChangeProcessor* sync_processor,
+      syncer::SyncableService* settings_service) {
     EXPECT_FALSE(settings_service->MergeDataAndStartSyncing(
         kModelType,
-        SyncDataList(),
-        scoped_ptr<SyncChangeProcessor>(
-            new SyncChangeProcessorDelegate(sync_processor))).IsSet());
+        syncer::SyncDataList(),
+        scoped_ptr<syncer::SyncChangeProcessor>(
+            new SyncChangeProcessorDelegate(sync_processor)),
+        scoped_ptr<syncer::SyncErrorFactory>(
+            new syncer::SyncErrorFactoryMock())).IsSet());
   }
 
   void SendChangesToSyncableService(
-      const SyncChangeList& change_list, SyncableService* settings_service) {
+      const syncer::SyncChangeList& change_list,
+      syncer::SyncableService* settings_service) {
     EXPECT_FALSE(
         settings_service->ProcessSyncChanges(FROM_HERE, change_list).IsSet());
   }
@@ -309,7 +315,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSettingsApiTest,
   InitSync(&sync_processor);
 
   // Set "foo" to "bar" via sync.
-  SyncChangeList sync_changes;
+  syncer::SyncChangeList sync_changes;
   StringValue bar("bar");
   sync_changes.push_back(settings_sync_util::CreateAdd(
       extension_id, "foo", bar, kModelType));
@@ -357,7 +363,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSettingsApiTest,
   InitSync(&sync_processor);
 
   // Set "foo" to "bar" via sync.
-  SyncChangeList sync_changes;
+  syncer::SyncChangeList sync_changes;
   StringValue bar("bar");
   sync_changes.push_back(settings_sync_util::CreateAdd(
       extension_id, "foo", bar, kModelType));

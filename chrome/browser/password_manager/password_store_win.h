@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_STORE_WIN_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_STORE_WIN_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/password_manager/password_store_default.h"
@@ -23,7 +22,7 @@ struct PasswordForm;
 // but also uses IE7 passwords if no others found.
 class PasswordStoreWin : public PasswordStoreDefault {
  public:
-  // FilePath specifies path to WebDatabase.
+  // WebDataService is only used for IE7 password fetching.
   PasswordStoreWin(LoginDatabase* login_database,
                    Profile* profile,
                    WebDataService* web_data_service);

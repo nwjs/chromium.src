@@ -8,10 +8,8 @@
 #include "base/message_loop.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time.h"
-#include "content/common/child_process.h"
 #include "content/common/media/audio_messages.h"
 #include "content/common/view_messages.h"
-#include "content/renderer/render_thread_impl.h"
 #include "media/audio/audio_output_controller.h"
 #include "media/audio/audio_util.h"
 
@@ -39,26 +37,16 @@ class AudioDevice::AudioThreadCallback
   DISALLOW_COPY_AND_ASSIGN(AudioThreadCallback);
 };
 
-AudioDevice::AudioDevice()
-    : ScopedLoopObserver(ChildProcess::current()->io_message_loop()),
+AudioDevice::AudioDevice(
+    const scoped_refptr<base::MessageLoopProxy>& io_loop)
+    : ScopedLoopObserver(io_loop),
       callback_(NULL),
-      volume_(1.0),
       stream_id_(0),
       play_on_start_(true),
       is_started_(false) {
-  filter_ = RenderThreadImpl::current()->audio_message_filter();
-}
-
-AudioDevice::AudioDevice(const media::AudioParameters& params,
-                         RenderCallback* callback)
-    : ScopedLoopObserver(ChildProcess::current()->io_message_loop()),
-      audio_parameters_(params),
-      callback_(callback),
-      volume_(1.0),
-      stream_id_(0),
-      play_on_start_(true),
-      is_started_(false) {
-  filter_ = RenderThreadImpl::current()->audio_message_filter();
+  // Use the filter instance already created on the main render thread.
+  CHECK(AudioMessageFilter::Get()) << "Invalid audio message filter.";
+  filter_ = AudioMessageFilter::Get();
 }
 
 void AudioDevice::Initialize(const media::AudioParameters& params,
@@ -69,10 +57,6 @@ void AudioDevice::Initialize(const media::AudioParameters& params,
   CHECK(!callback_);  // Calling Initialize() twice?
 
   audio_parameters_ = params;
-  audio_parameters_.Reset(
-      params.format(),
-      params.channel_layout(), params.sample_rate(), params.bits_per_sample(),
-      params.frames_per_buffer());
   callback_ = callback;
 }
 
@@ -85,7 +69,8 @@ AudioDevice::~AudioDevice() {
 void AudioDevice::Start() {
   DCHECK(callback_) << "Initialize hasn't been called";
   message_loop()->PostTask(FROM_HERE,
-      base::Bind(&AudioDevice::InitializeOnIOThread, this, audio_parameters_));
+      base::Bind(&AudioDevice::CreateStreamOnIOThread, this,
+                 audio_parameters_));
 }
 
 void AudioDevice::Stop() {
@@ -117,17 +102,10 @@ bool AudioDevice::SetVolume(double volume) {
     return false;
   }
 
-  volume_ = volume;
-
   return true;
 }
 
-void AudioDevice::GetVolume(double* volume) {
-  // Return a locally cached version of the current scaling factor.
-  *volume = volume_;
-}
-
-void AudioDevice::InitializeOnIOThread(const media::AudioParameters& params) {
+void AudioDevice::CreateStreamOnIOThread(const media::AudioParameters& params) {
   DCHECK(message_loop()->BelongsToCurrentThread());
   // Make sure we don't create the stream more than once.
   DCHECK_EQ(0, stream_id_);

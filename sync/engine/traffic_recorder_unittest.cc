@@ -7,7 +7,7 @@
 #include "sync/protocol/sync.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace browser_sync {
+namespace syncer {
 
 const unsigned int kMaxMessages = 10;
 const unsigned int kMaxMessageSize = 5 * 1024;
@@ -39,5 +39,4 @@ TEST(TrafficRecorderTest, MaxMessageSizeTest) {
   EXPECT_TRUE(record.message.empty());
 }
 
-}  //namespace browser_sync
-
+}  // namespace syncer

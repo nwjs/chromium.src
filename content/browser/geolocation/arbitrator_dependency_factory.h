@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_ARBITRATOR_DEPENDENCY_FACTORY_H_
 #define CONTENT_BROWSER_GEOLOCATION_ARBITRATOR_DEPENDENCY_FACTORY_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/string16.h"
@@ -61,6 +60,9 @@ class CONTENT_EXPORT DefaultGeolocationArbitratorDependencyFactory
       const GURL& url,
       const string16& access_token) OVERRIDE;
   virtual LocationProviderBase* NewSystemLocationProvider() OVERRIDE;
+
+ protected:
+  virtual ~DefaultGeolocationArbitratorDependencyFactory();
 };
 
 #endif  // CONTENT_BROWSER_GEOLOCATION_ARBITRATOR_DEPENDENCY_FACTORY_H_

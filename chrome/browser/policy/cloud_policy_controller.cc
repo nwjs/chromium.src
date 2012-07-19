@@ -8,11 +8,11 @@
 #include <string>
 
 #include "base/bind.h"
+#include "base/guid.h"
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 #include "base/rand_util.h"
 #include "base/string_util.h"
-#include "base/time.h"
 #include "chrome/browser/policy/cloud_policy_cache_base.h"
 #include "chrome/browser/policy/cloud_policy_constants.h"
 #include "chrome/browser/policy/cloud_policy_subsystem.h"
@@ -21,7 +21,6 @@
 #include "chrome/browser/policy/device_token_fetcher.h"
 #include "chrome/browser/policy/enterprise_metrics.h"
 #include "chrome/browser/policy/policy_notifier.h"
-#include "chrome/common/guid.h"
 
 namespace policy {
 
@@ -96,6 +95,7 @@ void SampleErrorStatus(DeviceManagementStatus status) {
     case DM_STATUS_TEMPORARY_UNAVAILABLE:
     case DM_STATUS_SERVICE_ACTIVATION_PENDING:
     case DM_STATUS_HTTP_STATUS_ERROR:
+    case DM_STATUS_MISSING_LICENSES:
       sample = kMetricPolicyFetchServerFailed;
       break;
   }
@@ -132,8 +132,12 @@ void CloudPolicyController::SetRefreshRate(int64 refresh_rate_milliseconds) {
   policy_refresh_rate_ms_ = refresh_rate_milliseconds;
 
   // Reschedule the refresh task if necessary.
-  if (state_ == STATE_POLICY_VALID)
-    SetState(STATE_POLICY_VALID);
+  if (state_ == STATE_POLICY_VALID) {
+    scheduler_->CancelDelayedWork();
+    base::Time now(base::Time::NowFromSystemTime());
+    ScheduleDelayedWorkTask(
+        (GetLastRefreshTime(now) + GetRefreshDelay()) - now);
+  }
 }
 
 void CloudPolicyController::Retry() {
@@ -215,6 +219,11 @@ void CloudPolicyController::OnPolicyFetchCompleted(
       token_fetcher_->SetSerialNumberInvalidState();
       SetState(STATE_TOKEN_ERROR);
       return;
+    case DM_STATUS_MISSING_LICENSES:
+      VLOG(1) << "There are no valid licenses for this domain left.";
+      token_fetcher_->SetMissingLicensesState();
+      SetState(STATE_TOKEN_UNMANAGED);
+      return;
     case DM_STATUS_SERVICE_MANAGEMENT_NOT_SUPPORTED:
       VLOG(1) << "The device is no longer managed.";
       token_fetcher_->SetUnmanagedState();
@@ -243,10 +252,14 @@ void CloudPolicyController::OnPolicyFetchCompleted(
 }
 
 void CloudPolicyController::OnDeviceTokenChanged() {
-  if (data_store_->device_token().empty())
+  if (data_store_->device_token().empty()) {
+    // Additionally clear the generated device id to ensure we don't reuse old
+    // ids which could be potentially used for user tracking.
+    data_store_->set_device_id(std::string());
     SetState(STATE_TOKEN_UNAVAILABLE);
-  else
+  } else {
     SetState(STATE_TOKEN_VALID);
+  }
 }
 
 void CloudPolicyController::OnCredentialsChanged() {
@@ -314,9 +327,10 @@ bool CloudPolicyController::ReadyToFetchToken() {
 void CloudPolicyController::FetchToken() {
   if (ReadyToFetchToken()) {
     if (CanBeInManagedDomain(data_store_->user_name())) {
-      // Generate a new random device id. (It'll only be kept if registration
-      // succeeds.)
-      data_store_->set_device_id(guid::GenerateGUID());
+      // Either use an already prepopulated id or generate a new random device
+      // id. (It'll only be kept if registration succeeds.)
+      if (data_store_->device_id().empty())
+        data_store_->set_device_id(base::GenerateGUID());
       token_fetcher_->FetchToken();
     } else {
       SetState(STATE_TOKEN_UNMANAGED);
@@ -328,6 +342,10 @@ void CloudPolicyController::FetchToken() {
 
 void CloudPolicyController::SendPolicyRequest() {
   DCHECK(!data_store_->device_token().empty());
+
+  if (!data_store_->policy_fetching_enabled())
+    return;
+
   request_job_.reset(
       service_->CreateJob(DeviceManagementRequestJob::TYPE_POLICY_FETCH));
   request_job_->SetDMToken(data_store_->device_token());
@@ -390,10 +408,8 @@ void CloudPolicyController::SetState(
   request_job_.reset();  // Stop any pending requests.
 
   base::Time now(base::Time::NowFromSystemTime());
+  base::Time last_refresh(GetLastRefreshTime(now));
   base::Time refresh_at;
-  base::Time last_refresh(cache_->last_policy_refresh_time());
-  if (last_refresh.is_null())
-    last_refresh = now;
 
   // Determine when to take the next step.
   bool inform_notifier_done = false;
@@ -419,8 +435,7 @@ void CloudPolicyController::SetState(
       // a bug on either side.
       effective_policy_refresh_error_delay_ms_ =
           kPolicyRefreshErrorDelayInMilliseconds;
-      refresh_at =
-          last_refresh + base::TimeDelta::FromMilliseconds(GetRefreshDelay());
+      refresh_at = last_refresh + GetRefreshDelay();
       notifier_->Inform(CloudPolicySubsystem::SUCCESS,
                         CloudPolicySubsystem::NO_DETAILS,
                         PolicyNotifier::POLICY_CONTROLLER);
@@ -454,12 +469,8 @@ void CloudPolicyController::SetState(
 
   // Update the delayed work task.
   scheduler_->CancelDelayedWork();
-  if (!refresh_at.is_null()) {
-    int64 delay = std::max<int64>((refresh_at - now).InMilliseconds(), 0);
-    scheduler_->PostDelayedWork(
-        base::Bind(&CloudPolicyController::DoWork, base::Unretained(this)),
-        delay);
-  }
+  if (!refresh_at.is_null())
+    ScheduleDelayedWorkTask(refresh_at - now);
 
   // Inform the cache if a fetch attempt has completed. This happens if policy
   // has been succesfully fetched, or if token or policy fetching failed.
@@ -467,11 +478,28 @@ void CloudPolicyController::SetState(
     cache_->SetFetchingDone();
 }
 
-int64 CloudPolicyController::GetRefreshDelay() {
+base::TimeDelta CloudPolicyController::GetRefreshDelay() {
   int64 deviation = (kPolicyRefreshDeviationFactorPercent *
                      policy_refresh_rate_ms_) / 100;
   deviation = std::min(deviation, kPolicyRefreshDeviationMaxInMilliseconds);
-  return policy_refresh_rate_ms_ - base::RandGenerator(deviation + 1);
+  return base::TimeDelta::FromMilliseconds(
+      policy_refresh_rate_ms_ - base::RandGenerator(deviation + 1));
+}
+
+void CloudPolicyController::ScheduleDelayedWorkTask(
+    const base::TimeDelta& delay) {
+  int64 effective_delay = std::max<int64>(delay.InMilliseconds(), 0);
+  scheduler_->PostDelayedWork(
+      base::Bind(&CloudPolicyController::DoWork, base::Unretained(this)),
+      effective_delay);
+}
+
+base::Time CloudPolicyController::GetLastRefreshTime(const base::Time& now) {
+  base::Time last_refresh(cache_->last_policy_refresh_time());
+  if (last_refresh.is_null())
+    last_refresh = now;
+
+  return last_refresh;
 }
 
 }  // namespace policy

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_FIND_BAR_GTK_H_
 #define CHROME_BROWSER_UI_GTK_FIND_BAR_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -24,7 +23,7 @@ class Browser;
 class BrowserWindowGtk;
 class CustomDrawButton;
 class FindBarController;
-class ThemeServiceGtk;
+class GtkThemeService;
 class NineBox;
 class SlideAnimatorGtk;
 
@@ -104,7 +103,7 @@ class FindBarGtk : public FindBar,
   // the top of the page area, (it will be converted to coordinates relative to
   // the top of the browser window, when comparing against the dialog
   // coordinates). The returned value is relative to the browser window.
-  gfx::Rect GetDialogPosition(gfx::Rect avoid_overlapping_rect);
+  gfx::Rect GetDialogPosition(const gfx::Rect& avoid_overlapping_rect);
 
   // Adjust the text alignment according to the text direction of the widget
   // and |text_entry_|'s content, to make sure the real text alignment is
@@ -172,7 +171,7 @@ class FindBarGtk : public FindBar,
   BrowserWindowGtk* window_;
 
   // Provides colors and information about GTK.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   // The widget that animates the slide-in and -out of the findbar.
   scoped_ptr<SlideAnimatorGtk> slide_widget_;

@@ -4,25 +4,29 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_SETTINGS_SETTINGS_BACKEND_H_
 #define CHROME_BROWSER_EXTENSIONS_SETTINGS_SETTINGS_BACKEND_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/observer_list_threadsafe.h"
-#include "chrome/browser/extensions/settings/settings_leveldb_storage.h"
 #include "chrome/browser/extensions/settings/settings_observer.h"
+#include "chrome/browser/extensions/settings/settings_storage_factory.h"
 #include "chrome/browser/extensions/settings/settings_storage_quota_enforcer.h"
 #include "chrome/browser/extensions/settings/syncable_settings_storage.h"
-#include "chrome/browser/sync/api/syncable_service.h"
+#include "chrome/browser/value_store/leveldb_value_store.h"
+#include "sync/api/syncable_service.h"
+
+namespace syncer {
+class SyncErrorFactory;
+}
 
 namespace extensions {
 
-// Manages SettingsStorage objects for extensions, including routing
+// Manages ValueStore objects for extensions, including routing
 // changes from sync to them.
 // Lives entirely on the FILE thread.
-class SettingsBackend : public SyncableService {
+class SettingsBackend : public syncer::SyncableService {
  public:
   // |storage_factory| is use to create leveldb storage areas.
   // |base_path| is the base of the extension settings directory, so the
@@ -38,21 +42,23 @@ class SettingsBackend : public SyncableService {
 
   // Gets a weak reference to the storage area for |extension_id|.
   // Must be run on the FILE thread.
-  SettingsStorage* GetStorage(const std::string& extension_id) const;
+  ValueStore* GetStorage(const std::string& extension_id) const;
 
   // Deletes all setting data for an extension. Call on the FILE thread.
   void DeleteStorage(const std::string& extension_id);
 
-  // SyncableService implementation.
-  virtual SyncDataList GetAllSyncData(syncable::ModelType type) const OVERRIDE;
-  virtual SyncError MergeDataAndStartSyncing(
-      syncable::ModelType type,
-      const SyncDataList& initial_sync_data,
-      scoped_ptr<SyncChangeProcessor> sync_processor) OVERRIDE;
-  virtual SyncError ProcessSyncChanges(
+  // syncer::SyncableService implementation.
+  virtual syncer::SyncDataList GetAllSyncData(
+      syncer::ModelType type) const OVERRIDE;
+  virtual syncer::SyncError MergeDataAndStartSyncing(
+      syncer::ModelType type,
+      const syncer::SyncDataList& initial_sync_data,
+      scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
+      scoped_ptr<syncer::SyncErrorFactory> sync_error_factory) OVERRIDE;
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE;
-  virtual void StopSyncing(syncable::ModelType type) OVERRIDE;
+      const syncer::SyncChangeList& change_list) OVERRIDE;
+  virtual void StopSyncing(syncer::ModelType type) OVERRIDE;
 
  private:
   // Gets a weak reference to the storage area for a given extension,
@@ -64,6 +70,10 @@ class SettingsBackend : public SyncableService {
   // Gets all extension IDs known to extension settings.  This may not be all
   // installed extensions.
   std::set<std::string> GetKnownExtensionIDs() const;
+
+  // Creates a new SettingsSyncProcessor for an extension.
+  scoped_ptr<SettingsSyncProcessor> CreateSettingsSyncProcessor(
+      const std::string& extension_id) const;
 
   // The Factory to use for creating leveldb storage areas.
   const scoped_refptr<SettingsStorageFactory> storage_factory_;
@@ -77,7 +87,7 @@ class SettingsBackend : public SyncableService {
   // The list of observers to settings changes.
   const scoped_refptr<SettingsObserverList> observers_;
 
-  // A cache of SettingsStorage objects that have already been created.
+  // A cache of ValueStore objects that have already been created.
   // Ensure that there is only ever one created per extension.
   typedef std::map<std::string, linked_ptr<SyncableSettingsStorage> >
       StorageObjMap;
@@ -85,10 +95,13 @@ class SettingsBackend : public SyncableService {
 
   // Current sync model type.  Will be UNSPECIFIED if sync hasn't been enabled
   // yet, and either SETTINGS or APP_SETTINGS if it has been.
-  syncable::ModelType sync_type_;
+  syncer::ModelType sync_type_;
 
   // Current sync processor, if any.
-  scoped_ptr<SyncChangeProcessor> sync_processor_;
+  scoped_ptr<syncer::SyncChangeProcessor> sync_processor_;
+
+  // Current sync error handler if any.
+  scoped_ptr<syncer::SyncErrorFactory> sync_error_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SettingsBackend);
 };

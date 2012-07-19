@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,6 +12,9 @@ namespace webkit_glue {
 // Constant values use to indicate what type of reply the caller is getting from
 // the web intents service page.
 enum WebIntentReplyType {
+  // Invalid type. Use to initialize reply types.
+  WEB_INTENT_REPLY_INVALID,
+
   // Sent for a reply message (success).
   WEB_INTENT_REPLY_SUCCESS,
 
@@ -21,8 +24,8 @@ enum WebIntentReplyType {
   // Sent if the picker is cancelled without a selection being made.
   WEB_INTENT_PICKER_CANCELLED,
 
-  // Sent if the service tab is closed without any response being sent.
-  WEB_INTENT_SERVICE_TAB_CLOSED,
+  // Sent if the service contents is closed without any response being sent.
+  WEB_INTENT_SERVICE_CONTENTS_CLOSED,
 };
 
 }  // namespace webkit_glue

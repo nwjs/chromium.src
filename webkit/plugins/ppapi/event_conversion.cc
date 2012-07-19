@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <map>
+
 #include "webkit/plugins/ppapi/event_conversion.h"
 
 #include "base/basictypes.h"
@@ -10,14 +12,14 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/utf_string_conversion_utils.h"
+#include "base/utf_string_conversions.h"
 #include "ppapi/c/pp_input_event.h"
 #include "ppapi/shared_impl/ppb_input_event_shared.h"
 #include "ppapi/shared_impl/time_conversion.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebGamepads.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "webkit/plugins/ppapi/common.h"
 #include "webkit/plugins/ppapi/usb_key_code_conversion.h"
 
@@ -29,12 +31,51 @@ using WebKit::WebKeyboardEvent;
 using WebKit::WebMouseEvent;
 using WebKit::WebMouseWheelEvent;
 using WebKit::WebString;
+using WebKit::WebTouchEvent;
+using WebKit::WebTouchPoint;
 using WebKit::WebUChar;
 
 namespace webkit {
 namespace ppapi {
 
 namespace {
+
+// Verify the modifier flags WebKit uses match the Pepper ones. If these start
+// not matching, we'll need to write conversion code to preserve the Pepper
+// values (since plugins will be depending on them).
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_SHIFTKEY) ==
+               static_cast<int>(WebInputEvent::ShiftKey),
+               ShiftKeyMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_CONTROLKEY) ==
+               static_cast<int>(WebInputEvent::ControlKey),
+               ControlKeyMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_ALTKEY) ==
+               static_cast<int>(WebInputEvent::AltKey),
+               AltKeyMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_METAKEY) ==
+               static_cast<int>(WebInputEvent::MetaKey),
+               MetaKeyMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_ISKEYPAD) ==
+               static_cast<int>(WebInputEvent::IsKeyPad),
+               KeyPadMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_ISAUTOREPEAT) ==
+               static_cast<int>(WebInputEvent::IsAutoRepeat),
+               AutoRepeatMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_LEFTBUTTONDOWN) ==
+               static_cast<int>(WebInputEvent::LeftButtonDown),
+               LeftButtonMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_MIDDLEBUTTONDOWN) ==
+               static_cast<int>(WebInputEvent::MiddleButtonDown),
+               MiddleButtonMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_RIGHTBUTTONDOWN) ==
+               static_cast<int>(WebInputEvent::RightButtonDown),
+               RightButtonMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_CAPSLOCKKEY) ==
+               static_cast<int>(WebInputEvent::CapsLockOn),
+               CapsLockMatches);
+COMPILE_ASSERT(static_cast<int>(PP_INPUTEVENT_MODIFIER_NUMLOCKKEY) ==
+               static_cast<int>(WebInputEvent::NumLockOn),
+               NumLockMatches);
 
 PP_InputEvent_Type ConvertEventTypes(WebInputEvent::Type wetype) {
   switch (wetype) {
@@ -60,6 +101,14 @@ PP_InputEvent_Type ConvertEventTypes(WebInputEvent::Type wetype) {
       return PP_INPUTEVENT_TYPE_KEYUP;
     case WebInputEvent::Char:
       return PP_INPUTEVENT_TYPE_CHAR;
+    case WebInputEvent::TouchStart:
+      return PP_INPUTEVENT_TYPE_TOUCHSTART;
+    case WebInputEvent::TouchMove:
+      return PP_INPUTEVENT_TYPE_TOUCHMOVE;
+    case WebInputEvent::TouchEnd:
+      return PP_INPUTEVENT_TYPE_TOUCHEND;
+    case WebInputEvent::TouchCancel:
+      return PP_INPUTEVENT_TYPE_TOUCHCANCEL;
     case WebInputEvent::Undefined:
     default:
       return PP_INPUTEVENT_TYPE_UNDEFINED;
@@ -162,6 +211,127 @@ void AppendMouseWheelEvent(const WebInputEvent& event,
   result_events->push_back(result);
 }
 
+void SetPPTouchPoints(const WebTouchPoint* touches, uint32_t touches_length,
+                      std::vector<PP_TouchPoint>* result) {
+  for (uint32_t i = 0; i < touches_length; i++) {
+    const WebTouchPoint& touch_point = touches[i];
+    PP_TouchPoint pp_pt;
+    pp_pt.id = touch_point.id;
+    pp_pt.position.x = touch_point.position.x;
+    pp_pt.position.y = touch_point.position.y;
+    pp_pt.radius.x = touch_point.radiusX;
+    pp_pt.radius.y = touch_point.radiusY;
+    pp_pt.rotation_angle = touch_point.rotationAngle;
+    pp_pt.pressure = touch_point.force;
+    result->push_back(pp_pt);
+  }
+}
+
+void AppendTouchEvent(const WebInputEvent& event,
+                      std::vector<InputEventData>* result_events) {
+  const WebTouchEvent& touch_event =
+      reinterpret_cast<const WebTouchEvent&>(event);
+
+  InputEventData result = GetEventWithCommonFieldsAndType(event);
+  SetPPTouchPoints(touch_event.touches, touch_event.touchesLength,
+                   &result.touches);
+  SetPPTouchPoints(touch_event.changedTouches, touch_event.changedTouchesLength,
+                   &result.changed_touches);
+  SetPPTouchPoints(touch_event.targetTouches, touch_event.targetTouchesLength,
+                   &result.target_touches);
+
+  result_events->push_back(result);
+}
+
+// Structure used to map touch point id's to touch states.  Since the pepper
+// touch event structure does not have states for individual touch points and
+// instead relies on the event type in combination with the set of touch lists,
+// we have to set the state for the changed touches to be the same as the event
+// type and all others to be 'stationary.'
+typedef std::map<uint32_t, WebTouchPoint::State> TouchStateMap;
+
+void SetWebTouchPoints(const std::vector<PP_TouchPoint>& pp_touches,
+                       const TouchStateMap& states_map,
+                       WebTouchPoint* web_touches,
+                       uint32_t* web_touches_length) {
+
+  for (uint32_t i = 0; i < pp_touches.size() &&
+       i < WebTouchEvent::touchesLengthCap; i++) {
+    WebTouchPoint pt;
+    const PP_TouchPoint& pp_pt = pp_touches[i];
+    pt.id = pp_pt.id;
+
+    if (states_map.find(pt.id) == states_map.end())
+      pt.state = WebTouchPoint::StateStationary;
+    else
+      pt.state = states_map.find(pt.id)->second;
+
+    pt.position.x = pp_pt.position.x;
+    pt.position.y = pp_pt.position.y;
+    // TODO bug:http://code.google.com/p/chromium/issues/detail?id=93902
+    pt.screenPosition.x = 0;
+    pt.screenPosition.y = 0;
+    pt.force = pp_pt.pressure;
+    pt.radiusX = pp_pt.radius.x;
+    pt.radiusY = pp_pt.radius.y;
+    pt.rotationAngle = pp_pt.rotation_angle;
+    web_touches[i] = pt;
+    (*web_touches_length)++;
+  }
+}
+
+WebTouchEvent* BuildTouchEvent(const InputEventData& event) {
+  WebTouchEvent* web_event = new WebTouchEvent();
+  WebTouchPoint::State state = WebTouchPoint::StateUndefined;
+  switch (event.event_type) {
+    case PP_INPUTEVENT_TYPE_TOUCHSTART:
+      web_event->type = WebInputEvent::TouchStart;
+      state = WebTouchPoint::StatePressed;
+      break;
+    case PP_INPUTEVENT_TYPE_TOUCHMOVE:
+      web_event->type = WebInputEvent::TouchMove;
+      state = WebTouchPoint::StateMoved;
+      break;
+    case PP_INPUTEVENT_TYPE_TOUCHEND:
+      web_event->type = WebInputEvent::TouchEnd;
+      state = WebTouchPoint::StateReleased;
+      break;
+    case PP_INPUTEVENT_TYPE_TOUCHCANCEL:
+      web_event->type = WebInputEvent::TouchCancel;
+      state = WebTouchPoint::StateCancelled;
+      break;
+    default:
+      NOTREACHED();
+  }
+
+  TouchStateMap states_map;
+  for (uint32_t i = 0; i < event.changed_touches.size(); i++)
+    states_map[event.changed_touches[i].id] = state;
+
+  web_event->timeStampSeconds = PPTimeTicksToEventTime(event.event_time_stamp);
+
+  SetWebTouchPoints(event.changed_touches, states_map,
+                    web_event->changedTouches,
+                    &web_event->changedTouchesLength);
+
+  SetWebTouchPoints(event.touches, states_map, web_event->touches,
+                    &web_event->touchesLength);
+
+  SetWebTouchPoints(event.target_touches, states_map, web_event->targetTouches,
+                    &web_event->targetTouchesLength);
+
+  if (web_event->type == WebInputEvent::TouchEnd ||
+      web_event->type == WebInputEvent::TouchCancel) {
+    SetWebTouchPoints(event.changed_touches, states_map,
+                      web_event->touches, &web_event->touchesLength);
+    SetWebTouchPoints(event.changed_touches, states_map,
+                      web_event->targetTouches,
+                      &web_event->targetTouchesLength);
+  }
+
+  return web_event;
+}
+
 WebKeyboardEvent* BuildKeyEvent(const InputEventData& event) {
   WebKeyboardEvent* key_event = new WebKeyboardEvent();
   switch (event.event_type) {
@@ -180,6 +350,7 @@ WebKeyboardEvent* BuildKeyEvent(const InputEventData& event) {
   key_event->timeStampSeconds = PPTimeTicksToEventTime(event.event_time_stamp);
   key_event->modifiers = event.event_modifiers;
   key_event->windowsKeyCode = event.key_code;
+  key_event->setKeyIdentifierFromWindowsKeyCode();
   return key_event;
 }
 
@@ -232,6 +403,14 @@ WebMouseEvent* BuildMouseEvent(const InputEventData& event) {
   mouse_event->modifiers = event.event_modifiers;
   mouse_event->button =
       static_cast<WebMouseEvent::Button>(event.mouse_button);
+  if (mouse_event->type == WebInputEvent::MouseMove) {
+    if (mouse_event->modifiers & WebInputEvent::LeftButtonDown)
+      mouse_event->button = WebMouseEvent::ButtonLeft;
+    else if (mouse_event->modifiers & WebInputEvent::MiddleButtonDown)
+      mouse_event->button = WebMouseEvent::ButtonMiddle;
+    else if (mouse_event->modifiers & WebInputEvent::RightButtonDown)
+      mouse_event->button = WebMouseEvent::ButtonRight;
+  }
   mouse_event->x = event.mouse_position.x;
   mouse_event->y = event.mouse_position.y;
   mouse_event->clickCount = event.mouse_click_count;
@@ -366,6 +545,12 @@ void CreateInputEventData(const WebInputEvent& event,
     case WebInputEvent::Char:
       AppendCharEvent(event, result);
       break;
+    case WebInputEvent::TouchStart:
+    case WebInputEvent::TouchMove:
+    case WebInputEvent::TouchEnd:
+    case WebInputEvent::TouchCancel:
+      AppendTouchEvent(event, result);
+      break;
     case WebInputEvent::Undefined:
     default:
       break;
@@ -403,6 +588,12 @@ WebInputEvent* CreateWebInputEvent(const InputEventData& event) {
       // TODO(kinaba) implement in WebKit an event structure to handle
       // composition events.
       NOTREACHED();
+      break;
+    case PP_INPUTEVENT_TYPE_TOUCHSTART:
+    case PP_INPUTEVENT_TYPE_TOUCHMOVE:
+    case PP_INPUTEVENT_TYPE_TOUCHEND:
+    case PP_INPUTEVENT_TYPE_TOUCHCANCEL:
+      web_input_event.reset(BuildTouchEvent(event));
       break;
   }
 
@@ -517,6 +708,11 @@ PP_InputEvent_Class ClassifyInputEvent(WebInputEvent::Type type) {
     case WebInputEvent::KeyUp:
     case WebInputEvent::Char:
       return PP_INPUTEVENT_CLASS_KEYBOARD;
+    case WebInputEvent::TouchCancel:
+    case WebInputEvent::TouchEnd:
+    case WebInputEvent::TouchMove:
+    case WebInputEvent::TouchStart:
+      return PP_INPUTEVENT_CLASS_TOUCH;
     case WebInputEvent::Undefined:
     default:
       NOTREACHED();

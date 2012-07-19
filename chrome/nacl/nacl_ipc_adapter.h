@@ -4,7 +4,6 @@
 
 #ifndef CHROME_NACL_NACL_IPC_ADAPTER_H_
 #define CHROME_NACL_NACL_IPC_ADAPTER_H_
-#pragma once
 
 #include <queue>
 #include <string>
@@ -16,6 +15,8 @@
 #include "base/synchronization/lock.h"
 #include "base/task_runner.h"
 #include "ipc/ipc_channel.h"
+
+struct NaClDesc;
 
 // Adapts a Chrome IPC channel to an IPC channel that we expose to Native
 // Client. This provides a mapping in both directions, so when IPC messages
@@ -33,7 +34,7 @@
 // This object must be threadsafe since the nacl environment determines which
 // thread every function is called on.
 class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
-                       public IPC::Channel::Listener {
+                       public IPC::Listener {
  public:
   // Chrome's IPC message format varies by platform, NaCl's does not. In
   // particular, the header has some extra fields on Posix platforms. Since
@@ -59,8 +60,6 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
   // purposes. This function will take ownership of the given channel.
   NaClIPCAdapter(scoped_ptr<IPC::Channel> channel, base::TaskRunner* runner);
 
-  virtual ~NaClIPCAdapter();
-
   // Implementation of sendmsg. Returns the number of bytes written or -1 on
   // failure.
   int Send(const char* input_data, size_t input_data_len);
@@ -68,10 +67,18 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
   // Implementation of recvmsg. Returns the number of bytes read or -1 on
   // failure. This will block until there's an error or there is data to
   // read.
-  int BlockingReceive(char* output_buffer, int output_buffer_size);
+  int BlockingReceive(char* output_buffer, size_t output_buffer_size);
 
   // Closes the IPC channel.
   void CloseChannel();
+
+  // Make a NaClDesc that refers to this NaClIPCAdapter. Note that the returned
+  // NaClDesc is reference-counted, and a reference is returned.
+  NaClDesc* MakeNaClDesc();
+
+#if defined(OS_POSIX)
+  int TakeClientFileDescriptor();
+#endif
 
   // Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
@@ -79,6 +86,8 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
   virtual void OnChannelError() OVERRIDE;
 
  private:
+  friend class base::RefCountedThreadSafe<NaClIPCAdapter>;
+
   class RewrittenMessage;
 
   // This is the data that must only be accessed inside the lock. This struct
@@ -112,8 +121,10 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
     scoped_ptr<IPC::Channel> channel_;
   };
 
+  virtual ~NaClIPCAdapter();
+
   // Reads up to the given amount of data. Returns 0 if nothing is waiting.
-  int LockedReceive(char* output_buffer, int output_buffer_size);
+  int LockedReceive(char* output_buffer, size_t output_buffer_size);
 
   // Sends a message that we know has been completed to the Chrome process.
   bool SendCompleteMessage(const char* buffer, size_t buffer_len);
@@ -123,6 +134,7 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
   // for future use which we don't want.
   void ClearToBeSent();
 
+  void ConnectChannelOnIOThread();
   void CloseChannelOnIOThread();
   void SendMessageOnIOThread(scoped_ptr<IPC::Message> message);
 

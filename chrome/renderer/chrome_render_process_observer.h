@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_CHROME_RENDER_PROCESS_OBSERVER_H_
 #define CHROME_RENDERER_CHROME_RENDER_PROCESS_OBSERVER_H_
-#pragma once
 
 #include <string>
 
@@ -62,7 +61,6 @@ class ChromeRenderProcessObserver : public content::RenderProcessObserver {
   void OnGetCacheResourceStats();
   void OnSetFieldTrialGroup(const std::string& fiel_trial_name,
                             const std::string& group_name);
-  void OnGetRendererTcmalloc();
   void OnSetTcmallocHeapProfiling(bool profiling, const std::string& prefix);
   void OnWriteTcmallocHeapProfile(const FilePath::StringType& filename);
   void OnGetV8HeapStats();

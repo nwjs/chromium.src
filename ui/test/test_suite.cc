@@ -8,6 +8,7 @@
 #include "base/path_service.h"
 #include "build/build_config.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/resource/resource_handle.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/gfx/gfx_paths.h"
 
@@ -46,13 +47,17 @@ void UITestSuite::Initialize() {
   PathService::Get(base::DIR_MODULE, &pak_dir);
   pak_dir = pak_dir.AppendASCII("ui_unittests_strings");
   PathService::Override(ui::DIR_LOCALES, pak_dir);
-  PathService::Override(ui::FILE_RESOURCES_PAK,
-                        pak_dir.AppendASCII("ui_resources.pak"));
 #endif  // defined(OS_MACOSX)
 
   // Force unittests to run using en-US so if we test against string
   // output, it'll pass regardless of the system language.
-  ui::ResourceBundle::InitSharedInstanceWithLocale("en-US");
+  ui::ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
+
+#if !defined(OS_MACOSX) && defined(OS_POSIX)
+  ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
+      pak_dir.AppendASCII("ui_resources_standard.pak"),
+      ui::SCALE_FACTOR_100P);
+#endif
 }
 
 void UITestSuite::Shutdown() {

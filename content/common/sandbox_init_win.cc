@@ -8,8 +8,8 @@
 #include "base/logging.h"
 #include "content/common/sandbox_policy.h"
 #include "content/public/common/content_switches.h"
-#include "sandbox/src/sandbox.h"
-#include "sandbox/src/sandbox_types.h"
+#include "sandbox/win/src/sandbox.h"
+#include "sandbox/win/src/sandbox_types.h"
 
 namespace content {
 
@@ -18,15 +18,20 @@ bool InitializeSandbox(
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   std::string process_type =
       command_line.GetSwitchValueASCII(switches::kProcessType);
+  sandbox::BrokerServices* broker_services = sandbox_info->broker_services;
+  if (broker_services && (process_type.empty() ||
+                          process_type == switches::kNaClBrokerProcess ||
+                          process_type == switches::kServiceProcess)) {
+    if (!sandbox::InitBrokerServices(broker_services))
+      return false;
+  }
+
   if (process_type.empty() || process_type == switches::kNaClBrokerProcess) {
     // IMPORTANT: This piece of code needs to run as early as possible in the
     // process because it will initialize the sandbox broker, which requires the
     // process to swap its window station. During this time all the UI will be
     // broken. This has to run before threads and windows are created.
-    sandbox::BrokerServices* broker_services = sandbox_info->broker_services;
     if (broker_services) {
-      if (!sandbox::InitBrokerServices(broker_services))
-        return false;
       if (!command_line.HasSwitch(switches::kNoSandbox)) {
         bool use_winsta = !command_line.HasSwitch(
             switches::kDisableAltWinstation);

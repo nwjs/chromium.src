@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_DOWNLOAD_DOWNLOAD_SHELF_CONTEXT_MENU_H_
 #define CHROME_BROWSER_DOWNLOAD_DOWNLOAD_SHELF_CONTEXT_MENU_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -16,6 +15,7 @@ class BaseDownloadItemModel;
 
 namespace content {
 class DownloadItem;
+class PageNavigator;
 }
 
 // This class is responsible for the download shelf context menu. Platform
@@ -40,7 +40,8 @@ class DownloadShelfContextMenu : public ui::SimpleMenuModel::Delegate {
   void set_download_item(content::DownloadItem* item) { download_item_ = item; }
 
  protected:
-  explicit DownloadShelfContextMenu(BaseDownloadItemModel* download_model);
+  DownloadShelfContextMenu(BaseDownloadItemModel* download_model,
+                           content::PageNavigator* navigator);
 
   // Returns the correct menu model depending whether the download item is
   // completed or not.
@@ -72,6 +73,9 @@ class DownloadShelfContextMenu : public ui::SimpleMenuModel::Delegate {
 
   // Information source.
   content::DownloadItem* download_item_;
+
+  // Used to open tabs.
+  content::PageNavigator* navigator_;
 
   DISALLOW_COPY_AND_ASSIGN(DownloadShelfContextMenu);
 };

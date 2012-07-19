@@ -4,7 +4,7 @@
 
 #include "sync/test/engine/fake_model_worker.h"
 
-namespace browser_sync {
+namespace syncer {
 
 FakeModelWorker::FakeModelWorker(ModelSafeGroup group) : group_(group) {}
 
@@ -13,19 +13,19 @@ FakeModelWorker::~FakeModelWorker() {
   // multi-threaded test; since ModelSafeWorkers are
   // RefCountedThreadSafe, they could theoretically be destroyed from
   // a different thread.
-  DCHECK(non_thread_safe_.CalledOnValidThread());
+  DCHECK(CalledOnValidThread());
 }
 
 SyncerError FakeModelWorker::DoWorkAndWaitUntilDone(
     const WorkCallback& work) {
-  DCHECK(non_thread_safe_.CalledOnValidThread());
+  DCHECK(CalledOnValidThread());
   // Simply do the work on the current thread.
   return work.Run();
 }
 
 ModelSafeGroup FakeModelWorker::GetModelSafeGroup() {
-  DCHECK(non_thread_safe_.CalledOnValidThread());
+  DCHECK(CalledOnValidThread());
   return group_;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

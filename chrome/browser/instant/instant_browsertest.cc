@@ -6,7 +6,6 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_edit.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/instant/instant_loader.h"
@@ -18,10 +17,13 @@
 #include "chrome/browser/task_manager/task_manager.h"
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_instant_controller.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -33,6 +35,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_switches.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -41,24 +44,24 @@ using content::WebContents;
 // Tests are flaky on Linux because of http://crbug.com/80118.
 #if defined(OS_LINUX) && !defined(USE_ASH)
 #define MAYBE(TestName) DISABLED_ ## TestName
+#elif defined(OS_WIN)
+#define MAYBE(TestName) FLAKY_ ## TestName
 #else
 #define MAYBE(TestName) TestName
 #endif
 
 class InstantTest : public InProcessBrowserTest {
  public:
-  InstantTest() {
-    set_show_window(true);
-    EnableDOMAutomation();
-  }
+  InstantTest() {}
 
   void EnableInstant() {
     InstantController::Enable(browser()->profile());
   }
 
   void SetupInstantProvider(const std::string& page) {
+    Profile* profile = browser()->profile();
     TemplateURLService* model =
-        TemplateURLServiceFactory::GetForProfile(browser()->profile());
+        TemplateURLServiceFactory::GetForProfile(profile);
 
     ui_test_utils::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_TEMPLATE_URL_SERVICE_LOADED,
@@ -68,19 +71,15 @@ class InstantTest : public InProcessBrowserTest {
       observer.Wait();
     }
 
-    // TemplateURLService takes ownership of this.
-    TemplateURL* template_url = new TemplateURL();
-
-    std::string url = base::StringPrintf(
-        "http://%s:%d/files/%s?q={searchTerms}",
+    TemplateURLData data;
+    data.short_name = ASCIIToUTF16("foo");
+    data.SetKeyword(ASCIIToUTF16("foo"));
+    data.SetURL(base::StringPrintf("http://%s:%d/files/%s?q={searchTerms}",
         test_server()->host_port_pair().host().c_str(),
-        test_server()->host_port_pair().port(),
-        page.c_str());
-    template_url->SetURL(url);
-    template_url->SetInstantURL(url);
-    template_url->set_keyword(ASCIIToUTF16("foo"));
-    template_url->set_short_name(ASCIIToUTF16("foo"));
-
+        test_server()->host_port_pair().port(), page.c_str()));
+    data.instant_url = data.url();
+    // TemplateURLService takes ownership of this.
+    TemplateURL* template_url = new TemplateURL(profile, data);
     model->Add(template_url);
     model->SetDefaultSearchProvider(template_url);
   }
@@ -114,14 +113,14 @@ class InstantTest : public InProcessBrowserTest {
   }
 
   InstantController* instant() const {
-    return browser()->instant();
+    return browser()->instant_controller()->instant();
   }
 
   OmniboxView* omnibox() const {
-    return browser()->window()->GetLocationBar()->location_entry();
+    return browser()->window()->GetLocationBar()->GetLocationEntry();
   }
 
-  TabContentsWrapper* preview() const {
+  TabContents* preview() const {
     return instant()->GetPreviewContents();
   }
 
@@ -256,6 +255,14 @@ class InstantTest : public InProcessBrowserTest {
                               selection_start,
                               selection_end);
   }
+
+ protected:
+  virtual void SetUpCommandLine(CommandLine* command_line) {
+    // Do not prelaunch the GPU process for these tests because it will show
+    // up in task manager but whether it appears before or after the new tab
+    // renderer process is not well defined.
+    command_line->AppendSwitch(switches::kDisableGpuProcessPrelaunch);
+  }
 };
 
 // TODO(tonyg): Add the following tests:
@@ -282,8 +289,9 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(OnChangeEvent)) {
       TemplateURLServiceFactory::GetForProfile(browser()->profile())->
       GetDefaultSearchProvider();
   EXPECT_TRUE(default_turl);
-  EXPECT_EQ(default_turl->url_ref().ReplaceSearchTerms(ASCIIToUTF16("defghi"),
-      0, string16()), loader()->url().spec());
+  EXPECT_EQ(default_turl->url_ref().ReplaceSearchTerms(
+                TemplateURLRef::SearchTermsArgs(ASCIIToUTF16("defghi"))),
+            loader()->url().spec());
 
   // Check that the value is reflected and onchange is called.
   EXPECT_EQ("true 0 0 1 true d false def false 3 3",
@@ -312,7 +320,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(OnSubmitEvent)) {
   EXPECT_FALSE(preview());
   EXPECT_FALSE(instant()->is_displayable());
   EXPECT_FALSE(instant()->IsCurrent());
-  EXPECT_EQ(preview_tab, browser()->GetSelectedWebContents());
+  EXPECT_EQ(preview_tab, chrome::GetActiveWebContents(browser()));
 
   // We should have two entries. One corresponding to the page the user was
   // first on, and one for the search page.
@@ -328,7 +336,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(OnSubmitEvent)) {
 }
 
 // Verify that the oncancel event is dispatched upon losing focus.
-IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(OnCancelEvent)) {
+IN_PROC_BROWSER_TEST_F(InstantTest, DISABLED_OnCancelEvent) {
   ASSERT_TRUE(test_server()->Start());
   EnableInstant();
   SetupInstantProvider("instant.html");
@@ -350,7 +358,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(OnCancelEvent)) {
   EXPECT_FALSE(preview());
   EXPECT_FALSE(instant()->is_displayable());
   EXPECT_FALSE(instant()->IsCurrent());
-  EXPECT_EQ(preview_tab, browser()->GetSelectedWebContents());
+  EXPECT_EQ(preview_tab, chrome::GetActiveWebContents(browser()));
 
   // Check that the value is reflected and oncancel is called.
   EXPECT_EQ("true 0 1 1 true d false def false 3 3",
@@ -622,7 +630,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(SearchServerDoesntSupportInstant)) {
   SetupInstantProvider("empty.html");
 
   ui_test_utils::WindowedNotificationObserver tab_closed_observer(
-      content::NOTIFICATION_TAB_CLOSED,
+      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::NotificationService::AllSources());
 
   omnibox()->SetUserText(ASCIIToUTF16("d"));
@@ -648,7 +656,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest,
   EXPECT_FALSE(preview());
 
   ui_test_utils::WindowedNotificationObserver tab_closed_observer(
-      content::NOTIFICATION_TAB_CLOSED,
+      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::NotificationService::AllSources());
 
   // Now type in some search text.
@@ -713,7 +721,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(DontPersistSearchbox)) {
   EXPECT_FALSE(preview());
 
   // The searchBox actually gets cleared on commit.
-  ASSERT_TRUE(GetStringFromJavascript(browser()->GetSelectedWebContents(),
+  ASSERT_TRUE(GetStringFromJavascript(chrome::GetActiveWebContents(browser()),
       "window.chrome.searchBox.value", &value));
   EXPECT_EQ("", value);
 
@@ -721,15 +729,19 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(DontPersistSearchbox)) {
   ui_test_utils::NavigateToURL(
       browser(), test_server()->GetURL("files/empty.html"));
 
-  ASSERT_TRUE(GetStringFromJavascript(browser()->GetSelectedWebContents(),
+  ASSERT_TRUE(GetStringFromJavascript(chrome::GetActiveWebContents(browser()),
       "window.chrome.searchBox.value", &value));
   EXPECT_EQ("", value);
 }
 
 // Tests that instant search is preloaded whenever the omnibox gets focus.
+// PreloadsInstant fails on linux_chromeos trybots all the time, possibly
+// because of http://crbug.com/80118.
+#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
+IN_PROC_BROWSER_TEST_F(InstantTest, DISABLED_PreloadsInstant) {
+#else
 IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(PreloadsInstant)) {
-  CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kPreloadInstantSearch);
+#endif
   ASSERT_TRUE(test_server()->Start());
   EnableInstant();
   SetupInstantProvider("instant.html");
@@ -757,8 +769,8 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(PreloadsInstant)) {
   EXPECT_FALSE(instant()->IsCurrent());
   ASSERT_TRUE(CheckVisibilityIs(preview()->web_contents(), false));
 
-  // Adding a new tab shouldn't delete (or recreate) the TabContentsWrapper.
-  TabContentsWrapper* preview_tab = preview();
+  // Adding a new tab shouldn't delete (or recreate) the TabContents.
+  TabContents* preview_tab = preview();
   AddBlankTabAndShow(browser());
   EXPECT_EQ(preview_tab, preview());
 
@@ -780,7 +792,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(PageVisibilityTest)) {
 
   // Initially navigate to the empty page which should be visible.
   ui_test_utils::NavigateToURL(browser(), test_server()->GetURL(""));
-  WebContents* initial_contents = browser()->GetSelectedWebContents();
+  WebContents* initial_contents = chrome::GetActiveWebContents(browser());
 
   ASSERT_TRUE(CheckVisibilityIs(initial_contents, true));
 
@@ -805,7 +817,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(PageVisibilityTest)) {
 
   // Commit the preview.
   ASSERT_TRUE(PressEnter());
-  EXPECT_EQ(preview_contents, browser()->GetSelectedWebContents());
+  EXPECT_EQ(preview_contents, chrome::GetActiveWebContents(browser()));
   ASSERT_TRUE(CheckVisibilityIs(preview_contents, true));
 }
 
@@ -829,181 +841,4 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(TaskManagerPrefix)) {
       IDS_TASK_MANAGER_INSTANT_PREVIEW_PREFIX, string16());
   string16 title = task_manager->GetResourceTitle(2);
   EXPECT_TRUE(StartsWith(title, prefix, true)) << title << " vs " << prefix;
-}
-
-// Tests the INSTANT experiment of the field trial.
-class InstantFieldTrialInstantTest : public InstantTest {
- public:
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    command_line->AppendSwitchASCII(switches::kInstantFieldTrial,
-                                    switches::kInstantFieldTrialInstant);
-  }
-};
-
-// Tests that instant is active, even without calling EnableInstant().
-IN_PROC_BROWSER_TEST_F(InstantFieldTrialInstantTest, MAYBE(ExperimentEnabled)) {
-  // Check that instant is enabled, despite not setting the preference.
-  Profile* profile = browser()->profile();
-  EXPECT_FALSE(profile->GetPrefs()->GetBoolean(prefs::kInstantEnabled));
-  EXPECT_TRUE(InstantController::IsEnabled(profile));
-
-  ASSERT_TRUE(test_server()->Start());
-  SetupInstantProvider("instant.html");
-  DetermineInstantSupport();
-  SearchAndWaitForPreviewToShow();
-
-  // Check that instant is active and showing a preview.
-  EXPECT_TRUE(preview());
-  EXPECT_TRUE(loader()->ready());
-  EXPECT_TRUE(instant()->is_displayable());
-  EXPECT_TRUE(instant()->IsCurrent());
-
-  // Check that the suggested text has been set in the omnibox.
-  EXPECT_EQ("defghi", GetSuggestion());
-  EXPECT_EQ("defghi", UTF16ToUTF8(omnibox()->GetText()));
-
-  // Press <Enter> in the omnibox, causing the preview to be committed.
-  WebContents* preview_tab = preview()->web_contents();
-  ASSERT_TRUE(PressEnter());
-
-  // The preview contents should now be the active tab contents.
-  EXPECT_FALSE(preview());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-  EXPECT_EQ(preview_tab, browser()->GetSelectedWebContents());
-}
-
-// Tests the HIDDEN experiment of the field trial.
-class InstantFieldTrialHiddenTest : public InstantTest {
- public:
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    command_line->AppendSwitchASCII(switches::kInstantFieldTrial,
-                                    switches::kInstantFieldTrialHidden);
-  }
-};
-
-// Tests that instant is active, even without calling EnableInstant().
-IN_PROC_BROWSER_TEST_F(InstantFieldTrialHiddenTest, MAYBE(ExperimentEnabled)) {
-  // Check that instant is enabled, despite not setting the preference.
-  Profile* profile = browser()->profile();
-  EXPECT_FALSE(profile->GetPrefs()->GetBoolean(prefs::kInstantEnabled));
-  EXPECT_TRUE(InstantController::IsEnabled(profile));
-
-  ASSERT_TRUE(test_server()->Start());
-  SetupInstantProvider("instant.html");
-  DetermineInstantSupport();
-
-  // Type into the omnibox, but don't press <Enter> yet.
-  omnibox()->SetUserText(ASCIIToUTF16("def"));
-  ASSERT_TRUE(WaitForMessageToBeProcessedByRenderer());
-
-  // Check that instant is active, but the preview is not showing.
-  EXPECT_TRUE(preview());
-  EXPECT_TRUE(loader()->ready());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-
-  // Check that the suggested text hasn't actually been set in the omnibox.
-  EXPECT_EQ("defghi", GetSuggestion());
-  EXPECT_EQ("def", UTF16ToUTF8(omnibox()->GetText()));
-
-  // Press <Enter> in the omnibox, causing the preview to be committed.
-  WebContents* preview_tab = preview()->web_contents();
-  ASSERT_TRUE(PressEnter());
-
-  // The preview contents should now be the active tab contents.
-  EXPECT_FALSE(preview());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-  EXPECT_EQ(preview_tab, browser()->GetSelectedWebContents());
-}
-
-// Tests the SILENT experiment of the field trial.
-class InstantFieldTrialSilentTest : public InstantTest {
- public:
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    command_line->AppendSwitchASCII(switches::kInstantFieldTrial,
-                                    switches::kInstantFieldTrialSilent);
-  }
-};
-
-// Tests that instant is active, even without calling EnableInstant().
-IN_PROC_BROWSER_TEST_F(InstantFieldTrialSilentTest, MAYBE(ExperimentEnabled)) {
-  // Check that instant is enabled, despite not setting the preference.
-  Profile* profile = browser()->profile();
-  EXPECT_FALSE(profile->GetPrefs()->GetBoolean(prefs::kInstantEnabled));
-  EXPECT_TRUE(InstantController::IsEnabled(profile));
-
-  ASSERT_TRUE(test_server()->Start());
-  SetupInstantProvider("instant.html");
-  DetermineInstantSupport();
-
-  // Type into the omnibox, but don't press <Enter> yet.
-  omnibox()->SetUserText(ASCIIToUTF16("def"));
-  ASSERT_TRUE(WaitForMessageToBeProcessedByRenderer());
-
-  // Check that instant is active, but the preview is not showing.
-  EXPECT_TRUE(preview());
-  EXPECT_FALSE(loader()->ready());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-
-  // There are no suggestions, as the loader hasn't seen the query yet.
-  EXPECT_EQ("", GetSuggestion());
-  EXPECT_EQ("def", UTF16ToUTF8(omnibox()->GetText()));
-
-  // Press <Enter> in the omnibox, causing the preview to be committed.
-  WebContents* preview_tab = preview()->web_contents();
-  ASSERT_TRUE(PressEnter());
-
-  // The preview contents should now be the active tab contents.
-  EXPECT_FALSE(preview());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-  EXPECT_EQ(preview_tab, browser()->GetSelectedWebContents());
-}
-
-// Tests the SUGGEST experiment of the field trial.
-class InstantFieldTrialSuggestTest : public InstantTest {
- public:
-  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
-    command_line->AppendSwitchASCII(switches::kInstantFieldTrial,
-                                    switches::kInstantFieldTrialSuggest);
-  }
-};
-
-// Tests that instant is active, even without calling EnableInstant().
-IN_PROC_BROWSER_TEST_F(InstantFieldTrialSuggestTest, MAYBE(ExperimentEnabled)) {
-  // Check that instant is enabled, despite not setting the preference.
-  Profile* profile = browser()->profile();
-  EXPECT_FALSE(profile->GetPrefs()->GetBoolean(prefs::kInstantEnabled));
-  EXPECT_TRUE(InstantController::IsEnabled(profile));
-
-  ASSERT_TRUE(test_server()->Start());
-  SetupInstantProvider("instant.html");
-  DetermineInstantSupport();
-
-  // Type into the omnibox, but don't press <Enter> yet.
-  omnibox()->SetUserText(ASCIIToUTF16("def"));
-  ASSERT_TRUE(WaitForMessageToBeProcessedByRenderer());
-
-  // Check that instant is active, but the preview is not showing.
-  EXPECT_TRUE(preview());
-  EXPECT_TRUE(loader()->ready());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-
-  // Check that the suggested text has actually been set in the omnibox.
-  EXPECT_EQ("defghi", GetSuggestion());
-  EXPECT_EQ("defghi", UTF16ToUTF8(omnibox()->GetText()));
-
-  // Press <Enter> in the omnibox, causing the preview to be committed.
-  WebContents* preview_tab = preview()->web_contents();
-  ASSERT_TRUE(PressEnter());
-
-  // The preview contents should now be the active tab contents.
-  EXPECT_FALSE(preview());
-  EXPECT_FALSE(instant()->is_displayable());
-  EXPECT_FALSE(instant()->IsCurrent());
-  EXPECT_EQ(preview_tab, browser()->GetSelectedWebContents());
 }

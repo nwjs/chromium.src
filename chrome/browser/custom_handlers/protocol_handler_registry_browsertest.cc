@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
@@ -28,6 +29,7 @@ class TestRenderViewContextMenu : public RenderViewContextMenu {
       : RenderViewContextMenu(web_contents, params) { }
 
   virtual void PlatformInit() { }
+  virtual void PlatformCancel() { }
   virtual bool GetAcceleratorForCommandId(
       int command_id,
       ui::Accelerator* accelerator) {
@@ -50,7 +52,7 @@ class RegisterProtocolHandlerBrowserTest : public InProcessBrowserTest {
     params.media_type = WebKit::WebContextMenuData::MediaTypeNone;
     params.link_url = url;
     params.unfiltered_link_url = url;
-    WebContents* web_contents = browser()->GetSelectedWebContents();
+    WebContents* web_contents = chrome::GetActiveWebContents(browser());
     params.page_url = web_contents->GetController().GetActiveEntry()->GetURL();
 #if defined(OS_MACOSX)
     params.writing_direction_default = 0;
@@ -58,10 +60,27 @@ class RegisterProtocolHandlerBrowserTest : public InProcessBrowserTest {
     params.writing_direction_right_to_left = 0;
 #endif  // OS_MACOSX
     TestRenderViewContextMenu* menu = new TestRenderViewContextMenu(
-        browser()->GetSelectedWebContents(), params);
+        chrome::GetActiveWebContents(browser()), params);
     menu->Init();
     return menu;
   }
+
+  void AddProtocolHandler(const std::string& protocol,
+                          const GURL& url,
+                          const string16& title) {
+    ProtocolHandler handler = ProtocolHandler::CreateProtocolHandler(
+          protocol, url, title);
+    ProtocolHandlerRegistry* registry =
+        browser()->profile()->GetProtocolHandlerRegistry();
+    // Fake that this registration is happening on profile startup. Otherwise
+    // it'll try to register with the OS, which causes DCHECKs on Windows when
+    // running as admin on Windows 7.
+    registry->is_loading_ = true;
+    registry->OnAcceptRegisterProtocolHandler(handler);
+    registry->is_loading_ = false;
+    ASSERT_TRUE(registry->IsHandledProtocol(protocol));
+  }
+
 };
 
 IN_PROC_BROWSER_TEST_F(RegisterProtocolHandlerBrowserTest,
@@ -70,35 +89,24 @@ IN_PROC_BROWSER_TEST_F(RegisterProtocolHandlerBrowserTest,
       CreateContextMenu(GURL("http://www.google.com/")));
   ASSERT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_OPENLINKWITH));
 
-  ProtocolHandler handler = ProtocolHandler::CreateProtocolHandler(
-        std::string("web+search"),
-        GURL("http://www.google.com/%s"),
-        UTF8ToUTF16(std::string("Test handler")));
-  ProtocolHandlerRegistry* registry =
-      browser()->profile()->GetProtocolHandlerRegistry();
-  registry->OnAcceptRegisterProtocolHandler(handler);
-  ASSERT_TRUE(registry->IsHandledProtocol("web+search"));
-
+  AddProtocolHandler(std::string("web+search"),
+                     GURL("http://www.google.com/%s"),
+                     UTF8ToUTF16(std::string("Test handler")));
   GURL url("web+search:testing");
-  ASSERT_EQ(registry->GetHandlersFor(url.scheme()).size(), (size_t) 1);
+  ASSERT_EQ(1u,
+            browser()->profile()->GetProtocolHandlerRegistry()->GetHandlersFor(
+                url.scheme()).size());
   menu.reset(CreateContextMenu(url));
   ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_OPENLINKWITH));
 }
 
-#if !defined(OS_WIN)
-// TODO(jam): investigate why this crashes on bots sometimes with
-// FATAL:l10n_string_util.cc(39)] Check failed: false. Unable to find resource id 2617
 IN_PROC_BROWSER_TEST_F(RegisterProtocolHandlerBrowserTest, CustomHandler) {
   ASSERT_TRUE(test_server()->Start());
   GURL handler_url = test_server()->GetURL("files/custom_handler_foo.html");
-  ProtocolHandler handler = ProtocolHandler::CreateProtocolHandler(
-        std::string("foo"), handler_url,
-        UTF8ToUTF16(std::string("Test foo Handler")));
-  browser()->profile()->GetProtocolHandlerRegistry()->
-      OnAcceptRegisterProtocolHandler(handler);
+  AddProtocolHandler("foo", handler_url,
+                     UTF8ToUTF16(std::string("Test foo Handler")));
 
   ui_test_utils::NavigateToURL(browser(), GURL("foo:test"));
 
-  ASSERT_EQ(handler_url, browser()->GetSelectedWebContents()->GetURL());
+  ASSERT_EQ(handler_url, chrome::GetActiveWebContents(browser())->GetURL());
 }
-#endif

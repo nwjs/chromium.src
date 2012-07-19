@@ -48,8 +48,10 @@ enum ProcStatsFields {
   VM_RSS            = 23,  // Resident Set Size in pages.
 };
 
-// Reads /proc/<pid>/stat into |buffer|. Returns true if successful.
+// Reads /proc/<pid>/stat into |buffer|. Returns true if the file can be read
+// and is non-empty.
 bool ReadProcStats(pid_t pid, std::string* buffer) {
+  buffer->clear();
   // Synchronously reading files in /proc is safe.
   base::ThreadRestrictions::ScopedAllowIO allow_io;
 
@@ -58,7 +60,7 @@ bool ReadProcStats(pid_t pid, std::string* buffer) {
     DLOG(WARNING) << "Failed to get process stats.";
     return false;
   }
-  return true;
+  return !buffer->empty();
 }
 
 // Takes |stats_data| and populates |proc_stats| with the values split by
@@ -75,6 +77,7 @@ bool ParseProcStats(const std::string& stats_data,
   if (open_parens_idx == std::string::npos ||
       close_parens_idx == std::string::npos ||
       open_parens_idx > close_parens_idx) {
+    DLOG(WARNING) << "Failed to find matched parens in '" << stats_data << "'";
     NOTREACHED();
     return false;
   }
@@ -585,8 +588,22 @@ const size_t kMemBuffersIndex = 7;
 const size_t kMemCachedIndex = 10;
 const size_t kMemActiveAnonIndex = 22;
 const size_t kMemInactiveAnonIndex = 25;
+const size_t kMemActiveFileIndex = 28;
+const size_t kMemInactiveFileIndex = 31;
 
 }  // namespace
+
+SystemMemoryInfoKB::SystemMemoryInfoKB()
+    : total(0),
+      free(0),
+      buffers(0),
+      cached(0),
+      active_anon(0),
+      inactive_anon(0),
+      active_file(0),
+      inactive_file(0),
+      shmem(0) {
+}
 
 bool GetSystemMemoryInfo(SystemMemoryInfoKB* meminfo) {
   // Synchronously reading files in /proc is safe.
@@ -614,6 +631,8 @@ bool GetSystemMemoryInfo(SystemMemoryInfoKB* meminfo) {
   DCHECK_EQ(meminfo_fields[kMemCachedIndex-1], "Cached:");
   DCHECK_EQ(meminfo_fields[kMemActiveAnonIndex-1], "Active(anon):");
   DCHECK_EQ(meminfo_fields[kMemInactiveAnonIndex-1], "Inactive(anon):");
+  DCHECK_EQ(meminfo_fields[kMemActiveFileIndex-1], "Active(file):");
+  DCHECK_EQ(meminfo_fields[kMemInactiveFileIndex-1], "Inactive(file):");
 
   base::StringToInt(meminfo_fields[kMemTotalIndex], &meminfo->total);
   base::StringToInt(meminfo_fields[kMemFreeIndex], &meminfo->free);
@@ -622,6 +641,9 @@ bool GetSystemMemoryInfo(SystemMemoryInfoKB* meminfo) {
   base::StringToInt(meminfo_fields[kMemActiveAnonIndex], &meminfo->active_anon);
   base::StringToInt(meminfo_fields[kMemInactiveAnonIndex],
                     &meminfo->inactive_anon);
+  base::StringToInt(meminfo_fields[kMemActiveFileIndex], &meminfo->active_file);
+  base::StringToInt(meminfo_fields[kMemInactiveFileIndex],
+                    &meminfo->inactive_file);
 #if defined(OS_CHROMEOS)
   // Chrome OS has a tweaked kernel that allows us to query Shmem, which is
   // usually video memory otherwise invisible to the OS.  Unfortunately, the
@@ -664,7 +686,7 @@ void OnNoMemory() {
 
 extern "C" {
 #if !defined(USE_TCMALLOC) && !defined(ADDRESS_SANITIZER) && \
-    !defined(OS_ANDROID)
+    !defined(OS_ANDROID) && !defined(THREAD_SANITIZER)
 
 extern "C" {
 void* __libc_malloc(size_t size);

@@ -76,8 +76,10 @@ class StatsTableThread : public SimpleThread {
  public:
   StatsTableThread(std::string name, int id)
       : SimpleThread(name),
-      id_(id) {}
-  virtual void Run();
+        id_(id) {}
+
+  virtual void Run() OVERRIDE;
+
  private:
   int id_;
 };
@@ -214,7 +216,8 @@ TEST_F(StatsTableTest, DISABLED_MultipleProcesses) {
 
   // Wait for the processes to finish.
   for (int index = 0; index < kMaxProcs; index++) {
-    EXPECT_TRUE(WaitForSingleProcess(procs[index], 60 * 1000));
+    EXPECT_TRUE(WaitForSingleProcess(
+        procs[index], base::TimeDelta::FromMinutes(1)));
     CloseProcessHandle(procs[index]);
   }
 
@@ -310,6 +313,7 @@ TEST_F(StatsTableTest, StatsCounterTimer) {
   const std::string kTableName = "StatTable";
   const int kMaxThreads = 20;
   const int kMaxCounter = 5;
+  DeleteShmem(kTableName);
   StatsTable table(kTableName, kMaxThreads, kMaxCounter);
   StatsTable::set_current(&table);
 
@@ -335,6 +339,7 @@ TEST_F(StatsTableTest, StatsCounterTimer) {
   bar.Stop();
   EXPECT_GT(table.GetCounterValue("t:bar"), 0);
   EXPECT_LE(kDuration.InMilliseconds() * 2, table.GetCounterValue("t:bar"));
+  DeleteShmem(kTableName);
 }
 
 // Test some basic StatsRate operations
@@ -343,6 +348,7 @@ TEST_F(StatsTableTest, StatsRate) {
   const std::string kTableName = "StatTable";
   const int kMaxThreads = 20;
   const int kMaxCounter = 5;
+  DeleteShmem(kTableName);
   StatsTable table(kTableName, kMaxThreads, kMaxCounter);
   StatsTable::set_current(&table);
 
@@ -368,6 +374,7 @@ TEST_F(StatsTableTest, StatsRate) {
   baz.Stop();
   EXPECT_EQ(2, table.GetCounterValue("c:baz"));
   EXPECT_LE(kDuration.InMilliseconds() * 2, table.GetCounterValue("t:baz"));
+  DeleteShmem(kTableName);
 }
 
 // Test some basic StatsScope operations

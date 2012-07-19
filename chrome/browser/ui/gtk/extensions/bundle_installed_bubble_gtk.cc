@@ -14,8 +14,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -62,9 +62,9 @@ BundleInstalledBubbleGtk::~BundleInstalledBubbleGtk() {}
 void BundleInstalledBubbleGtk::ShowInternal(const BundleInstaller* bundle) {
   BrowserWindowGtk* browser_window =
       BrowserWindowGtk::GetBrowserWindowForNativeWindow(
-          browser_->window()->GetNativeHandle());
+          browser_->window()->GetNativeWindow());
 
-  ThemeServiceGtk* theme_provider = ThemeServiceGtk::GetFrom(
+  GtkThemeService* theme_provider = GtkThemeService::GetFrom(
       browser_->profile());
 
   // Anchor the bubble to the wrench menu.
@@ -100,8 +100,9 @@ void BundleInstalledBubbleGtk::ShowInternal(const BundleInstaller* bundle) {
                             &bounds,
                             bubble_content,
                             arrow_location,
-                            true,  // match_system_theme
-                            true,  // grab_input
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
                             theme_provider,
                             this);
 }

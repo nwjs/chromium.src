@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_RENDERER_PLUGIN_CHANNEL_HOST_H_
 #define CONTENT_RENDERER_PLUGIN_CHANNEL_HOST_H_
-#pragma once
 
 #include "base/hash_tables.h"
 #include "content/common/np_channel_base.h"
@@ -17,6 +16,11 @@ class NPObjectBase;
 // On the plugin side there's a corresponding PluginChannel.
 class PluginChannelHost : public NPChannelBase {
  public:
+#if defined(OS_MACOSX)
+  // TODO(shess): Debugging for http://crbug.com/97285 .  See comment
+  // in plugin_channel_host.cc.
+  static bool* GetRemoveTrackingFlag();
+#endif
   static PluginChannelHost* GetPluginChannelHost(
       const IPC::ChannelHandle& channel_handle,
       base::MessageLoopProxy* ipc_message_loop);
@@ -27,14 +31,14 @@ class PluginChannelHost : public NPChannelBase {
 
   virtual int GenerateRouteID() OVERRIDE;
 
-  void AddRoute(int route_id, IPC::Channel::Listener* listener,
+  void AddRoute(int route_id, IPC::Listener* listener,
                 NPObjectBase* npobject);
   void RemoveRoute(int route_id);
 
   // NPChannelBase override:
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
-  // IPC::Channel::Listener override
+  // IPC::Listener override
   virtual void OnChannelError() OVERRIDE;
 
   static void SetListening(bool flag);
@@ -60,7 +64,7 @@ class PluginChannelHost : public NPChannelBase {
 
   // Keep track of all the registered WebPluginDelegeProxies to
   // inform about OnChannelError
-  typedef base::hash_map<int, IPC::Channel::Listener*> ProxyMap;
+  typedef base::hash_map<int, IPC::Listener*> ProxyMap;
   ProxyMap proxies_;
 
   // An IPC MessageFilter that can be told to filter out all messages. This is

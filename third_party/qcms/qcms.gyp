@@ -23,11 +23,11 @@
       ],
       'direct_dependent_settings': {
         'include_dirs': [
-          'src',
+          './src',
         ],
       },
       'conditions': [
-        [ 'OS in ["linux", "freebsd", "openbsd", "solaris"]', {
+        [ 'target_arch != "arm" and OS in ["linux", "freebsd", "openbsd", "solaris"]', {
           'cflags': [
             '-msse',
             '-msse2',

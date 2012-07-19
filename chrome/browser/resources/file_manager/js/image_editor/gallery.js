@@ -8,9 +8,9 @@
 
 function RibbonClient() {}
 
-RibbonClient.prototype.prefetchImage = function(id, content, metadata) {};
+RibbonClient.prototype.prefetchImage = function(id, url) {};
 
-RibbonClient.prototype.openImage = function(id, content, metadata, direction) {
+RibbonClient.prototype.openImage = function(id, url, metadata, direction) {
 };
 
 RibbonClient.prototype.closeImage = function(item) {};
@@ -23,7 +23,7 @@ RibbonClient.prototype.closeImage = function(item) {};
  *     {function(string)} onNameChange Called every time a selected
  *         item name changes (on rename and on selection change).
  *     {function} onClose
- *     {MetadataProvider} metadataProvider
+ *     {MetadataCache} metadataCache
  *     {Array.<Object>} shareActions
  *     {string} readonlyDirName Directory name for readonly warning or null.
  *     {DirEntry} saveDirEntry Directory to save to.
@@ -33,6 +33,7 @@ function Gallery(container, context) {
   this.container_ = container;
   this.document_ = container.ownerDocument;
   this.context_ = context;
+  this.metadataCache_ = context.metadataCache;
 
   var strf = context.displayStringFunction;
   this.displayStringFunction_ = function(id, formatArgs) {
@@ -44,7 +45,6 @@ function Gallery(container, context) {
   this.onFadeTimeoutBound_ = this.onFadeTimeout_.bind(this);
   this.fadeTimeoutId_ = null;
   this.mouseOverTool_ = false;
-  this.imageChanges_ = 0;
 
   this.initDom_();
 }
@@ -68,45 +68,34 @@ Gallery.editorModes = [
 
 Gallery.FADE_TIMEOUT = 3000;
 Gallery.FIRST_FADE_TIMEOUT = 1000;
+Gallery.OVERWRITE_BUBBLE_MAX_TIMES = 5;
+
+/**
+ * Types of metadata Gallery uses (to query the metadata cache).
+ */
+Gallery.METADATA_TYPE = 'thumbnail|filesystem|media|streaming';
 
 Gallery.prototype.initDom_ = function() {
   var doc = this.document_;
 
   doc.oncontextmenu = function(e) { e.preventDefault(); };
 
-  // Clean up after the previous instance of Gallery.
-  this.container_.removeAttribute('editing');
-  this.container_.removeAttribute('tools');
+  doc.body.addEventListener('keydown', this.onKeyDown_.bind(this));
 
-  // The removeEventListener calls below are required to prevent memory leaks in
-  // gallery_demo.html where the Gallery is re-created in the same iframe.
-  // It is safe to remove these calls once gallery_demo.html is retired.
-  if (window.galleryKeyDown) {
-    doc.body.removeEventListener('keydown', window.galleryKeyDown);
-  }
-  if (window.galleryMouseMove) {
-    doc.body.removeEventListener('mousemove', window.galleryMouseMove);
-  }
-  if (window.galleryUnload) {
-    window.removeEventListener('unload', window.galleryUnload);
-  }
-  if (window.top.galleryTopUnload) {
-    window.top.removeEventListener('unload', window.top.galleryTopUnload);
-  }
+  doc.body.addEventListener('mousemove', this.onMouseMove_.bind(this));
 
-  window.galleryKeyDown = this.onKeyDown_.bind(this);
-  doc.body.addEventListener('keydown', window.galleryKeyDown);
+  // Show tools when the user touches the screen.
+  doc.body.addEventListener('touchstart', this.cancelFading_.bind(this));
+  var initiateFading = this.initiateFading_.bind(this, Gallery.FADE_TIMEOUT);
+  doc.body.addEventListener('touchend', initiateFading);
+  doc.body.addEventListener('touchcancel', initiateFading);
 
-  window.galleryMouseMove = this.onMouseMove_.bind(this);
-  doc.body.addEventListener('mousemove', window.galleryMouseMove);
-
-  window.galleryUnload = this.onUnload_.bind(this);
-  window.addEventListener('unload', window.galleryUnload);
+  window.addEventListener('unload', this.onUnload_.bind(this));
 
   // We need to listen to the top window 'unload' and 'beforeunload' because
   // the Gallery iframe does not get notified if the tab is closed.
-  window.top.galleryTopUnload = this.onTopUnload_.bind(this);
-  window.top.addEventListener('unload', window.top.galleryTopUnload);
+  this.onTopUnloadBound_ = this.onTopUnload_.bind(this);
+  window.top.addEventListener('unload', this.onTopUnloadBound_);
 
   this.onBeforeUnloadBound_ = this.onBeforeUnload_.bind(this);
   window.top.addEventListener('beforeunload', this.onBeforeUnloadBound_);
@@ -130,15 +119,33 @@ Gallery.prototype.initDom_ = function() {
   this.toolbar_.className = 'toolbar tool dimmable';
   this.container_.appendChild(this.toolbar_);
 
-  var filenameSpacer = doc.createElement('div');
-  filenameSpacer.className = 'filename-spacer';
-  this.toolbar_.appendChild(filenameSpacer);
+  this.filenameSpacer_ = doc.createElement('div');
+  this.filenameSpacer_.className = 'filename-spacer';
+  this.toolbar_.appendChild(this.filenameSpacer_);
+
+  this.bubble_ = doc.createElement('div');
+  this.bubble_.className = 'bubble';
+  var bubbleContent = doc.createElement('div');
+  bubbleContent.innerHTML = this.displayStringFunction_('overwrite_bubble');
+  this.bubble_.appendChild(bubbleContent);
+  var bubblePointer = doc.createElement('span');
+  bubblePointer.className = 'pointer bottom';
+  this.bubble_.appendChild(bubblePointer);
+  var bubbleClose = doc.createElement('div');
+  bubbleClose.className = 'close-x';
+  bubbleClose.addEventListener('click', this.onCloseBubble_.bind(this));
+  this.bubble_.appendChild(bubbleClose);
+  this.bubble_.hidden = true;
+  this.toolbar_.appendChild(this.bubble_);
+
+  var nameBox = doc.createElement('div');
+  nameBox.className = 'namebox';
+  this.filenameSpacer_.appendChild(nameBox);
 
   this.filenameText_ = doc.createElement('div');
-  this.filenameText_.className = 'name';
   this.filenameText_.addEventListener('click',
       this.onFilenameClick_.bind(this));
-  filenameSpacer.appendChild(this.filenameText_);
+  nameBox.appendChild(this.filenameText_);
 
   this.filenameEdit_ = doc.createElement('input');
   this.filenameEdit_.setAttribute('type', 'text');
@@ -146,23 +153,34 @@ Gallery.prototype.initDom_ = function() {
       this.onFilenameEditBlur_.bind(this));
   this.filenameEdit_.addEventListener('keydown',
       this.onFilenameEditKeydown_.bind(this));
-  filenameSpacer.appendChild(this.filenameEdit_);
+  nameBox.appendChild(this.filenameEdit_);
 
   var options = doc.createElement('div');
   options.className = 'options';
-  filenameSpacer.appendChild(options);
+  this.filenameSpacer_.appendChild(options);
 
   this.savedLabel_ = doc.createElement('div');
   this.savedLabel_.className = 'saved';
   this.savedLabel_.textContent = this.displayStringFunction_('saved');
   options.appendChild(this.savedLabel_);
 
-  this.keepOriginal_ = doc.createElement('div');
-  this.keepOriginal_.className = 'keep-original';
-  this.keepOriginal_.textContent = this.displayStringFunction_('keep_original');
-  this.keepOriginal_.addEventListener('click',
-      this.onKeepOriginalClick_.bind(this));
-  options.appendChild(this.keepOriginal_);
+  var overwriteOriginalBox = doc.createElement('div');
+  overwriteOriginalBox.className = 'overwrite-original';
+  options.appendChild(overwriteOriginalBox);
+
+  this.overwriteOriginal_ = doc.createElement('input');
+  this.overwriteOriginal_.type = 'checkbox';
+  this.overwriteOriginal_.id = 'overwrite-checkbox';
+  this.overwriteOriginal_.className = 'common white';
+  overwriteOriginalBox.appendChild(this.overwriteOriginal_);
+  this.overwriteOriginal_.addEventListener('click',
+      this.onOverwriteOriginalClick_.bind(this));
+
+  var overwriteLabel = doc.createElement('label');
+  overwriteLabel.textContent =
+      this.displayStringFunction_('overwrite_original');
+  overwriteLabel.setAttribute('for', 'overwrite-checkbox');
+  overwriteOriginalBox.appendChild(overwriteLabel);
 
   this.buttonSpacer_ = doc.createElement('div');
   this.buttonSpacer_.className = 'button-spacer';
@@ -217,8 +235,9 @@ Gallery.prototype.initDom_ = function() {
   this.errorBanner_.className = 'error-banner';
   this.errorWrapper_.appendChild(this.errorBanner_);
 
-  this.ribbon_ = new Ribbon(this.ribbonSpacer_,
-      this, this.context_.metadataProvider, this.arrowLeft_, this.arrowRight_);
+  this.ribbon_ = new Ribbon(this.document_,
+      this, this.metadataCache_, this.arrowLeft_, this.arrowRight_);
+  this.ribbonSpacer_.appendChild(this.ribbon_);
 
   this.editBar_  = doc.createElement('div');
   this.editBar_.className = 'edit-bar';
@@ -239,7 +258,7 @@ Gallery.prototype.initDom_ = function() {
   this.container_.appendChild(this.editBarMode_);
 
   this.editBarModeWrapper_  = doc.createElement('div');
-  ImageUtil.setAttribute(this.editBarModeWrapper_, 'hidden', true);
+  this.editBarModeWrapper_.hidden = true;
   this.editBarModeWrapper_.className = 'edit-modal-wrapper';
   this.editBarMode_.appendChild(this.editBarModeWrapper_);
 
@@ -248,7 +267,7 @@ Gallery.prototype.initDom_ = function() {
   this.imageView_ = new ImageView(
       this.imageContainer_,
       this.viewport_,
-      this.context_.metadataProvider);
+      this.metadataCache_);
 
   this.editor_ = new ImageEditor(
       this.viewport_,
@@ -262,6 +281,8 @@ Gallery.prototype.initDom_ = function() {
       Gallery.editorModes,
       this.displayStringFunction_);
 
+  this.editor_.getBuffer().addOverlay(new SwipeOverlay(this.ribbon_));
+
   this.imageView_.addContentCallback(this.onImageContentChanged_.bind(this));
 
   this.editor_.trackWindow(doc.defaultView);
@@ -271,21 +292,9 @@ Gallery.prototype.initDom_ = function() {
   }.bind(this));
 };
 
-Gallery.blobToURL_ = function(blob) {
-  // Append a file name after an anchor so that the Gallery
-  // code can find the file extension at the end of the url.
-  // A File instance contains the real file name in the 'name' property.
-  // For a Blob instance we make up a fake file name out of the mime type
-  // (image/jpeg -> image.jpg).
-  return window.webkitURL.createObjectURL(blob) +
-      '#' + (blob.name || (blob.type.replace('/', '.')));
-};
-
 Gallery.prototype.onBeforeUnload_ = function(event) {
-  if (this.imageChanges_ > 0) {
-    setTimeout(this.saveChanges_.bind(this), 1000);
+  if (this.editor_.isBusy())
     return this.displayStringFunction_('unsaved_changes');
-  }
   return null;
 };
 
@@ -298,19 +307,11 @@ Gallery.prototype.load = function(items, selectedItem) {
     var item = items[i];
     var selected = (item == selectedItem);
 
-    if (item.constructor.name == 'HTMLCanvasElement') {
-      item = ImageEncoder.getBlob(item,
-          ImageEncoder.encodeMetadata({mimeType: 'image/jpeg'}, item), 1);
-    }
-    if (item.constructor.name == 'Blob' ||
-        item.constructor.name == 'File') {
-      item = Gallery.blobToURL_(item);
-    }
     if (typeof item == 'string') {
       if (selected) selectedIndex = urls.length;
       urls.push(item);
     } else {
-      console.error('Unsupported image type');
+      console.error('Unsupported item type', item);
     }
   }
 
@@ -340,9 +341,10 @@ Gallery.prototype.load = function(items, selectedItem) {
 
   // Show the selected item ASAP, then complete the initialization (populating
   // the ribbon can take especially long time).
-  this.context_.metadataProvider.fetch(selectedURL, function (metadata) {
-    self.openImage(selectedIndex, selectedURL, metadata, 0, initRibbon);
-  });
+  this.metadataCache_.get(selectedURL, Gallery.METADATA_TYPE,
+      function (metadata) {
+        self.openImage(selectedIndex, selectedURL, metadata, 0, initRibbon);
+      });
 
   this.context_.getShareActions(urls, function(tasks) {
     if (tasks.length > 0) {
@@ -357,50 +359,93 @@ Gallery.prototype.load = function(items, selectedItem) {
 };
 
 Gallery.prototype.onImageContentChanged_ = function() {
-  this.imageChanges_++;
-  if (this.imageChanges_ == 0) return;
-  if (this.imageChanges_ == 1) {  // First edit
-    this.keepOriginal_.setAttribute('visible', 'true');
-    this.savedLabel_.style.display = 'inline-block';
+  var revision = this.imageView_.getContentRevision();
+  if (revision == 0) {
+    // Just loaded.
+    var key = 'gallery-overwrite-bubble';
+    var times = key in localStorage ? parseInt(localStorage[key], 10) : 0;
+    if (times < Gallery.OVERWRITE_BUBBLE_MAX_TIMES) {
+      this.bubble_.hidden = false;
+      if (this.isEditing_()) {
+        localStorage[key] = times + 1;
+      }
+    }
+  }
+
+  if (revision == 1) {
+    // First edit.
+    ImageUtil.setAttribute(this.filenameSpacer_, 'saved', true);
     ImageUtil.metrics.recordUserAction(ImageUtil.getMetricName('Edit'));
   }
-  var label = this.savedLabel_;
-  setTimeout(function(){ label.setAttribute('highlighted', 'true'); }, 0);
-  setTimeout(function(){ label.removeAttribute('highlighted'); }, 300);
 };
 
-Gallery.prototype.onKeepOriginalClick_ = function() {
-  this.keepOriginal_.removeAttribute('visible');
-  this.ribbon_.getSelectedItem().setCopyName(this.context_.saveDirEntry,
-    this.updateFilename_.bind(this));
+Gallery.prototype.flashSavedLabel_ = function() {
+  var selLabelHighlighted =
+      ImageUtil.setAttribute.bind(null, this.savedLabel_, 'highlighted');
+  setTimeout(selLabelHighlighted.bind(null, true), 0);
+  setTimeout(selLabelHighlighted.bind(null, false), 300);
 };
 
-Gallery.prototype.saveItem_ = function(item, callback, canvas, modified) {
-  if (modified) {
-    item.save(this.context_.saveDirEntry, this.context_.metadataProvider,
-        canvas, callback);
+Gallery.prototype.applyDefaultOverwrite_ = function() {
+  var key = 'gallery-overwrite-original';
+  var overwrite = key in localStorage ? (localStorage[key] == "true") : true;
+  this.overwriteOriginal_.checked = overwrite;
+  this.applyOverwrite_(overwrite);
+};
+
+Gallery.prototype.applyOverwrite_ = function(overwrite) {
+  if (overwrite) {
+    this.ribbon_.getSelectedItem().setOriginalName(this.context_.saveDirEntry,
+        this.updateFilename_.bind(this));
   } else {
-    if (callback) callback();
+    this.ribbon_.getSelectedItem().setCopyName(this.context_.saveDirEntry,
+        this.selectedImageMetadata_,
+        this.updateFilename_.bind(this));
   }
 };
 
-Gallery.prototype.saveChanges_ = function(opt_callback) {
-  this.imageChanges_ = 0;
-  if (this.isShowingVideo_()) {
-    // This call ensures that editor leaves the mode and closes respective UI
-    // elements. Currently, the only mode for videos is sharing.
-    this.editor_.leaveModeGently();
-    if (opt_callback) opt_callback();
-    return;
-  }
-  this.editor_.requestImage(
-      this.saveItem_.bind(this, this.ribbon_.getSelectedItem(), opt_callback));
+Gallery.prototype.onOverwriteOriginalClick_ = function(event) {
+  var overwrite = event.target.checked;
+  localStorage['gallery-overwrite-original'] = overwrite;
+  this.applyOverwrite_(overwrite);
+};
+
+Gallery.prototype.onCloseBubble_ = function(event) {
+  this.bubble_.hidden = true;
+  localStorage['gallery-overwrite-bubble'] = Gallery.OVERWRITE_BUBBLE_MAX_TIMES;
+};
+
+Gallery.prototype.saveCurrentImage_ = function(callback) {
+  var item = this.ribbon_.getSelectedItem();
+  var canvas = this.imageView_.getCanvas();
+
+  this.showSpinner_(true);
+  var metadataEncoder = ImageEncoder.encodeMetadata(
+      this.selectedImageMetadata_.media, canvas, 1 /* quality */);
+
+  this.selectedImageMetadata_ = ContentProvider.ConvertContentMetadata(
+      metadataEncoder.getMetadata(), this.selectedImageMetadata_);
+  item.setThumbnail(this.selectedImageMetadata_);
+
+  item.saveToFile(
+      this.context_.saveDirEntry,
+      canvas,
+      metadataEncoder,
+      function(success) {
+        // TODO(kaznacheev): Implement write error handling.
+        // Until then pretend that the save succeeded.
+        this.showSpinner_(false);
+        this.flashSavedLabel_();
+        this.metadataCache_.clear(item.getUrl(), Gallery.METADATA_TYPE);
+        callback();
+      }.bind(this));
 };
 
 Gallery.prototype.onActionExecute_ = function(action) {
-  var url = this.ribbon_.getSelectedItem().getUrl();
-  // saveChanges_ makes the editor leave the mode and close the sharing menu.
-  this.saveChanges_(action.execute.bind(action, [url]));
+  // |executeWhenReady| closes the sharing menu.
+  this.editor_.executeWhenReady(function() {
+    action.execute([this.ribbon_.getSelectedItem().getUrl()]);
+  }.bind(this));
 };
 
 Gallery.prototype.updateFilename_ = function(opt_url) {
@@ -423,7 +468,11 @@ Gallery.prototype.updateFilename_ = function(opt_url) {
 };
 
 Gallery.prototype.onFilenameClick_ = function() {
-  ImageUtil.setAttribute(this.container_, 'renaming', true);
+  // We can't rename files in readonly directory.
+  if (this.context_.readonlyDirName)
+    return;
+
+  ImageUtil.setAttribute(this.filenameSpacer_, 'renaming', true);
   setTimeout(this.filenameEdit_.select.bind(this.filenameEdit_), 0);
   this.cancelFading_();
 };
@@ -440,7 +489,7 @@ Gallery.prototype.onFilenameEditBlur_ = function() {
         this.filenameEdit_.value);
   }
 
-  ImageUtil.setAttribute(this.container_, 'renaming', false);
+  ImageUtil.setAttribute(this.filenameSpacer_, 'renaming', false);
   this.initiateFading_();
 };
 
@@ -479,10 +528,10 @@ Gallery.prototype.renameItem_ = function(item, name) {
   }
 
   function doRename() {
-    if (self.imageChanges_ > 0) {
+    if (item.hasNameForSaving()) {
       // Use this name in the next save operation.
       item.setNameForSaving(newName);
-      self.keepOriginal_.removeAttribute('visible');
+      ImageUtil.setAttribute(self.filenameSpacer_, 'overwrite', false);
       self.updateFilename_();
     } else {
       // Rename file in place.
@@ -505,7 +554,7 @@ Gallery.prototype.renameItem_ = function(item, name) {
 };
 
 Gallery.prototype.isRenaming_ = function() {
-  return this.container_.hasAttribute('renaming');
+  return this.filenameSpacer_.hasAttribute('renaming');
 };
 
 Gallery.getFileBrowserPrivate = function() {
@@ -533,21 +582,32 @@ Gallery.prototype.close_ = function() {
  */
 Gallery.prototype.onClose_ = function() {
   // TODO: handle write errors gracefully (suggest retry or saving elsewhere).
-  this.saveChanges_(this.close_.bind(this));
+  this.editor_.executeWhenReady(this.close_.bind(this));
 };
 
-Gallery.prototype.prefetchImage = function(id, content, metadata) {
-  this.editor_.prefetchImage(id, content, metadata);
+Gallery.prototype.prefetchImage = function(id, url) {
+  this.editor_.prefetchImage(id, url);
 };
 
-Gallery.prototype.openImage = function(id, content, metadata, slide, callback) {
-  // The first change is load, we should not count it.
-  this.imageChanges_ = -1;
-  this.savedLabel_.style.display = 'none';
-  this.keepOriginal_.removeAttribute('visible');
+Gallery.prototype.openImage = function(id, url, metadata, slide, callback) {
+  this.selectedImageMetadata_ = ImageUtil.deepCopy(metadata);
+  this.updateFilename_(url);
+  if (this.ribbon_.getSelectedItem()) {
+    // In edit mode, read overwrite setting.
+    // In view mode, don't change the name, so passing |true|.
+    if (this.isEditing_()) {
+      this.applyDefaultOverwrite_();
+    } else {
+      this.applyOverwrite_(true);
+    }
 
-  var item = this.ribbon_.getSelectedItem();
-  this.updateFilename_(content);
+    if (!this.ribbon_.getSelectedItem().isOriginal()) {
+      // For once edited image, do not allow the 'overwrite' setting.
+      ImageUtil.setAttribute(this.filenameSpacer_, 'saved', true);
+    } else {
+      ImageUtil.setAttribute(this.filenameSpacer_, 'saved', false);
+    }
+  }
 
   this.showSpinner_(true);
 
@@ -559,6 +619,8 @@ Gallery.prototype.openImage = function(id, content, metadata, slide, callback) {
     self.showSpinner_(false);
     if (loadType == ImageView.LOAD_TYPE_ERROR) {
       self.showErrorBanner_(video? 'VIDEO_ERROR' : 'IMAGE_ERROR');
+    } else if (loadType == ImageView.LOAD_TYPE_OFFLINE) {
+      self.showErrorBanner_(video? 'VIDEO_OFFLINE' : 'IMAGE_OFFLINE');
     }
 
     if (video) {
@@ -574,13 +636,12 @@ Gallery.prototype.openImage = function(id, content, metadata, slide, callback) {
       function toMillions(number) { return Math.round(number / (1000 * 1000)) }
 
       ImageUtil.metrics.recordSmallCount(ImageUtil.getMetricName('Size.MB'),
-          toMillions(metadata.fileSize));
+          toMillions(metadata.filesystem.size));
 
       var canvas = self.imageView_.getCanvas();
       ImageUtil.metrics.recordSmallCount(ImageUtil.getMetricName('Size.MPix'),
           toMillions(canvas.width * canvas.height));
 
-      var url = item ? item.getUrl() : content;
       var extIndex = url.lastIndexOf('.');
       var ext = extIndex < 0 ? '' : url.substr(extIndex + 1).toLowerCase();
       if (ext == 'jpeg') ext = 'jpg';
@@ -591,10 +652,11 @@ Gallery.prototype.openImage = function(id, content, metadata, slide, callback) {
     callback(loadType);
   }
 
-  this.editor_.openSession(id, content, metadata, slide, loadDone);
+  this.editor_.openSession(
+      id, url, metadata, slide, this.saveCurrentImage_.bind(this), loadDone);
 };
 
-Gallery.prototype.closeImage = function(item) {
+Gallery.prototype.closeImage = function(callback) {
   this.showSpinner_(false);
   this.showErrorBanner_(false);
   this.editor_.getPrompt().hide();
@@ -602,7 +664,7 @@ Gallery.prototype.closeImage = function(item) {
     this.mediaControls_.pause();
     this.mediaControls_.detachMedia();
   }
-  this.editor_.closeSession(this.saveItem_.bind(this, item, null));
+  this.editor_.closeSession(callback);
 };
 
 Gallery.prototype.showSpinner_ = function(on) {
@@ -619,7 +681,7 @@ Gallery.prototype.showSpinner_ = function(on) {
   } else {
     ImageUtil.setAttribute(this.container_, 'spinner', false);
   }
-}
+};
 
 Gallery.prototype.showErrorBanner_ = function(message) {
   if (message) {
@@ -641,8 +703,7 @@ Gallery.prototype.saveVideoPosition_ = function() {
 Gallery.prototype.onUnload_ = function() {
   this.saveVideoPosition_();
   window.top.removeEventListener('beforeunload', this.onBeforeUnloadBound_);
-  window.top.removeEventListener('unload', window.top.galleryTopUnload);
-  window.top.galleryTopUnload = null;
+  window.top.removeEventListener('unload', this.onTopUnloadBound_);
 };
 
 Gallery.prototype.onTopUnload_ = function() {
@@ -663,19 +724,15 @@ Gallery.prototype.onEdit_ = function() {
 
   // isEditing_ has just been flipped to a new value.
   if (this.isEditing_()) {
+    this.applyDefaultOverwrite_();
     if (this.context_.readonlyDirName) {
       this.editor_.getPrompt().showAt(
           'top', 'readonly_warning', 0, this.context_.readonlyDirName);
     }
     this.cancelFading_();
   } else {
+    this.applyOverwrite_(true);
     this.editor_.getPrompt().hide();
-    if (!this.isShowingVideo_()) {
-      var item = this.ribbon_.getSelectedItem();
-      this.editor_.requestImage(item.updateThumbnail.bind(item));
-    }
-    this.savedLabel_.style.display = 'none';
-    this.keepOriginal_.removeAttribute('visible');
     this.initiateFading_();
   }
 
@@ -771,7 +828,7 @@ Gallery.prototype.onMouseMove_ = function(e) {
 Gallery.prototype.onFadeTimeout_ = function() {
   this.fadeTimeoutId_ = null;
   if (this.isEditing_() || this.isSharing_() || this.isRenaming_()) return;
-  this.container_.removeAttribute('tools');
+  ImageUtil.setAttribute(this.container_, 'tools', false);
 };
 
 Gallery.prototype.initiateFading_ = function(opt_timeout) {
@@ -794,43 +851,60 @@ Gallery.prototype.cancelFading_ = function() {
 };
 
 /**
- * @param {HTMLElement} container
+ * @param {HTMLDocument} document
  * @param {RibbonClient} client
- * @param {MetadataProvider} metadataProvider
+ * @param {MetadataCache} metadataCache
+ * @param {HTMLElement} arrowLeft
+ * @param {HTMLElement} arrowRight
+ * @constructor
+ */
+function Ribbon(document, client, metadataCache, arrowLeft, arrowRight) {
+  var self = document.createElement('div');
+  Ribbon.decorate(self, client, metadataCache, arrowLeft, arrowRight);
+  return self;
+}
+
+Ribbon.prototype.__proto__ = HTMLDivElement.prototype;
+
+/**
+ * @param {HTMLDivElement} self Element to decorate.
+ * @param {RibbonClient} client
+ * @param {MetadataCache} metadataCache
  * @param {HTMLElement} arrowLeft
  * @param {HTMLElement} arrowRight
  */
-function Ribbon(container, client, metadataProvider, arrowLeft, arrowRight) {
-  this.container_ = container;
-  this.document_ = container.ownerDocument;
-  this.client_ = client;
-  this.metadataProvider_ = metadataProvider;
+Ribbon.decorate = function(
+    self, client, metadataCache, arrowLeft, arrowRight) {
+  self.__proto__ = Ribbon.prototype;
+  self.client_ = client;
+  self.metadataCache_ = metadataCache;
 
-  this.items_ = [];
-  this.selectedIndex_ = -1;
+  self.items_ = [];
+  self.selectedIndex_ = -1;
 
-  this.arrowLeft_ = arrowLeft;
-  this.arrowLeft_.
-      addEventListener('click', this.selectNext.bind(this, -1, null));
+  self.arrowLeft_ = arrowLeft;
+  self.arrowLeft_.
+      addEventListener('click', self.selectNext.bind(self, -1, null));
 
-  this.arrowRight_ = arrowRight;
-  this.arrowRight_.
-      addEventListener('click', this.selectNext.bind(this, 1, null));
+  self.arrowRight_ = arrowRight;
+  self.arrowRight_.
+      addEventListener('click', self.selectNext.bind(self, 1, null));
 
-  this.bar_ = this.document_.createElement('div');
-  this.bar_.className = 'ribbon';
-  this.container_.appendChild(this.bar_);
+  self.className = 'ribbon';
 }
 
 Ribbon.PAGING_SINGLE_ITEM_DELAY = 20;
 Ribbon.PAGING_ANIMATION_DURATION = 200;
 
+/**
+ * @return {Ribbon.Item?} The selected item.
+ */
 Ribbon.prototype.getSelectedItem = function () {
   return this.items_[this.selectedIndex_];
 };
 
 Ribbon.prototype.clear = function() {
-  this.bar_.textContent = '';
+  this.textContent = '';
   this.items_ = [];
   this.selectedIndex_ = -1;
   this.firstVisibleIndex_ = 0;
@@ -841,10 +915,9 @@ Ribbon.prototype.clear = function() {
 
 Ribbon.prototype.add = function(url) {
   var index = this.items_.length;
-  var selectClosure = this.select.bind(this, index, 0, null);
-  var item = new Ribbon.Item(index, url, this.document_, selectClosure);
+  var item = new Ribbon.Item(this.ownerDocument, index, url);
+  item.addEventListener('click', this.select.bind(this, index, 0, null));
   this.items_.push(item);
-  this.metadataProvider_.fetch(url, item.setMetadata.bind(item));
 };
 
 Ribbon.prototype.load = function(urls, selectedIndex) {
@@ -871,9 +944,16 @@ Ribbon.prototype.select = function(index, opt_forceStep, opt_callback) {
   if (index == this.selectedIndex_)
     return;  // Do not reselect.
 
-  var oldSelectedItem = this.getSelectedItem();
-  oldSelectedItem.select(false);
-  this.client_.closeImage(oldSelectedItem);
+  this.client_.closeImage(
+      this.doSelect_.bind(this, index, opt_forceStep, opt_callback));
+};
+
+Ribbon.prototype.doSelect_ = function(index, opt_forceStep, opt_callback) {
+  if (index == this.selectedIndex_)
+    return;  // Do not reselect
+
+  var selectedItem = this.getSelectedItem();
+  selectedItem.select(false);
 
   var step = opt_forceStep || (index - this.selectedIndex_);
 
@@ -893,13 +973,12 @@ Ribbon.prototype.select = function(index, opt_forceStep, opt_callback) {
   if (this.sequenceLength_ <= 1) {
     // We have just broke the sequence. Touch the current image so that it stays
     // in the cache longer.
-    this.client_.prefetchImage(oldSelectedItem.getIndex(),
-        oldSelectedItem.getContent(), oldSelectedItem.getMetadata());
+    this.client_.prefetchImage(selectedItem.getIndex(), selectedItem.getUrl());
   }
 
   this.selectedIndex_ = index;
 
-  var selectedItem = this.getSelectedItem();
+  selectedItem = this.getSelectedItem();
   selectedItem.select(true);
   this.redraw();
 
@@ -922,32 +1001,34 @@ Ribbon.prototype.select = function(index, opt_forceStep, opt_callback) {
   }
 
   var self = this;
-  selectedItem.fetchMetadata(this.metadataProvider_, function(metadata){
-     if (!selectedItem.isSelected()) return;
-     self.client_.openImage(
-         selectedItem.getIndex(), selectedItem.getContent(), metadata, step,
-         function(loadType) {
-           if (!selectedItem.isSelected()) return;
-           if (shouldPrefetch(loadType, step, self.sequenceLength_)) {
-             self.requestPrefetch(step);
-           }
-           if (opt_callback) opt_callback();
-         });
-  });
+  function onMetadata(metadata) {
+    if (!selectedItem.isSelected()) return;
+    self.client_.openImage(
+        selectedItem.getIndex(), selectedItem.getUrl(), metadata, step,
+        function(loadType) {
+          if (!selectedItem.isSelected()) return;
+          if (shouldPrefetch(loadType, step, self.sequenceLength_)) {
+            self.requestPrefetch(step);
+          }
+          if (opt_callback) opt_callback();
+        });
+  }
+  this.metadataCache_.get(selectedItem.getUrl(),
+      Gallery.METADATA_TYPE, onMetadata);
 };
 
 Ribbon.prototype.requestPrefetch = function(direction) {
   if (this.items_.length < 2) return;
 
   var index = this.getNextSelectedIndex_(direction);
+  var nextItemUrl = this.items_[index].getUrl();
 
   var selectedItem = this.getSelectedItem();
-  var self = this;
-  var item = this.items_[index];
-  item.fetchMetadata(this.metadataProvider_, function(metadata) {
-    if (!selectedItem.isSelected()) return;
-    self.client_.prefetchImage(index, item.getContent(), metadata);
-  });
+  this.metadataCache_.get(nextItemUrl, Gallery.METADATA_TYPE,
+      function(metadata) {
+        if (!selectedItem.isSelected()) return;
+        this.client_.prefetchImage(index, nextItemUrl, metadata);
+      }.bind(this));
 };
 
 Ribbon.ITEMS_COUNT = 5;
@@ -957,14 +1038,21 @@ Ribbon.prototype.redraw = function() {
   if (this.items_.length == 1)
     return;
 
+  var initThumbnail = function(index) {
+    var item = this.items_[index];
+    if (!item.hasThumbnail())
+      this.metadataCache_.get(item.getUrl(), Gallery.METADATA_TYPE,
+          item.setThumbnail.bind(item));
+  }.bind(this);
+
   // TODO(dgozman): use margin instead of 2 here.
-  var itemWidth = this.bar_.clientHeight - 2;
+  var itemWidth = this.clientHeight - 2;
   var fullItems = Ribbon.ITEMS_COUNT;
   fullItems = Math.min(fullItems, this.items_.length);
   var right = Math.floor((fullItems - 1) / 2);
 
   var fullWidth = fullItems * itemWidth;
-  this.bar_.style.width = fullWidth + 'px';
+  this.style.width = fullWidth + 'px';
 
   var lastIndex = this.selectedIndex_ + right;
   lastIndex = Math.max(lastIndex, fullItems - 1);
@@ -981,69 +1069,68 @@ Ribbon.prototype.redraw = function() {
     this.lastVisibleIndex_ = lastIndex;
   }
 
-  this.bar_.textContent = '';
+  this.textContent = '';
   var startIndex = Math.min(firstIndex, this.firstVisibleIndex_);
   var toRemove = [];
+  // All the items except the first one treated equally.
   for (var index = startIndex + 1;
        index <= Math.max(lastIndex, this.lastVisibleIndex_);
        ++index) {
-    var box = this.items_[index].getBox(0);
+    initThumbnail(index);
+    var box = this.items_[index];
     box.style.marginLeft = '0';
-    this.bar_.appendChild(box);
+    this.appendChild(box);
     if (index < firstIndex || index > lastIndex) {
       toRemove.push(index);
     }
   }
 
   var margin = itemWidth * Math.abs(firstIndex - this.firstVisibleIndex_);
-  var startBox = this.items_[startIndex].getBox(0);
+  initThumbnail(startIndex);
+  var startBox = this.items_[startIndex];
   if (startIndex == firstIndex) {
+    // Sliding to the right.
     startBox.style.marginLeft = -margin + 'px';
-    if (this.bar_.firstChild)
-      this.bar_.insertBefore(startBox, this.bar_.firstChild);
+    if (this.firstChild)
+      this.insertBefore(startBox, this.firstChild);
     else
-      this.bar_.appendChild(startBox);
+      this.appendChild(startBox);
     setTimeout(function() {
       startBox.style.marginLeft = '0';
     }, 0);
   } else {
-    toRemove.push(startBox);
+    // Sliding to the left. Start item will become invisible and should be
+    // removed afterwards.
+    toRemove.push(startIndex);
     startBox.style.marginLeft = '0';
-    if (this.bar_.firstChild)
-      this.bar_.insertBefore(startBox, this.bar_.firstChild);
+    if (this.firstChild)
+      this.insertBefore(startBox, this.firstChild);
     else
-      this.bar_.appendChild(startBox);
+      this.appendChild(startBox);
     setTimeout(function() {
       startBox.style.marginLeft = -margin + 'px';
     }, 0);
   }
 
-  if (firstIndex > 0 && this.selectedIndex_ != firstIndex) {
-    this.bar_.classList.add('fade-left');
-  } else {
-    this.bar_.classList.remove('fade-left');
-  }
+  ImageUtil.setClass(this, 'fade-left',
+      firstIndex > 0 && this.selectedIndex_ != firstIndex);
 
-  if (lastIndex < this.items_.length - 1 && this.selectedIndex_ != lastIndex) {
-    this.bar_.classList.add('fade-right');
-  } else {
-    this.bar_.classList.remove('fade-right');
-  }
+  ImageUtil.setClass(this, 'fade-right',
+      lastIndex < this.items_.length - 1 && this.selectedIndex_ != lastIndex);
 
   this.firstVisibleIndex_ = firstIndex;
   this.lastVisibleIndex_ = lastIndex;
 
-  var self = this;
   setTimeout(function() {
     for (var i = 0; i < toRemove.length; i++) {
       var index = toRemove[i];
-      if (i < this.firstVisibleIndex_ || i > this.lastVisibleIndex_) {
-        var box = this.items_[index].getBox(0);
-        if (box.parentNode == this.bar_)
-          this.bar_.removeChild(box);
+      if (index < this.firstVisibleIndex_ || index > this.lastVisibleIndex_) {
+        var box = this.items_[index];
+        if (box.parentNode == this)
+          this.removeChild(box);
       }
     }
-  }, 200);
+  }.bind(this), 200);
 };
 
 Ribbon.prototype.getNextSelectedIndex_ = function(direction) {
@@ -1083,28 +1170,30 @@ Ribbon.prototype.toggleDebugSlideshow = function() {
   }
 };
 
-Ribbon.Item = function(index, url, document, selectClosure) {
-  this.index_ = index;
-  this.url_ = url;
+Ribbon.Item = function(document, index, url) {
+  var self = document.createElement('div');
+  Ribbon.Item.decorate(self, index, url);
+  return self;
+};
 
-  this.box_ = document.createElement('div');
-  this.box_.className = 'ribbon-image';
-  this.box_.addEventListener('click', selectClosure);
+Ribbon.Item.prototype.__proto__ = HTMLDivElement.prototype;
 
-  this.wrapper_ = document.createElement('div');
-  this.wrapper_.className = 'image-wrapper';
-  this.box_.appendChild(this.wrapper_);
+Ribbon.Item.decorate = function(self, index, url, selectClosure) {
+  self.__proto__ = Ribbon.Item.prototype;
+  self.index_ = index;
+  self.url_ = url;
 
-  this.img_ = document.createElement('img');
-  this.wrapper_.appendChild(this.img_);
+  self.className = 'ribbon-image';
 
-  this.original_ = true;
-  this.nameForSaving_ = null;
+  var wrapper = self.ownerDocument.createElement('div');
+  wrapper.className = 'image-wrapper';
+  self.appendChild(wrapper);
+
+  self.original_ = true;
+  self.nameForSaving_ = null;
 };
 
 Ribbon.Item.prototype.getIndex = function () { return this.index_ };
-
-Ribbon.Item.prototype.getBox = function () { return this.box_ };
 
 Ribbon.Item.prototype.isOriginal = function () { return this.original_ };
 
@@ -1115,57 +1204,41 @@ Ribbon.Item.prototype.getNameAfterSaving = function () {
   return this.nameForSaving_ || ImageUtil.getFullNameFromUrl(this.url_);
 };
 
+Ribbon.Item.prototype.hasNameForSaving = function() {
+  return !!this.nameForSaving_;
+};
+
 Ribbon.Item.prototype.isSelected = function() {
-  return this.box_.hasAttribute('selected');
+  return this.hasAttribute('selected');
 };
 
 Ribbon.Item.prototype.select = function(on) {
-  ImageUtil.setAttribute(this.box_, 'selected', on);
+  ImageUtil.setAttribute(this, 'selected', on);
 };
 
-Ribbon.Item.prototype.updateThumbnail = function(canvas) {
-  if (this.canvas_)
-    return;  // The image is being saved, the thumbnail is already up-to-date.
-
-  var metadataEncoder =
-      ImageEncoder.encodeMetadata(this.getMetadata(), canvas, 1);
-  this.setMetadata(metadataEncoder.getMetadata());
-};
-
-Ribbon.Item.prototype.save = function(
-    dirEntry, metadataProvider, canvas, opt_callback) {
+Ribbon.Item.prototype.saveToFile = function(
+    dirEntry, canvas, metadataEncoder, opt_callback) {
   ImageUtil.metrics.startInterval(ImageUtil.getMetricName('SaveTime'));
-
-  var metadataEncoder =
-      ImageEncoder.encodeMetadata(this.getMetadata(), canvas, 1);
-
-  this.overrideContent(canvas, metadataEncoder.getMetadata());
 
   var self = this;
 
-  if (!dirEntry) {  // Happens only in gallery_demo.js
-    self.onSaveSuccess(
-        Gallery.blobToURL_(ImageEncoder.getBlob(canvas, metadataEncoder)));
-    if (opt_callback) opt_callback();
-    return;
-  }
-
   var name = this.getNameAfterSaving();
-  this.original_ = false;
+  // If we do overwrite original, keep this one as 'original'.
+  this.original_ = this.nameForSaving_ == null;
   this.nameForSaving_ = null;
 
   function onSuccess(url) {
     console.log('Saved from gallery', name);
-    // Force the metadata provider to reread the metadata from the file.
-    metadataProvider.reset(url);
-    self.onSaveSuccess(url);
-    if (opt_callback) opt_callback();
+    ImageUtil.metrics.recordEnum(ImageUtil.getMetricName('SaveResult'), 1, 2);
+    ImageUtil.metrics.recordInterval(ImageUtil.getMetricName('SaveTime'));
+    self.setUrl(url);
+    if (opt_callback) opt_callback(true);
   }
 
   function onError(error) {
     console.log('Error saving from gallery', name, error);
-    self.onSaveError(error);
-    if (opt_callback) opt_callback();
+    ImageUtil.metrics.recordEnum(ImageUtil.getMetricName('SaveResult'), 0, 2);
+    if (opt_callback) opt_callback(false);
   }
 
   function doSave(newFile, fileEntry) {
@@ -1174,7 +1247,12 @@ Ribbon.Item.prototype.save = function(
         fileWriter.onwriteend = onSuccess.bind(null, fileEntry.toURL());
         fileWriter.write(ImageEncoder.getBlob(canvas, metadataEncoder));
       }
-      fileWriter.onerror = onError;
+      fileWriter.onerror = function(error) {
+        onError(error);
+        // Disable all callbacks on the first error.
+        fileWriter.onerror = null;
+        fileWriter.onwriteend = null;
+      };
       if (newFile) {
         writeContent();
       } else {
@@ -1203,7 +1281,7 @@ Ribbon.Item.REGEXP_COPY_N =
 Ribbon.Item.REGEXP_COPY_0 =
     new RegExp('^' + Ribbon.Item.COPY_SIGNATURE + '( - .+)$');
 
-Ribbon.Item.prototype.createCopyName_ = function(dirEntry, callback) {
+Ribbon.Item.prototype.createCopyName_ = function(dirEntry, metadata, callback) {
   var name = ImageUtil.getFullNameFromUrl(this.url_);
 
   // If the item represents a file created during the current Gallery session
@@ -1218,7 +1296,8 @@ Ribbon.Item.prototype.createCopyName_ = function(dirEntry, callback) {
     name = name.substr(0, index);
   }
 
-  var mimeType = this.metadata_.mimeType.toLowerCase();
+  var mimeType = metadata.media && metadata.media.mimeType;
+  mimeType = (mimeType || '').toLowerCase();
   if (mimeType != 'image/jpeg') {
     // Chrome can natively encode only two formats: JPEG and PNG.
     // All non-JPEG images are saved in PNG, hence forcing the file extension.
@@ -1253,128 +1332,35 @@ Ribbon.Item.prototype.createCopyName_ = function(dirEntry, callback) {
   tryNext(10);
 };
 
-Ribbon.Item.prototype.setCopyName = function(dirEntry, opt_callback) {
-  this.createCopyName_(dirEntry, function(name) {
+Ribbon.Item.prototype.setCopyName = function(dirEntry, metadata, opt_callback) {
+  this.createCopyName_(dirEntry, metadata, function(name) {
     this.nameForSaving_ = name;
     if (opt_callback) opt_callback();
   }.bind(this));
+};
+
+Ribbon.Item.prototype.setOriginalName = function(dirEntry, opt_callback) {
+  this.nameForSaving_ = null;
+  if (opt_callback) opt_callback();
 };
 
 Ribbon.Item.prototype.setNameForSaving = function(newName) {
   this.nameForSaving_ = newName;
 };
 
-// The url and metadata stored in the item are not valid while the modified
-// image is being saved. Use the results of the latest edit instead.
-
-Ribbon.Item.prototype.overrideContent = function(canvas, metadata) {
-  this.canvas_ = canvas;
-  this.backupMetadata_ = this.metadata_;
-  this.setMetadata(metadata);
+Ribbon.Item.prototype.hasThumbnail = function() {
+  return !!this.querySelector('img[src]');
 };
 
-Ribbon.Item.prototype.getContent = function () {
-  return this.canvas_ || this.url_;
+Ribbon.Item.prototype.setThumbnail = function(metadata) {
+  new ThumbnailLoader(this.url_, metadata).
+      load(this.querySelector('.image-wrapper'), true /* fill */);
 };
 
-Ribbon.Item.prototype.getMetadata = function () {
-  return this.metadata_;
-};
-
-Ribbon.Item.prototype.fetchMetadata = function (metadataProvider, callback) {
-  if (this.metadata_) {
-    callback(this.metadata_);  // Every millisecond counts, call directly
-  } else {
-    metadataProvider.fetch(this.getUrl(), callback);
-  }
-};
-
-Ribbon.Item.prototype.onSaveSuccess = function(url) {
-  this.url_ = url;
-  delete this.backupMetadata_;
-  delete this.canvas_;
-  ImageUtil.metrics.recordEnum(ImageUtil.getMetricName('SaveResult'), 1, 2);
-  ImageUtil.metrics.recordInterval(ImageUtil.getMetricName('SaveTime'));
-};
-
-Ribbon.Item.prototype.onSaveError = function(error) {
-  // TODO(kaznacheev): notify the user that the file write failed and
-  // suggest ways to rescue the modified image (retry/save elsewhere).
-  // For now - just drop the modified content and revert the thumbnail.
-  this.setMetadata(this.backupMetadata_);
-  delete this.backupMetadata_;
-  delete this.canvas_;
-  ImageUtil.metrics.recordEnum(ImageUtil.getMetricName('SaveResult'), 0, 2);
-};
-
-Ribbon.Item.prototype.setMetadata = function(metadata) {
-  this.metadata_ = metadata;
-
-  var url;
-  var transform;
-
-  var mediaType = FileType.getMediaType(this.url_);
-
-  if (metadata.thumbnailURL) {
-    url = metadata.thumbnailURL;
-    transform = metadata.thumbnailTransform;
-  } else if (mediaType == 'image' &&
-      FileType.canUseImageUrlForPreview(metadata)) {
-    url = this.url_;
-    transform = metadata.imageTransform;
-  } else {
-    url = FileType.getPreviewArt(mediaType);
-  }
-
-  function percent(ratio) { return Math.round(ratio * 100) + '%' }
-
-  function resizeToFill(img, aspect) {
-    if ((aspect > 1)) {
-      img.style.height = percent(1);
-      img.style.width = percent(aspect);
-      img.style.marginLeft = percent((1 - aspect) / 2);
-      img.style.marginTop = 0;
-    } else {
-      aspect = 1 / aspect;
-      img.style.width = percent(1);
-      img.style.height = percent(aspect);
-      img.style.marginTop = percent((1 - aspect) / 2);
-      img.style.marginLeft = 0;
-    }
-  }
-
-  var webkitTransform = transform ?
-      ('scaleX(' + transform.scaleX + ') ' +
-      'scaleY(' + transform.scaleY + ') ' +
-      'rotate(' + transform.rotate90 * 90 + 'deg)') :
-      '';
-  this.wrapper_.style.webkitTransform = webkitTransform;
-
-  var img = this.img_;
-
-  if (metadata.width && metadata.height) {
-    var aspect = metadata.width / metadata.height;
-    if (transform && transform.rotate90) {
-      aspect = 1 / aspect;
-    }
-    resizeToFill(img, aspect);
-  } else {
-    // No metadata available, loading the thumbnail first,
-    // then adjust the size.
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '100%';
-
-    function onLoad(image) {
-      image.style.maxWidth = '';
-      image.style.maxHeight = '';
-      resizeToFill(image, image.width / image.height);
-    }
-    img.onload = onLoad.bind(null, img);
-  }
-
-  img.setAttribute('src', url);
-};
-
+/**
+ * @constructor
+ * @extends {ImageEditor.Mode}
+ */
 function ShareMode(editor, container, toolbar, shareActions,
                    onClick, actionCallback, displayStringFunction) {
   ImageEditor.Mode.call(this, 'share');
@@ -1392,7 +1378,7 @@ function ShareMode(editor, container, toolbar, shareActions,
 
   this.menu_ = doc.createElement('div');
   this.menu_.className = 'share-menu';
-  this.menu_.setAttribute('hidden', 'hidden');
+  this.menu_.hidden = true;
   for (var index = 0; index < shareActions.length; index++) {
     var action = shareActions[index];
     var row = doc.createElement('div');
@@ -1411,13 +1397,66 @@ function ShareMode(editor, container, toolbar, shareActions,
 
 ShareMode.prototype = { __proto__: ImageEditor.Mode.prototype };
 
+/**
+ * Shows share mode UI.
+ */
 ShareMode.prototype.setUp = function() {
   ImageEditor.Mode.prototype.setUp.apply(this, arguments);
-  ImageUtil.setAttribute(this.menu_, 'hidden', false);
+  this.menu_.hidden = false;
   ImageUtil.setAttribute(this.button_, 'pressed', false);
 };
 
+/**
+ * Hides share mode UI.
+ */
 ShareMode.prototype.cleanUpUI = function() {
   ImageEditor.Mode.prototype.cleanUpUI.apply(this, arguments);
-  ImageUtil.setAttribute(this.menu_, 'hidden', true);
+  this.menu_.hidden = true;
 };
+
+/**
+ * Overlay that handles swipe gestures. Changes to the next or the previus file.
+ * @constructor
+ */
+function SwipeOverlay(ribbon) {
+  this.ribbon_ = ribbon;
+};
+
+SwipeOverlay.prototype.__proto__ = ImageBuffer.Overlay.prototype;
+
+/**
+ * @param {number} x X pointer position.
+ * @param {number} y Y pointer position.
+ * @param {boolean} touch True if dragging caused by touch.
+ * @return {function} The closure to call on drag.
+ */
+SwipeOverlay.prototype.getDragHandler = function(x, y, touch) {
+  if (!touch)
+    return null;
+  var origin = x;
+  var done = false;
+  var self = this;
+  return function(x, y) {
+    if (!done && origin - x > SwipeOverlay.SWIPE_THRESHOLD) {
+      self.handleSwipe_(1);
+      done = true;
+    } else if (!done && x - origin > SwipeOverlay.SWIPE_THRESHOLD) {
+      self.handleSwipe_(-1);
+      done = true;
+    }
+  };
+};
+
+/**
+ * Called when the swipe gesture is recognized.
+ * @param {number} direction 1 means swipe to left, -1 swipe to right.
+ */
+SwipeOverlay.prototype.handleSwipe_ = function(direction) {
+  this.ribbon_.selectNext(direction);
+};
+
+/**
+ * If the user touched the image and moved the finger more than SWIPE_THRESHOLD
+ * horizontally it's considered as a swipe gesture (change the current image).
+ */
+SwipeOverlay.SWIPE_THRESHOLD = 100;

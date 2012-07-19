@@ -17,6 +17,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 
+using extensions::Extension;
+using extensions::ExtensionInfo;
+
 namespace errors = extension_manifest_errors;
 namespace keys = extension_manifest_keys;
 
@@ -210,11 +213,11 @@ TEST(ExtensionL10nUtil, LoadMessageCatalogsBadJSONFormat) {
   valid_locales.insert("en_US");
   std::string error;
   EXPECT_TRUE(NULL == extension_l10n_util::LoadMessageCatalogs(src_path,
-                                                              "en_US",
-                                                              "sr",
-                                                              valid_locales,
-                                                              &error));
-  EXPECT_EQ("Line: 1, column: 10, Syntax error.", error);
+                                                               "en_US",
+                                                               "sr",
+                                                               valid_locales,
+                                                               &error));
+  EXPECT_EQ("Line: 1, column: 10, Unexpected token.", error);
 }
 
 TEST(ExtensionL10nUtil, LoadMessageCatalogsDuplicateKeys) {

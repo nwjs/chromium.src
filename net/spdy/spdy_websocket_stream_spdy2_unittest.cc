@@ -177,7 +177,7 @@ class SpdyWebSocketStreamSpdy2Test : public testing::Test {
   }
 
   void DoSync(SpdyWebSocketStreamEvent* event) {
-    sync_callback_.SetResult(OK);
+    sync_callback_.callback().Run(OK);
   }
 
  protected:
@@ -196,9 +196,9 @@ class SpdyWebSocketStreamSpdy2Test : public testing::Test {
     spdy_settings_flags_to_set_ = SETTINGS_FLAG_PLEASE_PERSIST;
     spdy_settings_value_to_set_ = 1;
 
-    SettingsFlagsAndId id1(SETTINGS_FLAG_PERSISTED, spdy_settings_id_to_set_);
-    spdy_settings_to_send_.push_back(
-        SpdySetting(id1, spdy_settings_value_to_set_));
+    spdy_settings_to_send_[spdy_settings_id_to_set_] =
+        SettingsFlagsAndValue(
+            SETTINGS_FLAG_PERSISTED, spdy_settings_value_to_set_);
   }
 
   virtual void TearDown() {
@@ -267,7 +267,8 @@ class SpdyWebSocketStreamSpdy2Test : public testing::Test {
     session_ = spdy_session_pool->Get(host_port_proxy_pair_, BoundNetLog());
     EXPECT_TRUE(spdy_session_pool->HasSession(host_port_proxy_pair_));
     transport_params_ = new TransportSocketParams(host_port_pair_, MEDIUM,
-                                                  false, false);
+                                                  false, false,
+                                                  OnHostResolutionCallback());
     TestCompletionCallback callback;
     scoped_ptr<ClientSocketHandle> connection(new ClientSocketHandle);
     EXPECT_EQ(ERR_IO_PENDING,
@@ -280,17 +281,17 @@ class SpdyWebSocketStreamSpdy2Test : public testing::Test {
     return session_->InitializeWithSocket(connection.release(), false, OK);
   }
   void SendRequest() {
-    linked_ptr<SpdyHeaderBlock> headers(new SpdyHeaderBlock);
+    scoped_ptr<SpdyHeaderBlock> headers(new SpdyHeaderBlock);
     (*headers)["url"] = "ws://example.com/echo";
     (*headers)["origin"] = "http://example.com/wsdemo";
 
-    websocket_stream_->SendRequest(headers);
+    websocket_stream_->SendRequest(headers.Pass());
   }
 
   SpdySettingsIds spdy_settings_id_to_set_;
   SpdySettingsFlags spdy_settings_flags_to_set_;
   uint32 spdy_settings_value_to_set_;
-  SpdySettings spdy_settings_to_send_;
+  SettingsMap spdy_settings_to_send_;
   SpdySessionDependencies session_deps_;
   scoped_ptr<OrderedSocketData> data_;
   scoped_refptr<HttpNetworkSession> http_session_;

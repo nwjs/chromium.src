@@ -46,7 +46,8 @@ bool SendAutomationJSONRequest(AutomationMessageSender* sender,
     LOG(INFO) << error->message();
     return false;
   }
-  scoped_ptr<Value> value(base::JSONReader::Read(reply, true));
+  scoped_ptr<Value> value(
+      base::JSONReader::Read(reply, base::JSON_ALLOW_TRAILING_COMMAS));
   if (!value.get() || !value->IsType(Value::TYPE_DICTIONARY)) {
     *error = Error("JSON request did not return a dictionary");
     LOG(ERROR) << "JSON request did not return dict: " << command << "\n";
@@ -202,7 +203,7 @@ bool SendAutomationJSONRequest(AutomationMessageSender* sender,
                                int timeout_ms,
                                std::string* reply,
                                bool* success) {
-  return sender->Send(new AutomationMsg_SendJSONRequest(
+  return sender->Send(new AutomationMsg_SendJSONRequestWithBrowserHandle(
       -1, request, reply, success), timeout_ms);
 }
 
@@ -211,7 +212,7 @@ bool SendAutomationJSONRequestWithDefaultTimeout(
     const std::string& request,
     std::string* reply,
     bool* success) {
-  return sender->Send(new AutomationMsg_SendJSONRequest(
+  return sender->Send(new AutomationMsg_SendJSONRequestWithBrowserHandle(
       -1, request, reply, success));
 }
 
@@ -357,6 +358,23 @@ bool SendCaptureEntirePageJSONRequest(
 
   return SendAutomationJSONRequest(sender, dict, &reply_dict, error);
 }
+
+#if !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
+bool SendHeapProfilerDumpJSONRequest(
+    AutomationMessageSender* sender,
+    const WebViewLocator& locator,
+    const std::string& reason,
+    Error* error) {
+  DictionaryValue dict;
+  dict.SetString("command", "HeapProfilerDump");
+  dict.SetString("process_type", "renderer");
+  dict.SetString("reason", reason);
+  locator.UpdateDictionary(&dict, "auto_id");
+  DictionaryValue reply_dict;
+
+  return SendAutomationJSONRequest(sender, dict, &reply_dict, error);
+}
+#endif  // !defined(NO_TCMALLOC) && (defined(OS_LINUX) || defined(OS_CHROMEOS))
 
 bool SendGetCookiesJSONRequest(
     AutomationMessageSender* sender,
@@ -694,6 +712,18 @@ bool SendSetViewBoundsJSONRequest(
   return SendAutomationJSONRequest(sender, dict, &reply_dict, error);
 }
 
+bool SendMaximizeJSONRequest(
+    AutomationMessageSender* sender,
+    const WebViewId& id,
+    automation::Error* error) {
+  DictionaryValue dict;
+  dict.SetString("command", "MaximizeView");
+  id.UpdateDictionary(&dict, "auto_id");
+
+  DictionaryValue reply_dict;
+  return SendAutomationJSONRequest(sender, dict, &reply_dict, error);
+}
+
 bool SendGetAppModalDialogMessageJSONRequest(
     AutomationMessageSender* sender,
     std::string* message,
@@ -899,4 +929,14 @@ bool SendSetPreferenceJSONRequest(
   dict.Set("value", value);
   DictionaryValue reply_dict;
   return SendAutomationJSONRequest(sender, dict, &reply_dict, error);
+}
+
+bool SendOverrideGeolocationJSONRequest(
+    AutomationMessageSender* sender,
+    base::DictionaryValue* geolocation,
+    Error* error) {
+  scoped_ptr<DictionaryValue> dict(geolocation->DeepCopy());
+  dict->SetString("command", "OverrideGeoposition");
+  DictionaryValue reply_dict;
+  return SendAutomationJSONRequest(sender, *dict.get(), &reply_dict, error);
 }

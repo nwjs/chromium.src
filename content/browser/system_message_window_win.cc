@@ -6,70 +6,34 @@
 
 #include <windows.h>
 #include <dbt.h>
-#include <string>
 
-#include "base/file_path.h"
-#include "base/sys_string_conversions.h"
+#include "base/logging.h"
 #include "base/system_monitor/system_monitor.h"
 #include "base/win/wrapped_window_proc.h"
 
 static const wchar_t* const WindowClassName = L"Chrome_SystemMessageWindow";
 
-namespace {
 
-LRESULT GetVolumeName(LPCWSTR drive,
-                      LPWSTR volume_name,
-                      unsigned int volume_name_len) {
-  return GetVolumeInformation(drive, volume_name, volume_name_len, NULL, NULL,
-      NULL, NULL, 0);
-}
-
-// Returns 0 if the devicetype is not volume.
-DWORD GetVolumeBitMaskFromBroadcastHeader(DWORD data) {
-  PDEV_BROADCAST_HDR dev_broadcast_hdr =
-      reinterpret_cast<PDEV_BROADCAST_HDR>(data);
-  if (dev_broadcast_hdr->dbch_devicetype == DBT_DEVTYP_VOLUME) {
-    PDEV_BROADCAST_VOLUME dev_broadcast_volume =
-        reinterpret_cast<PDEV_BROADCAST_VOLUME>(dev_broadcast_hdr);
-    return dev_broadcast_volume->dbcv_unitmask;
-  }
-  return 0;
-}
-
-}  // namespace
-
-
-SystemMessageWindowWin::SystemMessageWindowWin()
-    : volume_name_func_(&GetVolumeName) {
-  Init();
-}
-
-SystemMessageWindowWin::SystemMessageWindowWin(VolumeNameFunc volume_name_func)
-    : volume_name_func_(volume_name_func) {
-  Init();
-}
-
-void SystemMessageWindowWin::Init() {
-  HINSTANCE hinst = GetModuleHandle(NULL);
-
-  WNDCLASSEX wc = {0};
-  wc.cbSize = sizeof(wc);
-  wc.lpfnWndProc =
-      base::win::WrappedWindowProc<&SystemMessageWindowWin::WndProcThunk>;
-  wc.hInstance = hinst;
-  wc.lpszClassName = WindowClassName;
-  ATOM clazz = RegisterClassEx(&wc);
+SystemMessageWindowWin::SystemMessageWindowWin() {
+  WNDCLASSEX window_class;
+  base::win::InitializeWindowClass(
+      WindowClassName,
+      &base::win::WrappedWindowProc<SystemMessageWindowWin::WndProcThunk>,
+      0, 0, 0, NULL, NULL, NULL, NULL, NULL,
+      &window_class);
+  instance_ = window_class.hInstance;
+  ATOM clazz = RegisterClassEx(&window_class);
   DCHECK(clazz);
 
   window_ = CreateWindow(WindowClassName,
-                         0, 0, 0, 0, 0, 0, 0, 0, hinst, 0);
+                         0, 0, 0, 0, 0, 0, 0, 0, instance_, 0);
   SetWindowLongPtr(window_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 }
 
 SystemMessageWindowWin::~SystemMessageWindowWin() {
   if (window_) {
     DestroyWindow(window_);
-    UnregisterClass(WindowClassName, GetModuleHandle(NULL));
+    UnregisterClass(WindowClassName, instance_);
   }
 }
 
@@ -79,30 +43,6 @@ LRESULT SystemMessageWindowWin::OnDeviceChange(UINT event_type, DWORD data) {
     case DBT_DEVNODES_CHANGED:
       monitor->ProcessDevicesChanged();
       break;
-    case DBT_DEVICEARRIVAL: {
-      DWORD unitmask = GetVolumeBitMaskFromBroadcastHeader(data);
-      for (int i = 0; unitmask; ++i, unitmask >>= 1) {
-        if (unitmask & 0x01) {
-          FilePath::StringType drive(L"_:\\");
-          drive[0] = L'A' + i;
-          WCHAR volume_name[MAX_PATH + 1];
-          if ((*volume_name_func_)(drive.c_str(), volume_name, MAX_PATH + 1)) {
-            monitor->ProcessMediaDeviceAttached(
-                i, base::SysWideToUTF8(volume_name), FilePath(drive));
-          }
-        }
-      }
-      break;
-    }
-    case DBT_DEVICEREMOVECOMPLETE: {
-      DWORD unitmask = GetVolumeBitMaskFromBroadcastHeader(data);
-      for (int i = 0; unitmask; ++i, unitmask >>= 1) {
-        if (unitmask & 0x01) {
-          monitor->ProcessMediaDeviceDetached(i);
-        }
-      }
-      break;
-    }
   }
   return TRUE;
 }

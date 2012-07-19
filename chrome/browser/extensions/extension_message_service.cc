@@ -13,16 +13,17 @@
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/lazy_background_task_queue.h"
 #include "chrome/browser/extensions/process_map.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/chrome_view_type.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_messages.h"
+#include "chrome/common/view_type.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -47,16 +48,25 @@ using content::WebContents;
 struct ExtensionMessageService::MessagePort {
   content::RenderProcessHost* process;
   int routing_id;
-  explicit MessagePort(content::RenderProcessHost* process = NULL,
-                       int routing_id = MSG_ROUTING_CONTROL)
-     : process(process), routing_id(routing_id) {}
+  std::string extension_id;
+  void* background_host_ptr;  // used in IncrementLazyKeepaliveCount
+
+  MessagePort()
+     : process(NULL),
+       routing_id(MSG_ROUTING_CONTROL),
+       background_host_ptr(NULL) {}
+  MessagePort(content::RenderProcessHost* process,
+              int routing_id,
+              const std::string& extension_id)
+     : process(process),
+       routing_id(routing_id),
+       extension_id(extension_id),
+       background_host_ptr(NULL) {}
 };
 
 struct ExtensionMessageService::MessageChannel {
   ExtensionMessageService::MessagePort opener;
   ExtensionMessageService::MessagePort receiver;
-  std::string source_extension_id;
-  std::string target_extension_id;
 };
 
 struct ExtensionMessageService::OpenChannelParams {
@@ -116,7 +126,7 @@ static content::RenderProcessHost* GetExtensionProcess(
     Profile* profile, const std::string& extension_id) {
   SiteInstance* site_instance =
       profile->GetExtensionProcessManager()->GetSiteInstanceForURL(
-          Extension::GetBaseURLFromExtensionId(extension_id));
+          extensions::Extension::GetBaseURLFromExtensionId(extension_id));
 
   if (!site_instance->HasProcess())
     return NULL;
@@ -124,24 +134,30 @@ static content::RenderProcessHost* GetExtensionProcess(
   return site_instance->GetProcess();
 }
 
-static void IncrementLazyKeepaliveCount(content::RenderProcessHost* process,
-                                        const std::string& extension_id) {
-  Profile* profile = Profile::FromBrowserContext(process->GetBrowserContext());
-  const Extension* extension = profile->GetExtensionService()->extensions()->
-      GetByID(extension_id);
-  if (extension)
-    profile->GetExtensionProcessManager()->IncrementLazyKeepaliveCount(
-        extension);
+static void IncrementLazyKeepaliveCount(
+    ExtensionMessageService::MessagePort* port) {
+  Profile* profile =
+      Profile::FromBrowserContext(port->process->GetBrowserContext());
+  ExtensionProcessManager* pm =
+      extensions::ExtensionSystem::Get(profile)->process_manager();
+  ExtensionHost* host = pm->GetBackgroundHostForExtension(port->extension_id);
+  if (host && host->extension()->has_lazy_background_page())
+    pm->IncrementLazyKeepaliveCount(host->extension());
+
+  // Keep track of the background host, so when we decrement, we only do so if
+  // the host hasn't reloaded.
+  port->background_host_ptr = host;
 }
 
-static void DecrementLazyKeepaliveCount(content::RenderProcessHost* process,
-                                        const std::string& extension_id) {
-  Profile* profile = Profile::FromBrowserContext(process->GetBrowserContext());
-  const Extension* extension = profile->GetExtensionService()->extensions()->
-      GetByID(extension_id);
-  if (extension)
-    profile->GetExtensionProcessManager()->DecrementLazyKeepaliveCount(
-        extension);
+static void DecrementLazyKeepaliveCount(
+    ExtensionMessageService::MessagePort* port) {
+  Profile* profile =
+      Profile::FromBrowserContext(port->process->GetBrowserContext());
+  ExtensionProcessManager* pm =
+      extensions::ExtensionSystem::Get(profile)->process_manager();
+  ExtensionHost* host = pm->GetBackgroundHostForExtension(port->extension_id);
+  if (host && host == port->background_host_ptr)
+    pm->DecrementLazyKeepaliveCount(host->extension());
 }
 
 }  // namespace
@@ -165,7 +181,8 @@ void ExtensionMessageService::AllocatePortIdPair(int* port1, int* port2) {
   *port2 = port2_id;
 }
 
-ExtensionMessageService::ExtensionMessageService(LazyBackgroundTaskQueue* queue)
+ExtensionMessageService::ExtensionMessageService(
+    extensions::LazyBackgroundTaskQueue* queue)
     : lazy_background_task_queue_(queue) {
   registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_TERMINATED,
                  content::NotificationService::AllBrowserContextsAndSources());
@@ -194,7 +211,8 @@ void ExtensionMessageService::OpenChannelToExtension(
   // which depends on whether the extension uses spanning or split mode.
   MessagePort receiver(
       GetExtensionProcess(profile, target_extension_id),
-      MSG_ROUTING_CONTROL);
+      MSG_ROUTING_CONTROL,
+      target_extension_id);
   WebContents* source_contents = tab_util::GetWebContentsByID(
       source_process_id, source_routing_id);
 
@@ -229,19 +247,20 @@ void ExtensionMessageService::OpenChannelToTab(
     return;
   Profile* profile = Profile::FromBrowserContext(source->GetBrowserContext());
 
-  TabContentsWrapper* contents = NULL;
+  TabContents* contents = NULL;
   MessagePort receiver;
   if (ExtensionTabUtil::GetTabById(tab_id, profile, true,
                                    NULL, NULL, &contents, NULL)) {
     receiver.process = contents->web_contents()->GetRenderProcessHost();
     receiver.routing_id =
         contents->web_contents()->GetRenderViewHost()->GetRoutingID();
+    receiver.extension_id = extension_id;
   }
 
   if (contents && contents->web_contents()->GetController().NeedsReload()) {
     // The tab isn't loaded yet. Don't attempt to connect. Treat this as a
     // disconnect.
-    DispatchOnDisconnect(MessagePort(source, MSG_ROUTING_CONTROL),
+    DispatchOnDisconnect(MessagePort(source, MSG_ROUTING_CONTROL, extension_id),
                          GET_OPPOSITE_PORT_ID(receiver_port_id), true);
     return;
   }
@@ -268,7 +287,7 @@ bool ExtensionMessageService::OpenChannelImpl(const OpenChannelParams& params) {
 
   if (!params.receiver.process) {
     // Treat it as a disconnect.
-    DispatchOnDisconnect(MessagePort(params.source, MSG_ROUTING_CONTROL),
+    DispatchOnDisconnect(MessagePort(params.source, MSG_ROUTING_CONTROL, ""),
                          GET_OPPOSITE_PORT_ID(params.receiver_port_id), true);
     return false;
   }
@@ -278,10 +297,9 @@ bool ExtensionMessageService::OpenChannelImpl(const OpenChannelParams& params) {
   CHECK(params.receiver.process);
 
   MessageChannel* channel(new MessageChannel);
-  channel->opener = MessagePort(params.source, MSG_ROUTING_CONTROL);
+  channel->opener = MessagePort(params.source, MSG_ROUTING_CONTROL,
+                                params.source_extension_id);
   channel->receiver = params.receiver;
-  channel->source_extension_id = params.source_extension_id;
-  channel->target_extension_id = params.target_extension_id;
 
   CHECK(params.receiver.process);
 
@@ -299,10 +317,8 @@ bool ExtensionMessageService::OpenChannelImpl(const OpenChannelParams& params) {
                     params.source_extension_id, params.target_extension_id);
 
   // Keep both ends of the channel alive until the channel is closed.
-  IncrementLazyKeepaliveCount(channel->opener.process,
-                              channel->source_extension_id);
-  IncrementLazyKeepaliveCount(channel->receiver.process,
-                              channel->target_extension_id);
+  IncrementLazyKeepaliveCount(&channel->opener);
+  IncrementLazyKeepaliveCount(&channel->receiver);
   return true;
 }
 
@@ -337,10 +353,8 @@ void ExtensionMessageService::CloseChannelImpl(
   }
 
   // Balance the addrefs in OpenChannelImpl.
-  DecrementLazyKeepaliveCount(channel->opener.process,
-                              channel->source_extension_id);
-  DecrementLazyKeepaliveCount(channel->receiver.process,
-                              channel->target_extension_id);
+  DecrementLazyKeepaliveCount(&channel->opener);
+  DecrementLazyKeepaliveCount(&channel->receiver);
 
   delete channel_iter->second;
   channels_.erase(channel_iter);
@@ -416,7 +430,8 @@ bool ExtensionMessageService::MaybeAddPendingOpenChannelTask(
     const OpenChannelParams& params) {
   ExtensionService* service = profile->GetExtensionService();
   const std::string& extension_id = params.target_extension_id;
-  const Extension* extension = service->extensions()->GetByID(extension_id);
+  const extensions::Extension* extension = service->extensions()->GetByID(
+      extension_id);
   if (extension && extension->has_lazy_background_page()) {
     // If the extension uses spanning incognito mode, make sure we're always
     // using the original profile since that is what the extension process
@@ -441,6 +456,9 @@ void ExtensionMessageService::PendingOpenChannel(
     const OpenChannelParams& params_in,
     int source_process_id,
     ExtensionHost* host) {
+  if (!host)
+    return;  // TODO(mpcomplete): notify source of disconnect?
+
   // Re-lookup the source process since it may no longer be valid.
   OpenChannelParams params = params_in;
   params.source = content::RenderProcessHost::FromID(source_process_id);
@@ -448,6 +466,7 @@ void ExtensionMessageService::PendingOpenChannel(
     return;
 
   params.receiver = MessagePort(host->render_process_host(),
-                                MSG_ROUTING_CONTROL);
+                                MSG_ROUTING_CONTROL,
+                                params.target_extension_id);
   OpenChannelImpl(params);
 }

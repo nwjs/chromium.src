@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_DEVTOOLS_HTTP_HANDLER_DELEGATE_H_
 #define CONTENT_PUBLIC_BROWSER_DEVTOOLS_HTTP_HANDLER_DELEGATE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -15,7 +14,6 @@ class WebContents;
 
 class DevToolsHttpHandlerDelegate {
  public:
-  typedef std::vector<WebContents*> InspectableTabs;
   virtual ~DevToolsHttpHandlerDelegate() {}
 
   // Should return discovery page HTML that should list available tabs

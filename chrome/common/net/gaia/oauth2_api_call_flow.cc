@@ -8,18 +8,29 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/stringprintf.h"
 #include "chrome/common/net/gaia/gaia_urls.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_status_code.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
 
-using content::URLFetcher;
-using content::URLFetcherDelegate;
 using net::ResponseCookies;
+using net::URLFetcher;
+using net::URLFetcherDelegate;
 using net::URLRequestContextGetter;
 using net::URLRequestStatus;
+
+namespace {
+static const char kAuthorizationHeaderFormat[] =
+    "Authorization: Bearer %s";
+
+static std::string MakeAuthorizationHeader(const std::string& auth_token) {
+  return StringPrintf(kAuthorizationHeaderFormat, auth_token.c_str());
+}
+}  // namespace
 
 OAuth2ApiCallFlow::OAuth2ApiCallFlow(
     net::URLRequestContextGetter* context,
@@ -34,7 +45,7 @@ OAuth2ApiCallFlow::OAuth2ApiCallFlow(
       tried_mint_access_token_(false) {
 }
 
-OAuth2ApiCallFlow::~OAuth2ApiCallFlow() { }
+OAuth2ApiCallFlow::~OAuth2ApiCallFlow() {}
 
 void OAuth2ApiCallFlow::Start() {
   BeginApiCall();
@@ -46,21 +57,20 @@ void OAuth2ApiCallFlow::BeginApiCall() {
   // If the access token is empty then directly try to mint one.
   if (access_token_.empty()) {
     BeginMintAccessToken();
-    return;
   } else {
     state_ = API_CALL_STARTED;
-
     url_fetcher_.reset(CreateURLFetcher());
     url_fetcher_->Start();  // OnURLFetchComplete will be called.
   }
 }
 
-void OAuth2ApiCallFlow::EndApiCall(const URLFetcher* source) {
+void OAuth2ApiCallFlow::EndApiCall(const net::URLFetcher* source) {
   CHECK_EQ(API_CALL_STARTED, state_);
   state_ = API_CALL_DONE;
 
   URLRequestStatus status = source->GetStatus();
   if (!status.is_success()) {
+    state_ = ERROR_STATE;
     ProcessApiCallFailure(source);
     return;
   }
@@ -69,15 +79,18 @@ void OAuth2ApiCallFlow::EndApiCall(const URLFetcher* source) {
   // expired. So try generating a new access token.
   if (source->GetResponseCode() == net::HTTP_UNAUTHORIZED) {
     // If we already tried minting a new access token, don't do it again.
-    if (tried_mint_access_token_)
+    if (tried_mint_access_token_) {
+      state_ = ERROR_STATE;
       ProcessApiCallFailure(source);
-    else
+    } else {
       BeginMintAccessToken();
+    }
 
     return;
   }
 
   if (source->GetResponseCode() != net::HTTP_OK) {
+    state_ = ERROR_STATE;
     ProcessApiCallFailure(source);
     return;
   }
@@ -116,7 +129,7 @@ OAuth2AccessTokenFetcher* OAuth2ApiCallFlow::CreateAccessTokenFetcher() {
   return new OAuth2AccessTokenFetcher(this, context_);
 }
 
-void OAuth2ApiCallFlow::OnURLFetchComplete(const URLFetcher* source) {
+void OAuth2ApiCallFlow::OnURLFetchComplete(const net::URLFetcher* source) {
   CHECK(source);
   CHECK_EQ(API_CALL_STARTED, state_);
   EndApiCall(source);
@@ -135,7 +148,7 @@ void OAuth2ApiCallFlow::OnGetTokenFailure(
 URLFetcher* OAuth2ApiCallFlow::CreateURLFetcher() {
   std::string body = CreateApiCallBody();
   bool empty_body = body.empty();
-  URLFetcher* result = URLFetcher::Create(
+  URLFetcher* result = net::URLFetcher::Create(
       0,
       CreateApiCallUrl(),
       empty_body ? URLFetcher::GET : URLFetcher::POST,
@@ -144,6 +157,7 @@ URLFetcher* OAuth2ApiCallFlow::CreateURLFetcher() {
   result->SetRequestContext(context_);
   result->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
                        net::LOAD_DO_NOT_SAVE_COOKIES);
+  result->AddExtraRequestHeader(MakeAuthorizationHeader(access_token_));
 
   if (!empty_body)
     result->SetUploadData("application/x-www-form-urlencoded", body);

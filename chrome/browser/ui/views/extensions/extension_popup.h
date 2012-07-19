@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_POPUP_H_
 #define CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_POPUP_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/extensions/extension_host.h"
@@ -31,16 +30,13 @@ class ExtensionPopup : public views::BubbleDelegateView,
   // by value of |arrow_location| remains fixed during popup resizes.
   // If |arrow_location| is BOTTOM_*, then the popup 'pops up', otherwise
   // the popup 'drops down'.
-  // Pass |inspect_with_devtools| as true to pin the popup open and show the
-  // devtools window for it.
   // The actual display of the popup is delayed until the page contents
   // finish loading in order to minimize UI flashing and resizing.
   static ExtensionPopup* ShowPopup(
       const GURL& url,
       Browser* browser,
       views::View* anchor_view,
-      views::BubbleBorder::ArrowLocation arrow_location,
-      bool inspect_with_devtools);
+      views::BubbleBorder::ArrowLocation arrow_location);
 
   ExtensionHost* host() const { return extension_host_.get(); }
 
@@ -69,8 +65,7 @@ class ExtensionPopup : public views::BubbleDelegateView,
   ExtensionPopup(Browser* browser,
                  ExtensionHost* host,
                  views::View* anchor_view,
-                 views::BubbleBorder::ArrowLocation arrow_location,
-                 bool inspect_with_devtools);
+                 views::BubbleBorder::ArrowLocation arrow_location);
 
   // Show the bubble, focus on its content, and register listeners.
   void ShowBubble();

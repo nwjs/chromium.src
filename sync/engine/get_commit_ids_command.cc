@@ -8,22 +8,30 @@
 #include <utility>
 #include <vector>
 
-#include "sync/engine/nigori_util.h"
 #include "sync/engine/syncer_util.h"
-#include "sync/syncable/syncable.h"
+#include "sync/engine/throttled_data_type_tracker.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/mutable_entry.h"
+#include "sync/syncable/nigori_util.h"
+#include "sync/syncable/syncable_util.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/util/cryptographer.h"
 
 using std::set;
 using std::vector;
 
-namespace browser_sync {
+namespace syncer {
 
 using sessions::OrderedCommitSet;
 using sessions::SyncSession;
 using sessions::StatusController;
 
-GetCommitIdsCommand::GetCommitIdsCommand(int commit_batch_size)
-    : requested_commit_batch_size_(commit_batch_size) {}
+GetCommitIdsCommand::GetCommitIdsCommand(
+    const size_t commit_batch_size,
+    sessions::OrderedCommitSet* commit_set)
+    : requested_commit_batch_size_(commit_batch_size),
+      commit_set_(commit_set) {
+}
 
 GetCommitIdsCommand::~GetCommitIdsCommand() {}
 
@@ -32,10 +40,10 @@ SyncerError GetCommitIdsCommand::ExecuteImpl(SyncSession* session) {
   // are not in the correct order for commit.
   std::set<int64> ready_unsynced_set;
   syncable::Directory::UnsyncedMetaHandles all_unsynced_handles;
-  SyncerUtil::GetUnsyncedEntries(session->write_transaction(),
-                                 &all_unsynced_handles);
+  GetUnsyncedEntries(session->write_transaction(),
+                     &all_unsynced_handles);
 
-  syncable::ModelTypeSet encrypted_types;
+  syncer::ModelTypeSet encrypted_types;
   bool passphrase_missing = false;
   Cryptographer* cryptographer =
       session->context()->
@@ -45,8 +53,8 @@ SyncerError GetCommitIdsCommand::ExecuteImpl(SyncSession* session) {
     passphrase_missing = cryptographer->has_pending_keys();
   };
 
-  const syncable::ModelTypeSet throttled_types =
-       session->context()->GetThrottledTypes();
+  const syncer::ModelTypeSet throttled_types =
+       session->context()->throttled_data_type_tracker()->GetThrottledTypes();
   // We filter out all unready entries from the set of unsynced handles. This
   // new set of ready and unsynced items (which excludes throttled items as
   // well) is then what we use to determine what is a candidate for commit.
@@ -61,17 +69,12 @@ SyncerError GetCommitIdsCommand::ExecuteImpl(SyncSession* session) {
                  session->routing_info(),
                  ready_unsynced_set);
 
-  StatusController* status = session->mutable_status_controller();
-  syncable::Directory::UnsyncedMetaHandles ready_unsynced_vector(
-      ready_unsynced_set.begin(), ready_unsynced_set.end());
-  status->set_unsynced_handles(ready_unsynced_vector);
   const vector<syncable::Id>& verified_commit_ids =
-      ordered_commit_set_->GetAllCommitIds();
+      commit_set_->GetAllCommitIds();
 
   for (size_t i = 0; i < verified_commit_ids.size(); i++)
     DVLOG(1) << "Debug commit batch result:" << verified_commit_ids[i];
 
-  status->set_commit_set(*ordered_commit_set_.get());
   return SYNCER_OK;
 }
 
@@ -99,20 +102,19 @@ bool IsEntryInConflict(const syncable::Entry& entry) {
 //    encrypted).
 // 3. It's type is currently throttled.
 // 4. It's a delete but has not been committed.
-bool IsEntryReadyForCommit(syncable::ModelTypeSet throttled_types,
-                           syncable::ModelTypeSet encrypted_types,
+bool IsEntryReadyForCommit(syncer::ModelTypeSet throttled_types,
+                           syncer::ModelTypeSet encrypted_types,
                            bool passphrase_missing,
                            const syncable::Entry& entry) {
   DCHECK(entry.Get(syncable::IS_UNSYNCED));
   if (IsEntryInConflict(entry))
     return false;
 
-  const syncable::ModelType type = entry.GetModelType();
+  const syncer::ModelType type = entry.GetModelType();
   // We special case the nigori node because even though it is considered an
   // "encrypted type", not all nigori node changes require valid encryption
   // (ex: sync_tabs).
-  if ((type != syncable::NIGORI) &&
-      encrypted_types.Has(type) &&
+  if ((type != syncer::NIGORI) && encrypted_types.Has(type) &&
       (passphrase_missing ||
        syncable::EntryNeedsEncryption(encrypted_types, entry))) {
     // This entry requires encryption but is not properly encrypted (possibly
@@ -127,11 +129,11 @@ bool IsEntryReadyForCommit(syncable::ModelTypeSet throttled_types,
   if (throttled_types.Has(type))
     return false;
 
-  // Drop deleted uncommitted entries.
   if (entry.Get(syncable::IS_DEL) && !entry.Get(syncable::ID).ServerKnows()) {
-    // TODO(zea): These will remain unsynced indefinitely. This is harmless,
-    // but we should clean them up somewhere.
-    DVLOG(1) << "Ignoring deleted and uncommitted item." << entry;
+    // New clients (following the resolution of crbug.com/125381) should not
+    // create such items.  Old clients may have left some in the database
+    // (crbug.com/132905), but we should now be cleaning them on startup.
+    NOTREACHED() << "Found deleted and unsynced local item: " << entry;
     return false;
   }
 
@@ -157,8 +159,8 @@ bool IsEntryReadyForCommit(syncable::ModelTypeSet throttled_types,
 
 void GetCommitIdsCommand::FilterUnreadyEntries(
     syncable::BaseTransaction* trans,
-    syncable::ModelTypeSet throttled_types,
-    syncable::ModelTypeSet encrypted_types,
+    syncer::ModelTypeSet throttled_types,
+    syncer::ModelTypeSet encrypted_types,
     bool passphrase_missing,
     const syncable::Directory::UnsyncedMetaHandles& unsynced_handles,
     std::set<int64>* ready_unsynced_set) {
@@ -188,7 +190,7 @@ bool GetCommitIdsCommand::AddUncommittedParentsAndTheirPredecessors(
     syncable::Entry parent(trans, syncable::GET_BY_ID, parent_id);
     CHECK(parent.good()) << "Bad user-only parent in item path.";
     int64 handle = parent.Get(syncable::META_HANDLE);
-    if (ordered_commit_set_->HaveCommitItem(handle)) {
+    if (commit_set_->HaveCommitItem(handle)) {
       // We've already added this parent (and therefore all of its parents).
       // We can return early.
       break;
@@ -196,7 +198,7 @@ bool GetCommitIdsCommand::AddUncommittedParentsAndTheirPredecessors(
     if (!AddItemThenPredecessors(trans, ready_unsynced_set, parent,
                                  &item_dependencies)) {
       // There was a parent/predecessor in conflict. We return without adding
-      // anything to |ordered_commit_set_|.
+      // anything to |commit_set|.
       DVLOG(1) << "Parent or parent's predecessor was in conflict, omitting "
                << item;
       return false;
@@ -234,7 +236,7 @@ bool GetCommitIdsCommand::AddItemThenPredecessors(
     const syncable::Entry& item,
     OrderedCommitSet* result) const {
   int64 item_handle = item.Get(syncable::META_HANDLE);
-  if (ordered_commit_set_->HaveCommitItem(item_handle)) {
+  if (commit_set_->HaveCommitItem(item_handle)) {
     // We've already added this item to the commit set, and so must have
     // already added the predecessors as well.
     return true;
@@ -251,7 +253,7 @@ bool GetCommitIdsCommand::AddItemThenPredecessors(
     if (!prev.Get(syncable::IS_UNSYNCED))
       break;
     int64 handle = prev.Get(syncable::META_HANDLE);
-    if (ordered_commit_set_->HaveCommitItem(handle)) {
+    if (commit_set_->HaveCommitItem(handle)) {
       // We've already added this item to the commit set, and so must have
       // already added the predecessors as well.
       return true;
@@ -284,7 +286,7 @@ bool GetCommitIdsCommand::AddPredecessorsThenItem(
 }
 
 bool GetCommitIdsCommand::IsCommitBatchFull() const {
-  return ordered_commit_set_->Size() >= requested_commit_batch_size_;
+  return commit_set_->Size() >= requested_commit_batch_size_;
 }
 
 void GetCommitIdsCommand::AddCreatesAndMoves(
@@ -295,7 +297,7 @@ void GetCommitIdsCommand::AddCreatesAndMoves(
   for (std::set<int64>::const_iterator iter = ready_unsynced_set.begin();
        !IsCommitBatchFull() && iter != ready_unsynced_set.end(); ++iter) {
     int64 metahandle = *iter;
-    if (ordered_commit_set_->HaveCommitItem(metahandle))
+    if (commit_set_->HaveCommitItem(metahandle))
       continue;
 
     syncable::Entry entry(write_transaction,
@@ -316,14 +318,14 @@ void GetCommitIdsCommand::AddCreatesAndMoves(
                                   ready_unsynced_set,
                                   entry,
                                   &item_dependencies)) {
-        ordered_commit_set_->Append(item_dependencies);
+        commit_set_->Append(item_dependencies);
       }
     }
   }
 
   // It's possible that we overcommitted while trying to expand dependent
   // items.  If so, truncate the set down to the allowed size.
-  ordered_commit_set_->Truncate(requested_commit_batch_size_);
+  commit_set_->Truncate(requested_commit_batch_size_);
 }
 
 void GetCommitIdsCommand::AddDeletes(
@@ -334,7 +336,7 @@ void GetCommitIdsCommand::AddDeletes(
   for (std::set<int64>::const_iterator iter = ready_unsynced_set.begin();
        !IsCommitBatchFull() && iter != ready_unsynced_set.end(); ++iter) {
     int64 metahandle = *iter;
-    if (ordered_commit_set_->HaveCommitItem(metahandle))
+    if (commit_set_->HaveCommitItem(metahandle))
       continue;
 
     syncable::Entry entry(write_transaction, syncable::GET_BY_HANDLE,
@@ -365,7 +367,7 @@ void GetCommitIdsCommand::AddDeletes(
           DVLOG(1) << "Inserting moved and deleted entry, will be missed by "
                    << "delete roll." << entry.Get(syncable::ID);
 
-          ordered_commit_set_->AddCommitItem(metahandle,
+          commit_set_->AddCommitItem(metahandle,
               entry.Get(syncable::ID),
               entry.GetModelType());
         }
@@ -396,14 +398,14 @@ void GetCommitIdsCommand::AddDeletes(
   for (std::set<int64>::const_iterator iter = ready_unsynced_set.begin();
        !IsCommitBatchFull() && iter != ready_unsynced_set.end(); ++iter) {
     int64 metahandle = *iter;
-    if (ordered_commit_set_->HaveCommitItem(metahandle))
+    if (commit_set_->HaveCommitItem(metahandle))
       continue;
     syncable::MutableEntry entry(write_transaction, syncable::GET_BY_HANDLE,
                                  metahandle);
     if (entry.Get(syncable::IS_DEL)) {
       syncable::Id parent_id = entry.Get(syncable::PARENT_ID);
       if (legal_delete_parents.count(parent_id)) {
-        ordered_commit_set_->AddCommitItem(metahandle, entry.Get(syncable::ID),
+        commit_set_->AddCommitItem(metahandle, entry.Get(syncable::ID),
             entry.GetModelType());
       }
     }
@@ -414,7 +416,6 @@ void GetCommitIdsCommand::BuildCommitIds(
     syncable::WriteTransaction* write_transaction,
     const ModelSafeRoutingInfo& routes,
     const std::set<int64>& ready_unsynced_set) {
-  ordered_commit_set_.reset(new OrderedCommitSet(routes));
   // Commits follow these rules:
   // 1. Moves or creates are preceded by needed folder creates, from
   //    root to leaf.  For folders whose contents are ordered, moves
@@ -431,4 +432,4 @@ void GetCommitIdsCommand::BuildCommitIds(
   AddDeletes(write_transaction, ready_unsynced_set);
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

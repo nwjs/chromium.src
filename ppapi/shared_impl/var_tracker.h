@@ -11,6 +11,7 @@
 #include "base/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "base/threading/non_thread_safe.h"
+#include "ppapi/c/pp_instance.h"
 #include "ppapi/c/pp_module.h"
 #include "ppapi/c/pp_var.h"
 #include "ppapi/shared_impl/ppapi_shared_export.h"
@@ -33,7 +34,13 @@ class Var;
 // anything with it other than call virtual functions. The interesting parts
 // are added by the PluginObjectVar derived from this class.
 class PPAPI_SHARED_EXPORT VarTracker
+#ifdef ENABLE_PEPPER_THREADING
+    : NON_EXPORTED_BASE(public base::NonThreadSafeDoNothing) {
+#else
+    // TODO(dmichael): Remove the thread checking when calls are allowed off the
+    // main thread (crbug.com/92909).
     : NON_EXPORTED_BASE(public base::NonThreadSafe) {
+#endif
  public:
   VarTracker();
   virtual ~VarTracker();
@@ -77,6 +84,9 @@ class PPAPI_SHARED_EXPORT VarTracker
   // given object ID isn't in our map.
   int GetRefCountForObject(const PP_Var& object);
   int GetTrackedWithNoReferenceCountForObject(const PP_Var& object);
+
+  // Called after an instance is deleted to do var cleanup.
+  virtual void DidDeleteInstance(PP_Instance instance) = 0;
 
  protected:
   struct VarInfo {

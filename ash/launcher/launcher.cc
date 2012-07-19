@@ -4,17 +4,20 @@
 
 #include "ash/launcher/launcher.h"
 
+#include <algorithm>
+
 #include "ash/focus_cycler.h"
 #include "ash/launcher/launcher_delegate.h"
 #include "ash/launcher/launcher_model.h"
+#include "ash/launcher/launcher_navigator.h"
 #include "ash/launcher/launcher_view.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/shelf_layout_manager.h"
 #include "ui/aura/window.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/compositor/layer.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/widget/widget.h"
@@ -32,13 +35,10 @@ const int kBackgroundAlpha = 128;
 // The contents view of the Widget. This view contains LauncherView and
 // sizes it to the width of the widget minus the size of the status area.
 class Launcher::DelegateView : public views::WidgetDelegate,
-                               public views::AccessiblePaneView{
+                               public views::AccessiblePaneView {
  public:
   explicit DelegateView(Launcher* launcher);
   virtual ~DelegateView();
-
-  void SetStatusWidth(int width);
-  int status_width() const { return status_width_; }
 
   void set_focus_cycler(internal::FocusCycler* focus_cycler) {
     focus_cycler_ = focus_cycler;
@@ -66,10 +66,6 @@ class Launcher::DelegateView : public views::WidgetDelegate,
 
  private:
   Launcher* launcher_;
-
-  // Width of the status area.
-  int status_width_;
-
   internal::FocusCycler* focus_cycler_;
 
   DISALLOW_COPY_AND_ASSIGN(DelegateView);
@@ -77,19 +73,10 @@ class Launcher::DelegateView : public views::WidgetDelegate,
 
 Launcher::DelegateView::DelegateView(Launcher* launcher)
     : launcher_(launcher),
-      status_width_(0),
       focus_cycler_(NULL) {
 }
 
 Launcher::DelegateView::~DelegateView() {
-}
-
-void Launcher::DelegateView::SetStatusWidth(int width) {
-  if (status_width_ == width)
-    return;
-
-  status_width_ = width;
-  Layout();
 }
 
 gfx::Size Launcher::DelegateView::GetPreferredSize() {
@@ -99,16 +86,24 @@ gfx::Size Launcher::DelegateView::GetPreferredSize() {
 void Launcher::DelegateView::Layout() {
   if (child_count() == 0)
     return;
-  child_at(0)->SetBounds(0, 0, std::max(0, width() - status_width_), height());
+  if (launcher_->alignment_ == SHELF_ALIGNMENT_BOTTOM) {
+    int w = std::max(0, width() - launcher_->status_size_.width());
+    child_at(0)->SetBounds(0, 0, w, height());
+  } else {
+    int h = std::max(0, height() - launcher_->status_size_.height());
+    child_at(0)->SetBounds(0, 0, width(), h);
+  }
 }
 
 // Launcher --------------------------------------------------------------------
 
-Launcher::Launcher(aura::Window* window_container)
+Launcher::Launcher(aura::Window* window_container,
+                   internal::ShelfLayoutManager* shelf_layout_manager)
     : widget_(NULL),
       window_container_(window_container),
       delegate_view_(NULL),
       launcher_view_(NULL),
+      alignment_(SHELF_ALIGNMENT_BOTTOM),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           background_animator_(this, 0, kBackgroundAlpha)) {
   model_.reset(new LauncherModel);
@@ -124,9 +119,11 @@ Launcher::Launcher(aura::Window* window_container)
   params.layer_type = ui::LAYER_SOLID_COLOR;
   params.transparent = true;
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  params.parent = Shell::GetInstance()->GetContainer(
+  params.parent = Shell::GetContainer(
+      window_container_->GetRootWindow(),
       ash::internal::kShellWindowId_LauncherContainer);
-  launcher_view_ = new internal::LauncherView(model_.get(), delegate_.get());
+  launcher_view_ = new internal::LauncherView(
+      model_.get(), delegate_.get(), shelf_layout_manager);
   launcher_view_->Init();
   delegate_view_ = new DelegateView(this);
   delegate_view_->AddChildView(launcher_view_);
@@ -135,7 +132,7 @@ Launcher::Launcher(aura::Window* window_container)
   widget_->GetNativeWindow()->SetName("LauncherWindow");
   gfx::Size pref =
       static_cast<views::View*>(launcher_view_)->GetPreferredSize();
-  widget_->SetBounds(gfx::Rect(0, 0, pref.width(), pref.height()));
+  widget_->SetBounds(gfx::Rect(pref));
   // The launcher should not take focus when it is initially shown.
   widget_->set_focus_on_creation(false);
   widget_->SetContentsView(delegate_view_);
@@ -155,18 +152,24 @@ internal::FocusCycler* Launcher::GetFocusCycler() {
   return delegate_view_->focus_cycler();
 }
 
+void Launcher::SetAlignment(ShelfAlignment alignment) {
+  alignment_ = alignment;
+  launcher_view_->SetAlignment(alignment);
+  // ShelfLayoutManager will resize the launcher.
+}
+
 void Launcher::SetPaintsBackground(
       bool value,
       internal::BackgroundAnimator::ChangeType change_type) {
   background_animator_.SetPaintsBackground(value, change_type);
 }
 
-void Launcher::SetStatusWidth(int width) {
-  delegate_view_->SetStatusWidth(width);
-}
+void Launcher::SetStatusSize(const gfx::Size& size) {
+  if (status_size_ == size)
+    return;
 
-int Launcher::GetStatusWidth() {
-  return delegate_view_->status_width();
+  status_size_ = size;
+  delegate_view_->Layout();
 }
 
 gfx::Rect Launcher::GetScreenBoundsOfItemIconForWindow(aura::Window* window) {
@@ -186,8 +189,36 @@ gfx::Rect Launcher::GetScreenBoundsOfItemIconForWindow(aura::Window* window) {
                    bounds.height());
 }
 
+void Launcher::ActivateLauncherItem(int index) {
+  DCHECK(delegate_.get());
+  const ash::LauncherItems& items = model_->items();
+  delegate_->ItemClicked(items[index], ui::EF_NONE);
+}
+
+void Launcher::CycleWindowLinear(CycleDirection direction) {
+  int item_index = GetNextActivatedItemIndex(*model(), direction);
+  if (item_index >= 0)
+    ActivateLauncherItem(item_index);
+}
+
+void Launcher::AddIconObserver(LauncherIconObserver* observer) {
+  launcher_view_->AddIconObserver(observer);
+}
+
+void Launcher::RemoveIconObserver(LauncherIconObserver* observer) {
+  launcher_view_->RemoveIconObserver(observer);
+}
+
 bool Launcher::IsShowingMenu() const {
   return launcher_view_->IsShowingMenu();
+}
+
+bool Launcher::IsShowingOverflowBubble() const {
+  return launcher_view_->IsShowingOverflowBubble();
+}
+
+views::View* Launcher::GetAppListButtonView() const {
+  return launcher_view_->GetAppListButtonView();
 }
 
 internal::LauncherView* Launcher::GetLauncherViewForTest() {

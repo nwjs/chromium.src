@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_HOST_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_HOST_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -13,12 +12,12 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/perftimer.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
+#include "chrome/common/view_type.h"
 #include "content/public/browser/javascript_dialogs.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/common/view_type.h"
 
 #if defined(TOOLKIT_VIEWS)
 #include "chrome/browser/ui/views/extensions/extension_view.h"
@@ -31,13 +30,17 @@
 #endif
 
 class Browser;
-class Extension;
 class PrefsTabHelper;
 
 namespace content {
 class RenderProcessHost;
 class RenderWidgetHostView;
 class SiteInstance;
+}
+
+namespace extensions {
+class Extension;
+class WindowController;
 }
 
 // This class is the browser component of an extension component's RenderView.
@@ -62,9 +65,9 @@ class ExtensionHost : public content::WebContentsDelegate,
   typedef ExtensionViewAndroid PlatformExtensionView;
 #endif
 
-  ExtensionHost(const Extension* extension,
+  ExtensionHost(const extensions::Extension* extension,
                 content::SiteInstance* site_instance,
-                const GURL& url, content::ViewType host_type);
+                const GURL& url, chrome::ViewType host_type);
   virtual ~ExtensionHost();
 
 #if defined(TOOLKIT_VIEWS)
@@ -91,10 +94,7 @@ class ExtensionHost : public content::WebContentsDelegate,
   // instantiate Browser objects.
   void CreateView(Browser* browser);
 
-  // Helper variant of the above for cases where no Browser is present.
-  void CreateViewWithoutBrowser();
-
-  const Extension* extension() const { return extension_; }
+  const extensions::Extension* extension() const { return extension_; }
   const std::string& extension_id() const { return extension_id_; }
   content::WebContents* host_contents() const { return host_contents_.get(); }
   content::RenderViewHost* render_view_host() const;
@@ -106,7 +106,7 @@ class ExtensionHost : public content::WebContentsDelegate,
 
   Profile* profile() const { return profile_; }
 
-  content::ViewType extension_host_type() const { return extension_host_type_; }
+  chrome::ViewType extension_host_type() const { return extension_host_type_; }
   const GURL& GetURL() const;
 
   // ExtensionFunctionDispatcher::Delegate
@@ -124,6 +124,11 @@ class ExtensionHost : public content::WebContentsDelegate,
   // Insert a default style sheet for Extension Infobars.
   void InsertInfobarCSS();
 
+  // Notifications from the JavaScriptDialogCreator when a dialog is being
+  // opened/closed.
+  void WillRunJavaScriptDialog();
+  void DidCloseJavaScriptDialog();
+
   // content::WebContentsObserver
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
   virtual void RenderViewCreated(
@@ -133,21 +138,21 @@ class ExtensionHost : public content::WebContentsDelegate,
   virtual void RenderViewReady() OVERRIDE;
   virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
   virtual void DocumentAvailableInMainFrame() OVERRIDE;
-  virtual void DocumentLoadedInFrame(int64 frame_id) OVERRIDE;
   virtual void DidStopLoading() OVERRIDE;
 
   // content::WebContentsDelegate
   virtual content::WebContents* OpenURLFromTab(
       content::WebContents* source,
       const content::OpenURLParams& params) OVERRIDE;
-  virtual bool PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
-                                      bool* is_keyboard_shortcut) OVERRIDE;
-  virtual void HandleKeyboardEvent(const NativeWebKeyboardEvent& event)
-      OVERRIDE;
+  virtual bool PreHandleKeyboardEvent(
+      const content::NativeWebKeyboardEvent& event,
+      bool* is_keyboard_shortcut) OVERRIDE;
+  virtual void HandleKeyboardEvent(
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
   virtual void ResizeDueToAutoResize(content::WebContents* source,
                                      const gfx::Size& new_size) OVERRIDE;
-  virtual content::JavaScriptDialogCreator* GetJavaScriptDialogCreator()
-      OVERRIDE;
+  virtual content::JavaScriptDialogCreator*
+      GetJavaScriptDialogCreator() OVERRIDE;
   virtual void RunFileChooser(
       content::WebContents* tab,
       const content::FileChooserParams& params) OVERRIDE;
@@ -157,7 +162,8 @@ class ExtensionHost : public content::WebContentsDelegate,
                               const gfx::Rect& initial_pos,
                               bool user_gesture) OVERRIDE;
   virtual void CloseContents(content::WebContents* contents) OVERRIDE;
-  virtual bool ShouldSuppressDialogs() OVERRIDE;
+  virtual void OnStartDownload(content::WebContents* source,
+                               content::DownloadItem* download) OVERRIDE;
 
   // content::NotificationObserver
   virtual void Observe(int type,
@@ -176,26 +182,28 @@ class ExtensionHost : public content::WebContentsDelegate,
   // Closes this host (results in deletion).
   void Close();
 
-  // Const version of below function.
-  const Browser* GetBrowser() const;
-
   // ExtensionFunctionDispatcher::Delegate
-  virtual Browser* GetBrowser() OVERRIDE;
+  virtual extensions::WindowController*
+      GetExtensionWindowController() const OVERRIDE;
 
   // Message handlers.
   void OnRequest(const ExtensionHostMsg_Request_Params& params);
+  void OnEventAck();
+  void OnIncrementLazyKeepaliveCount();
+  void OnDecrementLazyKeepaliveCount();
 
   // Handles keyboard events that were not handled by HandleKeyboardEvent().
   // Platform specific implementation may override this method to handle the
   // event in platform specific way.
-  virtual void UnhandledKeyboardEvent(const NativeWebKeyboardEvent& event) {}
+  virtual void UnhandledKeyboardEvent(
+      const content::NativeWebKeyboardEvent& event);
 
   // Returns true if we're hosting a background page.
   // This isn't valid until CreateRenderView is called.
   bool is_background_page() const { return !view(); }
 
   // The extension that we're hosting in this view.
-  const Extension* extension_;
+  const extensions::Extension* extension_;
 
   // Id of extension that we're hosting in this view.
   const std::string extension_id_;
@@ -236,7 +244,7 @@ class ExtensionHost : public content::WebContentsDelegate,
   ExtensionFunctionDispatcher extension_function_dispatcher_;
 
   // The type of view being hosted.
-  content::ViewType extension_host_type_;
+  chrome::ViewType extension_host_type_;
 
   // The relevant WebContents associated with this ExtensionHost, if any.
   content::WebContents* associated_web_contents_;

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_IMPORTER_EXTERNAL_PROCESS_IMPORTER_BRIDGE_H_
 #define CHROME_BROWSER_IMPORTER_EXTERNAL_PROCESS_IMPORTER_BRIDGE_H_
-#pragma once
 
 #include <vector>
 
@@ -19,6 +18,7 @@ class GURL;
 
 namespace base {
 class DictionaryValue;
+class TaskRunner;
 }
 
 // When the importer is run in an external process, the bridge is effectively
@@ -30,7 +30,8 @@ class ExternalProcessImporterBridge : public ImporterBridge {
  public:
   ExternalProcessImporterBridge(
       const base::DictionaryValue& localized_strings,
-      IPC::Message::Sender* sender);
+      IPC::Sender* sender,
+      base::TaskRunner* task_runner);
 
   // Begin ImporterBridge implementation:
   virtual void AddBookmarks(
@@ -67,13 +68,15 @@ class ExternalProcessImporterBridge : public ImporterBridge {
  private:
   virtual ~ExternalProcessImporterBridge();
 
-  bool Send(IPC::Message* message);
+  void Send(IPC::Message* message);
+  void SendInternal(IPC::Message* message);
 
   // Holds strings needed by the external importer because the resource
   // bundle isn't available to the external process.
   scoped_ptr<base::DictionaryValue> localized_strings_;
 
-  IPC::Message::Sender* sender_;
+  IPC::Sender* sender_;
+  scoped_refptr<base::TaskRunner> task_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(ExternalProcessImporterBridge);
 };

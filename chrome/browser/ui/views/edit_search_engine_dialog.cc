@@ -24,23 +24,21 @@
 #include "ui/views/widget/widget.h"
 
 using views::GridLayout;
-using views::ImageView;
 using views::Textfield;
 
-
-namespace browser {
+namespace chrome {
 
 void EditSearchEngine(gfx::NativeWindow parent,
-                      const TemplateURL* template_url,
+                      TemplateURL* template_url,
                       EditSearchEngineControllerDelegate* delegate,
                       Profile* profile) {
   EditSearchEngineDialog::Show(parent, template_url, delegate, profile);
 }
 
-}  // namespace browser
+}  // namespace chrome
 
 EditSearchEngineDialog::EditSearchEngineDialog(
-    const TemplateURL* template_url,
+    TemplateURL* template_url,
     EditSearchEngineControllerDelegate* delegate,
     Profile* profile)
     : controller_(new EditSearchEngineController(template_url,
@@ -54,7 +52,7 @@ EditSearchEngineDialog::~EditSearchEngineDialog() {
 
 // static
 void EditSearchEngineDialog::Show(gfx::NativeWindow parent,
-                                  const TemplateURL* template_url,
+                                  TemplateURL* template_url,
                                   EditSearchEngineControllerDelegate* delegate,
                                   Profile* profile) {
   EditSearchEngineDialog* contents =
@@ -64,7 +62,7 @@ void EditSearchEngineDialog::Show(gfx::NativeWindow parent,
   views::Widget::CreateWindowWithParent(contents, parent);
   contents->GetWidget()->Show();
   contents->GetDialogClientView()->UpdateDialogButtons();
-  contents->title_tf_->SelectAll();
+  contents->title_tf_->SelectAll(true);
   contents->title_tf_->RequestFocus();
 }
 
@@ -131,9 +129,9 @@ void EditSearchEngineDialog::Init() {
     keyword_tf_ = CreateTextfield(string16(), true);
     url_tf_ = CreateTextfield(string16(), false);
   }
-  title_iv_ = new ImageView();
-  keyword_iv_ = new ImageView();
-  url_iv_ = new ImageView();
+  title_iv_ = new views::ImageView();
+  keyword_iv_ = new views::ImageView();
+  url_iv_ = new views::ImageView();
 
   UpdateImageViews();
 
@@ -229,14 +227,7 @@ views::Label* EditSearchEngineDialog::CreateLabel(int message_id) {
 Textfield* EditSearchEngineDialog::CreateTextfield(const string16& text,
                                                    bool lowercase) {
   Textfield* text_field = new Textfield(
-#if defined(USE_AURA)
-      Textfield::STYLE_DEFAULT);
-  NOTIMPLEMENTED();   // TODO(beng): support lowercase mode in
-                      //             NativeTextfieldViews.
-                      //             http://crbug.com/109308
-#else
       lowercase ? Textfield::STYLE_LOWERCASE : Textfield::STYLE_DEFAULT);
-#endif
   text_field->SetText(text);
   text_field->SetController(this);
   return text_field;
@@ -252,18 +243,15 @@ void EditSearchEngineDialog::UpdateImageViews() {
                   IDS_SEARCH_ENGINES_INVALID_TITLE_TT);
 }
 
-void EditSearchEngineDialog::UpdateImageView(ImageView* image_view,
+void EditSearchEngineDialog::UpdateImageView(views::ImageView* image_view,
                                              bool is_valid,
                                              int invalid_message_id) {
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   if (is_valid) {
     image_view->SetTooltipText(string16());
-    image_view->SetImage(
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
-            IDR_INPUT_GOOD));
+    image_view->SetImage(rb.GetImageSkiaNamed(IDR_INPUT_GOOD));
   } else {
     image_view->SetTooltipText(l10n_util::GetStringUTF16(invalid_message_id));
-    image_view->SetImage(
-        ResourceBundle::GetSharedInstance().GetBitmapNamed(
-            IDR_INPUT_ALERT));
+    image_view->SetImage(rb.GetImageSkiaNamed(IDR_INPUT_ALERT));
   }
 }

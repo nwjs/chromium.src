@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_BOOKMARKS_BOOKMARK_UTILS_GTK_H_
 #define CHROME_BROWSER_UI_GTK_BOOKMARKS_BOOKMARK_UTILS_GTK_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -14,7 +13,7 @@
 
 class BookmarkModel;
 class BookmarkNode;
-class ThemeServiceGtk;
+class GtkThemeService;
 class Profile;
 
 typedef struct _GdkDragContext GdkDragContext;
@@ -35,15 +34,15 @@ GdkPixbuf* GetPixbufForNode(const BookmarkNode* node, BookmarkModel* model,
 // gtk_drag_set_icon_widget().
 GtkWidget* GetDragRepresentation(GdkPixbuf* pixbuf,
                                  const string16& title,
-                                 ThemeServiceGtk* provider);
+                                 GtkThemeService* provider);
 GtkWidget* GetDragRepresentationForNode(const BookmarkNode* node,
                                         BookmarkModel* model,
-                                        ThemeServiceGtk* provider);
+                                        GtkThemeService* provider);
 
 // Helper function that sets visual properties of GtkButton |button| to the
 // contents of |node|.
 void ConfigureButtonForNode(const BookmarkNode* node, BookmarkModel* model,
-                            GtkWidget* button, ThemeServiceGtk* provider);
+                            GtkWidget* button, GtkThemeService* provider);
 
 // Returns the tooltip.
 std::string BuildTooltipFor(const BookmarkNode* node);
@@ -55,7 +54,7 @@ std::string BuildMenuLabelFor(const BookmarkNode* node);
 const BookmarkNode* BookmarkNodeForWidget(GtkWidget* widget);
 
 // Set the colors on |label| as per the theme.
-void SetButtonTextColors(GtkWidget* label, ThemeServiceGtk* provider);
+void SetButtonTextColors(GtkWidget* label, GtkThemeService* provider);
 
 // Drag and drop. --------------------------------------------------------------
 

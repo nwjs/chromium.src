@@ -15,7 +15,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_DOWNLOAD_DOWNLOAD_ITEM_VIEW_H__
 #define CHROME_BROWSER_UI_VIEWS_DOWNLOAD_DOWNLOAD_ITEM_VIEW_H__
-#pragma once
 
 #include <string>
 
@@ -31,17 +30,18 @@
 #include "content/public/browser/download_manager.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/gfx/font.h"
+#include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/events/event.h"
 #include "ui/views/view.h"
 
 class BaseDownloadItemModel;
 class DownloadShelfView;
-class SkBitmap;
 class DownloadShelfContextMenuView;
 
 namespace gfx {
 class Image;
+class ImageSkia;
 }
 
 namespace ui {
@@ -55,6 +55,7 @@ class TextButton;
 
 class DownloadItemView : public views::ButtonListener,
                          public views::View,
+                         public views::ContextMenuController,
                          public content::DownloadItem::Observer,
                          public ui::AnimationDelegate {
  public:
@@ -88,11 +89,15 @@ class DownloadItemView : public views::ButtonListener,
   virtual void OnMouseMoved(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
   virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(
+      const views::GestureEvent& event) OVERRIDE;
   virtual bool GetTooltipText(const gfx::Point& p,
                               string16* tooltip) const OVERRIDE;
-  virtual void ShowContextMenu(const gfx::Point& p,
-                               bool is_mouse_gesture) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
+
+  // Overridden from views::ContextMenuController.
+  virtual void ShowContextMenuForView(View* source,
+                                      const gfx::Point& point) OVERRIDE;
 
   // ButtonListener implementation.
   virtual void ButtonPressed(views::Button* sender,
@@ -120,22 +125,22 @@ class DownloadItemView : public views::ButtonListener,
 
   // The image set associated with the part containing the icon and text.
   struct BodyImageSet {
-    SkBitmap* top_left;
-    SkBitmap* left;
-    SkBitmap* bottom_left;
-    SkBitmap* top;
-    SkBitmap* center;
-    SkBitmap* bottom;
-    SkBitmap* top_right;
-    SkBitmap* right;
-    SkBitmap* bottom_right;
+    gfx::ImageSkia* top_left;
+    gfx::ImageSkia* left;
+    gfx::ImageSkia* bottom_left;
+    gfx::ImageSkia* top;
+    gfx::ImageSkia* center;
+    gfx::ImageSkia* bottom;
+    gfx::ImageSkia* top_right;
+    gfx::ImageSkia* right;
+    gfx::ImageSkia* bottom_right;
   };
 
   // The image set associated with the drop-down button on the right.
   struct DropDownImageSet {
-    SkBitmap* top;
-    SkBitmap* center;
-    SkBitmap* bottom;
+    gfx::ImageSkia* top;
+    gfx::ImageSkia* center;
+    gfx::ImageSkia* bottom;
   };
 
   void OpenDownload();
@@ -143,12 +148,20 @@ class DownloadItemView : public views::ButtonListener,
   void LoadIcon();
   void LoadIconIfItemPathChanged();
 
-  // Convenience method to paint the 3 vertical bitmaps (bottom, middle, top)
+  // Shows the context menu at the specified location. |point| is in the view's
+  // coordinate system.
+  void ShowContextMenuImpl(const gfx::Point& point, bool is_mouse_gesture);
+
+  // Common code for handling pointer events (i.e. mouse or gesture).
+  void HandlePressEvent(const views::LocatedEvent& event, bool active_event);
+  void HandleClickEvent(const views::LocatedEvent& event, bool active_event);
+
+  // Convenience method to paint the 3 vertical images (bottom, middle, top)
   // that form the background.
-  void PaintBitmaps(gfx::Canvas* canvas,
-                    const SkBitmap* top_bitmap,
-                    const SkBitmap* center_bitmap,
-                    const SkBitmap* bottom_bitmap,
+  void PaintImages(gfx::Canvas* canvas,
+                    const gfx::ImageSkia* top_image,
+                    const gfx::ImageSkia* center_image,
+                    const gfx::ImageSkia* bottom_image,
                     int x,
                     int y,
                     int height,
@@ -208,7 +221,7 @@ class DownloadItemView : public views::ButtonListener,
   DropDownImageSet pushed_drop_down_image_set_;
 
   // The warning icon showns for dangerous downloads.
-  const SkBitmap* warning_icon_;
+  const gfx::ImageSkia* warning_icon_;
 
   // The model we query for display information
   content::DownloadItem* download_;

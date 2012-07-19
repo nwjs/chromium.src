@@ -4,11 +4,11 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_DOWNLOAD_MANAGER_DELEGATE_H_
 #define CONTENT_PUBLIC_BROWSER_DOWNLOAD_MANAGER_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/file_path.h"
+#include "base/logging.h"
 #include "base/time.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/save_page_type.h"
@@ -19,14 +19,22 @@ class DownloadId;
 class DownloadItem;
 class WebContents;
 
-typedef base::Callback<void(const FilePath&, content::SavePageType)>
-    SaveFilePathPickedCallback;
+// Called by SavePackage when it creates a DownloadItem.
+typedef base::Callback<void(DownloadItem*)>
+    SavePackageDownloadCreatedCallback;
+
+// Will be called asynchronously with the results of the ChooseSavePath
+// operation.  If the delegate wants notification of the download item created
+// in response to this operation, the SavePackageDownloadCreatedCallback will be
+// non-null.
+typedef base::Callback<void(const FilePath&,
+                            content::SavePageType,
+                            const SavePackageDownloadCreatedCallback&)>
+    SavePackagePathPickedCallback;
 
 // Browser's download manager: manages all downloads and destination view.
 class CONTENT_EXPORT DownloadManagerDelegate {
  public:
-  virtual ~DownloadManagerDelegate() {}
-
   // Lets the delegate know that the download manager is shutting down.
   virtual void Shutdown() {}
 
@@ -41,13 +49,15 @@ class CONTENT_EXPORT DownloadManagerDelegate {
   // Asks the user for the path for a download. The delegate calls
   // DownloadManager::FileSelected or DownloadManager::FileSelectionCanceled to
   // give the answer.
-  virtual void ChooseDownloadPath(WebContents* web_contents,
-                                  const FilePath& suggested_path,
-                                  int32 download_id) {}
+  virtual void ChooseDownloadPath(DownloadItem* item) {}
 
   // Allows the embedder to set an intermediate name for the download until it's
-  // complete. If the embedder doesn't want this return the suggested path.
-  virtual FilePath GetIntermediatePath(const FilePath& suggested_path);
+  // complete. The return value is the intermediate path to use. If the embedder
+  // doesn't want to set an intermediate path, it should return
+  // item.GetTargetFilePath(). If there's already a file at the returned path,
+  // it will not be overwritten. Instead the path will be uniquified by adding a
+  // suffix to the filename.
+  virtual FilePath GetIntermediatePath(const DownloadItem& item);
 
   // Called when the download system wants to alert a WebContents that a
   // download has started, but the TabConetnts has gone away. This lets an
@@ -57,14 +67,17 @@ class CONTENT_EXPORT DownloadManagerDelegate {
   // Tests if a file type should be opened automatically.
   virtual bool ShouldOpenFileBasedOnExtension(const FilePath& path);
 
-  // Allows the delegate to override completion of the download.  If this
-  // function returns false, the download completion is delayed and the
-  // delegate is responsible for making sure that
-  // DownloadItem::MaybeCompleteDownload is called at some point in the
-  // future.  Note that at that point this function will be called again,
-  // and is responsible for returning true when it really is ok for the
-  // download to complete.
-  virtual bool ShouldCompleteDownload(DownloadItem* item);
+  // Allows the delegate to delay completion of the download.  This function
+  // will either return true (in which case the download is ready to complete)
+  // or arrange for complete_callback to be called at some point in the future
+  // when the download is ready to complete.
+  //
+  // ShouldCompleteDownload() may be called multiple times; if it is, only the
+  // last callback specified (while the delegate is delaying completion) will be
+  // run.  Calls made after the callback is run are guaranteed to return true.
+  virtual bool ShouldCompleteDownload(
+      DownloadItem* item,
+      const base::Closure& complete_callback);
 
   // Allows the delegate to override opening the download. If this function
   // returns false, the delegate needs to call
@@ -106,17 +119,20 @@ class CONTENT_EXPORT DownloadManagerDelegate {
   // Retrieve the directories to save html pages and downloads to.
   virtual void GetSaveDir(WebContents* web_contents,
                           FilePath* website_save_dir,
-                          FilePath* download_save_dir) {}
+                          FilePath* download_save_dir,
+                          bool* skip_dir_check) {}
 
   // Asks the user for the path to save a page. The delegate calls the callback
-  // to give the answer, except on ChromeOS, where the saving is done by
-  // SavePackageFilePickerChromeOS. TODO(achuith): Move ChromeOS save
-  // functionality to SavePackage.
+  // to give the answer.
   virtual void ChooseSavePath(WebContents* web_contents,
                               const FilePath& suggested_path,
                               const FilePath::StringType& default_extension,
                               bool can_save_as_complete,
-                              SaveFilePathPickedCallback callback) {}
+                              const SavePackagePathPickedCallback& callback) {
+  }
+
+ protected:
+  virtual ~DownloadManagerDelegate();
 };
 
 }  // namespace content

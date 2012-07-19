@@ -4,7 +4,6 @@
 
 #ifndef UI_GFX_NATIVE_WIDGET_TYPES_H_
 #define UI_GFX_NATIVE_WIDGET_TYPES_H_
-#pragma once
 
 #include "build/build_config.h"
 
@@ -80,16 +79,7 @@ typedef struct _PangoFontDescription PangoFontDescription;
 typedef struct _cairo cairo_t;
 #endif
 
-#if defined(USE_WAYLAND)
-typedef struct _GdkPixbuf GdkPixbuf;
-struct wl_egl_window;
-
-namespace ui {
-class WaylandWindow;
-}
-
-typedef struct _GdkRegion GdkRegion;
-#elif defined(TOOLKIT_GTK)
+#if defined(TOOLKIT_GTK)
 typedef struct _GdkCursor GdkCursor;
 typedef union _GdkEvent GdkEvent;
 typedef struct _GdkPixbuf GdkPixbuf;
@@ -97,7 +87,9 @@ typedef struct _GdkRegion GdkRegion;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkWindow GtkWindow;
 #elif defined(OS_ANDROID)
-class ChromeView;
+namespace content {
+class ContentViewCore;
+}
 #endif
 class SkBitmap;
 
@@ -120,14 +112,6 @@ typedef NSCursor* NativeCursor;
 typedef NSView* NativeView;
 typedef NSWindow* NativeWindow;
 typedef NSEvent* NativeEvent;
-#elif defined(USE_WAYLAND)
-typedef void* NativeCursor;
-typedef ui::WaylandWindow* NativeView;
-typedef ui::WaylandWindow* NativeWindow;
-// TODO(dnicoara) This should be replaced with a cairo region or maybe
-// a Wayland specific region
-typedef GdkRegion* NativeRegion;
-typedef void* NativeEvent;
 #elif defined(TOOLKIT_GTK)
 typedef GdkCursor* NativeCursor;
 typedef GtkWidget* NativeView;
@@ -136,8 +120,8 @@ typedef GdkRegion* NativeRegion;
 typedef GdkEvent* NativeEvent;
 #elif defined(OS_ANDROID)
 typedef void* NativeCursor;
-typedef ChromeView* NativeView;
-typedef ChromeView* NativeWindow;
+typedef content::ContentViewCore* NativeView;
+typedef content::ContentViewCore* NativeWindow;
 typedef void* NativeRegion;
 typedef jobject NativeEvent;
 #endif
@@ -152,12 +136,6 @@ typedef IAccessible* NativeViewAccessible;
 typedef NSFont* NativeFont;
 typedef NSTextField* NativeEditView;
 typedef CGContext* NativeDrawingContext;
-typedef void* NativeMenu;
-typedef void* NativeViewAccessible;
-#elif defined(USE_WAYLAND)
-typedef PangoFontDescription* NativeFont;
-typedef void* NativeEditView;
-typedef cairo_t* NativeDrawingContext;
 typedef void* NativeMenu;
 typedef void* NativeViewAccessible;
 #elif defined(TOOLKIT_GTK)
@@ -233,9 +211,6 @@ static inline NativeView NativeViewFromIdInBrowser(NativeViewId id) {
 #if defined(OS_WIN)
   typedef HWND PluginWindowHandle;
   const PluginWindowHandle kNullPluginWindow = NULL;
-#elif defined(USE_WAYLAND)
-  typedef struct wl_egl_window* PluginWindowHandle;
-  const PluginWindowHandle kNullPluginWindow = NULL;
 #elif defined(USE_X11)
   typedef unsigned long PluginWindowHandle;
   const PluginWindowHandle kNullPluginWindow = 0;
@@ -269,7 +244,8 @@ struct GLSurfaceHandle {
         transport(false),
         parent_gpu_process_id(0),
         parent_client_id(0),
-        parent_context_id(0) {
+        parent_context_id(0),
+        sync_point(0) {
     parent_texture_id[0] = 0;
     parent_texture_id[1] = 0;
   }
@@ -278,7 +254,8 @@ struct GLSurfaceHandle {
         transport(transport_),
         parent_gpu_process_id(0),
         parent_client_id(0),
-        parent_context_id(0) {
+        parent_context_id(0),
+        sync_point(0) {
     parent_texture_id[0] = 0;
     parent_texture_id[1] = 0;
   }
@@ -289,14 +266,12 @@ struct GLSurfaceHandle {
   uint32 parent_client_id;
   uint32 parent_context_id;
   uint32 parent_texture_id[2];
+  uint32 sync_point;
 };
 
 // AcceleratedWidget provides a surface to compositors to paint pixels.
 #if defined(OS_WIN)
 typedef HWND AcceleratedWidget;
-const AcceleratedWidget kNullAcceleratedWidget = NULL;
-#elif defined(USE_WAYLAND)
-typedef struct wl_egl_window* AcceleratedWidget;
 const AcceleratedWidget kNullAcceleratedWidget = NULL;
 #elif defined(USE_X11)
 typedef unsigned long AcceleratedWidget;

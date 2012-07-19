@@ -7,18 +7,24 @@
 #include "ash/launcher/launcher.h"
 #include "ash/launcher/launcher_model.h"
 #include "ash/shell.h"
+#include "ash/shell_window_ids.h"
 #include "ui/aura/window.h"
 
 namespace ash {
 namespace shell {
 
 WindowWatcher::WindowWatcher()
-    : window_(ash::Shell::GetInstance()->launcher()->window_container()) {
+    : window_(ash::Shell::GetInstance()->launcher()->window_container()),
+      panel_container_(ash::Shell::GetContainer(
+          Shell::GetPrimaryRootWindow(),
+          internal::kShellWindowId_PanelContainer)) {
   window_->AddObserver(this);
+  panel_container_->AddObserver(this);
 }
 
 WindowWatcher::~WindowWatcher() {
   window_->RemoveObserver(this);
+  panel_container_->RemoveObserver(this);
 }
 
 aura::Window* WindowWatcher::GetWindowByID(ash::LauncherID id) {
@@ -37,7 +43,8 @@ ash::LauncherID WindowWatcher::GetIDByWindow(aura::Window* window) const {
 
 // aura::WindowObserver overrides:
 void WindowWatcher::OnWindowAdded(aura::Window* new_window) {
-  if (new_window->type() != aura::client::WINDOW_TYPE_NORMAL)
+  if (new_window->type() != aura::client::WINDOW_TYPE_NORMAL &&
+      new_window->type() != aura::client::WINDOW_TYPE_PANEL)
     return;
 
   static int image_count = 0;
@@ -45,13 +52,18 @@ void WindowWatcher::OnWindowAdded(aura::Window* new_window) {
   ash::LauncherItem item;
   item.type = ash::TYPE_TABBED;
   id_to_window_[model->next_id()] = new_window;
-  item.image.setConfig(SkBitmap::kARGB_8888_Config, 16, 16);
-  item.image.allocPixels();
-  item.image.eraseARGB(255,
-                       image_count == 0 ? 255 : 0,
-                       image_count == 1 ? 255 : 0,
-                       image_count == 2 ? 255 : 0);
+
+  SkBitmap icon_bitmap;
+  icon_bitmap.setConfig(SkBitmap::kARGB_8888_Config, 16, 16);
+  icon_bitmap.allocPixels();
+  icon_bitmap.eraseARGB(255,
+                        image_count == 0 ? 255 : 0,
+                        image_count == 1 ? 255 : 0,
+                        image_count == 2 ? 255 : 0);
   image_count = (image_count + 1) % 3;
+  item.image = gfx::ImageSkia(gfx::ImageSkiaRep(icon_bitmap,
+                                                ui::SCALE_FACTOR_NONE));
+
   model->Add(item);
 }
 

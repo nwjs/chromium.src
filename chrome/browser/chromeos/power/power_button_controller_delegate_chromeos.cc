@@ -5,10 +5,11 @@
 #include "chrome/browser/chromeos/power/power_button_controller_delegate_chromeos.h"
 
 #include "base/logging.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/session_manager_client.h"
 
 namespace chromeos {
 
@@ -18,12 +19,11 @@ void PowerButtonControllerDelegateChromeos::RequestLockScreen() {
   // be the most acceptable replacement for the lock action of the power
   // button for Kiosk mode users.
   if (KioskModeSettings::Get()->IsKioskModeEnabled()) {
-    BrowserList::AttemptUserExit();
+    browser::AttemptUserExit();
     return;
   }
 
-  DBusThreadManager::Get()->GetPowerManagerClient()->
-      NotifyScreenLockRequested();
+  DBusThreadManager::Get()->GetSessionManagerClient()->RequestLockScreen();
 }
 
 void PowerButtonControllerDelegateChromeos::RequestShutdown() {

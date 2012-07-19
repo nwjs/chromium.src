@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_AUTOFILL_PASSWORD_AUTOFILL_MANAGER_H_
 #define CHROME_BROWSER_AUTOFILL_PASSWORD_AUTOFILL_MANAGER_H_
-#pragma once
 
 // This file was contains some repeated code from
 // chrome/renderer/autofill/password_autofill_manager because as we move to the
@@ -31,15 +30,6 @@ class PasswordAutofillManager {
   // username and password fields were filled, false otherwise.
   bool DidAcceptAutofillSuggestion(const webkit::forms::FormField& field,
                                    const string16& value);
-
-  // A no-op.  No filling happens for selection.  But this method returns
-  // true when |node| is fillable by password Autofill.
-  bool DidSelectAutofillSuggestion(const webkit::forms::FormField& field);
-
-  // A no-op.  Password forms are not previewed, so they do not need to be
-  // cleared when the selection changes.  However, this method returns
-  // true when |node| is fillable by password Autofill.
-  bool DidClearAutofillSelection(const webkit::forms::FormField& field);
 
   // Invoked when a password mapping is added.
   void AddPasswordFormMapping(

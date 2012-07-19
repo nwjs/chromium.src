@@ -246,7 +246,8 @@ NET_ERROR(SSL_CLIENT_AUTH_SIGNATURE_FAILED, -141)
 // which exceeds size threshold).
 NET_ERROR(MSG_TOO_BIG, -142)
 
-// Error cdoe -143 available.
+// A SPDY session already exists, and should be used instead of this connection.
+NET_ERROR(SPDY_SESSION_ALREADY_EXISTS, -143)
 
 // Violation of limits (e.g. imposed to prevent DoS).
 NET_ERROR(LIMIT_VIOLATION, -144)
@@ -519,6 +520,14 @@ NET_ERROR(SPDY_PING_FAILED, -352)
 // The request couldn't be completed on an HTTP pipeline. Client should retry.
 NET_ERROR(PIPELINE_EVICTION, -353)
 
+// The HTTP response body transferred fewer bytes than were advertised by the
+// Content-Length header when the connection is closed.
+NET_ERROR(CONTENT_LENGTH_MISMATCH, -354)
+
+// The HTTP response body is transferred with Chunked-Encoding, but the
+// terminating zero-length chunk was never sent when the connection is closed.
+NET_ERROR(INCOMPLETE_CHUNKED_ENCODING, -355)
+
 // The cache does not have the requested entry.
 NET_ERROR(CACHE_MISS, -400)
 
@@ -648,3 +657,6 @@ NET_ERROR(DNS_TIMED_OUT, -803)
 
 // The entry was not found in cache, for cache-only lookups.
 NET_ERROR(DNS_CACHE_MISS, -804)
+
+// Suffix search list rules prevent resolution of the given host name.
+NET_ERROR(DNS_SEARCH_EMPTY, -805)

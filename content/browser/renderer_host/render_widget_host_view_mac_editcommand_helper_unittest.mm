@@ -7,10 +7,11 @@
 #import <Cocoa/Cocoa.h>
 
 #include "base/message_loop.h"
+#include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/common/view_messages.h"
-#include "content/test/mock_render_process_host.h"
-#include "content/test/test_browser_context.h"
+#include "content/public/test/mock_render_process_host.h"
+#include "content/public/test/test_browser_context.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
@@ -71,12 +72,20 @@ namespace {
   }
 }  // namespace
 
+class MockRenderWidgetHostDelegate : public content::RenderWidgetHostDelegate {
+ public:
+  MockRenderWidgetHostDelegate() {}
+  virtual ~MockRenderWidgetHostDelegate() {}
+};
+
 // Create a RenderWidget for which we can filter messages.
 class RenderWidgetHostEditCommandCounter : public RenderWidgetHostImpl {
  public:
-  RenderWidgetHostEditCommandCounter(content::RenderProcessHost* process,
-                                     int routing_id)
-    : RenderWidgetHostImpl(process, routing_id),
+  RenderWidgetHostEditCommandCounter(
+      content::RenderWidgetHostDelegate* delegate,
+      content::RenderProcessHost* process,
+      int routing_id)
+    : RenderWidgetHostImpl(delegate, process, routing_id),
       edit_command_message_count_(0) {
   }
 
@@ -100,9 +109,10 @@ TEST_F(RenderWidgetHostViewMacEditCommandHelperTest,
 
   // Set up a mock render widget and set expectations.
   MessageLoopForUI message_loop;
-  TestBrowserContext browser_context;
+  content::TestBrowserContext browser_context;
   MockRenderProcessHost mock_process(&browser_context);
-  RenderWidgetHostEditCommandCounter render_widget(&mock_process, 0);
+  MockRenderWidgetHostDelegate delegate;
+  RenderWidgetHostEditCommandCounter render_widget(&delegate, &mock_process, 0);
 
   // RenderWidgetHostViewMac self destructs (RenderWidgetHostViewMacCocoa
   // takes ownership) so no need to delete it ourselves.

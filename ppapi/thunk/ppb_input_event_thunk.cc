@@ -3,24 +3,23 @@
 // found in the LICENSE file.
 
 #include "ppapi/c/pp_errors.h"
-#include "ppapi/thunk/thunk.h"
 #include "ppapi/thunk/enter.h"
 #include "ppapi/thunk/ppb_input_event_api.h"
 #include "ppapi/thunk/ppb_instance_api.h"
 #include "ppapi/thunk/resource_creation_api.h"
+#include "ppapi/thunk/thunk.h"
 
 namespace ppapi {
 namespace thunk {
 
 namespace {
 
-typedef EnterFunction<PPB_Instance_FunctionAPI> EnterInstance;
 typedef EnterResource<PPB_InputEvent_API> EnterInputEvent;
 
 // InputEvent ------------------------------------------------------------------
 
 int32_t RequestInputEvents(PP_Instance instance, uint32_t event_classes) {
-  EnterInstance enter(instance, true);
+  EnterInstance enter(instance);
   if (enter.failed())
     return enter.retval();
   return enter.functions()->RequestInputEvents(instance, event_classes);
@@ -28,7 +27,7 @@ int32_t RequestInputEvents(PP_Instance instance, uint32_t event_classes) {
 
 int32_t RequestFilteringInputEvents(PP_Instance instance,
                                     uint32_t event_classes) {
-  EnterInstance enter(instance, true);
+  EnterInstance enter(instance);
   if (enter.failed())
     return enter.retval();
   return enter.functions()->RequestFilteringInputEvents(instance,
@@ -37,7 +36,7 @@ int32_t RequestFilteringInputEvents(PP_Instance instance,
 
 void ClearInputEventRequest(PP_Instance instance,
                             uint32_t event_classes) {
-  EnterInstance enter(instance, true);
+  EnterInstance enter(instance);
   if (enter.succeeded())
     enter.functions()->ClearInputEventRequest(instance, event_classes);
 }
@@ -87,7 +86,7 @@ PP_Resource CreateMouseInputEvent1_0(PP_Instance instance,
                                      PP_InputEvent_MouseButton mouse_button,
                                      const PP_Point* mouse_position,
                                      int32_t click_count) {
-  EnterFunction<ResourceCreationAPI> enter(instance, true);
+  EnterResourceCreation enter(instance);
   if (enter.failed())
     return 0;
 
@@ -106,7 +105,7 @@ PP_Resource CreateMouseInputEvent1_1(PP_Instance instance,
                                      const PP_Point* mouse_position,
                                      int32_t click_count,
                                      const PP_Point* mouse_movement) {
-  EnterFunction<ResourceCreationAPI> enter(instance, true);
+  EnterResourceCreation enter(instance);
   if (enter.failed())
     return 0;
   return enter.functions()->CreateMouseInputEvent(instance, type, time_stamp,
@@ -180,7 +179,7 @@ PP_Resource CreateWheelInputEvent(PP_Instance instance,
                                   const PP_FloatPoint* wheel_delta,
                                   const PP_FloatPoint* wheel_ticks,
                                   PP_Bool scroll_by_page) {
-  EnterFunction<ResourceCreationAPI> enter(instance, true);
+  EnterResourceCreation enter(instance);
   if (enter.failed())
     return 0;
   return enter.functions()->CreateWheelInputEvent(instance, time_stamp,
@@ -232,7 +231,7 @@ PP_Resource CreateKeyboardInputEvent(PP_Instance instance,
                                      uint32_t modifiers,
                                      uint32_t key_code,
                                      struct PP_Var character_text) {
-  EnterFunction<ResourceCreationAPI> enter(instance, true);
+  EnterResourceCreation enter(instance);
   if (enter.failed())
     return 0;
   return enter.functions()->CreateKeyboardInputEvent(instance, type, time_stamp,
@@ -294,6 +293,26 @@ const PPB_KeyboardInputEvent_Dev g_ppb_keyboard_input_event_dev_thunk = {
 
 // Composition -----------------------------------------------------------------
 
+PP_Resource CreateIMEInputEvent(PP_Instance instance,
+                                PP_InputEvent_Type type,
+                                PP_TimeTicks time_stamp,
+                                PP_Var text,
+                                uint32_t segment_number,
+                                const uint32_t segment_offsets[],
+                                int32_t target_segment,
+                                uint32_t selection_start,
+                                uint32_t selection_end) {
+  EnterResourceCreation enter(instance);
+  if (enter.failed())
+    return 0;
+  return enter.functions()->CreateIMEInputEvent(instance, type, time_stamp,
+                                                text, segment_number,
+                                                segment_offsets,
+                                                target_segment,
+                                                selection_start,
+                                                selection_end);
+}
+
 PP_Bool IsIMEInputEvent(PP_Resource resource) {
   if (!IsInputEvent(resource))
     return PP_FALSE;  // Prevent warning log in GetType.
@@ -341,13 +360,89 @@ void GetIMESelection(PP_Resource ime_event, uint32_t* start, uint32_t* end) {
   enter.object()->GetIMESelection(start, end);
 }
 
-const PPB_IMEInputEvent_Dev g_ppb_ime_input_event_thunk = {
+const PPB_IMEInputEvent_Dev_0_1 g_ppb_ime_input_event_0_1_thunk = {
   &IsIMEInputEvent,
   &GetIMEText,
   &GetIMESegmentNumber,
   &GetIMESegmentOffset,
   &GetIMETargetSegment,
   &GetIMESelection
+};
+
+const PPB_IMEInputEvent_Dev_0_2 g_ppb_ime_input_event_0_2_thunk = {
+  &CreateIMEInputEvent,
+  &IsIMEInputEvent,
+  &GetIMEText,
+  &GetIMESegmentNumber,
+  &GetIMESegmentOffset,
+  &GetIMETargetSegment,
+  &GetIMESelection
+};
+
+// Touch -----------------------------------------------------------------------
+
+PP_Resource CreateTouchInputEvent(PP_Instance instance,
+                                  PP_InputEvent_Type type,
+                                  PP_TimeTicks time_stamp,
+                                  uint32_t modifiers) {
+  EnterResourceCreation enter(instance);
+  if (enter.failed())
+    return 0;
+  return enter.functions()->CreateTouchInputEvent(instance, type, time_stamp,
+                                                  modifiers);
+}
+
+void AddTouchPoint(PP_Resource touch_event,
+                   PP_TouchListType list,
+                   const PP_TouchPoint* point) {
+  EnterInputEvent enter(touch_event, true);
+  if (enter.failed())
+    return;
+  return enter.object()->AddTouchPoint(list, *point);
+}
+
+PP_Bool IsTouchInputEvent(PP_Resource resource) {
+  if (!IsInputEvent(resource))
+    return PP_FALSE;  // Prevent warning log in GetType.
+  PP_InputEvent_Type type = GetType(resource);
+  return PP_FromBool(type == PP_INPUTEVENT_TYPE_TOUCHSTART ||
+                     type == PP_INPUTEVENT_TYPE_TOUCHMOVE ||
+                     type == PP_INPUTEVENT_TYPE_TOUCHEND ||
+                     type == PP_INPUTEVENT_TYPE_TOUCHCANCEL);
+}
+
+uint32_t GetTouchCount(PP_Resource touch_event, PP_TouchListType list) {
+  EnterInputEvent enter(touch_event, true);
+  if (enter.failed())
+    return 0;
+  return enter.object()->GetTouchCount(list);
+}
+
+struct PP_TouchPoint GetTouchByIndex(PP_Resource touch_event,
+                                     PP_TouchListType list,
+                                     uint32_t index) {
+  EnterInputEvent enter(touch_event, true);
+  if (enter.failed())
+    return PP_MakeTouchPoint();
+  return enter.object()->GetTouchByIndex(list, index);
+}
+
+struct PP_TouchPoint GetTouchById(PP_Resource touch_event,
+                                  PP_TouchListType list,
+                                  uint32_t id) {
+  EnterInputEvent enter(touch_event, true);
+  if (enter.failed())
+    return PP_MakeTouchPoint();
+  return enter.object()->GetTouchById(list, id);
+}
+
+const PPB_TouchInputEvent_1_0 g_ppb_touch_input_event_thunk = {
+  &CreateTouchInputEvent,
+  &AddTouchPoint,
+  &IsTouchInputEvent,
+  &GetTouchCount,
+  &GetTouchByIndex,
+  &GetTouchById
 };
 
 }  // namespace
@@ -378,7 +473,15 @@ const PPB_WheelInputEvent_1_0* GetPPB_WheelInputEvent_1_0_Thunk() {
 }
 
 const PPB_IMEInputEvent_Dev_0_1* GetPPB_IMEInputEvent_Dev_0_1_Thunk() {
-  return &g_ppb_ime_input_event_thunk;
+  return &g_ppb_ime_input_event_0_1_thunk;
+}
+
+const PPB_IMEInputEvent_Dev_0_2* GetPPB_IMEInputEvent_Dev_0_2_Thunk() {
+  return &g_ppb_ime_input_event_0_2_thunk;
+}
+
+const PPB_TouchInputEvent_1_0* GetPPB_TouchInputEvent_Thunk() {
+  return &g_ppb_touch_input_event_thunk;
 }
 
 }  // namespace thunk

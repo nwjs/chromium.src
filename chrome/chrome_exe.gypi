@@ -13,6 +13,8 @@
         'enable_wexit_time_destructors': 1,
       },
       'sources': [
+        'app/breakpad_field_trial_win.cc',
+        'app/breakpad_field_trial_win.h',
         'app/breakpad_win.cc',
         'app/breakpad_win.h',
         'app/chrome_exe_main_aura.cc',
@@ -42,6 +44,18 @@
         'INFOPLIST_FILE': 'app/app-Info.plist',
       },
       'conditions': [
+        ['component == "shared_library"', {
+          'msvs_settings': {
+            'VCManifestTool': {
+              'EmbedManifest': 'false',
+            },
+          },
+        }],
+        ['order_profiling!=0 and (chromeos==1 or OS=="linux")', {
+          'dependencies' : [
+            '../tools/cygprofile/cygprofile.gyp:cygprofile',
+          ],
+        }],
         ['order_text_section!=""', {
           'target_conditions' : [
             ['_toolset=="target"', {
@@ -54,7 +68,7 @@
           # Don't put the 'chrome' target in 'all' on android
           'suppress_wildcard': 1,
         }],
-        ['os_posix == 1 and OS != "mac"', {
+        ['os_posix == 1 and OS != "mac" and OS != "android"', {
           'actions': [
             {
               'action_name': 'manpage',
@@ -504,58 +518,71 @@
              '../base/base.gyp:base',
           ],
         },
-        {
-          'target_name': 'chrome_nacl_win64',
-          'type': 'executable',
-          'product_name': 'nacl64',
-          'sources': [
-            'app/breakpad_win.cc',
-            'app/hard_error_handler_win.cc',
-            'nacl/nacl_exe_win_64.cc',
-            '../content/app/startup_helper_win.cc',
-            '../content/common/debug_flags.cc',  # Needed for sandbox_policy.cc
-            '../content/common/hi_res_timer_manager_win.cc',
-            '../content/common/sandbox_init_win.cc',
-            '../content/common/sandbox_policy.cc',
-            '../content/public/common/content_switches.cc',
-            '<(SHARED_INTERMEDIATE_DIR)/chrome_version/nacl64_exe_version.rc',
-          ],
-          'dependencies': [
-            'app/policy/cloud_policy_codegen.gyp:policy_win64',
-            'chrome_version_resources',
-            'common_constants_win64',
-            'installer_util_nacl_win64',
-            'nacl_win64',
-            '../breakpad/breakpad.gyp:breakpad_handler_win64',
-            '../breakpad/breakpad.gyp:breakpad_sender_win64',
-            '../base/base.gyp:base_i18n_nacl_win64',
-            '../base/base.gyp:base_nacl_win64',
-            '../base/base.gyp:base_static_win64',
-            '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations_win64',
-            '../crypto/crypto.gyp:crypto_nacl_win64',
-            '../ipc/ipc.gyp:ipc_win64',
-            '../sandbox/sandbox.gyp:sandbox_win64',
-          ],
-          'defines': [
-            '<@(nacl_win64_defines)',
-            'COMPILE_CONTENT_STATICALLY',
-          ],
-          'include_dirs': [
-            '<(SHARED_INTERMEDIATE_DIR)/chrome',
-          ],
-          'msvs_settings': {
-            'VCLinkerTool': {
-              'ImportLibrary': '$(OutDir)\\lib\\nacl64_exe.lib',
-              'ProgramDatabaseFile': '$(OutDir)\\nacl64_exe.pdb',
-              'SubSystem': '2',         # Set /SUBSYSTEM:WINDOWS
+      ],
+      'conditions': [
+        ['disable_nacl!=1', {
+          'targets': [
+            {
+              'target_name': 'chrome_nacl_win64',
+              'type': 'executable',
+              'product_name': 'nacl64',
+              'sources': [
+                'app/breakpad_win.cc',
+                'app/hard_error_handler_win.cc',
+                'nacl/nacl_exe_win_64.cc',
+                '../content/app/startup_helper_win.cc',
+                '../content/common/debug_flags.cc',  # Needed for sandbox_policy.cc
+                '../content/common/sandbox_init_win.cc',
+                '../content/common/sandbox_policy.cc',
+                '../content/public/common/content_switches.cc',
+                '<(SHARED_INTERMEDIATE_DIR)/chrome_version/nacl64_exe_version.rc',
+              ],
+              'dependencies': [
+                'app/policy/cloud_policy_codegen.gyp:policy_win64',
+                'chrome_version_resources',
+                'common_constants_win64',
+                'installer_util_nacl_win64',
+                'nacl_win64',
+                '../breakpad/breakpad.gyp:breakpad_handler_win64',
+                '../breakpad/breakpad.gyp:breakpad_sender_win64',
+                '../base/base.gyp:base_i18n_nacl_win64',
+                '../base/base.gyp:base_nacl_win64',
+                '../base/base.gyp:base_static_win64',
+                '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations_win64',
+                '../crypto/crypto.gyp:crypto_nacl_win64',
+                '../ipc/ipc.gyp:ipc_win64',
+                '../sandbox/sandbox.gyp:sandbox_win64',
+              ],
+              'defines': [
+                '<@(nacl_win64_defines)',
+                'COMPILE_CONTENT_STATICALLY',
+              ],
+              'include_dirs': [
+                '<(SHARED_INTERMEDIATE_DIR)/chrome',
+              ],
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'ImportLibrary': '$(OutDir)\\lib\\nacl64_exe.lib',
+                  'ProgramDatabaseFile': '$(OutDir)\\nacl64_exe.pdb',
+                  'SubSystem': '2',         # Set /SUBSYSTEM:WINDOWS
+                },
+              },
+              'configurations': {
+                'Common_Base': {
+                  'msvs_target_platform': 'x64',
+                },
+              },
             },
-          },
-          'configurations': {
-            'Common_Base': {
-              'msvs_target_platform': 'x64',
+          ],
+        }, {  # else (disable_nacl==1)
+          'targets': [
+            {
+              'target_name': 'chrome_nacl_win64',
+              'type': 'none',
+              'sources': [],
             },
-          },
-        },
+          ],
+        }],
       ],
     }],
   ],

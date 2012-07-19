@@ -4,7 +4,8 @@
 
 #ifndef CHROME_BROWSER_NACL_HOST_NACL_BROKER_HOST_WIN_H_
 #define CHROME_BROWSER_NACL_HOST_NACL_BROKER_HOST_WIN_H_
-#pragma once
+
+#include <string>
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -28,22 +29,30 @@ class NaClBrokerHost : public content::BrowserChildProcessHostDelegate {
   // a Native Client loader process.
   bool LaunchLoader(const std::string& loader_channel_id);
 
-  bool LaunchDebugExceptionHandler(int32 pid);
+  bool LaunchDebugExceptionHandler(int32 pid,
+                                   base::ProcessHandle process_handle,
+                                   const std::string& startup_info);
 
   // Stop the broker process.
   void StopBroker();
+
+  // Returns true if the process has been asked to terminate. If true, this
+  // object should no longer be used; it will eventually be destroyed by
+  // BrowserChildProcessHostImpl::OnChildDisconnected()
+  bool IsTerminating() { return is_terminating_; }
 
  private:
   // Handler for NaClProcessMsg_LoaderLaunched message
   void OnLoaderLaunched(const std::string& loader_channel_id,
                         base::ProcessHandle handle);
   // Handler for NaClProcessMsg_DebugExceptionHandlerLaunched message
-  void OnDebugExceptionHandlerLaunched(int32 pid);
+  void OnDebugExceptionHandlerLaunched(int32 pid, bool success);
 
   // BrowserChildProcessHostDelegate implementation:
   virtual bool OnMessageReceived(const IPC::Message& msg);
 
   scoped_ptr<content::BrowserChildProcessHost> process_;
+  bool is_terminating_;
 
   DISALLOW_COPY_AND_ASSIGN(NaClBrokerHost);
 };

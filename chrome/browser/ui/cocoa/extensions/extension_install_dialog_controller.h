@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_EXTENSIONS_EXTENSION_INSTALL_DIALOG_CONTROLER_H_
 #define CHROME_BROWSER_UI_COCOA_EXTENSIONS_EXTENSION_INSTALL_DIALOG_CONTROLER_H_
-#pragma once
 
 #include <vector>
 
@@ -12,14 +11,15 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
+#include "ui/gfx/image/image_skia.h"
 
-class Extension;
-class Profile;
+namespace content {
+class PageNavigator;
+}
 
 // Displays the extension or bundle install prompt, and notifies the
-// ExtensionInstallUI::Delegate of success or failure.
+// ExtensionInstallPrompt::Delegate of success or failure.
 @interface ExtensionInstallDialogController : NSWindowController {
  @private
   IBOutlet NSImageView* iconView_;
@@ -39,9 +39,9 @@ class Profile;
   IBOutlet NSTextField* userCountField_;
 
   NSWindow* parentWindow_;  // weak
-  Profile* profile_;  // weak
-  ExtensionInstallUI::Delegate* delegate_;  // weak
-  scoped_ptr<ExtensionInstallUI::Prompt> prompt_;
+  content::PageNavigator* navigator_;  // weak
+  ExtensionInstallPrompt::Delegate* delegate_;  // weak
+  scoped_ptr<ExtensionInstallPrompt::Prompt> prompt_;
 }
 
 // For unit test use only
@@ -58,9 +58,9 @@ class Profile;
 @property(nonatomic, readonly) NSTextField* userCountField;
 
 - (id)initWithParentWindow:(NSWindow*)window
-                   profile:(Profile*)profile
-                  delegate:(ExtensionInstallUI::Delegate*)delegate
-                    prompt:(const ExtensionInstallUI::Prompt&)prompt;
+                 navigator:(content::PageNavigator*)navigator
+                  delegate:(ExtensionInstallPrompt::Delegate*)delegate
+                    prompt:(const ExtensionInstallPrompt::Prompt&)prompt;
 - (void)runAsModalSheet;
 - (IBAction)storeLinkClicked:(id)sender; // Callback for "View details" link.
 - (IBAction)cancel:(id)sender;

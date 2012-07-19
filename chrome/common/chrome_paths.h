@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_CHROME_PATHS_H__
 #define CHROME_COMMON_CHROME_PATHS_H__
-#pragma once
 
 #include "build/build_config.h"
 
@@ -19,6 +18,10 @@ enum {
   DIR_APP = PATH_START,         // Directory where dlls and data reside.
   DIR_LOGS,                     // Directory where logs should be written.
   DIR_USER_DATA,                // Directory where user data can be written.
+#if defined(OS_WIN)
+  DIR_ALT_USER_DATA,            // Directory of the desktop or metro user data
+                                // (the one that isn't in use).
+#endif
   DIR_CRASH_DUMPS,              // Directory where crash dumps are written.
   DIR_USER_DESKTOP,             // Directory that correspond to the desktop.
   DIR_RESOURCES,                // Directory containing separate file resources
@@ -26,8 +29,10 @@ enum {
   DIR_INSPECTOR,                // Directory where web inspector is located.
   DIR_APP_DICTIONARIES,         // Directory where the global dictionaries are.
   DIR_USER_DOCUMENTS,           // Directory for a user's "My Documents".
+  DIR_USER_PICTURES,            // Directory for a user's pictures.
   DIR_DEFAULT_DOWNLOADS_SAFE,   // Directory for a user's
-                                // "My Documents/Downloads".
+                                // "My Documents/Downloads", (Windows) or
+                                // "Downloads". (Linux)
   DIR_DEFAULT_DOWNLOADS,        // Directory for a user's downloads.
   DIR_USER_DATA_TEMP,           // A temp directory within DIR_USER_DATA.  Use
                                 // this when a temporary file or directory will
@@ -54,6 +59,12 @@ enum {
                                  // Getting this path does not create it.
 #endif
 
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+  DIR_STANDALONE_EXTERNAL_EXTENSIONS,  // Directory for 'per-extension'
+                                       // definition manifest files that
+                                       // describe extensions which are to be
+                                       // installed when chrome is run.
+#endif
   DIR_EXTERNAL_EXTENSIONS,      // Directory where installer places .crx files.
 
   DIR_DEFAULT_APPS,             // Directory where installer places .crx files
@@ -77,7 +88,9 @@ enum {
   FILE_NACL_HELPER_BOOTSTRAP,   // ... and nacl_helper_bootstrap executable.
 #endif
   FILE_NACL_PLUGIN,             // Full path to the internal NaCl plugin file.
-  FILE_PNACL_COMPONENT,         // Full path to the PNaCl component files.
+  DIR_PNACL_BASE,               // Full path to the base dir for PNaCl.
+  DIR_PNACL_COMPONENT,          // Full path to the latest PNaCl version
+                                // (subdir of DIR_PNACL_BASE).
   FILE_O3D_PLUGIN,              // Full path to the O3D Pepper plugin file.
   FILE_GTALK_PLUGIN,            // Full path to the GTalk Pepper plugin file.
   FILE_LIBAVCODEC,              // Full path to libavcodec media decoding
@@ -88,9 +101,7 @@ enum {
   FILE_RESOURCES_PACK,          // Full path to the .pak file containing
                                 // binary data (e.g., html files and images
                                 // used by interal pages).
-#if defined(OS_CHROMEOS)
-  FILE_CHROMEOS_API,            // Full path to chrome os api shared object.
-#endif
+  DIR_RESOURCES_EXTENSION,      // Full path to extension resources.
 
   // Valid only in development environment; TODO(darin): move these
   DIR_GEN_TEST_DATA,            // Directory where generated test data resides.

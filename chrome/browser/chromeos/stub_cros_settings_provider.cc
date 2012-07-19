@@ -26,6 +26,7 @@ const char* kHandledSettings[] = {
   kReportDeviceVersionInfo,
   kReportDeviceActivityTimes,
   kReportDeviceBootMode,
+  kReportDeviceLocation,
   kSettingProxyEverywhere,
   kSignedDataRoamingEnabled,
   kStatsReportingPref,
@@ -61,9 +62,10 @@ const base::Value* StubCrosSettingsProvider::Get(
   return NULL;
 }
 
-bool StubCrosSettingsProvider::PrepareTrustedValues(const base::Closure& cb) {
+CrosSettingsProvider::TrustedStatus
+    StubCrosSettingsProvider::PrepareTrustedValues(const base::Closure& cb) {
   // We don't have a trusted store so all values are available immediately.
-  return true;
+  return TRUSTED;
 }
 
 bool StubCrosSettingsProvider::HandlesSetting(const std::string& path) const {

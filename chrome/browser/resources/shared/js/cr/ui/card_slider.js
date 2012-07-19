@@ -95,17 +95,29 @@ cr.define('cr.ui', function() {
 
   CardSlider.prototype = {
     /**
-     * The current left offset of the container relative to the frame.
+     * The current left offset of the container relative to the frame. This
+     * position does not include deltas from active drag operations, and
+     * always aligns with a frame boundary.
      * @type {number}
      * @private
      */
     currentLeft_: 0,
 
     /**
+     * Current offset relative to |currentLeft_| due to an active drag
+     * operation.
+     * @type {number}
+     * @private
+     */
+    deltaX_: 0,
+
+    /**
      * Initialize all elements and event handlers. Must call after construction
      * and before usage.
+     * @param {boolean} ignoreMouseWheelEvents If true, horizontal mouse wheel
+     *     events will be ignored, rather than flipping between pages.
      */
-    initialize: function() {
+    initialize: function(ignoreMouseWheelEvents) {
       var view = this.container_.ownerDocument.defaultView;
       assert(view.getComputedStyle(this.container_).display == '-webkit-box',
           'Container should be display -webkit-box.');
@@ -120,28 +132,28 @@ cr.define('cr.ui', function() {
       this.mouseWheelCardSelected_ = false;
       this.mouseWheelIsContinuous_ = false;
       this.scrollClearTimeout_ = null;
-      this.frame_.addEventListener('mousewheel',
-                                   this.onMouseWheel_.bind(this));
+      if (!ignoreMouseWheelEvents) {
+        this.frame_.addEventListener('mousewheel',
+                                     this.onMouseWheel_.bind(this));
+      }
       this.container_.addEventListener(
           'webkitTransitionEnd', this.onWebkitTransitionEnd_.bind(this));
 
       // Also support touch events in case a touch screen happens to be
-      // available.  Ideally we would support touch events whenever they
-      // are fired, but for now restrict this extra code to when we know
-      // we want to support touch input.
-      if (cr.isTouchOptimized) {
-        var TouchHandler = cr.ui.TouchHandler;
-        this.container_.addEventListener(TouchHandler.EventType.TOUCH_START,
-                                         this.onTouchStart_.bind(this));
-        this.container_.addEventListener(TouchHandler.EventType.DRAG_START,
-                                         this.onDragStart_.bind(this));
-        this.container_.addEventListener(TouchHandler.EventType.DRAG_MOVE,
-                                         this.onDragMove_.bind(this));
-        this.container_.addEventListener(TouchHandler.EventType.DRAG_END,
-                                         this.onDragEnd_.bind(this));
+      // available.  Note that this has minimal impact in the common case of
+      // no touch events (eg. we're mainly just adding listeners for events that
+      // will never trigger).
+      var TouchHandler = cr.ui.TouchHandler;
+      this.container_.addEventListener(TouchHandler.EventType.TOUCH_START,
+                                       this.onTouchStart_.bind(this));
+      this.container_.addEventListener(TouchHandler.EventType.DRAG_START,
+                                       this.onDragStart_.bind(this));
+      this.container_.addEventListener(TouchHandler.EventType.DRAG_MOVE,
+                                       this.onDragMove_.bind(this));
+      this.container_.addEventListener(TouchHandler.EventType.DRAG_END,
+                                       this.onDragEnd_.bind(this));
 
-        this.touchHandler_.enable(/* opt_capture */ false);
-      }
+      this.touchHandler_.enable(/* opt_capture */ false);
     },
 
     /**
@@ -235,9 +247,6 @@ cr.define('cr.ui', function() {
     onMouseWheel_: function(e) {
       if (e.wheelDeltaX == 0)
         return;
-
-      // Prevent OS X 10.7+ history swiping on the NTP.
-      e.preventDefault();
 
       // Continuous devices such as an Apple Touchpad or Apple MagicMouse will
       // send arbitrary delta values. Conversly, standard mousewheels will
@@ -420,6 +429,15 @@ cr.define('cr.ui', function() {
     },
 
     /**
+     * This re-syncs the -webkit-transform that's used to position the frame in
+     * the likely event it needs to be updated by a card being inserted or
+     * removed in the flow.
+     */
+    repositionFrame: function() {
+      this.transformToCurrentCard_();
+    },
+
+    /**
      * Checks the the given |index| exists in this.cards_.
      * @param {number} index An index to check.
      * @private
@@ -512,7 +530,7 @@ cr.define('cr.ui', function() {
 
       // If there's no change, return something to let the caller know there
       // won't be a transition occuring.
-      if (prevLeft == this.currentLeft_)
+      if (prevLeft == this.currentLeft_ && this.deltaX_ == 0)
         return false;
 
       // Animate to the current card, which will either transition if the
@@ -539,6 +557,7 @@ cr.define('cr.ui', function() {
       // Chrome and iOS.  Once Chrome does GPU acceleration on the position
       // fixed-layout elements we could simply set the element's position to
       // fixed and modify 'left' instead.
+      this.deltaX_ = x - this.currentLeft_;
       this.container_.style.WebkitTransform = 'translate3d(' + x + 'px, 0, 0)';
     },
 
@@ -557,12 +576,13 @@ cr.define('cr.ui', function() {
 
     /**
      * Tell the TouchHandler that dragging is acceptable when the user begins by
-     * scrolling horizontally.
+     * scrolling horizontally and there is more than one card to slide.
      * @param {!cr.ui.TouchHandler.Event} e The TouchHandler event.
      * @private
      */
     onDragStart_: function(e) {
-      e.enableDrag = Math.abs(e.dragDeltaX) > Math.abs(e.dragDeltaY);
+      e.enableDrag = this.cardCount > 1 && Math.abs(e.dragDeltaX) >
+          Math.abs(e.dragDeltaY);
     },
 
     /**
@@ -596,12 +616,18 @@ cr.define('cr.ui', function() {
 
       if (newCardIndex == this.currentCard && Math.abs(velocity) >
           CardSlider.TRANSITION_VELOCITY_THRESHOLD_) {
-        // If the drag wasn't far enough to change cards but the velocity was
+        // The drag wasn't far enough to change cards but the velocity was
         // high enough to transition anyways. If the velocity is to the left
-        // (negative) then the user wishes to go right (card +1).
+        // (negative) then the user wishes to go right (card + 1).
         newCardIndex += velocity > 0 ? -1 : 1;
       }
-
+      // Ensure that the new card index is valid.  The new card index could be
+      // invalid if a swipe suggests scrolling off the end of the list of
+      // cards.
+      if (newCardIndex < 0)
+        newCardIndex = 0;
+      else if (newCardIndex >= this.cardCount)
+        newCardIndex = this.cardCount - 1;
       this.selectCard(newCardIndex, /* animate */ true);
     },
 

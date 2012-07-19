@@ -10,9 +10,6 @@ var policyDataFormat = {
   // Whether any of the policies in 'policies' have a value.
   'anyPoliciesSet': true,
 
-  // False if the policy information is being sent due to an initial page load
-  // and true if it is being sent due to a change of policy values.
-  'isPolicyUpdate': false,
   'policies': [
     {
       'level': 'managed',
@@ -48,7 +45,6 @@ cr.define('policies', function() {
   cr.addSingletonGetter(Policy);
 
   Policy.prototype = {
-
     /**
      * True if none of the received policies are actually set, false otherwise.
      * @type {boolean}
@@ -73,7 +69,7 @@ cr.define('policies', function() {
       if (this.noActivePolicies_)
         $('no-policies').hidden = false;
       if (policyData.status.displayStatusSection)
-        $('status-section').hidden = false;;
+        $('status-section').hidden = false;
 
       // This is the javascript code that processes the template:
       var input = new JsEvalContext(policyData);
@@ -90,7 +86,7 @@ cr.define('policies', function() {
 
       var containers = document.querySelectorAll('.text-container');
       for (var i = 0; i < containers.length; i++)
-        this.initTextContainer_(containers[i])
+        this.initTextContainer_(containers[i]);
     },
 
     /**
@@ -217,15 +213,18 @@ cr.define('policies', function() {
    * by the policyDataFormat.
    */
   Policy.returnData = function(policyData) {
-    if (policyData.isPolicyUpdate) {
-      Policy.getInstance().collapseExpandedCells();
-      Policy.getInstance().renderTemplate(policyData);
-      Policy.getInstance().updatePolicyVisibility();
+    var policy = Policy.getInstance();
+    policy.collapseExpandedCells();
+    policy.renderTemplate(policyData);
+    policy.updatePolicyVisibility();
+  };
 
-      $('fetch-policies-button').disabled = false;
-    } else {
-      Policy.getInstance().renderTemplate(policyData);
-    }
+  /**
+   * Called by the C++ PolicyUIHandler when a requested policy refresh has
+   * completed.
+   */
+  Policy.refreshDone = function() {
+    $('fetch-policies-button').disabled = false;
   };
 
   /**
@@ -256,7 +255,7 @@ cr.define('policies', function() {
     $('fetch-policies-button').onclick = function(event) {
       this.disabled = true;
       Policy.triggerPolicyFetch();
-    }
+    };
 
     $('toggle-unsent-policies').onchange = function(event) {
       Policy.getInstance().updatePolicyVisibility();

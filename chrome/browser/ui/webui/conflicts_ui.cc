@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
@@ -30,8 +31,8 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::UserMetricsAction;
@@ -166,14 +167,14 @@ ConflictsUI::ConflictsUI(content::WebUI* web_ui) : WebUIController(web_ui) {
 
   // Set up the about:conflicts source.
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(
-      CreateConflictsUIHTMLSource());
+  ChromeURLDataManager::AddDataSource(profile, CreateConflictsUIHTMLSource());
 }
 
 // static
-RefCountedMemory* ConflictsUI::GetFaviconResourceBytes() {
-  return ResourceBundle::GetSharedInstance().
-      LoadDataResourceBytes(IDR_CONFLICT_FAVICON);
+base::RefCountedMemory* ConflictsUI::GetFaviconResourceBytes() {
+  return static_cast<base::RefCountedMemory*>(
+      ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
+          IDR_CONFLICT_FAVICON, ui::SCALE_FACTOR_NONE));
 }
 
 #endif

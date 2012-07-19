@@ -4,7 +4,6 @@
 
 #ifndef ASH_WM_VIDEO_DETECTOR_H_
 #define ASH_WM_VIDEO_DETECTOR_H_
-#pragma once
 
 #include <map>
 
@@ -13,6 +12,7 @@
 #include "base/compiler_specific.h"
 #include "base/memory/linked_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observer.h"
 #include "base/time.h"
 #include "ui/aura/env_observer.h"
 #include "ui/aura/window_observer.h"
@@ -91,6 +91,8 @@ class ASH_EXPORT VideoDetector : public aura::EnvObserver,
   // If set, used when the current time is needed.  This can be set by tests to
   // simulate the passage of time.
   base::TimeTicks now_for_test_;
+
+  ScopedObserver<aura::Window, aura::WindowObserver> observer_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(VideoDetector);
 };

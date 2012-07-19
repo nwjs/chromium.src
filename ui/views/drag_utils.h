@@ -4,13 +4,14 @@
 
 #ifndef UI_VIEWS_DRAG_UTILS_H_
 #define UI_VIEWS_DRAG_UTILS_H_
-#pragma once
 
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/views_export.h"
 
 namespace gfx {
+class Canvas;
 class Point;
+class Size;
 }
 
 namespace ui {
@@ -18,12 +19,18 @@ class OSExchangeData;
 }
 
 namespace views {
+class Widget;
 
 // Starts a drag operation. This blocks until the drag operation completes.
 VIEWS_EXPORT void RunShellDrag(gfx::NativeView view,
                             const ui::OSExchangeData& data,
                             const gfx::Point& location,
                             int operation);
+
+// Returns a canvas that can be used to draw the drag image. Caller owns the
+// returned object. |widget| is Widget hosting the view being dragged.
+VIEWS_EXPORT gfx::Canvas* GetCanvasForDragImage(Widget* widget,
+                                                const gfx::Size& canvas_size);
 
 }  // namespace views
 

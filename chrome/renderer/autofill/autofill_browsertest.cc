@@ -40,7 +40,6 @@ TEST_F(ChromeRenderViewTest, SendForms) {
            "</form>");
 
   // Verify that "FormsSeen" sends the expected number of fields.
-  ProcessPendingMessages();
   const IPC::Message* message = render_thread_->sink().GetFirstMessageMatching(
       AutofillHostMsg_FormsSeen::ID);
   ASSERT_NE(static_cast<IPC::Message*>(NULL), message);
@@ -84,6 +83,7 @@ TEST_F(ChromeRenderViewTest, SendForms) {
       document.getElementById("firstname").to<WebInputElement>();
 
   // Make sure to query for Autofill suggestions before selecting one.
+  autofill_agent_->element_ = firstname;
   autofill_agent_->QueryAutofillSuggestions(firstname, false);
 
   // Accept suggestion that contains a label.  Labeled items indicate Autofill
@@ -137,7 +137,6 @@ TEST_F(ChromeRenderViewTest, FillFormElement) {
            "</form>");
 
   // Verify that "FormsSeen" isn't sent, as there are too few fields.
-  ProcessPendingMessages();
   const IPC::Message* message = render_thread_->sink().GetFirstMessageMatching(
       AutofillHostMsg_FormsSeen::ID);
   ASSERT_EQ(static_cast<IPC::Message*>(NULL), message);
@@ -153,6 +152,7 @@ TEST_F(ChromeRenderViewTest, FillFormElement) {
   middlename.setAutofilled(true);
 
   // Make sure to query for Autofill suggestions before selecting one.
+  autofill_agent_->element_ = firstname;
   autofill_agent_->QueryAutofillSuggestions(firstname, false);
 
   // Accept a suggestion in a form that has been auto-filled.  This triggers

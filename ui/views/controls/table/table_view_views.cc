@@ -5,10 +5,10 @@
 #include "ui/views/controls/table/table_view_views.h"
 
 #include "base/i18n/rtl.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/models/table_model.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/native_theme.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/scroll_view.h"
@@ -73,8 +73,8 @@ View* TableView::CreateParentIfNecessary() {
   ScrollView* scroll_view = new ScrollView;
   scroll_view->SetContents(this);
   scroll_view->set_border(Border::CreateSolidBorder(
-      1, gfx::NativeTheme::instance()->GetSystemColor(
-          gfx::NativeTheme::kColorId_UnfocusedBorderColor)));
+      1, ui::NativeTheme::instance()->GetSystemColor(
+          ui::NativeTheme::kColorId_UnfocusedBorderColor)));
   return scroll_view;
 }
 
@@ -249,10 +249,10 @@ void TableView::OnPaint(gfx::Canvas* canvas) {
     }
     int text_x = kTextHorizontalPadding;
     if (table_type_ == ICON_AND_TEXT) {
-      SkBitmap image = model_->GetIcon(i);
+      gfx::ImageSkia image = model_->GetIcon(i);
       if (!image.isNull()) {
         int image_x = GetMirroredXWithWidthInView(text_x, image.width());
-        canvas->DrawBitmapInt(
+        canvas->DrawImageInt(
             image, 0, 0, image.width(), image.height(),
             image_x, row_bounds.y() + (row_bounds.height() - kImageSize) / 2,
             kImageSize, kImageSize, true);

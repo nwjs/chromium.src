@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -16,14 +16,14 @@
 @class CollectedCookiesWindowController;
 @class CookieDetailsViewController;
 @class VerticalGradientView;
-class TabContentsWrapper;
+class TabContents;
 
 // The constrained window delegate reponsible for managing the collected
 // cookies dialog.
 class CollectedCookiesMac : public ConstrainedWindowMacDelegateCustomSheet,
                             public content::NotificationObserver {
  public:
-  CollectedCookiesMac(NSWindow* parent, TabContentsWrapper* wrapper);
+  CollectedCookiesMac(NSWindow* parent, TabContents* tab_contents);
 
   void OnSheetDidEnd(NSWindow* sheet);
 
@@ -49,7 +49,7 @@ class CollectedCookiesMac : public ConstrainedWindowMacDelegateCustomSheet,
 
 // Controller for the collected cookies dialog. This class stores an internal
 // copy of the CookiesTreeModel but with Cocoa-converted values (NSStrings and
-// NSImages instead of std::strings and SkBitmaps). Doing this allows us to use
+// NSImages instead of std::strings and ImageSkias). Doing this allows us to use
 // bindings for the interface. Changes are pushed to this internal model via a
 // very thin bridge (see cookies_window_controller.h).
 @interface CollectedCookiesWindowController : NSWindowController
@@ -87,7 +87,7 @@ class CollectedCookiesMac : public ConstrainedWindowMacDelegateCustomSheet,
 
   scoped_nsobject<CookieDetailsViewController> detailsViewController_;
 
-  TabContentsWrapper* wrapper_;  // weak
+  TabContents* tab_contents_;  // weak
 
   BOOL infoBarVisible_;
 
@@ -100,7 +100,7 @@ class CollectedCookiesMac : public ConstrainedWindowMacDelegateCustomSheet,
 @property(assign, nonatomic) BOOL blockedCookiesButtonsEnabled;
 
 // Designated initializer. TabContents cannot be NULL.
-- (id)initWithTabContentsWrapper:(TabContentsWrapper*)wrapper;
+- (id)initWithTabContents:(TabContents*)tab_contents;
 
 // Closes the sheet and ends the modal loop. This will also cleanup the memory.
 - (IBAction)closeSheet:(id)sender;
@@ -119,5 +119,5 @@ class CollectedCookiesMac : public ConstrainedWindowMacDelegateCustomSheet,
 - (CookiesTreeModel*)allowedTreeModel;
 - (CookiesTreeModel*)blockedTreeModel;
 
-- (void)loadTreeModelFromTabContentsWrapper;
+- (void)loadTreeModelFromTabContents;
 @end

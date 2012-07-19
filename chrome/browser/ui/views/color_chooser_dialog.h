@@ -4,29 +4,23 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_COLOR_CHOOSER_DIALOG_H_
 #define CHROME_BROWSER_UI_VIEWS_COLOR_CHOOSER_DIALOG_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
-#include "chrome/browser/ui/base_shell_dialog.h"
 #include "chrome/browser/ui/views/color_chooser_dialog.h"
-#include "chrome/browser/ui/views/base_shell_dialog_win.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/dialogs/base_shell_dialog.h"
+#include "ui/base/dialogs/base_shell_dialog_win.h"
+
+namespace views {
+class ColorChooserListener;
+}
 
 class ColorChooserDialog
     : public base::RefCountedThreadSafe<ColorChooserDialog>,
-      public BaseShellDialog,
-      public BaseShellDialogImpl {
+      public ui::BaseShellDialog,
+      public ui::BaseShellDialogImpl {
  public:
-  // An interface implemented by a Listener object wishing to know about the
-  // the results from the color chooser dialog.
-  class Listener {
-   public:
-    virtual ~Listener() {}
-    virtual void DidChooseColor(SkColor color) = 0;
-    virtual void DidEnd() = 0;
-  };
-
-  ColorChooserDialog(Listener* listener,
+  ColorChooserDialog(views::ColorChooserListener* listener,
                      SkColor initial_color,
                      gfx::NativeWindow owning_window);
   virtual ~ColorChooserDialog();
@@ -71,7 +65,7 @@ class ColorChooserDialog
   // The listener to notify when the user closes the dialog.  This may be set to
   // NULL before the color chooser is closed, signalling that the listener no
   // longer cares about the outcome.
-  Listener* listener_;
+  views::ColorChooserListener* listener_;
 
   DISALLOW_COPY_AND_ASSIGN(ColorChooserDialog);
 };

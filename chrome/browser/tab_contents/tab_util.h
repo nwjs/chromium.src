@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_TAB_CONTENTS_TAB_UTIL_H_
 #define CHROME_BROWSER_TAB_CONTENTS_TAB_UTIL_H_
-#pragma once
 
 class GURL;
 class Profile;
@@ -22,11 +21,8 @@ namespace tab_util {
 content::WebContents* GetWebContentsByID(int render_process_id,
                                          int render_view_id);
 
-// Returns a new SiteInstance for WebUI and app URLs. Returns the SiteInstance
-// for |source_contents| if it represents the same website as |url|. Returns
-// NULL otherwise.
+// Returns a new SiteInstance for WebUI and app URLs. Returns NULL otherwise.
 content::SiteInstance* GetSiteInstanceForNewTab(
-    content::WebContents* source_contents,
     Profile* profile,
     const GURL& url);
 

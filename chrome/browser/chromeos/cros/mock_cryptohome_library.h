@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_CROS_MOCK_CRYPTOHOME_LIBRARY_H_
 #define CHROME_BROWSER_CHROMEOS_CROS_MOCK_CRYPTOHOME_LIBRARY_H_
-#pragma once
 
 #include <string>
 
@@ -23,7 +22,6 @@ class MockCryptohomeLibrary : public CryptohomeLibrary {
   MockCryptohomeLibrary();
   virtual ~MockCryptohomeLibrary();
   MOCK_METHOD0(IsMounted, bool(void));
-  MOCK_METHOD1(HashPassword, std::string(const std::string& password));
   MOCK_METHOD0(GetSystemSalt, std::string(void));
 
   MOCK_METHOD0(TpmIsReady, bool(void));

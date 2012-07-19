@@ -32,7 +32,7 @@ struct PPAPI_SHARED_EXPORT PPB_URLRequestInfo_Data {
     // may still be NULL in some cases, such as deserialization errors.
     //
     // This is a bit tricky. In the plugin side of the proxy, both the file ref
-    // and the file_ref_host_resource will be set and valid. The scoped_ptr
+    // and the file_ref_host_resource will be set and valid. The scoped_refptr
     // ensures that the resource is alive for as long as the BodyItem is.
     //
     // When we deserialize this in the renderer, only the
@@ -73,9 +73,11 @@ struct PPAPI_SHARED_EXPORT PPB_URLRequestInfo_Data {
   bool allow_credentials;
 
   // Similar to the custom referrer (above), but for custom content transfer
-  // encoding.
+  // encoding and custom user agent, respectively.
   bool has_custom_content_transfer_encoding;
   std::string custom_content_transfer_encoding;
+  bool has_custom_user_agent;
+  std::string custom_user_agent;
 
   int32_t prefetch_buffer_upper_threshold;
   int32_t prefetch_buffer_lower_threshold;

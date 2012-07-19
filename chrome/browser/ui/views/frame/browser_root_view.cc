@@ -5,8 +5,8 @@
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
+#include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/omnibox/location_bar.h"
@@ -145,7 +145,7 @@ views::DropTargetEvent* BrowserRootView::MapEventToTabStrip(
                                     event.source_operations());
 }
 
-AbstractTabStripView* BrowserRootView::tabstrip() const {
+TabStrip* BrowserRootView::tabstrip() const {
   return browser_view_->tabstrip();
 }
 
@@ -160,8 +160,9 @@ bool BrowserRootView::GetPasteAndGoURL(const ui::OSExchangeData& data,
   text = AutocompleteMatch::SanitizeString(text);
 
   AutocompleteMatch match;
-  browser_view_->browser()->profile()->GetAutocompleteClassifier()->Classify(
-      text, string16(), false, false, &match, NULL);
+  AutocompleteClassifierFactory::GetForProfile(
+      browser_view_->browser()->profile())->Classify(text, string16(), false,
+                                                     false, &match, NULL);
   if (!match.destination_url.is_valid())
     return false;
 

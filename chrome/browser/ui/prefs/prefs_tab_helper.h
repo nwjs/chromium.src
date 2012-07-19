@@ -4,9 +4,8 @@
 
 #ifndef CHROME_BROWSER_UI_PREFS_PREFS_TAB_HELPER_H_
 #define CHROME_BROWSER_UI_PREFS_PREFS_TAB_HELPER_H_
-#pragma once
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -14,7 +13,6 @@
 class OverlayUserPrefStore;
 class PrefService;
 class Profile;
-struct WebPreferences;
 
 namespace content {
 class WebContents;
@@ -39,7 +37,7 @@ class PrefsTabHelper : public content::NotificationObserver {
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // Update the TabContents's RendererPreferences.
+  // Update the WebContents's RendererPreferences.
   void UpdateRendererPreferences();
 
   Profile* GetProfile();

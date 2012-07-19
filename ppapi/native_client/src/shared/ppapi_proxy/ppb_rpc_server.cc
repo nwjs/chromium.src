@@ -23,37 +23,6 @@
 
 namespace {
 
-static void StreamAsFileDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  UNREFERENCED_PARAMETER(outputs);
-  NaClFileRpcServer::StreamAsFile(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      inputs[1]->arrays.str,
-      inputs[2]->u.ival
-  );
-}
-
-static void GetFileDescDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  NaClFileRpcServer::GetFileDesc(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      inputs[1]->arrays.str,
-      &(outputs[0]->u.hval)
-  );
-}
-
 static void PPB_GetInterfaceDispatcher(
     NaClSrpcRpc* rpc,
     NaClSrpcArg** inputs,
@@ -326,79 +295,6 @@ static void PPB_Core_CallOnMainThreadDispatcher(
       inputs[0]->u.ival,
       inputs[1]->u.ival,
       inputs[2]->u.ival
-  );
-}
-
-static void PPB_CursorControl_SetCursorDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  PpbCursorControlRpcServer::PPB_CursorControl_SetCursor(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      inputs[1]->u.ival,
-      inputs[2]->u.ival,
-      inputs[3]->u.count, inputs[3]->arrays.carr,
-      &(outputs[0]->u.ival)
-  );
-}
-
-static void PPB_CursorControl_LockCursorDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  PpbCursorControlRpcServer::PPB_CursorControl_LockCursor(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      &(outputs[0]->u.ival)
-  );
-}
-
-static void PPB_CursorControl_UnlockCursorDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  PpbCursorControlRpcServer::PPB_CursorControl_UnlockCursor(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      &(outputs[0]->u.ival)
-  );
-}
-
-static void PPB_CursorControl_HasCursorLockDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  PpbCursorControlRpcServer::PPB_CursorControl_HasCursorLock(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      &(outputs[0]->u.ival)
-  );
-}
-
-static void PPB_CursorControl_CanLockCursorDispatcher(
-    NaClSrpcRpc* rpc,
-    NaClSrpcArg** inputs,
-    NaClSrpcArg** outputs,
-    NaClSrpcClosure* done
-) {
-  PpbCursorControlRpcServer::PPB_CursorControl_CanLockCursor(
-      rpc,
-      done,
-      inputs[0]->u.ival,
-      &(outputs[0]->u.ival)
   );
 }
 
@@ -1631,6 +1527,23 @@ static void PPB_Messaging_PostMessageDispatcher(
       done,
       inputs[0]->u.ival,
       inputs[1]->u.count, inputs[1]->arrays.carr
+  );
+}
+
+static void PPB_MouseCursor_SetCursorDispatcher(
+    NaClSrpcRpc* rpc,
+    NaClSrpcArg** inputs,
+    NaClSrpcArg** outputs,
+    NaClSrpcClosure* done
+) {
+  PpbMouseCursorRpcServer::PPB_MouseCursor_SetCursor(
+      rpc,
+      done,
+      inputs[0]->u.ival,
+      inputs[1]->u.ival,
+      inputs[2]->u.ival,
+      inputs[3]->u.count, inputs[3]->arrays.carr,
+      &(outputs[0]->u.ival)
   );
 }
 
@@ -2927,7 +2840,8 @@ static void PPB_WebSocket_ReceiveMessageDispatcher(
       done,
       inputs[0]->u.ival,
       inputs[1]->u.ival,
-      &(outputs[0]->u.ival)
+      &(outputs[0]->u.ival),
+      &(outputs[1]->u.count), outputs[1]->arrays.carr
   );
 }
 
@@ -3167,8 +3081,6 @@ static void PPB_Zoom_ZoomLimitsChangedDispatcher(
 }  // namespace
 
 NaClSrpcHandlerDesc PpbRpcs::srpc_methods[] = {
-  { "StreamAsFile:isi:", StreamAsFileDispatcher },
-  { "GetFileDesc:is:h", GetFileDescDispatcher },
   { "PPB_GetInterface:s:i", PPB_GetInterfaceDispatcher },
   { "PPB_Audio_Create:ii:i", PPB_Audio_CreateDispatcher },
   { "PPB_Audio_IsAudio:i:i", PPB_Audio_IsAudioDispatcher },
@@ -3188,11 +3100,6 @@ NaClSrpcHandlerDesc PpbRpcs::srpc_methods[] = {
   { "PPB_Core_GetTime::d", PPB_Core_GetTimeDispatcher },
   { "PPB_Core_GetTimeTicks::d", PPB_Core_GetTimeTicksDispatcher },
   { "PPB_Core_CallOnMainThread:iii:", PPB_Core_CallOnMainThreadDispatcher },
-  { "PPB_CursorControl_SetCursor:iiiC:i", PPB_CursorControl_SetCursorDispatcher },
-  { "PPB_CursorControl_LockCursor:i:i", PPB_CursorControl_LockCursorDispatcher },
-  { "PPB_CursorControl_UnlockCursor:i:i", PPB_CursorControl_UnlockCursorDispatcher },
-  { "PPB_CursorControl_HasCursorLock:i:i", PPB_CursorControl_HasCursorLockDispatcher },
-  { "PPB_CursorControl_CanLockCursor:i:i", PPB_CursorControl_CanLockCursorDispatcher },
   { "PPB_FileIO_Create:i:i", PPB_FileIO_CreateDispatcher },
   { "PPB_FileIO_IsFileIO:i:i", PPB_FileIO_IsFileIODispatcher },
   { "PPB_FileIO_Open:iiii:i", PPB_FileIO_OpenDispatcher },
@@ -3272,6 +3179,7 @@ NaClSrpcHandlerDesc PpbRpcs::srpc_methods[] = {
   { "PPB_Instance_BindGraphics:ii:i", PPB_Instance_BindGraphicsDispatcher },
   { "PPB_Instance_IsFullFrame:i:i", PPB_Instance_IsFullFrameDispatcher },
   { "PPB_Messaging_PostMessage:iC:", PPB_Messaging_PostMessageDispatcher },
+  { "PPB_MouseCursor_SetCursor:iiiC:i", PPB_MouseCursor_SetCursorDispatcher },
   { "PPB_MouseLock_LockMouse:ii:i", PPB_MouseLock_LockMouseDispatcher },
   { "PPB_MouseLock_UnlockMouse:i:", PPB_MouseLock_UnlockMouseDispatcher },
   { "PPB_NetAddress_Private_AreEqual:CC:i", PPB_NetAddress_Private_AreEqualDispatcher },
@@ -3357,7 +3265,7 @@ NaClSrpcHandlerDesc PpbRpcs::srpc_methods[] = {
   { "PPB_WebSocket_IsWebSocket:i:i", PPB_WebSocket_IsWebSocketDispatcher },
   { "PPB_WebSocket_Connect:iCCii:i", PPB_WebSocket_ConnectDispatcher },
   { "PPB_WebSocket_Close:iiCi:i", PPB_WebSocket_CloseDispatcher },
-  { "PPB_WebSocket_ReceiveMessage:ii:i", PPB_WebSocket_ReceiveMessageDispatcher },
+  { "PPB_WebSocket_ReceiveMessage:ii:iC", PPB_WebSocket_ReceiveMessageDispatcher },
   { "PPB_WebSocket_SendMessage:iC:i", PPB_WebSocket_SendMessageDispatcher },
   { "PPB_WebSocket_GetBufferedAmount:i:l", PPB_WebSocket_GetBufferedAmountDispatcher },
   { "PPB_WebSocket_GetCloseCode:i:i", PPB_WebSocket_GetCloseCodeDispatcher },

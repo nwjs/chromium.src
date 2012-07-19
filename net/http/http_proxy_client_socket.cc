@@ -15,7 +15,6 @@
 #include "net/base/net_log.h"
 #include "net/base/net_util.h"
 #include "net/http/http_basic_stream.h"
-#include "net/http/http_net_log_params.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_headers.h"
@@ -245,7 +244,7 @@ bool HttpProxyClientSocket::SetSendBufferSize(int32 size) {
   return transport_->socket()->SetSendBufferSize(size);
 }
 
-int HttpProxyClientSocket::GetPeerAddress(AddressList* address) const {
+int HttpProxyClientSocket::GetPeerAddress(IPEndPoint* address) const {
   return transport_->socket()->GetPeerAddress(address);
 }
 
@@ -337,7 +336,7 @@ int HttpProxyClientSocket::DoLoop(int last_io_result) {
       case STATE_SEND_REQUEST:
         DCHECK_EQ(OK, rv);
         net_log_.BeginEvent(
-            NetLog::TYPE_HTTP_TRANSACTION_TUNNEL_SEND_REQUEST, NULL);
+            NetLog::TYPE_HTTP_TRANSACTION_TUNNEL_SEND_REQUEST);
         rv = DoSendRequest();
         break;
       case STATE_SEND_REQUEST_COMPLETE:
@@ -348,7 +347,7 @@ int HttpProxyClientSocket::DoLoop(int last_io_result) {
       case STATE_READ_HEADERS:
         DCHECK_EQ(OK, rv);
         net_log_.BeginEvent(
-            NetLog::TYPE_HTTP_TRANSACTION_TUNNEL_READ_HEADERS, NULL);
+            NetLog::TYPE_HTTP_TRANSACTION_TUNNEL_READ_HEADERS);
         rv = DoReadHeaders();
         break;
       case STATE_READ_HEADERS_COMPLETE:
@@ -406,19 +405,20 @@ int HttpProxyClientSocket::DoSendRequest() {
       auth_->AddAuthorizationHeader(&authorization_headers);
     BuildTunnelRequest(request_, authorization_headers, endpoint_,
                        &request_line_, &request_headers_);
-    if (net_log_.IsLoggingAllEvents()) {
-      net_log_.AddEvent(
-          NetLog::TYPE_HTTP_TRANSACTION_SEND_TUNNEL_HEADERS,
-          make_scoped_refptr(new NetLogHttpRequestParameter(
-              request_line_, request_headers_)));
-    }
+
+    net_log_.AddEvent(
+        NetLog::TYPE_HTTP_TRANSACTION_SEND_TUNNEL_HEADERS,
+        base::Bind(&HttpRequestHeaders::NetLogCallback,
+                   base::Unretained(&request_headers_),
+                   &request_line_));
   }
 
   parser_buf_ = new GrowableIOBuffer();
   http_stream_parser_.reset(
       new HttpStreamParser(transport_.get(), &request_, parser_buf_, net_log_));
-  return http_stream_parser_->SendRequest(request_line_, request_headers_, NULL,
-                                          &response_, io_callback_);
+  return http_stream_parser_->SendRequest(
+      request_line_, request_headers_, scoped_ptr<UploadDataStream>(),
+      &response_, io_callback_);
 }
 
 int HttpProxyClientSocket::DoSendRequestComplete(int result) {
@@ -442,11 +442,9 @@ int HttpProxyClientSocket::DoReadHeadersComplete(int result) {
   if (response_.headers->GetParsedHttpVersion() < HttpVersion(1, 0))
     return ERR_TUNNEL_CONNECTION_FAILED;
 
-  if (net_log_.IsLoggingAllEvents()) {
-    net_log_.AddEvent(
-        NetLog::TYPE_HTTP_TRANSACTION_READ_TUNNEL_RESPONSE_HEADERS,
-        make_scoped_refptr(new NetLogHttpResponseParameter(response_.headers)));
-  }
+  net_log_.AddEvent(
+      NetLog::TYPE_HTTP_TRANSACTION_READ_TUNNEL_RESPONSE_HEADERS,
+      base::Bind(&HttpResponseHeaders::NetLogCallback, response_.headers));
 
   switch (response_.headers->response_code()) {
     case 200:  // OK

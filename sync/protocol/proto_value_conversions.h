@@ -6,7 +6,6 @@
 
 #ifndef SYNC_PROTOCOL_PROTO_VALUE_CONVERSIONS_H_
 #define SYNC_PROTOCOL_PROTO_VALUE_CONVERSIONS_H_
-#pragma once
 
 namespace base {
 class DictionaryValue;
@@ -50,7 +49,7 @@ class TypedUrlSpecifics;
 //
 // TODO(akalin): Improve enum support.
 
-namespace browser_sync {
+namespace syncer {
 
 // Ownership of all returned DictionaryValues are transferred to the
 // caller.
@@ -148,6 +147,6 @@ base::DictionaryValue* ClientToServerResponseToValue(
     bool include_specifics);
 
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_PROTOCOL_PROTO_VALUE_CONVERSIONS_H_

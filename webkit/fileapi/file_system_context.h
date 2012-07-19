@@ -5,22 +5,31 @@
 #ifndef WEBKIT_FILEAPI_FILE_SYSTEM_CONTEXT_H_
 #define WEBKIT_FILEAPI_FILE_SYSTEM_CONTEXT_H_
 
+#include <map>
+#include <string>
+
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/platform_file.h"
+#include "base/sequenced_task_runner_helpers.h"
+#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/quota/special_storage_policy.h"
 
 class FilePath;
-class GURL;
 
 namespace base {
-class MessageLoopProxy;
+class SequencedTaskRunner;
+class SingleThreadTaskRunner;
 }
 
 namespace quota {
 class QuotaManagerProxy;
+}
+
+namespace webkit_blob {
+class FileStreamReader;
 }
 
 namespace fileapi {
@@ -30,8 +39,8 @@ class FileSystemFileUtil;
 class FileSystemMountPointProvider;
 class FileSystemOperationInterface;
 class FileSystemOptions;
-class FileSystemPathManager;
 class FileSystemQuotaUtil;
+class FileSystemURL;
 class IsolatedMountPointProvider;
 class SandboxMountPointProvider;
 
@@ -39,26 +48,33 @@ struct DefaultContextDeleter;
 
 // This class keeps and provides a file system context for FileSystem API.
 // An instance of this class is created and owned by profile.
-class FileSystemContext
+class FILEAPI_EXPORT FileSystemContext
     : public base::RefCountedThreadSafe<FileSystemContext,
                                         DefaultContextDeleter> {
  public:
+  // |file_task_runner| is used for all file operations and file related
+  // meta operations.
+  // The code assumes that file_task_runner->RunsTasksOnCurrentThread() returns
+  // false if the current task is not running on the thread that allows
+  // blocking file operations (like SequencedWorkerPool implementation does).
   FileSystemContext(
-      scoped_refptr<base::MessageLoopProxy> file_message_loop,
-      scoped_refptr<base::MessageLoopProxy> io_message_loop,
-      scoped_refptr<quota::SpecialStoragePolicy> special_storage_policy,
+      base::SequencedTaskRunner* file_task_runner,
+      base::SingleThreadTaskRunner* io_task_runner,
+      quota::SpecialStoragePolicy* special_storage_policy,
       quota::QuotaManagerProxy* quota_manager_proxy,
       const FilePath& profile_path,
       const FileSystemOptions& options);
-  ~FileSystemContext();
 
-  // This method can be called on any thread.
   bool DeleteDataForOriginOnFileThread(const GURL& origin_url);
   bool DeleteDataForOriginAndTypeOnFileThread(const GURL& origin_url,
                                               FileSystemType type);
 
   quota::QuotaManagerProxy* quota_manager_proxy() const {
     return quota_manager_proxy_.get();
+  }
+
+  base::SequencedTaskRunner* file_task_runner() const {
+    return file_task_runner_.get();
   }
 
   // Returns a quota util for a given filesystem type.  This may
@@ -109,22 +125,44 @@ class FileSystemContext
   // The resolved MountPointProvider could perform further specialization
   // depending on the filesystem type pointed by the |url|.
   FileSystemOperationInterface* CreateFileSystemOperation(
-      const GURL& url,
-      base::MessageLoopProxy* file_proxy);
+      const FileSystemURL& url);
+
+  // Creates new FileStreamReader instance to read a file pointed by the given
+  // filesystem URL |url| starting from |offset|.
+  // This method internally cracks the |url|, get an appropriate
+  // MountPointProvider for the URL and call the provider's CreateFileReader.
+  // The resolved MountPointProvider could perform further specialization
+  // depending on the filesystem type pointed by the |url|.
+  webkit_blob::FileStreamReader* CreateFileStreamReader(
+      const FileSystemURL& url,
+      int64 offset);
+
+  // Register a filesystem provider. The ownership of |provider| is
+  // transferred to this instance.
+  void RegisterMountPointProvider(FileSystemType type,
+                                  FileSystemMountPointProvider* provider);
 
  private:
   friend struct DefaultContextDeleter;
+  friend class base::DeleteHelper<FileSystemContext>;
+  friend class base::RefCountedThreadSafe<FileSystemContext,
+                                          DefaultContextDeleter>;
+  ~FileSystemContext();
+
   void DeleteOnCorrectThread() const;
 
-  scoped_refptr<base::MessageLoopProxy> file_message_loop_;
-  scoped_refptr<base::MessageLoopProxy> io_message_loop_;
+  scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
+  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
 
   scoped_refptr<quota::QuotaManagerProxy> quota_manager_proxy_;
 
-  // Mount point providers.
+  // Regular mount point providers.
   scoped_ptr<SandboxMountPointProvider> sandbox_provider_;
   scoped_ptr<IsolatedMountPointProvider> isolated_provider_;
   scoped_ptr<ExternalFileSystemMountPointProvider> external_provider_;
+
+  // Registered mount point providers.
+  std::map<FileSystemType, FileSystemMountPointProvider*> provider_map_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(FileSystemContext);
 };

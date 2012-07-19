@@ -8,6 +8,7 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/gfx/screen.h"
 
 namespace aura {
 
@@ -18,44 +19,38 @@ TestScreen::TestScreen(aura::RootWindow* root_window)
 TestScreen::~TestScreen() {
 }
 
-gfx::Point TestScreen::GetCursorScreenPointImpl() {
+gfx::Point TestScreen::GetCursorScreenPoint() {
   return root_window_->last_mouse_location();
 }
 
-gfx::Rect TestScreen::GetMonitorWorkAreaNearestWindowImpl(
-    gfx::NativeWindow window) {
-  return GetBounds();
-}
-
-gfx::Rect TestScreen::GetMonitorAreaNearestWindowImpl(
-    gfx::NativeWindow window) {
-  return GetBounds();
-}
-
-gfx::Rect TestScreen::GetMonitorWorkAreaNearestPointImpl(
-    const gfx::Point& point) {
-  return GetBounds();
-}
-
-gfx::Rect TestScreen::GetMonitorAreaNearestPointImpl(const gfx::Point& point) {
-  return GetBounds();
-}
-
-gfx::NativeWindow TestScreen::GetWindowAtCursorScreenPointImpl() {
-  const gfx::Point point = GetCursorScreenPoint();
+gfx::NativeWindow TestScreen::GetWindowAtCursorScreenPoint() {
+  const gfx::Point point = gfx::Screen::GetCursorScreenPoint();
   return root_window_->GetTopWindowContainingPoint(point);
 }
 
-gfx::Rect TestScreen::GetBounds() {
-  return gfx::Rect(root_window_->bounds().size());
-}
-
-gfx::Size TestScreen::GetPrimaryMonitorSizeImpl() {
-  return GetBounds().size();
-}
-
-int TestScreen::GetNumMonitorsImpl() {
+int TestScreen::GetNumDisplays() {
   return 1;
+}
+
+gfx::Display TestScreen::GetDisplayNearestWindow(
+    gfx::NativeWindow window) const {
+  return GetMonitor();
+}
+
+gfx::Display TestScreen::GetDisplayNearestPoint(const gfx::Point& point) const {
+  return GetMonitor();
+}
+
+gfx::Display TestScreen::GetDisplayMatching(const gfx::Rect& match_rect) const {
+  return GetMonitor();
+}
+
+gfx::Display TestScreen::GetPrimaryDisplay() const {
+  return GetMonitor();
+}
+
+gfx::Display TestScreen::GetMonitor() const {
+  return gfx::Display(0, root_window_->bounds());
 }
 
 }  // namespace aura

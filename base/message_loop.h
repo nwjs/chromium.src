@@ -4,7 +4,6 @@
 
 #ifndef BASE_MESSAGE_LOOP_H_
 #define BASE_MESSAGE_LOOP_H_
-#pragma once
 
 #include <queue>
 #include <string>
@@ -31,10 +30,8 @@
 #include "base/message_pump_libevent.h"
 #if !defined(OS_MACOSX) && !defined(OS_ANDROID)
 
-#if defined(USE_WAYLAND)
-#include "base/message_pump_wayland.h"
-#elif defined(USE_AURA)
-#include "base/message_pump_x.h"
+#if defined(USE_AURA)
+#include "base/message_pump_aurax11.h"
 #else
 #include "base/message_pump_gtk.h"
 #endif
@@ -42,9 +39,16 @@
 #endif
 #endif
 
+#include "base/message_pump_uv.h"
+
 namespace base {
 class Histogram;
-}
+class RunLoop;
+class ThreadTaskRunnerHandle;
+#if defined(OS_ANDROID)
+class MessagePumpForUI;
+#endif
+}  // namespace base
 
 // A MessageLoop is used to process events for a particular thread.  There is
 // at most one MessageLoop instance per thread.
@@ -79,10 +83,8 @@ class Histogram;
 //
 class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
  public:
-#if defined(OS_WIN)
-  typedef base::MessagePumpWin::Dispatcher Dispatcher;
-  typedef base::MessagePumpObserver Observer;
-#elif !defined(OS_MACOSX) && !defined(OS_ANDROID)
+
+#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
   typedef base::MessagePumpDispatcher Dispatcher;
   typedef base::MessagePumpObserver Observer;
 #endif
@@ -101,10 +103,14 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
   //   This type of ML also supports asynchronous IO.  See also
   //   MessageLoopForIO.
   //
+  // TYPE_NODE
+  //   For integration with NodeJS/libuv in the renderer thread
+
   enum Type {
     TYPE_DEFAULT,
     TYPE_UI,
-    TYPE_IO
+    TYPE_IO,
+    TYPE_NODE
   };
 
   // Normally, it is not necessary to instantiate a MessageLoop.  Instead, it
@@ -168,20 +174,12 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
 
   void PostDelayedTask(
       const tracked_objects::Location& from_here,
-      const base::Closure& task, int64 delay_ms);
-
-  void PostDelayedTask(
-      const tracked_objects::Location& from_here,
       const base::Closure& task,
       base::TimeDelta delay);
 
   void PostNonNestableTask(
       const tracked_objects::Location& from_here,
       const base::Closure& task);
-
-  void PostNonNestableDelayedTask(
-      const tracked_objects::Location& from_here,
-      const base::Closure& task, int64 delay_ms);
 
   void PostNonNestableDelayedTask(
       const tracked_objects::Location& from_here,
@@ -220,30 +218,51 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
         this, from_here, object);
   }
 
+  // Deprecated: use RunLoop instead.
   // Run the message loop.
   void Run();
 
+  // Deprecated: use RunLoop instead.
   // Process all pending tasks, windows messages, etc., but don't wait/sleep.
   // Return as soon as all items that can be run are taken care of.
-  void RunAllPending();
+  void RunUntilIdle();
 
-  // Signals the Run method to return after it is done processing all pending
-  // messages.  This method may only be called on the same thread that called
-  // Run, and Run must still be on the call stack.
+  // TODO(jbates) remove this. crbug.com/131220. See RunUntilIdle().
+  void RunAllPending() { RunUntilIdle(); }
+
+  // TODO(jbates) remove this. crbug.com/131220. See QuitWhenIdle().
+  void Quit() { QuitWhenIdle(); }
+
+  // Deprecated: use RunLoop instead.
   //
-  // Use QuitClosure if you need to Quit another thread's MessageLoop, but note
-  // that doing so is fairly dangerous if the target thread makes nested calls
-  // to MessageLoop::Run.  The problem being that you won't know which nested
-  // run loop you are quitting, so be careful!
-  void Quit();
+  // Signals the Run method to return when it becomes idle. It will continue to
+  // process pending messages and future messages as long as they are enqueued.
+  // Warning: if the MessageLoop remains busy, it may never quit. Only use this
+  // Quit method when looping procedures (such as web pages) have been shut
+  // down.
+  //
+  // This method may only be called on the same thread that called Run, and Run
+  // must still be on the call stack.
+  //
+  // Use QuitClosure variants if you need to Quit another thread's MessageLoop,
+  // but note that doing so is fairly dangerous if the target thread makes
+  // nested calls to MessageLoop::Run.  The problem being that you won't know
+  // which nested run loop you are quitting, so be careful!
+  void QuitWhenIdle();
 
+  // Deprecated: use RunLoop instead.
+  //
   // This method is a variant of Quit, that does not wait for pending messages
   // to be processed before returning from Run.
   void QuitNow();
 
-  // Invokes Quit on the current MessageLoop when run. Useful to schedule an
-  // arbitrary MessageLoop to Quit.
-  static base::Closure QuitClosure();
+  // TODO(jbates) remove this. crbug.com/131220. See QuitWhenIdleClosure().
+  static base::Closure QuitClosure() { return QuitWhenIdleClosure(); }
+
+  // Deprecated: use RunLoop instead.
+  // Construct a Closure that will call QuitWhenIdle(). Useful to schedule an
+  // arbitrary MessageLoop to QuitWhenIdle.
+  static base::Closure QuitWhenIdleClosure();
 
   // Returns the type passed to the constructor.
   Type type() const { return type_; }
@@ -365,35 +384,7 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
 
   //----------------------------------------------------------------------------
  protected:
-  struct RunState {
-    // Used to count how many Run() invocations are on the stack.
-    int run_depth;
-
-    // Used to record that Quit() was called, or that we should quit the pump
-    // once it becomes idle.
-    bool quit_received;
-
-#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
-    Dispatcher* dispatcher;
-#endif
-  };
-
-#if defined(OS_ANDROID)
-  // Android Java process manages the UI thread message loop. So its
-  // MessagePumpForUI needs to keep the RunState.
- public:
-#endif
-  class BASE_EXPORT AutoRunState : RunState {
-   public:
-    explicit AutoRunState(MessageLoop* loop);
-    ~AutoRunState();
-   private:
-    MessageLoop* loop_;
-    RunState* previous_state_;
-  };
-#if defined(OS_ANDROID)
- protected:
-#endif
+  friend class base::RunLoop;
 
 #if defined(OS_WIN)
   base::MessagePumpWin* pump_win() {
@@ -452,7 +443,7 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
   bool DeletePendingTasks();
 
   // Calculates the time at which a PendingTask should run.
-  base::TimeTicks CalculateDelayedRuntime(int64 delay_ms);
+  base::TimeTicks CalculateDelayedRuntime(base::TimeDelta delay);
 
   // Start recording histogram info about events and action IF it was enabled
   // and IF the statistics recorder can accept a registration of our histogram.
@@ -507,7 +498,7 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
   // Protect access to incoming_queue_.
   mutable base::Lock incoming_queue_lock_;
 
-  RunState* state_;
+  base::RunLoop* run_loop_;
 
 #if defined(OS_WIN)
   base::TimeTicks high_resolution_timer_expiration_;
@@ -523,6 +514,7 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
 
   // The message loop proxy associated with this message loop, if one exists.
   scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
+  scoped_ptr<base::ThreadTaskRunnerHandle> thread_task_runner_handle_;
 
  private:
   template <class T, class R> friend class base::subtle::DeleteHelperInternal;
@@ -534,7 +526,6 @@ class BASE_EXPORT MessageLoop : public base::MessagePump::Delegate {
   void ReleaseSoonInternal(const tracked_objects::Location& from_here,
                            void(*releaser)(const void*),
                            const void* object);
-
 
   DISALLOW_COPY_AND_ASSIGN(MessageLoop);
 };
@@ -563,6 +554,13 @@ class BASE_EXPORT MessageLoopForUI : public MessageLoop {
   void DidProcessMessage(const MSG& message);
 #endif  // defined(OS_WIN)
 
+#if defined(OS_IOS)
+  // On iOS, the main message loop cannot be Run().  Instead call Attach(),
+  // which connects this MessageLoop to the UI thread's CFRunLoop and allows
+  // PostTask() to work.
+  void Attach();
+#endif
+
 #if defined(OS_ANDROID)
   // On Android, the UI message loop is handled by Java side. So Run() should
   // never be called. Instead use Start(), which will forward all the native UI
@@ -573,8 +571,6 @@ class BASE_EXPORT MessageLoopForUI : public MessageLoop {
   // methods.
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
-  void RunWithDispatcher(Dispatcher* dispatcher);
-  void RunAllPendingWithDispatcher(Dispatcher* dispatcher);
 
  protected:
   // TODO(rvargas): Make this platform independent.
@@ -666,5 +662,40 @@ class BASE_EXPORT MessageLoopForIO : public MessageLoop {
 // data that you need should be stored on the MessageLoop's pump_ instance.
 COMPILE_ASSERT(sizeof(MessageLoop) == sizeof(MessageLoopForIO),
                MessageLoopForIO_should_not_have_extra_member_variables);
+
+
+//-----------------------------------------------------------------------------
+// MessageLoopForUV extends MessageLoop with methods that are particular to a
+// MessageLoop instantiated with TYPE_NODE.
+//
+// This class is typically used like so:
+//   MessageLoopForUV::current()->...call some method...
+//
+
+class BASE_EXPORT MessageLoopForUV : public MessageLoop {
+ public:
+
+  MessageLoopForUV() : MessageLoop(TYPE_NODE) {
+  }
+
+  // Returns the MessageLoopForUV of the current thread.
+  static MessageLoopForUV* current() {
+    MessageLoop* loop = MessageLoop::current();
+    //DCHECK_EQ(MessageLoop::TYPE_NODE, loop->type());
+    return static_cast<MessageLoopForUV*>(loop);
+  }
+
+  base::MessagePumpUV* pump_uv() {
+    return static_cast<base::MessagePumpUV*>(pump_.get());
+  }
+
+};
+
+// Do not add any member variables to MessageLoopForUV!  This is important b/c
+// MessageLoopForUV is often allocated via MessageLoop(TYPE_IO).  Any extra
+// data that you need should be stored on the MessageLoop's pump_ instance.
+COMPILE_ASSERT(sizeof(MessageLoop) == sizeof(MessageLoopForUV),
+               MessageLoopForUV_should_not_have_extra_member_variables);
+
 
 #endif  // BASE_MESSAGE_LOOP_H_

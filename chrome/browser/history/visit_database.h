@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_HISTORY_VISIT_DATABASE_H_
 #define CHROME_BROWSER_HISTORY_VISIT_DATABASE_H_
-#pragma once
 
 #include "chrome/browser/history/history_types.h"
 
@@ -104,17 +103,14 @@ class VisitDatabase {
                                int max_count,
                                VisitVector* visits);
 
-  // Fills all visits in the given time ranges into the given vector that should
-  // be user-visible, which excludes things like redirects and subframes. The
+  // Fills all visits in the given time ranges into the given vector that are
+  // visits made directly by the user (typed or bookmarked visits only). The
   // begin time is inclusive, the end time is exclusive.
   //
   // Up to |max_count| visits will be returned. If there are more visits than
   // that, the most recent |max_count| will be returned. If 0, all visits in the
   // range will be computed.
-  //
-  // Only one visit for each URL will be returned, and it will be the most
-  // recent one in the time range.
-  void GetVisibleVisitsDuringTimes(const VisitFilter& time_filter,
+  void GetDirectVisitsDuringTimes(const VisitFilter& time_filter,
                                    int max_count,
                                    VisitVector* visits);
 
@@ -171,6 +167,12 @@ class VisitDatabase {
   // Get the source information about the given visits.
   void GetVisitsSource(const VisitVector& visits,
                        VisitSourceMap* sources);
+
+  // Obtains BriefVisitInfo for the specified number of most recent visits
+  // from the visit database.
+  void GetBriefVisitInfoOfMostRecentVisits(
+      int max_visits,
+      std::vector<BriefVisitInfo>* result_vector);
 
  protected:
   // Returns the database for the functions in this interface.

@@ -4,12 +4,11 @@
 
 #ifndef CHROME_BROWSER_PROTECTOR_PROTECTOR_SERVICE_FACTORY_H_
 #define CHROME_BROWSER_PROTECTOR_PROTECTOR_SERVICE_FACTORY_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/singleton.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 
 namespace protector {
 

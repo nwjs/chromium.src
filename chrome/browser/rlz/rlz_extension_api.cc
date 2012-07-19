@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -113,11 +113,13 @@ bool RlzGetAccessPointRlzFunction::RunImpl() {
 
   char rlz[rlz_lib::kMaxRlzLength + 1];
   rlz_lib::GetAccessPointRlz(access_point, rlz, rlz_lib::kMaxRlzLength);
-  result_.reset(Value::CreateStringValue(rlz));
+  SetResult(Value::CreateStringValue(rlz));
   return true;
 }
 
-RlzSendFinancialPingFunction::RlzSendFinancialPingFunction() {
+RlzSendFinancialPingFunction::RlzSendFinancialPingFunction()
+    : product_(rlz_lib::CHROME),
+      exclude_machine_id_(true) {
 }
 
 RlzSendFinancialPingFunction::~RlzSendFinancialPingFunction() {
@@ -177,7 +179,7 @@ void RlzSendFinancialPingFunction::WorkOnWorkerThread() {
                                          id_.c_str(), lang_.c_str(),
                                          exclude_machine_id_);
 
-  result_.reset(Value::CreateBooleanValue(sent));
+  SetResult(Value::CreateBooleanValue(sent));
 
   bool post_task_result = content::BrowserThread::PostTask(
       content::BrowserThread::UI, FROM_HERE,

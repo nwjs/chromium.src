@@ -16,6 +16,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "googleurl/src/gurl.h"
 #include "grit/browser_resources.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using base::DictionaryValue;
@@ -35,27 +36,20 @@ PluginFinder* PluginFinder::GetInstance() {
 }
 
 PluginFinder::PluginFinder() : plugin_list_(LoadPluginList()) {
-  if (!plugin_list_.get()) {
-    NOTREACHED();
+  if (!plugin_list_.get())
     plugin_list_.reset(new DictionaryValue());
-  }
 }
 
 // static
-scoped_ptr<DictionaryValue> PluginFinder::LoadPluginList() {
-  return scoped_ptr<DictionaryValue>(LoadPluginListInternal());
-}
-
-DictionaryValue* PluginFinder::LoadPluginListInternal() {
+DictionaryValue* PluginFinder::LoadPluginList() {
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
   base::StringPiece json_resource(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_PLUGIN_DB_JSON));
-  bool allow_trailing_comma = false;
+          IDR_PLUGIN_DB_JSON, ui::SCALE_FACTOR_NONE));
   std::string error_str;
   scoped_ptr<base::Value> value(base::JSONReader::ReadAndReturnError(
-      json_resource.as_string(),
-      allow_trailing_comma,
+      json_resource,
+      base::JSON_PARSE_RFC,
       NULL,
       &error_str));
   if (!value.get()) {
@@ -87,7 +81,6 @@ PluginInstaller* PluginFinder::FindPlugin(const std::string& mime_type,
     }
     std::string language_str;
     bool success = plugin->GetString("lang", &language_str);
-    DCHECK(success);
     if (language_str != language)
       continue;
     ListValue* mime_types = NULL;
@@ -129,7 +122,6 @@ PluginInstaller* PluginFinder::CreateInstaller(
   DCHECK(!installers_[identifier]);
   std::string url;
   bool success = plugin_dict->GetString("url", &url);
-  DCHECK(success);
   std::string help_url;
   plugin_dict->GetString("help_url", &help_url);
   string16 name;
@@ -137,14 +129,35 @@ PluginInstaller* PluginFinder::CreateInstaller(
   DCHECK(success);
   bool display_url = false;
   plugin_dict->GetBoolean("displayurl", &display_url);
-  bool requires_authorization = true;
-  plugin_dict->GetBoolean("requires_authorization", &requires_authorization);
+
   PluginInstaller* installer = new PluginInstaller(identifier,
-                                                   GURL(url),
-                                                   GURL(help_url),
                                                    name,
                                                    display_url,
-                                                   requires_authorization);
+                                                   GURL(url),
+                                                   GURL(help_url));
+  ListValue* versions = NULL;
+  if (plugin_dict->GetList("versions", &versions)) {
+    for (ListValue::const_iterator it = versions->begin();
+         it != versions->end(); ++it) {
+      DictionaryValue* version_dict = NULL;
+      if (!(*it)->GetAsDictionary(&version_dict)) {
+        NOTREACHED();
+        continue;
+      }
+      std::string version;
+      success = version_dict->GetString("version", &version);
+      DCHECK(success);
+      std::string status_str;
+      success = version_dict->GetString("status", &status_str);
+      DCHECK(success);
+      PluginInstaller::SecurityStatus status =
+          PluginInstaller::SECURITY_STATUS_UP_TO_DATE;
+      success = PluginInstaller::ParseSecurityStatus(status_str, &status);
+      DCHECK(success);
+      installer->AddVersion(Version(version), status);
+    }
+  }
+
   installers_[identifier] = installer;
   return installer;
 }

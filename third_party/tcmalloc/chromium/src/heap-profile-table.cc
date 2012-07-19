@@ -123,7 +123,12 @@ static bool ByAllocatedSpace(HeapProfileTable::Stats* a,
 //----------------------------------------------------------------------
 
 HeapProfileTable::HeapProfileTable(Allocator alloc, DeAllocator dealloc)
-    : alloc_(alloc), dealloc_(dealloc) {
+    : alloc_(alloc),
+      dealloc_(dealloc),
+      num_alloc_buckets_(0),
+      mmap_table_(NULL),
+      num_available_mmap_buckets_(0),
+      mmap_address_map_(NULL) {
   // Initialize the overall profile stats.
   memset(&total_, 0, sizeof(total_));
 
@@ -131,16 +136,10 @@ HeapProfileTable::HeapProfileTable(Allocator alloc, DeAllocator dealloc)
   const int alloc_table_bytes = kHashTableSize * sizeof(*alloc_table_);
   alloc_table_ = reinterpret_cast<Bucket**>(alloc_(alloc_table_bytes));
   memset(alloc_table_, 0, alloc_table_bytes);
-  num_alloc_buckets_ = 0;
-
-  // Initialize the mmap table.
-  mmap_table_ = NULL;
-  num_available_mmap_buckets_ = 0;
 
   // Make malloc and mmap allocation maps.
   alloc_address_map_ =
       new(alloc_(sizeof(AllocationMap))) AllocationMap(alloc_, dealloc_);
-  mmap_address_map_ = NULL;
 }
 
 HeapProfileTable::~HeapProfileTable() {
@@ -291,6 +290,16 @@ void HeapProfileTable::MarkAsIgnored(const void* ptr) {
   }
 }
 
+void HeapProfileTable::MarkCurrentAllocations(AllocationMark mark) {
+  const MarkArgs args(mark, true);
+  alloc_address_map_->Iterate<const MarkArgs&>(MarkIterator, args);
+}
+
+void HeapProfileTable::MarkUnmarkedAllocations(AllocationMark mark) {
+  const MarkArgs args(mark, true);
+  alloc_address_map_->Iterate<const MarkArgs&>(MarkIterator, args);
+}
+
 // We'd be happier using snprintfer, but we don't to reduce dependencies.
 int HeapProfileTable::UnparseBucket(const Bucket& b,
                                     char* buf, int buflen, int bufsize,
@@ -355,7 +364,8 @@ HeapProfileTable::MakeSortedBucketList() const {
   return list;
 }
 
-void HeapProfileTable::RefreshMMapData() {
+void HeapProfileTable::RefreshMMapData(Allocator mmap_alloc,
+                                       DeAllocator mmap_dealloc) {
   // Make the table
   static const int mmap_table_bytes = kHashTableSize * sizeof(*mmap_table_);
   if (mmap_table_ == NULL) {
@@ -365,8 +375,8 @@ void HeapProfileTable::RefreshMMapData() {
   num_available_mmap_buckets_ = 0;
 
   ClearMMapData();
-  mmap_address_map_ =
-      new(alloc_(sizeof(AllocationMap))) AllocationMap(alloc_, dealloc_);
+  mmap_address_map_ = new(alloc_(sizeof(AllocationMap)))
+      AllocationMap(mmap_alloc, mmap_dealloc);
 
   MemoryRegionMap::LockHolder l;
   for (MemoryRegionMap::RegionIterator r =
@@ -388,12 +398,24 @@ void HeapProfileTable::RefreshMMapData() {
 }
 
 void HeapProfileTable::ClearMMapData() {
-  if (mmap_address_map_ != NULL) {
-    mmap_address_map_->Iterate(ZeroBucketCountsIterator, this);
-    mmap_address_map_->~AllocationMap();
-    dealloc_(mmap_address_map_);
-    mmap_address_map_ = NULL;
+  if (mmap_address_map_ == NULL) return;
+
+  mmap_address_map_->Iterate(ZeroBucketCountsIterator, this);
+  mmap_address_map_->~AllocationMap();
+  dealloc_(mmap_address_map_);
+  mmap_address_map_ = NULL;
+}
+
+void HeapProfileTable::DumpMarkedObjects(AllocationMark mark,
+                                         const char* file_name) {
+  RawFD fd = RawOpenForWriting(file_name);
+  if (fd == kIllegalRawFD) {
+    RAW_LOG(ERROR, "Failed dumping live objects to %s", file_name);
+    return;
   }
+  const DumpMarkedArgs args(fd, mark);
+  alloc_address_map_->Iterate<const DumpMarkedArgs&>(DumpMarkedIterator, args);
+  RawClose(fd);
 }
 
 void HeapProfileTable::IterateOrderedAllocContexts(
@@ -474,6 +496,32 @@ void HeapProfileTable::DumpNonLiveIterator(const void* ptr, AllocValue* v,
   RawWrite(args.fd, buf, len);
 }
 
+inline
+void HeapProfileTable::DumpMarkedIterator(const void* ptr, AllocValue* v,
+                                          const DumpMarkedArgs& args) {
+  if (v->mark() != args.mark)
+    return;
+  Bucket b;
+  memset(&b, 0, sizeof(b));
+  b.allocs = 1;
+  b.alloc_size = v->bytes;
+  b.depth = v->bucket()->depth;
+  b.stack = v->bucket()->stack;
+  char addr[16];
+  snprintf(addr, 16, "0x%08" PRIxPTR, ptr);
+  char buf[1024];
+  int len = UnparseBucket(b, buf, 0, sizeof(buf), addr, NULL);
+  RawWrite(args.fd, buf, len);
+}
+
+inline
+void HeapProfileTable::MarkIterator(const void* ptr, AllocValue* v,
+                                    const MarkArgs& args) {
+  if (!args.mark_all && v->mark() != UNMARKED)
+    return;
+  v->set_mark(args.mark);
+}
+
 inline void HeapProfileTable::ZeroBucketCountsIterator(
     const void* ptr, AllocValue* v, HeapProfileTable* heap_profile) {
   Bucket* b = v->bucket();
@@ -505,22 +553,21 @@ bool HeapProfileTable::WriteProfile(const char* file_name,
                                     AllocationMap* allocations) {
   RAW_VLOG(1, "Dumping non-live heap profile to %s", file_name);
   RawFD fd = RawOpenForWriting(file_name);
-  if (fd != kIllegalRawFD) {
-    RawWrite(fd, kProfileHeader, strlen(kProfileHeader));
-    char buf[512];
-    int len = UnparseBucket(total, buf, 0, sizeof(buf), " heapprofile",
-                            NULL);
-    RawWrite(fd, buf, len);
-    const DumpArgs args(fd, NULL);
-    allocations->Iterate<const DumpArgs&>(DumpNonLiveIterator, args);
-    RawWrite(fd, kProcSelfMapsHeader, strlen(kProcSelfMapsHeader));
-    DumpProcSelfMaps(fd);
-    RawClose(fd);
-    return true;
-  } else {
+  if (fd == kIllegalRawFD) {
     RAW_LOG(ERROR, "Failed dumping filtered heap profile to %s", file_name);
     return false;
   }
+  RawWrite(fd, kProfileHeader, strlen(kProfileHeader));
+  char buf[512];
+  int len = UnparseBucket(total, buf, 0, sizeof(buf), " heapprofile",
+                          NULL);
+  RawWrite(fd, buf, len);
+  const DumpArgs args(fd, NULL);
+  allocations->Iterate<const DumpArgs&>(DumpNonLiveIterator, args);
+  RawWrite(fd, kProcSelfMapsHeader, strlen(kProcSelfMapsHeader));
+  DumpProcSelfMaps(fd);
+  RawClose(fd);
+  return true;
 }
 
 void HeapProfileTable::CleanupOldProfiles(const char* prefix) {

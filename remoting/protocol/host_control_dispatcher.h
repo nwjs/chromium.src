@@ -6,9 +6,11 @@
 #define REMOTING_PROTOCOL_HOST_CONTROL_DISPATCHER_H_
 
 #include "base/memory/ref_counted.h"
+#include "remoting/protocol/buffered_socket_writer.h"
 #include "remoting/protocol/channel_dispatcher_base.h"
 #include "remoting/protocol/client_stub.h"
 #include "remoting/protocol/clipboard_stub.h"
+#include "remoting/protocol/cursor_shape_stub.h"
 #include "remoting/protocol/message_reader.h"
 
 namespace net {
@@ -18,22 +20,24 @@ class StreamSocket;
 namespace remoting {
 namespace protocol {
 
-class BufferedSocketWriter;
 class ControlMessage;
 class HostStub;
 class Session;
 
 // HostControlDispatcher dispatches incoming messages on the control
 // channel to HostStub or ClipboardStub, and also implements ClientStub and
-// ClipboardStub for outgoing messages.
-class HostControlDispatcher : public ChannelDispatcherBase, public ClientStub,
-                              public ClipboardStub {
+// CursorShapeStub for outgoing messages.
+class HostControlDispatcher : public ChannelDispatcherBase,
+                              public ClientStub {
  public:
   HostControlDispatcher();
   virtual ~HostControlDispatcher();
 
-  // ClipboardStub implementation.
+  // ClipboardStub implementation for sending clipboard data to client.
   virtual void InjectClipboardEvent(const ClipboardEvent& event) OVERRIDE;
+
+  // CursorShapeStub implementation for sending cursor shape to client.
+  virtual void SetCursorShape(const CursorShapeInfo& cursor_shape) OVERRIDE;
 
   // Sets the ClipboardStub that will be called for each incoming clipboard
   // message. |clipboard_stub| must outlive this object.
@@ -57,7 +61,7 @@ class HostControlDispatcher : public ChannelDispatcherBase, public ClientStub,
   HostStub* host_stub_;
 
   ProtobufMessageReader<ControlMessage> reader_;
-  scoped_refptr<BufferedSocketWriter> writer_;
+  BufferedSocketWriter writer_;
 
   DISALLOW_COPY_AND_ASSIGN(HostControlDispatcher);
 };

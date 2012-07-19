@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_SETTINGS_SETTINGS_SYNC_UTIL_H_
 #define CHROME_BROWSER_EXTENSIONS_SETTINGS_SETTINGS_SYNC_UTIL_H_
-#pragma once
 
 
-#include "chrome/browser/sync/api/sync_data.h"
-#include "chrome/browser/sync/api/sync_change.h"
+#include "sync/api/sync_change.h"
+#include "sync/api/sync_data.h"
 
 namespace base {
 class Value;
@@ -18,32 +17,32 @@ namespace extensions {
 
 namespace settings_sync_util {
 
-// Creates a SyncData object for an extension or app setting.
-SyncData CreateData(
+// Creates a syncer::SyncData object for an extension or app setting.
+syncer::SyncData CreateData(
     const std::string& extension_id,
     const std::string& key,
     const base::Value& value,
-    syncable::ModelType type);
+    syncer::ModelType type);
 
 // Creates an "add" sync change for an extension or app setting.
-SyncChange CreateAdd(
+syncer::SyncChange CreateAdd(
     const std::string& extension_id,
     const std::string& key,
     const base::Value& value,
-    syncable::ModelType type);
+    syncer::ModelType type);
 
 // Creates an "update" sync change for an extension or app setting.
-SyncChange CreateUpdate(
+syncer::SyncChange CreateUpdate(
     const std::string& extension_id,
     const std::string& key,
     const base::Value& value,
-    syncable::ModelType type);
+    syncer::ModelType type);
 
 // Creates a "delete" sync change for an extension or app setting.
-SyncChange CreateDelete(
+syncer::SyncChange CreateDelete(
     const std::string& extension_id,
     const std::string& key,
-    syncable::ModelType type);
+    syncer::ModelType type);
 
 }  // namespace settings_sync_util
 

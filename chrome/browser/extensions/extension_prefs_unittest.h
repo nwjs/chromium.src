@@ -4,16 +4,18 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFS_UNITTEST_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFS_UNITTEST_H_
-#pragma once
 
 #include "base/message_loop.h"
 #include "chrome/browser/extensions/test_extension_prefs.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace base {
 class Value;
 }
+
+namespace extensions {
+class Extension;
 
 // Base class for extension preference-related unit tests.
 class ExtensionPrefsTest : public testing::Test {
@@ -57,20 +59,20 @@ class ExtensionPrefsPrepopulatedTest : public ExtensionPrefsTest {
 
   virtual void RegisterPreferences() OVERRIDE;
 
-  void InstallExtControlledPref(Extension *ext,
+  void InstallExtControlledPref(Extension* ext,
                                 const std::string& key,
                                 base::Value* val);
 
-  void InstallExtControlledPrefIncognito(Extension *ext,
+  void InstallExtControlledPrefIncognito(Extension* ext,
                                          const std::string& key,
                                          base::Value* val);
 
   void InstallExtControlledPrefIncognitoSessionOnly(
-      Extension *ext,
+      Extension* ext,
       const std::string& key,
       base::Value* val);
 
-  void InstallExtension(Extension *ext);
+  void InstallExtension(Extension* ext);
 
   void UninstallExtension(const std::string& extension_id);
 
@@ -94,5 +96,6 @@ class ExtensionPrefsPrepopulatedTest : public ExtensionPrefsTest {
   scoped_refptr<Extension> ext4_scoped_;
 };
 
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_PREFS_UNITTEST_H_

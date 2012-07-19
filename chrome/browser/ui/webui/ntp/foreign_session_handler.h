@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_NTP_FOREIGN_SESSION_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_NTP_FOREIGN_SESSION_HANDLER_H_
-#pragma once
 
 #include <vector>
 
@@ -25,6 +24,8 @@ class ForeignSessionHandler : public content::WebUIMessageHandler,
 
   ForeignSessionHandler();
   virtual ~ForeignSessionHandler() {}
+
+  static void RegisterUserPrefs(PrefService* prefs);
 
  private:
   // Used to register ForeignSessionHandler for notifications.
@@ -54,11 +55,7 @@ class ForeignSessionHandler : public content::WebUIMessageHandler,
   // model has changed and the new tab page needs to reflect the changes.
   void HandleGetForeignSessions(const ListValue* args);
 
-  // Delete a foreign session. This will remove it from the list of foreign
-  // sessions on all devices. It will reappear if the session is re-activated
-  // on the original device.
-  // This is a javascript callback handler.
-  void HandleDeleteForeignSession(const ListValue* args);
+  void HandleSetForeignSessionCollapsed(const ListValue* args);
 
   // Helper methods to create JSON compatible objects from Session objects.
   bool SessionTabToValue(const SessionTab& tab, DictionaryValue* dictionary);

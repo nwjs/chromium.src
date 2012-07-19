@@ -4,13 +4,13 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_DISABLED_UI_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_DISABLED_UI_H_
-#pragma once
 
-class Extension;
+class Browser;
 class ExtensionService;
-class Profile;
 
 namespace extensions {
+
+class Extension;
 
 // Adds a global error to inform the user that an extension was
 // disabled after upgrading to higher permissions.
@@ -18,7 +18,7 @@ void AddExtensionDisabledError(ExtensionService* service,
                                const Extension* extension);
 
 // Shows the extension install dialog.
-void ShowExtensionDisabledDialog(ExtensionService* service, Profile* profile,
+void ShowExtensionDisabledDialog(ExtensionService* service, Browser* browser,
                                  const Extension* extension);
 
 }  // namespace extensions

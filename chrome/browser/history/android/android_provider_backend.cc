@@ -26,7 +26,7 @@ namespace history {
 
 namespace {
 
-const char* kVirtualBookmarkTable =
+const char* kVirtualHistoryAndBookmarkTable =
     "SELECT android_urls.id AS _id, "
         "android_cache_db.bookmark_cache.created_time AS created, "
         "urls.title AS title, android_urls.raw_url AS url, "
@@ -34,10 +34,17 @@ const char* kVirtualBookmarkTable =
         "android_cache_db.bookmark_cache.last_visit_time AS date, "
         "android_cache_db.bookmark_cache.bookmark AS bookmark, "
         "android_cache_db.bookmark_cache.favicon_id AS favicon, "
-        "urls.id AS url_id, urls.url AS urls_url "
+        "urls.id AS url_id, urls.url AS urls_url, "
+    // TODO (michaelbai) : Remove folder column once we remove it from Android
+    // framework.
+    // Android framework assumes 'folder' column exist in the table, the row is
+    // the bookmark once folder is 0, though it is not part of public API, it
+    // has to be added and set as 0 when the row is bookmark.
+        "(CASE WHEN android_cache_db.bookmark_cache.bookmark IS 0 "
+        "THEN 1 ELSE 0 END) as folder "
     "FROM (android_urls JOIN urls on (android_urls.url_id = urls.id) "
-        "LEFT JOIN android_cache_db.bookmark_cache AS bookmark_cache "
-        "on (android_urls.url_id = bookmark_cache.url_id))";
+        "LEFT JOIN android_cache_db.bookmark_cache "
+        "on (android_urls.url_id = android_cache_db.bookmark_cache.url_id))";
 
 const char * kURLUpdateClause =
     "SELECT urls.id, urls.last_visit_time, created_time, urls.url "
@@ -74,8 +81,8 @@ bool IsHistoryAndBookmarkRowValid(const HistoryAndBookmarkRow& row) {
   //    than 2.
   // d. The difference between created and last visit time is less than
   //    visit_count.
-  // e. Visit count is 0, but any one of last visit time and created time is
-  //    set and not equal to 0.
+  // e. Visit count is 0 or 1 and both last visit time and created time are set
+  //    explicitly, but the time is different or created time is not UnixEpoch.
   if (row.is_value_set_explicitly(HistoryAndBookmarkRow::LAST_VISIT_TIME) &&
       row.last_visit_time() > Time::Now())
     return false;
@@ -89,23 +96,19 @@ bool IsHistoryAndBookmarkRowValid(const HistoryAndBookmarkRow& row) {
     if (row.created() > row.last_visit_time())
       return false;
 
-    if (row.is_value_set_explicitly(HistoryAndBookmarkRow::VISIT_COUNT)) {
-      if ((row.created() != row.last_visit_time() &&
-           row.visit_count() < 2) ||
-          (row.last_visit_time().ToInternalValue() -
-           row.created().ToInternalValue() < row.visit_count()))
-      return false;
+    if (row.is_value_set_explicitly(HistoryAndBookmarkRow::VISIT_COUNT) &&
+        row.is_value_set_explicitly(HistoryAndBookmarkRow::CREATED) &&
+        row.is_value_set_explicitly(HistoryAndBookmarkRow::LAST_VISIT_TIME)) {
+      if (row.created() != row.last_visit_time() &&
+          row.created() != Time::UnixEpoch() &&
+          (row.visit_count() == 0 || row.visit_count() == 1))
+        return false;
+
+      if (row.last_visit_time().ToInternalValue() -
+          row.created().ToInternalValue() < row.visit_count())
+        return false;
     }
   }
-
-  if (row.is_value_set_explicitly(HistoryAndBookmarkRow::VISIT_COUNT) &&
-      row.visit_count() == 0 &&
-      ((row.is_value_set_explicitly(HistoryAndBookmarkRow::CREATED) &&
-        row.created() != Time()) ||
-       (row.is_value_set_explicitly(HistoryAndBookmarkRow::LAST_VISIT_TIME) &&
-        row.last_visit_time() != Time())))
-    return false;
-
   return true;
 }
 
@@ -199,6 +202,22 @@ bool AndroidProviderBackend::DeleteHistoryAndBookmarks(
   return true;
 }
 
+bool AndroidProviderBackend::DeleteHistory(
+    const std::string& selection,
+    const std::vector<string16>& selection_args,
+    int* deleted_count) {
+  HistoryNotifications notifications;
+
+  ScopedTransaction transaction(history_db_, thumbnail_db_);
+
+  if (!DeleteHistory(selection, selection_args, deleted_count,
+                     &notifications))
+    return false;
+
+  transaction.Commit();
+  BroadcastNotifications(notifications);
+  return true;
+}
 
 AndroidProviderBackend::HistoryNotification::HistoryNotification(
     int type,
@@ -215,7 +234,23 @@ AndroidProviderBackend::ScopedTransaction::ScopedTransaction(
     ThumbnailDatabase* thumbnail_db)
     : history_db_(history_db),
       thumbnail_db_(thumbnail_db),
-      committed_(false) {
+      committed_(false),
+      history_transaction_nesting_(history_db_->transaction_nesting()),
+      thumbnail_transaction_nesting_(thumbnail_db_->transaction_nesting()) {
+  // Commit all existing transactions since the AndroidProviderBackend's
+  // transaction is very like to be rolled back when compared with the others.
+  // The existing transactions have been scheduled to commit by
+  // ScheduleCommit in HistoryBackend and the same number of transaction
+  // will be created after this scoped transaction ends, there should have no
+  // issue to directly commit all transactions here.
+  int count = history_transaction_nesting_;
+  while (count--)
+    history_db_->CommitTransaction();
+
+  count = thumbnail_transaction_nesting_;
+  while (count--)
+    thumbnail_db_->CommitTransaction();
+
   history_db_->BeginTransaction();
   thumbnail_db_->BeginTransaction();
 }
@@ -225,6 +260,17 @@ AndroidProviderBackend::ScopedTransaction::~ScopedTransaction() {
     history_db_->RollbackTransaction();
     thumbnail_db_->RollbackTransaction();
   }
+  // There is no transaction now.
+  DCHECK_EQ(0, history_db_->transaction_nesting());
+  DCHECK_EQ(0, thumbnail_db_->transaction_nesting());
+
+  int count = history_transaction_nesting_;
+  while (count--)
+    history_db_->BeginTransaction();
+
+  count = thumbnail_transaction_nesting_;
+  while (count--)
+    thumbnail_db_->BeginTransaction();
 }
 
 void AndroidProviderBackend::ScopedTransaction::Commit() {
@@ -250,8 +296,7 @@ bool AndroidProviderBackend::UpdateHistoryAndBookmarks(
     return false;
 
   TableIDRows ids_set;
-  if (!GetSelectedURLs(selection, selection_args, kVirtualBookmarkTable,
-                       &ids_set))
+  if (!GetSelectedURLs(selection, selection_args, &ids_set))
     return false;
 
   if (ids_set.empty()) {
@@ -301,7 +346,7 @@ bool AndroidProviderBackend::UpdateHistoryAndBookmarks(
 
   if (!modified->changed_urls.empty())
     notifications->push_back(HistoryNotification(
-        chrome::NOTIFICATION_HISTORY_TYPED_URLS_MODIFIED, modified.release()));
+        chrome::NOTIFICATION_HISTORY_URLS_MODIFIED, modified.release()));
 
   if (!favicon->urls.empty())
     notifications->push_back(HistoryNotification(
@@ -347,7 +392,7 @@ AndroidURLID AndroidProviderBackend::InsertHistoryAndBookmark(
   }
 
   notifications->push_back(HistoryNotification(
-      chrome::NOTIFICATION_HISTORY_TYPED_URLS_MODIFIED, modified.release()));
+      chrome::NOTIFICATION_HISTORY_URLS_MODIFIED, modified.release()));
   if (favicon.get())
     notifications->push_back(HistoryNotification(
         chrome::NOTIFICATION_FAVICON_CHANGED, favicon.release()));
@@ -364,40 +409,71 @@ bool AndroidProviderBackend::DeleteHistoryAndBookmarks(
     return false;
 
   TableIDRows ids_set;
-  if (!GetSelectedURLs(selection, selection_args, kVirtualBookmarkTable,
-                       &ids_set))
+  if (!GetSelectedURLs(selection, selection_args, &ids_set))
     return false;
 
   if (ids_set.empty()) {
-    deleted_count = 0;
+    *deleted_count = 0;
     return true;
   }
 
-  scoped_ptr<URLsDeletedDetails> deleted_details(new URLsDeletedDetails);
-  scoped_ptr<FaviconChangeDetails> favicon(new FaviconChangeDetails);
-  for (TableIDRows::const_iterator i = ids_set.begin(); i != ids_set.end();
-       ++i) {
-    URLRow url_row;
-    if (!history_db_->GetURLRow(i->url_id, &url_row))
-      return false;
-    deleted_details->rows.push_back(url_row);
-    deleted_details->urls.insert(url_row.url());
-    if (thumbnail_db_->GetIconMappingsForPageURL(url_row.url(), NULL))
-      favicon->urls.insert(url_row.url());
+  if (!DeleteHistoryInternal(ids_set, true, notifications))
+    return false;
+
+  *deleted_count = ids_set.size();
+
+  return true;
+}
+
+bool AndroidProviderBackend::DeleteHistory(
+    const std::string& selection,
+    const std::vector<string16>& selection_args,
+    int* deleted_count,
+    HistoryNotifications* notifications) {
+  if (!EnsureInitializedAndUpdated())
+    return false;
+
+  TableIDRows ids_set;
+  if (!GetSelectedURLs(selection, selection_args, &ids_set))
+    return false;
+
+  if (ids_set.empty()) {
+    *deleted_count = 0;
+    return true;
   }
 
-  for (std::vector<SQLHandler*>::iterator i =
-       sql_handlers_.begin(); i != sql_handlers_.end(); ++i) {
-    if (!(*i)->Delete(ids_set))
+  *deleted_count = ids_set.size();
+
+  // Get the bookmarked rows.
+  std::vector<HistoryAndBookmarkRow> bookmarks;
+  for (TableIDRows::const_iterator i = ids_set.begin(); i != ids_set.end();
+       ++i) {
+    if (i->bookmarked) {
+      AndroidURLRow android_url_row;
+      if (!history_db_->GetAndroidURLRow(i->url_id, &android_url_row))
+        return false;
+      HistoryAndBookmarkRow row;
+      row.set_raw_url(android_url_row.raw_url);
+      row.set_url(i->url);
+      // Set the visit time to the UnixEpoch since that's when the Android
+      // system time starts.
+      row.set_last_visit_time(Time::UnixEpoch());
+      row.set_visit_count(0);
+      // We don't want to change the bookmark model, so set_is_bookmark() is
+      // not called.
+      bookmarks.push_back(row);
+    }
+  }
+
+  // Don't delete the bookmark from bookmark model when deleting the history.
+  if (!DeleteHistoryInternal(ids_set, false, notifications))
+    return false;
+
+  for (std::vector<HistoryAndBookmarkRow>::const_iterator i = bookmarks.begin();
+       i != bookmarks.end(); ++i) {
+    if (!InsertHistoryAndBookmark(*i, notifications))
       return false;
   }
-  *deleted_count = ids_set.size();
-  notifications->push_back(HistoryNotification(
-      chrome::NOTIFICATION_HISTORY_URLS_DELETED,
-      deleted_details.release()));
-  if (favicon.get() && !favicon->urls.empty())
-    notifications->push_back(HistoryNotification(
-        chrome::NOTIFICATION_FAVICON_CHANGED, favicon.release()));
 
   return true;
 }
@@ -644,10 +720,19 @@ bool AndroidProviderBackend::UpdateVisitedURLs() {
   sql::Statement statement(db_->GetCachedStatement(SQL_FROM_HERE,
                                                    kURLUpdateClause));
   while (statement.Step()) {
-    if (!history_db_->AddBookmarkCacheRow(
-            Time::FromInternalValue(statement.ColumnInt64(2)),
-            Time::FromInternalValue(statement.ColumnInt64(1)),
-            statement.ColumnInt64(0)))
+    // The last_visit_time and the created time should be same when the visit
+    // count is 0, this behavior is also required by the Android CTS.
+    // The created_time could be set to the last_visit_time only when the type
+    // of the 'created' column is NULL because the left join is used in query
+    // and there is no row in the visit table when the visit count is 0.
+    Time last_visit_time = Time::FromInternalValue(statement.ColumnInt64(1));
+    Time created_time = last_visit_time;
+
+    if (statement.ColumnType(2) != sql::COLUMN_TYPE_NULL)
+      created_time = Time::FromInternalValue(statement.ColumnInt64(2));
+
+    if (!history_db_->AddBookmarkCacheRow(created_time, last_visit_time,
+                                          statement.ColumnInt64(0)))
       return false;
   }
   return true;
@@ -674,10 +759,11 @@ bool AndroidProviderBackend::UpdateBookmarks() {
   for (std::vector<GURL>::const_iterator i = bookmark_urls.begin();
       i != bookmark_urls.end(); ++i) {
     URLID url_id = history_db_->GetRowForURL(*i, NULL);
-    if (url_id == 0) {
-      VLOG(1) << "Can not find bookmark in history " << i->spec();
+    if (url_id == 0)
+      // TODO(michaelbai): Add a row to url and android_url table as the
+      // bookmark could be added manually by user or insertted by sync.
       continue;
-    }
+
     url_ids.push_back(url_id);
   }
 
@@ -693,8 +779,7 @@ bool AndroidProviderBackend::UpdateFavicon() {
   while (enumerator.GetNextIconMapping(&icon_mapping)) {
     URLID url_id = history_db_->GetRowForURL(icon_mapping.page_url, NULL);
     if (url_id == 0) {
-      LOG(ERROR) << "Can not find favicon's page url " <<
-          icon_mapping.page_url.spec();
+      LOG(ERROR) << "Can not find favicon's page url";
       continue;
     }
     history_db_->SetFaviconID(url_id, icon_mapping.icon_id);
@@ -709,11 +794,12 @@ bool AndroidProviderBackend::UpdateSearchTermTable() {
     string16 term = statement.ColumnString16(0);
     Time last_visit_time = Time::FromInternalValue(statement.ColumnInt64(1));
     SearchTermRow search_term_row;
-    if (history_db_->GetSearchTerm(term, &search_term_row) &&
-        search_term_row.last_visit_time != last_visit_time) {
-      search_term_row.last_visit_time = last_visit_time;
-      if (!history_db_->UpdateSearchTerm(search_term_row.id, search_term_row))
-        return false;
+    if (history_db_->GetSearchTerm(term, &search_term_row)) {
+      if (search_term_row.last_visit_time != last_visit_time) {
+        search_term_row.last_visit_time = last_visit_time;
+        if (!history_db_->UpdateSearchTerm(search_term_row.id, search_term_row))
+          return false;
+      }
     } else {
       if (!history_db_->AddSearchTerm(term, last_visit_time))
         return false;
@@ -751,10 +837,9 @@ int AndroidProviderBackend::AppendBookmarkResultColumn(
 bool AndroidProviderBackend::GetSelectedURLs(
     const std::string& selection,
     const std::vector<string16>& selection_args,
-    const char* virtual_table,
     TableIDRows* rows) {
-  std::string sql("SELECT url_id, urls_url FROM (");
-  sql.append(virtual_table);
+  std::string sql("SELECT url_id, urls_url, bookmark FROM (");
+  sql.append(kVirtualHistoryAndBookmarkTable);
   sql.append(" )");
 
   if (!selection.empty()) {
@@ -773,6 +858,7 @@ bool AndroidProviderBackend::GetSelectedURLs(
     TableIDRow row;
     row.url_id = statement.ColumnInt64(0);
     row.url = GURL(statement.ColumnString(1));
+    row.bookmarked = statement.ColumnBool(2);
     rows->push_back(row);
   }
   return true;
@@ -860,12 +946,11 @@ bool AndroidProviderBackend::SimulateUpdateURL(
   if (!history_db_->GetURLRow(ids[0].url_id, &old_url_row))
     return false;
   deleted_details->rows.push_back(old_url_row);
-  deleted_details->urls.insert(old_url_row.url());
 
   FaviconID favicon_id = statement->statement()->ColumnInt64(4);
   if (favicon_id) {
     std::vector<unsigned char> favicon;
-    if (!thumbnail_db_->GetFavicon(favicon_id, NULL, &favicon, NULL))
+    if (!thumbnail_db_->GetFavicon(favicon_id, NULL, &favicon, NULL, NULL))
       return false;
     if (!favicon.empty())
       new_row.set_favicon(favicon);
@@ -937,7 +1022,7 @@ bool AndroidProviderBackend::SimulateUpdateURL(
     notifications->push_back(HistoryNotification(
         chrome::NOTIFICATION_FAVICON_CHANGED, favicon_details.release()));
   notifications->push_back(HistoryNotification(
-      chrome::NOTIFICATION_HISTORY_TYPED_URLS_MODIFIED, modified.release()));
+      chrome::NOTIFICATION_HISTORY_URLS_MODIFIED, modified.release()));
 
   return true;
 }
@@ -951,7 +1036,7 @@ AndroidStatement* AndroidProviderBackend::QueryHistoryAndBookmarksInternal(
   sql.append("SELECT ");
   int replaced_index = AppendBookmarkResultColumn(projections, &sql);
   sql.append(" FROM (");
-  sql.append(kVirtualBookmarkTable);
+  sql.append(kVirtualHistoryAndBookmarkTable);
   sql.append(")");
 
   if (!selection.empty()) {
@@ -974,6 +1059,39 @@ AndroidStatement* AndroidProviderBackend::QueryHistoryAndBookmarksInternal(
   }
   sql::Statement* result = statement.release();
   return new AndroidStatement(result, replaced_index);
+}
+
+bool AndroidProviderBackend::DeleteHistoryInternal(
+    const TableIDRows& urls,
+    bool delete_bookmarks,
+    HistoryNotifications* notifications) {
+  scoped_ptr<URLsDeletedDetails> deleted_details(new URLsDeletedDetails);
+  scoped_ptr<FaviconChangeDetails> favicon(new FaviconChangeDetails);
+  for (TableIDRows::const_iterator i = urls.begin(); i != urls.end(); ++i) {
+    URLRow url_row;
+    if (!history_db_->GetURLRow(i->url_id, &url_row))
+      return false;
+    deleted_details->rows.push_back(url_row);
+    if (thumbnail_db_->GetIconMappingsForPageURL(url_row.url(), NULL))
+      favicon->urls.insert(url_row.url());
+  }
+
+  // Only invoke Delete on the BookmarkModelHandler if we need
+  // to delete bookmarks.
+  for (std::vector<SQLHandler*>::iterator i =
+       sql_handlers_.begin(); i != sql_handlers_.end(); ++i) {
+    if ((*i) != bookmark_model_handler_.get() || delete_bookmarks)
+      if (!(*i)->Delete(urls))
+        return false;
+  }
+
+  notifications->push_back(HistoryNotification(
+      chrome::NOTIFICATION_HISTORY_URLS_DELETED,
+      deleted_details.release()));
+  if (favicon.get() && !favicon->urls.empty())
+    notifications->push_back(HistoryNotification(
+        chrome::NOTIFICATION_FAVICON_CHANGED, favicon.release()));
+  return true;
 }
 
 void AndroidProviderBackend::BroadcastNotifications(

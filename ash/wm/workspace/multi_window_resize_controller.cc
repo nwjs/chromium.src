@@ -6,13 +6,13 @@
 
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
-#include "ash/wm/root_window_event_filter.h"
 #include "ash/wm/window_animations.h"
 #include "ash/wm/workspace/workspace_event_filter.h"
 #include "ash/wm/workspace/workspace_window_resizer.h"
 #include "grit/ui_resources.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
+#include "ui/aura/shared/compound_event_filter.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/hit_test.h"
@@ -67,7 +67,7 @@ class MultiWindowResizeController::ResizeView : public views::View {
     int image_id =
         direction == TOP_BOTTOM ? IDR_AURA_MULTI_WINDOW_RESIZE_H :
                                   IDR_AURA_MULTI_WINDOW_RESIZE_V;
-    image_ = rb.GetImageNamed(image_id).ToSkBitmap();
+    image_ = rb.GetImageNamed(image_id).ToImageSkia();
   }
 
   // views::View overrides:
@@ -75,7 +75,7 @@ class MultiWindowResizeController::ResizeView : public views::View {
     return gfx::Size(image_->width(), image_->height());
   }
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE {
-    canvas->DrawBitmapInt(*image_, 0, 0);
+    canvas->DrawImageInt(*image_, 0, 0);
   }
   virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE {
     gfx::Point location(event.location());
@@ -86,11 +86,11 @@ class MultiWindowResizeController::ResizeView : public views::View {
   virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE {
     gfx::Point location(event.location());
     views::View::ConvertPointToScreen(this, &location);
-    controller_->Resize(location);
+    controller_->Resize(location, event.flags());
     return true;
   }
   virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE {
-    controller_->CompleteResize();
+    controller_->CompleteResize(event.flags());
   }
   virtual void OnMouseCaptureLost() OVERRIDE {
     controller_->CancelResize();
@@ -98,13 +98,14 @@ class MultiWindowResizeController::ResizeView : public views::View {
   virtual gfx::NativeCursor GetCursor(
       const views::MouseEvent& event) OVERRIDE {
     int component = (direction_ == LEFT_RIGHT) ? HTRIGHT : HTBOTTOM;
-    return RootWindowEventFilter::CursorForWindowComponent(component);
+    return aura::shared::CompoundEventFilter::CursorForWindowComponent(
+        component);
   }
 
  private:
   MultiWindowResizeController* controller_;
   const Direction direction_;
-  const SkBitmap* image_;
+  const gfx::ImageSkia* image_;
 
   DISALLOW_COPY_AND_ASSIGN(ResizeView);
 };
@@ -355,8 +356,9 @@ void MultiWindowResizeController::ShowNow() {
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
   params.transparent = true;
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  params.parent = Shell::GetInstance()->GetContainer(
-      ash::internal::kShellWindowId_AlwaysOnTopContainer);
+  params.parent = Shell::GetContainer(
+      Shell::GetActiveRootWindow(),
+      internal::kShellWindowId_AlwaysOnTopContainer);
   params.can_activate = false;
   ResizeView* view = new ResizeView(this, windows_.direction);
   params.delegate = new views::WidgetDelegateView;
@@ -373,7 +375,8 @@ void MultiWindowResizeController::ShowNow() {
   mouse_watcher_.reset(new views::MouseWatcher(
                            new ResizeMouseWatcherHost(this),
                            this));
-  mouse_watcher_->set_notify_on_exit_time_ms(kHideDelayMS);
+  mouse_watcher_->set_notify_on_exit_time(
+      base::TimeDelta::FromMilliseconds(kHideDelayMS));
   mouse_watcher_->Start();
 }
 
@@ -400,15 +403,16 @@ void MultiWindowResizeController::StartResize(
   }
   int component = windows_.direction == LEFT_RIGHT ? HTRIGHT : HTBOTTOM;
   window_resizer_.reset(WorkspaceWindowResizer::Create(
-      windows_.window1, parent_location, component, grid_size_, windows));
+      windows_.window1, parent_location, component, windows));
 }
 
-void MultiWindowResizeController::Resize(const gfx::Point& screen_location) {
+void MultiWindowResizeController::Resize(const gfx::Point& screen_location,
+                                         int event_flags) {
   gfx::Point parent_location(screen_location);
   aura::Window::ConvertPointToWindow(windows_.window1->GetRootWindow(),
                                      windows_.window1->parent(),
                                      &parent_location);
-  window_resizer_->Drag(parent_location);
+  window_resizer_->Drag(parent_location, event_flags);
   gfx::Rect bounds = CalculateResizeWidgetBounds(parent_location);
   if (windows_.direction == LEFT_RIGHT)
     bounds.set_y(show_bounds_.y());
@@ -417,8 +421,8 @@ void MultiWindowResizeController::Resize(const gfx::Point& screen_location) {
   resize_widget_->SetBounds(bounds);
 }
 
-void MultiWindowResizeController::CompleteResize() {
-  window_resizer_->CompleteDrag();
+void MultiWindowResizeController::CompleteResize(int event_flags) {
+  window_resizer_->CompleteDrag(event_flags);
   window_resizer_.reset();
 
   // Mouse may still be over resizer, if not hide.

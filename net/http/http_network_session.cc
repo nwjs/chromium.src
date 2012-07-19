@@ -36,7 +36,6 @@ net::ClientSocketPoolManager* CreateSocketPoolManager(
       params.cert_verifier,
       params.server_bound_cert_service,
       params.transport_security_state,
-      params.ssl_host_info_factory,
       params.ssl_session_cache_shard,
       params.proxy_service,
       params.ssl_config_service,
@@ -63,7 +62,8 @@ HttpNetworkSession::HttpNetworkSession(const Params& params)
           CreateSocketPoolManager(WEBSOCKET_SOCKET_POOL, params)),
       spdy_session_pool_(params.host_resolver,
                          params.ssl_config_service,
-                         params.http_server_properties),
+                         params.http_server_properties,
+                         params.trusted_spdy_proxy),
       ALLOW_THIS_IN_INITIALIZER_LIST(http_stream_factory_(
           new HttpStreamFactoryImpl(this))),
       params_(params) {

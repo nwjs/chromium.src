@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_VIEWS_EXPORT_H_
 #define UI_VIEWS_VIEWS_EXPORT_H_
-#pragma once
 
 // Defines VIEWS_EXPORT so that functionality implemented by the Views module
 // can be exported to consumers.
@@ -19,7 +18,11 @@
 #endif  // defined(VIEWS_IMPLEMENTATION)
 
 #else  // defined(WIN32)
+#if defined(VIEWS_IMPLEMENTATION)
 #define VIEWS_EXPORT __attribute__((visibility("default")))
+#else
+#define VIEWS_EXPORT
+#endif
 #endif
 
 #else  // defined(COMPONENT_BUILD)

@@ -4,7 +4,6 @@
 
 #ifndef BASE_LOGGING_H_
 #define BASE_LOGGING_H_
-#pragma once
 
 #include <cassert>
 #include <string>
@@ -814,7 +813,7 @@ class BASE_EXPORT LogMessage {
   // This is useful since the LogMessage class uses a lot of Win32 calls
   // that will lose the value of GLE and the code that called the log function
   // will have lost the thread error value when the log call returns.
-  class SaveLastError {
+  class BASE_EXPORT SaveLastError {
    public:
     SaveLastError();
     ~SaveLastError();

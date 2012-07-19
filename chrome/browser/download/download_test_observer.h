@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_DOWNLOAD_DOWNLOAD_TEST_OBSERVER_H_
 #define CHROME_BROWSER_DOWNLOAD_DOWNLOAD_TEST_OBSERVER_H_
-#pragma once
 
 #include <set>
 #include <vector>
@@ -13,6 +12,7 @@
 #include "base/memory/ref_counted.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/download_manager.h"
+#include "content/public/browser/download_url_parameters.h"
 #include "net/base/net_errors.h"
 
 // Detects changes to the downloads after construction.
@@ -255,7 +255,7 @@ class DownloadTestItemCreationObserver
   bool started() const { return called_back_count_ > 0; }
   bool succeeded() const { return started() && (error_ == net::OK); }
 
-  const content::DownloadManager::OnStartedCallback callback();
+  const content::DownloadUrlParameters::OnStartedCallback callback();
 
  private:
   friend class base::RefCountedThreadSafe<DownloadTestItemCreationObserver>;

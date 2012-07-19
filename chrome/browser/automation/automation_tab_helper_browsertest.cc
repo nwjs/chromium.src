@@ -12,7 +12,8 @@
 #include "chrome/browser/automation/automation_tab_helper.h"
 #include "chrome/browser/automation/mock_tab_event_observer.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
@@ -52,10 +53,8 @@ class MockNotificationObserver : public content::NotificationObserver {
 
 class AutomationTabHelperBrowserTest : public InProcessBrowserTest {
  public:
-  AutomationTabHelperBrowserTest() {
-    EnableDOMAutomation();
-  }
-  virtual ~AutomationTabHelperBrowserTest() { }
+  AutomationTabHelperBrowserTest() {}
+  virtual ~AutomationTabHelperBrowserTest() {}
 
   void SetUpInProcessBrowserTestFixture() {
     EXPECT_TRUE(PathService::Get(chrome::DIR_TEST_DATA, &test_data_dir_));
@@ -91,7 +90,7 @@ class AutomationTabHelperBrowserTest : public InProcessBrowserTest {
     std::string script = base::StringPrintf("runTestCase(%d);",
                                             test_case_number);
     content::RenderViewHost* host =
-        browser()->GetSelectedWebContents()->GetRenderViewHost();
+        chrome::GetActiveWebContents(browser())->GetRenderViewHost();
     if (wait_for_response) {
       ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
           host, L"", ASCIIToWide(script)));
@@ -104,7 +103,7 @@ class AutomationTabHelperBrowserTest : public InProcessBrowserTest {
 
   // Returns the |AutomationTabHelper| for the first browser's first tab.
   AutomationTabHelper* tab_helper() {
-    return browser()->GetTabContentsWrapperAt(0)->automation_tab_helper();
+    return chrome::GetTabContentsAt(browser(), 0)->automation_tab_helper();
   }
 
  protected:

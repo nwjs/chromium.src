@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_GPU_WEBGRAPHICSCONTEXT3D_IN_PROCESS_COMMAND_BUFFER_IMPL_H_
 #define WEBKIT_GPU_WEBGRAPHICSCONTEXT3D_IN_PROCESS_COMMAND_BUFFER_IMPL_H_
-#pragma once
 
 #if defined(ENABLE_GPU)
 
@@ -475,10 +474,15 @@ class WebGraphicsContext3DInProcessCommandBufferImpl
   virtual void getQueryObjectuivEXT(
       WebGLId query, WGC3Denum pname, WGC3Duint* params);
 
+  virtual void copyTextureCHROMIUM(WGC3Denum target, WGC3Duint source_id,
+                                   WGC3Duint dest_id, WGC3Dint level,
+                                   WGC3Denum internal_format);
+
+  virtual void bindUniformLocationCHROMIUM(WebGLId program, WGC3Dint location,
+                                           const WGC3Dchar* uniform);
+
  protected:
-#if WEBKIT_USING_SKIA
   virtual GrGLInterface* onCreateGrGLInterface();
-#endif
 
  private:
   // SwapBuffers callback.

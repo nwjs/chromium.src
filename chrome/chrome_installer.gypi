@@ -4,7 +4,7 @@
 
 {
   'variables': {
-    'lastchange_path': '<(DEPTH)/build/util/LASTCHANGE',
+    'lastchange_path': '../build/util/LASTCHANGE',
     # 'branding_dir' is set in the 'conditions' section at the bottom.
   },
   'conditions': [
@@ -14,21 +14,14 @@
           'target_name': 'gcapi_dll',
           'type': 'loadable_module',
           'dependencies': [
-            'installer_util',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/google_update/google_update.gyp:google_update',
+            'gcapi_lib',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
           ],
           'sources': [
-            'installer/gcapi/gcapi.cc',
             'installer/gcapi/gcapi.def',
-            'installer/gcapi/gcapi.h',
-            'installer/gcapi/gcapi_omaha_experiment.cc',
-            'installer/gcapi/gcapi_omaha_experiment.h',
-            'installer/gcapi/gcapi_reactivation.cc',
-            'installer/gcapi/gcapi_reactivation.h',
+            'installer/gcapi/gcapi_dll.cc',
           ],
         },
         {
@@ -36,11 +29,12 @@
           'type': 'static_library',
           'dependencies': [
             'installer_util',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/google_update/google_update.gyp:google_update',
+            '../base/base.gyp:base',
+            '../chrome/chrome.gyp:launcher_support',
+            '../google_update/google_update.gyp:google_update',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
           ],
           'sources': [
             'installer/gcapi/gcapi.cc',
@@ -59,12 +53,12 @@
             'gcapi_dll',
             'gcapi_lib',
             'installer_util',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/base/base.gyp:test_support_base',
-            '<(DEPTH)/testing/gtest.gyp:gtest',
+            '../base/base.gyp:base',
+            '../base/base.gyp:test_support_base',
+            '../testing/gtest.gyp:gtest',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
           ],
           'sources': [
             'installer/gcapi/gcapi_last_run_test.cc',
@@ -80,16 +74,16 @@
           'dependencies': [
             'installer_util',
             'installer_util_strings',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/base/base.gyp:base_i18n',
-            '<(DEPTH)/base/base.gyp:test_support_base',
-            '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
-            '<(DEPTH)/content/content.gyp:content_common',
-            '<(DEPTH)/testing/gmock.gyp:gmock',
-            '<(DEPTH)/testing/gtest.gyp:gtest',
+            '../base/base.gyp:base',
+            '../base/base.gyp:base_i18n',
+            '../base/base.gyp:test_support_base',
+            '../build/temp_gyp/googleurl.gyp:googleurl',
+            '../content/content.gyp:content_common',
+            '../testing/gmock.gyp:gmock',
+            '../testing/gtest.gyp:gtest',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
           ],
           'sources': [
             'installer/setup/compat_checks_unittest.cc',
@@ -160,6 +154,7 @@
                 # (generated_resources.grd) doesn't match the generated file
                 # (installer_util_strings.h).
                 '<(SHARED_INTERMEDIATE_DIR)/installer_util_strings/installer_util_strings.h',
+                '<(SHARED_INTERMEDIATE_DIR)/installer_util_strings/installer_util_strings.rc',
               ],
               'action': ['python',
                          '<(create_string_rc_py)',
@@ -178,19 +173,65 @@
           },
         },
         {
+          'target_name': 'launcher_support',
+          'type': 'static_library',
+          'include_dirs': [
+            '..',
+          ],
+          'direct_dependent_settings': {
+            'include_dirs': [
+              '..',
+            ],
+          },
+          'dependencies': [
+            '<(DEPTH)/base/base.gyp:base',
+          ],
+          'sources': [
+            'installer/launcher_support/chrome_launcher_support.cc',
+            'installer/launcher_support/chrome_launcher_support.h',
+          ],
+        },
+        {
+          'target_name': 'launcher_support64',
+          'type': 'static_library',
+          'include_dirs': [
+            '..',
+          ],
+          'direct_dependent_settings': {
+            'include_dirs': [
+              '..',
+            ],
+          },
+          'defines': [
+              '<@(nacl_win64_defines)',
+          ], 
+              'dependencies': [
+              '<(DEPTH)/base/base.gyp:base_nacl_win64',
+          ],
+          'configurations': {
+            'Common_Base': {
+              'msvs_target_platform': 'x64',
+            },
+          },
+          'sources': [
+            'installer/launcher_support/chrome_launcher_support.cc',
+            'installer/launcher_support/chrome_launcher_support.h',
+          ],
+        },
+        {
           'target_name': 'mini_installer_test',
           'type': 'executable',
           'dependencies': [
             'installer_util',
             'installer_util_strings',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/base/base.gyp:base_i18n',
-            '<(DEPTH)/base/base.gyp:test_support_base',
-            '<(DEPTH)/chrome/chrome.gyp:test_support_common',
-            '<(DEPTH)/testing/gtest.gyp:gtest',
+            '../base/base.gyp:base',
+            '../base/base.gyp:base_i18n',
+            '../base/base.gyp:test_support_base',
+            '../chrome/chrome.gyp:test_support_common',
+            '../testing/gtest.gyp:gtest',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
           ],
           'sources': [
             '<(SHARED_INTERMEDIATE_DIR)/installer_util_strings/installer_util_strings.rc',
@@ -219,18 +260,16 @@
           'dependencies': [
             'installer_util',
             'installer_util_strings',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
-            '<(DEPTH)/build/util/build_util.gyp:lastchange#target',
-            '<(DEPTH)/build/util/support/support.gyp:*',
-            '<(DEPTH)/chrome_frame/chrome_frame.gyp:chrome_tab_idl',
-            '<(DEPTH)/chrome_frame/chrome_frame.gyp:npchrome_frame',
-            '<(DEPTH)/breakpad/breakpad.gyp:breakpad_handler',
-            '<(DEPTH)/rlz/rlz.gyp:rlz_lib',
-            '<(DEPTH)/third_party/zlib/zlib.gyp:zlib',
+            '../base/base.gyp:base',
+            '../build/temp_gyp/googleurl.gyp:googleurl',
+            '../chrome_frame/chrome_frame.gyp:chrome_tab_idl',
+            '../chrome_frame/chrome_frame.gyp:npchrome_frame',
+            '../breakpad/breakpad.gyp:breakpad_handler',
+            '../rlz/rlz.gyp:rlz_lib',
+            '../third_party/zlib/zlib.gyp:zlib',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
             '<(INTERMEDIATE_DIR)',
             '<(SHARED_INTERMEDIATE_DIR)/setup',
           ],
@@ -274,7 +313,7 @@
               'rule_name': 'setup_version',
               'extension': 'version',
               'variables': {
-                'version_py_path': '<(DEPTH)/chrome/tools/build/version.py',
+                'version_py_path': '../chrome/tools/build/version.py',
                 'template_input_path': 'installer/setup/setup_exe_version.rc.version',
               },
               'inputs': [
@@ -302,7 +341,7 @@
               'extension': 'release',
               'variables': {
                 'scan_server_dlls_py' : 'tools/build/win/scan_server_dlls.py',
-                'template_file': 'mini_installer/chrome.release',
+                'template_file': 'installer/mini_installer/chrome.release',
               },
               'inputs': [
                 '<(scan_server_dlls_py)',
@@ -324,6 +363,13 @@
             },
           ],
           'conditions': [
+            ['component == "shared_library"', {
+              'msvs_settings': {
+                'VCManifestTool': {
+                  'EmbedManifest': 'false',
+                },
+              },
+            }],
             # TODO(mark):  <(branding_dir) should be defined by the
             # global condition block at the bottom of the file, but
             # this doesn't work due to the following issue:
@@ -334,10 +380,12 @@
             [ 'branding == "Chrome"', {
               'variables': {
                  'branding_dir': 'app/theme/google_chrome',
+                 'branding_dir_100': 'app/theme/default_100_percent/google_chrome',
               },
             }, { # else branding!="Chrome"
               'variables': {
                  'branding_dir': 'app/theme/chromium',
+                 'branding_dir_100': 'app/theme/default_100_percent/chromium',
               },
             }],
           ],
@@ -348,22 +396,23 @@
           'dependencies': [
             'installer_util',
             'installer_util_strings',
-            '<(DEPTH)/base/base.gyp:base',
-            '<(DEPTH)/base/base.gyp:base_i18n',
-            '<(DEPTH)/base/base.gyp:test_support_base',
-            '<(DEPTH)/build/temp_gyp/googleurl.gyp:googleurl',
-            '<(DEPTH)/chrome_frame/chrome_frame.gyp:chrome_tab_idl',
-            '<(DEPTH)/testing/gmock.gyp:gmock',
-            '<(DEPTH)/testing/gtest.gyp:gtest',
+            '../base/base.gyp:base',
+            '../base/base.gyp:base_i18n',
+            '../base/base.gyp:test_support_base',
+            '../build/temp_gyp/googleurl.gyp:googleurl',
+            '../chrome_frame/chrome_frame.gyp:chrome_tab_idl',
+            '../testing/gmock.gyp:gmock',
+            '../testing/gtest.gyp:gtest',
           ],
           'include_dirs': [
-            '<(DEPTH)',
+            '..',
             '<(INTERMEDIATE_DIR)',
           ],
           # TODO(robertshield): Move the items marked with "Move to lib"
           # below into a separate lib and then link both setup.exe and
           # setup_unittests.exe against that.
           'sources': [
+            'installer/mini_installer/chrome.release',  # Move to lib
             'installer/mini_installer/appid.h',
             'installer/mini_installer/chrome_appid.cc',
             'installer/mini_installer/configuration.cc',
@@ -375,16 +424,46 @@
             'installer/mini_installer/mini_string.cc',
             'installer/mini_installer/mini_string.h',
             'installer/mini_installer/mini_string_test.cc',
-            'installer/setup/install_worker.cc',    # Move to lib
-            'installer/setup/install_worker.h',     # Move to lib
+            'installer/setup/install.cc',               # Move to lib
+            'installer/setup/install.h',                # Move to lib
+            'installer/setup/install_unittest.cc',
+            'installer/setup/install_worker.cc',        # Move to lib
+            'installer/setup/install_worker.h',         # Move to lib
             'installer/setup/install_worker_unittest.cc',
             'installer/setup/run_all_unittests.cc',
-            'installer/setup/setup_constants.cc',   # Move to lib
-            'installer/setup/setup_constants.h',    # Move to lib
+            'installer/setup/setup_constants.cc',       # Move to lib
+            'installer/setup/setup_constants.h',        # Move to lib
             'installer/setup/setup_unittests.rc',
             'installer/setup/setup_unittests_resource.h',
             'installer/setup/setup_util.cc',
             'installer/setup/setup_util_unittest.cc',
+          ],
+          'rules': [
+            {
+              'rule_name': 'server_dlls',               # Move to lib
+              'extension': 'release',
+              'variables': {
+                'scan_server_dlls_py' : 'tools/build/win/scan_server_dlls.py',
+                'template_file': 'installer/mini_installer/chrome.release',
+              },
+              'inputs': [
+                '<(scan_server_dlls_py)',
+                '<(template_file)'
+              ],
+              'outputs': [
+                '<(INTERMEDIATE_DIR)/registered_dlls.h',
+              ],
+              'action': [
+                'python',
+                '<(scan_server_dlls_py)',
+                '--output_dir=<(PRODUCT_DIR)',
+                '--input_file=<(RULE_INPUT_PATH)',
+                '--header_output_dir=<(INTERMEDIATE_DIR)',
+                # TODO(sgk):  may just use environment variables
+                #'--distribution=$(CHROMIUM_BUILD)',
+                '--distribution=_google_chrome',
+              ],
+            },
           ],
         },
       ],
@@ -393,8 +472,9 @@
       'variables': {
         # Always google_chrome since this only applies to branding==Chrome.
         'branding_dir': 'app/theme/google_chrome',
-        'version' : '<!(python <(version_py_path) -f <(DEPTH)/chrome/VERSION -t "@MAJOR@.@MINOR@.@BUILD@.@PATCH@")',
-        'revision' : '<!(python <(DEPTH)/build/util/lastchange.py --revision-only)',
+        'branding_dir_100': 'app/theme/default_100_percent/google_chrome',
+        'version' : '<!(python <(version_py_path) -f ../chrome/VERSION -t "@MAJOR@.@MINOR@.@BUILD@.@PATCH@")',
+        'revision' : '<!(python ../build/util/lastchange.py --revision-only)',
         'packaging_files_common': [
           'installer/linux/internal/common/apt.include',
           'installer/linux/internal/common/default-app.template',
@@ -505,10 +585,10 @@
             {
               'destination': '<(PRODUCT_DIR)/installer/theme/',
               'files': [
-                '<(branding_dir)/product_logo_16.png',
+                '<(branding_dir_100)/product_logo_16.png',
                 '<(branding_dir)/product_logo_22.png',
                 '<(branding_dir)/product_logo_24.png',
-                '<(branding_dir)/product_logo_32.png',
+                '<(branding_dir_100)/product_logo_32.png',
                 '<(branding_dir)/product_logo_48.png',
                 '<(branding_dir)/product_logo_64.png',
                 '<(branding_dir)/product_logo_128.png',
@@ -897,6 +977,40 @@
                 },
               ],  # actions
             }],  # buildtype=="Official"
+            ['branding=="Chrome" and buildtype=="Official"', {
+              'actions': [
+                {
+		  # copy_keychain_reauthorize.sh explains why this isn't in a
+		  # 'copies' block, but briefly: this is a prebuilt signed
+		  # binary component that relies on a correct signature to
+		  # function properly, and a normal 'copies' block sadly makes
+		  # a trivial modification to the file such that its signature
+		  # is no longer valid.
+                  'action_name': 'Copy keychain_reauthorize',
+                  'variables': {
+                    'keychain_reauthorize_path': 'tools/build/mac/copy_keychain_reauthorize.sh',
+                    'keychain_reauthorize_normal_path': 'installer/mac/internal/keychain_reauthorize/com.google.Chrome',
+                    'keychain_reauthorize_canary_path': 'installer/mac/internal/keychain_reauthorize/com.google.Chrome.canary',
+                    'keychain_reauthorize_output_dir': '<(mac_packaging_dir)/.keychain_reauthorize',
+                  },
+                  'inputs': [
+                    '<(keychain_reauthorize_path)',
+                    '<(keychain_reauthorize_normal_path)',
+                    '<(keychain_reauthorize_canary_path)',
+                  ],
+                  'outputs': [
+                    '<(keychain_reauthorize_output_dir)/com.google.Chrome',
+                    '<(keychain_reauthorize_output_dir)/com.google.Chrome.canary',
+                  ],
+                  'action': [
+                    '<(keychain_reauthorize_path)',
+                    '<(keychain_reauthorize_output_dir)',
+                    '<(keychain_reauthorize_normal_path)',
+                    '<(keychain_reauthorize_canary_path)',
+                  ],
+                },
+              ],  # actions
+            }],  # branding=="Chrome" and buildtype=="Official"
           ],  # conditions
           'copies': [
             {
@@ -937,15 +1051,51 @@
             },
           ],  # copies
         },  # target: installer_packaging
+        {
+          'target_name': 'gcapi_lib',
+          'type': 'static_library',
+          'include_dirs': [
+            '..',
+          ],
+          'sources': [
+            'installer/gcapi_mac/gcapi.h',
+            'installer/gcapi_mac/gcapi.mm',
+          ],
+          'link_settings': {
+            'libraries': [
+              '$(SDKROOT)/System/Library/Frameworks/Cocoa.framework',
+            ],
+          },
+          'xcode_settings': {
+            'ARCHS': [ 'i386', 'x86_64' ],
+            'MACOSX_DEPLOYMENT_TARGET': '10.4',
+            'GCC_ENABLE_OBJC_GC': 'supported',
+          },
+        },
+        {
+          'target_name': 'gcapi_example',
+          'type': 'executable',
+          'dependencies': [   
+            'gcapi_lib',
+          ],
+          'include_dirs': [
+            '..',
+          ],
+          'sources': [
+            'installer/gcapi_mac/gcapi_example_client.mm',
+          ],
+        },
       ],  # targets
     }],  # OS=="mac"
     [ 'branding == "Chrome"', {
       'variables': {
          'branding_dir': 'app/theme/google_chrome',
+         'branding_dir_100': 'app/theme/default_100_percent/google_chrome',
       },
     }, { # else branding!="Chrome"
       'variables': {
          'branding_dir': 'app/theme/chromium',
+         'branding_dir_100': 'app/theme/default_100_percent/chromium',
       },
     }],
   ],

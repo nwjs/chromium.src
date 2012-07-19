@@ -1,16 +1,17 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_CHROME_AUTH_PRIVATE_API_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_CHROME_AUTH_PRIVATE_API_H_
-#pragma once
 
 #include <string>
 #include "chrome/browser/extensions/extension_function.h"
 
 class SetCloudPrintCredentialsFunction : public AsyncExtensionFunction {
  public:
+  DECLARE_EXTENSION_FUNCTION_NAME("chromeAuthPrivate.setCloudPrintCredentials");
+
   SetCloudPrintCredentialsFunction();
 
   // For use only in tests - sets a flag that can cause this function to not
@@ -21,10 +22,8 @@ class SetCloudPrintCredentialsFunction : public AsyncExtensionFunction {
  protected:
   virtual ~SetCloudPrintCredentialsFunction();
 
+  // ExtensionFunction:
   virtual bool RunImpl() OVERRIDE;
-
- private:
-  DECLARE_EXTENSION_FUNCTION_NAME("chromeAuthPrivate.setCloudPrintCredentials");
 };
 
 

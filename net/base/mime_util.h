@@ -4,7 +4,6 @@
 
 #ifndef NET_BASE_MIME_UTIL_H__
 #define NET_BASE_MIME_UTIL_H__
-#pragma once
 
 #include <string>
 #include <vector>
@@ -58,6 +57,11 @@ NET_EXPORT bool IsSupportedMimeType(const std::string& mime_type);
 NET_EXPORT bool MatchesMimeType(const std::string& mime_type_pattern,
                                 const std::string& mime_type);
 
+// Returns true if the |type_string| is a correctly-formed mime type specifier.
+// Allows strings of the form x/y[;params], where "x" is a legal mime type name.
+// Also allows wildcard types -- "x/*", "*/*", and "*".
+NET_EXPORT bool IsMimeType(const std::string& type_string);
+
 // Returns true if and only if all codecs are supported, false otherwise.
 NET_EXPORT bool AreSupportedMediaCodecs(const std::vector<std::string>& codecs);
 
@@ -109,6 +113,15 @@ NET_EXPORT void GetVideoExtensions(
 NET_EXPORT void GetExtensionsForMimeType(
     const std::string& mime_type,
     std::vector<FilePath::StringType>* extensions);
+
+// Test only methods that return lists of proprietary media types and codecs
+// that are not supported by all variations of Chromium.
+// These types and codecs must be blacklisted to ensure consistent layout test
+// results across all Chromium variations.
+NET_EXPORT void GetMediaTypesBlacklistedForTests(
+    std::vector<std::string>* types);
+NET_EXPORT void GetMediaCodecsBlacklistedForTests(
+    std::vector<std::string>* codecs);
 
 }  // namespace net
 

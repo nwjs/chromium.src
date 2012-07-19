@@ -10,29 +10,33 @@
 
 #include <sstream>
 
-#include "base/logging.h"
-#include "base/string_util.h"
-#include "third_party/mozc/session/candidates_lite.pb.h"
-
-#if defined(HAVE_IBUS)
 #include "ash/shell.h"
+#include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/string_util.h"
+#include "chrome/browser/chromeos/input_method/input_method_descriptor.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
+#include "third_party/mozc/session/candidates_lite.pb.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/root_window.h"
-#include "ui/base/ime/ibus_client_impl.h"
 #include "ui/base/ime/input_method_ibus.h"
-
-namespace {
-
-// The list of input method IDs for Mozc Japanese IMEs.
-const char* kMozcJaInputMethodIds[] = { "mozc", "mozc-jp", "mozc-dv" };
-
-}  // namespace
-#endif
 
 namespace chromeos {
 namespace input_method {
+namespace {
+
+bool IsActive(const std::string& input_method_id,
+              const InputMethodDescriptors* descriptors) {
+  for (size_t i = 0; i < descriptors->size(); ++i) {
+    if (descriptors->at(i).id() == input_method_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
 
 InputMethodLookupTable::InputMethodLookupTable()
     : visible(false),
@@ -127,7 +131,7 @@ class IBusUiControllerImpl : public IBusUiController {
     bool result = false;
     // Check the IBus connection status.
     if (ibus_bus_is_connected(ibus_)) {
-      LOG(INFO) << "ibus_bus_is_connected(). IBus connection is ready.";
+      DVLOG(1) << "ibus_bus_is_connected(). IBus connection is ready.";
       FOR_EACH_OBSERVER(Observer, observers_, OnConnectionChange(true));
       result = true;
     }
@@ -145,7 +149,7 @@ class IBusUiControllerImpl : public IBusUiController {
     }
 
     if (ibus_panel_service_) {
-      LOG(ERROR) << "IBusPanelService is already available. Remove it first.";
+      DVLOG(1) << "IBusPanelService is already available. Remove it first.";
       g_object_set_data(G_OBJECT(ibus_), kPanelObjectKey, NULL);
       g_object_unref(ibus_panel_service_);
       ibus_panel_service_ = NULL;
@@ -154,17 +158,17 @@ class IBusUiControllerImpl : public IBusUiController {
     // Create an IBusPanelService object.
     GDBusConnection* ibus_connection = ibus_bus_get_connection(ibus_);
     if (!ibus_connection) {
-      LOG(ERROR) << "ibus_bus_get_connection() failed";
+      DVLOG(1) << "ibus_bus_get_connection() failed";
       return false;
     }
     ibus_panel_service_ = ibus_panel_service_new(ibus_connection);
     if (!ibus_panel_service_) {
-      LOG(ERROR) << "ibus_chromeos_panel_service_new() failed";
+      DVLOG(1) << "ibus_chromeos_panel_service_new() failed";
       return false;
     }
     ConnectPanelServiceSignals();
     g_object_set_data(G_OBJECT(ibus_), kPanelObjectKey, ibus_panel_service_);
-    LOG(INFO) << "IBusPanelService object is successfully (re-)created.";
+    DVLOG(1) << "IBusPanelService object is successfully (re-)created.";
 
     // Request the well-known name *asynchronously*.
     ibus_bus_request_name_async(ibus_,
@@ -182,11 +186,11 @@ class IBusUiControllerImpl : public IBusUiController {
                                       int button,
                                       int flags) OVERRIDE {
     if (!ibus_ || !ibus_bus_is_connected(ibus_)) {
-      LOG(ERROR) << "NotifyCandidateClicked: bus is not connected.";
+      DVLOG(1) << "NotifyCandidateClicked: bus is not connected.";
       return;
     }
     if (!ibus_panel_service_) {
-      LOG(ERROR) << "NotifyCandidateClicked: panel service is not available.";
+      DVLOG(1) << "NotifyCandidateClicked: panel service is not available.";
       return;
     }
 
@@ -200,11 +204,11 @@ class IBusUiControllerImpl : public IBusUiController {
   // IBusUiController override.
   virtual void NotifyCursorUp() OVERRIDE {
     if (!ibus_ || !ibus_bus_is_connected(ibus_)) {
-      LOG(ERROR) << "NotifyCursorUp: bus is not connected.";
+      DVLOG(1) << "NotifyCursorUp: bus is not connected.";
       return;
     }
     if (!ibus_panel_service_) {
-      LOG(ERROR) << "NotifyCursorUp: panel service is not available.";
+      DVLOG(1) << "NotifyCursorUp: panel service is not available.";
       return;
     }
 
@@ -215,25 +219,25 @@ class IBusUiControllerImpl : public IBusUiController {
   // IBusUiController override.
   virtual void NotifyCursorDown() OVERRIDE {
     if (!ibus_ || !ibus_bus_is_connected(ibus_)) {
-      LOG(ERROR) << "NotifyCursorDown: bus is not connected.";
+      DVLOG(1) << "NotifyCursorDown: bus is not connected.";
       return;
     }
     if (!ibus_panel_service_) {
-      LOG(ERROR) << "NotifyCursorDown: panel service is not available.";
+      DVLOG(1) << "NotifyCursorDown: panel service is not available.";
       return;
     }
-     /* Send a D-Bus signal to ibus-daemon *asynchronously*. */
+    /* Send a D-Bus signal to ibus-daemon *asynchronously*. */
     ibus_panel_service_cursor_down(ibus_panel_service_);
   }
 
   // IBusUiController override.
   virtual void NotifyPageUp() OVERRIDE {
     if (!ibus_ || !ibus_bus_is_connected(ibus_)) {
-      LOG(ERROR) << "NotifyPageUp: bus is not connected.";
+      DVLOG(1) << "NotifyPageUp: bus is not connected.";
       return;
     }
     if (!ibus_panel_service_) {
-      LOG(ERROR) << "NotifyPageUp: panel service is not available.";
+      DVLOG(1) << "NotifyPageUp: panel service is not available.";
       return;
     }
 
@@ -244,11 +248,11 @@ class IBusUiControllerImpl : public IBusUiController {
   // IBusUiController override.
   virtual void NotifyPageDown() OVERRIDE {
     if (!ibus_ || !ibus_bus_is_connected(ibus_)) {
-      LOG(ERROR) << "NotifyPageDown: bus is not connected.";
+      DVLOG(1) << "NotifyPageDown: bus is not connected.";
       return;
     }
     if (!ibus_panel_service_) {
-      LOG(ERROR) << "NotifyPageDown: panel service is not available.";
+      DVLOG(1) << "NotifyPageDown: panel service is not available.";
       return;
     }
 
@@ -276,7 +280,7 @@ class IBusUiControllerImpl : public IBusUiController {
 
  private:
   // A class for customizing the behavior of ui::InputMethodIBus for Chrome OS.
-  class IBusChromeOSClientImpl : public ui::internal::IBusClientImpl {
+  class IBusChromeOSClientImpl : public ui::internal::IBusClient {
    public:
     explicit IBusChromeOSClientImpl(IBusUiControllerImpl* ui)
         : ui_(ui) {
@@ -289,28 +293,14 @@ class IBusUiControllerImpl : public IBusUiController {
           INPUT_METHOD_XKB_LAYOUT : INPUT_METHOD_NORMAL;
     }
 
-    virtual void SetCursorLocation(IBusInputContext* context,
-                                   int32 x,
-                                   int32 y,
-                                   int32 w,
-                                   int32 h) OVERRIDE {
+    virtual void SetCursorLocation(const gfx::Rect& cursor_location,
+                                   const gfx::Rect& composition_head) OVERRIDE {
       if (!ui_)
         return;
-
-      const std::string current_input_method_id = GetCurrentInputMethodId();
-      for (size_t i = 0; i < arraysize(kMozcJaInputMethodIds); ++i) {
-        if (kMozcJaInputMethodIds[i] == current_input_method_id) {
-          // Mozc Japanese IMEs require cursor location information to show the
-          // suggestion window in a correct position.
-          ui::internal::IBusClientImpl::SetCursorLocation(context, x, y, w, h);
-          break;  // call IBusUiControllerImpl::SetCursorLocation() as well.
-        }
-      }
-
       // We don't have to call ibus_input_context_set_cursor_location() on
       // Chrome OS because the candidate window for IBus is integrated with
       // Chrome.
-      ui_->SetCursorLocation(NULL, x, y, w, h);
+      ui_->SetCursorLocation(NULL, cursor_location, composition_head);
     }
 
     void set_ui(IBusUiControllerImpl* ui) {
@@ -327,11 +317,15 @@ class IBusUiControllerImpl : public IBusUiController {
   };
 
   // Returns a ui::InputMethodIBus object which is associated with the root
-  // window.
+  // window. Returns NULL if the Ash shell has already been destructed.
   static ui::InputMethodIBus* GetChromeInputMethod() {
-    return static_cast<ui::InputMethodIBus*>(
-        ash::Shell::GetRootWindow()->GetProperty(
-            aura::client::kRootWindowInputMethodKey));
+    if (!ash::Shell::HasInstance())
+      return NULL;
+    aura::Window* root_window = ash::Shell::GetPrimaryRootWindow();
+    if (!root_window)
+      return NULL;
+    return static_cast<ui::InputMethodIBus*>(root_window->GetProperty(
+        aura::client::kRootWindowInputMethodKey));
   }
 
   // Functions that end with Thunk are used to deal with glib callbacks.
@@ -370,7 +364,8 @@ class IBusUiControllerImpl : public IBusUiController {
                                      gint x, gint y, gint width, gint height,
                                      gpointer userdata) {
     return reinterpret_cast<IBusUiControllerImpl*>(userdata)
-        ->SetCursorLocation(sender, x, y, width, height);
+        ->SetCursorLocation(sender, gfx::Rect(x, y, width, height),
+                            gfx::Rect());
   }
   static void UpdateLookupTableThunk(IBusPanelService* sender,
                                      IBusLookupTable* table, gboolean visible,
@@ -495,9 +490,9 @@ class IBusUiControllerImpl : public IBusUiController {
 
   // Handles "connected" signal from ibus-daemon.
   void IBusBusConnected(IBusBus* bus) {
-    LOG(WARNING) << "IBus connection is recovered.";
+    DVLOG(1) << "IBus connection is recovered.";
     if (!MaybeRestorePanelService()) {
-      LOG(ERROR) << "MaybeRestorePanelService() failed";
+      DVLOG(1) << "MaybeRestorePanelService() failed";
       return;
     }
 
@@ -508,7 +503,7 @@ class IBusUiControllerImpl : public IBusUiController {
   // |ibus_panel_service_| object since the connection the service has will be
   // destroyed soon.
   void IBusBusDisconnected(IBusBus* bus) {
-    LOG(WARNING) << "IBus connection is terminated.";
+    DVLOG(1) << "IBus connection is terminated.";
     if (ibus_panel_service_) {
       DisconnectPanelServiceSignals();
       // Since the connection being disconnected is currently mutex-locked,
@@ -554,13 +549,11 @@ class IBusUiControllerImpl : public IBusUiController {
 
   // Handles IBusPanelService's |SetCursorLocation| method call.
   void SetCursorLocation(IBusPanelService *panel,
-                         gint x,
-                         gint y,
-                         gint width,
-                         gint height) {
+                         const gfx::Rect& cursor_location,
+                         const gfx::Rect& composition_head) {
     // Note: |panel| might be NULL. See IBusChromeOSClientImpl above.
     FOR_EACH_OBSERVER(Observer, observers_,
-                      OnSetCursorLocation(x, y, width, height));
+                      OnSetCursorLocation(cursor_location, composition_head));
   }
 
   // Handles IBusPanelService's |UpdatePreeditText| method call.
@@ -607,7 +600,7 @@ class IBusUiControllerImpl : public IBusUiController {
         g_byte_array_append(
             bytearray, reinterpret_cast<const guint8*>(ptr), size);
         if (!lookup_table.mozc_candidates.ParseFromArray(
-               bytearray->data, bytearray->len)) {
+                bytearray->data, bytearray->len)) {
           lookup_table.mozc_candidates.Clear();
         }
         g_byte_array_unref(bytearray);
@@ -650,7 +643,7 @@ class IBusUiControllerImpl : public IBusUiController {
     lookup_table.page_size = ibus_lookup_table_get_page_size(table);
     // Ensure that the page_size is non-zero to avoid div-by-zero error.
     if (lookup_table.page_size <= 0) {
-      LOG(DFATAL) << "Invalid page size: " << lookup_table.page_size;
+      DVLOG(1) << "Invalid page size: " << lookup_table.page_size;
       lookup_table.page_size = 1;
     }
 
@@ -675,9 +668,9 @@ class IBusUiControllerImpl : public IBusUiController {
       if (error && error->message) {
         message = error->message;
       }
-      LOG(ERROR) << "Failed to register the panel service: " << message;
+      DVLOG(1) << "Failed to register the panel service: " << message;
     } else {
-      LOG(INFO) << "The panel service is registered: ID=" << service_id;
+      DVLOG(1) << "The panel service is registered: ID=" << service_id;
     }
 
     if (error) {
@@ -736,6 +729,11 @@ IBusUiController* IBusUiController::Create() {
 }
 
 IBusUiController::~IBusUiController() {
+}
+
+bool IsActiveForTesting(const std::string& input_method_id,
+                        const InputMethodDescriptors* descriptors) {
+  return IsActive(input_method_id, descriptors);
 }
 
 }  // namespace input_method

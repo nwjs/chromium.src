@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_IMAGE_DECODER_H_
 #define CHROME_BROWSER_IMAGE_DECODER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -39,6 +38,12 @@ class ImageDecoder : public content::UtilityProcessHostClient {
 
   // Starts image decoding.
   void Start();
+
+  const std::vector<unsigned char>& get_image_data() const {
+    return image_data_;
+  }
+
+  void set_delegate(Delegate* delegate) { delegate_ = delegate; }
 
  private:
   // It's a reference counted object, so destructor is private.

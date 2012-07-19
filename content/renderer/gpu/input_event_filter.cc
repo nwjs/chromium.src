@@ -5,12 +5,13 @@
 #include "base/bind.h"
 #include "base/debug/trace_event.h"
 #include "base/location.h"
+#include "base/message_loop_proxy.h"
 #include "content/common/view_messages.h"
 #include "content/renderer/gpu/input_event_filter.h"
 
 using WebKit::WebInputEvent;
 
-InputEventFilter::InputEventFilter(IPC::Channel::Listener* main_listener,
+InputEventFilter::InputEventFilter(IPC::Listener* main_listener,
                                    base::MessageLoopProxy* target_loop,
                                    const Handler& handler)
     : main_loop_(base::MessageLoopProxy::current()),

@@ -10,12 +10,11 @@
 
 #ifndef CHROME_BROWSER_UI_OMNIBOX_LOCATION_BAR_H_
 #define CHROME_BROWSER_UI_OMNIBOX_LOCATION_BAR_H_
-#pragma once
 
 #include <string>
 
 #include "base/string16.h"
-#include "chrome/browser/instant/instant_delegate.h"
+#include "chrome/common/instant_types.h"
 #include "content/public/common/page_transition_types.h"
 #include "webkit/glue/window_open_disposition.h"
 
@@ -76,8 +75,8 @@ class LocationBar {
   virtual void Revert() = 0;
 
   // Returns a pointer to the text entry view.
-  virtual const OmniboxView* location_entry() const = 0;
-  virtual OmniboxView* location_entry() = 0;
+  virtual const OmniboxView* GetLocationEntry() const = 0;
+  virtual OmniboxView* GetLocationEntry() = 0;
 
   // Returns a pointer to the testing interface.
   virtual LocationBarTesting* GetLocationBarForTesting() = 0;

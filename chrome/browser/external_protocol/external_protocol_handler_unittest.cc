@@ -1,11 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 
 #include "base/message_loop.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -21,11 +21,15 @@ class FakeExternalProtocolHandlerWorker
         os_state_(os_state) {}
 
  private:
-  virtual ShellIntegration::DefaultWebClientState CheckIsDefault() {
+  virtual ~FakeExternalProtocolHandlerWorker() {}
+
+  virtual ShellIntegration::DefaultWebClientState CheckIsDefault() OVERRIDE {
     return os_state_;
   }
 
-  virtual void SetAsDefault() {}
+  virtual bool SetAsDefault(bool interactive_permitted) OVERRIDE {
+    return true;
+  }
 
   ShellIntegration::DefaultWebClientState os_state_;
 };

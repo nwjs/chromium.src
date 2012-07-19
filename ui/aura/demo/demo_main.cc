@@ -11,19 +11,19 @@
 #include "ui/aura/client/stacking_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/event.h"
-#include "ui/aura/monitor_manager.h"
 #include "ui/aura/root_window.h"
+#include "ui/aura/single_display_manager.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
+#include "ui/compositor/test/compositor_test_support.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/compositor/test/compositor_test_support.h"
 #include "ui/gfx/rect.h"
 
 #if defined(USE_X11)
-#include "base/message_pump_x.h"
+#include "base/message_pump_aurax11.h"
 #endif
 
 namespace {
@@ -39,7 +39,7 @@ class DemoWindowDelegate : public aura::WindowDelegate {
   }
   virtual void OnBoundsChanged(const gfx::Rect& old_bounds,
                                const gfx::Rect& new_bounds) OVERRIDE {}
-  virtual void OnFocus() OVERRIDE {}
+  virtual void OnFocus(aura::Window* old_focused_window) OVERRIDE {}
   virtual void OnBlur() OVERRIDE {}
   virtual bool OnKeyEvent(aura::KeyEvent* event) OVERRIDE {
     return false;
@@ -49,6 +49,11 @@ class DemoWindowDelegate : public aura::WindowDelegate {
   }
   virtual int GetNonClientComponent(const gfx::Point& point) const OVERRIDE {
     return HTCAPTION;
+  }
+  virtual bool ShouldDescendIntoChildForEventHandling(
+      aura::Window* child,
+      const gfx::Point& location) OVERRIDE {
+    return true;
   }
   virtual bool OnMouseEvent(aura::MouseEvent* event) OVERRIDE {
     return true;
@@ -62,11 +67,14 @@ class DemoWindowDelegate : public aura::WindowDelegate {
   virtual bool CanFocus() OVERRIDE { return true; }
   virtual void OnCaptureLost() OVERRIDE {}
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE {
-    canvas->sk_canvas()->drawColor(color_, SkXfermode::kSrc_Mode);
+    canvas->DrawColor(color_, SkXfermode::kSrc_Mode);
   }
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE {}
   virtual void OnWindowDestroying() OVERRIDE {}
   virtual void OnWindowDestroyed() OVERRIDE {}
   virtual void OnWindowVisibilityChanged(bool visible) OVERRIDE {}
+  virtual bool HasHitTestMask() const OVERRIDE { return false; }
+  virtual void GetHitTestMask(gfx::Path* mask) const OVERRIDE {}
 
  private:
   SkColor color_;
@@ -86,7 +94,8 @@ class DemoStackingClient : public aura::client::StackingClient {
   }
 
   // Overridden from aura::client::StackingClient:
-  virtual aura::Window* GetDefaultParent(aura::Window* window) OVERRIDE {
+  virtual aura::Window* GetDefaultParent(aura::Window* window,
+                                         const gfx::Rect& bounds) OVERRIDE {
     return root_window_;
   }
 
@@ -106,14 +115,14 @@ int main(int argc, char** argv) {
 
   ui::RegisterPathProvider();
   icu_util::Initialize();
-  ResourceBundle::InitSharedInstanceWithLocale("en-US");
+  ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
 
   // Create the message-loop here before creating the root window.
   MessageLoop message_loop(MessageLoop::TYPE_UI);
   ui::CompositorTestSupport::Initialize();
-
+  aura::Env::GetInstance()->SetDisplayManager(new aura::SingleDisplayManager);
   scoped_ptr<aura::RootWindow> root_window(
-      aura::MonitorManager::CreateRootWindowForPrimaryMonitor());
+      aura::DisplayManager::CreateRootWindowForPrimaryDisplay());
   scoped_ptr<DemoStackingClient> stacking_client(new DemoStackingClient(
       root_window.get()));
 

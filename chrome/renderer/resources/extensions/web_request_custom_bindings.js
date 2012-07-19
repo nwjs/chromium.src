@@ -9,6 +9,7 @@ var GetUniqueSubEventName = webRequestNatives.GetUniqueSubEventName;
 
 var chromeHidden = requireNative('chrome_hidden').GetChromeHidden();
 var sendRequest = require('sendRequest').sendRequest;
+var validate = require('schemaUtils').validate;
 
 // WebRequestEvent object. This is used for special webRequest events with
 // extra parameters. Each invocation of addListener creates a new named
@@ -32,9 +33,10 @@ function WebRequestEvent(eventName, opt_argSchemas, opt_extraArgSchemas,
   this.eventOptions_ = opt_eventOptions ||
       {'supportsListeners': true, 'supportsRules': false};
 
-  if (this.eventOptions_.supportsRules)
+  if (this.eventOptions_.supportsRules) {
     this.eventForRules_ =
         new chrome.Event(eventName, opt_argSchemas, opt_eventOptions);
+  }
 };
 
 // Test if the given callback is registered for this event.
@@ -62,9 +64,8 @@ WebRequestEvent.prototype.addListener =
   var subEventName = GetUniqueSubEventName(this.eventName_);
   // Note: this could fail to validate, in which case we would not add the
   // subEvent listener.
-  chromeHidden.validate(Array.prototype.slice.call(arguments, 1),
-                        this.extraArgSchemas_);
-  chrome.webRequest.addEventListener(
+  validate(Array.prototype.slice.call(arguments, 1), this.extraArgSchemas_);
+  chromeHidden.internalAPIs.webRequestInternal.addEventListener(
       cb, opt_filter, opt_extraInfo, this.eventName_, subEventName);
 
   var subEvent = new chrome.Event(subEventName, this.argSchemas_);
@@ -75,10 +76,10 @@ WebRequestEvent.prototype.addListener =
       var requestId = arguments[0].requestId;
       try {
         var result = cb.apply(null, arguments);
-        chrome.webRequest.eventHandled(
+        chromeHidden.internalAPIs.webRequestInternal.eventHandled(
             eventName, subEventName, requestId, result);
       } catch (e) {
-        chrome.webRequest.eventHandled(
+        chromeHidden.internalAPIs.webRequestInternal.eventHandled(
             eventName, subEventName, requestId);
         throw e;
       }
@@ -89,7 +90,7 @@ WebRequestEvent.prototype.addListener =
       var details = arguments[0];
       var requestId = details.requestId;
       var handledCallback = function(response) {
-        chrome.webRequest.eventHandled(
+        chromeHidden.internalAPIs.webRequestInternal.eventHandled(
             eventName, subEventName, requestId, response);
       };
       cb.apply(null, [details, handledCallback]);
@@ -151,18 +152,6 @@ chromeHidden.registerCustomEvent('webRequest', WebRequestEvent);
 
 chromeHidden.registerCustomHook('webRequest', function(api) {
   var apiFunctions = api.apiFunctions;
-
-  apiFunctions.setHandleRequest('addEventListener', function() {
-    var args = Array.prototype.slice.call(arguments);
-    sendRequest(this.name, args, this.definition.parameters,
-                {forIOThread: true});
-  });
-
-  apiFunctions.setHandleRequest('eventHandled', function() {
-    var args = Array.prototype.slice.call(arguments);
-    sendRequest(this.name, args, this.definition.parameters,
-                {forIOThread: true});
-  });
 
   apiFunctions.setHandleRequest('handlerBehaviorChanged', function() {
     var args = Array.prototype.slice.call(arguments);

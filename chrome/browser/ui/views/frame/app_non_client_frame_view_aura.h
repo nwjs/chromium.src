@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_FRAME_APP_NON_CLIENT_FRAME_VIEW_AURA_H_
 #define CHROME_BROWSER_UI_VIEWS_FRAME_APP_NON_CLIENT_FRAME_VIEW_AURA_H_
-#pragma once
 
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
 #include "ui/base/animation/animation_delegate.h"
@@ -62,6 +61,13 @@ class AppNonClientFrameViewAura : public BrowserNonClientFrameView,
   // Restore the app window (will result in switching the frame_view back).
   void Restore();
 
+  // Returns true if the app controls are being displayed.
+  bool IsShowingControls() const;
+
+  void set_animate_controls(bool animate_controls) {
+    animate_controls_ = animate_controls;
+  }
+
  private:
   class ControlView;
   class Host;
@@ -74,6 +80,8 @@ class AppNonClientFrameViewAura : public BrowserNonClientFrameView,
   views::Widget* control_widget_;
   // Tracks the mouse and causes the controls to slide back up when it exits.
   views::MouseWatcher mouse_watcher_;
+  // Should controls be animated.
+  bool animate_controls_;
 
   DISALLOW_COPY_AND_ASSIGN(AppNonClientFrameViewAura);
 };

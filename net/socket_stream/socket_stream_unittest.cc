@@ -16,10 +16,13 @@
 #include "net/base/net_log.h"
 #include "net/base/net_log_unittest.h"
 #include "net/base/test_completion_callback.h"
+#include "net/proxy/proxy_service.h"
 #include "net/socket/socket_test_util.h"
 #include "net/url_request/url_request_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
+
+namespace {
 
 struct SocketStreamEvent {
   enum EventType {
@@ -175,6 +178,38 @@ class SocketStreamEventRecorder : public net::SocketStream::Delegate {
   DISALLOW_COPY_AND_ASSIGN(SocketStreamEventRecorder);
 };
 
+class TestURLRequestContextWithProxy : public TestURLRequestContext {
+ public:
+  explicit TestURLRequestContextWithProxy(const std::string& proxy)
+      : TestURLRequestContext(true) {
+    context_storage_.set_proxy_service(net::ProxyService::CreateFixed(proxy));
+    Init();
+  }
+  virtual ~TestURLRequestContextWithProxy() {}
+};
+
+class TestSocketStreamNetworkDelegate : public TestNetworkDelegate {
+ public:
+  TestSocketStreamNetworkDelegate()
+      : before_connect_result_(net::OK) {}
+  virtual ~TestSocketStreamNetworkDelegate() {}
+
+  virtual int OnBeforeSocketStreamConnect(
+      net::SocketStream* stream,
+      const net::CompletionCallback& callback) OVERRIDE {
+    return before_connect_result_;
+  }
+
+  void SetBeforeConnectResult(int result) {
+    before_connect_result_ = result;
+  }
+
+ private:
+  int before_connect_result_;
+};
+
+}  // namespace
+
 namespace net {
 
 class SocketStreamTest : public PlatformTest {
@@ -278,13 +313,12 @@ TEST_F(SocketStreamTest, CloseFlushPendingWrite) {
       &SocketStreamTest::DoCloseFlushPendingWriteTest,
       base::Unretained(this)));
 
-  MockHostResolver host_resolver;
+  TestURLRequestContext context;
 
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext());
-  socket_stream->SetHostResolver(&host_resolver);
+  socket_stream->set_context(&context);
 
   MockWrite data_writes[] = {
     MockWrite(SocketStreamTest::kWebSocketHandshakeRequest),
@@ -379,9 +413,9 @@ TEST_F(SocketStreamTest, BasicAuthProxy) {
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext("myproxy:70"));
-  MockHostResolver host_resolver;
-  socket_stream->SetHostResolver(&host_resolver);
+  TestURLRequestContextWithProxy context("myproxy:70");
+
+  socket_stream->set_context(&context);
   socket_stream->SetClientSocketFactory(&mock_socket_factory);
 
   socket_stream->Connect();
@@ -415,13 +449,12 @@ TEST_F(SocketStreamTest, IOPending) {
   delegate->SetOnStartOpenConnection(base::Bind(
       &SocketStreamTest::DoIOPending, base::Unretained(this)));
 
-  MockHostResolver host_resolver;
+  TestURLRequestContext context;
 
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext());
-  socket_stream->SetHostResolver(&host_resolver);
+  socket_stream->set_context(&context);
 
   MockWrite data_writes[] = {
     MockWrite(SocketStreamTest::kWebSocketHandshakeRequest),
@@ -478,13 +511,12 @@ TEST_F(SocketStreamTest, SwitchToSpdy) {
   delegate->SetOnStartOpenConnection(base::Bind(
       &SocketStreamTest::DoSwitchToSpdyTest, base::Unretained(this)));
 
-  MockHostResolver host_resolver;
+  TestURLRequestContext context;
 
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext());
-  socket_stream->SetHostResolver(&host_resolver);
+  socket_stream->set_context(&context);
 
   socket_stream->Connect();
 
@@ -507,13 +539,12 @@ TEST_F(SocketStreamTest, SwitchAfterPending) {
   delegate->SetOnStartOpenConnection(base::Bind(
       &SocketStreamTest::DoIOPending, base::Unretained(this)));
 
-  MockHostResolver host_resolver;
+  TestURLRequestContext context;
 
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext());
-  socket_stream->SetHostResolver(&host_resolver);
+  socket_stream->set_context(&context);
 
   socket_stream->Connect();
   io_test_callback_.WaitForResult();
@@ -556,6 +587,7 @@ TEST_F(SocketStreamTest, SecureProxyConnectError) {
   mock_socket_factory.AddSSLSocketDataProvider(&ssl);
 
   TestCompletionCallback test_callback;
+  TestURLRequestContextWithProxy context("https://myproxy:70");
 
   scoped_ptr<SocketStreamEventRecorder> delegate(
       new SocketStreamEventRecorder(test_callback.callback()));
@@ -565,9 +597,7 @@ TEST_F(SocketStreamTest, SecureProxyConnectError) {
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext("https://myproxy:70"));
-  MockHostResolver host_resolver;
-  socket_stream->SetHostResolver(&host_resolver);
+  socket_stream->set_context(&context);
   socket_stream->SetClientSocketFactory(&mock_socket_factory);
 
   socket_stream->Connect();
@@ -608,6 +638,7 @@ TEST_F(SocketStreamTest, SecureProxyConnect) {
   mock_socket_factory.AddSSLSocketDataProvider(&ssl);
 
   TestCompletionCallback test_callback;
+  TestURLRequestContextWithProxy context("https://myproxy:70");
 
   scoped_ptr<SocketStreamEventRecorder> delegate(
       new SocketStreamEventRecorder(test_callback.callback()));
@@ -617,9 +648,7 @@ TEST_F(SocketStreamTest, SecureProxyConnect) {
   scoped_refptr<SocketStream> socket_stream(
       new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
 
-  socket_stream->set_context(new TestURLRequestContext("https://myproxy:70"));
-  MockHostResolver host_resolver;
-  socket_stream->SetHostResolver(&host_resolver);
+  socket_stream->set_context(&context);
   socket_stream->SetClientSocketFactory(&mock_socket_factory);
 
   socket_stream->Connect();
@@ -635,6 +664,34 @@ TEST_F(SocketStreamTest, SecureProxyConnect) {
   EXPECT_EQ(SocketStreamEvent::EVENT_ERROR, events[2].event_type);
   EXPECT_EQ(net::ERR_ABORTED, events[2].error_code);
   EXPECT_EQ(SocketStreamEvent::EVENT_CLOSE, events[3].event_type);
+}
+
+TEST_F(SocketStreamTest, BeforeConnectFailed) {
+  TestCompletionCallback test_callback;
+
+  scoped_ptr<SocketStreamEventRecorder> delegate(
+      new SocketStreamEventRecorder(test_callback.callback()));
+
+  TestURLRequestContext context;
+  TestSocketStreamNetworkDelegate network_delegate;
+  network_delegate.SetBeforeConnectResult(ERR_ACCESS_DENIED);
+  context.set_network_delegate(&network_delegate);
+
+  scoped_refptr<SocketStream> socket_stream(
+      new SocketStream(GURL("ws://example.com/demo"), delegate.get()));
+
+  socket_stream->set_context(&context);
+
+  socket_stream->Connect();
+
+  test_callback.WaitForResult();
+
+  const std::vector<SocketStreamEvent>& events = delegate->GetSeenEvents();
+  ASSERT_EQ(2U, events.size());
+
+  EXPECT_EQ(SocketStreamEvent::EVENT_ERROR, events[0].event_type);
+  EXPECT_EQ(net::ERR_ACCESS_DENIED, events[0].error_code);
+  EXPECT_EQ(SocketStreamEvent::EVENT_CLOSE, events[1].event_type);
 }
 
 }  // namespace net

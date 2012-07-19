@@ -2,7 +2,6 @@
 <html i18n-values="
     dir:textdirection;
     hasattribution:hasattribution;
-    customlogo:customlogo;
     themegravity:themegravity;
     bookmarkbarattached:bookmarkbarattached;"
   class="starting-up">
@@ -24,6 +23,7 @@
 <link rel="stylesheet" href="../shared/css/bubble.css">
 <link rel="stylesheet" href="../shared/css/expandable_bubble.css">
 <link rel="stylesheet" href="../shared/css/menu.css">
+<link rel="stylesheet" href="../shared/css/menu_button.css">
 <link rel="stylesheet" href="../shared/css/trash.css">
 <link rel="stylesheet" href="../shared/css/widgets.css">
 <link rel="stylesheet" href="apps_page.css">
@@ -36,7 +36,7 @@
 <link id="themecss" rel="stylesheet">
 
 <script src="../shared/js/event_tracker.js"></script>
-<script src="../shared/js/local_strings.js"></script>
+<script src="../shared/js/load_time_data.js"></script>
 <script src="../shared/js/parse_html_subset.js"></script>
 <script src="../shared/js/util.js"></script>
 
@@ -51,6 +51,7 @@
 <script src="../shared/js/cr/ui/menu_item.js"></script>
 <script src="../shared/js/cr/ui/position_util.js"></script>
 <script src="../shared/js/cr/ui/menu_button.js"></script>
+<script src="../shared/js/cr/ui/context_menu_button.js"></script>
 <script src="../shared/js/cr/ui/touch_handler.js"></script>
 
 <script src="tile_page.js"></script>
@@ -101,28 +102,29 @@
   <div id="footer">
     <div id="footer-border"></div>
     <div id="footer-content">
+      <!-- TODO: Revert back to src= once http://crbug.com/135179 is fixed -->
       <img id="logo-img">
 
       <ul id="dot-list">
       </ul>
 
       <div class="menu-container">
-        <button id="other-sessions-menu-button"
-            class="footer-menu-button custom-appearance invisible">
-          <span i18n-content="otherSessions"></span>
-          <div class="disclosure-triangle"></div>
-        </button>
-
         <button id="recently-closed-menu-button"
             class="footer-menu-button custom-appearance">
           <span i18n-content="recentlyclosed"></span>
           <div class="disclosure-triangle"></div>
         </button>
 
+        <button id="other-sessions-menu-button"
+            class="footer-menu-button custom-appearance invisible">
+          <span i18n-content="otherSessions"></span>
+          <div class="disclosure-triangle"></div>
+        </button>
+
         <div id="vertical-separator"></div>
       </div>
 
-      <a id="chrome-web-store-href">
+      <a id="chrome-web-store-link">
         <span id="chrome-web-store-title" i18n-content="webStoreTitleShort">
         </span>
       </a>
@@ -141,7 +143,7 @@
 
 <!-- NTP4 intro bubble -->
 <div id="ntp4-intro-bubble-contents">
-  <div i18n-content="ntp4_intro_message"></div>
+  <div></div>
   <a i18n-content="learn_more" target="_blank"></a>
 </div>
 
@@ -149,8 +151,8 @@
 <div id="login-status-bubble-contents">
   <div id="login-status-message-container">
     <span i18n-content="login_status_message"></span>
-    <a id="login-status-learn-more" i18n-content="login_status_learn_more"
-        target="_blank"></a>
+    <a id="login-status-learn-more" i18n-content="learn_more"
+        i18n-values="href:login_status_url" target="_blank"></a>
   </div>
   <div class="login-status-row">
     <div id="login-status-advanced-container">
@@ -186,16 +188,6 @@
   </div>
   <span class="title"></span>
 </div>
-
-<!-- App install hint -->
-<a id="app-install-hint-template" class="app-install-hint">
-  <div class="app-install-hint-interior">
-    <div class="interior-background"></div>
-    <div class="vertical-bar"></div>
-    <div class="horizontal-bar"></div>
-  </div>
-  <span i18n-content="appInstallHintText"></span>
-</a>
 
 <!-- Message shown in the other sessions menu when the user is signed in but
      there is no session data (e.g. they have tab sync turned off). -->

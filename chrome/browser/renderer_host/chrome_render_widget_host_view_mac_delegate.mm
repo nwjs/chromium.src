@@ -6,16 +6,20 @@
 
 #include <cmath>
 
-#include "base/mac/closure_blocks_leopard_compat.h"
 #include "base/sys_string_conversions.h"
 #include "chrome/browser/debugger/devtools_window.h"
+#include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/spellchecker/spellcheck_platform_mac.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #import "chrome/browser/ui/cocoa/history_overlay_controller.h"
 #import "chrome/browser/ui/cocoa/view_id_util.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/spellcheck_messages.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_view_host_observer.h"
 #include "content/public/browser/render_widget_host.h"
@@ -115,7 +119,7 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
   if (self) {
     renderWidgetHost_ = renderWidgetHost;
     NSView* nativeView = renderWidgetHost_->GetView()->GetNativeView();
-    view_id_util::SetID(nativeView, VIEW_ID_TAB_CONTAINER_FOCUS_VIEW);
+    view_id_util::SetID(nativeView, VIEW_ID_TAB_CONTAINER);
 
     if (renderWidgetHost_->IsRenderView()) {
       spellingObserver_.reset(
@@ -174,20 +178,10 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
     return NO;
   }
 
-  BOOL suppressWheelEvent = NO;
-  Browser* browser = BrowserList::FindBrowserWithWindow([theEvent window]);
-  if (browser && [NSEvent isSwipeTrackingFromScrollEventsEnabled]) {
-    content::WebContents* contents = browser->GetSelectedWebContents();
-    if (contents && contents->GetURL() == GURL(chrome::kChromeUINewTabURL)) {
-      // Always do history navigation on the NTP if it's enabled.
-      gotUnhandledWheelEvent_ = YES;
-      suppressWheelEvent = YES;
-    }
-  }
-
   if (gotUnhandledWheelEvent_ &&
       [NSEvent isSwipeTrackingFromScrollEventsEnabled] &&
       [theEvent phase] == NSEventPhaseChanged) {
+    Browser* browser = browser::FindBrowserWithWindow([theEvent window]);
     totalScrollDelta_.width += [theEvent scrollingDeltaX];
     totalScrollDelta_.height += [theEvent scrollingDeltaY];
 
@@ -198,8 +192,8 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
     bool goForward = isRightScroll;
     bool canGoBack = false, canGoForward = false;
     if (browser) {
-      canGoBack = browser->CanGoBack();
-      canGoForward = browser->CanGoForward();
+      canGoBack = chrome::CanGoBack(browser);
+      canGoForward = chrome::CanGoForward(browser);
     }
 
     // If "forward" is inactive and the user rubber-bands to the right,
@@ -268,13 +262,13 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
 
           // |gestureAmount| obeys -[NSEvent isDirectionInvertedFromDevice]
           // automatically.
-          Browser* browser = BrowserList::FindBrowserWithWindow(
+          Browser* browser = browser::FindBrowserWithWindow(
               historyOverlay.view.window);
           if (ended && browser) {
             if (goForward)
-              browser->GoForward(CURRENT_TAB);
+              chrome::GoForward(browser, CURRENT_TAB);
             else
-              browser->GoBack(CURRENT_TAB);
+              chrome::GoBack(browser, CURRENT_TAB);
           }
 
           if (isComplete)
@@ -283,7 +277,7 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
       return YES;
     }
   }
-  return suppressWheelEvent;
+  return NO;
 }
 
 - (BOOL)validateUserInterfaceItem:(id<NSValidatedUserInterfaceItem>)item
@@ -300,6 +294,11 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
 
   if (action == @selector(toggleContinuousSpellChecking:)) {
     if ([(id)item respondsToSelector:@selector(setState:)]) {
+      content::RenderProcessHost* host = renderWidgetHost_->GetProcess();
+      Profile* profile = Profile::FromBrowserContext(host->GetBrowserContext());
+      DCHECK(profile);
+      spellcheckChecked_ =
+          profile->GetPrefs()->GetBoolean(prefs::kEnableSpellCheck);
       NSCellStateValue checkedState =
           spellcheckChecked_ ? NSOnState : NSOffState;
       [(id)item setState:checkedState];
@@ -356,6 +355,12 @@ class SpellCheckRenderViewObserver : public content::RenderViewHostObserver {
 }
 
 - (void)toggleContinuousSpellChecking:(id)sender {
+  content::RenderProcessHost* host = renderWidgetHost_->GetProcess();
+  Profile* profile = Profile::FromBrowserContext(host->GetBrowserContext());
+  DCHECK(profile);
+  PrefService* pref = profile->GetPrefs();
+  pref->SetBoolean(prefs::kEnableSpellCheck,
+                   !pref->GetBoolean(prefs::kEnableSpellCheck));
   renderWidgetHost_->Send(
       new SpellCheckMsg_ToggleSpellCheck(renderWidgetHost_->GetRoutingID()));
 }

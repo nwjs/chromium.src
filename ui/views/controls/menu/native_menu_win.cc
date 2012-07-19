@@ -12,21 +12,22 @@
 #include "base/stl_util.h"
 #include "base/string_util.h"
 #include "base/win/wrapped_window_proc.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
+#include "ui/base/models/menu_model.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/win/hwnd_util.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
-#include "ui/gfx/native_theme.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/controls/menu/menu_2.h"
 #include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_listener.h"
 
-using gfx::NativeTheme;
+using ui::NativeTheme;
 
 namespace views {
 
@@ -73,7 +74,7 @@ static NativeMenuWin* GetNativeMenuWinFromHMENU(HMENU hmenu) {
 // structure we have constructed in NativeMenuWin.
 class NativeMenuWin::MenuHostWindow {
  public:
-  MenuHostWindow(NativeMenuWin* parent) : parent_(parent) {
+  explicit MenuHostWindow(NativeMenuWin* parent) : parent_(parent) {
     RegisterClass();
     hwnd_ = CreateWindowEx(l10n_util::GetExtendedStyles(), kWindowClassName,
                            L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
@@ -95,14 +96,21 @@ class NativeMenuWin::MenuHostWindow {
     if (registered)
       return;
 
-    WNDCLASSEX wcex = {0};
-    wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style = CS_DBLCLKS;
-    wcex.lpfnWndProc = base::win::WrappedWindowProc<&MenuHostWindowProc>;
-    wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW+1);
-    wcex.lpszClassName = kWindowClassName;
-    ATOM clazz = RegisterClassEx(&wcex);
-    DCHECK(clazz);
+    WNDCLASSEX window_class;
+    base::win::InitializeWindowClass(
+        kWindowClassName,
+        &base::win::WrappedWindowProc<MenuHostWindowProc>,
+        CS_DBLCLKS,
+        0,
+        0,
+        NULL,
+        reinterpret_cast<HBRUSH>(COLOR_WINDOW+1),
+        NULL,
+        NULL,
+        NULL,
+        &window_class);
+    ATOM clazz = RegisterClassEx(&window_class);
+    CHECK(clazz);
     registered = true;
   }
 
@@ -244,11 +252,12 @@ class NativeMenuWin::MenuHostWindow {
 
       // Draw the icon after the label, otherwise it would be covered
       // by the label.
-      SkBitmap icon;
+      gfx::ImageSkia icon;
       if (data->native_menu_win->model_->GetIconAt(data->model_index, &icon)) {
         // We currently don't support items with both icons and checkboxes.
         DCHECK(type != ui::MenuModel::TYPE_CHECK);
-        gfx::Canvas canvas(icon, false);
+        gfx::Canvas canvas(icon.GetRepresentation(ui::SCALE_FACTOR_100P),
+                           false);
         skia::DrawToNativeContext(
             canvas.sk_canvas(), dc,
             draw_item_struct->rcItem.left + kItemLeftMargin,
@@ -683,7 +692,7 @@ void NativeMenuWin::UpdateMenuItemInfoForString(MENUITEMINFO* mii,
   ReplaceSubstringsAfterOffset(&formatted, 0, L"\t", L" ");
   if (type != ui::MenuModel::TYPE_SUBMENU) {
     // Add accelerator details to the label if provided.
-    ui::Accelerator accelerator(ui::VKEY_UNKNOWN, false, false, false);
+    ui::Accelerator accelerator(ui::VKEY_UNKNOWN, ui::EF_NONE);
     if (model_->GetAcceleratorAt(model_index, &accelerator)) {
       formatted += L"\t";
       formatted += accelerator.GetShortcutText();
@@ -739,26 +748,11 @@ void NativeMenuWin::CreateHostWindow() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// SystemMenuModel:
-
-SystemMenuModel::SystemMenuModel(ui::SimpleMenuModel::Delegate* delegate)
-    : SimpleMenuModel(delegate) {
-}
-
-SystemMenuModel::~SystemMenuModel() {
-}
-
-int SystemMenuModel::GetFirstItemIndex(gfx::NativeMenu native_menu) const {
-  // We allow insertions before last item (Close).
-  return std::max(0, GetMenuItemCount(native_menu) - 1);
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // MenuWrapper, public:
 
 // static
-MenuWrapper* MenuWrapper::CreateWrapper(Menu2* menu) {
-  return new NativeMenuWin(menu->model(), NULL);
+MenuWrapper* MenuWrapper::CreateWrapper(ui::MenuModel* model) {
+  return new NativeMenuWin(model, NULL);
 }
 
 }  // namespace views

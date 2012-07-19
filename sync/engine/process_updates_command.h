@@ -4,21 +4,20 @@
 
 #ifndef SYNC_ENGINE_PROCESS_UPDATES_COMMAND_H_
 #define SYNC_ENGINE_PROCESS_UPDATES_COMMAND_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "sync/engine/model_changing_syncer_command.h"
 #include "sync/engine/syncer_types.h"
 
-namespace syncable {
-class WriteTransaction;
-}
-
 namespace sync_pb {
 class SyncEntity;
 }
 
-namespace browser_sync {
+namespace syncer {
+
+namespace syncable {
+class WriteTransaction;
+}
 
 class Cryptographer;
 
@@ -50,6 +49,6 @@ class ProcessUpdatesCommand : public ModelChangingSyncerCommand {
   DISALLOW_COPY_AND_ASSIGN(ProcessUpdatesCommand);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_PROCESS_UPDATES_COMMAND_H_

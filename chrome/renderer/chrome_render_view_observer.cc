@@ -17,6 +17,7 @@
 #include "chrome/common/prerender_messages.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/thumbnail_score.h"
+#include "chrome/common/thumbnail_support.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/chrome_render_process_observer.h"
 #include "chrome/renderer/content_settings_observer.h"
@@ -57,6 +58,7 @@
 using WebKit::WebAccessibilityObject;
 using WebKit::WebCString;
 using WebKit::WebDataSource;
+using WebKit::WebDocument;
 using WebKit::WebFrame;
 using WebKit::WebIconURL;
 using WebKit::WebRect;
@@ -68,6 +70,7 @@ using WebKit::WebURL;
 using WebKit::WebURLRequest;
 using WebKit::WebView;
 using WebKit::WebVector;
+using extensions::APIPermission;
 using webkit_glue::ImageResourceFetcher;
 
 // Delay in milliseconds that we'll wait before capturing the page contents
@@ -153,8 +156,6 @@ enum {
 
 // Constants for mixed-content blocking.
 static const char kGoogleDotCom[] = "google.com";
-static const char kFacebookDotCom[] = "facebook.com";
-static const char kTwitterDotCom[] = "twitter.com";
 
 static bool PaintViewIntoCanvas(WebView* view,
                                 skia::PlatformCanvas& canvas) {
@@ -229,7 +230,7 @@ ChromeRenderViewObserver::ChromeRenderViewObserver(
       last_indexed_page_id_(-1),
       allow_displaying_insecure_content_(false),
       allow_running_insecure_content_(false),
-      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
+      capture_timer_(false, false) {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   render_view->GetWebView()->setPermissionClient(this);
   if (!command_line.HasSwitch(switches::kDisableClientSidePhishingDetection))
@@ -482,6 +483,42 @@ bool ChromeRenderViewObserver::allowWriteToClipboard(WebFrame* frame,
   return allowed;
 }
 
+bool ChromeRenderViewObserver::HasExtensionPermission(
+    const WebSecurityOrigin& origin, APIPermission::ID permission) const {
+  if (!EqualsASCII(origin.protocol(), chrome::kExtensionScheme))
+    return false;
+
+  const std::string extension_id = origin.host().utf8().data();
+  if (!extension_dispatcher_->IsExtensionActive(extension_id))
+    return false;
+
+  const extensions::Extension* extension =
+      extension_dispatcher_->extensions()->GetByID(extension_id);
+  if (!extension)
+    return false;
+
+  return extension->HasAPIPermission(permission);
+}
+
+bool ChromeRenderViewObserver::allowWebComponents(const WebDocument& document,
+                                                  bool defaultValue) {
+  if (defaultValue)
+    return true;
+
+  WebSecurityOrigin origin = document.securityOrigin();
+  if (EqualsASCII(origin.protocol(), chrome::kChromeUIScheme))
+    return true;
+
+  // The <browser> tag is implemented via Shadow DOM.
+  if (HasExtensionPermission(origin, APIPermission::kBrowserTag))
+    return true;
+
+  if (HasExtensionPermission(origin, APIPermission::kExperimental))
+    return true;
+
+  return false;
+}
+
 static void SendInsecureContentSignal(int signal) {
   UMA_HISTOGRAM_ENUMERATION("SSL.InsecureContent", signal,
                             INSECURE_CONTENT_NUM_EVENTS);
@@ -538,7 +575,9 @@ bool ChromeRenderViewObserver::allowDisplayingInsecureContent(
   if (allowed_per_settings || allow_displaying_insecure_content_)
     return true;
 
-  Send(new ChromeViewHostMsg_DidBlockDisplayingInsecureContent(routing_id()));
+  if (!IsStrictSecurityHost(origin_host))
+    Send(new ChromeViewHostMsg_DidBlockDisplayingInsecureContent(routing_id()));
+
   return false;
 }
 
@@ -547,10 +586,6 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
     bool allowed_per_settings,
     const WebKit::WebSecurityOrigin& origin,
     const WebKit::WebURL& resource_url) {
-  // Single value to control permissive mixed content behaviour.  We flip
-  // this at the present between beta / stable releases.
-  const bool block_insecure_content_on_all_domains = true;
-
   std::string origin_host(origin.host().utf8());
   GURL frame_gurl(frame->document().url());
   DCHECK_EQ(frame_gurl.host(), origin_host);
@@ -604,16 +639,9 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
   else if (EndsWith(resource_gurl.path(), kDotSWF, false))
     SendInsecureContentSignal(INSECURE_CONTENT_RUN_SWF);
 
-  if (!allow_running_insecure_content_ &&
-      !allowed_per_settings &&
-      (block_insecure_content_on_all_domains ||
-       CommandLine::ForCurrentProcess()->HasSwitch(
-           switches::kNoRunningInsecureContent) ||
-       is_google ||
-       isHostInDomain(origin_host, kFacebookDotCom) ||
-       isHostInDomain(origin_host, kTwitterDotCom) ||
-       IsStrictSecurityHost(origin_host))) {
-    Send(new ChromeViewHostMsg_DidBlockRunningInsecureContent(routing_id()));
+  if (!allow_running_insecure_content_ && !allowed_per_settings) {
+    if (!IsStrictSecurityHost(origin_host))
+      content_settings_->DidNotAllowMixedScript();
     return false;
   }
 
@@ -621,11 +649,11 @@ bool ChromeRenderViewObserver::allowRunningInsecureContent(
 }
 
 void ChromeRenderViewObserver::didNotAllowPlugins(WebFrame* frame) {
-  content_settings_->DidNotAllowPlugins(frame);
+  content_settings_->DidNotAllowPlugins();
 }
 
 void ChromeRenderViewObserver::didNotAllowScript(WebFrame* frame) {
-  content_settings_->DidNotAllowScript(frame);
+  content_settings_->DidNotAllowScript();
 }
 
 void ChromeRenderViewObserver::OnSetIsPrerendering(bool is_prerendering) {
@@ -649,13 +677,11 @@ void ChromeRenderViewObserver::DidStartLoading() {
 }
 
 void ChromeRenderViewObserver::DidStopLoading() {
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      base::Bind(&ChromeRenderViewObserver::CapturePageInfo,
-                 weak_factory_.GetWeakPtr(), render_view()->GetPageId(), false),
+  CapturePageInfoLater(
+      false,  // preliminary_capture
       base::TimeDelta::FromMilliseconds(
           render_view()->GetContentStateImmediately() ?
-          0 : kDelayForCaptureMs));
+              0 : kDelayForCaptureMs));
 
   WebFrame* main_frame = render_view()->GetWebView()->mainFrame();
   GURL osd_url = main_frame->document().openSearchDescriptionURL();
@@ -707,10 +733,8 @@ void ChromeRenderViewObserver::DidCommitProvisionalLoad(
   if (!is_new_navigation)
     return;
 
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      base::Bind(&ChromeRenderViewObserver::CapturePageInfo,
-                 weak_factory_.GetWeakPtr(), render_view()->GetPageId(), true),
+  CapturePageInfoLater(
+      true,  // preliminary_capture
       base::TimeDelta::FromMilliseconds(kDelayForForcedCaptureMs));
 }
 
@@ -750,17 +774,18 @@ void ChromeRenderViewObserver::DidHandleTouchEvent(const WebTouchEvent& event) {
     render_view()->GetRoutingID()));
 }
 
-void ChromeRenderViewObserver::CapturePageInfo(int load_id,
-                                               bool preliminary_capture) {
-  if (load_id != render_view()->GetPageId())
-    return;  // This capture call is no longer relevant due to navigation.
+void ChromeRenderViewObserver::CapturePageInfoLater(bool preliminary_capture,
+                                                    base::TimeDelta delay) {
+  capture_timer_.Start(
+      FROM_HERE,
+      delay,
+      base::Bind(&ChromeRenderViewObserver::CapturePageInfo,
+                 base::Unretained(this),
+                 preliminary_capture));
+}
 
-  // Skip indexing if this is not a new load.  Note that the case where
-  // load_id == last_indexed_page_id_ is more complicated, since we need to
-  // reindex if the toplevel URL has changed (such as from a redirect), even
-  // though this may not cause the page id to be incremented.
-  if (load_id < last_indexed_page_id_)
-    return;
+void ChromeRenderViewObserver::CapturePageInfo(bool preliminary_capture) {
+  int page_id = render_view()->GetPageId();
 
   if (!render_view()->GetWebView())
     return;
@@ -783,9 +808,23 @@ void ChromeRenderViewObserver::CapturePageInfo(int load_id,
   if (prerender::PrerenderHelper::IsPrerendering(render_view()))
     return;
 
-  bool same_page_id = last_indexed_page_id_ == load_id;
+  // Retrieve the frame's full text (up to kMaxIndexChars), and pass it to the
+  // translate helper for language detection and possible translation.
+  string16 contents;
+  CaptureText(main_frame, &contents);
+  if (translate_helper_)
+    translate_helper_->PageCaptured(contents);
+
+  // Skip indexing if this is not a new load.  Note that the case where
+  // page_id == last_indexed_page_id_ is more complicated, since we need to
+  // reindex if the toplevel URL has changed (such as from a redirect), even
+  // though this may not cause the page id to be incremented.
+  if (page_id < last_indexed_page_id_)
+    return;
+
+  bool same_page_id = last_indexed_page_id_ == page_id;
   if (!preliminary_capture)
-    last_indexed_page_id_ = load_id;
+    last_indexed_page_id_ = page_id;
 
   // Get the URL for this page.
   GURL url(main_frame->document().url());
@@ -809,25 +848,18 @@ void ChromeRenderViewObserver::CapturePageInfo(int load_id,
 
   TRACE_EVENT0("renderer", "ChromeRenderViewObserver::CapturePageInfo");
 
-  // Retrieve the frame's full text.
-  string16 contents;
-  CaptureText(main_frame, &contents);
-  if (translate_helper_)
-    translate_helper_->PageCaptured(contents);
   if (contents.size()) {
     // Send the text to the browser for indexing (the browser might decide not
-    // to index, if the URL is HTTPS for instance) and language discovery.
-    Send(new ChromeViewHostMsg_PageContents(routing_id(), url, load_id,
+    // to index, if the URL is HTTPS for instance).
+    Send(new ChromeViewHostMsg_PageContents(routing_id(), url, page_id,
                                             contents));
   }
 
   // Generate the thumbnail here if the in-browser thumbnailing isn't
-  // enabled. TODO(satorux): Remove this and related code once
-  // crbug.com/65936 is complete.
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableInBrowserThumbnailing)) {
+  // enabled. TODO(mazda): Remove this and related code once in-browser
+  // thumbnailing is supported on all platforms (http://crbug.com/120003).
+  if (!ShouldEnableInBrowserThumbnailing())
     CaptureThumbnail();
-  }
 
 #if defined(ENABLE_SAFE_BROWSING)
   // Will swap out the string.

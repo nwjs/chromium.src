@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,6 +8,7 @@
 #include "base/message_loop.h"
 #include "base/tracked_objects.h"
 #include "base/values.h"
+#include "chrome/common/extensions/extension.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/extensions/chrome_v8_context.h"
 #include "content/public/renderer/render_thread.h"
@@ -117,8 +118,11 @@ void ChromeV8ContextSet::DispatchChromeHiddenMethod(
     if ((*it)->v8_context().IsEmpty())
       continue;
 
-    if (!extension_id.empty() && extension_id != (*it)->extension_id())
-      continue;
+    if (!extension_id.empty()) {
+      const extensions::Extension* extension = (*it)->extension();
+      if (!extension || (extension_id != extension->id()))
+        continue;
+    }
 
     content::RenderView* context_render_view = (*it)->GetRenderView();
     if (!context_render_view)
@@ -141,15 +145,5 @@ void ChromeV8ContextSet::DispatchChromeHiddenMethod(
     v8::Handle<v8::Value> retval;
     (*it)->CallChromeHiddenMethod(
         method_name, v8_arguments.size(), &v8_arguments[0], &retval);
-    // In debug, the js will validate the event parameters and return a
-    // string if a validation error has occured.
-    // TODO(rafaelw): Consider only doing this check if function_name ==
-    // "Event.dispatchJSON".
-#ifndef NDEBUG
-    if (!retval.IsEmpty() && !retval->IsUndefined()) {
-      std::string error = *v8::String::AsciiValue(retval);
-      DCHECK(false) << error;
-    }
-#endif
   }
 }

@@ -4,7 +4,6 @@
 
 #ifndef NET_BASE_DNS_UTIL_H_
 #define NET_BASE_DNS_UTIL_H_
-#pragma once
 
 #include <string>
 
@@ -60,6 +59,7 @@ static const uint16 kDNS_TESTING = 0xfffe;  // in private use area.
 static const uint8 kDNSSEC_RSA_SHA1 = 5;
 static const uint8 kDNSSEC_RSA_SHA1_NSEC3 = 7;
 static const uint8 kDNSSEC_RSA_SHA256 = 8;
+static const uint8 kDNSSEC_RSA_SHA512 = 10;
 
 // RFC 4509
 static const uint8 kDNSSEC_SHA1 = 1;

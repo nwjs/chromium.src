@@ -13,6 +13,7 @@
 #include "base/threading/thread.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/password_manager/password_store.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 
@@ -94,13 +96,14 @@ void ProfileWriter::AddPasswordForm(const webkit::forms::PasswordForm& form) {
 
 #if defined(OS_WIN)
 void ProfileWriter::AddIE7PasswordInfo(const IE7PasswordInfo& info) {
-  profile_->GetWebDataService(Profile::EXPLICIT_ACCESS)->AddIE7Login(info);
+  WebDataServiceFactory::GetForProfile(
+      profile_, Profile::EXPLICIT_ACCESS)->AddIE7Login(info);
 }
 #endif
 
 void ProfileWriter::AddHistoryPage(const history::URLRows& page,
                                    history::VisitSource visit_source) {
-  profile_->GetHistoryService(Profile::EXPLICIT_ACCESS)->
+  HistoryServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS)->
       AddPagesWithDetails(page, visit_source);
 }
 
@@ -232,7 +235,7 @@ void ProfileWriter::AddFavicons(
       SetImportedFavicons(favicons);
 }
 
-typedef std::map<std::string, const TemplateURL*> HostPathMap;
+typedef std::map<std::string, TemplateURL*> HostPathMap;
 
 // Returns the key for the map built by BuildHostPathMap. If url_string is not
 // a valid URL, an empty string is returned, otherwise host+path is returned.
@@ -255,15 +258,13 @@ static std::string HostPathKeyForURL(const GURL& url) {
 // the TemplateURL is invalid.
 static std::string BuildHostPathKey(const TemplateURL* t_url,
                                     bool try_url_if_invalid) {
-  if (!t_url->url().empty()) {
-    if (try_url_if_invalid && !t_url->url_ref().IsValid())
-      return HostPathKeyForURL(GURL(t_url->url()));
+  if (try_url_if_invalid && !t_url->url_ref().IsValid())
+    return HostPathKeyForURL(GURL(t_url->url()));
 
-    if (t_url->url_ref().SupportsReplacement()) {
-      return HostPathKeyForURL(GURL(
-          t_url->url_ref().ReplaceSearchTerms(ASCIIToUTF16("x"),
-              TemplateURLRef::NO_SUGGESTIONS_AVAILABLE, string16())));
-    }
+  if (t_url->url_ref().SupportsReplacement()) {
+    return HostPathKeyForURL(GURL(
+        t_url->url_ref().ReplaceSearchTerms(
+            TemplateURLRef::SearchTermsArgs(ASCIIToUTF16("x")))));
   }
   return std::string();
 }
@@ -317,9 +318,9 @@ void ProfileWriter::AddKeywords(ScopedVector<TemplateURL> template_urls,
       continue;
 
     // Only add valid TemplateURLs to the model.
-    if (!(*i)->url().empty() && (*i)->url_ref().IsValid()) {
-      model->Add(*i);  // Takes ownership.
-      *i = NULL;       // Prevent the vector from deleting *i later.
+    if ((*i)->url_ref().IsValid()) {
+      model->AddAndSetProfile(*i, profile_);  // Takes ownership.
+      *i = NULL;  // Prevent the vector from deleting *i later.
     }
   }
 }

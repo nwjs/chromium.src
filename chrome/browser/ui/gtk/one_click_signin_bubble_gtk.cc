@@ -6,13 +6,14 @@
 
 #include <gtk/gtk.h>
 
+#include "base/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -26,11 +27,9 @@ const int kContentBorder = 7;
 
 OneClickSigninBubbleGtk::OneClickSigninBubbleGtk(
     BrowserWindowGtk* browser_window_gtk,
-    const base::Closure& learn_more_callback,
-    const base::Closure& advanced_callback)
+    const BrowserWindow::StartSyncCallback& start_sync_callback)
     : bubble_(NULL),
-      learn_more_callback_(learn_more_callback),
-      advanced_callback_(advanced_callback) {
+      start_sync_callback_(start_sync_callback) {
 
   // Setup the BubbleGtk content.
   GtkWidget* bubble_content = gtk_vbox_new(FALSE, 0);
@@ -39,27 +38,13 @@ OneClickSigninBubbleGtk::OneClickSigninBubbleGtk(
 
   // Message.
   GtkWidget* message_label = gtk_label_new(
-      l10n_util::GetStringFUTF8(
-          IDS_SYNC_PROMO_NTP_BUBBLE_MESSAGE,
-          l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME)).c_str());
+      l10n_util::GetStringUTF8(IDS_ONE_CLICK_SIGNIN_BUBBLE_MESSAGE).c_str());
   gtk_label_set_line_wrap(GTK_LABEL(message_label), TRUE);
   gtk_misc_set_alignment(GTK_MISC(message_label), 0.0, 0.5);
   gtk_box_pack_start(GTK_BOX(bubble_content), message_label, FALSE, FALSE, 0);
 
-  ThemeServiceGtk* const theme_provider = ThemeServiceGtk::GetFrom(
+  GtkThemeService* const theme_provider = GtkThemeService::GetFrom(
       browser_window_gtk->browser()->profile());
-
-  GtkWidget* learn_more_line = gtk_hbox_new(FALSE, kContentBorder);
-  gtk_box_pack_start(GTK_BOX(bubble_content),
-                     learn_more_line, FALSE, FALSE, 0);
-
-  // Learn more link.
-  GtkWidget* learn_more_link = theme_provider->BuildChromeLinkButton(
-      l10n_util::GetStringUTF8(IDS_SYNC_PROMO_NTP_BUBBLE_LEARN_MORE));
-  g_signal_connect(learn_more_link, "clicked",
-                   G_CALLBACK(OnClickLearnMoreLinkThunk), this);
-  gtk_box_pack_start(GTK_BOX(learn_more_line),
-                     learn_more_link, FALSE, FALSE, 0);
 
   GtkWidget* bottom_line = gtk_hbox_new(FALSE, kContentBorder);
   gtk_box_pack_start(GTK_BOX(bubble_content),
@@ -73,13 +58,28 @@ OneClickSigninBubbleGtk::OneClickSigninBubbleGtk(
   gtk_box_pack_start(GTK_BOX(bottom_line),
                      advanced_link, FALSE, FALSE, 0);
 
+  // Make the OK and Undo buttons the same size horizontally.
+  GtkSizeGroup* size_group = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
+
   // OK Button.
   GtkWidget* ok_button = gtk_button_new_with_label(
       l10n_util::GetStringUTF8(IDS_OK).c_str());
   g_signal_connect(ok_button, "clicked",
                    G_CALLBACK(OnClickOKThunk), this);
+  gtk_size_group_add_widget(size_group, ok_button);
   gtk_box_pack_end(GTK_BOX(bottom_line),
                    ok_button, FALSE, FALSE, 0);
+
+  // Undo Button.
+  GtkWidget* undo_button = gtk_button_new_with_label(
+      l10n_util::GetStringUTF8(IDS_ONE_CLICK_BUBBLE_UNDO).c_str());
+  g_signal_connect(undo_button, "clicked",
+                   G_CALLBACK(OnClickUndoThunk), this);
+  gtk_size_group_add_widget(size_group, undo_button);
+  gtk_box_pack_end(GTK_BOX(bottom_line),
+                   undo_button, FALSE, FALSE, 0);
+
+  g_object_unref(size_group);
 
   GtkWidget* const app_menu_widget =
       browser_window_gtk->GetToolbar()->GetAppMenuButton();
@@ -89,41 +89,38 @@ OneClickSigninBubbleGtk::OneClickSigninBubbleGtk(
   bubble_ =
       BubbleGtk::Show(app_menu_widget, &bounds, bubble_content,
                       arrow_location,
-                      true,  // match_system_theme
-                      true,  // grab_input
+                      BubbleGtk::MATCH_SYSTEM_THEME |
+                          BubbleGtk::POPUP_WINDOW |
+                          BubbleGtk::GRAB_INPUT,
                       theme_provider, this);
   gtk_widget_grab_focus(ok_button);
 }
 
 void OneClickSigninBubbleGtk::BubbleClosing(
     BubbleGtk* bubble, bool closed_by_escape) {
+  if (!start_sync_callback_.is_null()) {
+    base::ResetAndReturn(&start_sync_callback_).Run(
+        OneClickSigninSyncStarter::SYNC_WITH_DEFAULT_SETTINGS);
+  }
   delete this;
 }
 
-void OneClickSigninBubbleGtk::ClickOKForTest() {
-  OnClickOK(NULL);
-}
-
-void OneClickSigninBubbleGtk::ClickLearnMoreForTest() {
-  OnClickLearnMoreLink(NULL);
-}
-
-void OneClickSigninBubbleGtk::ClickAdvancedForTest() {
-  OnClickAdvancedLink(NULL);
-}
-
-void OneClickSigninBubbleGtk::OnClickLearnMoreLink(GtkWidget* link) {
-  learn_more_callback_.Run();
-  bubble_->Close();
-}
-
 void OneClickSigninBubbleGtk::OnClickAdvancedLink(GtkWidget* link) {
-  advanced_callback_.Run();
+  base::ResetAndReturn(&start_sync_callback_).Run(
+      OneClickSigninSyncStarter::CONFIGURE_SYNC_FIRST);
   bubble_->Close();
 }
 
 void OneClickSigninBubbleGtk::OnClickOK(GtkWidget* link) {
+  base::ResetAndReturn(&start_sync_callback_).Run(
+      OneClickSigninSyncStarter::SYNC_WITH_DEFAULT_SETTINGS);
   bubble_->Close();
 }
 
-OneClickSigninBubbleGtk::~OneClickSigninBubbleGtk() {}
+void OneClickSigninBubbleGtk::OnClickUndo(GtkWidget* link) {
+  start_sync_callback_.Reset();
+  bubble_->Close();
+}
+
+OneClickSigninBubbleGtk::~OneClickSigninBubbleGtk() {
+}

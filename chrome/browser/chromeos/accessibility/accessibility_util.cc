@@ -4,6 +4,11 @@
 
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
 
+#include <queue>
+
+#include "ash/high_contrast/high_contrast_controller.h"
+#include "ash/magnifier/magnification_controller.h"
+#include "ash/shell.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/logging.h"
@@ -12,11 +17,14 @@
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/file_reader.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api_platform.h"
+#include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_messages.h"
 #include "chrome/common/extensions/extension_resource.h"
+#include "chrome/common/extensions/user_script.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
@@ -71,6 +79,7 @@ class ContentScriptLoader {
       params.extension_id = extension_id_;
       params.is_javascript = true;
       params.code = data;
+      params.run_at = extensions::UserScript::DOCUMENT_IDLE;
       params.all_frames = true;
       params.in_main_world = false;
       render_view_host_->Send(new ExtensionMsg_ExecuteCode(
@@ -110,8 +119,8 @@ void EnableSpokenFeedback(bool enabled, content::WebUI* login_web_ui) {
       profile->GetExtensionService();
   FilePath path = FilePath(extension_misc::kAccessExtensionPath)
       .AppendASCII(extension_misc::kChromeVoxDirectoryName);
-  if (enabled) { // Load ChromeVox
-    const Extension* extension =
+  if (enabled) {  // Load ChromeVox
+    const extensions::Extension* extension =
         extension_service->component_loader()->Add(IDR_CHROMEVOX_MANIFEST,
                                                    path);
 
@@ -125,6 +134,7 @@ void EnableSpokenFeedback(bool enabled, content::WebUI* login_web_ui) {
       params.extension_id = extension->id();
       params.is_javascript = true;
       params.code = "window.INJECTED_AFTER_LOAD = true;";
+      params.run_at = extensions::UserScript::DOCUMENT_IDLE;
       params.all_frames = true;
       params.in_main_world = false;
       render_view_host->Send(new ExtensionMsg_ExecuteCode(
@@ -135,9 +145,9 @@ void EnableSpokenFeedback(bool enabled, content::WebUI* login_web_ui) {
           extension->id(), render_view_host);
 
       for (size_t i = 0; i < extension->content_scripts().size(); i++) {
-        const UserScript& script = extension->content_scripts()[i];
+        const extensions::UserScript& script = extension->content_scripts()[i];
         for (size_t j = 0; j < script.js_scripts().size(); ++j) {
-          const UserScript::File &file = script.js_scripts()[j];
+          const extensions::UserScript::File &file = script.js_scripts()[j];
           ExtensionResource resource = extension->GetResource(
               file.relative_path());
           loader->AppendScript(resource);
@@ -147,7 +157,7 @@ void EnableSpokenFeedback(bool enabled, content::WebUI* login_web_ui) {
     }
 
     DLOG(INFO) << "ChromeVox was Loaded.";
-  } else { // Unload ChromeVox
+  } else {  // Unload ChromeVox
     extension_service->component_loader()->Remove(path);
     DLOG(INFO) << "ChromeVox was Unloaded.";
   }
@@ -157,12 +167,20 @@ void EnableHighContrast(bool enabled) {
   PrefService* pref_service = g_browser_process->local_state();
   pref_service->SetBoolean(prefs::kHighContrastEnabled, enabled);
   pref_service->CommitPendingWrite();
+
+#if defined(USE_ASH)
+  ash::Shell::GetInstance()->high_contrast_controller()->SetEnabled(enabled);
+#endif
 }
 
 void EnableScreenMagnifier(bool enabled) {
   PrefService* pref_service = g_browser_process->local_state();
   pref_service->SetBoolean(prefs::kScreenMagnifierEnabled, enabled);
   pref_service->CommitPendingWrite();
+
+#if defined(USE_ASH)
+  ash::Shell::GetInstance()->magnification_controller()->SetEnabled(enabled);
+#endif
 }
 
 void EnableVirtualKeyboard(bool enabled) {
@@ -196,6 +214,25 @@ bool IsSpokenFeedbackEnabled() {
   bool spoken_feedback_enabled = prefs &&
       prefs->GetBoolean(prefs::kSpokenFeedbackEnabled);
   return spoken_feedback_enabled;
+}
+
+bool IsHighContrastEnabled() {
+  if (!g_browser_process) {
+    return false;
+  }
+  PrefService* prefs = g_browser_process->local_state();
+  bool high_contrast_enabled = prefs &&
+      prefs->GetBoolean(prefs::kHighContrastEnabled);
+  return high_contrast_enabled;
+}
+
+bool IsScreenMagnifierEnabled() {
+  if (!g_browser_process) {
+    return false;
+  }
+  PrefService* prefs = g_browser_process->local_state();
+  bool enabled = prefs && prefs->GetBoolean(prefs::kScreenMagnifierEnabled);
+  return enabled;
 }
 
 void MaybeSpeak(const std::string& utterance) {

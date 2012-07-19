@@ -14,11 +14,6 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
-#include "content/public/browser/sensors_provider.h"
-
-#if defined(USE_TCMALLOC)
-#include "third_party/tcmalloc/chromium/src/gperftools/malloc_extension.h"
-#endif
 
 namespace {
 
@@ -38,28 +33,26 @@ const char* const kChromePaths[] = {
   chrome::kChromeUIFlagsHost,
   chrome::kChromeUIFlashHost,
   chrome::kChromeUIGpuInternalsHost,
-  chrome::kChromeUIHistogramsHost,
   chrome::kChromeUIHistoryHost,
   chrome::kChromeUIIPCHost,
   chrome::kChromeUIInspectHost,
   chrome::kChromeUIMediaInternalsHost,
   chrome::kChromeUIMemoryHost,
   chrome::kChromeUINetInternalsHost,
-  chrome::kChromeUINetworkActionPredictorHost,
   chrome::kChromeUINetworkViewCacheHost,
   chrome::kChromeUINewTabHost,
   chrome::kChromeUIOmniboxHost,
   chrome::kChromeUIPluginsHost,
   chrome::kChromeUIPolicyHost,
-  chrome::kChromeUIPrintHost,
+  chrome::kChromeUIPredictorsHost,
   chrome::kChromeUIProfilerHost,
   chrome::kChromeUIQuotaInternalsHost,
-  chrome::kChromeUISessionsHost,
   chrome::kChromeUISettingsHost,
   chrome::kChromeUIStatsHost,
   chrome::kChromeUISyncInternalsHost,
+#if defined(OS_CHROMEOS)
   chrome::kChromeUITaskManagerHost,
-  chrome::kChromeUITCMallocHost,
+#endif
   chrome::kChromeUITermsHost,
   chrome::kChromeUITracingHost,
   chrome::kChromeUIVersionHost,
@@ -71,7 +64,6 @@ const char* const kChromePaths[] = {
   chrome::kChromeUISandboxHost,
 #endif
 #if defined(OS_CHROMEOS)
-  chrome::kChromeUIActiveDownloadsHost,
   chrome::kChromeUIChooseMobileNetworkHost,
   chrome::kChromeUICryptohomeHost,
   chrome::kChromeUIDiscardsHost,
@@ -83,6 +75,10 @@ const char* const kChromePaths[] = {
   chrome::kChromeUIOSCreditsHost,
   chrome::kChromeUIProxySettingsHost,
   chrome::kChromeUISystemInfoHost,
+  chrome::kChromeUIWallpaperHost,
+#endif
+#if defined(ENABLE_PRINTING)
+  chrome::kChromeUIPrintHost,
 #endif
 };
 
@@ -99,7 +95,6 @@ bool WillHandleBrowserAboutURL(GURL* url,
          !url->SchemeIs(chrome::kAboutScheme));
 
   // Only handle chrome://foo/, URLFixerUpper::FixupURL translates about:foo.
-  // TAB_CONTENTS_WEB handles about:blank, which frames are allowed to access.
   if (!url->SchemeIs(chrome::kChromeUIScheme))
     return false;
 
@@ -155,32 +150,12 @@ bool HandleNonNavigationAboutURL(const GURL& url) {
 #if (defined(OS_MACOSX) || defined(OS_WIN)) && defined(IPC_MESSAGE_LOG_ENABLED)
   if (LowerCaseEqualsASCII(url.spec(), chrome::kChromeUIIPCURL)) {
     // Run the dialog. This will re-use the existing one if it's already up.
-    browser::ShowAboutIPCDialog();
+    chrome::ShowAboutIPCDialog();
     return true;
   }
 #endif
 
 #endif  // OFFICIAL_BUILD
-
-#if defined(OS_CHROMEOS)
-  if (host == chrome::kChromeUIRotateHost) {
-    content::ScreenOrientation change = content::SCREEN_ORIENTATION_TOP;
-    std::string query(url.query());
-    if (query == "left") {
-      change = content::SCREEN_ORIENTATION_LEFT;
-    } else if (query == "right") {
-      change = content::SCREEN_ORIENTATION_RIGHT;
-    } else if (query == "top") {
-      change = content::SCREEN_ORIENTATION_TOP;
-    } else if (query == "bottom") {
-      change = content::SCREEN_ORIENTATION_BOTTOM;
-    } else {
-      NOTREACHED() << "Unknown orientation";
-    }
-    content::SensorsProvider::GetInstance()->ScreenOrientationChanged(change);
-    return true;
-  }
-#endif
 
   return false;
 }
@@ -192,20 +167,3 @@ std::vector<std::string> ChromePaths() {
     paths.push_back(kChromePaths[i]);
   return paths;
 }
-
-#if defined(USE_TCMALLOC)
-// static
-AboutTcmallocOutputs* AboutTcmallocOutputs::GetInstance() {
-  return Singleton<AboutTcmallocOutputs>::get();
-}
-
-AboutTcmallocOutputs::AboutTcmallocOutputs() {}
-
-AboutTcmallocOutputs::~AboutTcmallocOutputs() {}
-
-// Glue between the callback task and the method in the singleton.
-void AboutTcmallocRendererCallback(base::ProcessId pid,
-                                   const std::string& output) {
-  AboutTcmallocOutputs::GetInstance()->RendererCallback(pid, output);
-}
-#endif

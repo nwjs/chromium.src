@@ -13,10 +13,11 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/layout_test_http_server.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/common/content_paths.h"
 #include "net/base/net_util.h"
 
@@ -84,6 +85,7 @@ static const std::string preamble =
       "  this.workerThreadCount = 0; \n"
       "}\n"
       "window.layoutTestController = new LayoutTestController();\n"
+      "window.testRunner = window.layoutTestController;\n"
       "window.addEventListener('load', layoutTestController.OnEvent, false);\n"
       "</script>";
 
@@ -93,14 +95,12 @@ InProcessBrowserLayoutTest::InProcessBrowserLayoutTest(
     const FilePath& test_parent_dir, const FilePath& test_case_dir)
     : test_parent_dir_(test_parent_dir), test_case_dir_(test_case_dir),
       port_(-2) {
-  EnableDOMAutomation();
 }
 
 InProcessBrowserLayoutTest::InProcessBrowserLayoutTest(
     const FilePath& test_parent_dir, const FilePath& test_case_dir, int port)
     : test_parent_dir_(test_parent_dir), test_case_dir_(test_case_dir),
       port_(port) {
-  EnableDOMAutomation();
 }
 
 InProcessBrowserLayoutTest::~InProcessBrowserLayoutTest() {
@@ -186,7 +186,7 @@ void InProcessBrowserLayoutTest::RunLayoutTestInternal(
   LOG(INFO) << "Navigating to URL " << url << " and blocking.";
   const string16 expected_title = ASCIIToUTF16("done");
   ui_test_utils::TitleWatcher title_watcher(
-      browser()->GetSelectedWebContents(), expected_title);
+      chrome::GetActiveWebContents(browser()), expected_title);
   ui_test_utils::NavigateToURL(browser(), url);
   LOG(INFO) << "Navigation completed, now waiting for title.";
   string16 final_title = title_watcher.WaitAndGetTitle();

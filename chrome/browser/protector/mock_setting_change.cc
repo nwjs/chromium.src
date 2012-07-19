@@ -6,7 +6,6 @@
 
 #include "base/utf_string_conversions.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 
 using ::testing::Return;
 
@@ -25,6 +24,15 @@ MockSettingChange::MockSettingChange() {
       WillByDefault(Return(UTF8ToUTF16("Apply")));
   ON_CALL(*this, GetDiscardButtonText()).
       WillByDefault(Return(UTF8ToUTF16("Discard")));
+
+  ON_CALL(*this, GetApplyDisplayName()).
+      WillByDefault(Return(
+          DisplayName(kDefaultNamePriority, UTF8ToUTF16("new settings"))));
+
+  ON_CALL(*this, GetNewSettingURL()).WillByDefault(Return(GURL()));
+  ON_CALL(*this, CanBeMerged()).WillByDefault(Return(false));
+
+  ON_CALL(*this, IsUserVisible()).WillByDefault(Return(true));
 }
 
 MockSettingChange::~MockSettingChange() {

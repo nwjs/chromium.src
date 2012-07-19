@@ -7,7 +7,8 @@
 
 #include <vector>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
 #include "base/message_loop.h"
 #include "media/video/video_decode_accelerator.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
@@ -32,8 +33,9 @@ class PlatformVideoDecoderImpl
   virtual void Destroy() OVERRIDE;
 
   // VideoDecodeAccelerator::Client implementation.
-  virtual void ProvidePictureBuffers(
-      uint32 requested_num_of_buffers, const gfx::Size& dimensions) OVERRIDE;
+  virtual void ProvidePictureBuffers(uint32 requested_num_of_buffers,
+                                     const gfx::Size& dimensions,
+                                     uint32 texture_target) OVERRIDE;
   virtual void PictureReady(const media::Picture& picture) OVERRIDE;
   virtual void DismissPictureBuffer(int32 picture_buffer_id) OVERRIDE;
   virtual void NotifyInitializeDone() OVERRIDE;
@@ -56,7 +58,7 @@ class PlatformVideoDecoderImpl
   int32 command_buffer_route_id_;
 
   // Holds a GpuVideoDecodeAcceleratorHost.
-  scoped_refptr<media::VideoDecodeAccelerator> decoder_;
+  scoped_ptr<media::VideoDecodeAccelerator> decoder_;
 
   DISALLOW_COPY_AND_ASSIGN(PlatformVideoDecoderImpl);
 };

@@ -23,6 +23,10 @@ PROXIED_IFACE(PPB_Instance, PPB_BROWSERFONT_TRUSTED_INTERFACE_1_0,
               PPB_BrowserFont_Trusted_1_0)
 PROXIED_IFACE(PPB_Instance, PPB_CHARSET_TRUSTED_INTERFACE_1_0,
               PPB_CharSet_Trusted_1_0)
+PROXIED_IFACE(NoAPIName, PPB_FILECHOOSER_TRUSTED_INTERFACE_0_5,
+              PPB_FileChooserTrusted_0_5)
+PROXIED_IFACE(NoAPIName, PPB_FILECHOOSER_TRUSTED_INTERFACE_0_6,
+              PPB_FileChooserTrusted_0_6)
 PROXIED_IFACE(PPB_FileRef, PPB_FILEREFPRIVATE_INTERFACE_0_1,
               PPB_FileRefPrivate_0_1)
 // This uses the FileIO API which is declared in the public stable file.
@@ -45,6 +49,8 @@ PROXIED_IFACE(PPB_TCPServerSocket_Private,
               PPB_TCPServerSocket_Private_0_1)
 PROXIED_IFACE(PPB_TCPSocket_Private, PPB_TCPSOCKET_PRIVATE_INTERFACE_0_3,
               PPB_TCPSocket_Private_0_3)
+PROXIED_IFACE(PPB_TCPSocket_Private, PPB_TCPSOCKET_PRIVATE_INTERFACE_0_4,
+              PPB_TCPSocket_Private_0_4)
 PROXIED_IFACE(PPB_UDPSocket_Private, PPB_UDPSOCKET_PRIVATE_INTERFACE_0_2,
               PPB_UDPSocket_Private_0_2)
 PROXIED_IFACE(PPB_UDPSocket_Private, PPB_UDPSOCKET_PRIVATE_INTERFACE_0_3,

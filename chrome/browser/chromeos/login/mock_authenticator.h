@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_MOCK_AUTHENTICATOR_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_MOCK_AUTHENTICATOR_H_
-#pragma once
 
 #include <string>
 
@@ -64,6 +63,9 @@ class MockAuthenticator : public Authenticator {
                          const std::string& password,
                          const std::string& login_token,
                          const std::string& login_captcha) OVERRIDE {}
+
+ protected:
+  virtual ~MockAuthenticator() {}
 
  private:
   std::string expected_username_;

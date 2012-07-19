@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SESSIONS_SESSION_RESTORE_H_
 #define CHROME_BROWSER_SESSIONS_SESSION_RESTORE_H_
-#pragma once
 
 #include <vector>
 
@@ -15,6 +14,10 @@
 
 class Browser;
 class Profile;
+
+namespace content {
+class WebContents;
+}
 
 // SessionRestore handles restoring either the last or saved session. Session
 // restore come in two variants, asynchronous or synchronous. The synchronous
@@ -52,10 +55,12 @@ class SessionRestore {
       std::vector<const SessionWindow*>::const_iterator end);
 
   // Specifically used in the restoration of a foreign session.  This method
-  // restores the given session tab to a browser.
-  static void RestoreForeignSessionTab(Profile* profile,
-                                       const SessionTab& tab,
-                                       WindowOpenDisposition disposition);
+  // restores the given session tab to the browser of |source_web_contents| if
+  // the disposition is not NEW_WINDOW.
+  static void RestoreForeignSessionTab(
+      content::WebContents* source_web_contents,
+      const SessionTab& tab,
+      WindowOpenDisposition disposition);
 
   // Returns true if we're in the process of restoring |profile|.
   static bool IsRestoring(const Profile* profile);

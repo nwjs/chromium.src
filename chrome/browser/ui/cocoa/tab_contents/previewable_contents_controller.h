@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_TAB_CONTENTS_PREVIEWABLE_CONTENTS_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_TAB_CONTENTS_PREVIEWABLE_CONTENTS_CONTROLLER_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
@@ -28,7 +27,7 @@ class WebContents;
   // Container view for the "active" contents.
   IBOutlet NSView* activeContainer_;
 
-  // The preview TabContents.  Will be NULL if no preview is currently showing.
+  // The preview WebContents.  Will be NULL if no preview is currently showing.
   content::WebContents* previewContents_;  // weak
 }
 

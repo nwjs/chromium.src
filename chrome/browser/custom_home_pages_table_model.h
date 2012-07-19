@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CUSTOM_HOME_PAGES_TABLE_MODEL_H_
 #define CHROME_BROWSER_CUSTOM_HOME_PAGES_TABLE_MODEL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -15,7 +14,6 @@
 
 class GURL;
 class Profile;
-class SkBitmap;
 
 namespace ui {
 class TableModelObserver;

@@ -4,14 +4,13 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_GPU_MESSAGE_FILTER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_GPU_MESSAGE_FILTER_H_
-#pragma once
 
 #include <vector>
 
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "content/common/gpu/gpu_process_launch_causes.h"
 #include "content/public/browser/browser_message_filter.h"
 #include "ui/gfx/native_widget_types.h"
@@ -58,7 +57,6 @@ class GpuMessageFilter : public content::BrowserMessageFilter,
   // Helper callbacks for the message handlers.
   void EstablishChannelCallback(IPC::Message* reply,
                                 const IPC::ChannelHandle& channel,
-                                base::ProcessHandle gpu_process_for_browser,
                                 const content::GPUInfo& gpu_info);
   void CreateCommandBufferCallback(IPC::Message* reply, int32 route_id);
 

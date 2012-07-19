@@ -70,7 +70,7 @@
 }
 
 .overlay .page > .close-button {
-  background-image: url('chrome://resources/images/x.png');
+  background-image: url('../images/x.png');
   background-position: center;
   background-repeat: no-repeat;
   height: 24px;
@@ -86,7 +86,7 @@ html[dir='rtl'] .overlay .page > .close-button {
 }
 
 .overlay .page > .close-button:hover {
-  background-image: url('chrome://resources/images/x-hover.png');
+  background-image: url('../images/x-hover.png');
 }
 
 .overlay .page h1 {
@@ -109,6 +109,7 @@ html[dir='rtl'] .overlay .page > .close-button {
   -webkit-box-flex: 1;
   overflow: auto;
   padding: 6px 17px 6px;
+  position: relative;
 }
 
 .overlay .page .action-area {
@@ -116,7 +117,7 @@ html[dir='rtl'] .overlay .page > .close-button {
   -webkit-box-orient: horizontal;
   -webkit-box-pack: end;
   display: -webkit-box;
-  padding: 14px;
+  padding: 14px 17px;
 }
 
 html[dir='rtl'] .overlay .page .action-area {
@@ -136,3 +137,23 @@ html[dir='rtl'] .overlay .page .action-area {
   -webkit-margin-start: 10px;
   display: block;
 }
+
+/* On OSX 10.7, hidden scrollbars may prevent the user from realizing that the
+ * overlay contains scrollable content. To resolve this, style the scrollbars on
+ * OSX so they are always visible. See http://crbug.com/123010. */
+<if expr="is_macosx">
+.overlay .page .content-area::-webkit-scrollbar {
+  -webkit-appearance: none;
+  width: 11px;
+}
+
+.overlay .page .content-area::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 2px solid white;
+  border-radius: 8px;
+}
+
+.overlay .page .content-area::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+</if>

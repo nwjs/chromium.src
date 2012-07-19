@@ -15,6 +15,7 @@
 #include "base/path_service.h"
 #include "base/logging.h"
 #include "base/win/registry.h"
+#include "base/win/windows_version.h"
 #include "chrome/common/env_vars.h"
 #include "chrome/installer/util/chrome_frame_distribution.h"
 #include "chrome/installer/util/chromium_binaries_distribution.h"
@@ -30,6 +31,15 @@
 using installer::MasterPreferences;
 
 namespace {
+
+const wchar_t kCommandExecuteImplUuid[] =
+    L"{A2DF06F9-A21A-44A8-8A99-8B9C84F29160}";
+const wchar_t kDelegateExecuteLibUuid[] =
+    L"{7779FB70-B399-454A-AA1A-BAA850032B10}";
+const wchar_t kDelegateExecuteLibVersion[] = L"1.0";
+const wchar_t kICommandExecuteImplUuid[] =
+    L"{0BA0D4E9-2259-4963-B9AE-A839F7CB7544}";
+
 // The BrowserDistribution objects are never freed.
 BrowserDistribution* g_browser_distribution = NULL;
 BrowserDistribution* g_chrome_frame_distribution = NULL;
@@ -132,43 +142,43 @@ BrowserDistribution* BrowserDistribution::GetSpecificDistribution(
 
 void BrowserDistribution::DoPostUninstallOperations(
     const Version& version, const FilePath& local_data_path,
-    const std::wstring& distribution_data) {
+    const string16& distribution_data) {
 }
 
-std::wstring BrowserDistribution::GetAppGuid() {
+string16 BrowserDistribution::GetAppGuid() {
   return L"";
 }
 
-std::wstring BrowserDistribution::GetApplicationName() {
+string16 BrowserDistribution::GetBaseAppName() {
   return L"Chromium";
 }
 
-std::wstring BrowserDistribution::GetAppShortCutName() {
-  return GetApplicationName();
+string16 BrowserDistribution::GetAppShortCutName() {
+  return GetBaseAppName();
 }
 
-std::wstring BrowserDistribution::GetAlternateApplicationName() {
+string16 BrowserDistribution::GetAlternateApplicationName() {
   return L"The Internet";
 }
 
-std::wstring BrowserDistribution::GetBrowserAppId() {
+string16 BrowserDistribution::GetBaseAppId() {
   return L"Chromium";
 }
 
-std::wstring BrowserDistribution::GetInstallSubDir() {
+string16 BrowserDistribution::GetInstallSubDir() {
   return L"Chromium";
 }
 
-std::wstring BrowserDistribution::GetPublisherName() {
+string16 BrowserDistribution::GetPublisherName() {
   return L"Chromium";
 }
 
-std::wstring BrowserDistribution::GetAppDescription() {
+string16 BrowserDistribution::GetAppDescription() {
   return L"Browse the web";
 }
 
-std::wstring BrowserDistribution::GetLongAppDescription() {
-  const std::wstring& app_description =
+string16 BrowserDistribution::GetLongAppDescription() {
+  const string16& app_description =
       installer::GetLocalizedString(IDS_PRODUCT_DESCRIPTION_BASE);
   return app_description;
 }
@@ -177,15 +187,15 @@ std::string BrowserDistribution::GetSafeBrowsingName() {
   return "chromium";
 }
 
-std::wstring BrowserDistribution::GetStateKey() {
+string16 BrowserDistribution::GetStateKey() {
   return L"Software\\Chromium";
 }
 
-std::wstring BrowserDistribution::GetStateMediumKey() {
+string16 BrowserDistribution::GetStateMediumKey() {
   return L"Software\\Chromium";
 }
 
-std::wstring BrowserDistribution::GetStatsServerURL() {
+string16 BrowserDistribution::GetStatsServerURL() {
   return L"";
 }
 
@@ -197,19 +207,19 @@ std::string BrowserDistribution::GetHttpPipeliningTestServer() const {
   return "";
 }
 
-std::wstring BrowserDistribution::GetDistributionData(HKEY root_key) {
+string16 BrowserDistribution::GetDistributionData(HKEY root_key) {
   return L"";
 }
 
-std::wstring BrowserDistribution::GetUninstallLinkName() {
+string16 BrowserDistribution::GetUninstallLinkName() {
   return L"Uninstall Chromium";
 }
 
-std::wstring BrowserDistribution::GetUninstallRegPath() {
+string16 BrowserDistribution::GetUninstallRegPath() {
   return L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Chromium";
 }
 
-std::wstring BrowserDistribution::GetVersionKey() {
+string16 BrowserDistribution::GetVersionKey() {
   return L"Software\\Chromium";
 }
 
@@ -225,8 +235,24 @@ int BrowserDistribution::GetIconIndex() {
   return 0;
 }
 
-bool BrowserDistribution::GetChromeChannel(std::wstring* channel) {
+bool BrowserDistribution::GetChromeChannel(string16* channel) {
   return false;
+}
+
+bool BrowserDistribution::GetDelegateExecuteHandlerData(
+    string16* handler_class_uuid,
+    string16* type_lib_uuid,
+    string16* type_lib_version,
+    string16* interface_uuid) {
+  if (handler_class_uuid)
+    *handler_class_uuid = kCommandExecuteImplUuid;
+  if (type_lib_uuid)
+    *type_lib_uuid = kDelegateExecuteLibUuid;
+  if (type_lib_version)
+    *type_lib_version = kDelegateExecuteLibVersion;
+  if (interface_uuid)
+    *interface_uuid = kICommandExecuteImplUuid;
+  return true;
 }
 
 void BrowserDistribution::UpdateInstallStatus(bool system_install,
@@ -247,7 +273,7 @@ void BrowserDistribution::LaunchUserExperiment(
 
 
 void BrowserDistribution::InactiveUserToastExperiment(int flavor,
-    const std::wstring& experiment_group,
+    const string16& experiment_group,
     const installer::Product& installation,
     const FilePath& application_path) {
 }

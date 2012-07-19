@@ -4,7 +4,6 @@
 
 #ifndef UI_GFX_TRANSFORM_H_
 #define UI_GFX_TRANSFORM_H_
-#pragma once
 
 #include "third_party/skia/include/utils/SkMatrix44.h"
 #include "ui/base/ui_export.h"
@@ -52,6 +51,11 @@ class UI_EXPORT Transform {
   void SetTranslateY(float y);
   void SetTranslate(float x, float y);
 
+  // Creates a perspective matrix.
+  // Based on the 'perspective' operation from
+  // http://www.w3.org/TR/css3-3d-transforms/#transform-functions
+  void SetPerspectiveDepth(float depth);
+
   // Applies a rotation on the current transformation.
   void ConcatRotate(float degree);
 
@@ -96,12 +100,12 @@ class UI_EXPORT Transform {
 
   // Applies transformation on the rectangle. Returns true if the transformed
   // rectangle was axis aligned. If it returns false, rect will be the
-  // smallest axis aligned bounding box containg the transformed rect.
+  // smallest axis aligned bounding box containing the transformed rect.
   void TransformRect(gfx::Rect* rect) const;
 
   // Applies the reverse transformation on the rectangle. Returns true if
   // the transformed rectangle was axis aligned. If it returns false,
-  // rect will be the smallest axis aligned bounding box containg the
+  // rect will be the smallest axis aligned bounding box containing the
   // transformed rect.
   bool TransformRectReverse(gfx::Rect* rect) const;
 

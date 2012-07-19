@@ -5,6 +5,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/guid.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
@@ -14,15 +15,15 @@
 #include "chrome/browser/autofill/personal_data_manager.h"
 #include "chrome/browser/autofill/personal_data_manager_observer.h"
 #include "chrome/browser/password_manager/encryptor.h"
-#include "chrome/common/guid.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
-#include "content/test/notification_observer_mock.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/mock_notification_observer.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/forms/form_data.h"
@@ -54,7 +55,7 @@ class PersonalDataManagerTest : public testing::Test {
     db_thread_.Start();
 
     profile_.reset(new TestingProfile);
-    profile_->CreateWebDataService(false);
+    profile_->CreateWebDataService();
 
     autofill_test::DisableSystemServices(profile_.get());
     ResetPersonalDataManager();
@@ -87,7 +88,7 @@ class PersonalDataManagerTest : public testing::Test {
   scoped_ptr<TestingProfile> profile_;
   scoped_ptr<PersonalDataManager> personal_data_;
   content::NotificationRegistrar registrar_;
-  content::NotificationObserverMock observer_;
+  content::MockNotificationObserver observer_;
   PersonalDataLoadedObserverMock personal_data_observer_;
 };
 
@@ -111,7 +112,7 @@ TEST_F(PersonalDataManagerTest, AddProfile) {
 
   // Add profile with identical values.  Duplicates should not get saved.
   AutofillProfile profile0a = profile0;
-  profile0a.set_guid(guid::GenerateGUID());
+  profile0a.set_guid(base::GenerateGUID());
   personal_data_->AddProfile(profile0a);
 
   // Reload the database.
@@ -124,7 +125,7 @@ TEST_F(PersonalDataManagerTest, AddProfile) {
 
   // New profile with different email.
   AutofillProfile profile1 = profile0;
-  profile1.set_guid(guid::GenerateGUID());
+  profile1.set_guid(base::GenerateGUID());
   profile1.SetInfo(EMAIL_ADDRESS, ASCIIToUTF16("john@smith.com"));
 
   // Add the different profile.  This should save as a separate profile.
@@ -352,8 +353,8 @@ TEST_F(PersonalDataManagerTest, PopulateUniqueIDsOnLoad) {
   const std::vector<AutofillProfile*>& results3 = personal_data_->profiles();
   ASSERT_EQ(2U, results3.size());
   EXPECT_NE(results3[0]->guid(), results3[1]->guid());
-  EXPECT_TRUE(guid::IsValidGUID(results3[0]->guid()));
-  EXPECT_TRUE(guid::IsValidGUID(results3[1]->guid()));
+  EXPECT_TRUE(base::IsValidGUID(results3[0]->guid()));
+  EXPECT_TRUE(base::IsValidGUID(results3[1]->guid()));
 }
 
 TEST_F(PersonalDataManagerTest, SetEmptyProfile) {
@@ -438,8 +439,9 @@ TEST_F(PersonalDataManagerTest, Refresh) {
   profile_pointers.push_back(&profile2);
   AutofillProfile::AdjustInferredLabels(&profile_pointers);
 
-  WebDataService* wds = profile_->GetWebDataService(Profile::EXPLICIT_ACCESS);
-  ASSERT_TRUE(wds);
+  scoped_refptr<WebDataService> wds = WebDataServiceFactory::GetForProfile(
+      profile_.get(), Profile::EXPLICIT_ACCESS);
+  ASSERT_TRUE(wds.get());
   wds->AddAutofillProfile(profile2);
 
   personal_data_->Refresh();

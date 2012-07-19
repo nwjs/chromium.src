@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_HISTORY_ARCHIVED_DATABASE_H_
 #define CHROME_BROWSER_HISTORY_ARCHIVED_DATABASE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "chrome/browser/history/url_database.h"
@@ -39,7 +38,12 @@ class ArchivedDatabase : public URLDatabase,
   void BeginTransaction();
   void CommitTransaction();
 
+  // Returns the current version that we will generate archived databases with.
+  static int GetCurrentVersion();
+
  private:
+  bool InitTables();
+
   // Implemented for the specialized databases.
   virtual sql::Connection& GetDB() OVERRIDE;
 

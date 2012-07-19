@@ -9,8 +9,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/ui/dialog_style.h"
-#include "chrome/browser/ui/views/window.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "googleurl/src/gurl.h"
@@ -100,16 +98,12 @@ ExternalProtocolDialog::ExternalProtocolDialog(WebContents* web_contents,
   ui::ElideString(ASCIIToUTF16(url.possibly_invalid_spec()),
       kMaxUrlWithoutSchemeSize, &elided_url_without_scheme);
 
-  string16 message_text = l10n_util::GetStringFUTF16(
-      IDS_EXTERNAL_PROTOCOL_INFORMATION,
+  views::MessageBoxView::InitParams params(
+      l10n_util::GetStringFUTF16(IDS_EXTERNAL_PROTOCOL_INFORMATION,
       ASCIIToUTF16(url.scheme() + ":"),
-      elided_url_without_scheme) + ASCIIToUTF16("\n\n");
-
-  message_box_view_ = new views::MessageBoxView(
-      views::MessageBoxView::NO_OPTIONS,
-      message_text,
-      string16(),
-      kMessageWidth);
+      elided_url_without_scheme) + ASCIIToUTF16("\n\n"));
+  params.message_width = kMessageWidth;
+  message_box_view_ = new views::MessageBoxView(params);
   message_box_view_->SetCheckBoxLabel(
       l10n_util::GetStringUTF16(IDS_EXTERNAL_PROTOCOL_CHECKBOX_TEXT));
 

@@ -26,11 +26,49 @@ cr.define('cr.ui', function() {
       this.addEventListener('mouseover', this.handleMouseOver_);
       this.addEventListener('mouseout', this.handleMouseOut_);
 
+      this.classList.add('decorated');
+      this.hidden = true;  // Hide the menu by default.
+
       // Decorate the children as menu items.
       var children = this.children;
       for (var i = 0, child; child = children[i]; i++) {
         cr.ui.decorate(child, MenuItem);
       }
+    },
+
+    /**
+     * Adds menu item at the end of the list.
+     * @param {Object} item Menu item properties.
+     * @return {cr.ui.MenuItem} The created menu item.
+     */
+    addMenuItem: function(item) {
+      var menuItem = this.ownerDocument.createElement('menuitem');
+      this.appendChild(menuItem);
+
+      cr.ui.decorate(menuItem, MenuItem);
+
+      if (item.label)
+        menuItem.label = item.label;
+
+      if (item.iconUrl)
+        menuItem.iconUrl = item.iconUrl;
+
+      return menuItem;
+    },
+
+    /**
+     * Adds separator at the end of the list.
+     */
+    addSeparator: function() {
+      var separator = this.ownerDocument.createElement('hr');
+      this.appendChild(separator);
+    },
+
+    /**
+     * Clears menu.
+     */
+    clear: function() {
+      this.textContent = '';
     },
 
     /**
@@ -79,6 +117,13 @@ cr.define('cr.ui', function() {
     },
 
     /**
+     * Menu length
+     */
+    get length() {
+      return this.children.length;
+    },
+
+    /**
      * This is the function that handles keyboard navigation. This is usually
      * called by the element responsible for managing the menu.
      * @param {Event} e The keydown event object.
@@ -88,30 +133,42 @@ cr.define('cr.ui', function() {
       var item = this.selectedItem;
 
       var self = this;
-      function selectNextVisible(m) {
+      function selectNextAvailable(m) {
         var children = self.children;
         var len = children.length;
         var i = self.selectedIndex;
         if (i == -1 && m == -1) {
-          // Edge case when we need to go the last item fisrt.
+          // Edge case when needed to go the last item first.
           i = 0;
         }
+
+        // "i" may be negative(-1), so modulus operation and cycle below
+        // wouldn't work as assumed. This trick makes startPosition positive
+        // without altering it's modulo.
+        var startPosition = (i + len) % len;
+
         while (true) {
           i = (i + m + len) % len;
+
+          // Check not to enter into infinite loop if all items are hidden or
+          // disabled.
+          if (i == startPosition)
+            break;
+
           item = children[i];
-          if (item && !item.isSeparator() && !item.hidden)
+          if (item && !item.isSeparator() && !item.hidden && !item.disabled)
             break;
         }
-        if (item)
+        if (item && !item.disabled)
           self.selectedIndex = i;
       }
 
       switch (e.keyIdentifier) {
         case 'Down':
-          selectNextVisible(1);
+          selectNextAvailable(1);
           return true;
         case 'Up':
-          selectNextVisible(-1);
+          selectNextAvailable(-1);
           return true;
         case 'Enter':
         case 'U+0020': // Space

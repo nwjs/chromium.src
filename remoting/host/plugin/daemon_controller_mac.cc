@@ -5,6 +5,7 @@
 #include "remoting/host/plugin/daemon_controller.h"
 
 #include <launch.h>
+#include <stdio.h>
 #include <sys/types.h>
 
 #include "base/basictypes.h"
@@ -14,37 +15,33 @@
 #include "base/file_util.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
-#include "base/mac/authorization_util.h"
+#include "base/mac/foundation_util.h"
 #include "base/mac/launchd.h"
 #include "base/mac/mac_logging.h"
-#include "base/mac/scoped_authorizationref.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_launch_data.h"
 #include "base/threading/thread.h"
+#include "base/time.h"
 #include "base/values.h"
+#include "remoting/host/constants_mac.h"
 #include "remoting/host/json_host_config.h"
+#include "remoting/host/usage_stats_consent.h"
 
 namespace remoting {
 
 namespace {
 
-// The name of the Remoting Host service that is registered with launchd.
-#define kServiceName "org.chromium.chromoting"
-#define kConfigDir "/Library/PrivilegedHelperTools/"
-
-// This helper script is executed as root.  It is passed a command-line option
-// (--enable or --disable), which causes it to create or remove a trigger file.
-// The trigger file (defined in the service's plist file) informs launchd
-// whether the Host service should be running.  Creating the trigger file causes
-// launchd to immediately start the service.  Deleting the trigger file has no
-// immediate effect, but it prevents the service from being restarted if it
-// becomes stopped.
-const char kStartStopTool[] = kConfigDir kServiceName ".me2me.sh";
+// The NSSystemDirectories.h header has a conflicting definition of
+// NSSearchPathDirectory with the one in base/mac/foundation_util.h.
+// Foundation.h would work, but it can only be included from Objective-C files.
+// Therefore, we define the needed constants here.
+const int NSLibraryDirectory = 5;
 
 // Use a single configuration file, instead of separate "auth" and "host" files.
 // This is because the SetConfigAndStart() API only provides a single
 // dictionary, and splitting this into two dictionaries would require
 // knowledge of which keys belong in which files.
-const char kHostConfigFile[] = kConfigDir kServiceName ".json";
+const char kHostConfigFile[] = kHostConfigDir kServiceName ".json";
 
 class DaemonControllerMac : public remoting::DaemonController {
  public:
@@ -55,24 +52,40 @@ class DaemonControllerMac : public remoting::DaemonController {
   virtual void GetConfig(const GetConfigCallback& callback) OVERRIDE;
   virtual void SetConfigAndStart(
       scoped_ptr<base::DictionaryValue> config,
-      const CompletionCallback& done_callback) OVERRIDE;
+      bool consent,
+      const CompletionCallback& done) OVERRIDE;
   virtual void UpdateConfig(scoped_ptr<base::DictionaryValue> config,
                             const CompletionCallback& done_callback) OVERRIDE;
   virtual void Stop(const CompletionCallback& done_callback) OVERRIDE;
+  virtual void SetWindow(void* window_handle) OVERRIDE;
+  virtual void GetVersion(const GetVersionCallback& done_callback) OVERRIDE;
+  virtual void GetUsageStatsConsent(
+      const GetUsageStatsConsentCallback& callback) OVERRIDE;
 
  private:
   void DoGetConfig(const GetConfigCallback& callback);
+  void DoGetVersion(const GetVersionCallback& callback);
   void DoSetConfigAndStart(scoped_ptr<base::DictionaryValue> config,
-                           const CompletionCallback& done_callback);
+                           const CompletionCallback& done);
+  void DoUpdateConfig(scoped_ptr<base::DictionaryValue> config,
+                      const CompletionCallback& done_callback);
   void DoStop(const CompletionCallback& done_callback);
 
-  bool RunToolScriptAsRoot(const char* command);
-  bool StopService();
+  void ShowPreferencePane(const std::string& config_data,
+                          const CompletionCallback& done_callback);
+  void RegisterForPreferencePaneNotifications(
+      const CompletionCallback &done_callback);
+  void DeregisterForPreferencePaneNotifications();
+  void PreferencePaneCallbackDelegate(CFStringRef name);
+  static bool DoShowPreferencePane(const std::string& config_data);
+  static void PreferencePaneCallback(CFNotificationCenterRef center,
+                                     void* observer,
+                                     CFStringRef name,
+                                     const void* object,
+                                     CFDictionaryRef user_info);
 
-  // The API for gaining root privileges is blocking (it prompts the user for
-  // a password). Since Start() and Stop() must not block the main thread, they
-  // need to post their tasks to a separate thread.
   base::Thread auth_thread_;
+  CompletionCallback current_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(DaemonControllerMac);
 };
@@ -83,16 +96,27 @@ DaemonControllerMac::DaemonControllerMac()
 }
 
 DaemonControllerMac::~DaemonControllerMac() {
-  // This will block if the thread is waiting on a root password prompt.  There
-  // doesn't seem to be an easy solution for this, other than to spawn a
-  // separate process to do the root elevation.
-
-  // TODO(lambroslambrou): Improve this, either by finding a way to terminate
-  // the thread, or by moving to a separate process.
   auth_thread_.Stop();
+  DeregisterForPreferencePaneNotifications();
+}
+
+void DaemonControllerMac::DeregisterForPreferencePaneNotifications() {
+  CFNotificationCenterRemoveObserver(
+      CFNotificationCenterGetDistributedCenter(),
+      this,
+      CFSTR(kUpdateSucceededNotificationName),
+      NULL);
+  CFNotificationCenterRemoveObserver(
+      CFNotificationCenterGetDistributedCenter(),
+      this,
+      CFSTR(kUpdateFailedNotificationName),
+      NULL);
 }
 
 DaemonController::State DaemonControllerMac::GetState() {
+  if (!base::mac::IsOSSnowLeopardOrLater()) {
+    return DaemonController::STATE_NOT_IMPLEMENTED;
+  }
   pid_t job_pid = base::mac::PIDForJob(kServiceName);
   if (job_pid < 0) {
     return DaemonController::STATE_NOT_INSTALLED;
@@ -115,18 +139,20 @@ void DaemonControllerMac::GetConfig(const GetConfigCallback& callback) {
 
 void DaemonControllerMac::SetConfigAndStart(
     scoped_ptr<base::DictionaryValue> config,
-    const CompletionCallback& done_callback) {
+    bool /* consent */,
+    const CompletionCallback& done) {
   auth_thread_.message_loop_proxy()->PostTask(
       FROM_HERE, base::Bind(
           &DaemonControllerMac::DoSetConfigAndStart, base::Unretained(this),
-          base::Passed(&config), done_callback));
+          base::Passed(&config), done));
 }
 
 void DaemonControllerMac::UpdateConfig(
     scoped_ptr<base::DictionaryValue> config,
     const CompletionCallback& done_callback) {
-  NOTIMPLEMENTED();
-  done_callback.Run(RESULT_FAILED);
+  auth_thread_.message_loop()->PostTask(FROM_HERE, base::Bind(
+      &DaemonControllerMac::DoUpdateConfig, base::Unretained(this),
+      base::Passed(&config), done_callback));
 }
 
 void DaemonControllerMac::Stop(const CompletionCallback& done_callback) {
@@ -135,117 +161,214 @@ void DaemonControllerMac::Stop(const CompletionCallback& done_callback) {
           &DaemonControllerMac::DoStop, base::Unretained(this), done_callback));
 }
 
+void DaemonControllerMac::SetWindow(void* window_handle) {
+  // noop
+}
+
+void DaemonControllerMac::GetVersion(const GetVersionCallback& callback) {
+  auth_thread_.message_loop_proxy()->PostTask(
+      FROM_HERE,
+      base::Bind(&DaemonControllerMac::DoGetVersion, base::Unretained(this),
+                 callback));
+}
+
+void DaemonControllerMac::GetUsageStatsConsent(
+    const GetUsageStatsConsentCallback& callback) {
+  // Crash dump collection is not implemented on Mac yet.
+  // http://crbug.com/130678.
+  callback.Run(false, false, false);
+}
+
 void DaemonControllerMac::DoGetConfig(const GetConfigCallback& callback) {
-  JsonHostConfig host_config(FilePath(kHostConfigFile),
-                             base::MessageLoopProxy::current());
-  host_config.Read();
+  FilePath config_path(kHostConfigFile);
+  JsonHostConfig host_config(config_path);
+  scoped_ptr<base::DictionaryValue> config;
 
-  scoped_ptr<base::DictionaryValue> config(new base::DictionaryValue());
-
-  const char* key = "host_id";
-  std::string value;
-  if (host_config.GetString(key, &value))
-    config.get()->SetString(key, value);
-  key = "xmpp_login";
-  if (host_config.GetString(key, &value))
-    config.get()->SetString(key, value);
+  if (host_config.Read()) {
+    config.reset(new base::DictionaryValue());
+    std::string value;
+    if (host_config.GetString(kHostIdConfigPath, &value))
+      config.get()->SetString(kHostIdConfigPath, value);
+    if (host_config.GetString(kXmppLoginConfigPath, &value))
+      config.get()->SetString(kXmppLoginConfigPath, value);
+  }
 
   callback.Run(config.Pass());
 }
 
+void DaemonControllerMac::DoGetVersion(const GetVersionCallback& callback) {
+  std::string version = "";
+  std::string command_line = remoting::kHostHelperTool;
+  command_line += " --host-version";
+  FILE* script_output = popen(command_line.c_str(), "r");
+  if (script_output) {
+    char buffer[100];
+    char* result = fgets(buffer, sizeof(buffer), script_output);
+    pclose(script_output);
+    if (result) {
+      // The string is guaranteed to be null-terminated, but probably contains
+      // a newline character, which we don't want.
+      for (int i = 0; result[i]; ++i) {
+        if (result[i] < ' ') {
+          result[i] = 0;
+          break;
+        }
+      }
+      version = result;
+    }
+  }
+  callback.Run(version);
+}
+
 void DaemonControllerMac::DoSetConfigAndStart(
     scoped_ptr<base::DictionaryValue> config,
+    const CompletionCallback& done) {
+  std::string config_data;
+  base::JSONWriter::Write(config.get(), &config_data);
+  ShowPreferencePane(config_data, done);
+}
+
+void DaemonControllerMac::DoUpdateConfig(
+    scoped_ptr<base::DictionaryValue> config,
     const CompletionCallback& done_callback) {
-  // JsonHostConfig doesn't provide a way to save on the current thread, wait
-  // for completion, and know whether the save succeeded.  Instead, use
-  // base::JSONWriter directly.
-
-  // TODO(lambroslambrou): Improve the JsonHostConfig interface.
-  std::string file_content;
-  base::JSONWriter::Write(config.get(), &file_content);
-  if (file_util::WriteFile(FilePath(kHostConfigFile), file_content.c_str(),
-                           file_content.size()) !=
-      static_cast<int>(file_content.size())) {
-    LOG(ERROR) << "Failed to write config file: " << kHostConfigFile;
+  FilePath config_file_path(kHostConfigFile);
+  JsonHostConfig config_file(config_file_path);
+  if (!config_file.Read()) {
     done_callback.Run(RESULT_FAILED);
     return;
   }
+  for (DictionaryValue::key_iterator key(config->begin_keys());
+       key != config->end_keys(); ++key) {
+    std::string value;
+    if (!config->GetString(*key, &value)) {
+      LOG(ERROR) << *key << " is not a string.";
+      done_callback.Run(RESULT_FAILED);
+      return;
+    }
+    config_file.SetString(*key, value);
+  }
 
-  // Creating the trigger file causes launchd to start the service, so the
-  // extra step performed in DoStop() is not necessary here.
-  bool result = RunToolScriptAsRoot("--enable");
-  done_callback.Run(result ? RESULT_OK : RESULT_FAILED);
+  std::string config_data = config_file.GetSerializedData();
+  ShowPreferencePane(config_data, done_callback);
 }
 
-void DaemonControllerMac::DoStop(const CompletionCallback& done_callback) {
-  if (!RunToolScriptAsRoot("--disable")) {
+void DaemonControllerMac::ShowPreferencePane(
+    const std::string& config_data, const CompletionCallback& done_callback) {
+  if (DoShowPreferencePane(config_data)) {
+    RegisterForPreferencePaneNotifications(done_callback);
+  } else {
     done_callback.Run(RESULT_FAILED);
-    return;
   }
-
-  // Deleting the trigger file does not cause launchd to stop the service.
-  // Since the service is running for the local user's desktop (not as root),
-  // it has to be stopped for that user.  This cannot easily be done in the
-  // shell-script running as root, so it is done here instead.
-  bool result = StopService();
-  done_callback.Run(result ? RESULT_OK : RESULT_FAILED);
 }
 
-bool DaemonControllerMac::RunToolScriptAsRoot(const char* command) {
-  // TODO(lambroslambrou): Supply a localized prompt string here.
-  base::mac::ScopedAuthorizationRef authorization(
-      base::mac::AuthorizationCreateToRunAsRoot(CFSTR("")));
-  if (!authorization) {
-    LOG(ERROR) << "Failed to get root privileges.";
-    return false;
-  }
+bool DaemonControllerMac::DoShowPreferencePane(const std::string& config_data) {
+  if (!config_data.empty()) {
+    FilePath config_path;
+    if (!file_util::GetTempDir(&config_path)) {
+      LOG(ERROR) << "Failed to get filename for saving configuration data.";
+      return false;
+    }
+    config_path = config_path.Append(kServiceName ".json");
 
-  if (!file_util::VerifyPathControlledByAdmin(FilePath(kStartStopTool))) {
-    LOG(ERROR) << "Security check failed for: " << kStartStopTool;
-    return false;
-  }
-
-  // TODO(lambroslambrou): Use sandbox-exec to minimize exposure -
-  // http://crbug.com/120903
-  const char* arguments[] = { command, NULL };
-  int exit_status;
-  OSStatus status = base::mac::ExecuteWithPrivilegesAndWait(
-      authorization.get(),
-      kStartStopTool,
-      kAuthorizationFlagDefaults,
-      arguments,
-      NULL,
-      &exit_status);
-  if (status != errAuthorizationSuccess) {
-    OSSTATUS_LOG(ERROR, status) << "AuthorizationExecuteWithPrivileges";
-    return false;
-  }
-  if (exit_status != 0) {
-    LOG(ERROR) << kStartStopTool << " failed with exit status " << exit_status;
-    return false;
-  }
-
-  return true;
-}
-
-bool DaemonControllerMac::StopService() {
-  base::mac::ScopedLaunchData response(
-      base::mac::MessageForJob(kServiceName, LAUNCH_KEY_STOPJOB));
-  if (!response) {
-    LOG(ERROR) << "Failed to send message to launchd";
-    return false;
-  }
-
-  // Got a response, so check if launchd sent a non-zero error code, otherwise
-  // assume the command was successful.
-  if (launch_data_get_type(response.get()) == LAUNCH_DATA_ERRNO) {
-    int error = launch_data_get_errno(response.get());
-    if (error) {
-      LOG(ERROR) << "launchd returned error " << error;
+    int written = file_util::WriteFile(config_path, config_data.data(),
+                                       config_data.size());
+    if (written != static_cast<int>(config_data.size())) {
+      LOG(ERROR) << "Failed to save configuration data to: "
+                 << config_path.value();
       return false;
     }
   }
+
+  FilePath pane_path;
+  // TODO(lambroslambrou): Use NSPreferencePanesDirectory once we start
+  // building against SDK 10.6.
+  if (!base::mac::GetLocalDirectory(NSLibraryDirectory, &pane_path)) {
+    LOG(ERROR) << "Failed to get directory for local preference panes.";
+    return false;
+  }
+  pane_path = pane_path.Append("PreferencePanes")
+      .Append(kServiceName ".prefPane");
+
+  FSRef pane_path_ref;
+  if (!base::mac::FSRefFromPath(pane_path.value(), &pane_path_ref)) {
+    LOG(ERROR) << "Failed to create FSRef";
+    return false;
+  }
+  OSStatus status = LSOpenFSRef(&pane_path_ref, NULL);
+  if (status != noErr) {
+    OSSTATUS_LOG(ERROR, status) << "LSOpenFSRef failed for path: "
+                                << pane_path.value();
+    return false;
+  }
+
+  CFNotificationCenterRef center =
+      CFNotificationCenterGetDistributedCenter();
+  CFNotificationCenterPostNotification(center, CFSTR(kServiceName), NULL, NULL,
+                                       TRUE);
   return true;
+}
+
+void DaemonControllerMac::DoStop(const CompletionCallback& done_callback) {
+  ShowPreferencePane("", done_callback);
+}
+
+// CFNotificationCenterAddObserver ties the thread on which distributed
+// notifications are received to the one on which it is first called.
+// This is safe because HostNPScriptObject::InvokeAsyncResultCallback
+// bounces the invocation to the correct thread, so it doesn't matter
+// which thread CompletionCallbacks are called on.
+void DaemonControllerMac::RegisterForPreferencePaneNotifications(
+    const CompletionCallback& done_callback) {
+  // We can only have one callback registered at a time. This is enforced by the
+  // UX flow of the web-app.
+  DCHECK(current_callback_.is_null());
+  current_callback_ = done_callback;
+
+  CFNotificationCenterAddObserver(
+      CFNotificationCenterGetDistributedCenter(),
+      this,
+      &DaemonControllerMac::PreferencePaneCallback,
+      CFSTR(kUpdateSucceededNotificationName),
+      NULL,
+      CFNotificationSuspensionBehaviorDeliverImmediately);
+  CFNotificationCenterAddObserver(
+      CFNotificationCenterGetDistributedCenter(),
+      this,
+      &DaemonControllerMac::PreferencePaneCallback,
+      CFSTR(kUpdateFailedNotificationName),
+      NULL,
+      CFNotificationSuspensionBehaviorDeliverImmediately);
+}
+
+void DaemonControllerMac::PreferencePaneCallbackDelegate(CFStringRef name) {
+  AsyncResult result = RESULT_FAILED;
+  if (CFStringCompare(name, CFSTR(kUpdateSucceededNotificationName), 0) ==
+          kCFCompareEqualTo) {
+    result = RESULT_OK;
+  } else if (CFStringCompare(name, CFSTR(kUpdateFailedNotificationName), 0) ==
+          kCFCompareEqualTo) {
+    result = RESULT_FAILED;
+  } else {
+    LOG(WARNING) << "Ignoring unexpected notification: " << name;
+    return;
+  }
+  DCHECK(!current_callback_.is_null());
+  current_callback_.Run(result);
+  current_callback_.Reset();
+  DeregisterForPreferencePaneNotifications();
+}
+
+void DaemonControllerMac::PreferencePaneCallback(CFNotificationCenterRef center,
+                                                 void* observer,
+                                                 CFStringRef name,
+                                                 const void* object,
+                                                 CFDictionaryRef user_info) {
+  DaemonControllerMac* self = reinterpret_cast<DaemonControllerMac*>(observer);
+  if (self) {
+    self->PreferencePaneCallbackDelegate(name);
+  } else {
+    LOG(WARNING) << "Ignoring notification with NULL observer: " << name;
+  }
 }
 
 }  // namespace

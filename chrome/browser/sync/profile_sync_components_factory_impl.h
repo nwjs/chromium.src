@@ -4,23 +4,26 @@
 
 #ifndef CHROME_BROWSER_SYNC_PROFILE_SYNC_COMPONENTS_FACTORY_IMPL_H__
 #define CHROME_BROWSER_SYNC_PROFILE_SYNC_COMPONENTS_FACTORY_IMPL_H__
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "chrome/browser/sync/profile_sync_components_factory.h"
+#include "chrome/browser/webdata/web_data_service.h"
 
 class CommandLine;
-class ExtensionSystem;
 class Profile;
+
+namespace extensions {
+class ExtensionSystem;
+}
 
 class ProfileSyncComponentsFactoryImpl : public ProfileSyncComponentsFactory {
  public:
   ProfileSyncComponentsFactoryImpl(Profile* profile,
                                    CommandLine* command_line);
-  virtual ~ProfileSyncComponentsFactoryImpl() {}
+  virtual ~ProfileSyncComponentsFactoryImpl();
 
   virtual void RegisterDataTypes(ProfileSyncService* pss) OVERRIDE;
 
@@ -31,13 +34,13 @@ class ProfileSyncComponentsFactoryImpl : public ProfileSyncComponentsFactory {
   virtual browser_sync::GenericChangeProcessor* CreateGenericChangeProcessor(
       ProfileSyncService* profile_sync_service,
       browser_sync::DataTypeErrorHandler* error_handler,
-      const base::WeakPtr<SyncableService>& local_service) OVERRIDE;
+      const base::WeakPtr<syncer::SyncableService>& local_service) OVERRIDE;
 
   virtual browser_sync::SharedChangeProcessor*
       CreateSharedChangeProcessor() OVERRIDE;
 
-  virtual base::WeakPtr<SyncableService> GetSyncableServiceForType(
-      syncable::ModelType type) OVERRIDE;
+  virtual base::WeakPtr<syncer::SyncableService> GetSyncableServiceForType(
+      syncer::ModelType type) OVERRIDE;
 
   // Legacy datatypes that need to be converted to the SyncableService API.
   virtual SyncComponents CreateBookmarkSyncComponents(
@@ -63,9 +66,11 @@ class ProfileSyncComponentsFactoryImpl : public ProfileSyncComponentsFactory {
  private:
   Profile* profile_;
   CommandLine* command_line_;
-  // Set on the UI thread (since ExtensionSystemFactory is non-threadsafe);
-  // accessed on both the UI and FILE threads in GetSyncableServiceForType.
-  ExtensionSystem* extension_system_;
+  // Set on the UI thread (since extensions::ExtensionSystemFactory is
+  // non-threadsafe); accessed on both the UI and FILE threads in
+  // GetSyncableServiceForType.
+  extensions::ExtensionSystem* extension_system_;
+  scoped_refptr<WebDataService> web_data_service_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileSyncComponentsFactoryImpl);
 };

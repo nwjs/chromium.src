@@ -4,11 +4,11 @@
 //
 // Download utility implementation
 
+#define _USE_MATH_DEFINES  // For VC++ to get M_PI. This has to be first.
+
 #include "chrome/browser/download/download_util.h"
 
-#if defined(OS_WIN)
-#include <shobjidl.h>
-#endif
+#include <cmath>
 #include <string>
 
 #include "base/file_util.h"
@@ -24,11 +24,11 @@
 #include "base/utf_string_conversions.h"
 #include "base/value_conversions.h"
 #include "base/values.h"
-#include "base/win/windows_version.h"
 #include "chrome/browser/download/download_extensions.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/time_format.h"
@@ -52,10 +52,16 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/rect.h"
 
+#if defined(OS_WIN)
+#include <shobjidl.h>
+
+#include "base/win/windows_version.h"
+#endif
+
 #if defined(TOOLKIT_VIEWS)
+#include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/drag_utils.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
-#include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/widget/widget.h"
 #endif
@@ -68,16 +74,15 @@
 #if defined(OS_WIN) && !defined(USE_AURA)
 #include "base/win/scoped_comptr.h"
 #include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "ui/base/dragdrop/drag_source.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
 #endif
 
-// TODO(phajdan.jr): Find some standard location for this, maintaining
-// the same value on all platforms.
-static const double PI = 3.141592653589793;
-
-using content::DownloadItem;
+#if defined(USE_AURA)
+#include "ui/aura/client/drag_drop_client.h"
+#include "ui/aura/root_window.h"
+#include "ui/aura/window.h"
+#endif
 
 namespace {
 
@@ -103,13 +108,24 @@ const char* GetDangerTypeString(content::DownloadDangerType danger_type) {
   }
 }
 
+// Get the opacity based on |animation_progress|, with values in [0.0, 1.0].
+// Range of return value is [0, 255].
+int GetOpacity(double animation_progress) {
+  DCHECK(animation_progress >= 0 && animation_progress <= 1);
+
+  // How many times to cycle the complete animation. This should be an odd
+  // number so that the animation ends faded out.
+  static const int kCompleteAnimationCycles = 5;
+  double temp = animation_progress * kCompleteAnimationCycles * M_PI + M_PI_2;
+  temp = sin(temp) / 2 + 0.5;
+  return static_cast<int>(255.0 * temp);
+}
+
 }  // namespace
 
 namespace download_util {
 
-// How many times to cycle the complete animation. This should be an odd number
-// so that the animation ends faded out.
-static const int kCompleteAnimationCycles = 5;
+using content::DownloadItem;
 
 // Download temporary file creation --------------------------------------------
 
@@ -122,6 +138,8 @@ class DefaultDownloadDirectory {
       NOTREACHED();
     }
     if (DownloadPathIsDangerous(path_)) {
+      // This is only useful on platforms that support
+      // DIR_DEFAULT_DOWNLOADS_SAFE.
       if (!PathService::Get(chrome::DIR_DEFAULT_DOWNLOADS_SAFE, &path_)) {
         NOTREACHED();
       }
@@ -138,7 +156,16 @@ const FilePath& GetDefaultDownloadDirectory() {
   return g_default_download_directory.Get().path();
 }
 
+// Consider downloads 'dangerous' if they go to the home directory on Linux and
+// to the desktop on any platform.
 bool DownloadPathIsDangerous(const FilePath& download_path) {
+#if defined(OS_LINUX)
+  FilePath home_dir = file_util::GetHomeDir();
+  if (download_path == home_dir) {
+    return true;
+  }
+#endif
+
   FilePath desktop_dir;
   if (!PathService::Get(chrome::DIR_USER_DESKTOP, &desktop_dir)) {
     NOTREACHED();
@@ -162,13 +189,13 @@ void GenerateFileNameFromRequest(const DownloadItem& download_item,
 
 // Download progress painting --------------------------------------------------
 
-// Common bitmaps used for download progress animations. We load them once the
+// Common images used for download progress animations. We load them once the
 // first time we do a progress paint, then reuse them as they are always the
 // same.
-SkBitmap* g_foreground_16 = NULL;
-SkBitmap* g_background_16 = NULL;
-SkBitmap* g_foreground_32 = NULL;
-SkBitmap* g_background_32 = NULL;
+gfx::ImageSkia* g_foreground_16 = NULL;
+gfx::ImageSkia* g_background_16 = NULL;
+gfx::ImageSkia* g_foreground_32 = NULL;
+gfx::ImageSkia* g_background_32 = NULL;
 
 void PaintDownloadProgress(gfx::Canvas* canvas,
 #if defined(TOOLKIT_VIEWS)
@@ -179,42 +206,42 @@ void PaintDownloadProgress(gfx::Canvas* canvas,
                            int start_angle,
                            int percent_done,
                            PaintDownloadProgressSize size) {
-  // Load up our common bitmaps
+  // Load up our common images.
   if (!g_background_16) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    g_foreground_16 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_16);
-    g_background_16 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_BACKGROUND_16);
-    g_foreground_32 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_32);
-    g_background_32 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_BACKGROUND_32);
+    g_foreground_16 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_16);
+    g_background_16 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_BACKGROUND_16);
+    g_foreground_32 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_32);
+    g_background_32 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_BACKGROUND_32);
+    DCHECK_EQ(g_foreground_16->width(), g_background_16->width());
+    DCHECK_EQ(g_foreground_16->height(), g_background_16->height());
+    DCHECK_EQ(g_foreground_32->width(), g_background_32->width());
+    DCHECK_EQ(g_foreground_32->height(), g_background_32->height());
   }
 
-  SkBitmap* background = (size == BIG) ? g_background_32 : g_background_16;
-  SkBitmap* foreground = (size == BIG) ? g_foreground_32 : g_foreground_16;
+  gfx::ImageSkia* background =
+      (size == BIG) ? g_background_32 : g_background_16;
+  gfx::ImageSkia* foreground =
+      (size == BIG) ? g_foreground_32 : g_foreground_16;
 
   const int kProgressIconSize = (size == BIG) ? kBigProgressIconSize :
                                                 kSmallProgressIconSize;
 
-  // We start by storing the bounds of the background and foreground bitmaps
-  // so that it is easy to mirror the bounds if the UI layout is RTL.
-  gfx::Rect background_bounds(origin_x, origin_y,
-                              background->width(), background->height());
-  gfx::Rect foreground_bounds(origin_x, origin_y,
-                              foreground->width(), foreground->height());
+  // We start by storing the bounds of the images so that it is easy to mirror
+  // the bounds if the UI layout is RTL.
+  gfx::Rect bounds(origin_x, origin_y,
+                   background->width(), background->height());
 
 #if defined(TOOLKIT_VIEWS)
   // Mirror the positions if necessary.
-  int mirrored_x = containing_view->GetMirroredXForRect(background_bounds);
-  background_bounds.set_x(mirrored_x);
-  mirrored_x = containing_view->GetMirroredXForRect(foreground_bounds);
-  foreground_bounds.set_x(mirrored_x);
+  int mirrored_x = containing_view->GetMirroredXForRect(bounds);
+  bounds.set_x(mirrored_x);
 #endif
 
   // Draw the background progress image.
-  SkPaint background_paint;
-  canvas->DrawBitmapInt(*background,
-                        background_bounds.x(),
-                        background_bounds.y(),
-                        background_paint);
+  canvas->DrawImageInt(*background,
+                       bounds.x(),
+                       bounds.y());
 
   // Layer the foreground progress image in an arc proportional to the download
   // progress. The arc grows clockwise, starting in the midnight position, as
@@ -234,39 +261,28 @@ void PaintDownloadProgress(gfx::Canvas* canvas,
   // a clipping region if it would round to 360 (really 0) degrees, since that
   // would eliminate the foreground completely and be quite confusing (it would
   // look like 0% complete when it should be almost 100%).
-  SkPaint foreground_paint;
+  canvas->Save();
   if (sweep_angle < static_cast<float>(kMaxDegrees - 1)) {
     SkRect oval;
-    oval.set(SkIntToScalar(foreground_bounds.x()),
-             SkIntToScalar(foreground_bounds.y()),
-             SkIntToScalar(foreground_bounds.x() + kProgressIconSize),
-             SkIntToScalar(foreground_bounds.y() + kProgressIconSize));
+    oval.set(SkIntToScalar(bounds.x()),
+             SkIntToScalar(bounds.y()),
+             SkIntToScalar(bounds.x() + kProgressIconSize),
+             SkIntToScalar(bounds.y() + kProgressIconSize));
     SkPath path;
     path.arcTo(oval,
                SkFloatToScalar(start_pos),
                SkFloatToScalar(sweep_angle), false);
-    path.lineTo(SkIntToScalar(foreground_bounds.x() + kProgressIconSize / 2),
-                SkIntToScalar(foreground_bounds.y() + kProgressIconSize / 2));
+    path.lineTo(SkIntToScalar(bounds.x() + kProgressIconSize / 2),
+                SkIntToScalar(bounds.y() + kProgressIconSize / 2));
 
-    SkShader* shader =
-        SkShader::CreateBitmapShader(*foreground,
-                                     SkShader::kClamp_TileMode,
-                                     SkShader::kClamp_TileMode);
-    SkMatrix shader_scale;
-    shader_scale.setTranslate(SkIntToScalar(foreground_bounds.x()),
-                              SkIntToScalar(foreground_bounds.y()));
-    shader->setLocalMatrix(shader_scale);
-    foreground_paint.setShader(shader);
-    foreground_paint.setAntiAlias(true);
-    shader->unref();
-    canvas->sk_canvas()->drawPath(path, foreground_paint);
-    return;
+    // gfx::Canvas::ClipPath does not provide for anti-aliasing.
+    canvas->sk_canvas()->clipPath(path, SkRegion::kIntersect_Op, true);
   }
 
-  canvas->DrawBitmapInt(*foreground,
-                        foreground_bounds.x(),
-                        foreground_bounds.y(),
-                        foreground_paint);
+  canvas->DrawImageInt(*foreground,
+                       bounds.x(),
+                       bounds.y());
+  canvas->Restore();
 }
 
 void PaintDownloadComplete(gfx::Canvas* canvas,
@@ -277,14 +293,14 @@ void PaintDownloadComplete(gfx::Canvas* canvas,
                            int origin_y,
                            double animation_progress,
                            PaintDownloadProgressSize size) {
-  // Load up our common bitmaps.
+  // Load up our common images.
   if (!g_foreground_16) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    g_foreground_16 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_16);
-    g_foreground_32 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_32);
+    g_foreground_16 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_16);
+    g_foreground_32 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_32);
   }
 
-  SkBitmap* complete = (size == BIG) ? g_foreground_32 : g_foreground_16;
+  gfx::ImageSkia* complete = (size == BIG) ? g_foreground_32 : g_foreground_16;
 
   gfx::Rect complete_bounds(origin_x, origin_y,
                             complete->width(), complete->height());
@@ -295,12 +311,9 @@ void PaintDownloadComplete(gfx::Canvas* canvas,
 
   // Start at full opacity, then loop back and forth five times before ending
   // at zero opacity.
-  double opacity = sin(animation_progress * PI * kCompleteAnimationCycles +
-                   PI/2) / 2 + 0.5;
-
-  canvas->SaveLayerAlpha(static_cast<int>(255.0 * opacity), complete_bounds);
+  canvas->SaveLayerAlpha(GetOpacity(animation_progress), complete_bounds);
   canvas->sk_canvas()->drawARGB(0, 255, 255, 255, SkXfermode::kClear_Mode);
-  canvas->DrawBitmapInt(*complete, complete_bounds.x(), complete_bounds.y());
+  canvas->DrawImageInt(*complete, complete_bounds.x(), complete_bounds.y());
   canvas->Restore();
 }
 
@@ -312,14 +325,14 @@ void PaintDownloadInterrupted(gfx::Canvas* canvas,
                               int origin_y,
                               double animation_progress,
                               PaintDownloadProgressSize size) {
-  // Load up our common bitmaps.
+  // Load up our common images.
   if (!g_foreground_16) {
     ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    g_foreground_16 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_16);
-    g_foreground_32 = rb.GetBitmapNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_32);
+    g_foreground_16 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_16);
+    g_foreground_32 = rb.GetImageSkiaNamed(IDR_DOWNLOAD_PROGRESS_FOREGROUND_32);
   }
 
-  SkBitmap* complete = (size == BIG) ? g_foreground_32 : g_foreground_16;
+  gfx::ImageSkia* complete = (size == BIG) ? g_foreground_32 : g_foreground_16;
 
   gfx::Rect complete_bounds(origin_x, origin_y,
                             complete->width(), complete->height());
@@ -330,13 +343,9 @@ void PaintDownloadInterrupted(gfx::Canvas* canvas,
 
   // Start at zero opacity, then loop back and forth five times before ending
   // at full opacity.
-  double opacity = sin(
-      (1.0 - animation_progress) * PI * kCompleteAnimationCycles + PI/2) / 2 +
-          0.5;
-
-  canvas->SaveLayerAlpha(static_cast<int>(255.0 * opacity), complete_bounds);
+  canvas->SaveLayerAlpha(GetOpacity(1.0 - animation_progress), complete_bounds);
   canvas->sk_canvas()->drawARGB(0, 255, 255, 255, SkXfermode::kClear_Mode);
-  canvas->DrawBitmapInt(*complete, complete_bounds.x(), complete_bounds.y());
+  canvas->DrawImageInt(*complete, complete_bounds.x(), complete_bounds.y());
   canvas->Restore();
 }
 
@@ -373,7 +382,7 @@ void DragDownload(const DownloadItem* download,
 
   if (icon) {
     drag_utils::CreateDragImageForFile(
-        download->GetFileNameToReportUser(), icon->ToSkBitmap(), &data);
+        download->GetFileNameToReportUser(), icon->ToImageSkia(), &data);
   }
 
   const FilePath full_path = download->GetFullPath();
@@ -390,17 +399,23 @@ void DragDownload(const DownloadItem* download,
   }
 
 #if !defined(TOOLKIT_GTK)
-  views::Widget* widget = views::Widget::GetWidgetForNativeView(view);
-  // TODO(varunjain): Widget should not be NULL here. But its causing the crash
-  // in http://code.google.com/p/chromium/issues/detail?id=120430 Find out why.
-  if (!widget || !widget->native_widget())
+#if defined(USE_AURA)
+  aura::RootWindow* root_window = view->GetRootWindow();
+  if (!root_window || !aura::client::GetDragDropClient(root_window))
     return;
 
   gfx::Point location = gfx::Screen::GetCursorScreenPoint();
-  // We do not care about notifying the DragItemView on completion of drag. So
-  // we pass NULL to RunShellDrag for the source view.
-  widget->RunShellDrag(NULL, data, location,
+  aura::client::GetDragDropClient(root_window)->StartDragAndDrop(data, location,
       ui::DragDropTypes::DRAG_COPY | ui::DragDropTypes::DRAG_LINK);
+#else  // We are on WIN without AURA
+  // We cannot use Widget::RunShellDrag on WIN since the |view| is backed by a
+  // TabContentsViewWin, not a NativeWidgetWin.
+  scoped_refptr<ui::DragSource> drag_source(new ui::DragSource);
+  // Run the drag and drop loop
+  DWORD effects;
+  DoDragDrop(ui::OSExchangeDataProviderWin::GetIDataObject(data),
+             drag_source.get(), DROPEFFECT_COPY | DROPEFFECT_LINK, &effects);
+#endif
 
 #else
   GtkWidget* root = gtk_widget_get_toplevel(view);
@@ -581,7 +596,7 @@ void UpdateAppIconDownloadProgress(int download_count,
     BrowserWindow* window = browser->window();
     if (!window)
       continue;
-    HWND frame = window->GetNativeHandle();
+    HWND frame = window->GetNativeWindow();
     if (download_count == 0 || progress == 1.0f)
       taskbar->SetProgressState(frame, TBPF_NOPROGRESS);
     else if (!progress_known)

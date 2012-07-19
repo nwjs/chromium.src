@@ -9,7 +9,8 @@
 #include "base/string16.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/download/chrome_download_manager_delegate.h"
+#include "base/time.h"
+#include "chrome/browser/download/download_crx_util.h"
 #include "chrome/common/time_format.h"
 #include "content/public/browser/download_danger_type.h"
 #include "content/public/browser/download_interrupt_reasons.h"
@@ -85,7 +86,7 @@ string16 DownloadItemModel::GetStatusText() {
         break;
       }
 #endif
-      if (ChromeDownloadManagerDelegate::IsExtensionDownload(download_) &&
+      if (download_crx_util::IsExtensionDownload(*download_) &&
           download_->AllDataSaved() &&
           download_->GetState() == DownloadItem::IN_PROGRESS) {
         // The download is a CRX (app, extension, theme, ...) and it is
@@ -125,7 +126,7 @@ string16 DownloadItemModel::GetStatusText() {
       }
       break;
     case DownloadItem::CANCELLED:
-      status_text = l10n_util::GetStringUTF16(IDS_DOWNLOAD_STATUS_CANCELED);
+      status_text = l10n_util::GetStringUTF16(IDS_DOWNLOAD_STATUS_CANCELLED);
       break;
     case DownloadItem::REMOVING:
       break;
@@ -150,6 +151,20 @@ string16 DownloadItemModel::GetStatusText() {
   return status_text;
 }
 
+string16 DownloadItemModel::GetTooltipText(const gfx::Font& font,
+                                           int max_width) const {
+  string16 tooltip = ui::ElideFilename(
+      download_->GetFileNameToReportUser(), font, max_width);
+  content::DownloadInterruptReason reason = download_->GetLastReason();
+  if (download_->GetState() == DownloadItem::INTERRUPTED &&
+      reason != content::DOWNLOAD_INTERRUPT_REASON_USER_CANCELED) {
+    tooltip += ASCIIToUTF16("\n");
+    tooltip += ui::ElideText(InterruptReasonStatusMessage(reason),
+                             font, max_width, ui::ELIDE_AT_END);
+  }
+  return tooltip;
+}
+
 int DownloadItemModel::PercentComplete() const {
 #if defined(OS_CHROMEOS)
   // For GData uploads, progress is based on the number of bytes
@@ -169,7 +184,7 @@ string16 DownloadItemModel::GetWarningText(const gfx::Font& font,
       return l10n_util::GetStringUTF16(IDS_PROMPT_MALICIOUS_DOWNLOAD_URL);
 
     case content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE:
-      if (ChromeDownloadManagerDelegate::IsExtensionDownload(download_)) {
+      if (download_crx_util::IsExtensionDownload(*download_)) {
         return l10n_util::GetStringUTF16(
             IDS_PROMPT_DANGEROUS_DOWNLOAD_EXTENSION);
       } else {
@@ -204,7 +219,7 @@ string16 DownloadItemModel::GetWarningConfirmButtonText() {
   DCHECK(IsDangerous());
   if (download_->GetDangerType() ==
           content::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE &&
-      ChromeDownloadManagerDelegate::IsExtensionDownload(download_)) {
+      download_crx_util::IsExtensionDownload(*download_)) {
     return l10n_util::GetStringUTF16(IDS_CONTINUE_EXTENSION_DOWNLOAD);
   } else {
     return l10n_util::GetStringUTF16(IDS_CONFIRM_DOWNLOAD);
@@ -283,7 +298,7 @@ string16 BaseDownloadItemModel::InterruptReasonStatusMessage(int reason) {
       string_id = IDS_DOWNLOAD_INTERRUPTED_STATUS_SHUTDOWN;
       break;
     case content::DOWNLOAD_INTERRUPT_REASON_USER_CANCELED:
-      string_id = IDS_DOWNLOAD_STATUS_CANCELED;
+      string_id = IDS_DOWNLOAD_STATUS_CANCELLED;
       break;
     default:
       string_id = IDS_DOWNLOAD_INTERRUPTED_STATUS;
@@ -342,7 +357,7 @@ string16 BaseDownloadItemModel::InterruptReasonMessage(int reason) {
       string_id = IDS_DOWNLOAD_INTERRUPTED_DESCRIPTION_SHUTDOWN;
       break;
     case content::DOWNLOAD_INTERRUPT_REASON_USER_CANCELED:
-      string_id = IDS_DOWNLOAD_STATUS_CANCELED;
+      string_id = IDS_DOWNLOAD_STATUS_CANCELLED;
       break;
     default:
       string_id = IDS_DOWNLOAD_INTERRUPTED_STATUS;

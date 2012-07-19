@@ -4,13 +4,18 @@
 
 #include "content/common/gpu/texture_image_transport_surface.h"
 
+#include <string>
+#include <vector>
+
+#include "base/command_line.h"
 #include "content/common/gpu/gpu_channel.h"
 #include "content/common/gpu/gpu_channel_manager.h"
 #include "content/common/gpu/gpu_messages.h"
+#include "content/common/gpu/sync_point_manager.h"
+#include "content/public/common/content_switches.h"
 #include "gpu/command_buffer/service/context_group.h"
 #include "gpu/command_buffer/service/gpu_scheduler.h"
 #include "gpu/command_buffer/service/texture_manager.h"
-#include "ui/gfx/gl/scoped_make_current.h"
 
 using gpu::gles2::ContextGroup;
 using gpu::gles2::TextureManager;
@@ -20,7 +25,7 @@ namespace {
 
 class ScopedFrameBufferBinder {
  public:
-  ScopedFrameBufferBinder(unsigned int fbo) {
+  explicit ScopedFrameBufferBinder(unsigned int fbo) {
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_fbo_);
     glBindFramebufferEXT(GL_FRAMEBUFFER, fbo);
   }
@@ -35,7 +40,7 @@ class ScopedFrameBufferBinder {
 
 class ScopedTextureBinder {
  public:
-  ScopedTextureBinder(unsigned int id) {
+  explicit ScopedTextureBinder(unsigned int id) {
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &old_id_);
     glBindTexture(GL_TEXTURE_2D, id);
   }
@@ -50,36 +55,25 @@ class ScopedTextureBinder {
 
 }  // anonymous namespace
 
+TextureImageTransportSurface::Texture::Texture()
+    : client_id(0),
+      sent_to_client(false) {
+}
+
+TextureImageTransportSurface::Texture::~Texture() {
+}
+
 TextureImageTransportSurface::TextureImageTransportSurface(
     GpuChannelManager* manager,
     GpuCommandBufferStub* stub,
     const gfx::GLSurfaceHandle& handle)
       : fbo_id_(0),
         front_(0),
-        stub_destroyed_(false) {
-  GpuChannel* parent_channel = manager->LookupChannel(handle.parent_client_id);
-  DCHECK(parent_channel);
-  GpuCommandBufferStub* parent_stub = parent_channel->LookupCommandBuffer(
-      handle.parent_context_id);
-  DCHECK(parent_stub);
-  parent_stub_ = parent_stub->AsWeakPtr();
-  TextureManager* texture_manager =
-      parent_stub_->decoder()->GetContextGroup()->texture_manager();
-  DCHECK(texture_manager);
-
-  for (int i = 0; i < 2; ++i) {
-    Texture& texture = textures_[i];
-    texture.client_id = handle.parent_texture_id[i];
-    TextureInfo* info = texture_manager->GetTextureInfo(texture.client_id);
-    DCHECK(info);
-    if (!info->target())
-      texture_manager->SetInfoTarget(info, GL_TEXTURE_2D);
-    texture_manager->SetParameter(info, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    texture_manager->SetParameter(info, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    texture_manager->SetParameter(info, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    texture_manager->SetParameter(info, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  }
-
+        stub_destroyed_(false),
+        backbuffer_suggested_allocation_(true),
+        frontbuffer_suggested_allocation_(true),
+        handle_(handle),
+        parent_stub_(NULL) {
   helper_.reset(new ImageTransportHelper(this,
                                          manager,
                                          stub,
@@ -94,17 +88,53 @@ TextureImageTransportSurface::~TextureImageTransportSurface() {
 }
 
 bool TextureImageTransportSurface::Initialize() {
-  return helper_->Initialize();
+  GpuChannelManager* manager = helper_->manager();
+  GpuChannel* parent_channel = manager->LookupChannel(handle_.parent_client_id);
+  if (!parent_channel)
+    return false;
+
+  parent_stub_ = parent_channel->LookupCommandBuffer(handle_.parent_context_id);
+  if (!parent_stub_)
+    return false;
+
+  parent_stub_->AddDestructionObserver(this);
+  TextureManager* texture_manager =
+      parent_stub_->decoder()->GetContextGroup()->texture_manager();
+  DCHECK(texture_manager);
+
+  for (int i = 0; i < 2; ++i) {
+    Texture& texture = textures_[i];
+    texture.client_id = handle_.parent_texture_id[i];
+    texture.info = texture_manager->GetTextureInfo(texture.client_id);
+    if (!texture.info)
+      return false;
+
+    if (!texture.info->target())
+      texture_manager->SetInfoTarget(texture.info, GL_TEXTURE_2D);
+    texture_manager->SetParameter(
+        texture.info, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    texture_manager->SetParameter(
+        texture.info, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    texture_manager->SetParameter(
+        texture.info, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    texture_manager->SetParameter(
+        texture.info, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  }
+
+  if (!helper_->Initialize())
+    return false;
+
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kUIPrioritizeInGpuProcess))
+    helper_->SetPreemptByCounter(parent_channel->MessagesPendingCount());
+
+  return true;
 }
 
 void TextureImageTransportSurface::Destroy() {
-  for (int i = 0; i < 2; ++i) {
-    Texture& texture = textures_[i];
-    if (!texture.sent_to_client)
-      continue;
-    GpuHostMsg_AcceleratedSurfaceRelease_Params params;
-    params.identifier = texture.client_id;
-    helper_->SendAcceleratedSurfaceRelease(params);
+  if (parent_stub_) {
+    parent_stub_->decoder()->MakeCurrent();
+    ReleaseParentStub();
   }
 
   helper_->Destroy();
@@ -115,7 +145,7 @@ bool TextureImageTransportSurface::Resize(const gfx::Size&) {
 }
 
 bool TextureImageTransportSurface::IsOffscreen() {
-  return false;
+  return parent_stub_ ? parent_stub_->surface()->IsOffscreen() : true;
 }
 
 bool TextureImageTransportSurface::OnMakeCurrent(gfx::GLContext* context) {
@@ -147,19 +177,24 @@ unsigned int TextureImageTransportSurface::GetBackingFrameBufferObject() {
   return fbo_id_;
 }
 
-void TextureImageTransportSurface::SetBufferAllocation(
-    BufferAllocationState state) {
+void TextureImageTransportSurface::SetBackbufferAllocation(bool allocation) {
+  if (backbuffer_suggested_allocation_ == allocation)
+     return;
+  backbuffer_suggested_allocation_ = allocation;
+
   if (!helper_->MakeCurrent())
     return;
-  switch (state) {
-    case BUFFER_ALLOCATION_FRONT_AND_BACK:
-      CreateBackTexture(textures_[back()].size);
-      break;
-    case BUFFER_ALLOCATION_FRONT_ONLY:
-    case BUFFER_ALLOCATION_NONE:
-      ReleaseBackTexture();
-      break;
-  };
+
+  if (backbuffer_suggested_allocation_)
+    CreateBackTexture(textures_[back()].size);
+  else
+    ReleaseBackTexture();
+}
+
+void TextureImageTransportSurface::SetFrontbufferAllocation(bool allocation) {
+  if (frontbuffer_suggested_allocation_ == allocation)
+    return;
+  frontbuffer_suggested_allocation_ = allocation;
 }
 
 void* TextureImageTransportSurface::GetShareHandle() {
@@ -167,11 +202,11 @@ void* TextureImageTransportSurface::GetShareHandle() {
 }
 
 void* TextureImageTransportSurface::GetDisplay() {
-  return parent_stub_.get() ? parent_stub_->surface()->GetDisplay() : NULL;
+  return parent_stub_ ? parent_stub_->surface()->GetDisplay() : NULL;
 }
 
 void* TextureImageTransportSurface::GetConfig() {
-  return parent_stub_.get() ? parent_stub_->surface()->GetConfig() : NULL;
+  return parent_stub_ ? parent_stub_->surface()->GetConfig() : NULL;
 }
 
 void TextureImageTransportSurface::OnResize(gfx::Size size) {
@@ -180,15 +215,33 @@ void TextureImageTransportSurface::OnResize(gfx::Size size) {
 
 void TextureImageTransportSurface::OnWillDestroyStub(
     GpuCommandBufferStub* stub) {
-  glDeleteFramebuffersEXT(1, &fbo_id_);
-  CHECK_GL_ERROR();
-  fbo_id_ = 0;
+  if (stub == parent_stub_) {
+    ReleaseParentStub();
+    helper_->SetPreemptByCounter(NULL);
+  } else {
+    stub->RemoveDestructionObserver(this);
 
-  stub->RemoveDestructionObserver(this);
-  stub_destroyed_ = true;
+    // We are losing the stub owning us, this is our last chance to clean up the
+    // resources we allocated in the stub's context.
+    if (fbo_id_) {
+      glDeleteFramebuffersEXT(1, &fbo_id_);
+      CHECK_GL_ERROR();
+      fbo_id_ = 0;
+    }
+
+    stub_destroyed_ = true;
+  }
 }
 
 bool TextureImageTransportSurface::SwapBuffers() {
+  DCHECK(backbuffer_suggested_allocation_);
+  if (!frontbuffer_suggested_allocation_)
+    return true;
+  if (!parent_stub_) {
+    LOG(ERROR) << "SwapBuffers failed because no parent stub.";
+    return false;
+  }
+
   glFlush();
   front_ = back();
   previous_damage_rect_ = gfx::Rect(textures_[front_].size);
@@ -204,18 +257,23 @@ bool TextureImageTransportSurface::SwapBuffers() {
 
 bool TextureImageTransportSurface::PostSubBuffer(
     int x, int y, int width, int height) {
-  if (!parent_stub_.get())
+  DCHECK(backbuffer_suggested_allocation_);
+  if (!frontbuffer_suggested_allocation_)
+    return true;
+  // If we are recreating the frontbuffer with this swap, make sure we are
+  // drawing a full frame.
+  DCHECK(textures_[front_].info->service_id() ||
+         (!x && !y && gfx::Size(width, height) == textures_[back()].size));
+  if (!parent_stub_) {
+    LOG(ERROR) << "PostSubBuffer failed because no parent stub.";
     return false;
+  }
 
-  TextureInfo* info = GetParentInfo(textures_[back()].client_id);
-  if (!info)
-    return false;
-  int back_texture_service_id = info->service_id();
+  DCHECK(textures_[back()].info);
+  int back_texture_service_id = textures_[back()].info->service_id();
 
-  info = GetParentInfo(textures_[front_].client_id);
-  if (!info)
-    return false;
-  int front_texture_service_id = info->service_id();
+  DCHECK(textures_[front_].info);
+  int front_texture_service_id = textures_[front_].info->service_id();
 
   gfx::Size expected_size = textures_[back()].size;
   bool surfaces_same_size = textures_[front_].size == expected_size;
@@ -275,19 +333,36 @@ std::string TextureImageTransportSurface::GetExtensions() {
 }
 
 gfx::Size TextureImageTransportSurface::GetSize() {
-  return textures_[back()].size;
+  gfx::Size size = textures_[back()].size;
+
+  // OSMesa expects a non-zero size.
+  return gfx::Size(size.width() == 0 ? 1 : size.width(),
+                   size.height() == 0 ? 1 : size.height());
 }
 
 void* TextureImageTransportSurface::GetHandle() {
-  return parent_stub_.get() ? parent_stub_->surface()->GetHandle() : NULL;
+  return parent_stub_ ? parent_stub_->surface()->GetHandle() : NULL;
 }
 
-
-void TextureImageTransportSurface::OnNewSurfaceACK(
-    uint64 surface_handle, TransportDIB::Handle /*shm_handle*/) {
+unsigned TextureImageTransportSurface::GetFormat() {
+  return parent_stub_ ? parent_stub_->surface()->GetFormat() : 0;
 }
 
-void TextureImageTransportSurface::OnBuffersSwappedACK() {
+void TextureImageTransportSurface::OnBufferPresented(uint32 sync_point) {
+  if (sync_point == 0) {
+    BufferPresentedImpl();
+  } else {
+    helper_->manager()->sync_point_manager()->AddSyncPointCallback(
+        sync_point,
+        base::Bind(&TextureImageTransportSurface::BufferPresentedImpl,
+                   this->AsWeakPtr()));
+  }
+}
+
+void TextureImageTransportSurface::BufferPresentedImpl() {
+  // We're relying on the fact that the parent context is
+  // finished with it's context when it inserts the sync point that
+  // triggers this callback.
   if (helper_->MakeCurrent()) {
     if (textures_[front_].size != textures_[back()].size) {
       CreateBackTexture(textures_[front_].size);
@@ -301,20 +376,15 @@ void TextureImageTransportSurface::OnBuffersSwappedACK() {
   helper_->SetScheduled(true);
 }
 
-void TextureImageTransportSurface::OnPostSubBufferACK() {
-  OnBuffersSwappedACK();
-}
-
 void TextureImageTransportSurface::OnResizeViewACK() {
   NOTREACHED();
 }
 
 void TextureImageTransportSurface::ReleaseBackTexture() {
-  if (!parent_stub_.get())
+  if (!parent_stub_)
     return;
-  TextureInfo* info = GetParentInfo(textures_[back()].client_id);
-  if (!info)
-    return;
+  TextureInfo* info = textures_[back()].info;
+  DCHECK(info);
 
   GLuint service_id = info->service_id();
   if (!service_id)
@@ -330,12 +400,11 @@ void TextureImageTransportSurface::ReleaseBackTexture() {
 }
 
 void TextureImageTransportSurface::CreateBackTexture(const gfx::Size& size) {
-  if (!parent_stub_.get())
+  if (!parent_stub_)
     return;
   Texture& texture = textures_[back()];
-  TextureInfo* info = GetParentInfo(texture.client_id);
-  if (!info)
-    return;
+  TextureInfo* info = texture.info;
+  DCHECK(info);
 
   GLuint service_id = info->service_id();
 
@@ -388,17 +457,15 @@ void TextureImageTransportSurface::CreateBackTexture(const gfx::Size& size) {
 }
 
 void TextureImageTransportSurface::AttachBackTextureToFBO() {
-  if (!parent_stub_.get())
+  if (!parent_stub_)
     return;
-  TextureInfo* info = GetParentInfo(textures_[back()].client_id);
-  if (!info)
-    return;
+  DCHECK(textures_[back()].info);
 
   ScopedFrameBufferBinder fbo_binder(fbo_id_);
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER,
       GL_COLOR_ATTACHMENT0,
       GL_TEXTURE_2D,
-      info->service_id(),
+      textures_[back()].info->service_id(),
       0);
   glFlush();
   CHECK_GL_ERROR();
@@ -411,10 +478,17 @@ void TextureImageTransportSurface::AttachBackTextureToFBO() {
 #endif
 }
 
-TextureInfo* TextureImageTransportSurface::GetParentInfo(uint32 client_id) {
-  DCHECK(parent_stub_.get());
-  TextureManager* texture_manager =
-      parent_stub_->decoder()->GetContextGroup()->texture_manager();
-  TextureInfo* info = texture_manager->GetTextureInfo(client_id);
-  return info;
+void TextureImageTransportSurface::ReleaseParentStub() {
+  DCHECK(parent_stub_);
+  parent_stub_->RemoveDestructionObserver(this);
+  for (int i = 0; i < 2; ++i) {
+    Texture& texture = textures_[i];
+    texture.info = NULL;
+    if (!texture.sent_to_client)
+      continue;
+    GpuHostMsg_AcceleratedSurfaceRelease_Params params;
+    params.identifier = texture.client_id;
+    helper_->SendAcceleratedSurfaceRelease(params);
+  }
+  parent_stub_ = NULL;
 }

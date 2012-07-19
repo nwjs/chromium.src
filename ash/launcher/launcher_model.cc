@@ -4,10 +4,38 @@
 
 #include "ash/launcher/launcher_model.h"
 
+#include <algorithm>
+
 #include "ash/launcher/launcher_model_observer.h"
 #include "ui/aura/window.h"
 
 namespace ash {
+
+namespace {
+
+int LauncherItemTypeToWeight(LauncherItemType type) {
+  switch (type) {
+    case TYPE_BROWSER_SHORTCUT:
+      return 0;
+    case TYPE_APP_SHORTCUT:
+      return 1;
+    case TYPE_TABBED:
+    case TYPE_APP_PANEL:
+    case TYPE_PLATFORM_APP:
+      return 2;
+    case TYPE_APP_LIST:
+      return 3;
+  }
+
+  NOTREACHED() << "Invalid type " << type;
+  return 2;
+}
+
+bool CompareByWeight(const LauncherItem& a, const LauncherItem& b) {
+  return LauncherItemTypeToWeight(a.type) < LauncherItemTypeToWeight(b.type);
+}
+
+}  // namespace
 
 LauncherModel::LauncherModel() : next_id_(1) {
   LauncherItem app_list;
@@ -26,7 +54,16 @@ LauncherModel::~LauncherModel() {
 }
 
 int LauncherModel::Add(const LauncherItem& item) {
-  return AddAt(GetIndexToAddItemAt(item.type), item);
+  return AddAt(items_.size(), item);
+}
+
+int LauncherModel::AddAt(int index, const LauncherItem& item) {
+  index = ValidateInsertionIndex(item.type, index);
+  items_.insert(items_.begin() + index, item);
+  items_[index].id = next_id_++;
+  FOR_EACH_OBSERVER(LauncherModelObserver, observers_,
+                    LauncherItemAdded(index));
+  return index;
 }
 
 void LauncherModel::RemoveItemAt(int index) {
@@ -53,17 +90,18 @@ void LauncherModel::Move(int index, int target_index) {
 
 void LauncherModel::Set(int index, const LauncherItem& item) {
   DCHECK(index >= 0 && index < item_count());
+  int new_index = item.type == items_[index].type ?
+      index : ValidateInsertionIndex(item.type, index);
+
   LauncherItem old_item(items_[index]);
   items_[index] = item;
   items_[index].id = old_item.id;
-  items_[index].type = old_item.type;
   FOR_EACH_OBSERVER(LauncherModelObserver, observers_,
                     LauncherItemChanged(index, old_item));
-}
 
-void LauncherModel::SetPendingUpdate(int index) {
-  FOR_EACH_OBSERVER(LauncherModelObserver, observers_,
-                    LauncherItemWillChange(index));
+  // If the type changes confirm that the item is still in the right order.
+  if (new_index != index)
+    Move(index, new_index);
 }
 
 int LauncherModel::ItemIndexByID(LauncherID id) {
@@ -88,27 +126,21 @@ void LauncherModel::RemoveObserver(LauncherModelObserver* observer) {
   observers_.RemoveObserver(observer);
 }
 
-int LauncherModel::AddAt(int index, const LauncherItem& item) {
+int LauncherModel::ValidateInsertionIndex(LauncherItemType type,
+                                          int index) const {
   DCHECK(index >= 0 && index <= item_count());
-  items_.insert(items_.begin() + index, item);
-  items_[index].id = next_id_++;
-  FOR_EACH_OBSERVER(LauncherModelObserver, observers_,
-                    LauncherItemAdded(index));
+
+  // Clamp |index| to the allowed range for the type as determined by |weight|.
+  LauncherItem weight_dummy;
+  weight_dummy.type = type;
+  index = std::max(std::lower_bound(items_.begin(), items_.end(), weight_dummy,
+                                    CompareByWeight) - items_.begin(),
+                   static_cast<LauncherItems::difference_type>(index));
+  index = std::min(std::upper_bound(items_.begin(), items_.end(), weight_dummy,
+                                    CompareByWeight) - items_.begin(),
+                   static_cast<LauncherItems::difference_type>(index));
+
   return index;
-}
-
-int LauncherModel::GetIndexToAddItemAt(LauncherItemType type) const {
-  DCHECK_GE(item_count(), 2);  // APP_LIST and BROWSER_SHORTCUT.
-  if (type == TYPE_APP_SHORTCUT) {
-    // APP_SHORTCUTS go after TYPE_BROWSER_SHORTCUT, but before everything else.
-    for (int i = 1; i < item_count() - 1; ++i) {
-      if (items_[i].type != TYPE_APP_SHORTCUT)
-        return i;
-    }
-  }
-
-  // The rest go before TYPE_APP_LIST.
-  return item_count() - 1;
 }
 
 }  // namespace ash

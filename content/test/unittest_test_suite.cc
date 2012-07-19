@@ -2,12 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/unittest_test_suite.h"
+#include "content/public/test/unittest_test_suite.h"
 
 #include "base/logging.h"
+#include "base/rand_util.h"
 #include "base/test/test_suite.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebKitPlatformSupport.h"
+
+namespace content {
 
 // A stubbed out WebKit platform support impl.
 class UnitTestTestSuite::UnitTestWebKitPlatformSupport
@@ -17,7 +20,7 @@ class UnitTestTestSuite::UnitTestWebKitPlatformSupport
   virtual ~UnitTestWebKitPlatformSupport() {}
   virtual void cryptographicallyRandomValues(unsigned char* buffer,
                                              size_t length) OVERRIDE {
-    memset(buffer, 0, length);
+    base::RandBytes(buffer, length);
   }
   virtual const unsigned char* getTraceCategoryEnabledFlag(
       const char* categoryName) {
@@ -41,3 +44,5 @@ UnitTestTestSuite::~UnitTestTestSuite() {
 int UnitTestTestSuite::Run() {
   return test_suite_->Run();
 }
+
+}  // namespace content

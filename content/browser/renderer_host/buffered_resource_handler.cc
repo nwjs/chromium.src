@@ -59,111 +59,197 @@ void RecordSnifferMetrics(bool sniffing_blocked,
   }
 }
 
+// Used to write into an existing IOBuffer at a given offset.
+class DependentIOBuffer : public net::WrappedIOBuffer {
+ public:
+  DependentIOBuffer(net::IOBuffer* buf, int offset)
+      : net::WrappedIOBuffer(buf->data() + offset),
+        buf_(buf) {
+  }
+
+ private:
+  ~DependentIOBuffer() {}
+
+  scoped_refptr<net::IOBuffer> buf_;
+};
+
 }  // namespace
 
 BufferedResourceHandler::BufferedResourceHandler(
-    ResourceHandler* handler,
+    scoped_ptr<ResourceHandler> next_handler,
     ResourceDispatcherHostImpl* host,
     net::URLRequest* request)
-    : LayeredResourceHandler(handler),
+    : LayeredResourceHandler(next_handler.Pass()),
+      state_(STATE_STARTING),
       host_(host),
       request_(request),
       read_buffer_size_(0),
       bytes_read_(0),
-      sniff_content_(false),
-      wait_for_plugins_(false),
-      buffering_(false),
-      next_handler_needs_response_started_(false),
-      next_handler_needs_will_read_(false),
-      finished_(false) {
+      must_download_(false),
+      must_download_is_set_(false) {
+}
+
+BufferedResourceHandler::~BufferedResourceHandler() {
+}
+
+void BufferedResourceHandler::SetController(ResourceController* controller) {
+  ResourceHandler::SetController(controller);
+
+  // Downstream handlers see us as their ResourceController, which allows us to
+  // consume part or all of the resource response, and then later replay it to
+  // downstream handler.
+  DCHECK(next_handler_.get());
+  next_handler_->SetController(this);
 }
 
 bool BufferedResourceHandler::OnResponseStarted(
     int request_id,
-    ResourceResponse* response) {
+    ResourceResponse* response,
+    bool* defer) {
   response_ = response;
-  if (!DelayResponse())
-    return CompleteResponseStarted(request_id);
-  return true;
-}
 
-void BufferedResourceHandler::OnRequestClosed() {
-  request_ = NULL;
-  next_handler_->OnRequestClosed();
+  // TODO(darin): It is very odd to special-case 304 responses at this level.
+  // We do so only because the code always has, see r24977 and r29355.  The
+  // fact that 204 is no longer special-cased this way suggests that 304 need
+  // not be special-cased either.
+  //
+  // The network stack only forwards 304 responses that were not received in
+  // response to a conditional request (i.e., If-Modified-Since).  Other 304
+  // responses end up being translated to 200 or whatever the cached response
+  // code happens to be.  It should be very rare to see a 304 at this level.
+
+  if (!(response_->head.headers &&
+        response_->head.headers->response_code() == 304)) {
+    if (ShouldSniffContent()) {
+      state_ = STATE_BUFFERING;
+      return true;
+    }
+
+    if (response_->head.mime_type.empty()) {
+      // Ugg.  The server told us not to sniff the content but didn't give us
+      // a mime type.  What's a browser to do?  Turns out, we're supposed to
+      // treat the response as "text/plain".  This is the most secure option.
+      response_->head.mime_type.assign("text/plain");
+    }
+  }
+
+  state_ = STATE_PROCESSING;
+  return ProcessResponse(defer);
 }
 
 // We'll let the original event handler provide a buffer, and reuse it for
 // subsequent reads until we're done buffering.
 bool BufferedResourceHandler::OnWillRead(int request_id, net::IOBuffer** buf,
                                          int* buf_size, int min_size) {
-  if (buffering_) {
-    DCHECK(!my_buffer_.get());
-    my_buffer_ = new net::IOBuffer(net::kMaxBytesToSniff);
-    *buf = my_buffer_.get();
-    *buf_size = net::kMaxBytesToSniff;
-    return true;
-  }
+  if (state_ == STATE_STREAMING)
+    return next_handler_->OnWillRead(request_id, buf, buf_size, min_size);
 
-  if (finished_)
-    return false;
+  DCHECK_EQ(-1, min_size);
 
-  if (!next_handler_->OnWillRead(request_id, buf, buf_size, min_size)) {
-    return false;
+  if (read_buffer_) {
+    CHECK_LT(bytes_read_, read_buffer_size_);
+    *buf = new DependentIOBuffer(read_buffer_, bytes_read_);
+    *buf_size = read_buffer_size_ - bytes_read_;
+  } else {
+    if (!next_handler_->OnWillRead(request_id, buf, buf_size, min_size))
+      return false;
+
+    read_buffer_ = *buf;
+    read_buffer_size_ = *buf_size;
+    DCHECK_GE(read_buffer_size_, net::kMaxBytesToSniff * 2);
   }
-  read_buffer_ = *buf;
-  read_buffer_size_ = *buf_size;
-  DCHECK_GE(read_buffer_size_, net::kMaxBytesToSniff * 2);
-  bytes_read_ = 0;
   return true;
 }
 
-bool BufferedResourceHandler::OnReadCompleted(int request_id, int* bytes_read) {
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
+bool BufferedResourceHandler::OnReadCompleted(int request_id, int bytes_read,
+                                              bool* defer) {
+  if (state_ == STATE_STREAMING)
+    return next_handler_->OnReadCompleted(request_id, bytes_read, defer);
 
-  if (sniff_content_) {
-    if (KeepBuffering(*bytes_read))
-      return true;
+  DCHECK_EQ(state_, STATE_BUFFERING);
+  bytes_read_ += bytes_read;
 
-    *bytes_read = bytes_read_;
+  if (!DetermineMimeType() && (bytes_read > 0))
+    return true;  // Needs more data, so keep buffering.
 
-    // Done buffering, send the pending ResponseStarted event.
-    if (!CompleteResponseStarted(request_id))
+  state_ = STATE_PROCESSING;
+  return ProcessResponse(defer);
+}
+
+bool BufferedResourceHandler::OnResponseCompleted(
+    int request_id,
+    const net::URLRequestStatus& status,
+    const std::string& security_info) {
+  // Upon completion, act like a pass-through handler in case the downstream
+  // handler defers OnResponseCompleted.
+  state_ = STATE_STREAMING;
+
+  return next_handler_->OnResponseCompleted(request_id, status, security_info);
+}
+
+void BufferedResourceHandler::Resume() {
+  switch (state_) {
+    case STATE_BUFFERING:
+    case STATE_PROCESSING:
+      NOTREACHED();
+      break;
+    case STATE_REPLAYING:
+      MessageLoop::current()->PostTask(
+          FROM_HERE,
+          base::Bind(&BufferedResourceHandler::CallReplayReadCompleted,
+                     AsWeakPtr()));
+      break;
+    case STATE_STARTING:
+    case STATE_STREAMING:
+      controller()->Resume();
+      break;
+  }
+}
+
+void BufferedResourceHandler::Cancel() {
+  controller()->Cancel();
+}
+
+bool BufferedResourceHandler::ProcessResponse(bool* defer) {
+  DCHECK_EQ(STATE_PROCESSING, state_);
+
+  // TODO(darin): Stop special-casing 304 responses.
+  if (!(response_->head.headers &&
+        response_->head.headers->response_code() == 304)) {
+    if (!SelectNextHandler(defer))
       return false;
-
-    // The next handler might have paused the request in OnResponseStarted.
-    if (info->pause_count())
+    if (*defer)
       return true;
-  } else if (wait_for_plugins_) {
+  }
+
+  state_ = STATE_REPLAYING;
+
+  int request_id = ResourceRequestInfo::ForRequest(request_)->GetRequestID();
+  if (!next_handler_->OnResponseStarted(request_id, response_, defer))
+    return false;
+
+  if (!read_buffer_) {
+    state_ = STATE_STREAMING;
     return true;
   }
 
-  if (!ForwardPendingEventsToNextHandler(request_id))
-    return false;
-  if (info->pause_count())
-    return true;
+  if (!*defer)
+    return ReplayReadCompleted(defer);
 
-  // Release the reference that we acquired at OnWillRead.
-  read_buffer_ = NULL;
-  return next_handler_->OnReadCompleted(request_id, bytes_read);
+  return true;
 }
 
-BufferedResourceHandler::~BufferedResourceHandler() {}
-
-bool BufferedResourceHandler::DelayResponse() {
-  std::string mime_type;
-  request_->GetMimeType(&mime_type);
+bool BufferedResourceHandler::ShouldSniffContent() {
+  const std::string& mime_type = response_->head.mime_type;
 
   std::string content_type_options;
   request_->GetResponseHeaderByName("x-content-type-options",
                                     &content_type_options);
 
-  const bool sniffing_blocked =
+  bool sniffing_blocked =
       LowerCaseEqualsASCII(content_type_options, "nosniff");
-  const bool not_modified_status =
-      response_->headers && response_->headers->response_code() == 304;
-  const bool we_would_like_to_sniff = not_modified_status ?
-      false : net::ShouldSniffMimeType(request_->url(), mime_type);
+  bool we_would_like_to_sniff =
+      net::ShouldSniffMimeType(request_->url(), mime_type);
 
   RecordSnifferMetrics(sniffing_blocked, we_would_like_to_sniff, mime_type);
 
@@ -171,305 +257,189 @@ bool BufferedResourceHandler::DelayResponse() {
     // We're going to look at the data before deciding what the content type
     // is.  That means we need to delay sending the ResponseStarted message
     // over the IPC channel.
-    sniff_content_ = true;
     VLOG(1) << "To buffer: " << request_->url().spec();
     return true;
   }
 
-  if (sniffing_blocked && mime_type.empty() && !not_modified_status) {
-    // Ugg.  The server told us not to sniff the content but didn't give us a
-    // mime type.  What's a browser to do?  Turns out, we're supposed to treat
-    // the response as "text/plain".  This is the most secure option.
-    mime_type.assign("text/plain");
-    response_->mime_type.assign(mime_type);
-  }
-
-  if (mime_type == "application/rss+xml" ||
-      mime_type == "application/atom+xml") {
-    // Sad face.  The server told us that they wanted us to treat the response
-    // as RSS or Atom.  Unfortunately, we don't have a built-in feed previewer
-    // like other browsers.  We can't just render the content as XML because
-    // web sites let third parties inject arbitrary script into their RSS
-    // feeds.  That leaves us with little choice but to practically ignore the
-    // response.  In the future, when we have an RSS feed previewer, we can
-    // remove this logic.
-    mime_type.assign("text/plain");
-    response_->mime_type.assign(mime_type);
-  }
-
-  if (!not_modified_status && ShouldWaitForPlugins()) {
-    wait_for_plugins_ = true;
-    return true;
-  }
-
   return false;
 }
 
-bool BufferedResourceHandler::DidBufferEnough(int bytes_read) {
-  const int kRequiredLength = 256;
+bool BufferedResourceHandler::DetermineMimeType() {
+  DCHECK_EQ(STATE_BUFFERING, state_);
 
-  return bytes_read >= kRequiredLength;
+  const std::string& type_hint = response_->head.mime_type;
+
+  std::string new_type;
+  bool made_final_decision =
+      net::SniffMimeType(read_buffer_->data(), bytes_read_, request_->url(),
+                         type_hint, &new_type);
+
+  // SniffMimeType() returns false if there is not enough data to determine
+  // the mime type. However, even if it returns false, it returns a new type
+  // that is probably better than the current one.
+  response_->head.mime_type.assign(new_type);
+
+  return made_final_decision;
 }
 
-bool BufferedResourceHandler::KeepBuffering(int bytes_read) {
-  DCHECK(read_buffer_);
-  if (my_buffer_) {
-    // We are using our own buffer to read, update the main buffer.
-    // TODO(darin): We should handle the case where read_buffer_size_ is small!
-    // See RedirectToFileResourceHandler::BufIsFull to see how this impairs
-    // downstream ResourceHandler implementations.
-    CHECK_LT(bytes_read + bytes_read_, read_buffer_size_);
-    memcpy(read_buffer_->data() + bytes_read_, my_buffer_->data(), bytes_read);
-    my_buffer_ = NULL;
-  }
-  bytes_read_ += bytes_read;
-  finished_ = (bytes_read == 0);
+bool BufferedResourceHandler::SelectNextHandler(bool* defer) {
+  DCHECK(!response_->head.mime_type.empty());
 
-  if (sniff_content_) {
-    std::string type_hint, new_type;
-    request_->GetMimeType(&type_hint);
+  ResourceRequestInfoImpl* info = ResourceRequestInfoImpl::ForRequest(request_);
+  const std::string& mime_type = response_->head.mime_type;
 
-    if (!net::SniffMimeType(read_buffer_->data(), bytes_read_,
-                            request_->url(), type_hint, &new_type)) {
-      // SniffMimeType() returns false if there is not enough data to determine
-      // the mime type. However, even if it returns false, it returns a new type
-      // that is probably better than the current one.
-      DCHECK_LT(bytes_read_, net::kMaxBytesToSniff);
-      if (!finished_) {
-        buffering_ = true;
-        return true;
-      }
-    }
-    sniff_content_ = false;
-    response_->mime_type.assign(new_type);
-
-    // We just sniffed the mime type, maybe there is a doctype to process.
-    if (ShouldWaitForPlugins())
-      wait_for_plugins_ = true;
-  }
-
-  buffering_ = false;
-
-  if (wait_for_plugins_)
-    return true;
-
-  return false;
-}
-
-bool BufferedResourceHandler::CompleteResponseStarted(int request_id) {
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
-  std::string mime_type;
-  request_->GetMimeType(&mime_type);
-
-  // Check if this is an X.509 certificate, if yes, let it be handled
-  // by X509UserCertResourceHandler.
   if (mime_type == "application/x-x509-user-cert") {
-    // This is entirely similar to how DownloadResourceThrottle works except we
-    // are doing it for an X.509 client certificates.
-    // TODO(darin): This does not belong here!
-
-    if (response_->headers &&  // Can be NULL if FTP.
-        response_->headers->response_code() / 100 != 2) {
-      // The response code indicates that this is an error page, but we are
-      // expecting an X.509 user certificate. We follow Firefox here and show
-      // our own error page instead of handling the error page as a
-      // certificate.
-      // TODO(abarth): We should abstract the response_code test, but this kind
-      //               of check is scattered throughout our codebase.
-      request_->CancelWithError(net::ERR_FILE_NOT_FOUND);
-      return false;
-    }
-
-    X509UserCertResourceHandler* x509_cert_handler =
+    // Install X509 handler.
+    scoped_ptr<ResourceHandler> handler(
         new X509UserCertResourceHandler(request_,
                                         info->GetChildID(),
-                                        info->GetRouteID());
-    if (!UseAlternateResourceHandler(request_id, x509_cert_handler))
-      return false;
+                                        info->GetRouteID()));
+    return UseAlternateNextHandler(handler.Pass());
   }
 
-  // Check to see if we should forward the data from this request to the
-  // download thread.
-  // TODO(paulg): Only download if the context from the renderer allows it.
-  if (info->allow_download() && ShouldDownload(NULL)) {
-    if (response_->headers &&  // Can be NULL if FTP.
-        response_->headers->response_code() / 100 != 2) {
-      // The response code indicates that this is an error page, but we don't
-      // know how to display the content.  We follow Firefox here and show our
-      // own error page instead of triggering a download.
-      // TODO(abarth): We should abstract the response_code test, but this kind
-      //               of check is scattered throughout our codebase.
-      request_->CancelWithError(net::ERR_FILE_NOT_FOUND);
-      return false;
-    }
-
-    info->set_is_download(true);
-
-    scoped_refptr<ResourceHandler> handler(
-        host_->CreateResourceHandlerForDownload(
-            request_,
-            info->GetContext(),
-            info->GetChildID(),
-            info->GetRouteID(),
-            info->GetRequestID(),
-            DownloadSaveInfo(),
-            DownloadResourceHandler::OnStartedCallback()));
-
-    if (!UseAlternateResourceHandler(request_id, handler))
-      return false;
-  }
-
-  if (info->pause_count())
+  if (!info->allow_download())
     return true;
 
-  return next_handler_->OnResponseStarted(request_id, response_);
-}
-
-bool BufferedResourceHandler::ShouldWaitForPlugins() {
-  bool need_plugin_list;
-  if (!ShouldDownload(&need_plugin_list) || !need_plugin_list)
-    return false;
-
-  // We don't want to keep buffering as our buffer will fill up.
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
-  host_->PauseRequest(info->GetChildID(), info->GetRequestID(), true);
-
-  // Get the plugins asynchronously.
-  PluginServiceImpl::GetInstance()->GetPlugins(
-      base::Bind(&BufferedResourceHandler::OnPluginsLoaded, this));
-  return true;
-}
-
-// This test mirrors the decision that WebKit makes in
-// WebFrameLoaderClient::dispatchDecidePolicyForMIMEType.
-bool BufferedResourceHandler::ShouldDownload(bool* need_plugin_list) {
-  if (need_plugin_list)
-    *need_plugin_list = false;
-  std::string type = StringToLowerASCII(response_->mime_type);
-
-  // First, examine Content-Disposition.
-  std::string disposition;
-  request_->GetResponseHeaderByName("content-disposition", &disposition);
-  if (!disposition.empty()) {
-    net::HttpContentDisposition parsed_disposition(disposition, std::string());
-    if (parsed_disposition.is_attachment())
+  if (!MustDownload()) {
+    if (net::IsSupportedMimeType(mime_type))
       return true;
-  }
 
-  if (host_->delegate() &&
-      host_->delegate()->ShouldForceDownloadResource(request_->url(), type))
-    return true;
-
-  // MIME type checking.
-  if (net::IsSupportedMimeType(type))
-    return false;
-
-  // Finally, check the plugin list.
-  bool allow_wildcard = false;
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
-  bool stale = false;
-  webkit::WebPluginInfo plugin;
-  bool found = PluginServiceImpl::GetInstance()->GetPluginInfo(
-      info->GetChildID(), info->GetRouteID(), info->GetContext(),
-      request_->url(), GURL(), type, allow_wildcard,
-      &stale, &plugin, NULL);
-
-  if (need_plugin_list) {
+    bool stale;
+    bool has_plugin = HasSupportingPlugin(&stale);
     if (stale) {
-      *need_plugin_list = true;
+      // Refresh the plugins asynchronously.
+      PluginServiceImpl::GetInstance()->GetPlugins(
+          base::Bind(&BufferedResourceHandler::OnPluginsLoaded, AsWeakPtr()));
+      *defer = true;
       return true;
     }
-  } else {
-    DCHECK(!stale);
+    if (has_plugin)
+      return true;
   }
 
-  return !found;
+  // Install download handler
+  info->set_is_download(true);
+  scoped_ptr<ResourceHandler> handler(
+      host_->CreateResourceHandlerForDownload(
+          request_,
+          true,  // is_content_initiated
+          DownloadSaveInfo(),
+          DownloadResourceHandler::OnStartedCallback()));
+  return UseAlternateNextHandler(handler.Pass());
 }
 
-bool BufferedResourceHandler::UseAlternateResourceHandler(
-    int request_id,
-    ResourceHandler* handler) {
+bool BufferedResourceHandler::UseAlternateNextHandler(
+    scoped_ptr<ResourceHandler> new_handler) {
+  if (response_->head.headers &&  // Can be NULL if FTP.
+      response_->head.headers->response_code() / 100 != 2) {
+    // The response code indicates that this is an error page, but we don't
+    // know how to display the content.  We follow Firefox here and show our
+    // own error page instead of triggering a download.
+    // TODO(abarth): We should abstract the response_code test, but this kind
+    //               of check is scattered throughout our codebase.
+    request_->CancelWithError(net::ERR_FILE_NOT_FOUND);
+    return false;
+  }
+
+  int request_id = ResourceRequestInfo::ForRequest(request_)->GetRequestID();
+
   // Inform the original ResourceHandler that this will be handled entirely by
   // the new ResourceHandler.
   // TODO(darin): We should probably check the return values of these.
-  next_handler_->OnResponseStarted(request_id, response_);
+  bool defer_ignored = false;
+  next_handler_->OnResponseStarted(request_id, response_, &defer_ignored);
+  DCHECK(!defer_ignored);
   net::URLRequestStatus status(net::URLRequestStatus::HANDLED_EXTERNALLY, 0);
   next_handler_->OnResponseCompleted(request_id, status, std::string());
 
-  // Remove the non-owning pointer to the CrossSiteResourceHandler, if any,
-  // from the extra request info because the CrossSiteResourceHandler (part of
-  // the original ResourceHandler chain) will be deleted by the next statement.
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
-  info->set_cross_site_handler(NULL);
-
   // This is handled entirely within the new ResourceHandler, so just reset the
   // original ResourceHandler.
-  next_handler_ = handler;
+  next_handler_ = new_handler.Pass();
+  next_handler_->SetController(this);
 
-  next_handler_needs_response_started_ = true;
-  next_handler_needs_will_read_ = true;
-
-  return ForwardPendingEventsToNextHandler(request_id);
+  return CopyReadBufferToNextHandler(request_id);
 }
 
-bool BufferedResourceHandler::ForwardPendingEventsToNextHandler(
-    int request_id) {
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
-  if (info->pause_count())
-    return true;
+bool BufferedResourceHandler::ReplayReadCompleted(bool* defer) {
+  DCHECK(read_buffer_);
 
-  if (next_handler_needs_response_started_) {
-    if (!next_handler_->OnResponseStarted(request_id, response_))
-      return false;
-    // If the request was paused during OnResponseStarted, we need to avoid
-    // calling OnResponseStarted again.
-    next_handler_needs_response_started_ = false;
-    if (info->pause_count())
-      return true;
-  }
+  int request_id = ResourceRequestInfo::ForRequest(request_)->GetRequestID();
+  bool result = next_handler_->OnReadCompleted(request_id, bytes_read_, defer);
 
-  if (next_handler_needs_will_read_) {
-    CopyReadBufferToNextHandler(request_id);
-    // If the request was paused during OnWillRead, we need to be sure to try
-    // calling OnWillRead again.
-    if (info->pause_count())
-      return true;
-    next_handler_needs_will_read_ = false;
-  }
-  return true;
+  read_buffer_ = NULL;
+  read_buffer_size_ = 0;
+  bytes_read_ = 0;
+
+  state_ = STATE_STREAMING;
+
+  return result;
 }
 
-void BufferedResourceHandler::CopyReadBufferToNextHandler(int request_id) {
+void BufferedResourceHandler::CallReplayReadCompleted() {
+  bool defer = false;
+  if (!ReplayReadCompleted(&defer)) {
+    controller()->Cancel();
+  } else if (!defer) {
+    state_ = STATE_STREAMING;
+    controller()->Resume();
+  }
+}
+
+bool BufferedResourceHandler::MustDownload() {
+  if (must_download_is_set_)
+    return must_download_;
+
+  must_download_is_set_ = true;
+
+  std::string disposition;
+  request_->GetResponseHeaderByName("content-disposition", &disposition);
+  if (!disposition.empty() &&
+      net::HttpContentDisposition(disposition, std::string()).is_attachment()) {
+    must_download_ = true;
+  } else if (host_->delegate() &&
+             host_->delegate()->ShouldForceDownloadResource(
+                 request_->url(), response_->head.mime_type)) {
+    must_download_ = true;
+  } else {
+    must_download_ = false;
+  }
+
+  return must_download_;
+}
+
+bool BufferedResourceHandler::HasSupportingPlugin(bool* stale) {
+  ResourceRequestInfoImpl* info = ResourceRequestInfoImpl::ForRequest(request_);
+
+  bool allow_wildcard = false;
+  webkit::WebPluginInfo plugin;
+  return PluginServiceImpl::GetInstance()->GetPluginInfo(
+      info->GetChildID(), info->GetRouteID(), info->GetContext(),
+      request_->url(), GURL(), response_->head.mime_type, allow_wildcard,
+      stale, &plugin, NULL);
+}
+
+bool BufferedResourceHandler::CopyReadBufferToNextHandler(int request_id) {
   if (!bytes_read_)
-    return;
+    return true;
 
   net::IOBuffer* buf = NULL;
   int buf_len = 0;
-  if (next_handler_->OnWillRead(request_id, &buf, &buf_len, bytes_read_)) {
-    CHECK((buf_len >= bytes_read_) && (bytes_read_ >= 0));
-    memcpy(buf->data(), read_buffer_->data(), bytes_read_);
-  }
+  if (!next_handler_->OnWillRead(request_id, &buf, &buf_len, bytes_read_))
+    return false;
+
+  CHECK((buf_len >= bytes_read_) && (bytes_read_ >= 0));
+  memcpy(buf->data(), read_buffer_->data(), bytes_read_);
+  return true;
 }
 
 void BufferedResourceHandler::OnPluginsLoaded(
     const std::vector<webkit::WebPluginInfo>& plugins) {
-  wait_for_plugins_ = false;
-  if (!request_)
-    return;
-
-  ResourceRequestInfoImpl* info =
-      ResourceRequestInfoImpl::ForRequest(request_);
-  int child_id = info->GetChildID();
-  int request_id = info->GetRequestID();
-
-  host_->PauseRequest(child_id, request_id, false);
-  if (!CompleteResponseStarted(request_id))
-    host_->CancelRequest(child_id, request_id, false);
+  bool defer = false;
+  if (!ProcessResponse(&defer)) {
+    controller()->Cancel();
+  } else if (!defer) {
+    controller()->Resume();
+  }
 }
 
 }  // namespace content

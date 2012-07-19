@@ -47,8 +47,8 @@ def createZip(zip_path, directory):
   zip.close()
 
 
-def buildWebApp(buildtype, mimetype, destination, zip_path, plugin, files,
-                locales):
+def buildWebApp(buildtype, version, mimetype, destination, zip_path, plugin,
+                files, locales):
   """Does the main work of building the webapp directory and zipfile.
 
   Args:
@@ -155,19 +155,10 @@ def buildWebApp(buildtype, mimetype, destination, zip_path, plugin, files,
   if ((platform.system() == 'Linux') and (buildtype == 'Official')):
     subprocess.call(["strip", newPluginPath])
 
-  # Add unique build numbers to manifest version.
-  # For now, this is based on the system clock (seconds since 1/1/1970), since
-  # a previous attempt (based on build/utils/lastchange.py) was failing on Mac.
-  # TODO(lambroslambrou): Use the SVN revision number or an incrementing build
-  # number (http://crbug.com/90110).
-  timestamp = int(time.time())
-  # Version string must be 1-4 numbers separated by dots, with each number
-  # between 0 and 0xffff.
-  version1 = timestamp / 0x10000
-  version2 = timestamp % 0x10000
+  # Set the version number in the manifest version.
   findAndReplace(os.path.join(destination, 'manifest.json'),
-                 'UNIQUE_VERSION',
-                 '%d.%d' % (version1, version2))
+                 'FULL_APP_VERSION',
+                 version)
 
   # Set the correct mimetype.
   findAndReplace(os.path.join(destination, 'plugin_settings.js'),
@@ -196,32 +187,37 @@ def buildWebApp(buildtype, mimetype, destination, zip_path, plugin, files,
     apiClientId = ('440925447803-avn2sj1kc099s0r7v62je5s339mu0am1.' +
         'apps.googleusercontent.com')
     apiClientSecret = 'Bgur6DFiOMM1h8x-AQpuTQlK'
+    oauth2UseOfficialClientId = 'true';
   else:
     apiClientId = ('440925447803-2pi3v45bff6tp1rde2f7q6lgbor3o5uj.' +
         'apps.googleusercontent.com')
     apiClientSecret = 'W2ieEsG-R1gIA4MMurGrgMc_'
+    oauth2UseOfficialClientId = 'false';
   findAndReplace(os.path.join(destination, 'plugin_settings.js'),
                  "'API_CLIENT_ID'",
                  "'" + apiClientId + "'")
   findAndReplace(os.path.join(destination, 'plugin_settings.js'),
                  "'API_CLIENT_SECRET'",
                  "'" + apiClientSecret + "'")
+  findAndReplace(os.path.join(destination, 'plugin_settings.js'),
+                 "OAUTH2_USE_OFFICIAL_CLIENT_ID",
+                 oauth2UseOfficialClientId)
 
   # Make the zipfile.
   createZip(zip_path, destination)
 
 
 def main():
-  if len(sys.argv) < 6:
+  if len(sys.argv) < 7:
     print ('Usage: build-webapp.py '
-           '<build-type> <mime-type> <dst> <zip-path> <plugin> '
+           '<build-type> <version> <mime-type> <dst> <zip-path> <plugin> '
            '<other files...> --locales <locales...>')
     return 1
 
   reading_locales = False
   files = []
   locales = []
-  for arg in sys.argv[6:]:
+  for arg in sys.argv[7:]:
     if arg == "--locales":
       reading_locales = True;
     elif reading_locales:
@@ -230,7 +226,7 @@ def main():
       files.append(arg)
 
   buildWebApp(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5],
-              files, locales)
+              sys.argv[6], files, locales)
   return 0
 
 

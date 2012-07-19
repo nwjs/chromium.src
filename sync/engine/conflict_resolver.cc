@@ -14,27 +14,26 @@
 #include "sync/engine/syncer.h"
 #include "sync/engine/syncer_util.h"
 #include "sync/protocol/nigori_specifics.pb.h"
-#include "sync/protocol/service_constants.h"
 #include "sync/sessions/status_controller.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/directory.h"
+#include "sync/syncable/mutable_entry.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/util/cryptographer.h"
 
 using std::list;
 using std::map;
 using std::set;
-using syncable::BaseTransaction;
-using syncable::Directory;
-using syncable::Entry;
-using syncable::GetModelTypeFromSpecifics;
-using syncable::Id;
-using syncable::IsRealDataType;
-using syncable::MutableEntry;
-using syncable::WriteTransaction;
 
-namespace browser_sync {
+namespace syncer {
 
 using sessions::ConflictProgress;
 using sessions::StatusController;
+using syncable::BaseTransaction;
+using syncable::Directory;
+using syncable::Entry;
+using syncable::Id;
+using syncable::MutableEntry;
+using syncable::WriteTransaction;
 
 namespace {
 
@@ -222,7 +221,7 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
     }
 
     // We manually merge nigori data.
-    if (entry.GetModelType() == syncable::NIGORI) {
+    if (entry.GetModelType() == syncer::NIGORI) {
       // Create a new set of specifics based on the server specifics (which
       // preserves their encryption keys).
       sync_pb::EntitySpecifics specifics =
@@ -259,12 +258,6 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
         server_nigori->set_using_explicit_passphrase(
             entry.Get(syncable::SPECIFICS).nigori().
                 using_explicit_passphrase());
-      }
-      // TODO(zea): Find a better way of doing this. As it stands, we have to
-      // update this code whenever we add a new non-cryptographer related field
-      // to the nigori node.
-      if (entry.Get(syncable::SPECIFICS).nigori().sync_tabs()) {
-        server_nigori->set_sync_tabs(true);
       }
       // We deliberately leave the server's device information. This client will
       // add its own device information on restart.
@@ -358,7 +351,7 @@ ConflictResolver::ProcessSimpleConflict(WriteTransaction* trans,
     } else {
       // Otherwise, we've got to undelete by creating a new locally
       // uncommitted entry.
-      SyncerUtil::SplitServerInformationIntoNewEntry(trans, &entry);
+      SplitServerInformationIntoNewEntry(trans, &entry);
 
       MutableEntry server_update(trans, syncable::GET_BY_ID, id);
       CHECK(server_update.good());
@@ -422,4 +415,4 @@ bool ConflictResolver::ResolveConflicts(syncable::WriteTransaction* trans,
   return forward_progress;
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

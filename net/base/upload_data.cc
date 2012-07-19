@@ -114,6 +114,20 @@ uint64 UploadData::Element::BytesRemaining() {
   return GetContentLength() - offset_;
 }
 
+void UploadData::Element::ResetOffset() {
+  offset_ = 0;
+
+  // Delete the file stream if already opened, so we can reread the file from
+  // the beginning.
+  if (file_stream_) {
+    // Temporarily allow until fix: http://crbug.com/72001.
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    file_stream_->CloseSync();
+    delete file_stream_;
+    file_stream_ = NULL;
+  }
+}
+
 FileStream* UploadData::Element::OpenFileStream() {
   scoped_ptr<FileStream> file(new FileStream(NULL));
   int64 rv = file->OpenSync(
@@ -126,7 +140,7 @@ FileStream* UploadData::Element::OpenFileStream() {
     return NULL;
   }
   if (file_range_offset_) {
-    rv = file->Seek(FROM_BEGIN, file_range_offset_);
+    rv = file->SeekSync(FROM_BEGIN, file_range_offset_);
     if (rv < 0) {
       DLOG(WARNING) << "Failed to seek \"" << file_path_.value()
                     << "\" to offset: " << file_range_offset_ << " (" << rv

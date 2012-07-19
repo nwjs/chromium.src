@@ -4,12 +4,15 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_BIDI_CHECKER_WEB_UI_TEST_H_
 #define CHROME_BROWSER_UI_WEBUI_BIDI_CHECKER_WEB_UI_TEST_H_
-#pragma once
 
 #include <string>
 
 #include "chrome/browser/ui/webui/web_ui_browsertest.h"
 #include "chrome/test/base/in_process_browser_test.h"
+
+namespace base {
+class WaitableEvent;
+}
 
 // Base class for BidiChecker-based tests. Preloads the BidiChecker JS library
 // for each test.

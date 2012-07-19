@@ -58,14 +58,16 @@ BaseTestServer::HTTPSOptions::HTTPSOptions()
       ocsp_status(OCSP_OK),
       request_client_certificate(false),
       bulk_ciphers(HTTPSOptions::BULK_CIPHER_ANY),
-      record_resume(false) {}
+      record_resume(false),
+      tls_intolerant(TLS_INTOLERANT_NONE) {}
 
 BaseTestServer::HTTPSOptions::HTTPSOptions(
     BaseTestServer::HTTPSOptions::ServerCertificate cert)
     : server_certificate(cert),
       request_client_certificate(false),
       bulk_ciphers(HTTPSOptions::BULK_CIPHER_ANY),
-      record_resume(false) {}
+      record_resume(false),
+      tls_intolerant(TLS_INTOLERANT_NONE) {}
 
 BaseTestServer::HTTPSOptions::~HTTPSOptions() {}
 
@@ -99,6 +101,10 @@ std::string BaseTestServer::HTTPSOptions::GetOCSPArgument() const {
       return "revoked";
     case OCSP_INVALID:
       return "invalid";
+    case OCSP_UNAUTHORIZED:
+      return "unauthorized";
+    case OCSP_UNKNOWN:
+      return "unknown";
     default:
       NOTREACHED();
       return "";
@@ -254,7 +260,7 @@ void BaseTestServer::SetResourcePath(const FilePath& document_root,
 bool BaseTestServer::ParseServerData(const std::string& server_data) {
   VLOG(1) << "Server data: " << server_data;
   base::JSONReader json_reader;
-  scoped_ptr<Value> value(json_reader.JsonToValue(server_data, true, false));
+  scoped_ptr<Value> value(json_reader.ReadToValue(server_data));
   if (!value.get() || !value->IsType(Value::TYPE_DICTIONARY)) {
     LOG(ERROR) << "Could not parse server data: "
                << json_reader.GetErrorMessage();
@@ -375,6 +381,10 @@ bool BaseTestServer::GenerateArguments(base::DictionaryValue* arguments) const {
       arguments->Set("ssl-bulk-cipher", bulk_cipher_values.release());
     if (https_options_.record_resume)
       arguments->Set("https-record-resume", base::Value::CreateNullValue());
+    if (https_options_.tls_intolerant != HTTPSOptions::TLS_INTOLERANT_NONE) {
+      arguments->Set("tls-intolerant",
+          base::Value::CreateIntegerValue(https_options_.tls_intolerant));
+    }
   }
   return true;
 }

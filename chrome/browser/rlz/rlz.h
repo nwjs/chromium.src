@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_RLZ_RLZ_H_
 #define CHROME_BROWSER_RLZ_RLZ_H_
-#pragma once
 
 #include "build/build_config.h"
 
@@ -48,6 +47,10 @@ class RLZTracker : public content::NotificationObserver {
   static bool RecordProductEvent(rlz_lib::Product product,
                                  rlz_lib::AccessPoint point,
                                  rlz_lib::Event event_id);
+
+  // For the point parameter of RecordProductEvent.
+  static const rlz_lib::AccessPoint CHROME_OMNIBOX;
+  static const rlz_lib::AccessPoint CHROME_HOME_PAGE;
 
   // Get the RLZ value of the access point.
   // Returns false if the rlz string could not be obtained. In some cases

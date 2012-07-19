@@ -4,7 +4,6 @@
 
 #ifndef ASH_IME_CONTROL_DELEGATE_H_
 #define ASH_IME_CONTROL_DELEGATE_H_
-#pragma once
 
 namespace ui {
 class Accelerator;
@@ -21,6 +20,11 @@ class ImeControlDelegate {
   virtual bool HandlePreviousIme() = 0;
   // Switches to another IME depending on the |accelerator|.
   virtual bool HandleSwitchIme(const ui::Accelerator& accelerator) = 0;
+
+  // Checks for special language anomalies and re-map the |accelerator|
+  // accordingly.
+  virtual ui::Accelerator RemapAccelerator(
+      const ui::Accelerator& accelerator) = 0;
 };
 
 }  // namespace ash

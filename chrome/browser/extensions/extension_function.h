@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_FUNCTION_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_FUNCTION_H_
-#pragma once
 
 #include <list>
 #include <string>
@@ -13,8 +12,8 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_helpers.h"
 #include "base/process.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "chrome/browser/extensions/extension_info_map.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/browser_thread.h"
@@ -39,6 +38,10 @@ class Value;
 
 namespace content {
 class RenderViewHost;
+}
+
+namespace extensions {
+class WindowController;
 }
 
 #define EXTENSION_FUNCTION_VALIDATE(test) do { \
@@ -78,16 +81,25 @@ class ExtensionFunction
 
   // Execute the API. Clients should initialize the ExtensionFunction using
   // SetArgs(), set_request_id(), and the other setters before calling this
-  // method. Derived classes should be ready to return GetResult() and
+  // method. Derived classes should be ready to return GetResultList() and
   // GetError() before returning from this function.
   // Note that once Run() returns, dispatcher() can be NULL, so be sure to
   // NULL-check.
   virtual void Run();
 
+  // Gets whether quota should be applied to this individual function
+  // invocation. This is different to GetQuotaLimitHeuristics which is only
+  // invoked once and then cached.
+  //
+  // Returns false by default.
+  virtual bool ShouldSkipQuotaLimiting() const;
+
   // Optionally adds one or multiple QuotaLimitHeuristic instances suitable for
   // this function to |heuristics|. The ownership of the new QuotaLimitHeuristic
   // instances is passed to the owner of |heuristics|.
   // No quota limiting by default.
+  //
+  // Only called once per lifetime of the ExtensionsQuotaService.
   virtual void GetQuotaLimitHeuristics(
       QuotaLimitHeuristics* heuristics) const {}
 
@@ -98,12 +110,11 @@ class ExtensionFunction
   // Specifies the raw arguments to the function, as a JSON value.
   virtual void SetArgs(const base::ListValue* args);
 
-  // Retrieves the results of the function as a JSON-encoded string (may
-  // be empty).
-  virtual const std::string GetResult();
+  // Sets a single Value as the results of the function.
+  void SetResult(base::Value* result);
 
-  // Retrieves the results of the function as a Value.
-  base::Value* GetResultValue();
+  // Retrieves the results of the function as a ListValue.
+  const base::ListValue* GetResultList();
 
   // Retrieves any error string from the function.
   virtual const std::string GetError();
@@ -118,8 +129,10 @@ class ExtensionFunction
   void set_profile_id(void* profile_id) { profile_id_ = profile_id; }
   void* profile_id() const { return profile_id_; }
 
-  void set_extension(const Extension* extension) { extension_ = extension; }
-  const Extension* GetExtension() const { return extension_.get(); }
+  void set_extension(const extensions::Extension* extension) {
+    extension_ = extension;
+  }
+  const extensions::Extension* GetExtension() const { return extension_.get(); }
   const std::string& extension_id() const { return extension_->id(); }
 
   void set_request_id(int request_id) { request_id_ = request_id; }
@@ -132,7 +145,7 @@ class ExtensionFunction
   bool has_callback() { return has_callback_; }
 
   void set_include_incognito(bool include) { include_incognito_ = include; }
-  bool include_incognito() { return include_incognito_; }
+  bool include_incognito() const { return include_incognito_; }
 
   void set_user_gesture(bool user_gesture) { user_gesture_ = user_gesture; }
   bool user_gesture() const { return user_gesture_; }
@@ -154,7 +167,7 @@ class ExtensionFunction
 
   // Common implementation for SendResponse.
   void SendResponseImpl(base::ProcessHandle process,
-                        IPC::Message::Sender* ipc_sender,
+                        IPC::Sender* ipc_sender,
                         int routing_id,
                         bool success);
 
@@ -175,7 +188,7 @@ class ExtensionFunction
   void* profile_id_;
 
   // The extension that called this function.
-  scoped_refptr<const Extension> extension_;
+  scoped_refptr<const extensions::Extension> extension_;
 
   // The name of this function.
   std::string name_;
@@ -199,9 +212,9 @@ class ExtensionFunction
   // The arguments to the API. Only non-null if argument were specified.
   scoped_ptr<base::ListValue> args_;
 
-  // The result of the API. This should be populated by the derived class before
-  // SendResponse() is called.
-  scoped_ptr<base::Value> result_;
+  // The results of the API. This should be populated by the derived class
+  // before SendResponse() is called.
+  scoped_ptr<base::ListValue> results_;
 
   // Any detailed error from the API. This should be populated by the derived
   // class before Run() returns.
@@ -222,7 +235,8 @@ class UIThreadExtensionFunction : public ExtensionFunction {
   class DelegateForTests {
    public:
     virtual void OnSendResponse(UIThreadExtensionFunction* function,
-                                bool success) = 0;
+                                bool success,
+                                bool bad_message) = 0;
   };
 
   UIThreadExtensionFunction();
@@ -271,7 +285,17 @@ class UIThreadExtensionFunction : public ExtensionFunction {
   // This method can return NULL if there is no matching browser, which can
   // happen if only incognito windows are open, or early in startup or shutdown
   // shutdown when there are no active windows.
+  //
+  // TODO(stevenjb): Replace this with GetExtensionWindowController().
   Browser* GetCurrentBrowser();
+
+  // Same as above but uses WindowControllerList instead of BrowserList.
+  extensions::WindowController* GetExtensionWindowController();
+
+  // Returns true if this function (and the profile and extension that it was
+  // invoked from) can operate on the window wrapped by |window_controller|.
+  bool CanOperateOnWindow(
+      const extensions::WindowController* window_controller) const;
 
  protected:
   friend struct content::BrowserThread::DeleteOnThread<

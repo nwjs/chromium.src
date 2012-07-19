@@ -4,12 +4,11 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_CREATE_APPLICATION_SHORTCUTS_DIALOG_GTK_H_
 #define CHROME_BROWSER_UI_GTK_CREATE_APPLICATION_SHORTCUTS_DIALOG_GTK_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/shell_integration.h"
 #include "content/public/browser/browser_thread.h"
@@ -22,8 +21,12 @@ typedef struct _GdkPixbuf GdkPixbuf;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkWindow GtkWindow;
 
+class Profile;
+class TabContents;
+
+namespace extensions{
 class Extension;
-class TabContentsWrapper;
+}
 
 class CreateApplicationShortcutsDialogGtk
     : public base::RefCountedThreadSafe<CreateApplicationShortcutsDialogGtk,
@@ -48,9 +51,9 @@ class CreateApplicationShortcutsDialogGtk
   // Subclasses can override it to take some action at that time.
   virtual void OnCreatedShortcut(void) {}
 
-  void CreateDesktopShortcut(
+  virtual void CreateDesktopShortcut(
       const ShellIntegration::ShortcutInfo& shortcut_info);
-  void ShowErrorDialog();
+  virtual void ShowErrorDialog();
 
   GtkWindow* parent_;
 
@@ -80,18 +83,19 @@ class CreateWebApplicationShortcutsDialogGtk
     : public CreateApplicationShortcutsDialogGtk {
  public:
   // Displays the dialog box to create application shortcuts for |tab_contents|.
-  static void Show(GtkWindow* parent, TabContentsWrapper* tab_contents);
+  static void Show(GtkWindow* parent, TabContents* tab_contents);
 
   CreateWebApplicationShortcutsDialogGtk(GtkWindow* parent,
-                                         TabContentsWrapper* tab_contents);
-  virtual ~CreateWebApplicationShortcutsDialogGtk() {}
+                                         TabContents* tab_contents);
 
   virtual void OnCreatedShortcut(void) OVERRIDE;
 
- private:
+ protected:
+  virtual ~CreateWebApplicationShortcutsDialogGtk() {}
 
-  // TabContentsWrapper for which the shortcut will be created.
-  TabContentsWrapper* tab_contents_;
+ private:
+  // TabContents for which the shortcut will be created.
+  TabContents* tab_contents_;
 
   DISALLOW_COPY_AND_ASSIGN(CreateWebApplicationShortcutsDialogGtk);
 };
@@ -101,11 +105,12 @@ class CreateChromeApplicationShortcutsDialogGtk
     public ImageLoadingTracker::Observer {
  public:
   // Displays the dialog box to create application shortcuts for |app|.
-  static void Show(GtkWindow* parent, const Extension* app);
+  static void Show(GtkWindow* parent, Profile* profile,
+                   const extensions::Extension* app);
 
   CreateChromeApplicationShortcutsDialogGtk(GtkWindow* parent,
-                                            const Extension* app);
-  virtual ~CreateChromeApplicationShortcutsDialogGtk() {}
+                                            Profile* profile,
+                                            const extensions::Extension* app);
 
   // Implement ImageLoadingTracker::Observer.  |tracker_| is used to
   // load the app's icon.  This method recieves the icon, and adds
@@ -114,8 +119,15 @@ class CreateChromeApplicationShortcutsDialogGtk
                              const std::string& extension_id,
                              int index) OVERRIDE;
 
+ protected:
+  virtual ~CreateChromeApplicationShortcutsDialogGtk() {}
+
+  virtual void CreateDesktopShortcut(
+      const ShellIntegration::ShortcutInfo& shortcut_info) OVERRIDE;
+
  private:
-  const Extension* app_;
+  const extensions::Extension* app_;
+  FilePath profile_path_;
   ImageLoadingTracker tracker_;
   DISALLOW_COPY_AND_ASSIGN(CreateChromeApplicationShortcutsDialogGtk);
 };

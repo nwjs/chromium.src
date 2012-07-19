@@ -39,14 +39,13 @@ namespace chromeos {
 // static
 int ProxySettingsDialog::instance_count_ = 0;
 
-ProxySettingsDialog::ProxySettingsDialog(LoginHtmlDialog::Delegate* delegate,
+ProxySettingsDialog::ProxySettingsDialog(LoginWebDialog::Delegate* delegate,
                                          gfx::NativeWindow window)
-    : LoginHtmlDialog(
-          delegate,
-          window,
-          std::wstring(),
-          GURL(chrome::kChromeUIProxySettingsURL),
-          LoginHtmlDialog::STYLE_BUBBLE) {
+    : LoginWebDialog(delegate,
+                     window,
+                     string16(),
+                     GURL(chrome::kChromeUIProxySettingsURL),
+                     LoginWebDialog::STYLE_BUBBLE) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
   ++instance_count_;
 
@@ -74,7 +73,7 @@ ProxySettingsDialog::~ProxySettingsDialog() {
 }
 
 void ProxySettingsDialog::OnDialogClosed(const std::string& json_retval) {
-  LoginHtmlDialog::OnDialogClosed(json_retval);
+  LoginWebDialog::OnDialogClosed(json_retval);
   content::NotificationService::current()->Notify(
     chrome::NOTIFICATION_LOGIN_PROXY_CHANGED,
     content::NotificationService::AllSources(),

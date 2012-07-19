@@ -4,14 +4,12 @@
 
 #ifndef CHROME_BROWSER_POLICY_CLOUD_POLICY_PROVIDER_H_
 #define CHROME_BROWSER_POLICY_CLOUD_POLICY_PROVIDER_H_
-#pragma once
 
 #include <set>
 
 #include "base/basictypes.h"
 #include "chrome/browser/policy/cloud_policy_cache_base.h"
 #include "chrome/browser/policy/configuration_policy_provider.h"
-#include "chrome/browser/policy/policy_map.h"
 
 namespace policy {
 
@@ -24,7 +22,6 @@ class CloudPolicyProvider : public ConfigurationPolicyProvider,
                             public CloudPolicyCacheBase::Observer {
  public:
   CloudPolicyProvider(BrowserPolicyConnector* browser_policy_connector,
-                      const PolicyDefinitionList* policy_list,
                       PolicyLevel level);
   virtual ~CloudPolicyProvider();
 
@@ -39,7 +36,6 @@ class CloudPolicyProvider : public ConfigurationPolicyProvider,
 #endif
 
   // ConfigurationPolicyProvider implementation.
-  virtual bool ProvideInternal(PolicyMap* result) OVERRIDE;
   virtual bool IsInitializationComplete() const OVERRIDE;
   virtual void RefreshPolicies() OVERRIDE;
 
@@ -77,10 +73,6 @@ class CloudPolicyProvider : public ConfigurationPolicyProvider,
   // Used to determine when updates due to a RefreshPolicies() call have been
   // completed.
   std::set<const CloudPolicyCacheBase*> pending_updates_;
-
-  // The currently valid combination of the caches. ProvideInternal() fills
-  // |results| with a copy of |combined_|.
-  PolicyMap combined_;
 
   DISALLOW_COPY_AND_ASSIGN(CloudPolicyProvider);
 };

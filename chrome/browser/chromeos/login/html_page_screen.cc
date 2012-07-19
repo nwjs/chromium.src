@@ -7,12 +7,14 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/login/screen_observer.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/site_instance.h"
 #include "googleurl/src/gurl.h"
 #include "ui/views/events/event.h"
 
+using content::NativeWebKeyboardEvent;
 using content::SiteInstance;
 using content::WebContents;
 
@@ -20,8 +22,8 @@ namespace chromeos {
 
 ///////////////////////////////////////////////////////////////////////////////
 // HTMLPageView
-HTMLPageView::HTMLPageView()
-    : dom_view_(new WebPageDomView()) {
+HTMLPageView::HTMLPageView(content::BrowserContext* browser_context)
+    : dom_view_(new WebPageDomView(browser_context)) {
 }
 
 WebPageDomView* HTMLPageView::dom_view() {
@@ -38,6 +40,12 @@ HTMLPageScreen::HTMLPageScreen(ViewScreenDelegate* delegate,
 HTMLPageScreen::~HTMLPageScreen() {}
 
 ///////////////////////////////////////////////////////////////////////////////
+// HTMLPageScreen, WizardScreen implementation:
+std::string HTMLPageScreen::GetName() const {
+  return WizardController::kHTMLPageScreenName;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // HTMLPageScreen, ViewScreen implementation:
 void HTMLPageScreen::CreateView() {
   ViewScreen<HTMLPageView>::CreateView();
@@ -48,13 +56,13 @@ void HTMLPageScreen::Refresh() {
   StartTimeoutTimer();
   GURL url(url_);
   Profile* profile = ProfileManager::GetDefaultProfile();
-  view()->InitDOM(profile, SiteInstance::CreateForURL(profile, url));
+  view()->InitWebView(SiteInstance::CreateForURL(profile, url));
   view()->SetWebContentsDelegate(this);
   view()->LoadURL(url);
 }
 
 HTMLPageView* HTMLPageScreen::AllocateView() {
-  return new HTMLPageView();
+  return new HTMLPageView(ProfileManager::GetDefaultProfile());
 }
 
 void HTMLPageScreen::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {

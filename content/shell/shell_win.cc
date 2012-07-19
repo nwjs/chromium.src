@@ -4,15 +4,20 @@
 
 #include "content/shell/shell.h"
 
-#include <windows.h>
 #include <commctrl.h>
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
 
+#include "base/command_line.h"
 #include "base/string_piece.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/resource_util.h"
+#include "base/win/wrapped_window_proc.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "content/shell/resource.h"
+#include "content/shell/shell_switches.h"
 #include "googleurl/src/gurl.h"
 #include "grit/webkit_resources.h"
 #include "grit/webkit_chromium_resources.h"
@@ -46,8 +51,8 @@ namespace content {
 HINSTANCE Shell::instance_handle_;
 
 void Shell::PlatformInitialize() {
-  instance_handle_ = ::GetModuleHandle(NULL);
-
+  _setmode(_fileno(stdout), _O_BINARY);
+  _setmode(_fileno(stderr), _O_BINARY);
   INITCOMMONCONTROLSEX InitCtrlEx;
   InitCtrlEx.dwSize = sizeof(INITCOMMONCONTROLSEX);
   InitCtrlEx.dwICC  = ICC_STANDARD_CLASSES;
@@ -170,8 +175,13 @@ void Shell::SizeTo(int width, int height) {
   // Add space for the url bar.
   window_height += kURLBarHeight;
 
-  SetWindowPos(window_, NULL, 0, 0, window_width, window_height,
-               SWP_NOMOVE | SWP_NOZORDER);
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree)) {
+    SetWindowPos(window_, NULL, -window_width, -window_height,
+                 window_width, window_height, SWP_NOZORDER);
+  } else {
+    SetWindowPos(window_, NULL, 0, 0, window_width, window_height,
+                 SWP_NOMOVE | SWP_NOZORDER);
+  }
 }
 
 void Shell::PlatformResizeSubViews() {
@@ -190,21 +200,21 @@ void Shell::Close() {
 }
 
 ATOM Shell::RegisterWindowClass() {
-  WNDCLASSEX wcex = {
-      sizeof(WNDCLASSEX),
-      CS_HREDRAW | CS_VREDRAW,
-      Shell::WndProc,
-      0,
-      0,
-      instance_handle_,
-      NULL,
-      LoadCursor(NULL, IDC_ARROW),
-      0,
-      MAKEINTRESOURCE(IDC_CONTENTSHELL),
+  WNDCLASSEX window_class;
+  base::win::InitializeWindowClass(
       kWindowClass,
+      &Shell::WndProc,
+      CS_HREDRAW | CS_VREDRAW,
+      0,
+      0,
+      LoadCursor(NULL, IDC_ARROW),
       NULL,
-    };
-  return RegisterClassEx(&wcex);
+      MAKEINTRESOURCE(IDC_CONTENTSHELL),
+      NULL,
+      NULL,
+      &window_class);
+  instance_handle_ = window_class.hInstance;
+  return RegisterClassEx(&window_class);
 }
 
 LRESULT CALLBACK Shell::WndProc(HWND hwnd, UINT message, WPARAM wParam,
@@ -251,6 +261,16 @@ LRESULT CALLBACK Shell::WndProc(HWND hwnd, UINT message, WPARAM wParam,
         shell->PlatformResizeSubViews();
       return 0;
     }
+
+    case WM_WINDOWPOSCHANGED: {
+      // Notify the content view that the window position of its parent window
+      // has been changed by sending window message
+      gfx::NativeView native_view = shell->GetContentView();
+      if (native_view) {
+        SendMessage(native_view, message, wParam, lParam);
+      }
+      break;
+   }
   }
 
   return DefWindowProc(hwnd, message, wParam, lParam);
@@ -280,6 +300,10 @@ LRESULT CALLBACK Shell::EditWndProc(HWND hwnd, UINT message,
 
   return CallWindowProc(shell->default_edit_wnd_proc_, hwnd, message, wParam,
                         lParam);
+}
+
+void Shell::PlatformSetTitle(const string16& text) {
+  ::SetWindowText(window_, text.c_str());
 }
 
 }  // namespace content

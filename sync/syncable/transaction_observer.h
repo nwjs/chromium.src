@@ -4,11 +4,11 @@
 
 #ifndef SYNC_SYNCABLE_TRANSACTION_OBSERVER_H_
 #define SYNC_SYNCABLE_TRANSACTION_OBSERVER_H_
-#pragma once
 
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/syncable.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/syncable/write_transaction_info.h"
 
+namespace syncer {
 namespace syncable {
 
 class TransactionObserver {
@@ -21,5 +21,6 @@ class TransactionObserver {
 };
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_TRANSACTION_OBSERVER_H_

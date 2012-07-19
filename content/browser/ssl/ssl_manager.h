@@ -4,12 +4,12 @@
 
 #ifndef CONTENT_BROWSER_SSL_SSL_MANAGER_H_
 #define CONTENT_BROWSER_SSL_SSL_MANAGER_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "content/browser/ssl/ssl_policy_backend.h"
 #include "content/browser/ssl/ssl_error_handler.h"
 #include "content/common/content_export.h"
@@ -20,12 +20,12 @@
 #include "net/base/cert_status_flags.h"
 #include "net/base/net_errors.h"
 
-class LoadFromMemoryCacheDetails;
 class NavigationControllerImpl;
 class SSLPolicy;
 
 namespace content {
 class NavigationEntryImpl;
+struct LoadFromMemoryCacheDetails;
 struct ResourceRedirectDetails;
 struct ResourceRequestDetails;
 }
@@ -34,7 +34,7 @@ namespace net {
 class SSLInfo;
 }
 
-// The SSLManager SSLManager controls the SSL UI elements in a TabContents.  It
+// The SSLManager SSLManager controls the SSL UI elements in a WebContents.  It
 // listens for various events that influence when these elements should or
 // should not be displayed and adjusts them accordingly.
 //
@@ -50,14 +50,15 @@ class SSLManager : public content::NotificationObserver {
   // |ContinueSSLRequest| of |delegate| with |id| as the first argument.
   //
   // Called on the IO thread.
-  static void OnSSLCertificateError(SSLErrorHandler::Delegate* delegate,
-                                    const content::GlobalRequestID& id,
-                                    ResourceType::Type resource_type,
-                                    const GURL& url,
-                                    int render_process_id,
-                                    int render_view_id,
-                                    const net::SSLInfo& ssl_info,
-                                    bool fatal);
+  static void OnSSLCertificateError(
+      const base::WeakPtr<SSLErrorHandler::Delegate>& delegate,
+      const content::GlobalRequestID& id,
+      ResourceType::Type resource_type,
+      const GURL& url,
+      int render_process_id,
+      int render_view_id,
+      const net::SSLInfo& ssl_info,
+      bool fatal);
 
   // Called when SSL state for a host or tab changes.  Broadcasts the
   // SSL_INTERNAL_STATE_CHANGED notification.
@@ -97,7 +98,7 @@ class SSLManager : public content::NotificationObserver {
   // DidCommitProvisionalLoad uses the abstract NotificationDetails type since
   // the type we need is in NavigationController which would create a circular
   // header file dependency.
-  void DidLoadFromMemoryCache(LoadFromMemoryCacheDetails* details);
+  void DidLoadFromMemoryCache(content::LoadFromMemoryCacheDetails* details);
   void DidStartResourceResponse(content::ResourceRequestDetails* details);
   void DidReceiveResourceRedirect(content::ResourceRedirectDetails* details);
   void DidChangeSSLInternalState();

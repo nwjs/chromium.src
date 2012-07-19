@@ -4,14 +4,14 @@
 
 #ifndef CHROME_BROWSER_BROWSING_DATA_DATABASE_HELPER_H_
 #define CHROME_BROWSER_BROWSING_DATA_DATABASE_HELPER_H_
-#pragma once
 
 #include <list>
+#include <set>
 #include <string>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
 #include "chrome/common/url_constants.h"
 #include "googleurl/src/gurl.h"
@@ -29,7 +29,6 @@ class BrowsingDataDatabaseHelper
  public:
   // Contains detailed information about a web database.
   struct DatabaseInfo {
-    DatabaseInfo();
     DatabaseInfo(const std::string& host,
                  const std::string& database_name,
                  const std::string& origin_identifier,
@@ -68,7 +67,12 @@ class BrowsingDataDatabaseHelper
   // Notifies the completion callback. This must be called in the UI thread.
   void NotifyInUIThread();
 
-  // This only mutates in the FILE thread.
+  // Access to |database_info_| is triggered indirectly via the UI thread and
+  // guarded by |is_fetching_|. This means |database_info_| is only accessed
+  // while |is_fetching_| is true. The flag |is_fetching_| is only accessed on
+  // the UI thread.
+  // In the context of this class |database_info_| is only accessed on the FILE
+  // thread.
   std::list<DatabaseInfo> database_info_;
 
   // This only mutates on the UI thread.
@@ -98,6 +102,20 @@ class BrowsingDataDatabaseHelper
 // a parameter during construction.
 class CannedBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
  public:
+  struct PendingDatabaseInfo {
+    PendingDatabaseInfo(const GURL& origin,
+                        const std::string& name,
+                        const std::string& description);
+    ~PendingDatabaseInfo();
+
+    // The operator is needed to store |PendingDatabaseInfo| objects in a set.
+    bool operator<(const PendingDatabaseInfo& other) const;
+
+    GURL origin;
+    std::string name;
+    std::string description;
+  };
+
   explicit CannedBrowsingDataDatabaseHelper(Profile* profile);
 
   // Return a copy of the database helper. Only one consumer can use the
@@ -117,24 +135,18 @@ class CannedBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
   // True if no databases are currently stored.
   bool empty() const;
 
+  // Returns the number of currently stored databases.
+  size_t GetDatabaseCount() const;
+
+  // Returns the current list of web databases.
+  const std::set<PendingDatabaseInfo>& GetPendingDatabaseInfo();
+
   // BrowsingDataDatabaseHelper implementation.
   virtual void StartFetching(
       const base::Callback<void(const std::list<DatabaseInfo>&)>& callback)
           OVERRIDE;
 
  private:
-  struct PendingDatabaseInfo {
-    PendingDatabaseInfo();
-    PendingDatabaseInfo(const GURL& origin,
-                        const std::string& name,
-                        const std::string& description);
-    ~PendingDatabaseInfo();
-
-    GURL origin;
-    std::string name;
-    std::string description;
-  };
-
   virtual ~CannedBrowsingDataDatabaseHelper();
 
   // Converts the pending database info structs to database info structs.
@@ -143,8 +155,9 @@ class CannedBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
   // Used to protect access to pending_database_info_.
   mutable base::Lock lock_;
 
-  // This may mutate on WEBKIT and UI threads.
-  std::list<PendingDatabaseInfo> pending_database_info_;
+  // Access to |pending_database_info_| is protected by |lock_| since it may
+  // be accessed on the UI or the WEBKIT thread.
+  std::set<PendingDatabaseInfo> pending_database_info_;
 
   Profile* profile_;
 

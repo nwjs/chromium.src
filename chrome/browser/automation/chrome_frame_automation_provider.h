@@ -10,7 +10,6 @@
 
 #ifndef CHROME_BROWSER_AUTOMATION_CHROME_FRAME_AUTOMATION_PROVIDER_H_
 #define CHROME_BROWSER_AUTOMATION_CHROME_FRAME_AUTOMATION_PROVIDER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "chrome/browser/automation/automation_provider.h"
@@ -24,7 +23,7 @@ class ChromeFrameAutomationProvider : public AutomationProvider {
   explicit ChromeFrameAutomationProvider(Profile* profile);
   virtual ~ChromeFrameAutomationProvider();
 
-  // IPC::Channel::Listener overrides.
+  // IPC::Listener overrides.
   virtual bool OnMessageReceived(const IPC::Message& message);
 
  protected:

@@ -12,7 +12,7 @@
 #include "chrome/browser/ui/find_bar/find_bar_state.h"
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
@@ -41,7 +41,7 @@ void FindBarController::Show() {
   FindTabHelper* find_tab_helper = tab_contents_->find_tab_helper();
 
   // Only show the animation if we're not already showing a find bar for the
-  // selected TabContents.
+  // selected WebContents.
   if (!find_tab_helper->find_ui_active()) {
     MaybeSetPrepopulateText();
 
@@ -51,7 +51,8 @@ void FindBarController::Show() {
   find_bar_->SetFocusAndSelection();
 }
 
-void FindBarController::EndFindSession(SelectionAction action) {
+void FindBarController::EndFindSession(SelectionAction selection_action,
+                                       ResultAction result_action) {
   find_bar_->Hide(true);
 
   // |tab_contents_| can be NULL for a number of reasons, for example when the
@@ -62,9 +63,9 @@ void FindBarController::EndFindSession(SelectionAction action) {
     // When we hide the window, we need to notify the renderer that we are done
     // for now, so that we can abort the scoping effort and clear all the
     // tickmarks and highlighting.
-    find_tab_helper->StopFinding(action);
+    find_tab_helper->StopFinding(selection_action);
 
-    if (action != kKeepSelection)
+    if (result_action == kClearResultsInFindBox)
       find_bar_->ClearResults(find_tab_helper->find_result());
 
     // When we get dismissed we restore the focus to where it belongs.
@@ -72,7 +73,7 @@ void FindBarController::EndFindSession(SelectionAction action) {
   }
 }
 
-void FindBarController::ChangeTabContents(TabContentsWrapper* contents) {
+void FindBarController::ChangeTabContents(TabContents* contents) {
   if (tab_contents_) {
     registrar_.RemoveAll();
     find_bar_->StopAnimation();
@@ -143,11 +144,15 @@ void FindBarController::Observe(int type,
       content::PageTransition transition_type =
           commit_details->entry->GetTransitionType();
       // We hide the FindInPage window when the user navigates away, except on
-      // reload.
+      // reload (and when clicking on anchors within web pages).
       if (find_bar_->IsFindBarVisible()) {
         if (content::PageTransitionStripQualifier(transition_type) !=
             content::PAGE_TRANSITION_RELOAD) {
-          EndFindSession(kKeepSelection);
+          // This is a new navigation (not reload), but we still don't want the
+          // Find box to disappear if the navigation is just to a fragment
+          // within the page.
+          if (commit_details->is_navigation_to_different_page())
+            EndFindSession(kKeepSelectionOnPage, kClearResultsInFindBox);
         } else {
           // On Reload we want to make sure FindNext is converted to a full Find
           // to make sure highlights for inactive matches are repainted.

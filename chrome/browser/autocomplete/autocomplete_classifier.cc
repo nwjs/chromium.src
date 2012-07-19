@@ -1,11 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
 
 #include "base/auto_reset.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
+#include "chrome/browser/autocomplete/autocomplete_controller.h"
+#include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "googleurl/src/gurl.h"
 
@@ -15,6 +16,8 @@ AutocompleteClassifier::AutocompleteClassifier(Profile* profile)
 }
 
 AutocompleteClassifier::~AutocompleteClassifier() {
+  // We should only reach here after Shutdown() has been called.
+  DCHECK(!controller_.get());
 }
 
 void AutocompleteClassifier::Classify(const string16& text,
@@ -39,4 +42,8 @@ void AutocompleteClassifier::Classify(const string16& text,
   *match = *result.default_match();
   if (alternate_nav_url)
     *alternate_nav_url = result.alternate_nav_url();
+}
+
+void AutocompleteClassifier::Shutdown() {
+  controller_.reset();
 }

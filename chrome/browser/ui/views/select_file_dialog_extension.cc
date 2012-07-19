@@ -10,19 +10,26 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/singleton.h"
 #include "base/message_loop.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/extensions/file_browser_private_api.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/shell_window_registry.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sessions/restore_tab_helper.h"
+#include "chrome/browser/ui/base_window.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/chrome_select_file_policy.h"
+#include "chrome/browser/ui/extensions/shell_window.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/views/extensions/extension_dialog.h"
-#include "chrome/browser/ui/views/window.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/selected_file_info.h"
+#include "ui/base/dialogs/selected_file_info.h"
 
 using content::BrowserThread;
 
@@ -30,6 +37,9 @@ namespace {
 
 const int kFileManagerWidth = 954;  // pixels
 const int kFileManagerHeight = 640;  // pixels
+
+const int kFileManagerMinimumWidth = kFileManagerWidth * 2 / 3;  // pixels
+const int kFileManagerMinimumHeight = kFileManagerHeight * 2 / 3;  // pixels
 
 // Holds references to file manager dialogs that have callbacks pending
 // to their listeners.
@@ -73,30 +83,25 @@ scoped_refptr<SelectFileDialogExtension> PendingDialog::Find(int32 tab_id) {
 
 }  // namespace
 
-// Linking this implementation of SelectFileDialog::Create into the target
-// selects FileManagerDialog as the dialog of choice.
+/////////////////////////////////////////////////////////////////////////////
+
 // TODO(jamescook): Move this into a new file shell_dialogs_chromeos.cc
 // TODO(jamescook): Change all instances of SelectFileDialog::Create to return
 // scoped_refptr<SelectFileDialog> as object is ref-counted.
 // static
-SelectFileDialog* SelectFileDialog::Create(Listener* listener) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  return SelectFileDialogExtension::Create(listener);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-// static
 SelectFileDialogExtension* SelectFileDialogExtension::Create(
-    Listener* listener) {
-  return new SelectFileDialogExtension(listener);
+    Listener* listener,
+    ui::SelectFilePolicy* policy) {
+  return new SelectFileDialogExtension(listener, policy);
 }
 
-SelectFileDialogExtension::SelectFileDialogExtension(Listener* listener)
-    : SelectFileDialog(listener),
+SelectFileDialogExtension::SelectFileDialogExtension(
+    Listener* listener,
+    ui::SelectFilePolicy* policy)
+    : SelectFileDialog(listener, policy),
       has_multiple_file_type_choices_(false),
       tab_id_(0),
-      owner_browser_(NULL),
+      profile_(NULL),
       owner_window_(NULL),
       selection_type_(CANCEL),
       selection_index_(0),
@@ -121,7 +126,7 @@ void SelectFileDialogExtension::ListenerDestroyed() {
 
 void SelectFileDialogExtension::ExtensionDialogClosing(
     ExtensionDialog* dialog) {
-  owner_browser_ = NULL;
+  profile_ = NULL;
   owner_window_ = NULL;
   // Release our reference to the dialog to allow it to close.
   extension_dialog_ = NULL;
@@ -144,10 +149,10 @@ void SelectFileDialogExtension::ExtensionTerminated(
   // time, the extension subsystem would automatically reload it for us. At
   // this time though this is broken because of some faulty wiring in
   // ExtensionProcessManager::CreateViewHost. Once that is fixed, remove this.
-  if (owner_browser_) {
+  if (profile_) {
     MessageLoop::current()->PostTask(FROM_HERE,
         base::Bind(&ExtensionService::ReloadExtension,
-            base::Unretained(owner_browser_->profile()->GetExtensionService()),
+            base::Unretained(profile_->GetExtensionService()),
         extension_id));
   }
 
@@ -157,7 +162,7 @@ void SelectFileDialogExtension::ExtensionTerminated(
 // static
 void SelectFileDialogExtension::OnFileSelected(
     int32 tab_id,
-    const content::SelectedFileInfo& file,
+    const ui::SelectedFileInfo& file,
     int index) {
   scoped_refptr<SelectFileDialogExtension> dialog =
       PendingDialog::GetInstance()->Find(tab_id);
@@ -172,7 +177,7 @@ void SelectFileDialogExtension::OnFileSelected(
 // static
 void SelectFileDialogExtension::OnMultiFilesSelected(
     int32 tab_id,
-    const std::vector<content::SelectedFileInfo>& files) {
+    const std::vector<ui::SelectedFileInfo>& files) {
   scoped_refptr<SelectFileDialogExtension> dialog =
       PendingDialog::GetInstance()->Find(tab_id);
   if (!dialog)
@@ -246,19 +251,55 @@ void SelectFileDialogExtension::SelectFileImpl(
     LOG(ERROR) << "File dialog already in use!";
     return;
   }
-  // Extension background pages may not supply an owner_window.
-  owner_browser_ = (owner_window ?
-      BrowserList::FindBrowserWithWindow(owner_window) :
-      BrowserList::GetLastActive());
-  if (!owner_browser_) {
-    NOTREACHED() << "Can't find owning browser";
-    return;
+
+  // The base window to associate the dialog with.
+  BaseWindow* base_window = NULL;
+
+  // The tab contents to associate the dialog with.
+  const TabContents* tab = NULL;
+
+  // First try to find a Browser using the supplied owner_window. If no owner
+  // window has been supplied, this is running from a background page and should
+  // be associated with the last active browser.
+  Browser* owner_browser = (owner_window ?
+      browser::FindBrowserWithWindow(owner_window) :
+          BrowserList::GetLastActive());
+  if (owner_browser) {
+    base_window = owner_browser->window();
+    tab = chrome::GetActiveTabContents(owner_browser);
+    profile_ = tab->profile();
+  } else if (owner_window) {
+    // If an owner_window was supplied but we couldn't find a browser, this
+    // could be for a shell window.
+    // TODO(benwells): Find a better way to get a shell window from a native
+    // window.
+    std::vector<Profile*> profiles =
+        g_browser_process->profile_manager()->GetLoadedProfiles();
+    for (std::vector<Profile*>::const_iterator i(profiles.begin());
+         i < profiles.end(); ++i) {
+      ShellWindowRegistry* registry = ShellWindowRegistry::Get(*i);
+      DCHECK(registry);
+      ShellWindow* shell_window = registry->GetShellWindowForNativeWindow(
+          owner_window);
+      if (shell_window) {
+        base_window = shell_window;
+        tab = shell_window->tab_contents();
+        profile_ = *i;
+        break;
+      }
+    }
   }
 
-  TabContentsWrapper* tab = owner_browser_->GetSelectedTabContentsWrapper();
+  if (!base_window) {
+    NOTREACHED() << "Can't find owning window.";
+    return;
+  }
+  DCHECK(profile_);
 
   // Check if we have another dialog opened in the tab. It's unlikely, but
-  // possible.
+  // possible. If there is no tab contents use a tab_id of 0. A dialog without
+  // an associated tab contents will be shown fully screen; only one at a time
+  // is allowed in this state.
   int32 tab_id = tab ? tab->restore_tab_helper()->session_id().id() : 0;
   if (PendingExists(tab_id)) {
     DLOG(WARNING) << "Pending dialog exists with id " << tab_id;
@@ -266,8 +307,10 @@ void SelectFileDialogExtension::SelectFileImpl(
   }
 
   FilePath virtual_path;
-  if (!file_manager_util::ConvertFileToRelativeFileSystemPath(
-          owner_browser_->profile(), default_path, &virtual_path)) {
+  if (file_manager_util::ConvertFileToRelativeFileSystemPath(
+          profile_, default_path, &virtual_path)) {
+    virtual_path = FilePath("/").Append(virtual_path);
+  } else {
     virtual_path = default_path.BaseName();
   }
 
@@ -278,8 +321,8 @@ void SelectFileDialogExtension::SelectFileImpl(
       type, title, virtual_path, file_types, file_type_index,
       default_extension);
 
-  ExtensionDialog* dialog = ExtensionDialog::Show(file_browser_url,
-      owner_browser_, tab->web_contents(),
+ExtensionDialog* dialog = ExtensionDialog::Show(file_browser_url,
+      base_window, profile_, tab->web_contents(),
       kFileManagerWidth, kFileManagerHeight,
 #if defined(USE_AURA)
       file_manager_util::GetTitleFromType(type),
@@ -292,6 +335,9 @@ void SelectFileDialogExtension::SelectFileImpl(
     LOG(ERROR) << "Unable to create extension dialog";
     return;
   }
+
+  dialog->SetMinimumContentsSize(kFileManagerMinimumWidth,
+                                 kFileManagerMinimumHeight);
 
   // Connect our listener to FileDialogFunction's per-tab callbacks.
   AddPending(tab_id);

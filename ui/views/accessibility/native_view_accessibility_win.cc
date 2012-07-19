@@ -10,13 +10,14 @@
 
 #include <vector>
 
-#include "base/win/accessibility_misc_utils.h"
 #include "base/win/windows_version.h"
 #include "third_party/iaccessible2/ia2_api_all.h"
 #include "ui/base/accessibility/accessible_text_utils.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/view_prop.h"
+#include "ui/base/win/accessibility_misc_utils.h"
 #include "ui/base/win/atl_module.h"
+#include "ui/views/controls/button/custom_button.h"
 #include "ui/views/widget/native_widget_win.h"
 #include "ui/views/widget/widget.h"
 
@@ -321,6 +322,7 @@ STDMETHODIMP NativeViewAccessibilityWin::get_accFocus(VARIANT* focus_child) {
     focus_child->lVal = CHILDID_SELF;
   } else if (focus && view_->Contains(focus)) {
     // Return the child object that has the keyboard focus.
+    focus_child->vt = VT_DISPATCH;
     focus_child->pdispVal = focus->GetNativeViewAccessible();
     focus_child->pdispVal->AddRef();
     return S_OK;
@@ -787,9 +789,9 @@ STDMETHODIMP NativeViewAccessibilityWin::QueryService(
   if (!view_)
     return E_FAIL;
 
-  if (riid == IID_IAccessible ||
-      riid == IID_IAccessible2 ||
-      riid == IID_IAccessibleText)  {
+  if (guidService == IID_IAccessible ||
+      guidService == IID_IAccessible2 ||
+      guidService == IID_IAccessibleText)  {
     return QueryInterface(riid, object);
   }
 
@@ -1035,8 +1037,11 @@ void NativeViewAccessibilityWin::SetState(
     msaa_state->lVal |= STATE_SYSTEM_UNAVAILABLE;
   if (!view->visible())
     msaa_state->lVal |= STATE_SYSTEM_INVISIBLE;
-  if (view->IsHotTracked())
-    msaa_state->lVal |= STATE_SYSTEM_HOTTRACKED;
+  if (view->GetClassName() == views::CustomButton::kViewClassName) {
+    views::CustomButton* button = static_cast<views::CustomButton*>(view);
+    if (button->IsHotTracked())
+      msaa_state->lVal |= STATE_SYSTEM_HOTTRACKED;
+  }
   if (view->HasFocus())
     msaa_state->lVal |= STATE_SYSTEM_FOCUSED;
 

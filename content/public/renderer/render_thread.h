@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,12 +9,17 @@
 #include "base/shared_memory.h"
 #include "content/common/content_export.h"
 #include "ipc/ipc_channel_proxy.h"
+#include "ipc/ipc_sender.h"
 
 #if defined(OS_WIN)
 #include <windows.h>
 #endif
 
 class MessageLoop;
+
+namespace base {
+class MessageLoopProxy;
+}
 
 namespace IPC {
 class SyncChannel;
@@ -30,7 +35,7 @@ namespace content {
 class RenderProcessObserver;
 class ResourceDispatcherDelegate;
 
-class CONTENT_EXPORT RenderThread : public IPC::Message::Sender {
+class CONTENT_EXPORT RenderThread : public IPC::Sender {
  public:
   // Returns the one render thread for this process.  Note that this can only
   // be accessed when running on the render thread itself.
@@ -43,10 +48,11 @@ class CONTENT_EXPORT RenderThread : public IPC::Message::Sender {
   virtual IPC::SyncChannel* GetChannel() = 0;
   virtual std::string GetLocale() = 0;
   virtual IPC::SyncMessageFilter* GetSyncMessageFilter() = 0;
+  virtual scoped_refptr<base::MessageLoopProxy> GetIOMessageLoopProxy() = 0;
 
   // Called to add or remove a listener for a particular message routing ID.
   // These methods normally get delegated to a MessageRouter.
-  virtual void AddRoute(int32 routing_id, IPC::Channel::Listener* listener) = 0;
+  virtual void AddRoute(int32 routing_id, IPC::Listener* listener) = 0;
   virtual void RemoveRoute(int32 routing_id) = 0;
   virtual int GenerateRoutingID() = 0;
 
@@ -97,6 +103,8 @@ class CONTENT_EXPORT RenderThread : public IPC::Message::Sender {
   virtual int64 GetIdleNotificationDelayInMs() const = 0;
   virtual void SetIdleNotificationDelayInMs(
       int64 idle_notification_delay_in_ms) = 0;
+
+  virtual void UpdateHistograms(int sequence_number) = 0;
 
 #if defined(OS_WIN)
   // Request that the given font be loaded by the browser so it's cached by the

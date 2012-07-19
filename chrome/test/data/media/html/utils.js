@@ -27,3 +27,37 @@ var QueryString = function () {
 
   return params;
 } ();
+
+function getCurrentTime() {
+  if (window.performance.webkitNow)
+    return window.performance.webkitNow();
+  else
+    return new Date().getTime();
+}
+
+function Timer() {
+  this.start_ = 0;
+  this.times_ = [];
+}
+
+Timer.prototype = {
+  start: function() {
+    this.start_ = getCurrentTime();
+  },
+
+  stop: function() {
+    var delta = getCurrentTime() - this.start_;
+    this.times_.push(delta);
+    return delta;
+  },
+
+  reset: function() {
+    this.start_ = 0;
+    this.times_ = [];
+  }
+}
+
+function GenerateUniqueURL(src) {
+  var ch = src.indexOf('?') >= 0 ? '&' : '?';
+  return src + ch + 't=' + (new Date()).getTime();
+}

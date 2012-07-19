@@ -39,11 +39,15 @@ static const char* kBasicTests[] = {
 
 static const char* kComplexTests[] = {
   "prefetch-bugfix-108071.html",
+  // Flaky: http://crbug.com/123685
+  // "pending-version-change-stuck-works-with-terminate.html",
   NULL
 };
 
 static const char* kIndexTests[] = {
   "deleteIndex.html",
+  // Flaky: http://crbug.com/123685
+  // "index-basics-workers.html",
   "index-count.html",
   "index-cursor.html",  // Locally takes ~6s compared to <1 for the others.
   "index-get-key-argument-required.html",
@@ -69,10 +73,10 @@ static const char* kKeyTests[] = {
 };
 
 static const char* kTransactionTests[] = {
-//  "transaction-abort.html", // Flaky, http://crbug.com/83226
-  "transaction-abort-with-js-recursion-cross-frame.html",
-  "transaction-abort-with-js-recursion.html",
-  "transaction-abort-workers.html",
+  "transaction-abort.html",
+  "transaction-complete-with-js-recursion-cross-frame.html",
+  "transaction-complete-with-js-recursion.html",
+  "transaction-complete-workers.html",
   "transaction-after-close.html",
   "transaction-and-objectstore-calls.html",
   "transaction-basics.html",
@@ -81,6 +85,11 @@ static const char* kTransactionTests[] = {
   "transaction-read-only.html",
   "transaction-rollback.html",
   "transaction-storeNames-required.html",
+  NULL
+};
+
+static const char* kRegressionTests[] = {
+  "dont-commit-on-blocked.html",
   NULL
 };
 
@@ -94,13 +103,6 @@ IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, ComplexTests) {
   RunLayoutTests(kComplexTests);
 }
 
-// Frequently times out, sometimes due to webkit assertion failure.
-// http://crbug.com/120924
-IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, DISABLED_IndexBasicsWorkersTest) {
-  RunLayoutTest("deleteIndex.html");
-  RunLayoutTest("index-basics-workers.html");
-}
-
 IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, IndexTests) {
   RunLayoutTests(kIndexTests);
 }
@@ -111,4 +113,9 @@ IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, KeyTests) {
 
 IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, TransactionTests) {
   RunLayoutTests(kTransactionTests);
+}
+
+// Frequent flaky timeouts.  http://crbug.com/123685
+IN_PROC_BROWSER_TEST_F(IndexedDBLayoutTest, DISABLED_RegressionTests) {
+  RunLayoutTests(kRegressionTests);
 }

@@ -5,7 +5,6 @@
 // A class to schedule syncer tasks intelligently.
 #ifndef SYNC_ENGINE_SYNC_SCHEDULER_H_
 #define SYNC_ENGINE_SYNC_SCHEDULER_H_
-#pragma once
 
 #include <string>
 
@@ -20,12 +19,12 @@
 #include "base/timer.h"
 #include "sync/engine/net/server_connection_manager.h"
 #include "sync/engine/nudge_source.h"
-#include "sync/engine/polling_constants.h"
 #include "sync/engine/syncer.h"
+#include "sync/internal_api/public/base/model_type_payload_map.h"
+#include "sync/internal_api/public/engine/polling_constants.h"
+#include "sync/internal_api/public/util/weak_handle.h"
 #include "sync/sessions/sync_session.h"
 #include "sync/sessions/sync_session_context.h"
-#include "sync/syncable/model_type_payload_map.h"
-#include "sync/util/weak_handle.h"
 
 class MessageLoop;
 
@@ -33,9 +32,35 @@ namespace tracked_objects {
 class Location;
 }  // namespace tracked_objects
 
-namespace browser_sync {
+namespace syncer {
 
 struct ServerConnectionEvent;
+
+struct ConfigurationParams {
+  enum KeystoreKeyStatus {
+    KEYSTORE_KEY_UNNECESSARY,
+    KEYSTORE_KEY_NEEDED
+  };
+  ConfigurationParams();
+  ConfigurationParams(
+      const sync_pb::GetUpdatesCallerInfo::GetUpdatesSource& source,
+      const syncer::ModelTypeSet& types_to_download,
+      const syncer::ModelSafeRoutingInfo& routing_info,
+      KeystoreKeyStatus keystore_key_status,
+      const base::Closure& ready_task);
+  ~ConfigurationParams();
+
+  // Source for the configuration.
+  sync_pb::GetUpdatesCallerInfo::GetUpdatesSource source;
+  // The types that should be downloaded.
+  syncer::ModelTypeSet types_to_download;
+  // The new routing info (superset of types to be downloaded).
+  ModelSafeRoutingInfo routing_info;
+  // Whether we need to perform a GetKey command.
+  KeystoreKeyStatus keystore_key_status;
+  // Callback to invoke on configuration completion.
+  base::Closure ready_task;
+};
 
 class SyncScheduler : public sessions::SyncSession::Delegate {
  public:
@@ -54,7 +79,7 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
   // (except for RequestEarlyExit()).
 
   // |name| is a display string to identify the syncer thread.  Takes
-  // |ownership of both |context| and |syncer|.
+  // |ownership of |syncer|.
   SyncScheduler(const std::string& name,
                 sessions::SyncSessionContext* context, Syncer* syncer);
 
@@ -63,10 +88,15 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
 
   // Start the scheduler with the given mode.  If the scheduler is
   // already started, switch to the given mode, although some
-  // scheduled tasks from the old mode may still run.  If non-NULL,
-  // |callback| will be invoked when the mode has been changed to
-  // |mode|.  Takes ownership of |callback|.
-  void Start(Mode mode, const base::Closure& callback);
+  // scheduled tasks from the old mode may still run.
+  virtual void Start(Mode mode);
+
+  // Schedules the configuration task specified by |params|. Returns true if
+  // the configuration task executed immediately, false if it had to be
+  // scheduled for a later attempt. |params.ready_task| is invoked whenever the
+  // configuration task executes.
+  // Note: must already be in CONFIGURATION mode.
+  virtual bool ScheduleConfiguration(const ConfigurationParams& params);
 
   // Request that any running syncer task stop as soon as possible and
   // cancel all scheduled tasks. This function can be called from any thread,
@@ -76,27 +106,17 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
   // are cancelled.
   void RequestStop(const base::Closure& callback);
 
-  // The meat and potatoes.
-  void ScheduleNudge(const base::TimeDelta& delay, NudgeSource source,
-                     syncable::ModelTypeSet types,
-                     const tracked_objects::Location& nudge_location);
-  void ScheduleNudgeWithPayloads(
+  // The meat and potatoes. Both of these methods will post a delayed task
+  // to attempt the actual nudge (see ScheduleNudgeImpl).
+  void ScheduleNudgeAsync(const base::TimeDelta& delay, NudgeSource source,
+                          syncer::ModelTypeSet types,
+                          const tracked_objects::Location& nudge_location);
+  void ScheduleNudgeWithPayloadsAsync(
       const base::TimeDelta& delay, NudgeSource source,
-      const syncable::ModelTypePayloadMap& types_with_payloads,
+      const syncer::ModelTypePayloadMap& types_with_payloads,
       const tracked_objects::Location& nudge_location);
 
-  // Note: The source argument of this function must come from the subset of
-  // GetUpdatesCallerInfo values related to configurations.
-  void ScheduleConfig(
-      syncable::ModelTypeSet types,
-      sync_pb::GetUpdatesCallerInfo::GetUpdatesSource source);
-
-  void ScheduleClearUserData();
-  // If this is called before Start(), the cleanup is guaranteed to
-  // happen before the Start finishes.
-  //
-  // TODO(akalin): Figure out how to test this.
-  void ScheduleCleanupDisabledTypes();
+  void CleanupDisabledTypes();
 
   // Change status of notifications in the SyncSessionContext.
   void set_notifications_enabled(bool notifications_enabled);
@@ -149,9 +169,6 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
       // A nudge task can come from a variety of components needing to force
       // a sync.  The source is inferable from |session.source()|.
       NUDGE,
-      // The user invoked a function in the UI to clear their entire account
-      // and stop syncing (globally).
-      CLEAR_USER_DATA,
       // Typically used for fetching updates for a subset of the enabled types
       // during initial sync or reconfiguration.  We don't run all steps of
       // the sync cycle for these (e.g. CleanupDisabledTypes is skipped).
@@ -163,6 +180,7 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
     SyncSessionJob();
     SyncSessionJob(SyncSessionJobPurpose purpose, base::TimeTicks start,
         linked_ptr<sessions::SyncSession> session, bool is_canary_job,
+        const ConfigurationParams& config_params,
         const tracked_objects::Location& nudge_location);
     ~SyncSessionJob();
     static const char* GetPurposeString(SyncSessionJobPurpose purpose);
@@ -171,6 +189,7 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
     base::TimeTicks scheduled_start;
     linked_ptr<sessions::SyncSession> session;
     bool is_canary_job;
+    ConfigurationParams config_params;
 
     // This is the location the job came from.  Used for debugging.
     // In case of multiple nudges getting coalesced this stores the
@@ -179,6 +198,7 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
   };
   friend class SyncSchedulerTest;
   friend class SyncSchedulerWhiteboxTest;
+  friend class SyncerTest;
 
   FRIEND_TEST_ALL_PREFIXES(SyncSchedulerWhiteboxTest,
       DropNudgeWhileExponentialBackOff);
@@ -193,8 +213,6 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
                            SaveConfigurationWhileThrottled);
   FRIEND_TEST_ALL_PREFIXES(SyncSchedulerWhiteboxTest,
                            SaveNudgeWhileThrottled);
-  FRIEND_TEST_ALL_PREFIXES(SyncSchedulerWhiteboxTest,
-                           ContinueClearUserDataUnderAllCircumstances);
   FRIEND_TEST_ALL_PREFIXES(SyncSchedulerWhiteboxTest,
                            ContinueCanaryJobConfig);
   FRIEND_TEST_ALL_PREFIXES(SyncSchedulerWhiteboxTest,
@@ -246,6 +264,12 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
   static const char* GetModeString(Mode mode);
 
   static const char* GetDecisionString(JobProcessDecision decision);
+
+  // Assign |start| and |end| to appropriate SyncerStep values for the
+  // specified |purpose|.
+  static void SetSyncerStepsForPurpose(
+      SyncSessionJob::SyncSessionJobPurpose purpose,
+      SyncerStep* start, SyncerStep* end);
 
   // Helpers that log before posting to |sync_loop_|.  These will only post
   // the task in between calls to Start/Stop.
@@ -303,17 +327,12 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
 
   // 'Impl' here refers to real implementation of public functions, running on
   // |thread_|.
-  void StartImpl(Mode mode, const base::Closure& callback);
   void StopImpl(const base::Closure& callback);
   void ScheduleNudgeImpl(
       const base::TimeDelta& delay,
       sync_pb::GetUpdatesCallerInfo::GetUpdatesSource source,
-      const syncable::ModelTypePayloadMap& types_with_payloads,
+      const syncer::ModelTypePayloadMap& types_with_payloads,
       bool is_canary_job, const tracked_objects::Location& nudge_location);
-  void ScheduleConfigImpl(const ModelSafeRoutingInfo& routing_info,
-      const std::vector<ModelSafeWorker*>& workers,
-      const sync_pb::GetUpdatesCallerInfo::GetUpdatesSource source);
-  void ScheduleClearUserDataImpl();
 
   // Returns true if the client is currently in exponential backoff.
   bool IsBackingOff() const;
@@ -334,17 +353,11 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
   void OnServerConnectionErrorFixed();
 
   // The pointer is owned by the caller.
-  browser_sync::sessions::SyncSession* CreateSyncSession(
-      const browser_sync::sessions::SyncSourceInfo& info);
+  syncer::sessions::SyncSession* CreateSyncSession(
+      const syncer::sessions::SyncSourceInfo& info);
 
   // Creates a session for a poll and performs the sync.
   void PollTimerCallback();
-
-  // Assign |start| and |end| to appropriate SyncerStep values for the
-  // specified |purpose|.
-  void SetSyncerStepsForPurpose(SyncSessionJob::SyncSessionJobPurpose purpose,
-                                SyncerStep* start,
-                                SyncerStep* end);
 
   // Used to update |connection_code_|, see below.
   void UpdateServerConnectionManagerStatus(
@@ -408,11 +421,11 @@ class SyncScheduler : public sessions::SyncSession::Delegate {
   // Invoked to run through the sync cycle.
   scoped_ptr<Syncer> syncer_;
 
-  scoped_ptr<sessions::SyncSessionContext> session_context_;
+  sessions::SyncSessionContext *session_context_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncScheduler);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_SYNC_SCHEDULER_H_

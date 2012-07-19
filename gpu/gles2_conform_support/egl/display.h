@@ -10,16 +10,17 @@
 #include "base/memory/scoped_ptr.h"
 #include "gpu/command_buffer/client/gles2_cmd_helper.h"
 #include "gpu/command_buffer/service/command_buffer_service.h"
-#include "gpu/command_buffer/service/gpu_scheduler.h"
 #include "gpu/command_buffer/service/gles2_cmd_decoder.h"
-#include "ui/gfx/gl/gl_context.h"
-#include "ui/gfx/gl/gl_surface.h"
+#include "gpu/command_buffer/service/gpu_scheduler.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/gl/gl_context.h"
+#include "ui/gl/gl_surface.h"
 
 namespace gpu {
 class CommandBufferService;
 class GpuScheduler;
 class TransferBuffer;
+class TransferBufferManagerInterface;
 
 namespace gles2 {
 class GLES2CmdHelper;
@@ -66,6 +67,7 @@ class Display {
   EGLNativeDisplayType display_id_;
 
   bool is_initialized_;
+  scoped_ptr<gpu::TransferBufferManagerInterface> transfer_buffer_manager_;
   scoped_ptr<gpu::CommandBufferService> command_buffer_;
   scoped_ptr<gpu::GpuScheduler> gpu_scheduler_;
   scoped_ptr<gpu::gles2::GLES2Decoder> decoder_;

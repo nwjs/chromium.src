@@ -7,6 +7,8 @@ made in recent releases.
 </p>
 
 <ul>
+  <li> <a href="#20">Google Chrome 20</a> </li>
+  <li> <a href="#19">Google Chrome 19</a> </li>
   <li> <a href="#18">Google Chrome 18</a> </li>
   <li> <a href="#17">Google Chrome 17</a> </li>
   <li> <a href="#16">Google Chrome 16</a> </li>
@@ -22,11 +24,101 @@ made in recent releases.
   <li> <a href="#6">Google Chrome 6</a> </li>
 </ul>
 
+<p class="note">
+  <strong>New version of packaged apps:</strong><br>
+  There's a new version of
+  <a href="http://developer.chrome.com/trunk/apps/about_apps.html">packaged apps</a>
+  in the <a href="http://dev.chromium.org/getting-involved/dev-channel?">dev channel</a>.
+</p>
+
 <p>
 In addition to the changes listed below,
 check out the
 <a href="experimental.html">experimental APIs</a>.
 </p>
+
+<h2 id="20"> Google Chrome 20 </h2>
+
+<h4> New APIs </h4>
+  <ul>
+    <li>The
+      <a href="storage.html">storage API</a>
+      lets you store, retrieve, and
+      track changes to user data.</li>
+  </ul>
+
+<h4> Manifest changes </h4>
+  <ul>
+    <li>Manifest version 1 was deprecated in Chrome 18
+      and will be phased out according to the
+      <a href="manifestVersion.html">Manifest version 1 support schedule</a>.</li>
+  </ul>
+
+<h4> Additions to existing APIs </h4>
+  <ul>
+    <li>The <code>chrome.contextMenus</code>
+      <a href="contextMenus.html#method-create">create()</a> and
+      <a href="contextMenus.html#method-update">update()</a>
+      methods now have an <code>enabled</code> parameter.</li>
+    <li>The privacy API's <a href="privacy.html#property-services">services</a> object
+      now has a <code>spellingServiceEnabled</code> setting.</li>
+    <li>The <code>chrome.tabs</code>
+      <a href="tabs.html#method-executeScript">executeScript()</a> and
+      <a href="tabs.html#method-insertCSS">insertCSS()</a>
+      now accept a <code>runAt</code> parameter.</li>
+  </ul>
+
+<h4> Changes to existing APIs </h4>
+
+  <ul>
+    <li>The <code>sendRequest()</code> method
+      has been deprecated in favor of the
+      <code>sendMessage()</code> method for both the
+      <a href="extension.html#method-sendMessage">extension API</a> and
+      <a href="tabs.html#method-sendMessage">tabs API</a>.</li>
+    <li>The <a href="external_extensions.html">external_extensions.json file</a>
+      has been deprecated in favor of individual
+      <code>&lt;extension-id&gt;.json</code> files.</li>
+  </ul>
+
+<h2 id="19"> Google Chrome 19 </h2>
+
+<h4> New APIs </h4>
+   <ul>
+     <li>The <a href="browsingData.html">browsing data API</a>
+      lets you remove browsing data from a user's local profile.
+    <li>The <a href="topSites.html">top sites API</a>
+      gives you access to the top sites
+      that are displayed on the new tab page.
+   </ul>
+
+<h4> Manifest changes </h4>
+  <ul>
+    <li>The new <a href="manifest.html#intents">intents</a>
+      field specifies all intent handlers provided by the extension.
+  </ul>
+
+ <h4> Additions to existing APIs </h4>
+  <ul>
+    <li>The window API's <a href="windows.html#type-windows.Window">Window</a>
+      object now has an <code>alwaysOnTop</code> property and
+       supports the "fullscreen" state.
+     <li>The <code>chrome.tabs</code>
+       <a href="tabs.html#method-query">query()</a> method
+       now has the <code>currentWindow</code> and
+      <code>lastFocusedWindow</code> parameters.
+     <li>The <a href="browserAction.html">browser action API</a>
+       has the following new getter functions:
+       <a href="browserAction.html#method-getTitle">getTitle</a>,
+       <a href="browserAction.html#method-getBadgeText">getBadgeText</a>,
+       <a href="browserAction.html#method-getBadgeBackgroundColor">getBadgeBackgr
+     oundColor</a>, and
+       <a href="browserAction.html#method-getPopup">getPopup</a>.
+    <li>The <a href="pageAction.html">page action API</a>
+      has the following new getter functions:
+       <a href="pageAction.html#method-getTitle">getTitle</a> and
+       <a href="pageAction.html#method-getPopup">getPopup</a>.
+   </ul>
 
 <h2 id="18"> Google Chrome 18 </h2>
 
@@ -68,6 +160,10 @@ check out the
       you can use the new
       <a href="background_pages.html">background.scripts</a> property
       and Chrome will generate a background page for you.
+    <li>The new
+      <a href="manifest.html#web_accessible_resources">web_accessible_resources</a>
+      field specifies the paths of packaged resources
+      that are expected to be usable in the context of a web page.
   </ul>
 
 <h4> Additions to existing APIs </h4>
@@ -102,7 +198,7 @@ check out the
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The management API's
-    <a href="management.html#type-ExtensionInfo">ExtensionInfo</a> object
+    <a href="management.html#type-management.ExtensionInfo">ExtensionInfo</a> object
     now has a <code>disabledReason</code> property.
   </ul>
 
@@ -143,7 +239,7 @@ check out the
       to specify that your app requires 3D graphics support
       in order to use features such as CSS 3D Tranforms or WebGL.
   </ul>
-  
+
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The new
@@ -155,14 +251,14 @@ check out the
     reloads a tab and includes the option
     to preserve the local cache of the reloaded tab.
     <li>The management API's
-    <a href="management.html#type-ExtensionInfo">ExtensionInfo</a> object
+    <a href="management.html#type-management.ExtensionInfo">ExtensionInfo</a> object
     now has an <code>updateURL</code> property.
     <li>You can now limit the supported locales for an
     <a href="external_extensions.html">external extension</a>
     by adding the <code>supported_locales</code> attribute
     to the <code>external_extensions.json</code>.
   </ul>
-  
+
 <h4> Changes to existing APIs </h4>
   <ul>
     <li>The methods <code>getAllInWindow()</code> and
@@ -183,17 +279,21 @@ check out the
     within a wheel group (or an admin group).
     <li>The "experimental" permission is no longer required
     for the
-    <a href="windows.html#type-Window">window "panel"</a> type.
+    <a href="windows.html#type-windows.Window">window "panel"</a> type.
     By default, the "panel" type creates a popup
     unless the <code>--enable-panels</code> flag is set.
   </ul>
 
 <h2 id="15"> Google Chrome 15 </h2>
 
-<p>Chrome 15 had a few minor API additions. Also see the Chrome Web Store’s new
-<a href="http://code.google.com/chrome/webstore/docs/inline_installation.html">inline
-installation</a> feature, which lets your website help users install extensions
-(and apps) without sending them away to the store.</p>
+<h4> New APIs </h4>
+
+<ul>
+ <li>The <a href="webstore.html">webstore API</a>
+ lets you initiate app and extensions installations
+ <a href="http://code.google.com/chrome/webstore/docs/inline_installation.html">"inline"</a>
+ from your site.
+</ul>
 
 <h4> Manifest changes </h4>
   <ul>
@@ -210,7 +310,7 @@ installation</a> feature, which lets your website help users install extensions
       and
       <a href="management.html#method-getPermissionWarningsByManifest">getPermissionWarningsByManifest()</a>.
     <li>The management API’s
-      <a href="management.html#type-ExtensionInfo">ExtensionInfo</a> object has
+      <a href="management.html#type-management.ExtensionInfo">ExtensionInfo</a> object has
       a new field, <code>offlineEnabled</code>.
     <li>You can now <a href="i18n.html">internationalize</a> content script CSS
       files by using <code>__MSG_messagename__</code> placeholders.
@@ -282,7 +382,7 @@ installation</a> feature, which lets your website help users install extensions
     <li>The <a href="proxy.html">proxy API</a>
       lets extensions manage Chrome's proxy settings.
     <li>The
-      <a href="types.html#type-ChromeSetting">chrome.types.ChromeSetting</a> prototype
+      <a href="types.html#type-types.ChromeSetting">chrome.types.ChromeSetting</a> prototype
       provides an interface to browser settings;
       it's used by the proxy API.
     <li> <em>Chrome OS only:</em>
@@ -336,7 +436,7 @@ installation</a> feature, which lets your website help users install extensions
       the <code>type</code> field in
       the <a href="windows.html#method-create">chrome.windows.create()</a>
       method
-      or the <a href="windows.html#type-Window">Window</a> type.
+      or the <a href="windows.html#type-windows.Window">Window</a> type.
     <li>The <a href="cookies.html#event-onChanged">onChanged</a>
       event of <code>chrome.cookies</code>
       now has a <code>cause</code> parameter.
@@ -363,13 +463,13 @@ installation</a> feature, which lets your website help users install extensions
 <h4> Additions to existing APIs </h4>
   <ul>
     <li>The management API's
-      <a href="management.html#type-ExtensionInfo">ExtensionInfo</a> object
+      <a href="management.html#type-management.ExtensionInfo">ExtensionInfo</a> object
       now has a <code>homepageUrl</code> property.
     <li>The management API now lets you get the icons of
       disabled apps and extensions.
       Also, you can now modify the regular icon's URL
       to get its disabled equivalent.
-      See <a href="management.html#type-IconInfo">IconInfo</a> for details.
+      See <a href="management.html#type-management.IconInfo">IconInfo</a> for details.
     <li>The cookies API
       <a href="cookies.html#method-set">set()</a>
       and <a href="cookies.html#method-remove">remove()</a> methods
@@ -413,7 +513,7 @@ installation</a> feature, which lets your website help users install extensions
 
 <h4> Additions to existing APIs </h4>
   <ul>
-    <li>The <a href="tabs.html#type-Tab">Tab</a> object
+    <li>The <a href="tabs.html#type-tabs.Tab">Tab</a> object
       now has a <code>pinned</code> property
       that's reflected in various <code>chrome.tabs</code> methods.
       For example,

@@ -4,19 +4,24 @@
 
 #include "ui/aura/root_window.h"
 
+#include <vector>
+
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/client/event_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/event.h"
 #include "ui/aura/event_filter.h"
+#include "ui/aura/focus_manager.h"
 #include "ui/aura/test/aura_test_base.h"
 #include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/test/test_windows.h"
+#include "ui/base/gestures/gesture_configuration.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/screen.h"
 
 namespace aura {
 namespace {
@@ -335,6 +340,192 @@ TEST_F(RootWindowTest, IgnoreUnknownKeys) {
   KeyEvent known_event(ui::ET_KEY_PRESSED, ui::VKEY_A, 0);
   EXPECT_TRUE(root_window()->DispatchKeyEvent(&known_event));
   EXPECT_EQ(1, filter->num_key_events());
+}
+
+namespace {
+
+// FilterFilter that tracks the types of events it's seen.
+class EventFilterRecorder : public EventFilter {
+ public:
+  typedef std::vector<ui::EventType> Events;
+
+  EventFilterRecorder() {}
+
+  Events& events() { return events_; }
+
+  // EventFilter overrides:
+  virtual bool PreHandleKeyEvent(Window* target, KeyEvent* event) OVERRIDE {
+    events_.push_back(event->type());
+    return true;
+  }
+  virtual bool PreHandleMouseEvent(Window* target, MouseEvent* event) OVERRIDE {
+    events_.push_back(event->type());
+    return true;
+  }
+  virtual ui::TouchStatus PreHandleTouchEvent(Window* target,
+                                              TouchEvent* event) OVERRIDE {
+    events_.push_back(event->type());
+    return ui::TOUCH_STATUS_UNKNOWN;
+  }
+  virtual ui::GestureStatus PreHandleGestureEvent(
+      Window* target,
+      GestureEvent* event) OVERRIDE {
+    events_.push_back(event->type());
+    return ui::GESTURE_STATUS_UNKNOWN;
+  }
+
+ private:
+  Events events_;
+
+  DISALLOW_COPY_AND_ASSIGN(EventFilterRecorder);
+};
+
+// Converts an EventType to a string.
+std::string EventTypeToString(ui::EventType type) {
+  switch (type) {
+    case ui::ET_TOUCH_RELEASED:
+      return "TOUCH_RELEASED";
+
+    case ui::ET_TOUCH_PRESSED:
+      return "TOUCH_PRESSED";
+
+    case ui::ET_TOUCH_MOVED:
+      return "TOUCH_MOVED";
+
+    case ui::ET_MOUSE_PRESSED:
+      return "MOUSE_PRESSED";
+
+    case ui::ET_MOUSE_DRAGGED:
+      return "MOUSE_DRAGGED";
+
+    case ui::ET_MOUSE_RELEASED:
+      return "MOUSE_RELEASED";
+
+    case ui::ET_MOUSE_MOVED:
+      return "MOUSE_MOVED";
+
+    case ui::ET_MOUSE_ENTERED:
+      return "MOUSE_ENTERED";
+
+    case ui::ET_MOUSE_EXITED:
+      return "MOUSE_EXITED";
+
+    case ui::ET_GESTURE_SCROLL_BEGIN:
+      return "GESTURE_SCROLL_BEGIN";
+
+    case ui::ET_GESTURE_SCROLL_END:
+      return "GESTURE_SCROLL_END";
+
+    case ui::ET_GESTURE_SCROLL_UPDATE:
+      return "GESTURE_SCROLL_UPDATE";
+
+    case ui::ET_GESTURE_TAP:
+      return "GESTURE_TAP";
+
+    case ui::ET_GESTURE_TAP_DOWN:
+      return "GESTURE_TAP_DOWN";
+
+    case ui::ET_GESTURE_BEGIN:
+      return "GESTURE_BEGIN";
+
+    case ui::ET_GESTURE_END:
+      return "GESTURE_END";
+
+    case ui::ET_GESTURE_DOUBLE_TAP:
+      return "GESTURE_DOUBLE_TAP";
+
+    default:
+      break;
+  }
+  return "";
+}
+
+std::string EventTypesToString(const EventFilterRecorder::Events& events) {
+  std::string result;
+  for (size_t i = 0; i < events.size(); ++i) {
+    if (i != 0)
+      result += " ";
+    result += EventTypeToString(events[i]);
+  }
+  return result;
+}
+
+}  // namespace
+
+TEST_F(RootWindowTest, HoldMouseMove) {
+  EventFilterRecorder* filter = new EventFilterRecorder;
+  root_window()->SetEventFilter(filter);  // passes ownership
+
+  test::TestWindowDelegate delegate;
+  scoped_ptr<aura::Window> window(CreateTestWindowWithDelegate(
+      &delegate, 1, gfx::Rect(0, 0, 100, 100), NULL));
+
+  MouseEvent mouse_move_event(ui::ET_MOUSE_MOVED, gfx::Point(0, 0),
+                              gfx::Point(0, 0), 0);
+  root_window()->DispatchMouseEvent(&mouse_move_event);
+  // Discard MOUSE_ENTER.
+  filter->events().clear();
+
+  root_window()->HoldMouseMoves();
+
+  // Check that we don't immediately dispatch the MOUSE_DRAGGED event.
+  MouseEvent mouse_dragged_event(ui::ET_MOUSE_DRAGGED, gfx::Point(0, 0),
+                              gfx::Point(0, 0), 0);
+  root_window()->DispatchMouseEvent(&mouse_dragged_event);
+  EXPECT_TRUE(filter->events().empty());
+
+  // Check that we do dispatch the held MOUSE_DRAGGED event before another type
+  // of event.
+  MouseEvent mouse_pressed_event(ui::ET_MOUSE_PRESSED, gfx::Point(0, 0),
+                                 gfx::Point(0, 0), 0);
+  root_window()->DispatchMouseEvent(&mouse_pressed_event);
+  EXPECT_EQ("MOUSE_DRAGGED MOUSE_PRESSED",
+            EventTypesToString(filter->events()));
+  filter->events().clear();
+
+  // Check that we coalesce held MOUSE_DRAGGED events.
+  MouseEvent mouse_dragged_event2(ui::ET_MOUSE_DRAGGED, gfx::Point(1, 1),
+                                  gfx::Point(1, 1), 0);
+  root_window()->DispatchMouseEvent(&mouse_dragged_event);
+  root_window()->DispatchMouseEvent(&mouse_dragged_event2);
+  EXPECT_TRUE(filter->events().empty());
+  root_window()->DispatchMouseEvent(&mouse_pressed_event);
+  EXPECT_EQ("MOUSE_DRAGGED MOUSE_PRESSED",
+            EventTypesToString(filter->events()));
+  filter->events().clear();
+
+  // Check that on ReleaseMouseMoves, held events are not dispatched
+  // immediately, but posted instead.
+  root_window()->DispatchMouseEvent(&mouse_dragged_event);
+  root_window()->ReleaseMouseMoves();
+  EXPECT_TRUE(filter->events().empty());
+  RunAllPendingInMessageLoop();
+  EXPECT_EQ("MOUSE_DRAGGED", EventTypesToString(filter->events()));
+  filter->events().clear();
+
+  // However if another message comes in before the dispatch,
+  // the Check that on ReleaseMouseMoves, held events are not dispatched
+  // immediately, but posted instead.
+  root_window()->HoldMouseMoves();
+  root_window()->DispatchMouseEvent(&mouse_dragged_event);
+  root_window()->ReleaseMouseMoves();
+  root_window()->DispatchMouseEvent(&mouse_pressed_event);
+  EXPECT_EQ("MOUSE_DRAGGED MOUSE_PRESSED",
+            EventTypesToString(filter->events()));
+  filter->events().clear();
+  RunAllPendingInMessageLoop();
+  EXPECT_TRUE(filter->events().empty());
+
+  // Check that if the other message is another MOUSE_DRAGGED, we still coalesce
+  // them.
+  root_window()->HoldMouseMoves();
+  root_window()->DispatchMouseEvent(&mouse_dragged_event);
+  root_window()->ReleaseMouseMoves();
+  root_window()->DispatchMouseEvent(&mouse_dragged_event2);
+  EXPECT_EQ("MOUSE_DRAGGED", EventTypesToString(filter->events()));
+  filter->events().clear();
+  RunAllPendingInMessageLoop();
+  EXPECT_TRUE(filter->events().empty());
 }
 
 }  // namespace aura

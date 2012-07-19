@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_COMPONENT_UPDATER_COMPONENT_UNPACKER_H_
 #define CHROME_BROWSER_COMPONENT_UPDATER_COMPONENT_UNPACKER_H_
-#pragma once
 
 #include <vector>
 
@@ -18,7 +17,7 @@ class ComponentInstaller;
 // the component installation or update.
 //
 // This class should be used only by the component updater. It is inspired
-// and overlaps with code in the extension's SandboxedExtensionUnpacker.
+// and overlaps with code in the extension's SandboxedUnpacker.
 // The main differences are:
 // - The public key hash is full SHA256.
 // - Does not use a sandboxed unpacker. A valid component is fully trusted.

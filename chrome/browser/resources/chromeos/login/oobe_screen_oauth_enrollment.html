@@ -1,5 +1,8 @@
 <div id="oauth-enrollment" class="step right hidden">
-  <div id="oauth-enroll-container">
+  <div class="step-logo">
+    <img src="chrome://theme/IDR_PRODUCT_LOGO">
+  </div>
+  <div id="oauth-enroll-container" class="step-contents">
     <div id="oauth-enroll-step-signin">
       <div id="oauth-enroll-signin-frame-container">
         <iframe id="oauth-enroll-signin-frame" src="about:blank" marginwidth="0"
@@ -44,10 +47,6 @@
         <span class="oauth-enroll-step-message">
           <span id="oauth-enroll-explain-message"
               i18n-content="oauthEnrollExplain"></span>
-          <p>
-            <a id="oauth-enroll-cancel-auto-link" class="oauth-enroll-link"
-                i18n-content="oauthEnrollCancelAutoEnrollment"></a>
-          </p>
         </span>
       </div>
     </div>
@@ -62,4 +61,5 @@
       </div>
     </div>
   </div>
+  <div id="oauth-enrollment-controls" class="step-controls"></div>
 </div>

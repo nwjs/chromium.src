@@ -16,9 +16,10 @@ const int kPluginReleaseTimeSeconds = 30;
 }  // namespace
 
 PluginProcessDispatcher::PluginProcessDispatcher(
-    base::ProcessHandle remote_process_handle,
-    GetInterfaceFunc get_interface)
-    : ppapi::proxy::PluginDispatcher(remote_process_handle, get_interface) {
+    PP_GetInterface_Func get_interface,
+    bool incognito)
+    : ppapi::proxy::PluginDispatcher(get_interface,
+                                     incognito) {
   ChildProcess::current()->AddRefProcess();
 }
 

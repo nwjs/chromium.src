@@ -1,10 +1,9 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_SSL_SSL_POLICY_H_
 #define CONTENT_BROWSER_SSL_SSL_POLICY_H_
-#pragma once
 
 #include <string>
 
@@ -14,7 +13,7 @@
 class SSLCertErrorHandler;
 class SSLPolicyBackend;
 class SSLRequestInfo;
-class TabContents;
+class WebContentsImpl;
 
 namespace content {
 class NavigationEntryImpl;
@@ -40,9 +39,9 @@ class SSLPolicy {
   void OnRequestStarted(SSLRequestInfo* info);
 
   // Update the SSL information in |entry| to match the current state.
-  // |tab_contents| is the TabContents associated with this entry.
+  // |web_contents| is the WebContentsImpl associated with this entry.
   void UpdateEntry(content::NavigationEntryImpl* entry,
-                   TabContents* tab_contents);
+                   WebContentsImpl* web_contents);
 
   SSLPolicyBackend* backend() const { return backend_; }
 
@@ -52,11 +51,15 @@ class SSLPolicy {
                           bool allow);
 
   // Helper method for derived classes handling certificate errors.
-  // If the error can be overridden by the user, show a blocking page that
-  // lets the user continue or cancel the request.
-  // For fatal certificate errors, show a blocking page that only lets the
-  // user cancel the request.
-  void OnCertErrorInternal(SSLCertErrorHandler* handler, bool overridable);
+  //
+  // |overridable| indicates whether or not the user could (assuming perfect
+  // knowledge) successfully override the error and still get the security
+  // guarantees of TLS. |strict_enforcement| indicates whether or not the
+  // site the user is trying to connect to has requested strict enforcement
+  // of certificate validation (e.g. with HTTP Strict-Transport-Security).
+  void OnCertErrorInternal(SSLCertErrorHandler* handler,
+                           bool overridable,
+                           bool strict_enforcement);
 
   // If the security style of |entry| has not been initialized, then initialize
   // it with the default style for its URL.

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,13 +15,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/restore_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #import "chrome/browser/ui/cocoa/extensions/browser_action_button.h"
 #import "chrome/browser/ui/cocoa/extensions/browser_actions_container_view.h"
-#import "chrome/browser/ui/cocoa/extensions/chevron_menu_button.h"
 #import "chrome/browser/ui/cocoa/extensions/extension_popup_controller.h"
 #import "chrome/browser/ui/cocoa/image_button_cell.h"
 #import "chrome/browser/ui/cocoa/menu_button.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/pref_names.h"
@@ -30,9 +30,11 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #import "third_party/GTM/AppKit/GTMNSAnimation+Duration.h"
 #include "ui/gfx/mac/nsimage_cache.h"
+
+using extensions::Extension;
+using extensions::ExtensionList;
 
 NSString* const kBrowserActionVisibilityChangedNotification =
     @"BrowserActionVisibilityChangedNotification";
@@ -40,7 +42,7 @@ NSString* const kBrowserActionVisibilityChangedNotification =
 namespace {
 const CGFloat kAnimationDuration = 0.2;
 
-const CGFloat kChevronWidth = 14.0;
+const CGFloat kChevronWidth = 18;
 
 // Since the container is the maximum height of the toolbar, we have
 // to move the buttons up by this amount in order to have them look
@@ -321,10 +323,6 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
   return [self buttonCount] - [hiddenButtons_ count];
 }
 
-- (MenuButton*)chevronMenuButton {
-  return chevronMenuButton_.get();
-}
-
 - (void)resizeContainerAndAnimate:(BOOL)animate {
   int iconCount = toolbarModel_->GetVisibleIconCount();
   if (iconCount < 0)  // If no buttons are hidden.
@@ -472,7 +470,7 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
       [[[BrowserActionButton alloc]
          initWithFrame:buttonFrame
              extension:extension
-               profile:profile_
+               browser:browser_
                  tabId:[self currentTabId]] autorelease];
   [newButton setTarget:self];
   [newButton setAction:@selector(browserActionClicked:)];
@@ -718,27 +716,20 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
 }
 
 - (void)browserActionClicked:(BrowserActionButton*)button {
-  int tabId = [self currentTabId];
-  if (tabId < 0) {
-    NOTREACHED() << "No current tab.";
-    return;
-  }
-  // If an extension popup is already open, it will get closed when it
-  // loses focus.
-
-  ExtensionAction* action = [button extension]->browser_action();
-  if (action->HasPopup(tabId)) {
-    GURL popupUrl = action->GetPopupUrl(tabId);
-    NSPoint arrowPoint = [self popupPointForBrowserAction:[button extension]];
-    [ExtensionPopupController showURL:popupUrl
-                            inBrowser:browser_
-                           anchoredAt:arrowPoint
-                        arrowLocation:info_bubble::kTopRight
-                              devMode:NO];
-  } else {
-    ExtensionService* service = profile_->GetExtensionService();
-    service->browser_event_router()->BrowserActionExecuted(
-       profile_, action->extension_id(), browser_);
+  const Extension* extension = [button extension];
+  GURL popupUrl;
+  switch (toolbarModel_->ExecuteBrowserAction(extension, browser_, &popupUrl)) {
+    case ExtensionToolbarModel::ACTION_NONE:
+      break;
+    case ExtensionToolbarModel::ACTION_SHOW_POPUP: {
+      NSPoint arrowPoint = [self popupPointForBrowserAction:extension];
+      [ExtensionPopupController showURL:popupUrl
+                              inBrowser:browser_
+                             anchoredAt:arrowPoint
+                          arrowLocation:info_bubble::kTopRight
+                                devMode:NO];
+      break;
+    }
   }
 }
 
@@ -771,7 +762,8 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
     return;
 
   if (!chevronMenuButton_.get()) {
-    chevronMenuButton_.reset([[ChevronMenuButton alloc] init]);
+    chevronMenuButton_.reset([[MenuButton alloc] init]);
+    [chevronMenuButton_ setOpenMenuOnClick:YES];
     [chevronMenuButton_ setBordered:NO];
     [chevronMenuButton_ setShowsBorderOnlyWhileMouseInside:YES];
 
@@ -820,10 +812,14 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
   [self browserActionClicked:[menuItem representedObject]];
 }
 
+// TODO(yoz): This only gets called when the set of actions in the overflow
+// menu changes (not for things that would update page actions).
+// It should instead be called each time the menu is opened.
 - (void)updateOverflowMenu {
   overflowMenu_.reset([[NSMenu alloc] initWithTitle:@""]);
   // See menu_button.h for documentation on why this is needed.
   [overflowMenu_ addItemWithTitle:@"" action:nil keyEquivalent:@""];
+  [overflowMenu_ setAutoenablesItems:NO];
 
   for (BrowserActionButton* button in hiddenButtons_.get()) {
     NSString* name = base::SysUTF8ToNSString([button extension]->name());
@@ -834,6 +830,7 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
     [item setRepresentedObject:button];
     [item setImage:[button compositedImage]];
     [item setTarget:self];
+    [item setEnabled:[button isEnabled]];
   }
   [chevronMenuButton_ setAttachedMenu:overflowMenu_];
 }
@@ -845,7 +842,7 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
 }
 
 - (int)currentTabId {
-  TabContentsWrapper* selected_tab = browser_->GetSelectedTabContentsWrapper();
+  TabContents* selected_tab = chrome::GetActiveTabContents(browser_);
   if (!selected_tab)
     return -1;
 

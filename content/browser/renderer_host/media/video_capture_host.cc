@@ -7,41 +7,25 @@
 #include "base/bind.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/stl_util.h"
+#include "content/browser/browser_main_loop.h"
 #include "content/browser/renderer_host/media/media_stream_manager.h"
 #include "content/browser/renderer_host/media/video_capture_manager.h"
 #include "content/common/media/video_capture_messages.h"
 
+using content::BrowserMainLoop;
 using content::BrowserMessageFilter;
 using content::BrowserThread;
 
 struct VideoCaptureHost::Entry {
-  Entry() : state(video_capture::kStopped) {}
-
-  Entry(VideoCaptureController* controller, video_capture::State state)
-      : controller(controller),
-        state(state) {
-  }
+  Entry(VideoCaptureController* controller)
+      : controller(controller) {}
 
   ~Entry() {}
 
   scoped_refptr<VideoCaptureController> controller;
-
-  // Record state of each VideoCaptureControllerID.
-  // There are 5 states:
-  // kStarting: host has requested a controller, but has not got it yet.
-  // kStarted: host got a controller and has called StartCapture.
-  // kStopping: renderer process requests StopCapture before host gets
-  //            a controller.
-  // kStopped: host has called StopCapture.
-  // kError: an error occurred and capture is stopped consequently.
-  video_capture::State state;
 };
 
-VideoCaptureHost::VideoCaptureHost(content::ResourceContext* resource_context,
-                                   media::AudioManager* audio_manager)
-    : resource_context_(resource_context),
-      audio_manager_(audio_manager) {
-}
+VideoCaptureHost::VideoCaptureHost() {}
 
 VideoCaptureHost::~VideoCaptureHost() {}
 
@@ -53,7 +37,7 @@ void VideoCaptureHost::OnChannelClosing() {
     VideoCaptureController* controller = it->second->controller;
     if (controller) {
       VideoCaptureControllerID controller_id(it->first);
-      controller->StopCapture(controller_id, this, true);
+      controller->StopCapture(controller_id, this);
       GetVideoCaptureManager()->RemoveController(controller, this);
     }
   }
@@ -67,94 +51,115 @@ void VideoCaptureHost::OnDestruct() const {
 ///////////////////////////////////////////////////////////////////////////////
 
 // Implements VideoCaptureControllerEventHandler.
-void VideoCaptureHost::OnError(const VideoCaptureControllerID& id) {
+void VideoCaptureHost::OnError(const VideoCaptureControllerID& controller_id) {
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
-      base::Bind(&VideoCaptureHost::DoHandleError, this, id.device_id));
+      base::Bind(&VideoCaptureHost::DoHandleErrorOnIOThread,
+                 this, controller_id));
 }
 
 void VideoCaptureHost::OnBufferCreated(
-    const VideoCaptureControllerID& id,
+    const VideoCaptureControllerID& controller_id,
     base::SharedMemoryHandle handle,
     int length,
     int buffer_id) {
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
-      base::Bind(&VideoCaptureHost::DoSendNewBuffer,
-                 this, id.device_id, handle, length, buffer_id));
+      base::Bind(&VideoCaptureHost::DoSendNewBufferOnIOThread,
+                 this, controller_id, handle, length, buffer_id));
 }
 
 void VideoCaptureHost::OnBufferReady(
-    const VideoCaptureControllerID& id,
+    const VideoCaptureControllerID& controller_id,
     int buffer_id,
     base::Time timestamp) {
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
-      base::Bind(&VideoCaptureHost::DoSendFilledBuffer,
-                 this, id.device_id, buffer_id, timestamp));
+      base::Bind(&VideoCaptureHost::DoSendFilledBufferOnIOThread,
+                 this, controller_id, buffer_id, timestamp));
 }
 
-void VideoCaptureHost::OnFrameInfo(const VideoCaptureControllerID& id,
-                                   int width,
-                                   int height,
-                                   int frame_per_second) {
+void VideoCaptureHost::OnFrameInfo(
+    const VideoCaptureControllerID& controller_id,
+    int width,
+    int height,
+    int frame_per_second) {
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
-      base::Bind(&VideoCaptureHost::DoSendFrameInfo,
-                 this, id.device_id, width, height, frame_per_second));
+      base::Bind(&VideoCaptureHost::DoSendFrameInfoOnIOThread,
+                 this, controller_id, width, height, frame_per_second));
 }
 
-void VideoCaptureHost::OnReadyToDelete(const VideoCaptureControllerID& id) {
+void VideoCaptureHost::OnPaused(const VideoCaptureControllerID& controller_id) {
   BrowserThread::PostTask(
       BrowserThread::IO, FROM_HERE,
-      base::Bind(&VideoCaptureHost::DoDeleteVideoCaptureController, this, id));
+      base::Bind(&VideoCaptureHost::DoPausedOnIOThread, this, controller_id));
 }
 
-void VideoCaptureHost::DoSendNewBuffer(
-    int device_id, base::SharedMemoryHandle handle,
-    int length, int buffer_id) {
+void VideoCaptureHost::DoSendNewBufferOnIOThread(
+    const VideoCaptureControllerID& controller_id,
+    base::SharedMemoryHandle handle,
+    int length,
+    int buffer_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
-  Send(new VideoCaptureMsg_NewBuffer(device_id, handle,
+  if (entries_.find(controller_id) == entries_.end())
+    return;
+
+  Send(new VideoCaptureMsg_NewBuffer(controller_id.device_id, handle,
                                      length, buffer_id));
 }
 
-void VideoCaptureHost::DoSendFilledBuffer(
-    int device_id, int buffer_id, base::Time timestamp) {
+void VideoCaptureHost::DoSendFilledBufferOnIOThread(
+    const VideoCaptureControllerID& controller_id,
+    int buffer_id, base::Time timestamp) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
-  Send(new VideoCaptureMsg_BufferReady(device_id, buffer_id,
+  if (entries_.find(controller_id) == entries_.end())
+    return;
+
+  Send(new VideoCaptureMsg_BufferReady(controller_id.device_id, buffer_id,
                                        timestamp));
 }
 
-void VideoCaptureHost::DoHandleError(int device_id) {
+void VideoCaptureHost::DoHandleErrorOnIOThread(
+    const VideoCaptureControllerID& controller_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
-  VideoCaptureControllerID id(device_id);
-  EntryMap::iterator it = entries_.find(id);
-  if (it == entries_.end() || it->second->state == video_capture::kError)
+  if (entries_.find(controller_id) == entries_.end())
     return;
 
-  it->second->state = video_capture::kError;
-  Send(new VideoCaptureMsg_StateChanged(device_id,
+  Send(new VideoCaptureMsg_StateChanged(controller_id.device_id,
                                         video_capture::kError));
-
-  VideoCaptureController* controller = it->second->controller;
-  controller->StopCapture(id, this, false);
+  DeleteVideoCaptureControllerOnIOThread(controller_id);
 }
 
-void VideoCaptureHost::DoSendFrameInfo(int device_id,
-                                       int width,
-                                       int height,
-                                       int frame_per_second) {
+void VideoCaptureHost::DoPausedOnIOThread(
+    const VideoCaptureControllerID& controller_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+
+  if (entries_.find(controller_id) == entries_.end())
+    return;
+
+  Send(new VideoCaptureMsg_StateChanged(controller_id.device_id,
+                                        video_capture::kPaused));
+  DeleteVideoCaptureControllerOnIOThread(controller_id);
+}
+
+void VideoCaptureHost::DoSendFrameInfoOnIOThread(
+    const VideoCaptureControllerID& controller_id,
+    int width, int height, int frame_per_second) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+
+  if (entries_.find(controller_id) == entries_.end())
+    return;
 
   media::VideoCaptureParams params;
   params.width = width;
   params.height = height;
   params.frame_per_second = frame_per_second;
-  Send(new VideoCaptureMsg_DeviceInfo(device_id, params));
-  Send(new VideoCaptureMsg_StateChanged(device_id,
+  Send(new VideoCaptureMsg_DeviceInfo(controller_id.device_id, params));
+  Send(new VideoCaptureMsg_StateChanged(controller_id.device_id,
                                         video_capture::kStarted));
 }
 
@@ -177,10 +182,16 @@ bool VideoCaptureHost::OnMessageReceived(const IPC::Message& message,
 void VideoCaptureHost::OnStartCapture(int device_id,
                                       const media::VideoCaptureParams& params) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DVLOG(1) << "VideoCaptureHost::OnStartCapture, device_id " << device_id
+           << ", (" << params.width
+           << ", " << params.height
+           << ", " << params.frame_per_second
+           << ", " << params.session_id
+           << ")";
   VideoCaptureControllerID controller_id(device_id);
   DCHECK(entries_.find(controller_id) == entries_.end());
 
-  entries_[controller_id] = new Entry(NULL, video_capture::kStarting);
+  entries_[controller_id] = new Entry(NULL);
   GetVideoCaptureManager()->AddController(
       params, this, base::Bind(&VideoCaptureHost::OnControllerAdded, this,
                                device_id, params));
@@ -201,52 +212,33 @@ void VideoCaptureHost::DoControllerAddedOnIOThread(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   VideoCaptureControllerID controller_id(device_id);
   EntryMap::iterator it = entries_.find(controller_id);
-  DCHECK(it != entries_.end());
+  if (it == entries_.end()) {
+    if (controller)
+      GetVideoCaptureManager()->RemoveController(controller, this);
+    return;
+  }
 
   if (controller == NULL) {
     Send(new VideoCaptureMsg_StateChanged(device_id,
                                           video_capture::kError));
+    delete it->second;
+    entries_.erase(controller_id);
     return;
   }
 
-  Entry* entry = it->second;
-  entry->controller = controller;
-  if (entry->state == video_capture::kStarting) {
-    entry->state = video_capture::kStarted;
-    controller->StartCapture(controller_id, this, peer_handle(), params);
-  } else if (entry->state == video_capture::kStopping) {
-    DoDeleteVideoCaptureController(controller_id);
-  } else {
-    NOTREACHED();
-  }
+  it->second->controller = controller;
+  controller->StartCapture(controller_id, this, peer_handle(), params);
 }
 
 void VideoCaptureHost::OnStopCapture(int device_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DVLOG(1) << "VideoCaptureHost::OnStopCapture, device_id " << device_id;
+
   VideoCaptureControllerID controller_id(device_id);
-  EntryMap::iterator it = entries_.find(controller_id);
 
-  if (it == entries_.end()) {
-    // It does not exist. So it must have been stopped already.
-    Send(new VideoCaptureMsg_StateChanged(device_id,
-                                          video_capture::kStopped));
-    return;
-  }
-
-  Entry* entry = it->second;
-  if (entry->state == video_capture::kStopping ||
-      entry->state == video_capture::kStopped ||
-      entry->state == video_capture::kError) {
-    return;
-  }
-
-  if (entry->controller) {
-    entry->state = video_capture::kStopped;
-    scoped_refptr<VideoCaptureController> controller = entry->controller;
-    controller->StopCapture(controller_id, this, false);
-  } else {
-    entry->state = video_capture::kStopping;
-  }
+  Send(new VideoCaptureMsg_StateChanged(device_id,
+                                        video_capture::kStopped));
+  DeleteVideoCaptureControllerOnIOThread(controller_id);
 }
 
 void VideoCaptureHost::OnPauseCapture(int device_id) {
@@ -263,29 +255,29 @@ void VideoCaptureHost::OnReceiveEmptyBuffer(int device_id, int buffer_id) {
   EntryMap::iterator it = entries_.find(controller_id);
   if (it != entries_.end()) {
     scoped_refptr<VideoCaptureController> controller = it->second->controller;
-    controller->ReturnBuffer(controller_id, this, buffer_id);
+    if (controller)
+      controller->ReturnBuffer(controller_id, this, buffer_id);
   }
 }
 
-void VideoCaptureHost::DoDeleteVideoCaptureController(
-    const VideoCaptureControllerID& id) {
+void VideoCaptureHost::DeleteVideoCaptureControllerOnIOThread(
+    const VideoCaptureControllerID& controller_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
-  // Report that the device have successfully been stopped.
-  Send(new VideoCaptureMsg_StateChanged(id.device_id,
-                                        video_capture::kStopped));
-  EntryMap::iterator it = entries_.find(id);
-  if (it != entries_.end()) {
-    if (it->second->controller) {
-      GetVideoCaptureManager()->RemoveController(it->second->controller, this);
-    }
-    delete it->second;
-    entries_.erase(id);
+  EntryMap::iterator it = entries_.find(controller_id);
+  if (it == entries_.end())
+    return;
+
+  VideoCaptureController* controller = it->second->controller;
+  if (controller) {
+    controller->StopCapture(controller_id, this);
+    GetVideoCaptureManager()->RemoveController(controller, this);
   }
+  delete it->second;
+  entries_.erase(controller_id);
 }
 
 media_stream::VideoCaptureManager* VideoCaptureHost::GetVideoCaptureManager() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  return media_stream::MediaStreamManager::GetForResourceContext(
-      resource_context_, audio_manager_)->video_capture_manager();
+  return BrowserMainLoop::GetMediaStreamManager()->video_capture_manager();
 }

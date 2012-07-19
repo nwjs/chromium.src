@@ -4,12 +4,12 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_WEBUI_SCREEN_LOCKER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_WEBUI_SCREEN_LOCKER_H_
-#pragma once
 
 #include <string>
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/time.h"
 #include "chrome/browser/chromeos/login/lock_window.h"
 #include "chrome/browser/chromeos/login/login_display.h"
 #include "chrome/browser/chromeos/login/screen_locker_delegate.h"
@@ -50,7 +50,6 @@ class WebUIScreenLocker : public WebUILoginView,
   // LoginDisplay::Delegate: implementation
   virtual void CreateAccount() OVERRIDE;
   virtual string16 GetConnectedNetworkName() OVERRIDE;
-  virtual void FixCaptivePortal() OVERRIDE;
   virtual void SetDisplayEmail(const std::string& email) OVERRIDE;
   virtual void CompleteLogin(const std::string& username,
                              const std::string& password) OVERRIDE;
@@ -69,10 +68,6 @@ class WebUIScreenLocker : public WebUILoginView,
 
   // LockWindow::Observer implementation.
   virtual void OnLockWindowReady() OVERRIDE;
-
-  // Overridden from WebUILoginView.
-  virtual StatusAreaViewChromeos::ScreenMode GetScreenMode() OVERRIDE;
-  virtual views::Widget::InitParams::Type GetStatusAreaWidgetType() OVERRIDE;
 
  private:
   friend class test::WebUIScreenLockerTester;
@@ -93,6 +88,9 @@ class WebUIScreenLocker : public WebUILoginView,
 
   // Tracks when the WebUI finishes loading.
   bool webui_ready_;
+
+  // Time when lock was initiated, required for metrics.
+  base::TimeTicks lock_time_;
 
   DISALLOW_COPY_AND_ASSIGN(WebUIScreenLocker);
 };

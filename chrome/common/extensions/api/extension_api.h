@@ -4,7 +4,6 @@
 
 #ifndef CHROME_COMMON_EXTENSIONS_API_EXTENSION_API_H_
 #define CHROME_COMMON_EXTENSIONS_API_EXTENSION_API_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -16,8 +15,8 @@
 #include "base/memory/singleton.h"
 #include "base/string_piece.h"
 #include "base/values.h"
-#include "chrome/common/extensions/feature.h"
-#include "chrome/common/extensions/feature_provider.h"
+#include "chrome/common/extensions/features/feature.h"
+#include "chrome/common/extensions/features/feature_provider.h"
 #include "chrome/common/extensions/url_pattern_set.h"
 
 namespace base {
@@ -27,11 +26,11 @@ class Value;
 }
 
 class GURL;
-class Extension;
 class ExtensionPermissionSet;
 
 namespace extensions {
 
+class Extension;
 class Feature;
 
 // C++ Wrapper for the JSON API definitions in chrome/common/extensions/api/.
@@ -96,7 +95,7 @@ class ExtensionAPI : public FeatureProvider {
   // Gets a Feature object describing the API with the specified |full_name|.
   // This can be either an API namespace (like history, or
   // experimental.bookmarks), or it can be an individual function or event.
-  virtual scoped_ptr<Feature> GetFeature(const std::string& full_name) OVERRIDE;
+  virtual Feature* GetFeature(const std::string& full_name) OVERRIDE;
 
   // Splits a full name from the extension API into its API and child name
   // parts. Some examples:
@@ -119,7 +118,7 @@ class ExtensionAPI : public FeatureProvider {
   friend struct DefaultSingletonTraits<ExtensionAPI>;
 
   // Loads a schema.
-  void LoadSchema(const base::StringPiece& schema);
+  void LoadSchema(const std::string& name, const base::StringPiece& schema);
 
   // Returns true if the function or event under |namespace_node| with
   // the specified |child_name| is privileged, or false otherwise. If the name
@@ -134,7 +133,7 @@ class ExtensionAPI : public FeatureProvider {
   void GetAllowedAPIs(const Extension* extension, std::set<std::string>* out);
 
   // Gets a feature from any dependency provider.
-  scoped_ptr<Feature> GetFeatureDependency(const std::string& dependency_name);
+  Feature* GetFeatureDependency(const std::string& dependency_name);
 
   // Adds dependent schemas to |out| as determined by the "dependencies"
   // property.

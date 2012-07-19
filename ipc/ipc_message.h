@@ -4,13 +4,16 @@
 
 #ifndef IPC_IPC_MESSAGE_H_
 #define IPC_IPC_MESSAGE_H_
-#pragma once
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/pickle.h"
 #include "ipc/ipc_export.h"
+
+// TODO(brettw) remove this and update files that depend on this being included
+// from here.
+#include "ipc/ipc_sender.h"
 
 // Ipc logging adds a dependency from the 'chrome' target on all ipc message
 // classes. In a component build, this would require exporting all message
@@ -39,18 +42,6 @@ struct LogData;
 
 class IPC_EXPORT Message : public Pickle {
  public:
-  // Implemented by objects that can send IPC messages across a channel.
-  class IPC_EXPORT Sender {
-   public:
-    virtual ~Sender() {}
-
-    // Sends the given IPC message.  The implementor takes ownership of the
-    // given Message regardless of whether or not this method succeeds.  This
-    // is done to make this method easier to use.  Returns true on success and
-    // false otherwise.
-    virtual bool Send(Message* msg) = 0;
-  };
-
   enum PriorityValue {
     PRIORITY_LOW = 1,
     PRIORITY_NORMAL,
@@ -152,6 +143,10 @@ class IPC_EXPORT Message : public Pickle {
     return header()->flags;
   }
 
+  // Sets all the given header values. The message should be empty at this
+  // call.
+  void SetHeaderValues(int32 routing, uint32 type, uint32 flags);
+
   template<class T, class S>
   static bool Dispatch(const Message* msg, T* obj, S* sender,
                        void (T::*func)()) {
@@ -194,12 +189,16 @@ class IPC_EXPORT Message : public Pickle {
   // On POSIX, a message supports reading / writing FileDescriptor objects.
   // This is used to pass a file descriptor to the peer of an IPC channel.
 
-  // Add a descriptor to the end of the set. Returns false iff the set is full.
+  // Add a descriptor to the end of the set. Returns false if the set is full.
   bool WriteFileDescriptor(const base::FileDescriptor& descriptor);
+
   // Get a file descriptor from the message. Returns false on error.
   //   iter: a Pickle iterator to the current location in the message.
   bool ReadFileDescriptor(PickleIterator* iter,
                           base::FileDescriptor* descriptor) const;
+
+  // Returns true if there are any file descriptors in this message.
+  bool HasFileDescriptors() const;
 #endif
 
 #ifdef IPC_MESSAGE_LOG_ENABLED

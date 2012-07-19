@@ -17,6 +17,7 @@ URLFetcherCancelTest.CancelWhileDelayedStartTaskPending
 URLFetcherMultipleAttemptTest.SameData
 URLFetcherDownloadProgressTest.Basic
 URLFetcherUploadProgressTest.Basic
+URLFetcherStopOnRedirectTest.StopOnRedirect
 BaseFileTest.ReadonlyBaseFile
 GPUTestConfigTest.LoadCurrentConfig
 URLFetcherFileTest.SmallGet
@@ -41,3 +42,16 @@ GPUTestExpectationsParserTest.WebGLTestExpectationsValidation
 # crbug.com/104950
 DeviceOrientationProviderTest.ObserverNotRemoved
 DeviceOrientationProviderTest.StartFailing
+# Test failures on APK, due to sqlite errors.
+ChromeAppCacheServiceTest.*
+AppCacheDatabaseTest.ReCreate
+AppCacheDatabaseTest.UpgradeSchema3to4
+DatabaseTrackerTest.*
+QuotaDatabaseTest.*
+QuotaManagerTest.*
+#
+SavePackageTest.TestEnsureHtmlExtension
+SavePackageTest.TestEnsureMimeExtension
+SavePackageTest.TestSuggestedSaveNames
+# crbug.com/137879
+HyphenatorTest.HyphenateWords

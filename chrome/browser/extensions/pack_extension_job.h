@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_PACK_EXTENSION_JOB_H_
 #define CHROME_BROWSER_EXTENSIONS_PACK_EXTENSION_JOB_H_
-#pragma once
 
 #include <string>
 
@@ -24,8 +23,9 @@ class PackExtensionJob : public base::RefCountedThreadSafe<PackExtensionJob> {
    public:
     virtual void OnPackSuccess(const FilePath& crx_file,
                                const FilePath& key_file) = 0;
-    virtual void OnPackFailure(const std::string& message,
-                               ExtensionCreator::ErrorType error_type) = 0;
+    virtual void OnPackFailure(
+        const std::string& message,
+        extensions::ExtensionCreator::ErrorType error_type) = 0;
 
    protected:
     virtual ~Client() {}
@@ -57,8 +57,9 @@ class PackExtensionJob : public base::RefCountedThreadSafe<PackExtensionJob> {
   // If |asynchronous_| is false, this is run on whichever thread calls it.
   void Run();
   void ReportSuccessOnClientThread();
-  void ReportFailureOnClientThread(const std::string& error,
-                                   ExtensionCreator::ErrorType error_type);
+  void ReportFailureOnClientThread(
+      const std::string& error,
+      extensions::ExtensionCreator::ErrorType error_type);
 
   content::BrowserThread::ID client_thread_id_;
   Client* client_;

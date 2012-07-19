@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_DATABASE_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_DATABASE_HELPER_H_
-#pragma once
 
 #include <list>
 #include <map>
@@ -45,8 +44,6 @@ class MockBrowsingDataDatabaseHelper : public BrowsingDataDatabaseHelper {
 
  private:
   virtual ~MockBrowsingDataDatabaseHelper();
-
-  Profile* profile_;
 
   base::Callback<void(const std::list<DatabaseInfo>&)> callback_;
 

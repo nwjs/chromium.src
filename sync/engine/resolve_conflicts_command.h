@@ -4,13 +4,12 @@
 
 #ifndef SYNC_ENGINE_RESOLVE_CONFLICTS_COMMAND_H_
 #define SYNC_ENGINE_RESOLVE_CONFLICTS_COMMAND_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "sync/engine/model_changing_syncer_command.h"
 
-namespace browser_sync {
+namespace syncer {
 
 class ResolveConflictsCommand : public ModelChangingSyncerCommand {
  public:
@@ -28,6 +27,6 @@ class ResolveConflictsCommand : public ModelChangingSyncerCommand {
   DISALLOW_COPY_AND_ASSIGN(ResolveConflictsCommand);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_RESOLVE_CONFLICTS_COMMAND_H_

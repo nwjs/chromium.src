@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_INFOBARS_MEDIA_STREAM_INFOBAR_H_
 #define CHROME_BROWSER_UI_VIEWS_INFOBARS_MEDIA_STREAM_INFOBAR_H_
-#pragma once
 
 #include "chrome/browser/infobars/infobar_delegate.h"
 #include "chrome/browser/media/media_stream_devices_menu_model.h"
@@ -44,7 +43,7 @@ class MediaStreamInfoBar : public InfoBarView,
   virtual void OnMenuButtonClicked(views::View* source,
                                    const gfx::Point& point) OVERRIDE;
 
-  MediaStreamInfoBarDelegate* delegate_;
+  MediaStreamInfoBarDelegate* GetDelegate();
 
   views::Label* label_;
   views::TextButton* allow_button_;

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CUSTOM_HANDLERS_PROTOCOL_HANDLER_REGISTRY_H_
 #define CHROME_BROWSER_CUSTOM_HANDLERS_PROTOCOL_HANDLER_REGISTRY_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -12,6 +11,7 @@
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shell_integration.h"
@@ -84,7 +84,6 @@ class ProtocolHandlerRegistry
   typedef std::vector<DefaultClientObserver*> DefaultClientObserverList;
 
   ProtocolHandlerRegistry(Profile* profile, Delegate* delegate);
-  ~ProtocolHandlerRegistry();
 
   // Called when a site tries to register as a protocol handler. If the request
   // can be handled silently by the registry - either to ignore the request
@@ -191,8 +190,18 @@ class ProtocolHandlerRegistry
 
   bool enabled() const { return enabled_; }
 
+  // Add a predefined protocol handler. This has to be called before the first
+  // load command was issued, otherwise the command will be ignored.
+  void AddPredefinedHandler(const ProtocolHandler& handler);
+
  private:
-  friend class base::RefCountedThreadSafe<ProtocolHandlerRegistry>;
+  friend class base::DeleteHelper<ProtocolHandlerRegistry>;
+  friend struct content::BrowserThread::DeleteOnThread<
+      content::BrowserThread::IO>;
+  friend class ProtocolHandlerRegistryTest;
+  friend class RegisterProtocolHandlerBrowserTest;
+
+  ~ProtocolHandlerRegistry();
 
   // Puts the given handler at the top of the list of handlers for its
   // protocol.
@@ -249,9 +258,6 @@ class ProtocolHandlerRegistry
   // Ignores future requests to register the given protocol handler.
   void IgnoreProtocolHandler(const ProtocolHandler& handler);
 
-  // Register
-  void IgnoreHandlerFromValue(const DictionaryValue* value);
-
   // Map from protocols (strings) to protocol handlers.
   ProtocolHandlerMultiMap protocol_handlers_;
 
@@ -277,12 +283,14 @@ class ProtocolHandlerRegistry
   // Whether or not we are loading.
   bool is_loading_;
 
+  // When the table gets loaded this flag will be set and any further calls to
+  // AddPredefinedHandler will be rejected.
+  bool is_loaded_;
+
   DefaultClientObserverList default_client_observers_;
 
   // Copy of default_handlers_ that is only accessed on the IO thread.
   ProtocolHandlerMap default_handlers_io_;
-
-  friend class ProtocolHandlerRegistryTest;
 
   DISALLOW_COPY_AND_ASSIGN(ProtocolHandlerRegistry);
 };

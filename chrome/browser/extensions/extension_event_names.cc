@@ -33,12 +33,21 @@ const char kOnFileBrowserMountCompleted[] =
     "fileBrowserPrivate.onMountCompleted";
 const char kOnFileTransfersUpdated[] =
     "fileBrowserPrivate.onFileTransfersUpdated";
+const char kOnDocumentFeedFetched[] =
+    "fileBrowserPrivate.onDocumentFeedFetched";
+const char kOnFileBrowserGDataPreferencesChanged[] =
+    "fileBrowserPrivate.onGDataPreferencesChanged";
+const char kOnFileBrowserNetworkConnectionChanged[] =
+    "fileBrowserPrivate.onNetworkConnectionChanged";
 
 const char kOnInputMethodChanged[] = "inputMethodPrivate.onChanged";
 
-const char kOnDownloadCreated[] = "experimental.downloads.onCreated";
-const char kOnDownloadChanged[] = "experimental.downloads.onChanged";
-const char kOnDownloadErased[] = "experimental.downloads.onErased";
+const char kOnContextMenus[] = "contextMenus";
+const char kOnContextMenuClicked[] = "contextMenus.onClicked";
+
+const char kOnDownloadCreated[] = "downloads.onCreated";
+const char kOnDownloadChanged[] = "downloads.onChanged";
+const char kOnDownloadErased[] = "downloads.onErased";
 
 const char kOnSettingsChanged[] = "storage.onChanged";
 
@@ -49,6 +58,8 @@ const char kOnOffscreenTabUpdated[] = "experimental.offscreenTabs.onUpdated";
 #if defined(OS_CHROMEOS)
 const char kBluetoothOnAvailabilityChanged[] =
     "experimental.bluetooth.onAvailabilityChanged";
+const char kBluetoothOnDeviceDiscovered[] =
+    "experimental.bluetooth.onDeviceDiscovered";
 const char kBluetoothOnPowerChanged[] =
     "experimental.bluetooth.onPowerChanged";
 #endif

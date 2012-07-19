@@ -14,9 +14,10 @@
 
 using std::vector;
 
+namespace syncer {
 namespace syncable {
 
-using browser_sync::TestIdFactory;
+using syncer::TestIdFactory;
 
 class SyncableIdTest : public testing::Test { };
 
@@ -94,3 +95,4 @@ TEST(SyncableIdTest, ToValue) {
 }
 
 }  // namespace syncable
+}  // namespace syncer

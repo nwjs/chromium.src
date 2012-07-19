@@ -4,10 +4,11 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_DOOMED_RESOURCE_HANDLER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_DOOMED_RESOURCE_HANDLER_H_
-#pragma once
 
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
 #include "content/browser/renderer_host/resource_handler.h"
+
+namespace content {
 
 // ResourceHandler that DCHECKs on all events but canceling and failing of
 // requests while activated for a URLRequest.
@@ -18,7 +19,8 @@ class DoomedResourceHandler : public ResourceHandler {
   // does not lose its last reference and gets destroyed by being substituted.
   // Therefore, we retain a reference to |old_handler| that prevents the
   // destruction.
-  explicit DoomedResourceHandler(ResourceHandler* old_handler);
+  explicit DoomedResourceHandler(scoped_ptr<ResourceHandler> old_handler);
+  virtual ~DoomedResourceHandler();
 
   // ResourceHandler implementation:
   virtual bool OnUploadProgress(int request_id,
@@ -26,10 +28,11 @@ class DoomedResourceHandler : public ResourceHandler {
                                 uint64 size) OVERRIDE;
   virtual bool OnRequestRedirected(int request_id,
                                    const GURL& new_url,
-                                   content::ResourceResponse* response,
+                                   ResourceResponse* response,
                                    bool* defer) OVERRIDE;
   virtual bool OnResponseStarted(int request_id,
-                                 content::ResourceResponse* response) OVERRIDE;
+                                 ResourceResponse* response,
+                                 bool* defer) OVERRIDE;
   virtual bool OnWillStart(int request_id,
                            const GURL& url,
                            bool* defer) OVERRIDE;
@@ -38,20 +41,20 @@ class DoomedResourceHandler : public ResourceHandler {
                           int* buf_size,
                           int min_size) OVERRIDE;
   virtual bool OnReadCompleted(int request_id,
-                               int* bytes_read) OVERRIDE;
+                               int bytes_read,
+                               bool* defer) OVERRIDE;
   virtual bool OnResponseCompleted(int request_id,
                                    const net::URLRequestStatus& status,
                                    const std::string& security_info) OVERRIDE;
-  virtual void OnRequestClosed() OVERRIDE;
   virtual void OnDataDownloaded(int request_id,
                                 int bytes_downloaded) OVERRIDE;
 
  private:
-  virtual ~DoomedResourceHandler();
-
-  scoped_refptr<ResourceHandler> old_handler_;
+  scoped_ptr<ResourceHandler> old_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(DoomedResourceHandler);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_DOOMED_RESOURCE_HANDLER_H_

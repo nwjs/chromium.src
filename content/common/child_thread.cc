@@ -4,12 +4,13 @@
 
 #include "content/common/child_thread.h"
 
+#include "base/allocator/allocator_extension.h"
 #include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/process.h"
-#include "base/process_util.h"
 #include "base/string_util.h"
 #include "base/tracked_objects.h"
+#include "content/common/child_histogram_message_filter.h"
 #include "content/common/child_process.h"
 #include "content/common/child_process_messages.h"
 #include "content/common/child_trace_message_filter.h"
@@ -27,6 +28,9 @@
 #if defined(OS_WIN)
 #include "content/common/handle_enumerator_win.h"
 #endif
+
+using content::ResourceDispatcher;
+using tracked_objects::ThreadData;
 
 ChildThread::ChildThread() {
   channel_name_ = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
@@ -57,6 +61,9 @@ void ChildThread::Init() {
 
   sync_message_filter_ =
       new IPC::SyncMessageFilter(ChildProcess::current()->GetShutDownEvent());
+  histogram_message_filter_ = new content::ChildHistogramMessageFilter();
+
+  channel_->AddFilter(histogram_message_filter_.get());
   channel_->AddFilter(sync_message_filter_.get());
   channel_->AddFilter(new ChildTraceMessageFilter());
 }
@@ -66,12 +73,8 @@ ChildThread::~ChildThread() {
   IPC::Logging::GetInstance()->SetIPCSender(NULL);
 #endif
 
+  channel_->RemoveFilter(histogram_message_filter_.get());
   channel_->RemoveFilter(sync_message_filter_.get());
-
-  // Close this channel before resetting the message loop attached to it so
-  // the message loop can call ChannelProxy::Context::OnChannelClosed(), which
-  // releases the reference count to this channel.
-  channel_->Close();
 
   // The ChannelProxy object caches a pointer to the IPC thread, so need to
   // reset it as it's not guaranteed to outlive this object.
@@ -81,7 +84,7 @@ ChildThread::~ChildThread() {
   // until this process is shut down, and the OS closes the handle
   // automatically.  We used to watch the object handle on Windows to do this,
   // but it wasn't possible to do so on POSIX.
-  channel_->ClearIPCMessageLoop();
+  channel_->ClearIPCTaskRunner();
 }
 
 void ChildThread::OnChannelError() {
@@ -99,7 +102,7 @@ bool ChildThread::Send(IPC::Message* msg) {
   return channel_->Send(msg);
 }
 
-void ChildThread::AddRoute(int32 routing_id, IPC::Channel::Listener* listener) {
+void ChildThread::AddRoute(int32 routing_id, IPC::Listener* listener) {
   DCHECK(MessageLoop::current() == message_loop());
 
   router_.AddRoute(routing_id, listener);
@@ -111,7 +114,7 @@ void ChildThread::RemoveRoute(int32 routing_id) {
   router_.RemoveRoute(routing_id);
 }
 
-IPC::Channel::Listener* ChildThread::ResolveRoute(int32 routing_id) {
+IPC::Listener* ChildThread::ResolveRoute(int32 routing_id) {
   DCHECK(MessageLoop::current() == message_loop());
 
   return router_.ResolveRoute(routing_id);
@@ -190,6 +193,9 @@ bool ChildThread::OnMessageReceived(const IPC::Message& msg) {
     IPC_MESSAGE_HANDLER(ChildProcessMsg_GetChildProfilerData,
                         OnGetChildProfilerData)
     IPC_MESSAGE_HANDLER(ChildProcessMsg_DumpHandles, OnDumpHandles)
+#if defined(USE_TCMALLOC)
+    IPC_MESSAGE_HANDLER(ChildProcessMsg_GetTcmallocStats, OnGetTcmallocStats)
+#endif
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -219,21 +225,16 @@ void ChildThread::OnSetIPCLoggingEnabled(bool enable) {
 }
 #endif  //  IPC_MESSAGE_LOG_ENABLED
 
-void ChildThread::OnSetProfilerStatus(
-    tracked_objects::ThreadData::Status status) {
-  tracked_objects::ThreadData::InitializeAndSetTrackingStatus(status);
+void ChildThread::OnSetProfilerStatus(ThreadData::Status status) {
+  ThreadData::InitializeAndSetTrackingStatus(status);
 }
 
-void ChildThread::OnGetChildProfilerData(
-    int sequence_number,
-    const std::string& process_type) {
-  scoped_ptr<base::DictionaryValue> value(
-      tracked_objects::ThreadData::ToValue(false));
-  value->SetString("process_type", process_type);
-  value->SetInteger("process_id", base::GetCurrentProcId());
+void ChildThread::OnGetChildProfilerData(int sequence_number) {
+  tracked_objects::ProcessDataSnapshot process_data;
+  ThreadData::Snapshot(false, &process_data);
 
-  Send(new ChildProcessHostMsg_ChildProfilerData(
-      sequence_number, *value.get()));
+  Send(new ChildProcessHostMsg_ChildProfilerData(sequence_number,
+                                                 process_data));
 }
 
 void ChildThread::OnDumpHandles() {
@@ -249,6 +250,16 @@ void ChildThread::OnDumpHandles() {
 
   NOTIMPLEMENTED();
 }
+
+#if defined(USE_TCMALLOC)
+void ChildThread::OnGetTcmallocStats() {
+  std::string result;
+  char buffer[1024 * 32];
+  base::allocator::GetStats(buffer, sizeof(buffer));
+  result.append(buffer);
+  Send(new ChildProcessHostMsg_TcmallocStats(result));
+}
+#endif
 
 ChildThread* ChildThread::current() {
   return ChildProcess::current()->main_thread();

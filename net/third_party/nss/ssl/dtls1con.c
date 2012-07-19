@@ -834,7 +834,8 @@ dtls_CompressMACEncryptRecord(sslSocket *        ss,
 
     if (cwSpec) {
         rv = ssl3_CompressMACEncryptRecord(cwSpec, ss->sec.isServer, PR_TRUE,
-					   type, pIn, contentLen, wrBuf);
+					   PR_FALSE, type, pIn, contentLen,
+					   wrBuf);
     } else {
         PR_NOT_REACHED("Couldn't find a cipher spec matching epoch");
 	PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
@@ -1134,7 +1135,7 @@ dtls_RecordSetRecvd(DTLSRecvdRecords *records, PRUint64 seq)
 }
 
 SECStatus
-DTLS_GetTimeout(PRFileDesc *socket, PRIntervalTime *timeout)
+DTLS_GetHandshakeTimeout(PRFileDesc *socket, PRIntervalTime *timeout)
 {
     sslSocket * ss = NULL;
     PRIntervalTime elapsed;

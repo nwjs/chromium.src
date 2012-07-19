@@ -4,14 +4,7 @@
 
 #include "base/logging.h"
 #include "chrome/browser/chromeos/input_method/input_method_descriptor.h"
-#include "chrome/browser/chromeos/input_method/input_method_whitelist.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-#if defined(USE_VIRTUAL_KEYBOARD)
-// Since USE_VIRTUAL_KEYBOARD build only supports a few keyboard layouts, we
-// skip the test for now.
-#define TestCreateInputMethodDescriptor DISABLED_TestCreateInputMethodDescriptor
-#endif  // USE_VIRTUAL_KEYBOARD
 
 namespace chromeos {
 namespace input_method {
@@ -26,37 +19,21 @@ class InputMethodDescriptorTest : public testing::Test {
   }
 
  protected:
-  InputMethodDescriptor GetDesc(const std::string& raw_layout) {
-    return InputMethodDescriptor(whitelist_,
-                                 "id",
+  InputMethodDescriptor GetDescById(const std::string& id) {
+    return InputMethodDescriptor(id,
                                  "",  // name
-                                 raw_layout,
-                                 "language_code");
+                                 "us",
+                                 "language_code",
+                                 false);
   }
-
- private:
-  const InputMethodWhitelist whitelist_;
 };
 
 }  // namespace
 
-TEST_F(InputMethodDescriptorTest, TestCreateInputMethodDescriptor) {
-  EXPECT_EQ("us", GetDesc("us").keyboard_layout());
-  EXPECT_EQ("us", GetDesc("us,us(dvorak)").keyboard_layout());
-  EXPECT_EQ("us(dvorak)", GetDesc("us(dvorak),us").keyboard_layout());
-
-  EXPECT_EQ("fr", GetDesc("fr").keyboard_layout());
-  EXPECT_EQ("fr", GetDesc("fr,us(dvorak)").keyboard_layout());
-  EXPECT_EQ("us(dvorak)", GetDesc("us(dvorak),fr").keyboard_layout());
-
-  EXPECT_EQ("fr", GetDesc("not-supported,fr").keyboard_layout());
-  EXPECT_EQ("fr", GetDesc("fr,not-supported").keyboard_layout());
-
-  EXPECT_EQ(kFallbackLayout, GetDesc("not-supported").keyboard_layout());
-  EXPECT_EQ(kFallbackLayout, GetDesc(",").keyboard_layout());
-  EXPECT_EQ(kFallbackLayout, GetDesc("").keyboard_layout());
-
-  // TODO(yusukes): Add tests for |virtual_keyboard_layout| member.
+TEST_F(InputMethodDescriptorTest, TestOperatorEqual) {
+  EXPECT_EQ(GetDescById("xkb:us::eng"), GetDescById("xkb:us::eng"));
+  EXPECT_NE(GetDescById("xkb:us::eng"), GetDescById("xkb:us:dvorak:eng"));
+  EXPECT_NE(GetDescById("xkb:fr::fra"), GetDescById("xkb:us::eng"));
 }
 
 }  // namespace input_method

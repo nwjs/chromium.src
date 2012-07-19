@@ -57,7 +57,12 @@ class FirstRunShowBridge : public base::RefCounted<FirstRunShowBridge> {
   FirstRunShowBridge(FirstRunDialogController* controller);
 
   void ShowDialog();
+
  private:
+  friend class base::RefCounted<FirstRunShowBridge>;
+
+  ~FirstRunShowBridge();
+
   FirstRunDialogController* controller_;
 };
 
@@ -69,6 +74,8 @@ void FirstRunShowBridge::ShowDialog() {
   [controller_ show];
   MessageLoop::current()->QuitNow();
 }
+
+FirstRunShowBridge::~FirstRunShowBridge() {}
 
 // Show the first run UI.
 void ShowFirstRun(Profile* profile) {
@@ -152,7 +159,8 @@ void ShowFirstRunDialog(Profile* profile) {
                                              ofType:@"nib"];
   if ((self = [super initWithWindowNibPath:nibpath owner:self])) {
     // Bound to the dialog checkboxes.
-    makeDefaultBrowser_ = ShellIntegration::CanSetAsDefaultBrowser();
+    makeDefaultBrowser_ = ShellIntegration::CanSetAsDefaultBrowser() !=
+        ShellIntegration::SET_DEFAULT_NOT_ALLOWED;
     statsEnabled_ = StatsCheckboxDefault();
   }
   return self;

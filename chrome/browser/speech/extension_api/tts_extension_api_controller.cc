@@ -172,7 +172,7 @@ void ExtensionTtsController::SpeakOrEnqueue(Utterance* utterance) {
 }
 
 void ExtensionTtsController::SpeakNow(Utterance* utterance) {
-  const Extension* extension;
+  const extensions::Extension* extension;
   size_t voice_index;
   if (GetMatchingExtensionVoice(utterance, &extension, &voice_index)) {
     current_utterance_ = utterance;
@@ -283,8 +283,8 @@ ListValue* ExtensionTtsController::GetVoices(Profile* profile) {
   return result_voices;
 }
 
-bool ExtensionTtsController::IsSpeaking() const {
-  return current_utterance_ != NULL;
+bool ExtensionTtsController::IsSpeaking() {
+  return current_utterance_ != NULL || GetPlatformImpl()->IsSpeaking();
 }
 
 void ExtensionTtsController::FinishCurrentUtterance() {

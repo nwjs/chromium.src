@@ -30,8 +30,11 @@ enum FileSystemType {
   // profile directory (thus called 'external' filesystem).
   // This filesystem is used only by Chrome OS as of writing.
   kFileSystemTypeExternal = WebKit::WebFileSystem::TypeExternal,
+
+  // Should be used only for testing.
+  kFileSystemTypeTest = 100,
 };
 
-}
+}  // namespace fileapi
 
 #endif  // WEBKIT_FILEAPI_FILE_SYSTEM_TYPES_H_

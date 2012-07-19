@@ -4,7 +4,6 @@
 
 #ifndef PRINTING_PRINTING_EXPORT_H_
 #define PRINTING_PRINTING_EXPORT_H_
-#pragma once
 
 #if defined(COMPONENT_BUILD)
 #if defined(WIN32)
@@ -16,7 +15,11 @@
 #endif  // defined(PRINTING_IMPLEMENTATION)
 
 #else  // defined(WIN32)
+#if defined(PRINTING_IMPLEMENTATION)
 #define PRINTING_EXPORT __attribute__((visibility("default")))
+#else
+#define PRINTING_EXPORT
+#endif
 #endif
 
 #else  // defined(COMPONENT_BUILD)

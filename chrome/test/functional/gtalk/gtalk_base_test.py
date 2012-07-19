@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -23,9 +22,6 @@ class GTalkBaseTest(pyauto.PyUITest):
 
   _injected_js = None
 
-  def ExtraChromeFlags(self):
-    return pyauto.PyUITest.ExtraChromeFlags(self) + ['--no-sandbox']
-
   def Prompt(self, text):
     """Pause execution with debug output.
 
@@ -35,13 +31,19 @@ class GTalkBaseTest(pyauto.PyUITest):
     text = str(text)
     raw_input('--------------------> ' + text)
 
-  def InstallGTalkExtension(self):
+  def InstallGTalkExtension(self, gtalk_version):
     """Download and install the GTalk extension."""
     extension_path = os.path.abspath(
-        os.path.join(self.DataDir(), 'extensions', 'gtalk', 'gtalk.crx'))
+        os.path.join(self.DataDir(), 'extensions', 'gtalk',
+                     gtalk_version + '.crx'))
     self.assertTrue(
         os.path.exists(extension_path),
         msg='Failed to find GTalk extension: ' + extension_path)
+
+    extension = self.GetGTalkExtensionInfo()
+    if extension:
+      logging.info('Extension already installed. Skipping install...\n')
+      return
 
     self.InstallExtension(extension_path, False)
     extension = self.GetGTalkExtensionInfo()

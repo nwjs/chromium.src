@@ -72,10 +72,10 @@ NSTimeInterval kShowStatusDuration = 0.3;
 NSTimeInterval kHideStatusDuration = 0.3;
 
 // Duration of the 'download complete' animation, in seconds.
-const int kCompleteAnimationDuration = 2.5;
+const CGFloat kCompleteAnimationDuration = 2.5;
 
 // Duration of the 'download interrupted' animation, in seconds.
-const int kInterruptedAnimationDuration = 2.5;
+const CGFloat kInterruptedAnimationDuration = 2.5;
 
 using content::DownloadItem;
 
@@ -390,7 +390,7 @@ using content::DownloadItem;
   if (![self secondaryTitle] || statusAlpha_ <= 0)
     return;
 
-  CGFloat textWidth = innerFrame.size.width -
+  CGFloat textWidth = NSWidth(innerFrame) -
       (kTextPosLeft + kTextPaddingRight + kDropdownAreaWidth);
   NSString* secondaryText = [self elideStatus:textWidth];
   NSColor* secondaryColor =
@@ -492,7 +492,7 @@ using content::DownloadItem;
 
 - (void)drawInteriorWithFrame:(NSRect)cellFrame inView:(NSView*)controlView {
   // Draw title
-  CGFloat textWidth = cellFrame.size.width -
+  CGFloat textWidth = NSWidth(cellFrame) -
       (kTextPosLeft + kTextPaddingRight + kDropdownAreaWidth);
   [self setTitle:[self elideTitle:textWidth]];
 

@@ -7,19 +7,21 @@
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/string_piece.h"
+#include "base/utf_string_conversions.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "content/public/common/renderer_preferences.h"
+#include "content/shell/shell_switches.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 namespace content {
 
 void Shell::PlatformInitialize() {
-  gtk_init(NULL, NULL);
 }
 
 base::StringPiece Shell::PlatformResourceProvider(int key) {
@@ -143,6 +145,9 @@ void Shell::PlatformCreateWindow(int width, int height) {
   gtk_container_add(GTK_CONTAINER(window_), vbox_);
   gtk_widget_show_all(GTK_WIDGET(window_));
 
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree))
+    gtk_widget_set_uposition(GTK_WIDGET(window_), 10000, 10000);
+
   SizeTo(width, height);
 }
 
@@ -225,6 +230,11 @@ gboolean Shell::OnHighlightURLView(GtkAccelGroup* accel_group,
                                    GdkModifierType modifier) {
   gtk_widget_grab_focus(GTK_WIDGET(url_edit_view_));
   return TRUE;
+}
+
+void Shell::PlatformSetTitle(const string16& title) {
+  std::string title_utf8 = UTF16ToUTF8(title);
+  gtk_window_set_title(GTK_WINDOW(window_), title_utf8.c_str());
 }
 
 }  // namespace content

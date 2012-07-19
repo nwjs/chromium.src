@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_AUDIO_AUDIO_HANDLER_H_
 #define CHROME_BROWSER_CHROMEOS_AUDIO_AUDIO_HANDLER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/observer_list.h"
@@ -32,6 +31,10 @@ class AudioHandler {
 
   static void Initialize();
   static void Shutdown();
+
+  // Same as Initialize but using the specified audio mixer.  It takes
+  // ownership of |mixer|.
+  static void InitializeForTesting(AudioMixer* mixer);
 
   // GetInstance returns NULL if not initialized or if already shutdown.
   static AudioHandler* GetInstance();
@@ -62,7 +65,8 @@ class AudioHandler {
   // and constructor/destructor private as recommended for Singletons.
   friend struct DefaultSingletonTraits<AudioHandler>;
 
-  AudioHandler();
+  // Takes ownership of |mixer|.
+  explicit AudioHandler(AudioMixer* mixer);
   virtual ~AudioHandler();
 
   scoped_ptr<AudioMixer> mixer_;

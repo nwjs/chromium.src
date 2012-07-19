@@ -4,10 +4,9 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_MEDIA_MEDIA_INTERNALS_PROXY_H_
 #define CHROME_BROWSER_UI_WEBUI_MEDIA_MEDIA_INTERNALS_PROXY_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/string16.h"
 #include "chrome/browser/media/media_internals_observer.h"
 #include "content/public/browser/browser_thread.h"
@@ -55,11 +54,7 @@ class MediaInternalsProxy
   virtual void OnUpdate(const string16& update) OVERRIDE;
 
   // net::NetLog::ThreadSafeObserver implementation. Callable from any thread:
-  virtual void OnAddEntry(net::NetLog::EventType type,
-                          const base::TimeTicks& time,
-                          const net::NetLog::Source& source,
-                          net::NetLog::EventPhase phase,
-                          net::NetLog::EventParameters* params) OVERRIDE;
+  virtual void OnAddEntry(const net::NetLog::Entry& entry) OVERRIDE;
 
  private:
   friend struct content::BrowserThread::DeleteOnThread<

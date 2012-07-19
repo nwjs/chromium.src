@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_VIDEO_CAPTURE_IMPL_H_
 #define CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_VIDEO_CAPTURE_IMPL_H_
-#pragma once
 
 #include <string>
 
@@ -13,6 +12,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "media/video/capture/video_capture.h"
+#include "media/video/capture/video_capture_types.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
 
 namespace media {
@@ -31,11 +31,11 @@ class PepperPlatformVideoCaptureImpl
       const base::WeakPtr<PepperPluginDelegateImpl>& plugin_delegate,
       const std::string& device_id,
       webkit::ppapi::PluginDelegate::PlatformVideoCaptureEventHandler* handler);
-  virtual ~PepperPlatformVideoCaptureImpl();
 
   // webkit::ppapi::PluginDelegate::PlatformVideoCapture implementation.
-  virtual void StartCapture(media::VideoCapture::EventHandler* handler,
-                            const VideoCaptureCapability& capability) OVERRIDE;
+  virtual void StartCapture(
+      media::VideoCapture::EventHandler* handler,
+      const media::VideoCaptureCapability& capability) OVERRIDE;
   virtual void StopCapture(media::VideoCapture::EventHandler* handler) OVERRIDE;
   virtual void FeedBuffer(scoped_refptr<VideoFrameBuffer> buffer) OVERRIDE;
   virtual bool CaptureStarted() OVERRIDE;
@@ -55,6 +55,9 @@ class PepperPlatformVideoCaptureImpl
   virtual void OnDeviceInfoReceived(
       VideoCapture* capture,
       const media::VideoCaptureParams& device_info) OVERRIDE;
+
+ protected:
+  virtual ~PepperPlatformVideoCaptureImpl();
 
  private:
   void Initialize();

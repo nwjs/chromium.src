@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_POLICY_APP_PACK_UPDATER_H_
 #define CHROME_BROWSER_POLICY_APP_PACK_UPDATER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -20,14 +19,14 @@
 #include "chrome/browser/policy/cloud_policy_subsystem.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "net/base/network_change_notifier.h"
 
 class CrxInstaller;
-class ExternalExtensionLoader;
-class FilePath;
 class GURL;
 
 namespace extensions {
 class ExtensionDownloader;
+class ExternalLoader;
 }
 
 namespace net {
@@ -40,7 +39,7 @@ class Location;
 
 namespace policy {
 
-class AppPackExternalExtensionLoader;
+class AppPackExternalLoader;
 class BrowserPolicyConnector;
 
 // The AppPackUpdater manages a set of extensions that are configured via a
@@ -48,6 +47,7 @@ class BrowserPolicyConnector;
 // at login time.
 class AppPackUpdater : public CloudPolicySubsystem::Observer,
                        public content::NotificationObserver,
+                       public net::NetworkChangeNotifier::IPAddressObserver,
                        public extensions::ExtensionDownloaderDelegate {
  public:
   // Callback to listen for updates to the screensaver extension's path.
@@ -62,10 +62,10 @@ class AppPackUpdater : public CloudPolicySubsystem::Observer,
                  BrowserPolicyConnector* connector);
   virtual ~AppPackUpdater();
 
-  // Creates an ExternalExtensionLoader that will load the crx files downloaded
-  // by the AppPackUpdater. This can be called at most once, and the caller
-  // owns the returned value.
-  ExternalExtensionLoader* CreateExternalExtensionLoader();
+  // Creates an extensions::ExternalLoader that will load the crx files
+  // downloaded by the AppPackUpdater. This can be called at most once, and the
+  // caller owns the returned value.
+  extensions::ExternalLoader* CreateExternalLoader();
 
   // |callback| will be invoked whenever the screen saver extension's path
   // changes. It will be invoked "soon" after this call if a valid path already
@@ -74,13 +74,18 @@ class AppPackUpdater : public CloudPolicySubsystem::Observer,
   void SetScreenSaverUpdateCallback(const ScreenSaverUpdateCallback& callback);
 
  private:
+  struct AppPackEntry {
+    std::string update_url;
+    bool update_checked;
+  };
+
   struct CacheEntry {
     std::string path;
     std::string cached_version;
   };
 
-  // Maps an extension ID to its update URL.
-  typedef std::map<std::string, std::string> PolicyEntryMap;
+  // Maps an extension ID to its update URL and update information.
+  typedef std::map<std::string, AppPackEntry> PolicyEntryMap;
 
   // Maps an extension ID to a CacheEntry.
   typedef std::map<std::string, CacheEntry> CacheEntryMap;
@@ -96,6 +101,9 @@ class AppPackUpdater : public CloudPolicySubsystem::Observer,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // net::NetworkChangeNotifier::IPAddressObserver:
+  virtual void OnIPAddressChanged() OVERRIDE;
 
   // Loads the current policy and schedules a cache update.
   void LoadPolicy();
@@ -177,6 +185,10 @@ class AppPackUpdater : public CloudPolicySubsystem::Observer,
   // appropriate.
   void SetScreenSaverPath(const FilePath& path);
 
+  // Marks extension |id| in |app_pack_extensions_| as having already been
+  // checked for updates, if it exists.
+  void SetUpdateChecked(const std::string& id);
+
   base::WeakPtrFactory<AppPackUpdater> weak_ptr_factory_;
 
   // Observes updates to the |device_cloud_policy_subsystem_|, to detect
@@ -209,7 +221,7 @@ class AppPackUpdater : public CloudPolicySubsystem::Observer,
   // The extension loader wires the AppPackUpdater to the extensions system, and
   // makes it install the currently cached extensions.
   bool created_extension_loader_;
-  base::WeakPtr<AppPackExternalExtensionLoader> extension_loader_;
+  base::WeakPtr<AppPackExternalLoader> extension_loader_;
 
   // Used to download the extensions configured via policy, and to check for
   // updates.

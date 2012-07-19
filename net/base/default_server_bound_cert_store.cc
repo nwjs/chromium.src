@@ -102,7 +102,7 @@ void DefaultServerBoundCertStore::DeleteAll() {
 }
 
 void DefaultServerBoundCertStore::GetAllServerBoundCerts(
-    std::vector<ServerBoundCert>* server_bound_certs) {
+    ServerBoundCertList* server_bound_certs) {
   base::AutoLock autolock(lock_);
   InitIfNecessary();
   for (ServerBoundCertMap::iterator it = server_bound_certs_.begin();
@@ -116,6 +116,14 @@ int DefaultServerBoundCertStore::GetCertCount() {
   InitIfNecessary();
 
   return server_bound_certs_.size();
+}
+
+void DefaultServerBoundCertStore::SetForceKeepSessionState() {
+  base::AutoLock autolock(lock_);
+  InitIfNecessary();
+
+  if (store_)
+    store_->SetForceKeepSessionState();
 }
 
 DefaultServerBoundCertStore::~DefaultServerBoundCertStore() {
@@ -176,5 +184,7 @@ void DefaultServerBoundCertStore::InternalInsertServerBoundCert(
 }
 
 DefaultServerBoundCertStore::PersistentStore::PersistentStore() {}
+
+DefaultServerBoundCertStore::PersistentStore::~PersistentStore() {}
 
 }  // namespace net

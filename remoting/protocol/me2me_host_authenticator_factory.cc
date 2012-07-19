@@ -57,64 +57,37 @@ class RejectingAuthenticator : public Authenticator {
 
 }  // namespace
 
-bool SharedSecretHash::Parse(const std::string& as_string) {
-  size_t separator = as_string.find(':');
-  if (separator == std::string::npos)
-    return false;
-
-  std::string function_name = as_string.substr(0, separator);
-  if (function_name == "plain") {
-    hash_function = AuthenticationMethod::NONE;
-  } else if (function_name == "hmac") {
-    hash_function = AuthenticationMethod::HMAC_SHA256;
-  } else {
-    return false;
-  }
-
-  if (!base::Base64Decode(as_string.substr(separator + 1), &value)) {
-    return false;
-  }
-
-  return true;
-}
-
 Me2MeHostAuthenticatorFactory::Me2MeHostAuthenticatorFactory(
-    const std::string& local_jid,
     const std::string& local_cert,
     const crypto::RSAPrivateKey& local_private_key,
     const SharedSecretHash& shared_secret_hash)
     : local_cert_(local_cert),
       local_private_key_(local_private_key.Copy()),
       shared_secret_hash_(shared_secret_hash) {
-  // Verify that |local_jid| is bare.
-  DCHECK_EQ(local_jid.find('/'), std::string::npos);
-  local_jid_prefix_ = local_jid + '/';
 }
 
 Me2MeHostAuthenticatorFactory::~Me2MeHostAuthenticatorFactory() {
 }
 
 scoped_ptr<Authenticator> Me2MeHostAuthenticatorFactory::CreateAuthenticator(
+    const std::string& local_jid,
     const std::string& remote_jid,
     const buzz::XmlElement* first_message) {
+
+  size_t slash_pos = local_jid.find('/');
+  if (slash_pos == std::string::npos) {
+    LOG(DFATAL) << "Invalid local JID:" << local_jid;
+    return scoped_ptr<Authenticator>(new RejectingAuthenticator());
+  }
+
   // Verify that the client's jid is an ASCII string, and then check
   // that the client has the same bare jid as the host, i.e. client's
   // full JID starts with host's bare jid. Comparison is case
   // insensitive.
   if (!IsStringASCII(remote_jid) ||
-      !StartsWithASCII(remote_jid, local_jid_prefix_, false)) {
+      !StartsWithASCII(remote_jid, local_jid.substr(0, slash_pos + 1), false)) {
     LOG(ERROR) << "Rejecting incoming connection from " << remote_jid;
     return scoped_ptr<Authenticator>(new RejectingAuthenticator());
-  }
-
-  if (shared_secret_hash_.hash_function == AuthenticationMethod::NONE &&
-      shared_secret_hash_.value.empty()) {
-    // PIN isn't set. Enable V1 authentication.
-    if (!NegotiatingAuthenticator::IsNegotiableMessage(first_message)) {
-      return scoped_ptr<Authenticator>(
-          new V1HostAuthenticator(local_cert_, *local_private_key_,
-                                  "", remote_jid));
-    }
   }
 
   return NegotiatingAuthenticator::CreateForHost(

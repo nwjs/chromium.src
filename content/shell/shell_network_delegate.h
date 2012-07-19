@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_SHELL_SHELL_NETWORK_DELEGATE_H_
 #define CONTENT_SHELL_SHELL_NETWORK_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -47,12 +46,18 @@ class ShellNetworkDelegate : public net::NetworkDelegate {
       const net::AuthChallengeInfo& auth_info,
       const AuthCallback& callback,
       net::AuthCredentials* credentials) OVERRIDE;
-  virtual bool CanGetCookies(
-      const net::URLRequest* request,
-      const net::CookieList& cookie_list) OVERRIDE;
-  virtual bool CanSetCookie(const net::URLRequest* request,
-                            const std::string& cookie_line,
-                            net::CookieOptions* options) OVERRIDE;
+  virtual bool OnCanGetCookies(const net::URLRequest& request,
+                               const net::CookieList& cookie_list) OVERRIDE;
+  virtual bool OnCanSetCookie(const net::URLRequest& request,
+                              const std::string& cookie_line,
+                              net::CookieOptions* options) OVERRIDE;
+  virtual bool OnCanAccessFile(const net::URLRequest& request,
+                               const FilePath& path) const OVERRIDE;
+  virtual bool OnCanThrottleRequest(
+      const net::URLRequest& request) const OVERRIDE;
+  virtual int OnBeforeSocketStreamConnect(
+      net::SocketStream* stream,
+      const net::CompletionCallback& callback) OVERRIDE;
 
   DISALLOW_COPY_AND_ASSIGN(ShellNetworkDelegate);
 };

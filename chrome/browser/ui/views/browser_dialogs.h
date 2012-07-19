@@ -4,9 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_BROWSER_DIALOGS_H_
 #define CHROME_BROWSER_UI_VIEWS_BROWSER_DIALOGS_H_
-#pragma once
-
-#include <string>
 
 #include "ui/gfx/native_widget_types.h"
 
@@ -17,29 +14,30 @@
 // TODO: Make as many of these methods as possible cross platform, and move them
 // into chrome/browser/ui/browser_dialogs.h.
 
+class Browser;
 class BrowserView;
 class EditSearchEngineControllerDelegate;
-class Extension;
 class FindBar;
 class GURL;
 class Profile;
-class TabContentsWrapper;
+class TabContents;
 class TemplateURL;
 
 namespace content {
+class PageNavigator;
+class WebContents;
 struct SSLStatus;
 }
 
-namespace gfx {
-class Size;
+namespace extensions {
+class Extension;
 }
 
 namespace views {
 class View;
-class Widget;
 }
 
-namespace browser {
+namespace chrome {
 
 // Shows or hides the bookmark bubble anchored to the supplied view.
 void ShowBookmarkBubbleView(views::View* anchor_view,
@@ -50,20 +48,20 @@ void HideBookmarkBubbleView();
 bool IsBookmarkBubbleViewShowing();
 
 // Shows or hides the Chrome To Mobile bubble anchored to the supplied view.
-void ShowChromeToMobileBubbleView(views::View* anchor_view, Profile* profile);
+void ShowChromeToMobileBubbleView(views::View* anchor_view, Browser* browser);
 void HideChromeToMobileBubbleView();
 bool IsChromeToMobileBubbleViewShowing();
 
 // Shows the page info bubble anchored to the supplied view.
 void ShowPageInfoBubble(views::View* anchor_view,
-                        Profile* profile,
+                        content::WebContents* web_contents,
                         const GURL& url,
                         const content::SSLStatus& ssl,
-                        bool show_history);
+                        bool show_history,
+                        content::PageNavigator* navigator);
 
 // Shows the about dialog. See AboutChromeView.
-views::Widget* ShowAboutChromeView(gfx::NativeWindow parent,
-                                   Profile* profile);
+void ShowAboutChromeView(gfx::NativeWindow parent, Browser* browser);
 
 // Creates and returns a find bar for the given browser window. See FindBarWin.
 FindBar* CreateFindBar(BrowserView* browser_view);
@@ -74,30 +72,21 @@ void ShowTaskManager();
 // Shows the Task Manager, highlighting the background pages.
 void ShowBackgroundPages();
 
-#if defined(OS_CHROMEOS)
-// Shows the Login Wizard.
-void ShowLoginWizard(const std::string& start_screen, const gfx::Size& size);
-#endif
-
 // Shows a dialog box that allows a search engine to be edited. |template_url|
 // is the search engine being edited. If it is NULL, then the dialog will add a
 // new search engine with the data the user supplies. |delegate| is an object
 // to be notified when the user is done editing, or NULL. If NULL, the dialog
 // will update the model with the user's edits directly.
 void EditSearchEngine(gfx::NativeWindow parent,
-                      const TemplateURL* template_url,
+                      TemplateURL* template_url,
                       EditSearchEngineControllerDelegate* delegate,
                       Profile* profile);
-
-// Shows the create web app shortcut dialog box.
-void ShowCreateWebAppShortcutsDialog(gfx::NativeWindow parent_window,
-                                     TabContentsWrapper* tab_contents);
 
 // Shows the create chrome app shortcut dialog box.
 void ShowCreateChromeAppShortcutsDialog(gfx::NativeWindow parent_window,
                                         Profile* profile,
-                                        const Extension* app);
+                                        const extensions::Extension* app);
 
-}  // namespace browser
+}  // namespace chrome
 
 #endif  // CHROME_BROWSER_UI_VIEWS_BROWSER_DIALOGS_H_

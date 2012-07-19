@@ -11,6 +11,7 @@
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "media/video/capture/video_capture.h"
+#include "media/video/capture/video_capture_types.h"
 #include "ppapi/c/dev/ppp_video_capture_dev.h"
 #include "ppapi/shared_impl/ppb_video_capture_shared.h"
 #include "ppapi/shared_impl/resource.h"
@@ -53,12 +54,12 @@ class PPB_VideoCapture_Impl
   // PPB_VideoCapture_Shared implementation.
   virtual int32_t InternalEnumerateDevices(
       PP_Resource* devices,
-      const PP_CompletionCallback& callback) OVERRIDE;
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
   virtual int32_t InternalOpen(
       const std::string& device_id,
       const PP_VideoCaptureDeviceInfo_Dev& requested_info,
       uint32_t buffer_count,
-      const PP_CompletionCallback& callback) OVERRIDE;
+      scoped_refptr< ::ppapi::TrackedCallback> callback) OVERRIDE;
   virtual int32_t InternalStartCapture() OVERRIDE;
   virtual int32_t InternalReuseBuffer(uint32_t buffer) OVERRIDE;
   virtual int32_t InternalStopCapture() OVERRIDE;
@@ -97,7 +98,7 @@ class PPB_VideoCapture_Impl
 
   DeviceRefDataVector devices_data_;
 
-  media::VideoCapture::VideoCaptureCapability capability_;
+  media::VideoCaptureCapability capability_;
 
   DISALLOW_COPY_AND_ASSIGN(PPB_VideoCapture_Impl);
 };

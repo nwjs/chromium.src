@@ -186,7 +186,8 @@ Bus::Bus(const Options& options)
       async_operations_set_up_(false),
       shutdown_completed_(false),
       num_pending_watches_(0),
-      num_pending_timeouts_(0) {
+      num_pending_timeouts_(0),
+      address_(options.address) {
   // This is safe to call multiple times.
   dbus_threads_init_default();
   // The origin message loop is unnecessary if the client uses synchronous
@@ -288,11 +289,19 @@ bool Bus::Connect() {
     return true;
 
   ScopedDBusError error;
-  const DBusBusType dbus_bus_type = static_cast<DBusBusType>(bus_type_);
-  if (connection_type_ == PRIVATE) {
-    connection_ = dbus_bus_get_private(dbus_bus_type, error.get());
+  if (bus_type_ == CUSTOM_ADDRESS) {
+    if (connection_type_ == PRIVATE) {
+      connection_ = dbus_connection_open_private(address_.c_str(), error.get());
+    } else {
+      connection_ = dbus_connection_open(address_.c_str(), error.get());
+    }
   } else {
-    connection_ = dbus_bus_get(dbus_bus_type, error.get());
+    const DBusBusType dbus_bus_type = static_cast<DBusBusType>(bus_type_);
+    if (connection_type_ == PRIVATE) {
+      connection_ = dbus_bus_get_private(dbus_bus_type, error.get());
+    } else {
+      connection_ = dbus_bus_get(dbus_bus_type, error.get());
+    }
   }
   if (!connection_) {
     LOG(ERROR) << "Failed to connect to the bus: "
@@ -358,6 +367,9 @@ void Bus::ShutdownOnDBusThreadAndBlock() {
   PostTaskToDBusThread(FROM_HERE, base::Bind(
       &Bus::ShutdownOnDBusThreadAndBlockInternal,
       this));
+
+  // http://crbug.com/125222
+  base::ThreadRestrictions::ScopedAllowWait allow_wait;
 
   // Wait until the shutdown is complete on the D-Bus thread.
   // The shutdown should not hang, but set timeout just in case.
@@ -794,12 +806,12 @@ dbus_bool_t Bus::OnAddWatchThunk(DBusWatch* raw_watch, void* data) {
 
 void Bus::OnRemoveWatchThunk(DBusWatch* raw_watch, void* data) {
   Bus* self = static_cast<Bus*>(data);
-  return self->OnRemoveWatch(raw_watch);
+  self->OnRemoveWatch(raw_watch);
 }
 
 void Bus::OnToggleWatchThunk(DBusWatch* raw_watch, void* data) {
   Bus* self = static_cast<Bus*>(data);
-  return self->OnToggleWatch(raw_watch);
+  self->OnToggleWatch(raw_watch);
 }
 
 dbus_bool_t Bus::OnAddTimeoutThunk(DBusTimeout* raw_timeout, void* data) {
@@ -809,19 +821,19 @@ dbus_bool_t Bus::OnAddTimeoutThunk(DBusTimeout* raw_timeout, void* data) {
 
 void Bus::OnRemoveTimeoutThunk(DBusTimeout* raw_timeout, void* data) {
   Bus* self = static_cast<Bus*>(data);
-  return self->OnRemoveTimeout(raw_timeout);
+  self->OnRemoveTimeout(raw_timeout);
 }
 
 void Bus::OnToggleTimeoutThunk(DBusTimeout* raw_timeout, void* data) {
   Bus* self = static_cast<Bus*>(data);
-  return self->OnToggleTimeout(raw_timeout);
+  self->OnToggleTimeout(raw_timeout);
 }
 
 void Bus::OnDispatchStatusChangedThunk(DBusConnection* connection,
                                        DBusDispatchStatus status,
                                        void* data) {
   Bus* self = static_cast<Bus*>(data);
-  return self->OnDispatchStatusChanged(connection, status);
+  self->OnDispatchStatusChanged(connection, status);
 }
 
 }  // namespace dbus

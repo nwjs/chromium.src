@@ -10,7 +10,9 @@
 #include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/logging.h"
+#include "remoting/base/breakpad.h"
 #include "remoting/host/branding.h"
+#include "remoting/host/usage_stats_consent.h"
 
 // MIDL-generated declarations.
 #include "remoting/host/elevated_controller.h"
@@ -28,8 +30,20 @@ class ElevatedControllerModuleWin
 
 remoting::ElevatedControllerModuleWin _AtlModule;
 
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int command) {
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE, LPSTR, int command) {
+#ifdef OFFICIAL_BUILD
+  if (remoting::IsUsageStatsAllowed()) {
+    remoting::InitializeCrashReporting();
+  }
+#endif  // OFFICIAL_BUILD
+
   CommandLine::Init(0, NULL);
+
+  // Register and initialize common controls.
+  INITCOMMONCONTROLSEX info;
+  info.dwSize = sizeof(info);
+  info.dwICC = ICC_STANDARD_CLASSES;
+  InitCommonControlsEx(&info);
 
   // This object instance is required by Chrome code (for example,
   // FilePath, LazyInstance, MessageLoop).

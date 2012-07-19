@@ -4,12 +4,11 @@
 
 #ifndef SYNC_TEST_FAKE_ENCRYPTOR_H_
 #define SYNC_TEST_FAKE_ENCRYPTOR_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "sync/util/encryptor.h"
 
-namespace browser_sync {
+namespace syncer {
 
 // Encryptor which simply base64-encodes the plaintext to get the
 // ciphertext.  Obviously, this should be used only for testing.
@@ -24,6 +23,6 @@ class FakeEncryptor : public Encryptor {
                              std::string* plaintext) OVERRIDE;
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_TEST_FAKE_ENCRYPTOR_H_

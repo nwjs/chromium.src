@@ -131,7 +131,8 @@ bool DelayedCacheCleanup(const FilePath& full_path) {
   }
 
   if (!disk_cache::MoveCache(full_path, to_delete)) {
-    LOG(ERROR) << "Unable to move cache folder";
+    LOG(ERROR) << "Unable to move cache folder " << full_path.value() << " to "
+               << to_delete.value();
     return false;
   }
 
@@ -368,6 +369,8 @@ BackendImpl::~BackendImpl() {
   } else {
     background_queue_.background_thread()->PostTask(
         FROM_HERE, base::Bind(&FinalCleanupCallback, base::Unretained(this)));
+    // http://crbug.com/74623
+    base::ThreadRestrictions::ScopedAllowWait allow_wait;
     done_.Wait();
   }
 }
@@ -447,6 +450,9 @@ int BackendImpl::SyncInit() {
     return net::ERR_FAILED;
   }
 
+  if (!restarted_ && (create_files || !data_->header.num_entries))
+    ReportError(ERR_CACHE_CREATED);
+
   if (!(user_flags_ & kNoRandom) &&
       cache_type_ == net::DISK_CACHE && !InitExperiment(&data_->header))
     return net::ERR_FAILED;
@@ -459,12 +465,8 @@ int BackendImpl::SyncInit() {
   if (!data_->header.this_id)
     data_->header.this_id++;
 
-  if (data_->header.crash) {
-    ReportError(ERR_PREVIOUS_CRASH);
-  } else {
-    ReportError(0);
-    data_->header.crash = 1;
-  }
+  bool previous_crash = (data_->header.crash != 0);
+  data_->header.crash = 1;
 
   if (!block_files_.Init(create_files))
     return net::ERR_FAILED;
@@ -484,6 +486,9 @@ int BackendImpl::SyncInit() {
 
   disabled_ = !rankings_.Init(this, new_eviction_);
 
+  if (!disabled_ && !(user_flags_ & kNoRandom) && base::RandInt(0, 99) < 2)
+    rankings_.SelfCheck();  // Ignore return value for now.
+
 #if defined(STRESS_CACHE_EXTENDED_VALIDATION)
   trace_object_->EnableTracing(false);
   int sc = SelfCheck();
@@ -491,6 +496,14 @@ int BackendImpl::SyncInit() {
     NOTREACHED();
   trace_object_->EnableTracing(true);
 #endif
+
+  if (previous_crash) {
+    ReportError(ERR_PREVIOUS_CRASH);
+  } else if (!restarted_) {
+    ReportError(ERR_NO_ERROR);
+  }
+
+  FlushIndex();
 
   return disabled_ ? net::ERR_FAILED : net::OK;
 }
@@ -514,6 +527,7 @@ void BackendImpl::CleanupCache() {
     }
   }
   block_files_.CloseFiles();
+  FlushIndex();
   index_ = NULL;
   ptr_factory_.InvalidateWeakPtrs();
   done_.Signal();
@@ -687,7 +701,7 @@ EntryImpl* BackendImpl::OpenEntryImpl(const std::string& key) {
   eviction_.OnOpenEntry(cache_entry);
   entry_count_++;
 
-  CACHE_UMA(AGE_MS, "OpenTime", GetSizeGroup(), start);
+  CACHE_UMA(AGE_MS, "OpenTime", 0, start);
   stats_.OnEvent(Stats::OPEN_HIT);
   SIMPLE_STATS_COUNTER("disk_cache.hit");
   return cache_entry;
@@ -783,10 +797,11 @@ EntryImpl* BackendImpl::CreateEntryImpl(const std::string& key) {
   // Link this entry through the lists.
   eviction_.OnCreateEntry(cache_entry);
 
-  CACHE_UMA(AGE_MS, "CreateTime", GetSizeGroup(), start);
+  CACHE_UMA(AGE_MS, "CreateTime", 0, start);
   stats_.OnEvent(Stats::CREATE_HIT);
   SIMPLE_STATS_COUNTER("disk_cache.miss");
   Trace("create entry hit ");
+  FlushIndex();
   return cache_entry.release();
 }
 
@@ -859,8 +874,10 @@ bool BackendImpl::CreateExternalFile(Addr* address) {
     scoped_refptr<disk_cache::File> file(new disk_cache::File(
         base::CreatePlatformFile(name, flags, NULL, &error)));
     if (!file->IsValid()) {
-      if (error != base::PLATFORM_FILE_ERROR_EXISTS)
+      if (error != base::PLATFORM_FILE_ERROR_EXISTS) {
+        LOG(ERROR) << "Unable to create file: " << error;
         return false;
+      }
       continue;
     }
 
@@ -912,6 +929,7 @@ void BackendImpl::RecoveredEntry(CacheRankingsBlock* rankings) {
     return;
 
   data_->table[hash & mask_] = address.value();
+  FlushIndex();
 }
 
 void BackendImpl::InternalDoomEntry(EntryImpl* entry) {
@@ -940,6 +958,8 @@ void BackendImpl::InternalDoomEntry(EntryImpl* entry) {
   } else if (!error) {
     data_->table[hash & mask_] = child;
   }
+
+  FlushIndex();
 }
 
 #if defined(NET_BUILD_STRESS_CACHE)
@@ -1059,7 +1079,7 @@ void BackendImpl::BufferDeleted(int size) {
 }
 
 bool BackendImpl::IsLoaded() const {
-  CACHE_UMA(COUNTS, "PendingIO", GetSizeGroup(), num_pending_io_);
+  CACHE_UMA(COUNTS, "PendingIO", 0, num_pending_io_);
   if (user_flags_ & kNoLoadProtection)
     return false;
 
@@ -1075,17 +1095,6 @@ std::string BackendImpl::HistogramName(const char* name, int experiment) const {
 
 base::WeakPtr<BackendImpl> BackendImpl::GetWeakPtr() {
   return ptr_factory_.GetWeakPtr();
-}
-
-int BackendImpl::GetSizeGroup() const {
-  if (disabled_)
-    return 0;
-
-  // We want to report times grouped by the current cache size (50 MB groups).
-  int group = data_->header.num_bytes / (50 * 1024 * 1024);
-  if (group > 6)
-    group = 6;  // Limit the number of groups, just in case.
-  return group;
 }
 
 // We want to remove biases from some histograms so we only send data once per
@@ -1302,6 +1311,11 @@ int BackendImpl::SelfCheck() {
   }
 
   return CheckAllEntries();
+}
+
+void BackendImpl::FlushIndex() {
+  if (index_ && !disabled_)
+    index_->Flush();
 }
 
 // ------------------------------------------------------------------------
@@ -1539,6 +1553,7 @@ void BackendImpl::PrepareForRestart() {
 
   disabled_ = true;
   data_->header.crash = 0;
+  index_->Flush();
   index_ = NULL;
   data_ = NULL;
   block_files_.CloseFiles();
@@ -1559,8 +1574,7 @@ int BackendImpl::NewEntry(Addr address, EntryImpl** entry) {
 
   STRESS_DCHECK(block_files_.IsValid(address));
 
-  if (!address.is_initialized() || address.is_separate_file() ||
-      address.file_type() != BLOCK_256) {
+  if (!address.SanityCheckForEntry()) {
     LOG(WARNING) << "Wrong entry address.";
     STRESS_NOTREACHED();
     return ERR_INVALID_ADDRESS;
@@ -1576,7 +1590,7 @@ int BackendImpl::NewEntry(Addr address, EntryImpl** entry) {
     return ERR_READ_FAILURE;
 
   if (IsLoaded()) {
-    CACHE_UMA(AGE_MS, "LoadTime", GetSizeGroup(), start);
+    CACHE_UMA(AGE_MS, "LoadTime", 0, start);
   }
 
   if (!cache_entry->SanityCheck()) {
@@ -1723,6 +1737,7 @@ EntryImpl* BackendImpl::MatchEntry(const std::string& key, uint32 hash,
     cache_entry = NULL;
 
   find_parent ? parent_entry.swap(&tmp) : cache_entry.swap(&tmp);
+  FlushIndex();
   return tmp;
 }
 
@@ -2004,8 +2019,7 @@ void BackendImpl::ReportStats() {
     return;
 
   CACHE_UMA(HOURS, "UseTime", 0, static_cast<int>(use_hours));
-  CACHE_UMA(PERCENTAGE, "HitRatio", data_->header.experiment,
-            stats_.GetHitRatio());
+  CACHE_UMA(PERCENTAGE, "HitRatio", 0, stats_.GetHitRatio());
 
   int64 trim_rate = stats_.GetCounter(Stats::TRIM_ENTRY) / use_hours;
   CACHE_UMA(COUNTS, "TrimRate", 0, static_cast<int>(trim_rate));
@@ -2022,15 +2036,14 @@ void BackendImpl::ReportStats() {
   CACHE_UMA(PERCENTAGE, "LargeEntriesRatio", 0, large_ratio);
 
   if (new_eviction_) {
-    CACHE_UMA(PERCENTAGE, "ResurrectRatio", data_->header.experiment,
-              stats_.GetResurrectRatio());
+    CACHE_UMA(PERCENTAGE, "ResurrectRatio", 0, stats_.GetResurrectRatio());
     CACHE_UMA(PERCENTAGE, "NoUseRatio", 0,
               data_->header.lru.sizes[0] * 100 / data_->header.num_entries);
     CACHE_UMA(PERCENTAGE, "LowUseRatio", 0,
               data_->header.lru.sizes[1] * 100 / data_->header.num_entries);
     CACHE_UMA(PERCENTAGE, "HighUseRatio", 0,
               data_->header.lru.sizes[2] * 100 / data_->header.num_entries);
-    CACHE_UMA(PERCENTAGE, "DeletedRatio", data_->header.experiment,
+    CACHE_UMA(PERCENTAGE, "DeletedRatio", 0,
               data_->header.lru.sizes[4] * 100 / data_->header.num_entries);
   }
 

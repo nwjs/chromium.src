@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_TEST_VIEWS_TEST_BASE_H_
 #define UI_VIEWS_TEST_VIEWS_TEST_BASE_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
@@ -16,20 +15,12 @@
 #endif
 
 namespace aura {
-class RootWindow;
 namespace test {
-class TestActivationClient;
-class TestStackingClient;
+class AuraTestHelper;
 }
-}
-
-namespace ui {
-class InputMethod;
 }
 
 namespace views {
-
-class TestViewsDelegate;
 
 // A base class for views unit test. It creates a message loop necessary
 // to drive UI events and takes care of OLE initialization for windows.
@@ -57,10 +48,7 @@ class ViewsTestBase : public testing::Test {
   MessageLoopForUI message_loop_;
   scoped_ptr<TestViewsDelegate> views_delegate_;
 #if defined(USE_AURA)
-  scoped_ptr<aura::RootWindow> root_window_;
-  scoped_ptr<aura::test::TestActivationClient> test_activation_client_;
-  scoped_ptr<aura::test::TestStackingClient> test_stacking_client_;
-  scoped_ptr<ui::InputMethod> test_input_method_;
+  scoped_ptr<aura::test::AuraTestHelper> aura_test_helper_;
 #endif
   bool setup_called_;
   bool teardown_called_;

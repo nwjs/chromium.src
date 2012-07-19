@@ -26,6 +26,7 @@ NetworkLibraryImplStub::NetworkLibraryImplStub()
 NetworkLibraryImplStub::~NetworkLibraryImplStub() {
   disabled_wifi_networks_.clear();
   disabled_cellular_networks_.clear();
+  disabled_wimax_networks_.clear();
 }
 
 void NetworkLibraryImplStub::Init() {
@@ -33,7 +34,8 @@ void NetworkLibraryImplStub::Init() {
 
   // Devices
   int devices =
-      (1 << TYPE_ETHERNET) | (1 << TYPE_WIFI) | (1 << TYPE_CELLULAR);
+      (1 << TYPE_ETHERNET) | (1 << TYPE_WIFI) | (1 << TYPE_CELLULAR) |
+      (1 << TYPE_WIMAX);
   available_devices_ = devices;
   enabled_devices_ = devices;
   connected_devices_ = devices;
@@ -77,13 +79,13 @@ void NetworkLibraryImplStub::Init() {
   Network* ethernet = new EthernetNetwork("eth1");
   ethernet->set_name("Fake Ethernet");
   ethernet->set_is_active(true);
-  ethernet->set_connected(true);
+  ethernet->set_connected();
   AddStubNetwork(ethernet, PROFILE_SHARED);
 
   WifiNetwork* wifi1 = new WifiNetwork("wifi1");
   wifi1->set_name("Fake WiFi1");
   wifi1->set_strength(100);
-  wifi1->set_connected(true);
+  wifi1->set_connected();
   wifi1->set_encryption(SECURITY_NONE);
   AddStubNetwork(wifi1, PROFILE_SHARED);
 
@@ -161,19 +163,21 @@ void NetworkLibraryImplStub::Init() {
   CellularNetwork* cellular1 = new CellularNetwork("cellular1");
   cellular1->set_name("Fake Cellular 1");
   cellular1->set_strength(100);
-  cellular1->set_connected(true);
+  cellular1->set_connected();
   cellular1->set_activation_state(ACTIVATION_STATE_ACTIVATED);
   cellular1->set_payment_url(std::string("http://www.google.com"));
   cellular1->set_usage_url(std::string("http://www.google.com"));
   cellular1->set_network_technology(NETWORK_TECHNOLOGY_EVDO);
   AddStubNetwork(cellular1, PROFILE_NONE);
 
-  CellularNetwork* cellular2 = new CellularNetwork("cellular2");
+  CellularNetwork* cellular2 = new CellularNetwork("/cellular2");
   cellular2->set_name("Fake Cellular 2");
   cellular2->set_strength(50);
   cellular2->set_activation_state(ACTIVATION_STATE_NOT_ACTIVATED);
   cellular2->set_network_technology(NETWORK_TECHNOLOGY_UMTS);
   cellular2->set_roaming_state(ROAMING_STATE_ROAMING);
+  cellular2->set_payment_url(std::string("http://www.google.com"));
+  cellular2->set_usage_url(std::string("http://www.google.com"));
   AddStubNetwork(cellular2, PROFILE_NONE);
 
   CellularNetwork* cellular3 = new CellularNetwork("cellular3");
@@ -233,6 +237,21 @@ void NetworkLibraryImplStub::Init() {
   CellularDataPlanVector* data_plan_vector2 = new CellularDataPlanVector;
   data_plan_vector2->push_back(low_data_plan);
   UpdateCellularDataPlan(cellular5->service_path(), data_plan_vector2);
+
+  WimaxNetwork* wimax1 = new WimaxNetwork("wimax1");
+  wimax1->set_name("Fake WiMAX Protected");
+  wimax1->set_strength(75);
+  wimax1->set_connectable(true);
+  wimax1->set_eap_identity("WiMAX User 1");
+  wimax1->set_passphrase_required(true);
+  AddStubNetwork(wimax1, PROFILE_NONE);
+
+  WimaxNetwork* wimax2 = new WimaxNetwork("wimax2");
+  wimax2->set_name("Fake WiMAX Open");
+  wimax2->set_strength(50);
+  wimax2->set_connected();
+  wimax2->set_passphrase_required(false);
+  AddStubNetwork(wimax2, PROFILE_NONE);
 
   VirtualNetwork* vpn1 = new VirtualNetwork("vpn1");
   vpn1->set_name("Fake VPN1");
@@ -360,28 +379,36 @@ void NetworkLibraryImplStub::AddStubRememberedNetwork(Network* network) {
   if (remembered) {
     remembered->set_name(network->name());
     remembered->set_unique_id(network->unique_id());
-    // AddRememberedNetwork will insert the network into the matching profile
-    // and set the profile type + path.
-    AddRememberedNetwork(remembered);
+    // ValidateAndAddRememberedNetwork will insert the network into the matching
+    // profile and set the profile type + path.
+    if (!ValidateAndAddRememberedNetwork(remembered))
+      NOTREACHED();
   }
 }
 
 void NetworkLibraryImplStub::ConnectToNetwork(Network* network) {
+  std::string passphrase;
   if (network->type() == TYPE_WIFI) {
     WifiNetwork* wifi = static_cast<WifiNetwork*>(network);
-    if (wifi->encryption() != SECURITY_NONE) {
-      if (wifi->passphrase().find("bad") == 0) {
-        NetworkConnectCompleted(network, CONNECT_BAD_PASSPHRASE);
-        return;
-      } else if (wifi->passphrase().find("error") == 0) {
-        NetworkConnectCompleted(network, CONNECT_FAILED);
-        return;
-      }
+    if (wifi->passphrase_required())
+      passphrase = wifi->passphrase();
+  } else if (network->type() == TYPE_WIMAX) {
+    WimaxNetwork* wimax = static_cast<WimaxNetwork*>(network);
+    if (wimax->passphrase_required())
+      passphrase = wimax->eap_passphrase();
+  }
+  if (!passphrase.empty()) {
+    if (passphrase.find("bad") == 0) {
+      NetworkConnectCompleted(network, CONNECT_BAD_PASSPHRASE);
+      return;
+    } else if (passphrase.find("error") == 0) {
+      NetworkConnectCompleted(network, CONNECT_FAILED);
+      return;
     }
   }
 
   // Set connected state.
-  network->set_connected(true);
+  network->set_connected();
   network->set_connection_started(false);
 
   // Make the connected network the highest priority network.
@@ -397,7 +424,7 @@ void NetworkLibraryImplStub::ConnectToNetwork(Network* network) {
       other->priority_order_++;
     if (other->type() == network->type()) {
       other->set_is_active(false);
-      other->set_connected(false);
+      other->set_disconnected();
     }
   }
 
@@ -461,7 +488,7 @@ void NetworkLibraryImplStub::CallConnectToNetwork(Network* network) {
         BrowserThread::UI, FROM_HERE,
         base::Bind(&NetworkLibraryImplStub::ConnectToNetwork,
                    base::Unretained(this), network),
-        connect_delay_ms_);
+        base::TimeDelta::FromMilliseconds(connect_delay_ms_));
     SignalNetworkManagerObservers();
     NotifyNetworkChanged(network);
   } else {
@@ -502,6 +529,9 @@ void NetworkLibraryImplStub::CallEnableNetworkDeviceType(
     if (device == TYPE_WIFI && !wifi_enabled()) {
       wifi_networks_.swap(disabled_wifi_networks_);
       disabled_wifi_networks_.clear();
+    } else if (device == TYPE_WIMAX && !wimax_enabled()) {
+      wimax_networks_.swap(disabled_wimax_networks_);
+      disabled_wimax_networks_.clear();
     } else if (device == TYPE_CELLULAR && !cellular_enabled()) {
       cellular_networks_.swap(disabled_cellular_networks_);
       disabled_cellular_networks_.clear();
@@ -513,6 +543,11 @@ void NetworkLibraryImplStub::CallEnableNetworkDeviceType(
       wifi_networks_.clear();
       if (active_wifi_)
         DisconnectFromNetwork(active_wifi_);
+    } else if (device == TYPE_WIMAX && wimax_enabled()) {
+        wimax_networks_.swap(disabled_wimax_networks_);
+        wimax_networks_.clear();
+        if (active_wimax_)
+          DisconnectFromNetwork(active_wimax_);
     } else if (device == TYPE_CELLULAR && cellular_enabled()) {
       cellular_networks_.swap(disabled_cellular_networks_);
       cellular_networks_.clear();
@@ -605,7 +640,7 @@ void NetworkLibraryImplStub::DisconnectFromNetwork(const Network* network) {
   // Update the network state here since no network manager in stub impl.
   Network* modify_network = const_cast<Network*>(network);
   modify_network->set_is_active(false);
-  modify_network->set_connected(false);
+  modify_network->set_disconnected();
   if (network == active_wifi_)
     active_wifi_ = NULL;
   else if (network == active_cellular_)

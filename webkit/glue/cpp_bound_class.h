@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -15,21 +15,21 @@
   See cpp_binding_example.{h|cc} for an example.
 */
 
-#ifndef WEBKIT_GLUE_CPP_BOUNDCLASS_H__
-#define WEBKIT_GLUE_CPP_BOUNDCLASS_H__
+#ifndef WEBKIT_GLUE_CPP_BOUND_CLASS_H_
+#define WEBKIT_GLUE_CPP_BOUND_CLASS_H_
 
 #include <map>
 #include <vector>
 
-#include "webkit/glue/cpp_variant.h"
-
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
+#include "webkit/glue/cpp_variant.h"
 #include "webkit/glue/webkit_glue_export.h"
 
 namespace WebKit {
 class WebFrame;
 }
+
+namespace webkit_glue {
 
 typedef std::vector<CppVariant> CppArgumentList;
 
@@ -140,4 +140,6 @@ class WEBKIT_GLUE_EXPORT CppBoundClass {
   DISALLOW_COPY_AND_ASSIGN(CppBoundClass);
 };
 
-#endif  // CPP_BOUNDCLASS_H__
+}  // namespace webkit_glue
+
+#endif  // WEBKIT_GLUE_CPP_BOUND_CLASS_H_

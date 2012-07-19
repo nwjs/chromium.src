@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_UTIL_H_
 #define CHROME_BROWSER_CHROMEOS_INPUT_METHOD_INPUT_METHOD_UTIL_H_
-#pragma once
 
 #include <cstddef>
 #include <map>
@@ -14,7 +13,7 @@
 #include "base/string16.h"
 #include "base/hash_tables.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/chromeos/input_method/ibus_controller.h"
+#include "chrome/browser/chromeos/input_method/input_method_descriptor.h"
 
 namespace chromeos {
 namespace input_method {
@@ -74,6 +73,7 @@ class InputMethodUtil {
 
   string16 GetInputMethodShortName(
       const InputMethodDescriptor& input_method) const;
+  string16 GetInputMethodLongName(const InputMethodDescriptor& ime) const;
 
   // Converts an input method ID to an input method descriptor. Returns NULL
   // when |input_method_id| is unknown.
@@ -127,6 +127,9 @@ class InputMethodUtil {
 
   // Sets an input method ID of the hardware keyboard for testing.
   void SetHardwareInputMethodIdForTesting(const std::string& input_method_id);
+
+  // Returns true if the given input method id is supported.
+  bool IsValidInputMethodId(const std::string& input_method_id) const;
 
   // Returns true if the given input method id is for a keyboard layout.
   static bool IsKeyboardLayout(const std::string& input_method_id);

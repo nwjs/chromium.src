@@ -8,19 +8,20 @@
 #include "base/bind_helpers.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
+#include "base/string16.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/windows_version.h"
-#include "chrome/browser/extensions/extension_tab_helper.h"
+#include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/web_applications/web_app.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
-#include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
@@ -41,7 +42,7 @@ namespace {
 // and cancels all the work when the underlying tab is closing.
 class UpdateShortcutWorker : public content::NotificationObserver {
  public:
-  explicit UpdateShortcutWorker(TabContentsWrapper* tab_contents);
+  explicit UpdateShortcutWorker(TabContents* tab_contents);
 
   void Run();
 
@@ -73,8 +74,8 @@ class UpdateShortcutWorker : public content::NotificationObserver {
 
   content::NotificationRegistrar registrar_;
 
-  // Underlying TabContentsWrapper whose shortcuts will be updated.
-  TabContentsWrapper* tab_contents_;
+  // Underlying TabContents whose shortcuts will be updated.
+  TabContents* tab_contents_;
 
   // Icons info from tab_contents_'s web app data.
   web_app::IconInfoList unprocessed_icons_;
@@ -94,7 +95,7 @@ class UpdateShortcutWorker : public content::NotificationObserver {
   DISALLOW_COPY_AND_ASSIGN(UpdateShortcutWorker);
 };
 
-UpdateShortcutWorker::UpdateShortcutWorker(TabContentsWrapper* tab_contents)
+UpdateShortcutWorker::UpdateShortcutWorker(TabContents* tab_contents)
     : tab_contents_(tab_contents),
       profile_path_(tab_contents->profile()->GetPath()) {
   web_app::GetShortcutInfoForTab(tab_contents_, &shortcut_info_);
@@ -104,7 +105,7 @@ UpdateShortcutWorker::UpdateShortcutWorker(TabContentsWrapper* tab_contents)
 
   registrar_.Add(
       this,
-      content::NOTIFICATION_TAB_CLOSING,
+      chrome::NOTIFICATION_TAB_CLOSING,
       content::Source<NavigationController>(
           &tab_contents_->web_contents()->GetController()));
 }
@@ -118,7 +119,7 @@ void UpdateShortcutWorker::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  if (type == content::NOTIFICATION_TAB_CLOSING &&
+  if (type == chrome::NOTIFICATION_TAB_CLOSING &&
       content::Source<NavigationController>(source).ptr() ==
         &tab_contents_->web_contents()->GetController()) {
     // Underlying tab is closing.
@@ -127,17 +128,17 @@ void UpdateShortcutWorker::Observe(
 }
 
 void UpdateShortcutWorker::DownloadIcon() {
-  // FetchIcon must run on UI thread because it relies on TabContents
+  // FetchIcon must run on UI thread because it relies on WebContents
   // to download the icon.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (tab_contents_ == NULL) {
-    DeleteMe();  // We are done if underlying TabContents is gone.
+    DeleteMe();  // We are done if underlying WebContents is gone.
     return;
   }
 
   if (unprocessed_icons_.empty()) {
-    // No app icon. Just use the favicon from TabContents.
+    // No app icon. Just use the favicon from WebContents.
     UpdateShortcuts();
     return;
   }
@@ -156,7 +157,7 @@ void UpdateShortcutWorker::OnIconDownloaded(int download_id,
                                             bool errored,
                                             const SkBitmap& image) {
   if (tab_contents_ == NULL) {
-    DeleteMe();  // We are done if underlying TabContents is gone.
+    DeleteMe();  // We are done if underlying WebContents is gone.
     return;
   }
 
@@ -248,7 +249,7 @@ void UpdateShortcutWorker::UpdateShortcutsOnFileThread() {
   CheckExistingShortcuts();
   if (!shortcut_files_.empty()) {
     // Generates app id from web app url and profile path.
-    std::wstring app_id = ShellIntegration::GetAppId(
+    string16 app_id = ShellIntegration::GetAppModelIdForProfile(
         UTF8ToWide(web_app::GenerateApplicationNameFromURL(shortcut_info_.url)),
         profile_path_);
 
@@ -257,14 +258,16 @@ void UpdateShortcutWorker::UpdateShortcutsOnFileThread() {
       shortcut_info_.description.resize(MAX_PATH - 1);
 
     for (size_t i = 0; i < shortcut_files_.size(); ++i) {
-      file_util::UpdateShortcutLink(NULL,
+      file_util::CreateOrUpdateShortcutLink(
+          NULL,
           shortcut_files_[i].value().c_str(),
           NULL,
           NULL,
           shortcut_info_.description.c_str(),
           icon_file.value().c_str(),
           0,
-          app_id.c_str());
+          app_id.c_str(),
+          file_util::SHORTCUT_NO_OPTIONS);
     }
   }
 
@@ -295,13 +298,13 @@ void UpdateShortcutWorker::DeleteMeOnUIThread() {
 
 namespace web_app {
 
-void GetShortcutInfoForTab(TabContentsWrapper* tab_contents_wrapper,
+void GetShortcutInfoForTab(TabContents* tab_contents,
                            ShellIntegration::ShortcutInfo* info) {
   DCHECK(info);  // Must provide a valid info.
-  const WebContents* web_contents = tab_contents_wrapper->web_contents();
+  const WebContents* web_contents = tab_contents->web_contents();
 
   const WebApplicationInfo& app_info =
-      tab_contents_wrapper->extension_tab_helper()->web_app_info();
+      tab_contents->extension_tab_helper()->web_app_info();
 
   info->url = app_info.app_url.is_empty() ? web_contents->GetURL() :
                                             app_info.app_url;
@@ -311,10 +314,10 @@ void GetShortcutInfoForTab(TabContentsWrapper* tab_contents_wrapper,
       app_info.title;
   info->description = app_info.description;
   info->favicon =
-      gfx::Image(tab_contents_wrapper->favicon_tab_helper()->GetFavicon());
+      gfx::Image(tab_contents->favicon_tab_helper()->GetFavicon());
 }
 
-void UpdateShortcutForTabContents(TabContentsWrapper* tab_contents) {
+void UpdateShortcutForTabContents(TabContents* tab_contents) {
 #if defined(OS_WIN)
   // UpdateShortcutWorker will delete itself when it's done.
   UpdateShortcutWorker* worker = new UpdateShortcutWorker(tab_contents);

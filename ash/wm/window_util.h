@@ -4,15 +4,18 @@
 
 #ifndef ASH_WM_WINDOW_UTIL_H_
 #define ASH_WM_WINDOW_UTIL_H_
-#pragma once
 
 #include "ash/ash_export.h"
 
 namespace aura {
+class RootWindow;
 class Window;
 }
 
 namespace ash {
+namespace internal {
+class RootWindowController;
+}
 namespace wm {
 
 // Convenience setters/getters for |aura::client::kRootWindowActiveWindow|.
@@ -21,6 +24,8 @@ ASH_EXPORT void DeactivateWindow(aura::Window* window);
 ASH_EXPORT bool IsActiveWindow(aura::Window* window);
 ASH_EXPORT aura::Window* GetActiveWindow();
 ASH_EXPORT bool CanActivateWindow(aura::Window* window);
+ASH_EXPORT internal::RootWindowController* GetRootWindowController(
+    aura::RootWindow* root_window);
 
 // Retrieves the activatable window for |window|. If |window| is activatable,
 // this will just return it, otherwise it will climb the parent/transient parent
@@ -50,10 +55,8 @@ ASH_EXPORT void MinimizeWindow(aura::Window* window);
 // Restores |window|, which must not be NULL.
 ASH_EXPORT void RestoreWindow(aura::Window* window);
 
-// Sets whether the window should be open in a split mode. Only applicable when
-// workspaces are used.
-ASH_EXPORT void SetOpenWindowSplit(aura::Window* window, bool value);
-ASH_EXPORT bool GetOpenWindowSplit(aura::Window* window);
+// Moves the window to the center of the display.
+ASH_EXPORT void CenterWindow(aura::Window* window);
 
 }  // namespace wm
 }  // namespace ash

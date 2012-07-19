@@ -20,15 +20,21 @@
 #include "gpu/command_buffer/common/command_buffer_shared.h"
 #include "ui/gfx/size.h"
 
+#if defined(OS_WIN)
+#include "content/public/common/sandbox_init.h"
+#endif
+
 using gpu::Buffer;
 
 CommandBufferProxyImpl::CommandBufferProxyImpl(
     GpuChannelHost* channel,
     int route_id)
-    : channel_(channel),
+    : shared_state_(NULL),
+      channel_(channel),
       route_id_(route_id),
       flush_count_(0),
-      last_put_offset_(-1) {
+      last_put_offset_(-1),
+      next_signal_id_(0) {
 }
 
 CommandBufferProxyImpl::~CommandBufferProxyImpl() {
@@ -39,6 +45,10 @@ CommandBufferProxyImpl::~CommandBufferProxyImpl() {
        ++it) {
     delete it->second.shared_memory;
     it->second.shared_memory = NULL;
+  }
+  for (Decoders::iterator it = video_decoder_hosts_.begin();
+       it != video_decoder_hosts_.end(); ++it) {
+    it->second->Destroy();
   }
 }
 
@@ -52,6 +62,8 @@ bool CommandBufferProxyImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_ConsoleMsg, OnConsoleMessage);
     IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_SetMemoryAllocation,
                         OnSetMemoryAllocation);
+    IPC_MESSAGE_HANDLER(GpuCommandBufferMsg_SignalSyncPointAck,
+                        OnSignalSyncPointAck);
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -60,10 +72,6 @@ bool CommandBufferProxyImpl::OnMessageReceived(const IPC::Message& message) {
 }
 
 void CommandBufferProxyImpl::OnChannelError() {
-  for (Decoders::iterator it = video_decoder_hosts_.begin();
-       it != video_decoder_hosts_.end(); ++it) {
-    it->second->OnChannelError();
-  }
   OnDestroyed(gpu::error::kUnknown);
 }
 
@@ -100,13 +108,26 @@ void CommandBufferProxyImpl::OnConsoleMessage(
 void CommandBufferProxyImpl::SetMemoryAllocationChangedCallback(
     const base::Callback<void(const GpuMemoryAllocationForRenderer&)>&
         callback) {
+  if (last_state_.error != gpu::error::kNoError)
+    return;
+
   memory_allocation_changed_callback_ = callback;
+  Send(new GpuCommandBufferMsg_SetClientHasMemoryAllocationChangedCallback(
+      route_id_, !memory_allocation_changed_callback_.is_null()));
 }
 
 void CommandBufferProxyImpl::OnSetMemoryAllocation(
     const GpuMemoryAllocationForRenderer& allocation) {
   if (!memory_allocation_changed_callback_.is_null())
     memory_allocation_changed_callback_.Run(allocation);
+}
+
+void CommandBufferProxyImpl::OnSignalSyncPointAck(uint32 id) {
+  SignalTaskMap::iterator it = signal_tasks_.find(id);
+  DCHECK(it != signal_tasks_.end());
+  base::Closure callback = it->second;
+  signal_tasks_.erase(it);
+  callback.Run();
 }
 
 void CommandBufferProxyImpl::SetChannelErrorCallback(
@@ -234,7 +255,13 @@ int32 CommandBufferProxyImpl::CreateTransferBuffer(
     return -1;
 
   base::SharedMemoryHandle handle = shm->handle();
-#if defined(OS_POSIX)
+#if defined(OS_WIN)
+  // Windows needs to explicitly duplicate the handle out to another process.
+  if (!content::BrokerDuplicateHandle(handle, channel_->gpu_pid(),
+                                      &handle, FILE_MAP_WRITE, 0)) {
+    return -1;
+  }
+#elif defined(OS_POSIX)
   DCHECK(!handle.auto_close);
 #endif
 
@@ -257,10 +284,20 @@ int32 CommandBufferProxyImpl::RegisterTransferBuffer(
   if (last_state_.error != gpu::error::kNoError)
     return -1;
 
+  // Returns FileDescriptor with auto_close off.
+  base::SharedMemoryHandle handle = shared_memory->handle();
+#if defined(OS_WIN)
+  // Windows needs to explicitly duplicate the handle out to another process.
+  if (!content::BrokerDuplicateHandle(handle, channel_->gpu_pid(),
+                                      &handle, FILE_MAP_WRITE, 0)) {
+    return -1;
+  }
+#endif
+
   int32 id;
   if (!Send(new GpuCommandBufferMsg_RegisterTransferBuffer(
       route_id_,
-      shared_memory->handle(),  // Returns FileDescriptor with auto_close off.
+      handle,
       size,
       id_request,
       &id))) {
@@ -390,6 +427,34 @@ bool CommandBufferProxyImpl::EnsureBackbuffer() {
   return Send(new GpuCommandBufferMsg_EnsureBackbuffer(route_id_));
 }
 
+uint32 CommandBufferProxyImpl::InsertSyncPoint() {
+  uint32 sync_point = 0;
+  Send(new GpuCommandBufferMsg_InsertSyncPoint(route_id_, &sync_point));
+  return sync_point;
+}
+
+void CommandBufferProxyImpl::WaitSyncPoint(uint32 sync_point) {
+  Send(new GpuCommandBufferMsg_WaitSyncPoint(route_id_, sync_point));
+}
+
+bool CommandBufferProxyImpl::SignalSyncPoint(uint32 sync_point,
+                                             const base::Closure& callback) {
+  if (last_state_.error != gpu::error::kNoError) {
+    return false;
+  }
+
+  uint32 signal_id = next_signal_id_++;
+  if (!Send(new GpuCommandBufferMsg_SignalSyncPoint(route_id_,
+                                                    sync_point,
+                                                    signal_id))) {
+    return false;
+  }
+
+  signal_tasks_.insert(std::make_pair(signal_id, callback));
+
+  return true;
+}
+
 bool CommandBufferProxyImpl::SetParent(
     CommandBufferProxy* parent_command_buffer,
     uint32 parent_texture_id) {
@@ -422,7 +487,7 @@ void CommandBufferProxyImpl::SetNotifyRepaintTask(const base::Closure& task) {
   notify_repaint_task_ = task;
 }
 
-scoped_refptr<GpuVideoDecodeAcceleratorHost>
+GpuVideoDecodeAcceleratorHost*
 CommandBufferProxyImpl::CreateVideoDecoder(
     media::VideoCodecProfile profile,
     media::VideoDecodeAccelerator::Client* client) {
@@ -433,13 +498,18 @@ CommandBufferProxyImpl::CreateVideoDecoder(
     return NULL;
   }
 
-  scoped_refptr<GpuVideoDecodeAcceleratorHost> decoder_host =
+  if (decoder_route_id < 0) {
+    DLOG(ERROR) << "Failed to Initialize GPU decoder on profile: " << profile;
+    return NULL;
+  }
+
+  GpuVideoDecodeAcceleratorHost* decoder_host =
       new GpuVideoDecodeAcceleratorHost(channel_, decoder_route_id, client);
   bool inserted = video_decoder_hosts_.insert(std::make_pair(
       decoder_route_id, decoder_host)).second;
   DCHECK(inserted);
 
-  channel_->AddRoute(decoder_route_id, decoder_host->AsWeakPtr());
+  channel_->AddRoute(decoder_route_id, base::AsWeakPtr(decoder_host));
 
   return decoder_host;
 }
@@ -465,7 +535,7 @@ bool CommandBufferProxyImpl::Send(IPC::Message* msg) {
   }
 
   // Callee takes ownership of message, regardless of whether Send is
-  // successful. See IPC::Message::Sender.
+  // successful. See IPC::Sender.
   delete msg;
   return false;
 }

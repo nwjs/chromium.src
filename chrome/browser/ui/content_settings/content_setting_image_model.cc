@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,11 +8,10 @@
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using content::WebContents;
@@ -23,19 +22,18 @@ class ContentSettingBlockedImageModel : public ContentSettingImageModel {
       ContentSettingsType content_settings_type);
 
   virtual void UpdateFromWebContents(WebContents* web_contents) OVERRIDE;
-
- private:
-  static const int kAccessedIconIDs[];
-  static const int kBlockedIconIDs[];
-  static const int kBlockedExplanatoryTextIDs[];
-  static const int kAccessedExplanatoryTextIDs[];
-  static const int kAccessedTooltipIDs[];
-  static const int kBlockedTooltipIDs[];
 };
 
 class ContentSettingGeolocationImageModel : public ContentSettingImageModel {
  public:
   ContentSettingGeolocationImageModel();
+
+  virtual void UpdateFromWebContents(WebContents* web_contents) OVERRIDE;
+};
+
+class ContentSettingRPHImageModel : public ContentSettingImageModel {
+ public:
+  ContentSettingRPHImageModel();
 
   virtual void UpdateFromWebContents(WebContents* web_contents) OVERRIDE;
 };
@@ -47,54 +45,24 @@ class ContentSettingNotificationsImageModel : public ContentSettingImageModel {
   virtual void UpdateFromWebContents(WebContents* web_contents) OVERRIDE;
 };
 
-const int ContentSettingBlockedImageModel::kBlockedIconIDs[] = {
-    IDR_BLOCKED_COOKIES,
-    IDR_BLOCKED_IMAGES,
-    IDR_BLOCKED_JAVASCRIPT,
-    IDR_BLOCKED_PLUGINS,
-    IDR_BLOCKED_POPUPS,
+namespace {
+
+struct ContentSettingsTypeIdEntry {
+  ContentSettingsType type;
+  int id;
 };
 
-const int ContentSettingBlockedImageModel::kAccessedIconIDs[] = {
-    IDR_ACCESSED_COOKIES,
-    0,
-    0,
-    0,
-    0,
-};
+int GetIdForContentType(const ContentSettingsTypeIdEntry* entries,
+                        size_t num_entries,
+                        ContentSettingsType type) {
+  for (size_t i = 0; i < num_entries; ++i) {
+    if (entries[i].type == type)
+      return entries[i].id;
+  }
+  return 0;
+}
 
-const int ContentSettingBlockedImageModel::kBlockedExplanatoryTextIDs[] = {
-    0,
-    0,
-    0,
-    0,
-    IDS_BLOCKED_POPUPS_EXPLANATORY_TEXT,
-};
-
-const int ContentSettingBlockedImageModel::kAccessedExplanatoryTextIDs[] = {
-    0,
-    0,
-    0,
-    0,
-    0,
-};
-
-
-const int ContentSettingBlockedImageModel::kBlockedTooltipIDs[] = {
-    IDS_BLOCKED_COOKIES_TITLE,
-    IDS_BLOCKED_IMAGES_TITLE,
-    IDS_BLOCKED_JAVASCRIPT_TITLE,
-    IDS_BLOCKED_PLUGINS_MESSAGE,
-    IDS_BLOCKED_POPUPS_TOOLTIP,
-};
-
-const int ContentSettingBlockedImageModel::kAccessedTooltipIDs[] = {
-    IDS_ACCESSED_COOKIES_TITLE,
-    0,
-    0,
-    0,
-    0,
-};
+}  // namespace
 
 ContentSettingBlockedImageModel::ContentSettingBlockedImageModel(
     ContentSettingsType content_settings_type)
@@ -107,30 +75,62 @@ void ContentSettingBlockedImageModel::UpdateFromWebContents(
   if (!web_contents)
     return;
 
-  const int* icon_ids = kBlockedIconIDs;
-  const int* tooltip_ids = kBlockedTooltipIDs;
-  const int* explanatory_string_ids = kBlockedExplanatoryTextIDs;
+  static const ContentSettingsTypeIdEntry kBlockedIconIDs[] = {
+    {CONTENT_SETTINGS_TYPE_COOKIES, IDR_BLOCKED_COOKIES},
+    {CONTENT_SETTINGS_TYPE_IMAGES, IDR_BLOCKED_IMAGES},
+    {CONTENT_SETTINGS_TYPE_JAVASCRIPT, IDR_BLOCKED_JAVASCRIPT},
+    {CONTENT_SETTINGS_TYPE_PLUGINS, IDR_BLOCKED_PLUGINS},
+    {CONTENT_SETTINGS_TYPE_POPUPS, IDR_BLOCKED_POPUPS},
+    {CONTENT_SETTINGS_TYPE_MIXEDSCRIPT, IDR_BLOCKED_MIXED_CONTENT},
+  };
+  static const ContentSettingsTypeIdEntry kBlockedTooltipIDs[] = {
+    {CONTENT_SETTINGS_TYPE_COOKIES, IDS_BLOCKED_COOKIES_TITLE},
+    {CONTENT_SETTINGS_TYPE_IMAGES, IDS_BLOCKED_IMAGES_TITLE},
+    {CONTENT_SETTINGS_TYPE_JAVASCRIPT, IDS_BLOCKED_JAVASCRIPT_TITLE},
+    {CONTENT_SETTINGS_TYPE_PLUGINS, IDS_BLOCKED_PLUGINS_MESSAGE},
+    {CONTENT_SETTINGS_TYPE_POPUPS, IDS_BLOCKED_POPUPS_TOOLTIP},
+    {CONTENT_SETTINGS_TYPE_MIXEDSCRIPT,
+        IDS_BLOCKED_DISPLAYING_INSECURE_CONTENT},
+  };
+  static const ContentSettingsTypeIdEntry kBlockedExplanatoryTextIDs[] = {
+    {CONTENT_SETTINGS_TYPE_POPUPS, IDS_BLOCKED_POPUPS_EXPLANATORY_TEXT},
+  };
+
+  ContentSettingsType type = get_content_settings_type();
+  int icon_id = GetIdForContentType(
+      kBlockedIconIDs, arraysize(kBlockedIconIDs), type);
+  int tooltip_id = GetIdForContentType(
+      kBlockedTooltipIDs, arraysize(kBlockedTooltipIDs), type);
+  int explanation_id = GetIdForContentType(
+      kBlockedExplanatoryTextIDs, arraysize(kBlockedExplanatoryTextIDs), type);
+
   // If a content type is blocked by default and was accessed, display the
   // accessed icon.
-  TabContentsWrapper* wrapper =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
-  TabSpecificContentSettings* content_settings = wrapper->content_settings();
+  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
+  TabSpecificContentSettings* content_settings =
+      tab_contents->content_settings();
   if (!content_settings->IsContentBlocked(get_content_settings_type())) {
     if (!content_settings->IsContentAccessed(get_content_settings_type()) ||
-        (wrapper->profile()->GetHostContentSettingsMap()->
+        (tab_contents->profile()->GetHostContentSettingsMap()->
             GetDefaultContentSetting(get_content_settings_type(), NULL) !=
                 CONTENT_SETTING_BLOCK))
       return;
-    icon_ids = kAccessedIconIDs;
-    tooltip_ids = kAccessedTooltipIDs;
-    explanatory_string_ids = kAccessedExplanatoryTextIDs;
+    static const ContentSettingsTypeIdEntry kAccessedIconIDs[] = {
+      {CONTENT_SETTINGS_TYPE_COOKIES, IDR_ACCESSED_COOKIES},
+    };
+    static const ContentSettingsTypeIdEntry kAccessedTooltipIDs[] = {
+      {CONTENT_SETTINGS_TYPE_COOKIES, IDS_ACCESSED_COOKIES_TITLE},
+    };
+    icon_id = GetIdForContentType(
+        kAccessedIconIDs, arraysize(kAccessedIconIDs), type);
+    tooltip_id = GetIdForContentType(
+        kAccessedTooltipIDs, arraysize(kAccessedTooltipIDs), type);
+    explanation_id = 0;
   }
   set_visible(true);
-  set_icon(icon_ids[get_content_settings_type()]);
-  set_explanatory_string_id(
-      explanatory_string_ids[get_content_settings_type()]);
-  set_tooltip(
-      l10n_util::GetStringUTF8(tooltip_ids[get_content_settings_type()]));
+  set_icon(icon_id);
+  set_explanatory_string_id(explanation_id);
+  set_tooltip(l10n_util::GetStringUTF8(tooltip_id));
 }
 
 ContentSettingGeolocationImageModel::ContentSettingGeolocationImageModel()
@@ -143,8 +143,7 @@ void ContentSettingGeolocationImageModel::UpdateFromWebContents(
   if (!web_contents)
     return;
   TabSpecificContentSettings* content_settings =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents)->
-          content_settings();
+      TabContents::FromWebContents(web_contents)->content_settings();
   const GeolocationSettingsState& settings_state = content_settings->
       geolocation_settings_state();
   if (settings_state.state_map().empty())
@@ -161,6 +160,27 @@ void ContentSettingGeolocationImageModel::UpdateFromWebContents(
       IDR_GEOLOCATION_DENIED_LOCATIONBAR_ICON);
   set_tooltip(l10n_util::GetStringUTF8(allowed ?
       IDS_GEOLOCATION_ALLOWED_TOOLTIP : IDS_GEOLOCATION_BLOCKED_TOOLTIP));
+}
+
+ContentSettingRPHImageModel::ContentSettingRPHImageModel()
+    : ContentSettingImageModel(
+        CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS) {
+  set_icon(IDR_REGISTER_PROTOCOL_HANDLER_LOCATIONBAR_ICON);
+  set_tooltip(l10n_util::GetStringUTF8(IDS_REGISTER_PROTOCOL_HANDLER_TOOLTIP));
+}
+
+void ContentSettingRPHImageModel::UpdateFromWebContents(
+    WebContents* web_contents) {
+  set_visible(false);
+  if (!web_contents)
+    return;
+
+  TabSpecificContentSettings* content_settings =
+      TabContents::FromWebContents(web_contents)->content_settings();
+  if (content_settings->pending_protocol_handler().IsEmpty())
+    return;
+
+  set_visible(true);
 }
 
 ContentSettingNotificationsImageModel::ContentSettingNotificationsImageModel()
@@ -190,6 +210,8 @@ ContentSettingImageModel*
       return new ContentSettingGeolocationImageModel();
     case CONTENT_SETTINGS_TYPE_NOTIFICATIONS:
       return new ContentSettingNotificationsImageModel();
+    case CONTENT_SETTINGS_TYPE_PROTOCOL_HANDLERS:
+      return new ContentSettingRPHImageModel();
     default:
       return new ContentSettingBlockedImageModel(content_settings_type);
   }

@@ -14,7 +14,7 @@
 #include "gpu/command_buffer/client/gles2_implementation.h"
 #include "gpu/ipc/command_buffer_proxy.h"
 #include "ppapi/c/pp_graphics_3d.h"
-#include "ui/gfx/gl/gpu_preference.h"
+#include "ui/gl/gpu_preference.h"
 
 #ifdef ENABLE_GPU
 
@@ -43,15 +43,13 @@ PlatformContext3DImpl::~PlatformContext3DImpl() {
     DCHECK(channel_.get());
     channel_->DestroyCommandBuffer(command_buffer_);
     command_buffer_ = NULL;
-    if (channel_->WillGpuSwitchOccur(false, gfx::PreferDiscreteGpu)) {
-      channel_->ForciblyCloseChannel();
-    }
   }
 
   channel_ = NULL;
 }
 
-bool PlatformContext3DImpl::Init(const int32* attrib_list) {
+bool PlatformContext3DImpl::Init(const int32* attrib_list,
+                                 PlatformContext3D* share_context) {
   // Ignore initializing more than once.
   if (command_buffer_)
     return true;
@@ -63,28 +61,13 @@ bool PlatformContext3DImpl::Init(const int32* attrib_list) {
   if (!render_thread)
     return false;
 
-  bool retry = false;
   gfx::GpuPreference gpu_preference = gfx::PreferDiscreteGpu;
 
-  // Note similar code in PP_GRAPHICS3DATTRIB_initialize.
-  do {
-    channel_ = render_thread->EstablishGpuChannelSync(
-        CAUSE_FOR_GPU_LAUNCH_PEPPERPLATFORMCONTEXT3DIMPL_INITIALIZE);
-    if (!channel_.get())
-      return false;
-    DCHECK(channel_->state() == GpuChannelHost::kConnected);
-    if (!retry) {
-      // If the creation of this context requires all contexts for this
-      // renderer to be destroyed on the GPU process side, then drop the
-      // channel and recreate it.
-      if (channel_->WillGpuSwitchOccur(true, gpu_preference)) {
-        channel_->ForciblyCloseChannel();
-        retry = true;
-      }
-    } else {
-      retry = false;
-    }
-  } while (retry);
+  channel_ = render_thread->EstablishGpuChannelSync(
+      CAUSE_FOR_GPU_LAUNCH_PEPPERPLATFORMCONTEXT3DIMPL_INITIALIZE);
+  if (!channel_.get())
+    return false;
+  DCHECK(channel_->state() == GpuChannelHost::kConnected);
 
   gfx::Size surface_size;
   std::vector<int32> attribs;
@@ -114,9 +97,16 @@ bool PlatformContext3DImpl::Init(const int32* attrib_list) {
     attribs.push_back(PP_GRAPHICS3DATTRIB_NONE);
   }
 
+  CommandBufferProxy* share_buffer = NULL;
+  if (share_context) {
+    PlatformContext3DImpl* share_impl =
+        static_cast<PlatformContext3DImpl*>(share_context);
+    share_buffer = share_impl->command_buffer_;
+  }
+
   command_buffer_ = channel_->CreateOffscreenCommandBuffer(
       surface_size,
-      NULL,
+      share_buffer,
       "*",
       attribs,
       GURL::EmptyGURL(),

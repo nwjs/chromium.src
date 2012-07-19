@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_PRINTING_PRINT_PREVIEW_DATA_SERVICE_H_
 #define CHROME_BROWSER_PRINTING_PRINT_PREVIEW_DATA_SERVICE_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -14,7 +13,10 @@
 template<typename T> struct DefaultSingletonTraits;
 
 class PrintPreviewDataStore;
+
+namespace base {
 class RefCountedBytes;
+}
 
 // PrintPreviewDataService manages data stores for chrome://print requests.
 // It owns the data store object and is responsible for freeing it.
@@ -27,7 +29,7 @@ class PrintPreviewDataService {
   // data. Use |index| to retrieve a specific preview page data. |data| is set
   // to NULL if the requested page is not yet available.
   void GetDataEntry(const std::string& preview_ui_addr_str, int index,
-                    scoped_refptr<RefCountedBytes>* data);
+                    scoped_refptr<base::RefCountedBytes>* data);
 
   // Set/Update the data entry in PrintPreviewDataStore. |index| is zero-based
   // or |printing::COMPLETE_PREVIEW_DOCUMENT_INDEX| to represent complete
@@ -35,7 +37,7 @@ class PrintPreviewDataService {
   // NOTE: PrintPreviewDataStore owns the data. Do not refcount |data| before
   // calling this function. It will be refcounted in PrintPreviewDataStore.
   void SetDataEntry(const std::string& preview_ui_addr_str, int index,
-                    const RefCountedBytes* data);
+                    const base::RefCountedBytes* data);
 
   // Remove the corresponding PrintPreviewUI entry from the map.
   void RemoveEntry(const std::string& preview_ui_addr_str);

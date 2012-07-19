@@ -3,8 +3,7 @@
 // found in the LICENSE file.
 
 #ifndef UI_GFX_SYS_COLOR_CHANGE_LISTENER_H_
-#define UI_GFX_SYS_COLOR_SCHEME_LISTENER_H_
-#pragma once
+#define UI_GFX_SYS_COLOR_CHANGE_LISTENER_H_
 
 #include "base/basictypes.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -42,4 +41,4 @@ class UI_EXPORT ScopedSysColorChangeListener {
 
 }  // namespace gfx;
 
-#endif  // UI_GFX_SYS_COLOR_CHANGE_LISTENER_
+#endif  // UI_GFX_SYS_COLOR_CHANGE_LISTENER_H_

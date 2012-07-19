@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_SESSION_CHANGE_PROCESSOR_H_
 #define CHROME_BROWSER_SYNC_GLUE_SESSION_CHANGE_PROCESSOR_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -22,7 +21,7 @@ class SessionModelAssociator;
 class DataTypeErrorHandler;
 
 // This class is responsible for taking changes from the
-// SessionService and applying them to the sync_api 'syncable'
+// SessionService and applying them to the sync API 'syncable'
 // model, and vice versa. All operations and use of this class are
 // from the UI thread.
 class SessionChangeProcessor : public ChangeProcessor,
@@ -40,16 +39,16 @@ class SessionChangeProcessor : public ChangeProcessor,
   virtual ~SessionChangeProcessor();
 
   // content::NotificationObserver implementation.
-  // BrowserSessionProvider -> sync_api model change application.
+  // BrowserSessionProvider -> sync API model change application.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
   // ChangeProcessor implementation.
-  // sync_api model -> BrowserSessionProvider change application.
+  // sync API model -> BrowserSessionProvider change application.
   virtual void ApplyChangesFromSyncModel(
-      const sync_api::BaseTransaction* trans,
-      const sync_api::ImmutableChangeRecordList& changes) OVERRIDE;
+      const syncer::BaseTransaction* trans,
+      const syncer::ImmutableChangeRecordList& changes) OVERRIDE;
 
  protected:
   // ChangeProcessor implementation.

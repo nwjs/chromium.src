@@ -1,10 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/message_loop.h"
 #include "net/url_request/url_request.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/appcache/appcache.h"
@@ -117,6 +118,9 @@ class AppCacheHostTest : public testing::Test {
 
     // Map from origin to count of inuse notifications.
     std::map<GURL, int> inuse_;
+
+   protected:
+    virtual ~MockQuotaManagerProxy() {}
   };
 
   void GetStatusCallback(Status status, void* param) {
@@ -133,6 +137,8 @@ class AppCacheHostTest : public testing::Test {
     last_swap_result_ = result;
     last_callback_param_ = param;
   }
+
+  MessageLoop message_loop_;
 
   // Mock classes for the 'host' to work with
   MockAppCacheService service_;

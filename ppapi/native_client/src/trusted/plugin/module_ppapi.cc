@@ -4,16 +4,14 @@
  * found in the LICENSE file.
  */
 
+#include "native_client/src/shared/imc/nacl_imc_c.h"
 #include "native_client/src/shared/platform/nacl_time.h"
 #include "native_client/src/trusted/desc/nrd_all_modules.h"
-#include "native_client/src/trusted/handle_pass/browser_handle.h"
 #include "native_client/src/trusted/plugin/nacl_entry_points.h"
 #include "native_client/src/trusted/plugin/plugin.h"
 
 #include "ppapi/c/private/ppb_nacl_private.h"
 #include "ppapi/cpp/module.h"
-
-GetURandomFDFunc get_urandom_fd;
 
 namespace plugin {
 
@@ -48,7 +46,14 @@ class ModulePpapi : public pp::Module {
 
     launch_nacl_process = reinterpret_cast<LaunchNaClProcessFunc>(
         private_interface_->LaunchSelLdr);
-    get_urandom_fd = private_interface_->UrandomFD;
+
+#if NACL_LINUX || NACL_OSX
+    // Note that currently we do not need random numbers inside the
+    // NaCl trusted plugin on Unix, but NaClSecureRngModuleInit() is
+    // strict and will raise a fatal error unless we provide it with a
+    // /dev/urandom FD beforehand.
+    NaClSecureRngModuleSetUrandomFd(dup(private_interface_->UrandomFD()));
+#endif
 
     // In the plugin, we don't need high resolution time of day.
     NaClAllowLowResolutionTimeOfDay();
@@ -56,8 +61,9 @@ class ModulePpapi : public pp::Module {
     NaClSrpcModuleInit();
 
 #if NACL_WINDOWS && !defined(NACL_STANDALONE)
-    NaClHandlePassBrowserInit();
+    NaClSetBrokerDuplicateHandleFunc(private_interface_->BrokerDuplicateHandle);
 #endif
+
     init_was_successful_ = true;
     return true;
   }

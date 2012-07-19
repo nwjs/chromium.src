@@ -9,12 +9,12 @@
 
 #ifndef NET_COOKIES_COOKIE_MONSTER_STORE_TEST_H_
 #define NET_COOKIES_COOKIE_MONSTER_STORE_TEST_H_
-#pragma once
 
 #include <map>
 #include <string>
 #include <utility>
 #include <vector>
+#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
 
 namespace base {
@@ -32,16 +32,18 @@ class LoadedCallbackTask
   typedef CookieMonster::PersistentCookieStore::LoadedCallback LoadedCallback;
 
   LoadedCallbackTask(LoadedCallback loaded_callback,
-                     std::vector<CookieMonster::CanonicalCookie*> cookies);
-  ~LoadedCallbackTask();
+                     std::vector<CanonicalCookie*> cookies);
 
   void Run() {
     loaded_callback_.Run(cookies_);
   }
 
  private:
+  friend class base::RefCountedThreadSafe<LoadedCallbackTask>;
+  ~LoadedCallbackTask();
+
   LoadedCallback loaded_callback_;
-  std::vector<CookieMonster::CanonicalCookie*> cookies_;
+  std::vector<CanonicalCookie*> cookies_;
 
   DISALLOW_COPY_AND_ASSIGN(LoadedCallbackTask);
 };  // Wrapper class LoadedCallbackTask
@@ -54,13 +56,12 @@ struct CookieStoreCommand {
     REMOVE,
   };
 
-  CookieStoreCommand(Type type,
-                     const CookieMonster::CanonicalCookie& cookie)
+  CookieStoreCommand(Type type, const CanonicalCookie& cookie)
       : type(type),
         cookie(cookie) {}
 
   Type type;
-  CookieMonster::CanonicalCookie cookie;
+  CanonicalCookie cookie;
 };
 
 // Implementation of PersistentCookieStore that captures the
@@ -72,11 +73,10 @@ class MockPersistentCookieStore
   typedef std::vector<CookieStoreCommand> CommandList;
 
   MockPersistentCookieStore();
-  virtual ~MockPersistentCookieStore();
 
   void SetLoadExpectation(
       bool return_value,
-      const std::vector<CookieMonster::CanonicalCookie*>& result);
+      const std::vector<CanonicalCookie*>& result);
 
   const CommandList& commands() const {
     return commands_;
@@ -87,25 +87,27 @@ class MockPersistentCookieStore
   virtual void LoadCookiesForKey(const std::string& key,
     const LoadedCallback& loaded_callback) OVERRIDE;
 
-  virtual void AddCookie(const CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+  virtual void AddCookie(const CanonicalCookie& cookie) OVERRIDE;
 
   virtual void UpdateCookieAccessTime(
-      const CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+      const CanonicalCookie& cookie) OVERRIDE;
 
   virtual void DeleteCookie(
-      const CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+      const CanonicalCookie& cookie) OVERRIDE;
 
   virtual void Flush(const base::Closure& callback) OVERRIDE;
 
-  // No files are created so nothing to clear either
-  virtual void SetClearLocalStateOnExit(bool clear_local_state) OVERRIDE;
+  virtual void SetForceKeepSessionState() OVERRIDE;
+
+ protected:
+  virtual ~MockPersistentCookieStore();
 
  private:
   CommandList commands_;
 
   // Deferred result to use when Load() is called.
   bool load_return_value_;
-  std::vector<CookieMonster::CanonicalCookie*> load_result_;
+  std::vector<CanonicalCookie*> load_result_;
   // Indicates if the store has been fully loaded to avoid returning duplicate
   // cookies.
   bool loaded_;
@@ -116,7 +118,7 @@ class MockPersistentCookieStore
 // Mock for CookieMonster::Delegate
 class MockCookieMonsterDelegate : public CookieMonster::Delegate {
  public:
-  typedef std::pair<CookieMonster::CanonicalCookie, bool>
+  typedef std::pair<CanonicalCookie, bool>
       CookieNotification;
 
   MockCookieMonsterDelegate();
@@ -126,7 +128,7 @@ class MockCookieMonsterDelegate : public CookieMonster::Delegate {
   void reset() { changes_.clear(); }
 
   virtual void OnCookieChanged(
-      const CookieMonster::CanonicalCookie& cookie,
+      const CanonicalCookie& cookie,
       bool removed,
       CookieMonster::Delegate::ChangeCause cause) OVERRIDE;
 
@@ -139,17 +141,16 @@ class MockCookieMonsterDelegate : public CookieMonster::Delegate {
 };
 
 // Helper to build a single CanonicalCookie.
-CookieMonster::CanonicalCookie BuildCanonicalCookie(
-    const std::string& key,
-    const std::string& cookie_line,
-    const base::Time& creation_time);
+CanonicalCookie BuildCanonicalCookie(const std::string& key,
+                                     const std::string& cookie_line,
+                                     const base::Time& creation_time);
 
 // Helper to build a list of CanonicalCookie*s.
 void AddCookieToList(
     const std::string& key,
     const std::string& cookie_line,
     const base::Time& creation_time,
-    std::vector<CookieMonster::CanonicalCookie*>* out_list);
+    std::vector<CanonicalCookie*>* out_list);
 
 // Just act like a backing database.  Keep cookie information from
 // Add/Update/Delete and regurgitate it when Load is called.
@@ -157,29 +158,27 @@ class MockSimplePersistentCookieStore
     : public CookieMonster::PersistentCookieStore {
  public:
   MockSimplePersistentCookieStore();
-  virtual ~MockSimplePersistentCookieStore();
 
   virtual void Load(const LoadedCallback& loaded_callback) OVERRIDE;
 
   virtual void LoadCookiesForKey(const std::string& key,
       const LoadedCallback& loaded_callback) OVERRIDE;
 
-  virtual void AddCookie(
-      const CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+  virtual void AddCookie(const CanonicalCookie& cookie) OVERRIDE;
 
-  virtual void UpdateCookieAccessTime(
-      const CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+  virtual void UpdateCookieAccessTime(const CanonicalCookie& cookie) OVERRIDE;
 
-  virtual void DeleteCookie(
-      const CookieMonster::CanonicalCookie& cookie) OVERRIDE;
+  virtual void DeleteCookie(const CanonicalCookie& cookie) OVERRIDE;
 
   virtual void Flush(const base::Closure& callback) OVERRIDE;
 
-  virtual void SetClearLocalStateOnExit(bool clear_local_state) OVERRIDE;
+  virtual void SetForceKeepSessionState() OVERRIDE;
+
+ protected:
+  virtual ~MockSimplePersistentCookieStore();
 
  private:
-  typedef std::map<int64, CookieMonster::CanonicalCookie>
-      CanonicalCookieMap;
+  typedef std::map<int64, CanonicalCookie> CanonicalCookieMap;
 
   CanonicalCookieMap cookies_;
 

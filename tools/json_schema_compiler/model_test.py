@@ -27,51 +27,36 @@ class ModelTest(unittest.TestCase):
     self.assertEquals(3, len(self.model.namespaces))
     self.assertTrue(self.permissions)
 
-  def testNamespaceNoCompile(self):
-    self.permissions_json[0]['namespace'] = 'something'
-    self.permissions_json[0]['nocompile'] = True
-    self.model.AddNamespace(self.permissions_json[0],
-        'path/to/something.json')
-    self.assertEquals(3, len(self.model.namespaces))
-
   def testHasFunctions(self):
     self.assertEquals(["contains", "getAll", "remove", "request"],
         sorted(self.permissions.functions.keys()))
 
-  def testFunctionNoCompile(self):
-    # tabs.json has 2 functions marked as nocompile (connect, sendRequest)
-    self.assertEquals(["captureVisibleTab", "create", "detectLanguage",
-          "executeScript", "get", "getAllInWindow", "getCurrent",
-          "getSelected", "highlight", "insertCSS", "move", "query", "reload",
-          "remove", "update"],
-          sorted(self.tabs.functions.keys())
-    )
-
   def testHasTypes(self):
-    self.assertEquals(['Tab'], self.tabs.types.keys())
-    self.assertEquals(['Permissions'], self.permissions.types.keys())
-    self.assertEquals(['Window'], self.windows.types.keys())
+    self.assertEquals(['tabs.Tab'], self.tabs.types.keys())
+    self.assertEquals(['permissions.Permissions'],
+        self.permissions.types.keys())
+    self.assertEquals(['windows.Window'], self.windows.types.keys())
 
   def testHasProperties(self):
-    self.assertEquals(["active", "fav_icon_url", "highlighted", "id",
+    self.assertEquals(["active", "favIconUrl", "highlighted", "id",
         "incognito", "index", "pinned", "selected", "status", "title", "url",
-        "window_id"],
-        sorted(self.tabs.types['Tab'].properties.keys()))
+        "windowId"],
+        sorted(self.tabs.types['tabs.Tab'].properties.keys()))
 
   def testProperties(self):
-    string_prop = self.tabs.types['Tab'].properties['status']
+    string_prop = self.tabs.types['tabs.Tab'].properties['status']
     self.assertEquals(model.PropertyType.STRING, string_prop.type_)
-    integer_prop = self.tabs.types['Tab'].properties['id']
+    integer_prop = self.tabs.types['tabs.Tab'].properties['id']
     self.assertEquals(model.PropertyType.INTEGER, integer_prop.type_)
-    array_prop = self.windows.types['Window'].properties['tabs']
+    array_prop = self.windows.types['windows.Window'].properties['tabs']
     self.assertEquals(model.PropertyType.ARRAY, array_prop.type_)
     self.assertEquals(model.PropertyType.REF, array_prop.item_type.type_)
-    self.assertEquals('Tab', array_prop.item_type.ref_type)
+    self.assertEquals('tabs.Tab', array_prop.item_type.ref_type)
     object_prop = self.tabs.functions['query'].params[0]
     self.assertEquals(model.PropertyType.OBJECT, object_prop.type_)
     self.assertEquals(
         ["active", "highlighted", "pinned", "status", "title", "url",
-         "window_id", "window_type"],
+         "windowId", "windowType"],
         sorted(object_prop.properties.keys()))
 
   def testChoices(self):
@@ -93,8 +78,6 @@ class ModelTest(unittest.TestCase):
   def testPropertyUnixName(self):
     param = self.tabs.functions['move'].params[0]
     self.assertEquals('tab_ids', param.unix_name)
-    self.assertRaises(AttributeError,
-        param.choices[model.PropertyType.INTEGER].GetUnixName)
     param.choices[model.PropertyType.INTEGER].unix_name = 'asdf'
     param.choices[model.PropertyType.INTEGER].unix_name = 'tab_ids_integer'
     self.assertEquals('tab_ids_integer',

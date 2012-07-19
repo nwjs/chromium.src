@@ -4,8 +4,9 @@ include_rules = [
   "+libxml",
   "+ppapi/c",  # For various types.
   "+ppapi/proxy",
+  "+ppapi/shared_impl",
   "+remoting/client/plugin",
-  "+sandbox/src",
+  "+sandbox/win/src",
   "+skia",
   "+webkit/forms",  # Defines some types that are marshalled over IPC.
   "+webkit/glue",

@@ -8,12 +8,13 @@
 #include <vector>
 
 #include "base/callback_forward.h"
+#include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/file_util_proxy.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/platform_file.h"
+#include "webkit/fileapi/fileapi_export.h"
 #include "webkit/fileapi/file_system_file_util.h"
 #include "webkit/fileapi/file_system_types.h"
 
@@ -30,84 +31,87 @@ using base::PlatformFile;
 using base::PlatformFileError;
 
 class FileSystemOperationContext;
-class FileSystemPath;
+class FileSystemURL;
 
 // An instance of this class is created and owned by *MountPointProvider.
-class LocalFileUtil : public FileSystemFileUtil {
+class FILEAPI_EXPORT_PRIVATE LocalFileUtil : public FileSystemFileUtil {
  public:
   // |underlying_file_util| is owned by the instance.  It will be deleted by
   // the owner instance.  For example, it can be instanciated as follows:
   // FileSystemFileUtil* file_util = new LocalFileUtil(new NativeFileUtil());
-  explicit LocalFileUtil(FileSystemFileUtil* underlying_file_util);
+  LocalFileUtil();
   virtual ~LocalFileUtil();
 
   virtual PlatformFileError CreateOrOpen(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       int file_flags,
       PlatformFile* file_handle,
       bool* created) OVERRIDE;
+  virtual PlatformFileError Close(
+      FileSystemOperationContext* context,
+      PlatformFile file) OVERRIDE;
   virtual PlatformFileError EnsureFileExists(
       FileSystemOperationContext* context,
-      const FileSystemPath& path, bool* created) OVERRIDE;
+      const FileSystemURL& url, bool* created) OVERRIDE;
   virtual PlatformFileError CreateDirectory(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       bool exclusive,
       bool recursive) OVERRIDE;
   virtual PlatformFileError GetFileInfo(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       base::PlatformFileInfo* file_info,
       FilePath* platform_file) OVERRIDE;
   virtual AbstractFileEnumerator* CreateFileEnumerator(
       FileSystemOperationContext* context,
-      const FileSystemPath& root_path,
+      const FileSystemURL& root_url,
       bool recursive) OVERRIDE;
   virtual PlatformFileError GetLocalFilePath(
       FileSystemOperationContext* context,
-      const FileSystemPath& file_system_path,
+      const FileSystemURL& file_system_url,
       FilePath* local_file_path) OVERRIDE;
   virtual PlatformFileError Touch(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       const base::Time& last_access_time,
       const base::Time& last_modified_time) OVERRIDE;
   virtual PlatformFileError Truncate(
       FileSystemOperationContext* context,
-      const FileSystemPath& path,
+      const FileSystemURL& url,
       int64 length) OVERRIDE;
   virtual bool PathExists(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
   virtual bool DirectoryExists(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
   virtual bool IsDirectoryEmpty(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
   virtual PlatformFileError CopyOrMoveFile(
       FileSystemOperationContext* context,
-      const FileSystemPath& src_path,
-      const FileSystemPath& dest_path,
+      const FileSystemURL& src_url,
+      const FileSystemURL& dest_url,
       bool copy) OVERRIDE;
   virtual PlatformFileError CopyInForeignFile(
         FileSystemOperationContext* context,
-        const FileSystemPath& underlying_src_path,
-        const FileSystemPath& dest_path) OVERRIDE;
+        const FilePath& src_file_path,
+        const FileSystemURL& dest_url) OVERRIDE;
   virtual PlatformFileError DeleteFile(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
   virtual PlatformFileError DeleteSingleDirectory(
       FileSystemOperationContext* context,
-      const FileSystemPath& path) OVERRIDE;
+      const FileSystemURL& url) OVERRIDE;
 
  private:
-  // Given the filesystem path, produces a real, full local path for the
+  // Given the filesystem url, produces a real, full local path for the
   // underlying filesystem (which is usually the native filesystem).
-  FileSystemPath GetLocalPath(
+  FileSystemURL GetLocalPath(
       FileSystemOperationContext* context,
-      const FileSystemPath& path);
+      const FileSystemURL& url);
 
   DISALLOW_COPY_AND_ASSIGN(LocalFileUtil);
 };

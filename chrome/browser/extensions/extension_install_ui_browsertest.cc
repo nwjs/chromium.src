@@ -9,20 +9,23 @@
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
 
 using content::WebContents;
+using extensions::Extension;
 
 class ExtensionInstallUIBrowserTest : public ExtensionBrowserTest {
  public:
   // Checks that a theme info bar is currently visible and issues an undo to
   // revert to the previous theme.
   void VerifyThemeInfoBarAndUndoInstall() {
-    TabContentsWrapper* tab = browser()->GetSelectedTabContentsWrapper();
+    TabContents* tab = chrome::GetActiveTabContents(browser());
     ASSERT_TRUE(tab);
     InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
     ASSERT_EQ(1U, infobar_helper->infobar_count());
@@ -48,9 +51,11 @@ class ExtensionInstallUIBrowserTest : public ExtensionBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
                        MAYBE_TestThemeInstallUndoResetsToDefault) {
+  ui_test_utils::CloseAllInfoBars(chrome::GetActiveTabContents(browser()));
+
   // Install theme once and undo to verify we go back to default theme.
   FilePath theme_crx = PackExtension(test_data_dir_.AppendASCII("theme"));
-  ASSERT_TRUE(InstallExtensionWithUI(theme_crx, 1));
+  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(theme_crx, 1, browser()));
   const Extension* theme = GetTheme();
   ASSERT_TRUE(theme);
   std::string theme_id = theme->id();
@@ -61,11 +66,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
   // We set the |expected_change| to zero in these 'InstallExtensionWithUI'
   // calls since the theme has already been installed above and this is an
   // overinstall to set the active theme.
-  ASSERT_TRUE(InstallExtensionWithUI(theme_crx, 0));
+  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(theme_crx, 0, browser()));
   theme = GetTheme();
   ASSERT_TRUE(theme);
   ASSERT_EQ(theme_id, theme->id());
-  ASSERT_TRUE(InstallExtensionWithUI(theme_crx, 0));
+  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(theme_crx, 0, browser()));
   theme = GetTheme();
   ASSERT_TRUE(theme);
   ASSERT_EQ(theme_id, theme->id());
@@ -75,16 +80,18 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
                        TestThemeInstallUndoResetsToPreviousTheme) {
+  ui_test_utils::CloseAllInfoBars(chrome::GetActiveTabContents(browser()));
+
   // Install first theme.
   FilePath theme_path = test_data_dir_.AppendASCII("theme");
-  ASSERT_TRUE(InstallExtensionWithUI(theme_path, 1));
+  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(theme_path, 1, browser()));
   const Extension* theme = GetTheme();
   ASSERT_TRUE(theme);
   std::string theme_id = theme->id();
 
   // Then install second theme.
   FilePath theme_path2 = test_data_dir_.AppendASCII("theme2");
-  ASSERT_TRUE(InstallExtensionWithUI(theme_path2, 1));
+  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(theme_path2, 1, browser()));
   const Extension* theme2 = GetTheme();
   ASSERT_TRUE(theme2);
   EXPECT_FALSE(theme_id == theme2->id());
@@ -99,12 +106,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
   int num_tabs = browser()->tab_count();
 
   FilePath app_dir = test_data_dir_.AppendASCII("app");
-  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(app_dir, 1,
-                                                browser()->profile()));
+  ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(app_dir, 1, browser()));
 
   if (NewTabUI::ShouldShowApps()) {
     EXPECT_EQ(num_tabs + 1, browser()->tab_count());
-    WebContents* web_contents = browser()->GetSelectedWebContents();
+    WebContents* web_contents = chrome::GetActiveWebContents(browser());
     ASSERT_TRUE(web_contents);
     EXPECT_TRUE(StartsWithASCII(web_contents->GetURL().spec(),
                                 "chrome://newtab/", false));
@@ -116,20 +122,19 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
 IN_PROC_BROWSER_TEST_F(ExtensionInstallUIBrowserTest,
                        AppInstallConfirmation_Incognito) {
   Profile* incognito_profile = browser()->profile()->GetOffTheRecordProfile();
-  Browser* incognito_browser = Browser::GetOrCreateTabbedBrowser(
-      incognito_profile);
+  Browser* incognito_browser = Browser::Create(incognito_profile);
 
   int num_incognito_tabs = incognito_browser->tab_count();
   int num_normal_tabs = browser()->tab_count();
 
   FilePath app_dir = test_data_dir_.AppendASCII("app");
   ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(app_dir, 1,
-                                                incognito_profile));
+                                                incognito_browser));
 
   EXPECT_EQ(num_incognito_tabs, incognito_browser->tab_count());
   if (NewTabUI::ShouldShowApps()) {
     EXPECT_EQ(num_normal_tabs + 1, browser()->tab_count());
-    WebContents* web_contents = browser()->GetSelectedWebContents();
+    WebContents* web_contents = chrome::GetActiveWebContents(browser());
     ASSERT_TRUE(web_contents);
     EXPECT_TRUE(StartsWithASCII(web_contents->GetURL().spec(),
                                 "chrome://newtab/", false));

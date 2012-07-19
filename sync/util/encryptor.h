@@ -4,11 +4,10 @@
 
 #ifndef SYNC_UTIL_ENCRYPTOR_H_
 #define SYNC_UTIL_ENCRYPTOR_H_
-#pragma once
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 
 class Encryptor {
  public:
@@ -23,6 +22,6 @@ class Encryptor {
   virtual ~Encryptor() {}
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_ENCRYPTOR_H_

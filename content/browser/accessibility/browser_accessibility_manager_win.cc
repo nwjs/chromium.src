@@ -7,12 +7,12 @@
 #include "content/browser/accessibility/browser_accessibility_win.h"
 #include "content/common/accessibility_messages.h"
 
-using webkit_glue::WebAccessibility;
+using content::AccessibilityNodeData;
 
 // static
 BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
     gfx::NativeView parent_view,
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory) {
   return new BrowserAccessibilityManagerWin(
@@ -23,13 +23,13 @@ BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
 }
 
 BrowserAccessibilityManagerWin*
-BrowserAccessibilityManager::toBrowserAccessibilityManagerWin() {
+BrowserAccessibilityManager::ToBrowserAccessibilityManagerWin() {
   return static_cast<BrowserAccessibilityManagerWin*>(this);
 }
 
 BrowserAccessibilityManagerWin::BrowserAccessibilityManagerWin(
     HWND parent_view,
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory)
     : BrowserAccessibilityManager(parent_view, src, delegate, factory),
@@ -65,6 +65,11 @@ void BrowserAccessibilityManagerWin::NotifyAccessibilityEvent(
     case AccessibilityNotificationActiveDescendantChanged:
       event_id = IA2_EVENT_ACTIVE_DESCENDANT_CHANGED;
       break;
+    case AccessibilityNotificationBlur:
+      // Equivalent to focus on the root.
+      event_id = EVENT_OBJECT_FOCUS;
+      node = GetRoot();
+      break;
     case AccessibilityNotificationCheckStateChanged:
       event_id = EVENT_OBJECT_STATECHANGE;
       break;
@@ -77,7 +82,7 @@ void BrowserAccessibilityManagerWin::NotifyAccessibilityEvent(
     case AccessibilityNotificationLoadComplete:
       event_id = IA2_EVENT_DOCUMENT_LOAD_COMPLETE;
       break;
-    case AccessibilityNotificationValueChangedD:
+    case AccessibilityNotificationValueChanged:
       event_id = EVENT_OBJECT_VALUECHANGE;
       break;
     case AccessibilityNotificationSelectedTextChanged:
@@ -100,6 +105,9 @@ void BrowserAccessibilityManagerWin::NotifyAccessibilityEvent(
       break;
     case AccessibilityNotificationAlert:
       event_id = EVENT_SYSTEM_ALERT;
+      break;
+    case AccessibilityNotificationMenuListItemSelected:
+      event_id = EVENT_OBJECT_FOCUS;
       break;
     case AccessibilityNotificationMenuListValueChanged:
       event_id = EVENT_OBJECT_VALUECHANGE;

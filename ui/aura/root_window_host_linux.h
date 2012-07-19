@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_ROOT_WINDOW_HOST_LINUX_H_
 #define UI_AURA_ROOT_WINDOW_HOST_LINUX_H_
-#pragma once
 
 #include <X11/Xlib.h>
 
@@ -14,7 +13,12 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "ui/aura/root_window_host.h"
+#include "ui/aura/x11_atom_cache.h"
 #include "ui/gfx/rect.h"
+
+namespace ui {
+class ViewProp;
+}
 
 namespace aura {
 
@@ -25,12 +29,12 @@ class RootWindowHostLinux : public RootWindowHost,
   virtual ~RootWindowHostLinux();
 
   // Overridden from Dispatcher overrides:
-  virtual base::MessagePumpDispatcher::DispatchStatus
-      Dispatch(XEvent* xev) OVERRIDE;
+  virtual bool Dispatch(const base::NativeEvent& event) OVERRIDE;
 
  private:
   // RootWindowHost Overrides.
   virtual void SetRootWindow(RootWindow* root_window) OVERRIDE;
+  virtual RootWindow* GetRootWindow() OVERRIDE;
   virtual gfx::AcceleratedWidget GetAcceleratedWidget() OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void ToggleFullScreen() OVERRIDE;
@@ -46,7 +50,11 @@ class RootWindowHostLinux : public RootWindowHost,
   virtual void UnConfineCursor() OVERRIDE;
   virtual void MoveCursorTo(const gfx::Point& location) OVERRIDE;
   virtual void SetFocusWhenShown(bool focus_when_shown) OVERRIDE;
+  virtual bool GrabSnapshot(
+      const gfx::Rect& snapshot_bounds,
+      std::vector<unsigned char>* png_representation) OVERRIDE;
   virtual void PostNativeEvent(const base::NativeEvent& event) OVERRIDE;
+  virtual void OnDeviceScaleFactorChanged(float device_scale_factor) OVERRIDE;
 
   // Returns true if there's an X window manager present... in most cases.  Some
   // window managers (notably, ion3) don't implement enough of ICCCM for us to
@@ -82,6 +90,13 @@ class RootWindowHostLinux : public RootWindowHost,
   bool focus_when_shown_;
 
   scoped_array<XID> pointer_barriers_;
+
+  scoped_ptr<ui::ViewProp> prop_;
+
+  class ImageCursors;
+  scoped_ptr<ImageCursors> image_cursors_;
+
+  X11AtomCache atom_cache_;
 
   DISALLOW_COPY_AND_ASSIGN(RootWindowHostLinux);
 };

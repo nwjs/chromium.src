@@ -6,4 +6,6 @@ include_rules = [
   "+libGLESv2",
   "+sandbox",
   "+skia",
+  "+third_party/libxml",  # For parsing WinSAT results files.
+  "+third_party/libXNVCtrl",  # For NV driver version query.
 ]

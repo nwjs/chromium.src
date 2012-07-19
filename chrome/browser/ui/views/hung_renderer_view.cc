@@ -14,9 +14,9 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/logging_chrome.h"
 #include "content/public/browser/render_process_host.h"
@@ -42,6 +42,10 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
+#endif
+
+#if defined(OS_WIN)
+#include "chrome/browser/hang_monitor/hang_crash_dump_win.h"
 #endif
 
 class HungRendererDialogView;
@@ -84,7 +88,7 @@ class HungPagesTableModel : public views::GroupTableModel {
   // Overridden from views::GroupTableModel:
   virtual int RowCount();
   virtual string16 GetText(int row, int column_id);
-  virtual SkBitmap GetIcon(int row);
+  virtual gfx::ImageSkia GetIcon(int row);
   virtual void SetObserver(ui::TableModelObserver* observer);
   virtual void GetGroupRangeForItem(int item, views::GroupRange* range);
 
@@ -94,7 +98,7 @@ class HungPagesTableModel : public views::GroupTableModel {
   class WebContentsObserverImpl : public content::WebContentsObserver {
    public:
     WebContentsObserverImpl(HungPagesTableModel* model,
-                            TabContentsWrapper* tab);
+                            TabContents* tab);
 
     WebContents* web_contents() const {
       return content::WebContentsObserver::web_contents();
@@ -110,7 +114,7 @@ class HungPagesTableModel : public views::GroupTableModel {
 
    private:
     HungPagesTableModel* model_;
-    TabContentsWrapper* tab_;
+    TabContents* tab_;
 
     DISALLOW_COPY_AND_ASSIGN(WebContentsObserverImpl);
   };
@@ -150,15 +154,17 @@ RenderViewHost* HungPagesTableModel::GetRenderViewHost() {
 }
 
 void HungPagesTableModel::InitForWebContents(WebContents* hung_contents) {
-  tab_observers_.reset();
+  tab_observers_.clear();
   if (hung_contents) {
     // Force hung_contents to be first.
-    TabContentsWrapper* hung_wrapper =
-        TabContentsWrapper::GetCurrentWrapperForContents(hung_contents);
-    if (hung_wrapper)
-      tab_observers_.push_back(new WebContentsObserverImpl(this, hung_wrapper));
+    TabContents* hung_tab_contents =
+        TabContents::FromWebContents(hung_contents);
+    if (hung_tab_contents) {
+      tab_observers_.push_back(new WebContentsObserverImpl(this,
+                                                           hung_tab_contents));
+    }
     for (TabContentsIterator it; !it.done(); ++it) {
-      if (*it != hung_wrapper &&
+      if (*it != hung_tab_contents &&
           it->web_contents()->GetRenderProcessHost() ==
           hung_contents->GetRenderProcessHost())
         tab_observers_.push_back(new WebContentsObserverImpl(this, *it));
@@ -188,7 +194,7 @@ string16 HungPagesTableModel::GetText(int row, int column_id) {
   return title;
 }
 
-SkBitmap HungPagesTableModel::GetIcon(int row) {
+gfx::ImageSkia HungPagesTableModel::GetIcon(int row) {
   DCHECK(row >= 0 && row < RowCount());
   return tab_observers_[row]->favicon_tab_helper()->GetFavicon();
 }
@@ -221,7 +227,7 @@ void HungPagesTableModel::TabDestroyed(WebContentsObserverImpl* tab) {
 
 HungPagesTableModel::WebContentsObserverImpl::WebContentsObserverImpl(
     HungPagesTableModel* model,
-    TabContentsWrapper* tab)
+    TabContents* tab)
     : content::WebContentsObserver(tab->web_contents()),
       model_(model),
       tab_(tab) {
@@ -300,13 +306,13 @@ class HungRendererDialogView : public views::DialogDelegateView,
   bool initialized_;
 
   // An amusing icon image.
-  static SkBitmap* frozen_icon_;
+  static gfx::ImageSkia* frozen_icon_;
 
   DISALLOW_COPY_AND_ASSIGN(HungRendererDialogView);
 };
 
 // static
-SkBitmap* HungRendererDialogView::frozen_icon_ = NULL;
+gfx::ImageSkia* HungRendererDialogView::frozen_icon_ = NULL;
 
 // The distance in pixels from the top of the relevant contents to place the
 // warning window.
@@ -431,10 +437,17 @@ void HungRendererDialogView::ButtonPressed(
     views::Button* sender, const views::Event& event) {
   if (sender == kill_button_ &&
       hung_pages_table_model_->GetRenderProcessHost()) {
+
+    base::ProcessHandle process_handle =
+        hung_pages_table_model_->GetRenderProcessHost()->GetHandle();
+
+#if defined(OS_WIN)
+    // Try to generate a crash report for the hung process.
+    CrashDumpAndTerminateHungChildProcess(process_handle);
+#else
     // Kill the process.
-    base::KillProcess(
-        hung_pages_table_model_->GetRenderProcessHost()->GetHandle(),
-        content::RESULT_CODE_HUNG, false);
+    base::KillProcess(process_handle, content::RESULT_CODE_HUNG, false);
+#endif
   }
 }
 
@@ -535,7 +548,7 @@ void HungRendererDialogView::CreateKillButtonView() {
 gfx::Rect HungRendererDialogView::GetDisplayBounds(
     WebContents* contents) {
 #if defined(USE_AURA)
-  gfx::Rect contents_bounds(contents->GetNativeView()->GetScreenBounds());
+  gfx::Rect contents_bounds(contents->GetNativeView()->GetRootWindowBounds());
 #elif defined(OS_WIN)
   HWND contents_hwnd = contents->GetNativeView();
   RECT contents_bounds_rect;
@@ -555,8 +568,8 @@ gfx::Rect HungRendererDialogView::GetDisplayBounds(
 void HungRendererDialogView::InitClass() {
   static bool initialized = false;
   if (!initialized) {
-    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    frozen_icon_ = rb.GetBitmapNamed(IDR_FROZEN_TAB_ICON);
+    ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+    frozen_icon_ = rb.GetImageSkiaNamed(IDR_FROZEN_TAB_ICON);
     initialized = true;
   }
 }
@@ -567,7 +580,7 @@ static HungRendererDialogView* CreateHungRendererDialogView() {
   return cv;
 }
 
-namespace browser {
+namespace chrome {
 
 void ShowHungRendererDialog(WebContents* contents) {
   if (!logging::DialogsAreSuppressed()) {
@@ -582,4 +595,4 @@ void HideHungRendererDialog(WebContents* contents) {
     g_instance->EndForWebContents(contents);
 }
 
-}  // namespace browser
+}  // namespace chrome

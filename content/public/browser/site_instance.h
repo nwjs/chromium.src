@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_SITE_INSTANCE_H_
 #define CONTENT_PUBLIC_BROWSER_SITE_INSTANCE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
@@ -27,8 +26,8 @@ class RenderProcessHost;
 // to the other).  We represent instances using the BrowsingInstance class.
 //
 // In --process-per-tab, one SiteInstance is created for each tab (i.e., in the
-// TabContents constructor), unless the tab is created by script (i.e., in
-// TabContents::CreateNewView).  This corresponds to one process per
+// WebContents constructor), unless the tab is created by script (i.e., in
+// WebContents::CreateNewView).  This corresponds to one process per
 // BrowsingInstance.
 //
 // In process-per-site-instance (the current default process model),
@@ -42,7 +41,7 @@ class RenderProcessHost;
 // throughout the entire browser context.  This ensures that only one process
 // will be dedicated to each site.
 //
-// Each NavigationEntry for a TabContents points to the SiteInstance that
+// Each NavigationEntry for a WebContents points to the SiteInstance that
 // rendered it.  Each RenderViewHost also points to the SiteInstance that it is
 // associated with.  A SiteInstance keeps track of the number of these
 // references and deletes itself when the count goes to zero.  This means that
@@ -81,6 +80,11 @@ class CONTENT_EXPORT SiteInstance : public base::RefCounted<SiteInstance> {
   // TODO(creis): This may be an argument to build a pass_refptr<T> class, as
   // Darin suggests.
   virtual SiteInstance* GetRelatedSiteInstance(const GURL& url) = 0;
+
+  // Returns whether the given SiteInstance is in the same BrowsingInstance as
+  // this one.  If so, JavaScript interactions that are permitted across
+  // origins (e.g., postMessage) should be supported.
+  virtual bool IsRelatedSiteInstance(const SiteInstance* instance) = 0;
 
   // Factory method to create a new SiteInstance.  This will create a new
   // new BrowsingInstance, so it should only be used when creating a new tab

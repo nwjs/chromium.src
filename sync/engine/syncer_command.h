@@ -4,13 +4,12 @@
 
 #ifndef SYNC_ENGINE_SYNCER_COMMAND_H_
 #define SYNC_ENGINE_SYNCER_COMMAND_H_
-#pragma once
 
 #include "base/basictypes.h"
 
-#include "sync/util/syncer_error.h"
+#include "sync/internal_api/public/util/syncer_error.h"
 
-namespace browser_sync {
+namespace syncer {
 
 namespace sessions {
 class SyncSession;
@@ -39,10 +38,9 @@ class SyncerCommand {
   // ExecuteImpl is where derived classes actually do work.
   virtual SyncerError ExecuteImpl(sessions::SyncSession* session) = 0;
  private:
-  void SendNotifications(sessions::SyncSession* session);
   DISALLOW_COPY_AND_ASSIGN(SyncerCommand);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_SYNCER_COMMAND_H_

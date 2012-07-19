@@ -7,15 +7,19 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "content/browser/gpu/browser_gpu_channel_host_factory.h"
-#include "content/browser/in_process_webkit/dom_storage_message_filter.h"
 #include "content/browser/in_process_webkit/indexed_db_key_utility_client.h"
 #include "content/common/indexed_db/indexed_db_key.h"
+#include "content/common/indexed_db/indexed_db_key_path.h"
 #include "content/public/common/serialized_script_value.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebData.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSerializedScriptValue.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURL.h"
 #include "webkit/glue/webkit_glue.h"
+
+using content::IndexedDBKey;
+using content::IndexedDBKeyPath;
+using content::SerializedScriptValue;
 
 BrowserWebKitPlatformSupportImpl::BrowserWebKitPlatformSupportImpl() {
   file_utilities_.set_sandbox_enabled(false);
@@ -116,32 +120,6 @@ WebKit::WebData BrowserWebKitPlatformSupportImpl::loadResource(
   return WebKit::WebData();
 }
 
-WebKit::WebStorageNamespace*
-BrowserWebKitPlatformSupportImpl::createLocalStorageNamespace(
-    const WebKit::WebString& path, unsigned quota) {
-  // The "WebStorage" interface is used for renderer WebKit -> browser WebKit
-  // communication only.  "WebStorageClient" will be used for browser WebKit ->
-  // renderer WebKit.  So this will never be implemented.
-  NOTREACHED();
-  return 0;
-}
-
-void BrowserWebKitPlatformSupportImpl::dispatchStorageEvent(
-    const WebKit::WebString& key, const WebKit::WebString& old_value,
-    const WebKit::WebString& new_value, const WebKit::WebString& origin,
-    const WebKit::WebURL& url, bool is_local_storage) {
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
-  NOTREACHED();
-#else
-  // TODO(jorlow): Implement
-  if (!is_local_storage)
-    return;
-
-  DOMStorageMessageFilter::DispatchStorageEvent(key, old_value, new_value,
-                                                origin, url, is_local_storage);
-#endif
-}
-
 WebKit::WebSharedWorkerRepository*
 BrowserWebKitPlatformSupportImpl::sharedWorkerRepository() {
     NOTREACHED();
@@ -157,19 +135,19 @@ int BrowserWebKitPlatformSupportImpl::databaseDeleteFile(
 void
 BrowserWebKitPlatformSupportImpl::createIDBKeysFromSerializedValuesAndKeyPath(
     const WebKit::WebVector<WebKit::WebSerializedScriptValue>& values,
-    const WebKit::WebString& keyPath,
+    const WebKit::WebIDBKeyPath& keyPath,
     WebKit::WebVector<WebKit::WebIDBKey>& keys) {
 
-  std::vector<content::SerializedScriptValue> std_values;
+  std::vector<SerializedScriptValue> std_values;
   size_t size = values.size();
   std_values.reserve(size);
   for (size_t i = 0; i < size; ++i)
-    std_values.push_back(content::SerializedScriptValue(values[i]));
+    std_values.push_back(SerializedScriptValue(values[i]));
 
   std::vector<IndexedDBKey> std_keys;
   IndexedDBKeyUtilityClient::
-      CreateIDBKeysFromSerializedValuesAndKeyPath(std_values, keyPath,
-                                                  &std_keys);
+      CreateIDBKeysFromSerializedValuesAndKeyPath(
+          std_values, IndexedDBKeyPath(keyPath), &std_keys);
 
   keys = std_keys;
 }
@@ -177,9 +155,10 @@ BrowserWebKitPlatformSupportImpl::createIDBKeysFromSerializedValuesAndKeyPath(
 WebKit::WebSerializedScriptValue
 BrowserWebKitPlatformSupportImpl::injectIDBKeyIntoSerializedValue(
     const WebKit::WebIDBKey& key, const WebKit::WebSerializedScriptValue& value,
-    const WebKit::WebString& keyPath) {
+    const WebKit::WebIDBKeyPath& keyPath) {
   return IndexedDBKeyUtilityClient::InjectIDBKeyIntoSerializedValue(
-      IndexedDBKey(key), content::SerializedScriptValue(value), keyPath);
+      IndexedDBKey(key), SerializedScriptValue(value),
+      IndexedDBKeyPath(keyPath));
 }
 
 GpuChannelHostFactory*

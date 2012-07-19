@@ -7,11 +7,11 @@
 #include "base/logging.h"
 #include "base/sys_string_conversions.h"
 #import "chrome/browser/ui/cocoa/event_utils.h"
-#include "skia/ext/skia_utils_mac.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/accelerators/accelerator_cocoa.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_util_mac.h"
 
 @interface MenuController (Private)
 - (void)addSeparatorToMenu:(NSMenu*)menu
@@ -43,14 +43,18 @@
 
   // Close the menu if it is still open. This could happen if a tab gets closed
   // while its context menu is still open.
+  [self cancel];
+
+  model_ = NULL;
+  [super dealloc];
+}
+
+- (void)cancel {
   if (isMenuOpen_) {
     [menu_ cancelTracking];
     model_->MenuClosed();
     isMenuOpen_ = NO;
   }
-
-  model_ = NULL;
-  [super dealloc];
 }
 
 // Creates a NSMenu from the given model. If the model has submenus, this can
@@ -102,9 +106,9 @@
                           keyEquivalent:@""]);
 
   // If the menu item has an icon, set it.
-  SkBitmap skiaIcon;
+  gfx::ImageSkia skiaIcon;
   if (model->GetIconAt(modelIndex, &skiaIcon) && !skiaIcon.isNull()) {
-    NSImage* icon = gfx::SkBitmapToNSImage(skiaIcon);
+    NSImage* icon = gfx::NSImageFromImageSkia(skiaIcon);
     if (icon) {
       [item setImage:icon];
     }
@@ -161,10 +165,10 @@
       NSString* label =
           l10n_util::FixUpWindowsStyleLabel(model->GetLabelAt(modelIndex));
       [(id)item setTitle:label];
-      SkBitmap skiaIcon;
+      gfx::ImageSkia skiaIcon;
       NSImage* icon = nil;
       if (model->GetIconAt(modelIndex, &skiaIcon) && !skiaIcon.isNull())
-        icon = gfx::SkBitmapToNSImage(skiaIcon);
+        icon = gfx::NSImageFromImageSkia(skiaIcon);
       [(id)item setImage:icon];
     }
     return model->IsEnabledAt(modelIndex);
@@ -209,8 +213,10 @@
 }
 
 - (void)menuDidClose:(NSMenu*)menu {
-  model_->MenuClosed();
-  isMenuOpen_ = NO;
+  if (isMenuOpen_) {
+    model_->MenuClosed();
+    isMenuOpen_ = NO;
+  }
 }
 
 @end

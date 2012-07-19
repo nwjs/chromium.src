@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_ACCESSIBILITY_ACCESSIBILITY_UTIL_H_
 #define CHROME_BROWSER_CHROMEOS_ACCESSIBILITY_ACCESSIBILITY_UTIL_H_
-#pragma once
 
 #include <string>
 
@@ -39,6 +38,12 @@ void Speak(const std::string& utterance);
 
 // Returns true if spoken feedback is enabled, or false if not.
 bool IsSpokenFeedbackEnabled();
+
+// Returns true if High Contrast is enabled, or false if not.
+bool IsHighContrastEnabled();
+
+// Returns true if Screen Magnifier is enabled, or false if not.
+bool IsScreenMagnifierEnabled();
 
 // Speak the given text if the accessibility pref is already set.
 void MaybeSpeak(const std::string& utterance);

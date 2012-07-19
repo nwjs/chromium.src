@@ -13,8 +13,10 @@
 #include <string>
 #include <vector>
 
+#include "base/nullable_string16.h"
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebReferrerPolicy.h"
 #include "webkit/glue/webkit_glue_export.h"
 
 struct IDataObject;
@@ -24,6 +26,17 @@ class WebDragData;
 }
 
 struct WEBKIT_GLUE_EXPORT WebDropData {
+  // The struct is used to represent a file in the drop data.
+  struct WEBKIT_GLUE_EXPORT FileInfo {
+    FileInfo();
+    FileInfo(const string16& path, const string16& display_name);
+
+    // The path of the file.
+    string16 path;
+    // The display name of the file. This field is optional.
+    string16 display_name;
+  };
+
   // Construct from a WebDragData object.
   explicit WebDropData(const WebKit::WebDragData&);
 
@@ -38,19 +51,23 @@ struct WEBKIT_GLUE_EXPORT WebDropData {
   // User is dragging a link out-of the webview.
   string16 download_metadata;
 
+  // Referrer policy to use when dragging a link out of the webview results in
+  // a download.
+  WebKit::WebReferrerPolicy referrer_policy;
+
   // User is dropping one or more files on the webview.
-  std::vector<string16> filenames;
+  std::vector<FileInfo> filenames;
 
   // Isolated filesystem ID for the files being dragged on the webview.
   string16 filesystem_id;
 
   // User is dragging plain text into the webview.
-  string16 plain_text;
+  NullableString16 text;
 
   // User is dragging text/html into the webview (e.g., out of Firefox).
   // |html_base_url| is the URL that the html fragment is taken from (used to
   // resolve relative links).  It's ok for |html_base_url| to be empty.
-  string16 text_html;
+  NullableString16 html;
   GURL html_base_url;
 
   // User is dragging data from the webview (e.g., an image).

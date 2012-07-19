@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,7 +8,7 @@
 #include "skia/ext/platform_canvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebRect.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebSize.h"
-#include "ui/gfx/native_theme_android.h"
+#include "ui/base/native_theme/native_theme.h"
 
 using WebKit::WebCanvas;
 using WebKit::WebColor;
@@ -17,69 +17,69 @@ using WebKit::WebThemeEngine;
 
 namespace webkit_glue {
 
-static gfx::NativeThemeAndroid::Part NativeThemePart(
+static ui::NativeTheme::Part NativeThemePart(
     WebThemeEngine::Part part) {
   switch (part) {
     case WebThemeEngine::PartScrollbarDownArrow:
-      return gfx::NativeThemeAndroid::SCROLLBAR_DOWN_ARROW;
+      return ui::NativeTheme::kScrollbarDownArrow;
     case WebThemeEngine::PartScrollbarLeftArrow:
-      return gfx::NativeThemeAndroid::SCROLLBAR_LEFT_ARROW;
+      return ui::NativeTheme::kScrollbarLeftArrow;
     case WebThemeEngine::PartScrollbarRightArrow:
-      return gfx::NativeThemeAndroid::SCROLLBAR_RIGHT_ARROW;
+      return ui::NativeTheme::kScrollbarRightArrow;
     case WebThemeEngine::PartScrollbarUpArrow:
-      return gfx::NativeThemeAndroid::SCROLLBAR_UP_ARROW;
+      return ui::NativeTheme::kScrollbarUpArrow;
     case WebThemeEngine::PartScrollbarHorizontalThumb:
       // Android doesn't draw scrollbars.
       NOTREACHED();
-      return static_cast<gfx::NativeThemeAndroid::Part>(0);
+      return static_cast<ui::NativeTheme::Part>(0);
     case WebThemeEngine::PartScrollbarVerticalThumb:
       // Android doesn't draw scrollbars.
       NOTREACHED();
-      return static_cast<gfx::NativeThemeAndroid::Part>(0);
+      return static_cast<ui::NativeTheme::Part>(0);
     case WebThemeEngine::PartScrollbarHorizontalTrack:
       // Android doesn't draw scrollbars.
       NOTREACHED();
-      return static_cast<gfx::NativeThemeAndroid::Part>(0);
+      return static_cast<ui::NativeTheme::Part>(0);
     case WebThemeEngine::PartScrollbarVerticalTrack:
       // Android doesn't draw scrollbars.
       NOTREACHED();
-      return static_cast<gfx::NativeThemeAndroid::Part>(0);
+      return static_cast<ui::NativeTheme::Part>(0);
     case WebThemeEngine::PartCheckbox:
-      return gfx::NativeThemeAndroid::CHECKBOX;
+      return ui::NativeTheme::kCheckbox;
     case WebThemeEngine::PartRadio:
-      return gfx::NativeThemeAndroid::RADIO;
+      return ui::NativeTheme::kRadio;
     case WebThemeEngine::PartButton:
-      return gfx::NativeThemeAndroid::PUSH_BUTTON;
+      return ui::NativeTheme::kPushButton;
     case WebThemeEngine::PartTextField:
-      return gfx::NativeThemeAndroid::TEXTFIELD;
+      return ui::NativeTheme::kTextField;
     case WebThemeEngine::PartMenuList:
-      return gfx::NativeThemeAndroid::MENU_LIST;
+      return ui::NativeTheme::kMenuList;
     case WebThemeEngine::PartSliderTrack:
-      return gfx::NativeThemeAndroid::SLIDER_TRACK;
+      return ui::NativeTheme::kSliderTrack;
     case WebThemeEngine::PartSliderThumb:
-      return gfx::NativeThemeAndroid::SLIDER_THUMB;
+      return ui::NativeTheme::kSliderThumb;
     case WebThemeEngine::PartInnerSpinButton:
-      return gfx::NativeThemeAndroid::INNER_SPIN_BUTTON;
+      return ui::NativeTheme::kInnerSpinButton;
     case WebThemeEngine::PartProgressBar:
-      return gfx::NativeThemeAndroid::PROGRESS_BAR;
+      return ui::NativeTheme::kProgressBar;
     default:
-      return gfx::NativeThemeAndroid::SCROLLBAR_DOWN_ARROW;
+      return ui::NativeTheme::kScrollbarDownArrow;
   }
 }
 
-static gfx::NativeThemeAndroid::State NativeThemeState(
+static ui::NativeTheme::State NativeThemeState(
     WebThemeEngine::State state) {
   switch (state) {
     case WebThemeEngine::StateDisabled:
-      return gfx::NativeThemeAndroid::DISABLED;
+      return ui::NativeTheme::kDisabled;
     case WebThemeEngine::StateHover:
-      return gfx::NativeThemeAndroid::HOVERED;
+      return ui::NativeTheme::kHovered;
     case WebThemeEngine::StateNormal:
-      return gfx::NativeThemeAndroid::NORMAL;
+      return ui::NativeTheme::kNormal;
     case WebThemeEngine::StatePressed:
-      return gfx::NativeThemeAndroid::PRESSED;
+      return ui::NativeTheme::kPressed;
     default:
-      return gfx::NativeThemeAndroid::DISABLED;
+      return ui::NativeTheme::kDisabled;
   }
 }
 
@@ -87,7 +87,7 @@ static void GetNativeThemeExtraParams(
     WebThemeEngine::Part part,
     WebThemeEngine::State state,
     const WebThemeEngine::ExtraParams* extra_params,
-    gfx::NativeThemeAndroid::ExtraParams* native_theme_extra_params) {
+    ui::NativeTheme::ExtraParams* native_theme_extra_params) {
   switch (part) {
     case WebThemeEngine::PartScrollbarHorizontalTrack:
     case WebThemeEngine::PartScrollbarVerticalTrack:
@@ -107,6 +107,8 @@ static void GetNativeThemeExtraParams(
           extra_params->button.isDefault;
       native_theme_extra_params->button.has_border =
           extra_params->button.hasBorder;
+      // Native buttons have a different focus style.
+      native_theme_extra_params->button.is_focused = false;
       native_theme_extra_params->button.background_color =
           extra_params->button.backgroundColor;
       break;
@@ -160,8 +162,9 @@ static void GetNativeThemeExtraParams(
 }
 
 WebKit::WebSize WebThemeEngineImpl::getSize(WebThemeEngine::Part part) {
-  return gfx::NativeThemeAndroid::instance()->GetPartSize(
-      NativeThemePart(part));
+  ui::NativeTheme::ExtraParams extra;
+  return ui::NativeTheme::instance()->GetPartSize(
+      NativeThemePart(part), ui::NativeTheme::kNormal, extra);
 }
 
 void WebThemeEngineImpl::paint(
@@ -170,10 +173,10 @@ void WebThemeEngineImpl::paint(
     WebThemeEngine::State state,
     const WebKit::WebRect& rect,
     const WebThemeEngine::ExtraParams* extra_params) {
-  gfx::NativeThemeAndroid::ExtraParams native_theme_extra_params;
+  ui::NativeTheme::ExtraParams native_theme_extra_params;
   GetNativeThemeExtraParams(
       part, state, extra_params, &native_theme_extra_params);
-  gfx::NativeThemeAndroid::instance()->Paint(
+  ui::NativeTheme::instance()->Paint(
       canvas,
       NativeThemePart(part),
       NativeThemeState(state),

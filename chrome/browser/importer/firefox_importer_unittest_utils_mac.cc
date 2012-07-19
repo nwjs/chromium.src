@@ -15,6 +15,7 @@
 #include "ipc/ipc_channel.h"
 #include "ipc/ipc_descriptors.h"
 #include "ipc/ipc_message.h"
+#include "ipc/ipc_multiprocess_test.h"
 #include "ipc/ipc_switches.h"
 #include "testing/multiprocess_func_list.h"
 
@@ -70,12 +71,12 @@ bool LaunchNSSDecrypterChildProcess(const FilePath& nss_path,
 // Method calls are sent over IPC and replies are read back into class
 // variables.
 // This class needs to be called on a single thread.
-class FFDecryptorServerChannelListener : public IPC::Channel::Listener {
+class FFDecryptorServerChannelListener : public IPC::Listener {
  public:
   FFDecryptorServerChannelListener()
       : got_result(false), sender_(NULL) {}
 
-  void SetSender(IPC::Message::Sender* sender) {
+  void SetSender(IPC::Sender* sender) {
     sender_ = sender;
   }
 
@@ -121,7 +122,7 @@ class FFDecryptorServerChannelListener : public IPC::Channel::Listener {
   bool got_result;
 
  private:
-  IPC::Message::Sender* sender_;  // weak
+  IPC::Sender* sender_;  // weak
 };
 
 FFUnitTestDecryptorProxy::FFUnitTestDecryptorProxy()
@@ -151,7 +152,7 @@ FFUnitTestDecryptorProxy::~FFUnitTestDecryptorProxy() {
   channel_->Close();
 
   if (child_process_) {
-    base::WaitForSingleProcess(child_process_, 5000);
+    base::WaitForSingleProcess(child_process_, base::TimeDelta::FromSeconds(5));
     base::CloseProcessHandle(child_process_);
   }
 }
@@ -166,6 +167,10 @@ class CancellableQuitMsgLoop : public base::RefCounted<CancellableQuitMsgLoop> {
       MessageLoop::current()->Quit();
   }
   bool cancelled_;
+
+ private:
+  friend class base::RefCounted<CancellableQuitMsgLoop>;
+  ~CancellableQuitMsgLoop() {}
 };
 
 // Spin until either a client response arrives or a timeout occurs.
@@ -182,7 +187,7 @@ bool FFUnitTestDecryptorProxy::WaitForClientResponse() {
   MessageLoop::current()->PostDelayedTask(
       FROM_HERE,
       base::Bind(&CancellableQuitMsgLoop::QuitNow, quit_task.get()),
-      TestTimeouts::action_max_timeout_ms());
+      TestTimeouts::action_max_timeout());
 
   message_loop_->Run();
   bool ret = !quit_task->cancelled_;
@@ -215,12 +220,12 @@ string16 FFUnitTestDecryptorProxy::Decrypt(const std::string& crypt) {
 
 // Class to listen on the client side of the ipc channel, it calls through
 // to the NSSDecryptor and sends back a reply.
-class FFDecryptorClientChannelListener : public IPC::Channel::Listener {
+class FFDecryptorClientChannelListener : public IPC::Listener {
  public:
   FFDecryptorClientChannelListener()
       : sender_(NULL) {}
 
-  void SetSender(IPC::Message::Sender* sender) {
+  void SetSender(IPC::Sender* sender) {
     sender_ = sender;
   }
 
@@ -255,11 +260,11 @@ class FFDecryptorClientChannelListener : public IPC::Channel::Listener {
 
  private:
   NSSDecryptor decryptor_;
-  IPC::Message::Sender* sender_;
+  IPC::Sender* sender_;
 };
 
 // Entry function in child process.
-MULTIPROCESS_TEST_MAIN(NSSDecrypterChildProcess) {
+MULTIPROCESS_IPC_TEST_MAIN(NSSDecrypterChildProcess) {
   MessageLoopForIO main_message_loop;
   FFDecryptorClientChannelListener listener;
 

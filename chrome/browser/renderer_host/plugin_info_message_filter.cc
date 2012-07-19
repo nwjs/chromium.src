@@ -27,6 +27,7 @@
 #endif
 
 using content::PluginService;
+using webkit::WebPluginInfo;
 
 PluginInfoMessageFilter::Context::Context(int render_process_id,
                                           Profile* profile)
@@ -57,8 +58,6 @@ PluginInfoMessageFilter::PluginInfoMessageFilter(
       weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
 }
 
-PluginInfoMessageFilter::~PluginInfoMessageFilter() {}
-
 bool PluginInfoMessageFilter::OnMessageReceived(const IPC::Message& message,
                                                 bool* message_was_ok) {
   IPC_BEGIN_MESSAGE_MAP_EX(PluginInfoMessageFilter, message, *message_was_ok)
@@ -78,6 +77,8 @@ void PluginInfoMessageFilter::OnDestruct() const {
   // Destroy on the UI thread because we contain a |PrefMember|.
   content::BrowserThread::DeleteOnUIThread::Destruct(this);
 }
+
+PluginInfoMessageFilter::~PluginInfoMessageFilter() {}
 
 struct PluginInfoMessageFilter::GetPluginInfo_Params {
   int render_view_id;
@@ -107,9 +108,9 @@ void PluginInfoMessageFilter::OnGetPluginInfo(
 void PluginInfoMessageFilter::PluginsLoaded(
     const GetPluginInfo_Params& params,
     IPC::Message* reply_msg,
-    const std::vector<webkit::WebPluginInfo>& plugins) {
+    const std::vector<WebPluginInfo>& plugins) {
   ChromeViewHostMsg_GetPluginInfo_Status status;
-  webkit::WebPluginInfo plugin;
+  WebPluginInfo plugin;
   std::string actual_mime_type;
   // This also fills in |actual_mime_type|.
   if (!context_.FindEnabledPlugin(params.render_view_id, params.url,
@@ -131,7 +132,7 @@ void PluginInfoMessageFilter::PluginsLoaded(
 void PluginInfoMessageFilter::GotPluginFinder(
     const GetPluginInfo_Params& params,
     IPC::Message* reply_msg,
-    const webkit::WebPluginInfo& plugin,
+    const WebPluginInfo& plugin,
     const std::string& actual_mime_type,
     PluginFinder* plugin_finder) {
   ChromeViewHostMsg_GetPluginInfo_Status status;
@@ -143,7 +144,7 @@ void PluginInfoMessageFilter::GotPluginFinder(
 
 void PluginInfoMessageFilter::Context::DecidePluginStatus(
     const GetPluginInfo_Params& params,
-    const webkit::WebPluginInfo& plugin,
+    const WebPluginInfo& plugin,
     PluginFinder* plugin_finder,
     ChromeViewHostMsg_GetPluginInfo_Status* status) const {
   scoped_ptr<webkit::npapi::PluginGroup> group(
@@ -158,30 +159,35 @@ void PluginInfoMessageFilter::Context::DecidePluginStatus(
                           &uses_default_content_setting);
   DCHECK(plugin_setting != CONTENT_SETTING_DEFAULT);
 
+#if defined(ENABLE_PLUGIN_INSTALLATION)
+  PluginInstaller::SecurityStatus plugin_status =
+      PluginInstaller::SECURITY_STATUS_UP_TO_DATE;
+  PluginInstaller* installer =
+      plugin_finder->FindPluginWithIdentifier(group->identifier());
+  if (installer)
+    plugin_status = installer->GetSecurityStatus(plugin);
   // Check if the plug-in is outdated.
-  if (group->IsVulnerable(plugin) && !allow_outdated_plugins_.GetValue()) {
+  if (plugin_status == PluginInstaller::SECURITY_STATUS_OUT_OF_DATE &&
+      !allow_outdated_plugins_.GetValue()) {
     if (allow_outdated_plugins_.IsManaged()) {
       status->value =
           ChromeViewHostMsg_GetPluginInfo_Status::kOutdatedDisallowed;
     } else {
-      status->value =
-          ChromeViewHostMsg_GetPluginInfo_Status::kOutdatedBlocked;
+      status->value = ChromeViewHostMsg_GetPluginInfo_Status::kOutdatedBlocked;
     }
     return;
   }
 
-#if defined(ENABLE_PLUGIN_INSTALLATION)
   // Check if the plug-in requires authorization.
-  // TODO(bauerb): This should be a plain struct with the plug-in information.
-  PluginInstaller* installer =
-      plugin_finder->FindPluginWithIdentifier(group->identifier());
-  if (((installer && installer->requires_authorization()) ||
+  if ((plugin_status ==
+           PluginInstaller::SECURITY_STATUS_REQUIRES_AUTHORIZATION ||
        PluginService::GetInstance()->IsPluginUnstable(plugin.path)) &&
+      plugin.type != WebPluginInfo::PLUGIN_TYPE_PEPPER_IN_PROCESS &&
+      plugin.type != WebPluginInfo::PLUGIN_TYPE_PEPPER_OUT_OF_PROCESS &&
       !always_authorize_plugins_.GetValue() &&
       plugin_setting != CONTENT_SETTING_BLOCK &&
       uses_default_content_setting) {
-    status->value =
-       ChromeViewHostMsg_GetPluginInfo_Status::kUnauthorized;
+    status->value = ChromeViewHostMsg_GetPluginInfo_Status::kUnauthorized;
     return;
   }
 #endif
@@ -198,10 +204,10 @@ bool PluginInfoMessageFilter::Context::FindEnabledPlugin(
     const GURL& top_origin_url,
     const std::string& mime_type,
     ChromeViewHostMsg_GetPluginInfo_Status* status,
-    webkit::WebPluginInfo* plugin,
+    WebPluginInfo* plugin,
     std::string* actual_mime_type) const {
   bool allow_wildcard = true;
-  std::vector<webkit::WebPluginInfo> matching_plugins;
+  std::vector<WebPluginInfo> matching_plugins;
   std::vector<std::string> mime_types;
   PluginService::GetInstance()->GetPluginInfoArray(
       url, mime_type, allow_wildcard, &matching_plugins, &mime_types);
@@ -238,7 +244,7 @@ bool PluginInfoMessageFilter::Context::FindEnabledPlugin(
 }
 
 void PluginInfoMessageFilter::Context::GetPluginContentSetting(
-    const webkit::WebPluginInfo& plugin,
+    const WebPluginInfo& plugin,
     const GURL& policy_url,
     const GURL& plugin_url,
     const std::string& resource,
@@ -250,6 +256,7 @@ void PluginInfoMessageFilter::Context::GetPluginContentSetting(
 
   scoped_ptr<base::Value> value;
   content_settings::SettingInfo info;
+  bool uses_plugin_specific_setting = false;
   if (is_nacl_plugin) {
     value.reset(
         host_content_settings_map_->GetWebsiteSetting(
@@ -260,7 +267,9 @@ void PluginInfoMessageFilter::Context::GetPluginContentSetting(
         host_content_settings_map_->GetWebsiteSetting(
             policy_url, plugin_url, CONTENT_SETTINGS_TYPE_PLUGINS, resource,
             &info));
-    if (!value.get()) {
+    if (value.get()) {
+      uses_plugin_specific_setting = true;
+    } else {
       value.reset(host_content_settings_map_->GetWebsiteSetting(
           policy_url, plugin_url, CONTENT_SETTINGS_TYPE_PLUGINS, std::string(),
           &info));
@@ -268,6 +277,7 @@ void PluginInfoMessageFilter::Context::GetPluginContentSetting(
   }
   *setting = content_settings::ValueToContentSetting(value.get());
   *uses_default_content_setting =
-      (info.primary_pattern == ContentSettingsPattern::Wildcard() &&
-       info.secondary_pattern == ContentSettingsPattern::Wildcard());
+      !uses_plugin_specific_setting &&
+      info.primary_pattern == ContentSettingsPattern::Wildcard() &&
+      info.secondary_pattern == ContentSettingsPattern::Wildcard();
 }

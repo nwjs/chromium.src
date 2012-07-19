@@ -4,21 +4,23 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_SYSTEM_FACTORY_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_SYSTEM_FACTORY_H_
-#pragma once
 
 #include "base/memory/singleton.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
 
-class ExtensionSystem;
 class Profile;
 class ProfileKeyedService;
+
+namespace extensions {
+class ExtensionSystem;
 
 // ProfileKeyedServiceFactory for ExtensionSystemImpl::Shared.
 // Should not be used except by ExtensionSystem(Factory).
 class ExtensionSystemSharedFactory : public ProfileKeyedServiceFactory {
  public:
-  static ExtensionSystemImpl::Shared* GetForProfile(Profile* profile);
+  static ExtensionSystemImpl::Shared* GetForProfile(
+      Profile* profile);
 
   static ExtensionSystemSharedFactory* GetInstance();
 
@@ -52,5 +54,7 @@ class ExtensionSystemFactory : public ProfileKeyedServiceFactory {
   virtual bool ServiceHasOwnInstanceInIncognito() OVERRIDE;
   virtual bool ServiceIsCreatedWithProfile() OVERRIDE;
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_SYSTEM_FACTORY_H_

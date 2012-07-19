@@ -3,12 +3,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Entry point for both build and try bots
+"""THIS SCRIPT IS DEPRECATED AND WILL SOON BE REMOVED.
 
-This script is invoked from XXX, usually without arguments.
-
-To determin which commands to run, the script inspects the environment:
-  BUILDBOT_BUILDERNAME
+Edit tools/build/scripts/slave/chromium/nacl_sdk_buildbot_run.py instead.
 """
 
 
@@ -24,7 +21,7 @@ SDK_BUILDER_MAP = {
     'linux-sdk-mono32':
         [sys.executable, 'nacl-mono-buildbot.py'],
     'linux-sdk-mono64':
-        ['/bin/true'],
+        [sys.executable, 'nacl-mono-buildbot.py'],
     'DEFAULT':
         [sys.executable, 'build_sdk.py'],
 }

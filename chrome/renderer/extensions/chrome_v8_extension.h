@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_EXTENSIONS_CHROME_V8_EXTENSION_H_
 #define CHROME_RENDERER_EXTENSIONS_CHROME_V8_EXTENSION_H_
-#pragma once
 
 #include "base/logging.h"
 #include "base/memory/linked_ptr.h"
@@ -18,11 +17,14 @@
 #include <string>
 
 class ChromeV8Context;
-class Extension;
 class ExtensionDispatcher;
 
 namespace content {
 class RenderView;
+}
+
+namespace extensions {
+class Extension;
 }
 
 // This is a base class for chrome extension bindings.  Common features that
@@ -52,7 +54,7 @@ class ChromeV8Extension : public NativeHandler {
   // Note: do not call this function before or during the chromeHidden.onLoad
   // event dispatch. The URL might not have been committed yet and might not
   // be an extension URL.
-  const ::Extension* GetExtensionForCurrentRenderView() const;
+  const extensions::Extension* GetExtensionForCurrentRenderView() const;
 
   // Returns the chromeHidden object for the current context.
   static v8::Handle<v8::Value> GetChromeHidden(const v8::Arguments& args);

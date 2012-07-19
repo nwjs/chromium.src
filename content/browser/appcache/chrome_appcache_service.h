@@ -1,14 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_APPCACHE_CHROME_APPCACHE_SERVICE_H_
 #define CONTENT_BROWSER_APPCACHE_CHROME_APPCACHE_SERVICE_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_thread.h"
 #include "webkit/appcache/appcache_policy.h"
@@ -35,29 +34,34 @@ struct ChromeAppCacheServiceDeleter;
 // TODO(dpranke): Fix dependencies on AppCacheService so that we don't have
 // to worry about clients calling AppCacheService methods.
 class CONTENT_EXPORT ChromeAppCacheService
-    : public base::RefCountedThreadSafe<
-          ChromeAppCacheService, ChromeAppCacheServiceDeleter>,
+    : public base::RefCountedThreadSafe<ChromeAppCacheService,
+                                        ChromeAppCacheServiceDeleter>,
       NON_EXPORTED_BASE(public appcache::AppCacheService),
       NON_EXPORTED_BASE(public appcache::AppCachePolicy) {
  public:
   explicit ChromeAppCacheService(quota::QuotaManagerProxy* proxy);
-  virtual ~ChromeAppCacheService();
 
   void InitializeOnIOThread(
       const FilePath& cache_path,  // may be empty to use in-memory structures
       content::ResourceContext* resource_context,
       scoped_refptr<quota::SpecialStoragePolicy> special_storage_policy);
 
- private:
-  friend struct ChromeAppCacheServiceDeleter;
-
-  void DeleteOnCorrectThread() const;
-
   // AppCachePolicy overrides
   virtual bool CanLoadAppCache(const GURL& manifest_url,
                                const GURL& first_party) OVERRIDE;
   virtual bool CanCreateAppCache(const GURL& manifest_url,
                                  const GURL& first_party) OVERRIDE;
+
+ protected:
+  virtual ~ChromeAppCacheService();
+
+ private:
+  friend class base::DeleteHelper<ChromeAppCacheService>;
+  friend class base::RefCountedThreadSafe<ChromeAppCacheService,
+                                          ChromeAppCacheServiceDeleter>;
+  friend struct ChromeAppCacheServiceDeleter;
+
+  void DeleteOnCorrectThread() const;
 
   content::ResourceContext* resource_context_;
   FilePath cache_path_;

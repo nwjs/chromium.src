@@ -1,0 +1,92 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Protocol buffer definitions for serializing GData files and directories.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+package gdata;
+
+// Represents base::PlatformFileInfo.
+message PlatformFileInfoProto {
+  optional int64 size = 1;
+  optional bool is_directory = 2;
+  optional bool is_symbolic_link = 3;
+  optional int64 last_modified = 4;
+  optional int64 last_accessed = 5;
+  optional int64 creation_time = 6;
+}
+
+// Represents GDataEntry.
+message GDataEntryProto {
+  optional PlatformFileInfoProto file_info = 1;
+  optional string file_name = 2;
+  optional string title = 3;
+  optional string resource_id = 4;
+  optional string edit_url = 5;
+  optional string content_url = 6;
+  optional string parent_resource_id = 7;
+  // For a file, this is "resumable-edit-media" URL, used to update an
+  // existing file. For a directory, this is "resumable-create-media" URL,
+  // used to upload a new file to that directory. See
+  // https://developers.google.com/google-apps/documents-list/
+  optional string upload_url = 8;
+}
+
+// Represents GDataFile.
+message GDataFileProto {
+  optional GDataEntryProto gdata_entry = 1;
+  optional uint32 kind = 2;
+  optional string thumbnail_url = 3;
+  optional string alternate_url = 4;
+  optional string content_mime_type = 5;
+  optional string file_md5 = 8;
+  optional string document_extension = 9;
+  optional bool is_hosted_document = 10;
+}
+
+// Represents GDataDirectory.
+message GDataDirectoryProto {
+  optional GDataEntryProto gdata_entry = 1;
+  optional string start_feed_url = 3;
+  optional string next_feed_url = 4;
+  optional uint32 origin = 6;
+  repeated GDataDirectoryProto child_directories = 7;
+  repeated GDataFileProto child_files = 8;
+}
+
+// Container for the root directory and the largest changestamp.
+// TODO(satorux): Remove this: crbug.com/137862
+message GDataRootDirectoryProto {
+  optional GDataDirectoryProto gdata_directory = 1;
+  optional int32 largest_changestamp = 2;
+}
+
+// Message to store information of an existing cache file.
+// Cache files are stored in 'tmp' or 'persistent' directory under the
+// root cache directory. See GDataCache::GetCacheRootPath().
+message GDataCacheEntry {
+  // MD5 of the cache file. "local" if the file is locally modified.
+  optional string md5 = 1;
+
+  // True if the file is present locally.
+  optional bool is_present = 2;
+
+  // True if the file is pinned (i.e. available offline).
+  optional bool is_pinned = 3;
+
+  // True if the file is dirty (i.e. modified locally).
+  optional bool is_dirty = 4;
+
+  // True if the file is a mounted archive file.
+  optional bool is_mounted = 5;
+
+  // True if the file is in the persistent directory.
+  optional bool is_persistent = 6;
+
+  // When adding a new state, be sure to update TestGDataCacheState and test
+  // functions defined in gdata_test_util.cc.
+}

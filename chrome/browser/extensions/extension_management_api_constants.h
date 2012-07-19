@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_MANAGEMENT_API_CONSTANTS_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_MANAGEMENT_API_CONSTANTS_H_
-#pragma once
 
 namespace extension_management_api_constants {
 
@@ -14,7 +13,9 @@ extern const char kDisabledReasonKey[];
 extern const char kHostPermissionsKey[];
 extern const char kIconsKey[];
 extern const char kIsAppKey[];
+extern const char kMayDisableKey[];
 extern const char kPermissionsKey[];
+extern const char kShowConfirmDialogKey[];
 extern const char kSizeKey[];
 extern const char kUpdateUrlKey[];
 extern const char kUrlKey[];
@@ -29,7 +30,8 @@ extern const char kGestureNeededForEscalationError[];
 extern const char kManifestParseError[];
 extern const char kNoExtensionError[];
 extern const char kNotAnAppError[];
-extern const char kUserCantDisableError[];
+extern const char kUserCantModifyError[];
+extern const char kUninstallCanceledError[];
 extern const char kUserDidNotReEnableError[];
 
 }  // namespace extension_management_api_constants

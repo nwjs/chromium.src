@@ -10,9 +10,9 @@
 #include "base/debug/trace_event.h"
 #include "base/message_loop.h"
 #include "base/time.h"
-#include "ui/gfx/gl/gl_bindings.h"
-#include "ui/gfx/gl/gl_fence.h"
-#include "ui/gfx/gl/gl_switches.h"
+#include "ui/gl/gl_bindings.h"
+#include "ui/gl/gl_fence.h"
+#include "ui/gl/gl_switches.h"
 
 using ::base::SharedMemory;
 
@@ -32,7 +32,8 @@ GpuScheduler::GpuScheduler(
       parser_(NULL),
       unscheduled_count_(0),
       rescheduled_count_(0),
-      reschedule_task_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+      reschedule_task_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+      was_preempted_(false) {
 }
 
 GpuScheduler::~GpuScheduler() {
@@ -63,10 +64,26 @@ void GpuScheduler::PutChanged() {
 
   error::Error error = error::kNoError;
   while (!parser_->IsEmpty()) {
+    if (preempt_by_counter_.get() &&
+        !was_preempted_ &&
+        !preempt_by_counter_->IsZero()) {
+      TRACE_COUNTER_ID1("gpu","GpuScheduler::Preempted", this, 1);
+      was_preempted_ = true;
+      return;
+    } else if (was_preempted_) {
+      TRACE_COUNTER_ID1("gpu","GpuScheduler::Preempted", this, 0);
+      was_preempted_ = false;
+    }
+
     DCHECK(IsScheduled());
     DCHECK(unschedule_fences_.empty());
 
     error = parser_->ProcessCommand();
+
+    if (error == error::kDeferCommandUntilLater) {
+      DCHECK(unscheduled_count_ > 0);
+      return;
+    }
 
     // TODO(piman): various classes duplicate various pieces of state, leading
     // to needlessly complex update logic. It should be possible to simply
@@ -107,6 +124,7 @@ void GpuScheduler::SetScheduled(bool scheduled) {
     DCHECK_GE(unscheduled_count_, 0);
 
     if (unscheduled_count_ == 0) {
+      TRACE_EVENT_ASYNC_END1("gpu", "Descheduled", this, "GpuScheduler", this);
       // When the scheduler transitions from the unscheduled to the scheduled
       // state, cancel the task that would reschedule it after a timeout.
       reschedule_task_factory_.InvalidateWeakPtrs();
@@ -116,6 +134,8 @@ void GpuScheduler::SetScheduled(bool scheduled) {
     }
   } else {
     if (unscheduled_count_ == 0) {
+      TRACE_EVENT_ASYNC_BEGIN1("gpu", "Descheduled", this,
+                               "GpuScheduler", this);
 #if defined(OS_WIN)
       // When the scheduler transitions from scheduled to unscheduled, post a
       // delayed task that it will force it back into a scheduled state after a

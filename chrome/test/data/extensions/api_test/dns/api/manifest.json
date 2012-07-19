@@ -3,16 +3,9 @@
   "version": "0.1",
   "manifest_version": 2,
   "description": "end-to-end browser test for chrome.experimental.dns API",
-  "platform_app": true,
-  "background": {
-    "scripts": ["background.js"]
-  },
   "app": {
-    "launch": {
-      "container": "shell",
-      "local_path": "main.html",
-      "width": 250,
-      "height": 250
+    "background": {
+      "scripts": ["background.js"]
     }
   },
   "permissions": [

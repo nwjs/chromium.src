@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -25,7 +25,11 @@ class SkiaUtilsMacTest : public testing::Test {
     TestIdentity = 0,
     TestTranslate = 1,
     TestClip = 2,
-    TestXClip = TestTranslate | TestClip
+    TestXClip = TestTranslate | TestClip,
+    TestNoBits = 4,
+    TestTranslateNoBits = TestTranslate | TestNoBits,
+    TestClipNoBits = TestClip | TestNoBits,
+    TestXClipNoBits = TestXClip | TestNoBits,
   };
   void RunBitLockerTest(BitLockerTest test);
 
@@ -119,7 +123,9 @@ void SkiaUtilsMacTest::RunBitLockerTest(BitLockerTest test) {
   memcpy(bits, original, sizeof(original));
   SkBitmap bitmap;
   bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
-  bitmap.setPixels(bits);
+  if (!(test & TestNoBits)) {
+    bitmap.setPixels(bits);
+  }
   SkCanvas canvas;
   canvas.setBitmapDevice(bitmap);
   if (test & TestTranslate)
@@ -128,12 +134,22 @@ void SkiaUtilsMacTest::RunBitLockerTest(BitLockerTest test) {
     SkRect clipRect = {0, height / 2, width, height};
     canvas.clipRect(clipRect);
   }
-  gfx::SkiaBitLocker bitLocker(&canvas);
-  CGContextRef cgContext = bitLocker.cgContext();
-  CGColorRef testColor = CGColorGetConstantColor(kCGColorWhite);
-  CGContextSetFillColorWithColor(cgContext, testColor);
-  CGRect cgRect = {{0, 0}, {width, height}};
-  CGContextFillRect(cgContext, cgRect);
+  {
+    gfx::SkiaBitLocker bitLocker(&canvas);
+    CGContextRef cgContext = bitLocker.cgContext();
+    CGColorRef testColor = CGColorGetConstantColor(kCGColorWhite);
+    CGContextSetFillColorWithColor(cgContext, testColor);
+    CGRect cgRect = {{0, 0}, {width, height}};
+    CGContextFillRect(cgContext, cgRect);
+    if (test & TestNoBits) {
+      bitmap.setPixels(bits);
+      canvas.setBitmapDevice(bitmap);
+      if (test & TestClip) {
+        SkRect clipRect = {0, height / 2, width, height};
+        canvas.clipRect(clipRect);
+      }
+    }
+  }
   const unsigned results[][storageSize] = {
     {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF}, // identity
     {0xFF333333, 0xFFFFFFFF, 0xFF999999, 0xFFFFFFFF}, // translate
@@ -141,7 +157,7 @@ void SkiaUtilsMacTest::RunBitLockerTest(BitLockerTest test) {
     {0xFF333333, 0xFF666666, 0xFF999999, 0xFFFFFFFF}  // translate | clip
   };
   for (unsigned index = 0; index < storageSize; index++)
-    EXPECT_EQ(results[test][index], bits[index]);
+    EXPECT_EQ(results[test & ~TestNoBits][index], bits[index]);
 }
 
 void SkiaUtilsMacTest::ShapeHelper(int width, int height,
@@ -171,36 +187,16 @@ TEST_F(SkiaUtilsMacTest, FAILS_BitmapToNSImage_BlueRectangle444) {
   ShapeHelper(200, 200, false, false);
 }
 
-TEST_F(SkiaUtilsMacTest, FAILS_MultipleBitmapsToNSImage) {
-  int redWidth = 10;
-  int redHeight = 15;
-  int blueWidth = 20;
-  int blueHeight = 30;
+TEST_F(SkiaUtilsMacTest, FAILS_BitmapToNSBitmapImageRep_BlueRectangle20x30) {
+  int width = 20;
+  int height = 30;
 
-  SkBitmap redBitmap(CreateSkBitmap(redWidth, redHeight, true, true));
-  SkBitmap blueBitmap(CreateSkBitmap(blueWidth, blueHeight, false, true));
-  std::vector<const SkBitmap*> bitmaps;
-  bitmaps.push_back(&redBitmap);
-  bitmaps.push_back(&blueBitmap);
+  SkBitmap bitmap(CreateSkBitmap(width, height, false, true));
+  NSBitmapImageRep* imageRep = gfx::SkBitmapToNSBitmapImageRep(bitmap);
 
-  NSImage* image = gfx::SkBitmapsToNSImage(bitmaps);
-
-  // Image size should be the same as the smallest bitmap.
-  EXPECT_DOUBLE_EQ(redWidth, [image size].width);
-  EXPECT_DOUBLE_EQ(redHeight, [image size].height);
-
-  EXPECT_EQ(2u, [[image representations] count]);
-
-  for (NSBitmapImageRep* imageRep in [image representations]) {
-    bool isred = [imageRep size].width == redWidth;
-    if (isred) {
-      EXPECT_DOUBLE_EQ(redHeight, [imageRep size].height);
-    } else {
-      EXPECT_DOUBLE_EQ(blueWidth, [imageRep size].width);
-      EXPECT_DOUBLE_EQ(blueHeight, [imageRep size].height);
-    }
-    TestImageRep(imageRep, isred);
-  }
+  EXPECT_DOUBLE_EQ(width, [imageRep size].width);
+  EXPECT_DOUBLE_EQ(height, [imageRep size].height);
+  TestImageRep(imageRep, false);
 }
 
 TEST_F(SkiaUtilsMacTest, NSImageRepToSkBitmap) {
@@ -229,6 +225,22 @@ TEST_F(SkiaUtilsMacTest, BitLocker_Clip) {
 
 TEST_F(SkiaUtilsMacTest, BitLocker_XClip) {
   RunBitLockerTest(SkiaUtilsMacTest::TestXClip);
+}
+
+TEST_F(SkiaUtilsMacTest, BitLocker_NoBits) {
+  RunBitLockerTest(SkiaUtilsMacTest::TestNoBits);
+}
+
+TEST_F(SkiaUtilsMacTest, BitLocker_TranslateNoBits) {
+  RunBitLockerTest(SkiaUtilsMacTest::TestTranslateNoBits);
+}
+
+TEST_F(SkiaUtilsMacTest, BitLocker_ClipNoBits) {
+  RunBitLockerTest(SkiaUtilsMacTest::TestClipNoBits);
+}
+
+TEST_F(SkiaUtilsMacTest, BitLocker_XClipNoBits) {
+  RunBitLockerTest(SkiaUtilsMacTest::TestXClipNoBits);
 }
 
 }  // namespace

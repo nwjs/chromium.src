@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_INFO_MAP_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_INFO_MAP_H_
-#pragma once
 
 #include <string>
 
@@ -17,7 +16,9 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_set.h"
 
+namespace extensions {
 class Extension;
+}
 
 // Contains extension data that needs to be accessed on the IO thread. It can
 // be created/destroyed on any thread, but all other methods must be called on
@@ -25,7 +26,6 @@ class Extension;
 class ExtensionInfoMap : public base::RefCountedThreadSafe<ExtensionInfoMap> {
  public:
   ExtensionInfoMap();
-  ~ExtensionInfoMap();
 
   const ExtensionSet& extensions() const { return extensions_; }
   const ExtensionSet& disabled_extensions() const {
@@ -35,7 +35,7 @@ class ExtensionInfoMap : public base::RefCountedThreadSafe<ExtensionInfoMap> {
   const extensions::ProcessMap& process_map() const;
 
   // Callback for when new extensions are loaded.
-  void AddExtension(const Extension* extension,
+  void AddExtension(const extensions::Extension* extension,
                     base::Time install_time,
                     bool incognito_enabled);
 
@@ -52,7 +52,7 @@ class ExtensionInfoMap : public base::RefCountedThreadSafe<ExtensionInfoMap> {
 
   // Returns true if the given extension can see events and data from another
   // sub-profile (incognito to original profile, or vice versa).
-  bool CanCrossIncognito(const Extension* extension);
+  bool CanCrossIncognito(const extensions::Extension* extension);
 
   // Adds an entry to process_map_.
   void RegisterExtensionProcess(const std::string& extension_id,
@@ -69,15 +69,19 @@ class ExtensionInfoMap : public base::RefCountedThreadSafe<ExtensionInfoMap> {
   // |origin| in |process_id| with |permission|.
   bool SecurityOriginHasAPIPermission(
       const GURL& origin, int process_id,
-      ExtensionAPIPermission::ID permission) const;
+      extensions::APIPermission::ID permission) const;
 
   ExtensionsQuotaService* GetQuotaService();
 
  private:
+  friend class base::RefCountedThreadSafe<ExtensionInfoMap>;
+
   // Extra dynamic data related to an extension.
   struct ExtraData;
   // Map of extension_id to ExtraData.
   typedef std::map<std::string, ExtraData> ExtraDataMap;
+
+  ~ExtensionInfoMap();
 
   ExtensionSet extensions_;
   ExtensionSet disabled_extensions_;

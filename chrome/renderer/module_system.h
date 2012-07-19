@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_MODULE_SYSTEM_H_
 #define CHROME_RENDERER_MODULE_SYSTEM_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/linked_ptr.h"
@@ -13,6 +12,7 @@
 #include "v8/include/v8.h"
 
 #include <map>
+#include <set>
 #include <string>
 
 // A module system for JS similar to node.js' require() function.
@@ -51,8 +51,14 @@ class ModuleSystem : public NativeHandler {
   };
 
   // |source_map| is a weak pointer.
-  explicit ModuleSystem(SourceMap* source_map);
+  explicit ModuleSystem(v8::Handle<v8::Context> context, SourceMap* source_map);
   virtual ~ModuleSystem();
+
+  // Returns true if the current context has a ModuleSystem installed in it.
+  static bool IsPresentInCurrentContext();
+
+  // Dumps the debug info from |try_catch| to LOG(ERROR).
+  static void DumpException(const v8::TryCatch& try_catch);
 
   // Require the specified module. This is the equivalent of calling
   // require('module_name') from the loaded JS files.
@@ -66,6 +72,11 @@ class ModuleSystem : public NativeHandler {
   // |native_handler|.
   void RegisterNativeHandler(const std::string& name,
                              scoped_ptr<NativeHandler> native_handler);
+
+  // Causes requireNative(|name|) to look for its module in |source_map_|
+  // instead of using a registered native handler. This can be used in unit
+  // tests to mock out native modules.
+  void OverrideNativeHandler(const std::string& name);
 
   // Executes |code| in the current context with |name| as the filename.
   void RunString(const std::string& code, const std::string& name);
@@ -107,13 +118,21 @@ class ModuleSystem : public NativeHandler {
   // Throws an exception in the calling JS context.
   v8::Handle<v8::Value> ThrowException(const std::string& message);
 
+  // The context that this ModuleSystem is for.
+  v8::Persistent<v8::Context> context_;
+
   // A map from module names to the JS source for that module. GetSource()
   // performs a lookup on this map.
   SourceMap* source_map_;
+
+  // A map from native handler names to native handlers.
   NativeHandlerMap native_handler_map_;
+
   // When 0, natives are disabled, otherwise indicates how many callers have
   // pinned natives as enabled.
   int natives_enabled_;
+
+  std::set<std::string> overridden_native_handlers_;
 
   DISALLOW_COPY_AND_ASSIGN(ModuleSystem);
 };

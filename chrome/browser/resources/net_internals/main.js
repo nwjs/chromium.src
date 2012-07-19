@@ -7,11 +7,11 @@
  * updated on load log).  The *Types dictionaries map strings to numeric IDs,
  * while the *TypeNames are the other way around.
  */
-var LogEventType = null;
-var LogEventTypeNames = null;
-var LogEventPhase = null;
-var LogSourceType = null;
-var LogSourceTypeNames = null;
+var EventType = null;
+var EventTypeNames = null;
+var EventPhase = null;
+var EventSourceType = null;
+var EventSourceTypeNames = null;
 var LogLevelType = null;
 var ClientInfo = null;
 var NetError = null;
@@ -90,8 +90,6 @@ var MainView = (function() {
                 false, true);
     tabs.addTab(HttpCacheView.TAB_HANDLE_ID, HttpCacheView.getInstance(),
                 false, true);
-    tabs.addTab(HttpThrottlingView.TAB_HANDLE_ID,
-                HttpThrottlingView.getInstance(), false, true);
     tabs.addTab(ServiceProvidersView.TAB_HANDLE_ID,
                 ServiceProvidersView.getInstance(), false, cr.isWindows);
     tabs.addTab(TestView.TAB_HANDLE_ID, TestView.getInstance(), false, true);
@@ -171,14 +169,17 @@ var MainView = (function() {
     onLoadLog: function(opt_fileName) {
       isViewingLoadedLog = true;
 
-      SourceTracker.getInstance().setSecurityStripping(false);
       this.stopCapturing();
       if (opt_fileName != undefined) {
         // If there's a file name, a log file was loaded, so swap out the status
-        // bar to indicate we're no longer capturing events.
+        // bar to indicate we're no longer capturing events.  Also disable
+        // hiding cookies, so if the log dump has them, they'll be displayed.
         this.statusView_.switchToSubView('loaded').setFileName(opt_fileName);
+        SourceTracker.getInstance().setSecurityStripping(false);
       } else {
         // Otherwise, the "Stop Capturing" button was presumably pressed.
+        // Don't disable hiding cookies, so created log dumps won't have them,
+        // unless the user toggles the option.
         this.statusView_.switchToSubView('halted');
       }
     },
@@ -243,11 +244,11 @@ ConstantsObserver.prototype.onReceivedConstants = function(receivedConstants) {
 
   Constants = receivedConstants;
 
-  LogEventType = Constants.logEventTypes;
-  LogEventTypeNames = makeInverseMap(LogEventType);
-  LogEventPhase = Constants.logEventPhase;
-  LogSourceType = Constants.logSourceType;
-  LogSourceTypeNames = makeInverseMap(LogSourceType);
+  EventType = Constants.logEventTypes;
+  EventTypeNames = makeInverseMap(EventType);
+  EventPhase = Constants.logEventPhase;
+  EventSourceType = Constants.logSourceType;
+  EventSourceTypeNames = makeInverseMap(EventSourceType);
   LogLevelType = Constants.logLevelType;
   ClientInfo = Constants.clientInfo;
   LoadFlag = Constants.loadFlag;

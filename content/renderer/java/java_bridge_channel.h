@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_RENDERER_JAVA_JAVA_BRIDGE_CHANNEL_H_
 #define CONTENT_RENDERER_JAVA_JAVA_BRIDGE_CHANNEL_H_
-#pragma once
 
 #include "content/common/np_channel_base.h"
 #include "ipc/ipc_channel_handle.h"
@@ -14,7 +13,6 @@ class JavaBridgeChannel : public NPChannelBase {
   static JavaBridgeChannel* GetJavaBridgeChannel(
       const IPC::ChannelHandle& channel_handle,
       base::MessageLoopProxy* ipc_message_loop);
-  virtual ~JavaBridgeChannel() {}
 
   // NPChannelBase implementation:
   virtual int GenerateRouteID() OVERRIDE;
@@ -23,7 +21,9 @@ class JavaBridgeChannel : public NPChannelBase {
   virtual bool OnControlMessageReceived(const IPC::Message& msg) OVERRIDE;
 
  private:
-  JavaBridgeChannel() {}
+  JavaBridgeChannel();
+  // This class is ref-counted.
+  virtual ~JavaBridgeChannel();
 
   static NPChannelBase* ClassFactory() { return new JavaBridgeChannel(); }
 

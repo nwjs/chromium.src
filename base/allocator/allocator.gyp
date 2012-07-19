@@ -52,8 +52,10 @@
 
         # all tcmalloc native and forked files
         '<(tcmalloc_dir)/src/addressmap-inl.h',
-        '<(tcmalloc_dir)/src/base/atomicops-internals-linuxppc.h',
+        '<(tcmalloc_dir)/src/base/abort.cc',
+        '<(tcmalloc_dir)/src/base/abort.h',
         '<(tcmalloc_dir)/src/base/arm_instruction_set_select.h',
+        '<(tcmalloc_dir)/src/base/atomicops-internals-linuxppc.h',
         '<(tcmalloc_dir)/src/base/atomicops-internals-arm-generic.h',
         '<(tcmalloc_dir)/src/base/atomicops-internals-arm-v6plus.h',
         '<(tcmalloc_dir)/src/base/atomicops-internals-macosx.h',
@@ -201,7 +203,7 @@
         'allocator_shim.cc',
         'allocator_shim.h',
         'generic_allocators.cc',
-        'win_allocator.cc',        
+        'win_allocator.cc',
       ],
       # sources! means that these are not compiled directly.
       'sources!': [
@@ -303,6 +305,11 @@
         ['OS=="win"', {
           'defines': [
             'PERFTOOLS_DLL_DECL=',
+          ],
+          'defines!': [
+            # tcmalloc source files unconditionally define this, remove it from
+            # the list of defines that common.gypi defines globally.
+            'NOMINMAX',
           ],
           'dependencies': [
             'libcmt',
@@ -427,7 +434,22 @@
         }],
       ],
     },
+    {
+      # This library is linked in to src/base.gypi:base and allocator_unittests
+      # It can't depend on either and nothing else should depend on it - all
+      # other code should use the interfaced provided by base.
+      'target_name': 'allocator_extension_thunks',
+      'type': 'static_library',
+      'sources': [
+        'allocator_extension_thunks.cc',
+        'allocator_extension_thunks.h',
       ],
+      'toolsets': ['host', 'target'],
+      'include_dirs': [
+        '../../'
+      ],
+    },
+   ],
   'conditions': [
     ['OS=="win"', {
       'targets': [
@@ -438,13 +460,14 @@
             {
               'action_name': 'libcmt',
               'inputs': [
-                'prep_libc.sh',
+                'prep_libc.py',
               ],
               'outputs': [
                 '<(SHARED_INTERMEDIATE_DIR)/allocator/libcmt.lib',
               ],
               'action': [
-                './prep_libc.sh',
+                'python',
+                'prep_libc.py',
                 '$(VCInstallDir)lib',
                 '<(SHARED_INTERMEDIATE_DIR)/allocator',
               ],
@@ -456,6 +479,7 @@
           'type': 'executable',
           'dependencies': [
             'allocator',
+            'allocator_extension_thunks',
             '../../testing/gtest.gyp:gtest',
           ],
           'include_dirs': [
@@ -470,6 +494,40 @@
             '../profiler/alternate_timer.h',
           ],
         },
+        {
+          'target_name': 'allocator_extension_thunks_win64',
+          'type': 'static_library',
+          'sources': [
+            'allocator_extension_thunks.cc',
+            'allocator_extension_thunks.h',
+          ],
+          'toolsets': ['host', 'target'],
+          'include_dirs': [
+            '../../'
+          ],
+          'configurations': {
+            'Common_Base': {
+              'msvs_target_platform': 'x64',
+            },
+          },
+        },
+      {
+        'target_name': 'tcmalloc_unittest',
+        'type': 'executable',
+        'sources': [
+          'tcmalloc_unittest.cc',
+        ],
+        'include_dirs': [
+          '../..',
+          # For constants of TCMalloc.
+          '<(tcmalloc_dir)/src',
+        ],
+        'dependencies': [
+          '../../testing/gtest.gyp:gtest',
+          '../base.gyp:base',
+          'allocator',
+        ],
+      },
       ],
     }],
   ],

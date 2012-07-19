@@ -4,11 +4,11 @@
 
 #ifndef CHROME_BROWSER_UI_COCOA_ONE_CLICK_SIGNIN_DIALOG_CONTROLLER_H_
 #define CHROME_BROWSER_UI_COCOA_ONE_CLICK_SIGNIN_DIALOG_CONTROLLER_H_
-#pragma once
 
 #import <Cocoa/Cocoa.h>
 
 #include "base/callback.h"
+#include "chrome/browser/ui/browser_window.h"
 #import "chrome/browser/ui/cocoa/base_bubble_controller.h"
 
 @class BrowserWindowController;
@@ -18,11 +18,11 @@
 @interface OneClickSigninBubbleController : BaseBubbleController {
  @private
   IBOutlet NSTextField* messageField_;
-  IBOutlet NSButton* learnMoreLink_;
   IBOutlet NSButton* advancedLink_;
 
-  base::Closure learnMoreCallback_;
-  base::Closure advancedCallback_;
+  // TODO(akalin): Make sure this callback is called only once, like on
+  // other platforms.
+  BrowserWindow::StartSyncCallback start_sync_callback_;
 }
 
 // Initializes with a browser window controller, under whose wrench
@@ -32,14 +32,14 @@
 // The bubble is not automatically displayed; call showWindow:id to
 // display.  The bubble is auto-released on close.
 - (id)initWithBrowserWindowController:(BrowserWindowController*)controller
-                    learnMoreCallback:(const base::Closure&)learnMoreCallback
-                     advancedCallback:(const base::Closure&)advancedCallback;
+                  start_sync_callback:
+                      (const BrowserWindow::StartSyncCallback&)
+                          start_sync_callback;
 
-// Just closes the bubble.
+// Starts sync and closes the bubble.
 - (IBAction)ok:(id)sender;
 
-// Calls |learnMoreCallback_|.
-- (IBAction)onClickLearnMoreLink:(id)sender;
+- (IBAction)onClickUndo:(id)sender;
 
 // Calls |advancedCallback_|.
 - (IBAction)onClickAdvancedLink:(id)sender;

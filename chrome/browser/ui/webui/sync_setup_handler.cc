@@ -4,9 +4,10 @@
 
 #include "chrome/browser/ui/webui/sync_setup_handler.h"
 
-#include "base/bind.h"
 #include "base/basictypes.h"
+#include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
@@ -14,6 +15,7 @@
 #include "base/values.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/google/google_util.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_info_cache.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -22,21 +24,21 @@
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/net/gaia/gaia_constants.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
-#include "sync/protocol/service_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 
+using content::WebContents;
 using l10n_util::GetStringFUTF16;
 using l10n_util::GetStringUTF16;
 
@@ -49,7 +51,7 @@ struct SyncConfigInfo {
 
   bool encrypt_all;
   bool sync_everything;
-  syncable::ModelTypeSet data_types;
+  syncer::ModelTypeSet data_types;
   std::string passphrase;
   bool passphrase_is_gaia;
 };
@@ -71,31 +73,34 @@ const char* kDataTypeNames[] = {
   "preferences",
   "sessions",
   "themes",
-  "typed_urls"
+  "typedUrls"
 };
 
-const syncable::ModelType kDataTypes[] = {
-  syncable::APPS,
-  syncable::AUTOFILL,
-  syncable::BOOKMARKS,
-  syncable::EXTENSIONS,
-  syncable::PASSWORDS,
-  syncable::PREFERENCES,
-  syncable::SESSIONS,
-  syncable::THEMES,
-  syncable::TYPED_URLS
+const syncer::ModelType kDataTypes[] = {
+  syncer::APPS,
+  syncer::AUTOFILL,
+  syncer::BOOKMARKS,
+  syncer::EXTENSIONS,
+  syncer::PASSWORDS,
+  syncer::PREFERENCES,
+  syncer::SESSIONS,
+  syncer::THEMES,
+  syncer::TYPED_URLS
 };
 
 static const size_t kNumDataTypes = arraysize(kDataTypes);
 COMPILE_ASSERT(arraysize(kDataTypeNames) == arraysize(kDataTypes),
                kDataTypes_does_not_match_kDataTypeNames);
 
+static const char kDefaultSigninDomain[] = "gmail.com";
+
 bool GetAuthData(const std::string& json,
                  std::string* username,
                  std::string* password,
                  std::string* captcha,
+                 std::string* otp,
                  std::string* access_code) {
-  scoped_ptr<Value> parsed_value(base::JSONReader::Read(json, false));
+  scoped_ptr<Value> parsed_value(base::JSONReader::Read(json));
   if (!parsed_value.get() || !parsed_value->IsType(Value::TYPE_DICTIONARY))
     return false;
 
@@ -103,14 +108,15 @@ bool GetAuthData(const std::string& json,
   if (!result->GetString("user", username) ||
       !result->GetString("pass", password) ||
       !result->GetString("captcha", captcha) ||
-      !result->GetString("access_code", access_code)) {
+      !result->GetString("otp", otp) ||
+      !result->GetString("accessCode", access_code)) {
       return false;
   }
   return true;
 }
 
 bool GetConfiguration(const std::string& json, SyncConfigInfo* config) {
-  scoped_ptr<Value> parsed_value(base::JSONReader::Read(json, false));
+  scoped_ptr<Value> parsed_value(base::JSONReader::Read(json));
   DictionaryValue* result;
   if (!parsed_value.get() || !parsed_value->GetAsDictionary(&result)) {
     DLOG(ERROR) << "GetConfiguration() not passed a Dictionary";
@@ -123,7 +129,7 @@ bool GetConfiguration(const std::string& json, SyncConfigInfo* config) {
   }
 
   for (size_t i = 0; i < arraysize(kDataTypeNames); ++i) {
-    std::string key_name = std::string("sync_") + kDataTypeNames[i];
+    std::string key_name = kDataTypeNames[i] + std::string("Synced");
     bool sync_value;
     if (!result->GetBoolean(key_name, &sync_value)) {
       DLOG(ERROR) << "GetConfiguration() not passed a value for " << key_name;
@@ -161,7 +167,7 @@ bool GetConfiguration(const std::string& json, SyncConfigInfo* config) {
 }
 
 bool GetPassphrase(const std::string& json, std::string* passphrase) {
-  scoped_ptr<Value> parsed_value(base::JSONReader::Read(json, false));
+  scoped_ptr<Value> parsed_value(base::JSONReader::Read(json));
   if (!parsed_value.get() || !parsed_value->IsType(Value::TYPE_DICTIONARY))
     return false;
 
@@ -172,11 +178,16 @@ bool GetPassphrase(const std::string& json, std::string* passphrase) {
 string16 NormalizeUserName(const string16& user) {
   if (user.find_first_of(ASCIIToUTF16("@")) != string16::npos)
     return user;
-  return user + ASCIIToUTF16("@") + ASCIIToUTF16(DEFAULT_SIGNIN_DOMAIN);
+  return user + ASCIIToUTF16("@") + ASCIIToUTF16(kDefaultSigninDomain);
 }
 
 bool AreUserNamesEqual(const string16& user1, const string16& user2) {
   return NormalizeUserName(user1) == NormalizeUserName(user2);
+}
+
+bool IsClientOAuthEnabled() {
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableClientOAuthSignin);
 }
 
 }  // namespace
@@ -184,7 +195,8 @@ bool AreUserNamesEqual(const string16& user1, const string16& user2) {
 SyncSetupHandler::SyncSetupHandler(ProfileManager* profile_manager)
     : configuring_sync_(false),
       profile_manager_(profile_manager),
-      last_signin_error_(GoogleServiceAuthError::NONE) {
+      last_signin_error_(GoogleServiceAuthError::NONE),
+      retry_on_signin_failure_(true) {
 }
 
 SyncSetupHandler::~SyncSetupHandler() {
@@ -229,6 +241,17 @@ void SyncSetupHandler::GetStaticLocalizedValues(
       GetStringFUTF16(IDS_SYNC_PASSPHRASE_RECOVER,
                       ASCIIToUTF16(google_util::StringAppendGoogleLocaleParam(
                           chrome::kSyncGoogleDashboardURL))));
+  localized_strings->SetString("stopSyncingExplanation",
+      l10n_util::GetStringFUTF16(
+          IDS_SYNC_STOP_SYNCING_EXPLANATION_LABEL,
+          l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
+          ASCIIToUTF16(google_util::StringAppendGoogleLocaleParam(
+              chrome::kSyncGoogleDashboardURL))));
+  localized_strings->SetString("stopSyncingTitle",
+      l10n_util::GetStringUTF16(IDS_SYNC_STOP_SYNCING_DIALOG_TITLE));
+  localized_strings->SetString("stopSyncingConfirm",
+        l10n_util::GetStringUTF16(IDS_SYNC_STOP_SYNCING_CONFIRM_BUTTON_LABEL));
+
   bool is_start_page = false;
   if (web_ui) {
     SyncPromoUI::Source source = SyncPromoUI::GetSourceForSyncPromoURL(
@@ -282,6 +305,10 @@ void SyncSetupHandler::GetStaticLocalizedValues(
     { "enterAccessCode", IDS_SYNC_ENTER_ACCESS_CODE_LABEL },
     { "getAccessCodeHelp", IDS_SYNC_ACCESS_CODE_HELP_LABEL },
     { "getAccessCodeURL", IDS_SYNC_GET_ACCESS_CODE_URL },
+    { "invalidOtp", IDS_SYNC_INVALID_OTP_LABEL },
+    { "enterOtp", IDS_SYNC_ENTER_OTP_LABEL },
+    { "getOtpHelp", IDS_SYNC_OTP_HELP_LABEL },
+    { "getOtpURL", IDS_SYNC_GET_OTP_URL },
     { "syncAllDataTypes", IDS_SYNC_EVERYTHING },
     { "chooseDataTypes", IDS_SYNC_CHOOSE_DATATYPES },
     { "bookmarks", IDS_SYNC_DATATYPE_BOOKMARKS },
@@ -295,7 +322,6 @@ void SyncSetupHandler::GetStaticLocalizedValues(
     { "openTabs", IDS_SYNC_DATATYPE_TABS },
     { "syncZeroDataTypesError", IDS_SYNC_ZERO_DATA_TYPES_ERROR },
     { "serviceUnavailableError", IDS_SYNC_SETUP_ABORTED_BY_PENDING_CLEAR },
-    { "encryptAllLabel", IDS_SYNC_ENCRYPT_ALL_LABEL },
     { "googleOption", IDS_SYNC_PASSPHRASE_OPT_GOOGLE },
     { "explicitOption", IDS_SYNC_PASSPHRASE_OPT_EXPLICIT },
     { "sectionGoogleMessage", IDS_SYNC_PASSPHRASE_MSG_GOOGLE },
@@ -310,15 +336,12 @@ void SyncSetupHandler::GetStaticLocalizedValues(
     { "syncEverything", IDS_SYNC_SYNC_EVERYTHING },
     { "useDefaultSettings", IDS_SYNC_USE_DEFAULT_SETTINGS },
     { "passphraseSectionTitle", IDS_SYNC_PASSPHRASE_SECTION_TITLE },
-    { "privacyDashboardLink", IDS_SYNC_PRIVACY_DASHBOARD_LINK_LABEL },
     { "enterPassphraseTitle", IDS_SYNC_ENTER_PASSPHRASE_TITLE },
     { "enterPassphraseBody", IDS_SYNC_ENTER_PASSPHRASE_BODY },
     { "enterGooglePassphraseBody", IDS_SYNC_ENTER_GOOGLE_PASSPHRASE_BODY },
     { "passphraseLabel", IDS_SYNC_PASSPHRASE_LABEL },
     { "incorrectPassphrase", IDS_SYNC_INCORRECT_PASSPHRASE },
     { "passphraseWarning", IDS_SYNC_PASSPHRASE_WARNING },
-    { "cancelWarningHeader", IDS_SYNC_PASSPHRASE_CANCEL_WARNING_HEADER },
-    { "cancelWarning", IDS_SYNC_PASSPHRASE_CANCEL_WARNING },
     { "yes", IDS_SYNC_PASSPHRASE_CANCEL_YES },
     { "no", IDS_SYNC_PASSPHRASE_CANCEL_NO },
     { "sectionExplicitMessagePrefix", IDS_SYNC_PASSPHRASE_MSG_EXPLICIT_PREFIX },
@@ -326,7 +349,6 @@ void SyncSetupHandler::GetStaticLocalizedValues(
         IDS_SYNC_PASSPHRASE_MSG_EXPLICIT_POSTFIX },
     { "encryptedDataTypesTitle", IDS_SYNC_ENCRYPTION_DATA_TYPES_TITLE },
     { "encryptSensitiveOption", IDS_SYNC_ENCRYPT_SENSITIVE_DATA },
-    { "encryptAllOption", IDS_SYNC_ENCRYPT_ALL_DATA },
     { "encryptAllOption", IDS_SYNC_ENCRYPT_ALL_DATA },
     { "aspWarningText", IDS_SYNC_ASP_PASSWORD_WARNING_TEXT },
     { "promoPageTitle", IDS_SYNC_PROMO_TAB_TITLE },
@@ -342,40 +364,54 @@ void SyncSetupHandler::GetStaticLocalizedValues(
 
 void SyncSetupHandler::DisplayConfigureSync(bool show_advanced,
                                             bool passphrase_failed) {
+  ProfileSyncService* service = GetSyncService();
+  if (!service->sync_initialized()) {
+    // When user tries to setup sync while the sync backend is not initialized,
+    // kick the sync backend and wait for it to be ready and show spinner until
+    // the backend gets ready.
+    retry_on_signin_failure_ = false;
+
+    service->UnsuppressAndStart();
+    DisplaySpinner();
+    // To listen to the token available notifications, start SigninTracker.
+    signin_tracker_.reset(
+        new SigninTracker(GetProfile(), this,
+                          SigninTracker::SERVICES_INITIALIZING));
+    return;
+  }
+
   // Should only be called if user is signed in, so no longer need our
   // SigninTracker.
   signin_tracker_.reset();
   configuring_sync_ = true;
-  ProfileSyncService* service = GetSyncService();
   DCHECK(service->sync_initialized()) <<
       "Cannot configure sync until the sync backend is initialized";
 
   // Setup args for the sync configure screen:
   //   showSyncEverythingPage: false to skip directly to the configure screen
   //   syncAllDataTypes: true if the user wants to sync everything
-  //   <data_type>_registered: true if the associated data type is supported
-  //   sync_<data_type>: true if the user wants to sync that specific data type
+  //   <data_type>Registered: true if the associated data type is supported
+  //   <data_type>Synced: true if the user wants to sync that specific data type
   //   encryptionEnabled: true if sync supports encryption
   //   encryptAllData: true if user wants to encrypt all data (not just
   //       passwords)
   //   usePassphrase: true if the data is encrypted with a secondary passphrase
   //   show_passphrase: true if a passphrase is needed to decrypt the sync data
-  // TODO(atwilson): Convert all to unix_hacker style (http://crbug.com/119646).
   DictionaryValue args;
 
   // Tell the UI layer which data types are registered/enabled by the user.
-  const syncable::ModelTypeSet registered_types =
+  const syncer::ModelTypeSet registered_types =
       service->GetRegisteredDataTypes();
-  const syncable::ModelTypeSet preferred_types =
+  const syncer::ModelTypeSet preferred_types =
       service->GetPreferredDataTypes();
   for (size_t i = 0; i < kNumDataTypes; ++i) {
     const std::string key_name = kDataTypeNames[i];
-    args.SetBoolean(key_name + "_registered",
+    args.SetBoolean(key_name + "Registered",
                     registered_types.Has(kDataTypes[i]));
-    args.SetBoolean("sync_" + key_name, preferred_types.Has(kDataTypes[i]));
+    args.SetBoolean(key_name + "Synced", preferred_types.Has(kDataTypes[i]));
   }
   browser_sync::SyncPrefs sync_prefs(GetProfile()->GetPrefs());
-  args.SetBoolean("passphrase_failed", passphrase_failed);
+  args.SetBoolean("passphraseFailed", passphrase_failed);
   args.SetBoolean("showSyncEverythingPage", !show_advanced);
   args.SetBoolean("syncAllDataTypes", sync_prefs.HasKeepEverythingSynced());
   args.SetBoolean("encryptAllData", service->EncryptEverythingEnabled());
@@ -383,7 +419,7 @@ void SyncSetupHandler::DisplayConfigureSync(bool show_advanced,
   // We call IsPassphraseRequired() here, instead of calling
   // IsPassphraseRequiredForDecryption(), because we want to show the passphrase
   // UI even if no encrypted data types are enabled.
-  args.SetBoolean("show_passphrase", service->IsPassphraseRequired());
+  args.SetBoolean("showPassphrase", service->IsPassphraseRequired());
 
   StringValue page("configure");
   web_ui()->CallJavascriptFunction(
@@ -415,27 +451,44 @@ bool SyncSetupHandler::IsActiveLogin() const {
   // LoginUIService can be NULL if page is brought up in incognito mode
   // (i.e. if the user is running in guest mode in cros and brings up settings).
   LoginUIService* service = GetLoginUIService();
-  return service && (service->current_login_ui() == web_ui());
+  return service && (service->current_login_ui() == this);
 }
 
 void SyncSetupHandler::RegisterMessages() {
-  web_ui()->RegisterMessageCallback("SyncSetupDidClosePage",
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupDidClosePage",
       base::Bind(&SyncSetupHandler::OnDidClosePage,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncSetupSubmitAuth",
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupSubmitAuth",
       base::Bind(&SyncSetupHandler::HandleSubmitAuth,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncSetupConfigure",
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupConfigure",
       base::Bind(&SyncSetupHandler::HandleConfigure,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncSetupAttachHandler",
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupAttachHandler",
       base::Bind(&SyncSetupHandler::HandleAttachHandler,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncSetupShowErrorUI",
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupShowErrorUI",
       base::Bind(&SyncSetupHandler::HandleShowErrorUI,
                  base::Unretained(this)));
-  web_ui()->RegisterMessageCallback("SyncSetupShowSetupUI",
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupShowSetupUI",
       base::Bind(&SyncSetupHandler::HandleShowSetupUI,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupShowSetupUIWithoutLogin",
+      base::Bind(&SyncSetupHandler::HandleShowSetupUIWithoutLogin,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "SyncSetupDoSignOutOnAuthError",
+      base::Bind(&SyncSetupHandler::HandleDoSignOutOnAuthError,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("SyncSetupStopSyncing",
+      base::Bind(&SyncSetupHandler::HandleStopSyncing,
                  base::Unretained(this)));
 }
 
@@ -444,6 +497,7 @@ SigninManager* SyncSetupHandler::GetSignin() const {
 }
 
 void SyncSetupHandler::DisplayGaiaLogin(bool fatal_error) {
+  retry_on_signin_failure_ = true;
   DisplayGaiaLoginWithErrorMessage(string16(), fatal_error);
 }
 
@@ -454,6 +508,8 @@ void SyncSetupHandler::DisplayGaiaLoginWithErrorMessage(
   // CloseSyncSetup() will ensure they are logged out.
   configuring_sync_ = false;
 
+  string16 local_error_message(error_message);
+
   // Setup args for the GAIA login screen:
   //   error_message: custom error message to display.
   //   fatalError: fatal error message to display.
@@ -461,7 +517,6 @@ void SyncSetupHandler::DisplayGaiaLoginWithErrorMessage(
   //   user: The email the user most recently entered.
   //   editable_user: Whether the username field should be editable.
   //   captchaUrl: The captcha image to display to the user (empty if none).
-  // TODO(atwilson): Convert all to unix_hacker style (http://crbug.com/119646).
   std::string user, captcha;
   int error;
   bool editable_user;
@@ -471,6 +526,9 @@ void SyncSetupHandler::DisplayGaiaLoginWithErrorMessage(
     error = last_signin_error_.state();
     captcha = last_signin_error_.captcha().image_url.spec();
     editable_user = true;
+
+    if (local_error_message.empty())
+      local_error_message = UTF8ToUTF16(last_signin_error_.error_message());
   } else {
     // Fresh login attempt - lock in the authenticated username if there is
     // one (don't let the user change it).
@@ -481,9 +539,19 @@ void SyncSetupHandler::DisplayGaiaLoginWithErrorMessage(
   DictionaryValue args;
   args.SetString("user", user);
   args.SetInteger("error", error);
-  args.SetBoolean("editable_user", editable_user);
-  if (!error_message.empty())
-    args.SetString("error_message", error_message);
+
+  // If the error is two-factor, then ask for an OTP if the ClientOAuth flow
+  // is enasbled.  Otherwise ask for an ASP.  If the error is catptcha required,
+  // then we don't want to show username and password fields if ClientOAuth is
+  // being used, since those fields are ignored by the endpoint on challenges.
+  if (error == GoogleServiceAuthError::TWO_FACTOR)
+    args.SetBoolean("askForOtp", IsClientOAuthEnabled());
+  else if (error == GoogleServiceAuthError::CAPTCHA_REQUIRED)
+    args.SetBoolean("hideEmailAndPassword", IsClientOAuthEnabled());
+
+  args.SetBoolean("editableUser", editable_user);
+  if (!local_error_message.empty())
+    args.SetString("errorMessage", local_error_message);
   if (fatal_error)
     args.SetBoolean("fatalError", true);
   args.SetString("captchaUrl", captcha);
@@ -492,7 +560,33 @@ void SyncSetupHandler::DisplayGaiaLoginWithErrorMessage(
       "SyncSetupOverlay.showSyncSetupPage", page, args);
 }
 
+bool SyncSetupHandler::PrepareSyncSetup() {
+  ProfileSyncService* service = GetSyncService();
+  if (!service) {
+    // If there's no sync service, the user tried to manually invoke a syncSetup
+    // URL, but sync features are disabled.  We need to close the overlay for
+    // this (rare) case.
+    DLOG(WARNING) << "Closing sync UI because sync is disabled";
+    CloseOverlay();
+    return false;
+  }
+
+  // If the wizard is already visible, just focus that one.
+  if (FocusExistingWizardIfPresent()) {
+    if (!IsActiveLogin())
+      CloseOverlay();
+    return false;
+  }
+
+  // Notify services that login UI is now active.
+  GetLoginUIService()->SetLoginUI(this);
+  service->SetSetupInProgress(true);
+
+  return true;
+}
+
 // TODO(kochi): Handle error conditions (timeout, other failures).
+// http://crbug.com/128692
 void SyncSetupHandler::DisplaySpinner() {
   configuring_sync_ = true;
   StringValue page("spinner");
@@ -515,14 +609,6 @@ void SyncSetupHandler::DisplayGaiaSuccessAndSettingUp() {
   web_ui()->CallJavascriptFunction("SyncSetupOverlay.showSuccessAndSettingUp");
 }
 
-void SyncSetupHandler::ShowFatalError() {
-  // For now, just send the user back to the login page. Ultimately may want
-  // to give different feedback (especially for chromeos).
-#if !defined(OS_CHROMEOS)
-  DisplayGaiaLogin(true);
-#endif
-}
-
 void SyncSetupHandler::OnDidClosePage(const ListValue* args) {
   CloseSyncSetup();
 }
@@ -537,8 +623,8 @@ void SyncSetupHandler::HandleSubmitAuth(const ListValue* args) {
   if (json.empty())
     return;
 
-  std::string username, password, captcha, access_code;
-  if (!GetAuthData(json, &username, &password, &captcha, &access_code)) {
+  std::string username, password, captcha, otp, access_code;
+  if (!GetAuthData(json, &username, &password, &captcha, &otp, &access_code)) {
     // The page sent us something that we didn't understand.
     // This probably indicates a programming error.
     NOTREACHED();
@@ -551,12 +637,36 @@ void SyncSetupHandler::HandleSubmitAuth(const ListValue* args) {
     return;
   }
 
-  TryLogin(username, password, captcha, access_code);
+  // If one of password, captcha, otp and access_code is non-empty, then the
+  // others must be empty.  At least one should be non-empty.
+  DCHECK(password.empty() ||
+         (captcha.empty() && otp.empty() && access_code.empty()));
+  DCHECK(captcha.empty() ||
+         (password.empty() && otp.empty() && access_code.empty()));
+  DCHECK(otp.empty() ||
+         (captcha.empty() && password.empty() && access_code.empty()));
+  DCHECK(access_code.empty() ||
+         (captcha.empty() && password.empty() && otp.empty()));
+  DCHECK(!otp.empty() || !captcha.empty() || !password.empty() ||
+         !access_code.empty());
+
+  if (IsClientOAuthEnabled()) {
+    // Last error is two-factor implies otp should not be empty.
+    DCHECK((last_signin_error_.state() != GoogleServiceAuthError::TWO_FACTOR) ||
+        !otp.empty());
+    // Last error is captcha-required implies captcha should not be empty.
+    DCHECK((last_signin_error_.state() !=
+        GoogleServiceAuthError::CAPTCHA_REQUIRED) || !captcha.empty());
+  }
+
+  const std::string& solution = captcha.empty() ?
+      (otp.empty() ? EmptyString() : otp) : captcha;
+  TryLogin(username, password, solution, access_code);
 }
 
 void SyncSetupHandler::TryLogin(const std::string& username,
                                 const std::string& password,
-                                const std::string& captcha,
+                                const std::string& solution,
                                 const std::string& access_code) {
   DCHECK(IsActiveLogin());
   // Make sure we are listening for signin traffic.
@@ -566,14 +676,23 @@ void SyncSetupHandler::TryLogin(const std::string& username,
   last_attempted_user_email_ = username;
 
   // User is trying to log in again so reset the cached error.
+  GoogleServiceAuthError current_error = last_signin_error_;
   last_signin_error_ = GoogleServiceAuthError::None();
 
-  // If we're just being called to provide an ASP, then pass it to the
-  // SigninManager and wait for the next step.
   SigninManager* signin = GetSignin();
-  if (!access_code.empty()) {
-    signin->ProvideSecondFactorAccessCode(access_code);
-    return;
+  if (IsClientOAuthEnabled()) {
+    if (!solution.empty()) {
+      signin->ProvideOAuthChallengeResponse(current_error.state(),
+                                            current_error.token(), solution);
+      return;
+    }
+  } else {
+    // If we're just being called to provide an ASP, then pass it to the
+    // SigninManager and wait for the next step.
+    if (!access_code.empty()) {
+      signin->ProvideSecondFactorAccessCode(access_code);
+      return;
+    }
   }
 
   // The user has submitted credentials, which indicates they don't want to
@@ -582,10 +701,12 @@ void SyncSetupHandler::TryLogin(const std::string& username,
   GetSyncService()->UnsuppressAndStart();
 
   // Kick off a sign-in through the signin manager.
-  signin->StartSignIn(username,
-                      password,
-                      last_signin_error_.captcha().token,
-                      captcha);
+  if (IsClientOAuthEnabled()) {
+    signin->StartSignInWithOAuth(username, password);
+  } else {
+    signin->StartSignIn(username, password, current_error.captcha().token,
+                        solution);
+  }
 }
 
 void SyncSetupHandler::GaiaCredentialsValid() {
@@ -599,13 +720,15 @@ void SyncSetupHandler::SigninFailed(const GoogleServiceAuthError& error) {
   last_signin_error_ = error;
   // Got a failed signin - this is either just a typical auth error, or a
   // sync error (treat sync errors as "fatal errors" - i.e. non-auth errors).
-  // On ChromeOS, this condition should trigger the orange badge on wrench menu
-  // and prompt to sign out.
-#if !defined(OS_CHROMEOS)
-  DisplayGaiaLogin(GetSyncService()->unrecoverable_error_detected());
-#else
-  CloseOverlay();
-#endif
+  // On ChromeOS, this condition can happen when auth token is invalid and
+  // cannot start sync backend.
+  if (retry_on_signin_failure_) {
+    DisplayGaiaLogin(GetSyncService()->HasUnrecoverableError());
+  } else {
+    // TODO(peria): Show error dialog for prompting sign in and out on
+    // Chrome OS. http://crbug.com/128692
+    CloseOverlay();
+  }
 }
 
 Profile* SyncSetupHandler::GetProfile() const {
@@ -691,16 +814,31 @@ void SyncSetupHandler::HandleConfigure(const ListValue* args) {
     }
   }
 
+  bool user_was_prompted_for_passphrase =
+      service->IsPassphraseRequiredForDecryption();
   service->OnUserChoseDatatypes(configuration.sync_everything,
                                 configuration.data_types);
 
   // Need to call IsPassphraseRequiredForDecryption() *after* calling
   // OnUserChoseDatatypes() because the user may have just disabled the
-  // encrypted datatypes.
+  // encrypted datatypes (in which case we just want to exit, not prompt the
+  // user for a passphrase).
   if (passphrase_failed || service->IsPassphraseRequiredForDecryption()) {
     // We need a passphrase, or the user's attempt to set a passphrase failed -
-    // prompt them again.
-    DisplayConfigureSync(true, passphrase_failed);
+    // prompt them again. This covers a few subtle cases:
+    // 1) The user enters an incorrect passphrase *and* disabled the encrypted
+    //    data types. In that case we want to notify the user that the
+    //    passphrase was incorrect even though there are no longer any encrypted
+    //    types enabled (IsPassphraseRequiredForDecryption() == false).
+    // 2) The user doesn't enter any passphrase. In this case, we won't call
+    //    SetDecryptionPassphrase() (passphrase_failed == false), but we still
+    //    want to display an error message to let the user know that their
+    //    blank passphrase entry is not acceptable.
+    // 3) The user just enabled an encrypted data type - in this case we don't
+    //    want to display an "invalid passphrase" error, since it's the first
+    //    time the user is seeing the prompt.
+    DisplayConfigureSync(
+        true, passphrase_failed || user_was_prompted_for_passphrase);
   } else {
     // No passphrase is required from the user so mark the configuration as
     // complete and close the sync setup overlay.
@@ -720,7 +858,7 @@ void SyncSetupHandler::HandleAttachHandler(const ListValue* args) {
   bool force_login = false;
   std::string json;
   if (args->GetString(0, &json) && !json.empty()) {
-    scoped_ptr<Value> parsed_value(base::JSONReader::Read(json, false));
+    scoped_ptr<Value> parsed_value(base::JSONReader::Read(json));
     DictionaryValue* result = static_cast<DictionaryValue*>(parsed_value.get());
     result->GetBoolean("forceLogin", &force_login);
   }
@@ -734,26 +872,38 @@ void SyncSetupHandler::HandleShowErrorUI(const ListValue* args) {
   ProfileSyncService* service = GetSyncService();
   DCHECK(service);
 
-#if defined(OS_CHROMEOS)
-  if (service->GetAuthError().state() != GoogleServiceAuthError::NONE) {
-    DLOG(INFO) << "Signing out the user to fix a sync error.";
-    BrowserList::GetLastActive()->ExecuteCommand(IDC_EXIT);
-    return;
-  }
-#endif
-
-  service->ShowErrorUI();
+  // Bring up the existing wizard, or just display it on this page.
+  if (!FocusExistingWizardIfPresent())
+    OpenSyncSetup(false);
 }
 
 void SyncSetupHandler::HandleShowSetupUI(const ListValue* args) {
-  DCHECK(!configuring_sync_);
   OpenSyncSetup(false);
+}
+
+void SyncSetupHandler::HandleShowSetupUIWithoutLogin(const ListValue* args) {
+  OpenConfigureSync();
+}
+
+void SyncSetupHandler::HandleDoSignOutOnAuthError(const ListValue* args) {
+  DLOG(INFO) << "Signing out the user to fix a sync error.";
+  browser::AttemptUserExit();
+}
+
+void SyncSetupHandler::HandleStopSyncing(const ListValue* args) {
+  ProfileSyncService* service = GetSyncService();
+  DCHECK(service);
+
+  if (ProfileSyncService::IsSyncEnabled()) {
+    service->DisableForUser();
+    ProfileSyncService::SyncEvent(ProfileSyncService::STOP_FROM_OPTIONS);
+  }
 }
 
 void SyncSetupHandler::CloseSyncSetup() {
   // TODO(atwilson): Move UMA tracking of signin events out of sync module.
+  ProfileSyncService* sync_service = GetSyncService();
   if (IsActiveLogin()) {
-    ProfileSyncService* sync_service = GetSyncService();
     if (!sync_service->HasSyncSetupCompleted()) {
       if (signin_tracker_.get()) {
         ProfileSyncService::SyncEvent(
@@ -766,57 +916,44 @@ void SyncSetupHandler::CloseSyncSetup() {
             ProfileSyncService::CANCEL_FROM_SIGNON_WITHOUT_AUTH);
       }
     }
-
     // Let the various services know that we're no longer active.
-    GetLoginUIService()->LoginUIClosed(web_ui());
-    if (sync_service)
-      sync_service->set_setup_in_progress(false);
+    GetLoginUIService()->LoginUIClosed(this);
+  }
+
+  if (sync_service) {
+    sync_service->SetSetupInProgress(false);
 
     // Make sure user isn't left half-logged-in (signed in, but without sync
     // started up). If the user hasn't finished setting up sync, then sign out
     // and shut down sync.
-    if (sync_service && !sync_service->HasSyncSetupCompleted()) {
+    if (!sync_service->HasSyncSetupCompleted()) {
       DVLOG(1) << "Signin aborted by user action";
       sync_service->DisableForUser();
-#if !defined(OS_CHROMEOS)
-      GetSignin()->SignOut();
-#else
-      // TODO(atwilson): Move this suppression to PSS::DisableForUser()
+
       browser_sync::SyncPrefs sync_prefs(GetProfile()->GetPrefs());
       sync_prefs.SetStartSuppressed(true);
-#endif
     }
   }
+
+  // Reset the attempted email address and error, otherwise the sync setup
+  // overlay in the settings page will stay in whatever error state it was last
+  // when it is reopened.
+  last_attempted_user_email_.clear();
+  last_signin_error_ = GoogleServiceAuthError::None();
 
   configuring_sync_ = false;
   signin_tracker_.reset();
 }
 
 void SyncSetupHandler::OpenSyncSetup(bool force_login) {
+  if (!PrepareSyncSetup())
+    return;
+
   ProfileSyncService* service = GetSyncService();
-  if (!service) {
-    // If there's no sync service, the user tried to manually invoke a syncSetup
-    // URL, but sync features are disabled.  We need to close the overlay for
-    // this (rare) case.
-    DLOG(WARNING) << "Closing sync UI because sync is disabled";
-    CloseOverlay();
-    return;
-  }
-
-  // If the wizard is already visible, just focus that one.
-  if (FocusExistingWizardIfPresent()) {
-    if (!IsActiveLogin())
-      CloseOverlay();
-    return;
-  }
-
-  // Notify services that we are now active.
-  GetLoginUIService()->SetLoginUI(web_ui());
-  service->set_setup_in_progress(true);
 
   // There are several different UI flows that can bring the user here:
   // 1) Signin promo (passes force_login=true)
-  // 2) Normal signin through options page (AreCredentialsAvailable() will
+  // 2) Normal signin through options page (IsSyncEnabledAndLoggedIn() will
   //    return false).
   // 3) Previously working credentials have expired
   //    (service->GetAuthError() != NONE).
@@ -826,10 +963,8 @@ void SyncSetupHandler::OpenSyncSetup(bool force_login) {
   //    logged in.
   // 6) One-click signin (credentials are already available, so should display
   //    sync configure UI, not login UI).
-  // 7) ChromeOS re-enable after disabling sync.
-#if !defined(OS_CHROMEOS)
   if (force_login ||
-      !service->AreCredentialsAvailable() ||
+      !service->IsSyncEnabledAndLoggedIn() ||
       service->GetAuthError().state() != GoogleServiceAuthError::NONE) {
     // User is not logged in, or login has been specially requested - need to
     // display login UI (cases 1-4).
@@ -839,28 +974,27 @@ void SyncSetupHandler::OpenSyncSetup(bool force_login) {
     // via the "Advanced..." button or through One-Click signin (cases 5/6).
     DisplayConfigureSync(true, false);
   }
-#else
-  PrepareConfigDialog();
-#endif
 
   ShowSetupUI();
 }
 
-void SyncSetupHandler::PrepareConfigDialog() {
-  // On Chrome OS user is always logged in. Instead of showing login dialog,
-  // show spinner until the backend gets ready to configure sync.
-  ProfileSyncService* service = GetSyncService();
-  if (!service->sync_initialized()) {
-    // To listen to the token available notifications, start SigninTracker.
-    signin_tracker_.reset(
-        new SigninTracker(GetProfile(), this,
-                          SigninTracker::SERVICES_INITIALIZING));
-    service->set_setup_in_progress(true);
-    service->UnsuppressAndStart();
-    DisplaySpinner();
-  } else {
-    DisplayConfigureSync(true, false);
-  }
+void SyncSetupHandler::OpenConfigureSync() {
+  if (!PrepareSyncSetup())
+    return;
+
+  DisplayConfigureSync(true, false);
+  ShowSetupUI();
+}
+
+void SyncSetupHandler::FocusUI() {
+  DCHECK(IsActiveLogin());
+  WebContents* web_contents = web_ui()->GetWebContents();
+  web_contents->GetDelegate()->ActivateContents(web_contents);
+}
+
+void SyncSetupHandler::CloseUI() {
+  DCHECK(IsActiveLogin());
+  CloseOverlay();
 }
 
 // Private member functions.
@@ -869,7 +1003,7 @@ bool SyncSetupHandler::FocusExistingWizardIfPresent() {
   LoginUIService* service = GetLoginUIService();
   if (!service->current_login_ui())
     return false;
-  service->FocusLoginUI();
+  service->current_login_ui()->FocusUI();
   return true;
 }
 
@@ -884,11 +1018,20 @@ void SyncSetupHandler::CloseOverlay() {
 
 bool SyncSetupHandler::IsLoginAuthDataValid(const std::string& username,
                                             string16* error_message) {
-  // Happens during unit tests.
-  if (!web_ui() || !profile_manager_)
+  if (username.empty())
     return true;
 
-  if (username.empty())
+  // Can be null during some unit tests.
+  if (!web_ui())
+    return true;
+
+  if (!GetSignin()->IsAllowedUsername(username)) {
+    *error_message = l10n_util::GetStringUTF16(IDS_SYNC_LOGIN_NAME_PROHIBITED);
+    return false;
+  }
+
+  // If running in a unit test, skip profile check.
+  if (!profile_manager_)
     return true;
 
   // Check if the username is already in use by another profile.

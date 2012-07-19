@@ -11,19 +11,19 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/hi_res_timer_manager.h"
 #include "base/message_loop.h"
 #include "base/string_util.h"
 #include "base/system_monitor/system_monitor.h"
 #include "base/threading/platform_thread.h"
 #include "content/common/child_process.h"
-#include "content/common/hi_res_timer_manager.h"
 #include "content/plugin/plugin_thread.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
 
 #if defined(OS_WIN)
 #include "content/common/injection_test_dll.h"
-#include "sandbox/src/sandbox.h"
+#include "sandbox/win/src/sandbox.h"
 #elif defined(OS_POSIX) && !defined(OS_MACOSX)
 #include "base/global_descriptors_posix.h"
 #include "ipc/ipc_descriptors.h"
@@ -61,16 +61,32 @@ bool IsPluginBuiltInFlash(const CommandLine& cmd_line) {
   return (path.BaseName() == FilePath(L"gcswf32.dll"));
 }
 
-// Before we lock down the flash sandbox, we need to activate
-// the IME machinery. After lock down it seems it is unable
-// to start. Note that we leak the IME context on purpose.
+// Before we lock down the flash sandbox, we need to activate the IME machinery
+// and attach it to this process. (Windows attaches an IME machinery to this
+// process automatically while it creates its first top-level window.) After
+// lock down it seems it is unable to start. Note that we leak the IME context
+// on purpose.
+HWND g_ime_window = NULL;
+
 int PreloadIMEForFlash() {
   HIMC imc = ::ImmCreateContext();
   if (!imc)
     return 0;
   if (::ImmGetOpenStatus(imc))
     return 1;
+  if (!g_ime_window) {
+    g_ime_window = CreateWindowEx(WS_EX_TOOLWINDOW, L"EDIT", L"", WS_POPUP,
+        0, 0, 0, 0, NULL, NULL, GetModuleHandle(NULL), NULL);
+    SetWindowLongPtr(g_ime_window, GWL_EXSTYLE, WS_EX_NOACTIVATE);
+  }
   return 2;
+}
+
+void DestroyIMEForFlash() {
+  if (g_ime_window) {
+    DestroyWindow(g_ime_window);
+    g_ime_window = NULL;
+  }
 }
 
 // VirtualAlloc doesn't randomize well, so we use these calls to poke a
@@ -206,6 +222,7 @@ int PluginMain(const content::MainFunctionParams& parameters) {
   }
 
 #if defined(OS_WIN)
+  DestroyIMEForFlash();
   CoUninitialize();
 #endif
 

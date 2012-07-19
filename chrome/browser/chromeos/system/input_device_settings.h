@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_SYSTEM_INPUT_DEVICE_SETTINGS_H_
 #define CHROME_BROWSER_CHROMEOS_SYSTEM_INPUT_DEVICE_SETTINGS_H_
-#pragma once
 
 namespace chromeos {
 namespace system {
@@ -18,6 +17,9 @@ void SetSensitivity(int value);
 
 // Turns tap to click on / off.
 void SetTapToClick(bool enabled);
+
+// Switch for three-finger click.
+void SetThreeFingerClick(bool enabled);
 
 }  // namespace touchpad_settings
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_PAGE_INFO_BUBBLE_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_PAGE_INFO_BUBBLE_VIEW_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/page_info_model.h"
@@ -14,6 +13,8 @@
 #include "ui/views/controls/link_listener.h"
 
 namespace content {
+class PageNavigator;
+class WebContents;
 struct SSLStatus;
 }
 
@@ -22,10 +23,11 @@ class PageInfoBubbleView : public views::BubbleDelegateView,
                            public views::LinkListener {
  public:
   PageInfoBubbleView(views::View* anchor_view,
-                     Profile* profile,
+                     content::WebContents* web_contents,
                      const GURL& url,
                      const content::SSLStatus& ssl,
-                     bool show_history);
+                     bool show_history,
+                     content::PageNavigator* navigator);
   virtual ~PageInfoBubbleView();
 
   // Show the certificate dialog.
@@ -74,6 +76,11 @@ class PageInfoBubbleView : public views::BubbleDelegateView,
 
   // The height of the info bubble at the start of the resize animation.
   int animation_start_height_;
+
+  // Used for loading pages.
+  content::PageNavigator* navigator_;
+
+  content::WebContents* web_contents_;
 
   DISALLOW_COPY_AND_ASSIGN(PageInfoBubbleView);
 };

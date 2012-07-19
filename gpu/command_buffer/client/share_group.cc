@@ -59,57 +59,21 @@ class IdHandler : public IdHandlerInterface {
   virtual bool MarkAsUsedForBind(GLuint id) {
     return id == 0 ? true : id_allocator_.MarkAsUsed(id);
   }
- private:
+ protected:
   IdAllocator id_allocator_;
 };
 
 // An id handler that require Gen before Bind.
-class StrictIdHandler : public IdHandlerInterface {
+class StrictIdHandler : public IdHandler {
  public:
   StrictIdHandler() { }
   virtual ~StrictIdHandler() { }
 
-  // Overridden from IdHandlerInterface.
-  virtual void Destroy(GLES2Implementation* /* gl_impl */) {
-  }
-
-  // Overridden from IdHandlerInterface.
-  virtual void MakeIds(
-      GLES2Implementation* /* gl_impl */,
-      GLuint id_offset, GLsizei n, GLuint* ids) {
-    if (id_offset == 0) {
-      for (GLsizei ii = 0; ii < n; ++ii) {
-        ids[ii] = id_allocator_.AllocateID();
-      }
-    } else {
-      for (GLsizei ii = 0; ii < n; ++ii) {
-        ids[ii] = id_allocator_.AllocateIDAtOrAbove(id_offset);
-        id_offset = ids[ii] + 1;
-      }
-    }
-  }
-
-  // Overridden from IdHandlerInterface.
-  virtual bool FreeIds(
-      GLES2Implementation* gl_impl,
-      GLsizei n, const GLuint* ids, DeleteFn delete_fn) {
-    for (GLsizei ii = 0; ii < n; ++ii) {
-      id_allocator_.FreeID(ids[ii]);
-    }
-    (gl_impl->*delete_fn)(n, ids);
-    // We need to ensure that the delete call is evaluated on the service side
-    // before any other contexts issue commands using these client ids.
-    gl_impl->helper()->CommandBufferHelper::Flush();
-    return true;
-  }
-
-  // Overridden from IdHandlerInterface.
+  // Overridden from IdHandler.
   virtual bool MarkAsUsedForBind(GLuint id) {
     GPU_DCHECK(id == 0 || id_allocator_.InUse(id));
-    return true;
+    return IdHandler::MarkAsUsedForBind(id);
   }
- private:
-  IdAllocator id_allocator_;
 };
 
 // An id handler for ids that are never reused.
@@ -259,6 +223,15 @@ ShareGroup::ShareGroup(bool share_resources, bool bind_generates_resource)
   program_info_manager_.reset(ProgramInfoManager::Create(false));
 }
 
+void ShareGroup::SetGLES2ImplementationForDestruction(
+    GLES2Implementation* gl_impl) {
+  gles2_ = gl_impl;
+}
+
+void ShareGroup::set_program_info_manager(ProgramInfoManager* manager) {
+  program_info_manager_.reset(manager);
+}
+
 ShareGroup::~ShareGroup() {
   for (int i = 0; i < id_namespaces::kNumIdNamespaces; ++i) {
     id_handlers_[i]->Destroy(gles2_);
@@ -266,12 +239,5 @@ ShareGroup::~ShareGroup() {
   }
 }
 
-void ShareGroup::SetGLES2ImplementationForDestruction(
-    GLES2Implementation* gl_impl) {
-  gles2_ = gl_impl;
-}
-
-
 }  // namespace gles2
 }  // namespace gpu
-

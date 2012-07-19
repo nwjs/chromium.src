@@ -26,7 +26,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_DOWNLOAD_MANAGER_H_
 #define CONTENT_PUBLIC_BROWSER_DOWNLOAD_MANAGER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -35,46 +34,45 @@
 #include "base/callback.h"
 #include "base/file_path.h"
 #include "base/gtest_prod_util.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/time.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_id.h"
 #include "content/public/browser/download_interrupt_reasons.h"
 #include "content/public/browser/download_item.h"
-#include "content/public/browser/browser_thread.h"
-#include "net/base/net_log.h"
 #include "net/base/net_errors.h"
+#include "net/base/net_log.h"
 
 class DownloadRequestHandle;
 class GURL;
-class TabContents;
 struct DownloadCreateInfo;
 struct DownloadRetrieveInfo;
 
 namespace content {
+
 class BrowserContext;
+class ByteStreamReader;
 class DownloadManagerDelegate;
 class DownloadQuery;
-class WebContents;
-struct DownloadSaveInfo;
+class DownloadUrlParameters;
 
 // Browser's download manager: manages all downloads and destination view.
 class CONTENT_EXPORT DownloadManager
     : public base::RefCountedThreadSafe<DownloadManager> {
  public:
-  // NOTE: If there is an error, the DownloadId will be invalid.
-  typedef base::Callback<void(DownloadId, net::Error)> OnStartedCallback;
-
-  virtual ~DownloadManager() {}
-
-  static DownloadManager* Create(
-      DownloadManagerDelegate* delegate,
-      net::NetLog* net_log);
-
   // A method that can be used in tests to ensure that all the internal download
   // classes have no pending downloads.
   static bool EnsureNoPendingDownloadsForTesting();
 
-  // Shutdown the download manager. Must be called before destruction.
+  // Sets/Gets the delegate for this DownloadManager. The delegate has to live
+  // past its Shutdown method being called (by the DownloadManager).
+  virtual void SetDelegate(DownloadManagerDelegate* delegate) = 0;
+  virtual DownloadManagerDelegate* GetDelegate() const = 0;
+
+  // Shutdown the download manager. Content calls this when BrowserContext is
+  // being destructed. If the embedder needs this to be called earlier, it can
+  // call it. In that case, the delegate's Shutdown() method will only be called
+  // once.
   virtual void Shutdown() = 0;
 
   // Interface to implement for observers that wish to be informed of changes
@@ -121,8 +119,15 @@ class CONTENT_EXPORT DownloadManager
   // Returns true if initialized properly.
   virtual bool Init(BrowserContext* browser_context) = 0;
 
+  // Called by a download source (Currently DownloadResourceHandler)
+  // to initiate the non-source portions of a download.
+  // Returns the id assigned to the download.  If the DownloadCreateInfo
+  // specifies an id, that id will be used.
+  virtual content::DownloadId StartDownload(
+      scoped_ptr<DownloadCreateInfo> info,
+      scoped_ptr<content::ByteStreamReader> stream) = 0;
+
   // Notifications sent from the download thread to the UI thread
-  virtual void StartDownload(int32 id) = 0;
   virtual void UpdateDownload(int32 download_id,
                               int64 bytes_so_far,
                               int64 bytes_per_sec,
@@ -147,16 +152,7 @@ class CONTENT_EXPORT DownloadManager
   // |reason| is a download interrupt reason code.
   virtual void OnDownloadInterrupted(
       int32 download_id,
-      int64 size,
-      const std::string& hash_state,
       DownloadInterruptReason reason) = 0;
-
-  // Called when the download is renamed to its final name.
-  // |uniquifier| is a number used to make unique names for the file.  It is
-  // only valid for the DANGEROUS_BUT_VALIDATED state of the download item.
-  virtual void OnDownloadRenamedToFinalName(int download_id,
-                                    const FilePath& full_path,
-                                    int uniquifier) = 0;
 
   // Remove downloads after remove_begin (inclusive) and before remove_end
   // (exclusive). You may pass in null Time values to do an unbounded delete
@@ -173,26 +169,8 @@ class CONTENT_EXPORT DownloadManager
   // deleted is returned back to the caller.
   virtual int RemoveAllDownloads() = 0;
 
-  // Downloads the content at |url|. |referrer| and |referrer_encoding| are the
-  // referrer for the download, and may be empty. If |prefer_cache| is true,
-  // then if the response to |url| is in the HTTP cache it will be used without
-  // revalidation. If |post_id| is non-negative, then it identifies the post
-  // transaction used to originally retrieve the |url| resource - it also
-  // requires |prefer_cache| to be |true| since re-post'ing is not done.
-  // |save_info| specifies where the downloaded file should be
-  // saved, and whether the user should be prompted about the download.
-  // |web_contents| is the web page that the download is done in context of,
-  // and must be non-NULL.
-  // |callback| will be called when the download starts, or if an error
-  // occurs that prevents a download item from being created.
-  virtual void DownloadUrl(const GURL& url,
-                           const GURL& referrer,
-                           const std::string& referrer_encoding,
-                           bool prefer_cache,
-                           int64 post_id,
-                           const DownloadSaveInfo& save_info,
-                           WebContents* web_contents,
-                           const OnStartedCallback& callback) = 0;
+  // See DownloadUrlParameters for details about controlling the download.
+  virtual void DownloadUrl(scoped_ptr<DownloadUrlParameters> parameters) = 0;
 
   // Allow objects to observe the download creation process.
   virtual void AddObserver(Observer* observer) = 0;
@@ -217,21 +195,6 @@ class CONTENT_EXPORT DownloadManager
 
   virtual FilePath LastDownloadPath() = 0;
 
-  // Creates the download item.  Must be called on the UI thread.
-  // Returns the |BoundNetLog| used by the |DownloadItem|.
-  virtual net::BoundNetLog CreateDownloadItem(
-      DownloadCreateInfo* info,
-      const DownloadRequestHandle& request_handle) = 0;
-
-  // Creates a download item for the SavePackage system.
-  // Must be called on the UI thread.  Note that the DownloadManager
-  // retains ownership.
-  virtual DownloadItem* CreateSavePackageDownloadItem(
-      const FilePath& main_file_path,
-      const GURL& page_url,
-      bool is_otr,
-      DownloadItem::Observer* observer) = 0;
-
   // Clears the last download path, used to initialize "save as" dialogs.
   virtual void ClearLastDownloadPath() = 0;
 
@@ -252,6 +215,10 @@ class CONTENT_EXPORT DownloadManager
   // been removed from the active map, or was retrieved from the history DB.
   virtual DownloadItem* GetDownloadItem(int id) = 0;
 
+  // Get the download item for |id| if present, no matter what type of download
+  // it is or state it's in.
+  virtual DownloadItem* GetDownload(int id) = 0;
+
   // Called when Save Page download is done.
   virtual void SavePageDownloadFinished(DownloadItem* download) = 0;
 
@@ -261,18 +228,11 @@ class CONTENT_EXPORT DownloadManager
 
   virtual bool GenerateFileHash() = 0;
 
-  virtual DownloadManagerDelegate* delegate() const = 0;
-
-  // For testing only.  May be called from tests indirectly (through
-  // other for testing only methods).
-  virtual void SetDownloadManagerDelegate(
-      DownloadManagerDelegate* delegate) = 0;
+ protected:
+  virtual ~DownloadManager() {}
 
  private:
-  friend class base::RefCountedThreadSafe<
-      DownloadManager, BrowserThread::DeleteOnUIThread>;
-  friend struct BrowserThread::DeleteOnThread<BrowserThread::UI>;
-  friend class base::DeleteHelper<DownloadManager>;
+  friend class base::RefCountedThreadSafe<DownloadManager>;
 };
 
 }  // namespace content

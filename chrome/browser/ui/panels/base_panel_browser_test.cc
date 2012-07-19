@@ -4,8 +4,6 @@
 
 #include "chrome/browser/ui/panels/base_panel_browser_test.h"
 
-#include "chrome/browser/ui/browser_list.h"
-
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/memory/weak_ptr.h"
@@ -15,21 +13,24 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/panels/native_panel.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
 #include "chrome/browser/ui/panels/panel_mouse_watcher.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/panels/test_panel_active_state_observer.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/string_ordinal.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "content/test/web_contents_tester.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/web_contents_tester.h"
 
 #if defined(OS_LINUX)
+#include "chrome/browser/ui/browser_window.h"
 #include "ui/base/x/x11_util.h"
 #endif
 
@@ -40,11 +41,12 @@
 #endif
 
 using content::WebContentsTester;
+using extensions::Extension;
 
 namespace {
 
-const int kTestingWorkAreaWidth = 800;
-const int kTestingWorkAreaHeight = 600;
+const gfx::Rect kTestingPrimaryScreenArea = gfx::Rect(0, 0, 800, 600);
+const gfx::Rect kTestingWorkArea = gfx::Rect(0, 0, 800, 580);
 
 struct MockDesktopBar {
   bool auto_hiding_enabled;
@@ -55,11 +57,12 @@ struct MockDesktopBar {
 class MockDisplaySettingsProviderImpl :
     public BasePanelBrowserTest::MockDisplaySettingsProvider {
  public:
-  explicit MockDisplaySettingsProviderImpl(Observer* observer);
+  explicit MockDisplaySettingsProviderImpl(PanelManager* panel_manager);
   virtual ~MockDisplaySettingsProviderImpl() { }
 
   // Overridden from DisplaySettingsProvider:
-  virtual gfx::Rect GetWorkArea() OVERRIDE;
+  virtual gfx::Rect GetPrimaryScreenArea() const OVERRIDE;
+  virtual gfx::Rect GetWorkArea() const OVERRIDE;
   virtual bool IsAutoHidingDesktopBarEnabled(
       DesktopBarAlignment alignment) OVERRIDE;
   virtual int GetDesktopBarThickness(
@@ -68,6 +71,8 @@ class MockDisplaySettingsProviderImpl :
       DesktopBarAlignment alignment) const OVERRIDE;
 
   // Overridden from MockDisplaySettingsProvider:
+  virtual void SetPrimaryScreenArea(
+      const gfx::Rect& primary_screen_area) OVERRIDE;
   virtual void SetWorkArea(const gfx::Rect& work_area) OVERRIDE;
   virtual void EnableAutoHidingDesktopBar(DesktopBarAlignment alignment,
                                           bool enabled,
@@ -78,10 +83,8 @@ class MockDisplaySettingsProviderImpl :
                                       int thickness) OVERRIDE;
 
  private:
-  void NotifyDesktopBarVisibilityChange(DesktopBarAlignment alignment,
-                                        DesktopBarVisibility visibility);
-  void NotifyDesktopBarThicknessChange();
-
+  gfx::Rect testing_primary_screen_area_;
+  gfx::Rect testing_work_area_;
   MockDesktopBar mock_desktop_bars[3];
 
   DISALLOW_COPY_AND_ASSIGN(MockDisplaySettingsProviderImpl);
@@ -89,16 +92,36 @@ class MockDisplaySettingsProviderImpl :
 
 
 MockDisplaySettingsProviderImpl::MockDisplaySettingsProviderImpl(
-    DisplaySettingsProvider::Observer* observer)
-    : MockDisplaySettingsProvider(observer) {
+    PanelManager* panel_manager) {
+  DisplaySettingsProvider* old_provider =
+      panel_manager->display_settings_provider();
+
+  ObserverListBase<DisplaySettingsProvider::DisplayAreaObserver>::Iterator
+      display_area_observers_iter(old_provider->display_area_observers());
+  AddDisplayAreaObserver(display_area_observers_iter.GetNext());
+  DCHECK(!display_area_observers_iter.GetNext());
+
+  ObserverListBase<DisplaySettingsProvider::DesktopBarObserver>::Iterator
+      desktop_bar_observer_iter(old_provider->desktop_bar_observers());
+  AddDesktopBarObserver(desktop_bar_observer_iter.GetNext());
+  DCHECK(!desktop_bar_observer_iter.GetNext());
+
+  ObserverListBase<DisplaySettingsProvider::FullScreenObserver>::Iterator
+      full_screen_observer_iter(old_provider->full_screen_observers());
+  AddFullScreenObserver(full_screen_observer_iter.GetNext());
+  DCHECK(!full_screen_observer_iter.GetNext());
+
+  panel_manager->set_display_settings_provider(this);
+
   memset(mock_desktop_bars, 0, sizeof(mock_desktop_bars));
 }
 
-gfx::Rect MockDisplaySettingsProviderImpl::GetWorkArea() {
-  // Some test might want to use the actual work area, that is indicated by
-  // passing empty testing work area.
-  return work_area_.IsEmpty() ? DisplaySettingsProvider::GetWorkArea()
-                              : work_area_;
+gfx::Rect MockDisplaySettingsProviderImpl::GetPrimaryScreenArea() const {
+  return testing_primary_screen_area_;
+}
+
+gfx::Rect MockDisplaySettingsProviderImpl::GetWorkArea() const {
+  return testing_work_area_;
 }
 
 bool MockDisplaySettingsProviderImpl::IsAutoHidingDesktopBarEnabled(
@@ -122,11 +145,17 @@ void MockDisplaySettingsProviderImpl::EnableAutoHidingDesktopBar(
   MockDesktopBar* bar = &(mock_desktop_bars[static_cast<int>(alignment)]);
   bar->auto_hiding_enabled = enabled;
   bar->thickness = thickness;
-  observer_->OnAutoHidingDesktopBarThicknessChanged();
+  OnAutoHidingDesktopBarChanged();
+}
+
+void MockDisplaySettingsProviderImpl::SetPrimaryScreenArea(
+    const gfx::Rect& primary_screen_area) {
+  testing_primary_screen_area_ = primary_screen_area;
 }
 
 void MockDisplaySettingsProviderImpl::SetWorkArea(const gfx::Rect& work_area) {
-  work_area_ = work_area;
+  testing_work_area_ = work_area;
+  OnDisplaySettingsChanged();
 }
 
 void MockDisplaySettingsProviderImpl::SetDesktopBarVisibility(
@@ -137,13 +166,7 @@ void MockDisplaySettingsProviderImpl::SetDesktopBarVisibility(
   if (visibility == bar->visibility)
     return;
   bar->visibility = visibility;
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(
-          &MockDisplaySettingsProviderImpl::NotifyDesktopBarVisibilityChange,
-          base::Unretained(this),
-          alignment,
-          visibility));
+  OnAutoHidingDesktopBarChanged();
 }
 
 void MockDisplaySettingsProviderImpl::SetDesktopBarThickness(
@@ -154,21 +177,7 @@ void MockDisplaySettingsProviderImpl::SetDesktopBarThickness(
   if (thickness == bar->thickness)
     return;
   bar->thickness = thickness;
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(
-          &MockDisplaySettingsProviderImpl::NotifyDesktopBarThicknessChange,
-          base::Unretained(this)));
-}
-
-void MockDisplaySettingsProviderImpl::NotifyDesktopBarVisibilityChange(
-    DesktopBarAlignment alignment,
-    DesktopBarVisibility visibility) {
-  observer_->OnAutoHidingDesktopBarVisibilityChanged(alignment, visibility);
-}
-
-void MockDisplaySettingsProviderImpl::NotifyDesktopBarThicknessChange() {
-  observer_->OnAutoHidingDesktopBarThicknessChanged();
+  OnAutoHidingDesktopBarChanged();
 }
 
 bool ExistsPanel(Panel* panel) {
@@ -182,7 +191,8 @@ const FilePath::CharType* BasePanelBrowserTest::kTestDir =
     FILE_PATH_LITERAL("panels");
 
 BasePanelBrowserTest::BasePanelBrowserTest()
-    : InProcessBrowserTest() {
+    : InProcessBrowserTest(),
+      mock_display_settings_enabled_(true) {
 #if defined(OS_MACOSX)
   FindBarBridge::disable_animations_during_testing_ = true;
 #endif
@@ -208,7 +218,6 @@ bool BasePanelBrowserTest::SkipTestIfCompizWM() {
 }
 
 void BasePanelBrowserTest::SetUpCommandLine(CommandLine* command_line) {
-  EnableDOMAutomation();
   command_line->AppendSwitch(switches::kEnablePanels);
 }
 
@@ -218,11 +227,11 @@ void BasePanelBrowserTest::SetUpOnMainThread() {
   // Setup the work area and desktop bar so that we have consistent testing
   // environment for all panel related tests.
   PanelManager* panel_manager = PanelManager::GetInstance();
-  mock_display_settings_provider_ = new MockDisplaySettingsProviderImpl(
-      panel_manager);
-  panel_manager->set_display_settings_provider(mock_display_settings_provider_);
-  SetTestingWorkArea(gfx::Rect(
-      0, 0, kTestingWorkAreaWidth, kTestingWorkAreaHeight));
+  if (mock_display_settings_enabled_) {
+    mock_display_settings_provider_ =
+        new MockDisplaySettingsProviderImpl(panel_manager);
+    SetTestingAreas(kTestingPrimaryScreenArea, kTestingWorkArea);
+  }
 
   panel_manager->enable_auto_sizing(false);
 
@@ -230,46 +239,20 @@ void BasePanelBrowserTest::SetUpOnMainThread() {
 
   // This is needed so the subsequently created panels can be activated.
   // On a Mac, it transforms background-only test process into foreground one.
-  EXPECT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
-}
-
-void BasePanelBrowserTest::WaitForPanelAdded(Panel* panel) {
-  if (ExistsPanel(panel))
-    return;
-  ui_test_utils::WindowedNotificationObserver signal(
-      chrome::NOTIFICATION_PANEL_ADDED,
-      content::Source<Panel>(panel));
-  signal.Wait();
-  EXPECT_TRUE(ExistsPanel(panel));
-}
-
-void BasePanelBrowserTest::WaitForPanelRemoved(Panel* panel) {
-  if (!ExistsPanel(panel))
-    return;
-  ui_test_utils::WindowedNotificationObserver signal(
-      chrome::NOTIFICATION_PANEL_CLOSED,
-      content::Source<Panel>(panel));
-  signal.Wait();
-  EXPECT_FALSE(ExistsPanel(panel));
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
 }
 
 void BasePanelBrowserTest::WaitForPanelActiveState(
     Panel* panel, ActiveState expected_state) {
   DCHECK(expected_state == SHOW_AS_ACTIVE ||
          expected_state == SHOW_AS_INACTIVE);
-  ui_test_utils::WindowedNotificationObserver signal(
-      chrome::NOTIFICATION_PANEL_CHANGED_ACTIVE_STATUS,
-      content::Source<Panel>(panel));
-  if (panel->IsActive() == (expected_state == SHOW_AS_ACTIVE))
-    return;  // Already in required state.
+  PanelActiveStateObserver signal(panel, expected_state == SHOW_AS_ACTIVE);
   signal.Wait();
-  // Verify that transition happened in the desired direction.
-  EXPECT_TRUE(panel->IsActive() == (expected_state == SHOW_AS_ACTIVE));
 }
 
 void BasePanelBrowserTest::WaitForWindowSizeAvailable(Panel* panel) {
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   ui_test_utils::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_PANEL_WINDOW_SIZE_KNOWN,
       content::Source<Panel>(panel));
@@ -281,7 +264,7 @@ void BasePanelBrowserTest::WaitForWindowSizeAvailable(Panel* panel) {
 
 void BasePanelBrowserTest::WaitForBoundsAnimationFinished(Panel* panel) {
   scoped_ptr<NativePanelTesting> panel_testing(
-      NativePanelTesting::Create(panel->native_panel()));
+      CreateNativePanelTesting(panel));
   ui_test_utils::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
       content::Source<Panel>(panel));
@@ -289,17 +272,6 @@ void BasePanelBrowserTest::WaitForBoundsAnimationFinished(Panel* panel) {
     return;
   signal.Wait();
   EXPECT_TRUE(!panel_testing->IsAnimatingBounds());
-}
-
-void BasePanelBrowserTest::WaitForLayoutModeChanged(
-    Panel* panel, PanelStrip::Type layout_type) {
-  ui_test_utils::WindowedNotificationObserver signal(
-      chrome::NOTIFICATION_PANEL_CHANGED_LAYOUT_MODE,
-      content::Source<Panel>(panel));
-  if (panel->panel_strip()->type() == layout_type)
-    return;
-  signal.Wait();
-  EXPECT_EQ(layout_type, panel->panel_strip()->type());
 }
 
 void BasePanelBrowserTest::WaitForExpansionStateChanged(
@@ -325,43 +297,23 @@ Panel* BasePanelBrowserTest::CreatePanelWithParams(
   base::mac::ScopedNSAutoreleasePool autorelease_pool;
 #endif
 
-  Browser* panel_browser = Browser::CreateWithParams(
-      Browser::CreateParams::CreateForApp(
-          Browser::TYPE_PANEL, params.name, params.bounds,
-          browser()->profile()));
-  EXPECT_TRUE(panel_browser->is_type_panel());
+  ui_test_utils::WindowedNotificationObserver observer(
+      content::NOTIFICATION_LOAD_STOP,
+      content::NotificationService::AllSources());
 
-  if (!params.url.is_empty()) {
-    ui_test_utils::WindowedNotificationObserver observer(
-        content::NOTIFICATION_LOAD_STOP,
-        content::NotificationService::AllSources());
-    panel_browser->AddSelectedTabWithURL(params.url,
-                                         content::PAGE_TRANSITION_START_PAGE);
+  PanelManager* manager = PanelManager::GetInstance();
+  Panel* panel = manager->CreatePanel(params.name, browser()->profile(),
+                                      params.url, params.bounds.size());
+
+  if (!params.url.is_empty())
     observer.Wait();
-  }
 
-  Panel* panel = static_cast<Panel*>(panel_browser->window());
-
-  if (!PanelManager::GetInstance()->auto_sizing_enabled() ||
+  if (!manager->auto_sizing_enabled() ||
       params.bounds.width() || params.bounds.height()) {
     EXPECT_FALSE(panel->auto_resizable());
   } else {
     EXPECT_TRUE(panel->auto_resizable());
   }
-
-#if defined(OS_LINUX)
-  // On bots, we might have a simple window manager which always activates new
-  // windows, and can't always deactivate them. Keep track of the previously
-  // active window so we can activate that window back to ensure the new window
-  // is inactive.
-  Browser* last_active_browser_to_restore = NULL;
-  if (params.expected_active_state == SHOW_AS_INACTIVE &&
-      ui::GuessWindowManager() == ui::WM_ICE_WM) {
-    last_active_browser_to_restore = BrowserList::GetLastActive();
-    EXPECT_TRUE(last_active_browser_to_restore);
-    EXPECT_NE(last_active_browser_to_restore, panel->browser());
-  }
-#endif
 
   if (params.show_flag == SHOW_AS_ACTIVE) {
     panel->Show();
@@ -373,9 +325,17 @@ Panel* BasePanelBrowserTest::CreatePanelWithParams(
     MessageLoopForUI::current()->RunAllPending();
 
 #if defined(OS_LINUX)
-    // Restore focus where it was. It will deactivate the new panel.
-    if (last_active_browser_to_restore)
-      last_active_browser_to_restore->window()->Activate();
+    // On bots, we might have a simple window manager which always activates new
+    // windows, and can't always deactivate them. Re-activate the main tabbed
+    // browser to "deactivate" the newly created panel.
+    if (params.expected_active_state == SHOW_AS_INACTIVE &&
+        ui::GuessWindowManager() == ui::WM_ICE_WM) {
+      // Wait for new panel to become active before deactivating to ensure
+      // the activated notification is consumed before we wait for the panel
+      // to become inactive.
+      WaitForPanelActiveState(panel, SHOW_AS_ACTIVE);
+      browser()->window()->Activate();
+    }
 #endif
     // More waiting, because gaining or losing focus may require inter-process
     // asynchronous communication, and it is not enough to just run the local
@@ -426,22 +386,16 @@ Panel* BasePanelBrowserTest::CreateDetachedPanel(const std::string& name,
   return panel;
 }
 
-Panel* BasePanelBrowserTest::CreateOverflowPanel(const std::string& name,
-                                                 const gfx::Rect& bounds) {
-  // The overflow panel is always shown as inactive even though we pass
-  // SHOW_AS_ACTIVE.
-  CreatePanelParams params(name, bounds, SHOW_AS_ACTIVE);
-  params.expected_active_state = SHOW_AS_INACTIVE;
-  Panel* panel = CreatePanelWithParams(params);
-  WaitForLayoutModeChanged(panel, PanelStrip::IN_OVERFLOW);
-  return panel;
+// static
+NativePanelTesting* BasePanelBrowserTest::CreateNativePanelTesting(
+    Panel* panel) {
+  return panel->native_panel()->CreateNativePanelTesting();
 }
 
 void BasePanelBrowserTest::CreateTestTabContents(Browser* browser) {
-  TabContentsWrapper* tab_contents =
-      new TabContentsWrapper(
-          WebContentsTester::CreateTestWebContents(browser->profile(), NULL));
-  browser->AddTab(tab_contents, content::PAGE_TRANSITION_LINK);
+  TabContents* tab_contents = new TabContents(
+      WebContentsTester::CreateTestWebContents(browser->profile(), NULL));
+  chrome::AddTab(browser, tab_contents, content::PAGE_TRANSITION_LINK);
 }
 
 scoped_refptr<Extension> BasePanelBrowserTest::CreateExtension(
@@ -461,35 +415,34 @@ scoped_refptr<Extension> BasePanelBrowserTest::CreateExtension(
 
   std::string error;
   scoped_refptr<Extension> extension = Extension::Create(
-      full_path,  location, *input_value,
-      Extension::STRICT_ERROR_CHECKS, &error);
+      full_path,  location, *input_value, Extension::NO_FLAGS, &error);
   EXPECT_TRUE(extension.get());
   EXPECT_STREQ("", error.c_str());
-  browser()->GetProfile()->GetExtensionService()->
+  browser()->profile()->GetExtensionService()->
       OnExtensionInstalled(extension.get(), false, StringOrdinal());
   return extension;
 }
 
-gfx::Rect BasePanelBrowserTest::GetTestingWorkArea() const {
-  return mock_display_settings_provider_->GetWorkArea();
+void BasePanelBrowserTest::SetTestingAreas(const gfx::Rect& primary_screen_area,
+                                           const gfx::Rect& work_area) {
+  DCHECK(primary_screen_area.Contains(work_area));
+  mock_display_settings_provider_->SetPrimaryScreenArea(primary_screen_area);
+  mock_display_settings_provider_->SetWorkArea(
+      work_area.IsEmpty() ? primary_screen_area : work_area);
 }
 
-void BasePanelBrowserTest::SetTestingWorkArea(const gfx::Rect& work_area) {
-  mock_display_settings_provider_->SetWorkArea(work_area);
-  PanelManager::GetInstance()->OnDisplayChanged();
-}
-
-void BasePanelBrowserTest::CloseWindowAndWait(Browser* browser) {
-  // Closing a browser window may involve several async tasks. Need to use
+void BasePanelBrowserTest::CloseWindowAndWait(Panel* panel) {
+  // Closing a panel may involve several async tasks. Need to use
   // message pump and wait for the notification.
-  size_t browser_count = BrowserList::size();
+  PanelManager* manager = PanelManager::GetInstance();
+  int panel_count = manager->num_panels();
   ui_test_utils::WindowedNotificationObserver signal(
-      chrome::NOTIFICATION_BROWSER_CLOSED,
-      content::Source<Browser>(browser));
-  browser->CloseWindow();
+      chrome::NOTIFICATION_PANEL_CLOSED,
+      content::Source<Panel>(panel));
+  panel->Close();
   signal.Wait();
-  // Now we have one less browser instance.
-  EXPECT_EQ(browser_count - 1, BrowserList::size());
+  // Now we have one less panel.
+  EXPECT_EQ(panel_count - 1, manager->num_panels());
 
 #if defined(OS_MACOSX)
   // Mac window controllers may be autoreleased, and in the non-test
@@ -501,6 +454,16 @@ void BasePanelBrowserTest::CloseWindowAndWait(Browser* browser) {
   // Make sure that everything has a chance to run.
   chrome::testing::NSRunLoopRunAllPending();
 #endif  // OS_MACOSX
+}
+
+void BasePanelBrowserTest::MoveMouseAndWaitForExpansionStateChange(
+    Panel* panel,
+    const gfx::Point& position) {
+  ui_test_utils::WindowedNotificationObserver signal(
+      chrome::NOTIFICATION_PANEL_CHANGED_EXPANSION_STATE,
+      content::Source<Panel>(panel));
+  MoveMouse(position);
+  signal.Wait();
 }
 
 void BasePanelBrowserTest::MoveMouse(const gfx::Point& position) {

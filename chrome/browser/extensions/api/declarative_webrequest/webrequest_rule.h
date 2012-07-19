@@ -4,20 +4,35 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_WEBREQUEST_WEBREQUEST_RULE_H_
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_WEBREQUEST_WEBREQUEST_RULE_H_
-#pragma once
 
+#include <list>
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/time.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry.h"
+#include "chrome/browser/extensions/api/declarative_webrequest/request_stages.h"
 
 namespace extensions {
+class Extension;
 class URLMatcherConditionFactory;
 class WebRequestConditionSet;
 class WebRequestActionSet;
 }
 
+namespace extension_web_request_api_helpers {
+struct EventResponseDelta;
+}
+
+namespace net {
+class HttpResponseHeaders;
+class URLRequest;
+}
+
 namespace extensions {
+
+typedef linked_ptr<extension_web_request_api_helpers::EventResponseDelta>
+    LinkedPtrEventResponseDelta;
 
 // Representation of a rule of the declarative Web Request API
 class WebRequestRule {
@@ -25,10 +40,20 @@ class WebRequestRule {
   typedef std::string ExtensionId;
   typedef std::string RuleId;
   typedef std::pair<ExtensionId, RuleId> GlobalRuleId;
+  typedef int Priority;
+
+  // Container to pass additional information about requests that are not
+  // available in all request stages.
+  struct OptionalRequestData {
+    OptionalRequestData() : original_response_headers(NULL) {}
+    net::HttpResponseHeaders* original_response_headers;
+  };
 
   WebRequestRule(const GlobalRuleId& id,
+                 base::Time extension_installation_time,
                  scoped_ptr<WebRequestConditionSet> conditions,
-                 scoped_ptr<WebRequestActionSet> actions);
+                 scoped_ptr<WebRequestActionSet> actions,
+                 Priority priority);
   virtual ~WebRequestRule();
 
   // If |error| is empty, the translation was successful and the returned
@@ -36,12 +61,32 @@ class WebRequestRule {
   static scoped_ptr<WebRequestRule> Create(
       URLMatcherConditionFactory* url_matcher_condition_factory,
       const std::string& extension_id,
+      base::Time extension_installation_time,
       linked_ptr<RulesRegistry::Rule> rule,
       std::string* error);
 
   const GlobalRuleId& id() const { return id_; }
   const WebRequestConditionSet& conditions() const { return *conditions_; }
   const WebRequestActionSet& actions() const { return *actions_; }
+  Priority priority() const { return priority_; }
+
+  // Creates all deltas resulting from the ActionSet. This function should
+  // only be called when the conditions_ are fulfilled (from a semantic point
+  // of view; no harm is done if this function is called at other times for
+  // testing purposes).
+  // If |extension| is set, deltas are suppressed if the |extension| does not
+  // have have sufficient permissions to modify the |request|. The returned list
+  // may be empty in this case.
+  std::list<LinkedPtrEventResponseDelta> CreateDeltas(
+      const extensions::Extension* extension,
+      net::URLRequest* request,
+      RequestStages request_stage,
+      const OptionalRequestData& optional_request_data) const;
+
+  // Returns the minimum priority of rules that may be evaluated after
+  // this rule. Defaults to MAX_INT. Only valid if the conditions of this rule
+  // are fulfilled.
+  Priority GetMinimumPriority() const;
 
  private:
   // Checks whether the set of |conditions| and |actions| are consistent,
@@ -53,8 +98,10 @@ class WebRequestRule {
                                std::string* error);
 
   GlobalRuleId id_;
+  base::Time extension_installation_time_;  // For precedences of rules.
   scoped_ptr<WebRequestConditionSet> conditions_;
   scoped_ptr<WebRequestActionSet> actions_;
+  Priority priority_;
 
   DISALLOW_COPY_AND_ASSIGN(WebRequestRule);
 };

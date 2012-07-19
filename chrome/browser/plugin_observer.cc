@@ -11,19 +11,21 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/plugin_finder.h"
 #include "chrome/browser/plugin_infobar_delegates.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
+#include "chrome/browser/tab_contents/simple_alert_infobar_delegate.h"
 #include "chrome/browser/ui/browser_dialogs.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/plugin_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "grit/generated_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -35,7 +37,12 @@
 #include "chrome/browser/ui/tab_modal_confirm_dialog_delegate.h"
 #endif  // defined(ENABLE_PLUGIN_INSTALLATION)
 
+#if defined(OS_WIN)
+#include "base/win/metro.h"
+#endif
+
 using content::OpenURLParams;
+using content::PluginService;
 using content::Referrer;
 using content::WebContents;
 
@@ -48,7 +55,7 @@ namespace {
 class ConfirmInstallDialogDelegate : public TabModalConfirmDialogDelegate,
                                      public WeakPluginInstallerObserver {
  public:
-  ConfirmInstallDialogDelegate(TabContentsWrapper* wrapper,
+  ConfirmInstallDialogDelegate(TabContents* tab_contents,
                                PluginInstaller* installer);
 
   // TabModalConfirmDialogDelegate methods:
@@ -63,15 +70,15 @@ class ConfirmInstallDialogDelegate : public TabModalConfirmDialogDelegate,
   virtual void OnlyWeakObserversLeft() OVERRIDE;
 
  private:
-  TabContentsWrapper* wrapper_;
+  TabContents* tab_contents_;
 };
 
 ConfirmInstallDialogDelegate::ConfirmInstallDialogDelegate(
-    TabContentsWrapper* wrapper,
+    TabContents* tab_contents,
     PluginInstaller* installer)
-    : TabModalConfirmDialogDelegate(wrapper->web_contents()),
+    : TabModalConfirmDialogDelegate(tab_contents->web_contents()),
       WeakPluginInstallerObserver(installer),
-      wrapper_(wrapper) {
+      tab_contents_(tab_contents) {
 }
 
 string16 ConfirmInstallDialogDelegate::GetTitle() {
@@ -90,7 +97,7 @@ string16 ConfirmInstallDialogDelegate::GetAcceptButtonTitle() {
 }
 
 void ConfirmInstallDialogDelegate::OnAccepted() {
-  installer()->StartInstalling(wrapper_);
+  installer()->StartInstalling(tab_contents_);
 }
 
 void ConfirmInstallDialogDelegate::OnCanceled() {
@@ -120,12 +127,12 @@ class PluginObserver::PluginPlaceholderHost : public PluginInstallerObserver {
         routing_id_(routing_id) {
     DCHECK(installer);
     switch (installer->state()) {
-      case PluginInstaller::kStateIdle: {
+      case PluginInstaller::INSTALLER_STATE_IDLE: {
         observer->Send(new ChromeViewMsg_FoundMissingPlugin(routing_id_,
                                                             installer->name()));
         break;
       }
-      case PluginInstaller::kStateDownloading: {
+      case PluginInstaller::INSTALLER_STATE_DOWNLOADING: {
         DownloadStarted();
         break;
       }
@@ -157,7 +164,7 @@ class PluginObserver::PluginPlaceholderHost : public PluginInstallerObserver {
 };
 #endif  // defined(ENABLE_PLUGIN_INSTALLATION)
 
-PluginObserver::PluginObserver(TabContentsWrapper* tab_contents)
+PluginObserver::PluginObserver(TabContents* tab_contents)
     : content::WebContentsObserver(tab_contents->web_contents()),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)),
       tab_contents_(tab_contents) {
@@ -167,6 +174,22 @@ PluginObserver::~PluginObserver() {
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   STLDeleteValues(&plugin_placeholders_);
 #endif
+}
+
+void PluginObserver::PluginCrashed(const FilePath& plugin_path) {
+  DCHECK(!plugin_path.value().empty());
+
+  string16 plugin_name =
+      PluginService::GetInstance()->GetPluginDisplayNameByPath(plugin_path);
+  gfx::Image* icon = &ResourceBundle::GetSharedInstance().GetNativeImageNamed(
+      IDR_INFOBAR_PLUGIN_CRASHED);
+  InfoBarTabHelper* infobar_helper = tab_contents_->infobar_tab_helper();
+  infobar_helper->AddInfoBar(
+      new SimpleAlertInfoBarDelegate(
+          infobar_helper,
+          icon,
+          l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT, plugin_name),
+          true));
 }
 
 bool PluginObserver::OnMessageReceived(const IPC::Message& message) {
@@ -183,6 +206,8 @@ bool PluginObserver::OnMessageReceived(const IPC::Message& message) {
 #endif
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_OpenAboutPlugins,
                         OnOpenAboutPlugins)
+    IPC_MESSAGE_HANDLER(ChromeViewHostMsg_CouldNotLoadPlugin,
+                        OnCouldNotLoadPlugin)
 
     IPC_MESSAGE_UNHANDLED(return false)
   IPC_END_MESSAGE_MAP()
@@ -190,13 +215,15 @@ bool PluginObserver::OnMessageReceived(const IPC::Message& message) {
   return true;
 }
 
-void PluginObserver::OnBlockedUnauthorizedPlugin(const string16& name) {
+void PluginObserver::OnBlockedUnauthorizedPlugin(
+    const string16& name,
+    const std::string& identifier) {
   InfoBarTabHelper* infobar_helper = tab_contents_->infobar_tab_helper();
   infobar_helper->AddInfoBar(
       new UnauthorizedPluginInfoBarDelegate(
           infobar_helper,
           tab_contents_->profile()->GetHostContentSettingsMap(),
-          name));
+          name, identifier));
 }
 
 void PluginObserver::OnBlockedOutdatedPlugin(int placeholder_id,
@@ -218,6 +245,8 @@ void PluginObserver::FindPluginToUpdate(int placeholder_id,
                                         PluginFinder* plugin_finder) {
   PluginInstaller* installer =
       plugin_finder->FindPluginWithIdentifier(identifier);
+  DCHECK(installer) << "Couldn't find PluginInstaller for identifier "
+                    << identifier;
   plugin_placeholders_[placeholder_id] =
       new PluginPlaceholderHost(this, placeholder_id, installer);
   InfoBarTabHelper* infobar_helper = tab_contents_->infobar_tab_helper();
@@ -245,10 +274,21 @@ void PluginObserver::FindMissingPlugin(int placeholder_id,
   plugin_placeholders_[placeholder_id] =
       new PluginPlaceholderHost(this, placeholder_id, installer);
   InfoBarTabHelper* infobar_helper = tab_contents_->infobar_tab_helper();
-  InfoBarDelegate* delegate = PluginInstallerInfoBarDelegate::Create(
+  InfoBarDelegate* delegate;
+#if !defined(OS_WIN)
+  delegate = PluginInstallerInfoBarDelegate::Create(
       infobar_helper, installer,
       base::Bind(&PluginObserver::InstallMissingPlugin,
                  weak_ptr_factory_.GetWeakPtr(), installer));
+#else
+  delegate = base::win::IsMetroProcess() ?
+      PluginMetroModeInfoBarDelegate::Create(
+          infobar_helper, installer->name()) :
+      PluginInstallerInfoBarDelegate::Create(
+          infobar_helper, installer,
+          base::Bind(&PluginObserver::InstallMissingPlugin,
+              weak_ptr_factory_.GetWeakPtr(), installer));
+#endif
   infobar_helper->AddInfoBar(delegate);
 }
 
@@ -256,7 +296,7 @@ void PluginObserver::InstallMissingPlugin(PluginInstaller* installer) {
   if (installer->url_for_display()) {
     installer->OpenDownloadURL(web_contents());
   } else {
-    browser::ShowTabModalConfirmDialog(
+    chrome::ShowTabModalConfirmDialog(
         new ConfirmInstallDialogDelegate(tab_contents_, installer),
         tab_contents_);
   }
@@ -275,9 +315,24 @@ void PluginObserver::OnRemovePluginPlaceholderHost(int placeholder_id) {
 #endif  // defined(ENABLE_PLUGIN_INSTALLATION)
 
 void PluginObserver::OnOpenAboutPlugins() {
-    web_contents()->OpenURL(OpenURLParams(
-        GURL(chrome::kAboutPluginsURL),
-        content::Referrer(web_contents()->GetURL(),
-                          WebKit::WebReferrerPolicyDefault),
-        NEW_FOREGROUND_TAB, content::PAGE_TRANSITION_TYPED, false));
+  web_contents()->OpenURL(OpenURLParams(
+      GURL(chrome::kAboutPluginsURL),
+      content::Referrer(web_contents()->GetURL(),
+                        WebKit::WebReferrerPolicyDefault),
+      NEW_FOREGROUND_TAB, content::PAGE_TRANSITION_AUTO_BOOKMARK, false));
 }
+
+void PluginObserver::OnCouldNotLoadPlugin(const FilePath& plugin_path) {
+  g_browser_process->metrics_service()->LogPluginLoadingError(plugin_path);
+  string16 plugin_name =
+      PluginService::GetInstance()->GetPluginDisplayNameByPath(plugin_path);
+  InfoBarTabHelper* infobar_helper = tab_contents_->infobar_tab_helper();
+  infobar_helper->AddInfoBar(new SimpleAlertInfoBarDelegate(
+      infobar_helper,
+      &ResourceBundle::GetSharedInstance().GetNativeImageNamed(
+          IDR_INFOBAR_PLUGIN_CRASHED),
+      l10n_util::GetStringFUTF16(IDS_PLUGIN_INITIALIZATION_ERROR_PROMPT,
+                                 plugin_name),
+      true  /* auto_expire */));
+}
+

@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_FILEAPI_FILE_SYSTEM_DIR_URL_REQUEST_JOB_H_
 #define WEBKIT_FILEAPI_FILE_SYSTEM_DIR_URL_REQUEST_JOB_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -15,18 +14,20 @@
 #include "base/message_loop_proxy.h"
 #include "base/platform_file.h"
 #include "net/url_request/url_request_job.h"
+#include "webkit/fileapi/file_system_url.h"
+#include "webkit/fileapi/fileapi_export.h"
 
 namespace fileapi {
 class FileSystemContext;
 class FileSystemOperationInterface;
 
 // A request job that handles reading filesystem: URLs for directories.
-class FileSystemDirURLRequestJob : public net::URLRequestJob {
+class FILEAPI_EXPORT_PRIVATE FileSystemDirURLRequestJob
+    : public net::URLRequestJob {
  public:
   FileSystemDirURLRequestJob(
       net::URLRequest* request,
-      FileSystemContext* file_system_context,
-      scoped_refptr<base::MessageLoopProxy> file_thread_proxy);
+      FileSystemContext* file_system_context);
 
   // URLRequestJob methods:
   virtual void Start() OVERRIDE;
@@ -50,11 +51,11 @@ class FileSystemDirURLRequestJob : public net::URLRequestJob {
   void DidReadDirectory(base::PlatformFileError result,
                         const std::vector<base::FileUtilProxy::Entry>& entries,
                         bool has_more);
-  FileSystemOperationInterface* GetNewOperation(const GURL& url);
+  FileSystemOperationInterface* GetNewOperation();
 
   std::string data_;
+  FileSystemURL url_;
   FileSystemContext* file_system_context_;
-  scoped_refptr<base::MessageLoopProxy> file_thread_proxy_;
   base::WeakPtrFactory<FileSystemDirURLRequestJob> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(FileSystemDirURLRequestJob);

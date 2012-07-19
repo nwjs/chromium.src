@@ -4,14 +4,12 @@
 
 #ifndef CHROME_BROWSER_MOCK_BROWSING_DATA_INDEXED_DB_HELPER_H_
 #define CHROME_BROWSER_MOCK_BROWSING_DATA_INDEXED_DB_HELPER_H_
-#pragma once
 
 #include <list>
 #include <map>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/browsing_data_indexed_db_helper.h"
 
 // Mock for BrowsingDataIndexedDBHelper.

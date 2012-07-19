@@ -10,15 +10,12 @@
 #include "sync/sessions/status_controller.h"
 #include "sync/sessions/sync_session.h"
 
-namespace browser_sync {
+namespace syncer {
 
 SyncerError ModelChangingSyncerCommand::ExecuteImpl(
     sessions::SyncSession* session) {
   work_session_ = session;
-  SyncerError result = ModelNeutralExecuteImpl(work_session_);
-
-  if (result != SYNCER_OK)
-    return result;
+  SyncerError result = SYNCER_OK;
 
   const std::set<ModelSafeGroup>& groups_to_change =
       GetGroupsToChange(*work_session_);
@@ -51,9 +48,4 @@ SyncerError ModelChangingSyncerCommand::ExecuteImpl(
   return result;
 }
 
-SyncerError ModelChangingSyncerCommand::ModelNeutralExecuteImpl(
-    sessions::SyncSession* session) {
-  return SYNCER_OK;
-}
-
-}  // namespace browser_sync
+}  // namespace syncer

@@ -16,22 +16,16 @@ namespace media {
 
 class MEDIA_EXPORT DemuxerHost : public DataSourceHost {
  public:
-  virtual ~DemuxerHost();
-
-  // Get the duration of the media in microseconds.  If the duration has not
-  // been determined yet, then returns 0.
+  // Sets the duration of the media in microseconds.
+  // Duration may be kInfiniteDuration() if the duration is not known.
   virtual void SetDuration(base::TimeDelta duration) = 0;
-
-  // Set the approximate amount of playable data buffered so far in micro-
-  // seconds.
-  virtual void SetBufferedTime(base::TimeDelta buffered_time) = 0;
-
-  // Sets the byte offset at which the client is requesting the video.
-  virtual void SetCurrentReadPosition(int64 offset) = 0;
 
   // Stops execution of the pipeline due to a fatal error.  Do not call this
   // method with PIPELINE_OK.
   virtual void OnDemuxerError(PipelineStatus error) = 0;
+
+ protected:
+  virtual ~DemuxerHost();
 };
 
 class MEDIA_EXPORT Demuxer : public base::RefCountedThreadSafe<Demuxer> {
@@ -73,15 +67,6 @@ class MEDIA_EXPORT Demuxer : public base::RefCountedThreadSafe<Demuxer> {
   // Returns the content bitrate. May be obtained from container or
   // approximated. Returns 0 if it is unknown.
   virtual int GetBitrate() = 0;
-
-  // Returns true if the source is from a local file or stream (such as a
-  // webcam stream), false otherwise.
-  //
-  // TODO(scherkus): See http://crbug.com/120426 on why we should remove this.
-  virtual bool IsLocalSource() = 0;
-
-  // Returns true if seeking is possible; false otherwise.
-  virtual bool IsSeekable() = 0;
 
  protected:
   friend class base::RefCountedThreadSafe<Demuxer>;

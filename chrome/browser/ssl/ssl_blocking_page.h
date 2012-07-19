@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_SSL_SSL_BLOCKING_PAGE_H_
 #define CHROME_BROWSER_SSL_SSL_BLOCKING_PAGE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -35,6 +34,7 @@ class SSLBlockingPage : public content::InterstitialPageDelegate {
       const net::SSLInfo& ssl_info,
       const GURL& request_url,
       bool overridable,
+      bool strict_enforcement,
       const base::Callback<void(bool)>& callback);
   virtual ~SSLBlockingPage();
 
@@ -65,8 +65,10 @@ class SSLBlockingPage : public content::InterstitialPageDelegate {
   int cert_error_;
   net::SSLInfo ssl_info_;
   GURL request_url_;
-  // Is the certificate error overridable or fatal?
+  // Could the user successfully override the error?
   bool overridable_;
+  // Has the site requested strict enforcement of certificate errors?
+  bool strict_enforcement_;
   content::InterstitialPage* interstitial_page_;  // Owns us.
 
   DISALLOW_COPY_AND_ASSIGN(SSLBlockingPage);

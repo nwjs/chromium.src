@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <list>
 #include <map>
 #include <set>
 #include <vector>
@@ -40,11 +41,11 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/test_url_fetcher_factory.h"
+#include "content/public/test/test_browser_thread.h"
 #include "libxml/globals.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/test_url_fetcher_factory.h"
 #include "net/url_request/url_request_status.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -238,7 +239,7 @@ void SetupPendingExtensionManagerForTest(
     int count,
     const GURL& update_url,
     PendingExtensionManager* pending_extension_manager) {
-  for (int i = 1; i <= count; i++) {
+  for (int i = 1; i <= count; ++i) {
     PendingExtensionInfo::ShouldAllowInstallPredicate should_allow_install =
         (i % 2 == 0) ? &ShouldInstallThemesOnly : &ShouldInstallExtensionsOnly;
     const bool kIsFromSync = true;
@@ -246,8 +247,9 @@ void SetupPendingExtensionManagerForTest(
     std::string id = GenerateId(base::StringPrintf("extension%i", i));
 
     pending_extension_manager->AddForTesting(
-        id,
-        PendingExtensionInfo(update_url,
+        PendingExtensionInfo(id,
+                             update_url,
+                             Version(),
                              should_allow_install,
                              kIsFromSync,
                              kInstallSilently,
@@ -479,7 +481,7 @@ class ExtensionUpdaterTest : public testing::Test {
     }
 
     // Set up and start the updater.
-    TestURLFetcherFactory factory;
+    net::TestURLFetcherFactory factory;
     ExtensionUpdater updater(
         &service, service.extension_prefs(), service.pref_service(),
         service.profile(), 60*60*24);
@@ -492,7 +494,7 @@ class ExtensionUpdaterTest : public testing::Test {
     SimulateTimerFired(&updater);
 
     // Get the url our mock fetcher was asked to fetch.
-    TestURLFetcher* fetcher =
+    net::TestURLFetcher* fetcher =
         factory.GetFetcherByID(ExtensionDownloader::kManifestFetcherId);
     const GURL& url = fetcher->GetOriginalURL();
     EXPECT_FALSE(url.is_empty());
@@ -526,7 +528,7 @@ class ExtensionUpdaterTest : public testing::Test {
     // Setup and start the updater.
     ServiceForManifestTests service;
 
-    TestURLFetcherFactory factory;
+    net::TestURLFetcherFactory factory;
     ExtensionUpdater updater(
         &service, service.extension_prefs(), service.pref_service(),
         service.profile(), 60*60*24);
@@ -536,7 +538,7 @@ class ExtensionUpdaterTest : public testing::Test {
     SimulateTimerFired(&updater);
 
     // Get the url our mock fetcher was asked to fetch.
-    TestURLFetcher* fetcher =
+    net::TestURLFetcher* fetcher =
         factory.GetFetcherByID(ExtensionDownloader::kManifestFetcherId);
     ASSERT_FALSE(fetcher == NULL);
     const GURL& url = fetcher->GetOriginalURL();
@@ -604,7 +606,7 @@ class ExtensionUpdaterTest : public testing::Test {
   }
 
   void TestUpdateUrlDataFromGallery(const std::string& gallery_url) {
-    TestURLFetcherFactory factory;
+    net::TestURLFetcherFactory factory;
 
     MockService service;
     MockExtensionDownloaderDelegate delegate;
@@ -619,7 +621,7 @@ class ExtensionUpdaterTest : public testing::Test {
 
     downloader.AddExtension(*extensions[0]);
     downloader.StartAllPending();
-    TestURLFetcher* fetcher =
+    net::TestURLFetcher* fetcher =
         factory.GetFetcherByID(ExtensionDownloader::kManifestFetcherId);
     ASSERT_TRUE(fetcher);
     // Make sure that extensions that update from the gallery ignore any
@@ -700,11 +702,11 @@ class ExtensionUpdaterTest : public testing::Test {
     ManifestFetchData fetch_data(GURL("http://localhost/foo"));
     UpdateManifest::Results updates;
 
-    std::set<std::string> ids_for_update_check;
+    std::list<std::string> ids_for_update_check;
     pending_extension_manager->GetPendingIdsForUpdateCheck(
         &ids_for_update_check);
 
-    std::set<std::string>::const_iterator it;
+    std::list<std::string>::const_iterator it;
     for (it = ids_for_update_check.begin();
          it != ids_for_update_check.end(); ++it) {
       fetch_data.AddExtension(*it, "1.0.0.0",
@@ -726,8 +728,8 @@ class ExtensionUpdaterTest : public testing::Test {
   }
 
   void TestMultipleManifestDownloading() {
-    TestURLFetcherFactory factory;
-    TestURLFetcher* fetcher = NULL;
+    net::TestURLFetcherFactory factory;
+    net::TestURLFetcher* fetcher = NULL;
     NotificationsObserver observer;
     MockService service;
     MockExtensionDownloaderDelegate delegate;
@@ -839,8 +841,8 @@ class ExtensionUpdaterTest : public testing::Test {
   }
 
   void TestSingleExtensionDownloading(bool pending) {
-    TestURLFetcherFactory factory;
-    TestURLFetcher* fetcher = NULL;
+    net::TestURLFetcherFactory factory;
+    net::TestURLFetcher* fetcher = NULL;
     scoped_ptr<ServiceForDownloadTests> service(new ServiceForDownloadTests);
     ExtensionUpdater updater(service.get(), service->extension_prefs(),
                              service->pref_service(),
@@ -855,10 +857,9 @@ class ExtensionUpdaterTest : public testing::Test {
 
     std::string id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     std::string hash = "";
-    scoped_ptr<Version> version(Version::GetVersionFromString("0.0.1"));
-    ASSERT_TRUE(version.get());
+    Version version("0.0.1");
     updater.downloader_->FetchUpdatedExtension(
-        id, test_url, hash, version->GetString());
+        id, test_url, hash, version.GetString());
 
     if (pending) {
       const bool kIsFromSync = true;
@@ -866,8 +867,8 @@ class ExtensionUpdaterTest : public testing::Test {
       PendingExtensionManager* pending_extension_manager =
           service->pending_extension_manager();
       pending_extension_manager->AddForTesting(
-          id,
-          PendingExtensionInfo(test_url, &ShouldAlwaysInstall, kIsFromSync,
+          PendingExtensionInfo(id, test_url, version,
+                               &ShouldAlwaysInstall, kIsFromSync,
                                kInstallSilently,
                                Extension::INTERNAL));
     }
@@ -896,8 +897,8 @@ class ExtensionUpdaterTest : public testing::Test {
   }
 
   void TestBlacklistDownloading() {
-    TestURLFetcherFactory factory;
-    TestURLFetcher* fetcher = NULL;
+    net::TestURLFetcherFactory factory;
+    net::TestURLFetcher* fetcher = NULL;
     ServiceForBlacklistTests service;
     ExtensionUpdater updater(
         &service, service.extension_prefs(), service.pref_service(),
@@ -944,8 +945,8 @@ class ExtensionUpdaterTest : public testing::Test {
   // the test is responsible for creating fake CrxInstallers.  Otherwise,
   // UpdateExtension() returns false, signaling install failures.
   void TestMultipleExtensionDownloading(bool updates_start_running) {
-    TestURLFetcherFactory factory;
-    TestURLFetcher* fetcher = NULL;
+    net::TestURLFetcherFactory factory;
+    net::TestURLFetcher* fetcher = NULL;
     ServiceForDownloadTests service;
     ExtensionUpdater updater(
         &service, service.extension_prefs(), service.pref_service(),
@@ -1111,7 +1112,7 @@ class ExtensionUpdaterTest : public testing::Test {
                            int active_ping_days,
                            bool active_bit,
                            bool expect_brand_code) {
-    TestURLFetcherFactory factory;
+    net::TestURLFetcherFactory factory;
 
     // Set up 2 mock extensions, one with a google.com update url and one
     // without.
@@ -1160,7 +1161,7 @@ class ExtensionUpdaterTest : public testing::Test {
     // Make the updater do manifest fetching, and note the urls it tries to
     // fetch.
     std::vector<GURL> fetched_urls;
-    TestURLFetcher* fetcher =
+    net::TestURLFetcher* fetcher =
       factory.GetFetcherByID(ExtensionDownloader::kManifestFetcherId);
     EXPECT_TRUE(fetcher != NULL && fetcher->delegate() != NULL);
     fetched_urls.push_back(fetcher->GetOriginalURL());
@@ -1345,7 +1346,7 @@ TEST_F(ExtensionUpdaterTest, TestHandleManifestResults) {
 }
 
 TEST_F(ExtensionUpdaterTest, TestNonAutoUpdateableLocations) {
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   ServiceForManifestTests service;
   ExtensionUpdater updater(&service, service.extension_prefs(),
                            service.pref_service(), service.profile(),
@@ -1376,7 +1377,7 @@ TEST_F(ExtensionUpdaterTest, TestNonAutoUpdateableLocations) {
 }
 
 TEST_F(ExtensionUpdaterTest, TestUpdatingDisabledExtensions) {
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   ServiceForManifestTests service;
   ExtensionUpdater updater(&service, service.extension_prefs(),
                            service.pref_service(), service.profile(),
@@ -1414,7 +1415,7 @@ TEST_F(ExtensionUpdaterTest, TestUpdatingDisabledExtensions) {
 }
 
 TEST_F(ExtensionUpdaterTest, TestManifestFetchesBuilderAddExtension) {
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   MockService service;
   MockExtensionDownloaderDelegate delegate;
   scoped_ptr<ExtensionDownloader> downloader(
@@ -1459,14 +1460,14 @@ TEST_F(ExtensionUpdaterTest, TestManifestFetchesBuilderAddExtension) {
   downloader->StartAllPending();
   EXPECT_EQ(1u, ManifestFetchersCount(downloader.get()));
 
-  TestURLFetcher* fetcher =
+  net::TestURLFetcher* fetcher =
       factory.GetFetcherByID(ExtensionDownloader::kManifestFetcherId);
   ASSERT_TRUE(fetcher);
   EXPECT_FALSE(fetcher->GetOriginalURL().is_empty());
 }
 
 TEST_F(ExtensionUpdaterTest, TestStartUpdateCheckMemory) {
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   MockService service;
   MockExtensionDownloaderDelegate delegate;
   ExtensionDownloader downloader(&delegate, service.request_context());
@@ -1482,7 +1483,7 @@ TEST_F(ExtensionUpdaterTest, TestStartUpdateCheckMemory) {
 
 TEST_F(ExtensionUpdaterTest, TestCheckSoon) {
   ServiceForManifestTests service;
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   ExtensionUpdater updater(
       &service, service.extension_prefs(), service.pref_service(),
       service.profile(), kUpdateFrequencySecs);

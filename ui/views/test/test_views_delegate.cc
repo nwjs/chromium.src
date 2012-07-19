@@ -5,6 +5,7 @@
 #include "ui/views/test/test_views_delegate.h"
 
 #include "base/logging.h"
+#include "content/public/test/web_contents_tester.h"
 #include "ui/base/clipboard/clipboard.h"
 
 namespace views {
@@ -55,6 +56,19 @@ bool TestViewsDelegate::UseTransparentWindows() const {
 
 int TestViewsDelegate::GetDispositionForEvent(int event_flags) {
   return 0;
+}
+
+#if defined(USE_AURA)
+views::NativeWidgetHelperAura* TestViewsDelegate::CreateNativeWidgetHelper(
+    views::NativeWidgetAura* native_widget) {
+  return NULL;
+}
+#endif
+
+content::WebContents* TestViewsDelegate::CreateWebContents(
+    content::BrowserContext* browser_context,
+    content::SiteInstance* site_instance) {
+  return NULL;
 }
 
 }  // namespace views

@@ -13,13 +13,19 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/cancelable_callback.h"
 #include "base/compiler_specific.h"
+#include "base/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
+#include "base/run_loop.h"
 #include "base/process_util.h"
+#include "base/time.h"
 #include "base/test/test_reg_util_win.h"
+#include "base/time.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_comptr.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "chrome_frame/chrome_tab.h"
 #include "chrome_frame/test/simulate_input.h"
 #include "chrome_frame/test_utils.h"
@@ -53,8 +59,8 @@ extern const wchar_t kIEImageName[];
 extern const wchar_t kIEBrokerImageName[];
 extern const char kChromeImageName[];
 extern const wchar_t kChromeLauncher[];
-extern const int kChromeFrameLongNavigationTimeoutInSeconds;
-extern const int kChromeFrameVeryLongNavigationTimeoutInSeconds;
+extern const base::TimeDelta kChromeFrameLongNavigationTimeout;
+extern const base::TimeDelta kChromeFrameVeryLongNavigationTimeout;
 
 // Temporarily impersonate the current thread to low integrity for the lifetime
 // of the object. Destructor will automatically revert integrity level.
@@ -188,13 +194,22 @@ class HungCOMCallDetector
 // We need a UI message loop in the main thread.
 class TimedMsgLoop {
  public:
-  TimedMsgLoop() : quit_loop_invoked_(false) {
+  TimedMsgLoop() : snapshot_on_timeout_(false), quit_loop_invoked_(false) {
   }
 
-  void RunFor(int seconds) {
-    QuitAfter(seconds);
+  void set_snapshot_on_timeout(bool value) {
+    snapshot_on_timeout_ = value;
+  }
+
+  void RunFor(base::TimeDelta duration) {
     quit_loop_invoked_ = false;
+    if (snapshot_on_timeout_)
+      timeout_closure_.Reset(base::Bind(&TimedMsgLoop::SnapshotAndQuit));
+    else
+      timeout_closure_.Reset(MessageLoop::QuitClosure());
+    loop_.PostDelayedTask(FROM_HERE, timeout_closure_.callback(), duration);
     loop_.MessageLoop::Run();
+    timeout_closure_.Cancel();
   }
 
   void PostTask(const tracked_objects::Location& from_here,
@@ -203,26 +218,52 @@ class TimedMsgLoop {
   }
 
   void PostDelayedTask(const tracked_objects::Location& from_here,
-                       const base::Closure& task, int64 delay_ms) {
-    loop_.PostDelayedTask(from_here, task, delay_ms);
+                       const base::Closure& task, base::TimeDelta delay) {
+    loop_.PostDelayedTask(from_here, task, delay);
   }
 
   void Quit() {
-    QuitAfter(0);
+    // Quit after no delay.
+    QuitAfter(base::TimeDelta());
   }
 
-  void QuitAfter(int seconds) {
+  void QuitAfter(base::TimeDelta delay) {
+    timeout_closure_.Cancel();
     quit_loop_invoked_ = true;
-    loop_.PostDelayedTask(
-        FROM_HERE, MessageLoop::QuitClosure(), 1000 * seconds);
+    loop_.PostDelayedTask(FROM_HERE, MessageLoop::QuitClosure(), delay);
   }
 
   bool WasTimedOut() const {
     return !quit_loop_invoked_;
   }
 
+  void RunAllPending() {
+    loop_.RunAllPending();
+  }
+
  private:
+  static void SnapshotAndQuit() {
+    FilePath snapshot;
+    if (ui_test_utils::SaveScreenSnapshotToDesktop(&snapshot)) {
+      testing::UnitTest* unit_test = testing::UnitTest::GetInstance();
+      const testing::TestInfo* test_info = unit_test->current_test_info();
+      std::string name;
+      if (test_info != NULL) {
+        name.append(test_info->test_case_name())
+            .append(1, '.')
+            .append(test_info->name());
+      } else {
+        name = "unknown test";
+      }
+      LOG(ERROR) << name << " timed out. Screen snapshot saved to "
+                 << snapshot.value();
+    }
+    MessageLoop::current()->Quit();
+  }
+
   MessageLoopForUI loop_;
+  base::CancelableClosure timeout_closure_;
+  bool snapshot_on_timeout_;
   bool quit_loop_invoked_;
 };
 
@@ -232,16 +273,14 @@ class TimedMsgLoop {
 #define QUIT_LOOP(loop) testing::InvokeWithoutArgs(\
   testing::CreateFunctor(&loop, &chrome_frame_test::TimedMsgLoop::Quit))
 
-#define QUIT_LOOP_SOON(loop, seconds) testing::InvokeWithoutArgs(\
+#define QUIT_LOOP_SOON(loop, delay) testing::InvokeWithoutArgs(\
   testing::CreateFunctor(&loop, &chrome_frame_test::TimedMsgLoop::QuitAfter, \
-  seconds))
+                         delay))
 
 // Launches IE as a COM server and returns the corresponding IWebBrowser2
 // interface pointer.
 // Returns S_OK on success.
 HRESULT LaunchIEAsComServer(IWebBrowser2** web_browser);
-
-FilePath GetProfilePath(const std::wstring& suffix);
 
 // Returns the path of the exe passed in.
 std::wstring GetExecutableAppPath(const std::wstring& file);
@@ -327,6 +366,10 @@ ScopedChromeFrameRegistrar::RegistrationType GetTestBedType();
 
 // Clears IE8 session restore history.
 void ClearIESessionHistory();
+
+// Returns a local IPv4 address for the current machine. The address
+// corresponding to a NIC is preferred over the loopback address.
+std::string GetLocalIPv4Address();
 
 }  // namespace chrome_frame_test
 

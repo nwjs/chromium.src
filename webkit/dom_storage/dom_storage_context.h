@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_DOM_STORAGE_DOM_STORAGE_CONTEXT_H_
 #define WEBKIT_DOM_STORAGE_DOM_STORAGE_CONTEXT_H_
-#pragma once
 
 #include <map>
 #include <vector>
@@ -67,7 +66,7 @@ class DomStorageContext
     ~UsageInfo();
   };
 
-  // An interface for observing LocalStorage events on the
+  // An interface for observing Local and Session Storage events on the
   // background thread.
   class EventObserver {
    public:
@@ -85,30 +84,40 @@ class DomStorageContext
     virtual void OnDomStorageAreaCleared(
         const DomStorageArea* area,
         const GURL& page_url) = 0;
+
+   protected:
     virtual ~EventObserver() {}
   };
 
-  DomStorageContext(const FilePath& directory,  // empty for incognito profiles
-                    quota::SpecialStoragePolicy* special_storage_policy,
-                    DomStorageTaskRunner* task_runner);
-  const FilePath& directory() const { return directory_; }
+  DomStorageContext(
+      const FilePath& localstorage_directory,  // empty for incognito profiles
+      const FilePath& sessionstorage_directory,  // empty for incognito profiles
+      quota::SpecialStoragePolicy* special_storage_policy,
+      DomStorageTaskRunner* task_runner);
+
+  // Returns the directory path for localStorage, or an empty directory, if
+  // there is no backing on disk.
+  const FilePath& localstorage_directory() { return localstorage_directory_; }
+
+  // Returns the directory path for sessionStorage, or an empty directory, if
+  // there is no backing on disk.
+  const FilePath& sessionstorage_directory() {
+    return sessionstorage_directory_;
+  }
+
   DomStorageTaskRunner* task_runner() const { return task_runner_; }
   DomStorageNamespace* GetStorageNamespace(int64 namespace_id);
 
   void GetUsageInfo(std::vector<UsageInfo>* infos, bool include_file_info);
   void DeleteOrigin(const GURL& origin);
-  void DeleteDataModifiedSince(const base::Time& cutoff);
   void PurgeMemory();
 
   // Used by content settings to alter the behavior around
   // what data to keep and what data to discard at shutdown.
   // The policy is not so straight forward to describe, see
   // the implementation for details.
-  void SetClearLocalState(bool clear_local_state) {
-    clear_local_state_ = clear_local_state;
-  }
-  void SaveSessionState() {
-    save_session_state_ = true;
+  void SetForceKeepSessionState() {
+    force_keep_session_state_ = true;
   }
 
   // Called when the owning BrowserContext is ending.
@@ -141,10 +150,14 @@ class DomStorageContext
     return session_id_sequence_.GetNext();
   }
 
+  std::string AllocatePersistentSessionId();
+
   // Must be called on the background thread.
-  void CreateSessionNamespace(int64 namespace_id);
-  void DeleteSessionNamespace(int64 namespace_id);
-  void CloneSessionNamespace(int64 existing_id, int64 new_id);
+  void CreateSessionNamespace(int64 namespace_id,
+                              const std::string& persistent_namespace_id);
+  void DeleteSessionNamespace(int64 namespace_id, bool should_persist_data);
+  void CloneSessionNamespace(int64 existing_id, int64 new_id,
+                             const std::string& new_persistent_id);
 
  private:
   friend class DomStorageContextTest;
@@ -155,13 +168,18 @@ class DomStorageContext
 
   ~DomStorageContext();
 
-  void ClearLocalStateInCommitSequence();
+  void ClearSessionOnlyOrigins();
 
   // Collection of namespaces keyed by id.
   StorageNamespaceMap namespaces_;
 
   // Where localstorage data is stored, maybe empty for the incognito use case.
-  FilePath directory_;
+  FilePath localstorage_directory_;
+
+  // Where sessionstorage data is stored, maybe empty for the incognito use
+  // case. Always empty until the file-backed session storage feature is
+  // implemented.
+  FilePath sessionstorage_directory_;
 
   // Used to schedule sequenced background tasks.
   scoped_refptr<DomStorageTaskRunner> task_runner_;
@@ -174,8 +192,7 @@ class DomStorageContext
   base::AtomicSequenceNumber session_id_sequence_;
 
   bool is_shutdown_;
-  bool clear_local_state_;
-  bool save_session_state_;
+  bool force_keep_session_state_;
   scoped_refptr<quota::SpecialStoragePolicy> special_storage_policy_;
 };
 

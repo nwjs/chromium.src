@@ -5,6 +5,7 @@
 #include "ppapi/proxy/plugin_globals.h"
 
 #include "ppapi/proxy/plugin_dispatcher.h"
+#include "ppapi/proxy/plugin_proxy_delegate.h"
 #include "ppapi/thunk/enter.h"
 
 namespace ppapi {
@@ -47,16 +48,32 @@ CallbackTracker* PluginGlobals::GetCallbackTrackerForInstance(
   return callback_tracker_.get();
 }
 
-FunctionGroupBase* PluginGlobals::GetFunctionAPI(PP_Instance inst, ApiID id) {
-  PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(inst);
+thunk::PPB_Instance_API* PluginGlobals::GetInstanceAPI(PP_Instance instance) {
+  PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(instance);
   if (dispatcher)
-    return dispatcher->GetFunctionAPI(id);
+    return dispatcher->GetInstanceAPI();
+  return NULL;
+}
+
+thunk::ResourceCreationAPI* PluginGlobals::GetResourceCreationAPI(
+    PP_Instance instance) {
+  PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(instance);
+  if (dispatcher)
+    return dispatcher->GetResourceCreationAPI();
   return NULL;
 }
 
 PP_Module PluginGlobals::GetModuleForInstance(PP_Instance instance) {
   // Currently proxied plugins don't use the PP_Module for anything useful.
   return 0;
+}
+
+std::string PluginGlobals::GetCmdLine() {
+  return command_line_;
+}
+
+void PluginGlobals::PreCacheFontForFlash(const void* logfontw) {
+  plugin_proxy_delegate_->PreCacheFont(logfontw);
 }
 
 base::Lock* PluginGlobals::GetProxyLock() {

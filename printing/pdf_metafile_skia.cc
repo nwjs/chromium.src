@@ -73,7 +73,7 @@ bool PdfMetafileSkia::StartPage(const gfx::Size& page_size,
                                 const gfx::Rect& content_area,
                                 const float& scale_factor) {
   NOTREACHED();
-  return NULL;
+  return false;
 }
 
 bool PdfMetafileSkia::FinishPage() {
@@ -119,7 +119,7 @@ bool PdfMetafileSkia::GetData(void* dst_buffer,
     return false;
 
   SkAutoDataUnref data(data_->pdf_stream_.copyToData());
-  memcpy(dst_buffer, data.bytes(), dst_buffer_size);
+  memcpy(dst_buffer, data->bytes(), dst_buffer_size);
   return true;
 }
 
@@ -127,7 +127,7 @@ bool PdfMetafileSkia::SaveTo(const FilePath& file_path) const {
   DCHECK_GT(data_->pdf_stream_.getOffset(), 0U);
   SkAutoDataUnref data(data_->pdf_stream_.copyToData());
   if (file_util::WriteFile(file_path,
-                           reinterpret_cast<const char*>(data.data()),
+                           reinterpret_cast<const char*>(data->data()),
                            GetDataSize()) != static_cast<int>(GetDataSize())) {
     DLOG(ERROR) << "Failed to save file " << file_path.value().c_str();
     return false;
@@ -180,18 +180,13 @@ http://codereview.chromium.org/7200040/diff/1/webkit/plugins/ppapi/ppapi_plugin_
 bool PdfMetafileSkia::RenderPage(unsigned int page_number,
                                  CGContextRef context,
                                  const CGRect rect,
-                                 bool shrink_to_fit,
-                                 bool stretch_to_fit,
-                                 bool center_horizontally,
-                                 bool center_vertically) const {
+                                 const MacRenderPageParams& params) const {
   DCHECK_GT(data_->pdf_stream_.getOffset(), 0U);
   if (data_->pdf_cg_.GetDataSize() == 0) {
     SkAutoDataUnref data(data_->pdf_stream_.copyToData());
-    data_->pdf_cg_.InitFromData(data.bytes(), data.size());
+    data_->pdf_cg_.InitFromData(data->bytes(), data->size());
   }
-  return data_->pdf_cg_.RenderPage(page_number, context, rect, shrink_to_fit,
-                                   stretch_to_fit, center_horizontally,
-                                   center_vertically);
+  return data_->pdf_cg_.RenderPage(page_number, context, rect, params);
 }
 #endif
 
@@ -207,7 +202,7 @@ bool PdfMetafileSkia::SaveToFD(const base::FileDescriptor& fd) const {
   bool result = true;
   SkAutoDataUnref data(data_->pdf_stream_.copyToData());
   if (file_util::WriteFileDescriptor(fd.fd,
-                                     reinterpret_cast<const char*>(data.data()),
+                                     reinterpret_cast<const char*>(data->data()),
                                      GetDataSize()) !=
       static_cast<int>(GetDataSize())) {
     DLOG(ERROR) << "Failed to save file with fd " << fd.fd;
@@ -239,11 +234,11 @@ PdfMetafileSkia* PdfMetafileSkia::GetMetafileForCurrentPage() {
     return NULL;
 
   SkAutoDataUnref data(pdf_stream.copyToData());
-  if (data.size() == 0)
+  if (data->size() == 0)
     return NULL;
 
   PdfMetafileSkia* metafile = new PdfMetafileSkia;
-  metafile->InitFromData(data.bytes(), data.size());
+  metafile->InitFromData(data->bytes(), data->size());
   return metafile;
 }
 

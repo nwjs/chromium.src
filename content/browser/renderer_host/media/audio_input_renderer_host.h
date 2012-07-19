@@ -45,7 +45,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_MEDIA_AUDIO_INPUT_RENDERER_HOST_H_
 #define CONTENT_BROWSER_RENDERER_HOST_MEDIA_AUDIO_INPUT_RENDERER_HOST_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -54,8 +53,8 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop_helpers.h"
 #include "base/process.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/shared_memory.h"
 #include "content/browser/renderer_host/media/audio_input_device_manager_event_handler.h"
 #include "content/public/browser/browser_message_filter.h"
@@ -64,13 +63,13 @@
 #include "media/audio/audio_io.h"
 #include "media/audio/simple_sources.h"
 
-namespace content {
-class ResourceContext;
-}
-
 namespace media {
 class AudioManager;
 class AudioParameters;
+}
+
+namespace media_stream {
+class MediaStreamManager;
 }
 
 class CONTENT_EXPORT AudioInputRendererHost
@@ -100,8 +99,9 @@ class CONTENT_EXPORT AudioInputRendererHost
   };
 
   // Called from UI thread from the owner of this object.
-  AudioInputRendererHost(content::ResourceContext* resource_context,
-                         media::AudioManager* audio_manager);
+  AudioInputRendererHost(
+      media::AudioManager* audio_manager,
+      media_stream::MediaStreamManager* media_stream_manager);
 
   // content::BrowserMessageFilter implementation.
   virtual void OnChannelClosing() OVERRIDE;
@@ -197,9 +197,11 @@ class CONTENT_EXPORT AudioInputRendererHost
   // Returns 0 if not found.
   int LookupSessionById(int stream_id);
 
-  // Used to get an instance of AudioInputDeviceManager.
-  content::ResourceContext* resource_context_;
+  // Used to create an AudioInputController.
   media::AudioManager* audio_manager_;
+
+  // Used to access to AudioInputDeviceManager.
+  media_stream::MediaStreamManager* media_stream_manager_;
 
   // A map of stream IDs to audio sources.
   typedef std::map<int, AudioEntry*> AudioEntryMap;

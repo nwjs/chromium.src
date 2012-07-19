@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_INTENTS_WEB_INTENT_PICKER_MODEL_H_
 #define CHROME_BROWSER_UI_INTENTS_WEB_INTENT_PICKER_MODEL_H_
-#pragma once
 
 #include <vector>
 
@@ -22,6 +21,7 @@ class Image;
 class WebIntentPickerModel {
  public:
   // The intent service disposition.
+  // TODO(gbillock): use the webkit_glue::WebIntentServiceData::Disposition
   enum Disposition {
     DISPOSITION_WINDOW,  // Display the intent service in a new window.
     DISPOSITION_INLINE,  // Display the intent service in the picker.
@@ -81,6 +81,12 @@ class WebIntentPickerModel {
   void set_mimetype(const string16& mimetype) { mimetype_ = mimetype; }
 
   const string16& mimetype() { return mimetype_; }
+
+  void set_default_service_url(const GURL& default_url) {
+    default_service_url_ = default_url;
+  }
+
+  const GURL& default_service_url() { return default_service_url_; }
 
   // Add a new installed service with |title|, |url| and |disposition| to the
   // picker.
@@ -162,6 +168,10 @@ class WebIntentPickerModel {
 
   // A cached copy of the mimetype that instantiated the picker.
   string16 mimetype_;
+
+  // The non-empty url of the default service if the WebIntentsRegistry
+  // finds a default service matching the intent being dispatched.
+  GURL default_service_url_;
 
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerModel);
 };

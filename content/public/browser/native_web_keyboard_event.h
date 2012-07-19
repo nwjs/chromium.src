@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_NATIVE_WEB_KEYBOARD_EVENT_H_
 #define CONTENT_PUBLIC_BROWSER_NATIVE_WEB_KEYBOARD_EVENT_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -13,6 +12,8 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "ui/base/events.h"
 #include "ui/gfx/native_widget_types.h"
+
+namespace content {
 
 // Owns a platform specific event; used to pass own and pass event through
 // platform independent code.
@@ -73,5 +74,11 @@ struct CONTENT_EXPORT NativeWebKeyboardEvent :
   bool match_edit_command;
 #endif
 };
+
+// Returns a bitmak of values from ui/base/events.h.
+CONTENT_EXPORT int GetModifiersFromNativeWebKeyboardEvent(
+    const NativeWebKeyboardEvent& event);
+
+}  // namespace content
 
 #endif  // CONTENT_PUBLIC_BROWSER_NATIVE_WEB_KEYBOARD_EVENT_H_

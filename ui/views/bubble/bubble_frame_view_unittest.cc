@@ -1,8 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "ui/base/hit_test.h"
+#include "ui/gfx/insets.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_delegate.h"
 #include "ui/views/bubble/bubble_frame_view.h"
@@ -14,7 +15,8 @@ namespace views {
 typedef ViewsTestBase BubbleFrameViewTest;
 
 const BubbleBorder::ArrowLocation kArrow = BubbleBorder::TOP_LEFT;
-const gfx::Rect kRect(10, 10, 200, 200);
+const int kBubbleWidth = 200;
+const int kBubbleHeight = 200;
 const SkColor kBackgroundColor = SK_ColorRED;
 const int kDefaultMargin = 6;
 
@@ -36,11 +38,13 @@ SizedBubbleDelegateView::SizedBubbleDelegateView() {}
 
 SizedBubbleDelegateView::~SizedBubbleDelegateView() {}
 
-gfx::Size SizedBubbleDelegateView::GetPreferredSize() { return kRect.size(); }
+gfx::Size SizedBubbleDelegateView::GetPreferredSize() {
+  return gfx::Size(kBubbleWidth, kBubbleHeight);
+}
 
 class TestBubbleFrameView : public BubbleFrameView {
  public:
-  TestBubbleFrameView(const gfx::Rect& bounds);
+  explicit TestBubbleFrameView(const gfx::Rect& bounds);
   virtual ~TestBubbleFrameView();
 
  protected:
@@ -53,7 +57,11 @@ class TestBubbleFrameView : public BubbleFrameView {
 };
 
 TestBubbleFrameView::TestBubbleFrameView(const gfx::Rect& bounds)
-  : BubbleFrameView(kArrow, kBackgroundColor, kDefaultMargin),
+  : BubbleFrameView(kArrow, kBackgroundColor,
+        gfx::Insets(kDefaultMargin,
+                    kDefaultMargin,
+                    kDefaultMargin,
+                    kDefaultMargin)),
     monitor_bounds_(bounds) {
 }
 
@@ -66,7 +74,11 @@ gfx::Rect TestBubbleFrameView::GetMonitorBounds(const gfx::Rect& rect) {
 }  // namespace
 
 TEST_F(BubbleFrameViewTest, GetBoundsForClientView) {
-  BubbleFrameView frame(kArrow, kBackgroundColor, kDefaultMargin);
+  BubbleFrameView frame(
+      kArrow,
+      kBackgroundColor,
+      gfx::Insets(kDefaultMargin, kDefaultMargin, kDefaultMargin,
+                  kDefaultMargin));
   EXPECT_EQ(kArrow, frame.bubble_border()->arrow_location());
   EXPECT_EQ(kBackgroundColor, frame.bubble_border()->background_color());
 

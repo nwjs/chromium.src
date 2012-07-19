@@ -4,21 +4,27 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_WEBSTORE_INLINE_INSTALLER_H_
 #define CHROME_BROWSER_EXTENSIONS_WEBSTORE_INLINE_INSTALLER_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/values.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
-#include "chrome/browser/extensions/webstore_installer.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/webstore_install_helper.h"
+#include "chrome/browser/extensions/webstore_installer.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
+
+namespace net {
+class URLFetcher;
+}
+
+namespace extensions {
+class Extension;
 class SafeWebstoreResponseParser;
 
 // Manages inline installs requested by a page (downloads and parses metadata
@@ -29,9 +35,9 @@ class SafeWebstoreResponseParser;
 // request is attached to goes away.
 class WebstoreInlineInstaller
     : public base::RefCountedThreadSafe<WebstoreInlineInstaller>,
-      public ExtensionInstallUI::Delegate,
+      public ExtensionInstallPrompt::Delegate,
       public content::WebContentsObserver,
-      public content::URLFetcherDelegate,
+      public net::URLFetcherDelegate,
       public WebstoreInstaller::Delegate,
       public WebstoreInstallHelper::Delegate {
  public:
@@ -72,8 +78,8 @@ class WebstoreInlineInstaller
   // All flows (whether successful or not) end up in CompleteInstall, which
   // informs our delegate of success/failure.
 
-  // content::URLFetcherDelegate interface implementation.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate interface implementation.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Client callbacks for SafeWebstoreResponseParser when parsing is complete.
   void OnWebstoreResponseParseSuccess(DictionaryValue* webstore_data);
@@ -89,7 +95,7 @@ class WebstoreInlineInstaller
       InstallHelperResultCode result_code,
       const std::string& error_message) OVERRIDE;
 
-  // ExtensionInstallUI::Delegate interface implementation.
+  // ExtensionInstallPrompt::Delegate interface implementation.
   virtual void InstallUIProceed() OVERRIDE;
   virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
 
@@ -114,9 +120,10 @@ class WebstoreInlineInstaller
   std::string id_;
   GURL requestor_url_;
   Delegate* delegate_;
+  scoped_ptr<ExtensionInstallPrompt> install_ui_;
 
   // For fetching webstore JSON data.
-  scoped_ptr<content::URLFetcher> webstore_data_url_fetcher_;
+  scoped_ptr<net::URLFetcher> webstore_data_url_fetcher_;
 
   // Extracted from the webstore JSON data response.
   std::string localized_name_;
@@ -131,5 +138,7 @@ class WebstoreInlineInstaller
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(WebstoreInlineInstaller);
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_WEBSTORE_INLINE_INSTALLER_H_

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_VIEWS_CONTROLS_SCROLLBAR_SCROLL_BAR_H_
 #define UI_VIEWS_CONTROLS_SCROLLBAR_SCROLL_BAR_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -91,8 +90,8 @@ class VIEWS_EXPORT ScrollBar : public View {
  protected:
   // Create new scrollbar, either horizontal or vertical. These are protected
   // since you need to be creating either a NativeScrollBar or a
-  // BitmapScrollBar.
-  ScrollBar(bool is_horiz);
+  // ImageScrollBar.
+  explicit ScrollBar(bool is_horiz);
 
  private:
   const bool is_horiz_;

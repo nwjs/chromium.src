@@ -1,13 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_GTK_FULLSCREEN_EXIT_BUBBLE_GTK_H_
 #define CHROME_BROWSER_UI_GTK_FULLSCREEN_EXIT_BUBBLE_GTK_H_
-#pragma once
 
-#include "chrome/browser/ui/fullscreen_exit_bubble.h"
-#include "chrome/browser/ui/fullscreen_exit_bubble_type.h"
+#include "chrome/browser/ui/fullscreen/fullscreen_exit_bubble.h"
+#include "chrome/browser/ui/fullscreen/fullscreen_exit_bubble_type.h"
 #include "chrome/browser/ui/gtk/slide_animator_gtk.h"
 #include "ui/base/gtk/gtk_signal.h"
 #include "ui/base/gtk/gtk_signal_registrar.h"
@@ -62,7 +61,6 @@ class FullscreenExitBubbleGtk : public FullscreenExitBubble {
   GtkWidget* instruction_label_;
   GtkWidget* hbox_;
   GtkWidget* message_label_;
-  GtkWidget* button_link_hbox_;
   GtkWidget* link_;
   GtkWidget* allow_button_;
   GtkWidget* deny_button_;

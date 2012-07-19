@@ -4,34 +4,45 @@
 
 #include "ash/wm/property_util.h"
 
+#include "ash/ash_export.h"
+#include "ash/screen_ash.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
-#include "ui/aura/window_property.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/rect.h"
 
-DECLARE_WINDOW_PROPERTY_TYPE(bool)
-
 namespace ash {
-
 namespace {
-
-const aura::WindowProperty<bool> kWindowTrackedByWorkspaceSplitProp = {true};
-
+bool g_default_windows_persist_across_all_workspaces = false;
 }  // namespace
 
-void SetRestoreBounds(aura::Window* window, const gfx::Rect& bounds) {
+void SetRestoreBoundsInScreen(aura::Window* window, const gfx::Rect& bounds) {
   window->SetProperty(aura::client::kRestoreBoundsKey, new gfx::Rect(bounds));
 }
 
-void SetRestoreBoundsIfNotSet(aura::Window* window) {
-  if (!GetRestoreBounds(window))
-    SetRestoreBounds(window, window->bounds());
+void SetRestoreBoundsInParent(aura::Window* window, const gfx::Rect& bounds) {
+  window->SetProperty(
+      aura::client::kRestoreBoundsKey,
+      new gfx::Rect(ScreenAsh::ConvertRectToScreen(window->parent(), bounds)));
 }
 
-const gfx::Rect* GetRestoreBounds(aura::Window* window) {
+void SetRestoreBoundsIfNotSet(aura::Window* window) {
+  if (!GetRestoreBoundsInScreen(window))
+    SetRestoreBoundsInParent(window, window->bounds());
+}
+
+const gfx::Rect* GetRestoreBoundsInScreen(aura::Window* window) {
   return window->GetProperty(aura::client::kRestoreBoundsKey);
+}
+
+gfx::Rect GetRestoreBoundsInParent(aura::Window* window) {
+  const gfx::Rect* rect = window->GetProperty(aura::client::kRestoreBoundsKey);
+  if (!rect)
+    return gfx::Rect();
+  return ScreenAsh::ConvertRectFromScreen(window->parent(), *rect);
 }
 
 void ClearRestoreBounds(aura::Window* window) {
@@ -44,15 +55,46 @@ void ToggleMaximizedState(aura::Window* window) {
                                                     : ui::SHOW_STATE_MAXIMIZED);
 }
 
-const aura::WindowProperty<bool>* const
-    kWindowTrackedByWorkspaceSplitPropKey = &kWindowTrackedByWorkspaceSplitProp;
-
 void SetTrackedByWorkspace(aura::Window* window, bool value) {
-  window->SetProperty(kWindowTrackedByWorkspaceSplitPropKey, value);
+  window->SetProperty(internal::kWindowTrackedByWorkspaceKey, value);
 }
 
 bool GetTrackedByWorkspace(aura::Window* window) {
-  return window->GetProperty(kWindowTrackedByWorkspaceSplitPropKey);
+  return window->GetProperty(internal::kWindowTrackedByWorkspaceKey);
 }
 
+void SetPersistsAcrossAllWorkspaces(
+    aura::Window* window,
+    WindowPersistsAcrossAllWorkspacesType type) {
+  window->SetProperty(
+      internal::kWindowPersistsAcrossAllWorkspacesKey, type);
 }
+
+bool GetPersistsAcrossAllWorkspaces(aura::Window* window) {
+  switch (window->GetProperty(
+      internal::kWindowPersistsAcrossAllWorkspacesKey)) {
+    case WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_YES:
+      return true;
+    case WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_NO:
+      return false;
+    case WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_DEFAULT:
+      return g_default_windows_persist_across_all_workspaces;
+  }
+  return false;
+}
+
+void SetDefaultPersistsAcrossAllWorkspaces(bool value) {
+  g_default_windows_persist_across_all_workspaces = value;
+}
+
+internal::RootWindowController* GetRootWindowController(
+    aura::RootWindow* root_window) {
+  return root_window->GetProperty(internal::kRootWindowControllerKey);
+}
+
+void SetRootWindowController(aura::RootWindow* root_window,
+                             internal::RootWindowController* controller) {
+  root_window->SetProperty(internal::kRootWindowControllerKey, controller);
+}
+
+}  // namespace ash

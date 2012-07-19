@@ -13,6 +13,11 @@ body {
   margin-top: 10px;
 }
 
+#help-product-logo {
+  /* TODO: Remove once http://crbug.com/135179 is fixed */
+  content: url('chrome://theme/IDR_PRODUCT_LOGO_32');
+}
+
 #product-description {
   -webkit-margin-start: 10px;
 }
@@ -21,9 +26,12 @@ body {
   margin-top: 30px;
 }
 
-#update-buttons-container,
-#update-status-container {
+#update-buttons-container {
   margin-top: 5px;
+}
+
+#update-status-container {
+  margin-top: 10px;
 }
 
 #update-status {
@@ -59,10 +67,12 @@ body {
 
 #update-status-icon.available {
   background-image: url('chrome://theme/IDR_UPDATE_AVAILABLE');
+  background-size: 17px;
 }
 
 #update-status-icon.up-to-date {
   background-image: url('chrome://theme/IDR_UPDATE_UPTODATE');
+  background-size: 17px;
 }
 
 #update-status-icon.working {
@@ -71,6 +81,11 @@ body {
 
 #update-status-icon.failed {
   background-image: url('chrome://theme/IDR_UPDATE_FAIL');
+  background-size: 17px;
+}
+
+#update-obsolete-os-container {
+  -webkit-margin-start: 25px;
 }
 
 #more-info-expander {
@@ -79,12 +94,15 @@ body {
 
 #more-info-container.visible {
   margin-bottom: 1.5em;
-  max-height: 25em;
 }
 
 #more-info-container {
   -webkit-transition: all 500ms linear;
+  height: 0;
   margin-bottom: 0;
-  max-height: 0;
   overflow: hidden;
+}
+
+#last-updated-container.empty {
+  visibility: hidden;
 }

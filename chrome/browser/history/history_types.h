@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_HISTORY_HISTORY_TYPES_H_
 #define CHROME_BROWSER_HISTORY_HISTORY_TYPES_H_
-#pragma once
 
 #include <deque>
 #include <map>
@@ -23,6 +22,8 @@
 #include "chrome/common/thumbnail_score.h"
 #include "content/public/common/page_transition_types.h"
 #include "googleurl/src/gurl.h"
+
+class PageUsageData;
 
 namespace history {
 
@@ -132,6 +133,19 @@ class URLRow {
     hidden_ = hidden;
   }
 
+  // Helper functor that determines if an URLRow refers to a given URL.
+  class URLRowHasURL {
+   public:
+    explicit URLRowHasURL(const GURL& url) : url_(url) {}
+
+    bool operator()(const URLRow& row) {
+      return row.url() == url_;
+    }
+
+   private:
+    const GURL& url_;
+  };
+
  protected:
   // Swaps the contents of this URLRow with another, which allows it to be
   // destructively copied without memory allocations.
@@ -187,7 +201,7 @@ typedef std::vector<URLRow> URLRows;
 enum VisitSource {
   SOURCE_SYNCED = 0,         // Synchronized from somewhere else.
   SOURCE_BROWSED = 1,        // User browsed.
-  SOURCE_EXTENSION = 2,      // Added by an externsion.
+  SOURCE_EXTENSION = 2,      // Added by an extension.
   SOURCE_FIREFOX_IMPORTED = 3,
   SOURCE_IE_IMPORTED = 4,
   SOURCE_SAFARI_IMPORTED = 5,
@@ -578,6 +592,32 @@ struct MostVisitedURL {
   }
 };
 
+// FilteredURL -----------------------------------------------------------------
+
+// Holds the per-URL information of the filterd url query.
+struct FilteredURL {
+  struct ExtendedInfo {
+    ExtendedInfo();
+    // The absolute number of visits.
+    unsigned int total_visits;
+    // The number of visits, as seen by the Most Visited NTP pane.
+    unsigned int visits;
+    // The total number of seconds that the page was open.
+    int64 duration_opened;
+    // The time when the page was last visited.
+    base::Time last_visit_time;
+  };
+
+  FilteredURL();
+  explicit FilteredURL(const PageUsageData& data);
+  ~FilteredURL();
+
+  GURL url;
+  string16 title;
+  double score;
+  ExtendedInfo extended_info;
+};
+
 // Navigation -----------------------------------------------------------------
 
 // Marshalling structure for AddPage.
@@ -621,17 +661,18 @@ class HistoryAddPageArgs
 // TopSites -------------------------------------------------------------------
 
 typedef std::vector<MostVisitedURL> MostVisitedURLList;
+typedef std::vector<FilteredURL> FilteredURLList;
 
 // Used by TopSites to store the thumbnails.
 struct Images {
   Images();
   ~Images();
 
-  scoped_refptr<RefCountedBytes> thumbnail;
+  scoped_refptr<base::RefCountedBytes> thumbnail;
   ThumbnailScore thumbnail_score;
 
   // TODO(brettw): this will eventually store the favicon.
-  // scoped_refptr<RefCountedBytes> favicon;
+  // scoped_refptr<base::RefCountedBytes> favicon;
 };
 
 typedef std::vector<MostVisitedURL> MostVisitedURLList;
@@ -652,7 +693,7 @@ struct TopSitesDelta {
   MostVisitedURLWithRankList moved;
 };
 
-typedef std::map<GURL, scoped_refptr<RefCountedBytes> > URLToThumbnailMap;
+typedef std::map<GURL, scoped_refptr<base::RefCountedBytes> > URLToThumbnailMap;
 
 // Used when migrating most visited thumbnails out of history and into topsites.
 struct ThumbnailMigration {
@@ -669,13 +710,13 @@ class MostVisitedThumbnails
     : public base::RefCountedThreadSafe<MostVisitedThumbnails> {
  public:
   MostVisitedThumbnails();
-  virtual ~MostVisitedThumbnails();
 
   MostVisitedURLList most_visited;
   URLToImagesMap url_to_images_map;
 
  private:
   friend class base::RefCountedThreadSafe<MostVisitedThumbnails>;
+  virtual ~MostVisitedThumbnails();
 
   DISALLOW_COPY_AND_ASSIGN(MostVisitedThumbnails);
 };
@@ -739,7 +780,7 @@ struct FaviconData {
   bool known_icon;
 
   // The bits of image.
-  scoped_refptr<RefCountedMemory> image_data;
+  scoped_refptr<base::RefCountedMemory> image_data;
 
   // Indicates whether image is expired.
   bool expired;
@@ -749,6 +790,20 @@ struct FaviconData {
 
   // The type of favicon.
   history::IconType icon_type;
+};
+
+// Abbreviated information about a visit.
+struct BriefVisitInfo {
+  URLID url_id;
+  base::Time time;
+  content::PageTransition transition;
+};
+
+// An observer of VisitDatabase.
+class VisitDatabaseObserver {
+ public:
+  virtual ~VisitDatabaseObserver() {}
+  virtual void OnAddVisit(const BriefVisitInfo& info) = 0;
 };
 
 }  // namespace history

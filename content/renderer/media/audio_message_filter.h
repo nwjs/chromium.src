@@ -9,7 +9,6 @@
 
 #ifndef CONTENT_RENDERER_MEDIA_AUDIO_MESSAGE_FILTER_H_
 #define CONTENT_RENDERER_MEDIA_AUDIO_MESSAGE_FILTER_H_
-#pragma once
 
 #include "base/gtest_prod_util.h"
 #include "base/id_map.h"
@@ -38,7 +37,9 @@ class CONTENT_EXPORT AudioMessageFilter
   };
 
   AudioMessageFilter();
-  virtual ~AudioMessageFilter();
+
+  // Getter for the one AudioMessageFilter object.
+  static AudioMessageFilter* Get();
 
   // Add a delegate to the map and return id of the entry.
   int32 AddDelegate(Delegate* delegate);
@@ -47,17 +48,21 @@ class CONTENT_EXPORT AudioMessageFilter
   void RemoveDelegate(int32 id);
 
   // Sends an IPC message using |channel_|.
-  bool Send(IPC::Message* message);
-
- private:
-  FRIEND_TEST_ALL_PREFIXES(AudioMessageFilterTest, Basic);
-  FRIEND_TEST_ALL_PREFIXES(AudioMessageFilterTest, Delegates);
+  // This method is virtual so that it can be overridden in tests.
+  virtual bool Send(IPC::Message* message);
 
   // IPC::ChannelProxy::MessageFilter override. Called on IO thread.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
   virtual void OnFilterAdded(IPC::Channel* channel) OVERRIDE;
   virtual void OnFilterRemoved() OVERRIDE;
   virtual void OnChannelClosing() OVERRIDE;
+
+ protected:
+  virtual ~AudioMessageFilter();
+
+ private:
+  FRIEND_TEST_ALL_PREFIXES(AudioMessageFilterTest, Basic);
+  FRIEND_TEST_ALL_PREFIXES(AudioMessageFilterTest, Delegates);
 
   // Received when browser process has created an audio output stream.
   void OnStreamCreated(int stream_id, base::SharedMemoryHandle handle,
@@ -73,8 +78,8 @@ class CONTENT_EXPORT AudioMessageFilter
   // changed.
   void OnStreamStateChanged(int stream_id, AudioStreamState state);
 
-  // Notification of volume property of an audio output stream.
-  void OnStreamVolume(int stream_id, double volume);
+  // The singleton instance for this filter.
+  static AudioMessageFilter* filter_;
 
   // A map of stream ids to delegates.
   IDMap<Delegate> delegates_;

@@ -4,7 +4,6 @@
 
 #ifndef NET_DNS_DNS_TEST_UTIL_H_
 #define NET_DNS_DNS_TEST_UTIL_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
@@ -51,6 +50,8 @@ static const char* const kT0IpAddresses[] = {
 };
 static const char kT0CanonName[] = "www.l.google.com";
 static const int kT0TTL = 0x000000e4;
+// +1 for the CNAME record.
+static const unsigned kT0RecordCount = arraysize(kT0IpAddresses) + 1;
 
 //-----------------------------------------------------------------------------
 // Query/response set for codereview.chromium.org, ID is fixed to 1.
@@ -83,6 +84,8 @@ static const char* const kT1IpAddresses[] = {
 };
 static const char kT1CanonName[] = "ghs.l.google.com";
 static const int kT1TTL = 0x0000010b;
+// +1 for the CNAME record.
+static const unsigned kT1RecordCount = arraysize(kT1IpAddresses) + 1;
 
 //-----------------------------------------------------------------------------
 // Query/response set for www.ccs.neu.edu, ID is fixed to 2.
@@ -114,6 +117,8 @@ static const char* const kT2IpAddresses[] = {
 };
 static const char kT2CanonName[] = "vulcan.ccs.neu.edu";
 static const int kT2TTL = 0x0000012c;
+// +1 for the CNAME record.
+static const unsigned kT2RecordCount = arraysize(kT2IpAddresses) + 1;
 
 //-----------------------------------------------------------------------------
 // Query/response set for www.google.az, ID is fixed to 3.
@@ -157,6 +162,8 @@ static const char* const kT3IpAddresses[] = {
 };
 static const char kT3CanonName[] = "www.l.google.com";
 static const int kT3TTL = 0x00000015;
+// +2 for the CNAME records.
+static const unsigned kT3RecordCount = arraysize(kT3IpAddresses) + 2;
 
 class DnsClient;
 // Creates mock DnsClient for testing HostResolverImpl.
@@ -164,18 +171,14 @@ scoped_ptr<DnsClient> CreateMockDnsClient(const DnsConfig& config);
 
 class MockDnsConfigService : public DnsConfigService {
  public:
-  virtual ~MockDnsConfigService() {}
+  virtual ~MockDnsConfigService();
 
-  virtual void Watch(const CallbackType& callback) OVERRIDE;
+  // NetworkChangeNotifier::DNSObserver:
+  virtual void OnDNSChanged(unsigned detail) OVERRIDE;
 
   // Expose the protected methods for tests.
-  void ChangeConfig(const DnsConfig& config) {
-    DnsConfigService::OnConfigRead(config);
-  }
-
-  void ChangeHosts(const DnsHosts& hosts) {
-    DnsConfigService::OnHostsRead(hosts);
-  }
+  void ChangeConfig(const DnsConfig& config);
+  void ChangeHosts(const DnsHosts& hosts);
 };
 
 

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_NTP_NEW_TAB_UI_H_
 #define CHROME_BROWSER_UI_WEBUI_NTP_NEW_TAB_UI_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -23,7 +22,7 @@ class GURL;
 class PrefService;
 class Profile;
 
-// The TabContents used for the New Tab page.
+// The WebContents used for the New Tab page.
 class NewTabUI : public content::WebUIController,
                  public content::NotificationObserver {
  public:
@@ -31,16 +30,6 @@ class NewTabUI : public content::WebUIController,
   virtual ~NewTabUI();
 
   static void RegisterUserPrefs(PrefService* prefs);
-
-  // Sets up any experiment in which the NTP might want to participate.
-  // The CWS footer link is one such example.
-  static void SetupFieldTrials();
-
-  // Returns whether or not to show the link to the CWS in the footer.
-  static bool ShouldShowWebStoreFooterLink();
-
-  // Returns whether or not to show the app install hint.
-  static bool ShouldShowAppInstallHint();
 
   // Returns whether or not to show apps pages.
   static bool ShouldShowApps();
@@ -140,7 +129,5 @@ class NewTabUI : public content::WebUIController,
 
   DISALLOW_COPY_AND_ASSIGN(NewTabUI);
 };
-
-extern const char kWebStoreLinkExperiment[];
 
 #endif  // CHROME_BROWSER_UI_WEBUI_NTP_NEW_TAB_UI_H_

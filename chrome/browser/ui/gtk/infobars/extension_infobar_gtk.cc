@@ -86,13 +86,13 @@ void ExtensionInfoBarGtk::OnImageLoaded(const gfx::Image& image,
   scoped_ptr<gfx::Canvas> canvas(new gfx::Canvas(
       gfx::Size(image_size + kDropArrowLeftMargin + drop_image->width(),
                 image_size), false));
-  canvas->DrawBitmapInt(*icon, 0, 0, icon->width(), icon->height(), 0, 0,
-                        image_size, image_size, false);
-  canvas->DrawBitmapInt(*drop_image, image_size + kDropArrowLeftMargin,
-                        image_size / 2);
+  canvas->DrawImageInt(*icon, 0, 0, icon->width(), icon->height(), 0, 0,
+                       image_size, image_size, false);
+  canvas->DrawImageInt(*drop_image, image_size + kDropArrowLeftMargin,
+                       image_size / 2);
 
   SkBitmap bitmap = canvas->ExtractBitmap();
-  GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(&bitmap);
+  GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(bitmap);
   gtk_image_set_from_pixbuf(GTK_IMAGE(icon_), pixbuf);
   g_object_unref(pixbuf);
 }
@@ -109,7 +109,8 @@ void ExtensionInfoBarGtk::BuildWidgets() {
   gtk_util::CenterWidgetInHBox(hbox_, button_, false, 0);
 
   // Start loading the image for the menu button.
-  const Extension* extension = delegate_->extension_host()->extension();
+  const extensions::Extension* extension = delegate_->extension_host()->
+      extension();
   ExtensionResource icon_resource = extension->GetIconResource(
       ExtensionIconSet::EXTENSION_ICON_BITTY, ExtensionIconSet::MATCH_EXACTLY);
   // Create a tracker to load the image. It will report back on OnImageLoaded.
@@ -154,7 +155,7 @@ Browser* ExtensionInfoBarGtk::GetBrowser() {
 }
 
 ui::MenuModel* ExtensionInfoBarGtk::BuildMenuModel() {
-  const Extension* extension = delegate_->extension();
+  const extensions::Extension* extension = delegate_->extension();
   if (!extension->ShowConfigureContextMenus())
     return NULL;
 
@@ -162,7 +163,7 @@ ui::MenuModel* ExtensionInfoBarGtk::BuildMenuModel() {
   if (!browser)
     return NULL;
 
-  return new ExtensionContextMenuModel(extension, browser, NULL);
+  return new ExtensionContextMenuModel(extension, browser);
 }
 
 void ExtensionInfoBarGtk::OnSizeAllocate(GtkWidget* widget,

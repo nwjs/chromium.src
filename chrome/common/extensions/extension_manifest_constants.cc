@@ -12,7 +12,7 @@ const char kApp[] = "app";
 const char kBackgroundAllowJsAccess[] = "background.allow_js_access";
 const char kBackgroundPage[] = "background.page";
 const char kBackgroundPageLegacy[] = "background_page";
-const char kBackgroundTransient[] = "background.transient";
+const char kBackgroundPersistent[] = "background.persistent";
 const char kBackgroundScripts[] = "background.scripts";
 const char kBrowserAction[] = "browser_action";
 const char kChromeURLOverrides[] = "chrome_url_overrides";
@@ -85,13 +85,18 @@ const char kPageActionPopup[] = "popup";
 const char kPageActionPopupPath[] = "path";
 const char kPageActions[] = "page_actions";
 const char kPermissions[] = "permissions";
-const char kPlatformApp[] = "platform_app";
+const char kPlatformAppBackground[] = "app.background";
+const char kPlatformAppBackgroundPage[] = "app.background.page";
+const char kPlatformAppBackgroundScripts[] = "app.background.scripts";
 const char kPlugins[] = "plugins";
 const char kPluginsPath[] = "path";
 const char kPluginsPublic[] = "public";
 const char kPublicKey[] = "key";
 const char kRequirements[] = "requirements";
 const char kRunAt[] = "run_at";
+const char kSandboxedPages[] = "sandbox.pages";
+const char kSandboxedPagesCSP[] = "sandbox.content_security_policy";
+const char kScriptBadge[] = "script_badge";
 const char kShiftKey[] = "shiftKey";
 const char kShortcutKey[] = "shortcutKey";
 const char kSignature[] = "signature";
@@ -141,7 +146,6 @@ const char kPageActionKeybindingEvent[] = "_execute_page_action";
 const char kPageActionTypeTab[] = "tab";
 const char kPageActionTypePermanent[] = "permanent";
 const char kLaunchContainerPanel[] = "panel";
-const char kLaunchContainerShell[] = "shell";
 const char kLaunchContainerTab[] = "tab";
 const char kLaunchContainerWindow[] = "window";
 }  // namespace extension_manifest_values
@@ -156,6 +160,8 @@ const char kAppsNotEnabled[] =
 const char kBackgroundPermissionNeeded[] =
     "Hosted apps that use 'background_page' must have the 'background' "
     "permission.";
+const char kBackgroundRequiredForPlatformApps[] =
+    "Packaged apps must have a background page or background scripts.";
 const char kCannotAccessPage[] =
     "Cannot access contents of url \"*\". "
     "Extension manifest must request permission to access this host.";
@@ -167,8 +173,6 @@ const char kCannotClaimAllURLsInExtent[] =
     "Cannot claim all URLs in an extent.";
 const char kCannotScriptGallery[] =
     "The extensions gallery cannot be scripted.";
-const char kCannotUninstallManagedExtension[] =
-    "Attempted uninstallation of an extension that is not user-manageable.";
 const char kChromeVersionTooLow[] =
     "This extension requires * version * or greater.";
 const char kDisabledByPolicy[] =
@@ -178,8 +182,6 @@ const char kExperimentalFlagRequired[] =
     "Loading extensions with 'experimental' permission is turned off by "
     "default. You can enable 'Experimental Extension APIs' "
     "by visiting chrome://flags.";
-const char kFeatureNotAllowed[] =
-    "Feature '*' is not accessible. *";
 const char kInvalidAllFrames[] =
     "Invalid value for 'content_scripts[*].all_frames'.";
 const char kInvalidBackground[] =
@@ -196,11 +198,11 @@ const char kInvalidBackgroundScripts[] =
 const char kInvalidBackgroundInHostedApp[] =
     "Invalid value for 'background_page'. Hosted apps must specify an "
     "absolute HTTPS URL for the background page.";
-const char kInvalidBackgroundTransient[] =
-    "Invalid value for 'background.transient'.";
-const char kInvalidBackgroundTransientNoPage[] =
+const char kInvalidBackgroundPersistent[] =
+    "Invalid value for 'background.persistent'.";
+const char kInvalidBackgroundPersistentNoPage[] =
     "Must specify one of background.page or background.scripts to use"
-    " background.transient.";
+    " background.persistent.";
 const char kInvalidBrowserAction[] =
     "Invalid value for 'browser_action'.";
 const char kInvalidChromeURLOverrides[] =
@@ -269,10 +271,16 @@ const char kInvalidIntent[] =
     "Invalid value for intents[*]";
 const char kInvalidIntentDisposition[] =
     "Invalid value for intents[*].disposition";
+const char kInvalidIntentDispositionInPlatformApp[] =
+    "Invalid value for intents[*].disposition. Packaged apps cannot specify "
+    "a disposition";
 const char kInvalidIntentHref[] =
     "Invalid value for intents[*].href";
 const char kInvalidIntentHrefEmpty[] =
     "Missing value for intents[*].href";
+const char kInvalidIntentHrefInPlatformApp[] =
+    "Invalid value for intents[*].href. Packaged apps cannot specify a "
+    "URL for intents";
 const char kInvalidIntentHrefOldAndNewKey[] =
     "intents[*]: Key \"*\" is deprecated.  Key \"*\" has the same meaning. "
     "You can not use both.";
@@ -306,15 +314,13 @@ const char kInvalidKeyBindingDictionary[] =
 const char kInvalidKeyBindingMissingPlatform[] =
     "Could not find key specification for 'command[*].*': Either specify a key "
     "for '*', or specify a default key.";
+const char kInvalidKeyBindingTooMany[] =
+    "Too many commands specified for 'commands': The maximum is *.";
 const char kInvalidKeyBindingUnknownPlatform[] =
     "Unknown platform for 'command[*]': *. Valid values are: 'windows', 'mac'"
     " 'chromeos', 'linux' and 'default'.";
 const char kInvalidLaunchContainer[] =
     "Invalid value for 'app.launch.container'.";
-const char kInvalidLaunchContainerForNonPlatform[] =
-    "'app.launch.container' = 'shell' can only be used with platform_app.";
-const char kInvalidLaunchContainerForPlatform[] =
-    "platform_app requires 'app.launch.container' == 'shell'.";
 const char kInvalidLaunchValue[] =
     "Invalid value for '*'.";
 const char kInvalidLaunchValueContainer[] =
@@ -396,6 +402,14 @@ const char kInvalidRequirements[] =
     "Invalid value for 'requirements'";
 const char kInvalidRunAt[] =
     "Invalid value for 'content_scripts[*].run_at'.";
+const char kInvalidSandboxedPagesList[] =
+    "Invalid value for 'sandbox.pages'.";
+const char kInvalidSandboxedPage[] =
+    "Invalid value for 'sandbox.pages[*]'.";
+const char kInvalidSandboxedPagesCSP[] =
+    "Invalid value for 'sandbox.content_security_policy'.";
+const char kInvalidScriptBadge[] =
+    "Invalid value for 'script_badge'.";
 const char kInvalidSignature[] =
     "Value 'signature' is missing or invalid.";
 const char kInvalidTheme[] =
@@ -468,12 +482,20 @@ const char kOneUISurfaceOnly[] =
     "Only one of 'browser_action', 'page_action', and 'app' can be specified.";
 const char kPermissionNotAllowed[] =
     "Access to permission '*' denied.";
-const char kPlatformAppFlagRequired[] =
-    "Loading platform_app extension type is turned off by default. "
-    "You can enable this type with the --enable-platform-apps "
-    "command-line flag.";
+const char kPlatformAppNeedsManifestVersion2[] =
+    "Packaged apps need manifest_version set to >= 2";
 const char kReservedMessageFound[] =
     "Reserved key * found in message catalog.";
+const char kScriptBadgeRequiresFlag[] =
+    "The script_badge manifest key is turned off by default. "
+    "You can enable it with the --enable-script-badges command-line flag.";
+const char kScriptBadgeIconIgnored[] =
+    "default_icon specified in script_badge manifest section will not be used.";
+const char kScriptBadgeTitleIgnored[] =
+    "default_title specified in script_badge manifest section will not be "
+    "used.";
+const char kWebRequestConflictsWithLazyBackground[] =
+    "The 'webRequest' API cannot be used with event pages.";
 #if defined(OS_CHROMEOS)
 const char kIllegalPlugins[] =
     "Extensions cannot install plugins on Chrome OS";

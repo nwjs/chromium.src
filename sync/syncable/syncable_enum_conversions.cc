@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Keep this file in sync with syncable.h.
+// Keep this file in sync with entry_kernel.h.
 
 #include "sync/syncable/syncable_enum_conversions.h"
 
 #include "base/basictypes.h"
 #include "base/logging.h"
 
+namespace syncer {
 namespace syncable {
 
 // We can't tokenize expected_min/expected_max since it can be a
@@ -162,3 +163,4 @@ const char* GetBitTempString(BitTemp bit_temp) {
 #undef ASSERT_ENUM_BOUNDS
 
 }  // namespace syncable
+}  // namespace syncer

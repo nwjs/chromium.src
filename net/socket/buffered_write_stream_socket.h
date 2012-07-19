@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_BUFFERED_WRITE_STREAM_SOCKET_H_
 #define NET_SOCKET_BUFFERED_WRITE_STREAM_SOCKET_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "net/base/net_log.h"
@@ -50,7 +49,7 @@ class NET_EXPORT_PRIVATE BufferedWriteStreamSocket : public StreamSocket {
   virtual void Disconnect() OVERRIDE;
   virtual bool IsConnected() const OVERRIDE;
   virtual bool IsConnectedAndIdle() const OVERRIDE;
-  virtual int GetPeerAddress(AddressList* address) const OVERRIDE;
+  virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual int GetLocalAddress(IPEndPoint* address) const OVERRIDE;
   virtual const BoundNetLog& NetLog() const OVERRIDE;
   virtual void SetSubresourceSpeculation() OVERRIDE;

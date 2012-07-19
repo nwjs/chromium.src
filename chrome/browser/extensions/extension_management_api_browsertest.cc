@@ -3,6 +3,9 @@
 // found in the LICENSE file.
 
 #include "base/command_line.h"
+#include "base/file_path.h"
+#include "base/scoped_temp_dir.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
@@ -58,22 +61,83 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
   ASSERT_TRUE(listener1.WaitUntilSatisfied());
 }
 
+IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
+                       SelfUninstall) {
+  ExtensionTestMessageListener listener1("success", false);
+  ASSERT_TRUE(LoadExtension(
+      test_data_dir_.AppendASCII("management/self_uninstall_helper")));
+  ASSERT_TRUE(LoadExtension(
+      test_data_dir_.AppendASCII("management/self_uninstall")));
+  ASSERT_TRUE(listener1.WaitUntilSatisfied());
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionManagementApiBrowserTest,
+                       UninstallWithConfirmDialog) {
+  ExtensionService* service = browser()->profile()->GetExtensionService();
+
+  // Install an extension.
+  const extensions::Extension* extension = InstallExtension(
+      test_data_dir_.AppendASCII("api_test/management/enabled_extension"), 1);
+  ASSERT_TRUE(extension);
+
+  const std::string id = extension->id();
+
+  // Uninstall, then cancel via the confirm dialog.
+  scoped_refptr<UninstallFunction> uninstall_function(new UninstallFunction());
+  UninstallFunction::SetAutoConfirmForTest(false);
+
+  EXPECT_TRUE(MatchPattern(
+      util::RunFunctionAndReturnError(
+          uninstall_function,
+          base::StringPrintf("[\"%s\", {\"showConfirmDialog\": true}]",
+              id.c_str()),
+          browser()),
+      keys::kUninstallCanceledError));
+
+  // Make sure the extension wasn't uninstalled.
+  EXPECT_TRUE(service->GetExtensionById(id, false) != NULL);
+
+  // Uninstall, then accept via the confirm dialog.
+  uninstall_function = new UninstallFunction();
+  UninstallFunction::SetAutoConfirmForTest(true);
+
+  util::RunFunctionAndReturnSingleResult(
+      uninstall_function,
+      base::StringPrintf("[\"%s\", {\"showConfirmDialog\": true}]", id.c_str()),
+      browser());
+
+  // Make sure the extension was uninstalled.
+  EXPECT_TRUE(service->GetExtensionById(id, false) == NULL);
+}
+
 class ExtensionManagementApiEscalationTest : public ExtensionBrowserTest {
  protected:
   // The id of the permissions escalation test extension we use.
   static const char kId[];
 
   virtual void SetUpOnMainThread() OVERRIDE {
+    EXPECT_TRUE(scoped_temp_dir_.CreateUniqueTempDir());
+    FilePath pem_path = test_data_dir_.
+        AppendASCII("permissions_increase").AppendASCII("permissions.pem");
+    FilePath path_v1 = PackExtensionWithOptions(
+        test_data_dir_.AppendASCII("permissions_increase").AppendASCII("v1"),
+        scoped_temp_dir_.path().AppendASCII("permissions1.crx"),
+        pem_path,
+        FilePath());
+    FilePath path_v2 = PackExtensionWithOptions(
+        test_data_dir_.AppendASCII("permissions_increase").AppendASCII("v2"),
+        scoped_temp_dir_.path().AppendASCII("permissions2.crx"),
+        pem_path,
+        FilePath());
+
     ExtensionService* service = browser()->profile()->GetExtensionService();
 
     // Install low-permission version of the extension.
-    ASSERT_TRUE(InstallExtension(
-        test_data_dir_.AppendASCII("permissions-low-v1.crx"), 1));
+    ASSERT_TRUE(InstallExtension(path_v1, 1));
     EXPECT_TRUE(service->GetExtensionById(kId, false) != NULL);
 
     // Update to a high-permission version - it should get disabled.
-    EXPECT_FALSE(UpdateExtension(
-        kId, test_data_dir_.AppendASCII("permissions-high-v2.crx"), -1));
+    EXPECT_FALSE(UpdateExtension(kId, path_v2, -1));
     EXPECT_TRUE(service->GetExtensionById(kId, false) == NULL);
     EXPECT_TRUE(service->GetExtensionById(kId, true) != NULL);
     EXPECT_TRUE(
@@ -97,6 +161,8 @@ class ExtensionManagementApiEscalationTest : public ExtensionBrowserTest {
     }
   }
 
+ private:
+  ScopedTempDir scoped_temp_dir_;
 };
 
 const char ExtensionManagementApiEscalationTest::kId[] =
@@ -104,10 +170,10 @@ const char ExtensionManagementApiEscalationTest::kId[] =
 
 IN_PROC_BROWSER_TEST_F(ExtensionManagementApiEscalationTest,
                        DisabledReason) {
-  scoped_ptr<base::Value> result(
-      util::RunFunctionAndReturnResult(new GetExtensionByIdFunction(),
-                                       base::StringPrintf("[\"%s\"]", kId),
-                                       browser()));
+  scoped_ptr<base::Value> result(util::RunFunctionAndReturnSingleResult(
+      new GetExtensionByIdFunction(),
+      base::StringPrintf("[\"%s\"]", kId),
+      browser()));
   ASSERT_TRUE(result.get() != NULL);
   ASSERT_TRUE(result->IsType(base::Value::TYPE_DICTIONARY));
   base::DictionaryValue* dict =

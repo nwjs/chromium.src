@@ -6,6 +6,7 @@
 #define GPU_COMMAND_BUFFER_SERVICE_FEATURE_INFO_H_
 
 #include <string>
+#include "base/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "gpu/command_buffer/service/gles2_cmd_decoder.h"
 #include "gpu/command_buffer/service/gles2_cmd_validation.h"
@@ -34,7 +35,12 @@ class GPU_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
           arb_texture_rectangle(false),
           angle_instanced_arrays(false),
           occlusion_query_boolean(false),
-          use_arb_occlusion_query2_for_occlusion_query_boolean(false) {
+          use_arb_occlusion_query2_for_occlusion_query_boolean(false),
+          use_arb_occlusion_query_for_occlusion_query_boolean(false),
+          disable_workarounds(false),
+          is_intel(false),
+          is_nvidia(false),
+          is_amd(false) {
     }
 
     bool chromium_framebuffer_multisample;
@@ -51,10 +57,14 @@ class GPU_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
     bool angle_instanced_arrays;
     bool occlusion_query_boolean;
     bool use_arb_occlusion_query2_for_occlusion_query_boolean;
+    bool use_arb_occlusion_query_for_occlusion_query_boolean;
+    bool disable_workarounds;
+    bool is_intel;
+    bool is_nvidia;
+    bool is_amd;
   };
 
   FeatureInfo();
-  ~FeatureInfo();
 
   // If allowed features = NULL or "*", all features are allowed. Otherwise
   // only features that match the strings in allowed_features are allowed.
@@ -70,6 +80,10 @@ class GPU_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
     return &validators_;
   }
 
+  const ValueValidator<GLenum>& GetTextureFormatValidator(GLenum format) {
+    return texture_format_validators_[format];
+  }
+
   const std::string& extensions() const {
     return extensions_;
   }
@@ -79,6 +93,13 @@ class GPU_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
   }
 
  private:
+  friend class base::RefCounted<FeatureInfo>;
+
+  typedef base::hash_map<GLenum, ValueValidator<GLenum> > ValidatorMap;
+  ValidatorMap texture_format_validators_;
+
+  ~FeatureInfo();
+
   void AddExtensionString(const std::string& str);
 
   Validators validators_;

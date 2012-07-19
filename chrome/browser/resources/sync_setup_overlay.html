@@ -1,4 +1,5 @@
 <div id="sync-setup-overlay" class="page" hidden>
+  <div class="close-button"></div>
   <div id="sync-setup-login" hidden>
     <div id="promo-title-container" hidden>
       <h1 i18n-content="promoTitle"></h1>
@@ -11,7 +12,6 @@
     </div>
     <div class="sync-main-content">
       <div id="sync-setup-login-content-column">
-        <div class="close-button"></div>
         <h1 id="sync-setup-overlay-title" i18n-content="syncSetupOverlay"></h1>
         <div class="sign-in">
           <div id="top-blurb-error" class="reset-hidden" hidden>
@@ -25,17 +25,18 @@
             </div>
             <form id="gaia-login-form">
               <div id="email-row" class="reset-shown">
-                <label>
-                  <strong class="email-label" i18n-content="emailLabel">
-                  </strong>
-                  <input id="gaia-email" type="text" name="email" value=""
-                      class="reset-enabled reset-shown reset-value"
-                      autocomplete="off">
-                  <div id="email-readonly" class="reset-hidden" hidden></div>
-                  <div id="errormsg-0-email" class="errormsg reset-hidden"
-                      i18n-content="cannotBeBlank" hidden>
-                  </div>
+                <label for="gaia-email" i18n-content="emailLabel">
                 </label>
+                <input id="gaia-email" type="text" name="email" value=""
+                    class="reset-enabled reset-shown reset-value"
+                    autocomplete="off">
+              </div>
+              <div id="email-readonly-row" class="reset-hidden">
+                <strong class="email-label" i18n-content="emailLabel"></strong>
+                <div id="email-readonly"></div>
+              </div>
+              <div id="errormsg-0-email" class="errormsg reset-hidden"
+                  i18n-content="cannotBeBlank" hidden>
               </div>
               <div id="password-row" class="reset-shown">
                 <label>
@@ -43,10 +44,10 @@
                   </strong>
                   <input id="gaia-passwd" type="password" name="passwd"
                       class="reset-enabled reset-value" autocomplete="off">
-                  <div id="errormsg-0-password" class="errormsg reset-hidden"
-                      i18n-content="cannotBeBlank" hidden>
-                  </div>
-                <label>
+                </label>
+                <div id="errormsg-0-password" class="errormsg reset-hidden"
+                    i18n-content="cannotBeBlank" hidden>
+                </div>
               </div>
               <div id="access-code-input-row"
                   class="access-code-row reset-hidden" hidden>
@@ -56,6 +57,16 @@
                       i18n-content="getAccessCodeHelp" target="_blank"
                       class="account-link"></a>
                   <input id="access-code" type="password" name="accessCode"
+                      class="reset-enabled reset-value">
+                </label>
+              </div>
+              <div id="otp-input-row" class="otp-row reset-hidden" hidden>
+                <label>
+                  <strong i18n-content="enterOtp"></strong>
+                  <a i18n-values="href:getOtpURL"
+                      i18n-content="getOtpHelp" target="_blank"
+                      class="account-link"></a>
+                  <input id="otp" type="text" name="otp"
                       class="reset-enabled reset-value">
                 </label>
               </div>
@@ -72,6 +83,9 @@
               </div>
               <div id="errormsg-0-access-code" class="errormsg reset-hidden"
                   i18n-content="invalidAccessCode" hidden>
+              </div>
+              <div id="errormsg-0-otp" class="errormsg reset-hidden"
+                  i18n-content="invalidOtp" hidden>
               </div>
               <div id="asp-warning-div" class="errormsg reset-hidden" hidden>
                 <span i18n-values=".innerHTML:aspWarningText"></span>
@@ -153,7 +167,6 @@
       </div>
     </div>
     <div id="customize-sync-preferences" hidden>
-      <div class="close-button"></div>
       <h1 i18n-content="syncSetupConfigureTitle"></h1>
       <form id="choose-data-types-form">
         <div id="sync-configure-content" class="content-area">
@@ -340,7 +353,6 @@
     </div>
   </div>
   <div id="sync-setup-spinner" hidden>
-    <div class="close-button"></div>
     <h1 i18n-content="syncSetupConfigureTitle"></h1>
     <div class="content-area">
       <div id="spinner-throbber" class="throbber"></div>
@@ -350,7 +362,6 @@
     </div>
   </div>
   <div id="sync-setup-stop-syncing" hidden>
-    <div class="close-button"></div>
     <h1 i18n-content="stopSyncingTitle"></h1>
     <div class="content-area">
       <span i18n-values=".innerHTML:stopSyncingExplanation"></span>

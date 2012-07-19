@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_INFOBARS_MEDIA_STREAM_INFOBAR_GTK_H_
 #define CHROME_BROWSER_UI_GTK_INFOBARS_MEDIA_STREAM_INFOBAR_GTK_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "chrome/browser/ui/gtk/infobars/infobar_gtk.h"
@@ -28,8 +27,7 @@ class MediaStreamInfoBarGtk : public InfoBarGtk {
   CHROMEGTK_CALLBACK_0(MediaStreamInfoBarGtk, void, OnDenyButton);
   CHROMEGTK_CALLBACK_0(MediaStreamInfoBarGtk, void, OnDevicesClicked);
 
-  // Convenience to retrieve the MediaStreamInfobarDelegate for this infobar.
-  MediaStreamInfoBarDelegate* delegate_;
+  MediaStreamInfoBarDelegate* GetDelegate();
 
   MediaStreamDevicesMenuModel* devices_menu_model_;
 

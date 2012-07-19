@@ -70,7 +70,8 @@ remoting.currentConnectionType = null;
  */
 remoting.connectIt2Me = function() {
   remoting.currentConnectionType = remoting.ConnectionType.It2Me;
-  remoting.WcsLoader.load(connectIt2MeWithAccessToken_);
+  remoting.WcsLoader.load(connectIt2MeWithAccessToken_,
+                          remoting.defaultOAuthErrorHandler);
 };
 
 /**
@@ -113,6 +114,16 @@ remoting.onResize = function() {
   if (remoting.clientSession)
     remoting.clientSession.onResize();
 };
+
+/**
+ * Handle changes in the visibility of the window, for example by pausing video.
+ *
+ * @return {void} Nothing.
+ */
+remoting.onVisibilityChanged = function() {
+  if (remoting.clientSession)
+    remoting.clientSession.pauseVideo(document.webkitHidden);
+}
 
 /**
  * Disconnect the remoting client.
@@ -166,7 +177,7 @@ function connectIt2MeWithAccessToken_(token) {
     } else {
       var supportId = remoting.accessCode.substring(0, kSupportIdLen);
       remoting.setMode(remoting.AppMode.CLIENT_CONNECTING);
-      resolveSupportId(supportId);
+      resolveSupportId(supportId, token);
     }
   } else {
     showConnectError_(remoting.Error.AUTHENTICATION_FAILED);
@@ -254,7 +265,7 @@ function onClientStateChange_(oldState, newState) {
                remoting.ClientSession.ConnectionError.HOST_OVERLOAD) {
       showConnectError_(remoting.Error.HOST_OVERLOAD);
     } else {
-      showConnectError_(remoting.Error.GENERIC);
+      showConnectError_(remoting.Error.UNEXPECTED);
     }
 
     if (clearPin) {
@@ -310,17 +321,22 @@ function startSession_() {
   remoting.clientSession =
       new remoting.ClientSession(
           remoting.hostJid, remoting.hostPublicKey,
-          remoting.accessCode, 'v1_token', '',
+          remoting.accessCode, 'spake2_plain', '',
           /** @type {string} */ (remoting.oauth2.getCachedEmail()),
           remoting.ClientSession.Mode.IT2ME,
           onClientStateChange_);
-  /** @param {string} token The auth token. */
+  /** @param {string?} token The auth token. */
   var createPluginAndConnect = function(token) {
-    remoting.clientSession.createPluginAndConnect(
-        document.getElementById('session-mode'),
-        token);
+    if (token) {
+      remoting.clientSession.createPluginAndConnect(
+          document.getElementById('session-mode'),
+          token);
+    } else {
+      showConnectError_(remoting.Error.AUTHENTICATION_FAILED);
+    }
   };
-  remoting.oauth2.callWithToken(createPluginAndConnect);
+  remoting.oauth2.callWithToken(createPluginAndConnect,
+                                remoting.defaultOAuthErrorHandler);
 }
 
 /**
@@ -368,20 +384,22 @@ function setConnectionInterruptedButtonsText_() {
  */
 function parseServerResponse_(xhr) {
   remoting.supportHostsXhr_ = null;
-  console.log('parseServerResponse: xhr = ' + xhr);
+  console.log('parseServerResponse: xhr =', xhr);
   if (xhr.status == 200) {
     var host = /** @type {{data: {jabberId: string, publicKey: string}}} */
-        JSON.parse(xhr.responseText);
-    if (host.data && host.data.jabberId && host.data.publicKey) {
+        jsonParseSafe(xhr.responseText);
+    if (host && host.data && host.data.jabberId && host.data.publicKey) {
       remoting.hostJid = host.data.jabberId;
       remoting.hostPublicKey = host.data.publicKey;
       var split = remoting.hostJid.split('/');
       document.getElementById('connected-to').innerText = split[0];
       startSession_();
       return;
+    } else {
+      console.error('Invalid "support-hosts" response from server.');
     }
   }
-  var errorMsg = remoting.Error.GENERIC;
+  var errorMsg = remoting.Error.UNEXPECTED;
   if (xhr.status == 404) {
     errorMsg = remoting.Error.INVALID_ACCESS_CODE;
   } else if (xhr.status == 0) {
@@ -410,10 +428,11 @@ function normalizeAccessCode_(accessCode) {
  * Initiate a request to the server to resolve a support ID.
  *
  * @param {string} supportId The canonicalized support ID.
+ * @param {string} token The OAuth access token.
  */
-function resolveSupportId(supportId) {
+function resolveSupportId(supportId, token) {
   var headers = {
-    'Authorization': 'OAuth ' + remoting.oauth2.getAccessToken()
+    'Authorization': 'OAuth ' + token
   };
 
   remoting.supportHostsXhr_ = remoting.xhr.get(
@@ -440,24 +459,6 @@ function updateStatistics_() {
 }
 
 /**
- * @return {boolean} true if the client plugin supports PIN auth.
- */
-remoting.isPinAuthSupported = function () {
-  var plugin = /** @type {remoting.ViewerPlugin} */
-      document.createElement('embed');
-  plugin.src = 'about://none';
-  plugin.type = 'pepper-application/x-chromoting';
-  plugin.width = 0;
-  plugin.height = 0;
-  document.body.appendChild(plugin);
-  var version = plugin.apiVersion;
-  document.body.removeChild(plugin);
-  // Future version of the plugin will not have apiVersion. We assume
-  // that they support PINs.
-  return !version || version >= 4;
-};
-
-/**
  * Shows PIN entry screen.
  *
  * @param {string} hostId The unique id of the host.
@@ -471,15 +472,16 @@ remoting.connectMe2Me = function(hostId, retryIfOffline) {
   remoting.hostId = hostId;
   remoting.retryIfOffline = retryIfOffline;
 
-  if (!remoting.isPinAuthSupported()) {
-    // Skip PIN prompt if it is not supported.
-    remoting.connectMe2MeWithPin();
-  } else {
-    var host = remoting.hostList.getHostForId(remoting.hostId);
-    var message = document.getElementById('pin-message');
-    l10n.localizeElement(message, host.hostName);
-    remoting.setMode(remoting.AppMode.CLIENT_PIN_PROMPT);
+  var host = remoting.hostList.getHostForId(remoting.hostId);
+  // If we're re-loading a tab for a host that has since been unregistered
+  // then the hostId may no longer resolve.
+  if (!host) {
+    showConnectError_(remoting.Error.HOST_IS_OFFLINE);
+    return;
   }
+  var message = document.getElementById('pin-message');
+  l10n.localizeElement(message, host.hostName);
+  remoting.setMode(remoting.AppMode.CLIENT_PIN_PROMPT);
 };
 
 /**
@@ -493,16 +495,22 @@ remoting.connectMe2MeWithPin = function() {
   remoting.setMode(remoting.AppMode.CLIENT_CONNECTING);
 
   var host = remoting.hostList.getHostForId(remoting.hostId);
-  if (!host) {
+  // If the user clicked on a cached host that has since been removed then we
+  // won't find the hostId. If the user clicked on the entry for the local host
+  // immediately after having enabled it then we won't know it's JID or public
+  // key until the host heartbeats and we pull a fresh host list.
+  if (!host || !host.jabberId || !host.publicKey) {
     retryConnectOrReportOffline_();
     return;
   }
   remoting.hostJid = host.jabberId;
   remoting.hostPublicKey = host.publicKey;
   document.getElementById('connected-to').innerText = host.hostName;
-  document.title = document.title + ': ' + host.hostName;
+  document.title = chrome.i18n.getMessage('PRODUCT_NAME') + ': ' +
+      host.hostName;
 
-  remoting.WcsLoader.load(connectMe2MeWithAccessToken_);
+  remoting.WcsLoader.load(connectMe2MeWithAccessToken_,
+                          remoting.defaultOAuthErrorHandler);
 };
 
 /**

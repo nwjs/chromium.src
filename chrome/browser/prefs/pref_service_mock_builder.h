@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PREFS_PREF_SERVICE_MOCK_BUILDER_H_
 #define CHROME_BROWSER_PREFS_PREF_SERVICE_MOCK_BUILDER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
@@ -14,6 +13,10 @@
 class CommandLine;
 class FilePath;
 class PrefService;
+
+namespace base {
+class MessageLoopProxy;
+}
 
 namespace policy {
 class PolicyService;
@@ -46,6 +49,9 @@ class PrefServiceMockBuilder {
 
   // Specifies to use an actual file-backed user pref store.
   PrefServiceMockBuilder& WithUserFilePrefs(const FilePath& prefs_file);
+  PrefServiceMockBuilder& WithUserFilePrefs(
+      const FilePath& prefs_file,
+      base::MessageLoopProxy* message_loop_proxy);
 
   // Creates the PrefService, invalidating the entire builder configuration.
   PrefService* Create();

@@ -1,0 +1,54 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// File-level comment to appease parser. Eventually this will not be necessary.
+
+namespace appWindow {
+  dictionary CreateWindowOptions {
+    // Width of the window.
+    long? width;
+
+    // Height of the window.
+    long? height;
+
+    // X coordinate of the window.
+    long? left;
+
+    // Y coordinate of the window.
+    long? top;
+
+    // Minimium width of the window.
+    long? minWidth;
+
+    // Minimum height of the window.
+    long? minHeight;
+
+    // Maximum width of the window.
+    long? maxWidth;
+
+    // Maximum height of the window.
+    long? maxHeight;
+
+    // Window type: 'shell' (the default) is the only currently supported value.
+    DOMString? type;
+
+    // Frame type: 'none' or 'chrome' (defaults to 'chrome').
+    DOMString? frame;
+  };
+
+  callback CreateWindowCallback = void (long view_id);
+
+  interface Functions {
+    static void create(DOMString url,
+                       optional CreateWindowOptions options,
+                       optional CreateWindowCallback callback);
+
+    static void focus();
+    static void maximize();
+    static void minimize();
+    static void restore();
+    [nocompile] static void moveTo(long x, long y);
+    [nocompile] static void resizeTo(long width, long height);
+  };
+};

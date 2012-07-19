@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -47,7 +47,6 @@ const char kUserStyleSheetFile[] = "Custom.css";
 class UserStyleSheetLoader : public FilePathWatcher::Delegate {
  public:
   UserStyleSheetLoader();
-  virtual ~UserStyleSheetLoader() {}
 
   GURL user_style_sheet() const {
     return user_style_sheet_;
@@ -64,6 +63,8 @@ class UserStyleSheetLoader : public FilePathWatcher::Delegate {
   virtual void OnFilePathChanged(const FilePath& path);
 
  private:
+  virtual ~UserStyleSheetLoader() {}
+
   // Called on the UI thread after the stylesheet has loaded.
   void SetStyleSheet(const GURL& url);
 
@@ -133,13 +134,15 @@ void UserStyleSheetLoader::SetStyleSheet(const GURL& url) {
 
 UserStyleSheetWatcher::UserStyleSheetWatcher(Profile* profile,
                                              const FilePath& profile_path)
-    : profile_(profile),
+    : RefcountedProfileKeyedService(content::BrowserThread::UI),
+      profile_(profile),
       profile_path_(profile_path),
       loader_(new UserStyleSheetLoader) {
   // Listen for when the first render view host is created.  If we load
   // too fast, the first tab won't hear the notification and won't get
   // the user style sheet.
-  registrar_.Add(this, content::NOTIFICATION_RENDER_VIEW_HOST_CREATED_FOR_TAB,
+  registrar_.Add(this,
+                 content::NOTIFICATION_WEB_CONTENTS_RENDER_VIEW_HOST_CREATED,
                  content::NotificationService::AllBrowserContextsAndSources());
 }
 
@@ -175,10 +178,14 @@ void UserStyleSheetWatcher::Observe(int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(type == content::NOTIFICATION_RENDER_VIEW_HOST_CREATED_FOR_TAB);
+  DCHECK(type == content::NOTIFICATION_WEB_CONTENTS_RENDER_VIEW_HOST_CREATED);
   if (profile_->IsSameProfile(Profile::FromBrowserContext(
           content::Source<WebContents>(source)->GetBrowserContext()))) {
     loader_->NotifyLoaded();
     registrar_.RemoveAll();
   }
+}
+
+void UserStyleSheetWatcher::ShutdownOnUIThread() {
+  registrar_.RemoveAll();
 }

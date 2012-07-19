@@ -4,14 +4,16 @@
 
 #ifndef UI_AURA_EVENT_H_
 #define UI_AURA_EVENT_H_
-#pragma once
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "base/event_types.h"
+#include "base/logging.h"
 #include "base/time.h"
 #include "ui/aura/aura_export.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/events.h"
+#include "ui/base/gestures/gesture_types.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/point.h"
 
@@ -103,13 +105,16 @@ class AURA_EXPORT LocatedEvent : public Event {
     LocatedEvent* located_event_;
   };
 
+  virtual ~LocatedEvent();
+
   int x() const { return location_.x(); }
   int y() const { return location_.y(); }
   gfx::Point location() const { return location_; }
   gfx::Point root_location() const { return root_location_; }
 
-  // Applies the |root_transform| to both |location_| and |root_location_|.
-  void UpdateForRootTransform(const ui::Transform& root_transform);
+  // Applies |root_transform| to the event.
+  // This is applied to both |location_| and |root_location_|.
+  virtual void UpdateForRootTransform(const ui::Transform& root_transform);
 
  protected:
   explicit LocatedEvent(const base::NativeEvent& native_event);
@@ -177,7 +182,8 @@ class AURA_EXPORT MouseEvent : public LocatedEvent {
   DISALLOW_COPY_AND_ASSIGN(MouseEvent);
 };
 
-class AURA_EXPORT TouchEvent : public LocatedEvent {
+class AURA_EXPORT TouchEvent : public LocatedEvent,
+                               public ui::TouchEvent {
  public:
   explicit TouchEvent(const base::NativeEvent& native_event);
 
@@ -186,10 +192,12 @@ class AURA_EXPORT TouchEvent : public LocatedEvent {
   // converted from |source| coordinate system to |target| coordinate system.
   TouchEvent(const TouchEvent& model, Window* source, Window* target);
 
-  // Used for synthetic events in testing.
   TouchEvent(ui::EventType type,
              const gfx::Point& root_location,
-             int touch_id);
+             int touch_id,
+             base::TimeDelta time_stamp);
+
+  virtual ~TouchEvent();
 
   int touch_id() const { return touch_id_; }
   float radius_x() const { return radius_x_; }
@@ -197,20 +205,35 @@ class AURA_EXPORT TouchEvent : public LocatedEvent {
   float rotation_angle() const { return rotation_angle_; }
   float force() const { return force_; }
 
-  // Returns a copy of this touch event. Used when queueing events for
-  // asynchronous gesture recognition.
-  TouchEvent* Copy() const;
+  // Used for unit tests.
+  void set_radius_x(const float r) { radius_x_ = r; }
+  void set_radius_y(const float r) { radius_y_ = r; }
+
+  // Overridden from LocatedEvent.
+  virtual void UpdateForRootTransform(
+      const ui::Transform& root_transform) OVERRIDE;
+
+  // Overridden from ui::TouchEvent.
+  virtual ui::EventType GetEventType() const OVERRIDE;
+  virtual gfx::Point GetLocation() const OVERRIDE;
+  virtual int GetTouchId() const OVERRIDE;
+  virtual int GetEventFlags() const OVERRIDE;
+  virtual base::TimeDelta GetTimestamp() const OVERRIDE;
+  virtual float RadiusX() const OVERRIDE;
+  virtual float RadiusY() const OVERRIDE;
+  virtual float RotationAngle() const OVERRIDE;
+  virtual float Force() const OVERRIDE;
 
  private:
   // The identity (typically finger) of the touch starting at 0 and incrementing
   // for each separable additional touch that the hardware can detect.
   const int touch_id_;
 
-  // Radius of the X (major) axis of the touch ellipse. 1.0 if unknown.
-  const float radius_x_;
+  // Radius of the X (major) axis of the touch ellipse. 0.0 if unknown.
+  float radius_x_;
 
-  // Radius of the Y (minor) axis of the touch ellipse. 1.0 if unknown.
-  const float radius_y_;
+  // Radius of the Y (minor) axis of the touch ellipse. 0.0 if unknown.
+  float radius_y_;
 
   // Angle of the major axis away from the X axis. Default 0.0.
   const float rotation_angle_;
@@ -335,7 +358,8 @@ class AURA_EXPORT ScrollEvent : public MouseEvent {
   DISALLOW_COPY_AND_ASSIGN(ScrollEvent);
 };
 
-class AURA_EXPORT GestureEvent : public LocatedEvent {
+class AURA_EXPORT GestureEvent : public LocatedEvent,
+                                 public ui::GestureEvent {
  public:
   GestureEvent(ui::EventType type,
                int x,
@@ -346,22 +370,22 @@ class AURA_EXPORT GestureEvent : public LocatedEvent {
                float delta_y,
                unsigned int touch_ids_bitfield);
 
-  // Create a new TouchEvent which is identical to the provided model.
+  // Create a new GestureEvent which is identical to the provided model.
   // If source / target windows are provided, the model location will be
   // converted from |source| coordinate system to |target| coordinate system.
   GestureEvent(const GestureEvent& model, Window* source, Window* target);
 
-  float delta_x() const { return delta_x_; }
-  float delta_y() const { return delta_y_; }
+  virtual ~GestureEvent();
+
+  const ui::GestureEventDetails& details() const { return details_; }
 
   // Returns the lowest touch-id of any of the touches which make up this
   // gesture.
   // If there are no touches associated with this gesture, returns -1.
-  int GetLowestTouchId() const;
+  virtual int GetLowestTouchId() const OVERRIDE;
 
  private:
-  float delta_x_;
-  float delta_y_;
+  ui::GestureEventDetails details_;
 
   // The set of indices of ones in the binary representation of
   // touch_ids_bitfield_ is the set of touch_ids associate with this gesture.

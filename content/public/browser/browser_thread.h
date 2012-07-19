@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_BROWSER_THREAD_H_
 #define CONTENT_PUBLIC_BROWSER_BROWSER_THREAD_H_
-#pragma once
 
 #include <string>
 
@@ -12,6 +11,7 @@
 #include "base/callback.h"
 #include "base/location.h"
 #include "base/message_loop_proxy.h"
+#include "base/task_runner_util.h"
 #include "base/time.h"
 #include "content/common/content_export.h"
 
@@ -109,19 +109,10 @@ class CONTENT_EXPORT BrowserThread {
   static bool PostDelayedTask(ID identifier,
                               const tracked_objects::Location& from_here,
                               const base::Closure& task,
-                              int64 delay_ms);
-  static bool PostDelayedTask(ID identifier,
-                              const tracked_objects::Location& from_here,
-                              const base::Closure& task,
                               base::TimeDelta delay);
   static bool PostNonNestableTask(ID identifier,
                                   const tracked_objects::Location& from_here,
                                   const base::Closure& task);
-  static bool PostNonNestableDelayedTask(
-      ID identifier,
-      const tracked_objects::Location& from_here,
-      const base::Closure& task,
-      int64 delay_ms);
   static bool PostNonNestableDelayedTask(
       ID identifier,
       const tracked_objects::Location& from_here,
@@ -133,6 +124,18 @@ class CONTENT_EXPORT BrowserThread {
       const tracked_objects::Location& from_here,
       const base::Closure& task,
       const base::Closure& reply);
+
+  template <typename ReturnType>
+  static bool PostTaskAndReplyWithResult(
+      ID identifier,
+      const tracked_objects::Location& from_here,
+      const base::Callback<ReturnType(void)>& task,
+      const base::Callback<void(ReturnType)>& reply) {
+    scoped_refptr<base::MessageLoopProxy> message_loop_proxy =
+        GetMessageLoopProxyForThread(identifier);
+    return base::PostTaskAndReplyWithResult<ReturnType>(
+        message_loop_proxy.get(), from_here, task, reply);
+  }
 
   template <class T>
   static bool DeleteSoon(ID identifier,
@@ -154,9 +157,10 @@ class CONTENT_EXPORT BrowserThread {
   // for doing things like blocking I/O.
   //
   // The first variant will run the task in the pool with no sequencing
-  // semantics, so may get run in parallel with other posted tasks. The
-  // second variant provides sequencing between tasks with the same
-  // sequence token name.
+  // semantics, so may get run in parallel with other posted tasks. The second
+  // variant will all post a task with no sequencing semantics, and will post a
+  // reply task to the origin TaskRunner upon completion.  The third variant
+  // provides sequencing between tasks with the same sequence token name.
   //
   // These tasks are guaranteed to run before shutdown.
   //
@@ -168,6 +172,10 @@ class CONTENT_EXPORT BrowserThread {
   // GetBlockingPool().
   static bool PostBlockingPoolTask(const tracked_objects::Location& from_here,
                                    const base::Closure& task);
+  static bool PostBlockingPoolTaskAndReply(
+      const tracked_objects::Location& from_here,
+      const base::Closure& task,
+      const base::Closure& reply);
   static bool PostBlockingPoolSequencedTask(
       const std::string& sequence_token_name,
       const tracked_objects::Location& from_here,
@@ -253,7 +261,7 @@ class CONTENT_EXPORT BrowserThread {
   // ...
   //  private:
   //   friend struct BrowserThread::DeleteOnThread<BrowserThread::IO>;
-  //   friend class DeleteTask<Foo>;
+  //   friend class base::DeleteHelper<Foo>;
   //
   //   ~Foo();
   struct DeleteOnUIThread : public DeleteOnThread<UI> { };

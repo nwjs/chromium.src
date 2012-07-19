@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_TASK_MANAGER_GTK_H_
 #define CHROME_BROWSER_UI_GTK_TASK_MANAGER_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -85,6 +84,9 @@ class TaskManagerGtk : public TaskManagerModelObserver {
   // Response signal handler that notifies us of dialog responses.
   CHROMEGTK_CALLBACK_1(TaskManagerGtk, void, OnResponse, int);
 
+  // Realize signal handler to set the task column's initial size.
+  CHROMEG_CALLBACK_0(TaskManagerGtk, void, OnTreeViewRealize, GtkTreeView*);
+
   // Changed signal handler that is sent when the treeview selection changes.
   CHROMEG_CALLBACK_0(TaskManagerGtk, void, OnSelectionChanged,
                      GtkTreeSelection*);
@@ -108,7 +110,7 @@ class TaskManagerGtk : public TaskManagerModelObserver {
   static gint ComparePage(GtkTreeModel* model, GtkTreeIter* a,
                           GtkTreeIter* b, gpointer task_manager) {
     return reinterpret_cast<TaskManagerGtk*>(task_manager)->
-        CompareImpl(model, a, b, IDS_TASK_MANAGER_PAGE_COLUMN);
+        CompareImpl(model, a, b, IDS_TASK_MANAGER_TASK_COLUMN);
   }
 
   // Profile name sorting callback.

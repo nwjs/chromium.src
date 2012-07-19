@@ -7,19 +7,26 @@
 
 #include <string>
 
-#include "chrome/browser/ui/webui/html_dialog_ui.h"
+#include "ui/web_dialogs/web_dialog_ui.h"
 
 class Browser;
 
 namespace browser {
-void ShowHtmlFeedbackView(Browser* browser,
-                          const std::string& description_template,
-                          const std::string& category_tag);
+void ShowWebFeedbackView(Browser* browser,
+                         const std::string& description_template,
+                         const std::string& category_tag);
 }  // namespace browser
 
-class FeedbackUI : public HtmlDialogUI {
+class FeedbackUI : public ui::WebDialogUI {
  public:
   explicit FeedbackUI(content::WebUI* web_ui);
+
+#if defined(OS_CHROMEOS)
+  static void GetMostRecentScreenshots(
+      const FilePath& filepath,
+      std::vector<std::string>* saved_screenshots,
+      size_t max_saved);
+#endif
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FeedbackUI);

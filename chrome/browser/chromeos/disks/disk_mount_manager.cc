@@ -4,16 +4,16 @@
 
 #include "chrome/browser/chromeos/disks/disk_mount_manager.h"
 
+#include <sys/statvfs.h>
+
 #include <map>
 #include <set>
-
-#include <sys/statvfs.h>
 
 #include "base/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/string_util.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -58,6 +58,8 @@ class DiskMountManagerImpl : public DiskMountManager {
 
   // DiskMountManager override.
   virtual void MountPath(const std::string& source_path,
+                         const std::string& source_format,
+                         const std::string& mount_label,
                          MountType type) OVERRIDE {
     // Hidden and non-existent devices should not be mounted.
     if (type == MOUNT_TYPE_DEVICE) {
@@ -70,6 +72,8 @@ class DiskMountManagerImpl : public DiskMountManager {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
     cros_disks_client_->Mount(
         source_path,
+        source_format,
+        mount_label,
         type,
         // When succeeds, OnMountCompleted will be called by
         // "MountCompleted" signal instead.
@@ -271,10 +275,12 @@ class DiskMountManagerImpl : public DiskMountManager {
                         const std::string& mount_path) {
     MountCondition mount_condition = MOUNT_CONDITION_NONE;
     if (mount_type == MOUNT_TYPE_DEVICE) {
-      if (error_code == MOUNT_ERROR_UNKNOWN_FILESYSTEM)
+      if (error_code == MOUNT_ERROR_UNKNOWN_FILESYSTEM) {
         mount_condition = MOUNT_CONDITION_UNKNOWN_FILESYSTEM;
-      if (error_code == MOUNT_ERROR_UNSUPORTED_FILESYSTEM)
+      }
+      if (error_code == MOUNT_ERROR_UNSUPPORTED_FILESYSTEM) {
         mount_condition = MOUNT_CONDITION_UNSUPPORTED_FILESYSTEM;
+      }
     }
     const MountPointInfo mount_info(source_path, mount_path, mount_type,
                                     mount_condition);
@@ -310,13 +316,12 @@ class DiskMountManagerImpl : public DiskMountManager {
     if (mount_points_it == mount_points_.end())
       return;
     // TODO(tbarzic): Add separate, PathUnmounted event to Observer.
-    NotifyMountCompleted(UNMOUNTING,
-                         MOUNT_ERROR_NONE,
-                         MountPointInfo(mount_points_it->second.source_path,
-                                        mount_points_it->second.mount_path,
-                                        mount_points_it->second.mount_type,
-                                        mount_points_it->second.mount_condition)
-                         );
+    NotifyMountCompleted(
+        UNMOUNTING, MOUNT_ERROR_NONE,
+        MountPointInfo(mount_points_it->second.source_path,
+                       mount_points_it->second.mount_path,
+                       mount_points_it->second.mount_type,
+                       mount_points_it->second.mount_condition));
     std::string path(mount_points_it->second.source_path);
     mount_points_.erase(mount_points_it);
     DiskMap::iterator iter = disks_.find(path);
@@ -553,7 +558,7 @@ class DiskMountManagerImpl : public DiskMountManager {
   DISALLOW_COPY_AND_ASSIGN(DiskMountManagerImpl);
 };
 
-} // namespace
+}  // namespace
 
 DiskMountManager::Disk::Disk(const std::string& device_path,
                              const std::string& mount_path,

@@ -4,132 +4,71 @@
 
 #include "chrome/browser/extensions/api/serial/serial_connection.h"
 
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <string>
+#include <sys/ioctl.h>
 #include <termios.h>
-#include <unistd.h>
-
-#include "base/file_path.h"
-#include "base/file_util.h"
-#include "base/string_util.h"
 
 namespace extensions {
 
-SerialConnection::SerialConnection(const std::string& port,
-                                   APIResourceEventNotifier* event_notifier)
-    : APIResource(APIResource::SerialConnectionResource, event_notifier),
-      port_(port), fd_(0) {
+bool SerialConnection::PostOpen() {
+  struct termios options;
+
+  // Start with existing options and modify.
+  tcgetattr(file_, &options);
+
+  // Bitrate (sometimes erroneously referred to as baud rate).
+  if (bitrate_ >= 0) {
+    options.c_ispeed = bitrate_;
+    options.c_ospeed = bitrate_;
+  }
+
+  // 8N1
+  options.c_cflag &= ~PARENB;
+  options.c_cflag &= ~CSTOPB;
+  options.c_cflag &= ~CSIZE;
+  options.c_cflag |= CS8;
+  options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+
+  // Enable receiver and set local mode
+  // See http://www.easysw.com/~mike/serial/serial.html to understand.
+  options.c_cflag |= (CLOCAL | CREAD);
+
+  // Write the options.
+  tcsetattr(file_, TCSANOW, &options);
+
+  return true;
 }
 
-SerialConnection::~SerialConnection() {
+bool SerialConnection::GetControlSignals(ControlSignals &control_signals) {
+  int status;
+  if (ioctl(file_, TIOCMGET, &status) == 0) {
+    control_signals.dcd = (status & TIOCM_CAR) != 0;
+    control_signals.cts = (status & TIOCM_CTS) != 0;
+    return true;
+  }
+  return false;
 }
 
-bool SerialConnection::Open() {
-  const StringSet port_patterns(GenerateValidSerialPortNames());
-  if (!DoesPortExist(port_patterns, port_)) {
+bool SerialConnection::
+SetControlSignals(const ControlSignals &control_signals) {
+  int status;
+
+  if (ioctl(file_, TIOCMGET, &status) != 0)
     return false;
+
+  if (control_signals.should_set_dtr) {
+    if (control_signals.dtr)
+      status |= TIOCM_DTR;
+    else
+      status &= ~TIOCM_DTR;
   }
-  fd_ = open(port_.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
-  return (fd_ > 0);
-}
-
-void SerialConnection::Close() {
-  if (fd_ > 0) {
-    close(fd_);
-    fd_ = 0;
+  if (control_signals.should_set_rts) {
+    if (control_signals.rts)
+      status |= TIOCM_RTS;
+    else
+      status &= ~TIOCM_RTS;
   }
-}
 
-int SerialConnection::Read(unsigned char* byte) {
-  return read(fd_, byte, 1);
-}
-
-int SerialConnection::Write(const std::string& data) {
-  return write(fd_, data.c_str(), data.length());
-}
-
-// static
-//
-// TODO(miket): this is starting to look like a
-// SerialConnectionCollectionFinderManagerSingleton. Can it be extracted, then
-// owned by someone like APIResourceController?
-SerialConnection::StringSet SerialConnection::GenerateValidPatterns() {
-  // TODO(miket): the set of patterns should be larger. See the rxtx project.
-  //
-  // TODO(miket): The list of patterns tested at runtime should also be
-  // OS-dependent.
-  const char* VALID_PATTERNS[] = {
-    "/dev/*Bluetooth*",
-    "/dev/*Modem*",
-    "/dev/*bluetooth*",
-    "/dev/*modem*",
-    "/dev/*serial*",
-    "/dev/ttyACM*",
-    "/dev/ttyS*",
-    "/dev/ttyUSB*",
-  };
-
-  StringSet valid_patterns;
-  for (size_t i = 0; i < arraysize(VALID_PATTERNS); ++i)
-    valid_patterns.insert(VALID_PATTERNS[i]);
-
-  return valid_patterns;
-}
-
-// static
-//
-// TODO(miket): Investigate udev. Search for equivalent solutions on OSX.
-// Continue to examine rxtx code.
-//
-// On a fairly ordinary Linux machine, ls -l /dev | wc -l returned about 200
-// items. So we're doing about N(VALID_PATTERNS) * 200 = 1,600 MatchPattern
-// calls to find maybe a dozen serial ports in a small number of milliseconds
-// (a single trial of SerialConnectionTest.ValidPortNames took 6ms to run).
-// It's not cheap, but then again, we don't expect users of this API to be
-// enumerating too often (at worst on every click of a UI element that displays
-// the generated list).
-//
-// An upside-down approach would instead take each pattern and turn it into a
-// string generator (something like /dev/ttyS[0-9]{0,3}) and then expanding
-// that into a series of possible paths, perhaps early-outing if we knew that
-// port patterns were contiguous (e.g., /dev/ttyS1 can't exist if /dev/ttyS0
-// doesn't exist).
-//
-// Caching seems undesirable. Many devices can be dynamically added to and
-// removed from the system, so we really do want to regenerate the set each
-// time.
-//
-// TODO(miket): this might be refactorable into serial_connection.cc, if
-// Windows serial-port enumeration also entails looking through a directory.
-SerialConnection::StringSet SerialConnection::GenerateValidSerialPortNames() {
-  const FilePath DEV_ROOT("/dev");
-  const file_util::FileEnumerator::FileType FILES_AND_SYM_LINKS =
-      static_cast<file_util::FileEnumerator::FileType>(
-          file_util::FileEnumerator::FILES |
-          file_util::FileEnumerator::SHOW_SYM_LINKS);
-
-  StringSet valid_patterns = GenerateValidPatterns();
-  StringSet name_set;
-  file_util::FileEnumerator enumerator(
-      DEV_ROOT, false, FILES_AND_SYM_LINKS);
-  do {
-    const FilePath next_device_path(enumerator.Next());
-    const std::string next_device = next_device_path.value();
-    if (next_device.empty())
-      break;
-
-    std::set<std::string>::const_iterator i = valid_patterns.begin();
-    for (; i != valid_patterns.end(); ++i) {
-      if (MatchPattern(next_device, *i)) {
-        name_set.insert(next_device);
-        break;
-      }
-    }
-  } while (true);
-
-  return name_set;
+  return ioctl(file_, TIOCMSET, &status) == 0;
 }
 
 }  // namespace extensions

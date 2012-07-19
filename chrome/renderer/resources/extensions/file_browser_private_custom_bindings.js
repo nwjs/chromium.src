@@ -7,6 +7,9 @@
 var fileBrowserPrivateNatives = requireNative('file_browser_private');
 var GetLocalFileSystem = fileBrowserPrivateNatives.GetLocalFileSystem;
 
+var fileBrowserNatives = requireNative('file_browser_handler');
+var GetExternalFileEntry = fileBrowserNatives.GetExternalFileEntry;
+
 var chromeHidden = requireNative('chrome_hidden').GetChromeHidden();
 
 chromeHidden.registerCustomHook('fileBrowserPrivate', function(bindingsAPI) {
@@ -14,12 +17,22 @@ chromeHidden.registerCustomHook('fileBrowserPrivate', function(bindingsAPI) {
 
   apiFunctions.setCustomCallback('requestLocalFileSystem',
                                  function(name, request, response) {
-    var resp = response ? [chromeHidden.JSON.parse(response)] : [];
     var fs = null;
-    if (!resp[0].error)
-      fs = GetLocalFileSystem(resp[0].name, resp[0].path);
+    if (response && !response.error)
+      fs = GetLocalFileSystem(response.name, response.path);
     if (request.callback)
       request.callback(fs);
+    request.callback = null;
+  });
+
+  apiFunctions.setCustomCallback('searchGData',
+                                 function(name, request, response) {
+    if (response && !response.error && response) {
+      for (var i = 0; i < response.length; i++)
+       response[i] = GetExternalFileEntry(response[i]);
+    }
+    if (request.callback)
+      request.callback(response);
     request.callback = null;
   });
 });

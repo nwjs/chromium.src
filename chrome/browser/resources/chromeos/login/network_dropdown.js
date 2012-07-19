@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -78,6 +78,13 @@ cr.define('cr.ui', function() {
   var DropDown = cr.ui.define('div');
 
   DropDown.ITEM_DIVIDER_ID = -2;
+
+  DropDown.KEYCODE_DOWN = 40;
+  DropDown.KEYCODE_ENTER = 13;
+  DropDown.KEYCODE_ESC = 27;
+  DropDown.KEYCODE_SPACE = 32;
+  DropDown.KEYCODE_TAB = 9;
+  DropDown.KEYCODE_UP = 38;
 
   DropDown.prototype = {
     __proto__: HTMLDivElement.prototype,
@@ -191,6 +198,7 @@ cr.define('cr.ui', function() {
           span.classList.add('bold');
         var image = this.ownerDocument.createElement('img');
         image.alt = '';
+        image.classList.add('dropdown-image');
         if (item.icon)
           image.src = item.icon;
       }
@@ -212,7 +220,6 @@ cr.define('cr.ui', function() {
           wrapperDiv.setAttribute('aria-disabled', 'true');
         wrapperDiv.classList.add('dropdown-item-container');
         var imageDiv = this.ownerDocument.createElement('div');
-        imageDiv.classList.add('dropdown-image');
         imageDiv.appendChild(image);
         wrapperDiv.appendChild(imageDiv);
         wrapperDiv.appendChild(itemElement);
@@ -259,6 +266,7 @@ cr.define('cr.ui', function() {
     createTitle_: function() {
       var image = this.ownerDocument.createElement('img');
       image.alt = '';
+      image.classList.add('dropdown-image');
       var text = this.ownerDocument.createElement('div');
 
       var el = this.ownerDocument.createElement('div');
@@ -286,8 +294,10 @@ cr.define('cr.ui', function() {
 
       el.addEventListener('keydown', function f(e) {
         if (this.inFocus && !this.controller.isShown &&
-            (e.keyCode == 13 || e.keyCode == 32)) {
-          // Enter or space has been pressed.
+            (e.keyCode == DropDown.KEYCODE_ENTER ||
+             e.keyCode == DropDown.KEYCODE_SPACE ||
+             e.keyCode == DropDown.KEYCODE_UP ||
+             e.keyCode == DropDown.KEYCODE_DOWN)) {
           this.opening = true;
           this.controller.isShown = true;
         }
@@ -305,7 +315,7 @@ cr.define('cr.ui', function() {
         return;
       var selected = this.container.selectedItem;
       switch (e.keyCode) {
-        case 38: {  // Key up.
+        case DropDown.KEYCODE_UP: {
           do {
             selected = selected.previousSibling;
             if (!selected)
@@ -314,7 +324,7 @@ cr.define('cr.ui', function() {
           this.container.selectItem(selected, false);
           break;
         }
-        case 40: {  // Key down.
+        case DropDown.KEYCODE_DOWN: {
           do {
             selected = selected.nextSibling;
             if (!selected)
@@ -323,15 +333,15 @@ cr.define('cr.ui', function() {
           this.container.selectItem(selected, false);
           break;
         }
-        case 27: {  // Esc.
+        case DropDown.KEYCODE_ESC: {
           this.isShown = false;
           break;
         }
-        case 9: {  // Tab.
+        case DropDown.KEYCODE_TAB: {
           this.isShown = false;
           break;
         }
-        case 13: {  // Enter.
+        case DropDown.KEYCODE_ENTER: {
           var button = this.titleButton;
           if (!button.opening) {
             button.focus();

@@ -40,6 +40,12 @@ void SigninManagerFactory::RegisterUserPrefs(PrefService* user_prefs) {
                                  PrefService::UNSYNCABLE_PREF);
 }
 
+// static
+void SigninManagerFactory::RegisterPrefs(PrefService* local_state) {
+  local_state->RegisterStringPref(prefs::kGoogleServicesUsernamePattern, "",
+                                  PrefService::UNSYNCABLE_PREF);
+}
+
 ProfileKeyedService* SigninManagerFactory::BuildServiceInstanceFor(
     Profile* profile) const {
   SigninManager* service = new SigninManager();

@@ -1,14 +1,13 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_TEST_BASE_TEST_TAB_STRIP_MODEL_OBSERVER_H_
 #define CHROME_TEST_BASE_TEST_TAB_STRIP_MODEL_OBSERVER_H_
-#pragma once
 
 #include "base/compiler_specific.h"
-#include "chrome/browser/tabs/tab_strip_model_observer.h"
-#include "content/test/test_navigation_observer.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "content/public/test/test_navigation_observer.h"
 
 class TabStripModel;
 
@@ -19,22 +18,22 @@ class TabStripModel;
 // the framework & registration javascript before the webui page loads by
 // calling back through the TestTabStripModelObserver::LoadStartObserver when
 // the new page starts loading.
-class TestTabStripModelObserver : public TestNavigationObserver,
+class TestTabStripModelObserver : public content::TestNavigationObserver,
                                   public TabStripModelObserver {
  public:
   // Observe the |tab_strip_model|, which may not be NULL. If
   // |load_start_observer| is non-NULL, notify when the page load starts.
   TestTabStripModelObserver(
       TabStripModel* tab_strip_model,
-      JsInjectionReadyObserver* js_injection_ready_observer);
+      content::JsInjectionReadyObserver* js_injection_ready_observer);
   virtual ~TestTabStripModelObserver();
 
  private:
   // Callback to observer the print preview tab associated with |contents|.
-  void ObservePrintPreviewTabContents(TabContentsWrapper* contents);
+  void ObservePrintPreviewTabContents(TabContents* contents);
 
   // TabStripModelObserver:
-  virtual void TabBlockedStateChanged(TabContentsWrapper* contents,
+  virtual void TabBlockedStateChanged(TabContents* contents,
                                       int index) OVERRIDE;
 
   // |tab_strip_model_| is the object this observes. The constructor will

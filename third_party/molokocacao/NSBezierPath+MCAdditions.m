@@ -100,7 +100,9 @@ static void CGPathCallback(void *info, const CGPathElement *element)
 	NSSize originalOffset = offset;
 	CGFloat radius = shadow.shadowBlurRadius;
 	NSRect bounds = NSInsetRect(self.bounds, -(ABS(offset.width) + radius), -(ABS(offset.height) + radius));
-	offset.height += bounds.size.height;
+
+	// The context's user transform isn't automatically applied to shadow offsets.
+        offset.height += bounds.size.height;
 	shadow.shadowOffset = offset;
 	NSAffineTransform *transform = [NSAffineTransform transform];
 	if ([[NSGraphicsContext currentContext] isFlipped])

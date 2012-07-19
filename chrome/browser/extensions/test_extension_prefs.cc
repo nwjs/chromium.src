@@ -26,6 +26,8 @@
 
 using content::BrowserThread;
 
+namespace extensions {
+
 namespace {
 
 // Mock ExtensionPrefs class with artificial clock to guarantee that no two
@@ -124,7 +126,7 @@ scoped_refptr<Extension> TestExtensionPrefs::AddApp(std::string name) {
 scoped_refptr<Extension> TestExtensionPrefs::AddExtensionWithManifest(
     const DictionaryValue& manifest, Extension::Location location) {
   return AddExtensionWithManifestAndFlags(manifest, location,
-                                          Extension::STRICT_ERROR_CHECKS);
+                                          Extension::NO_FLAGS);
 }
 
 scoped_refptr<Extension> TestExtensionPrefs::AddExtensionWithManifestAndFlags(
@@ -161,3 +163,5 @@ PrefService* TestExtensionPrefs::CreateIncognitoPrefService() const {
 void TestExtensionPrefs::set_extensions_disabled(bool extensions_disabled) {
   extensions_disabled_ = extensions_disabled;
 }
+
+}  // namespace extensions

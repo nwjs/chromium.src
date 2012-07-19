@@ -9,8 +9,8 @@
 #include <X11/cursorfont.h>
 
 #include "base/logging.h"
+#include "skia/ext/image_operations.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCursorInfo.h"
-#include "third_party/skia/include/core/SkUnPreMultiply.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/x/x11_util.h"
 
@@ -18,41 +18,43 @@ const ui::PlatformCursor WebCursor::GetPlatformCursor() {
   if (platform_cursor_)
     return platform_cursor_;
 
-  XcursorImage* image =
-      XcursorImageCreate(custom_size_.width(), custom_size_.height());
-  image->xhot = hotspot_.x();
-  image->yhot = hotspot_.y();
-  uint32* pixels = image->pixels;
+  SkBitmap bitmap;
+  bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+                   custom_size_.width(), custom_size_.height());
+  bitmap.allocPixels();
+  memcpy(bitmap.getAddr32(0, 0), custom_data_.data(), custom_data_.size());
 
-  if (custom_size_.width() && custom_size_.height()) {
-    SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                     custom_size_.width(), custom_size_.height());
-    bitmap.allocPixels();
-    memcpy(bitmap.getAddr32(0, 0), custom_data_.data(), custom_data_.size());
-
-    bitmap.lockPixels();
-    int height = bitmap.height(), width = bitmap.width();
-    for (int y = 0, i = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        uint32 pixel = bitmap.getAddr32(0, y)[x];
-        int alpha = SkColorGetA(pixel);
-        if (alpha != 0 && alpha != 255)
-          pixels[i] = SkUnPreMultiply::PMColorToColor(pixel);
-        else
-          pixels[i] = pixel;
-        ++i;
-      }
-    }
-    bitmap.unlockPixels();
+  XcursorImage* image = NULL;
+  if (scale_factor_ == 1.f) {
+    image = ui::SkBitmapToXcursorImage(&bitmap, hotspot_);
+  } else {
+    gfx::Size scaled_size = custom_size_.Scale(scale_factor_);
+    SkBitmap scaled_bitmap = skia::ImageOperations::Resize(bitmap,
+        skia::ImageOperations::RESIZE_BETTER,
+        scaled_size.width(),
+        scaled_size.height());
+    image = ui::SkBitmapToXcursorImage(&scaled_bitmap,
+                                       hotspot_.Scale(scale_factor_));
   }
-
   platform_cursor_ = ui::CreateReffedCustomXCursor(image);
   return platform_cursor_;
 }
 
+void WebCursor::SetScaleFactor(float scale_factor) {
+  if (scale_factor_ == scale_factor)
+    return;
+
+  scale_factor_ = scale_factor;
+  if (platform_cursor_)
+    ui::UnrefCustomXCursor(platform_cursor_);
+  platform_cursor_ = 0;
+  // It is not necessary to recreate platform_cursor_ yet, since it will be
+  // recreated on demand when GetPlatformCursor is called.
+}
+
 void WebCursor::InitPlatformData() {
   platform_cursor_ = 0;
+  scale_factor_ = 1.f;
 }
 
 bool WebCursor::SerializePlatformData(Pickle* pickle) const {
@@ -80,4 +82,6 @@ void WebCursor::CopyPlatformData(const WebCursor& other) {
   platform_cursor_ = other.platform_cursor_;
   if (platform_cursor_)
     ui::RefCustomXCursor(platform_cursor_);
+
+  scale_factor_ = other.scale_factor_;
 }

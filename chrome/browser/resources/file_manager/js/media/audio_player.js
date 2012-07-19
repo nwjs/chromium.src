@@ -12,13 +12,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * @param {HTMLElement} container
- * @param {string} filesystemRootURL
+ * @param {HTMLElement} container Container element.
  * @constructor
  */
-function AudioPlayer(container, filesystemRootURL) {
+function AudioPlayer(container) {
   this.container_ = container;
-  this.metadataProvider_ = new MetadataProvider(filesystemRootURL);
+  this.metadataCache_ = MetadataCache.createFull();
   this.currentTrack_ = -1;
   this.playlistGeneration_ = 0;
 
@@ -52,16 +51,23 @@ function AudioPlayer(container, filesystemRootURL) {
   chrome.fileBrowserPrivate.getStrings(function(strings) {
     container.ownerDocument.title = strings['AUDIO_PLAYER_TITLE'];
     this.errorString_ = strings['AUDIO_ERROR'];
+    this.offlineString_ = strings['AUDIO_OFFLINE'];
+    AudioPlayer.TrackInfo.DEFAULT_ARTIST =
+        strings['AUDIO_PLAYER_DEFAULT_ARTIST'];
   }.bind(this));
 }
 
+/**
+ * Initial load method (static).
+ */
 AudioPlayer.load = function() {
   document.ondragstart = function(e) { e.preventDefault() };
   document.oncontextmenu = function(e) { e.preventDefault(); };
 
-  chrome.fileBrowserPrivate.requestLocalFileSystem(function(filesystem) {
-    var player = new AudioPlayer(document.querySelector('.audio-player'),
-        filesystem.root.toURL());
+  // If the audio player is starting before the first instance of the File
+  // Manager then it does not have access to filesystem URLs. Request it now.
+  chrome.fileBrowserPrivate.requestLocalFileSystem(function() {
+    var player = new AudioPlayer(document.querySelector('.audio-player'));
     function getPlaylist() {
       chrome.mediaPlayerPrivate.getPlaylist(player.load.bind(player));
     }
@@ -70,6 +76,10 @@ AudioPlayer.load = function() {
   });
 };
 
+/**
+ * Load a new playlist.
+ * @param {Playlist} playlist Playlist object passed via mediaPlayerPrivate.
+ */
 AudioPlayer.prototype.load = function(playlist) {
   this.playlistGeneration_++;
 
@@ -117,16 +127,35 @@ AudioPlayer.prototype.load = function(playlist) {
   }
 };
 
+/**
+ * Load metadata for a track.
+ * @param {number} track Track number
+ * @private
+ */
 AudioPlayer.prototype.loadMetadata_ = function(track) {
   this.fetchMetadata_(
       this.urls_[track], this.displayMetadata_.bind(this, track));
 };
 
-AudioPlayer.prototype.displayMetadata_ = function(track, metadata) {
-  this.trackListItems_[track].setMetadata(metadata, this.container_);
-  this.trackStackItems_[track].setMetadata(metadata, this.container_);
+/**
+ * Display track's metadata.
+ * @param {number} track Track number.
+ * @param {object} metadata Metadata object.
+ * @param {string} opt_error Error message.
+ * @private
+ */
+AudioPlayer.prototype.displayMetadata_ = function(track, metadata, opt_error) {
+  this.trackListItems_[track].
+      setMetadata(metadata, this.container_, opt_error);
+  this.trackStackItems_[track].
+      setMetadata(metadata, this.container_, opt_error);
 };
 
+/**
+ * Select a new track to play.
+ * @param {number} newTrack New track number.
+ * @private
+ */
 AudioPlayer.prototype.select_ = function(newTrack) {
   if (this.currentTrack_ == newTrack) return;
 
@@ -139,15 +168,22 @@ AudioPlayer.prototype.select_ = function(newTrack) {
   var url = this.urls_[this.currentTrack_];
   this.fetchMetadata_(url, function(metadata) {
     var media = this.audioControls_.getMedia();
-    media.src = metadata.contentURL || url;
+    // Do not try no stream when offline.
+    media.src =
+        (navigator.onLine && metadata.streaming && metadata.streaming.url) ||
+        url;
     media.load();
     this.audioControls_.play();
   }.bind(this));
 };
 
+/**
+ * @param {string} url Track file url.
+ * @param {function(object)} callback Callback.
+ * @private
+ */
 AudioPlayer.prototype.fetchMetadata_ = function(url, callback) {
-  this.metadataProvider_.fetch(
-      url,
+  this.metadataCache_.get(url, 'thumbnail|media|streaming',
       function(generation, metadata) {
         // Do nothing if another load happened since the metadata request.
         if (this.playlistGeneration_ == generation)
@@ -155,6 +191,11 @@ AudioPlayer.prototype.fetchMetadata_ = function(url, callback) {
       }.bind(this, this.playlistGeneration_));
 };
 
+/**
+ * @param {number} oldTrack Old track number.
+ * @param {number} newTrack New track number.
+ * @private
+ */
 AudioPlayer.prototype.changeSelectionInList_ = function(oldTrack, newTrack) {
   this.trackListItems_[newTrack].getBox().classList.add('selected');
 
@@ -163,6 +204,11 @@ AudioPlayer.prototype.changeSelectionInList_ = function(oldTrack, newTrack) {
   }
 };
 
+/**
+ * @param {number} oldTrack Old track number.
+ * @param {number} newTrack New track number.
+ * @private
+ */
 AudioPlayer.prototype.changeSelectionInStack_ = function(oldTrack, newTrack) {
   var newBox = this.trackStackItems_[newTrack].getBox();
   newBox.classList.add('selected');  // Put on top immediately.
@@ -171,7 +217,7 @@ AudioPlayer.prototype.changeSelectionInStack_ = function(oldTrack, newTrack) {
   if (oldTrack >= 0) {
     var oldBox = this.trackStackItems_[oldTrack].getBox();
     oldBox.classList.remove('selected'); // Put under immediately.
-    setTimeout(function () {
+    setTimeout(function() {
       if (!oldBox.classList.contains('selected')) {
         // This will start fading out which is not really necessary because
         // oldBox is already completely obscured by newBox.
@@ -186,6 +232,7 @@ AudioPlayer.prototype.changeSelectionInStack_ = function(oldTrack, newTrack) {
  *
  * @param {boolean} keepAtBottom If true, make the selected track the last
  *   of the visible (if possible). If false, perform minimal scrolling.
+ * @private
  */
 AudioPlayer.prototype.scrollToCurrent_ = function(keepAtBottom) {
   var box = this.trackListItems_[this.currentTrack_].getBox();
@@ -194,11 +241,21 @@ AudioPlayer.prototype.scrollToCurrent_ = function(keepAtBottom) {
       box.offsetTop + box.offsetHeight - this.trackList_.clientHeight);
 };
 
+/**
+ * @return {boolean} True if the player is be displayed in compact mode.
+ * @private
+ */
 AudioPlayer.prototype.isCompact_ = function() {
   return this.container_.classList.contains('collapsed') ||
          this.container_.classList.contains('single-track');
 };
 
+/**
+ * Go to the previous or the next track.
+ * @param {boolean} forward True if next, false if previous.
+ * @param {boolean} opt_onlyIfValid True if invalid tracks should be selected.
+ * @private
+ */
 AudioPlayer.prototype.advance_ = function(forward, opt_onlyIfValid) {
   this.cancelAutoAdvance_();
 
@@ -210,6 +267,10 @@ AudioPlayer.prototype.advance_ = function(forward, opt_onlyIfValid) {
   this.select_(newTrack);
 };
 
+/**
+ * Media error handler.
+ * @private
+ */
 AudioPlayer.prototype.onError_ = function() {
   var track = this.currentTrack_;
 
@@ -218,13 +279,17 @@ AudioPlayer.prototype.onError_ = function() {
   this.fetchMetadata_(
       this.urls_[track],
       function(metadata) {
-        metadata.error = true;
-        metadata.artist = this.errorString_;
-        this.displayMetadata_(track, metadata);
+        var error = (!navigator.onLine && metadata.streaming) ?
+            this.offlineString_ : this.errorString_;
+        this.displayMetadata_(track, metadata, error);
         this.scheduleAutoAdvance_();
       }.bind(this));
 };
 
+/**
+ * Schedule automatic advance to the next track after a timeout.
+ * @private
+ */
 AudioPlayer.prototype.scheduleAutoAdvance_ = function() {
   this.cancelAutoAdvance_();
   this.autoAdvanceTimer_ = setTimeout(
@@ -238,6 +303,10 @@ AudioPlayer.prototype.scheduleAutoAdvance_ = function() {
       3000);
 };
 
+/**
+ * Cancel the scheduled auto advance.
+ * @private
+ */
 AudioPlayer.prototype.cancelAutoAdvance_ = function() {
   if (this.autoAdvanceTimer_) {
     clearTimeout(this.autoAdvanceTimer_);
@@ -245,6 +314,10 @@ AudioPlayer.prototype.cancelAutoAdvance_ = function() {
   }
 };
 
+/**
+ * Expand/collapse button click handler.
+ * @private
+ */
 AudioPlayer.prototype.onExpandCollapse_ = function() {
   this.container_.classList.toggle('collapsed');
   this.syncHeight_();
@@ -253,11 +326,27 @@ AudioPlayer.prototype.onExpandCollapse_ = function() {
 };
 
 /* Keep the below constants in sync with the CSS. */
-// TODO(kaznacheev): Set to 30 when the audio player is title-less.
+
+/**
+ * Player header height.
+ * TODO(kaznacheev): Set to 30 when the audio player is title-less.
+ */
 AudioPlayer.HEADER_HEIGHT = 0;
+
+/**
+ * Track height.
+ */
 AudioPlayer.TRACK_HEIGHT = 58;
+
+/**
+ * Controls bar height.
+ */
 AudioPlayer.CONTROLS_HEIGHT = 35;
 
+/**
+ * Set the correct player window height.
+ * @private
+ */
 AudioPlayer.prototype.syncHeight_ = function() {
   var expandedListHeight =
       Math.min(this.urls_.length, 3) * AudioPlayer.TRACK_HEIGHT;
@@ -274,9 +363,9 @@ AudioPlayer.prototype.syncHeight_ = function() {
 /**
  * Create a TrackInfo object encapsulating the information about one track.
  *
- * @param {HTMLElement} container
- * @param {string} url
- * @param {function} onClick
+ * @param {HTMLElement} container Container element.
+ * @param {string} url Track url.
+ * @param {function} onClick Click handler.
  * @constructor
  */
 AudioPlayer.TrackInfo = function(container, url, onClick) {
@@ -309,8 +398,14 @@ AudioPlayer.TrackInfo = function(container, url, onClick) {
   this.data_.appendChild(this.artist_);
 };
 
+/**
+ * @return {HTMLDivElement} The wrapper element for the track.
+ */
 AudioPlayer.TrackInfo.prototype.getBox = function() { return this.box_ };
 
+/**
+ * @return {string} Default track title (file name extracted from the url).
+ */
 AudioPlayer.TrackInfo.prototype.getDefaultTitle = function() {
   var title = this.url_.split('/').pop();
   var dotIndex = title.lastIndexOf('.');
@@ -318,27 +413,38 @@ AudioPlayer.TrackInfo.prototype.getDefaultTitle = function() {
   return title;
 };
 
+/**
+ * TODO(kaznacheev): Localize.
+ */
+AudioPlayer.TrackInfo.DEFAULT_ARTIST = 'Unknown Artist';
+
+/**
+ * @return {string} 'Unknown artist' string.
+ */
 AudioPlayer.TrackInfo.prototype.getDefaultArtist = function() {
-  return 'Unknown Artist';  // TODO(kaznacheev): i18n
+  return AudioPlayer.TrackInfo.DEFAULT_ARTIST;
 };
 
 /**
- * @param {Object} metadata The metadata object
+ * @param {Object} metadata The metadata object.
  * @param {HTMLElement} container The container for the tracks.
+ * @param {string} error Error string.
  */
-AudioPlayer.TrackInfo.prototype.setMetadata = function(metadata, container) {
-  if (metadata.error) {
+AudioPlayer.TrackInfo.prototype.setMetadata = function(
+    metadata, container, error) {
+  if (error) {
     this.art_.classList.add('blank');
     this.art_.classList.add('error');
     container.classList.remove('noart');
-  } else if (metadata.thumbnailURL) {
+  } else if (metadata.thumbnail && metadata.thumbnail.url) {
     this.img_.onload = function() {
       // Only display the image if the thumbnail loaded successfully.
       this.art_.classList.remove('blank');
       container.classList.remove('noart');
     }.bind(this);
-    this.img_.src = metadata.thumbnailURL;
+    this.img_.src = metadata.thumbnail.url;
   }
-  this.title_.textContent = metadata.title || this.getDefaultTitle();
-  this.artist_.textContent = metadata.artist || this.getDefaultArtist();
+  this.title_.textContent = metadata.media.title || this.getDefaultTitle();
+  this.artist_.textContent =
+      error || metadata.media.artist || this.getDefaultArtist();
 };

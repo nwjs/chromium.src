@@ -30,7 +30,9 @@ Slider::Slider(SliderListener* listener, Orientation orientation)
       value_(0.f),
       keyboard_increment_(0.1f),
       animating_value_(0.f),
-      value_is_valid_(false) {
+      value_is_valid_(false),
+      accessibility_events_enabled_(true),
+      focus_border_color_(0) {
   EnableCanvasFlippingForRTLUI(true);
   set_focusable(true);
 }
@@ -72,9 +74,22 @@ void Slider::SetValueInternal(float value, SliderChangeReason reason) {
   } else {
     SchedulePaint();
   }
-  if (GetWidget()) {
+  if (accessibility_events_enabled_ && GetWidget()) {
     GetWidget()->NotifyAccessibilityEvent(
         this, ui::AccessibilityTypes::EVENT_VALUE_CHANGED, true);
+  }
+}
+
+void Slider::MoveButtonTo(const gfx::Point& point) {
+  gfx::Insets inset = GetInsets();
+  if (orientation_ == HORIZONTAL) {
+    int amount = base::i18n::IsRTL() ? width() - inset.left() - point.x() :
+                                       point.x() - inset.left();
+    SetValueInternal(static_cast<float>(amount) / (width() - inset.width()),
+                     VALUE_CHANGED_BY_USER);
+  } else {
+    SetValueInternal(1.0f - static_cast<float>(point.y()) / height(),
+                     VALUE_CHANGED_BY_USER);
   }
 }
 
@@ -145,20 +160,12 @@ void Slider::OnPaint(gfx::Canvas* canvas) {
 bool Slider::OnMousePressed(const views::MouseEvent& event) {
   if (listener_)
     listener_->SliderDragStarted(this);
-  return OnMouseDragged(event);
+  MoveButtonTo(event.location());
+  return true;
 }
 
 bool Slider::OnMouseDragged(const views::MouseEvent& event) {
-  gfx::Insets inset = GetInsets();
-  if (orientation_ == HORIZONTAL) {
-    int amount = base::i18n::IsRTL() ? width() - inset.left() - event.x() :
-                                       event.x() - inset.left();
-    SetValueInternal(static_cast<float>(amount) / (width() - inset.width()),
-                     VALUE_CHANGED_BY_USER);
-  } else {
-    SetValueInternal(1.0f - static_cast<float>(event.y()) / height(),
-                     VALUE_CHANGED_BY_USER);
-  }
+  MoveButtonTo(event.location());
   return true;
 }
 
@@ -188,6 +195,17 @@ bool Slider::OnKeyPressed(const views::KeyEvent& event) {
   return false;
 }
 
+ui::GestureStatus Slider::OnGestureEvent(const views::GestureEvent& event) {
+  if (event.type() == ui::ET_GESTURE_SCROLL_UPDATE ||
+      event.type() == ui::ET_GESTURE_SCROLL_BEGIN ||
+      event.type() == ui::ET_GESTURE_SCROLL_END ||
+      event.type() == ui::ET_GESTURE_TAP_DOWN) {
+    MoveButtonTo(event.location());
+    return ui::GESTURE_STATUS_CONSUMED;
+  }
+  return ui::GESTURE_STATUS_UNKNOWN;
+}
+
 void Slider::AnimationProgressed(const ui::Animation* animation) {
   animating_value_ = animation->CurrentValueBetween(animating_value_, value_);
   SchedulePaint();
@@ -198,6 +216,15 @@ void Slider::GetAccessibleState(ui::AccessibleViewState* state) {
   state->name = accessible_name_;
   state->value = UTF8ToUTF16(
       base::StringPrintf("%d%%", (int)(value_ * 100 + 0.5)));
+}
+
+void Slider::OnPaintFocusBorder(gfx::Canvas* canvas) {
+  if (!focus_border_color_) {
+    View::OnPaintFocusBorder(canvas);
+  } else if (HasFocus() && (focusable() || IsAccessibilityFocusable())) {
+    canvas->DrawRect(gfx::Rect(1, 1, width() - 3, height() - 3),
+                     focus_border_color_);
+  }
 }
 
 }  // namespace views

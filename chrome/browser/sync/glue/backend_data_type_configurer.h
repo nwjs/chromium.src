@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_SYNC_GLUE_BACKEND_DATA_TYPE_CONFIGURER_H_
 #define CHROME_BROWSER_SYNC_GLUE_BACKEND_DATA_TYPE_CONFIGURER_H_
-#pragma once
 
 #include "base/callback.h"
-#include "chrome/browser/sync/internal_api/configure_reason.h"
-#include "sync/syncable/model_type.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/configure_reason.h"
 
 namespace browser_sync {
 
@@ -33,12 +32,12 @@ class BackendDataTypeConfigurer {
   // SyncBackendHost calls ConfigureDataTypes on itself to configure
   // Nigori.
   virtual void ConfigureDataTypes(
-      sync_api::ConfigureReason reason,
-      syncable::ModelTypeSet types_to_add,
-      syncable::ModelTypeSet types_to_remove,
+      syncer::ConfigureReason reason,
+      syncer::ModelTypeSet types_to_add,
+      syncer::ModelTypeSet types_to_remove,
       NigoriState nigori_state,
-      base::Callback<void(syncable::ModelTypeSet)> ready_task,
-      base::Callback<void()> retry_callback) = 0;
+      const base::Callback<void(syncer::ModelTypeSet)>& ready_task,
+      const base::Callback<void()>& retry_callback) = 0;
 
  protected:
   virtual ~BackendDataTypeConfigurer() {}

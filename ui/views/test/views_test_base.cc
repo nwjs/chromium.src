@@ -4,57 +4,11 @@
 
 #include "ui/views/test/views_test_base.h"
 
+#include "base/run_loop.h"
+
 #if defined(USE_AURA)
-#include "base/compiler_specific.h"
-#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
-#include "ui/aura/monitor_manager.h"
-#include "ui/aura/root_window.h"
-#include "ui/aura/test/single_monitor_manager.h"
-#include "ui/aura/test/test_activation_client.h"
-#include "ui/aura/test/test_screen.h"
-#include "ui/aura/test/test_stacking_client.h"
-#include "ui/base/ime/input_method.h"
-
-namespace {
-
-class DummyInputMethod : public ui::InputMethod {
- public:
-  DummyInputMethod() {}
-  virtual ~DummyInputMethod() {}
-
-  // ui::InputMethod overrides:
-  virtual void SetDelegate(
-      ui::internal::InputMethodDelegate* delegate) OVERRIDE {}
-  virtual void Init(bool focused) OVERRIDE {}
-  virtual void OnFocus() OVERRIDE {}
-  virtual void OnBlur() OVERRIDE {}
-  virtual void SetFocusedTextInputClient(
-      ui::TextInputClient* client) OVERRIDE {}
-  virtual ui::TextInputClient* GetTextInputClient() const OVERRIDE {
-    return NULL;
-  }
-  virtual void DispatchKeyEvent(
-      const base::NativeEvent& native_key_event) OVERRIDE {}
-  virtual void OnTextInputTypeChanged(
-      const ui::TextInputClient* client) OVERRIDE {}
-  virtual void OnCaretBoundsChanged(
-      const ui::TextInputClient* client) OVERRIDE {}
-  virtual void CancelComposition(const ui::TextInputClient* client) OVERRIDE {}
-  virtual std::string GetInputLocale() OVERRIDE { return ""; }
-  virtual base::i18n::TextDirection GetInputTextDirection() OVERRIDE {
-    return base::i18n::UNKNOWN_DIRECTION;
-  }
-  virtual bool IsActive() OVERRIDE { return true; }
-  virtual ui::TextInputType GetTextInputType() const OVERRIDE {
-    return ui::TEXT_INPUT_TYPE_NONE;
-  }
-  virtual bool CanComposeInline() const OVERRIDE {
-    return true;
-  }
-};
-
-}  // namespace
+#include "ui/aura/test/aura_test_helper.h"
 #endif
 
 namespace views {
@@ -62,9 +16,6 @@ namespace views {
 ViewsTestBase::ViewsTestBase()
     : setup_called_(false),
       teardown_called_(false) {
-#if defined(USE_AURA)
-  test_input_method_.reset(new DummyInputMethod);
-#endif
 }
 
 ViewsTestBase::~ViewsTestBase() {
@@ -80,18 +31,9 @@ void ViewsTestBase::SetUp() {
   if (!views_delegate_.get())
     views_delegate_.reset(new TestViewsDelegate());
 #if defined(USE_AURA)
-  aura::Env::GetInstance()->SetMonitorManager(
-      new aura::test::SingleMonitorManager);
-  root_window_.reset(aura::MonitorManager::CreateRootWindowForPrimaryMonitor());
-  gfx::Screen::SetInstance(new aura::TestScreen(root_window_.get()));
-  root_window_->SetProperty(
-      aura::client::kRootWindowInputMethodKey,
-      test_input_method_.get());
-  test_activation_client_.reset(
-      new aura::test::TestActivationClient(root_window_.get()));
-  test_stacking_client_.reset(
-      new aura::test::TestStackingClient(root_window_.get()));
-#endif
+  aura_test_helper_.reset(new aura::test::AuraTestHelper(&message_loop_));
+  aura_test_helper_->SetUp();
+#endif  // USE_AURA
 }
 
 void ViewsTestBase::TearDown() {
@@ -102,19 +44,16 @@ void ViewsTestBase::TearDown() {
   views_delegate_.reset();
   testing::Test::TearDown();
 #if defined(USE_AURA)
-  test_stacking_client_.reset();
-  test_activation_client_.reset();
-  root_window_.reset();
+  aura_test_helper_->TearDown();
 #endif
 }
 
 void ViewsTestBase::RunPendingMessages() {
+  base::RunLoop run_loop;
 #if defined(USE_AURA)
-  message_loop_.RunAllPendingWithDispatcher(
-      aura::Env::GetInstance()->GetDispatcher());
-#else
-  message_loop_.RunAllPending();
+  run_loop.set_dispatcher(aura::Env::GetInstance()->GetDispatcher());
 #endif
+  run_loop.RunUntilIdle();
 }
 
 }  // namespace views

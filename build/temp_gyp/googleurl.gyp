@@ -56,6 +56,9 @@
         'FULL_FILESYSTEM_URL_SUPPORT=1',
       ],
       'conditions': [
+        #['OS=="win"', {
+        #  'type': 'shared_library',
+        #}],
         ['component=="shared_library"', {
           'defines': [
             'GURL_DLL',
@@ -90,7 +93,7 @@
         'FULL_FILESYSTEM_URL_SUPPORT=1',
       ],
       'conditions': [
-        ['os_posix==1 and OS!="mac"', {
+        ['os_posix==1 and OS!="mac" and OS!="ios"', {
           'conditions': [
             ['linux_use_tcmalloc==1', {
               'dependencies': [

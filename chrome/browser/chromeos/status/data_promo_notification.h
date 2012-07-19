@@ -4,11 +4,12 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_STATUS_DATA_PROMO_NOTIFICATION_H_
 #define CHROME_BROWSER_CHROMEOS_STATUS_DATA_PROMO_NOTIFICATION_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/weak_ptr.h"
 #include "ui/views/widget/widget.h"
+
+class PrefService;
 
 namespace views {
 class View;
@@ -23,6 +24,8 @@ class DataPromoNotification : public views::Widget::Observer {
  public:
   DataPromoNotification();
   virtual ~DataPromoNotification();
+
+  static void RegisterPrefs(PrefService* local_state);
 
   const std::string& deal_info_url() const { return deal_info_url_; }
   const std::string& deal_topup_url() const { return deal_topup_url_; }

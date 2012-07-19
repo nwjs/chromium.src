@@ -4,70 +4,176 @@
 
 #include "chrome/browser/extensions/api/alarms/alarms_api.h"
 
-#include "base/bind.h"
-#include "base/json/json_writer.h"
+#include "base/string_number_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/extension_event_router.h"
-#include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/common/extensions/api/experimental.alarms.h"
+#include "chrome/browser/extensions/api/alarms/alarm_manager.h"
+#include "chrome/browser/extensions/extension_system.h"
+#include "chrome/common/extensions/api/alarms.h"
+#include "chrome/common/extensions/extension_error_utils.h"
 
-namespace Alarms = extensions::api::experimental_alarms;
+namespace alarms = extensions::api::alarms;
+
+namespace extensions {
 
 namespace {
 
-const char kOnAlarmEvent[] = "experimental.alarms.onAlarm";
 const char kDefaultAlarmName[] = "";
+const char kAlarmNotFound[] = "No alarm named '*' exists.";
+const char kDelayLessThanMinimum[] = "* is less than minimum of * minutes.";
+const char kDelayIsNonInteger[] = "* is not an integer value.";
+const char kBothRelativeAndAbsoluteTime[] =
+    "Cannot set both when and delayInMinutes.";
+const char kNoScheduledTime[] =
+    "Must set at least one of when, delayInMinutes, or periodInMinutes.";
+const int kReleaseDelayMinimum = 5;
+const int kDevDelayMinimum = 0;
 
-void AlarmCallback(Profile* profile, const std::string& extension_id) {
-  // The profile could have gone away before this task was run.
-  if (!g_browser_process->profile_manager()->IsValidProfile(profile))
-    return;
+bool ValidateDelay(double delay_in_minutes,
+                   const Extension* extension,
+                   const std::string& delay_or_period,
+                   std::string* error) {
+  double delay_minimum = kDevDelayMinimum;
+  if (extension->location() != Extension::LOAD) {
+    // In release mode we check for integer delay values and a stricter delay
+    // minimum.
+    if (delay_in_minutes != static_cast<int>(delay_in_minutes)) {
+      *error = ExtensionErrorUtils::FormatErrorMessage(
+          kDelayIsNonInteger,
+          delay_or_period);
+      return false;
+    }
+    delay_minimum = kReleaseDelayMinimum;
+  }
 
-  ListValue args;
-  std::string json_args;
-  args.Append(base::Value::CreateStringValue(kDefaultAlarmName));
-  base::JSONWriter::Write(&args, &json_args);
-  profile->GetExtensionEventRouter()->DispatchEventToExtension(
-      extension_id, kOnAlarmEvent, json_args, NULL, GURL());
+  // Validate against our found delay minimum.
+  if (delay_in_minutes < delay_minimum) {
+    *error = ExtensionErrorUtils::FormatErrorMessage(
+        kDelayLessThanMinimum,
+        delay_or_period,
+        base::DoubleToString(delay_minimum));
+    return false;
+  }
+
+  return true;
 }
 
+bool ValidateAlarmCreateInfo(const alarms::AlarmCreateInfo& create_info,
+                             const Extension* extension,
+                             std::string* error) {
+  if (create_info.delay_in_minutes.get() &&
+      create_info.when.get()) {
+    *error = kBothRelativeAndAbsoluteTime;
+    return false;
+  }
+  if (create_info.delay_in_minutes == NULL &&
+      create_info.when == NULL &&
+      create_info.period_in_minutes == NULL) {
+    *error = kNoScheduledTime;
+    return false;
+  }
+
+  // Users can always use an absolute timeout to request an arbitrarily-short or
+  // negative delay.  We won't honor the short timeout, but we can't check it
+  // and warn the user because it would introduce race conditions (say they
+  // compute a long-enough timeout, but then the call into the alarms interface
+  // gets delayed past the boundary).  However, it's still worth warning about
+  // relative delays that are shorter than we'll honor.
+  if (create_info.delay_in_minutes.get()) {
+    if (!ValidateDelay(*create_info.delay_in_minutes,
+                       extension, "Delay", error))
+      return false;
+  }
+  if (create_info.period_in_minutes.get()) {
+    if (!ValidateDelay(*create_info.period_in_minutes,
+                       extension, "Period", error))
+      return false;
+  }
+
+  return true;
+}
+
+}  // namespace
+
+AlarmsCreateFunction::AlarmsCreateFunction()
+    : now_(&base::Time::Now) {
 }
 
 bool AlarmsCreateFunction::RunImpl() {
-  scoped_ptr<Alarms::Create::Params> params(
-      Alarms::Create::Params::Create(*args_));
+  scoped_ptr<alarms::Create::Params> params(
+      alarms::Create::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
+  if (!ValidateAlarmCreateInfo(
+          params->alarm_info, GetExtension(), &error_))
+    return false;
 
-  // TODO(mpcomplete): Better handling of granularity. Introduce an alarm
-  // manager that dispatches alarms in batches, and can also cancel previous
-  // alarms. Handle the "name" parameter.
-  // http://crbug.com/81758
-  MessageLoop::current()->PostDelayedTask(FROM_HERE,
-      base::Bind(&AlarmCallback, profile(), extension_id()),
-      params->alarm_info.delay_in_seconds * 1000);
+  Alarm alarm(params->name.get() ? *params->name : kDefaultAlarmName,
+              params->alarm_info,
+              base::TimeDelta::FromMinutes(
+                  GetExtension()->location() == Extension::LOAD ?
+                  kDevDelayMinimum : kReleaseDelayMinimum),
+              now_);
+  ExtensionSystem::Get(profile())->alarm_manager()->AddAlarm(
+      extension_id(), alarm);
 
   return true;
 }
 
 bool AlarmsGetFunction::RunImpl() {
-  error_ = "Not implemented.";
-  return false;
+  scoped_ptr<alarms::Get::Params> params(alarms::Get::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  std::string name = params->name.get() ? *params->name : kDefaultAlarmName;
+  const Alarm* alarm =
+      ExtensionSystem::Get(profile())->alarm_manager()->GetAlarm(
+          extension_id(), name);
+
+  if (!alarm) {
+    error_ = ExtensionErrorUtils::FormatErrorMessage(kAlarmNotFound, name);
+    return false;
+  }
+
+  results_ = alarms::Get::Results::Create(*alarm->js_alarm);
+  return true;
 }
 
 bool AlarmsGetAllFunction::RunImpl() {
-  error_ = "Not implemented.";
-  return false;
+  const AlarmManager::AlarmList* alarms =
+      ExtensionSystem::Get(profile())->alarm_manager()->GetAllAlarms(
+          extension_id());
+  if (alarms) {
+    std::vector<linked_ptr<extensions::api::alarms::Alarm> > create_arg;
+    create_arg.reserve(alarms->size());
+    for (size_t i = 0, size = alarms->size(); i < size; ++i) {
+      create_arg.push_back((*alarms)[i].js_alarm);
+    }
+    results_ = alarms::GetAll::Results::Create(create_arg);
+  } else {
+    SetResult(new base::ListValue());
+  }
+  return true;
 }
 
 bool AlarmsClearFunction::RunImpl() {
-  error_ = "Not implemented.";
-  return false;
+  scoped_ptr<alarms::Clear::Params> params(
+      alarms::Clear::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  std::string name = params->name.get() ? *params->name : kDefaultAlarmName;
+  bool success = ExtensionSystem::Get(profile())->alarm_manager()->RemoveAlarm(
+     extension_id(), name);
+
+  if (!success) {
+    error_ = ExtensionErrorUtils::FormatErrorMessage(kAlarmNotFound, name);
+    return false;
+  }
+
+  return true;
 }
 
 bool AlarmsClearAllFunction::RunImpl() {
-  error_ = "Not implemented.";
-  return false;
+  ExtensionSystem::Get(profile())->alarm_manager()->RemoveAllAlarms(
+     extension_id());
+  return true;
 }
+
+}  // namespace extensions

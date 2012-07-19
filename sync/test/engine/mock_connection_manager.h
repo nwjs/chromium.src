@@ -6,7 +6,6 @@
 
 #ifndef SYNC_TEST_ENGINE_MOCK_CONNECTION_MANAGER_H_
 #define SYNC_TEST_ENGINE_MOCK_CONNECTION_MANAGER_H_
-#pragma once
 
 #include <bitset>
 #include <list>
@@ -17,11 +16,13 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_vector.h"
 #include "sync/engine/net/server_connection_manager.h"
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/model_type_payload_map.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/internal_api/public/base/model_type_payload_map.h"
 #include "sync/protocol/sync.pb.h"
 
-class MockConnectionManager : public browser_sync::ServerConnectionManager {
+namespace syncer {
+
+class MockConnectionManager : public syncer::ServerConnectionManager {
  public:
   class MidCommitObserver {
    public:
@@ -39,9 +40,10 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
       PostBufferParams*,
       const std::string& path,
       const std::string& auth_token,
-      browser_sync::ScopedServerStatusWatcher* watcher) OVERRIDE;
+      syncer::ScopedServerStatusWatcher* watcher) OVERRIDE;
 
   // Control of commit response.
+  // NOTE: Commit callback is invoked only once then reset.
   void SetMidCommitCallback(const base::Closure& callback);
   void SetMidCommitObserver(MidCommitObserver* observer);
 
@@ -117,25 +119,9 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
   // issue multiple requests during a sync cycle.
   void NextUpdateBatch();
 
-  void FailNextPostBufferToPathCall() { fail_next_postbuffer_ = true; }
+  void FailNextPostBufferToPathCall() { countdown_to_postbuffer_fail_ = 1; }
+  void FailNthPostBufferToPathCall(int n) { countdown_to_postbuffer_fail_ = n; }
 
-  void SetClearUserDataResponseStatus(sync_pb::SyncEnums::ErrorType errortype);
-
-  // A visitor class to allow a test to change some monitoring state atomically
-  // with the action of overriding the response codes sent back to the Syncer
-  // (for example, so you can say "ThrottleNextRequest, and assert no more
-  // requests are made once throttling is in effect" in one step.
-  class ResponseCodeOverrideRequestor {
-   public:
-    // Called with response_code_override_lock_ acquired.
-    virtual void OnOverrideComplete() = 0;
-
-   protected:
-    virtual ~ResponseCodeOverrideRequestor() {}
-  };
-  void ThrottleNextRequest(ResponseCodeOverrideRequestor* visitor);
-  void FailWithAuthInvalid(ResponseCodeOverrideRequestor* visitor);
-  void StopFailingWithAuthInvalid(ResponseCodeOverrideRequestor* visitor);
   void FailNonPeriodicGetUpdates() { fail_non_periodic_get_updates_ = true; }
 
   // Simple inspectors.
@@ -197,12 +183,12 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
   // Expect that GetUpdates will request exactly the types indicated in
   // the bitset.
   void ExpectGetUpdatesRequestTypes(
-      syncable::ModelTypeSet expected_filter) {
+      syncer::ModelTypeSet expected_filter) {
     expected_filter_ = expected_filter;
   }
 
   void ExpectGetUpdatesRequestPayloads(
-      const syncable::ModelTypePayloadMap& payloads) {
+      const syncer::ModelTypePayloadMap& payloads) {
     expected_payloads_ = payloads;
   }
 
@@ -220,6 +206,11 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
   const std::string store_birthday() {
     base::AutoLock lock(store_birthday_lock_);
     return store_birthday_;
+  }
+
+  // Explicitly indicate that we will not be fetching some updates.
+  void ClearUpdatesQueue() {
+    update_queue_.clear();
   }
 
   // Locate the most recent update message for purpose of alteration.
@@ -268,12 +259,12 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
   bool IsModelTypePresentInSpecifics(
       const google::protobuf::RepeatedPtrField<
           sync_pb::DataTypeProgressMarker>& filter,
-      syncable::ModelType value);
+      syncer::ModelType value);
 
   sync_pb::DataTypeProgressMarker const* GetProgressMarkerForType(
       const google::protobuf::RepeatedPtrField<
           sync_pb::DataTypeProgressMarker>& filter,
-      syncable::ModelType value);
+      syncer::ModelType value);
 
   // When false, we pretend to have network connectivity issues.
   bool server_reachable_;
@@ -299,8 +290,9 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
   bool client_stuck_;
   std::string commit_time_rename_prepended_string_;
 
-  // Fail on the next call to PostBufferToPath().
-  bool fail_next_postbuffer_;
+  // On each PostBufferToPath() call, we decrement this counter.  The call fails
+  // iff we hit zero at that call.
+  int countdown_to_postbuffer_fail_;
 
   // Our directory.  Used only to ensure that we are not holding the transaction
   // lock when performing network I/O.  Can be NULL if the test author is
@@ -344,9 +336,9 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
   // use the older sync_pb::SyncEntity_BookmarkData-style protocol.
   bool use_legacy_bookmarks_protocol_;
 
-  syncable::ModelTypeSet expected_filter_;
+  syncer::ModelTypeSet expected_filter_;
 
-  syncable::ModelTypePayloadMap expected_payloads_;
+  syncer::ModelTypePayloadMap expected_payloads_;
 
   int num_get_updates_requests_;
 
@@ -356,5 +348,7 @@ class MockConnectionManager : public browser_sync::ServerConnectionManager {
 
   DISALLOW_COPY_AND_ASSIGN(MockConnectionManager);
 };
+
+}  // namespace syncer
 
 #endif  // SYNC_TEST_ENGINE_MOCK_CONNECTION_MANAGER_H_

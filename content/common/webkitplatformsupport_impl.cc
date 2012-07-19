@@ -24,8 +24,10 @@ string16 WebKitPlatformSupportImpl::GetLocalizedString(int message_id) {
 }
 
 base::StringPiece WebKitPlatformSupportImpl::GetDataResource(
-    int resource_id) {
-  return content::GetContentClient()->GetDataResource(resource_id);
+    int resource_id,
+    ui::ScaleFactor scale_factor) {
+  return content::GetContentClient()->GetDataResource(resource_id,
+                                                      scale_factor);
 }
 
 void WebKitPlatformSupportImpl::GetPlugins(
@@ -60,19 +62,10 @@ WebKitPlatformSupportImpl::createOffscreenGraphicsContext3D(
     return webkit::gpu::WebGraphicsContext3DInProcessImpl::CreateForWebView(
             attributes, false);
   } else {
-    base::WeakPtr<WebGraphicsContext3DSwapBuffersClient> null_client;
-    GpuChannelHostFactory* factory = GetGpuChannelHostFactory();
-    if (!factory)
-      return NULL;
-    scoped_ptr<WebGraphicsContext3DCommandBufferImpl> context(
-        new WebGraphicsContext3DCommandBufferImpl(
-            0, GURL(), factory, null_client));
-    if (!context->Initialize(
-        attributes,
-        false,
-        CAUSE_FOR_GPU_LAUNCH_WEBGRAPHICSCONTEXT3DCOMMANDBUFFERIMPL_INITIALIZE))
-      return NULL;
-    return context.release();
+    // Intentionally blank URL provided for offscreen contexts -- blank URLs are
+    // ignored in the GPU process for crash reporting.
+    return WebGraphicsContext3DCommandBufferImpl::CreateOffscreenContext(
+        GetGpuChannelHostFactory(), attributes, GURL());
   }
 }
 

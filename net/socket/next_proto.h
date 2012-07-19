@@ -4,7 +4,6 @@
 
 #ifndef NET_SOCKET_NEXT_PROTO_H_
 #define NET_SOCKET_NEXT_PROTO_H_
-#pragma once
 
 namespace net {
 
@@ -17,7 +16,6 @@ enum NextProto {
   kProtoHTTP11 = 1,
   kProtoSPDY1 = 2,
   kProtoSPDY2 = 3,
-  kProtoSPDY21 = 4,
   kProtoSPDY3 = 5,
 };
 

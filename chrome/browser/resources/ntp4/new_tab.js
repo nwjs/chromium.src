@@ -26,12 +26,6 @@ cr.define('ntp', function() {
   var notificationContainer;
 
   /**
-   * Object for accessing localized strings.
-   * @type {!LocalStrings}
-   */
-  var localStrings = new LocalStrings;
-
-  /**
    * If non-null, an info bubble for showing messages to the user. It points at
    * the Most Visited label, and is used to draw more attention to the
    * navigation dot UI.
@@ -68,6 +62,16 @@ cr.define('ntp', function() {
   var DEFAULT_TRANSITION_TIME = 500;
 
   /**
+   * See description for these values in ntp_stats.h.
+   * @enum {number}
+   */
+  var NtpFollowAction = {
+    CLICKED_TILE: 11,
+    CLICKED_OTHER_NTP_PANE: 12,
+    OTHER: 13
+  };
+
+  /**
    * Creates a NewTabView object. NewTabView extends PageListView with
    * new tab UI specific logics.
    * @constructor
@@ -76,7 +80,7 @@ cr.define('ntp', function() {
   function NewTabView() {
     var pageSwitcherStart = null;
     var pageSwitcherEnd = null;
-    if (templateData.showApps) {
+    if (loadTimeData.getValue('showApps')) {
       pageSwitcherStart = getRequiredElement('page-switcher-start');
       pageSwitcherEnd = getRequiredElement('page-switcher-end');
     }
@@ -103,7 +107,9 @@ cr.define('ntp', function() {
    * Invoked at startup once the DOM is available to initialize the app.
    */
   function onLoad() {
-    sectionsToWaitFor = templateData.showApps ? 2 : 1;
+    sectionsToWaitFor = loadTimeData.getBoolean('showApps') ? 2 : 1;
+    if (loadTimeData.getBoolean('isSuggestionsPageEnabled'))
+      sectionsToWaitFor++;
     measureNavDots();
 
     // Load the current theme colors.
@@ -118,10 +124,10 @@ cr.define('ntp', function() {
     cr.ui.decorate($('recently-closed-menu-button'), ntp.RecentMenuButton);
     chrome.send('getRecentlyClosedTabs');
 
-    if (templateData.showOtherSessionsMenu) {
+    if (loadTimeData.getBoolean('showOtherSessionsMenu')) {
       otherSessionsButton = getRequiredElement('other-sessions-menu-button');
       cr.ui.decorate(otherSessionsButton, ntp.OtherSessionsMenuButton);
-      otherSessionsButton.initialize(templateData.isUserSignedIn);
+      otherSessionsButton.initialize(loadTimeData.getBoolean('isUserSignedIn'));
     }
 
     var mostVisited = new ntp.MostVisitedPage();
@@ -130,40 +136,32 @@ cr.define('ntp', function() {
     if (document.body.classList.contains('bare-minimum'))
       mostVisited.appendFooter(getRequiredElement('footer'));
     newTabView.appendTilePage(mostVisited,
-                              localStrings.getString('mostvisited'),
+                              loadTimeData.getString('mostvisited'),
                               false);
     chrome.send('getMostVisited');
 
-    if (templateData.isSuggestionsPageEnabled) {
+    if (loadTimeData.getBoolean('isSuggestionsPageEnabled')) {
       var suggestions_script = document.createElement('script');
       suggestions_script.src = 'suggestions_page.js';
       suggestions_script.onload = function() {
          newTabView.appendTilePage(new ntp.SuggestionsPage(),
-                                   localStrings.getString('suggestions'),
+                                   loadTimeData.getString('suggestions'),
                                    false,
                                    (newTabView.appsPages.length > 0) ?
                                        newTabView.appsPages[0] : null);
          chrome.send('getSuggestions');
+         cr.dispatchSimpleEvent(document, 'sectionready', true, true);
       };
       document.querySelector('head').appendChild(suggestions_script);
     }
 
-    var webstoreLink = localStrings.getString('webStoreLink');
-    if (templateData.isWebStoreExperimentEnabled) {
-      var url = appendParam(webstoreLink, 'utm_source', 'chrome-ntp-launcher');
-      $('chrome-web-store-href').href = url;
-      $('chrome-web-store-href').addEventListener('click',
-          onChromeWebStoreButtonClick);
+    var webStoreLink = loadTimeData.getString('webStoreLink');
+    var url = appendParam(webStoreLink, 'utm_source', 'chrome-ntp-launcher');
+    $('chrome-web-store-link').href = url;
+    $('chrome-web-store-link').addEventListener('click',
+        onChromeWebStoreButtonClick);
 
-      $('footer-content').classList.add('enable-cws-experiment');
-    }
-
-    if (templateData.appInstallHintEnabled) {
-      var url = appendParam(webstoreLink, 'utm_source', 'chrome-ntp-plus-icon');
-      $('app-install-hint-template').href = url;
-    }
-
-    if (localStrings.getString('login_status_message')) {
+    if (loadTimeData.getString('login_status_message')) {
       loginBubble = new cr.ui.Bubble;
       loginBubble.anchorNode = $('login-container');
       loginBubble.setArrowLocation(cr.ui.ArrowLocation.TOP_END);
@@ -172,8 +170,6 @@ cr.define('ntp', function() {
       loginBubble.deactivateToDismissDelay = 2000;
       loginBubble.setCloseButtonVisible(false);
 
-      $('login-status-learn-more').href =
-          localStrings.getString('login_status_url');
       $('login-status-advanced').onclick = function() {
         chrome.send('showAdvancedLoginUI');
       };
@@ -185,24 +181,6 @@ cr.define('ntp', function() {
       // The anchor node won't be updated until updateLogin is called so don't
       // show the bubble yet.
       shouldShowLoginBubble = true;
-    } else if (localStrings.getString('ntp4_intro_message')) {
-      infoBubble = new cr.ui.Bubble;
-      infoBubble.anchorNode = newTabView.mostVisitedPage.navigationDot;
-      infoBubble.setArrowLocation(cr.ui.ArrowLocation.BOTTOM_START);
-      infoBubble.handleCloseEvent = function() {
-        this.hide();
-        chrome.send('introMessageDismissed');
-      };
-
-      var bubbleContent = $('ntp4-intro-bubble-contents');
-      infoBubble.content = bubbleContent;
-
-      var learnMoreLink = infoBubble.querySelector('a');
-      learnMoreLink.href = localStrings.getString('ntp4_intro_url');
-      learnMoreLink.onclick = infoBubble.hide.bind(infoBubble);
-
-      infoBubble.show();
-      chrome.send('introMessageSeen');
     }
 
     var loginContainer = getRequiredElement('login-container');
@@ -216,8 +194,8 @@ cr.define('ntp', function() {
       newTabView.cardSlider.currentCardValue.navigationDot.classList.add(
           'selected');
 
-      var promo = localStrings.getString('serverpromo');
-      if (promo) {
+      if (loadTimeData.valueExists('serverpromo')) {
+        var promo = loadTimeData.getString('serverpromo');
         var tags = ['IMG'];
         var attrs = {
           src: function(node, value) {
@@ -231,6 +209,7 @@ cr.define('ntp', function() {
         chrome.send('notificationPromoViewed');
       }
 
+      cr.dispatchSimpleEvent(document, 'ntpLoaded', true, true);
       document.documentElement.classList.remove('starting-up');
     });
   }
@@ -291,7 +270,7 @@ cr.define('ntp', function() {
    */
   function measureNavDots() {
     var measuringDiv = $('fontMeasuringDiv');
-    measuringDiv.textContent = localStrings.getString('mostvisited');
+    measuringDiv.textContent = loadTimeData.getString('mostvisited');
     // The 4 is for border and padding.
     var pxWidth = Math.max(measuringDiv.clientWidth * 1.15 + 4, 80);
 
@@ -311,23 +290,11 @@ cr.define('ntp', function() {
                                             opt_hasAttribution);
     }
 
-    updateLogo();
     updateAttribution();
   }
 
   function setBookmarkBarAttached(attached) {
     document.documentElement.setAttribute('bookmarkbarattached', attached);
-  }
-
-  /**
-   * Sets the proper image for the logo at the bottom left.
-   */
-  function updateLogo() {
-    var imageId = 'IDR_PRODUCT_LOGO';
-    if (document.documentElement.getAttribute('customlogo') == 'true')
-      imageId = 'IDR_CUSTOM_PRODUCT_LOGO';
-
-    $('logo-img').src = 'chrome://theme/' + imageId + '?' + Date.now();
   }
 
   /**
@@ -608,6 +575,7 @@ cr.define('ntp', function() {
     getCardSlider: getCardSlider,
     onLoad: onLoad,
     leaveRearrangeMode: leaveRearrangeMode,
+    NtpFollowAction: NtpFollowAction,
     saveAppPageName: saveAppPageName,
     setAppToBeHighlighted: setAppToBeHighlighted,
     setBookmarkBarAttached: setBookmarkBarAttached,
@@ -623,3 +591,5 @@ cr.define('ntp', function() {
 });
 
 document.addEventListener('DOMContentLoaded', ntp.onLoad);
+
+var toCssPx = cr.ui.toCssPx;

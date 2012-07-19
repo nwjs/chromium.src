@@ -4,14 +4,13 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_TABS_DRAGGED_VIEW_GTK_H_
 #define CHROME_BROWSER_UI_GTK_TABS_DRAGGED_VIEW_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
+
 #include <vector>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/gtk/gtk_signal.h"

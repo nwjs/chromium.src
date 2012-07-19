@@ -7,13 +7,12 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
-#include "base/message_loop.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/message_loop.h"
 #include "base/values.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/image/image.h"
 
 namespace {
@@ -25,7 +24,7 @@ enum AutoConfirmForTest {
   ABORT
 };
 
-void AutoConfirmTask(ExtensionInstallUI::Delegate* delegate, bool proceed) {
+void AutoConfirmTask(ExtensionInstallPrompt::Delegate* delegate, bool proceed) {
   if (proceed)
     delegate->InstallUIProceed();
   else
@@ -33,7 +32,7 @@ void AutoConfirmTask(ExtensionInstallUI::Delegate* delegate, bool proceed) {
 }
 
 void DoAutoConfirm(AutoConfirmForTest setting,
-                   ExtensionInstallUI::Delegate* delegate) {
+                   ExtensionInstallPrompt::Delegate* delegate) {
   bool proceed = (setting == PROCEED);
   // We use PostTask instead of calling the delegate directly here, because in
   // the real implementations it's highly likely the message loop will be
@@ -60,70 +59,18 @@ AutoConfirmForTest CheckAutoConfirmCommandLineSwitch() {
 
 }  // namespace
 
-void ShowExtensionInstallDialog(Profile* profile,
-                                ExtensionInstallUI::Delegate* delegate,
-                                const ExtensionInstallUI::Prompt& prompt) {
+void ShowExtensionInstallDialog(gfx::NativeWindow parent,
+                                content::PageNavigator* navigator,
+                                ExtensionInstallPrompt::Delegate* delegate,
+                                const ExtensionInstallPrompt::Prompt& prompt) {
   AutoConfirmForTest auto_confirm = CheckAutoConfirmCommandLineSwitch();
   if (auto_confirm != DO_NOT_SKIP) {
     DoAutoConfirm(auto_confirm, delegate);
     return;
   }
-  ShowExtensionInstallDialogImpl(profile, delegate, prompt);
-}
-
-bool ShowExtensionInstallDialogForManifest(
-    Profile* profile,
-    ExtensionInstallUI::Delegate* delegate,
-    const DictionaryValue* manifest,
-    const std::string& id,
-    const std::string& localized_name,
-    const std::string& localized_description,
-    SkBitmap* icon,
-    const ExtensionInstallUI::Prompt& prompt,
-    scoped_refptr<Extension>* dummy_extension) {
-  scoped_ptr<DictionaryValue> localized_manifest;
-  if (!localized_name.empty() || !localized_description.empty()) {
-    localized_manifest.reset(manifest->DeepCopy());
-    if (!localized_name.empty()) {
-      localized_manifest->SetString(extension_manifest_keys::kName,
-                                    localized_name);
-    }
-    if (!localized_description.empty()) {
-      localized_manifest->SetString(extension_manifest_keys::kDescription,
-                                    localized_description);
-    }
+  if (!parent) {
+    delegate->InstallUIAbort(false);
+    return;
   }
-
-  std::string init_errors;
-  *dummy_extension = Extension::Create(
-      FilePath(),
-      Extension::INTERNAL,
-      localized_manifest.get() ? *localized_manifest.get() : *manifest,
-      Extension::NO_FLAGS,
-      id,
-      &init_errors);
-  if (!dummy_extension->get()) {
-    return false;
-  }
-
-  if (icon->empty())
-    icon = const_cast<SkBitmap*>(&Extension::GetDefaultIcon(
-        (*dummy_extension)->is_app()));
-
-  // In tests, we may have setup to proceed or abort without putting up the real
-  // confirmation dialog.
-  AutoConfirmForTest auto_confirm = CheckAutoConfirmCommandLineSwitch();
-  if (auto_confirm != DO_NOT_SKIP) {
-    DoAutoConfirm(auto_confirm, delegate);
-    return true;
-  }
-
-  ExtensionInstallUI::Prompt filled_out_prompt = prompt;
-  filled_out_prompt.SetPermissions(
-      (*dummy_extension)->GetPermissionMessageStrings());
-  filled_out_prompt.set_extension(*dummy_extension);
-  filled_out_prompt.set_icon(gfx::Image(new SkBitmap(*icon)));
-
-  ShowExtensionInstallDialog(profile, delegate, filled_out_prompt);
-  return true;
+  ShowExtensionInstallDialogImpl(parent, navigator, delegate, prompt);
 }

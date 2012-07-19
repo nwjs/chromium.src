@@ -125,17 +125,25 @@ void CreateSpdyHeadersFromHttpRequest(const HttpRequestInfo& info,
 
 }
 
-// TODO(gavinp): re-adjust this once SPDY v3 has three priority bits,
-// eliminating the need for this folding.
-int ConvertRequestPriorityToSpdyPriority(const RequestPriority priority) {
-  DCHECK(HIGHEST <= priority && priority < NUM_PRIORITIES);
-  switch (priority) {
-    case LOWEST:
-      return SPDY_PRIORITY_LOWEST - 1;
-    case IDLE:
-      return SPDY_PRIORITY_LOWEST;
-    default:
-      return priority;
+COMPILE_ASSERT(HIGHEST - LOWEST < 4 &&
+               HIGHEST - MINIMUM_PRIORITY < 5,
+               request_priority_incompatible_with_spdy);
+
+SpdyPriority ConvertRequestPriorityToSpdyPriority(
+    const RequestPriority priority,
+    int protocol_version) {
+  DCHECK_GE(priority, MINIMUM_PRIORITY);
+  DCHECK_LT(priority, NUM_PRIORITIES);
+  if (protocol_version == 2) {
+    // SPDY 2 only has 2 bits of priority, but we have 5 RequestPriorities.
+    // Map IDLE => 3, LOWEST => 2, LOW => 2, MEDIUM => 1, HIGHEST => 0.
+    if (priority > LOWEST) {
+      return static_cast<SpdyPriority>(HIGHEST - priority);
+    } else {
+      return static_cast<SpdyPriority>(HIGHEST - priority - 1);
+    }
+  } else {
+    return static_cast<SpdyPriority>(HIGHEST - priority);
   }
 }
 

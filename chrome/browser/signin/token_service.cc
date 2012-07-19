@@ -7,11 +7,14 @@
 #include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/string_util.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/net/gaia/gaia_auth_fetcher.h"
 #include "chrome/common/net/gaia/gaia_constants.h"
+#include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_source.h"
@@ -62,11 +65,15 @@ void TokenService::Initialize(const char* const source,
   getter_ = profile->GetRequestContext();
   // Since the user can create a bookmark in incognito, sync may be running.
   // Thus we have to go for explicit access.
-  web_data_service_ = profile->GetWebDataService(Profile::EXPLICIT_ACCESS);
+  web_data_service_ = WebDataServiceFactory::GetForProfile(
+      profile, Profile::EXPLICIT_ACCESS);
   source_ = std::string(source);
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
-  // Allow the token service to be cleared from the command line.
+  // Allow the token service to be cleared from the command line. We rely on
+  // SigninManager::Initialize() being called to clear out the
+  // kGoogleServicesUsername pref before we call EraseTokensFromDB() as
+  // otherwise the system would be in an invalid state.
   if (cmd_line->HasSwitch(switches::kClearTokenService))
     EraseTokensFromDB();
 
@@ -118,6 +125,14 @@ void TokenService::UpdateCredentials(
   }
 }
 
+void TokenService::UpdateCredentialsWithOAuth2(
+    const GaiaAuthConsumer::ClientOAuthResult& credentials) {
+  // Will be implemented once the ClientOAuth signin is complete.  Not called
+  // yet by any code.
+  NOTREACHED();
+}
+
+
 void TokenService::LoadTokensFromDB() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   if (web_data_service_.get())
@@ -133,8 +148,20 @@ void TokenService::SaveAuthTokenToDB(const std::string& service,
 
 void TokenService::EraseTokensFromDB() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  // Try to track down http://crbug.com/121755 - we should never clear the
+  // token DB while we're still logged in.
+  if (profile_) {
+    std::string user = profile_->GetPrefs()->GetString(
+        prefs::kGoogleServicesUsername);
+    CHECK(user.empty());
+  }
   if (web_data_service_.get())
     web_data_service_->RemoveAllTokens();
+
+  content::NotificationService::current()->Notify(
+      chrome::NOTIFICATION_TOKENS_CLEARED,
+      content::Source<TokenService>(this),
+      content::NotificationService::NoDetails());
 }
 
 bool TokenService::TokensLoadedFromDB() const {
@@ -243,39 +270,39 @@ void TokenService::OnIssueAuthTokenSuccess(const std::string& service,
   // login scoped token pair.
   if (service == GaiaConstants::kLSOService) {
     int index = GetServiceIndex(service);
-    DCHECK_NE(-1, index);
-    fetchers_[index]->StartOAuthLoginTokenFetch(auth_token);
+    CHECK_GE(index, 0);
+    fetchers_[index]->StartLsoForOAuthLoginTokenExchange(auth_token);
   }
 }
 
 void TokenService::OnIssueAuthTokenFailure(const std::string& service,
     const GoogleServiceAuthError& error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  LOG(WARNING) << "Auth token issuing failed for service:" << service;
+  LOG(WARNING) << "Auth token issuing failed for service:" << service
+               << ", error: " << error.ToString();
   FireTokenRequestFailedNotification(service, error);
 }
 
-void TokenService::OnOAuthLoginTokenSuccess(const std::string& refresh_token,
-                                            const std::string& access_token,
-                                            int expires_in_secs) {
+void TokenService::OnClientOAuthSuccess(const ClientOAuthResult& result) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   VLOG(1) << "Got OAuth2 login token pair";
-  token_map_[GaiaConstants::kGaiaOAuth2LoginRefreshToken] = refresh_token;
-  token_map_[GaiaConstants::kGaiaOAuth2LoginAccessToken] = access_token;
+  token_map_[GaiaConstants::kGaiaOAuth2LoginRefreshToken] =
+      result.refresh_token;
+  token_map_[GaiaConstants::kGaiaOAuth2LoginAccessToken] = result.access_token;
   SaveAuthTokenToDB(GaiaConstants::kGaiaOAuth2LoginRefreshToken,
-      refresh_token);
+      result.refresh_token);
   SaveAuthTokenToDB(GaiaConstants::kGaiaOAuth2LoginAccessToken,
-      access_token);
+      result.access_token);
   // We don't save expiration information for now.
 
   FireTokenAvailableNotification(GaiaConstants::kGaiaOAuth2LoginRefreshToken,
-      refresh_token);
+      result.refresh_token);
 }
 
-void TokenService::OnOAuthLoginTokenFailure(
+void TokenService::OnClientOAuthFailure(
    const GoogleServiceAuthError& error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  LOG(WARNING) << "OAuth2 login token pair fetch failed:";
+  LOG(WARNING) << "OAuth2 login token pair fetch failed: " << error.ToString();
   FireTokenRequestFailedNotification(
       GaiaConstants::kGaiaOAuth2LoginRefreshToken, error);
 }

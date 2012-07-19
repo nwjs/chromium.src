@@ -37,6 +37,11 @@ body {
   min-width: 600px;
 }
 
+body.uber-frame #searchBox {
+  position: fixed;
+  z-index: 4;
+}
+
 div.disabled {
   color: #999;
 }
@@ -66,28 +71,6 @@ div.disabled {
 
 .frozen {
   position: fixed;
-}
-
-/* For touch-optimized UI, make the radio/checkbox input boxes in
- * options/preference pages easier to touch.
- * TODO(rbyers): We need to solve this more generally for all web pages
- * (crbug.com/99981), and perhaps temporarily for all WebUI (crbug.com/102482).
- */
-html[touch-optimized] div.radio > label > span,
-html[touch-optimized] div.checkbox > label > span {
-  -webkit-padding-start: 5px;
-}
-
-html[touch-optimized] label > input[type=checkbox],
-html[touch-optimized] label > input[type=radio] {
-  -webkit-transform: scale(1.4);
-}
-
-/* Override the font-size rule in shared_options.css file.
- * 16 px font-size proved to be more touch friendly. It increases the touchable
- * area for buttons and input boxes. */
-html[touch-optimized] body {
-  font-size: 100%;
 }
 
 #overlay-container-1 {
@@ -126,71 +109,9 @@ html[touch-optimized] body {
   padding-top: 0;
 }
 
-.managed-prefs-banner {
-  background-color: white;
-  width: 100%;
-  z-index: 2;
-}
-
-.page:not(.showing-banner) .managed-prefs-banner {
-  display: none;
-}
-
-.managed-prefs-gradient {
-  background: -webkit-linear-gradient(rgb(255, 242, 183),
-                                      rgb(250, 230, 145));
-  border: 1px solid rgb(201, 189, 141);
-  border-radius: 3px;
-  height: 25px;
-  margin: 9px 9px 0 9px;
-}
-
-.main-page-banner .managed-prefs-gradient {
-  -webkit-margin-end: 20px;
-  -webkit-margin-start: 0;
-  margin-bottom: 9px;
-}
-
-.managed-prefs-text {
-  background-image: url('chrome://theme/IDR_MANAGED');
-  background-position: 5px center;
-  background-repeat: no-repeat;
-  display: block;
-  line-height: 24px;
-  padding-left: 26px;
-}
-
-.managed-prefs-banner.clickable:active .managed-prefs-text {
-  background: -webkit-linear-gradient(rgb(250, 230, 145),
-                                      rgb(255, 242, 183));
-}
-
-#page-container .page.showing-banner {
-  margin-top: 45px;
-}
-
 .page list {
   /* Min height is a multiple of the list item height (32) */
   min-height: 192px;
-}
-
-section {
-  -webkit-padding-start: 18px;
-  margin-bottom: 24px;
-  margin-top: 8px;
-  max-width: 600px;
-}
-
-section:last-of-type {
-  margin-bottom: 0;
-}
-
-section > h3 {
-  -webkit-margin-start: -18px;
-}
-
-section > div:only-of-type {
-  -webkit-box-flex: 1;
 }
 
 .option {
@@ -308,7 +229,9 @@ list .row-delete-button {
   -webkit-transition: 150ms opacity;
   background-color: transparent;
   /* TODO(stuartmorgan): Replace with real images once they are available. */
-  background-image: url('../../../../ui/resources/close_bar.png');
+  background-image: -webkit-image-set(
+      url('../../../../ui/resources/default_100_percent/close_bar.png') 1x,
+      url('../../../../ui/resources/default_200_percent/close_bar.png') 2x);
   border: none;
   display: block;
   height: 16px;
@@ -316,21 +239,35 @@ list .row-delete-button {
   width: 16px;
 }
 
-list > *:not(:hover):not([lead]) .row-delete-button,
-list > *:not(:hover):not([selected]) .row-delete-button,
-list:not([hasElementFocus]) > *:not(:hover) .row-delete-button,
+list > *:not(:hover):not([selected]):not([lead]) .row-delete-button,
+list:not([hasElementFocus]) > *:not(:hover):not([selected]) .row-delete-button,
 list[disabled] .row-delete-button,
 list .row-delete-button[disabled] {
   opacity: 0;
   pointer-events: none;
 }
 
+/* HostedApp entries use the disabled closing button to display the App's
+ * favicon, as an indicator that instead of deleting the permission here
+ * the user has to remove the hosted app.*/
+list div[role='listitem'][managedby='HostedApp'] .row-delete-button {
+  opacity: 1;
+}
+
 list .row-delete-button:hover {
-  background-image: url('../../../../ui/resources/close_bar_h.png');
+  background-image: -webkit-image-set(
+      url('../../../../ui/resources/default_100_percent/close_bar_hover.png')
+          1x,
+      url('../../../../ui/resources/default_200_percent/close_bar_hover.png')
+          2x);
 }
 
 list .row-delete-button:active {
-  background-image: url('../../../../ui/resources/close_bar_p.png');
+  background-image: -webkit-image-set(
+      url('../../../../ui/resources/default_100_percent/close_bar_pressed.png')
+          1x,
+      url('../../../../ui/resources/default_200_percent/close_bar_pressed.png')
+          2x);
 }
 
 list .static-text {
@@ -462,7 +399,8 @@ html:not([hasFlashPlugin]) .flash-plugin-area,
  */
 html[flashPluginSupportsClearSiteData] .flash-plugin-area,
 html:not([flashPluginSupportsClearSiteData]) .clear-plugin-lso-data-enabled,
-html[flashPluginSupportsClearSiteData] .clear-plugin-lso-data-disabled {
+html[flashPluginSupportsClearSiteData] .clear-plugin-lso-data-disabled,
+html:not([enablePepperFlashSettings]) .pepper-flash-settings {
   display: none;
 }
 
@@ -487,31 +425,37 @@ html[flashPluginSupportsClearSiteData] .clear-plugin-lso-data-disabled {
 .controlled-setting-indicator[controlled-by='policy'] summary {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_MANDATORY_GRAY');
+  background-size: 16px;
 }
 
 .controlled-setting-indicator[controlled-by='policy'] summary:hover {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_MANDATORY');
+  background-size: 16px;
 }
 
 .controlled-setting-indicator[controlled-by='extension'] summary {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_EXTENSION_GRAY');
+  background-size: 16px;
 }
 
 .controlled-setting-indicator[controlled-by='extension'] summary:hover {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_EXTENSION');
+  background-size: 16px;
 }
 
 .controlled-setting-indicator[controlled-by='recommended'] summary {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_RECOMMENDED_GRAY');
+  background-size: 16px;
 }
 
 .controlled-setting-indicator[controlled-by='recommended'] summary:hover {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_RECOMMENDED');
+  background-size: 16px;
 }
 
 .controlled-setting-bubble {
@@ -567,18 +511,21 @@ html[dir='rtl'] .controlled-setting-bubble {
     .controlled-setting-bubble-text {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_MANDATORY_LARGE');
+  background-size: 22px;
 }
 
 .controlled-setting-indicator[controlled-by='extension']
     .controlled-setting-bubble-text {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_EXTENSION_LARGE');
+  background-size: 22px;
 }
 
 .controlled-setting-indicator[controlled-by='recommended']
     .controlled-setting-bubble-text {
   background-image:
       url('chrome://theme/IDR_CONTROLLED_SETTING_RECOMMENDED_LARGE');
+  background-size: 22px;
 }
 
 html[dir='rtl'] .controlled-setting-bubble-text {

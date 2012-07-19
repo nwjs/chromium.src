@@ -8,10 +8,11 @@
 #include "base/file_path.h"
 #include "base/process_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/browser/child_process_security_policy_impl.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/result_codes.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -46,13 +47,13 @@ IN_PROC_BROWSER_TEST_F(ChildProcessSecurityPolicyInProcessBrowserTest, NoLeak) {
       ChildProcessSecurityPolicyImpl::GetInstance()->security_state_.size(),
           1U);
 
-  WebContents* tab = browser()->GetWebContentsAt(0);
-  ASSERT_TRUE(tab != NULL);
-  base::KillProcess(tab->GetRenderProcessHost()->GetHandle(),
+  WebContents* web_contents = chrome::GetWebContentsAt(browser(), 0);
+  ASSERT_TRUE(web_contents != NULL);
+  base::KillProcess(web_contents->GetRenderProcessHost()->GetHandle(),
                     content::RESULT_CODE_KILLED, true);
 
-  tab->GetController().Reload(true);
+  web_contents->GetController().Reload(true);
   EXPECT_EQ(
-      ChildProcessSecurityPolicyImpl::GetInstance()->security_state_.size(),
-          1U);
+      1U,
+      ChildProcessSecurityPolicyImpl::GetInstance()->security_state_.size());
 }

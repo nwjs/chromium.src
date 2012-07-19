@@ -37,7 +37,7 @@ ChromeToMobileBubbleNotificationBridge::ChromeToMobileBubbleNotificationBridge(
       selector_(selector) {
   registrar_.Add(this, content::NOTIFICATION_WEB_CONTENTS_CONNECTED,
                  content::NotificationService::AllSources());
-  registrar_.Add(this, content::NOTIFICATION_TAB_CLOSED,
+  registrar_.Add(this, content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
                  content::NotificationService::AllSources());
 }
 
@@ -71,17 +71,21 @@ void ChromeToMobileBubbleNotificationBridge::OnSendComplete(bool success) {
 @implementation ChromeToMobileBubbleController
 
 - (id)initWithParentWindow:(NSWindow*)parentWindow
-                   profile:(Profile*)profile {
+                   browser:(Browser*)browser {
   self = [super initWithWindowNibPath:@"ChromeToMobileBubble"
                          parentWindow:parentWindow
                            anchoredAt:NSZeroPoint];
   if (self) {
-    service_ = ChromeToMobileServiceFactory::GetForProfile(profile);
+    browser_ = browser;
+    service_ = ChromeToMobileServiceFactory::GetForProfile(browser->profile());
   }
   return self;
 }
 
 - (void)windowWillClose:(NSNotification*)notification {
+  // Instruct the service to delete the snapshot file.
+  service_->DeleteSnapshot(snapshotPath_);
+
   // We caught a close so we don't need to observe further notifications.
   bridge_.reset(NULL);
   [progressAnimation_ stopAnimation];
@@ -92,6 +96,8 @@ void ChromeToMobileBubbleNotificationBridge::OnSendComplete(bool success) {
 
 // Override -[BaseBubbleController showWindow:] to set up UI elements.
 - (void)showWindow:(id)sender {
+  service_->LogMetric(ChromeToMobileService::BUBBLE_SHOWN);
+
   // Force load the NIB.
   NSWindow* window = [self window];
 
@@ -148,7 +154,7 @@ void ChromeToMobileBubbleNotificationBridge::OnSendComplete(bool success) {
       self, @selector(cancel:)));
 
   // Generate the MHTML snapshot now to report its size in the bubble.
-  service_->GenerateSnapshot(bridge_->AsWeakPtr());
+  service_->GenerateSnapshot(browser_, bridge_->AsWeakPtr());
 
   // Request a mobile device list update.
   service_->RequestMobileListUpdate();
@@ -156,14 +162,15 @@ void ChromeToMobileBubbleNotificationBridge::OnSendComplete(bool success) {
   [super showWindow:sender];
 }
 
-- (IBAction)send:(id)sender {
-  int index = (mobiles_.size() > 1) ? [mobileRadioGroup_ selectedRow] : 0;
-  DCHECK_GE(index, 0);
+- (IBAction)learn:(id)sender {
+  service_->LearnMore(browser_);
+  [self close];
+}
 
-  string16 mobileId;
-  mobiles_[index]->GetString("id", &mobileId);
+- (IBAction)send:(id)sender {
+  int row = (mobiles_.size() > 1) ? [mobileRadioGroup_ selectedRow] : 0;
   FilePath path = ([sendCopy_ state] == NSOnState) ? snapshotPath_ : FilePath();
-  service_->SendToMobile(mobileId, path, bridge_->AsWeakPtr());
+  service_->SendToMobile(*mobiles_[row], path, browser_, bridge_->AsWeakPtr());
 
   // Update the bubble's contents to show the "Sending..." progress animation.
   [cancel_ setEnabled:NO];
@@ -179,13 +186,15 @@ void ChromeToMobileBubbleNotificationBridge::OnSendComplete(bool success) {
 
 - (void)snapshotGenerated:(const FilePath&)path
                     bytes:(int64)bytes {
+  snapshotPath_ = path;
   NSString* text = nil;
   if (bytes > 0) {
-    snapshotPath_ = path;
+    service_->LogMetric(ChromeToMobileService::SNAPSHOT_GENERATED);
     [sendCopy_ setEnabled:YES];
     text = l10n_util::GetNSStringF(IDS_CHROME_TO_MOBILE_BUBBLE_SEND_COPY,
                                    ui::FormatBytes(bytes));
   } else {
+    service_->LogMetric(ChromeToMobileService::SNAPSHOT_ERROR);
     text = l10n_util::GetNSString(IDS_CHROME_TO_MOBILE_BUBBLE_SEND_COPY_FAILED);
   }
   [sendCopy_ setTitle:text];
@@ -243,11 +252,12 @@ void ChromeToMobileBubbleNotificationBridge::OnSendComplete(bool success) {
 @implementation ChromeToMobileBubbleController (JustForTesting)
 
 - (id)initWithParentWindow:(NSWindow*)parentWindow
-                   service:(scoped_refptr<ChromeToMobileService>)service {
+                   service:(ChromeToMobileService*)service {
   self = [super initWithWindowNibPath:@"ChromeToMobileBubble"
                          parentWindow:parentWindow
                            anchoredAt:NSZeroPoint];
   if (self) {
+    browser_ = NULL;
     service_ = service;
   }
   return self;

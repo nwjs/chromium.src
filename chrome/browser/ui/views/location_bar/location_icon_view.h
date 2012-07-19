@@ -1,12 +1,12 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_LOCATION_ICON_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_LOCATION_BAR_LOCATION_ICON_VIEW_H_
-#pragma once
 
-#include "chrome/browser/ui/views/location_bar/click_handler.h"
+#include "chrome/browser/ui/views/location_bar/page_info_helper.h"
+#include "chrome/browser/ui/views/location_bar/touchable_location_bar_view.h"
 #include "ui/views/controls/image_view.h"
 
 class LocationBarView;
@@ -17,7 +17,9 @@ class MouseEvent;
 // LocationIconView is used to display an icon to the left of the edit field.
 // This shows the user's current action while editing, the page security
 // status on https pages, or a globe for other URLs.
-class LocationIconView : public views::ImageView {
+class LocationIconView
+    : public views::ImageView,
+      public TouchableLocationBarView {
  public:
   explicit LocationIconView(LocationBarView* location_bar);
   virtual ~LocationIconView();
@@ -25,12 +27,17 @@ class LocationIconView : public views::ImageView {
   // Overridden from views::ImageView:
   virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(
+      const views::GestureEvent& event) OVERRIDE;
+
+  // TouchableLocationBarView.
+  virtual int GetBuiltInHorizontalPadding() const OVERRIDE;
 
   // Whether we should show the tooltip for this icon or not.
   void ShowTooltip(bool show);
 
  private:
-  ClickHandler click_handler_;
+  PageInfoHelper page_info_helper_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(LocationIconView);
 };

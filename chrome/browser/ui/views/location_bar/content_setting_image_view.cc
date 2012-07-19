@@ -8,10 +8,9 @@
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/views/content_setting_bubble_contents.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/window.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/skia/include/core/SkShader.h"
 #include "ui/base/animation/slide_animation.h"
@@ -59,6 +58,7 @@ ContentSettingImageView::ContentSettingImageView(
       text_size_(0),
       visible_text_size_(0) {
   SetHorizontalAlignment(ImageView::LEADING);
+  TouchableLocationBarView::Init(this);
 }
 
 ContentSettingImageView::~ContentSettingImageView() {
@@ -74,15 +74,15 @@ void ContentSettingImageView::UpdateFromWebContents(WebContents* web_contents) {
     SetVisible(false);
     return;
   }
-  SetImage(ResourceBundle::GetSharedInstance().GetBitmapNamed(
+  SetImage(ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
       content_setting_image_model_->get_icon()));
   SetTooltipText(UTF8ToUTF16(content_setting_image_model_->get_tooltip()));
   SetVisible(true);
 
   TabSpecificContentSettings* content_settings = NULL;
   if (web_contents) {
-    content_settings = TabContentsWrapper::GetCurrentWrapperForContents(
-        web_contents)->content_settings();
+    content_settings =
+        TabContents::FromWebContents(web_contents)->content_settings();
   }
   if (!content_settings || content_settings->IsBlockageIndicated(
       content_setting_image_model_->get_content_settings_type()))
@@ -109,8 +109,8 @@ void ContentSettingImageView::UpdateFromWebContents(WebContents* web_contents) {
     // Initialize animated string. It will be cleared when animation is
     // completed.
     animated_text_ = l10n_util::GetStringUTF16(animated_string_id);
-    text_size_ = ResourceBundle::GetSharedInstance().GetFont(
-        ResourceBundle::MediumFont).GetStringWidth(animated_text_);
+    text_size_ = ui::ResourceBundle::GetSharedInstance().GetFont(
+        ui::ResourceBundle::MediumFont).GetStringWidth(animated_text_);
     text_size_ += 2 * kTextMarginPixels + kIconLeftMargin;
     if (border())
       border()->GetInsets(&saved_insets_);
@@ -167,7 +167,7 @@ void ContentSettingImageView::OnMouseReleased(const views::MouseEvent& event) {
   if (!HitTest(event.location()))
     return;
 
-  TabContentsWrapper* tab_contents = parent_->GetTabContentsWrapper();
+  TabContents* tab_contents = parent_->GetTabContents();
   if (!tab_contents)
     return;
 
@@ -214,9 +214,9 @@ void ContentSettingImageView::OnPaint(gfx::Canvas* canvas) {
     views::ImageView::OnPaint(canvas);
 
     // Paint text to the right of the icon.
-    ResourceBundle& rb = ResourceBundle::GetSharedInstance();
+    ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     canvas->DrawStringInt(animated_text_,
-        rb.GetFont(ResourceBundle::MediumFont), SK_ColorBLACK,
+        rb.GetFont(ui::ResourceBundle::MediumFont), SK_ColorBLACK,
         GetImageBounds().right() + kTextMarginPixels, y(),
         width() - GetImageBounds().width(), height(),
         gfx::Canvas::TEXT_ALIGN_LEFT | gfx::Canvas::TEXT_VALIGN_MIDDLE);
@@ -264,3 +264,8 @@ void ContentSettingImageView::OnWidgetClosing(views::Widget* widget) {
     slide_animator_->Show();
   }
 }
+
+int ContentSettingImageView::GetBuiltInHorizontalPadding() const {
+  return GetBuiltInHorizontalPaddingImpl();
+}
+

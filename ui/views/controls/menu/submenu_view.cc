@@ -29,9 +29,6 @@ const SkColor kDropIndicatorColor = SK_ColorBLACK;
 namespace views {
 
 // static
-const int SubmenuView::kSubmenuBorderSize = 3;
-
-// static
 const char SubmenuView::kViewClassName[] = "views/SubmenuView";
 
 SubmenuView::SubmenuView(MenuItemView* parent)
@@ -47,7 +44,7 @@ SubmenuView::SubmenuView(MenuItemView* parent)
           scroll_animator_(new ScrollAnimator(this))) {
   DCHECK(parent);
   // We'll delete ourselves, otherwise the ScrollView would delete us on close.
-  set_parent_owned(false);
+  set_owned_by_client();
 }
 
 SubmenuView::~SubmenuView() {
@@ -146,7 +143,7 @@ gfx::Size SubmenuView::GetPreferredSize() {
   gfx::Insets insets = GetInsets();
   return gfx::Size(
       std::max(max_width + max_accelerator_width_ + insets.width(),
-               minimum_preferred_width_ - 2 * kSubmenuBorderSize),
+               minimum_preferred_width_ - 2 * insets.width()),
       height + insets.height());
 }
 
@@ -254,11 +251,17 @@ ui::GestureStatus SubmenuView::OnGestureEvent(const GestureEvent& e) {
       scroll_animator_->Stop();
       break;
     case ui::ET_GESTURE_SCROLL_UPDATE:
-      OnScroll(0, e.delta_y());
+      OnScroll(0, e.details().scroll_y());
       break;
     case ui::ET_GESTURE_SCROLL_END:
-      if (e.delta_y() != 0.0f)
-        scroll_animator_->Start(0, e.delta_y());
+      break;
+    case ui::ET_SCROLL_FLING_START:
+      if (e.details().velocity_y() != 0.0f)
+        scroll_animator_->Start(0, e.details().velocity_y());
+      break;
+    case ui::ET_GESTURE_TAP_DOWN:
+    case ui::ET_SCROLL_FLING_CANCEL:
+      scroll_animator_->Stop();
       break;
     default:
       to_return = ui::GESTURE_STATUS_UNKNOWN;
@@ -357,7 +360,7 @@ MenuScrollViewContainer* SubmenuView::GetScrollViewContainer() {
   if (!scroll_view_container_) {
     scroll_view_container_ = new MenuScrollViewContainer(this);
     // Otherwise MenuHost would delete us.
-    scroll_view_container_->set_parent_owned(false);
+    scroll_view_container_->set_owned_by_client();
   }
   return scroll_view_container_;
 }

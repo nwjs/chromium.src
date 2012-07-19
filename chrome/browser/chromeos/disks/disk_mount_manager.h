@@ -4,11 +4,10 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_DISKS_DISK_MOUNT_MANAGER_H_
 #define CHROME_BROWSER_CHROMEOS_DISKS_DISK_MOUNT_MANAGER_H_
-#pragma once
 
 #include <map>
 
-#include "chrome/browser/chromeos/dbus/cros_disks_client.h"
+#include "chromeos/dbus/cros_disks_client.h"
 
 namespace chromeos {
 namespace disks {
@@ -201,7 +200,10 @@ class DiskMountManager {
   virtual void RequestMountInfoRefresh() = 0;
 
   // Mounts a device.
-  virtual void MountPath(const std::string& source_path, MountType type) = 0;
+  virtual void MountPath(const std::string& source_path,
+                         const std::string& source_format,
+                         const std::string& mount_label,
+                         MountType type) = 0;
 
   // Unmounts a mounted disk.
   virtual void UnmountPath(const std::string& mount_path) = 0;

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,6 @@
 
 #ifndef CHROME_BROWSER_IMPORTER_TOOLBAR_IMPORTER_H_
 #define CHROME_BROWSER_IMPORTER_TOOLBAR_IMPORTER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -19,11 +18,15 @@
 #include "base/string16.h"
 #include "chrome/browser/importer/importer.h"
 #include "chrome/browser/importer/profile_writer.h"
-#include "content/public/common/url_fetcher_delegate.h"
+#include "net/url_request/url_fetcher_delegate.h"
 #include "net/url_request/url_request_context_getter.h"
 
 class ImporterBridge;
 class XmlReader;
+
+namespace net {
+class URLFetcher;
+}  // namespace net
 
 // Toolbar5Importer is a class which exposes the functionality needed to
 // communicate with the Google Toolbar v5 front-end, negotiate the download of
@@ -31,7 +34,7 @@ class XmlReader;
 // Toolbar5Importer should not have StartImport called more than once. Futher
 // if StartImport is called, then the class must not be destroyed until it has
 // either completed or Toolbar5Importer->Cancel() has been called.
-class Toolbar5Importer : public content::URLFetcherDelegate, public Importer {
+class Toolbar5Importer : public net::URLFetcherDelegate, public Importer {
  public:
   Toolbar5Importer();
 
@@ -48,8 +51,8 @@ class Toolbar5Importer : public content::URLFetcherDelegate, public Importer {
   // to cancel network retrieval.
   virtual void Cancel() OVERRIDE;
 
-  // content::URLFetcherDelegate method called back from the URLFetcher object.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate method called back from the URLFetcher object.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(Toolbar5ImporterTest, BookmarkParse);
@@ -155,8 +158,8 @@ class Toolbar5Importer : public content::URLFetcherDelegate, public Importer {
 
   // The fetchers need to be available to cancel the network call on user cancel
   // hence they are stored as member variables.
-  content::URLFetcher* token_fetcher_;
-  content::URLFetcher* data_fetcher_;
+  net::URLFetcher* token_fetcher_;
+  net::URLFetcher* data_fetcher_;
 
   // Used to get correct login data for the toolbar server.
   scoped_refptr<net::URLRequestContextGetter> request_context_getter_;

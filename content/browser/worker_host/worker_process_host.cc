@@ -27,6 +27,7 @@
 #include "content/browser/mime_registry_message_filter.h"
 #include "content/browser/renderer_host/database_message_filter.h"
 #include "content/browser/renderer_host/file_utilities_message_filter.h"
+#include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/socket_stream_dispatcher_host.h"
 #include "content/browser/resource_context_impl.h"
@@ -39,7 +40,6 @@
 #include "content/common/worker_messages.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
@@ -56,6 +56,8 @@ using content::ChildProcessData;
 using content::ChildProcessHost;
 using content::RenderViewHostImpl;
 using content::ResourceContext;
+using content::ResourceMessageFilter;
+using content::SocketStreamDispatcherHost;
 using content::UserMetricsAction;
 using content::WorkerDevToolsManager;
 using content::WorkerServiceImpl;
@@ -157,6 +159,7 @@ bool WorkerProcessHost::Init(int render_process_id) {
     switches::kDisableDesktopNotifications,
 #endif
     switches::kDisableFileSystem,
+    switches::kDisableSeccompFilterSandbox,
   };
   cmd_line->CopySwitchesFrom(*CommandLine::ForCurrentProcess(), kSwitchNames,
                              arraysize(kSwitchNames));
@@ -308,6 +311,7 @@ void WorkerProcessHost::CreateWorker(const WorkerInstance& instance) {
   for (WorkerInstance::FilterList::const_iterator i =
            instance.filters().begin();
        i != instance.filters().end(); ++i) {
+    CHECK(i->first);
     i->first->Send(new ViewMsg_WorkerCreated(i->second));
   }
 }
@@ -618,7 +622,8 @@ bool WorkerProcessHost::WorkerInstance::Matches(
   if (closed_)
     return false;
 
-  // Have to match the same ResourceContext.
+  // ResourceContext equivalence is being used as a proxy to ensure we only
+  // matched shared workers within the same BrowserContext.
   if (resource_context_ != resource_context)
     return false;
 
@@ -633,6 +638,7 @@ bool WorkerProcessHost::WorkerInstance::Matches(
 
 void WorkerProcessHost::WorkerInstance::AddFilter(WorkerMessageFilter* filter,
                                                   int route_id) {
+  CHECK(filter);
   if (!HasFilter(filter, route_id)) {
     FilterInfo info(filter, route_id);
     filters_.push_back(info);

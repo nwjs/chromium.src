@@ -6,29 +6,35 @@
 
 #include "base/memory/ref_counted_memory.h"
 #include "base/message_loop.h"
+#include "base/string_number_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resources_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache.h"
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache_factory.h"
+#include "chrome/browser/ui/webui/web_ui_util.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "googleurl/src/gurl.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
 
 using content::BrowserThread;
 
+namespace {
+
+std::string GetThemePath() {
+  return std::string(chrome::kChromeUIScheme) +
+      "://" + std::string(chrome::kChromeUIThemePath) + "/";
+}
+
 // use a resource map rather than hard-coded strings.
 static const char* kNewTabCSSPath = "css/new_tab_theme.css";
 static const char* kNewIncognitoTabCSSPath = "css/incognito_new_tab_theme.css";
 
-static std::string StripQueryParams(const std::string& path) {
-  GURL path_url = GURL(std::string(chrome::kChromeUIScheme) + "://" +
-                       std::string(chrome::kChromeUIThemePath) + "/" + path);
-  return path_url.path().substr(1);  // path() always includes a leading '/'.
-}
+}  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // ThemeSource, public:
@@ -46,8 +52,12 @@ ThemeSource::~ThemeSource() {
 void ThemeSource::StartDataRequest(const std::string& path,
                                    bool is_incognito,
                                    int request_id) {
-  // Our path may include cachebuster arguments, so trim them off.
-  std::string uncached_path = StripQueryParams(path);
+  // Default scale factor if not specified.
+  ui::ScaleFactor scale_factor;
+  std::string uncached_path;
+  web_ui_util::ParsePathAndScale(GURL(GetThemePath() + path),
+                                 &uncached_path,
+                                 &scale_factor);
 
   if (uncached_path == kNewTabCSSPath ||
       uncached_path == kNewIncognitoTabCSSPath) {
@@ -60,7 +70,7 @@ void ThemeSource::StartDataRequest(const std::string& path,
   } else {
     int resource_id = ResourcesUtil::GetThemeResourceId(uncached_path);
     if (resource_id != -1) {
-      SendThemeBitmap(request_id, resource_id);
+      SendThemeBitmap(request_id, resource_id, scale_factor);
       return;
     }
   }
@@ -69,7 +79,9 @@ void ThemeSource::StartDataRequest(const std::string& path,
 }
 
 std::string ThemeSource::GetMimeType(const std::string& path) const {
-  std::string uncached_path = StripQueryParams(path);
+  std::string uncached_path;
+  web_ui_util::ParsePathAndScale(GURL(GetThemePath() + path),
+                                 &uncached_path, NULL);
 
   if (uncached_path == kNewTabCSSPath ||
       uncached_path == kNewIncognitoTabCSSPath) {
@@ -81,7 +93,9 @@ std::string ThemeSource::GetMimeType(const std::string& path) const {
 
 MessageLoop* ThemeSource::MessageLoopForRequestPath(
     const std::string& path) const {
-  std::string uncached_path = StripQueryParams(path);
+  std::string uncached_path;
+  web_ui_util::ParsePathAndScale(GURL(GetThemePath() + path),
+                                 &uncached_path, NULL);
 
   if (uncached_path == kNewTabCSSPath ||
       uncached_path == kNewIncognitoTabCSSPath) {
@@ -107,17 +121,22 @@ bool ThemeSource::ShouldReplaceExistingSource() const {
 ////////////////////////////////////////////////////////////////////////////////
 // ThemeSource, private:
 
-void ThemeSource::SendThemeBitmap(int request_id, int resource_id) {
+void ThemeSource::SendThemeBitmap(int request_id,
+                                  int resource_id,
+                                  ui::ScaleFactor scale_factor) {
   if (ThemeService::IsThemeableImage(resource_id)) {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
     ui::ThemeProvider* tp = ThemeServiceFactory::GetForProfile(profile_);
     DCHECK(tp);
 
-    scoped_refptr<RefCountedMemory> image_data(tp->GetRawData(resource_id));
+    // TODO(flackr): Pass scale factor when fetching themeable images.
+    scoped_refptr<base::RefCountedMemory> image_data(tp->GetRawData(
+        resource_id));
     SendResponse(request_id, image_data);
   } else {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
     const ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-    SendResponse(request_id, rb.LoadDataResourceBytes(resource_id));
+    SendResponse(request_id,
+                 rb.LoadDataResourceBytes(resource_id, scale_factor));
   }
 }

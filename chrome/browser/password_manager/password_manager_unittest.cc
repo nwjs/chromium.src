@@ -17,7 +17,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/common/frame_navigate_params.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -34,7 +34,7 @@ class MockPasswordManagerDelegate : public PasswordManagerDelegate {
   MOCK_METHOD1(FillPasswordForm, void(
      const webkit::forms::PasswordFormFillData&));
   MOCK_METHOD1(AddSavePasswordInfoBarIfPermitted, void(PasswordFormManager*));
-  MOCK_METHOD0(GetProfileForPasswordManager, Profile*());
+  MOCK_METHOD0(GetProfile, Profile*());
   MOCK_METHOD0(DidLastPageLoadEncounterSSLErrors, bool());
 };
 
@@ -61,8 +61,7 @@ class PasswordManagerTest : public ChromeRenderViewHostTestHarness {
     browser_context_.reset(testing_profile);
     ChromeRenderViewHostTestHarness::SetUp();
 
-    EXPECT_CALL(delegate_, GetProfileForPasswordManager())
-        .WillRepeatedly(Return(profile()));
+    EXPECT_CALL(delegate_, GetProfile()).WillRepeatedly(Return(profile()));
     manager_.reset(new PasswordManager(contents(), &delegate_));
     EXPECT_CALL(delegate_, DidLastPageLoadEncounterSSLErrors())
         .WillRepeatedly(Return(false));
@@ -135,6 +134,35 @@ TEST_F(PasswordManagerTest, FormSubmitEmptyStore) {
 
   // Simulate saving the form, as if the info bar was accepted.
   form_to_save->Save();
+}
+
+TEST_F(PasswordManagerTest, GeneratedPasswordFormSubmitEmptyStore) {
+  // This test is the same FormSubmitEmptyStore, except that it simulates the
+  // user generating the password through the browser.
+  std::vector<PasswordForm*> result;  // Empty password store.
+  EXPECT_CALL(delegate_, FillPasswordForm(_)).Times(Exactly(0));
+  EXPECT_CALL(*store_, GetLogins(_,_))
+      .WillOnce(DoAll(WithArg<1>(InvokeConsumer(0, result)), Return(0)));
+  std::vector<PasswordForm> observed;
+  PasswordForm form(MakeSimpleForm());
+  observed.push_back(form);
+  manager()->OnPasswordFormsParsed(observed);  // The initial load.
+  manager()->OnPasswordFormsRendered(observed);  // The initial layout.
+
+  // Simulate the user generating the password and submitting the form.
+  manager()->SetFormHasGeneratedPassword(form);
+  manager()->ProvisionallySavePassword(form);
+
+  // The user should not be presented with an infobar as they have already given
+  // consent. The form should be saved once navigation occurs.
+  EXPECT_CALL(delegate_,
+              AddSavePasswordInfoBarIfPermitted(_)).Times(Exactly(0));
+  EXPECT_CALL(*store_, AddLogin(FormMatches(form)));
+
+  // Now the password manager waits for the navigation to complete.
+  observed.clear();
+  manager()->OnPasswordFormsParsed(observed);  // The post-navigation load.
+  manager()->OnPasswordFormsRendered(observed);  // The post-navigation layout.
 }
 
 TEST_F(PasswordManagerTest, FormSubmitNoGoodMatch) {

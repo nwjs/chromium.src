@@ -13,8 +13,8 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/web_contents_tester.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/web_contents_tester.h"
 
 using content::BrowserThread;
 using content::InterstitialPage;
@@ -29,6 +29,8 @@ static const char* kBadURL = "http://www.badguys.com/";
 static const char* kBadURL2 = "http://www.badguys2.com/";
 static const char* kBadURL3 = "http://www.badguys3.com/";
 
+namespace {
+
 // A SafeBrowingBlockingPage class that does not create windows.
 class TestSafeBrowsingBlockingPage :  public SafeBrowsingBlockingPage {
  public:
@@ -40,15 +42,12 @@ class TestSafeBrowsingBlockingPage :  public SafeBrowsingBlockingPage {
     malware_details_proceed_delay_ms_ = 0;
 
     // Don't create a view.
-    interstitial_page_->DontCreateViewForTesting();
+    interstitial_page()->DontCreateViewForTesting();
   }
-
 };
 
 class TestSafeBrowsingService: public SafeBrowsingService {
  public:
-  virtual ~TestSafeBrowsingService() {}
-
   virtual void SendSerializedMalwareDetails(const std::string& serialized) {
     details_.push_back(serialized);
   }
@@ -56,6 +55,9 @@ class TestSafeBrowsingService: public SafeBrowsingService {
   std::list<std::string>* GetDetails() {
     return &details_;
   }
+
+ private:
+  virtual ~TestSafeBrowsingService() {}
 
   std::list<std::string> details_;
 };
@@ -74,6 +76,8 @@ class TestSafeBrowsingBlockingPageFactory
                                             unsafe_resources);
   }
 };
+
+}  // namespace
 
 class SafeBrowsingBlockingPageTest : public ChromeRenderViewHostTestHarness {
  public:

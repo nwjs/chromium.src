@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_GFX_FONT_H_
 #define UI_GFX_FONT_H_
-#pragma once
 
 #include <string>
 
@@ -39,7 +38,7 @@ class UI_EXPORT Font {
   // Creates a font from the specified native font.
   explicit Font(NativeFont native_font);
 
-  // Construct a Font object with the specified PlatformFont object. The Font
+  // Constructs a Font object with the specified PlatformFont object. The Font
   // object takes ownership of the PlatformFont object.
   explicit Font(PlatformFont* platform_font);
 
@@ -97,7 +96,8 @@ class UI_EXPORT Font {
   //          destroyed by the caller.
   // Mac:     The object is owned by the system and should not be released.
   // Gtk:     This handle is created on demand, and must be freed by calling
-  //          pango_font_description_free() when the caller is done using it.
+  //          pango_font_description_free() when the caller is done using it or
+  //          by using ScopedPangoFontDescription.
   NativeFont GetNativeFont() const;
 
   // Raw access to the underlying platform font implementation. Can be

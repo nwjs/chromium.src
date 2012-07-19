@@ -7,13 +7,8 @@
 namespace extensions {
 
 TestRulesRegistry::TestRulesRegistry()
-    : owner_thread_(content::BrowserThread::UI) {}
-
-TestRulesRegistry::~TestRulesRegistry() {}
-
-content::BrowserThread::ID TestRulesRegistry::GetOwnerThread() const {
-  return owner_thread_;
-}
+    : RulesRegistryWithCache(NULL),
+      owner_thread_(content::BrowserThread::UI) {}
 
 void TestRulesRegistry::SetOwnerThread(
     content::BrowserThread::ID owner_thread) {
@@ -37,8 +32,14 @@ std::string TestRulesRegistry::RemoveAllRulesImpl(
   return result_;
 }
 
+content::BrowserThread::ID TestRulesRegistry::GetOwnerThread() const {
+  return owner_thread_;
+}
+
 void TestRulesRegistry::SetResult(const std::string& result) {
   result_ = result;
 }
+
+TestRulesRegistry::~TestRulesRegistry() {}
 
 }  // namespace extensions

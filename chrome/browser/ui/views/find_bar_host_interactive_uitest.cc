@@ -5,10 +5,12 @@
 #include "base/process_util.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/find_bar/find_notification_details.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/find_bar_host.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -47,7 +49,6 @@ class FindInPageTest : public InProcessBrowserTest {
       location_bar_focus_view_id_(VIEW_ID_LOCATION_BAR)
 #endif
   {
-    set_show_window(true);
     FindBarHost::disable_animations_during_testing_ = true;
   }
 
@@ -71,27 +72,32 @@ class FindInPageTest : public InProcessBrowserTest {
 
 }  // namespace
 
-IN_PROC_BROWSER_TEST_F(FindInPageTest, CrashEscHandlers) {
+#if defined(OS_WIN)
+#define MAYBE_CrashEscHandlers DISABLED_CrashEscHandlers
+#else
+#define MAYBE_CrashEscHandlers CrashEscHandlers
+#endif
+IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_CrashEscHandlers) {
   ASSERT_TRUE(test_server()->Start());
 
   // First we navigate to our test page (tab A).
   GURL url = test_server()->GetURL(kSimplePage);
   ui_test_utils::NavigateToURL(browser(), url);
 
-  browser()->Find();
+  chrome::Find(browser());
 
   // Open another tab (tab B).
-  browser()->AddSelectedTabWithURL(url, content::PAGE_TRANSITION_TYPED);
+  chrome::AddSelectedTabWithURL(browser(), url, content::PAGE_TRANSITION_TYPED);
 
-  browser()->Find();
+  chrome::Find(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 
   // Select tab A.
-  browser()->ActivateTabAt(0, true);
+  chrome::ActivateTabAt(browser(), 0, true);
 
   // Close tab B.
-  browser()->CloseTabContents(browser()->GetWebContentsAt(1));
+  chrome::CloseWebContents(browser(), chrome::GetWebContentsAt(browser(), 1));
 
   // Click on the location bar so that Find box loses focus.
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::ClickOnView(browser(),
@@ -113,7 +119,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestore) {
 
   // Focus the location bar, open and close the find-in-page, focus should
   // return to the location bar.
-  browser()->FocusLocationBar();
+  chrome::FocusLocationBar(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
   // Ensure the creation of the find bar controller.
@@ -121,46 +127,53 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestore) {
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
   browser()->GetFindBarController()->EndFindSession(
-      FindBarController::kKeepSelection);
+      FindBarController::kKeepSelectionOnPage,
+      FindBarController::kKeepResultsInFindBox);
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
 
   // Focus the location bar, find something on the page, close the find box,
   // focus should go to the page.
-  browser()->FocusLocationBar();
-  browser()->Find();
+  chrome::FocusLocationBar(browser());
+  chrome::Find(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
-  ui_test_utils::FindInPage(browser()->GetSelectedTabContentsWrapper(),
+  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
                             ASCIIToUTF16("a"), true, false, NULL);
   browser()->GetFindBarController()->EndFindSession(
-      FindBarController::kKeepSelection);
-  EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
-                                           VIEW_ID_TAB_CONTAINER_FOCUS_VIEW));
+      FindBarController::kKeepSelectionOnPage,
+      FindBarController::kKeepResultsInFindBox);
+  EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_TAB_CONTAINER));
 
   // Focus the location bar, open and close the find box, focus should return to
   // the location bar (same as before, just checking that http://crbug.com/23599
   // is fixed).
-  browser()->FocusLocationBar();
+  chrome::FocusLocationBar(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
   browser()->GetFindBarController()->Show();
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
   browser()->GetFindBarController()->EndFindSession(
-      FindBarController::kKeepSelection);
+      FindBarController::kKeepSelectionOnPage,
+      FindBarController::kKeepResultsInFindBox);
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
 }
 
-IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestoreOnTabSwitch) {
+#if defined(OS_WIN)
+#define MAYBE_FocusRestoreOnTabSwitch FLAKY_FocusRestoreOnTabSwitch
+#else
+#define MAYBE_FocusRestoreOnTabSwitch FocusRestoreOnTabSwitch
+#endif
+IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_FocusRestoreOnTabSwitch) {
   ASSERT_TRUE(test_server()->Start());
 
   // First we navigate to our test page (tab A).
   GURL url = test_server()->GetURL(kSimplePage);
   ui_test_utils::NavigateToURL(browser(), url);
 
-  browser()->Find();
+  chrome::Find(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 
@@ -168,7 +181,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestoreOnTabSwitch) {
       browser()->GetFindBarController()->find_bar()->GetFindBarTesting();
 
   // Search for 'a'.
-  ui_test_utils::FindInPage(browser()->GetSelectedTabContentsWrapper(),
+  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
                             ASCIIToUTF16("a"), true, false, NULL);
   EXPECT_TRUE(ASCIIToUTF16("a") == find_bar->GetFindSelectedText());
 
@@ -176,32 +189,32 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, FocusRestoreOnTabSwitch) {
   ui_test_utils::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
-  browser()->AddSelectedTabWithURL(url, content::PAGE_TRANSITION_TYPED);
+  chrome::AddSelectedTabWithURL(browser(), url, content::PAGE_TRANSITION_TYPED);
   observer.Wait();
 
   // Make sure Find box is open.
-  browser()->Find();
+  chrome::Find(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
 
   // Search for 'b'.
-  ui_test_utils::FindInPage(browser()->GetSelectedTabContentsWrapper(),
+  ui_test_utils::FindInPage(chrome::GetActiveTabContents(browser()),
                             ASCIIToUTF16("b"), true, false, NULL);
   EXPECT_TRUE(ASCIIToUTF16("b") == find_bar->GetFindSelectedText());
 
   // Set focus away from the Find bar (to the Location bar).
-  browser()->FocusLocationBar();
+  chrome::FocusLocationBar(browser());
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
 
   // Select tab A. Find bar should get focus.
-  browser()->ActivateTabAt(0, true);
+  chrome::ActivateTabAt(browser(), 0, true);
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            VIEW_ID_FIND_IN_PAGE_TEXT_FIELD));
   EXPECT_TRUE(ASCIIToUTF16("a") == find_bar->GetFindSelectedText());
 
   // Select tab B. Location bar should get focus.
-  browser()->ActivateTabAt(1, true);
+  chrome::ActivateTabAt(browser(), 1, true);
   EXPECT_TRUE(ui_test_utils::IsViewFocused(browser(),
                                            location_bar_focus_view_id_));
 }
@@ -323,7 +336,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_PasteWithoutTextChange) {
   EXPECT_EQ(ASCIIToUTF16("a"), GetFindBarText());
 
   // Reload the page to clear the matching result.
-  browser()->Reload(CURRENT_TAB);
+  chrome::Reload(browser(), CURRENT_TAB);
 
   // Focus the Find bar again to make sure the text is selected.
   browser()->GetFindBarController()->Show();
@@ -348,7 +361,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageTest, MAYBE_PasteWithoutTextChange) {
   // Press Ctrl-V to paste the content back, it should start finding even if the
   // content is not changed.
   content::Source<WebContents> notification_source(
-      browser()->GetSelectedWebContents());
+      chrome::GetActiveWebContents(browser()));
   ui_test_utils::WindowedNotificationObserverWithDetails
       <FindNotificationDetails> observer(
           chrome::NOTIFICATION_FIND_RESULT_AVAILABLE, notification_source);

@@ -1,34 +1,36 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef WEBKIT_QUOTA_QUOTA_TASK_H_
 #define WEBKIT_QUOTA_QUOTA_TASK_H_
-#pragma once
 
 #include <set>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop_proxy.h"
+#include "base/sequenced_task_runner_helpers.h"
 
 namespace base {
-class MessageLoopProxy;
+class SingleThreadTaskRunner;
+class TaskRunner;
 }
 
 namespace quota {
 
 class QuotaTaskObserver;
+class QuotaThreadTask;
 
 // A base class for quota tasks.
+// TODO(kinuko): Revise this using base::Callback.
 class QuotaTask {
  public:
-  virtual ~QuotaTask();
   void Start();
 
  protected:
   explicit QuotaTask(QuotaTaskObserver* observer);
+  virtual ~QuotaTask();
 
   // The task body.
   virtual void Run() = 0;
@@ -45,15 +47,18 @@ class QuotaTask {
   void DeleteSoon();
 
   QuotaTaskObserver* observer() const { return observer_; }
-  scoped_refptr<base::MessageLoopProxy> original_message_loop() const {
-    return original_message_loop_;
+  base::SingleThreadTaskRunner* original_task_runner() const {
+    return original_task_runner_;
   }
 
  private:
+  friend class base::DeleteHelper<QuotaTask>;
   friend class QuotaTaskObserver;
+  friend class QuotaThreadTask;
+
   void Abort();
   QuotaTaskObserver* observer_;
-  scoped_refptr<base::MessageLoopProxy> original_message_loop_;
+  scoped_refptr<base::SingleThreadTaskRunner> original_task_runner_;
 };
 
 // For tasks that post tasks to the other thread.
@@ -61,7 +66,7 @@ class QuotaThreadTask : public QuotaTask,
                         public base::RefCountedThreadSafe<QuotaThreadTask> {
  public:
   QuotaThreadTask(QuotaTaskObserver* observer,
-                  scoped_refptr<base::MessageLoopProxy> target_message_loop);
+                  base::TaskRunner* target_task_runner);
 
  protected:
   virtual ~QuotaThreadTask();
@@ -80,8 +85,8 @@ class QuotaThreadTask : public QuotaTask,
   virtual bool RunOnTargetThreadAsync();
 
   virtual void Run() OVERRIDE;
-  scoped_refptr<base::MessageLoopProxy> target_message_loop() const {
-    return target_message_loop_;
+  base::TaskRunner* target_task_runner() const {
+    return target_task_runner_;
   }
 
  private:
@@ -89,18 +94,17 @@ class QuotaThreadTask : public QuotaTask,
   friend class QuotaTaskObserver;
   void CallRunOnTargetThread();
 
-  scoped_refptr<base::MessageLoopProxy> target_message_loop_;
+  scoped_refptr<base::TaskRunner> target_task_runner_;
 };
 
 class QuotaTaskObserver {
- public:
-  virtual ~QuotaTaskObserver();
-
  protected:
   friend class QuotaTask;
   friend class QuotaThreadTask;
 
   QuotaTaskObserver();
+  virtual ~QuotaTaskObserver();
+
   void RegisterTask(QuotaTask* task);
   void UnregisterTask(QuotaTask* task);
 

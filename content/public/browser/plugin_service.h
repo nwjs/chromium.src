@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_PLUGIN_SERVICE_H_
 #define CONTENT_PUBLIC_BROWSER_PLUGIN_SERVICE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -92,6 +91,11 @@ class PluginService {
   // will use cached data in the plugin list.
   virtual bool GetPluginInfoByPath(const FilePath& plugin_path,
                                    webkit::WebPluginInfo* info) = 0;
+
+  // Returns the display name for the plugin identified by the given path. If
+  // the path doesn't identify a plugin, or the plugin has no display name,
+  // this will attempt to generate a display name from the path.
+  virtual string16 GetPluginDisplayNameByPath(const FilePath& plugin_path) = 0;
 
   // Asynchronously loads plugins if necessary and then calls back to the
   // provided function on the calling MessageLoop on completion.

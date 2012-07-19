@@ -1,9 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef LOCAL_INPUT_MONITOR_THREAD_WIN_H_
-#define LOCAL_INPUT_MONITOR_THREAD_WIN_H_
+#ifndef REMOTING_HOST_LOCAL_INPUT_MONITOR_THREAD_WIN_H_
+#define REMOTING_HOST_LOCAL_INPUT_MONITOR_THREAD_WIN_H_
 
 #include <set>
 
@@ -11,37 +11,42 @@
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/simple_thread.h"
-#include "remoting/host/chromoting_host.h"
+
+struct SkIPoint;
 
 namespace remoting {
 
+class MouseMoveObserver;
+
 class LocalInputMonitorThread : public base::SimpleThread {
  public:
-  static void AddHostToInputMonitor(ChromotingHost* host);
-  static void RemoveHostFromInputMonitor(ChromotingHost* host);
+  static void AddMouseMoveObserver(MouseMoveObserver* mouse_move_observer);
+  static void RemoveMouseMoveObserver(MouseMoveObserver* mouse_move_observer);
 
  private:
   LocalInputMonitorThread();
   virtual ~LocalInputMonitorThread();
 
-  void AddHost(ChromotingHost* host);
-  bool RemoveHost(ChromotingHost* host);
+  void AddObserver(MouseMoveObserver* mouse_move_observer);
+  bool RemoveObserver(MouseMoveObserver* mouse_move_observer);
 
   void Stop();
-  virtual void Run() OVERRIDE;  // Overridden from SimpleThread.
+
+  // Overridden from base::SimpleThread:
+  virtual void Run() OVERRIDE;
 
   void LocalMouseMoved(const SkIPoint& mouse_position);
   static LRESULT WINAPI HandleLowLevelMouseEvent(int code,
                                                  WPARAM event_type,
                                                  LPARAM event_data);
 
-  base::Lock hosts_lock_;
-  typedef std::set<scoped_refptr<ChromotingHost> > ChromotingHosts;
-  ChromotingHosts hosts_;
+  base::Lock lock_;
+  typedef std::set<MouseMoveObserver*> MouseMoveObservers;
+  MouseMoveObservers observers_;
 
   DISALLOW_COPY_AND_ASSIGN(LocalInputMonitorThread);
 };
 
 }  // namespace remoting
 
-#endif
+#endif  // REMOTING_HOST_LOCAL_INPUT_MONITOR_THREAD_WIN_H_

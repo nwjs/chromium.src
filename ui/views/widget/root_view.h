@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_WIDGET_ROOT_VIEW_H_
 #define UI_VIEWS_WIDGET_ROOT_VIEW_H_
-#pragma once
 
 #include <string>
 
@@ -105,6 +104,7 @@ class VIEWS_EXPORT RootView : public View, public FocusTraversable {
   virtual void OnMouseMoved(const MouseEvent& event) OVERRIDE;
   virtual void OnMouseExited(const MouseEvent& event) OVERRIDE;
   virtual bool OnMouseWheel(const MouseWheelEvent& event) OVERRIDE;
+  virtual bool OnScrollEvent(const ScrollEvent& event) OVERRIDE;
   virtual ui::TouchStatus OnTouchEvent(const TouchEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(const GestureEvent& event) OVERRIDE;
   virtual void SetMouseHandler(View* new_mouse_handler) OVERRIDE;
@@ -169,8 +169,13 @@ class VIEWS_EXPORT RootView : public View, public FocusTraversable {
   // The view currently handling touch events.
   View* touch_pressed_handler_;
 
-  // The view currently handling gesture events.
-  View* gesture_handling_view_;
+  // The view currently handling gesture events. When set, this handler receives
+  // all gesture events, except when there is an event handler for the specific
+  // gesture (e.g. scroll).
+  View* gesture_handler_;
+
+  // The view currently handling scroll gesture events.
+  View* scroll_gesture_handler_;
 
   // Focus ---------------------------------------------------------------------
 

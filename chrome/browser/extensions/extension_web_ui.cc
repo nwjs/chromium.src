@@ -11,13 +11,14 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_manager_extension_api.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -27,14 +28,15 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "content/public/common/page_transition_types.h"
 #include "content/public/common/bindings_policy.h"
+#include "content/public/common/page_transition_types.h"
 #include "net/base/file_stream.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/favicon_size.h"
 
 using content::WebContents;
+using extensions::Extension;
 
 namespace {
 
@@ -55,6 +57,24 @@ void CleanUpDuplicates(ListValue* list) {
     else
       list->Remove(i, NULL);
   }
+}
+
+// Reloads the page in |web_contents| if it uses the same profile as |profile|
+// and if the current URL is a chrome URL.
+void UnregisterAndReplaceOverrideForWebContents(
+    const std::string& page, Profile* profile, WebContents* web_contents) {
+  if (Profile::FromBrowserContext(web_contents->GetBrowserContext()) != profile)
+    return;
+
+  GURL url = web_contents->GetURL();
+  if (!url.SchemeIs(chrome::kChromeUIScheme) || url.host() != page)
+    return;
+
+  // Don't use Reload() since |url| isn't the same as the internal URL that
+  // NavigationController has.
+  web_contents->GetController().LoadURL(
+      url, content::Referrer(url, WebKit::WebReferrerPolicyDefault),
+      content::PAGE_TRANSITION_RELOAD, std::string());
 }
 
 // Helper class that is used to track the loading of the favicon of an
@@ -97,7 +117,7 @@ class ExtensionWebUIImageLoadingTracker : public ImageLoadingTracker::Observer {
                                              &image_data)) {
         NOTREACHED() << "Could not encode extension favicon";
       }
-      ForwardResult(RefCountedBytes::TakeVector(&image_data));
+      ForwardResult(base::RefCountedBytes::TakeVector(&image_data));
     } else {
       ForwardResult(NULL);
     }
@@ -109,7 +129,7 @@ class ExtensionWebUIImageLoadingTracker : public ImageLoadingTracker::Observer {
   // Forwards the result on the request. If no favicon was available then
   // |icon_data| may be backed by NULL. Once the result has been forwarded the
   // instance is deleted.
-  void ForwardResult(scoped_refptr<RefCountedMemory> icon_data) {
+  void ForwardResult(scoped_refptr<base::RefCountedMemory> icon_data) {
     history::FaviconData favicon;
     favicon.known_icon = icon_data.get() != NULL && icon_data->size() > 0;
     favicon.image_data = icon_data;
@@ -169,8 +189,7 @@ ExtensionWebUI::ExtensionWebUI(content::WebUI* web_ui, const GURL& url)
 
   // Hack: A few things we specialize just for the bookmark manager.
   if (extension->id() == extension_misc::kBookmarkManagerId) {
-    TabContentsWrapper* tab = TabContentsWrapper::GetCurrentWrapperForContents(
-        web_ui->GetWebContents());
+    TabContents* tab = TabContents::FromWebContents(web_ui->GetWebContents());
     DCHECK(tab);
     bookmark_manager_extension_event_router_.reset(
         new BookmarkManagerExtensionEventRouter(profile, tab));
@@ -352,23 +371,9 @@ void ExtensionWebUI::UnregisterAndReplaceOverride(const std::string& page,
   if (found && index == 0) {
     // This is the active override, so we need to find all existing
     // tabs for this override and get them to reload the original URL.
-    for (TabContentsIterator iterator; !iterator.done(); ++iterator) {
-      WebContents* tab = (*iterator)->web_contents();
-      Profile* tab_profile =
-          Profile::FromBrowserContext(tab->GetBrowserContext());
-      if (tab_profile != profile)
-        continue;
-
-      GURL url = tab->GetURL();
-      if (!url.SchemeIs(chrome::kChromeUIScheme) || url.host() != page)
-        continue;
-
-      // Don't use Reload() since |url| isn't the same as the internal URL
-      // that NavigationController has.
-      tab->GetController().LoadURL(
-          url, content::Referrer(url, WebKit::WebReferrerPolicyDefault),
-          content::PAGE_TRANSITION_RELOAD, std::string());
-    }
+    base::Callback<void(WebContents*)> callback =
+        base::Bind(&UnregisterAndReplaceOverrideForWebContents, page, profile);
+    ExtensionTabUtil::ForEachTab(callback);
   }
 }
 

@@ -4,13 +4,15 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_USER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_USER_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/string16.h"
+#include "chrome/browser/chromeos/login/user_image.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image_skia.h"
 
 // The demo user is represented by a domainless username.
 const char kDemoUser[] = "demouser";
@@ -39,30 +41,53 @@ class User {
   static const int kProfileImageIndex = -2;
   static const int kInvalidImageIndex = -3;
 
+  enum WallpaperType {
+    DAILY = 0,
+    CUSTOMIZED = 1,
+    DEFAULT = 2,
+    UNKNOWN = 3
+  };
+
   // The email the user used to log in.
   const std::string& email() const { return email_; }
 
-  // Returns the name to display for this user.
-  std::string GetDisplayName() const;
-  // Returns the account name part of the email.
-  std::string GetAccountName() const;
+  // Returns the human name to display for this user.
+  string16 GetDisplayName() const;
 
-  // Tooltip contains user's display name and his email domain to distinguish
-  // this user from the other one with the same display name.
-  std::string GetNameTooltip() const;
-
-  // Returns true if some users have same display name.
-  bool NeedsNameTooltip() const;
+  // Returns the account name part of the email. Use the display form of the
+  // email if available and use_display_name == true. Otherwise use canonical.
+  std::string GetAccountName(bool use_display_email) const;
 
   // The image for this user.
-  const SkBitmap& image() const { return image_; }
+  const gfx::ImageSkia& image() const { return user_image_.image(); }
+
   int image_index() const { return image_index_; }
+  bool has_raw_image() const { return user_image_.has_raw_image(); }
+  // Returns raw representation of static user image.
+  const UserImage::RawImage& raw_image() const {
+    return user_image_.raw_image();
+  }
+  bool has_animated_image() const { return user_image_.has_animated_image(); }
+  // Returns raw representation of animated user image.
+  const UserImage::RawImage& animated_image() const {
+    return user_image_.animated_image();
+  }
+
+  // Returns the URL of user image, if there is any. Currently only the profile
+  // image has a URL, for other images empty URL is returned.
+  GURL image_url() const { return user_image_.url(); }
+
+  // The thumbnail of user custom wallpaper.
+  const SkBitmap& wallpaper_thumbnail() const { return wallpaper_thumbnail_; }
 
   // True if user image is a stub (while real image is being loaded from file).
   bool image_is_stub() const { return image_is_stub_; }
 
   // OAuth token status for this user.
   OAuthTokenStatus oauth_token_status() const { return oauth_token_status_; }
+
+  // The displayed user name.
+  string16 display_name() const { return display_name_; }
 
   // The displayed (non-canonical) user email.
   std::string display_email() const { return display_email_; }
@@ -80,13 +105,23 @@ class User {
   ~User();
 
   // Setters are private so only UserManager can call them.
-  void SetImage(const SkBitmap& image, int image_index);
+  void SetImage(const UserImage& user_image, int image_index);
+
+  void SetImageURL(const GURL& image_url);
+
   // Sets a stub image until the next |SetImage| call. |image_index| may be
   // one of |kExternalImageIndex| or |kProfileImageIndex|.
   void SetStubImage(int image_index);
 
+  // Set thumbnail of user custom wallpaper.
+  void SetWallpaperThumbnail(const SkBitmap& wallpaper_thumbnail);
+
   void set_oauth_token_status(OAuthTokenStatus status) {
     oauth_token_status_ = status;
+  }
+
+  void set_display_name(const string16& display_name) {
+    display_name_ = display_name;
   }
 
   void set_display_email(const std::string& display_email) {
@@ -94,10 +129,12 @@ class User {
   }
 
   std::string email_;
+  string16 display_name_;
   // The displayed user email, defaults to |email_|.
   std::string display_email_;
-  SkBitmap image_;
+  UserImage user_image_;
   OAuthTokenStatus oauth_token_status_;
+  SkBitmap wallpaper_thumbnail_;
 
   // Either index of a default image for the user, |kExternalImageIndex| or
   // |kProfileImageIndex|.

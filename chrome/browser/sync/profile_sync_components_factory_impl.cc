@@ -15,7 +15,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/signin_manager.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
-#include "chrome/browser/sync/api/syncable_service.h"
 #include "chrome/browser/sync/glue/app_notification_data_type_controller.h"
 #include "chrome/browser/sync/glue/autofill_data_type_controller.h"
 #include "chrome/browser/sync/glue/autofill_profile_data_type_controller.h"
@@ -47,9 +46,11 @@
 #include "chrome/browser/webdata/autocomplete_syncable_service.h"
 #include "chrome/browser/webdata/autofill_profile_syncable_service.h"
 #include "chrome/browser/webdata/web_data_service.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
+#include "sync/api/syncable_service.h"
 
 using browser_sync::AppNotificationDataTypeController;
 using browser_sync::AutofillDataTypeController;
@@ -87,7 +88,12 @@ ProfileSyncComponentsFactoryImpl::ProfileSyncComponentsFactoryImpl(
     : profile_(profile),
       command_line_(command_line),
       extension_system_(
-          ExtensionSystem::Get(profile)) {
+          extensions::ExtensionSystemFactory::GetForProfile(profile)),
+      web_data_service_(WebDataServiceFactory::GetForProfile(
+          profile_, Profile::IMPLICIT_ACCESS)) {
+}
+
+ProfileSyncComponentsFactoryImpl::~ProfileSyncComponentsFactoryImpl() {
 }
 
 void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
@@ -96,7 +102,7 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
   // disabled.
   if (!command_line_->HasSwitch(switches::kDisableSyncApps)) {
     pss->RegisterDataTypeController(
-        new ExtensionDataTypeController(syncable::APPS, this, profile_, pss));
+        new ExtensionDataTypeController(syncer::APPS, this, profile_, pss));
   }
 
   // Autofill sync is enabled by default.  Register unless explicitly
@@ -117,7 +123,7 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
   // disabled.
   if (!command_line_->HasSwitch(switches::kDisableSyncExtensions)) {
     pss->RegisterDataTypeController(
-        new ExtensionDataTypeController(syncable::EXTENSIONS,
+        new ExtensionDataTypeController(syncer::EXTENSIONS,
                                         this, profile_, pss));
   }
 
@@ -132,7 +138,7 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
   // disabled.
   if (!command_line_->HasSwitch(switches::kDisableSyncPreferences)) {
     pss->RegisterDataTypeController(
-        new UIDataTypeController(syncable::PREFERENCES, this, profile_, pss));
+        new UIDataTypeController(syncer::PREFERENCES, this, profile_, pss));
   }
 
 #if defined(ENABLE_THEMES)
@@ -159,8 +165,6 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
   }
 
   // Session sync is enabled by default.  Register unless explicitly disabled.
-  // TODO(dubroy): Once this change is permanent, clean up the logic for
-  // explicitly enabling tab sync (http://crbug.com/118570).
   if (!command_line_->HasSwitch(switches::kDisableSyncTabs)) {
     pss->RegisterDataTypeController(
         new SessionDataTypeController(this, profile_, pss));
@@ -171,7 +175,7 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
   if (!command_line_->HasSwitch(switches::kDisableSyncExtensionSettings)) {
     pss->RegisterDataTypeController(
         new ExtensionSettingDataTypeController(
-            syncable::EXTENSION_SETTINGS, this, profile_, pss));
+            syncer::EXTENSION_SETTINGS, this, profile_, pss));
   }
 
   // App setting sync is enabled by default.  Register unless explicitly
@@ -179,7 +183,7 @@ void ProfileSyncComponentsFactoryImpl::RegisterDataTypes(
   if (!command_line_->HasSwitch(switches::kDisableSyncAppSettings)) {
     pss->RegisterDataTypeController(
         new ExtensionSettingDataTypeController(
-            syncable::APP_SETTINGS, this, profile_, pss));
+            syncer::APP_SETTINGS, this, profile_, pss));
   }
 
   if (!command_line_->HasSwitch(switches::kDisableSyncAutofillProfile)) {
@@ -205,8 +209,8 @@ browser_sync::GenericChangeProcessor*
     ProfileSyncComponentsFactoryImpl::CreateGenericChangeProcessor(
         ProfileSyncService* profile_sync_service,
         browser_sync::DataTypeErrorHandler* error_handler,
-        const base::WeakPtr<SyncableService>& local_service) {
-  sync_api::UserShare* user_share = profile_sync_service->GetUserShare();
+        const base::WeakPtr<syncer::SyncableService>& local_service) {
+  syncer::UserShare* user_share = profile_sync_service->GetUserShare();
   return new GenericChangeProcessor(error_handler,
                                     local_service,
                                     user_share);
@@ -217,47 +221,47 @@ browser_sync::SharedChangeProcessor* ProfileSyncComponentsFactoryImpl::
   return new SharedChangeProcessor();
 }
 
-base::WeakPtr<SyncableService> ProfileSyncComponentsFactoryImpl::
-    GetSyncableServiceForType(syncable::ModelType type) {
+base::WeakPtr<syncer::SyncableService> ProfileSyncComponentsFactoryImpl::
+    GetSyncableServiceForType(syncer::ModelType type) {
   if (!profile_) {  // For tests.
-     return base::WeakPtr<SyncableService>();
+     return base::WeakPtr<syncer::SyncableService>();
   }
   switch (type) {
-    case syncable::PREFERENCES:
+    case syncer::PREFERENCES:
       return profile_->GetPrefs()->GetSyncableService()->AsWeakPtr();
-    case syncable::AUTOFILL:
-    case syncable::AUTOFILL_PROFILE: {
-      WebDataService* wds =
-          profile_->GetWebDataService(Profile::IMPLICIT_ACCESS);
-      if (!wds)
-        return base::WeakPtr<SyncableService>();
-      if (type == syncable::AUTOFILL)
-        return wds->GetAutocompleteSyncableService()->AsWeakPtr();
-      else
-        return wds->GetAutofillProfileSyncableService()->AsWeakPtr();
+    case syncer::AUTOFILL:
+    case syncer::AUTOFILL_PROFILE: {
+      if (!web_data_service_.get())
+        return base::WeakPtr<syncer::SyncableService>();
+      if (type == syncer::AUTOFILL) {
+        return web_data_service_->GetAutocompleteSyncableService()->AsWeakPtr();
+      } else {
+        return web_data_service_->
+                   GetAutofillProfileSyncableService()->AsWeakPtr();
+      }
     }
-    case syncable::APPS:
-    case syncable::EXTENSIONS:
+    case syncer::APPS:
+    case syncer::EXTENSIONS:
       return extension_system_->extension_service()->AsWeakPtr();
-    case syncable::SEARCH_ENGINES:
+    case syncer::SEARCH_ENGINES:
       return TemplateURLServiceFactory::GetForProfile(profile_)->AsWeakPtr();
-    case syncable::APP_SETTINGS:
-    case syncable::EXTENSION_SETTINGS:
+    case syncer::APP_SETTINGS:
+    case syncer::EXTENSION_SETTINGS:
       return extension_system_->extension_service()->settings_frontend()->
           GetBackendForSync(type)->AsWeakPtr();
-    case syncable::APP_NOTIFICATIONS:
+    case syncer::APP_NOTIFICATIONS:
       return extension_system_->extension_service()->
           app_notification_manager()->AsWeakPtr();
     default:
       // The following datatypes still need to be transitioned to the
-      // SyncableService API:
+      // syncer::SyncableService API:
       // Bookmarks
       // Passwords
       // Sessions
       // Themes
       // Typed URLs
       NOTREACHED();
-      return base::WeakPtr<SyncableService>();
+      return base::WeakPtr<syncer::SyncableService>();
   }
 }
 
@@ -267,7 +271,7 @@ ProfileSyncComponentsFactory::SyncComponents
         DataTypeErrorHandler* error_handler) {
   BookmarkModel* bookmark_model =
       profile_sync_service->profile()->GetBookmarkModel();
-  sync_api::UserShare* user_share = profile_sync_service->GetUserShare();
+  syncer::UserShare* user_share = profile_sync_service->GetUserShare();
   // TODO(akalin): We may want to propagate this switch up eventually.
 #if defined(OS_ANDROID)
   const bool kExpectMobileBookmarksFolder = true;
@@ -292,7 +296,8 @@ ProfileSyncComponentsFactory::SyncComponents
         DataTypeErrorHandler* error_handler) {
   PasswordModelAssociator* model_associator =
       new PasswordModelAssociator(profile_sync_service,
-                                  password_store);
+                                  password_store,
+                                  error_handler);
   PasswordChangeProcessor* change_processor =
       new PasswordChangeProcessor(model_associator,
                                   password_store,
@@ -306,7 +311,7 @@ ProfileSyncComponentsFactory::SyncComponents
         ProfileSyncService* profile_sync_service,
         DataTypeErrorHandler* error_handler) {
   ThemeModelAssociator* model_associator =
-      new ThemeModelAssociator(profile_sync_service);
+      new ThemeModelAssociator(profile_sync_service, error_handler);
   ThemeChangeProcessor* change_processor =
       new ThemeChangeProcessor(error_handler);
   return SyncComponents(model_associator, change_processor);
@@ -320,7 +325,8 @@ ProfileSyncComponentsFactory::SyncComponents
         browser_sync::DataTypeErrorHandler* error_handler) {
   TypedUrlModelAssociator* model_associator =
       new TypedUrlModelAssociator(profile_sync_service,
-                                  history_backend);
+                                  history_backend,
+                                  error_handler);
   TypedUrlChangeProcessor* change_processor =
       new TypedUrlChangeProcessor(profile_,
                                   model_associator,
@@ -334,7 +340,7 @@ ProfileSyncComponentsFactory::SyncComponents
        ProfileSyncService* profile_sync_service,
         DataTypeErrorHandler* error_handler) {
   SessionModelAssociator* model_associator =
-      new SessionModelAssociator(profile_sync_service);
+      new SessionModelAssociator(profile_sync_service, error_handler);
   SessionChangeProcessor* change_processor =
       new SessionChangeProcessor(error_handler, model_associator);
   return SyncComponents(model_associator, change_processor);

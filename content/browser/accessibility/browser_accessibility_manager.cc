@@ -8,7 +8,7 @@
 #include "content/browser/accessibility/browser_accessibility.h"
 #include "content/common/accessibility_messages.h"
 
-using webkit_glue::WebAccessibility;
+using content::AccessibilityNodeData;
 
 BrowserAccessibility* BrowserAccessibilityFactory::Create() {
   return BrowserAccessibility::Create();
@@ -21,13 +21,15 @@ BrowserAccessibility* BrowserAccessibilityFactory::Create() {
 // static
 int32 BrowserAccessibilityManager::next_child_id_ = -1;
 
-#if (defined(OS_POSIX) && !defined(OS_MACOSX)) || defined(USE_AURA)
-// There's no OS-specific implementation of BrowserAccessibilityManager
-// on Unix, so just instantiate the base class.
+#if !defined(OS_MACOSX) && \
+    !(defined(OS_WIN) && !defined(USE_AURA)) && \
+    !defined(TOOLKIT_GTK)
+// We have subclassess of BrowserAccessibilityManager on Mac, Linux/GTK,
+// and non-Aura Win. For any other platform, instantiate the base class.
 // static
 BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
     gfx::NativeView parent_view,
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory) {
   return new BrowserAccessibilityManager(
@@ -38,21 +40,21 @@ BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
 // static
 BrowserAccessibilityManager* BrowserAccessibilityManager::CreateEmptyDocument(
     gfx::NativeView parent_view,
-    WebAccessibility::State state,
+    AccessibilityNodeData::State state,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory) {
   // Use empty document to process notifications
-  webkit_glue::WebAccessibility empty_document;
+  AccessibilityNodeData empty_document;
   empty_document.id = 0;
-  empty_document.role = WebAccessibility::ROLE_ROOT_WEB_AREA;
-  empty_document.state = state;
+  empty_document.role = AccessibilityNodeData::ROLE_ROOT_WEB_AREA;
+  empty_document.state = state | (1 << AccessibilityNodeData::STATE_READONLY);
   return BrowserAccessibilityManager::Create(
       parent_view, empty_document, delegate, factory);
 }
 
 BrowserAccessibilityManager::BrowserAccessibilityManager(
     gfx::NativeView parent_view,
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     BrowserAccessibilityDelegate* delegate,
     BrowserAccessibilityFactory* factory)
     : parent_view_(parent_view),
@@ -152,7 +154,9 @@ void BrowserAccessibilityManager::OnAccessibilityNotifications(
       continue;
     }
 
-    if (param.notification_type == AccessibilityNotificationFocusChanged) {
+    int notification_type = param.notification_type;
+    if (notification_type == AccessibilityNotificationFocusChanged ||
+        notification_type == AccessibilityNotificationBlur) {
       SetFocus(node, false);
 
       // Don't send a native focus event if the window itself doesn't
@@ -162,10 +166,10 @@ void BrowserAccessibilityManager::OnAccessibilityNotifications(
     }
 
     // Send the notification event to the operating system.
-    NotifyAccessibilityEvent(param.notification_type, node);
+    NotifyAccessibilityEvent(notification_type, node);
 
     // Set initial focus when a page is loaded.
-    if (param.notification_type == AccessibilityNotificationLoadComplete) {
+    if (notification_type == AccessibilityNotificationLoadComplete) {
       if (!focus_)
         SetFocus(root_, false);
       if (!delegate_ || delegate_->HasFocus())
@@ -235,13 +239,13 @@ gfx::Rect BrowserAccessibilityManager::GetViewBounds() {
 }
 
 void BrowserAccessibilityManager::UpdateNode(
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     bool include_children) {
   BrowserAccessibility* current = NULL;
 
   // Look for the node to replace. Either we're replacing the whole tree
   // (role is ROOT_WEB_AREA) or we look it up based on its renderer ID.
-  if (src.role == WebAccessibility::ROLE_ROOT_WEB_AREA) {
+  if (src.role == AccessibilityNodeData::ROLE_ROOT_WEB_AREA) {
     current = root_;
   } else {
     base::hash_map<int32, int32>::iterator iter =
@@ -282,8 +286,7 @@ void BrowserAccessibilityManager::UpdateNode(
 
   // Build a new tree, reusing old nodes if possible. Each node that's
   // reused will have its reference count incremented by one.
-  current = CreateAccessibilityTree(
-      current_parent, src, current_index_in_parent, true);
+  CreateAccessibilityTree(current_parent, src, current_index_in_parent, true);
 
   // Decrement the reference count of all nodes in the old tree, which will
   // delete any nodes no longer needed.
@@ -293,15 +296,16 @@ void BrowserAccessibilityManager::UpdateNode(
   // If the only reference to the focused node is focus_ itself, then the
   // focused node is no longer in the tree, so set the focus to the root.
   if (focus_ && focus_->ref_count() == 1) {
-    SetFocus(root_, true);
-    if (!delegate_ || delegate_->HasFocus())
-      NotifyAccessibilityEvent(AccessibilityNotificationFocusChanged, focus_);
+    SetFocus(root_, false);
+
+    if (delegate_ && delegate_->HasFocus())
+      NotifyAccessibilityEvent(AccessibilityNotificationBlur, focus_);
   }
 }
 
 BrowserAccessibility* BrowserAccessibilityManager::CreateAccessibilityTree(
     BrowserAccessibility* parent,
-    const WebAccessibility& src,
+    const AccessibilityNodeData& src,
     int index_in_parent,
     bool send_show_events) {
   BrowserAccessibility* instance = NULL;
@@ -347,7 +351,7 @@ BrowserAccessibility* BrowserAccessibilityManager::CreateAccessibilityTree(
   child_id_map_[child_id] = instance;
   renderer_id_to_child_id_map_[src.id] = child_id;
 
-  if ((src.state >> WebAccessibility::STATE_FOCUSED) & 1)
+  if ((src.state >> AccessibilityNodeData::STATE_FOCUSED) & 1)
     SetFocus(instance, false);
 
   for (int i = 0; i < static_cast<int>(src.children.size()); ++i) {
@@ -356,7 +360,7 @@ BrowserAccessibility* BrowserAccessibilityManager::CreateAccessibilityTree(
     instance->AddChild(child);
   }
 
-  if (src.role == WebAccessibility::ROLE_ROOT_WEB_AREA)
+  if (src.role == AccessibilityNodeData::ROLE_ROOT_WEB_AREA)
     root_ = instance;
 
   // Note: the purpose of send_show_events and children_can_send_show_events

@@ -4,11 +4,9 @@
 
 #ifndef CHROME_BROWSER_UI_PANELS_PANEL_BROWSER_VIEW_H_
 #define CHROME_BROWSER_UI_PANELS_PANEL_BROWSER_VIEW_H_
-#pragma once
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/time.h"
 #include "chrome/browser/ui/panels/native_panel.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "content/public/browser/notification_observer.h"
@@ -20,6 +18,7 @@ class NativePanelTestingWin;
 class Panel;
 class PanelBoundsAnimation;
 class PanelBrowserFrameView;
+class TaskbarWindowThumbnailerWin;
 
 // A browser view that implements Panel specific behavior.
 class PanelBrowserView : public BrowserView,
@@ -33,6 +32,9 @@ class PanelBrowserView : public BrowserView,
   Panel* panel() const { return panel_.get(); }
   bool closed() const { return closed_; }
   bool focused() const { return focused_; }
+  bool force_to_paint_as_inactive() const {
+    return force_to_paint_as_inactive_;
+  }
 
   PanelBrowserFrameView* GetFrameView() const;
 
@@ -41,7 +43,7 @@ class PanelBrowserView : public BrowserView,
   // |mouse_location| is in screen coordinates.
   bool OnTitlebarMousePressed(const gfx::Point& mouse_location);
   bool OnTitlebarMouseDragged(const gfx::Point& mouse_location);
-  bool OnTitlebarMouseReleased();
+  bool OnTitlebarMouseReleased(panel::ClickModifier modifier);
   bool OnTitlebarMouseCaptureLost();
 
  private:
@@ -110,11 +112,11 @@ class PanelBrowserView : public BrowserView,
   virtual void DrawAttention(bool draw_attention) OVERRIDE;
   virtual bool IsDrawingAttention() const OVERRIDE;
   virtual bool PreHandlePanelKeyboardEvent(
-      const NativeWebKeyboardEvent& event,
+      const content::NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
   virtual void FullScreenModeChanged(bool is_full_screen) OVERRIDE;
   virtual void HandlePanelKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
   virtual gfx::Size WindowSizeFromContentSize(
       const gfx::Size& content_size) const OVERRIDE;
   virtual gfx::Size ContentSizeFromWindowSize(
@@ -122,11 +124,14 @@ class PanelBrowserView : public BrowserView,
   virtual int TitleOnlyHeight() const OVERRIDE;
   virtual Browser* GetPanelBrowser() const OVERRIDE;
   virtual void DestroyPanelBrowser() OVERRIDE;
-  virtual gfx::Size IconOnlySize() const OVERRIDE;
   virtual void EnsurePanelFullyVisible() OVERRIDE;
-  virtual void SetPanelAppIconVisibility(bool visible) OVERRIDE;
   virtual void SetPanelAlwaysOnTop(bool on_top) OVERRIDE;
   virtual void EnableResizeByMouse(bool enable) OVERRIDE;
+  virtual void UpdatePanelMinimizeRestoreButtonVisibility() OVERRIDE;
+  virtual void PanelExpansionStateChanging(
+      Panel::ExpansionState old_state,
+      Panel::ExpansionState new_state) OVERRIDE;
+  virtual NativePanelTesting* CreateNativePanelTesting() OVERRIDE;
 
   // Overridden from AnimationDelegate:
   virtual void AnimationEnded(const ui::Animation* animation) OVERRIDE;
@@ -139,6 +144,15 @@ class PanelBrowserView : public BrowserView,
   void ShowOrHidePanelAppIcon(bool show);
 
   bool IsAnimatingBounds() const;
+
+#if defined(OS_WIN) && !defined(USE_AURA)
+  // Sets or clears the bitwise |attribute_value| for the attibute denoted by
+  // |attribute_index|. This is used to update the style or extended style
+  // for the native window.
+  void UpdateWindowAttribute(int attribute_index,
+                             int attribute_value,
+                             bool to_set);
+#endif
 
   scoped_ptr<Panel> panel_;
   gfx::Rect bounds_;
@@ -157,9 +171,6 @@ class PanelBrowserView : public BrowserView,
   // This point is represented in the screen coordinate system.
   gfx::Point last_mouse_location_;
 
-  // Timestamp when the mouse was pressed. Used to detect long click.
-  base::TimeTicks mouse_pressed_time_;
-
   // Is the titlebar currently being dragged?  That is, has the cursor
   // moved more than kDragThreshold away from its starting position?
   MouseDraggingState mouse_dragging_state_;
@@ -171,15 +182,20 @@ class PanelBrowserView : public BrowserView,
   // Is the panel in highlighted state to draw people's attention?
   bool is_drawing_attention_;
 
-  // Timestamp to prevent minimizing the panel when the user clicks the titlebar
-  // to clear the attension state.
-  base::TimeTicks attention_cleared_time_;
+  // Should we force to paint the panel as inactive? This is needed when we need
+  // to capture the screenshot before an active panel goes minimized.
+  bool force_to_paint_as_inactive_;
 
   // The last view that had focus in the panel. This is saved so that focus can
   // be restored properly when a drag ends.
   views::View* old_focused_view_;
 
   content::NotificationRegistrar registrar_;
+
+#if defined(OS_WIN) && !defined(USE_ASH) && !defined(USE_AURA)
+  // Used to provide custom taskbar thumbnail for Windows 7 and later.
+  scoped_ptr<TaskbarWindowThumbnailerWin> thumbnailer_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(PanelBrowserView);
 };

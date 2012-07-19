@@ -13,12 +13,15 @@ var ContentSettings = options.ContentSettings;
 var ContentSettingsExceptionsArea =
     options.contentSettings.ContentSettingsExceptionsArea;
 var CookiesView = options.CookiesView;
+var CookiesViewApp = options.CookiesViewApp;
 var FontSettings = options.FontSettings;
 var HandlerOptions = options.HandlerOptions;
 var HomePageOverlay = options.HomePageOverlay;
 var ImportDataOverlay = options.ImportDataOverlay;
 var InstantConfirmOverlay = options.InstantConfirmOverlay;
 var LanguageOptions = options.LanguageOptions;
+var MediaGalleryManager = options.MediaGalleryManager;
+var OptionsFocusManager = options.OptionsFocusManager;
 var OptionsPage = options.OptionsPage;
 var PasswordManager = options.PasswordManager;
 var Preferences = options.Preferences;
@@ -26,10 +29,9 @@ var PreferredNetworks = options.PreferredNetworks;
 var ManageProfileOverlay = options.ManageProfileOverlay;
 var SearchEngineManager = options.SearchEngineManager;
 var SearchPage = options.SearchPage;
-var SessionRestoreOverlay = options.SessionRestoreOverlay;
+var SpellingConfirmOverlay = options.SpellingConfirmOverlay;
 var StartupOverlay = options.StartupOverlay;
 var SyncSetupOverlay = options.SyncSetupOverlay;
-var VirtualKeyboardManager = options.VirtualKeyboardManager;
 
 /**
  * DOMContentLoaded handler, sets up the page.
@@ -50,8 +52,6 @@ function load() {
       options.HandlersEnabledRadio);
   cr.ui.decorate('span.controlled-setting-indicator',
       options.ControlledSettingIndicator);
-
-  localStrings = new LocalStrings();
 
   // Top level pages.
   OptionsPage.register(SearchPage.getInstance());
@@ -80,6 +80,10 @@ function load() {
                               ContentSettings.getInstance(),
                               [$('privacyContentSettingsButton'),
                                $('show-cookies-button')]);
+  OptionsPage.registerOverlay(CookiesViewApp.getInstance(),
+                              ContentSettings.getInstance(),
+                              [$('privacyContentSettingsButton'),
+                               $('show-app-cookies-button')]);
   OptionsPage.registerOverlay(FontSettings.getInstance(),
                               BrowserOptions.getInstance(),
                               [$('fontSettingsCustomizeFontsButton')]);
@@ -100,13 +104,16 @@ function load() {
                               [$('language-button')]);
   OptionsPage.registerOverlay(ManageProfileOverlay.getInstance(),
                               BrowserOptions.getInstance());
+  OptionsPage.registerOverlay(MediaGalleryManager.getInstance(),
+                              ContentSettings.getInstance(),
+                              [$('manage-galleries-button')]);
   OptionsPage.registerOverlay(PasswordManager.getInstance(),
                               BrowserOptions.getInstance(),
                               [$('manage-passwords')]);
   OptionsPage.registerOverlay(SearchEngineManager.getInstance(),
                               BrowserOptions.getInstance(),
                               [$('manage-default-search-engines')]);
-  OptionsPage.registerOverlay(SessionRestoreOverlay.getInstance(),
+  OptionsPage.registerOverlay(SpellingConfirmOverlay.getInstance(),
                               BrowserOptions.getInstance());
   OptionsPage.registerOverlay(StartupOverlay.getInstance(),
                               BrowserOptions.getInstance());
@@ -126,8 +133,9 @@ function load() {
                                 [$('account-picture')]);
     OptionsPage.registerOverlay(DetailsInternetPage.getInstance(),
                                 BrowserOptions.getInstance());
-    OptionsPage.registerOverlay(InternetOptions.getInstance(),
-                                BrowserOptions.getInstance());
+    OptionsPage.registerOverlay(DisplayOptions.getInstance(),
+                                BrowserOptions.getInstance(),
+                                [$('display-options-button')]);
     OptionsPage.registerOverlay(KeyboardOverlay.getInstance(),
                                 BrowserOptions.getInstance(),
                                 [$('keyboard-settings-button')]);
@@ -138,31 +146,24 @@ function load() {
                                 BrowserOptions.getInstance());
     OptionsPage.registerOverlay(
         new OptionsPage('languageChewing',
-                        templateData.languageChewingPageTabTitle,
+                        loadTimeData.getString('languageChewingPageTabTitle'),
                         'languageChewingPage'),
         LanguageOptions.getInstance());
     OptionsPage.registerOverlay(
         new OptionsPage('languageHangul',
-                        templateData.languageHangulPageTabTitle,
+                        loadTimeData.getString('languageHangulPageTabTitle'),
                         'languageHangulPage'),
         LanguageOptions.getInstance());
     OptionsPage.registerOverlay(
         new OptionsPage('languageMozc',
-                        templateData.languageMozcPageTabTitle,
+                        loadTimeData.getString('languageMozcPageTabTitle'),
                         'languageMozcPage'),
         LanguageOptions.getInstance());
     OptionsPage.registerOverlay(
         new OptionsPage('languagePinyin',
-                        templateData.languagePinyinPageTabTitle,
+                        loadTimeData.getString('languagePinyinPageTabTitle'),
                         'languagePinyinPage'),
         LanguageOptions.getInstance());
-    // Only use the VirtualKeyboardManager if the keyboard DOM elements (which
-    // it will assume exists) are present (i.e. if we were built with
-    // use_virtual_keyboard=1).
-    if ($('language-options-virtual-keyboard')) {
-      OptionsPage.registerOverlay(VirtualKeyboardManager.getInstance(),
-                                  LanguageOptions.getInstance());
-    }
   }
 
 <if expr="pp_ifdef('chromeos') and pp_ifdef('use_ash')">
@@ -187,6 +188,7 @@ function load() {
                                 CertificateManager.getInstance());
   }
 
+  OptionsFocusManager.getInstance().initialize();
   Preferences.getInstance().initialize();
   OptionsPage.initialize();
 
@@ -195,13 +197,6 @@ function load() {
   if (path.length > 1) {
     // Skip starting slash and remove trailing slash (if any).
     var pageName = path.slice(1).replace(/\/$/, '');
-
-    if (pageName == 'proxy') {
-      // The following page doesn't have a unique URL at the moment, so do
-      // something sensible if a user pastes this link or refreshes on this URL.
-      pageName = ProxyOptions ? ProxyOptions.getInstance().parentPage.name :
-                                AdvancedOptions.getInstance().name;
-    }
     OptionsPage.showPageByName(pageName, true, {replaceState: true});
   } else {
     OptionsPage.showDefaultPage();

@@ -13,6 +13,8 @@
 #include "base/string_number_conversions.h"
 #include "base/time.h"
 #include "remoting/base/constants.h"
+#include "remoting/host/constants.h"
+#include "remoting/host/server_log_entry.h"
 #include "remoting/jingle_glue/iq_sender.h"
 #include "remoting/jingle_glue/jingle_thread.h"
 #include "remoting/jingle_glue/signal_strategy.h"
@@ -40,22 +42,26 @@ const char kExpectedSequenceIdTag[] = "expected-sequence-id";
 
 const int64 kDefaultHeartbeatIntervalMs = 5 * 60 * 1000;  // 5 minutes.
 const int64 kResendDelayMs = 10 * 1000;  // 10 seconds.
-
-const int kExitCodeHostIdInvalid = 100;
+const int64 kResendDelayOnHostNotFoundMs = 10 * 1000; // 10 seconds.
+const int kMaxResendOnHostNotFoundCount = 12;  // 2 minutes (12 x 10 seconds).
 
 }  // namespace
 
 HeartbeatSender::HeartbeatSender(
+    Listener* listener,
     const std::string& host_id,
     SignalStrategy* signal_strategy,
     HostKeyPair* key_pair)
-    : host_id_(host_id),
+    : listener_(listener),
+      host_id_(host_id),
       signal_strategy_(signal_strategy),
       key_pair_(key_pair),
       interval_ms_(kDefaultHeartbeatIntervalMs),
       sequence_id_(0),
       sequence_id_was_set_(false),
-      sequence_id_recent_set_num_(0) {
+      sequence_id_recent_set_num_(0),
+      heartbeat_succeeded_(false),
+      failed_startup_heartbeat_count_(0) {
   DCHECK(signal_strategy_);
   DCHECK(key_pair_);
 
@@ -114,11 +120,24 @@ void HeartbeatSender::ProcessResponse(IqRequest* request,
         response->FirstNamed(QName(buzz::NS_CLIENT, kErrorTag));
     if (error_element) {
       if (error_element->FirstNamed(QName(buzz::NS_STANZA, kNotFoundTag))) {
-        // TODO(lambroslambrou): Trigger an application-defined callback to
-        // shut down the host properly, instead of just exiting here
-        // (http://crbug.com/112160).
-        LOG(ERROR) << "Received error: Host ID invalid";
-        exit(kExitCodeHostIdInvalid);
+        LOG(ERROR) << "Received error: Host ID not found";
+        // If the host was registered immediately before it sends a heartbeat,
+        // then server-side latency may prevent the server recognizing the
+        // host ID in the heartbeat. So even if all of the first few heartbeats
+        // get a "host ID not found" error, that's not a good enough reason to
+        // exit.
+        failed_startup_heartbeat_count_++;
+        if (!heartbeat_succeeded_ && (failed_startup_heartbeat_count_ <=
+                kMaxResendOnHostNotFoundCount)) {
+          timer_resend_.Start(FROM_HERE,
+                              base::TimeDelta::FromMilliseconds(
+                                  kResendDelayOnHostNotFoundMs),
+                              this,
+                              &HeartbeatSender::ResendStanza);
+          return;
+        }
+        listener_->OnUnknownHostIdError();
+        return;
       }
     }
 
@@ -126,6 +145,8 @@ void HeartbeatSender::ProcessResponse(IqRequest* request,
                << response->Str();
     return;
   }
+
+  heartbeat_succeeded_ = true;
 
   // This method must only be called for error or result stanzas.
   DCHECK_EQ(std::string(buzz::STR_RESULT), type);
@@ -209,12 +230,19 @@ void HeartbeatSender::SetSequenceId(int sequence_id) {
 }
 
 scoped_ptr<XmlElement> HeartbeatSender::CreateHeartbeatMessage() {
+  // Create heartbeat stanza.
   scoped_ptr<XmlElement> query(new XmlElement(
       QName(kChromotingXmlNamespace, kHeartbeatQueryTag)));
   query->AddAttr(QName(kChromotingXmlNamespace, kHostIdAttr), host_id_);
   query->AddAttr(QName(kChromotingXmlNamespace, kSequenceIdAttr),
                  base::IntToString(sequence_id_));
   query->AddElement(CreateSignature().release());
+  // Append log message (which isn't signed).
+  scoped_ptr<XmlElement> log(ServerLogEntry::MakeStanza());
+  scoped_ptr<ServerLogEntry> log_entry(ServerLogEntry::MakeForHeartbeat());
+  log_entry->AddHostFields();
+  log->AddElement(log_entry->ToStanza().release());
+  query->AddElement(log.release());
   return query.Pass();
 }
 

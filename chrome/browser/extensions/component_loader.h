@@ -4,21 +4,22 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_COMPONENT_LOADER_H_
 #define CHROME_BROWSER_EXTENSIONS_COMPONENT_LOADER_H_
-#pragma once
 
 #include <string>
+#include <vector>
 
-#include "base/gtest_prod_util.h"
 #include "base/file_path.h"
+#include "base/gtest_prod_util.h"
 #include "base/values.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 
-class Extension;
 class ExtensionServiceInterface;
 class PrefService;
 
 namespace extensions {
+
+class Extension;
 
 // For registering, loading, and unloading component extensions.
 class ComponentLoader : public content::NotificationObserver {
@@ -38,7 +39,7 @@ class ComponentLoader : public content::NotificationObserver {
   // Registers and possibly loads a component extension. If ExtensionService
   // has been initialized, the extension is loaded; otherwise, the load is
   // deferred until LoadAll is called.
-  const Extension* Add(std::string& manifest_contents,
+  const Extension* Add(const std::string& manifest_contents,
                        const FilePath& root_directory);
 
   // Convenience method for registering a component extension by resource id.
@@ -108,8 +109,14 @@ class ComponentLoader : public content::NotificationObserver {
 
   void AddFileManagerExtension();
 
+#if defined(OS_CHROMEOS)
+  void AddGaiaAuthExtension();
+#endif
+
   // Add the enterprise webstore extension, or reload it if already loaded.
   void AddOrReloadEnterpriseWebStore();
+
+  void AddChromeApp();
 
   // Determine the extension id.
   static std::string GenerateId(const base::DictionaryValue* manifest);
@@ -124,6 +131,8 @@ class ComponentLoader : public content::NotificationObserver {
   RegisteredComponentExtensions component_extensions_;
 
   PrefChangeRegistrar pref_change_registrar_;
+
+  DISALLOW_COPY_AND_ASSIGN(ComponentLoader);
 };
 
 }  // namespace extensions

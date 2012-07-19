@@ -24,11 +24,10 @@
 #include "net/http/http_response_headers.h"
 #include "webkit/glue/resource_type.h"
 
-using content::InterProcessTimeTicksConverter;
-using content::LocalTimeDelta;
-using content::LocalTimeTicks;
-using content::RemoteTimeDelta;
-using content::RemoteTimeTicks;
+using webkit_glue::ResourceLoaderBridge;
+using webkit_glue::ResourceResponseInfo;
+
+namespace content {
 
 // Each resource request is assigned an ID scoped to this process.
 static int MakeRequestID() {
@@ -41,12 +40,10 @@ static int MakeRequestID() {
 
 // ResourceLoaderBridge implementation ----------------------------------------
 
-namespace webkit_glue {
-
 class IPCResourceLoaderBridge : public ResourceLoaderBridge {
  public:
   IPCResourceLoaderBridge(ResourceDispatcher* dispatcher,
-      const webkit_glue::ResourceLoaderBridge::RequestInfo& request_info);
+      const ResourceLoaderBridge::RequestInfo& request_info);
   virtual ~IPCResourceLoaderBridge();
 
   // ResourceLoaderBridge
@@ -62,7 +59,6 @@ class IPCResourceLoaderBridge : public ResourceLoaderBridge {
   virtual void Cancel();
   virtual void SetDefersLoading(bool value);
   virtual void SyncLoad(SyncLoadResponse* response);
-  virtual void UpdateRoutingId(int new_routing_id);
 
  private:
   ResourceLoaderBridge::Peer* peer_;
@@ -86,7 +82,7 @@ class IPCResourceLoaderBridge : public ResourceLoaderBridge {
 
 IPCResourceLoaderBridge::IPCResourceLoaderBridge(
     ResourceDispatcher* dispatcher,
-    const webkit_glue::ResourceLoaderBridge::RequestInfo& request_info)
+    const ResourceLoaderBridge::RequestInfo& request_info)
     : peer_(NULL),
       dispatcher_(dispatcher),
       request_id_(-1),
@@ -113,6 +109,7 @@ IPCResourceLoaderBridge::IPCResourceLoaderBridge(
     request_.frame_id = extra_data->frame_id();
     request_.parent_is_main_frame = extra_data->parent_is_main_frame();
     request_.parent_frame_id = extra_data->parent_frame_id();
+    request_.allow_download = extra_data->allow_download();
     request_.transition_type = extra_data->transition_type();
     request_.transferred_request_child_id =
         extra_data->transferred_request_child_id();
@@ -123,7 +120,8 @@ IPCResourceLoaderBridge::IPCResourceLoaderBridge(
     request_.frame_id = -1;
     request_.parent_is_main_frame = false;
     request_.parent_frame_id = -1;
-    request_.transition_type = content::PAGE_TRANSITION_LINK;
+    request_.allow_download = true;
+    request_.transition_type = PAGE_TRANSITION_LINK;
     request_.transferred_request_child_id = -1;
     request_.transferred_request_request_id = -1;
   }
@@ -234,7 +232,7 @@ void IPCResourceLoaderBridge::SyncLoad(SyncLoadResponse* response) {
   request_id_ = MakeRequestID();
   is_synchronous_request_ = true;
 
-  content::SyncLoadResult result;
+  SyncLoadResult result;
   IPC::SyncMessage* msg = new ResourceHostMsg_SyncLoad(routing_id_, request_id_,
                                                        request_, &result);
   // NOTE: This may pump events (see RenderThread::Send).
@@ -259,23 +257,9 @@ void IPCResourceLoaderBridge::SyncLoad(SyncLoadResponse* response) {
   response->download_file_path = result.download_file_path;
 }
 
-void IPCResourceLoaderBridge::UpdateRoutingId(int new_routing_id) {
-  if (request_id_ < 0) {
-    NOTREACHED() << "Trying to update an unstarted request";
-    return;
-  }
-
-  routing_id_ = new_routing_id;
-  dispatcher_->message_sender()->Send(
-      new ResourceHostMsg_TransferRequestToNewPage(new_routing_id,
-                                                   request_id_));
-}
-
-}  // namespace webkit_glue
-
 // ResourceDispatcher ---------------------------------------------------------
 
-ResourceDispatcher::ResourceDispatcher(IPC::Message::Sender* sender)
+ResourceDispatcher::ResourceDispatcher(IPC::Sender* sender)
     : message_sender_(sender),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       delegate_(NULL) {
@@ -351,21 +335,21 @@ void ResourceDispatcher::OnUploadProgress(
 }
 
 void ResourceDispatcher::OnReceivedResponse(
-    int request_id, const content::ResourceResponseHead& response_head) {
+    int request_id, const ResourceResponseHead& response_head) {
   PendingRequestInfo* request_info = GetPendingRequestInfo(request_id);
   if (!request_info)
     return;
   request_info->response_start = base::TimeTicks::Now();
 
   if (delegate_) {
-    webkit_glue::ResourceLoaderBridge::Peer* new_peer =
+    ResourceLoaderBridge::Peer* new_peer =
         delegate_->OnReceivedResponse(
             request_info->peer, response_head.mime_type, request_info->url);
     if (new_peer)
       request_info->peer = new_peer;
   }
 
-  webkit_glue::ResourceResponseInfo renderer_response_info;
+  ResourceResponseInfo renderer_response_info;
   ToResourceResponseInfo(*request_info, response_head, &renderer_response_info);
   request_info->peer->OnReceivedResponse(renderer_response_info);
 }
@@ -421,7 +405,7 @@ void ResourceDispatcher::OnReceivedRedirect(
     const IPC::Message& message,
     int request_id,
     const GURL& new_url,
-    const content::ResourceResponseHead& response_head) {
+    const ResourceResponseHead& response_head) {
   PendingRequestInfo* request_info = GetPendingRequestInfo(request_id);
   if (!request_info)
     return;
@@ -430,7 +414,7 @@ void ResourceDispatcher::OnReceivedRedirect(
   int32 routing_id = message.routing_id();
   bool has_new_first_party_for_cookies = false;
   GURL new_first_party_for_cookies;
-  webkit_glue::ResourceResponseInfo renderer_response_info;
+  ResourceResponseInfo renderer_response_info;
   ToResourceResponseInfo(*request_info, response_head, &renderer_response_info);
   if (request_info->peer->OnReceivedRedirect(new_url, renderer_response_info,
                                              &has_new_first_party_for_cookies,
@@ -470,10 +454,10 @@ void ResourceDispatcher::OnRequestComplete(
     return;
   request_info->completion_time = base::TimeTicks::Now();
 
-  webkit_glue::ResourceLoaderBridge::Peer* peer = request_info->peer;
+  ResourceLoaderBridge::Peer* peer = request_info->peer;
 
   if (delegate_) {
-    webkit_glue::ResourceLoaderBridge::Peer* new_peer =
+    ResourceLoaderBridge::Peer* new_peer =
         delegate_->OnRequestComplete(
             request_info->peer, request_info->resource_type, status);
     if (new_peer)
@@ -489,7 +473,7 @@ void ResourceDispatcher::OnRequestComplete(
 }
 
 int ResourceDispatcher::AddPendingRequest(
-    webkit_glue::ResourceLoaderBridge::Peer* callback,
+    ResourceLoaderBridge::Peer* callback,
     ResourceType::Type resource_type,
     const GURL& request_url) {
   // Compute a unique request_id for this renderer process.
@@ -591,15 +575,15 @@ void ResourceDispatcher::FlushDeferredMessages(int request_id) {
   }
 }
 
-webkit_glue::ResourceLoaderBridge* ResourceDispatcher::CreateBridge(
-    const webkit_glue::ResourceLoaderBridge::RequestInfo& request_info) {
-  return new webkit_glue::IPCResourceLoaderBridge(this, request_info);
+ResourceLoaderBridge* ResourceDispatcher::CreateBridge(
+    const ResourceLoaderBridge::RequestInfo& request_info) {
+  return new IPCResourceLoaderBridge(this, request_info);
 }
 
 void ResourceDispatcher::ToResourceResponseInfo(
     const PendingRequestInfo& request_info,
-    const content::ResourceResponseHead& browser_info,
-    webkit_glue::ResourceResponseInfo* renderer_info) const {
+    const ResourceResponseHead& browser_info,
+    ResourceResponseInfo* renderer_info) const {
   *renderer_info = browser_info;
   if (request_info.request_start.is_null() ||
       request_info.response_start.is_null() ||
@@ -607,7 +591,7 @@ void ResourceDispatcher::ToResourceResponseInfo(
       browser_info.response_start.is_null()) {
     return;
   }
-  content::InterProcessTimeTicksConverter converter(
+  InterProcessTimeTicksConverter converter(
       LocalTimeTicks::FromTimeTicks(request_info.request_start),
       LocalTimeTicks::FromTimeTicks(request_info.response_start),
       RemoteTimeTicks::FromTimeTicks(browser_info.request_start),
@@ -705,3 +689,5 @@ void ResourceDispatcher::ReleaseResourcesInMessageQueue(MessageQueue* queue) {
     delete message;
   }
 }
+
+}  // namespace content

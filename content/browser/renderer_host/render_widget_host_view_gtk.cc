@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <string>
 
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/debug/trace_event.h"
 #include "base/logging.h"
@@ -27,32 +28,44 @@
 #include "base/time.h"
 #include "base/utf_offset_string_conversions.h"
 #include "base/utf_string_conversions.h"
+#include "content/browser/accessibility/browser_accessibility_gtk.h"
 #include "content/browser/renderer_host/backing_store_gtk.h"
 #include "content/browser/renderer_host/gtk_im_context_wrapper.h"
 #include "content/browser/renderer_host/gtk_key_bindings_handler.h"
 #include "content/browser/renderer_host/gtk_window_utils.h"
+#include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/common/gpu/gpu_messages.h"
 #include "content/public/browser/native_web_keyboard_event.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/common/content_switches.h"
+#include "skia/ext/platform_canvas.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/gtk/WebInputEventFactory.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/x11/WebScreenInfoFactory.h"
 #include "ui/base/gtk/gtk_compat.h"
 #include "ui/base/text/text_elider.h"
+#include "ui/base/x/active_window_watcher_x.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/gfx/gtk_native_view_id_manager.h"
 #include "ui/gfx/gtk_preserve_window.h"
-#include "webkit/glue/webaccessibility.h"
 #include "webkit/glue/webcursor_gtk_data.h"
 #include "webkit/plugins/npapi/webplugin.h"
 
 namespace {
 
-const int kMaxWindowWidth = 4000;
-const int kMaxWindowHeight = 4000;
+// Paint rects on Linux are bounded by the maximum size of a shared memory
+// region. By default that's 32MB, but many distros increase it significantly
+// (i.e. to 256MB).
+//
+// We fetch the maximum value from /proc/sys/kernel/shmmax at runtime and, if
+// we exceed that, then we limit the height of the paint rect in the renderer.
+//
+// These constants are here to ensure that, in the event that we exceed it, we
+// end up with something a little more square. Previously we had 4000x4000, but
+// people's monitor setups are actually exceeding that these days.
+const int kMaxWindowWidth = 10000;
+const int kMaxWindowHeight = 10000;
 
 // See WebInputEventFactor.cpp for a reason for this being the default
 // scroll size for linux.
@@ -71,10 +84,10 @@ GdkCursor* GetMozSpinningCursor() {
   if (!moz_spinning_cursor) {
     const GdkColor fg = { 0, 0, 0, 0 };
     const GdkColor bg = { 65535, 65535, 65535, 65535 };
-    GdkPixmap* source =
-        gdk_bitmap_create_from_data(NULL, moz_spinning_bits, 32, 32);
-    GdkPixmap* mask =
-        gdk_bitmap_create_from_data(NULL, moz_spinning_mask_bits, 32, 32);
+    GdkPixmap* source = gdk_bitmap_create_from_data(
+        NULL, reinterpret_cast<const gchar*>(moz_spinning_bits), 32, 32);
+    GdkPixmap* mask = gdk_bitmap_create_from_data(
+        NULL, reinterpret_cast<const gchar*>(moz_spinning_mask_bits), 32, 32);
     moz_spinning_cursor =
         gdk_cursor_new_from_pixmap(source, mask, &fg, &bg, 2, 2);
     g_object_unref(source);
@@ -91,6 +104,7 @@ bool MovedToCenter(const WebKit::WebMouseEvent& mouse_event,
 
 }  // namespace
 
+using content::NativeWebKeyboardEvent;
 using content::RenderWidgetHostImpl;
 using content::RenderWidgetHostView;
 using content::RenderWidgetHostViewPort;
@@ -101,6 +115,11 @@ using WebKit::WebMouseWheelEvent;
 // static methods.
 class RenderWidgetHostViewGtkWidget {
  public:
+  static AtkObject* GetAccessible(void* userdata) {
+    return (static_cast<RenderWidgetHostViewGtk*>(userdata))->
+        GetAccessible();
+  }
+
   static GtkWidget* CreateNewWidget(RenderWidgetHostViewGtk* host_view) {
     GtkWidget* widget = gtk_preserve_window_new();
     gtk_widget_set_name(widget, "chrome-render-widget-host-view");
@@ -159,6 +178,10 @@ class RenderWidgetHostViewGtkWidget {
     g_signal_connect_after(widget, "scroll-event",
                            G_CALLBACK(OnMouseScrollEvent), host_view);
 
+    // Route calls to get_accessible to the view.
+    gtk_preserve_window_set_accessible_factory(
+        GTK_PRESERVE_WINDOW(widget), GetAccessible, host_view);
+
     return widget;
   }
 
@@ -186,14 +209,16 @@ class RenderWidgetHostViewGtkWidget {
   static gboolean OnConfigureEvent(GtkWidget* widget,
                                    GdkEventConfigure* event,
                                    RenderWidgetHostViewGtk* host_view) {
-    host_view->widget_center_valid_ = false;
-    host_view->mouse_has_been_warped_to_new_center_ = false;
+    host_view->MarkCachedWidgetCenterStale();
+    host_view->UpdateScreenInfo();
     return FALSE;
   }
 
   static gboolean OnKeyPressReleaseEvent(GtkWidget* widget,
                                          GdkEventKey* event,
                                          RenderWidgetHostViewGtk* host_view) {
+    TRACE_EVENT0("browser",
+                 "RenderWidgetHostViewGtkWidget::OnKeyPressReleaseEvent");
     // Force popups or fullscreen windows to close on Escape so they won't keep
     // the keyboard grabbed or be stuck onscreen if the renderer is hanging.
     bool should_close_on_escape =
@@ -280,6 +305,8 @@ class RenderWidgetHostViewGtkWidget {
       GtkWidget* widget,
       GdkEventButton* event,
       RenderWidgetHostViewGtk* host_view) {
+    TRACE_EVENT0("browser",
+                 "RenderWidgetHostViewGtkWidget::OnButtonPressReleaseEvent");
 
     if (event->type != GDK_BUTTON_RELEASE)
       host_view->set_last_mouse_down(event);
@@ -337,13 +364,15 @@ class RenderWidgetHostViewGtkWidget {
       widget_host->ForwardMouseEvent(WebInputEventFactory::mouseEvent(event));
 
     // Although we did handle the mouse event, we need to let other handlers
-    // run (in particular the one installed by TabContentsViewGtk).
+    // run (in particular the one installed by WebContentsViewGtk).
     return FALSE;
   }
 
   static gboolean OnMouseMoveEvent(GtkWidget* widget,
                                    GdkEventMotion* event,
                                    RenderWidgetHostViewGtk* host_view) {
+    TRACE_EVENT0("browser",
+                 "RenderWidgetHostViewGtkWidget::OnMouseMoveEvent");
     // We want to translate the coordinates of events that do not originate
     // from this widget to be relative to the top left of the widget.
     GtkWidget* event_widget = gtk_get_event_widget(
@@ -390,6 +419,8 @@ class RenderWidgetHostViewGtkWidget {
   static gboolean OnCrossingEvent(GtkWidget* widget,
                                   GdkEventCrossing* event,
                                   RenderWidgetHostViewGtk* host_view) {
+    TRACE_EVENT0("browser",
+                 "RenderWidgetHostViewGtkWidget::OnCrossingEvent");
     const int any_button_mask =
         GDK_BUTTON1_MASK |
         GDK_BUTTON2_MASK |
@@ -499,6 +530,8 @@ class RenderWidgetHostViewGtkWidget {
   static gboolean OnMouseScrollEvent(GtkWidget* widget,
                                      GdkEventScroll* event,
                                      RenderWidgetHostViewGtk* host_view) {
+    TRACE_EVENT0("browser",
+                 "RenderWidgetHostViewGtkWidget::OnMouseScrollEvent");
     // If the user is holding shift, translate it into a horizontal scroll. We
     // don't care what other modifiers the user may be holding (zooming is
     // handled at the WebContentsView level).
@@ -545,6 +578,7 @@ RenderWidgetHostViewGtk::RenderWidgetHostViewGtk(
       was_imcontext_focused_before_grab_(false),
       do_x_grab_(false),
       is_fullscreen_(false),
+      made_active_(false),
       destroy_handler_id_(0),
       dragged_at_horizontal_edge_(0),
       dragged_at_vertical_edge_(0),
@@ -576,51 +610,60 @@ void RenderWidgetHostViewGtk::InitAsPopup(
   gtk_container_add(GTK_CONTAINER(window), view_.get());
   DoPopupOrFullscreenInit(window, pos);
 
-  // The underlying X window needs to be created and mapped by the above code
-  // before we can grab the input devices.
+  // Grab all input for the app. If a click lands outside the bounds of the
+  // popup, WebKit will notice and destroy us. The underlying X window needs to
+  // be created and mapped by the above code before we can grab the input
+  // devices.
   if (NeedsInputGrab()) {
-    // Grab all input for the app. If a click lands outside the bounds of the
-    // popup, WebKit will notice and destroy us. Before doing this we need
-    // to ensure that the the popup is added to the browser's window group,
-    // to allow for the grabs to work correctly.
-    gtk_window_group_add_window(gtk_window_get_group(
-        GTK_WINDOW(gtk_widget_get_toplevel(parent_))), window);
+    // If our parent is in a widget hierarchy that ends with a window, add
+    // ourselves to the same window group to make sure that our GTK grab
+    // covers it.
+    GtkWidget* toplevel = gtk_widget_get_toplevel(parent_);
+    if (toplevel &&
+        GTK_WIDGET_TOPLEVEL(toplevel) &&
+        GTK_IS_WINDOW(toplevel)) {
+      gtk_window_group_add_window(
+          gtk_window_get_group(GTK_WINDOW(toplevel)), window);
+    }
+
+    // Install an application-level GTK grab to make sure that we receive all of
+    // the app's input.
     gtk_grab_add(view_.get());
 
-    // We need for the application to do an X grab as well. However if the app
-    // already has an X grab (as in the case of extension popup), an app grab
-    // will suffice.
+    // We need to install an X grab as well. However if the app already has an X
+    // grab (as in the case of extension popup), an app grab will suffice.
     do_x_grab_ = !gdk_pointer_is_grabbed();
-
-    // Now grab all of X's input.
     if (do_x_grab_) {
+      // Install the grab on behalf our parent window if it and all of its
+      // ancestors are mapped; otherwise, just use ourselves (maybe we're being
+      // shown on behalf of an inactive tab).
+      GdkWindow* grab_window = gtk_widget_get_window(parent_);
+      if (!grab_window || !gdk_window_is_viewable(grab_window))
+        grab_window = gtk_widget_get_window(view_.get());
+
       gdk_pointer_grab(
-          gtk_widget_get_window(parent_),
-          TRUE,  // Only events outside of the window are reported with respect
-                 // to |parent_->window|.
+          grab_window,
+          TRUE,  // Only events outside of the window are reported with
+                 // respect to |parent_->window|.
           static_cast<GdkEventMask>(GDK_BUTTON_PRESS_MASK |
               GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK),
           NULL,
           NULL,
           GDK_CURRENT_TIME);
       // We grab keyboard events too so things like alt+tab are eaten.
-      gdk_keyboard_grab(gtk_widget_get_window(parent_), TRUE, GDK_CURRENT_TIME);
+      gdk_keyboard_grab(grab_window, TRUE, GDK_CURRENT_TIME);
     }
   }
 }
 
 void RenderWidgetHostViewGtk::InitAsFullscreen(
-    RenderWidgetHostView* /*reference_host_view*/) {
+    RenderWidgetHostView* reference_host_view) {
+  DCHECK(reference_host_view);
   DoSharedInit();
 
   is_fullscreen_ = true;
   GtkWindow* window = GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
   gtk_window_set_decorated(window, FALSE);
-  gtk_window_fullscreen(window);
-  g_signal_connect(GTK_WIDGET(window),
-                   "window-state-event",
-                   G_CALLBACK(&OnWindowStateEventThunk),
-                   this);
   destroy_handler_id_ = g_signal_connect(GTK_WIDGET(window),
                                          "destroy",
                                          G_CALLBACK(OnDestroyThunk),
@@ -630,8 +673,23 @@ void RenderWidgetHostViewGtk::InitAsFullscreen(
   // Try to move and resize the window to cover the screen in case the window
   // manager doesn't support _NET_WM_STATE_FULLSCREEN.
   GdkScreen* screen = gtk_window_get_screen(window);
-  gfx::Rect bounds(
-      0, 0, gdk_screen_get_width(screen), gdk_screen_get_height(screen));
+  GdkWindow* ref_gdk_window = gtk_widget_get_window(
+      reference_host_view->GetNativeView());
+
+  gfx::Rect bounds;
+  if (ref_gdk_window) {
+    const int monitor_id = gdk_screen_get_monitor_at_window(screen,
+                                                            ref_gdk_window);
+    GdkRectangle monitor_rect;
+    gdk_screen_get_monitor_geometry(screen, monitor_id, &monitor_rect);
+    bounds = gfx::Rect(monitor_rect);
+  } else {
+    bounds = gfx::Rect(
+        0, 0, gdk_screen_get_width(screen), gdk_screen_get_height(screen));
+  }
+  gtk_window_move(window, bounds.x(), bounds.y());
+  gtk_window_resize(window, bounds.width(), bounds.height());
+  gtk_window_fullscreen(window);
   DoPopupOrFullscreenInit(window, bounds);
 }
 
@@ -640,12 +698,12 @@ RenderWidgetHostViewGtk::GetRenderWidgetHost() const {
   return host_;
 }
 
-void RenderWidgetHostViewGtk::DidBecomeSelected() {
+void RenderWidgetHostViewGtk::WasRestored() {
   if (!is_hidden_)
     return;
 
-  if (tab_switch_paint_time_.is_null())
-    tab_switch_paint_time_ = base::TimeTicks::Now();
+  if (web_contents_switch_paint_time_.is_null())
+    web_contents_switch_paint_time_ = base::TimeTicks::Now();
   is_hidden_ = false;
   host_->WasRestored();
 }
@@ -722,6 +780,22 @@ void RenderWidgetHostViewGtk::Blur() {
 
 bool RenderWidgetHostViewGtk::HasFocus() const {
   return gtk_widget_is_focus(view_.get());
+}
+
+void RenderWidgetHostViewGtk::ActiveWindowChanged(GdkWindow* window) {
+  GdkWindow* our_window = gtk_widget_get_parent_window(view_.get());
+
+  if (our_window == window)
+    made_active_ = true;
+
+  // If the window was previously active, but isn't active anymore, shut it
+  // down.
+  if (is_fullscreen_ && our_window != window && made_active_)
+    host_->Shutdown();
+}
+
+bool RenderWidgetHostViewGtk::IsSurfaceAvailableForCopy() const {
+  return true;
 }
 
 void RenderWidgetHostViewGtk::Show() {
@@ -830,6 +904,8 @@ void RenderWidgetHostViewGtk::Destroy() {
   if (IsPopup() || is_fullscreen_) {
     GtkWidget* window = gtk_widget_get_parent(view_.get());
 
+    ui::ActiveWindowWatcherX::RemoveObserver(this);
+
     // Disconnect the destroy handler so that we don't try to shutdown twice.
     if (is_fullscreen_)
       g_signal_handler_disconnect(window, destroy_handler_id_);
@@ -905,24 +981,6 @@ gfx::NativeView RenderWidgetHostViewGtk::BuildInputMethodsGtkMenu() {
   return im_context_->BuildInputMethodsGtkMenu();
 }
 
-gboolean RenderWidgetHostViewGtk::OnWindowStateEvent(
-    GtkWidget* widget,
-    GdkEventWindowState* event) {
-  if (is_fullscreen_) {
-    // If a fullscreen widget got unfullscreened (e.g. by the window manager),
-    // close it.
-    bool unfullscreened =
-        (event->changed_mask & GDK_WINDOW_STATE_FULLSCREEN) &&
-        !(event->new_window_state & GDK_WINDOW_STATE_FULLSCREEN);
-    if (unfullscreened) {
-      host_->Shutdown();
-      return TRUE;
-    }
-  }
-
-  return FALSE;
-}
-
 void RenderWidgetHostViewGtk::OnDestroy(GtkWidget* widget) {
   DCHECK(is_fullscreen_);
   host_->Shutdown();
@@ -949,14 +1007,21 @@ void RenderWidgetHostViewGtk::DoPopupOrFullscreenInit(GtkWindow* window,
                           std::min(bounds.height(), kMaxWindowHeight));
   host_->WasResized();
 
-  gtk_widget_set_size_request(
-      view_.get(), requested_size_.width(), requested_size_.height());
+  ui::ActiveWindowWatcherX::AddObserver(this);
 
-  // Don't allow the window to be resized. This also forces the window to
-  // shrink down to the size of its child contents.
-  gtk_window_set_resizable(window, FALSE);
-  gtk_window_set_default_size(window, -1, -1);
-  gtk_window_move(window, bounds.x(), bounds.y());
+  // Don't set the size when we're going fullscreen. This can confuse the
+  // window manager into thinking we're resizing a fullscreen window and
+  // therefore not fullscreen anymore.
+  if (!is_fullscreen_) {
+    gtk_widget_set_size_request(
+        view_.get(), requested_size_.width(), requested_size_.height());
+
+    // Don't allow the window to be resized. This also forces the window to
+    // shrink down to the size of its child contents.
+    gtk_window_set_resizable(window, FALSE);
+    gtk_window_set_default_size(window, -1, -1);
+    gtk_window_move(window, bounds.x(), bounds.y());
+  }
 
   gtk_widget_show_all(GTK_WIDGET(window));
 }
@@ -969,33 +1034,67 @@ BackingStore* RenderWidgetHostViewGtk::AllocBackingStore(
                              depth);
 }
 
+// NOTE: |output| is initialized with the size of the view and |size| is
+// ignored on GTK.
+void RenderWidgetHostViewGtk::CopyFromCompositingSurface(
+    const gfx::Size& /* size */,
+    const base::Callback<void(bool)>& callback,
+    skia::PlatformCanvas* output) {
+  base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
+
+  const gfx::Rect bounds = GetViewBounds();
+  XImage* image = XGetImage(ui::GetXDisplay(), ui::GetX11RootWindow(),
+                            bounds.x(), bounds.y(),
+                            bounds.width(), bounds.height(),
+                            AllPlanes, ZPixmap);
+  if (!image)
+    return;
+
+  if (!output->initialize(bounds.width(), bounds.height(), true)) {
+    XFree(image);
+    return;
+  }
+
+  const SkBitmap& bitmap = output->getTopDevice()->accessBitmap(true);
+  const size_t bitmap_size = bitmap.getSize();
+  DCHECK_EQ(bitmap_size,
+            static_cast<size_t>(image->height * image->bytes_per_line));
+  unsigned char* pixels = static_cast<unsigned char*>(bitmap.getPixels());
+  memcpy(pixels, image->data, bitmap_size);
+
+  XFree(image);
+  scoped_callback_runner.Release();
+  callback.Run(true);
+}
+
 void RenderWidgetHostViewGtk::AcceleratedSurfaceBuffersSwapped(
     const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
     int gpu_host_id) {
-  RenderWidgetHostImpl::AcknowledgeSwapBuffers(params.route_id, gpu_host_id);
+  RenderWidgetHostImpl::AcknowledgeBufferPresent(
+      params.route_id, gpu_host_id, 0);
 }
 
 void RenderWidgetHostViewGtk::AcceleratedSurfacePostSubBuffer(
     const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params,
     int gpu_host_id) {
-  RenderWidgetHostImpl::AcknowledgePostSubBuffer(params.route_id, gpu_host_id);
+  RenderWidgetHostImpl::AcknowledgeBufferPresent(
+      params.route_id, gpu_host_id, 0);
 }
 
 void RenderWidgetHostViewGtk::AcceleratedSurfaceSuspend() {
 }
 
+bool RenderWidgetHostViewGtk::HasAcceleratedSurface(
+      const gfx::Size& desired_size) {
+  // TODO(jbates) Implement this so this view can use GetBackingStore for both
+  // software and GPU frames. Defaulting to false just makes GetBackingStore
+  // only useable for software frames.
+  return false;
+}
 
 void RenderWidgetHostViewGtk::SetBackground(const SkBitmap& background) {
   content::RenderWidgetHostViewBase::SetBackground(background);
   host_->Send(new ViewMsg_SetBackground(host_->GetRoutingID(), background));
-}
-
-bool RenderWidgetHostViewGtk::CopyFromCompositingSurface(
-      const gfx::Size& size,
-      skia::PlatformCanvas* output) {
-  // TODO(mazda): Implement this.
-  NOTIMPLEMENTED();
-  return false;
 }
 
 void RenderWidgetHostViewGtk::ModifyEventForEdgeDragging(
@@ -1097,14 +1196,14 @@ void RenderWidgetHostViewGtk::Paint(const gfx::Rect& damage_rect) {
       // time the backing store is NULL...
       whiteout_start_time_ = base::TimeTicks();
     }
-    if (!tab_switch_paint_time_.is_null()) {
-      base::TimeDelta tab_switch_paint_duration = base::TimeTicks::Now() -
-          tab_switch_paint_time_;
+    if (!web_contents_switch_paint_time_.is_null()) {
+      base::TimeDelta web_contents_switch_paint_duration =
+          base::TimeTicks::Now() - web_contents_switch_paint_time_;
       UMA_HISTOGRAM_TIMES("MPArch.RWH_TabSwitchPaintDuration",
-          tab_switch_paint_duration);
-      // Reset tab_switch_paint_time_ to 0 so future tab selections are
+          web_contents_switch_paint_duration);
+      // Reset web_contents_switch_paint_time_ to 0 so future tab selections are
       // recorded.
-      tab_switch_paint_time_ = base::TimeTicks();
+      web_contents_switch_paint_time_ = base::TimeTicks();
     }
   } else {
     if (window)
@@ -1241,6 +1340,11 @@ bool RenderWidgetHostViewGtk::LockMouse() {
   // Clear the tooltip window.
   SetTooltipText(string16());
 
+  // Ensure that the widget center location will be relevant for this mouse
+  // lock session. It is updated whenever the window geometry moves
+  // but may be out of date due to switching tabs.
+  MarkCachedWidgetCenterStale();
+
   return true;
 }
 
@@ -1318,6 +1422,11 @@ void RenderWidgetHostViewGtk::set_last_mouse_down(GdkEventButton* event) {
   last_mouse_down_ = temp;
 }
 
+void RenderWidgetHostViewGtk::MarkCachedWidgetCenterStale() {
+  widget_center_valid_ = false;
+  mouse_has_been_warped_to_new_center_ = false;
+}
+
 gfx::Point RenderWidgetHostViewGtk::GetWidgetCenter() {
   if (widget_center_valid_)
     return widget_center_;
@@ -1377,4 +1486,71 @@ void content::RenderWidgetHostViewPort::GetDefaultScreenInfo(
   GdkWindow* gdk_window =
       gdk_display_get_default_group(gdk_display_get_default());
   content::GetScreenInfoFromNativeWindow(gdk_window, results);
+}
+
+void RenderWidgetHostViewGtk::SetAccessibilityFocus(int acc_obj_id) {
+  if (!host_)
+    return;
+
+  host_->AccessibilitySetFocus(acc_obj_id);
+}
+
+void RenderWidgetHostViewGtk::AccessibilityDoDefaultAction(int acc_obj_id) {
+  if (!host_)
+    return;
+
+  host_->AccessibilityDoDefaultAction(acc_obj_id);
+}
+
+void RenderWidgetHostViewGtk::AccessibilityScrollToMakeVisible(
+    int acc_obj_id, gfx::Rect subfocus) {
+  if (!host_)
+    return;
+
+  host_->AccessibilityScrollToMakeVisible(acc_obj_id, subfocus);
+}
+
+void RenderWidgetHostViewGtk::AccessibilityScrollToPoint(
+    int acc_obj_id, gfx::Point point) {
+  if (!host_)
+    return;
+
+  host_->AccessibilityScrollToPoint(acc_obj_id, point);
+}
+
+void RenderWidgetHostViewGtk::AccessibilitySetTextSelection(
+    int acc_obj_id, int start_offset, int end_offset) {
+  if (!host_)
+    return;
+
+  host_->AccessibilitySetTextSelection(acc_obj_id, start_offset, end_offset);
+}
+
+void RenderWidgetHostViewGtk::OnAccessibilityNotifications(
+    const std::vector<AccessibilityHostMsg_NotificationParams>& params) {
+  if (!browser_accessibility_manager_.get()) {
+    GtkWidget* parent = gtk_widget_get_parent(view_.get());
+    browser_accessibility_manager_.reset(
+        BrowserAccessibilityManager::CreateEmptyDocument(
+            parent,
+            static_cast<content::AccessibilityNodeData::State>(0),
+            this));
+  }
+  browser_accessibility_manager_->OnAccessibilityNotifications(params);
+}
+
+AtkObject* RenderWidgetHostViewGtk::GetAccessible() {
+  if (!browser_accessibility_manager_.get()) {
+    GtkWidget* parent = gtk_widget_get_parent(view_.get());
+    browser_accessibility_manager_.reset(
+        BrowserAccessibilityManager::CreateEmptyDocument(
+            parent,
+            static_cast<content::AccessibilityNodeData::State>(0),
+            this));
+  }
+  BrowserAccessibilityGtk* root =
+      browser_accessibility_manager_->GetRoot()->ToBrowserAccessibilityGtk();
+
+  atk_object_set_role(root->GetAtkObject(), ATK_ROLE_HTML_CONTAINER);
+  return root->GetAtkObject();
 }

@@ -78,12 +78,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kApplicationLocaleValue,
     prefs::kApplicationLocale,
     Value::TYPE_STRING },
-  { key::kExtensionInstallWhitelist,
-    prefs::kExtensionInstallAllowList,
-    Value::TYPE_LIST },
-  { key::kExtensionInstallBlacklist,
-    prefs::kExtensionInstallDenyList,
-    Value::TYPE_LIST },
   { key::kExtensionInstallForcelist,
     prefs::kExtensionInstallForceList,
     Value::TYPE_LIST },
@@ -101,9 +95,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     Value::TYPE_BOOLEAN },
   { key::kSavingBrowserHistoryDisabled,
     prefs::kSavingBrowserHistoryDisabled,
-    Value::TYPE_BOOLEAN },
-  { key::kClearSiteDataOnExit,
-    prefs::kClearSiteDataOnExit,
     Value::TYPE_BOOLEAN },
   { key::kDeveloperToolsDisabled,
     prefs::kDevToolsDisabled,
@@ -288,6 +279,18 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kEnableMemoryInfo,
     prefs::kEnableMemoryInfo,
     Value::TYPE_BOOLEAN },
+  { key::kRestrictSigninToPattern,
+    prefs::kGoogleServicesUsernamePattern,
+    Value::TYPE_STRING },
+  { key::kDefaultMediaStreamSetting,
+    prefs::kManagedDefaultMediaStreamSetting,
+    Value::TYPE_INTEGER },
+  { key::kDisableSafeBrowsingProceedAnyway,
+    prefs::kSafeBrowsingProceedAnywayDisabled,
+    Value::TYPE_BOOLEAN },
+  { key::kSpellCheckServiceEnabled,
+    prefs::kSpellCheckUseSpellingService,
+    Value::TYPE_BOOLEAN },
 
 #if defined(OS_CHROMEOS)
   { key::kChromeOsLockOnIdleSuspend,
@@ -322,6 +325,7 @@ ConfigurationPolicyHandlerList::ConfigurationPolicyHandlerList() {
   }
 
   handlers_.push_back(new AutofillPolicyHandler());
+  handlers_.push_back(new ClearSiteDataOnExitPolicyHandler());
   handlers_.push_back(new DefaultSearchPolicyHandler());
   handlers_.push_back(new DiskCacheDirPolicyHandler());
   handlers_.push_back(new FileSelectionDialogsHandler());
@@ -330,6 +334,19 @@ ConfigurationPolicyHandlerList::ConfigurationPolicyHandlerList() {
   handlers_.push_back(new ProxyPolicyHandler());
   handlers_.push_back(new RestoreOnStartupPolicyHandler());
   handlers_.push_back(new SyncPolicyHandler());
+
+  handlers_.push_back(
+      new ExtensionListPolicyHandler(key::kExtensionInstallWhitelist,
+                                     prefs::kExtensionInstallAllowList,
+                                     false));
+  handlers_.push_back(
+      new ExtensionListPolicyHandler(key::kExtensionInstallBlacklist,
+                                     prefs::kExtensionInstallDenyList,
+                                     true));
+  handlers_.push_back(
+      new ExtensionURLPatternListPolicyHandler(
+          key::kExtensionInstallSources,
+          prefs::kExtensionAllowedInstallSites));
 
 #if !defined(OS_CHROMEOS)
   handlers_.push_back(new DownloadDirPolicyHandler());
@@ -344,6 +361,7 @@ ConfigurationPolicyHandlerList::ConfigurationPolicyHandlerList() {
       new NetworkConfigurationPolicyHandler(
           key::kOpenNetworkConfiguration,
           chromeos::NetworkUIData::ONC_SOURCE_USER_POLICY));
+  handlers_.push_back(new PinnedLauncherAppsPolicyHandler());
 #endif  // defined(OS_CHROMEOS)
 }
 

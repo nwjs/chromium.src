@@ -11,20 +11,45 @@
 #include "ui/base/text/text_elider.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/font_list.h"
+#include "ui/gfx/insets.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/render_text.h"
+#include "ui/gfx/shadow_value.h"
 #include "ui/gfx/skia_util.h"
 
 namespace {
 
-// Based on |flags| and |text| content, returns whether text should be
-// rendered right-to-left.
-bool IsTextRTL(int flags, const string16& text) {
-  if (flags & gfx::Canvas::FORCE_RTL_DIRECTIONALITY)
-    return true;
-  if (flags & gfx::Canvas::FORCE_LTR_DIRECTIONALITY)
+// If necessary, wraps |text| with RTL/LTR directionality characters based on
+// |flags| and |text| content.
+// Returns true if the text will be rendered right-to-left.
+// TODO(msw): Nix this, now that RenderTextWin supports directionality directly.
+bool AdjustStringDirection(int flags, string16* text) {
+  // TODO(msw): FORCE_LTR_DIRECTIONALITY does not work for RTL text now.
+
+  // If the string is empty or LTR was forced, simply return false since the
+  // default RenderText directionality is already LTR.
+  if (text->empty() || (flags & gfx::Canvas::FORCE_LTR_DIRECTIONALITY))
     return false;
-  return base::i18n::IsRTL() && base::i18n::StringContainsStrongRTLChars(text);
+
+  // If RTL is forced, apply it to the string.
+  if (flags & gfx::Canvas::FORCE_RTL_DIRECTIONALITY) {
+    base::i18n::WrapStringWithRTLFormatting(text);
+    return true;
+  }
+
+  // If a direction wasn't forced but the UI language is RTL and there were
+  // strong RTL characters, ensure RTL is applied.
+  if (base::i18n::IsRTL() && base::i18n::StringContainsStrongRTLChars(*text)) {
+    base::i18n::WrapStringWithRTLFormatting(text);
+    return true;
+  }
+
+  // In the default case, the string should be rendered as LTR. RenderText's
+  // default directionality is LTR, so the text doesn't need to be wrapped.
+  // Note that individual runs within the string may still be rendered RTL
+  // (which will be the case for RTL text under non-RTL locales, since under RTL
+  // locales it will be handled by the if statement above).
+  return false;
 }
 
 // Checks each pixel immediately adjacent to the given pixel in the bitmap. If
@@ -56,14 +81,12 @@ bool PixelShouldGetHalo(const SkBitmap& bitmap,
 }
 
 // Apply vertical alignment per |flags|. Returns y-coordinate delta.
-int VAlignText(const gfx::Font& font,
-               int line_count,
+int VAlignText(int text_height,
                int flags,
                int available_height) {
   if (flags & gfx::Canvas::TEXT_VALIGN_TOP)
     return 0;
 
-  const int text_height = line_count * font.GetHeight();
   if (flags & gfx::Canvas::TEXT_VALIGN_BOTTOM)
     return available_height - text_height;
 
@@ -115,6 +138,14 @@ void UpdateRenderText(const gfx::Rect& rect,
   gfx::Rect display_rect = rect;
   display_rect.set_height(font.GetHeight());
   render_text->SetDisplayRect(display_rect);
+
+  // Set the text alignment explicitly based on the directionality of the UI,
+  // if not specified.
+  if (!(flags & (gfx::Canvas::TEXT_ALIGN_CENTER |
+                 gfx::Canvas::TEXT_ALIGN_RIGHT |
+                 gfx::Canvas::TEXT_ALIGN_LEFT))) {
+    flags |= gfx::Canvas::DefaultCanvasTextAlignment();
+  }
 
   if (flags & gfx::Canvas::TEXT_ALIGN_RIGHT)
     render_text->SetHorizontalAlignment(gfx::ALIGN_RIGHT);
@@ -175,6 +206,12 @@ void Canvas::SizeStringInt(const string16& text,
   DCHECK_GE(*height, 0);
 
   flags = AdjustPlatformSpecificFlags(text, flags);
+
+  string16 adjusted_text = text;
+#if defined(OS_WIN)
+  AdjustStringDirection(flags, &adjusted_text);
+#endif
+
   if ((flags & MULTI_LINE) && *width != 0) {
     ui::WordWrapBehavior wrap_behavior = ui::TRUNCATE_LONG_WORDS;
     if (flags & CHARACTER_BREAK)
@@ -184,9 +221,9 @@ void Canvas::SizeStringInt(const string16& text,
 
     gfx::Rect rect(*width, INT_MAX);
     std::vector<string16> strings;
-    ui::ElideRectangleText(text, font, rect.width(), rect.height(),
+    ui::ElideRectangleText(adjusted_text, font, rect.width(), rect.height(),
                            wrap_behavior, &strings);
-    scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+    scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
     UpdateRenderText(rect, string16(), font, flags, 0, render_text.get());
 
     int h = 0;
@@ -194,8 +231,9 @@ void Canvas::SizeStringInt(const string16& text,
     for (size_t i = 0; i < strings.size(); ++i) {
       StripAcceleratorChars(flags, &strings[i]);
       render_text->SetText(strings[i]);
-      w = std::max(w, render_text->GetStringSize().width());
-      h += font.GetHeight();
+      const Size string_size = render_text->GetStringSize();
+      w = std::max(w, string_size.width());
+      h += string_size.height();
     }
     *width = w;
     *height = h;
@@ -203,26 +241,28 @@ void Canvas::SizeStringInt(const string16& text,
     // If the string is too long, the call by |RenderTextWin| to |ScriptShape()|
     // will inexplicably fail with result E_INVALIDARG. Guard against this.
     const size_t kMaxRenderTextLength = 5000;
-    if (text.length() >= kMaxRenderTextLength) {
-      *width = text.length() * font.GetAverageCharacterWidth();
+    if (adjusted_text.length() >= kMaxRenderTextLength) {
+      *width = adjusted_text.length() * font.GetAverageCharacterWidth();
+      *height = font.GetHeight();
     } else {
-      scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+      scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
       gfx::Rect rect(*width, *height);
-      string16 adjusted_text = text;
       StripAcceleratorChars(flags, &adjusted_text);
       UpdateRenderText(rect, adjusted_text, font, flags, 0, render_text.get());
-      *width = render_text->GetStringSize().width();
+      const Size string_size = render_text->GetStringSize();
+      *width = string_size.width();
+      *height = string_size.height();
     }
-    *height = font.GetHeight();
   }
 }
 
-void Canvas::DrawStringInt(const string16& text,
-                           const gfx::Font& font,
-                           SkColor color,
-                           int x, int y, int w, int h,
-                           int flags) {
-  if (!IntersectsClipRectInt(x, y, w, h))
+void Canvas::DrawStringWithShadows(const string16& text,
+                                   const gfx::Font& font,
+                                   SkColor color,
+                                   const gfx::Rect& text_bounds,
+                                   int flags,
+                                   const ShadowValues& shadows) {
+  if (!IntersectsClipRect(text_bounds))
     return;
 
   flags = AdjustPlatformSpecificFlags(text, flags);
@@ -236,18 +276,21 @@ void Canvas::DrawStringInt(const string16& text,
   }
 #endif
 
-  gfx::Rect rect(x, y, w, h);
-  canvas_->save(SkCanvas::kClip_SaveFlag);
-  ClipRect(rect);
+  gfx::Rect clip_rect(text_bounds);
+  clip_rect.Inset(ShadowValue::GetMargin(shadows));
 
+  canvas_->save(SkCanvas::kClip_SaveFlag);
+  ClipRect(clip_rect);
+
+  gfx::Rect rect(text_bounds);
   string16 adjusted_text = text;
 
 #if defined(OS_WIN)
-  if (IsTextRTL(flags, adjusted_text))
-    base::i18n::AdjustStringForLocaleDirection(&adjusted_text);
+  AdjustStringDirection(flags, &adjusted_text);
 #endif
 
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
+  render_text->SetTextShadows(shadows);
 
   if (flags & MULTI_LINE) {
     ui::WordWrapBehavior wrap_behavior = ui::IGNORE_LONG_WORDS;
@@ -257,16 +300,31 @@ void Canvas::DrawStringInt(const string16& text,
       wrap_behavior = ui::ELIDE_LONG_WORDS;
 
     std::vector<string16> strings;
-    ui::ElideRectangleText(adjusted_text, font, w, h, wrap_behavior,
+    ui::ElideRectangleText(adjusted_text,
+                           font,
+                           text_bounds.width(), text_bounds.height(),
+                           wrap_behavior,
                            &strings);
 
-    rect.Offset(0, VAlignText(font, strings.size(), flags, h));
     for (size_t i = 0; i < strings.size(); i++) {
       ui::Range range = StripAcceleratorChars(flags, &strings[i]);
       UpdateRenderText(rect, strings[i], font, flags, color, render_text.get());
+
+      // Apply vertical alignment over the block of text using the height of the
+      // first line. This may not be correct if different lines in the text have
+      // different heights, but avoids needing to do two passes.
+      const int line_height = render_text->GetStringSize().height();
+      if (i == 0) {
+        rect.Offset(0, VAlignText(strings.size() * line_height,
+                                  flags,
+                                  text_bounds.height()));
+      }
+      rect.set_height(line_height);
+
       ApplyUnderlineStyle(range, render_text.get());
+      render_text->SetDisplayRect(rect);
       render_text->Draw(this);
-      rect.Offset(0, font.GetHeight());
+      rect.Offset(0, line_height);
     }
   } else {
     ui::Range range = StripAcceleratorChars(flags, &adjusted_text);
@@ -284,12 +342,21 @@ void Canvas::DrawStringInt(const string16& text,
     }
 #endif
 
-    if (elide_text)
-      ElideTextAndAdjustRange(font, w, &adjusted_text, &range);
+    if (elide_text) {
+      ElideTextAndAdjustRange(font,
+                              text_bounds.width(),
+                              &adjusted_text,
+                              &range);
+    }
 
-    rect.Offset(0, VAlignText(font, 1, flags, h));
     UpdateRenderText(rect, adjusted_text, font, flags, color,
                      render_text.get());
+
+    const int line_height = render_text->GetStringSize().height();
+    rect.Offset(0, VAlignText(line_height, flags, text_bounds.height()));
+    rect.set_height(line_height);
+    render_text->SetDisplayRect(rect);
+
     ApplyUnderlineStyle(range, render_text.get());
     render_text->Draw(this);
   }
@@ -338,11 +405,9 @@ void Canvas::DrawStringWithHalo(const string16& text,
   }
 
   // Draw the halo bitmap with blur.
-  DrawBitmapInt(text_bitmap, x - 1, y - 1);
+  DrawImageInt(text_bitmap, x - 1, y - 1);
 }
 
-// TODO(asvitkine): Remove the ifdef once all platforms use canvas_skia.cc.
-#if defined(OS_WIN)
 void Canvas::DrawFadeTruncatingString(
       const string16& text,
       TruncateFadeMode truncate_mode,
@@ -359,11 +424,9 @@ void Canvas::DrawFadeTruncatingString(
     return;
   }
 
-  scoped_ptr<RenderText> render_text(RenderText::CreateRenderText());
+  scoped_ptr<RenderText> render_text(RenderText::CreateInstance());
   string16 clipped_text = text;
-  const bool is_rtl = IsTextRTL(flags, text);
-  if (is_rtl)
-    base::i18n::AdjustStringForLocaleDirection(&clipped_text);
+  const bool is_rtl = AdjustStringDirection(flags, &clipped_text);
 
   switch (truncate_mode) {
     case TruncateFadeTail:
@@ -398,15 +461,22 @@ void Canvas::DrawFadeTruncatingString(
       break;
   }
 
+  // Default to left alignment unless right alignment was chosen above.
+  if (!(flags & TEXT_ALIGN_RIGHT))
+    flags |= TEXT_ALIGN_LEFT;
+
   gfx::Rect rect = display_rect;
-  rect.Offset(0, VAlignText(font, 1, flags, display_rect.height()));
   UpdateRenderText(rect, clipped_text, font, flags, color, render_text.get());
+
+  const int line_height = render_text->GetStringSize().height();
+  rect.Offset(0, VAlignText(line_height, flags, display_rect.height()));
+  rect.set_height(line_height);
+  render_text->SetDisplayRect(rect);
 
   canvas_->save(SkCanvas::kClip_SaveFlag);
   ClipRect(display_rect);
   render_text->Draw(this);
   canvas_->restore();
 }
-#endif
 
 }  // namespace gfx

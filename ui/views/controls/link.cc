@@ -111,6 +111,23 @@ bool Link::OnKeyPressed(const KeyEvent& event) {
   return true;
 }
 
+ui::GestureStatus Link::OnGestureEvent(const GestureEvent& event) {
+  if (!enabled())
+    return ui::GESTURE_STATUS_UNKNOWN;
+
+  if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
+    SetPressed(true);
+  } else if (event.type() == ui::ET_GESTURE_TAP) {
+    RequestFocus();
+    if (listener_)
+      listener_->LinkClicked(this, event.flags());
+  } else {
+    SetPressed(false);
+    return ui::GESTURE_STATUS_UNKNOWN;
+  }
+  return ui::GESTURE_STATUS_CONSUMED;
+}
+
 bool Link::SkipDefaultKeyEventProcessing(const KeyEvent& event) {
   // Make sure we don't process space or enter as accelerators.
   return (event.key_code() == ui::VKEY_SPACE) ||
@@ -127,13 +144,13 @@ void Link::SetFont(const gfx::Font& font) {
   RecalculateFont();
 }
 
-void Link::SetEnabledColor(const SkColor& color) {
+void Link::SetEnabledColor(SkColor color) {
   requested_enabled_color_ = color;
   if (!pressed_)
     Label::SetEnabledColor(requested_enabled_color_);
 }
 
-void Link::SetPressedColor(const SkColor& color) {
+void Link::SetPressedColor(SkColor color) {
   requested_pressed_color_ = color;
   if (pressed_)
     Label::SetEnabledColor(requested_pressed_color_);

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_COMMON_REQUEST_EXTRA_DATA_H_
 #define CONTENT_COMMON_REQUEST_EXTRA_DATA_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "content/common/content_export.h"
@@ -17,10 +16,12 @@ class CONTENT_EXPORT RequestExtraData
     : NON_EXPORTED_BASE(public webkit_glue::WebURLRequestExtraDataImpl) {
  public:
   RequestExtraData(WebKit::WebReferrerPolicy referrer_policy,
+                   const WebKit::WebString& custom_user_agent,
                    bool is_main_frame,
                    int64 frame_id,
                    bool parent_is_main_frame,
                    int64 parent_frame_id,
+                   bool allow_download,
                    content::PageTransition transition_type,
                    int transferred_request_child_id,
                    int transferred_request_request_id);
@@ -30,6 +31,7 @@ class CONTENT_EXPORT RequestExtraData
   int64 frame_id() const { return frame_id_; }
   bool parent_is_main_frame() const { return parent_is_main_frame_; }
   int64 parent_frame_id() const { return parent_frame_id_; }
+  bool allow_download() const { return allow_download_; }
   content::PageTransition transition_type() const { return transition_type_; }
   int transferred_request_child_id() const {
     return transferred_request_child_id_;
@@ -43,6 +45,7 @@ class CONTENT_EXPORT RequestExtraData
   int64 frame_id_;
   bool parent_is_main_frame_;
   int64 parent_frame_id_;
+  bool allow_download_;
   content::PageTransition transition_type_;
   int transferred_request_child_id_;
   int transferred_request_request_id_;

@@ -7,7 +7,6 @@
 
 #ifndef CHROME_BROWSER_CONTENT_SETTINGS_HOST_CONTENT_SETTINGS_MAP_H_
 #define CHROME_BROWSER_CONTENT_SETTINGS_HOST_CONTENT_SETTINGS_MAP_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -49,8 +48,12 @@ class HostContentSettingsMap
   };
 
   HostContentSettingsMap(PrefService* prefs,
-                         ExtensionService* extension_service,
                          bool incognito);
+
+  // In some cases, the ExtensionService is not available at the time the
+  // HostContentSettingsMap is constructed. In these cases, we register the
+  // service once it's available.
+  void RegisterExtensionService(ExtensionService* extension_service);
 
   static void RegisterUserPrefs(PrefService* prefs);
 
@@ -154,10 +157,15 @@ class HostContentSettingsMap
   // This should only be called on the UI thread.
   void ClearSettingsForOneType(ContentSettingsType content_type);
 
-  static bool IsValueAllowedForType(const base::Value* value,
+  static bool IsValueAllowedForType(PrefService* prefs,
+                                    const base::Value* value,
                                     ContentSettingsType content_type);
-  static bool IsSettingAllowedForType(ContentSetting setting,
+  static bool IsSettingAllowedForType(PrefService* prefs,
+                                      ContentSetting setting,
                                       ContentSettingsType content_type);
+
+  // Returns true if the values for content type are of type dictionary/map.
+  static bool ContentTypeHasCompoundValue(ContentSettingsType type);
 
   // Detaches the HostContentSettingsMap from all Profile-related objects like
   // PrefService. This methods needs to be called before destroying the Profile.
@@ -194,9 +202,8 @@ class HostContentSettingsMap
       ContentSettingsType content_type,
       content_settings::ProviderInterface* provider) const;
 
-  // Various migration methods (old cookie, popup and per-host data gets
-  // migrated to the new format).
-  void MigrateObsoleteCookiePref();
+  // Migrate the Clear on exit pref into equivalent content settings.
+  void MigrateObsoleteClearOnExitPref();
 
   // Adds content settings for |content_type| and |resource_identifier|,
   // provided by |provider|, into |settings|. If |incognito| is true, adds only
@@ -216,10 +223,6 @@ class HostContentSettingsMap
 
   // Whether this settings map is for an OTR session.
   bool is_off_the_record_;
-
-  // Whether we are currently updating preferences, this is used to ignore
-  // notifications from the preferences service that we triggered ourself.
-  bool updating_preferences_;
 
   // Content setting providers.
   ProviderMap content_settings_providers_;

@@ -3,6 +3,13 @@
  * found in the LICENSE file.
  */
 
+html[oobe=new] #error-message {
+  min-height: 184px;
+  /* Screen has no controls but has padding at the last text message */
+  padding: 70px 17px 50px;
+  width: 688px;
+}
+
 #error-message-screen-title {
   -webkit-margin-end: 60px;
   -webkit-margin-start: 60px;
@@ -15,6 +22,10 @@
   -webkit-margin-end: 60px;
   -webkit-margin-start: 60px;
   display: block;
+}
+
+#captive-portal-proxy-message-text {
+  margin-top: 20px;
 }
 
 #captive-portal-network-select-text {
@@ -31,6 +42,10 @@
 .show-captive-portal .show-with-captive-portal,
 .show-proxy-error .show-with-proxy-error {
   display: block;
+}
+
+.show-captive-portal .dont-show-with-captive-portal {
+  display: none;
 }
 
 #error-guest-signin,

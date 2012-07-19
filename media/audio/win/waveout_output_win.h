@@ -4,7 +4,6 @@
 
 #ifndef MEDIA_AUDIO_WIN_WAVEOUT_OUTPUT_WIN_H_
 #define MEDIA_AUDIO_WIN_WAVEOUT_OUTPUT_WIN_H_
-#pragma once
 
 #include <windows.h>
 #include <mmsystem.h>
@@ -122,7 +121,7 @@ class PCMWaveOutAudioOutputStream : public AudioOutputStream {
   base::win::ScopedHandle buffer_event_;
 
   // Handle returned by RegisterWaitForSingleObject().
-  base::win::ScopedHandle waiting_handle_;
+  HANDLE waiting_handle_;
 
   // Pointer to the allocated audio buffers, we allocate all buffers in one big
   // chunk. This object owns them.

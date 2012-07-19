@@ -20,7 +20,6 @@ class MockPersistentStore
     : public DefaultServerBoundCertStore::PersistentStore {
  public:
   MockPersistentStore();
-  virtual ~MockPersistentStore();
 
   // DefaultServerBoundCertStore::PersistentStore implementation.
   virtual bool Load(
@@ -30,8 +29,11 @@ class MockPersistentStore
       const DefaultServerBoundCertStore::ServerBoundCert& cert) OVERRIDE;
   virtual void DeleteServerBoundCert(
       const DefaultServerBoundCertStore::ServerBoundCert& cert) OVERRIDE;
-  virtual void SetClearLocalStateOnExit(bool clear_local_state) OVERRIDE;
+  virtual void SetForceKeepSessionState() OVERRIDE;
   virtual void Flush(const base::Closure& completion_task) OVERRIDE;
+
+ protected:
+  virtual ~MockPersistentStore();
 
  private:
   typedef std::map<std::string, DefaultServerBoundCertStore::ServerBoundCert>
@@ -41,8 +43,6 @@ class MockPersistentStore
 };
 
 MockPersistentStore::MockPersistentStore() {}
-
-MockPersistentStore::~MockPersistentStore() {}
 
 bool MockPersistentStore::Load(
     std::vector<DefaultServerBoundCertStore::ServerBoundCert*>* certs) {
@@ -66,11 +66,13 @@ void MockPersistentStore::DeleteServerBoundCert(
   origin_certs_.erase(cert.server_identifier());
 }
 
-void MockPersistentStore::SetClearLocalStateOnExit(bool clear_local_state) {}
+void MockPersistentStore::SetForceKeepSessionState() {}
 
 void MockPersistentStore::Flush(const base::Closure& completion_task) {
   NOTREACHED();
 }
+
+MockPersistentStore::~MockPersistentStore() {}
 
 TEST(DefaultServerBoundCertStoreTest, TestLoading) {
   scoped_refptr<MockPersistentStore> persistent_store(new MockPersistentStore);
@@ -286,7 +288,7 @@ TEST(DefaultServerBoundCertStoreTest, TestGetAll) {
       "g", "h");
 
   EXPECT_EQ(4, store.GetCertCount());
-  std::vector<ServerBoundCertStore::ServerBoundCert> certs;
+  ServerBoundCertStore::ServerBoundCertList certs;
   store.GetAllServerBoundCerts(&certs);
   EXPECT_EQ(4u, certs.size());
 }

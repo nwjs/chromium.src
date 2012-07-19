@@ -75,13 +75,11 @@
 
 #ifndef BASE_TEST_TRACE_EVENT_ANALYZER_H_
 #define BASE_TEST_TRACE_EVENT_ANALYZER_H_
-#pragma once
 
 #include <map>
 
 #include "base/debug/trace_event.h"
-#include "base/memory/ref_counted_memory.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ref_counted.h"
 
 namespace base {
 class Value;

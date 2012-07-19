@@ -136,6 +136,9 @@ Chrome supports. -->
       </message>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_PRODUCT_OS_NAME" desc="The Chrome OS application name">
+          Google Chrome OS
+        </message>
+        <message name="IDS_SHORT_PRODUCT_OS_NAME" desc="The Chrome OS application short name">
           Chrome OS
         </message>
       </if>
@@ -164,10 +167,6 @@ Chrome supports. -->
       </if>
       <message name="IDS_INSTANT_OPT_IN_TITLE" desc="Title of the instant confirm dialog">
         Google Chrome Instant
-      </message>
-      <!-- Session restore & conflicting content settings -->
-      <message name="IDS_SESSION_RESTORE_OVERLAY_MESSAGE" desc="Message of the session restore conflicts with content settings dialog">
-        Google Chrome will restore your previous session on startup. Some of your session-based settings, such as those that clear data on exit, will be disabled.
       </message>
       <message name="IDS_CERT_ERROR_COMMON_NAME_INVALID_EXTRA_INFO_2" desc="2nd paragraph of extra information for an unsafe common name in an X509 certificate">
         In this case, the address listed in the certificate does not match the address of the website your browser tried to go to. One possible reason for this is that your communications are being intercepted by an attacker who is presenting a certificate for a different website, which would cause a mismatch. Another possible reason is that the server is set up to return the same certificate for multiple websites, including the one you are attempting to visit, even though that certificate is not valid for all of those websites. Google Chrome can say for sure that you reached &lt;strong&gt;<ph name="DOMAIN2">$1<ex>paypal.com</ex></ph>&lt;/strong&gt;, but cannot verify that that is the same site as &lt;strong&gt;<ph name="DOMAIN">$2<ex>www.paypal.com</ex></ph>&lt;/strong&gt; which you intended to reach. If you proceed, Chrome will not check for any further name mismatches.
@@ -309,7 +308,7 @@ Chrome supports. -->
       </if>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_OPTIONS_RELAUNCH_REQUIRED" desc="The message displayed for an option that requires a relaunch to take effect. This appears in a message box if an option is changed that requires a relaunch.">
-          Please sign out of Chrome OS and sign in again for this change to take effect.
+          Please sign out and sign in again for this change to take effect.
         </message>
       </if>
       <if expr="pp_ifdef('use_titlecase')">
@@ -460,7 +459,7 @@ Google Chrome is unable to recover your settings.
       </message>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_SYNC_OVERVIEW" desc="Chrome OS: The message that appears in the options dialog when sync has not been set up by the user.">
-	  Set up Sync to save your personalized browser features to the web and access them from Google Chrome on any computer.
+          Set up Sync to save your personalized browser features to the web and access them from Google Chrome on any computer.
         </message>
       </if>
       <!-- Try Chrome Toast Dialog -->
@@ -518,17 +517,14 @@ Google Chrome is unable to recover your settings.
       </message>
 
       <!-- Remove in-progress downloads confirmation dialog -->
-      <message name="IDS_SINGLE_DOWNLOAD_REMOVE_CONFIRM_WARNING" desc="Title of the dialog asking for user confirmation to close the browser when one download is in-progress.">
-        Do you want to exit Google Chrome with a download in progress?
+      <message name="IDS_SINGLE_DOWNLOAD_REMOVE_CONFIRM_EXPLANATION" desc="Explanation of the dialog asking for user confirmation to close the browser when one download is in progress.">
+        A download is currently in progress. Do you want to exit Google Chrome and cancel the download?
       </message>
-      <message name="IDS_MULTIPLE_DOWNLOADS_REMOVE_CONFIRM_WARNING" desc="Title of the dialog asking for user confirmation to close the browser when multiple downloads are in-progress.">
-        Do you want to exit Google Chrome with <ph name="DOWNLOAD_COUNT">$1<ex>3</ex></ph> downloads in progress?
+      <message name="IDS_MULTIPLE_DOWNLOADS_REMOVE_CONFIRM_EXPLANATION" desc="Explanation of the dialog asking for user confirmation to close the browser when multiple downloads are in progress.">
+        Downloads are currently in progress. Do you want to exit Google Chrome and cancel the downloads?
       </message>
-      <message name="IDS_SINGLE_DOWNLOAD_REMOVE_CONFIRM_EXPLANATION" desc="Explanation of the dialog asking for user confirmation to close the browser when one download is in-progress.">
-        If you close Google Chrome now, this download will be canceled.
-      </message>
-      <message name="IDS_MULTIPLE_DOWNLOADS_REMOVE_CONFIRM_EXPLANATION" desc="Explanation of the dialog asking for user confirmation to close the browser when multiple downloads are in-progress.">
-        If you close Google Chrome now, these downloads will be canceled.
+      <message name="IDS_DOWNLOAD_REMOVE_CONFIRM_OK_BUTTON_LABEL" desc="Button text for OKing to close the browser when one or more downloads are in progress.">
+        Yes, exit Chrome
       </message>
 
       <!-- "Create application shortcuts" dialog -->
@@ -551,7 +547,7 @@ Google Chrome is unable to recover your settings.
       </if>
       <if expr="pp_ifdef('chromeos')">
         <message name="IDS_FLAGS_RELAUNCH_NOTICE" desc="Notifies the user that he needs to restart Chrome OS. Shown next to a button that says 'Restart Now'.">
-          Your changes will take effect the next time you restart Google Chrome OS.
+          Your changes will take effect the next time you restart your device.
         </message>
       </if>
 
@@ -560,45 +556,55 @@ Google Chrome is unable to recover your settings.
          Google Chrome is no longer updating because your operating system is obsolete.
       </message>
 
-      <!-- About Chrome View -->
-      <message name="IDS_UPGRADE_AVAILABLE" desc="Status label: A new version of Chrome is available">
-        A new version of Google Chrome is available
-      </message>
-      <message name="IDS_UPGRADE_SUCCESSFUL" desc="Status label: Successfully upgraded">
-        Google Chrome has been updated to <ph name="VERSION">$1<ex>0.1.131</ex></ph>
-      </message>
-      <message name="IDS_UPGRADE_SUCCESSFUL_NOVERSION" desc="Status label: Successfully upgraded">
-        Google Chrome has been updated
-      </message>
-      <message name="IDS_OLD_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated">
-        Relaunch Google Chrome to finish updating
-      </message>
-      <message name="IDS_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated">
-        Nearly up-to-date! Relaunch Google Chrome to finish updating.
-      </message>
+      <!-- About Chrome page -->
       <if expr="not pp_ifdef('chromeos')">
-        <message name="IDS_UPGRADE_UP_TO_DATE" desc="Status label: Already up to date">
+        <message name="IDS_UPGRADE_SUCCESSFUL" desc="Status label: Successfully upgraded Google Chrome">
+          Google Chrome has been updated to <ph name="VERSION">$1<ex>0.1.131</ex></ph>
+        </message>
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_UPGRADE_SUCCESSFUL" desc="Status label: Successfully upgraded Chrome OS">
+          Your device has been updated to <ph name="VERSION">$1<ex>0.1.131</ex></ph>
+        </message>
+      </if>
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated Google Chrome">
+          Nearly up-to-date! Relaunch Google Chrome to finish updating.
+        </message>
+      </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated Chrome OS">
+          Nearly up-to-date! Restart your device to finish updating.
+        </message>
+      </if>
+      <if expr="not pp_ifdef('chromeos')">
+        <message name="IDS_UPGRADE_UP_TO_DATE" desc="Status label: Already up to date (Google Chrome)">
           Google Chrome is up to date.
         </message>
       </if>
       <if expr="pp_ifdef('chromeos')">
-        <message name="IDS_UPGRADE_UP_TO_DATE" desc="Status label: Already up to date">
-          Chrome OS is up to date.
-        </message>
-      </if>
-      <message name="IDS_UPGRADE_UPDATING" desc="Status label: Updating">
-        Updating Google Chrome...
-      </message>
-      <if expr="pp_ifdef('chromeos')">
-        <message name="IDS_UPGRADE_ALREADY_UP_TO_DATE" desc="Status label: Already up to date">
-          Google Chrome is up to date
+        <message name="IDS_UPGRADE_UP_TO_DATE" desc="Status label: Already up to date (Chrome OS)">
+          Your device is up to date.
         </message>
       </if>
       <if expr="not pp_ifdef('chromeos')">
-        <message name="IDS_UPGRADE_ALREADY_UP_TO_DATE" desc="Status label: Already up to date">
-          Google Chrome is up to date (<ph name="VERSION">$1<ex>0.1.131</ex></ph>)
+        <message name="IDS_UPGRADE_UPDATING" desc="Status label: Updating Google Chrome">
+          Updating Google Chrome...
         </message>
       </if>
+      <if expr="pp_ifdef('chromeos')">
+        <message name="IDS_UPGRADE_UPDATING" desc="Status label: Updating Chrome OS">
+          Updating your device...
+        </message>
+      </if>
+
+      <!-- About Chrome View (only used on Windows: http://crbug.com/115123) -->
+      <message name="IDS_OLD_UPGRADE_SUCCESSFUL_RELAUNCH" desc="Status label: Successfully updated">
+        Relaunch Google Chrome to finish updating
+      </message>
+      <message name="IDS_UPGRADE_ALREADY_UP_TO_DATE" desc="Status label: Already up to date (Google Chrome)">
+        Google Chrome is up to date (<ph name="VERSION">$1<ex>0.1.131</ex></ph>)
+      </message>
 
       <!-- Extension/App install prompt -->
       <message name="IDS_EXTENSION_INLINE_INSTALL_PROMPT_TITLE" desc="Titlebar of the extension or app inline installation prompt window">
@@ -698,6 +704,9 @@ The extension "<ph name="EXTENSION_NAME">$1<ex>Gmail Checker</ex></ph>" has been
       <if expr="not pp_ifdef('chromeos')">
         <message name="IDS_ONE_CLICK_SIGNIN_INFOBAR_MESSAGE" desc="The string shown in the infobar explaining that the user can connect his profile to a Google account instead of logging in only here.">
           Use this Google Account to sync all your Chrome stuff?
+        </message>
+        <message name="IDS_ONE_CLICK_SIGNIN_BUBBLE_MESSAGE" desc="The body of the sync promo NTP bubble.">
+          You're now signed in to Chrome! Your bookmarks, history, and other settings will be synced to your Google Account.
         </message>
         <message name="IDS_ONE_CLICK_SIGNIN_DIALOG_HEADING" desc="The heading of the reverse auto-login dialog.">
           Sign in to Chrome

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/memory/ref_counted.h"
 #include "base/threading/thread_local.h"  // For testing purposes only.
 #include "ppapi/c/dev/ppb_console_dev.h"
 #include "ppapi/c/pp_instance.h"
@@ -17,14 +18,19 @@
 
 namespace base {
 class Lock;
+class MessageLoopProxy;
 }
 
 namespace ppapi {
 
 class CallbackTracker;
-class FunctionGroupBase;
 class ResourceTracker;
 class VarTracker;
+
+namespace thunk {
+class PPB_Instance_API;
+class ResourceCreationAPI;
+}
 
 // Abstract base class
 class PPAPI_SHARED_EXPORT PpapiGlobals {
@@ -87,13 +93,28 @@ class PPAPI_SHARED_EXPORT PpapiGlobals {
                                       const std::string& source,
                                       const std::string& value) = 0;
 
-  // Returns the function object corresponding to the given ID, or NULL if
-  // there isn't one.
-  virtual FunctionGroupBase* GetFunctionAPI(PP_Instance inst, ApiID id) = 0;
+  // Returns the given API object associated with the given instance, or NULL
+  // if the instance is invalid.
+  virtual thunk::PPB_Instance_API* GetInstanceAPI(PP_Instance instance) = 0;
+  virtual thunk::ResourceCreationAPI* GetResourceCreationAPI(
+      PP_Instance instance) = 0;
 
   // Returns the PP_Module associated with the given PP_Instance, or 0 on
   // failure.
   virtual PP_Module GetModuleForInstance(PP_Instance instance) = 0;
+
+  // Returns the base::MessageLoopProxy for the main thread. Note that this must
+  // be called on the main thread the first time so that it can initialize
+  // its static data.
+  base::MessageLoopProxy* GetMainThreadMessageLoop();
+
+  // Returns the command line for the process.
+  virtual std::string GetCmdLine() = 0;
+
+  // Preloads the font on Windows, does nothing on other platforms.
+  // TODO(brettw) remove this by passing the instance into the API so we don't
+  // have to have it on the globals.
+  virtual void PreCacheFontForFlash(const void* logfontw) = 0;
 
   virtual bool IsHostGlobals() const;
   virtual bool IsPluginGlobals() const;
@@ -105,6 +126,8 @@ class PPAPI_SHARED_EXPORT PpapiGlobals {
   static PpapiGlobals* GetThreadLocalPointer();
 
   static PpapiGlobals* ppapi_globals_;
+
+  scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
 
   DISALLOW_COPY_AND_ASSIGN(PpapiGlobals);
 };

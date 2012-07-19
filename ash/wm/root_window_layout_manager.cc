@@ -5,7 +5,7 @@
 #include "ash/wm/root_window_layout_manager.h"
 
 #include "ui/aura/window.h"
-#include "ui/gfx/compositor/layer.h"
+#include "ui/compositor/layer.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -63,6 +63,9 @@ void RootWindowLayoutManager::OnWindowAddedToLayout(aura::Window* child) {
 
 void RootWindowLayoutManager::OnWillRemoveWindowFromLayout(
     aura::Window* child) {
+}
+
+void RootWindowLayoutManager::OnWindowRemovedFromLayout(aura::Window* child) {
 }
 
 void RootWindowLayoutManager::OnChildWindowVisibilityChanged(

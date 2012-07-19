@@ -7,7 +7,6 @@
 
 #ifndef SYNC_ENGINE_CONFLICT_RESOLVER_H_
 #define SYNC_ENGINE_CONFLICT_RESOLVER_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -17,14 +16,14 @@
 #include "base/gtest_prod_util.h"
 #include "sync/engine/syncer_types.h"
 
+namespace syncer {
+
 namespace syncable {
 class BaseTransaction;
 class Id;
 class MutableEntry;
 class WriteTransaction;
 }  // namespace syncable
-
-namespace browser_sync {
 
 class Cryptographer;
 
@@ -84,6 +83,6 @@ class ConflictResolver {
   DISALLOW_COPY_AND_ASSIGN(ConflictResolver);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_CONFLICT_RESOLVER_H_

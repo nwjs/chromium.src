@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_WINDOW_OBSERVER_H_
 #define UI_AURA_WINDOW_OBSERVER_H_
-#pragma once
 
 #include "ui/aura/aura_export.h"
 
@@ -42,9 +41,11 @@ class AURA_EXPORT WindowObserver {
   // may still return false. See description in Window::IsVisible() for details.
   virtual void OnWindowVisibilityChanged(Window* window, bool visible) {}
 
-  // Invoked when SetBounds() is invoked on |window|. |bounds| contains the
-  // window's new bounds.
-  virtual void OnWindowBoundsChanged(Window* window, const gfx::Rect& bounds) {}
+  // Invoked when SetBounds() is invoked on |window|. |old_bounds| and
+  // |new_bounds| are in parent coordinates.
+  virtual void OnWindowBoundsChanged(Window* window,
+                                     const gfx::Rect& old_bounds,
+                                     const gfx::Rect& new_bounds) {}
 
   // Invoked when |window|'s position among its siblings in the stacking order
   // has changed.

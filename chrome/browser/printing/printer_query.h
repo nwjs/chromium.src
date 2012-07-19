@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_PRINTING_PRINTER_QUERY_H_
 #define CHROME_BROWSER_PRINTING_PRINTER_QUERY_H_
-#pragma once
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
@@ -21,7 +20,8 @@ class DictionaryValue;
 
 namespace printing {
 
-class PrintJobWorker;
+  class PrintDestinationInterface;
+  class PrintJobWorker;
 
 // Query the printer for settings.
 class PrinterQuery : public PrintJobWorkerOwner {
@@ -56,6 +56,9 @@ class PrinterQuery : public PrintJobWorkerOwner {
   // Updates the current settings with |new_settings| dictionary values.
   void SetSettings(const base::DictionaryValue& new_settings,
                    const base::Closure& callback);
+
+  // Set a destination for the worker.
+  void SetWorkerDestination(PrintDestinationInterface* destination);
 
   // Stops the worker thread since the client is done with this object.
   void StopWorker();

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_INDEXED_DB_PROXY_WEBIDBOBJECTSTORE_IMPL_H_
 #define CONTENT_COMMON_INDEXED_DB_PROXY_WEBIDBOBJECTSTORE_IMPL_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebIDBCallbacks.h"
@@ -24,11 +23,7 @@ class RendererWebIDBObjectStoreImpl : public WebKit::WebIDBObjectStore {
   virtual ~RendererWebIDBObjectStoreImpl();
 
   // WebKit::WebIDBObjectStore
-  virtual WebKit::WebString name() const;
-  virtual WebKit::WebString keyPath() const;
-  virtual WebKit::WebDOMStringList indexNames() const;
-
-  virtual void get(const WebKit::WebIDBKey& key,
+  virtual void get(const WebKit::WebIDBKeyRange& key_range,
                    WebKit::WebIDBCallbacks* callbacks,
                    const WebKit::WebIDBTransaction& transaction,
                    WebKit::WebExceptionCode& ec);
@@ -38,10 +33,15 @@ class RendererWebIDBObjectStoreImpl : public WebKit::WebIDBObjectStore {
                    WebKit::WebIDBCallbacks* callbacks,
                    const WebKit::WebIDBTransaction& transaction,
                    WebKit::WebExceptionCode& ec);
-  virtual void deleteFunction(const WebKit::WebIDBKey& key,
-                              WebKit::WebIDBCallbacks* callbacks,
-                              const WebKit::WebIDBTransaction& transaction,
-                              WebKit::WebExceptionCode& ec);
+  virtual void putWithIndexKeys(
+      const WebKit::WebSerializedScriptValue&,
+      const WebKit::WebIDBKey&,
+      PutMode,
+      WebKit::WebIDBCallbacks*,
+      const WebKit::WebIDBTransaction&,
+      const WebKit::WebVector<WebKit::WebString>&,
+      const WebKit::WebVector<WebKit::WebVector<WebKit::WebIDBKey> >&,
+      WebKit::WebExceptionCode&);
   virtual void deleteFunction(const WebKit::WebIDBKeyRange& key_range,
                               WebKit::WebIDBCallbacks* callbacks,
                               const WebKit::WebIDBTransaction& transaction,
@@ -52,7 +52,7 @@ class RendererWebIDBObjectStoreImpl : public WebKit::WebIDBObjectStore {
 
   virtual WebKit::WebIDBIndex* createIndex(
       const WebKit::WebString& name,
-      const WebKit::WebString& key_path,
+      const WebKit::WebIDBKeyPath& key_path,
       bool unique,
       bool multi_entry,
       const WebKit::WebIDBTransaction& transaction,

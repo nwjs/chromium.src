@@ -4,15 +4,12 @@
 
 #ifndef CHROME_BROWSER_AUTOCOMPLETE_SHORTCUTS_PROVIDER_H_
 #define CHROME_BROWSER_AUTOCOMPLETE_SHORTCUTS_PROVIDER_H_
-#pragma once
 
 #include <set>
 #include <string>
 
 #include "base/gtest_prod_util.h"
-#include "base/time.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/history_provider.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
 #include "chrome/browser/history/shortcuts_backend.h"
 
 class Profile;
@@ -25,8 +22,7 @@ class ShortcutsProvider
     : public AutocompleteProvider,
       public history::ShortcutsBackend::ShortcutsBackendObserver {
  public:
-  ShortcutsProvider(ACProviderListener* listener, Profile* profile);
-  virtual ~ShortcutsProvider();
+  ShortcutsProvider(AutocompleteProviderListener* listener, Profile* profile);
 
   // Performs the autocompletion synchronously. Since no asynch completion is
   // performed |minimal_changes| is ignored.
@@ -40,6 +36,8 @@ class ShortcutsProvider
   FRIEND_TEST_ALL_PREFIXES(ShortcutsProviderTest, ClassifyAllMatchesInString);
   FRIEND_TEST_ALL_PREFIXES(ShortcutsProviderTest, CalculateScore);
   FRIEND_TEST_ALL_PREFIXES(ShortcutsProviderTest, DeleteMatch);
+
+  virtual ~ShortcutsProvider();
 
   // ShortcutsBackendObserver:
   virtual void OnShortcutsLoaded() OVERRIDE;
@@ -74,19 +72,15 @@ class ShortcutsProvider
   // Returns iterator to first item in |shortcuts_map_| matching |keyword|.
   // Returns shortcuts_map_.end() if there are no matches.
   history::ShortcutsBackend::ShortcutMap::const_iterator FindFirstMatch(
-      const string16& keyword);
+      const string16& keyword,
+      history::ShortcutsBackend* backend);
 
   static int CalculateScore(
       const string16& terms,
       const history::ShortcutsBackend::Shortcut& shortcut);
 
-  // For unit-test only.
-  void set_shortcuts_backend(history::ShortcutsBackend* shortcuts_backend);
-
   std::string languages_;
   bool initialized_;
-
-  scoped_refptr<history::ShortcutsBackend> shortcuts_backend_;
 };
 
 #endif  // CHROME_BROWSER_AUTOCOMPLETE_SHORTCUTS_PROVIDER_H_

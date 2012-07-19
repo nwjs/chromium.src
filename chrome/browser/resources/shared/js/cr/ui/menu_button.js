@@ -29,6 +29,7 @@ cr.define('cr.ui', function() {
       // Adding the 'custom-appearance' class prevents widgets.css from changing
       // the appearance of this element.
       this.classList.add('custom-appearance');
+      this.classList.add('menu-button');  // For styles in menu_button.css.
 
       var menu;
       if ((menu = this.getAttribute('menu')))
@@ -112,18 +113,24 @@ cr.define('cr.ui', function() {
     showMenu: function() {
       this.hideMenu();
 
-      this.menu.style.display = 'block';
-      this.setAttribute('menu-shown', '');
+      var event = document.createEvent('UIEvents');
+      event.initUIEvent('menushow', true, true, window, null);
 
-      // when the menu is shown we steal all keyboard events.
-      var doc = this.ownerDocument;
-      var win = doc.defaultView;
-      this.showingEvents_.add(doc, 'keydown', this, true);
-      this.showingEvents_.add(doc, 'mousedown', this, true);
-      this.showingEvents_.add(doc, 'blur', this, true);
-      this.showingEvents_.add(win, 'resize', this);
-      this.showingEvents_.add(this.menu, 'activate', this);
-      this.positionMenu_();
+      if (this.dispatchEvent(event)) {
+        this.menu.hidden = false;
+
+        this.setAttribute('menu-shown', '');
+
+        // when the menu is shown we steal all keyboard events.
+        var doc = this.ownerDocument;
+        var win = doc.defaultView;
+        this.showingEvents_.add(doc, 'keydown', this, true);
+        this.showingEvents_.add(doc, 'mousedown', this, true);
+        this.showingEvents_.add(doc, 'blur', this, true);
+        this.showingEvents_.add(win, 'resize', this);
+        this.showingEvents_.add(this.menu, 'activate', this);
+        this.positionMenu_();
+      }
     },
 
     /**
@@ -135,7 +142,7 @@ cr.define('cr.ui', function() {
         return;
 
       this.removeAttribute('menu-shown');
-      this.menu.style.display = 'none';
+      this.menu.hidden = true;
 
       this.showingEvents_.removeAll();
       this.menu.selectedIndex = -1;
@@ -177,6 +184,52 @@ cr.define('cr.ui', function() {
           break;
       }
     }
+  };
+
+  /**
+   * Helper for styling a menu button with a drop-down arrow indicator.
+   * Creates a new 2D canvas context and draws a downward-facing arrow into it.
+   * @param {string} canvasName The name of the canvas. The canvas can be
+   *     addressed from CSS using -webkit-canvas(<canvasName>).
+   * @param {number} width The width of the canvas and the arrow.
+   * @param {number} height The height of the canvas and the arrow.
+   * @param {string} colorSpec The CSS color to use when drawing the arrow.
+   */
+  function createDropDownArrowCanvas(canvasName, width, height, colorSpec) {
+    var ctx = document.getCSSCanvasContext('2d', canvasName, width, height);
+    ctx.fillStyle = ctx.strokeStyle = colorSpec;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(height, height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  };
+
+  /** @const */ var ARROW_WIDTH = 6;
+  /** @const */ var ARROW_HEIGHT = 3;
+
+  /**
+   * Create the images used to style drop-down-style MenuButtons.
+   * This should be called before creating any MenuButtons that will have the
+   * CSS class 'drop-down'. If no colors are specified, defaults will be used.
+   * @param {=string} normalColor CSS color for the default button state.
+   * @param {=string} hoverColor CSS color for the hover button state.
+   * @param {=string} activeColor CSS color for the active button state.
+   */
+  MenuButton.createDropDownArrows = function(
+      normalColor, hoverColor, activeColor) {
+    normalColor = normalColor || 'rgb(192, 195, 198)';
+    hoverColor = hoverColor || 'rgb(48, 57, 66)';
+    activeColor = activeColor || 'white';
+
+    createDropDownArrowCanvas(
+        'drop-down-arrow', ARROW_WIDTH, ARROW_HEIGHT, normalColor);
+    createDropDownArrowCanvas(
+        'drop-down-arrow-hover', ARROW_WIDTH, ARROW_HEIGHT, hoverColor);
+    createDropDownArrowCanvas(
+        'drop-down-arrow-active', ARROW_WIDTH, ARROW_HEIGHT, activeColor);
   };
 
   // Export

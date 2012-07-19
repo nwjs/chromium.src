@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_SYNC_USER_SELECTABLE_SYNC_TYPE_H_
 #define CHROME_BROWSER_SYNC_USER_SELECTABLE_SYNC_TYPE_H_
-#pragma once
 
 namespace browser_sync {
 namespace user_selectable_type {
@@ -13,14 +12,14 @@ namespace user_selectable_type {
 // via checkboxes in the "Advanced Sync Preferences" dialog. Used solely for the
 // purposes of UMA histogram logging of the datatypes explicitly selected by
 // users when sync is configured on a machine. This is a subset of the sync
-// types listed in chrome/browser/sync/syncable/model_type.h.
+// types listed in sync/internal_api/public/base/model_type.h.
 //
 // Note: New sync datatypes must be added to the end of this list. Adding them
 // anywhere else will result in incorrect histogram logging.
 
 // THIS ENUM IS MEANT SOLELY FOR THE PURPOSE OF HISTOGRAM LOGGING. IF YOU ARE
 // LOOKING TO MODIFY SYNC FUNCTIONALITY AND NEED A LIST OF SYNC TYPES, USE
-// syncable::ModelType.
+// syncer::ModelType.
 
 enum UserSelectableSyncType {
   BOOKMARKS = 0,

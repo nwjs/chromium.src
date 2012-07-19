@@ -11,15 +11,17 @@
 #include "chrome/browser/certificate_viewer.h"
 #include "chrome/browser/page_info_model.h"
 #include "chrome/browser/page_info_model_observer.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #include "chrome/browser/ui/gtk/bubble/bubble_gtk.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/ssl_status.h"
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
@@ -28,8 +30,8 @@
 #include "ui/base/l10n/l10n_util.h"
 
 using content::OpenURLParams;
-
 using content::SSLStatus;
+using content::WebContents;
 
 namespace {
 
@@ -37,10 +39,11 @@ class PageInfoBubbleGtk : public PageInfoModelObserver,
                           public BubbleDelegateGtk {
  public:
   PageInfoBubbleGtk(gfx::NativeWindow parent,
-                    Profile* profile,
+                    WebContents* web_contents,
                     const GURL& url,
                     const SSLStatus& ssl,
-                    bool show_history);
+                    bool show_history,
+                    content::PageNavigator* navigator);
   virtual ~PageInfoBubbleGtk();
 
   // PageInfoModelObserver implementation.
@@ -79,28 +82,35 @@ class PageInfoBubbleGtk : public PageInfoModelObserver,
   GtkWidget* anchor_;
 
   // Provides colors and stuff.
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   BubbleGtk* bubble_;
 
-  Profile* profile_;
+  WebContents* web_contents_;
+
+  // Used for loading pages.
+  content::PageNavigator* navigator_;
 
   DISALLOW_COPY_AND_ASSIGN(PageInfoBubbleGtk);
 };
 
 PageInfoBubbleGtk::PageInfoBubbleGtk(gfx::NativeWindow parent,
-                                     Profile* profile,
+                                     WebContents* web_contents,
                                      const GURL& url,
                                      const SSLStatus& ssl,
-                                     bool show_history)
-    : ALLOW_THIS_IN_INITIALIZER_LIST(model_(profile, url, ssl,
-                                            show_history, this)),
+                                     bool show_history,
+                                     content::PageNavigator* navigator)
+    : ALLOW_THIS_IN_INITIALIZER_LIST(model_(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext()), url,
+          ssl, show_history, this)),
       url_(url),
       cert_id_(ssl.cert_id),
       parent_(parent),
       contents_(NULL),
-      theme_service_(ThemeServiceGtk::GetFrom(profile)),
-      profile_(profile) {
+      theme_service_(GtkThemeService::GetFrom(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext()))),
+      web_contents_(web_contents),
+      navigator_(navigator) {
   BrowserWindowGtk* browser_window =
       BrowserWindowGtk::GetBrowserWindowForNativeWindow(parent);
 
@@ -116,8 +126,9 @@ PageInfoBubbleGtk::PageInfoBubbleGtk(gfx::NativeWindow parent,
                             NULL,  // |rect|
                             contents_,
                             arrow_location,
-                            true,  // |match_system_theme|
-                            true,  // |grab_input|
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
                             theme_service_,
                             this);  // |delegate|
   if (!bubble_) {
@@ -222,28 +233,31 @@ GtkWidget* PageInfoBubbleGtk::CreateSection(
 }
 
 void PageInfoBubbleGtk::OnViewCertLinkClicked(GtkWidget* widget) {
-  ShowCertificateViewerByID(GTK_WINDOW(parent_), cert_id_);
+  ShowCertificateViewerByID(web_contents_, GTK_WINDOW(parent_), cert_id_);
   bubble_->Close();
 }
 
 void PageInfoBubbleGtk::OnHelpLinkClicked(GtkWidget* widget) {
-  Browser* browser = BrowserList::GetLastActiveWithProfile(profile_);
-  browser->OpenURL(OpenURLParams(
-      GURL(chrome::kPageInfoHelpCenterURL), content::Referrer(),
-      NEW_FOREGROUND_TAB, content::PAGE_TRANSITION_LINK, false));
+  navigator_->OpenURL(OpenURLParams(GURL(chrome::kPageInfoHelpCenterURL),
+                      content::Referrer(),
+                      NEW_FOREGROUND_TAB,
+                      content::PAGE_TRANSITION_LINK,
+                      false));
   bubble_->Close();
 }
 
 }  // namespace
 
-namespace browser {
+namespace chrome {
 
 void ShowPageInfoBubble(gfx::NativeWindow parent,
-                        Profile* profile,
+                        WebContents* web_contents,
                         const GURL& url,
                         const SSLStatus& ssl,
-                        bool show_history) {
-  new PageInfoBubbleGtk(parent, profile, url, ssl, show_history);
+                        bool show_history,
+                        content::PageNavigator* navigator) {
+  new PageInfoBubbleGtk(
+      parent, web_contents, url, ssl, show_history, navigator);
 }
 
-}  // namespace browser
+}  // namespace chrome

@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/location.h"
+#include "base/message_loop_proxy.h"
 #include "content/common/indexed_db/indexed_db_dispatcher.h"
 #include "content/common/indexed_db/indexed_db_messages.h"
 #include "webkit/glue/worker_task_runner.h"
@@ -14,9 +15,6 @@ using webkit_glue::WorkerTaskRunner;
 
 IndexedDBMessageFilter::IndexedDBMessageFilter() :
     main_thread_loop_proxy_(base::MessageLoopProxy::current()) {
-}
-
-IndexedDBMessageFilter::~IndexedDBMessageFilter() {
 }
 
 bool IndexedDBMessageFilter::OnMessageReceived(const IPC::Message& msg) {
@@ -31,6 +29,8 @@ bool IndexedDBMessageFilter::OnMessageReceived(const IPC::Message& msg) {
     main_thread_loop_proxy_->PostTask(FROM_HERE, closure);
   return true;
 }
+
+IndexedDBMessageFilter::~IndexedDBMessageFilter() {}
 
 void IndexedDBMessageFilter::DispatchMessage(const IPC::Message& msg) {
   IndexedDBDispatcher::ThreadSpecificInstance()->OnMessageReceived(msg);

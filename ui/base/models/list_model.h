@@ -1,15 +1,14 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_BASE_MODELS_LIST_MODEL_H_
 #define UI_BASE_MODELS_LIST_MODEL_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "base/observer_list.h"
 #include "base/memory/scoped_vector.h"
+#include "base/observer_list.h"
 #include "ui/base/models/list_model_observer.h"
 
 namespace ui {
@@ -20,50 +19,47 @@ namespace ui {
 template <class ItemType>
 class ListModel {
  public:
-  typedef std::vector<ItemType*> Items;
-
   ListModel() {}
-  virtual ~ListModel() {}
+  ~ListModel() {}
 
   // Adds |item| to the model at given |index|.
-  virtual void AddAt(int index, ItemType* item) {
-    DCHECK(index >= 0 && index <= item_count());
-    items_->insert(items_.begin() + index, item);
+  void AddAt(size_t index, ItemType* item) {
+    DCHECK_LE(index, item_count());
+    items_.insert(items_.begin() + index, item);
     NotifyItemsAdded(index, 1);
-  }
-
-  // Removes an item at given |index| from the model. Note the removed item
-  // is NOT deleted and it's up to the caller to delete it.
-  virtual ItemType* RemoveAt(int index) {
-    DCHECK(index >= 0 && index < item_count());
-    ItemType* item = items_[index];
-    items_->erase(items_.begin() + index);
-    NotifyItemsRemoved(index, 1);
-    return item;
-  }
-
-  // Removes all items from the model. This does NOT delete the items.
-  virtual void RemoveAll() {
-    int count = item_count();
-    items_->clear();
-    NotifyItemsRemoved(0, count);
-  }
-
-  // Removes an item at given |index| from the model and deletes it.
-  virtual void DeleteAt(int index) {
-    delete RemoveAt(index);
-  }
-
-  // Removes and deletes all items from the model.
-  virtual void DeleteAll() {
-    int count = item_count();
-    items_.reset();
-    NotifyItemsRemoved(0, count);
   }
 
   // Convenience function to append an item to the model.
   void Add(ItemType* item) {
     AddAt(item_count(), item);
+  }
+
+  // Removes an item at given |index| from the model. Note the removed item
+  // is NOT deleted and it's up to the caller to delete it.
+  ItemType* RemoveAt(size_t index) {
+    DCHECK_LT(index, item_count());
+    ItemType* item = items_[index];
+    items_.weak_erase(items_.begin() + index);
+    NotifyItemsRemoved(index, 1);
+    return item;
+  }
+
+  // Removes all items from the model. This does NOT delete the items.
+  void RemoveAll() {
+    size_t count = item_count();
+    items_.weak_clear();
+    NotifyItemsRemoved(0, count);
+  }
+
+  // Removes an item at given |index| from the model and deletes it.
+  void DeleteAt(size_t index) {
+    delete RemoveAt(index);
+  }
+
+  // Removes and deletes all items from the model.
+  void DeleteAll() {
+    ScopedVector<ItemType> to_be_deleted(items_.Pass());
+    NotifyItemsRemoved(0, to_be_deleted.size());
   }
 
   void AddObserver(ListModelObserver* observer) {
@@ -74,34 +70,33 @@ class ListModel {
     observers_.RemoveObserver(observer);
   }
 
-  void NotifyItemsAdded(int start, int count) {
+  void NotifyItemsAdded(size_t start, size_t count) {
     FOR_EACH_OBSERVER(ListModelObserver,
                       observers_,
                       ListItemsAdded(start, count));
   }
 
-  void NotifyItemsRemoved(int start, int count) {
+  void NotifyItemsRemoved(size_t start, size_t count) {
     FOR_EACH_OBSERVER(ListModelObserver,
                       observers_,
                       ListItemsRemoved(start, count));
   }
 
-  void NotifyItemsChanged(int start, int count) {
+  void NotifyItemsChanged(size_t start, size_t count) {
     FOR_EACH_OBSERVER(ListModelObserver,
                       observers_,
                       ListItemsChanged(start, count));
   }
 
-  int item_count() const { return static_cast<int>(items_.size()); }
-  const Items& items() const { return items_.get(); }
+  size_t item_count() const { return items_.size(); }
 
-  const ItemType* item_at(int index) const {
-    DCHECK(index >= 0 && index < item_count());
+  const ItemType* GetItemAt(size_t index) const {
+    DCHECK_LT(index, item_count());
     return items_[index];
   }
-  ItemType* item_at(int index) {
+  ItemType* GetItemAt(size_t index) {
     return const_cast<ItemType*>(
-        const_cast<const ListModel<ItemType>*>(this)->item_at(index));
+        const_cast<const ListModel<ItemType>*>(this)->GetItemAt(index));
   }
 
  private:

@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_WIDGET_DEFAULT_THEME_PROVIDER_H_
 #define UI_VIEWS_WIDGET_DEFAULT_THEME_PROVIDER_H_
-#pragma once
 
 #include <vector>
 
@@ -27,11 +26,12 @@ class VIEWS_EXPORT DefaultThemeProvider : public ui::ThemeProvider {
 
   // Overridden from ui::ThemeProvider:
   virtual SkBitmap* GetBitmapNamed(int id) const OVERRIDE;
+  virtual gfx::ImageSkia* GetImageSkiaNamed(int id) const OVERRIDE;
   virtual SkColor GetColor(int id) const OVERRIDE;
   virtual bool GetDisplayProperty(int id, int* result) const OVERRIDE;
   virtual bool ShouldUseNativeFrame() const OVERRIDE;
   virtual bool HasCustomImage(int id) const OVERRIDE;
-  virtual RefCountedMemory* GetRawData(int id) const OVERRIDE;
+  virtual base::RefCountedMemory* GetRawData(int id) const OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DefaultThemeProvider);

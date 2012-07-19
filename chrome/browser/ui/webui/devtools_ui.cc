@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string_util.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
@@ -18,6 +19,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::BrowserThread;
@@ -64,8 +66,8 @@ void DevToolsDataSource::StartDataRequest(const std::string& path,
       << filename << ". If you compiled with debug_devtools=1, try running"
       " with --debug-devtools.";
   const ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-  scoped_refptr<RefCountedStaticMemory> bytes(rb.LoadDataResourceBytes(
-      resource_id));
+  scoped_refptr<base::RefCountedStaticMemory> bytes(rb.LoadDataResourceBytes(
+      resource_id, ui::SCALE_FACTOR_NONE));
   SendResponse(request_id, bytes);
 }
 
@@ -92,7 +94,7 @@ void DevToolsUI::RegisterDevToolsDataSource(Profile* profile) {
   static bool registered = false;
   if (!registered) {
     DevToolsDataSource* data_source = new DevToolsDataSource();
-    profile->GetChromeURLDataManager()->AddDataSource(data_source);
+    ChromeURLDataManager::AddDataSource(profile, data_source);
     registered = true;
   }
 }
@@ -100,7 +102,7 @@ void DevToolsUI::RegisterDevToolsDataSource(Profile* profile) {
 DevToolsUI::DevToolsUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   DevToolsDataSource* data_source = new DevToolsDataSource();
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(data_source);
+  ChromeURLDataManager::AddDataSource(profile, data_source);
 }
 
 void DevToolsUI::RenderViewCreated(

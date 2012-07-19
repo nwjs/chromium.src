@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_OMNIBOX_OMNIBOX_POPUP_VIEW_GTK_H_
 #define CHROME_BROWSER_UI_GTK_OMNIBOX_OMNIBOX_POPUP_VIEW_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -15,16 +14,16 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_popup_view.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/base/gtk/gtk_signal.h"
 #include "ui/gfx/font.h"
 #include "webkit/glue/window_open_disposition.h"
 
-class AutocompleteEditModel;
-class AutocompletePopupModel;
-class ThemeServiceGtk;
+class GtkThemeService;
+class OmniboxEditModel;
+class OmniboxPopupModel;
 class OmniboxView;
 class SkBitmap;
 
@@ -32,16 +31,20 @@ namespace gfx {
 class Image;
 }
 
-class OmniboxPopupViewGtk : public AutocompletePopupView,
+namespace ui {
+class GtkSignalRegistrar;
+}
+
+class OmniboxPopupViewGtk : public OmniboxPopupView,
                             public content::NotificationObserver {
  public:
   OmniboxPopupViewGtk(const gfx::Font& font,
                       OmniboxView* omnibox_view,
-                      AutocompleteEditModel* edit_model,
+                      OmniboxEditModel* edit_model,
                       GtkWidget* location_bar);
   virtual ~OmniboxPopupViewGtk();
 
-  // Overridden from AutocompletePopupView:
+  // Overridden from OmniboxPopupView:
   virtual bool IsOpen() const OVERRIDE;
   virtual void InvalidateLine(size_t line) OVERRIDE;
   virtual void UpdatePopupAppearance() OVERRIDE;
@@ -101,7 +104,8 @@ class OmniboxPopupViewGtk : public AutocompletePopupView,
   CHROMEGTK_CALLBACK_1(OmniboxPopupViewGtk, gboolean, HandleExpose,
                        GdkEventExpose*);
 
-  scoped_ptr<AutocompletePopupModel> model_;
+  scoped_ptr<ui::GtkSignalRegistrar> signal_registrar_;
+  scoped_ptr<OmniboxPopupModel> model_;
   OmniboxView* omnibox_view_;
   GtkWidget* location_bar_;
 
@@ -111,7 +115,7 @@ class OmniboxPopupViewGtk : public AutocompletePopupView,
   // The pango layout object created from the window, cached across exposes.
   PangoLayout* layout_;
 
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
   content::NotificationRegistrar registrar_;
 
   // Font used for suggestions after being derived from the constructor's

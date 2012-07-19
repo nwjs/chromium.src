@@ -4,16 +4,22 @@
 
 #ifndef UI_VIEWS_BUTTON_DRAG_UTILS_H_
 #define UI_VIEWS_BUTTON_DRAG_UTILS_H_
-#pragma once
 
 #include "base/string16.h"
 #include "ui/views/views_export.h"
 
 class GURL;
-class SkBitmap;
+
+namespace gfx {
+class ImageSkia;
+}
 
 namespace ui {
 class OSExchangeData;
+}
+
+namespace views {
+class Widget;
 }
 
 namespace button_drag_utils {
@@ -22,8 +28,9 @@ namespace button_drag_utils {
 // The image looks like that of the bookmark buttons.
 VIEWS_EXPORT void SetURLAndDragImage(const GURL& url,
                                      const string16& title,
-                                     const SkBitmap& icon,
-                                     ui::OSExchangeData* data);
+                                     const gfx::ImageSkia& icon,
+                                     ui::OSExchangeData* data,
+                                     views::Widget* widget);
 
 }  // namespace drag_utils
 

@@ -13,7 +13,7 @@
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#import "chrome/browser/extensions/extension_install_ui.h"
+#import "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/ui/cocoa/cocoa_profile_test.h"
 #import "chrome/browser/ui/cocoa/extensions/extension_install_dialog_controller.h"
 #include "chrome/common/chrome_paths.h"
@@ -25,6 +25,7 @@
 #include "ui/gfx/image/image.h"
 #include "webkit/glue/image_decoder.h"
 
+using extensions::Extension;
 
 // Base class for our tests.
 class ExtensionInstallDialogControllerTest : public CocoaProfileTest {
@@ -48,7 +49,7 @@ public:
     SkBitmap bitmap = decoder.Decode(
         reinterpret_cast<const unsigned char*>(file_contents.c_str()),
         file_contents.length());
-    icon_ = gfx::Image(new SkBitmap(bitmap));
+    icon_ = gfx::Image(bitmap);
   }
 
   void LoadExtension() {
@@ -64,7 +65,7 @@ public:
     }
 
     extension_ = Extension::Create(path.DirName(), Extension::INVALID, *value,
-                                   Extension::STRICT_ERROR_CHECKS, &error);
+                                   Extension::NO_FLAGS, &error);
     if (!extension_.get()) {
       LOG(ERROR) << error;
       return;
@@ -77,15 +78,16 @@ public:
 };
 
 
-// Mock out the ExtensionInstallUI::Delegate interface so we can ensure the
+// Mock out the ExtensionInstallPrompt::Delegate interface so we can ensure the
 // dialog is interacting with it correctly.
-class MockExtensionInstallUIDelegate : public ExtensionInstallUI::Delegate {
+class MockExtensionInstallPromptDelegate
+    : public ExtensionInstallPrompt::Delegate {
  public:
-  MockExtensionInstallUIDelegate()
+  MockExtensionInstallPromptDelegate()
       : proceed_count_(0),
         abort_count_(0) {}
 
-  // ExtensionInstallUI::Delegate overrides.
+  // ExtensionInstallPrompt::Delegate overrides.
   virtual void InstallUIProceed() OVERRIDE {
     proceed_count_++;
   }
@@ -105,9 +107,9 @@ class MockExtensionInstallUIDelegate : public ExtensionInstallUI::Delegate {
 // Test that we can load the two kinds of prompts correctly, that the outlets
 // are hooked up, and that the dialog calls cancel when cancel is pressed.
 TEST_F(ExtensionInstallDialogControllerTest, BasicsNormalCancel) {
-  MockExtensionInstallUIDelegate delegate;
+  MockExtensionInstallPromptDelegate delegate;
 
-  ExtensionInstallUI::Prompt prompt(ExtensionInstallUI::INSTALL_PROMPT);
+  ExtensionInstallPrompt::Prompt prompt(ExtensionInstallPrompt::INSTALL_PROMPT);
   std::vector<string16> permissions;
   permissions.push_back(UTF8ToUTF16("warning 1"));
   prompt.SetPermissions(permissions);
@@ -117,9 +119,9 @@ TEST_F(ExtensionInstallDialogControllerTest, BasicsNormalCancel) {
   scoped_nsobject<ExtensionInstallDialogController>
     controller([[ExtensionInstallDialogController alloc]
                  initWithParentWindow:test_window()
-                              profile:profile()
-                            delegate:&delegate
-                              prompt:prompt]);
+                            navigator:browser()
+                             delegate:&delegate
+                               prompt:prompt]);
 
   [controller window];  // force nib load
 
@@ -160,9 +162,10 @@ TEST_F(ExtensionInstallDialogControllerTest, BasicsNormalCancel) {
 
 
 TEST_F(ExtensionInstallDialogControllerTest, BasicsNormalOK) {
-  MockExtensionInstallUIDelegate delegate;
+  MockExtensionInstallPromptDelegate delegate;
 
-  ExtensionInstallUI::Prompt prompt(ExtensionInstallUI::INSTALL_PROMPT);
+  ExtensionInstallPrompt::Prompt prompt(
+      ExtensionInstallPrompt::INSTALL_PROMPT);
   std::vector<string16> permissions;
   permissions.push_back(UTF8ToUTF16("warning 1"));
   prompt.SetPermissions(permissions);
@@ -172,7 +175,7 @@ TEST_F(ExtensionInstallDialogControllerTest, BasicsNormalOK) {
   scoped_nsobject<ExtensionInstallDialogController>
   controller([[ExtensionInstallDialogController alloc]
                initWithParentWindow:test_window()
-                            profile:profile()
+                          navigator:browser()
                            delegate:&delegate
                              prompt:prompt]);
 
@@ -186,19 +189,19 @@ TEST_F(ExtensionInstallDialogControllerTest, BasicsNormalOK) {
 // Test that controls get repositioned when there are two warnings vs one
 // warning.
 TEST_F(ExtensionInstallDialogControllerTest, MultipleWarnings) {
-  MockExtensionInstallUIDelegate delegate1;
-  MockExtensionInstallUIDelegate delegate2;
+  MockExtensionInstallPromptDelegate delegate1;
+  MockExtensionInstallPromptDelegate delegate2;
 
-  ExtensionInstallUI::Prompt one_warning_prompt(
-      ExtensionInstallUI::INSTALL_PROMPT);
+  ExtensionInstallPrompt::Prompt one_warning_prompt(
+      ExtensionInstallPrompt::INSTALL_PROMPT);
   std::vector<string16> permissions;
   permissions.push_back(UTF8ToUTF16("warning 1"));
   one_warning_prompt.SetPermissions(permissions);
   one_warning_prompt.set_extension(extension_.get());
   one_warning_prompt.set_icon(icon_);
 
-  ExtensionInstallUI::Prompt two_warnings_prompt(
-      ExtensionInstallUI::INSTALL_PROMPT);
+  ExtensionInstallPrompt::Prompt two_warnings_prompt(
+      ExtensionInstallPrompt::INSTALL_PROMPT);
   permissions.push_back(UTF8ToUTF16("warning 2"));
   two_warnings_prompt.SetPermissions(permissions);
   two_warnings_prompt.set_extension(extension_.get());
@@ -207,7 +210,7 @@ TEST_F(ExtensionInstallDialogControllerTest, MultipleWarnings) {
   scoped_nsobject<ExtensionInstallDialogController>
   controller1([[ExtensionInstallDialogController alloc]
                 initWithParentWindow:test_window()
-                             profile:profile()
+                           navigator:browser()
                             delegate:&delegate1
                               prompt:one_warning_prompt]);
 
@@ -216,7 +219,7 @@ TEST_F(ExtensionInstallDialogControllerTest, MultipleWarnings) {
   scoped_nsobject<ExtensionInstallDialogController>
   controller2([[ExtensionInstallDialogController alloc]
                 initWithParentWindow:test_window()
-                             profile:profile()
+                           navigator:browser()
                             delegate:&delegate2
                               prompt:two_warnings_prompt]);
 
@@ -241,18 +244,18 @@ TEST_F(ExtensionInstallDialogControllerTest, MultipleWarnings) {
 // Test that we can load the skinny prompt correctly, and that the outlets are
 // are hooked up.
 TEST_F(ExtensionInstallDialogControllerTest, BasicsSkinny) {
-  MockExtensionInstallUIDelegate delegate;
+  MockExtensionInstallPromptDelegate delegate;
 
   // No warnings should trigger skinny prompt.
-  ExtensionInstallUI::Prompt no_warnings_prompt(
-      ExtensionInstallUI::INSTALL_PROMPT);
+  ExtensionInstallPrompt::Prompt no_warnings_prompt(
+      ExtensionInstallPrompt::INSTALL_PROMPT);
   no_warnings_prompt.set_extension(extension_.get());
   no_warnings_prompt.set_icon(icon_);
 
   scoped_nsobject<ExtensionInstallDialogController>
   controller([[ExtensionInstallDialogController alloc]
                initWithParentWindow:test_window()
-                            profile:profile()
+                          navigator:browser()
                            delegate:&delegate
                              prompt:no_warnings_prompt]);
 
@@ -286,11 +289,11 @@ TEST_F(ExtensionInstallDialogControllerTest, BasicsSkinny) {
 // Test that we can load the inline prompt correctly, and that the outlets are
 // are hooked up.
 TEST_F(ExtensionInstallDialogControllerTest, BasicsInline) {
-  MockExtensionInstallUIDelegate delegate;
+  MockExtensionInstallPromptDelegate delegate;
 
   // No warnings should trigger skinny prompt.
-  ExtensionInstallUI::Prompt inline_prompt(
-      ExtensionInstallUI::INLINE_INSTALL_PROMPT);
+  ExtensionInstallPrompt::Prompt inline_prompt(
+      ExtensionInstallPrompt::INLINE_INSTALL_PROMPT);
   inline_prompt.SetInlineInstallWebstoreData("1,000", 3.5, 200);
   inline_prompt.set_extension(extension_.get());
   inline_prompt.set_icon(icon_);
@@ -298,7 +301,7 @@ TEST_F(ExtensionInstallDialogControllerTest, BasicsInline) {
   scoped_nsobject<ExtensionInstallDialogController>
   controller([[ExtensionInstallDialogController alloc]
                initWithParentWindow:test_window()
-                            profile:profile()
+                          navigator:browser()
                            delegate:&delegate
                              prompt:inline_prompt]);
 

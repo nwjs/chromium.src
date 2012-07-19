@@ -8,18 +8,18 @@
 #include "base/callback.h"
 #include "base/debug/trace_event.h"
 #include "base/json/json_reader.h"
+#include "base/run_loop.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/automation/automation_browser_tracker.h"
 #include "chrome/browser/automation/automation_tab_tracker.h"
 #include "chrome/browser/automation/automation_window_tracker.h"
-#include "chrome/browser/external_tab/external_tab_container_win.h"
+#include "chrome/browser/external_tab/external_tab_container.h"
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/restore_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/automation_messages.h"
 #include "chrome/common/render_messages.h"
 #include "content/public/browser/navigation_controller.h"
@@ -36,6 +36,17 @@ using content::RenderViewHost;
 using content::WebContents;
 
 namespace {
+
+// Allow some pending tasks up to |num_deferrals| generations to complete.
+void DeferredQuitRunLoop(const base::Closure& quit_task,
+                         int num_quit_deferrals) {
+  if (num_quit_deferrals <= 0) {
+    quit_task.Run();
+  } else {
+    MessageLoop::current()->PostTask(FROM_HERE,
+        base::Bind(&DeferredQuitRunLoop, quit_task, num_quit_deferrals - 1));
+  }
+}
 
 // This callback just adds another callback to the event queue. This is useful
 // if you want to ensure that any callbacks added to the event queue after this
@@ -92,7 +103,7 @@ void AutomationProvider::WindowSimulateDrag(
     IPC::Message* reply_message) {
   if (browser_tracker_->ContainsHandle(handle) && (drag_path.size() > 1)) {
     gfx::NativeWindow window =
-        browser_tracker_->GetResource(handle)->window()->GetNativeHandle();
+        browser_tracker_->GetResource(handle)->window()->GetNativeWindow();
 
     UINT down_message = 0;
     UINT up_message = 0;
@@ -120,7 +131,7 @@ void AutomationProvider::WindowSimulateDrag(
     Browser* browser = browser_tracker_->GetResource(handle);
     DCHECK(browser);
     HWND top_level_hwnd =
-        reinterpret_cast<HWND>(browser->window()->GetNativeHandle());
+        reinterpret_cast<HWND>(browser->window()->GetNativeWindow());
     POINT temp = drag_path[0].ToPOINT();
     MapWindowPoints(top_level_hwnd, HWND_DESKTOP, &temp, 1);
     MoveMouse(temp);
@@ -140,6 +151,11 @@ void AutomationProvider::WindowSimulateDrag(
     if (press_escape_en_route) {
       // Press Escape, making sure we wait until chrome processes the escape.
       // TODO(phajdan.jr): make this use ui_test_utils::SendKeyPressSync.
+      views::AcceleratorHandler handler;
+      base::RunLoop run_loop(&handler);
+      // Number of times to repost Quit task to allow pending tasks to complete.
+      // See kNumQuitDeferrals in ui_test_utils.cc for explanation.
+      int num_quit_deferrals = 10;
       ui_controls::SendKeyPressNotifyWhenDone(
           window, ui::VKEY_ESCAPE,
           ((flags & ui::EF_CONTROL_DOWN) ==
@@ -148,11 +164,11 @@ void AutomationProvider::WindowSimulateDrag(
            ui::EF_SHIFT_DOWN),
           ((flags & ui::EF_ALT_DOWN) == ui::EF_ALT_DOWN),
           false,
-          MessageLoop::QuitClosure());
+          base::Bind(&DeferredQuitRunLoop, run_loop.QuitClosure(),
+                     num_quit_deferrals));
       MessageLoopForUI* loop = MessageLoopForUI::current();
-      views::AcceleratorHandler handler;
       MessageLoop::ScopedNestableTaskAllower allow(loop);
-      loop->RunWithDispatcher(&handler);
+      run_loop.Run();
     }
     SendMessage(top_level_hwnd, up_message, wparam_flags,
                 MAKELPARAM(end.x, end.y));
@@ -178,7 +194,7 @@ void AutomationProvider::CreateExternalTab(
   *tab_window = NULL;
   *session_id = -1;
   scoped_refptr<ExternalTabContainer> external_tab_container =
-      new ExternalTabContainer(this, automation_resource_message_filter_);
+      ExternalTabContainer::Create(this, automation_resource_message_filter_);
 
   Profile* profile = settings.is_incognito ?
       profile_->GetOffTheRecordProfile() : profile_;
@@ -192,11 +208,11 @@ void AutomationProvider::CreateExternalTab(
       settings.route_all_top_level_navigations);
 
   if (AddExternalTab(external_tab_container)) {
-    WebContents* web_contents = external_tab_container->web_contents();
-    *tab_handle = external_tab_container->tab_handle();
-    *tab_container_window = external_tab_container->GetNativeView();
+    WebContents* web_contents = external_tab_container->GetWebContents();
+    *tab_handle = external_tab_container->GetTabHandle();
+    *tab_container_window = external_tab_container->GetExternalTabNativeView();
     *tab_window = web_contents->GetNativeView();
-    *session_id = external_tab_container->tab_contents_wrapper()->
+    *session_id = external_tab_container->GetTabContents()->
         restore_tab_helper()->session_id().id();
   } else {
     external_tab_container->Uninitialize();
@@ -208,7 +224,7 @@ void AutomationProvider::CreateExternalTab(
 bool AutomationProvider::AddExternalTab(ExternalTabContainer* external_tab) {
   DCHECK(external_tab != NULL);
 
-  WebContents* web_contents = external_tab->web_contents();
+  WebContents* web_contents = external_tab->GetWebContents();
   if (web_contents) {
     int tab_handle = tab_tracker_->Add(&web_contents->GetController());
     external_tab->SetTabHandle(tab_handle);
@@ -242,9 +258,8 @@ void AutomationProvider::PrintAsync(int tab_handle) {
   if (!web_contents)
     return;
 
-  TabContentsWrapper* wrapper =
-      TabContentsWrapper::GetCurrentWrapperForContents(web_contents);
-  wrapper->print_view_manager()->PrintNow();
+  TabContents* tab_contents = TabContents::FromWebContents(web_contents);
+  tab_contents->print_view_manager()->PrintNow();
 }
 
 ExternalTabContainer* AutomationProvider::GetExternalTabForHandle(int handle) {
@@ -332,11 +347,11 @@ void AutomationProvider::ConnectExternalTab(
     external_tab_container->Reinitialize(this,
                                          automation_resource_message_filter_,
                                          parent_window);
-    WebContents* tab_contents = external_tab_container->web_contents();
-    *tab_handle = external_tab_container->tab_handle();
-    *tab_container_window = external_tab_container->GetNativeView();
+    WebContents* tab_contents = external_tab_container->GetWebContents();
+    *tab_handle = external_tab_container->GetTabHandle();
+    *tab_container_window = external_tab_container->GetExternalTabNativeView();
     *tab_window = tab_contents->GetNativeView();
-    *session_id = external_tab_container->tab_contents_wrapper()->
+    *session_id = external_tab_container->GetTabContents()->
         restore_tab_helper()->session_id().id();
   } else {
     external_tab_container->Uninitialize();

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_NET_CHROME_NET_LOG_H_
 #define CHROME_BROWSER_NET_CHROME_NET_LOG_H_
-#pragma once
 
 #include "base/atomicops.h"
 #include "base/memory/scoped_ptr.h"
@@ -42,10 +41,7 @@ class ChromeNetLog : public net::NetLog {
 
  private:
   // NetLog implementation:
-  virtual void AddEntry(EventType type,
-                        const Source& source,
-                        EventPhase phase,
-                        const scoped_refptr<EventParameters>& params) OVERRIDE;
+  virtual void OnAddEntry(const net::NetLog::Entry& entry) OVERRIDE;
 
   // Called whenever an observer is added or removed, or has its log level
   // changed.  Must have acquired |lock_| prior to calling.

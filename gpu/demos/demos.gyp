@@ -44,7 +44,7 @@
         '../gpu.gyp:gles2_implementation',
         '../../base/base.gyp:base',
         '../../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
-        '../../ui/gfx/gl/gl.gyp:gl',
+        '../../ui/gl/gl.gyp:gl',
         '../../ui/ui.gyp:ui',
       ],
       'sources': [
@@ -224,6 +224,9 @@
       'dependencies': [
         'gpu_demo_framework_exe',
         '../../third_party/gles2_book/gles2_book.gyp:es_util',
+      ],
+      'defines': [
+        'GL_GLEXT_PROTOTYPES',
       ],
       'sources': [
         'occlusion_query/occlusion_query.cc',

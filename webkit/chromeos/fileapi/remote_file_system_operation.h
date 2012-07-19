@@ -14,6 +14,7 @@ class Value;
 
 namespace fileapi {
 class FileSystemOperation;
+class FileWriterDelegate;
 }
 
 namespace chromeos {
@@ -24,49 +25,50 @@ class RemoteFileSystemOperation : public fileapi::FileSystemOperationInterface {
   virtual ~RemoteFileSystemOperation();
 
   // FileSystemOperationInterface overrides.
-  virtual void CreateFile(const GURL& path,
+  virtual void CreateFile(const fileapi::FileSystemURL& url,
                           bool exclusive,
                           const StatusCallback& callback) OVERRIDE;
-  virtual void CreateDirectory(const GURL& path,
+  virtual void CreateDirectory(const fileapi::FileSystemURL& url,
                                bool exclusive,
                                bool recursive,
                                const StatusCallback& callback) OVERRIDE;
-  virtual void Copy(const GURL& src_path,
-                    const GURL& dest_path,
+  virtual void Copy(const fileapi::FileSystemURL& src_url,
+                    const fileapi::FileSystemURL& dest_url,
                     const StatusCallback& callback) OVERRIDE;
-  virtual void Move(const GURL& src_path,
-                    const GURL& dest_path,
+  virtual void Move(const fileapi::FileSystemURL& src_url,
+                    const fileapi::FileSystemURL& dest_url,
                     const StatusCallback& callback) OVERRIDE;
-  virtual void DirectoryExists(const GURL& path,
+  virtual void DirectoryExists(const fileapi::FileSystemURL& url,
                                const StatusCallback& callback) OVERRIDE;
-  virtual void FileExists(const GURL& path,
+  virtual void FileExists(const fileapi::FileSystemURL& url,
                           const StatusCallback& callback) OVERRIDE;
-  virtual void GetMetadata(const GURL& path,
+  virtual void GetMetadata(const fileapi::FileSystemURL& url,
                            const GetMetadataCallback& callback) OVERRIDE;
-  virtual void ReadDirectory(const GURL& path,
+  virtual void ReadDirectory(const fileapi::FileSystemURL& url,
                              const ReadDirectoryCallback& callback) OVERRIDE;
-  virtual void Remove(const GURL& path, bool recursive,
+  virtual void Remove(const fileapi::FileSystemURL& url, bool recursive,
                       const StatusCallback& callback) OVERRIDE;
   virtual void Write(const net::URLRequestContext* url_request_context,
-                     const GURL& path,
+                     const fileapi::FileSystemURL& url,
                      const GURL& blob_url,
                      int64 offset,
                      const WriteCallback& callback) OVERRIDE;
-  virtual void Truncate(const GURL& path, int64 length,
+  virtual void Truncate(const fileapi::FileSystemURL& url, int64 length,
                         const StatusCallback& callback) OVERRIDE;
   virtual void Cancel(const StatusCallback& cancel_callback) OVERRIDE;
-  virtual void TouchFile(const GURL& path,
+  virtual void TouchFile(const fileapi::FileSystemURL& url,
                          const base::Time& last_access_time,
                          const base::Time& last_modified_time,
                          const StatusCallback& callback) OVERRIDE;
   virtual void OpenFile(
-      const GURL& path,
+      const fileapi::FileSystemURL& url,
       int file_flags,
       base::ProcessHandle peer_handle,
       const OpenFileCallback& callback) OVERRIDE;
+  virtual void NotifyCloseFile(const fileapi::FileSystemURL& url) OVERRIDE;
   virtual fileapi::FileSystemOperation* AsFileSystemOperation() OVERRIDE;
   virtual void CreateSnapshotFile(
-      const GURL& path,
+      const fileapi::FileSystemURL& url,
       const SnapshotFileCallback& callback) OVERRIDE;
 
  private:
@@ -97,6 +99,10 @@ class RemoteFileSystemOperation : public fileapi::FileSystemOperationInterface {
       base::PlatformFileError rv,
       const std::vector<base::FileUtilProxy::Entry>& entries,
       bool has_more);
+  void DidWrite(const WriteCallback& callback,
+                base::PlatformFileError result,
+                int64 bytes,
+                bool complete);
   void DidFinishFileOperation(const StatusCallback& callback,
                               base::PlatformFileError rv);
   void DidCreateSnapshotFile(
@@ -105,11 +111,17 @@ class RemoteFileSystemOperation : public fileapi::FileSystemOperationInterface {
       const base::PlatformFileInfo& file_info,
       const FilePath& platform_path,
       const scoped_refptr<webkit_blob::ShareableFileReference>& file_ref);
+  void DidOpenFile(
+      const OpenFileCallback& callback,
+      base::PlatformFileError result,
+      base::PlatformFile file,
+      base::ProcessHandle peer_handle);
 
 
   scoped_refptr<fileapi::RemoteFileSystemProxyInterface> remote_proxy_;
   // A flag to make sure we call operation only once per instance.
   OperationType pending_operation_;
+  scoped_ptr<fileapi::FileWriterDelegate> file_writer_delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(RemoteFileSystemOperation);
 };

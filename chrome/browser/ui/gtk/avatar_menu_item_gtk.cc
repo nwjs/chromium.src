@@ -10,13 +10,12 @@
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_source.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -47,15 +46,14 @@ const GdkColor kBackgroundColor = GDK_COLOR_RGB(0xff, 0xff, 0xff);
 AvatarMenuItemGtk::AvatarMenuItemGtk(Delegate* delegate,
                                      const AvatarMenuModel::Item& item,
                                      size_t item_index,
-                                     ThemeServiceGtk* theme_service)
+                                     GtkThemeService* theme_service)
     : delegate_(delegate),
       item_(item),
       item_index_(item_index),
       theme_service_(theme_service),
       status_label_(NULL),
       link_alignment_(NULL),
-      edit_profile_link_(NULL),
-      ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
+      edit_profile_link_(NULL) {
   Init(theme_service_);
 
   registrar_.Add(this, chrome::NOTIFICATION_BROWSER_THEME_CHANGED,
@@ -67,42 +65,21 @@ AvatarMenuItemGtk::~AvatarMenuItemGtk() {
   widget_.Destroy();
 }
 
-void AvatarMenuItemGtk::OpenProfile() {
-  delegate_->OpenProfile(item_index_);
-}
-
 gboolean AvatarMenuItemGtk::OnProfileClick(GtkWidget* widget,
                                            GdkEventButton* event) {
-  // delegate_->EditProfile() will close the avatar bubble which in turn
-  // try to destroy this AvatarMenuItemGtk.
-  // This is not OK to do this from the signal handler, so we'll
-  // defer it.
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&AvatarMenuItemGtk::OpenProfile,
-                 weak_factory_.GetWeakPtr()));
+  delegate_->OpenProfile(item_index_);
   return FALSE;
 }
 
 gboolean AvatarMenuItemGtk::OnProfileKeyPress(GtkWidget* widget,
                                               GdkEventKey* event) {
-  // delegate_->EditProfile() will close the avatar bubble which in turn
-  // try to destroy this AvatarMenuItemGtk.
-  // This is not OK to do this from the signal handler, so we'll
-  // defer it.
   if (event->keyval == GDK_Return ||
       event->keyval == GDK_ISO_Enter ||
       event->keyval == GDK_KP_Enter) {
     if (item_.active)
-      MessageLoop::current()->PostTask(
-          FROM_HERE,
-          base::Bind(&AvatarMenuItemGtk::EditProfile,
-                     weak_factory_.GetWeakPtr()));
+      delegate_->EditProfile(item_index_);
     else
-      MessageLoop::current()->PostTask(
-          FROM_HERE,
-          base::Bind(&AvatarMenuItemGtk::OpenProfile,
-                     weak_factory_.GetWeakPtr()));
+      delegate_->OpenProfile(item_index_);
   }
 
   return FALSE;
@@ -158,10 +135,6 @@ gboolean AvatarMenuItemGtk::OnProfileLeave(GtkWidget* widget,
   return FALSE;
 }
 
-void AvatarMenuItemGtk::EditProfile() {
-  delegate_->EditProfile(item_index_);
-}
-
 void AvatarMenuItemGtk::Observe(int type,
                                 const content::NotificationSource& source,
                                 const content::NotificationDetails& details) {
@@ -180,23 +153,10 @@ void AvatarMenuItemGtk::Observe(int type,
   // Assume that the widget isn't highlighted since theme changes will almost
   // never happen while we're up.
   gtk_widget_modify_bg(widget_.get(), GTK_STATE_NORMAL, unhighlighted_color_);
-
-  if (edit_profile_link_) {
-    gtk_chrome_link_button_set_use_gtk_theme(
-        GTK_CHROME_LINK_BUTTON(edit_profile_link_),
-        using_native);
-  }
 }
 
 void AvatarMenuItemGtk::OnEditProfileLinkClicked(GtkWidget* link) {
-  // delegate_->EditProfile() will close the avatar bubble which in turn
-  // try to destroy this AvatarMenuItemGtk.
-  // This is not OK to do this from the signal handler, so we'll
-  // defer it.
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&AvatarMenuItemGtk::EditProfile,
-                 weak_factory_.GetWeakPtr()));
+  delegate_->EditProfile(item_index_);
 }
 
 gboolean AvatarMenuItemGtk::OnEventBoxExpose(GtkWidget* widget,
@@ -216,7 +176,7 @@ gboolean AvatarMenuItemGtk::OnEventBoxExpose(GtkWidget* widget,
   return TRUE;
 }
 
-void AvatarMenuItemGtk::Init(ThemeServiceGtk* theme_service) {
+void AvatarMenuItemGtk::Init(GtkThemeService* theme_service) {
   widget_.Own(gtk_event_box_new());
 
   g_signal_connect(widget_.get(), "button-press-event",
@@ -241,7 +201,9 @@ void AvatarMenuItemGtk::Init(ThemeServiceGtk* theme_service) {
   // of the profile icon.
   if (item_.active) {
     const SkBitmap* avatar_image = item_.icon.ToSkBitmap();
-    gfx::Canvas canvas(*avatar_image, /* is_opaque */ true);
+    gfx::ImageSkiaRep avatar_image_rep =
+        gfx::ImageSkiaRep(*avatar_image, ui::SCALE_FACTOR_100P);
+    gfx::Canvas canvas(avatar_image_rep, /* is_opaque */ true);
 
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     const SkBitmap* check_image = rb.GetImageNamed(
@@ -249,12 +211,12 @@ void AvatarMenuItemGtk::Init(ThemeServiceGtk* theme_service) {
     gfx::Rect check_rect(0, 0, check_image->width(), check_image->height());
     int y = avatar_image->height() - check_image->height();
     int x = avatar_image->width() - check_image->width() + kCheckMarkXOffset;
-    canvas.DrawBitmapInt(*check_image, x, y);
+    canvas.DrawImageInt(*check_image, x, y);
 
     SkBitmap final_image = canvas.ExtractBitmap();
-    avatar_pixbuf = gfx::GdkPixbufFromSkBitmap(&final_image);
+    avatar_pixbuf = gfx::GdkPixbufFromSkBitmap(final_image);
   } else {
-    avatar_pixbuf = gfx::GdkPixbufFromSkBitmap(item_.icon.ToSkBitmap());
+    avatar_pixbuf = gfx::GdkPixbufFromSkBitmap(*item_.icon.ToSkBitmap());
   }
 
   GtkWidget* avatar_image = gtk_image_new_from_pixbuf(avatar_pixbuf);
@@ -269,17 +231,20 @@ void AvatarMenuItemGtk::Init(ThemeServiceGtk* theme_service) {
                                        gfx::Font(),
                                        kUserNameMaxWidth,
                                        ui::ELIDE_AT_END);
+
+  name_label = theme_service->BuildLabel(UTF16ToUTF8(elided_name),
+                                         ui::kGdkBlack);
   if (item_.active) {
-    name_label = gtk_util::CreateBoldLabel(UTF16ToUTF8(elided_name));
-  } else {
-    name_label = theme_service->BuildLabel(UTF16ToUTF8(elided_name),
-                                           ui::kGdkBlack);
+    char* markup = g_markup_printf_escaped(
+        "<span weight='bold'>%s</span>", UTF16ToUTF8(item_.sync_state).c_str());
+    gtk_label_set_markup(GTK_LABEL(name_label), markup);
   }
+
   gtk_misc_set_alignment(GTK_MISC(name_label), 0, 0);
   gtk_box_pack_start(GTK_BOX(item_vbox), name_label, TRUE, TRUE, 0);
 
   // The sync status label.
-  status_label_ = gtk_label_new("");
+  status_label_ = theme_service_->BuildLabel(std::string(), ui::kGdkBlack);
   char* markup = g_markup_printf_escaped(
       "<span size='small'>%s</span>", UTF16ToUTF8(item_.sync_state).c_str());
   gtk_label_set_markup(GTK_LABEL(status_label_), markup);
@@ -291,8 +256,8 @@ void AvatarMenuItemGtk::Init(ThemeServiceGtk* theme_service) {
 
   if (item_.active) {
     // The "edit your profile" link.
-    edit_profile_link_ = gtk_chrome_link_button_new(
-        l10n_util::GetStringUTF8(IDS_PROFILES_EDIT_PROFILE_LINK).c_str());
+    edit_profile_link_ = theme_service_->BuildChromeLinkButton(
+        l10n_util::GetStringUTF8(IDS_PROFILES_EDIT_PROFILE_LINK));
     // Fix for bug#107348. edit link steals focus from menu item which
     // hides edit link button in focus-out-event handler,
     // so, it misses the click event.

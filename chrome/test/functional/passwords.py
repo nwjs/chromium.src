@@ -4,19 +4,26 @@
 # found in the LICENSE file.
 
 import os
+from urlparse import urlparse
 
 import pyauto_functional  # Must be imported before pyauto
 import pyauto
 import test_utils
+from webdriver_pages import settings
 
 
 class PasswordTest(pyauto.PyUITest):
   """Tests that passwords work correctly."""
 
   INFOBAR_TYPE = 'password_infobar'
-  URL = 'https://www.google.com/accounts/ServiceLogin'
-  URL_HTTPS = 'https://www.google.com/accounts/Login'
-  URL_LOGOUT = 'https://www.google.com/accounts/Logout'
+  URL = 'https://accounts.google.com/ServiceLogin'
+  URL_HTTPS = 'https://accounts.google.com/Login'
+  URL_LOGOUT = 'https://accounts.google.com/Logout'
+  HOSTNAME = 'https://' + urlparse(URL).netloc + '/'
+  USERNAME_ELEM = 'Email'
+  PASSWORD_ELEM = 'Passwd'
+  USERNAME = 'test@google.com'
+  PASSWORD = 'test.password'
 
   def Debug(self):
     """Test method for experimentation.
@@ -79,9 +86,9 @@ class PasswordTest(pyauto.PyUITest):
       window.domAutomationController.send(value);
     """
     self.assertTrue(self.WaitUntil(
-        lambda: self.ExecuteJavascript(js_template % 'Email',
+        lambda: self.ExecuteJavascript(js_template % self.USERNAME_ELEM,
                                       tab_index, window_index) != '' and
-                self.ExecuteJavascript(js_template % 'Passwd',
+                self.ExecuteJavascript(js_template % self.PASSWORD_ELEM,
                                       tab_index, window_index) != ''))
 
   def testSavePassword(self):
@@ -156,7 +163,7 @@ class PasswordTest(pyauto.PyUITest):
     # Selecting 'Never for this site' option on password infobar.
     self.PerformActionOnInfobar(
         'cancel', infobar_index=test_utils.WaitForInfobarTypeAndGetIndex(
-            self, self.INFOBAR_TYPE, tab_index=1))
+            self, self.INFOBAR_TYPE, tab_index=1), tab_index=1)
 
     # TODO: GetSavedPasswords() doesn't return anything when empty.
     # http://crbug.com/64603
@@ -209,6 +216,30 @@ class PasswordTest(pyauto.PyUITest):
                     msg='Email creds displayed %s.' % email_value)
     self.assertEqual(passwd_value, '', msg='Password creds displayed.')
 
+  def testPasswordAutofilledInIncognito(self):
+    """Verify saved password is autofilled in Incognito mode.
+
+    Saved passwords should be autofilled once the username is entered in
+    incognito mode.
+    """
+    action_target = self.HOSTNAME
+
+    driver = self.NewWebDriver()
+    password_dict = self._ConstructPasswordDictionary(
+        self.USERNAME, self.PASSWORD, self.HOSTNAME, self.URL,
+        self.USERNAME_ELEM, self.PASSWORD_ELEM, action_target)
+    self.AddSavedPassword(password_dict)
+    self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
+    self.NavigateToURL(self.URL, 1, 0)
+    # Switch to window 1.
+    driver.switch_to_window(driver.window_handles[1])
+    driver.find_element_by_id(
+        self.USERNAME_ELEM).send_keys(self.USERNAME + '\t')
+    incognito_passwd = self.GetDOMValue(
+        'document.getElementById("Passwd").value', tab_index=0, windex=1)
+    self.assertEqual(incognito_passwd, self.PASSWORD,
+                     msg='Password creds did not autofill in incognito mode.')
+
   def testInfoBarDisappearByNavigatingPage(self):
     """Test password infobar is dismissed when navigating to different page."""
     creds = self.GetPrivateInfo()['test_google_account']
@@ -244,8 +275,8 @@ class PasswordTest(pyauto.PyUITest):
     If the password field has autocomplete turned off, then the password infobar
     should not offer to save the password info.
     """
-    password_info = {'Email': 'test@google.com',
-                     'Passwd': 'test12345'}
+    password_info = {'Email': self.USERNAME,
+                     'Passwd': self.PASSWORD}
 
     # Disable one-click login infobar for sync.
     self.SetPrefs(pyauto.kReverseAutologinEnabled, False)
@@ -309,6 +340,21 @@ class PasswordTest(pyauto.PyUITest):
     self.assertFalse(passwd_value,
                      msg='Password field not empty for new username.')
     test_utils.ClearPasswords(self)
+
+  def testPasswordInfobarShowsForBlockedDomain(self):
+    """Verify that password infobar shows when cookies are blocked.
+
+    Password infobar should be shown if cookies are blocked for Google
+    accounts domain.
+    """
+    creds = self.GetPrivateInfo()['test_google_account']
+    username = creds['username']
+    password = creds['password']
+    # Block cookies for Google accounts domain.
+    self.SetPrefs(pyauto.kContentSettingsPatternPairs,
+                  {'https://accounts.google.com/': {'cookies': 2}})
+    test_utils.GoogleAccountsLogin(self, username, password)
+    test_utils.WaitForInfobarTypeAndGetIndex(self, self.INFOBAR_TYPE)
 
 
 if __name__ == '__main__':

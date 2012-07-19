@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_VIEWS_STATUS_BUBBLE_VIEWS_H_
 #define CHROME_BROWSER_UI_VIEWS_STATUS_BUBBLE_VIEWS_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -109,6 +108,12 @@ class StatusBubbleViews : public StatusBubble {
   // original_position_ adjusted according to the current RTL.
   gfx::Point position_;
   gfx::Size size_;
+
+  // Last location passed to MouseMoved().
+  gfx::Point last_mouse_moved_location_;
+
+  // Whether the view contains the mouse.
+  bool contains_mouse_;
 
   // How vertically offset the bubble is from its root position_.
   int offset_;

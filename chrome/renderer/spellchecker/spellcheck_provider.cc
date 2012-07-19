@@ -43,28 +43,26 @@ COMPILE_ASSERT(int(WebKit::WebTextCheckingTypeShowCorrectionPanel) ==
                int(SpellCheckResult::SHOWCORRECTIONPANEL), mismatching_enums);
 
 namespace {
-void ToWebResultList(
-    const std::vector<SpellCheckResult>& results,
-    WebVector<WebTextCheckingResult>* web_results) {
-  WebVector<WebTextCheckingResult> list(results.size());
-  for (size_t i = 0; i < results.size(); ++i) {
+
+// Converts a vector of SpellCheckResult objects (used by Chrome) to a vector of
+// WebTextCheckingResult objects (used by WebKit).
+void CreateTextCheckingResults(
+    int offset,
+    const std::vector<SpellCheckResult>& spellcheck_results,
+    WebKit::WebVector<WebKit::WebTextCheckingResult>* textcheck_results) {
+  size_t result_size = spellcheck_results.size();
+  WebKit::WebVector<WebKit::WebTextCheckingResult> list(result_size);
+  for (size_t i = 0; i < result_size; ++i) {
     list[i] = WebTextCheckingResult(
-        static_cast<WebTextCheckingType>(results[i].type),
-        results[i].location,
-        results[i].length,
-        results[i].replacement);
+        static_cast<WebTextCheckingType>(spellcheck_results[i].type),
+        spellcheck_results[i].location + offset,
+        spellcheck_results[i].length,
+        spellcheck_results[i].replacement);
   }
-
-  list.swap(*web_results);
+  textcheck_results->swap(list);
 }
 
-WebVector<WebTextCheckingResult> ToWebResultList(
-    const std::vector<SpellCheckResult>& results) {
-  WebVector<WebTextCheckingResult> web_results;
-  ToWebResultList(results, &web_results);
-  return web_results;
-}
-} // namespace
+}  // namespace
 
 SpellCheckProvider::SpellCheckProvider(
     content::RenderView* render_view,
@@ -105,34 +103,79 @@ void SpellCheckProvider::RequestTextChecking(
       document_tag,
       text));
 #else
-  // Send this text to a browser. A browser checks the user profile and send
-  // this text to the Spelling service only if a user enables this feature.
-  // TODO(hbono) Implement a cache to avoid sending IPC messages.
-  if (text.isEmpty()) {
-    completion->didFinishCheckingText(std::vector<WebTextCheckingResult>());
+  if (text.isEmpty() || !HasWordCharacters(text, 0)) {
+    completion->didCancelCheckingText();
     return;
   }
+  // Cancel this spellcheck request if the cached text is a substring of the
+  // given text and the given text is the middle of a possible word.
+  // TODO(hbono): Move this cache code to a new function and add its unit test.
+  string16 request(text);
+  size_t text_length = request.length();
+  size_t last_length = last_request_.length();
+  if (text_length >= last_length &&
+      !request.compare(0, last_length, last_request_)) {
+    if (text_length == last_length || !HasWordCharacters(text, last_length)) {
+      completion->didCancelCheckingText();
+      return;
+    }
+    int code = 0;
+    int length = static_cast<int>(text_length);
+    U16_PREV(text.data(), 0, length, code);
+    UErrorCode error = U_ZERO_ERROR;
+    if (uscript_getScript(code, &error) != USCRIPT_COMMON) {
+      completion->didCancelCheckingText();
+      return;
+    }
+  }
+  // Create a subset of the cached results and return it if the given text is a
+  // substring of the cached text.
+  if (text_length < last_length &&
+      !last_request_.compare(0, text_length, request)) {
+    size_t result_size = 0;
+    for (size_t i = 0; i < last_results_.size(); ++i) {
+      size_t start = last_results_[i].location;
+      size_t end = start + last_results_[i].length;
+      if (start <= text_length && end <= text_length)
+        ++result_size;
+    }
+    if (result_size > 0) {
+      WebKit::WebVector<WebKit::WebTextCheckingResult> results(result_size);
+      for (size_t i = 0; i < result_size; ++i) {
+        results[i].type = last_results_[i].type;
+        results[i].location = last_results_[i].location;
+        results[i].length = last_results_[i].length;
+        results[i].replacement = last_results_[i].replacement;
+      }
+      completion->didFinishCheckingText(results);
+      return;
+    }
+  }
+  // Send this text to a browser. A browser checks the user profile and send
+  // this text to the Spelling service only if a user enables this feature.
+  last_request_.clear();
+  last_results_.assign(WebKit::WebVector<WebKit::WebTextCheckingResult>());
   Send(new SpellCheckHostMsg_CallSpellingService(
       routing_id(),
       text_check_completions_.Add(completion),
-      document_tag,
-      text));
+      0,
+      request));
 #endif  // !OS_MACOSX
 }
 
 bool SpellCheckProvider::OnMessageReceived(const IPC::Message& message) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(SpellCheckProvider, message)
-    IPC_MESSAGE_HANDLER(SpellCheckMsg_AdvanceToNextMisspelling,
-                        OnAdvanceToNextMisspelling)
 #if !defined(OS_MACOSX)
     IPC_MESSAGE_HANDLER(SpellCheckMsg_RespondSpellingService,
                         OnRespondSpellingService)
 #endif
 #if defined(OS_MACOSX)
+    IPC_MESSAGE_HANDLER(SpellCheckMsg_AdvanceToNextMisspelling,
+                        OnAdvanceToNextMisspelling)
     IPC_MESSAGE_HANDLER(SpellCheckMsg_RespondTextCheck, OnRespondTextCheck)
-#endif
     IPC_MESSAGE_HANDLER(SpellCheckMsg_ToggleSpellPanel, OnToggleSpellPanel)
+#endif
     IPC_MESSAGE_HANDLER(SpellCheckMsg_ToggleSpellCheck, OnToggleSpellCheck)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
@@ -200,12 +243,9 @@ void SpellCheckProvider::checkTextOfParagraph(
   if (!chrome_content_renderer_client_)
     return;
 
-  std::vector<SpellCheckResult> tmp_results;
   chrome_content_renderer_client_->spellcheck()->SpellCheckParagraph(
       string16(text),
-      document_tag_,
-      &tmp_results);
-  ToWebResultList(tmp_results, results);
+      results);
 #endif
 }
 
@@ -246,6 +286,62 @@ void SpellCheckProvider::updateSpellingUIWithMisspelledWord(
 #endif
 }
 
+#if !defined(OS_MACOSX)
+void SpellCheckProvider::OnRespondSpellingService(
+    int identifier,
+    int offset,
+    bool succeeded,
+    const string16& line,
+    const std::vector<SpellCheckResult>& results) {
+  WebTextCheckingCompletion* completion =
+      text_check_completions_.Lookup(identifier);
+  if (!completion)
+    return;
+  text_check_completions_.Remove(identifier);
+
+  // If |succeeded| is false, we use local spellcheck as a fallback.
+  if (!succeeded) {
+    // |chrome_content_renderer_client| may be NULL in unit tests.
+    if (chrome_content_renderer_client_) {
+      chrome_content_renderer_client_->spellcheck()->RequestTextChecking(
+          line, offset, completion);
+      return;
+    }
+  }
+
+  // Double-check the returned spellchecking results with our spellchecker to
+  // visualize the differences between ours and the on-line spellchecker.
+  WebKit::WebVector<WebKit::WebTextCheckingResult> textcheck_results;
+  if (chrome_content_renderer_client_) {
+    chrome_content_renderer_client_->spellcheck()->CreateTextCheckingResults(
+        offset, line, results, &textcheck_results);
+  } else {
+    CreateTextCheckingResults(offset, results, &textcheck_results);
+  }
+  completion->didFinishCheckingText(textcheck_results);
+
+  // Cache the request and the converted results.
+  last_request_ = line;
+  last_results_.swap(textcheck_results);
+}
+
+bool SpellCheckProvider::HasWordCharacters(
+    const WebKit::WebString& text,
+    int index) const {
+  const char16* data = text.data();
+  int length = text.length();
+  while (index < length) {
+    uint32 code = 0;
+    U16_NEXT(data, index, length, code);
+    UErrorCode error = U_ZERO_ERROR;
+    if (uscript_getScript(code, &error) == USCRIPT_LATIN)
+      return true;
+  }
+  return false;
+}
+#endif
+
+#if defined(OS_MACOSX)
 void SpellCheckProvider::OnAdvanceToNextMisspelling() {
   if (!render_view()->GetWebView())
     return;
@@ -253,21 +349,6 @@ void SpellCheckProvider::OnAdvanceToNextMisspelling() {
       WebString::fromUTF8("AdvanceToNextMisspelling"));
 }
 
-#if !defined(OS_MACOSX)
-void SpellCheckProvider::OnRespondSpellingService(
-    int identifier,
-    int tag,
-    const std::vector<SpellCheckResult>& results) {
-  WebTextCheckingCompletion* completion =
-      text_check_completions_.Lookup(identifier);
-  if (!completion)
-    return;
-  text_check_completions_.Remove(identifier);
-  completion->didFinishCheckingText(ToWebResultList(results));
-}
-#endif
-
-#if defined(OS_MACOSX)
 void SpellCheckProvider::OnRespondTextCheck(
     int identifier,
     int tag,
@@ -277,9 +358,10 @@ void SpellCheckProvider::OnRespondTextCheck(
   if (!completion)
     return;
   text_check_completions_.Remove(identifier);
-  completion->didFinishCheckingText(ToWebResultList(results));
+  WebKit::WebVector<WebKit::WebTextCheckingResult> textcheck_results;
+  CreateTextCheckingResults(0, results, &textcheck_results);
+  completion->didFinishCheckingText(textcheck_results);
 }
-#endif
 
 void SpellCheckProvider::OnToggleSpellPanel(bool is_currently_visible) {
   if (!render_view()->GetWebView())
@@ -290,6 +372,7 @@ void SpellCheckProvider::OnToggleSpellPanel(bool is_currently_visible) {
   render_view()->GetWebView()->focusedFrame()->executeCommand(
       WebString::fromUTF8("ToggleSpellPanel"));
 }
+#endif
 
 void SpellCheckProvider::OnToggleSpellCheck() {
   if (!render_view()->GetWebView())

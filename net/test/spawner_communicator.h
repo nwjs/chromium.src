@@ -4,7 +4,6 @@
 
 #ifndef NET_TEST_SPAWNER_COMMUNICATOR_H_
 #define NET_TEST_SPAWNER_COMMUNICATOR_H_
-#pragma once
 
 #include <string>
 
@@ -123,7 +122,7 @@ class SpawnerCommunicator : public net::URLRequest::Delegate {
   // used to control the startup and shutdown of the Python TestServer running
   // on the remote machine. On Android, this port will be redirected to the
   // same port on the host machine.
-  uint16 port_;
+  const uint16 port_;
 
   // Helper to add |port_| to the list of the globally explicitly allowed ports.
   scoped_ptr<ScopedPortException> allowed_port_;
@@ -134,6 +133,9 @@ class SpawnerCommunicator : public net::URLRequest::Delegate {
   // Factory for creating the time-out task. This takes care of revoking
   // outstanding tasks when |this| is deleted.
   base::WeakPtrFactory<SpawnerCommunicator> weak_factory_;
+
+  // Request context used by |cur_request_|.
+  scoped_ptr<URLRequestContext> context_;
 
   // The current (in progress) request, or NULL.
   scoped_ptr<URLRequest> cur_request_;
@@ -147,4 +149,3 @@ class SpawnerCommunicator : public net::URLRequest::Delegate {
 }  // namespace net
 
 #endif  // NET_TEST_SPAWNER_COMMUNICATOR_H_
-

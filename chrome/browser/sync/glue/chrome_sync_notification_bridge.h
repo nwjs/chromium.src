@@ -10,19 +10,20 @@
 #include "base/observer_list_threadsafe.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "sync/internal_api/public/base/model_type.h"
 
 class Profile;
 
-namespace sync_notifier {
+namespace syncer {
 class SyncNotifierObserver;
 }  // namespace
 
 namespace browser_sync {
 
 // A thread-safe bridge for chrome events that can trigger sync notifications.
-// Currently only listens to NOTIFICATION_SYNC_REFRESH, triggering each
-// observer's OnIncomingNotification method. Only the SESSIONS datatype is
-// currently expected to be able to trigger this notification.
+// Listens to NOTIFICATION_SYNC_REFRESH_LOCAL and
+// NOTIFICATION_SYNC_REFRESH_REMOTE and triggers each observer's
+// OnIncomingNotification method on these notifications.
 // Note: Notifications are expected to arrive on the UI thread, but observers
 // may live on any thread.
 class ChromeSyncNotificationBridge : public content::NotificationObserver {
@@ -30,9 +31,12 @@ class ChromeSyncNotificationBridge : public content::NotificationObserver {
   explicit ChromeSyncNotificationBridge(const Profile* profile);
   virtual ~ChromeSyncNotificationBridge();
 
+  // Must be called on UI thread.
+  void UpdateEnabledTypes(const syncer::ModelTypeSet enabled_types);
+
   // These can be called on any thread.
-  virtual void AddObserver(sync_notifier::SyncNotifierObserver* observer);
-  virtual void RemoveObserver(sync_notifier::SyncNotifierObserver* observer);
+  virtual void AddObserver(syncer::SyncNotifierObserver* observer);
+  virtual void RemoveObserver(syncer::SyncNotifierObserver* observer);
 
   // NotificationObserver implementation. Called on UI thread.
   virtual void Observe(int type,
@@ -41,10 +45,11 @@ class ChromeSyncNotificationBridge : public content::NotificationObserver {
 
  private:
   content::NotificationRegistrar registrar_;
+  syncer::ModelTypeSet enabled_types_;
 
   // Because [Add/Remove]Observer can be called from any thread, we need a
   // thread-safe observerlist.
-  scoped_refptr<ObserverListThreadSafe<sync_notifier::SyncNotifierObserver> >
+  scoped_refptr<ObserverListThreadSafe<syncer::SyncNotifierObserver> >
       observers_;
 };
 

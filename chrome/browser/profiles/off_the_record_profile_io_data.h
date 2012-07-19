@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PROFILES_OFF_THE_RECORD_PROFILE_IO_DATA_H_
 #define CHROME_BROWSER_PROFILES_OFF_THE_RECORD_PROFILE_IO_DATA_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/callback.h"
@@ -98,20 +97,26 @@ class OffTheRecordProfileIOData : public ProfileIOData {
 
   virtual void LazyInitializeInternal(
       ProfileParams* profile_params) const OVERRIDE;
-  virtual scoped_refptr<ChromeURLRequestContext> InitializeAppRequestContext(
-      scoped_refptr<ChromeURLRequestContext> main_context,
+  virtual ChromeURLRequestContext* InitializeAppRequestContext(
+      ChromeURLRequestContext* main_context,
       const std::string& app_id) const OVERRIDE;
-  virtual scoped_refptr<ChromeURLRequestContext>
+  virtual ChromeURLRequestContext*
       AcquireMediaRequestContext() const OVERRIDE;
-  virtual scoped_refptr<ChromeURLRequestContext>
+  virtual ChromeURLRequestContext*
       AcquireIsolatedAppRequestContext(
-          scoped_refptr<ChromeURLRequestContext> main_context,
+          ChromeURLRequestContext* main_context,
           const std::string& app_id) const OVERRIDE;
+
+  void CreateFtpProtocolHandler(net::URLRequestJobFactory* job_factory,
+                                net::FtpAuthCache* ftp_auth_cache) const;
 
   mutable scoped_ptr<net::HttpServerPropertiesImpl> http_server_properties_;
 
   mutable scoped_ptr<net::HttpTransactionFactory> main_http_factory_;
   mutable scoped_ptr<net::FtpTransactionFactory> ftp_factory_;
+
+  mutable scoped_ptr<net::URLRequestJobFactory> main_job_factory_;
+  mutable scoped_ptr<net::URLRequestJobFactory> extensions_job_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(OffTheRecordProfileIOData);
 };

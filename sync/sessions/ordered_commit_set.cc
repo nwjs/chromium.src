@@ -8,11 +8,11 @@
 
 #include "base/logging.h"
 
-namespace browser_sync {
+namespace syncer {
 namespace sessions {
 
 OrderedCommitSet::OrderedCommitSet(
-    const browser_sync::ModelSafeRoutingInfo& routes)
+    const syncer::ModelSafeRoutingInfo& routes)
     : routes_(routes) {
 }
 
@@ -20,7 +20,7 @@ OrderedCommitSet::~OrderedCommitSet() {}
 
 void OrderedCommitSet::AddCommitItem(const int64 metahandle,
                                      const syncable::Id& commit_id,
-                                     syncable::ModelType type) {
+                                     syncer::ModelType type) {
   if (!HaveCommitItem(metahandle)) {
     inserted_metahandles_.insert(metahandle);
     metahandle_order_.push_back(metahandle);
@@ -31,8 +31,15 @@ void OrderedCommitSet::AddCommitItem(const int64 metahandle,
   }
 }
 
+const OrderedCommitSet::Projection& OrderedCommitSet::GetCommitIdProjection(
+    syncer::ModelSafeGroup group) const {
+  Projections::const_iterator i = projections_.find(group);
+  DCHECK(i != projections_.end());
+  return i->second;
+}
+
 void OrderedCommitSet::Append(const OrderedCommitSet& other) {
-  for (int i = 0; i < other.Size(); ++i) {
+  for (size_t i = 0; i < other.Size(); ++i) {
     CommitItem item = other.GetCommitItemAt(i);
     AddCommitItem(item.meta, item.id, item.group);
   }
@@ -71,8 +78,19 @@ void OrderedCommitSet::Truncate(size_t max_size) {
   }
 }
 
+void OrderedCommitSet::Clear() {
+  inserted_metahandles_.clear();
+  commit_ids_.clear();
+  metahandle_order_.clear();
+  for (Projections::iterator it = projections_.begin();
+       it != projections_.end(); ++it) {
+    it->second.clear();
+  }
+  types_.clear();
+}
+
 OrderedCommitSet::CommitItem OrderedCommitSet::GetCommitItemAt(
-    const int position) const {
+    const size_t position) const {
   DCHECK(position < Size());
   CommitItem return_item = {metahandle_order_[position],
       commit_ids_[position],
@@ -82,7 +100,7 @@ OrderedCommitSet::CommitItem OrderedCommitSet::GetCommitItemAt(
 
 bool OrderedCommitSet::HasBookmarkCommitId() const {
   ModelSafeRoutingInfo::const_iterator group
-      = routes_.find(syncable::BOOKMARKS);
+      = routes_.find(syncer::BOOKMARKS);
   if (group == routes_.end())
     return false;
   Projections::const_iterator proj = projections_.find(group->second);
@@ -90,7 +108,7 @@ bool OrderedCommitSet::HasBookmarkCommitId() const {
     return false;
   DCHECK_LE(proj->second.size(), types_.size());
   for (size_t i = 0; i < proj->second.size(); i++) {
-    if (types_[proj->second[i]] == syncable::BOOKMARKS)
+    if (types_[proj->second[i]] == syncer::BOOKMARKS)
       return true;
   }
   return false;
@@ -106,5 +124,5 @@ void OrderedCommitSet::operator=(const OrderedCommitSet& other) {
 }
 
 }  // namespace sessions
-}  // namespace browser_sync
+}  // namespace syncer
 

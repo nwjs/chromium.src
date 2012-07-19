@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_BROWSER_CONTENT_SETTING_BUBBLE_MODEL_DELEGATE_H_
 #define CHROME_BROWSER_UI_BROWSER_CONTENT_SETTING_BUBBLE_MODEL_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -21,8 +20,7 @@ class BrowserContentSettingBubbleModelDelegate
   virtual ~BrowserContentSettingBubbleModelDelegate();
 
   // ContentSettingBubbleModelDelegate implementation:
-  virtual void ShowCollectedCookiesDialog(
-      TabContentsWrapper* contents) OVERRIDE;
+  virtual void ShowCollectedCookiesDialog(TabContents* contents) OVERRIDE;
   virtual void ShowContentSettingsPage(ContentSettingsType type) OVERRIDE;
 
  private:

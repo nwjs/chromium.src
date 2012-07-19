@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -82,9 +82,9 @@ DownloadStartedAnimationWin::DownloadStartedAnimationWin(
     : ui::LinearAnimation(kMoveTimeMs, kFrameRateHz, NULL),
       popup_(NULL),
       web_contents_(web_contents) {
-  static SkBitmap* kDownloadImage = NULL;
+  static gfx::ImageSkia* kDownloadImage = NULL;
   if (!kDownloadImage) {
-    kDownloadImage = ResourceBundle::GetSharedInstance().GetBitmapNamed(
+    kDownloadImage = ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
         IDR_DOWNLOAD_ANIMATION_BEGIN);
   }
 
@@ -96,7 +96,7 @@ DownloadStartedAnimationWin::DownloadStartedAnimationWin(
 
   registrar_.Add(
       this,
-      content::NOTIFICATION_WEB_CONTENTS_HIDDEN,
+      content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED,
       content::Source<WebContents>(web_contents_));
   registrar_.Add(
       this,
@@ -143,7 +143,7 @@ void DownloadStartedAnimationWin::Close() {
 
   registrar_.Remove(
       this,
-      content::NOTIFICATION_WEB_CONTENTS_HIDDEN,
+      content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED,
       content::Source<WebContents>(web_contents_));
   registrar_.Remove(
       this,
@@ -163,10 +163,7 @@ void DownloadStartedAnimationWin::AnimateToState(double state) {
     double opacity = std::min(1.0 - pow(GetCurrentValue() - 0.5, 2) * 4.0,
                               static_cast<double>(1.0));
 
-    popup_->SetOpacity(
-        static_cast<SkColor>(opacity * 255.0));
-    SchedulePaint();  // Reposition() calls MoveWindow() which never picks up
-                      // alpha changes, so we need to force a paint.
+    popup_->SetOpacity(static_cast<unsigned char>(opacity * 255.0));
   }
 }
 
@@ -174,6 +171,11 @@ void DownloadStartedAnimationWin::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
+  if (type == content::NOTIFICATION_WEB_CONTENTS_VISIBILITY_CHANGED) {
+    bool visible = *content::Details<bool>(details).ptr();
+    if (visible)
+      return;
+  }
   Close();
 }
 

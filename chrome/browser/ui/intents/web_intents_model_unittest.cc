@@ -11,7 +11,7 @@
 #include "chrome/browser/intents/web_intents_registry.h"
 #include "chrome/browser/ui/intents/web_intents_model.h"
 #include "chrome/browser/webdata/web_data_service.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/models/tree_node_model.h"
 
@@ -34,9 +34,12 @@ class WebIntentsModelTest : public testing::Test {
   }
 
   virtual void TearDown() {
-    if (wds_.get())
-      wds_->Shutdown();
-
+    wds_->ShutdownOnUIThread();
+    wds_ = NULL;
+    base::WaitableEvent done(false, false);
+    BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+        base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+    done.Wait();
     db_thread_.Stop();
     MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
     MessageLoop::current()->Run();
@@ -189,10 +192,10 @@ TEST_F(WebIntentsModelTest, LoadFromWebData) {
 TEST_F(WebIntentsModelTest, TestMultipleIntentsOnHost) {
   LoadRegistry();
   webkit_glue::WebIntentServiceData service;
-  service.service_url = GURL("http://www.google.com/edit");
-  service.action = ASCIIToUTF16("EDIT");
+  service.service_url = GURL("http://www.google.com/xedit");
+  service.action = ASCIIToUTF16("XEDIT");
   service.type = ASCIIToUTF16("text/plain");
-  service.title = ASCIIToUTF16("Edit");
+  service.title = ASCIIToUTF16("XEdit");
   registry_.RegisterIntentService(service);
 
   WaitingWebIntentsObserver obs;
@@ -207,6 +210,6 @@ TEST_F(WebIntentsModelTest, TestMultipleIntentsOnHost) {
   ASSERT_EQ(WebIntentsTreeNode::TYPE_SERVICE, node->Type());
   ASSERT_EQ(WebIntentsTreeNode::TYPE_SERVICE, node->Type());
   ServiceTreeNode* snode = static_cast<ServiceTreeNode*>(node);
-  EXPECT_EQ(ASCIIToUTF16("EDIT"), snode->Action());
-  EXPECT_EQ(ASCIIToUTF16("http://www.google.com/edit"), snode->ServiceUrl());
+  EXPECT_EQ(ASCIIToUTF16("XEDIT"), snode->Action());
+  EXPECT_EQ(ASCIIToUTF16("http://www.google.com/xedit"), snode->ServiceUrl());
 }

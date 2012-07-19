@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PLUGIN_INFOBAR_DELEGATES_H_
 #define CHROME_BROWSER_PLUGIN_INFOBAR_DELEGATES_H_
-#pragma once
 
 #include "base/callback.h"
 #include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
@@ -20,7 +19,9 @@ class PluginObserver;
 // Base class for blocked plug-in infobars.
 class PluginInfoBarDelegate : public ConfirmInfoBarDelegate {
  public:
-  PluginInfoBarDelegate(InfoBarTabHelper* infobar_helper, const string16& name);
+  PluginInfoBarDelegate(InfoBarTabHelper* infobar_helper,
+                        const string16& name,
+                        const std::string& identifier);
 
  protected:
   virtual ~PluginInfoBarDelegate();
@@ -39,6 +40,8 @@ class PluginInfoBarDelegate : public ConfirmInfoBarDelegate {
   virtual gfx::Image* GetIcon() const OVERRIDE;
   virtual string16 GetLinkText() const OVERRIDE;
 
+  std::string identifier_;
+
   DISALLOW_COPY_AND_ASSIGN(PluginInfoBarDelegate);
 };
 
@@ -46,8 +49,9 @@ class PluginInfoBarDelegate : public ConfirmInfoBarDelegate {
 class UnauthorizedPluginInfoBarDelegate : public PluginInfoBarDelegate {
  public:
   UnauthorizedPluginInfoBarDelegate(InfoBarTabHelper* infobar_helper,
-                               HostContentSettingsMap* content_settings,
-                               const string16& name);
+                                    HostContentSettingsMap* content_settings,
+                                    const string16& name,
+                                    const std::string& identifier);
 
  private:
   virtual ~UnauthorizedPluginInfoBarDelegate();
@@ -102,7 +106,7 @@ class OutdatedPluginInfoBarDelegate : public PluginInfoBarDelegate,
   // not have any buttons (and not call the callback).
   void ReplaceWithInfoBar(const string16& message);
 
-  // Has the same lifetime as TabContentsWrapper, which owns us
+  // Has the same lifetime as TabContents, which owns us
   // (transitively via InfoBarTabHelper).
   PluginObserver* observer_;
 
@@ -166,5 +170,32 @@ class PluginInstallerInfoBarDelegate : public ConfirmInfoBarDelegate,
   DISALLOW_COPY_AND_ASSIGN(PluginInstallerInfoBarDelegate);
 };
 #endif  // defined(ENABLE_PLUGIN_INSTALLATION)
+
+#if defined(OS_WIN)
+class PluginMetroModeInfoBarDelegate : public ConfirmInfoBarDelegate {
+ public:
+  // Shows an infobar asking the user to switch to desktop chrome if they
+  // want to use the plugin.
+  static InfoBarDelegate* Create(InfoBarTabHelper* infobar_helper,
+                                 const string16& plugin_name);
+ private:
+  PluginMetroModeInfoBarDelegate(InfoBarTabHelper* infobar_helper,
+                                 const string16& message);
+  virtual ~PluginMetroModeInfoBarDelegate();
+
+  // ConfirmInfoBarDelegate:
+  virtual gfx::Image* GetIcon() const OVERRIDE;
+  virtual string16 GetMessageText() const OVERRIDE;
+  virtual int GetButtons() const OVERRIDE;
+  virtual string16 GetButtonLabel(InfoBarButton button) const OVERRIDE;
+  virtual bool Accept() OVERRIDE;
+  virtual string16 GetLinkText() const OVERRIDE;
+  virtual bool LinkClicked(WindowOpenDisposition disposition) OVERRIDE;
+
+  string16 message_;
+
+  DISALLOW_COPY_AND_ASSIGN(PluginMetroModeInfoBarDelegate);
+};
+#endif  // defined(OS_WIN)
 
 #endif  // CHROME_BROWSER_PLUGIN_INFOBAR_DELEGATES_H_

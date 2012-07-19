@@ -1,18 +1,16 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_MOCK_LOCATION_PROVIDER_H_
 #define CONTENT_BROWSER_GEOLOCATION_MOCK_LOCATION_PROVIDER_H_
-#pragma once
 
 
+#include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
 #include "content/browser/geolocation/location_provider.h"
-#include "content/common/geoposition.h"
-#include "googleurl/src/gurl.h"
+#include "content/public/common/geoposition.h"
 
 // Mock implementation of a location provider for testing.
 class MockLocationProvider : public LocationProviderBase {
@@ -23,17 +21,17 @@ class MockLocationProvider : public LocationProviderBase {
   virtual ~MockLocationProvider();
 
   // Updates listeners with the new position.
-  void HandlePositionChanged(const Geoposition& position);
+  void HandlePositionChanged(const content::Geoposition& position);
 
   // LocationProviderBase implementation.
   virtual bool StartProvider(bool high_accuracy) OVERRIDE;
   virtual void StopProvider() OVERRIDE;
-  virtual void GetPosition(Geoposition* position) OVERRIDE;
-  virtual void OnPermissionGranted(const GURL& requesting_frame) OVERRIDE;
+  virtual void GetPosition(content::Geoposition* position) OVERRIDE;
+  virtual void OnPermissionGranted() OVERRIDE;
 
-  Geoposition position_;
+  content::Geoposition position_;
   enum State { STOPPED, LOW_ACCURACY, HIGH_ACCURACY } state_;
-  GURL permission_granted_url_;
+  bool is_permission_granted_;
   MockLocationProvider** self_ref_;
 
   scoped_refptr<base::MessageLoopProxy> provider_loop_;

@@ -4,18 +4,19 @@
 
 #ifndef SYNC_TEST_NULL_TRANSACTION_OBSERVER_H_
 #define SYNC_TEST_NULL_TRANSACTION_OBSERVER_H_
-#pragma once
 
-#include "sync/util/weak_handle.h"
+#include "sync/internal_api/public/util/weak_handle.h"
 
+namespace syncer {
 namespace syncable {
 
 class TransactionObserver;
 
 // Returns an initialized weak handle to a transaction observer that
 // does nothing.
-browser_sync::WeakHandle<TransactionObserver> NullTransactionObserver();
+syncer::WeakHandle<TransactionObserver> NullTransactionObserver();
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_TEST_NULL_TRANSACTION_OBSERVER_H_

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,6 +6,7 @@
 #include "base/file_path.h"
 #include "base/scoped_temp_dir.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -56,9 +57,10 @@ IN_PROC_BROWSER_TEST_F(MHTMLGenerationTest, GenerateMHTML) {
   ui_test_utils::NavigateToURL(browser(),
       test_server()->GetURL("files/google/google.html"));
 
-  WebContents* tab = browser()->GetSelectedWebContents();
-  tab->GenerateMHTML(path,
-                     base::Bind(&MHTMLGenerationTest::MHTMLGenerated, this));
+  WebContents* web_contents = chrome::GetActiveWebContents(browser());
+  web_contents->GenerateMHTML(path,
+                              base::Bind(&MHTMLGenerationTest::MHTMLGenerated,
+                                         this));
 
   // Block until the MHTML is generated.
   ui_test_utils::RunMessageLoop();

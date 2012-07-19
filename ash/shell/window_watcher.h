@@ -4,7 +4,6 @@
 
 #ifndef ASH_SHELL_WINDOW_WATCHER_H_
 #define ASH_SHELL_WINDOW_WATCHER_H_
-#pragma once
 
 #include <map>
 
@@ -39,6 +38,8 @@ class WindowWatcher : public aura::WindowObserver {
 
   // Window watching for newly created windows to be added to.
   aura::Window* window_;
+
+  aura::Window* panel_container_;
 
   // Maps from window to the id we gave it.
   IDToWindow id_to_window_;

@@ -60,6 +60,9 @@ void SampleErrorStatus(DeviceManagementStatus status) {
     case DM_STATUS_RESPONSE_DECODING_ERROR:
       sample = kMetricTokenFetchBadResponse;
       break;
+    case DM_STATUS_MISSING_LICENSES:
+      sample = kMetricMissingLicenses;
+      break;
     case DM_STATUS_TEMPORARY_UNAVAILABLE:
     case DM_STATUS_SERVICE_ACTIVATION_PENDING:
     case DM_STATUS_SERVICE_POLICY_NOT_FOUND:
@@ -135,6 +138,10 @@ void DeviceTokenFetcher::SetSerialNumberInvalidState() {
   SetState(STATE_BAD_SERIAL);
 }
 
+void DeviceTokenFetcher::SetMissingLicensesState() {
+  SetState(STATE_MISSING_LICENSES);
+}
+
 void DeviceTokenFetcher::Reset() {
   SetState(STATE_INACTIVE);
 }
@@ -178,6 +185,8 @@ void DeviceTokenFetcher::FetchTokenInternal() {
     request->set_machine_model(data_store_->machine_model());
   if (data_store_->known_machine_id())
     request->set_auto_enrolled(true);
+  if (data_store_->reregister())
+    request->set_reregister(true);
   request_job_->Start(base::Bind(&DeviceTokenFetcher::OnTokenFetchCompleted,
                                  base::Unretained(this)));
   UMA_HISTOGRAM_ENUMERATION(kMetricToken, kMetricTokenFetchRequested,
@@ -192,6 +201,8 @@ void DeviceTokenFetcher::OnTokenFetchCompleted(
     status = DM_STATUS_RESPONSE_DECODING_ERROR;
   }
 
+  LOG_IF(ERROR, status != DM_STATUS_SUCCESS) << "DMServer returned error code: "
+                                             << status;
   SampleErrorStatus(status);
 
   switch (status) {
@@ -204,8 +215,6 @@ void DeviceTokenFetcher::OnTokenFetchCompleted(
 
         if (data_store_->policy_register_type() ==
                 em::DeviceRegisterRequest::DEVICE) {
-          // TODO(pastarmovj): Default to DEVICE_MODE_UNKNOWN once DM server has
-          // been updated. http://crosbug.com/26624
           DeviceMode mode = DEVICE_MODE_ENTERPRISE;
           if (register_response.has_enrollment_type()) {
             mode = TranslateProtobufDeviceMode(
@@ -246,6 +255,9 @@ void DeviceTokenFetcher::OnTokenFetchCompleted(
     case DM_STATUS_SERVICE_INVALID_SERIAL_NUMBER:
       SetSerialNumberInvalidState();
       return;
+    case DM_STATUS_MISSING_LICENSES:
+      SetMissingLicensesState();
+      return;
     case DM_STATUS_REQUEST_INVALID:
     case DM_STATUS_HTTP_STATUS_ERROR:
     case DM_STATUS_RESPONSE_DECODING_ERROR:
@@ -285,6 +297,11 @@ void DeviceTokenFetcher::SetState(FetcherState state) {
     case STATE_BAD_ENROLLMENT_MODE:
       notifier_->Inform(CloudPolicySubsystem::UNENROLLED,
                         CloudPolicySubsystem::BAD_ENROLLMENT_MODE,
+                        PolicyNotifier::TOKEN_FETCHER);
+      break;
+    case STATE_MISSING_LICENSES:
+      notifier_->Inform(CloudPolicySubsystem::UNENROLLED,
+                        CloudPolicySubsystem::MISSING_LICENSES,
                         PolicyNotifier::TOKEN_FETCHER);
       break;
     case STATE_UNMANAGED:
@@ -343,6 +360,7 @@ void DeviceTokenFetcher::DoWork() {
     case STATE_TOKEN_AVAILABLE:
     case STATE_BAD_SERIAL:
     case STATE_BAD_ENROLLMENT_MODE:
+    case STATE_MISSING_LICENSES:
       break;
     case STATE_UNMANAGED:
     case STATE_ERROR:

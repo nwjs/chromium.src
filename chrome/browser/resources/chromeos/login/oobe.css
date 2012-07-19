@@ -13,15 +13,52 @@ body {
 }
 
 body {
-  background: #fefefe;
   font-size: 14px;
   margin: 0;
   overflow: hidden;
   padding: 0;
 }
 
+html[oobe=old] body {
+  background-color: #fefefe;
+}
+
+html[oobe=new]:not([screen=lock]) body {
+  background-color: transparent;
+}
+
+html[oobe=new][screen=lock] body {
+  -webkit-background-size: 100% 100%;
+}
+
+progress {
+  border: solid 1px #bbb;
+  padding: 1px;
+}
+
+progress::-webkit-progress-bar {
+  background: white;
+}
+
+progress::-webkit-progress-value {
+  background: #bbb;
+}
+
 button {
   font-family: inherit;
+  outline: none;
+}
+
+/* Follow same focus coloring as in widgets.css */
+button.custom-appearance {
+  -webkit-transition: border-color 200ms;
+  border: 1px solid transparent;
+  /* Don't grey out disabled buttons. */
+  color: buttontext !important;
+}
+
+button.custom-appearance:focus {
+  border-color: rgb(77, 144, 254);
 }
 
 #outer-container {
@@ -35,18 +72,32 @@ button {
   top: 0;
 }
 
-#oobe {
+html[oobe=old] #oobe {
   margin-top: 20px;  /* Compensate bottom header to center content. */
 }
 
+html[oobe=new] #oobe {
+  margin-top: 40px;  /* Compensate bottom header to center content. */
+}
+
 #inner-container {
+  /* Height/width of each step is set manually,
+     see DisplayManager.toggleStep_() */
   height: 294px;
-  padding: 20px;
   position: relative;
   width: 640px;
 }
 
+html[oobe=old] #inner-container {
+  padding: 20px;
+}
+
+html[oobe=new] #inner-container {
+  padding: 0;
+}
+
 #security-info a,
+#security-tpm a,
 #eula a {
   color: rgb(0, 102, 104);
   text-decoration: none;
@@ -78,8 +129,12 @@ hr.bottom {
 }
 
 #header {
-  -webkit-padding-start: 34px;
-  background-image: url('chrome://theme/IDR_PRODUCT_LOGO_32');
+  -webkit-padding-start: 45px;
+  /* TODO(thakis): Move oobe.html to a structure element, then the
+   * image set should be inserted automatically. */
+  background-image: -webkit-image-set(
+      url('chrome://theme/IDR_PRODUCT_LOGO_32') 1x,
+      url('chrome://theme/IDR_PRODUCT_LOGO_32@2x') 2x);
   background-position: left center;
   background-repeat: no-repeat;
   background-size: 32px;
@@ -91,6 +146,11 @@ hr.bottom {
   padding-top: 1px;
 }
 
+/* TODO(nkostylev): Remove all #header, #header-sections related rules. */
+html[oobe=new] #header {
+  display: none;
+}
+
 #header span {
   text-transform: lowercase;
 }
@@ -98,6 +158,7 @@ hr.bottom {
 #header span,
 #user-image-screen-curtain p,
 .label,
+.flexible-label,
 .menu-control {
   cursor: default;
 }
@@ -141,19 +202,82 @@ html[dir=rtl]  .header-section.left {
   right: -20px;
 }
 
-.step {
+html[oobe=old] .step-logo {
+  display: none;
+}
+
+.step-logo {
+  position: absolute;
+  top: 15px;
+}
+
+html[dir=ltr] .step-logo {
+  left: 17px;
+}
+
+html[dir=rtl] .step-logo {
+  right: 17px;
+}
+
+html[oobe=new] #connect .step-contents {
+  /* TODO(nkostylev): Update after content layout changes. */
+  -webkit-margin-after: 82px;
+  -webkit-margin-before: 82px;
+  -webkit-margin-start: 145px;
+}
+
+html[oobe=new] #eula .step-contents {
+  -webkit-margin-after: 30px;
+  -webkit-margin-start: 32px;
+}
+
+html[oobe=new] #gaia-signin .step-contents {
+  -webkit-box-pack: center;
+  display: -webkit-box;
+}
+
+html[oobe=new] #user-image .step-contents {
+  -webkit-margin-after: 30px;
+  -webkit-margin-start: 31px;
+}
+
+html[oobe=new] #oauth-enrollment .step-contents {
+  -webkit-margin-after: 10px;
+}
+
+html[oobe=new] #user-image-screen-curtain {
+  -webkit-margin-start: 8px;
+}
+
+html[oobe=new] #user-image-screen-description {
+  -webkit-margin-before: 0;
+}
+
+html[oobe=old] .step {
   min-height: 294px;
   opacity: 1;
   position: absolute;
   width: 640px;
 }
 
-html[dir=ltr] .step {
+html[oobe=new] .step {
+  background: -webkit-linear-gradient(rgba(255,255,255,0.99),
+                                      rgba(255,255,255,0.95));
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3),
+              0 4px 23px 5px rgba(0, 0, 0, 0.2),
+              0 2px 6px rgba(0, 0, 0, 0.15);
+  position: absolute;
+}
+
+html[oobe=old][dir=ltr] .step {
+  /* TODO(nkostylev): Change to new transitions. */
   -webkit-transition: left 200ms, opacity 200ms, visibility 200ms ease-in-out;
   left: 0;
 }
 
-html[dir=rtl] .step {
+html[oobe=old][dir=rtl] .step {
+  /* TODO(nkostylev): Change to new transitions. */
   -webkit-transition: right 200ms, opacity 200ms, visibility 200ms ease-in-out;
   right: 0;
 }
@@ -166,11 +290,11 @@ html[dir=rtl] .step {
   left: -50px;
 }
 
-html[dir=rtl]  .step.right {
+html[dir=rtl] .step.right {
   right: 100px;
 }
 
-html[dir=rtl]  .step.left {
+html[dir=rtl] .step.left {
   right: -50px;
 }
 
@@ -178,9 +302,17 @@ html[dir=rtl]  .step.left {
   visibility: hidden;
 }
 
-.faded,
-.left,
-.right {
+/* Have to add attribute selector here otherwise style html[oobe=old] .step
+   has more points. */
+html[oobe=old] .faded,
+html[oobe=old] .left,
+html[oobe=old] .right {
+  opacity: 0;
+}
+
+html[oobe=new] .faded,
+html[oobe=new] .left,
+html[oobe=new] .right {
   opacity: 0;
 }
 
@@ -189,18 +321,41 @@ html[dir=rtl]  .step.left {
   display: -webkit-box;
 }
 
-#progress {
+/* TODO(nkostylev): Remove all #footer related rules. */
+html[oobe=new] #footer {
+  display: none;
+}
+
+html[oobe=old] #progress {
   -webkit-box-align: center;
+  display: -webkit-box;
+}
+
+html[oobe=old] #progress-dots {
+  display: none;
+}
+
+html[oobe=new] #progress-dots {
+  -webkit-box-pack: center;
+  -webkit-margin-before: 15px;
   display: -webkit-box;
 }
 
 .progdot {
   -webkit-margin-end: 12px;
   background: black;
+  opacity: 0.1;
+}
+
+html[oobe=old] .progdot {
   border-radius: 2px;
   height: 8px;
-  opacity: 0.1;
   width: 8px;
+}
+
+html[oobe=new] .progdot {
+  height: 10px;
+  width: 10px;
 }
 
 .progdot-active {
@@ -224,16 +379,62 @@ html[dir=rtl]  .step.left {
   width: 250px;
 }
 
-.label {
+.label,
+.flexible-label {
   display: block;
   margin: 5px 5px 5px 0;
   padding: 5px 5px 5px 0;
+}
+
+.label {
   width: 170px;
 }
 
-#connect {
+.flexible-label {
+  max-width: 250px;
+}
+
+html[oobe=old] #connect {
   box-sizing: border-box;
   padding: 60px 0 0 145px;
+}
+
+/* Padding for header and buttons. */
+/* TODO(nkostylev): Extract common style for OOBE steps. */
+html[oobe=new] #connect {
+  min-height: 304px;
+  padding: 70px 17px 21px;
+  width: 688px;
+}
+
+html[oobe=new] #eula {
+  min-height: 304px;
+  padding: 70px 17px 21px;
+  width: 688px;
+}
+
+html[oobe=new] #update {
+  min-height: 284px;
+  padding: 70px 17px 69px;    /* Screen has no controls. */
+  width: 688px;
+}
+
+html[oobe=new] #gaia-signin {
+  height: 470px;
+  padding: 70px 17px 69px;    /* Screen has no controls. */
+  width: 688px;
+}
+
+html[oobe=new] #user-image {
+  min-height: 352px;
+  padding: 70px 17px 21px;
+  width: 688px;
+}
+
+html[oobe=new] #oauth-enrollment {
+  min-height: 518px;
+  padding: 70px 17px 21px;
+  width: 688px;
 }
 
 #logging {
@@ -241,6 +442,10 @@ html[dir=rtl]  .step.left {
   font-size: small;
   margin-top: 20px;
   width: 500px;
+}
+
+html[oobe=new] #logging {
+  width: 620px;
 }
 
 #logging div {
@@ -252,7 +457,7 @@ html[dir=rtl]  .step.left {
   -webkit-margin-end: 10px;
 }
 
-#user-image {
+html[oobe=old] #user-image {
   margin: 0 20px;
 }
 
@@ -312,6 +517,17 @@ html[dir=rtl]  .step.left {
   top: 14px;
 }
 
+/**
+ * #user-image-preview can have the following classes:
+ * .default-image: one of the default images is selected (including the grey
+ *                 silhouette);
+ * .profile-image: profile image is selected;
+ * .profile-image-loading: profile image is being loaded;
+ * .online: camera is streaming video;
+ * .camera: camera (live or photo) is selected;
+ * .live: camera is in live mode (no photo taken yet/last photo removed).
+ */
+
 #user-image-preview {
   border-radius: 4px;
   float: right;
@@ -324,13 +540,70 @@ html[dir=rtl] #user-image-preview {
 }
 
 #user-image-preview-img {
+  display: block;
   max-height: 220px;
   max-width: 220px;
+}
+
+html[camera=webrtc] .camera.live #user-image-preview-img {
+  display: none;
 }
 
 .default-image #user-image-preview-img {
   background: white;
   border: solid 1px #cacaca;
+}
+
+.user-image-stream-area {
+  display: none;
+  padding: 0;
+  position: relative;
+}
+
+html[camera=webrtc] .camera.live .user-image-stream-area {
+  display: block;
+}
+
+#user-image-stream-crop {
+  -webkit-transition: -webkit-transform 200ms linear;
+  height: 220px;
+  overflow: hidden;
+  position: relative;
+  width: 220px;
+}
+
+.flip-x #user-image-stream-crop {
+  -webkit-transform: rotateY(180deg);
+}
+
+/* TODO(ivankr): specify dimensions from real capture size. */
+.user-image-stream {
+  border: solid 1px #cacaca;
+  height: 220px;
+  /* Center image for 4:3 aspect ratio. */
+  left: -16.6%;
+  position: absolute;
+  visibility: hidden;
+}
+
+.online .user-image-stream {
+  visibility: visible;
+}
+
+.user-image-stream-area .spinner {
+  display: none;
+  left: 14px;
+  position: absolute;
+  top: 14px;
+}
+
+html[dir=rtl] .user-image-stream-area .spinner {
+  left: auto;
+  right: 14px;
+}
+
+.camera.live:not(.online) .user-image-stream-area .spinner {
+  display: block;
 }
 
 #user-image-preview-caption {
@@ -339,6 +612,59 @@ html[dir=rtl] #user-image-preview {
   margin: 8px 4px;
 }
 
+.camera #user-image-preview-caption {
+  display: none;
+}
+
+#flip-photo {
+  -webkit-transition: opacity 75ms linear;
+  background: url('chrome://theme/IDR_MIRROR_FLIP') no-repeat;
+  border: none;
+  bottom: 8px;
+  display: block;
+  height: 32px;
+  opacity: 0;
+  position: absolute;
+  right: 8px;
+  width: 32px;
+}
+
+html[dir=rtl] #flip-photo {
+  left: 8px;
+  right: auto;
+}
+
+/* "Flip photo" button is hidden during flip animation. */
+.online:not(.animation) .user-image-stream-area:hover #flip-photo {
+  opacity: 0.75;
+}
+
+#discard-photo,
+#take-photo {
+  display: none;
+  height: 25px;
+  margin: 4px 1px;
+  padding: 0;
+  width: 220px;
+}
+
+html[camera=webrtc] .camera:not(.live) #discard-photo {
+  background: url('chrome://theme/IDR_USER_IMAGE_RECYCLE')
+      no-repeat center 0;
+  display: block;
+}
+
+html[camera=webrtc] .camera.live.online #take-photo {
+  background: url('chrome://theme/IDR_USER_IMAGE_CAPTURE')
+      no-repeat center -1px;
+  display: block;
+}
+
+#user-image-preview .perspective-box {
+  -webkit-perspective: 600px;
+}
+
+/* TODO(nkostylev): Remove footer, button-strip styles. */
 #footer {
   height: 28px;  /* Same as button height */
 }
@@ -353,6 +679,16 @@ html[dir=rtl] #user-image-preview {
   -webkit-box-flex: 1;
   -webkit-box-pack: end;
   display: -webkit-box;
+}
+
+.step-controls {
+  -webkit-box-pack: end;
+  display: -webkit-box;
+  height: 28px
+}
+
+html[oobe=old] .step-controls {
+  display: none;
 }
 
 #oobe.connect #continue-button,
@@ -390,6 +726,8 @@ html[dir=rtl] #user-image-preview {
   margin: 7em auto;
 }
 
+/* TODO(nkostylev): Cleanup, security-info - old design,
+   security-tpm - new design. */
 #security-info {
   bottom: 10px;
   left: 0;
@@ -409,24 +747,128 @@ html[dir=rtl] #user-image-preview {
   visibility: visible;
 }
 
-#update div {
-  margin: 6em auto;
+html[oobe=new] #security-info {
+  display: none;
+}
+
+/* TODO(nkostylev): Remove #security-tpm element and rules. */
+html[oobe=old] #security-tpm {
+  display: none;
+}
+
+#security-tpm a {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+#security-tpm {
+  bottom: 21px;
+  position: absolute;
+}
+
+html[dir=ltr] #security-tpm {
+  left: 49px;
+}
+
+html[dir=rtl] #security-tpm {
+  right: 49px;
+}
+
+html[oobe=old] #update div,
+#update #update-screen-curtain {
   width: 32em;
 }
 
-#update #update-cancel-hint {
+html[oobe=old] #update div {
+  margin: 6em auto;
+}
+
+#update-screen-curtain p {
+  text-align: center;
+}
+
+#update #update-screen-curtain {
+  -webkit-box-align: start;
+  -webkit-box-pack: center;
+  display: -webkit-box;
+}
+
+html[oobe=old] #update #update-screen-curtain {
+  margin: 9em auto;
+}
+
+html[oobe=new] #update #update-screen-curtain {
+  margin: 120px auto;
+}
+
+html[oobe=new] #update-screen-main {
+  /* TODO(nkostylev): Update after strings are updated. */
+  margin: 85px auto;
+  min-height: 114px;
+  width: 448px;
+}
+
+#update #update-checking-ellipsis {
+  width: 16px;
+}
+
+html[dir=ltr] #update #update-checking-ellipsis {
+  text-align: left;
+}
+
+html[dir=rtl] #update #update-checking-ellipsis {
+  text-align: right;
+}
+
+html[oobe=old] #update #update-cancel-hint {
   color: rgb(170, 0, 0);
   left: 50%;
   margin: 1em -16em;
   position: absolute;
 }
 
-#update progress {
-  margin: 13px 0;
-  width: 380px;
+html[oobe=new] #update #update-cancel-hint {
+  color: rgb(170, 0, 0);
+  position: absolute;
+  top: 80px;
 }
 
-button {
+html[oobe=new][dir=ltr] #update #update-cancel-hint {
+  left: 137px;
+}
+
+html[oobe=new][dir=rtl] #update #update-cancel-hint {
+  right: 137px;
+}
+
+#update #update-upper-label {
+  -webkit-margin-after: 4px;
+}
+
+#update #update-bottom-label {
+  -webkit-margin-after: 4px;
+  -webkit-margin-before: 4px;
+}
+
+#update progress {
+  -webkit-margin-after: 4px;
+  -webkit-margin-before: 34px;
+  -webkit-margin-start: 74px;
+  height: 15px;
+  width: 300px;
+}
+
+#update #update-estimated-time-left {
+  -webkit-margin-before: 4px;
+}
+
+#update #update-estimated-time-left {
+  color: #666;
+  font-size: 13px;
+  text-align: center;
+}
+
+button:not(.custom-appearance) {
   min-width: 80px;
 }
 
@@ -445,7 +887,13 @@ button {
 #cros-eula,
 #oem-eula {
   border: 1px solid #d9d9d9;
-  height: 200px
+  height: 200px;
+}
+
+html[oobe=new] .eula-frame,
+html[oobe=new] #cros-eula,
+html[oobe=new] #oem-eula {
+  height: 222px;
 }
 
 #oem-eula {
@@ -593,7 +1041,7 @@ button {
 
 /* Styling for OAuth enrollment screen. */
 
-#oauth-enroll-container {
+html[oobe=old] #oauth-enroll-container {
   bottom: 0;
   display: -webkit-box;
   left: 0;
@@ -602,20 +1050,39 @@ button {
   top: 0;
 }
 
+html[oobe=new] #oauth-enroll-container {
+  display: -webkit-box;
+}
+
+html[oobe=old] #oauth-enroll-signin-frame {
+  height: 100%;
+}
+
+html[oobe=new] #oauth-enroll-signin-frame {
+  height: 456px;
+}
+
 #oauth-enroll-signin-frame {
   border: 0 none;
-  height: 100%;
   width: 100%;
+}
+
+html[oobe=old] #oauth-enroll-signin-frame-container {
+  height: 100%;
 }
 
 #oauth-enroll-signin-frame-container {
   box-sizing: border-box;
-  height: 100%;
   padding-bottom: 20px;
   width: 100%;
 }
 
-#oauth-enroll-signin-link-container {
+html[oobe=new] #oauth-enroll-signin-link-container {
+  -webkit-box-pack: end;
+  display: -webkit-box;
+}
+
+html[oobe=old] #oauth-enroll-signin-link-container {
   bottom: 0;
   position: absolute;
   right: 0;
@@ -625,9 +1092,16 @@ button {
   width: 100%;
 }
 
+html[oobe=old] .oauth-enroll-step-center {
+  height: 100%;
+}
+
+html[oobe=new] .oauth-enroll-step-center {
+  height: 480px;
+}
+
 .oauth-enroll-step-center {
   display: table;
-  height: 100%;
   margin: 0 auto;
 }
 
@@ -687,6 +1161,11 @@ body.login-display #oobe hr.shadow {
                      from 640px to full width. */
 }
 
+/* TODO(nkostylev): Remove hr element and rules. */
+html[oobe=new] #oobe hr {
+  display: none;
+}
+
 body.login-display #oobe.signin hr,
 body.login-display #oobe.gaia-signin hr {
   opacity: 0;
@@ -698,7 +1177,7 @@ body.login-display #inner-container {
   width: 1100px;
 }
 
-body.login-display .step {
+html[oobe=old] body.login-display .step {
   left: 230px;  /* (1100px - 640px) / 2, make it center in oobe div */
 }
 
@@ -712,7 +1191,11 @@ body.login-display #footer {
   width: 640px;  /* Same width as .step screens */
 }
 
-body.login-display #progress {
+html[oobe=old] body.login-display #progress {
+  visibility: hidden;
+}
+
+html[oobe=new] body.login-display #progress-dots {
   visibility: hidden;
 }
 
@@ -725,6 +1208,7 @@ span.bold {
   background-image: url('chrome://theme/IDR_WARNING');
   background-position: left top;
   background-repeat: no-repeat;
+  background-size: 24px;
 }
 
 .error-message-padding {
@@ -741,7 +1225,7 @@ html[dir=rtl] .error-message {
   font-size: 11px;
   margin: 10px;
   opacity: 1.0;
-  text-align: right;
+  text-align: end;
   text-shadow: 0 1px 1px #fff;
 }
 
@@ -753,7 +1237,7 @@ html[dir=rtl] .error-message {
   color: #666;
   position: absolute;
   text-align: center;
-  top: 8px;
+  top: 40px;
   width: 100%;
 }
 
@@ -764,4 +1248,22 @@ html[dir=rtl] .error-message {
 #notification-area .butter-bar {
   margin: 0 auto;
   max-width: 850px;
+}
+
+#background {
+  -webkit-transition: 700ms opacity;
+  background-size: 100% 100%;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.background-initial {
+  opacity: 0;
+}
+
+.background-final {
+  opacity: 1;
 }

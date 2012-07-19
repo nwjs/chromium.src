@@ -13,12 +13,19 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
+#include "chrome/browser/chromeos/gdata/drive_task_executor.h"
 #include "chrome/browser/extensions/extension_event_router.h"
+#include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
+#include "chrome/browser/extensions/lazy_background_task_queue.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/extensions/file_browser_handler.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
@@ -36,8 +43,15 @@ using content::BrowserThread;
 using content::ChildProcessSecurityPolicy;
 using content::SiteInstance;
 using content::WebContents;
+using extensions::Extension;
 
 namespace file_handler_util {
+
+// The prefix used to differentiate drive extensions from Chrome extensions.
+const char FileTaskExecutor::kDriveTaskExtensionPrefix[] = "drive-app:";
+const size_t FileTaskExecutor::kDriveTaskExtensionPrefixLength =
+    arraysize(FileTaskExecutor::kDriveTaskExtensionPrefix) - 1;
+
 namespace {
 
 const int kReadWriteFilePermissions = base::PLATFORM_FILE_OPEN |
@@ -70,18 +84,6 @@ int ExtractProcessFromExtensionId(const std::string& extension_id,
   content::RenderProcessHost* process = site_instance->GetProcess();
 
   return process->GetID();
-}
-
-// Update file handler usage stats.
-void UpdateFileHandlerUsageStats(Profile* profile, const std::string& task_id) {
-  if (!profile || !profile->GetPrefs())
-    return;
-  DictionaryPrefUpdate prefs_usage_update(profile->GetPrefs(),
-      prefs::kLastUsedFileBrowserHandlers);
-  prefs_usage_update->SetWithoutPathExpansion(task_id,
-      new base::FundamentalValue(
-          static_cast<int>(base::Time::Now().ToInternalValue()/
-                           base::Time::kMicrosecondsPerSecond)));
 }
 
 URLPatternSet GetAllMatchingPatterns(const FileBrowserHandler* handler,
@@ -197,6 +199,18 @@ void SortLastUsedHandlerList(LastUsedHandlerList *list) {
 
 }  // namespace
 
+// Update file handler usage stats.
+void UpdateFileHandlerUsageStats(Profile* profile, const std::string& task_id) {
+  if (!profile || !profile->GetPrefs())
+    return;
+  DictionaryPrefUpdate prefs_usage_update(profile->GetPrefs(),
+      prefs::kLastUsedFileBrowserHandlers);
+  prefs_usage_update->SetWithoutPathExpansion(task_id,
+      new base::FundamentalValue(
+          static_cast<int>(base::Time::Now().ToInternalValue()/
+                           base::Time::kMicrosecondsPerSecond)));
+}
+
 int GetReadWritePermissions() {
   return kReadWriteFilePermissions;
 }
@@ -209,6 +223,13 @@ std::string MakeTaskID(const std::string& extension_id,
                        const std::string& action_id) {
   return base::StringPrintf("%s|%s", extension_id.c_str(), action_id.c_str());
 }
+
+std::string MakeDriveTaskID(const std::string& app_id,
+                            const std::string& action_id) {
+  return MakeTaskID(FileTaskExecutor::kDriveTaskExtensionPrefix + app_id,
+                    action_id);
+}
+
 
 // Breaks down task_id that is used between getFileTasks() and executeTask() on
 // its building blocks. task_id field the following structure:
@@ -224,6 +245,20 @@ bool CrackTaskID(const std::string& task_id,
   *extension_id = result[0];
   *action_id = result[1];
   return true;
+}
+
+// Find a specific handler in the handler list.
+LastUsedHandlerList::iterator FindHandler(
+    LastUsedHandlerList* list,
+    const std::string& extension_id,
+    const std::string& id) {
+  LastUsedHandlerList::iterator iter = list->begin();
+  while (iter != list->end() &&
+         !(iter->handler->extension_id() == extension_id &&
+           iter->handler->id() == id)) {
+    iter++;
+  }
+  return iter;
 }
 
 // Given the list of selected files, returns array of context menu tasks
@@ -268,7 +303,7 @@ bool FindCommonTasks(Profile* profile,
     int last_used_timestamp = 0;
 
     if ((*iter)->extension_id() == kFileBrowserDomain) {
-      // Give a little bump to the action from File Browser extenion
+      // Give a little bump to the action from File Browser extension
       // to make sure it is the default on a fresh profile.
       last_used_timestamp = 1;
     }
@@ -277,6 +312,23 @@ bool FindCommonTasks(Profile* profile,
     URLPatternSet matching_patterns = GetAllMatchingPatterns(*iter, files_list);
     named_action_list->push_back(LastUsedHandler(last_used_timestamp, *iter,
                                                  matching_patterns));
+  }
+
+  LastUsedHandlerList::iterator watch_iter = FindHandler(
+      named_action_list, kFileBrowserDomain, kFileBrowserWatchTaskId);
+  LastUsedHandlerList::iterator gallery_iter = FindHandler(
+      named_action_list, kFileBrowserDomain, kFileBrowserGalleryTaskId);
+  if (watch_iter != named_action_list->end() &&
+      gallery_iter != named_action_list->end()) {
+    // Both "watch" and "gallery" actions are applicable which means that
+    // the selection is all videos. Showing them both is confusing. We only keep
+    // the one that makes more sense ("watch" for single selection, "gallery"
+    // for multiple selection).
+
+    if (files_list.size() == 1)
+      named_action_list->erase(gallery_iter);
+    else
+      named_action_list->erase(watch_iter);
   }
 
   SortLastUsedHandlerList(named_action_list);
@@ -299,17 +351,131 @@ bool GetDefaultTask(
   return true;
 }
 
-FileTaskExecutor::FileDefinition::FileDefinition() {
+class ExtensionTaskExecutor : public FileTaskExecutor {
+ public:
+  // FileTaskExecutor overrides.
+  virtual bool ExecuteAndNotify(const std::vector<GURL>& file_urls,
+                       const FileTaskFinishedCallback& done) OVERRIDE;
+
+ private:
+  // FileTaskExecutor is the only class allowed to create one.
+  friend class FileTaskExecutor;
+
+  ExtensionTaskExecutor(Profile* profile,
+                        const GURL source_url,
+                        const std::string& extension_id,
+                        const std::string& action_id);
+  virtual ~ExtensionTaskExecutor();
+
+  struct FileDefinition {
+    FileDefinition();
+    ~FileDefinition();
+
+    GURL target_file_url;
+    FilePath virtual_path;
+    FilePath absolute_path;
+    bool is_directory;
+  };
+
+  typedef std::vector<FileDefinition> FileDefinitionList;
+  class ExecuteTasksFileSystemCallbackDispatcher;
+  void RequestFileEntryOnFileThread(
+      scoped_refptr<fileapi::FileSystemContext> file_system_context,
+      const GURL& handler_base_url,
+      const scoped_refptr<const extensions::Extension>& handler,
+      int handler_pid,
+      const std::vector<GURL>& file_urls);
+
+  void ExecuteDoneOnUIThread(bool success);
+  void ExecuteFileActionsOnUIThread(const std::string& file_system_name,
+                                    const GURL& file_system_root,
+                                    const FileDefinitionList& file_list,
+                                    int handler_pid);
+  void SetupPermissionsAndDispatchEvent(const std::string& file_system_name,
+                                        const GURL& file_system_root,
+                                        const FileDefinitionList& file_list,
+                                        int handler_pid_in,
+                                        ExtensionHost* host);
+
+  // Populates |handler_host_permissions| with file path-permissions pairs that
+  // will be given to the handler extension host process.
+  void InitHandlerHostFileAccessPermissions(
+      const FileDefinitionList& file_list,
+      const extensions::Extension* handler_extension,
+      const std::string& action_id,
+      const base::Closure& callback);
+
+  // Invoked upon completion of InitHandlerHostFileAccessPermissions initiated
+  // by ExecuteFileActionsOnUIThread.
+  void OnInitAccessForExecuteFileActionsOnUIThread(
+      const std::string& file_system_name,
+      const GURL& file_system_root,
+      const FileDefinitionList& file_list,
+      int handler_pid);
+
+  // Registers file permissions from |handler_host_permissions_| with
+  // ChildProcessSecurityPolicy for process with id |handler_pid|.
+  void SetupHandlerHostFileAccessPermissions(int handler_pid);
+
+  // Helper function to get the extension pointer.
+  const extensions::Extension* GetExtension();
+
+  const GURL source_url_;
+  const std::string extension_id_;
+  const std::string action_id_;
+  FileTaskFinishedCallback done_;
+
+  // (File path, permission for file path) pairs for the handler.
+  std::vector<std::pair<FilePath, int> > handler_host_permissions_;
+};
+
+// static
+FileTaskExecutor* FileTaskExecutor::Create(Profile* profile,
+                                           const GURL source_url,
+                                           const std::string& extension_id,
+                                           const std::string& action_id) {
+  // Check out the extension ID and see if this is a drive task,
+  // and instantiate drive-specific executor if so.
+  if (StartsWithASCII(extension_id,
+                      FileTaskExecutor::kDriveTaskExtensionPrefix,
+                      false)) {
+    return new gdata::DriveTaskExecutor(profile,
+                                        extension_id, // really app_id
+                                        action_id);
+  } else {
+    return new ExtensionTaskExecutor(profile,
+                                     source_url,
+                                     extension_id,
+                                     action_id);
+  }
 }
 
-FileTaskExecutor::FileDefinition::~FileDefinition() {
+FileTaskExecutor::FileTaskExecutor(Profile* profile) : profile_(profile) {
 }
 
-class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
+FileTaskExecutor::~FileTaskExecutor() {
+}
+
+bool FileTaskExecutor::Execute(const std::vector<GURL>& file_urls) {
+  return ExecuteAndNotify(file_urls, FileTaskFinishedCallback());
+}
+
+Browser* FileTaskExecutor::GetBrowser() const {
+  return browser::FindOrCreateTabbedBrowser(
+      profile_ ? profile_ : ProfileManager::GetDefaultProfileOrOffTheRecord());
+}
+
+ExtensionTaskExecutor::FileDefinition::FileDefinition() : is_directory(false) {
+}
+
+ExtensionTaskExecutor::FileDefinition::~FileDefinition() {
+}
+
+class ExtensionTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
  public:
   static fileapi::FileSystemContext::OpenFileSystemCallback CreateCallback(
-      FileTaskExecutor* executor,
-      Profile* profile,
+      ExtensionTaskExecutor* executor,
+      scoped_refptr<fileapi::FileSystemContext> file_system_context,
       const GURL& source_url,
       scoped_refptr<const Extension> handler_extension,
       int handler_pid,
@@ -318,7 +484,7 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
     return base::Bind(
         &ExecuteTasksFileSystemCallbackDispatcher::DidOpenFileSystem,
         base::Owned(new ExecuteTasksFileSystemCallbackDispatcher(
-            executor, profile, source_url, handler_extension,
+            executor, file_system_context, source_url, handler_extension,
             handler_pid, action_id, file_urls)));
   }
 
@@ -330,12 +496,12 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
       return;
     }
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-    FileTaskExecutor::FileDefinitionList file_list;
+    ExtensionTaskExecutor::FileDefinitionList file_list;
     for (std::vector<GURL>::iterator iter = origin_file_urls_.begin();
          iter != origin_file_urls_.end();
          ++iter) {
       // Set up file permission access.
-      FileTaskExecutor::FileDefinition file;
+      ExtensionTaskExecutor::FileDefinition file;
       if (!SetupFileAccessPermissions(*iter, &file)) {
         continue;
       }
@@ -345,15 +511,16 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
       BrowserThread::PostTask(
           BrowserThread::UI, FROM_HERE,
           base::Bind(
-              &FileTaskExecutor::ExecuteFailedOnUIThread,
-              executor_));
+              &ExtensionTaskExecutor::ExecuteDoneOnUIThread,
+              executor_,
+              false));
       return;
     }
 
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(
-            &FileTaskExecutor::ExecuteFileActionsOnUIThread,
+            &ExtensionTaskExecutor::ExecuteFileActionsOnUIThread,
             executor_,
             file_system_name,
             file_system_root,
@@ -365,21 +532,22 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(
-            &FileTaskExecutor::ExecuteFailedOnUIThread,
-            executor_));
+            &ExtensionTaskExecutor::ExecuteDoneOnUIThread,
+            executor_,
+            false));
   }
 
  private:
   ExecuteTasksFileSystemCallbackDispatcher(
-      FileTaskExecutor* executor,
-      Profile* profile,
+      ExtensionTaskExecutor* executor,
+      scoped_refptr<fileapi::FileSystemContext> file_system_context,
       const GURL& source_url,
       const scoped_refptr<const Extension>& handler_extension,
       int handler_pid,
       const std::string& action_id,
       const std::vector<GURL>& file_urls)
       : executor_(executor),
-        profile_(profile),
+        file_system_context_(file_system_context),
         source_url_(source_url),
         handler_extension_(handler_extension),
         handler_pid_(handler_pid),
@@ -410,7 +578,7 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
       return false;
 
     fileapi::ExternalFileSystemMountPointProvider* external_provider =
-        BrowserContext::GetFileSystemContext(profile_)->external_provider();
+        file_system_context_->external_provider();
     if (!external_provider)
       return false;
 
@@ -449,11 +617,6 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
       }
     }
 
-    ChildProcessSecurityPolicy::GetInstance()->GrantPermissionsForFile(
-        handler_pid_,
-        final_file_path,
-        GetAccessPermissionsForHandler(handler_extension_.get(), action_id_));
-
     // Grant access to this particular file to target extension. This will
     // ensure that the target extension can access only this FS entry and
     // prevent from traversing FS hierarchy upward.
@@ -466,15 +629,14 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
     GURL base_url = fileapi::GetFileSystemRootURI(target_origin_url,
         fileapi::kFileSystemTypeExternal);
     file->target_file_url = GURL(base_url.spec() + virtual_path.value());
-    FilePath root(FILE_PATH_LITERAL("/"));
-    file->virtual_path = root.Append(virtual_path);
+    file->virtual_path = virtual_path;
     file->is_directory = file_info.is_directory;
     file->absolute_path = final_file_path;
     return true;
   }
 
-  FileTaskExecutor* executor_;
-  Profile* profile_;
+  ExtensionTaskExecutor* executor_;
+  scoped_refptr<fileapi::FileSystemContext> file_system_context_;
   // Extension source URL.
   GURL source_url_;
   scoped_refptr<const Extension> handler_extension_;
@@ -484,20 +646,23 @@ class FileTaskExecutor::ExecuteTasksFileSystemCallbackDispatcher {
   DISALLOW_COPY_AND_ASSIGN(ExecuteTasksFileSystemCallbackDispatcher);
 };
 
-FileTaskExecutor::FileTaskExecutor(Profile* profile,
-                                   const GURL source_url,
-                                   const std::string& extension_id,
-                                   const std::string& action_id)
-  : profile_(profile),
+ExtensionTaskExecutor::ExtensionTaskExecutor(
+    Profile* profile,
+    const GURL source_url,
+    const std::string& extension_id,
+    const std::string& action_id)
+  : FileTaskExecutor(profile),
     source_url_(source_url),
     extension_id_(extension_id),
-    action_id_(action_id)
-{}
+    action_id_(action_id) {
+}
 
-FileTaskExecutor::~FileTaskExecutor() {}
+ExtensionTaskExecutor::~ExtensionTaskExecutor() {}
 
-bool FileTaskExecutor::Execute(const std::vector<GURL>& file_urls) {
-  ExtensionService* service = profile_->GetExtensionService();
+bool ExtensionTaskExecutor::ExecuteAndNotify(
+    const std::vector<GURL>& file_urls,
+    const FileTaskFinishedCallback& done) {
+  ExtensionService* service = profile()->GetExtensionService();
   if (!service)
     return false;
 
@@ -507,16 +672,23 @@ bool FileTaskExecutor::Execute(const std::vector<GURL>& file_urls) {
   if (!handler.get())
     return false;
 
-  int handler_pid = ExtractProcessFromExtensionId(handler->id(), profile_);
-  if (handler_pid < 0)
-    return false;
+  int handler_pid = ExtractProcessFromExtensionId(handler->id(), profile());
+  if (handler_pid <= 0) {
+    if (!handler->has_lazy_background_page())
+      return false;
+  }
+
+  done_ = done;
 
   // Get local file system instance on file thread.
+  scoped_refptr<fileapi::FileSystemContext> file_system_context =
+      BrowserContext::GetFileSystemContext(profile());
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
       base::Bind(
-          &FileTaskExecutor::RequestFileEntryOnFileThread,
+          &ExtensionTaskExecutor::RequestFileEntryOnFileThread,
           this,
+          file_system_context,
           Extension::GetBaseURLFromExtensionId(handler->id()),
           handler,
           handler_pid,
@@ -524,18 +696,19 @@ bool FileTaskExecutor::Execute(const std::vector<GURL>& file_urls) {
   return true;
 }
 
-void FileTaskExecutor::RequestFileEntryOnFileThread(
+void ExtensionTaskExecutor::RequestFileEntryOnFileThread(
+    scoped_refptr<fileapi::FileSystemContext> file_system_context,
     const GURL& handler_base_url,
     const scoped_refptr<const Extension>& handler,
     int handler_pid,
     const std::vector<GURL>& file_urls) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   GURL origin_url = handler_base_url.GetOrigin();
-  BrowserContext::GetFileSystemContext(profile_)->OpenFileSystem(
+  file_system_context->OpenFileSystem(
       origin_url, fileapi::kFileSystemTypeExternal, false, // create
       ExecuteTasksFileSystemCallbackDispatcher::CreateCallback(
           this,
-          profile_,
+          file_system_context,
           source_url_,
           handler,
           handler_pid,
@@ -543,51 +716,101 @@ void FileTaskExecutor::RequestFileEntryOnFileThread(
           file_urls));
 }
 
-void FileTaskExecutor::ExecuteFailedOnUIThread() {
-  Done(false);
+void ExtensionTaskExecutor::ExecuteDoneOnUIThread(bool success) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  if (!done_.is_null())
+    done_.Run(success);
+  done_.Reset();
 }
 
-void FileTaskExecutor::SetupFileAccessPermissionsForGDataCache(
-    const FileDefinitionList& file_list,
-    int handler_pid) {
+const Extension* ExtensionTaskExecutor::GetExtension() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  for (FileDefinitionList::const_iterator iter = file_list.begin();
-       iter != file_list.end();
-       ++iter) {
-    if (!gdata::util::IsUnderGDataMountPoint(iter->absolute_path))
-      continue;
-    gdata::util::SetPermissionsForGDataCacheFiles(profile_, handler_pid,
-        iter->absolute_path);
-  }
+  ExtensionService* service = profile()->GetExtensionService();
+  return service ? service->GetExtensionById(extension_id_, false) :
+                   NULL;
 }
 
-void FileTaskExecutor::ExecuteFileActionsOnUIThread(
+void ExtensionTaskExecutor::ExecuteFileActionsOnUIThread(
     const std::string& file_system_name,
     const GURL& file_system_root,
     const FileDefinitionList& file_list,
     int handler_pid) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  ExtensionService* service = profile_->GetExtensionService();
-  if (!service) {
-    Done(false);
-    return;
-  }
-
-  const Extension* extension = service->GetExtensionById(extension_id_, false);
+  const Extension* extension = GetExtension();
   if (!extension) {
-    Done(false);
+    ExecuteDoneOnUIThread(false);
     return;
   }
 
-  ExtensionEventRouter* event_router = profile_->GetExtensionEventRouter();
+  InitHandlerHostFileAccessPermissions(
+      file_list,
+      extension,
+      action_id_,
+      base::Bind(
+          &ExtensionTaskExecutor::OnInitAccessForExecuteFileActionsOnUIThread,
+          this,
+          file_system_name,
+          file_system_root,
+          file_list,
+          handler_pid));
+}
+
+void ExtensionTaskExecutor::OnInitAccessForExecuteFileActionsOnUIThread(
+    const std::string& file_system_name,
+    const GURL& file_system_root,
+    const FileDefinitionList& file_list,
+    int handler_pid) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  const Extension* extension = GetExtension();
+  if (!extension) {
+    ExecuteDoneOnUIThread(false);
+    return;
+  }
+
+  if (handler_pid > 0) {
+    SetupPermissionsAndDispatchEvent(file_system_name, file_system_root,
+        file_list, handler_pid, NULL);
+  } else {
+    // We have to wake the handler background page before we proceed.
+    extensions::LazyBackgroundTaskQueue* queue =
+        extensions::ExtensionSystem::Get(profile())->
+        lazy_background_task_queue();
+    if (!queue->ShouldEnqueueTask(profile(), extension)) {
+      ExecuteDoneOnUIThread(false);
+      return;
+    }
+    queue->AddPendingTask(
+        profile(), extension_id_,
+        base::Bind(&ExtensionTaskExecutor::SetupPermissionsAndDispatchEvent,
+                   this, file_system_name, file_system_root, file_list,
+                   handler_pid));
+  }
+}
+
+void ExtensionTaskExecutor::SetupPermissionsAndDispatchEvent(
+    const std::string& file_system_name,
+    const GURL& file_system_root,
+    const FileDefinitionList& file_list,
+    int handler_pid_in,
+    ExtensionHost* host) {
+  int handler_pid = host ? host->render_process_host()->GetID() :
+                           handler_pid_in;
+
+  if (handler_pid <= 0) {
+    ExecuteDoneOnUIThread(false);
+    return;
+  }
+
+  ExtensionEventRouter* event_router = profile()->GetExtensionEventRouter();
   if (!event_router) {
-    Done(false);
+    ExecuteDoneOnUIThread(false);
     return;
   }
 
-  SetupFileAccessPermissionsForGDataCache(file_list, handler_pid);
+  SetupHandlerHostFileAccessPermissions(handler_pid);
 
   scoped_ptr<ListValue> event_args(new ListValue());
   event_args->Append(Value::CreateStringValue(action_id_));
@@ -604,26 +827,73 @@ void FileTaskExecutor::ExecuteFileActionsOnUIThread(
     files_urls->Append(file_def);
     file_def->SetString("fileSystemName", file_system_name);
     file_def->SetString("fileSystemRoot", file_system_root.spec());
-    file_def->SetString("fileFullPath", iter->virtual_path.value());
+    FilePath root(FILE_PATH_LITERAL("/"));
+    FilePath full_path = root.Append(iter->virtual_path);
+    file_def->SetString("fileFullPath", full_path.value());
     file_def->SetBoolean("fileIsDirectory", iter->is_directory);
   }
+
   // Get tab id.
-  Browser* current_browser = browser();
+  Browser* current_browser = GetBrowser();
   if (current_browser) {
-    WebContents* contents = current_browser->GetSelectedWebContents();
+    WebContents* contents = chrome::GetActiveWebContents(current_browser);
     if (contents)
       details->SetInteger("tab_id", ExtensionTabUtil::GetTabId(contents));
   }
-
-  UpdateFileHandlerUsageStats(profile_, MakeTaskID(extension_id_, action_id_));
 
   std::string json_args;
   base::JSONWriter::Write(event_args.get(), &json_args);
   event_router->DispatchEventToExtension(
       extension_id_, std::string("fileBrowserHandler.onExecute"),
-      json_args, profile_,
-      GURL());
-  Done(true);
+      json_args, profile(), GURL());
+  ExecuteDoneOnUIThread(true);
+}
+
+void ExtensionTaskExecutor::InitHandlerHostFileAccessPermissions(
+    const FileDefinitionList& file_list,
+    const Extension* handler_extension,
+    const std::string& action_id,
+    const base::Closure& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  scoped_ptr<std::vector<FilePath> > gdata_paths(new std::vector<FilePath>);
+  for (FileDefinitionList::const_iterator iter = file_list.begin();
+       iter != file_list.end();
+       ++iter) {
+    // Setup permission for file's absolute file.
+    handler_host_permissions_.push_back(std::make_pair(
+        iter->absolute_path,
+        GetAccessPermissionsForHandler(handler_extension, action_id)));
+
+    if (gdata::util::IsUnderGDataMountPoint(iter->absolute_path))
+      gdata_paths->push_back(iter->virtual_path);
+  }
+
+  if (gdata_paths->empty()) {
+    // Invoke callback if none of the files are on gdata mount point.
+    callback.Run();
+    return;
+  }
+
+  // For files on gdata mount point, we'll have to give handler host permissions
+  // for their cache paths. This has to be called on UI thread.
+  gdata::util::InsertGDataCachePathsPermissions(profile(),
+                                                gdata_paths.Pass(),
+                                                &handler_host_permissions_,
+                                                callback);
+}
+
+void ExtensionTaskExecutor::SetupHandlerHostFileAccessPermissions(
+    int handler_pid) {
+  for (size_t i = 0; i < handler_host_permissions_.size(); i++) {
+    content::ChildProcessSecurityPolicy::GetInstance()->GrantPermissionsForFile(
+        handler_pid,
+        handler_host_permissions_[i].first,
+        handler_host_permissions_[i].second);
+  }
+
+  // We don't need this anymore.
+  handler_host_permissions_.clear();
 }
 
 } // namespace file_handler_util

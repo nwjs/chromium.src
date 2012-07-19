@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,6 +14,7 @@ const char ContentsContainer::kViewClassName[] =
 
 ContentsContainer::ContentsContainer(views::View* active)
     : active_(active),
+      overlay_(NULL),
       preview_(NULL),
       preview_web_contents_(NULL),
       active_top_margin_(0) {
@@ -21,6 +22,15 @@ ContentsContainer::ContentsContainer(views::View* active)
 }
 
 ContentsContainer::~ContentsContainer() {
+}
+
+void ContentsContainer::SetOverlay(views::View* overlay) {
+  if (overlay_)
+    RemoveChildView(overlay_);
+  overlay_ = overlay;
+  if (overlay_)
+    AddChildView(overlay_);
+  Layout();
 }
 
 void ContentsContainer::MakePreviewContentsActiveContents() {
@@ -64,9 +74,13 @@ gfx::Rect ContentsContainer::GetPreviewBounds() {
 }
 
 void ContentsContainer::Layout() {
-  // The active view always gets the full bounds.
-  active_->SetBounds(0, active_top_margin_, width(),
-                     std::max(0, height() - active_top_margin_));
+  int content_y = active_top_margin_;
+  int content_height = std::max(0, height() - content_y);
+
+  active_->SetBounds(0, content_y, width(), content_height);
+
+  if (overlay_)
+    overlay_->SetBounds(0, 0, width(), height());
 
   if (preview_)
     preview_->SetBounds(0, 0, width(), height());

@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_FOCUS_ACCELERATOR_HANDLER_H_
 #define UI_VIEWS_FOCUS_ACCELERATOR_HANDLER_H_
-#pragma once
 
 #include "build/build_config.h"
 
@@ -17,11 +16,11 @@
 
 namespace views {
 
-#if defined(USE_AURA) && defined(USE_X11) && !defined(USE_WAYLAND)
+#if defined(USE_AURA) && defined(USE_X11)
 // Dispatch an XEvent to the RootView. Return true if the event was dispatched
 // and handled, false otherwise.
 bool VIEWS_EXPORT DispatchXEvent(XEvent* xevent);
-#endif  // USE_AURA && USE_X11 && !USE_WAYLAND
+#endif  // USE_AURA && USE_X11
 
 // This class delegates the key messages to the associated FocusManager class
 // for the window that is receiving these messages for accelerator processing.
@@ -35,16 +34,10 @@ class VIEWS_EXPORT AcceleratorHandler : public MessageLoop::Dispatcher {
 
   // Dispatcher method. This returns true if an accelerator was processed by the
   // focus manager
-#if defined(OS_WIN)
-  virtual bool Dispatch(const MSG& msg) OVERRIDE;
-#elif defined(USE_WAYLAND)
-  virtual base::MessagePumpDispatcher::DispatchStatus Dispatch(
-      base::wayland::WaylandEvent* ev) OVERRIDE;
+#if defined(OS_WIN) || defined(USE_AURA)
+  virtual bool Dispatch(const base::NativeEvent& event) OVERRIDE;
 #elif defined(OS_MACOSX)
   // TODO(dhollowa): Implement on Mac.  http://crbug.com/109946
-#elif defined(USE_AURA)
-  virtual base::MessagePumpDispatcher::DispatchStatus Dispatch(
-      XEvent* xev) OVERRIDE;
 #endif
 
  private:

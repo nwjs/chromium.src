@@ -88,7 +88,11 @@ AudioMixerAlsa::~AudioMixerAlsa() {
   thread_->message_loop()->PostTask(
       FROM_HERE, base::Bind(&AudioMixerAlsa::Disconnect,
                             base::Unretained(this)));
-  disconnected_event_.Wait();
+  {
+    // http://crbug.com/125206
+    base::ThreadRestrictions::ScopedAllowWait allow_wait;
+    disconnected_event_.Wait();
+  }
 
   base::ThreadRestrictions::ScopedAllowIO allow_io_for_thread_join;
   thread_->Stop();
@@ -157,7 +161,7 @@ void AudioMixerAlsa::Connect() {
   if (!ConnectInternal()) {
     thread_->message_loop()->PostDelayedTask(FROM_HERE,
         base::Bind(&AudioMixerAlsa::Connect, base::Unretained(this)),
-        kConnectionRetrySleepSec * 1000);
+        base::TimeDelta::FromSeconds(kConnectionRetrySleepSec));
   }
 }
 

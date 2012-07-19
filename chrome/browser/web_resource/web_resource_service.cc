@@ -5,7 +5,6 @@
 #include "chrome/browser/web_resource/web_resource_service.h"
 
 #include "base/bind.h"
-#include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
@@ -13,129 +12,23 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/google/google_util.h"
 #include "chrome/browser/prefs/pref_service.h"
-#include "chrome/common/chrome_switches.h"
-#include "chrome/common/chrome_utility_messages.h"
-#include "chrome/common/web_resource/web_resource_unpacker.h"
-#include "content/public/browser/browser_thread.h"
-#include "content/public/browser/resource_dispatcher_host.h"
-#include "content/public/browser/utility_process_host.h"
-#include "content/public/browser/utility_process_host_client.h"
-#include "content/public/common/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
-
-using content::BrowserThread;
-using content::UtilityProcessHost;
-using content::UtilityProcessHostClient;
-
-// This class coordinates a web resource unpack and parse task which is run in
-// a separate process.  Results are sent back to this class and routed to
-// the WebResourceService.
-class WebResourceService::UnpackerClient : public UtilityProcessHostClient {
- public:
-  explicit UnpackerClient(WebResourceService* web_resource_service)
-    : web_resource_service_(web_resource_service),
-      got_response_(false) {
-  }
-
-  void Start(const std::string& json_data) {
-    AddRef();  // balanced in Cleanup.
-
-    // TODO(willchan): Look for a better signal of whether we're in a unit test
-    // or not. Using |ResourceDispatcherHost::Get()| for this is pretty lame.
-    // If we don't have a ResourceDispatcherHost, assume we're in a test and
-    // run the unpacker directly in-process.
-    bool use_utility_process =
-        content::ResourceDispatcherHost::Get() &&
-        !CommandLine::ForCurrentProcess()->HasSwitch(switches::kSingleProcess);
-    if (use_utility_process) {
-      BrowserThread::ID thread_id;
-      CHECK(BrowserThread::GetCurrentThreadIdentifier(&thread_id));
-      BrowserThread::PostTask(
-          BrowserThread::IO, FROM_HERE,
-          base::Bind(&UnpackerClient::StartProcessOnIOThread,
-                     this, thread_id, json_data));
-    } else {
-      WebResourceUnpacker unpacker(json_data);
-      if (unpacker.Run()) {
-        OnUnpackWebResourceSucceeded(*unpacker.parsed_json());
-      } else {
-        OnUnpackWebResourceFailed(unpacker.error_message());
-      }
-    }
-  }
-
- private:
-  virtual ~UnpackerClient() {}
-
-  // UtilityProcessHostClient
-  virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE {
-    bool handled = true;
-    IPC_BEGIN_MESSAGE_MAP(WebResourceService::UnpackerClient, message)
-      IPC_MESSAGE_HANDLER(ChromeUtilityHostMsg_UnpackWebResource_Succeeded,
-                          OnUnpackWebResourceSucceeded)
-      IPC_MESSAGE_HANDLER(ChromeUtilityHostMsg_UnpackWebResource_Failed,
-                          OnUnpackWebResourceFailed)
-      IPC_MESSAGE_UNHANDLED(handled = false)
-    IPC_END_MESSAGE_MAP()
-    return handled;
-  }
-
-  virtual void OnProcessCrashed(int exit_code) OVERRIDE {
-    if (got_response_)
-      return;
-
-    OnUnpackWebResourceFailed(
-        "Utility process crashed while trying to retrieve web resources.");
-  }
-
-  void OnUnpackWebResourceSucceeded(
-      const DictionaryValue& parsed_json) {
-    web_resource_service_->Unpack(parsed_json);
-    Cleanup();
-  }
-
-  void OnUnpackWebResourceFailed(const std::string& error_message) {
-    LOG(ERROR) << error_message;
-    Cleanup();
-  }
-
-  // Release reference and set got_response_.
-  void Cleanup() {
-    DCHECK(!got_response_);
-    got_response_ = true;
-
-    web_resource_service_->EndFetch();
-    Release();
-  }
-
-  void StartProcessOnIOThread(BrowserThread::ID thread_id,
-                              const std::string& json_data) {
-    UtilityProcessHost* host = UtilityProcessHost::Create(this, thread_id);
-    host->EnableZygote();
-    // TODO(mrc): get proper file path when we start using web resources
-    // that need to be unpacked.
-    host->Send(new ChromeUtilityMsg_UnpackWebResource(json_data));
-  }
-
-  scoped_refptr<WebResourceService> web_resource_service_;
-
-  // True if we got a response from the utility process and have cleaned up
-  // already.
-  bool got_response_;
-};
 
 WebResourceService::WebResourceService(
     PrefService* prefs,
-    const char* web_resource_server,
+    const GURL& web_resource_server,
     bool apply_locale_to_url,
     const char* last_update_time_pref_name,
     int start_fetch_delay_ms,
     int cache_update_delay_ms)
     : prefs_(prefs),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)),
+      json_unpacker_(NULL),
       in_fetch_(false),
       web_resource_server_(web_resource_server),
       apply_locale_to_url_(apply_locale_to_url),
@@ -145,9 +38,26 @@ WebResourceService::WebResourceService(
   DCHECK(prefs);
 }
 
-WebResourceService::~WebResourceService() { }
+WebResourceService::~WebResourceService() {
+  if (in_fetch_)
+    EndFetch();
+}
+
+void WebResourceService::OnUnpackFinished(const DictionaryValue& parsed_json) {
+  Unpack(parsed_json);
+  EndFetch();
+}
+
+void WebResourceService::OnUnpackError(const std::string& error_message) {
+  LOG(ERROR) << error_message;
+  EndFetch();
+}
 
 void WebResourceService::EndFetch() {
+  if (json_unpacker_) {
+    json_unpacker_->ClearDelegate();
+    json_unpacker_ = NULL;
+  }
   in_fetch_ = false;
 }
 
@@ -201,14 +111,13 @@ void WebResourceService::StartFetch() {
   // Balanced in OnURLFetchComplete.
   AddRef();
 
-  std::string web_resource_server = web_resource_server_;
-  if (apply_locale_to_url_) {
-    std::string locale = g_browser_process->GetApplicationLocale();
-    web_resource_server.append(locale);
-  }
+  GURL web_resource_server = apply_locale_to_url_ ?
+      google_util::AppendGoogleLocaleParam(web_resource_server_) :
+      web_resource_server_;
 
-  url_fetcher_.reset(content::URLFetcher::Create(
-      GURL(web_resource_server), content::URLFetcher::GET, this));
+  DVLOG(1) << "WebResourceService StartFetch " << web_resource_server;
+  url_fetcher_.reset(net::URLFetcher::Create(
+      web_resource_server, net::URLFetcher::GET, this));
   // Do not let url fetcher affect existing state in system context
   // (by setting cookies, for example).
   url_fetcher_->SetLoadFlags(net::LOAD_DISABLE_CACHE |
@@ -220,21 +129,23 @@ void WebResourceService::StartFetch() {
   url_fetcher_->Start();
 }
 
-void WebResourceService::OnURLFetchComplete(const content::URLFetcher* source) {
+void WebResourceService::OnURLFetchComplete(const net::URLFetcher* source) {
   // Delete the URLFetcher when this function exits.
-  scoped_ptr<content::URLFetcher> clean_up_fetcher(url_fetcher_.release());
+  scoped_ptr<net::URLFetcher> clean_up_fetcher(url_fetcher_.release());
 
-  // Don't parse data if attempt to download was unsuccessful.
-  // Stop loading new web resource data, and silently exit.
-  if (!source->GetStatus().is_success() || (source->GetResponseCode() != 200))
-    return;
+  if (source->GetStatus().is_success() && source->GetResponseCode() == 200) {
+    std::string data;
+    source->GetResponseAsString(&data);
 
-  std::string data;
-  source->GetResponseAsString(&data);
-
-  // UnpackerClient releases itself.
-  UnpackerClient* client = new UnpackerClient(this);
-  client->Start(data);
+    // UnpackerClient calls EndFetch and releases itself on completion.
+    json_unpacker_ = JSONAsynchronousUnpacker::Create(this);
+    json_unpacker_->Start(data);
+  } else {
+    // Don't parse data if attempt to download was unsuccessful.
+    // Stop loading new web resource data, and silently exit.
+    // We do not call UnpackerClient, so we need to call EndFetch ourselves.
+    EndFetch();
+  }
 
   Release();
 }

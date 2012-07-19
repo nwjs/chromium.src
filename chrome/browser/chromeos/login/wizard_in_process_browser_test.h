@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_WIZARD_IN_PROCESS_BROWSER_TEST_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_WIZARD_IN_PROCESS_BROWSER_TEST_H_
-#pragma once
 
 #include <string>
 
@@ -33,7 +32,8 @@ class WizardInProcessBrowserTest : public CrosInProcessBrowserTest {
   virtual void SetUpWizard() {}
 
   // Overriden from InProcessBrowserTest:
-  virtual Browser* CreateBrowser(Profile* profile) OVERRIDE;
+  virtual void SetUpOnMainThread() OVERRIDE;
+  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE;
   virtual void CleanUpOnMainThread() OVERRIDE;
 
  private:

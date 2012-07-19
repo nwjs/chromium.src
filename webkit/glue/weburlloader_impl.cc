@@ -60,6 +60,10 @@ namespace webkit_glue {
 
 namespace {
 
+const char kThrottledErrorDescription[] =
+    "Request throttled. Visit http://dev.chromium.org/throttling for more "
+    "information.";
+
 class HeaderFlattener : public WebHTTPHeaderVisitor {
  public:
   explicit HeaderFlattener(int load_flags)
@@ -225,6 +229,14 @@ void PopulateURLResponse(
   if (!headers)
     return;
 
+  WebURLResponse::HTTPVersion version = WebURLResponse::Unknown;
+  if (headers->GetHttpVersion() == net::HttpVersion(0, 9))
+    version = WebURLResponse::HTTP_0_9;
+  else if (headers->GetHttpVersion() == net::HttpVersion(1, 0))
+    version = WebURLResponse::HTTP_1_0;
+  else if (headers->GetHttpVersion() == net::HttpVersion(1, 1))
+    version = WebURLResponse::HTTP_1_1;
+  response->setHTTPVersion(version);
   response->setHTTPStatusCode(headers->response_code());
   response->setHTTPStatusText(WebString::fromUTF8(headers->GetStatusText()));
 
@@ -272,7 +284,6 @@ class WebURLLoaderImpl::Context : public base::RefCounted<Context>,
       const WebURLRequest& request,
       ResourceLoaderBridge::SyncLoadResponse* sync_load_response,
       WebKitPlatformSupportImpl* platform);
-  void UpdateRoutingId(int new_routing_id);
 
   // ResourceLoaderBridge::Peer methods:
   virtual void OnUploadProgress(uint64 position, uint64 size);
@@ -334,11 +345,6 @@ void WebURLLoaderImpl::Context::Cancel() {
 void WebURLLoaderImpl::Context::SetDefersLoading(bool value) {
   if (bridge_.get())
     bridge_->SetDefersLoading(value);
-}
-
-void WebURLLoaderImpl::Context::UpdateRoutingId(int new_routing_id) {
-  if (bridge_.get())
-    bridge_->UpdateRoutingId(new_routing_id);
 }
 
 void WebURLLoaderImpl::Context::Start(
@@ -644,8 +650,12 @@ void WebURLLoaderImpl::Context::OnCompletedRequest(
         error_code = status.error();
       }
       WebURLError error;
-      if (error_code == net::ERR_ABORTED)
+      if (error_code == net::ERR_ABORTED) {
         error.isCancellation = true;
+      } else if (error_code == net::ERR_TEMPORARILY_THROTTLED) {
+        error.localizedDescription = WebString::fromUTF8(
+            kThrottledErrorDescription);
+      }
       error.domain = WebString::fromUTF8(net::kErrorDomain);
       error.reason = error_code;
       error.unreachableURL = request_.url();
@@ -672,6 +682,13 @@ bool WebURLLoaderImpl::Context::CanHandleDataURL(const GURL& url) const {
   // NOTE: We special case MIME types we can render both for performance
   // reasons as well as to support unit tests, which do not have an underlying
   // ResourceLoaderBridge implementation.
+
+#if defined(OS_ANDROID)
+  // For compatibility reasons on Android we need to expose top-level data://
+  // to the browser.
+  if (request_.targetType() == WebURLRequest::TargetIsMainFrame)
+    return false;
+#endif
 
   if (request_.targetType() != WebURLRequest::TargetIsMainFrame &&
       request_.targetType() != WebURLRequest::TargetIsSubframe)
@@ -752,10 +769,6 @@ void WebURLLoaderImpl::cancel() {
 
 void WebURLLoaderImpl::setDefersLoading(bool value) {
   context_->SetDefersLoading(value);
-}
-
-void WebURLLoaderImpl::UpdateRoutingId(int new_routing_id) {
-  context_->UpdateRoutingId(new_routing_id);
 }
 
 }  // namespace webkit_glue

@@ -25,9 +25,9 @@ For example, to take v8 heap snapshots from a pyauto test:
 
 import remote_inspector_client
 my_client = remote_inspector_client.RemoteInspectorClient()
-snapshot_info = my_client.HeapSnapshot()
+snapshot_info = my_client.HeapSnapshot(include_summary=True)
 // Do some stuff...
-new_snapshot_info = my_client.HeapSnapshot()
+new_snapshot_info = my_client.HeapSnapshot(include_summary=True)
 my_client.Stop()
 
 It is expected that a test will only use one instance of RemoteInspectorClient
@@ -69,8 +69,10 @@ class _DevToolsSocketRequest(object):
     is_fulfilled: A boolean indicating whether or not this request has been sent
         and all relevant results for it have been obtained (i.e., this value is
         True only if all results for this request are known).
+    is_fulfilled_condition: A threading.Condition for waiting for the request to
+        be fulfilled.
   """
-  def __init__(self, method, message_id):
+  def __init__(self, method, params, message_id):
     """Initialize.
 
     Args:
@@ -80,9 +82,10 @@ class _DevToolsSocketRequest(object):
     """
     self.method = method
     self.id = message_id
-    self.params = {}
+    self.params = params
     self.results = {}
     self.is_fulfilled = False
+    self.is_fulfilled_condition = threading.Condition()
 
   def __repr__(self):
     json_dict = {}
@@ -282,8 +285,12 @@ class _RemoteInspectorThread(threading.Thread):
     self._killed = False
     self._requests = []
     self._action_queue = []
+    self._action_queue_condition = threading.Condition()
     self._action_specific_callback = None  # Callback only for current action.
+    self._action_specific_callback_lock = threading.Lock()
     self._general_callbacks = []  # General callbacks that can be long-lived.
+    self._general_callbacks_lock = threading.Lock()
+    self._condition_to_wait = None
 
     # Create a DevToolsSocket client and wait for it to complete the remote
     # debugging protocol handshake with the remote Chrome instance.
@@ -310,52 +317,79 @@ class _RemoteInspectorThread(threading.Thread):
            debugging communication protocol in WebKit.
     """
     reply_dict = simplejson.loads(msg)
+
+    # Notify callbacks of this message received from the remote inspector.
+    self._action_specific_callback_lock.acquire()
+    if self._action_specific_callback:
+      self._action_specific_callback(reply_dict)
+    self._action_specific_callback_lock.release()
+
+    self._general_callbacks_lock.acquire()
+    if self._general_callbacks:
+      for callback in self._general_callbacks:
+        callback(reply_dict)
+    self._general_callbacks_lock.release()
+
     if 'result' in reply_dict:
       # This is the result message associated with a previously-sent request.
       request = self.GetRequestWithId(reply_dict['id'])
       if request:
-        request.is_fulfilled = True
-    # Notify callbacks of this message received from the remote inspector.
-    if self._action_specific_callback:
-      self._action_specific_callback(reply_dict)
-    if self._general_callbacks:
-      for callback in self._general_callbacks:
-        callback(reply_dict)
+        request.is_fulfilled_condition.acquire()
+        request.is_fulfilled_condition.notify()
+        request.is_fulfilled_condition.release()
 
   def run(self):
     """Start this thread; overridden from threading.Thread."""
     while not self._killed:
+      self._action_queue_condition.acquire()
       if self._action_queue:
         # There's a request to the remote inspector that needs to be processed.
         messages, callback = self._action_queue.pop(0)
+        self._action_specific_callback_lock.acquire()
         self._action_specific_callback = callback
+        self._action_specific_callback_lock.release()
 
         # Prepare the request list.
         for message_id, message in enumerate(messages):
           self._requests.append(
-              _DevToolsSocketRequest(message, message_id))
+              _DevToolsSocketRequest(message[0], message[1], message_id))
 
         # Send out each request.  Wait until each request is complete before
         # sending the next request.
         for request in self._requests:
           self._FillInParams(request)
           self._client.SendMessage(str(request))
-          while not request.is_fulfilled:
-            if self._killed:
-              self._client.close()
-              return
-            time.sleep(0.1)
+
+          request.is_fulfilled_condition.acquire()
+          self._condition_to_wait = request.is_fulfilled
+          request.is_fulfilled_condition.wait()
+          request.is_fulfilled_condition.release()
+
+          if self._killed:
+            self._client.close()
+            return
 
         # Clean up so things are ready for the next request.
         self._requests = []
-        self._action_specific_callback = None
 
-      time.sleep(0.1)
+        self._action_specific_callback_lock.acquire()
+        self._action_specific_callback = None
+        self._action_specific_callback_lock.release()
+
+      # Wait until there is something to process.
+      self._condition_to_wait = self._action_queue_condition
+      self._action_queue_condition.wait()
+      self._action_queue_condition.release()
     self._client.close()
 
   def Kill(self):
     """Notify this thread that it should stop executing."""
     self._killed = True
+    # The thread might be waiting on a condition.
+    if self._condition_to_wait:
+      self._condition_to_wait.acquire()
+      self._condition_to_wait.notify()
+      self._condition_to_wait.release()
 
   def PerformAction(self, request_messages, reply_message_callback):
     """Notify this thread of an action to perform using the remote inspector.
@@ -368,7 +402,10 @@ class _RemoteInspectorThread(threading.Thread):
           being performed.  The callable should accept a single argument,
           which is a dictionary representing a message received.
     """
+    self._action_queue_condition.acquire()
     self._action_queue.append((request_messages, reply_message_callback))
+    self._action_queue_condition.notify()
+    self._action_queue_condition.release()
 
   def AddMessageCallback(self, callback):
     """Add a callback to invoke for messages received from the remote inspector.
@@ -378,7 +415,9 @@ class _RemoteInspectorThread(threading.Thread):
           remote inspector.  The callable should accept a single argument, which
           is a dictionary representing a message received.
     """
+    self._general_callbacks_lock.acquire()
     self._general_callbacks.append(callback)
+    self._general_callbacks_lock.release()
 
   def RemoveMessageCallback(self, callback):
     """Remove a callback from the set of those to invoke for messages received.
@@ -386,7 +425,9 @@ class _RemoteInspectorThread(threading.Thread):
     Args:
       callback: A callable to remove from consideration.
     """
+    self._general_callbacks_lock.acquire()
     self._general_callbacks.remove(callback)
+    self._general_callbacks_lock.release()
 
   def GetRequestWithId(self, request_id):
     """Identifies the request with the specified id.
@@ -691,6 +732,11 @@ class RemoteInspectorClient(object):
     self._logger = logging.getLogger('RemoteInspectorClient')
     self._logger.setLevel([logging.WARNING, logging.DEBUG][verbose])
 
+    # Creating _RemoteInspectorThread might raise an exception. This prevents an
+    # AttributeError in the destructor.
+    self._remote_inspector_thread = None
+    self._remote_inspector_driver_thread = None
+
     # Start up a thread for long-term communication with the remote inspector.
     self._remote_inspector_thread = _RemoteInspectorThread(
         tab_index, verbose, show_socket_messages)
@@ -715,29 +761,34 @@ class RemoteInspectorClient(object):
       self._remote_inspector_driver_thread.join()
       self._remote_inspector_driver_thread = None
 
-  def HeapSnapshot(self):
+  def HeapSnapshot(self, include_summary=False):
     """Takes a v8 heap snapshot.
 
     Returns:
-      A dictionary containing the summarized information for a single v8 heap
-      snapshot that was taken:
+      A dictionary containing information for a single v8 heap
+      snapshot that was taken.
       {
         'url': string,  # URL of the webpage that was snapshotted.
+        'raw_data': string, # The raw data as JSON string.
         'total_v8_node_count': integer,  # Total number of nodes in the v8 heap.
+                                         # Only if |include_summary| is True.
         'total_heap_size': integer,  # Total v8 heap size (number of bytes).
+                                     # Only if |include_summary| is True.
       }
     """
     HEAP_SNAPSHOT_MESSAGES = [
-      'Page.getResourceTree',
-      'Debugger.enable',
-      'Profiler.clearProfiles',
-      'Profiler.takeHeapSnapshot',
-      'Profiler.getProfile',
+      ('Page.getResourceTree', {}),
+      ('Debugger.enable', {}),
+      ('Profiler.clearProfiles', {}),
+      ('Profiler.takeHeapSnapshot', {}),
+      ('Profiler.getProfile', {}),
     ]
 
     self._current_heap_snapshot = []
     self._url = ''
     self._collected_heap_snapshot_data = {}
+
+    done_condition = threading.Condition()
 
     def HandleReply(reply_dict):
       """Processes a reply message received from the remote Chrome instance.
@@ -768,32 +819,83 @@ class RemoteInspectorClient(object):
           # TODO(dennisjeffrey): Parse the heap snapshot on-the-fly as the data
           # is coming in over the wire, so we can avoid storing the entire
           # snapshot string in memory.
-          self._logger.debug('Now analyzing heap snapshot...')
-          parser = _V8HeapSnapshotParser()
-          time_start = time.time()
           raw_snapshot_data = ''.join(self._current_heap_snapshot)
-          self._logger.debug('Raw snapshot data size: %.2f MB',
-                             len(raw_snapshot_data) / (1024.0 * 1024.0))
-          result = parser.ParseSnapshotData(raw_snapshot_data)
-          self._logger.debug('Time to parse data: %.2f sec',
-                             time.time() - time_start)
-          num_nodes = result['total_v8_node_count']
-          total_size = result['total_shallow_size']
-          total_size_str = self._ConvertByteCountToHumanReadableString(
-              total_size)
-
           self._collected_heap_snapshot_data = {
               'url': self._url,
-              'total_v8_node_count': num_nodes,
-              'total_heap_size': total_size}
+              'raw_data': raw_snapshot_data}
+          if include_summary:
+            self._logger.debug('Now analyzing heap snapshot...')
+            parser = _V8HeapSnapshotParser()
+            time_start = time.time()
+            self._logger.debug('Raw snapshot data size: %.2f MB',
+                               len(raw_snapshot_data) / (1024.0 * 1024.0))
+            result = parser.ParseSnapshotData(raw_snapshot_data)
+            self._logger.debug('Time to parse data: %.2f sec',
+                               time.time() - time_start)
+            count = result['total_v8_node_count']
+            self._collected_heap_snapshot_data['total_v8_node_count'] = count
+            total_size = result['total_shallow_size']
+            self._collected_heap_snapshot_data['total_heap_size'] = total_size
+
+          done_condition.acquire()
+          done_condition.notify()
+          done_condition.release()
 
     # Tell the remote inspector to take a v8 heap snapshot, then wait until
     # the snapshot information is available to return.
     self._remote_inspector_thread.PerformAction(HEAP_SNAPSHOT_MESSAGES,
                                                 HandleReply)
-    while not self._collected_heap_snapshot_data:
-      time.sleep(0.1)
+
+    done_condition.acquire()
+    done_condition.wait()
+    done_condition.release()
+
     return self._collected_heap_snapshot_data
+
+  def EvaluateJavaScript(self, expression):
+    """Evaluates a JavaScript expression and returns the result.
+
+    Sends a message containing the expression to the remote Chrome instance we
+    are connected to, and evaluates it in the context of the tab we are
+    connected to. Blocks until the result is available and returns it.
+
+    Returns:
+      A dictionary representing the result.
+    """
+    EVALUATE_MESSAGES = [
+      ('Runtime.evaluate', { 'expression': expression,
+                             'objectGroup': 'group',
+                             'returnByValue': True }),
+      ('Runtime.releaseObjectGroup', { 'objectGroup': 'group' })
+    ]
+
+    self._result = None
+    done_condition = threading.Condition()
+
+    def HandleReply(reply_dict):
+      """Processes a reply message received from the remote Chrome instance.
+
+      Args:
+        reply_dict: A dictionary object representing the reply message received
+                    from the remote Chrome instance.
+      """
+      if 'result' in reply_dict and 'result' in reply_dict['result']:
+        self._result = reply_dict['result']['result']['value']
+
+        done_condition.acquire()
+        done_condition.notify()
+        done_condition.release()
+
+    # Tell the remote inspector to evaluate the given expression, then wait
+    # until that information is available to return.
+    self._remote_inspector_thread.PerformAction(EVALUATE_MESSAGES,
+                                                HandleReply)
+
+    done_condition.acquire()
+    done_condition.wait()
+    done_condition.release()
+
+    return self._result
 
   def GetMemoryObjectCounts(self):
     """Retrieves memory object count information.
@@ -806,12 +908,13 @@ class RemoteInspectorClient(object):
       }
     """
     MEMORY_COUNT_MESSAGES = [
-      'Memory.getDOMNodeCount',
+      ('Memory.getDOMNodeCount', {})
     ]
 
     self._event_listener_count = None
     self._dom_node_count = None
 
+    done_condition = threading.Condition()
     def HandleReply(reply_dict):
       """Processes a reply message received from the remote Chrome instance.
 
@@ -833,12 +936,19 @@ class RemoteInspectorClient(object):
         self._event_listener_count = event_listener_count
         self._dom_node_count = dom_node_count
 
+        done_condition.acquire()
+        done_condition.notify()
+        done_condition.release()
+
     # Tell the remote inspector to collect memory count info, then wait until
     # that information is available to return.
     self._remote_inspector_thread.PerformAction(MEMORY_COUNT_MESSAGES,
                                                 HandleReply)
-    while not self._event_listener_count or not self._dom_node_count:
-      time.sleep(0.1)
+
+    done_condition.acquire()
+    done_condition.wait()
+    done_condition.release()
+
     return {
       'DOMNodeCount': self._dom_node_count,
       'EventListenerCount': self._event_listener_count,
@@ -847,7 +957,7 @@ class RemoteInspectorClient(object):
   def CollectGarbage(self):
     """Forces a garbage collection."""
     COLLECT_GARBAGE_MESSAGES = [
-      'Profiler.collectGarbage',
+      ('Profiler.collectGarbage', {})
     ]
 
     # Tell the remote inspector to do a garbage collect.  We can return
@@ -867,7 +977,7 @@ class RemoteInspectorClient(object):
       self._logger.warning('Timeline monitoring already started.')
       return
     TIMELINE_MESSAGES = [
-      'Timeline.start',
+      ('Timeline.start', {})
     ]
 
     self._event_callback = event_callback
@@ -895,7 +1005,7 @@ class RemoteInspectorClient(object):
       self._logger.warning('Timeline monitoring already stopped.')
       return
     TIMELINE_MESSAGES = [
-      'Timeline.stop',
+      ('Timeline.stop', {})
     ]
 
     # Tell the remote inspector to stop the timeline.  We can return

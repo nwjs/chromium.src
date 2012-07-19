@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -49,7 +49,7 @@ void MenuHost::ShowMenuHost(bool do_capture) {
   ignore_capture_lost_ = true;
   Show();
   if (do_capture)
-    native_widget_private()->SetMouseCapture();
+    native_widget_private()->SetCapture();
   ignore_capture_lost_ = false;
 }
 
@@ -72,8 +72,8 @@ void MenuHost::SetMenuHostBounds(const gfx::Rect& bounds) {
 }
 
 void MenuHost::ReleaseMenuHostCapture() {
-  if (native_widget_private()->HasMouseCapture())
-    native_widget_private()->ReleaseMouseCapture();
+  if (native_widget_private()->HasCapture())
+    native_widget_private()->ReleaseCapture();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,6 +105,16 @@ void MenuHost::OnNativeWidgetDestroyed() {
     submenu_->MenuHostDestroyed();
   }
   Widget::OnNativeWidgetDestroyed();
+}
+
+void MenuHost::OnOwnerClosing() {
+  if (destroying_)
+    return;
+
+  MenuController* menu_controller =
+      submenu_->GetMenuItem()->GetMenuController();
+  if (menu_controller && !menu_controller->drag_in_progress())
+    menu_controller->CancelAll();
 }
 
 }  // namespace views

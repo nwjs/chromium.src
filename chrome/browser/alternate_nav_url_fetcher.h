@@ -1,24 +1,24 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_ALTERNATE_NAV_URL_FETCHER_H_
 #define CHROME_BROWSER_ALTERNATE_NAV_URL_FETCHER_H_
-#pragma once
 
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 namespace content {
 class NavigationController;
 }
 
 namespace net {
+class URLFetcher;
 class URLRequestStatus;
 }
 
@@ -39,7 +39,7 @@ class URLRequestStatus;
 //   * The intranet fetch fails
 //   * None of the above apply, so we successfully show an infobar
 class AlternateNavURLFetcher : public content::NotificationObserver,
-                               public content::URLFetcherDelegate {
+                               public net::URLFetcherDelegate {
  public:
   enum State {
     NOT_STARTED,
@@ -59,8 +59,8 @@ class AlternateNavURLFetcher : public content::NotificationObserver,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  // content::URLFetcherDelegate
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // net::URLFetcherDelegate
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Sets |controller_| to the supplied pointer and begins fetching
   // |alternate_nav_url_|.
@@ -79,7 +79,7 @@ class AlternateNavURLFetcher : public content::NotificationObserver,
   void ShowInfobarIfPossible();
 
   GURL alternate_nav_url_;
-  scoped_ptr<content::URLFetcher> fetcher_;
+  scoped_ptr<net::URLFetcher> fetcher_;
   content::NavigationController* controller_;
   State state_;
   bool navigated_to_entry_;

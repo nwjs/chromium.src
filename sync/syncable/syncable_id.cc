@@ -6,12 +6,12 @@
 
 #include <iosfwd>
 
-#include "base/string_util.h"
 #include "base/values.h"
 
 using std::ostream;
 using std::string;
 
+namespace syncer {
 namespace syncable {
 
 ostream& operator<<(ostream& out, const Id& id) {
@@ -57,12 +57,6 @@ Id Id::GetLexicographicSuccessor() const {
   return id;
 }
 
-bool Id::ContainsStringCaseInsensitive(
-    const std::string& lowercase_query) const {
-  DCHECK_EQ(StringToLowerASCII(lowercase_query), lowercase_query);
-  return StringToLowerASCII(s_).find(lowercase_query) != std::string::npos;
-}
-
 // static
 Id Id::GetLeastIdForLexicographicComparison() {
   Id id;
@@ -75,3 +69,4 @@ Id GetNullId() {
 }
 
 }  // namespace syncable
+}  // namespace syncer

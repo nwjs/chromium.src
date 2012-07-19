@@ -4,7 +4,6 @@
 
 #ifndef CHROME_SERVICE_NET_SERVICE_URL_REQUEST_CONTEXT_H_
 #define CHROME_SERVICE_NET_SERVICE_URL_REQUEST_CONTEXT_H_
-#pragma once
 
 #include <string>
 
@@ -40,11 +39,10 @@ class ServiceURLRequestContext : public net::URLRequestContext {
       const std::string& user_agent,
       net::ProxyConfigService* net_proxy_config_service);
 
+  virtual ~ServiceURLRequestContext();
+
   // Overridden from net::URLRequestContext:
   virtual const std::string& GetUserAgent(const GURL& url) const OVERRIDE;
-
- protected:
-  virtual ~ServiceURLRequestContext();
 
  private:
   std::string user_agent_;
@@ -54,8 +52,8 @@ class ServiceURLRequestContext : public net::URLRequestContext {
 class ServiceURLRequestContextGetter : public net::URLRequestContextGetter {
  public:
   virtual net::URLRequestContext* GetURLRequestContext() OVERRIDE;
-  virtual scoped_refptr<base::MessageLoopProxy>
-      GetIOMessageLoopProxy() const OVERRIDE;
+  virtual scoped_refptr<base::SingleThreadTaskRunner>
+      GetNetworkTaskRunner() const OVERRIDE;
 
   void set_user_agent(const std::string& ua) {
     user_agent_ = ua;
@@ -70,9 +68,9 @@ class ServiceURLRequestContextGetter : public net::URLRequestContextGetter {
   virtual ~ServiceURLRequestContextGetter();
 
   std::string user_agent_;
-  scoped_refptr<net::URLRequestContext> url_request_context_;
-  scoped_refptr<base::MessageLoopProxy> io_message_loop_proxy_;
+  scoped_refptr<base::SingleThreadTaskRunner> network_task_runner_;
   scoped_ptr<net::ProxyConfigService> proxy_config_service_;
+  scoped_ptr<net::URLRequestContext> url_request_context_;
 };
 
 #endif  // CHROME_SERVICE_NET_SERVICE_URL_REQUEST_CONTEXT_H_

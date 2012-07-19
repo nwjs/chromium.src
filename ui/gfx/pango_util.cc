@@ -8,6 +8,7 @@
 #include <fontconfig/fontconfig.h>
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
+#include <string>
 
 #include <algorithm>
 #include <map>
@@ -17,16 +18,14 @@
 #include "base/utf_string_conversions.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
+#include "ui/gfx/font_render_params_linux.h"
 #include "ui/gfx/platform_font_pango.h"
 #include "ui/gfx/rect.h"
-
-#if !defined(USE_WAYLAND) && defined(TOOLKIT_GTK)
-#include <gdk/gdk.h>
-#include <gtk/gtk.h>
-#include "ui/gfx/gtk_util.h"
-#endif
-
 #include "ui/gfx/skia_util.h"
+
+#if defined(TOOLKIT_GTK)
+#include <gdk/gdk.h>
+#endif
 
 namespace {
 
@@ -41,114 +40,59 @@ const double kFadeWidthFactor = 1.5;
 const double kFadeFinalAlpha = 0.15;
 
 // Return |cairo_font_options|. If needed, allocate and update it.
+// TODO(derat): Return font-specific options: http://crbug.com/125235
 cairo_font_options_t* GetCairoFontOptions() {
   // Font settings that we initialize once and then use when drawing text.
   static cairo_font_options_t* cairo_font_options = NULL;
-
   if (cairo_font_options)
     return cairo_font_options;
 
   cairo_font_options = cairo_font_options_create();
 
-#if defined(TOOLKIT_GTK)
-  gint antialias = 0;
-  gint hinting = 0;
-  gchar* hint_style = NULL;
-  gchar* rgba_style = NULL;
-
-  GtkSettings* gtk_settings = gtk_settings_get_default();
-  g_object_get(gtk_settings,
-               "gtk-xft-antialias", &antialias,
-               "gtk-xft-hinting", &hinting,
-               "gtk-xft-hintstyle", &hint_style,
-               "gtk-xft-rgba", &rgba_style,
-               NULL);
-
-  // g_object_get() doesn't tell us whether the properties were present or not,
-  // but if they aren't (because gnome-settings-daemon isn't running), we'll get
-  // NULL values for the strings.
-  if (hint_style && rgba_style) {
-    if (!antialias) {
-      cairo_font_options_set_antialias(cairo_font_options,
-                                       CAIRO_ANTIALIAS_NONE);
-    } else if (strcmp(rgba_style, "none") == 0) {
-      cairo_font_options_set_antialias(cairo_font_options,
-                                       CAIRO_ANTIALIAS_GRAY);
-    } else {
-      cairo_font_options_set_antialias(cairo_font_options,
-                                       CAIRO_ANTIALIAS_SUBPIXEL);
-      cairo_subpixel_order_t cairo_subpixel_order =
-          CAIRO_SUBPIXEL_ORDER_DEFAULT;
-      if (strcmp(rgba_style, "rgb") == 0) {
-        cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_RGB;
-      } else if (strcmp(rgba_style, "bgr") == 0) {
-        cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_BGR;
-      } else if (strcmp(rgba_style, "vrgb") == 0) {
-        cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_VRGB;
-      } else if (strcmp(rgba_style, "vbgr") == 0) {
-        cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_VBGR;
-      }
-      cairo_font_options_set_subpixel_order(cairo_font_options,
-                                            cairo_subpixel_order);
-    }
-
-    cairo_hint_style_t cairo_hint_style = CAIRO_HINT_STYLE_DEFAULT;
-    if (hinting == 0 || strcmp(hint_style, "hintnone") == 0) {
-      cairo_hint_style = CAIRO_HINT_STYLE_NONE;
-    } else if (strcmp(hint_style, "hintslight") == 0) {
-      cairo_hint_style = CAIRO_HINT_STYLE_SLIGHT;
-    } else if (strcmp(hint_style, "hintmedium") == 0) {
-      cairo_hint_style = CAIRO_HINT_STYLE_MEDIUM;
-    } else if (strcmp(hint_style, "hintfull") == 0) {
-      cairo_hint_style = CAIRO_HINT_STYLE_FULL;
-    }
-    cairo_font_options_set_hint_style(cairo_font_options, cairo_hint_style);
-  }
-
-  if (hint_style)
-    g_free(hint_style);
-  if (rgba_style)
-    g_free(rgba_style);
-#else
-  // For non-GTK builds (read: Aura), use light hinting and fetch
-  // subpixel-rendering settings from FontConfig.  We should really be getting
-  // per-font settings here, but this path will be made obsolete by
-  // http://crbug.com/105550.
-  // TODO(derat): Create font_config_util.h/cc and move this there.
-  FcPattern* pattern = FcPatternCreate();
-  FcResult result;
-  FcPattern* match = FcFontMatch(0, pattern, &result);
-  DCHECK(match);
-  int fc_rgba = FC_RGBA_RGB;
-  FcPatternGetInteger(match, FC_RGBA, 0, &fc_rgba);
-  FcPatternDestroy(pattern);
-  FcPatternDestroy(match);
-
-  cairo_antialias_t cairo_antialias = (fc_rgba != FC_RGBA_NONE) ?
-      CAIRO_ANTIALIAS_SUBPIXEL : CAIRO_ANTIALIAS_GRAY;
-
-  cairo_subpixel_order_t cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_RGB;
-  switch (fc_rgba) {
-    case FC_RGBA_RGB:
+  const gfx::FontRenderParams& params = gfx::GetDefaultFontRenderParams();
+  gfx::FontRenderParams::SubpixelRendering subpixel = params.subpixel_rendering;
+  if (!params.antialiasing) {
+    cairo_font_options_set_antialias(cairo_font_options, CAIRO_ANTIALIAS_NONE);
+  } else if (subpixel == gfx::FontRenderParams::SUBPIXEL_RENDERING_NONE) {
+    cairo_font_options_set_antialias(cairo_font_options, CAIRO_ANTIALIAS_GRAY);
+  } else {
+    cairo_font_options_set_antialias(cairo_font_options,
+                                     CAIRO_ANTIALIAS_SUBPIXEL);
+    cairo_subpixel_order_t cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_DEFAULT;
+    if (subpixel == gfx::FontRenderParams::SUBPIXEL_RENDERING_RGB)
       cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_RGB;
-      break;
-    case FC_RGBA_BGR:
+    else if (subpixel == gfx::FontRenderParams::SUBPIXEL_RENDERING_BGR)
       cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_BGR;
-      break;
-    case FC_RGBA_VRGB:
+    else if (subpixel == gfx::FontRenderParams::SUBPIXEL_RENDERING_VRGB)
       cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_VRGB;
-      break;
-    case FC_RGBA_VBGR:
+    else if (subpixel == gfx::FontRenderParams::SUBPIXEL_RENDERING_VBGR)
       cairo_subpixel_order = CAIRO_SUBPIXEL_ORDER_VBGR;
-      break;
+    else
+      NOTREACHED() << "Unhandled subpixel rendering type " << subpixel;
+    cairo_font_options_set_subpixel_order(cairo_font_options,
+                                          cairo_subpixel_order);
   }
 
-  cairo_font_options_set_antialias(cairo_font_options, cairo_antialias);
-  cairo_font_options_set_subpixel_order(cairo_font_options,
-                                        cairo_subpixel_order);
-  cairo_font_options_set_hint_style(cairo_font_options,
-                                    CAIRO_HINT_STYLE_SLIGHT);
-#endif
+  if (params.hinting == gfx::FontRenderParams::HINTING_NONE ||
+      params.subpixel_positioning) {
+    cairo_font_options_set_hint_style(cairo_font_options,
+                                      CAIRO_HINT_STYLE_NONE);
+    cairo_font_options_set_hint_metrics(cairo_font_options,
+                                        CAIRO_HINT_METRICS_OFF);
+  } else {
+    cairo_hint_style_t cairo_hint_style = CAIRO_HINT_STYLE_DEFAULT;
+    if (params.hinting == gfx::FontRenderParams::HINTING_SLIGHT)
+      cairo_hint_style = CAIRO_HINT_STYLE_SLIGHT;
+    else if (params.hinting == gfx::FontRenderParams::HINTING_MEDIUM)
+      cairo_hint_style = CAIRO_HINT_STYLE_MEDIUM;
+    else if (params.hinting == gfx::FontRenderParams::HINTING_FULL)
+      cairo_hint_style = CAIRO_HINT_STYLE_FULL;
+    else
+      NOTREACHED() << "Unhandled hinting style " << params.hinting;
+    cairo_font_options_set_hint_style(cairo_font_options, cairo_hint_style);
+    cairo_font_options_set_hint_metrics(cairo_font_options,
+                                        CAIRO_HINT_METRICS_ON);
+  }
 
   return cairo_font_options;
 }
@@ -179,7 +123,7 @@ float GetPixelsInPoint() {
 namespace gfx {
 
 PangoContext* GetPangoContext() {
-#if defined(USE_WAYLAND) || defined(USE_AURA)
+#if defined(USE_AURA)
   PangoFontMap* font_map = pango_cairo_font_map_get_default();
   return pango_font_map_create_context(font_map);
 #else
@@ -337,9 +281,8 @@ void SetupPangoLayout(PangoLayout* layout,
                       int flags) {
   SetupPangoLayoutWithoutFont(layout, text, width, text_direction, flags);
 
-  PangoFontDescription* desc = font.GetNativeFont();
-  pango_layout_set_font_description(layout, desc);
-  pango_font_description_free(desc);
+  ScopedPangoFontDescription desc(font.GetNativeFont());
+  pango_layout_set_font_description(layout, desc.get());
 }
 
 void SetupPangoLayoutWithFontDescription(
@@ -351,10 +294,9 @@ void SetupPangoLayoutWithFontDescription(
     int flags) {
   SetupPangoLayoutWithoutFont(layout, text, width, text_direction, flags);
 
-  PangoFontDescription* desc = pango_font_description_from_string(
-      font_description.c_str());
-  pango_layout_set_font_description(layout, desc);
-  pango_font_description_free(desc);
+  ScopedPangoFontDescription desc(
+      pango_font_description_from_string(font_description.c_str()));
+  pango_layout_set_font_description(layout, desc.get());
 }
 
 void AdjustTextRectBasedOnLayout(PangoLayout* layout,

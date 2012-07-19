@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/gtest_prod_util.h"
 #include "base/message_loop.h"
 #include "content/common/content_export.h"
 #include "content/common/media/media_stream_options.h"
@@ -34,25 +35,30 @@ class CONTENT_EXPORT MediaStreamDispatcher
   // Note: The event_handler must be valid for as long as the stream exists.
   virtual void GenerateStream(
       int request_id,
-      MediaStreamDispatcherEventHandler* event_handler,
+      const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
       media_stream::StreamOptions components,
-      const std::string& security_origin);
+      const GURL& security_origin);
+
+  // Cancel the request for a new media stream to be created.
+  virtual void CancelGenerateStream(int request_id);
 
   // Stop a started stream. Label is the label provided in OnStreamGenerated.
   virtual void StopStream(const std::string& label);
 
   // Request to enumerate devices.
-  void EnumerateDevices(int request_id,
-                        MediaStreamDispatcherEventHandler* event_handler,
-                        media_stream::MediaStreamType type,
-                        const std::string& security_origin);
+  void EnumerateDevices(
+      int request_id,
+      const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
+      media_stream::MediaStreamType type,
+      const GURL& security_origin);
 
   // Request to open a device.
-  void OpenDevice(int request_id,
-                  MediaStreamDispatcherEventHandler* event_handler,
-                  const std::string& device_id,
-                  media_stream::MediaStreamType type,
-                  const std::string& security_origin);
+  void OpenDevice(
+      int request_id,
+      const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
+      const std::string& device_id,
+      media_stream::MediaStreamType type,
+      const GURL& security_origin);
 
   // Close a started device. |label| is provided in OnDeviceOpened.
   void CloseDevice(const std::string& label);
@@ -69,6 +75,7 @@ class CONTENT_EXPORT MediaStreamDispatcher
   FRIEND_TEST_ALL_PREFIXES(MediaStreamDispatcherTest, BasicStream);
   FRIEND_TEST_ALL_PREFIXES(MediaStreamDispatcherTest, BasicVideoDevice);
   FRIEND_TEST_ALL_PREFIXES(MediaStreamDispatcherTest, TestFailure);
+  FRIEND_TEST_ALL_PREFIXES(MediaStreamDispatcherTest, CancelGenerateStream);
 
   struct Request;
 

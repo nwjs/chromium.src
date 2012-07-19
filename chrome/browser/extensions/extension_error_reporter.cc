@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/simple_message_box.h"
+#include "chrome/browser/ui/simple_message_box.h"
 
 ExtensionErrorReporter* ExtensionErrorReporter::instance_ = NULL;
 
@@ -56,9 +56,8 @@ void ExtensionErrorReporter::ReportError(const string16& message,
   LOG(ERROR) << "Extension error: " << message;
 
   if (enable_noisy_errors_ && be_noisy) {
-    browser::ShowErrorBox(NULL,
-                          UTF8ToUTF16("Extension error"),
-                          message);
+    chrome::ShowMessageBox(NULL, ASCIIToUTF16("Extension error"), message,
+                           chrome::MESSAGE_BOX_TYPE_WARNING);
   }
 }
 

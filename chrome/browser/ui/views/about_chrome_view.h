@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_ABOUT_CHROME_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_ABOUT_CHROME_VIEW_H_
-#pragma once
 
 #include <string>
 
@@ -17,7 +16,7 @@
 #include "ui/views/window/dialog_delegate.h"
 
 #if defined(OS_WIN) && !defined(USE_AURA)
-#include "chrome/browser/google/google_update.h"
+#include "chrome/browser/google/google_update_win.h"
 #endif
 
 namespace views {
@@ -25,7 +24,7 @@ class Textfield;
 class Throbber;
 }
 
-class Profile;
+class Browser;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -41,7 +40,7 @@ class AboutChromeView : public views::DialogDelegateView,
 #endif
                         {
  public:
-  explicit AboutChromeView(Profile* profile);
+  explicit AboutChromeView(Browser* browser);
   virtual ~AboutChromeView();
 
   // Initialize the controls on the dialog.
@@ -91,7 +90,7 @@ class AboutChromeView : public views::DialogDelegateView,
   int EnlargeWindowSizeIfNeeded();
 #endif
 
-  Profile* profile_;
+  Browser* browser_;
 
   // UI elements on the dialog.
   views::ImageView* about_dlg_background_logo_;

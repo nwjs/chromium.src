@@ -4,9 +4,10 @@
 
 #include "base/path_service.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "content/browser/tab_contents/tab_contents.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/common/content_paths.h"
 #include "net/base/net_util.h"
 #include "webkit/dom_storage/dom_storage_types.h"
@@ -15,9 +16,7 @@
 // from end-to-end.
 class DomStorageBrowserTest : public InProcessBrowserTest {
  public:
-  DomStorageBrowserTest() {
-    EnableDOMAutomation();
-  }
+  DomStorageBrowserTest() {}
 
   GURL GetTestURL(const char* name) {
     FilePath file_name = FilePath().AppendASCII(name);
@@ -33,11 +32,12 @@ class DomStorageBrowserTest : public InProcessBrowserTest {
     Browser* the_browser = incognito ? CreateIncognitoBrowser() : browser();
     ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
         the_browser, test_url, 2);
-    std::string result = the_browser->GetSelectedWebContents()->GetURL().ref();
+    std::string result =
+        chrome::GetActiveWebContents(the_browser)->GetURL().ref();
     if (result != "pass") {
       std::string js_result;
       ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-          the_browser->GetSelectedWebContents()->GetRenderViewHost(), L"",
+          chrome::GetActiveWebContents(the_browser)->GetRenderViewHost(), L"",
           L"window.domAutomationController.send(getLog())", &js_result));
       FAIL() << "Failed: " << js_result;
     }

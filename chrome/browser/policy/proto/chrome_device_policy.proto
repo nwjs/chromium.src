@@ -19,7 +19,6 @@ message UserWhitelistProto {
 
 message AllowNewUsersProto {
   // Determines whether we allow arbitrary users to log into the device.
-  // Should default to true.
   // This interacts with the UserWhitelistProto as follows:
   // allow_new_users | user_whitelist | user_whitelist_size | anyone can log in
   //-----------------+----------------+---------------------+------------------
@@ -39,24 +38,22 @@ message AllowNewUsersProto {
   //-----------------+----------------+---------------------+------------------
   //  not present    | present        | > 0                 | No, W/L enforced
   //-----------------+----------------+---------------------+------------------
-  optional bool allow_new_users = 1;
+  optional bool allow_new_users = 1 [default = true];
 }
 
 message GuestModeEnabledProto {
   // Determines if guests are allowed to log in to the device.
-  // Should default to true.
-  optional bool guest_mode_enabled = 1;
+  optional bool guest_mode_enabled = 1 [default = true];
 }
 
 message ShowUserNamesOnSigninProto {
   // Determines if we show pods for existing users on the sign in screen.
-  // Should default to true.
-  optional bool show_user_names = 1;
+  optional bool show_user_names = 1 [default = true];
 }
 
 message DataRoamingEnabledProto {
-  // Determines if cellular data roaming is enabled.  Should default to false.
-  optional bool data_roaming_enabled = 1;
+  // Determines if cellular data roaming is enabled.
+  optional bool data_roaming_enabled = 1 [default = false];
 }
 
 message DeviceProxySettingsProto {
@@ -79,8 +76,8 @@ message ReleaseChannelProto {
   // One of "stable-channel", "beta-channel", or "dev-channel"
   optional string release_channel = 1;
 
-  // If |user_delegated| is set to true and the |release_channel| field is not
-  // set or left empty, the user can select the channel. If the
+  // If |release_channel_delegated| is set to true and the |release_channel|
+  // field is not set or left empty, the user can select the channel. If the
   // |release_channel| is specified it will always override users choice!
   optional bool release_channel_delegated = 2;
 }
@@ -115,6 +112,14 @@ message AppPackEntryProto {
 message AppPackProto {
   // List of extensions to install as part of the AppPack.
   repeated AppPackEntryProto app_pack = 1;
+}
+
+// This is a special policy for kiosk/retail mode that specifies what apps
+// should be pinned to the launcher. For regular accounts, pinned apps are
+// controlled through user policy.
+message PinnedAppsProto {
+  // App IDs for the apps to pin.
+  repeated string app_id = 1;
 }
 
 message ForcedLogoutTimeoutsProto {
@@ -161,6 +166,38 @@ message AutoUpdateSettingsProto {
   // 1412.24.34: update to this specific version only
   // ---------------------------------------------------------------------
   optional string target_version_prefix = 2;
+
+  // The Chrome browser version (e.g. "17.*") corresponding to the
+  // target_version_prefix above. The target_version_prefix is the internal OS
+  // version that external users normally are not aware of. This display_name
+  // can be used by the devices to display a message to end-users about the auto
+  // update setting.
+  optional string target_version_display_name = 3;
+
+  // Specifies the number of seconds up to which a device may randomly
+  // delay its download of an update from the time the update was first pushed
+  // out to the server. The device may wait a portion of this time in terms
+  // of wall-clock-time and the remaining portion in terms of the number of
+  // update checks. In any case, the scatter is upper bounded by a constant
+  // amount of time so that a device does not ever get stuck waiting to download
+  // an update forever.
+  optional int64 scatter_factor_in_seconds = 4;
+
+  // Enumerates network connection types.
+  enum ConnectionType {
+    CONNECTION_TYPE_ETHERNET = 0;
+    CONNECTION_TYPE_WIFI = 1;
+    CONNECTION_TYPE_WIMAX = 2;
+    CONNECTION_TYPE_BLUETOOTH = 3;
+    CONNECTION_TYPE_CELLULAR = 4;
+  }
+
+  // The types of connections that are OK to use for OS updates. OS updates
+  // potentially put heavy strain on the connection due to their size and may
+  // incur additional cost. Therefore, they are by default not enabled for
+  // connection types that are considered expensive, which include WiMax,
+  // Bluetooth and Cellular at the moment.
+  repeated ConnectionType allowed_connection_types = 5;
 }
 
 message StartUpUrlsProto {
@@ -188,4 +225,5 @@ message ChromeDeviceSettingsProto {
   optional ScreenSaverProto login_screen_saver = 16;
   optional AutoUpdateSettingsProto auto_update_settings = 17;
   optional StartUpUrlsProto start_up_urls = 18;
+  optional PinnedAppsProto pinned_apps = 19;
 }

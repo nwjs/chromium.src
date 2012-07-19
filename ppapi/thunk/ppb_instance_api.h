@@ -5,7 +5,11 @@
 #ifndef PPAPI_THUNK_INSTANCE_API_H_
 #define PPAPI_THUNK_INSTANCE_API_H_
 
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_ptr.h"
+#include "ppapi/c/dev/pp_print_settings_dev.h"
 #include "ppapi/c/dev/ppb_console_dev.h"
+#include "ppapi/c/dev/ppb_text_input_dev.h"
 #include "ppapi/c/dev/ppb_url_util_dev.h"
 #include "ppapi/c/pp_bool.h"
 #include "ppapi/c/pp_completion_callback.h"
@@ -14,6 +18,7 @@
 #include "ppapi/c/ppb_audio_config.h"
 #include "ppapi/c/ppb_gamepad.h"
 #include "ppapi/c/ppb_instance.h"
+#include "ppapi/c/ppb_mouse_cursor.h"
 #include "ppapi/c/private/ppb_instance_private.h"
 #include "ppapi/shared_impl/api_id.h"
 
@@ -24,13 +29,16 @@
 
 namespace ppapi {
 
+class TrackedCallback;
 struct ViewData;
 
 namespace thunk {
 
-class PPB_Instance_FunctionAPI {
+class PPB_Flash_API;
+
+class PPB_Instance_API {
  public:
-  virtual ~PPB_Instance_FunctionAPI() {}
+  virtual ~PPB_Instance_API() {}
 
   virtual PP_Bool BindGraphics(PP_Instance instance, PP_Resource device) = 0;
   virtual PP_Bool IsFullFrame(PP_Instance instance) = 0;
@@ -76,11 +84,8 @@ class PPB_Instance_FunctionAPI {
                                 PP_Bool fullscreen) = 0;
   virtual PP_Bool GetScreenSize(PP_Instance instance, PP_Size* size) = 0;
 
-  // FlashFullscreen.
-  virtual PP_Bool FlashIsFullscreen(PP_Instance instance) = 0;
-  virtual PP_Bool FlashSetFullscreen(PP_Instance instance,
-                                     PP_Bool fullscreen) = 0;
-  virtual PP_Bool FlashGetScreenSize(PP_Instance instance, PP_Size* size) = 0;
+  // Flash.
+  virtual PPB_Flash_API* GetFlashAPI() = 0;
 
   // Gamepad.
   virtual void SampleGamepads(PP_Instance instance,
@@ -99,17 +104,41 @@ class PPB_Instance_FunctionAPI {
   // Messaging.
   virtual void PostMessage(PP_Instance instance, PP_Var message) = 0;
 
+  // Mouse cursor.
+  virtual PP_Bool SetCursor(PP_Instance instance,
+                            PP_MouseCursor_Type type,
+                            PP_Resource image,
+                            const PP_Point* hot_spot) = 0;
+
   // MouseLock.
   virtual int32_t LockMouse(PP_Instance instance,
-                            PP_CompletionCallback callback) = 0;
+                            scoped_refptr<TrackedCallback> callback) = 0;
   virtual void UnlockMouse(PP_Instance instance) = 0;
+
+  // Printing.
+  virtual PP_Bool GetDefaultPrintSettings(
+      PP_Instance instance,
+      PP_PrintSettings_Dev* print_settings) = 0;
+
+  // TextInput.
+  virtual void SetTextInputType(PP_Instance instance,
+                                PP_TextInput_Type type) = 0;
+  virtual void UpdateCaretPosition(PP_Instance instance,
+                                   const PP_Rect& caret,
+                                   const PP_Rect& bounding_box) = 0;
+  virtual void CancelCompositionText(PP_Instance instance) = 0;
+  virtual void SelectionChanged(PP_Instance instance) = 0;
+  virtual void UpdateSurroundingText(PP_Instance instance,
+                                     const char* text,
+                                     uint32_t caret,
+                                     uint32_t anchor) = 0;
 
   // Zoom.
   virtual void ZoomChanged(PP_Instance instance, double factor) = 0;
   virtual void ZoomLimitsChanged(PP_Instance instance,
                                  double minimum_factor,
                                  double maximium_factor) = 0;
-
+#if !defined(OS_NACL)
   // URLUtil.
   virtual PP_Var ResolveRelativeToDocument(
       PP_Instance instance,
@@ -122,6 +151,7 @@ class PPB_Instance_FunctionAPI {
                                 PP_URLComponents_Dev* components) = 0;
   virtual PP_Var GetPluginInstanceURL(PP_Instance instance,
                                       PP_URLComponents_Dev* components) = 0;
+#endif  // !defined(OS_NACL)
 
   static const ApiID kApiID = API_ID_PPB_INSTANCE;
 };

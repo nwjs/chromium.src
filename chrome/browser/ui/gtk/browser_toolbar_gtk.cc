@@ -4,9 +4,9 @@
 
 #include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 
-#include <X11/XF86keysym.h>
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
+#include <X11/XF86keysym.h>
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
@@ -21,21 +21,23 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/global_error_service.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/global_error/global_error_service.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/gtk/accelerators_gtk.h"
 #include "chrome/browser/ui/gtk/back_forward_button_gtk.h"
 #include "chrome/browser/ui/gtk/bookmarks/bookmark_sub_menu_model_gtk.h"
 #include "chrome/browser/ui/gtk/browser_actions_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #include "chrome/browser/ui/gtk/custom_button.h"
+#include "chrome/browser/ui/gtk/event_utils.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_button.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
 #include "chrome/browser/ui/gtk/reload_button_gtk.h"
 #include "chrome/browser/ui/gtk/rounded_window.h"
 #include "chrome/browser/ui/gtk/tabs/tab_strip_gtk.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/browser/ui/gtk/view_id_util.h"
 #include "chrome/browser/ui/toolbar/encoding_menu_controller.h"
 #include "chrome/browser/upgrade_detector.h"
@@ -50,7 +52,6 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "ui/base/accelerators/accelerator_gtk.h"
 #include "ui/base/dragdrop/gtk_dnd_util.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -102,10 +103,10 @@ BrowserToolbarGtk::BrowserToolbarGtk(Browser* browser, BrowserWindowGtk* window)
       window_(window) {
   wrench_menu_model_.reset(new WrenchMenuModel(this, browser_));
 
-  browser_->command_updater()->AddCommandObserver(IDC_BACK, this);
-  browser_->command_updater()->AddCommandObserver(IDC_FORWARD, this);
-  browser_->command_updater()->AddCommandObserver(IDC_HOME, this);
-  browser_->command_updater()->AddCommandObserver(IDC_BOOKMARK_PAGE, this);
+  chrome::AddCommandObserver(browser_, IDC_BACK, this);
+  chrome::AddCommandObserver(browser_, IDC_FORWARD, this);
+  chrome::AddCommandObserver(browser_, IDC_HOME, this);
+  chrome::AddCommandObserver(browser_, IDC_BOOKMARK_PAGE, this);
 
   registrar_.Add(this,
                  chrome::NOTIFICATION_UPGRADE_RECOMMENDED,
@@ -116,10 +117,10 @@ BrowserToolbarGtk::BrowserToolbarGtk(Browser* browser, BrowserWindowGtk* window)
 }
 
 BrowserToolbarGtk::~BrowserToolbarGtk() {
-  browser_->command_updater()->RemoveCommandObserver(IDC_BACK, this);
-  browser_->command_updater()->RemoveCommandObserver(IDC_FORWARD, this);
-  browser_->command_updater()->RemoveCommandObserver(IDC_HOME, this);
-  browser_->command_updater()->RemoveCommandObserver(IDC_BOOKMARK_PAGE, this);
+  chrome::RemoveCommandObserver(browser_, IDC_BACK, this);
+  chrome::RemoveCommandObserver(browser_, IDC_FORWARD, this);
+  chrome::RemoveCommandObserver(browser_, IDC_HOME, this);
+  chrome::RemoveCommandObserver(browser_, IDC_BOOKMARK_PAGE, this);
 
   offscreen_entry_.Destroy();
 
@@ -128,7 +129,7 @@ BrowserToolbarGtk::~BrowserToolbarGtk() {
 
 void BrowserToolbarGtk::Init(GtkWindow* top_level_window) {
   Profile* profile = browser_->profile();
-  theme_service_ = ThemeServiceGtk::GetFrom(profile);
+  theme_service_ = GtkThemeService::GetFrom(profile);
   registrar_.Add(this,
                  chrome::NOTIFICATION_BROWSER_THEME_CHANGED,
                  content::Source<ThemeService>(theme_service_));
@@ -301,7 +302,7 @@ void BrowserToolbarGtk::ShowAppMenu() {
   wrench_menu_->PopupAsFromKeyEvent(wrench_menu_button_->widget());
 }
 
-// CommandUpdater::CommandObserver ---------------------------------------------
+// CommandObserver -------------------------------------------------------------
 
 void BrowserToolbarGtk::EnabledStateChangedForCommand(int id, bool enabled) {
   GtkWidget* widget = NULL;
@@ -594,14 +595,14 @@ gboolean BrowserToolbarGtk::OnLocationHboxExpose(GtkWidget* location_hbox,
 
 void BrowserToolbarGtk::OnButtonClick(GtkWidget* button) {
   if ((button == back_->widget()) || (button == forward_->widget())) {
-    if (gtk_util::DispositionForCurrentButtonPressEvent() == CURRENT_TAB)
+    if (event_utils::DispositionForCurrentButtonPressEvent() == CURRENT_TAB)
       location_bar_->Revert();
     return;
   }
 
   DCHECK(home_.get() && button == home_->widget()) <<
       "Unexpected button click callback";
-  browser_->Home(gtk_util::DispositionForCurrentButtonPressEvent());
+  chrome::Home(browser_, event_utils::DispositionForCurrentButtonPressEvent());
 }
 
 gboolean BrowserToolbarGtk::OnMenuButtonPressEvent(GtkWidget* button,
@@ -686,9 +687,9 @@ gboolean BrowserToolbarGtk::OnWrenchMenuButtonExpose(GtkWidget* sender,
   gfx::CanvasSkiaPaint canvas(expose, false);
   int x_offset = base::i18n::IsRTL() ? 0 : allocation.width - badge->width();
   int y_offset = 0;
-  canvas.DrawBitmapInt(*badge,
-                       allocation.x + x_offset,
-                       allocation.y + y_offset);
+  canvas.DrawImageInt(*badge,
+                      allocation.x + x_offset,
+                      allocation.y + y_offset);
 
   return FALSE;
 }

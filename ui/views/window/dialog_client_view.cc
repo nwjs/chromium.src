@@ -19,10 +19,10 @@
 #include "ui/base/hit_test.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/native_theme/native_theme.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
-#include "ui/gfx/native_theme.h"
 #include "ui/views/controls/button/text_button.h"
 #include "ui/views/layout/layout_constants.h"
 #include "ui/views/widget/root_view.h"
@@ -108,8 +108,7 @@ DialogClientView::DialogClientView(Widget* owner, View* contents_view)
       size_extra_view_height_to_buttons_(false),
       notified_delegate_(false),
       listening_to_focus_(false),
-      saved_focus_manager_(NULL),
-      bottom_view_(NULL) {
+      saved_focus_manager_(NULL) {
 }
 
 DialogClientView::~DialogClientView() {
@@ -133,8 +132,7 @@ void DialogClientView::ShowDialogButtons() {
     if (is_default_button)
       default_button_ = ok_button_;
     if (!(buttons & ui::DIALOG_BUTTON_CANCEL))
-      ok_button_->AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE,
-                                                 false, false, false));
+      ok_button_->AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
     AddChildView(ok_button_);
   }
   if (buttons & ui::DIALOG_BUTTON_CANCEL && !cancel_button_) {
@@ -157,7 +155,7 @@ void DialogClientView::ShowDialogButtons() {
                                       is_default_button);
     cancel_button_->SetGroup(kButtonGroup);
     cancel_button_->AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE,
-                                                   false, false, false));
+                                                   ui::EF_NONE));
     if (is_default_button)
       default_button_ = ok_button_;
     AddChildView(cancel_button_);
@@ -165,7 +163,7 @@ void DialogClientView::ShowDialogButtons() {
   if (!buttons) {
     // Register the escape key as an accelerator which will close the window
     // if there are no dialog buttons.
-    AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, false, false, false));
+    AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
   }
 }
 
@@ -239,16 +237,6 @@ void DialogClientView::CancelWindow() {
   Close();
 }
 
-void DialogClientView::SetBottomView(View* bottom_view) {
-  if (bottom_view_) {
-    RemoveChildView(bottom_view_);
-    delete bottom_view_;
-  }
-  bottom_view_ = bottom_view;
-  if (bottom_view_)
-    AddChildView(bottom_view_);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // DialogClientView, View overrides:
 
@@ -305,8 +293,8 @@ const DialogClientView* DialogClientView::AsDialogClientView() const {
 // DialogClientView, View overrides:
 
 void DialogClientView::OnPaint(gfx::Canvas* canvas) {
-  SkColor bg_color = gfx::NativeTheme::instance()->GetSystemColor(
-      gfx::NativeTheme::kColorId_DialogBackground);
+  SkColor bg_color = ui::NativeTheme::instance()->GetSystemColor(
+      ui::NativeTheme::kColorId_DialogBackground);
   canvas->FillRect(GetLocalBounds(), bg_color);
 }
 
@@ -319,13 +307,6 @@ void DialogClientView::PaintChildren(gfx::Canvas* canvas) {
 void DialogClientView::Layout() {
   if (has_dialog_buttons())
     LayoutDialogButtons();
-  if (bottom_view_) {
-    gfx::Rect bounds = GetContentsBounds();
-    gfx::Size pref = bottom_view_->GetPreferredSize();
-    bottom_view_->SetBounds(bounds.x(),
-        bounds.bottom() - pref.height() - kButtonVEdgeMargin,
-        bounds.width(), pref.height());
-  }
   LayoutContentsView();
 }
 
@@ -350,15 +331,8 @@ void DialogClientView::ViewHierarchyChanged(bool is_add, View* parent,
 
 gfx::Size DialogClientView::GetPreferredSize() {
   gfx::Size prefsize = contents_view()->GetPreferredSize();
-  int button_height = 0;
+  int button_height = GetDialogButtonsAreaHeight();
   if (has_dialog_buttons()) {
-    if (cancel_button_)
-      button_height = cancel_button_->height();
-    else
-      button_height = ok_button_->height();
-    // Account for padding above and below the button.
-    button_height += kDialogButtonContentSpacing + kButtonVEdgeMargin;
-
     // Make sure the view is sized to the buttons's width if they are wider than
     // the contents.
     int width = 0;
@@ -378,10 +352,6 @@ gfx::Size DialogClientView::GetPreferredSize() {
       width += 2 * kButtonHEdgeMargin;
       prefsize.set_width(std::max(prefsize.width(), width));
     }
-  }
-  if (bottom_view_) {
-    gfx::Size bottom_pref = bottom_view_->GetPreferredSize();
-    prefsize.Enlarge(0, bottom_pref.height() + kButtonVEdgeMargin);
   }
   prefsize.Enlarge(0, button_height);
   return prefsize;
@@ -420,10 +390,9 @@ void DialogClientView::PaintSizeBox(gfx::Canvas* canvas) {
   if (GetWidget()->widget_delegate()->CanResize() ||
       GetWidget()->widget_delegate()->CanMaximize()) {
 #if defined(OS_WIN)
-    gfx::NativeTheme::ExtraParams extra;
-    gfx::Size gripper_size = gfx::NativeTheme::instance()->GetPartSize(
-        gfx::NativeTheme::kWindowResizeGripper, gfx::NativeTheme::kNormal,
-        extra);
+    ui::NativeTheme::ExtraParams extra;
+    gfx::Size gripper_size = ui::NativeTheme::instance()->GetPartSize(
+        ui::NativeTheme::kWindowResizeGripper, ui::NativeTheme::kNormal, extra);
 
     // TODO(beng): (http://b/1085509) In "classic" rendering mode, there isn't
     //             a theme-supplied gripper. We should probably improvise
@@ -433,11 +402,11 @@ void DialogClientView::PaintSizeBox(gfx::Canvas* canvas) {
     size_box_bounds_.set_x(size_box_bounds_.right() - gripper_size.width());
     size_box_bounds_.set_y(size_box_bounds_.bottom() - gripper_size.height());
 
-    gfx::NativeTheme::instance()->Paint(canvas->sk_canvas(),
-                                        gfx::NativeTheme::kWindowResizeGripper,
-                                        gfx::NativeTheme::kNormal,
-                                        size_box_bounds_,
-                                        extra);
+    ui::NativeTheme::instance()->Paint(canvas->sk_canvas(),
+                                       ui::NativeTheme::kWindowResizeGripper,
+                                       ui::NativeTheme::kNormal,
+                                       size_box_bounds_,
+                                       extra);
 #else
     NOTIMPLEMENTED();
     // TODO(port): paint size box
@@ -455,23 +424,26 @@ int DialogClientView::GetButtonWidth(int button) const {
 }
 
 int DialogClientView::GetButtonsHeight() const {
-  if (has_dialog_buttons()) {
-    if (cancel_button_)
-      return cancel_button_->height() + kDialogButtonContentSpacing;
-    return ok_button_->height() + kDialogButtonContentSpacing;
-  }
-  return 0;
+  int button_height = 0;
+  if (cancel_button_)
+    button_height = std::max(button_height,
+                             cancel_button_->GetPreferredSize().height());
+  if (ok_button_)
+    button_height = std::max(button_height,
+                             ok_button_->GetPreferredSize().height());
+  return button_height;
+}
+
+int DialogClientView::GetDialogButtonsAreaHeight() const {
+  return !has_dialog_buttons() ? 0 :
+      GetButtonsHeight() + kDialogButtonContentSpacing + kButtonVEdgeMargin;
 }
 
 void DialogClientView::LayoutDialogButtons() {
   gfx::Rect lb = GetContentsBounds();
   gfx::Rect extra_bounds;
   int bottom_y = lb.bottom() - kButtonVEdgeMargin;
-  int button_height = 0;
-  if (bottom_view_) {
-    gfx::Size bottom_pref = bottom_view_->GetPreferredSize();
-    bottom_y -= bottom_pref.height() + kButtonVEdgeMargin + kButtonVEdgeMargin;
-  }
+  int button_height = GetButtonsHeight();
   if (cancel_button_) {
     gfx::Size ps = cancel_button_->GetPreferredSize();
     int button_width = std::max(
@@ -482,7 +454,6 @@ void DialogClientView::LayoutDialogButtons() {
     // The extra view bounds are dependent on this button.
     extra_bounds.set_width(std::max(0, cancel_button_->x()));
     extra_bounds.set_y(cancel_button_->y());
-    button_height = std::max(button_height, ps.height());
   }
   if (ok_button_) {
     gfx::Size ps = ok_button_->GetPreferredSize();
@@ -498,7 +469,6 @@ void DialogClientView::LayoutDialogButtons() {
     // The extra view bounds are dependent on this button.
     extra_bounds.set_width(std::max(0, ok_button_->x()));
     extra_bounds.set_y(ok_button_->y());
-    button_height = std::max(button_height, ps.height());
   }
   if (extra_view_) {
     gfx::Size ps = extra_view_->GetPreferredSize();
@@ -512,7 +482,7 @@ void DialogClientView::LayoutDialogButtons() {
 
 void DialogClientView::LayoutContentsView() {
   gfx::Rect lb = GetContentsBounds();
-  lb.set_height(std::max(0, lb.height() - GetButtonsHeight()));
+  lb.set_height(std::max(0, lb.height() - GetDialogButtonsAreaHeight()));
   contents_view()->SetBoundsRect(lb);
   contents_view()->Layout();
 }

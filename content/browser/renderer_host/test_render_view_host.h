@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_TEST_RENDER_VIEW_HOST_H_
 #define CONTENT_BROWSER_RENDERER_HOST_TEST_RENDER_VIEW_HOST_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
@@ -12,10 +11,10 @@
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/public/common/page_transition_types.h"
-#include "content/test/test_renderer_host.h"
+#include "content/public/test/test_renderer_host.h"
 
 // This file provides a testing framework for mocking out the RenderProcessHost
-// layer. It allows you to test RenderViewHost, TabContents,
+// layer. It allows you to test RenderViewHost, WebContentsImpl,
 // NavigationController, and other layers above that without running an actual
 // renderer process.
 //
@@ -57,6 +56,7 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
   virtual gfx::NativeViewId GetNativeViewId() const OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual bool HasFocus() const OVERRIDE;
+  virtual bool IsSurfaceAvailableForCopy() const OVERRIDE;
   virtual void Show() OVERRIDE;
   virtual void Hide() OVERRIDE;
   virtual bool IsShowing() OVERRIDE;
@@ -71,16 +71,13 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
   virtual GdkEventButton* GetLastMouseDown() OVERRIDE;
   virtual gfx::NativeView BuildInputMethodsGtkMenu() OVERRIDE;
 #endif  // defined(TOOLKIT_GTK)
-  virtual bool CopyFromCompositingSurface(
-      const gfx::Size& size,
-             skia::PlatformCanvas* output) OVERRIDE;
 
   // RenderWidgetHostViewPort implementation.
   virtual void InitAsPopup(RenderWidgetHostView* parent_host_view,
                            const gfx::Rect& pos) OVERRIDE {}
   virtual void InitAsFullscreen(
       RenderWidgetHostView* reference_host_view) OVERRIDE {}
-  virtual void DidBecomeSelected() OVERRIDE {}
+  virtual void WasRestored() OVERRIDE {}
   virtual void WasHidden() OVERRIDE {}
   virtual void MovePluginWindows(
       const std::vector<webkit::npapi::WebPluginGeometry>& moves) OVERRIDE {}
@@ -100,6 +97,10 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
   virtual void Destroy() OVERRIDE {}
   virtual void SetTooltipText(const string16& tooltip_text) OVERRIDE {}
   virtual BackingStore* AllocBackingStore(const gfx::Size& size) OVERRIDE;
+  virtual void CopyFromCompositingSurface(
+      const gfx::Size& size,
+      const base::Callback<void(bool)>& callback,
+      skia::PlatformCanvas* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
   virtual void AcceleratedSurfaceBuffersSwapped(
       const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
@@ -108,12 +109,13 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
       const GpuHostMsg_AcceleratedSurfacePostSubBuffer_Params& params,
       int gpu_host_id) OVERRIDE;
   virtual void AcceleratedSurfaceSuspend() OVERRIDE;
+  virtual bool HasAcceleratedSurface(const gfx::Size& desired_size) OVERRIDE;
 #if defined(OS_MACOSX)
-  virtual gfx::Rect GetViewCocoaBounds() const OVERRIDE;
+  virtual void AboutToWaitForBackingStoreMsg() OVERRIDE;
   virtual void PluginFocusChanged(bool focused, int plugin_id) OVERRIDE;
   virtual void StartPluginIme() OVERRIDE;
   virtual bool PostProcessEventForPluginIme(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
+      const content::NativeWebKeyboardEvent& event) OVERRIDE;
   virtual gfx::PluginWindowHandle AllocateFakePluginWindowHandle(
       bool opaque,
       bool root) OVERRIDE;
@@ -128,6 +130,8 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
       int32 width,
       int32 height,
       TransportDIB::Handle transport_dib) OVERRIDE;
+#elif defined(OS_ANDROID)
+  virtual void StartContentIntent(const GURL&) OVERRIDE;
 #elif defined(OS_WIN) && !defined(USE_AURA)
   virtual void WillWmDestroy() OVERRIDE;
 #endif
@@ -144,8 +148,7 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
 
 #if defined(USE_AURA)
   virtual void AcceleratedSurfaceNew(
-      int32 width, int32 height, uint64* surface_id,
-      TransportDIB::Handle* surface_handle) OVERRIDE { }
+      int32 width, int32 height, uint64 surface_id) OVERRIDE { }
   virtual void AcceleratedSurfaceRelease(uint64 surface_id) OVERRIDE { }
 #endif
 
@@ -177,8 +180,9 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase {
 // TestRenderViewHost ----------------------------------------------------------
 
 // TODO(brettw) this should use a TestWebContents which should be generalized
-// from the TabContents test. We will probably also need that class' version of
-// CreateRenderViewForRenderManager when more complicate tests start using this.
+// from the WebContentsImpl test. We will probably also need that class' version
+// of CreateRenderViewForRenderManager when more complicated tests start using
+// this.
 //
 // Note that users outside of content must use this class by getting
 // the separate content::RenderViewHostTester interface via
@@ -214,7 +218,9 @@ class TestRenderViewHost
  public:
   TestRenderViewHost(SiteInstance* instance,
                      RenderViewHostDelegate* delegate,
-                     int routing_id);
+                     RenderWidgetHostDelegate* widget_delegate,
+                     int routing_id,
+                     bool swapped_out);
   virtual ~TestRenderViewHost();
 
   // RenderViewHostTester implementation.  Note that CreateRenderView
@@ -269,7 +275,10 @@ class TestRenderViewHost
   // RenderViewHost overrides --------------------------------------------------
 
   virtual bool CreateRenderView(const string16& frame_name,
-                                int32 max_page_id) OVERRIDE;
+                                int opener_route_id,
+                                int32 max_page_id,
+                                const std::string& embedder_channel_name,
+                                int embedder_container_id) OVERRIDE;
   virtual bool IsRenderViewLive() const OVERRIDE;
 
  private:

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_PASSWORD_CHANGED_VIEW_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_PASSWORD_CHANGED_VIEW_H_
-#pragma once
 
 #include <string>
 
@@ -42,12 +41,15 @@ class PasswordChangedView : public views::DialogDelegateView,
     virtual void ResyncEncryptedData() = 0;
   };
 
-  PasswordChangedView(Delegate* delegate, bool full_sync_disabled);
+  PasswordChangedView(Delegate* delegate,
+                      bool full_sync_disabled,
+                      bool show_invalid_old_password_error);
   virtual ~PasswordChangedView() {}
 
   // views::DialogDelegate:
   virtual bool Accept() OVERRIDE;
   virtual int GetDialogButtons() const OVERRIDE;
+  virtual bool IsDialogButtonEnabled(ui::DialogButton button) const OVERRIDE;
 
   // views::WidgetDelegate:
   virtual View* GetInitiallyFocusedView() OVERRIDE;
@@ -62,11 +64,10 @@ class PasswordChangedView : public views::DialogDelegateView,
                              const views::Event& event) OVERRIDE;
 
   // views::TextfieldController:
+  virtual void ContentsChanged(views::Textfield* sender,
+                               const string16& new_contents) OVERRIDE;
   virtual bool HandleKeyEvent(views::Textfield* sender,
                               const views::KeyEvent& keystroke) OVERRIDE;
-  virtual void ContentsChanged(views::Textfield* sender,
-                               const string16& new_contents) OVERRIDE {}
-
  protected:
   // views::View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
@@ -87,12 +88,17 @@ class PasswordChangedView : public views::DialogDelegateView,
   views::RadioButton* full_sync_radio_;
   views::RadioButton* delta_sync_radio_;
   views::Textfield* old_password_field_;
+  views::Label* password_error_label_;
 
   // Notifications receiver.
   Delegate* delegate_;
 
   // Whether full sync option is disabled.
-  bool full_sync_disabled_;
+  const bool full_sync_disabled_;
+
+  // Whether should show "Incorrect password" error message
+  // i.e. dialog is opened second time after incorrect old password input try.
+  const bool show_invalid_old_password_error_;
 
   DISALLOW_COPY_AND_ASSIGN(PasswordChangedView);
 };

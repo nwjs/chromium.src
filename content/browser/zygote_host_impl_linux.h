@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_BROWSER_ZYGOTE_HOST_IMPL_LINUX_H_
 #define CONTENT_BROWSER_ZYGOTE_HOST_IMPL_LINUX_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -16,8 +15,6 @@
 
 template<typename Type>
 struct DefaultSingletonTraits;
-
-static const char kZygoteMagic[] = "ZYGOTE_OK";
 
 class CONTENT_EXPORT ZygoteHostImpl : public content::ZygoteHost {
  public:
@@ -40,21 +37,13 @@ class CONTENT_EXPORT ZygoteHostImpl : public content::ZygoteHost {
   base::TerminationStatus GetTerminationStatus(base::ProcessHandle handle,
                                                int* exit_code);
 
-  // These are the command codes used on the wire between the browser and the
-  // zygote.
-  enum {
-    kCmdFork = 0,                  // Fork off a new renderer.
-    kCmdReap = 1,                  // Reap a renderer child.
-    kCmdGetTerminationStatus = 2,  // Check what happend to a child process.
-    kCmdGetSandboxStatus = 3,      // Read a bitmask of kSandbox*
-  };
-
   // ZygoteHost implementation:
   virtual pid_t GetPid() const OVERRIDE;
   virtual pid_t GetSandboxHelperPid() const OVERRIDE;
   virtual int GetSandboxStatus() const OVERRIDE;
   virtual void AdjustRendererOOMScore(base::ProcessHandle process_handle,
                                       int score) OVERRIDE;
+  virtual void AdjustLowMemoryMargin(int64 margin_mb) OVERRIDE;
 
  private:
   friend struct DefaultSingletonTraits<ZygoteHostImpl>;

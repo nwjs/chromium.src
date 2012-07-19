@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_COMMON_NP_CHANNEL_BASE_H_
 #define CONTENT_COMMON_NP_CHANNEL_BASE_H_
-#pragma once
 
 #include <string>
 
@@ -12,6 +11,7 @@
 #include "base/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/process.h"
 #include "content/common/message_router.h"
 #include "content/common/npobject_base.h"
 #include "ipc/ipc_channel_handle.h"
@@ -46,8 +46,8 @@ inline size_t hash_value(NPObject* const& ptr) {
 
 // Encapsulates an IPC channel between a renderer and another process. Used to
 // proxy access to NP objects.
-class NPChannelBase : public IPC::Channel::Listener,
-                      public IPC::Message::Sender,
+class NPChannelBase : public IPC::Listener,
+                      public IPC::Sender,
                       public base::RefCountedThreadSafe<NPChannelBase> {
  public:
 
@@ -57,8 +57,7 @@ class NPChannelBase : public IPC::Channel::Listener,
   // pass themselves for npobject).  However the latter don't control the
   // lifetime of this object because we don't want a leak of an NPObject to
   // keep the channel around longer than necessary.
-  void AddRoute(int route_id, IPC::Channel::Listener* listener,
-                NPObjectBase* npobject);
+  void AddRoute(int route_id, IPC::Listener* listener, NPObjectBase* npobject);
   void RemoveRoute(int route_id);
 
 
@@ -72,10 +71,10 @@ class NPChannelBase : public IPC::Channel::Listener,
   int GetExistingRouteForNPObjectStub(NPObject* npobject);
 
 
-  // IPC::Message::Sender implementation:
+  // IPC::Sender implementation:
   virtual bool Send(IPC::Message* msg) OVERRIDE;
 
-  int peer_pid() { return peer_pid_; }
+  base::ProcessId peer_pid() { return channel_->peer_pid(); }
   IPC::ChannelHandle channel_handle() const { return channel_handle_; }
 
   // Returns the number of open NPObject channels in this process.
@@ -134,7 +133,7 @@ class NPChannelBase : public IPC::Channel::Listener,
   // Implemented by derived classes to handle control messages
   virtual bool OnControlMessageReceived(const IPC::Message& msg);
 
-  // IPC::Channel::Listener implementation:
+  // IPC::Listener implementation:
   virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
   virtual void OnChannelConnected(int32 peer_pid) OVERRIDE;
   virtual void OnChannelError() OVERRIDE;

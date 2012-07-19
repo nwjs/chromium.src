@@ -8,24 +8,25 @@
 #include "content/common/media/media_stream_messages.h"
 #include "content/renderer/media/media_stream_dispatcher_eventhandler.h"
 #include "content/renderer/render_view_impl.h"
+#include "googleurl/src/gurl.h"
 
 struct MediaStreamDispatcher::Request {
-  Request(MediaStreamDispatcherEventHandler* handler,
+  Request(const base::WeakPtr<MediaStreamDispatcherEventHandler>& handler,
           int request_id,
           int ipc_request)
       : handler(handler),
         request_id(request_id),
         ipc_request(ipc_request) {
   }
-  MediaStreamDispatcherEventHandler* handler;
+  base::WeakPtr<MediaStreamDispatcherEventHandler> handler;
   int request_id;
   int ipc_request;
 };
 
 struct MediaStreamDispatcher::Stream {
-  Stream() : handler(NULL) {}
+  Stream() {}
   ~Stream() {}
-  MediaStreamDispatcherEventHandler* handler;
+  base::WeakPtr<MediaStreamDispatcherEventHandler> handler;
   media_stream::StreamDeviceInfoArray audio_array;
   media_stream::StreamDeviceInfoArray video_array;
 };
@@ -39,9 +40,9 @@ MediaStreamDispatcher::~MediaStreamDispatcher() {}
 
 void MediaStreamDispatcher::GenerateStream(
     int request_id,
-    MediaStreamDispatcherEventHandler* event_handler,
+    const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
     media_stream::StreamOptions components,
-    const std::string& security_origin) {
+    const GURL& security_origin) {
   DVLOG(1) << "MediaStreamDispatcher::GenerateStream(" << request_id << ")";
 
   requests_.push_back(Request(event_handler, request_id, next_ipc_id_));
@@ -49,6 +50,22 @@ void MediaStreamDispatcher::GenerateStream(
                                              next_ipc_id_++,
                                              components,
                                              security_origin));
+}
+
+void MediaStreamDispatcher::CancelGenerateStream(int request_id) {
+  DVLOG(1) << "MediaStreamDispatcher::CancelGenerateStream"
+           << ", {request_id = " << request_id << "}";
+
+  RequestList::iterator it = requests_.begin();
+  for (; it != requests_.end(); ++it) {
+    Request& request = *it;
+    if (request.request_id == request_id) {
+      requests_.erase(it);
+      Send(new MediaStreamHostMsg_CancelGenerateStream(routing_id(),
+                                                       request_id));
+      break;
+    }
+  }
 }
 
 void MediaStreamDispatcher::StopStream(const std::string& label) {
@@ -65,9 +82,9 @@ void MediaStreamDispatcher::StopStream(const std::string& label) {
 
 void MediaStreamDispatcher::EnumerateDevices(
     int request_id,
-    MediaStreamDispatcherEventHandler* event_handler,
+    const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
     media_stream::MediaStreamType type,
-    const std::string& security_origin) {
+    const GURL& security_origin) {
   DVLOG(1) << "MediaStreamDispatcher::EnumerateDevices("
            << request_id << ")";
 
@@ -80,10 +97,10 @@ void MediaStreamDispatcher::EnumerateDevices(
 
 void MediaStreamDispatcher::OpenDevice(
     int request_id,
-    MediaStreamDispatcherEventHandler* event_handler,
+    const base::WeakPtr<MediaStreamDispatcherEventHandler>& event_handler,
     const std::string& device_id,
     media_stream::MediaStreamType type,
-    const std::string& security_origin) {
+    const GURL& security_origin) {
   DVLOG(1) << "MediaStreamDispatcher::OpenDevice(" << request_id << ")";
 
   requests_.push_back(Request(event_handler, request_id, next_ipc_id_));
@@ -140,10 +157,12 @@ void MediaStreamDispatcher::OnStreamGenerated(
       new_stream.audio_array = audio_array;
       new_stream.video_array = video_array;
       label_stream_map_[label] = new_stream;
-      request.handler->OnStreamGenerated(request.request_id, label,
-                                         audio_array, video_array);
-      DVLOG(1) << "MediaStreamDispatcher::OnStreamGenerated("
-               << request.request_id << ", " << label << ")";
+      if (request.handler) {
+        request.handler->OnStreamGenerated(request.request_id, label,
+                                           audio_array, video_array);
+        DVLOG(1) << "MediaStreamDispatcher::OnStreamGenerated("
+                 << request.request_id << ", " << label << ")";
+      }
       requests_.erase(it);
       break;
     }
@@ -155,9 +174,11 @@ void MediaStreamDispatcher::OnStreamGenerationFailed(int request_id) {
        it != requests_.end(); ++it) {
     Request& request = *it;
     if (request.ipc_request == request_id) {
-      request.handler->OnStreamGenerationFailed(request.request_id);
-      DVLOG(1) << "MediaStreamDispatcher::OnStreamGenerationFailed("
-               << request.request_id << ")\n";
+      if (request.handler) {
+        request.handler->OnStreamGenerationFailed(request.request_id);
+        DVLOG(1) << "MediaStreamDispatcher::OnStreamGenerationFailed("
+                 << request.request_id << ")\n";
+      }
       requests_.erase(it);
       break;
     }
@@ -175,7 +196,8 @@ void MediaStreamDispatcher::OnVideoDeviceFailed(const std::string& label,
   media_stream::StreamDeviceInfoArray::iterator device_it =
       it->second.video_array.begin();
   it->second.video_array.erase(device_it + index);
-  it->second.handler->OnVideoDeviceFailed(label, index);
+  if (it->second.handler)
+    it->second.handler->OnVideoDeviceFailed(label, index);
 }
 
 void MediaStreamDispatcher::OnAudioDeviceFailed(const std::string& label,
@@ -189,7 +211,8 @@ void MediaStreamDispatcher::OnAudioDeviceFailed(const std::string& label,
   media_stream::StreamDeviceInfoArray::iterator device_it =
       it->second.audio_array.begin();
   it->second.audio_array.erase(device_it + index);
-  it->second.handler->OnAudioDeviceFailed(label, index);
+  if (it->second.handler)
+    it->second.handler->OnAudioDeviceFailed(label, index);
 }
 
 void MediaStreamDispatcher::OnDevicesEnumerated(
@@ -200,9 +223,11 @@ void MediaStreamDispatcher::OnDevicesEnumerated(
        it != requests_.end(); ++it) {
     Request& request = *it;
     if (request.ipc_request == request_id) {
-      request.handler->OnDevicesEnumerated(request.request_id, device_array);
-      DVLOG(1) << "MediaStreamDispatcher::OnDevicesEnumerated("
-               << request.request_id << ")";
+      if (request.handler) {
+        request.handler->OnDevicesEnumerated(request.request_id, device_array);
+        DVLOG(1) << "MediaStreamDispatcher::OnDevicesEnumerated("
+                 << request.request_id << ")";
+      }
       requests_.erase(it);
       break;
     }
@@ -214,9 +239,11 @@ void MediaStreamDispatcher::OnDevicesEnumerationFailed(int request_id) {
        it != requests_.end(); ++it) {
     Request& request = *it;
     if (request.ipc_request == request_id) {
-      request.handler->OnStreamGenerationFailed(request.request_id);
-      DVLOG(1) << "MediaStreamDispatcher::OnDevicesEnumerationFailed("
-               << request.request_id << ")\n";
+      if (request.handler) {
+        request.handler->OnStreamGenerationFailed(request.request_id);
+        DVLOG(1) << "MediaStreamDispatcher::OnDevicesEnumerationFailed("
+                 << request.request_id << ")\n";
+      }
       requests_.erase(it);
       break;
     }
@@ -240,10 +267,12 @@ void MediaStreamDispatcher::OnDeviceOpened(
         new_stream.audio_array.push_back(device_info);
       }
       label_stream_map_[label] = new_stream;
-      request.handler->OnDeviceOpened(request.request_id, label,
-                                      device_info);
-      DVLOG(1) << "MediaStreamDispatcher::OnDeviceOpened("
-               << request.request_id << ", " << label << ")";
+      if (request.handler) {
+        request.handler->OnDeviceOpened(request.request_id, label,
+                                        device_info);
+        DVLOG(1) << "MediaStreamDispatcher::OnDeviceOpened("
+                 << request.request_id << ", " << label << ")";
+      }
       requests_.erase(it);
       break;
     }
@@ -255,9 +284,11 @@ void MediaStreamDispatcher::OnDeviceOpenFailed(int request_id) {
        it != requests_.end(); ++it) {
     Request& request = *it;
     if (request.ipc_request == request_id) {
-      request.handler->OnDeviceOpenFailed(request.request_id);
-      DVLOG(1) << "MediaStreamDispatcher::OnDeviceOpenFailed("
-               << request.request_id << ")\n";
+      if (request.handler) {
+        request.handler->OnDeviceOpenFailed(request.request_id);
+        DVLOG(1) << "MediaStreamDispatcher::OnDeviceOpenFailed("
+                 << request.request_id << ")\n";
+      }
       requests_.erase(it);
       break;
     }

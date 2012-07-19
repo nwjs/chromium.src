@@ -9,7 +9,71 @@
 
 label Chrome {
   M17 = 12.0,
-  M19 = 12.1
+  M19 = 12.1,
+  M20_0 = 12.2,
+  M20_1 = 12.3,
+  M21 = 12.4,
+  M22 = 12.5
+};
+
+[assert_size(4)]
+enum PP_FlashSetting {
+  /**
+   * Specifies if the system likely supports 3D hardware acceleration.
+   *
+   * The result is a boolean PP_Var, depending on the supported nature of 3D
+   * acceleration. If querying this function returns true, the 3D system will
+   * normally use the native hardware for rendering which will be much faster.
+   *
+   * Having this set to true only means that 3D should be used to draw 2D and
+   * video elements. PP_FLASHSETTING_STAGE3D_ENABLED should be checked to
+   * determine if it's ok to use 3D for arbitrary content.
+   *
+   * In rare cases (depending on the platform) this value will be true but a
+   * created 3D context will use emulation because context initialization
+   * failed.
+   */
+  PP_FLASHSETTING_3DENABLED = 1,
+
+  /**
+   * Specifies if the given instance is in private/inconito/off-the-record mode
+   * (returns true) or "regular" mode (returns false). Returns an undefined
+   * PP_Var on invalid instance.
+   */
+  PP_FLASHSETTING_INCOGNITO = 2,
+
+  /**
+   * Specifies if arbitrary 3d commands are supported (returns true), or if 3d
+   * should only be used for drawing 2d and video (returns false).
+   *
+   * This should only be enabled if PP_FLASHSETTING_3DENABLED is true.
+   */
+  PP_FLASHSETTING_STAGE3DENABLED = 3,
+
+  /**
+   * Specifies the string for the language code of the UI of the browser.
+   *
+   * For example: "en-US" or "de".
+   *
+   * Returns an undefined PP_Var on invalid instance.
+   */
+  PP_FLASHSETTING_LANGUAGE = 4,
+
+  /**
+   * Specifies the number of CPU cores that are present on the system.
+   */
+  PP_FLASHSETTING_NUMCORES = 5
+};
+
+/**
+ * This enum provides keys for setting breakpad crash report data.
+ */
+[assert_size(4)]
+enum PP_FlashCrashKey {
+  /**
+   * Specifies the document URL which contains the flash instance.
+   */
+  PP_FLASHCRASHKEY_URL = 1
 };
 
 /**
@@ -116,7 +180,7 @@ interface PPB_Flash {
       [in] PP_Rect rect);
 
   /**
-   * Invokes printing for the given instance.
+   * Does nothing, deprecated. See PPB_Flash_Print.
    */
   [version=12.1]
   int32_t InvokePrinting(
@@ -129,33 +193,34 @@ interface PPB_Flash {
   [version=12.1]
   void UpdateActivity(
       [in] PP_Instance instance);
-};
 
-#inline c
-/**
- * The old version of the interface, which cannot be generated from IDL.
- * TODO(viettrungluu): Remove this when enough time has passed. crbug.com/104184
- */
-#define PPB_FLASH_INTERFACE_11_0 "PPB_Flash;11"
-struct PPB_Flash_11 {
-  void (*SetInstanceAlwaysOnTop)(PP_Instance instance, PP_Bool on_top);
-  PP_Bool (*DrawGlyphs)(PP_Instance instance,
-                        PP_Resource pp_image_data,
-                        const struct PP_FontDescription_Dev* font_desc,
-                        uint32_t color,
-                        struct PP_Point position,
-                        struct PP_Rect clip,
-                        const float transformation[3][3],
-                        uint32_t glyph_count,
-                        const uint16_t glyph_indices[],
-                        const struct PP_Point glyph_advances[]);
-  struct PP_Var (*GetProxyForURL)(PP_Instance instance, const char* url);
-  int32_t (*Navigate)(PP_Resource request_info,
-                      const char* target,
-                      bool from_user_action);
-  void (*RunMessageLoop)(PP_Instance instance);
-  void (*QuitMessageLoop)(PP_Instance instance);
-  double (*GetLocalTimeZoneOffset)(PP_Instance instance, PP_Time t);
-  struct PP_Var (*GetCommandLineArgs)(PP_Module module);
+  /**
+   * Returns the device ID as a string. Returns a PP_VARTYPE_UNDEFINED on error.
+   * Deprecated, use GetDeviceIDAsync.
+   */
+  [version=12.2]
+  PP_Var GetDeviceID([in] PP_Instance instance);
+
+  /**
+   * Deprecated. See GetSetting().
+   */
+  [version=12.3]
+  int32_t GetSettingInt([in] PP_Instance instance,
+                        [in] PP_FlashSetting setting);
+
+  /**
+   * Returns the value associated with the given setting. Invalid enums will
+   * result in an undefined PP_Var return value.
+   */
+  [version=12.4]
+  PP_Var GetSetting(PP_Instance instance, PP_FlashSetting setting);
+
+  /**
+   * Allows setting breakpad crash data which will be included in plugin crash
+   * reports. Returns PP_FALSE if crash data could not be set.
+   */
+  [version=12.5]
+  PP_Bool SetCrashData([in] PP_Instance instance,
+                       [in] PP_FlashCrashKey key,
+                       [in] PP_Var value);
 };
-#endinl

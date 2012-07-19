@@ -2,11 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "sync/syncable/model_type.h"
+#include "sync/internal_api/public/base/model_type.h"
 
 #include "base/string_split.h"
 #include "base/values.h"
-#include "sync/engine/syncproto.h"
 #include "sync/protocol/app_notification_specifics.pb.h"
 #include "sync/protocol/app_setting_specifics.pb.h"
 #include "sync/protocol/app_specifics.pb.h"
@@ -22,11 +21,12 @@
 #include "sync/protocol/sync.pb.h"
 #include "sync/protocol/theme_specifics.pb.h"
 #include "sync/protocol/typed_url_specifics.pb.h"
+#include "sync/syncable/syncable_proto_util.h"
 
-namespace syncable {
+namespace syncer {
 
-void AddDefaultFieldValue(syncable::ModelType datatype,
-                              sync_pb::EntitySpecifics* specifics) {
+void AddDefaultFieldValue(ModelType datatype,
+                          sync_pb::EntitySpecifics* specifics) {
   switch (datatype) {
     case BOOKMARKS:
       specifics->mutable_bookmark();
@@ -145,10 +145,8 @@ int GetSpecificsFieldNumberFromModelType(ModelType model_type) {
 }
 
 // Note: keep this consistent with GetModelType in syncable.cc!
-ModelType GetModelType(const sync_pb::SyncEntity& sync_pb_entity) {
-  const browser_sync::SyncEntity& sync_entity =
-      static_cast<const browser_sync::SyncEntity&>(sync_pb_entity);
-  DCHECK(!sync_entity.id().IsRoot());  // Root shouldn't ever go over the wire.
+ModelType GetModelType(const sync_pb::SyncEntity& sync_entity) {
+  DCHECK(!IsRoot(sync_entity));  // Root shouldn't ever go over the wire.
 
   if (sync_entity.deleted())
     return UNSPECIFIED;
@@ -164,7 +162,7 @@ ModelType GetModelType(const sync_pb::SyncEntity& sync_pb_entity) {
   // Loose check for server-created top-level folders that aren't
   // bound to a particular model type.
   if (!sync_entity.server_defined_unique_tag().empty() &&
-      sync_entity.IsFolder()) {
+      IsFolder(sync_entity)) {
     return TOP_LEVEL_FOLDER;
   }
 
@@ -275,11 +273,11 @@ const char* ModelTypeToString(ModelType model_type) {
 }
 
 StringValue* ModelTypeToValue(ModelType model_type) {
-  if (model_type >= syncable::FIRST_REAL_MODEL_TYPE) {
+  if (model_type >= FIRST_REAL_MODEL_TYPE) {
     return Value::CreateStringValue(ModelTypeToString(model_type));
-  } else if (model_type == syncable::TOP_LEVEL_FOLDER) {
+  } else if (model_type == TOP_LEVEL_FOLDER) {
     return Value::CreateStringValue("Top-level folder");
-  } else if (model_type == syncable::UNSPECIFIED) {
+  } else if (model_type == UNSPECIFIED) {
     return Value::CreateStringValue("Unspecified");
   }
   NOTREACHED();
@@ -539,4 +537,4 @@ bool IsRealDataType(ModelType model_type) {
   return model_type >= FIRST_REAL_MODEL_TYPE && model_type < MODEL_TYPE_COUNT;
 }
 
-}  // namespace syncable
+}  // namespace syncer

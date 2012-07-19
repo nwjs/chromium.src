@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_EXTENSIONS_EXTENSION_INSTALLED_BUBBLE_GTK_H_
 #define CHROME_BROWSER_UI_GTK_EXTENSIONS_EXTENSION_INSTALLED_BUBBLE_GTK_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
@@ -16,8 +15,11 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 
 class Browser;
-class Extension;
 class SkBitmap;
+
+namespace extensions {
+class Extension;
+}
 
 // Provides feedback to the user upon successful installation of an
 // extension. Depending on the type of extension, the BubbleGtk will
@@ -47,14 +49,16 @@ class ExtensionInstalledBubbleGtk
   // the extension has loaded. |extension| is the installed extension. |browser|
   // is the browser window which will host the bubble. |icon| is the install
   // icon of the extension.
-  static void Show(
-      const Extension* extension, Browser *browser, const SkBitmap& icon);
+  static void Show(const extensions::Extension* extension,
+                   Browser *browser,
+                   const SkBitmap& icon);
 
  private:
   friend class base::RefCountedThreadSafe<ExtensionInstalledBubbleGtk>;
 
   // Private ctor. Registers a listener for EXTENSION_LOADED.
-  ExtensionInstalledBubbleGtk(const Extension* extension, Browser *browser,
+  ExtensionInstalledBubbleGtk(const extensions::Extension* extension,
+                              Browser *browser,
                               const SkBitmap& icon);
 
   virtual ~ExtensionInstalledBubbleGtk();
@@ -76,7 +80,7 @@ class ExtensionInstalledBubbleGtk
   static void OnButtonClick(GtkWidget* button,
                             ExtensionInstalledBubbleGtk* toolbar);
 
-  const Extension* extension_;
+  const extensions::Extension* extension_;
   Browser* browser_;
   SkBitmap icon_;
   content::NotificationRegistrar registrar_;

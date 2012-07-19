@@ -13,10 +13,15 @@
 #include "chrome/common/extensions/api/permissions.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_error_utils.h"
+#include "chrome/common/extensions/permissions/permissions_info.h"
 #include "chrome/common/extensions/url_pattern_set.h"
 #include "googleurl/src/gurl.h"
 
 using extensions::api::permissions::Permissions;
+using extensions::APIPermission;
+using extensions::APIPermissionSet;
+using extensions::PermissionSet;
+using extensions::PermissionsInfo;
 using extensions::PermissionsUpdater;
 
 namespace Contains = extensions::api::permissions::Contains;
@@ -44,25 +49,25 @@ enum AutoConfirmForTest {
 AutoConfirmForTest auto_confirm_for_tests = DO_NOT_SKIP;
 bool ignore_user_gesture_for_tests = false;
 
-} // namespace
+}  // namespace
 
 bool ContainsPermissionsFunction::RunImpl() {
   scoped_ptr<Contains::Params> params(Contains::Params::Create(*args_));
 
-  scoped_refptr<ExtensionPermissionSet> permissions =
+  scoped_refptr<PermissionSet> permissions =
       helpers::UnpackPermissionSet(params->permissions, &error_);
   if (!permissions.get())
     return false;
 
-  result_.reset(Contains::Result::Create(
-      GetExtension()->GetActivePermissions()->Contains(*permissions)));
+  results_ = Contains::Results::Create(
+      GetExtension()->GetActivePermissions()->Contains(*permissions));
   return true;
 }
 
 bool GetAllPermissionsFunction::RunImpl() {
   scoped_ptr<Permissions> permissions =
       helpers::PackPermissionSet(GetExtension()->GetActivePermissions());
-  result_.reset(GetAll::Result::Create(*permissions));
+  results_ = GetAll::Results::Create(*permissions);
   return true;
 }
 
@@ -70,19 +75,19 @@ bool RemovePermissionsFunction::RunImpl() {
   scoped_ptr<Remove::Params> params(Remove::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
-  scoped_refptr<ExtensionPermissionSet> permissions =
+  scoped_refptr<PermissionSet> permissions =
       helpers::UnpackPermissionSet(params->permissions, &error_);
   if (!permissions.get())
     return false;
 
-  const Extension* extension = GetExtension();
-  ExtensionPermissionsInfo* info = ExtensionPermissionsInfo::GetInstance();
+  const extensions::Extension* extension = GetExtension();
+  PermissionsInfo* info = PermissionsInfo::GetInstance();
 
   // Make sure they're only trying to remove permissions supported by this API.
-  ExtensionAPIPermissionSet apis = permissions->apis();
-  for (ExtensionAPIPermissionSet::const_iterator i = apis.begin();
+  APIPermissionSet apis = permissions->apis();
+  for (APIPermissionSet::const_iterator i = apis.begin();
        i != apis.end(); ++i) {
-    const ExtensionAPIPermission* api = info->GetByID(*i);
+    const APIPermission* api = info->GetByID(*i);
     if (!api->supports_optional()) {
       error_ = ExtensionErrorUtils::FormatErrorMessage(
           kNotWhitelistedError, api->name());
@@ -91,17 +96,17 @@ bool RemovePermissionsFunction::RunImpl() {
   }
 
   // Make sure we don't remove any required pemissions.
-  const ExtensionPermissionSet* required = extension->required_permission_set();
-  scoped_refptr<ExtensionPermissionSet> intersection(
-      ExtensionPermissionSet::CreateIntersection(permissions.get(), required));
+  const PermissionSet* required = extension->required_permission_set();
+  scoped_refptr<PermissionSet> intersection(
+      PermissionSet::CreateIntersection(permissions.get(), required));
   if (!intersection->IsEmpty()) {
     error_ = kCantRemoveRequiredPermissionsError;
-    result_.reset(Remove::Result::Create(false));
+    results_ = Remove::Results::Create(false);
     return false;
   }
 
   PermissionsUpdater(profile()).RemovePermissions(extension, permissions.get());
-  result_.reset(Remove::Result::Create(true));
+  results_ = Remove::Results::Create(true);
   return true;
 }
 
@@ -117,6 +122,24 @@ void RequestPermissionsFunction::SetIgnoreUserGestureForTests(
 }
 
 RequestPermissionsFunction::RequestPermissionsFunction() {}
+
+void RequestPermissionsFunction::InstallUIProceed() {
+  PermissionsUpdater perms_updater(profile());
+  perms_updater.AddPermissions(GetExtension(), requested_permissions_.get());
+
+  results_ = Request::Results::Create(true);
+  SendResponse(true);
+
+  Release();  // Balanced in RunImpl().
+}
+
+void RequestPermissionsFunction::InstallUIAbort(bool user_initiated) {
+  results_ = Request::Results::Create(false);
+  SendResponse(true);
+
+  Release();  // Balanced in RunImpl().
+}
+
 RequestPermissionsFunction::~RequestPermissionsFunction() {}
 
 bool RequestPermissionsFunction::RunImpl() {
@@ -133,14 +156,15 @@ bool RequestPermissionsFunction::RunImpl() {
   if (!requested_permissions_.get())
     return false;
 
-  ExtensionPermissionsInfo* info = ExtensionPermissionsInfo::GetInstance();
-  ExtensionPrefs* prefs = profile()->GetExtensionService()->extension_prefs();
+  PermissionsInfo* info = PermissionsInfo::GetInstance();
+  extensions::ExtensionPrefs* prefs =
+      profile()->GetExtensionService()->extension_prefs();
 
   // Make sure they're only requesting permissions supported by this API.
-  ExtensionAPIPermissionSet apis = requested_permissions_->apis();
-  for (ExtensionAPIPermissionSet::const_iterator i = apis.begin();
+  APIPermissionSet apis = requested_permissions_->apis();
+  for (APIPermissionSet::const_iterator i = apis.begin();
        i != apis.end(); ++i) {
-    const ExtensionAPIPermission* api = info->GetByID(*i);
+    const APIPermission* api = info->GetByID(*i);
     if (!api->supports_optional()) {
       error_ = ExtensionErrorUtils::FormatErrorMessage(
           kNotWhitelistedError, api->name());
@@ -152,25 +176,25 @@ bool RequestPermissionsFunction::RunImpl() {
   if (!GetExtension()->optional_permission_set()->Contains(
           *requested_permissions_)) {
     error_ = kNotInOptionalPermissionsError;
-    result_.reset(Request::Result::Create(false));
+    results_ = Request::Results::Create(false);
     return false;
   }
 
   // We don't need to prompt the user if the requested permissions are a subset
   // of the granted permissions set.
-  const ExtensionPermissionSet* granted =
+  scoped_refptr<const PermissionSet> granted =
       prefs->GetGrantedPermissions(GetExtension()->id());
-  if (granted && granted->Contains(*requested_permissions_)) {
+  if (granted.get() && granted->Contains(*requested_permissions_)) {
     PermissionsUpdater perms_updater(profile());
     perms_updater.AddPermissions(GetExtension(), requested_permissions_.get());
-    result_.reset(Request::Result::Create(true));
+    results_ = Request::Results::Create(true);
     SendResponse(true);
     return true;
   }
 
   // Filter out the granted permissions so we only prompt for new ones.
-  requested_permissions_ = ExtensionPermissionSet::CreateDifference(
-      requested_permissions_.get(), granted);
+  requested_permissions_ = PermissionSet::CreateDifference(
+      requested_permissions_.get(), granted.get());
 
   AddRef();  // Balanced in InstallUIProceed() / InstallUIAbort().
 
@@ -185,27 +209,11 @@ bool RequestPermissionsFunction::RunImpl() {
     InstallUIAbort(true);
   } else {
     CHECK_EQ(DO_NOT_SKIP, auto_confirm_for_tests);
-    install_ui_.reset(new ExtensionInstallUI(profile()));
+    install_ui_.reset(
+        chrome::CreateExtensionInstallPromptWithBrowser(GetCurrentBrowser()));
     install_ui_->ConfirmPermissions(
         this, GetExtension(), requested_permissions_.get());
   }
 
   return true;
-}
-
-void RequestPermissionsFunction::InstallUIProceed() {
-  PermissionsUpdater perms_updater(profile());
-  perms_updater.AddPermissions(GetExtension(), requested_permissions_.get());
-
-  result_.reset(Request::Result::Create(true));
-  SendResponse(true);
-
-  Release();  // Balanced in RunImpl().
-}
-
-void RequestPermissionsFunction::InstallUIAbort(bool user_initiated) {
-  result_.reset(Request::Result::Create(false));
-  SendResponse(true);
-
-  Release();  // Balanced in RunImpl().
 }

@@ -5,22 +5,23 @@
 #include "chrome/browser/autofill/autofill_external_delegate_gtk.h"
 
 #include "chrome/browser/ui/gtk/autofill/autofill_popup_view_gtk.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 
 AutofillExternalDelegate* AutofillExternalDelegate::Create(
-    TabContentsWrapper* tab_contents_wrapper,
+    TabContents* tab_contents,
     AutofillManager* autofill_manager) {
-  return new AutofillExternalDelegateGtk(tab_contents_wrapper,
+  return new AutofillExternalDelegateGtk(tab_contents,
                                          autofill_manager);
 }
 
 AutofillExternalDelegateGtk::AutofillExternalDelegateGtk(
-    TabContentsWrapper* tab_contents_wrapper,
+    TabContents* tab_contents,
     AutofillManager* autofill_manager)
-    : AutofillExternalDelegate(tab_contents_wrapper, autofill_manager),
-      web_contents_(tab_contents_wrapper->web_contents()),
+    : AutofillExternalDelegate(tab_contents, autofill_manager),
+      web_contents_(tab_contents->web_contents()),
       event_handler_id_(0) {
   tab_native_view_ = web_contents_->GetView()->GetNativeView();
 }
@@ -52,13 +53,11 @@ void AutofillExternalDelegateGtk::ApplyAutofillSuggestions(
     const std::vector<string16>& autofill_values,
     const std::vector<string16>& autofill_labels,
     const std::vector<string16>& autofill_icons,
-    const std::vector<int>& autofill_unique_ids,
-    int separator_index) {
+    const std::vector<int>& autofill_unique_ids) {
   view_->Show(autofill_values,
               autofill_labels,
               autofill_icons,
-              autofill_unique_ids,
-              separator_index);
+              autofill_unique_ids);
 }
 
 void AutofillExternalDelegateGtk::SetBounds(const gfx::Rect& bounds) {
@@ -71,6 +70,7 @@ void AutofillExternalDelegateGtk::CreateViewIfNeeded() {
     return;
 
   view_.reset(new AutofillPopupViewGtk(web_contents_,
+                                       GtkThemeService::GetFrom(profile()),
                                        this,
                                        tab_native_view_));
 

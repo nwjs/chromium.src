@@ -16,7 +16,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_url.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/common/chrome_paths.h"
@@ -27,7 +28,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/url_request/url_request_filter.h"
 #include "net/url_request/url_request_test_job.h"
 #include "net/url_request/url_request_test_util.h"
@@ -207,8 +208,9 @@ class PrintDialogCloudTest : public InProcessBrowserTest {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&internal_cloud_print_helpers::CreateDialogFullImpl,
+                   browser()->profile(), browser()->window()->GetNativeWindow(),
                    path_to_pdf, string16(), string16(),
-                   std::string("application/pdf"), true, false));
+                   std::string("application/pdf"), false));
   }
 
   bool handler_added_;
@@ -232,10 +234,12 @@ net::URLRequestJob* PrintDialogCloudTest::Factory(net::URLRequest* request,
                                     "", true);
 }
 
-IN_PROC_BROWSER_TEST_F(PrintDialogCloudTest, HandlersRegistered) {
-  BrowserList::SetLastActive(browser());
-  ASSERT_TRUE(BrowserList::GetLastActive());
-
+#if defined(OS_WIN)
+#define MAYBE_HandlersRegistered FLAKY_HandlersRegistered
+#else
+#define MAYBE_HandlersRegistered HandlersRegistered
+#endif
+IN_PROC_BROWSER_TEST_F(PrintDialogCloudTest, MAYBE_HandlersRegistered) {
   AddTestHandlers();
 
   TestController::GetInstance()->set_use_delegate(true);
@@ -246,7 +250,7 @@ IN_PROC_BROWSER_TEST_F(PrintDialogCloudTest, HandlersRegistered) {
 
   // Close the dialog before finishing the test.
   ui_test_utils::WindowedNotificationObserver tab_closed_observer(
-      content::NOTIFICATION_TAB_CLOSED,
+      content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::NotificationService::AllSources());
 
   // Can't use ui_test_utils::SendKeyPressSync or
@@ -254,7 +258,7 @@ IN_PROC_BROWSER_TEST_F(PrintDialogCloudTest, HandlersRegistered) {
   // the window. See http://crbug.com/111269
   BrowserWindow* window = browser()->window();
   ASSERT_TRUE(window);
-  gfx::NativeWindow native_window = window->GetNativeHandle();
+  gfx::NativeWindow native_window = window->GetNativeWindow();
   ASSERT_TRUE(native_window);
   bool key_sent = ui_controls::SendKeyPress(native_window, ui::VKEY_ESCAPE,
                                             false, false, false, false);

@@ -11,11 +11,10 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/session_manager_client.h"
 #include "chrome/browser/chromeos/customization_document.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_util.h"
@@ -24,6 +23,7 @@
 #include "chrome/browser/chromeos/login/helper.h"
 #include "chrome/browser/chromeos/login/language_switch_menu.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
+#include "chrome/browser/chromeos/login/login_wizard.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/webui_login_display_host.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
@@ -35,21 +35,22 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/session_manager_client.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "googleurl/src/gurl.h"
 #include "third_party/cros_system_api/window_manager/chromeos_wm_ipc_enums.h"
 #include "ui/aura/window.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/compositor/layer.h"
-#include "ui/gfx/compositor/layer_animation_element.h"
-#include "ui/gfx/compositor/layer_animation_sequence.h"
-#include "ui/gfx/compositor/layer_animator.h"
-#include "ui/gfx/compositor/scoped_layer_animation_settings.h"
-#include "ui/gfx/transform.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_animation_element.h"
+#include "ui/compositor/layer_animation_sequence.h"
+#include "ui/compositor/layer_animator.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/rect.h"
+#include "ui/gfx/transform.h"
 #include "ui/views/widget/widget.h"
-#include "unicode/timezone.h"
 
 namespace {
 
@@ -128,13 +129,16 @@ LoginDisplayHost* BaseLoginDisplayHost::default_host_ = NULL;
 // BaseLoginDisplayHost, public
 
 BaseLoginDisplayHost::BaseLoginDisplayHost(const gfx::Rect& background_bounds)
-    : background_bounds_(background_bounds) {
-  // We need to listen to APP_EXITING but not APP_TERMINATING because
-  // APP_TERMINATING will never be fired as long as this keeps ref-count.
-  // APP_EXITING is safe here because there will be no browser instance that
-  // will block the shutdown.
+    : background_bounds_(background_bounds),
+      ALLOW_THIS_IN_INITIALIZER_LIST(pointer_factory_(this)),
+      shutting_down_(false),
+      oobe_progress_bar_visible_(false) {
+  // We need to listen to CLOSE_ALL_BROWSERS_REQUEST but not APP_TERMINATIN
+  // because/ APP_TERMINATING will never be fired as long as this keeps
+  // ref-count. CLOSE_ALL_BROWSERS_REQUEST is safe here because there will be no
+  // browser instance that will block the shutdown.
   registrar_.Add(this,
-                 content::NOTIFICATION_APP_EXITING,
+                 chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST,
                  content::NotificationService::AllSources());
 
   // NOTIFICATION_BROWSER_OPENED is issued after browser is created, but
@@ -166,6 +170,8 @@ BaseLoginDisplayHost::~BaseLoginDisplayHost() {
 
 void BaseLoginDisplayHost::OnSessionStart() {
   DVLOG(1) << "Session starting";
+  if (wizard_controller_.get())
+    wizard_controller_->OnSessionStart();
   // Display host is deleted once animation is completed
   // since sign in screen widget has to stay alive.
   StartAnimation();
@@ -190,8 +196,8 @@ void BaseLoginDisplayHost::StartWizard(
   wizard_controller_.reset();
   wizard_controller_.reset(CreateWizardController());
 
-  if (!WizardController::IsDeviceRegistered())
-    SetOobeProgressBarVisible(true);
+  oobe_progress_bar_visible_ = !WizardController::IsDeviceRegistered();
+  SetOobeProgressBarVisible(oobe_progress_bar_visible_);
   wizard_controller_->Init(first_screen_name, screen_parameters);
 }
 
@@ -210,9 +216,8 @@ void BaseLoginDisplayHost::StartSignInScreen() {
 
   sign_in_controller_.reset();  // Only one controller in a time.
   sign_in_controller_.reset(new chromeos::ExistingUserController(this));
-  if (!WizardController::IsDeviceRegistered()) {
-    SetOobeProgressBarVisible(true);
-  }
+  oobe_progress_bar_visible_ = !WizardController::IsDeviceRegistered();
+  SetOobeProgressBarVisible(oobe_progress_bar_visible_);
   SetShutdownButtonEnabled(true);
   sign_in_controller_->Init(users);
 
@@ -238,7 +243,7 @@ void BaseLoginDisplayHost::ResumeSignInScreen() {
   // auto-enrollment is complete we resume the normal login flow from here.
   DVLOG(1) << "Resuming sign in screen";
   CHECK(sign_in_controller_.get());
-  SetOobeProgressBarVisible(true);
+  SetOobeProgressBarVisible(oobe_progress_bar_visible_);
   SetShutdownButtonEnabled(true);
   sign_in_controller_->ResumeLogin();
 }
@@ -254,10 +259,10 @@ void BaseLoginDisplayHost::CheckForAutoEnrollment() {
   }
 
   // Start by checking if the device has already been owned.
-  ownership_status_checker_.reset(new OwnershipStatusChecker);
-  ownership_status_checker_->Check(base::Bind(
-      &BaseLoginDisplayHost::OnOwnershipStatusCheckDone,
-      base::Unretained(this)));
+  pointer_factory_.InvalidateWeakPtrs();
+  OwnershipService::GetSharedInstance()->GetStatusAsync(
+      base::Bind(&BaseLoginDisplayHost::OnOwnershipStatusCheckDone,
+                 pointer_factory_.GetWeakPtr()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -267,20 +272,24 @@ void BaseLoginDisplayHost::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  registrar_.RemoveAll();
-  switch (type) {
-    case content::NOTIFICATION_APP_EXITING:
-      ShutdownDisplayHost(true);
-      break;
-    case chrome::NOTIFICATION_BROWSER_OPENED:
-      OnBrowserCreated();
-      break;
-    default:
-      LOG(FATAL) << "Unknown notification type:" << type;
+  if (type == chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST) {
+    ShutdownDisplayHost(true);
+  } else if (type == chrome::NOTIFICATION_BROWSER_OPENED) {
+    OnBrowserCreated();
+    registrar_.Remove(this,
+                      chrome::NOTIFICATION_CLOSE_ALL_BROWSERS_REQUEST,
+                      content::NotificationService::AllSources());
+    registrar_.Remove(this,
+                      chrome::NOTIFICATION_BROWSER_OPENED,
+                      content::NotificationService::AllSources());
   }
 }
 
 void BaseLoginDisplayHost::ShutdownDisplayHost(bool post_quit_task) {
+  if (shutting_down_)
+    return;
+
+  shutting_down_ = true;
   registrar_.RemoveAll();
   MessageLoop::current()->DeleteSoon(FROM_HERE, this);
   if (post_quit_task)
@@ -288,7 +297,8 @@ void BaseLoginDisplayHost::ShutdownDisplayHost(bool post_quit_task) {
 }
 
 void BaseLoginDisplayHost::StartAnimation() {
-  if (ash::Shell::GetInstance()->GetContainer(
+  if (ash::Shell::GetContainer(
+          ash::Shell::GetPrimaryRootWindow(),
           ash::internal::kShellWindowId_DesktopBackgroundContainer)->
           children().empty()) {
     // If there is no background window, don't perform any animation on the
@@ -315,7 +325,8 @@ void BaseLoginDisplayHost::StartAnimation() {
   // Background animation.
   if (do_background_animation) {
     ui::Layer* background_layer =
-        ash::Shell::GetInstance()->GetContainer(
+        ash::Shell::GetContainer(
+            ash::Shell::GetPrimaryRootWindow(),
             ash::internal::kShellWindowId_DesktopBackgroundContainer)->
                 layer();
 
@@ -346,8 +357,9 @@ void BaseLoginDisplayHost::StartAnimation() {
   // Browser windows layer opacity and transform animation.
   if (do_browser_transform_animation || do_browser_opacity_animation) {
     ui::Layer* default_container_layer =
-        ash::Shell::GetInstance()->GetContainer(
-              ash::internal::kShellWindowId_DefaultContainer)->layer();
+        ash::Shell::GetContainer(
+            ash::Shell::GetPrimaryRootWindow(),
+            ash::internal::kShellWindowId_DefaultContainer)->layer();
 
     ui::LayerAnimationElement::AnimatableProperties browser_pause_properties;
 
@@ -437,14 +449,7 @@ void BaseLoginDisplayHost::ForceAutoEnrollment() {
     sign_in_controller_->DoAutoEnrollment();
 }
 
-}  // namespace chromeos
-
-////////////////////////////////////////////////////////////////////////////////
-// browser::ShowLoginWizard implementation:
-
-namespace browser {
-
-// Declared in browser_dialogs.h so that others don't need to depend on our .h.
+// Declared in login_wizard.h so that others don't need to depend on our .h.
 // TODO(nkostylev): Split this into a smaller functions.
 void ShowLoginWizard(const std::string& first_screen_name,
                      const gfx::Size& size) {
@@ -561,11 +566,9 @@ void ShowLoginWizard(const std::string& first_screen_name,
   // Apply locale customizations only once to preserve whatever locale
   // user has changed to during OOBE.
   if (!timezone_name.empty()) {
-    icu::TimeZone* timezone = icu::TimeZone::createTimeZone(
-        icu::UnicodeString::fromUTF8(timezone_name));
-    CHECK(timezone) << "Timezone could not be set for " << timezone_name;
-    chromeos::system::TimezoneSettings::GetInstance()->SetTimezone(*timezone);
+    chromeos::system::TimezoneSettings::GetInstance()->SetTimezoneFromID(
+        UTF8ToUTF16(timezone_name));
   }
 }
 
-}  // namespace browser
+}  // namespace chromeos

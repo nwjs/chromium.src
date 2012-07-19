@@ -472,10 +472,14 @@ class WebGraphicsContext3DInProcessImpl : public WebGraphicsContext3D {
   virtual void getQueryObjectuivEXT(
       WebGLId query, WGC3Denum pname, WGC3Duint* params);
 
+  virtual void copyTextureCHROMIUM(WGC3Denum target, WGC3Duint source_id,
+                                   WGC3Duint dest_id, WGC3Dint level,
+                                   WGC3Denum internal_format);
+  virtual void bindUniformLocationCHROMIUM(WebGLId program, WGC3Dint location,
+                                           const WGC3Dchar* uniform);
+
  protected:
-#if WEBKIT_USING_SKIA
   virtual GrGLInterface* onCreateGrGLInterface();
-#endif
 
  private:
   bool Initialize(Attributes attributes);

@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_GLUE_WEBKIT_GLUE_EXPORT_H_
 #define WEBKIT_GLUE_WEBKIT_GLUE_EXPORT_H_
-#pragma once
 
 #if defined(COMPONENT_BUILD)
 #if defined(WIN32)
@@ -16,7 +15,11 @@
 #endif  // defined(WEBKIT_GLUE_IMPLEMENTATION)
 
 #else // defined(WIN32)
+#if defined(WEBKIT_GLUE_IMPLEMENTATION)
 #define WEBKIT_GLUE_EXPORT __attribute__((visibility("default")))
+#else
+#define WEBKIT_GLUE_EXPORT
+#endif
 #endif
 
 #else // defined(COMPONENT_BUILD)

@@ -19,7 +19,6 @@ class MEDIA_EXPORT FileDataSource : public DataSource {
  public:
   FileDataSource();
   FileDataSource(bool disable_file_size);
-  virtual ~FileDataSource();
 
   PipelineStatus Initialize(const std::string& url);
 
@@ -32,15 +31,10 @@ class MEDIA_EXPORT FileDataSource : public DataSource {
   virtual bool IsStreaming() OVERRIDE;
   virtual void SetBitrate(int bitrate) OVERRIDE;
 
- private:
-  // Only allow factories and tests to create this object.
-  //
-  // TODO(scherkus): I'm getting tired of these factories getting in the way
-  // of my tests!!!
-  FRIEND_TEST_ALL_PREFIXES(FileDataSourceTest, OpenFile);
-  FRIEND_TEST_ALL_PREFIXES(FileDataSourceTest, ReadData);
-  FRIEND_TEST_ALL_PREFIXES(FileDataSourceTest, Seek);
+ protected:
+  virtual ~FileDataSource();
 
+ private:
   // Informs the host of changes in total and buffered bytes.
   void UpdateHostBytes();
 

@@ -23,13 +23,6 @@ SequencedWorkerPoolTaskRunner::~SequencedWorkerPoolTaskRunner() {
 bool SequencedWorkerPoolTaskRunner::PostDelayedTask(
     const tracked_objects::Location& from_here,
     const Closure& task,
-    int64 delay_ms) {
-  return PostDelayedTaskAssertZeroDelay(from_here, task, delay_ms);
-}
-
-bool SequencedWorkerPoolTaskRunner::PostDelayedTask(
-    const tracked_objects::Location& from_here,
-    const Closure& task,
     TimeDelta delay) {
   return PostDelayedTaskAssertZeroDelay(from_here, task, delay);
 }
@@ -41,13 +34,6 @@ bool SequencedWorkerPoolTaskRunner::RunsTasksOnCurrentThread() const {
 bool SequencedWorkerPoolTaskRunner::PostNonNestableDelayedTask(
     const tracked_objects::Location& from_here,
     const Closure& task,
-    int64 delay_ms) {
-  return PostDelayedTaskAssertZeroDelay(from_here, task, delay_ms);
-}
-
-bool SequencedWorkerPoolTaskRunner::PostNonNestableDelayedTask(
-    const tracked_objects::Location& from_here,
-    const Closure& task,
     TimeDelta delay) {
   return PostDelayedTaskAssertZeroDelay(from_here, task, delay);
 }
@@ -55,21 +41,12 @@ bool SequencedWorkerPoolTaskRunner::PostNonNestableDelayedTask(
 bool SequencedWorkerPoolTaskRunner::PostDelayedTaskAssertZeroDelay(
     const tracked_objects::Location& from_here,
     const Closure& task,
-    int64 delay_ms) {
+    TimeDelta delay) {
   // TODO(francoisk777@gmail.com): Change the following two statements once
   // SequencedWorkerPool supports non-zero delays.
-  DCHECK_EQ(delay_ms, 0)
+  DCHECK_EQ(delay.InMillisecondsRoundedUp(), 0)
       << "SequencedWorkerPoolTaskRunner does not yet support non-zero delays";
   return pool_->PostSequencedWorkerTask(token_, from_here, task);
-}
-
-bool SequencedWorkerPoolTaskRunner::PostDelayedTaskAssertZeroDelay(
-    const tracked_objects::Location& from_here,
-    const Closure& task,
-    TimeDelta delay) {
-  return PostDelayedTaskAssertZeroDelay(from_here,
-                                        task,
-                                        delay.InMillisecondsRoundedUp());
 }
 
 }  // namespace base

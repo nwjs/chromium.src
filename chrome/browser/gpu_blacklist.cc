@@ -24,37 +24,83 @@ using content::GpuFeatureType;
 namespace {
 
 // Encode a date as Version, where [0] is year, [1] is month, and [2] is day.
-Version* GetDateFromString(const std::string& date_string) {
+void GetDateFromString(const std::string& date_string, Version* version) {
   // TODO(zmo): verify if in Windows registry, driver dates are always in the
   // format of "mm-dd-yyyy".
   std::vector<std::string> pieces;
   base::SplitString(date_string, '-', &pieces);
-  if (pieces.size() != 3)
-    return NULL;
+  if (pieces.size() != 3) {
+    *version = Version();
+    return;
+  }
   std::string date_as_version_string = pieces[2];
   for (size_t i = 0; i < 2; ++i) {
     date_as_version_string += ".";
     date_as_version_string += pieces[i];
   }
-  return Version::GetVersionFromString(date_as_version_string);
+  *version = Version(date_as_version_string);
 }
+
+// We assume the input format is major.minor, and we treat major version
+// as numerical and minor as lexical.
+// Otherwise we simply return the original string.
+// For example, if input numerical is 8.103, returned lexical is 8.1.0.3.
+std::string NumericalToLexical(const std::string& numerical) {
+  std::string lexical;
+  bool valid = true;
+  size_t pos = numerical.find_first_of('.');
+  if (pos != std::string::npos && pos + 1 < numerical.length()) {
+    lexical = numerical.substr(0, pos);
+    for (size_t i = pos + 1; i < numerical.length(); ++i) {
+      if (!IsAsciiDigit(numerical[i])) {
+        valid = false;
+        break;
+      }
+      lexical += '.';
+      lexical += numerical[i];
+    }
+  } else {
+    valid = false;
+  }
+  if (valid)
+    return lexical;
+  return numerical;
+}
+
+const char kMultiGpuStyleStringAMDSwitchable[] = "amd_switchable";
+const char kMultiGpuStyleStringOptimus[] = "optimus";
+
+const char kVersionStyleStringNumerical[] = "numerical";
+const char kVersionStyleStringLexical[] = "lexical";
 
 }  // namespace anonymous
 
-GpuBlacklist::VersionInfo::VersionInfo(const std::string& version_op,
-                                       const std::string& version_string,
-                                       const std::string& version_string2) {
+GpuBlacklist::VersionInfo::VersionInfo(
+    const std::string& version_op,
+    const std::string& version_style,
+    const std::string& version_string,
+    const std::string& version_string2)
+    : version_style_(kVersionStyleNumerical) {
   op_ = StringToNumericOp(version_op);
   if (op_ == kUnknown || op_ == kAny)
     return;
-  version_.reset(Version::GetVersionFromString(version_string));
-  if (version_.get() == NULL) {
+  version_style_ = StringToVersionStyle(version_style);
+  std::string processed_version_string, processed_version_string2;
+  if (version_style_ == kVersionStyleLexical) {
+    processed_version_string = NumericalToLexical(version_string);
+    processed_version_string2 = NumericalToLexical(version_string2);
+  } else {
+    processed_version_string = version_string;
+    processed_version_string2 = version_string2;
+  }
+  version_.reset(new Version(processed_version_string));
+  if (!version_->IsValid()) {
     op_ = kUnknown;
     return;
   }
   if (op_ == kBetween) {
-    version2_.reset(Version::GetVersionFromString(version_string2));
-    if (version2_.get() == NULL)
+    version2_.reset(new Version(processed_version_string2));
+    if (!version2_->IsValid())
       op_ = kUnknown;
   }
 }
@@ -97,7 +143,22 @@ bool GpuBlacklist::VersionInfo::Contains(const Version& version) const {
 }
 
 bool GpuBlacklist::VersionInfo::IsValid() const {
-  return op_ != kUnknown;
+  return (op_ != kUnknown && version_style_ != kVersionStyleUnknown);
+}
+
+bool GpuBlacklist::VersionInfo::IsLexical() const {
+  return version_style_ == kVersionStyleLexical;
+}
+
+// static
+GpuBlacklist::VersionInfo::VersionStyle
+GpuBlacklist::VersionInfo::StringToVersionStyle(
+    const std::string& version_style) {
+  if (version_style.empty() || version_style == kVersionStyleStringNumerical)
+    return kVersionStyleNumerical;
+  if (version_style == kVersionStyleStringLexical)
+    return kVersionStyleLexical;
+  return kVersionStyleUnknown;
 }
 
 GpuBlacklist::OsInfo::OsInfo(const std::string& os,
@@ -107,7 +168,7 @@ GpuBlacklist::OsInfo::OsInfo(const std::string& os,
   type_ = StringToOsType(os);
   if (type_ != kOsUnknown) {
     version_info_.reset(
-        new VersionInfo(version_op, version_string, version_string2));
+        new VersionInfo(version_op, "", version_string, version_string2));
   }
 }
 
@@ -334,6 +395,15 @@ GpuBlacklist::GpuBlacklistEntry::GetGpuBlacklistEntryFromValue(
     dictionary_entry_count++;
   }
 
+  std::string multi_gpu_style;
+  if (value->GetString("multi_gpu_style", &multi_gpu_style)) {
+    if (!entry->SetMultiGpuStyle(multi_gpu_style)) {
+      LOG(WARNING) << "Malformed multi_gpu_style entry " << entry->id();
+      return NULL;
+    }
+    dictionary_entry_count++;
+  }
+
   DictionaryValue* driver_vendor_value = NULL;
   if (value->GetDictionary("driver_vendor", &driver_vendor_value)) {
     std::string vendor_op;
@@ -350,12 +420,16 @@ GpuBlacklist::GpuBlacklistEntry::GetGpuBlacklistEntryFromValue(
   DictionaryValue* driver_version_value = NULL;
   if (value->GetDictionary("driver_version", &driver_version_value)) {
     std::string driver_version_op = "any";
+    std::string driver_version_style;
     std::string driver_version_string;
     std::string driver_version_string2;
     driver_version_value->GetString("op", &driver_version_op);
+    driver_version_value->GetString("style", &driver_version_style);
     driver_version_value->GetString("number", &driver_version_string);
     driver_version_value->GetString("number2", &driver_version_string2);
-    if (!entry->SetDriverVersionInfo(driver_version_op, driver_version_string,
+    if (!entry->SetDriverVersionInfo(driver_version_op,
+                                     driver_version_style,
+                                     driver_version_string,
                                      driver_version_string2)) {
       LOG(WARNING) << "Malformed driver_version entry " << entry->id();
       return NULL;
@@ -515,6 +589,7 @@ GpuBlacklist::GpuBlacklistEntry::GpuBlacklistEntry()
     : id_(0),
       disabled_(false),
       vendor_id_(0),
+      multi_gpu_style_(kMultiGpuStyleNone),
       feature_type_(content::GPU_FEATURE_TYPE_UNKNOWN),
       contains_unknown_fields_(false),
       contains_unknown_features_(false) {
@@ -559,6 +634,15 @@ bool GpuBlacklist::GpuBlacklistEntry::AddDeviceId(
   return false;
 }
 
+bool GpuBlacklist::GpuBlacklistEntry::SetMultiGpuStyle(
+    const std::string& multi_gpu_style_string) {
+  MultiGpuStyle style = StringToMultiGpuStyle(multi_gpu_style_string);
+  if (style == kMultiGpuStyleNone)
+    return false;
+  multi_gpu_style_ = style;
+  return true;
+}
+
 bool GpuBlacklist::GpuBlacklistEntry::SetDriverVendorInfo(
     const std::string& vendor_op,
     const std::string& vendor_value) {
@@ -569,10 +653,11 @@ bool GpuBlacklist::GpuBlacklistEntry::SetDriverVendorInfo(
 
 bool GpuBlacklist::GpuBlacklistEntry::SetDriverVersionInfo(
     const std::string& version_op,
+    const std::string& version_style,
     const std::string& version_string,
     const std::string& version_string2) {
-  driver_version_info_.reset(
-      new VersionInfo(version_op, version_string, version_string2));
+  driver_version_info_.reset(new VersionInfo(
+      version_op, version_style, version_string, version_string2));
   return driver_version_info_->IsValid();
 }
 
@@ -581,7 +666,7 @@ bool GpuBlacklist::GpuBlacklistEntry::SetDriverDateInfo(
     const std::string& date_string,
     const std::string& date_string2) {
   driver_date_info_.reset(
-      new VersionInfo(date_op, date_string, date_string2));
+      new VersionInfo(date_op, "", date_string, date_string2));
   return driver_date_info_->IsValid();
 }
 
@@ -642,6 +727,8 @@ bool GpuBlacklist::GpuBlacklistEntry::SetBlacklistedFeatures(
       case content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING:
       case content::GPU_FEATURE_TYPE_WEBGL:
       case content::GPU_FEATURE_TYPE_MULTISAMPLING:
+      case content::GPU_FEATURE_TYPE_FLASH3D:
+      case content::GPU_FEATURE_TYPE_FLASH_STAGE3D:
       case content::GPU_FEATURE_TYPE_ALL:
         feature_type |= type;
         break;
@@ -659,18 +746,29 @@ void GpuBlacklist::GpuBlacklistEntry::AddException(
   exceptions_.push_back(exception);
 }
 
+// static
+GpuBlacklist::GpuBlacklistEntry::MultiGpuStyle
+GpuBlacklist::GpuBlacklistEntry::StringToMultiGpuStyle(
+    const std::string& style) {
+  if (style == kMultiGpuStyleStringOptimus)
+    return kMultiGpuStyleOptimus;
+  if (style == kMultiGpuStyleStringAMDSwitchable)
+    return kMultiGpuStyleAMDSwitchable;
+  return kMultiGpuStyleNone;
+}
+
 bool GpuBlacklist::GpuBlacklistEntry::Contains(
     OsType os_type, const Version& os_version,
     const content::GPUInfo& gpu_info) const {
   DCHECK(os_type != kOsAny);
   if (os_info_.get() != NULL && !os_info_->Contains(os_type, os_version))
     return false;
-  if (vendor_id_ != 0 && vendor_id_ != gpu_info.vendor_id)
+  if (vendor_id_ != 0 && vendor_id_ != gpu_info.gpu.vendor_id)
     return false;
   if (device_id_list_.size() > 0) {
     bool found = false;
     for (size_t i = 0; i < device_id_list_.size(); ++i) {
-      if (device_id_list_[i] == gpu_info.device_id) {
+      if (device_id_list_[i] == gpu_info.gpu.device_id) {
         found = true;
         break;
       }
@@ -678,20 +776,36 @@ bool GpuBlacklist::GpuBlacklistEntry::Contains(
     if (!found)
       return false;
   }
+  switch (multi_gpu_style_) {
+    case kMultiGpuStyleOptimus:
+      if (!gpu_info.optimus)
+        return false;
+      break;
+    case kMultiGpuStyleAMDSwitchable:
+      if (!gpu_info.amd_switchable)
+        return false;
+      break;
+    default:
+      break;
+  }
   if (driver_vendor_info_.get() != NULL &&
       !driver_vendor_info_->Contains(gpu_info.driver_vendor))
     return false;
   if (driver_version_info_.get() != NULL) {
-    scoped_ptr<Version> driver_version(
-        Version::GetVersionFromString(gpu_info.driver_version));
-    if (driver_version.get() == NULL ||
-        !driver_version_info_->Contains(*driver_version))
+    std::string processed_driver_version;
+    if (driver_version_info_->IsLexical())
+      processed_driver_version = NumericalToLexical(gpu_info.driver_version);
+    else
+      processed_driver_version = gpu_info.driver_version;
+    Version driver_version(processed_driver_version);
+    if (!driver_version.IsValid() ||
+        !driver_version_info_->Contains(driver_version))
       return false;
   }
   if (driver_date_info_.get() != NULL) {
-    scoped_ptr<Version> driver_date(GetDateFromString(gpu_info.driver_date));
-    if (driver_date.get() == NULL ||
-        !driver_date_info_->Contains(*driver_date))
+    Version driver_date;
+    GetDateFromString(gpu_info.driver_date, &driver_date);
+    if (!driver_date.IsValid() || !driver_date_info_->Contains(driver_date))
       return false;
   }
   if (gl_vendor_info_.get() != NULL &&
@@ -765,11 +879,11 @@ bool GpuBlacklist::LoadGpuBlacklist(
     const std::string& browser_version_string,
     const std::string& json_context,
     GpuBlacklist::OsFilter os_filter) {
-  browser_version_.reset(Version::GetVersionFromString(browser_version_string));
-  DCHECK(browser_version_.get() != NULL);
+  browser_version_.reset(new Version(browser_version_string));
+  DCHECK(browser_version_->IsValid());
 
   scoped_ptr<Value> root;
-  root.reset(base::JSONReader::Read(json_context, false));
+  root.reset(base::JSONReader::Read(json_context));
   if (root.get() == NULL || !root->IsType(Value::TYPE_DICTIONARY))
     return false;
 
@@ -784,8 +898,8 @@ bool GpuBlacklist::LoadGpuBlacklist(
 
   std::string version_string;
   parsed_json.GetString("version", &version_string);
-  version_.reset(Version::GetVersionFromString(version_string));
-  if (version_.get() == NULL)
+  version_.reset(new Version(version_string));
+  if (!version_->IsValid())
     return false;
 
   ListValue* list = NULL;
@@ -853,7 +967,7 @@ GpuFeatureType GpuBlacklist::DetermineGpuFeatureType(
     size_t pos = version_string.find_first_not_of("0123456789.");
     if (pos != std::string::npos)
       version_string = version_string.substr(0, pos);
-    my_os_version.reset(Version::GetVersionFromString(version_string));
+    my_os_version.reset(new Version(version_string));
     os_version = my_os_version.get();
   }
   DCHECK(os_version != NULL);
@@ -970,7 +1084,7 @@ GpuBlacklist::IsEntrySupportedByCurrentBrowserVersion(
     browser_version_value->GetString("number2", &version_string2);
     scoped_ptr<VersionInfo> browser_version_info;
     browser_version_info.reset(
-      new VersionInfo(version_op, version_string, version_string2));
+        new VersionInfo(version_op, "", version_string, version_string2));
     if (!browser_version_info->IsValid())
       return kMalformed;
     if (browser_version_info->Contains(*browser_version_))

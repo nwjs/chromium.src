@@ -23,20 +23,17 @@
 
 #include <vector>
 
-#include "base/bind.h"
 #include "base/environment.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop.h"
 #include "base/native_library.h"
 #include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
-#include "crypto/scoped_nss_types.h"
 
 #if defined(OS_CHROMEOS)
 #include "crypto/symmetric_key.h"
@@ -196,32 +193,6 @@ PK11SlotInfo* FindSlotWithTokenName(const std::string& token_name) {
 
 #endif  // defined(USE_NSS)
 
-#if defined(OS_CHROMEOS)
-void LogSlotInfo() {
-  AutoSECMODListReadLock auto_lock;
-  SECMODModuleList* head = SECMOD_GetDefaultModuleList();
-  VLOG(1) << "Current PK11 Slot Status:";
-  for (SECMODModuleList* item = head; item != NULL; item = item->next) {
-    int slot_count = item->module->loaded ? item->module->slotCount : 0;
-    for (int i = 0; i < slot_count; i++) {
-      PK11SlotInfo* slot = item->module->slots[i];
-      if (slot) {
-        VLOG(1) << "  ###############################";
-        VLOG(1) << "  Token Name   : " << PK11_GetTokenName(slot);
-        VLOG(1) << "  Slot Name    : " << PK11_GetSlotName(slot);
-        VLOG(1) << "  Slot ID      : " << PK11_GetSlotID(slot);
-        VLOG(1) << "  Is Friendly  : "
-            << (PK11_IsFriendly(slot) ? "True" : "False");
-        VLOG(1) << "  Default Flags: " << PK11_GetDefaultFlags(slot);
-        VLOG(1) << "  Need Login   : "
-            << (PK11_NeedLogin(slot) ? "Yes" : "No");
-        VLOG(1) << "  Is Hardware  :" << (PK11_IsHW(slot) ? "Yes" : "No");
-      }
-    }
-  }
-}
-#endif
-
 // A singleton to initialize/deinitialize NSPR.
 // Separate from the NSS singleton because we initialize NSPR on the UI thread.
 // Now that we're leaking the singleton, we could merge back with the NSS
@@ -240,9 +211,8 @@ class NSPRInitSingleton {
   ~NSPRInitSingleton() {
     PL_ArenaFinish();
     PRStatus prstatus = PR_Cleanup();
-    if (prstatus != PR_SUCCESS) {
+    if (prstatus != PR_SUCCESS)
       LOG(ERROR) << "PR_Cleanup failed; was NSPR initialized on wrong thread?";
-    }
   }
 };
 
@@ -273,41 +243,56 @@ class NSSInitSingleton {
     }
   }
 
-  void EnableTPMTokenForNSS(TPMTokenInfoDelegate* info_delegate) {
-    CHECK(info_delegate);
-    tpm_token_info_delegate_.reset(info_delegate);
+  void EnableTPMTokenForNSS() {
+    tpm_token_enabled_for_nss_ = true;
   }
 
-  void InitializeTPMToken(InitializeTPMTokenCallback callback) {
-    // If EnableTPMTokenForNSS hasn't been called, run |callback| with false.
-    if (tpm_token_info_delegate_.get() == NULL) {
-      MessageLoop::current()->PostTask(FROM_HERE, base::Bind(callback, false));
-      return;
-    }
-
-    // If everything is already initialized, then run |callback| with true.
-    if (chaps_module_ && tpm_slot_) {
-      MessageLoop::current()->PostTask(FROM_HERE, base::Bind(callback, true));
-      return;
-    }
-    tpm_token_info_delegate_->RequestIsTokenReady(
-        base::Bind(&NSSInitSingleton::InitializeTPMTokenInternal,
-                   weak_ptr_factory_.GetWeakPtr(),
-                   callback));
-  }
-
-  bool IsTPMTokenAvailable() {
-    if (tpm_token_info_delegate_.get() == NULL)
+  bool InitializeTPMToken(const std::string& token_name,
+                          const std::string& user_pin) {
+    // If EnableTPMTokenForNSS hasn't been called, return false.
+    if (!tpm_token_enabled_for_nss_)
       return false;
-    return tpm_token_info_delegate_->IsTokenAvailable();
+
+    // If everything is already initialized, then return true.
+    if (chaps_module_ && tpm_slot_)
+      return true;
+
+    tpm_token_name_ = token_name;
+    tpm_user_pin_ = user_pin;
+
+    // This tries to load the Chaps module so NSS can talk to the hardware
+    // TPM.
+    if (!chaps_module_) {
+      chaps_module_ = LoadModule(
+          kChapsModuleName,
+          kChapsPath,
+          // For more details on these parameters, see:
+          // https://developer.mozilla.org/en/PKCS11_Module_Specs
+          // slotFlags=[PublicCerts] -- Certificates and public keys can be
+          //   read from this slot without requiring a call to C_Login.
+          // askpw=only -- Only authenticate to the token when necessary.
+          "NSS=\"slotParams=(0={slotFlags=[PublicCerts] askpw=only})\"");
+    }
+    if (chaps_module_){
+      // If this gets set, then we'll use the TPM for certs with
+      // private keys, otherwise we'll fall back to the software
+      // implementation.
+      tpm_slot_ = GetTPMSlot();
+
+      return tpm_slot_ != NULL;
+    }
+    return false;
   }
 
   void GetTPMTokenInfo(std::string* token_name, std::string* user_pin) {
-    if (tpm_token_info_delegate_.get() == NULL) {
+    if (!tpm_token_enabled_for_nss_) {
       LOG(ERROR) << "GetTPMTokenInfo called before TPM Token is ready.";
       return;
     }
-    tpm_token_info_delegate_->GetTokenInfo(token_name, user_pin);
+    if (token_name)
+      *token_name = tpm_token_name_;
+    if (user_pin)
+      *user_pin = tpm_user_pin_;
   }
 
   bool IsTPMTokenReady() {
@@ -390,7 +375,7 @@ class NSSInitSingleton {
       return PK11_ReferenceSlot(test_slot_);
 
 #if defined(OS_CHROMEOS)
-    if (tpm_token_info_delegate_.get() != NULL) {
+    if (tpm_token_enabled_for_nss_) {
       if (IsTPMTokenReady()) {
         return PK11_ReferenceSlot(tpm_slot_);
       } else {
@@ -423,13 +408,13 @@ class NSSInitSingleton {
   friend struct base::DefaultLazyInstanceTraits<NSSInitSingleton>;
 
   NSSInitSingleton()
-      : chaps_module_(NULL),
+      : tpm_token_enabled_for_nss_(false),
+        chaps_module_(NULL),
         software_slot_(NULL),
         test_slot_(NULL),
         tpm_slot_(NULL),
         root_(NULL),
-        chromeos_user_logged_in_(false),
-        ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
+        chromeos_user_logged_in_(false) {
     EnsureNSPRInit();
 
     // We *must* have NSS >= 3.12.3.  See bug 26448.
@@ -553,57 +538,6 @@ class NSSInitSingleton {
     }
   }
 
-#if defined(OS_CHROMEOS)
-  // This method is used to implement InitializeTPMToken.
-  void InitializeTPMTokenInternal(InitializeTPMTokenCallback callback,
-                                  bool is_token_ready) {
-    if (is_token_ready) {
-      // This tries to load the Chaps module so NSS can talk to the hardware
-      // TPM.
-      if (!chaps_module_) {
-        chaps_module_ = LoadModule(
-            kChapsModuleName,
-            kChapsPath,
-            // trustOrder=100 -- means it'll select this as the most
-            //   trusted slot for the mechanisms it provides.
-            // slotParams=... -- selects RSA as the only mechanism, and only
-            //   asks for the password when necessary (instead of every
-            //   time, or after a timeout).
-            "trustOrder=100 slotParams=(1={slotFlags=[RSA] askpw=only})");
-      }
-      if (chaps_module_ && chaps_module_->loaded) {
-        int size = 0;
-        PK11DefaultArrayEntry* entries = PK11_GetDefaultArray(&size);
-        PK11DefaultArrayEntry* friendly_entry = NULL;
-        for (int i = 0; i < size; ++i) {
-          if (entries[i].flag == SECMOD_FRIENDLY_FLAG) {
-            friendly_entry = &entries[i];
-            break;
-          }
-        }
-
-        // If this gets set, then we'll use the TPM for certs with
-        // private keys, otherwise we'll fall back to the software
-        // implementation.
-        tpm_slot_ = GetTPMSlot();
-
-        // Force the TPM slot to be "Friendly", since it seems to ignore setting
-        // "PublicCerts" above, and otherwise NSS does some unnecessary locking,
-        // and slows things down.
-        if (tpm_slot_ && friendly_entry)
-          PK11_UpdateSlotAttribute(tpm_slot_, friendly_entry, PR_TRUE);
-
-        if (VLOG_IS_ON(1))
-          LogSlotInfo();
-
-        callback.Run(tpm_slot_ != NULL);
-        return;
-      }
-    }
-    callback.Run(false);
-  }
-#endif  // defined(OS_CHROMEOS)
-
 #if defined(USE_NSS)
   // Load nss's built-in root certs.
   SECMODModule* InitDefaultRootCerts() {
@@ -660,17 +594,15 @@ class NSSInitSingleton {
   // If this is set to true NSS is forced to be initialized without a DB.
   static bool force_nodb_init_;
 
-#if defined(OS_CHROMEOS)
-  scoped_ptr<TPMTokenInfoDelegate> tpm_token_info_delegate_;
-#endif
-
+  bool tpm_token_enabled_for_nss_;
+  std::string tpm_token_name_;
+  std::string tpm_user_pin_;
   SECMODModule* chaps_module_;
   PK11SlotInfo* software_slot_;
   PK11SlotInfo* test_slot_;
   PK11SlotInfo* tpm_slot_;
   SECMODModule* root_;
   bool chromeos_user_logged_in_;
-  base::WeakPtrFactory<NSSInitSingleton> weak_ptr_factory_;
 #if defined(USE_NSS)
   // TODO(davidben): When https://bugzilla.mozilla.org/show_bug.cgi?id=564011
   // is fixed, we will no longer need the lock.
@@ -804,27 +736,21 @@ void OpenPersistentNSSDB() {
   g_nss_singleton.Get().OpenPersistentNSSDB();
 }
 
-TPMTokenInfoDelegate::TPMTokenInfoDelegate() {}
-TPMTokenInfoDelegate::~TPMTokenInfoDelegate() {}
-
-void EnableTPMTokenForNSS(TPMTokenInfoDelegate* info_delegate) {
-  g_nss_singleton.Get().EnableTPMTokenForNSS(info_delegate);
+void EnableTPMTokenForNSS() {
+  g_nss_singleton.Get().EnableTPMTokenForNSS();
 }
 
 void GetTPMTokenInfo(std::string* token_name, std::string* user_pin) {
   g_nss_singleton.Get().GetTPMTokenInfo(token_name, user_pin);
 }
 
-bool IsTPMTokenAvailable() {
-  return g_nss_singleton.Get().IsTPMTokenAvailable();
-}
-
 bool IsTPMTokenReady() {
   return g_nss_singleton.Get().IsTPMTokenReady();
 }
 
-void InitializeTPMToken(InitializeTPMTokenCallback callback) {
-  g_nss_singleton.Get().InitializeTPMToken(callback);
+bool InitializeTPMToken(const std::string& token_name,
+                        const std::string& user_pin) {
+  return g_nss_singleton.Get().InitializeTPMToken(token_name, user_pin);
 }
 
 SymmetricKey* GetSupplementalUserKey() {

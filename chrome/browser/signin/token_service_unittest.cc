@@ -13,11 +13,12 @@
 #include "base/synchronization/waitable_event.h"
 #include "chrome/browser/password_manager/encryptor.h"
 #include "chrome/browser/signin/token_service_factory.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
 #include "chrome/common/net/gaia/gaia_constants.h"
-#include "content/test/test_url_fetcher_factory.h"
+#include "chrome/common/net/gaia/mock_url_fetcher_factory.h"
+#include "net/url_request/test_url_fetcher_factory.h"
 
 using content::BrowserThread;
 
@@ -72,7 +73,8 @@ void TokenServiceTestHarness::SetUp() {
   ASSERT_TRUE(db_thread_.Start());
 
   profile_.reset(new TestingProfile());
-  profile_->CreateWebDataService(false);
+  profile_->CreateWebDataService();
+
   WaitForDBLoadCompletion();
   service_ = TokenServiceFactory::GetForProfile(profile_.get());
 
@@ -89,6 +91,12 @@ void TokenServiceTestHarness::TearDown() {
   if (profile_.get()) {
     profile_.reset(NULL);
   }
+  // Schedule another task on the DB thread to notify us that it's safe to
+  // carry on with the test.
+  base::WaitableEvent done(false, false);
+  BrowserThread::PostTask(BrowserThread::DB, FROM_HERE,
+      base::Bind(&base::WaitableEvent::Signal, base::Unretained(&done)));
+  done.Wait();
 
   db_thread_.Stop();
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
@@ -96,6 +104,10 @@ void TokenServiceTestHarness::TearDown() {
 }
 
 void TokenServiceTestHarness::WaitForDBLoadCompletion() {
+  // Force the loading of the WebDataService.
+  WebDataServiceFactory::GetForProfile(profile_.get(),
+                                       Profile::IMPLICIT_ACCESS);
+
   // The WebDB does all work on the DB thread. This will add an event
   // to the end of the DB thread, so when we reach this task, all DB
   // operations should be complete.
@@ -163,7 +175,8 @@ TEST_F(TokenServiceTest, NotificationSuccess) {
 TEST_F(TokenServiceTest, NotificationOAuthLoginTokenSuccess) {
   EXPECT_EQ(0U, success_tracker_.size());
   EXPECT_EQ(0U, failure_tracker_.size());
-  service_->OnOAuthLoginTokenSuccess("rt1", "at1", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt1", "at1", 3600));
   EXPECT_EQ(1U, success_tracker_.size());
   EXPECT_EQ(0U, failure_tracker_.size());
 
@@ -192,7 +205,7 @@ TEST_F(TokenServiceTest, NotificationOAuthLoginTokenFailed) {
   EXPECT_EQ(0U, success_tracker_.size());
   EXPECT_EQ(0U, failure_tracker_.size());
   GoogleServiceAuthError error(GoogleServiceAuthError::REQUEST_CANCELED);
-  service_->OnOAuthLoginTokenFailure(error);
+  service_->OnClientOAuthFailure(error);
   EXPECT_EQ(0U, success_tracker_.size());
   EXPECT_EQ(1U, failure_tracker_.size());
 
@@ -221,15 +234,18 @@ TEST_F(TokenServiceTest, OnTokenSuccessUpdate) {
 
 TEST_F(TokenServiceTest, OnOAuth2LoginTokenSuccessUpdate) {
   std::string service = GaiaConstants::kGaiaOAuth2LoginRefreshToken;
-  service_->OnOAuthLoginTokenSuccess("rt1", "at1", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt1", "at1", 3600));
   EXPECT_TRUE(service_->HasOAuthLoginToken());
   EXPECT_EQ(service_->GetOAuth2LoginRefreshToken(), "rt1");
 
-  service_->OnOAuthLoginTokenSuccess("rt2", "at2", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt2", "at2", 3600));
   EXPECT_TRUE(service_->HasOAuthLoginToken());
   EXPECT_EQ(service_->GetOAuth2LoginRefreshToken(), "rt2");
 
-  service_->OnOAuthLoginTokenSuccess("rt3", "at3", 3600);
+  service_->OnClientOAuthSuccess(
+      GaiaAuthConsumer::ClientOAuthResult("rt3", "at3", 3600));
   EXPECT_TRUE(service_->HasOAuthLoginToken());
   EXPECT_EQ(service_->GetOAuth2LoginRefreshToken(), "rt3");
 }
@@ -244,7 +260,7 @@ TEST_F(TokenServiceTest, OnTokenSuccess) {
 }
 
 TEST_F(TokenServiceTest, Reset) {
-  TestURLFetcherFactory factory;
+  net::TestURLFetcherFactory factory;
   service_->StartFetchingTokens();
   // You have to call delegates by hand with the test fetcher,
   // Let's pretend only one returned.

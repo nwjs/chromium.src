@@ -4,7 +4,6 @@
 
 #ifndef NET_SPDY_SPDY_HTTP_UTILS_H_
 #define NET_SPDY_SPDY_HTTP_UTILS_H_
-#pragma once
 
 #include "googleurl/src/gurl.h"
 #include "net/base/net_export.h"
@@ -40,8 +39,9 @@ GURL GetUrlFromHeaderBlock(const SpdyHeaderBlock& headers,
                            int protocol_version,
                            bool pushed);
 
-NET_EXPORT_PRIVATE int ConvertRequestPriorityToSpdyPriority(
-    RequestPriority priority);
+NET_EXPORT_PRIVATE SpdyPriority ConvertRequestPriorityToSpdyPriority(
+    RequestPriority priority,
+    int protocol_version);
 
 }  // namespace net
 

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef UI_BASE_X_WORK_AREA_WATCHER_X_H_
 #define UI_BASE_X_WORK_AREA_WATCHER_X_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/memory/singleton.h"
@@ -14,7 +13,7 @@
 
 namespace ui {
 
-class WorkAreaWatcherXObserver;
+class WorkAreaWatcherObserver;
 
 namespace internal {
 class RootWindowPropertyWatcherX;
@@ -25,8 +24,8 @@ class RootWindowPropertyWatcherX;
 class UI_EXPORT WorkAreaWatcherX {
  public:
   static WorkAreaWatcherX* GetInstance();
-  static void AddObserver(WorkAreaWatcherXObserver* observer);
-  static void RemoveObserver(WorkAreaWatcherXObserver* observer);
+  static void AddObserver(WorkAreaWatcherObserver* observer);
+  static void RemoveObserver(WorkAreaWatcherObserver* observer);
 
  private:
   friend struct DefaultSingletonTraits<WorkAreaWatcherX>;
@@ -45,7 +44,7 @@ class UI_EXPORT WorkAreaWatcherX {
   // Instance method that implements Notify().
   void NotifyWorkAreaChanged();
 
-  ObserverList<WorkAreaWatcherXObserver> observers_;
+  ObserverList<WorkAreaWatcherObserver> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkAreaWatcherX);
 };

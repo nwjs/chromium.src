@@ -4,7 +4,8 @@
 
 #ifndef UI_BASE_IME_MOCK_INPUT_METHOD_H_
 #define UI_BASE_IME_MOCK_INPUT_METHOD_H_
-#pragma once
+
+#include <string>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -16,7 +17,7 @@ namespace ui {
 class TextInputClient;
 
 // A mock ui::InputMethod implementation for minimum input support.
-class UI_EXPORT MockInputMethod : public InputMethod {
+class UI_EXPORT MockInputMethod : NON_EXPORTED_BASE(public InputMethod) {
  public:
   explicit MockInputMethod(internal::InputMethodDelegate* delegate);
   virtual ~MockInputMethod();

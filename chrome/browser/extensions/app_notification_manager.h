@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_APP_NOTIFICATION_MANAGER_H_
 #define CHROME_BROWSER_EXTENSIONS_APP_NOTIFICATION_MANAGER_H_
-#pragma once
 
 #include <map>
 
@@ -12,18 +11,23 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/synchronization/waitable_event.h"
 #include "chrome/browser/extensions/app_notification.h"
 #include "chrome/browser/extensions/app_notification_storage.h"
-#include "chrome/browser/sync/api/sync_change.h"
-#include "chrome/browser/sync/api/syncable_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "sync/api/sync_change.h"
+#include "sync/api/syncable_service.h"
 
 class PerfTimer;
 class Profile;
+
+namespace syncer {
+class SyncErrorFactory;
+}
 
 // This class keeps track of notifications for installed apps.
 class AppNotificationManager
@@ -31,11 +35,10 @@ class AppNotificationManager
           AppNotificationManager,
           content::BrowserThread::DeleteOnUIThread>,
       public content::NotificationObserver,
-      public SyncableService {
+      public syncer::SyncableService {
  public:
   static const unsigned int kMaxNotificationPerApp;
   explicit AppNotificationManager(Profile* profile);
-  virtual ~AppNotificationManager();
 
   // Starts up the process of reading from persistent storage.
   void Init();
@@ -60,24 +63,29 @@ class AppNotificationManager
 
   bool loaded() const { return notifications_.get() != NULL; }
 
-  // SyncableService implementation.
+  // syncer::SyncableService implementation.
 
-  // Returns all syncable notifications from this model as SyncData.
-  virtual SyncDataList GetAllSyncData(syncable::ModelType type) const OVERRIDE;
+  // Returns all syncable notifications from this model as syncer::SyncData.
+  virtual syncer::SyncDataList GetAllSyncData(
+      syncer::ModelType type) const OVERRIDE;
   // Process notifications related changes from Sync, merging them into
   // our model.
-  virtual SyncError ProcessSyncChanges(
+  virtual syncer::SyncError ProcessSyncChanges(
       const tracked_objects::Location& from_here,
-      const SyncChangeList& change_list) OVERRIDE;
+      const syncer::SyncChangeList& change_list) OVERRIDE;
   // Associate and merge sync data model with our data model.
-  virtual SyncError MergeDataAndStartSyncing(
-      syncable::ModelType type,
-      const SyncDataList& initial_sync_data,
-      scoped_ptr<SyncChangeProcessor> sync_processor) OVERRIDE;
-  virtual void StopSyncing(syncable::ModelType type) OVERRIDE;
+  virtual syncer::SyncError MergeDataAndStartSyncing(
+      syncer::ModelType type,
+      const syncer::SyncDataList& initial_sync_data,
+      scoped_ptr<syncer::SyncChangeProcessor> sync_processor,
+      scoped_ptr<syncer::SyncErrorFactory> sync_error_factory) OVERRIDE;
+  virtual void StopSyncing(syncer::ModelType type) OVERRIDE;
 
  private:
   friend class AppNotificationManagerSyncTest;
+  friend class base::DeleteHelper<AppNotificationManager>;
+  friend struct content::BrowserThread::DeleteOnThread<
+      content::BrowserThread::UI>;
   FRIEND_TEST_ALL_PREFIXES(AppNotificationManagerSyncTest,
                            NotificationToSyncDataToNotification);
   FRIEND_TEST_ALL_PREFIXES(AppNotificationManagerSyncTest,
@@ -103,10 +111,10 @@ class AppNotificationManager
   FRIEND_TEST_ALL_PREFIXES(AppNotificationManagerSyncTest,
                            ClearAllGetsSynced);
 
-  friend class base::RefCountedThreadSafe<AppNotificationManager>;
-
   // Maps extension id to a list of notifications for that extension.
   typedef std::map<std::string, AppNotificationList> NotificationMap;
+
+  virtual ~AppNotificationManager();
 
   // Starts loading storage_ using |storage_path|.
   void LoadOnFileThread(const FilePath& storage_path);
@@ -121,7 +129,7 @@ class AppNotificationManager
 
   void DeleteOnFileThread(const std::string& extension_id);
 
-  // Gets notficiations for a given extension id.
+  // Gets notifications for a given extension id.
   AppNotificationList& GetAllInternal(const std::string& extension_id);
 
   // Removes the notification with given extension id and given guid.
@@ -141,11 +149,11 @@ class AppNotificationManager
   // Sends changes to syncer to remove all notifications in the given list.
   void SyncClearAllChange(const AppNotificationList& list);
 
-  // Converters from AppNotification to SyncData and vice versa.
-  static SyncData CreateSyncDataFromNotification(
+  // Converters from AppNotification to syncer::SyncData and vice versa.
+  static syncer::SyncData CreateSyncDataFromNotification(
       const AppNotification& notification);
   static AppNotification* CreateNotificationFromSyncData(
-      const SyncData& sync_data);
+      const syncer::SyncData& sync_data);
 
   Profile* profile_;
   content::NotificationRegistrar registrar_;
@@ -155,7 +163,11 @@ class AppNotificationManager
   scoped_ptr<AppNotificationStorage> storage_;
 
   // Sync change processor we use to push all our changes.
-  scoped_ptr<SyncChangeProcessor> sync_processor_;
+  scoped_ptr<syncer::SyncChangeProcessor> sync_processor_;
+
+  // Sync error handler that we use to create errors from.
+  scoped_ptr<syncer::SyncErrorFactory> sync_error_factory_;
+
   // Whether the sync model is associated with the local model.
   // In other words, whether we are ready to apply sync changes.
   bool models_associated_;

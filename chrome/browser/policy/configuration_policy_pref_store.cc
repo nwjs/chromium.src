@@ -48,10 +48,6 @@ ConfigurationPolicyPrefStore::ConfigurationPolicyPrefStore(
   policy_service_->AddObserver(POLICY_DOMAIN_CHROME, "", this);
 }
 
-ConfigurationPolicyPrefStore::~ConfigurationPolicyPrefStore() {
-  policy_service_->RemoveObserver(POLICY_DOMAIN_CHROME, "", this);
-}
-
 void ConfigurationPolicyPrefStore::AddObserver(PrefStore::Observer* observer) {
   observers_.AddObserver(observer);
 }
@@ -83,7 +79,9 @@ ConfigurationPolicyPrefStore::GetValue(const std::string& key,
 
 void ConfigurationPolicyPrefStore::OnPolicyUpdated(
     PolicyDomain domain,
-    const std::string& component_id) {
+    const std::string& component_id,
+    const PolicyMap& previous,
+    const PolicyMap& current) {
   DCHECK_EQ(POLICY_DOMAIN_CHROME, domain);
   DCHECK_EQ("", component_id);
   Refresh();
@@ -96,16 +94,22 @@ void ConfigurationPolicyPrefStore::OnPolicyServiceInitialized() {
 
 // static
 ConfigurationPolicyPrefStore*
-ConfigurationPolicyPrefStore::CreateMandatoryPolicyPrefStore() {
-  return new ConfigurationPolicyPrefStore(g_browser_process->policy_service(),
+ConfigurationPolicyPrefStore::CreateMandatoryPolicyPrefStore(
+    PolicyService* policy_service) {
+  return new ConfigurationPolicyPrefStore(policy_service,
                                           POLICY_LEVEL_MANDATORY);
 }
 
 // static
 ConfigurationPolicyPrefStore*
-ConfigurationPolicyPrefStore::CreateRecommendedPolicyPrefStore() {
-  return new ConfigurationPolicyPrefStore(g_browser_process->policy_service(),
+ConfigurationPolicyPrefStore::CreateRecommendedPolicyPrefStore(
+    PolicyService* policy_service) {
+  return new ConfigurationPolicyPrefStore(policy_service,
                                           POLICY_LEVEL_RECOMMENDED);
+}
+
+ConfigurationPolicyPrefStore::~ConfigurationPolicyPrefStore() {
+  policy_service_->RemoveObserver(POLICY_DOMAIN_CHROME, "", this);
 }
 
 void ConfigurationPolicyPrefStore::Refresh() {
@@ -125,12 +129,9 @@ void ConfigurationPolicyPrefStore::Refresh() {
 
 PrefValueMap* ConfigurationPolicyPrefStore::CreatePreferencesFromPolicies() {
   scoped_ptr<PrefValueMap> prefs(new PrefValueMap);
-  const PolicyMap* policies =
-      policy_service_->GetPolicies(POLICY_DOMAIN_CHROME, "");
-  if (!policies)
-    return prefs.release();
   PolicyMap filtered_policies;
-  filtered_policies.CopyFrom(*policies);
+  filtered_policies.CopyFrom(
+      policy_service_->GetPolicies(POLICY_DOMAIN_CHROME, ""));
   filtered_policies.FilterLevel(level_);
 
   scoped_ptr<PolicyErrorMap> errors(new PolicyErrorMap);

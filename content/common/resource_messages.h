@@ -122,6 +122,9 @@ IPC_STRUCT_BEGIN(ResourceHostMsg_Request)
   // Unless this refers to a transferred navigation, these values are -1 and -1.
   IPC_STRUCT_MEMBER(int, transferred_request_child_id)
   IPC_STRUCT_MEMBER(int, transferred_request_request_id)
+
+  // Whether or not we should allow the URL to download.
+  IPC_STRUCT_MEMBER(bool, allow_download)
 IPC_STRUCT_END()
 
 // Resource messages sent from the browser to the renderer.
@@ -182,13 +185,6 @@ IPC_MESSAGE_ROUTED2(ResourceHostMsg_RequestResource,
 // Cancels a resource request with the ID given as the parameter.
 IPC_MESSAGE_ROUTED1(ResourceHostMsg_CancelRequest,
                     int /* request_id */)
-
-// Sets a new routing id for the resource request with the ID given as the
-// parameter. This happens when a pending request is transferred to another
-// page.
-IPC_MESSAGE_CONTROL2(ResourceHostMsg_TransferRequestToNewPage,
-                     int /* new routing_id */,
-                     int /* request_id */)
 
 // Follows a redirect that occured for the resource request with the ID given
 // as the parameter.

@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -54,21 +55,19 @@ IN_PROC_BROWSER_TEST_F(AppNotificationTest, SaveClientId) {
   Interceptor interceptor;
   AppNotifyChannelSetup::SetInterceptorForTests(&interceptor);
 
-  const Extension* app =
+  const extensions::Extension* app =
       LoadExtension(test_data_dir_.AppendASCII("app_notifications"));
   ASSERT_TRUE(app != NULL);
 
-  Browser::OpenApplication(browser()->profile(),
-                           app,
-                           extension_misc::LAUNCH_TAB,
-                           GURL(),
-                           NEW_FOREGROUND_TAB);
+  application_launch::OpenApplication(application_launch::LaunchParams(
+          browser()->profile(), app, extension_misc::LAUNCH_TAB,
+          NEW_FOREGROUND_TAB));
   if (!interceptor.was_called())
     ui_test_utils::RunMessageLoop();
   EXPECT_TRUE(interceptor.was_called());
 
   ExtensionService* service = browser()->profile()->GetExtensionService();
-  ExtensionPrefs* prefs = service->extension_prefs();
+  extensions::ExtensionPrefs* prefs = service->extension_prefs();
   std::string saved_id = prefs->GetAppNotificationClientId(app->id());
   EXPECT_EQ(kExpectedClientId, saved_id);
 }

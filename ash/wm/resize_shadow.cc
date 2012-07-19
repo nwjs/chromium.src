@@ -10,8 +10,8 @@
 #include "ui/aura/window.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/compositor/layer.h"
-#include "ui/gfx/compositor/scoped_layer_animation_settings.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 
 namespace {
 
@@ -49,7 +49,7 @@ ResizeShadow::~ResizeShadow() {}
 void ResizeShadow::Init(aura::Window* window) {
   // Set up our image grid and images.
   ResourceBundle& res = ResourceBundle::GetSharedInstance();
-  image_grid_.reset(new ImageGrid());
+  image_grid_.reset(new ImageGrid);
   image_grid_->SetImages(
       &res.GetImageNamed(IDR_AURA_RESIZE_SHADOW_TOP_LEFT),
       &res.GetImageNamed(IDR_AURA_RESIZE_SHADOW_TOP),

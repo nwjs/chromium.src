@@ -8,18 +8,23 @@
 #include <list>
 #include <map>
 #include <string>
+#include <utility>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/message_loop_proxy.h"
 #include "base/threading/non_thread_safe.h"
 #include "base/threading/thread.h"
 #include "content/common/content_export.h"
+#include "content/public/renderer/render_view_observer.h"
+#include "content/renderer/media/media_stream_extra_data.h"
 #include "content/renderer/media/media_stream_dispatcher_eventhandler.h"
 #include "content/renderer/media/rtc_video_decoder.h"
+#include "content/renderer/p2p/socket_dispatcher.h"
 #include "third_party/libjingle/source/talk/app/webrtc/mediastream.h"
 #include "third_party/libjingle/source/talk/base/scoped_ref_ptr.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebUserMediaClient.h"
@@ -33,7 +38,6 @@ class WaitableEvent;
 namespace content {
 class IpcNetworkManager;
 class IpcPacketSocketFactory;
-class P2PSocketDispatcher;
 }
 
 namespace talk_base {
@@ -41,13 +45,18 @@ class Thread;
 }
 
 namespace WebKit {
+class WebFrame;
+class WebMediaStreamComponent;
+class WebMediaStreamDescriptor;
+class WebPeerConnection00Handler;
+class WebPeerConnection00HandlerClient;
 class WebPeerConnectionHandler;
 class WebPeerConnectionHandlerClient;
 }
 
 class MediaStreamDispatcher;
 class MediaStreamDependencyFactory;
-class PeerConnectionHandler;
+class PeerConnectionHandlerBase;
 class VideoCaptureImplManager;
 class RTCVideoDecoder;
 
@@ -56,14 +65,20 @@ class RTCVideoDecoder;
 // MediaStreamManager (via MediaStreamDispatcher and MediaStreamDispatcherHost)
 // in the browser process. It must be created, called and destroyed on the
 // render thread.
+// MediaStreamImpl have weak pointers to a P2PSocketDispatcher and a
+// MediaStreamDispatcher. These objects are also RenderViewObservers.
+// MediaStreamImpl must be deleted before the P2PSocketDispatcher.
 class CONTENT_EXPORT MediaStreamImpl
-    : NON_EXPORTED_BASE(public WebKit::WebUserMediaClient),
+    : public content::RenderViewObserver,
+      NON_EXPORTED_BASE(public WebKit::WebUserMediaClient),
       NON_EXPORTED_BASE(public webkit_media::MediaStreamClient),
       public MediaStreamDispatcherEventHandler,
-      NON_EXPORTED_BASE(public base::NonThreadSafe),
-      public base::RefCountedThreadSafe<MediaStreamImpl> {
+      public base::SupportsWeakPtr<MediaStreamImpl>,
+      NON_EXPORTED_BASE(public content::P2PSocketDispatcherDestructionObserver),
+      NON_EXPORTED_BASE(public base::NonThreadSafe) {
  public:
   MediaStreamImpl(
+      content::RenderView* render_view,
       MediaStreamDispatcher* media_stream_dispatcher,
       content::P2PSocketDispatcher* p2p_socket_dispatcher,
       VideoCaptureImplManager* vc_manager,
@@ -72,9 +87,16 @@ class CONTENT_EXPORT MediaStreamImpl
 
   virtual WebKit::WebPeerConnectionHandler* CreatePeerConnectionHandler(
       WebKit::WebPeerConnectionHandlerClient* client);
-  virtual void ClosePeerConnection();
-  virtual webrtc::MediaStreamTrackInterface* GetLocalMediaStreamTrack(
-      const std::string& label);
+  virtual WebKit::WebPeerConnection00Handler* CreatePeerConnectionHandlerJsep(
+      WebKit::WebPeerConnection00HandlerClient* client);
+  // Stops a local MediaStream by notifying the MediaStreamDispatcher that the
+  // stream no longer may be used.
+  virtual void StopLocalMediaStream(
+      const WebKit::WebMediaStreamDescriptor& stream);
+  // A new MediaStream have been created based on existing tracks.
+  virtual void CreateMediaStream(
+      WebKit::WebFrame* frame,
+      WebKit::WebMediaStreamDescriptor* stream);
 
   // WebKit::WebUserMediaClient implementation
   virtual void requestUserMedia(
@@ -113,32 +135,66 @@ class CONTENT_EXPORT MediaStreamImpl
       const media_stream::StreamDeviceInfo& device_info) OVERRIDE;
   virtual void OnDeviceOpenFailed(int request_id) OVERRIDE;
 
+  // content::RenderViewObserver OVERRIDE
+  virtual void FrameWillClose(WebKit::WebFrame* frame) OVERRIDE;
+
+  // content P2PSocketDispatcherDestructionObserver implementation.
+  // This is needed since all IpcNetworkManager must be deleted before the
+  // P2PSocketDispatcher is destroyed. MediaStreamImpl owns a IpcNetworkManager.
+  virtual void OnSocketDispatcherDestroyed() OVERRIDE;
+
+ protected:
+  // This function is virtual for test purposes. A test can override this to
+  // test requesting local media streams. The function notifies WebKit that the
+  // |request| have completed and generated the MediaStream |stream|.
+  virtual void CompleteGetUserMediaRequest(
+      const WebKit::WebMediaStreamDescriptor& stream,
+      WebKit::WebUserMediaRequest* request);
+  // This function is virtual for test purposes.
+  // Returns the WebKit representation of a MediaStream given an URL.
+  virtual WebKit::WebMediaStreamDescriptor GetMediaStream(const GURL& url);
+
  private:
-  FRIEND_TEST_ALL_PREFIXES(MediaStreamImplTest, Basic);
-
-  class VideoRendererWrapper : public webrtc::VideoRendererWrapperInterface {
-   public:
-    VideoRendererWrapper();
-    virtual cricket::VideoRenderer* renderer() OVERRIDE {
-      return rtc_video_decoder_.get();
-    }
-    void SetVideoDecoder(RTCVideoDecoder* decoder);
-
-   protected:
-    virtual ~VideoRendererWrapper();
-
-   private:
-    scoped_refptr<RTCVideoDecoder> rtc_video_decoder_;
+  // Structure for storing information about a WebKit request to create a
+  // MediaStream.
+  struct UserMediaRequestInfo {
+    UserMediaRequestInfo() : frame_(NULL), request_() {}
+    UserMediaRequestInfo(WebKit::WebFrame* frame,
+                         const WebKit::WebUserMediaRequest& request)
+        : frame_(frame), request_(request) {}
+    WebKit::WebFrame* frame_;  // WebFrame that requested the MediaStream.
+    WebKit::WebUserMediaRequest request_;
   };
+  typedef std::map<int, UserMediaRequestInfo> MediaRequestMap;
 
-  void InitializeWorkerThread(
-      talk_base::Thread** thread,
-      base::WaitableEvent* event);
+  // We keep a list of the label and WebFrame of generated local media streams,
+  // so that we can stop them when needed.
+  typedef std::map<std::string, WebKit::WebFrame*> LocalNativeStreamMap;
+  typedef talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface>
+      LocalNativeStreamPtr;
 
-  void CreateIpcNetworkManagerOnWorkerThread(base::WaitableEvent*);
+  void InitializeWorkerThread(talk_base::Thread** thread,
+                              base::WaitableEvent* event);
+
+  void CreateIpcNetworkManagerOnWorkerThread(base::WaitableEvent* event);
   void DeleteIpcNetworkManager();
 
   bool EnsurePeerConnectionFactory();
+  void CleanupPeerConnectionFactory();
+
+  PeerConnectionHandlerBase* FindPeerConnectionByStream(
+      const WebKit::WebMediaStreamDescriptor& stream);
+  scoped_refptr<media::VideoDecoder> CreateLocalVideoDecoder(
+      webrtc::MediaStreamInterface* stream,
+      media::MessageLoopFactory* message_loop_factory);
+  scoped_refptr<media::VideoDecoder> CreateRemoteVideoDecoder(
+      webrtc::MediaStreamInterface* stream,
+      media::MessageLoopFactory* message_loop_factory);
+  LocalNativeStreamPtr CreateNativeLocalMediaStream(
+      const std::string& label,
+      WebKit::WebFrame* frame,
+      const WebKit::WebVector<WebKit::WebMediaStreamSource>& audio_sources,
+      const WebKit::WebVector<WebKit::WebMediaStreamSource>& video_sources);
 
   scoped_ptr<MediaStreamDependencyFactory> dependency_factory_;
 
@@ -151,36 +207,19 @@ class CONTENT_EXPORT MediaStreamImpl
   content::P2PSocketDispatcher* p2p_socket_dispatcher_;
 
   // We own network_manager_, must be deleted on the worker thread.
+  // The network manager uses |p2p_socket_dispatcher_|.
   content::IpcNetworkManager* network_manager_;
-
   scoped_ptr<content::IpcPacketSocketFactory> socket_factory_;
-
   scoped_refptr<VideoCaptureImplManager> vc_manager_;
 
-  // peer_connection_handler_ is a weak reference, owned by WebKit. It's valid
-  // until stop is called on it (which will call ClosePeerConnection on us).
-  // TODO(grunell): Support several PeerConnectionsHandlers.
-  PeerConnectionHandler* peer_connection_handler_;
-
-  // We keep a list of the generated local tracks, so that we can add capture
-  // devices when generated and also use them for recording.
-  typedef talk_base::scoped_refptr<webrtc::MediaStreamTrackInterface>
-      MediaStreamTrackPtr;
-  typedef std::map<std::string, MediaStreamTrackPtr> MediaStreamTrackPtrMap;
-  MediaStreamTrackPtrMap local_tracks_;
-
-  talk_base::scoped_refptr<VideoRendererWrapper> video_renderer_;
-  scoped_refptr<base::MessageLoopProxy> message_loop_proxy_;
+  MediaRequestMap user_media_requests_;
+  LocalNativeStreamMap local_media_streams_;
 
   // PeerConnection threads. signaling_thread_ is created from the
   // "current" chrome thread.
   talk_base::Thread* signaling_thread_;
   talk_base::Thread* worker_thread_;
   base::Thread chrome_worker_thread_;
-
-  static int next_request_id_;
-  typedef std::map<int, WebKit::WebUserMediaRequest> MediaRequestMap;
-  MediaRequestMap user_media_requests_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamImpl);
 };

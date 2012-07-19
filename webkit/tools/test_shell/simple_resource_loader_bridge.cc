@@ -68,6 +68,7 @@
 #include "webkit/fileapi/file_system_dir_url_request_job.h"
 #include "webkit/fileapi/file_system_url_request_job.h"
 #include "webkit/glue/resource_loader_bridge.h"
+#include "webkit/glue/webkit_glue.h"
 #include "webkit/tools/test_shell/simple_appcache_system.h"
 #include "webkit/tools/test_shell/simple_file_system.h"
 #include "webkit/tools/test_shell/simple_file_writer.h"
@@ -109,7 +110,7 @@ class TestShellNetworkDelegate : public net::NetworkDelegate {
  public:
   virtual ~TestShellNetworkDelegate() {}
 
- private:
+ protected:
   // net::NetworkDelegate implementation.
   virtual int OnBeforeURLRequest(net::URLRequest* request,
                                  const net::CompletionCallback& callback,
@@ -149,29 +150,42 @@ class TestShellNetworkDelegate : public net::NetworkDelegate {
       net::AuthCredentials* credentials) OVERRIDE {
     return AUTH_REQUIRED_RESPONSE_NO_ACTION;
   }
-  virtual bool CanGetCookies(
-      const net::URLRequest* request,
-      const net::CookieList& cookie_list) OVERRIDE {
+  virtual bool OnCanGetCookies(const net::URLRequest& request,
+                               const net::CookieList& cookie_list) OVERRIDE {
     StaticCookiePolicy::Type policy_type = g_accept_all_cookies ?
         StaticCookiePolicy::ALLOW_ALL_COOKIES :
         StaticCookiePolicy::BLOCK_SETTING_THIRD_PARTY_COOKIES;
 
     StaticCookiePolicy policy(policy_type);
     int rv = policy.CanGetCookies(
-        request->url(), request->first_party_for_cookies());
+        request.url(), request.first_party_for_cookies());
     return rv == net::OK;
   }
-  virtual bool CanSetCookie(const net::URLRequest* request,
-                            const std::string& cookie_line,
-                            net::CookieOptions* options) OVERRIDE {
+  virtual bool OnCanSetCookie(const net::URLRequest& request,
+                              const std::string& cookie_line,
+                              net::CookieOptions* options) OVERRIDE {
     StaticCookiePolicy::Type policy_type = g_accept_all_cookies ?
         StaticCookiePolicy::ALLOW_ALL_COOKIES :
         StaticCookiePolicy::BLOCK_SETTING_THIRD_PARTY_COOKIES;
 
     StaticCookiePolicy policy(policy_type);
     int rv = policy.CanSetCookie(
-        request->url(), request->first_party_for_cookies());
+        request.url(), request.first_party_for_cookies());
     return rv == net::OK;
+  }
+  virtual bool OnCanAccessFile(const net::URLRequest& request,
+                               const FilePath& path) const OVERRIDE {
+    return true;
+  }
+  virtual bool OnCanThrottleRequest(
+      const net::URLRequest& request) const OVERRIDE {
+    return false;
+  }
+
+  virtual int OnBeforeSocketStreamConnect(
+      net::SocketStream* stream,
+      const net::CompletionCallback& callback) OVERRIDE {
+    return net::OK;
   }
 };
 
@@ -195,14 +209,13 @@ FileOverHTTPParams* g_file_over_http_params = NULL;
 
 class IOThread : public base::Thread {
  public:
-  IOThread() : base::Thread("IOThread") {
-  }
+  IOThread() : base::Thread("IOThread") {}
 
   ~IOThread() {
     Stop();
   }
 
-  virtual void Init() {
+  virtual void Init() OVERRIDE {
     if (g_request_context_params) {
       g_request_context = new TestShellRequestContext(
           g_request_context_params->cache_path,
@@ -213,8 +226,6 @@ class IOThread : public base::Thread {
     } else {
       g_request_context = new TestShellRequestContext();
     }
-
-    g_request_context->AddRef();
 
     g_network_delegate = new TestShellNetworkDelegate();
     g_request_context->set_network_delegate(g_network_delegate);
@@ -228,7 +239,7 @@ class IOThread : public base::Thread {
         g_request_context->blob_storage_controller());
   }
 
-  virtual void CleanUp() {
+  virtual void CleanUp() OVERRIDE {
     // In reverse order of initialization.
     TestShellWebBlobRegistryImpl::Cleanup();
     SimpleFileSystem::CleanupOnIOThread();
@@ -238,7 +249,7 @@ class IOThread : public base::Thread {
 
     if (g_request_context) {
       g_request_context->set_network_delegate(NULL);
-      g_request_context->Release();
+      delete g_request_context;
       g_request_context = NULL;
     }
 
@@ -258,6 +269,7 @@ struct RequestParams {
   GURL url;
   GURL first_party_for_cookies;
   GURL referrer;
+  WebKit::WebReferrerPolicy referrer_policy;
   std::string headers;
   int load_flags;
   ResourceType::Type request_type;
@@ -272,8 +284,10 @@ static const int kUpdateUploadProgressIntervalMsec = 100;
 // The RequestProxy does most of its work on the IO thread.  The Start and
 // Cancel methods are proxied over to the IO thread, where an net::URLRequest
 // object is instantiated.
-class RequestProxy : public net::URLRequest::Delegate,
-                     public base::RefCountedThreadSafe<RequestProxy> {
+struct DeleteOnIOThread;  // See below.
+class RequestProxy
+    : public net::URLRequest::Delegate,
+      public base::RefCountedThreadSafe<RequestProxy, DeleteOnIOThread> {
  public:
   // Takes ownership of the params.
   RequestProxy()
@@ -306,12 +320,14 @@ class RequestProxy : public net::URLRequest::Delegate,
   }
 
  protected:
+  friend class base::DeleteHelper<RequestProxy>;
   friend class base::RefCountedThreadSafe<RequestProxy>;
+  friend struct DeleteOnIOThread;
 
   virtual ~RequestProxy() {
-    // If we have a request, then we'd better be on the io thread!
-    DCHECK(!request_.get() ||
-           MessageLoop::current() == g_io_thread->message_loop());
+    // Ensure we are deleted on the IO thread because base::Timer requires that.
+    // (guaranteed by the Traits class template parameter).
+    DCHECK(MessageLoop::current() == g_io_thread->message_loop());
   }
 
   // --------------------------------------------------------------------------
@@ -401,16 +417,17 @@ class RequestProxy : public net::URLRequest::Delegate,
               params->upload.get());
     }
 
-    request_.reset(new net::URLRequest(params->url, this));
+    request_.reset(new net::URLRequest(params->url, this, g_request_context));
     request_->set_method(params->method);
     request_->set_first_party_for_cookies(params->first_party_for_cookies);
     request_->set_referrer(params->referrer.spec());
+    webkit_glue::ConfigureURLRequestForReferrerPolicy(
+        request_.get(), params->referrer_policy);
     net::HttpRequestHeaders headers;
     headers.AddHeadersFromString(params->headers);
     request_->SetExtraRequestHeaders(headers);
     request_->set_load_flags(params->load_flags);
     request_->set_upload(params->upload.get());
-    request_->set_context(g_request_context);
     SimpleAppCacheSystem::SetExtraRequestInfo(
         request_.get(), params->appcache_host_id, params->request_type);
 
@@ -751,6 +768,17 @@ class RequestProxy : public net::URLRequest::Delegate,
   scoped_ptr<net::URLRequestStatus> failed_file_request_status_;
 };
 
+// Helper guaranteeing deletion on the IO thread (like
+// content::BrowserThread::DeleteOnIOThread, but without the dependency).
+struct DeleteOnIOThread {
+  static void Destruct(const RequestProxy* obj) {
+    if (MessageLoop::current() == g_io_thread->message_loop())
+      delete obj;
+    else
+      g_io_thread->message_loop()->DeleteSoon(FROM_HERE, obj);
+  }
+};
+
 //-----------------------------------------------------------------------------
 
 class SyncRequestProxy : public RequestProxy {
@@ -764,12 +792,12 @@ class SyncRequestProxy : public RequestProxy {
   }
 
   // --------------------------------------------------------------------------
-  // Event hooks that run on the IO thread:
+  // RequestProxy event hooks that run on the IO thread:
 
   virtual void OnReceivedRedirect(
       const GURL& new_url,
       const ResourceResponseInfo& info,
-      bool* defer_redirect) {
+      bool* defer_redirect) OVERRIDE {
     // TODO(darin): It would be much better if this could live in WebCore, but
     // doing so requires API changes at all levels.  Similar code exists in
     // WebCore/platform/network/cf/ResourceHandleCFNet.cpp :-(
@@ -781,11 +809,11 @@ class SyncRequestProxy : public RequestProxy {
     result_->url = new_url;
   }
 
-  virtual void OnReceivedResponse(const ResourceResponseInfo& info) {
+  virtual void OnReceivedResponse(const ResourceResponseInfo& info) OVERRIDE {
     *static_cast<ResourceResponseInfo*>(result_) = info;
   }
 
-  virtual void OnReceivedData(int bytes_read) {
+  virtual void OnReceivedData(int bytes_read) OVERRIDE {
     if (download_to_file_)
       file_stream_.WriteSync(buf_->data(), bytes_read);
     else
@@ -793,14 +821,18 @@ class SyncRequestProxy : public RequestProxy {
     AsyncReadData();  // read more (may recurse)
   }
 
-  virtual void OnCompletedRequest(const net::URLRequestStatus& status,
-                                  const std::string& security_info,
-                                  const base::TimeTicks& complete_time) {
+  virtual void OnCompletedRequest(
+      const net::URLRequestStatus& status,
+      const std::string& security_info,
+      const base::TimeTicks& complete_time) OVERRIDE {
     if (download_to_file_)
       file_stream_.CloseSync();
     result_->status = status;
     event_.Signal();
   }
+
+ protected:
+  virtual ~SyncRequestProxy() {}
 
  private:
   ResourceLoaderBridge::SyncLoadResponse* result_;
@@ -819,6 +851,7 @@ class ResourceLoaderBridgeImpl : public ResourceLoaderBridge {
     params_->url = request_info.url;
     params_->first_party_for_cookies = request_info.first_party_for_cookies;
     params_->referrer = request_info.referrer;
+    params_->referrer_policy = request_info.referrer_policy;
     params_->headers = request_info.headers;
     params_->load_flags = request_info.load_flags;
     params_->request_type = request_info.request_type;
@@ -910,8 +943,6 @@ class ResourceLoaderBridgeImpl : public ResourceLoaderBridge {
     static_cast<SyncRequestProxy*>(proxy_)->WaitForCompletion();
   }
 
-  virtual void UpdateRoutingId(int new_routing_id) { }
-
  private:
   // Ownership of params_ is transfered to the proxy when the proxy is created.
   scoped_ptr<RequestParams> params_;
@@ -934,7 +965,6 @@ class CookieSetter : public base::RefCountedThreadSafe<CookieSetter> {
 
  private:
   friend class base::RefCountedThreadSafe<CookieSetter>;
-
   ~CookieSetter() {}
 };
 
@@ -955,13 +985,13 @@ class CookieGetter : public base::RefCountedThreadSafe<CookieGetter> {
   }
 
  private:
+  friend class base::RefCountedThreadSafe<CookieGetter>;
+  ~CookieGetter() {}
+
   void OnGetCookies(const std::string& cookie_line) {
     result_ = cookie_line;
     event_.Signal();
   }
-  friend class base::RefCountedThreadSafe<CookieGetter>;
-
-  ~CookieGetter() {}
 
   base::WaitableEvent event_;
   std::string result_;

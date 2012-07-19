@@ -4,7 +4,6 @@
 
 #ifndef GPU_IPC_COMMAND_BUFFER_PROXY_H_
 #define GPU_IPC_COMMAND_BUFFER_PROXY_H_
-#pragma once
 
 #include <string>
 
@@ -36,6 +35,22 @@ class GPU_EXPORT CommandBufferProxy : public gpu::CommandBuffer {
 
   virtual bool DiscardBackbuffer() = 0;
   virtual bool EnsureBackbuffer() = 0;
+
+  // Inserts a sync point, returning its ID. This is handled on the IO thread of
+  // the GPU process, and so should be relatively fast, but its effect is
+  // ordered wrt other messages (in particular, Flush). Sync point IDs are
+  // global and can be used for cross-channel synchronization.
+  virtual uint32 InsertSyncPoint() = 0;
+
+  // Makes this command buffer wait on a sync point. This command buffer will be
+  // unscheduled until the command buffer that inserted that sync point reaches
+  // it, or gets destroyed.
+  virtual void WaitSyncPoint(uint32) = 0;
+
+  // Makes this command buffer invoke a task when a sync point is reached, or
+  // the command buffer that inserted that sync point is destroyed.
+  virtual bool SignalSyncPoint(uint32 sync_point,
+                               const base::Closure& callback) = 0;
 
   // Register a callback to invoke whenever we recieve a new memory allocation.
   virtual void SetMemoryAllocationChangedCallback(

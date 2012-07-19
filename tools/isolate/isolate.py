@@ -3,24 +3,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Does one of the following depending on the --mode argument:
-  check     Verifies all the inputs exist, touches the file specified with
-            --result and exits.
-  hashtable Puts a manifest file and hard links each of the inputs into the
-            output directory.
-  remap     Stores all the inputs files in a directory without running the
-            executable.
-  run       Recreates a tree with all the inputs files and run the executable
-            in it.
-  trace     Runs the executable without remapping it but traces all the files
-            it and its child processes access.
+"""Front end tool to manage .isolate files and corresponding tests.
+
+Run ./isolate.py --help for more detailed information.
 
 See more information at
 http://dev.chromium.org/developers/testing/isolated-testing
 """
 
 import hashlib
-import json
 import logging
 import optparse
 import os
@@ -30,104 +21,257 @@ import subprocess
 import sys
 import tempfile
 
+import isolate_common
+import merge_isolate
 import trace_inputs
-import tree_creator
+import run_test_from_archive
+
+# Used by process_input().
+NO_INFO, STATS_ONLY, WITH_HASH = range(56, 59)
+SHA_1_NULL = hashlib.sha1().hexdigest()
+
+
+class ExecutionError(Exception):
+  """A generic error occurred."""
+  def __str__(self):
+    return self.args[0]
 
 
 def relpath(path, root):
-  """os.path.relpath() that keeps trailing slash."""
+  """os.path.relpath() that keeps trailing os.path.sep."""
   out = os.path.relpath(path, root)
-  if path.endswith('/'):
-    out += '/'
+  if path.endswith(os.path.sep):
+    out += os.path.sep
   return out
 
 
-def to_relative(path, root, relative):
-  """Converts any absolute path to a relative path, only if under root."""
-  if path.startswith(root):
-    logging.info('%s starts with %s' % (path, root))
-    path = os.path.relpath(path, relative)
+def normpath(path):
+  """os.path.normpath() that keeps trailing os.path.sep."""
+  out = os.path.normpath(path)
+  if path.endswith(os.path.sep):
+    out += os.path.sep
+  return out
+
+
+def expand_directory_and_symlink(indir, relfile, blacklist):
+  """Expands a single input. It can result in multiple outputs.
+
+  This function is recursive when relfile is a directory or a symlink.
+
+  Note: this code doesn't properly handle recursive symlink like one created
+  with:
+    ln -s .. foo
+  """
+  if os.path.isabs(relfile):
+    raise run_test_from_archive.MappingError(
+        'Can\'t map absolute path %s' % relfile)
+
+  infile = normpath(os.path.join(indir, relfile))
+  if not infile.startswith(indir):
+    raise run_test_from_archive.MappingError(
+        'Can\'t map file %s outside %s' % (infile, indir))
+
+  if sys.platform != 'win32':
+    # Look if any item in relfile is a symlink.
+    base, symlink, rest = trace_inputs.split_at_symlink(indir, relfile)
+    if symlink:
+      # Append everything pointed by the symlink. If the symlink is recursive,
+      # this code blows up.
+      symlink_relfile = os.path.join(base, symlink)
+      symlink_path = os.path.join(indir, symlink_relfile)
+      pointed = os.readlink(symlink_path)
+      dest_infile = normpath(
+          os.path.join(os.path.dirname(symlink_path), pointed))
+      if rest:
+        dest_infile = trace_inputs.safe_join(dest_infile, rest)
+      if not dest_infile.startswith(indir):
+        raise run_test_from_archive.MappingError(
+            'Can\'t map symlink reference %s (from %s) ->%s outside of %s' %
+            (symlink_relfile, relfile, dest_infile, indir))
+      if infile.startswith(dest_infile):
+        raise run_test_from_archive.MappingError(
+            'Can\'t map recursive symlink reference %s->%s' %
+            (symlink_relfile, dest_infile))
+      dest_relfile = dest_infile[len(indir)+1:]
+      logging.info('Found symlink: %s -> %s' % (symlink_relfile, dest_relfile))
+      out = expand_directory_and_symlink(indir, dest_relfile, blacklist)
+      # Add the symlink itself.
+      out.append(symlink_relfile)
+      return out
+
+  if relfile.endswith(os.path.sep):
+    if not os.path.isdir(infile):
+      raise run_test_from_archive.MappingError(
+          '%s is not a directory but ends with "%s"' % (infile, os.path.sep))
+
+    outfiles = []
+    for filename in os.listdir(infile):
+      inner_relfile = os.path.join(relfile, filename)
+      if blacklist(inner_relfile):
+        continue
+      if os.path.isdir(os.path.join(indir, inner_relfile)):
+        inner_relfile += os.path.sep
+      outfiles.extend(
+          expand_directory_and_symlink(indir, inner_relfile, blacklist))
+    return outfiles
   else:
-    logging.info('%s not under %s' % (path, root))
-  return path
+    # Always add individual files even if they were blacklisted.
+    if os.path.isdir(infile):
+      raise run_test_from_archive.MappingError(
+          'Input directory %s must have a trailing slash' % infile)
+
+    if not os.path.isfile(infile):
+      raise run_test_from_archive.MappingError(
+          'Input file %s doesn\'t exist' % infile)
+
+    return [relfile]
 
 
-def expand_directories(indir, infiles, blacklist):
-  """Expands the directories, applies the blacklist and verifies files exist."""
-  logging.debug('expand_directories(%s, %s, %s)' % (indir, infiles, blacklist))
+def expand_directories_and_symlinks(indir, infiles, blacklist):
+  """Expands the directories and the symlinks, applies the blacklist and
+  verifies files exist.
+
+  Files are specified in os native path separatro.
+  """
   outfiles = []
   for relfile in infiles:
-    if os.path.isabs(relfile):
-      raise tree_creator.MappingError('Can\'t map absolute path %s' % relfile)
-    infile = os.path.normpath(os.path.join(indir, relfile))
-    if not infile.startswith(indir):
-      raise tree_creator.MappingError(
-          'Can\'t map file %s outside %s' % (infile, indir))
-
-    if relfile.endswith('/'):
-      if not os.path.isdir(infile):
-        raise tree_creator.MappingError(
-            'Input directory %s must have a trailing slash' % infile)
-      for dirpath, dirnames, filenames in os.walk(infile):
-        # Convert the absolute path to subdir + relative subdirectory.
-        reldirpath = dirpath[len(indir)+1:]
-        outfiles.extend(os.path.join(reldirpath, f) for f in filenames)
-        for index, dirname in enumerate(dirnames):
-          # Do not process blacklisted directories.
-          if blacklist(os.path.join(reldirpath, dirname)):
-            del dirnames[index]
-    else:
-      if not os.path.isfile(infile):
-        raise tree_creator.MappingError('Input file %s doesn\'t exist' % infile)
-      outfiles.append(relfile)
+    outfiles.extend(expand_directory_and_symlink(indir, relfile, blacklist))
   return outfiles
 
 
-def process_inputs(indir, infiles, need_hash, read_only):
-  """Returns a dictionary of input files, populated with the files' mode and
-  hash.
+def replace_variable(part, variables):
+  m = re.match(r'<\(([A-Z_]+)\)', part)
+  if m:
+    if m.group(1) not in variables:
+      raise ExecutionError(
+        'Variable "%s" was not found in %s.\nDid you forget to specify '
+        '--variable?' % (m.group(1), variables))
+    return variables[m.group(1)]
+  return part
 
-  The file mode is manipulated if read_only is True. In practice, we only save
-  one of 4 modes: 0755 (rwx), 0644 (rw), 0555 (rx), 0444 (r).
+
+def eval_variables(item, variables):
+  """Replaces the gyp variables in a string item."""
+  return ''.join(
+      replace_variable(p, variables) for p in re.split(r'(<\([A-Z_]+\))', item))
+
+
+def indent(data, indent_length):
+  """Indents text."""
+  spacing = ' ' * indent_length
+  return ''.join(spacing + l for l in str(data).splitlines(True))
+
+
+def load_isolate(content):
+  """Loads the .isolate file and returns the information unprocessed.
+
+  Returns the command, dependencies and read_only flag. The dependencies are
+  fixed to use os.path.sep.
   """
-  outdict = {}
-  for infile in infiles:
-    filepath = os.path.join(indir, infile)
-    filemode = stat.S_IMODE(os.stat(filepath).st_mode)
-    # Remove write access for non-owner.
-    filemode &= ~(stat.S_IWGRP | stat.S_IWOTH)
-    if read_only:
-      filemode &= ~stat.S_IWUSR
-    if filemode & stat.S_IXUSR:
-      filemode |= (stat.S_IXGRP | stat.S_IXOTH)
-    else:
-      filemode &= ~(stat.S_IXGRP | stat.S_IXOTH)
-    outdict[infile] = {
-      'mode': filemode,
-    }
-    if need_hash:
-      h = hashlib.sha1()
+  # Load the .isolate file, process its conditions, retrieve the command and
+  # dependencies.
+  configs = merge_isolate.load_gyp(
+      merge_isolate.eval_content(content), None, merge_isolate.DEFAULT_OSES)
+  flavor = isolate_common.get_flavor()
+  config = configs.per_os.get(flavor) or configs.per_os.get(None)
+  if not config:
+    raise ExecutionError('Failed to load configuration for \'%s\'' % flavor)
+  # Merge tracked and untracked dependencies, isolate.py doesn't care about the
+  # trackability of the dependencies, only the build tool does.
+  dependencies = [
+    f.replace('/', os.path.sep) for f in config.tracked + config.untracked
+  ]
+  touched = [f.replace('/', os.path.sep) for f in config.touched]
+  return config.command, dependencies, touched, config.read_only
+
+
+def process_input(filepath, prevdict, level, read_only):
+  """Processes an input file, a dependency, and return meta data about it.
+
+  Arguments:
+  - filepath: File to act on.
+  - prevdict: the previous dictionary. It is used to retrieve the cached sha-1
+              to skip recalculating the hash.
+  - level: determines the amount of information retrieved.
+  - read_only: If True, the file mode is manipulated. In practice, only save
+               one of 4 modes: 0755 (rwx), 0644 (rw), 0555 (rx), 0444 (r). On
+               windows, mode is not set since all files are 'executable' by
+               default.
+
+  Behaviors:
+  - NO_INFO retrieves no information.
+  - STATS_ONLY retrieves the file mode, file size, file timestamp, file link
+    destination if it is a file link.
+  - WITH_HASH retrieves all of STATS_ONLY plus the sha-1 of the content of the
+    file.
+  """
+  assert level in (NO_INFO, STATS_ONLY, WITH_HASH)
+  out = {}
+  if prevdict.get('touched_only') == True:
+    # The file's content is ignored. Skip the time and hard code mode.
+    if isolate_common.get_flavor() != 'win':
+      out['mode'] = stat.S_IRUSR | stat.S_IRGRP
+    out['size'] = 0
+    out['sha-1'] = SHA_1_NULL
+    out['touched_only'] = True
+    return out
+
+  if level >= STATS_ONLY:
+    filestats = os.lstat(filepath)
+    is_link = stat.S_ISLNK(filestats.st_mode)
+    if isolate_common.get_flavor() != 'win':
+      # Ignore file mode on Windows since it's not really useful there.
+      filemode = stat.S_IMODE(filestats.st_mode)
+      # Remove write access for group and all access to 'others'.
+      filemode &= ~(stat.S_IWGRP | stat.S_IRWXO)
+      if read_only:
+        filemode &= ~stat.S_IWUSR
+      if filemode & stat.S_IXUSR:
+        filemode |= stat.S_IXGRP
+      else:
+        filemode &= ~stat.S_IXGRP
+      out['mode'] = filemode
+    if not is_link:
+      out['size'] = filestats.st_size
+    # Used to skip recalculating the hash. Use the most recent update time.
+    out['timestamp'] = int(round(filestats.st_mtime))
+    # If the timestamp wasn't updated, carry on the sha-1.
+    if prevdict.get('timestamp') == out['timestamp']:
+      if 'sha-1' in prevdict:
+        # Reuse the previous hash.
+        out['sha-1'] = prevdict['sha-1']
+      if 'link' in prevdict:
+        # Reuse the previous link destination.
+        out['link'] = prevdict['link']
+    if is_link and not 'link' in out:
+      # A symlink, store the link destination.
+      out['link'] = os.readlink(filepath)
+
+  if level >= WITH_HASH and not out.get('sha-1') and not out.get('link'):
+    if not is_link:
       with open(filepath, 'rb') as f:
-        h.update(f.read())
-      outdict[infile]['sha-1'] = h.hexdigest()
-  return outdict
+        out['sha-1'] = hashlib.sha1(f.read()).hexdigest()
+  return out
 
 
-def recreate_tree(outdir, indir, infiles, action):
+def recreate_tree(outdir, indir, infiles, action, as_sha1):
   """Creates a new tree with only the input files in it.
 
   Arguments:
     outdir:    Output directory to create the files in.
     indir:     Root directory the infiles are based in.
-    infiles:   List of files to map from |indir| to |outdir|.
+    infiles:   dict of files to map from |indir| to |outdir|.
     action:    See assert below.
+    as_sha1:   Output filename is the sha1 instead of relfile.
   """
-  logging.debug(
-      'recreate_tree(%s, %s, %s, %s)' % (outdir, indir, infiles, action))
-  logging.info('Mapping from %s to %s' % (indir, outdir))
+  logging.info(
+      'recreate_tree(outdir=%s, indir=%s, files=%d, action=%s, as_sha1=%s)' %
+      (outdir, indir, len(infiles), action, as_sha1))
 
   assert action in (
-      tree_creator.HARDLINK, tree_creator.SYMLINK, tree_creator.COPY)
+      run_test_from_archive.HARDLINK,
+      run_test_from_archive.SYMLINK,
+      run_test_from_archive.COPY)
   outdir = os.path.normpath(outdir)
   if not os.path.isdir(outdir):
     logging.info ('Creating %s' % outdir)
@@ -135,268 +279,791 @@ def recreate_tree(outdir, indir, infiles, action):
   # Do not call abspath until the directory exists.
   outdir = os.path.abspath(outdir)
 
-  for relfile in infiles:
+  for relfile, metadata in infiles.iteritems():
     infile = os.path.join(indir, relfile)
-    outfile = os.path.join(outdir, relfile)
-    outsubdir = os.path.dirname(outfile)
-    if not os.path.isdir(outsubdir):
-      os.makedirs(outsubdir)
-    tree_creator.link_file(outfile, infile, action)
+    if as_sha1:
+      # Do the hashtable specific checks.
+      if 'link' in metadata:
+        # Skip links when storing a hashtable.
+        continue
+      outfile = os.path.join(outdir, metadata['sha-1'])
+      if os.path.isfile(outfile):
+        # Just do a quick check that the file size matches. No need to stat()
+        # again the input file, grab the value from the dict.
+        if metadata['size'] == os.stat(outfile).st_size:
+          continue
+        else:
+          logging.warn('Overwritting %s' % metadata['sha-1'])
+          os.remove(outfile)
+    else:
+      outfile = os.path.join(outdir, relfile)
+      outsubdir = os.path.dirname(outfile)
+      if not os.path.isdir(outsubdir):
+        os.makedirs(outsubdir)
+
+    if metadata.get('touched_only') == True:
+      open(outfile, 'ab').close()
+    elif 'link' in metadata:
+      pointed = metadata['link']
+      logging.debug('Symlink: %s -> %s' % (outfile, pointed))
+      os.symlink(pointed, outfile)
+    else:
+      run_test_from_archive.link_file(outfile, infile, action)
 
 
-def separate_inputs_command(args, root, files):
-  """Strips off the command line from the inputs.
+def result_to_state(filename):
+  """Replaces the file's extension."""
+  return filename.rsplit('.', 1)[0] + '.state'
 
-  gyp provides input paths relative to cwd. Convert them to be relative to root.
-  OptionParser kindly strips off '--' from sys.argv if it's provided and that's
-  the first non-arg value. Manually look up if it was present in sys.argv.
+
+def determine_root_dir(relative_root, infiles):
+  """For a list of infiles, determines the deepest root directory that is
+  referenced indirectly.
+
+  All arguments must be using os.path.sep.
   """
-  cmd = []
-  if '--' in args:
-    i = args.index('--')
-    cmd = args[i+1:]
-    args = args[:i]
-  elif '--' in sys.argv:
-    # optparse is messing with us. Fix it manually.
-    cmd = args
-    args = []
-  if files:
-    args = [
-      i.decode('utf-8') for i in open(files, 'rb').read().splitlines() if i
-    ] + args
-  cwd = os.getcwd()
-  return [relpath(os.path.join(cwd, arg), root) for arg in args], cmd
+  # The trick used to determine the root directory is to look at "how far" back
+  # up it is looking up.
+  deepest_root = relative_root
+  for i in infiles:
+    x = relative_root
+    while i.startswith('..' + os.path.sep):
+      i = i[3:]
+      assert not i.startswith(os.path.sep)
+      x = os.path.dirname(x)
+    if deepest_root.startswith(x):
+      deepest_root = x
+  logging.debug(
+      'determine_root_dir(%s, %d files) -> %s' % (
+          relative_root, len(infiles), deepest_root))
+  return deepest_root
 
 
-def isolate(outdir, resultfile, indir, infiles, mode, read_only, cmd, no_save):
-  """Main function to isolate a target with its dependencies.
+def process_variables(variables, relative_base_dir):
+  """Processes path variables as a special case and returns a copy of the dict.
+
+  For each 'path' variable: first normalizes it, verifies it exists, converts it
+  to an absolute path, then sets it as relative to relative_base_dir.
+  """
+  variables = variables.copy()
+  for i in isolate_common.PATH_VARIABLES:
+    if i not in variables:
+      continue
+    variable = os.path.normpath(variables[i])
+    if not os.path.isdir(variable):
+      raise ExecutionError('%s=%s is not a directory' % (i, variable))
+    # Variables could contain / or \ on windows. Always normalize to
+    # os.path.sep.
+    variable = os.path.abspath(variable.replace('/', os.path.sep))
+    # All variables are relative to the .isolate file.
+    variables[i] = os.path.relpath(variable, relative_base_dir)
+  return variables
+
+
+class Flattenable(object):
+  """Represents data that can be represented as a json file."""
+  MEMBERS = ()
+
+  def flatten(self):
+    """Returns a json-serializable version of itself."""
+    return dict((member, getattr(self, member)) for member in self.MEMBERS)
+
+  @classmethod
+  def load(cls, data):
+    """Loads a flattened version."""
+    data = data.copy()
+    out = cls()
+    for member in out.MEMBERS:
+      if member in data:
+        value = data.pop(member)
+        setattr(out, member, value)
+    if data:
+      raise ValueError(
+          'Found unexpected entry %s while constructing an object %s' %
+            (data, cls.__name__), data, cls.__name__)
+    return out
+
+  @classmethod
+  def load_file(cls, filename):
+    """Loads the data from a file or return an empty instance."""
+    out = cls()
+    try:
+      out = cls.load(trace_inputs.read_json(filename))
+      logging.debug('Loaded %s(%s)' % (cls.__name__, filename))
+    except (IOError, ValueError):
+      logging.warn('Failed to load %s' % filename)
+    return out
+
+
+class Result(Flattenable):
+  """Describes the content of a .result file.
+
+  This file is used by run_test_from_archive.py so its content is strictly only
+  what is necessary to run the test outside of a checkout.
+
+  It is important to note that the 'files' dict keys are using native OS path
+  separator instead of '/' used in .isolate file.
+  """
+  MEMBERS = (
+    'command',
+    'files',
+    'read_only',
+    'relative_cwd',
+  )
+
+  def __init__(self):
+    super(Result, self).__init__()
+    self.command = []
+    self.files = {}
+    self.read_only = None
+    self.relative_cwd = None
+
+  def update(self, command, infiles, touched, read_only, relative_cwd):
+    """Updates the result state with new information."""
+    self.command = command
+    # Add new files.
+    for f in infiles:
+      self.files.setdefault(f, {})
+    for f in touched:
+      self.files.setdefault(f, {})['touched_only'] = True
+    # Prune extraneous files that are not a dependency anymore.
+    for f in set(self.files).difference(set(infiles).union(touched)):
+      del self.files[f]
+    if read_only is not None:
+      self.read_only = read_only
+    self.relative_cwd = relative_cwd
+
+  def __str__(self):
+    out = '%s(\n' % self.__class__.__name__
+    out += '  command: %s\n' % self.command
+    out += '  files: %d\n' % len(self.files)
+    out += '  read_only: %s\n' % self.read_only
+    out += '  relative_cwd: %s)' % self.relative_cwd
+    return out
+
+
+class SavedState(Flattenable):
+  """Describes the content of a .state file.
+
+  The items in this file are simply to improve the developer's life and aren't
+  used by run_test_from_archive.py. This file can always be safely removed.
+
+  isolate_file permits to find back root_dir, variables are used for stateful
+  rerun.
+  """
+  MEMBERS = (
+    'isolate_file',
+    'variables',
+  )
+
+  def __init__(self):
+    super(SavedState, self).__init__()
+    self.isolate_file = None
+    self.variables = {}
+
+  def update(self, isolate_file, variables):
+    """Updates the saved state with new information."""
+    self.isolate_file = isolate_file
+    self.variables.update(variables)
+
+  @classmethod
+  def load(cls, data):
+    out = super(SavedState, cls).load(data)
+    if out.isolate_file:
+      out.isolate_file = trace_inputs.get_native_path_case(out.isolate_file)
+    return out
+
+  def __str__(self):
+    out = '%s(\n' % self.__class__.__name__
+    out += '  isolate_file: %s\n' % self.isolate_file
+    out += '  variables: %s' % ''.join(
+        '\n    %s=%s' % (k, self.variables[k]) for k in sorted(self.variables))
+    out += ')'
+    return out
+
+
+class CompleteState(object):
+  """Contains all the state to run the task at hand."""
+  def __init__(self, result_file, result, saved_state, out_dir):
+    super(CompleteState, self).__init__()
+    self.result_file = result_file
+    # Contains the data that will be used by run_test_from_archive.py
+    self.result = result
+    # Contains the data to ease developer's use-case but that is not strictly
+    # necessary.
+    self.saved_state = saved_state
+    self.out_dir = out_dir
+
+  @classmethod
+  def load_files(cls, result_file, out_dir):
+    """Loads state from disk."""
+    assert os.path.isabs(result_file), result_file
+    return cls(
+        result_file,
+        Result.load_file(result_file),
+        SavedState.load_file(result_to_state(result_file)),
+        out_dir)
+
+  def load_isolate(self, isolate_file, variables):
+    """Updates self.result and self.saved_state with information loaded from a
+    .isolate file.
+
+    Processes the loaded data, deduce root_dir, relative_cwd.
+    """
+    # Make sure to not depend on os.getcwd().
+    assert os.path.isabs(isolate_file), isolate_file
+    logging.info(
+        'CompleteState.load_isolate(%s, %s)' % (isolate_file, variables))
+    relative_base_dir = os.path.dirname(isolate_file)
+
+    # Processes the variables and update the saved state.
+    variables = process_variables(variables, relative_base_dir)
+    self.saved_state.update(isolate_file, variables)
+
+    with open(isolate_file, 'r') as f:
+      # At that point, variables are not replaced yet in command and infiles.
+      # infiles may contain directory entries and is in posix style.
+      command, infiles, touched, read_only = load_isolate(f.read())
+    command = [eval_variables(i, self.saved_state.variables) for i in command]
+    infiles = [eval_variables(f, self.saved_state.variables) for f in infiles]
+    touched = [eval_variables(f, self.saved_state.variables) for f in touched]
+    # root_dir is automatically determined by the deepest root accessed with the
+    # form '../../foo/bar'.
+    root_dir = determine_root_dir(relative_base_dir, infiles + touched)
+    # The relative directory is automatically determined by the relative path
+    # between root_dir and the directory containing the .isolate file,
+    # isolate_base_dir.
+    relative_cwd = os.path.relpath(relative_base_dir, root_dir)
+    # Normalize the files based to root_dir. It is important to keep the
+    # trailing os.path.sep at that step.
+    infiles = [
+      relpath(normpath(os.path.join(relative_base_dir, f)), root_dir)
+      for f in infiles
+    ]
+    touched = [
+      relpath(normpath(os.path.join(relative_base_dir, f)), root_dir)
+      for f in touched
+    ]
+    # Expand the directories by listing each file inside. Up to now, trailing
+    # os.path.sep must be kept. Do not expand 'touched'.
+    infiles = expand_directories_and_symlinks(
+        root_dir,
+        infiles,
+        lambda x: re.match(r'.*\.(git|svn|pyc)$', x))
+
+    # Finally, update the new stuff in the foo.result file, the file that is
+    # used by run_test_from_archive.py.
+    self.result.update(command, infiles, touched, read_only, relative_cwd)
+    logging.debug(self)
+
+  def process_inputs(self, level):
+    """Updates self.result.files with the files' mode and hash.
+
+    See process_input() for more information.
+    """
+    for infile in sorted(self.result.files):
+      filepath = os.path.join(self.root_dir, infile)
+      self.result.files[infile] = process_input(
+          filepath, self.result.files[infile], level, self.result.read_only)
+
+  def save_files(self):
+    """Saves both self.result and self.saved_state."""
+    logging.debug('Dumping to %s' % self.result_file)
+    trace_inputs.write_json(self.result_file, self.result.flatten(), False)
+    total_bytes = sum(i.get('size', 0) for i in self.result.files.itervalues())
+    if total_bytes:
+      logging.debug('Total size: %d bytes' % total_bytes)
+    saved_state_file = result_to_state(self.result_file)
+    logging.debug('Dumping to %s' % saved_state_file)
+    trace_inputs.write_json(saved_state_file, self.saved_state.flatten(), False)
+
+  @property
+  def root_dir(self):
+    """isolate_file is always inside relative_cwd relative to root_dir."""
+    isolate_dir = os.path.dirname(self.saved_state.isolate_file)
+    # Special case '.'.
+    if self.result.relative_cwd == '.':
+      return isolate_dir
+    assert isolate_dir.endswith(self.result.relative_cwd), (
+        isolate_dir, self.result.relative_cwd)
+    return isolate_dir[:-(len(self.result.relative_cwd) + 1)]
+
+  @property
+  def resultdir(self):
+    """Directory containing the results, usually equivalent to the variable
+    PRODUCT_DIR.
+    """
+    return os.path.dirname(self.result_file)
+
+  def __str__(self):
+    out = '%s(\n' % self.__class__.__name__
+    out += '  root_dir: %s\n' % self.root_dir
+    out += '  result: %s\n' % indent(self.result, 2)
+    out += '  saved_state: %s)' % indent(self.saved_state, 2)
+    return out
+
+
+def load_complete_state(options, level):
+  """Loads a CompleteState.
+
+  This includes data from .isolate, .result and .state files.
 
   Arguments:
-  - outdir: Output directory where the result is stored. Depends on |mode|.
-  - resultfile: File to save the json data.
-  - indir: Root directory to be used as the base directory for infiles.
-  - infiles: List of files, with relative path, to process.
-  - mode: Action to do. See file level docstring.
-  - read_only: Makes the temporary directory read only.
-  - cmd: Command to execute.
-  - no_save: If True, do not touch resultfile.
-
-  Some arguments are optional, dependending on |mode|. See the corresponding
-  MODE<mode> function for the exact behavior.
+    options: Options instance generated with OptionParserIsolate.
+    level: Amount of data to fetch.
   """
-  mode_fn = getattr(sys.modules[__name__], 'MODE' + mode)
-  assert mode_fn
-  assert os.path.isabs(resultfile)
+  if options.result:
+    # Load the previous state if it was present. Namely, "foo.result" and
+    # "foo.state".
+    complete_state = CompleteState.load_files(options.result, options.outdir)
+  else:
+    # Constructs a dummy object that cannot be saved. Useful for temporary
+    # commands like 'run'.
+    complete_state = CompleteState(None, Result(), SavedState(), options.outdir)
+  options.isolate = options.isolate or complete_state.saved_state.isolate_file
+  if not options.isolate:
+    raise ExecutionError('A .isolate file is required.')
+  if (complete_state.saved_state.isolate_file and
+      options.isolate != complete_state.saved_state.isolate_file):
+    raise ExecutionError(
+        '%s and %s do not match.' % (
+          options.isolate, complete_state.saved_state.isolate_file))
 
-  infiles = expand_directories(
-      indir, infiles, lambda x: re.match(r'.*\.(svn|pyc)$', x))
+  # Then load the .isolate and expands directories.
+  complete_state.load_isolate(options.isolate, options.variables)
 
-  # Note the relative current directory.
-  # In general, this path will be the path containing the gyp file where the
-  # target was defined. This relative directory may be created implicitely if a
-  # file from this directory is needed to run the test. Otherwise it won't be
-  # created and the process creation will fail. It's up to the caller to create
-  # this directory manually before starting the test.
-  cwd = os.getcwd()
-  relative_cwd = os.path.relpath(cwd, indir)
+  # Regenerate complete_state.result.files.
+  complete_state.process_inputs(level)
+  return complete_state
 
-  # Workaround make behavior of passing absolute paths.
-  cmd = [to_relative(i, indir, cwd) for i in cmd]
 
+def read(complete_state):
+  """Reads a trace and returns the .isolate dictionary."""
+  api = trace_inputs.get_api()
+  logfile = complete_state.result_file + '.log'
+  if not os.path.isfile(logfile):
+    raise ExecutionError(
+        'No log file \'%s\' to read, did you forget to \'trace\'?' % logfile)
+  try:
+    results = trace_inputs.load_trace(
+        logfile, complete_state.root_dir, api, isolate_common.default_blacklist)
+    tracked, touched = isolate_common.split_touched(results.existent)
+    value = isolate_common.generate_isolate(
+        tracked,
+        [],
+        touched,
+        complete_state.root_dir,
+        complete_state.saved_state.variables,
+        complete_state.result.relative_cwd)
+    return value
+  except trace_inputs.TracingFailure, e:
+    raise ExecutionError(
+        'Reading traces failed for: %s\n%s' %
+          (' '.join(complete_state.result.command), str(e)))
+
+
+def CMDcheck(args):
+  """Checks that all the inputs are present and update .result."""
+  parser = OptionParserIsolate(command='check')
+  options, _ = parser.parse_args(args)
+  complete_state = load_complete_state(options, NO_INFO)
+
+  # Nothing is done specifically. Just store the result and state.
+  complete_state.save_files()
+  return 0
+
+
+def CMDhashtable(args):
+  """Creates a hash table content addressed object store.
+
+  All the files listed in the .result file are put in the output directory with
+  the file name being the sha-1 of the file's content.
+  """
+  parser = OptionParserIsolate(command='hashtable')
+  options, _ = parser.parse_args(args)
+
+  success = False
+  try:
+    complete_state = load_complete_state(options, WITH_HASH)
+    options.outdir = (
+        options.outdir or os.path.join(complete_state.resultdir, 'hashtable'))
+    recreate_tree(
+        outdir=options.outdir,
+        indir=complete_state.root_dir,
+        infiles=complete_state.result.files,
+        action=run_test_from_archive.HARDLINK,
+        as_sha1=True)
+
+    complete_state.save_files()
+
+    # Also archive the .result file.
+    with open(complete_state.result_file, 'rb') as f:
+      result_hash = hashlib.sha1(f.read()).hexdigest()
+    logging.info(
+        '%s -> %s' %
+        (os.path.basename(complete_state.result_file), result_hash))
+    outfile = os.path.join(options.outdir, result_hash)
+    if os.path.isfile(outfile):
+      # Just do a quick check that the file size matches. If they do, skip the
+      # archive. This mean the build result didn't change at all.
+      out_size = os.stat(outfile).st_size
+      in_size = os.stat(complete_state.result_file).st_size
+      if in_size == out_size:
+        success = True
+        return 0
+
+    run_test_from_archive.link_file(
+        outfile, complete_state.result_file, run_test_from_archive.HARDLINK)
+    success = True
+    return 0
+  finally:
+    # If the command failed, delete the .results file if it exists. This is
+    # important so no stale swarm job is executed.
+    if not success and os.path.isfile(options.result):
+      os.remove(options.result)
+
+
+def CMDnoop(args):
+  """Touches --result but does nothing else.
+
+  This mode is to help transition since some builders do not have all the test
+  data files checked out. Touch result_file and exit silently.
+  """
+  parser = OptionParserIsolate(command='noop')
+  options, _ = parser.parse_args(args)
+  # In particular, do not call load_complete_state().
+  open(options.result, 'a').close()
+  return 0
+
+
+def CMDmerge(args):
+  """Reads and merges the data from the trace back into the original .isolate.
+
+  Ignores --outdir.
+  """
+  parser = OptionParserIsolate(command='merge', require_result=False)
+  options, _ = parser.parse_args(args)
+  complete_state = load_complete_state(options, NO_INFO)
+  value = read(complete_state)
+
+  # Now take that data and union it into the original .isolate file.
+  with open(complete_state.saved_state.isolate_file, 'r') as f:
+    prev_content = f.read()
+  prev_config = merge_isolate.load_gyp(
+      merge_isolate.eval_content(prev_content),
+      merge_isolate.extract_comment(prev_content),
+      merge_isolate.DEFAULT_OSES)
+  new_config = merge_isolate.load_gyp(
+      value,
+      '',
+      merge_isolate.DEFAULT_OSES)
+  config = merge_isolate.union(prev_config, new_config)
+  # pylint: disable=E1103
+  data = merge_isolate.convert_map_to_gyp(
+      *merge_isolate.reduce_inputs(*merge_isolate.invert_map(config.flatten())))
+  print 'Updating %s' % complete_state.saved_state.isolate_file
+  with open(complete_state.saved_state.isolate_file, 'wb') as f:
+    merge_isolate.print_all(config.file_comment, data, f)
+
+  return 0
+
+
+def CMDread(args):
+  """Reads the trace file generated with command 'trace'.
+
+  Ignores --outdir.
+  """
+  parser = OptionParserIsolate(command='read', require_result=False)
+  options, _ = parser.parse_args(args)
+  complete_state = load_complete_state(options, NO_INFO)
+  value = read(complete_state)
+  isolate_common.pretty_print(value, sys.stdout)
+  return 0
+
+
+def CMDremap(args):
+  """Creates a directory with all the dependencies mapped into it.
+
+  Useful to test manually why a test is failing. The target executable is not
+  run.
+  """
+  parser = OptionParserIsolate(command='remap', require_result=False)
+  options, _ = parser.parse_args(args)
+  complete_state = load_complete_state(options, STATS_ONLY)
+
+  if not options.outdir:
+    options.outdir = tempfile.mkdtemp(prefix='isolate')
+  else:
+    if not os.path.isdir(options.outdir):
+      os.makedirs(options.outdir)
+  print 'Remapping into %s' % options.outdir
+  if len(os.listdir(options.outdir)):
+    raise ExecutionError('Can\'t remap in a non-empty directory')
+  recreate_tree(
+      outdir=options.outdir,
+      indir=complete_state.root_dir,
+      infiles=complete_state.result.files,
+      action=run_test_from_archive.HARDLINK,
+      as_sha1=False)
+  if complete_state.result.read_only:
+    run_test_from_archive.make_writable(options.outdir, True)
+
+  if complete_state.result_file:
+    complete_state.save_files()
+  return 0
+
+
+def CMDrun(args):
+  """Runs the test executable in an isolated (temporary) directory.
+
+  All the dependencies are mapped into the temporary directory and the
+  directory is cleaned up after the target exits. Warning: if -outdir is
+  specified, it is deleted upon exit.
+
+  Argument processing stops at the first non-recognized argument and these
+  arguments are appended to the command line of the target to run. For example,
+  use: isolate.py -r foo.results -- --gtest_filter=Foo.Bar
+  """
+  parser = OptionParserIsolate(command='run', require_result=False)
+  parser.enable_interspersed_args()
+  options, args = parser.parse_args(args)
+  complete_state = load_complete_state(options, STATS_ONLY)
+  cmd = complete_state.result.command + args
   if not cmd:
-    # Note that it is exactly the reverse of relative_cwd.
-    cmd = [os.path.join(os.path.relpath(indir, cwd), infiles[0])]
-  if cmd[0].endswith('.py'):
-    cmd.insert(0, sys.executable)
+    raise ExecutionError('No command to run')
+  cmd = trace_inputs.fix_python_path(cmd)
+  try:
+    if not options.outdir:
+      options.outdir = tempfile.mkdtemp(prefix='isolate')
+    else:
+      if not os.path.isdir(options.outdir):
+        os.makedirs(options.outdir)
+    recreate_tree(
+        outdir=options.outdir,
+        indir=complete_state.root_dir,
+        infiles=complete_state.result.files,
+        action=run_test_from_archive.HARDLINK,
+        as_sha1=False)
+    cwd = os.path.normpath(
+        os.path.join(options.outdir, complete_state.result.relative_cwd))
+    if not os.path.isdir(cwd):
+      # It can happen when no files are mapped from the directory containing the
+      # .isolate file. But the directory must exist to be the current working
+      # directory.
+      os.makedirs(cwd)
+    if complete_state.result.read_only:
+      run_test_from_archive.make_writable(options.outdir, True)
+    logging.info('Running %s, cwd=%s' % (cmd, cwd))
+    result = subprocess.call(cmd, cwd=cwd)
+  finally:
+    if options.outdir:
+      run_test_from_archive.rmtree(options.outdir)
 
-  # Only hashtable mode really needs the sha-1.
-  dictfiles = process_inputs(indir, infiles, mode == 'hashtable', read_only)
-
-  result = mode_fn(
-      outdir, indir, dictfiles, read_only, cmd, relative_cwd, resultfile)
-
-  if result == 0 and not no_save:
-    # Saves the resulting file.
-    out = {
-      'command': cmd,
-      'relative_cwd': relative_cwd,
-      'files': dictfiles,
-      'read_only': read_only,
-    }
-    with open(resultfile, 'wb') as f:
-      json.dump(out, f, indent=2, sort_keys=True)
+  if complete_state.result_file:
+    complete_state.save_files()
   return result
 
 
-def MODEcheck(
-    _outdir, _indir, _dictfiles, _read_only, _cmd, _relative_cwd, _resultfile):
-  """No-op."""
-  return 0
+def CMDtrace(args):
+  """Traces the target using trace_inputs.py.
 
+  It runs the executable without remapping it, and traces all the files it and
+  its child processes access. Then the 'read' command can be used to generate an
+  updated .isolate file out of it.
 
-def MODEhashtable(
-    outdir, indir, dictfiles, _read_only, _cmd, _relative_cwd, resultfile):
-  outdir = outdir or os.path.dirname(resultfile)
-  for relfile, properties in dictfiles.iteritems():
-    infile = os.path.join(indir, relfile)
-    outfile = os.path.join(outdir, properties['sha-1'])
-    if os.path.isfile(outfile):
-      # Just do a quick check that the file size matches.
-      if os.stat(infile).st_size == os.stat(outfile).st_size:
-        continue
-      # Otherwise, an exception will be raised.
-    tree_creator.link_file(outfile, infile, tree_creator.HARDLINK)
-  return 0
-
-
-def MODEremap(
-    outdir, indir, dictfiles, read_only, _cmd, _relative_cwd, _resultfile):
-  if not outdir:
-    outdir = tempfile.mkdtemp(prefix='isolate')
-  print 'Remapping into %s' % outdir
-  if len(os.listdir(outdir)):
-    print 'Can\'t remap in a non-empty directory'
-    return 1
-  recreate_tree(outdir, indir, dictfiles.keys(), tree_creator.HARDLINK)
-  if read_only:
-    tree_creator.make_writable(outdir, True)
-  return 0
-
-
-def MODErun(
-    _outdir, indir, dictfiles, read_only, cmd, relative_cwd, _resultfile):
-  """Always uses a temporary directory."""
-  try:
-    outdir = tempfile.mkdtemp(prefix='isolate')
-    recreate_tree(outdir, indir, dictfiles.keys(), tree_creator.HARDLINK)
-    cwd = os.path.join(outdir, relative_cwd)
-    if not os.path.isdir(cwd):
-      os.makedirs(cwd)
-    if read_only:
-      tree_creator.make_writable(outdir, True)
-
-    logging.info('Running %s, cwd=%s' % (cmd, cwd))
-    return subprocess.call(cmd, cwd=cwd)
-  finally:
-    tree_creator.rmtree(outdir)
-
-
-def MODEtrace(
-    _outdir, indir, _dictfiles, _read_only, cmd, relative_cwd, resultfile):
-  """Shortcut to use trace_inputs.py properly.
-
-  It constructs the equivalent of dictfiles. It is hardcoded to base the
-  checkout at src/.
+  Argument processing stops at the first non-recognized argument and these
+  arguments are appended to the command line of the target to run. For example,
+  use: isolate.py -r foo.results -- --gtest_filter=Foo.Bar
   """
-  logging.info('Running %s, cwd=%s' % (cmd, os.path.join(indir, relative_cwd)))
-  return trace_inputs.trace_inputs(
-      '%s.log' % resultfile,
-      cmd,
-      indir,
-      relative_cwd,
-      os.path.relpath(os.path.dirname(resultfile), indir),  # Guesswork here.
-      False)
-
-
-def get_valid_modes():
-  """Returns the modes that can be used."""
-  return sorted(
-      i[4:] for i in dir(sys.modules[__name__]) if i.startswith('MODE'))
-
-
-def main():
-  valid_modes = get_valid_modes()
-  parser = optparse.OptionParser(
-      usage='%prog [options] [inputs] -- [command line]',
-      description=sys.modules[__name__].__doc__)
-  parser.allow_interspersed_args = False
-  parser.format_description = lambda *_: parser.description
-  parser.add_option(
-      '-v', '--verbose', action='count', default=0, help='Use multiple times')
-  parser.add_option(
-      '--mode', choices=valid_modes,
-      help='Determines the action to be taken: %s' % ', '.join(valid_modes))
-  parser.add_option(
-      '--result', metavar='FILE',
-      help='File containing the json information about inputs')
-  parser.add_option(
-      '--root', metavar='DIR', help='Base directory to fetch files, required')
-  parser.add_option(
-      '--outdir', metavar='DIR',
-      help='Directory used to recreate the tree or store the hash table. '
-           'For run and remap, uses a /tmp subdirectory. For the other modes, '
-           'defaults to the directory containing --result')
-  parser.add_option(
-      '--read-only', action='store_true', default=False,
-      help='Make the temporary tree read-only')
-  parser.add_option(
-      '--from-results', action='store_true',
-      help='Loads everything from the result file instead of generating it')
-  parser.add_option(
-      '--files', metavar='FILE',
-      help='File to be read containing input files')
-
-  options, args = parser.parse_args()
-  level = [logging.ERROR, logging.INFO, logging.DEBUG][min(2, options.verbose)]
-  logging.basicConfig(
-      level=level,
-      format='%(levelname)5s %(module)15s(%(lineno)3d): %(message)s')
-
-  if not options.mode:
-    parser.error('--mode is required')
-
-  if not options.result:
-    parser.error('--result is required.')
-  if options.from_results:
-    if not options.root:
-      options.root = os.getcwd()
-    if args:
-      parser.error('Arguments cannot be used with --from-result')
-    if options.files:
-      parser.error('--files cannot be used with --from-result')
-  else:
-    if not options.root:
-      parser.error('--root is required.')
-
-  options.result = os.path.abspath(options.result)
-
-  # Normalize the root input directory.
-  indir = os.path.normpath(options.root)
-  if not os.path.isdir(indir):
-    parser.error('%s is not a directory' % indir)
-
-  # Do not call abspath until it was verified the directory exists.
-  indir = os.path.abspath(indir)
-
-  logging.info('sys.argv: %s' % sys.argv)
-  logging.info('cwd: %s' % os.getcwd())
-  logging.info('Args: %s' % args)
-  if not options.from_results:
-    infiles, cmd = separate_inputs_command(args, indir, options.files)
-    if not infiles:
-      parser.error('Need at least one input file to map')
-  else:
-    data = json.load(open(options.result))
-    cmd = data['command']
-    infiles = data['files'].keys()
-    os.chdir(data['relative_cwd'])
-
-  logging.info('infiles: %s' % infiles)
-
+  parser = OptionParserIsolate(command='trace')
+  parser.enable_interspersed_args()
+  options, args = parser.parse_args(args)
+  complete_state = load_complete_state(options, STATS_ONLY)
+  cmd = complete_state.result.command + args
+  if not cmd:
+    raise ExecutionError('No command to run')
+  cmd = trace_inputs.fix_python_path(cmd)
+  cwd = os.path.normpath(os.path.join(
+      complete_state.root_dir, complete_state.result.relative_cwd))
+  logging.info('Running %s, cwd=%s' % (cmd, cwd))
+  api = trace_inputs.get_api()
+  logfile = complete_state.result_file + '.log'
+  api.clean_trace(logfile)
   try:
-    return isolate(
-        options.outdir,
-        options.result,
-        indir,
-        infiles,
-        options.mode,
-        options.read_only,
-        cmd,
-        options.from_results)
-  except tree_creator.MappingError, e:
-    print >> sys.stderr, str(e)
+    with api.get_tracer(logfile) as tracer:
+      result, _ = tracer.trace(
+          cmd,
+          cwd,
+          'default',
+          True)
+  except trace_inputs.TracingFailure, e:
+    raise ExecutionError('Tracing failed for: %s\n%s' % (' '.join(cmd), str(e)))
+
+  complete_state.save_files()
+  return result
+
+
+class OptionParserWithNiceDescription(optparse.OptionParser):
+  """Generates the description with the command's docstring."""
+  def __init__(self, *args, **kwargs):
+    """Sets 'description' and 'usage' if not already specified."""
+    command = kwargs.pop('command', None)
+    if not 'description' in kwargs:
+      kwargs['description'] = re.sub(
+          '[\r\n ]{2,}', ' ', get_command_handler(command).__doc__)
+    kwargs.setdefault('usage', '%%prog %s [options]' % command)
+    optparse.OptionParser.__init__(self, *args, **kwargs)
+
+
+class OptionParserWithLogging(OptionParserWithNiceDescription):
+  """Adds automatic --verbose handling."""
+  def __init__(self, *args, **kwargs):
+    OptionParserWithNiceDescription.__init__(self, *args, **kwargs)
+    self.add_option(
+        '-v', '--verbose',
+        action='count',
+        default=int(os.environ.get('ISOLATE_DEBUG', 0)),
+        help='Use multiple times to increase verbosity')
+
+  def parse_args(self, *args, **kwargs):
+    options, args = OptionParserWithNiceDescription.parse_args(
+        self, *args, **kwargs)
+    level = [
+      logging.ERROR, logging.INFO, logging.DEBUG,
+    ][min(2, options.verbose)]
+    logging.basicConfig(
+          level=level,
+          format='%(levelname)5s %(module)15s(%(lineno)3d):%(message)s')
+    return options, args
+
+
+class OptionParserIsolate(OptionParserWithLogging):
+  """Adds automatic --isolate, --result, --out and --variables handling."""
+  def __init__(self, require_result=True, *args, **kwargs):
+    OptionParserWithLogging.__init__(self, *args, **kwargs)
+    default_variables = [('OS', isolate_common.get_flavor())]
+    if sys.platform in ('win32', 'cygwin'):
+      default_variables.append(('EXECUTABLE_SUFFIX', '.exe'))
+    else:
+      default_variables.append(('EXECUTABLE_SUFFIX', ''))
+    group = optparse.OptionGroup(self, "Common options")
+    group.add_option(
+        '-r', '--result',
+        metavar='FILE',
+        help='.result file to store the json manifest')
+    group.add_option(
+        '-i', '--isolate',
+        metavar='FILE',
+        help='.isolate file to load the dependency data from')
+    group.add_option(
+        '-V', '--variable',
+        nargs=2,
+        action='append',
+        default=default_variables,
+        dest='variables',
+        metavar='FOO BAR',
+        help='Variables to process in the .isolate file, default: %default. '
+             'Variables are persistent accross calls, they are saved inside '
+             '<results>.state')
+    group.add_option(
+        '-o', '--outdir', metavar='DIR',
+        help='Directory used to recreate the tree or store the hash table. '
+            'If the environment variable ISOLATE_HASH_TABLE_DIR exists, it '
+            'will be used. Otherwise, for run and remap, uses a /tmp '
+            'subdirectory. For the other modes, defaults to the directory '
+            'containing --result')
+    self.add_option_group(group)
+    self.require_result = require_result
+
+  def parse_args(self, *args, **kwargs):
+    """Makes sure the paths make sense.
+
+    On Windows, / and \ are often mixed together in a path.
+    """
+    options, args = OptionParserWithLogging.parse_args(self, *args, **kwargs)
+    if not self.allow_interspersed_args and args:
+      self.error('Unsupported argument: %s' % args)
+
+    options.variables = dict(options.variables)
+
+    if self.require_result and not options.result:
+      self.error('--result is required.')
+    if options.result and not options.result.endswith('.results'):
+      self.error('--result value must end with \'.results\'')
+
+    if options.result:
+      options.result = os.path.abspath(options.result.replace('/', os.path.sep))
+
+    if options.isolate:
+      options.isolate = trace_inputs.get_native_path_case(
+          os.path.abspath(
+              options.isolate.replace('/', os.path.sep)))
+
+    if options.outdir:
+      options.outdir = os.path.abspath(
+          options.outdir.replace('/', os.path.sep))
+
+    return options, args
+
+
+### Glue code to make all the commands works magically.
+
+
+def extract_documentation():
+  """Returns a dict {command: description} for each of documented command."""
+  commands = (
+      fn[3:]
+      for fn in dir(sys.modules[__name__])
+      if fn.startswith('CMD') and get_command_handler(fn[3:]).__doc__)
+  return dict((fn, get_command_handler(fn).__doc__) for fn in commands)
+
+
+def CMDhelp(args):
+  """Prints list of commands or help for a specific command."""
+  doc = extract_documentation()
+  # Calculates the optimal offset.
+  offset = max(len(cmd) for cmd in doc)
+  format_str = '  %-' + str(offset + 2) + 's %s'
+  # Generate a one-liner documentation of each commands.
+  commands_description = '\n'.join(
+       format_str % (cmd, doc[cmd].split('\n')[0]) for cmd in sorted(doc))
+
+  parser = OptionParserWithLogging(
+      usage='%prog <command> [options]',
+      description='Commands are:\n%s\n' % commands_description)
+  parser.format_description = lambda _: parser.description
+
+  # Strip out any -h or --help argument.
+  _, args = parser.parse_args([i for i in args if not i in ('-h', '--help')])
+  if len(args) == 1:
+    if not get_command_handler(args[0]):
+      parser.error('Unknown command %s' % args[0])
+    # The command was "%prog help command", replaces ourself with
+    # "%prog command --help" so help is correctly printed out.
+    return main(args + ['--help'])
+  elif args:
+    parser.error('Unknown argument "%s"' % ' '.join(args))
+  parser.print_help()
+  return 0
+
+
+def get_command_handler(name):
+  """Returns the command handler or CMDhelp if it doesn't exist."""
+  return getattr(sys.modules[__name__], 'CMD%s' % name, None)
+
+
+def main(argv):
+  command = get_command_handler(argv[0] if argv else 'help')
+  if not command:
+    return CMDhelp(argv)
+  try:
+    return command(argv[1:])
+  except (ExecutionError, run_test_from_archive.MappingError), e:
+    sys.stderr.write('\nError: ')
+    sys.stderr.write(str(e))
+    sys.stderr.write('\n')
     return 1
 
 
 if __name__ == '__main__':
-  sys.exit(main())
+  sys.exit(main(sys.argv[1:]))

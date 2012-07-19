@@ -10,16 +10,16 @@
 #include "chrome/browser/safe_browsing/client_side_detection_host.h"
 #include "chrome/browser/safe_browsing/client_side_detection_service.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
-#include "chrome/browser/ui/tab_contents/test_tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/safe_browsing/csd.pb.h"
 #include "chrome/common/safe_browsing/safebrowsing_messages.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/mock_render_process_host.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/test_renderer_host.h"
+#include "content/public/test/mock_render_process_host.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/test_renderer_host.h"
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_test_sink.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -101,7 +101,6 @@ class MockClientSideDetectionService : public ClientSideDetectionService {
 class MockSafeBrowsingService : public SafeBrowsingService {
  public:
   MockSafeBrowsingService() {}
-  virtual ~MockSafeBrowsingService() {}
 
   MOCK_METHOD1(DoDisplayBlockingPage, void(const UnsafeResource& resource));
   MOCK_METHOD1(MatchCsdWhitelistUrl, bool(const GURL&));
@@ -116,6 +115,9 @@ class MockSafeBrowsingService : public SafeBrowsingService {
     // implementation.
     callback.Run(false);
   }
+
+ protected:
+  virtual ~MockSafeBrowsingService() {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockSafeBrowsingService);
@@ -152,7 +154,7 @@ void QuitUIMessageLoopFromIO() {
 }
 }  // namespace
 
-class ClientSideDetectionHostTest : public TabContentsWrapperTestHarness {
+class ClientSideDetectionHostTest : public TabContentsTestHarness {
  public:
   virtual void SetUp() {
     // Set custom profile object so that we can mock calls to IsOffTheRecord.
@@ -171,13 +173,13 @@ class ClientSideDetectionHostTest : public TabContentsWrapperTestHarness {
     io_thread_.reset(new content::TestBrowserThread(BrowserThread::IO));
     ASSERT_TRUE(io_thread_->Start());
 
-    TabContentsWrapperTestHarness::SetUp();
+    TabContentsTestHarness::SetUp();
 
     // Inject service classes.
     csd_service_.reset(new StrictMock<MockClientSideDetectionService>());
     sb_service_ = new StrictMock<MockSafeBrowsingService>();
     csd_host_.reset(safe_browsing::ClientSideDetectionHost::Create(
-        contents_wrapper()->web_contents()));
+        tab_contents()->web_contents()));
     csd_host_->set_client_side_detection_service(csd_service_.get());
     csd_host_->set_safe_browsing_service(sb_service_.get());
     // We need to create this here since we don't call
@@ -197,7 +199,7 @@ class ClientSideDetectionHostTest : public TabContentsWrapperTestHarness {
                               csd_host_.release());
     sb_service_ = NULL;
     message_loop_.RunAllPending();
-    TabContentsWrapperTestHarness::TearDown();
+    TabContentsTestHarness::TearDown();
 
     // Let the tasks on the IO thread run to avoid memory leaks.
     base::WaitableEvent done(false, false);
@@ -314,21 +316,7 @@ class ClientSideDetectionHostTest : public TabContentsWrapperTestHarness {
   scoped_ptr<content::TestBrowserThread> io_thread_;
 };
 
-#if defined(OS_CHROMEOS)
-// Crashes on linux_chromeos. http://crbug.com/115979
-#define MAYBE_OnPhishingDetectionDoneInvalidVerdict \
-    DISABLED_OnPhishingDetectionDoneInvalidVerdict
-#define MAYBE_OnPhishingDetectionDoneVerdictNotPhishing \
-    DISABLED_OnPhishingDetectionDoneVerdictNotPhishing
-#else
-#define MAYBE_OnPhishingDetectionDoneInvalidVerdict \
-    OnPhishingDetectionDoneInvalidVerdict
-#define MAYBE_OnPhishingDetectionDoneVerdictNotPhishing \
-    OnPhishingDetectionDoneVerdictNotPhishing
-#endif
-
-TEST_F(ClientSideDetectionHostTest,
-       MAYBE_OnPhishingDetectionDoneInvalidVerdict) {
+TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneInvalidVerdict) {
   // Case 0: renderer sends an invalid verdict string that we're unable to
   // parse.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
@@ -340,17 +328,7 @@ TEST_F(ClientSideDetectionHostTest,
   EXPECT_TRUE(Mock::VerifyAndClear(mock_extractor));
 }
 
-#if defined(OS_LINUX)
-// Crashes on linux_chromeos. http://crbug.com/115979
-#define MAYBE_OnPhishingDetectionDoneNotPhishing \
-    DISABLED_OnPhishingDetectionDoneNotPhishing
-#else
-#define MAYBE_OnPhishingDetectionDoneNotPhishing \
-    OnPhishingDetectionDoneNotPhishing
-#endif
-
-TEST_F(ClientSideDetectionHostTest,
-       MAYBE_OnPhishingDetectionDoneNotPhishing) {
+TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneNotPhishing) {
   // Case 1: client thinks the page is phishing.  The server does not agree.
   // No interstitial is shown.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
@@ -382,11 +360,7 @@ TEST_F(ClientSideDetectionHostTest,
   EXPECT_TRUE(Mock::VerifyAndClear(sb_service_.get()));
 }
 
-#if defined(OS_CHROMEOS)
-TEST_F(ClientSideDetectionHostTest, FLAKY_OnPhishingDetectionDoneDisabled) {
-#else
 TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneDisabled) {
-#endif
   // Case 2: client thinks the page is phishing and so does the server but
   // showing the interstitial is disabled => no interstitial is shown.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
@@ -566,7 +540,7 @@ TEST_F(ClientSideDetectionHostTest, OnPhishingDetectionDoneMultiplePings) {
 }
 
 TEST_F(ClientSideDetectionHostTest,
-       MAYBE_OnPhishingDetectionDoneVerdictNotPhishing) {
+       OnPhishingDetectionDoneVerdictNotPhishing) {
   // Case 6: renderer sends a verdict string that isn't phishing.
   MockBrowserFeatureExtractor* mock_extractor = new MockBrowserFeatureExtractor(
       contents(),
@@ -612,6 +586,12 @@ TEST_F(ClientSideDetectionHostTest,
   EXPECT_TRUE(Mock::VerifyAndClear(csd_service_.get()));
 }
 
+#if defined(OS_WIN)
+// Flaky on Windows: crbug.com/134918
+#define MAYBE_NavigationCancelsShouldClassifyUrl DISABLED_NavigationCancelsShouldClassifyUrl
+#else
+#define MAYBE_NavigationCancelsShouldClassifyUrl NavigationCancelsShouldClassifyUrl
+#endif
 TEST_F(ClientSideDetectionHostTest, NavigationCancelsShouldClassifyUrl) {
   // Test that canceling pending should classify requests works as expected.
 

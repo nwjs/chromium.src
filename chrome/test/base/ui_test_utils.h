@@ -4,7 +4,6 @@
 
 #ifndef CHROME_TEST_BASE_UI_TEST_UTILS_H_
 #define CHROME_TEST_BASE_UI_TEST_UTILS_H_
-#pragma once
 
 #include <map>
 #include <queue>
@@ -13,18 +12,19 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/message_loop.h"
 #include "base/process.h"
+#include "base/run_loop.h"
 #include "base/scoped_temp_dir.h"
 #include "base/string16.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/test/automation/dom_element_proxy.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
-#include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/ui_controls/ui_controls.h"
@@ -45,15 +45,15 @@ class CommandLine;
 class ExtensionAction;
 class FilePath;
 class GURL;
+class HistoryService;
 class MessageLoop;
 class Profile;
 class ScopedTempDir;
 class SkBitmap;
 class TabContents;
-class TabContentsWrapper;
 class TemplateURLService;
 
-namespace browser {
+namespace chrome {
 struct NavigateParams;
 }
 
@@ -65,6 +65,7 @@ class WebContents;
 
 namespace gfx {
 class Point;
+class Rect;
 class Size;
 }
 
@@ -94,6 +95,13 @@ enum BrowserTestWaitFlags {
 // process browser tests that need to block until a condition is met.
 void RunMessageLoop();
 
+// Variant of RunMessageLoop that takes RunLoop.
+void RunThisRunLoop(base::RunLoop* run_loop);
+
+// Get task to quit the given RunLoop. It allows a few generations of pending
+// tasks to run as opposed to run_loop->QuitClosure().
+base::Closure GetQuitTaskForRunLoop(base::RunLoop* run_loop);
+
 // Turns on nestable tasks, runs all pending tasks in the message loop,
 // then resets nestable tasks to what they were originally. Prefer this
 // over MessageLoop::RunAllPending for in process browser tests to run
@@ -111,31 +119,23 @@ bool GetCurrentTabTitle(const Browser* browser, string16* title);
 // race hazard. Use WindowedNotificationObserver instead.
 void WaitForNewTab(Browser* browser);
 
-// Waits for a |browser_action| to be updated. TODO(gbillock): remove this race
-// hazard. Use WindowedNotificationObserver instead.
-void WaitForBrowserActionUpdated(ExtensionAction* browser_action);
-
 // Waits for a load stop for the specified |tab|'s controller, if the tab is
 // currently loading.  Otherwise returns immediately.
 void WaitForLoadStop(content::WebContents* tab);
 
-// Waits for a new browser to be created, returning the browser.
-// TODO(dubroy): Remove this race hazard (http://crbug.com/119521).
-// Use BrowserAddedObserver instead.
-Browser* WaitForNewBrowser();
-
 // Opens |url| in an incognito browser window with the incognito profile of
 // |profile|, blocking until the navigation finishes. This will create a new
-// browser if a browser with the incognito profile does not exist.
-void OpenURLOffTheRecord(Profile* profile, const GURL& url);
+// browser if a browser with the incognito profile does not exist. Returns the
+// incognito window Browser.
+Browser* OpenURLOffTheRecord(Profile* profile, const GURL& url);
 
 // Performs the provided navigation process, blocking until the navigation
 // finishes. May change the params in some cases (i.e. if the navigation
-// opens a new browser window). Uses browser::Navigate.
-void NavigateToURL(browser::NavigateParams* params);
+// opens a new browser window). Uses chrome::Navigate.
+void NavigateToURL(chrome::NavigateParams* params);
 
 // Navigates the selected tab of |browser| to |url|, blocking until the
-// navigation finishes. Uses Browser::OpenURL --> browser::Navigate.
+// navigation finishes. Uses Browser::OpenURL --> chrome::Navigate.
 void NavigateToURL(Browser* browser, const GURL& url);
 
 // Navigates the specified tab of |browser| to |url|, blocking until the
@@ -171,8 +171,6 @@ bool ExecuteJavaScript(content::RenderViewHost* render_view_host,
 // value returned by the script evaluation.
 // They return true on success, false if the script evaluation failed or did not
 // evaluate to the expected type.
-// Note: In order for the domAutomationController to work, you must call
-// EnableDOMAutomation() in your test first.
 bool ExecuteJavaScriptAndExtractInt(content::RenderViewHost* render_view_host,
                                     const std::wstring& frame_xpath,
                                     const std::wstring& script,
@@ -204,6 +202,7 @@ GURL GetFileUrlWithQuery(const FilePath& path, const std::string& query_string);
 
 // Blocks until an application modal dialog is showns and returns it.
 AppModalDialog* WaitForAppModalDialog();
+void WaitForAppModalDialogAndCloseIt();
 
 // Causes the specified tab to crash. Blocks until it is crashed.
 void CrashTab(content::WebContents* tab);
@@ -211,11 +210,37 @@ void CrashTab(content::WebContents* tab);
 // Performs a find in the page of the specified tab. Returns the number of
 // matches found.  |ordinal| is an optional parameter which is set to the index
 // of the current match.
-int FindInPage(TabContentsWrapper* tab,
+int FindInPage(TabContents* tab,
                const string16& search_string,
                bool forward,
                bool case_sensitive,
                int* ordinal);
+
+// Closes all infobars |tab| has open, if any.  Tests that depend on there being
+// no InfoBar open when the test starts may need to use this.
+void CloseAllInfoBars(TabContents* tab);
+
+// Simulates clicking at the center of the given tab asynchronously. Unlike
+// ClickOnView, this works even if the browser isn't in the foreground.
+void SimulateMouseClick(content::WebContents* tab);
+
+// Simulates asynchronously a mouse enter/move/leave event.
+void SimulateMouseEvent(content::WebContents* tab,
+                        WebKit::WebInputEvent::Type type,
+                        const gfx::Point& point);
+
+// Sends a key press asynchronously. Unlike the SendKeyPress functions, this
+// works even if the browser isn't in the foreground.
+void SimulateKeyPress(content::WebContents* tab,
+                      ui::KeyboardCode key,
+                      bool control,
+                      bool shift,
+                      bool alt,
+                      bool command);
+
+#if defined OS_MACOSX
+void SetWindowBounds(gfx::NativeWindow window, const gfx::Rect& bounds);
+#endif
 
 // Returns true if the View is focused.
 bool IsViewFocused(const Browser* browser, ViewID vid);
@@ -235,13 +260,12 @@ void WaitForBookmarkModelToLoad(BookmarkModel* model);
 // Blocks until |service| finishes loading.
 void WaitForTemplateURLServiceToLoad(TemplateURLService* service);
 
-// Blocks until the |browser|'s history finishes loading.
-void WaitForHistoryToLoad(Browser* browser);
+// Blocks until the |history_service|'s history finishes loading.
+void WaitForHistoryToLoad(HistoryService* history_service);
 
 // Puts the native window for |browser| in |native_window|. Returns true on
 // success.
-bool GetNativeWindow(const Browser* browser, gfx::NativeWindow* native_window)
-    WARN_UNUSED_RESULT;
+bool GetNativeWindow(const Browser* browser, gfx::NativeWindow* native_window);
 
 // Brings the native window for |browser| to the foreground. Returns true on
 // success.
@@ -281,37 +305,34 @@ bool SendMouseMoveSync(const gfx::Point& location) WARN_UNUSED_RESULT;
 bool SendMouseEventsSync(ui_controls::MouseButton type,
                          int state) WARN_UNUSED_RESULT;
 
-// Run a message loop only for the specified amount of time.
-class TimedMessageLoopRunner {
+// Helper class to Run and Quit the message loop. Run and Quit can only happen
+// once per instance. Make a new instance for each use. Calling Quit after Run
+// has returned is safe and has no effect.
+class MessageLoopRunner
+    : public base::RefCounted<MessageLoopRunner> {
  public:
-  // Create new MessageLoopForUI and attach to it.
-  TimedMessageLoopRunner();
+  MessageLoopRunner();
 
-  // Attach to an existing message loop.
-  explicit TimedMessageLoopRunner(MessageLoop* loop)
-      : loop_(loop), owned_(false), quit_loop_invoked_(false) {}
+  // Run the current MessageLoop.
+  void Run();
 
-  ~TimedMessageLoopRunner();
-
-  // Run the message loop for ms milliseconds.
-  void RunFor(int ms);
-
-  // Post Quit task to the message loop.
+  // Quit the matching call to Run (nested MessageLoops are unaffected).
   void Quit();
 
-  // Post delayed Quit task to the message loop.
-  void QuitAfter(int ms);
-
-  bool WasTimedOut() const {
-    return !quit_loop_invoked_;
-  }
+  // Hand this closure off to code that uses callbacks to notify completion.
+  // Example:
+  //   scoped_refptr<MessageLoopRunner> runner = new MessageLoopRunner;
+  //   kick_off_some_api(runner.QuitNowClosure());
+  //   runner.Run();
+  base::Closure QuitClosure();
 
  private:
-  MessageLoop* loop_;
-  bool owned_;
-  bool quit_loop_invoked_;
+  friend class base::RefCounted<MessageLoopRunner>;
+  ~MessageLoopRunner();
 
-  DISALLOW_COPY_AND_ASSIGN(TimedMessageLoopRunner);
+  base::RunLoop run_loop_;
+
+  DISALLOW_COPY_AND_ASSIGN(MessageLoopRunner);
 };
 
 // This is a utility class for running a python websocket server
@@ -333,6 +354,9 @@ class TestWebSocketServer {
 
   // Use a random port, useful for tests that are sharded. Returns the port.
   int UseRandomPort();
+
+  // Serves with TLS.
+  void UseTLS();
 
   // Starts the python websocket server using |root_directory|. Returns whether
   // the server was successfully started.
@@ -366,34 +390,13 @@ class TestWebSocketServer {
   base::win::ScopedHandle job_handle_;
 #endif
 
+  // Holds port number which the python websocket server uses.
   int port_;
 
+  // If the python websocket server serves with TLS.
+  bool secure_;
+
   DISALLOW_COPY_AND_ASSIGN(TestWebSocketServer);
-};
-
-// A notification observer which quits the message loop when a notification
-// is received. It also records the source and details of the notification.
-class TestNotificationObserver : public content::NotificationObserver {
- public:
-  TestNotificationObserver();
-  virtual ~TestNotificationObserver();
-
-  const content::NotificationSource& source() const {
-    return source_;
-  }
-
-  const content::NotificationDetails& details() const {
-    return details_;
-  }
-
-  // content::NotificationObserver:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
-
- private:
-  content::NotificationSource source_;
-  content::NotificationDetails details_;
 };
 
 // A WindowedNotificationObserver allows code to watch for a notification
@@ -415,13 +418,22 @@ class WindowedNotificationObserver : public content::NotificationObserver {
   // NotificationService::AllSources().
   WindowedNotificationObserver(int notification_type,
                                const content::NotificationSource& source);
-
   virtual ~WindowedNotificationObserver();
 
   // Wait until the specified notification occurs.  If the notification was
   // emitted between the construction of this object and this call then it
   // returns immediately.
   void Wait();
+
+  // Returns NotificationService::AllSources() if we haven't observed a
+  // notification yet.
+  const content::NotificationSource& source() const {
+    return source_;
+  }
+
+  const content::NotificationDetails& details() const {
+    return details_;
+  }
 
   // content::NotificationObserver:
   virtual void Observe(int type,
@@ -431,11 +443,37 @@ class WindowedNotificationObserver : public content::NotificationObserver {
  private:
   bool seen_;
   bool running_;
-  std::set<uintptr_t> sources_seen_;
-  content::NotificationSource waiting_for_;
   content::NotificationRegistrar registrar_;
 
+  content::NotificationSource source_;
+  content::NotificationDetails details_;
+  scoped_refptr<MessageLoopRunner> message_loop_runner_;
+
   DISALLOW_COPY_AND_ASSIGN(WindowedNotificationObserver);
+};
+
+// A WindowedNotificationObserver hard-wired to observe
+// chrome::NOTIFICATION_TAB_ADDED.
+class WindowedTabAddedNotificationObserver
+    : public WindowedNotificationObserver {
+ public:
+  // Register to listen for notifications of NOTIFICATION_TAB_ADDED from either
+  // a specific source, or from all sources if |source| is
+  // NotificationService::AllSources().
+  explicit WindowedTabAddedNotificationObserver(
+      const content::NotificationSource& source);
+
+  // Returns the added tab, or NULL if no notification was observed yet.
+  content::WebContents* GetTab() { return added_tab_; }
+
+  virtual void Observe(int type,
+                       const content::NotificationSource& source,
+                       const content::NotificationDetails& details) OVERRIDE;
+
+ private:
+  content::WebContents* added_tab_;
+
+  DISALLOW_COPY_AND_ASSIGN(WindowedTabAddedNotificationObserver);
 };
 
 // Similar to WindowedNotificationObserver but also provides a way of retrieving
@@ -503,6 +541,7 @@ class TitleWatcher : public content::NotificationObserver {
   content::WebContents* web_contents_;
   std::vector<string16> expected_titles_;
   content::NotificationRegistrar notification_registrar_;
+  scoped_refptr<MessageLoopRunner> message_loop_runner_;
 
   // The most recently observed expected title, if any.
   string16 observed_title_;
@@ -602,6 +641,7 @@ class DOMMessageQueue : public content::NotificationObserver {
   content::NotificationRegistrar registrar_;
   std::queue<std::string> message_queue_;
   bool waiting_for_message_;
+  scoped_refptr<MessageLoopRunner> message_loop_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(DOMMessageQueue);
 };
@@ -631,6 +671,21 @@ void MoveMouseToCenterAndPress(
     ui_controls::MouseButton button,
     int state,
     const base::Closure& task);
+
+#if defined(OS_WIN)
+// Saves a snapshot of the entire screen to a file named
+// ChromiumSnapshotYYYYMMDDHHMMSS.png to |directory|, returning true on success.
+// The path to the file produced is returned in |screenshot_path| if non-NULL.
+bool SaveScreenSnapshotToDirectory(const FilePath& directory,
+                                   FilePath* screenshot_path);
+
+// Saves a snapshot of the entire screen as above to the current user's desktop.
+// The Chrome path provider must be registered prior to calling this function.
+bool SaveScreenSnapshotToDesktop(FilePath* screenshot_path);
+#endif
+
+// Configures the geolocation provider to always return the given position.
+void OverrideGeolocation(double latitude, double longitude);
 
 namespace internal {
 

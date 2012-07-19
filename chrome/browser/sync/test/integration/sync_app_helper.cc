@@ -60,7 +60,7 @@ AppStateMap GetAppStates(Profile* profile) {
       extension_service->GenerateInstalledExtensionsSet());
   for (ExtensionSet::const_iterator it = extensions->begin();
        it != extensions->end(); ++it) {
-    if ((*it)->GetSyncType() == Extension::SYNC_TYPE_APP) {
+    if ((*it)->GetSyncType() == extensions::Extension::SYNC_TYPE_APP) {
       const std::string& id = (*it)->id();
       LoadApp(extension_service, id, &(app_state_map[id]));
     }
@@ -69,10 +69,10 @@ AppStateMap GetAppStates(Profile* profile) {
   const PendingExtensionManager* pending_extension_manager =
       extension_service->pending_extension_manager();
 
-  std::set<std::string> pending_crx_ids;
+  std::list<std::string> pending_crx_ids;
   pending_extension_manager->GetPendingIdsForUpdateCheck(&pending_crx_ids);
 
-  for (std::set<std::string>::const_iterator id = pending_crx_ids.begin();
+  for (std::list<std::string>::const_iterator id = pending_crx_ids.begin();
        id != pending_crx_ids.end(); ++id) {
     LoadApp(extension_service, *id, &(app_state_map[*id]));
   }
@@ -93,9 +93,9 @@ void SyncAppHelper::SetupIfNecessary(SyncTest* test) {
     return;
 
   for (int i = 0; i < test->num_clients(); ++i) {
-    ExtensionSystem::Get(test->GetProfile(i))->Init(true);
+    extensions::ExtensionSystem::Get(test->GetProfile(i))->Init(true);
   }
-  ExtensionSystem::Get(test->verifier())->Init(true);
+  extensions::ExtensionSystem::Get(test->verifier())->Init(true);
 
   setup_completed_ = true;
 }

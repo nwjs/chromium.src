@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@
 #include "base/message_loop.h"
 #include "base/time.h"
 #include "content/browser/geolocation/win7_location_api_win.h"
-#include "content/common/geoposition.h"
+#include "content/public/common/geoposition.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -21,6 +21,7 @@ using testing::_;
 using testing::AtLeast;
 using testing::DoDefault;
 using testing::Invoke;
+using testing::NiceMock;
 using testing::Return;
 
 namespace {
@@ -242,11 +243,12 @@ class MockLocation : public ILocation {
 
   MockReport* mock_report_;
 
- private:
+ protected:
   ~MockLocation() {
     mock_report_->Release();
   }
 
+ private:
   HRESULT GetReportValid(REFIID report_type,
                          ILocationReport** location_report) {
     *location_report = reinterpret_cast<ILocationReport*>(mock_report_);
@@ -293,7 +295,7 @@ class GeolocationApiWin7Tests : public testing::Test {
   }
  protected:
   Win7LocationApi* CreateMock() {
-    MockLocation* locator = new MockLocation();
+    NiceMock<MockLocation>* locator = new NiceMock<MockLocation>();
     locator_ = locator;
     return Win7LocationApi::CreateForTesting(&MockPropVariantToDoubleFunction,
                                              locator);
@@ -301,7 +303,7 @@ class GeolocationApiWin7Tests : public testing::Test {
 
   scoped_ptr<Win7LocationApi> api_;
   MockLatLongReport* lat_long_report_;
-  MockLocation* locator_;
+  NiceMock<MockLocation>* locator_;
   MockReport* report_;
 };
 
@@ -309,18 +311,18 @@ TEST_F(GeolocationApiWin7Tests, PermissionDenied) {
   EXPECT_CALL(*locator_, GetReport(_, _))
       .Times(AtLeast(1))
       .WillRepeatedly(Return(E_ACCESSDENIED));
-  Geoposition position;
+  content::Geoposition position;
   api_->GetPosition(&position);
-  EXPECT_EQ(Geoposition::ERROR_CODE_PERMISSION_DENIED,
+  EXPECT_EQ(content::Geoposition::ERROR_CODE_PERMISSION_DENIED,
             position.error_code);
 }
 
 TEST_F(GeolocationApiWin7Tests, GetValidPosition) {
   EXPECT_CALL(*locator_, GetReport(_, _))
       .Times(AtLeast(1));
-  Geoposition position;
+  content::Geoposition position;
   api_->GetPosition(&position);
-  EXPECT_TRUE(position.IsValidFix());
+  EXPECT_TRUE(position.Validate());
 }
 
 TEST_F(GeolocationApiWin7Tests, GetInvalidPosition) {
@@ -329,9 +331,9 @@ TEST_F(GeolocationApiWin7Tests, GetInvalidPosition) {
       .WillRepeatedly(Return(HRESULT_FROM_WIN32(ERROR_NO_DATA)));
   EXPECT_CALL(*locator_, GetReport(_, _))
       .Times(AtLeast(1));
-  Geoposition position;
+  content::Geoposition position;
   api_->GetPosition(&position);
-  EXPECT_FALSE(position.IsValidFix());
+  EXPECT_FALSE(position.Validate());
 }
 
 }  // namespace

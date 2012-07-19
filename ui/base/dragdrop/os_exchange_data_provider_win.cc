@@ -246,7 +246,7 @@ IDataObject* OSExchangeDataProviderWin::GetIDataObject(
 }
 
 // static
-IAsyncOperation* OSExchangeDataProviderWin::GetIAsyncOperation(
+IDataObjectAsyncCapability* OSExchangeDataProviderWin::GetIAsyncOperation(
     const OSExchangeData& data) {
   return static_cast<const OSExchangeDataProviderWin*>(&data.provider())->
       async_operation();
@@ -754,7 +754,7 @@ HRESULT DataObjectImpl::EnumDAdvise(IEnumSTATDATA** enumerator) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// DataObjectImpl, IAsyncOperation implementation:
+// DataObjectImpl, IDataObjectAsyncCapability implementation:
 
 HRESULT DataObjectImpl::EndOperation(
     HRESULT result, IBindCtx* reserved, DWORD effects) {
@@ -790,8 +790,9 @@ HRESULT DataObjectImpl::QueryInterface(const IID& iid, void** object) {
     return E_POINTER;
   if (IsEqualIID(iid, IID_IDataObject) || IsEqualIID(iid, IID_IUnknown)) {
     *object = static_cast<IDataObject*>(this);
-  } else if (in_async_mode_ && IsEqualIID(iid, IID_IAsyncOperation)) {
-    *object = static_cast<IAsyncOperation*>(this);
+  } else if (in_async_mode_ &&
+             IsEqualIID(iid, __uuidof(IDataObjectAsyncCapability))) {
+    *object = static_cast<IDataObjectAsyncCapability*>(this);
   } else {
     *object = NULL;
     return E_NOINTERFACE;
@@ -828,12 +829,13 @@ static STGMEDIUM* GetStorageForBytes(const char* data, size_t bytes) {
 
 template<class T>
 static HGLOBAL CopyStringToGlobalHandle(const T& payload) {
-  int bytes = static_cast<int>(payload.size() + 1) * sizeof(T::value_type);
+  int bytes =
+      static_cast<int>(payload.size() + 1) * sizeof(typename T::value_type);
   HANDLE handle = GlobalAlloc(GPTR, bytes);
   void* data = GlobalLock(handle);
   size_t allocated = static_cast<size_t>(GlobalSize(handle));
   memcpy(data, payload.c_str(), allocated);
-  static_cast<T::value_type*>(data)[payload.size()] = '\0';
+  static_cast<typename T::value_type*>(data)[payload.size()] = '\0';
   GlobalUnlock(handle);
   return handle;
 }

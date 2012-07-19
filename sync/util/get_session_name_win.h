@@ -4,16 +4,15 @@
 
 #ifndef SYNC_UTIL_GET_SESSION_NAME_WIN_H_
 #define SYNC_UTIL_GET_SESSION_NAME_WIN_H_
-#pragma once
 
 #include <string>
 
-namespace browser_sync {
+namespace syncer {
 namespace internal {
 
 std::string GetComputerName();
 
 }  // namespace internal
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_UTIL_GET_SESSION_NAME_WIN_H_

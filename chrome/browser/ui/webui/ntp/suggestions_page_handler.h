@@ -4,13 +4,12 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_NTP_SUGGESTIONS_PAGE_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_NTP_SUGGESTIONS_PAGE_HANDLER_H_
-#pragma once
 
 #include <string>
-#include <vector>
 
 #include "chrome/browser/cancelable_request.h"
 #include "chrome/browser/history/history_types.h"
+#include "chrome/browser/ui/webui/ntp/suggestions_combiner.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_ui_message_handler.h"
@@ -31,9 +30,9 @@ class Value;
 //   is a dictionary for quick access (it associates a dummy boolean to the URL
 //   string).
 class SuggestionsHandler : public content::WebUIMessageHandler,
-                           public content::NotificationObserver {
+                           public content::NotificationObserver,
+                           public SuggestionsCombiner::Delegate {
  public:
-
   SuggestionsHandler();
   virtual ~SuggestionsHandler();
 
@@ -52,25 +51,23 @@ class SuggestionsHandler : public content::WebUIMessageHandler,
   // Callback for the "clearSuggestionsURLsBlacklist" message.
   void HandleClearBlacklist(const base::ListValue* args);
 
+  // Callback for the "suggestedSitesAction" message.
+  void HandleSuggestedSitesAction(const base::ListValue* args);
+
+  // Callback for the "suggestedSitesSelected" message.
+  void HandleSuggestedSitesSelected(const base::ListValue* args);
+
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // SuggestionsCombiner::Delegate implementation.
+  virtual void OnSuggestionsReady() OVERRIDE;
+
   static void RegisterUserPrefs(PrefService* prefs);
 
  private:
-  // Send a request to the HistoryService to get the suggestions pages.
-  void StartQueryForSuggestions();
-
-  // Sets pages_value_ from a format produced by TopSites.
-  void SetPagesValueFromTopSites(const history::MostVisitedURLList& data);
-
-  // Callback for History.
-  void OnSuggestionsURLsAvailable(
-      CancelableRequestProvider::Handle handle,
-      history::MostVisitedURLList data);
-
   // Puts the passed URL in the blacklist (so it does not show as a thumbnail).
   void BlacklistURL(const GURL& url);
 
@@ -82,18 +79,18 @@ class SuggestionsHandler : public content::WebUIMessageHandler,
 
   content::NotificationRegistrar registrar_;
 
-  // Our consumer for the history service page data.
-  CancelableRequestConsumerTSimple<PageUsageData*> cancelable_consumer_;
-
-  // Consumer for history service general request(s).
-  CancelableRequestConsumer history_consumer_;
-
   // We pre-fetch the first set of result pages.  This variable is false until
   // we get the first getSuggestions() call.
   bool got_first_suggestions_request_;
 
-  // Keep the results of the db query here.
-  scoped_ptr<base::ListValue> pages_value_;
+  // Used to combine suggestions from various sources.
+  scoped_ptr<SuggestionsCombiner> suggestions_combiner_;
+
+  // Whether the user has viewed the 'suggested' pane.
+  bool suggestions_viewed_;
+
+  // Whether the user has performed a "tracked" action to leave the page or not.
+  bool user_action_logged_;
 
   DISALLOW_COPY_AND_ASSIGN(SuggestionsHandler);
 };

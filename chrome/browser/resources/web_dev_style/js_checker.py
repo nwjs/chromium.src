@@ -53,7 +53,8 @@ class JSChecker(object):
   def GetElementByIdCheck(self, i, line):
     """Checks for use of 'document.getElementById' instead of '$'."""
     return self.RegexCheck(i, line, r"(document\.getElementById)\('",
-        "Use $('id') instead of document.getElementById('id')")
+        "Use $('id'), from chrome://resources/js/util.js, instead of "
+        "document.getElementById('id'))")
 
   def error_highlight(self, start, length):
     """Takes a start position and a length, and produces a row of '^'s to
@@ -74,10 +75,15 @@ class JSChecker(object):
     dirs = (
         path.join(resources, 'extensions'),
         path.join(resources, 'help'),
+        path.join(resources, 'history'),
         path.join(resources, 'net_internals'),
+        path.join(resources, 'network_action_predictor'),
         path.join(resources, 'ntp4'),
         path.join(resources, 'options2'),
+        path.join(resources, 'print_preview'),
+        path.join(resources, 'profiler'),
         path.join(resources, 'sync_promo'),
+        path.join(resources, 'tracing'),
         path.join(resources, 'uber'),
     )
     if filename.startswith(dirs):
@@ -151,6 +157,7 @@ class JSChecker(object):
             errors.JSDOC_ILLEGAL_QUESTION_WITH_PIPE,
             errors.JSDOC_TAG_DESCRIPTION_ENDS_WITH_INVALID_CHARACTER,
             errors.LINE_TOO_LONG,
+            errors.MISSING_JSDOC_TAG_THIS,
         ]
 
     results = []

@@ -6,6 +6,7 @@
 
 #include <aclapi.h>
 #include <shobjidl.h>  // Must be before propkey.
+#include <initguid.h>
 #include <propkey.h>
 #include <propvarutil.h>
 #include <sddl.h>
@@ -19,6 +20,33 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
+
+namespace {
+
+// TODO(gab): These definitions are temporary and should be removed once the
+// win8 SDK defines them.
+DEFINE_PROPERTYKEY(PKEY_AppUserModel_DualMode, 0x9F4C2855, 0x9F79,
+                   0x4B39, 0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3, 11);
+DEFINE_PROPERTYKEY(PKEY_AppUserModel_DualMode_UK, 0x9F4C2855, 0x9F79,
+                   0x4B39, 0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3, 18);
+
+// Sets the value of |property_key| to |property_value| in |property_store|.
+// Clears the PropVariant contained in |property_value|.
+bool SetPropVariantValueForPropertyStore(
+    IPropertyStore* property_store,
+    const PROPERTYKEY& property_key,
+    PROPVARIANT* property_value) {
+  DCHECK(property_store);
+
+  HRESULT result = property_store->SetValue(property_key, *property_value);
+  if (result == S_OK)
+    result = property_store->Commit();
+
+  PropVariantClear(property_value);
+  return SUCCEEDED(result);
+}
+
+}  // namespace
 
 namespace base {
 namespace win {
@@ -99,33 +127,61 @@ bool UserAccountControlIsEnabled() {
   return (uac_enabled != 0);
 }
 
+bool SetBooleanValueForPropertyStore(IPropertyStore* property_store,
+                                     const PROPERTYKEY& property_key,
+                                     bool property_bool_value) {
+  PROPVARIANT property_value;
+  if (FAILED(InitPropVariantFromBoolean(property_bool_value, &property_value)))
+    return false;
+
+  return SetPropVariantValueForPropertyStore(property_store,
+                                             property_key,
+                                             &property_value);
+}
+
+bool SetUInt32ValueForPropertyStore(IPropertyStore* property_store,
+                                    const PROPERTYKEY& property_key,
+                                    uint32 property_uint32_value) {
+  PROPVARIANT property_value;
+  if (FAILED(InitPropVariantFromUInt32(property_uint32_value, &property_value)))
+    return false;
+
+  return SetPropVariantValueForPropertyStore(property_store,
+                                             property_key,
+                                             &property_value);
+}
+
 bool SetStringValueForPropertyStore(IPropertyStore* property_store,
                                     const PROPERTYKEY& property_key,
                                     const wchar_t* property_string_value) {
-  DCHECK(property_store);
-
   PROPVARIANT property_value;
   if (FAILED(InitPropVariantFromString(property_string_value, &property_value)))
     return false;
 
-  HRESULT result = property_store->SetValue(property_key, property_value);
-  if (S_OK == result)
-    result = property_store->Commit();
-
-  PropVariantClear(&property_value);
-  return SUCCEEDED(result);
+  return SetPropVariantValueForPropertyStore(property_store,
+                                             property_key,
+                                             &property_value);
 }
 
 bool SetAppIdForPropertyStore(IPropertyStore* property_store,
                               const wchar_t* app_id) {
-  // App id should be less than 128 chars and contain no space. And recommended
+  // App id should be less than 64 chars and contain no space. And recommended
   // format is CompanyName.ProductName[.SubProduct.ProductNumber].
   // See http://msdn.microsoft.com/en-us/library/dd378459%28VS.85%29.aspx
-  DCHECK(lstrlen(app_id) < 128 && wcschr(app_id, L' ') == NULL);
+  DCHECK(lstrlen(app_id) < 64 && wcschr(app_id, L' ') == NULL);
 
   return SetStringValueForPropertyStore(property_store,
                                         PKEY_AppUserModel_ID,
                                         app_id);
+}
+
+bool SetDualModeForPropertyStore(IPropertyStore* property_store) {
+  return SetBooleanValueForPropertyStore(property_store,
+                                         PKEY_AppUserModel_DualMode,
+                                         true) &&
+         SetUInt32ValueForPropertyStore(property_store,
+                                        PKEY_AppUserModel_DualMode_UK,
+                                        1U);
 }
 
 static const char16 kAutoRunKeyPath[] =

@@ -9,19 +9,35 @@
 #include <utility>
 
 #include "base/basictypes.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/command_line.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/json/json_reader.h"
 #include "base/logging.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "chrome/common/chrome_version_info.h"
-#include "chrome/common/libxml_utils.h"
-#include "chrome/common/pref_names.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system.h"
+#include "base/threading/sequenced_worker_pool.h"
+#include "chrome/browser/chromeos/gdata/gdata.pb.h"
+#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
+#include "chrome/browser/chromeos/login/user.h"
+#include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/common/chrome_version_info.h"
+#include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "net/base/escape.h"
+#include "third_party/libxml/chromium/libxml_utils.h"
+
+using content::BrowserThread;
 
 namespace gdata {
 namespace util {
@@ -30,10 +46,10 @@ namespace {
 
 const char kGDataSpecialRootPath[] = "/special";
 
-const char kGDataMountPointPath[] = "/special/gdata";
+const char kGDataMountPointPath[] = "/special/drive";
 
 const FilePath::CharType* kGDataMountPointPathComponents[] = {
-  "/", "special", "gdata"
+  "/", "special", "drive"
 };
 
 const int kReadOnlyFilePermissions = base::PLATFORM_FILE_OPEN |
@@ -41,29 +57,118 @@ const int kReadOnlyFilePermissions = base::PLATFORM_FILE_OPEN |
                                      base::PLATFORM_FILE_EXCLUSIVE_READ |
                                      base::PLATFORM_FILE_ASYNC;
 
-class GetFileNameDelegate : public FindFileDelegate {
- public:
-  GetFileNameDelegate() {}
-  virtual ~GetFileNameDelegate() {}
-
-  const std::string& file_name() const { return file_name_; }
- private:
-  // GDataFileSystem::FindFileDelegate overrides.
-  virtual void OnDone(base::PlatformFileError error,
-                      const FilePath& directory_path,
-                      GDataFileBase* file) OVERRIDE {
-    if (error == base::PLATFORM_FILE_OK && file && file->AsGDataFile()) {
-      file_name_ = file->AsGDataFile()->file_name();
-    }
-  }
-
-  std::string file_name_;
-};
-
-GDataFileSystem* GetGDataFileSystem(Profile* profile) {
+GDataFileSystemInterface* GetGDataFileSystem(Profile* profile) {
   GDataSystemService* system_service =
       GDataSystemServiceFactory::GetForProfile(profile);
   return system_service ? system_service->file_system() : NULL;
+}
+
+GDataCache* GetGDataCache(Profile* profile) {
+  GDataSystemService* system_service =
+      GDataSystemServiceFactory::GetForProfile(profile);
+  return system_service ? system_service->cache() : NULL;
+}
+
+void GetHostedDocumentURLBlockingThread(const FilePath& gdata_cache_path,
+                                        GURL* url) {
+  std::string json;
+  if (!file_util::ReadFileToString(gdata_cache_path, &json)) {
+    NOTREACHED() << "Unable to read file " << gdata_cache_path.value();
+    return;
+  }
+  DVLOG(1) << "Hosted doc content " << json;
+  scoped_ptr<base::Value> val(base::JSONReader::Read(json));
+  base::DictionaryValue* dict_val;
+  if (!val.get() || !val->GetAsDictionary(&dict_val)) {
+    NOTREACHED() << "Parse failure for " << json;
+    return;
+  }
+  std::string edit_url;
+  if (!dict_val->GetString("url", &edit_url)) {
+    NOTREACHED() << "url field doesn't exist in " << json;
+    return;
+  }
+  *url = GURL(edit_url);
+  DVLOG(1) << "edit url " << *url;
+}
+
+void OpenEditURLUIThread(Profile* profile, const GURL* edit_url) {
+  Browser* browser = browser::FindLastActiveWithProfile(profile);
+  if (browser) {
+    browser->OpenURL(content::OpenURLParams(*edit_url, content::Referrer(),
+        CURRENT_TAB, content::PAGE_TRANSITION_TYPED, false));
+  }
+}
+
+// Invoked upon completion of GetFileInfoByResourceId initiated by
+// ModifyGDataFileResourceUrl.
+void OnGetFileInfoByResourceId(Profile* profile,
+                               const std::string& resource_id,
+                               GDataFileError error,
+                               const FilePath& /* gdata_file_path */,
+                               scoped_ptr<GDataFileProto> file_proto) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (error != GDATA_FILE_OK)
+    return;
+
+  DCHECK(file_proto.get());
+  const std::string& file_name = file_proto->gdata_entry().file_name();
+  const GURL edit_url = GetFileResourceUrl(resource_id, file_name);
+  OpenEditURLUIThread(profile, &edit_url);
+  DVLOG(1) << "OnFindEntryByResourceId " << edit_url;
+}
+
+// Invoked upon completion of GetFileInfoByPath initiated by
+// InsertGDataCachePathPermissions.
+void OnGetFileInfoForInsertGDataCachePathsPermissions(
+    Profile* profile,
+    std::vector<std::pair<FilePath, int> >* cache_paths,
+    const base::Closure& callback,
+    GDataFileError error,
+    scoped_ptr<GDataFileProto> file_info) {
+  DCHECK(profile);
+  DCHECK(cache_paths);
+  DCHECK(!callback.is_null());
+
+  GDataCache* cache = GetGDataCache(profile);
+  if (!cache || error != GDATA_FILE_OK) {
+    callback.Run();
+    return;
+  }
+
+  DCHECK(file_info.get());
+  std::string resource_id = file_info->gdata_entry().resource_id();
+  std::string file_md5 = file_info->file_md5();
+
+  // We check permissions for raw cache file paths only for read-only
+  // operations (when fileEntry.file() is called), so read only permissions
+  // should be sufficient for all cache paths. For the rest of supported
+  // operations the file access check is done for drive/ paths.
+  cache_paths->push_back(std::make_pair(
+      cache->GetCacheFilePath(resource_id, file_md5,
+          GDataCache::CACHE_TYPE_PERSISTENT,
+          GDataCache::CACHED_FILE_FROM_SERVER),
+      kReadOnlyFilePermissions));
+  // TODO(tbarzic): When we start supporting openFile operation, we may have to
+  // change permission for localy modified files to match handler's permissions.
+  cache_paths->push_back(std::make_pair(
+      cache->GetCacheFilePath(resource_id, file_md5,
+          GDataCache::CACHE_TYPE_PERSISTENT,
+          GDataCache::CACHED_FILE_LOCALLY_MODIFIED),
+     kReadOnlyFilePermissions));
+  cache_paths->push_back(std::make_pair(
+      cache->GetCacheFilePath(resource_id, file_md5,
+          GDataCache::CACHE_TYPE_PERSISTENT,
+          GDataCache::CACHED_FILE_MOUNTED),
+     kReadOnlyFilePermissions));
+  cache_paths->push_back(std::make_pair(
+      cache->GetCacheFilePath(resource_id, file_md5,
+          GDataCache::CACHE_TYPE_TMP,
+          GDataCache::CACHED_FILE_FROM_SERVER),
+      kReadOnlyFilePermissions));
+
+  callback.Run();
 }
 
 }  // namespace
@@ -88,24 +193,48 @@ const FilePath& GetSpecialRemoteRootPath() {
 
 GURL GetFileResourceUrl(const std::string& resource_id,
                         const std::string& file_name) {
-  return GURL(base::StringPrintf(
-      "chrome://gdata/%s/%s",
-      net::EscapePath(resource_id).c_str(),
-      net::EscapePath(file_name).c_str()));
+  std::string url(base::StringPrintf(
+      "%s:%s",
+      chrome::kDriveScheme,
+      net::EscapePath(resource_id).c_str()));
+  return GURL(url);
 }
 
 void ModifyGDataFileResourceUrl(Profile* profile,
                                 const FilePath& gdata_cache_path,
                                 GURL* url) {
-  GDataFileSystem* file_system = GetGDataFileSystem(profile);
-  if (file_system &&
-      file_system->GetGDataCacheTmpDirectory().IsParent(gdata_cache_path)) {
-    // This is a gdata cache path. Extract the resource id.
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  GDataFileSystemInterface* file_system = GetGDataFileSystem(profile);
+  if (!file_system)
+    return;
+  GDataCache* cache = GetGDataCache(profile);
+  if (!cache)
+    return;
+
+  if (cache->GetCacheDirectoryPath(GDataCache::CACHE_TYPE_TMP_DOCUMENTS).
+          IsParent(gdata_cache_path)) {
+    // Handle hosted documents. The edit url is in the temporary file, so we
+    // read it on a blocking thread.
+    GURL* edit_url = new GURL();
+    content::BrowserThread::GetBlockingPool()->PostTaskAndReply(FROM_HERE,
+        base::Bind(&GetHostedDocumentURLBlockingThread,
+                   gdata_cache_path, edit_url),
+        base::Bind(&OpenEditURLUIThread, profile, base::Owned(edit_url)));
+    *url = GURL();
+  } else if (cache->GetCacheDirectoryPath(GDataCache::CACHE_TYPE_TMP).
+                 IsParent(gdata_cache_path) ||
+             cache->GetCacheDirectoryPath(GDataCache::CACHE_TYPE_PERSISTENT).
+                 IsParent(gdata_cache_path)) {
+    // Handle all other gdata files.
     const std::string resource_id =
         gdata_cache_path.BaseName().RemoveExtension().AsUTF8Unsafe();
-    GetFileNameDelegate delegate;
-    file_system->FindFileByResourceIdSync(resource_id, &delegate);
-    *url = gdata::util::GetFileResourceUrl(resource_id, delegate.file_name());
+    file_system->GetFileInfoByResourceId(
+        resource_id,
+        base::Bind(&OnGetFileInfoByResourceId,
+                   profile,
+                   resource_id));
+    *url = GURL();
   }
 }
 
@@ -121,7 +250,7 @@ FilePath ExtractGDataPath(const FilePath& path) {
   std::vector<FilePath::StringType> components;
   path.GetComponents(&components);
 
-  // -1 to include 'gdata'.
+  // -1 to include 'drive'.
   FilePath extracted;
   for (size_t i = arraysize(kGDataMountPointPathComponents) - 1;
        i < components.size(); ++i) {
@@ -130,54 +259,48 @@ FilePath ExtractGDataPath(const FilePath& path) {
   return extracted;
 }
 
+void InsertGDataCachePathsPermissions(
+    Profile* profile,
+    scoped_ptr<std::vector<FilePath> > gdata_paths,
+    std::vector<std::pair<FilePath, int> >* cache_paths,
+    const base::Closure& callback) {
+  DCHECK(profile);
+  DCHECK(gdata_paths.get());
+  DCHECK(cache_paths);
+  DCHECK(!callback.is_null());
 
-void SetPermissionsForGDataCacheFiles(Profile* profile,
-                                      int pid,
-                                      const FilePath& path) {
-  GDataFileSystem* file_system = GetGDataFileSystem(profile);
-  if (!file_system)
+  GDataFileSystemInterface* file_system = GetGDataFileSystem(profile);
+  if (!file_system || gdata_paths->empty()) {
+    callback.Run();
     return;
-
-  GDataFileProperties file_properties;
-  file_system->GetFileInfoFromPath(path, &file_properties);
-
-  std::string resource_id = file_properties.resource_id;
-  std::string file_md5 = file_properties.file_md5;
-
-  // We check permissions for raw cache file paths only for read-only
-  // operations (when fileEntry.file() is called), so read only permissions
-  // should be sufficient for all cache paths. For the rest of supported
-  // operations the file access check is done for gdata/ paths.
-  std::vector<std::pair<FilePath, int> > cache_paths;
-  cache_paths.push_back(std::make_pair(
-      file_system->GetCacheFilePath(resource_id, file_md5,
-          GDataRootDirectory::CACHE_TYPE_PERSISTENT,
-          GDataFileSystem::CACHED_FILE_FROM_SERVER),
-      kReadOnlyFilePermissions));
-  // TODO(tbarzic): When we start supporting openFile operation, we may have to
-  // change permission for localy modified files to match handler's permissions.
-  cache_paths.push_back(std::make_pair(
-      file_system->GetCacheFilePath(resource_id, file_md5,
-          GDataRootDirectory::CACHE_TYPE_PERSISTENT,
-          GDataFileSystem::CACHED_FILE_LOCALLY_MODIFIED),
-     kReadOnlyFilePermissions));
-  cache_paths.push_back(std::make_pair(
-      file_system->GetCacheFilePath(resource_id, file_md5,
-          GDataRootDirectory::CACHE_TYPE_TMP,
-          GDataFileSystem::CACHED_FILE_FROM_SERVER),
-      kReadOnlyFilePermissions));
-
-  for (size_t i = 0; i < cache_paths.size(); i++) {
-    content::ChildProcessSecurityPolicy::GetInstance()->GrantPermissionsForFile(
-        pid, cache_paths[i].first, cache_paths[i].second);
   }
+
+  // Remove one file path entry from the back of the input vector |gdata_paths|.
+  FilePath gdata_path = gdata_paths->back();
+  gdata_paths->pop_back();
+
+  // Call GetFileInfoByPath() to get file info for |gdata_path| then insert
+  // all possible cache paths to the output vector |cache_paths|.
+  // Note that we can only process one file path at a time. Upon completion
+  // of OnGetFileInfoForInsertGDataCachePathsPermissions(), we recursively call
+  // InsertGDataCachePathsPermissions() to process the next file path from the
+  // back of the input vector |gdata_paths| until it is empty.
+  file_system->GetFileInfoByPath(
+      gdata_path,
+      base::Bind(&OnGetFileInfoForInsertGDataCachePathsPermissions,
+                 profile,
+                 cache_paths,
+                 base::Bind(&InsertGDataCachePathsPermissions,
+                             profile,
+                             base::Passed(&gdata_paths),
+                             cache_paths,
+                             callback)));
 }
 
 bool IsGDataAvailable(Profile* profile) {
-  // We allow GData only in canary and dev channels.  http://crosbug.com/28806
-  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  if (channel == chrome::VersionInfo::CHANNEL_BETA ||
-      channel == chrome::VersionInfo::CHANNEL_STABLE)
+  if (!chromeos::UserManager::Get()->IsUserLoggedIn() ||
+      chromeos::UserManager::Get()->IsLoggedInAsGuest() ||
+      chromeos::UserManager::Get()->IsLoggedInAsDemoUser())
     return false;
 
   // Do not allow GData for incognito windows / guest mode.
@@ -191,6 +314,134 @@ bool IsGDataAvailable(Profile* profile) {
     return false;
 
   return true;
+}
+
+std::string EscapeCacheFileName(const std::string& filename) {
+  // This is based on net/base/escape.cc: net::(anonymous namespace)::Escape
+  std::string escaped;
+  for (size_t i = 0; i < filename.size(); ++i) {
+    char c = filename[i];
+    if (c == '%' || c == '.' || c == '/') {
+      base::StringAppendF(&escaped, "%%%02X", c);
+    } else {
+      escaped.push_back(c);
+    }
+  }
+  return escaped;
+}
+
+std::string UnescapeCacheFileName(const std::string& filename) {
+  std::string unescaped;
+  for (size_t i = 0; i < filename.size(); ++i) {
+    char c = filename[i];
+    if (c == '%' && i + 2 < filename.length()) {
+      c = (HexDigitToInt(filename[i + 1]) << 4) +
+           HexDigitToInt(filename[i + 2]);
+      i += 2;
+    }
+    unescaped.push_back(c);
+  }
+  return unescaped;
+}
+
+void ParseCacheFilePath(const FilePath& path,
+                        std::string* resource_id,
+                        std::string* md5,
+                        std::string* extra_extension) {
+  DCHECK(resource_id);
+  DCHECK(md5);
+  DCHECK(extra_extension);
+
+  // Extract up to two extensions from the right.
+  FilePath base_name = path.BaseName();
+  const int kNumExtensionsToExtract = 2;
+  std::vector<FilePath::StringType> extensions;
+  for (int i = 0; i < kNumExtensionsToExtract; ++i) {
+    FilePath::StringType extension = base_name.Extension();
+    if (!extension.empty()) {
+      // FilePath::Extension returns ".", so strip it.
+      extension = UnescapeCacheFileName(extension.substr(1));
+      base_name = base_name.RemoveExtension();
+      extensions.push_back(extension);
+    } else {
+      break;
+    }
+  }
+
+  // The base_name here is already stripped of extensions in the loop above.
+  *resource_id = UnescapeCacheFileName(base_name.value());
+
+  // Assign the extracted extensions to md5 and extra_extension.
+  int extension_count = extensions.size();
+  *md5 = (extension_count > 0) ? extensions[extension_count - 1] :
+                                 std::string();
+  *extra_extension = (extension_count > 1) ? extensions[extension_count - 2] :
+                                             std::string();
+}
+
+bool IsDriveV2ApiEnabled() {
+  static bool enabled = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableDriveV2Api);
+  return enabled;
+}
+
+base::PlatformFileError GDataFileErrorToPlatformError(
+    gdata::GDataFileError error) {
+  switch (error) {
+    case gdata::GDATA_FILE_OK:
+      return base::PLATFORM_FILE_OK;
+
+    case gdata::GDATA_FILE_ERROR_FAILED:
+      return base::PLATFORM_FILE_ERROR_FAILED;
+
+    case gdata::GDATA_FILE_ERROR_IN_USE:
+      return base::PLATFORM_FILE_ERROR_IN_USE;
+
+    case gdata::GDATA_FILE_ERROR_EXISTS:
+      return base::PLATFORM_FILE_ERROR_EXISTS;
+
+    case gdata::GDATA_FILE_ERROR_NOT_FOUND:
+      return base::PLATFORM_FILE_ERROR_NOT_FOUND;
+
+    case gdata::GDATA_FILE_ERROR_ACCESS_DENIED:
+      return base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
+
+    case gdata::GDATA_FILE_ERROR_TOO_MANY_OPENED:
+      return base::PLATFORM_FILE_ERROR_TOO_MANY_OPENED;
+
+    case gdata::GDATA_FILE_ERROR_NO_MEMORY:
+      return base::PLATFORM_FILE_ERROR_NO_MEMORY;
+
+    case gdata::GDATA_FILE_ERROR_NO_SPACE:
+      return base::PLATFORM_FILE_ERROR_NO_SPACE;
+
+    case gdata::GDATA_FILE_ERROR_NOT_A_DIRECTORY:
+      return base::PLATFORM_FILE_ERROR_NOT_A_DIRECTORY;
+
+    case gdata::GDATA_FILE_ERROR_INVALID_OPERATION:
+      return base::PLATFORM_FILE_ERROR_INVALID_OPERATION;
+
+    case gdata::GDATA_FILE_ERROR_SECURITY:
+      return base::PLATFORM_FILE_ERROR_SECURITY;
+
+    case gdata::GDATA_FILE_ERROR_ABORT:
+      return base::PLATFORM_FILE_ERROR_ABORT;
+
+    case gdata::GDATA_FILE_ERROR_NOT_A_FILE:
+      return base::PLATFORM_FILE_ERROR_NOT_A_FILE;
+
+    case gdata::GDATA_FILE_ERROR_NOT_EMPTY:
+      return base::PLATFORM_FILE_ERROR_NOT_EMPTY;
+
+    case gdata::GDATA_FILE_ERROR_INVALID_URL:
+      return base::PLATFORM_FILE_ERROR_INVALID_URL;
+
+    case gdata::GDATA_FILE_ERROR_NO_CONNECTION:
+      return base::PLATFORM_FILE_ERROR_FAILED;
+  }
+
+  NOTREACHED();
+  return base::PLATFORM_FILE_ERROR_FAILED;
 }
 
 }  // namespace util

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_OPTIONS_WIFI_CONFIG_VIEW_H_
 #define CHROME_BROWSER_CHROMEOS_OPTIONS_WIFI_CONFIG_VIEW_H_
-#pragma once
 
 #include <string>
 
@@ -27,6 +26,14 @@ class ToggleImageButton;
 }
 
 namespace chromeos {
+
+namespace internal {
+class EAPMethodComboboxModel;
+class Phase2AuthComboboxModel;
+class SecurityComboboxModel;
+class ServerCACertComboboxModel;
+class UserCertComboboxModel;
+}
 
 // A dialog box for showing a password textfield.
 class WifiConfigView : public ChildNetworkConfigView,
@@ -59,12 +66,23 @@ class WifiConfigView : public ChildNetworkConfigView,
   virtual void OnCertificatesLoaded(bool initial_load) OVERRIDE;
 
   // ChildNetworkConfigView:
-  virtual string16 GetTitle() OVERRIDE;
   virtual views::View* GetInitiallyFocusedView() OVERRIDE;
   virtual bool CanLogin() OVERRIDE;
   virtual bool Login() OVERRIDE;
   virtual void Cancel() OVERRIDE;
   virtual void InitFocus() OVERRIDE;
+
+  // Parses a WiFi UI |property| from the ONC associated with |network|. |key|
+  // is the property name within the ONC WiFi dictionary.
+  static void ParseWiFiUIProperty(NetworkPropertyUIData* property_ui_data,
+                                  Network* network,
+                                  const std::string& key);
+
+  // Parses a WiFi EAP UI |property| from the ONC associated with |network|.
+  // |key| is the property name within the ONC WiFi.EAP dictionary.
+  static void ParseWiFiEAPUIProperty(NetworkPropertyUIData* property_ui_data,
+                                     Network* network,
+                                     const std::string& key);
 
  private:
   // Initializes UI.  If |show_8021x| includes 802.1x config options.
@@ -118,18 +136,6 @@ class WifiConfigView : public ChildNetworkConfigView,
   // Updates the error text label.
   void UpdateErrorLabel();
 
-  // Parses a WiFi UI |property| from the ONC associated with |network|. |key|
-  // is the property name within the ONC WiFi dictionary.
-  void ParseWiFiUIProperty(NetworkPropertyUIData* property_ui_data,
-                           Network* network,
-                           const std::string& key);
-
-  // Parses a WiFi EAP UI |property| from the ONC associated with |network|.
-  // |key| is the property name within the ONC WiFi.EAP dictionary.
-  void ParseWiFiEAPUIProperty(NetworkPropertyUIData* property_ui_data,
-                              Network* network,
-                              const std::string& key);
-
   CertLibrary* cert_library_;
 
   NetworkPropertyUIData eap_method_ui_data_;
@@ -142,12 +148,17 @@ class WifiConfigView : public ChildNetworkConfigView,
   NetworkPropertyUIData passphrase_ui_data_;
 
   views::Textfield* ssid_textfield_;
+  scoped_ptr<internal::EAPMethodComboboxModel> eap_method_combobox_model_;
   views::Combobox* eap_method_combobox_;
   views::Label* phase_2_auth_label_;
+  scoped_ptr<internal::Phase2AuthComboboxModel> phase_2_auth_combobox_model_;
   views::Combobox* phase_2_auth_combobox_;
   views::Label* user_cert_label_;
+  scoped_ptr<internal::UserCertComboboxModel> user_cert_combobox_model_;
   views::Combobox* user_cert_combobox_;
   views::Label* server_ca_cert_label_;
+  scoped_ptr<internal::ServerCACertComboboxModel>
+      server_ca_cert_combobox_model_;
   views::Combobox* server_ca_cert_combobox_;
   views::Label* identity_label_;
   views::Textfield* identity_textfield_;
@@ -156,6 +167,7 @@ class WifiConfigView : public ChildNetworkConfigView,
   views::Checkbox* save_credentials_checkbox_;
   views::Checkbox* share_network_checkbox_;
   views::Label* shared_network_label_;
+  scoped_ptr<internal::SecurityComboboxModel> security_combobox_model_;
   views::Combobox* security_combobox_;
   views::Label* passphrase_label_;
   views::Textfield* passphrase_textfield_;

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_WEBUI_EXTENSIONS_EXTENSION_SETTINGS_HANDLER_H_
 #define CHROME_BROWSER_UI_WEBUI_EXTENSIONS_EXTENSION_SETTINGS_HANDLER_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -14,6 +13,7 @@
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_uninstall_dialog.h"
 #include "chrome/browser/extensions/extension_warning_set.h"
+#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/ui/select_file_dialog.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "content/public/browser/navigation_controller.h"
@@ -24,16 +24,19 @@
 #include "content/public/browser/web_ui_message_handler.h"
 #include "googleurl/src/gurl.h"
 
-class Extension;
 class ExtensionHost;
 class ExtensionService;
 class FilePath;
 class PrefService;
-class UserScript;
 
 namespace base {
 class DictionaryValue;
 class ListValue;
+}
+
+namespace extensions {
+class Extension;
+class ManagementPolicy;
 }
 
 // Information about a page running in an extension, for example a popup bubble,
@@ -67,7 +70,7 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   // testing.
   // Note: |warning_set| can be NULL in unit tests.
   base::DictionaryValue* CreateExtensionDetailValue(
-      const Extension* extension,
+      const extensions::Extension* extension,
       const std::vector<ExtensionPage>& pages,
       const ExtensionWarningSet* warning_set);
 
@@ -80,6 +83,12 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
       content::NavigationController::ReloadType reload_type) OVERRIDE;
 
  private:
+  friend class ExtensionUITest;
+
+  // Allows injection for testing by friend classes.
+  ExtensionSettingsHandler(ExtensionService* service,
+                           extensions::ManagementPolicy* policy);
+
   // WebUIMessageHandler implementation.
   virtual void RegisterMessages() OVERRIDE;
 
@@ -143,7 +152,8 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   void ShowAlert(const std::string& message);
 
   // Utility for callbacks that get an extension ID as the sole argument.
-  const Extension* GetExtension(const base::ListValue* args);
+  // Returns NULL if the extension isn't active.
+  const extensions::Extension* GetActiveExtension(const base::ListValue* args);
 
   // Forces a UI update if appropriate after a notification is received.
   void MaybeUpdateAfterNotification();
@@ -153,7 +163,7 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
 
   // Helper that lists the current inspectable html pages for an extension.
   std::vector<ExtensionPage> GetInspectablePagesForExtension(
-      const Extension* extension, bool extension_is_enabled);
+      const extensions::Extension* extension, bool extension_is_enabled);
   void GetInspectablePagesForExtensionProcess(
       const std::set<content::RenderViewHost*>& views,
       std::vector<ExtensionPage> *result);
@@ -166,11 +176,17 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   void InspectExtensionHost(ExtensionHost* host);
 
   // Our model.  Outlives us since it's owned by our containing profile.
-  // Note: This may be NULL in unit tests.
   ExtensionService* extension_service_;
+
+  // A convenience member, filled once the extension_service_ is known.
+  extensions::ManagementPolicy* management_policy_;
 
   // Used to pick the directory when loading an extension.
   scoped_refptr<SelectFileDialog> load_extension_dialog_;
+
+  // Used to start the |load_extension_dialog_| in the last directory that was
+  // loaded.
+  FilePath last_unpacked_directory_;
 
   // Used to show confirmation UI for uninstalling extensions in incognito mode.
   scoped_ptr<ExtensionUninstallDialog> extension_uninstall_dialog_;
@@ -197,6 +213,9 @@ class ExtensionSettingsHandler : public content::WebUIMessageHandler,
   bool registered_for_notifications_;
 
   content::NotificationRegistrar registrar_;
+
+  PrefChangeRegistrar pref_registrar_;
+  PrefChangeRegistrar local_state_pref_registrar_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionSettingsHandler);
 };

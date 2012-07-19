@@ -294,6 +294,8 @@ struct sslSocketOpsStr {
 #define ssl_SEND_FLAG_NO_BUFFER		0x20000000
 #define ssl_SEND_FLAG_USE_EPOCH		0x10000000 /* DTLS only */
 #define ssl_SEND_FLAG_NO_RETRANSMIT	0x08000000 /* DTLS only */
+#define ssl_SEND_FLAG_CAP_RECORD_VERSION \
+					0x04000000 /* TLS only */
 #define ssl_SEND_FLAG_MASK		0x7f000000
 
 /*
@@ -328,6 +330,8 @@ typedef struct {
 #define ssl_V3_SUITES_IMPLEMENTED 30
 #endif /* NSS_ENABLE_ECC */
 
+#define MAX_DTLS_SRTP_CIPHER_SUITES 4
+
 typedef struct sslOptionsStr {
     /* If SSL_SetNextProtoNego has been called, then this contains the
      * list of supported protocols. */
@@ -356,8 +360,6 @@ typedef struct sslOptionsStr {
     unsigned int enableFalseStart       : 1;  /* 23 */
     unsigned int cbcRandomIV            : 1;  /* 24 */
     unsigned int enableOCSPStapling     : 1;  /* 25 */
-    unsigned int enableOBCerts          : 1;  /* 26 */
-    unsigned int encryptClientCerts     : 1;  /* 27 */
 } sslOptions;
 
 typedef enum { sslHandshakingUndetermined = 0,
@@ -932,6 +934,9 @@ struct ssl3StateStr {
     CERTCertificateList *clientCertChain;    /* used by client */
     PRBool               sendEmptyCert;      /* used by client */
 
+    SECKEYPrivateKey    *channelID;          /* used by client */
+    SECKEYPublicKey     *channelIDPub;       /* used by client */
+
     int                  policy;
 			/* This says what cipher suites we can do, and should 
 			 * be either SSL_ALLOWED or SSL_RESTRICTED 
@@ -953,6 +958,11 @@ struct ssl3StateStr {
     SSLNextProtoState    nextProtoState;
 
     PRUint16             mtu;   /* Our estimate of the MTU */
+
+    /* DTLS-SRTP cipher suite preferences (if any) */
+    PRUint16             dtlsSRTPCiphers[MAX_DTLS_SRTP_CIPHER_SUITES];
+    PRUint16             dtlsSRTPCipherCount;
+    PRUint16             dtlsSRTPCipherSuite;	/* 0 if not selected */
 };
 
 #define DTLS_MAX_MTU  1500      /* Ethernet MTU but without subtracting the
@@ -1200,6 +1210,8 @@ const unsigned char *  preferredCipher;
     void                     *pkcs11PinArg;
     SSLNextProtoCallback      nextProtoCallback;
     void                     *nextProtoArg;
+    SSLClientChannelIDCallback getChannelID;
+    void                     *getChannelIDArg;
 
     PRIntervalTime            rTimeout; /* timeout for NSPR I/O */
     PRIntervalTime            wTimeout; /* timeout for NSPR I/O */
@@ -1404,6 +1416,7 @@ extern SECStatus
 ssl3_CompressMACEncryptRecord(ssl3CipherSpec *   cwSpec,
 		              PRBool             isServer,
 			      PRBool             isDTLS,
+			      PRBool             capRecordVersion,
                               SSL3ContentType    type,
 		              const SSL3Opaque * pIn,
 		              PRUint32           contentLen,
@@ -1530,6 +1543,11 @@ extern SECStatus ssl3_RestartHandshakeAfterCertReq(sslSocket *    ss,
 					     CERTCertificate *    cert, 
 					     SECKEYPrivateKey *   key,
 					     CERTCertificateList *certChain);
+
+extern SECStatus ssl3_RestartHandshakeAfterChannelIDReq(
+    sslSocket *ss,
+    SECKEYPublicKey *channelIDPub,
+    SECKEYPrivateKey *channelID);
 
 extern SECStatus ssl3_AuthCertificateComplete(sslSocket *ss, PRErrorCode error);
 
@@ -1702,11 +1720,7 @@ extern SECStatus ssl3_ClientHandleSessionTicketXtn(sslSocket *ss,
 			PRUint16 ex_type, SECItem *data);
 extern SECStatus ssl3_ClientHandleStatusRequestXtn(sslSocket *ss,
 			PRUint16 ex_type, SECItem *data);
-extern SECStatus ssl3_ClientHandleOBCertXtn(sslSocket *ss,
-			PRUint16 ex_type, SECItem *data);
 extern SECStatus ssl3_ServerHandleSessionTicketXtn(sslSocket *ss,
-			PRUint16 ex_type, SECItem *data);
-extern SECStatus ssl3_ServerHandleOBCertXtn(sslSocket *ss,
 			PRUint16 ex_type, SECItem *data);
 
 /* ClientHello and ServerHello extension senders.
@@ -1723,8 +1737,6 @@ extern PRInt32 ssl3_ClientSendStatusRequestXtn(sslSocket *ss, PRBool append,
  */
 extern PRInt32 ssl3_SendServerNameXtn(sslSocket *ss, PRBool append,
                      PRUint32 maxBytes);
-extern PRInt32 ssl3_SendOBCertXtn(sslSocket *ss, PRBool append,
-			PRUint32 maxBytes);
 
 /* Assigns new cert, cert chain and keys to ss->serverCerts
  * struct. If certChain is NULL, tries to find one. Aborts if
@@ -1765,6 +1777,11 @@ extern PRBool ssl_GetSessionTicketKeysPKCS11(SECKEYPrivateKey *svrPrivKey,
 
 extern SECStatus ssl3_ValidateNextProtoNego(const unsigned char* data,
 					    unsigned int length);
+
+extern SECStatus ssl3_GetTLSUniqueChannelBinding(sslSocket *ss,
+						 unsigned char *out,
+						 unsigned int *outLen,
+						 unsigned int outLenMax);
 
 /* Construct a new NSPR socket for the app to use */
 extern PRFileDesc *ssl_NewPRSocket(sslSocket *ss, PRFileDesc *fd);

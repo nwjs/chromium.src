@@ -12,6 +12,7 @@
 #include "chrome/browser/chromeos/cros/onc_constants.h"
 #include "chrome/browser/chromeos/enrollment_dialog_view.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
@@ -36,143 +37,6 @@ bool Is8021x(const WifiNetwork* wifi) {
   return wifi && wifi->encrypted() && wifi->encryption() == SECURITY_8021X;
 }
 
-enum SecurityComboboxIndex {
-  SECURITY_INDEX_NONE  = 0,
-  SECURITY_INDEX_WEP   = 1,
-  SECURITY_INDEX_PSK   = 2,
-  SECURITY_INDEX_COUNT = 3
-};
-
-class SecurityComboboxModel : public ui::ComboboxModel {
- public:
-  SecurityComboboxModel() {}
-  virtual ~SecurityComboboxModel() {}
-
-  // Overridden from ui::ComboboxModel:
-  virtual int GetItemCount() const OVERRIDE {
-    return SECURITY_INDEX_COUNT;
-  }
-  virtual string16 GetItemAt(int index) OVERRIDE {
-    if (index == SECURITY_INDEX_NONE)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY_NONE);
-    else if (index == SECURITY_INDEX_WEP)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY_WEP);
-    else if (index == SECURITY_INDEX_PSK)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY_PSK);
-    NOTREACHED();
-    return string16();
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(SecurityComboboxModel);
-};
-
-// Methods in alphabetical order.
-enum EAPMethodComboboxIndex {
-  EAP_METHOD_INDEX_NONE  = 0,
-  EAP_METHOD_INDEX_LEAP  = 1,
-  EAP_METHOD_INDEX_PEAP  = 2,
-  EAP_METHOD_INDEX_TLS   = 3,
-  EAP_METHOD_INDEX_TTLS  = 4,
-  EAP_METHOD_INDEX_COUNT = 5
-};
-
-class EAPMethodComboboxModel : public ui::ComboboxModel {
- public:
-  EAPMethodComboboxModel() {}
-  virtual ~EAPMethodComboboxModel() {}
-
-  // Overridden from ui::ComboboxModel:
-  virtual int GetItemCount() const OVERRIDE {
-    return EAP_METHOD_INDEX_COUNT;
-  }
-  virtual string16 GetItemAt(int index) OVERRIDE {
-    if (index == EAP_METHOD_INDEX_NONE)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_NONE);
-    else if (index == EAP_METHOD_INDEX_LEAP)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_LEAP);
-    else if (index == EAP_METHOD_INDEX_PEAP)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_PEAP);
-    else if (index == EAP_METHOD_INDEX_TLS)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_TLS);
-    else if (index == EAP_METHOD_INDEX_TTLS)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_TTLS);
-    NOTREACHED();
-    return string16();
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(EAPMethodComboboxModel);
-};
-
-enum Phase2AuthComboboxIndex {
-  PHASE_2_AUTH_INDEX_AUTO     = 0,  // LEAP, EAP-TLS have only this auth.
-  PHASE_2_AUTH_INDEX_MD5      = 1,
-  PHASE_2_AUTH_INDEX_MSCHAPV2 = 2,  // PEAP has up to this auth.
-  PHASE_2_AUTH_INDEX_MSCHAP   = 3,
-  PHASE_2_AUTH_INDEX_PAP      = 4,
-  PHASE_2_AUTH_INDEX_CHAP     = 5,  // EAP-TTLS has up to this auth.
-  PHASE_2_AUTH_INDEX_COUNT    = 6
-};
-
-class Phase2AuthComboboxModel : public ui::ComboboxModel {
- public:
-  explicit Phase2AuthComboboxModel(views::Combobox* eap_method_combobox)
-      : eap_method_combobox_(eap_method_combobox) {}
-  virtual ~Phase2AuthComboboxModel() {}
-
-  // Overridden from ui::ComboboxModel:
-  virtual int GetItemCount() const OVERRIDE {
-    switch (eap_method_combobox_->selected_index()) {
-      case EAP_METHOD_INDEX_NONE:
-      case EAP_METHOD_INDEX_TLS:
-      case EAP_METHOD_INDEX_LEAP:
-        return PHASE_2_AUTH_INDEX_AUTO + 1;
-      case EAP_METHOD_INDEX_PEAP:
-        return PHASE_2_AUTH_INDEX_MSCHAPV2 + 1;
-      case EAP_METHOD_INDEX_TTLS:
-        return PHASE_2_AUTH_INDEX_CHAP + 1;
-    }
-    NOTREACHED();
-    return 0;
-  }
-  virtual string16 GetItemAt(int index) OVERRIDE {
-    if (index == PHASE_2_AUTH_INDEX_AUTO)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_AUTO);
-    else if (index == PHASE_2_AUTH_INDEX_MD5)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_MD5);
-    else if (index == PHASE_2_AUTH_INDEX_MSCHAPV2)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_MSCHAPV2);
-    else if (index == PHASE_2_AUTH_INDEX_MSCHAP)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_MSCHAP);
-    else if (index == PHASE_2_AUTH_INDEX_PAP)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_PAP);
-    else if (index == PHASE_2_AUTH_INDEX_CHAP)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_CHAP);
-    NOTREACHED();
-    return string16();
-  }
-
- private:
-  views::Combobox* eap_method_combobox_;
-
-  DISALLOW_COPY_AND_ASSIGN(Phase2AuthComboboxModel);
-};
-
 // Combobox that supports a preferred width.  Used by Server CA combobox
 // because the strings inside it are too wide.
 class ComboboxWithWidth : public views::Combobox {
@@ -192,34 +56,86 @@ class ComboboxWithWidth : public views::Combobox {
   DISALLOW_COPY_AND_ASSIGN(ComboboxWithWidth);
 };
 
-class ServerCACertComboboxModel : public ui::ComboboxModel {
+enum SecurityComboboxIndex {
+  SECURITY_INDEX_NONE  = 0,
+  SECURITY_INDEX_WEP   = 1,
+  SECURITY_INDEX_PSK   = 2,
+  SECURITY_INDEX_COUNT = 3
+};
+
+// Methods in alphabetical order.
+enum EAPMethodComboboxIndex {
+  EAP_METHOD_INDEX_NONE  = 0,
+  EAP_METHOD_INDEX_LEAP  = 1,
+  EAP_METHOD_INDEX_PEAP  = 2,
+  EAP_METHOD_INDEX_TLS   = 3,
+  EAP_METHOD_INDEX_TTLS  = 4,
+  EAP_METHOD_INDEX_COUNT = 5
+};
+
+enum Phase2AuthComboboxIndex {
+  PHASE_2_AUTH_INDEX_AUTO     = 0,  // LEAP, EAP-TLS have only this auth.
+  PHASE_2_AUTH_INDEX_MD5      = 1,
+  PHASE_2_AUTH_INDEX_MSCHAPV2 = 2,  // PEAP has up to this auth.
+  PHASE_2_AUTH_INDEX_MSCHAP   = 3,
+  PHASE_2_AUTH_INDEX_PAP      = 4,
+  PHASE_2_AUTH_INDEX_CHAP     = 5,  // EAP-TTLS has up to this auth.
+  PHASE_2_AUTH_INDEX_COUNT    = 6
+};
+
+}  // namespace
+
+namespace internal {
+
+class SecurityComboboxModel : public ui::ComboboxModel {
  public:
-  explicit ServerCACertComboboxModel(CertLibrary* cert_library)
-      : cert_library_(cert_library) {
-    DCHECK(cert_library);
-  }
-  virtual ~ServerCACertComboboxModel() {}
+  SecurityComboboxModel();
+  virtual ~SecurityComboboxModel();
 
   // Overridden from ui::ComboboxModel:
-  virtual int GetItemCount() const OVERRIDE {
-    if (cert_library_->CertificatesLoading())
-      return 1;  // "Loading"
-    // First "Default", then the certs, then "Do not check".
-    return cert_library_->GetCACertificates().Size() + 2;
-  }
-  virtual string16 GetItemAt(int index) OVERRIDE {
-    if (cert_library_->CertificatesLoading())
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_LOADING);
-    if (index == 0)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_SERVER_CA_DEFAULT);
-    if (index == GetItemCount() - 1)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_SERVER_CA_DO_NOT_CHECK);
-    int cert_index = index - 1;
-    return cert_library_->GetCACertificates().GetDisplayStringAt(cert_index);
-  }
+  virtual int GetItemCount() const OVERRIDE;
+  virtual string16 GetItemAt(int index) OVERRIDE;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(SecurityComboboxModel);
+};
+
+class EAPMethodComboboxModel : public ui::ComboboxModel {
+ public:
+  EAPMethodComboboxModel();
+  virtual ~EAPMethodComboboxModel();
+
+  // Overridden from ui::ComboboxModel:
+  virtual int GetItemCount() const OVERRIDE;
+  virtual string16 GetItemAt(int index) OVERRIDE;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(EAPMethodComboboxModel);
+};
+
+class Phase2AuthComboboxModel : public ui::ComboboxModel {
+ public:
+  explicit Phase2AuthComboboxModel(views::Combobox* eap_method_combobox);
+  virtual ~Phase2AuthComboboxModel();
+
+  // Overridden from ui::ComboboxModel:
+  virtual int GetItemCount() const OVERRIDE;
+  virtual string16 GetItemAt(int index) OVERRIDE;
+
+ private:
+  views::Combobox* eap_method_combobox_;
+
+  DISALLOW_COPY_AND_ASSIGN(Phase2AuthComboboxModel);
+};
+
+class ServerCACertComboboxModel : public ui::ComboboxModel {
+ public:
+  explicit ServerCACertComboboxModel(CertLibrary* cert_library);
+  virtual ~ServerCACertComboboxModel();
+
+  // Overridden from ui::ComboboxModel:
+  virtual int GetItemCount() const OVERRIDE;
+  virtual string16 GetItemAt(int index) OVERRIDE;
 
  private:
   CertLibrary* cert_library_;
@@ -228,30 +144,12 @@ class ServerCACertComboboxModel : public ui::ComboboxModel {
 
 class UserCertComboboxModel : public ui::ComboboxModel {
  public:
-  explicit UserCertComboboxModel(CertLibrary* cert_library)
-      : cert_library_(cert_library) {
-    DCHECK(cert_library);
-  }
-  virtual ~UserCertComboboxModel() {}
+  explicit UserCertComboboxModel(CertLibrary* cert_library);
+  virtual ~UserCertComboboxModel();
 
   // Overridden from ui::ComboboxModel:
-  virtual int GetItemCount() const OVERRIDE {
-    if (cert_library_->CertificatesLoading())
-      return 1;  // "Loading"
-    int num_certs = cert_library_->GetUserCertificates().Size();
-    if (num_certs == 0)
-      return 1;  // "None installed"
-    return num_certs;
-  }
-  virtual string16 GetItemAt(int index) OVERRIDE {
-    if (cert_library_->CertificatesLoading())
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_LOADING);
-    if (cert_library_->GetUserCertificates().Size() == 0)
-      return l10n_util::GetStringUTF16(
-          IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_USER_CERT_NONE_INSTALLED);
-    return cert_library_->GetUserCertificates().GetDisplayStringAt(index);
-  }
+  virtual int GetItemCount() const OVERRIDE;
+  virtual string16 GetItemAt(int index) OVERRIDE;
 
  private:
   CertLibrary* cert_library_;
@@ -259,7 +157,171 @@ class UserCertComboboxModel : public ui::ComboboxModel {
   DISALLOW_COPY_AND_ASSIGN(UserCertComboboxModel);
 };
 
-}  // namespace
+// SecurityComboboxModel -------------------------------------------------------
+
+SecurityComboboxModel::SecurityComboboxModel() {
+}
+
+SecurityComboboxModel::~SecurityComboboxModel() {
+}
+
+int SecurityComboboxModel::GetItemCount() const {
+    return SECURITY_INDEX_COUNT;
+  }
+string16 SecurityComboboxModel::GetItemAt(int index) {
+  if (index == SECURITY_INDEX_NONE)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY_NONE);
+  else if (index == SECURITY_INDEX_WEP)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY_WEP);
+  else if (index == SECURITY_INDEX_PSK)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY_PSK);
+  NOTREACHED();
+  return string16();
+}
+
+// EAPMethodComboboxModel ------------------------------------------------------
+
+EAPMethodComboboxModel::EAPMethodComboboxModel() {
+}
+
+EAPMethodComboboxModel::~EAPMethodComboboxModel() {
+}
+
+int EAPMethodComboboxModel::GetItemCount() const {
+  return EAP_METHOD_INDEX_COUNT;
+}
+string16 EAPMethodComboboxModel::GetItemAt(int index) {
+  if (index == EAP_METHOD_INDEX_NONE)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_NONE);
+  else if (index == EAP_METHOD_INDEX_LEAP)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_LEAP);
+  else if (index == EAP_METHOD_INDEX_PEAP)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_PEAP);
+  else if (index == EAP_METHOD_INDEX_TLS)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_TLS);
+  else if (index == EAP_METHOD_INDEX_TTLS)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD_TTLS);
+  NOTREACHED();
+  return string16();
+}
+
+// Phase2AuthComboboxModel -----------------------------------------------------
+
+Phase2AuthComboboxModel::Phase2AuthComboboxModel(
+    views::Combobox* eap_method_combobox)
+    : eap_method_combobox_(eap_method_combobox) {
+}
+
+Phase2AuthComboboxModel::~Phase2AuthComboboxModel() {
+}
+
+int Phase2AuthComboboxModel::GetItemCount() const {
+  switch (eap_method_combobox_->selected_index()) {
+    case EAP_METHOD_INDEX_NONE:
+    case EAP_METHOD_INDEX_TLS:
+    case EAP_METHOD_INDEX_LEAP:
+      return PHASE_2_AUTH_INDEX_AUTO + 1;
+    case EAP_METHOD_INDEX_PEAP:
+      return PHASE_2_AUTH_INDEX_MSCHAPV2 + 1;
+    case EAP_METHOD_INDEX_TTLS:
+      return PHASE_2_AUTH_INDEX_CHAP + 1;
+  }
+  NOTREACHED();
+  return 0;
+}
+
+string16 Phase2AuthComboboxModel::GetItemAt(int index) {
+  if (index == PHASE_2_AUTH_INDEX_AUTO)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_AUTO);
+  else if (index == PHASE_2_AUTH_INDEX_MD5)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_MD5);
+  else if (index == PHASE_2_AUTH_INDEX_MSCHAPV2)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_MSCHAPV2);
+  else if (index == PHASE_2_AUTH_INDEX_MSCHAP)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_MSCHAP);
+  else if (index == PHASE_2_AUTH_INDEX_PAP)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_PAP);
+  else if (index == PHASE_2_AUTH_INDEX_CHAP)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH_CHAP);
+  NOTREACHED();
+  return string16();
+}
+
+// ServerCACertComboboxModel ---------------------------------------------------
+
+ServerCACertComboboxModel::ServerCACertComboboxModel(CertLibrary* cert_library)
+    : cert_library_(cert_library) {
+  DCHECK(cert_library);
+}
+
+ServerCACertComboboxModel::~ServerCACertComboboxModel() {
+}
+
+int ServerCACertComboboxModel::GetItemCount() const {
+  if (cert_library_->CertificatesLoading())
+    return 1;  // "Loading"
+  // First "Default", then the certs, then "Do not check".
+  return cert_library_->GetCACertificates().Size() + 2;
+}
+
+string16 ServerCACertComboboxModel::GetItemAt(int index) {
+  if (cert_library_->CertificatesLoading())
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_LOADING);
+  if (index == 0)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_SERVER_CA_DEFAULT);
+  if (index == GetItemCount() - 1)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_SERVER_CA_DO_NOT_CHECK);
+  int cert_index = index - 1;
+  return cert_library_->GetCACertificates().GetDisplayStringAt(cert_index);
+}
+
+// UserCertComboboxModel -------------------------------------------------------
+
+UserCertComboboxModel::UserCertComboboxModel(CertLibrary* cert_library)
+    : cert_library_(cert_library) {
+  DCHECK(cert_library);
+}
+
+UserCertComboboxModel::~UserCertComboboxModel() {
+}
+
+int UserCertComboboxModel::GetItemCount() const {
+  if (cert_library_->CertificatesLoading())
+    return 1;  // "Loading"
+  int num_certs = cert_library_->GetUserCertificates().Size();
+  if (num_certs == 0)
+    return 1;  // "None installed"
+  return num_certs;
+}
+
+string16 UserCertComboboxModel::GetItemAt(int index) {
+  if (cert_library_->CertificatesLoading())
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_LOADING);
+  if (cert_library_->GetUserCertificates().Size() == 0)
+    return l10n_util::GetStringUTF16(
+        IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_USER_CERT_NONE_INSTALLED);
+  return cert_library_->GetUserCertificates().GetDisplayStringAt(index);
+}
+
+}  // namespace internal
 
 WifiConfigView::WifiConfigView(NetworkConfigView* parent, WifiNetwork* wifi)
     : ChildNetworkConfigView(parent, wifi),
@@ -316,10 +378,6 @@ WifiConfigView::WifiConfigView(NetworkConfigView* parent, bool show_8021x)
 WifiConfigView::~WifiConfigView() {
   if (cert_library_)
     cert_library_->RemoveObserver(this);
-}
-
-string16 WifiConfigView::GetTitle() {
-  return l10n_util::GetStringUTF16(IDS_OPTIONS_SETTINGS_JOIN_WIFI_NETWORKS);
 }
 
 views::View* WifiConfigView::GetInitiallyFocusedView() {
@@ -667,8 +725,9 @@ bool WifiConfigView::Login() {
     }
     bool share_default = (wifi->profile_type() != PROFILE_USER);
     wifi->SetEnrollmentDelegate(
-        EnrollmentDialogView::CreateEnrollmentDelegate(
-            GetWidget()->GetNativeWindow()));
+        CreateEnrollmentDelegate(GetWidget()->GetNativeWindow(),
+                                 wifi->name(),
+                                 ProfileManager::GetLastUsedProfile()));
     cros->ConnectToWifiNetwork(wifi, GetShareNetwork(share_default));
     // Connection failures are responsible for updating the UI, including
     // reopening dialogs.
@@ -821,7 +880,7 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
   views::GridLayout* layout = views::GridLayout::CreatePanel(this);
   SetLayoutManager(layout);
 
-  int column_view_set_id = 0;
+  const int column_view_set_id = 0;
   views::ColumnSet* column_set = layout->AddColumnSet(column_view_set_id);
   const int kPasswordVisibleWidth = 20;
   // Label
@@ -836,6 +895,14 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
   // Password visible button / policy indicator.
   column_set->AddColumn(views::GridLayout::CENTER, views::GridLayout::FILL, 1,
                         views::GridLayout::USE_PREF, 0, kPasswordVisibleWidth);
+
+  // Title
+  layout->StartRow(0, column_view_set_id);
+  views::Label* title = new views::Label(l10n_util::GetStringUTF16(
+      IDS_OPTIONS_SETTINGS_JOIN_WIFI_NETWORKS));
+  title->SetFont(title->font().DeriveFont(1, gfx::Font::BOLD));
+  layout->AddView(title, 5, 1);
+  layout->AddPaddingRow(0, views::kUnrelatedControlVerticalSpacing);
 
   // SSID input
   layout->StartRow(0, column_view_set_id);
@@ -859,7 +926,8 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
     layout->StartRow(0, column_view_set_id);
     layout->AddView(new views::Label(l10n_util::GetStringUTF16(
           IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_SECURITY)));
-    security_combobox_ = new views::Combobox(new SecurityComboboxModel());
+    security_combobox_model_.reset(new internal::SecurityComboboxModel);
+    security_combobox_ = new views::Combobox(security_combobox_model_.get());
     security_combobox_->set_listener(this);
     layout->AddView(security_combobox_);
     layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
@@ -877,7 +945,9 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
     layout->StartRow(0, column_view_set_id);
     layout->AddView(new views::Label(l10n_util::GetStringUTF16(
         IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_EAP_METHOD)));
-    eap_method_combobox_ = new views::Combobox(new EAPMethodComboboxModel());
+    eap_method_combobox_model_.reset(new internal::EAPMethodComboboxModel);
+    eap_method_combobox_ = new views::Combobox(
+        eap_method_combobox_model_.get());
     eap_method_combobox_->set_listener(this);
     eap_method_combobox_->SetEnabled(eap_method_ui_data_.editable());
     layout->AddView(eap_method_combobox_);
@@ -889,8 +959,10 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
     phase_2_auth_label_ = new views::Label(l10n_util::GetStringUTF16(
         IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_PHASE_2_AUTH));
     layout->AddView(phase_2_auth_label_);
+    phase_2_auth_combobox_model_.reset(
+        new internal::Phase2AuthComboboxModel(eap_method_combobox_));
     phase_2_auth_combobox_ = new views::Combobox(
-        new Phase2AuthComboboxModel(eap_method_combobox_));
+        phase_2_auth_combobox_model_.get());
     phase_2_auth_label_->SetEnabled(false);
     phase_2_auth_combobox_->SetEnabled(false);
     phase_2_auth_combobox_->set_listener(this);
@@ -903,8 +975,10 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
     server_ca_cert_label_ = new views::Label(l10n_util::GetStringUTF16(
         IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT_SERVER_CA));
     layout->AddView(server_ca_cert_label_);
+    server_ca_cert_combobox_model_.reset(
+        new internal::ServerCACertComboboxModel(cert_library_));
     server_ca_cert_combobox_ = new ComboboxWithWidth(
-        new ServerCACertComboboxModel(cert_library_),
+        server_ca_cert_combobox_model_.get(),
         ChildNetworkConfigView::kInputFieldMinWidth);
     server_ca_cert_label_->SetEnabled(false);
     server_ca_cert_combobox_->SetEnabled(false);
@@ -919,8 +993,9 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
     user_cert_label_ = new views::Label(l10n_util::GetStringUTF16(
         IDS_OPTIONS_SETTINGS_INTERNET_OPTIONS_CERT));
     layout->AddView(user_cert_label_);
-    user_cert_combobox_ = new views::Combobox(
-        new UserCertComboboxModel(cert_library_));
+    user_cert_combobox_model_.reset(
+        new internal::UserCertComboboxModel(cert_library_));
+    user_cert_combobox_ = new views::Combobox(user_cert_combobox_model_.get());
     user_cert_label_->SetEnabled(false);
     user_cert_combobox_->SetEnabled(false);
     user_cert_combobox_->set_listener(this);
@@ -976,15 +1051,15 @@ void WifiConfigView::Init(WifiNetwork* wifi, bool show_8021x) {
     passphrase_visible_button_->SetImage(
         views::ImageButton::BS_NORMAL,
         ResourceBundle::GetSharedInstance().
-        GetBitmapNamed(IDR_NETWORK_SHOW_PASSWORD_OFF));
+        GetImageSkiaNamed(IDR_NETWORK_SHOW_PASSWORD_OFF));
     passphrase_visible_button_->SetImage(
         views::ImageButton::BS_HOT,
         ResourceBundle::GetSharedInstance().
-        GetBitmapNamed(IDR_NETWORK_SHOW_PASSWORD_HOVER));
+        GetImageSkiaNamed(IDR_NETWORK_SHOW_PASSWORD_HOVER));
     passphrase_visible_button_->SetToggledImage(
         views::ImageButton::BS_NORMAL,
         ResourceBundle::GetSharedInstance().
-        GetBitmapNamed(IDR_NETWORK_SHOW_PASSWORD_ON));
+        GetImageSkiaNamed(IDR_NETWORK_SHOW_PASSWORD_ON));
     passphrase_visible_button_->SetImageAlignment(
         views::ImageButton::ALIGN_CENTER, views::ImageButton::ALIGN_MIDDLE);
     layout->AddView(passphrase_visible_button_);
@@ -1166,6 +1241,7 @@ void WifiConfigView::InitFocus() {
     view_to_focus->RequestFocus();
 }
 
+// static
 void WifiConfigView::ParseWiFiUIProperty(
     NetworkPropertyUIData* property_ui_data,
     Network* network,
@@ -1177,6 +1253,7 @@ void WifiConfigView::ParseWiFiUIProperty(
       base::StringPrintf("%s.%s", onc::kWiFi, key.c_str()));
 }
 
+// static
 void WifiConfigView::ParseWiFiEAPUIProperty(
     NetworkPropertyUIData* property_ui_data,
     Network* network,

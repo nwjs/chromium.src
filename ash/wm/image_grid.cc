@@ -6,11 +6,12 @@
 
 #include <algorithm>
 
-#include "ui/gfx/canvas.h"
-#include "ui/gfx/image/image.h"
-#include "ui/gfx/transform.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkXfermode.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/image/image.h"
+#include "ui/gfx/rect.h"
+#include "ui/gfx/transform.h"
 
 using std::max;
 using std::min;
@@ -127,7 +128,7 @@ void ImageGrid::SetSize(const gfx::Size& size) {
     if (center_height > 0) {
       ui::Transform transform;
       transform.SetScaleY(
-          static_cast<float>(center_height) / left_layer_->bounds().height());
+          (static_cast<float>(center_height) / left_layer_->bounds().height()));
       transform.ConcatTranslate(0, top);
       left_layer_->SetTransform(transform);
     }
@@ -204,10 +205,10 @@ void ImageGrid::SetSize(const gfx::Size& size) {
 }
 
 void ImageGrid::SetContentBounds(const gfx::Rect& content_bounds) {
-  SetSize(
-      gfx::Size(
-          content_bounds.width() + left_image_width_ + right_image_width_,
-          content_bounds.height() + top_image_height_ + bottom_image_height_));
+  SetSize(gfx::Size(
+      content_bounds.width() + left_image_width_ + right_image_width_,
+      content_bounds.height() + top_image_height_ +
+      bottom_image_height_));
   layer_->SetBounds(
       gfx::Rect(content_bounds.x() - left_image_width_,
                 content_bounds.y() - top_image_height_,
@@ -226,13 +227,22 @@ void ImageGrid::ImagePainter::SetClipRect(const gfx::Rect& clip_rect,
 void ImageGrid::ImagePainter::OnPaintLayer(gfx::Canvas* canvas) {
   if (!clip_rect_.IsEmpty())
     canvas->ClipRect(clip_rect_);
-  canvas->DrawBitmapInt(*(image_->ToSkBitmap()), 0, 0);
+  canvas->DrawImageInt(*(image_->ToImageSkia()), 0, 0);
+}
+
+void ImageGrid::ImagePainter::OnDeviceScaleFactorChanged(
+    float device_scale_factor) {
+  // Redrawing will take care of scale factor change.
+}
+
+base::Closure ImageGrid::ImagePainter::PrepareForLayerBoundsChange() {
+  return base::Closure();
 }
 
 // static
 gfx::Size ImageGrid::GetImageSize(const gfx::Image* image) {
   return image ?
-      gfx::Size(image->ToSkBitmap()->width(), image->ToSkBitmap()->height()) :
+      gfx::Size(image->ToImageSkia()->width(), image->ToImageSkia()->height()) :
       gfx::Size();
 }
 

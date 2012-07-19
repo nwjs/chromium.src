@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_MESSAGE_SERVICE_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_MESSAGE_SERVICE_H_
-#pragma once
 
 #include <map>
 #include <set>
@@ -16,12 +15,15 @@
 #include "content/public/browser/notification_registrar.h"
 
 class ExtensionHost;
-class LazyBackgroundTaskQueue;
 class Profile;
 
 namespace content {
 class RenderProcessHost;
 class WebContents;
+}
+
+namespace extensions {
+class LazyBackgroundTaskQueue;
 }
 
 // This class manages message and event passing between renderer processes.
@@ -57,7 +59,7 @@ class ExtensionMessageService : public content::NotificationObserver {
   // NOTE: this can be called from any thread.
   static void AllocatePortIdPair(int* port1, int* port2);
 
-  explicit ExtensionMessageService(LazyBackgroundTaskQueue* queue);
+  explicit ExtensionMessageService(extensions::LazyBackgroundTaskQueue* queue);
   virtual ~ExtensionMessageService();
 
   // Given an extension's ID, opens a channel between the given renderer "port"
@@ -123,13 +125,17 @@ class ExtensionMessageService : public content::NotificationObserver {
   void PendingOpenChannel(const OpenChannelParams& params,
                           int source_process_id,
                           ExtensionHost* host);
-  void PendingCloseChannel(int port_id, bool connection_error, ExtensionHost*) {
-    CloseChannel(port_id, connection_error);
+  void PendingCloseChannel(int port_id,
+                           bool connection_error,
+                           ExtensionHost* host) {
+    if (host)
+      CloseChannel(port_id, connection_error);
   }
   void PendingPostMessage(int port_id,
                           const std::string& message,
-                          ExtensionHost*) {
-    PostMessageFromRenderer(port_id, message);
+                          ExtensionHost* host) {
+    if (host)
+      PostMessageFromRenderer(port_id, message);
   }
 
   content::NotificationRegistrar registrar_;
@@ -137,7 +143,7 @@ class ExtensionMessageService : public content::NotificationObserver {
   PendingChannelMap pending_channels_;
 
   // Weak pointer. Guaranteed to outlive this class.
-  LazyBackgroundTaskQueue* lazy_background_task_queue_;
+  extensions::LazyBackgroundTaskQueue* lazy_background_task_queue_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionMessageService);
 };

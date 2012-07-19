@@ -8,20 +8,16 @@
       '<(grit_out_dir)/browser_resources.pak',
       '<(grit_out_dir)/common_resources.pak',
       '<(grit_out_dir)/renderer_resources.pak',
-      '<(grit_out_dir)/theme_resources.pak',
-      '<(grit_out_dir)/theme_resources_standard.pak',
       '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.pak',
       '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
-      '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources.pak',
-      '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources_standard/ui_resources_standard.pak',
       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
     ],
     'conditions': [
-      ['OS != "mac" or use_aura==1', {
+      ['enable_extensions==1', {
         'pak_inputs': [
-          '<(SHARED_INTERMEDIATE_DIR)/ui/gfx/gfx_resources.pak',
-        ]
+          '<(grit_out_dir)/extensions_api_resources.pak',
+        ],
       }],
     ],
   },

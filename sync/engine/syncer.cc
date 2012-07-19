@@ -13,26 +13,30 @@
 #include "sync/engine/apply_updates_command.h"
 #include "sync/engine/build_commit_command.h"
 #include "sync/engine/cleanup_disabled_types_command.h"
-#include "sync/engine/clear_data_command.h"
+#include "sync/engine/commit.h"
 #include "sync/engine/conflict_resolver.h"
 #include "sync/engine/download_updates_command.h"
-#include "sync/engine/get_commit_ids_command.h"
 #include "sync/engine/net/server_connection_manager.h"
-#include "sync/engine/post_commit_message_command.h"
 #include "sync/engine/process_commit_response_command.h"
 #include "sync/engine/process_updates_command.h"
 #include "sync/engine/resolve_conflicts_command.h"
 #include "sync/engine/store_timestamps_command.h"
 #include "sync/engine/syncer_types.h"
-#include "sync/engine/syncproto.h"
+#include "sync/engine/throttled_data_type_tracker.h"
 #include "sync/engine/verify_updates_command.h"
+#include "sync/syncable/mutable_entry.h"
 #include "sync/syncable/syncable-inl.h"
-#include "sync/syncable/syncable.h"
 
 using base::Time;
 using base::TimeDelta;
 using sync_pb::ClientCommand;
-using syncable::Blob;
+
+namespace syncer {
+
+using sessions::ScopedSessionContextConflictResolver;
+using sessions::StatusController;
+using sessions::SyncSession;
+using sessions::ConflictProgress;
 using syncable::IS_UNAPPLIED_UPDATE;
 using syncable::SERVER_CTIME;
 using syncable::SERVER_IS_DEL;
@@ -43,15 +47,6 @@ using syncable::SERVER_PARENT_ID;
 using syncable::SERVER_POSITION_IN_PARENT;
 using syncable::SERVER_SPECIFICS;
 using syncable::SERVER_VERSION;
-using syncable::SYNCER;
-using syncable::WriteTransaction;
-
-namespace browser_sync {
-
-using sessions::ScopedSessionContextConflictResolver;
-using sessions::StatusController;
-using sessions::SyncSession;
-using sessions::ConflictProgress;
 
 #define ENUM_CASE(x) case x: return #x
 const char* SyncerStepToString(const SyncerStep step)
@@ -65,12 +60,9 @@ const char* SyncerStepToString(const SyncerStep step)
     ENUM_CASE(PROCESS_UPDATES);
     ENUM_CASE(STORE_TIMESTAMPS);
     ENUM_CASE(APPLY_UPDATES);
-    ENUM_CASE(BUILD_COMMIT_REQUEST);
-    ENUM_CASE(POST_COMMIT_MESSAGE);
-    ENUM_CASE(PROCESS_COMMIT_RESPONSE);
+    ENUM_CASE(COMMIT);
     ENUM_CASE(RESOLVE_CONFLICTS);
     ENUM_CASE(APPLY_UPDATES_TO_RESOLVE_CONFLICTS);
-    ENUM_CASE(CLEAR_PRIVATE_DATA);
     ENUM_CASE(SYNCER_END);
   }
   NOTREACHED();
@@ -110,18 +102,8 @@ void Syncer::SyncShare(sessions::SyncSession* session,
 
     switch (current_step) {
       case SYNCER_BEGIN:
-        // This isn't perfect, as we can end up bundling extensions activity
-        // intended for the next session into the current one.  We could do a
-        // test-and-reset as with the source, but note that also falls short if
-        // the commit request fails (e.g. due to lost connection), as we will
-        // fall all the way back to the syncer thread main loop in that case,
-        // creating a new session when a connection is established, losing the
-        // records set here on the original attempt.  This should provide us
-        // with the right data "most of the time", and we're only using this
-        // for analysis purposes, so Law of Large Numbers FTW.
-        session->context()->extensions_monitor()->GetAndClearRecords(
-            session->mutable_extensions_activity());
-        session->context()->PruneUnthrottledTypes(base::TimeTicks::Now());
+        session->context()->throttled_data_type_tracker()->
+            PruneUnthrottledTypes(base::TimeTicks::Now());
         session->SendEventNotification(SyncEngineEvent::SYNC_CYCLE_BEGIN);
 
         next_step = CLEANUP_DISABLED_TYPES;
@@ -166,65 +148,40 @@ void Syncer::SyncShare(sessions::SyncSession* session,
       case STORE_TIMESTAMPS: {
         StoreTimestampsCommand store_timestamps;
         store_timestamps.Execute(session);
-        // We should download all of the updates before attempting to process
-        // them.
-        if (session->status_controller().ServerSaysNothingMoreToDownload() ||
-            !session->status_controller().download_updates_succeeded()) {
-          next_step = APPLY_UPDATES;
-        } else {
+        session->SendEventNotification(SyncEngineEvent::STATUS_CHANGED);
+        // We download all of the updates before attempting to apply them.
+        if (!session->status_controller().download_updates_succeeded()) {
+          // We may have downloaded some updates, but if the latest download
+          // attempt failed then we don't have all the updates.  We'll leave
+          // it to a retry job to pick up where we left off.
+          last_step = SYNCER_END; // Necessary for CONFIGURATION mode.
+          next_step = SYNCER_END;
+          DVLOG(1) << "Aborting sync cycle due to download updates failure";
+        } else if (!session->status_controller()
+                       .ServerSaysNothingMoreToDownload()) {
           next_step = DOWNLOAD_UPDATES;
+        } else {
+          next_step = APPLY_UPDATES;
         }
         break;
       }
       case APPLY_UPDATES: {
         ApplyUpdatesCommand apply_updates;
         apply_updates.Execute(session);
+        session->SendEventNotification(SyncEngineEvent::STATUS_CHANGED);
         if (last_step == APPLY_UPDATES) {
           // We're in configuration mode, but we still need to run the
           // SYNCER_END step.
           last_step = SYNCER_END;
           next_step = SYNCER_END;
         } else {
-          next_step = BUILD_COMMIT_REQUEST;
+          next_step = COMMIT;
         }
         break;
       }
-      // These two steps are combined since they are executed within the same
-      // write transaction.
-      case BUILD_COMMIT_REQUEST: {
-        syncable::Directory* dir = session->context()->directory();
-        WriteTransaction trans(FROM_HERE, SYNCER, dir);
-        sessions::ScopedSetSessionWriteTransaction set_trans(session, &trans);
-
-        DVLOG(1) << "Getting the Commit IDs";
-        GetCommitIdsCommand get_commit_ids_command(
-            session->context()->max_commit_batch_size());
-        get_commit_ids_command.Execute(session);
-
-        if (!session->status_controller().commit_ids().empty()) {
-          DVLOG(1) << "Building a commit message";
-          BuildCommitCommand build_commit_command;
-          build_commit_command.Execute(session);
-
-          next_step = POST_COMMIT_MESSAGE;
-        } else {
-          next_step = RESOLVE_CONFLICTS;
-        }
-
-        break;
-      }
-      case POST_COMMIT_MESSAGE: {
-        PostCommitMessageCommand post_commit_command;
-        session->mutable_status_controller()->set_last_post_commit_result(
-            post_commit_command.Execute(session));
-        next_step = PROCESS_COMMIT_RESPONSE;
-        break;
-      }
-      case PROCESS_COMMIT_RESPONSE: {
-        ProcessCommitResponseCommand process_response_command;
-        session->mutable_status_controller()->
-            set_last_process_commit_response_result(
-                process_response_command.Execute(session));
+      case COMMIT: {
+        session->mutable_status_controller()->set_commit_result(
+            BuildAndPostCommits(this, session));
         next_step = RESOLVE_CONFLICTS;
         break;
       }
@@ -265,12 +222,6 @@ void Syncer::SyncShare(sessions::SyncSession* session,
         next_step = SYNCER_END;
         break;
       }
-      case CLEAR_PRIVATE_DATA: {
-        ClearDataCommand clear_data_command;
-        clear_data_command.Execute(session);
-        next_step = SYNCER_END;
-        break;
-      }
       case SYNCER_END: {
         session->SendEventNotification(SyncEngineEvent::SYNC_CYCLE_ENDED);
         next_step = SYNCER_END;
@@ -283,14 +234,16 @@ void Syncer::SyncShare(sessions::SyncSession* session,
              << "current step: " << SyncerStepToString(current_step) << ", "
              << "next step: " << SyncerStepToString(next_step) << ", "
              << "snapshot: " << session->TakeSnapshot().ToString();
-    if (last_step == current_step)
+    if (last_step == current_step) {
+      session->SetFinished();
       break;
+    }
     current_step = next_step;
   }
 }
 
 void Syncer::ProcessClientCommand(sessions::SyncSession* session) {
-  const ClientToServerResponse& response =
+  const sync_pb::ClientToServerResponse& response =
       session->status_controller().updates_response();
   if (!response.has_client_command())
     return;
@@ -342,4 +295,4 @@ void ClearServerData(syncable::MutableEntry* entry) {
   entry->Put(SERVER_POSITION_IN_PARENT, 0);
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

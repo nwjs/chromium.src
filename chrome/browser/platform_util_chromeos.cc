@@ -9,9 +9,10 @@
 #include "base/file_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
-#include "chrome/browser/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "content/public/browser/browser_thread.h"
 #include "googleurl/src/gurl.h"
 
@@ -24,48 +25,24 @@ namespace {
 const char kGmailComposeUrl[] =
     "https://mail.google.com/mail/?extsrc=mailto&url=";
 
-void OpenFileBrowserOnUIThread(const FilePath& dir) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  Browser* browser = BrowserList::GetLastActive();
-  if (!browser)
-    return;
-
-  FilePath virtual_path;
-  if (!file_manager_util::ConvertFileToRelativeFileSystemPath(
-      browser->profile(), dir, &virtual_path)) {
-    return;
-  }
-
-  GURL url = file_manager_util::GetFileBrowserUrlWithParams(
-     SelectFileDialog::SELECT_NONE, string16(), virtual_path, NULL, 0,
-     FilePath::StringType());
-  browser->ShowSingletonTab(url);
-}
-
-// file_util::DirectoryExists must be called on the FILE thread.
-void ShowItemInFolderOnFileThread(const FilePath& full_path) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-  FilePath dir = full_path.DirName();
-  if (file_util::DirectoryExists(dir)) {
-    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-                            base::Bind(&OpenFileBrowserOnUIThread, dir));
-  }
-}
-
 void OpenItemOnFileThread(const FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   base::Closure callback;
   if (file_util::DirectoryExists(full_path))
     callback = base::Bind(&file_manager_util::ViewFolder, full_path);
   else
-    callback = base::Bind(&file_manager_util::ViewFile, full_path, false);
+    callback = base::Bind(&file_manager_util::ViewFile, full_path);
   BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, callback);
 }
 
 void OpenURL(const std::string& url) {
-  Browser* browser = BrowserList::GetLastActive();
-  browser->AddSelectedTabWithURL(GURL(url), content::PAGE_TRANSITION_LINK);
+  // TODO(beng): improve this to locate context from call stack.
+  Browser* browser = browser::FindOrCreateTabbedBrowser(
+      ProfileManager::GetDefaultProfileOrOffTheRecord());
+  chrome::NavigateParams params(
+      browser, GURL(url), content::PAGE_TRANSITION_LINK);
+  params.disposition = NEW_FOREGROUND_TAB;
+  chrome::Navigate(&params);
 }
 
 }  // namespace
@@ -74,8 +51,7 @@ namespace platform_util {
 
 void ShowItemInFolder(const FilePath& full_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-      base::Bind(&ShowItemInFolderOnFileThread, full_path));
+  file_manager_util::ShowFileInFolder(full_path);
 }
 
 void OpenItem(const FilePath& full_path) {
@@ -85,6 +61,15 @@ void OpenItem(const FilePath& full_path) {
 }
 
 void OpenExternal(const GURL& url) {
+  // This code should be obsolete since we have default handlers in ChromeOS
+  // which should handle this. However - there are two things which make it
+  // necessary to keep it in:
+  // a.) The user might have deleted the default handler in this session.
+  //     In this case we would need to have this in place.
+  // b.) There are several code paths which are not clear if they would call
+  //     this function directly and which would therefore break (e.g.
+  //     "Browser::EmailPageLocation" (to name only one).
+  // As such we should keep this code here.
   if (url.SchemeIs("mailto")) {
     std::string string_url = kGmailComposeUrl;
     string_url.append(url.spec());

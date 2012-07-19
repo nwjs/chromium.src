@@ -1,8 +1,8 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/render_widget_browsertest.h"
+#include "content/public/test/render_widget_browsertest.h"
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
@@ -17,7 +17,9 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/size.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
+
+namespace content {
 
 const int RenderWidgetTest::kNumBytesPerPixel = 4;
 const int RenderWidgetTest::kLargeWidth = 1024;
@@ -130,7 +132,7 @@ bool RenderWidgetTest::ImageContainsColor(const SkBitmap& bitmap,
 
 void RenderWidgetTest::OutputBitmapToFile(const SkBitmap& bitmap,
                                           const FilePath& file_path) {
-  scoped_refptr<RefCountedBytes> bitmap_data(new RefCountedBytes());
+  scoped_refptr<base::RefCountedBytes> bitmap_data(new base::RefCountedBytes());
   SkAutoLockPixels lock(bitmap);
   ASSERT_TRUE(gfx::JPEGCodec::Encode(
       reinterpret_cast<unsigned char*>(bitmap.getAddr32(0, 0)),
@@ -149,3 +151,5 @@ void RenderWidgetTest::OutputBitmapToFile(const SkBitmap& bitmap,
 TEST_F(RenderWidgetTest, OnMsgPaintAtSize) {
   TestResizeAndPaint();
 }
+
+}  // namespace content

@@ -266,7 +266,7 @@ qcms_bool qcms_profile_is_bogus(qcms_profile *profile)
        if (profile->color_space != RGB_SIGNATURE)
 	       return false;
 
-       if (profile->A2B0 || profile->B2A0)
+       if (qcms_supports_iccv4 && (profile->A2B0 || profile->B2A0))
                return false;
 
        rX = s15Fixed16Number_to_float(profile->redColorant.X);
@@ -297,6 +297,11 @@ qcms_bool qcms_profile_is_bogus(qcms_profile *profile)
        sum[1] = rY + gY + bY;
        sum[2] = rZ + gZ + bZ;
 
+#if defined (_MSC_VER)
+#pragma warning(push)
+/* Disable double to float truncation warning 4305 */
+#pragma warning(disable:4305)
+#endif
        // Build our target vector (see mozilla bug 460629)
        target[0] = 0.96420;
        target[1] = 1.00000;
@@ -310,6 +315,10 @@ qcms_bool qcms_profile_is_bogus(qcms_profile *profile)
        tolerance[1] = 0.02;
        tolerance[2] = 0.04;
 
+#if defined (_MSC_VER)
+/* Restore warnings */
+#pragma warning(pop)
+#endif
        // Compare with our tolerance
        for (i = 0; i < 3; ++i) {
            if (!(((sum[i] - tolerance[i]) <= target[i]) &&

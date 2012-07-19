@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_INTENTS_WEB_INTENT_PICKER_MODEL_OBSERVER_H_
 #define CHROME_BROWSER_UI_INTENTS_WEB_INTENT_PICKER_MODEL_OBSERVER_H_
-#pragma once
 
 #include "base/string16.h"
 
@@ -27,7 +26,7 @@ class WebIntentPickerModelObserver {
                                       const string16& extension_id) = 0;
 
   // Called when the inline disposition should be displayed for |model|.
-  virtual void OnInlineDisposition(WebIntentPickerModel* model,
+  virtual void OnInlineDisposition(const string16& title,
                                    const GURL& url) = 0;
 };
 

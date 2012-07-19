@@ -10,16 +10,17 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/guid.h"
 #include "base/i18n/case_conversion.h"
 #include "base/string_util.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
+#include "chrome/browser/autocomplete/autocomplete_log.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "chrome/browser/autocomplete/autocomplete_result.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/shortcuts_database.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/guid.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
@@ -81,11 +82,11 @@ ShortcutsBackend::Shortcut::~Shortcut() {
 
 // ShortcutsBackend -----------------------------------------------------------
 
-ShortcutsBackend::ShortcutsBackend(const FilePath& db_folder_path,
-                                   Profile *profile)
+ShortcutsBackend::ShortcutsBackend(Profile* profile, bool suppress_db)
     : current_state_(NOT_INITIALIZED),
-      db_(new ShortcutsDatabase(db_folder_path)),
-      no_db_access_(db_folder_path.empty()) {
+      no_db_access_(suppress_db) {
+  if (!suppress_db)
+    db_ = new ShortcutsDatabase(profile);
   // |profile| can be NULL in tests.
   if (profile) {
     notification_registrar_.Add(this, chrome::NOTIFICATION_OMNIBOX_OPENED_URL,
@@ -94,8 +95,6 @@ ShortcutsBackend::ShortcutsBackend(const FilePath& db_folder_path,
                                 content::Source<Profile>(profile));
   }
 }
-
-ShortcutsBackend::~ShortcutsBackend() {}
 
 bool ShortcutsBackend::Init() {
   if (current_state_ != NOT_INITIALIZED)
@@ -190,6 +189,8 @@ bool ShortcutsBackend::DeleteAllShortcuts() {
                  db_.get()));
 }
 
+ShortcutsBackend::~ShortcutsBackend() {}
+
 void ShortcutsBackend::InitInternal() {
   DCHECK(current_state_ == INITIALIZING);
   db_->Init();
@@ -227,13 +228,15 @@ void ShortcutsBackend::Observe(int type,
             all_history) {
       DeleteAllShortcuts();
     }
-    const std::set<GURL>& urls =
-        content::Details<const history::URLsDeletedDetails>(details)->urls;
+    const URLRows& rows(
+        content::Details<const history::URLsDeletedDetails>(details)->rows);
     std::vector<std::string> shortcut_ids;
 
     for (GuidToShortcutsIteratorMap::iterator it = guid_map_.begin();
          it != guid_map_.end(); ++it) {
-      if (urls.find(it->second->second.url) != urls.end())
+      if (std::find_if(rows.begin(), rows.end(),
+                       URLRow::URLRowHasURL(it->second->second.url)) !=
+          rows.end())
         shortcut_ids.push_back(it->first);
     }
     DeleteShortcutsWithIds(shortcut_ids);
@@ -257,9 +260,15 @@ void ShortcutsBackend::Observe(int type,
       return;
     }
   }
-  AddShortcut(Shortcut(guid::GenerateGUID(), log->text, match.destination_url,
+  AddShortcut(Shortcut(base::GenerateGUID(), log->text, match.destination_url,
       match.contents, match.contents_class, match.description,
       match.description_class, base::Time::Now(), 1));
+}
+
+void ShortcutsBackend::ShutdownOnUIThread() {
+  DCHECK(!BrowserThread::IsWellKnownThread(BrowserThread::UI) ||
+         BrowserThread::CurrentlyOn(BrowserThread::UI));
+  notification_registrar_.RemoveAll();
 }
 
 }  // namespace history

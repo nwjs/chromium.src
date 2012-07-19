@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PRINTING_PRINT_DIALOG_GTK_H_
 #define CHROME_BROWSER_PRINTING_PRINT_DIALOG_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 #include <gtk/gtkunixprint.h>
@@ -12,8 +11,7 @@
 #include "base/compiler_specific.h"
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
-#include "base/message_loop_helpers.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "content/public/browser/browser_thread.h"
 #include "printing/print_dialog_gtk_interface.h"
 #include "printing/printing_context_gtk.h"
@@ -42,6 +40,7 @@ class PrintDialogGtk
                               const printing::PageRanges& ranges,
                               printing::PrintSettings* settings) OVERRIDE;
   virtual void ShowDialog(
+      gfx::NativeView parent_view,
       bool has_selection,
       const PrintingContextGtk::PrintSettingsCallback& callback) OVERRIDE;
   virtual void PrintDocument(const printing::Metafile* metafile,

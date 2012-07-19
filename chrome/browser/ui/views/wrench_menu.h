@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_WRENCH_MENU_H_
 #define CHROME_BROWSER_UI_VIEWS_WRENCH_MENU_H_
-#pragma once
 
 #include <map>
 #include <utility>
@@ -42,7 +41,7 @@ class WrenchMenu : public views::MenuDelegate,
   // MenuDelegate overrides:
   virtual string16 GetTooltipText(int id, const gfx::Point& p) const OVERRIDE;
   virtual bool IsTriggerableEvent(views::MenuItemView* menu,
-                                  const views::MouseEvent& e) OVERRIDE;
+                                  const views::Event& e) OVERRIDE;
   virtual bool GetDropFormats(
       views::MenuItemView* menu,
       int* formats,
@@ -96,11 +95,14 @@ class WrenchMenu : public views::MenuDelegate,
 
   // Adds a new menu to |parent| to represent the MenuModel/index pair passed
   // in.
+  // Fur button containing menu items a |height| override can be specified with
+  // a number bigger then 0.
   views::MenuItemView* AppendMenuItem(views::MenuItemView* parent,
                                       ui::MenuModel* model,
                                       int index,
                                       ui::MenuModel::ItemType menu_type,
-                                      int* next_id);
+                                      int* next_id,
+                                      int height);
 
   // Invoked from the cut/copy/paste menus. Cancels the current active menu and
   // activates the menu item in |model| at |index|.

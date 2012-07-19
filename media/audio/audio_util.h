@@ -107,6 +107,10 @@ MEDIA_EXPORT size_t GetAudioHardwareBufferSize();
 MEDIA_EXPORT ChannelLayout GetAudioInputHardwareChannelLayout(
     const std::string& device_id);
 
+// Computes a buffer size based on the given |sample_rate|. Must be used in
+// conjunction with AUDIO_PCM_LINEAR.
+MEDIA_EXPORT size_t GetHighLatencyOutputBufferSize(int sample_rate);
+
 // Functions that handle data buffer passed between processes in the shared
 // memory. Called on both IPC sides.
 
@@ -127,6 +131,9 @@ MEDIA_EXPORT bool IsUnknownDataSize(base::SharedMemory* shared_memory,
 // Does Windows support WASAPI? We are checking in lot of places, and
 // sometimes check was written incorrectly, so move into separate function.
 MEDIA_EXPORT bool IsWASAPISupported();
+
+// Returns number of buffers to be used by wave out.
+MEDIA_EXPORT int NumberOfWaveOutBuffers();
 
 #endif  // defined(OS_WIN)
 

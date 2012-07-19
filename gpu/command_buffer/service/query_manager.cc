@@ -7,7 +7,8 @@
 #include "base/logging.h"
 #include "base/time.h"
 #include "gpu/command_buffer/common/gles2_cmd_format.h"
-#include "gpu/command_buffer/service/common_decoder.h"
+#include "gpu/command_buffer/service/gles2_cmd_decoder.h"
+#include "gpu/command_buffer/service/feature_info.h"
 
 namespace gpu {
 namespace gles2 {
@@ -17,11 +18,13 @@ class AllSamplesPassedQuery : public QueryManager::Query {
   AllSamplesPassedQuery(
       QueryManager* manager, GLenum target, int32 shm_id, uint32 shm_offset,
       GLuint service_id);
-  virtual ~AllSamplesPassedQuery();
   virtual bool Begin() OVERRIDE;
   virtual bool End(uint32 submit_count) OVERRIDE;
   virtual bool Process() OVERRIDE;
   virtual void Destroy(bool have_context) OVERRIDE;
+
+ protected:
+  virtual ~AllSamplesPassedQuery();
 
  private:
   // Service side query id.
@@ -33,16 +36,6 @@ AllSamplesPassedQuery::AllSamplesPassedQuery(
     GLuint service_id)
     : Query(manager, target, shm_id, shm_offset),
       service_id_(service_id) {
-}
-
-AllSamplesPassedQuery::~AllSamplesPassedQuery() {
-}
-
-void AllSamplesPassedQuery::Destroy(bool have_context) {
-  if (have_context && !IsDeleted()) {
-    glDeleteQueriesARB(1, &service_id_);
-    MarkAsDeleted();
-  }
 }
 
 bool AllSamplesPassedQuery::Begin() {
@@ -66,19 +59,31 @@ bool AllSamplesPassedQuery::Process() {
   glGetQueryObjectuivARB(
       service_id_, GL_QUERY_RESULT_EXT, &result);
 
-  return MarkAsCompleted(result);
+  return MarkAsCompleted(result != 0);
+}
+
+void AllSamplesPassedQuery::Destroy(bool have_context) {
+  if (have_context && !IsDeleted()) {
+    glDeleteQueriesARB(1, &service_id_);
+    MarkAsDeleted();
+  }
+}
+
+AllSamplesPassedQuery::~AllSamplesPassedQuery() {
 }
 
 class CommandsIssuedQuery : public QueryManager::Query {
  public:
   CommandsIssuedQuery(
       QueryManager* manager, GLenum target, int32 shm_id, uint32 shm_offset);
-  virtual ~CommandsIssuedQuery();
 
   virtual bool Begin() OVERRIDE;
   virtual bool End(uint32 submit_count) OVERRIDE;
   virtual bool Process() OVERRIDE;
   virtual void Destroy(bool have_context) OVERRIDE;
+
+ protected:
+  virtual ~CommandsIssuedQuery();
 
  private:
   base::TimeTicks begin_time_;
@@ -87,14 +92,6 @@ class CommandsIssuedQuery : public QueryManager::Query {
 CommandsIssuedQuery::CommandsIssuedQuery(
       QueryManager* manager, GLenum target, int32 shm_id, uint32 shm_offset)
     : Query(manager, target, shm_id, shm_offset) {
-}
-
-CommandsIssuedQuery::~CommandsIssuedQuery() {
-}
-
-bool CommandsIssuedQuery::Process() {
-  NOTREACHED();
-  return true;
 }
 
 bool CommandsIssuedQuery::Begin() {
@@ -109,19 +106,77 @@ bool CommandsIssuedQuery::End(uint32 submit_count) {
       std::min(elapsed.InMicroseconds(), static_cast<int64>(0xFFFFFFFFL)));
 }
 
+bool CommandsIssuedQuery::Process() {
+  NOTREACHED();
+  return true;
+}
+
 void CommandsIssuedQuery::Destroy(bool /* have_context */) {
   if (!IsDeleted()) {
     MarkAsDeleted();
   }
 }
 
+CommandsIssuedQuery::~CommandsIssuedQuery() {
+}
+
+class GetErrorQuery : public QueryManager::Query {
+ public:
+  GetErrorQuery(
+      QueryManager* manager, GLenum target, int32 shm_id, uint32 shm_offset);
+
+  virtual bool Begin() OVERRIDE;
+  virtual bool End(uint32 submit_count) OVERRIDE;
+  virtual bool Process() OVERRIDE;
+  virtual void Destroy(bool have_context) OVERRIDE;
+
+ protected:
+  virtual ~GetErrorQuery();
+
+ private:
+};
+
+GetErrorQuery::GetErrorQuery(
+      QueryManager* manager, GLenum target, int32 shm_id, uint32 shm_offset)
+    : Query(manager, target, shm_id, shm_offset) {
+}
+
+bool GetErrorQuery::Begin() {
+  return true;
+}
+
+bool GetErrorQuery::End(uint32 submit_count) {
+  MarkAsPending(submit_count);
+  return MarkAsCompleted(manager()->decoder()->GetGLError());
+}
+
+bool GetErrorQuery::Process() {
+  NOTREACHED();
+  return true;
+}
+
+void GetErrorQuery::Destroy(bool /* have_context */) {
+  if (!IsDeleted()) {
+    MarkAsDeleted();
+  }
+}
+
+GetErrorQuery::~GetErrorQuery() {
+}
+
 QueryManager::QueryManager(
-    CommonDecoder* decoder,
-    bool use_arb_occlusion_query2_for_occlusion_query_boolean)
+    GLES2Decoder* decoder,
+    FeatureInfo* feature_info)
     : decoder_(decoder),
       use_arb_occlusion_query2_for_occlusion_query_boolean_(
-          use_arb_occlusion_query2_for_occlusion_query_boolean),
+          feature_info->feature_flags(
+            ).use_arb_occlusion_query2_for_occlusion_query_boolean),
+      use_arb_occlusion_query_for_occlusion_query_boolean_(
+          feature_info->feature_flags(
+            ).use_arb_occlusion_query_for_occlusion_query_boolean),
       query_count_(0) {
+  DCHECK(!(use_arb_occlusion_query_for_occlusion_query_boolean_ &&
+           use_arb_occlusion_query2_for_occlusion_query_boolean_));
 }
 
 QueryManager::~QueryManager() {
@@ -147,6 +202,9 @@ QueryManager::Query* QueryManager::CreateQuery(
   switch (target) {
     case GL_COMMANDS_ISSUED_CHROMIUM:
       query = new CommandsIssuedQuery(this, target, shm_id, shm_offset);
+      break;
+    case GL_GET_ERROR_QUERY_CHROMIUM:
+      query = new GetErrorQuery(this, target, shm_id, shm_offset);
       break;
     default: {
       GLuint service_id = 0;
@@ -187,21 +245,35 @@ void QueryManager::StopTracking(QueryManager::Query* /* query */) {
   --query_count_;
 }
 
-void QueryManager::BeginQueryHelper(GLenum target, GLuint id) {
-  // ARB_occlusion_query2 does not have a GL_ANY_SAMPLES_PASSED_CONSERVATIVE_EXT
-  // target.
-  if (use_arb_occlusion_query2_for_occlusion_query_boolean_) {
-    target = GL_ANY_SAMPLES_PASSED_EXT;
+GLenum QueryManager::AdjustTargetForEmulation(GLenum target) {
+  switch (target) {
+    case GL_ANY_SAMPLES_PASSED_CONSERVATIVE_EXT:
+    case GL_ANY_SAMPLES_PASSED_EXT:
+      if (use_arb_occlusion_query2_for_occlusion_query_boolean_) {
+        // ARB_occlusion_query2 does not have a
+        // GL_ANY_SAMPLES_PASSED_CONSERVATIVE_EXT
+        // target.
+        target = GL_ANY_SAMPLES_PASSED_EXT;
+      } else if (use_arb_occlusion_query_for_occlusion_query_boolean_) {
+        // ARB_occlusion_query does not have a
+        // GL_ANY_SAMPLES_PASSED_EXT
+        // target.
+        target = GL_SAMPLES_PASSED_ARB;
+      }
+      break;
+    default:
+      break;
   }
+  return target;
+}
+
+void QueryManager::BeginQueryHelper(GLenum target, GLuint id) {
+  target = AdjustTargetForEmulation(target);
   glBeginQueryARB(target, id);
 }
 
 void QueryManager::EndQueryHelper(GLenum target) {
-  // ARB_occlusion_query2 does not have a GL_ANY_SAMPLES_PASSED_CONSERVATIVE_EXT
-  // target.
-  if (use_arb_occlusion_query2_for_occlusion_query_boolean_) {
-    target = GL_ANY_SAMPLES_PASSED_EXT;
-  }
+  target = AdjustTargetForEmulation(target);
   glEndQueryARB(target);
 }
 
@@ -228,7 +300,7 @@ QueryManager::Query::~Query() {
 bool QueryManager::Query::MarkAsCompleted(GLuint result) {
   DCHECK(pending_);
   QuerySync* sync = manager_->decoder_->GetSharedMemoryAs<QuerySync*>(
-          shm_id_, shm_offset_, sizeof(*sync));
+      shm_id_, shm_offset_, sizeof(*sync));
   if (!sync) {
     return false;
   }

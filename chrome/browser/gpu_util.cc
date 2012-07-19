@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
@@ -15,9 +16,16 @@
 #include "base/values.h"
 #include "base/version.h"
 #include "chrome/browser/gpu_blacklist.h"
+#include "chrome/common/chrome_version_info.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/gpu_info.h"
+
+#if defined(OS_WIN)
+#include "base/win/windows_version.h"
+#elif defined(OS_MACOSX)
+#include "base/mac/mac_util.h"
+#endif
 
 using content::GpuDataManager;
 using content::GpuFeatureType;
@@ -28,6 +36,8 @@ const char kGpuFeatureNameAccelerated2dCanvas[] = "accelerated_2d_canvas";
 const char kGpuFeatureNameAcceleratedCompositing[] = "accelerated_compositing";
 const char kGpuFeatureNameWebgl[] = "webgl";
 const char kGpuFeatureNameMultisampling[] = "multisampling";
+const char kGpuFeatureNameFlash3d[] = "flash_3d";
+const char kGpuFeatureNameFlashStage3d[] = "flash_stage3d";
 const char kGpuFeatureNameAll[] = "all";
 const char kGpuFeatureNameUnknown[] = "unknown";
 
@@ -81,6 +91,17 @@ Value* NewStatusValue(const char* name, const char* status) {
   return value;
 }
 
+std::string GPUDeviceToString(const content::GPUInfo::GPUDevice& gpu) {
+  std::string vendor = base::StringPrintf("0x%04x", gpu.vendor_id);
+  if (!gpu.vendor_string.empty())
+    vendor += " [" + gpu.vendor_string + "]";
+  std::string device = base::StringPrintf("0x%04x", gpu.device_id);
+  if (!gpu.device_string.empty())
+    device += " [" + gpu.device_string + "]";
+  return base::StringPrintf(
+      "VENDOR = %s, DEVICE= %s", vendor.c_str(), device.c_str());
+}
+
 #if defined(OS_WIN)
 
 enum WinSubVersion {
@@ -119,9 +140,9 @@ int GetGpuBlacklistHistogramValueWin(GpuFeatureStatus status) {
     size_t pos = version_str.find_first_not_of("0123456789.");
     if (pos != std::string::npos)
       version_str = version_str.substr(0, pos);
-    scoped_ptr<Version> os_version(Version::GetVersionFromString(version_str));
-    if (os_version.get() && os_version->components().size() >= 2) {
-      const std::vector<uint16>& version_numbers = os_version->components();
+    Version os_version(version_str);
+    if (os_version.IsValid() && os_version.components().size() >= 2) {
+      const std::vector<uint16>& version_numbers = os_version.components();
       if (version_numbers[0] == 5)
         sub_version = kWinXP;
       else if (version_numbers[0] == 6 && version_numbers[1] == 0)
@@ -149,6 +170,60 @@ int GetGpuBlacklistHistogramValueWin(GpuFeatureStatus status) {
 
 namespace gpu_util {
 
+const char kForceCompositingModeFieldTrialName[] = "ForceCompositingMode";
+const char kFieldTrialEnabledName[] = "enabled";
+
+void InitializeForceCompositingModeFieldTrial() {
+// Enable the field trial only on desktop OS's.
+#if !(defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX))
+  return;
+#endif
+  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
+  // Only run the trial on the Canary and Dev channels.
+  if (channel != chrome::VersionInfo::CHANNEL_CANARY &&
+      channel != chrome::VersionInfo::CHANNEL_DEV)
+    return;
+#if defined(OS_WIN)
+  // Don't run the trial on Windows XP.
+  if (base::win::GetVersion() < base::win::VERSION_VISTA)
+    return;
+#elif defined(OS_MACOSX)
+  // Accelerated compositing is only implemented on Mac OSX 10.6 or later.
+  if (base::mac::IsOSLeopardOrEarlier())
+    return;
+#endif
+
+  // Don't activate the field trial if force-compositing-mode has been
+  // explicitly disabled from the command line.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableForceCompositingMode))
+    return;
+
+  const base::FieldTrial::Probability kDivisor = 100;
+  scoped_refptr<base::FieldTrial> trial(
+    base::FieldTrialList::FactoryGetFieldTrial(
+        kForceCompositingModeFieldTrialName, kDivisor,
+        "disable", 2012, 12, 31, NULL));
+
+  // Produce the same result on every run of this client.
+  trial->UseOneTimeRandomization();
+  // 50% probability of being in the enabled group.
+  const base::FieldTrial::Probability kEnableProbability = 50;
+  int enable_group = trial->AppendGroup(
+      kFieldTrialEnabledName, kEnableProbability);
+
+  bool enabled = (trial->group() == enable_group);
+  UMA_HISTOGRAM_BOOLEAN("GPU.InForceCompositingModeFieldTrial", enabled);
+}
+
+bool InForceCompositingModeTrial() {
+  base::FieldTrial* trial =
+      base::FieldTrialList::Find(kForceCompositingModeFieldTrialName);
+  if (!trial)
+    return false;
+  return trial->group_name() == kFieldTrialEnabledName;
+}
+
 GpuFeatureType StringToGpuFeatureType(const std::string& feature_string) {
   if (feature_string == kGpuFeatureNameAccelerated2dCanvas)
     return content::GPU_FEATURE_TYPE_ACCELERATED_2D_CANVAS;
@@ -158,6 +233,10 @@ GpuFeatureType StringToGpuFeatureType(const std::string& feature_string) {
     return content::GPU_FEATURE_TYPE_WEBGL;
   else if (feature_string == kGpuFeatureNameMultisampling)
     return content::GPU_FEATURE_TYPE_MULTISAMPLING;
+  else if (feature_string == kGpuFeatureNameFlash3d)
+    return content::GPU_FEATURE_TYPE_FLASH3D;
+  else if (feature_string == kGpuFeatureNameFlashStage3d)
+    return content::GPU_FEATURE_TYPE_FLASH_STAGE3D;
   else if (feature_string == kGpuFeatureNameAll)
     return content::GPU_FEATURE_TYPE_ALL;
   return content::GPU_FEATURE_TYPE_UNKNOWN;
@@ -176,6 +255,10 @@ std::string GpuFeatureTypeToString(GpuFeatureType type) {
       matches.push_back(kGpuFeatureNameWebgl);
     if (type & content::GPU_FEATURE_TYPE_MULTISAMPLING)
       matches.push_back(kGpuFeatureNameMultisampling);
+    if (type & content::GPU_FEATURE_TYPE_FLASH3D)
+      matches.push_back(kGpuFeatureNameFlash3d);
+    if (type & content::GPU_FEATURE_TYPE_FLASH_STAGE3D)
+      matches.push_back(kGpuFeatureNameFlashStage3d);
     if (!matches.size())
       matches.push_back(kGpuFeatureNameUnknown);
   }
@@ -237,6 +320,22 @@ Value* GetFeatureStatus() {
           "Multisampling has been disabled, either via about:flags or command"
           " line.",
           false
+      },
+      {
+          "flash_3d",
+          flags & content::GPU_FEATURE_TYPE_FLASH3D,
+          command_line.HasSwitch(switches::kDisableFlash3d),
+          "Using 3d in flash has been disabled, either via about:flags or"
+          " command line.",
+          false
+      },
+      {
+          "flash_stage3d",
+          flags & content::GPU_FEATURE_TYPE_FLASH_STAGE3D,
+          command_line.HasSwitch(switches::kDisableFlashStage3d),
+          "Using Stage3d in Flash has been disabled, either via about:flags or"
+          " command line.",
+          false
       }
   };
   const size_t kNumFeatures = sizeof(kGpuFeatureInfo) / sizeof(GpuFeatureInfo);
@@ -272,17 +371,20 @@ Value* GetFeatureStatus() {
             (command_line.HasSwitch(switches::kDisableAcceleratedCompositing) ||
              (flags & content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING)))
           status += "_readback";
-        bool has_thread = CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kEnableThreadedCompositing) &&
-            (!CommandLine::ForCurrentProcess()->HasSwitch(
-                switches::kDisableThreadedCompositing));
-        if (kGpuFeatureInfo[i].name == "compositing" &&
-            CommandLine::ForCurrentProcess()->HasSwitch(
-                switches::kForceCompositingMode))
-          status += "_force";
-        if (kGpuFeatureInfo[i].name == "compositing" &&
-            has_thread)
-          status += "_threaded";
+        bool has_thread =
+            command_line.HasSwitch(switches::kEnableThreadedCompositing) &&
+            !command_line.HasSwitch(switches::kDisableThreadedCompositing);
+        if (kGpuFeatureInfo[i].name == "compositing") {
+          bool force_compositing =
+              (command_line.HasSwitch(switches::kForceCompositingMode) &&
+               !command_line.HasSwitch(
+                   switches::kDisableForceCompositingMode)) ||
+              InForceCompositingModeTrial();
+          if (force_compositing)
+            status += "_force";
+          if (has_thread)
+            status += "_threaded";
+        }
         if (kGpuFeatureInfo[i].name == "css_animation") {
           if (has_thread)
             status = "accelerated_threaded";
@@ -336,11 +438,16 @@ DictionaryValue* GpuInfoAsDictionaryValue() {
       "Initialization time",
       base::Int64ToString(gpu_info.initialization_time.InMilliseconds())));
   basic_info->Append(NewDescriptionValuePair(
-      "Vendor Id", base::StringPrintf("0x%04x", gpu_info.vendor_id)));
-  basic_info->Append(NewDescriptionValuePair(
-      "Device Id", base::StringPrintf("0x%04x", gpu_info.device_id)));
+      "GPU0", GPUDeviceToString(gpu_info.gpu)));
+  for (size_t i = 0; i < gpu_info.secondary_gpus.size(); ++i) {
+    basic_info->Append(NewDescriptionValuePair(
+        base::StringPrintf("GPU%d", static_cast<int>(i + 1)),
+        GPUDeviceToString(gpu_info.secondary_gpus[i])));
+  }
   basic_info->Append(NewDescriptionValuePair(
       "Optimus", Value::CreateBooleanValue(gpu_info.optimus)));
+  basic_info->Append(NewDescriptionValuePair(
+      "AMD switchable", Value::CreateBooleanValue(gpu_info.amd_switchable)));
   basic_info->Append(NewDescriptionValuePair("Driver vendor",
                                              gpu_info.driver_vendor));
   basic_info->Append(NewDescriptionValuePair("Driver version",

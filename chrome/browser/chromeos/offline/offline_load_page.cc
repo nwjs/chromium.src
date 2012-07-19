@@ -4,6 +4,9 @@
 
 #include "chrome/browser/chromeos/offline/offline_load_page.h"
 
+#include "ash/shell.h"
+#include "ash/shell_delegate.h"
+#include "ash/system/tray/system_tray_delegate.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram.h"
 #include "base/string_piece.h"
@@ -16,8 +19,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_preferences_util.h"
 #include "chrome/browser/tab_contents/tab_util.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_icon_set.h"
@@ -31,6 +32,7 @@
 #include "grit/generated_resources.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::BrowserThread;
@@ -58,13 +60,13 @@ OfflineLoadPage::OfflineLoadPage(WebContents* web_contents,
       proceeded_(false),
       web_contents_(web_contents),
       url_(url) {
-  net::NetworkChangeNotifier::AddOnlineStateObserver(this);
+  net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
   interstitial_page_ = InterstitialPage::Create(web_contents, true, url, this);
 }
 
 OfflineLoadPage::~OfflineLoadPage() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  net::NetworkChangeNotifier::RemoveOnlineStateObserver(this);
+  net::NetworkChangeNotifier::RemoveConnectionTypeObserver(this);
 }
 
 void OfflineLoadPage::Show() {
@@ -96,7 +98,7 @@ std::string OfflineLoadPage::GetHTMLContents() {
   Profile* profile = Profile::FromBrowserContext(
       web_contents_->GetBrowserContext());
   DCHECK(profile);
-  const Extension* extension = NULL;
+  const extensions::Extension* extension = NULL;
   ExtensionService* extensions_service = profile->GetExtensionService();
   // Extension service does not exist in test.
   if (extensions_service)
@@ -110,7 +112,7 @@ std::string OfflineLoadPage::GetHTMLContents() {
 
   base::StringPiece html(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_OFFLINE_LOAD_HTML));
+          IDR_OFFLINE_LOAD_HTML, ui::SCALE_FACTOR_NONE));
   return jstemplate_builder::GetI18nTemplateHtml(html, &strings);
 }
 
@@ -136,7 +138,7 @@ void OfflineLoadPage::OnDontProceed() {
 }
 
 void OfflineLoadPage::GetAppOfflineStrings(
-    const Extension* app,
+    const extensions::Extension* app,
     const string16& failed_url,
     DictionaryValue* strings) const {
   strings->SetString("title", app->name());
@@ -185,13 +187,7 @@ void OfflineLoadPage::CommandReceived(const std::string& cmd) {
   } else if (command == "dontproceed") {
     interstitial_page_->DontProceed();
   } else if (command == "open_network_settings") {
-    Browser* browser = BrowserList::GetLastActive();
-    DCHECK(browser);
-    browser->ShowOptionsTab(chrome::kInternetOptionsSubPage);
-  } else if (command == "open_activate_broadband") {
-    Browser* browser = BrowserList::GetLastActive();
-    DCHECK(browser);
-    browser->OpenMobilePlanTabAndActivate();
+    ash::Shell::GetInstance()->tray_delegate()->ShowNetworkSettings();
   } else {
     LOG(WARNING) << "Unknown command:" << cmd;
   }
@@ -202,12 +198,14 @@ void OfflineLoadPage::NotifyBlockingPageComplete(bool proceed) {
       BrowserThread::IO, FROM_HERE, base::Bind(callback_, proceed));
 }
 
-void OfflineLoadPage::OnOnlineStateChanged(bool online) {
+void OfflineLoadPage::OnConnectionTypeChanged(
+    net::NetworkChangeNotifier::ConnectionType type) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DVLOG(1) << "OnlineStateObserver notification received: state="
+  const bool online = type != net::NetworkChangeNotifier::CONNECTION_NONE;
+  DVLOG(1) << "ConnectionTypeObserver notification received: state="
            << (online ? "online" : "offline");
   if (online) {
-    net::NetworkChangeNotifier::RemoveOnlineStateObserver(this);
+    net::NetworkChangeNotifier::RemoveConnectionTypeObserver(this);
     interstitial_page_->Proceed();
   }
 }

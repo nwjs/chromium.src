@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_CHROME_VIEWS_DELEGATE_H_
 #define CHROME_BROWSER_UI_VIEWS_CHROME_VIEWS_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -45,6 +44,15 @@ class ChromeViewsDelegate : public views::ViewsDelegate {
   virtual void ReleaseRef() OVERRIDE;
 
   virtual int GetDispositionForEvent(int event_flags) OVERRIDE;
+
+#if defined(USE_AURA)
+  virtual views::NativeWidgetHelperAura* CreateNativeWidgetHelper(
+      views::NativeWidgetAura* native_widget) OVERRIDE;
+#endif
+
+  virtual content::WebContents* CreateWebContents(
+      content::BrowserContext* browser_context,
+      content::SiteInstance* site_instance) OVERRIDE;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ChromeViewsDelegate);

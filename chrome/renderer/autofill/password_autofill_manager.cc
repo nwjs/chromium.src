@@ -10,6 +10,7 @@
 #include "chrome/common/autofill_messages.h"
 #include "chrome/renderer/autofill/form_autofill_util.h"
 #include "content/public/renderer/render_view.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebAutofillClient.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebElement.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFormElement.h"
@@ -281,14 +282,8 @@ bool PasswordAutofillManager::TextDidChangeInTextField(
   if (element.value().length() > kMaximumTextSizeForAutocomplete)
     return false;
 
-  // We post a task for doing the autocomplete as the caret position is not set
-  // properly at this point (http://bugs.webkit.org/show_bug.cgi?id=16976) and
-  // we need it to determine whether or not to trigger autocomplete.
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&PasswordAutofillManager::PerformInlineAutocomplete,
-                 weak_ptr_factory_.GetWeakPtr(),
-                 element, password, iter->second.fill_data));
+  // The caret position should have already been updated.
+  PerformInlineAutocomplete(element, password, iter->second.fill_data);
   return true;
 }
 
@@ -319,7 +314,7 @@ bool PasswordAutofillManager::DidAcceptAutofillSuggestion(
 
   // Set the incoming |value| in the text field and |FillUserNameAndPassword|
   // will do the rest.
-  input.setValue(value);
+  input.setValue(value, true);
   return FillUserNameAndPassword(&input, &password.password_field,
                                  password.fill_data, true, true);
 }
@@ -534,9 +529,10 @@ bool PasswordAutofillManager::ShowSuggestionPopup(
 
   std::vector<string16> labels(suggestions.size());
   std::vector<string16> icons(suggestions.size());
-  std::vector<int> ids(suggestions.size(), 0);
+  std::vector<int> ids(suggestions.size(),
+                       WebKit::WebAutofillClient::MenuItemIDPasswordEntry);
   webview->applyAutofillSuggestions(
-      user_input, suggestions, labels, icons, ids, -1);
+      user_input, suggestions, labels, icons, ids);
   return true;
 }
 

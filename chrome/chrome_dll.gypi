@@ -50,7 +50,7 @@
           'conditions': [
             ['use_aura==1', {
               'dependencies': [
-                '../ui/gfx/compositor/compositor.gyp:compositor',
+                '../ui/compositor/compositor.gyp:compositor',
               ],
             }],
             ['OS=="win"', {
@@ -96,14 +96,12 @@
                 # resulting .res files get referenced multiple times.
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/browser_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
+                '<(SHARED_INTERMEDIATE_DIR)/chrome/extensions_api_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
-                '<(SHARED_INTERMEDIATE_DIR)/chrome/theme_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/chrome/theme_resources_standard.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
-                '<(SHARED_INTERMEDIATE_DIR)/ui/gfx/gfx_resources.rc',
-                '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources.rc',
-                '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources_standard/ui_resources_standard.rc',
+                '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.rc',
                 '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.rc',
 
@@ -132,6 +130,7 @@
               },
               'msvs_settings': {
                 'VCLinkerTool': {
+                  'AdditionalLibraryDirectories': ['$(DXSDK_DIR)/lib/x86'],
                   'BaseAddress': '0x01c30000',
                   'ImportLibrary': '$(OutDir)\\lib\\chrome_dll.lib',
                   'ProgramDatabaseFile': '$(OutDir)\\chrome_dll.pdb',
@@ -228,7 +227,7 @@
                 # resource bundle because that's the interface that
                 # Authorization Services uses.  Also, Authorization Services
                 # can't deal with .icns files.
-                'app/theme/<(theme_dir_name)/product_logo_32.png',
+                'app/theme/default_100_percent/<(theme_dir_name)/product_logo_32.png',
 
                 'app/framework-Info.plist',
                 'app/nibs/AboutIPC.xib',
@@ -246,9 +245,11 @@
                 'app/nibs/ContentBlockedCookies.xib',
                 'app/nibs/ContentBlockedImages.xib',
                 'app/nibs/ContentBlockedJavaScript.xib',
+                'app/nibs/ContentBlockedMixedScript.xib',
                 'app/nibs/ContentBlockedPlugins.xib',
                 'app/nibs/ContentBlockedPopups.xib',
                 'app/nibs/ContentBlockedGeolocation.xib',
+                'app/nibs/ContentProtocolHandlers.xib',
                 'app/nibs/DownloadItem.xib',
                 'app/nibs/DownloadShelf.xib',
                 'app/nibs/EditSearchEngine.xib',
@@ -271,7 +272,6 @@
                 'app/nibs/MainMenu.xib',
                 'app/nibs/Notification.xib',
                 'app/nibs/OneClickSigninBubble.xib',
-                'app/nibs/OneClickSigninDialog.xib',
                 'app/nibs/Panel.xib',
                 'app/nibs/PreviewableContents.xib',
                 'app/nibs/SaveAccessoryView.xib',
@@ -288,21 +288,12 @@
                 'app/theme/menu_hierarchy_arrow.pdf',
                 'app/theme/menu_overflow_down.pdf',
                 'app/theme/menu_overflow_up.pdf',
-                'app/theme/nav.pdf',
-                'app/theme/omnibox_extension_app.pdf',
-                'app/theme/omnibox_history.pdf',
-                'app/theme/omnibox_http.pdf',
-                'app/theme/omnibox_https_invalid.pdf',
-                'app/theme/omnibox_https_valid.pdf',
-                'app/theme/omnibox_https_warning.pdf',
-                'app/theme/omnibox_search.pdf',
-                'app/theme/omnibox_tts.pdf',
                 'app/theme/otr_icon.pdf',
-                'app/theme/star.pdf',
-                'app/theme/star_lit.pdf',
                 'browser/mac/install.sh',
-                 '<(SHARED_INTERMEDIATE_DIR)/repack/chrome.pak',
-                 '<(SHARED_INTERMEDIATE_DIR)/repack/resources.pak',
+                '<(SHARED_INTERMEDIATE_DIR)/repack/chrome.pak',
+                '<(SHARED_INTERMEDIATE_DIR)/repack/resources.pak',
+                '<(grit_out_dir)/theme_resources_standard.pak',
+                '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.pak',
                 '<!@pymod_do_main(repack_locales -o -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(locales))',
                 # Note: pseudo_locales are generated via the packed_resources
                 # dependency but not copied to the final target.  See
@@ -351,11 +342,6 @@
                 ],
                 'repack_path': '../tools/grit/grit/format/repack.py',
               },
-              'actions': [
-                {
-                  'includes': ['chrome_repack_theme_resources_2x.gypi']
-                },
-              ],
               'postbuilds': [
                 {
                   # This step causes an error to be raised if the .order file
@@ -391,7 +377,7 @@
                   'postbuild_name': 'Symlink Libraries',
                   'action': [
                     'ln',
-                    '-fhs',
+                    '-fns',
                     'Versions/Current/Libraries',
                     '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Libraries'
                   ],
@@ -426,6 +412,17 @@
                         # We leave out nacl_irt_x86_64.nexe because we only
                         # support x86-32 NaCl on Mac OS X.
                         '<(PRODUCT_DIR)/nacl_irt_x86_32.nexe',
+                      ],
+                    }],
+                  ],
+                },
+                {
+                  'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Internet Plug-Ins/PepperFlash',
+                  'files': [],
+                  'conditions': [
+                    ['branding == "Chrome"', {
+                      'files': [
+                        '<(PRODUCT_DIR)/PepperFlash/PepperFlashPlayer.plugin',
                       ],
                     }],
                   ],
@@ -514,6 +511,7 @@
                       'postbuild_name': 'Copy KeystoneRegistration.framework',
                       'action': [
                         '../build/mac/copy_framework_unversioned.sh',
+                        '-I',
                         '../third_party/googlemac/Releases/Keystone/KeystoneRegistration.framework',
                         '${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks',
                       ],
@@ -522,7 +520,7 @@
                       'postbuild_name': 'Symlink Frameworks',
                       'action': [
                         'ln',
-                        '-fhs',
+                        '-fns',
                         'Versions/Current/Frameworks',
                         '${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}/Frameworks'
                       ],
@@ -532,6 +530,12 @@
                 ['internal_pdf', {
                   'dependencies': [
                     '../pdf/pdf.gyp:pdf',
+                  ],
+                }],
+                ['enable_hidpi==1', {
+                  'mac_bundle_resources': [
+                    '<(grit_out_dir)/theme_resources_2x.pak',
+                    '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_2x.pak',
                   ],
                 }],
               ],  # conditions

@@ -9,7 +9,6 @@
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
-#include "ash/wm/root_window_event_filter.h"
 #include "ash/wm/window_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -66,7 +65,7 @@ TEST_F(AcceleratorFilterTest, TestFilterWithoutFocus) {
       scoped_ptr<ScreenshotDelegate>(delegate).Pass());
   EXPECT_EQ(0, delegate->handle_take_screenshot_count());
 
-  aura::test::EventGenerator generator(Shell::GetRootWindow());
+  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   // AcceleratorController calls ScreenshotDelegate::HandleTakeScreenshot() when
   // VKEY_PRINT is pressed. See kAcceleratorData[] in accelerator_controller.cc.
   generator.PressKey(ui::VKEY_PRINT, 0);
@@ -75,9 +74,10 @@ TEST_F(AcceleratorFilterTest, TestFilterWithoutFocus) {
   EXPECT_EQ(1, delegate->handle_take_screenshot_count());
 }
 
-// Tests if AcceleratorFilter works with a focused window.
+// Tests if AcceleratorFilter works as expected with a focused window.
 TEST_F(AcceleratorFilterTest, TestFilterWithFocus) {
-  aura::Window* default_container = Shell::GetInstance()->GetContainer(
+  aura::Window* default_container = Shell::GetContainer(
+      Shell::GetPrimaryRootWindow(),
       internal::kShellWindowId_DefaultContainer);
   aura::test::TestWindowDelegate test_delegate;
   scoped_ptr<aura::Window> window(aura::test::CreateTestWindowWithDelegate(
@@ -92,11 +92,13 @@ TEST_F(AcceleratorFilterTest, TestFilterWithFocus) {
       scoped_ptr<ScreenshotDelegate>(delegate).Pass());
   EXPECT_EQ(0, delegate->handle_take_screenshot_count());
 
-  aura::test::EventGenerator generator(Shell::GetRootWindow());
+  // AcceleratorFilter should ignore the key events since the root window is
+  // not focused.
+  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   generator.PressKey(ui::VKEY_PRINT, 0);
-  EXPECT_EQ(1, delegate->handle_take_screenshot_count());
+  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
   generator.ReleaseKey(ui::VKEY_PRINT, 0);
-  EXPECT_EQ(1, delegate->handle_take_screenshot_count());
+  EXPECT_EQ(0, delegate->handle_take_screenshot_count());
 
   // Reset window before |test_delegate| gets deleted.
   window.reset();
@@ -104,22 +106,12 @@ TEST_F(AcceleratorFilterTest, TestFilterWithFocus) {
 
 // Tests if AcceleratorFilter ignores the flag for Caps Lock.
 TEST_F(AcceleratorFilterTest, TestCapsLockMask) {
-  aura::Window* default_container = Shell::GetInstance()->GetContainer(
-      internal::kShellWindowId_DefaultContainer);
-  aura::test::TestWindowDelegate test_delegate;
-  scoped_ptr<aura::Window> window(aura::test::CreateTestWindowWithDelegate(
-      &test_delegate,
-      -1,
-      gfx::Rect(),
-      default_container));
-  wm::ActivateWindow(window.get());
-
   DummyScreenshotDelegate* delegate = new DummyScreenshotDelegate;
   GetController()->SetScreenshotDelegate(
       scoped_ptr<ScreenshotDelegate>(delegate).Pass());
   EXPECT_EQ(0, delegate->handle_take_screenshot_count());
 
-  aura::test::EventGenerator generator(Shell::GetRootWindow());
+  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow());
   generator.PressKey(ui::VKEY_PRINT, 0);
   EXPECT_EQ(1, delegate->handle_take_screenshot_count());
   generator.ReleaseKey(ui::VKEY_PRINT, 0);
@@ -131,9 +123,6 @@ TEST_F(AcceleratorFilterTest, TestCapsLockMask) {
   EXPECT_EQ(2, delegate->handle_take_screenshot_count());
   generator.ReleaseKey(ui::VKEY_PRINT, ui::EF_CAPS_LOCK_DOWN);
   EXPECT_EQ(2, delegate->handle_take_screenshot_count());
-
-  // Reset window before |test_delegate| gets deleted.
-  window.reset();
 }
 
 }  // namespace test

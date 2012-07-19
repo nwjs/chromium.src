@@ -4,27 +4,35 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_HANDLER_UTIL_H_
 #define CHROME_BROWSER_CHROMEOS_EXTENSIONS_FILE_HANDLER_UTIL_H_
-#pragma once
+
+#include <vector>
 
 #include "base/platform_file.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/url_pattern_set.h"
 
 class Browser;
+class ExtensionHost;
 class FileBrowserHandler;
 class GURL;
 class Profile;
 
 namespace file_handler_util {
 
+void UpdateFileHandlerUsageStats(Profile* profile, const std::string& task_id);
+
 // Gets read-write file access permission flags.
 int GetReadWritePermissions();
 // Gets read-only file access permission flags.
 int GetReadOnlyPermissions();
 
-// Generates file task id for the file actin specified by the extension.
+// Generates file task id for the file action specified by the extension.
 std::string MakeTaskID(const std::string& extension_id,
                        const std::string& action_id);
+
+// Make a task id specific to drive apps instead of extensions.
+std::string MakeDriveTaskID(const std::string& app_id,
+                            const std::string& action_id);
 
 // Extracts action and extension id bound to the file task.
 bool CrackTaskID(const std::string& task_id,
@@ -59,57 +67,46 @@ bool GetDefaultTask(Profile* profile,
                     const GURL& url,
                     const FileBrowserHandler** handler);
 
+// Used for returning success or failure from task executions.
+typedef base::Callback<void(bool)> FileTaskFinishedCallback;
+
 // Helper class for executing file browser file action.
 class FileTaskExecutor : public base::RefCountedThreadSafe<FileTaskExecutor> {
  public:
+  static const char kDriveTaskExtensionPrefix[];
+  static const size_t kDriveTaskExtensionPrefixLength;
 
-  FileTaskExecutor(Profile* profile,
-                   const GURL source_url,
-                   const std::string& extension_id,
-                   const std::string& action_id);
+  // Creates the appropriate FileTaskExecutor for the given |extension_id|.
+  static FileTaskExecutor* Create(Profile* profile,
+                                  const GURL source_url,
+                                  const std::string& extension_id,
+                                  const std::string& action_id);
 
-  virtual ~FileTaskExecutor();
+  // Same as ExecuteAndNotify, but no notification is performed.
+  virtual bool Execute(const std::vector<GURL>& file_urls);
 
   // Initiates execution of file handler task for each element of |file_urls|.
-  // Return |false| if the execution cannot be initiated.
-  // Otherwise returns |true| and then eventually calls |Done|.
-  bool Execute(const std::vector<GURL>& file_urls);
+  // Return |false| if the execution cannot be initiated. Otherwise returns
+  // |true| and then eventually calls |done| when all the files have
+  // been handled. If there is an error during processing the list of files, the
+  // caller will be informed of the failure via |done|, and the rest of
+  // the files will not be processed.
+  virtual bool ExecuteAndNotify(const std::vector<GURL>& file_urls,
+                                const FileTaskFinishedCallback& done) = 0;
 
  protected:
-   virtual Browser* browser() = 0;
-   virtual void Done(bool success) = 0;
+  explicit FileTaskExecutor(Profile* profile);
+  virtual ~FileTaskExecutor();
 
+  // Returns the profile that this task was created with.
+  Profile* profile() { return profile_; }
+
+  // Returns a browser to use for the current browser.
+  Browser* GetBrowser() const;
  private:
-  struct FileDefinition {
-    FileDefinition();
-    ~FileDefinition();
-
-    GURL target_file_url;
-    FilePath virtual_path;
-    FilePath absolute_path;
-    bool is_directory;
-  };
-  typedef std::vector<FileDefinition> FileDefinitionList;
-  class ExecuteTasksFileSystemCallbackDispatcher;
-  void RequestFileEntryOnFileThread(
-      const GURL& handler_base_url,
-      const scoped_refptr<const Extension>& handler,
-      int handler_pid,
-      const std::vector<GURL>& file_urls);
-  void SetupFileAccessPermissionsForGDataCache(
-      const FileDefinitionList& file_list,
-      int handler_pid);
-  void RespondFailedOnUIThread(base::PlatformFileError error_code);
-  void ExecuteFileActionsOnUIThread(const std::string& file_system_name,
-                                    const GURL& file_system_root,
-                                    const FileDefinitionList& file_list,
-                                    int handler_id);
-  void ExecuteFailedOnUIThread();
+  friend class base::RefCountedThreadSafe<FileTaskExecutor>;
 
   Profile* profile_;
-  const GURL source_url_;
-  const std::string extension_id_;
-  const std::string action_id_;
 };
 
 }  // namespace file_handler_util

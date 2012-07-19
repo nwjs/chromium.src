@@ -4,11 +4,11 @@
 
 #ifndef CHROME_RENDERER_PRERENDER_PRERENDER_WEBMEDIAPLAYER_H_
 #define CHROME_RENDERER_PRERENDER_PRERENDER_WEBMEDIAPLAYER_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "content/public/renderer/render_view_observer.h"
+#include "media/base/audio_renderer_sink.h"
 #include "webkit/media/webmediaplayer_impl.h"
 
 namespace webkit_media {
@@ -31,13 +31,14 @@ class PrerenderWebMediaPlayer
       base::WeakPtr<webkit_media::WebMediaPlayerDelegate> delegate,
       media::FilterCollection* collection,
       WebKit::WebAudioSourceProvider* audio_source_provider,
+      media::AudioRendererSink* audio_renderer_sink,
       media::MessageLoopFactory* message_loop_factory,
       webkit_media::MediaStreamClient* media_stream_client,
       media::MediaLog* media_log);
   virtual ~PrerenderWebMediaPlayer();
 
-  // WebMediaPlayer methods:
-  virtual void load(const WebKit::WebURL& url) OVERRIDE;
+  // WebMediaPlayerImpl methods:
+  virtual void load(const WebKit::WebURL& url, CORSMode cors_mode) OVERRIDE;
   virtual void cancelLoad() OVERRIDE;
 
  private:
@@ -49,6 +50,7 @@ class PrerenderWebMediaPlayer
   bool is_prerendering_;
   bool url_loaded_;
   scoped_ptr<WebKit::WebURL> url_to_load_;
+  CORSMode cors_mode_;
 
   DISALLOW_COPY_AND_ASSIGN(PrerenderWebMediaPlayer);
 };

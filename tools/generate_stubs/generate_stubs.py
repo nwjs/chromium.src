@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -36,6 +36,7 @@ import os
 import re
 import string
 import subprocess
+import sys
 
 
 class Error(Exception):
@@ -439,6 +440,17 @@ def WriteWindowsDefFile(module_name, signatures, outfile):
     outfile.write('  %s\n' % sig['name'])
 
 
+def QuietRun(args, filter=None, write_to=sys.stdout):
+  """Invoke |args| as command via subprocess.Popen, filtering lines starting
+  with |filter|."""
+  popen = subprocess.Popen(args, stdout=subprocess.PIPE)
+  out, _ = popen.communicate()
+  for line in out.splitlines():
+    if not filter or not line.startswith(filter):
+      write_to.write(line + '\n')
+  return popen.returncode
+
+
 def CreateWindowsLib(module_name, signatures, intermediate_dir, outdir_path):
   """Creates a windows library file.
 
@@ -470,9 +482,10 @@ def CreateWindowsLib(module_name, signatures, intermediate_dir, outdir_path):
   # Invoke the "lib" program on Windows to create stub .lib files for the
   # generated definitions.  These .lib files can then be used during
   # delayloading of the dynamic libraries.
-  ret = subprocess.call(['lib', '/nologo', '/machine:X86',
-                         '/def:' + def_file_path,
-                         '/out:' + lib_file_path])
+  ret = QuietRun(['lib', '/nologo', '/machine:X86',
+                  '/def:' + def_file_path,
+                  '/out:' + lib_file_path],
+                 filter='   Creating library')
   if ret != 0:
     raise SubprocessError(
         'Failed creating %s for %s' % (lib_file_path, def_file_path),
@@ -924,6 +937,18 @@ def ParseOptions():
   return options, args
 
 
+def EnsureDirExists(dir):
+  """Creates a directory. Does not use the more obvious 'if not exists: create'
+  to avoid race with other invocations of the same code, which will error out
+  on makedirs if another invocation has succeeded in creating the directory
+  since the existence check."""
+  try:
+    os.makedirs(dir)
+  except:
+    if not os.path.isdir(dir):
+      raise
+
+
 def CreateOutputDirectories(options):
   """Creates the intermediate and final output directories.
 
@@ -942,10 +967,8 @@ def CreateOutputDirectories(options):
   if intermediate_dir is None:
     intermediate_dir = out_dir
 
-  if not os.path.exists(out_dir):
-    os.makedirs(out_dir)
-  if not os.path.exists(intermediate_dir):
-    os.makedirs(intermediate_dir)
+  EnsureDirExists(out_dir)
+  EnsureDirExists(intermediate_dir)
 
   return out_dir, intermediate_dir
 

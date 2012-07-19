@@ -19,7 +19,7 @@ struct SpeechRecognitionHypothesis {
 
   SpeechRecognitionHypothesis() : confidence(0.0) {}
 
-  SpeechRecognitionHypothesis(const string16 utterance_value,
+  SpeechRecognitionHypothesis(const string16& utterance_value,
                               double confidence_value)
       : utterance(utterance_value),
         confidence(confidence_value) {
@@ -31,6 +31,7 @@ typedef std::vector<SpeechRecognitionHypothesis>
 
 struct CONTENT_EXPORT SpeechRecognitionResult {
   SpeechRecognitionHypothesisArray hypotheses;
+  bool is_provisional;
 
   SpeechRecognitionResult();
   ~SpeechRecognitionResult();

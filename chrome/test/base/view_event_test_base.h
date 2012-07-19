@@ -4,7 +4,6 @@
 
 #ifndef CHROME_TEST_BASE_VIEW_EVENT_TEST_BASE_H_
 #define CHROME_TEST_BASE_VIEW_EVENT_TEST_BASE_H_
-#pragma once
 
 // We only want to use ViewEventTestBase in test targets which properly
 // isolate each test case by running each test in a separate process.
@@ -16,7 +15,7 @@
 #include "base/compiler_specific.h"
 #include "base/message_loop.h"
 #include "base/threading/thread.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/views/widget/widget_delegate.h"
 

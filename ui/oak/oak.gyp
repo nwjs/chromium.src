@@ -10,17 +10,16 @@
   'targets': [
     {
       'target_name': 'oak',
-      'type': 'static_library',
+      'type': '<(component)',
       'dependencies': [
         '../../base/base.gyp:base',
         '../../base/base.gyp:base_i18n',
         '../../build/temp_gyp/googleurl.gyp:googleurl',
         '../../skia/skia.gyp:skia',
         '../aura/aura.gyp:aura',
-        '../gfx/compositor/compositor.gyp:compositor',
+        '../compositor/compositor.gyp:compositor',
         '../ui.gyp:ui',
         '../ui.gyp:ui_resources',
-        '../ui.gyp:ui_resources_standard',
         '../views/views.gyp:views',
       ],
       'defines': [

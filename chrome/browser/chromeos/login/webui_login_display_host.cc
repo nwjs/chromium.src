@@ -8,14 +8,20 @@
 #include "ash/shell_window_ids.h"
 #include "ash/wm/window_animations.h"
 #include "base/command_line.h"
+#include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
+#include "base/values.h"
+#include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/chromeos/login/oobe_display.h"
 #include "chrome/browser/chromeos/login/webui_login_display.h"
 #include "chrome/browser/chromeos/login/webui_login_view.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
+#include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_switches.h"
+#include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
 #include "ui/aura/window.h"
 #include "ui/views/widget/widget.h"
@@ -32,6 +38,9 @@ const char kOobeURL[] = "chrome://oobe";
 // Duration of sign-in transition animation.
 const int kLoginFadeoutTransitionDurationMs = 700;
 
+// Number of times we try to reload OOBE/login WebUI if it crashes.
+const int kCrashCountLimit = 5;
+
 }  // namespace
 
 // WebUILoginDisplayHost -------------------------------------------------------
@@ -41,7 +50,22 @@ WebUILoginDisplayHost::WebUILoginDisplayHost(const gfx::Rect& background_bounds)
       login_window_(NULL),
       login_view_(NULL),
       webui_login_display_(NULL),
-      is_showing_login_(false) {
+      is_showing_login_(false),
+      is_wallpaper_loaded_(false),
+      crash_count_(0),
+      restore_path_(RESTORE_UNKNOWN) {
+  bool is_registered = WizardController::IsDeviceRegistered();
+  // TODO(nkostylev): Add switch to disable wallpaper transition on OOBE.
+  // Should be used on test images so that they are not slowed down.
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableNewOobe))
+    waiting_for_wallpaper_load_ = !is_registered;
+  else
+    waiting_for_wallpaper_load_ = false;
+
+  if (waiting_for_wallpaper_load_) {
+    registrar_.Add(this, chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED,
+                   content::NotificationService::AllSources());
+  }
 }
 
 WebUILoginDisplayHost::~WebUILoginDisplayHost() {
@@ -78,11 +102,6 @@ void WebUILoginDisplayHost::SetOobeProgressBarVisible(bool visible) {
 void WebUILoginDisplayHost::SetShutdownButtonEnabled(bool enable) {
 }
 
-void WebUILoginDisplayHost::SetStatusAreaEnabled(bool enable) {
-  if (login_view_)
-    login_view_->SetStatusAreaEnabled(enable);
-}
-
 void WebUILoginDisplayHost::SetStatusAreaVisible(bool visible) {
   if (login_view_)
     login_view_->SetStatusAreaVisible(visible);
@@ -90,29 +109,18 @@ void WebUILoginDisplayHost::SetStatusAreaVisible(bool visible) {
 
 void WebUILoginDisplayHost::StartWizard(const std::string& first_screen_name,
                                         DictionaryValue* screen_parameters) {
+  // Keep parameters to restore if renderer crashes.
+  restore_path_ = RESTORE_WIZARD;
+  wizard_first_screen_name_ = first_screen_name;
+  if (screen_parameters)
+    wizard_screen_parameters_.reset(screen_parameters->DeepCopy());
+  else
+    wizard_screen_parameters_.reset(NULL);
   is_showing_login_ = false;
-
   scoped_ptr<DictionaryValue> scoped_parameters(screen_parameters);
-  // This is a special case for WebUI. We don't want to go through the
-  // OOBE WebUI page loading. Since we already have the browser we just
-  // show the corresponding page.
-  if (first_screen_name == WizardController::kHTMLPageScreenName) {
-    const CommandLine* cmd_line = CommandLine::ForCurrentProcess();
-    const CommandLine::StringVector& args = cmd_line->GetArgs();
-    std::string html_page_url;
-    for (size_t i = 0; i < args.size(); i++) {
-      // It's strange but |args| may contain empty strings.
-      if (!args[i].empty()) {
-        DCHECK(html_page_url.empty()) << "More than one URL in command line";
-        html_page_url = args[i];
-      }
-    }
-    DCHECK(!html_page_url.empty()) << "No URL in command line";
-    DCHECK(!login_window_) << "Login window has already been created.";
 
-    LoadURL(GURL(html_page_url));
+  if (waiting_for_wallpaper_load_)
     return;
-  }
 
   if (!login_window_)
     LoadURL(GURL(kOobeURL));
@@ -122,7 +130,11 @@ void WebUILoginDisplayHost::StartWizard(const std::string& first_screen_name,
 }
 
 void WebUILoginDisplayHost::StartSignInScreen() {
+  restore_path_ = RESTORE_SIGN_IN;
   is_showing_login_ = true;
+
+  if (waiting_for_wallpaper_load_)
+    return;
 
   if (!login_window_)
     LoadURL(GURL(kLoginURL));
@@ -148,14 +160,32 @@ void WebUILoginDisplayHost::OnBrowserCreated() {
   }
 }
 
+void WebUILoginDisplayHost::Observe(
+    int type,
+    const content::NotificationSource& source,
+    const content::NotificationDetails& details) {
+  BaseLoginDisplayHost::Observe(type, source, details);
+  if (chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED == type) {
+    is_wallpaper_loaded_ = true;
+    if (waiting_for_wallpaper_load_)
+      StartPostponedWebUI();
+    registrar_.Remove(this,
+                      chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED,
+                      content::NotificationService::AllSources());
+  }
+}
+
 void WebUILoginDisplayHost::LoadURL(const GURL& url) {
   if (!login_window_) {
     views::Widget::InitParams params(
         views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     params.bounds = background_bounds();
     params.show_state = ui::SHOW_STATE_FULLSCREEN;
+    if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableNewOobe))
+      params.transparent = true;
     params.parent =
-        ash::Shell::GetInstance()->GetContainer(
+        ash::Shell::GetContainer(
+            ash::Shell::GetPrimaryRootWindow(),
             ash::internal::kShellWindowId_LockScreenContainer);
 
     login_window_ = new views::Widget;
@@ -178,10 +208,41 @@ void WebUILoginDisplayHost::LoadURL(const GURL& url) {
     login_window_->GetNativeView()->SetName("WebUILoginView");
     login_view_->OnWindowCreated();
   }
+  // Subscribe to crash events.
+  content::WebContentsObserver::Observe(login_view_->GetWebContents());
   login_view_->LoadURL(url);
 }
 
+void WebUILoginDisplayHost::RenderViewGone(base::TerminationStatus status) {
+  // Do not try to restore on shutdown
+  if (browser_shutdown::GetShutdownType() != browser_shutdown::NOT_VALID)
+    return;
+
+  crash_count_++;
+  if (crash_count_ > kCrashCountLimit)
+    return;
+
+  if (status != base::TERMINATION_STATUS_NORMAL_TERMINATION) {
+    // Restart if renderer has crashed.
+    LOG(ERROR) << "Renderer crash on login window";
+    switch (restore_path_) {
+      case RESTORE_WIZARD:
+        StartWizard(wizard_first_screen_name_,
+                    wizard_screen_parameters_.release());
+        break;
+      case RESTORE_SIGN_IN:
+        StartSignInScreen();
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
+  }
+}
+
 OobeUI* WebUILoginDisplayHost::GetOobeUI() const {
+  if (!login_view_)
+    return NULL;
   return static_cast<OobeUI*>(login_view_->GetWebUI()->GetController());
 }
 
@@ -189,6 +250,38 @@ WizardController* WebUILoginDisplayHost::CreateWizardController() {
   // TODO(altimofeev): ensure that WebUI is ready.
   OobeDisplay* oobe_display = GetOobeUI();
   return new WizardController(this, oobe_display);
+}
+
+void WebUILoginDisplayHost::StartPostponedWebUI() {
+  if (!waiting_for_wallpaper_load_ || !is_wallpaper_loaded_) {
+    NOTREACHED();
+    return;
+  }
+
+  // StartWizard / StartSignInScreen could be called multiple times through
+  // the lifetime of host. Make sure that subsequent calls are not postponed.
+  waiting_for_wallpaper_load_ = false;
+
+  // Wallpaper has finished loading before StartWizard/StartSignInScreen has
+  // been called. In general this should not happen.
+  // Let go through normal code path when one of those will be called.
+  if (restore_path_ == RESTORE_UNKNOWN) {
+    NOTREACHED();
+    return;
+  }
+
+  switch (restore_path_) {
+    case RESTORE_WIZARD:
+      StartWizard(wizard_first_screen_name_,
+                  wizard_screen_parameters_.release());
+      break;
+    case RESTORE_SIGN_IN:
+      StartSignInScreen();
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
 }
 
 }  // namespace chromeos

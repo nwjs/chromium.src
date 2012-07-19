@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_PLUGINS_WEBKIT_PLUGINS_EXPORT_H_
 #define WEBKIT_PLUGINS_WEBKIT_PLUGINS_EXPORT_H_
-#pragma once
 
 #if defined(COMPONENT_BUILD)
 #if defined(WIN32)
@@ -16,7 +15,11 @@
 #endif  // defined(WEBKIT_PLUGINS_IMPLEMENTATION)
 
 #else // defined(WIN32)
+#if defined(WEBKIT_PLUGINS_IMPLEMENTATION)
 #define WEBKIT_PLUGINS_EXPORT __attribute__((visibility("default")))
+#else
+#define WEBKIT_PLUGINS_EXPORT
+#endif
 #endif
 
 #else // defined(COMPONENT_BUILD)

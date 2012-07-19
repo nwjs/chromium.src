@@ -4,7 +4,6 @@
 
 #ifndef CHROME_TEST_UI_UI_TEST_H_
 #define CHROME_TEST_UI_UI_TEST_H_
-#pragma once
 
 // This file provides a common base for running UI unit tests, which operate
 // the entire browser application in a separate process for holistic
@@ -78,24 +77,8 @@ class UITestBase {
   void CloseBrowserAndServer();
 
   // Launches the browser with the given command line.
-  // TODO(phajdan.jr): Make LaunchBrowser private. Tests should use
-  // LaunchAnotherBrowserBlockUntilClosed.
+  // TODO(phajdan.jr): Make LaunchBrowser private.
   void LaunchBrowser(const CommandLine& cmdline, bool clear_profile);
-
-#if !defined(OS_MACOSX)
-  // These functions are deliberately not defined on the Mac because re-using an
-  // existing browser process when launching from the command line isn't a
-  // concept that we support on the Mac; AppleEvents are the Mac solution for
-  // the same need. Any test based on these functions doesn't apply to the Mac.
-
-  // Launches an another browser process and waits for it to finish. Returns
-  // true on success.
-  bool LaunchAnotherBrowserBlockUntilClosed(const CommandLine& cmdline);
-
-  // Same as LaunchAnotherBrowserBlockUntilClosed except that the URL argument
-  // is not used.
-  bool LaunchAnotherBrowserNoUrlArg(const CommandLine& cmdline);
-#endif
 
   // Exits out browser instance.
   void QuitBrowser();
@@ -162,20 +145,12 @@ class UITestBase {
   bool WaitForBookmarkBarVisibilityChange(BrowserProxy* browser,
                                           bool wait_for_open);
 
-  // Sends the request to close the browser without blocking.
-  // This is so we can interact with dialogs opened on browser close,
-  // e.g. the beforeunload confirm dialog.
-  void CloseBrowserAsync(BrowserProxy* browser) const;
-
   // Closes the specified browser.  Returns true if the browser was closed.
   // This call is blocking.  |application_closed| is set to true if this was
   // the last browser window (and therefore as a result of it closing the
   // browser process terminated).  Note that in that case this method returns
   // after the browser process has terminated.
   bool CloseBrowser(BrowserProxy* browser, bool* application_closed) const;
-
-  // Gets the directory for the currently active profile in the browser.
-  FilePath GetDownloadDirectory();
 
   // Gets the executable file path of the Chrome browser process.
   const FilePath::CharType* GetExecutablePath();
@@ -250,7 +225,12 @@ class UITestBase {
   }
 
   // Get the number of crash dumps we've logged since the test started.
-  int GetCrashCount();
+  int GetCrashCount() const;
+
+  // Returns empty string if there were no unexpected Chrome asserts or crashes,
+  // a string describing the failures otherwise. As a side effect, it will fail
+  // with EXPECT_EQ macros if this code runs within a gtest harness.
+  std::string CheckErrorsAndCrashes() const;
 
   // Use Chromium binaries from the given directory.
   void SetBrowserDirectory(const FilePath& dir);
@@ -262,6 +242,12 @@ class UITestBase {
   // Appends a command-line switch with associated value to be passed to the
   // browser when launched.
   void AppendBrowserLaunchSwitch(const char* name, const char* value);
+
+  // Pass-through to AutomationProxy::BeginTracing.
+  bool BeginTracing(const std::string& categories);
+
+  // Pass-through to AutomationProxy::EndTracing.
+  std::string EndTracing();
 
  protected:
   // String to display when a test fails because the crash service isn't
@@ -280,13 +266,9 @@ class UITestBase {
   // Closes the browser window.
   virtual void TearDown();
 
-  AutomationProxy* automation() const {
-    return launcher_->automation();
-  }
+  virtual AutomationProxy* automation() const;
 
   ProxyLauncher::LaunchState DefaultLaunchState();
-
-  virtual bool ShouldFilterInet();
 
   // Extra command-line switches that need to be passed to the browser are
   // added in this function. Add new command-line switches here.
@@ -404,17 +386,6 @@ class UITest : public UITestBase, public PlatformTest {
   // TODO(phajdan.jr): Move to test_file_util if we need it in more places.
   bool EvictFileFromSystemCacheWrapper(const FilePath& path);
 
-  // Wait for |generated_file| to be ready and then compare it with
-  // |original_file| to see if they're identical or not if |compare_file| is
-  // true. If |need_equal| is true, they need to be identical. Otherwise,
-  // they should be different. This function will delete the generated file if
-  // the parameter |delete_generated_file| is true.
-  void WaitForGeneratedFileAndCheck(const FilePath& generated_file,
-                                    const FilePath& original_file,
-                                    bool compare_files,
-                                    bool need_equal,
-                                    bool delete_generated_file);
-
   // Polls the tab for a JavaScript condition and returns once one of the
   // following conditions hold true:
   // - The JavaScript condition evaluates to true (return true).
@@ -448,16 +419,6 @@ class UITest : public UITestBase, public PlatformTest {
                                       const char* cookie_name,
                                       int timeout_ms);
 
-  // Checks whether the download shelf is visible in the current browser, giving
-  // it a chance to appear (we don't know the exact timing) while finishing as
-  // soon as possible.
-  bool WaitForDownloadShelfVisible(BrowserProxy* browser);
-
-  // Checks whether the download shelf is invisible in the current browser,
-  // giving it a chance to appear (we don't know the exact timing) while
-  // finishing as soon as possible.
-  bool WaitForDownloadShelfInvisible(BrowserProxy* browser);
-
   // Waits until the Find window has become fully visible (if |wait_for_open| is
   // true) or fully hidden (if |wait_for_open| is false). This function can time
   // out (return false) if the window doesn't appear within a specific time.
@@ -475,10 +436,6 @@ class UITest : public UITestBase, public PlatformTest {
   void NavigateToURLAsync(const GURL& url);
 
  private:
-  // Waits for download shelf visibility or invisibility.
-  bool WaitForDownloadShelfVisibilityChange(BrowserProxy* browser,
-                                            bool wait_for_open);
-
   MessageLoop message_loop_;  // Enables PostTask to main thread.
 };
 

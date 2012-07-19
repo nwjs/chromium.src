@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_SYNC_BROWSER_SYNCED_WINDOW_DELEGATE_H_
 #define CHROME_BROWSER_UI_SYNC_BROWSER_SYNCED_WINDOW_DELEGATE_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "chrome/browser/sessions/session_id.h"
@@ -35,6 +34,7 @@ class BrowserSyncedWindowDelegate : public browser_sync::SyncedWindowDelegate {
       const browser_sync::SyncedTabDelegate* tab) const OVERRIDE;
   virtual browser_sync::SyncedTabDelegate* GetTabAt(int index) const OVERRIDE;
   virtual SessionID::id_type GetTabIdAt(int index) const OVERRIDE;
+  virtual bool IsSessionRestoreInProgress() const OVERRIDE;
 
  private:
   Browser* browser_;

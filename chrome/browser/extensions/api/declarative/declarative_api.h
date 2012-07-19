@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_DECLARATIVE_API_H__
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_DECLARATIVE_API_H__
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
@@ -16,7 +15,11 @@ namespace extensions {
 class RulesFunction : public AsyncExtensionFunction {
  public:
   RulesFunction();
+
+ protected:
   virtual ~RulesFunction();
+
+  // ExtensionFunction:
   virtual bool RunImpl() OVERRIDE;
 
   // Concrete implementation of the RulesFunction that is being called
@@ -24,29 +27,40 @@ class RulesFunction : public AsyncExtensionFunction {
   // Returns false in case of errors.
   virtual bool RunImplOnCorrectThread() = 0;
 
- protected:
   scoped_refptr<RulesRegistry> rules_registry_;
-
- private:
-  void SendResponseOnUIThread();
 };
 
 class AddRulesFunction : public RulesFunction {
  public:
+  DECLARE_EXTENSION_FUNCTION_NAME("events.addRules");
+
+ protected:
+  virtual ~AddRulesFunction() {}
+
+  // RulesFunction:
   virtual bool RunImplOnCorrectThread() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("experimental.declarative.addRules");
 };
 
 class RemoveRulesFunction : public RulesFunction {
  public:
+  DECLARE_EXTENSION_FUNCTION_NAME("events.removeRules");
+
+ protected:
+  virtual ~RemoveRulesFunction() {}
+
+  // RulesFunction:
   virtual bool RunImplOnCorrectThread() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("experimental.declarative.removeRules");
 };
 
 class GetRulesFunction : public RulesFunction {
  public:
+  DECLARE_EXTENSION_FUNCTION_NAME("events.getRules");
+
+ protected:
+  virtual ~GetRulesFunction() {}
+
+  // RulesFunction:
   virtual bool RunImplOnCorrectThread() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("experimental.declarative.getRules");
 };
 
 }  // namespace extensions

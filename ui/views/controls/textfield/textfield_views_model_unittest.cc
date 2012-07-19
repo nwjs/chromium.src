@@ -239,11 +239,7 @@ TEST_F(TextfieldViewsModelTest, EditString_ComplexScript) {
 
   // The first 2 characters are not strong directionality characters.
   model.SetText(WideToUTF16(L"\x002C\x0020\x05D1\x05BC\x05B7\x05E9\x05BC"));
-#if defined(OS_WIN)
-  model.MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_RIGHT, false);
-#else
   model.MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_LEFT, false);
-#endif
   EXPECT_TRUE(model.Backspace());
   EXPECT_EQ(WideToUTF16(L"\x002C\x0020\x05D1\x05BC\x05B7\x05E9"),
             model.GetText());
@@ -280,12 +276,19 @@ TEST_F(TextfieldViewsModelTest, Selection) {
   EXPECT_STR_EQ("ELLO", model.GetSelectedText());
   model.ClearSelection();
   EXPECT_EQ(string16(), model.GetSelectedText());
-  model.SelectAll();
+
+  // SelectAll(false) selects towards the end.
+  model.SelectAll(false);
   EXPECT_STR_EQ("HELLO", model.GetSelectedText());
-  // SelectAll should select towards the end.
   gfx::SelectionModel sel;
   model.GetSelectionModel(&sel);
   EXPECT_EQ(ui::Range(0, 5), sel.selection());
+
+  // SelectAll(true) selects towards the beginning.
+  model.SelectAll(true);
+  EXPECT_STR_EQ("HELLO", model.GetSelectedText());
+  model.GetSelectionModel(&sel);
+  EXPECT_EQ(ui::Range(5, 0), sel.selection());
 
   // Select and move cursor
   model.SelectRange(ui::Range(1U, 3U));
@@ -297,10 +300,10 @@ TEST_F(TextfieldViewsModelTest, Selection) {
   EXPECT_EQ(3U, model.GetCursorPosition());
 
   // Select all and move cursor
-  model.SelectAll();
+  model.SelectAll(false);
   model.MoveCursor(gfx::CHARACTER_BREAK, gfx::CURSOR_LEFT, false);
   EXPECT_EQ(0U, model.GetCursorPosition());
-  model.SelectAll();
+  model.SelectAll(false);
   model.MoveCursor(gfx::CHARACTER_BREAK, gfx::CURSOR_RIGHT, false);
   EXPECT_EQ(5U, model.GetCursorPosition());
 }
@@ -341,7 +344,7 @@ TEST_F(TextfieldViewsModelTest, Selection_BidiWithNonSpacingMarks) {
 
   model.ClearSelection();
   EXPECT_EQ(string16(), model.GetSelectedText());
-  model.SelectAll();
+  model.SelectAll(false);
   EXPECT_EQ(WideToUTF16(L"abc\x05E9\x05BC\x05C1\x05B8\x05E0\x05B8"L"def"),
             model.GetSelectedText());
 #endif
@@ -384,7 +387,7 @@ TEST_F(TextfieldViewsModelTest, Selection_BidiWithNonSpacingMarks) {
 
   model.ClearSelection();
   EXPECT_EQ(string16(), model.GetSelectedText());
-  model.SelectAll();
+  model.SelectAll(false);
   EXPECT_EQ(WideToUTF16(L"a\x05E9"L"b"), model.GetSelectedText());
 }
 
@@ -470,9 +473,9 @@ TEST_F(TextfieldViewsModelTest, SetText) {
   model.MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_RIGHT, false);
   model.SetText(ASCIIToUTF16("GOODBYE"));
   EXPECT_STR_EQ("GOODBYE", model.GetText());
-  // SetText won't reset the cursor posistion.
-  EXPECT_EQ(5U, model.GetCursorPosition());
-  model.SelectAll();
+  // SetText move the cursor to the end of the new text.
+  EXPECT_EQ(7U, model.GetCursorPosition());
+  model.SelectAll(false);
   EXPECT_STR_EQ("GOODBYE", model.GetSelectedText());
   model.MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_RIGHT, false);
   EXPECT_EQ(7U, model.GetCursorPosition());
@@ -519,7 +522,7 @@ TEST_F(TextfieldViewsModelTest, MAYBE_Clipboard) {
 
   // Cut on obscured (password) text should do nothing.
   model.render_text()->SetObscured(true);
-  model.SelectAll();
+  model.SelectAll(false);
   EXPECT_FALSE(model.Cut());
   clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
   EXPECT_EQ(initial_clipboard_text, clipboard_text);
@@ -527,7 +530,7 @@ TEST_F(TextfieldViewsModelTest, MAYBE_Clipboard) {
   EXPECT_STR_EQ("HELLO WORLD", model.GetSelectedText());
 
   // Copy on obscured text should do nothing.
-  model.SelectAll();
+  model.SelectAll(false);
   EXPECT_FALSE(model.Copy());
   clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
   EXPECT_EQ(initial_clipboard_text, clipboard_text);
@@ -546,7 +549,7 @@ TEST_F(TextfieldViewsModelTest, MAYBE_Clipboard) {
 
   // Copy with non-empty selection.
   model.Append(ASCIIToUTF16("HELLO WORLD"));
-  model.SelectAll();
+  model.SelectAll(false);
   model.Copy();
   clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &clipboard_text);
   EXPECT_STR_EQ("HELLO HELLO WORLD", clipboard_text);
@@ -979,7 +982,7 @@ TEST_F(TextfieldViewsModelTest, CompositionTextTest) {
   EXPECT_STR_EQ("678", model.GetText());
 
   model.SetCompositionText(composition);
-  model.SelectAll();
+  model.SelectAll(false);
   EXPECT_TRUE(composition_text_confirmed_or_cleared_);
   composition_text_confirmed_or_cleared_ = false;
   EXPECT_STR_EQ("678", model.GetText());
@@ -1104,7 +1107,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_SetText) {
   EXPECT_STR_EQ("w", model.GetText());
   EXPECT_EQ(1U, model.GetCursorPosition());
   model.SetText(ASCIIToUTF16("www.google.com"));
-  EXPECT_EQ(1U, model.GetCursorPosition());
+  EXPECT_EQ(14U, model.GetCursorPosition());
   EXPECT_STR_EQ("www.google.com", model.GetText());
   model.SelectRange(ui::Range(14, 1));
   model.InsertChar('w');
@@ -1123,7 +1126,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_SetText) {
   EXPECT_STR_EQ("www.y", model.GetText());
   model.SetText(ASCIIToUTF16("www.youtube.com"));
   EXPECT_STR_EQ("www.youtube.com", model.GetText());
-  EXPECT_EQ(5U, model.GetCursorPosition());
+  EXPECT_EQ(15U, model.GetCursorPosition());
 
   EXPECT_TRUE(model.Undo());
   EXPECT_STR_EQ("www.google.com", model.GetText());
@@ -1166,7 +1169,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_BackspaceThenSetText) {
   EXPECT_STR_EQ("w", model.GetText());
   EXPECT_EQ(1U, model.GetCursorPosition());
   model.SetText(ASCIIToUTF16("www.google.com"));
-  EXPECT_EQ(1U, model.GetCursorPosition());
+  EXPECT_EQ(14U, model.GetCursorPosition());
   EXPECT_STR_EQ("www.google.com", model.GetText());
   model.SetText(ASCIIToUTF16("www.google.com"));  // Confirm the text.
   model.MoveCursor(gfx::LINE_BREAK, gfx::CURSOR_RIGHT, false);
@@ -1202,7 +1205,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_CutCopyPasteTest) {
   EXPECT_STR_EQ("", model.GetText());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("ABCDE", model.GetText());
-  EXPECT_EQ(0U, model.GetCursorPosition());
+  EXPECT_EQ(5U, model.GetCursorPosition());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("ADE", model.GetText());
   EXPECT_EQ(1U, model.GetCursorPosition());
@@ -1233,7 +1236,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_CutCopyPasteTest) {
   EXPECT_STR_EQ("", model.GetText());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("ABCDE", model.GetText());  // Redoing SetText
-  EXPECT_EQ(0U, model.GetCursorPosition());
+  EXPECT_EQ(5U, model.GetCursorPosition());
 
   // Redo
   EXPECT_TRUE(model.Redo());
@@ -1273,7 +1276,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_CutCopyPasteTest) {
   ResetModel(&model);
   model.SetText(ASCIIToUTF16("12345"));
   EXPECT_STR_EQ("12345", model.GetText());
-  EXPECT_EQ(0U, model.GetCursorPosition());
+  EXPECT_EQ(5U, model.GetCursorPosition());
   model.SelectRange(ui::Range(1, 3));
   model.Copy();  // Copy "23"
   EXPECT_STR_EQ("12345", model.GetText());
@@ -1297,7 +1300,7 @@ TEST_F(TextfieldViewsModelTest, UndoRedo_CutCopyPasteTest) {
   // Redo
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("12345", model.GetText());
-  EXPECT_EQ(0U, model.GetCursorPosition());
+  EXPECT_EQ(5U, model.GetCursorPosition());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("12345", model.GetText());  // For 1st paste
   EXPECT_EQ(3U, model.GetCursorPosition());
@@ -1358,7 +1361,7 @@ void RunInsertReplaceTest(TextfieldViewsModel& model) {
   EXPECT_FALSE(model.Undo());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("abcd", model.GetText());
-  EXPECT_EQ(0U, model.GetCursorPosition());  // By SetText
+  EXPECT_EQ(4U, model.GetCursorPosition());  // By SetText
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("a123d", model.GetText());
   EXPECT_EQ(4U, model.GetCursorPosition());
@@ -1385,7 +1388,7 @@ void RunOverwriteReplaceTest(TextfieldViewsModel& model) {
   EXPECT_FALSE(model.Undo());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("abcd", model.GetText());
-  EXPECT_EQ(0U, model.GetCursorPosition());
+  EXPECT_EQ(4U, model.GetCursorPosition());
   EXPECT_TRUE(model.Redo());
   EXPECT_STR_EQ("a1234", model.GetText());
   EXPECT_EQ(5U, model.GetCursorPosition());

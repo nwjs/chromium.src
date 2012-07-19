@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "base/command_line.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/memory/singleton.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/io_thread.h"
@@ -18,40 +18,22 @@
 #include "grit/theme_resources.h"
 #include "grit/ui_resources.h"
 #include "net/base/mime_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/base/ui_base_switches.h"
 
 namespace {
 
 int PathToIDR(const std::string& path) {
+  // The name of the files in the grd list are prefixed with the following
+  // directory:
+  std::string key("shared/");
+  key += path;
+
   int idr = -1;
-  if (path == "ui/resources/folder_closed.png") {
-    idr = IDR_FOLDER_CLOSED;
-  } else if (path == "ui/resources/folder_closed_rtl.png") {
-    idr = IDR_FOLDER_CLOSED_RTL;
-  } else if (path == "ui/resources/folder_open.png") {
-    idr = IDR_FOLDER_OPEN;
-  } else if (path == "ui/resources/folder_open_rtl.png") {
-    idr = IDR_FOLDER_OPEN_RTL;
-  } else if (path == "ui/resources/throbber.png") {
-    idr = IDR_THROBBER;
-  } else {
-    // The name of the files in the grd list are prefixed with the following
-    // directory:
-    std::string key("shared/");
-    key += path;
-
-    for (size_t i = 0; i < kSharedResourcesSize; ++i) {
-      if (kSharedResources[i].name == key) {
-        idr = kSharedResources[i].value;
-        break;
-      }
-    }
-
-    if (idr == IDR_SHARED_CSS_CHROME2 &&
-        CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kTouchOptimizedUI)) {
-      idr = IDR_SHARED_CSS_CHROME2_TOUCH;
+  for (size_t i = 0; i < kSharedResourcesSize; ++i) {
+    if (kSharedResources[i].name == key) {
+      idr = kSharedResources[i].value;
+      break;
     }
   }
 
@@ -73,7 +55,8 @@ void SharedResourcesDataSource::StartDataRequest(const std::string& path,
   int idr = PathToIDR(path);
   DCHECK_NE(-1, idr) << " path: " << path;
   const ResourceBundle& rb = ResourceBundle::GetSharedInstance();
-  scoped_refptr<RefCountedStaticMemory> bytes(rb.LoadDataResourceBytes(idr));
+  scoped_refptr<base::RefCountedStaticMemory> bytes(
+      rb.LoadDataResourceBytes(idr, ui::SCALE_FACTOR_NONE));
 
   SendResponse(request_id, bytes);
 }

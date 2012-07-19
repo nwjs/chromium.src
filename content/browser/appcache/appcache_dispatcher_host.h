@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_APPCACHE_APPCACHE_DISPATCHER_HOST_H_
 #define CONTENT_BROWSER_APPCACHE_APPCACHE_DISPATCHER_HOST_H_
-#pragma once
 
 #include <vector>
 
@@ -25,17 +24,19 @@ class AppCacheDispatcherHost : public content::BrowserMessageFilter {
  public:
   AppCacheDispatcherHost(ChromeAppCacheService* appcache_service,
                          int process_id);
-  virtual ~AppCacheDispatcherHost();
 
   // BrowserIOMessageFilter implementation
   virtual void OnChannelConnected(int32 peer_pid) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok) OVERRIDE;
 
- private:
+ protected:
+  virtual ~AppCacheDispatcherHost();
+
   // content::BrowserMessageFilter override.
   virtual void BadMessageReceived() OVERRIDE;
 
+ private:
   // IPC message handlers
   void OnRegisterHost(int host_id);
   void OnUnregisterHost(int host_id);

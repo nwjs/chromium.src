@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_RESOURCE_DISPATCHER_HOST_DELEGATE_H_
 #define CONTENT_PUBLIC_BROWSER_RESOURCE_DISPATCHER_HOST_DELEGATE_H_
-#pragma once
 
 #include <string>
 
@@ -47,10 +46,8 @@ class CONTENT_EXPORT ResourceDispatcherHostDelegate {
       ResourceContext* resource_context,
       const Referrer& referrer);
 
-  // Called after ShouldBeginRequest when all the resource handlers from the
-  // content layer have been added.  To add new handlers to the front, return
-  // a new handler that is chained to the given one, otherwise just reutrn the
-  // given handler.
+  // Called after ShouldBeginRequest to allow the embedder to add resource
+  // throttles.
   virtual void RequestBeginning(
       net::URLRequest* request,
       ResourceContext* resource_context,
@@ -72,7 +69,7 @@ class CONTENT_EXPORT ResourceDispatcherHostDelegate {
       int child_id,
       int route_id,
       int request_id,
-      bool is_new_request,
+      bool is_content_initiated,
       ScopedVector<ResourceThrottle>* throttles);
 
   // Called when an SSL Client Certificate is requested. If false is returned,
@@ -106,12 +103,14 @@ class CONTENT_EXPORT ResourceDispatcherHostDelegate {
   // Informs the delegate that a response has started.
   virtual void OnResponseStarted(
       net::URLRequest* request,
+      ResourceContext* resource_context,
       ResourceResponse* response,
-      IPC::Message::Sender* sender);
+      IPC::Sender* sender);
 
   // Informs the delegate that a request has been redirected.
   virtual void OnRequestRedirected(
       net::URLRequest* request,
+      ResourceContext* resource_context,
       ResourceResponse* response);
 
  protected:

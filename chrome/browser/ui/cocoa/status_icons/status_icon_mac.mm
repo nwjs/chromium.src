@@ -1,11 +1,14 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/cocoa/status_icons/status_icon_mac.h"
 
+#import <AppKit/AppKit.h>
+
 #include "base/logging.h"
 #include "base/sys_string_conversions.h"
+#import "chrome/browser/ui/cocoa/menu_controller.h"
 #include "skia/ext/skia_utils_mac.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
@@ -27,7 +30,10 @@
 - (void)handleClick:(id)sender {
   // Pass along the click notification to our owner.
   DCHECK(statusIcon_);
-  statusIcon_->DispatchClickEvent();
+  // Bring up the status icon menu if there is one, relay the click event
+  // otherwise.
+  if (!statusIcon_->HasStatusIconMenu())
+    statusIcon_->DispatchClickEvent();
 }
 
 @end
@@ -73,7 +79,15 @@ void StatusIconMac::SetPressedImage(const SkBitmap& bitmap) {
 }
 
 void StatusIconMac::SetToolTip(const string16& tool_tip) {
-  [item() setToolTip:base::SysUTF16ToNSString(tool_tip)];
+  // If we have a status icon menu, make the tool tip part of the menu instead
+  // of a pop-up tool tip when hovering the mouse over the image.
+  toolTip_.reset([base::SysUTF16ToNSString(tool_tip) retain]);
+  if (menu_.get()) {
+    SetToolTip(nil);
+    CreateMenu([menu_ model], toolTip_.get());
+  } else {
+    SetToolTip(toolTip_.get());
+  }
 }
 
 void StatusIconMac::DisplayBalloon(const SkBitmap& icon,
@@ -82,7 +96,36 @@ void StatusIconMac::DisplayBalloon(const SkBitmap& icon,
   notification_.DisplayBalloon(icon, title, contents);
 }
 
-void StatusIconMac::UpdatePlatformContextMenu(ui::MenuModel* menu) {
-  // TODO(atwilson): Add support for context menus for Mac when actually needed
-  // (not yet used by anything) - http://crbug.com/37375.
+bool StatusIconMac::HasStatusIconMenu() {
+  return menu_.get() != nil;
+}
+
+void StatusIconMac::UpdatePlatformContextMenu(ui::MenuModel* model) {
+  if (!model) {
+    menu_.reset();
+  } else {
+    SetToolTip(nil);
+    CreateMenu(model, toolTip_.get());
+  }
+}
+
+void StatusIconMac::CreateMenu(ui::MenuModel* model, NSString* toolTip) {
+  DCHECK(model);
+
+  if (!toolTip) {
+    menu_.reset([[MenuController alloc] initWithModel:model
+                               useWithPopUpButtonCell:NO]);
+  } else {
+    // When using a popup button cell menu controller, an extra blank item is
+    // added at index 0. Use this item for the tooltip.
+    menu_.reset([[MenuController alloc] initWithModel:model
+                               useWithPopUpButtonCell:YES]);
+    NSMenuItem* toolTipItem = [[menu_ menu] itemAtIndex:0];
+    [toolTipItem setTitle:toolTip];
+  }
+  [item() setMenu:[menu_ menu]];
+}
+
+void StatusIconMac::SetToolTip(NSString* toolTip) {
+  [item() setToolTip:toolTip];
 }

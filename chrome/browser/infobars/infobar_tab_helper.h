@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_INFOBARS_INFOBAR_TAB_HELPER_H_
 #define CHROME_BROWSER_INFOBARS_INFOBAR_TAB_HELPER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "content/public/browser/notification_observer.h"
@@ -25,7 +24,9 @@ class InfoBarTabHelper : public content::WebContentsObserver,
   // If infobars are disabled for this tab or the tab already has a delegate
   // which returns true for InfoBarDelegate::EqualsDelegate(delegate),
   // |delegate| is closed immediately without being added.
-  void AddInfoBar(InfoBarDelegate* delegate);
+  //
+  // Returns whether |delegate| was successfully added.
+  bool AddInfoBar(InfoBarDelegate* delegate);
 
   // Removes the InfoBar for the specified |delegate|.
   //
@@ -39,8 +40,10 @@ class InfoBarTabHelper : public content::WebContentsObserver,
   // If infobars are disabled for this tab, |new_delegate| is closed immediately
   // without being added, and nothing else happens.
   //
+  // Returns whether |new_delegate| was successfully added.
+  //
   // NOTE: This does not perform any EqualsDelegate() checks like AddInfoBar().
-  void ReplaceInfoBar(InfoBarDelegate* old_delegate,
+  bool ReplaceInfoBar(InfoBarDelegate* old_delegate,
                       InfoBarDelegate* new_delegate);
 
   // Enumeration and access functions.
@@ -64,6 +67,8 @@ class InfoBarTabHelper : public content::WebContentsObserver,
   }
 
  private:
+  typedef std::vector<InfoBarDelegate*> InfoBars;
+
   void RemoveInfoBarInternal(InfoBarDelegate* delegate, bool animate);
   void RemoveAllInfoBars(bool animate);
 
@@ -72,7 +77,7 @@ class InfoBarTabHelper : public content::WebContentsObserver,
   void OnDidBlockRunningInsecureContent();
 
   // Delegates for InfoBars associated with this InfoBarTabHelper.
-  std::vector<InfoBarDelegate*> infobars_;
+  InfoBars infobars_;
   bool infobars_enabled_;
 
   content::NotificationRegistrar registrar_;

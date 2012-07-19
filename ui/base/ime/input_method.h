@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_IME_INPUT_METHOD_H_
 #define UI_BASE_IME_INPUT_METHOD_H_
-#pragma once
 
 #include <string>
 
@@ -45,7 +44,7 @@ class TextInputClient;
 //   that change the state of the input method.
 // In Aura environment, aura::RootWindowHost creates an instance of
 // ui::InputMethod and owns it.
-class UI_EXPORT InputMethod {
+class InputMethod {
  public:
   virtual ~InputMethod() {}
 

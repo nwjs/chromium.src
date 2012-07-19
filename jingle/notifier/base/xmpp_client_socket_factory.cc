@@ -30,6 +30,7 @@ XmppClientSocketFactory::~XmppClientSocketFactory() {}
 
 net::StreamSocket* XmppClientSocketFactory::CreateTransportClientSocket(
     const net::HostPortPair& host_and_port) {
+  // TODO(akalin): Use socket pools.
   net::StreamSocket* transport_socket = new ProxyResolvingClientSocket(
       NULL,
       request_context_getter_,
@@ -48,7 +49,7 @@ net::SSLClientSocket* XmppClientSocketFactory::CreateSSLClientSocket(
   // TODO(rkn): context.server_bound_cert_service is NULL because the
   // ServerBoundCertService class is not thread safe.
   return client_socket_factory_->CreateSSLClientSocket(
-      transport_socket, host_and_port, ssl_config_, NULL, context);
+      transport_socket, host_and_port, ssl_config_, context);
 }
 
 

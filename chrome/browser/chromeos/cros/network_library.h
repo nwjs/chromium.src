@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_CROS_NETWORK_LIBRARY_H_
 #define CHROME_BROWSER_CHROMEOS_CROS_NETWORK_LIBRARY_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -13,11 +12,9 @@
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/memory/scoped_vector.h"
 #include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "base/string16.h"
 #include "base/timer.h"
 #include "chrome/browser/chromeos/cros/cros_network_functions.h"
 #include "chrome/browser/chromeos/cros/network_constants.h"
@@ -73,18 +70,6 @@ struct CellularApn {
 };
 typedef std::vector<CellularApn> CellularApnList;
 
-// Cellular network is considered low data when less than 60 minues.
-static const int kCellularDataLowSecs = 60 * 60;
-
-// Cellular network is considered low data when less than 30 minues.
-static const int kCellularDataVeryLowSecs = 30 * 60;
-
-// Cellular network is considered low data when less than 100MB.
-static const int kCellularDataLowBytes = 100 * 1024 * 1024;
-
-// Cellular network is considered very low data when less than 50MB.
-static const int kCellularDataVeryLowBytes = 50 * 1024 * 1024;
-
 // The value of priority if it is not set.
 const int kPriorityNotSet = 0;
 // The value of priority if network is preferred.
@@ -119,6 +104,12 @@ class NetworkDevice {
   bool is_sim_locked() const {
     return sim_lock_state_ == SIM_LOCKED_PIN ||
         sim_lock_state_ == SIM_LOCKED_PUK;
+  }
+  // Returns true if GSM modem and SIM as absent, otherwise
+  // returns false: GSM modem and SIM card is present or CDMA modem.
+  bool is_sim_absent() const {
+    return technology_family() == TECHNOLOGY_FAMILY_GSM &&
+           !is_sim_locked() && imsi().empty();
   }
   const int sim_retries_left() const { return sim_retries_left_; }
   SimPinRequire sim_pin_required() const { return sim_pin_required_; }
@@ -307,11 +298,14 @@ class Network {
   class TestApi {
    public:
     explicit TestApi(Network* network) : network_(network) {}
-    void SetConnected(bool connected) {
-      network_->set_connected(connected);
+    void SetConnected() {
+      network_->set_connected();
     }
-    void SetConnecting(bool connecting) {
-      network_->set_connecting(connecting);
+    void SetConnecting() {
+      network_->set_connecting();
+    }
+    void SetDisconnected() {
+      network_->set_disconnected();
     }
    private:
     Network* network_;
@@ -415,7 +409,8 @@ class Network {
             state == STATE_PORTAL);
   }
   static bool IsConnectingState(ConnectionState state) {
-    return (state == STATE_ASSOCIATION ||
+    return (state == STATE_CONNECT_REQUESTED ||
+            state == STATE_ASSOCIATION ||
             state == STATE_CONFIGURATION ||
             state == STATE_CARRIER);
   }
@@ -457,6 +452,9 @@ class Network {
 
   // Set the state and update flags if necessary.
   void SetState(ConnectionState state);
+
+  // Set the error state and update notify_failure_
+  void SetError(ConnectionError error);
 
   // Parse name/value pairs from libcros.
   virtual void ParseInfo(const base::DictionaryValue& info);
@@ -528,16 +526,18 @@ class Network {
   }
   void set_name(const std::string& name) { name_ = name; }
   void set_mode(ConnectionMode mode) { mode_ = mode; }
-  void set_connecting(bool connecting) {
-    state_ = (connecting ? STATE_ASSOCIATION : STATE_IDLE);
+  void set_connecting() {
+    state_ = STATE_CONNECT_REQUESTED;
   }
-  void set_connected(bool connected) {
-    state_ = (connected ? STATE_ONLINE : STATE_IDLE);
+  void set_connected() {
+    state_ = STATE_ONLINE;
+  }
+  void set_disconnected() {
+    state_ = STATE_IDLE;
   }
   void set_connectable(bool connectable) { connectable_ = connectable; }
   void set_connection_started(bool started) { connection_started_ = started; }
   void set_is_active(bool is_active) { is_active_ = is_active; }
-  void set_error(ConnectionError error) { error_ = error; }
   void set_added(bool added) { added_ = added; }
   void set_auto_connect(bool auto_connect) { auto_connect_ = auto_connect; }
   void set_save_credentials(bool save_credentials) {
@@ -801,8 +801,6 @@ class WirelessNetwork : public Network {
 };
 
 // Class for networks of TYPE_CELLULAR.
-class CellularDataPlan;
-
 class CellularNetwork : public WirelessNetwork {
  public:
   enum DataLeft {
@@ -966,6 +964,12 @@ class WifiNetwork : public WirelessNetwork {
     void SetEncryption(ConnectionSecurity encryption) {
       network_->set_encryption(encryption);
     }
+    void SetSsid(const std::string& ssid) {
+      network_->SetSsid(ssid);
+    }
+    void SetHexSsid(const std::string& ssid_hex) {
+      network_->SetHexSsid(ssid_hex);
+    }
    private:
     WifiNetwork* network_;
   };
@@ -980,6 +984,8 @@ class WifiNetwork : public WirelessNetwork {
   const std::string& identity() const { return identity_; }
   bool passphrase_required() const { return passphrase_required_; }
   bool hidden_ssid() const { return hidden_ssid_; }
+  const std::string& bssid() const { return bssid_; }
+  int frequency() const { return frequency_; }
 
   EAPMethod eap_method() const { return eap_method_; }
   EAPPhase2Auth eap_phase_2_auth() const { return eap_phase_2_auth_; }
@@ -997,8 +1003,8 @@ class WifiNetwork : public WirelessNetwork {
 
   const std::string& GetPassphrase() const;
 
-  bool SetSsid(const std::string& ssid);
-  bool SetHexSsid(const std::string& ssid_hex);
+  // Set property and call SetNetworkServiceProperty:
+
   void SetPassphrase(const std::string& passphrase);
   void SetIdentity(const std::string& identity);
   void SetHiddenSSID(bool hidden_ssid);
@@ -1027,7 +1033,7 @@ class WifiNetwork : public WirelessNetwork {
   // Return true if a passphrase or other input is required to connect.
   bool IsPassphraseRequired() const;
 
- private:
+ protected:
    // This allows NativeWifiNetworkParser access to device privates so
   // that they can be reconstituted during parsing.  The parsers only
   // access things through the private set_ functions so that this
@@ -1042,6 +1048,10 @@ class WifiNetwork : public WirelessNetwork {
   // parsers to set state, and really shouldn't be used by anything else
   // because they don't do the error checking and sending to the
   // network layer that the other setters do.
+
+  bool SetSsid(const std::string& ssid);
+  bool SetHexSsid(const std::string& ssid_hex);
+
   void set_encryption(ConnectionSecurity encryption) {
     encryption_ = encryption;
   }
@@ -1058,6 +1068,8 @@ class WifiNetwork : public WirelessNetwork {
   void set_hidden_ssid(bool hidden_ssid) {
     hidden_ssid_ = hidden_ssid;
   }
+  void set_bssid(const std::string& bssid) { bssid_ = bssid; }
+  void set_frequency(int frequency) { frequency_ = frequency; }
   void set_eap_method(EAPMethod eap_method) { eap_method_ = eap_method; }
   void set_eap_phase_2_auth(EAPPhase2Auth eap_phase_2_auth) {
     eap_phase_2_auth_ = eap_phase_2_auth;
@@ -1104,6 +1116,8 @@ class WifiNetwork : public WirelessNetwork {
   bool passphrase_required_;
   std::string identity_;
   bool hidden_ssid_;
+  std::string bssid_;
+  int frequency_;
 
   EAPMethod eap_method_;
   EAPPhase2Auth eap_phase_2_auth_;
@@ -1124,42 +1138,58 @@ class WifiNetwork : public WirelessNetwork {
 
   DISALLOW_COPY_AND_ASSIGN(WifiNetwork);
 };
+
 typedef std::vector<WifiNetwork*> WifiNetworkVector;
 
-// Cellular Data Plan management.
-class CellularDataPlan {
- public:
-  CellularDataPlan();
-  explicit CellularDataPlan(const CellularDataPlanInfo &plan);
-  ~CellularDataPlan();
 
-  // Formats cellular plan description.
-  string16 GetPlanDesciption() const;
-  // Evaluates cellular plans status and returns warning string if it is near
-  // expiration.
-  string16 GetRemainingWarning() const;
-  // Formats remaining plan data description.
-  string16 GetDataRemainingDesciption() const;
-  // Formats plan expiration description.
-  string16 GetPlanExpiration() const;
-  // Formats plan usage info.
-  string16 GetUsageInfo() const;
-  // Returns a unique string for this plan that can be used for comparisons.
-  std::string GetUniqueIdentifier() const;
-  base::TimeDelta remaining_time() const;
-  int64 remaining_minutes() const;
-  // Returns plan data remaining in bytes.
-  int64 remaining_data() const;
-  // TODO(stevenjb): Make these private with accessors and properly named.
-  std::string plan_name;
-  CellularDataPlanType plan_type;
-  base::Time update_time;
-  base::Time plan_start_time;
-  base::Time plan_end_time;
-  int64 plan_data_bytes;
-  int64 data_bytes_used;
+// Class for networks of TYPE_WIMAX.
+class WimaxNetwork : public WirelessNetwork {
+ public:
+  explicit WimaxNetwork(const std::string& service_path);
+  virtual ~WimaxNetwork();
+
+  bool passphrase_required() const { return passphrase_required_; }
+  const std::string& eap_identity() const { return eap_identity_; }
+  const std::string& eap_passphrase() const { return eap_passphrase_; }
+
+  void SetEAPIdentity(const std::string& identity);
+  void SetEAPPassphrase(const std::string& passphrase);
+
+ protected:
+  // This allows NativeWimaxNetworkParser access to device privates so
+  // that they can be reconstituted during parsing.  The parsers only
+  // access things through the private set_ functions so that this
+  // class can evolve without having to change all the parsers.
+  friend class NativeWimaxNetworkParser;
+
+  // This allows the implementation classes access to privates.
+  NETWORK_LIBRARY_IMPL_FRIENDS;
+
+  void set_eap_identity(const std::string& identity) {
+    eap_identity_ = identity;
+  }
+  void set_eap_passphrase(const std::string& passphrase) {
+    eap_passphrase_ = passphrase;
+  }
+  void set_passphrase_required(bool passphrase_required) {
+    passphrase_required_ = passphrase_required;
+  }
+
+  // Network overrides.
+  virtual void EraseCredentials() OVERRIDE;
+  virtual void CalculateUniqueId() OVERRIDE;
+
+  bool passphrase_required_;
+  std::string eap_identity_;
+  std::string eap_passphrase_;
+
+  // Weak pointer factory for wrapping pointers to this network in callbacks.
+  base::WeakPtrFactory<WimaxNetwork> weak_pointer_factory_;
+
+  DISALLOW_COPY_AND_ASSIGN(WimaxNetwork);
 };
-typedef ScopedVector<CellularDataPlan> CellularDataPlanVector;
+
+typedef std::vector<WimaxNetwork*> WimaxNetworkVector;
 
 // Geolocation data.
 struct CellTower {
@@ -1180,40 +1210,7 @@ struct CellTower {
                          // Each unit is roughly 550 meters.
 };
 
-struct WifiAccessPoint {
-  WifiAccessPoint();
-
-  std::string mac_address;  // The mac address of the WiFi node.
-  std::string name;         // The SSID of the WiFi node.
-  base::Time timestamp;     // Timestamp when this AP was detected.
-  int signal_strength;      // Radio signal strength measured in dBm.
-  int signal_to_noise;      // Current signal to noise ratio measured in dB.
-  int channel;              // Wifi channel number.
-};
-
 typedef std::vector<CellTower> CellTowerVector;
-typedef std::vector<WifiAccessPoint> WifiAccessPointVector;
-
-// IP Configuration.
-struct NetworkIPConfig {
-  NetworkIPConfig(const std::string& device_path, IPConfigType type,
-                  const std::string& address, const std::string& netmask,
-                  const std::string& gateway, const std::string& name_servers);
-  ~NetworkIPConfig();
-
-  // Gets the PrefixLength for an IPv4 netmask.
-  // For example, "255.255.255.0" => 24
-  // If the netmask is invalid, this will return -1;
-  // TODO(chocobo): Add support for IPv6.
-  int32 GetPrefixLength() const;
-  std::string device_path;  // This looks like "/device/0011aa22bb33"
-  IPConfigType type;
-  std::string address;
-  std::string netmask;
-  std::string gateway;
-  std::string name_servers;
-};
-typedef std::vector<NetworkIPConfig> NetworkIPConfigVector;
 
 // This class handles the interaction with the ChromeOS network library APIs.
 // Classes can add themselves as observers. Users can get an instance of the
@@ -1352,6 +1349,17 @@ class NetworkLibrary {
   virtual bool cellular_connecting() const = 0;
   virtual bool cellular_connected() const = 0;
 
+  // Return the active Wimax network (or NULL if none active).
+  virtual const WimaxNetwork* wimax_network() const = 0;
+  virtual bool wimax_connecting() const = 0;
+  virtual bool wimax_connected() const = 0;
+
+  // Return the active mobile (cellular or WiMax) network
+  // (or NULL if none active).
+  virtual const Network* mobile_network() const = 0;
+  virtual bool mobile_connecting() const = 0;
+  virtual bool mobile_connected() const = 0;
+
   // Return the active virtual network (or NULL if none active).
   virtual const VirtualNetwork* virtual_network() const = 0;
   virtual bool virtual_network_connecting() const = 0;
@@ -1372,6 +1380,9 @@ class NetworkLibrary {
   // Returns the current list of cellular networks.
   virtual const CellularNetworkVector& cellular_networks() const = 0;
 
+  // Returns the current list of Wimax networks.
+  virtual const WimaxNetworkVector& wimax_networks() const = 0;
+
   // Returns the current list of virtual networks.
   virtual const VirtualNetworkVector& virtual_networks() const = 0;
 
@@ -1384,15 +1395,21 @@ class NetworkLibrary {
 
   virtual bool ethernet_available() const = 0;
   virtual bool wifi_available() const = 0;
+  virtual bool wimax_available() const = 0;
   virtual bool cellular_available() const = 0;
+  virtual bool mobile_available() const = 0;
 
   virtual bool ethernet_enabled() const = 0;
   virtual bool wifi_enabled() const = 0;
+  virtual bool wimax_enabled() const = 0;
   virtual bool cellular_enabled() const = 0;
+  virtual bool mobile_enabled() const = 0;
 
   virtual bool ethernet_busy() const = 0;
   virtual bool wifi_busy() const = 0;
+  virtual bool wimax_busy() const = 0;
   virtual bool cellular_busy() const = 0;
+  virtual bool mobile_busy() const = 0;
 
   virtual bool wifi_scanning() const = 0;
 
@@ -1418,6 +1435,13 @@ class NetworkLibrary {
   virtual const NetworkDevice* FindNetworkDeviceByPath(
       const std::string& path) const = 0;
 
+  // Returns device with TYPE_CELLULAR or TYPE_WIMAX.
+  // Returns NULL if none exists.
+  virtual const NetworkDevice* FindMobileDevice() const = 0;
+
+  // Returns device with TYPE_WIMAX. Returns NULL if none exists.
+  virtual const NetworkDevice* FindWimaxDevice() const = 0;
+
   // Returns device with TYPE_CELLULAR. Returns NULL if none exists.
   virtual const NetworkDevice* FindCellularDevice() const = 0;
 
@@ -1440,6 +1464,8 @@ class NetworkLibrary {
       const std::string& unique_id) const = 0;
   virtual WifiNetwork* FindWifiNetworkByPath(const std::string& path) const = 0;
   virtual CellularNetwork* FindCellularNetworkByPath(
+      const std::string& path) const = 0;
+  virtual WimaxNetwork* FindWimaxNetworkByPath(
       const std::string& path) const = 0;
   virtual VirtualNetwork* FindVirtualNetworkByPath(
       const std::string& path) const = 0;
@@ -1542,6 +1568,13 @@ class NetworkLibrary {
   // Connect to the specified cellular network.
   virtual void ConnectToCellularNetwork(CellularNetwork* network) = 0;
 
+  // Connect to the specified WiMAX network.
+  virtual void ConnectToWimaxNetwork(WimaxNetwork* network) = 0;
+
+  // Connect to the specified WiMAX network and set its profile
+  // to SHARED if |shared| is true, otherwise to USER.
+  virtual void ConnectToWimaxNetwork(WimaxNetwork* network, bool shared) = 0;
+
   // Connect to the specified virtual network.
   virtual void ConnectToVirtualNetwork(VirtualNetwork* network) = 0;
 
@@ -1600,6 +1633,12 @@ class NetworkLibrary {
 
   // Enables/disables the wifi network device.
   virtual void EnableWifiNetworkDevice(bool enable) = 0;
+
+  // Enables/disables mobile (cellular, wimax) network device.
+  virtual void EnableMobileNetworkDevice(bool enable) = 0;
+
+  // Enables/disables the wimax network device.
+  virtual void EnableWimaxNetworkDevice(bool enable) = 0;
 
   // Enables/disables the cellular network device.
   virtual void EnableCellularNetworkDevice(bool enable) = 0;

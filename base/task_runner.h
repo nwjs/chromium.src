@@ -4,7 +4,6 @@
 
 #ifndef BASE_TASK_RUNNER_H_
 #define BASE_TASK_RUNNER_H_
-#pragma once
 
 #include "base/base_export.h"
 #include "base/basictypes.h"
@@ -72,11 +71,6 @@ class BASE_EXPORT TaskRunner
   //
   // It is valid for an implementation to ignore |delay_ms|; that is,
   // to have PostDelayedTask behave the same as PostTask.
-  //
-  // TODO(tedv): Make PostDelayedTask use TimeDelta instead.
-  virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
-                               const Closure& task,
-                               int64 delay_ms) = 0;
   virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
                                const Closure& task,
                                base::TimeDelta delay) = 0;

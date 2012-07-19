@@ -12,15 +12,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/wrapped_window_proc.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/extensions_startup.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/simple_message_box.h"
-#include "chrome/browser/ui/browser_init.h"
+#include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/installer/util/wmi.h"
 #include "content/public/common/result_codes.h"
 #include "grit/chromium_strings.h"
@@ -29,6 +22,8 @@
 #include "ui/base/win/hwnd_util.h"
 
 namespace {
+
+const char kLockfile[] = "lockfile";
 
 // Checks the visibility of the enumerated window and signals once a visible
 // window has been found.
@@ -155,7 +150,7 @@ bool ProcessSingleton::EscapeVirtualization(const FilePath& user_data_dir) {
 // the profile directory path.
 ProcessSingleton::ProcessSingleton(const FilePath& user_data_dir)
     : window_(NULL), locked_(false), foreground_window_(NULL),
-    is_virtualized_(false) {
+    is_virtualized_(false), lock_file_(INVALID_HANDLE_VALUE) {
   remote_window_ = FindWindowEx(HWND_MESSAGE, NULL,
                                 chrome::kMessageWindowClass,
                                 user_data_dir.value().c_str());
@@ -183,25 +178,40 @@ ProcessSingleton::ProcessSingleton(const FilePath& user_data_dir)
                                   chrome::kMessageWindowClass,
                                   user_data_dir.value().c_str());
     if (!remote_window_) {
-      HINSTANCE hinst = base::GetModuleFromAddress(&ThunkWndProc);
+      // We have to make sure there is no Chrome instance running on another
+      // machine that uses the same profile.
+      FilePath lock_file_path = user_data_dir.AppendASCII(kLockfile);
+      lock_file_ = CreateFile(lock_file_path.value().c_str(),
+                              GENERIC_WRITE,
+                              FILE_SHARE_READ,
+                              NULL,
+                              CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE,
+                              NULL);
+      DWORD error = GetLastError();
+      LOG_IF(WARNING, lock_file_ != INVALID_HANDLE_VALUE &&
+          error == ERROR_ALREADY_EXISTS) << "Lock file exists but is writable.";
+      LOG_IF(ERROR, lock_file_ == INVALID_HANDLE_VALUE)
+          << "Lock file can not be created! Error code: " << error;
 
-      WNDCLASSEX wc = {0};
-      wc.cbSize = sizeof(wc);
-      wc.lpfnWndProc = base::win::WrappedWindowProc<ThunkWndProc>;
-      wc.hInstance = hinst;
-      wc.lpszClassName = chrome::kMessageWindowClass;
-      ATOM clazz = ::RegisterClassEx(&wc);
-      DCHECK(clazz);
+      if (lock_file_ != INVALID_HANDLE_VALUE) {
+        HINSTANCE hinst = base::GetModuleFromAddress(&ThunkWndProc);
 
-      FilePath user_data_dir;
-      PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+        WNDCLASSEX wc = {0};
+        wc.cbSize = sizeof(wc);
+        wc.lpfnWndProc = base::win::WrappedWindowProc<ThunkWndProc>;
+        wc.hInstance = hinst;
+        wc.lpszClassName = chrome::kMessageWindowClass;
+        ATOM clazz = ::RegisterClassEx(&wc);
+        DCHECK(clazz);
 
-      // Set the window's title to the path of our user data directory so other
-      // Chrome instances can decide if they should forward to us or not.
-      window_ = ::CreateWindow(MAKEINTATOM(clazz),
-                               user_data_dir.value().c_str(),
-                               0, 0, 0, 0, 0, HWND_MESSAGE, 0, hinst, this);
-      CHECK(window_);
+        // Set the window's title to the path of our user data directory so
+        // other Chrome instances can decide if they should forward to us.
+        window_ = ::CreateWindow(MAKEINTATOM(clazz),
+                                 user_data_dir.value().c_str(),
+                                 0, 0, 0, 0, 0, HWND_MESSAGE, 0, hinst, this);
+        CHECK(window_);
+      }
     }
     BOOL success = ReleaseMutex(only_me);
     DCHECK(success) << "GetLastError = " << GetLastError();
@@ -209,12 +219,23 @@ ProcessSingleton::ProcessSingleton(const FilePath& user_data_dir)
 }
 
 ProcessSingleton::~ProcessSingleton() {
-  Cleanup();
+  // We need to unregister the window as late as possible so that we can detect
+  // another instance of chrome running. Otherwise we may end up writing out
+  // data while a new chrome is starting up.
+  if (window_) {
+    ::DestroyWindow(window_);
+    ::UnregisterClass(chrome::kMessageWindowClass,
+                      base::GetModuleFromAddress(&ThunkWndProc));
+  }
+  if (lock_file_ != INVALID_HANDLE_VALUE)
+    CloseHandle(lock_file_);
 }
 
 ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
   if (is_virtualized_)
     return PROCESS_NOTIFIED;  // We already spawned the process in this case.
+  if (lock_file_ == INVALID_HANDLE_VALUE && !remote_window_)
+    return LOCK_ERROR;
   else if (!remote_window_)
     return PROCESS_NONE;
 
@@ -274,13 +295,12 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
                     reinterpret_cast<LPARAM>(&visible_window));
 
   // If there is a visible browser window, ask the user before killing it.
-  if (visible_window) {
-    string16 text = l10n_util::GetStringUTF16(IDS_BROWSER_HUNGBROWSER_MESSAGE);
-    string16 caption = l10n_util::GetStringUTF16(IDS_PRODUCT_NAME);
-    if (!browser::ShowYesNoBox(NULL, caption, text)) {
-      // The user denied. Quit silently.
-      return PROCESS_NOTIFIED;
-    }
+  if (visible_window && chrome::ShowMessageBox(NULL,
+      l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
+      l10n_util::GetStringUTF16(IDS_BROWSER_HUNGBROWSER_MESSAGE),
+      chrome::MESSAGE_BOX_TYPE_QUESTION) == chrome::MESSAGE_BOX_RESULT_NO) {
+    // The user denied. Quit silently.
+    return PROCESS_NOTIFIED;
   }
 
   // Time to take action. Kill the browser process.
@@ -289,35 +309,30 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcess() {
   return PROCESS_NONE;
 }
 
-ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate() {
+ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate(
+    const NotificationCallback& notification_callback) {
   NotifyResult result = NotifyOtherProcess();
   if (result != PROCESS_NONE)
     return result;
-  return window_ ? PROCESS_NONE : PROFILE_IN_USE;
+  return Create(notification_callback) ? PROCESS_NONE : PROFILE_IN_USE;
 }
 
 // On Windows, there is no need to call Create() since the message
 // window is created in the constructor but to avoid having more
 // platform specific code in browser_main.cc we tolerate calls to
-// Create(), which will do nothing.
-bool ProcessSingleton::Create() {
+// Create().
+bool ProcessSingleton::Create(
+    const NotificationCallback& notification_callback) {
   DCHECK(!remote_window_);
+  DCHECK(notification_callback_.is_null());
+
+  if (window_ != NULL)
+    notification_callback_ = notification_callback;
+
   return window_ != NULL;
 }
 
 void ProcessSingleton::Cleanup() {
-  // Window classes registered by DLLs are not cleaned up automatically on
-  // process exit, so we must unregister at the earliest chance possible.
-  // During the fast shutdown sequence, ProcessSingleton::Cleanup() is
-  // called if our process was the first to start.  Therefore we try cleaning
-  // up here, and again in the destructor if needed to catch as many cases
-  // as possible.
-  if (window_) {
-    ::DestroyWindow(window_);
-    ::UnregisterClass(chrome::kMessageWindowClass,
-                      base::GetModuleFromAddress(&ThunkWndProc));
-    window_ = NULL;
-  }
 }
 
 LRESULT ProcessSingleton::OnCopyData(HWND hwnd, const COPYDATASTRUCT* cds) {
@@ -343,18 +358,12 @@ LRESULT ProcessSingleton::OnCopyData(HWND hwnd, const COPYDATASTRUCT* cds) {
     return TRUE;
   }
 
-  // Ignore the request if the browser process is already in shutdown path.
-  if (!g_browser_process || g_browser_process->IsShuttingDown()) {
-    LOG(WARNING) << "Not handling WM_COPYDATA as browser is shutting down";
-    return FALSE;
-  }
-
   CommandLine parsed_command_line(CommandLine::NO_PROGRAM);
   FilePath current_directory;
   if (!ParseCommandLine(cds, &parsed_command_line, &current_directory))
     return TRUE;
-  ProcessCommandLine(parsed_command_line, current_directory);
-  return TRUE;
+  return notification_callback_.Run(parsed_command_line, current_directory) ?
+      TRUE : FALSE;
 }
 
 LRESULT ProcessSingleton::WndProc(HWND hwnd, UINT message,
@@ -368,36 +377,4 @@ LRESULT ProcessSingleton::WndProc(HWND hwnd, UINT message,
   }
 
   return ::DefWindowProc(hwnd, message, wparam, lparam);
-}
-
-void ProcessSingleton::ProcessCommandLine(const CommandLine& command_line,
-                                          const FilePath& current_directory) {
-  PrefService* prefs = g_browser_process->local_state();
-  DCHECK(prefs);
-
-  // Handle the --uninstall-extension startup action. This needs to done here
-  // in the process that is running with the target profile, otherwise the
-  // uninstall will fail to unload and remove all components.
-  if (command_line.HasSwitch(switches::kUninstallExtension)) {
-    // The uninstall extension switch can't be combined with the profile
-    // directory switch.
-    DCHECK(!command_line.HasSwitch(switches::kProfileDirectory));
-
-    Profile* profile = ProfileManager::GetLastUsedProfile();
-    if (!profile) {
-      // We should only be able to get here if the profile already exists and
-      // has been created.
-      NOTREACHED();
-      return;
-    }
-
-    ExtensionsStartupUtil ext_startup_util;
-    ext_startup_util.UninstallExtension(command_line, profile);
-    return;
-  }
-
-  // Run the browser startup sequence again, with the command line of the
-  // signalling process.
-  BrowserInit::ProcessCommandLineAlreadyRunning(command_line,
-                                                current_directory);
 }

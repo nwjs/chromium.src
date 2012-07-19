@@ -6,9 +6,10 @@
 #define CHROME_BROWSER_UI_WEBUI_CHROMEOS_LOGIN_NETWORK_DROPDOWN_H_
 
 #include "base/basictypes.h"
+#include "base/timer.h"
+#include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/status/network_menu.h"
 #include "chrome/browser/chromeos/status/network_menu_icon.h"
-#include "chrome/browser/chromeos/cros/network_library.h"
 #include "ui/gfx/native_widget_types.h"
 
 namespace content {
@@ -34,7 +35,6 @@ class NetworkDropdown : public NetworkMenu::Delegate,
   void OnItemChosen(int id);
 
   // NetworkMenu::Delegate implementation:
-  virtual views::MenuButton* GetMenuButton() OVERRIDE;
   virtual gfx::NativeWindow GetNativeWindow() const OVERRIDE;
   virtual void OpenButtonOptions() OVERRIDE;
   virtual bool ShouldOpenButtonOptions() const OVERRIDE;
@@ -53,6 +53,10 @@ class NetworkDropdown : public NetworkMenu::Delegate,
  private:
   void SetNetworkIconAndText();
 
+  // Forces network scan and refreshes control state. Should be called
+  // by |network_scan_timer_| only.
+  void ForceNetworkScan();
+
   // The Network menu.
   scoped_ptr<NetworkMenuWebUI> network_menu_;
   // The Network menu icon.
@@ -62,6 +66,9 @@ class NetworkDropdown : public NetworkMenu::Delegate,
 
   // Is the dropdown shown on one of the OOBE screens.
   bool oobe_;
+
+  // Timer used to periodically force network scan.
+  base::RepeatingTimer<NetworkDropdown> network_scan_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkDropdown);
 };

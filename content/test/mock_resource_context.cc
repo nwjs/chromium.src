@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/test/mock_resource_context.h"
+#include "content/public/test/mock_resource_context.h"
 
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_test_util.h"
@@ -13,10 +13,6 @@ MockResourceContext::MockResourceContext()
     : test_request_context_(new TestURLRequestContext) {
 }
 
-MockResourceContext::MockResourceContext(net::URLRequestContext* context)
-    : test_request_context_(context) {
-}
-
 MockResourceContext::~MockResourceContext() {}
 
 net::HostResolver* MockResourceContext::GetHostResolver()  {
@@ -24,7 +20,7 @@ net::HostResolver* MockResourceContext::GetHostResolver()  {
 }
 
 net::URLRequestContext* MockResourceContext::GetRequestContext()  {
-  return test_request_context_;
+  return test_request_context_.get();
 }
 
 }  // namespace content

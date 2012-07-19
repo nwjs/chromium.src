@@ -25,16 +25,22 @@ div#header {
 }
 
 #header h1 {
-  background: url('../../app/theme/extensions_section.png') 0 20px no-repeat;
+  background: -webkit-image-set(
+      url('../../app/theme/default_100_percent/extensions_section.png') 1x,
+      url('../../app/theme/default_200_percent/extensions_section.png') 2x)
+      0 20px no-repeat;
   display: inline;
   margin: 0;
-  padding-bottom: 20px;
+  padding-bottom: 40px;
   padding-left: 75px;
   padding-top: 40px;
 }
 
 html[dir=rtl] #header h1 {
-  background: url('../../app/theme/extensions_section.png') right no-repeat;
+  background: -webkit-image-set(
+      url('../../app/theme/default_100_percent/extensions_section.png') 1x,
+      url('../../app/theme/default_200_percent/extensions_section.png') 2x)
+      right no-repeat;
   padding-left: 0;
   padding-right: 95px;
 }
@@ -152,26 +158,17 @@ body.show-tmi-mode .show-in-tmi-mode {
   width: 100%;
 }
 
-.plugin-disabled > td {
+.plugin-disabled {
   background-color: #f0f0f0;
   color: #a0a0a0;
+}
+
+.plugin > tr > td {
   padding-bottom: 4px;
   padding-top: 5px;
 }
 
-.plugin-enabled > td {
-  padding-bottom: 4px;
-  padding-top: 5px;
-}
-
-.plugin-file-disabled {
-  background-color: #f0f0f0;
-  color: #a0a0a0;
-  padding-bottom: 5px;
-  padding-top: 5px;
-}
-
-.plugin-file-enabled {
+.plugin-file {
   padding-bottom: 5px;
   padding-top: 5px;
 }
@@ -231,7 +228,7 @@ body.show-tmi-mode .show-in-tmi-mode {
 
 /* Separate the header from the contents in each MIME Types table. */
 .plugin-details .mime-types .header td {
-  /* border-bottom: 1px solid; */
+  border-bottom: 1px solid black;
   padding-bottom: 0.1em;
 }
 

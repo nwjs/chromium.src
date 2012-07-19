@@ -55,19 +55,14 @@ int32_t PPB_Graphics3D_Shared::ResizeBuffers(int32_t width, int32_t height) {
   return PP_OK;
 }
 
-int32_t PPB_Graphics3D_Shared::SwapBuffers(PP_CompletionCallback callback) {
-  if (!callback.func) {
-    // Blocking SwapBuffers isn't supported (since we have to be on the main
-    // thread).
-    return PP_ERROR_BADARGUMENT;
-  }
-
+int32_t PPB_Graphics3D_Shared::SwapBuffers(
+    scoped_refptr<TrackedCallback> callback) {
   if (HasPendingSwap()) {
     // Already a pending SwapBuffers that hasn't returned yet.
     return PP_ERROR_INPROGRESS;
   }
 
-  swap_callback_ = new TrackedCallback(this, callback);
+  swap_callback_ = callback;
   return DoSwapBuffers();
 }
 
@@ -97,8 +92,10 @@ bool PPB_Graphics3D_Shared::HasPendingSwap() const {
   return TrackedCallback::IsPending(swap_callback_);
 }
 
-bool PPB_Graphics3D_Shared::CreateGLES2Impl(int32 command_buffer_size,
-                                            int32 transfer_buffer_size) {
+bool PPB_Graphics3D_Shared::CreateGLES2Impl(
+    int32 command_buffer_size,
+    int32 transfer_buffer_size,
+    gpu::gles2::GLES2Implementation* share_gles2) {
   gpu::CommandBuffer* command_buffer = GetCommandBuffer();
   DCHECK(command_buffer);
 
@@ -116,7 +113,7 @@ bool PPB_Graphics3D_Shared::CreateGLES2Impl(int32 command_buffer_size,
   // Create the object exposing the OpenGL API.
   gles2_impl_.reset(new gpu::gles2::GLES2Implementation(
       gles2_helper_.get(),
-      NULL,
+      share_gles2 ? share_gles2->share_group() : NULL,
       transfer_buffer_.get(),
       false,
       true));

@@ -16,6 +16,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/observer_list.h"
+#include "base/timer.h"
 #include "base/threading/non_thread_safe.h"
 #include "third_party/libjingle/source/talk/base/sigslot.h"
 #include "third_party/libjingle/source/talk/xmpp/xmppclient.h"
@@ -39,6 +40,7 @@ class XmppSignalStrategy : public base::NonThreadSafe,
   virtual void Connect() OVERRIDE;
   virtual void Disconnect() OVERRIDE;
   virtual State GetState() const OVERRIDE;
+  virtual Error GetError() const OVERRIDE;
   virtual std::string GetLocalJid() const OVERRIDE;
   virtual void AddListener(Listener* listener) OVERRIDE;
   virtual void RemoveListener(Listener* listener) OVERRIDE;
@@ -66,6 +68,8 @@ class XmppSignalStrategy : public base::NonThreadSafe,
   void OnConnectionStateChanged(buzz::XmppEngine::State state);
   void SetState(State new_state);
 
+  void SendKeepAlive();
+
   JingleThread* thread_;
 
   std::string username_;
@@ -75,8 +79,11 @@ class XmppSignalStrategy : public base::NonThreadSafe,
   buzz::XmppClient* xmpp_client_;
 
   State state_;
+  Error error_;
 
-  ObserverList<Listener> listeners_;
+  ObserverList<Listener, true> listeners_;
+
+  base::RepeatingTimer<XmppSignalStrategy> keep_alive_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(XmppSignalStrategy);
 };

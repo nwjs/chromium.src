@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_ACCELERATED_SURFACE_CONTAINER_MANAGER_MAC_H_
 #define CONTENT_BROWSER_RENDERER_HOST_ACCELERATED_SURFACE_CONTAINER_MANAGER_MAC_H_
-#pragma once
 
 #include <OpenGL/OpenGL.h>
 #include <map>
@@ -12,7 +11,7 @@
 #include "base/basictypes.h"
 #include "base/synchronization/lock.h"
 #include "ui/gfx/native_widget_types.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
 
 namespace gfx {
 class Rect;
@@ -40,20 +39,6 @@ class AcceleratedSurfaceContainerManagerMac {
 
   // Destroys a fake PluginWindowHandle and associated storage.
   void DestroyFakePluginWindowHandle(gfx::PluginWindowHandle id);
-
-  // Indicates whether the given PluginWindowHandle is "root", which
-  // means that we are using accelerated compositing and that this one
-  // contains the compositor's output.
-  bool IsRootContainer(gfx::PluginWindowHandle id) const;
-
-  // Returns the handle of the compositor surface, or kNullPluginWindow if no
-  // compositor surface is active.
-  gfx::PluginWindowHandle root_container_handle() const {
-    return root_container_handle_;
-  }
-
-  // Informs the manager if gpu rendering is active.
-  void set_gpu_rendering_active(bool active);
 
   // Sets the size and backing store of the plugin instance.  There are two
   // versions: the IOSurface version is used on systems where the IOSurface
@@ -88,9 +73,6 @@ class AcceleratedSurfaceContainerManagerMac {
                               uint64 surface_handle,
                               const gfx::Rect& update_rect);
 
-  // Notifies the root container that its surface is invalid.
-  void SetRootSurfaceInvalid();
-
   // Returns if a given surface should be shown.
   bool SurfaceShouldBeVisible(gfx::PluginWindowHandle id) const;
  private:
@@ -104,23 +86,6 @@ class AcceleratedSurfaceContainerManagerMac {
   typedef std::map<gfx::PluginWindowHandle, AcceleratedSurfaceContainerMac*>
       PluginWindowToContainerMap;
   PluginWindowToContainerMap plugin_window_to_container_map_;
-
-  // The "root" container, which is only used to draw the output of
-  // the accelerated compositor if it is active. Currently,
-  // accelerated plugins (Core Animation and Pepper 3D) are drawn on
-  // top of the page's contents rather than transformed and composited
-  // with the rest of the page. At some point we would like them to be
-  // treated uniformly with other page elements; when this is done,
-  // the separate treatment of the root container can go away because
-  // there will only be one container active when the accelerated
-  // compositor is active.
-  AcceleratedSurfaceContainerMac* root_container_;
-  gfx::PluginWindowHandle root_container_handle_;
-
-  // True if gpu rendering is active. The root container is created on demand
-  // and destroyed only when a renderer process exits. When the compositor was
-  // created, this is set to |false| while the compositor is not needed.
-  bool gpu_rendering_active_;
 
   // Both |plugin_window_to_container_map_| and the
   // AcceleratedSurfaceContainerMac in it are not threadsafe, but accessed from

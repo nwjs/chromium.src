@@ -16,9 +16,6 @@ InputMethodWhitelist::InputMethodWhitelist() {
   for (size_t i = 0; i < arraysize(kInputMethods); ++i) {
     supported_input_methods_.insert(kInputMethods[i].input_method_id);
   }
-  for (size_t i = 0; i < arraysize(kInputMethods); ++i) {
-    supported_layouts_.insert(kInputMethods[i].xkb_layout_id);
-  }
 }
 
 InputMethodWhitelist::~InputMethodWhitelist() {
@@ -29,21 +26,16 @@ bool InputMethodWhitelist::InputMethodIdIsWhitelisted(
   return supported_input_methods_.count(input_method_id) > 0;
 }
 
-bool InputMethodWhitelist::XkbLayoutIsSupported(
-    const std::string& xkb_layout) const {
-  return supported_layouts_.count(xkb_layout) > 0;
-}
-
 InputMethodDescriptors* InputMethodWhitelist::GetSupportedInputMethods() const {
   InputMethodDescriptors* input_methods = new InputMethodDescriptors;
   input_methods->reserve(arraysize(kInputMethods));
   for (size_t i = 0; i < arraysize(kInputMethods); ++i) {
     input_methods->push_back(InputMethodDescriptor(
-        *this,
         kInputMethods[i].input_method_id,
         "",
         kInputMethods[i].xkb_layout_id,
-        kInputMethods[i].language_code));
+        kInputMethods[i].language_code,
+        false));
   }
   return input_methods;
 }

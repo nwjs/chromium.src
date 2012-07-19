@@ -4,13 +4,11 @@
 
 #ifndef NET_SOCKET_CLIENT_SOCKET_POOL_H_
 #define NET_SOCKET_CLIENT_SOCKET_POOL_H_
-#pragma once
 
 #include <deque>
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/debug/stack_trace.h"
 #include "base/memory/ref_counted.h"
 #include "base/time.h"
 #include "base/template_util.h"
@@ -34,26 +32,11 @@ class StreamSocket;
 // socket pools to communicate with higher layer pools.
 class NET_EXPORT LayeredPool {
  public:
-  LayeredPool();
-  virtual ~LayeredPool();
+  virtual ~LayeredPool() {};
 
   // Instructs the LayeredPool to close an idle connection. Return true if one
   // was closed.
   virtual bool CloseOneIdleConnection() = 0;
-
-  // TODO(rch): remove this once we track down the use-after-free
-  void CrashIfFreed();
-
- private:
-  // TODO(rch): Remove this once we track down the use-after-free
-  enum MagicValue {
-    ALIVE = 0xCA11AB1E,
-    DEAD = 0xDEADBEEF
-  };
-
-  // TODO(rch): Remove this once we track down the use-after-free
-  MagicValue magic_value_;
-  base::debug::StackTrace stack_trace_;
 };
 
 // A ClientSocketPool is used to restrict the number of sockets open at a time.

@@ -63,6 +63,7 @@ using WebKit::WebScriptController;
 using WebKit::WebSize;
 using WebKit::WebURLRequest;
 using WebKit::WebView;
+using webkit_glue::WebPreferences;
 
 namespace {
 
@@ -135,7 +136,6 @@ TestShell::TestShell()
       dump_stats_table_on_exit_(false) {
     delegate_.reset(new TestWebViewDelegate(this));
     popup_delegate_.reset(new TestWebViewDelegate(this));
-    layout_test_controller_.reset(new LayoutTestController(this));
     navigation_controller_.reset(new TestNavigationController(this));
     notification_presenter_.reset(new TestNotificationPresenter(this));
 
@@ -300,13 +300,17 @@ void TestShell::ResetWebPreferences() {
         *web_prefs_ = WebPreferences();
 
 #if defined(OS_MACOSX)
-        web_prefs_->serif_font_family = ASCIIToUTF16("Times");
-        web_prefs_->cursive_font_family = ASCIIToUTF16("Apple Chancery");
-        web_prefs_->fantasy_font_family = ASCIIToUTF16("Papyrus");
+        web_prefs_->serif_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Times");
+        web_prefs_->cursive_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Apple Chancery");
+        web_prefs_->fantasy_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Papyrus");
 #else
         // NOTE: case matters here, this must be 'times new roman', else
         // some layout tests fail.
-        web_prefs_->serif_font_family = ASCIIToUTF16("times new roman");
+        web_prefs_->serif_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("times new roman");
 
         // These two fonts are picked from the intersection of
         // Win XP font list and Vista font list :
@@ -318,12 +322,17 @@ void TestShell::ResetWebPreferences() {
         // They (especially Impact for fantasy) are not typical cursive
         // and fantasy fonts, but it should not matter for layout tests
         // as long as they're available.
-        web_prefs_->cursive_font_family = ASCIIToUTF16("Comic Sans MS");
-        web_prefs_->fantasy_font_family = ASCIIToUTF16("Impact");
+        web_prefs_->cursive_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Comic Sans MS");
+        web_prefs_->fantasy_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Impact");
 #endif
-        web_prefs_->standard_font_family = web_prefs_->serif_font_family;
-        web_prefs_->fixed_font_family = ASCIIToUTF16("Courier");
-        web_prefs_->sans_serif_font_family = ASCIIToUTF16("Helvetica");
+        web_prefs_->standard_font_family_map[WebPreferences::kCommonScript] =
+            web_prefs_->serif_font_family_map[WebPreferences::kCommonScript];
+        web_prefs_->fixed_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Courier");
+        web_prefs_->sans_serif_font_family_map[WebPreferences::kCommonScript] =
+            ASCIIToUTF16("Helvetica");
 
         web_prefs_->default_encoding = "ISO-8859-1";
         web_prefs_->default_font_size = 16;
@@ -393,13 +402,6 @@ void TestShell::Show(WebNavigationPolicy policy) {
   delegate_->show(policy);
 }
 
-void TestShell::BindJSObjectsToWindow(WebFrame* frame) {
-  // Only bind the test classes if we're running tests.
-  if (layout_test_mode_) {
-    layout_test_controller_->BindToJavascript(frame, "layoutTestController");
-  }
-}
-
 void TestShell::DumpBackForwardEntry(int index, string16* result) {
   int current_index = navigation_controller_->GetLastCommittedEntryIndex();
 
@@ -432,7 +434,7 @@ void TestShell::CallJSGC() {
 WebView* TestShell::CreateWebView() {
   // If we're running layout tests, only open a new window if the test has
   // called layoutTestController.setCanOpenWindows()
-  if (layout_test_mode_ && !layout_test_controller_->CanOpenWindows())
+  if (layout_test_mode_)
     return NULL;
 
   TestShell* new_win;
@@ -481,7 +483,6 @@ void TestShell::SizeToDefault() {
 }
 
 void TestShell::ResetTestController() {
-  layout_test_controller_->Reset();
   notification_presenter_->Reset();
   delegate_->Reset();
   if (geolocation_client_mock_.get())

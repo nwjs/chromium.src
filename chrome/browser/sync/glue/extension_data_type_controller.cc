@@ -12,7 +12,7 @@
 namespace browser_sync {
 
 ExtensionDataTypeController::ExtensionDataTypeController(
-    syncable::ModelType type,
+    syncer::ModelType type,
     ProfileSyncComponentsFactory* profile_sync_factory,
     Profile* profile,
     ProfileSyncService* sync_service)
@@ -20,15 +20,13 @@ ExtensionDataTypeController::ExtensionDataTypeController(
                            profile_sync_factory,
                            profile,
                            sync_service) {
-  DCHECK(type == syncable::EXTENSIONS ||
-         type == syncable::APPS);
+  DCHECK(type == syncer::EXTENSIONS || type == syncer::APPS);
 }
 
-ExtensionDataTypeController::~ExtensionDataTypeController() {
-}
+ExtensionDataTypeController::~ExtensionDataTypeController() {}
 
 bool ExtensionDataTypeController::StartModels() {
-  ExtensionSystem::Get(profile_)->Init(true);
+  extensions::ExtensionSystem::Get(profile_)->Init(true);
   return true;
 }
 

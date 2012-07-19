@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_ACCELERATED_SURFACE_CONTAINER_MAC_H_
 #define CONTENT_BROWSER_RENDERER_HOST_ACCELERATED_SURFACE_CONTAINER_MAC_H_
-#pragma once
 
 // The "GPU plugin" is currently implemented as a special kind of
 // NPAPI plugin to provide high-performance on-screen 3D rendering for
@@ -34,7 +33,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/rect.h"
-#include "ui/gfx/surface/transport_dib.h"
+#include "ui/surface/transport_dib.h"
 
 namespace webkit {
 namespace npapi {

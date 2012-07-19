@@ -10,20 +10,21 @@
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
 #include "chrome/browser/ui/gtk/custom_button.h"
 #include "chrome/browser/ui/gtk/download/download_item_gtk.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_link_button.h"
 #include "chrome/browser/ui/gtk/gtk_chrome_shrinkable_hbox.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/download_item.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/page_navigator.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
-#include "grit/ui_resources_standard.h"
+#include "grit/ui_resources.h"
 #include "ui/base/gtk/gtk_screen_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -68,7 +69,7 @@ using content::DownloadItem;
 DownloadShelfGtk::DownloadShelfGtk(Browser* browser, GtkWidget* parent)
     : browser_(browser),
       is_showing_(false),
-      theme_service_(ThemeServiceGtk::GetFrom(browser->profile())),
+      theme_service_(GtkThemeService::GetFrom(browser->profile())),
       close_on_mouse_out_(false),
       mouse_in_shelf_(false),
       weak_factory_(this) {
@@ -171,6 +172,10 @@ DownloadShelfGtk::~DownloadShelfGtk() {
 
   // Make sure we're no longer an observer of the message loop.
   SetCloseOnMouseOut(false);
+}
+
+content::PageNavigator* DownloadShelfGtk::GetNavigator() {
+  return browser_;
 }
 
 void DownloadShelfGtk::DoAddDownload(BaseDownloadItemModel* download_model) {
@@ -303,7 +308,7 @@ void DownloadShelfGtk::OnButtonClick(GtkWidget* button) {
     Close();
   } else {
     // The link button was clicked.
-    browser_->ShowDownloadsTab();
+    chrome::ShowDownloads(browser_);
   }
 }
 
@@ -370,6 +375,13 @@ void DownloadShelfGtk::DidProcessEvent(GdkEvent* event) {
 
 bool DownloadShelfGtk::IsCursorInShelfZone(
     const gfx::Point& cursor_screen_coords) {
+  bool realized = (shelf_.get() &&
+                   gtk_widget_get_window(shelf_.get()));
+  // Do nothing if we've been unrealized in order to avoid a NOTREACHED in
+  // GetWidgetScreenPosition.
+  if (!realized)
+    return false;
+
   GtkAllocation allocation;
   gtk_widget_get_allocation(shelf_.get(), &allocation);
 

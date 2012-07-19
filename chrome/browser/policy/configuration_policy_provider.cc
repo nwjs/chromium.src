@@ -4,7 +4,7 @@
 
 #include "chrome/browser/policy/configuration_policy_provider.h"
 
-#include <algorithm>
+#include <string>
 
 #include "chrome/browser/policy/policy_map.h"
 #include "policy/policy_constants.h"
@@ -21,57 +21,9 @@ const char* kProxyPolicies[] = {
   key::kProxyBypassList,
 };
 
-}  // namespace
-
-ConfigurationPolicyProvider::Observer::~Observer() {}
-
-void ConfigurationPolicyProvider::Observer::OnProviderGoingAway(
-    ConfigurationPolicyProvider* provider) {}
-
-// Class ConfigurationPolicyProvider.
-
-ConfigurationPolicyProvider::ConfigurationPolicyProvider(
-    const PolicyDefinitionList* policy_list)
-    : policy_definition_list_(policy_list) {
-}
-
-ConfigurationPolicyProvider::~ConfigurationPolicyProvider() {
-  FOR_EACH_OBSERVER(ConfigurationPolicyProvider::Observer,
-                    observer_list_,
-                    OnProviderGoingAway(this));
-}
-
-bool ConfigurationPolicyProvider::Provide(PolicyMap* result) {
-#if !defined(OFFICIAL_BUILD)
-  if (override_policies_.get()) {
-    result->CopyFrom(*override_policies_);
-    return true;
-  }
-#endif
-  if (ProvideInternal(result)) {
-    FixDeprecatedPolicies(result);
-    return true;
-  }
-  return false;
-}
-
-bool ConfigurationPolicyProvider::IsInitializationComplete() const {
-  return true;
-}
-
-#if !defined(OFFICIAL_BUILD)
-
-void ConfigurationPolicyProvider::OverridePolicies(PolicyMap* policies) {
-  if (policies)
-    FixDeprecatedPolicies(policies);
-  override_policies_.reset(policies);
-  NotifyPolicyUpdated();
-}
-
-#endif
-
-// static
-void ConfigurationPolicyProvider::FixDeprecatedPolicies(PolicyMap* policies) {
+// Helper that converts deprecated chrome policies into their corresponding
+// actual policies.
+void FixDeprecatedPolicies(PolicyMap* policies) {
   // Proxy settings have been configured by 5 policies that didn't mix well
   // together, and maps of policies had to take this into account when merging
   // policy sources. The proxy settings will eventually be configured by a
@@ -109,7 +61,33 @@ void ConfigurationPolicyProvider::FixDeprecatedPolicies(PolicyMap* policies) {
   }
 }
 
-void ConfigurationPolicyProvider::NotifyPolicyUpdated() {
+}  // namespace
+
+ConfigurationPolicyProvider::Observer::~Observer() {}
+
+void ConfigurationPolicyProvider::Observer::OnProviderGoingAway(
+    ConfigurationPolicyProvider* provider) {}
+
+ConfigurationPolicyProvider::ConfigurationPolicyProvider() {}
+
+ConfigurationPolicyProvider::~ConfigurationPolicyProvider() {
+  FOR_EACH_OBSERVER(ConfigurationPolicyProvider::Observer,
+                    observer_list_,
+                    OnProviderGoingAway(this));
+}
+
+bool ConfigurationPolicyProvider::IsInitializationComplete() const {
+  return true;
+}
+
+void ConfigurationPolicyProvider::UpdatePolicy(
+    scoped_ptr<PolicyBundle> bundle) {
+  if (bundle.get())
+    policy_bundle_.Swap(bundle.get());
+  else
+    policy_bundle_.Clear();
+  FixDeprecatedPolicies(
+      &policy_bundle_.Get(POLICY_DOMAIN_CHROME, std::string()));
   FOR_EACH_OBSERVER(ConfigurationPolicyProvider::Observer,
                     observer_list_,
                     OnUpdatePolicy(this));
@@ -128,13 +106,17 @@ ConfigurationPolicyObserverRegistrar::ConfigurationPolicyObserverRegistrar()
     observer_(NULL) {}
 
 ConfigurationPolicyObserverRegistrar::~ConfigurationPolicyObserverRegistrar() {
-  if (provider_)
+  // Subtle: see the comment in OnProviderGoingAway().
+  if (observer_)
     provider_->RemoveObserver(this);
 }
 
 void ConfigurationPolicyObserverRegistrar::Init(
     ConfigurationPolicyProvider* provider,
     ConfigurationPolicyProvider::Observer* observer) {
+  // Must be either both NULL or both not NULL.
+  DCHECK(provider);
+  DCHECK(observer);
   provider_ = provider;
   observer_ = observer;
   provider_->AddObserver(this);
@@ -149,11 +131,16 @@ void ConfigurationPolicyObserverRegistrar::OnUpdatePolicy(
 void ConfigurationPolicyObserverRegistrar::OnProviderGoingAway(
     ConfigurationPolicyProvider* provider) {
   DCHECK_EQ(provider_, provider);
-  // The |observer_| might delete |this| during this callback. Don't touch any
+  // The |observer_| might delete |this| during this callback: don't touch any
   // of |this| field's after it returns.
+  // It might also invoke provider() during this callback, so |provider_| can't
+  // be set to NULL. So we set |observer_| to NULL instead to signal that
+  // we're not observing the provider anymore.
+  ConfigurationPolicyProvider::Observer* observer = observer_;
+  observer_ = NULL;
   provider_->RemoveObserver(this);
-  provider_ = NULL;
-  observer_->OnProviderGoingAway(provider);
+
+  observer->OnProviderGoingAway(provider);
 }
 
 }  // namespace policy

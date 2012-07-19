@@ -23,9 +23,10 @@ var BrowserBridge = (function() {
     // List of observers for various bits of browser state.
     this.connectionTestsObservers_ = [];
     this.hstsObservers_ = [];
-    this.httpThrottlingObservers_ = [];
     this.constantsObservers_ = [];
     this.crosONCFileParseObservers_ = [];
+    this.storeDebugLogsObservers_ = [];
+    this.setNetworkDebugModeObservers_ = [];
 
     this.pollableDataHelpers_ = {};
     this.pollableDataHelpers_.proxySettings =
@@ -217,10 +218,6 @@ var BrowserBridge = (function() {
       this.send('setLogLevel', ['' + logLevel]);
     },
 
-    enableHttpThrottling: function(enable) {
-      this.send('enableHttpThrottling', [enable]);
-    },
-
     refreshSystemLogs: function() {
       this.send('refreshSystemLogs');
     },
@@ -231,6 +228,14 @@ var BrowserBridge = (function() {
 
     importONCFile: function(fileContent, passcode) {
       this.send('importONCFile', [fileContent, passcode]);
+    },
+
+    storeDebugLogs: function() {
+      this.send('storeDebugLogs');
+    },
+
+    setNetworkDebugMode: function(subsystem) {
+      this.send('setNetworkDebugMode', [subsystem]);
     },
 
     sendGetHttpPipeliningStatus: function() {
@@ -325,15 +330,18 @@ var BrowserBridge = (function() {
         this.crosONCFileParseObservers_[i].onONCFileParse(error);
     },
 
-    receivedHttpCacheInfo: function(info) {
-      this.pollableDataHelpers_.httpCacheInfo.update(info);
+    receivedStoreDebugLogs: function(status) {
+      for (var i = 0; i < this.storeDebugLogsObservers_.length; i++)
+        this.storeDebugLogsObservers_[i].onStoreDebugLogs(status);
     },
 
-    receivedHttpThrottlingEnabledPrefChanged: function(enabled) {
-      for (var i = 0; i < this.httpThrottlingObservers_.length; i++) {
-        this.httpThrottlingObservers_[i].onHttpThrottlingEnabledPrefChanged(
-            enabled);
-      }
+    receivedSetNetworkDebugMode: function(status) {
+      for (var i = 0; i < this.setNetworkDebugModeObservers_.length; i++)
+        this.setNetworkDebugModeObservers_[i].onSetNetworkDebugMode(status);
+    },
+
+    receivedHttpCacheInfo: function(info) {
+      this.pollableDataHelpers_.httpCacheInfo.update(info);
     },
 
     receivedPrerenderInfo: function(prerenderInfo) {
@@ -521,13 +529,23 @@ var BrowserBridge = (function() {
     },
 
     /**
-     * Adds a listener for HTTP throttling-related events. |observer| will be
-     * called back when HTTP throttling is enabled/disabled, through:
+     * Adds a listener for storing log file status. The observer will be called
+     * back with:
      *
-     *   observer.onHttpThrottlingEnabledPrefChanged(enabled);
+     *   observer.onStoreDebugLogs(status);
      */
-    addHttpThrottlingObserver: function(observer) {
-      this.httpThrottlingObservers_.push(observer);
+    addStoreDebugLogsObserver: function(observer) {
+      this.storeDebugLogsObservers_.push(observer);
+    },
+
+    /**
+     * Adds a listener for network debugging mode status. The observer
+     * will be called back with:
+     *
+     *   observer.onSetNetworkDebugMode(status);
+     */
+    addSetNetworkDebugModeObserver: function(observer) {
+      this.setNetworkDebugModeObservers_.push(observer);
     },
 
     /**

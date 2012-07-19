@@ -1,12 +1,6 @@
 <div id="settings" class="page" hidden>
   <header>
     <h1 i18n-content="settingsTitle"></h1>
-    <span id="browser-options-search-field-container"
-        class="search-field-container">
-      <input id="search-field" type="search"
-          i18n-values="placeholder:searchPlaceholder;
-                       aria-label:searchPlaceholder" incremental>
-    </span>
   </header>
 <if expr="not pp_ifdef('chromeos')">
   <include src="sync_section.html">
@@ -99,8 +93,7 @@
           class="settings-row" hidden>
       </div>
       <div class="settings-row">
-        <button id="pointer-settings-button"
-            i18n-content="touchpadMouseSettingsButtonTitle">
+        <button id="pointer-settings-button">
         </button>
         <button id="keyboard-settings-button"
             i18n-content="keyboardSettingsButtonTitle">
@@ -124,8 +117,6 @@
         <div class="checkbox" guest-visibility="disabled">
           <label id="instant-label">
             <!-- TODO(estade): metric? -->
-            <input id="instant-field-trial-control" type="checkbox"
-                checked="checked" hidden>
             <input id="instant-enabled-control" type="checkbox"
                 pref="instant.enabled">
             <!-- TODO(estade) There's a link in here which should not be inside
@@ -244,6 +235,13 @@
         </label>
       </div>
 <if expr="pp_ifdef('_google_chrome')">
+      <div class="checkbox">
+        <label id="spelling-label">
+          <input id="spelling-enabled-control" type="checkbox"
+              pref="spellcheck.use_spelling_service">
+          <span i18n-content="spellingPref"></span>
+        </label>
+      </div>
       <div id="metricsReportingSetting" class="checkbox">
         <label>
 <if expr="pp_ifdef('chromeos')">
@@ -260,6 +258,16 @@
     </div>
   </section>
 <if expr="pp_ifdef('chromeos')">
+  <!-- By default, the display section is hidden.  It is only visible if
+       more than one display is found. -->
+  <section id="display-options-section" hidden>
+    <h3 i18n-content="displayOptionsTitle"></h3>
+    <div class="settings-row">
+      <button id="display-options-button"
+          i18n-content="displayOptionsButton">
+      </button>
+    </div>
+  </section>
   <!-- By default, the bluetooth section is hidden.  It is only visible if a
        bluetooth adapter is discovered -->
   <section id="bluetooth-devices" hidden>
@@ -309,6 +317,13 @@
       <button id="manage-passwords" class="link-button"
           i18n-content="managePasswords"
           pref="profile.password_manager_enabled"></button>
+    </div>
+    <div class="checkbox" id="password-generation-checkbox">
+      <label>
+        <input id="password-generation-enabled" pref="password_generation.enabled"
+            metric="Options_PasswordGenerationCheckbox" type="checkbox">
+        <span i18n-content="passwordGenerationEnabledDescription"></span>
+      </label>
     </div>
 <if expr="is_macosx">
     <div id="mac-passwords-warning" i18n-content="macPasswordsWarning" hidden>
@@ -380,7 +395,6 @@
       </label>
     </div>
   </section>
-<if expr="not pp_ifdef('chromeos')">
   <section>
     <h3 i18n-content="downloadLocationGroupName"></h3>
     <div>
@@ -388,7 +402,7 @@
         <label>
           <span i18n-content="downloadLocationBrowseTitle"></span>
           <input id="downloadLocationPath" class="weakrtl" type="text"
-              pref="download.default_directory" size="36" readonly>
+            size="36" readonly>
         </label>
         <button id="downloadLocationChangeButton"
             pref="download.prompt_for_download"
@@ -402,6 +416,17 @@
           <span i18n-content="downloadLocationAskForSaveLocation"></span>
         </label>
       </div>
+<if expr="pp_ifdef('chromeos')">
+      <div class="checkbox" guest-visibility="disabled">
+        <label>
+          <input type="checkbox" 
+          pref="gdata.disabled" 
+          metric="Options_DisableGData">
+          <span i18n-content="disableGData"></span>
+        </label>
+      </div>  
+</if>    
+<if expr="not pp_ifdef('chromeos')">
       <div id="auto-open-file-types-section" hidden>
         <div id="auto-open-file-types-container">
           <div id="auto-open-file-types-label"
@@ -410,16 +435,18 @@
               i18n-content="autoOpenFileTypesResetToDefault"></button>
         </div>
       </div>
+</if>
     </div>
   </section>
-</if>
   <section>
       <h3 i18n-content="advancedSectionTitleSecurity"></h3>
       <div>
+<if expr="pp_ifdef('use_nss') or is_win or is_macosx">
         <div class="settings-row">
           <button id="certificatesManageButton"
               i18n-content="certificatesManageButton"></button>
         </div>
+</if>
         <div class="checkbox">
           <label>
             <input id="sslCheckRevocation" type="checkbox">
@@ -469,6 +496,22 @@
           <label>
             <input id="accessibility-spoken-feedback-check" type="checkbox">
             <span i18n-content="accessibilitySpokenFeedback"></span>
+          </label>
+        </div>
+      </div>
+      <div class="option-name">
+        <div class="checkbox">
+          <label>
+            <input id="accessibility-high-contrast-check" type="checkbox">
+            <span i18n-content="accessibilityHighContrast"></span>
+          </label>
+        </div>
+      </div>
+      <div class="option-name">
+        <div class="checkbox">
+          <label>
+            <input id="accessibility-screen-magnifier-check" type="checkbox">
+            <span i18n-content="accessibilityScreenMagnifier"></span>
           </label>
         </div>
       </div>

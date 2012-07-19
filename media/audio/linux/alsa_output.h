@@ -29,6 +29,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time.h"
 #include "media/audio/audio_io.h"
 #include "media/audio/audio_parameters.h"
 
@@ -189,6 +190,12 @@ class MEDIA_EXPORT AlsaPcmOutputStream : public AudioOutputStream {
   // Audio manager that created us.  Used to report that we've been closed.
   AudioManagerLinux* manager_;
 
+  // Message loop to use for polling. The object is owned by the AudioManager.
+  // We hold a reference to the audio thread message loop since
+  // AudioManagerBase::ShutDown() can invalidate the message loop pointer
+  // before the stream gets deleted.
+  MessageLoop* message_loop_;
+
   // Handle to the actual PCM playback device.
   snd_pcm_t* playback_handle_;
 
@@ -203,6 +210,8 @@ class MEDIA_EXPORT AlsaPcmOutputStream : public AudioOutputStream {
   float volume_;  // Volume level from 0.0 to 1.0.
 
   AudioSourceCallback* source_callback_;
+
+  base::Time last_fill_time_;  // Time for the last OnMoreData() callback.
 
   DISALLOW_COPY_AND_ASSIGN(AlsaPcmOutputStream);
 };

@@ -5,7 +5,6 @@
 #ifndef CONTENT_BROWSER_CHILD_PROCESS_SECURITY_POLICY_IMPL_H_
 #define CONTENT_BROWSER_CHILD_PROCESS_SECURITY_POLICY_IMPL_H_
 
-#pragma once
 
 #include <map>
 #include <set>
@@ -38,7 +37,19 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
                                        const FilePath& file,
                                        int permissions) OVERRIDE;
   virtual void GrantReadFile(int child_id, const FilePath& file) OVERRIDE;
+  virtual void GrantReadFileSystem(
+      int child_id,
+      const std::string& filesystem_id) OVERRIDE;
+  virtual void GrantReadWriteFileSystem(
+      int child_id,
+      const std::string& filesystem_id) OVERRIDE;
   virtual void GrantScheme(int child_id, const std::string& scheme) OVERRIDE;
+  virtual bool CanReadFile(int child_id, const FilePath& file) OVERRIDE;
+  virtual bool CanReadFileSystem(int child_id,
+                                 const std::string& filesystem_id) OVERRIDE;
+  virtual bool CanReadWriteFileSystem(
+      int child_id,
+      const std::string& filesystem_id) OVERRIDE;
 
   // Pseudo schemes are treated differently than other schemes because they
   // cannot be requested like normal URLs.  There is no mechanism for revoking
@@ -67,8 +78,14 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
 
   // Whenever the browser processes commands the child process to request a URL,
   // it should call this method to grant the child process the capability to
-  // request the URL.
+  // request the URL, along with permission to request all URLs of the same
+  // scheme.
   void GrantRequestURL(int child_id, const GURL& url);
+
+  // Whenever the browser process drops a file icon on a tab, it should call
+  // this method to grant the child process the capability to request this one
+  // file:// URL, but not all urls of the file:// scheme.
+  void GrantRequestSpecificFileURL(int child_id, const GURL& url);
 
   // Grants the child process permission to enumerate all the files in
   // this directory and read those files.
@@ -76,9 +93,6 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
 
   // Revokes all permissions granted to the given file.
   void RevokeAllPermissionsForFile(int child_id, const FilePath& file);
-
-  // Grants access permission to the given filesystem_id.
-  void GrantAccessFileSystem(int child_id, const std::string& filesystem_id);
 
   // Grant the child process the ability to use Web UI Bindings.
   void GrantWebUIBindings(int child_id);
@@ -93,11 +107,6 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // call this method to determine whether the process has the capability to
   // request the URL.
   bool CanRequestURL(int child_id, const GURL& url);
-
-  // Before servicing a child process's request to upload a file to the web, the
-  // browser should call this method to determine whether the process has the
-  // capability to upload the requested file.
-  bool CanReadFile(int child_id, const FilePath& file);
 
   // Before servicing a child process's request to enumerate a directory
   // the browser should call this method to check for the capability.
@@ -127,6 +136,21 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // given origin.
   // Only used if the very experimental --enable-strict-site-isolation is used.
   void LockToOrigin(int child_id, const GURL& gurl);
+
+  // Grants access permission to the given isolated file system
+  // identified by |filesystem_id|.  See comments for
+  // ChildProcessSecurityPolicy::GrantReadFileSystem() for more details.
+  void GrantPermissionsForFileSystem(
+      int child_id,
+      const std::string& filesystem_id,
+      int permission);
+
+  // Determines if certain permissions were granted for a file fystem.
+  // |permissions| must be a bit-set of base::PlatformFileFlags.
+  bool HasPermissionsForFileSystem(
+      int child_id,
+      const std::string& filesystem_id,
+      int permission);
 
  private:
   friend class ChildProcessSecurityPolicyInProcessBrowserTest;

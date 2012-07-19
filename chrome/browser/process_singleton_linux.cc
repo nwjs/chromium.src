@@ -36,8 +36,6 @@
 // process will be considered as hung for some reason. The second process then
 // retrieves the process id from the symbol link and kills it by sending
 // SIGKILL. Then the second process starts as normal.
-//
-// TODO(james.su@gmail.com): Add unittest for this class.
 
 #include "chrome/browser/process_singleton.h"
 
@@ -66,11 +64,11 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
-#include "base/message_loop_helpers.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/rand_util.h"
 #include "base/safe_strerror_posix.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "base/stl_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_split.h"
@@ -80,17 +78,10 @@
 #include "base/time.h"
 #include "base/timer.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/browser_process.h"
 #if defined(TOOLKIT_GTK)
 #include "chrome/browser/ui/gtk/process_singleton_dialog.h"
 #endif
-#include "chrome/browser/io_thread.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser_init.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -103,6 +94,7 @@ const int ProcessSingleton::kTimeoutInSeconds;
 
 namespace {
 
+static bool g_disable_prompt;
 const char kStartToken[] = "START";
 const char kACKToken[] = "ACK";
 const char kShutdownToken[] = "SHUTDOWN";
@@ -313,13 +305,13 @@ void DisplayProfileInUseError(const std::string& lock_path,
       WideToUTF16(base::SysNativeMBToWide(lock_path)),
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
   LOG(ERROR) << base::SysWideToNativeMB(UTF16ToWide(error)).c_str();
+  if (!g_disable_prompt) {
 #if defined(TOOLKIT_GTK)
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kNoProcessSingletonDialog))
     ProcessSingletonDialog::ShowAndRun(UTF16ToUTF8(error));
 #else
-  NOTIMPLEMENTED();
+    NOTIMPLEMENTED();
 #endif
+  }
 }
 
 bool IsChromeProcess(pid_t pid) {
@@ -327,53 +319,6 @@ bool IsChromeProcess(pid_t pid) {
   return (!other_chrome_path.empty() &&
           other_chrome_path.BaseName() ==
           FilePath(chrome::kBrowserProcessExecutableName));
-}
-
-// Return true if the given pid is one of our child processes.
-// Assumes that the current pid is the root of all pids of the current instance.
-bool IsSameChromeInstance(pid_t pid) {
-  pid_t cur_pid = base::GetCurrentProcId();
-  while (pid != cur_pid) {
-    pid = base::GetParentProcessId(pid);
-    if (pid < 0)
-      return false;
-    if (!IsChromeProcess(pid))
-      return false;
-  }
-  return true;
-}
-
-// Extract the process's pid from a symbol link path and if it is on
-// the same host, kill the process, unlink the lock file and return true.
-// If the process is part of the same chrome instance, unlink the lock file and
-// return true without killing it.
-// If the process is on a different host, return false.
-bool KillProcessByLockPath(const FilePath& path) {
-  std::string hostname;
-  int pid;
-  ParseLockPath(path, &hostname, &pid);
-
-  if (!hostname.empty() && hostname != net::GetHostName()) {
-    DisplayProfileInUseError(path.value(), hostname, pid);
-    return false;
-  }
-  UnlinkPath(path);
-
-  if (IsSameChromeInstance(pid))
-    return true;
-
-  if (pid > 0) {
-    // TODO(james.su@gmail.com): Is SIGKILL ok?
-    int rv = kill(static_cast<base::ProcessHandle>(pid), SIGKILL);
-    // ESRCH = No Such Process (can happen if the other process is already in
-    // progress of shutting down and finishes before we try to kill it).
-    DCHECK(rv == 0 || errno == ESRCH) << "Error killing process: "
-                                      << safe_strerror(errno);
-    return true;
-  }
-
-  LOG(ERROR) << "Failed to extract pid from path: " << path.value();
-  return true;
 }
 
 // A helper class to hold onto a socket.
@@ -567,6 +512,9 @@ class ProcessSingleton::LinuxWatcher
   virtual ~LinuxWatcher() {
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
     STLDeleteElements(&readers_);
+
+    MessageLoopForIO* ml = MessageLoopForIO::current();
+    ml->RemoveDestructionObserver(this);
   }
 
   // Removes and deletes the SocketReader.
@@ -630,8 +578,11 @@ void ProcessSingleton::LinuxWatcher::HandleMessage(
     return;
   }
 
-  // Ignore the request if the browser process is already in shutdown path.
-  if (!g_browser_process || g_browser_process->IsShuttingDown()) {
+  if (parent_->notification_callback_.Run(CommandLine(argv),
+                                          FilePath(current_dir))) {
+    // Send back "ACK" message to prevent the client process from starting up.
+    reader->FinishWithACK(kACKToken, arraysize(kACKToken) - 1);
+  } else {
     LOG(WARNING) << "Not handling interprocess notification as browser"
                     " is shutting down";
     // Send back "SHUTDOWN" message, so that the client process can start up
@@ -639,12 +590,6 @@ void ProcessSingleton::LinuxWatcher::HandleMessage(
     reader->FinishWithACK(kShutdownToken, arraysize(kShutdownToken) - 1);
     return;
   }
-
-  CommandLine parsed_command_line(argv);
-  parent_->ProcessCommandLine(parsed_command_line, FilePath(current_dir));
-
-  // Send back "ACK" message to prevent the client process from starting up.
-  reader->FinishWithACK(kACKToken, arraysize(kACKToken) - 1);
 }
 
 void ProcessSingleton::LinuxWatcher::RemoveSocketReader(SocketReader* reader) {
@@ -750,10 +695,14 @@ void ProcessSingleton::LinuxWatcher::SocketReader::FinishWithACK(
 ProcessSingleton::ProcessSingleton(const FilePath& user_data_dir)
     : locked_(false),
       foreground_window_(NULL),
+      current_pid_(base::GetCurrentProcId()),
       ALLOW_THIS_IN_INITIALIZER_LIST(watcher_(new LinuxWatcher(this))) {
   socket_path_ = user_data_dir.Append(chrome::kSingletonSocketFilename);
   lock_path_ = user_data_dir.Append(chrome::kSingletonLockFilename);
   cookie_path_ = user_data_dir.Append(chrome::kSingletonCookieFilename);
+
+  kill_callback_ = base::Bind(&ProcessSingleton::KillProcess,
+                              base::Unretained(this));
 }
 
 ProcessSingleton::~ProcessSingleton() {
@@ -816,7 +765,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
 
     if (retries == timeout_seconds) {
       // Retries failed.  Kill the unresponsive chrome process and continue.
-      if (!kill_unresponsive || !KillProcessByLockPath(lock_path_))
+      if (!kill_unresponsive || !KillProcessByLockPath())
         return PROFILE_IN_USE;
       return PROCESS_NONE;
     }
@@ -847,7 +796,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
   // Send the message
   if (!WriteToSocket(socket.fd(), to_send.data(), to_send.length())) {
     // Try to kill the other process, because it might have been dead.
-    if (!kill_unresponsive || !KillProcessByLockPath(lock_path_))
+    if (!kill_unresponsive || !KillProcessByLockPath())
       return PROFILE_IN_USE;
     return PROCESS_NONE;
   }
@@ -863,7 +812,7 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
 
   // Failed to read ACK, the other process might have been frozen.
   if (len <= 0) {
-    if (!kill_unresponsive || !KillProcessByLockPath(lock_path_))
+    if (!kill_unresponsive || !KillProcessByLockPath())
       return PROFILE_IN_USE;
     return PROCESS_NONE;
   }
@@ -886,21 +835,24 @@ ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessWithTimeout(
   return PROCESS_NOTIFIED;
 }
 
-ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate() {
+ProcessSingleton::NotifyResult ProcessSingleton::NotifyOtherProcessOrCreate(
+    const NotificationCallback& notification_callback) {
   return NotifyOtherProcessWithTimeoutOrCreate(
       *CommandLine::ForCurrentProcess(),
+      notification_callback,
       kTimeoutInSeconds);
 }
 
 ProcessSingleton::NotifyResult
 ProcessSingleton::NotifyOtherProcessWithTimeoutOrCreate(
     const CommandLine& command_line,
+    const NotificationCallback& notification_callback,
     int timeout_seconds) {
   NotifyResult result = NotifyOtherProcessWithTimeout(command_line,
                                                       timeout_seconds, true);
   if (result != PROCESS_NONE)
     return result;
-  if (Create())
+  if (Create(notification_callback))
     return PROCESS_NONE;
   // If the Create() failed, try again to notify. (It could be that another
   // instance was starting at the same time and managed to grab the lock before
@@ -914,7 +866,21 @@ ProcessSingleton::NotifyOtherProcessWithTimeoutOrCreate(
   return LOCK_ERROR;
 }
 
-bool ProcessSingleton::Create() {
+void ProcessSingleton::OverrideCurrentPidForTesting(base::ProcessId pid) {
+  current_pid_ = pid;
+}
+
+void ProcessSingleton::OverrideKillCallbackForTesting(
+    const base::Callback<void(int)>& callback) {
+  kill_callback_ = callback;
+}
+
+void ProcessSingleton::DisablePromptForTesting() {
+  g_disable_prompt = true;
+}
+
+bool ProcessSingleton::Create(
+    const NotificationCallback& notification_callback) {
   int sock;
   sockaddr_un addr;
 
@@ -924,7 +890,7 @@ bool ProcessSingleton::Create() {
       "%s%c%u",
       net::GetHostName().c_str(),
       kLockDelimiter,
-      base::GetCurrentProcId()));
+      current_pid_));
 
   // Create symbol link before binding the socket, to ensure only one instance
   // can have the socket open.
@@ -971,6 +937,8 @@ bool ProcessSingleton::Create() {
   if (listen(sock, 5) < 0)
     NOTREACHED() << "listen failed: " << safe_strerror(errno);
 
+  notification_callback_ = notification_callback;
+
   DCHECK(BrowserThread::IsMessageLoopValid(BrowserThread::IO));
   BrowserThread::PostTask(
       BrowserThread::IO,
@@ -988,23 +956,47 @@ void ProcessSingleton::Cleanup() {
   UnlinkPath(lock_path_);
 }
 
-void ProcessSingleton::ProcessCommandLine(const CommandLine& command_line,
-                                          const FilePath& current_directory) {
-  PrefService* prefs = g_browser_process->local_state();
-  DCHECK(prefs);
-
-  // Ignore the request if the process was passed the --product-version flag.
-  // Normally we wouldn't get here if that flag had been passed, but it can
-  // happen if it is passed to an older version of chrome. Since newer versions
-  // of chrome do this in the background, we want to avoid spawning extra
-  // windows.
-  if (command_line.HasSwitch(switches::kProductVersion)) {
-    DLOG(WARNING) << "Remote process was passed product version flag, "
-                  << "but ignored it. Doing nothing.";
-  } else {
-    // Run the browser startup sequence again, with the command line of the
-    // signalling process.
-    BrowserInit::ProcessCommandLineAlreadyRunning(command_line,
-                                                  current_directory);
+bool ProcessSingleton::IsSameChromeInstance(pid_t pid) {
+  pid_t cur_pid = current_pid_;
+  while (pid != cur_pid) {
+    pid = base::GetParentProcessId(pid);
+    if (pid < 0)
+      return false;
+    if (!IsChromeProcess(pid))
+      return false;
   }
+  return true;
 }
+
+bool ProcessSingleton::KillProcessByLockPath() {
+  std::string hostname;
+  int pid;
+  ParseLockPath(lock_path_, &hostname, &pid);
+
+  if (!hostname.empty() && hostname != net::GetHostName()) {
+    DisplayProfileInUseError(lock_path_.value(), hostname, pid);
+    return false;
+  }
+  UnlinkPath(lock_path_);
+
+  if (IsSameChromeInstance(pid))
+    return true;
+
+  if (pid > 0) {
+    kill_callback_.Run(pid);
+    return true;
+  }
+
+  LOG(ERROR) << "Failed to extract pid from path: " << lock_path_.value();
+  return true;
+}
+
+void ProcessSingleton::KillProcess(int pid) {
+  // TODO(james.su@gmail.com): Is SIGKILL ok?
+  int rv = kill(static_cast<base::ProcessHandle>(pid), SIGKILL);
+  // ESRCH = No Such Process (can happen if the other process is already in
+  // progress of shutting down and finishes before we try to kill it).
+  DCHECK(rv == 0 || errno == ESRCH) << "Error killing process: "
+                                    << safe_strerror(errno);
+}
+

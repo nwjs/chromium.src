@@ -41,7 +41,7 @@ class TabRestoreServiceDelegate {
 
   // see Browser methods with the same names
   virtual content::WebContents* GetWebContentsAt(int index) const = 0;
-  virtual content::WebContents* GetSelectedWebContents() const = 0;
+  virtual content::WebContents* GetActiveWebContents() const = 0;
   virtual bool IsTabPinned(int index) const = 0;
   virtual content::WebContents* AddRestoredTab(
       const std::vector<TabNavigation>& navigations,
@@ -64,12 +64,11 @@ class TabRestoreServiceDelegate {
   static TabRestoreServiceDelegate* Create(Profile* profile,
                                            const std::string& app_name);
 
-  // see BrowserList::GetBrowserForController
-  static TabRestoreServiceDelegate* FindDelegateForController(
-      const content::NavigationController* controller,
-      int* index);
+  // see browser::FindBrowserForWebContents
+  static TabRestoreServiceDelegate* FindDelegateForWebContents(
+      const content::WebContents* contents);
 
-  // see BrowserList::FindBrowserWithID
+  // see browser::FindBrowserWithID
   static TabRestoreServiceDelegate* FindDelegateWithID(
       SessionID::id_type desired_id);
 

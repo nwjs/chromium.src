@@ -1,10 +1,11 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_COMMON_CHROME_PATHS_INTERNAL_H_
 #define CHROME_COMMON_CHROME_PATHS_INTERNAL_H_
-#pragma once
+
+#include <string>
 
 #include "build/build_config.h"
 
@@ -24,6 +25,12 @@ namespace chrome {
 // DIR_USER_DATA has been overridden by a command-line option.
 bool GetDefaultUserDataDirectory(FilePath* result);
 
+#if defined(OS_WIN)
+// Gets the path to the user data directory for the alternate environment to
+// the one in use (metro or desktop).
+bool GetAlternateUserDataDirectory(FilePath *result);
+#endif
+
 // This returns the base directory in which Chrome Frame stores user profiles.
 // Note that this cannot be wrapped in a preprocessor define since
 // CF and Google Chrome want to share the same binaries.
@@ -41,13 +48,16 @@ void GetUserCacheDirectory(const FilePath& profile_dir, FilePath* result);
 // Get the path to the user's documents directory.
 bool GetUserDocumentsDirectory(FilePath* result);
 
-#if defined (OS_WIN)
+#if defined(OS_WIN) || defined(OS_LINUX)
 // Gets the path to a safe default download directory for a user.
 bool GetUserDownloadsDirectorySafe(FilePath* result);
 #endif
 
 // Get the path to the user's downloads directory.
 bool GetUserDownloadsDirectory(FilePath* result);
+
+// Gets the path to the user's pictures directory.
+bool GetUserPicturesDirectory(FilePath* result);
 
 // The path to the user's desktop.
 bool GetUserDesktop(FilePath* result);
@@ -84,6 +94,9 @@ bool GetGlobalApplicationSupportDirectory(FilePath* result);
 NSBundle* OuterAppBundle();
 
 #endif  // OS_MACOSX
+
+// Checks if the |process_type| has the rights to access the profile.
+bool ProcessNeedsProfileDir(const std::string& process_type);
 
 }  // namespace chrome
 

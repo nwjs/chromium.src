@@ -5,12 +5,17 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
+#include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
+#include "chrome/browser/extensions/lazy_background_page_test_util.h"
+#include "chrome/browser/extensions/test_management_policy.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/render_view_context_menu.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/common/context_menu_params.h"
 #include "net/base/mock_host_resolver.h"
@@ -19,6 +24,7 @@
 
 using WebKit::WebContextMenuData;
 using content::WebContents;
+using extensions::MenuItem;
 using ui::MenuModel;
 
 namespace {
@@ -35,9 +41,9 @@ class TestRenderViewContextMenu : public RenderViewContextMenu {
 
   bool HasExtensionItemWithLabel(const std::string& label) {
     string16 label16 = UTF8ToUTF16(label);
-    std::map<int, ExtensionMenuItem::Id>::iterator i;
+    std::map<int, MenuItem::Id>::iterator i;
     for (i = extension_item_map_.begin(); i != extension_item_map_.end(); ++i) {
-      const ExtensionMenuItem::Id& id = i->second;
+      const MenuItem::Id& id = i->second;
       string16 tmp_label;
       EXPECT_TRUE(GetItemLabel(id, &tmp_label));
       if (tmp_label == label16)
@@ -49,7 +55,7 @@ class TestRenderViewContextMenu : public RenderViewContextMenu {
   // Looks in the menu for an extension item with |id|, and if it is found and
   // has a label, that is put in |result| and we return true. Otherwise returns
   // false.
-  bool GetItemLabel(const ExtensionMenuItem::Id& id, string16* result) {
+  bool GetItemLabel(const MenuItem::Id& id, string16* result) {
     int command_id = 0;
     if (!FindCommandId(id, &command_id))
       return false;
@@ -89,6 +95,19 @@ class TestRenderViewContextMenu : public RenderViewContextMenu {
     return false;
   }
 
+  // Given an extension menu item id, tries to find the corresponding command id
+  // in the menu.
+  bool FindCommandId(const MenuItem::Id& id, int* command_id) {
+    std::map<int, MenuItem::Id>::const_iterator i;
+    for (i = extension_item_map_.begin(); i != extension_item_map_.end(); ++i) {
+      if (i->second == id) {
+        *command_id = i->first;
+        return true;
+      }
+    }
+    return false;
+  }
+
  protected:
   // These two functions implement pure virtual methods of
   // RenderViewContextMenu.
@@ -98,20 +117,7 @@ class TestRenderViewContextMenu : public RenderViewContextMenu {
     return false;
   }
   virtual void PlatformInit() {}
-
-
-  // Given an extension menu item id, tries to find the corresponding command id
-  // in the menu.
-  bool FindCommandId(const ExtensionMenuItem::Id& id, int* command_id) {
-    std::map<int, ExtensionMenuItem::Id>::const_iterator i;
-    for (i = extension_item_map_.begin(); i != extension_item_map_.end(); ++i) {
-      if (i->second == id) {
-        *command_id = i->first;
-        return true;
-      }
-    }
-    return false;
-  }
+  virtual void PlatformCancel() {}
 };
 
 }  // namespace
@@ -120,13 +126,15 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
  public:
   // Helper to load an extension from context_menus/|subdirectory| in the
   // extensions test data dir.
-  bool LoadContextMenuExtension(std::string subdirectory) {
+  const extensions::Extension* LoadContextMenuExtension(
+      std::string subdirectory) {
     FilePath extension_dir =
         test_data_dir_.AppendASCII("context_menus").AppendASCII(subdirectory);
     return LoadExtension(extension_dir);
   }
 
-  bool LoadContextMenuExtensionIncognito(std::string subdirectory) {
+  const extensions::Extension* LoadContextMenuExtensionIncognito(
+      std::string subdirectory) {
     FilePath extension_dir =
         test_data_dir_.AppendASCII("context_menus").AppendASCII(subdirectory);
     return LoadExtensionIncognito(extension_dir);
@@ -136,7 +144,7 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
                                         const GURL& page_url,
                                         const GURL& link_url,
                                         const GURL& frame_url) {
-    WebContents* web_contents = browser->GetSelectedWebContents();
+    WebContents* web_contents = chrome::GetActiveWebContents(browser);
     WebContextMenuData data;
     content::ContextMenuParams params(data);
     params.page_url = page_url;
@@ -148,14 +156,14 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
     return menu;
   }
 
-  // Shortcut to return the current ExtensionMenuManager.
-  ExtensionMenuManager* menu_manager() {
+  // Shortcut to return the current MenuManager.
+  extensions::MenuManager* menu_manager() {
     return browser()->profile()->GetExtensionService()->menu_manager();
   }
 
   // Returns a pointer to the currently loaded extension with |name|, or null
   // if not found.
-  const Extension* GetExtensionNamed(std::string name) {
+  const extensions::Extension* GetExtensionNamed(std::string name) {
     const ExtensionSet* extensions =
         browser()->profile()->GetExtensionService()->extensions();
     ExtensionSet::const_iterator i;
@@ -169,12 +177,12 @@ class ExtensionContextMenuBrowserTest : public ExtensionBrowserTest {
 
   // This gets all the items that any extension has registered for possible
   // inclusion in context menus.
-  ExtensionMenuItem::List GetItems() {
-    ExtensionMenuItem::List result;
+  MenuItem::List GetItems() {
+    MenuItem::List result;
     std::set<std::string> extension_ids = menu_manager()->ExtensionIds();
     std::set<std::string>::iterator i;
     for (i = extension_ids.begin(); i != extension_ids.end(); ++i) {
-      const ExtensionMenuItem::List* list = menu_manager()->MenuItems(*i);
+      const MenuItem::List* list = menu_manager()->MenuItems(*i);
       result.insert(result.end(), list->begin(), list->end());
     }
     return result;
@@ -295,9 +303,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, LongTitle) {
 
   // Make sure we have an item registered with a long title.
   size_t limit = RenderViewContextMenu::kMaxExtensionItemTitleLength;
-  ExtensionMenuItem::List items = GetItems();
+  MenuItem::List items = GetItems();
   ASSERT_EQ(1u, items.size());
-  ExtensionMenuItem* item = items.at(0);
+  MenuItem* item = items.at(0);
   ASSERT_GT(item->title().size(), limit);
 
   // Create a context menu, then find the item's label. It should be properly
@@ -356,7 +364,7 @@ static void VerifyMenuForSeparatorsTest(const MenuModel& menu) {
 IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Separators) {
   // Load the extension.
   ASSERT_TRUE(LoadContextMenuExtension("separators"));
-  const Extension* extension = GetExtensionNamed("Separators Test");
+  const extensions::Extension* extension = GetExtensionNamed("Separators Test");
   ASSERT_TRUE(extension != NULL);
 
   // Navigate to test1.html inside the extension, which should create a bunch
@@ -445,7 +453,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, MAYBE_IncognitoSplit) {
                                                  false);
 
   // Open an incognito window.
-  ui_test_utils::OpenURLOffTheRecord(browser()->profile(), GURL("about:blank"));
+  Browser* browser_incognito = ui_test_utils::OpenURLOffTheRecord(
+      browser()->profile(), GURL("about:blank"));
 
   ASSERT_TRUE(LoadContextMenuExtensionIncognito("incognito"));
 
@@ -456,9 +465,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, MAYBE_IncognitoSplit) {
   GURL page_url("http://www.google.com");
 
   // Create and build our test context menu.
-  Browser* browser_incognito = BrowserList::FindTabbedBrowser(
-      browser()->profile()->GetOffTheRecordProfile(), false);
-  ASSERT_TRUE(browser_incognito);
   scoped_ptr<TestRenderViewContextMenu> menu(
       CreateMenu(browser(), page_url, GURL(), GURL()));
   scoped_ptr<TestRenderViewContextMenu> menu_incognito(
@@ -506,4 +512,82 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Frames) {
 IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, Enabled) {
   TestEnabledContextMenu(true);
   TestEnabledContextMenu(false);
+}
+
+// Tests that applicable menu items are disabled when a ManagementPolicy
+// prohibits them.
+IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserTest, PolicyDisablesItems) {
+  ASSERT_TRUE(LoadContextMenuExtension("simple"));
+  ExtensionService* service = browser()->profile()->GetExtensionService();
+  ASSERT_TRUE(service != NULL);
+  ASSERT_FALSE(service->extensions()->is_empty());
+
+  // We need an extension to pass to the menu constructor, but we don't care
+  // which one.
+  ExtensionSet::const_iterator i = service->extensions()->begin();
+  const extensions::Extension* extension = *i;
+  ASSERT_TRUE(extension != NULL);
+
+  scoped_refptr<ExtensionContextMenuModel> menu(
+      new ExtensionContextMenuModel(extension, browser(), NULL));
+
+  extensions::ExtensionSystem::Get(
+      browser()->profile())->management_policy()->UnregisterAllProviders();
+
+  // Actions should be enabled.
+  ASSERT_TRUE(menu->IsCommandIdEnabled(ExtensionContextMenuModel::DISABLE));
+  ASSERT_TRUE(menu->IsCommandIdEnabled(ExtensionContextMenuModel::UNINSTALL));
+
+  extensions::TestManagementPolicyProvider policy_provider(
+    extensions::TestManagementPolicyProvider::PROHIBIT_MODIFY_STATUS);
+  extensions::ExtensionSystem::Get(
+      browser()->profile())->management_policy()->RegisterProvider(
+      &policy_provider);
+
+  // Now the actions are disabled.
+  ASSERT_FALSE(menu->IsCommandIdEnabled(ExtensionContextMenuModel::DISABLE));
+  ASSERT_FALSE(menu->IsCommandIdEnabled(ExtensionContextMenuModel::UNINSTALL));
+}
+
+class ExtensionContextMenuBrowserLazyTest :
+    public ExtensionContextMenuBrowserTest {
+  void SetUpCommandLine(CommandLine* command_line) {
+    ExtensionContextMenuBrowserTest::SetUpCommandLine(command_line);
+    // Set shorter delays to prevent test timeouts.
+    command_line->AppendSwitchASCII(switches::kEventPageIdleTime, "0");
+    command_line->AppendSwitchASCII(switches::kEventPageUnloadingTime, "0");
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ExtensionContextMenuBrowserLazyTest, EventPage) {
+  GURL about_blank("about:blank");
+  LazyBackgroundObserver page_complete;
+  const extensions::Extension* extension = LoadContextMenuExtension(
+      "event_page");
+  ASSERT_TRUE(extension);
+  page_complete.Wait();
+
+  // Test that menu items appear while the page is unloaded.
+  ASSERT_TRUE(MenuHasItemWithLabel(
+      about_blank, GURL(), GURL(), std::string("Item 1")));
+  ASSERT_TRUE(MenuHasItemWithLabel(
+      about_blank, GURL(), GURL(), std::string("Checkbox 1")));
+
+  // Test that checked menu items retain their checkedness.
+  LazyBackgroundObserver checkbox_checked;
+  scoped_ptr<TestRenderViewContextMenu> menu(
+      CreateMenu(browser(), about_blank, GURL(), GURL()));
+  MenuItem::Id id(false, extension->id());
+  id.string_uid = "checkbox1";
+  int command_id = -1;
+  ASSERT_TRUE(menu->FindCommandId(id, &command_id));
+  EXPECT_FALSE(menu->IsCommandIdChecked(command_id));
+
+  // Executing the checkbox also fires the onClicked event.
+  ExtensionTestMessageListener listener("onClicked fired for checkbox1", false);
+  menu->ExecuteCommand(command_id);
+  checkbox_checked.WaitUntilClosed();
+
+  EXPECT_TRUE(menu->IsCommandIdChecked(command_id));
+  ASSERT_TRUE(listener.WaitUntilSatisfied());
 }

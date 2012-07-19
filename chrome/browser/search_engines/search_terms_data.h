@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SEARCH_ENGINES_SEARCH_TERMS_DATA_H_
 #define CHROME_BROWSER_SEARCH_ENGINES_SEARCH_TERMS_DATA_H_
-#pragma once
 
 #include <string>
 
@@ -47,13 +46,6 @@ class SearchTermsData {
   // UIThreadSearchTermsData.
   virtual std::string InstantEnabledParam() const;
 
-  // Returns a string indicating the Instant field trial group, suitable for
-  // adding as a query string param to suggest/search URLs, or an empty string
-  // if the field trial is not active. Checking the field trial group requires
-  // accessing the Profile, which means this can only ever be non-empty for
-  // UIThreadSearchTermsData.
-  virtual std::string InstantFieldTrialUrlParam() const;
-
  private:
   DISALLOW_COPY_AND_ASSIGN(SearchTermsData);
 };
@@ -61,30 +53,20 @@ class SearchTermsData {
 // Implementation of SearchTermsData that is only usable on the UI thread.
 class UIThreadSearchTermsData : public SearchTermsData {
  public:
-  UIThreadSearchTermsData();
+  // If |profile_| is NULL, the Google base URL accessors will return default
+  // values, and InstantEnabledParam() will return the empty string.
+  explicit UIThreadSearchTermsData(Profile* profile);
 
-  // Callers who need an accurate answer from InstantFieldTrialUrlParam() or
-  // InstantEnabledParam() must set the profile here before calling them.
-  void set_profile(Profile* profile) { profile_ = profile; }
-
-  // Implementation of SearchTermsData.
   virtual std::string GoogleBaseURLValue() const OVERRIDE;
   virtual std::string GetApplicationLocale() const OVERRIDE;
 #if defined(ENABLE_RLZ)
   virtual string16 GetRlzParameterValue() const OVERRIDE;
 #endif
-
-  // This returns the empty string unless set_profile() has been called with a
-  // non-NULL Profile.
   virtual std::string InstantEnabledParam() const OVERRIDE;
 
-  // This returns the empty string unless set_profile() has been called with a
-  // non-NULL Profile.
-  virtual std::string InstantFieldTrialUrlParam() const OVERRIDE;
-
-  // Used by tests to set the value for the Google base url. This takes
-  // ownership of the given std::string.
-  static void SetGoogleBaseURL(std::string* google_base_url);
+  // Used by tests to override the value for the Google base URL.  Passing the
+  // empty string cancels this override.
+  static void SetGoogleBaseURL(const std::string& base_url);
 
  private:
   static std::string* google_base_url_;

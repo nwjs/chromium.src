@@ -51,6 +51,54 @@ TEST(JsonSchemaCompilerArrayTest, BasicArrayType) {
   }
 }
 
+TEST(JsonSchemaCompilerArrayTest, EnumArrayType) {
+  std::vector<EnumArrayType::TypesElement> enums;
+  enums.push_back(EnumArrayType::TYPES_ELEMENT_ONE);
+  enums.push_back(EnumArrayType::TYPES_ELEMENT_TWO);
+  enums.push_back(EnumArrayType::TYPES_ELEMENT_THREE);
+
+  scoped_ptr<ListValue> types(new ListValue());
+  for (size_t i = 0; i < enums.size(); ++i)
+    types->Append(EnumArrayType::CreateEnumValue(enums[i]).release());
+
+  DictionaryValue value;
+  value.Set("types", types.release());
+
+  EnumArrayType enum_array_type;
+  EXPECT_TRUE(EnumArrayType::Populate(value, &enum_array_type));
+  EXPECT_EQ(enums, enum_array_type.types);
+}
+
+TEST(JsonSchemaCompilerArrayTest, OptionalEnumArrayType) {
+  {
+    std::vector<OptionalEnumArrayType::TypesElement> enums;
+    enums.push_back(OptionalEnumArrayType::TYPES_ELEMENT_ONE);
+    enums.push_back(OptionalEnumArrayType::TYPES_ELEMENT_TWO);
+    enums.push_back(OptionalEnumArrayType::TYPES_ELEMENT_THREE);
+
+    scoped_ptr<ListValue> types(new ListValue());
+    for (size_t i = 0; i < enums.size(); ++i)
+      types->Append(OptionalEnumArrayType::CreateEnumValue(enums[i]).release());
+
+    DictionaryValue value;
+    value.Set("types", types.release());
+
+    OptionalEnumArrayType enum_array_type;
+    EXPECT_TRUE(OptionalEnumArrayType::Populate(value, &enum_array_type));
+    EXPECT_EQ(enums, *enum_array_type.types);
+  }
+  {
+    DictionaryValue value;
+    scoped_ptr<ListValue> enum_array(new ListValue());
+    enum_array->Append(Value::CreateStringValue("invalid"));
+
+    value.Set("types", enum_array.release());
+    OptionalEnumArrayType enum_array_type;
+    EXPECT_FALSE(OptionalEnumArrayType::Populate(value, &enum_array_type));
+    EXPECT_TRUE(enum_array_type.types->empty());
+  }
+}
+
 TEST(JsonSchemaCompilerArrayTest, RefArrayType) {
   {
     scoped_ptr<DictionaryValue> value(new DictionaryValue());
@@ -61,7 +109,7 @@ TEST(JsonSchemaCompilerArrayTest, RefArrayType) {
     value->Set("refs", ref_array.release());
     scoped_ptr<RefArrayType> ref_array_type(new RefArrayType());
     EXPECT_TRUE(RefArrayType::Populate(*value, ref_array_type.get()));
-    EXPECT_EQ((size_t) 3, ref_array_type->refs.size());
+    ASSERT_EQ(3u, ref_array_type->refs.size());
     EXPECT_EQ(1, ref_array_type->refs[0]->val);
     EXPECT_EQ(2, ref_array_type->refs[1]->val);
     EXPECT_EQ(3, ref_array_type->refs[2]->val);
@@ -87,7 +135,7 @@ TEST(JsonSchemaCompilerArrayTest, IntegerArrayParamsCreate) {
   scoped_ptr<IntegerArray::Params> params(
       IntegerArray::Params::Create(*params_value));
   EXPECT_TRUE(params.get());
-  EXPECT_EQ((size_t) 3, params->nums.size());
+  ASSERT_EQ(3u, params->nums.size());
   EXPECT_EQ(2, params->nums[0]);
   EXPECT_EQ(4, params->nums[1]);
   EXPECT_EQ(8, params->nums[2]);
@@ -103,10 +151,29 @@ TEST(JsonSchemaCompilerArrayTest, AnyArrayParamsCreate) {
   scoped_ptr<AnyArray::Params> params(
       AnyArray::Params::Create(*params_value));
   EXPECT_TRUE(params.get());
-  EXPECT_EQ((size_t) 3, params->anys.size());
+  ASSERT_EQ(3u, params->anys.size());
   int int_temp = 0;
   EXPECT_TRUE(params->anys[0]->value().GetAsInteger(&int_temp));
   EXPECT_EQ(1, int_temp);
+}
+
+TEST(JsonSchemaCompilerArrayTest, ObjectArrayParamsCreate) {
+  scoped_ptr<ListValue> params_value(new ListValue());
+  scoped_ptr<ListValue> item_array(new ListValue());
+  item_array->Append(CreateItemValue(1));
+  item_array->Append(CreateItemValue(2));
+  params_value->Append(item_array.release());
+  scoped_ptr<ObjectArray::Params> params(
+      ObjectArray::Params::Create(*params_value));
+  EXPECT_TRUE(params.get());
+  ASSERT_EQ(2u, params->objects.size());
+  int object_val = 0;
+  EXPECT_TRUE(params->objects[0]->additional_properties.GetInteger(
+      "val", &object_val));
+  EXPECT_EQ(1, object_val);
+  EXPECT_TRUE(params->objects[1]->additional_properties.GetInteger(
+      "val", &object_val));
+  EXPECT_EQ(2, object_val);
 }
 
 TEST(JsonSchemaCompilerArrayTest, RefArrayParamsCreate) {
@@ -118,7 +185,7 @@ TEST(JsonSchemaCompilerArrayTest, RefArrayParamsCreate) {
   scoped_ptr<RefArray::Params> params(
       RefArray::Params::Create(*params_value));
   EXPECT_TRUE(params.get());
-  EXPECT_EQ((size_t) 2, params->refs.size());
+  ASSERT_EQ(2u, params->refs.size());
   EXPECT_EQ(1, params->refs[0]->val);
   EXPECT_EQ(2, params->refs[1]->val);
 }
@@ -127,15 +194,14 @@ TEST(JsonSchemaCompilerArrayTest, ReturnIntegerArrayResultCreate) {
   std::vector<int> integers;
   integers.push_back(1);
   integers.push_back(2);
-  scoped_ptr<Value> result(ReturnIntegerArray::Result::Create(integers));
-  ListValue* list = NULL;
-  EXPECT_TRUE(result->GetAsList(&list));
-  int temp;
-  EXPECT_EQ((size_t) 2, list->GetSize());
-  EXPECT_TRUE(list->GetInteger(0, &temp));
-  EXPECT_EQ(1, temp);
-  EXPECT_TRUE(list->GetInteger(1, &temp));
-  EXPECT_EQ(2, temp);
+  scoped_ptr<ListValue> results = ReturnIntegerArray::Results::Create(integers);
+
+  ListValue expected;
+  ListValue* expected_argument = new ListValue();
+  expected_argument->Append(Value::CreateIntegerValue(1));
+  expected_argument->Append(Value::CreateIntegerValue(2));
+  expected.Append(expected_argument);
+  EXPECT_TRUE(results->Equals(&expected));
 }
 
 TEST(JsonSchemaCompilerArrayTest, ReturnRefArrayResultCreate) {
@@ -144,16 +210,16 @@ TEST(JsonSchemaCompilerArrayTest, ReturnRefArrayResultCreate) {
   items.push_back(linked_ptr<Item>(new Item()));
   items[0]->val = 1;
   items[1]->val = 2;
-  scoped_ptr<Value> result(ReturnRefArray::Result::Create(items));
-  ListValue* list = NULL;
-  EXPECT_TRUE(result->GetAsList(&list));
-  EXPECT_EQ((size_t) 2, list->GetSize());
-  DictionaryValue* item_value = NULL;
-  int temp;
-  EXPECT_TRUE(list->GetDictionary(0, &item_value));
-  EXPECT_TRUE(item_value->GetInteger("val", &temp));
-  EXPECT_EQ(1, temp);
-  EXPECT_TRUE(list->GetDictionary(1, &item_value));
-  EXPECT_TRUE(item_value->GetInteger("val", &temp));
-  EXPECT_EQ(2, temp);
+  scoped_ptr<ListValue> results = ReturnRefArray::Results::Create(items);
+
+  ListValue expected;
+  ListValue* expected_argument = new ListValue();
+  DictionaryValue* first = new DictionaryValue();
+  first->SetInteger("val", 1);
+  expected_argument->Append(first);
+  DictionaryValue* second = new DictionaryValue();
+  second->SetInteger("val", 2);
+  expected_argument->Append(second);
+  expected.Append(expected_argument);
+  EXPECT_TRUE(results->Equals(&expected));
 }

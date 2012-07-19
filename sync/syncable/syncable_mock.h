@@ -4,35 +4,35 @@
 
 #ifndef SYNC_SYNCABLE_SYNCABLE_MOCK_H_
 #define SYNC_SYNCABLE_SYNCABLE_MOCK_H_
-#pragma once
 
 #include <string>
 
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/directory.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/test/fake_encryptor.h"
 #include "sync/test/null_directory_change_delegate.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using syncable::Directory;
-using syncable::EntryKernel;
+namespace syncer {
+namespace syncable {
 
 class MockDirectory : public Directory {
  public:
-  explicit MockDirectory(browser_sync::UnrecoverableErrorHandler* handler);
+  explicit MockDirectory(syncer::UnrecoverableErrorHandler* handler);
   virtual ~MockDirectory();
 
   MOCK_METHOD1(GetEntryByHandle, syncable::EntryKernel*(int64));
 
-  MOCK_METHOD2(set_last_downloadstamp, void(syncable::ModelType, int64));
+  MOCK_METHOD2(set_last_downloadstamp, void(syncer::ModelType, int64));
 
   MOCK_METHOD1(GetEntryByClientTag,
                syncable::EntryKernel*(const std::string&));
 
-  MOCK_METHOD1(PurgeEntriesWithTypeIn, void(syncable::ModelTypeSet));
+  MOCK_METHOD1(PurgeEntriesWithTypeIn, bool(syncer::ModelTypeSet));
 
  private:
-  browser_sync::FakeEncryptor encryptor_;
+  syncer::FakeEncryptor encryptor_;
   syncable::NullDirectoryChangeDelegate delegate_;
 };
 
@@ -42,6 +42,7 @@ class MockSyncableWriteTransaction : public syncable::WriteTransaction {
       const tracked_objects::Location& from_here, Directory *directory);
 };
 
+}  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_SYNCABLE_MOCK_H_
-

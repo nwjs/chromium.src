@@ -81,6 +81,8 @@ class HostNPScriptObject : public HostStatusObserver {
   // standard LOG(INFO) and it will be sent to this method.
   void PostLogDebugInfo(const std::string& message);
 
+  void SetWindow(NPWindow* np_window);
+
  private:
   // These state values are duplicated in the JS code. Remember to update both
   // copies when making changes.
@@ -119,6 +121,14 @@ class HostNPScriptObject : public HostStatusObserver {
                    uint32_t arg_count,
                    NPVariant* result);
 
+  // Calculates PIN hash value to be stored in the config. Args are:
+  //   string hostId Host ID.
+  //   string pin The PIN.
+  // Returns the resulting hash value encoded with Base64.
+  bool GetPinHash(const NPVariant* args,
+                  uint32_t arg_count,
+                  NPVariant* result);
+
   // Generates new key pair to use for the host. The specified
   // callback is called when when the key is generated. The key is
   // returned in format understood by the host (PublicKeyInfo
@@ -135,13 +145,27 @@ class HostNPScriptObject : public HostStatusObserver {
                           uint32_t arg_count,
                           NPVariant* result);
 
-  // Loads daemon config config. The first argument specifies the
-  // callback to be called with the config is loaded. The config is
-  // returned as a JSON formatted string. Args are:
+  // Loads daemon config. The first argument specifies the callback to be
+  // called once the config has been loaded. The config is passed as a JSON
+  // formatted string. Args are:
   //   function(string) callback
   bool GetDaemonConfig(const NPVariant* args,
                        uint32_t arg_count,
                        NPVariant* result);
+
+  // Retrieves daemon version. The first argument specifies the callback to be
+  // called with the obtained version. The version is passed as a dotted
+  // version string, described in daemon_controller.h.
+  bool GetDaemonVersion(const NPVariant* args,
+                        uint32_t arg_count,
+                        NPVariant* result);
+
+  // Retrieves the user's consent to report crash dumps. The first argument
+  // specifies the callback to be called with the recorder consent. Possible
+  // consent codes are defined in remoting/host/breakpad.h.
+  bool GetUsageStatsConsent(const NPVariant* args,
+                            uint32_t arg_count,
+                            NPVariant* result);
 
   // Start the daemon process with the specified config. Args are:
   //   string config
@@ -204,20 +228,30 @@ class HostNPScriptObject : public HostStatusObserver {
   // Helper methods for Me2Me host.
 
   // Helpers for GenerateKeyPair().
-  void DoGenerateKeyPair(NPObject* callback);
-  void InvokeGenerateKeyPairCallback(NPObject* callback,
+  void DoGenerateKeyPair(const ScopedRefNPObject& callback);
+  void InvokeGenerateKeyPairCallback(const ScopedRefNPObject& callback,
                                      const std::string& private_key,
                                      const std::string& public_key);
 
 
-  // Callback handler for SetConfigAndStart(), Stop() and SetPin() in
-  // DaemonController.
-  void InvokeAsyncResultCallback(NPObject* callback,
+  // Callback handler for SetConfigAndStart(), Stop(), SetPin() and
+  // SetUsageStatsConsent() in DaemonController.
+  void InvokeAsyncResultCallback(const ScopedRefNPObject& callback,
                                  DaemonController::AsyncResult result);
 
   // Callback handler for DaemonController::GetConfig().
-  void InvokeGetDaemonConfigCallback(NPObject* callback,
+  void InvokeGetDaemonConfigCallback(const ScopedRefNPObject& callback,
                                      scoped_ptr<base::DictionaryValue> config);
+
+  // Callback handler for DaemonController::GetVersion().
+  void InvokeGetDaemonVersionCallback(const ScopedRefNPObject& callback,
+                                      const std::string& version);
+
+  // Callback handler for DaemonController::GetUsageStatsConsent().
+  void InvokeGetUsageStatsConsentCallback(const ScopedRefNPObject& callback,
+                                          bool supported,
+                                          bool allowed,
+                                          bool set_by_policy);
 
   //////////////////////////////////////////////////////////
   // Basic helper methods used for both It2Me and Me2me.
@@ -256,7 +290,7 @@ class HostNPScriptObject : public HostStatusObserver {
   ScopedRefNPObject on_nat_traversal_policy_changed_func_;
   ScopedRefNPObject on_state_changed_func_;
   base::PlatformThreadId np_thread_id_;
-  scoped_refptr<PluginMessageLoopProxy> plugin_message_loop_proxy_;
+  scoped_refptr<PluginMessageLoopProxy> plugin_task_runner_;
 
   scoped_ptr<ChromotingHostContext> host_context_;
   HostKeyPair host_key_pair_;

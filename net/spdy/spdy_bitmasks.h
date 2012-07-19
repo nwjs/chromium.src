@@ -4,7 +4,6 @@
 
 #ifndef NET_SPDY_SPDY_BITMASKS_H_
 #define NET_SPDY_SPDY_BITMASKS_H_
-#pragma once
 
 namespace net {
 
@@ -22,7 +21,7 @@ const unsigned int kSpdy2PriorityMask = 0xc0;
 const unsigned int kLengthMask = 0xffffff;
 
 // Legal flags on data packets.
-const int kDataFlagsMask = 0x03;
+const int kDataFlagsMask = 0x01;
 
 // Legal flags on control packets.
 const int kControlFlagsMask = 0x03;

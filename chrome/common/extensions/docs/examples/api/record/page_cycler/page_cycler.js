@@ -15,6 +15,8 @@ var pageCyclerUI = new (function () {
   this.captureTab = $("#capture-tab");
   this.captureTabLabel = $("#capture-tab-label");
   this.captureButton = $("#capture-test");
+  this.captureErrorDiv = $("#capture-errors-display");
+  this.captureErrorList = $("#capture-errors");
 
   this.replayTab = $("#replay-tab");
   this.replayTabLabel = $("#replay-tab-label");
@@ -55,27 +57,35 @@ var pageCyclerUI = new (function () {
   }
 
   this.captureTest = function() {
+    var errorList = $("#capture-errors");
+    var errors = [];
+
     this.cacheDir = $("#capture-cache-dir").value;
     this.urlList = $("#capture-urls").value.split("\n");
 
-    this.captureButton.disabled = true;
-    chrome.experimental.record.captureURLs(this.urlList, this.cacheDir,
-                                           this.onCaptureDone.bind(this));
+    if (errors.length > 0) {
+      this.captureErrorList.innerText = errors.join("\n");
+      this.captureErrorDiv.className = "error-list-show";
+    }
+    else {
+      this.captureErrorDiv.className = "error-list-hide";
+      this.captureButton.disabled = true;
+      chrome.experimental.record.captureURLs(this.urlList, this.cacheDir,
+          this.onCaptureDone.bind(this));
+    }
   }
 
   this.onCaptureDone = function(errors) {
-    var errorDiv = $("#capture-errors-display");
-    var errorList = $("#capture-errors");
 
     this.captureButton.disabled = false;
     if (errors.length > 0) {
-      errorList.innerText = errors.join("\n");
-      errorDiv.className = "error-list-show";
+      this.captureErrorList.innerText = errors.join("\n");
+      this.captureErrorDiv.className = "error-list-show";
       this.replayButton.disabled = true;
       this.replayCache.innerText = this.replayURLs.innerText = noTestMessage;
     }
     else {
-      errorDiv.className = "error-list-hide";
+      this.captureErrorDiv.className = "error-list-hide";
       this.replayButton.disabled = false;
       this.replayURLs.innerText = this.urlList.join("\n");
       this.replayCache.innerText = this.cacheDir;
@@ -83,8 +93,8 @@ var pageCyclerUI = new (function () {
   }
 
   this.replayTest = function() {
-    var repeatCount = parseInt($("#repeat-count").value);
     var extensionPath = $("#extension-dir").value;
+    var repeatCount = parseInt($('#repeat-count').value);
     var errors = [];
 
     // Check local errors
@@ -99,11 +109,12 @@ var pageCyclerUI = new (function () {
     } else {
       this.replayErrorDiv.className = "error-list-hide";
       this.replayButton.disabled = true;
-
-      chrome.experimental.record.replayURLs(this.urlList, this.cacheDir, {
-        "extensionPath": extensionPath,
-        "repeatCount": repeatCount
-      }, this.onReplayDone.bind(this));
+      chrome.experimental.record.replayURLs(
+          this.urlList,
+          this.cacheDir,
+          repeatCount,
+          {"extensionPath": extensionPath},
+          this.onReplayDone.bind(this));
     }
   }
 
@@ -118,8 +129,8 @@ var pageCyclerUI = new (function () {
     }
     else {
       this.replayErrorDiv.className = "error-list-hide";
-      replayResult.innerText = "Test took " + result.runTime + "mS :\n"
-       + result.stats;
+      replayResult.innerText = "Test took " + result.runTime + "mS :\n" +
+        result.stats;
     }
   }
 

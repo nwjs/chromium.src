@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/logging.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
 #include "base/string_piece.h"
@@ -29,6 +30,7 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::BrowserThread;
@@ -168,6 +170,10 @@ class SimUnlockHandler : public WebUIMessageHandler,
     }
 
    private:
+    friend class base::RefCountedThreadSafe<TaskProxy>;
+
+    ~TaskProxy() {}
+
     base::WeakPtr<SimUnlockHandler> handler_;
 
     // Pending code input (PIN/PUK).
@@ -304,7 +310,7 @@ void SimUnlockUIHTMLSource::StartDataRequest(const std::string& path,
 
   static const base::StringPiece html(
       ResourceBundle::GetSharedInstance().GetRawDataResource(
-          IDR_SIM_UNLOCK_HTML));
+          IDR_SIM_UNLOCK_HTML, ui::SCALE_FACTOR_NONE));
 
   std::string full_html = jstemplate_builder::GetI18nTemplateHtml(html,
                                                                   &strings);
@@ -670,7 +676,7 @@ SimUnlockUI::SimUnlockUI(content::WebUI* web_ui) : WebUIController(web_ui) {
 
   // Set up the chrome://sim-unlock/ source.
   Profile* profile = Profile::FromWebUI(web_ui);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 }
 
 }  // namespace chromeos

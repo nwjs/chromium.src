@@ -57,7 +57,7 @@ NativeComboboxViews::NativeComboboxViews(Combobox* combobox)
     : combobox_(combobox),
       text_border_(new FocusableBorder()),
       disclosure_arrow_(ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-          IDR_DISCLOSURE_ARROW).ToSkBitmap()),
+          IDR_DISCLOSURE_ARROW).ToImageSkia()),
       dropdown_open_(false),
       selected_index_(-1),
       content_width_(0),
@@ -83,6 +83,16 @@ bool NativeComboboxViews::OnMousePressed(const views::MouseEvent& mouse_event) {
 
 bool NativeComboboxViews::OnMouseDragged(const views::MouseEvent& mouse_event) {
   return true;
+}
+
+ui::GestureStatus NativeComboboxViews::OnGestureEvent(
+    const views::GestureEvent& gesture_event) {
+  if (gesture_event.type() == ui::ET_GESTURE_TAP) {
+    UpdateFromModel();
+    ShowDropDownMenu();
+    return ui::GESTURE_STATUS_CONSUMED;
+  }
+  return View::OnGestureEvent(gesture_event);
 }
 
 bool NativeComboboxViews::OnKeyPressed(const views::KeyEvent& key_event) {
@@ -221,7 +231,7 @@ bool NativeComboboxViews::HandleKeyPressed(const KeyEvent& e) {
 }
 
 bool NativeComboboxViews::HandleKeyReleased(const KeyEvent& e) {
-  return true;
+  return false;  // crbug.com/127520
 }
 
 void NativeComboboxViews::HandleFocus() {
@@ -301,7 +311,7 @@ void NativeComboboxViews::PaintText(gfx::Canvas* canvas) {
                          disclosure_arrow_->width(),
                          disclosure_arrow_->height());
   AdjustBoundsForRTLUI(&arrow_bounds);
-  canvas->DrawBitmapInt(*disclosure_arrow_, arrow_bounds.x(), arrow_bounds.y());
+  canvas->DrawImageInt(*disclosure_arrow_, arrow_bounds.x(), arrow_bounds.y());
 
   canvas->Restore();
 }

@@ -12,7 +12,7 @@ cr.define('options', function() {
   function BluetoothOptions() {
     OptionsPage.call(this,
                      'bluetooth',
-                     templateData.bluetoothOptionsPageTabTitle,
+                     loadTimeData.getString('bluetoothOptionsPageTabTitle'),
                      'bluetooth-options');
   }
 
@@ -80,9 +80,8 @@ cr.define('options', function() {
    */
   BluetoothOptions.updateDiscovery = function() {
     var page = BluetoothOptions.getInstance();
-    if (page && page.visible) {
+    if (page && page.visible)
       chrome.send('findBluetoothDevices');
-    }
   }
 
   // Export

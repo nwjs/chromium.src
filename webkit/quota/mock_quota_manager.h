@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_QUOTA_MOCK_QUOTA_MANAGER_H_
 #define WEBKIT_QUOTA_MOCK_QUOTA_MANAGER_H_
-#pragma once
 
 #include <vector>
 #include <string>
@@ -43,11 +42,9 @@ class MockQuotaManager : public QuotaManager {
 
   MockQuotaManager(bool is_incognito,
                    const FilePath& profile_path,
-                   base::MessageLoopProxy* io_thread,
-                   base::MessageLoopProxy* db_thread,
+                   base::SingleThreadTaskRunner* io_thread,
+                   base::SequencedTaskRunner* db_thread,
                    SpecialStoragePolicy* special_storage_policy);
-
-  virtual ~MockQuotaManager();
 
   // Adds an origin to the canned list that will be searched through via
   // GetOriginsModifiedSince. The caller must provide |quota_client_mask|
@@ -83,6 +80,9 @@ class MockQuotaManager : public QuotaManager {
                                 StorageType type,
                                 int quota_client_mask,
                                 const StatusCallback& callback) OVERRIDE;
+
+ protected:
+  virtual ~MockQuotaManager();
 
  private:
   class GetModifiedSinceTask;

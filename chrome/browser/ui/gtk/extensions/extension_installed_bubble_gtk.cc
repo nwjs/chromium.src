@@ -16,9 +16,9 @@
 #include "chrome/browser/ui/gtk/browser_actions_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_toolbar_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
 #include "chrome/browser/ui/gtk/location_bar_view_gtk.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
@@ -30,6 +30,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/gtk_util.h"
+
+using extensions::Extension;
 
 namespace {
 
@@ -50,17 +52,15 @@ const int kContentBorder = 7;
 
 }  // namespace
 
-namespace browser {
+namespace chrome {
 
-void ShowExtensionInstalledBubble(
-    const Extension* extension,
-    Browser* browser,
-    const SkBitmap& icon,
-    Profile* profile) {
+void ShowExtensionInstalledBubble(const Extension* extension,
+                                  Browser* browser,
+                                  const SkBitmap& icon) {
   ExtensionInstalledBubbleGtk::Show(extension, browser, icon);
 }
 
-} // namespace browser
+}  // namespace chrome
 
 void ExtensionInstalledBubbleGtk::Show(const Extension* extension,
                                        Browser* browser,
@@ -115,7 +115,7 @@ void ExtensionInstalledBubbleGtk::Observe(
     }
   } else if (type == chrome::NOTIFICATION_EXTENSION_UNLOADED) {
     const Extension* extension =
-        content::Details<UnloadedExtensionInfo>(details)->extension;
+        content::Details<extensions::UnloadedExtensionInfo>(details)->extension;
     if (extension == extension_)
       extension_ = NULL;
   } else {
@@ -126,7 +126,7 @@ void ExtensionInstalledBubbleGtk::Observe(
 void ExtensionInstalledBubbleGtk::ShowInternal() {
   BrowserWindowGtk* browser_window =
       BrowserWindowGtk::GetBrowserWindowForNativeWindow(
-          browser_->window()->GetNativeHandle());
+          browser_->window()->GetNativeWindow());
 
   GtkWidget* reference_widget = NULL;
 
@@ -177,7 +177,7 @@ void ExtensionInstalledBubbleGtk::ShowInternal() {
   if (reference_widget == NULL)
     reference_widget = browser_window->GetToolbar()->GetAppMenuButton();
 
-  ThemeServiceGtk* theme_provider = ThemeServiceGtk::GetFrom(
+  GtkThemeService* theme_provider = GtkThemeService::GetFrom(
       browser_->profile());
 
   // Setup the BubbleGtk content.
@@ -186,7 +186,7 @@ void ExtensionInstalledBubbleGtk::ShowInternal() {
 
   if (!icon_.isNull()) {
     // Scale icon down to 43x43, but allow smaller icons (don't scale up).
-    GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(&icon_);
+    GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(icon_);
     gfx::Size size(icon_.width(), icon_.height());
     if (size.width() > kIconSize || size.height() > kIconSize) {
       if (size.width() > size.height()) {
@@ -218,7 +218,7 @@ void ExtensionInstalledBubbleGtk::ShowInternal() {
   GtkWidget* text_column = gtk_vbox_new(FALSE, kTextColumnVerticalSpacing);
   gtk_box_pack_start(GTK_BOX(bubble_content), text_column, FALSE, FALSE, 0);
 
-  // Heading label
+  // Heading label.
   GtkWidget* heading_label = gtk_label_new(NULL);
   string16 extension_name = UTF8ToUTF16(extension_->name());
   base::i18n::AdjustStringForLocaleDirection(&extension_name);
@@ -232,15 +232,45 @@ void ExtensionInstalledBubbleGtk::ShowInternal() {
   gtk_util::SetLabelWidth(heading_label, kTextColumnWidth);
   gtk_box_pack_start(GTK_BOX(text_column), heading_label, FALSE, FALSE, 0);
 
-  // Page action label
-  if (type_ == PAGE_ACTION) {
-    GtkWidget* info_label = gtk_label_new(l10n_util::GetStringUTF8(
-        IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO).c_str());
+  bool has_keybinding = false;
+
+  // Browser action label.
+  if (type_ == BROWSER_ACTION) {
+    const extensions::Command* browser_action_command =
+        extension_->browser_action_command();
+    GtkWidget* info_label;
+    if (!browser_action_command) {
+      info_label = gtk_label_new(l10n_util::GetStringUTF8(
+          IDS_EXTENSION_INSTALLED_BROWSER_ACTION_INFO).c_str());
+    } else {
+      info_label = gtk_label_new(l10n_util::GetStringFUTF8(
+          IDS_EXTENSION_INSTALLED_BROWSER_ACTION_INFO_WITH_SHORTCUT,
+          browser_action_command->accelerator().GetShortcutText()).c_str());
+      has_keybinding = true;
+    }
     gtk_util::SetLabelWidth(info_label, kTextColumnWidth);
     gtk_box_pack_start(GTK_BOX(text_column), info_label, FALSE, FALSE, 0);
   }
 
-  // Omnibox keyword label
+  // Page action label.
+  if (type_ == PAGE_ACTION) {
+    const extensions::Command* page_action_command =
+        extension_->page_action_command();
+    GtkWidget* info_label;
+    if (!page_action_command) {
+      info_label = gtk_label_new(l10n_util::GetStringUTF8(
+          IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO).c_str());
+    } else {
+      info_label = gtk_label_new(l10n_util::GetStringFUTF8(
+          IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO_WITH_SHORTCUT,
+          page_action_command->accelerator().GetShortcutText()).c_str());
+      has_keybinding = true;
+    }
+    gtk_util::SetLabelWidth(info_label, kTextColumnWidth);
+    gtk_box_pack_start(GTK_BOX(text_column), info_label, FALSE, FALSE, 0);
+  }
+
+  // Omnibox keyword label.
   if (type_ == OMNIBOX_KEYWORD) {
     GtkWidget* info_label = gtk_label_new(l10n_util::GetStringFUTF8(
         IDS_EXTENSION_INSTALLED_OMNIBOX_KEYWORD_INFO,
@@ -249,11 +279,15 @@ void ExtensionInstalledBubbleGtk::ShowInternal() {
     gtk_box_pack_start(GTK_BOX(text_column), info_label, FALSE, FALSE, 0);
   }
 
-  // Manage label
-  GtkWidget* manage_label = gtk_label_new(
-      l10n_util::GetStringUTF8(IDS_EXTENSION_INSTALLED_MANAGE_INFO).c_str());
-  gtk_util::SetLabelWidth(manage_label, kTextColumnWidth);
-  gtk_box_pack_start(GTK_BOX(text_column), manage_label, FALSE, FALSE, 0);
+  if (has_keybinding) {
+    // TODO(finnur): Show the shortcut link.
+  } else {
+    // Manage label.
+    GtkWidget* manage_label = gtk_label_new(
+        l10n_util::GetStringUTF8(IDS_EXTENSION_INSTALLED_MANAGE_INFO).c_str());
+    gtk_util::SetLabelWidth(manage_label, kTextColumnWidth);
+    gtk_box_pack_start(GTK_BOX(text_column), manage_label, FALSE, FALSE, 0);
+  }
 
   // Create and pack the close button.
   GtkWidget* close_column = gtk_vbox_new(FALSE, 0);
@@ -287,8 +321,9 @@ void ExtensionInstalledBubbleGtk::ShowInternal() {
                             &bounds,
                             bubble_content,
                             arrow_location,
-                            true,  // match_system_theme
-                            true,  // grab_input
+                            BubbleGtk::MATCH_SYSTEM_THEME |
+                                BubbleGtk::POPUP_WINDOW |
+                                BubbleGtk::GRAB_INPUT,
                             theme_provider,
                             this);
 }
@@ -308,7 +343,7 @@ void ExtensionInstalledBubbleGtk::BubbleClosing(BubbleGtk* bubble,
     // Turn the page action preview off.
     BrowserWindowGtk* browser_window =
           BrowserWindowGtk::GetBrowserWindowForNativeWindow(
-              browser_->window()->GetNativeHandle());
+              browser_->window()->GetNativeWindow());
     LocationBarViewGtk* location_bar_view =
         browser_window->GetToolbar()->GetLocationBarView();
     location_bar_view->SetPreviewEnabledPageAction(extension_->page_action(),

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_WEBSTORE_INSTALLER_H_
 #define CHROME_BROWSER_EXTENSIONS_WEBSTORE_INSTALLER_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -27,6 +26,8 @@ namespace content {
 class NavigationController;
 }
 
+namespace extensions {
+
 // Downloads and installs extensions from the web store.
 class WebstoreInstaller : public content::NotificationObserver,
                           public content::DownloadItem::Observer,
@@ -45,13 +46,22 @@ class WebstoreInstaller : public content::NotificationObserver,
     virtual void OnExtensionInstallSuccess(const std::string& id) = 0;
     virtual void OnExtensionInstallFailure(const std::string& id,
                                            const std::string& error) = 0;
+
+   protected:
+    virtual ~Delegate() {}
   };
 
-  // If added to the WebstoreInstaller, an Approval indicates that the user has
-  // already approved the installation and that the CrxInstaller can bypass its
-  // install prompt.
+  // Contains information about what parts of the extension install process can
+  // be skipped or modified. If one of these is present, it means that a CRX
+  // download was initiated by WebstoreInstaller. The Approval instance should
+  // be checked further for additional details.
   struct Approval : public content::DownloadItem::ExternalData {
-    Approval();
+    static scoped_ptr<Approval> CreateWithInstallPrompt(Profile* profile);
+    static scoped_ptr<Approval> CreateWithNoInstallPrompt(
+        Profile* profile,
+        const std::string& extension_id,
+        scoped_ptr<base::DictionaryValue> parsed_manifest);
+
     virtual ~Approval();
 
     // The extension id that was approved for installation.
@@ -69,6 +79,18 @@ class WebstoreInstaller : public content::NotificationObserver,
 
     // Whether to skip the post install UI like the extension installed bubble.
     bool skip_post_install_ui;
+
+    // Whether to skip the install dialog once the extension has been downloaded
+    // and unpacked. One reason this can be true is that in the normal webstore
+    // installation, the dialog is shown earlier, before any download is done,
+    // so there's no need to show it again.
+    bool skip_install_dialog;
+
+    // Whether we should record an oauth2 grant for the extensions.
+    bool record_oauth2_grant;
+
+   private:
+    Approval();
   };
 
   // Gets the Approval associated with the |download|, or NULL if there's none.
@@ -89,7 +111,6 @@ class WebstoreInstaller : public content::NotificationObserver,
                     const std::string& id,
                     scoped_ptr<Approval> approval,
                     int flags);
-  virtual ~WebstoreInstaller();
 
   // Starts downloading and installing the extension.
   void Start();
@@ -104,6 +125,9 @@ class WebstoreInstaller : public content::NotificationObserver,
   static void SetDownloadDirectoryForTests(FilePath* directory);
 
  private:
+  friend class base::RefCounted<WebstoreInstaller>;
+  virtual ~WebstoreInstaller();
+
   // DownloadManager::DownloadUrl callback.
   void OnDownloadStarted(content::DownloadId id, net::Error error);
 
@@ -136,5 +160,7 @@ class WebstoreInstaller : public content::NotificationObserver,
   scoped_ptr<Approval> approval_;
   GURL download_url_;
 };
+
+}  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_WEBSTORE_INSTALLER_H_

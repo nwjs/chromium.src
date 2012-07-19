@@ -1,23 +1,22 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_COMMON_NET_GAIA_OAUTH2_REVOCATION_FETCHER_H_
 #define CHROME_COMMON_NET_GAIA_OAUTH2_REVOCATION_FETCHER_H_
-#pragma once
 
 #include <string>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "chrome/common/net/gaia/oauth2_revocation_consumer.h"
-#include "content/public/common/url_fetcher.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 class OAuth2RevocationFetcherTest;
 
 namespace net {
+class URLFetcher;
 class URLRequestContextGetter;
 class URLRequestStatus;
 }
@@ -37,7 +36,7 @@ class URLRequestStatus;
 //
 // This class can handle one request at a time. To parallelize requests,
 // create multiple instances.
-class OAuth2RevocationFetcher : public content::URLFetcherDelegate {
+class OAuth2RevocationFetcher : public net::URLFetcherDelegate {
  public:
   OAuth2RevocationFetcher(OAuth2RevocationConsumer* consumer,
                           net::URLRequestContextGetter* getter);
@@ -51,8 +50,8 @@ class OAuth2RevocationFetcher : public content::URLFetcherDelegate {
 
   void CancelRequest();
 
-  // Implementation of content::URLFetcherDelegate
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // Implementation of net::URLFetcherDelegate
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
  private:
   enum State {
@@ -64,7 +63,7 @@ class OAuth2RevocationFetcher : public content::URLFetcherDelegate {
 
   // Helper methods for the flow.
   void StartRevocation();
-  void EndRevocation(const content::URLFetcher* source);
+  void EndRevocation(const net::URLFetcher* source);
 
   // Helper mehtods for reporting back results.
   void OnRevocationSuccess();
@@ -82,7 +81,7 @@ class OAuth2RevocationFetcher : public content::URLFetcherDelegate {
   State state_;
 
   // While a fetch is in progress.
-  scoped_ptr<content::URLFetcher> fetcher_;
+  scoped_ptr<net::URLFetcher> fetcher_;
   std::string access_token_;
   std::string client_id_;
   std::string origin_;

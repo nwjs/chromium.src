@@ -34,6 +34,8 @@ cr.define('login', function() {
   // Link which starts guest session for captive portal fixing.
   /** @const */ var FIX_CAPTIVE_PORTAL_ID = 'captive-portal-fix-link';
 
+  /** @const */ var FIX_PROXY_SETTINGS_ID = 'proxy-settings-fix-link';
+
   // Id of the element which holds current network name.
   /** @const */ var CURRENT_NETWORK_NAME_ID = 'captive-portal-network-name';
 
@@ -81,6 +83,15 @@ cr.define('login', function() {
         '</a>');
       $(FIX_CAPTIVE_PORTAL_ID).onclick = function() {
         chrome.send('showCaptivePortal');
+      };
+
+      $('captive-portal-proxy-message-text').innerHTML =
+        localStrings.getStringF(
+          'captivePortalProxyMessage',
+          '<a id="' + FIX_PROXY_SETTINGS_ID + '" class="signin-link" href="#">',
+          '</a>');
+      $(FIX_PROXY_SETTINGS_ID).onclick = function() {
+        chrome.send('openProxySettings');
       };
 
       $('proxy-message-text').innerHTML = localStrings.getStringF(
@@ -177,6 +188,8 @@ cr.define('login', function() {
                     ', network=' + network + ', reason=' + reason +
                     ', isUnderCaptivePortal=' + isUnderCaptivePortal);
 
+        // Clear any error messages that might still be around.
+        Oobe.clearErrors();
 
         offlineMessage.onBeforeShow(lastNetworkType);
 
@@ -220,6 +233,9 @@ cr.define('login', function() {
         offlineMessage.classList.remove('hidden');
         offlineMessage.classList.remove('faded');
 
+        if (Oobe.getInstance().isNewOobe())
+          Oobe.getInstance().updateInnerContainerSize_(offlineMessage);
+
         if (!currentScreen.classList.contains('faded')) {
           currentScreen.classList.add('faded');
           currentScreen.addEventListener('webkitTransitionEnd',
@@ -230,6 +246,10 @@ cr.define('login', function() {
             });
         }
         chrome.send('networkErrorShown');
+        // Report back error screen UI being painted.
+        window.webkitRequestAnimationFrame(function() {
+          chrome.send('loginVisible');
+        });
       } else {
         chrome.send('hideCaptivePortal');
 
@@ -249,6 +269,9 @@ cr.define('login', function() {
 
           currentScreen.classList.remove('hidden');
           currentScreen.classList.remove('faded');
+
+          if (Oobe.getInstance().isNewOobe())
+            Oobe.getInstance().updateInnerContainerSize_(currentScreen);
 
           // Forces a reload for Gaia screen on hiding error message.
           if (currentScreen.id == 'gaia-signin')
@@ -292,17 +315,12 @@ cr.define('login', function() {
       return;
     }
     $('gaia-signin').onFrameError(error);
-    // Offline and simple captive portal cases are handled by the
-    // NetworkStateInformer, so only the case when browser is online is
-    // valuable.
-    if (window.navigator.onLine) {
-      // Check current network state if currentScreen is a managed one.
-      var currentScreen = Oobe.getInstance().currentScreen;
-      if (MANAGED_SCREENS.indexOf(currentScreen.id) != -1) {
-        chrome.send('loginRequestNetworkState',
-                    ['login.ErrorMessageScreen.maybeRetry',
-                     'frame error:' + error]);
-      }
+    // Check current network state if currentScreen is a managed one.
+    var currentScreen = Oobe.getInstance().currentScreen;
+    if (MANAGED_SCREENS.indexOf(currentScreen.id) != -1) {
+      chrome.send('loginRequestNetworkState',
+                  ['login.ErrorMessageScreen.maybeRetry',
+                   'frame error:' + error]);
     }
   };
 

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_STORE_X_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_PASSWORD_STORE_X_H_
-#pragma once
 
 #include <vector>
 
@@ -15,7 +14,6 @@
 class LoginDatabase;
 class PrefService;
 class Profile;
-class WebDataService;
 
 // PasswordStoreX is used on Linux and other non-Windows, non-Mac OS X
 // operating systems. It uses a "native backend" to actually store the password
@@ -53,9 +51,8 @@ class PasswordStoreX : public PasswordStoreDefault {
   // Takes ownership of |login_db| and |backend|. |backend| may be NULL in which
   // case this PasswordStoreX will act the same as PasswordStoreDefault.
   PasswordStoreX(LoginDatabase* login_db,
-                   Profile* profile,
-                   WebDataService* web_data_service,
-                   NativeBackend* backend);
+                 Profile* profile,
+                 NativeBackend* backend);
 
 #if !defined(OS_MACOSX) && !defined(OS_CHROMEOS) && defined(OS_POSIX)
   // Registers the pref setting used for the methods below.

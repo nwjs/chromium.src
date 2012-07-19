@@ -27,7 +27,6 @@
 // artifacts of the sync code which needs to be cleaned up.
 #ifndef CHROME_COMMON_NET_GAIA_GAIA_AUTHENTICATOR_H_
 #define CHROME_COMMON_NET_GAIA_GAIA_AUTHENTICATOR_H_
-#pragma once
 
 #include <string>
 
@@ -68,7 +67,7 @@ class GaiaAuthenticator {
   // must include a user-agent and a service-id when creating one. The
   // user_agent is a short string used for simple log analysis. gaia_url is used
   // to choose the server to authenticate with (e.g.
-  // http://www.google.com/accounts/ClientLogin).
+  // http://accounts.google.com/ClientLogin).
   GaiaAuthenticator(const std::string& user_agent,
                     const std::string& service_id,
                     const std::string& gaia_url);

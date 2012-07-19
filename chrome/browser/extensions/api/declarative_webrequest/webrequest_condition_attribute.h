@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_WEBREQUEST_WEBREQUEST_CONDITION_ATTRIBUTE_H_
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_WEBREQUEST_WEBREQUEST_CONDITION_ATTRIBUTE_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -12,7 +11,9 @@
 #include "base/basictypes.h"
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
-#include "chrome/common/extensions/api/experimental.declarative.h"
+#include "chrome/browser/extensions/api/declarative_webrequest/request_stages.h"
+#include "chrome/common/extensions/api/events.h"
+#include "webkit/glue/resource_type.h"
 
 namespace base {
 class Value;
@@ -29,7 +30,7 @@ namespace extensions {
 class WebRequestConditionAttribute {
  public:
   enum Type {
-    CONDITION_HAS_SCHEME
+    CONDITION_RESOURCE_TYPE
   };
 
   WebRequestConditionAttribute();
@@ -50,7 +51,8 @@ class WebRequestConditionAttribute {
   virtual int GetStages() const = 0;
 
   // Returns whether the condition is fulfilled for this request.
-  virtual bool IsFulfilled(net::URLRequest* request) = 0;
+  virtual bool IsFulfilled(net::URLRequest* request,
+                           RequestStages request_stage) = 0;
 
   virtual Type GetType() const = 0;
 
@@ -69,13 +71,11 @@ typedef std::vector<linked_ptr<WebRequestConditionAttribute> >
 // The following are concrete condition attributes.
 //
 
-// Condition that checks whether a URL has a specific scheme.
-// TODO(battre): Generalize this to allow checking for multiple schemes.
-// TODO(battre): Alternatively, move the scheme check into the URLMatcher.
-class WebRequestConditionAttributeHasScheme
+// Condition that checks whether a request is for a specific resource type.
+class WebRequestConditionAttributeResourceType
     : public WebRequestConditionAttribute {
  public:
-  virtual ~WebRequestConditionAttributeHasScheme();
+  virtual ~WebRequestConditionAttributeResourceType();
 
   static bool IsMatchingType(const std::string& instance_type);
 
@@ -87,15 +87,17 @@ class WebRequestConditionAttributeHasScheme
 
   // Implementation of WebRequestConditionAttribute:
   virtual int GetStages() const OVERRIDE;
-  virtual bool IsFulfilled(net::URLRequest* request) OVERRIDE;
+  virtual bool IsFulfilled(net::URLRequest* request,
+                           RequestStages request_stage) OVERRIDE;
   virtual Type GetType() const OVERRIDE;
 
  private:
-  explicit WebRequestConditionAttributeHasScheme(const std::string& pattern);
+  explicit WebRequestConditionAttributeResourceType(
+      const std::vector<ResourceType::Type>& types);
 
-  std::string pattern_;
+  std::vector<ResourceType::Type> types_;
 
-  DISALLOW_COPY_AND_ASSIGN(WebRequestConditionAttributeHasScheme);
+  DISALLOW_COPY_AND_ASSIGN(WebRequestConditionAttributeResourceType);
 };
 
 }  // namespace extensions

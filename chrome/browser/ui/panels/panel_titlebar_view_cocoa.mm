@@ -14,12 +14,17 @@
 #import "chrome/browser/ui/cocoa/nsview_additions.h"
 #import "chrome/browser/ui/cocoa/themed_window.h"
 #import "chrome/browser/ui/cocoa/tracking_area.h"
+#import "chrome/browser/ui/panels/panel_constants.h"
 #import "chrome/browser/ui/panels/panel_window_controller_cocoa.h"
-#include "grit/theme_resources_standard.h"
+#include "grit/generated_resources.h"
+#include "grit/theme_resources.h"
 #import "third_party/GTM/AppKit/GTMNSBezierPath+RoundRect.h"
 #import "third_party/GTM/AppKit/GTMNSColor+Luminance.h"
+#include "ui/base/l10n/l10n_util_mac.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/mac/nsimage_cache.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
+#include "ui/gfx/image/image.h"
 
 const int kButtonPadding = 8;
 const int kIconAndTextPadding = 5;
@@ -62,7 +67,7 @@ static NSEvent* MakeMouseEvent(NSEventType type,
 // canceling the reorder by [NSApp preventWindowOrdering] in mouseDown handler
 // of this view.
 - (BOOL)shouldDelayWindowOrderingForEvent:(NSEvent*)theEvent {
-  disableReordering_ = ![controller_ isActivationByClickingTitlebarEnabled];
+  disableReordering_ = ![controller_ canBecomeKeyWindow];
   return disableReordering_;
 }
 
@@ -81,10 +86,11 @@ static NSEvent* MakeMouseEvent(NSEventType type,
 
 @implementation RepaintAnimation
 - (id)initWithView:(NSView*)targetView duration:(double) duration {
-  if (![super initWithDuration:duration animationCurve:NSAnimationEaseInOut])
-    return nil;
-  [self setAnimationBlockingMode:NSAnimationNonblocking];
-  targetView_ = targetView;
+  if ((self = [super initWithDuration:duration
+                       animationCurve:NSAnimationEaseInOut])) {
+    [self setAnimationBlockingMode:NSAnimationNonblocking];
+    targetView_ = targetView;
+  }
   return self;
 }
 
@@ -98,21 +104,12 @@ static NSEvent* MakeMouseEvent(NSEventType type,
 @implementation PanelTitlebarViewCocoa
 
 - (id)initWithFrame:(NSRect)frame {
-  if ((self = [super initWithFrame:frame])) {
+  if ((self = [super initWithFrame:frame]))
     dragState_ = PANEL_DRAG_SUPPRESSED;
-    // Create standard OSX Close Button.
-    closeButton_ = [NSWindow standardWindowButton:NSWindowCloseButton
-                                     forStyleMask:NSClosableWindowMask];
-    [closeButton_ setTarget:self];
-    [closeButton_ setAction:@selector(onCloseButtonClick:)];
-    [self addSubview:closeButton_];
-  }
   return self;
 }
 
 - (void)dealloc {
-  if (closeButtonTrackingArea_.get())
-    [self removeTrackingArea:closeButtonTrackingArea_.get()];
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   [self stopGlintAnimation];
   [super dealloc];
@@ -122,16 +119,17 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   [controller_ closePanel];
 }
 
-- (void)onSettingsButtonClick:(id)sender {
-  [controller_ runSettingsMenu:settingsButton_];
+- (void)onMinimizeButtonClick:(id)sender {
+  [controller_ minimizeButtonClicked:[[NSApp currentEvent] modifierFlags]];
+}
+
+- (void)onRestoreButtonClick:(id)sender {
+  [controller_ restoreButtonClicked:[[NSApp currentEvent] modifierFlags]];
 }
 
 - (void)drawRect:(NSRect)rect {
   ThemeService* theme =
       static_cast<ThemeService*>([[self window] themeProvider]);
-
-  [title_ setAlphaValue:1.0];
-  [icon_ setAlphaValue:1.0];
 
   NSColor* strokeColor = nil;
   NSColor* titleColor = nil;
@@ -213,25 +211,56 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   } else {
     // Default theme or no theme.
     BOOL isActive = [[self window] isMainWindow];
-    // Use grayish gradient similar to that of regular OSX window.
-    double startWhite = isActive ? 0.8 : 1.0;
-    double endWhite = isActive ? 0.65 : 0.8;
-    NSColor* startColor = [NSColor colorWithCalibratedWhite:startWhite
-                                                      alpha:1.0];
-    NSColor* endColor = [NSColor colorWithCalibratedWhite:endWhite
-                                                    alpha:1.0];
-    scoped_nsobject<NSGradient> gradient(
-      [[NSGradient alloc] initWithStartingColor:startColor
-                                    endingColor:endColor]);
-    [gradient drawInRect:[self bounds] angle:270.0];
 
-    strokeColor = [NSColor colorWithCalibratedWhite:0.6 alpha:1.0];
-    titleColor = [startColor gtm_legibleTextColor];
-    if (!isActive) {
-      [title_ setAlphaValue:0.5];
-      if (icon_)
-        [icon_ setAlphaValue:0.5];
+    // If titlebar is close to minimized state or is at minimized state and only
+    // shows a few pixels, change the color to something light and add border.
+    NSRect windowFrame = [[self window] frame];
+    if (NSHeight(windowFrame) < 8) {
+      NSColor* lightBackgroundColor =
+          [NSColor colorWithCalibratedRed:0xf5/255.0
+                                    green:0xf4/255.0
+                                     blue:0xf0/255.0
+                                    alpha:1.0];
+      [lightBackgroundColor set];
+      NSRectFill([self bounds]);
+
+      NSColor* borderColor =
+          [NSColor colorWithCalibratedRed:0xc9/255.0
+                                    green:0xc9/255.0
+                                     blue:0xc9/255.0
+                                    alpha:1.0];
+      [borderColor set];
+      NSFrameRect([self bounds]);
+    } else {
+      // use solid black-ish colors.
+      NSColor* backgroundColor = isActive ?
+        [NSColor colorWithCalibratedRed:0x3a/255.0
+                                  green:0x3d/255.0
+                                   blue:0x3d/255.0
+                                  alpha:1.0] :
+        [NSColor colorWithCalibratedRed:0x7a/255.0
+                                  green:0x7c/255.0
+                                   blue:0x7c/255.0
+                                  alpha:1.0];
+
+      [backgroundColor set];
+      NSRectFill([self bounds]);
     }
+
+    strokeColor = isActive ?
+      [NSColor colorWithCalibratedRed:0x2a/255.0
+                                green:0x2c/255.0
+                                 blue:0x2c/255.0
+                                alpha:1.0] :
+      [NSColor colorWithCalibratedRed:0x5a/255.0
+                                green:0x5c/255.0
+                                 blue:0x5c/255.0
+                                alpha:1.0];
+
+    titleColor = [NSColor colorWithCalibratedRed:0xf9/255.0
+                                           green:0xf9/255.0
+                                            blue:0xf9/255.0
+                                           alpha:1.0];
   }
 
   DCHECK(titleColor);
@@ -252,7 +281,9 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   // internal view allows us to draw on top of the titlebar.
   // Note we must use [controller_ window] here since we have not been added
   // to the view hierarchy yet.
-  [[[[controller_ window] contentView] superview] addSubview:self];
+  NSView* contentView = [[controller_ window] contentView];
+  NSView* rootView = [contentView superview];
+  [rootView addSubview:self];
 
   // Figure out the rectangle of the titlebar and set us on top of it.
   // The titlebar covers window's root view where not covered by contentView.
@@ -262,33 +293,42 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   //    ___root_view____
   //     |            |
   // contentView  titlebar
+  NSSize titlebarSize = NSMakeSize(0, panel::kTitlebarHeight);
+  titlebarSize = [contentView convertSize:titlebarSize toView:rootView];
   NSRect rootViewBounds = [[self superview] bounds];
-  NSRect contentFrame = [[[self window] contentView] frame];
   NSRect titlebarFrame =
-      NSMakeRect(NSMinX(contentFrame),
-                 NSMaxY(contentFrame),
-                 NSWidth(contentFrame),
-                 NSMaxY(rootViewBounds) - NSMaxY(contentFrame));
+      NSMakeRect(NSMinX(rootViewBounds),
+                 NSMaxY(rootViewBounds) - titlebarSize.height,
+                 NSWidth(rootViewBounds),
+                 titlebarSize.height);
   [self setFrame:titlebarFrame];
 
-  [title_ setWantsLayer:YES];
-  [title_ setFont:[NSFont boldSystemFontOfSize:[NSFont systemFontSize]]];
-  // This draws nice tight shadow, 'sinking' text into the background.
-  [[title_ cell] setBackgroundStyle:NSBackgroundStyleRaised];
+  [title_ setFont:[NSFont fontWithName:@"Arial" size:14.0]];
+  [title_ setDrawsBackground:NO];
 
-  // Initialize the settings button.
-  NSImage* image = gfx::GetCachedImageWithName(@"balloon_wrench.pdf");
-  [settingsButton_ setDefaultImage:image];
-  [settingsButton_ setDefaultOpacity:0.6];
-  [settingsButton_ setHoverImage:image];
-  [settingsButton_ setHoverOpacity:0.9];
-  [settingsButton_ setPressedImage:image];
-  [settingsButton_ setPressedOpacity:1.0];
-  [[settingsButton_ cell] setHighlightsBy:NSNoCellMask];
-  [self checkMouseAndUpdateSettingsButtonVisibility];
-  [self updateWrenchLayout];
+  ResourceBundle& rb = ResourceBundle::GetSharedInstance();
 
-  [self updateCloseButtonLayout];
+  [self initializeImageButton:customCloseButton_
+      image: rb.GetNativeImageNamed(IDR_PANEL_CLOSE)
+      hoverImage:rb.GetNativeImageNamed(IDR_PANEL_CLOSE_H)
+      pressedImage:rb.GetNativeImageNamed(IDR_PANEL_CLOSE_C)
+      toolTip:l10n_util::GetNSStringWithFixup(IDS_PANEL_CLOSE_TOOLTIP)];
+
+  // Iniitalize the minimize and restore buttons.
+  [self initializeImageButton:minimizeButton_
+      image:rb.GetNativeImageNamed(IDR_PANEL_MINIMIZE)
+      hoverImage:rb.GetNativeImageNamed(IDR_PANEL_MINIMIZE_H)
+      pressedImage:rb.GetNativeImageNamed(IDR_PANEL_MINIMIZE_C)
+      toolTip:l10n_util::GetNSStringWithFixup(IDS_PANEL_MINIMIZE_TOOLTIP)];
+
+  [self initializeImageButton:restoreButton_
+      image: rb.GetNativeImageNamed(IDR_PANEL_RESTORE)
+      hoverImage:rb.GetNativeImageNamed(IDR_PANEL_RESTORE_H)
+      pressedImage:rb.GetNativeImageNamed(IDR_PANEL_RESTORE_C)
+      toolTip:l10n_util::GetNSStringWithFixup(IDS_PANEL_RESTORE_TOOLTIP)];
+  [restoreButton_ setHidden:YES];  // Only visible when panel is minimized.
+
+  [self updateCustomButtonsLayout];
 
   // Set autoresizing behavior: glued to edges on left, top and right.
   [self setAutoresizingMask:(NSViewMinYMargin | NSViewWidthSizable)];
@@ -315,6 +355,21 @@ static NSEvent* MakeMouseEvent(NSEventType type,
            object:[self window]];
 }
 
+- (void)initializeImageButton:(HoverImageButton*)button
+                        image:(NSImage*)image
+                   hoverImage:(NSImage*)hoverImage
+                 pressedImage:(NSImage*)pressedImage
+                      toolTip:(NSString*)toolTip {
+  [button setDefaultImage:image];
+  [button setDefaultOpacity:1.0];
+  [button setHoverImage:hoverImage];
+  [button setHoverOpacity:1.0];
+  [button setPressedImage:pressedImage];
+  [button setPressedOpacity:1.0];
+  [button setToolTip:toolTip];
+  [[button cell] setHighlightsBy:NSNoCellMask];
+}
+
 - (void)setTitle:(NSString*)newTitle {
   [title_ setStringValue:newTitle];
   [self updateIconAndTitleLayout];
@@ -334,64 +389,60 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   return icon_;
 }
 
-- (void)updateWrenchLayout {
-  NSRect bounds = [self bounds];
-  NSRect settingsButtonFrame = [settingsButtonWrapper_ frame];
-  settingsButtonFrame.origin.x = NSWidth(bounds) - NSWidth(settingsButtonFrame);
-  settingsButtonFrame.origin.y =
-      (NSHeight(bounds) - NSHeight(settingsButtonFrame)) / 2;
-  [settingsButtonWrapper_ setFrame:settingsButtonFrame];
+- (void)setMinimizeButtonVisibility:(BOOL)visible {
+  [minimizeButton_ setHidden:!visible];
 }
 
-- (void)updateCloseButtonLayout {
-  NSRect buttonFrame = [closeButton_ frame];
-  NSRect bounds = [self bounds];
+- (void)setRestoreButtonVisibility:(BOOL)visible {
+  [restoreButton_ setHidden:!visible];
+}
 
-  buttonFrame.origin.x = kButtonPadding;
-  // Lower Close Button's frame 1 px to avoid it 'peeking' in MINIMIZED mode.
-  buttonFrame.origin.y = (NSHeight(bounds) - NSHeight(buttonFrame)) / 2 - 1;
-  [closeButton_ setFrame:buttonFrame];
-  if (!closeButtonTrackingArea_.get()) {
-    closeButtonTrackingArea_.reset(
-        [[CrTrackingArea alloc] initWithRect:[closeButton_ bounds]
-                                     options:(NSTrackingMouseEnteredAndExited |
-                                              NSTrackingActiveAlways)
-                                proxiedOwner:self
-                                    userInfo:nil]);
-    NSWindow* panelWindow = [self window];
-    [closeButtonTrackingArea_.get() clearOwnerWhenWindowWillClose:panelWindow];
-    [closeButton_ addTrackingArea:closeButtonTrackingArea_.get()];
-  }
+- (void)updateCustomButtonsLayout {
+  NSRect bounds = [self bounds];
+  NSRect closeButtonFrame = [customCloseButton_ frame];
+  closeButtonFrame.origin.x =
+      NSWidth(bounds) - NSWidth(closeButtonFrame) - kButtonPadding;
+  closeButtonFrame.origin.y =
+      (NSHeight(bounds) - NSHeight(closeButtonFrame)) / 2;
+  [customCloseButton_ setFrame:closeButtonFrame];
+
+  NSRect buttonFrame = [minimizeButton_ frame];
+  buttonFrame.origin.x =
+      closeButtonFrame.origin.x - NSWidth(buttonFrame) - kButtonPadding;
+  buttonFrame.origin.y = (NSHeight(bounds) - NSHeight(buttonFrame)) / 2;
+  [minimizeButton_ setFrame:buttonFrame];
+  [restoreButton_ setFrame:buttonFrame];
 }
 
 - (void)updateIconAndTitleLayout {
-  NSRect closeButtonFrame = [closeButton_ frame];
   NSRect iconFrame = [icon_ frame];
   // NSTextField for title_ is set to Layout:Truncate, LineBreaks:TruncateTail
   // in Interface Builder so it is sized in a single-line mode.
   [title_ sizeToFit];
   NSRect titleFrame = [title_ frame];
-  NSRect settingsButtonFrame = [settingsButtonWrapper_ frame];
+  // Only one of minimize/restore button is visible at a time so just allow for
+  // the width of one of them.
+  NSRect minimizeRestoreButtonFrame = [minimizeButton_ frame];
   NSRect bounds = [self bounds];
 
-  // Place the icon and title at the center of the titlebar.
-  int iconWidthWithPadding = NSWidth(iconFrame) + kIconAndTextPadding;
+  // Place the icon and title at the left edge of the titlebar.
+  int iconWidth = NSWidth(iconFrame);
   int titleWidth = NSWidth(titleFrame);
-  int availableWidth = NSWidth(bounds) - kButtonPadding * 4 -
-      NSWidth(closeButtonFrame) - NSWidth(settingsButtonFrame);
-  if (iconWidthWithPadding + titleWidth > availableWidth)
-    titleWidth = availableWidth - iconWidthWithPadding;
-  int startX = kButtonPadding * 2 + NSWidth(closeButtonFrame) +
-      (availableWidth - iconWidthWithPadding - titleWidth) / 2;
+  int availableWidth = minimizeRestoreButtonFrame.origin.x - kButtonPadding;
 
-  iconFrame.origin.x = startX;
+  if (2 * kIconAndTextPadding + iconWidth + titleWidth > availableWidth)
+    titleWidth = availableWidth - iconWidth - 2 * kIconAndTextPadding;
+  if (titleWidth < 0)
+    titleWidth = 0;
+
+  iconFrame.origin.x = kIconAndTextPadding;
   iconFrame.origin.y = (NSHeight(bounds) - NSHeight(iconFrame)) / 2;
   [icon_ setFrame:iconFrame];
 
-  titleFrame.origin.x = startX + iconWidthWithPadding;
+  titleFrame.origin.x = 2 * kIconAndTextPadding + iconWidth;
   // In bottom-heavy text labels, let's compensate for occasional integer
   // rounding to avoid text label to feel too low.
-  titleFrame.origin.y = (NSHeight(bounds) - NSHeight(titleFrame)) / 2 + 1;
+  titleFrame.origin.y = (NSHeight(bounds) - NSHeight(titleFrame)) / 2 + 2;
   titleFrame.size.width = titleWidth;
   [title_ setFrame:titleFrame];
 }
@@ -405,16 +456,9 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   return YES;
 }
 
-- (void)mouseEntered:(NSEvent*)event {
-  [[closeButton_ cell] setHighlighted:YES];
-}
-
-- (void)mouseExited:(NSEvent*)event {
-  [[closeButton_ cell] setHighlighted:NO];
-}
-
 - (void)didChangeFrame:(NSNotification*)notification {
-  [self updateWrenchLayout];
+  // Update buttons first because title layout depends on buttons layout.
+  [self updateCustomButtonsLayout];
   [self updateIconAndTitleLayout];
 }
 
@@ -424,15 +468,12 @@ static NSEvent* MakeMouseEvent(NSEventType type,
 
 - (void)didChangeMainWindow:(NSNotification*)notification {
   [self setNeedsDisplay:YES];
-  [self checkMouseAndUpdateSettingsButtonVisibility];
 }
 
 - (void)mouseDown:(NSEvent*)event {
-  if ([controller_ isDraggable]) {
-    dragState_ = PANEL_DRAG_CAN_START;
-    dragStartLocation_ =
-        [[self window] convertBaseToScreen:[event locationInWindow]];
-  }
+  dragState_ = PANEL_DRAG_CAN_START;
+  dragStartLocation_ =
+      [[self window] convertBaseToScreen:[event locationInWindow]];
 }
 
 - (void)mouseUp:(NSEvent*)event {
@@ -521,6 +562,7 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   if (dragState_ == PANEL_DRAG_IN_PROGRESS)
     [controller_ endDrag:cancelled];
   dragState_ = PANEL_DRAG_SUPPRESSED;
+  dragStartLocation_ = NSZeroPoint;
 }
 
 - (void)drag:(NSPoint)mouseLocation {
@@ -589,14 +631,6 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   }
 }
 
-- (int)iconOnlyWidthInScreenCoordinates {
-  int width = kIconAndTextPadding * 2;
-  if (!icon_)
-    return width;
-
-  return width + NSWidth([self convertRect:[icon_ frame] toView:nil]);
-}
-
 // (Private/TestingAPI)
 - (PanelWindowControllerCocoa*)controller {
   return controller_;
@@ -607,7 +641,7 @@ static NSEvent* MakeMouseEvent(NSEventType type,
 }
 
 - (void)simulateCloseButtonClick {
-  [[closeButton_ cell] performClick:closeButton_];
+  [[customCloseButton_ cell] performClick:customCloseButton_];
 }
 
 - (void)pressLeftMouseButtonTitlebar:(NSPoint)mouseLocation
@@ -641,19 +675,16 @@ static NSEvent* MakeMouseEvent(NSEventType type,
   [self endDrag:NO];
 }
 
-- (void)updateSettingsButtonVisibility:(BOOL)mouseOverWindow {
-  // The settings button is visible if the panel is main window or the mouse is
-  // over it.
-  BOOL shouldShowSettingsButton =
-      mouseOverWindow || [[self window] isMainWindow];
-  [[settingsButtonWrapper_ animator]
-      setAlphaValue:shouldShowSettingsButton ? 1.0 : 0.0];
+- (NSButton*)closeButton {
+  return closeButton_;
 }
 
-- (void)checkMouseAndUpdateSettingsButtonVisibility {
-  BOOL mouseOverWindow = NSPointInRect([NSEvent mouseLocation],
-                                       [[self window] frame]);
-  [self updateSettingsButtonVisibility:mouseOverWindow];
+- (NSButton*)minimizeButton {
+  return minimizeButton_;
+}
+
+- (NSButton*)restoreButton {
+  return restoreButton_;
 }
 
 @end

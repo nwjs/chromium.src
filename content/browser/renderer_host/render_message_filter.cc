@@ -17,12 +17,14 @@
 #include "base/threading/worker_pool.h"
 #include "base/utf_string_conversions.h"
 #include "content/browser/child_process_security_policy_impl.h"
+#include "content/browser/dom_storage/dom_storage_context_impl.h"
+#include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/download/download_stats.h"
-#include "content/browser/in_process_webkit/dom_storage_context_impl.h"
 #include "content/browser/plugin_process_host.h"
 #include "content/browser/plugin_service_impl.h"
 #include "content/browser/ppapi_plugin_process_host.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
+#include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_helper.h"
 #include "content/browser/renderer_host/resource_dispatcher_host_impl.h"
 #include "content/common/child_process_host_impl.h"
@@ -35,7 +37,6 @@
 #include "content/public/browser/download_save_info.h"
 #include "content/public/browser/media_observer.h"
 #include "content/public/browser/plugin_service_filter.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/resource_context.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/common/content_switches.h"
@@ -49,11 +50,13 @@
 #include "net/base/io_buffer.h"
 #include "net/base/keygen_handler.h"
 #include "net/base/mime_util.h"
+#include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/http/http_cache.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebNotificationPresenter.h"
+#include "ui/gfx/color_profile.h"
 #include "webkit/glue/webcookie.h"
 #include "webkit/glue/webkit_glue.h"
 #include "webkit/plugins/npapi/plugin_group.h"
@@ -63,10 +66,12 @@
 
 #if defined(OS_MACOSX)
 #include "content/common/mac/font_descriptor.h"
-#include "content/common/mac/font_loader.h"
 #endif
 #if defined(OS_POSIX)
 #include "base/file_descriptor_posix.h"
+#endif
+#if defined(OS_WIN)
+#include "content/browser/renderer_host/backing_store_win.h"
 #endif
 
 using content::BrowserContext;
@@ -125,17 +130,21 @@ class OpenChannelToPpapiPluginCallback
         context_(context) {
   }
 
-  virtual void GetChannelInfo(base::ProcessHandle* renderer_handle,
-                              int* renderer_id) {
+  virtual void GetPpapiChannelInfo(base::ProcessHandle* renderer_handle,
+                                   int* renderer_id) {
     *renderer_handle = filter()->peer_handle();
     *renderer_id = filter()->render_process_id();
   }
 
-  virtual void OnChannelOpened(base::ProcessHandle plugin_process_handle,
-                               const IPC::ChannelHandle& channel_handle) {
+  virtual void OnPpapiChannelOpened(const IPC::ChannelHandle& channel_handle,
+                                    int plugin_child_id) {
     ViewHostMsg_OpenChannelToPepperPlugin::WriteReplyParams(
-        reply_msg(), plugin_process_handle, channel_handle);
+        reply_msg(), channel_handle, plugin_child_id);
     SendReplyAndDeleteThis();
+  }
+
+  virtual bool OffTheRecord() {
+    return filter()->OffTheRecord();
   }
 
   virtual content::ResourceContext* GetResourceContext() {
@@ -159,19 +168,22 @@ class OpenChannelToPpapiBrokerCallback
 
   virtual ~OpenChannelToPpapiBrokerCallback() {}
 
-  virtual void GetChannelInfo(base::ProcessHandle* renderer_handle,
-                              int* renderer_id) {
+  virtual void GetPpapiChannelInfo(base::ProcessHandle* renderer_handle,
+                                   int* renderer_id) {
     *renderer_handle = filter_->peer_handle();
     *renderer_id = filter_->render_process_id();
   }
 
-  virtual void OnChannelOpened(base::ProcessHandle broker_process_handle,
-                               const IPC::ChannelHandle& channel_handle) {
+  virtual void OnPpapiChannelOpened(const IPC::ChannelHandle& channel_handle,
+                                    int /* plugin_child_id */) {
     filter_->Send(new ViewMsg_PpapiBrokerChannelCreated(routing_id_,
                                                         request_id_,
-                                                        broker_process_handle,
                                                         channel_handle));
     delete this;
+  }
+
+  virtual bool OffTheRecord() {
+    return filter_->OffTheRecord();
   }
 
  private:
@@ -273,13 +285,14 @@ RenderMessageFilter::RenderMessageFilter(
     content::MediaObserver* media_observer)
     : resource_dispatcher_host_(ResourceDispatcherHostImpl::Get()),
       plugin_service_(plugin_service),
-      browser_context_(browser_context),
+      profile_data_directory_(browser_context->GetPath()),
       request_context_(request_context),
       resource_context_(browser_context->GetResourceContext()),
       render_widget_helper_(render_widget_helper),
       incognito_(browser_context->IsOffTheRecord()),
       dom_storage_context_(static_cast<DOMStorageContextImpl*>(
-          BrowserContext::GetDOMStorageContext(browser_context))),
+          BrowserContext::GetDOMStorageContext(browser_context,
+                                               render_process_id_))),
       render_process_id_(render_process_id),
       cpu_usage_(0),
       media_observer_(media_observer) {
@@ -348,7 +361,7 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message,
     IPC_MESSAGE_HANDLER(ViewHostMsg_DeleteCookie, OnDeleteCookie)
     IPC_MESSAGE_HANDLER(ViewHostMsg_CookiesEnabled, OnCookiesEnabled)
 #if defined(OS_MACOSX)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_LoadFont, OnLoadFont)
+    IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_LoadFont, OnLoadFont)
 #endif
     IPC_MESSAGE_HANDLER_DELAY_REPLY(ViewHostMsg_GetPlugins, OnGetPlugins)
     IPC_MESSAGE_HANDLER(ViewHostMsg_GetPluginInfo, OnGetPluginInfo)
@@ -360,7 +373,7 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message,
     IPC_MESSAGE_HANDLER(ViewHostMsg_OpenChannelToPpapiBroker,
                         OnOpenChannelToPpapiBroker)
     IPC_MESSAGE_HANDLER_GENERIC(ViewHostMsg_UpdateRect,
-        render_widget_helper_->DidReceiveUpdateMsg(message))
+        render_widget_helper_->DidReceiveBackingStoreMsg(message))
     IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateIsDelayed, OnUpdateIsDelayed)
     IPC_MESSAGE_HANDLER(DesktopNotificationHostMsg_CheckPermission,
                         OnCheckNotificationPermission)
@@ -383,6 +396,8 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message,
                         OnGetHardwareSampleRate)
     IPC_MESSAGE_HANDLER(ViewHostMsg_GetHardwareInputChannelLayout,
                         OnGetHardwareInputChannelLayout)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_GetMonitorColorProfile,
+                        OnGetMonitorColorProfile)
     IPC_MESSAGE_HANDLER(ViewHostMsg_MediaLogEvent, OnMediaLogEvent)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
@@ -392,6 +407,15 @@ bool RenderMessageFilter::OnMessageReceived(const IPC::Message& message,
 
 void RenderMessageFilter::OnDestruct() const {
   BrowserThread::DeleteOnIOThread::Destruct(this);
+}
+
+void RenderMessageFilter::OverrideThreadForMessage(
+    const IPC::Message& message, BrowserThread::ID* thread) {
+#if defined(OS_WIN)
+  // Windows monitor profile must be read from a file.
+  if (message.type() == ViewHostMsg_GetMonitorColorProfile::ID)
+    *thread = BrowserThread::FILE;
+#endif
 }
 
 bool RenderMessageFilter::OffTheRecord() const {
@@ -419,26 +443,18 @@ void RenderMessageFilter::OnMsgCreateWindow(
     return;
   }
 
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
-  // TODO(michaeln): Fix this.
-  // This is a bug in the existing impl, session storage is effectively
-  // leaked when created thru this code path (window.open()) since there
-  // is no balancing DeleteSessionStorage() for this Clone() call anywhere
-  // in the codebase. I'm replicating the bug for now.
-  *cloned_session_storage_namespace_id =
-      dom_storage_context_->LeakyCloneSessionStorage(
-          params.session_storage_namespace_id);
-#else
-  *cloned_session_storage_namespace_id =
-      dom_storage_context_->CloneSessionStorage(
-          params.session_storage_namespace_id);
-#endif
+  // This will clone the sessionStorage for namespace_id_to_clone.
+  scoped_refptr<SessionStorageNamespaceImpl> session_storage_namespace =
+      new SessionStorageNamespaceImpl(dom_storage_context_,
+                                      params.session_storage_namespace_id);
+  *cloned_session_storage_namespace_id = session_storage_namespace->id();
 
   render_widget_helper_->CreateNewWindow(params,
                                          no_javascript_access,
                                          peer_handle(),
                                          route_id,
-                                         surface_id);
+                                         surface_id,
+                                         session_storage_namespace.get());
 }
 
 void RenderMessageFilter::OnMsgCreateWidget(int opener_id,
@@ -553,25 +569,29 @@ void RenderMessageFilter::OnCookiesEnabled(
 
 #if defined(OS_MACOSX)
 void RenderMessageFilter::OnLoadFont(const FontDescriptor& font,
-                                     uint32* handle_size,
-                                     base::SharedMemoryHandle* handle,
-                                     uint32* font_id) {
-  base::SharedMemory font_data;
-  uint32 font_data_size = 0;
-  bool ok = FontLoader::LoadFontIntoBuffer(font.ToNSFont(), &font_data,
-                &font_data_size, font_id);
-  if (!ok || font_data_size == 0 || *font_id == 0) {
-    LOG(ERROR) << "Couldn't load font data for " << font.font_name <<
-        " ok=" << ok << " font_data_size=" << font_data_size <<
-        " font id=" << *font_id;
-    *handle_size = 0;
-    *handle = base::SharedMemory::NULLHandle();
-    *font_id = 0;
-    return;
-  }
+                                     IPC::Message* reply_msg) {
+  FontLoader::Result* result = new FontLoader::Result;
 
-  *handle_size = font_data_size;
-  font_data.GiveToProcess(base::GetCurrentProcessHandle(), handle);
+  BrowserThread::PostTaskAndReply(
+      BrowserThread::FILE, FROM_HERE,
+      base::Bind(&FontLoader::LoadFont, font, result),
+      base::Bind(&RenderMessageFilter::SendLoadFontReply, this, reply_msg,
+                 base::Owned(result)));
+}
+
+void RenderMessageFilter::SendLoadFontReply(IPC::Message* reply,
+                                            FontLoader::Result* result) {
+  base::SharedMemoryHandle handle;
+  if (result->font_data_size == 0 || result->font_id == 0) {
+    result->font_data_size = 0;
+    result->font_id = 0;
+    handle = base::SharedMemory::NULLHandle();
+  } else {
+    result->font_data.GiveToProcess(base::GetCurrentProcessHandle(), &handle);
+  }
+  ViewHostMsg_LoadFont::WriteReplyParams(
+      reply, result->font_data_size, handle, result->font_id);
+  Send(reply);
 }
 #endif  // OS_MACOSX
 
@@ -659,8 +679,7 @@ void RenderMessageFilter::OnOpenChannelToPepperPlugin(
     const FilePath& path,
     IPC::Message* reply_msg) {
   plugin_service_->OpenChannelToPpapiPlugin(
-      path,
-      new OpenChannelToPpapiPluginCallback(
+      path, profile_data_directory_, new OpenChannelToPpapiPluginCallback(
           this, resource_context_, reply_msg));
 }
 
@@ -706,17 +725,31 @@ void RenderMessageFilter::OnGetHardwareInputChannelLayout(
       media::AudioManagerBase::kDefaultDeviceId);
 }
 
+void RenderMessageFilter::OnGetMonitorColorProfile(std::vector<char>* profile) {
+#if defined(OS_WIN)
+  if (BackingStoreWin::ColorManagementEnabled())
+    return;
+#endif
+  gfx::GetColorProfile(profile);
+}
+
 void RenderMessageFilter::OnDownloadUrl(const IPC::Message& message,
                                         const GURL& url,
-                                        const GURL& referrer,
+                                        const content::Referrer& referrer,
                                         const string16& suggested_name) {
   content::DownloadSaveInfo save_info;
   save_info.suggested_name = suggested_name;
-  scoped_ptr<net::URLRequest> request(new net::URLRequest(url, NULL));
-  request->set_referrer(referrer.spec());
+  scoped_ptr<net::URLRequest> request(new net::URLRequest(
+      url,
+      NULL,
+      resource_context_->GetRequestContext()));
+  request->set_referrer(referrer.url.spec());
+  webkit_glue::ConfigureURLRequestForReferrerPolicy(
+      request.get(), referrer.policy);
   download_stats::RecordDownloadSource(download_stats::INITIATED_BY_RENDERER);
   resource_dispatcher_host_->BeginDownload(
       request.Pass(),
+      true,  // is_content_initiated
       resource_context_,
       render_process_id_,
       message.routing_id(),
@@ -727,9 +760,13 @@ void RenderMessageFilter::OnDownloadUrl(const IPC::Message& message,
 
 void RenderMessageFilter::OnCheckNotificationPermission(
     const GURL& source_origin, int* result) {
+#if defined(ENABLE_NOTIFICATIONS)
   *result = content::GetContentClient()->browser()->
       CheckDesktopNotificationPermission(source_origin, resource_context_,
                                          render_process_id_);
+#else
+  *result = WebKit::WebNotificationPresenter::PermissionAllowed;
+#endif
 }
 
 void RenderMessageFilter::OnAllocateSharedMemory(
@@ -902,7 +939,7 @@ void RenderMessageFilter::CheckPolicyForCookies(
     const net::CookieList& cookie_list) {
   net::URLRequestContext* context = GetRequestContextForURL(url);
   // Check the policy for get cookies, and pass cookie_list to the
-  // TabSpecificContentSetting for logging purose.
+  // TabSpecificContentSetting for logging purpose.
   if (content::GetContentClient()->browser()->AllowGetCookie(
           url, first_party_for_cookies, cookie_list, resource_context_,
           render_process_id_, reply_msg->routing_id())) {
@@ -949,5 +986,5 @@ void RenderMessageFilter::OnUpdateIsDelayed(const IPC::Message& msg) {
   // the renderer sent us this message, so that we can unblock the UI thread.
   // We will simply re-use the UpdateRect unblock mechanism, just with a
   // different message.
-  render_widget_helper_->DidReceiveUpdateMsg(msg);
+  render_widget_helper_->DidReceiveBackingStoreMsg(msg);
 }

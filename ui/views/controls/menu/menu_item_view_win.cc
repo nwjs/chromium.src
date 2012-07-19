@@ -8,21 +8,22 @@
 #include <Vssym32.h>
 
 #include "grit/ui_strings.h"
+#include "ui/base/native_theme/native_theme_win.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/native_theme_win.h"
 #include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/submenu_view.h"
 
-using gfx::NativeTheme;
+using ui::NativeTheme;
 
 namespace views {
 
 void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
   const MenuConfig& config = MenuConfig::instance();
+
   bool render_selection =
       (mode == PB_NORMAL && IsSelected() &&
        parent_menu_item_->GetSubmenu()->GetShowSelection(this) &&
-       !has_children());
+       (NonIconChildViewsCount() == 0));
   int default_sys_color;
   int state;
   NativeTheme::State control_state;
@@ -79,13 +80,16 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
   // Render the foreground.
   // Menu color is specific to Vista, fallback to classic colors if can't
   // get color.
-  SkColor fg_color = gfx::NativeThemeWin::instance()->GetThemeColorWithDefault(
-      gfx::NativeThemeWin::MENU, MENU_POPUPITEM, state, TMT_TEXTCOLOR,
+  SkColor fg_color = ui::NativeThemeWin::instance()->GetThemeColorWithDefault(
+      ui::NativeThemeWin::MENU, MENU_POPUPITEM, state, TMT_TEXTCOLOR,
       default_sys_color);
   const gfx::Font& font = GetFont();
   int accel_width = parent_menu_item_->GetSubmenu()->max_accelerator_width();
   int width = this->width() - item_right_margin_ - label_start_ - accel_width;
-  gfx::Rect text_bounds(label_start_, top_margin, width, font.GetHeight());
+  int height = this->height() - GetTopMargin() - GetBottomMargin();
+  int flags = gfx::Canvas::TEXT_VALIGN_MIDDLE |
+              GetRootMenuItem()->GetDrawStringFlags();
+  gfx::Rect text_bounds(label_start_, top_margin, width, height);
   text_bounds.set_x(GetMirroredXForRect(text_bounds));
   if (mode == PB_FOR_DRAG) {
     // With different themes, it's difficult to tell what the correct
@@ -94,41 +98,30 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
     // cases.
     canvas->DrawStringWithHalo(title(), font, 0x00000000, 0xFFFFFFFF,
         text_bounds.x(), text_bounds.y(), text_bounds.width(),
-        text_bounds.height(), GetRootMenuItem()->GetDrawStringFlags());
+        text_bounds.height(), flags);
   } else {
     canvas->DrawStringInt(title(), font, fg_color,
                           text_bounds.x(), text_bounds.y(), text_bounds.width(),
-                          text_bounds.height(),
-                          GetRootMenuItem()->GetDrawStringFlags());
+                          text_bounds.height(), flags);
   }
 
   PaintAccelerator(canvas);
-
-  if (icon_.width() > 0) {
-    gfx::Rect icon_bounds(config.item_left_margin,
-                          top_margin + (height() - top_margin -
-                          bottom_margin - icon_.height()) / 2,
-                          icon_.width(),
-                          icon_.height());
-    icon_bounds.set_x(GetMirroredXForRect(icon_bounds));
-    canvas->DrawBitmapInt(icon_, icon_bounds.x(), icon_bounds.y());
-  }
 
   if (HasSubmenu()) {
     int state_id = enabled() ? MSM_NORMAL : MSM_DISABLED;
     gfx::Rect arrow_bounds(this->width() - item_right_margin_ +
                            config.label_to_arrow_padding, 0,
-                           config.arrow_width, height());
+                           config.arrow_width, this->height());
     AdjustBoundsForRTLUI(&arrow_bounds);
 
     // If our sub menus open from right to left (which is the case when the
     // locale is RTL) then we should make sure the menu arrow points to the
     // right direction.
-    gfx::NativeTheme::ExtraParams extra;
+    ui::NativeTheme::ExtraParams extra;
     extra.menu_arrow.pointing_right = !base::i18n::IsRTL();
     extra.menu_arrow.is_selected = render_selection;
-    gfx::NativeTheme::instance()->Paint(canvas->sk_canvas(),
-        gfx::NativeTheme::kMenuPopupArrow, control_state, arrow_bounds, extra);
+    ui::NativeTheme::instance()->Paint(canvas->sk_canvas(),
+        ui::NativeTheme::kMenuPopupArrow, control_state, arrow_bounds, extra);
   }
 }
 

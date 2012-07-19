@@ -20,9 +20,9 @@
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
-#include "content/test/mock_render_process_host.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/test_renderer_host.h"
+#include "content/public/test/mock_render_process_host.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/test_renderer_host.h"
 #include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -263,11 +263,11 @@ TEST_F(VisitedLinkTest, BigDelete) {
 
   // Add more URLs than necessary to trigger this case.
   const int kTestDeleteCount = VisitedLinkMaster::kBigDeleteThreshold + 2;
-  std::set<GURL> urls_to_delete;
+  history::URLRows urls_to_delete;
   for (int32 i = g_test_count; i < g_test_count + kTestDeleteCount; i++) {
     GURL url(TestURL(i));
     master_->AddURL(url);
-    urls_to_delete.insert(url);
+    urls_to_delete.push_back(history::URLRow(url));
   }
 
   master_->DeleteURLs(urls_to_delete);
@@ -399,8 +399,8 @@ TEST_F(VisitedLinkTest, Rebuild) {
 
   // Add one more and then delete it.
   master_->AddURL(TestURL(g_test_count));
-  std::set<GURL> deleted_urls;
-  deleted_urls.insert(TestURL(g_test_count));
+  history::URLRows deleted_urls;
+  deleted_urls.push_back(history::URLRow(TestURL(g_test_count)));
   master_->DeleteURLs(deleted_urls);
 
   // Wait for the rebuild to complete. The task will terminate the message
@@ -447,8 +447,8 @@ TEST_F(VisitedLinkTest, Listener) {
     ASSERT_EQ(i + 1, master_->GetUsedCount());
   }
 
-  std::set<GURL> deleted_urls;
-  deleted_urls.insert(TestURL(0));
+  history::URLRows deleted_urls;
+  deleted_urls.push_back(history::URLRow(TestURL(0)));
   // Delete an URL.
   master_->DeleteURLs(deleted_urls);
   // ... and all of the remaining ones.
@@ -652,7 +652,11 @@ TEST_F(VisitedLinkEventsTest, Coalescense) {
 
 TEST_F(VisitedLinkEventsTest, Basics) {
   VisitedLinkMaster* master = profile()->GetVisitedLinkMaster();
-  rvh_tester()->CreateRenderView(string16(), -1);
+  rvh_tester()->CreateRenderView(string16(),
+                                 MSG_ROUTING_NONE,
+                                 -1,
+                                 std::string(),
+                                 -1);
 
   // Add a few URLs.
   master->AddURL(GURL("http://acidtests.org/"));
@@ -676,7 +680,11 @@ TEST_F(VisitedLinkEventsTest, Basics) {
 
 TEST_F(VisitedLinkEventsTest, TabVisibility) {
   VisitedLinkMaster* master = profile()->GetVisitedLinkMaster();
-  rvh_tester()->CreateRenderView(string16(), -1);
+  rvh_tester()->CreateRenderView(string16(),
+                                 MSG_ROUTING_NONE,
+                                 -1,
+                                 std::string(),
+                                 -1);
 
   // Simulate tab becoming inactive.
   rvh_tester()->SimulateWasHidden();

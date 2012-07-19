@@ -4,7 +4,6 @@
 
 #ifndef PPAPI_PROXY_PPAPI_PROXY_EXPORT_H_
 #define PPAPI_PROXY_PPAPI_PROXY_EXPORT_H_
-#pragma once
 
 #if defined(COMPONENT_BUILD)
 #if defined(WIN32)
@@ -16,7 +15,11 @@
 #endif  // defined(PPAPI_PROXY_IMPLEMENTATION)
 
 #else  // defined(WIN32)
+#if defined(PPAPI_PROXY_IMPLEMENTATION)
 #define PPAPI_PROXY_EXPORT __attribute__((visibility("default")))
+#else
+#define PPAPI_PROXY_EXPORT
+#endif
 #endif
 
 #else  // defined(COMPONENT_BUILD)

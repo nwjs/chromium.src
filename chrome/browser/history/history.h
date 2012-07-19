@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_HISTORY_HISTORY_H_
 #define CHROME_BROWSER_HISTORY_HISTORY_H_
-#pragma once
 
 #include <set>
 #include <vector>
@@ -14,16 +13,22 @@
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/observer_list_threadsafe.h"
 #include "base/string16.h"
 #include "chrome/browser/cancelable_request.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/history/history_types.h"
+#include "chrome/browser/profiles/refcounted_profile_keyed_service.h"
 #include "chrome/browser/search_engines/template_url_id.h"
 #include "chrome/common/ref_counted_util.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/common/page_transition_types.h"
 #include "sql/init_status.h"
+
+#if defined(OS_ANDROID)
+#include "chrome/browser/history/android/android_history_provider_service.h"
+#endif
 
 class BookmarkService;
 class FilePath;
@@ -54,6 +59,7 @@ struct HistoryDetails;
 class HistoryQueryTest;
 class VisitFilter;
 class URLDatabase;
+class VisitDatabaseObserver;
 }  // namespace history
 
 
@@ -90,7 +96,7 @@ class HistoryDBTask : public base::RefCountedThreadSafe<HistoryDBTask> {
 // thread that made the request.
 class HistoryService : public CancelableRequestProvider,
                        public content::NotificationObserver,
-                       public base::RefCountedThreadSafe<HistoryService> {
+                       public RefcountedProfileKeyedService {
  public:
   // Miscellaneous commonly-used types.
   typedef std::vector<PageUsageData*> PageUsageDataList;
@@ -153,6 +159,9 @@ class HistoryService : public CancelableRequestProvider,
     return in_memory_url_index_.get();
   }
 
+  // RefcountedProfileKeyedService:
+  virtual void ShutdownOnUIThread() OVERRIDE;
+
   // Navigation ----------------------------------------------------------------
 
   // Adds the given canonical URL to history with the current time as the visit
@@ -161,9 +170,7 @@ class HistoryService : public CancelableRequestProvider,
   // The supplied render process host is used to scope the given page ID. Page
   // IDs are only unique inside a given render process, so we need that to
   // differentiate them. This pointer should not be dereferenced by the history
-  // system. Since render view host pointers may be reused (if one gets deleted
-  // and a new one created at the same address), TabContents should notify
-  // us when they are being destroyed through NotifyTabContentsDestruction.
+  // system.
   //
   // The scope/ids can be NULL if there is no meaningful tracking information
   // that can be performed on the given URL. The 'page_id' should be the ID of
@@ -212,7 +219,7 @@ class HistoryService : public CancelableRequestProvider,
   // Adds an entry for the specified url without creating a visit. This should
   // only be used when bookmarking a page, otherwise the row leaks in the
   // history db (it never gets cleaned).
-  void AddPageNoVisitForBookmark(const GURL& url);
+  void AddPageNoVisitForBookmark(const GURL& url, const string16& title);
 
   // Sets the title for the given page. The page should be in history. If it
   // is not, this operation is ignored. This call will not update the full
@@ -245,8 +252,6 @@ class HistoryService : public CancelableRequestProvider,
   // should handle this appropriately.
   class URLEnumerator {
    public:
-    virtual ~URLEnumerator() {}
-
     // Indicates that a URL is available. There will be exactly one call for
     // every URL in history.
     virtual void OnURL(const GURL& url) = 0;
@@ -255,6 +260,9 @@ class HistoryService : public CancelableRequestProvider,
     // more callbacks made. This call is guaranteed to occur, even if there are
     // no URLs. If all URLs were iterated, success will be true.
     virtual void OnComplete(bool success) = 0;
+
+   protected:
+    virtual ~URLEnumerator() {}
   };
 
   // Enumerate all URLs in history. The given iterator will be owned by the
@@ -370,6 +378,9 @@ class HistoryService : public CancelableRequestProvider,
   typedef base::Callback<void(Handle, history::MostVisitedURLList)>
       QueryMostVisitedURLsCallback;
 
+  typedef base::Callback<void(Handle, const history::FilteredURLList&)>
+      QueryFilteredURLsCallback;
+
   // Request the |result_count| most visited URLs and the chain of
   // redirects leading to each of these URLs. |days_back| is the
   // number of days of history to use. Used by TopSites.
@@ -378,11 +389,14 @@ class HistoryService : public CancelableRequestProvider,
                               const QueryMostVisitedURLsCallback& callback);
 
   // Request the |result_count| URLs filtered and sorted based on the |filter|.
+  // If |extended_info| is enabled, additional data will be provided in the
+  // results.
   Handle QueryFilteredURLs(
       int result_count,
       const history::VisitFilter& filter,
+      bool extended_info,
       CancelableRequestConsumerBase* consumer,
-      const QueryMostVisitedURLsCallback& callback);
+      const QueryFilteredURLsCallback& callback);
 
   // Thumbnails ----------------------------------------------------------------
 
@@ -392,7 +406,7 @@ class HistoryService : public CancelableRequestProvider,
   //
   // This function will be called even on error conditions or if there is no
   // thumbnail for that page. In these cases, the data pointer will be NULL.
-  typedef base::Callback<void(Handle, scoped_refptr<RefCountedBytes>)>
+  typedef base::Callback<void(Handle, scoped_refptr<base::RefCountedBytes>)>
       ThumbnailDataCallback;
 
   // Requests a page thumbnail. See ThumbnailDataCallback definition above.
@@ -548,6 +562,14 @@ class HistoryService : public CancelableRequestProvider,
   // db.
   bool needs_top_sites_migration() const { return needs_top_sites_migration_; }
 
+  // Adds or removes observers for the VisitDatabase.  Should be run in the
+  // thread in which the observer would like to be notified.
+  void AddVisitDatabaseObserver(history::VisitDatabaseObserver* observer);
+  void RemoveVisitDatabaseObserver(history::VisitDatabaseObserver* observer);
+
+  // This notification method may be called on any thread.
+  void NotifyVisitDBObserversOnAddVisit(const history::BriefVisitInfo& info);
+
   // Testing -------------------------------------------------------------------
 
   // Designed for unit tests, this passes the given task on to the history
@@ -609,6 +631,9 @@ class HistoryService : public CancelableRequestProvider,
 
  private:
   class BackendDelegate;
+#if defined(OS_ANDROID)
+  friend class AndroidHistoryProviderService;
+#endif
   friend class base::RefCountedThreadSafe<HistoryService>;
   friend class BackendDelegate;
   friend class FaviconService;
@@ -677,6 +702,10 @@ class HistoryService : public CancelableRequestProvider,
   void GetFaviconForURL(FaviconService::GetFaviconRequest* request,
                         const GURL& page_url,
                         int icon_types);
+
+  // Used by the FaviconService to get a favicon from the history backend.
+  void GetFaviconForID(FaviconService::GetFaviconRequest* request,
+                       history::FaviconID id);
 
   // Used by the FaviconService to mark the favicon for the page as being out
   // of date.
@@ -791,6 +820,31 @@ class HistoryService : public CancelableRequestProvider,
     return request->handle();
   }
 
+  template<typename BackendFunc,
+           class RequestType,  // Descendant of CancelableRequstBase.
+           typename ArgA,
+           typename ArgB,
+           typename ArgC,
+           typename ArgD>
+  Handle Schedule(SchedulePriority priority,
+                  BackendFunc func,  // Function to call on the HistoryBackend.
+                  CancelableRequestConsumerBase* consumer,
+                  RequestType* request,
+                  const ArgA& a,
+                  const ArgB& b,
+                  const ArgC& c,
+                  const ArgD& d) {
+    DCHECK(thread_) << "History service being called after cleanup";
+    LoadBackendIfNecessary();
+    if (consumer)
+      AddRequest(request, consumer);
+    ScheduleTask(priority,
+                 base::Bind(func, history_backend_.get(),
+                                   scoped_refptr<RequestType>(request),
+                                   a, b, c, d));
+    return request->handle();
+  }
+
   // ScheduleAndForget ---------------------------------------------------------
   //
   // Functions for scheduling operations on the history thread that do not need
@@ -895,6 +949,9 @@ class HistoryService : public CancelableRequestProvider,
 
   // The index used for quick history lookups.
   scoped_ptr<history::InMemoryURLIndex> in_memory_url_index_;
+
+  scoped_refptr<ObserverListThreadSafe<history::VisitDatabaseObserver> >
+      visit_database_observers_;
 
   DISALLOW_COPY_AND_ASSIGN(HistoryService);
 };

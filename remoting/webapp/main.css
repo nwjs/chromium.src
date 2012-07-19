@@ -11,7 +11,6 @@ tfoot, thead, tr, th, td, button {
   margin: 0;
   padding: 0;
   border: 0;
-  outline: 0;
   font-weight: inherit;
   font-style: inherit;
   font-size: 100%;
@@ -182,30 +181,27 @@ button[disabled], button[disabled]:hover, button[disabled]:active {
 /*------------------------------------------------------------------
 Component: Text Field
 ------------------------------------------------------------------*/
-input {
+input[type=text],
+input[type=password] {
     height: 29px;
-    line-height: 27px;
-    padding-left: 8px;
+    padding-__MSG_@@bidi_start_edge__: 8px;
     color: #333;
     border: 1px solid #d9d9d9;
     border-top: 1px solid #c0c0c0;
     vertical-align: top;
     -webkit-border-radius: 1px;
 }
-input:hover {
+input[type=text]:hover,
+input[type=password]:hover {
     border: 1px solid #b9b9b9;
     border-top: 1px solid #a0a0a0;
     -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
 }
-input:focus {
+input[type=text]:focus,
+input[type=password]:focus {
     -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.3);
     outline: none;
     border: 1px solid #4d90fe;
-}
-
-label {
-  line-height: 29px;
-  font-weight: bold;
 }
 
 /*------------------------------------------------------------------
@@ -235,7 +231,7 @@ h1.icon-label {
   margin-bottom: 60px;
   font-size: 28px;
   font-weight: 300;
-  color: #aaa;
+  color: #999;
   font-family: "Open sans", "Ariel", sans-serif;
   line-height: 24px;
   display: inline-block;
@@ -247,6 +243,7 @@ h2 {
   line-height:24px;
   font-weight: normal;
   color: #222;
+  margin-bottom: 10px;
 }
 
 section > h2 {
@@ -263,7 +260,7 @@ html {
   cursor: default;
 }
 
-section, #webapp-description {
+section {
   width: 690px;
   margin: 30px auto;
 }
@@ -297,8 +294,23 @@ section {
   cursor: pointer;
 }
 
-.button-row {
+.box {
   display: -webkit-box;
+}
+
+.host-list-empty-instructions {
+  padding-__MSG_@@bidi_start_edge__: 36px;
+  color: #666;
+  background-image: url('host_setup_instructions.png');
+  background-repeat: no-repeat;
+  background-position: -3px -2px;
+}
+
+#host-list-empty-hosting-supported {
+  margin-top: 14px;
+  padding-top: 20px;
+  border-top: 1px solid #E5E5E5;
+  background-position-y: 18px;
 }
 
 .selectable {
@@ -313,8 +325,18 @@ section {
   border-top: 1px solid #EBEBEB;
 }
 
-.section-row:first-child {
+.section-row button {
+  margin-__MSG_@@bidi_start_edge__: 20px;
+}
+
+.section-row:first-child,
+.section-row.no-non-local-hosts {
   border-top: none;
+}
+
+.editbox-label {
+  line-height: 29px;
+  font-weight: bold;
 }
 
 .error-state {
@@ -332,7 +354,7 @@ section {
 
 .infographic {
   position: absolute;
-  right: 22px;
+  __MSG_@@bidi_end_edge__: 22px;
   top: 24px;
 }
 
@@ -340,7 +362,7 @@ section {
   height: 80px;
   width: 400px;
   padding-top: 2em;
-};
+}
 
 .information-box {
   background-color: #f9edbe;
@@ -365,28 +387,27 @@ section {
   min-width: 72px;
 }
 
-.host-list-table {
-  width: 100%;
-  border-spacing: 0;
-}
-
 td {
   vertical-align: middle;
 }
 
-.host-online.clickable:hover {
+.host-online.clickable:hover,
+.host-online.clickable.child-focused {
   background-color: #f2f2f2;
 }
 
-.host-list-rename-icon, .host-list-remove-icon {
+.host-list-rename-icon,
+.host-list-remove-icon {
   opacity: 0;
 }
 
-.section-row:hover .host-list-rename-icon {
+.section-row:hover .host-list-rename-icon,
+.section-row.child-focused .host-list-rename-icon {
   opacity: 0.6;
 }
 
-.section-row:hover .host-list-remove-icon {
+.section-row:hover .host-list-remove-icon,
+.section-row.child-focused .host-list-remove-icon {
   opacity: 0.3;
 }
 
@@ -403,7 +424,7 @@ td {
 }
 
 .host-list-main-icon {
-  margin-right: 10px;
+  margin-__MSG_@@bidi_end_edge__: 10px;
   vertical-align: middle;
 }
 
@@ -421,24 +442,23 @@ button {
   color: #AAA;
 }
 
-.waiting:before {
-  content: url('spinner.gif');
-  position: absolute;
-  left: 0px;
-  top: -3px;
-}
-
 .waiting {
+  background-image: url('spinner.gif');
+  background-repeat: no-repeat;
+  background-position: top __MSG_@@bidi_start_edge__;
+  padding-__MSG_@@bidi_start_edge__: 30px;
+  padding-top: 2px;
+  padding-bottom: 4px;
   color: rgb(180, 180, 180);
-  margin-left: 30px;
+  line-height: 27px; /* Same as line-height for buttons */
 }
 
-.waiting-container {
-  position: relative;
+.prominent {
+  color: #222;
 }
 
 .space-before {
-  margin-top: 30px;
+  margin-top: 20px;
 }
 
 
@@ -459,7 +479,7 @@ button {
   margin-top: 24px;
 }
 
-#ask-pin-form label {
+#ask-pin-form .table-label {
   min-width: 120px;
   text-align: __MSG_@@bidi_end_edge__;
   display: inline-block;
@@ -469,9 +489,17 @@ button {
   margin-bottom: 8px;
 }
 
+.checkbox-label {
+  display: block;
+  padding-__MSG_@@bidi_start_edge__: 20px;
+}
 
-#cancel-connect-button, #cancel-share-button {
-  float: __MSG_@@bidi_end_edge__;
+.checkbox-label input[type=checkbox] {
+  float: __MSG_@@bidi_start_edge__;
+  margin-__MSG_@@bidi_start_edge__: -20px;
+  margin-__MSG_@@bidi_end_edge__: 0;
+  width: 20px;
+  margin-top: 2px;
 }
 
 #current-email {
@@ -484,7 +512,7 @@ button {
 }
 
 #dialog-container {
-  position: absolute;
+  position: fixed;
   top: 200px;
   left: 0;
   width: 100%;
@@ -492,7 +520,7 @@ button {
 }
 
 #dialog-screen {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -501,9 +529,12 @@ button {
   opacity: 0.75;
 }
 
+/* TODO(jamiewalch): Reinstate this if we're able to get translations for
+ *     "Why is this safe?" that don't overflow in any language.
 #host-setup-dialog {
   width: 460px;
 }
+*/
 
 #host-plugin-container {
   width: 0;
@@ -531,18 +562,22 @@ button {
   display: block;
 }
 
+#set-pin-table td {
+  border-bottom: 6px solid transparent;
+  text-align: right;
+}
+
 #top-secondary {
   margin-top: 10px
 }
 
 #webapp-description {
-  opacity: 0.8;
-  text-align: justify;
+  margin-bottom: 10px;
 }
 
 #why-is-this-safe {
   display: inline-block;
-  margin-top: 11px;
+  margin-top: 7px;
 }
 
 * {

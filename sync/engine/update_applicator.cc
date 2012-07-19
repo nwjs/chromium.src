@@ -9,12 +9,14 @@
 #include "base/logging.h"
 #include "sync/engine/syncer_util.h"
 #include "sync/sessions/session_state.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/entry.h"
+#include "sync/syncable/mutable_entry.h"
 #include "sync/syncable/syncable_id.h"
+#include "sync/syncable/write_transaction.h"
 
 using std::vector;
 
-namespace browser_sync {
+namespace syncer {
 
 UpdateApplicator::UpdateApplicator(ConflictResolver* resolver,
                                    Cryptographer* cryptographer,
@@ -63,7 +65,7 @@ bool UpdateApplicator::AttemptOneApplication(
   }
 
   syncable::MutableEntry entry(trans, syncable::GET_BY_HANDLE, *pointer_);
-  UpdateAttemptResponse updateResponse = SyncerUtil::AttemptToUpdateEntry(
+  UpdateAttemptResponse updateResponse = AttemptToUpdateEntry(
       trans, &entry, resolver_, cryptographer_);
   switch (updateResponse) {
     case SUCCESS:
@@ -99,7 +101,7 @@ void UpdateApplicator::Advance() {
 }
 
 bool UpdateApplicator::SkipUpdate(const syncable::Entry& entry) {
-  syncable::ModelType type = entry.GetServerModelType();
+  syncer::ModelType type = entry.GetServerModelType();
   ModelSafeGroup g = GetGroupForModelType(type, routing_info_);
   // The set of updates passed to the UpdateApplicator should already
   // be group-filtered.
@@ -109,8 +111,8 @@ bool UpdateApplicator::SkipUpdate(const syncable::Entry& entry) {
   }
   if (g == GROUP_PASSIVE &&
       !routing_info_.count(type) &&
-      type != syncable::UNSPECIFIED &&
-      type != syncable::TOP_LEVEL_FOLDER) {
+      type != syncer::UNSPECIFIED &&
+      type != syncer::TOP_LEVEL_FOLDER) {
     DVLOG(1) << "Skipping update application, type not permitted.";
     return true;
   }
@@ -187,4 +189,4 @@ bool UpdateApplicator::ResultTracker::no_conflicts() const {
   return conflicting_ids_.empty();
 }
 
-}  // namespace browser_sync
+}  // namespace syncer

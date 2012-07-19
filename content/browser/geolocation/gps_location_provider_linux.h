@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,14 +9,13 @@
 
 #ifndef CONTENT_BROWSER_GEOLOCATION_GPS_LOCATION_PROVIDER_LINUX_H_
 #define CONTENT_BROWSER_GEOLOCATION_GPS_LOCATION_PROVIDER_LINUX_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "content/browser/geolocation/location_provider.h"
 #include "content/common/content_export.h"
-#include "content/common/geoposition.h"
+#include "content/public/common/geoposition.h"
 
 class LibGps;
 
@@ -46,9 +45,8 @@ class CONTENT_EXPORT GpsLocationProviderLinux : public LocationProviderBase {
   // LocationProvider
   virtual bool StartProvider(bool high_accuracy) OVERRIDE;
   virtual void StopProvider() OVERRIDE;
-  virtual void GetPosition(Geoposition* position) OVERRIDE;
+  virtual void GetPosition(content::Geoposition* position) OVERRIDE;
   virtual void UpdatePosition() OVERRIDE;
-  virtual void OnPermissionGranted(const GURL& requesting_frame) OVERRIDE;
 
  private:
   // Task which run in the child thread.
@@ -63,7 +61,7 @@ class CONTENT_EXPORT GpsLocationProviderLinux : public LocationProviderBase {
 
   const LibGpsFactory libgps_factory_;
   scoped_ptr<LibGps> gps_;
-  Geoposition position_;
+  content::Geoposition position_;
 
   // Holder for the tasks which run on the thread; takes care of cleanup.
   base::WeakPtrFactory<GpsLocationProviderLinux> weak_factory_;

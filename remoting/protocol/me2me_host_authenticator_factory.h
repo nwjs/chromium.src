@@ -20,22 +20,10 @@ class RSAPrivateKey;
 namespace remoting {
 namespace protocol {
 
-// SharedSecretHash stores hash of a host secret paired with the type
-// of the hashing function.
-struct SharedSecretHash {
-  AuthenticationMethod::HashFunction hash_function;
-  std::string value;
-
-  // Parse string representation of a shared secret hash. The |as_string|
-  // must be in form "<hash_function>:<hash_value_base64>".
-  bool Parse(const std::string& as_string);
-};
-
 class Me2MeHostAuthenticatorFactory : public AuthenticatorFactory {
  public:
   // Doesn't take ownership of |local_private_key|.
   Me2MeHostAuthenticatorFactory(
-      const std::string& local_jid,
       const std::string& local_cert,
       const crypto::RSAPrivateKey& local_private_key,
       const SharedSecretHash& shared_secret_hash);
@@ -43,6 +31,7 @@ class Me2MeHostAuthenticatorFactory : public AuthenticatorFactory {
 
   // AuthenticatorFactory interface.
   virtual scoped_ptr<Authenticator> CreateAuthenticator(
+      const std::string& local_jid,
       const std::string& remote_jid,
       const buzz::XmlElement* first_message) OVERRIDE;
 

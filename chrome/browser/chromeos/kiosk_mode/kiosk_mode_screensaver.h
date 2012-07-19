@@ -4,16 +4,19 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_KIOSK_MODE_KIOSK_MODE_SCREENSAVER_H_
 #define CHROME_BROWSER_CHROMEOS_KIOSK_MODE_KIOSK_MODE_SCREENSAVER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/file_path.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
+class Profile;
+
+namespace extensions {
 class Extension;
+}
 
 namespace chromeos {
 
@@ -44,7 +47,8 @@ class KioskModeScreensaver : public PowerManagerClient::Observer,
 
   // Called back on the UI thread to Setup the screensaver with the now unpacked
   // and loaded extension.
-  void SetupScreensaver(scoped_refptr<Extension> extension,
+  void SetupScreensaver(scoped_refptr<extensions::Extension> extension,
+                        Profile* default_profile,
                         const FilePath& extension_base_path);
 
   content::NotificationRegistrar registrar_;

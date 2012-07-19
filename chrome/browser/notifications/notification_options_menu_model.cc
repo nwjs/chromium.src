@@ -18,7 +18,9 @@
 #include "chrome/browser/notifications/notification_prefs_manager.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/content_settings_types.h"
 #include "chrome/common/extensions/extension.h"
@@ -123,7 +125,7 @@ NotificationOptionsMenuModel::NotificationOptionsMenuModel(Balloon* balloon)
   if (origin.SchemeIs(chrome::kExtensionScheme)) {
     ExtensionService* extension_service =
         balloon_->profile()->GetExtensionService();
-    const Extension* extension =
+    const extensions::Extension* extension =
         extension_service->extensions()->GetExtensionOrAppByURL(
             ExtensionURLInfo(origin));
     // We get back no extension here when we show the notification after
@@ -175,7 +177,7 @@ string16 NotificationOptionsMenuModel::GetLabelForCommandId(int command_id)
     if (origin.SchemeIs(chrome::kExtensionScheme)) {
       ExtensionService* extension_service =
           balloon_->profile()->GetExtensionService();
-      const Extension* extension =
+      const extensions::Extension* extension =
           extension_service->extensions()->GetExtensionOrAppByURL(
               ExtensionURLInfo(origin));
       if (extension) {
@@ -233,13 +235,14 @@ void NotificationOptionsMenuModel::ExecuteCommand(int command_id) {
         service->GrantPermission(origin);
       break;
     case kToggleExtensionCommand: {
-      const Extension* extension =
+      const extensions::Extension* extension =
           extension_service->extensions()->GetExtensionOrAppByURL(
               ExtensionURLInfo(origin));
       if (extension) {
         const std::string& id = extension->id();
         if (extension_service->IsExtensionEnabled(id))
-          extension_service->DisableExtension(id);
+          extension_service->DisableExtension(
+              id, extensions::Extension::DISABLE_USER_ACTION);
         else
           extension_service->EnableExtension(id);
       }
@@ -247,13 +250,13 @@ void NotificationOptionsMenuModel::ExecuteCommand(int command_id) {
     }
     case kOpenContentSettingsCommand: {
       Browser* browser =
-          BrowserList::GetLastActiveWithProfile(balloon_->profile());
+          browser::FindLastActiveWithProfile(balloon_->profile());
       if (!browser) {
         // It is possible that there is no browser window (e.g. when there are
         // background pages, or for a chrome frame process on windows).
         browser = Browser::Create(balloon_->profile());
       }
-      browser->ShowContentSettingsPage(CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
+      chrome::ShowContentSettings(browser, CONTENT_SETTINGS_TYPE_NOTIFICATIONS);
       break;
     }
     default:

@@ -28,7 +28,7 @@ static SkBitmap ApplyPadding(const SkBitmap& source,
   scoped_ptr<gfx::Canvas> result(
       new gfx::Canvas(gfx::Size(source.width() + padding.width(),
                                 source.height() + padding.height()), false));
-  result->DrawBitmapInt(
+  result->DrawImageInt(
       source,
       0, 0, source.width(), source.height(),
       padding.left(), padding.top(), source.width(), source.height(),
@@ -46,7 +46,7 @@ ExtensionIconManager::ExtensionIconManager()
 ExtensionIconManager::~ExtensionIconManager() {
 }
 
-void ExtensionIconManager::LoadIcon(const Extension* extension) {
+void ExtensionIconManager::LoadIcon(const extensions::Extension* extension) {
   ExtensionResource icon_resource = extension->GetIconResource(
       ExtensionIconSet::EXTENSION_ICON_BITTY, ExtensionIconSet::MATCH_BIGGER);
   if (!icon_resource.extension_root().empty()) {

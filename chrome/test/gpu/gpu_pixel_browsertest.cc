@@ -9,6 +9,7 @@
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/window_snapshot/window_snapshot.h"
 #include "chrome/common/chrome_paths.h"
@@ -20,15 +21,16 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
+#include "content/test/gpu/test_switches.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/compositor/compositor_setup.h"
 #include "ui/gfx/codec/png_codec.h"
-#include "ui/gfx/compositor/compositor_setup.h"
-#include "ui/gfx/gl/gl_switches.h"
 #include "ui/gfx/size.h"
+#include "ui/gl/gl_switches.h"
 
 namespace {
 
@@ -39,7 +41,9 @@ const char kGeneratedDir[] = "generated-dir";
 const char kReferenceDir[] = "reference-dir";
 
 // Corner shadow size.
-const int kCornerDecorationSize = 10;
+const int kCornerDecorationSize = 15;
+// Side shadow size.
+const int kSideDecorationSize = 2;
 
 // Reads and decodes a PNG image to a bitmap. Returns true on success. The PNG
 // should have been encoded using |gfx::PNGCodec::Encode|.
@@ -86,16 +90,13 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
  public:
   GpuPixelBrowserTest()
       : ref_img_revision_(0),
-        ref_img_revision_no_older_than_(0) {
+        ref_img_revision_no_older_than_(0),
+        use_checked_in_ref_imgs_(false) {
   }
 
   virtual void SetUpCommandLine(CommandLine* command_line) {
-    InProcessBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(switches::kTestGLLib,
                                     "libllvmpipe.so");
-
-    // This enables DOM automation for tab contents.
-    EnableDOMAutomation();
   }
 
   virtual void SetUpInProcessBrowserTestFixture() {
@@ -111,8 +112,15 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
       generated_img_dir_ = test_data_dir_.AppendASCII("generated");
     if (command_line->HasSwitch(kReferenceDir))
       ref_img_dir_ = command_line->GetSwitchValuePath(kReferenceDir);
+    else if (!command_line->HasSwitch(switches::kUseGpuInTests))
+      ref_img_dir_ = test_data_dir_.AppendASCII("llvmpipe_reference");
     else
       ref_img_dir_ = test_data_dir_.AppendASCII("gpu_reference");
+
+    // Only use checked in ref images when using a software rasterizer as
+    // all machines should generate the same output with a software rasterizer.
+    use_checked_in_ref_imgs_ = !command_line->HasSwitch(
+        switches::kUseGpuInTests);
 
     test_name_ = testing::UnitTest::GetInstance()->current_test_info()->name();
     const char* test_status_prefixes[] = {"DISABLED_", "FLAKY_", "FAILS_"};
@@ -129,8 +137,10 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
   void RunPixelTest(const gfx::Size& tab_container_size,
                     const FilePath& url,
                     int64 ref_img_update_revision) {
-    ref_img_revision_no_older_than_ = ref_img_update_revision;
-    ObtainLocalRefImageRevision();
+    if (!use_checked_in_ref_imgs_) {
+      ref_img_revision_no_older_than_ = ref_img_update_revision;
+      ObtainLocalRefImageRevision();
+    }
 
 #if defined(OS_WIN)
     ASSERT_TRUE(tracing::BeginTracing("-test_*"));
@@ -153,7 +163,7 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
     js_call << ");";
 
     ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
-        browser()->GetSelectedWebContents()->GetRenderViewHost(),
+        chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
         L"", js_call.str()));
 
     std::string message;
@@ -203,6 +213,9 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
   // Any local ref image generated from older revision is ignored.
   int64 ref_img_revision_no_older_than_;
 
+  // If true, the test will use checked in reference images.
+  bool use_checked_in_ref_imgs_;
+
   // Compares the generated bitmap with the appropriate reference image on disk.
   // Returns true iff the images were the same.
   //
@@ -220,13 +233,24 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
   //     FAIL_WebGLTeapot_19762.png, DIFF_WebGLTeapot_19762.png
   bool CompareImages(const SkBitmap& gen_bmp, bool skip_bottom_corners) {
     SkBitmap ref_bmp_on_disk;
+
+    FilePath img_path = ref_img_dir_.AppendASCII(test_name_ + ".png");
+    bool found_ref_img = ReadPNGFile(img_path, &ref_bmp_on_disk);
+
+    if (!found_ref_img && use_checked_in_ref_imgs_) {
+      LOG(ERROR) << "Couldn't find reference image: "
+                 << img_path.value();
+      // No image to compare to, exit early.
+      return false;
+    }
+
     const SkBitmap* ref_bmp;
     bool save_gen = false;
-    bool save_diff = false;
+    bool save_diff = true;
     bool rt = true;
-    FilePath img_path = ref_img_dir_.AppendASCII(test_name_ + ".png");
-    if (ref_img_revision_ <= 0 ||
-        !ReadPNGFile(img_path, &ref_bmp_on_disk)) {
+
+    if ((ref_img_revision_ <= 0 && !use_checked_in_ref_imgs_) ||
+        !found_ref_img) {
       chrome::VersionInfo chrome_version_info;
       FilePath rev_path = ref_img_dir_.AppendASCII(
           test_name_ + "_" + chrome_version_info.LastChange() + ".rev");
@@ -273,7 +297,8 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
           << "(" << ref_bmp->width() << "x" << ref_bmp->height()
               << ") vs. "
           << "(" << gen_bmp.width() << "x" << gen_bmp.height() << ")";
-      save_gen = true;
+      if (!use_checked_in_ref_imgs_)
+        save_gen = true;
       rt = false;
     } else {
       // Compare pixels and create a simple diff image.
@@ -291,9 +316,11 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
       for (int x = 0; x < gen_bmp.width(); ++x) {
         for (int y = 0; y < gen_bmp.height(); ++y) {
           if (skip_bottom_corners &&
-              (x < kCornerDecorationSize ||
-               x >= gen_bmp.width() - kCornerDecorationSize) &&
-              y >= gen_bmp.height() - kCornerDecorationSize)
+              (((x < kCornerDecorationSize ||
+                 x >= gen_bmp.width() - kCornerDecorationSize) &&
+                y >= gen_bmp.height() - kCornerDecorationSize) ||
+               (x < kSideDecorationSize ||
+                x >= gen_bmp.width() - kSideDecorationSize)))
             continue;
           if ((*gen_bmp.getAddr32(x, y) & kAlphaMask) !=
               (*ref_bmp->getAddr32(x, y) & kAlphaMask)) {
@@ -305,8 +332,10 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
       if (diff_pixels_count > 0) {
         LOG(ERROR) << diff_pixels_count
                    << " pixels do not match.";
-        save_gen = true;
-        save_diff = true;
+        if (!use_checked_in_ref_imgs_) {
+          save_gen = true;
+          save_diff = true;
+        }
         rt = false;
       }
     }
@@ -341,7 +370,7 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
   // have if the tab contents have the desired size.
   gfx::Rect GetNewTabContainerBounds(const gfx::Size& desired_size) {
     gfx::Rect container_rect;
-    browser()->GetSelectedWebContents()->GetContainerBounds(&container_rect);
+    chrome::GetActiveWebContents(browser())->GetContainerBounds(&container_rect);
     // Size cannot be negative, so use a point.
     gfx::Point correction(
         desired_size.width() - container_rect.size().width(),
@@ -361,7 +390,7 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
 
     gfx::Rect root_bounds = browser()->window()->GetBounds();
     gfx::Rect tab_contents_bounds;
-    browser()->GetSelectedWebContents()->GetContainerBounds(
+    chrome::GetActiveWebContents(browser())->GetContainerBounds(
         &tab_contents_bounds);
 
     gfx::Rect snapshot_bounds(tab_contents_bounds.x() - root_bounds.x(),
@@ -369,7 +398,7 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
                               tab_contents_bounds.width(),
                               tab_contents_bounds.height());
 
-    gfx::NativeWindow native_window = browser()->window()->GetNativeHandle();
+    gfx::NativeWindow native_window = browser()->window()->GetNativeWindow();
     if (!browser::GrabWindowSnapshot(native_window, &png, snapshot_bounds)) {
       LOG(ERROR) << "browser::GrabWindowSnapShot() failed";
       return false;
@@ -419,7 +448,21 @@ class GpuPixelBrowserTest : public InProcessBrowserTest {
   DISALLOW_COPY_AND_ASSIGN(GpuPixelBrowserTest);
 };
 
-IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, WebGLGreenTriangle) {
+// http://crbug.com/
+#if defined(OS_WIN)
+#define MAYBE_WebGLGreenTriangle DISABLED_WebGLGreenTriangle
+#else
+#define MAYBE_WebGLGreenTriangle WebGLGreenTriangle
+#endif
+
+// http://crbug.com/136430
+#if defined(OS_WIN)
+#define MAYBE_CSS3DBlueBox FLAKY_CSS3DBlueBox
+#else
+#define MAYBE_CSS3DBlueBox CSS3DBlueBox
+#endif
+
+IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, MAYBE_WebGLGreenTriangle) {
   // If test baseline needs to be updated after a given revision, update the
   // following number. If no revision requirement, then 0.
   const int64 ref_img_revision_update = 123489;
@@ -430,7 +473,7 @@ IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, WebGLGreenTriangle) {
   RunPixelTest(container_size, url, ref_img_revision_update);
 }
 
-IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, CSS3DBlueBox) {
+IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, MAYBE_CSS3DBlueBox) {
   // If test baseline needs to be updated after a given revision, update the
   // following number. If no revision requirement, then 0.
   const int64 ref_img_revision_update = 123489;
@@ -441,15 +484,7 @@ IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, CSS3DBlueBox) {
   RunPixelTest(container_size, url, ref_img_revision_update);
 }
 
-class Canvas2DPixelTestHD : public GpuPixelBrowserTest {
- public:
-  virtual void SetUpCommandLine(CommandLine* command_line) {
-    GpuPixelBrowserTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kEnableAccelerated2dCanvas);
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(Canvas2DPixelTestHD, Canvas2DRedBoxHD) {
+IN_PROC_BROWSER_TEST_F(GpuPixelBrowserTest, Canvas2DRedBoxHD) {
   // If test baseline needs to be updated after a given revision, update the
   // following number. If no revision requirement, then 0.
   const int64 ref_img_revision_update = 123489;

@@ -9,20 +9,15 @@
 #include "base/command_line.h"
 #include "sync/engine/syncer.h"
 #include "sync/engine/syncer_proto_util.h"
-#include "sync/engine/syncproto.h"
-#include "sync/syncable/model_type_payload_map.h"
-#include "sync/syncable/syncable.h"
+#include "sync/internal_api/public/base/model_type_payload_map.h"
+#include "sync/syncable/directory.h"
 
 using sync_pb::DebugInfo;
 
-namespace browser_sync {
+namespace syncer {
 using sessions::StatusController;
 using sessions::SyncSession;
 using std::string;
-using syncable::FIRST_REAL_MODEL_TYPE;
-using syncable::MODEL_TYPE_COUNT;
-using syncable::ModelTypeSet;
-using syncable::ModelTypeSetToString;
 
 DownloadUpdatesCommand::DownloadUpdatesCommand(
     bool create_mobile_bookmarks_folder)
@@ -31,13 +26,13 @@ DownloadUpdatesCommand::DownloadUpdatesCommand(
 DownloadUpdatesCommand::~DownloadUpdatesCommand() {}
 
 SyncerError DownloadUpdatesCommand::ExecuteImpl(SyncSession* session) {
-  ClientToServerMessage client_to_server_message;
-  ClientToServerResponse update_response;
+  sync_pb::ClientToServerMessage client_to_server_message;
+  sync_pb::ClientToServerResponse update_response;
 
   client_to_server_message.set_share(session->context()->account_name());
   client_to_server_message.set_message_contents(
-      ClientToServerMessage::GET_UPDATES);
-  GetUpdatesMessage* get_updates =
+      sync_pb::ClientToServerMessage::GET_UPDATES);
+  sync_pb::GetUpdatesMessage* get_updates =
       client_to_server_message.mutable_get_updates();
   get_updates->set_create_mobile_bookmarks_folder(
       create_mobile_bookmarks_folder_);
@@ -51,7 +46,7 @@ SyncerError DownloadUpdatesCommand::ExecuteImpl(SyncSession* session) {
            << ModelTypeSetToString(enabled_types);
   DCHECK(!enabled_types.Empty());
 
-  const syncable::ModelTypePayloadMap& type_payload_map =
+  const syncer::ModelTypePayloadMap& type_payload_map =
       session->source().types;
   for (ModelTypeSet::Iterator it = enabled_types.First();
        it.Good(); it.Inc()) {
@@ -60,7 +55,7 @@ SyncerError DownloadUpdatesCommand::ExecuteImpl(SyncSession* session) {
     dir->GetDownloadProgress(it.Get(), progress_marker);
 
     // Set notification hint if present.
-    syncable::ModelTypePayloadMap::const_iterator type_payload =
+    syncer::ModelTypePayloadMap::const_iterator type_payload =
         type_payload_map.find(it.Get());
     if (type_payload != type_payload_map.end()) {
       progress_marker->set_notification_hint(type_payload->second);
@@ -78,6 +73,7 @@ SyncerError DownloadUpdatesCommand::ExecuteImpl(SyncSession* session) {
   get_updates->mutable_caller_info()->set_notifications_enabled(
       session->context()->notifications_enabled());
 
+  SyncerProtoUtil::SetProtocolVersion(&client_to_server_message);
   SyncerProtoUtil::AddRequestBirthday(dir, &client_to_server_message);
 
   DebugInfo* debug_info = client_to_server_message.mutable_debug_info();
@@ -126,5 +122,4 @@ void DownloadUpdatesCommand::AppendClientDebugInfoIfNeeded(
   }
 }
 
-
-}  // namespace browser_sync
+}  // namespace syncer

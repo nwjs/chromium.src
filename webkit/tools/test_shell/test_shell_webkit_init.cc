@@ -13,7 +13,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebRuntimeFeatures.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptController.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
-#include "ui/gfx/gl/gl_bindings_skia_in_process.h"
+#include "ui/gl/gl_bindings_skia_in_process.h"
 #include "v8/include/v8.h"
 #include "webkit/plugins/npapi/plugin_list.h"
 #include "webkit/plugins/webplugininfo.h"
@@ -257,26 +257,7 @@ WebKit::WebString TestShellWebKitInit::defaultLocale() {
 
 WebKit::WebStorageNamespace* TestShellWebKitInit::createLocalStorageNamespace(
     const WebKit::WebString& path, unsigned quota) {
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
   return dom_storage_system_.CreateLocalStorageNamespace();
-#else
-  // Enforce quota here, ignoring the value from the renderer as in Chrome.
-  return WebKit::WebStorageNamespace::createLocalStorageNamespace(
-      path,
-      WebKit::WebStorageNamespace::m_localStorageQuota);
-#endif
-}
-
-void TestShellWebKitInit::dispatchStorageEvent(
-    const WebKit::WebString& key,
-    const WebKit::WebString& old_value, const WebKit::WebString& new_value,
-    const WebKit::WebString& origin, const WebKit::WebURL& url,
-    bool is_local_storage) {
-  // All events are dispatched by the WebCore::StorageAreaProxy in the
-  // simple single process case.
-#ifdef ENABLE_NEW_DOM_STORAGE_BACKEND
-  NOTREACHED();
-#endif
 }
 
 WebKit::WebIDBFactory* TestShellWebKitInit::idbFactory() {
@@ -285,12 +266,12 @@ WebKit::WebIDBFactory* TestShellWebKitInit::idbFactory() {
 
 void TestShellWebKitInit::createIDBKeysFromSerializedValuesAndKeyPath(
     const WebKit::WebVector<WebKit::WebSerializedScriptValue>& values,
-    const WebKit::WebString& keyPath,
+    const WebKit::WebIDBKeyPath& keyPath,
     WebKit::WebVector<WebKit::WebIDBKey>& keys_out) {
   WebKit::WebVector<WebKit::WebIDBKey> keys(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     keys[i] = WebKit::WebIDBKey::createFromValueAndKeyPath(
-        values[i], WebKit::WebIDBKeyPath::create(keyPath));
+        values[i], keyPath);
   }
   keys_out.swap(keys);
 }
@@ -298,9 +279,9 @@ void TestShellWebKitInit::createIDBKeysFromSerializedValuesAndKeyPath(
 WebKit::WebSerializedScriptValue
 TestShellWebKitInit::injectIDBKeyIntoSerializedValue(
     const WebKit::WebIDBKey& key, const WebKit::WebSerializedScriptValue& value,
-    const WebKit::WebString& keyPath) {
+    const WebKit::WebIDBKeyPath& keyPath) {
   return WebKit::WebIDBKey::injectIDBKeyIntoSerializedValue(
-      key, value, WebKit::WebIDBKeyPath::create(keyPath));
+      key, value, keyPath);
 }
 
 WebKit::WebSharedWorkerRepository*

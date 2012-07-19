@@ -7,7 +7,6 @@
 
 #ifndef CHROME_BROWSER_METRICS_METRICS_SERVICE_H_
 #define CHROME_BROWSER_METRICS_METRICS_SERVICE_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -15,16 +14,16 @@
 
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/weak_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/process_util.h"
-#include "chrome/browser/io_thread.h"
+#include "chrome/browser/metrics/metrics_log.h"
+#include "chrome/browser/metrics/tracking_synchronizer_observer.h"
 #include "chrome/common/metrics/metrics_service_base.h"
-#include "content/public/common/process_type.h"
-#include "content/public/common/url_fetcher_delegate.h"
+#include "chrome/installer/util/google_update_settings.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/external_metrics.h"
@@ -50,18 +49,27 @@ namespace extensions {
 class ExtensionDownloader;
 }
 
+namespace net {
+class URLFetcher;
+}
+
 namespace prerender {
 bool IsOmniboxEnabled(Profile* profile);
+}
+
+namespace tracked_objects {
+struct ProcessDataSnapshot;
 }
 
 namespace webkit {
 struct WebPluginInfo;
 }
 
-
-class MetricsService : public content::NotificationObserver,
-                       public content::URLFetcherDelegate,
-                       public MetricsServiceBase {
+class MetricsService
+    : public chrome_browser_metrics::TrackingSynchronizerObserver,
+      public content::NotificationObserver,
+      public net::URLFetcherDelegate,
+      public MetricsServiceBase {
  public:
   MetricsService();
   virtual ~MetricsService();
@@ -77,6 +85,12 @@ class MetricsService : public content::NotificationObserver,
   // Returns the client ID for this client, or the empty string if metrics
   // recording is not currently running.
   std::string GetClientId();
+
+  // Returns the preferred entropy source used to seed persistent activities
+  // based on whether or not metrics reporting is permitted on this client. If
+  // it is permitted, this returns the client ID concatenated with the low
+  // entropy source. Otherwise, this just returns the low entropy source.
+  std::string GetEntropySource();
 
   // Force the client ID to be generated. This is useful in case it's needed
   // before recording.
@@ -105,6 +119,14 @@ class MetricsService : public content::NotificationObserver,
   // that session end was successful.
   void RecordCompletedSessionEnd();
 
+#if defined(OS_ANDROID)
+  // Called when the application is going into background mode.
+  void OnAppEnterBackground();
+
+  // Called when the application is coming out of background mode.
+  void OnAppEnterForeground();
+#endif
+
   // Saves in the preferences if the crash report registration was successful.
   // This count is eventually send via UMA logs.
   void RecordBreakpadRegistration(bool success);
@@ -128,6 +150,8 @@ class MetricsService : public content::NotificationObserver,
 
   bool recording_active() const;
   bool reporting_active() const;
+
+  void LogPluginLoadingError(const FilePath& plugin_path);
 
   // Redundant test to ensure that we are notified of a clean exit.
   // This value should be true when process has completed shutdown.
@@ -162,10 +186,32 @@ class MetricsService : public content::NotificationObserver,
   // loading plugin information.
   void OnInitTaskGotHardwareClass(const std::string& hardware_class);
 
-  // Callback from PluginService::GetPlugins() that moves the state to
-  // INIT_TASK_DONE.
+  // Callback from PluginService::GetPlugins() that continues the init task by
+  // launching a task to gather Google Update statistics.
   void OnInitTaskGotPluginInfo(
       const std::vector<webkit::WebPluginInfo>& plugins);
+
+  // Task launched by OnInitTaskGotPluginInfo() that continues the init task by
+  // loading Google Update statistics.  Called on a blocking pool thread.
+  static void InitTaskGetGoogleUpdateData(base::WeakPtr<MetricsService> self,
+                                          base::MessageLoopProxy* target_loop);
+
+  // Callback from InitTaskGetGoogleUpdateData() that continues the init task by
+  // loading profiler data.
+  void OnInitTaskGotGoogleUpdateData(
+      const GoogleUpdateMetrics& google_update_metrics);
+
+  // TrackingSynchronizerObserver:
+  virtual void ReceivedProfilerData(
+      const tracked_objects::ProcessDataSnapshot& process_data,
+      content::ProcessType process_type) OVERRIDE;
+  // Callback that moves the state to INIT_TASK_DONE.
+  virtual void FinishedReceivingProfilerData() OVERRIDE;
+
+  // Returns the low entropy source for this client. This is a random value
+  // that is non-identifying amongst browser clients. This method will
+  // generate the entropy source value if it has not been called before.
+  int GetLowEntropySource();
 
   // When we start a new version of Chromium (different from our last run), we
   // need to discard the old crash stats so that we don't attribute crashes etc.
@@ -232,10 +278,9 @@ class MetricsService : public content::NotificationObserver,
   void OnHistogramSynchronizationDone();
   void OnFinalLogInfoCollectionDone();
 
-  // Takes whatever log should be uploaded next (according to the state_)
-  // and makes it the staged log.  If there is already a staged log, this is a
-  // no-op.
-  void MakeStagedLog();
+  // Either closes the current log or creates and closes the initial log
+  // (depending on |state_|), and stages it for upload.
+  void StageNewLog();
 
   // Record stats, client ID, Session ID, etc. in a special "first" log.
   void PrepareInitialLog();
@@ -248,13 +293,13 @@ class MetricsService : public content::NotificationObserver,
   // copy of the staged log.
   void PrepareFetchWithStagedLog();
 
-  // Implementation of content::URLFetcherDelegate. Called after transmission
+  // Implementation of net::URLFetcherDelegate. Called after transmission
   // completes (either successfully or with failure).
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Logs debugging details, for the case where the server returns a response
   // code other than 200.
-  void LogBadResponseCode();
+  void LogBadResponseCode(int response_code, bool is_xml);
 
   // Records a window-related notification.
   void LogWindowChange(int type,
@@ -271,7 +316,7 @@ class MetricsService : public content::NotificationObserver,
   // Records a renderer process crash.
   void LogRendererCrash(content::RenderProcessHost* host,
                         base::TerminationStatus status,
-                        bool was_alive);
+                        int exit_code);
 
   // Records a renderer process hang.
   void LogRendererHang();
@@ -348,15 +393,15 @@ class MetricsService : public content::NotificationObserver,
   // The list of plugins which was retrieved on the file thread.
   std::vector<webkit::WebPluginInfo> plugins_;
 
-  // The outstanding transmission appears as a URL Fetch operation.
-  scoped_ptr<content::URLFetcher> current_fetch_xml_;
-  scoped_ptr<content::URLFetcher> current_fetch_proto_;
+  // Google Update statistics, which were retrieved on a blocking pool thread.
+  GoogleUpdateMetrics google_update_metrics_;
 
-  // Cached responses from the XML request while we wait for a response to the
-  // protubuf request.
-  int response_code_;
-  std::string response_status_;
-  std::string response_data_;
+  // The initial log, used to record startup metrics.
+  scoped_ptr<MetricsLog> initial_log_;
+
+  // The outstanding transmission appears as a URL Fetch operation.
+  scoped_ptr<net::URLFetcher> current_fetch_xml_;
+  scoped_ptr<net::URLFetcher> current_fetch_proto_;
 
   // The URLs for the XML and protobuf metrics servers.
   string16 server_url_xml_;
@@ -368,13 +413,11 @@ class MetricsService : public content::NotificationObserver,
   // The HTTP pipelining test server.
   std::string http_pipelining_test_server_;
 
-  // The IOThread for accessing global HostResolver to resolve
-  // network_stats_server_ host. |io_thread_| is accessed on IO thread and it is
-  // safe to access it on IO thread.
-  IOThread* io_thread_;
-
   // The identifier that's sent to the server with the log reports.
   std::string client_id_;
+
+  // The non-identifying low entropy source value.
+  int low_entropy_source_;
 
   // Whether the MetricsService object has received any notifications since
   // the last time a transmission was sent.
@@ -412,7 +455,7 @@ class MetricsService : public content::NotificationObserver,
 
   // Indicates that an asynchronous reporting step is running.
   // This is used only for debugging.
-  bool waiting_for_asynchronus_reporting_step_;
+  bool waiting_for_asynchronous_reporting_step_;
 
 #if defined(OS_CHROMEOS)
   // The external metric service is used to log ChromeOS UMA events.
@@ -434,7 +477,6 @@ class MetricsService : public content::NotificationObserver,
 // as a 'friend' below.
 class MetricsServiceHelper {
  private:
-  friend class InstantFieldTrial;
   friend bool prerender::IsOmniboxEnabled(Profile* profile);
   friend class extensions::ExtensionDownloader;
 

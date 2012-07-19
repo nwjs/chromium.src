@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,12 +18,18 @@ typedef NSImage* PlatformImage;
 #elif defined(TOOLKIT_GTK)
 typedef GdkPixbuf* PlatformImage;
 #else
-typedef const SkBitmap* PlatformImage;
+typedef const SkBitmap PlatformImage;
 #endif
 
-SkBitmap* CreateBitmap(int width, int height);
+#if defined(OS_MACOSX)
+void SetSupportedScaleFactorsTo1xAnd2x();
+#endif
 
+const SkBitmap CreateBitmap(int width, int height);
+
+// TODO(rohitrao): Remove the no-argument version of CreateImage().
 gfx::Image CreateImage();
+gfx::Image CreateImage(int width, int height);
 
 bool IsEqual(const gfx::Image& image1, const gfx::Image& image2);
 
@@ -34,6 +40,10 @@ PlatformImage CreatePlatformImage();
 gfx::Image::RepresentationType GetPlatformRepresentationType();
 
 PlatformImage ToPlatformType(const gfx::Image& image);
+
+bool IsPlatformImageValid(PlatformImage image);
+
+bool PlatformImagesEqual(PlatformImage image1, PlatformImage image2);
 
 }  // namespace test
 }  // namespace gfx

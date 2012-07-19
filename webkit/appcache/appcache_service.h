@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -43,9 +43,12 @@ class AppCachePolicy;
 struct APPCACHE_EXPORT AppCacheInfoCollection
     : public base::RefCountedThreadSafe<AppCacheInfoCollection> {
   AppCacheInfoCollection();
-  virtual ~AppCacheInfoCollection();
 
   std::map<GURL, AppCacheInfoVector> infos_by_origin;
+
+ private:
+  friend class base::RefCountedThreadSafe<AppCacheInfoCollection>;
+  virtual ~AppCacheInfoCollection();
 };
 
 // Class that manages the application cache service. Sends notifications
@@ -96,7 +99,7 @@ class APPCACHE_EXPORT AppCacheService {
 
   // Checks the integrity of 'response_id' by reading the headers and data.
   // If it cannot be read, the cache group for 'manifest_url' is deleted.
-  void CheckAppCacheResponse(const GURL& manifest_url_, int64 cache_id,
+  void CheckAppCacheResponse(const GURL& manifest_url, int64 cache_id,
                              int64 response_id);
 
   // Context for use during cache updates, should only be accessed
@@ -140,23 +143,15 @@ class APPCACHE_EXPORT AppCacheService {
 
   AppCacheStorage* storage() const { return storage_.get(); }
 
-  bool clear_local_state_on_exit() const { return clear_local_state_on_exit_; }
-  void set_clear_local_state_on_exit(bool clear_local_state_on_exit) {
-    clear_local_state_on_exit_ = clear_local_state_on_exit; }
-
-  bool save_session_state() const { return save_session_state_; }
-  // If |save_session_state| is true, disables the exit-time deletion for all
-  // data (also session-only data).
-  void set_save_session_state(bool save_session_state) {
-    save_session_state_ = save_session_state;
-  }
+  // Disables the exit-time deletion of session-only data.
+  void set_force_keep_session_state() { force_keep_session_state_ = true; }
+  bool force_keep_session_state() const { return force_keep_session_state_; }
 
  protected:
   friend class AppCacheStorageImplTest;
   friend class AppCacheServiceTest;
 
   class AsyncHelper;
-  class NewAsyncHelper;
   class CanHandleOfflineHelper;
   class DeleteHelper;
   class DeleteOriginHelper;
@@ -164,7 +159,6 @@ class APPCACHE_EXPORT AppCacheService {
   class CheckResponseHelper;
 
   typedef std::set<AsyncHelper*> PendingAsyncHelpers;
-  typedef std::set<NewAsyncHelper*> PendingNewAsyncHelpers;
   typedef std::map<int, AppCacheBackendImpl*> BackendMap;
 
   AppCachePolicy* appcache_policy_;
@@ -173,13 +167,11 @@ class APPCACHE_EXPORT AppCacheService {
   scoped_refptr<quota::SpecialStoragePolicy> special_storage_policy_;
   scoped_refptr<quota::QuotaManagerProxy> quota_manager_proxy_;
   PendingAsyncHelpers pending_helpers_;
-  PendingNewAsyncHelpers pending_new_helpers_;
   BackendMap backends_;  // One 'backend' per child process.
   // Context for use during cache updates.
   net::URLRequestContext* request_context_;
-  bool clear_local_state_on_exit_;
   // If true, nothing (not even session-only data) should be deleted on exit.
-  bool save_session_state_;
+  bool force_keep_session_state_;
 
   DISALLOW_COPY_AND_ASSIGN(AppCacheService);
 };

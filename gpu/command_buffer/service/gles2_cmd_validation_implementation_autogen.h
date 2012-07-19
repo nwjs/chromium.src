@@ -37,10 +37,10 @@ static GLenum valid_buffer_usage_table[] = {
 };
 
 static GLenum valid_capability_table[] = {
+  GL_DITHER,
   GL_BLEND,
   GL_CULL_FACE,
   GL_DEPTH_TEST,
-  GL_DITHER,
   GL_POLYGON_OFFSET_FILL,
   GL_SAMPLE_ALPHA_TO_COVERAGE,
   GL_SAMPLE_COVERAGE,
@@ -202,6 +202,9 @@ static GLenum valid_g_l_state_table[] = {
   GL_TEXTURE_BINDING_2D,
   GL_TEXTURE_BINDING_CUBE_MAP,
   GL_UNPACK_ALIGNMENT,
+  GL_UNPACK_FLIP_Y_CHROMIUM,
+  GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM,
+  GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM,
   GL_VIEWPORT,
 };
 
@@ -213,12 +216,7 @@ static GLenum valid_get_max_index_type_table[] = {
 
 static GLenum valid_get_tex_param_target_table[] = {
   GL_TEXTURE_2D,
-  GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-  GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-  GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-  GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-  GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-  GL_TEXTURE_CUBE_MAP_NEGATIVE_Z,
+  GL_TEXTURE_CUBE_MAP,
 };
 
 static GLenum valid_hint_mode_table[] = {
@@ -239,6 +237,9 @@ static GLenum valid_index_type_table[] = {
 static GLenum valid_pixel_store_table[] = {
   GL_PACK_ALIGNMENT,
   GL_UNPACK_ALIGNMENT,
+  GL_UNPACK_FLIP_Y_CHROMIUM,
+  GL_UNPACK_PREMULTIPLY_ALPHA_CHROMIUM,
+  GL_UNPACK_UNPREMULTIPLY_ALPHA_CHROMIUM,
 };
 
 static GLint valid_pixel_store_alignment_table[] = {
@@ -286,6 +287,13 @@ static GLenum valid_read_pixel_format_table[] = {
   GL_ALPHA,
   GL_RGB,
   GL_RGBA,
+};
+
+static GLenum valid_read_pixel_type_table[] = {
+  GL_UNSIGNED_BYTE,
+  GL_UNSIGNED_SHORT_5_6_5,
+  GL_UNSIGNED_SHORT_4_4_4_4,
+  GL_UNSIGNED_SHORT_5_5_5_1,
 };
 
 static GLenum valid_render_buffer_format_table[] = {
@@ -553,6 +561,8 @@ Validators::Validators()
       read_pixel_format(
           valid_read_pixel_format_table, arraysize(
               valid_read_pixel_format_table)),
+      read_pixel_type(
+          valid_read_pixel_type_table, arraysize(valid_read_pixel_type_table)),
       render_buffer_format(
           valid_render_buffer_format_table, arraysize(
               valid_render_buffer_format_table)),

@@ -472,10 +472,7 @@ bool TreeView::OnKeyDown(ui::KeyboardCode virtual_key_code) {
   } else if (virtual_key_code == ui::VKEY_RETURN && !process_enter_) {
     Widget* widget = GetWidget();
     DCHECK(widget);
-    ui::Accelerator accelerator(ui::Accelerator(virtual_key_code,
-                                                base::win::IsShiftPressed(),
-                                                base::win::IsCtrlPressed(),
-                                                base::win::IsAltPressed()));
+    ui::Accelerator accelerator(virtual_key_code, GetModifiersFromKeyState());
     GetFocusManager()->ProcessAccelerator(accelerator);
     return true;
   }
@@ -660,16 +657,16 @@ TreeView::NodeDetails* TreeView::GetNodeDetailsByTreeItem(HTREEITEM tree_item) {
 }
 
 HIMAGELIST TreeView::CreateImageList() {
-  std::vector<SkBitmap> model_images;
+  std::vector<gfx::ImageSkia> model_images;
   model_->GetIcons(&model_images);
 
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   bool rtl = base::i18n::IsRTL();
   // Creates the default image list used for trees.
-  const SkBitmap* closed_icon = rb.GetImageNamed(
-      (rtl ? IDR_FOLDER_CLOSED_RTL : IDR_FOLDER_CLOSED)).ToSkBitmap();
-  const SkBitmap* opened_icon = rb.GetImageNamed(
-      (rtl ? IDR_FOLDER_OPEN_RTL : IDR_FOLDER_OPEN)).ToSkBitmap();
+  const gfx::ImageSkia* closed_icon = rb.GetImageNamed(
+      (rtl ? IDR_FOLDER_CLOSED_RTL : IDR_FOLDER_CLOSED)).ToImageSkia();
+  const gfx::ImageSkia* opened_icon = rb.GetImageNamed(
+      (rtl ? IDR_FOLDER_OPEN_RTL : IDR_FOLDER_OPEN)).ToImageSkia();
   int width = closed_icon->width();
   int height = closed_icon->height();
   DCHECK(opened_icon->width() == width && opened_icon->height() == height);
@@ -699,7 +696,7 @@ HIMAGELIST TreeView::CreateImageList() {
         // Draw our icons into this canvas.
         int height_offset = (height - model_images[i].height()) / 2;
         int width_offset = (width - model_images[i].width()) / 2;
-        canvas.DrawBitmapInt(model_images[i], width_offset, height_offset);
+        canvas.DrawImageInt(model_images[i], width_offset, height_offset);
         model_icon = IconUtil::CreateHICONFromSkBitmap(canvas.ExtractBitmap());
       } else {
         model_icon = IconUtil::CreateHICONFromSkBitmap(model_images[i]);

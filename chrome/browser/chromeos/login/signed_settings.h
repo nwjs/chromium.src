@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_SIGNED_SETTINGS_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_SIGNED_SETTINGS_H_
-#pragma once
 
 #include <vector>
 
@@ -51,7 +50,6 @@ class SignedSettings : public base::RefCountedThreadSafe<SignedSettings>,
   };
 
   SignedSettings();
-  virtual ~SignedSettings();
 
   // These are both "policy" operations, and only one instance of
   // one type can be in flight at a time.
@@ -74,6 +72,8 @@ class SignedSettings : public base::RefCountedThreadSafe<SignedSettings>,
                                const std::vector<uint8>& payload) = 0;
 
  protected:
+  virtual ~SignedSettings();
+
   static bool PolicyIsSane(
       const enterprise_management::PolicyFetchResponse& value,
       enterprise_management::PolicyData* poldata);
@@ -83,6 +83,7 @@ class SignedSettings : public base::RefCountedThreadSafe<SignedSettings>,
   OwnershipService* service_;
 
  private:
+  friend class base::RefCountedThreadSafe<SignedSettings>;
   friend class SignedSettingsTest;
   friend class SignedSettingsHelperTest;
 

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_CUSTOMIZATION_DOCUMENT_H_
 #define CHROME_BROWSER_CHROMEOS_CUSTOMIZATION_DOCUMENT_H_
-#pragma once
 
 #include <string>
 
@@ -14,14 +13,18 @@
 #include "base/memory/singleton.h"
 #include "base/timer.h"
 #include "base/values.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_fetcher_delegate.h"
 
 class FilePath;
 class PrefService;
 
 namespace base {
 class DictionaryValue;
+}
+
+namespace net {
+class URLFetcher;
 }
 
 namespace chromeos {
@@ -111,7 +114,7 @@ class StartupCustomizationDocument : public CustomizationDocument {
 // the manifest should be initiated outside this class by calling
 // StartFetching() method. User of the file should check IsReady before use it.
 class ServicesCustomizationDocument : public CustomizationDocument,
-                                      private content::URLFetcherDelegate {
+                                      private net::URLFetcherDelegate {
  public:
   static ServicesCustomizationDocument* GetInstance();
 
@@ -148,8 +151,8 @@ class ServicesCustomizationDocument : public CustomizationDocument,
   // Save applied state in machine settings.
   static void SetApplied(bool val);
 
-  // Overriden from content::URLFetcherDelegate:
-  virtual void OnURLFetchComplete(const content::URLFetcher* source) OVERRIDE;
+  // Overriden from net::URLFetcherDelegate:
+  virtual void OnURLFetchComplete(const net::URLFetcher* source) OVERRIDE;
 
   // Initiate file fetching.
   void StartFileFetch();
@@ -161,7 +164,7 @@ class ServicesCustomizationDocument : public CustomizationDocument,
   GURL url_;
 
   // URLFetcher instance.
-  scoped_ptr<content::URLFetcher> url_fetcher_;
+  scoped_ptr<net::URLFetcher> url_fetcher_;
 
   // Timer to retry fetching file if network is not available.
   base::OneShotTimer<ServicesCustomizationDocument> retry_timer_;

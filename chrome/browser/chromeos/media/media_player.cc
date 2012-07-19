@@ -13,6 +13,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/browser_thread.h"
@@ -86,15 +87,6 @@ void MediaPlayer::EnqueueMediaFileUrl(const GURL& url) {
   current_playlist_.push_back(url);
 }
 
-void MediaPlayer::ForcePlayMediaFile(Profile* profile,
-                                     const FilePath& file_path) {
-  GURL url;
-  if (!file_manager_util::ConvertFileToFileSystemUrl(profile, file_path,
-                                                     GetOriginUrl(), &url))
-    return;
-  ForcePlayMediaURL(url);
-}
-
 void MediaPlayer::ForcePlayMediaURL(const GURL& url) {
   ClearPlaylist();
   EnqueueMediaFileUrl(url);
@@ -120,13 +112,12 @@ void MediaPlayer::NotifyPlaylistChanged() {
   ExtensionMediaPlayerEventRouter::GetInstance()->NotifyPlaylistChanged();
 }
 
-void MediaPlayer::PopupMediaPlayer(Browser* creator) {
+void MediaPlayer::PopupMediaPlayer() {
   if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
     BrowserThread::PostTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&MediaPlayer::PopupMediaPlayer,
-                   base::Unretained(this),  // this class is a singleton.
-                   static_cast<Browser*>(NULL)));
+                   base::Unretained(this) /*this class is a singleton*/));
     return;
   }
   if (mediaplayer_browser_) {  // Already opened.
@@ -134,7 +125,7 @@ void MediaPlayer::PopupMediaPlayer(Browser* creator) {
     return;
   }
 
-  const gfx::Size screen = gfx::Screen::GetPrimaryMonitorSize();
+  const gfx::Size screen = gfx::Screen::GetPrimaryDisplay().size();
   const gfx::Rect bounds(screen.width() - kPopupRight - kPopupWidth,
                          screen.height() - kPopupBottom - kPopupHeight,
                          kPopupWidth,
@@ -150,13 +141,9 @@ void MediaPlayer::PopupMediaPlayer(Browser* creator) {
                  chrome::NOTIFICATION_BROWSER_CLOSED,
                  content::Source<Browser>(mediaplayer_browser_));
 
-  mediaplayer_browser_->AddSelectedTabWithURL(GetMediaPlayerUrl(),
-                                              content::PAGE_TRANSITION_LINK);
+  chrome::AddSelectedTabWithURL(mediaplayer_browser_, GetMediaPlayerUrl(),
+                                content::PAGE_TRANSITION_LINK);
   mediaplayer_browser_->window()->Show();
-}
-
-GURL MediaPlayer::GetOriginUrl() const {
-  return file_manager_util::GetMediaPlayerUrl().GetOrigin();
 }
 
 GURL MediaPlayer::GetMediaPlayerUrl() const {

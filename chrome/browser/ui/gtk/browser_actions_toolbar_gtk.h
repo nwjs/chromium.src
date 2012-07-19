@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_GTK_BROWSER_ACTIONS_TOOLBAR_GTK_H_
 #define CHROME_BROWSER_UI_GTK_BROWSER_ACTIONS_TOOLBAR_GTK_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -27,9 +26,12 @@
 
 class Browser;
 class BrowserActionButton;
-class Extension;
-class ThemeServiceGtk;
+class GtkThemeService;
 class Profile;
+
+namespace extensions {
+class Extension;
+}
 
 typedef struct _GdkDragContext GdkDragContext;
 typedef struct _GtkWidget GtkWidget;
@@ -49,14 +51,16 @@ class BrowserActionsToolbarGtk : public ExtensionToolbarModel::Observer,
   // Returns the widget in use by the BrowserActionButton corresponding to
   // |extension|. Used in positioning the ExtensionInstalledBubble for
   // BrowserActions.
-  GtkWidget* GetBrowserActionWidget(const Extension* extension);
+  GtkWidget* GetBrowserActionWidget(const extensions::Extension* extension);
 
   int button_count() { return extension_button_map_.size(); }
 
   Browser* browser() { return browser_; }
 
+  ExtensionToolbarModel* model() { return model_; }
+
   // Returns the currently selected tab ID, or -1 if there is none.
-  int GetCurrentTabId();
+  int GetCurrentTabId() const;
 
   // Update the display of all buttons.
   void Update();
@@ -85,10 +89,11 @@ class BrowserActionsToolbarGtk : public ExtensionToolbarModel::Observer,
 
   // Create the UI for a single browser action. This will stick the button
   // at the end of the toolbar.
-  void CreateButtonForExtension(const Extension* extension, int index);
+  void CreateButtonForExtension(const extensions::Extension* extension,
+                                int index);
 
   // Delete resources associated with UI for a browser action.
-  void RemoveButtonForExtension(const Extension* extension);
+  void RemoveButtonForExtension(const extensions::Extension* extension);
 
   // Change the visibility of widget() based on whether we have any buttons
   // to show.
@@ -104,13 +109,14 @@ class BrowserActionsToolbarGtk : public ExtensionToolbarModel::Observer,
   // Returns true if this extension should be shown in this toolbar. This can
   // return false if we are in an incognito window and the extension is disabled
   // for incognito.
-  bool ShouldDisplayBrowserAction(const Extension* extension);
+  bool ShouldDisplayBrowserAction(const extensions::Extension* extension);
 
   // ExtensionToolbarModel::Observer implementation.
-  virtual void BrowserActionAdded(const Extension* extension,
+  virtual void BrowserActionAdded(const extensions::Extension* extension,
                                   int index) OVERRIDE;
-  virtual void BrowserActionRemoved(const Extension* extension) OVERRIDE;
-  virtual void BrowserActionMoved(const Extension* extension,
+  virtual void BrowserActionRemoved(
+      const extensions::Extension* extension) OVERRIDE;
+  virtual void BrowserActionMoved(const extensions::Extension* extension,
                                   int index) OVERRIDE;
   virtual void ModelLoaded() OVERRIDE;
 
@@ -173,7 +179,7 @@ class BrowserActionsToolbarGtk : public ExtensionToolbarModel::Observer,
   Browser* browser_;
 
   Profile* profile_;
-  ThemeServiceGtk* theme_service_;
+  GtkThemeService* theme_service_;
 
   ExtensionToolbarModel* model_;
 

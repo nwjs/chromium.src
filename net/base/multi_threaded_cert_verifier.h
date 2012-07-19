@@ -4,7 +4,6 @@
 
 #ifndef NET_BASE_MULTI_THREADED_CERT_VERIFIER_H_
 #define NET_BASE_MULTI_THREADED_CERT_VERIFIER_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -12,7 +11,6 @@
 #include "base/basictypes.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/threading/non_thread_safe.h"
 #include "net/base/cert_database.h"
 #include "net/base/cert_verifier.h"
@@ -31,10 +29,10 @@ class CertVerifyProc;
 
 // MultiThreadedCertVerifier is a CertVerifier implementation that runs
 // synchronous CertVerifier implementations on worker threads.
-class NET_EXPORT_PRIVATE MultiThreadedCertVerifier :
-    public CertVerifier,
-    NON_EXPORTED_BASE(public base::NonThreadSafe),
-    public CertDatabase::Observer {
+class NET_EXPORT_PRIVATE MultiThreadedCertVerifier
+    : public CertVerifier,
+      NON_EXPORTED_BASE(public base::NonThreadSafe),
+      public CertDatabase::Observer {
  public:
   MultiThreadedCertVerifier();
 
@@ -109,6 +107,31 @@ class NET_EXPORT_PRIVATE MultiThreadedCertVerifier :
     CertVerifyResult result;  // The output of CertVerifier::Verify.
   };
 
+  // Rather than having a single validity point along a monotonically increasing
+  // timeline, certificate verification is based on falling within a range of
+  // the certificate's NotBefore and NotAfter and based on what the current
+  // system clock says (which may advance forwards or backwards as users correct
+  // clock skew). CacheValidityPeriod and CacheExpirationFunctor are helpers to
+  // ensure that expiration is measured both by the 'general' case (now + cache
+  // TTL) and by whether or not significant enough clock skew was introduced
+  // since the last verification.
+  struct CacheValidityPeriod {
+    explicit CacheValidityPeriod(const base::Time& now);
+    CacheValidityPeriod(const base::Time& now, const base::Time& expiration);
+
+    base::Time verification_time;
+    base::Time expiration_time;
+  };
+
+  struct CacheExpirationFunctor {
+    // Returns true iff |now| is within the validity period of |expiration|.
+    bool operator()(const CacheValidityPeriod& now,
+                    const CacheValidityPeriod& expiration) const;
+  };
+
+  typedef ExpiringCache<RequestParams, CachedResult, CacheValidityPeriod,
+                        CacheExpirationFunctor> CertVerifierCache;
+
   void HandleResult(X509Certificate* cert,
                     const std::string& hostname,
                     int flags,
@@ -127,7 +150,6 @@ class NET_EXPORT_PRIVATE MultiThreadedCertVerifier :
   void SetCertVerifyProc(CertVerifyProc* verify_proc);
 
   // cache_ maps from a request to a cached result.
-  typedef ExpiringCache<RequestParams, CachedResult> CertVerifierCache;
   CertVerifierCache cache_;
 
   // inflight_ maps from a request to an active verification which is taking

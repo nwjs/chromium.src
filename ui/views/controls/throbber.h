@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_THROBBER_H_
 #define UI_VIEWS_CONTROLS_THROBBER_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -12,7 +11,9 @@
 #include "base/timer.h"
 #include "ui/views/view.h"
 
-class SkBitmap;
+namespace gfx {
+class ImageSkia;
+}
 
 namespace views {
 
@@ -25,7 +26,7 @@ class VIEWS_EXPORT Throbber : public View {
   // If |paint_while_stopped| is false, this view will be invisible when not
   // running.
   Throbber(int frame_time_ms, bool paint_while_stopped);
-  Throbber(int frame_time_ms, bool paint_while_stopped, SkBitmap* frames);
+  Throbber(int frame_time_ms, bool paint_while_stopped, gfx::ImageSkia* frames);
   virtual ~Throbber();
 
   // Start and stop the throbber animation
@@ -33,7 +34,7 @@ class VIEWS_EXPORT Throbber : public View {
   virtual void Stop();
 
   // Set custom throbber frames. Otherwise IDR_THROBBER is loaded.
-  void SetFrames(const SkBitmap* frames);
+  void SetFrames(const gfx::ImageSkia* frames);
 
   // Overridden from View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
@@ -49,7 +50,7 @@ class VIEWS_EXPORT Throbber : public View {
   bool paint_while_stopped_;
   int frame_count_;  // How many frames we have.
   base::Time start_time_;  // Time when Start was called.
-  const SkBitmap* frames_;  // Frames bitmaps.
+  const gfx::ImageSkia* frames_;  // Frames images.
   base::TimeDelta frame_time_;  // How long one frame is displayed.
   base::RepeatingTimer<Throbber> timer_;  // Used to schedule Run calls.
 
@@ -62,8 +63,8 @@ class VIEWS_EXPORT Throbber : public View {
 // a small amount of work time has passed.
 class VIEWS_EXPORT SmoothedThrobber : public Throbber {
  public:
-  SmoothedThrobber(int frame_delay_ms);
-  SmoothedThrobber(int frame_delay_ms, SkBitmap* frames);
+  explicit SmoothedThrobber(int frame_delay_ms);
+  SmoothedThrobber(int frame_delay_ms, gfx::ImageSkia* frames);
   virtual ~SmoothedThrobber();
 
   virtual void Start() OVERRIDE;
@@ -116,7 +117,7 @@ class VIEWS_EXPORT CheckmarkThrobber : public Throbber {
   bool checked_;
 
   // The checkmark image.
-  const SkBitmap* checkmark_;
+  const gfx::ImageSkia* checkmark_;
 
   DISALLOW_COPY_AND_ASSIGN(CheckmarkThrobber);
 };

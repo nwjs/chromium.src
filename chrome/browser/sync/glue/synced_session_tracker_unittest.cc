@@ -23,14 +23,14 @@ TEST_F(SyncedSessionTrackerTest, GetSession) {
   SyncedSession* session2 = tracker.GetSession("tag2");
   ASSERT_EQ(session1, tracker.GetSession("tag"));
   ASSERT_NE(session1, session2);
-  // Should clean up memory on it's own.
+  // Should clean up memory on its own.
 }
 
 TEST_F(SyncedSessionTrackerTest, GetTabUnmapped) {
   SyncedSessionTracker tracker;
-  SessionTab* tab = tracker.GetTab("tag", 0);
+  SyncedSessionTab* tab = tracker.GetTab("tag", 0);
   ASSERT_EQ(tab, tracker.GetTab("tag", 0));
-  // Should clean up memory on it's own.
+  // Should clean up memory on its own.
 }
 
 TEST_F(SyncedSessionTrackerTest, PutWindowInSession) {
@@ -38,7 +38,7 @@ TEST_F(SyncedSessionTrackerTest, PutWindowInSession) {
   tracker.PutWindowInSession("tag", 0);
   SyncedSession* session = tracker.GetSession("tag");
   ASSERT_EQ(1U, session->windows.size());
-  // Should clean up memory on it's own.
+  // Should clean up memory on its own.
 }
 
 TEST_F(SyncedSessionTrackerTest, PutTabInWindow) {
@@ -49,7 +49,7 @@ TEST_F(SyncedSessionTrackerTest, PutTabInWindow) {
   ASSERT_EQ(1U, session->windows.size());
   ASSERT_EQ(1U, session->windows[10]->tabs.size());
   ASSERT_EQ(tracker.GetTab("tag", 15), session->windows[10]->tabs[0]);
-  // Should clean up memory on it's own.
+  // Should clean up memory on its own.
 }
 
 TEST_F(SyncedSessionTrackerTest, LookupAllForeignSessions) {
@@ -60,7 +60,7 @@ TEST_F(SyncedSessionTrackerTest, LookupAllForeignSessions) {
   tracker.GetSession("tag2");
   tracker.PutWindowInSession("tag1", 0);
   tracker.PutTabInWindow("tag1", 0, 15, 0);
-  SessionTab* tab = tracker.GetTab("tag1", 15);
+  SyncedSessionTab* tab = tracker.GetTab("tag1", 15);
   ASSERT_TRUE(tab);
   tab->navigations.push_back(TabNavigation(
       0, GURL("bla://valid_url"), content::Referrer(GURL("bla://referrer"),
@@ -91,13 +91,13 @@ TEST_F(SyncedSessionTrackerTest, LookupSessionWindows) {
 
 TEST_F(SyncedSessionTrackerTest, LookupSessionTab) {
   SyncedSessionTracker tracker;
-  const SessionTab* tab;
+  const SyncedSessionTab* tab;
   ASSERT_FALSE(tracker.LookupSessionTab("tag1", 5, &tab));
   tracker.GetSession("tag1");
   tracker.PutWindowInSession("tag1", 0);
   tracker.PutTabInWindow("tag1", 0, 5, 0);
   ASSERT_TRUE(tracker.LookupSessionTab("tag1", 5, &tab));
-  ASSERT_NE((SessionTab*)NULL, tab);
+  ASSERT_NE((SyncedSessionTab*)NULL, tab);
 }
 
 TEST_F(SyncedSessionTrackerTest, Complex) {
@@ -105,8 +105,8 @@ TEST_F(SyncedSessionTrackerTest, Complex) {
   const std::string tag2 = "tag2";
   const std::string tag3 = "tag3";
   SyncedSessionTracker tracker;
-  std::vector<SessionTab*> tabs1, tabs2;
-  SessionTab* temp_tab;
+  std::vector<SyncedSessionTab*> tabs1, tabs2;
+  SyncedSessionTab* temp_tab;
   ASSERT_TRUE(tracker.Empty());
   ASSERT_EQ(0U, tracker.num_synced_sessions());
   ASSERT_EQ(0U, tracker.num_synced_tabs(tag1));
@@ -141,13 +141,13 @@ TEST_F(SyncedSessionTrackerTest, Complex) {
   tracker.PutTabInWindow(tag1, 0, 2, 0);    // No longer unmapped.
   ASSERT_EQ(3U, tracker.num_synced_tabs(tag1));      // Has not changed.
 
-  const SessionTab *tab_ptr;
+  const SyncedSessionTab *tab_ptr;
   ASSERT_TRUE(tracker.LookupSessionTab(tag1, 0, &tab_ptr));
   ASSERT_EQ(tab_ptr, tabs1[0]);
   ASSERT_TRUE(tracker.LookupSessionTab(tag1, 2, &tab_ptr));
   ASSERT_EQ(tab_ptr, tabs1[2]);
   ASSERT_FALSE(tracker.LookupSessionTab(tag1, 3, &tab_ptr));
-  ASSERT_EQ(static_cast<const SessionTab*>(NULL), tab_ptr);
+  ASSERT_EQ(static_cast<const SyncedSessionTab*>(NULL), tab_ptr);
 
   std::vector<const SessionWindow*> windows;
   ASSERT_TRUE(tracker.LookupSessionWindows(tag1, &windows));
@@ -177,7 +177,7 @@ TEST_F(SyncedSessionTrackerTest, ManyGetTabs) {
       // More attempts than tabs means we'll sometimes get the same tabs,
       // sometimes have to allocate new tabs.
       int rand_tab_num = base::RandInt(0, kMaxTabs);
-      SessionTab* tab = tracker.GetTab(tag, rand_tab_num);
+      SyncedSessionTab* tab = tracker.GetTab(tag, rand_tab_num);
       ASSERT_TRUE(tab);
     }
   }
@@ -214,7 +214,7 @@ TEST_F(SyncedSessionTrackerTest, SessionTracking) {
 
   // Reset tracking and get the current windows/tabs.
   // We simulate moving a tab from one window to another, then closing the first
-  // window (including it's one remaining tab), and opening a new tab on the
+  // window (including its one remaining tab), and opening a new tab on the
   // remaining window.
   tracker.GetTab(tag1, 6);  // New tab, arrived before meta node so unmapped.
   tracker.ResetSessionTracking(tag1);

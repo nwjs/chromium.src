@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,16 +6,19 @@
 
 #include <vector>
 
-#import "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/cocoa/cocoa_profile_test.h"
 #import "chrome/browser/ui/cocoa/new_tab_button.h"
+#import "chrome/browser/ui/cocoa/tabs/tab_controller.h"
 #import "chrome/browser/ui/cocoa/tabs/tab_strip_controller.h"
 #import "chrome/browser/ui/cocoa/tabs/tab_strip_view.h"
 #import "chrome/browser/ui/cocoa/tabs/tab_view.h"
-#import "chrome/browser/ui/cocoa/tabs/tab_controller.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
+#include "ipc/ipc_message.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
@@ -55,60 +58,6 @@ using content::WebContents;
 
 namespace {
 
-// Stub model delegate
-class TestTabStripDelegate : public TabStripModelDelegate {
- public:
-  virtual TabContentsWrapper* AddBlankTab(bool foreground) {
-    return NULL;
-  }
-  virtual TabContentsWrapper* AddBlankTabAt(int index, bool foreground) {
-    return NULL;
-  }
-  virtual Browser* CreateNewStripWithContents(TabContentsWrapper* contents,
-                                              const gfx::Rect& window_bounds,
-                                              const DockInfo& dock_info,
-                                              bool maximize) {
-    return NULL;
-  }
-  virtual void ContinueDraggingDetachedTab(TabContentsWrapper* contents,
-                                           const gfx::Rect& window_bounds,
-                                           const gfx::Rect& tab_bounds) {
-  }
-  virtual int GetDragActions() const {
-    return 0;
-  }
-  virtual TabContentsWrapper* CreateTabContentsForURL(
-      const GURL& url,
-      const content::Referrer& referrer,
-      Profile* profile,
-      content::PageTransition transition,
-      bool defer_load,
-      SiteInstance* instance) const {
-    return NULL;
-  }
-  virtual bool CanDuplicateContentsAt(int index) { return true; }
-  virtual void DuplicateContentsAt(int index) { }
-  virtual void CloseFrameAfterDragSession() { }
-  virtual void CreateHistoricalTab(TabContentsWrapper* contents) { }
-  virtual bool RunUnloadListenerBeforeClosing(TabContentsWrapper* contents) {
-    return true;
-  }
-  virtual bool CanRestoreTab() {
-    return true;
-  }
-  virtual void RestoreTab() {}
-
-  virtual bool CanCloseContents(std::vector<int>* indices) { return true; }
-
-  virtual bool CanBookmarkAllTabs() const { return false; }
-
-  virtual bool CanCloseTab() const { return true; }
-
-  virtual void BookmarkAllTabs() {}
-
-  virtual bool LargeIconsPermitted() const { return true; }
-};
-
 class TabStripControllerTest : public CocoaProfileTest {
  public:
   virtual void SetUp() {
@@ -116,7 +65,7 @@ class TabStripControllerTest : public CocoaProfileTest {
     ASSERT_TRUE(browser());
 
     BrowserWindow* browser_window = CreateBrowserWindow();
-    NSWindow* window = browser_window->GetNativeHandle();
+    NSWindow* window = browser_window->GetNativeWindow();
     NSView* parent = [window contentView];
     NSRect content_frame = [parent frame];
 
@@ -140,8 +89,8 @@ class TabStripControllerTest : public CocoaProfileTest {
     [tab_strip_ addSubview:new_tab_button.get()];
     [tab_strip_ setNewTabButton:new_tab_button.get()];
 
-    delegate_.reset(new TestTabStripDelegate());
-    model_ = browser()->tabstrip_model();
+    delegate_.reset(new TestTabStripModelDelegate());
+    model_ = browser()->tab_strip_model();
     controller_delegate_.reset([TestTabStripControllerDelegate alloc]);
     controller_.reset([[TabStripController alloc]
                       initWithView:static_cast<TabStripView*>(tab_strip_.get())
@@ -158,7 +107,7 @@ class TabStripControllerTest : public CocoaProfileTest {
     CocoaProfileTest::TearDown();
   }
 
-  scoped_ptr<TestTabStripDelegate> delegate_;
+  scoped_ptr<TestTabStripModelDelegate> delegate_;
   TabStripModel* model_;
   scoped_nsobject<TestTabStripControllerDelegate> controller_delegate_;
   scoped_nsobject<TabStripController> controller_;
@@ -170,9 +119,8 @@ class TabStripControllerTest : public CocoaProfileTest {
 TEST_F(TabStripControllerTest, AddRemoveTabs) {
   EXPECT_TRUE(model_->empty());
   SiteInstance* instance = SiteInstance::Create(profile());
-  TabContentsWrapper* tab_contents =
-      Browser::TabContentsFactory(profile(), instance,
-          MSG_ROUTING_NONE, NULL, NULL);
+  TabContents* tab_contents = chrome::TabContentsFactory(
+      profile(), instance, MSG_ROUTING_NONE, NULL, NULL);
   model_->AppendTabContents(tab_contents, true);
   EXPECT_EQ(model_->count(), 1);
 }
@@ -185,25 +133,17 @@ TEST_F(TabStripControllerTest, RearrangeTabs) {
   // TODO(pinkerton): Implement http://crbug.com/10899
 }
 
-// Test that changing the number of tabs broadcasts a
-// kTabStripNumberOfTabsChanged notifiction.
-TEST_F(TabStripControllerTest, Notifications) {
-  // TODO(pinkerton): Implement http://crbug.com/10899
-}
-
 TEST_F(TabStripControllerTest, CorrectToolTipText) {
   // Create tab 1.
   SiteInstance* instance = SiteInstance::Create(profile());
-  TabContentsWrapper* tab_contents =
-  Browser::TabContentsFactory(profile(), instance,
-                              MSG_ROUTING_NONE, NULL, NULL);
+  TabContents* tab_contents = chrome::TabContentsFactory(
+      profile(), instance, MSG_ROUTING_NONE, NULL, NULL);
   model_->AppendTabContents(tab_contents, true);
 
   // Create tab 2.
   SiteInstance* instance2 = SiteInstance::Create(profile());
-  TabContentsWrapper* tab_contents2 =
-  Browser::TabContentsFactory(profile(), instance2,
-                              MSG_ROUTING_NONE, NULL, NULL);
+  TabContents* tab_contents2 = chrome::TabContentsFactory(
+      profile(), instance2, MSG_ROUTING_NONE, NULL, NULL);
   model_->AppendTabContents(tab_contents2, true);
 
   // Set tab 1 tooltip.

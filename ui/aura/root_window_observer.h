@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_ROOT_WINDOW_OBSERVER_H_
 #define UI_AURA_ROOT_WINDOW_OBSERVER_H_
-#pragma once
 
 #include "ui/aura/aura_export.h"
 
@@ -22,8 +21,9 @@ class AURA_EXPORT RootWindowObserver {
   virtual void OnRootWindowResized(const RootWindow* root,
                                    const gfx::Size& old_size) {}
 
-  // Invoked when a window is focused.
-  virtual void OnWindowFocused(Window* window) {}
+  // Invoked when the native windowing system sends us a request to close our
+  // window.
+  virtual void OnRootWindowHostClosed(const RootWindow* root) {}
 
   // Invoked when the keyboard mapping has changed.
   virtual void OnKeyboardMappingChanged(const RootWindow* root) {}

@@ -14,6 +14,8 @@
 #include "chrome/browser/cookies_tree_model.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/parsed_cookie.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
@@ -58,9 +60,8 @@ CookieInfoView::CookieInfoView(bool editable_expiration_date)
 CookieInfoView::~CookieInfoView() {
 }
 
-void CookieInfoView::SetCookie(
-    const std::string& domain,
-    const net::CookieMonster::CanonicalCookie& cookie) {
+void CookieInfoView::SetCookie(const std::string& domain,
+                               const net::CanonicalCookie& cookie) {
   name_value_field_->SetText(UTF8ToUTF16(cookie.Name()));
   content_value_field_->SetText(UTF8ToUTF16(cookie.Value()));
   domain_value_field_->SetText(UTF8ToUTF16(domain));
@@ -68,13 +69,13 @@ void CookieInfoView::SetCookie(
   created_value_field_->SetText(
       base::TimeFormatFriendlyDateAndTime(cookie.CreationDate()));
 
-  string16 expire_text = cookie.DoesExpire() ?
+  string16 expire_text = cookie.IsPersistent() ?
       base::TimeFormatFriendlyDateAndTime(cookie.ExpiryDate()) :
       l10n_util::GetStringUTF16(IDS_COOKIES_COOKIE_EXPIRES_SESSION);
 
   if (editable_expiration_date_) {
     expire_combo_values_.clear();
-    if (cookie.DoesExpire())
+    if (cookie.IsPersistent())
       expire_combo_values_.push_back(expire_text);
     expire_combo_values_.push_back(
         l10n_util::GetStringUTF16(IDS_COOKIES_COOKIE_EXPIRES_SESSION));
@@ -95,8 +96,8 @@ void CookieInfoView::SetCookie(
 
 void CookieInfoView::SetCookieString(const GURL& url,
                                      const std::string& cookie_line) {
-  net::CookieMonster::ParsedCookie pc(cookie_line);
-  net::CookieMonster::CanonicalCookie cookie(url, pc);
+  net::ParsedCookie pc(cookie_line);
+  net::CanonicalCookie cookie(url, pc);
   SetCookie(pc.HasDomain() ? pc.Domain() : url.host(), cookie);
 }
 

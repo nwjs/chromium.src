@@ -13,6 +13,28 @@ JOBS="${JOBS:-4}"
 # Clobber build?  Overridden by bots with BUILDBOT_CLOBBER.
 NEED_CLOBBER="${NEED_CLOBBER:-0}"
 
+
+# Parse named arguments passed into the annotator script
+# and assign them global variable names.
+function bb_parse_args {
+  while [[ $1 ]]; do
+    case "$1" in
+      --factory-properties=*)
+        FACTORY_PROPERTIES="$(echo "$1" | sed 's/^[^=]*=//')"
+        ;;
+      --build-properties=*)
+        BUILD_PROPERTIES="$(echo "$1" | sed 's/^[^=]*=//')"
+        ;;
+      *)
+        echo "@@@STEP_WARNINGS@@@"
+        echo "Warning, unparsed input argument: '$1'"
+        ;;
+    esac
+    shift
+  done
+}
+
+
 # Setup environment for Android build.
 # Called from bb_baseline_setup.
 # Moved to top of file so it is easier to find.
@@ -30,6 +52,7 @@ function bb_install_build_deps {
   if [[ -f "$script" ]]; then
     "$script"
   else
+    echo "@@@STEP_WARNINGS@@@"
     echo "Cannot find $script; why?"
   fi
 }
@@ -40,11 +63,23 @@ function bb_force_bot_green_and_exit {
   exit 0
 }
 
+function bb_run_gclient_hooks {
+  echo "@@@BUILD_STEP runhooks android@@@"
+  gclient runhooks
+}
+
 # Basic setup for all bots to run after a source tree checkout.
-# $1: source root.
+# Args:
+#   $1: source root.
+#   $2 and beyond: key value pairs which are parsed by bb_parse_args.
 function bb_baseline_setup {
   echo "@@@BUILD_STEP cd into source root@@@"
   SRC_ROOT="$1"
+  # Remove SRC_ROOT param
+  shift
+
+  bb_parse_args "$@"
+
   if [ ! -d "${SRC_ROOT}" ] ; then
     echo "Please specify a valid source root directory as an arg"
     echo '@@@STEP_FAILURE@@@'
@@ -77,7 +112,7 @@ function bb_baseline_setup {
 
   # Setting up a new bot?  Must do this before envsetup.sh
   if [ ! -d "${ANDROID_NDK_ROOT}" ] ; then
-    bb_install_build_deps $1
+    bb_install_build_deps $SRC_ROOT
   fi
 
   echo "@@@BUILD_STEP Configure with envsetup.sh@@@"
@@ -92,8 +127,8 @@ function bb_baseline_setup {
     fi
   fi
 
-  echo "@@@BUILD_STEP android_gyp@@@"
-  android_gyp
+  # Should be called only after envsetup is done.
+  bb_run_gclient_hooks
 }
 
 
@@ -180,12 +215,16 @@ function bb_goma_make {
     COMMON_JAVAC="$COMMON_JAVAC" \
     "$@"
 
+  local make_exit_status=$?
   bb_stop_goma_internal
+  return $make_exit_status
 }
 
 # Compile step
 function bb_compile {
-  echo "@@@BUILD_STEP Compile@@@"
+  # This must be named 'compile', not 'Compile', for CQ interaction.
+  # Talk to maruel for details.
+  echo "@@@BUILD_STEP compile@@@"
   bb_goma_make
 }
 
@@ -214,4 +253,50 @@ function bb_run_tests_emulator {
 function bb_run_tests {
   echo "@@@BUILD_STEP Run Tests on actual hardware@@@"
   build/android/run_tests.py --xvfb --verbose
+}
+
+# Run simple content shell test on device.
+function bb_run_content_shell_test {
+  echo "@@@BUILD_STEP Run simple content shell test on actual hardware@@@"
+  content/shell/android/simple_content_shell_test.sh \
+    "${SRC_ROOT}"/out/Release/content_shell/ContentShell-debug.apk
+}
+
+# Zip and archive a build.
+function bb_zip_build {
+  echo "@@@BUILD_STEP Zip build@@@"
+  python ../../../../scripts/slave/zip_build.py \
+    --src-dir "$SRC_ROOT" \
+    --exclude-files "lib.target" \
+    --factory-properties "$FACTORY_PROPERTIES" \
+    --build-properties "$BUILD_PROPERTIES"
+}
+
+# Download and extract a build.
+function bb_extract_build {
+  echo "@@@BUILD_STEP Download and extract build@@@"
+  if [[ -z $FACTORY_PROPERTIES || -z $BUILD_PROPERTIES ]]; then
+    return 1
+  fi
+
+  # When extract_build.py downloads an unversioned build it
+  # issues a warning by exiting with large numbered return code
+  # When it fails to download it build, it exits with return
+  # code 1.  We disable halt on error mode and return normally
+  # unless the python tool returns 1.
+  (
+  set +e
+  python ../../../../scripts/slave/extract_build.py \
+    --build-dir "$SRC_ROOT" \
+    --build-output-dir "out" \
+    --target Release \
+    --factory-properties "$FACTORY_PROPERTIES" \
+    --build-properties "$BUILD_PROPERTIES"
+  extract_exitcode=$?
+  if (( $extract_exitcode > 1 )); then
+    echo "@@@STEP_WARNINGS@@@"
+    return
+  fi
+  return $extract_exitcode
+  )
 }

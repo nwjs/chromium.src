@@ -27,8 +27,8 @@
 #include "media/video/video_decode_accelerator.h"
 #include "third_party/angle/include/EGL/egl.h"
 #include "third_party/angle/include/EGL/eglext.h"
-#include "ui/gfx/gl/gl_bindings.h"
-#include "ui/gfx/gl/gl_surface.h"
+#include "ui/gl/gl_bindings.h"
+#include "ui/gl/gl_surface.h"
 
 // We only request 5 picture buffers from the client which are used to hold the
 // decoded samples. These buffers are then reused when the client tells us that
@@ -142,20 +142,9 @@ static IMFSample* CreateInputSample(const uint8* stream, int size,
 
 static IMFSample* CreateSampleFromInputBuffer(
     const media::BitstreamBuffer& bitstream_buffer,
-    base::ProcessHandle renderer_process,
     DWORD stream_size,
     DWORD alignment) {
-  HANDLE shared_memory_handle = NULL;
-  RETURN_ON_FAILURE(::DuplicateHandle(renderer_process,
-                                      bitstream_buffer.handle(),
-                                      base::GetCurrentProcessHandle(),
-                                      &shared_memory_handle,
-                                      0,
-                                      FALSE,
-                                      DUPLICATE_SAME_ACCESS),
-                     "Duplicate handle failed", NULL);
-
-  base::SharedMemory shm(shared_memory_handle, true);
+  base::SharedMemory shm(bitstream_buffer.handle(), true);
   RETURN_ON_FAILURE(shm.Map(bitstream_buffer.size()),
                     "Failed in base::SharedMemory::Map", NULL);
 
@@ -505,14 +494,11 @@ bool DXVAVideoDecodeAccelerator::CreateD3DDevManager() {
 }
 
 DXVAVideoDecodeAccelerator::DXVAVideoDecodeAccelerator(
-    media::VideoDecodeAccelerator::Client* client,
-    base::ProcessHandle renderer_process)
+    media::VideoDecodeAccelerator::Client* client)
     : client_(client),
       egl_config_(NULL),
       state_(kUninitialized),
       pictures_requested_(false),
-      renderer_process_(renderer_process),
-      last_input_buffer_id_(-1),
       inputs_before_decode_(0) {
   memset(&input_stream_info_, 0, sizeof(input_stream_info_));
   memset(&output_stream_info_, 0, sizeof(output_stream_info_));
@@ -522,8 +508,18 @@ DXVAVideoDecodeAccelerator::~DXVAVideoDecodeAccelerator() {
   client_ = NULL;
 }
 
-bool DXVAVideoDecodeAccelerator::Initialize(media::VideoCodecProfile) {
+bool DXVAVideoDecodeAccelerator::Initialize(media::VideoCodecProfile profile) {
   DCHECK(CalledOnValidThread());
+
+  // TODO(ananta)
+  // H264PROFILE_HIGH video decoding is janky at times. Needs more
+  // investigation.
+  if (profile != media::H264PROFILE_BASELINE &&
+      profile != media::H264PROFILE_MAIN &&
+      profile != media::H264PROFILE_HIGH) {
+    RETURN_AND_NOTIFY_ON_FAILURE(false,
+        "Unsupported h264 profile", PLATFORM_FAILURE, false);
+  }
 
   RETURN_AND_NOTIFY_ON_FAILURE(pre_sandbox_init_done_,
       "PreSandbox initialization not completed", PLATFORM_FAILURE, false);
@@ -543,11 +539,18 @@ bool DXVAVideoDecodeAccelerator::Initialize(media::VideoCodecProfile) {
 
   RETURN_AND_NOTIFY_ON_FAILURE(
       SendMFTMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0),
-      "Failed to start decoder", PLATFORM_FAILURE, false);
+      "Send MFT_MESSAGE_NOTIFY_BEGIN_STREAMING notification failed",
+      PLATFORM_FAILURE, false);
+
+  RETURN_AND_NOTIFY_ON_FAILURE(
+      SendMFTMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0),
+      "Send MFT_MESSAGE_NOTIFY_START_OF_STREAM notification failed",
+      PLATFORM_FAILURE, false);
 
   state_ = kNormal;
-  MessageLoop::current()->PostTask(FROM_HERE,
-      base::Bind(&DXVAVideoDecodeAccelerator::NotifyInitializeDone, this));
+  MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
+      &DXVAVideoDecodeAccelerator::NotifyInitializeDone,
+      base::AsWeakPtr(this)));
   return true;
 }
 
@@ -560,30 +563,24 @@ void DXVAVideoDecodeAccelerator::Decode(
 
   base::win::ScopedComPtr<IMFSample> sample;
   sample.Attach(CreateSampleFromInputBuffer(bitstream_buffer,
-                                            renderer_process_,
                                             input_stream_info_.cbSize,
                                             input_stream_info_.cbAlignment));
   RETURN_AND_NOTIFY_ON_FAILURE(sample, "Failed to create input sample",
                                PLATFORM_FAILURE,);
+
+  RETURN_AND_NOTIFY_ON_HR_FAILURE(sample->SetSampleTime(bitstream_buffer.id()),
+      "Failed to associate input buffer id with sample", PLATFORM_FAILURE,);
+
   if (!inputs_before_decode_) {
     TRACE_EVENT_BEGIN_ETW("DXVAVideoDecodeAccelerator.Decoding", this, "");
   }
   inputs_before_decode_++;
 
-  RETURN_AND_NOTIFY_ON_FAILURE(
-      SendMFTMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0),
-      "Failed to create input sample", PLATFORM_FAILURE,);
-
   HRESULT hr = decoder_->ProcessInput(0, sample, 0);
   RETURN_AND_NOTIFY_ON_HR_FAILURE(hr, "Failed to process input sample",
       PLATFORM_FAILURE,);
 
-  RETURN_AND_NOTIFY_ON_FAILURE(
-    SendMFTMessage(MFT_MESSAGE_NOTIFY_END_OF_STREAM, 0),
-    "Failed to send eos message to MFT", PLATFORM_FAILURE,);
   state_ = kEosDrain;
-
-  last_input_buffer_id_ = bitstream_buffer.id();
 
   DoDecode();
 
@@ -601,7 +598,7 @@ void DXVAVideoDecodeAccelerator::Decode(
   // decoder to emit an output packet for every input packet.
   // http://code.google.com/p/chromium/issues/detail?id=108121
   MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
-      &DXVAVideoDecodeAccelerator::NotifyInputBufferRead, this,
+      &DXVAVideoDecodeAccelerator::NotifyInputBufferRead, base::AsWeakPtr(this),
       bitstream_buffer.id()));
 }
 
@@ -662,7 +659,7 @@ void DXVAVideoDecodeAccelerator::Flush() {
   }
 
   MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
-      &DXVAVideoDecodeAccelerator::NotifyFlushDone, this));
+      &DXVAVideoDecodeAccelerator::NotifyFlushDone, base::AsWeakPtr(this)));
 
   state_ = kNormal;
 }
@@ -681,7 +678,7 @@ void DXVAVideoDecodeAccelerator::Reset() {
       "Reset: Failed to send message.", PLATFORM_FAILURE,);
 
   MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
-      &DXVAVideoDecodeAccelerator::NotifyResetDone, this));
+      &DXVAVideoDecodeAccelerator::NotifyResetDone, base::AsWeakPtr(this)));
 
   state_ = DXVAVideoDecodeAccelerator::kNormal;
 }
@@ -689,6 +686,7 @@ void DXVAVideoDecodeAccelerator::Reset() {
 void DXVAVideoDecodeAccelerator::Destroy() {
   DCHECK(CalledOnValidThread());
   Invalidate();
+  delete this;
 }
 
 bool DXVAVideoDecodeAccelerator::InitDecoder() {
@@ -781,6 +779,12 @@ bool DXVAVideoDecodeAccelerator::SetDecoderInputMediaType() {
 
   hr = media_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
   RETURN_ON_HR_FAILURE(hr, "Failed to set subtype", false);
+
+  // Not sure about this. msdn recommends setting this value on the input
+  // media type.
+  hr = media_type->SetUINT32(MF_MT_INTERLACE_MODE,
+                             MFVideoInterlace_MixedInterlaceOrProgressive);
+  RETURN_ON_HR_FAILURE(hr, "Failed to set interlace mode", false);
 
   hr = decoder_->SetInputType(0, media_type, 0);  // No flags
   RETURN_ON_HR_FAILURE(hr, "Failed to set decoder input type", false);
@@ -923,8 +927,13 @@ bool DXVAVideoDecodeAccelerator::ProcessOutputSample(IMFSample* sample) {
   hr = surface->GetDesc(&surface_desc);
   RETURN_ON_HR_FAILURE(hr, "Failed to get surface description", false);
 
+  LONGLONG input_buffer_id = 0;
+  RETURN_ON_HR_FAILURE(sample->GetSampleTime(&input_buffer_id),
+                       "Failed to get input buffer id associated with sample",
+                       false);
+
   pending_output_samples_.push_back(
-      PendingSampleInfo(last_input_buffer_id_, surface));
+      PendingSampleInfo(input_buffer_id, surface));
 
   // If we have available picture buffers to copy the output data then use the
   // first one and then flag it as not being available for use.
@@ -939,7 +948,7 @@ bool DXVAVideoDecodeAccelerator::ProcessOutputSample(IMFSample* sample) {
   // Go ahead and request picture buffers.
   MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
       &DXVAVideoDecodeAccelerator::RequestPictureBuffers,
-      this, surface_desc.Width, surface_desc.Height));
+      base::AsWeakPtr(this), surface_desc.Width, surface_desc.Height));
 
   pictures_requested_ = true;
   return true;
@@ -966,8 +975,8 @@ void DXVAVideoDecodeAccelerator::ProcessPendingSamples() {
       media::Picture output_picture(index->second->id(),
                                     sample_info.input_buffer_id);
       MessageLoop::current()->PostTask(FROM_HERE, base::Bind(
-          &DXVAVideoDecodeAccelerator::NotifyPictureReady, this,
-          output_picture));
+          &DXVAVideoDecodeAccelerator::NotifyPictureReady,
+          base::AsWeakPtr(this), output_picture));
 
       index->second->set_available(false);
       pending_output_samples_.pop_front();
@@ -976,7 +985,6 @@ void DXVAVideoDecodeAccelerator::ProcessPendingSamples() {
 }
 
 void DXVAVideoDecodeAccelerator::ClearState() {
-  last_input_buffer_id_ = -1;
   output_picture_buffers_.clear();
   pending_output_samples_.clear();
 }
@@ -1028,8 +1036,10 @@ void DXVAVideoDecodeAccelerator::RequestPictureBuffers(int width, int height) {
   // TODO(ananta)
   // We need to support mid stream resize.
   if (state_ != kUninitialized && client_) {
-    client_->ProvidePictureBuffers(kNumPictureBuffers,
-                                   gfx::Size(width, height));
+    client_->ProvidePictureBuffers(
+        kNumPictureBuffers,
+        gfx::Size(width, height),
+        GL_TEXTURE_2D);
   }
 }
 

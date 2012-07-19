@@ -13,7 +13,6 @@
 
 #ifndef NET_HTTP_HTTP_CACHE_H_
 #define NET_HTTP_HTTP_CACHE_H_
-#pragma once
 
 #include <list>
 #include <set>
@@ -130,7 +129,8 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
             NetworkDelegate* network_delegate,
             HttpServerProperties* http_server_properties,
             NetLog* net_log,
-            BackendFactory* backend_factory);
+            BackendFactory* backend_factory,
+            const std::string& trusted_spdy_proxy);
 
   // The disk cache is initialized lazily (by CreateTransaction) in  this case.
   // Provide an existing HttpNetworkSession, the cache can construct a
@@ -211,7 +211,6 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
   // Types --------------------------------------------------------------------
 
   class MetadataWriter;
-  class SSLHostInfoFactoryAdaptor;
   class Transaction;
   class WorkItem;
   friend class Transaction;
@@ -378,8 +377,6 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory,
   bool building_backend_;
 
   Mode mode_;
-
-  const scoped_ptr<SSLHostInfoFactoryAdaptor> ssl_host_info_factory_;
 
   const scoped_ptr<HttpTransactionFactory> network_layer_;
   scoped_ptr<disk_cache::Backend> disk_cache_;

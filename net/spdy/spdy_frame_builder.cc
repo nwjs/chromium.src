@@ -9,23 +9,59 @@
 
 namespace net {
 
-SpdyFrameBuilder::SpdyFrameBuilder(size_t size)
-    : buffer_(NULL),
-      capacity_(0),
-      length_(0),
-      variable_buffer_offset_(0) {
-  Resize(size);
+namespace {
+
+// Creates a FlagsAndLength.
+FlagsAndLength CreateFlagsAndLength(SpdyControlFlags flags, size_t length) {
+  DCHECK_EQ(0u, length & ~static_cast<size_t>(kLengthMask));
+  FlagsAndLength flags_length;
+  flags_length.length_ = htonl(static_cast<uint32>(length));
+  DCHECK_EQ(0, flags & ~kControlFlagsMask);
+  flags_length.flags_[0] = flags;
+  return flags_length;
+}
+
+}  // namespace
+
+SpdyFrameBuilder::SpdyFrameBuilder(SpdyControlType type,
+                                   SpdyControlFlags flags,
+                                   int spdy_version,
+                                   size_t size)
+    : buffer_(new char[size]),
+      capacity_(size),
+      length_(0) {
+  FlagsAndLength flags_length = CreateFlagsAndLength(
+      flags, size - SpdyFrame::kHeaderSize);
+  WriteUInt16(kControlFlagMask | spdy_version);
+  WriteUInt16(type);
+  WriteBytes(&flags_length, sizeof(flags_length));
+}
+
+SpdyFrameBuilder::SpdyFrameBuilder(SpdyStreamId stream_id,
+                                   SpdyDataFlags flags,
+                                   size_t size)
+    : buffer_(new char[size]),
+      capacity_(size),
+      length_(0) {
+  DCHECK_EQ(0u, stream_id & ~kStreamIdMask);
+  WriteUInt32(stream_id);
+  size_t length = size - SpdyFrame::kHeaderSize;
+  DCHECK_EQ(0u, length & ~static_cast<size_t>(kLengthMask));
+  FlagsAndLength flags_length;
+  flags_length.length_ = htonl(length);
+  DCHECK_EQ(0, flags & ~kDataFlagsMask);
+  flags_length.flags_[0] = flags;
+  WriteBytes(&flags_length, sizeof(flags_length));
 }
 
 SpdyFrameBuilder::~SpdyFrameBuilder() {
-  if (buffer_)
-    delete[] buffer_;
+  delete[] buffer_;
 }
 
 char* SpdyFrameBuilder::BeginWrite(size_t length) {
   size_t offset = length_;
   size_t needed_size = length_ + length;
-  if (needed_size > capacity_ && !Resize(std::max(capacity_ * 2, needed_size)))
+  if (needed_size > capacity_)
     return NULL;
 
 #ifdef ARCH_CPU_64_BITS
@@ -70,24 +106,6 @@ bool SpdyFrameBuilder::WriteStringPiece32(const base::StringPiece& value) {
   }
 
   return WriteBytes(value.data(), value.size());
-}
-
-// TODO(hkhalil) Remove Resize() entirely.
-bool SpdyFrameBuilder::Resize(size_t new_capacity) {
-  DCHECK(new_capacity > 0);
-  if (new_capacity < capacity_)
-    return true;
-
-  char* p = new char[new_capacity];
-  if (buffer_) {
-    memcpy(p, buffer_, capacity_);
-    delete[] buffer_;
-  }
-  if (!p && new_capacity > 0)
-    return false;
-  buffer_ = p;
-  capacity_ = new_capacity;
-  return true;
 }
 
 }  // namespace net

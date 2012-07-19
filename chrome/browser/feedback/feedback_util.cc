@@ -13,6 +13,7 @@
 #include "base/file_util.h"
 #include "base/file_version_info.h"
 #include "base/memory/singleton.h"
+#include "base/message_loop.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -25,13 +26,13 @@
 #include "chrome/common/chrome_version_info.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/url_fetcher.h"
-#include "content/public/common/url_fetcher_delegate.h"
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
 #include "net/base/load_flags.h"
+#include "net/url_request/url_fetcher.h"
+#include "net/url_request/url_fetcher_delegate.h"
 #include "net/url_request/url_request_status.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "unicode/locid.h"
@@ -87,15 +88,15 @@ const int64 kRetryDelayLimit = 14400000;  // 4 hours
 }  // namespace
 
 
-// Simple content::URLFetcherDelegate to clean up URLFetcher on completion.
-class FeedbackUtil::PostCleanup : public content::URLFetcherDelegate {
+// Simple net::URLFetcherDelegate to clean up URLFetcher on completion.
+class FeedbackUtil::PostCleanup : public net::URLFetcherDelegate {
  public:
   PostCleanup(Profile* profile, std::string* post_body,
               int64 previous_delay) : profile_(profile),
                                       post_body_(post_body),
                                       previous_delay_(previous_delay) { }
-  // Overridden from content::URLFetcherDelegate.
-  virtual void OnURLFetchComplete(const content::URLFetcher* source);
+  // Overridden from net::URLFetcherDelegate.
+  virtual void OnURLFetchComplete(const net::URLFetcher* source);
 
  protected:
   virtual ~PostCleanup() {}
@@ -112,7 +113,7 @@ class FeedbackUtil::PostCleanup : public content::URLFetcherDelegate {
 // post cleanup object - that pointer will be deleted and deleted only on a
 // successful post to the feedback server.
 void FeedbackUtil::PostCleanup::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   std::stringstream error_stream;
   int response_code = source->GetResponseCode();
   if (response_code == kHttpPostSuccessNoContent) {
@@ -197,11 +198,12 @@ void FeedbackUtil::SendFeedback(Profile* profile,
   else
     post_url = GURL(kFeedbackPostUrl);
 
-  content::URLFetcher* fetcher = content::URLFetcher::Create(
-      post_url, content::URLFetcher::POST,
+  net::URLFetcher* fetcher = net::URLFetcher::Create(
+      post_url, net::URLFetcher::POST,
       new FeedbackUtil::PostCleanup(profile, post_body, previous_delay));
   fetcher->SetRequestContext(profile->GetRequestContext());
-  fetcher->SetLoadFlags(net::LOAD_DO_NOT_SAVE_COOKIES);
+  fetcher->SetLoadFlags(
+      net::LOAD_DO_NOT_SAVE_COOKIES | net::LOAD_DO_NOT_SEND_COOKIES);
   fetcher->SetUploadData(std::string(kProtBufMimeType), *post_body);
   fetcher->Start();
 }

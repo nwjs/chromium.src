@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_GPU_GPU_CHILD_THREAD_H_
 #define CONTENT_GPU_GPU_CHILD_THREAD_H_
-#pragma once
 
 #include <string>
 
@@ -56,6 +55,10 @@ class GpuChildThread : public ChildThread {
   void OnClean();
   void OnCrash();
   void OnHang();
+
+#if defined(USE_TCMALLOC)
+  void OnGetGpuTcmalloc();
+#endif
 
 #if defined(OS_WIN)
   static void CollectDxDiagnostics(GpuChildThread* thread);

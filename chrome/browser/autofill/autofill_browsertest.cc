@@ -19,20 +19,19 @@
 #include "chrome/browser/translate/translate_infobar_delegate.h"
 #include "chrome/browser/translate/translate_manager.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/render_messages.h"
-#include "chrome/renderer/translate_helper.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/mock_render_process_host.h"
-#include "content/test/test_renderer_host.h"
-#include "content/test/test_url_fetcher_factory.h"
+#include "content/public/test/test_renderer_host.h"
+#include "net/url_request/test_url_fetcher_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 
@@ -102,10 +101,7 @@ class WindowedPersonalDataManagerObserver : public PersonalDataManagerObserver {
 
 class AutofillTest : public InProcessBrowserTest {
  protected:
-  AutofillTest() {
-    set_show_window(true);
-    EnableDOMAutomation();
-  }
+  AutofillTest() {}
 
   void CreateTestProfile() {
     autofill_test::DisableSystemServices(browser()->profile());
@@ -135,18 +131,18 @@ class AutofillTest : public InProcessBrowserTest {
                         const std::string& expected_value) {
     std::string value;
     ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-        browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+        chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
         L"window.domAutomationController.send("
         L"document.getElementById('" + field_name + L"').value);", &value));
     EXPECT_EQ(expected_value, value);
   }
 
   RenderViewHost* render_view_host() {
-    return browser()->GetSelectedWebContents()->GetRenderViewHost();
+    return chrome::GetActiveWebContents(browser())->GetRenderViewHost();
   }
 
   void SimulateURLFetch(bool success) {
-    TestURLFetcher* fetcher = url_fetcher_factory_.GetFetcherByID(0);
+    net::TestURLFetcher* fetcher = url_fetcher_factory_.GetFetcherByID(0);
     ASSERT_TRUE(fetcher);
     net::URLRequestStatus status;
     status.set_status(success ? net::URLRequestStatus::SUCCESS :
@@ -187,10 +183,7 @@ class AutofillTest : public InProcessBrowserTest {
 
   void FocusFirstNameField() {
     LOG(WARNING) << "Clicking on the tab.";
-    ASSERT_NO_FATAL_FAILURE(ui_test_utils::ClickOnView(browser(),
-                                                       VIEW_ID_TAB_CONTAINER));
-    ASSERT_TRUE(ui_test_utils::IsViewFocused(browser(),
-                                             VIEW_ID_TAB_CONTAINER_FOCUS_VIEW));
+    ui_test_utils::SimulateMouseClick(chrome::GetActiveWebContents(browser()));
 
     LOG(WARNING) << "Focusing the first name field.";
     bool result = false;
@@ -216,24 +209,28 @@ class AutofillTest : public InProcessBrowserTest {
     ExpectFieldValue(L"phone", "5125551234");
   }
 
+  void SendKeyAndWait(ui::KeyboardCode key, int notification_type) {
+    ui_test_utils::WindowedNotificationObserver observer(
+        notification_type, content::Source<RenderViewHost>(render_view_host()));
+    ui_test_utils::SimulateKeyPress(chrome::GetActiveWebContents(
+        browser()), key, false, false, false, false);
+    observer.Wait();
+  }
+
   void TryBasicFormFill() {
     FocusFirstNameField();
 
     // Start filling the first name field with "M" and wait for the popup to be
     // shown.
     LOG(WARNING) << "Typing 'M' to bring up the Autofill popup.";
-    ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-        browser(), ui::VKEY_M, false, true, false, false,
-        chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS,
-        content::Source<RenderViewHost>(render_view_host())));
+    SendKeyAndWait(
+        ui::VKEY_M, chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS);
 
     // Press the down arrow to select the suggestion and preview the autofilled
     // form.
     LOG(WARNING) << "Simulating down arrow press to initiate Autofill preview.";
-    ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-        browser(), ui::VKEY_DOWN, false, false, false, false,
-        chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-        content::Source<RenderViewHost>(render_view_host())));
+    SendKeyAndWait(
+        ui::VKEY_DOWN, chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA);
 
     // The previewed values should not be accessible to JavaScript.
     ExpectFieldValue(L"firstname", "M");
@@ -250,17 +247,15 @@ class AutofillTest : public InProcessBrowserTest {
 
     // Press Enter to accept the autofill suggestions.
     LOG(WARNING) << "Simulating Return press to fill the form.";
-    ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-        browser(), ui::VKEY_RETURN, false, false, false, false,
-        chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-        content::Source<RenderViewHost>(render_view_host())));
+    SendKeyAndWait(
+        ui::VKEY_RETURN, chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA);
 
     // The form should be filled.
     ExpectFilledTestForm();
   }
 
  private:
-  TestURLFetcherFactory url_fetcher_factory_;
+  net::TestURLFetcherFactory url_fetcher_factory_;
 };
 
 // Test that basic form fill is working.
@@ -268,7 +263,6 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, BasicFormFill) {
   CreateTestProfile();
 
   // Load the test page.
-  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_NO_FATAL_FAILURE(ui_test_utils::NavigateToURL(browser(),
       GURL(std::string(kDataURIPrefix) + kTestFormString)));
 
@@ -290,23 +284,17 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, AutofillViaDownArrow) {
 
   // Press the down arrow to initiate Autofill and wait for the popup to be
   // shown.
-  ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-      browser(), ui::VKEY_DOWN, false, false, false, false,
-      chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS,
-      content::Source<RenderViewHost>(render_view_host())));
+  SendKeyAndWait(
+      ui::VKEY_DOWN, chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS);
 
   // Press the down arrow to select the suggestion and preview the autofilled
   // form.
-  ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-      browser(), ui::VKEY_DOWN, false, false, false, false,
-      chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-      content::Source<RenderViewHost>(render_view_host())));
+  SendKeyAndWait(
+      ui::VKEY_DOWN, chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA);
 
   // Press Enter to accept the autofill suggestions.
-  ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-      browser(), ui::VKEY_RETURN, false, false, false, false,
-      chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-      content::Source<RenderViewHost>(render_view_host())));
+  SendKeyAndWait(
+      ui::VKEY_RETURN, chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA);
 
   // The form should be filled.
   ExpectFilledTestForm();
@@ -347,23 +335,17 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, OnChangeAfterAutofill) {
 
   // Start filling the first name field with "M" and wait for the popup to be
   // shown.
-  ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-      browser(), ui::VKEY_M, false, true, false, false,
-      chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS,
-      content::Source<RenderViewHost>(render_view_host())));
+  SendKeyAndWait(
+      ui::VKEY_M, chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS);
 
   // Press the down arrow to select the suggestion and preview the autofilled
   // form.
-  ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-      browser(), ui::VKEY_DOWN, false, false, false, false,
-      chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-      content::Source<RenderViewHost>(render_view_host())));
+  SendKeyAndWait(
+      ui::VKEY_DOWN, chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA);
 
   // Press Enter to accept the autofill suggestions.
-  ASSERT_TRUE(ui_test_utils::SendKeyPressAndWait(
-      browser(), ui::VKEY_RETURN, false, false, false, false,
-      chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-      content::Source<RenderViewHost>(render_view_host())));
+  SendKeyAndWait(
+      ui::VKEY_RETURN, chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA);
 
   // The form should be filled.
   ExpectFilledTestForm();
@@ -639,8 +621,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_AutofillAfterReload) {
 
   // Reload the page.
   LOG(WARNING) << "Reloading the page.";
-  WebContents* tab =
-      browser()->GetSelectedTabContentsWrapper()->web_contents();
+  WebContents* tab = chrome::GetActiveWebContents(browser());
   tab->GetController().Reload(false);
   ui_test_utils::WaitForLoadStop(tab);
 
@@ -697,7 +678,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, AutofillAfterTranslate) {
       render_view_host(),
       ChromeViewHostMsg_TranslateLanguageDetermined(0, "ja", true));
   TranslateInfoBarDelegate* infobar =
-      browser()->GetSelectedTabContentsWrapper()->infobar_tab_helper()->
+      chrome::GetActiveTabContents(browser())->infobar_tab_helper()->
           GetInfoBarDelegateAt(0)->AsTranslateInfoBarDelegate();
 
   ASSERT_TRUE(infobar != NULL);

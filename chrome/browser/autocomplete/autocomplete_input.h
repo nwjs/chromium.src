@@ -1,0 +1,160 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_AUTOCOMPLETE_AUTOCOMPLETE_INPUT_H_
+#define CHROME_BROWSER_AUTOCOMPLETE_AUTOCOMPLETE_INPUT_H_
+
+#include <string>
+
+#include "base/basictypes.h"
+#include "base/string16.h"
+#include "googleurl/src/gurl.h"
+#include "googleurl/src/url_parse.h"
+
+// The user input for an autocomplete query.  Allows copying.
+class AutocompleteInput {
+ public:
+  // Note that the type below may be misleading.  For example, "http:/" alone
+  // cannot be opened as a URL, so it is marked as a QUERY; yet the user
+  // probably intends to type more and have it eventually become a URL, so we
+  // need to make sure we still run it through inline autocomplete.
+  enum Type {
+    INVALID,        // Empty input
+    UNKNOWN,        // Valid input whose type cannot be determined
+    REQUESTED_URL,  // Input autodetected as UNKNOWN, which the user wants to
+                    // treat as an URL by specifying a desired_tld
+    URL,            // Input autodetected as a URL
+    QUERY,          // Input autodetected as a query
+    FORCED_QUERY,   // Input forced to be a query by an initial '?'
+  };
+
+  // Enumeration of the possible match query types. Callers who only need some
+  // of the matches for a particular input can get answers more quickly by
+  // specifying that upfront.
+  enum MatchesRequested {
+    // Only the best match in the whole result set matters.  Providers should at
+    // most return synchronously-available matches, and if possible do even less
+    // work, so that it's safe to ask for these repeatedly in the course of one
+    // higher-level "synchronous" query.
+    BEST_MATCH,
+
+    // Only synchronous matches should be returned.
+    SYNCHRONOUS_MATCHES,
+
+    // All matches should be fetched.
+    ALL_MATCHES,
+  };
+
+  AutocompleteInput();
+  AutocompleteInput(const string16& text,
+                    const string16& desired_tld,
+                    bool prevent_inline_autocomplete,
+                    bool prefer_keyword,
+                    bool allow_exact_keyword_match,
+                    MatchesRequested matches_requested);
+  ~AutocompleteInput();
+
+  // If type is |FORCED_QUERY| and |text| starts with '?', it is removed.
+  static void RemoveForcedQueryStringIfNecessary(Type type, string16* text);
+
+  // Converts |type| to a string representation.  Used in logging.
+  static std::string TypeToString(Type type);
+
+  // Parses |text| and returns the type of input this will be interpreted as.
+  // The components of the input are stored in the output parameter |parts|, if
+  // it is non-NULL. The scheme is stored in |scheme| if it is non-NULL. The
+  // canonicalized URL is stored in |canonicalized_url|; however, this URL is
+  // not guaranteed to be valid, especially if the parsed type is, e.g., QUERY.
+  static Type Parse(const string16& text,
+                    const string16& desired_tld,
+                    url_parse::Parsed* parts,
+                    string16* scheme,
+                    GURL* canonicalized_url);
+
+  // Parses |text| and fill |scheme| and |host| by the positions of them.
+  // The results are almost as same as the result of Parse(), but if the scheme
+  // is view-source, this function returns the positions of scheme and host
+  // in the URL qualified by "view-source:" prefix.
+  static void ParseForEmphasizeComponents(const string16& text,
+                                          const string16& desired_tld,
+                                          url_parse::Component* scheme,
+                                          url_parse::Component* host);
+
+  // Code that wants to format URLs with a format flag including
+  // net::kFormatUrlOmitTrailingSlashOnBareHostname risk changing the meaning if
+  // the result is then parsed as AutocompleteInput.  Such code can call this
+  // function with the URL and its formatted string, and it will return a
+  // formatted string with the same meaning as the original URL (i.e. it will
+  // re-append a slash if necessary).
+  static string16 FormattedStringWithEquivalentMeaning(
+      const GURL& url,
+      const string16& formatted_url);
+
+  // Returns the number of non-empty components in |parts| besides the host.
+  static int NumNonHostComponents(const url_parse::Parsed& parts);
+
+  // User-provided text to be completed.
+  const string16& text() const { return text_; }
+
+  // Use of this setter is risky, since no other internal state is updated
+  // besides |text_| and |parts_|.  Only callers who know that they're not
+  // changing the type/scheme/etc. should use this.
+  void UpdateText(const string16& text, const url_parse::Parsed& parts);
+
+  // User's desired TLD, if one is not already present in the text to
+  // autocomplete.  When this is non-empty, it also implies that "www." should
+  // be prepended to the domain where possible.  This should not have a leading
+  // '.' (use "com" instead of ".com").
+  const string16& desired_tld() const { return desired_tld_; }
+
+  // The type of input supplied.
+  Type type() const { return type_; }
+
+  // Returns parsed URL components.
+  const url_parse::Parsed& parts() const { return parts_; }
+
+  // The scheme parsed from the provided text; only meaningful when type_ is
+  // URL.
+  const string16& scheme() const { return scheme_; }
+
+  // The input as an URL to navigate to, if possible.
+  const GURL& canonicalized_url() const { return canonicalized_url_; }
+
+  // Returns whether inline autocompletion should be prevented.
+  bool prevent_inline_autocomplete() const {
+    return prevent_inline_autocomplete_;
+  }
+
+  // Returns whether, given an input string consisting solely of a substituting
+  // keyword, we should score it like a non-substituting keyword.
+  bool prefer_keyword() const { return prefer_keyword_; }
+
+  // Returns whether this input is allowed to be treated as an exact
+  // keyword match.  If not, the default result is guaranteed not to be a
+  // keyword search, even if the input is "<keyword> <search string>".
+  bool allow_exact_keyword_match() const { return allow_exact_keyword_match_; }
+
+  // See description of enum for details.
+  MatchesRequested matches_requested() const { return matches_requested_; }
+
+  // operator==() by another name.
+  bool Equals(const AutocompleteInput& other) const;
+
+  // Resets all internal variables to the null-constructed state.
+  void Clear();
+
+ private:
+  string16 text_;
+  string16 desired_tld_;
+  Type type_;
+  url_parse::Parsed parts_;
+  string16 scheme_;
+  GURL canonicalized_url_;
+  bool prevent_inline_autocomplete_;
+  bool prefer_keyword_;
+  bool allow_exact_keyword_match_;
+  MatchesRequested matches_requested_;
+};
+
+#endif  // CHROME_BROWSER_AUTOCOMPLETE_AUTOCOMPLETE_INPUT_H_

@@ -15,21 +15,33 @@
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/url_constants.h"
 #include "googleurl/src/gurl.h"
+#include "net/base/net_util.h"
 #include "net/url_request/url_request.h"
 #include "webkit/fileapi/isolated_context.h"
 
 using content::ChildProcessSecurityPolicy;
 using content::SiteInstance;
 
-static const int kReadFilePermissions =
+namespace {
+
+const int kReadFilePermissions =
     base::PLATFORM_FILE_OPEN |
     base::PLATFORM_FILE_READ |
     base::PLATFORM_FILE_EXCLUSIVE_READ |
     base::PLATFORM_FILE_ASYNC;
 
-static const int kEnumerateDirectoryPermissions =
+const int kWriteFilePermissions =
+    base::PLATFORM_FILE_OPEN |
+    base::PLATFORM_FILE_WRITE |
+    base::PLATFORM_FILE_EXCLUSIVE_WRITE |
+    base::PLATFORM_FILE_ASYNC |
+    base::PLATFORM_FILE_WRITE_ATTRIBUTES;
+
+const int kEnumerateDirectoryPermissions =
     kReadFilePermissions |
     base::PLATFORM_FILE_ENUMERATE;
+
+}  // namespace
 
 // The SecurityState class is used to maintain per-child process security state
 // information.
@@ -43,10 +55,10 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
     scheme_policy_.clear();
     fileapi::IsolatedContext* isolated_context =
         fileapi::IsolatedContext::GetInstance();
-    for (FileSystemSet::iterator iter = access_granted_filesystems_.begin();
-         iter != access_granted_filesystems_.end();
+    for (FileSystemMap::iterator iter = filesystem_permissions_.begin();
+         iter != filesystem_permissions_.end();
          ++iter) {
-      isolated_context->RevokeIsolatedFileSystem(*iter);
+      isolated_context->RemoveReference(iter->first);
     }
     UMA_HISTOGRAM_COUNTS("ChildProcessSecurityPolicy.PerChildFilePermissions",
                          file_permissions_.size());
@@ -70,14 +82,34 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
                          stripped.value().size());
   }
 
+  // Grant navigation to a file but not the file:// scheme in general.
+  void GrantRequestOfSpecificFile(const FilePath &file) {
+    request_file_set_.insert(file.StripTrailingSeparators());
+  }
+
   // Revokes all permissions granted to a file.
   void RevokeAllPermissionsForFile(const FilePath& file) {
-    file_permissions_.erase(file.StripTrailingSeparators());
+    FilePath stripped = file.StripTrailingSeparators();
+    file_permissions_.erase(stripped);
+    request_file_set_.erase(stripped);
   }
 
   // Grant certain permissions to a file.
-  void GrantAccessFileSystem(const std::string& filesystem_id) {
-    access_granted_filesystems_.insert(filesystem_id);
+  void GrantPermissionsForFileSystem(const std::string& filesystem_id,
+                                     int permissions) {
+    if (filesystem_permissions_.find(filesystem_id) ==
+        filesystem_permissions_.end())
+      fileapi::IsolatedContext::GetInstance()->AddReference(filesystem_id);
+    filesystem_permissions_[filesystem_id] = permissions;
+  }
+
+  bool HasPermissionsForFileSystem(const std::string& filesystem_id,
+                                   int permissions) {
+    if (filesystem_permissions_.find(filesystem_id) ==
+        filesystem_permissions_.end())
+      return false;
+    return (filesystem_permissions_[filesystem_id] & permissions) ==
+        permissions;
   }
 
   void GrantBindings(int bindings) {
@@ -92,15 +124,22 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
     can_read_raw_cookies_ = false;
   }
 
-  // Determine whether permission has been granted to request url.
-  // Schemes that have not been granted default to being denied.
+  // Determine whether permission has been granted to request |url|.
   bool CanRequestURL(const GURL& url) {
+    // Having permission to a scheme implies permssion to all of its URLs.
     SchemeMap::const_iterator judgment(scheme_policy_.find(url.scheme()));
+    if (judgment != scheme_policy_.end())
+      return judgment->second;
 
-    if (judgment == scheme_policy_.end())
-      return false;  // Unmentioned schemes are disallowed.
+    // file:// URLs are more granular.  The child may have been given
+    // permission to a specific file but not the file:// scheme in general.
+    if (url.SchemeIs(chrome::kFileScheme)) {
+      FilePath path;
+      if (net::FileURLToFilePath(url, &path))
+        return request_file_set_.find(path) != request_file_set_.end();
+    }
 
-    return judgment->second;
+    return false;  // Unmentioned schemes are disallowed.
   }
 
   // Determine if the certain permissions have been granted to a file.
@@ -138,8 +177,11 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
 
  private:
   typedef std::map<std::string, bool> SchemeMap;
-  typedef std::map<FilePath, int> FileMap;  // bit-set of PlatformFileFlags
-  typedef std::set<std::string> FileSystemSet;
+
+  typedef int FilePermissionFlags;  // bit-set of PlatformFileFlags
+  typedef std::map<FilePath, FilePermissionFlags> FileMap;
+  typedef std::map<std::string, FilePermissionFlags> FileSystemMap;
+  typedef std::set<FilePath> FileSet;
 
   // Maps URL schemes to whether permission has been granted or revoked:
   //   |true| means the scheme has been granted.
@@ -151,6 +193,9 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   // The set of files the child process is permited to upload to the web.
   FileMap file_permissions_;
 
+  // The set of files the child process is permitted to load.
+  FileSet request_file_set_;
+
   int enabled_bindings_;
 
   bool can_read_raw_cookies_;
@@ -158,7 +203,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   GURL origin_lock_;
 
   // The set of isolated filesystems the child process is permitted to access.
-  FileSystemSet access_granted_filesystems_;
+  FileSystemMap filesystem_permissions_;
 
   DISALLOW_COPY_AND_ASSIGN(SecurityState);
 };
@@ -292,9 +337,29 @@ void ChildProcessSecurityPolicyImpl::GrantRequestURL(
     if (state == security_state_.end())
       return;
 
-    // If the child process has been commanded to request a scheme, then we
-    // grant it the capability to request URLs of that scheme.
+    // When the child process has been commanded to request this scheme,
+    // we grant it the capability to request all URLs of that scheme.
     state->second->GrantScheme(url.scheme());
+  }
+}
+
+void ChildProcessSecurityPolicyImpl::GrantRequestSpecificFileURL(
+    int child_id,
+    const GURL& url) {
+  if (!url.SchemeIs(chrome::kFileScheme))
+    return;
+
+  {
+    base::AutoLock lock(lock_);
+    SecurityStateMap::iterator state = security_state_.find(child_id);
+    if (state == security_state_.end())
+      return;
+
+    // When the child process has been commanded to request a file:// URL,
+    // then we grant it the capability for that URL only.
+    FilePath path;
+    if (net::FileURLToFilePath(url, &path))
+        state->second->GrantRequestOfSpecificFile(path);
   }
 }
 
@@ -330,15 +395,16 @@ void ChildProcessSecurityPolicyImpl::RevokeAllPermissionsForFile(
   state->second->RevokeAllPermissionsForFile(file);
 }
 
-void ChildProcessSecurityPolicyImpl::GrantAccessFileSystem(
+void ChildProcessSecurityPolicyImpl::GrantReadFileSystem(
     int child_id, const std::string& filesystem_id) {
-  base::AutoLock lock(lock_);
+  GrantPermissionsForFileSystem(child_id, filesystem_id, kReadFilePermissions);
+}
 
-  SecurityStateMap::iterator state = security_state_.find(child_id);
-  if (state == security_state_.end())
-    return;
-
-  state->second->GrantAccessFileSystem(filesystem_id);
+void ChildProcessSecurityPolicyImpl::GrantReadWriteFileSystem(
+    int child_id, const std::string& filesystem_id) {
+  GrantPermissionsForFileSystem(child_id, filesystem_id,
+                                kReadFilePermissions |
+                                kWriteFilePermissions);
 }
 
 void ChildProcessSecurityPolicyImpl::GrantScheme(int child_id,
@@ -441,7 +507,7 @@ bool ChildProcessSecurityPolicyImpl::CanRequestURL(
 }
 
 bool ChildProcessSecurityPolicyImpl::CanReadFile(int child_id,
-                                             const FilePath& file) {
+                                                 const FilePath& file) {
   return HasPermissionsForFile(child_id, file, kReadFilePermissions);
 }
 
@@ -450,6 +516,21 @@ bool ChildProcessSecurityPolicyImpl::CanReadDirectory(
   return HasPermissionsForFile(child_id,
                                directory,
                                kEnumerateDirectoryPermissions);
+}
+
+bool ChildProcessSecurityPolicyImpl::CanReadFileSystem(
+    int child_id, const std::string& filesystem_id) {
+  return HasPermissionsForFileSystem(child_id,
+                                     filesystem_id,
+                                     kReadFilePermissions);
+}
+
+bool ChildProcessSecurityPolicyImpl::CanReadWriteFileSystem(
+    int child_id, const std::string& filesystem_id) {
+  return HasPermissionsForFileSystem(child_id,
+                                     filesystem_id,
+                                     kReadFilePermissions |
+                                     kWriteFilePermissions);
 }
 
 bool ChildProcessSecurityPolicyImpl::HasPermissionsForFile(
@@ -523,4 +604,28 @@ void ChildProcessSecurityPolicyImpl::LockToOrigin(int child_id,
   SecurityStateMap::iterator state = security_state_.find(child_id);
   DCHECK(state != security_state_.end());
   state->second->LockToOrigin(gurl);
+}
+
+void ChildProcessSecurityPolicyImpl::GrantPermissionsForFileSystem(
+    int child_id,
+    const std::string& filesystem_id,
+    int permission) {
+  base::AutoLock lock(lock_);
+
+  SecurityStateMap::iterator state = security_state_.find(child_id);
+  if (state == security_state_.end())
+    return;
+  state->second->GrantPermissionsForFileSystem(filesystem_id, permission);
+}
+
+bool ChildProcessSecurityPolicyImpl::HasPermissionsForFileSystem(
+    int child_id,
+    const std::string& filesystem_id,
+    int permission) {
+  base::AutoLock lock(lock_);
+
+  SecurityStateMap::iterator state = security_state_.find(child_id);
+  if (state == security_state_.end())
+    return false;
+  return state->second->HasPermissionsForFileSystem(filesystem_id, permission);
 }

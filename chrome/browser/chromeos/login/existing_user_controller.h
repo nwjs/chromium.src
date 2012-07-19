@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_EXISTING_USER_CONTROLLER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_EXISTING_USER_CONTROLLER_H_
-#pragma once
 
 #include <string>
 
@@ -19,7 +18,7 @@
 #include "chrome/browser/chromeos/login/login_display.h"
 #include "chrome/browser/chromeos/login/login_performer.h"
 #include "chrome/browser/chromeos/login/login_utils.h"
-#include "chrome/browser/chromeos/login/ownership_status_checker.h"
+#include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/chromeos/login/password_changed_view.h"
 #include "chrome/browser/chromeos/login/user.h"
 #include "content/public/browser/notification_observer.h"
@@ -64,10 +63,12 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Tells the controller to resume a pending login.
   void ResumeLogin();
 
+  // Returns Getting Started Guide URL with parameters.
+  std::string GetGettingStartedGuideURL() const;
+
   // LoginDisplay::Delegate: implementation
   virtual void CreateAccount() OVERRIDE;
   virtual string16 GetConnectedNetworkName() OVERRIDE;
-  virtual void FixCaptivePortal() OVERRIDE;
   virtual void SetDisplayEmail(const std::string& email) OVERRIDE;
   virtual void CompleteLogin(const std::string& username,
                              const std::string& password) OVERRIDE;
@@ -115,6 +116,7 @@ class ExistingUserController : public LoginDisplay::Delegate,
   virtual void OnOffTheRecordLoginSuccess() OVERRIDE;
   virtual void OnPasswordChangeDetected() OVERRIDE;
   virtual void WhiteListCheckFailed(const std::string& email) OVERRIDE;
+  virtual void PolicyLoadFailed() OVERRIDE;
   virtual void OnOnlineChecked(
       const std::string& username, bool success) OVERRIDE;
 
@@ -134,8 +136,8 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // Adds first-time login URLs.
   void InitializeStartUrls() const;
 
-  // Changes state of the status area. During login operation it's disabled.
-  void SetStatusAreaEnabled(bool enable);
+  // Shows "Release Notes"/"What's new"/Getting started guide on update.
+  void OptionallyShowReleaseNotes(Profile* profile) const;
 
   // Show error message. |error_id| error message ID in resources.
   // If |details| string is not empty, it specify additional error text
@@ -201,7 +203,7 @@ class ExistingUserController : public LoginDisplay::Delegate,
   // URL to append to start Guest mode with.
   GURL guest_mode_url_;
 
-  // Used for user image changed notifications.
+  // Used for notifications during the login process.
   content::NotificationRegistrar registrar_;
 
   // Factory of callbacks.
@@ -209,9 +211,6 @@ class ExistingUserController : public LoginDisplay::Delegate,
 
   // Whether everything is ready to launch the browser.
   bool ready_for_browser_launch_;
-
-  // Used to verify ownership before starting enterprise enrollment.
-  scoped_ptr<OwnershipStatusChecker> ownership_checker_;
 
   // Whether it's first login to the device and this user will be owner.
   bool is_owner_login_;
@@ -227,6 +226,10 @@ class ExistingUserController : public LoginDisplay::Delegate,
 
   // Whether online login attempt succeeded.
   std::string online_succeeded_for_;
+
+  // True if password has been changed for user who is completing sign in.
+  // Set in OnLoginSuccess. Before that use LoginPerformer::password_changed().
+  bool password_changed_;
 
   // True if auto-enrollment should be performed before starting the user's
   // session.

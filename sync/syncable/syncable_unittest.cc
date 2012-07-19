@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "sync/syncable/syncable.h"
-
 #include <string>
 
 #include "base/compiler_specific.h"
@@ -19,25 +17,32 @@
 #include "base/test/values_test_util.h"
 #include "base/threading/platform_thread.h"
 #include "base/values.h"
-#include "sync/engine/syncproto.h"
-#include "sync/util/test_unrecoverable_error_handler.h"
+#include "sync/protocol/bookmark_specifics.pb.h"
 #include "sync/syncable/directory_backing_store.h"
 #include "sync/syncable/directory_change_delegate.h"
+#include "sync/syncable/in_memory_directory_backing_store.h"
+#include "sync/syncable/metahandle_set.h"
+#include "sync/syncable/mutable_entry.h"
 #include "sync/syncable/on_disk_directory_backing_store.h"
+#include "sync/syncable/read_transaction.h"
+#include "sync/syncable/syncable_proto_util.h"
+#include "sync/syncable/syncable_util.h"
+#include "sync/syncable/write_transaction.h"
 #include "sync/test/engine/test_id_factory.h"
 #include "sync/test/engine/test_syncable_utils.h"
 #include "sync/test/fake_encryptor.h"
 #include "sync/test/null_directory_change_delegate.h"
 #include "sync/test/null_transaction_observer.h"
-#include "sync/protocol/bookmark_specifics.pb.h"
+#include "sync/util/test_unrecoverable_error_handler.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using base::ExpectDictBooleanValue;
 using base::ExpectDictStringValue;
-using browser_sync::FakeEncryptor;
-using browser_sync::TestIdFactory;
-using browser_sync::TestUnrecoverableErrorHandler;
+using syncer::FakeEncryptor;
+using syncer::TestIdFactory;
+using syncer::TestUnrecoverableErrorHandler;
 
+namespace syncer {
 namespace syncable {
 
 class SyncableKernelTest : public testing::Test {};
@@ -83,6 +88,7 @@ void ExpectDataFromBookmarkFaviconEquals(BaseTransaction* trans,
 
 class SyncableGeneralTest : public testing::Test {
  public:
+  static const char kIndexTestName[];
   virtual void SetUp() {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     db_path_ = temp_dir_.path().Append(
@@ -100,9 +106,12 @@ class SyncableGeneralTest : public testing::Test {
   FilePath db_path_;
 };
 
+const char SyncableGeneralTest::kIndexTestName[] = "IndexTest";
+
 TEST_F(SyncableGeneralTest, General) {
-  Directory dir(&encryptor_, &handler_, NULL);
-  ASSERT_EQ(OPENED, dir.OpenInMemoryForTest(
+  Directory dir(&encryptor_, &handler_, NULL,
+                new InMemoryDirectoryBackingStore("SimpleTest"));
+  ASSERT_EQ(OPENED, dir.Open(
           "SimpleTest", &delegate_, NullTransactionObserver()));
 
   int64 root_metahandle;
@@ -201,8 +210,9 @@ TEST_F(SyncableGeneralTest, General) {
 }
 
 TEST_F(SyncableGeneralTest, ChildrenOps) {
-  Directory dir(&encryptor_, &handler_, NULL);
-  ASSERT_EQ(OPENED, dir.OpenInMemoryForTest(
+  Directory dir(&encryptor_, &handler_, NULL,
+                new InMemoryDirectoryBackingStore("SimpleTest"));
+  ASSERT_EQ(OPENED, dir.Open(
           "SimpleTest", &delegate_, NullTransactionObserver()));
 
   int64 written_metahandle;
@@ -274,8 +284,9 @@ TEST_F(SyncableGeneralTest, ClientIndexRebuildsProperly) {
 
   // Test creating a new meta entry.
   {
-    Directory dir(&encryptor_, &handler_, NULL);
-    ASSERT_EQ(OPENED, dir.Open(db_path_, "IndexTest", &delegate_,
+    Directory dir(&encryptor_, &handler_, NULL,
+        new OnDiskDirectoryBackingStore(kIndexTestName, db_path_));
+    ASSERT_EQ(OPENED, dir.Open(kIndexTestName, &delegate_,
                                NullTransactionObserver()));
     {
       WriteTransaction wtrans(FROM_HERE, UNITTEST, &dir);
@@ -291,8 +302,9 @@ TEST_F(SyncableGeneralTest, ClientIndexRebuildsProperly) {
 
   // The DB was closed. Now reopen it. This will cause index regeneration.
   {
-    Directory dir(&encryptor_, &handler_, NULL);
-    ASSERT_EQ(OPENED, dir.Open(db_path_, "IndexTest",
+    Directory dir(&encryptor_, &handler_, NULL,
+        new OnDiskDirectoryBackingStore(kIndexTestName, db_path_));
+    ASSERT_EQ(OPENED, dir.Open(kIndexTestName,
                                &delegate_, NullTransactionObserver()));
 
     ReadTransaction trans(FROM_HERE, &dir);
@@ -312,8 +324,9 @@ TEST_F(SyncableGeneralTest, ClientIndexRebuildsDeletedProperly) {
 
   // Test creating a deleted, unsynced, server meta entry.
   {
-    Directory dir(&encryptor_, &handler_, NULL);
-    ASSERT_EQ(OPENED, dir.Open(db_path_, "IndexTest", &delegate_,
+    Directory dir(&encryptor_, &handler_, NULL,
+        new OnDiskDirectoryBackingStore(kIndexTestName, db_path_));
+    ASSERT_EQ(OPENED, dir.Open(kIndexTestName, &delegate_,
                                 NullTransactionObserver()));
     {
       WriteTransaction wtrans(FROM_HERE, UNITTEST, &dir);
@@ -331,8 +344,9 @@ TEST_F(SyncableGeneralTest, ClientIndexRebuildsDeletedProperly) {
   // The DB was closed. Now reopen it. This will cause index regeneration.
   // Should still be present and valid in the client tag index.
   {
-    Directory dir(&encryptor_, &handler_, NULL);
-    ASSERT_EQ(OPENED, dir.Open(db_path_, "IndexTest", &delegate_,
+    Directory dir(&encryptor_, &handler_, NULL,
+        new OnDiskDirectoryBackingStore(kIndexTestName, db_path_));
+    ASSERT_EQ(OPENED, dir.Open(kIndexTestName, &delegate_,
                                NullTransactionObserver()));
 
     ReadTransaction trans(FROM_HERE, &dir);
@@ -346,8 +360,9 @@ TEST_F(SyncableGeneralTest, ClientIndexRebuildsDeletedProperly) {
 }
 
 TEST_F(SyncableGeneralTest, ToValue) {
-  Directory dir(&encryptor_, &handler_, NULL);
-  ASSERT_EQ(OPENED, dir.OpenInMemoryForTest(
+  Directory dir(&encryptor_, &handler_, NULL,
+                new InMemoryDirectoryBackingStore("SimpleTest"));
+  ASSERT_EQ(OPENED, dir.Open(
           "SimpleTest", &delegate_, NullTransactionObserver()));
 
   const Id id = TestIdFactory::FromNumber(99);
@@ -383,8 +398,6 @@ TEST_F(SyncableGeneralTest, ToValue) {
 // A Directory whose backing store always fails SaveChanges by returning false.
 class TestUnsaveableDirectory : public Directory {
  public:
-  TestUnsaveableDirectory() : Directory(&encryptor_, &handler_, NULL) {}
-
   class UnsaveableBackingStore : public OnDiskDirectoryBackingStore {
    public:
      UnsaveableBackingStore(const std::string& dir_name,
@@ -395,19 +408,10 @@ class TestUnsaveableDirectory : public Directory {
      }
   };
 
-  DirOpenResult OpenUnsaveable(
-      const FilePath& file_path, const std::string& name,
-      DirectoryChangeDelegate* delegate,
-      const browser_sync::WeakHandle<TransactionObserver>&
-          transaction_observer) {
-    DirectoryBackingStore *store = new UnsaveableBackingStore(name, file_path);
-    DirOpenResult result =
-        OpenImpl(store, name, delegate, transaction_observer);
-    if (OPENED != result)
-      Close();
-    return result;
-  }
-
+  TestUnsaveableDirectory(const std::string& dir_name,
+                          const FilePath& backing_filepath)
+      : Directory(&encryptor_, &handler_, NULL,
+                  new UnsaveableBackingStore(dir_name, backing_filepath)) {}
  private:
   FakeEncryptor encryptor_;
   TestUnrecoverableErrorHandler handler_;
@@ -421,15 +425,17 @@ class SyncableDirectoryTest : public testing::Test {
   static const char kName[];
 
   virtual void SetUp() {
-    dir_.reset(new Directory(&encryptor_, &handler_, NULL));
+    dir_.reset(new Directory(&encryptor_, &handler_, NULL,
+                             new InMemoryDirectoryBackingStore(kName)));
     ASSERT_TRUE(dir_.get());
-    ASSERT_EQ(OPENED, dir_->OpenInMemoryForTest(kName, &delegate_,
-                                                NullTransactionObserver()));
+    ASSERT_EQ(OPENED, dir_->Open(kName, &delegate_,
+                                 NullTransactionObserver()));
     ASSERT_TRUE(dir_->good());
   }
 
   virtual void TearDown() {
-    dir_->SaveChanges();
+    if (dir_.get())
+      dir_->SaveChanges();
     dir_.reset();
   }
 
@@ -508,6 +514,15 @@ class SyncableDirectoryTest : public testing::Test {
                      int64 base_version,
                      int64 server_version,
                      bool is_del);
+
+  // When a directory is saved then loaded from disk, it will pass through
+  // DropDeletedEntries().  This will remove some entries from the directory.
+  // This function is intended to simulate that process.
+  //
+  // WARNING: The directory will be deleted by this operation.  You should
+  // not have any pointers to the directory (open transactions included)
+  // when you call this.
+  DirOpenResult SimulateSaveAndReloadDir();
 };
 
 TEST_F(SyncableDirectoryTest, TakeSnapshotGetsMetahandlesToPurge) {
@@ -533,7 +548,7 @@ TEST_F(SyncableDirectoryTest, TakeSnapshotGetsMetahandlesToPurge) {
     }
   }
 
-  syncable::ModelTypeSet to_purge(BOOKMARKS);
+  syncer::ModelTypeSet to_purge(BOOKMARKS);
   dir_->PurgeEntriesWithTypeIn(to_purge);
 
   Directory::SaveChangesSnapshot snapshot1;
@@ -814,8 +829,7 @@ TEST_F(SyncableDirectoryTest, TestGetUnsynced) {
 TEST_F(SyncableDirectoryTest, TestGetUnappliedUpdates) {
   std::vector<int64> handles;
   int64 handle1, handle2;
-  const syncable::FullModelTypeSet all_types =
-      syncable::FullModelTypeSet::All();
+  const syncer::FullModelTypeSet all_types = syncer::FullModelTypeSet::All();
   {
     WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
 
@@ -1138,19 +1152,187 @@ TEST_F(SyncableDirectoryTest, GetModelType) {
     server_item.Put(SERVER_IS_DEL, false);
     ASSERT_EQ(datatype, server_item.GetServerModelType());
 
-    browser_sync::SyncEntity folder_entity;
-    folder_entity.set_id(id_factory.NewServerId());
+    sync_pb::SyncEntity folder_entity;
+    folder_entity.set_id_string(SyncableIdToProto(id_factory.NewServerId()));
     folder_entity.set_deleted(false);
     folder_entity.set_folder(true);
     folder_entity.mutable_specifics()->CopyFrom(specifics);
-    ASSERT_EQ(datatype, folder_entity.GetModelType());
+    ASSERT_EQ(datatype, GetModelType(folder_entity));
 
-    browser_sync::SyncEntity item_entity;
-    item_entity.set_id(id_factory.NewServerId());
+    sync_pb::SyncEntity item_entity;
+    item_entity.set_id_string(SyncableIdToProto(id_factory.NewServerId()));
     item_entity.set_deleted(false);
     item_entity.set_folder(false);
     item_entity.mutable_specifics()->CopyFrom(specifics);
-    ASSERT_EQ(datatype, item_entity.GetModelType());
+    ASSERT_EQ(datatype, GetModelType(item_entity));
+  }
+}
+
+// A test that roughly mimics the directory interaction that occurs when a
+// bookmark folder and entry are created then synced for the first time.  It is
+// a more common variant of the 'DeletedAndUnsyncedChild' scenario tested below.
+TEST_F(SyncableDirectoryTest, ChangeEntryIDAndUpdateChildren_ParentAndChild) {
+  TestIdFactory id_factory;
+  Id orig_parent_id;
+  Id orig_child_id;
+
+  {
+    // Create two client-side items, a parent and child.
+    WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
+
+    MutableEntry parent(&trans, CREATE, id_factory.root(), "parent");
+    parent.Put(IS_DIR, true);
+    parent.Put(IS_UNSYNCED, true);
+
+    MutableEntry child(&trans, CREATE, parent.Get(ID), "child");
+    child.Put(IS_UNSYNCED, true);
+
+    orig_parent_id = parent.Get(ID);
+    orig_child_id = child.Get(ID);
+  }
+
+  {
+    // Simulate what happens after committing two items.  Their IDs will be
+    // replaced with server IDs.  The child is renamed first, then the parent.
+    WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
+
+    MutableEntry parent(&trans, GET_BY_ID, orig_parent_id);
+    MutableEntry child(&trans, GET_BY_ID, orig_child_id);
+
+    ChangeEntryIDAndUpdateChildren(&trans, &child, id_factory.NewServerId());
+    child.Put(IS_UNSYNCED, false);
+    child.Put(BASE_VERSION, 1);
+    child.Put(SERVER_VERSION, 1);
+
+    ChangeEntryIDAndUpdateChildren(&trans, &parent, id_factory.NewServerId());
+    parent.Put(IS_UNSYNCED, false);
+    parent.Put(BASE_VERSION, 1);
+    parent.Put(SERVER_VERSION, 1);
+  }
+
+  // Final check for validity.
+  EXPECT_EQ(OPENED, SimulateSaveAndReloadDir());
+}
+
+// A test based on the scenario where we create a bookmark folder and entry
+// locally, but with a twist.  In this case, the bookmark is deleted before we
+// are able to sync either it or its parent folder.  This scenario used to cause
+// directory corruption, see crbug.com/125381.
+TEST_F(SyncableDirectoryTest,
+       ChangeEntryIDAndUpdateChildren_DeletedAndUnsyncedChild) {
+  TestIdFactory id_factory;
+  Id orig_parent_id;
+  Id orig_child_id;
+
+  {
+    // Create two client-side items, a parent and child.
+    WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
+
+    MutableEntry parent(&trans, CREATE, id_factory.root(), "parent");
+    parent.Put(IS_DIR, true);
+    parent.Put(IS_UNSYNCED, true);
+
+    MutableEntry child(&trans, CREATE, parent.Get(ID), "child");
+    child.Put(IS_UNSYNCED, true);
+
+    orig_parent_id = parent.Get(ID);
+    orig_child_id = child.Get(ID);
+  }
+
+  {
+    // Delete the child.
+    WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
+
+    MutableEntry child(&trans, GET_BY_ID, orig_child_id);
+    child.Put(IS_DEL, true);
+  }
+
+  {
+    // Simulate what happens after committing the parent.  Its ID will be
+    // replaced with server a ID.
+    WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
+
+    MutableEntry parent(&trans, GET_BY_ID, orig_parent_id);
+
+    ChangeEntryIDAndUpdateChildren(&trans, &parent, id_factory.NewServerId());
+    parent.Put(IS_UNSYNCED, false);
+    parent.Put(BASE_VERSION, 1);
+    parent.Put(SERVER_VERSION, 1);
+  }
+
+  // Final check for validity.
+  EXPECT_EQ(OPENED, SimulateSaveAndReloadDir());
+}
+
+// Ensure that the unsynced, is_del and server unkown entries that may have been
+// left in the database by old clients will be deleted when we open the old
+// database.
+TEST_F(SyncableDirectoryTest, OldClientLeftUnsyncedDeletedLocalItem) {
+  // We must create an entry with the offending properties.  This is done with
+  // some abuse of the MutableEntry's API; it doesn't expect us to modify an
+  // item after it is deleted.  If this hack becomes impractical we will need to
+  // find a new way to simulate this scenario.
+
+  TestIdFactory id_factory;
+
+  // Happy-path: These valid entries should not get deleted.
+  Id server_knows_id = id_factory.NewServerId();
+  Id not_is_del_id = id_factory.NewLocalId();
+
+  // The ID of the entry which will be unsynced, is_del and !ServerKnows().
+  Id zombie_id = id_factory.NewLocalId();
+
+  // We're about to do some bad things.  Tell the directory verification
+  // routines to look the other way.
+  dir_->SetInvariantCheckLevel(OFF);
+
+  {
+    WriteTransaction trans(FROM_HERE, UNITTEST, dir_.get());
+
+    // Create an uncommitted tombstone entry.
+    MutableEntry server_knows(&trans, CREATE, id_factory.root(),
+                              "server_knows");
+    server_knows.Put(ID, server_knows_id);
+    server_knows.Put(IS_UNSYNCED, true);
+    server_knows.Put(IS_DEL, true);
+    server_knows.Put(BASE_VERSION, 5);
+    server_knows.Put(SERVER_VERSION, 4);
+
+    // Create a valid update entry.
+    MutableEntry not_is_del(&trans, CREATE, id_factory.root(), "not_is_del");
+    not_is_del.Put(ID, not_is_del_id);
+    not_is_del.Put(IS_DEL, false);
+    not_is_del.Put(IS_UNSYNCED, true);
+
+    // Create a tombstone which should never be sent to the server because the
+    // server never knew about the item's existence.
+    //
+    // New clients should never put entries into this state.  We work around
+    // this by setting IS_DEL before setting IS_UNSYNCED, something which the
+    // client should never do in practice.
+    MutableEntry zombie(&trans, CREATE, id_factory.root(), "zombie");
+    zombie.Put(ID, zombie_id);
+    zombie.Put(IS_DEL, true);
+    zombie.Put(IS_UNSYNCED, true);
+  }
+
+  ASSERT_EQ(OPENED, SimulateSaveAndReloadDir());
+
+  {
+    ReadTransaction trans(FROM_HERE, dir_.get());
+
+    // The directory loading routines should have cleaned things up, making it
+    // safe to check invariants once again.
+    dir_->FullyCheckTreeInvariants(&trans);
+
+    Entry server_knows(&trans, GET_BY_ID, server_knows_id);
+    EXPECT_TRUE(server_knows.good());
+
+    Entry not_is_del(&trans, GET_BY_ID, not_is_del_id);
+    EXPECT_TRUE(not_is_del.good());
+
+    Entry zombie(&trans, GET_BY_ID, zombie_id);
+    EXPECT_FALSE(zombie.good());
   }
 }
 
@@ -1164,10 +1346,11 @@ class OnDiskSyncableDirectoryTest : public SyncableDirectoryTest {
     file_path_ = temp_dir_.path().Append(
         FILE_PATH_LITERAL("Test.sqlite3"));
     file_util::Delete(file_path_, true);
-    dir_.reset(new Directory(&encryptor_, &handler_, NULL));
+    dir_.reset(new Directory(&encryptor_, &handler_, NULL,
+        new OnDiskDirectoryBackingStore(kName, file_path_)));
     ASSERT_TRUE(dir_.get());
-    ASSERT_EQ(OPENED, dir_->Open(file_path_, kName,
-                                 &delegate_, NullTransactionObserver()));
+    ASSERT_EQ(OPENED, dir_->Open(kName, &delegate_,
+                                 NullTransactionObserver()));
     ASSERT_TRUE(dir_->good());
   }
 
@@ -1179,10 +1362,11 @@ class OnDiskSyncableDirectoryTest : public SyncableDirectoryTest {
   }
 
   void ReloadDir() {
-    dir_.reset(new Directory(&encryptor_, &handler_, NULL));
+    dir_.reset(new Directory(&encryptor_, &handler_, NULL,
+        new OnDiskDirectoryBackingStore(kName, file_path_)));
     ASSERT_TRUE(dir_.get());
-    ASSERT_EQ(OPENED, dir_->Open(file_path_, kName,
-                                 &delegate_, NullTransactionObserver()));
+    ASSERT_EQ(OPENED, dir_->Open(kName, &delegate_,
+                                 NullTransactionObserver()));
   }
 
   void SaveAndReloadDir() {
@@ -1195,10 +1379,10 @@ class OnDiskSyncableDirectoryTest : public SyncableDirectoryTest {
 
     // We first assign the object to a pointer of type TestUnsaveableDirectory
     // because the OpenUnsaveable function is not available in the parent class.
-    scoped_ptr<TestUnsaveableDirectory> dir(new TestUnsaveableDirectory());
+    scoped_ptr<TestUnsaveableDirectory> dir(new TestUnsaveableDirectory(
+        kName, file_path_));
     ASSERT_TRUE(dir.get());
-    ASSERT_EQ(OPENED, dir->OpenUnsaveable(
-            file_path_, kName, &delegate_, NullTransactionObserver()));
+    ASSERT_EQ(OPENED, dir->Open(kName, &delegate_, NullTransactionObserver()));
 
     // Finally, move the unsaveable directory to the dir_ variable.
     dir_ = dir.Pass();
@@ -1219,7 +1403,7 @@ TEST_F(OnDiskSyncableDirectoryTest, TestPurgeEntriesWithTypeIn) {
   dir_->set_initial_sync_ended_for_type(PREFERENCES, true);
   dir_->set_initial_sync_ended_for_type(AUTOFILL, true);
 
-  syncable::ModelTypeSet types_to_purge(PREFERENCES, AUTOFILL);
+  syncer::ModelTypeSet types_to_purge(PREFERENCES, AUTOFILL);
 
   TestIdFactory id_factory;
   // Create some items for each type.
@@ -1336,10 +1520,10 @@ TEST_F(OnDiskSyncableDirectoryTest,
   }
 
   dir_->SaveChanges();
-  dir_.reset(new Directory(&encryptor_, &handler_, NULL));
+  dir_.reset(new Directory(&encryptor_, &handler_, NULL,
+      new OnDiskDirectoryBackingStore(kName, file_path_)));
   ASSERT_TRUE(dir_.get());
-  ASSERT_EQ(OPENED, dir_->Open(file_path_, kName,
-                               &delegate_, NullTransactionObserver()));
+  ASSERT_EQ(OPENED, dir_->Open(kName, &delegate_, NullTransactionObserver()));
   ASSERT_TRUE(dir_->good());
 
   {
@@ -1511,7 +1695,7 @@ TEST_F(OnDiskSyncableDirectoryTest, TestSaveChangesFailureWithPurge) {
   SwapInUnsaveableDirectory();
   ASSERT_TRUE(dir_->good());
 
-  syncable::ModelTypeSet set(BOOKMARKS);
+  syncer::ModelTypeSet set(BOOKMARKS);
   dir_->PurgeEntriesWithTypeIn(set);
   EXPECT_TRUE(IsInMetahandlesToPurge(handle1));
   ASSERT_FALSE(dir_->SaveChanges());
@@ -1536,6 +1720,29 @@ void SyncableDirectoryTest::ValidateEntry(BaseTransaction* trans,
   ASSERT_TRUE(is_del == e.Get(IS_DEL));
 }
 
+DirOpenResult SyncableDirectoryTest::SimulateSaveAndReloadDir() {
+  if (!dir_->SaveChanges())
+    return FAILED_IN_UNITTEST;
+
+  // Do some tricky things to preserve the backing store.
+  DirectoryBackingStore* saved_store = dir_->store_.release();
+
+  // Close the current directory.
+  dir_->Close();
+  dir_.reset();
+
+  dir_.reset(new Directory(&encryptor_, &handler_, NULL, saved_store));
+  DirOpenResult result = dir_->OpenImpl(kName, &delegate_,
+                                        NullTransactionObserver());
+
+  // If something went wrong, we need to clear this member.  If we don't,
+  // TearDown() will be guaranteed to crash when it calls SaveChanges().
+  if (result != OPENED)
+    dir_.reset();
+
+  return result;
+}
+
 namespace {
 
 class SyncableDirectoryManagement : public testing::Test {
@@ -1558,9 +1765,10 @@ TEST_F(SyncableDirectoryManagement, TestFileRelease) {
   FilePath path = temp_dir_.path().Append(
       Directory::kSyncDatabaseFilename);
 
-  syncable::Directory dir(&encryptor_, &handler_, NULL);
+  syncable::Directory dir(&encryptor_, &handler_, NULL,
+      new OnDiskDirectoryBackingStore("ScopeTest", path));
   DirOpenResult result =
-      dir.Open(path, "ScopeTest", &delegate_, NullTransactionObserver());
+      dir.Open("ScopeTest", &delegate_, NullTransactionObserver());
   ASSERT_EQ(result, OPENED);
   dir.Close();
 
@@ -1618,11 +1826,10 @@ TEST(SyncableDirectory, StressTransactions) {
   FakeEncryptor encryptor;
   TestUnrecoverableErrorHandler handler;
   NullDirectoryChangeDelegate delegate;
-  Directory dir(&encryptor, &handler, NULL);
-  FilePath path = temp_dir.path().Append(Directory::kSyncDatabaseFilename);
-  file_util::Delete(path, true);
   std::string dirname = "stress";
-  dir.Open(path, dirname, &delegate, NullTransactionObserver());
+  Directory dir(&encryptor, &handler, NULL,
+                new InMemoryDirectoryBackingStore(dirname));
+  dir.Open(dirname, &delegate, NullTransactionObserver());
 
   const int kThreadCount = 7;
   base::PlatformThreadHandle threads[kThreadCount];
@@ -1639,7 +1846,6 @@ TEST(SyncableDirectory, StressTransactions) {
   }
 
   dir.Close();
-  file_util::Delete(path, true);
 }
 
 class SyncableClientTagTest : public SyncableDirectoryTest {
@@ -1663,8 +1869,8 @@ class SyncableClientTagTest : public SyncableDirectoryTest {
     if (id.ServerKnows()) {
       me.Put(BASE_VERSION, kBaseVersion);
     }
-    me.Put(IS_DEL, deleted);
     me.Put(IS_UNSYNCED, true);
+    me.Put(IS_DEL, deleted);
     me.Put(IS_DIR, false);
     return me.Put(UNIQUE_CLIENT_TAG, tag);
   }
@@ -1678,7 +1884,11 @@ class SyncableClientTagTest : public SyncableDirectoryTest {
     EXPECT_EQ(me.Get(ID), id);
     EXPECT_EQ(me.Get(UNIQUE_CLIENT_TAG), test_tag_);
     EXPECT_EQ(me.Get(IS_DEL), deleted);
-    EXPECT_EQ(me.Get(IS_UNSYNCED), true);
+
+    // We only sync deleted items that the server knew about.
+    if (me.Get(ID).ServerKnows() || !me.Get(IS_DEL)) {
+      EXPECT_EQ(me.Get(IS_UNSYNCED), true);
+    }
   }
 
  protected:
@@ -1739,3 +1949,4 @@ TEST_F(SyncableClientTagTest, TestClientTagIndexDuplicateServer) {
 
 }  // namespace
 }  // namespace syncable
+}  // namespace syncer

@@ -1,16 +1,15 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_SAFE_BROWSING_SAFE_BROWSING_TAB_OBSERVER_H_
 #define CHROME_BROWSER_SAFE_BROWSING_SAFE_BROWSING_TAB_OBSERVER_H_
-#pragma once
 
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 
-class TabContentsWrapper;
+class TabContents;
 
 namespace safe_browsing {
 
@@ -19,7 +18,7 @@ class ClientSideDetectionHost;
 // Per-tab class to handle safe-browsing functionality.
 class SafeBrowsingTabObserver : public content::NotificationObserver {
  public:
-  explicit SafeBrowsingTabObserver(TabContentsWrapper* wrapper);
+  explicit SafeBrowsingTabObserver(TabContents* tab_contents);
   virtual ~SafeBrowsingTabObserver();
 
  private:
@@ -37,8 +36,8 @@ class SafeBrowsingTabObserver : public content::NotificationObserver {
   // Handles IPCs.
   scoped_ptr<ClientSideDetectionHost> safebrowsing_detection_host_;
 
-  // Our owning TabContentsWrapper.
-  TabContentsWrapper* wrapper_;
+  // Our owning TabContents.
+  TabContents* tab_contents_;
 
   PrefChangeRegistrar pref_change_registrar_;
 

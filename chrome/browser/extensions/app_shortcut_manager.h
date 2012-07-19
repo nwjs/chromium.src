@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_APP_SHORTCUT_MANAGER_H_
 #define CHROME_BROWSER_EXTENSIONS_APP_SHORTCUT_MANAGER_H_
-#pragma once
 
 #include "chrome/browser/extensions/image_loading_tracker.h"
 #include "chrome/browser/shell_integration.h"
@@ -36,7 +35,7 @@ class AppShortcutManager : public ImageLoadingTracker::Observer,
   static void SetShortcutCreationDisabledForTesting(bool disabled);
  private:
   // Install the shortcuts for an application.
-  void InstallApplicationShortcuts(const Extension* extension);
+  void InstallApplicationShortcuts(const extensions::Extension* extension);
 
   content::NotificationRegistrar registrar_;
   Profile* profile_;

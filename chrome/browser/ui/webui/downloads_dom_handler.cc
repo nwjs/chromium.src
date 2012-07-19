@@ -17,7 +17,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/download/chrome_download_manager_delegate.h"
+#include "chrome/browser/download/download_crx_util.h"
+#include "chrome/browser/download/download_danger_prompt.h"
 #include "chrome/browser/download/download_history.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/download_service.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/fileicon_source.h"
 #include "chrome/common/url_constants.h"
@@ -43,6 +45,7 @@
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
 #endif
 
+using content::BrowserContext;
 using content::BrowserThread;
 using content::UserMetricsAction;
 
@@ -89,18 +92,18 @@ void CountDownloadsDOMEvents(DownloadsDOMEvent event) {
 DownloadsDOMHandler::DownloadsDOMHandler(content::DownloadManager* dlm)
     : search_text_(),
       download_manager_(dlm),
-      original_profile_download_manager_(NULL) {
+      original_profile_download_manager_(NULL),
+      initialized_(false),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
   // Create our fileicon data source.
-  Profile::FromBrowserContext(dlm->GetBrowserContext())->
-      GetChromeURLDataManager()->AddDataSource(new FileIconSource());
+  Profile* profile = Profile::FromBrowserContext(dlm->GetBrowserContext());
+  ChromeURLDataManager::AddDataSource(profile, new FileIconSource());
 
   // Figure out our parent DownloadManager, if any.
-  Profile* profile =
-      Profile::FromBrowserContext(download_manager_->GetBrowserContext());
   Profile* original_profile = profile->GetOriginalProfile();
   if (original_profile != profile) {
-    original_profile_download_manager_ = DownloadServiceFactory::GetForProfile(
-        original_profile)->GetDownloadManager();
+    original_profile_download_manager_ =
+        BrowserContext::GetDownloadManager(original_profile);
   }
 }
 
@@ -114,6 +117,10 @@ DownloadsDOMHandler::~DownloadsDOMHandler() {
 // DownloadsDOMHandler, public: -----------------------------------------------
 
 void DownloadsDOMHandler::OnPageLoaded(const base::ListValue* args) {
+  if (initialized_)
+    return;
+  initialized_ = true;
+
   download_manager_->AddObserver(this);
   if (original_profile_download_manager_)
     original_profile_download_manager_->AddObserver(this);
@@ -207,7 +214,7 @@ void DownloadsDOMHandler::ModelChanged(content::DownloadManager* manager) {
 
   // Remove any extension downloads.
   for (size_t i = 0; i < download_items_.size();) {
-    if (ChromeDownloadManagerDelegate::IsExtensionDownload(download_items_[i]))
+    if (download_crx_util::IsExtensionDownload(*download_items_[i]))
       download_items_.erase(download_items_.begin() + i);
     else
       i++;
@@ -219,11 +226,9 @@ void DownloadsDOMHandler::ModelChanged(content::DownloadManager* manager) {
     if (static_cast<int>(it - download_items_.begin()) > kMaxDownloads)
       break;
 
-    // TODO(rdsmith): Convert to DCHECK()s when http://crbug.com/85408 is
-    // fixed.
     // We should never see anything that isn't already in the history.
-    CHECK(*it);
-    CHECK((*it)->IsPersisted());
+    DCHECK(*it);
+    DCHECK((*it)->IsPersisted());
 
     (*it)->AddObserver(this);
   }
@@ -281,7 +286,9 @@ void DownloadsDOMHandler::HandleSaveDangerous(const ListValue* args) {
   CountDownloadsDOMEvents(DOWNLOADS_DOM_EVENT_SAVE_DANGEROUS);
   content::DownloadItem* file = GetDownloadByValue(args);
   if (file)
-    file->DangerousDownloadValidated();
+    ShowDangerPrompt(file);
+  // TODO(benjhayden): else ModelChanged()? Downloads might be able to disappear
+  // out from under us, so update our idea of the downloads as soon as possible.
 }
 
 void DownloadsDOMHandler::HandleDiscardDangerous(const ListValue* args) {
@@ -309,8 +316,7 @@ void DownloadsDOMHandler::HandleRemove(const ListValue* args) {
   CountDownloadsDOMEvents(DOWNLOADS_DOM_EVENT_REMOVE);
   content::DownloadItem* file = GetDownloadByValue(args);
   if (file) {
-    // TODO(rdsmith): Change to DCHECK when http://crbug.com/85408 is fixed.
-    CHECK(file->IsPersisted());
+    DCHECK(file->IsPersisted());
     file->Remove();
   }
 }
@@ -344,15 +350,35 @@ void DownloadsDOMHandler::SendCurrentDownloads() {
   ListValue results_value;
   for (OrderedDownloads::iterator it = download_items_.begin();
       it != download_items_.end(); ++it) {
-    int index = static_cast<int>(it - download_items_.begin());
-    if (index > kMaxDownloads)
-      break;
     if (!*it)
       continue;
-    results_value.Append(download_util::CreateDownloadItemValue(*it, index));
+    int index = static_cast<int>(it - download_items_.begin());
+    if (index <= kMaxDownloads)
+      results_value.Append(download_util::CreateDownloadItemValue(*it, index));
   }
 
   web_ui()->CallJavascriptFunction("downloadsList", results_value);
+}
+
+void DownloadsDOMHandler::ShowDangerPrompt(
+    content::DownloadItem* dangerous_item) {
+  DownloadDangerPrompt* danger_prompt = DownloadDangerPrompt::Create(
+      dangerous_item,
+      TabContents::FromWebContents(web_ui()->GetWebContents()),
+      base::Bind(&DownloadsDOMHandler::DangerPromptAccepted,
+                 weak_ptr_factory_.GetWeakPtr(), dangerous_item->GetId()),
+      base::Closure());
+  // danger_prompt will delete itself.
+  DCHECK(danger_prompt);
+}
+
+void DownloadsDOMHandler::DangerPromptAccepted(int download_id) {
+  content::DownloadItem* item = download_manager_->GetActiveDownloadItem(
+      download_id);
+  if (!item)
+    return;
+  CountDownloadsDOMEvents(DOWNLOADS_DOM_EVENT_SAVE_DANGEROUS);
+  item->DangerousDownloadValidated();
 }
 
 void DownloadsDOMHandler::ClearDownloadItems() {

@@ -6,7 +6,6 @@
 
 #ifndef CHROME_BROWSER_SIGNIN_TOKEN_SERVICE_UNITTEST_H_
 #define CHROME_BROWSER_SIGNIN_TOKEN_SERVICE_UNITTEST_H_
-#pragma once
 
 #include "base/message_loop.h"
 #include "base/synchronization/waitable_event.h"
@@ -16,14 +15,14 @@
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
-#include "content/test/test_browser_thread.h"
-#include "content/test/test_notification_tracker.h"
+#include "content/public/test/test_browser_thread.h"
+#include "content/public/test/test_notification_tracker.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 // TestNotificationTracker doesn't do a deep copy on the notification details.
 // We have to in order to read it out, or we have a bad ptr, since the details
 // are a reference on the stack.
-class TokenAvailableTracker : public TestNotificationTracker {
+class TokenAvailableTracker : public content::TestNotificationTracker {
  public:
   TokenAvailableTracker();
   virtual ~TokenAvailableTracker();
@@ -40,7 +39,7 @@ class TokenAvailableTracker : public TestNotificationTracker {
   TokenService::TokenAvailableDetails details_;
 };
 
-class TokenFailedTracker : public TestNotificationTracker {
+class TokenFailedTracker : public content::TestNotificationTracker {
  public:
   TokenFailedTracker();
   virtual ~TokenFailedTracker();

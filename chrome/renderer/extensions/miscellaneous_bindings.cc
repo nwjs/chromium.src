@@ -20,6 +20,7 @@
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
 #include "grit/renderer_resources.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebScopedMicrotaskSuppression.h"
 #include "v8/include/v8.h"
 
 // Message passing API example (in a content script):
@@ -145,6 +146,7 @@ class ExtensionImpl : public ChromeV8Extension {
   static void GCCallback(v8::Persistent<v8::Value> object, void* parameter) {
     v8::HandleScope handle_scope;
     GCCallbackArgs* args = reinterpret_cast<GCCallbackArgs*>(parameter);
+    WebKit::WebScopedMicrotaskSuppression suppression;
     args->callback->Call(args->callback->CreationContext()->Global(), 0, NULL);
     args->callback.Dispose();
     args->object.Dispose();
@@ -206,9 +208,15 @@ void MiscellaneousBindings::DispatchOnConnect(
     arguments.push_back(v8::String::New(target_extension_id.c_str(),
                                         target_extension_id.size()));
     v8::Handle<v8::Value> retval;
+    v8::TryCatch try_catch;
     if (!(*it)->CallChromeHiddenMethod("Port.dispatchOnConnect",
                                       arguments.size(), &arguments[0],
                                       &retval)) {
+      continue;
+    }
+
+    if (try_catch.HasCaught()) {
+      LOG(ERROR) << "Exception caught when calling Port.dispatchOnConnect.";
       continue;
     }
 
@@ -244,8 +252,14 @@ void MiscellaneousBindings::DeliverMessage(
     // the message.
     v8::Handle<v8::Value> port_id_handle = v8::Integer::New(target_port_id);
     v8::Handle<v8::Value> has_port;
+    v8::TryCatch try_catch;
     if (!(*it)->CallChromeHiddenMethod("Port.hasPort", 1, &port_id_handle,
                                        &has_port)) {
+      continue;
+    }
+
+    if (try_catch.HasCaught()) {
+      LOG(ERROR) << "Exception caught when calling Port.hasPort.";
       continue;
     }
 

@@ -14,16 +14,16 @@
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete.h"
-#include "chrome/browser/autocomplete/autocomplete_edit.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_popup_model.h"
+#include "chrome/browser/autocomplete/autocomplete_result.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
+#include "chrome/browser/ui/gtk/gtk_theme_service.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/gtk/theme_service_gtk.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "content/public/browser/notification_source.h"
@@ -31,6 +31,7 @@
 #include "ui/base/gtk/gtk_compat.h"
 #include "ui/base/gtk/gtk_hig_constants.h"
 #include "ui/base/gtk/gtk_screen_util.h"
+#include "ui/base/gtk/gtk_signal_registrar.h"
 #include "ui/base/gtk/gtk_windowing.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/font.h"
@@ -104,16 +105,6 @@ gfx::Rect GetRectForLine(size_t line, int width) {
                    (line * kHeightPerResult) + kBorderThickness,
                    width - (kBorderThickness * 2),
                    kHeightPerResult);
-}
-
-// Helper for drawing an entire pixbuf without dithering.
-void DrawFullImage(cairo_t* cr, GtkWidget* widget, const gfx::Image* image,
-                   gint dest_x, gint dest_y) {
-  gfx::CairoCachedSurface* surface = image->ToCairo();
-  surface->SetSource(cr, widget, dest_x, dest_y);
-  cairo_pattern_set_extend(cairo_get_source(cr), CAIRO_EXTEND_REPEAT);
-  cairo_rectangle(cr, dest_x, dest_y, surface->Width(), surface->Height());
-  cairo_fill(cr);
 }
 
 // TODO(deanm): Find some better home for this, and make it more efficient.
@@ -274,14 +265,15 @@ void OmniboxPopupViewGtk::SetupLayoutForMatch(
 
 OmniboxPopupViewGtk::OmniboxPopupViewGtk(const gfx::Font& font,
                                          OmniboxView* omnibox_view,
-                                         AutocompleteEditModel* edit_model,
+                                         OmniboxEditModel* edit_model,
                                          GtkWidget* location_bar)
-    : model_(new AutocompletePopupModel(this, edit_model)),
+    : signal_registrar_(new ui::GtkSignalRegistrar),
+      model_(new OmniboxPopupModel(this, edit_model)),
       omnibox_view_(omnibox_view),
       location_bar_(location_bar),
       window_(gtk_window_new(GTK_WINDOW_POPUP)),
       layout_(NULL),
-      theme_service_(ThemeServiceGtk::GetFrom(edit_model->profile())),
+      theme_service_(GtkThemeService::GetFrom(edit_model->profile())),
       font_(font.DeriveFont(kEditFontAdjust)),
       ignore_mouse_drag_(false),
       opened_(false) {
@@ -306,14 +298,14 @@ OmniboxPopupViewGtk::OmniboxPopupViewGtk(const gfx::Font& font,
                                  GDK_POINTER_MOTION_MASK |
                                  GDK_BUTTON_PRESS_MASK |
                                  GDK_BUTTON_RELEASE_MASK);
-  g_signal_connect(window_, "motion-notify-event",
-                   G_CALLBACK(HandleMotionThunk), this);
-  g_signal_connect(window_, "button-press-event",
-                   G_CALLBACK(HandleButtonPressThunk), this);
-  g_signal_connect(window_, "button-release-event",
-                   G_CALLBACK(HandleButtonReleaseThunk), this);
-  g_signal_connect(window_, "expose-event",
-                   G_CALLBACK(HandleExposeThunk), this);
+  signal_registrar_->Connect(window_, "motion-notify-event",
+                             G_CALLBACK(HandleMotionThunk), this);
+  signal_registrar_->Connect(window_, "button-press-event",
+                             G_CALLBACK(HandleButtonPressThunk), this);
+  signal_registrar_->Connect(window_, "button-release-event",
+                             G_CALLBACK(HandleButtonReleaseThunk), this);
+  signal_registrar_->Connect(window_, "expose-event",
+                             G_CALLBACK(HandleExposeThunk), this);
 
   registrar_.Add(this,
                  chrome::NOTIFICATION_BROWSER_THEME_CHANGED,
@@ -334,6 +326,10 @@ OmniboxPopupViewGtk::OmniboxPopupViewGtk(const gfx::Font& font,
 }
 
 OmniboxPopupViewGtk::~OmniboxPopupViewGtk() {
+  // Stop listening to our signals before we destroy the model. I suspect that
+  // we can race window destruction, otherwise.
+  signal_registrar_.reset();
+
   // Explicitly destroy our model here, before we destroy our GTK widgets.
   // This is because the model destructor can call back into us, and we need
   // to make sure everything is still valid when it does.
@@ -496,7 +492,7 @@ const gfx::Image* OmniboxPopupViewGtk::IconForMatch(
     if (!ContainsKey(images_, bitmap)) {
       // gfx::Image wants ownership of bitmaps given to it, and we might as
       // well make the bitmap copy a format that will be used.
-      images_[bitmap] = new gfx::Image(gfx::GdkPixbufFromSkBitmap(bitmap));
+      images_[bitmap] = new gfx::Image(gfx::GdkPixbufFromSkBitmap(*bitmap));
     }
     return images_[bitmap];
   }
@@ -516,9 +512,6 @@ const gfx::Image* OmniboxPopupViewGtk::IconForMatch(
         break;
       case IDR_OMNIBOX_HTTP:
         icon = IDR_OMNIBOX_HTTP_DARK;
-        break;
-      case IDR_OMNIBOX_HISTORY:
-        icon = IDR_OMNIBOX_HISTORY_DARK;
         break;
       case IDR_OMNIBOX_SEARCH:
         icon = IDR_OMNIBOX_SEARCH_DARK;
@@ -546,7 +539,7 @@ void OmniboxPopupViewGtk::GetVisibleMatchForInput(
 
   if (result.match_at(index).associated_keyword.get() &&
       model_->selected_line() == index &&
-      model_->selected_line_state() == AutocompletePopupModel::KEYWORD) {
+      model_->selected_line_state() == OmniboxPopupModel::KEYWORD) {
     *match = result.match_at(index).associated_keyword.get();
     *is_selected_keyword = true;
     return;
@@ -656,9 +649,10 @@ gboolean OmniboxPopupViewGtk::HandleExpose(GtkWidget* widget,
     int icon_start_x = ltr ? kIconLeftPadding :
         (line_rect.width() - kIconLeftPadding - kIconWidth);
     // Draw the icon for this result.
-    DrawFullImage(cr, widget,
-                  IconForMatch(*match, is_selected, is_selected_keyword),
-                  icon_start_x, line_rect.y() + kIconTopPadding);
+    gtk_util::DrawFullImage(cr, widget,
+                            IconForMatch(*match, is_selected,
+                                         is_selected_keyword),
+                            icon_start_x, line_rect.y() + kIconTopPadding);
 
     // Draw the results text vertically centered in the results space.
     // First draw the contents / url, but don't let it take up the whole width
@@ -732,10 +726,11 @@ gboolean OmniboxPopupViewGtk::HandleExpose(GtkWidget* widget,
       icon_start_x = ltr ? (line_rect.width() - kIconLeftPadding - kIconWidth) :
           kIconLeftPadding;
       // Draw the icon for this result.
-      DrawFullImage(cr, widget,
-                    theme_service_->GetImageNamed(
-                        is_selected ? IDR_OMNIBOX_TTS_DARK : IDR_OMNIBOX_TTS),
-                    icon_start_x, line_rect.y() + kIconTopPadding);
+      gtk_util::DrawFullImage(cr, widget,
+                              theme_service_->GetImageNamed(
+                                  is_selected ? IDR_OMNIBOX_TTS_DARK :
+                                  IDR_OMNIBOX_TTS),
+                              icon_start_x, line_rect.y() + kIconTopPadding);
     }
   }
 

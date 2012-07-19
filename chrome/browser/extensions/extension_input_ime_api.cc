@@ -124,7 +124,7 @@ bool ReadMenuItems(
   return true;
 }
 
-}
+}  // namespace
 
 namespace events {
 
@@ -149,8 +149,7 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
     engine_id_(engine_id) {
   }
 
-  virtual ~ImeObserver() {
-  }
+  virtual ~ImeObserver() {}
 
   virtual void OnActivate(const std::string& engine_id) {
     if (profile_ == NULL || extension_id_.empty())
@@ -311,29 +310,21 @@ class ImeObserver : public chromeos::InputMethodEngine::Observer {
 
   DISALLOW_COPY_AND_ASSIGN(ImeObserver);
 };
-}  // namespace chromeos
 
+}  // namespace chromeos
 
 ExtensionInputImeEventRouter*
 ExtensionInputImeEventRouter::GetInstance() {
   return Singleton<ExtensionInputImeEventRouter>::get();
 }
 
-ExtensionInputImeEventRouter::ExtensionInputImeEventRouter()
-  : next_request_id_(1) {
-}
-
-ExtensionInputImeEventRouter::~ExtensionInputImeEventRouter() {
-}
-
-void ExtensionInputImeEventRouter::Init() {
-}
+void ExtensionInputImeEventRouter::Init() {}
 
 #if defined(OS_CHROMEOS)
 bool ExtensionInputImeEventRouter::RegisterIme(
     Profile* profile,
     const std::string& extension_id,
-    const Extension::InputComponentInfo& component) {
+    const extensions::Extension::InputComponentInfo& component) {
   VLOG(1) << "RegisterIme: " << extension_id << " id: " << component.id;
 
   std::map<std::string, chromeos::InputMethodEngine*>& engine_map =
@@ -465,12 +456,18 @@ std::string ExtensionInputImeEventRouter::AddRequest(
   return request_id;
 }
 
+ExtensionInputImeEventRouter::ExtensionInputImeEventRouter()
+  : next_request_id_(1) {
+}
+
+ExtensionInputImeEventRouter::~ExtensionInputImeEventRouter() {}
+
 bool SetCompositionFunction::RunImpl() {
   chromeos::InputMethodEngine* engine =
       ExtensionInputImeEventRouter::GetInstance()->
           GetActiveEngine(extension_id());
   if (!engine) {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
     return true;
   }
 
@@ -501,35 +498,42 @@ bool SetCompositionFunction::RunImpl() {
   }
 
   if (args->HasKey(keys::kSegmentsKey)) {
-    ListValue* segment_list;
+    ListValue* segment_list = NULL;
     EXTENSION_FUNCTION_VALIDATE(args->GetList(keys::kSegmentsKey,
                                               &segment_list));
-    int start;
-    int end;
-    std::string style;
 
-    EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kStartKey,
-                                                 &start));
-    EXTENSION_FUNCTION_VALIDATE(args->GetInteger(keys::kEndKey, &end));
-    EXTENSION_FUNCTION_VALIDATE(args->GetString(keys::kStyleKey, &style));
+    for (size_t i = 0; i < segment_list->GetSize(); ++i) {
+      DictionaryValue* segment = NULL;
+      if (!segment_list->GetDictionary(i, &segment))
+        continue;
 
-    segments.push_back(chromeos::InputMethodEngine::SegmentInfo());
-    segments.back().start = start;
-    segments.back().end = end;
-    if (style == keys::kStyleUnderline) {
-      segments.back().style =
-          chromeos::InputMethodEngine::SEGMENT_STYLE_UNDERLINE;
-    } else if (style == keys::kStyleDoubleUnderline) {
-      segments.back().style =
-          chromeos::InputMethodEngine::SEGMENT_STYLE_DOUBLE_UNDERLINE;
+      int start;
+      int end;
+      std::string style;
+
+      EXTENSION_FUNCTION_VALIDATE(segment->GetInteger(keys::kStartKey,
+                                                      &start));
+      EXTENSION_FUNCTION_VALIDATE(segment->GetInteger(keys::kEndKey, &end));
+      EXTENSION_FUNCTION_VALIDATE(segment->GetString(keys::kStyleKey, &style));
+
+      segments.push_back(chromeos::InputMethodEngine::SegmentInfo());
+      segments.back().start = start;
+      segments.back().end = end;
+      if (style == keys::kStyleUnderline) {
+        segments.back().style =
+            chromeos::InputMethodEngine::SEGMENT_STYLE_UNDERLINE;
+      } else if (style == keys::kStyleDoubleUnderline) {
+        segments.back().style =
+            chromeos::InputMethodEngine::SEGMENT_STYLE_DOUBLE_UNDERLINE;
+      }
     }
   }
 
   if (engine->SetComposition(context_id, text.c_str(), selection_start,
                              selection_end, cursor, segments, &error_)) {
-    result_.reset(Value::CreateBooleanValue(true));
+    SetResult(Value::CreateBooleanValue(true));
   } else {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
   }
   return true;
 }
@@ -539,7 +543,7 @@ bool ClearCompositionFunction::RunImpl() {
       ExtensionInputImeEventRouter::GetInstance()->
           GetActiveEngine(extension_id());
   if (!engine) {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
     return true;
   }
 
@@ -551,9 +555,9 @@ bool ClearCompositionFunction::RunImpl() {
                                                &context_id));
 
   if (engine->ClearComposition(context_id, &error_)) {
-    result_.reset(Value::CreateBooleanValue(true));
+    SetResult(Value::CreateBooleanValue(true));
   } else {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
   }
   return true;
 }
@@ -564,7 +568,7 @@ bool CommitTextFunction::RunImpl() {
       ExtensionInputImeEventRouter::GetInstance()->
           GetActiveEngine(extension_id());
   if (!engine) {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
     return true;
   }
 
@@ -578,9 +582,9 @@ bool CommitTextFunction::RunImpl() {
   EXTENSION_FUNCTION_VALIDATE(args->GetString(keys::kTextKey, &text));
 
   if (engine->CommitText(context_id, text.c_str(), &error_)) {
-    result_.reset(Value::CreateBooleanValue(true));
+    SetResult(Value::CreateBooleanValue(true));
   } else {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
   }
   return true;
 }
@@ -596,7 +600,7 @@ bool SetCandidateWindowPropertiesFunction::RunImpl() {
       ExtensionInputImeEventRouter::GetInstance()->GetEngine(extension_id(),
                                                              engine_id);
   if (!engine) {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
     return true;
   }
 
@@ -609,7 +613,7 @@ bool SetCandidateWindowPropertiesFunction::RunImpl() {
     EXTENSION_FUNCTION_VALIDATE(properties->GetBoolean(keys::kVisibleKey,
                                                        &visible));
     if (!engine->SetCandidateWindowVisible(visible, &error_)) {
-      result_.reset(Value::CreateBooleanValue(false));
+      SetResult(Value::CreateBooleanValue(false));
       return true;
     }
   }
@@ -650,7 +654,7 @@ bool SetCandidateWindowPropertiesFunction::RunImpl() {
     engine->SetCandidateWindowAuxTextVisible(visible);
   }
 
-  result_.reset(Value::CreateBooleanValue(true));
+  SetResult(Value::CreateBooleanValue(true));
 
   return true;
 }
@@ -707,7 +711,7 @@ bool SetCandidatesFunction::RunImpl() {
       ExtensionInputImeEventRouter::GetInstance()->
           GetActiveEngine(extension_id());
   if (!engine) {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
     return true;
   }
 
@@ -730,9 +734,9 @@ bool SetCandidatesFunction::RunImpl() {
 
   std::string error;
   if (engine->SetCandidates(context_id, candidates, &error_)) {
-    result_.reset(Value::CreateBooleanValue(true));
+    SetResult(Value::CreateBooleanValue(true));
   } else {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
   }
   return true;
 }
@@ -742,7 +746,7 @@ bool SetCursorPositionFunction::RunImpl() {
       ExtensionInputImeEventRouter::GetInstance()->
           GetActiveEngine(extension_id());
   if (!engine) {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
     return true;
   }
 
@@ -757,9 +761,9 @@ bool SetCursorPositionFunction::RunImpl() {
                                                &candidate_id));
 
   if (engine->SetCursorPosition(context_id, candidate_id, &error_)) {
-    result_.reset(Value::CreateBooleanValue(true));
+    SetResult(Value::CreateBooleanValue(true));
   } else {
-    result_.reset(Value::CreateBooleanValue(false));
+    SetResult(Value::CreateBooleanValue(false));
   }
   return true;
 }

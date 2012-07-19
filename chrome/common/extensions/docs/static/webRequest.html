@@ -44,7 +44,7 @@ synchronous events will allow you to intercept, block, or modify a request.
 <p>
 The event life cycle for successful requests is illustrated here, followed by
 event definitions:<br/>
-<img src="images/webrequestapi.png"
+<img src="../images/webrequestapi.png"
   width="385" height="503"
   alt="Life cycle of a web request from the perspective of the webrequest API"
   style="margin-left: auto; margin-right: auto; display: block"/>
@@ -96,7 +96,8 @@ event definitions:<br/>
 </dl>
 The web request API guarantees that for each request either
 <code>onCompleted</code> or <code>onErrorOccurred</code> is fired as the final
-event.
+event with one exception: If a request is redirected to a <code>data://</code>
+URL, <code>onBeforeRedirect</code> is the last reported event.
 </p>
 
 <p id="life_cycle_footnote">(*) Note that the web request API presents an
@@ -125,6 +126,25 @@ complete nor stable.
   <li>Proxy-Connection</li>
   <li>Transfer-Encoding</li>
 </ul>
+</p>
+
+<p>
+The webRequest API only exposes requests that the extension has
+permission to see, given its
+<a href="manifest.html#permissions">host permissions</a>.
+Moreover, only the following schemes are accessible:
+<code>http://</code>,
+<code>https://</code>,
+<code>ftp://</code>,
+<code>file://</code>, or
+<code>chrome-extension://</code>.
+In addition, even certain requests with URLs using one of the above schemes
+are hidden, e.g.,
+<code>chrome-extension://other_extension_id</code> where
+<code>other_extension_id</code> is not the ID of the extension to handle
+the request,
+<code>https://www.google.com/chrome</code>,
+and others (this list is not complete).
 </p>
 
 <h2 id="concepts">Concepts</h2>
@@ -174,14 +194,14 @@ depends on the specific event type as well as the content of
 <code>'blocking'</code> (only allowed for specific events), the callback
 function is handled synchronously. That means that the request is blocked until
 the callback function returns. In this case, the callback can return a <a
-  href="#type-BlockingResponse">BlockingResponse</a> that determines the further
+  href="#type-webRequest.BlockingResponse">BlockingResponse</a> that determines the further
 life cycle of the request. Depending on the context, this response allows
 cancelling or redirecting a request (<code>onBeforeRequest</code>), cancelling a
 request or modifying headers (<code>onBeforeSendHeaders</code>,
 <code>onHeadersReceived</code>), or providing authentication credentials
 (<code>onAuthRequired</code>).</p>
 
-<p>The <a href="#type-RequestFilter">RequestFilter</a>
+<p>The <a href="#type-webRequest.RequestFilter">RequestFilter</a>
 <code>filter</code> allows limiting the requests for which events are
 triggered in various dimensions:
 <dl>
@@ -192,7 +212,7 @@ triggered in various dimensions:
   <dd>Request types such as <code>main_frame</code> (a document that is loaded
   for a top-level frame), <code>sub_frame</code> (a document that is loaded for
   an embedded frame), and <code>image</code> (an image on a web site).
-  See <a href="#type-RequestFilter">RequestFilter</a>.</dd>
+  See <a href="#type-webRequest.RequestFilter">RequestFilter</a>.</dd>
   <dt>Tab ID</dt>
   <dd>The identifier for one tab.</dd>
   <dt>Window ID</dt>

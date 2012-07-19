@@ -5,6 +5,7 @@
 #include "base/logging.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
@@ -47,7 +48,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
       browser(), web_resource.ReplaceComponents(make_host_a_com));
   std::string result;
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ(result, "Loaded");
@@ -59,7 +60,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
           "non_existent_extension.html"));
   ui_test_utils::NavigateToURL(browser(), non_existent_extension);
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ(result, "Image failed to load");
@@ -73,13 +74,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
   ui_test_utils::NavigateToURL(browser(),
       GURL(std::string("data:text/html;charset=utf-8,") + file_source));
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-      browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Loaded");
 
-  // A different extension. Extensions should always be able to load each
-  // other's resources.
+  // A different extension. Legacy (manifest_version 1) extensions should always
+  // be able to load each other's resources.
   ASSERT_TRUE(LoadExtension(test_data_dir_
       .AppendASCII("extension_resource_request_policy")
       .AppendASCII("extension2")));
@@ -87,7 +88,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, OriginPrivileges) {
       browser(),
       GURL("chrome-extension://pbkkcbgdkliohhfaeefcijaghglkahja/index.html"));
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-      browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
       &result));
   EXPECT_EQ(result, "Loaded");
@@ -123,8 +124,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, MAYBE_Video) {
       "video.html"));
 }
 
+// This test times out regularly on win_rel trybots. See http://crbug.com/122154
+#if defined(OS_WIN)
+#define MAYBE_WebAccessibleResources DISABLED_WebAccessibleResources
+#else
+#define MAYBE_WebAccessibleResources WebAccessibleResources
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
-                       WebAccessibleResources) {
+                       MAYBE_WebAccessibleResources) {
   std::string result;
   ASSERT_TRUE(test_server()->Start());
   ASSERT_TRUE(LoadExtension(test_data_dir_
@@ -137,7 +144,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/accessible_resource.html"));
   ui_test_utils::NavigateToURL(browser(), accessible_resource);
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ("Loaded", result);
@@ -149,7 +156,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
   ui_test_utils::NavigateToURL(
       browser(), xhr_accessible_resource);
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ("XHR completed with status: 200", result);
@@ -161,7 +168,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
   ui_test_utils::NavigateToURL(
       browser(), xhr_inaccessible_resource);
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ("XHR failed to load resource", result);
@@ -172,7 +179,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/nonaccessible_resource.html"));
   ui_test_utils::NavigateToURL(browser(), nonaccessible_resource);
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ("Image failed to load", result);
@@ -183,9 +190,40 @@ IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
           "web_accessible/nonexistent_resource.html"));
   ui_test_utils::NavigateToURL(browser(), nonexistent_resource);
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
-    browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(document.title)",
     &result));
   EXPECT_EQ("Image failed to load", result);
+
+  GURL nonaccessible_cer_resource(
+      test_server()->GetURL(
+          "files/extensions/api_test/extension_resource_request_policy/"
+          "web_accessible/nonaccessible_chrome_resource_scheme.html"));
+  ui_test_utils::NavigateToURL(browser(), nonaccessible_cer_resource);
+  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+    chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+    &result));
+  EXPECT_EQ("Loading CER:// failed.", result);
 }
 
+IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest, Iframe) {
+  // Load another extension, which the test one shouldn't be able to get
+  // resources from.
+  ASSERT_TRUE(LoadExtension(test_data_dir_
+      .AppendASCII("extension_resource_request_policy")
+      .AppendASCII("inaccessible")));
+  EXPECT_TRUE(RunExtensionSubtest(
+      "extension_resource_request_policy/web_accessible",
+      "iframe.html"));
+}
+
+#if defined(OS_MACOSX)
+#define MAYBE_ExtensionAccessibleResources FLAKY_ExtensionAccessibleResources
+#else
+#define MAYBE_ExtensionAccessibleResources ExtensionAccessibleResources
+#endif
+IN_PROC_BROWSER_TEST_F(ExtensionResourceRequestPolicyTest,
+                       MAYBE_ExtensionAccessibleResources) {
+  ASSERT_TRUE(RunExtensionSubtest("accessible_cer", "main.html")) << message_;
+}

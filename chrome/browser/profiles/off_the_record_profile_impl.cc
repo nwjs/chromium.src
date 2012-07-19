@@ -11,6 +11,7 @@
 #include "base/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
+#include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "build/build_config.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
@@ -22,7 +23,6 @@
 #include "chrome/browser/extensions/api/web_request/web_request_api.h"
 #include "chrome/browser/extensions/extension_info_map.h"
 #include "chrome/browser/extensions/extension_pref_store.h"
-#include "chrome/browser/extensions/extension_pref_value_map.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
@@ -34,8 +34,7 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
 #include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/transport_security_persister.h"
-#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager_factory.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -48,6 +47,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/transport_security_state.h"
 #include "net/http/http_server_properties.h"
@@ -59,7 +59,7 @@
 #endif
 
 using content::BrowserThread;
-using content::DownloadManager;
+using content::DownloadManagerDelegate;
 using content::HostZoomMap;
 
 namespace {
@@ -103,7 +103,7 @@ void OffTheRecordProfileImpl::Init() {
 
   // Make the chrome//extension-icon/ resource available.
   ExtensionIconSource* icon_source = new ExtensionIconSource(profile_);
-  GetChromeURLDataManager()->AddDataSource(icon_source);
+  ChromeURLDataManager::AddDataSource(this, icon_source);
 
   ChromePluginServiceFilter::GetInstance()->RegisterResourceContext(
       PluginPrefs::GetForProfile(this), io_data_.GetResourceContextNoInit());
@@ -122,7 +122,7 @@ OffTheRecordProfileImpl::~OffTheRecordProfileImpl() {
     io_data_.GetResourceContextNoInit());
 
   ExtensionService* extension_service =
-      ExtensionSystem::Get(this)->extension_service();
+      extensions::ExtensionSystem::Get(this)->extension_service();
   if (extension_service && extension_service->extensions_enabled()) {
     extension_service->extension_prefs()->
         ClearIncognitoSessionOnlyContentSettings();
@@ -192,25 +192,21 @@ VisitedLinkMaster* OffTheRecordProfileImpl::GetVisitedLinkMaster() {
   return NULL;
 }
 
-ExtensionPrefValueMap* OffTheRecordProfileImpl::GetExtensionPrefValueMap() {
-  return NULL;
-}
-
 ExtensionService* OffTheRecordProfileImpl::GetExtensionService() {
-  return ExtensionSystem::Get(this)->extension_service();
+  return extensions::ExtensionSystem::Get(this)->extension_service();
 }
 
-UserScriptMaster* OffTheRecordProfileImpl::GetUserScriptMaster() {
-  return ExtensionSystem::Get(this)->user_script_master();
+extensions::UserScriptMaster* OffTheRecordProfileImpl::GetUserScriptMaster() {
+  return extensions::ExtensionSystem::Get(this)->user_script_master();
 }
 
 ExtensionProcessManager*
     OffTheRecordProfileImpl::GetExtensionProcessManager() {
-  return ExtensionSystem::Get(this)->process_manager();
+  return extensions::ExtensionSystem::Get(this)->process_manager();
 }
 
 ExtensionEventRouter* OffTheRecordProfileImpl::GetExtensionEventRouter() {
-  return ExtensionSystem::Get(this)->event_router();
+  return extensions::ExtensionSystem::Get(this)->event_router();
 }
 
 ExtensionSpecialStoragePolicy*
@@ -244,25 +240,8 @@ FaviconService* OffTheRecordProfileImpl::GetFaviconService(
   return NULL;
 }
 
-AutocompleteClassifier* OffTheRecordProfileImpl::GetAutocompleteClassifier() {
-  return profile_->GetAutocompleteClassifier();
-}
-
-history::ShortcutsBackend* OffTheRecordProfileImpl::GetShortcutsBackend() {
-  return NULL;
-}
-
-WebDataService* OffTheRecordProfileImpl::GetWebDataService(
-    ServiceAccessType sat) {
-  if (sat == EXPLICIT_ACCESS)
-    return profile_->GetWebDataService(sat);
-
-  NOTREACHED() << "This profile is OffTheRecord";
-  return NULL;
-}
-
-WebDataService* OffTheRecordProfileImpl::GetWebDataServiceWithoutCreating() {
-  return profile_->GetWebDataServiceWithoutCreating();
+policy::PolicyService* OffTheRecordProfileImpl::GetPolicyService() {
+  return profile_->GetPolicyService();
 }
 
 PrefService* OffTheRecordProfileImpl::GetPrefs() {
@@ -273,8 +252,9 @@ PrefService* OffTheRecordProfileImpl::GetOffTheRecordPrefs() {
   return prefs_;
 }
 
-DownloadManager* OffTheRecordProfileImpl::GetDownloadManager() {
-  return DownloadServiceFactory::GetForProfile(this)->GetDownloadManager();
+DownloadManagerDelegate* OffTheRecordProfileImpl::GetDownloadManagerDelegate() {
+  return DownloadServiceFactory::GetForProfile(this)->
+      GetDownloadManagerDelegate();
 }
 
 net::URLRequestContextGetter* OffTheRecordProfileImpl::GetRequestContext() {
@@ -285,14 +265,25 @@ net::URLRequestContextGetter*
     OffTheRecordProfileImpl::GetRequestContextForRenderProcess(
         int renderer_child_id) {
   if (GetExtensionService()) {
-    const Extension* installed_app = GetExtensionService()->
+    const extensions::Extension* installed_app = GetExtensionService()->
         GetInstalledAppForRenderer(renderer_child_id);
-    if (installed_app != NULL && installed_app->is_storage_isolated() &&
-        installed_app->HasAPIPermission(
-            ExtensionAPIPermission::kExperimental)) {
+    if (installed_app != NULL && installed_app->is_storage_isolated()) {
       return GetRequestContextForIsolatedApp(installed_app->id());
     }
   }
+
+  content::RenderProcessHost* rph = content::RenderProcessHost::FromID(
+      renderer_child_id);
+  if (rph && rph->IsGuest()) {
+    // For guest processes (used by the browser tag), we need to isolate the
+    // storage.
+    // TODO(nasko): Until we have proper storage partitions, create a
+    // non-persistent context using the RPH's id.
+    std::string id("guest-");
+    id.append(base::IntToString(renderer_child_id));
+    return GetRequestContextForIsolatedApp(id);
+  }
+
   return GetRequestContext();
 }
 
@@ -326,8 +317,10 @@ HostContentSettingsMap* OffTheRecordProfileImpl::GetHostContentSettingsMap() {
   // ensure the preferences have been migrated.
   profile_->GetHostContentSettingsMap();
   if (!host_content_settings_map_.get()) {
-    host_content_settings_map_ = new HostContentSettingsMap(
-        GetPrefs(), GetExtensionService(), true);
+    host_content_settings_map_ = new HostContentSettingsMap(GetPrefs(), true);
+    ExtensionService* extension_service = GetExtensionService();
+    if (extension_service)
+      host_content_settings_map_->RegisterExtensionService(extension_service);
   }
   return host_content_settings_map_.get();
 }
@@ -340,10 +333,6 @@ content::GeolocationPermissionContext*
 content::SpeechRecognitionPreferences*
     OffTheRecordProfileImpl::GetSpeechRecognitionPreferences() {
   return profile_->GetSpeechRecognitionPreferences();
-}
-
-UserStyleSheetWatcher* OffTheRecordProfileImpl::GetUserStyleSheetWatcher() {
-  return profile_->GetUserStyleSheetWatcher();
 }
 
 bool OffTheRecordProfileImpl::DidLastSessionExitCleanly() {
@@ -418,13 +407,6 @@ void OffTheRecordProfileImpl::InitChromeOSPreferences() {
   // The preferences are associated with the regular user profile.
 }
 #endif  // defined(OS_CHROMEOS)
-
-ChromeURLDataManager* OffTheRecordProfileImpl::GetChromeURLDataManager() {
-  if (!chrome_url_data_manager_.get())
-    chrome_url_data_manager_.reset(new ChromeURLDataManager(
-        io_data_.GetChromeURLDataManagerBackendGetter()));
-  return chrome_url_data_manager_.get();
-}
 
 #if defined(OS_CHROMEOS)
 void OffTheRecordProfileImpl::ChangeAppLocale(const std::string& locale,
@@ -504,4 +486,9 @@ Profile* Profile::CreateOffTheRecordProfile() {
     profile = new OffTheRecordProfileImpl(this);
   profile->Init();
   return profile;
+}
+
+base::Callback<ChromeURLDataManagerBackend*(void)>
+    OffTheRecordProfileImpl::GetChromeURLDataManagerBackendGetter() const {
+  return io_data_.GetChromeURLDataManagerBackendGetter();
 }

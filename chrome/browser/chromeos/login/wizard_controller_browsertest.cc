@@ -6,6 +6,8 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_shutdown.h"
+#include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/cros/network_library.h"
 #include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen.h"
 #include "chrome/browser/chromeos/login/enrollment/mock_enterprise_enrollment_screen.h"
@@ -104,11 +106,14 @@ class WizardControllerFlowTest : public WizardControllerTest {
  protected:
   WizardControllerFlowTest() {}
   // Overriden from InProcessBrowserTest:
-  virtual Browser* CreateBrowser(Profile* profile) {
-    Browser* ret = WizardControllerTest::CreateBrowser(profile);
+  virtual void SetUpOnMainThread() OVERRIDE {
+    WizardControllerTest::SetUpOnMainThread();
 
     // Make sure that OOBE is run as an "official" build.
     WizardController::default_controller()->is_official_build_ = true;
+
+    // Clear portal list (as it is by default in OOBE).
+    CrosLibrary::Get()->GetNetworkLibrary()->SetCheckPortalList("");
 
     // Set up the mocks for all screens.
     MOCK(mock_network_screen_, network_screen_,
@@ -124,8 +129,6 @@ class WizardControllerFlowTest : public WizardControllerTest {
     EXPECT_CALL(*mock_network_screen_, Show()).Times(1);
     WizardController::default_controller()->AdvanceToScreen(
         WizardController::kNetworkScreenName);
-
-    return ret;
   }
 
   void OnExit(ScreenObserver::ExitCodes exit_code) {
@@ -167,6 +170,8 @@ IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowMain) {
   OnExit(ScreenObserver::UPDATE_INSTALLED);
 
   EXPECT_FALSE(ExistingUserController::current_controller() == NULL);
+  EXPECT_EQ("ethernet,wifi,cellular",
+            CrosLibrary::Get()->GetNetworkLibrary()->GetCheckPortalList());
 }
 
 IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowErrorUpdate) {
@@ -197,6 +202,33 @@ IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowErrorUpdate) {
   EXPECT_FALSE(ExistingUserController::current_controller() == NULL);
 }
 
+IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowSkipUpdateEnroll) {
+  EXPECT_EQ(WizardController::default_controller()->GetNetworkScreen(),
+            WizardController::default_controller()->current_screen());
+  EXPECT_CALL(*mock_update_screen_, StartUpdate()).Times(0);
+  EXPECT_CALL(*mock_eula_screen_, Show()).Times(1);
+  EXPECT_CALL(*mock_update_screen_, Show()).Times(0);
+  EXPECT_CALL(*mock_network_screen_, Hide()).Times(1);
+  OnExit(ScreenObserver::NETWORK_CONNECTED);
+
+  EXPECT_EQ(WizardController::default_controller()->GetEulaScreen(),
+            WizardController::default_controller()->current_screen());
+  EXPECT_CALL(*mock_eula_screen_, Hide()).Times(1);
+  EXPECT_CALL(*mock_update_screen_, StartUpdate()).Times(0);
+  EXPECT_CALL(*mock_update_screen_, Show()).Times(0);
+  WizardController::default_controller()->SkipUpdateEnrollAfterEula();
+  EXPECT_CALL(*mock_enterprise_enrollment_screen_, Show()).Times(1);
+  EXPECT_CALL(*mock_enterprise_enrollment_screen_, Hide()).Times(0);
+  OnExit(ScreenObserver::EULA_ACCEPTED);
+
+  EXPECT_EQ(WizardController::default_controller()->
+                GetEnterpriseEnrollmentScreen(),
+            WizardController::default_controller()->current_screen());
+  EXPECT_TRUE(ExistingUserController::current_controller() == NULL);
+  EXPECT_EQ("ethernet,wifi,cellular",
+            CrosLibrary::Get()->GetNetworkLibrary()->GetCheckPortalList());
+}
+
 IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowEulaDeclined) {
   EXPECT_EQ(WizardController::default_controller()->GetNetworkScreen(),
             WizardController::default_controller()->current_screen());
@@ -214,14 +246,6 @@ IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowEulaDeclined) {
 
   EXPECT_EQ(WizardController::default_controller()->GetNetworkScreen(),
             WizardController::default_controller()->current_screen());
-}
-
-IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowErrorNetwork) {
-  EXPECT_EQ(WizardController::default_controller()->GetNetworkScreen(),
-            WizardController::default_controller()->current_screen());
-  OnExit(ScreenObserver::NETWORK_OFFLINE);
-
-  EXPECT_FALSE(ExistingUserController::current_controller() == NULL);
 }
 
 IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest,
@@ -283,7 +307,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest,
 
 // TODO(nkostylev): Add test for WebUI accelerators http://crosbug.com/22571
 
-COMPILE_ASSERT(ScreenObserver::EXIT_CODES_COUNT == 15,
+COMPILE_ASSERT(ScreenObserver::EXIT_CODES_COUNT == 13,
                add_tests_for_new_control_flow_you_just_introduced);
 
 }  // namespace chromeos

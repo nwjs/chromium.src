@@ -1,12 +1,12 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/cocoa/table_row_nsimage_cache.h"
 
 #include "base/logging.h"
-#include "skia/ext/skia_utils_mac.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_util_mac.h"
 
 TableRowNSImageCache::TableRowNSImageCache(Table* model)
     : model_(model),
@@ -66,12 +66,12 @@ NSImage* TableRowNSImageCache::GetImageForRow(int row) {
   DCHECK_LT(row, static_cast<int>([icon_images_ count]));
   NSImage* image = static_cast<NSImage*>([icon_images_ pointerAtIndex:row]);
   if (!image) {
-    const SkBitmap bitmap_icon =
+    const gfx::ImageSkia image_skia_icon =
         model_->GetIcon(row);
-    // This means GetIcon() will get called until it returns a non-empty bitmap.
-    // Empty bitmaps are intentionally not cached.
-    if (!bitmap_icon.isNull()) {
-      image = gfx::SkBitmapToNSImage(bitmap_icon);
+    // This means GetIcon() will get called until it returns a non-empty image.
+    // Empty images are intentionally not cached.
+    if (!image_skia_icon.isNull()) {
+      image = gfx::NSImageFromImageSkia(image_skia_icon);
       DCHECK(image);
       [icon_images_ replacePointerAtIndex:row withPointer:image];
     }

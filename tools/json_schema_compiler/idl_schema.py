@@ -1,9 +1,15 @@
+#! /usr/bin/env python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import itertools
+import json
 import os.path
+import re
 import sys
+
+import schema_util
 
 # This file is a peer to json_schema.py. Each of these files understands a
 # certain format describing APIs (either JSON or IDL), reads files written
@@ -20,18 +26,73 @@ if idl_generators_path not in sys.path:
   sys.path.insert(0, idl_generators_path)
 import idl_parser
 
+def ProcessComment(comment):
+  '''
+  Convert a comment into a parent comment and a list of parameter comments.
+
+  Function comments are of the form:
+    Function documentation. May contain HTML and multiple lines.
+
+    |arg1_name|: Description of arg1. Use <var>argument</var> to refer
+    to other arguments.
+    |arg2_name|: Description of arg2...
+
+  Newlines are removed, and leading and trailing whitespace is stripped.
+
+  Args:
+    comment: The string from a Comment node.
+
+  Returns: A tuple that looks like:
+    (
+      "The processed comment, minus all |parameter| mentions.",
+      {
+        'parameter_name_1': "The comment that followed |parameter_name_1|:",
+        ...
+      }
+    )
+  '''
+
+  # Escape double quotes.
+  comment = comment.replace('"', '\\"');
+
+  # Find all the parameter comments of the form '|name|: comment'.
+  parameter_starts = list(re.finditer(r'\n *\|([^|]*)\| *: *', comment))
+
+  # Get the parent comment (everything before the first parameter comment.
+  first_parameter_location = (parameter_starts[0].start()
+                              if parameter_starts else len(comment))
+  parent_comment = comment[:first_parameter_location]
+  parent_comment = parent_comment.replace('\n', '').strip()
+
+  params = {}
+  for (cur_param, next_param) in itertools.izip_longest(parameter_starts,
+                                                        parameter_starts[1:]):
+    param_name = cur_param.group(1)
+
+    # A parameter's comment goes from the end of its introduction to the
+    # beginning of the next parameter's introduction.
+    param_comment_start = cur_param.end()
+    param_comment_end = next_param.start() if next_param else len(comment)
+    params[param_name] = comment[param_comment_start:param_comment_end
+                                 ].replace('\n', '').strip()
+  return (parent_comment, params)
+
 class Callspec(object):
   '''
   Given a Callspec node representing an IDL function declaration, converts into
   a name/value pair where the value is a list of function parameters.
   '''
-  def __init__(self, callspec_node):
+  def __init__(self, callspec_node, comment):
     self.node = callspec_node
+    self.comment = comment
 
-  def process(self, refs):
+  def process(self, callbacks):
     parameters = []
     for node in self.node.children:
-      parameters.append(Param(node).process(refs))
+      parameter = Param(node).process(callbacks)
+      if parameter['name'] in self.comment:
+        parameter['description'] = self.comment[parameter['name']]
+      parameters.append(parameter)
     return self.node.GetName(), parameters
 
 class Param(object):
@@ -42,10 +103,10 @@ class Param(object):
   def __init__(self, param_node):
     self.node = param_node
 
-  def process(self, refs):
-    return Typeref(self.node.GetProperty( 'TYPEREF'),
+  def process(self, callbacks):
+    return Typeref(self.node.GetProperty('TYPEREF'),
                    self.node,
-                   { 'name': self.node.GetName() }).process(refs)
+                   {'name': self.node.GetName()}).process(callbacks)
 
 class Dictionary(object):
   '''
@@ -55,15 +116,19 @@ class Dictionary(object):
   def __init__(self, dictionary_node):
     self.node = dictionary_node
 
-  def process(self, refs):
+  def process(self, callbacks):
     properties = {}
     for node in self.node.children:
       if node.cls == 'Member':
-        k, v = Member(node).process(refs)
+        k, v = Member(node).process(callbacks)
         properties[k] = v
-    return { 'id': self.node.GetName(),
-             'properties': properties,
-             'type': 'object' }
+    result = {'id': self.node.GetName(),
+              'properties': properties,
+              'type': 'object'}
+    if self.node.GetProperty('inline_doc'):
+      result['inline_doc'] = True
+    return result
+
 
 class Member(object):
   '''
@@ -74,25 +139,35 @@ class Member(object):
   def __init__(self, member_node):
     self.node = member_node
 
-  def process(self, refs):
+  def process(self, callbacks):
     properties = {}
     name = self.node.GetName()
-    if self.node.GetProperty('OPTIONAL'):
-      properties['optional'] = True
-    if self.node.GetProperty('nodoc'):
-      properties['nodoc'] = True
+    for property_name in ('OPTIONAL', 'nodoc', 'nocompile'):
+      if self.node.GetProperty(property_name):
+        properties[property_name.lower()] = True
     is_function = False
+    parameter_comments = {}
     for node in self.node.children:
-      if node.cls == 'Callspec':
+      if node.cls == 'Comment':
+        (parent_comment, parameter_comments) = ProcessComment(node.GetName())
+        properties['description'] = parent_comment
+      elif node.cls == 'Callspec':
         is_function = True
-        name, parameters = Callspec(node).process(refs)
+        name, parameters = Callspec(node, parameter_comments).process(callbacks)
         properties['parameters'] = parameters
     properties['name'] = name
     if is_function:
       properties['type'] = 'function'
     else:
       properties = Typeref(self.node.GetProperty('TYPEREF'),
-                           self.node, properties).process(refs)
+                           self.node, properties).process(callbacks)
+    enum_values = self.node.GetProperty('legalValues')
+    if enum_values:
+      if properties['type'] == 'integer':
+        enum_values = map(int, enum_values)
+      elif properties['type'] == 'double':
+        enum_values = map(float, enum_values)
+      properties['enum'] = enum_values
     return name, properties
 
 class Typeref(object):
@@ -106,22 +181,80 @@ class Typeref(object):
     self.parent = parent
     self.additional_properties = additional_properties
 
-  def process(self, refs):
+  def process(self, callbacks):
     properties = self.additional_properties
+    result = properties
+
+    if self.parent.GetProperty('OPTIONAL', False):
+      properties['optional'] = True
+
+    # The IDL parser denotes array types by adding a child 'Array' node onto
+    # the Param node in the Callspec.
+    for sibling in self.parent.GetChildren():
+      if sibling.cls == 'Array' and sibling.GetName() == self.parent.GetName():
+        properties['type'] = 'array'
+        properties['items'] = {}
+        properties = properties['items']
+        break
+
     if self.typeref == 'DOMString':
       properties['type'] = 'string'
     elif self.typeref == 'boolean':
       properties['type'] = 'boolean'
+    elif self.typeref == 'double':
+      properties['type'] = 'number'
     elif self.typeref == 'long':
       properties['type'] = 'integer'
+    elif self.typeref == 'any':
+      properties['type'] = 'any'
+    elif self.typeref == 'object':
+      properties['type'] = 'object'
+      if 'additionalProperties' not in properties:
+        properties['additionalProperties'] = {}
+      properties['additionalProperties']['type'] = 'any'
+      instance_of = self.parent.GetProperty('instanceOf')
+      if instance_of:
+        properties['isInstanceOf'] = instance_of
+    elif self.typeref == 'ArrayBuffer':
+      properties['type'] = 'binary'
+      properties['isInstanceOf'] = 'ArrayBuffer'
     elif self.typeref is None:
       properties['type'] = 'function'
     else:
-      try:
-        properties = refs[self.typeref]
-      except KeyError, e:
+      if self.typeref in callbacks:
+        properties.update(callbacks[self.typeref])
+      else:
         properties['$ref'] = self.typeref
-    return properties
+
+    return result
+
+
+class Enum(object):
+  '''
+  Given an IDL Enum node, converts into a Python dictionary that the JSON
+  schema compiler expects to see.
+  '''
+  def __init__(self, enum_node):
+    self.node = enum_node
+    self.description = ''
+
+  def process(self, callbacks):
+    enum = []
+    for node in self.node.children:
+      if node.cls == 'EnumItem':
+        enum.append(node.GetName())
+      elif node.cls == 'Comment':
+        self.description = ProcessComment(node.GetName())[0]
+      else:
+        sys.exit('Did not process %s %s' % (node.cls, node))
+    result = {'id' : self.node.GetName(),
+              'description': self.description,
+              'type': 'string',
+              'enum': enum}
+    if self.node.GetProperty('inline_doc'):
+      result['inline_doc'] = True
+    return result
+
 
 class Namespace(object):
   '''
@@ -129,40 +262,42 @@ class Namespace(object):
   dictionary that the JSON schema compiler expects to see.
   '''
 
-  def __init__(self, namespace_node, nodoc=False):
+  def __init__(self, namespace_node, nodoc=False, permissions=None):
     self.namespace = namespace_node
     self.nodoc = nodoc
     self.events = []
     self.functions = []
     self.types = []
-    self.refs = {}
+    self.callbacks = {}
+    self.permissions = permissions or []
 
   def process(self):
     for node in self.namespace.children:
-      cls = node.cls
-      if cls == "Dictionary":
-        self.types.append(Dictionary(node).process(self.refs))
-      elif cls == "Callback":
-        k, v = Member(node).process(self.refs)
-        self.refs[k] = v
-      elif cls == "Interface" and node.GetName() == "Functions":
+      if node.cls == 'Dictionary':
+        self.types.append(Dictionary(node).process(self.callbacks))
+      elif node.cls == 'Callback':
+        k, v = Member(node).process(self.callbacks)
+        self.callbacks[k] = v
+      elif node.cls == 'Interface' and node.GetName() == 'Functions':
         self.functions = self.process_interface(node)
-      elif cls == "Interface" and node.GetName() == "Events":
+      elif node.cls == 'Interface' and node.GetName() == 'Events':
         self.events = self.process_interface(node)
+      elif node.cls == 'Enum':
+        self.types.append(Enum(node).process(self.callbacks))
       else:
-        sys.exit("Did not process %s %s" % (node.cls, node))
-
-    return { 'events': self.events,
-             'functions': self.functions,
-             'types': self.types,
-             'namespace': self.namespace.GetName(),
-             'nodoc': self.nodoc }
+        sys.exit('Did not process %s %s' % (node.cls, node))
+    return {'namespace': self.namespace.GetName(),
+            'nodoc': self.nodoc,
+            'documentation_permissions_required': self.permissions,
+            'types': self.types,
+            'functions': self.functions,
+            'events': self.events}
 
   def process_interface(self, node):
     members = []
     for member in node.children:
       if member.cls == 'Member':
-        name, properties = Member(member).process(self.refs)
+        name, properties = Member(member).process(self.callbacks)
         members.append(properties)
     return members
 
@@ -177,23 +312,26 @@ class IDLSchema(object):
 
   def process(self):
     namespaces = []
+    nodoc = False
+    permissions = None
     for node in self.idl:
-      nodoc = False
-      cls = node.cls
-      if cls == 'Namespace':
-        namespace = Namespace(node, nodoc)
+      if node.cls == 'Namespace':
+        namespace = Namespace(node, nodoc, permissions)
         namespaces.append(namespace.process())
-      elif cls == 'Copyright':
+      elif node.cls == 'Copyright':
         continue
-      elif cls == 'Comment':
+      elif node.cls == 'Comment':
         continue
-      elif cls == 'ExtAttribute':
+      elif node.cls == 'ExtAttribute':
         if node.name == 'nodoc':
           nodoc = bool(node.value)
+        elif node.name == 'permissions':
+          permission = node.value.split(',')
         else:
           continue
       else:
-        sys.exit("Did not process %s %s" % (node.cls, node))
+        sys.exit('Did not process %s %s' % (node.cls, node))
+    schema_util.PrefixSchemasWithNamespace(namespaces)
     return namespaces
 
 def Load(filename):
@@ -209,3 +347,15 @@ def Load(filename):
   idl = idl_parser.IDLParser().ParseData(contents, filename)
   idl_schema = IDLSchema(idl)
   return idl_schema.process()
+
+def Main():
+  '''
+  Dump a json serialization of parse result for the IDL files whose names
+  were passed in on the command line.
+  '''
+  for filename in sys.argv[1:]:
+    schema = Load(filename)
+    print json.dumps(schema, indent=2)
+
+if __name__ == '__main__':
+  Main()

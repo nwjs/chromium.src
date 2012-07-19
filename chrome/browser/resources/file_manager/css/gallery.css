@@ -32,7 +32,9 @@ body {
    independently from its parent (which can be dimmed when the crop frame
    overlaps it) */
 .gallery > .close div {
-  background-image: url(../images/gallery/close_x.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/close_x.png) 1x,
+    url(../images/gallery/2x/close_x.png) 2x);
   background-position: center center;
   background-repeat: no-repeat;
   height: 20px;
@@ -107,14 +109,6 @@ body {
 
 .gallery > .image-container > .image[fade] {
   opacity: 0;
-}
-
-.gallery > .image-container > .image[fade='left'] {
-  -webkit-transform: translate(-40px, 0);
-}
-
-.gallery > .image-container > .image[fade='right'] {
-  -webkit-transform: translate(40px, 0);
 }
 
 /* Toolbar */
@@ -194,11 +188,15 @@ body {
 }
 
 .gallery .arrow.left div {
-  background-image: url(../images/gallery/arrow_left.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/arrow_left.png) 1x,
+    url(../images/gallery/2x/arrow_left.png) 2x);
 }
 
 .gallery .arrow.right div {
-  background-image: url(../images/gallery/arrow_right.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/arrow_right.png) 1x,
+    url(../images/gallery/2x/arrow_right.png) 2x);
 }
 
 /* Special behavior on mouse drag.
@@ -231,66 +229,119 @@ body {
   width: 270px;
 }
 
-.gallery[renaming] .filename-spacer > .name,
-.gallery .filename-spacer > input {
-  opacity: 0;
-  z-index: 0;
-}
-
-.gallery .filename-spacer > .name,
-.gallery[renaming] .filename-spacer > input {
-  opacity: 1;
-  z-index: 1;
-}
-
 .gallery .filename-spacer > * {
+  -webkit-transition: top linear 180ms;
   background-color: transparent;
-  color: white;
-  font-family: Open Sans, Droid Sans Fallback, sans-serif;
   height: 21px;
+  left: 10px;
+  overflow: hidden;
   position: absolute;
   width: 260px;
 }
 
-.gallery .filename-spacer > input,
-.gallery .filename-spacer > .name {
-  border: none;
-  font-size: 120%;
-  left: 10px;
-  outline: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  top: 5px;
-  white-space: nowrap;
+.gallery .filename-spacer * {
+  color: white;
+  font-family: Open Sans, Droid Sans Fallback, sans-serif;
 }
 
-.gallery .filename-spacer > .name:hover {
+.gallery .filename-spacer .namebox {
+  top: 15px;
+}
+
+.gallery[editing] .filename-spacer .namebox {
+  top: 5px;
+}
+
+.gallery .filename-spacer .options {
+  top: 50px;
+}
+
+.gallery[editing] .filename-spacer .options {
+  top: 27px;
+}
+
+.gallery .filename-spacer[renaming] .namebox div,
+.gallery .filename-spacer .namebox input {
+  opacity: 0;
+  z-index: 0;
+}
+
+.gallery .filename-spacer .namebox div,
+.gallery .filename-spacer[renaming] .namebox input {
+  opacity: 1;
+  z-index: 1;
+}
+
+.gallery .filename-spacer .namebox input,
+.gallery .filename-spacer .namebox div {
+  border: none;
+  box-sizing: border-box;
+  font-size: 120%;
+  height: 100%;
+  outline: none;
+  overflow: hidden;
+  position: absolute;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.gallery .filename-spacer .namebox div {
+  padding: 1px 3px 0 3px;
+}
+
+.gallery .filename-spacer .namebox input {
+  padding: 0 3px 0 2px;
+}
+
+.gallery .filename-spacer .namebox div:hover {
   background-color: rgba(48, 48, 48, 1.0);
   cursor: pointer;
 }
 
-.gallery .filename-spacer > input:focus,
-.gallery .filename-spacer > input:focus:hover {
+.gallery .filename-spacer .namebox input:focus,
+.gallery .filename-spacer .namebox input:focus:hover {
   background-color: white;
   border-bottom: 1px solid white;
   border-right: 1px solid white;
   color: black;
 }
 
-.gallery .filename-spacer > .options {
-  left: 10px;
-  top: 26px;
-}
-
 .gallery .filename-spacer .saved,
-.gallery .filename-spacer .keep-original {
+.gallery .filename-spacer .overwrite-original {
   -webkit-transition: all linear 120ms;
   color: gray;
   cursor: inherit;
-  display: none;
+  display: inline-block;
   font-size: 90%;
+  margin-left: 6px;
   margin-right: 10px;
+  opacity: 0;
   pointer-events: none;
+}
+
+.gallery[editing] .filename-spacer .saved {
+  opacity: 1;
+}
+
+.gallery[editing] .filename-spacer .overwrite-original,
+.gallery[editing] .filename-spacer .overwrite-original > * {
+  color: gray;
+  cursor: pointer;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.gallery[editing] .filename-spacer[saved] .overwrite-original,
+.gallery[editing] .filename-spacer[saved] .overwrite-original > * {
+  cursor: default;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.gallery .filename-spacer .overwrite-original input {
+  margin-bottom: -2px;
+  margin-right: 6px;
 }
 
 .gallery .filename-spacer .saved[highlighted] {
@@ -298,12 +349,20 @@ body {
   color: white;
 }
 
-.gallery .filename-spacer .keep-original[visible] {
-  color: white;
-  cursor: pointer;
-  display: inline-block;
-  pointer-events: auto;
+/* Bubble */
+.gallery .toolbar .bubble {
+  bottom: 65px;
+  font-size: 85%;
+  left: 50px;
+  position: absolute;
+  width: 220px;
 }
+
+.gallery:not([editing]) .toolbar .bubble {
+  display: none;
+}
+
+/* Toolbar buttons */
 
 .gallery .button-spacer {
   -webkit-box-flex: 1;
@@ -381,6 +440,10 @@ body {
   width: 45px;
 }
 
+.gallery .image-wrapper > img {
+  position: absolute;
+}
+
 /* Editor buttons */
 
 .gallery .toolbar .edit-bar {
@@ -425,6 +488,7 @@ body {
   display: -webkit-box;
   height: 40px;
   margin: 8px 0 7px 3px;
+  max-width: 90px;
   opacity: 0.99;  /* Workaround for http://crosbug.com/21065 */
   padding: 0 10px 0 35px;
 }
@@ -450,51 +514,75 @@ body {
 }
 
 .gallery > .toolbar .button.autofix {
-  background-image: url(../images/gallery/icon_autofix.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_autofix.png) 1x,
+    url(../images/gallery/2x/icon_autofix.png) 2x);
 }
 
 .gallery > .toolbar .button.autofix[pressed] {
-  background-image: url(../images/gallery/icon_autofix_selected.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_autofix_selected.png) 1x,
+    url(../images/gallery/2x/icon_autofix_selected.png) 2x);
 }
 
 .gallery > .toolbar .button.crop {
-  background-image: url(../images/gallery/icon_crop.png);
+  background-image:  -webkit-image-set(
+    url(../images/gallery/icon_crop.png) 1x,
+    url(../images/gallery/2x/icon_crop.png) 2x);
 }
 
 .gallery > .toolbar .button.crop[pressed] {
-  background-image: url(../images/gallery/icon_crop_selected.png);
+  background-image:  -webkit-image-set(
+    url(../images/gallery/icon_crop_selected.png) 1x,
+    url(../images/gallery/2x/icon_crop_selected.png) 2x);
 }
 
 .gallery > .toolbar .button.exposure {
-  background-image: url(../images/gallery/icon_brightness.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_brightness.png) 1x,
+    url(../images/gallery/2x/icon_brightness.png) 2x);
 }
 
 .gallery > .toolbar .button.exposure[pressed] {
-  background-image: url(../images/gallery/icon_brightness_selected.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_brightness_selected.png) 1x,
+    url(../images/gallery/2x/icon_brightness_selected.png) 2x);
 }
 
 .gallery > .toolbar .button.rotate_right {
-  background-image: url(../images/gallery/icon_rotate.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_rotate.png) 1x,
+    url(../images/gallery/2x/icon_rotate.png) 2x);
 }
 
 .gallery > .toolbar .button.rotate_right[pressed] {
-  background-image: url(../images/gallery/icon_rotate_selected.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_rotate_selected.png) 1x,
+    url(../images/gallery/2x/icon_rotate_selected.png) 2x);
 }
 
 .gallery > .toolbar .button.rotate_left {
-  background-image: url(../images/gallery/icon_rotate_left.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_rotate_left.png) 1x,
+    url(../images/gallery/2x/icon_rotate_left.png) 2x);
 }
 
 .gallery > .toolbar .button.rotate_left[pressed] {
-  background-image: url(../images/gallery/icon_rotate_left_selected.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_rotate_left_selected.png) 1x,
+    url(../images/gallery/2x/icon_rotate_left_selected.png) 2x);
 }
 
 .gallery > .toolbar .button.undo {
-  background-image: url(../images/gallery/icon_undo.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_undo.png) 1x,
+    url(../images/gallery/2x/icon_undo.png) 2x);
 }
 
 .gallery > .toolbar .button.redo {
-  background-image: url(../images/gallery/icon_redo.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_redo.png) 1x,
+    url(../images/gallery/2x/icon_redo.png) 2x);
   position: absolute;  /* Exclude from center-packing*/
 }
 
@@ -508,23 +596,31 @@ body {
 }
 
 .gallery > .toolbar > .button.edit {
-  background-image: url(../images/gallery/icon_edit.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_edit.png) 1x,
+    url(../images/gallery/2x/icon_edit.png) 2x);
   position: relative;
   z-index: 10;
 }
 
 .gallery > .toolbar > .button.edit[pressed] {
-  background-image: url(../images/gallery/icon_edit_selected.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_edit_selected.png) 1x,
+    url(../images/gallery/2x/icon_edit_selected.png) 2x);
 }
 
 .gallery > .toolbar > .button.share {
-  background-image: url(../images/gallery/icon_share.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_share.png) 1x,
+    url(../images/gallery/2x/icon_share.png) 2x);
   position: relative;
   z-index: 10;
 }
 
 .gallery > .toolbar > .button.share[pressed] {
-  background-image: url(../images/gallery/icon_share_selected.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_share_selected.png) 1x,
+    url(../images/gallery/2x/icon_share_selected.png) 2x);
 }
 
 .gallery[error] > .toolbar .button.edit,
@@ -577,11 +673,16 @@ body {
 }
 
 .gallery .edit-modal .label.brightness {
-  background-image: url(../images/gallery/icon_brightness.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_brightness.png) 1x,
+    url(../images/gallery/2x/icon_brightness.png) 2x);
 }
 
 .gallery .edit-modal .label.contrast {
-  background-image: url(../images/gallery/icon_contrast.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/icon_contrast.png) 1x,
+    url(../images/gallery/2x/icon_contrast.png) 2x);
+  height: 24px;
   margin-left: 15px;
 }
 
@@ -594,7 +695,9 @@ body {
 
 .gallery .edit-modal .range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  background-image: url(../images/gallery/slider_thumb.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/slider_thumb.png) 1x,
+    url(../images/gallery/2x/slider_thumb.png) 2x);
   height: 29px;
   width: 16px;
 }
@@ -739,7 +842,9 @@ body {
 }
 
 .gallery .prompt .close {
-  background-image: url(../images/gallery/butterbar_close_x.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/butterbar_close_x.png) 1x,
+    url(../images/gallery/2x/butterbar_close_x.png) 2x);
   background-position: center center;
   background-repeat: no-repeat;
   height: 16px;
@@ -771,7 +876,9 @@ body {
 }
 
 .gallery .share-menu .bubble-point {
-  background-image: url(../images/gallery/bubble_point.png);
+  background-image: -webkit-image-set(
+    url(../images/gallery/bubble_point.png) 1x,
+    url(../images/gallery/2x/bubble_point.png) 2x);
   background-position: center top;
   background-repeat: no-repeat;
   bottom: -8px;

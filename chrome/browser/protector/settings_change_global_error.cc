@@ -16,9 +16,11 @@
 #include "chrome/browser/protector/base_setting_change.h"
 #include "chrome/browser/protector/settings_change_global_error_delegate.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/global_error_service.h"
-#include "chrome/browser/ui/global_error_service_factory.h"
+#include "chrome/browser/ui/global_error/global_error_service.h"
+#include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -99,7 +101,7 @@ void SettingsChangeGlobalError::RemoveFromProfile() {
 void SettingsChangeGlobalError::ShowBubble() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(profile_);
-  Browser* browser = BrowserList::FindTabbedBrowser(
+  Browser* browser = browser::FindTabbedBrowser(
       profile_,
       // match incognito
       true);
@@ -165,6 +167,10 @@ string16 SettingsChangeGlobalError::GetBubbleViewCancelButtonLabel() {
 }
 
 void SettingsChangeGlobalError::OnBubbleViewDidClose(Browser* browser) {
+  // The bubble may be closed as the result of RemoveFromProfile call when
+  // merging this error with another one.
+  if (!profile_)
+    return;
   if (!closed_by_button_) {
     BrowserThread::PostDelayedTask(
         BrowserThread::UI, FROM_HERE,
@@ -175,7 +181,7 @@ void SettingsChangeGlobalError::OnBubbleViewDidClose(Browser* browser) {
     // TODO(ivankr): the logic for redisplaying bubble is disabled on Gtk, see
     // http://crbug.com/115719.
     if (browser->window() &&
-        !platform_util::IsWindowActive(browser->window()->GetNativeHandle())) {
+        !platform_util::IsWindowActive(browser->window()->GetNativeWindow())) {
       // Bubble closed because the entire window lost activation, display
       // again when a window gets active.
       show_on_browser_activation_ = true;
@@ -199,7 +205,7 @@ void SettingsChangeGlobalError::BubbleViewCancelButtonPressed(
 }
 
 void SettingsChangeGlobalError::OnBrowserSetLastActive(
-    const Browser* browser) {
+    Browser* browser) {
   if (show_on_browser_activation_ && browser && browser->is_type_tabbed()) {
     // A tabbed browser window got activated, show the error bubble again.
     // Calling ShowBubble() immediately from here does not always work because

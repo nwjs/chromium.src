@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_EXTENSIONS_EXTENSION_REQUEST_SENDER_H_
 #define CHROME_RENDERER_EXTENSIONS_EXTENSION_REQUEST_SENDER_H_
-#pragma once
 
 #include <string>
 #include <map>
@@ -42,7 +41,7 @@ class ExtensionRequestSender {
   // Handles responses from the extension host to calls made by StartRequest().
   void HandleResponse(int request_id,
                       bool success,
-                      const std::string& response,
+                      const base::ListValue& response,
                       const std::string& error);
 
 

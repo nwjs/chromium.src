@@ -2,16 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/process_map.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_file_util.h"
@@ -22,56 +25,13 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/test/test_navigation_observer.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "net/base/mock_host_resolver.h"
 
 using content::NavigationController;
 using content::RenderViewHost;
 using content::WebContents;
-
-// Simulates a page calling window.open on an URL, and waits for the navigation.
-static void WindowOpenHelper(Browser* browser,
-                             RenderViewHost* opener_host,
-                             const GURL& url,
-                             bool newtab_process_should_equal_opener) {
-  ui_test_utils::WindowedNotificationObserver observer(
-      content::NOTIFICATION_LOAD_STOP,
-      content::NotificationService::AllSources());
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
-      opener_host, L"", L"window.open('" + UTF8ToWide(url.spec()) + L"');"));
-
-  // The above window.open call is not user-initiated, it will create
-  // a popup window instead of a new tab in current window.
-  // Now the active tab in last active window should be the new tab.
-  Browser* last_active_browser = BrowserList::GetLastActive();
-  EXPECT_TRUE(last_active_browser);
-  WebContents* newtab = last_active_browser->GetSelectedWebContents();
-  EXPECT_TRUE(newtab);
-  observer.Wait();
-  EXPECT_EQ(url, newtab->GetController().GetLastCommittedEntry()->GetURL());
-  if (newtab_process_should_equal_opener)
-    EXPECT_EQ(opener_host->GetProcess(), newtab->GetRenderProcessHost());
-  else
-    EXPECT_NE(opener_host->GetProcess(), newtab->GetRenderProcessHost());
-}
-
-// Simulates a page navigating itself to an URL, and waits for the navigation.
-static void NavigateTabHelper(WebContents* contents, const GURL& url) {
-  bool result = false;
-  ui_test_utils::WindowedNotificationObserver observer(
-      content::NOTIFICATION_LOAD_STOP,
-      content::NotificationService::AllSources());
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
-      contents->GetRenderViewHost(), L"",
-      L"window.addEventListener('unload', function() {"
-      L"    window.domAutomationController.send(true);"
-      L"}, false);"
-      L"window.location = '" + UTF8ToWide(url.spec()) + L"';",
-      &result));
-  ASSERT_TRUE(result);
-  observer.Wait();
-  EXPECT_EQ(url, contents->GetController().GetLastCommittedEntry()->GetURL());
-}
+using extensions::Extension;
 
 class AppApiTest : public ExtensionApiTest {
  protected:
@@ -122,39 +82,37 @@ class AppApiTest : public ExtensionApiTest {
         ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
     LOG(INFO) << "Nav 1.";
     EXPECT_TRUE(process_map->Contains(
-        browser()->GetWebContentsAt(1)->GetRenderProcessHost()->GetID()));
-    EXPECT_FALSE(browser()->GetWebContentsAt(1)->GetWebUI());
+      chrome::GetWebContentsAt(browser(), 1)->GetRenderProcessHost()->GetID()));
+    EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 1)->GetWebUI());
 
     ui_test_utils::WindowedNotificationObserver tab_added_observer(
-        content::NOTIFICATION_TAB_ADDED,
+        chrome::NOTIFICATION_TAB_ADDED,
         content::NotificationService::AllSources());
-    browser()->NewTab();
+    chrome::NewTab(browser());
     tab_added_observer.Wait();
     LOG(INFO) << "New tab.";
     ui_test_utils::NavigateToURL(browser(),
                                  base_url.Resolve("path2/empty.html"));
     LOG(INFO) << "Nav 2.";
     EXPECT_TRUE(process_map->Contains(
-        browser()->GetWebContentsAt(2)->GetRenderProcessHost()->GetID()));
-    EXPECT_FALSE(browser()->GetWebContentsAt(2)->GetWebUI());
+        chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost()->GetID()));
+    EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 2)->GetWebUI());
 
     // We should have opened 2 new extension tabs. Including the original blank
     // tab, we now have 3 tabs. The two app tabs should not be in the same
     // process, since they do not have the background permission.  (Thus, we
     // want to separate them to improve responsiveness.)
     ASSERT_EQ(3, browser()->tab_count());
-    RenderViewHost* host1 = browser()->GetWebContentsAt(1)->GetRenderViewHost();
-    RenderViewHost* host2 = browser()->GetWebContentsAt(2)->GetRenderViewHost();
-    EXPECT_NE(host1->GetProcess(), host2->GetProcess());
+    WebContents* tab1 = chrome::GetWebContentsAt(browser(), 1);
+    WebContents* tab2 = chrome::GetWebContentsAt(browser(), 2);
+    EXPECT_NE(tab1->GetRenderProcessHost(), tab2->GetRenderProcessHost());
 
     // Opening tabs with window.open should keep the page in the opener's
     // process.
-    ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
-    WindowOpenHelper(browser(), host1,
-                    base_url.Resolve("path1/empty.html"), true);
+    ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
+    OpenWindow(tab1, base_url.Resolve("path1/empty.html"), true, NULL);
     LOG(INFO) << "WindowOpenHelper 1.";
-    WindowOpenHelper(browser(), host2,
-                    base_url.Resolve("path2/empty.html"), true);
+    OpenWindow(tab2, base_url.Resolve("path2/empty.html"), true, NULL);
     LOG(INFO) << "End of test.";
   }
 };
@@ -184,83 +142,78 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, AppProcess) {
       browser(), base_url.Resolve("path1/empty.html"), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
   EXPECT_TRUE(process_map->Contains(
-      browser()->GetWebContentsAt(1)->GetRenderProcessHost()->GetID()));
-  EXPECT_FALSE(browser()->GetWebContentsAt(1)->GetWebUI());
+      chrome::GetWebContentsAt(browser(), 1)->GetRenderProcessHost()->GetID()));
+  EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 1)->GetWebUI());
   LOG(INFO) << "Nav 1.";
 
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), base_url.Resolve("path2/empty.html"), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
   EXPECT_TRUE(process_map->Contains(
-      browser()->GetWebContentsAt(2)->GetRenderProcessHost()->GetID()));
-  EXPECT_FALSE(browser()->GetWebContentsAt(2)->GetWebUI());
+      chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost()->GetID()));
+  EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 2)->GetWebUI());
   LOG(INFO) << "Nav 2.";
 
   ui_test_utils::WindowedNotificationObserver tab_added_observer(
-      content::NOTIFICATION_TAB_ADDED,
+      chrome::NOTIFICATION_TAB_ADDED,
       content::NotificationService::AllSources());
-  browser()->NewTab();
+  chrome::NewTab(browser());
   tab_added_observer.Wait();
   LOG(INFO) << "New tab.";
   ui_test_utils::NavigateToURL(browser(), base_url.Resolve("path3/empty.html"));
   LOG(INFO) << "Nav 3.";
   EXPECT_FALSE(process_map->Contains(
-      browser()->GetWebContentsAt(3)->GetRenderProcessHost()->GetID()));
-  EXPECT_FALSE(browser()->GetWebContentsAt(3)->GetWebUI());
+      chrome::GetWebContentsAt(browser(), 3)->GetRenderProcessHost()->GetID()));
+  EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 3)->GetWebUI());
 
   // We should have opened 3 new extension tabs. Including the original blank
   // tab, we now have 4 tabs. Because the app_process app has the background
   // permission, all of its instances are in the same process.  Thus two tabs
   // should be part of the extension app and grouped in the same process.
   ASSERT_EQ(4, browser()->tab_count());
-  RenderViewHost* host = browser()->GetWebContentsAt(1)->GetRenderViewHost();
+  WebContents* tab = chrome::GetWebContentsAt(browser(), 1);
 
-  EXPECT_EQ(host->GetProcess(),
-            browser()->GetWebContentsAt(2)->GetRenderProcessHost());
-  EXPECT_NE(host->GetProcess(),
-            browser()->GetWebContentsAt(3)->GetRenderProcessHost());
+  EXPECT_EQ(tab->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost());
+  EXPECT_NE(tab->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 3)->GetRenderProcessHost());
 
   // Now let's do the same using window.open. The same should happen.
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
-  WindowOpenHelper(browser(), host,
-                   base_url.Resolve("path1/empty.html"), true);
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
+  OpenWindow(tab, base_url.Resolve("path1/empty.html"), true, NULL);
   LOG(INFO) << "WindowOpenHelper 1.";
-  WindowOpenHelper(browser(), host,
-                   base_url.Resolve("path2/empty.html"), true);
+  OpenWindow(tab, base_url.Resolve("path2/empty.html"), true, NULL);
   LOG(INFO) << "WindowOpenHelper 2.";
   // TODO(creis): This should open in a new process (i.e., false for the last
-  // argument), but we temporarily avoid swapping processes away from an app
-  // until we're able to support cross-process postMessage calls.
+  // argument), but we temporarily avoid swapping processes away from a hosted
+  // app if it has an opener, because some OAuth providers make script calls
+  // between non-app popups and non-app iframes in the app process.
   // See crbug.com/59285.
-  WindowOpenHelper(browser(), host,
-                   base_url.Resolve("path3/empty.html"), true);
+  OpenWindow(tab, base_url.Resolve("path3/empty.html"), true, NULL);
   LOG(INFO) << "WindowOpenHelper 3.";
 
   // Now let's have these pages navigate, into or out of the extension web
   // extent. They should switch processes.
   const GURL& app_url(base_url.Resolve("path1/empty.html"));
   const GURL& non_app_url(base_url.Resolve("path3/empty.html"));
-  NavigateTabHelper(browser()->GetWebContentsAt(2), non_app_url);
+  NavigateInRenderer(chrome::GetWebContentsAt(browser(), 2), non_app_url);
   LOG(INFO) << "NavigateTabHelper 1.";
-  NavigateTabHelper(browser()->GetWebContentsAt(3), app_url);
+  NavigateInRenderer(chrome::GetWebContentsAt(browser(), 3), app_url);
   LOG(INFO) << "NavigateTabHelper 2.";
-  // TODO(creis): This should swap out of the app's process (i.e., EXPECT_NE),
-  // but we temporarily avoid swapping away from an app in case the window
-  // tries to send a postMessage to the app.  See crbug.com/59285.
-  EXPECT_EQ(host->GetProcess(),
-            browser()->GetWebContentsAt(2)->GetRenderProcessHost());
-  EXPECT_EQ(host->GetProcess(),
-            browser()->GetWebContentsAt(3)->GetRenderProcessHost());
+  EXPECT_NE(tab->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost());
+  EXPECT_EQ(tab->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 3)->GetRenderProcessHost());
 
   // If one of the popup tabs navigates back to the app, window.opener should
   // be valid.
-  NavigateTabHelper(browser()->GetWebContentsAt(6), app_url);
+  NavigateInRenderer(chrome::GetWebContentsAt(browser(), 6), app_url);
   LOG(INFO) << "NavigateTabHelper 3.";
-  EXPECT_EQ(host->GetProcess(),
-            browser()->GetWebContentsAt(6)->GetRenderProcessHost());
+  EXPECT_EQ(tab->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 6)->GetRenderProcessHost());
   bool windowOpenerValid = false;
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
-      browser()->GetWebContentsAt(6)->GetRenderViewHost(), L"",
+      chrome::GetWebContentsAt(browser(), 6)->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(window.opener != null)",
       &windowOpenerValid));
   ASSERT_TRUE(windowOpenerValid);
@@ -310,45 +263,44 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, BookmarkAppGetsNormalProcess) {
       browser(), base_url.Resolve("path1/empty.html"), NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
   EXPECT_FALSE(process_map->Contains(
-      browser()->GetWebContentsAt(1)->GetRenderProcessHost()->GetID()));
-  EXPECT_FALSE(browser()->GetWebContentsAt(1)->GetWebUI());
+      chrome::GetWebContentsAt(browser(), 1)->GetRenderProcessHost()->GetID()));
+  EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 1)->GetWebUI());
 
   ui_test_utils::WindowedNotificationObserver tab_added_observer(
-      content::NOTIFICATION_TAB_ADDED,
+      chrome::NOTIFICATION_TAB_ADDED,
       content::NotificationService::AllSources());
-  browser()->NewTab();
+  chrome::NewTab(browser());
   tab_added_observer.Wait();
   ui_test_utils::NavigateToURL(browser(), base_url.Resolve("path2/empty.html"));
   EXPECT_FALSE(process_map->Contains(
-      browser()->GetWebContentsAt(2)->GetRenderProcessHost()->GetID()));
-  EXPECT_FALSE(browser()->GetWebContentsAt(2)->GetWebUI());
+      chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost()->GetID()));
+  EXPECT_FALSE(chrome::GetWebContentsAt(browser(), 2)->GetWebUI());
 
   // We should have opened 2 new bookmark app tabs. Including the original blank
   // tab, we now have 3 tabs.  Because normal pages use the
   // process-per-site-instance model, each should be in its own process.
   ASSERT_EQ(3, browser()->tab_count());
-  RenderViewHost* host = browser()->GetWebContentsAt(1)->GetRenderViewHost();
-  EXPECT_NE(host->GetProcess(),
-            browser()->GetWebContentsAt(2)->GetRenderProcessHost());
+  WebContents* tab = chrome::GetWebContentsAt(browser(), 1);
+  EXPECT_NE(tab->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost());
 
   // Now let's do the same using window.open. The same should happen.
-  ASSERT_EQ(1u, BrowserList::GetBrowserCount(browser()->profile()));
-  WindowOpenHelper(browser(), host,
-                   base_url.Resolve("path1/empty.html"), true);
-  WindowOpenHelper(browser(), host,
-                   base_url.Resolve("path2/empty.html"), true);
+  ASSERT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
+  OpenWindow(tab, base_url.Resolve("path1/empty.html"), true, NULL);
+  OpenWindow(tab, base_url.Resolve("path2/empty.html"), true, NULL);
 
   // Now let's have a tab navigate out of and back into the app's web
   // extent. Neither navigation should switch processes.
   const GURL& app_url(base_url.Resolve("path1/empty.html"));
   const GURL& non_app_url(base_url.Resolve("path3/empty.html"));
-  RenderViewHost* host2 = browser()->GetWebContentsAt(2)->GetRenderViewHost();
-  NavigateTabHelper(browser()->GetWebContentsAt(2), non_app_url);
+  RenderViewHost* host2 =
+      chrome::GetWebContentsAt(browser(), 2)->GetRenderViewHost();
+  NavigateInRenderer(chrome::GetWebContentsAt(browser(), 2), non_app_url);
   EXPECT_EQ(host2->GetProcess(),
-            browser()->GetWebContentsAt(2)->GetRenderProcessHost());
-  NavigateTabHelper(browser()->GetWebContentsAt(2), app_url);
+            chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost());
+  NavigateInRenderer(chrome::GetWebContentsAt(browser(), 2), app_url);
   EXPECT_EQ(host2->GetProcess(),
-            browser()->GetWebContentsAt(2)->GetRenderProcessHost());
+            chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost());
 }
 
 // Tests that app process switching works properly in the following scenario:
@@ -357,13 +309,7 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, BookmarkAppGetsNormalProcess) {
 // 3. page2 redirects back to a page in the app
 // The final navigation should end up in the app process.
 // See http://crbug.com/61757
-// This test doesn't complete on WebKit Win (dbg). See crbug.com/108853.
-#if defined(OS_WIN) && !defined(NDEBUG)
-#define MAYBE_AppProcessRedirectBack DISABLED_AppProcessRedirectBack
-#else
-#define MAYBE_AppProcessRedirectBack AppProcessRedirectBack
-#endif
-IN_PROC_BROWSER_TEST_F(AppApiTest, MAYBE_AppProcessRedirectBack) {
+IN_PROC_BROWSER_TEST_F(AppApiTest, AppProcessRedirectBack) {
   host_resolver()->AddRule("*", "127.0.0.1");
   ASSERT_TRUE(test_server()->Start());
 
@@ -372,10 +318,10 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, MAYBE_AppProcessRedirectBack) {
   // Open two tabs in the app.
   GURL base_url = GetTestBaseURL("app_process");
 
-  browser()->NewTab();
+  chrome::NewTab(browser());
   ui_test_utils::NavigateToURL(browser(), base_url.Resolve("path1/empty.html"));
-  browser()->NewTab();
-  // Wait until the second tab finishes its redirect train (3 hops).
+  chrome::NewTab(browser());
+  // Wait until the second tab finishes its redirect train (2 hops).
   // 1. We navigate to redirect.html
   // 2. Renderer navigates and finishes, counting as a load stop.
   // 3. Renderer issues the meta refresh to navigate to server-redirect.
@@ -383,27 +329,31 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, MAYBE_AppProcessRedirectBack) {
   //    complete.
   // 5. Browser sees a redirect response from server-redirect to empty.html, and
   //    transfers that to a new navigation, using RequestTransferURL.
-  // 6. We navigate to empty.html.
-  // 7. Renderer is still in a provisional load to server-redirect, so that is
-  //    cancelled, and counts as a load stop
-  // 8. Renderer navigates to empty.html, and finishes loading, counting as the
-  //    third load stop
+  // 6. Renderer navigates to empty.html, and finishes loading, counting as the
+  //    second load stop
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
-      browser(), base_url.Resolve("path1/redirect.html"), 3);
+      browser(), base_url.Resolve("path1/redirect.html"), 2);
 
   // 3 tabs, including the initial about:blank. The last 2 should be the same
   // process.
   ASSERT_EQ(3, browser()->tab_count());
   EXPECT_EQ("/files/extensions/api_test/app_process/path1/empty.html",
-            browser()->GetWebContentsAt(2)->GetController().
+            chrome::GetWebContentsAt(browser(), 2)->GetController().
                 GetLastCommittedEntry()->GetURL().path());
-  EXPECT_EQ(browser()->GetWebContentsAt(1)->GetRenderProcessHost(),
-            browser()->GetWebContentsAt(2)->GetRenderProcessHost());
+  EXPECT_EQ(chrome::GetWebContentsAt(browser(), 1)->GetRenderProcessHost(),
+            chrome::GetWebContentsAt(browser(), 2)->GetRenderProcessHost());
 }
 
 // Ensure that reloading a URL after installing or uninstalling it as an app
 // correctly swaps the process.  (http://crbug.com/80621)
-IN_PROC_BROWSER_TEST_F(AppApiTest, ReloadIntoAppProcess) {
+//
+// The test times out under AddressSanitizer, see http://crbug.com/103371
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_ReloadIntoAppProcess DISABLED_ReloadIntoAppProcess
+#else
+#define MAYBE_ReloadIntoAppProcess ReloadIntoAppProcess
+#endif
+IN_PROC_BROWSER_TEST_F(AppApiTest, MAYBE_ReloadIntoAppProcess) {
   extensions::ProcessMap* process_map =
       browser()->profile()->GetExtensionService()->process_map();
 
@@ -416,7 +366,7 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, ReloadIntoAppProcess) {
 
   // Load an app URL before loading the app.
   ui_test_utils::NavigateToURL(browser(), base_url.Resolve("path1/empty.html"));
-  WebContents* contents = browser()->GetWebContentsAt(0);
+  WebContents* contents = chrome::GetWebContentsAt(browser(), 0);
   EXPECT_FALSE(process_map->Contains(
       contents->GetRenderProcessHost()->GetID()));
 
@@ -439,9 +389,8 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, ReloadIntoAppProcess) {
   ui_test_utils::WindowedNotificationObserver reload_observer(
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
-          &browser()->GetSelectedTabContentsWrapper()->web_contents()->
-              GetController()));
-  browser()->Reload(CURRENT_TAB);
+          &chrome::GetActiveWebContents(browser())->GetController()));
+  chrome::Reload(browser(), CURRENT_TAB);
   reload_observer.Wait();
   EXPECT_TRUE(process_map->Contains(
       contents->GetRenderProcessHost()->GetID()));
@@ -451,9 +400,8 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, ReloadIntoAppProcess) {
   ui_test_utils::WindowedNotificationObserver reload_observer2(
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
-          &browser()->GetSelectedTabContentsWrapper()->web_contents()->
-              GetController()));
-  browser()->Reload(CURRENT_TAB);
+          &chrome::GetActiveWebContents(browser())->GetController()));
+  chrome::Reload(browser(), CURRENT_TAB);
   reload_observer2.Wait();
   EXPECT_FALSE(process_map->Contains(
       contents->GetRenderProcessHost()->GetID()));
@@ -463,8 +411,7 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, ReloadIntoAppProcess) {
   ui_test_utils::WindowedNotificationObserver js_reload_observer(
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
-          &browser()->GetSelectedTabContentsWrapper()->web_contents()->
-              GetController()));
+          &chrome::GetActiveWebContents(browser())->GetController()));
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(contents->GetRenderViewHost(),
                                                L"", L"location.reload();"));
   js_reload_observer.Wait();
@@ -476,8 +423,7 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, ReloadIntoAppProcess) {
   ui_test_utils::WindowedNotificationObserver js_reload_observer2(
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
-          &browser()->GetSelectedTabContentsWrapper()->web_contents()->
-              GetController()));
+          &chrome::GetActiveWebContents(browser())->GetController()));
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(contents->GetRenderViewHost(),
                                                L"", L"location = location;"));
   js_reload_observer2.Wait();
@@ -503,37 +449,20 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, OpenAppFromIframe) {
   const Extension* app =
       LoadExtension(test_data_dir_.AppendASCII("app_process"));
   ASSERT_TRUE(app);
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(),
-      base_url.Resolve("path3/container.html"),
-      CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION |
-          ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
-  EXPECT_FALSE(process_map->Contains(
-      browser()->GetWebContentsAt(0)->GetRenderProcessHost()->GetID()));
 
-  // Wait for popup window to appear.
-  GURL app_url = base_url.Resolve("path1/empty.html");
-  Browser* last_active_browser = BrowserList::GetLastActive();
-  EXPECT_TRUE(last_active_browser);
-  ASSERT_NE(browser(), last_active_browser);
-  WebContents* newtab = last_active_browser->GetSelectedWebContents();
-  EXPECT_TRUE(newtab);
-  if (!newtab->GetController().GetLastCommittedEntry() ||
-      newtab->GetController().GetLastCommittedEntry()->GetURL() != app_url) {
-    // TODO(gbillock): This still looks racy. Need to make a custom
-    // observer to intercept new window creation and then look for
-    // NAV_ENTRY_COMMITTED on the new tab there.
-    ui_test_utils::WindowedNotificationObserver observer(
-        content::NOTIFICATION_NAV_ENTRY_COMMITTED,
-        content::Source<NavigationController>(&(newtab->GetController())));
-    observer.Wait();
-  }
+  ui_test_utils::WindowedNotificationObserver popup_observer(
+        content::NOTIFICATION_RENDER_VIEW_HOST_CREATED,
+        content::NotificationService::AllSources());
+  ui_test_utils::NavigateToURL(browser(),
+                               base_url.Resolve("path3/container.html"));
+  EXPECT_FALSE(process_map->Contains(
+      chrome::GetWebContentsAt(browser(), 0)->GetRenderProcessHost()->GetID()));
+  popup_observer.Wait();
 
   // Popup window should be in the app's process.
-  EXPECT_TRUE(process_map->Contains(
-      last_active_browser->GetWebContentsAt(0)->GetRenderProcessHost()->
-          GetID()));
+  RenderViewHost* popup_host =
+      content::Source<RenderViewHost>(popup_observer.source()).ptr();
+  EXPECT_TRUE(process_map->Contains(popup_host->GetProcess()->GetID()));
 }
 
 // Tests that if an extension launches an app via chrome.tabs.create with an URL
@@ -551,10 +480,10 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, OpenAppFromExtension) {
   // 1. The extension launcher page.
   // 2. The URL that the extension launches, which redirects.
   // 3. The app's URL.
-  TestNavigationObserver test_navigation_observer(
-        content::NotificationService::AllSources(),
-        NULL,
-        3);
+  content::TestNavigationObserver test_navigation_observer(
+      content::NotificationService::AllSources(),
+      NULL,
+      3);
 
   // Load the launcher extension, which should launch the app.
   ui_test_utils::NavigateToURLWithDisposition(
@@ -572,7 +501,7 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, OpenAppFromExtension) {
   // App has loaded, and chrome.app.isInstalled should be true.
   bool is_installed = false;
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
-      browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(chrome.app.isInstalled)",
       &is_installed));
   ASSERT_TRUE(is_installed);
@@ -598,40 +527,23 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, OpenWebPopupFromWebIframe) {
   const Extension* app =
       LoadExtension(test_data_dir_.AppendASCII("app_process"));
   ASSERT_TRUE(app);
-  ui_test_utils::WindowedNotificationObserver observer(
-      content::NOTIFICATION_LOAD_STOP,
-      content::NotificationService::AllSources());
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(),
-      base_url.Resolve("path1/container.html"),
-      CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION |
-          ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
+
+  ui_test_utils::WindowedNotificationObserver popup_observer(
+        content::NOTIFICATION_RENDER_VIEW_HOST_CREATED,
+        content::NotificationService::AllSources());
+  ui_test_utils::NavigateToURL(browser(),
+                               base_url.Resolve("path1/container.html"));
   content::RenderProcessHost* process =
-      browser()->GetWebContentsAt(0)->GetRenderProcessHost();
+      chrome::GetWebContentsAt(browser(), 0)->GetRenderProcessHost();
   EXPECT_TRUE(process_map->Contains(process->GetID()));
 
-  // Wait for popup window to appear.  The new Browser may not have been
-  // added with SetLastActive, in which case we need to show it first.
-  // This is necessary for popup windows without a cross-site transition.
-  if (browser() == BrowserList::GetLastActive()) {
-    // Grab the second window and show it.
-    ASSERT_TRUE(BrowserList::size() == 2);
-    Browser* popup_browser = *(++BrowserList::begin());
-    popup_browser->window()->Show();
-  }
-  Browser* last_active_browser = BrowserList::GetLastActive();
-  EXPECT_TRUE(last_active_browser);
-  ASSERT_NE(browser(), last_active_browser);
-  WebContents* newtab = last_active_browser->GetSelectedWebContents();
-  EXPECT_TRUE(newtab);
-  GURL non_app_url = base_url.Resolve("path3/empty.html");
-  observer.Wait();
+  // Wait for popup window to appear.
+  popup_observer.Wait();
 
   // Popup window should be in the app's process.
-  content::RenderProcessHost* popup_process =
-      last_active_browser->GetWebContentsAt(0)->GetRenderProcessHost();
-  EXPECT_EQ(process, popup_process);
+  RenderViewHost* popup_host =
+      content::Source<RenderViewHost>(popup_observer.source()).ptr();
+  EXPECT_EQ(process, popup_host->GetProcess());
 }
 
 // http://crbug.com/118502
@@ -653,7 +565,7 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, MAYBE_ReloadAppAfterCrash) {
 
   // Load the app, chrome.app.isInstalled should be true.
   ui_test_utils::NavigateToURL(browser(), base_url.Resolve("path1/empty.html"));
-  WebContents* contents = browser()->GetWebContentsAt(0);
+  WebContents* contents = chrome::GetWebContentsAt(browser(), 0);
   EXPECT_TRUE(process_map->Contains(
       contents->GetRenderProcessHost()->GetID()));
   bool is_installed = false;
@@ -664,13 +576,12 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, MAYBE_ReloadAppAfterCrash) {
   ASSERT_TRUE(is_installed);
 
   // Crash the tab and reload it, chrome.app.isInstalled should still be true.
-  ui_test_utils::CrashTab(browser()->GetSelectedWebContents());
+  ui_test_utils::CrashTab(chrome::GetActiveWebContents(browser()));
   ui_test_utils::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
-          &browser()->GetSelectedTabContentsWrapper()->web_contents()->
-              GetController()));
-  browser()->Reload(CURRENT_TAB);
+          &chrome::GetActiveWebContents(browser())->GetController()));
+  chrome::Reload(browser(), CURRENT_TAB);
   observer.Wait();
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
       contents->GetRenderViewHost(), L"",

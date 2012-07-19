@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -7,9 +7,8 @@
 
 #ifndef CONTENT_COMMON_NPOBJECT_BASE_H_
 #define CONTENT_COMMON_NPOBJECT_BASE_H_
-#pragma once
 
-#include "ipc/ipc_channel.h"
+#include "ipc/ipc_listener.h"
 #include "third_party/npapi/bindings/npruntime.h"
 
 struct NPObject;
@@ -22,7 +21,7 @@ class NPObjectBase {
   virtual NPObject* GetUnderlyingNPObject() = 0;
 
   // Returns the channel listener for this NPObjectBase instance.
-  virtual IPC::Channel::Listener* GetChannelListener() = 0;
+  virtual IPC::Listener* GetChannelListener() = 0;
 };
 
 #endif  // CONTENT_COMMON_NPOBJECT_BASE_H_

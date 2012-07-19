@@ -109,23 +109,31 @@ IPC_MESSAGE_ROUTED0(AutofillMsg_SetAutofillActionPreview)
 // Tells the renderer that the Autofill previewed form should be cleared.
 IPC_MESSAGE_ROUTED0(AutofillMsg_ClearPreviewedForm)
 
-// Sets the currently selected nodes value.
+// Sets the currently selected node's value.
 IPC_MESSAGE_ROUTED1(AutofillMsg_SetNodeText,
-                    string16)
+                    string16 /* new node text */)
+
+// Sets the currently selected node's value to be the given data list value.
+IPC_MESSAGE_ROUTED1(AutofillMsg_AcceptDataListSuggestion,
+                    string16 /* accepted data list value */)
 
 // Tells the renderer to populate the correct password fields with this
 // generated password.
 IPC_MESSAGE_ROUTED1(AutofillMsg_GeneratedPasswordAccepted,
                     string16 /* generated_password */)
 
-// Sends the state of password sync to the renderer. Used to determine if
-// password generation should be enabled.
-IPC_MESSAGE_ROUTED1(AutofillMsg_PasswordSyncEnabled,
+// Tells the renderer whether password generation is enabled.
+IPC_MESSAGE_ROUTED1(AutofillMsg_PasswordGenerationEnabled,
                     bool /* is_enabled */)
 
 // Tells the renderer that the password field has accept the suggestion.
 IPC_MESSAGE_ROUTED1(AutofillMsg_AcceptPasswordAutofillSuggestion,
                     string16 /* username value*/)
+
+// Tells the renderer that this password form is not blacklisted.  A form can
+// be blacklisted if a user chooses "never save passwords for this site".
+IPC_MESSAGE_ROUTED1(AutofillMsg_FormNotBlacklisted,
+                    webkit::forms::PasswordForm /* form checked */)
 
 // Autofill messages sent from the renderer to the browser.
 
@@ -200,9 +208,11 @@ IPC_MESSAGE_ROUTED0(AutofillHostMsg_HideAutofillPopup)
 
 // Instructs the browser to show the password generation bubble at the
 // specified location. This location should be specified in the renderers
-// coordinate system.
-IPC_MESSAGE_ROUTED1(AutofillHostMsg_ShowPasswordGenerationPopup,
-                    gfx::Rect /* source location */)
+// coordinate system. Form is the form associated with the password field.
+IPC_MESSAGE_ROUTED3(AutofillHostMsg_ShowPasswordGenerationPopup,
+                    gfx::Rect /* source location */,
+                    int /* max length of the password */,
+                    webkit::forms::PasswordForm)
 
 // Instruct the browser that a password mapping has been found for a field.
 IPC_MESSAGE_ROUTED2(AutofillHostMsg_AddPasswordFormMapping,
@@ -215,3 +225,10 @@ IPC_MESSAGE_ROUTED3(AutofillHostMsg_ShowPasswordSuggestions,
                     webkit::forms::FormField /* the form field */,
                     gfx::Rect /* input field bounds, window-relative */,
                     std::vector<string16> /* suggestions */)
+
+// Inform browser of data list values for the curent field.
+IPC_MESSAGE_ROUTED4(AutofillHostMsg_SetDataList,
+                    std::vector<string16> /* values */,
+                    std::vector<string16> /* labels */,
+                    std::vector<string16> /* icons */,
+                    std::vector<int> /* unique ids */)

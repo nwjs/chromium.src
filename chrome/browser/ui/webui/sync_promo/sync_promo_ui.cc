@@ -18,13 +18,14 @@
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
-#include "chrome/browser/ui/webui/options2/core_options_handler2.h"
+#include "chrome/browser/ui/webui/options2/core_options_handler.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_handler.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_trial.h"
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/common/net/url_util.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "googleurl/src/url_util.h"
@@ -57,14 +58,8 @@ bool AllowPromoAtStartupForCurrentBrand() {
   if (google_util::IsInternetCafeBrandCode(brand))
     return false;
 
-  if (google_util::IsOrganic(brand))
-    return true;
-
-  if (StartsWithASCII(brand, "CH", true))
-    return true;
-
-  // Default to disallow for all other brand codes.
-  return false;
+  // Enable for both organic and distribution.
+  return true;
 }
 
 // The Web UI data source for the sync promo page.
@@ -85,29 +80,6 @@ SyncPromoUIHTMLSource::SyncPromoUIHTMLSource(content::WebUI* web_ui)
   AddLocalizedStrings(localized_strings);
 }
 
-// Looks for |search_key| in the query portion of |url|. Returns true if the
-// key is found and sets |out_value| to the value for the key. Returns false if
-// the key is not found.
-bool GetValueForKeyInQuery(const GURL& url, const std::string& search_key,
-                           std::string* out_value) {
-  url_parse::Component query = url.parsed_for_possibly_invalid_spec().query;
-  url_parse::Component key, value;
-  while (url_parse::ExtractQueryKeyValue(
-      url.spec().c_str(), &query, &key, &value)) {
-    if (key.is_nonempty()) {
-      std::string key_string = url.spec().substr(key.begin, key.len);
-      if (key_string == search_key) {
-        if (value.is_nonempty())
-          *out_value = url.spec().substr(value.begin, value.len);
-        else
-          *out_value = "";
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 }  // namespace
 
 SyncPromoUI::SyncPromoUI(content::WebUI* web_ui) : WebUIController(web_ui) {
@@ -118,14 +90,15 @@ SyncPromoUI::SyncPromoUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   // Set up the chrome://theme/ source.
   Profile* profile = Profile::FromWebUI(web_ui);
   ThemeSource* theme = new ThemeSource(profile);
-  profile->GetChromeURLDataManager()->AddDataSource(theme);
+  ChromeURLDataManager::AddDataSource(profile, theme);
 
   // Set up the sync promo source.
   SyncPromoUIHTMLSource* html_source = new SyncPromoUIHTMLSource(web_ui);
   html_source->set_json_path(kStringsJsFile);
   html_source->add_resource_path(kSyncPromoJsFile, IDR_SYNC_PROMO_JS);
   html_source->set_default_resource(IDR_SYNC_PROMO_HTML);
-  profile->GetChromeURLDataManager()->AddDataSource(html_source);
+  html_source->set_use_json_js_format_v2();
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 
   sync_promo_trial::RecordUserShownPromo(web_ui);
 }
@@ -253,12 +226,9 @@ GURL SyncPromoUI::GetSyncPromoURL(const GURL& next_page, Source source) {
 // static
 GURL SyncPromoUI::GetNextPageURLForSyncPromoURL(const GURL& url) {
   std::string value;
-  if (GetValueForKeyInQuery(url, kSyncPromoQueryKeyNextPage, &value)) {
-    url_canon::RawCanonOutputT<char16> output;
-    url_util::DecodeURLEscapeSequences(value.c_str(), value.length(), &output);
-    std::string url;
-    UTF16ToUTF8(output.data(), output.length(), &url);
-    return GURL(url);
+  if (chrome_common_net::GetValueForKeyInQuery(
+          url, kSyncPromoQueryKeyNextPage, &value)) {
+    return GURL(value);
   }
   return GURL();
 }
@@ -266,7 +236,8 @@ GURL SyncPromoUI::GetNextPageURLForSyncPromoURL(const GURL& url) {
 // static
 SyncPromoUI::Source SyncPromoUI::GetSourceForSyncPromoURL(const GURL& url) {
   std::string value;
-  if (GetValueForKeyInQuery(url, kSyncPromoQueryKeySource, &value)) {
+  if (chrome_common_net::GetValueForKeyInQuery(
+          url, kSyncPromoQueryKeySource, &value)) {
     int source = 0;
     if (base::StringToInt(value, &source) && source >= SOURCE_START_PAGE &&
         source < SOURCE_UNKNOWN) {

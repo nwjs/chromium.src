@@ -17,7 +17,6 @@
 #include "chrome/common/chrome_version_info.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/url_fetcher.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/escape.h"
 #include "net/base/host_resolver.h"
@@ -28,6 +27,7 @@
 #include "net/http/http_network_layer.h"
 #include "net/http/http_response_headers.h"
 #include "net/proxy/proxy_service.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "net/url_request/url_request_status.h"
@@ -57,6 +57,7 @@ const char kDMTokenAuthHeader[] = "Authorization: GoogleDMToken token=";
 const int kSuccess = 200;
 const int kInvalidArgument = 400;
 const int kInvalidAuthCookieOrDMToken = 401;
+const int kMissingLicenses = 402;
 const int kDeviceManagementNotAllowed = 403;
 const int kInvalidURL = 404; // This error is not coming from the GFE.
 const int kInvalidSerialNumber = 405;
@@ -66,11 +67,6 @@ const int kPendingApproval = 412;
 const int kInternalServerError = 500;
 const int kServiceUnavailable = 503;
 const int kPolicyNotFound = 902; // This error is not sent as HTTP status code.
-
-// TODO(pastarmovj): Legacy error codes are here for compatibility only. They
-// should be removed once the DM Server has been updated.
-const int kPendingApprovalLegacy = 491;
-const int kDeviceNotFoundLegacy = 901;
 
 #if defined(OS_CHROMEOS)
 // Machine info keys.
@@ -93,7 +89,7 @@ bool IsProxyError(const net::URLRequestStatus status) {
   return false;
 }
 
-bool IsProtobufMimeType(const content::URLFetcher* source) {
+bool IsProtobufMimeType(const net::URLFetcher* source) {
   return source->GetResponseHeaders()->HasHeaderValue(
       "content-type", "application/x-protobuffer");
 }
@@ -235,11 +231,14 @@ class DeviceManagementRequestContextGetter
 
   // Overridden from net::URLRequestContextGetter:
   virtual net::URLRequestContext* GetURLRequestContext() OVERRIDE;
-  virtual scoped_refptr<base::MessageLoopProxy> GetIOMessageLoopProxy()
-      const OVERRIDE;
+  virtual scoped_refptr<base::SingleThreadTaskRunner>
+      GetNetworkTaskRunner() const OVERRIDE;
+
+ protected:
+  virtual ~DeviceManagementRequestContextGetter() {}
 
  private:
-  scoped_refptr<net::URLRequestContext> context_;
+  scoped_ptr<net::URLRequestContext> context_;
   scoped_refptr<net::URLRequestContextGetter> base_context_getter_;
 };
 
@@ -247,16 +246,16 @@ class DeviceManagementRequestContextGetter
 net::URLRequestContext*
 DeviceManagementRequestContextGetter::GetURLRequestContext() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  if (!context_) {
-    context_ = new DeviceManagementRequestContext(
-        base_context_getter_->GetURLRequestContext());
+  if (!context_.get()) {
+    context_.reset(new DeviceManagementRequestContext(
+        base_context_getter_->GetURLRequestContext()));
   }
 
   return context_.get();
 }
 
-scoped_refptr<base::MessageLoopProxy>
-DeviceManagementRequestContextGetter::GetIOMessageLoopProxy() const {
+scoped_refptr<base::SingleThreadTaskRunner>
+DeviceManagementRequestContextGetter::GetNetworkTaskRunner() const {
   return BrowserThread::GetMessageLoopProxyForThread(BrowserThread::IO);
 }
 
@@ -279,7 +278,7 @@ class DeviceManagementRequestJobImpl : public DeviceManagementRequestJob {
   GURL GetURL(const std::string& server_url);
 
   // Configures the fetcher, setting up payload and headers.
-  void ConfigureRequest(content::URLFetcher* fetcher);
+  void ConfigureRequest(net::URLFetcher* fetcher);
 
  protected:
   // DeviceManagementRequestJob:
@@ -335,10 +334,12 @@ void DeviceManagementRequestJobImpl::HandleResponse(
     case kInvalidAuthCookieOrDMToken:
       ReportError(DM_STATUS_SERVICE_MANAGEMENT_TOKEN_INVALID);
       return;
+    case kMissingLicenses:
+      ReportError(DM_STATUS_MISSING_LICENSES);
+      return;
     case kDeviceManagementNotAllowed:
       ReportError(DM_STATUS_SERVICE_MANAGEMENT_NOT_SUPPORTED);
       return;
-    case kPendingApprovalLegacy:
     case kPendingApproval:
       ReportError(DM_STATUS_SERVICE_ACTIVATION_PENDING);
       return;
@@ -347,7 +348,6 @@ void DeviceManagementRequestJobImpl::HandleResponse(
     case kServiceUnavailable:
       ReportError(DM_STATUS_TEMPORARY_UNAVAILABLE);
       return;
-    case kDeviceNotFoundLegacy:
     case kDeviceNotFound:
       ReportError(DM_STATUS_SERVICE_DEVICE_NOT_FOUND);
       return;
@@ -390,7 +390,7 @@ GURL DeviceManagementRequestJobImpl::GetURL(
 }
 
 void DeviceManagementRequestJobImpl::ConfigureRequest(
-    content::URLFetcher* fetcher) {
+    net::URLFetcher* fetcher) {
   std::string payload;
   CHECK(request_.SerializeToString(&payload));
   fetcher->SetUploadData(kPostContentType, payload);
@@ -507,8 +507,8 @@ DeviceManagementService::DeviceManagementService(
 
 void DeviceManagementService::StartJob(DeviceManagementRequestJobImpl* job,
                                        bool bypass_proxy) {
-  content::URLFetcher* fetcher = content::URLFetcher::Create(
-      0, job->GetURL(server_url_), content::URLFetcher::POST, this);
+  net::URLFetcher* fetcher = net::URLFetcher::Create(
+      0, job->GetURL(server_url_), net::URLFetcher::POST, this);
   fetcher->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
                         net::LOAD_DO_NOT_SAVE_COOKIES |
                         net::LOAD_DISABLE_CACHE |
@@ -520,7 +520,7 @@ void DeviceManagementService::StartJob(DeviceManagementRequestJobImpl* job,
 }
 
 void DeviceManagementService::OnURLFetchComplete(
-    const content::URLFetcher* source) {
+    const net::URLFetcher* source) {
   JobFetcherMap::iterator entry(pending_jobs_.find(source));
   if (entry == pending_jobs_.end()) {
     NOTREACHED() << "Callback from foreign URL fetcher";

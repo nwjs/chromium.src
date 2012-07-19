@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -57,6 +57,8 @@ class TestOwner : public printing::PrintJobWorkerOwner {
   }
 
  private:
+  virtual ~TestOwner() {}
+
   printing::PrintSettings settings_;
 };
 
@@ -126,7 +128,7 @@ TEST_F(PrintJobTest, SimplePrintLateInit) {
   job->Stop();
   job->Cancel();
   job->RequestMissingPages();
-  job->FlushJob(timeout_ms);
+  job->FlushJob(timeout);
   job->DisconnectSource();
   job->is_job_pending();
   job->document();

@@ -6,9 +6,11 @@
 
 #include "base/message_loop.h"
 #include "base/process_util.h"
+#include "base/run_loop.h"
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/shell_integration.h"
+#include "chrome/browser/ui/uninstall_browser_prompt.h"
 #include "chrome/common/chrome_result_codes.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "chrome/installer/util/shell_util.h"
@@ -17,22 +19,26 @@
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/combobox/combobox.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/focus/accelerator_handler.h"
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_constants.h"
+#include "ui/views/widget/widget.h"
 
-UninstallView::UninstallView(int* user_selection)
+UninstallView::UninstallView(int* user_selection,
+                             const base::Closure& quit_closure)
     : confirm_label_(NULL),
       delete_profile_(NULL),
       change_default_browser_(NULL),
       browsers_combo_(NULL),
       browsers_(NULL),
-      user_selection_(*user_selection) {
+      user_selection_(*user_selection),
+      quit_closure_(quit_closure) {
   SetupControls();
 }
 
 UninstallView::~UninstallView() {
   // Exit the message loop we were started with so that uninstall can continue.
-  MessageLoop::current()->Quit();
+  quit_closure_.Run();
 }
 
 void UninstallView::SetupControls() {
@@ -66,10 +72,15 @@ void UninstallView::SetupControls() {
       l10n_util::GetStringUTF16(IDS_UNINSTALL_DELETE_PROFILE));
   layout->AddView(delete_profile_);
 
-  // Set default browser combo box
+  // Set default browser combo box. If the default should not or cannot be
+  // changed, widgets are not shown. We assume here that if Chrome cannot
+  // be set programatically as default, neither can any other browser (for
+  // instance because the OS doesn't permit that).
   BrowserDistribution* dist = BrowserDistribution::GetDistribution();
   if (dist->CanSetAsDefault() &&
-      ShellIntegration::IsDefaultBrowser()) {
+      ShellIntegration::IsDefaultBrowser() &&
+      (ShellIntegration::CanSetAsDefaultBrowser() !=
+          ShellIntegration::SET_DEFAULT_INTERACTIVE)) {
     browsers_.reset(new BrowsersMap());
     ShellUtil::GetRegisteredBrowsers(dist, browsers_.get());
     if (!browsers_->empty()) {
@@ -102,11 +113,11 @@ bool UninstallView::Accept() {
   if (delete_profile_->checked())
     user_selection_ = chrome::RESULT_CODE_UNINSTALL_DELETE_PROFILE;
   if (change_default_browser_ && change_default_browser_->checked()) {
-    BrowsersMap::const_iterator it = browsers_->begin();
-    std::advance(it, browsers_combo_->selected_index());
+    BrowsersMap::const_iterator i = browsers_->begin();
+    std::advance(i, browsers_combo_->selected_index());
     base::LaunchOptions options;
     options.start_hidden = true;
-    base::LaunchProcess((*it).second, options, NULL);
+    base::LaunchProcess(i->second, options, NULL);
   }
   return true;
 }
@@ -148,7 +159,22 @@ int UninstallView::GetItemCount() const {
 
 string16 UninstallView::GetItemAt(int index) {
   DCHECK_LT(index, static_cast<int>(browsers_->size()));
-  BrowsersMap::const_iterator it = browsers_->begin();
-  std::advance(it, index);
-  return WideToUTF16Hack((*it).first);
+  BrowsersMap::const_iterator i = browsers_->begin();
+  std::advance(i, index);
+  return WideToUTF16Hack(i->first);
 }
+
+namespace chrome {
+
+int ShowUninstallBrowserPrompt() {
+  DCHECK_EQ(MessageLoop::TYPE_UI, MessageLoop::current()->type());
+  int result = content::RESULT_CODE_NORMAL_EXIT;
+  views::AcceleratorHandler accelerator_handler;
+  base::RunLoop run_loop(&accelerator_handler);
+  UninstallView* view = new UninstallView(&result, run_loop.QuitClosure());
+  views::Widget::CreateWindow(view)->Show();
+  run_loop.Run();
+  return result;
+}
+
+}  // namespace chrome

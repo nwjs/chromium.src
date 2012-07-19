@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CONTENT_RENDERER_DEVTOOLS_AGENT_FILTER_H_
 #define CONTENT_RENDERER_DEVTOOLS_AGENT_FILTER_H_
-#pragma once
 
 #include <string>
 
@@ -23,25 +22,20 @@ class DevToolsAgentFilter : public IPC::ChannelProxy::MessageFilter {
  public:
   // There is a single instance of this class instantiated by the RenderThread.
   DevToolsAgentFilter();
-  virtual ~DevToolsAgentFilter();
 
   static void SendRpcMessage(const DevToolsMessageData& data);
 
- private:
   // IPC::ChannelProxy::MessageFilter override. Called on IO thread.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
-  virtual void OnFilterAdded(IPC::Channel* channel) OVERRIDE;
+ protected:
+  virtual ~DevToolsAgentFilter();
 
+ private:
   void OnDispatchOnInspectorBackend(const std::string& message);
 
   bool message_handled_;
   MessageLoop* render_thread_loop_;
-
-  // Made static to allow DevToolsAgent to use it for replying directly
-  // from IO thread.
-  static int current_routing_id_;
-  static IPC::Channel* channel_;
 
   DISALLOW_COPY_AND_ASSIGN(DevToolsAgentFilter);
 };

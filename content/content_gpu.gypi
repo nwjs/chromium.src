@@ -6,7 +6,7 @@
   'dependencies': [
     '../base/base.gyp:base',
     '../skia/skia.gyp:skia',
-    '../ui/gfx/gl/gl.gyp:gl',
+    '../ui/gl/gl.gyp:gl',
   ],
   'sources': [
     'gpu/gpu_dx_diagnostics_win.cc',
@@ -33,11 +33,11 @@
         '<(DEPTH)/third_party/angle/include',
         '<(DEPTH)/third_party/angle/src',
         '<(DEPTH)/third_party/wtl/include',
-        '$(DXSDK_DIR)/include',
       ],
       'dependencies': [
         '../third_party/angle/src/build_angle.gyp:libEGL',
         '../third_party/angle/src/build_angle.gyp:libGLESv2',
+        '../third_party/libxml/libxml.gyp:libxml',
       ],
       'link_settings': {
         'libraries': [
@@ -87,6 +87,17 @@
             '<(PRODUCT_DIR)',
           ],
         },
+      ],
+    }],
+    ['OS=="win" and buildtype=="Official"', {
+      'sources': [
+        '../third_party/amd/AmdCfxPxExt.h',
+        '../third_party/amd/amd_videocard_info_win.cc',
+      ],
+    }],
+    ['OS=="linux"', {
+      'dependencies': [
+        '../third_party/libXNVCtrl/libXNVCtrl.gyp:libXNVCtrl',
       ],
     }],
   ],

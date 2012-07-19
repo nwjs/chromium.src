@@ -3,36 +3,32 @@
 // found in the LICENSE file.
 
 var chromeHidden = requireNative('chrome_hidden').GetChromeHidden();
-var sgb = requireNative('schema_generated_bindings');
-var GetNextRequestId = sgb.GetNextRequestId;
-var StartRequest = sgb.StartRequest;
+var lastError = require('lastError');
+var natives = requireNative('sendRequest');
+var validate = require('schemaUtils').validate;
 
 // Callback handling.
 var requests = [];
 chromeHidden.handleResponse = function(requestId, name,
-                                       success, response, error) {
+                                       success, responseList, error) {
   try {
     var request = requests[requestId];
     if (success) {
-      delete chrome.extension.lastError;
+      lastError.clear();
     } else {
       if (!error) {
         error = "Unknown error.";
       }
       console.error("Error during " + name + ": " + error);
-      chrome.extension.lastError = {
-        "message": error
-      };
+      lastError.set(error);
     }
 
     if (request.customCallback) {
-      request.customCallback(name, request, response);
+      var customCallbackArgs = [name, request].concat(responseList);
+      request.customCallback.apply(request, customCallbackArgs);
     }
 
     if (request.callback) {
-      // Callbacks currently only support one callback argument.
-      var callbackArgs = response ? [chromeHidden.JSON.parse(response)] : [];
-
       // Validate callback in debug only -- and only when the
       // caller has provided a callback. Implementations of api
       // calls my not return data if they observe the caller
@@ -40,30 +36,21 @@ chromeHidden.handleResponse = function(requestId, name,
       if (chromeHidden.validateCallbacks && !error) {
         try {
           if (!request.callbackSchema.parameters) {
-            throw "No callback schemas defined";
+            throw new Error("No callback schemas defined");
           }
 
-          if (request.callbackSchema.parameters.length > 1) {
-            throw "Callbacks may only define one parameter";
-          }
-
-          chromeHidden.validate(callbackArgs,
-              request.callbackSchema.parameters);
+          validate(responseList, request.callbackSchema.parameters);
         } catch (exception) {
           return "Callback validation error during " + name + " -- " +
                  exception.stack;
         }
       }
 
-      if (response) {
-        request.callback(callbackArgs[0]);
-      } else {
-        request.callback();
-      }
+      request.callback.apply(request, responseList);
     }
   } finally {
     delete requests[requestId];
-    delete chrome.extension.lastError;
+    lastError.clear();
   }
 
   return undefined;
@@ -75,9 +62,8 @@ function prepareRequest(args, argSchemas) {
 
   // Look for callback param.
   if (argSchemas.length > 0 &&
-      args.length == argSchemas.length &&
       argSchemas[argSchemas.length - 1].type == "function") {
-    request.callback = args[argSchemas.length - 1];
+    request.callback = args[args.length - 1];
     request.callbackSchema = argSchemas[argSchemas.length - 1];
     --argCount;
   }
@@ -110,16 +96,21 @@ function sendRequest(functionName, args, argSchemas, opt_args) {
   if (request.args === undefined)
     request.args = null;
 
-  var sargs = opt_args.noStringify ?
-      request.args : chromeHidden.JSON.stringify(request.args);
-  var nativeFunction = opt_args.nativeFunction || StartRequest;
+  // TODO(asargent) - convert all optional native functions to accept raw
+  // v8 values instead of expecting JSON strings.
+  var doStringify = false;
+  if (opt_args.nativeFunction && !opt_args.noStringify)
+    doStringify = true;
+  var requestArgs = doStringify ?
+      chromeHidden.JSON.stringify(request.args) : request.args;
+  var nativeFunction = opt_args.nativeFunction || natives.StartRequest;
 
-  var requestId = GetNextRequestId();
+  var requestId = natives.GetNextRequestId();
   request.id = requestId;
   requests[requestId] = request;
   var hasCallback =
       (request.callback || opt_args.customCallback) ? true : false;
-  return nativeFunction(functionName, sargs, requestId, hasCallback,
+  return nativeFunction(functionName, requestArgs, requestId, hasCallback,
                         opt_args.forIOThread);
 }
 

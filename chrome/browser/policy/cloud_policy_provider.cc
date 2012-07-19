@@ -4,16 +4,17 @@
 
 #include "chrome/browser/policy/cloud_policy_provider.h"
 
+#include "base/memory/scoped_ptr.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
+#include "chrome/browser/policy/policy_bundle.h"
+#include "chrome/browser/policy/policy_map.h"
 
 namespace policy {
 
 CloudPolicyProvider::CloudPolicyProvider(
     BrowserPolicyConnector* browser_policy_connector,
-    const PolicyDefinitionList* policy_list,
     PolicyLevel level)
-    : ConfigurationPolicyProvider(policy_list),
-      browser_policy_connector_(browser_policy_connector),
+    : browser_policy_connector_(browser_policy_connector),
       level_(level),
       initialization_complete_(false) {
   for (size_t i = 0; i < CACHE_SIZE; ++i)
@@ -43,11 +44,6 @@ void CloudPolicyProvider::SetDevicePolicyCache(CloudPolicyCacheBase* cache) {
 }
 #endif
 
-bool CloudPolicyProvider::ProvideInternal(PolicyMap* result) {
-  result->CopyFrom(combined_);
-  return true;
-}
-
 bool CloudPolicyProvider::IsInitializationComplete() const {
   return initialization_complete_;
 }
@@ -58,14 +54,15 @@ void CloudPolicyProvider::RefreshPolicies() {
       pending_updates_.insert(caches_[i]);
   }
   if (pending_updates_.empty())
-    NotifyPolicyUpdated();
+    Merge();
   else
     browser_policy_connector_->FetchCloudPolicy();
 }
 
 void CloudPolicyProvider::OnCacheUpdate(CloudPolicyCacheBase* cache) {
   pending_updates_.erase(cache);
-  Merge();
+  if (pending_updates_.empty())
+    Merge();
 }
 
 void CloudPolicyProvider::OnCacheGoingAway(CloudPolicyCacheBase* cache) {
@@ -93,17 +90,16 @@ void CloudPolicyProvider::Merge() {
     }
   }
 
-  combined_.Clear();
+  PolicyMap combined;
   for (size_t i = 0; i < CACHE_SIZE; ++i) {
     if (caches_[i] && caches_[i]->IsReady())
-      combined_.MergeFrom(*caches_[i]->policy());
+      combined.MergeFrom(*caches_[i]->policy());
   }
-  FixDeprecatedPolicies(&combined_);
-  combined_.FilterLevel(level_);
+  combined.FilterLevel(level_);
 
-  // Trigger a notification.
-  if (pending_updates_.empty())
-    NotifyPolicyUpdated();
+  scoped_ptr<PolicyBundle> bundle(new PolicyBundle());
+  bundle->Get(POLICY_DOMAIN_CHROME, std::string()).Swap(&combined);
+  UpdatePolicy(bundle.Pass());
 }
 
 }  // namespace policy

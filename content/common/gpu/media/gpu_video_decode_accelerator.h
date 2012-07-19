@@ -7,30 +7,35 @@
 
 #include <vector>
 
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
 #include "base/shared_memory.h"
-#include "ipc/ipc_channel.h"
-#include "ipc/ipc_message.h"
+#include "content/common/gpu/gpu_command_buffer_stub.h"
+#include "ipc/ipc_listener.h"
+#include "ipc/ipc_sender.h"
 #include "media/video/video_decode_accelerator.h"
 
-class GpuCommandBufferStub;
-
 class GpuVideoDecodeAccelerator
-    : public IPC::Channel::Listener,
-      public IPC::Message::Sender,
-      public media::VideoDecodeAccelerator::Client {
+    : public IPC::Listener,
+      public IPC::Sender,
+      public media::VideoDecodeAccelerator::Client,
+      public GpuCommandBufferStub::DestructionObserver {
  public:
-  GpuVideoDecodeAccelerator(IPC::Message::Sender* sender,
+  // Each of the arguments to the constructor must outlive this object.
+  // |stub->decoder()| will be made current around any operation that touches
+  // the underlying VDA so that it can make GL calls safely.
+  GpuVideoDecodeAccelerator(IPC::Sender* sender,
                             int32 host_route_id,
                             GpuCommandBufferStub* stub);
   virtual ~GpuVideoDecodeAccelerator();
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
   // media::VideoDecodeAccelerator::Client implementation.
-  virtual void ProvidePictureBuffers(
-      uint32 requested_num_of_buffers, const gfx::Size& dimensions) OVERRIDE;
+  virtual void ProvidePictureBuffers(uint32 requested_num_of_buffers,
+                                     const gfx::Size& dimensions,
+                                     uint32 texture_target) OVERRIDE;
   virtual void DismissPictureBuffer(int32 picture_buffer_id) OVERRIDE;
   virtual void PictureReady(const media::Picture& picture) OVERRIDE;
   virtual void NotifyInitializeDone() OVERRIDE;
@@ -38,6 +43,9 @@ class GpuVideoDecodeAccelerator
   virtual void NotifyEndOfBitstreamBuffer(int32 bitstream_buffer_id) OVERRIDE;
   virtual void NotifyFlushDone() OVERRIDE;
   virtual void NotifyResetDone() OVERRIDE;
+
+  // GpuCommandBufferStub::DestructionObserver implementation.
+  virtual void OnWillDestroyStub(GpuCommandBufferStub* stub) OVERRIDE;
 
   // Function to delegate sending to actual sender.
   virtual bool Send(IPC::Message* message) OVERRIDE;
@@ -47,11 +55,9 @@ class GpuVideoDecodeAccelerator
   // The renderer process handle is valid as long as we have a channel between
   // GPU process and the renderer.
   void Initialize(const media::VideoCodecProfile profile,
-                  IPC::Message* init_done_msg,
-                  base::ProcessHandle renderer_process);
+                  IPC::Message* init_done_msg);
 
  private:
-
   // Handlers for IPC messages.
   void OnDecode(base::SharedMemoryHandle handle, int32 id, int32 size);
   void OnAssignPictureBuffers(
@@ -65,7 +71,7 @@ class GpuVideoDecodeAccelerator
   void OnDestroy();
 
   // Pointer to the IPC message sender.
-  IPC::Message::Sender* sender_;
+  IPC::Sender* sender_;
 
   // Message to Send() when initialization is done.  Is only non-NULL during
   // initialization and is owned by the IPC channel underlying the
@@ -76,10 +82,14 @@ class GpuVideoDecodeAccelerator
   int32 host_route_id_;
 
   // Unowned pointer to the underlying GpuCommandBufferStub.
-  GpuCommandBufferStub* stub_;
+  base::WeakPtr<GpuCommandBufferStub> stub_;
 
-  // Pointer to the underlying VideoDecodeAccelerator.
-  scoped_refptr<media::VideoDecodeAccelerator> video_decode_accelerator_;
+  // The underlying VideoDecodeAccelerator.
+  scoped_ptr<media::VideoDecodeAccelerator> video_decode_accelerator_;
+
+  // Callback for making the relevant context current for GL calls.
+  // Returns false if failed.
+  base::Callback<bool(void)> make_context_current_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(GpuVideoDecodeAccelerator);
 };

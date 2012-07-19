@@ -4,14 +4,15 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_RULES_REGISTRY_WITH_CACHE_H__
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_RULES_REGISTRY_WITH_CACHE_H__
-#pragma once
 
 #include "chrome/browser/extensions/api/declarative/rules_registry.h"
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/callback_forward.h"
 
 namespace extensions {
 
@@ -19,8 +20,33 @@ namespace extensions {
 // RulesRegistry::Rule objects.
 class RulesRegistryWithCache : public RulesRegistry {
  public:
-  RulesRegistryWithCache();
-  virtual ~RulesRegistryWithCache();
+  class Delegate {
+   public:
+    virtual ~Delegate() {}
+
+    // Returns true if the registry is ready and ready to start processing
+    // rules.
+    virtual bool IsReady() = 0;
+
+    // Called to notify the Delegate that the rules for the given extension
+    // have changed.
+    virtual void OnRulesChanged(RulesRegistryWithCache* rules_registry,
+                                const std::string& extension_id) = 0;
+  };
+
+  explicit RulesRegistryWithCache(Delegate* delegate);
+
+  // Returns true if we are ready to process rules.
+  bool IsReady() {
+    return !delegate_.get() || delegate_->IsReady();
+  }
+
+  // Add a callback to call when we transition to Ready.
+  void AddReadyCallback(const base::Closure& callback);
+
+  // Called by our delegate when we are ready. This is called exactly once,
+  // if we have a delegate.
+  void OnReady();
 
   // RulesRegistry implementation:
   virtual std::string AddRules(
@@ -42,6 +68,8 @@ class RulesRegistryWithCache : public RulesRegistry {
   virtual content::BrowserThread::ID GetOwnerThread() const = 0;
 
  protected:
+  virtual ~RulesRegistryWithCache();
+
   // These functions need to provide the same functionality as their
   // RulesRegistry counterparts. They need to be atomic.
   virtual std::string AddRulesImpl(
@@ -59,7 +87,14 @@ class RulesRegistryWithCache : public RulesRegistry {
   typedef std::pair<ExtensionId, RuleId> RulesDictionaryKey;
   typedef std::map<RulesDictionaryKey, linked_ptr<RulesRegistry::Rule> >
       RulesDictionary;
+
+  // Notify our delegate that the given extension's rules have changed.
+  void NotifyRulesChanged(const std::string& extension_id);
+
   RulesDictionary rules_;
+
+  scoped_ptr<Delegate> delegate_;
+  std::vector<base::Closure> ready_callbacks_;
 };
 
 }  // namespace extensions

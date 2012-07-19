@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_TEXTFIELD_TEXTFIELD_CONTROLLER_H_
 #define UI_VIEWS_CONTROLS_TEXTFIELD_TEXTFIELD_CONTROLLER_H_
-#pragma once
 
 #include "base/string16.h"
 #include "ui/views/views_export.h"
@@ -55,6 +54,13 @@ class VIEWS_EXPORT TextfieldController {
 
   // Returns true if the |command_id| should be enabled in the context menu.
   virtual bool IsCommandIdEnabled(int command_id) const;
+
+  // Returns true if the item label for the |command_id| is dynamic in the
+  // context menu.
+  virtual bool IsItemForCommandIdDynamic(int command_id) const;
+
+  // Returns the label string for the |coomand_id|.
+  virtual string16 GetLabelForCommandId(int command_id) const;
 
   // Execute context menu command specified by |command_id|.
   virtual void ExecuteCommand(int command_id) {}

@@ -13,6 +13,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/button/text_button.h"
+#include "ui/views/drag_utils.h"
 
 namespace button_drag_utils {
 
@@ -21,8 +22,9 @@ static const int kLinkDragImageMaxWidth = 200;
 
 void SetURLAndDragImage(const GURL& url,
                         const string16& title,
-                        const SkBitmap& icon,
-                        ui::OSExchangeData* data) {
+                        const gfx::ImageSkia& icon,
+                        ui::OSExchangeData* data,
+                        views::Widget* widget) {
   DCHECK(url.is_valid() && data);
 
   data->SetURL(url, title);
@@ -33,7 +35,7 @@ void SetURLAndDragImage(const GURL& url,
   button.set_max_width(kLinkDragImageMaxWidth);
   if (icon.isNull()) {
     button.SetIcon(*ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-                   IDR_DEFAULT_FAVICON).ToSkBitmap());
+                   IDR_DEFAULT_FAVICON).ToImageSkia());
   } else {
     button.SetIcon(icon);
   }
@@ -41,9 +43,10 @@ void SetURLAndDragImage(const GURL& url,
   button.SetBounds(0, 0, prefsize.width(), prefsize.height());
 
   // Render the image.
-  gfx::Canvas canvas(prefsize, false);
-  button.PaintButton(&canvas, views::TextButton::PB_FOR_DRAG);
-  drag_utils::SetDragImageOnDataObject(canvas, prefsize,
+  scoped_ptr<gfx::Canvas> canvas(
+      views::GetCanvasForDragImage(widget, prefsize));
+  button.PaintButton(canvas.get(), views::TextButton::PB_FOR_DRAG);
+  drag_utils::SetDragImageOnDataObject(*canvas, prefsize,
       gfx::Point(prefsize.width() / 2, prefsize.height() / 2), data);
 }
 

@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_BROWSER_GPU_BROWSER_GPU_CHANNEL_HOST_FACTORY_H_
 #define CONTENT_BROWSER_GPU_BROWSER_GPU_CHANNEL_HOST_FACTORY_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
@@ -48,7 +47,6 @@ class BrowserGpuChannelHostFactory : public GpuChannelHostFactory {
     ~EstablishRequest();
     base::WaitableEvent event;
     IPC::ChannelHandle channel_handle;
-    base::ProcessHandle gpu_process_handle;
     GPUInfo gpu_info;
   };
 
@@ -65,7 +63,6 @@ class BrowserGpuChannelHostFactory : public GpuChannelHostFactory {
   static void GpuChannelEstablishedOnIO(
       EstablishRequest* request,
       const IPC::ChannelHandle& channel_handle,
-      base::ProcessHandle gpu_process_handle,
       const GPUInfo& gpu_info);
 
   int gpu_client_id_;

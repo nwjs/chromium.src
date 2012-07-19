@@ -9,7 +9,6 @@
 #include "grit/ui_resources.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 
 namespace {
 
@@ -223,14 +222,21 @@ const ash::WallpaperInfo kDefaultWallpapers[] = {
 };
 
 const int kDefaultWallpaperCount = arraysize(kDefaultWallpapers);
+const int kInvalidWallpaperIndex = -1;
+const int kSolidColorIndex = -2;
 
 // TODO(saintlou): These hardcoded indexes, although checked against the size
 // of the array are really hacky.
 #if defined(GOOGLE_CHROME_BUILD)
 const int kDefaultWallpaperIndex = 16; // IDR_AURA_WALLPAPERS_3_URBAN0
+const int kLastRandomWallpaperIndex = 19; // The first 20 are random.
 const int kGuestWallpaperIndex = 26;   // IDR_AURA_WALLPAPERS_5_GRADIENT6
 #else
-const int kDefaultWallpaperIndex = 0;
+// Set default wallpaper to the grey background for faster wallpaper loading
+// time in browser tests. Otherwise, some of the tests will finish before
+// wallpaper loaded and cause crashes.
+const int kDefaultWallpaperIndex = 6;  // IDR_AURA_WALLPAPERS_5_GRADIENT5
+const int kLastRandomWallpaperIndex = 8;
 const int kGuestWallpaperIndex = kDefaultWallpaperIndex;
 #endif
 
@@ -248,23 +254,25 @@ int GetGuestWallpaperIndex() {
   return std::min(kGuestWallpaperIndex, kDefaultWallpaperCount - 1);
 }
 
+int GetInvalidWallpaperIndex() {
+  return kInvalidWallpaperIndex;
+}
+
+int GetNextWallpaperIndex(int index) {
+  DCHECK(kLastRandomWallpaperIndex < kDefaultWallpaperCount);
+  return (index + 1) % (kLastRandomWallpaperIndex + 1);
+}
+
+int GetSolidColorIndex() {
+  return kSolidColorIndex;
+}
+
 int GetWallpaperCount() {
   return kDefaultWallpaperCount;
 }
 
-const SkBitmap& GetWallpaper(int index) {
-  DCHECK(index >= 0 && index < kDefaultWallpaperCount);
-  return *ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-      kDefaultWallpapers[index].id).ToSkBitmap();
-}
-
-const SkBitmap& GetWallpaperThumbnail(int index) {
-  DCHECK(index >= 0 && index < kDefaultWallpaperCount);
-  return *ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-      kDefaultWallpapers[index].thumb_id).ToSkBitmap();
-}
-
 const WallpaperInfo& GetWallpaperInfo(int index) {
+  DCHECK(index >= 0 && index < kDefaultWallpaperCount);
   return kDefaultWallpapers[index];
 }
 

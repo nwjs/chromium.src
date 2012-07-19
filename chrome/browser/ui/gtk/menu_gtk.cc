@@ -13,16 +13,16 @@
 #include "base/stl_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/ui/gtk/event_utils.h"
 #include "chrome/browser/ui/gtk/gtk_custom_menu.h"
 #include "chrome/browser/ui/gtk/gtk_custom_menu_item.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/views/event_utils.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/accelerators/accelerator_gtk.h"
+#include "ui/base/gtk/menu_label_accelerator_util.h"
 #include "ui/base/models/button_menu_item_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/gtk_util.h"
-#include "ui/gfx/linux_util.h"
 #include "webkit/glue/window_open_disposition.h"
 
 bool MenuGtk::block_activation_ = false;
@@ -145,7 +145,6 @@ GtkWidget* MenuGtk::Delegate::GetDefaultImageForCommandId(int command_id) {
       break;
 
     case IDC_COPY:
-    case IDC_COPY_URL:
     case IDC_CONTENT_CONTEXT_COPYIMAGELOCATION:
     case IDC_CONTENT_CONTEXT_COPYLINKLOCATION:
     case IDC_CONTENT_CONTEXT_COPYAVLOCATION:
@@ -235,7 +234,7 @@ GtkWidget* MenuGtk::Delegate::GetDefaultImageForCommandId(int command_id) {
       stock = GTK_STOCK_QUIT;
       break;
 
-    case IDC_HELP_PAGE:
+    case IDC_HELP_PAGE_VIA_MENU:
       stock = GTK_STOCK_HELP;
       break;
 
@@ -307,14 +306,14 @@ void MenuGtk::ConnectSignalHandlers() {
   // take a long time or even start a nested message loop.
   g_signal_connect(menu_, "show", G_CALLBACK(OnMenuShowThunk), this);
   g_signal_connect(menu_, "hide", G_CALLBACK(OnMenuHiddenThunk), this);
-  GtkWidget *toplevel_window = gtk_widget_get_toplevel(menu_);
+  GtkWidget* toplevel_window = gtk_widget_get_toplevel(menu_);
   signal_.Connect(toplevel_window, "focus-out-event",
                   G_CALLBACK(OnMenuFocusOutThunk), this);
 }
 
 GtkWidget* MenuGtk::AppendMenuItemWithLabel(int command_id,
                                             const std::string& label) {
-  std::string converted_label = gfx::ConvertAcceleratorsFromWindowsStyle(label);
+  std::string converted_label = ui::ConvertAcceleratorsFromWindowsStyle(label);
   GtkWidget* menu_item = BuildMenuItemWithLabel(label, command_id);
   return AppendMenuItem(command_id, menu_item);
 }
@@ -322,14 +321,14 @@ GtkWidget* MenuGtk::AppendMenuItemWithLabel(int command_id,
 GtkWidget* MenuGtk::AppendMenuItemWithIcon(int command_id,
                                            const std::string& label,
                                            const SkBitmap& icon) {
-  std::string converted_label = gfx::ConvertAcceleratorsFromWindowsStyle(label);
+  std::string converted_label = ui::ConvertAcceleratorsFromWindowsStyle(label);
   GtkWidget* menu_item = BuildMenuItemWithImage(converted_label, icon);
   return AppendMenuItem(command_id, menu_item);
 }
 
 GtkWidget* MenuGtk::AppendCheckMenuItemWithLabel(int command_id,
                                                  const std::string& label) {
-  std::string converted_label = gfx::ConvertAcceleratorsFromWindowsStyle(label);
+  std::string converted_label = ui::ConvertAcceleratorsFromWindowsStyle(label);
   GtkWidget* menu_item =
       gtk_check_menu_item_new_with_mnemonic(converted_label.c_str());
   return AppendMenuItem(command_id, menu_item);
@@ -422,7 +421,7 @@ GtkWidget* MenuGtk::BuildMenuItemWithImage(const std::string& label,
 
 GtkWidget* MenuGtk::BuildMenuItemWithImage(const std::string& label,
                                            const SkBitmap& icon) {
-  GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(&icon);
+  GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(icon);
   GtkWidget* menu_item = BuildMenuItemWithImage(label,
       gtk_image_new_from_pixbuf(pixbuf));
   g_object_unref(pixbuf);
@@ -446,10 +445,9 @@ void MenuGtk::BuildSubmenuFromModel(ui::MenuModel* model, GtkWidget* menu) {
   std::map<int, GtkWidget*> radio_groups;
   GtkWidget* menu_item = NULL;
   for (int i = 0; i < model->GetItemCount(); ++i) {
-    SkBitmap icon;
-    std::string label =
-        gfx::ConvertAcceleratorsFromWindowsStyle(
-            UTF16ToUTF8(model->GetLabelAt(i)));
+    gfx::ImageSkia icon;
+    std::string label = ui::ConvertAcceleratorsFromWindowsStyle(
+        UTF16ToUTF8(model->GetLabelAt(i)));
     bool connect_to_activate = true;
 
     switch (model->GetTypeAt(i)) {
@@ -531,7 +529,7 @@ void MenuGtk::BuildSubmenuFromModel(ui::MenuModel* model, GtkWidget* menu) {
 GtkWidget* MenuGtk::BuildButtonMenuItem(ui::ButtonMenuItemModel* model,
                                         GtkWidget* menu) {
   GtkWidget* menu_item = gtk_custom_menu_item_new(
-      gfx::RemoveWindowsStyleAccelerators(UTF16ToUTF8(model->label())).c_str());
+      ui::RemoveWindowsStyleAccelerators(UTF16ToUTF8(model->label())).c_str());
 
   // Set up the callback to the model for when it is clicked.
   g_object_set_data(G_OBJECT(menu_item), "button-model", model);
@@ -560,7 +558,7 @@ GtkWidget* MenuGtk::BuildButtonMenuItem(ui::ButtonMenuItemModel* model,
         } else {
           gtk_button_set_label(
               GTK_BUTTON(button),
-              gfx::RemoveWindowsStyleAccelerators(
+              ui::RemoveWindowsStyleAccelerators(
                   UTF16ToUTF8(model->GetLabelAt(i))).c_str());
         }
 
@@ -573,7 +571,7 @@ GtkWidget* MenuGtk::BuildButtonMenuItem(ui::ButtonMenuItemModel* model,
             model->GetCommandIdAt(i));
         gtk_button_set_label(
             GTK_BUTTON(button),
-            gfx::RemoveWindowsStyleAccelerators(
+            ui::RemoveWindowsStyleAccelerators(
                 UTF16ToUTF8(model->GetLabelAt(i))).c_str());
         SetUpButtonShowHandler(button, model, i);
         break;
@@ -761,6 +759,9 @@ void MenuGtk::OnSubMenuShow(GtkWidget* submenu) {
   // Notify the submenu model that the menu will be shown.
   ui::MenuModel* submenu_model = static_cast<ui::MenuModel*>(
       g_object_get_data(G_OBJECT(menu_item), "submenu-model"));
+  // TODO(mdm): Figure out why this can sometimes be NULL. See bug 131974.
+  if (!submenu_model)
+    return;
   submenu_model->MenuWillShow();
 
   // Actually build the submenu and attach it to the parent menu item.
@@ -798,7 +799,9 @@ void MenuGtk::OnSubMenuHiddenCallback(GtkWidget* submenu) {
       g_object_get_data(G_OBJECT(submenu), "menu-item"));
   ui::MenuModel* submenu_model = static_cast<ui::MenuModel*>(
       g_object_get_data(G_OBJECT(menu_item), "submenu-model"));
-  submenu_model->MenuClosed();
+  // TODO(mdm): Figure out why this can sometimes be NULL. See bug 124110.
+  if (submenu_model)
+    submenu_model->MenuClosed();
 
   // Remove the reference we grabbed in OnSubMenuHidden() above.
   g_object_unref(G_OBJECT(submenu));
@@ -813,9 +816,8 @@ void MenuGtk::SetButtonItemInfo(GtkWidget* button, gpointer userdata) {
       G_OBJECT(button), "button-model-id"));
 
   if (model->IsItemDynamicAt(index)) {
-    std::string label =
-        gfx::ConvertAcceleratorsFromWindowsStyle(
-            UTF16ToUTF8(model->GetLabelAt(index)));
+    std::string label = ui::ConvertAcceleratorsFromWindowsStyle(
+        UTF16ToUTF8(model->GetLabelAt(index)));
     gtk_button_set_label(GTK_BUTTON(button), label.c_str());
   }
 
@@ -872,15 +874,14 @@ void MenuGtk::SetMenuItemInfo(GtkWidget* widget, gpointer userdata) {
     if (model->IsVisibleAt(id)) {
       // Update the menu item label if it is dynamic.
       if (model->IsItemDynamicAt(id)) {
-        std::string label =
-            gfx::ConvertAcceleratorsFromWindowsStyle(
-                UTF16ToUTF8(model->GetLabelAt(id)));
+        std::string label = ui::ConvertAcceleratorsFromWindowsStyle(
+            UTF16ToUTF8(model->GetLabelAt(id)));
 
         gtk_menu_item_set_label(GTK_MENU_ITEM(widget), label.c_str());
         if (GTK_IS_IMAGE_MENU_ITEM(widget)) {
-          SkBitmap icon;
+          gfx::ImageSkia icon;
           if (model->GetIconAt(id, &icon)) {
-            GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(&icon);
+            GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(icon);
             gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(widget),
                                           gtk_image_new_from_pixbuf(pixbuf));
             g_object_unref(pixbuf);

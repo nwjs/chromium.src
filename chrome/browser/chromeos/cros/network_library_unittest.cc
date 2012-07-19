@@ -151,7 +151,8 @@ TEST(NetworkLibraryTest, DecodeNonAsciiSSID) {
     std::string wifi_utf8 = "UTF-8 \u3042\u3044\u3046";
     std::string wifi_utf8_result = "UTF-8 \xE3\x81\x82\xE3\x81\x84\xE3\x81\x86";
     WifiNetwork* wifi = new WifiNetwork("fw");
-    wifi->SetSsid(wifi_utf8);
+    WifiNetwork::TestApi test_wifi(wifi);
+    test_wifi.SetSsid(wifi_utf8);
     EXPECT_EQ(wifi->name(), wifi_utf8_result);
     delete wifi;
   }
@@ -161,7 +162,8 @@ TEST(NetworkLibraryTest, DecodeNonAsciiSSID) {
     std::string wifi_latin1 = "latin-1 \xc0\xcb\xcc\xd6\xfb";
     std::string wifi_latin1_result = "latin-1 \u00c0\u00cb\u00cc\u00d6\u00fb";
     WifiNetwork* wifi = new WifiNetwork("fw");
-    wifi->SetSsid(wifi_latin1);
+    WifiNetwork::TestApi test_wifi(wifi);
+    test_wifi.SetSsid(wifi_latin1);
     EXPECT_EQ(wifi->name(), wifi_latin1_result);
     delete wifi;
   }
@@ -171,7 +173,8 @@ TEST(NetworkLibraryTest, DecodeNonAsciiSSID) {
     std::string wifi_hex = "5468697320697320484558205353494421";
     std::string wifi_hex_result = "This is HEX SSID!";
     WifiNetwork* wifi = new WifiNetwork("fw");
-    wifi->SetHexSsid(wifi_hex);
+    WifiNetwork::TestApi test_wifi(wifi);
+    test_wifi.SetHexSsid(wifi_hex);
     EXPECT_EQ(wifi->name(), wifi_hex_result);
     delete wifi;
   }
@@ -280,12 +283,12 @@ TEST_F(NetworkLibraryStubTest, NetworkLibraryAccessors) {
   WifiNetwork* wifi2 = cros_->FindWifiNetworkByPath("wifi2");
   ASSERT_NE(static_cast<const Network*>(NULL), wifi2);
   Network::TestApi test_wifi2(wifi2);
-  test_wifi2.SetConnecting(true);
+  test_wifi2.SetConnecting();
   // Set cellular1->connecting for these tests.
   CellularNetwork* cellular1 = cros_->FindCellularNetworkByPath("cellular1");
   ASSERT_NE(static_cast<const Network*>(NULL), cellular1);
   Network::TestApi test_cellular1(cellular1);
-  test_cellular1.SetConnecting(true);
+  test_cellular1.SetConnecting();
 
   // Ethernet
   ASSERT_NE(static_cast<const EthernetNetwork*>(NULL),
@@ -352,7 +355,7 @@ TEST_F(NetworkLibraryStubTest, NetworkConnectOncWifi) {
   ASSERT_TRUE(parser.parse_error().empty());
   EXPECT_EQ(1, parser.GetNetworkConfigsSize());
   EXPECT_EQ(2, parser.GetCertificatesSize());
-  scoped_ptr<Network> network(parser.ParseNetwork(0));
+  scoped_ptr<Network> network(parser.ParseNetwork(0, NULL));
   ASSERT_TRUE(network.get());
   EXPECT_EQ(CLIENT_CERT_TYPE_PATTERN, network->client_cert_type());
 
@@ -383,7 +386,7 @@ TEST_F(NetworkLibraryStubTest, NetworkConnectOncVPN) {
   ASSERT_TRUE(parser.parse_error().empty());
   EXPECT_EQ(1, parser.GetNetworkConfigsSize());
   EXPECT_EQ(2, parser.GetCertificatesSize());
-  scoped_ptr<Network> network(parser.ParseNetwork(0));
+  scoped_ptr<Network> network(parser.ParseNetwork(0, NULL));
   ASSERT_TRUE(network.get());
   EXPECT_EQ(CLIENT_CERT_TYPE_PATTERN, network->client_cert_type());
 

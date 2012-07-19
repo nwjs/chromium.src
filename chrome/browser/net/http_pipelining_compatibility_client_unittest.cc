@@ -11,9 +11,10 @@
 #include "base/basictypes.h"
 #include "base/message_loop.h"
 #include "base/metrics/histogram.h"
+#include "base/metrics/statistics_recorder.h"
 #include "base/stl_util.h"
 #include "base/stringprintf.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_completion_callback.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -191,9 +192,9 @@ class HttpPipeliningCompatibilityClientTest : public testing::Test {
  private:
   base::Histogram::SampleSet GetHistogram(const char* name) {
     base::Histogram::SampleSet sample;
-    base::Histogram* current_histogram = NULL;
     base::Histogram* cached_histogram = NULL;
-    base::StatisticsRecorder::FindHistogram(name, &current_histogram);
+    base::Histogram* current_histogram =
+        base::StatisticsRecorder::FindHistogram(name);
     if (ContainsKey(histograms_, name)) {
       cached_histogram = histograms_[name];
     }

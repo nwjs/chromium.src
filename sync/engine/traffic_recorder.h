@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_SYNC_ENGINE_TRAFFIC_RECORDER_H_
 #define CHROME_BROWSER_SYNC_ENGINE_TRAFFIC_RECORDER_H_
-#pragma once
 
 #include <deque>
 #include <string>
@@ -19,7 +18,7 @@ class ClientToServerResponse;
 class ClientToServerMessage;
 }
 
-namespace browser_sync {
+namespace syncer {
 
 class TrafficRecorder {
  public:
@@ -72,7 +71,7 @@ class TrafficRecorder {
   DISALLOW_COPY_AND_ASSIGN(TrafficRecorder);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // CHROME_BROWSER_SYNC_ENGINE_TRAFFIC_RECORDER_H_
 

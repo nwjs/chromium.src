@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_AUTOMATION_AUTOMATION_TAB_TRACKER_H_
 #define CHROME_BROWSER_AUTOMATION_AUTOMATION_TAB_TRACKER_H_
-#pragma once
 
 #include <map>
 
@@ -18,7 +17,7 @@ class NavigationController;
 class AutomationTabTracker
   : public AutomationResourceTracker<content::NavigationController*> {
  public:
-  explicit AutomationTabTracker(IPC::Message::Sender* automation);
+  explicit AutomationTabTracker(IPC::Sender* automation);
   virtual ~AutomationTabTracker();
 
   virtual void AddObserver(content::NavigationController* resource);
@@ -28,12 +27,7 @@ class AutomationTabTracker
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details);
 
-  base::Time GetLastNavigationTime(int handle);
-
  private:
-  // Last time a navigation occurred.
-  std::map<content::NavigationController*, base::Time> last_navigation_times_;
-
   DISALLOW_COPY_AND_ASSIGN(AutomationTabTracker);
 };
 

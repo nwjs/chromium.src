@@ -63,7 +63,7 @@ cr.define('ntp', function() {
           '<span class="title"></span>';
 
       this.querySelector('.close-button').title =
-          templateData.removethumbnailtooltip;
+          loadTimeData.getString('removethumbnailtooltip');
 
       this.tabIndex = -1;
       this.data_ = null;
@@ -141,6 +141,8 @@ cr.define('ntp', function() {
         // Records the index of this tile.
         chrome.send('metricsHandler:recordInHistogram',
                     ['NewTabPage.MostVisited', this.index, 8]);
+        chrome.send('mostVisitedAction',
+                    [ntp.NtpFollowAction.CLICKED_TILE]);
       }
     },
 
@@ -175,18 +177,19 @@ cr.define('ntp', function() {
 
       var undo = {
         action: doUndo,
-        text: templateData.undothumbnailremove,
+        text: loadTimeData.getString('undothumbnailremove'),
       };
 
       var undoAll = {
         action: function() {
           chrome.send('clearMostVisitedURLsBlacklist');
         },
-        text: templateData.restoreThumbnailsShort,
+        text: loadTimeData.getString('restoreThumbnailsShort'),
       };
 
-      ntp.showNotification(templateData.thumbnailremovednotification,
-                            [undo, undoAll]);
+      ntp.showNotification(
+          loadTimeData.getString('thumbnailremovednotification'),
+          [undo, undoAll]);
     },
 
     /**
@@ -197,12 +200,12 @@ cr.define('ntp', function() {
      *     animate.
      */
     setBounds: function(size, x, y) {
-      this.style.width = size + 'px';
-      this.style.height = heightForWidth(size) + 'px';
+      this.style.width = toCssPx(size);
+      this.style.height = toCssPx(heightForWidth(size));
 
-      this.style.left = x + 'px';
-      this.style.right = x + 'px';
-      this.style.top = y + 'px';
+      this.style.left = toCssPx(x);
+      this.style.right = toCssPx(x);
+      this.style.top = toCssPx(y);
     },
 
     /**
@@ -289,6 +292,9 @@ cr.define('ntp', function() {
       this.classList.add('most-visited-page');
       this.data_ = null;
       this.mostVisitedTiles_ = this.getElementsByClassName('most-visited real');
+
+      this.addEventListener('carddeselected', this.handleCardDeselected_);
+      this.addEventListener('cardselected', this.handleCardSelected_);
     },
 
     /**
@@ -314,6 +320,28 @@ cr.define('ntp', function() {
         else
           tile.updateForData(page);
       }
+    },
+
+    /**
+     * Handles the 'card deselected' event (i.e. the user clicked to another
+     * pane).
+     * @param {Event} e The CardChanged event.
+     */
+    handleCardDeselected_: function(e) {
+      if (!document.documentElement.classList.contains('starting-up')) {
+        chrome.send('mostVisitedAction',
+                    [ntp.NtpFollowAction.CLICKED_OTHER_NTP_PANE]);
+      }
+    },
+
+    /**
+     * Handles the 'card selected' event (i.e. the user clicked to select the
+     * Most Visited pane).
+     * @param {Event} e The CardChanged event.
+     */
+    handleCardSelected_: function(e) {
+      if (!document.documentElement.classList.contains('starting-up'))
+        chrome.send('mostVisitedSelected');
     },
 
     /**
@@ -346,6 +374,20 @@ cr.define('ntp', function() {
     /** @inheritDoc */
     heightForWidth: heightForWidth,
   };
+
+  /**
+   * Executed once the NTP has loaded. Checks if the Most Visited pane is
+   * shown or not. If it is shown, the 'mostVisitedSelected' message is sent
+   * to the C++ code, to record the fact that the user has seen this pane.
+   */
+  MostVisitedPage.onLoaded = function() {
+    if (ntp.getCardSlider() &&
+        ntp.getCardSlider().currentCardValue &&
+        ntp.getCardSlider().currentCardValue.classList
+        .contains('most-visited-page')) {
+      chrome.send('mostVisitedSelected');
+    }
+  }
 
   /**
    * We've gotten additional Most Visited data. Update our old data with the
@@ -424,3 +466,5 @@ cr.define('ntp', function() {
     refreshData: refreshData,
   };
 });
+
+document.addEventListener('ntpLoaded', ntp.MostVisitedPage.onLoaded);

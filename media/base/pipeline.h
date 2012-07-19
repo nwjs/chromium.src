@@ -11,15 +11,16 @@
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "media/base/demuxer.h"
-#include "media/base/download_rate_monitor.h"
 #include "media/base/filter_host.h"
 #include "media/base/media_export.h"
 #include "media/base/pipeline_status.h"
+#include "media/base/ranges.h"
 #include "ui/gfx/size.h"
 
 class MessageLoop;
 
 namespace base {
+class MessageLoopProxy;
 class TimeDelta;
 }
 
@@ -33,16 +34,6 @@ class FilterCollection;
 class MediaLog;
 class VideoDecoder;
 class VideoRenderer;
-
-enum NetworkEvent {
-  DOWNLOAD_CONTINUED,
-  DOWNLOAD_PAUSED,
-  CAN_PLAY_THROUGH
-};
-
-// Callback that executes when a network event occurs.
-// The parameter specifies the type of event that is being signalled.
-typedef base::Callback<void(NetworkEvent)> NetworkEventCB;
 
 // Adapter for using asynchronous Pipeline methods in code that wants to run
 // synchronously.  To use, construct an instance of this class and pass the
@@ -125,7 +116,6 @@ class MEDIA_EXPORT Pipeline
   //
   // The following permanent callbacks will be executed as follows:
   //   |start_cb_| will be executed when Start is done (successfully or not).
-  //   |network_cb_| will be executed whenever there's a network activity.
   //   |ended_cb| will be executed whenever the media reaches the end.
   //   |error_cb_| will be executed whenever an error occurs but hasn't
   //               been reported already through another callback.
@@ -139,7 +129,6 @@ class MEDIA_EXPORT Pipeline
   void Start(scoped_ptr<FilterCollection> filter_collection,
              const PipelineStatusCB& ended_cb,
              const PipelineStatusCB& error_cb,
-             const NetworkEventCB& network_cb,
              const PipelineStatusCB& start_cb);
 
   // Asynchronously stops the pipeline and resets it to an uninitialized state.
@@ -209,17 +198,12 @@ class MEDIA_EXPORT Pipeline
   // the end of the media.
   base::TimeDelta GetCurrentTime() const;
 
-  // Get the approximate amount of playable data buffered so far in micro-
-  // seconds.
-  base::TimeDelta GetBufferedTime();
+  // Get approximate time ranges of buffered media.
+  Ranges<base::TimeDelta> GetBufferedTimeRanges();
 
   // Get the duration of the media in microseconds.  If the duration has not
   // been determined yet, then returns 0.
   base::TimeDelta GetMediaDuration() const;
-
-  // Get the total number of bytes that are buffered on the client and ready to
-  // be played.
-  int64 GetBufferedBytes() const;
 
   // Get the total size of the media file.  If the size has not yet been
   // determined or can not be determined, this value is 0.
@@ -230,13 +214,9 @@ class MEDIA_EXPORT Pipeline
   // be 0.
   void GetNaturalVideoSize(gfx::Size* out_size) const;
 
-  // If this method returns true, that means the data source is a streaming
-  // data source. Seeking may not be possible.
-  bool IsStreaming() const;
-
-  // If this method returns true, that means the data source is local and
-  // the network is not needed.
-  bool IsLocalSource() const;
+  // Return true if loading progress has been made since the last time this
+  // method was called.
+  bool DidLoadingProgress() const;
 
   // Gets the current pipeline statistics.
   PipelineStatistics GetStatistics() const;
@@ -244,7 +224,7 @@ class MEDIA_EXPORT Pipeline
   void SetClockForTesting(Clock* clock);
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(PipelineTest, GetBufferedTime);
+  FRIEND_TEST_ALL_PREFIXES(PipelineTest, GetBufferedTimeRanges);
   friend class MediaLog;
 
   // Only allow ourselves to be deleted by reference counting.
@@ -307,13 +287,12 @@ class MEDIA_EXPORT Pipeline
 
   // DataSourceHost (by way of DemuxerHost) implementation.
   virtual void SetTotalBytes(int64 total_bytes) OVERRIDE;
-  virtual void SetBufferedBytes(int64 buffered_bytes) OVERRIDE;
-  virtual void SetNetworkActivity(bool is_downloading_data) OVERRIDE;
+  virtual void AddBufferedByteRange(int64 start, int64 end) OVERRIDE;
+  virtual void AddBufferedTimeRange(base::TimeDelta start,
+                                    base::TimeDelta end) OVERRIDE;
 
   // DemuxerHost implementaion.
   virtual void SetDuration(base::TimeDelta duration) OVERRIDE;
-  virtual void SetBufferedTime(base::TimeDelta buffered_time) OVERRIDE;
-  virtual void SetCurrentReadPosition(int64 offset) OVERRIDE;
   virtual void OnDemuxerError(PipelineStatus error) OVERRIDE;
 
   // FilterHost implementation.
@@ -351,7 +330,6 @@ class MEDIA_EXPORT Pipeline
   void StartTask(scoped_ptr<FilterCollection> filter_collection,
                  const PipelineStatusCB& ended_cb,
                  const PipelineStatusCB& error_cb,
-                 const NetworkEventCB& network_cb,
                  const PipelineStatusCB& start_cb);
 
   // InitializeTask() performs initialization in multiple passes. It is executed
@@ -379,9 +357,6 @@ class MEDIA_EXPORT Pipeline
 
   // Carries out handling a notification from a filter that it has ended.
   void NotifyEndedTask();
-
-  // Carries out handling a notification of network event.
-  void NotifyNetworkEventTask(NetworkEvent type);
 
   // Carries out disabling the audio renderer.
   void DisableAudioRendererTask();
@@ -432,6 +407,9 @@ class MEDIA_EXPORT Pipeline
   // caller.
   base::TimeDelta GetCurrentTime_Locked() const;
 
+  // Compute the time corresponding to a byte offset.
+  base::TimeDelta TimeForByteOffset_Locked(int64 byte_offset) const;
+
   // Initiates a Stop() on |demuxer_| & |pipeline_filter_|. |callback|
   // is called once both objects have been stopped.
   void DoStop(const base::Closure& callback);
@@ -450,21 +428,13 @@ class MEDIA_EXPORT Pipeline
 
   void OnAudioUnderflow();
 
-  // Called when |download_rate_monitor_| believes that the media can
-  // be played through without needing to pause to buffer.
-  void OnCanPlayThrough();
-
-  // Carries out the notification that the media can be played through without
-  // needing to pause to buffer.
-  void NotifyCanPlayThrough();
-
   void StartClockIfWaitingForTimeUpdate_Locked();
 
   // Report pipeline |status| through |cb| avoiding duplicate error reporting.
   void ReportStatus(const PipelineStatusCB& cb, PipelineStatus status);
 
   // Message loop used to execute pipeline tasks.
-  MessageLoop* message_loop_;
+  scoped_refptr<base::MessageLoopProxy> message_loop_;
 
   // MediaLog to which to log events.
   scoped_refptr<MediaLog> media_log_;
@@ -490,25 +460,19 @@ class MEDIA_EXPORT Pipeline
   // Whether or not a playback rate change should be done once seeking is done.
   bool playback_rate_change_pending_;
 
-  // Amount of available buffered data in microseconds.  Set by filters.
-  base::TimeDelta buffered_time_;
-
   // Amount of available buffered data.  Set by filters.
-  int64 buffered_bytes_;
+  Ranges<int64> buffered_byte_ranges_;
+  Ranges<base::TimeDelta> buffered_time_ranges_;
+
+  // True when AddBufferedByteRange() has been called more recently than
+  // DidLoadingProgress().
+  mutable bool did_loading_progress_;
 
   // Total size of the media.  Set by filters.
   int64 total_bytes_;
 
   // Video's natural width and height.  Set by filters.
   gfx::Size natural_size_;
-
-  // Set by the demuxer to indicate whether the data source is a streaming
-  // source.
-  bool streaming_;
-
-  // Indicates whether the data source is local, such as a local media file
-  // from disk or a local webcam stream.
-  bool local_source_;
 
   // Current volume level (from 0.0f to 1.0f).  This value is set immediately
   // via SetVolume() and a task is dispatched on the message loop to notify the
@@ -556,17 +520,8 @@ class MEDIA_EXPORT Pipeline
   // replies.
   base::TimeDelta seek_timestamp_;
 
-  // For GetCurrentBytes()/SetCurrentBytes() we need to know what byte we are
-  // currently reading.
-  int64 current_bytes_;
-
   // Set to true in DisableAudioRendererTask().
   bool audio_disabled_;
-
-  // Keep track of the maximum buffered position so the buffering appears
-  // smooth.
-  // TODO(vrk): This is a hack.
-  base::TimeDelta max_buffered_time_;
 
   // Filter collection as passed in by Start().
   scoped_ptr<FilterCollection> filter_collection_;
@@ -576,7 +531,6 @@ class MEDIA_EXPORT Pipeline
   base::Closure stop_cb_;
   PipelineStatusCB ended_cb_;
   PipelineStatusCB error_cb_;
-  NetworkEventCB network_cb_;
 
   // Reference to the filter(s) that constitute the pipeline.
   scoped_refptr<Filter> pipeline_filter_;
@@ -607,12 +561,6 @@ class MEDIA_EXPORT Pipeline
   // Time of pipeline creation; is non-zero only until the pipeline first
   // reaches "kStarted", at which point it is used & zeroed out.
   base::Time creation_time_;
-
-  // Approximates the rate at which the media is being downloaded.
-  DownloadRateMonitor download_rate_monitor_;
-
-  // True if the pipeline is actively downloading bytes, false otherwise.
-  bool is_downloading_data_;
 
   DISALLOW_COPY_AND_ASSIGN(Pipeline);
 };

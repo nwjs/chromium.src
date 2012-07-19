@@ -4,10 +4,12 @@
 
 #include "chrome/utility/chrome_content_utility_client.h"
 
-#include "base/bind.h"
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
+#include "base/memory/ref_counted.h"
+#include "base/message_loop_proxy.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/importer/external_process_importer_bridge.h"
 #include "chrome/browser/importer/importer.h"
@@ -17,9 +19,10 @@
 #include "chrome/common/chrome_utility_messages.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_l10n_util.h"
-#include "chrome/common/extensions/extension_unpacker.h"
+#include "chrome/common/extensions/unpacker.h"
 #include "chrome/common/extensions/update_manifest.h"
 #include "chrome/common/web_resource/web_resource_unpacker.h"
+#include "chrome/utility/profile_import_handler.h"
 #include "content/public/utility/utility_thread.h"
 #include "printing/backend/print_backend.h"
 #include "printing/page_range.h"
@@ -30,7 +33,6 @@
 
 #if defined(OS_WIN)
 #include "base/file_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/win/iat_patch_function.h"
 #include "base/win/scoped_handle.h"
@@ -41,7 +43,10 @@
 
 namespace chrome {
 
-ChromeContentUtilityClient::ChromeContentUtilityClient() : items_to_import_(0) {
+ChromeContentUtilityClient::ChromeContentUtilityClient() {
+#if !defined(OS_ANDROID)
+  import_handler_.reset(new ProfileImportHandler());
+#endif
 }
 
 ChromeContentUtilityClient::~ChromeContentUtilityClient() {
@@ -81,14 +86,14 @@ bool ChromeContentUtilityClient::OnMessageReceived(
     IPC_MESSAGE_HANDLER(ChromeUtilityMsg_ParseJSON, OnParseJSON)
     IPC_MESSAGE_HANDLER(ChromeUtilityMsg_GetPrinterCapsAndDefaults,
                         OnGetPrinterCapsAndDefaults)
-    IPC_MESSAGE_HANDLER(ProfileImportProcessMsg_StartImport,
-                        OnImportStart)
-    IPC_MESSAGE_HANDLER(ProfileImportProcessMsg_CancelImport,
-                        OnImportCancel)
-    IPC_MESSAGE_HANDLER(ProfileImportProcessMsg_ReportImportItemFinished,
-                        OnImportItemFinished)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
+
+#if !defined(OS_ANDROID)
+  if (!handled)
+    handled = import_handler_->OnMessageReceived(message);
+#endif
+
   return handled;
 }
 
@@ -101,12 +106,12 @@ void ChromeContentUtilityClient::OnUnpackExtension(
     const std::string& extension_id,
     int location,
     int creation_flags) {
-  CHECK(location > Extension::INVALID);
-  CHECK(location < Extension::NUM_LOCATIONS);
-  ExtensionUnpacker unpacker(
+  CHECK(location > extensions::Extension::INVALID);
+  CHECK(location < extensions::Extension::NUM_LOCATIONS);
+  extensions::Unpacker unpacker(
       extension_path,
       extension_id,
-      static_cast<Extension::Location>(location),
+      static_cast<extensions::Extension::Location>(location),
       creation_flags);
   if (unpacker.Run() && unpacker.DumpImagesToFile() &&
       unpacker.DumpMessageCatalogsToFile()) {
@@ -356,8 +361,8 @@ bool ChromeContentUtilityClient::RenderPDFToWinMetafile(
 void ChromeContentUtilityClient::OnParseJSON(const std::string& json) {
   int error_code;
   std::string error;
-  Value* value =
-      base::JSONReader::ReadAndReturnError(json, false, &error_code, &error);
+  Value* value = base::JSONReader::ReadAndReturnError(
+      json, base::JSON_PARSE_RFC, &error_code, &error);
   if (value) {
     ListValue wrapper;
     wrapper.Append(value);
@@ -370,6 +375,7 @@ void ChromeContentUtilityClient::OnParseJSON(const std::string& json) {
 
 void ChromeContentUtilityClient::OnGetPrinterCapsAndDefaults(
     const std::string& printer_name) {
+#if defined(ENABLE_PRINTING)
   scoped_refptr<printing::PrintBackend> print_backend =
       printing::PrintBackend::CreateInstance(NULL);
   printing::PrinterCapsAndDefaults printer_info;
@@ -380,59 +386,12 @@ void ChromeContentUtilityClient::OnGetPrinterCapsAndDefaults(
   if (print_backend->GetPrinterCapsAndDefaults(printer_name, &printer_info)) {
     Send(new ChromeUtilityHostMsg_GetPrinterCapsAndDefaults_Succeeded(
         printer_name, printer_info));
-  } else {
+  } else
+#endif
+  {
     Send(new ChromeUtilityHostMsg_GetPrinterCapsAndDefaults_Failed(
         printer_name));
   }
-  content::UtilityThread::Get()->ReleaseProcessIfNeeded();
-}
-
-void ChromeContentUtilityClient::OnImportStart(
-    const importer::SourceProfile& source_profile,
-    uint16 items,
-    const DictionaryValue& localized_strings) {
-  bridge_ = new ExternalProcessImporterBridge(
-      localized_strings, content::UtilityThread::Get());
-  importer_ = importer::CreateImporterByType(source_profile.importer_type);
-  if (!importer_) {
-    Send(new ProfileImportProcessHostMsg_Import_Finished(false,
-        "Importer could not be created."));
-    return;
-  }
-
-  items_to_import_ = items;
-
-  // Create worker thread in which importer runs.
-  import_thread_.reset(new base::Thread("import_thread"));
-  base::Thread::Options options;
-  options.message_loop_type = MessageLoop::TYPE_IO;
-  if (!import_thread_->StartWithOptions(options)) {
-    NOTREACHED();
-    ImporterCleanup();
-  }
-  import_thread_->message_loop()->PostTask(
-      FROM_HERE, base::Bind(&Importer::StartImport, importer_.get(),
-                            source_profile, items, bridge_));
-}
-
-void ChromeContentUtilityClient::OnImportCancel() {
-  ImporterCleanup();
-}
-
-void ChromeContentUtilityClient::OnImportItemFinished(uint16 item) {
-  items_to_import_ ^= item;  // Remove finished item from mask.
-  // If we've finished with all items, notify the browser process.
-  if (items_to_import_ == 0) {
-    Send(new ProfileImportProcessHostMsg_Import_Finished(true, ""));
-    ImporterCleanup();
-  }
-}
-
-void ChromeContentUtilityClient::ImporterCleanup() {
-  importer_->Cancel();
-  importer_ = NULL;
-  bridge_ = NULL;
-  import_thread_.reset();
   content::UtilityThread::Get()->ReleaseProcessIfNeeded();
 }
 

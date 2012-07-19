@@ -20,6 +20,12 @@
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
 
+#if defined(USE_ASH)
+#include "ash/wm/property_util.h"
+#endif
+
+using aura::Window;
+
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserFrameAura::WindowPropertyWatcher
 
@@ -42,6 +48,20 @@ class BrowserFrameAura::WindowPropertyWatcher : public aura::WindowObserver {
       browser_frame_->non_client_view()->UpdateFrame();
   }
 
+  virtual void OnWindowBoundsChanged(aura::Window* window,
+                                     const gfx::Rect& old_bounds,
+                                     const gfx::Rect& new_bounds) OVERRIDE {
+    // Don't do anything if we don't have our non-client view yet.
+    if (!browser_frame_->non_client_view())
+      return;
+
+    // If the window just moved to the top of the screen, or just moved away
+    // from it, invoke Layout() so the header size can change.
+    if ((old_bounds.y() == 0 && new_bounds.y() != 0) ||
+        (old_bounds.y() != 0 && new_bounds.y() == 0))
+      browser_frame_->non_client_view()->Layout();
+  }
+
  private:
   BrowserFrameAura* browser_frame_aura_;
   BrowserFrame* browser_frame_;
@@ -59,9 +79,21 @@ BrowserFrameAura::BrowserFrameAura(BrowserFrame* browser_frame,
       window_property_watcher_(new WindowPropertyWatcher(this, browser_frame)) {
   GetNativeWindow()->SetName("BrowserFrameAura");
   GetNativeWindow()->AddObserver(window_property_watcher_.get());
-}
-
-BrowserFrameAura::~BrowserFrameAura() {
+#if defined(USE_ASH)
+  if (browser_view->browser()->type() != Browser::TYPE_POPUP) {
+    ash::SetPersistsAcrossAllWorkspaces(
+        GetNativeWindow(),
+        ash::WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_NO);
+  }
+  // HACK: Don't animate app windows. They delete and rebuild their frame on
+  // maximize, which breaks the layer animations. We probably shouldn't rebuild
+  // the frame view on this transition.
+  // TODO(jamescook): Fix app window animation.  http://crbug.com/131293
+  if (browser_view->browser()->is_app()) {
+    Window* window = GetNativeWindow();
+    window->SetProperty(aura::client::kAnimationsDisabledKey, true);
+  }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -148,4 +180,10 @@ NativeBrowserFrame* NativeBrowserFrame::CreateNativeBrowserFrame(
     BrowserFrame* browser_frame,
     BrowserView* browser_view) {
   return new BrowserFrameAura(browser_frame, browser_view);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// BrowserFrameAura, private:
+
+BrowserFrameAura::~BrowserFrameAura() {
 }

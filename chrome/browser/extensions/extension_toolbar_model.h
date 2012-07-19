@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_TOOLBAR_MODEL_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_TOOLBAR_MODEL_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/observer_list.h"
@@ -12,6 +11,7 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 
+class Browser;
 class ExtensionService;
 class PrefService;
 
@@ -21,19 +21,30 @@ class ExtensionToolbarModel : public content::NotificationObserver {
   explicit ExtensionToolbarModel(ExtensionService* service);
   virtual ~ExtensionToolbarModel();
 
+  // The action that should be taken as a result of clicking a browser action.
+  enum Action {
+    ACTION_NONE,
+    ACTION_SHOW_POPUP,
+    // Unlike LocationBarController there is no ACTION_SHOW_CONTEXT_MENU,
+    // because UI implementations tend to handle this themselves at a higher
+    // level.
+  };
+
   // A class which is informed of changes to the model; represents the view of
   // MVC.
   class Observer {
    public:
     // An extension with a browser action button has been added, and should go
     // in the toolbar at |index|.
-    virtual void BrowserActionAdded(const Extension* extension, int index) {}
+    virtual void BrowserActionAdded(const extensions::Extension* extension,
+                                    int index) {}
 
     // The browser action button for |extension| should no longer show.
-    virtual void BrowserActionRemoved(const Extension* extension) {}
+    virtual void BrowserActionRemoved(const extensions::Extension* extension) {}
 
     // The browser action button for |extension| has been moved to |index|.
-    virtual void BrowserActionMoved(const Extension* extension, int index) {}
+    virtual void BrowserActionMoved(const extensions::Extension* extension,
+                                    int index) {}
 
     // Called when the model has finished loading.
     virtual void ModelLoaded() {}
@@ -45,12 +56,19 @@ class ExtensionToolbarModel : public content::NotificationObserver {
   // Functions called by the view.
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
-  void MoveBrowserAction(const Extension* extension, int index);
+  void MoveBrowserAction(const extensions::Extension* extension, int index);
+  // Executes the browser action for an extension and returns the action that
+  // the UI should perform in response.
+  // |popup_url_out| will be set if the extension should show a popup, with
+  // the URL that should be shown, if non-NULL.
+  Action ExecuteBrowserAction(const extensions::Extension* extension,
+                              Browser* browser,
+                              GURL* popup_url_out);
   // If count == size(), this will set the visible icon count to -1, meaning
   // "show all actions".
   void SetVisibleIconCount(int count);
   // As above, a return value of -1 represents "show all actions".
-  int GetVisibleIconCount() { return visible_icon_count_; }
+  int GetVisibleIconCount() const { return visible_icon_count_; }
 
   bool extensions_initialized() const { return extensions_initialized_; }
 
@@ -58,15 +76,15 @@ class ExtensionToolbarModel : public content::NotificationObserver {
     return toolitems_.size();
   }
 
-  ExtensionList::iterator begin() {
+  extensions::ExtensionList::iterator begin() {
     return toolitems_.begin();
   }
 
-  ExtensionList::iterator end() {
+  extensions::ExtensionList::iterator end() {
     return toolitems_.end();
   }
 
-  const Extension* GetExtensionByIndex(int index) const;
+  const extensions::Extension* GetExtensionByIndex(int index) const;
 
   // Utility functions for converting between an index into the list of
   // incognito-enabled browser actions, and the list of all browser actions.
@@ -90,8 +108,8 @@ class ExtensionToolbarModel : public content::NotificationObserver {
   // Our observers.
   ObserverList<Observer> observers_;
 
-  void AddExtension(const Extension* extension);
-  void RemoveExtension(const Extension* extension);
+  void AddExtension(const extensions::Extension* extension);
+  void RemoveExtension(const extensions::Extension* extension);
 
   // Our ExtensionService, guaranteed to outlive us.
   ExtensionService* service_;
@@ -102,7 +120,7 @@ class ExtensionToolbarModel : public content::NotificationObserver {
   bool extensions_initialized_;
 
   // Ordered list of browser action buttons.
-  ExtensionList toolitems_;
+  extensions::ExtensionList toolitems_;
 
   // Keeps track of what the last extension to get disabled was.
   std::string last_extension_removed_;
@@ -115,6 +133,8 @@ class ExtensionToolbarModel : public content::NotificationObserver {
   int visible_icon_count_;
 
   content::NotificationRegistrar registrar_;
+
+  DISALLOW_COPY_AND_ASSIGN(ExtensionToolbarModel);
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_EXTENSION_TOOLBAR_MODEL_H_

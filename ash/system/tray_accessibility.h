@@ -4,7 +4,6 @@
 
 #ifndef ASH_SYSTEM_TRAY_ACCESSIBILITY_H_
 #define ASH_SYSTEM_TRAY_ACCESSIBILITY_H_
-#pragma once
 
 #include "ash/system/tray/tray_image_item.h"
 
@@ -36,14 +35,17 @@ class TrayAccessibility : public TrayImageItem,
  private:
   // Overridden from TrayImageItem.
   virtual bool GetInitialVisibility() OVERRIDE;
+  virtual views::View* CreateDefaultView(user::LoginStatus status) OVERRIDE;
   virtual views::View* CreateDetailedView(user::LoginStatus status) OVERRIDE;
+  virtual void DestroyDefaultView() OVERRIDE;
   virtual void DestroyDetailedView() OVERRIDE;
 
   // Overridden from AccessibilityObserver.
   virtual void OnAccessibilityModeChanged(bool enabled,
                                           int string_id) OVERRIDE;
 
-  scoped_ptr<views::View> detailed_;
+  views::View* default_;
+  views::View* detailed_;
   int string_id_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayAccessibility);
@@ -53,4 +55,3 @@ class TrayAccessibility : public TrayImageItem,
 }  // namespace ash
 
 #endif  // ASH_SYSTEM_TRAY_ACCESSIBILITY_H_
-

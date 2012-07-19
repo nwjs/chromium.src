@@ -17,12 +17,12 @@
           "left": {"type": "integer", "description": "The offset of the window from the left edge of the screen in pixels."},
           "width": {"type": "integer", "description": "The width of the window in pixels."},
           "height": {"type": "integer", "description": "The height of the window in pixels."},
-          "tabs": {"type": "array", "items": { "$ref": "Tab" }, "optional": true, "description": "Array of $ref:Tab objects representing the current tabs in the window."},
+          "tabs": {"type": "array", "items": { "$ref": "tabs.Tab" }, "optional": true, "description": "Array of $ref:tabs.Tab objects representing the current tabs in the window."},
           "incognito": {"type": "boolean", "description": "Whether the window is incognito."},
           "type": {
             "type": "string",
             "description": "The type of browser window this is.",
-            "enum": ["normal", "popup", "panel", "app", "shell"]
+            "enum": ["normal", "popup", "panel", "app"]
           },
           "state": {
             "type": "string",
@@ -35,13 +35,11 @@
     ],
     "properties": {
       "WINDOW_ID_NONE": {
-        "type": "integer",
-        "value": "-1",
+        "value": -1,
         "description": "The windowId value that represents the absence of a chrome browser window."
       },
       "WINDOW_ID_CURRENT": {
-        "type": "integer",
-        "value": "-2",
+        "value": -2,
         "description": "The windowId value that represents the <a href='windows.html#current-window'>current window</a>."
       }
     },
@@ -58,7 +56,7 @@
             "optional": true,
             "description": "",
             "properties": {
-              "populate": {"type": "boolean", "optional": true, "description": "If true, the window object will have a <var>tabs</var> property that contains a list of the $ref:Tab objects" }
+              "populate": {"type": "boolean", "optional": true, "description": "If true, the window object will have a <var>tabs</var> property that contains a list of the $ref:tabs.Tab objects" }
             }
           },
           {
@@ -83,7 +81,7 @@
             "optional": true,
             "description": "",
             "properties": {
-              "populate": {"type": "boolean", "optional": true, "description": "If true, the window object will have a <var>tabs</var> property that contains a list of the $ref:Tab objects" }
+              "populate": {"type": "boolean", "optional": true, "description": "If true, the window object will have a <var>tabs</var> property that contains a list of the $ref:tabs.Tab objects" }
             }
           },
           {
@@ -108,7 +106,7 @@
             "optional": true,
             "description": "",
             "properties": {
-              "populate": {"type": "boolean", "optional": true, "description": "If true, the window object will have a <var>tabs</var> property that contains a list of the $ref:Tab objects" }
+              "populate": {"type": "boolean", "optional": true, "description": "If true, the window object will have a <var>tabs</var> property that contains a list of the $ref:tabs.Tab objects" }
             }
           },
           {
@@ -133,7 +131,7 @@
             "optional": true,
             "description": "",
             "properties": {
-              "populate": {"type": "boolean", "optional": true, "description": "If true, each window object will have a <var>tabs</var> property that contains a list of the $ref:Tab objects for that window." }
+              "populate": {"type": "boolean", "optional": true, "description": "If true, each window object will have a <var>tabs</var> property that contains a list of the $ref:tabs.Tab objects for that window." }
             }
           },
           {
@@ -176,7 +174,7 @@
                 "type": "string",
                 "optional": true,
                 "description": "Specifies what type of browser window to create. The 'panel' type creates a popup unless the '--enable-panels' flag is set.",
-                "enum": ["normal", "popup", "panel", "shell"]
+                "enum": ["normal", "popup", "panel"]
               }
             },
             "optional": true

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_CHROMEOS_LOGIN_SCREEN_OBSERVER_H_
 #define CHROME_BROWSER_CHROMEOS_LOGIN_SCREEN_OBSERVER_H_
-#pragma once
 
 #include <string>
 
@@ -20,15 +19,15 @@ class ScreenObserver {
   // login wizard decides what is the next view to show. There must be an
   // exit code for each way to exit the screen for each screen.
   enum ExitCodes {
+    // "Continue" was pressed on network screen and network is online.
     NETWORK_CONNECTED,
-    NETWORK_OFFLINE,
+    // Connection failed while trying to load a WebPageScreen.
     CONNECTION_FAILED,
     UPDATE_INSTALLED,
     UPDATE_NOUPDATE,
     UPDATE_ERROR_CHECKING_FOR_UPDATE,
     UPDATE_ERROR_UPDATING,
     USER_IMAGE_SELECTED,
-    USER_IMAGE_SKIPPED,
     EULA_ACCEPTED,
     EULA_BACK,
     REGISTRATION_SUCCESS,
@@ -50,8 +49,8 @@ class ScreenObserver {
                                      const std::string& password) = 0;
 
   // Set/get usage statistics reporting checkbox status on EULA screen.
-  virtual void set_usage_statistics_reporting(bool val) = 0;
-  virtual bool usage_statistics_reporting() const = 0;
+  virtual void SetUsageStatisticsReporting(bool val) = 0;
+  virtual bool GetUsageStatisticsReporting() const = 0;
 
  protected:
   virtual ~ScreenObserver() {}

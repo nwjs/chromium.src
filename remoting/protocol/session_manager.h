@@ -70,44 +70,14 @@ namespace protocol {
 class Authenticator;
 class AuthenticatorFactory;
 
-// TODO(sergeyu): Remove this struct and use TransportConfig instead.
-struct NetworkSettings {
-  NetworkSettings()
-      : nat_traversal_mode(TransportConfig::NAT_TRAVERSAL_DISABLED),
-        min_port(0),
-        max_port(0) {
-  }
-
-  explicit NetworkSettings(bool allow_nat_traversal)
-      : nat_traversal_mode(allow_nat_traversal ?
-                           TransportConfig::NAT_TRAVERSAL_ENABLED :
-                           TransportConfig::NAT_TRAVERSAL_DISABLED),
-        min_port(0),
-        max_port(0) {
-  }
-
-  explicit NetworkSettings(TransportConfig::NatTraversalMode nat_traversal_mode)
-      : nat_traversal_mode(nat_traversal_mode),
-        min_port(0),
-        max_port(0) {
-  }
-
-  TransportConfig::NatTraversalMode nat_traversal_mode;
-
-  // |min_port| and |max_port| specify range (inclusive) of ports used by
-  // P2P sessions. Any port can be used when both values are set to 0.
-  int min_port;
-  int max_port;
-};
-
 // Generic interface for Chromoting session manager.
 //
 // TODO(sergeyu): Split this into two separate interfaces: one for the
 // client side and one for the host side.
 class SessionManager : public base::NonThreadSafe {
  public:
-  SessionManager() { }
-  virtual ~SessionManager() { }
+  SessionManager() {}
+  virtual ~SessionManager() {}
 
   enum IncomingSessionResponse {
     // Accept the session.
@@ -127,8 +97,7 @@ class SessionManager : public base::NonThreadSafe {
 
   class Listener {
    public:
-    Listener() { }
-    ~Listener() { }
+    Listener() {}
 
     // Called when the session manager is ready to create outgoing
     // sessions. May be called from Init() or after Init()
@@ -145,13 +114,15 @@ class SessionManager : public base::NonThreadSafe {
     // The callback must take ownership of the |session| if it ACCEPTs it.
     virtual void OnIncomingSession(Session* session,
                                    IncomingSessionResponse* response) = 0;
+
+   protected:
+    ~Listener() {}
   };
 
   // Initializes the session client. Caller retains ownership of the
   // |signal_strategy| and |listener|.
   virtual void Init(SignalStrategy* signal_strategy,
-                    Listener* listener,
-                    const NetworkSettings& network_settings) = 0;
+                    Listener* listener) = 0;
 
   // Tries to create a session to the host |jid|. Must be called only
   // after initialization has finished successfully, i.e. after
@@ -160,12 +131,10 @@ class SessionManager : public base::NonThreadSafe {
   // |host_jid| is the full jid of the host to connect to.
   // |authenticator| is a client authenticator for the session.
   // |config| contains the session configurations that the client supports.
-  // |state_change_callback| is called when the connection state changes.
   virtual scoped_ptr<Session> Connect(
       const std::string& host_jid,
       scoped_ptr<Authenticator> authenticator,
-      scoped_ptr<CandidateSessionConfig> config,
-      const Session::StateChangeCallback& state_change_callback) = 0;
+      scoped_ptr<CandidateSessionConfig> config) = 0;
 
   // Close session manager. Can be called only after all corresponding
   // sessions are destroyed. No callbacks are called after this method

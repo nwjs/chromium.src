@@ -10,9 +10,9 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/compositor/layer.h"
-#include "ui/gfx/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/painter.h"
 #include "ui/views/view.h"
@@ -86,13 +86,20 @@ void PhantomWindowController::Show(const gfx::Rect& bounds) {
   if (!phantom_widget_.get()) {
     // Show the phantom at the bounds of the window. We'll animate to the target
     // bounds.
-    start_bounds_ = window_->bounds();
+    start_bounds_ = window_->GetScreenBounds();
     CreatePhantomWidget(start_bounds_);
   } else {
     start_bounds_ = phantom_widget_->GetWindowScreenBounds();
   }
   animation_.reset(new ui::SlideAnimation(this));
   animation_->Show();
+}
+
+void PhantomWindowController::SetBounds(const gfx::Rect& bounds) {
+  DCHECK(IsShowing());
+  animation_.reset();
+  bounds_ = bounds;
+  phantom_widget_->SetBounds(bounds_);
 }
 
 void PhantomWindowController::Hide() {
@@ -118,8 +125,9 @@ void PhantomWindowController::CreatePhantomWidget(const gfx::Rect& bounds) {
   // PhantomWindowController is used by FrameMaximizeButton to highlight the
   // launcher button. Put the phantom in the same window as the launcher so that
   // the phantom is visible.
-  params.parent =
-      Shell::GetInstance()->GetContainer(kShellWindowId_LauncherContainer);
+  params.parent = Shell::GetContainer(
+      Shell::GetInstance()->GetRootWindowMatching(bounds),
+      kShellWindowId_LauncherContainer);
   params.can_activate = false;
   params.keep_on_top = true;
   phantom_widget_->set_focus_on_creation(false);

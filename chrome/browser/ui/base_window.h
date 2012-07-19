@@ -4,9 +4,9 @@
 
 #ifndef CHROME_BROWSER_UI_BASE_WINDOW_H_
 #define CHROME_BROWSER_UI_BASE_WINDOW_H_
-#pragma once
 
 #include "base/compiler_specific.h"
+#include "ui/gfx/native_widget_types.h"
 
 namespace gfx {
 class Rect;
@@ -27,6 +27,12 @@ class BaseWindow {
 
   // Returns true if the window is minimized.
   virtual bool IsMinimized() const = 0;
+
+  // Returns true if the window is full screen.
+  virtual bool IsFullscreen() const = 0;
+
+  // Return a platform dependent identifier for this window.
+  virtual gfx::NativeWindow GetNativeWindow() = 0;
 
   // Returns the nonmaximized bounds of the window (even if the window is
   // currently maximized or minimized) in terms of the screen coordinates.

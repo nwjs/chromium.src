@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_TAB_CONTENTS_RENDER_VIEW_CONTEXT_MENU_H_
 #define CHROME_BROWSER_TAB_CONTENTS_RENDER_VIEW_CONTEXT_MENU_H_
-#pragma once
 
 #include <map>
 #include <string>
@@ -15,14 +14,13 @@
 #include "base/observer_list.h"
 #include "base/string16.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
-#include "chrome/browser/extensions/extension_menu_manager.h"
+#include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/tab_contents/render_view_context_menu_observer.h"
 #include "content/public/common/context_menu_params.h"
 #include "content/public/common/page_transition_types.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "webkit/glue/window_open_disposition.h"
 
-class ExtensionMenuItem;
 class PrintPreviewContextMenuObserver;
 class Profile;
 class SpellingMenuObserver;
@@ -31,6 +29,11 @@ class SpellCheckerSubMenuObserver;
 namespace content {
 class RenderViewHost;
 class WebContents;
+}
+
+namespace extensions {
+class Extension;
+class MenuItem;
 }
 
 namespace gfx {
@@ -52,7 +55,7 @@ struct WebPluginAction;
 // The following snippet describes the simple usage that updates a context-menu
 // item with this interface.
 //
-//   class MyTask : public content::URLFetcherDelegate {
+//   class MyTask : public net::URLFetcherDelegate {
 //    public:
 //     MyTask(RenderViewContextMenuProxy* proxy, int id)
 //         : proxy_(proxy),
@@ -60,7 +63,7 @@ struct WebPluginAction;
 //     }
 //     virtual ~MyTask() {
 //     }
-//     virtual void OnURLFetchComplete(const content::URLFetcher* source,
+//     virtual void OnURLFetchComplete(const net::URLFetcher* source,
 //                                     const GURL& url,
 //                                     const net::URLRequestStatus& status,
 //                                     int response,
@@ -73,7 +76,8 @@ struct WebPluginAction;
 //     void Start(const GURL* url, net::URLRequestContextGetter* context) {
 //       fetcher_.reset(new URLFetcher(url, URLFetcher::GET, this));
 //       fetcher_->SetRequestContext(context);
-//       fetcher_->AssociateWithRenderView(
+//       content::AssociateURLFetcherWithRenderView(
+//           fetcher_.get(),
 //           proxy_->GetRenderViewHost()->GetSiteInstance()->GetSite(),
 //           proxy_->GetRenderViewHost()->GetProcess()->GetID(),
 //           proxy_->GetRenderViewHost()->GetRoutingID());
@@ -114,9 +118,9 @@ class RenderViewContextMenuProxy {
                               bool hidden,
                               const string16& title) = 0;
 
-  // Retrieve the RenderViewHost (or Profile) instance associated with a context
-  // menu, respectively.
+  // Retrieve the given associated objects with a context menu.
   virtual content::RenderViewHost* GetRenderViewHost() const = 0;
+  virtual content::WebContents* GetWebContents() const = 0;
   virtual Profile* GetProfile() const = 0;
 };
 
@@ -133,6 +137,9 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
 
   // Initializes the context menu.
   void Init();
+
+  // Programmatically closes the context menu.
+  void Cancel();
 
   // Provide access to the menu model for ExternalTabContainer.
   const ui::MenuModel& menu_model() const { return menu_model_; }
@@ -157,6 +164,7 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
                               bool hidden,
                               const string16& title) OVERRIDE;
   virtual content::RenderViewHost* GetRenderViewHost() const OVERRIDE;
+  virtual content::WebContents* GetWebContents() const OVERRIDE;
   virtual Profile* GetProfile() const OVERRIDE;
 
  protected:
@@ -164,12 +172,13 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
 
   // Platform specific functions.
   virtual void PlatformInit() = 0;
+  virtual void PlatformCancel() = 0;
   virtual bool GetAcceleratorForCommandId(
       int command_id,
       ui::Accelerator* accelerator) = 0;
 
-  // Attempts to get an ExtensionMenuItem given the id of a context menu item.
-  ExtensionMenuItem* GetExtensionMenuItem(int id) const;
+  // Attempts to get an MenuItem given the id of a context menu item.
+  extensions::MenuItem* GetExtensionMenuItem(int id) const;
 
   content::ContextMenuParams params_;
   content::WebContents* source_web_contents_;
@@ -180,9 +189,8 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
   // True if we are showing for an external tab contents. The default is false.
   bool external_;
 
-  // Maps the id from a context menu item to the ExtensionMenuItem's internal
-  // id.
-  std::map<int, ExtensionMenuItem::Id> extension_item_map_;
+  // Maps the id from a context menu item to the MenuItem's internal id.
+  std::map<int, extensions::MenuItem::Id> extension_item_map_;
 
  private:
   friend class RenderViewContextMenuTest;
@@ -191,17 +199,17 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
   static bool IsInternalResourcesURL(const GURL& url);
   static bool ExtensionContextAndPatternMatch(
       const content::ContextMenuParams& params,
-      ExtensionMenuItem::ContextList contexts,
+      extensions::MenuItem::ContextList contexts,
       const URLPatternSet& target_url_patterns);
-  static ExtensionMenuItem::List GetRelevantExtensionItems(
-      const ExtensionMenuItem::List& items,
+  static extensions::MenuItem::List GetRelevantExtensionItems(
+      const extensions::MenuItem::List& items,
       const content::ContextMenuParams& params,
       Profile* profile,
       bool can_cross_incognito);
 
-  // Gets the extension (if any) associated with the TabContents that we're in.
-  const Extension* GetExtension() const;
-  void AppendPlatformAppItems(const Extension* platform_app);
+  // Gets the extension (if any) associated with the WebContents that we're in.
+  const extensions::Extension* GetExtension() const;
+  void AppendPlatformAppItems();
   void AppendPopupExtensionItems();
   bool AppendCustomItems();
   void AppendDeveloperItems();
@@ -231,7 +239,7 @@ class RenderViewContextMenu : public ui::SimpleMenuModel::Delegate,
 
   // Used for recursively adding submenus of extension items.
   void RecursivelyAppendExtensionItems(
-      const std::vector<ExtensionMenuItem*>& items,
+      const std::vector<extensions::MenuItem*>& items,
       bool can_cross_incognito,
       ui::SimpleMenuModel* menu_model,
       int* index);

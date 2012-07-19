@@ -4,15 +4,11 @@
 
 #include "content/renderer/media/peer_connection_handler.h"
 
-#include <utility>
-#include <vector>
-
 #include "base/bind.h"
+#include "base/location.h"
 #include "base/logging.h"
-#include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "content/renderer/media/media_stream_dependency_factory.h"
-#include "content/renderer/media/media_stream_impl.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamDescriptor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebMediaStreamSource.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnectionHandlerClient.h"
@@ -20,32 +16,12 @@
 
 PeerConnectionHandler::PeerConnectionHandler(
     WebKit::WebPeerConnectionHandlerClient* client,
-    MediaStreamImpl* msi,
     MediaStreamDependencyFactory* dependency_factory)
-    : client_(client),
-      media_stream_impl_(msi),
-      dependency_factory_(dependency_factory),
-      message_loop_proxy_(base::MessageLoopProxy::current()) {
+    : PeerConnectionHandlerBase(dependency_factory),
+      client_(client) {
 }
 
 PeerConnectionHandler::~PeerConnectionHandler() {
-}
-
-void PeerConnectionHandler::SetVideoRenderer(
-    const std::string& stream_label,
-    webrtc::VideoRendererWrapperInterface* renderer) {
-  webrtc::MediaStreamInterface* stream =
-      native_peer_connection_->remote_streams()->find(stream_label);
-  webrtc::VideoTracks* video_tracks = stream->video_tracks();
-  // We assume there is only one enabled video track.
-  for(size_t i = 0; i < video_tracks->count(); ++i) {
-    webrtc::VideoTrackInterface* video_track = video_tracks->at(i);
-    if (video_track->enabled()) {
-      video_track->SetRenderer(renderer);
-      return;
-    }
-  }
-  DVLOG(1) << "No enabled video track.";
 }
 
 void PeerConnectionHandler::initialize(
@@ -60,7 +36,8 @@ void PeerConnectionHandler::initialize(
 void PeerConnectionHandler::produceInitialOffer(
     const WebKit::WebVector<WebKit::WebMediaStreamDescriptor>&
         pending_add_streams) {
-  AddStreams(pending_add_streams);
+  for (size_t i = 0; i < pending_add_streams.size(); ++i)
+    AddStream(pending_add_streams[i]);
   native_peer_connection_->CommitStreamChanges();
 }
 
@@ -77,8 +54,10 @@ void PeerConnectionHandler::processPendingStreams(
         pending_add_streams,
     const WebKit::WebVector<WebKit::WebMediaStreamDescriptor>&
         pending_remove_streams) {
-  AddStreams(pending_add_streams);
-  RemoveStreams(pending_remove_streams);
+  for (size_t i = 0; i < pending_add_streams.size(); ++i)
+    AddStream(pending_add_streams[i]);
+  for (size_t i = 0; i < pending_remove_streams.size(); ++i)
+    RemoveStream(pending_remove_streams[i]);
   native_peer_connection_->CommitStreamChanges();
 }
 
@@ -90,11 +69,11 @@ void PeerConnectionHandler::sendDataStreamMessage(
 }
 
 void PeerConnectionHandler::stop() {
+  DVLOG(1) << "PeerConnectionHandler::stop";
   // TODO(ronghuawu): There's an issue with signaling messages being sent during
   // close. We need to investigate further. Not calling Close() on native
   // PeerConnection is OK for now.
   native_peer_connection_ = NULL;
-  media_stream_impl_->ClosePeerConnection();
 }
 
 void PeerConnectionHandler::OnError() {
@@ -154,50 +133,13 @@ void PeerConnectionHandler::OnRemoveStream(
 
 void PeerConnectionHandler::OnIceCandidate(
     const webrtc::IceCandidateInterface* candidate) {
-  // TODO(grunell): Implement.
-  NOTIMPLEMENTED();
+  // Not used by ROAP PeerConnection.
+  NOTREACHED();
 }
 
 void PeerConnectionHandler::OnIceComplete() {
-  // TODO(grunell): Implement.
-  NOTIMPLEMENTED();
-}
-
-void PeerConnectionHandler::AddStreams(
-    const WebKit::WebVector<WebKit::WebMediaStreamDescriptor>& streams) {
-  for (size_t i = 0; i < streams.size(); ++i) {
-    talk_base::scoped_refptr<webrtc::LocalMediaStreamInterface> stream =
-        dependency_factory_->CreateLocalMediaStream(
-            UTF16ToUTF8(streams[i].label()));
-    WebKit::WebVector<WebKit::WebMediaStreamSource> source_vector;
-    streams[i].sources(source_vector);
-
-    // Get and add all tracks.
-    for (size_t j = 0; j < source_vector.size(); ++j) {
-      webrtc::MediaStreamTrackInterface* track =
-          media_stream_impl_->GetLocalMediaStreamTrack(
-              UTF16ToUTF8(source_vector[j].id()));
-      DCHECK(track);
-      if (source_vector[j].type() == WebKit::WebMediaStreamSource::TypeVideo) {
-        stream->AddTrack(static_cast<webrtc::VideoTrackInterface*>(track));
-      } else {
-        stream->AddTrack(static_cast<webrtc::AudioTrackInterface*>(track));
-      }
-    }
-
-    native_peer_connection_->AddStream(stream);
-  }
-}
-
-void PeerConnectionHandler::RemoveStreams(
-    const WebKit::WebVector<WebKit::WebMediaStreamDescriptor>& streams) {
-  for (size_t i = 0; i < streams.size(); ++i) {
-    webrtc::MediaStreamInterface* stream =
-        native_peer_connection_->remote_streams()->find(
-            UTF16ToUTF8(streams[i].label()));
-    native_peer_connection_->RemoveStream(
-        static_cast<webrtc::LocalMediaStreamInterface*>(stream));
-  }
+  // Not used by ROAP PeerConnection.
+  NOTREACHED();
 }
 
 void PeerConnectionHandler::OnAddStreamCallback(
@@ -222,41 +164,4 @@ void PeerConnectionHandler::OnRemoveStreamCallback(
   DCHECK(!descriptor.isNull());
   remote_streams_.erase(it);
   client_->didRemoveRemoteStream(descriptor);
-}
-
-WebKit::WebMediaStreamDescriptor
-PeerConnectionHandler::CreateWebKitStreamDescriptor(
-    webrtc::MediaStreamInterface* stream) {
-  webrtc::AudioTracks* audio_tracks = stream->audio_tracks();
-  webrtc::VideoTracks* video_tracks = stream->video_tracks();
-  WebKit::WebVector<WebKit::WebMediaStreamSource> source_vector(
-      audio_tracks->count() + video_tracks->count());
-
-  // Add audio tracks.
-  size_t i = 0;
-  for (; i < audio_tracks->count(); ++i) {
-    webrtc::AudioTrackInterface* audio_track = audio_tracks->at(i);
-    DCHECK(audio_track);
-    source_vector[i].initialize(
-          // TODO(grunell): Set id to something unique.
-          UTF8ToUTF16(audio_track->label()),
-          WebKit::WebMediaStreamSource::TypeAudio,
-          UTF8ToUTF16(audio_track->label()));
-  }
-
-  // Add video tracks.
-  for (i = 0; i < video_tracks->count(); ++i) {
-    webrtc::VideoTrackInterface* video_track = video_tracks->at(i);
-    DCHECK(video_track);
-    source_vector[audio_tracks->count() + i].initialize(
-        // TODO(grunell): Set id to something unique.
-          UTF8ToUTF16(video_track->label()),
-          WebKit::WebMediaStreamSource::TypeVideo,
-          UTF8ToUTF16(video_track->label()));
-  }
-
-  WebKit::WebMediaStreamDescriptor descriptor;
-  descriptor.initialize(UTF8ToUTF16(stream->label()), source_vector);
-
-  return descriptor;
 }

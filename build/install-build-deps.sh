@@ -13,6 +13,7 @@ usage() {
   echo "Options:"
   echo "--[no-]syms: enable or disable installation of debugging symbols"
   echo "--[no-]lib32: enable or disable installation of 32 bit libraries"
+  echo "--no-prompt: silently select standard options/defaults"
   echo "Script will prompt interactively if options not given."
   exit 1
 }
@@ -24,6 +25,9 @@ do
   --no-syms)                do_inst_syms=0;;
   --lib32)                  do_inst_lib32=1;;
   --no-lib32)               do_inst_lib32=0;;
+  --no-prompt)              do_default=1
+                            do_quietly="-qq --assume-yes"
+    ;;
   *) usage;;
   esac
   shift
@@ -49,7 +53,7 @@ if [ "x$(id -u)" != x0 ]; then
 fi
 
 # Packages needed for chromeos only
-chromeos_dev_list="libpulse-dev"
+chromeos_dev_list="libbluetooth-dev libpulse-dev"
 
 # Packages need for development
 dev_list="apache2.2-bin bison curl elfutils fakeroot flex g++ gperf
@@ -122,6 +126,9 @@ fi
 # The function will echo the user's selection followed by a newline character.
 # Users can abort the function by pressing CTRL-C. This will call "exit 1".
 yes_no() {
+  if [ 0 -ne "${do_default-0}" ] ; then
+    return $1
+  fi
   local c
   while :; do
     c="$(trap 'stty echo -iuclc icanon 2>/dev/null' EXIT INT TERM QUIT
@@ -194,7 +201,7 @@ elif [ $? -eq 1 ]; then
     echo "No missing packages, and the packages are up-to-date."
   else
     echo "Installing missing packages: $new_list."
-    sudo apt-get install ${new_list}
+    sudo apt-get install ${do_quietly-} ${new_list}
   fi
   echo
 else
@@ -245,7 +252,7 @@ if [ "$(uname -m)" = "x86_64" ]; then
   else
     cmp_list="${cmp_list} lib32readline5-dev"
   fi
-  sudo apt-get install $cmp_list
+  sudo apt-get install ${do_quietly-} $cmp_list
 
   tmp=/tmp/install-32bit.$$
   trap 'rm -rf "${tmp}"' EXIT INT TERM QUIT

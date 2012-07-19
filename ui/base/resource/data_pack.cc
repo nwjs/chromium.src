@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -53,6 +53,7 @@ enum LoadErrors {
   ENTRY_NOT_FOUND,
   HEADER_TRUNCATED,
   WRONG_ENCODING,
+  INIT_FAILED_FROM_FILE,
 
   LOAD_ERRORS_COUNT,
 };
@@ -61,13 +62,16 @@ enum LoadErrors {
 
 namespace ui {
 
-// In .cc for MemoryMappedFile dtor.
-DataPack::DataPack() : resource_count_(0), text_encoding_type_(BINARY) {
+DataPack::DataPack(ui::ScaleFactor scale_factor)
+    : resource_count_(0),
+      text_encoding_type_(BINARY),
+      scale_factor_(scale_factor) {
 }
+
 DataPack::~DataPack() {
 }
 
-bool DataPack::Load(const FilePath& path) {
+bool DataPack::LoadFromPath(const FilePath& path) {
   mmap_.reset(new file_util::MemoryMappedFile);
   if (!mmap_->Initialize(path)) {
     DLOG(ERROR) << "Failed to mmap datapack";
@@ -76,7 +80,22 @@ bool DataPack::Load(const FilePath& path) {
     mmap_.reset();
     return false;
   }
+  return LoadImpl();
+}
 
+bool DataPack::LoadFromFile(base::PlatformFile file) {
+  mmap_.reset(new file_util::MemoryMappedFile);
+  if (!mmap_->Initialize(file)) {
+    DLOG(ERROR) << "Failed to mmap datapack";
+    UMA_HISTOGRAM_ENUMERATION("DataPack.Load", INIT_FAILED_FROM_FILE,
+                              LOAD_ERRORS_COUNT);
+    mmap_.reset();
+    return false;
+  }
+  return LoadImpl();
+}
+
+bool DataPack::LoadImpl() {
   // Sanity check the header of the file.
   if (kHeaderLength > mmap_->length()) {
     DLOG(ERROR) << "Data pack file corruption: incomplete file header.";
@@ -142,6 +161,11 @@ bool DataPack::Load(const FilePath& path) {
   return true;
 }
 
+bool DataPack::HasResource(uint16 resource_id) const {
+  return !!bsearch(&resource_id, mmap_->data() + kHeaderLength, resource_count_,
+                   sizeof(DataPackEntry), DataPackEntry::CompareById);
+}
+
 bool DataPack::GetStringPiece(uint16 resource_id,
                               base::StringPiece* data) const {
   // It won't be hard to make this endian-agnostic, but it's not worth
@@ -169,13 +193,22 @@ bool DataPack::GetStringPiece(uint16 resource_id,
   return true;
 }
 
-RefCountedStaticMemory* DataPack::GetStaticMemory(uint16 resource_id) const {
+base::RefCountedStaticMemory* DataPack::GetStaticMemory(
+    uint16 resource_id) const {
   base::StringPiece piece;
   if (!GetStringPiece(resource_id, &piece))
     return NULL;
 
-  return new RefCountedStaticMemory(
+  return new base::RefCountedStaticMemory(
       reinterpret_cast<const unsigned char*>(piece.data()), piece.length());
+}
+
+ResourceHandle::TextEncodingType DataPack::GetTextEncodingType() const {
+  return text_encoding_type_;
+}
+
+ui::ScaleFactor DataPack::GetScaleFactor() const {
+  return scale_factor_;
 }
 
 // static

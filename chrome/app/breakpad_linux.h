@@ -4,7 +4,6 @@
 
 #ifndef CHROME_APP_BREAKPAD_LINUX_H_
 #define CHROME_APP_BREAKPAD_LINUX_H_
-#pragma once
 
 #include "base/basictypes.h"
 
@@ -28,6 +27,7 @@ struct BreakpadInfo {
   bool upload;                     // Whether to upload or save crash dump.
   uint64_t process_start_time;     // Uptime of the crashing process.
   size_t oom_size;                 // Amount of memory requested if OOM.
+  uint64_t pid;                    // PID where applicable.
 };
 
 extern void HandleCrashDump(const BreakpadInfo& info);

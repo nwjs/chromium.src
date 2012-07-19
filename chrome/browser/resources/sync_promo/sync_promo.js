@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 // TODO(sail): Refactor options_page and remove this include.
-<include src="../options/options_page.js"/>
+<include src="../options2/options_page.js"/>
 <include src="../shared/js/util.js"/>
 <include src="../sync_setup_overlay.js"/>
 
@@ -16,8 +16,8 @@ cr.define('sync_promo', function() {
    */
   function SyncPromo() {
     options.SyncSetupOverlay.call(this, 'syncSetup',
-                                  templateData.syncSetupOverlayTabTitle,
-                                  'sync-setup-overlay');
+        loadTimeData.getString('syncSetupOverlayTabTitle'),
+        'sync-setup-overlay');
   }
 
   // Replicating enum from chrome/common/extensions/extension_constants.h.
@@ -56,8 +56,6 @@ cr.define('sync_promo', function() {
 
     // Initializes the page.
     initializePage: function() {
-      localStrings = new LocalStrings();
-
       options.SyncSetupOverlay.prototype.initializePage.call(this);
 
       // Hide parts of the login UI and show the promo UI.

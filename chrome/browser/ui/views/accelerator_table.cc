@@ -6,167 +6,147 @@
 
 #include "base/basictypes.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/events.h"
 
-namespace browser {
+namespace chrome {
 
 // NOTE: Keep this list in the same (mostly-alphabetical) order as
 // the Windows accelerators in ../../app/chrome_dll.rc.
 // Do not use Ctrl-Alt as a shortcut modifier, as it is used by i18n keyboards:
 // http://blogs.msdn.com/b/oldnewthing/archive/2004/03/29/101121.aspx
 const AcceleratorMapping kAcceleratorMap[] = {
-  // Keycode                  Shift  Ctrl   Alt    Command ID
-  { ui::VKEY_LEFT,           false, false, true,  IDC_BACK },
-  { ui::VKEY_BACK,           false, false, false, IDC_BACK },
+  { ui::VKEY_LEFT, ui::EF_ALT_DOWN, IDC_BACK },
+  { ui::VKEY_BACK, ui::EF_NONE, IDC_BACK },
+  { ui::VKEY_D, ui::EF_CONTROL_DOWN, IDC_BOOKMARK_PAGE },
+  { ui::VKEY_D, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_BOOKMARK_ALL_TABS },
+  { ui::VKEY_W, ui::EF_CONTROL_DOWN, IDC_CLOSE_TAB },
+  { ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_CLOSE_WINDOW },
+  { ui::VKEY_F, ui::EF_CONTROL_DOWN, IDC_FIND },
+  { ui::VKEY_G, ui::EF_CONTROL_DOWN, IDC_FIND_NEXT },
+  { ui::VKEY_G, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_FIND_PREVIOUS },
+  { ui::VKEY_D, ui::EF_ALT_DOWN, IDC_FOCUS_LOCATION },
+  { ui::VKEY_L, ui::EF_CONTROL_DOWN, IDC_FOCUS_LOCATION },
+  { ui::VKEY_K, ui::EF_CONTROL_DOWN, IDC_FOCUS_SEARCH },
+  { ui::VKEY_E, ui::EF_CONTROL_DOWN, IDC_FOCUS_SEARCH },
+  { ui::VKEY_T, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, IDC_FOCUS_TOOLBAR },
+  { ui::VKEY_B, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, IDC_FOCUS_BOOKMARKS },
+  { ui::VKEY_RIGHT, ui::EF_ALT_DOWN, IDC_FORWARD },
+  { ui::VKEY_BACK, ui::EF_SHIFT_DOWN, IDC_FORWARD },
+  { ui::VKEY_I, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_DEV_TOOLS },
+  { ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS },
+  { ui::VKEY_J, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_DEV_TOOLS_CONSOLE },
+  { ui::VKEY_C, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_DEV_TOOLS_INSPECT },
+  { ui::VKEY_P, ui::EF_CONTROL_DOWN, IDC_PRINT},
+  { ui::VKEY_P, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_ADVANCED_PRINT},
+  { ui::VKEY_R, ui::EF_CONTROL_DOWN, IDC_RELOAD },
+  { ui::VKEY_R, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_RELOAD_IGNORING_CACHE },
+  { ui::VKEY_HOME, ui::EF_ALT_DOWN, IDC_HOME },
+  { ui::VKEY_S, ui::EF_CONTROL_DOWN, IDC_SAVE_PAGE },
+  { ui::VKEY_9, ui::EF_CONTROL_DOWN, IDC_SELECT_LAST_TAB },
+  { ui::VKEY_NUMPAD9, ui::EF_CONTROL_DOWN, IDC_SELECT_LAST_TAB },
+  { ui::VKEY_TAB, ui::EF_CONTROL_DOWN, IDC_SELECT_NEXT_TAB },
+  { ui::VKEY_NEXT, ui::EF_CONTROL_DOWN, IDC_SELECT_NEXT_TAB },
+  { ui::VKEY_TAB, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_SELECT_PREVIOUS_TAB },
+  { ui::VKEY_PRIOR, ui::EF_CONTROL_DOWN, IDC_SELECT_PREVIOUS_TAB },
+  { ui::VKEY_1, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_0 },
+  { ui::VKEY_NUMPAD1, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_0 },
+  { ui::VKEY_2, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_1 },
+  { ui::VKEY_NUMPAD2, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_1 },
+  { ui::VKEY_3, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_2 },
+  { ui::VKEY_NUMPAD3, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_2 },
+  { ui::VKEY_4, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_3 },
+  { ui::VKEY_NUMPAD4, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_3 },
+  { ui::VKEY_5, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_4 },
+  { ui::VKEY_NUMPAD5, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_4 },
+  { ui::VKEY_6, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_5 },
+  { ui::VKEY_NUMPAD6, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_5 },
+  { ui::VKEY_7, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_6 },
+  { ui::VKEY_NUMPAD7, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_6 },
+  { ui::VKEY_8, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_7 },
+  { ui::VKEY_NUMPAD8, ui::EF_CONTROL_DOWN, IDC_SELECT_TAB_7 },
+  { ui::VKEY_B, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_SHOW_BOOKMARK_BAR },
+  { ui::VKEY_O, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_SHOW_BOOKMARK_MANAGER },
+  { ui::VKEY_J, ui::EF_CONTROL_DOWN, IDC_SHOW_DOWNLOADS },
+  { ui::VKEY_H, ui::EF_CONTROL_DOWN, IDC_SHOW_HISTORY },
+  { ui::VKEY_F, ui::EF_ALT_DOWN, IDC_SHOW_APP_MENU},
+  { ui::VKEY_E, ui::EF_ALT_DOWN, IDC_SHOW_APP_MENU},
+  { ui::VKEY_ESCAPE, ui::EF_NONE, IDC_STOP },
+  { ui::VKEY_OEM_PERIOD, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_TOGGLE_SPEECH_INPUT },
+  { ui::VKEY_U, ui::EF_CONTROL_DOWN, IDC_VIEW_SOURCE },
+  { ui::VKEY_OEM_MINUS, ui::EF_CONTROL_DOWN, IDC_ZOOM_MINUS },
+  { ui::VKEY_OEM_MINUS, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_ZOOM_MINUS },
+  { ui::VKEY_SUBTRACT, ui::EF_CONTROL_DOWN, IDC_ZOOM_MINUS },
+  { ui::VKEY_0, ui::EF_CONTROL_DOWN, IDC_ZOOM_NORMAL },
+  { ui::VKEY_NUMPAD0, ui::EF_CONTROL_DOWN, IDC_ZOOM_NORMAL },
+  { ui::VKEY_OEM_PLUS, ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS },
+  { ui::VKEY_OEM_PLUS, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS },
+  { ui::VKEY_ADD, ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS },
+
+  // Platform-specific key maps.
 #if defined(OS_CHROMEOS)
-  { ui::VKEY_F1,             false, false, false, IDC_BACK },
-  { ui::VKEY_OEM_2,          false, true,  true,  IDC_SHOW_KEYBOARD_OVERLAY },
-  { ui::VKEY_OEM_2,          true,  true,  true,  IDC_SHOW_KEYBOARD_OVERLAY },
+  // On Chrome OS, VKEY_BROWSER_SEARCH is handled in Ash.
+  { ui::VKEY_BROWSER_BACK, ui::EF_NONE, IDC_BACK },
+  { ui::VKEY_F1, ui::EF_NONE, IDC_BACK },
+  { ui::VKEY_BACK, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_CLEAR_BROWSING_DATA },
+  { ui::VKEY_BROWSER_FORWARD, ui::EF_NONE, IDC_FORWARD },
+  { ui::VKEY_F2, ui::EF_NONE, IDC_FORWARD },
+  { ui::VKEY_F4, ui::EF_NONE, IDC_FULLSCREEN },
+  { ui::VKEY_OEM_2, ui::EF_CONTROL_DOWN, IDC_HELP_PAGE_VIA_KEYBOARD },
+  { ui::VKEY_OEM_2, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_HELP_PAGE_VIA_KEYBOARD },
+  { ui::VKEY_BROWSER_HOME, ui::EF_NONE, IDC_HOME },
+  { ui::VKEY_BROWSER_REFRESH, ui::EF_NONE, IDC_RELOAD },
+  { ui::VKEY_F3, ui::EF_NONE, IDC_RELOAD },
+  { ui::VKEY_F3, ui::EF_CONTROL_DOWN, IDC_RELOAD_IGNORING_CACHE },
+  { ui::VKEY_F3, ui::EF_SHIFT_DOWN, IDC_RELOAD_IGNORING_CACHE },
+  { ui::VKEY_BROWSER_FAVORITES, ui::EF_NONE, IDC_SHOW_BOOKMARK_MANAGER },
+  { ui::VKEY_BROWSER_STOP, ui::EF_NONE, IDC_STOP },
+#else  // OS_CHROMEOS
+  { ui::VKEY_DELETE, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_CLEAR_BROWSING_DATA },
+  { ui::VKEY_F4, ui::EF_CONTROL_DOWN, IDC_CLOSE_TAB },
+  { ui::VKEY_F4, ui::EF_ALT_DOWN, IDC_CLOSE_WINDOW },
+  { ui::VKEY_F3, ui::EF_NONE, IDC_FIND_NEXT },
+  { ui::VKEY_F3, ui::EF_SHIFT_DOWN, IDC_FIND_PREVIOUS },
+  { ui::VKEY_F10, ui::EF_NONE, IDC_FOCUS_MENU_BAR },
+  { ui::VKEY_LMENU, ui::EF_NONE, IDC_FOCUS_MENU_BAR },
+  { ui::VKEY_MENU, ui::EF_NONE, IDC_FOCUS_MENU_BAR },
+  { ui::VKEY_RMENU, ui::EF_NONE, IDC_FOCUS_MENU_BAR },
+  { ui::VKEY_F6, ui::EF_NONE, IDC_FOCUS_NEXT_PANE },
+  { ui::VKEY_F6, ui::EF_SHIFT_DOWN, IDC_FOCUS_PREVIOUS_PANE },
+  // On Windows, all VKEY_BROWSER_* keys except VKEY_BROWSER_SEARCH are handled
+  // via WM_APPCOMMAND.
+  { ui::VKEY_BROWSER_SEARCH, ui::EF_NONE, IDC_FOCUS_SEARCH },
+  { ui::VKEY_F11, ui::EF_NONE, IDC_FULLSCREEN },
+  { ui::VKEY_F1, ui::EF_NONE, IDC_HELP_PAGE_VIA_KEYBOARD },
+  { ui::VKEY_F5, ui::EF_NONE, IDC_RELOAD },
+  { ui::VKEY_F5, ui::EF_CONTROL_DOWN, IDC_RELOAD_IGNORING_CACHE },
+  { ui::VKEY_F5, ui::EF_SHIFT_DOWN, IDC_RELOAD_IGNORING_CACHE },
+  { ui::VKEY_M, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_SHOW_AVATAR_MENU},
+#endif  // OS_CHROMEOS
+#if !defined(USE_ASH)
+  { ui::VKEY_I, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, IDC_FEEDBACK },
+  { ui::VKEY_Q, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_EXIT },
+  { ui::VKEY_N, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
+    IDC_NEW_INCOGNITO_WINDOW },
+  { ui::VKEY_T, ui::EF_CONTROL_DOWN, IDC_NEW_TAB },
+  { ui::VKEY_N, ui::EF_CONTROL_DOWN, IDC_NEW_WINDOW },
+  { ui::VKEY_O, ui::EF_CONTROL_DOWN, IDC_OPEN_FILE },
+  { ui::VKEY_T, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_RESTORE_TAB },
+  { ui::VKEY_ESCAPE, ui::EF_SHIFT_DOWN, IDC_TASK_MANAGER },
 #endif
-  { ui::VKEY_D,              false, true,  false, IDC_BOOKMARK_PAGE },
-  { ui::VKEY_D,              true,  true,  false, IDC_BOOKMARK_ALL_TABS },
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_DELETE,         true,  true,  false, IDC_CLEAR_BROWSING_DATA },
-#else
-  { ui::VKEY_BACK,           true,  true,  false, IDC_CLEAR_BROWSING_DATA },
-#endif
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F4,             false, true,  false, IDC_CLOSE_TAB },
-#endif
-  { ui::VKEY_W,              false, true,  false, IDC_CLOSE_TAB },
-  { ui::VKEY_W,              true,  true,  false, IDC_CLOSE_WINDOW },
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F4,             false, false, true,  IDC_CLOSE_WINDOW },
-#endif
-#if !defined(USE_AURA)
-  { ui::VKEY_Q,              true,  true,  false, IDC_EXIT },
-#endif
-  { ui::VKEY_F,              false, true,  false, IDC_FIND },
-  { ui::VKEY_G,              false, true,  false, IDC_FIND_NEXT },
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F3,             false, false, false, IDC_FIND_NEXT },
-#endif
-  { ui::VKEY_G,              true,  true,  false, IDC_FIND_PREVIOUS },
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F3,             true,  false, false, IDC_FIND_PREVIOUS },
-#endif
-  { ui::VKEY_D,              false, false, true,  IDC_FOCUS_LOCATION },
-  { ui::VKEY_L,              false, true,  false, IDC_FOCUS_LOCATION },
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F10,            false, false, false, IDC_FOCUS_MENU_BAR },
-  { ui::VKEY_MENU,           false, false, false, IDC_FOCUS_MENU_BAR },
-  { ui::VKEY_F6,             false, false, false, IDC_FOCUS_NEXT_PANE },
-#else
-  { ui::VKEY_F2,             false, true,  false, IDC_FOCUS_NEXT_PANE },
-#endif
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F6,             true,  false, false, IDC_FOCUS_PREVIOUS_PANE },
-#else
-  { ui::VKEY_F1,             false, true,  false, IDC_FOCUS_PREVIOUS_PANE },
-#endif
-  { ui::VKEY_K,              false, true,  false, IDC_FOCUS_SEARCH },
-  { ui::VKEY_E,              false, true,  false, IDC_FOCUS_SEARCH },
-  { ui::VKEY_BROWSER_SEARCH, false, false, false, IDC_FOCUS_SEARCH },
-  { ui::VKEY_T,              true,  false, true,  IDC_FOCUS_TOOLBAR },
-  { ui::VKEY_B,              true,  false, true,  IDC_FOCUS_BOOKMARKS },
-  { ui::VKEY_RIGHT,          false, false, true,  IDC_FORWARD },
-  { ui::VKEY_BACK,           true,  false, false, IDC_FORWARD },
-#if defined(OS_CHROMEOS)
-  { ui::VKEY_F2,             false, false, false, IDC_FORWARD },
-#endif
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F11,            false, false, false, IDC_FULLSCREEN },
-#else
-  { ui::VKEY_F4,             false, false, false, IDC_FULLSCREEN },
-#endif
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F1,             false, false, false, IDC_HELP_PAGE },
-#else
-  { ui::VKEY_OEM_2,          false, true,  false, IDC_HELP_PAGE },
-  { ui::VKEY_OEM_2,          true,  true,  false, IDC_HELP_PAGE },
-#endif
-#if defined(OS_CHROMEOS) && !defined(USE_AURA)
-  { ui::VKEY_L,              true,  true,  false, IDC_LOCK_SCREEN },
-#endif
-  { ui::VKEY_I,              true,  true,  false, IDC_DEV_TOOLS },
-#if defined(OS_CHROMEOS)
-  { ui::VKEY_I,              true,  false,  true, IDC_FEEDBACK },
-#endif
-  { ui::VKEY_F12,            false, false, false, IDC_DEV_TOOLS },
-  { ui::VKEY_J,              true,  true,  false, IDC_DEV_TOOLS_CONSOLE },
-  { ui::VKEY_C,              true,  true,  false, IDC_DEV_TOOLS_INSPECT },
-  { ui::VKEY_N,              true,  true,  false, IDC_NEW_INCOGNITO_WINDOW },
-  { ui::VKEY_T,              false, true,  false, IDC_NEW_TAB },
-  { ui::VKEY_N,              false, true,  false, IDC_NEW_WINDOW },
-  { ui::VKEY_O,              false, true,  false, IDC_OPEN_FILE },
-  { ui::VKEY_P,              false, true,  false, IDC_PRINT},
-  { ui::VKEY_P,              true,  true,  false, IDC_ADVANCED_PRINT},
-  { ui::VKEY_R,              false, true,  false, IDC_RELOAD },
-  { ui::VKEY_R,              true,  true,  false, IDC_RELOAD_IGNORING_CACHE },
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_F5,             false, false, false, IDC_RELOAD },
-  { ui::VKEY_F5,             false, true,  false, IDC_RELOAD_IGNORING_CACHE },
-  { ui::VKEY_F5,             true,  false, false, IDC_RELOAD_IGNORING_CACHE },
-#else
-  { ui::VKEY_F3,             false, false, false, IDC_RELOAD },
-  { ui::VKEY_F3,             false, true,  false, IDC_RELOAD_IGNORING_CACHE },
-  { ui::VKEY_F3,             true,  false, false, IDC_RELOAD_IGNORING_CACHE },
-#endif
-  { ui::VKEY_HOME,           false, false, true,  IDC_HOME },
-  { ui::VKEY_T,              true,  true,  false, IDC_RESTORE_TAB },
-  { ui::VKEY_S,              false, true,  false, IDC_SAVE_PAGE },
-#if defined(OS_CHROMEOS) && defined(USE_AURA)
-  { ui::VKEY_T,              false, true,  true, IDC_NEW_CROSH_TAB },
-#endif
-#if defined(OS_CHROMEOS)
-  { ui::VKEY_M,              false, true,  false, IDC_FILE_MANAGER },
-  { ui::VKEY_LWIN,           false, false, false, IDC_SEARCH },
-#endif
-  { ui::VKEY_9,              false, true,  false, IDC_SELECT_LAST_TAB },
-  { ui::VKEY_NUMPAD9,        false, true,  false, IDC_SELECT_LAST_TAB },
-  { ui::VKEY_TAB,            false, true,  false, IDC_SELECT_NEXT_TAB },
-  { ui::VKEY_NEXT,           false, true,  false, IDC_SELECT_NEXT_TAB },
-  { ui::VKEY_TAB,            true,  true,  false, IDC_SELECT_PREVIOUS_TAB },
-  { ui::VKEY_PRIOR,          false, true,  false, IDC_SELECT_PREVIOUS_TAB },
-  { ui::VKEY_1,              false, true,  false, IDC_SELECT_TAB_0 },
-  { ui::VKEY_NUMPAD1,        false, true,  false, IDC_SELECT_TAB_0 },
-  { ui::VKEY_2,              false, true,  false, IDC_SELECT_TAB_1 },
-  { ui::VKEY_NUMPAD2,        false, true,  false, IDC_SELECT_TAB_1 },
-  { ui::VKEY_3,              false, true,  false, IDC_SELECT_TAB_2 },
-  { ui::VKEY_NUMPAD3,        false, true,  false, IDC_SELECT_TAB_2 },
-  { ui::VKEY_4,              false, true,  false, IDC_SELECT_TAB_3 },
-  { ui::VKEY_NUMPAD4,        false, true,  false, IDC_SELECT_TAB_3 },
-  { ui::VKEY_5,              false, true,  false, IDC_SELECT_TAB_4 },
-  { ui::VKEY_NUMPAD5,        false, true,  false, IDC_SELECT_TAB_4 },
-  { ui::VKEY_6,              false, true,  false, IDC_SELECT_TAB_5 },
-  { ui::VKEY_NUMPAD6,        false, true,  false, IDC_SELECT_TAB_5 },
-  { ui::VKEY_7,              false, true,  false, IDC_SELECT_TAB_6 },
-  { ui::VKEY_NUMPAD7,        false, true,  false, IDC_SELECT_TAB_6 },
-  { ui::VKEY_8,              false, true,  false, IDC_SELECT_TAB_7 },
-  { ui::VKEY_NUMPAD8,        false, true,  false, IDC_SELECT_TAB_7 },
-  { ui::VKEY_B,              true,  true,  false, IDC_SHOW_BOOKMARK_BAR },
-  { ui::VKEY_O,              true,  true,  false, IDC_SHOW_BOOKMARK_MANAGER },
-  { ui::VKEY_J,              false, true,  false, IDC_SHOW_DOWNLOADS },
-  { ui::VKEY_H,              false, true,  false, IDC_SHOW_HISTORY },
-  { ui::VKEY_F,              false, false, true,  IDC_SHOW_APP_MENU},
-  { ui::VKEY_E,              false, false, true,  IDC_SHOW_APP_MENU},
-#if !defined(OS_CHROMEOS)
-  { ui::VKEY_M,              true,  true,  false, IDC_SHOW_AVATAR_MENU},
-#endif
-  { ui::VKEY_ESCAPE,         false, false, false, IDC_STOP },
-  { ui::VKEY_ESCAPE,         true,  false, false, IDC_TASK_MANAGER },
-  { ui::VKEY_OEM_PERIOD,     true,  true,  false, IDC_TOGGLE_SPEECH_INPUT },
-  { ui::VKEY_U,              false, true,  false, IDC_VIEW_SOURCE },
-  { ui::VKEY_OEM_MINUS,      false, true,  false, IDC_ZOOM_MINUS },
-  { ui::VKEY_OEM_MINUS,      true,  true,  false, IDC_ZOOM_MINUS },
-  { ui::VKEY_SUBTRACT,       false, true,  false, IDC_ZOOM_MINUS },
-  { ui::VKEY_0,              false, true,  false, IDC_ZOOM_NORMAL },
-  { ui::VKEY_NUMPAD0,        false, true,  false, IDC_ZOOM_NORMAL },
-  { ui::VKEY_OEM_PLUS,       false, true,  false, IDC_ZOOM_PLUS },
-  { ui::VKEY_OEM_PLUS,       true,  true,  false, IDC_ZOOM_PLUS },
-  { ui::VKEY_ADD,            false, true,  false, IDC_ZOOM_PLUS },
 };
 
 const size_t kAcceleratorMapLength = arraysize(kAcceleratorMap);
 
-}  // namespace browser
+}  // namespace chrome

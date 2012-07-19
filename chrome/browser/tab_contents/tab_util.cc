@@ -9,7 +9,6 @@
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "googleurl/src/gurl.h"
@@ -27,11 +26,10 @@ content::WebContents* GetWebContentsByID(int render_process_id,
   if (!render_view_host)
     return NULL;
 
-  return render_view_host->GetDelegate()->GetAsWebContents();
+  return WebContents::FromRenderViewHost(render_view_host);
 }
 
-SiteInstance* GetSiteInstanceForNewTab(WebContents* source_contents,
-                                       Profile* profile,
+SiteInstance* GetSiteInstanceForNewTab(Profile* profile,
                                        const GURL& url) {
   // If url is a WebUI or extension, we need to be sure to use the right type
   // of renderer process up front.  Otherwise, we create a normal SiteInstance
@@ -44,16 +42,9 @@ SiteInstance* GetSiteInstanceForNewTab(WebContents* source_contents,
     return SiteInstance::CreateForURL(profile, url);
   }
 
-  if (!source_contents)
-    return NULL;
-
-  // Don't use this logic when "--process-per-tab" is specified.
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kProcessPerTab) &&
-      SiteInstance::IsSameWebSite(source_contents->GetBrowserContext(),
-                                  source_contents->GetURL(),
-                                  url)) {
-    return source_contents->GetSiteInstance();
-  }
+  // We used to share the SiteInstance for same-site links opened in new tabs,
+  // to leverage the in-memory cache and reduce process creation.  It now
+  // appears that it is more useful to have such links open in a new process.
   return NULL;
 }
 

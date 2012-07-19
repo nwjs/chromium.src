@@ -14,7 +14,6 @@
 #include "base/i18n/rtl.h"
 #include "base/lazy_instance.h"
 #include "base/memory/singleton.h"
-#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/string_number_conversions.h"
 #include "base/threading/thread.h"
@@ -27,17 +26,15 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
-#include "chrome/browser/ui/webui/ntp/app_launcher_handler.h"
 #include "chrome/browser/ui/webui/ntp/favicon_webui_handler.h"
 #include "chrome/browser/ui/webui/ntp/foreign_session_handler.h"
 #include "chrome/browser/ui/webui/ntp/most_visited_handler.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_page_handler.h"
-#include "chrome/browser/ui/webui/ntp/ntp_login_handler.h"
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache.h"
 #include "chrome/browser/ui/webui/ntp/ntp_resource_cache_factory.h"
 #include "chrome/browser/ui/webui/ntp/recently_closed_tabs_handler.h"
-#include "chrome/browser/ui/webui/ntp/suggestions_page_handler.h"
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -54,9 +51,14 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if !defined(OS_ANDROID)
+#include "chrome/browser/ui/webui/ntp/app_launcher_handler.h"
 #include "chrome/browser/ui/webui/ntp/new_tab_page_sync_handler.h"
+#include "chrome/browser/ui/webui/ntp/ntp_login_handler.h"
+#include "chrome/browser/ui/webui/ntp/suggestions_page_handler.h"
 #endif
 
 using content::BrowserThread;
@@ -78,19 +80,7 @@ const char kLTRHtmlTextDirection[] = "ltr";
 
 static base::LazyInstance<std::set<const WebUIController*> > g_live_new_tabs;
 
-// Group IDs for the web store link field trial.
-int g_footer_group = 0;
-int g_hint_group = 0;
-
-bool WebStoreLinkExperimentGroupIs(int group) {
-  return base::FieldTrialList::TrialExists(kWebStoreLinkExperiment) &&
-      base::FieldTrialList::FindValue(kWebStoreLinkExperiment) == group;
-}
-
 }  // namespace
-
-// The Web Store footer experiment FieldTrial name.
-const char kWebStoreLinkExperiment[] = "WebStoreLinkExperiment";
 
 ///////////////////////////////////////////////////////////////////////////////
 // NewTabUI
@@ -114,16 +104,16 @@ NewTabUI::NewTabUI(content::WebUI* web_ui)
   if (!GetProfile()->IsOffTheRecord()) {
     web_ui->AddMessageHandler(new browser_sync::ForeignSessionHandler());
     web_ui->AddMessageHandler(new MostVisitedHandler());
-    if (NewTabUI::IsSuggestionsPageEnabled())
-      web_ui->AddMessageHandler(new SuggestionsHandler());
     web_ui->AddMessageHandler(new RecentlyClosedTabsHandler());
     web_ui->AddMessageHandler(new MetricsHandler());
 #if !defined(OS_ANDROID)
+    if (NewTabUI::IsSuggestionsPageEnabled())
+      web_ui->AddMessageHandler(new SuggestionsHandler());
     // Android doesn't have a sync promo/username on NTP.
     if (GetProfile()->IsSyncAccessible())
       web_ui->AddMessageHandler(new NewTabPageSyncHandler());
-#endif
 
+    // Or apps.
     if (ShouldShowApps()) {
       ExtensionService* service = GetProfile()->GetExtensionService();
       // We might not have an ExtensionService (on ChromeOS when not logged in
@@ -131,6 +121,7 @@ NewTabUI::NewTabUI(content::WebUI* web_ui)
       if (service)
         web_ui->AddMessageHandler(new AppLauncherHandler(service));
     }
+#endif
 
     web_ui->AddMessageHandler(new NewTabPageHandler());
     web_ui->AddMessageHandler(new FaviconWebUIHandler());
@@ -158,7 +149,8 @@ NewTabUI::NewTabUI(content::WebUI* web_ui)
   // ChromeURLDataManager assumes the ownership of the html_source and in some
   // tests immediately deletes it, so html_source should not be accessed after
   // this call.
-  GetProfile()->GetChromeURLDataManager()->AddDataSource(html_source);
+  Profile* profile = GetProfile();
+  ChromeURLDataManager::AddDataSource(profile, html_source);
 
   pref_change_registrar_.Init(GetProfile()->GetPrefs());
   pref_change_registrar_.Add(prefs::kShowBookmarkBar, this);
@@ -202,11 +194,20 @@ void NewTabUI::PaintTimeout() {
 void NewTabUI::StartTimingPaint(RenderViewHost* render_view_host) {
   start_ = base::TimeTicks::Now();
   last_paint_ = start_;
-  registrar_.Add(this, content::NOTIFICATION_RENDER_WIDGET_HOST_DID_PAINT,
-                 content::Source<content::RenderWidgetHost>(render_view_host));
+
+  content::NotificationSource source =
+      content::Source<content::RenderWidgetHost>(render_view_host);
+  if (!registrar_.IsRegistered(this,
+          content::NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+          source)) {
+    registrar_.Add(
+        this,
+        content::NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE,
+        source);
+  }
+
   timer_.Start(FROM_HERE, base::TimeDelta::FromMilliseconds(kTimeoutMs), this,
                &NewTabUI::PaintTimeout);
-
 }
 
 bool NewTabUI::CanShowBookmarkBar() const {
@@ -246,7 +247,7 @@ void NewTabUI::Observe(int type,
       break;
     }
 #endif
-    case content::NOTIFICATION_RENDER_WIDGET_HOST_DID_PAINT: {
+    case content::NOTIFICATION_RENDER_WIDGET_HOST_DID_UPDATE_BACKING_STORE: {
       last_paint_ = base::TimeTicks::Now();
       break;
     }
@@ -259,52 +260,27 @@ void NewTabUI::InitializeCSSCaches() {
 #if defined(ENABLE_THEMES)
   Profile* profile = GetProfile();
   ThemeSource* theme = new ThemeSource(profile);
-  profile->GetChromeURLDataManager()->AddDataSource(theme);
+  ChromeURLDataManager::AddDataSource(profile, theme);
 #endif
 }
 
 // static
 void NewTabUI::RegisterUserPrefs(PrefService* prefs) {
   NewTabPageHandler::RegisterUserPrefs(prefs);
+#if !defined(OS_ANDROID)
   AppLauncherHandler::RegisterUserPrefs(prefs);
-  MostVisitedHandler::RegisterUserPrefs(prefs);
   if (NewTabUI::IsSuggestionsPageEnabled())
     SuggestionsHandler::RegisterUserPrefs(prefs);
-}
-
-// static
-void NewTabUI::SetupFieldTrials() {
-  scoped_refptr<base::FieldTrial> trial(
-      new base::FieldTrial(kWebStoreLinkExperiment, 3, "Disabled",
-                           2012, 6, 1));
-
-  // Try to give the user a consistent experience, if possible.
-  if (base::FieldTrialList::IsOneTimeRandomizationEnabled())
-    trial->UseOneTimeRandomization();
-
-  // 33.3% in each group.
-  g_footer_group = trial->AppendGroup("FooterLink", 1);
-  g_hint_group = trial->AppendGroup("PlusIcon", 1);
-}
-
-// static
-bool NewTabUI::ShouldShowWebStoreFooterLink() {
-  const CommandLine* cli = CommandLine::ForCurrentProcess();
-  return cli->HasSwitch(switches::kEnableWebStoreLink) ||
-      WebStoreLinkExperimentGroupIs(g_footer_group);
-}
-
-// static
-bool NewTabUI::ShouldShowAppInstallHint() {
-  const CommandLine* cli = CommandLine::ForCurrentProcess();
-  return cli->HasSwitch(switches::kNtpAppInstallHint) ||
-      WebStoreLinkExperimentGroupIs(g_hint_group);
+#endif
+  MostVisitedHandler::RegisterUserPrefs(prefs);
+  browser_sync::ForeignSessionHandler::RegisterUserPrefs(prefs);
 }
 
 // static
 bool NewTabUI::ShouldShowApps() {
-#if defined(USE_ASH)
+#if defined(USE_ASH) || defined(OS_ANDROID)
   // Ash shows apps in app list thus should not show apps page in NTP4.
+  // Android does not have apps.
   return false;
 #else
   return true;
@@ -380,11 +356,11 @@ void NewTabUI::NewTabHTMLSource::StartDataRequest(const std::string& path,
   std::map<std::string, std::pair<std::string, int> >::iterator it =
     resource_map_.find(path);
   if (it != resource_map_.end()) {
-    scoped_refptr<RefCountedStaticMemory> resource_bytes(
+    scoped_refptr<base::RefCountedStaticMemory> resource_bytes(
         it->second.second ?
             ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
-                it->second.second) :
-            new RefCountedStaticMemory);
+                it->second.second, ui::SCALE_FACTOR_NONE) :
+            new base::RefCountedStaticMemory);
     SendResponse(request_id, resource_bytes);
     return;
   }
@@ -396,7 +372,7 @@ void NewTabUI::NewTabHTMLSource::StartDataRequest(const std::string& path,
     return;
   }
 
-  scoped_refptr<RefCountedMemory> html_bytes(
+  scoped_refptr<base::RefCountedMemory> html_bytes(
       NTPResourceCacheFactory::GetForProfile(profile_)->
       GetNewTabHTML(is_incognito));
 

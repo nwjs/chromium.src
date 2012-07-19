@@ -10,8 +10,10 @@
 #include "base/command_line.h"
 #include "base/string_util.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/net/url_util.h"
 
 namespace extension_urls {
+
 std::string GetWebstoreLaunchURL() {
   std::string gallery_prefix = kGalleryBrowsePrefix;
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAppsGalleryURL))
@@ -24,6 +26,18 @@ std::string GetWebstoreLaunchURL() {
 
 std::string GetWebstoreItemDetailURLPrefix() {
   return GetWebstoreLaunchURL() + "/detail/";
+}
+
+GURL GetWebstoreIntentQueryURL(const std::string& action,
+                               const std::string& type) {
+  const char kIntentsCategoryPath[] = "category/collection/webintent_apps";
+
+  GURL url(std::string(kGalleryBrowsePrefix) + "/");
+  url = url.Resolve(kIntentsCategoryPath);
+  url = chrome_common_net::AppendQueryParameter(url, "_wi", action);
+  url = chrome_common_net::AppendQueryParameter(url, "_mt", type);
+
+  return url;
 }
 
 GURL GetWebstoreItemJsonDataURL(const std::string& extension_id) {
@@ -65,9 +79,11 @@ bool IsBlacklistUpdateUrl(const GURL& url) {
 }
 
 const char kGalleryBrowsePrefix[] = "https://chrome.google.com/webstore";
-}
+
+}  // namespace extension_urls
 
 namespace extension_filenames {
+
 const char kTempExtensionName[] = "CRX_INSTALL";
 
 // The file to write our decoded images to, relative to the extension_path.
@@ -87,12 +103,12 @@ namespace extension_info_keys {
   const char kEnabledKey[] = "enabled";
   const char kHomepageUrlKey[] = "homepageUrl";
   const char kIdKey[] = "id";
-  const char kMayDisableKey[] = "mayDisable";
   const char kNameKey[] = "name";
   const char kOfflineEnabledKey[] = "offlineEnabled";
   const char kOptionsUrlKey[] = "optionsUrl";
   const char kVersionKey[] = "version";
-}
+
+}  // namespace extension_filenames
 
 namespace extension_misc {
 const char kBookmarkManagerId[] = "eemcgdkfndhakfknompkggombfjjjeno";
@@ -105,6 +121,7 @@ const char kHTermDevAppId[] = "okddffdblfhhnmhodogpojmfkjmhinfp";
 const char kCroshBuiltinAppId[] = "nkoccljplnhpfnfiajclkommnmllphnl";
 const char kWebStoreAppId[] = "ahfgeienlihckogmohjhadlkjgocpleb";
 const char kCloudPrintAppId[] = "mfehgcgbbipciphmccgaenjidiccnmng";
+const char kChromeAppId[] = "mgndgikekgjfcpckkfioiadnlibdjbkf";
 const char kAppsPromoHistogram[] = "Extensions.AppsPromo";
 const char kAppLaunchHistogram[] = "Extensions.AppLaunch";
 #if defined(OS_CHROMEOS)
@@ -112,7 +129,16 @@ const char kAccessExtensionPath[] =
     "/usr/share/chromeos-assets/accessibility/extensions";
 const char kChromeVoxDirectoryName[] = "access_chromevox";
 #endif
+
+const char kAppStateNotInstalled[] = "not_installed";
+const char kAppStateInstalled[] = "installed";
+const char kAppStateDisabled[] = "disabled";
+const char kAppStateRunning[] = "running";
+const char kAppStateCannotRun[] = "cannot_run";
+const char kAppStateReadyToRun[] = "ready_to_run";
+
 const char kAppNotificationsIncognitoError[] =
     "This API is not accessible by 'split' mode "
     "extensions in incognito windows.";
-}
+
+}  // namespace extension_misc

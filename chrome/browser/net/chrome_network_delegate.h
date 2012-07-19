@@ -4,12 +4,10 @@
 
 #ifndef CHROME_BROWSER_NET_CHROME_NETWORK_DELEGATE_H_
 #define CHROME_BROWSER_NET_CHROME_NETWORK_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
-#include "base/time.h"
 #include "net/base/network_delegate.h"
 
 class CookieSettings;
@@ -22,10 +20,6 @@ typedef PrefMember<bool> BooleanPrefMember;
 
 namespace policy {
 class URLBlacklistManager;
-}
-
-namespace net {
-class DnsRRResolver;
 }
 
 // ChromeNetworkDelegate is the central point from within the chrome code to
@@ -47,12 +41,17 @@ class ChromeNetworkDelegate : public net::NetworkDelegate {
       BooleanPrefMember* enable_referrers);
   virtual ~ChromeNetworkDelegate();
 
+  // Causes |OnCanThrottleRequest| to never return true.
+  void NeverThrottleRequests();
+
   // Binds |enable_referrers| to |pref_service| and moves it to the IO thread.
   // This method should be called on the UI thread.
   static void InitializeReferrersEnabled(BooleanPrefMember* enable_referrers,
                                          PrefService* pref_service);
 
-  static void EnableComodoDNSExperiment();
+  // When called, all file:// URLs will now be accessible.  If this is not
+  // called, then some platforms restrict access to file:// paths.
+  static void AllowAccessToAllFiles();
 
  private:
   // NetworkDelegate implementation.
@@ -84,11 +83,18 @@ class ChromeNetworkDelegate : public net::NetworkDelegate {
       const net::AuthChallengeInfo& auth_info,
       const AuthCallback& callback,
       net::AuthCredentials* credentials) OVERRIDE;
-  virtual bool CanGetCookies(const net::URLRequest* request,
-                             const net::CookieList& cookie_list) OVERRIDE;
-  virtual bool CanSetCookie(const net::URLRequest* request,
-                            const std::string& cookie_line,
-                            net::CookieOptions* options) OVERRIDE;
+  virtual bool OnCanGetCookies(const net::URLRequest& request,
+                               const net::CookieList& cookie_list) OVERRIDE;
+  virtual bool OnCanSetCookie(const net::URLRequest& request,
+                              const std::string& cookie_line,
+                              net::CookieOptions* options) OVERRIDE;
+  virtual bool OnCanAccessFile(const net::URLRequest& request,
+                               const FilePath& path) const OVERRIDE;
+  virtual bool OnCanThrottleRequest(
+      const net::URLRequest& request) const OVERRIDE;
+  virtual int OnBeforeSocketStreamConnect(
+      net::SocketStream* stream,
+      const net::CompletionCallback& callback) OVERRIDE;
 
   scoped_refptr<ExtensionEventRouterForwarder> event_router_;
   void* profile_;
@@ -99,11 +105,14 @@ class ChromeNetworkDelegate : public net::NetworkDelegate {
   // Weak, owned by our owner.
   BooleanPrefMember* enable_referrers_;
 
+  // True if OnCanThrottleRequest should always return false.
+  bool never_throttle_requests_;
+
   // Weak, owned by our owner.
   const policy::URLBlacklistManager* url_blacklist_manager_;
 
-  scoped_ptr<net::DnsRRResolver> dnsrr_resolver_;
-  base::TimeTicks last_comodo_resolution_time_;
+  // When true, allow access to all file:// URLs.
+  static bool g_allow_file_access_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeNetworkDelegate);
 };

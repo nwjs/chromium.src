@@ -218,9 +218,18 @@
   OP(GetTranslatedShaderSourceANGLE)                           /* 461 */ \
   OP(PostSubBufferCHROMIUM)                                    /* 462 */ \
   OP(TexImageIOSurface2DCHROMIUM)                              /* 463 */ \
-  OP(DrawArraysInstancedANGLE)                                 /* 464 */ \
-  OP(DrawElementsInstancedANGLE)                               /* 465 */ \
-  OP(VertexAttribDivisorANGLE)                                 /* 466 */ \
+  OP(CopyTextureCHROMIUM)                                      /* 464 */ \
+  OP(DrawArraysInstancedANGLE)                                 /* 465 */ \
+  OP(DrawElementsInstancedANGLE)                               /* 466 */ \
+  OP(VertexAttribDivisorANGLE)                                 /* 467 */ \
+  OP(GenMailboxCHROMIUM)                                       /* 468 */ \
+  OP(ProduceTextureCHROMIUM)                                   /* 469 */ \
+  OP(ProduceTextureCHROMIUMImmediate)                          /* 470 */ \
+  OP(ConsumeTextureCHROMIUM)                                   /* 471 */ \
+  OP(ConsumeTextureCHROMIUMImmediate)                          /* 472 */ \
+  OP(BindUniformLocationCHROMIUM)                              /* 473 */ \
+  OP(BindUniformLocationCHROMIUMImmediate)                     /* 474 */ \
+  OP(BindUniformLocationCHROMIUMBucket)                        /* 475 */ \
 
 enum CommandId {
   kStartPoint = cmd::kLastCommonId,  // All GLES2 commands start after this.

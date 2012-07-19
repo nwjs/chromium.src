@@ -15,8 +15,8 @@ cr.define('options', function() {
    */
   function CookiesView(model) {
     OptionsPage.call(this, 'cookies',
-                     templateData.cookiesViewPageTabTitle,
-                     'cookiesViewPage');
+                     loadTimeData.getString('cookiesViewPageTabTitle'),
+                     'cookies-view-page');
   }
 
   cr.addSingletonGetter(CookiesView);
@@ -41,20 +41,29 @@ cr.define('options', function() {
     initializePage: function() {
       OptionsPage.prototype.initializePage.call(this);
 
-      $('cookies-search-box').addEventListener('search',
-          this.handleSearchQueryChange_.bind(this));
+      this.pageDiv.querySelector('.cookies-search-box').addEventListener(
+          'search', this.handleSearchQueryChange_.bind(this));
 
-      $('remove-all-cookies-button').onclick = function(e) {
-        chrome.send('removeAllCookies');
-      };
+      this.pageDiv.querySelector('.remove-all-cookies-button').onclick =
+          function(e) {
+            chrome.send('removeAllCookies');
+          };
 
-      var cookiesList = $('cookies-list');
+      var cookiesList = this.pageDiv.querySelector('.cookies-list');
       options.CookiesList.decorate(cookiesList);
 
       this.addEventListener('visibleChange', this.handleVisibleChange_);
 
-      $('cookies-view-overlay-confirm').onclick =
+      this.pageDiv.querySelector('.cookies-view-overlay-confirm').onclick =
           OptionsPage.closeOverlay.bind(OptionsPage);
+    },
+
+    /**
+     * Clear search filter when the dialog is displayed.
+     * @inheritDoc
+     */
+    didShowPage: function() {
+      this.pageDiv.querySelector('.cookies-search-box').value = '';
     },
 
     /**
@@ -62,7 +71,7 @@ cr.define('options', function() {
      */
     searchCookie: function() {
       this.queryDelayTimerId_ = 0;
-      var filter = $('cookies-search-box').value;
+      var filter = this.pageDiv.querySelector('.cookies-search-box').value;
       if (this.lastQuery_ != filter) {
         this.lastQuery_ = filter;
         chrome.send('updateCookieSearchResults', [filter]);
@@ -93,14 +102,22 @@ cr.define('options', function() {
       if (!this.visible)
         return;
 
+      // Inform the CookiesViewHandler whether we are operating in regular
+      // cookies dialog or the apps one.
+      chrome.send('setViewContext', [this.isAppContext()]);
+
       if (!this.initialized_) {
         this.initialized_ = true;
         this.searchCookie();
       } else {
-        $('cookies-list').redraw();
+        this.pageDiv.querySelector('.cookies-list').redraw();
       }
 
-      $('cookies-search-box').focus();
+      this.pageDiv.querySelector('.cookies-search-box').focus();
+    },
+
+    isAppContext: function() {
+      return false;
     },
   };
 

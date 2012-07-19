@@ -20,7 +20,8 @@
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/common/pref_names.h"
@@ -109,8 +110,12 @@ void NewTabPageSyncHandler::BuildAndSendSyncStatus() {
   //               message).
   string16 status_msg;
   string16 link_text;
+  SigninManager* signin = SigninManagerFactory::GetForProfile(
+      Profile::FromWebUI(web_ui()));
+
   sync_ui_util::MessageType type =
       sync_ui_util::GetStatusLabelsForNewTabPage(sync_service_,
+                                                 *signin,
                                                  &status_msg,
                                                  &link_text);
   SendSyncMessageToPage(FromSyncStatusMessageType(type),
@@ -123,10 +128,10 @@ void NewTabPageSyncHandler::HandleSyncLinkClicked(const ListValue* args) {
   if (!sync_service_->IsSyncEnabled())
     return;
   Browser* browser =
-      BrowserList::FindBrowserWithWebContents(web_ui()->GetWebContents());
+      browser::FindBrowserWithWebContents(web_ui()->GetWebContents());
   if (!browser || browser->IsAttemptingToCloseBrowser())
     return;
-  browser->ShowSyncSetup(SyncPromoUI::SOURCE_NTP_LINK);
+  chrome::ShowSyncSetup(browser, SyncPromoUI::SOURCE_NTP_LINK);
 
   if (sync_service_->HasSyncSetupCompleted()) {
     string16 user = UTF8ToUTF16(SigninManagerFactory::GetForProfile(

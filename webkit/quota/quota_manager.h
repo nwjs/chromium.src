@@ -4,7 +4,6 @@
 
 #ifndef WEBKIT_QUOTA_QUOTA_MANAGER_H_
 #define WEBKIT_QUOTA_QUOTA_MANAGER_H_
-#pragma once
 
 #include <deque>
 #include <list>
@@ -18,11 +17,11 @@
 #include "base/callback.h"
 #include "base/file_path.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/weak_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "webkit/quota/quota_database.h"
+#include "base/sequenced_task_runner_helpers.h"
 #include "webkit/quota/quota_client.h"
+#include "webkit/quota/quota_database.h"
 #include "webkit/quota/quota_task.h"
 #include "webkit/quota/quota_types.h"
 #include "webkit/quota/special_storage_policy.h"
@@ -30,7 +29,8 @@
 class FilePath;
 
 namespace base {
-class MessageLoopProxy;
+class SequencedTaskRunner;
+class SingleThreadTaskRunner;
 }
 
 namespace quota_internals {
@@ -63,8 +63,6 @@ class QuotaEvictionHandler {
                               const QuotaAndUsage& quota_and_usage)>
       GetUsageAndQuotaForEvictionCallback;
 
-  virtual ~QuotaEvictionHandler() {}
-
   // Returns the least recently used origin.  It might return empty
   // GURL when there are no evictable origins.
   virtual void GetLRUOrigin(
@@ -78,6 +76,9 @@ class QuotaEvictionHandler {
 
   virtual void GetUsageAndQuotaForEviction(
       const GetUsageAndQuotaForEvictionCallback& callback) = 0;
+
+ protected:
+  virtual ~QuotaEvictionHandler() {}
 };
 
 struct UsageInfo {
@@ -102,14 +103,13 @@ class QuotaManager : public QuotaTaskObserver,
                               int64 /* usage */,
                               int64 /* quota */)>
       GetUsageAndQuotaCallback;
+  static const int64 kNoLimit;
 
   QuotaManager(bool is_incognito,
                const FilePath& profile_path,
-               base::MessageLoopProxy* io_thread,
-               base::MessageLoopProxy* db_thread,
+               base::SingleThreadTaskRunner* io_thread,
+               base::SequencedTaskRunner* db_thread,
                SpecialStoragePolicy* special_storage_policy);
-
-  virtual ~QuotaManager();
 
   // Returns a proxy object that can be used on any thread.
   QuotaManagerProxy* proxy() { return proxy_.get(); }
@@ -204,7 +204,19 @@ class QuotaManager : public QuotaTaskObserver,
 
   static const int kEvictionIntervalInMilliSeconds;
 
+ protected:
+  virtual ~QuotaManager();
+
  private:
+  friend class base::DeleteHelper<QuotaManager>;
+  friend class MockQuotaManager;
+  friend class MockStorageClient;
+  friend class quota_internals::QuotaInternalsProxy;
+  friend class QuotaManagerProxy;
+  friend class QuotaManagerTest;
+  friend class QuotaTemporaryStorageEvictor;
+  friend struct QuotaManagerDeleter;
+
   class DatabaseTaskBase;
   class InitializeTask;
   class UpdateTemporaryQuotaOverrideTask;
@@ -255,14 +267,6 @@ class QuotaManager : public QuotaTaskObserver,
 
   typedef QuotaEvictionHandler::GetUsageAndQuotaForEvictionCallback
       UsageAndQuotaDispatcherCallback;
-
-  friend class quota_internals::QuotaInternalsProxy;
-  friend struct QuotaManagerDeleter;
-  friend class MockStorageClient;
-  friend class QuotaManagerProxy;
-  friend class QuotaManagerTest;
-  friend class QuotaTemporaryStorageEvictor;
-  friend class MockQuotaManager;
 
   // This initialization method is lazily called on the IO thread
   // when the first quota manager API is called.
@@ -349,8 +353,8 @@ class QuotaManager : public QuotaTaskObserver,
   scoped_refptr<QuotaManagerProxy> proxy_;
   bool db_disabled_;
   bool eviction_disabled_;
-  scoped_refptr<base::MessageLoopProxy> io_thread_;
-  scoped_refptr<base::MessageLoopProxy> db_thread_;
+  scoped_refptr<base::SingleThreadTaskRunner> io_thread_;
+  scoped_refptr<base::SequencedTaskRunner> db_thread_;
   mutable scoped_ptr<QuotaDatabase> database_;
 
   GetLRUOriginCallback lru_origin_callback_;
@@ -415,11 +419,12 @@ class QuotaManagerProxy
   friend class QuotaManager;
   friend class base::RefCountedThreadSafe<QuotaManagerProxy>;
 
-  QuotaManagerProxy(QuotaManager* manager, base::MessageLoopProxy* io_thread);
+  QuotaManagerProxy(QuotaManager* manager,
+                    base::SingleThreadTaskRunner* io_thread);
   virtual ~QuotaManagerProxy();
 
   QuotaManager* manager_;  // only accessed on the io thread
-  scoped_refptr<base::MessageLoopProxy> io_thread_;
+  scoped_refptr<base::SingleThreadTaskRunner> io_thread_;
 
   DISALLOW_COPY_AND_ASSIGN(QuotaManagerProxy);
 };

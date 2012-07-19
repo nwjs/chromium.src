@@ -4,15 +4,14 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_WEBREQUEST_WEBREQUEST_CONDITION_H_
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_WEBREQUEST_WEBREQUEST_CONDITION_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/memory/linked_ptr.h"
-#include "chrome/browser/extensions/api/declarative/url_matcher.h"
 #include "chrome/browser/extensions/api/declarative_webrequest/webrequest_condition_attribute.h"
+#include "chrome/common/extensions/matcher/url_matcher.h"
 
 namespace extensions {
 
@@ -36,7 +35,7 @@ namespace extensions {
 class WebRequestCondition {
  public:
   WebRequestCondition(
-      const URLMatcherConditionSet& url_matcher_conditions,
+      scoped_refptr<URLMatcherConditionSet> url_matcher_conditions,
       const WebRequestConditionAttributes& condition_attributes);
   ~WebRequestCondition();
 
@@ -49,39 +48,31 @@ class WebRequestCondition {
 
   // Returns whether |request| is a match, given that the URLMatcher found
   // a match for |url_matcher_conditions_|.
-  bool IsFulfilled(net::URLRequest* request) const;
+  bool IsFulfilled(net::URLRequest* request, RequestStages request_stage) const;
 
   // Returns a URLMatcherConditionSet::ID which is the canonical representation
   // for all URL patterns that need to be matched by this WebRequestCondition.
   // This ID is registered in a URLMatcher that can inform us in case of a
   // match.
   URLMatcherConditionSet::ID url_matcher_condition_set_id() const {
-    return url_matcher_conditions_.id();
+    return url_matcher_conditions_->id();
   }
 
   // Returns the set of conditions that are checked on the URL. This is the
   // primary trigger for WebRequestCondition and therefore never empty.
   // (If it was empty, the URLMatcher would never notify us about network
   // requests which might fulfill the entire WebRequestCondition).
-  const URLMatcherConditionSet& url_matcher_condition_set() const {
+  scoped_refptr<URLMatcherConditionSet> url_matcher_condition_set() const {
     return url_matcher_conditions_;
   }
 
  private:
-  // Returns whether a condition attribute with name |condition_attribute_name|
-  // needs to be handled by the URLMatcher.
-  static bool IsURLMatcherConditionAttribute(
-      const std::string& condition_attribute_name);
-
-  // Factory method of for URLMatcherConditions.
-  static URLMatcherCondition CreateURLMatcherCondition(
-      URLMatcherConditionFactory* url_matcher_condition_factory,
-      const std::string& condition_attribute_name,
-      const base::Value* value,
-      std::string* error);
-
-  URLMatcherConditionSet url_matcher_conditions_;
+  scoped_refptr<URLMatcherConditionSet> url_matcher_conditions_;
   WebRequestConditionAttributes condition_attributes_;
+
+  // Bit vector indicating all RequestStages during which all
+  // |condition_attributes_| can be evaluated.
+  int applicable_request_stages_;
 
   DISALLOW_COPY_AND_ASSIGN(WebRequestCondition);
 };
@@ -115,11 +106,12 @@ class WebRequestConditionSet {
   // by the URLMatcher to ensure that the each trigger in |match_triggers_| is
   // found.
   bool IsFulfilled(URLMatcherConditionSet::ID url_match,
-                   net::URLRequest* request) const;
+                   net::URLRequest* request,
+                   RequestStages request_stage) const;
 
   // Appends the URLMatcherConditionSet from all conditions to |condition_sets|.
   void GetURLMatcherConditionSets(
-      std::vector<URLMatcherConditionSet>* condition_sets) const;
+      URLMatcherConditionSet::Vector* condition_sets) const;
 
  private:
   typedef std::vector<linked_ptr<WebRequestCondition> > Conditions;

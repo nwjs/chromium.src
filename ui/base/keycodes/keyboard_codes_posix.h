@@ -30,7 +30,6 @@
 
 #ifndef UI_BASE_KEYCODES_KEYBOARD_CODES_POSIX_H_
 #define UI_BASE_KEYCODES_KEYBOARD_CODES_POSIX_H_
-#pragma once
 
 namespace ui {
 
@@ -207,10 +206,12 @@ enum KeyboardCode {
   VKEY_OEM_CLEAR = 0xFE,
   VKEY_UNKNOWN = 0,
 
-  // POSIX specific VKEYs. Note that as of Windows SDK 7.1, 0xD8-DA are
+  // POSIX specific VKEYs. Note that as of Windows SDK 7.1, 0xD8-DA and 0xE8 are
   // unassigned.
   VKEY_BRIGHTNESS_DOWN = 0xD8,
-  VKEY_BRIGHTNESS_UP = 0xD9
+  VKEY_BRIGHTNESS_UP = 0xD9,
+  VKEY_KBD_BRIGHTNESS_DOWN = 0xDA,
+  VKEY_KBD_BRIGHTNESS_UP = 0xE8
 };
 
 }  // namespace ui

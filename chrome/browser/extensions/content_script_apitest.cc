@@ -3,9 +3,11 @@
 // found in the LICENSE file.
 
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/api/permissions/permissions_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
@@ -80,14 +82,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptViewSource) {
   ASSERT_TRUE(RunExtensionTest("content_scripts/view_source")) << message_;
 }
 
-#if defined (OS_CHROMEOS)
+// crbug.com/120762
 IN_PROC_BROWSER_TEST_F(
     ExtensionApiTest,
-    FLAKY_ContentScriptStylesInjectedIntoExistingRenderers) {
-#else
-IN_PROC_BROWSER_TEST_F(
-    ExtensionApiTest, ContentScriptStylesInjectedIntoExistingRenderers) {
-#endif
+    DISABLED_ContentScriptStylesInjectedIntoExistingRenderers) {
   ASSERT_TRUE(StartTestServer());
 
   ui_test_utils::WindowedNotificationObserver signal(
@@ -106,7 +104,7 @@ IN_PROC_BROWSER_TEST_F(
   // And check that its styles were affected by the styles that just got loaded.
   bool styles_injected;
   ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
-      browser()->GetSelectedWebContents()->GetRenderViewHost(), L"",
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send("
       L"document.defaultView.getComputedStyle(document.body, null)."
       L"getPropertyValue('background-color') == 'rgb(255, 0, 0)')",
@@ -122,9 +120,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptCSSLocalization) {
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptExtensionAPIs) {
   ASSERT_TRUE(StartTestServer());
 
-  CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kEnableExperimentalExtensionApis);
-  const Extension* extension = LoadExtension(
+  const extensions::Extension* extension = LoadExtension(
       test_data_dir_.AppendASCII("content_scripts/extension_api"));
 
   ResultCatcher catcher;
@@ -143,4 +139,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptExtensionAPIs) {
       browser(), extension->GetResourceURL("fire_event.html"),
       NEW_FOREGROUND_TAB, ui_test_utils::BROWSER_TEST_NONE);
   EXPECT_TRUE(catcher.GetNextResult());
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ContentScriptPermissionsApi) {
+  RequestPermissionsFunction::SetIgnoreUserGestureForTests(true);
+  RequestPermissionsFunction::SetAutoConfirmForTests(true);
+  host_resolver()->AddRule("*.com", "127.0.0.1");
+  ASSERT_TRUE(StartTestServer());
+  ASSERT_TRUE(RunExtensionTest("content_scripts/permissions")) << message_;
 }

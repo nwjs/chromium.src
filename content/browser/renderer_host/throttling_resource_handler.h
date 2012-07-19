@@ -4,48 +4,44 @@
 
 #ifndef CONTENT_BROWSER_RENDERER_HOST_THROTTLING_RESOURCE_HANDLER_H_
 #define CONTENT_BROWSER_RENDERER_HOST_THROTTLING_RESOURCE_HANDLER_H_
-#pragma once
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_vector.h"
 #include "content/browser/renderer_host/layered_resource_handler.h"
-#include "content/public/browser/resource_throttle_controller.h"
+#include "content/public/browser/resource_controller.h"
 #include "googleurl/src/gurl.h"
 
 namespace content {
 
-class ResourceDispatcherHostImpl;
 class ResourceThrottle;
 struct ResourceResponse;
 
 // Used to apply a list of ResourceThrottle instances to an URLRequest.
 class ThrottlingResourceHandler : public LayeredResourceHandler,
-                                  public ResourceThrottleController {
+                                  public ResourceController {
  public:
   // Takes ownership of the ResourceThrottle instances.
-  ThrottlingResourceHandler(ResourceDispatcherHostImpl* host,
-                            ResourceHandler* next_handler,
+  ThrottlingResourceHandler(scoped_ptr<ResourceHandler> next_handler,
                             int child_id,
                             int request_id,
                             ScopedVector<ResourceThrottle> throttles);
+  virtual ~ThrottlingResourceHandler();
 
   // LayeredResourceHandler overrides:
   virtual bool OnRequestRedirected(int request_id, const GURL& url,
                                    ResourceResponse* response,
                                    bool* defer) OVERRIDE;
   virtual bool OnResponseStarted(int request_id,
-                                 content::ResourceResponse* response) OVERRIDE;
+                                 content::ResourceResponse* response,
+                                 bool* defer) OVERRIDE;
   virtual bool OnWillStart(int request_id, const GURL& url,
                            bool* defer) OVERRIDE;
-  virtual void OnRequestClosed() OVERRIDE;
 
   // ResourceThrottleController implementation:
   virtual void Cancel() OVERRIDE;
   virtual void Resume() OVERRIDE;
 
  private:
-  virtual ~ThrottlingResourceHandler();
-
   void ResumeStart();
   void ResumeRedirect();
   void ResumeResponse();
@@ -58,8 +54,6 @@ class ThrottlingResourceHandler : public LayeredResourceHandler,
   };
   DeferredStage deferred_stage_;
 
-  ResourceDispatcherHostImpl* host_;
-  int child_id_;
   int request_id_;
 
   ScopedVector<ResourceThrottle> throttles_;

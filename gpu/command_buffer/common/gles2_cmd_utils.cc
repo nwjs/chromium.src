@@ -207,6 +207,8 @@ int GLES2Util::GLGetNumValuesReturned(int id) const {
     //    GL_CHROMIUM_framebuffer_multisample
     case GL_MAX_SAMPLES_EXT:
       return 1;
+    case GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT:
+      return 1;
 
     // -- glGetBufferParameteriv
     case GL_BUFFER_SIZE:
@@ -290,6 +292,8 @@ int GLES2Util::GLGetNumValuesReturned(int id) const {
       return 1;
     case GL_TEXTURE_WRAP_T:
       return 1;
+    case GL_TEXTURE_MAX_ANISOTROPY_EXT:
+      return 1;
 
     // -- glGetVertexAttribfv, glGetVertexAttribiv
     case GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING:
@@ -342,6 +346,10 @@ int ElementsPerGroup(int format, int type) {
     case GL_ALPHA:
     case GL_LUMINANCE:
     case GL_DEPTH_COMPONENT:
+    case GL_DEPTH_COMPONENT24_OES:
+    case GL_DEPTH_COMPONENT32_OES:
+    case GL_DEPTH_COMPONENT16:
+    case GL_DEPTH24_STENCIL8_OES:
     case GL_DEPTH_STENCIL_OES:
        return 1;
     default:
@@ -373,12 +381,31 @@ int BytesPerElement(int type) {
 
 }  // anonymous namespace
 
+uint32 GLES2Util::ComputeImageGroupSize(int format, int type) {
+  return BytesPerElement(type) * ElementsPerGroup(format, type);
+}
+
+bool GLES2Util::ComputeImagePaddedRowSize(
+        int width, int format, int type, int unpack_alignment,
+        uint32* padded_row_size) {
+  uint32 bytes_per_group = ComputeImageGroupSize(format, type);
+  uint32 unpadded_row_size;
+  if (!SafeMultiplyUint32(width, bytes_per_group, &unpadded_row_size)) {
+    return false;
+  }
+  uint32 temp;
+  if (!SafeAddUint32(unpadded_row_size, unpack_alignment - 1, &temp)) {
+      return false;
+  }
+  *padded_row_size = (temp / unpack_alignment) * unpack_alignment;
+  return true;
+}
+
 // Returns the amount of data glTexImage2D or glTexSubImage2D will access.
-bool GLES2Util::ComputeImageDataSize(
+bool GLES2Util::ComputeImageDataSizes(
     int width, int height, int format, int type, int unpack_alignment,
-    uint32* size) {
-  uint32 bytes_per_group =
-      BytesPerElement(type) * ElementsPerGroup(format, type);
+    uint32* size, uint32* ret_unpadded_row_size, uint32* ret_padded_row_size) {
+  uint32 bytes_per_group = ComputeImageGroupSize(format, type);
   uint32 row_size;
   if (!SafeMultiplyUint32(width, bytes_per_group, &row_size)) {
     return false;
@@ -397,11 +424,21 @@ bool GLES2Util::ComputeImageDataSize(
     if (!SafeAddUint32(size_of_all_but_last_row, row_size, size)) {
       return false;
     }
+    if (ret_padded_row_size) {
+      *ret_padded_row_size = padded_row_size;
+    }
   } else {
     if (!SafeMultiplyUint32(height, row_size, size)) {
       return false;
     }
+    if (ret_padded_row_size) {
+      *ret_padded_row_size = row_size;
+    }
   }
+  if (ret_unpadded_row_size) {
+    *ret_unpadded_row_size = row_size;
+  }
+
   return true;
 }
 
@@ -459,6 +496,8 @@ uint32 GLES2Util::GetGLDataTypeSizeForUniforms(int type) {
     case GL_FLOAT_MAT4:
       return sizeof(GLfloat) * 4 * 4;      // NOLINT
     case GL_SAMPLER_2D:
+      return sizeof(GLint);                // NOLINT
+    case GL_SAMPLER_2D_RECT_ARB:
       return sizeof(GLint);                // NOLINT
     case GL_SAMPLER_CUBE:
       return sizeof(GLint);                // NOLINT
@@ -565,6 +604,8 @@ uint32 GLES2Util::GetChannelsForFormat(int format) {
     case GL_RGBA4:
     case GL_RGB5_A1:
       return kRGBA;
+    case GL_DEPTH_COMPONENT32_OES:
+    case GL_DEPTH_COMPONENT24_OES:
     case GL_DEPTH_COMPONENT16:
     case GL_DEPTH_COMPONENT:
       return kDepth;
@@ -613,7 +654,7 @@ std::string GLES2Util::GetStringError(uint32 value) {
 }
 
 std::string GLES2Util::GetStringBool(uint32 value) {
-  return value ? "true" : "false";
+  return value ? "GL_TRUE" : "GL_FALSE";
 }
 
 std::string GLES2Util::GetQualifiedEnumString(

@@ -48,7 +48,7 @@ class FFmpegConfigHelper {
   scoped_array<uint8> url_protocol_buffer_;
 
   // Protocol used by |format_context_|. It must outlive the context object.
-  scoped_ptr<FFmpegURLProtocol> url_protocol_;
+  scoped_ptr<InMemoryUrlProtocol> url_protocol_;
 
   // FFmpeg format context for this demuxer. It is created by
   // avformat_open_input() during demuxer initialization and cleaned up with
@@ -181,46 +181,91 @@ bool FFmpegConfigHelper::SetupStreamConfigs() {
 }
 
 WebMStreamParser::WebMStreamParser()
-    : state_(WAITING_FOR_INIT),
-      host_(NULL) {
+    : state_(kWaitingForInit),
+      waiting_for_buffers_(false) {
 }
 
 WebMStreamParser::~WebMStreamParser() {}
 
-void WebMStreamParser::Init(const InitCB& init_cb, StreamParserHost* host) {
-  DCHECK_EQ(state_, WAITING_FOR_INIT);
+void WebMStreamParser::Init(const InitCB& init_cb,
+                            const NewConfigCB& config_cb,
+                            const NewBuffersCB& audio_cb,
+                            const NewBuffersCB& video_cb,
+                            const NeedKeyCB& need_key_cb,
+                            const NewMediaSegmentCB& new_segment_cb) {
+  DCHECK_EQ(state_, kWaitingForInit);
   DCHECK(init_cb_.is_null());
-  DCHECK(!host_);
   DCHECK(!init_cb.is_null());
-  DCHECK(host);
+  DCHECK(!config_cb.is_null());
+  DCHECK(!audio_cb.is_null() || !video_cb.is_null());
+  DCHECK(!need_key_cb.is_null());
+  DCHECK(!new_segment_cb.is_null());
 
-  ChangeState(PARSING_HEADERS);
+  ChangeState(kParsingHeaders);
   init_cb_ = init_cb;
-  host_ = host;
+  config_cb_ = config_cb;
+  audio_cb_ = audio_cb;
+  video_cb_ = video_cb;
+  need_key_cb_ = need_key_cb;
+  new_segment_cb_ = new_segment_cb;
 }
 
 void WebMStreamParser::Flush() {
-  DCHECK_NE(state_, WAITING_FOR_INIT);
+  DCHECK_NE(state_, kWaitingForInit);
 
-  if (state_ != PARSING_CLUSTERS)
+  byte_queue_.Reset();
+
+  if (state_ != kParsingClusters)
     return;
 
   cluster_parser_->Reset();
 }
 
-int WebMStreamParser::Parse(const uint8* buf, int size) {
-  DCHECK_NE(state_, WAITING_FOR_INIT);
+bool WebMStreamParser::Parse(const uint8* buf, int size) {
+  DCHECK_NE(state_, kWaitingForInit);
 
-  if (state_ == PARSING_HEADERS)
-    return ParseInfoAndTracks(buf, size);
+  if (state_ == kError)
+    return false;
 
-  if (state_ == PARSING_CLUSTERS)
-    return ParseCluster(buf, size);
+  byte_queue_.Push(buf, size);
 
-  return -1;
+  int result = 0;
+  int bytes_parsed = 0;
+  const uint8* cur = NULL;
+  int cur_size = 0;
+
+  byte_queue_.Peek(&cur, &cur_size);
+  do {
+    switch (state_) {
+      case kParsingHeaders:
+        result = ParseInfoAndTracks(cur, cur_size);
+        break;
+
+      case kParsingClusters:
+        result = ParseCluster(cur, cur_size);
+        break;
+
+      case kWaitingForInit:
+      case kError:
+        return false;
+    }
+
+    if (result < 0) {
+      ChangeState(kError);
+      return false;
+    }
+
+    cur += result;
+    cur_size -= result;
+    bytes_parsed += result;
+  } while (result > 0 && cur_size > 0);
+
+  byte_queue_.Pop(bytes_parsed);
+  return true;
 }
 
 void WebMStreamParser::ChangeState(State new_state) {
+  DVLOG(1) << "ChangeState() : " << state_ << " -> " << new_state;
   state_ = new_state;
 }
 
@@ -292,27 +337,39 @@ int WebMStreamParser::ParseInfoAndTracks(const uint8* data, int size) {
 
   FFmpegConfigHelper config_helper;
 
-  if (!config_helper.Parse(data, bytes_parsed))
+  if (!config_helper.Parse(data, bytes_parsed)) {
+    DVLOG(1) << "Failed to parse config data.";
     return -1;
+  }
 
-  if (config_helper.audio_config().IsValidConfig())
-    host_->OnNewAudioConfig(config_helper.audio_config());
+  if (!config_cb_.Run(config_helper.audio_config(),
+                      config_helper.video_config())) {
+    DVLOG(1) << "New config data isn't allowed.";
+    return -1;
+  }
 
-  if (config_helper.video_config().IsValidConfig())
-    host_->OnNewVideoConfig(config_helper.video_config());
+  // TODO(xhwang): Support decryption of audio (see http://crbug.com/123421).
+  if (tracks_parser.video_encryption_key_id()) {
+    int key_id_size = tracks_parser.video_encryption_key_id_size();
+    CHECK_GT(key_id_size, 0);
+    scoped_array<uint8> key_id(new uint8[key_id_size]);
+    memcpy(key_id.get(), tracks_parser.video_encryption_key_id(), key_id_size);
+    need_key_cb_.Run(key_id.Pass(), key_id_size);
+  }
 
   cluster_parser_.reset(new WebMClusterParser(
       info_parser.timecode_scale(),
       tracks_parser.audio_track_num(),
-      tracks_parser.audio_default_duration(),
       tracks_parser.video_track_num(),
-      tracks_parser.video_default_duration(),
       tracks_parser.video_encryption_key_id(),
       tracks_parser.video_encryption_key_id_size()));
 
-  ChangeState(PARSING_CLUSTERS);
-  init_cb_.Run(true, duration);
-  init_cb_.Reset();
+  ChangeState(kParsingClusters);
+
+  if (!init_cb_.is_null()) {
+    init_cb_.Run(true, duration);
+    init_cb_.Reset();
+  }
 
   return bytes_parsed;
 }
@@ -328,6 +385,9 @@ int WebMStreamParser::ParseCluster(const uint8* data, int size) {
   if (result <= 0)
     return result;
 
+  if (id == kWebMIdCluster)
+    waiting_for_buffers_ = true;
+
   if (id == kWebMIdCues) {
     if (size < (result + element_size)) {
       // We don't have the whole element yet. Signal we need more data.
@@ -337,20 +397,29 @@ int WebMStreamParser::ParseCluster(const uint8* data, int size) {
     return result + element_size;
   }
 
+  if (id == kWebMIdEBMLHeader) {
+    ChangeState(kParsingHeaders);
+    return 0;
+  }
+
   int bytes_parsed = cluster_parser_->Parse(data, size);
 
   if (bytes_parsed <= 0)
     return bytes_parsed;
 
-  const StreamParserHost::BufferQueue& audio_buffers =
-      cluster_parser_->audio_buffers();
-  const StreamParserHost::BufferQueue& video_buffers =
-      cluster_parser_->video_buffers();
+  const BufferQueue& audio_buffers = cluster_parser_->audio_buffers();
+  const BufferQueue& video_buffers = cluster_parser_->video_buffers();
+  base::TimeDelta cluster_start_time = cluster_parser_->cluster_start_time();
 
-  if (!audio_buffers.empty() && !host_->OnAudioBuffers(audio_buffers))
+  if (waiting_for_buffers_ && cluster_start_time != kNoTimestamp()) {
+    new_segment_cb_.Run(cluster_start_time);
+    waiting_for_buffers_ = false;
+  }
+
+  if (!audio_buffers.empty() && !audio_cb_.Run(audio_buffers))
     return -1;
 
-  if (!video_buffers.empty() && !host_->OnVideoBuffers(video_buffers))
+  if (!video_buffers.empty() && !video_cb_.Run(video_buffers))
     return -1;
 
   return bytes_parsed;

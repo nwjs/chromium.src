@@ -4,7 +4,6 @@
 
 #ifndef CHROME_RENDERER_CHROME_CONTENT_RENDERER_CLIENT_H_
 #define CHROME_RENDERER_CHROME_CONTENT_RENDERER_CLIENT_H_
-#pragma once
 
 #include <set>
 #include <string>
@@ -15,16 +14,18 @@
 #include "content/public/renderer/content_renderer_client.h"
 
 class ChromeRenderProcessObserver;
-class Extension;
 class ExtensionDispatcher;
 class ExtensionSet;
-class RendererHistogramSnapshots;
 class RendererNetPredictor;
 class SpellCheck;
 class SpellCheckProvider;
 class VisitedLinkSlave;
 
 struct ChromeViewHostMsg_GetPluginInfo_Status;
+
+namespace media {
+class AudioRendererSink;
+}
 
 namespace prerender {
 class PrerenderDispatcher;
@@ -58,6 +59,9 @@ class ChromeContentRendererClient : public content::ContentRendererClient {
       WebKit::WebFrame* frame,
       const WebKit::WebPluginParams& params,
       WebKit::WebPlugin** plugin) OVERRIDE;
+  virtual WebKit::WebPlugin* CreatePluginReplacement(
+      content::RenderView* render_view,
+      const FilePath& plugin_path) OVERRIDE;
   virtual bool HasErrorPage(int http_status_code,
                             std::string* error_domain) OVERRIDE;
   virtual void GetNavigationErrorStrings(
@@ -72,6 +76,7 @@ class ChromeContentRendererClient : public content::ContentRendererClient {
       base::WeakPtr<webkit_media::WebMediaPlayerDelegate> delegate,
       media::FilterCollection* collection,
       WebKit::WebAudioSourceProvider* audio_source_provider,
+      media::AudioRendererSink* audio_renderer_sink,
       media::MessageLoopFactory* message_loop_factory,
       webkit_media::MediaStreamClient* media_stream_client,
       media::MediaLog* media_log) OVERRIDE;
@@ -158,7 +163,6 @@ class ChromeContentRendererClient : public content::ContentRendererClient {
 
   scoped_ptr<ChromeRenderProcessObserver> chrome_observer_;
   scoped_ptr<ExtensionDispatcher> extension_dispatcher_;
-  scoped_ptr<RendererHistogramSnapshots> histogram_snapshots_;
   scoped_ptr<RendererNetPredictor> net_predictor_;
   scoped_ptr<SpellCheck> spellcheck_;
   scoped_ptr<VisitedLinkSlave> visited_link_slave_;

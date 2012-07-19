@@ -26,8 +26,6 @@
           # Test files are also not included.
           'nacl/nacl_ipc_adapter.cc',
           'nacl/nacl_ipc_adapter.h',
-          'nacl/nacl_ipc_manager.cc',
-          'nacl/nacl_ipc_manager.h',
           'nacl/nacl_main.cc',
           'nacl/nacl_main_platform_delegate.h',
           'nacl/nacl_main_platform_delegate_linux.cc',
@@ -107,7 +105,9 @@
               ],
               'sources': [
                 'common/nacl_cmd_line.cc',
+                'common/nacl_debug_exception_handler_win.cc',
                 'common/nacl_messages.cc',
+                'common/nacl_types.cc',
                 'nacl/nacl_broker_listener.cc',
                 'nacl/nacl_broker_listener.h',
               ],
@@ -141,13 +141,15 @@
               ],
               'dependencies': [
                 '../crypto/crypto.gyp:crypto',
+                '../sandbox/sandbox.gyp:libc_urandom_override',
                 'nacl',
               ],
               'sources': [
                 'nacl/nacl_helper_linux.cc',
+                '../base/posix/unix_domain_socket.cc',
                 '../chrome/common/nacl_messages.cc',
+                '../chrome/common/nacl_types.cc',
                 '../content/common/child_process_sandbox_support_impl_shm_linux.cc',
-                '../content/common/unix_domain_socket_posix.cc',
               ],
               'conditions': [
                 ['toolkit_uses_gtk == 1', {

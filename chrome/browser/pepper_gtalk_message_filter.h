@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PEPPER_GTALK_MESSAGE_FILTER_H_
 #define CHROME_BROWSER_PEPPER_GTALK_MESSAGE_FILTER_H_
-#pragma once
 
 #include "content/public/browser/browser_message_filter.h"
 #include "ppapi/c/pp_resource.h"
@@ -13,7 +12,6 @@
 class PepperGtalkMessageFilter : public content::BrowserMessageFilter {
  public:
   PepperGtalkMessageFilter();
-  virtual ~PepperGtalkMessageFilter();
 
   // content::BrowserMessageFilter methods.
   virtual void OverrideThreadForMessage(
@@ -23,6 +21,8 @@ class PepperGtalkMessageFilter : public content::BrowserMessageFilter {
                                  bool* message_was_ok) OVERRIDE;
 
  private:
+  virtual ~PepperGtalkMessageFilter();
+
   void OnTalkGetPermission(uint32 plugin_dispatcher_id,
                            PP_Resource resource);
 

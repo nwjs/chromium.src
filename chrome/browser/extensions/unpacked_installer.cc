@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/file_util.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -16,11 +17,15 @@
 #include "chrome/common/string_ordinal.h"
 
 using content::BrowserThread;
+using extensions::Extension;
 
 namespace {
 
-// Manages an ExtensionInstallUI for a particular extension.
-class SimpleExtensionLoadPrompt : public ExtensionInstallUI::Delegate {
+const char kUnpackedExtensionsBlacklistedError[] =
+    "Loading of unpacked extensions is disabled by the administrator.";
+
+// Manages an ExtensionInstallPrompt for a particular extension.
+class SimpleExtensionLoadPrompt : public ExtensionInstallPrompt::Delegate {
  public:
   SimpleExtensionLoadPrompt(Profile* profile,
                             base::WeakPtr<ExtensionService> extension_service,
@@ -35,7 +40,7 @@ class SimpleExtensionLoadPrompt : public ExtensionInstallUI::Delegate {
 
  private:
   base::WeakPtr<ExtensionService> service_weak_;
-  scoped_ptr<ExtensionInstallUI> install_ui_;
+  scoped_ptr<ExtensionInstallPrompt> install_ui_;
   scoped_refptr<const Extension> extension_;
 };
 
@@ -44,8 +49,9 @@ SimpleExtensionLoadPrompt::SimpleExtensionLoadPrompt(
     base::WeakPtr<ExtensionService> extension_service,
     const Extension* extension)
     : service_weak_(extension_service),
-      install_ui_(new ExtensionInstallUI(profile)),
       extension_(extension) {
+  install_ui_.reset(
+      ExtensionInstallUI::CreateInstallPromptWithProfile(profile));
 }
 
 SimpleExtensionLoadPrompt::~SimpleExtensionLoadPrompt() {
@@ -58,7 +64,7 @@ void SimpleExtensionLoadPrompt::ShowPrompt() {
 void SimpleExtensionLoadPrompt::InstallUIProceed() {
   if (service_weak_.get()) {
     extensions::PermissionsUpdater perms_updater(service_weak_->profile());
-    perms_updater.GrantActivePermissions(extension_);
+    perms_updater.GrantActivePermissions(extension_, false);
     service_weak_->OnExtensionInstalled(
         extension_, false, StringOrdinal());  // Not from web store.
   }
@@ -107,6 +113,11 @@ void UnpackedInstaller::LoadFromCommandLine(const FilePath& path_in) {
   extension_path_ = path_in;
   file_util::AbsolutePath(&extension_path_);
 
+  if (!IsLoadingUnpackedAllowed()) {
+    ReportExtensionLoadError(kUnpackedExtensionsBlacklistedError);
+    return;
+  }
+
   std::string id = Extension::GenerateIdForPath(extension_path_);
   bool allow_file_access =
       Extension::ShouldAlwaysAllowFileAccess(Extension::LOAD);
@@ -116,22 +127,28 @@ void UnpackedInstaller::LoadFromCommandLine(const FilePath& path_in) {
   int flags = Extension::REQUIRE_MODERN_MANIFEST_VERSION;
   if (allow_file_access)
     flags |= Extension::ALLOW_FILE_ACCESS;
-  if (Extension::ShouldDoStrictErrorChecking(Extension::LOAD))
-    flags |= Extension::STRICT_ERROR_CHECKS;
 
   std::string error;
   scoped_refptr<const Extension> extension(extension_file_util::LoadExtension(
       extension_path_,
       Extension::LOAD,
-      flags,
+      flags | Extension::FOLLOW_SYMLINKS_ANYWHERE,
       &error));
 
   if (!extension) {
-    service_weak_->ReportExtensionLoadError(extension_path_, error, true);
+    ReportExtensionLoadError(error);
     return;
   }
 
   OnLoaded(extension);
+}
+
+bool UnpackedInstaller::IsLoadingUnpackedAllowed() const {
+  if (!service_weak_)
+    return true;
+  // If there is a "*" in the extension blacklist, then no extensions should be
+  // allowed at all (except explicitly whitelisted extensions).
+  return !service_weak_->extension_prefs()->ExtensionsBlacklistedByDefault();
 }
 
 void UnpackedInstaller::GetAbsolutePath() {
@@ -145,6 +162,14 @@ void UnpackedInstaller::GetAbsolutePath() {
 
 void UnpackedInstaller::CheckExtensionFileAccess() {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  if (!service_weak_)
+    return;
+
+  if (!IsLoadingUnpackedAllowed()) {
+    ReportExtensionLoadError(kUnpackedExtensionsBlacklistedError);
+    return;
+  }
+
   std::string id = Extension::GenerateIdForPath(extension_path_);
   // Unpacked extensions default to allowing file access, but if that has been
   // overridden, don't reset the value.
@@ -164,13 +189,11 @@ void UnpackedInstaller::LoadWithFileAccess(bool allow_file_access) {
   int flags = Extension::REQUIRE_MODERN_MANIFEST_VERSION;
   if (allow_file_access)
     flags |= Extension::ALLOW_FILE_ACCESS;
-  if (Extension::ShouldDoStrictErrorChecking(Extension::LOAD))
-    flags |= Extension::STRICT_ERROR_CHECKS;
   std::string error;
   scoped_refptr<const Extension> extension(extension_file_util::LoadExtension(
       extension_path_,
       Extension::LOAD,
-      flags,
+      flags | Extension::FOLLOW_SYMLINKS_ANYWHERE,
       &error));
 
   if (!extension) {
@@ -210,11 +233,11 @@ void UnpackedInstaller::OnLoaded(
         service_weak_,
         extension);
     prompt->ShowPrompt();
-    return;  // continues in SimpleExtensionLoadPrompt::InstallUI*
+    return;  // continues in SimpleExtensionLoadPrompt::InstallPrompt*
   }
 
   PermissionsUpdater perms_updater(service_weak_->profile());
-  perms_updater.GrantActivePermissions(extension);
+  perms_updater.GrantActivePermissions(extension, false);
   service_weak_->OnExtensionInstalled(extension,
                                       false,  // Not from web store.
                                       StringOrdinal());

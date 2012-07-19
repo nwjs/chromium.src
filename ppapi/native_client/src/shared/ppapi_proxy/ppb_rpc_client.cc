@@ -24,44 +24,6 @@
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/ppb_core.h"
 
-NaClSrpcError NaClFileRpcClient::StreamAsFile(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    const char* url,
-    int32_t callback_id)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "StreamAsFile:isi:",
-      instance,
-      url,
-      callback_id
-  );
-  return retval;
-}
-
-NaClSrpcError NaClFileRpcClient::GetFileDesc(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    const char* url,
-    NaClSrpcImcDescType* file_desc)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "GetFileDesc:is:h",
-      instance,
-      url,
-      file_desc
-  );
-  return retval;
-}
-
 NaClSrpcError PpbRpcClient::PPB_GetInterface(
     NaClSrpcChannel* channel,
     const char* interface_name,
@@ -381,97 +343,6 @@ NaClSrpcError PpbCoreRpcClient::PPB_Core_CallOnMainThread(
       delay_in_milliseconds,
       callback_id,
       result
-  );
-  return retval;
-}
-
-NaClSrpcError PpbCursorControlRpcClient::PPB_CursorControl_SetCursor(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    int32_t type,
-    PP_Resource custom_image,
-    nacl_abi_size_t hot_spot_bytes, char* hot_spot,
-    int32_t* success)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "PPB_CursorControl_SetCursor:iiiC:i",
-      instance,
-      type,
-      custom_image,
-      hot_spot_bytes, hot_spot,
-      success
-  );
-  return retval;
-}
-
-NaClSrpcError PpbCursorControlRpcClient::PPB_CursorControl_LockCursor(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    int32_t* success)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "PPB_CursorControl_LockCursor:i:i",
-      instance,
-      success
-  );
-  return retval;
-}
-
-NaClSrpcError PpbCursorControlRpcClient::PPB_CursorControl_UnlockCursor(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    int32_t* success)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "PPB_CursorControl_UnlockCursor:i:i",
-      instance,
-      success
-  );
-  return retval;
-}
-
-NaClSrpcError PpbCursorControlRpcClient::PPB_CursorControl_HasCursorLock(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    int32_t* success)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "PPB_CursorControl_HasCursorLock:i:i",
-      instance,
-      success
-  );
-  return retval;
-}
-
-NaClSrpcError PpbCursorControlRpcClient::PPB_CursorControl_CanLockCursor(
-    NaClSrpcChannel* channel,
-    PP_Instance instance,
-    int32_t* success)  {
-  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
-         ("%s: PPAPI calls are not supported off the main thread\n",
-          __FUNCTION__));
-  NaClSrpcError retval;
-  retval = NaClSrpcInvokeBySignature(
-      channel,
-      "PPB_CursorControl_CanLockCursor:i:i",
-      instance,
-      success
   );
   return retval;
 }
@@ -2043,6 +1914,29 @@ NaClSrpcError PpbMessagingRpcClient::PPB_Messaging_PostMessage(
       "PPB_Messaging_PostMessage:iC:",
       instance,
       message_bytes, message
+  );
+  return retval;
+}
+
+NaClSrpcError PpbMouseCursorRpcClient::PPB_MouseCursor_SetCursor(
+    NaClSrpcChannel* channel,
+    PP_Instance instance,
+    int32_t type,
+    PP_Resource custom_image,
+    nacl_abi_size_t hot_spot_bytes, char* hot_spot,
+    int32_t* success)  {
+  VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
+         ("%s: PPAPI calls are not supported off the main thread\n",
+          __FUNCTION__));
+  NaClSrpcError retval;
+  retval = NaClSrpcInvokeBySignature(
+      channel,
+      "PPB_MouseCursor_SetCursor:iiiC:i",
+      instance,
+      type,
+      custom_image,
+      hot_spot_bytes, hot_spot,
+      success
   );
   return retval;
 }
@@ -3642,17 +3536,19 @@ NaClSrpcError PpbWebSocketRpcClient::PPB_WebSocket_ReceiveMessage(
     NaClSrpcChannel* channel,
     PP_Resource ws,
     int32_t callback_id,
-    int32_t* pp_error)  {
+    int32_t* pp_error,
+    nacl_abi_size_t* sync_read_buffer_bytes, char* sync_read_buffer)  {
   VCHECK(ppapi_proxy::PPBCoreInterface()->IsMainThread(),
          ("%s: PPAPI calls are not supported off the main thread\n",
           __FUNCTION__));
   NaClSrpcError retval;
   retval = NaClSrpcInvokeBySignature(
       channel,
-      "PPB_WebSocket_ReceiveMessage:ii:i",
+      "PPB_WebSocket_ReceiveMessage:ii:iC",
       ws,
       callback_id,
-      pp_error
+      pp_error,
+      sync_read_buffer_bytes, sync_read_buffer
   );
   return retval;
 }

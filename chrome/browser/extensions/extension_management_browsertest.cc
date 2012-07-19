@@ -15,14 +15,16 @@
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/common/url_fetcher.h"
+#include "net/url_request/url_fetcher.h"
+
+using extensions::Extension;
 
 class ExtensionManagementTest : public ExtensionBrowserTest {
  protected:
@@ -117,7 +119,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, InstallRequiresConfirm) {
 
   // And the install should succeed when the permissions are accepted.
   ASSERT_TRUE(InstallExtensionWithUIAutoConfirm(
-      test_data_dir_.AppendASCII("good.crx"), 1, browser()->profile()));
+      test_data_dir_.AppendASCII("good.crx"), 1, browser()));
   UninstallExtension(id);
 }
 
@@ -139,13 +141,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, DisableEnable) {
   EXPECT_TRUE(manager->GetBackgroundHostForExtension(extension_id));
 
   // After disabling, the background page should go away.
-  service->DisableExtension(extension_id);
+  DisableExtension(extension_id);
   EXPECT_EQ(size_before, service->extensions()->size());
   EXPECT_EQ(1u, service->disabled_extensions()->size());
   EXPECT_FALSE(manager->GetBackgroundHostForExtension(extension_id));
 
   // And bring it back.
-  service->EnableExtension(extension_id);
+  EnableExtension(extension_id);
   EXPECT_EQ(size_before + 1, service->extensions()->size());
   EXPECT_EQ(0u, service->disabled_extensions()->size());
   EXPECT_TRUE(manager->GetBackgroundHostForExtension(extension_id));
@@ -222,7 +224,12 @@ class NotificationListener : public content::NotificationObserver {
 // Fails consistently on Windows XP, see: http://crbug.com/120640.
 #define MAYBE_AutoUpdate DISABLED_AutoUpdate
 #else
+// See http://crbug.com/103371 and http://crbug.com/120640.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_AutoUpdate DISABLED_AutoUpdate
+#else
 #define MAYBE_AutoUpdate AutoUpdate
+#endif
 #endif
 
 // Tests extension autoupdate.
@@ -231,7 +238,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, MAYBE_AutoUpdate) {
   FilePath basedir = test_data_dir_.AppendASCII("autoupdate");
   // Note: This interceptor gets requests on the IO thread.
   scoped_refptr<AutoUpdateInterceptor> interceptor(new AutoUpdateInterceptor());
-  content::URLFetcher::SetEnableInterceptionForTests(true);
+  net::URLFetcher::SetEnableInterceptionForTests(true);
 
   interceptor->SetResponseOnIOThread("http://localhost/autoupdate/manifest",
                                      basedir.AppendASCII("manifest_v2.xml"));
@@ -296,7 +303,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, MAYBE_AutoUpdate) {
 // Fails consistently on Windows XP, see: http://crbug.com/120640.
 #define MAYBE_AutoUpdateDisabledExtensions DISABLED_AutoUpdateDisabledExtensions
 #else
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_AutoUpdateDisabledExtensions DISABLED_AutoUpdateDisabledExtensions
+#else
 #define MAYBE_AutoUpdateDisabledExtensions AutoUpdateDisabledExtensions
+#endif
 #endif
 
 // Tests extension autoupdate.
@@ -306,7 +317,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
   FilePath basedir = test_data_dir_.AppendASCII("autoupdate");
   // Note: This interceptor gets requests on the IO thread.
   scoped_refptr<AutoUpdateInterceptor> interceptor(new AutoUpdateInterceptor());
-  content::URLFetcher::SetEnableInterceptionForTests(true);
+  net::URLFetcher::SetEnableInterceptionForTests(true);
 
   interceptor->SetResponseOnIOThread("http://localhost/autoupdate/manifest",
                                      basedir.AppendASCII("manifest_v2.xml"));
@@ -322,7 +333,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
       InstallExtension(basedir.AppendASCII("v1.crx"), 1);
   ASSERT_TRUE(extension);
   listener1.WaitUntilSatisfied();
-  service->DisableExtension(extension->id());
+  DisableExtension(extension->id());
   ASSERT_EQ(disabled_size_before + 1, service->disabled_extensions()->size());
   ASSERT_EQ(enabled_size_before, service->extensions()->size());
   ASSERT_EQ("ogjcoiohnmldgjemafoockdghcjciccf", extension->id());
@@ -348,7 +359,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
   // The extension should have not made the callback because it is disabled.
   // When we enabled it, it should then make the callback.
   ASSERT_FALSE(listener2.was_satisfied());
-  service->EnableExtension(extension->id());
+  EnableExtension(extension->id());
   listener2.WaitUntilSatisfied();
   ASSERT_TRUE(notification_listener.started());
   ASSERT_TRUE(notification_listener.finished());
@@ -367,7 +378,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalUrlUpdate) {
 
   // Note: This interceptor gets requests on the IO thread.
   scoped_refptr<AutoUpdateInterceptor> interceptor(new AutoUpdateInterceptor());
-  content::URLFetcher::SetEnableInterceptionForTests(true);
+  net::URLFetcher::SetEnableInterceptionForTests(true);
 
   interceptor->SetResponseOnIOThread("http://localhost/autoupdate/manifest",
                                      basedir.AppendASCII("manifest_v2.xml"));
@@ -402,7 +413,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalUrlUpdate) {
 
   UninstallExtension(kExtensionId);
 
-  ExtensionPrefs* extension_prefs = service->extension_prefs();
+  extensions::ExtensionPrefs* extension_prefs = service->extension_prefs();
   EXPECT_TRUE(extension_prefs->IsExternalExtensionUninstalled(kExtensionId))
       << "Uninstalling should set kill bit on externaly installed extension.";
 
@@ -450,7 +461,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalPolicyRefresh) {
 
   // Note: This interceptor gets requests on the IO thread.
   scoped_refptr<AutoUpdateInterceptor> interceptor(new AutoUpdateInterceptor());
-  content::URLFetcher::SetEnableInterceptionForTests(true);
+  net::URLFetcher::SetEnableInterceptionForTests(true);
 
   interceptor->SetResponseOnIOThread("http://localhost/autoupdate/manifest",
                                      basedir.AppendASCII("manifest_v2.xml"));
@@ -484,7 +495,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalPolicyRefresh) {
   EXPECT_EQ(Extension::EXTERNAL_POLICY_DOWNLOAD, extension->location());
 
   // Try to disable and uninstall the extension which should fail.
-  service->DisableExtension(kExtensionId);
+  DisableExtension(kExtensionId);
   EXPECT_EQ(size_before + 1, service->extensions()->size());
   EXPECT_EQ(0u, service->disabled_extensions()->size());
   UninstallExtension(kExtensionId);
@@ -507,7 +518,15 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalPolicyRefresh) {
   EXPECT_FALSE(service->GetExtensionById(kExtensionId, true));
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, PolicyOverridesUserInstall) {
+// See http://crbug.com/103371 and http://crbug.com/120640.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_PolicyOverridesUserInstall DISABLED_PolicyOverridesUserInstall
+#else
+#define MAYBE_PolicyOverridesUserInstall PolicyOverridesUserInstall
+#endif
+
+IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
+                       MAYBE_PolicyOverridesUserInstall) {
   ExtensionService* service = browser()->profile()->GetExtensionService();
   const char* kExtensionId = "ogjcoiohnmldgjemafoockdghcjciccf";
   service->updater()->set_blacklist_checks_enabled(false);
@@ -517,7 +536,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, PolicyOverridesUserInstall) {
 
   // Note: This interceptor gets requests on the IO thread.
   scoped_refptr<AutoUpdateInterceptor> interceptor(new AutoUpdateInterceptor());
-  content::URLFetcher::SetEnableInterceptionForTests(true);
+  net::URLFetcher::SetEnableInterceptionForTests(true);
 
   interceptor->SetResponseOnIOThread("http://localhost/autoupdate/manifest",
                                      basedir.AppendASCII("manifest_v2.xml"));
@@ -576,7 +595,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, PolicyOverridesUserInstall) {
   EXPECT_TRUE(service->IsExtensionEnabled(kExtensionId));
   EXPECT_TRUE(service->disabled_extensions()->is_empty());
 
-  service->DisableExtension(kExtensionId);
+  DisableExtension(kExtensionId);
   EXPECT_EQ(1u, service->disabled_extensions()->size());
   extension = service->GetExtensionById(kExtensionId, true);
   EXPECT_TRUE(extension);

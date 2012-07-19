@@ -1,0 +1,6 @@
+include_rules = [
+  "+sync/internal_api/base_node.h",
+  "+sync/internal_api/public",
+  "+sync/protocol",
+  "+sync/util/immutable.h",
+]

@@ -19,6 +19,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
 #include "base/scoped_temp_dir.h"
+#include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/system_monitor/system_monitor.h"
@@ -44,6 +45,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/logging/win/file_logger.h"
 #include "chrome/test/logging/win/log_file_printer.h"
 #include "chrome/test/logging/win/test_log_collector.h"
@@ -61,7 +63,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_paths.h"
 #include "net/base/net_util.h"
-#include "sandbox/src/sandbox_types.h"
+#include "sandbox/win/src/sandbox_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
@@ -145,30 +147,20 @@ class FakeMainDelegate : public content::ContentMainDelegate {
   virtual bool BasicStartupComplete(int* exit_code) OVERRIDE {
     logging_win::InstallTestLogCollector(
         testing::UnitTest::GetInstance());
+
+    content::SetContentClient(&g_chrome_content_client.Get());
+    content::GetContentClient()->set_renderer_for_testing(
+        &g_renderer_client.Get());
     return false;
   }
 
-  virtual void PreSandboxStartup() OVERRIDE {
-    // Initialize the content client.
-    content::SetContentClient(&g_chrome_content_client.Get());
-
-    // Override the default ContentBrowserClient to let Chrome participate in
-    // content logic.  We use a subclass of Chrome's implementation,
-    // FakeContentBrowserClient, to override CreateBrowserMainParts.  Must
-    // be done before any tabs are created.
-    content::GetContentClient()->set_browser(&g_browser_client.Get());
-
-    content::GetContentClient()->set_renderer(&g_renderer_client.Get());
-  }
-
-  virtual void SandboxInitialized(const std::string& process_type) OVERRIDE {}
-
-  virtual int RunProcess(
-      const std::string& process_type,
-      const content::MainFunctionParams& main_function_params) OVERRIDE {
-    return -1;
-  }
-  virtual void ProcessExiting(const std::string& process_type) OVERRIDE {}
+  // Override the default ContentBrowserClient to let Chrome participate in
+  // content logic.  We use a subclass of Chrome's implementation,
+  // FakeContentBrowserClient, to override CreateBrowserMainParts.  Must
+  // be done before any tabs are created.
+  virtual content::ContentBrowserClient* CreateContentBrowserClient() OVERRIDE {
+    return &g_browser_client.Get();
+  };
 };
 
 void FilterDisabledTests() {
@@ -246,7 +238,7 @@ void FilterDisabledTests() {
     "URLRequestTest.CancelTest_During_OnGetCookies",
     "URLRequestTest.CancelTest_During_OnSetCookie",
 
-    // These tests are disabled as the rely on functionality provided by
+    // These tests are disabled as they rely on functionality provided by
     // Chrome's HTTP stack like the ability to set the proxy for a URL, etc.
     "URLRequestTestHTTP.ProxyTunnelRedirectTest",
     "URLRequestTestHTTP.UnexpectedServerAuthTest",
@@ -284,6 +276,8 @@ void FilterDisabledTests() {
     "HTTPSRequestTest.ResumeTest",
     "HTTPSRequestTest.SSLSessionCacheShardTest",
     "HTTPSRequestTest.SSLSessionCacheShardTest",
+    "HTTPSRequestTest.SSLv3Fallback",
+    "HTTPSRequestTest.TLSv1Fallback",
     "HTTPSRequestTest.HTTPSErrorsNoClobberTSSTest",
     "HTTPSOCSPTest.*",
     "HTTPSEVCRLSetTest.*",
@@ -305,6 +299,19 @@ void FilterDisabledTests() {
   for (int i = 0; i < arraysize(disabled_tests); ++i) {
     if (i > 0)
       filter += ":";
+
+    // If the rule has the form TestSuite.TestCase, also filter out
+    // TestSuite.FLAKY_TestCase . This way the exclusion rules above
+    // don't need to be updated when a test is marked flaky.
+    base::StringPiece test_name(disabled_tests[i]);
+    size_t dot_index = test_name.find('.');
+    if (dot_index != base::StringPiece::npos &&
+        dot_index + 1 < test_name.size()) {
+      test_name.substr(0, dot_index).AppendToString(&filter);
+      filter += ".FLAKY_";
+      test_name.substr(dot_index + 1).AppendToString(&filter);
+      filter += ":";
+    }
     filter += disabled_tests[i];
   }
 
@@ -457,7 +464,7 @@ void FakeExternalTab::Initialize() {
   DCHECK(res_mod);
   _AtlBaseModule.SetResourceInstance(res_mod);
 
-  ResourceBundle::InitSharedInstanceWithLocale("en-US");
+  ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
 
   CommandLine* cmd = CommandLine::ForCurrentProcess();
   cmd->AppendSwitch(switches::kDisableWebResources);
@@ -516,8 +523,10 @@ void CFUrlRequestUnittestRunner::StartChromeFrameInHostBrowser() {
 
   // Tweak IE settings to make it amenable to testing before launching it.
   ie_configurator_.reset(chrome_frame_test::CreateConfigurator());
-  if (ie_configurator_.get() != NULL)
+  if (ie_configurator_.get() != NULL) {
+    ie_configurator_->Initialize();
     ie_configurator_->ApplySettings();
+  }
 
   test_http_server_.reset(new test_server::SimpleWebServer(kTestServerPort));
   test_http_server_->AddResponse(&chrome_frame_html_);
@@ -669,7 +678,7 @@ void CFUrlRequestUnittestRunner::TakeDownBrowser() {
       FROM_HERE,
       base::Bind(&CFUrlRequestUnittestRunner::OnIEShutdownFailure,
                  base::Unretained(this)),
-      TestTimeouts::action_max_timeout_ms());
+      TestTimeouts::action_max_timeout());
 }
 
 void CFUrlRequestUnittestRunner::InitializeLogging() {
@@ -698,11 +707,16 @@ void CFUrlRequestUnittestRunner::StartInitializationTimeout() {
   MessageLoop::current()->PostDelayedTask(
       FROM_HERE,
       timeout_closure_.callback(),
-      TestTimeouts::action_max_timeout_ms());
+      TestTimeouts::action_max_timeout());
 }
 
 void CFUrlRequestUnittestRunner::OnInitializationTimeout() {
   LOG(ERROR) << "Failed to start Chrome Frame in the host browser.";
+
+  FilePath snapshot;
+  if (ui_test_utils::SaveScreenSnapshotToDesktop(&snapshot))
+    LOG(ERROR) << "Screen snapshot saved to " << snapshot.value();
+
   StopFileLogger(true);
 
   if (launch_browser_) {
@@ -720,42 +734,15 @@ void CFUrlRequestUnittestRunner::OnInitializationTimeout() {
 }
 
 void CFUrlRequestUnittestRunner::OverrideHttpHost() {
-  net::NetworkInterfaceList nic_list;
-  if (!net::GetNetworkList(&nic_list)) {
-    LOG(ERROR) << "GetNetworkList failed to look up non-loopback adapters. "
-               << "Tests will be run over the loopback adapter, which may "
-               << "result in hangs.";
-    return;
-  }
-
-  // GetNetworkList only returns 'Up' non-loopback adapters. Select the first
-  // IPV4 address found - we should be able to bind/connect over it.
-  for (size_t i = 0; i < nic_list.size(); ++i) {
-    if (nic_list[i].address.size() != net::kIPv4AddressSize)
-      continue;
-    char* address_string =
-        inet_ntoa(*reinterpret_cast<in_addr*>(&nic_list[i].address[0]));
-    DCHECK(address_string != NULL);
-    if (address_string == NULL)
-      continue;
-    LOG(INFO) << "HTTP tests will run over " << address_string << ".";
-    override_http_host_.reset(
-        new ScopedCustomUrlRequestTestHttpHost(address_string));
-    return;
-  }
-
-  LOG(ERROR) << "Failed to find a non-loopback IP_V4 address. Tests will be "
-             << "run over the loopback adapter, which may result in hangs.";
+  override_http_host_.reset(
+      new ScopedCustomUrlRequestTestHttpHost(
+          chrome_frame_test::GetLocalIPv4Address()));
 }
 
 void CFUrlRequestUnittestRunner::PreEarlyInitialization() {
   testing::InitGoogleTest(&g_argc, g_argv);
   FilterDisabledTests();
   StartFileLogger();
-}
-
-MessageLoop* CFUrlRequestUnittestRunner::GetMainMessageLoop() {
-  return NULL;
 }
 
 int CFUrlRequestUnittestRunner::PreCreateThreads() {

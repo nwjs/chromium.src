@@ -4,7 +4,8 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_MEDIA_OBSERVER_H_
 #define CONTENT_PUBLIC_BROWSER_MEDIA_OBSERVER_H_
-#pragma once
+
+#include "content/public/common/media_stream_request.h"
 
 namespace media {
 struct MediaLogEvent;
@@ -35,6 +36,18 @@ class MediaObserver {
   // Called when a MediaEvent occurs.
   virtual void OnMediaEvent(int render_process_id,
                             const media::MediaLogEvent& event) = 0;
+
+  // Called when capture devices are opened.
+  virtual void OnCaptureDevicesOpened(
+      int render_process_id,
+      int render_view_id,
+      const content::MediaStreamDevices& devices) = 0;
+
+  // Called when the opened capture devices are closed.
+  virtual void OnCaptureDevicesClosed(
+      int render_process_id,
+      int render_view_id,
+      const content::MediaStreamDevices& devices) = 0;
 
  protected:
   virtual ~MediaObserver() {}

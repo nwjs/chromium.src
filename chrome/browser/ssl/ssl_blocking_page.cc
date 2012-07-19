@@ -26,6 +26,7 @@
 #include "grit/browser_resources.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
 
 using content::InterstitialPage;
@@ -55,13 +56,15 @@ SSLBlockingPage::SSLBlockingPage(
     const net::SSLInfo& ssl_info,
     const GURL& request_url,
     bool overridable,
+    bool strict_enforcement,
     const base::Callback<void(bool)>& callback)
     : callback_(callback),
       web_contents_(web_contents),
       cert_error_(cert_error),
       ssl_info_(ssl_info),
       request_url_(request_url),
-      overridable_(overridable) {
+      overridable_(overridable),
+      strict_enforcement_(strict_enforcement) {
   RecordSSLBlockingPageStats(SHOW);
   interstitial_page_ = InterstitialPage::Create(
       web_contents_, true, request_url, this);
@@ -91,7 +94,7 @@ std::string SSLBlockingPage::GetHTMLContents() {
   SetExtraInfo(&strings, error_info.extra_information());
 
   int resource_id;
-  if (overridable_) {
+  if (overridable_ && !strict_enforcement_) {
     resource_id = IDR_SSL_ROAD_BLOCK_HTML;
     strings.SetString("title",
                       l10n_util::GetStringUTF16(IDS_SSL_BLOCKING_PAGE_TITLE));
@@ -108,15 +111,18 @@ std::string SSLBlockingPage::GetHTMLContents() {
                       l10n_util::GetStringUTF16(IDS_SSL_ERROR_PAGE_TITLE));
     strings.SetString("back",
                       l10n_util::GetStringUTF16(IDS_SSL_ERROR_PAGE_BACK));
-    strings.SetString("cannotProceed",
-                      l10n_util::GetStringUTF16(
-                          IDS_SSL_ERROR_PAGE_CANNOT_PROCEED));
+    if (strict_enforcement_) {
+      strings.SetString("cannotProceed",
+                        l10n_util::GetStringUTF16(
+                            IDS_SSL_ERROR_PAGE_CANNOT_PROCEED));
+    }
   }
 
   strings.SetString("textdirection", base::i18n::IsRTL() ? "rtl" : "ltr");
 
   base::StringPiece html(
-      ResourceBundle::GetSharedInstance().GetRawDataResource(resource_id));
+      ResourceBundle::GetSharedInstance().GetRawDataResource(
+          resource_id, ui::SCALE_FACTOR_NONE));
 
   return jstemplate_builder::GetI18nTemplateHtml(html, &strings);
 }
@@ -149,7 +155,7 @@ void SSLBlockingPage::OverrideRendererPrefs(
   Profile* profile = Profile::FromBrowserContext(
       web_contents_->GetBrowserContext());
   renderer_preferences_util::UpdateFromSystemSettings(prefs, profile);
- }
+}
 
 void SSLBlockingPage::OnProceed() {
   RecordSSLBlockingPageStats(PROCEED);

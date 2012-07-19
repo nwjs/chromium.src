@@ -340,7 +340,7 @@ void VisitDatabase::GetVisibleVisitsInRange(base::Time begin_time,
   }
 }
 
-void VisitDatabase::GetVisibleVisitsDuringTimes(const VisitFilter& time_filter,
+void VisitDatabase::GetDirectVisitsDuringTimes(const VisitFilter& time_filter,
                                                 int max_results,
                                                 VisitVector* visits) {
   visits->clear();
@@ -348,18 +348,28 @@ void VisitDatabase::GetVisibleVisitsDuringTimes(const VisitFilter& time_filter,
     visits->reserve(max_results);
   for (VisitFilter::TimeVector::const_iterator it = time_filter.times().begin();
        it != time_filter.times().end(); ++it) {
-    VisitVector v;
-    GetVisibleVisitsInRange(it->first, it->second, max_results, &v);
-    size_t take_only = 0;
-    if (max_results &&
-        static_cast<int>(visits->size() + v.size()) > max_results) {
-      take_only = max_results - visits->size();
-    }
+    sql::Statement statement(GetDB().GetCachedStatement(SQL_FROM_HERE,
+        "SELECT" HISTORY_VISIT_ROW_FIELDS "FROM visits "
+        "WHERE visit_time >= ? AND visit_time < ? "
+        "AND (transition & ?) != 0 "  // CHAIN_START
+        "AND (transition & ?) IN (?, ?) "  // TYPED or AUTO_BOOKMARK only
+        "ORDER BY visit_time DESC, id DESC"));
 
-    visits->insert(visits->end(),
-                   v.begin(), take_only ? v.begin() + take_only : v.end());
-    if (max_results && static_cast<int>(visits->size()) == max_results)
-      return;
+    statement.BindInt64(0, it->first.ToInternalValue());
+    statement.BindInt64(1, it->second.ToInternalValue());
+    statement.BindInt(2, content::PAGE_TRANSITION_CHAIN_START);
+    statement.BindInt(3, content::PAGE_TRANSITION_CORE_MASK);
+    statement.BindInt(4, content::PAGE_TRANSITION_TYPED);
+    statement.BindInt(5, content::PAGE_TRANSITION_AUTO_BOOKMARK);
+
+    while (statement.Step()) {
+      VisitRow visit;
+      FillVisitRow(statement, &visit);
+      visits->push_back(visit);
+
+      if (max_results > 0 && static_cast<int>(visits->size()) >= max_results)
+        return;
+    }
   }
 }
 
@@ -556,6 +566,29 @@ bool VisitDatabase::MigrateVisitsWithoutDuration() {
       return false;
   }
   return true;
+}
+
+void VisitDatabase::GetBriefVisitInfoOfMostRecentVisits(
+    int max_visits,
+    std::vector<BriefVisitInfo>* result_vector) {
+  result_vector->clear();
+
+  sql::Statement statement(GetDB().GetUniqueStatement(
+      "SELECT url,visit_time,transition FROM visits "
+      "ORDER BY id DESC LIMIT ?"));
+
+  statement.BindInt64(0, max_visits);
+
+  if (!statement.is_valid())
+    return;
+
+  while (statement.Step()) {
+    BriefVisitInfo info;
+    info.url_id = statement.ColumnInt64(0);
+    info.time = base::Time::FromInternalValue(statement.ColumnInt64(1));
+    info.transition = content::PageTransitionFromInt(statement.ColumnInt(2));
+    result_vector->push_back(info);
+  }
 }
 
 }  // namespace history

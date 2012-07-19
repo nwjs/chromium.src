@@ -5,18 +5,19 @@
 #ifndef REMOTING_HOST_SESSION_EVENT_EXECUTOR_WIN_H_
 #define REMOTING_HOST_SESSION_EVENT_EXECUTOR_WIN_H_
 
+#include <set>
+
 #include "base/basictypes.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "ipc/ipc_channel.h"
 
 #include "remoting/host/event_executor.h"
 #include "remoting/host/scoped_thread_desktop_win.h"
 #include "remoting/protocol/host_event_stub.h"
 
-class MessageLoop;
-
 namespace base {
-class MessageLoopProxy;
+class SingleThreadTaskRunner;
 } // namespace base
 
 namespace IPC {
@@ -25,23 +26,27 @@ class ChannelProxy;
 
 namespace remoting {
 
-class SessionEventExecutorWin : public protocol::HostEventStub,
-                                public IPC::Channel::Listener {
+class SessionEventExecutorWin : public EventExecutor,
+                                public IPC::Listener {
  public:
-  SessionEventExecutorWin(MessageLoop* message_loop,
-                          base::MessageLoopProxy* io_message_loop,
-                          scoped_ptr<protocol::HostEventStub> nested_executor);
+  SessionEventExecutorWin(
+      scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
+      scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
+      scoped_ptr<EventExecutor> nested_executor);
   ~SessionEventExecutorWin();
 
-  // ClipboardStub interface.
+  // EventExecutor implementation.
+  virtual void OnSessionStarted(
+      scoped_ptr<protocol::ClipboardStub> client_clipboard) OVERRIDE;
+  virtual void OnSessionFinished() OVERRIDE;
+
+  // protocol::HostStub implementation.
   virtual void InjectClipboardEvent(
       const protocol::ClipboardEvent& event) OVERRIDE;
-
-  // protocol::InputStub implementation.
   virtual void InjectKeyEvent(const protocol::KeyEvent& event) OVERRIDE;
   virtual void InjectMouseEvent(const protocol::MouseEvent& event) OVERRIDE;
 
-  // IPC::Channel::Listener implementation.
+  // IPC::Listener implementation.
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
  private:
@@ -50,16 +55,20 @@ class SessionEventExecutorWin : public protocol::HostEventStub,
   void SwitchToInputDesktop();
 
   // Pointer to the next event executor.
-  scoped_ptr<protocol::HostEventStub> nested_executor_;
+  scoped_ptr<EventExecutor> nested_executor_;
 
-  MessageLoop* message_loop_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 
   ScopedThreadDesktopWin desktop_;
 
   // The Chromoting IPC channel connecting the host with the service.
   scoped_ptr<IPC::ChannelProxy> chromoting_channel_;
 
-  bool scroll_pressed_;
+  // Keys currently pressed by the client, used to detect Ctrl-Alt-Del.
+  std::set<uint32> pressed_keys_;
+
+  base::WeakPtrFactory<SessionEventExecutorWin> weak_ptr_factory_;
+  base::WeakPtr<SessionEventExecutorWin> weak_ptr_;
 
   DISALLOW_COPY_AND_ASSIGN(SessionEventExecutorWin);
 };

@@ -4,11 +4,11 @@
 
 #ifndef SYNC_SYNCABLE_DIRECTORY_CHANGE_DELEGATE_H_
 #define SYNC_SYNCABLE_DIRECTORY_CHANGE_DELEGATE_H_
-#pragma once
 
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/syncable.h"
+#include "sync/internal_api/public/base/model_type.h"
+#include "sync/syncable/write_transaction_info.h"
 
+namespace syncer {
 namespace syncable {
 
 // This is an interface for listening to directory change events, triggered by
@@ -41,5 +41,6 @@ class DirectoryChangeDelegate {
 };
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_DIRECTORY_CHANGE_DELEGATE_H_

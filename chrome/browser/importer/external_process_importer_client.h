@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_IMPORTER_EXTERNAL_PROCESS_IMPORTER_CLIENT_H_
 #define CHROME_BROWSER_IMPORTER_EXTERNAL_PROCESS_IMPORTER_CLIENT_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -39,7 +38,6 @@ class ExternalProcessImporterClient : public content::UtilityProcessHostClient {
                                 const importer::SourceProfile& source_profile,
                                 uint16 items,
                                 InProcessImporterBridge* bridge);
-  virtual ~ExternalProcessImporterClient();
 
   // Launches the task to start the external process.
   void Start();
@@ -72,6 +70,9 @@ class ExternalProcessImporterClient : public content::UtilityProcessHostClient {
   // |template_urls|!
   void OnKeywordsImportReady(const std::vector<TemplateURL*>& template_urls,
                              bool unique_on_host_and_path);
+
+ protected:
+  virtual ~ExternalProcessImporterClient();
 
  private:
   // Notifies the importerhost that import has finished, and calls Release().

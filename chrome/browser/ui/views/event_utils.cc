@@ -1,22 +1,16 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/event_disposition.h"
 #include "chrome/browser/ui/views/event_utils.h"
-#include "ui/views/events/event.h"
 
-using views::Event;
+#include "ui/views/events/event.h"
 
 namespace event_utils {
 
-// TODO(shinyak) After refactoring, this function shoulbe removed.
-WindowOpenDisposition DispositionFromEventFlags(int event_flags) {
-  return browser::DispositionFromEventFlags(event_flags);
+bool IsPossibleDispositionEvent(const views::Event& event) {
+  return event.IsMouseEvent() && (event.flags() &
+             (ui::EF_LEFT_MOUSE_BUTTON | ui::EF_MIDDLE_MOUSE_BUTTON));
 }
 
-bool IsPossibleDispositionEvent(const views::MouseEvent& event) {
-  return event.IsLeftMouseButton() || event.IsMiddleMouseButton();
-}
-
-}
+}  // namespace event_utils

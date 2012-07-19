@@ -75,6 +75,8 @@
     GPU_CLIENT_VALIDATE_DESTINATION_INITALIZATION_ASSERT(ptr && \
         (ptr[0] == static_cast<type>(0) || ptr[0] == static_cast<type>(-1)));
 
+struct GLUniformDefinitionCHROMIUM;
+
 namespace gpu {
 
 class MappedMemoryManager;
@@ -100,34 +102,62 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
   };
 
   // Stores client side cached GL state.
-  struct GLState {
-    GLState()
-        : max_combined_texture_image_units(0),
-          max_cube_map_texture_size(0),
-          max_fragment_uniform_vectors(0),
-          max_renderbuffer_size(0),
-          max_texture_image_units(0),
-          max_texture_size(0),
-          max_varying_vectors(0),
-          max_vertex_attribs(0),
-          max_vertex_texture_image_units(0),
-          max_vertex_uniform_vectors(0),
-          num_compressed_texture_formats(0),
-          num_shader_binary_formats(0) {
-    }
+  struct GLCachedState {
+    struct IntState {
+      IntState()
+          : max_combined_texture_image_units(0),
+            max_cube_map_texture_size(0),
+            max_fragment_uniform_vectors(0),
+            max_renderbuffer_size(0),
+            max_texture_image_units(0),
+            max_texture_size(0),
+            max_varying_vectors(0),
+            max_vertex_attribs(0),
+            max_vertex_texture_image_units(0),
+            max_vertex_uniform_vectors(0),
+            num_compressed_texture_formats(0),
+            num_shader_binary_formats(0) {
+      }
 
-    GLint max_combined_texture_image_units;
-    GLint max_cube_map_texture_size;
-    GLint max_fragment_uniform_vectors;
-    GLint max_renderbuffer_size;
-    GLint max_texture_image_units;
-    GLint max_texture_size;
-    GLint max_varying_vectors;
-    GLint max_vertex_attribs;
-    GLint max_vertex_texture_image_units;
-    GLint max_vertex_uniform_vectors;
-    GLint num_compressed_texture_formats;
-    GLint num_shader_binary_formats;
+      GLint max_combined_texture_image_units;
+      GLint max_cube_map_texture_size;
+      GLint max_fragment_uniform_vectors;
+      GLint max_renderbuffer_size;
+      GLint max_texture_image_units;
+      GLint max_texture_size;
+      GLint max_varying_vectors;
+      GLint max_vertex_attribs;
+      GLint max_vertex_texture_image_units;
+      GLint max_vertex_uniform_vectors;
+      GLint num_compressed_texture_formats;
+      GLint num_shader_binary_formats;
+    };
+    struct EnableState {
+      EnableState()
+          : blend(false),
+            cull_face(false),
+            depth_test(false),
+            dither(false),
+            polygon_offset_fill(false),
+            sample_alpha_to_coverage(false),
+            sample_coverage(false),
+            scissor_test(false),
+            stencil_test(false) {
+      }
+
+      bool blend;
+      bool cull_face;
+      bool depth_test;
+      bool dither;
+      bool polygon_offset_fill;
+      bool sample_alpha_to_coverage;
+      bool sample_coverage;
+      bool scissor_test;
+      bool stencil_test;
+    };
+
+    IntState int_state;
+    EnableState enable_state;
   };
 
   // The maxiumum result size from simple GL get commands.
@@ -168,9 +198,10 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
 
   // The GLES2CmdHelper being used by this GLES2Implementation. You can use
   // this to issue cmds at a lower level for certain kinds of optimization.
-  GLES2CmdHelper* helper() const {
-    return helper_;
-  }
+  GLES2CmdHelper* helper() const;
+
+  // Gets client side generated errors.
+  GLenum GetClientSideGLError();
 
   // Include the auto-generated part of this class. We split this because
   // it means we can easily edit the non-auto generated parts right here in
@@ -341,7 +372,7 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
   GLenum GetGLError();
 
   // Sets our wrapper for the GLError.
-  void SetGLError(GLenum error, const char* msg);
+  void SetGLError(GLenum error, const char* function_name, const char* msg);
 
   // Returns the last error and clears it. Useful for debugging.
   const std::string& GetLastError() {
@@ -413,13 +444,13 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
   GLuint GetMaxValueInBufferCHROMIUMHelper(
       GLuint buffer_id, GLsizei count, GLenum type, GLuint offset);
 
-  bool CopyRectToBufferFlipped(
-      const void* pixels, GLsizei width, GLsizei height, GLenum format,
-      GLenum type, void* buffer);
+  // The pixels pointer should already account for unpack skip rows and skip
+  // pixels.
   void TexSubImage2DImpl(
       GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width,
-      GLsizei height, GLenum format, GLenum type, const void* pixels,
-      GLboolean internal, ScopedTransferBufferPtr* buffer);
+      GLsizei height, GLenum format, GLenum type, uint32 unpadded_row_size,
+      const void* pixels, uint32 pixels_padded_row_size, GLboolean internal,
+      ScopedTransferBufferPtr* buffer, uint32 buffer_padded_row_size);
 
   // Helpers for query functions.
   bool GetHelper(GLenum pname, GLint* params);
@@ -439,7 +470,12 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
 
   bool IsExtensionAvailable(const char* ext);
 
+  // Caches certain capabilties state. Return true if cached.
+  bool SetCapabilityState(GLenum cap, bool enabled);
+
   IdHandlerInterface* GetIdHandler(int id_namespace) const;
+
+  void FinishHelper();
 
   GLES2Util util_;
   GLES2CmdHelper* helper_;
@@ -451,7 +487,7 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
 
   ExtensionStatus angle_pack_reverse_row_order_status;
 
-  GLState gl_state_;
+  GLCachedState gl_state_;
 
   // pack alignment as last set by glPixelStorei
   GLint pack_alignment_;
@@ -461,6 +497,15 @@ class GLES2_IMPL_EXPORT GLES2Implementation {
 
   // unpack yflip as last set by glPixelstorei
   bool unpack_flip_y_;
+
+  // unpack row length as last set by glPixelStorei
+  GLint unpack_row_length_;
+
+  // unpack skip rows as last set by glPixelStorei
+  GLint unpack_skip_rows_;
+
+  // unpack skip pixels as last set by glPixelStorei
+  GLint unpack_skip_pixels_;
 
   // pack reverse row order as last set by glPixelstorei
   bool pack_reverse_row_order_;

@@ -85,7 +85,6 @@
           'type': 'loadable_module',
           'sources': [
             '<@(common_sources)',
-            'browser_utils.cc',
           ],
           'xcode_settings': {
             'OTHER_LDFLAGS': [
@@ -119,13 +118,6 @@
                 # A real .dSYM is needed for dump_syms to operate on.
                 'mac_real_dsym': 1,
               },
-            }],
-            ['OS=="win"', {
-              'dependencies': [
-                '<(DEPTH)/native_client/src/trusted/handle_pass/handle_pass.gyp:browserhandle',
-                '<(DEPTH)/native_client/src/trusted/handle_pass/handle_pass.gyp:handle_lookup',
-                '<(DEPTH)/native_client/src/trusted/handle_pass/handle_pass.gyp:ldrhandle',
-              ],
             }],
           ],
         },

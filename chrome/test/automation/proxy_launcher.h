@@ -89,18 +89,8 @@ class ProxyLauncher {
   void CloseBrowserAndServer();
 
   // Launches the browser with the given command line. Returns true on success.
-  // TODO(phajdan.jr): Make LaunchBrowser private. Tests should use
-  // LaunchAnotherBrowserBlockUntilClosed.
+  // TODO(phajdan.jr): Make LaunchBrowser private.
   bool LaunchBrowser(const LaunchState& state) WARN_UNUSED_RESULT;
-
-#if !defined(OS_MACOSX)
-  // This function is not defined on the Mac because the concept
-  // doesn't apply to Mac; you can't have N browser processes.
-
-  // Launches another browser process and waits for it to finish.
-  // Returns true on success.
-  bool LaunchAnotherBrowserBlockUntilClosed(const LaunchState& state);
-#endif
 
   // Exits out of browser instance.
   void QuitBrowser();
@@ -153,10 +143,6 @@ class ProxyLauncher {
   // Paired with ConnectToRunningBrowser().
   // Disconnects the testing IPC from the browser.
   void DisconnectFromRunningBrowser();
-
-  virtual bool ShouldFilterInet() {
-    return true;
-  }
 
  private:
   bool WaitForBrowserLaunch(bool wait_for_initial_loads) WARN_UNUSED_RESULT;

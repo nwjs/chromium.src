@@ -64,7 +64,6 @@ void OnlineAttempt::Initiate(Profile* auth_profile) {
     oauth_fetcher_.reset(
         new GaiaOAuthFetcher(this,
                              auth_profile->GetRequestContext(),
-                             auth_profile,
                              kServiceScopeChromeOS));
   } else {
     client_fetcher_.reset(
@@ -157,7 +156,7 @@ void OnlineAttempt::TryClientLogin() {
   BrowserThread::PostDelayedTask(
       BrowserThread::UI, FROM_HERE,
       base::Bind(&OnlineAttempt::CancelClientLogin, weak_factory_.GetWeakPtr()),
-      kClientLoginTimeoutMs);
+      base::TimeDelta::FromMilliseconds(kClientLoginTimeoutMs));
 
   if (using_oauth_) {
     if (!attempt_->oauth1_access_token().length() ||

@@ -4,14 +4,13 @@
 
 #include "chrome/browser/prefs/testing_pref_store.h"
 
+#include "base/memory/scoped_ptr.h"
 #include "base/values.h"
 
 TestingPrefStore::TestingPrefStore()
     : read_only_(true),
-      prefs_written_(false),
-      init_complete_(false) {}
-
-TestingPrefStore::~TestingPrefStore() {}
+      init_complete_(false) {
+}
 
 PrefStore::ReadResult TestingPrefStore::GetValue(const std::string& key,
                                                  const Value** value) const {
@@ -53,6 +52,9 @@ void TestingPrefStore::RemoveValue(const std::string& key) {
     NotifyPrefValueChanged(key);
 }
 
+void TestingPrefStore::MarkNeedsEmptyValue(const std::string& key) {
+}
+
 bool TestingPrefStore::ReadOnly() const {
   return read_only_;
 }
@@ -62,14 +64,12 @@ PersistentPrefStore::PrefReadError TestingPrefStore::GetReadError() const {
 }
 
 PersistentPrefStore::PrefReadError TestingPrefStore::ReadPrefs() {
-  prefs_.Clear();
   NotifyInitializationCompleted();
   return PersistentPrefStore::PREF_READ_ERROR_NONE;
 }
 
 void TestingPrefStore::ReadPrefsAsync(ReadErrorDelegate* error_delegate_raw) {
   scoped_ptr<ReadErrorDelegate> error_delegate(error_delegate_raw);
-  prefs_.Clear();
   NotifyInitializationCompleted();
 }
 
@@ -131,3 +131,5 @@ bool TestingPrefStore::GetBoolean(const std::string& key, bool* value) const {
 void TestingPrefStore::set_read_only(bool read_only) {
   read_only_ = read_only;
 }
+
+TestingPrefStore::~TestingPrefStore() {}

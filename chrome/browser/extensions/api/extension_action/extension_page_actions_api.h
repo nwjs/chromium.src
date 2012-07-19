@@ -4,120 +4,100 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_EXTENSION_ACTION_EXTENSION_PAGE_ACTIONS_API_H_
 #define CHROME_BROWSER_EXTENSIONS_API_EXTENSION_ACTION_EXTENSION_PAGE_ACTIONS_API_H_
-#pragma once
 
 #include "chrome/browser/extensions/api/extension_action/extension_actions_api.h"
 #include "chrome/browser/extensions/extension_function.h"
 
-class TabContentsWrapper;
-
-// Base class for page action APIs.
-class PageActionFunction : public ExtensionActionFunction {
+// Base class for deprecated page actions APIs
+class PageActionsFunction : public SyncExtensionFunction {
  protected:
-  virtual ~PageActionFunction() {}
+  PageActionsFunction();
+  virtual ~PageActionsFunction();
   bool SetPageActionEnabled(bool enable);
-  bool SetVisible(bool visible);
-  virtual bool RunImpl() OVERRIDE;
-
-  TabContentsWrapper* contents_;
 };
 
 // Implement chrome.pageActions.enableForTab().
-class EnablePageActionFunction : public PageActionFunction {
-  virtual ~EnablePageActionFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class EnablePageActionsFunction : public PageActionsFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageActions.enableForTab")
+
+ protected:
+  virtual ~EnablePageActionsFunction() {}
+
+  // ExtensionFunction:
+  virtual bool RunImpl() OVERRIDE;
 };
 
 // Implement chrome.pageActions.disableForTab().
-class DisablePageActionFunction : public PageActionFunction {
-  virtual ~DisablePageActionFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class DisablePageActionsFunction : public PageActionsFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageActions.disableForTab")
+
+ protected:
+  virtual ~DisablePageActionsFunction() {}
+
+  // ExtensionFunction:
+  virtual bool RunImpl() OVERRIDE;
 };
 
-// Implement chrome.pageActions.show().
-class PageActionShowFunction : public PageActionFunction {
-  virtual ~PageActionShowFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+//
+// pageAction.* aliases for supported extensionActions APIs.
+//
+
+class PageActionShowFunction : public ExtensionActionShowFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.show")
+
+ protected:
+  virtual ~PageActionShowFunction() {}
 };
 
-// Implement chrome.pageActions.hide().
-class PageActionHideFunction : public PageActionFunction {
-  virtual ~PageActionHideFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class PageActionHideFunction : public ExtensionActionHideFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.hide")
+
+ protected:
+  virtual ~PageActionHideFunction() {}
 };
 
-// Implement chrome.pageActions.setIcon().
-class PageActionSetIconFunction : public PageActionFunction {
-  virtual ~PageActionSetIconFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class PageActionSetIconFunction : public ExtensionActionSetIconFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.setIcon")
+
+ protected:
+  virtual ~PageActionSetIconFunction() {}
 };
 
-// Implement chrome.pageActions.setTitle().
-class PageActionSetTitleFunction : public PageActionFunction {
-  virtual ~PageActionSetTitleFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class PageActionSetTitleFunction : public ExtensionActionSetTitleFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.setTitle")
+
+ protected:
+  virtual ~PageActionSetTitleFunction() {}
 };
 
-// Implement chrome.pageActions.setPopup().
-class PageActionSetPopupFunction : public PageActionFunction {
-  virtual ~PageActionSetPopupFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class PageActionSetPopupFunction : public ExtensionActionSetPopupFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.setPopup")
+
+ protected:
+  virtual ~PageActionSetPopupFunction() {}
 };
 
-// Implement chrome.pageActions.setBadgeBackgroundColor().
-class PageActionSetBadgeBackgroundColorFunction : public PageActionFunction {
-  virtual ~PageActionSetBadgeBackgroundColorFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("pageAction.setBadgeBackgroundColor")
-};
-
-// Implement chrome.pageActions.setBadgeTextColor().
-class PageActionSetBadgeTextColorFunction : public PageActionFunction {
-  virtual ~PageActionSetBadgeTextColorFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("pageAction.setBadgeTextColor")
-};
-
-// Implement chrome.pageActions.setBadgeText().
-class PageActionSetBadgeTextFunction : public PageActionFunction {
-  virtual ~PageActionSetBadgeTextFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("pageAction.setBadgeText")
-};
-
-// Implement chrome.pageAction.getTitle().
-class PageActionGetTitleFunction : public PageActionFunction {
-  virtual ~PageActionGetTitleFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class PageActionGetTitleFunction : public ExtensionActionGetTitleFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.getTitle")
+
+ protected:
+  virtual ~PageActionGetTitleFunction() {}
 };
 
-// Implement chrome.pageAction.getPopup().
-class PageActionGetPopupFunction : public PageActionFunction {
-  virtual ~PageActionGetPopupFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
+class PageActionGetPopupFunction : public ExtensionActionGetPopupFunction {
+ public:
   DECLARE_EXTENSION_FUNCTION_NAME("pageAction.getPopup")
-};
 
-// Implement chrome.pageAction.getBadgeText().
-class PageActionGetBadgeTextFunction : public PageActionFunction {
-  virtual ~PageActionGetBadgeTextFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("pageAction.getBadgeText")
-};
-
-// Implement chrome.pageAction.getBadgeBackgroundColor().
-class PageActionGetBadgeBackgroundColorFunction : public PageActionFunction {
-  virtual ~PageActionGetBadgeBackgroundColorFunction() {}
-  virtual bool RunExtensionAction() OVERRIDE;
-  DECLARE_EXTENSION_FUNCTION_NAME("pageAction.getBadgeBackgroundColor")
+ protected:
+  virtual ~PageActionGetPopupFunction() {}
 };
 
 #endif  // CHROME_BROWSER_EXTENSIONS_API_EXTENSION_ACTION_EXTENSION_PAGE_ACTIONS_API_H_

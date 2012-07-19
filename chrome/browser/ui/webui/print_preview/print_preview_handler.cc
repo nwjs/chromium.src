@@ -28,25 +28,28 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_url.h"
 #include "chrome/browser/printing/print_dialog_cloud.h"
+#include "chrome/browser/printing/print_error_dialog.h"
 #include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/printing/print_preview_tab_controller.h"
 #include "chrome/browser/printing/print_system_task_proxy.h"
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/printing/printer_manager_dialog.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/chrome_select_file_policy.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/browser/ui/webui/print_preview/sticky_settings.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/print_messages.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_view_host_delegate.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_view.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_ui.h"
 #include "printing/backend/print_backend.h"
 #include "printing/metafile.h"
@@ -95,6 +98,15 @@ enum PrintSettingsBuckets {
   PRINT_SETTINGS_BUCKET_BOUNDARY
 };
 
+enum PrintDestinationBuckets {
+  DESTINATION_SHOWN,
+  DESTINATION_CLOSED_CHANGED,
+  DESTINATION_CLOSED_UNCHANGED,
+  SIGNIN_PROMPT,
+  SIGNIN_TRIGGERED,
+  PRINT_DESTINATION_BUCKET_BOUNDARY
+};
+
 void ReportUserActionHistogram(enum UserActionBuckets event) {
   UMA_HISTOGRAM_ENUMERATION("PrintPreview.UserAction", event,
                             USERACTION_BUCKET_BOUNDARY);
@@ -103,6 +115,11 @@ void ReportUserActionHistogram(enum UserActionBuckets event) {
 void ReportPrintSettingHistogram(enum PrintSettingsBuckets setting) {
   UMA_HISTOGRAM_ENUMERATION("PrintPreview.PrintSettings", setting,
                             PRINT_SETTINGS_BUCKET_BOUNDARY);
+}
+
+void ReportPrintDestinationHistogram(enum PrintDestinationBuckets event) {
+  UMA_HISTOGRAM_ENUMERATION("PrintPreview.DestinationAction", event,
+                            PRINT_DESTINATION_BUCKET_BOUNDARY);
 }
 
 // Name of a dictionary fielad holdong cloud print related data;
@@ -132,7 +149,7 @@ DictionaryValue* GetSettingsDictionary(const ListValue* args) {
     return NULL;
   }
   scoped_ptr<DictionaryValue> settings(static_cast<DictionaryValue*>(
-      base::JSONReader::Read(json_str, false)));
+      base::JSONReader::Read(json_str)));
   if (!settings.get() || !settings->IsType(Value::TYPE_DICTIONARY)) {
     NOTREACHED() << "Print job settings must be a dictionary.";
     return NULL;
@@ -210,6 +227,7 @@ PrintPreviewHandler::PrintPreviewHandler()
     : print_backend_(printing::PrintBackend::CreateInstance(NULL)),
       regenerate_preview_request_count_(0),
       manage_printers_dialog_request_count_(0),
+      manage_cloud_printers_dialog_request_count_(0),
       reported_failed_preview_(false),
       has_logged_printers_count_(false) {
   ReportUserActionHistogram(PREVIEW_STARTED);
@@ -260,13 +278,19 @@ void PrintPreviewHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback("getInitialSettings",
       base::Bind(&PrintPreviewHandler::HandleGetInitialSettings,
                  base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("reportDestinationEvent",
+      base::Bind(&PrintPreviewHandler::HandleReportDestinationEvent,
+                 base::Unretained(this)));
+  web_ui()->RegisterMessageCallback("printWithCloudPrint",
+      base::Bind(&PrintPreviewHandler::HandlePrintWithCloudPrint,
+                 base::Unretained(this)));
 }
 
-TabContentsWrapper* PrintPreviewHandler::preview_tab_wrapper() const {
-  return TabContentsWrapper::GetCurrentWrapperForContents(preview_tab());
+TabContents* PrintPreviewHandler::preview_tab_contents() const {
+  return TabContents::FromWebContents(preview_web_contents());
 }
 
-WebContents* PrintPreviewHandler::preview_tab() const {
+WebContents* PrintPreviewHandler::preview_web_contents() const {
   return web_ui()->GetWebContents();
 }
 
@@ -303,7 +327,7 @@ void PrintPreviewHandler::HandleGetPreview(const ListValue* args) {
   // Increment request count.
   ++regenerate_preview_request_count_;
 
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
+  TabContents* initiator_tab = GetInitiatorTab();
   if (!initiator_tab) {
     ReportUserActionHistogram(INITIATOR_TAB_CLOSED);
     print_preview_ui->OnClosePrintPreviewTab();
@@ -362,7 +386,7 @@ void PrintPreviewHandler::HandlePrint(const ListValue* args) {
   UMA_HISTOGRAM_COUNTS("PrintPreview.RegeneratePreviewRequest.BeforePrint",
                        regenerate_preview_request_count_);
 
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
+  TabContents* initiator_tab = GetInitiatorTab();
   if (initiator_tab) {
     RenderViewHost* rvh = initiator_tab->web_contents()->GetRenderViewHost();
     rvh->Send(new PrintMsg_ResetScriptedPrintCount(rvh->GetRoutingID()));
@@ -373,8 +397,10 @@ void PrintPreviewHandler::HandlePrint(const ListValue* args) {
     return;
 
   // Storing last used settings.
-  GetStickySettings()->Store(*settings);
-
+  printing::StickySettings* sticky_settings = GetStickySettings();
+  sticky_settings->Store(*settings);
+  sticky_settings->SaveInPrefs(Profile::FromBrowserContext(
+      preview_web_contents()->GetBrowserContext())->GetPrefs());
   // Never try to add headers/footers here. It's already in the generated PDF.
   settings->SetBoolean(printing::kSettingHeaderFooterEnabled, false);
 
@@ -401,7 +427,7 @@ void PrintPreviewHandler::HandlePrint(const ListValue* args) {
   } else if (print_to_pdf) {
     HandlePrintToPdf(*settings);
   } else if (is_cloud_dialog) {
-    HandlePrintWithCloudPrint();
+    HandlePrintWithCloudPrint(NULL);
   } else {
     ReportPrintSettingsStats(*settings);
     ReportUserActionHistogram(PRINT_TO_PRINTER);
@@ -420,7 +446,7 @@ void PrintPreviewHandler::HandlePrint(const ListValue* args) {
     // The PDF being printed contains only the pages that the user selected,
     // so ignore the page range and print all pages.
     settings->Remove(printing::kSettingPageRange, NULL);
-    RenderViewHost* rvh = web_ui()->GetWebContents()->GetRenderViewHost();
+    RenderViewHost* rvh = preview_web_contents()->GetRenderViewHost();
     rvh->Send(
         new PrintMsg_PrintForPrintPreview(rvh->GetRoutingID(), *settings));
 
@@ -439,12 +465,12 @@ void PrintPreviewHandler::HandlePrintToPdf(
       web_ui()->GetController());
   if (print_to_pdf_path_.get()) {
     // User has already selected a path, no need to show the dialog again.
-    scoped_refptr<RefCountedBytes> data;
+    scoped_refptr<base::RefCountedBytes> data;
     print_preview_ui->GetPrintPreviewDataForIndex(
         printing::COMPLETE_PREVIEW_DOCUMENT_INDEX, &data);
     PostPrintToPdfTask(data);
   } else if (!select_file_dialog_.get() || !select_file_dialog_->IsRunning(
-        platform_util::GetTopLevel(preview_tab()->GetNativeView()))) {
+        platform_util::GetTopLevel(preview_web_contents()->GetNativeView()))) {
     ReportUserActionHistogram(PRINT_TO_PDF);
     UMA_HISTOGRAM_COUNTS("PrintPreview.PageCount.PrintToPDF",
                          GetPageCountFromSettingsDictionary(settings));
@@ -475,19 +501,13 @@ void PrintPreviewHandler::HandleHidePreview(const ListValue* /*args*/) {
 
 void PrintPreviewHandler::HandleCancelPendingPrintRequest(
     const ListValue* /*args*/) {
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
-  if (initiator_tab) {
-    ClearInitiatorTabDetails();
-  } else {
-    // Initiator tab does not exists. Get the wrapper contents of current tab.
-    Browser* browser = BrowserList::GetLastActive();
-    if (browser)
-      initiator_tab = browser->GetSelectedTabContentsWrapper();
-  }
-
+  TabContents* initiator_tab = GetInitiatorTab();
   if (initiator_tab)
-    initiator_tab->print_view_manager()->PreviewPrintingRequestCancelled();
-  delete preview_tab_wrapper();
+    ClearInitiatorTabDetails();
+  gfx::NativeWindow parent = initiator_tab ?
+      initiator_tab->web_contents()->GetView()->GetTopLevelNativeWindow() :
+      NULL;
+  chrome::ShowPrintErrorDialog(parent);
 }
 
 void PrintPreviewHandler::HandleSaveLastPrinter(const ListValue* args) {
@@ -528,28 +548,39 @@ void PrintPreviewHandler::OnSigninComplete(
 }
 
 void PrintPreviewHandler::HandleSignin(const ListValue* /*args*/) {
+  gfx::NativeWindow modal_parent =
+      platform_util::GetTopLevel(preview_web_contents()->GetNativeView());
   print_dialog_cloud::CreateCloudPrintSigninDialog(
+      preview_web_contents()->GetBrowserContext(),
+      modal_parent,
       base::Bind(&PrintPreviewHandler::OnSigninComplete, AsWeakPtr()));
 }
 
-void PrintPreviewHandler::HandlePrintWithCloudPrint() {
+void PrintPreviewHandler::HandlePrintWithCloudPrint(const ListValue* /*args*/) {
   // Record the number of times the user asks to print via cloud print
   // instead of the print preview dialog.
   ReportStats();
-  ReportUserActionHistogram(PRINT_WITH_CLOUD_PRINT);
 
   PrintPreviewUI* print_preview_ui = static_cast<PrintPreviewUI*>(
       web_ui()->GetController());
-  scoped_refptr<RefCountedBytes> data;
+  scoped_refptr<base::RefCountedBytes> data;
   print_preview_ui->GetPrintPreviewDataForIndex(
       printing::COMPLETE_PREVIEW_DOCUMENT_INDEX, &data);
-  CHECK(data.get());
+  if (!data.get()) {
+    NOTREACHED();
+    return;
+  }
   DCHECK_GT(data->size(), 0U);
-  print_dialog_cloud::CreatePrintDialogForBytes(data,
+
+  gfx::NativeWindow modal_parent =
+      platform_util::GetTopLevel(preview_web_contents()->GetNativeView());
+  print_dialog_cloud::CreatePrintDialogForBytes(
+      preview_web_contents()->GetBrowserContext(),
+      modal_parent,
+      data,
       string16(print_preview_ui->initiator_tab_title()),
       string16(),
-      std::string("application/pdf"),
-      true);
+      std::string("application/pdf"));
 
   // Once the cloud print dialog comes up we're no longer in a background
   // printing situation.  Close the print preview.
@@ -559,21 +590,23 @@ void PrintPreviewHandler::HandlePrintWithCloudPrint() {
 }
 
 void PrintPreviewHandler::HandleManageCloudPrint(const ListValue* /*args*/) {
-  Browser* browser = BrowserList::GetLastActive();
-  if (browser != NULL)
-    browser->OpenURL(OpenURLParams(
-        CloudPrintURL(browser->profile()).GetCloudPrintServiceManageURL(),
-        Referrer(),
-        NEW_FOREGROUND_TAB,
-        content::PAGE_TRANSITION_LINK,
-        false));
+  ++manage_cloud_printers_dialog_request_count_;
+  Profile* profile = Profile::FromBrowserContext(
+      preview_web_contents()->GetBrowserContext());
+  preview_web_contents()->OpenURL(
+      OpenURLParams(
+          CloudPrintURL(profile).GetCloudPrintServiceManageURL(),
+          Referrer(),
+          NEW_FOREGROUND_TAB,
+          content::PAGE_TRANSITION_LINK,
+          false));
 }
 
 void PrintPreviewHandler::HandleShowSystemDialog(const ListValue* /*args*/) {
   ReportStats();
   ReportUserActionHistogram(FALLBACK_TO_ADVANCED_SETTINGS_DIALOG);
 
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
+  TabContents* initiator_tab = GetInitiatorTab();
   if (!initiator_tab)
     return;
 
@@ -605,6 +638,8 @@ void PrintPreviewHandler::HandleClosePreviewTab(const ListValue* /*args*/) {
 void PrintPreviewHandler::ReportStats() {
   UMA_HISTOGRAM_COUNTS("PrintPreview.ManagePrinters",
                        manage_printers_dialog_request_count_);
+  UMA_HISTOGRAM_COUNTS("PrintPreview.ManageCloudPrinters",
+                       manage_cloud_printers_dialog_request_count_);
 }
 
 void PrintPreviewHandler::GetNumberFormatAndMeasurementSystem(
@@ -624,13 +659,36 @@ void PrintPreviewHandler::GetNumberFormatAndMeasurementSystem(
 }
 
 void PrintPreviewHandler::HandleGetInitialSettings(const ListValue* /*args*/) {
-  scoped_refptr<PrintSystemTaskProxy> task =
-      new PrintSystemTaskProxy(AsWeakPtr(),
-                               print_backend_.get(),
-                               has_logged_printers_count_);
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
-      base::Bind(&PrintSystemTaskProxy::GetDefaultPrinter, task.get()));
+  printing::StickySettings* sticky_settings = GetStickySettings();
+  sticky_settings->RestoreFromPrefs(Profile::FromBrowserContext(
+      preview_web_contents()->GetBrowserContext())->GetPrefs());
+  if (sticky_settings->printer_name()) {
+    std::string cloud_print_data;
+    if (sticky_settings->printer_cloud_print_data())
+      cloud_print_data = *sticky_settings->printer_cloud_print_data();
+    SendInitialSettings(*sticky_settings->printer_name(), cloud_print_data);
+  } else {
+    scoped_refptr<PrintSystemTaskProxy> task =
+        new PrintSystemTaskProxy(AsWeakPtr(),
+                                 print_backend_.get(),
+                                 has_logged_printers_count_);
+    BrowserThread::PostTask(
+        BrowserThread::FILE, FROM_HERE,
+        base::Bind(&PrintSystemTaskProxy::GetDefaultPrinter, task.get()));
+  }
+  SendCloudPrintEnabled();
+}
+
+void PrintPreviewHandler::HandleReportDestinationEvent(const ListValue* args) {
+  int event_number;
+  bool ret = args->GetInteger(0, &event_number);
+  if (!ret)
+    return;
+  enum PrintDestinationBuckets event =
+      static_cast<enum PrintDestinationBuckets>(event_number);
+  if (event >= PRINT_DESTINATION_BUCKET_BOUNDARY)
+    return;
+  ReportPrintDestinationHistogram(event);
 }
 
 void PrintPreviewHandler::SendInitialSettings(
@@ -670,10 +728,11 @@ void PrintPreviewHandler::SendInitialSettings(
 }
 
 void PrintPreviewHandler::ActivateInitiatorTabAndClosePreviewTab() {
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
-  if (initiator_tab)
-    initiator_tab->web_contents()->GetRenderViewHost()->
-        GetDelegate()->Activate();
+  TabContents* initiator_tab = GetInitiatorTab();
+  if (initiator_tab) {
+    WebContents* web_contents = initiator_tab->web_contents();
+    web_contents->GetDelegate()->ActivateContents(web_contents);
+  }
   PrintPreviewUI* print_preview_ui = static_cast<PrintPreviewUI*>(
       web_ui()->GetController());
   print_preview_ui->OnClosePrintPreviewTab();
@@ -682,38 +741,44 @@ void PrintPreviewHandler::ActivateInitiatorTabAndClosePreviewTab() {
 void PrintPreviewHandler::SendPrinterCapabilities(
     const DictionaryValue& settings_info) {
   VLOG(1) << "Get printer capabilities finished";
+  // Copy so we can override with sticky values.
+  scoped_ptr<DictionaryValue> settings(settings_info.DeepCopy());
+  if (GetStickySettings()->color_model() != printing::UNKNOWN_COLOR_MODEL) {
+    settings->SetBoolean(
+        printing::kSettingSetColorAsDefault,
+        printing::isColorModelSelected(
+            GetStickySettings()->color_model()));
+  }
   web_ui()->CallJavascriptFunction("updateWithPrinterCapabilities",
-                                   settings_info);
+                                   *settings);
 }
 
 void PrintPreviewHandler::SetupPrinterList(const ListValue& printers) {
-  SendCloudPrintEnabled();
   web_ui()->CallJavascriptFunction("setPrinters", printers);
 }
 
 void PrintPreviewHandler::SendCloudPrintEnabled() {
-  Browser* browser = BrowserList::GetLastActive();
-  if (browser != NULL) {
-    Profile* profile = browser->profile();
-    PrefService* prefs = profile->GetPrefs();
-    if (prefs->GetBoolean(prefs::kCloudPrintSubmitEnabled)) {
-      GURL gcp_url(CloudPrintURL(profile).GetCloudPrintServiceURL());
-      base::StringValue gcp_url_value(gcp_url.spec());
-      web_ui()->CallJavascriptFunction("setUseCloudPrint", gcp_url_value);
-    }
+  Profile* profile = Profile::FromBrowserContext(
+      preview_web_contents()->GetBrowserContext());
+  PrefService* prefs = profile->GetPrefs();
+  if (prefs->GetBoolean(prefs::kCloudPrintSubmitEnabled)) {
+    GURL gcp_url(CloudPrintURL(profile).GetCloudPrintServiceURL());
+    base::StringValue gcp_url_value(gcp_url.spec());
+    web_ui()->CallJavascriptFunction("setUseCloudPrint", gcp_url_value);
   }
 }
 
 void PrintPreviewHandler::SendCloudPrintJob(const DictionaryValue& settings,
                                             std::string print_ticket) {
-  scoped_refptr<RefCountedBytes> data;
+  ReportUserActionHistogram(PRINT_WITH_CLOUD_PRINT);
+  scoped_refptr<base::RefCountedBytes> data;
   PrintPreviewUI* print_preview_ui = static_cast<PrintPreviewUI*>(
       web_ui()->GetController());
   print_preview_ui->GetPrintPreviewDataForIndex(
       printing::COMPLETE_PREVIEW_DOCUMENT_INDEX, &data);
-  if (data->size() > 0U && data->front()) {
+  if (data.get() && data->size() > 0U && data->front()) {
     string16 print_job_title_utf16 =
-        preview_tab_wrapper()->print_view_manager()->RenderSourceName();
+        preview_tab_contents()->print_view_manager()->RenderSourceName();
     std::string print_job_title = UTF16ToUTF8(print_job_title_utf16);
     std::string printer_id;
     settings.GetString(printing::kSettingCloudPrintId, &printer_id);
@@ -763,12 +828,12 @@ void PrintPreviewHandler::SendCloudPrintJob(const DictionaryValue& settings,
   }
 }
 
-TabContentsWrapper* PrintPreviewHandler::GetInitiatorTab() const {
+TabContents* PrintPreviewHandler::GetInitiatorTab() const {
   printing::PrintPreviewTabController* tab_controller =
       printing::PrintPreviewTabController::GetInstance();
   if (!tab_controller)
     return NULL;
-  return tab_controller->GetInitiatorTab(preview_tab_wrapper());
+  return tab_controller->GetInitiatorTab(preview_tab_contents());
 }
 
 void PrintPreviewHandler::OnPrintDialogShown() {
@@ -791,9 +856,8 @@ void PrintPreviewHandler::SelectFile(const FilePath& default_filename) {
     GetStickySettings()->StoreSavePath(file_path);
   }
 
-  if (!select_file_dialog_.get())
-    select_file_dialog_ = SelectFileDialog::Create(this);
-
+  select_file_dialog_ = SelectFileDialog::Create(
+      this, new ChromeSelectFilePolicy(preview_web_contents())),
   select_file_dialog_->SelectFile(
       SelectFileDialog::SELECT_SAVEAS_FILE,
       string16(),
@@ -801,13 +865,12 @@ void PrintPreviewHandler::SelectFile(const FilePath& default_filename) {
       &file_type_info,
       0,
       FILE_PATH_LITERAL(""),
-      preview_tab(),
-      platform_util::GetTopLevel(preview_tab()->GetNativeView()),
+      platform_util::GetTopLevel(preview_web_contents()->GetNativeView()),
       NULL);
 }
 
 void PrintPreviewHandler::OnTabDestroyed() {
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
+  TabContents* initiator_tab = GetInitiatorTab();
   if (!initiator_tab)
     return;
 
@@ -833,16 +896,18 @@ void PrintPreviewHandler::FileSelected(const FilePath& path,
   PrintPreviewUI* print_preview_ui = static_cast<PrintPreviewUI*>(
       web_ui()->GetController());
   print_preview_ui->web_ui()->CallJavascriptFunction("fileSelectionCompleted");
-  scoped_refptr<RefCountedBytes> data;
+  scoped_refptr<base::RefCountedBytes> data;
   print_preview_ui->GetPrintPreviewDataForIndex(
       printing::COMPLETE_PREVIEW_DOCUMENT_INDEX, &data);
   print_to_pdf_path_.reset(new FilePath(path));
-  if (data.get())
-    PostPrintToPdfTask(data);
+  PostPrintToPdfTask(data);
 }
 
-void PrintPreviewHandler::PostPrintToPdfTask(
-    scoped_refptr<RefCountedBytes> data) {
+void PrintPreviewHandler::PostPrintToPdfTask(base::RefCountedBytes* data) {
+  if (!data) {
+    NOTREACHED();
+    return;
+  }
   printing::PreviewMetafile* metafile = new printing::PreviewMetafile;
   metafile->InitFromData(static_cast<const void*>(data->front()), data->size());
   // PrintToPdfCallback takes ownership of |metafile|.
@@ -860,7 +925,7 @@ void PrintPreviewHandler::FileSelectionCanceled(void* params) {
 }
 
 void PrintPreviewHandler::ClearInitiatorTabDetails() {
-  TabContentsWrapper* initiator_tab = GetInitiatorTab();
+  TabContents* initiator_tab = GetInitiatorTab();
   if (!initiator_tab)
     return;
 
@@ -870,5 +935,5 @@ void PrintPreviewHandler::ClearInitiatorTabDetails() {
   printing::PrintPreviewTabController* tab_controller =
       printing::PrintPreviewTabController::GetInstance();
   if (tab_controller)
-    tab_controller->EraseInitiatorTabInfo(preview_tab_wrapper());
+    tab_controller->EraseInitiatorTabInfo(preview_tab_contents());
 }

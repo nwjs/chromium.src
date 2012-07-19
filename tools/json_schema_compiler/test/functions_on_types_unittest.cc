@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "tools/json_schema_compiler/test/functionsOnTypes.h"
+#include "tools/json_schema_compiler/test/functions_on_types.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -48,12 +48,13 @@ TEST(JsonSchemaCompilerFunctionsOnTypesTest, StorageAreaGetParamsCreate) {
 }
 
 TEST(JsonSchemaCompilerFunctionsOnTypesTest, StorageAreaGetResultCreate) {
-  scoped_ptr<StorageArea::Get::Result::Items> items(
-      new StorageArea::Get::Result::Items());
-  items->additional_properties.SetDouble("asdf", 0.1);
-  items->additional_properties.SetString("sdfg", "zxcv");
-  scoped_ptr<Value> result_value(StorageArea::Get::Result::Create(*items));
-  EXPECT_TRUE(result_value->Equals(&items->additional_properties));
+  StorageArea::Get::Results::Items items;
+  items.additional_properties.SetDouble("asdf", 0.1);
+  items.additional_properties.SetString("sdfg", "zxcv");
+  scoped_ptr<ListValue> results = StorageArea::Get::Results::Create(items);
+  DictionaryValue* item_result = NULL;
+  results->GetDictionary(0, &item_result);
+  EXPECT_TRUE(item_result->Equals(&items.additional_properties));
 }
 
 TEST(JsonSchemaCompilerFunctionsOnTypesTest, ChromeSettingGetParamsCreate) {

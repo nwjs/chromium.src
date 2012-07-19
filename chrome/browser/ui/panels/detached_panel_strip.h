@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_PANELS_DETACHED_PANEL_STRIP_H_
 #define CHROME_BROWSER_UI_PANELS_DETACHED_PANEL_STRIP_H_
-#pragma once
 
 #include <set>
 #include "base/basictypes.h"
@@ -25,6 +24,7 @@ class DetachedPanelStrip : public PanelStrip {
   virtual ~DetachedPanelStrip();
 
   // PanelStrip OVERRIDES:
+  virtual gfx::Rect GetDisplayArea() const OVERRIDE;
   virtual void SetDisplayArea(const gfx::Rect& display_area) OVERRIDE;
   virtual void RefreshLayout() OVERRIDE;
   virtual void AddPanel(Panel* panel,
@@ -34,30 +34,31 @@ class DetachedPanelStrip : public PanelStrip {
   virtual void ResizePanelWindow(
       Panel* panel,
       const gfx::Size& preferred_window_size) OVERRIDE;
+  virtual panel::Resizability GetPanelResizability(
+      const Panel* panel) const OVERRIDE;
+  virtual void OnPanelResizedByMouse(Panel* panel,
+                                     const gfx::Rect& new_bounds) OVERRIDE;
   virtual void OnPanelAttentionStateChanged(Panel* panel) OVERRIDE;
   virtual void OnPanelTitlebarClicked(Panel* panel,
                                       panel::ClickModifier modifier) OVERRIDE;
   virtual void ActivatePanel(Panel* panel) OVERRIDE;
   virtual void MinimizePanel(Panel* panel) OVERRIDE;
   virtual void RestorePanel(Panel* panel) OVERRIDE;
+  virtual void MinimizeAll() OVERRIDE;
+  virtual void RestoreAll() OVERRIDE;
+  virtual bool CanMinimizePanel(const Panel* panel) const OVERRIDE;
   virtual bool IsPanelMinimized(const Panel* panel) const OVERRIDE;
-  virtual bool CanShowPanelAsActive(const Panel* panel) const OVERRIDE;
   virtual void SavePanelPlacement(Panel* panel) OVERRIDE;
   virtual void RestorePanelToSavedPlacement() OVERRIDE;
   virtual void DiscardSavedPanelPlacement()  OVERRIDE;
-  virtual bool CanDragPanel(const Panel* panel) const OVERRIDE;
   virtual void StartDraggingPanelWithinStrip(Panel* panel) OVERRIDE;
   virtual void DragPanelWithinStrip(Panel* panel,
-                                    int delta_x,
-                                    int delta_y) OVERRIDE;
+                                    const gfx::Point& target_position) OVERRIDE;
   virtual void EndDraggingPanelWithinStrip(Panel* panel,
                                            bool aborted) OVERRIDE;
-
-  virtual bool CanResizePanel(const Panel* panel) const OVERRIDE;
-  virtual void SetPanelBounds(Panel* panel,
-                              const gfx::Rect& new_bounds) OVERRIDE;
-
+  virtual void ClearDraggingStateWhenPanelClosed() OVERRIDE;
   virtual void UpdatePanelOnStripChange(Panel* panel) OVERRIDE;
+  virtual void OnPanelActiveStateChanged(Panel* panel) OVERRIDE;
 
   bool HasPanel(Panel* panel) const;
 

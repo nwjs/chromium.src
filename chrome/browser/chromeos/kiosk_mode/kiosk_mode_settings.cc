@@ -14,10 +14,11 @@
 #include "chrome/browser/chromeos/cros_settings_names.h"
 #include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_screensaver.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/policy/cloud_policy_constants.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_switches.h"
+#include "content/public/browser/browser_thread.h"
 
 namespace chromeos {
 
@@ -51,7 +52,7 @@ void KioskModeSettings::Initialize(const base::Closure& notify_initialized) {
   }
 
   CrosSettings* cros_settings = CrosSettings::Get();
-  if (!cros_settings->PrepareTrustedValues(
+  if (CrosSettingsProvider::TRUSTED != cros_settings->PrepareTrustedValues(
       base::Bind(&KioskModeSettings::Initialize,
                  base::Unretained(this),
                  notify_initialized))) {
@@ -168,7 +169,7 @@ KioskModeSettings::KioskModeSettings() : is_initialized_(false) {
           content::BrowserThread::UI, FROM_HERE,
           base::Bind(&KioskModeSettings::VerifyModeIsKnown,
                      base::Unretained(this)),
-          kDeviceModeFetchRetryDelayMs);
+          base::TimeDelta::FromMilliseconds(kDeviceModeFetchRetryDelayMs));
     }
   }
   is_kiosk_mode_ = false;
@@ -189,10 +190,10 @@ void KioskModeSettings::VerifyModeIsKnown() {
             content::BrowserThread::UI, FROM_HERE,
             base::Bind(&KioskModeSettings::VerifyModeIsKnown,
                        base::Unretained(this)),
-            kDeviceModeFetchRetryDelayMs);
+            base::TimeDelta::FromMilliseconds(kDeviceModeFetchRetryDelayMs));
         break;
       case policy::DEVICE_MODE_KIOSK:
-        BrowserList::ExitCleanly();
+        browser::ExitCleanly();
         break;
       default:
         break;

@@ -8,9 +8,8 @@
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/testing_profile.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::BrowserThread;
@@ -24,7 +23,7 @@ class MockThemeSource : public ThemeSource {
         result_data_size_(0) {
   }
 
-  virtual void SendResponse(int request_id, RefCountedMemory* data) {
+  virtual void SendResponse(int request_id, base::RefCountedMemory* data) {
     result_data_size_ = data ? data->size() : 0;
     result_request_id_ = request_id;
   }

@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_UI_GTK_TAB_CONTENTS_CONTAINER_GTK_H_
 #define CHROME_BROWSER_UI_GTK_TAB_CONTENTS_CONTAINER_GTK_H_
-#pragma once
 
 #include <gtk/gtk.h>
 
@@ -17,7 +16,7 @@
 #include "ui/base/gtk/owned_widget_gtk.h"
 
 class StatusBubbleGtk;
-class TabContentsWrapper;
+class TabContents;
 
 namespace content {
 class WebContents;
@@ -34,19 +33,19 @@ class TabContentsContainerGtk : public content::NotificationObserver,
   void Init();
 
   // Make the specified tab visible.
-  void SetTab(TabContentsWrapper* tab);
-  TabContentsWrapper* tab() const { return tab_; }
+  void SetTab(TabContents* tab);
+  TabContents* tab() const { return tab_; }
 
-  // Returns the TabContentsWrapper currently displayed.
-  TabContentsWrapper* GetVisibleTab();
+  // Returns the TabContents currently displayed.
+  TabContents* GetVisibleTab();
 
   bool HasPreview() const { return preview_ != NULL; }
 
-  void SetPreview(TabContentsWrapper* preview);
+  void SetPreview(TabContents* preview);
   void PopPreview();
 
   // Remove the tab from the hierarchy.
-  void DetachTab(TabContentsWrapper* tab);
+  void DetachTab(TabContents* tab);
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -71,10 +70,10 @@ class TabContentsContainerGtk : public content::NotificationObserver,
       TabContentsContainerGtk* tab_contents_container);
 
   // Adds |tab| to the container and starts showing it.
-  void PackTab(TabContentsWrapper* );
+  void PackTab(TabContents* tab);
 
   // Stops showing |tab|.
-  void HideTab(TabContentsWrapper* tab);
+  void HideTab(TabContents* tab);
 
   // Removes |preview_|.
   void RemovePreview();
@@ -86,13 +85,13 @@ class TabContentsContainerGtk : public content::NotificationObserver,
 
   content::NotificationRegistrar registrar_;
 
-  // The TabContentsWrapper for the currently selected tab. This will be showing
+  // The TabContents for the currently selected tab. This will be showing
   // unless there is a preview contents.
-  TabContentsWrapper* tab_;
+  TabContents* tab_;
 
   // The current preview contents (for instant). If non-NULL, it will be
   // visible.
-  TabContentsWrapper* preview_;
+  TabContents* preview_;
 
   // The status bubble manager.  Always non-NULL.
   StatusBubbleGtk* status_bubble_;
@@ -103,9 +102,9 @@ class TabContentsContainerGtk : public content::NotificationObserver,
   // their positions manually set in OnSetFloatingPosition.
   ui::OwnedWidgetGtk floating_;
 
-  // We insert and remove TabContents GtkWidgets into this expanded_. This
+  // We insert and remove WebContents GtkWidgets into this expanded_. This
   // should not be a GtkVBox since there were errors with timing where the vbox
-  // was horizontally split with the top half displaying the current TabContents
+  // was horizontally split with the top half displaying the current WebContents
   // and bottom half displaying the loading page.
   GtkWidget* expanded_;
 

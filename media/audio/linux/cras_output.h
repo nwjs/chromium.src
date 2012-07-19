@@ -18,6 +18,8 @@
 #include "base/gtest_prod_util.h"
 #include "media/audio/audio_io.h"
 
+namespace media {
+
 class AudioManagerLinux;
 class AudioParameters;
 
@@ -90,6 +92,9 @@ class MEDIA_EXPORT CrasOutputStream : public AudioOutputStream {
   // Packet size in samples.
   uint32 samples_per_packet_;
 
+  // Size of frame in bytes.
+  uint32 bytes_per_frame_;
+
   // Rate in Hz.
   size_t frame_rate_;
 
@@ -113,5 +118,7 @@ class MEDIA_EXPORT CrasOutputStream : public AudioOutputStream {
 
   DISALLOW_COPY_AND_ASSIGN(CrasOutputStream);
 };
+
+}  // namespace media
 
 #endif  // MEDIA_AUDIO_LINUX_CRAS_OUTPUT_H_

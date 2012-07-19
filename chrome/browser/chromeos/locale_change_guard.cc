@@ -4,7 +4,11 @@
 
 #include "chrome/browser/chromeos/locale_change_guard.h"
 
+#include "ash/ash_switches.h"
+#include "ash/shell.h"
+#include "ash/system/tray/system_tray.h"
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
@@ -13,6 +17,8 @@
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_service.h"
@@ -31,11 +37,17 @@ namespace chromeos {
 class LocaleChangeGuard::Delegate : public NotificationDelegate {
  public:
   explicit Delegate(chromeos::LocaleChangeGuard* master) : master_(master) {}
-  void Close(bool by_user);
-  void Display() {}
-  void Error() {}
-  void Click() {}
-  std::string id() const;
+  virtual void Close(bool by_user) OVERRIDE;
+  virtual void Display() OVERRIDE {}
+  virtual void Error() OVERRIDE {}
+  virtual void Click() OVERRIDE {}
+  virtual std::string id() const OVERRIDE;
+  virtual content::RenderViewHost* GetRenderViewHost() const OVERRIDE {
+    return NULL;
+  }
+
+ protected:
+  virtual ~Delegate() {}
 
  private:
   chromeos::LocaleChangeGuard* master_;
@@ -59,9 +71,8 @@ void LocaleChangeGuard::OnLogin() {
                  content::NotificationService::AllBrowserContextsAndSources());
 }
 
-void LocaleChangeGuard::RevertLocaleChange(const ListValue* list) {
-  if (note_ == NULL ||
-      profile_ == NULL ||
+void LocaleChangeGuard::RevertLocaleChange() {
+  if (profile_ == NULL ||
       from_locale_.empty() ||
       to_locale_.empty()) {
     NOTREACHED();
@@ -74,9 +85,13 @@ void LocaleChangeGuard::RevertLocaleChange(const ListValue* list) {
   profile_->ChangeAppLocale(
       from_locale_, Profile::APP_LOCALE_CHANGED_VIA_REVERT);
 
-  Browser* browser = Browser::GetTabbedBrowser(profile_, false);
+  Browser* browser = browser::FindTabbedBrowser(profile_, false);
   if (browser)
-    browser->ExecuteCommand(IDC_EXIT);
+    chrome::ExecuteCommand(browser, IDC_EXIT);
+}
+
+void LocaleChangeGuard::RevertLocaleChangeCallback(const ListValue* list) {
+  RevertLocaleChange();
 }
 
 void LocaleChangeGuard::Observe(int type,
@@ -161,6 +176,14 @@ void LocaleChangeGuard::Check() {
         "Showing locale change notification in current (not previous) language";
     PrepareChangingLocale(from_locale, to_locale);
   }
+
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          ash::switches::kAshNotifyDisabled)) {
+    ash::Shell::GetInstance()->system_tray()->locale_observer()->
+        OnLocaleChanged(this, cur_locale, from_locale_, to_locale_);
+    return;
+  }
+
   note_.reset(new chromeos::SystemNotification(
       profile_,
       new Delegate(this),
@@ -168,15 +191,14 @@ void LocaleChangeGuard::Check() {
       title_text_));
   note_->Show(
       message_text_, revert_link_text_,
-      base::Bind(&LocaleChangeGuard::RevertLocaleChange,
+      base::Bind(&LocaleChangeGuard::RevertLocaleChangeCallback,
                  AsWeakPtr()),
                  true,  // urgent
                  false);  // non-sticky
 }
 
 void LocaleChangeGuard::AcceptLocaleChange() {
-  if (note_ == NULL ||
-      profile_ == NULL ||
+  if (profile_ == NULL ||
       from_locale_.empty() ||
       to_locale_.empty()) {
     NOTREACHED();

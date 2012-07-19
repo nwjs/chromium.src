@@ -9,11 +9,18 @@
 #include "base/bind.h"
 #include "base/environment.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shell_integration.h"
+#include "chrome/browser/shell_integration_linux.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/gtk/gtk_util.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/web_applications/web_app_ui.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
+#include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "content/public/browser/browser_thread.h"
@@ -29,6 +36,7 @@
 #include "ui/gfx/gtk_util.h"
 
 using content::BrowserThread;
+using extensions::Extension;
 
 namespace {
 
@@ -40,15 +48,19 @@ const int kDescriptionLabelHeightLines = 3;
 
 }  // namespace
 
-// static
-void CreateWebApplicationShortcutsDialogGtk::Show(
-    GtkWindow* parent, TabContentsWrapper* tab_contents) {
-  new CreateWebApplicationShortcutsDialogGtk(parent, tab_contents);
+namespace chrome {
+
+void ShowCreateWebAppShortcutsDialog(gfx::NativeWindow parent_window,
+                                     TabContents* tab_contents) {
+  new CreateWebApplicationShortcutsDialogGtk(parent_window, tab_contents);
 }
 
+}  // namespace chrome
+
 void CreateChromeApplicationShortcutsDialogGtk::Show(GtkWindow* parent,
+                                                     Profile* profile,
                                                      const Extension* app) {
-  new CreateChromeApplicationShortcutsDialogGtk(parent, app);
+  new CreateChromeApplicationShortcutsDialogGtk(parent, profile, app);
 }
 
 
@@ -216,10 +228,10 @@ void CreateApplicationShortcutsDialogGtk::CreateDesktopShortcut(
   scoped_ptr<base::Environment> env(base::Environment::Create());
 
   std::string shortcut_template;
-  if (ShellIntegration::GetDesktopShortcutTemplate(env.get(),
-                                                   &shortcut_template)) {
-    ShellIntegration::CreateDesktopShortcut(shortcut_info,
-                                            shortcut_template);
+  if (ShellIntegrationLinux::GetDesktopShortcutTemplate(env.get(),
+                                                        &shortcut_template)) {
+    ShellIntegrationLinux::CreateDesktopShortcut(shortcut_info,
+                                                 shortcut_template);
     Release();
   } else {
     BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
@@ -281,7 +293,7 @@ void CreateApplicationShortcutsDialogGtk::OnToggleCheckbox(GtkWidget* sender) {
 
 CreateWebApplicationShortcutsDialogGtk::CreateWebApplicationShortcutsDialogGtk(
     GtkWindow* parent,
-    TabContentsWrapper* tab_contents)
+    TabContents* tab_contents)
   : CreateApplicationShortcutsDialogGtk(parent),
     tab_contents_(tab_contents) {
 
@@ -293,24 +305,30 @@ CreateWebApplicationShortcutsDialogGtk::CreateWebApplicationShortcutsDialogGtk(
 }
 
 void CreateWebApplicationShortcutsDialogGtk::OnCreatedShortcut() {
-  if (tab_contents_->web_contents()->GetDelegate())
-    tab_contents_->web_contents()->GetDelegate()->ConvertContentsToApplication(
-        tab_contents_->web_contents());
+  Browser* browser =
+      browser::FindBrowserWithWebContents(tab_contents_->web_contents());
+  if (browser)
+    chrome::ConvertTabToAppWindow(browser, tab_contents_->web_contents());
 }
 
 CreateChromeApplicationShortcutsDialogGtk::
     CreateChromeApplicationShortcutsDialogGtk(
         GtkWindow* parent,
+        Profile* profile,
         const Extension* app)
       : CreateApplicationShortcutsDialogGtk(parent),
         app_(app),
+        profile_path_(profile->GetPath()),
         ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this))  {
 
   // Get shortcut information now, it's needed for our UI.
   shortcut_info_.extension_id = app_->id();
+  shortcut_info_.extension_path = app_->path();
+  shortcut_info_.is_platform_app = app_->is_platform_app();
   shortcut_info_.url = GURL(app_->launch_web_url());
   shortcut_info_.title = UTF8ToUTF16(app_->name());
   shortcut_info_.description = UTF8ToUTF16(app_->description());
+  shortcut_info_.profile_path = profile_path_;
 
   // Get the icon.
   const gfx::Size max_size(kIconPreviewSizePixels, kIconPreviewSizePixels);
@@ -346,4 +364,17 @@ void CreateChromeApplicationShortcutsDialogGtk::OnImageLoaded(
 
   CreateIconPixBuf(shortcut_info_.favicon);
   CreateDialogBox(parent_);
+}
+
+void CreateChromeApplicationShortcutsDialogGtk::CreateDesktopShortcut(
+    const ShellIntegration::ShortcutInfo& shortcut_info) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+
+  if (web_app::CreateShortcutOnFileThread(profile_path_, shortcut_info)) {
+    Release();
+  } else {
+    BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
+        base::Bind(&CreateChromeApplicationShortcutsDialogGtk::ShowErrorDialog,
+                   this));
+  }
 }

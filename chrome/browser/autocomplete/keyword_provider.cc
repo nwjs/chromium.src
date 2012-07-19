@@ -10,7 +10,8 @@
 #include "base/string16.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/extensions/extension_omnibox_api.h"
+#include "chrome/browser/autocomplete/autocomplete_provider_listener.h"
+#include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
@@ -42,7 +43,8 @@ class KeywordProvider::ScopedEndExtensionKeywordMode {
   KeywordProvider* provider_;
 };
 
-KeywordProvider::KeywordProvider(ACProviderListener* listener, Profile* profile)
+KeywordProvider::KeywordProvider(AutocompleteProviderListener* listener,
+                                 Profile* profile)
     : AutocompleteProvider(listener, profile, "Keyword"),
       model_(NULL),
       current_input_id_(0) {
@@ -59,7 +61,7 @@ KeywordProvider::KeywordProvider(ACProviderListener* listener, Profile* profile)
                  content::Source<Profile>(profile));
 }
 
-KeywordProvider::KeywordProvider(ACProviderListener* listener,
+KeywordProvider::KeywordProvider(AutocompleteProviderListener* listener,
                                  TemplateURLService* model)
     : AutocompleteProvider(listener, NULL, "Keyword"),
       model_(model),
@@ -172,7 +174,7 @@ string16 KeywordProvider::GetKeywordForText(
 
   // Don't provide a keyword for inactive/disabled extension keywords.
   if (template_url->IsExtensionKeyword()) {
-    const Extension* extension = profile_->GetExtensionService()->
+    const extensions::Extension* extension = profile_->GetExtensionService()->
         GetExtensionById(template_url->GetExtensionId(), false);
     if (!extension ||
         (profile_->IsOffTheRecord() &&
@@ -249,7 +251,7 @@ void KeywordProvider::Start(const AutocompleteInput& input,
     // we're incognito), or disabled.
     if (profile_ && template_url->IsExtensionKeyword()) {
       ExtensionService* service = profile_->GetExtensionService();
-      const Extension* extension = service->GetExtensionById(
+      const extensions::Extension* extension = service->GetExtensionById(
           template_url->GetExtensionId(), false);
       bool enabled =
           extension && (!profile_->IsOffTheRecord() ||
@@ -294,9 +296,10 @@ void KeywordProvider::Start(const AutocompleteInput& input,
         keyword_mode_toggle.StayInKeywordMode();
       }
 
-      ApplyDefaultSuggestionForExtensionKeyword(profile_, template_url,
-                                                remaining_input,
-                                                &matches_[0]);
+      extensions::ApplyDefaultSuggestionForExtensionKeyword(
+          profile_, template_url,
+          remaining_input,
+          &matches_[0]);
 
       if (minimal_changes &&
           (input.matches_requested() != AutocompleteInput::BEST_MATCH)) {
@@ -311,9 +314,10 @@ void KeywordProvider::Start(const AutocompleteInput& input,
         extension_suggest_last_input_ = input;
         extension_suggest_matches_.clear();
 
-        bool have_listeners = ExtensionOmniboxEventRouter::OnInputChanged(
-            profile_, template_url->GetExtensionId(),
-            UTF16ToUTF8(remaining_input), current_input_id_);
+        bool have_listeners =
+          extensions::ExtensionOmniboxEventRouter::OnInputChanged(
+              profile_, template_url->GetExtensionId(),
+              UTF16ToUTF8(remaining_input), current_input_id_);
 
         // We only have to wait for suggest results if there are actually
         // extensions listening for input changes.
@@ -359,7 +363,6 @@ bool KeywordProvider::ExtractKeywordFromInput(const AutocompleteInput& input,
 
 // static
 void KeywordProvider::FillInURLAndContents(
-    Profile* profile,
     const string16& remaining_input,
     const TemplateURL* element,
     AutocompleteMatch* match) {
@@ -394,9 +397,8 @@ void KeywordProvider::FillInURLAndContents(
     // input, but we rely on later canonicalization functions to do more
     // fixup to make the URL valid if necessary.
     DCHECK(element_ref.SupportsReplacement());
-    match->destination_url = GURL(element_ref.ReplaceSearchTermsUsingProfile(
-        profile, remaining_input, TemplateURLRef::NO_SUGGESTIONS_AVAILABLE,
-        string16()));
+    match->destination_url = GURL(element_ref.ReplaceSearchTerms(
+        TemplateURLRef::SearchTermsArgs(remaining_input)));
     std::vector<size_t> content_param_offsets;
     match->contents.assign(l10n_util::GetStringFUTF16(message_id,
                                                       element->short_name(),
@@ -436,9 +438,8 @@ AutocompleteMatch KeywordProvider::CreateAutocompleteMatch(
     int relevance) {
   DCHECK(model);
   // Get keyword data from data store.
-  const TemplateURL* element(
-      model->GetTemplateURLForKeyword(keyword));
-  DCHECK(element && !element->url().empty());
+  TemplateURL* element = model->GetTemplateURLForKeyword(keyword);
+  DCHECK(element);
   const bool supports_replacement = element->url_ref().SupportsReplacement();
 
   // Create an edit entry of "[keyword] [remaining input]".  This is helpful
@@ -470,12 +471,9 @@ AutocompleteMatch KeywordProvider::CreateAutocompleteMatch(
 
   // Create destination URL and popup entry content by substituting user input
   // into keyword templates.
-  FillInURLAndContents(profile_, remaining_input, element, &match);
+  FillInURLAndContents(remaining_input, element, &match);
 
-  if (supports_replacement) {
-    match.template_url = element;
-    match.keyword = keyword;
-  }
+  match.keyword = keyword;
   match.transition = content::PAGE_TRANSITION_KEYWORD;
 
   return match;
@@ -506,16 +504,18 @@ void KeywordProvider::Observe(int type,
 
       const TemplateURL* template_url(
           model->GetTemplateURLForKeyword(keyword));
-      ApplyDefaultSuggestionForExtensionKeyword(profile_, template_url,
-                                                remaining_input,
-                                                &matches_[0]);
+      extensions::ApplyDefaultSuggestionForExtensionKeyword(
+          profile_, template_url,
+          remaining_input,
+          &matches_[0]);
       listener_->OnProviderUpdate(true);
       return;
     }
 
     case chrome::NOTIFICATION_EXTENSION_OMNIBOX_SUGGESTIONS_READY: {
-      const ExtensionOmniboxSuggestions& suggestions =
-        *content::Details<ExtensionOmniboxSuggestions>(details).ptr();
+      const extensions::ExtensionOmniboxSuggestions& suggestions =
+        *content::Details<
+            extensions::ExtensionOmniboxSuggestions>(details).ptr();
       if (suggestions.request_id != current_input_id_)
         return;  // This is an old result. Just ignore.
 
@@ -528,7 +528,7 @@ void KeywordProvider::Observe(int type,
       // TODO(mpcomplete): consider clamping the number of suggestions to
       // AutocompleteProvider::kMaxMatches.
       for (size_t i = 0; i < suggestions.suggestions.size(); ++i) {
-        const ExtensionOmniboxSuggestion& suggestion =
+        const extensions::ExtensionOmniboxSuggestion& suggestion =
             suggestions.suggestions[i];
         // We want to order these suggestions in descending order, so start with
         // the relevance of the first result (added synchronously in Start()),
@@ -576,13 +576,13 @@ void KeywordProvider::EnterExtensionKeywordMode(
   DCHECK(current_keyword_extension_id_.empty());
   current_keyword_extension_id_ = extension_id;
 
-  ExtensionOmniboxEventRouter::OnInputStarted(
+  extensions::ExtensionOmniboxEventRouter::OnInputStarted(
       profile_, current_keyword_extension_id_);
 }
 
 void KeywordProvider::MaybeEndExtensionKeywordMode() {
   if (!current_keyword_extension_id_.empty()) {
-    ExtensionOmniboxEventRouter::OnInputCancelled(
+    extensions::ExtensionOmniboxEventRouter::OnInputCancelled(
         profile_, current_keyword_extension_id_);
 
     current_keyword_extension_id_.clear();

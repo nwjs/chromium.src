@@ -10,22 +10,20 @@
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/autocomplete/autocomplete_edit.h"
+#include "chrome/browser/autocomplete/autocomplete_input.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
-#include "chrome/browser/autocomplete/autocomplete_popup_model.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/cocoa/event_utils.h"
 #include "chrome/browser/ui/cocoa/omnibox/omnibox_popup_view_mac.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_model.h"
 #include "content/public/browser/web_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
-#include "grit/theme_resources_standard.h"
-#include "net/base/escape.h"
 #import "third_party/mozilla/NSPasteboard+Utils.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/image/image.h"
 #include "ui/gfx/mac/nsimage_cache.h"
 #include "ui/gfx/rect.h"
 
@@ -89,7 +87,7 @@ NSColor* SecurityErrorSchemeColor() {
 
 // Store's the model and view state across tab switches.
 struct OmniboxViewMacState {
-  OmniboxViewMacState(const AutocompleteEditModel::State model_state,
+  OmniboxViewMacState(const OmniboxEditModel::State model_state,
                       const bool has_focus,
                       const NSRange& selection)
       : model_state(model_state),
@@ -97,7 +95,7 @@ struct OmniboxViewMacState {
         selection(selection) {
   }
 
-  const AutocompleteEditModel::State model_state;
+  const OmniboxEditModel::State model_state;
   const bool has_focus;
   const NSRange selection;
 };
@@ -132,53 +130,17 @@ NSRange ComponentToNSRange(const url_parse::Component& component) {
 
 // static
 NSImage* OmniboxViewMac::ImageForResource(int resource_id) {
-  NSString* image_name = nil;
-
-  switch(resource_id) {
-    // From the autocomplete popup, or the star icon at the RHS of the
-    // text field.
-    case IDR_STAR: image_name = @"star.pdf"; break;
-    case IDR_STAR_LIT: image_name = @"star_lit.pdf"; break;
-
-    // Values from |AutocompleteMatch::TypeToIcon()|.
-    case IDR_OMNIBOX_SEARCH:
-      image_name = @"omnibox_search.pdf"; break;
-    case IDR_OMNIBOX_HTTP:
-      image_name = @"omnibox_http.pdf"; break;
-    case IDR_OMNIBOX_HISTORY:
-      image_name = @"omnibox_history.pdf"; break;
-    case IDR_OMNIBOX_EXTENSION_APP:
-      image_name = @"omnibox_extension_app.pdf"; break;
-
-    // Values from |ToolbarModel::GetIcon()|.
-    case IDR_OMNIBOX_HTTPS_VALID:
-      image_name = @"omnibox_https_valid.pdf"; break;
-    case IDR_OMNIBOX_HTTPS_WARNING:
-      image_name = @"omnibox_https_warning.pdf"; break;
-    case IDR_OMNIBOX_HTTPS_INVALID:
-      image_name = @"omnibox_https_invalid.pdf"; break;
-  }
-
-  if (image_name) {
-    if (NSImage* image = gfx::GetCachedImageWithName(image_name)) {
-      return image;
-    } else {
-      NOTREACHED()
-          << "Missing image for " << base::SysNSStringToUTF8(image_name);
-    }
-  }
-
   ResourceBundle& rb = ResourceBundle::GetSharedInstance();
   return rb.GetNativeImageNamed(resource_id);
 }
 
-OmniboxViewMac::OmniboxViewMac(AutocompleteEditController* controller,
+OmniboxViewMac::OmniboxViewMac(OmniboxEditController* controller,
                                ToolbarModel* toolbar_model,
                                Profile* profile,
                                CommandUpdater* command_updater,
                                AutocompleteTextField* field)
-    : model_(new AutocompleteEditModel(this, controller, profile)),
-      popup_view_(new OmniboxPopupViewMac(this, model_.get(), profile, field)),
+    : model_(new OmniboxEditModel(this, controller, profile)),
+      popup_view_(new OmniboxPopupViewMac(this, model_.get(), field)),
       controller_(controller),
       toolbar_model_(toolbar_model),
       command_updater_(command_updater),
@@ -216,11 +178,11 @@ OmniboxViewMac::~OmniboxViewMac() {
   [field_ setObserver:NULL];
 }
 
-AutocompleteEditModel* OmniboxViewMac::model() {
+OmniboxEditModel* OmniboxViewMac::model() {
   return model_.get();
 }
 
-const AutocompleteEditModel* OmniboxViewMac::model() const {
+const OmniboxEditModel* OmniboxViewMac::model() const {
   return model_.get();
 }
 
@@ -386,7 +348,7 @@ void OmniboxViewMac::SetForcedQuery() {
   }
 }
 
-bool OmniboxViewMac::IsSelectAll() {
+bool OmniboxViewMac::IsSelectAll() const {
   if (![field_ currentEditor])
     return true;
   const NSRange all_range = NSMakeRange(0, GetTextLength());
@@ -814,7 +776,7 @@ bool OmniboxViewMac::OnDoCommandBySelector(SEL cmd) {
 
     if (cmd == @selector(insertBacktab:) &&
         model_->popup_model()->selected_line_state() ==
-            AutocompletePopupModel::KEYWORD) {
+            OmniboxPopupModel::KEYWORD) {
       model_->ClearKeyword(GetText());
       return true;
     }
@@ -947,7 +909,7 @@ void OmniboxViewMac::OnPaste() {
   // This code currently expects |field_| to be focussed.
   DCHECK([field_ currentEditor]);
 
-  string16 text = GetClipboardText(g_browser_process->clipboard());
+  string16 text = GetClipboardText();
   if (text.empty()) {
     return;
   }
@@ -976,24 +938,20 @@ void OmniboxViewMac::OnPaste() {
 }
 
 bool OmniboxViewMac::CanPasteAndGo() {
-  return
-    model_->CanPasteAndGo(GetClipboardText(g_browser_process->clipboard()));
+  return model_->CanPasteAndGo(GetClipboardText());
 }
 
 int OmniboxViewMac::GetPasteActionStringId() {
-  DCHECK(CanPasteAndGo());
-
-  // Use PASTE_AND_SEARCH as the default fallback (although the DCHECK above
-  // should never trigger).
-  if (!model_->is_paste_and_search())
-    return IDS_PASTE_AND_GO;
-  else
-    return IDS_PASTE_AND_SEARCH;
+  string16 text(GetClipboardText());
+  DCHECK(model_->CanPasteAndGo(text));
+  return model_->IsPasteAndSearch(GetClipboardText()) ?
+      IDS_PASTE_AND_SEARCH : IDS_PASTE_AND_GO;
 }
 
 void OmniboxViewMac::OnPasteAndGo() {
-  if (CanPasteAndGo())
-    model_->PasteAndGo();
+  string16 text(GetClipboardText());
+  if (model_->CanPasteAndGo(text))
+    model_->PasteAndGo(text);
 }
 
 void OmniboxViewMac::OnFrameChanged() {
@@ -1067,46 +1025,6 @@ void OmniboxViewMac::FocusLocation(bool select_all) {
       [[field_ window] makeFirstResponder:field_];
     DCHECK_EQ([field_ currentEditor], [[field_ window] firstResponder]);
   }
-}
-
-// TODO(shess): Copied from omnibox_view_win.cc. Could this be pushed into the
-// model?
-string16 OmniboxViewMac::GetClipboardText(ui::Clipboard* clipboard) {
-  // omnibox_view_win.cc assumes this can never happen, we will too.
-  DCHECK(clipboard);
-
-  if (clipboard->IsFormatAvailable(ui::Clipboard::GetPlainTextWFormatType(),
-                                   ui::Clipboard::BUFFER_STANDARD)) {
-    string16 text16;
-    clipboard->ReadText(ui::Clipboard::BUFFER_STANDARD, &text16);
-
-    // Note: Unlike in the find popup and textfield view, here we completely
-    // remove whitespace strings containing newlines.  We assume users are
-    // most likely pasting in URLs that may have been split into multiple
-    // lines in terminals, email programs, etc., and so linebreaks indicate
-    // completely bogus whitespace that would just cause the input to be
-    // invalid.
-    return StripJavascriptSchemas(CollapseWhitespace(text16, true));
-  }
-
-  // Try bookmark format.
-  //
-  // It is tempting to try bookmark format first, but the URL we get out of a
-  // bookmark has been cannonicalized via GURL.  This means if a user copies
-  // and pastes from the URL bar to itself, the text will get fixed up and
-  // cannonicalized, which is not what the user expects.  By pasting in this
-  // order, we are sure to paste what the user copied.
-  if (clipboard->IsFormatAvailable(ui::Clipboard::GetUrlWFormatType(),
-                                   ui::Clipboard::BUFFER_STANDARD)) {
-    std::string url_str;
-    clipboard->ReadBookmark(NULL, &url_str);
-    // pass resulting url string through GURL to normalize
-    GURL url(url_str);
-    if (url.is_valid())
-      return StripJavascriptSchemas(UTF8ToUTF16(url.spec()));
-  }
-
-  return string16();
 }
 
 // static

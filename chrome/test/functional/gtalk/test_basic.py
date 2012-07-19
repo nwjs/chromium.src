@@ -14,6 +14,7 @@ import sys
 import time
 import traceback
 import urllib2
+import os
 
 import gtalk_base_test
 import pyauto_gtalk  # must preceed pyauto
@@ -23,10 +24,10 @@ import pyauto
 class BasicTest(gtalk_base_test.GTalkBaseTest):
   """Test for Google Talk Chrome Extension."""
 
-  def _OpenRoster(self):
+  def _OpenRoster(self, gtalk_version):
     """Download Talk extension and open the roster."""
 
-    self.InstallGTalkExtension()
+    self.InstallGTalkExtension(gtalk_version)
 
     # Wait for the background view to load.
     extension = self.GetGTalkExtensionInfo()
@@ -58,10 +59,10 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
         lambda url: url and '/qsignin' in url,
         msg='Timed out waiting for /qsignin page.')
 
-  def _SignIn(self):
+  def _SignIn(self, gtalk_version):
     """Download the extension, open the roster, and sign in"""
     # Open the roster.
-    self._OpenRoster()
+    self._OpenRoster(gtalk_version)
 
     # Wait for /qsignin's BODY.
     self.WaitUntilResult(True,
@@ -89,7 +90,7 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
         msg='Timed out waiting for document.forms[0].')
 
     # Fill and submit the login form.
-    credentials = self.GetPrivateInfo()['test_quasar']
+    credentials = self.GetPrivateInfo()['test_google_account']
 
     self.RunInLoginPage(
         'document.forms[0].Email.value="' + credentials['username'] + '"')
@@ -97,11 +98,11 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
         'document.forms[0].Passwd.value="' + credentials['password'] + '"')
     self.RunInLoginPage('document.forms[0].submit() || true')
 
-  def RunBasicFunctionalityTest(self):
+  def RunBasicFunctionalityTest(self, gtalk_version):
     """Run tests for basic functionality in GTalk."""
 
     # Install the extension, open the viewer, and sign in.
-    self._SignIn()
+    self._SignIn(gtalk_version)
 
     # Wait for the roster container iframe.
     self.WaitUntilResult(True,
@@ -116,13 +117,13 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
     # Wait for the roster iframe to load.
     self.WaitUntilCondition(
         lambda: self.RunInRoster('window.location.href'),
-        lambda url: url and '/proster' in url,
-        msg='Timed out waiting for /proster url.')
+        lambda url: url and 'prop=aChromeExtension#p' in url,
+        msg='Timed out waiting for prop=aChromeExtension#p in url.')
 
     self.WaitUntilResult(True,
         lambda: self.RunInRoster(
-        'window.document.getElementById(":rf") != null'),
-        msg='Timed out waiting for send message to label in roster DOM.')
+        'Boolean($FindByText($BODY(), "Send a message to..."))'),
+        msg='Timed out waiting for "Send a message to..." label in roster DOM.')
 
     # Wait for "chatpinger@appspot.com" to appear in the roster.
     self.WaitUntilResult(True,
@@ -231,6 +232,12 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
     self.assertTrue(self.WaitUntil(lambda: bool(self.GetMoleInfo(1))),
         msg='Timed out waiting for second mole window to open.')
 
+    # Wait for mole content to load
+    self.WaitUntilCondition(
+        lambda: self.RunInMole('window.document.body.innerHTML', 1),
+        lambda html: html and 'Ping!' in html,
+        msg='Timed out waiting for Ping! to appear in mole DOM.')
+
     # Disable the extension.
     extension = self.GetGTalkExtensionInfo()
     self.SetExtensionStateById(extension['id'], enable=False,
@@ -246,19 +253,38 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
     self.assertTrue(self.WaitUntil(lambda: not(bool(self.GetMoleInfo(1)))),
         msg='Timed out waiting for second mole to close after disabling.')
 
-  def testBasicFunctionality(self):
+  def _GetCurrentGtalkVersion(self):
+    """Read current gtalk extension version from file."""
+    return self._GetGtalkVersion('current_version')
+
+  def _GetRCGtalkVersion(self):
+    """Read RC gtalk extension version from file"""
+    return self._GetGtalkVersion('rc_version')
+
+  def _GetGtalkVersion(self, version_type):
+    """Read gtalk version from file"""
+    version_path = os.path.abspath(
+        os.path.join(self.DataDir(), 'extensions',
+                     'gtalk', version_type))
+    self.assertTrue(
+        os.path.exists(version_path),
+        msg='Failed to find version ' + version_path)
+    with open(version_path) as version_file:
+      return version_file.read()
+
+  def _TestBasicFunctionality(self, version):
     """Run tests for basic functionality in GTalk with retries."""
 
     # Since this test goes against prod servers, we'll retry to mitigate
     # flakiness due to network issues.
     RETRIES = 5
     for tries in range(RETRIES):
-      logging.info('Calling RunBasicFunctionalityTest. Try #%s/%s'
-          % (tries + 1, RETRIES))
+      logging.info('Calling RunBasicFunctionalityTest on %s. Try #%s/%s'
+          % (version, tries + 1, RETRIES))
       try:
-        self.RunBasicFunctionalityTest()
-        logging.info('RunBasicFunctionalityTest succeeded. Tries: %s'
-            % (tries + 1))
+        self.RunBasicFunctionalityTest(version)
+        logging.info('RunBasicFunctionalityTest on %s succeeded. Tries: %s'
+            % (version, tries + 1))
         break
       except Exception as e:
         logging.info("\n*** ERROR in RunBasicFunctionalityTest ***")
@@ -271,6 +297,15 @@ class BasicTest(gtalk_base_test.GTalkBaseTest):
         else:
           raise
 
+  def testCurrentVersion(self):
+    """Run basic functionality test on current version of gtalk extension"""
+    version = self._GetCurrentGtalkVersion()
+    self._TestBasicFunctionality(version)
+
+  def testRCVersion(self):
+    """Run basic functionality test on RC version of gtalk extension"""
+    version = self._GetRCGtalkVersion()
+    self._TestBasicFunctionality(version)
 
 if __name__ == '__main__':
   pyauto_gtalk.Main()

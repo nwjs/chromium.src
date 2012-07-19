@@ -13,10 +13,8 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/bundle_installer.h"
 #include "chrome/browser/extensions/extension_install_dialog.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/extensions/extension.h"
+#include "content/public/browser/page_navigator.h"
 #include "grit/generated_resources.h"
 #include "skia/ext/skia_utils_mac.h"
 #import "third_party/GTM/AppKit/GTMUILocalizerAndLayoutTweaker.h"
@@ -30,7 +28,7 @@ using extensions::BundleInstaller;
 @interface ExtensionInstallDialogController ()
 - (BOOL)isBundleInstall;
 - (BOOL)isInlineInstall;
-- (void)appendRatingStar:(const SkBitmap*)skiaImage;
+- (void)appendRatingStar:(const gfx::ImageSkia*)skiaImage;
 @end
 
 namespace {
@@ -66,7 +64,7 @@ void OffsetControlVerticallyToFitContent(NSControl* control,
   [control setFrameOrigin:origin];
 }
 
-void AppendRatingStarsShim(const SkBitmap* skiaImage, void* data) {
+void AppendRatingStarsShim(const gfx::ImageSkia* skiaImage, void* data) {
   ExtensionInstallDialogController* controller =
       static_cast<ExtensionInstallDialogController*>(data);
   [controller appendRatingStar:skiaImage];
@@ -89,19 +87,19 @@ void AppendRatingStarsShim(const SkBitmap* skiaImage, void* data) {
 @synthesize userCountField = userCountField_;
 
 - (id)initWithParentWindow:(NSWindow*)window
-                   profile:(Profile*)profile
-                  delegate:(ExtensionInstallUI::Delegate*)delegate
-                    prompt:(const ExtensionInstallUI::Prompt&)prompt {
+                 navigator:(content::PageNavigator*)navigator
+                  delegate:(ExtensionInstallPrompt::Delegate*)delegate
+                    prompt:(const ExtensionInstallPrompt::Prompt&)prompt {
   NSString* nibpath = nil;
 
   // We use a different XIB in the case of bundle installs, inline installs or
   // no permission warnings. These are laid out nicely for the data they
   // display.
-  if (prompt.type() == ExtensionInstallUI::BUNDLE_INSTALL_PROMPT) {
+  if (prompt.type() == ExtensionInstallPrompt::BUNDLE_INSTALL_PROMPT) {
     nibpath = [base::mac::FrameworkBundle()
                pathForResource:@"ExtensionInstallPromptBundle"
                         ofType:@"nib"];
-  } else if (prompt.type() == ExtensionInstallUI::INLINE_INSTALL_PROMPT) {
+  } else if (prompt.type() == ExtensionInstallPrompt::INLINE_INSTALL_PROMPT) {
     nibpath = [base::mac::FrameworkBundle()
                pathForResource:@"ExtensionInstallPromptInline"
                         ofType:@"nib"];
@@ -117,9 +115,9 @@ void AppendRatingStarsShim(const SkBitmap* skiaImage, void* data) {
 
   if ((self = [super initWithWindowNibPath:nibpath owner:self])) {
     parentWindow_ = window;
-    profile_ = profile;
+    navigator_ = navigator;
     delegate_ = delegate;
-    prompt_.reset(new ExtensionInstallUI::Prompt(prompt));
+    prompt_.reset(new ExtensionInstallPrompt::Prompt(prompt));
   }
   return self;
 }
@@ -135,7 +133,7 @@ void AppendRatingStarsShim(const SkBitmap* skiaImage, void* data) {
 - (IBAction)storeLinkClicked:(id)sender {
   GURL store_url(extension_urls::GetWebstoreItemDetailURLPrefix() +
                  prompt_->extension()->id());
-  BrowserList::GetLastActiveWithProfile(profile_)->OpenURL(OpenURLParams(
+  navigator_->OpenURL(OpenURLParams(
       store_url, Referrer(), NEW_FOREGROUND_TAB, content::PAGE_TRANSITION_LINK,
       false));
 
@@ -290,14 +288,14 @@ void AppendRatingStarsShim(const SkBitmap* skiaImage, void* data) {
 }
 
 - (BOOL)isBundleInstall {
-  return prompt_->type() == ExtensionInstallUI::BUNDLE_INSTALL_PROMPT;
+  return prompt_->type() == ExtensionInstallPrompt::BUNDLE_INSTALL_PROMPT;
 }
 
 - (BOOL)isInlineInstall {
-  return prompt_->type() == ExtensionInstallUI::INLINE_INSTALL_PROMPT;
+  return prompt_->type() == ExtensionInstallPrompt::INLINE_INSTALL_PROMPT;
 }
 
-- (void)appendRatingStar:(const SkBitmap*)skiaImage {
+- (void)appendRatingStar:(const gfx::ImageSkia*)skiaImage {
   NSImage* image = gfx::SkBitmapToNSImageWithColorSpace(
       *skiaImage, base::mac::GetSystemColorSpace());
   NSRect frame = NSMakeRect(0, 0, skiaImage->width(), skiaImage->height());
@@ -318,27 +316,14 @@ void AppendRatingStarsShim(const SkBitmap* skiaImage, void* data) {
 @end  // ExtensionInstallDialogController
 
 void ShowExtensionInstallDialogImpl(
-    Profile* profile,
-    ExtensionInstallUI::Delegate* delegate,
-    const ExtensionInstallUI::Prompt& prompt) {
-  Browser* browser = BrowserList::GetLastActiveWithProfile(profile);
-  if (!browser) {
-    delegate->InstallUIAbort(false);
-    return;
-  }
-
-  BrowserWindow* window = browser->window();
-  if (!window) {
-    delegate->InstallUIAbort(false);
-    return;
-  }
-
-  gfx::NativeWindow native_window = window->GetNativeHandle();
-
+    gfx::NativeWindow parent,
+    content::PageNavigator* navigator,
+    ExtensionInstallPrompt::Delegate* delegate,
+    const ExtensionInstallPrompt::Prompt& prompt) {
   ExtensionInstallDialogController* controller =
       [[ExtensionInstallDialogController alloc]
-        initWithParentWindow:native_window
-                     profile:profile
+        initWithParentWindow:parent
+                     navigator:navigator
                     delegate:delegate
                       prompt:prompt];
 

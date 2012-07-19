@@ -17,9 +17,21 @@ import types
 import pyauto_functional
 import pyauto
 import pyauto_utils
+import pyauto_errors
 
 
 """Commonly used functions for PyAuto tests."""
+
+def CrashBrowser(test):
+  """Crashes the browser by navigating to special URL."""
+  try:
+    test.NavigateToURL('chrome://inducebrowsercrashforrealz')
+  except pyauto_errors.JSONInterfaceError:
+    pass
+  else:
+    raise RuntimeError(
+        'Browser did not crash at chrome://inducebrowsercrashforrealz')
+
 
 def CopyFileFromDataDirToDownloadDir(test, file_path):
   """Copy a file from data directory to downloads directory.
@@ -76,7 +88,7 @@ def GoogleAccountsLogin(test, username, password, tab_index=0, windex=0):
     tab_index: The tab index, default is 0.
     windex: The window index, default is 0.
   """
-  test.NavigateToURL('https://www.google.com/accounts/', windex, tab_index)
+  test.NavigateToURL('https://accounts.google.com/', windex, tab_index)
   email_id = 'document.getElementById("Email").value = "%s"; ' \
              'window.domAutomationController.send("done")' % username
   password = 'document.getElementById("Passwd").value = "%s"; ' \
@@ -138,16 +150,20 @@ def SendMail(send_from, send_to, subject, text, smtp, file_to_send=None):
   """Send mail to all the group to notify about the crash and uploaded data.
 
   Args:
-    send_from: from mail id.
-    send_to: to mail id.
-    subject: mail subject.
-    text: mail body.
-    smtp: The smtp to use.
-    file_to_send: attachments for the mail.
+    send_from: From mail id as a string.
+    send_to: To mail id. Can be a string representing a single address, or a
+        list of strings representing multiple addresses.
+    subject: Mail subject as a string.
+    text: Mail body as a string.
+    smtp: The smtp to use, as a string.
+    file_to_send: Attachments for the mail.
   """
   msg = email.MIMEMultipart.MIMEMultipart()
   msg['From'] = send_from
-  msg['To'] = send_to
+  if isinstance(send_to, list):
+    msg['To'] = ','.join(send_to)
+  else:
+    msg['To'] = send_to
   msg['Date'] = email.Utils.formatdate(localtime=True)
   msg['Subject'] = subject
 

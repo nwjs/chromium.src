@@ -8,6 +8,10 @@
 #include "content/common/gamepad_messages.h"
 #include "content/common/gamepad_hardware_buffer.h"
 
+#if defined(_WIN32_WINNT_WIN8)
+// The Windows 8 SDK defines FACILITY_VISUALCPP in winerror.h.
+#undef FACILITY_VISUALCPP
+#endif
 #include <delayimp.h>
 
 #pragma comment(lib, "delayimp.lib")

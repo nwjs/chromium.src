@@ -17,6 +17,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 using content::WebContents;
+using extensions::Extension;
 
 namespace {
 
@@ -28,8 +29,9 @@ class TestFunctionDispatcherDelegate
   virtual ~TestFunctionDispatcherDelegate() {}
 
  private:
-  virtual Browser* GetBrowser() OVERRIDE {
-    return browser_;
+  virtual extensions::WindowController* GetExtensionWindowController()
+      const OVERRIDE {
+    return browser_->extension_window_controller();
   }
 
   virtual WebContents* GetAssociatedWebContents() const OVERRIDE {
@@ -44,8 +46,7 @@ class TestFunctionDispatcherDelegate
 namespace extension_function_test_utils {
 
 base::Value* ParseJSON(const std::string& data) {
-  const bool kAllowTrailingComma = false;
-  return base::JSONReader::Read(data, kAllowTrailingComma);
+  return base::JSONReader::Read(data);
 }
 
 base::ListValue* ParseList(const std::string& data) {
@@ -99,13 +100,18 @@ base::ListValue* ToList(base::Value* val) {
 }
 
 scoped_refptr<Extension> CreateEmptyExtension() {
+  return CreateEmptyExtensionWithLocation(Extension::INTERNAL);
+}
+
+scoped_refptr<Extension> CreateEmptyExtensionWithLocation(
+    Extension::Location location) {
   std::string error;
   const FilePath test_extension_path;
   scoped_ptr<base::DictionaryValue> test_extension_value(
       ParseDictionary("{\"name\": \"Test\", \"version\": \"1.0\"}"));
   scoped_refptr<Extension> extension(Extension::Create(
       test_extension_path,
-      Extension::INTERNAL,
+      location,
       *test_extension_value.get(),
       Extension::NO_FLAGS,
       &error));
@@ -124,26 +130,31 @@ std::string RunFunctionAndReturnError(UIThreadExtensionFunction* function,
                                       RunFunctionFlags flags) {
   scoped_refptr<ExtensionFunction> function_owner(function);
   RunFunction(function, args, browser, flags);
-  EXPECT_FALSE(function->GetResultValue()) << "Unexpected function result " <<
-      function->GetResult();
+  EXPECT_FALSE(function->GetResultList()) << "Did not expect a result";
   return function->GetError();
 }
 
-base::Value* RunFunctionAndReturnResult(UIThreadExtensionFunction* function,
-                                        const std::string& args,
-                                        Browser* browser) {
-  return RunFunctionAndReturnResult(function, args, browser, NONE);
+base::Value* RunFunctionAndReturnSingleResult(
+    UIThreadExtensionFunction* function,
+    const std::string& args,
+    Browser* browser) {
+  return RunFunctionAndReturnSingleResult(function, args, browser, NONE);
 }
-base::Value* RunFunctionAndReturnResult(UIThreadExtensionFunction* function,
-                                        const std::string& args,
-                                        Browser* browser,
-                                        RunFunctionFlags flags) {
+base::Value* RunFunctionAndReturnSingleResult(
+    UIThreadExtensionFunction* function,
+    const std::string& args,
+    Browser* browser,
+    RunFunctionFlags flags) {
   scoped_refptr<ExtensionFunction> function_owner(function);
   RunFunction(function, args, browser, flags);
   EXPECT_TRUE(function->GetError().empty()) << "Unexpected error: "
       << function->GetError();
-  return (function->GetResultValue() == NULL) ? NULL :
-      function->GetResultValue()->DeepCopy();
+  base::Value* single_result = NULL;
+  if (function->GetResultList() != NULL &&
+      function->GetResultList()->Get(0, &single_result)) {
+    return single_result->DeepCopy();
+  }
+  return NULL;
 }
 
 // This helps us be able to wait until an AsyncExtensionFunction calls
@@ -169,7 +180,9 @@ class SendResponseDelegate
   }
 
   virtual void OnSendResponse(UIThreadExtensionFunction* function,
-                              bool success) {
+                              bool success,
+                              bool bad_message) {
+    ASSERT_FALSE(bad_message);
     ASSERT_FALSE(HasResponse());
     response_.reset(new bool);
     *response_ = success;

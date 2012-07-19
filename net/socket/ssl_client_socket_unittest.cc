@@ -6,9 +6,9 @@
 
 #include "net/base/address_list.h"
 #include "net/base/cert_test_util.h"
-#include "net/base/cert_verifier.h"
 #include "net/base/host_resolver.h"
 #include "net/base/io_buffer.h"
+#include "net/base/mock_cert_verifier.h"
 #include "net/base/net_log.h"
 #include "net/base/net_log_unittest.h"
 #include "net/base/net_errors.h"
@@ -31,7 +31,9 @@ class SSLClientSocketTest : public PlatformTest {
  public:
   SSLClientSocketTest()
       : socket_factory_(net::ClientSocketFactory::GetDefaultFactory()),
-        cert_verifier_(net::CertVerifier::CreateDefault()) {
+        cert_verifier_(new net::MockCertVerifier) {
+    cert_verifier_->set_default_result(net::OK);
+    context_.cert_verifier = cert_verifier_.get();
   }
 
  protected:
@@ -39,17 +41,15 @@ class SSLClientSocketTest : public PlatformTest {
       net::StreamSocket* transport_socket,
       const net::HostPortPair& host_and_port,
       const net::SSLConfig& ssl_config) {
-    net::SSLClientSocketContext context;
-    context.cert_verifier = cert_verifier_.get();
     return socket_factory_->CreateSSLClientSocket(transport_socket,
                                                   host_and_port,
                                                   ssl_config,
-                                                  NULL,
-                                                  context);
+                                                  context_);
   }
 
   net::ClientSocketFactory* socket_factory_;
-  scoped_ptr<net::CertVerifier> cert_verifier_;
+  scoped_ptr<net::MockCertVerifier> cert_verifier_;
+  net::SSLClientSocketContext context_;
 };
 
 //-----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ class SSLClientSocketTest : public PlatformTest {
 // timeout. This means that an SSL connect end event may appear as a socket
 // write.
 static bool LogContainsSSLConnectEndEvent(
-    const net::CapturingNetLog::EntryList& log, int i) {
+    const net::CapturingNetLog::CapturedEntryList& log, int i) {
   return net::LogContainsEndEvent(log, i, net::NetLog::TYPE_SSL_CONNECT) ||
          net::LogContainsEvent(log, i, net::NetLog::TYPE_SOCKET_BYTES_SENT,
                                 net::NetLog::PHASE_NONE);
@@ -78,7 +78,7 @@ TEST_F(SSLClientSocketTest, Connect) {
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -86,18 +86,15 @@ TEST_F(SSLClientSocketTest, Connect) {
     rv = callback.WaitForResult();
   EXPECT_EQ(net::OK, rv);
 
-  net::SSLClientSocketContext context;
-  context.cert_verifier = cert_verifier_.get();
   scoped_ptr<net::SSLClientSocket> sock(
-      socket_factory_->CreateSSLClientSocket(
-          transport, test_server.host_port_pair(), kDefaultSSLConfig,
-          NULL, context));
+      CreateSSLClientSocket(transport, test_server.host_port_pair(),
+                            kDefaultSSLConfig));
 
   EXPECT_FALSE(sock->IsConnected());
 
   rv = sock->Connect(callback.callback());
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));
@@ -118,11 +115,13 @@ TEST_F(SSLClientSocketTest, ConnectExpired) {
   net::TestServer test_server(https_options, FilePath());
   ASSERT_TRUE(test_server.Start());
 
+  cert_verifier_->set_default_result(net::ERR_CERT_DATE_INVALID);
+
   net::AddressList addr;
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -138,7 +137,7 @@ TEST_F(SSLClientSocketTest, ConnectExpired) {
 
   rv = sock->Connect(callback.callback());
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));
@@ -161,11 +160,13 @@ TEST_F(SSLClientSocketTest, ConnectMismatched) {
   net::TestServer test_server(https_options, FilePath());
   ASSERT_TRUE(test_server.Start());
 
+  cert_verifier_->set_default_result(net::ERR_CERT_COMMON_NAME_INVALID);
+
   net::AddressList addr;
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -181,7 +182,7 @@ TEST_F(SSLClientSocketTest, ConnectMismatched) {
 
   rv = sock->Connect(callback.callback());
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));
@@ -210,7 +211,7 @@ TEST_F(SSLClientSocketTest, ConnectClientAuthCertRequested) {
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -226,7 +227,7 @@ TEST_F(SSLClientSocketTest, ConnectClientAuthCertRequested) {
 
   rv = sock->Connect(callback.callback());
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));
@@ -270,7 +271,7 @@ TEST_F(SSLClientSocketTest, ConnectClientAuthSendNullCert) {
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -292,7 +293,7 @@ TEST_F(SSLClientSocketTest, ConnectClientAuthSendNullCert) {
   // TODO(davidben): Add a test which requires them and verify the error.
   rv = sock->Connect(callback.callback());
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));
@@ -394,12 +395,9 @@ TEST_F(SSLClientSocketTest, Read_FullDuplex) {
     rv = callback.WaitForResult();
   EXPECT_EQ(net::OK, rv);
 
-  net::SSLClientSocketContext context;
-  context.cert_verifier = cert_verifier_.get();
   scoped_ptr<net::SSLClientSocket> sock(
-      socket_factory_->CreateSSLClientSocket(
-          transport, test_server.host_port_pair(), kDefaultSSLConfig,
-          NULL, context));
+      CreateSSLClientSocket(transport, test_server.host_port_pair(),
+                            kDefaultSSLConfig));
 
   rv = sock->Connect(callback.callback());
   if (rv == net::ERR_IO_PENDING)
@@ -550,7 +548,7 @@ TEST_F(SSLClientSocketTest, Read_FullLogging) {
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   log.SetLogLevel(net::NetLog::LOG_ALL);
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
@@ -582,7 +580,7 @@ TEST_F(SSLClientSocketTest, Read_FullLogging) {
     rv = callback.WaitForResult();
   EXPECT_EQ(static_cast<int>(arraysize(request_text) - 1), rv);
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   size_t last_index = net::ExpectLogContainsSomewhereAfter(
       entries, 5, net::NetLog::TYPE_SSL_SOCKET_BYTES_SENT,
@@ -653,6 +651,8 @@ TEST_F(SSLClientSocketTest, PrematureApplicationData) {
                             kDefaultSSLConfig));
 
   rv = sock->Connect(callback.callback());
+  if (rv == net::ERR_IO_PENDING)
+    rv = callback.WaitForResult();
   EXPECT_EQ(net::ERR_SSL_PROTOCOL_ERROR, rv);
 }
 
@@ -678,7 +678,7 @@ TEST_F(SSLClientSocketTest, CipherSuiteDisables) {
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -697,7 +697,7 @@ TEST_F(SSLClientSocketTest, CipherSuiteDisables) {
   EXPECT_FALSE(sock->IsConnected());
 
   rv = sock->Connect(callback.callback());
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));
@@ -759,15 +759,13 @@ TEST_F(SSLClientSocketTest, ClientSocketHandleNotFromPool) {
   net::ClientSocketHandle* socket_handle = new net::ClientSocketHandle();
   socket_handle->set_socket(transport);
 
-  net::SSLClientSocketContext context;
-  context.cert_verifier = cert_verifier_.get();
-  scoped_ptr<net::SSLClientSocket> ssl_socket(
+  scoped_ptr<net::SSLClientSocket> sock(
       socket_factory_->CreateSSLClientSocket(
           socket_handle, test_server.host_port_pair(), kDefaultSSLConfig,
-          NULL, context));
+          context_));
 
-  EXPECT_FALSE(ssl_socket->IsConnected());
-  rv = ssl_socket->Connect(callback.callback());
+  EXPECT_FALSE(sock->IsConnected());
+  rv = sock->Connect(callback.callback());
   if (rv == net::ERR_IO_PENDING)
     rv = callback.WaitForResult();
   EXPECT_EQ(net::OK, rv);
@@ -793,12 +791,9 @@ TEST_F(SSLClientSocketTest, ExportKeyingMaterial) {
     rv = callback.WaitForResult();
   EXPECT_EQ(net::OK, rv);
 
-  net::SSLClientSocketContext context;
-  context.cert_verifier = cert_verifier_.get();
   scoped_ptr<net::SSLClientSocket> sock(
-      socket_factory_->CreateSSLClientSocket(
-          transport, test_server.host_port_pair(), kDefaultSSLConfig,
-          NULL, context));
+      CreateSSLClientSocket(transport, test_server.host_port_pair(),
+                            kDefaultSSLConfig));
 
   rv = sock->Connect(callback.callback());
   if (rv == net::ERR_IO_PENDING)
@@ -835,39 +830,36 @@ TEST(SSLClientSocket, ClearSessionCache) {
 // verified, not the chain as served by the server. (They may be different.)
 //
 // CERT_CHAIN_WRONG_ROOT is redundant-server-chain.pem. It contains A
-// (end-entity) -> B -> C, and C is signed by D. We do not set D to be a
-// trusted root in this test. Instead, we install C2 as a root; C2 contains
-// the same public key as C. redundant-server-chain.pem should therefore
-// validate as A -> B -> C2. If it does, this test passes.
-//
-// This test is the upper-layer analogue for
-// X509CertificateTest.VerifyReturnChainProperlyOrdered.
-#if defined(OS_MACOSX)
-// TODO(rsleevi): http://crbug.com/114343 / http://crbug.com/69278 - OS X
-// path building fails to properly handle cross-certified intermediates
-// without AIA information, so this test is disabled.
-#define MAYBE_VerifyReturnChainProperlyOrdered \
-    DISABLED_VerifyReturnChainProperlyOrdered
-#elif defined(OS_ANDROID)
-// TODO(jnd): http://crbug.com/116838 - Requires support of Android APIs
-#define MAYBE_VerifyReturnChainProperlyOrdered \
-    DISABLED_VerifyReturnChainProperlyOrdered
-#elif defined(USE_OPENSSL)
-// TODO(jnd): http://crbug.com/117196 - OpenSSL doesn't support arbitrary
-// trust anchors or cross-signed certificate chain path building until
-// OpenSSL 1.1.0.
-#define MAYBE_VerifyReturnChainProperlyOrdered \
-    DISABLED_VerifyReturnChainProperlyOrdered
-#else
-#define MAYBE_VerifyReturnChainProperlyOrdered \
-    VerifyReturnChainProperlyOrdered
-#endif
-TEST_F(SSLClientSocketTest, MAYBE_VerifyReturnChainProperlyOrdered) {
+// (end-entity) -> B -> C, and C is signed by D. redundant-validated-chain.pem
+// contains a chain of A -> B -> C2, where C2 is the same public key as C, but
+// a self-signed root. Such a situation can occur when a new root (C2) is
+// cross-certified by an old root (D) and has two different versions of its
+// floating around. Servers may supply C2 as an intermediate, but the
+// SSLClientSocket should return the chain that was verified, from
+// verify_result, instead.
+TEST_F(SSLClientSocketTest, VerifyReturnChainProperlyOrdered) {
+  // By default, cause the CertVerifier to treat all certificates as
+  // expired.
+  cert_verifier_->set_default_result(net::ERR_CERT_DATE_INVALID);
+
   // We will expect SSLInfo to ultimately contain this chain.
   net::CertificateList certs = CreateCertificateListFromFile(
       net::GetTestCertsDirectory(), "redundant-validated-chain.pem",
       net::X509Certificate::FORMAT_AUTO);
   ASSERT_EQ(3U, certs.size());
+
+  net::X509Certificate::OSCertHandles temp_intermediates;
+  temp_intermediates.push_back(certs[1]->os_cert_handle());
+  temp_intermediates.push_back(certs[2]->os_cert_handle());
+
+  net::CertVerifyResult verify_result;
+  verify_result.verified_cert =
+      net::X509Certificate::CreateFromHandle(certs[0]->os_cert_handle(),
+                                             temp_intermediates);
+
+  // Add a rule that maps the server cert (A) to the chain of A->B->C2
+  // rather than A->B->C.
+  cert_verifier_->AddResultForCert(certs[0], verify_result, net::OK);
 
   // Load and install the root for the validated chain.
   scoped_refptr<net::X509Certificate> root_cert =
@@ -887,7 +879,7 @@ TEST_F(SSLClientSocketTest, MAYBE_VerifyReturnChainProperlyOrdered) {
   ASSERT_TRUE(test_server.GetAddressList(&addr));
 
   net::TestCompletionCallback callback;
-  net::CapturingNetLog log(net::CapturingNetLog::kUnbounded);
+  net::CapturingNetLog log;
   net::StreamSocket* transport = new net::TCPClientSocket(
       addr, &log, net::NetLog::Source());
   int rv = transport->Connect(callback.callback());
@@ -901,7 +893,7 @@ TEST_F(SSLClientSocketTest, MAYBE_VerifyReturnChainProperlyOrdered) {
   EXPECT_FALSE(sock->IsConnected());
   rv = sock->Connect(callback.callback());
 
-  net::CapturingNetLog::EntryList entries;
+  net::CapturingNetLog::CapturedEntryList entries;
   log.GetEntries(&entries);
   EXPECT_TRUE(net::LogContainsBeginEvent(
       entries, 5, net::NetLog::TYPE_SSL_CONNECT));

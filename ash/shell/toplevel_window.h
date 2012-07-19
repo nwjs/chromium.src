@@ -4,7 +4,6 @@
 
 #ifndef ASH_SHELL_TOPLEVEL_WINDOW_H_
 #define ASH_SHELL_TOPLEVEL_WINDOW_H_
-#pragma once
 
 #include "ui/views/widget/widget_delegate.h"
 
@@ -18,6 +17,7 @@ class ToplevelWindow : public views::WidgetDelegateView {
 
     bool can_resize;
     bool can_maximize;
+    bool persist_across_all_workspaces;
   };
   static void CreateToplevelWindow(const CreateParams& params);
 

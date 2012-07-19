@@ -4,16 +4,16 @@
 
 #ifndef CHROME_RENDERER_EXTENSIONS_EXTENSION_HELPER_H_
 #define CHROME_RENDERER_EXTENSIONS_EXTENSION_HELPER_H_
-#pragma once
 
 #include <map>
 #include <vector>
 
 #include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
+#include "chrome/common/view_type.h"
+#include "content/public/common/console_message_level.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "content/public/renderer/render_view_observer_tracker.h"
-#include "content/public/common/view_type.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebURLResponse.h"
 
 class ExtensionDispatcher;
@@ -36,6 +36,18 @@ class ExtensionHelper
     : public content::RenderViewObserver,
       public content::RenderViewObserverTracker<ExtensionHelper> {
  public:
+  // Returns a list of extension RenderViews that match the given filter
+  // criteria. If |browser_window_id| is not extension_misc::kUnknownWindowId,
+  // the list is restricted to views in that browser window.
+  static std::vector<content::RenderView*> GetExtensionViews(
+      const std::string& extension_id,
+      int browser_window_id,
+      chrome::ViewType view_type);
+
+  // Returns the given extension's background page, or NULL if none.
+  static content::RenderView* GetBackgroundPage(
+      const std::string& extension_id);
+
   ExtensionHelper(content::RenderView* render_view,
                   ExtensionDispatcher* extension_dispatcher);
   virtual ~ExtensionHelper();
@@ -47,8 +59,9 @@ class ExtensionHelper
   bool InstallWebApplicationUsingDefinitionFile(WebKit::WebFrame* frame,
                                                 string16* error);
 
+  int tab_id() const { return tab_id_; }
   int browser_window_id() const { return browser_window_id_; }
-  content::ViewType view_type() const { return view_type_; }
+  chrome::ViewType view_type() const { return view_type_; }
 
  private:
   // RenderViewObserver implementation.
@@ -62,7 +75,7 @@ class ExtensionHelper
                                    WebKit::WebDataSource* ds) OVERRIDE;
 
   void OnExtensionResponse(int request_id, bool success,
-                           const std::string& response,
+                           const base::ListValue& response,
                            const std::string& error);
   void OnExtensionMessageInvoke(const std::string& extension_id,
                                 const std::string& function_name,
@@ -79,8 +92,11 @@ class ExtensionHelper
   void OnExtensionDispatchOnDisconnect(int port_id, bool connection_error);
   void OnExecuteCode(const ExtensionMsg_ExecuteCode_Params& params);
   void OnGetApplicationInfo(int page_id);
-  void OnNotifyRendererViewType(content::ViewType view_type);
+  void OnNotifyRendererViewType(chrome::ViewType view_type);
+  void OnSetTabId(int tab_id);
   void OnUpdateBrowserWindowId(int window_id);
+  void OnAddMessageToConsole(content::ConsoleMessageLevel level,
+                             const std::string& message);
 
   // Callback triggered when we finish downloading the application definition
   // file.
@@ -92,8 +108,9 @@ class ExtensionHelper
   void DidDownloadApplicationIcon(webkit_glue::ImageResourceFetcher* fetcher,
                                   const SkBitmap& image);
 
-  // Helper to add an error message to the root frame's console.
-  void AddErrorToRootConsole(const string16& message);
+  // Helper to add an logging message to the root frame's console.
+  void AddMessageToRootConsole(content::ConsoleMessageLevel level,
+                               const string16& message);
 
   ExtensionDispatcher* extension_dispatcher_;
 
@@ -115,7 +132,10 @@ class ExtensionHelper
   int pending_app_icon_requests_;
 
   // Type of view attached with RenderView.
-  content::ViewType view_type_;
+  chrome::ViewType view_type_;
+
+  // Id of the tab which the RenderView is attached to.
+  int tab_id_;
 
   // Id number of browser window which RenderView is attached to.
   int browser_window_id_;

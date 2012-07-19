@@ -4,7 +4,6 @@
 
 #ifndef UI_VIEWS_CONTROLS_COMBOBOX_NATIVE_COMBOBOX_VIEWS_H_
 #define UI_VIEWS_CONTROLS_COMBOBOX_NATIVE_COMBOBOX_VIEWS_H_
-#pragma once
 
 #include "ui/views/controls/combobox/native_combobox_wrapper.h"
 #include "ui/views/controls/menu/menu_delegate.h"
@@ -34,6 +33,8 @@ class NativeComboboxViews : public views::View,
   // views::View overrides:
   virtual bool OnMousePressed(const views::MouseEvent& mouse_event) OVERRIDE;
   virtual bool OnMouseDragged(const views::MouseEvent& mouse_event) OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(
+      const views::GestureEvent& gesture_event) OVERRIDE;
   virtual bool OnKeyPressed(const views::KeyEvent& key_event) OVERRIDE;
   virtual bool OnKeyReleased(const views::KeyEvent& key_event) OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
@@ -79,7 +80,7 @@ class NativeComboboxViews : public views::View,
   FocusableBorder* text_border_;
 
   // The disclosure arrow next to the currently selected item from the list.
-  const SkBitmap* disclosure_arrow_;
+  const gfx::ImageSkia* disclosure_arrow_;
 
   // Responsible for showing the context menu.
   scoped_ptr<MenuRunner> dropdown_list_menu_runner_;

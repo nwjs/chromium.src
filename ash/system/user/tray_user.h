@@ -4,7 +4,6 @@
 
 #ifndef ASH_SYSTEM_USER_TRAY_USER_H_
 #define ASH_SYSTEM_USER_TRAY_USER_H_
-#pragma once
 
 #include "ash/system/tray/system_tray_item.h"
 #include "ash/system/user/user_observer.h"
@@ -35,12 +34,13 @@ class TrayUser : public SystemTrayItem,
   virtual void DestroyTrayView() OVERRIDE;
   virtual void DestroyDefaultView() OVERRIDE;
   virtual void DestroyDetailedView() OVERRIDE;
+  virtual void UpdateAfterLoginStatusChange(user::LoginStatus status) OVERRIDE;
 
   // Overridden from UserObserver.
   virtual void OnUserUpdate() OVERRIDE;
 
-  scoped_ptr<tray::UserView> user_;
-  scoped_ptr<tray::RoundedImageView> avatar_;
+  tray::UserView* user_;
+  tray::RoundedImageView* avatar_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayUser);
 };

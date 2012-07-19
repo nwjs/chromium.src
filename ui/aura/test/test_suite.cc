@@ -9,10 +9,10 @@
 #include "build/build_config.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
-#include "ui/gfx/compositor/compositor_setup.h"
-#include "ui/gfx/compositor/test/compositor_test_support.h"
+#include "ui/compositor/compositor_setup.h"
+#include "ui/compositor/test/compositor_test_support.h"
 #include "ui/gfx/gfx_paths.h"
-#include "ui/gfx/gl/gl_implementation.h"
+#include "ui/gl/gl_implementation.h"
 
 namespace aura {
 namespace test {
@@ -28,7 +28,7 @@ void AuraTestSuite::Initialize() {
 
   // Force unittests to run using en-US so if we test against string
   // output, it'll pass regardless of the system language.
-  ui::ResourceBundle::InitSharedInstanceWithLocale("en-US");
+  ui::ResourceBundle::InitSharedInstanceWithLocale("en-US", NULL);
   ui::CompositorTestSupport::Initialize();
 
   ui::SetupTestCompositor();

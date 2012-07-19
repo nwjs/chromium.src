@@ -12,7 +12,7 @@
 #include "chrome/browser/chromeos/system/statistics_provider.h"
 #include "chrome/common/chrome_paths.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/url_fetcher.h"
+#include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_request_status.h"
 
 using content::BrowserThread;
@@ -281,8 +281,8 @@ void BurnManager::FetchConfigFile(Delegate* delegate) {
   if (config_fetcher_.get())
     return;
 
-  config_fetcher_.reset(content::URLFetcher::Create(
-      config_file_url_, content::URLFetcher::GET, this));
+  config_fetcher_.reset(net::URLFetcher::Create(
+      config_file_url_, net::URLFetcher::GET, this));
   config_fetcher_->SetRequestContext(
       g_browser_process->system_request_context());
   config_fetcher_->Start();
@@ -291,9 +291,9 @@ void BurnManager::FetchConfigFile(Delegate* delegate) {
 void BurnManager::FetchImage(const GURL& image_url, const FilePath& file_path) {
   tick_image_download_start_ = base::TimeTicks::Now();
   bytes_image_download_progress_last_reported_ = 0;
-  image_fetcher_.reset(content::URLFetcher::Create(image_url,
-                                                   content::URLFetcher::GET,
-                                                   this));
+  image_fetcher_.reset(net::URLFetcher::Create(image_url,
+                                               net::URLFetcher::GET,
+                                               this));
   image_fetcher_->SetRequestContext(
       g_browser_process->system_request_context());
   image_fetcher_->SaveResponseToFileAtPath(
@@ -306,7 +306,7 @@ void BurnManager::CancelImageFetch() {
   image_fetcher_.reset();
 }
 
-void BurnManager::OnURLFetchComplete(const content::URLFetcher* source) {
+void BurnManager::OnURLFetchComplete(const net::URLFetcher* source) {
   const bool success =
       source->GetStatus().status() == net::URLRequestStatus::SUCCESS;
   if (source == config_fetcher_.get()) {
@@ -323,7 +323,7 @@ void BurnManager::OnURLFetchComplete(const content::URLFetcher* source) {
   }
 }
 
-void BurnManager::OnURLFetchDownloadProgress(const content::URLFetcher* source,
+void BurnManager::OnURLFetchDownloadProgress(const net::URLFetcher* source,
                                              int64 current,
                                              int64 total) {
   if (source == image_fetcher_.get()) {

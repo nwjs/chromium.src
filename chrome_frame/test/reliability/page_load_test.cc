@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -54,7 +54,7 @@
 #include "chrome_frame/test/ie_event_sink.h"
 #include "chrome_frame/test/reliability/page_load_test.h"
 #include "chrome_frame/utils.h"
-#include "content/test/test_browser_thread.h"
+#include "content/public/test/test_browser_thread.h"
 #include "net/base/net_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -219,7 +219,7 @@ class PageLoadTest : public testing::Test {
     ie_event_sink.Attach(web_browser2);
     hr = ie_event_sink.Navigate(UTF8ToWide(url.spec()));
     if (SUCCEEDED(hr)) {
-      message_loop.RunFor(g_timeout_seconds);
+      message_loop.RunFor(base::TimeDelta::FromSeconds(g_timeout_seconds));
       if (!message_loop.WasTimedOut())
         metrics.result = NAVIGATION_SUCCESS;
     }

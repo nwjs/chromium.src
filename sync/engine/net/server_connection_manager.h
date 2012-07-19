@@ -4,7 +4,6 @@
 
 #ifndef SYNC_ENGINE_NET_SERVER_CONNECTION_MANAGER_H_
 #define SYNC_ENGINE_NET_SERVER_CONNECTION_MANAGER_H_
-#pragma once
 
 #include <iosfwd>
 #include <string>
@@ -18,17 +17,15 @@
 #include "base/threading/thread_checker.h"
 #include "sync/syncable/syncable_id.h"
 
-namespace syncable {
-class Directory;
-}
-
 namespace sync_pb {
 class ClientToServerMessage;
 }
 
-namespace browser_sync {
+namespace syncer {
 
-class ClientToServerMessage;
+namespace syncable {
+class Directory;
+}
 
 static const int32 kUnsetResponseCode = -1;
 static const int32 kUnsetContentLength = -1;
@@ -178,8 +175,7 @@ class ServerConnectionManager {
 
   ServerConnectionManager(const std::string& server,
                           int port,
-                          bool use_ssl,
-                          const std::string& user_agent);
+                          bool use_ssl);
 
   virtual ~ServerConnectionManager();
 
@@ -192,8 +188,6 @@ class ServerConnectionManager {
 
   void AddListener(ServerConnectionEventListener* listener);
   void RemoveListener(ServerConnectionEventListener* listener);
-
-  inline std::string user_agent() const { return user_agent_; }
 
   inline HttpResponse::ServerConnectionCode server_status() const {
     DCHECK(thread_checker_.CalledOnValidThread());
@@ -289,9 +283,6 @@ class ServerConnectionManager {
   // The unique id of the user's client.
   std::string client_id_;
 
-  // The user-agent string for HTTP.
-  std::string user_agent_;
-
   // Indicates whether or not requests should be made using HTTPS.
   bool use_ssl_;
 
@@ -356,6 +347,6 @@ bool FillMessageWithShareDetails(sync_pb::ClientToServerMessage* csm,
 
 std::ostream& operator<<(std::ostream& s, const struct HttpResponse& hr);
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_NET_SERVER_CONNECTION_MANAGER_H_

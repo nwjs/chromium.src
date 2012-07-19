@@ -4,10 +4,10 @@
 
 #include "ui/views/controls/glow_hover_controller.h"
 
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "ui/gfx/canvas.h"
-#include "ui/gfx/skbitmap_operations.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/views/view.h"
 
 namespace views {
@@ -64,12 +64,13 @@ bool GlowHoverController::ShouldDraw() const {
 }
 
 void GlowHoverController::Draw(gfx::Canvas* canvas,
-                               const SkBitmap& mask_image) const {
+                               const gfx::ImageSkia& mask_image) const {
   if (!ShouldDraw())
     return;
 
   // Draw a radial gradient to hover_canvas.
   gfx::Canvas hover_canvas(gfx::Size(mask_image.width(), mask_image.height()),
+                           canvas->scale_factor(),
                            false);
 
   // Draw a radial gradient to hover_canvas.
@@ -96,10 +97,10 @@ void GlowHoverController::Draw(gfx::Canvas* canvas,
                                     location_.y() - radius,
                                     radius * 2, radius * 2), paint);
   }
-  SkBitmap result = SkBitmapOperations::CreateMaskedBitmap(
-      hover_canvas.ExtractBitmap(), mask_image);
-  canvas->DrawBitmapInt(result, (view_->width() - mask_image.width()) / 2,
-                        (view_->height() - mask_image.height()) / 2);
+  gfx::ImageSkia result = gfx::ImageSkiaOperations::CreateMaskedImage(
+      gfx::ImageSkia(hover_canvas.ExtractImageSkiaRep()), mask_image);
+  canvas->DrawImageInt(result, (view_->width() - mask_image.width()) / 2,
+                       (view_->height() - mask_image.height()) / 2);
 }
 
 void GlowHoverController::AnimationEnded(const ui::Animation* animation) {

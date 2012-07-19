@@ -7,25 +7,29 @@
 // Multiply-included message file, no traditional include guard.
 #include "base/process.h"
 #include "chrome/common/nacl_types.h"
+#include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_message_macros.h"
 
-#ifndef CHROME_COMMON_NACL_MESSAGES_H_
-#define CHROME_COMMON_NACL_MESSAGES_H_
-
-#endif  // CHROME_COMMON_NACL_MESSAGES_H_
-
 #define IPC_MESSAGE_START NaClMsgStart
+
+IPC_STRUCT_TRAITS_BEGIN(nacl::NaClStartParams)
+  IPC_STRUCT_TRAITS_MEMBER(handles)
+  IPC_STRUCT_TRAITS_MEMBER(validation_cache_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(validation_cache_key)
+  IPC_STRUCT_TRAITS_MEMBER(version)
+  IPC_STRUCT_TRAITS_MEMBER(enable_exception_handling)
+  IPC_STRUCT_TRAITS_MEMBER(enable_debug_stub)
+  IPC_STRUCT_TRAITS_MEMBER(enable_ipc_proxy)
+IPC_STRUCT_TRAITS_END()
 
 //-----------------------------------------------------------------------------
 // NaClProcess messages
 // These are messages sent between the browser and the NaCl process.
 // Tells the NaCl process to start.
-IPC_MESSAGE_CONTROL4(NaClProcessMsg_Start,
-                     std::vector<nacl::FileDescriptor> /* sockets */,
-                     std::string /* validation_cache_key */,
-                     std::string /* version */,
-                     bool /* enable_exception_handling */)
+IPC_MESSAGE_CONTROL1(NaClProcessMsg_Start,
+                     nacl::NaClStartParams /* params */)
 
+#if defined(OS_WIN)
 // Tells the NaCl broker to launch a NaCl loader process.
 IPC_MESSAGE_CONTROL1(NaClProcessMsg_LaunchLoaderThroughBroker,
                      std::string /* channel ID for the loader */)
@@ -37,18 +41,28 @@ IPC_MESSAGE_CONTROL2(NaClProcessMsg_LoaderLaunched,
 
 // Tells the NaCl broker to attach a debug exception handler to the
 // given NaCl loader process.
-IPC_MESSAGE_CONTROL1(NaClProcessMsg_LaunchDebugExceptionHandler,
-                     int32 /* pid */)
+IPC_MESSAGE_CONTROL3(NaClProcessMsg_LaunchDebugExceptionHandler,
+                     int32 /* pid of the NaCl process */,
+                     base::ProcessHandle /* handle of the NaCl process */,
+                     std::string /* NaCl internal process layout info */)
 
 // Notify the browser process that the broker process finished
 // attaching a debug exception handler to the given NaCl loader
 // process.
-IPC_MESSAGE_CONTROL1(NaClProcessMsg_DebugExceptionHandlerLaunched,
-                     int32 /* pid */)
+IPC_MESSAGE_CONTROL2(NaClProcessMsg_DebugExceptionHandlerLaunched,
+                     int32 /* pid */,
+                     bool /* success */)
 
 // Notify the broker that all loader processes have been terminated and it
 // should shutdown.
 IPC_MESSAGE_CONTROL0(NaClProcessMsg_StopBroker)
+
+// Used by the NaCl process to request that a Windows debug exception
+// handler be attached to it.
+IPC_SYNC_MESSAGE_CONTROL1_1(NaClProcessMsg_AttachDebugExceptionHandler,
+                            std::string, /* Internal process info */
+                            bool /* Result */)
+#endif
 
 // Used by the NaCl process to query a database in the browser.  The database
 // contains the signatures of previously validated code chunks.
@@ -60,3 +74,9 @@ IPC_SYNC_MESSAGE_CONTROL1_1(NaClProcessMsg_QueryKnownToValidate,
 // database in the browser.
 IPC_MESSAGE_CONTROL1(NaClProcessMsg_SetKnownToValidate,
                      std::string /* A validation signature */)
+
+// Notify the browser process that the server side of the PPAPI channel was
+// created successfully.
+IPC_MESSAGE_CONTROL1(NaClProcessHostMsg_PpapiChannelCreated,
+                     IPC::ChannelHandle /* channel_handle */)
+

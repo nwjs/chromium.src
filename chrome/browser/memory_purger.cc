@@ -6,14 +6,17 @@
 
 #include <set>
 
+#include "base/allocator/allocator_extension.h"
 #include "base/bind.h"
 #include "base/threading/thread.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/webdata/web_data_service.h"
+#include "chrome/browser/webdata/web_data_service_factory.h"
 #include "chrome/common/render_messages.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host.h"
@@ -22,7 +25,6 @@
 #include "net/proxy/proxy_service.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
-#include "third_party/tcmalloc/chromium/src/gperftools/malloc_extension.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
@@ -46,9 +48,13 @@ class PurgeMemoryIOHelper
   void PurgeMemoryOnIOThread();
 
  private:
-  typedef scoped_refptr<net::URLRequestContextGetter> RequestContextGetter;
+  friend class base::RefCountedThreadSafe<PurgeMemoryIOHelper>;
 
+  virtual ~PurgeMemoryIOHelper() {}
+
+  typedef scoped_refptr<net::URLRequestContextGetter> RequestContextGetter;
   std::vector<RequestContextGetter> request_context_getters_;
+
   scoped_refptr<SafeBrowsingService> safe_browsing_service_;
 
   DISALLOW_COPY_AND_ASSIGN(PurgeMemoryIOHelper);
@@ -105,14 +111,15 @@ void MemoryPurger::PurgeBrowser() {
     // Spinning up the history service is expensive, so we avoid doing it if it
     // hasn't been done already.
     HistoryService* history_service =
-        profiles[i]->GetHistoryServiceWithoutCreating();
+        HistoryServiceFactory::GetForProfileWithoutCreating(profiles[i]);
     if (history_service)
       history_service->UnloadBackend();
 
     // Unload all web databases (freeing memory used to cache sqlite).
-    WebDataService* web_data_service =
-        profiles[i]->GetWebDataServiceWithoutCreating();
-    if (web_data_service)
+    scoped_refptr<WebDataService> web_data_service =
+        WebDataServiceFactory::GetForProfileIfExists(
+            profiles[i], Profile::EXPLICIT_ACCESS);
+    if (web_data_service.get())
       web_data_service->UnloadDatabase();
 
     BrowserContext::PurgeMemory(profiles[i]);
@@ -127,14 +134,12 @@ void MemoryPurger::PurgeBrowser() {
   // * Purge AppCache memory.  Not yet implemented sufficiently.
   // * Browser-side DatabaseTracker.  Not implemented sufficiently.
 
-#if !defined(OS_MACOSX) && defined(USE_TCMALLOC)
-  // Tell tcmalloc to release any free pages it's still holding.
+  // Tell our allocator to release any free pages it's still holding.
   //
   // TODO(pkasting): A lot of the above calls kick off actions on other threads.
   // Maybe we should find a way to avoid calling this until those actions
   // complete?
-  MallocExtension::instance()->ReleaseFreeMemory();
-#endif
+  base::allocator::ReleaseFreeMemory();
 }
 
 // static

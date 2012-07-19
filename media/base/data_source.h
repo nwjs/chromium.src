@@ -7,23 +7,27 @@
 
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
+#include "base/time.h"
 #include "media/base/media_export.h"
 
 namespace media {
 
 class MEDIA_EXPORT DataSourceHost {
  public:
-  virtual ~DataSourceHost();
-
   // Set the total size of the media file.
   virtual void SetTotalBytes(int64 total_bytes) = 0;
 
-  // Sets the total number of bytes that are buffered on the client and ready to
-  // be played.
-  virtual void SetBufferedBytes(int64 buffered_bytes) = 0;
+  // Notify the host that byte range [start,end] has been buffered.
+  // TODO(fischman): remove this method when demuxing is push-based instead of
+  // pull-based.  http://crbug.com/131444
+  virtual void AddBufferedByteRange(int64 start, int64 end) = 0;
 
-  // Sets the flag to indicate current network activity.
-  virtual void SetNetworkActivity(bool is_downloading_data) = 0;
+  // Notify the host that time range [start,end] has been buffered.
+  virtual void AddBufferedTimeRange(base::TimeDelta start,
+                                    base::TimeDelta end) = 0;
+
+ protected:
+  virtual ~DataSourceHost();
 };
 
 class MEDIA_EXPORT DataSource : public base::RefCountedThreadSafe<DataSource> {

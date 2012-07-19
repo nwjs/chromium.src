@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_UI_VIEWS_DROPDOWN_BAR_HOST_H_
 #define CHROME_BROWSER_UI_VIEWS_DROPDOWN_BAR_HOST_H_
-#pragma once
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
@@ -147,7 +146,7 @@ class DropdownBarHost : public ui::AcceleratorTarget,
   void SetWidgetPositionNative(const gfx::Rect& new_pos, bool no_redraw);
 
   // Returns a keyboard event suitable for forwarding.
-  NativeWebKeyboardEvent GetKeyboardEvent(
+  content::NativeWebKeyboardEvent GetKeyboardEvent(
       const content::WebContents* contents,
       const views::KeyEvent& key_event);
 

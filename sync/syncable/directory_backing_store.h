@@ -4,7 +4,6 @@
 
 #ifndef SYNC_SYNCABLE_DIRECTORY_BACKING_STORE_H_
 #define SYNC_SYNCABLE_DIRECTORY_BACKING_STORE_H_
-#pragma once
 
 #include <string>
 
@@ -12,14 +11,16 @@
 #include "base/threading/non_thread_safe.h"
 #include "sql/connection.h"
 #include "sql/statement.h"
+#include "sync/internal_api/public/base/model_type.h"
 #include "sync/syncable/dir_open_result.h"
-#include "sync/syncable/model_type.h"
-#include "sync/syncable/syncable.h"
+#include "sync/syncable/directory.h"
+#include "sync/syncable/metahandle_set.h"
 
 namespace sync_pb {
 class EntitySpecifics;
 }
 
+namespace syncer {
 namespace syncable {
 
 struct ColumnSpec;
@@ -111,7 +112,7 @@ class DirectoryBackingStore : public base::NonThreadSafe {
   // Drop all tables in preparation for reinitialization.
   void DropAllTables();
 
-  // Serialization helpers for syncable::ModelType.  These convert between
+  // Serialization helpers for syncer::ModelType.  These convert between
   // the ModelType enum and the values we persist in the database to identify
   // a model.  We persist a default instance of the specifics protobuf as the
   // ID, rather than the enum value.
@@ -162,5 +163,6 @@ class DirectoryBackingStore : public base::NonThreadSafe {
 };
 
 }  // namespace syncable
+}  // namespace syncer
 
 #endif  // SYNC_SYNCABLE_DIRECTORY_BACKING_STORE_H_

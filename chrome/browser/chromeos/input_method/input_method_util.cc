@@ -15,7 +15,6 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/language_preferences.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/common/pref_names.h"
 #include "grit/generated_resources.h"
@@ -61,6 +60,13 @@ const struct {
 
 const size_t kMappingFromIdToIndicatorTextLen =
     ARRAYSIZE_UNSAFE(kMappingFromIdToIndicatorText);
+
+string16 GetLanguageName(const std::string& language_code) {
+  const string16 language_name = l10n_util::GetDisplayNameForLocale(
+      language_code, g_browser_process->GetApplicationLocale(), true);
+  return language_name;
+}
+
 }
 
 namespace chromeos {
@@ -88,11 +94,12 @@ const struct EnglishToResouceId {
   { "Hanja mode", IDS_STATUSBAR_IME_KOREAN_HANJA_INPUT_MODE },
   { "Hangul mode", IDS_STATUSBAR_IME_KOREAN_HANGUL_INPUT_MODE },
 
-  // For ibus-pinyin.
+  // For ibus-mozc-pinyin.
   { "Full/Half width",
     IDS_STATUSBAR_IME_CHINESE_PINYIN_TOGGLE_FULL_HALF },
   { "Full/Half width punctuation",
     IDS_STATUSBAR_IME_CHINESE_PINYIN_TOGGLE_FULL_HALF_PUNCTUATION },
+  // TODO(hsumita): Fixes a typo
   { "Simplfied/Traditional Chinese",
     IDS_STATUSBAR_IME_CHINESE_PINYIN_TOGGLE_S_T_CHINESE },
   { "Chinese",
@@ -269,6 +276,8 @@ const ExtraLanguage kExtraLanguages[] = {
   // The code "es-419" comes from l10_util.cc.
   // For Spanish in Latin America, use Latin American keyboard layout.
   { "es-419", "xkb:latam::spa" },
+  // For Malay, use US keyboard layout. crosbug.com/p/8288
+  { "ms", "xkb:us::eng" },
 
   // TODO(yusukes): Add {"sw", "xkb:us::eng"} once Swahili is removed from the
   // blacklist in src/ui/base/l10n/l10n_util_posix.cc.
@@ -322,6 +331,11 @@ bool InputMethodUtil::StringIsSupported(
     const std::string& english_string) const {
   string16 localized_string;
   return TranslateStringInternal(english_string, &localized_string);
+}
+
+bool InputMethodUtil::IsValidInputMethodId(
+    const std::string& input_method_id) const {
+  return GetInputMethodDescriptorFromId(input_method_id) != NULL;
 }
 
 // static
@@ -411,6 +425,36 @@ string16 InputMethodUtil::GetInputMethodShortName(
   return text;
 }
 
+string16 InputMethodUtil::GetInputMethodLongName(
+    const InputMethodDescriptor& input_method) const {
+  if (!input_method.name().empty()) {
+    // If the descriptor has a name, use it.
+    return UTF8ToUTF16(input_method.name());
+  }
+
+  // We don't show language here.  Name of keyboard layout or input method
+  // usually imply (or explicitly include) its language.
+
+  // Special case for German, French and Dutch: these languages have multiple
+  // keyboard layouts and share the same layout of keyboard (Belgian). We need
+  // to show explicitly the language for the layout. For Arabic, Amharic, and
+  // Indic languages: they share "Standard Input Method".
+  const string16 standard_input_method_text = l10n_util::GetStringUTF16(
+      IDS_OPTIONS_SETTINGS_LANGUAGES_M17N_STANDARD_INPUT_METHOD);
+  const std::string language_code = input_method.language_code();
+
+  string16 text = TranslateString(input_method.id());
+  if (text == standard_input_method_text ||
+             language_code == "de" ||
+             language_code == "fr" ||
+             language_code == "nl") {
+    text = GetLanguageName(language_code) + UTF8ToUTF16(" - ") + text;
+  }
+
+  DCHECK(!text.empty());
+  return text;
+}
+
 const InputMethodDescriptor* InputMethodUtil::GetInputMethodDescriptorFromId(
     const std::string& input_method_id) const {
   InputMethodIdToDescriptorMap::const_iterator iter
@@ -490,7 +534,7 @@ bool InputMethodUtil::GetInputMethodIdsFromLanguageCodeInternal(
     }
   }
   if ((type == kAllInputMethods) && !result) {
-    LOG(ERROR) << "Unknown language code: " << normalized_language_code;
+    DVLOG(1) << "Unknown language code: " << normalized_language_code;
   }
   return result;
 }
@@ -554,7 +598,7 @@ void InputMethodUtil::GetLanguageCodesFromInputMethodIds(
     const InputMethodDescriptor* input_method =
         GetInputMethodDescriptorFromId(input_method_id);
     if (!input_method) {
-      LOG(ERROR) << "Unknown input method ID: " << input_method_ids[i];
+      DVLOG(1) << "Unknown input method ID: " << input_method_ids[i];
       continue;
     }
     const std::string language_code = input_method->language_code();
@@ -573,7 +617,7 @@ std::string InputMethodUtil::GetHardwareInputMethodId() const {
 
   if (!(g_browser_process && g_browser_process->local_state())) {
     // This shouldn't happen but just in case.
-    VLOG(1) << "Local state is not yet ready";
+    DVLOG(1) << "Local state is not yet ready";
     return InputMethodDescriptor::GetFallbackInputMethodDescriptor().id();
   }
 
@@ -582,7 +626,7 @@ std::string InputMethodUtil::GetHardwareInputMethodId() const {
     // This could happen in unittests. We register the preference in
     // BrowserMain::InitializeLocalState and that method is not called during
     // unittests.
-    LOG(ERROR) << prefs::kHardwareKeyboardLayout << " is not registered";
+    DVLOG(1) << prefs::kHardwareKeyboardLayout << " is not registered";
     return InputMethodDescriptor::GetFallbackInputMethodDescriptor().id();
   }
 
@@ -599,7 +643,7 @@ std::string InputMethodUtil::GetHardwareInputMethodId() const {
 
 void InputMethodUtil::ReloadInternalMaps() {
   if (supported_input_methods_->size() <= 1) {
-    LOG(ERROR) << "GetSupportedInputMethods returned a fallback ID";
+    DVLOG(1) << "GetSupportedInputMethods returned a fallback ID";
     // TODO(yusukes): Handle this error in nicer way.
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,14 +10,27 @@
 
 #include "ppapi/cpp/completion_callback.h"
 
+struct PP_NetAddress_Private;
+
+namespace talk_base {
+class SocketAddress;
+}  // namespace talk_base
+
 namespace remoting {
 
-// Function for adapting a Chromium base::Closure to a PP_CompletionCallback
-// friendly function.  The base::Closure object should be a dynamically
-// allocated copy of the result from base::Bind(). It should be passed as
-// |user_data|.  This function will invoke base::Closure::Run() on
-// |user_data| when called, and then delete |user_data|.
-void CompletionCallbackClosureAdapter(void* user_data, int32_t not_used);
+// Adapts a base::Callback to a pp::CompletionCallback, which may be passed to
+// exactly one Pepper API. If the adapted callback is not used then a copy of
+// |callback| will be leaked, including references & passed values bound to it.
+pp::CompletionCallback PpCompletionCallback(base::Callback<void(int)> callback);
+
+// Helpers to convert between different socket address representations.
+bool SocketAddressToPpAddressWithPort(const talk_base::SocketAddress& address,
+                                      PP_NetAddress_Private* pp_address,
+                                      uint16_t port);
+bool SocketAddressToPpAddress(const talk_base::SocketAddress& address,
+                              PP_NetAddress_Private* pp_address);
+bool PpAddressToSocketAddress(const PP_NetAddress_Private& pp_address,
+                              talk_base::SocketAddress* address);
 
 }  // namespace remoting
 

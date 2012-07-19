@@ -4,7 +4,6 @@
 
 #ifndef UI_AURA_CLIENT_AURA_CONSTANTS_H_
 #define UI_AURA_CLIENT_AURA_CONSTANTS_H_
-#pragma once
 
 #include "ui/aura/aura_export.h"
 #include "ui/aura/window.h"
@@ -25,6 +24,10 @@ AURA_EXPORT extern const WindowProperty<bool>* const kAlwaysOnTopKey;
 // A property key to store whether animations are disabled for the window. Type
 // of value is an int.
 AURA_EXPORT extern const WindowProperty<bool>* const kAnimationsDisabledKey;
+
+// A property key to indicate that a window should show that it deserves
+// attention.
+AURA_EXPORT extern const aura::WindowProperty<bool>* const kDrawAttentionKey;
 
 // A property key to store the window modality.
 AURA_EXPORT extern const WindowProperty<ui::ModalType>* const kModalKey;

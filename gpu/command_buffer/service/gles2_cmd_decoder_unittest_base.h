@@ -17,10 +17,11 @@
 #include "gpu/command_buffer/service/query_manager.h"
 #include "gpu/command_buffer/service/renderbuffer_manager.h"
 #include "gpu/command_buffer/service/shader_manager.h"
+#include "gpu/command_buffer/service/test_helper.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/gfx/gl/gl_context_stub.h"
-#include "ui/gfx/gl/gl_surface_stub.h"
+#include "ui/gl/gl_context_stub.h"
+#include "ui/gl/gl_surface_stub.h"
 
 namespace gpu {
 namespace gles2 {
@@ -154,20 +155,8 @@ class GLES2DecoderTestBase : public testing::Test {
     return decoder_.get();
   }
 
-  struct AttribInfo {
-    const char* name;
-    GLint size;
-    GLenum type;
-    GLint location;
-  };
-
-  struct UniformInfo {
-    const char* name;
-    GLint size;
-    GLenum type;
-    GLint fake_location;
-    GLint real_location;
-  };
+  typedef TestHelper::AttribInfo AttribInfo;
+  typedef TestHelper::UniformInfo UniformInfo;
 
   void SetupShader(
       AttribInfo* attribs, size_t num_attribs,
@@ -175,6 +164,12 @@ class GLES2DecoderTestBase : public testing::Test {
       GLuint client_id, GLuint service_id,
       GLuint vertex_shader_client_id, GLuint vertex_shader_service_id,
       GLuint fragment_shader_client_id, GLuint fragment_shader_service_id);
+
+  void SetupExpectationsForClearingUniforms(
+      UniformInfo* uniforms, size_t num_uniforms) {
+    TestHelper::SetupExpectationsForClearingUniforms(
+        gl_.get(), uniforms, num_uniforms);
+  }
 
   // Setups up a shader for testing glUniform.
   void SetupShaderForUniform();
@@ -212,6 +207,10 @@ class GLES2DecoderTestBase : public testing::Test {
   void DoDeleteShader(GLuint client_id, GLuint service_id);
   void DoDeleteTexture(GLuint client_id, GLuint service_id);
 
+  void DoCompressedTexImage2D(
+      GLenum target, GLint level, GLenum format,
+      GLsizei width, GLsizei height, GLint border,
+      GLsizei size, uint32 bucket_id);
   void DoTexImage2D(
       GLenum target, GLint level, GLenum internal_format,
       GLsizei width, GLsizei height, GLint border,
@@ -267,6 +266,15 @@ class GLES2DecoderTestBase : public testing::Test {
       GLsizei width,
       GLsizei height);
 
+  void SetupExpectationsForRestoreClearState(
+      GLclampf restore_red,
+      GLclampf restore_green,
+      GLclampf restore_blue,
+      GLclampf restore_alpha,
+      GLuint restore_stencil,
+      GLclampf restore_depth,
+      bool restore_scissor_test);
+
   void SetupExpectationsForFramebufferClearing(
       GLenum target,
       GLuint clear_bits,
@@ -300,7 +308,10 @@ class GLES2DecoderTestBase : public testing::Test {
       bool depth_enabled,
       GLuint front_stencil_mask,
       GLuint back_stencil_mask,
-      bool stencil_enabled);
+      bool stencil_enabled,
+      bool cull_face_enabled,
+      bool scissor_test_enabled,
+      bool blend_enabled);
 
   void SetupExpectationsForApplyingDefaultDirtyState();
 
@@ -326,6 +337,9 @@ class GLES2DecoderTestBase : public testing::Test {
   }
 
  protected:
+  static const int kBackBufferWidth = 128;
+  static const int kBackBufferHeight = 64;
+
   static const GLint kMaxTextureSize = 2048;
   static const GLint kMaxCubeMapTextureSize = 256;
   static const GLint kNumVertexAttribs = 16;
@@ -335,6 +349,13 @@ class GLES2DecoderTestBase : public testing::Test {
   static const GLint kMaxFragmentUniformVectors = 16;
   static const GLint kMaxVaryingVectors = 8;
   static const GLint kMaxVertexUniformVectors = 128;
+  static const GLint kMaxViewportWidth = 8192;
+  static const GLint kMaxViewportHeight = 8192;
+
+  static const GLint kViewportX = 0;
+  static const GLint kViewportY = 0;
+  static const GLint kViewportWidth = kBackBufferWidth;
+  static const GLint kViewportHeight = kBackBufferHeight;
 
   static const GLuint kServiceAttrib0BufferId = 801;
   static const GLuint kServiceFixedAttribBufferId = 802;
@@ -360,11 +381,18 @@ class GLES2DecoderTestBase : public testing::Test {
   static const uint32 kNewServiceId = 502;
   static const uint32 kInvalidClientId = 601;
 
-  static const int kBackBufferWidth = 128;
-  static const int kBackBufferHeight = 64;
-
   static const GLuint kServiceVertexShaderId = 321;
   static const GLuint kServiceFragmentShaderId = 322;
+
+  static const GLuint kServiceCopyTextureChromiumShaderId = 701;
+  static const GLuint kServiceCopyTextureChromiumProgramId = 721;
+
+  static const GLuint kServiceCopyTextureChromiumTextureBufferId = 751;
+  static const GLuint kServiceCopyTextureChromiumVertexBufferId = 752;
+  static const GLuint kServiceCopyTextureChromiumFBOId = 753;
+  static const GLuint kServiceCopyTextureChromiumPositionAttrib = 761;
+  static const GLuint kServiceCopyTextureChromiumTexAttrib = 762;
+  static const GLuint kServiceCopyTextureChromiumSamplerLocation = 763;
 
   static const GLsizei kNumVertices = 100;
   static const GLsizei kNumIndices = 10;
@@ -406,6 +434,9 @@ class GLES2DecoderTestBase : public testing::Test {
   static const GLint kUniform2FakeLocation = 1;               // hardcoded
   static const GLint kUniform2ElementFakeLocation = 0x10001;  // to match
   static const GLint kUniform3FakeLocation = 2;               // ProgramManager.
+  static const GLint kUniform1DesiredLocation = -1;
+  static const GLint kUniform2DesiredLocation = -1;
+  static const GLint kUniform3DesiredLocation = -1;
   static const GLenum kUniform1Type = GL_SAMPLER_2D;
   static const GLenum kUniform2Type = GL_INT_VEC2;
   static const GLenum kUniform3Type = GL_FLOAT_VEC3;
@@ -484,6 +515,8 @@ class GLES2DecoderTestBase : public testing::Test {
     Buffer valid_buffer_;
     Buffer invalid_buffer_;
   };
+
+  void AddExpectationsForVertexAttribManager();
 
   scoped_ptr< ::testing::StrictMock<MockCommandBufferEngine> > engine_;
   ContextGroup::Ref group_;

@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_INITIALIZING_RULES_REGISTRY_H__
 #define CHROME_BROWSER_EXTENSIONS_API_DECLARATIVE_INITIALIZING_RULES_REGISTRY_H__
-#pragma once
 
 #include "chrome/browser/extensions/api/declarative/rules_registry.h"
 
@@ -23,7 +22,6 @@ class InitializingRulesRegistry : public RulesRegistry {
   enum Defaults { DEFAULT_PRIORITY = 100 };
 
   explicit InitializingRulesRegistry(scoped_refptr<RulesRegistry> delegate);
-  virtual ~InitializingRulesRegistry();
 
   // Implementation for RulesRegistry:
   virtual std::string AddRules(
@@ -45,6 +43,8 @@ class InitializingRulesRegistry : public RulesRegistry {
   virtual content::BrowserThread::ID GetOwnerThread() const OVERRIDE;
 
  private:
+  virtual ~InitializingRulesRegistry();
+
   // Returns whether any existing rule is registered with identifier |rule_id|
   // for extension |extension_id|.
   bool IsUniqueId(const std::string& extension_id,

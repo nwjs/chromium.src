@@ -4,17 +4,17 @@
 
 #ifndef CHROME_BROWSER_EXTENSIONS_BUNDLE_INSTALLER_H_
 #define CHROME_BROWSER_EXTENSIONS_BUNDLE_INSTALLER_H_
-#pragma once
 
 #include <string>
 #include <vector>
 
 #include "base/memory/linked_ptr.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
-#include "chrome/browser/extensions/extension_install_ui.h"
+#include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/extensions/webstore_install_helper.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/common/extensions/extension.h"
 
 namespace base {
@@ -37,9 +37,9 @@ namespace extensions {
 //  2) CompleteInstall: install the CRXs and show confirmation bubble
 //
 class BundleInstaller : public WebstoreInstallHelper::Delegate,
-                        public ExtensionInstallUI::Delegate,
+                        public ExtensionInstallPrompt::Delegate,
                         public WebstoreInstaller::Delegate,
-                        public BrowserList::Observer,
+                        public chrome::BrowserListObserver,
                         public base::RefCountedThreadSafe<BundleInstaller> {
  public:
   // Auto approve or cancel the permission prompt.
@@ -50,6 +50,9 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
     virtual void OnBundleInstallApproved() {}
     virtual void OnBundleInstallCanceled(bool user_initiated) {}
     virtual void OnBundleInstallCompleted() {}
+
+   protected:
+    virtual ~Delegate() {}
   };
 
   // Represents an individual member of the bundle.
@@ -75,8 +78,7 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
 
   typedef std::vector<Item> ItemList;
 
-  BundleInstaller(Profile* profile, const ItemList& items);
-  virtual ~BundleInstaller();
+  BundleInstaller(Browser* browser, const ItemList& items);
 
   // Returns true if the user has approved the bundle's permissions.
   bool approved() const { return approved_; }
@@ -97,7 +99,6 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
   // the specified |browser|.
   // Note: the |delegate| must stay alive until receiving the callback.
   void CompleteInstall(content::NavigationController* controller,
-                       Browser* browser,
                        Delegate* delegate);
 
   // We change the headings in the install prompt and installed bubble depending
@@ -114,6 +115,8 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
 
   typedef std::map<std::string, Item> ItemMap;
   typedef std::map<std::string, linked_ptr<base::DictionaryValue> > ManifestMap;
+
+  virtual ~BundleInstaller();
 
   // Displays the install bubble for |bundle| on |browser|.
   // Note: this is a platform specific implementation.
@@ -152,7 +155,7 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
       InstallHelperResultCode result_code,
       const std::string& error_message) OVERRIDE;
 
-  // ExtensionInstallUI::Delegate implementation:
+  // ExtensionInstallPrompt::Delegate implementation:
   virtual void InstallUIProceed() OVERRIDE;
   virtual void InstallUIAbort(bool user_initiated) OVERRIDE;
 
@@ -161,10 +164,10 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
   virtual void OnExtensionInstallFailure(const std::string& id,
                                          const std::string& error) OVERRIDE;
 
-  // BrowserList::observer implementation:
-  virtual void OnBrowserAdded(const Browser* browser) OVERRIDE;
-  virtual void OnBrowserRemoved(const Browser* browser) OVERRIDE;
-  virtual void OnBrowserSetLastActive(const Browser* browser) OVERRIDE;
+  // chrome::BrowserListObserver implementation:
+  virtual void OnBrowserAdded(Browser* browser) OVERRIDE;
+  virtual void OnBrowserRemoved(Browser* browser) OVERRIDE;
+  virtual void OnBrowserSetLastActive(Browser* browser) OVERRIDE;
 
   // Holds the Extensions used to generate the permission warnings.
   ExtensionList dummy_extensions_;
@@ -183,6 +186,9 @@ class BundleInstaller : public WebstoreInstallHelper::Delegate,
 
   // The profile that the bundle should be installed in.
   Profile* profile_;
+
+  // The UI that shows the confirmation prompt.
+  scoped_ptr<ExtensionInstallPrompt> install_ui_;
 
   Delegate* delegate_;
 

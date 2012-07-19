@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_MEMORY_DETAILS_H_
 #define CHROME_BROWSER_MEMORY_DETAILS_H_
-#pragma once
 
 #include <vector>
 
@@ -37,6 +36,9 @@ struct ProcessMemoryInformation {
 
   ProcessMemoryInformation();
   ~ProcessMemoryInformation();
+
+  // Default ordering is by private memory consumption.
+  bool operator<(const ProcessMemoryInformation& rhs) const;
 
   // The process id.
   base::ProcessId pid;
@@ -107,6 +109,11 @@ class ProcessInfoSnapshot;
 //    }
 class MemoryDetails : public base::RefCountedThreadSafe<MemoryDetails> {
  public:
+  enum UserMetricsMode {
+    UPDATE_USER_METRICS,  // Update UMA memory histograms with results.
+    SKIP_USER_METRICS
+  };
+
   // Constructor.
   MemoryDetails();
 
@@ -116,10 +123,15 @@ class MemoryDetails : public base::RefCountedThreadSafe<MemoryDetails> {
 
   // Initiate updating the current memory details.  These are fetched
   // asynchronously because data must be collected from multiple threads.
+  // Updates UMA memory histograms if |mode| is UPDATE_USER_METRICS.
   // OnDetailsAvailable will be called when this process is complete.
-  void StartFetch();
+  void StartFetch(UserMetricsMode user_metrics_mode);
 
-  virtual void OnDetailsAvailable() {}
+  virtual void OnDetailsAvailable() = 0;
+
+  // Returns a string summarizing memory usage of the Chrome browser process
+  // and all sub-processes, suitable for logging.
+  std::string ToLogString();
 
  protected:
   friend class base::RefCountedThreadSafe<MemoryDetails>;
@@ -156,14 +168,15 @@ class MemoryDetails : public base::RefCountedThreadSafe<MemoryDetails> {
   // renderer processes is only available there.
   void CollectChildInfoOnUIThread();
 
-  // Each time we take a memory sample, we do a little work to update
-  // the global histograms for tracking memory usage.
+  // Updates the global histograms for tracking memory usage.
   void UpdateHistograms();
 
   // Returns a pointer to the ProcessData structure for Chrome.
   ProcessData* ChromeBrowser();
 
   std::vector<ProcessData> process_data_;
+
+  UserMetricsMode user_metrics_mode_;
 
   DISALLOW_COPY_AND_ASSIGN(MemoryDetails);
 };

@@ -4,54 +4,38 @@
 
 import copy
 import json
+import os.path
+import sys
 
-def StripJSONComments(stream):
-  """Strips //-style comments from a stream of JSON. Allows un-escaped //
-  inside string values.
-  """
-  # Previously we used json_minify to strip comments, but it seems to be pretty
-  # slow and does more than we need. This implementation does a lot less work -
-  # it just strips comments from the beginning of the '//' delimiter until end
-  # of line, but only if we're not inside a string. For example:
-  #
-  #  {"url": "http://www.example.com"}
-  #
-  # will work properly, as will:
-  #
-  #  {
-  #    "url": "http://www.example.com" // some comment
-  #  }
-  result = ""
-  last_char = None
-  inside_string = False
-  inside_comment = False
-  buf = ""
-  for char in stream:
-    if inside_comment:
-      if char == '\n':
-        inside_comment = False
-      else:
-        continue
-    else:
-      if char == '/' and not inside_string:
-        if last_char == '/':
-          inside_comment = True
-        last_char = char
-        continue
-      else:
-        if last_char == '/' and not inside_string:
-          result += '/'
-        if char == '"':
-          inside_string = not inside_string
-    last_char = char
-    result += char
+_script_path = os.path.realpath(__file__)
+sys.path.insert(0, os.path.normpath(_script_path + "/../../"))
+import json_comment_eater
+import schema_util
 
-  return result
+def DeleteNocompileNodes(item):
+  def HasNocompile(thing):
+    return type(thing) == dict and thing.get('nocompile', False)
+
+  if type(item) == dict:
+    toDelete = []
+    for key, value in item.items():
+      if HasNocompile(value):
+        toDelete.append(key)
+      else:
+        DeleteNocompileNodes(value)
+    for key in toDelete:
+      del item[key]
+  elif type(item) == list:
+    item[:] = [DeleteNocompileNodes(thing)
+        for thing in item if not HasNocompile(thing)]
+
+  return item
 
 def Load(filename):
   with open(filename, 'r') as handle:
-    return json.loads(StripJSONComments(handle.read()))
-
+    schemas = json.loads(json_comment_eater.Nom(handle.read()))
+  schema_util.PrefixSchemasWithNamespace(schemas)
+  return schemas
 
 # A dictionary mapping |filename| to the object resulting from loading the JSON
 # at |filename|.

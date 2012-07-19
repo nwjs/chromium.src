@@ -4,7 +4,6 @@
 
 #ifndef UI_BASE_UI_BASE_PATHS_H_
 #define UI_BASE_UI_BASE_PATHS_H_
-#pragma once
 
 #include "ui/base/ui_export.h"
 
@@ -17,9 +16,6 @@ enum {
   PATH_START = 3000,
 
   DIR_LOCALES,              // Directory where locale resources are stored.
-
-  FILE_RESOURCES_PAK,       // Path to the data .pak file which holds binary
-                            // resources.
 
   // Valid only in development environment; TODO(darin): move these
   DIR_TEST_DATA,            // Directory where unit test data resides.

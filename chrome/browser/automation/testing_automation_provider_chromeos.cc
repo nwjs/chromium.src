@@ -4,6 +4,9 @@
 
 #include "chrome/browser/automation/testing_automation_provider.h"
 
+#include "ash/shell.h"
+#include "ash/shell_delegate.h"
+#include "ash/system/tray/system_tray_delegate.h"
 #include "base/command_line.h"
 #include "base/i18n/time_formatting.h"
 #include "base/stringprintf.h"
@@ -16,14 +19,16 @@
 #include "chrome/browser/chromeos/audio/audio_handler.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/power_manager_client.h"
-#include "chrome/browser/chromeos/dbus/update_engine_client.h"
+#include "chrome/browser/chromeos/login/default_user_images.h"
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_screen.h"
+#include "chrome/browser/chromeos/login/eula_screen.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
 #include "chrome/browser/chromeos/login/login_display.h"
 #include "chrome/browser/chromeos/login/login_display_host.h"
+#include "chrome/browser/chromeos/login/network_screen.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
+#include "chrome/browser/chromeos/login/update_screen.h"
+#include "chrome/browser/chromeos/login/user_image_screen.h"
 #include "chrome/browser/chromeos/login/webui_login_display.h"
 #include "chrome/browser/chromeos/login/webui_login_display_host.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
@@ -36,20 +41,27 @@
 #include "chrome/browser/policy/cloud_policy_subsystem.h"
 #include "chrome/browser/policy/enterprise_install_attributes.h"
 #include "chrome/browser/prefs/pref_service.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/dialog_style.h"
-#include "chrome/browser/ui/views/window.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/session_manager_client.h"
+#include "chromeos/dbus/update_engine_client.h"
+#include "content/public/browser/web_contents.h"
 #include "net/base/network_change_notifier.h"
 #include "policy/policy_constants.h"
 #include "ui/views/widget/widget.h"
 
 using chromeos::CrosLibrary;
 using chromeos::DBusThreadManager;
+using chromeos::ExistingUserController;
 using chromeos::NetworkLibrary;
 using chromeos::UpdateEngineClient;
+using chromeos::User;
 using chromeos::UserManager;
+using chromeos::WizardController;
 
 namespace {
 
@@ -230,6 +242,62 @@ class PowerManagerClientObserverForTesting
   }
 };
 
+void TestingAutomationProvider::AcceptOOBENetworkScreen(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  WizardController* wizard_controller = WizardController::default_controller();
+  if (!wizard_controller || wizard_controller->current_screen()->GetName() !=
+          WizardController::kNetworkScreenName) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Network screen not active.");
+    return;
+  }
+  // Observer will delete itself.
+  new WizardControllerObserver(wizard_controller, this, reply_message);
+  wizard_controller->GetNetworkScreen()->OnContinuePressed();
+}
+
+void TestingAutomationProvider::AcceptOOBEEula(DictionaryValue* args,
+                                               IPC::Message* reply_message) {
+  bool accepted;
+  bool usage_stats_reporting;
+  if (!args->GetBoolean("accepted", &accepted) ||
+      !args->GetBoolean("usage_stats_reporting", &usage_stats_reporting)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+
+  WizardController* wizard_controller = WizardController::default_controller();
+  if (!wizard_controller || wizard_controller->current_screen()->GetName() !=
+      WizardController::kEulaScreenName) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "EULA screen not active.");
+    return;
+  }
+  // Observer will delete itself.
+  new WizardControllerObserver(wizard_controller, this, reply_message);
+  wizard_controller->GetEulaScreen()->OnExit(accepted, usage_stats_reporting);
+}
+
+void TestingAutomationProvider::CancelOOBEUpdate(DictionaryValue* args,
+                                                 IPC::Message* reply_message) {
+  WizardController* wizard_controller = WizardController::default_controller();
+  if (wizard_controller && wizard_controller->IsOobeCompleted()) {
+    AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+    return;
+  }
+  if (!wizard_controller || wizard_controller->current_screen()->GetName() !=
+          WizardController::kUpdateScreenName) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Update screen not active.");
+    return;
+  }
+  // Observer will delete itself.
+  new WizardControllerObserver(wizard_controller, this, reply_message);
+  wizard_controller->GetUpdateScreen()->CancelUpdate();
+}
+
 void TestingAutomationProvider::GetLoginInfo(DictionaryValue* args,
                                              IPC::Message* reply_message) {
   AutomationJSONReply reply(this, reply_message);
@@ -246,8 +314,23 @@ void TestingAutomationProvider::GetLoginInfo(DictionaryValue* args,
   return_value->SetBoolean("is_logged_in", user_manager->IsUserLoggedIn());
   return_value->SetBoolean("is_screen_locked", screen_locker);
   if (user_manager->IsUserLoggedIn()) {
+    const User& user = user_manager->GetLoggedInUser();
     return_value->SetBoolean("is_guest", user_manager->IsLoggedInAsGuest());
-    return_value->SetString("email", user_manager->GetLoggedInUser().email());
+    return_value->SetString("email", user.email());
+    return_value->SetString("display_email", user.display_email());
+    switch (user.image_index()) {
+      case User::kExternalImageIndex:
+        return_value->SetString("user_image", "file");
+        break;
+
+      case User::kProfileImageIndex:
+        return_value->SetString("user_image", "profile");
+        break;
+
+      default:
+        return_value->SetInteger("user_image", user.image_index());
+        break;
+    }
   }
 
   reply.SendSuccess(return_value.get());
@@ -256,8 +339,8 @@ void TestingAutomationProvider::GetLoginInfo(DictionaryValue* args,
 // See the note under LoginAsGuest(). CreateAccount() causes a login as guest.
 void TestingAutomationProvider::ShowCreateAccountUI(
     DictionaryValue* args, IPC::Message* reply_message) {
-  chromeos::ExistingUserController* controller =
-      chromeos::ExistingUserController::current_controller();
+  ExistingUserController* controller =
+      ExistingUserController::current_controller();
   // Return immediately, since we're going to die before the login is finished.
   AutomationJSONReply(this, reply_message).SendSuccess(NULL);
   controller->CreateAccount();
@@ -267,47 +350,173 @@ void TestingAutomationProvider::ShowCreateAccountUI(
 // flags. If you used EnableChromeTesting, you will have to call it again.
 void TestingAutomationProvider::LoginAsGuest(DictionaryValue* args,
                                              IPC::Message* reply_message) {
-  LOG(ERROR) << "TestingAutomationProvider::LoginAsGuest";
-
-  chromeos::ExistingUserController* controller =
-      chromeos::ExistingUserController::current_controller();
+  ExistingUserController* controller =
+      ExistingUserController::current_controller();
   // Return immediately, since we're going to die before the login is finished.
   AutomationJSONReply(this, reply_message).SendSuccess(NULL);
   controller->LoginAsGuest();
 }
 
-void TestingAutomationProvider::Login(DictionaryValue* args,
-                                      IPC::Message* reply_message) {
-  LOG(ERROR) << "TestingAutomationProvider::Login";
+void TestingAutomationProvider::SubmitLoginForm(DictionaryValue* args,
+                                                IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  VLOG(2) << "TestingAutomationProvider::StartLogin";
 
   std::string username, password;
   if (!args->GetString("username", &username) ||
       !args->GetString("password", &password)) {
-    AutomationJSONReply(this, reply_message).SendError(
-        "Invalid or missing args.");
+    reply.SendError("Invalid or missing args.");
     return;
   }
 
   chromeos::ExistingUserController* controller =
       chromeos::ExistingUserController::current_controller();
-
-  // Set up an observer (it will delete itself).
-  new LoginObserver(controller, this, reply_message);
+  if (!controller) {
+    reply.SendError("Unable to access ExistingUserController");
+    return;
+  }
 
   // WebUI login.
   chromeos::WebUILoginDisplay* webui_login_display =
       static_cast<chromeos::WebUILoginDisplay*>(controller->login_display());
-  LOG(ERROR) << "TestingAutomationProvider::Login ShowSigninScreenForCreds("
-             << username << ", " << password << ")";
+  VLOG(2) << "TestingAutomationProvider::StartLogin ShowSigninScreenForCreds("
+          << username << ", " << password << ")";
 
   webui_login_display->ShowSigninScreenForCreds(username, password);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::AddLoginEventObserver(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  ExistingUserController* controller =
+      ExistingUserController::current_controller();
+  AutomationJSONReply reply(this, reply_message);
+  if (!controller) {
+    // This may happen due to SkipToLogin not being called.
+    reply.SendError("Unable to access ExistingUserController");
+    return;
+  }
+
+  if (!automation_event_queue_.get())
+    automation_event_queue_.reset(new AutomationEventQueue);
+
+  int observer_id = automation_event_queue_->AddObserver(
+      new LoginEventObserver(automation_event_queue_.get(),
+                             controller, this));
+
+  // Return the observer's id.
+  DictionaryValue return_value;
+  return_value.SetInteger("observer_id", observer_id);
+  reply.SendSuccess(&return_value);
+}
+
+void TestingAutomationProvider::SignOut(DictionaryValue* args,
+                                        IPC::Message* reply_message) {
+  ash::Shell::GetInstance()->tray_delegate()->SignOut();
+  // Sign out has the side effect of restarting the session_manager
+  // and chrome, thereby severing the automation channel, so it's
+  // not really necessary to send a reply back. The next line is
+  // for consistency with other methods.
+  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::PickUserImage(DictionaryValue* args,
+                                              IPC::Message* reply_message) {
+  std::string image_type;
+  int image_number = -1;
+  if (!args->GetString("image", &image_type)
+      && !args->GetInteger("image", &image_number)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    return;
+  }
+  WizardController* wizard_controller = WizardController::default_controller();
+  if (!wizard_controller || wizard_controller->current_screen()->GetName() !=
+          WizardController::kUserImageScreenName) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "User image screen not active.");
+    return;
+  }
+  chromeos::UserImageScreen* image_screen =
+      wizard_controller->GetUserImageScreen();
+  // Observer will delete itself unless error is returned.
+  WizardControllerObserver* observer =
+      new WizardControllerObserver(wizard_controller, this, reply_message);
+  if (image_type == "profile") {
+    image_screen->OnProfileImageSelected();
+  } else if (image_type.empty() && image_number >= 0 &&
+             image_number < chromeos::kDefaultImagesCount) {
+    image_screen->OnDefaultImageSelected(image_number);
+  } else {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Invalid or missing args.");
+    delete observer;
+    return;
+  }
+}
+
+void TestingAutomationProvider::SkipToLogin(DictionaryValue* args,
+                                            IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+
+  bool skip_image_selection;
+  if (!args->GetBoolean("skip_image_selection", &skip_image_selection)) {
+    reply.SendError("Invalid or missing args.");
+    return;
+  }
+  if (skip_image_selection)
+    WizardController::SkipImageSelectionForTesting();
+
+  WizardController* wizard_controller = WizardController::default_controller();
+  if (!wizard_controller) {
+    if (ExistingUserController::current_controller()) {
+      // Already at login screen.
+      scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+      return_value->SetString("next_screen",
+                              WizardController::kLoginScreenName);
+      reply.SendSuccess(return_value.get());
+    } else {
+      reply.SendError("OOBE not active.");
+    }
+    return;
+  }
+
+  // Observer will delete itself.
+  WizardControllerObserver* observer =
+      new WizardControllerObserver(wizard_controller, this, reply_message);
+  observer->set_screen_to_wait_for(WizardController::kLoginScreenName);
+  wizard_controller->SkipToLoginForTesting();
+}
+
+void TestingAutomationProvider::GetOOBEScreenInfo(DictionaryValue* args,
+                                                  IPC::Message* reply_message) {
+  static const char kScreenNameKey[] = "screen_name";
+  AutomationJSONReply reply(this, reply_message);
+  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
+
+  WizardController* wizard_controller = WizardController::default_controller();
+  if (wizard_controller) {
+    if (wizard_controller->login_screen_started()) {
+      return_value->SetString(kScreenNameKey,
+                              WizardController::kLoginScreenName);
+    } else {
+      return_value->SetString(kScreenNameKey,
+                              wizard_controller->current_screen()->GetName());
+    }
+  } else if (ExistingUserController::current_controller()) {
+    return_value->SetString(kScreenNameKey, WizardController::kLoginScreenName);
+  } else {
+    // Already logged in.
+    reply.SendSuccess(NULL);
+    return;
+  }
+  reply.SendSuccess(return_value.get());
 }
 
 void TestingAutomationProvider::LockScreen(DictionaryValue* args,
                                            IPC::Message* reply_message) {
   new ScreenLockUnlockObserver(this, reply_message, true);
-  DBusThreadManager::Get()->GetPowerManagerClient()->
-      NotifyScreenLockRequested();
+  DBusThreadManager::Get()->GetSessionManagerClient()->RequestLockScreen();
 }
 
 void TestingAutomationProvider::UnlockScreen(DictionaryValue* args,
@@ -925,8 +1134,8 @@ void TestingAutomationProvider::EnrollEnterpriseDevice(
         .SendError("Invalid or missing args.");
     return;
   }
-  chromeos::ExistingUserController* user_controller =
-      chromeos::ExistingUserController::current_controller();
+  ExistingUserController* user_controller =
+      ExistingUserController::current_controller();
   if (!user_controller) {
     AutomationJSONReply(this, reply_message).SendError(
         "Unable to access ExistingUserController");
@@ -935,8 +1144,7 @@ void TestingAutomationProvider::EnrollEnterpriseDevice(
   user_controller->login_display_host()->StartWizard(
       chromeos::WizardController::kEnterpriseEnrollmentScreenName,
       NULL);
-  chromeos::WizardController* wizard_controller =
-      chromeos::WizardController::default_controller();
+  WizardController* wizard_controller = WizardController::default_controller();
   if (!wizard_controller) {
     AutomationJSONReply(this, reply_message).SendError(
         "Unable to access WizardController");
@@ -953,6 +1161,50 @@ void TestingAutomationProvider::EnrollEnterpriseDevice(
   new EnrollmentObserver(this, reply_message, enroll_screen->GetActor(),
                          enroll_screen);
   enroll_screen->GetActor()->SubmitTestCredentials(user, password);
+}
+
+void TestingAutomationProvider::ExecuteJavascriptInOOBEWebUI(
+    DictionaryValue* args, IPC::Message* reply_message) {
+  std::string javascript, frame_xpath;
+  if (!args->GetString("javascript", &javascript)) {
+    AutomationJSONReply(this, reply_message)
+        .SendError("'javascript' missing or invalid");
+    return;
+  }
+  if (!args->GetString("frame_xpath", &frame_xpath)) {
+    AutomationJSONReply(this, reply_message)
+        .SendError("'frame_xpath' missing or invalid");
+    return;
+  }
+  const UserManager* user_manager = UserManager::Get();
+  if (!user_manager) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "No user manager!");
+    return;
+  }
+  if (user_manager->IsUserLoggedIn()) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "User is already logged in.");
+    return;
+  }
+  ExistingUserController* controller =
+      ExistingUserController::current_controller();
+  if (!controller) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "Unable to access ExistingUserController");
+    return;
+  }
+  chromeos::WebUILoginDisplayHost* webui_login_display_host =
+      static_cast<chromeos::WebUILoginDisplayHost*>(
+          controller->login_display_host());
+  content::WebContents* web_contents =
+      webui_login_display_host->GetOobeUI()->web_ui()->GetWebContents();
+
+  new DomOperationMessageSender(this, reply_message, true);
+  ExecuteJavascriptInRenderViewFrame(ASCIIToUTF16(frame_xpath),
+                                     ASCIIToUTF16(javascript),
+                                     reply_message,
+                                     web_contents->GetRenderViewHost());
 }
 
 void TestingAutomationProvider::GetEnterprisePolicyInfo(
@@ -1034,8 +1286,8 @@ void TestingAutomationProvider::EnableSpokenFeedback(
   if (user_manager->IsUserLoggedIn()) {
     chromeos::accessibility::EnableSpokenFeedback(enabled, NULL);
   } else {
-    chromeos::ExistingUserController* controller =
-        chromeos::ExistingUserController::current_controller();
+    ExistingUserController* controller =
+        ExistingUserController::current_controller();
     chromeos::WebUILoginDisplayHost* webui_login_display_host =
         static_cast<chromeos::WebUILoginDisplayHost*>(
             controller->login_display_host());
@@ -1174,6 +1426,13 @@ void TestingAutomationProvider::SetMute(DictionaryValue* args,
   reply.SendSuccess(NULL);
 }
 
+void TestingAutomationProvider::OpenCrosh(DictionaryValue* args,
+                                        IPC::Message* reply_message) {
+  new NavigationNotificationObserver(
+      NULL, this, reply_message, 1, false, true);
+  ash::Shell::GetInstance()->delegate()->OpenCrosh();
+}
+
 void TestingAutomationProvider::CaptureProfilePhoto(
     Browser* browser,
     DictionaryValue* args,
@@ -1186,7 +1445,7 @@ void TestingAutomationProvider::CaptureProfilePhoto(
       this, reply_message));
 
   views::Widget* window = views::Widget::CreateWindowWithParent(
-      take_photo_dialog, browser->window()->GetNativeHandle());
+      take_photo_dialog, browser->window()->GetNativeWindow());
   window->SetAlwaysOnTop(true);
   window->Show();
 }

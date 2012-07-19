@@ -92,9 +92,10 @@ bool CheckAndSaveIcon(const FilePath& icon_file, const SkBitmap& image) {
   return true;
 }
 
-void CreateShortcutTask(const FilePath& web_app_path,
-                        const FilePath& profile_path,
-                        const ShellIntegration::ShortcutInfo& shortcut_info) {
+bool CreatePlatformShortcut(
+    const FilePath& web_app_path,
+    const FilePath& profile_path,
+    const ShellIntegration::ShortcutInfo& shortcut_info) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
 
   // Shortcut paths under which to create shortcuts.
@@ -135,7 +136,7 @@ void CreateShortcutTask(const FilePath& web_app_path,
         continue;
 
       if (!PathService::Get(locations[i].location_id, &path)) {
-        return;
+        return false;
       }
 
       if (locations[i].sub_dir != NULL)
@@ -158,13 +159,13 @@ void CreateShortcutTask(const FilePath& web_app_path,
   }
 
   if (shortcut_paths.empty()) {
-    return;
+    return false;
   }
 
-  // Ensure web_app_path exists.
+  // Ensure web_app_path exists
   if (!file_util::PathExists(web_app_path) &&
       !file_util::CreateDirectory(web_app_path)) {
-    return;
+    return false;
   }
 
   // Generates file name to use with persisted ico and shortcut file.
@@ -176,25 +177,22 @@ void CreateShortcutTask(const FilePath& web_app_path,
       FILE_PATH_LITERAL(".ico"));
   if (!web_app::internals::CheckAndSaveIcon(icon_file,
         *shortcut_info.favicon.ToSkBitmap())) {
-    return;
+    return false;
   }
 
   FilePath chrome_exe;
   if (!PathService::Get(base::FILE_EXE, &chrome_exe)) {
-    return;
+    return false;
   }
 
   // Working directory.
   FilePath chrome_folder = chrome_exe.DirName();
 
   CommandLine cmd_line(CommandLine::NO_PROGRAM);
-  if (shortcut_info.is_platform_app) {
-    cmd_line = ShellIntegration::CommandLineArgsForPlatformApp(
-        shortcut_info.extension_id, web_app_path, shortcut_info.extension_path);
-  } else {
-    cmd_line = ShellIntegration::CommandLineArgsForLauncher(
-        shortcut_info.url, shortcut_info.extension_id);
-  }
+  cmd_line = ShellIntegration::CommandLineArgsForLauncher(shortcut_info.url,
+      shortcut_info.extension_id, shortcut_info.is_platform_app,
+      shortcut_info.profile_path);
+
   // TODO(evan): we rely on the fact that command_line_string() is
   // properly quoted for a Windows command line.  The method on
   // CommandLine should probably be renamed to better reflect that
@@ -209,7 +207,7 @@ void CreateShortcutTask(const FilePath& web_app_path,
   // Generates app id from web app url and profile path.
   std::string app_name =
       web_app::GenerateApplicationNameFromInfo(shortcut_info);
-  string16 app_id = ShellIntegration::GetAppId(
+  string16 app_id = ShellIntegration::GetAppModelIdForProfile(
       UTF8ToUTF16(app_name), profile_path);
 
   FilePath shortcut_to_pin;
@@ -229,14 +227,16 @@ void CreateShortcutTask(const FilePath& web_app_path,
           StringPrintf(" (%d)", unique_number));
     }
 
-    success &= file_util::CreateShortcutLink(chrome_exe.value().c_str(),
+    success = file_util::CreateOrUpdateShortcutLink(
+        chrome_exe.value().c_str(),
         shortcut_file.value().c_str(),
         chrome_folder.value().c_str(),
         wide_switches.c_str(),
         description.c_str(),
         icon_file.value().c_str(),
         0,
-        app_id.c_str());
+        app_id.c_str(),
+        file_util::SHORTCUT_CREATE_ALWAYS) && success;
 
     // Any shortcut would work for the pinning. We use the first one.
     if (success && pin_to_taskbar && shortcut_to_pin.empty())
@@ -251,6 +251,13 @@ void CreateShortcutTask(const FilePath& web_app_path,
       success = false;
     }
   }
+
+  return success;
+}
+
+void DeletePlatformShortcuts(const FilePath& profile_path,
+                             const std::string& extension_id) {
+  // TODO(benwells): Implement this.
 }
 
 }  // namespace internals

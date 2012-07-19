@@ -1,10 +1,9 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 #ifndef CHROME_BROWSER_TAB_CONTENTS_SIMPLE_ALERT_INFOBAR_DELEGATE_H_
 #define CHROME_BROWSER_TAB_CONTENTS_SIMPLE_ALERT_INFOBAR_DELEGATE_H_
-#pragma once
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -22,11 +21,11 @@ class SimpleAlertInfoBarDelegate : public ConfirmInfoBarDelegate {
   virtual ~SimpleAlertInfoBarDelegate();
 
   // ConfirmInfoBarDelegate:
-  virtual bool ShouldExpire(
-      const content::LoadCommittedDetails& details) const OVERRIDE;
   virtual gfx::Image* GetIcon() const OVERRIDE;
   virtual string16 GetMessageText() const OVERRIDE;
   virtual int GetButtons() const OVERRIDE;
+  virtual bool ShouldExpireInternal(
+      const content::LoadCommittedDetails& details) const OVERRIDE;
 
   gfx::Image* icon_;
   string16 message_;

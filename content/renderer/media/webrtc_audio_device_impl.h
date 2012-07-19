@@ -4,7 +4,6 @@
 
 #ifndef CONTENT_RENDERER_MEDIA_WEBRTC_AUDIO_DEVICE_IMPL_H_
 #define CONTENT_RENDERER_MEDIA_WEBRTC_AUDIO_DEVICE_IMPL_H_
-#pragma once
 
 #include <string>
 #include <vector>
@@ -16,8 +15,8 @@
 #include "base/message_loop_proxy.h"
 #include "base/time.h"
 #include "content/common/content_export.h"
-#include "content/renderer/media/audio_device.h"
 #include "content/renderer/media/audio_input_device.h"
+#include "media/base/audio_renderer_sink.h"
 #include "third_party/webrtc/modules/audio_device/main/interface/audio_device.h"
 
 // A WebRtcAudioDeviceImpl instance implements the abstract interface
@@ -128,8 +127,7 @@
 // The adaptive analog mode of the AGC is always enabled for desktop platforms
 // in WebRTC.
 //
-// Before recording starts, the ADM sets an AGC state in the
-// AudioInputDevice by calling AudioInputDevice::SetAutomaticGainControl(true).
+// Before recording starts, the ADM enables AGC on the AudioInputDevice.
 //
 // A capture session with AGC is started up as follows (simplified):
 //
@@ -221,16 +219,16 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
   // We need this one to support runnable method tasks.
   static bool ImplementsThreadSafeReferenceCounting() { return true; }
 
-  // AudioDevice::RenderCallback implementation.
-  virtual size_t Render(const std::vector<float*>& audio_data,
-                        size_t number_of_frames,
-                        size_t audio_delay_milliseconds) OVERRIDE;
+  // media::AudioRendererSink::RenderCallback implementation.
+  virtual int Render(const std::vector<float*>& audio_data,
+                     int number_of_frames,
+                     int audio_delay_milliseconds) OVERRIDE;
   virtual void OnRenderError() OVERRIDE;
 
   // AudioInputDevice::CaptureCallback implementation.
   virtual void Capture(const std::vector<float*>& audio_data,
-                       size_t number_of_frames,
-                       size_t audio_delay_milliseconds,
+                       int number_of_frames,
+                       int audio_delay_milliseconds,
                        double volume) OVERRIDE;
   virtual void OnCaptureError() OVERRIDE;
 
@@ -365,10 +363,10 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
   void SetSessionId(int session_id);
 
   // Accessors.
-  size_t input_buffer_size() const {
+  int input_buffer_size() const {
     return input_audio_parameters_.frames_per_buffer();
   }
-  size_t output_buffer_size() const {
+  int output_buffer_size() const {
     return output_audio_parameters_.frames_per_buffer();
   }
   int input_channels() const {
@@ -408,7 +406,7 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
   scoped_refptr<AudioInputDevice> audio_input_device_;
 
   // Provides access to the native audio output layer in the browser process.
-  scoped_refptr<AudioDevice> audio_output_device_;
+  scoped_refptr<media::AudioRendererSink> audio_output_device_;
 
   // Weak reference to the audio callback.
   // The webrtc client defines |audio_transport_callback_| by calling
@@ -449,6 +447,10 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
 
   // Local copy of the current Automatic Gain Control state.
   bool agc_is_enabled_;
+
+  // Used for histograms of total recording and playout times.
+  base::Time start_capture_time_;
+  base::Time start_render_time_;
 
   DISALLOW_COPY_AND_ASSIGN(WebRtcAudioDeviceImpl);
 };

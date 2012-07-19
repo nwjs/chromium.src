@@ -4,6 +4,8 @@
 
 #include "content/browser/renderer_host/media/video_capture_controller.h"
 
+#include <set>
+
 #include "base/bind.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/stl_util.h"
@@ -27,7 +29,7 @@ struct VideoCaptureController::ControllerClient {
         event_handler(handler),
         render_process_handle(render_process),
         parameters(params),
-        report_ready_to_delete(false) {
+        session_closed(false) {
   }
 
   ~ControllerClient() {}
@@ -41,11 +43,10 @@ struct VideoCaptureController::ControllerClient {
   media::VideoCaptureParams parameters;
 
   // Buffers used by this client.
-  std::list<int> buffers;
+  std::set<int> buffers;
 
-  // Record client's status when it has called StopCapture, but haven't
-  // returned all buffers.
-  bool report_ready_to_delete;
+  // State of capture session, controlled by VideoCaptureManager directly.
+  bool session_closed;
 };
 
 struct VideoCaptureController::SharedDIB {
@@ -73,22 +74,19 @@ VideoCaptureController::VideoCaptureController(
   memset(&current_params_, 0, sizeof(current_params_));
 }
 
-VideoCaptureController::~VideoCaptureController() {
-  // Delete all DIBs.
-  STLDeleteContainerPairSecondPointers(owned_dibs_.begin(),
-                                       owned_dibs_.end());
-  STLDeleteContainerPointers(controller_clients_.begin(),
-                             controller_clients_.end());
-  STLDeleteContainerPointers(pending_clients_.begin(),
-                             pending_clients_.end());
-}
-
 void VideoCaptureController::StartCapture(
     const VideoCaptureControllerID& id,
     VideoCaptureControllerEventHandler* event_handler,
     base::ProcessHandle render_process,
     const media::VideoCaptureParams& params) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DVLOG(1) << "VideoCaptureController::StartCapture, id " << id.device_id
+           << ", (" << params.width
+           << ", " << params.height
+           << ", " << params.frame_per_second
+           << ", " << params.session_id
+           << ")";
+
   // Signal error in case device is already in error state.
   if (state_ == video_capture::kError) {
     event_handler->OnError(id);
@@ -139,67 +137,68 @@ void VideoCaptureController::StartCapture(
   // Order the manager to start the actual capture.
   video_capture_manager_->Start(params, this);
   state_ = video_capture::kStarted;
+  device_in_use_ = true;
 }
 
 void VideoCaptureController::StopCapture(
     const VideoCaptureControllerID& id,
-    VideoCaptureControllerEventHandler* event_handler,
-    bool force_buffer_return) {
+    VideoCaptureControllerEventHandler* event_handler) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DVLOG(1) << "VideoCaptureController::StopCapture, id " << id.device_id;
 
   ControllerClient* client = FindClient(id, event_handler, pending_clients_);
   // If the client is still in pending queue, just remove it.
   if (client) {
-    client->event_handler->OnReadyToDelete(client->controller_id);
     pending_clients_.remove(client);
     return;
   }
 
   client = FindClient(id, event_handler, controller_clients_);
-  DCHECK(client) << "Client should have called StartCapture()";
+  if (!client)
+    return;
 
-  if (force_buffer_return) {
-    // The client requests to return buffers which means it can't return
-    // buffers normally. After buffers are returned, client is free to
-    // delete itself. No need to call OnReadyToDelete.
+  // Take back all buffers held by the |client|.
+  for (std::set<int>::iterator buffer_it = client->buffers.begin();
+       buffer_it != client->buffers.end(); ++buffer_it) {
+    int buffer_id = *buffer_it;
+    DIBMap::iterator dib_it = owned_dibs_.find(buffer_id);
+    if (dib_it == owned_dibs_.end())
+      continue;
 
-    // Return all buffers held by the clients.
-    for (std::list<int>::iterator buffer_it = client->buffers.begin();
-         buffer_it != client->buffers.end(); ++buffer_it) {
-      int buffer_id = *buffer_it;
-      DIBMap::iterator dib_it = owned_dibs_.find(buffer_id);
-      if (dib_it == owned_dibs_.end())
-        continue;
-
-      {
-        base::AutoLock lock(lock_);
-        DCHECK_GT(dib_it->second->references, 0)
-            << "The buffer is not used by renderer.";
-        dib_it->second->references -= 1;
-      }
+    {
+      base::AutoLock lock(lock_);
+      DCHECK_GT(dib_it->second->references, 0)
+          << "The buffer is not used by renderer.";
+      dib_it->second->references -= 1;
     }
-    client->buffers.clear();
-  } else {
-    // Normal way to stop capture.
-    if (!client->buffers.empty()) {
-      // There are still some buffers held by the client.
-      client->report_ready_to_delete = true;
-      return;
-    }
-    // No buffer is held by the client. Ready to delete.
-    client->event_handler->OnReadyToDelete(client->controller_id);
   }
+  client->buffers.clear();
 
   int session_id = client->parameters.session_id;
   delete client;
   controller_clients_.remove(client);
 
   // No more clients. Stop device.
-  if (controller_clients_.empty()) {
+  if (controller_clients_.empty() && state_ == video_capture::kStarted) {
     video_capture_manager_->Stop(session_id,
         base::Bind(&VideoCaptureController::OnDeviceStopped, this));
     frame_info_available_ = false;
     state_ = video_capture::kStopping;
+  }
+}
+
+void VideoCaptureController::StopSession(
+    int session_id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  DVLOG(1) << "VideoCaptureController::StopSession, id " << session_id;
+
+  ControllerClient* client = FindClient(session_id, pending_clients_);
+  if (!client)
+    client = FindClient(session_id, controller_clients_);
+
+  if (client) {
+    client->session_closed = true;
+    client->event_handler->OnPaused(client->controller_id);
   }
 }
 
@@ -214,25 +213,12 @@ void VideoCaptureController::ReturnBuffer(
   DIBMap::iterator dib_it = owned_dibs_.find(buffer_id);
   // If this buffer is not held by this client, or this client doesn't exist
   // in controller, do nothing.
-  if (!client || dib_it == owned_dibs_.end())
+  if (!client ||
+      client->buffers.find(buffer_id) == client->buffers.end() ||
+      dib_it == owned_dibs_.end())
     return;
 
-  client->buffers.remove(buffer_id);
-  // If this client has called StopCapture and doesn't hold any buffer after
-  // after this return, ready to delete this client.
-  if (client->report_ready_to_delete && client->buffers.empty()) {
-    client->event_handler->OnReadyToDelete(client->controller_id);
-    delete client;
-    controller_clients_.remove(client);
-
-    if (controller_clients_.empty()) {
-       // No more clients. Stop device.
-       video_capture_manager_->Stop(current_params_.session_id,
-          base::Bind(&VideoCaptureController::OnDeviceStopped, this));
-      frame_info_available_ = false;
-      state_ = video_capture::kStopping;
-    }
-  }
+  client->buffers.erase(buffer_id);
   {
     base::AutoLock lock(lock_);
     DCHECK_GT(dib_it->second->references, 0)
@@ -244,7 +230,7 @@ void VideoCaptureController::ReturnBuffer(
 
   // When all buffers have been returned by clients and device has been
   // called to stop, check if restart is needed. This could happen when
-  // some clients call StopCapture before returning all buffers.
+  // capture needs to be restarted due to resolution change.
   if (!ClientHasDIB() && state_ == video_capture::kStopping) {
     PostStopping();
   }
@@ -288,18 +274,32 @@ void VideoCaptureController::OnIncomingCapturedFrame(const uint8* data,
 
   // Do color conversion from the camera format to I420.
   switch (frame_info_.color) {
-    case media::VideoCaptureDevice::kColorUnknown:  // Color format not set.
+    case media::VideoCaptureCapability::kColorUnknown:  // Color format not set.
       break;
-    case media::VideoCaptureDevice::kI420: {
+    case media::VideoCaptureCapability::kI420: {
       memcpy(target, data, (frame_info_.width * frame_info_.height * 3) / 2);
       break;
     }
-    case media::VideoCaptureDevice::kYUY2: {
+    case media::VideoCaptureCapability::kYV12: {
+      const uint8* ptr = data;
+      memcpy(yplane, ptr, (frame_info_.width * frame_info_.height));
+      ptr += frame_info_.width * frame_info_.height;
+      memcpy(vplane, ptr, (frame_info_.width * frame_info_.height) >> 2);
+      ptr += (frame_info_.width * frame_info_.height) >> 2;
+      memcpy(uplane, ptr, (frame_info_.width * frame_info_.height) >> 2);
+      break;
+    }
+    case media::VideoCaptureCapability::kNV21: {
+      media::ConvertNV21ToYUV(data, yplane, uplane, vplane, frame_info_.width,
+                              frame_info_.height);
+      break;
+    }
+    case media::VideoCaptureCapability::kYUY2: {
       media::ConvertYUY2ToYUV(data, yplane, uplane, vplane, frame_info_.width,
                               frame_info_.height);
       break;
     }
-    case media::VideoCaptureDevice::kRGB24: {
+    case media::VideoCaptureCapability::kRGB24: {
       int ystride = frame_info_.width;
       int uvstride = frame_info_.width / 2;
 #if defined(OS_WIN)  // RGB on Windows start at the bottom line.
@@ -315,7 +315,7 @@ void VideoCaptureController::OnIncomingCapturedFrame(const uint8* data,
                                rgb_stride, ystride, uvstride);
       break;
     }
-    case media::VideoCaptureDevice::kARGB: {
+    case media::VideoCaptureCapability::kARGB: {
       media::ConvertRGB32ToYUV(data, yplane, uplane, vplane, frame_info_.width,
                                frame_info_.height, frame_info_.width * 4,
                                frame_info_.width, frame_info_.width / 2);
@@ -339,12 +339,29 @@ void VideoCaptureController::OnError() {
 }
 
 void VideoCaptureController::OnFrameInfo(
-    const media::VideoCaptureDevice::Capability& info) {
+    const media::VideoCaptureCapability& info) {
   frame_info_= info;
   BrowserThread::PostTask(BrowserThread::IO,
       FROM_HERE,
       base::Bind(&VideoCaptureController::DoFrameInfoOnIOThread,
                  this, info));
+}
+
+VideoCaptureController::~VideoCaptureController() {
+  // Delete all DIBs.
+  STLDeleteContainerPairSecondPointers(owned_dibs_.begin(),
+                                       owned_dibs_.end());
+  STLDeleteContainerPointers(controller_clients_.begin(),
+                             controller_clients_.end());
+  STLDeleteContainerPointers(pending_clients_.begin(),
+                             pending_clients_.end());
+}
+
+// Called by VideoCaptureManager when a device have been stopped.
+void VideoCaptureController::OnDeviceStopped() {
+  BrowserThread::PostTask(BrowserThread::IO,
+      FROM_HERE,
+      base::Bind(&VideoCaptureController::DoDeviceStoppedOnIOThread, this));
 }
 
 void VideoCaptureController::DoIncomingCapturedFrameOnIOThread(
@@ -355,37 +372,25 @@ void VideoCaptureController::DoIncomingCapturedFrameOnIOThread(
   if (state_ == video_capture::kStarted) {
     for (ControllerClients::iterator client_it = controller_clients_.begin();
          client_it != controller_clients_.end(); client_it++) {
-      if ((*client_it)->report_ready_to_delete)
+      if ((*client_it)->session_closed)
         continue;
 
       (*client_it)->event_handler->OnBufferReady((*client_it)->controller_id,
                                                  buffer_id, timestamp);
-      (*client_it)->buffers.push_back(buffer_id);
+      (*client_it)->buffers.insert(buffer_id);
       count++;
     }
   }
 
   base::AutoLock lock(lock_);
-  DCHECK_EQ(owned_dibs_[buffer_id]->references, -1);
-  owned_dibs_[buffer_id]->references = count;
-}
-
-void VideoCaptureController::DoErrorOnIOThread() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  state_ = video_capture::kError;
-  ControllerClients::iterator client_it;
-  for (client_it = controller_clients_.begin();
-       client_it != controller_clients_.end(); client_it++) {
-    (*client_it)->event_handler->OnError((*client_it)->controller_id);
-  }
-  for (client_it = pending_clients_.begin();
-       client_it != pending_clients_.end(); client_it++) {
-    (*client_it)->event_handler->OnError((*client_it)->controller_id);
+  if (owned_dibs_.find(buffer_id) != owned_dibs_.end()) {
+    DCHECK_EQ(owned_dibs_[buffer_id]->references, -1);
+    owned_dibs_[buffer_id]->references = count;
   }
 }
 
 void VideoCaptureController::DoFrameInfoOnIOThread(
-    const media::VideoCaptureDevice::Capability info) {
+    const media::VideoCaptureCapability& info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(owned_dibs_.empty())
       << "Device is restarted without releasing shared memory.";
@@ -421,6 +426,28 @@ void VideoCaptureController::DoFrameInfoOnIOThread(
   }
 }
 
+void VideoCaptureController::DoErrorOnIOThread() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  state_ = video_capture::kError;
+  ControllerClients::iterator client_it;
+  for (client_it = controller_clients_.begin();
+       client_it != controller_clients_.end(); client_it++) {
+    (*client_it)->event_handler->OnError((*client_it)->controller_id);
+  }
+  for (client_it = pending_clients_.begin();
+       client_it != pending_clients_.end(); client_it++) {
+    (*client_it)->event_handler->OnError((*client_it)->controller_id);
+  }
+}
+
+void VideoCaptureController::DoDeviceStoppedOnIOThread() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  device_in_use_ = false;
+  if (state_ == video_capture::kStopping) {
+    PostStopping();
+  }
+}
+
 void VideoCaptureController::SendFrameInfoAndBuffers(
     ControllerClient* client, int buffer_size) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
@@ -442,6 +469,34 @@ void VideoCaptureController::SendFrameInfoAndBuffers(
   }
 }
 
+VideoCaptureController::ControllerClient*
+VideoCaptureController::FindClient(
+    const VideoCaptureControllerID& id,
+    VideoCaptureControllerEventHandler* handler,
+    const ControllerClients& clients) {
+  for (ControllerClients::const_iterator client_it = clients.begin();
+       client_it != clients.end(); client_it++) {
+    if ((*client_it)->controller_id == id &&
+        (*client_it)->event_handler == handler) {
+      return *client_it;
+    }
+  }
+  return NULL;
+}
+
+VideoCaptureController::ControllerClient*
+VideoCaptureController::FindClient(
+    int session_id,
+    const ControllerClients& clients) {
+  for (ControllerClients::const_iterator client_it = clients.begin();
+       client_it != clients.end(); client_it++) {
+    if ((*client_it)->parameters.session_id == session_id) {
+      return *client_it;
+    }
+  }
+  return NULL;
+}
+
 // This function is called when all buffers have been returned to controller,
 // or when device is stopped. It decides whether the device needs to be
 // restarted.
@@ -454,9 +509,10 @@ void VideoCaptureController::PostStopping() {
   if (ClientHasDIB() || device_in_use_)
     return;
 
-  // It's safe to free all DIB's on IO thread since device won't send
-  // buffer over.
-  STLDeleteValues(&owned_dibs_);
+  {
+    base::AutoLock lock(lock_);
+    STLDeleteValues(&owned_dibs_);
+  }
 
   // No more client. Therefore the controller is stopped.
   if (controller_clients_.empty() && pending_clients_.empty()) {
@@ -487,6 +543,7 @@ void VideoCaptureController::PostStopping() {
   // Request the manager to start the actual capture.
   video_capture_manager_->Start(current_params_, this);
   state_ = video_capture::kStarted;
+  device_in_use_ = true;
 }
 
 bool VideoCaptureController::ClientHasDIB() {
@@ -499,35 +556,3 @@ bool VideoCaptureController::ClientHasDIB() {
   }
   return false;
 }
-
-VideoCaptureController::ControllerClient*
-VideoCaptureController::FindClient(
-    const VideoCaptureControllerID& id,
-    VideoCaptureControllerEventHandler* handler,
-    const ControllerClients& clients) {
-  for (ControllerClients::const_iterator client_it = clients.begin();
-       client_it != clients.end(); client_it++) {
-    if ((*client_it)->controller_id == id &&
-        (*client_it)->event_handler == handler) {
-      return *client_it;
-    }
-  }
-  return NULL;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Called by VideoCaptureManager when a device have been stopped.
-void VideoCaptureController::OnDeviceStopped() {
-  BrowserThread::PostTask(BrowserThread::IO,
-      FROM_HERE,
-      base::Bind(&VideoCaptureController::DoDeviceStoppedOnIOThread, this));
-}
-
-void VideoCaptureController::DoDeviceStoppedOnIOThread() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  device_in_use_ = false;
-  if (state_ == video_capture::kStopping) {
-    PostStopping();
-  }
-}
-

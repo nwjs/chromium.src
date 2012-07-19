@@ -8,22 +8,22 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/browser_actions_container.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_resource.h"
+#include "chrome/test/base/ui_test_utils.h"
+
+using extensions::Extension;
 
 class BrowserActionsContainerTest : public ExtensionBrowserTest {
  public:
-  BrowserActionsContainerTest() : browser_(NULL) {
+  BrowserActionsContainerTest() {
   }
   virtual ~BrowserActionsContainerTest() {}
 
-  virtual Browser* CreateBrowser(Profile* profile) {
-    browser_ = InProcessBrowserTest::CreateBrowser(profile);
-    browser_actions_bar_.reset(new BrowserActionTestUtil(browser_));
-    return browser_;
+  virtual void SetUpOnMainThread() OVERRIDE {
+    browser_actions_bar_.reset(new BrowserActionTestUtil(browser()));
   }
-
-  Browser* browser() { return browser_; }
 
   BrowserActionTestUtil* browser_actions_bar() {
     return browser_actions_bar_.get();
@@ -34,15 +34,19 @@ class BrowserActionsContainerTest : public ExtensionBrowserTest {
     if (!browser_actions_bar_->HasIcon(extension_index)) {
       // The icon is loaded asynchronously and a notification is then sent to
       // observers. So we wait on it.
-      browser_actions_bar_->WaitForBrowserActionUpdated(extension_index);
+      ExtensionAction* browser_action =
+          browser_actions_bar_->GetExtensionAction(extension_index);
+
+      ui_test_utils::WindowedNotificationObserver observer(
+          chrome::NOTIFICATION_EXTENSION_BROWSER_ACTION_UPDATED,
+          content::Source<ExtensionAction>(browser_action));
+      observer.Wait();
     }
     EXPECT_TRUE(browser_actions_bar()->HasIcon(extension_index));
   }
 
  private:
   scoped_ptr<BrowserActionTestUtil> browser_actions_bar_;
-
-  Browser* browser_;  // Weak.
 };
 
 // Test the basic functionality.
@@ -74,13 +78,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionsContainerTest, Basic) {
   EXPECT_EQ(0, browser_actions_bar()->NumberOfBrowserActions());
 }
 
-// http://crbug.com/38992: Times out occasionally.
-#if defined(OS_CHROMEOS)
-#define MAYBE_Visibility DISABLED_Visibility
-#else
-#define MAYBE_Visibility Visibility
-#endif
-IN_PROC_BROWSER_TEST_F(BrowserActionsContainerTest, MAYBE_Visibility) {
+IN_PROC_BROWSER_TEST_F(BrowserActionsContainerTest, Visibility) {
   BrowserActionsContainer::disable_animations_during_testing_ = true;
 
   base::TimeTicks start_time = base::TimeTicks::Now();
@@ -239,8 +237,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionsContainerTest, ForceHide) {
 
   // Force hide this browser action.
   ExtensionService* service = browser()->profile()->GetExtensionService();
-  service->SetBrowserActionVisibility(service->GetExtensionById(idA, false),
-                                      false);
+  service->extension_prefs()->SetBrowserActionVisibility(
+      service->GetExtensionById(idA, false), false);
   EXPECT_EQ(0, browser_actions_bar()->VisibleBrowserActions());
 
   ReloadExtension(idA);

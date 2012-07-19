@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,16 +8,16 @@
 #include "base/message_loop.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros_settings_names.h"
-#include "chrome/browser/chromeos/dbus/dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/mock_dbus_thread_manager.h"
-#include "chrome/browser/chromeos/dbus/mock_session_manager_client.h"
 #include "chrome/browser/chromeos/login/mock_owner_key_utils.h"
 #include "chrome/browser/chromeos/login/mock_ownership_service.h"
 #include "chrome/browser/chromeos/login/owner_manager.h"
 #include "chrome/browser/chromeos/login/signed_settings.h"
 #include "chrome/browser/policy/proto/chrome_device_policy.pb.h"
 #include "chrome/browser/policy/proto/device_management_backend.pb.h"
-#include "content/test/test_browser_thread.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/mock_dbus_thread_manager.h"
+#include "chromeos/dbus/mock_session_manager_client.h"
+#include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -59,9 +59,9 @@ class SignedSettingsHelperTest : public testing::Test,
         mock_dbus_thread_manager_->mock_session_manager_client();
     // Make sure the mocked out class calls back to notify success on store and
     // retrieve ops.
-    EXPECT_CALL(*client, StorePolicy(_, _))
+    EXPECT_CALL(*client, StoreDevicePolicy(_, _))
         .WillRepeatedly(Store(true));
-    EXPECT_CALL(*client, RetrievePolicy(_))
+    EXPECT_CALL(*client, RetrieveDevicePolicy(_))
         .WillRepeatedly(Retrieve(serialized_policy_));
 
     EXPECT_CALL(m_, StartSigningAttempt(_, A<OwnerManager::Delegate*>()))

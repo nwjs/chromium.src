@@ -4,10 +4,10 @@
 
 #ifndef CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_CONTEXT_3D_IMPL_H_
 #define CONTENT_RENDERER_PEPPER_PEPPER_PLATFORM_CONTEXT_3D_IMPL_H_
-#pragma once
 
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/compiler_specific.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "webkit/plugins/ppapi/plugin_delegate.h"
@@ -35,7 +35,8 @@ class PlatformContext3DImpl
       PepperParentContextProvider* parent_context_provider);
   virtual ~PlatformContext3DImpl();
 
-  virtual bool Init(const int32* attrib_list) OVERRIDE;
+  virtual bool Init(const int32* attrib_list,
+                    PlatformContext3D* share_context) OVERRIDE;
   virtual unsigned GetBackingTextureId() OVERRIDE;
   virtual bool IsOpaque() OVERRIDE;
   virtual gpu::CommandBuffer* GetCommandBuffer() OVERRIDE;

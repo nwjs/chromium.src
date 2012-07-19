@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -13,7 +13,7 @@ namespace history {
 
 namespace {
 
-static const int kCurrentVersionNumber = 3;
+static const int kCurrentVersionNumber = 4;
 static const int kCompatibleVersionNumber = 2;
 
 }  // namespace
@@ -42,32 +42,34 @@ bool ArchivedDatabase::Init(const FilePath& file_name) {
   if (!db_.Open(file_name))
     return false;
 
-  sql::Transaction transaction(&db_);
-  if (!transaction.Begin()) {
+  if (!InitTables()) {
     db_.Close();
     return false;
   }
+
+  return true;
+}
+
+bool ArchivedDatabase::InitTables() {
+  sql::Transaction transaction(&db_);
+  if (!transaction.Begin())
+    return false;
 
   // Version check.
   if (!meta_table_.Init(&db_, kCurrentVersionNumber,
-                        kCompatibleVersionNumber)) {
-    db_.Close();
+                        kCompatibleVersionNumber))
     return false;
-  }
 
   // Create the tables.
   if (!CreateURLTable(false) || !InitVisitTable() ||
-      !InitKeywordSearchTermsTable()) {
-    db_.Close();
+      !InitKeywordSearchTermsTable())
     return false;
-  }
+
   CreateMainURLIndex();
   CreateKeywordSearchTermsIndices();
 
-  if (EnsureCurrentVersion() != sql::INIT_OK) {
-    db_.Close();
+  if (EnsureCurrentVersion() != sql::INIT_OK)
     return false;
-  }
 
   return transaction.Commit();
 }
@@ -82,6 +84,11 @@ void ArchivedDatabase::CommitTransaction() {
 
 sql::Connection& ArchivedDatabase::GetDB() {
   return db_;
+}
+
+// static
+int ArchivedDatabase::GetCurrentVersion() {
+  return kCurrentVersionNumber;
 }
 
 // Migration -------------------------------------------------------------------
@@ -113,6 +120,17 @@ sql::InitStatus ArchivedDatabase::EnsureCurrentVersion() {
 
   if (cur_version == 2) {
     // This is the version prior to adding visit_source table.
+    ++cur_version;
+    meta_table_.SetVersionNumber(cur_version);
+  }
+
+  if (cur_version == 3) {
+    // This is the version prior to adding the visit_duration field in visits
+    // database. We need to migrate the database.
+    if (!MigrateVisitsWithoutDuration()) {
+      LOG(WARNING) << "Unable to update archived database to version 4.";
+      return sql::INIT_FAILURE;
+    }
     ++cur_version;
     meta_table_.SetVersionNumber(cur_version);
   }

@@ -94,11 +94,11 @@ const gfx::Font& GetTitleFont() {
 
 CustomFrameView::CustomFrameView()
     : frame_(NULL),
+      window_icon_(NULL),
       minimize_button_(NULL),
       maximize_button_(NULL),
       restore_button_(NULL),
       close_button_(NULL),
-      window_icon_(NULL),
       should_show_minmax_buttons_(false),
       frame_background_(new FrameBackground()) {
 }
@@ -318,29 +318,29 @@ bool CustomFrameView::ShouldShowClientEdge() const {
 
 void CustomFrameView::PaintRestoredFrameBorder(gfx::Canvas* canvas) {
   frame_background_->set_frame_color(GetFrameColor());
-  const SkBitmap* frame_image = GetFrameBitmap();
-  frame_background_->set_theme_bitmap(frame_image);
+  const gfx::ImageSkia* frame_image = GetFrameImage();
+  frame_background_->set_theme_image(frame_image);
   frame_background_->set_top_area_height(frame_image->height());
 
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
   frame_background_->SetCornerImages(
-      rb.GetImageNamed(IDR_WINDOW_TOP_LEFT_CORNER).ToSkBitmap(),
-      rb.GetImageNamed(IDR_WINDOW_TOP_RIGHT_CORNER).ToSkBitmap(),
-      rb.GetImageNamed(IDR_WINDOW_BOTTOM_LEFT_CORNER).ToSkBitmap(),
-      rb.GetImageNamed(IDR_WINDOW_BOTTOM_RIGHT_CORNER).ToSkBitmap());
+      rb.GetImageNamed(IDR_WINDOW_TOP_LEFT_CORNER).ToImageSkia(),
+      rb.GetImageNamed(IDR_WINDOW_TOP_RIGHT_CORNER).ToImageSkia(),
+      rb.GetImageNamed(IDR_WINDOW_BOTTOM_LEFT_CORNER).ToImageSkia(),
+      rb.GetImageNamed(IDR_WINDOW_BOTTOM_RIGHT_CORNER).ToImageSkia());
   frame_background_->SetSideImages(
-      rb.GetImageNamed(IDR_WINDOW_LEFT_SIDE).ToSkBitmap(),
-      rb.GetImageNamed(IDR_WINDOW_TOP_CENTER).ToSkBitmap(),
-      rb.GetImageNamed(IDR_WINDOW_RIGHT_SIDE).ToSkBitmap(),
-      rb.GetImageNamed(IDR_WINDOW_BOTTOM_CENTER).ToSkBitmap());
+      rb.GetImageNamed(IDR_WINDOW_LEFT_SIDE).ToImageSkia(),
+      rb.GetImageNamed(IDR_WINDOW_TOP_CENTER).ToImageSkia(),
+      rb.GetImageNamed(IDR_WINDOW_RIGHT_SIDE).ToImageSkia(),
+      rb.GetImageNamed(IDR_WINDOW_BOTTOM_CENTER).ToImageSkia());
 
   frame_background_->PaintRestored(canvas, this);
 }
 
 void CustomFrameView::PaintMaximizedFrameBorder(gfx::Canvas* canvas) {
-  const SkBitmap* frame_image = GetFrameBitmap();
-  frame_background_->set_theme_bitmap(frame_image);
+  const gfx::ImageSkia* frame_image = GetFrameImage();
+  frame_background_->set_theme_image(frame_image);
   frame_background_->set_top_area_height(frame_image->height());
   frame_background_->PaintMaximized(canvas, this);
 
@@ -349,8 +349,8 @@ void CustomFrameView::PaintMaximizedFrameBorder(gfx::Canvas* canvas) {
   // TODO(jamescook): Migrate this into FrameBackground.
   // The bottom of the titlebar actually comes from the top of the Client Edge
   // graphic, with the actual client edge clipped off the bottom.
-  const SkBitmap* titlebar_bottom = rb.GetImageNamed(
-      IDR_APP_TOP_CENTER).ToSkBitmap();
+  const gfx::ImageSkia* titlebar_bottom = rb.GetImageNamed(
+      IDR_APP_TOP_CENTER).ToImageSkia();
   int edge_height = titlebar_bottom->height() -
       (ShouldShowClientEdge() ? kClientEdgeThickness : 0);
   canvas->TileImageInt(*titlebar_bottom, 0,
@@ -377,25 +377,30 @@ void CustomFrameView::PaintRestoredClientEdge(gfx::Canvas* canvas) {
   int client_area_top = client_area_bounds.y();
 
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  const SkBitmap* top_left = rb.GetImageNamed(IDR_APP_TOP_LEFT).ToSkBitmap();
-  const SkBitmap* top = rb.GetImageNamed(IDR_APP_TOP_CENTER).ToSkBitmap();
-  const SkBitmap* top_right = rb.GetImageNamed(IDR_APP_TOP_RIGHT).ToSkBitmap();
-  const SkBitmap* right = rb.GetImageNamed(IDR_CONTENT_RIGHT_SIDE).ToSkBitmap();
-  const SkBitmap* bottom_right = rb.GetImageNamed(
-      IDR_CONTENT_BOTTOM_RIGHT_CORNER).ToSkBitmap();
-  const SkBitmap* bottom = rb.GetImageNamed(
-      IDR_CONTENT_BOTTOM_CENTER).ToSkBitmap();
-  const SkBitmap* bottom_left = rb.GetImageNamed(
-      IDR_CONTENT_BOTTOM_LEFT_CORNER).ToSkBitmap();
-  const SkBitmap* left = rb.GetImageNamed(IDR_CONTENT_LEFT_SIDE).ToSkBitmap();
+  const gfx::ImageSkia* top_left = rb.GetImageNamed(
+      IDR_APP_TOP_LEFT).ToImageSkia();
+  const gfx::ImageSkia* top = rb.GetImageNamed(
+      IDR_APP_TOP_CENTER).ToImageSkia();
+  const gfx::ImageSkia* top_right = rb.GetImageNamed(
+      IDR_APP_TOP_RIGHT).ToImageSkia();
+  const gfx::ImageSkia* right = rb.GetImageNamed(
+      IDR_CONTENT_RIGHT_SIDE).ToImageSkia();
+  const gfx::ImageSkia* bottom_right = rb.GetImageNamed(
+      IDR_CONTENT_BOTTOM_RIGHT_CORNER).ToImageSkia();
+  const gfx::ImageSkia* bottom = rb.GetImageNamed(
+      IDR_CONTENT_BOTTOM_CENTER).ToImageSkia();
+  const gfx::ImageSkia* bottom_left = rb.GetImageNamed(
+      IDR_CONTENT_BOTTOM_LEFT_CORNER).ToImageSkia();
+  const gfx::ImageSkia* left = rb.GetImageNamed(
+      IDR_CONTENT_LEFT_SIDE).ToImageSkia();
 
   // Top.
   int top_edge_y = client_area_top - top->height();
-  canvas->DrawBitmapInt(*top_left, client_area_bounds.x() - top_left->width(),
-                        top_edge_y);
+  canvas->DrawImageInt(*top_left, client_area_bounds.x() - top_left->width(),
+                       top_edge_y);
   canvas->TileImageInt(*top, client_area_bounds.x(), top_edge_y,
                        client_area_bounds.width(), top->height());
-  canvas->DrawBitmapInt(*top_right, client_area_bounds.right(), top_edge_y);
+  canvas->DrawImageInt(*top_right, client_area_bounds.right(), top_edge_y);
 
   // Right.
   int client_area_bottom =
@@ -405,11 +410,11 @@ void CustomFrameView::PaintRestoredClientEdge(gfx::Canvas* canvas) {
                        right->width(), client_area_height);
 
   // Bottom.
-  canvas->DrawBitmapInt(*bottom_right, client_area_bounds.right(),
-                        client_area_bottom);
+  canvas->DrawImageInt(*bottom_right, client_area_bounds.right(),
+                       client_area_bottom);
   canvas->TileImageInt(*bottom, client_area_bounds.x(), client_area_bottom,
                        client_area_bounds.width(), bottom_right->height());
-  canvas->DrawBitmapInt(*bottom_left,
+  canvas->DrawImageInt(*bottom_left,
       client_area_bounds.x() - bottom_left->width(), client_area_bottom);
 
   // Left.
@@ -426,9 +431,9 @@ SkColor CustomFrameView::GetFrameColor() const {
   return frame_->IsActive() ? kDefaultColorFrame : kDefaultColorFrameInactive;
 }
 
-const SkBitmap* CustomFrameView::GetFrameBitmap() const {
+const gfx::ImageSkia* CustomFrameView::GetFrameImage() const {
   return ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-      frame_->IsActive() ? IDR_FRAME : IDR_FRAME_INACTIVE).ToSkBitmap();
+      frame_->IsActive() ? IDR_FRAME : IDR_FRAME_INACTIVE).ToImageSkia();
 }
 
 void CustomFrameView::LayoutWindowControls() {
@@ -456,7 +461,7 @@ void CustomFrameView::LayoutWindowControls() {
 
   ImageButton* visible_button = is_restored ? maximize_button_
                                             : restore_button_;
-  FramePartBitmap normal_part, hot_part, pushed_part;
+  FramePartImage normal_part, hot_part, pushed_part;
   if (should_show_minmax_buttons_) {
     visible_button->SetVisible(true);
     visible_button->SetImageAlignment(ImageButton::ALIGN_LEFT,
@@ -490,11 +495,11 @@ void CustomFrameView::LayoutWindowControls() {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
 
   close_button_->SetImage(CustomButton::BS_NORMAL,
-                          rb.GetImageNamed(normal_part).ToSkBitmap());
+                          rb.GetImageNamed(normal_part).ToImageSkia());
   close_button_->SetImage(CustomButton::BS_HOT,
-                          rb.GetImageNamed(hot_part).ToSkBitmap());
+                          rb.GetImageNamed(hot_part).ToImageSkia());
   close_button_->SetImage(CustomButton::BS_PUSHED,
-                          rb.GetImageNamed(pushed_part).ToSkBitmap());
+                          rb.GetImageNamed(pushed_part).ToImageSkia());
 }
 
 void CustomFrameView::LayoutTitleBar() {
@@ -538,11 +543,11 @@ ImageButton* CustomFrameView::InitWindowCaptionButton(
   ImageButton* button = new ImageButton(this);
   button->SetAccessibleName(l10n_util::GetStringUTF16(accessibility_string_id));
   button->SetImage(CustomButton::BS_NORMAL,
-                   rb.GetImageNamed(normal_image_id).ToSkBitmap());
+                   rb.GetImageNamed(normal_image_id).ToImageSkia());
   button->SetImage(CustomButton::BS_HOT,
-                   rb.GetImageNamed(hot_image_id).ToSkBitmap());
+                   rb.GetImageNamed(hot_image_id).ToImageSkia());
   button->SetImage(CustomButton::BS_PUSHED,
-                   rb.GetImageNamed(pushed_image_id).ToSkBitmap());
+                   rb.GetImageNamed(pushed_image_id).ToImageSkia());
   AddChildView(button);
   return button;
 }

@@ -13,19 +13,21 @@
 #include "ppapi/c/dev/ppb_cursor_control_dev.h"
 #include "ppapi/c/dev/ppb_device_ref_dev.h"
 #include "ppapi/c/dev/ppb_font_dev.h"
-#include "ppapi/c/dev/ppb_fullscreen_dev.h"
 #include "ppapi/c/dev/ppb_gles_chromium_texture_mapping_dev.h"
+#include "ppapi/c/dev/ppb_graphics_2d_dev.h"
 #include "ppapi/c/dev/ppb_ime_input_event_dev.h"
 #include "ppapi/c/dev/ppb_keyboard_input_event_dev.h"
 #include "ppapi/c/dev/ppb_memory_dev.h"
 #include "ppapi/c/dev/ppb_message_loop_dev.h"
 #include "ppapi/c/dev/ppb_opengles2ext_dev.h"
+#include "ppapi/c/dev/ppb_printing_dev.h"
 #include "ppapi/c/dev/ppb_resource_array_dev.h"
 #include "ppapi/c/dev/ppb_testing_dev.h"
 #include "ppapi/c/dev/ppb_text_input_dev.h"
 #include "ppapi/c/dev/ppb_url_util_dev.h"
 #include "ppapi/c/dev/ppb_var_deprecated.h"
 #include "ppapi/c/dev/ppb_video_capture_dev.h"
+#include "ppapi/c/dev/ppb_view_dev.h"
 #include "ppapi/c/ppb_audio_config.h"
 #include "ppapi/c/ppb_audio.h"
 #include "ppapi/c/ppb_core.h"
@@ -53,8 +55,10 @@
 #include "ppapi/c/private/ppb_flash_file.h"
 #include "ppapi/c/private/ppb_flash_fullscreen.h"
 #include "ppapi/c/private/ppb_flash.h"
+#include "ppapi/c/private/ppb_flash_device_id.h"
 #include "ppapi/c/private/ppb_flash_menu.h"
 #include "ppapi/c/private/ppb_flash_message_loop.h"
+#include "ppapi/c/private/ppb_flash_print.h"
 #include "ppapi/c/private/ppb_flash_tcp_socket.h"
 #include "ppapi/c/private/ppb_net_address_private.h"
 #include "ppapi/c/private/ppb_network_list_private.h"
@@ -63,25 +67,22 @@
 #include "ppapi/c/private/ppb_talk_private.h"
 #include "ppapi/c/private/ppb_tcp_socket_private.h"
 #include "ppapi/c/private/ppb_udp_socket_private.h"
+#include "ppapi/c/private/ppb_x509_certificate_private.h"
 #include "ppapi/c/trusted/ppb_broker_trusted.h"
 #include "ppapi/c/trusted/ppb_browser_font_trusted.h"
 #include "ppapi/c/trusted/ppb_char_set_trusted.h"
 #include "ppapi/c/trusted/ppb_file_io_trusted.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
-#include "ppapi/c/private/ppb_x509_certificate_private.h"
 #include "ppapi/proxy/interface_proxy.h"
 #include "ppapi/proxy/ppb_audio_input_proxy.h"
 #include "ppapi/proxy/ppb_audio_proxy.h"
 #include "ppapi/proxy/ppb_broker_proxy.h"
 #include "ppapi/proxy/ppb_buffer_proxy.h"
 #include "ppapi/proxy/ppb_core_proxy.h"
-#include "ppapi/proxy/ppb_cursor_control_proxy.h"
-#include "ppapi/proxy/ppb_file_chooser_proxy.h"
 #include "ppapi/proxy/ppb_file_io_proxy.h"
 #include "ppapi/proxy/ppb_file_ref_proxy.h"
 #include "ppapi/proxy/ppb_file_system_proxy.h"
-#include "ppapi/proxy/ppb_flash_clipboard_proxy.h"
-#include "ppapi/proxy/ppb_flash_file_proxy.h"
+#include "ppapi/proxy/ppb_flash_device_id_proxy.h"
 #include "ppapi/proxy/ppb_flash_menu_proxy.h"
 #include "ppapi/proxy/ppb_flash_message_loop_proxy.h"
 #include "ppapi/proxy/ppb_flash_proxy.h"
@@ -97,7 +98,6 @@
 #include "ppapi/proxy/ppb_tcp_server_socket_private_proxy.h"
 #include "ppapi/proxy/ppb_tcp_socket_private_proxy.h"
 #include "ppapi/proxy/ppb_testing_proxy.h"
-#include "ppapi/proxy/ppb_text_input_proxy.h"
 #include "ppapi/proxy/ppb_udp_socket_private_proxy.h"
 #include "ppapi/proxy/ppb_url_loader_proxy.h"
 #include "ppapi/proxy/ppb_url_response_info_proxy.h"
@@ -172,8 +172,14 @@ InterfaceList::InterfaceList() {
              INTERFACE_THUNK_NAME(iface_struct)());
 
   #include "ppapi/thunk/interfaces_ppb_public_stable.h"
+#if !defined(OS_NACL)
   #include "ppapi/thunk/interfaces_ppb_public_dev.h"
   #include "ppapi/thunk/interfaces_ppb_private.h"
+#endif
+
+  #if !defined(OS_NACL)
+  #include "ppapi/thunk/interfaces_ppb_private_flash.h"
+  #endif
 
   #undef PROXIED_API
   #undef PROXIED_IFACE
@@ -188,20 +194,26 @@ InterfaceList::InterfaceList() {
          PPB_Core_Proxy::GetPPB_Core_Interface());
   AddPPB(PPB_MESSAGELOOP_DEV_INTERFACE_0_1, API_ID_NONE,
          PPB_MessageLoop_Proxy::GetInterface());
+#if !defined(OS_NACL)
   AddPPB(PPB_OPENGLES2_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetInterface());
-  AddPPB(PPB_OPENGLES2_INSTANCEDARRAYS_DEV_INTERFACE_1_0, API_ID_NONE,
+  AddPPB(PPB_OPENGLES2_INSTANCEDARRAYS_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetInstancedArraysInterface());
-  AddPPB(PPB_OPENGLES2_FRAMEBUFFERBLIT_DEV_INTERFACE_1_0, API_ID_NONE,
+  AddPPB(PPB_OPENGLES2_FRAMEBUFFERBLIT_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetFramebufferBlitInterface());
-  AddPPB(PPB_OPENGLES2_FRAMEBUFFERMULTISAMPLE_DEV_INTERFACE_1_0, API_ID_NONE,
+  AddPPB(PPB_OPENGLES2_FRAMEBUFFERMULTISAMPLE_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetFramebufferMultisampleInterface());
-  AddPPB(PPB_OPENGLES2_CHROMIUMENABLEFEATURE_DEV_INTERFACE_1_0, API_ID_NONE,
+  AddPPB(PPB_OPENGLES2_CHROMIUMENABLEFEATURE_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetChromiumEnableFeatureInterface());
+  AddPPB(PPB_OPENGLES2_CHROMIUMMAPSUB_INTERFACE_1_0, API_ID_NONE,
+         PPB_OpenGLES2_Shared::GetChromiumMapSubInterface());
   AddPPB(PPB_OPENGLES2_CHROMIUMMAPSUB_DEV_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetChromiumMapSubInterface());
-  AddPPB(PPB_OPENGLES2_QUERY_DEV_INTERFACE_1_0, API_ID_NONE,
+  AddPPB(PPB_OPENGLES2_QUERY_INTERFACE_1_0, API_ID_NONE,
          PPB_OpenGLES2_Shared::GetQueryInterface());
+  AddPPB(PPB_FLASH_PRINT_INTERFACE_1_0, API_ID_PPB_FLASH,
+         PPB_Flash_Proxy::GetFlashPrintInterface());
+#endif
   AddPPB(PPB_VAR_ARRAY_BUFFER_INTERFACE_1_0, API_ID_NONE,
          PPB_Var_Shared::GetVarArrayBufferInterface1_0());
   AddPPB(PPB_VAR_INTERFACE_1_1, API_ID_NONE,
@@ -209,17 +221,16 @@ InterfaceList::InterfaceList() {
   AddPPB(PPB_VAR_INTERFACE_1_0, API_ID_NONE,
          PPB_Var_Shared::GetVarInterface1_0());
 
-  AddFlashInterfaces();
-
+#if !defined(OS_NACL)
   // PPB (browser) interfaces.
   // Do not add more stuff here, they should be added to interface_list*.h
   // TODO(brettw) remove these.
-  AddPPB(PPB_FileChooser_Proxy::GetTrustedInfo());
   AddPPB(PPB_Instance_Proxy::GetInfoPrivate());
   AddPPB(PPB_PDF_Proxy::GetInfo());
   AddPPB(PPB_Testing_Proxy::GetInfo());
   AddPPB(PPB_URLLoader_Proxy::GetTrustedInfo());
   AddPPB(PPB_Var_Deprecated_Proxy::GetInfo());
+#endif
 
   // PPP (plugin) interfaces.
   // TODO(brettw) move these to interface_list*.h
@@ -236,13 +247,15 @@ InterfaceList::InterfaceList() {
   // Old-style GetInfo PPP interfaces.
   // Do not add more stuff here, they should be added to interface_list*.h
   // TODO(brettw) remove these.
-  AddPPP(PPP_Graphics3D_Proxy::GetInfo());
   AddPPP(PPP_InputEvent_Proxy::GetInfo());
-  AddPPP(PPP_Instance_Private_Proxy::GetInfo());
   AddPPP(PPP_Messaging_Proxy::GetInfo());
   AddPPP(PPP_MouseLock_Proxy::GetInfo());
+#if !defined(OS_NACL)
+  AddPPP(PPP_Graphics3D_Proxy::GetInfo());
+  AddPPP(PPP_Instance_Private_Proxy::GetInfo());
   AddPPP(PPP_VideoCapture_Proxy::GetInfo());
   AddPPP(PPP_VideoDecoder_Proxy::GetInfo());
+#endif
 }
 
 InterfaceList::~InterfaceList() {
@@ -291,51 +304,6 @@ const void* InterfaceList::GetInterfaceForPPP(const std::string& name) const {
   if (found == name_to_plugin_info_.end())
     return NULL;
   return found->second.iface;
-}
-
-void InterfaceList::AddFlashInterfaces() {
-#if !defined(OS_NACL)
-  AddProxy(API_ID_PPB_FLASH, &ProxyFactory<PPB_Flash_Proxy>);
-  AddPPB(PPB_FLASH_INTERFACE_11_0, API_ID_PPB_FLASH,
-         PPB_Flash_Proxy::GetInterface11());
-  AddPPB(PPB_FLASH_INTERFACE_12_0, API_ID_PPB_FLASH,
-         PPB_Flash_Proxy::GetInterface12_0());
-  AddPPB(PPB_FLASH_INTERFACE_12_1, API_ID_PPB_FLASH,
-         PPB_Flash_Proxy::GetInterface12_1());
-
-  AddProxy(API_ID_PPB_FLASH_CLIPBOARD,
-           &ProxyFactory<PPB_Flash_Clipboard_Proxy>);
-  AddPPB(PPB_FLASH_CLIPBOARD_INTERFACE_4_0, API_ID_PPB_FLASH_CLIPBOARD,
-         thunk::GetPPB_Flash_Clipboard_4_0_Thunk());
-  AddPPB(PPB_FLASH_CLIPBOARD_INTERFACE_3_0, API_ID_PPB_FLASH_CLIPBOARD,
-         thunk::GetPPB_Flash_Clipboard_3_0_Thunk());
-  AddPPB(PPB_FLASH_CLIPBOARD_INTERFACE_3_LEGACY, API_ID_PPB_FLASH_CLIPBOARD,
-         thunk::GetPPB_Flash_Clipboard_3_0_Thunk());
-
-  AddProxy(API_ID_PPB_FLASH_FILE_FILEREF,
-           &ProxyFactory<PPB_Flash_File_FileRef_Proxy>);
-  AddPPB(PPB_FLASH_FILE_FILEREF_INTERFACE, API_ID_PPB_FLASH_FILE_FILEREF,
-         PPB_Flash_File_FileRef_Proxy::GetInterface());
-
-  AddProxy(API_ID_PPB_FLASH_FILE_MODULELOCAL,
-           &ProxyFactory<PPB_Flash_File_ModuleLocal_Proxy>);
-  AddPPB(PPB_FLASH_FILE_MODULELOCAL_INTERFACE,
-         API_ID_PPB_FLASH_FILE_MODULELOCAL,
-         PPB_Flash_File_ModuleLocal_Proxy::GetInterface());
-
-  AddProxy(API_ID_PPB_FLASH_MENU, &ProxyFactory<PPB_Flash_Menu_Proxy>);
-  AddPPB(PPB_FLASH_MENU_INTERFACE_0_2, API_ID_PPB_FLASH_MENU,
-         thunk::GetPPB_Flash_Menu_0_2_Thunk());
-
-  AddProxy(API_ID_PPB_FLASH_MESSAGELOOP,
-           &ProxyFactory<PPB_Flash_MessageLoop_Proxy>);
-  AddPPB(PPB_FLASH_MESSAGELOOP_INTERFACE_0_1, API_ID_PPB_FLASH_MESSAGELOOP,
-         thunk::GetPPB_Flash_MessageLoop_0_1_Thunk());
-
-  // Only add the interface; PPB_TCPSocket_Private provides the API ID's proxy.
-  AddPPB(PPB_FLASH_TCPSOCKET_INTERFACE_0_2, API_ID_PPB_TCPSOCKET_PRIVATE,
-         thunk::GetPPB_TCPSocket_Private_0_3_Thunk());
-#endif  // !defined(OS_NACL)
 }
 
 void InterfaceList::AddProxy(ApiID id,

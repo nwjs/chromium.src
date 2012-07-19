@@ -4,18 +4,15 @@
 
 #ifndef UI_VIEWS_WIDGET_WIDGET_DELEGATE_H_
 #define UI_VIEWS_WIDGET_WIDGET_DELEGATE_H_
-#pragma once
 
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
 #include "ui/base/accessibility/accessibility_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/views/view.h"
 
-class SkBitmap;
-
 namespace gfx {
+class ImageSkia;
 class Rect;
 }
 
@@ -27,7 +24,6 @@ class NonClientFrameView;
 class View;
 class Widget;
 
-// WidgetDelegate interface
 // Handles events on Widgets in context-specific ways.
 class VIEWS_EXPORT WidgetDelegate {
  public:
@@ -46,9 +42,6 @@ class VIEWS_EXPORT WidgetDelegate {
   // Returns the view that should have the focus when the widget is shown.  If
   // NULL no view is focused.
   virtual View* GetInitiallyFocusedView();
-
-  // Moved from WindowDelegate: ------------------------------------------------
-  // TODO(beng): sort
 
   virtual BubbleDelegateView* AsBubbleDelegate();
   virtual DialogDelegate* AsDialogDelegate();
@@ -81,10 +74,10 @@ class VIEWS_EXPORT WidgetDelegate {
 
   // Returns the app icon for the window. On Windows, this is the ICON_BIG used
   // in Alt-Tab list and Win7's taskbar.
-  virtual SkBitmap GetWindowAppIcon();
+  virtual gfx::ImageSkia GetWindowAppIcon();
 
   // Returns the icon to be displayed in the window.
-  virtual SkBitmap GetWindowIcon();
+  virtual gfx::ImageSkia GetWindowIcon();
 
   // Returns true if a window icon should be shown.
   virtual bool ShouldShowWindowIcon() const;
@@ -147,6 +140,12 @@ class VIEWS_EXPORT WidgetDelegate {
   // the default window manager. In some cases, like panel, we would like to
   // manage the positions by ourselves.
   virtual bool WillProcessWorkAreaChange() const;
+
+  // Returns true if window has a hit-test mask.
+  virtual bool HasHitTestMask() const;
+
+  // Provides the hit-test mask if HasHitTestMask above returns true.
+  virtual void GetHitTestMask(gfx::Path* mask) const;
 
  protected:
   virtual ~WidgetDelegate() {}

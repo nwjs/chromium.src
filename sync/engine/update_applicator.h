@@ -10,20 +10,24 @@
 
 #ifndef SYNC_ENGINE_UPDATE_APPLICATOR_H_
 #define SYNC_ENGINE_UPDATE_APPLICATOR_H_
-#pragma once
 
 #include <vector>
 
 #include "base/basictypes.h"
 #include "base/port.h"
-#include "sync/engine/model_safe_worker.h"
-#include "sync/syncable/syncable.h"
+#include "sync/internal_api/public/engine/model_safe_worker.h"
+#include "sync/syncable/syncable_id.h"
 
-namespace browser_sync {
+namespace syncer {
 
 namespace sessions {
 class ConflictProgress;
 class UpdateProgress;
+}
+
+namespace syncable {
+class WriteTransaction;
+class Entry;
 }
 
 class ConflictResolver;
@@ -104,6 +108,6 @@ class UpdateApplicator {
   DISALLOW_COPY_AND_ASSIGN(UpdateApplicator);
 };
 
-}  // namespace browser_sync
+}  // namespace syncer
 
 #endif  // SYNC_ENGINE_UPDATE_APPLICATOR_H_

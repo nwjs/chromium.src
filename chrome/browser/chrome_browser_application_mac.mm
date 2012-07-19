@@ -12,8 +12,8 @@
 #import "base/metrics/histogram.h"
 #import "base/sys_string_conversions.h"
 #import "chrome/browser/app_controller_mac.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/tab_contents/tab_contents_wrapper.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #import "chrome/common/mac/objc_method_swizzle.h"
 #import "chrome/common/mac/objc_zombie.h"
 #include "content/public/browser/browser_accessibility_state.h"
@@ -502,10 +502,10 @@ void SwizzleInit() {
     for (TabContentsIterator it;
          !it.done();
          ++it) {
-      if (TabContentsWrapper* contents = *it) {
+      if (TabContents* contents = *it) {
         if (content::RenderViewHost* rvh =
                 contents->web_contents()->GetRenderViewHost()) {
-          rvh->EnableRendererAccessibility();
+          rvh->EnableFullAccessibilityMode();
         }
       }
     }
@@ -555,7 +555,7 @@ void SwizzleInit() {
     [self removePreviousKeyWindow:window];
     NSWindow* currentKeyWindow = [self keyWindow];
     if (currentKeyWindow != nil && currentKeyWindow != window)
-      previousKeyWindows_.push_back(window);
+      previousKeyWindows_.push_back(currentKeyWindow);
   }
 
   return [super _setKeyWindow:window];

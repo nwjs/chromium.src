@@ -4,7 +4,6 @@
 
 #ifndef BASE_MAC_AUTHORIZATION_UTIL_H_
 #define BASE_MAC_AUTHORIZATION_UTIL_H_
-#pragma once
 
 // AuthorizationExecuteWithPrivileges fork()s and exec()s the tool, but it
 // does not wait() for it.  It also doesn't provide the caller with access to
@@ -47,6 +46,7 @@ AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt);
 // pid can't be determined, |pid| will be set to -1.  |pid| must not be NULL.
 // |pipe| may be NULL, but the tool will always be executed with a pipe in
 // order to read the pid from its stdout.
+BASE_EXPORT
 OSStatus ExecuteWithPrivilegesAndGetPID(AuthorizationRef authorization,
                                         const char* tool_path,
                                         AuthorizationFlags options,

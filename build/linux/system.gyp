@@ -90,6 +90,27 @@
             }],
           ],
         },
+        {
+          'target_name': 'gdk',
+          'type': 'none',
+          'conditions': [
+            ['_toolset=="target"', {
+              'direct_dependent_settings': {
+                'cflags': [
+                  '<!@(<(pkg-config) --cflags gdk-2.0)',
+                ],
+              },
+              'link_settings': {
+                'ldflags': [
+                  '<!@(<(pkg-config) --libs-only-L --libs-only-other gdk-2.0)',
+                ],
+                'libraries': [
+                  '<!@(<(pkg-config) --libs-only-l gdk-2.0)',
+                ],
+              },
+            }],
+          ],
+        },
       ],  # targets
     }]  # chromeos==0
   ],  # conditions
@@ -97,7 +118,17 @@
     {
       'target_name': 'ssl',
       'type': 'none',
+      'toolsets': [ 'host', 'target'],
       'conditions': [
+        ['_toolset=="host"', {
+          'conditions': [
+            ['use_openssl==1', {
+              'dependencies': [
+                '../../third_party/openssl/openssl.gyp:openssl',
+              ],
+            }],
+          ],
+        }],
         ['_toolset=="target"', {
           'conditions': [
             ['use_openssl==1', {
@@ -188,27 +219,6 @@
             ],
             'libraries': [
               '<!@(<(pkg-config) --libs-only-l fontconfig)',
-            ],
-          },
-        }],
-      ],
-    },
-    {
-      'target_name': 'gdk',
-      'type': 'none',
-      'conditions': [
-        ['_toolset=="target"', {
-          'direct_dependent_settings': {
-            'cflags': [
-              '<!@(<(pkg-config) --cflags gdk-2.0)',
-            ],
-          },
-          'link_settings': {
-            'ldflags': [
-              '<!@(<(pkg-config) --libs-only-L --libs-only-other gdk-2.0)',
-            ],
-            'libraries': [
-              '<!@(<(pkg-config) --libs-only-l gdk-2.0)',
             ],
           },
         }],
@@ -603,30 +613,6 @@
             ],
             'libraries': [
               '<!@(<(pkg-config) --libs-only-l "ibus-1.0 >= <(ibus_min_version)")',
-            ],
-          },
-        }],
-      ],
-    },
-    {
-      'target_name': 'wayland',
-      'type': 'none',
-      'conditions': [
-        ['use_wayland == 1', {
-          'cflags': [
-            '<!@(<(pkg-config) --cflags cairo wayland-client wayland-egl xkbcommon)',
-          ],
-          'direct_dependent_settings': {
-            'cflags': [
-              '<!@(<(pkg-config) --cflags cairo wayland-client wayland-egl xkbcommon)',
-            ],
-          },
-          'link_settings': {
-            'ldflags': [
-              '<!@(<(pkg-config) --libs-only-L --libs-only-other wayland-client wayland-egl xkbcommon)',
-            ],
-            'libraries': [
-              '<!@(<(pkg-config) --libs-only-l wayland-client wayland-egl xkbcommon)',
             ],
           },
         }],

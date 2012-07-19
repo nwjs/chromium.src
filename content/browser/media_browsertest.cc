@@ -8,6 +8,7 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/test/layout_browsertest.h"
 #include "googleurl/src/gurl.h"
@@ -30,7 +31,7 @@ class MediaTest : public InProcessBrowserTest {
     const string16 kFailed = ASCIIToUTF16("FAILED");
     const string16 kError = ASCIIToUTF16("ERROR");
     ui_test_utils::TitleWatcher title_watcher(
-        browser()->GetSelectedWebContents(), kPlaying);
+        chrome::GetActiveWebContents(browser()), kPlaying);
     title_watcher.AlsoWaitForTitle(kFailed);
     title_watcher.AlsoWaitForTitle(kError);
 
@@ -49,19 +50,7 @@ class MediaTest : public InProcessBrowserTest {
   }
 };
 
-#if defined(OS_MACOSX)
-// http://crbug.com/88834 - VideoBearTheora, VideoBearWav and VideoBearWebm
-// are flaky on Mac.
-#define MAYBE_VideoBearTheora DISABLED_VideoBearTheora
-#define MAYBE_VideoBearWavPcm DISABLED_VideoBearWavPcm
-#define MAYBE_VideoBearWebm DISABLED_VideoBearWebm
-#else
-#define MAYBE_VideoBearTheora VideoBearTheora
-#define MAYBE_VideoBearWavPcm  VideoBearWavPcm
-#define MAYBE_VideoBearWebm VideoBearWebm
-#endif
-
-IN_PROC_BROWSER_TEST_F(MediaTest, MAYBE_VideoBearTheora) {
+IN_PROC_BROWSER_TEST_F(MediaTest, VideoBearTheora) {
   PlayVideo("bear.ogv");
 }
 
@@ -69,7 +58,7 @@ IN_PROC_BROWSER_TEST_F(MediaTest, VideoBearSilentTheora) {
   PlayVideo("bear_silent.ogv");
 }
 
-IN_PROC_BROWSER_TEST_F(MediaTest, MAYBE_VideoBearWebm) {
+IN_PROC_BROWSER_TEST_F(MediaTest, VideoBearWebm) {
   PlayVideo("bear.webm");
 }
 
@@ -114,17 +103,17 @@ IN_PROC_BROWSER_TEST_F(MediaTest, VideoBear3gpAmrnbMpeg4) {
 // }
 
 IN_PROC_BROWSER_TEST_F(MediaTest, VideoBearWavMulaw) {
-  PlayVideo("bear_mulaw.wav");
+  PlayAudio("bear_mulaw.wav");
 }
 
 IN_PROC_BROWSER_TEST_F(MediaTest, VideoBearFlac) {
-  PlayVideo("bear.flac");
+  PlayAudio("bear.flac");
 }
 #endif
 #endif
 
-IN_PROC_BROWSER_TEST_F(MediaTest, MAYBE_VideoBearWavPcm) {
-  PlayVideo("bear_pcm.wav");
+IN_PROC_BROWSER_TEST_F(MediaTest, VideoBearWavPcm) {
+  PlayAudio("bear_pcm.wav");
 }
 
 class MediaLayoutTest : public InProcessBrowserLayoutTest {
@@ -151,14 +140,19 @@ class MediaLayoutTest : public InProcessBrowserLayoutTest {
   }
 };
 
-IN_PROC_BROWSER_TEST_F(MediaLayoutTest, Tests) {
-  static const char* kMediaTests[] = {
-    "video-autoplay.html",
-    // "video-loop.html", disabled due to 52887.
-    "video-no-autoplay.html",
-    // TODO(sergeyu): Add more tests here.
-  };
+// Each browser test can only correspond to a single layout test, otherwise the
+// 45 second timeout per test is not long enough for N tests on debug/asan/etc
+// builds.
 
-  for (size_t i = 0; i < arraysize(kMediaTests); ++i)
-    RunLayoutTest(kMediaTests[i]);
+IN_PROC_BROWSER_TEST_F(MediaLayoutTest, VideoAutoplayTest) {
+  RunLayoutTest("video-autoplay.html");
+}
+
+// TODO(dalecurtis): Disabled because loop is flaky.  http://crbug.com/134021
+// IN_PROC_BROWSER_TEST_F(MediaLayoutTest, VideoLoopTest) {
+//   RunLayoutTest("video-loop.html");
+// }
+
+IN_PROC_BROWSER_TEST_F(MediaLayoutTest, VideoNoAutoplayTest) {
+  RunLayoutTest("video-no-autoplay.html");
 }

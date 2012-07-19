@@ -18,7 +18,8 @@ namespace shell {
 ShellDelegateImpl::ShellDelegateImpl()
     : watcher_(NULL),
       launcher_delegate_(NULL),
-      locked_(false) {
+      locked_(false),
+      spoken_feedback_enabled_(false) {
 }
 
 ShellDelegateImpl::~ShellDelegateImpl() {
@@ -28,10 +29,6 @@ void ShellDelegateImpl::SetWatcher(WindowWatcher* watcher) {
   watcher_ = watcher;
   if (launcher_delegate_)
     launcher_delegate_->set_watcher(watcher);
-}
-
-views::Widget* ShellDelegateImpl::CreateStatusArea() {
-  return NULL;
 }
 
 bool ShellDelegateImpl::IsUserLoggedIn() {
@@ -53,8 +50,14 @@ bool ShellDelegateImpl::IsScreenLocked() const {
   return locked_;
 }
 
+void ShellDelegateImpl::Shutdown() {
+}
+
 void ShellDelegateImpl::Exit() {
   MessageLoopForUI::current()->Quit();
+}
+
+void ShellDelegateImpl::NewTab() {
 }
 
 void ShellDelegateImpl::NewWindow(bool incognito) {
@@ -64,7 +67,41 @@ void ShellDelegateImpl::NewWindow(bool incognito) {
   ash::shell::ToplevelWindow::CreateToplevelWindow(create_params);
 }
 
-ash::AppListViewDelegate* ShellDelegateImpl::CreateAppListViewDelegate() {
+void ShellDelegateImpl::OpenFileManager(bool as_dialog) {
+}
+
+void ShellDelegateImpl::OpenCrosh() {
+}
+
+void ShellDelegateImpl::OpenMobileSetup(const std::string& service_path) {
+}
+
+void ShellDelegateImpl::RestoreTab() {
+}
+
+bool ShellDelegateImpl::RotatePaneFocus(Shell::Direction direction) {
+  return true;
+}
+
+void ShellDelegateImpl::ShowKeyboardOverlay() {
+}
+
+void ShellDelegateImpl::ShowTaskManager() {
+}
+
+content::BrowserContext* ShellDelegateImpl::GetCurrentBrowserContext() {
+  return Shell::GetInstance()->browser_context();
+}
+
+void ShellDelegateImpl::ToggleSpokenFeedback() {
+  spoken_feedback_enabled_ = !spoken_feedback_enabled_;
+}
+
+bool ShellDelegateImpl::IsSpokenFeedbackEnabled() const {
+  return spoken_feedback_enabled_;
+}
+
+app_list::AppListViewDelegate* ShellDelegateImpl::CreateAppListViewDelegate() {
   return ash::shell::CreateAppListViewDelegate();
 }
 
@@ -86,6 +123,13 @@ ash::SystemTrayDelegate* ShellDelegateImpl::CreateSystemTrayDelegate(
 
 ash::UserWallpaperDelegate* ShellDelegateImpl::CreateUserWallpaperDelegate() {
   return NULL;
+}
+
+aura::client::UserActionClient* ShellDelegateImpl::CreateUserActionClient() {
+  return NULL;
+}
+
+void ShellDelegateImpl::OpenFeedbackPage() {
 }
 
 }  // namespace shell

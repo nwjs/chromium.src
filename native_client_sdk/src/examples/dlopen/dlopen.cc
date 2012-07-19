@@ -48,7 +48,7 @@ class dlOpenInstance : public pp::Instance {
 
   // Helper function to post a message back to the JS and stdout functions.
   void logmsg(const char* pStr){
-    PostMessage(pp::Var(pStr));
+    PostMessage(pp::Var(std::string("log:") + pStr));
     fprintf(stdout, pStr);
   }
 
@@ -110,8 +110,9 @@ class dlOpenInstance : public pp::Instance {
     std::string message = var_message.AsString();
     if (message == "query") {
       fprintf(stdout, "%s(%d) Got this far.\n", __FILE__, __LINE__);
-      std::string ballmessage = "!The Magic 8-Ball says: ";
+      std::string ballmessage = "The Magic 8-Ball says: ";
       ballmessage += this->_eightball();
+      ballmessage += "!";
 
       logmsg(ballmessage.c_str());
       fprintf(stdout, "%s(%d) Got this far.\n", __FILE__, __LINE__);

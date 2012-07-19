@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -61,7 +61,7 @@ bool ButtonDropDown::OnMousePressed(const MouseEvent& event) {
         base::Bind(&ButtonDropDown::ShowDropDownMenu,
                    show_menu_factory_.GetWeakPtr(),
                    GetWidget()->GetNativeView()),
-        kMenuTimerDelay);
+        base::TimeDelta::FromMilliseconds(kMenuTimerDelay));
   }
   return ImageButton::OnMousePressed(event);
 }
@@ -123,11 +123,13 @@ void ButtonDropDown::GetAccessibleState(ui::AccessibleViewState* state) {
   state->state = ui::AccessibilityTypes::STATE_HASPOPUP;
 }
 
-bool ButtonDropDown::ShouldEnterPushedState(const MouseEvent& event) {
-  // Enter PUSHED state on press with Left or Right mouse button. Remain
-  // in this state while the context menu is open.
-  return ((ui::EF_LEFT_MOUSE_BUTTON |
-      ui::EF_RIGHT_MOUSE_BUTTON) & event.flags()) != 0;
+bool ButtonDropDown::ShouldEnterPushedState(const Event& event) {
+  // Enter PUSHED state on press with Left or Right mouse button or on taps.
+  // Remain in this state while the context menu is open.
+  return event.type() == ui::ET_GESTURE_TAP ||
+         event.type() == ui::ET_GESTURE_TAP_DOWN ||
+         (event.IsMouseEvent() && ((ui::EF_LEFT_MOUSE_BUTTON |
+             ui::EF_RIGHT_MOUSE_BUTTON) & event.flags()) != 0);
 }
 
 void ButtonDropDown::ShowDropDownMenu(gfx::NativeView window) {

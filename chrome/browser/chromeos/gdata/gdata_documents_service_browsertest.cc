@@ -30,7 +30,7 @@ class GDataTest : public InProcessBrowserTest {
     ASSERT_TRUE(gdata_test_server_.Start());
     service_.reset(new gdata::DocumentsService);
     service_->Initialize(browser()->profile());
-    service_->gdata_auth_service()->set_oauth2_auth_token_for_testing(
+    service_->auth_service_for_testing()->set_oauth2_auth_token_for_testing(
         net::TestServer::kGDataAuthToken);
   }
 
@@ -78,7 +78,8 @@ IN_PROC_BROWSER_TEST_F(GDataTest, Download) {
       FilePath("/dummy/gdata/testfile.txt"),
       GetTestCachedFilePath(FilePath("cached_testfile.txt")),
       gdata_test_server_.GetURL("files/chromeos/gdata/testfile.txt"),
-      base::Bind(&TestDownloadCallback, &result, &contents));
+      base::Bind(&TestDownloadCallback, &result, &contents),
+      gdata::GetDownloadDataCallback());
   ui_test_utils::RunMessageLoop();
 
   EXPECT_EQ(gdata::HTTP_SUCCESS, result);
@@ -96,7 +97,8 @@ IN_PROC_BROWSER_TEST_F(GDataTest, NonExistingDownload) {
       FilePath("/dummy/gdata/no-such-file.txt"),
       GetTestCachedFilePath(FilePath("cache_no-such-file.txt")),
       gdata_test_server_.GetURL("files/chromeos/gdata/no-such-file.txt"),
-      base::Bind(&TestDownloadCallback, &result, &dummy_contents));
+      base::Bind(&TestDownloadCallback, &result, &dummy_contents),
+      gdata::GetDownloadDataCallback());
   ui_test_utils::RunMessageLoop();
 
   EXPECT_EQ(gdata::HTTP_NOT_FOUND, result);
@@ -108,6 +110,9 @@ IN_PROC_BROWSER_TEST_F(GDataTest, GetDocuments) {
   base::Value* result_data = NULL;
   service_->GetDocuments(
       gdata_test_server_.GetURL("files/chromeos/gdata/root_feed.json"),
+      0,  // start_changestamp
+      std::string(),  // search string
+      std::string(),  // directory resource ID
       base::Bind(&TestGetDocumentsCallback, &result, &result_data));
   ui_test_utils::RunMessageLoop();
 
@@ -118,7 +123,7 @@ IN_PROC_BROWSER_TEST_F(GDataTest, GetDocuments) {
   std::string expected_contents;
   file_util::ReadFileToString(expected_filepath, &expected_contents);
   scoped_ptr<base::Value> expected_data(
-      base::JSONReader::Read(expected_contents, false));
+      base::JSONReader::Read(expected_contents));
   EXPECT_TRUE(base::Value::Equals(expected_data.get(), result_data));
   delete result_data;
 }
@@ -130,6 +135,9 @@ IN_PROC_BROWSER_TEST_F(GDataTest, GetDocumentsFailure) {
   base::Value* result_data = NULL;
   service_->GetDocuments(
       gdata_test_server_.GetURL("files/chromeos/gdata/testfile.txt"),
+      0,  // start_changestamp
+      std::string(),  // search string
+      std::string(),  // directory resource ID
       base::Bind(&TestGetDocumentsCallback, &result, &result_data));
   ui_test_utils::RunMessageLoop();
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -30,8 +30,7 @@ class MockQuotaEvictionHandler : public quota::QuotaEvictionHandler {
         unlimited_usage_(0),
         available_space_(0),
         error_on_evict_origin_data_(false),
-        error_on_get_usage_and_quota_(false),
-        test_(test) {}
+        error_on_get_usage_and_quota_(false) {}
 
   virtual void EvictOriginData(
       const GURL& origin,
@@ -135,7 +134,6 @@ class MockQuotaEvictionHandler : public quota::QuotaEvictionHandler {
   bool error_on_evict_origin_data_;
   bool error_on_get_usage_and_quota_;
 
-  QuotaTemporaryStorageEvictorTest *test_;
   base::Closure task_for_get_usage_and_quota_;
 };
 
@@ -222,7 +220,8 @@ class QuotaTemporaryStorageEvictorTest : public testing::Test {
         reset_min_available_disk_space_to_start_eviction();
   }
 
-  scoped_ptr<QuotaEvictionHandler> quota_eviction_handler_;
+  MessageLoop message_loop_;
+  scoped_ptr<MockQuotaEvictionHandler> quota_eviction_handler_;
   scoped_ptr<QuotaTemporaryStorageEvictor> temporary_storage_evictor_;
 
   int num_get_usage_and_quota_for_eviction_;

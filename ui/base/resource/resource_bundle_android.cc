@@ -11,25 +11,36 @@
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/stringprintf.h"
+#include "ui/base/resource/resource_handle.h"
+
+namespace {
+
+FilePath GetResourcesPakFilePath(const std::string& pak_name) {
+  FilePath path;
+  if (PathService::Get(base::DIR_ANDROID_APP_DATA, &path))
+    return path.AppendASCII("paks").AppendASCII(pak_name.c_str());
+
+  // Return just the name of the pack file.
+  return FilePath(pak_name.c_str());
+}
+
+}  // namespace
 
 namespace ui {
 
-// static
-FilePath ResourceBundle::GetResourcesFilePath() {
-  FilePath data_path;
-  PathService::Get(base::DIR_ANDROID_APP_DATA, &data_path);
-  DCHECK(!data_path.empty());
-  return data_path.Append(FILE_PATH_LITERAL("paks/chrome.pak"));
+void ResourceBundle::LoadCommonResources() {
+  AddDataPackFromPath(GetResourcesPakFilePath("chrome.pak"),
+                      SCALE_FACTOR_100P);
+  AddDataPackFromPath(GetResourcesPakFilePath("theme_resources_standard.pak"),
+                      SCALE_FACTOR_100P);
+  AddDataPackFromPath(GetResourcesPakFilePath("ui_resources_standard.pak"),
+                      SCALE_FACTOR_100P);
 }
 
-gfx::Image& ResourceBundle::GetNativeImageNamed(int resource_id) {
+gfx::Image& ResourceBundle::GetNativeImageNamed(int resource_id, ImageRTL rtl) {
+  // Flipped image is not used on Android.
+  DCHECK_EQ(rtl, RTL_DISABLED);
   return GetImageNamed(resource_id);
-}
-
-// static
-FilePath ResourceBundle::GetLargeIconResourcesFilePath() {
-  // Not supported.
-  return FilePath();
 }
 
 }

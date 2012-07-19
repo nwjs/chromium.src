@@ -1,6 +1,7 @@
-# This test fails reliably in tsan bots after r119048, exclude it for
-# now. See  http://crbug.com/109875
-PipelineIntegrationTest.SeekWhilePlaying
 # Win TSan disturbs ffmpeg's output, causing hash comparison assertion to fail.
 # http://crbug.com/120396
+# Also still hitting DCHECK(time <= max_time) http://crbug.com/126183
 PipelineIntegrationTest.BasicPlayback
+PipelineIntegrationTest.BasicPlaybackHashed
+PipelineIntegrationTest.BasicPlayback_MediaSource
+PipelineIntegrationTest.EncryptedPlayback

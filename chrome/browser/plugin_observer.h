@@ -4,7 +4,6 @@
 
 #ifndef CHROME_BROWSER_PLUGIN_OBSERVER_H_
 #define CHROME_BROWSER_PLUGIN_OBSERVER_H_
-#pragma once
 
 #include "base/memory/weak_ptr.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -16,7 +15,7 @@
 class GURL;
 class InfoBarDelegate;
 class PluginFinder;
-class TabContentsWrapper;
+class TabContents;
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
 class PluginInstaller;
@@ -25,22 +24,24 @@ class PluginPlaceholderHost;
 
 class PluginObserver : public content::WebContentsObserver {
  public:
-  explicit PluginObserver(TabContentsWrapper* tab_contents);
+  explicit PluginObserver(TabContents* tab_contents);
   virtual ~PluginObserver();
 
   // content::WebContentsObserver implementation.
+  virtual void PluginCrashed(const FilePath& plugin_path) OVERRIDE;
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   void InstallMissingPlugin(PluginInstaller* installer);
 #endif
 
-  TabContentsWrapper* tab_contents_wrapper() { return tab_contents_; }
+  TabContents* tab_contents() { return tab_contents_; }
 
  private:
   class PluginPlaceholderHost;
 
-  void OnBlockedUnauthorizedPlugin(const string16& name);
+  void OnBlockedUnauthorizedPlugin(const string16& name,
+                                   const std::string& identifier);
   void OnBlockedOutdatedPlugin(int placeholder_id,
                                const std::string& identifier);
 #if defined(ENABLE_PLUGIN_INSTALLATION)
@@ -55,10 +56,11 @@ class PluginObserver : public content::WebContentsObserver {
   void OnRemovePluginPlaceholderHost(int placeholder_id);
 #endif
   void OnOpenAboutPlugins();
+  void OnCouldNotLoadPlugin(const FilePath& plugin_path);
 
   base::WeakPtrFactory<PluginObserver> weak_ptr_factory_;
 
-  TabContentsWrapper* tab_contents_;
+  TabContents* tab_contents_;
 
 #if defined(ENABLE_PLUGIN_INSTALLATION)
   // Stores all PluginPlaceholderHosts, keyed by their routing ID.

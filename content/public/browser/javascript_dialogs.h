@@ -4,15 +4,14 @@
 
 #ifndef CONTENT_PUBLIC_BROWSER_JAVASCRIPT_DIALOGS_H_
 #define CONTENT_PUBLIC_BROWSER_JAVASCRIPT_DIALOGS_H_
-#pragma once
 
 #include <string>
 
 #include "base/callback.h"
 #include "base/string16.h"
 #include "content/common/content_export.h"
+#include "content/public/common/javascript_message_type.h"
 #include "googleurl/src/gurl.h"
-#include "ui/base/javascript_message_type.h"
 #include "ui/gfx/native_widget_types.h"
 
 namespace content {
@@ -33,7 +32,7 @@ class JavaScriptDialogCreator {
       WebContents* web_contents,
       const GURL& origin_url,
       const std::string& accept_lang,
-      ui::JavascriptMessageType javascript_message_type,
+      JavaScriptMessageType javascript_message_type,
       const string16& message_text,
       const string16& default_prompt_text,
       const DialogClosedCallback& callback,
