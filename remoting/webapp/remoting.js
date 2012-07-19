@@ -40,6 +40,7 @@ remoting.init = function() {
   remoting.formatIq = new remoting.FormatIq();
   remoting.hostList = new remoting.HostList(
       document.getElementById('host-list'),
+      document.getElementById('host-list-empty'),
       document.getElementById('host-list-error'));
   remoting.toolbar = new remoting.Toolbar(
       document.getElementById('session-toolbar'));
