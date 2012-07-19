@@ -72,18 +72,7 @@
               ],
             }],
           ],
-<<<<<<< HEAD
-        },
-      ],
-    }, {
-      'targets': [
-        {
-          'target_name': 'zlib',
-          'type': 'static_library',
-          'toolsets': [ 'host', 'target'],
-=======
         }, {
->>>>>>> a99f8b4166920384b8b12cb14fa4011820a59beb
           'direct_dependent_settings': {
             'defines': [
               'USE_SYSTEM_ZLIB',
