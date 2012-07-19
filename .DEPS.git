@@ -13,7 +13,7 @@ vars = {
     'github_url':
          'http://github.com/rogerwang',
     'webkit_rev':
-         '@101eb29fc02337c55f95a69051be7bca5a7c3157'
+         '@7e6974bbdc30308751da6953fcc3e2399c276e53'
 }
 
 deps = {
