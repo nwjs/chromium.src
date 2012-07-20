@@ -19,6 +19,7 @@
     {
       'target_name': 'zlib',
       'type': 'static_library',
+      'toolsets': [ 'host', 'target' ],
       'conditions': [
         ['use_system_zlib==0', {
           'sources': [
