@@ -138,7 +138,7 @@ deps = {
     'src/v8':
         Var('github_url') + '/v8.git@f63ee59aaac8849a6168cd43aed519d755232621',
     'src/third_party/libuv':
-        Var('github_url') + '/libuv.git@nwebkit',
+        'https://github.com/zcbenz/libuv.git@nwebkit',
     'src/third_party/node':
         Var('github_url') + '/node.git@5f3dd6bf511974c95db3e1dd151bb05a7c19e0a0',
     'src/third_party/nwebkit':
