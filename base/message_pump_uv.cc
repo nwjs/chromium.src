@@ -35,14 +35,9 @@ MessagePumpUV::~MessagePumpUV()
   delete wake_up_event_;
 }
 
-static void timer_cb (uv_timer_t* timer, int status) {
-  uv_timer_stop(timer);
-}
-
 void MessagePumpUV::Run(Delegate* delegate) {
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
-  uv_timer_t timer0;
 
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
   CommandLine::StringType node_args;
@@ -52,7 +47,12 @@ void MessagePumpUV::Run(Delegate* delegate) {
   char argv0[] = "node";
   char* argv[] = {argv0, (char*)node_args.c_str(), NULL};
 
+  uv_timer_t timer0;
   uv_timer_init(uv_loop_, &timer0);
+
+  node::Start(argc, argv);
+
+  /*
   node::Start0(argc, argv);
   {
     v8::Locker locker;
@@ -101,6 +101,7 @@ void MessagePumpUV::Run(Delegate* delegate) {
     }
   }
   keep_running_ = true;
+  */
 }
 
 void MessagePumpUV::Quit() {

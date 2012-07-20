@@ -7,13 +7,13 @@ vars = {
     'ffmpeg_hash':
          '@23f177366e3bce3a628a7d3feedceed4e18dcc04',
     'webkit_url':
-         'https://github.com/zcbenz/webkit.git',
+         'http://git.chromium.org/external/WebKit_trimmed.git',
     'git_url':
          'http://git.chromium.org',
     'github_url':
          'http://github.com/rogerwang',
     'webkit_rev':
-         '@aafd0410a125df2c17cbf3ea6c16b6c095c650a5'
+         '@b5930ca1b9f60852a896d9f4baf788b758106a08'
 }
 
 deps = {
@@ -138,11 +138,9 @@ deps = {
     'src/v8':
         Var('github_url') + '/v8.git@f63ee59aaac8849a6168cd43aed519d755232621',
     'src/third_party/libuv':
-        'https://github.com/zcbenz/libuv.git@8b4f59ad73',
+        'https://github.com/zcbenz/libuv.git@2849888b5a',
     'src/third_party/node':
         'https://github.com/zcbenz/node.git@311f34c6e2',
-    'src/third_party/nwebkit':
-        Var('github_url') + '/node-webkit.git@a3a13eb0ec131c9202b0804c62449efa5dca87b5',
 }
 
 deps_os = {
