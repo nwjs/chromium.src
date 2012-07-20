@@ -138,9 +138,9 @@ deps = {
     'src/v8':
         Var('github_url') + '/v8.git@f63ee59aaac8849a6168cd43aed519d755232621',
     'src/third_party/libuv':
-        'https://github.com/zcbenz/libuv.git@nwebkit',
+        'https://github.com/zcbenz/libuv.git@8b4f59ad73',
     'src/third_party/node':
-        'https://github.com/joyent/node.git@60bf2d6cb33e4ce55604f73889ab840a9de8bdab',
+        'https://github.com/zcbenz/node.git@311f34c6e2',
     'src/third_party/nwebkit':
         Var('github_url') + '/node-webkit.git@a3a13eb0ec131c9202b0804c62449efa5dca87b5',
 }
