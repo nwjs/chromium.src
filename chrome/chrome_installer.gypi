@@ -332,10 +332,12 @@
             [ 'branding == "Chrome"', {
               'variables': {
                  'branding_dir': 'app/theme/google_chrome',
+                 'branding_dir_100': 'app/theme/default_100_percent/google_chrome',
               },
             }, { # else branding!="Chrome"
               'variables': {
                  'branding_dir': 'app/theme/chromium',
+                 'branding_dir_100': 'app/theme/default_100_percent/chromium',
               },
             }],
           ],
@@ -422,6 +424,7 @@
       'variables': {
         # Always google_chrome since this only applies to branding==Chrome.
         'branding_dir': 'app/theme/google_chrome',
+        'branding_dir_100': 'app/theme/default_100_percent/google_chrome',
         'version' : '<!(python <(version_py_path) -f ../chrome/VERSION -t "@MAJOR@.@MINOR@.@BUILD@.@PATCH@")',
         'revision' : '<!(python ../build/util/lastchange.py --revision-only)',
         'packaging_files_common': [
@@ -534,10 +537,10 @@
             {
               'destination': '<(PRODUCT_DIR)/installer/theme/',
               'files': [
-                'default_100_percent/<(branding_dir)/product_logo_16.png',
+                '<(branding_dir_100)/product_logo_16.png',
                 '<(branding_dir)/product_logo_22.png',
                 '<(branding_dir)/product_logo_24.png',
-                'default_100_percent/<(branding_dir)/product_logo_32.png',
+                '<(branding_dir_100)/product_logo_32.png',
                 '<(branding_dir)/product_logo_48.png',
                 '<(branding_dir)/product_logo_64.png',
                 '<(branding_dir)/product_logo_128.png',
@@ -1039,10 +1042,12 @@
     [ 'branding == "Chrome"', {
       'variables': {
          'branding_dir': 'app/theme/google_chrome',
+         'branding_dir_100': 'app/theme/default_100_percent/google_chrome',
       },
     }, { # else branding!="Chrome"
       'variables': {
          'branding_dir': 'app/theme/chromium',
+         'branding_dir_100': 'app/theme/default_100_percent/chromium',
       },
     }],
   ],
