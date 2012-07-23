@@ -10,7 +10,8 @@
 #include "base/time.h"
 #include "base/base_export.h"
 
-struct uv_loop_s;
+#include "third_party/libuv/include/uv.h"
+
 struct uv_async_s;
 
 namespace base {
@@ -35,9 +36,7 @@ class BASE_EXPORT MessagePumpUV : public MessagePump {
   // This flag is set to false when Run should return.
   bool keep_running_;
 
-  struct uv_loop_s* uv_loop_;
-
-  struct uv_async_s* wake_up_event_;
+  struct uv_async_s wakeup_event_;
 
   void* render_view_;
   render_view_obs_cb_t render_view_observer_cb_;
