@@ -853,7 +853,6 @@ class RenderViewImpl : public RenderWidget,
                const GURL& url,
                const content::Referrer& referrer,
                WebKit::WebNavigationPolicy policy);
-  CONTENT_EXPORTED void setCallback(update_url_cb_t cb);
 
   bool RunJavaScriptMessage(content::JavaScriptMessageType type,
                             const string16& message,
@@ -1436,7 +1435,6 @@ class RenderViewImpl : public RenderWidget,
   // notifications.
   // ---------------------------------------------------------------------------
 
-  update_url_cb_t update_url_cb_;
   DISALLOW_COPY_AND_ASSIGN(RenderViewImpl);
 };
 

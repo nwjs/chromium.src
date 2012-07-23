@@ -1478,8 +1478,6 @@ void RenderViewImpl::UpdateURL(WebFrame* frame) {
     Send(new ViewHostMsg_FrameNavigate(routing_id_, params));
   }
 
-  if (update_url_cb_)
-    update_url_cb_();
   last_page_id_sent_to_browser_ =
       std::max(last_page_id_sent_to_browser_, page_id_);
 
@@ -1552,9 +1550,6 @@ void RenderViewImpl::OpenURL(WebFrame* frame,
       frame->identifier()));
 }
 
-void RenderViewImpl::setCallback(update_url_cb_t cb) {
-  update_url_cb_ = cb;
-}
 // WebViewDelegate ------------------------------------------------------------
 
 void RenderViewImpl::LoadNavigationErrorPage(

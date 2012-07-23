@@ -956,10 +956,6 @@ void RenderThreadImpl::OnCreateNewView(const ViewMsg_New_Params& params) {
         NULL,
         params.accessibility_mode);
   }
-
-#if !defined(OS_MACOSX)
-    MessageLoopForUV::current()->pump_uv()->onRenderViewCreated(impl);
-#endif
 }
 
 GpuChannelHost* RenderThreadImpl::EstablishGpuChannelSync(
