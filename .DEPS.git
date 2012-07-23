@@ -136,7 +136,7 @@ deps = {
     'src/tools/page_cycler/acid3':
         Var('git_url') + '/chromium/deps/acid3.git@633fc66cc99ae5bb92b567c6beafde7a01cfdb49',
     'src/v8':
-        Var('github_url') + '/v8.git@f63ee59aaac8849a6168cd43aed519d755232621',
+        Var('git_url') + '/external/v8.git@178fb15415fbc935540c9780a526d104437fdf17',
     'src/third_party/libuv':
         'https://github.com/zcbenz/libuv.git@2849888b5a',
     'src/third_party/node':
