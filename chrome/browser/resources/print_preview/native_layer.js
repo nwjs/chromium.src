@@ -134,7 +134,7 @@ cr.define('print_preview', function() {
           printTicketStore.getPageNumberSet().getPageRanges() : [];
 
       var ticket = {
-        'pageRange': pageRanges, // pageRanges,
+        'pageRange': pageRanges,
         'landscape': printTicketStore.isLandscapeEnabled(),
         'color': printTicketStore.isColorEnabled() ?
             NativeLayer.ColorMode_.COLOR : NativeLayer.ColorMode_.GRAY,
@@ -354,6 +354,7 @@ cr.define('print_preview', function() {
           numberFormatSymbols[1] || '.',
           unitType,
           initialSettings['previewModifiable'] || false,
+          initialSettings['initiatorTabTitle'] || '',
           marginsType,
           customMargins,
           initialSettings['duplex'] || false,
@@ -570,6 +571,7 @@ cr.define('print_preview', function() {
    *     local machine's measurement system.
    * @param {boolean} isDocumentModifiable Whether the document to print is
    *     modifiable.
+   * @param {string} documentTitle Title of the document.
    * @param {print_preview.ticket_items.MarginsType.Value} marginsType Initial
    *     margins type.
    * @param {print_preview.Margins} customMargins Initial custom margins.
@@ -586,6 +588,7 @@ cr.define('print_preview', function() {
       decimalDelimeter,
       unitType,
       isDocumentModifiable,
+      documentTitle,
       marginsType,
       customMargins,
       isDuplexEnabled,
@@ -626,6 +629,13 @@ cr.define('print_preview', function() {
      * @private
      */
     this.isDocumentModifiable_ = isDocumentModifiable;
+
+    /**
+     * Title of the document.
+     * @type {string}
+     * @private
+     */
+    this.documentTitle_ = documentTitle;
 
     /**
      * Initial margins type.
@@ -692,6 +702,11 @@ cr.define('print_preview', function() {
     /** @return {boolean} Whether the document to print is modifiable. */
     get isDocumentModifiable() {
       return this.isDocumentModifiable_;
+    },
+
+    /** @return {string} Document title. */
+    get documentTitle() {
+      return this.documentTitle_;
     },
 
     /**
