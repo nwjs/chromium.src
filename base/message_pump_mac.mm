@@ -723,24 +723,6 @@ NSAutoreleasePool* MessagePumpCrApplication::CreateAutoreleasePool() {
 }
 
 // static
-MessagePump* MessagePumpMac::Create(bool forNode) {
-  if ([NSThread isMainThread]) {
-    if ([NSApp conformsToProtocol:@protocol(CrAppProtocol)])
-      return new MessagePumpCrApplication(forNode);
-
-    // The main-thread MessagePump implementations REQUIRE an NSApp.
-    // Executables which have specific requirements for their
-    // NSApplication subclass should initialize appropriately before
-    // creating an event loop.
-    [NSApplication sharedApplication];
-    not_using_crapp = true;
-    return new MessagePumpNSApplication(forNode);
-  }
-
-  return new MessagePumpNSRunLoop;
-}
-
-// static
 bool MessagePumpMac::UsingCrApp() {
   DCHECK([NSThread isMainThread]);
 
@@ -764,13 +746,13 @@ bool MessagePumpMac::IsHandlingSendEvent() {
 #endif  // !defined(OS_IOS)
 
 // static
-MessagePump* MessagePumpMac::Create() {
+MessagePump* MessagePumpMac::Create(bool forNode) {
   if ([NSThread isMainThread]) {
 #if defined(OS_IOS)
     return new MessagePumpUIApplication;
 #else
     if ([NSApp conformsToProtocol:@protocol(CrAppProtocol)])
-      return new MessagePumpCrApplication;
+      return new MessagePumpCrApplication(forNode);
 
     // The main-thread MessagePump implementations REQUIRE an NSApp.
     // Executables which have specific requirements for their
@@ -778,7 +760,7 @@ MessagePump* MessagePumpMac::Create() {
     // creating an event loop.
     [NSApplication sharedApplication];
     not_using_crapp = true;
-    return new MessagePumpNSApplication;
+    return new MessagePumpNSApplication(forNode);
 #endif
   }
 
