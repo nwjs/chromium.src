@@ -675,5 +675,4 @@ const char kMaxUntiledLayerHeight[]         = "max-untiled-layer-height";
 
 const char kFixedPositionCreatesStackingContext[]
     = "fixed-position-creates-stacking-context";
->>>>>>> a99f8b4166920384b8b12cb14fa4011820a59beb
 }  // namespace switches
