@@ -46,12 +46,6 @@ cr.define('print_preview', function() {
      * @type {print_preview.Margins}
      */
     this.margins = null;
-
-    /**
-     * Title of document.
-     * @type {string}
-     */
-    this.title = '';
   };
 
   // Export
