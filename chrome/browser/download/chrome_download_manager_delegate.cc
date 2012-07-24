@@ -105,7 +105,7 @@ SafeBrowsingState::~SafeBrowsingState() {}
 ChromeDownloadManagerDelegate::ChromeDownloadManagerDelegate(Profile* profile)
     : profile_(profile),
       next_download_id_(0),
-      download_prefs_(new DownloadPrefs(profile->GetPrefs())) {
+      download_prefs_(new DownloadPrefs(profile)) {
 }
 
 ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
@@ -645,7 +645,7 @@ void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(
     if (should_prompt && !download_manager_->LastDownloadPath().empty())
       target_directory = download_manager_->LastDownloadPath();
     else
-      target_directory = download_prefs_->download_path();
+      target_directory = download_prefs_->DownloadPath();
     suggested_path = target_directory.Append(generated_name);
   } else {
     DCHECK(!should_prompt);
@@ -693,7 +693,7 @@ void ChromeDownloadManagerDelegate::CheckVisitedReferrerBeforeDone(
       base::Bind(&ChromeDownloadManagerDelegate::CheckIfSuggestedPathExists,
                  this, download->GetId(), suggested_path, should_prompt,
                  is_forced_path, danger_type,
-                 download_prefs_->download_path()));
+                 download_prefs_->DownloadPath()));
 #endif
 }
 
@@ -719,7 +719,7 @@ void ChromeDownloadManagerDelegate::SubstituteGDataDownloadPathCallback(
       base::Bind(&ChromeDownloadManagerDelegate::CheckIfSuggestedPathExists,
                  this, download->GetId(), suggested_path, should_prompt,
                  is_forced_path, danger_type,
-                 download_prefs_->download_path()));
+                 download_prefs_->DownloadPath()));
 }
 #endif
 
