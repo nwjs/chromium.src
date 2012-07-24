@@ -743,6 +743,7 @@
             '<(DEPTH)/chrome/chrome.gyp:launcher_support',
           ],
           'sources': [
+            'browser/extensions/app_host.rc',
             'browser/extensions/app_host_stub_main.cc',
           ],
         },
