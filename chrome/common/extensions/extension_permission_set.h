@@ -428,6 +428,9 @@ class ExtensionPermissionSet
   // Initializes the set based on |extension|'s manifest data.
   void InitImplicitExtensionPermissions(const extensions::Extension* extension);
 
+  // Adds permissions implied independently of other context.
+  void InitImplicitPermissions();
+
   // Initializes the effective host permission based on the data in this set.
   void InitEffectiveHosts();
 

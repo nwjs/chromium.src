@@ -44,7 +44,7 @@ TEST(ExtensionPermissionsAPIHelpers, Pack) {
   EXPECT_TRUE(value->GetList("permissions", &api_list));
   EXPECT_TRUE(value->GetList("origins", &origin_list));
 
-  EXPECT_EQ(2u, api_list->GetSize());
+  EXPECT_EQ(3u, api_list->GetSize());
   EXPECT_EQ(2u, origin_list->GetSize());
 
   std::string expected_apis[] = { "tabs", "webRequest" };

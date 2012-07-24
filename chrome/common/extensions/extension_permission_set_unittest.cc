@@ -1157,3 +1157,15 @@ TEST(ExtensionPermissionsTest, IsEmpty) {
       empty_apis, empty_extent, non_empty_extent);
   EXPECT_FALSE(perm_set->IsEmpty());
 }
+
+TEST(ExtensionPermissionsTest, ImpliedPermissions) {
+  URLPatternSet empty_extent;
+  ExtensionAPIPermissionSet apis;
+  apis.insert(ExtensionAPIPermission::kWebRequest);
+  apis.insert(ExtensionAPIPermission::kFileBrowserHandler);
+  EXPECT_EQ(2U, apis.size());
+
+  scoped_refptr<ExtensionPermissionSet> perm_set;
+  perm_set = new ExtensionPermissionSet(apis, empty_extent, empty_extent);
+  EXPECT_EQ(4U, perm_set->apis().size());
+}

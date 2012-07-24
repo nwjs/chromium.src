@@ -266,7 +266,7 @@ void ExtensionAPIPermission::RegisterAllPermissions(
     { kInputMethodPrivate, "inputMethodPrivate", kFlagCannotBeOptional },
     { kEchoPrivate, "echoPrivate", kFlagCannotBeOptional },
     { kTerminalPrivate, "terminalPrivate", kFlagCannotBeOptional },
-    { kWebRequestInternal, "webRequestInternal", kFlagCannotBeOptional },
+    { kWebRequestInternal, "webRequestInternal" },
     { kWebSocketProxyPrivate, "webSocketProxyPrivate", kFlagCannotBeOptional },
     { kWebstorePrivate, "webstorePrivate", kFlagCannotBeOptional },
 
@@ -404,6 +404,7 @@ ExtensionPermissionSet::ExtensionPermissionSet(
   DCHECK(extension);
   AddPatternsAndRemovePaths(explicit_hosts, &explicit_hosts_);
   InitImplicitExtensionPermissions(extension);
+  InitImplicitPermissions();
   InitEffectiveHosts();
 }
 
@@ -414,6 +415,7 @@ ExtensionPermissionSet::ExtensionPermissionSet(
     : apis_(apis),
       scriptable_hosts_(scriptable_hosts) {
   AddPatternsAndRemovePaths(explicit_hosts, &explicit_hosts_);
+  InitImplicitPermissions();
   InitEffectiveHosts();
 }
 
@@ -426,6 +428,7 @@ ExtensionPermissionSet::ExtensionPermissionSet(
       scriptable_hosts_(scriptable_hosts),
       scopes_(scopes) {
   AddPatternsAndRemovePaths(explicit_hosts, &explicit_hosts_);
+  InitImplicitPermissions();
   InitEffectiveHosts();
 }
 
@@ -835,6 +838,16 @@ std::set<std::string> ExtensionPermissionSet::GetDistinctHosts(
   return distinct_hosts;
 }
 
+void ExtensionPermissionSet::InitImplicitPermissions() {
+  // The webRequest permission implies the internal version as well.
+  if (apis_.find(ExtensionAPIPermission::kWebRequest) != apis_.end())
+    apis_.insert(ExtensionAPIPermission::kWebRequestInternal);
+
+  // The fileBrowserHandler permission implies the internal version as well.
+  if (apis_.find(ExtensionAPIPermission::kFileBrowserHandler) != apis_.end())
+    apis_.insert(ExtensionAPIPermission::kFileBrowserHandlerInternal);
+}
+
 void ExtensionPermissionSet::InitImplicitExtensionPermissions(
     const extensions::Extension* extension) {
   // Add the implied permissions.
@@ -843,14 +856,6 @@ void ExtensionPermissionSet::InitImplicitExtensionPermissions(
 
   if (!extension->devtools_url().is_empty())
     apis_.insert(ExtensionAPIPermission::kDevtools);
-
-  // The webRequest permission implies the internal version as well.
-  if (apis_.find(ExtensionAPIPermission::kWebRequest) != apis_.end())
-    apis_.insert(ExtensionAPIPermission::kWebRequestInternal);
-
-  // The fileBrowserHandler permission implies the internal version as well.
-  if (apis_.find(ExtensionAPIPermission::kFileBrowserHandler) != apis_.end())
-    apis_.insert(ExtensionAPIPermission::kFileBrowserHandlerInternal);
 
   // Add the scriptable hosts.
   for (UserScriptList::const_iterator content_script =
