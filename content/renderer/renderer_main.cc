@@ -29,6 +29,8 @@
 #include "content/renderer/renderer_main_platform_delegate.h"
 #include "ui/base/ui_base_switches.h"
 #include "webkit/plugins/ppapi/ppapi_interface_factory.h"
+#include "third_party/node/src/node.h"
+#include "third_party/node/src/req_wrap.h"
 
 #if defined(OS_MACOSX)
 #include <Carbon/Carbon.h>
@@ -262,16 +264,39 @@ int RendererMain(const content::MainFunctionParams& parameters) {
 
     startup_timer.Stop();  // End of Startup Time Measurement.
 
-    if (run_loop) {
+    // Initialize uv stuff before V8 is initialized
+    CommandLine::StringType node_args(CommandLine::ForCurrentProcess()->
+                                        GetSwitchValueNative("node-args"));
+    int argc = 2;
+    char argv0[] = "node";
+    char* argv[] = {argv0, (char*)node_args.c_str(), NULL};
+    node::BeforeV8(argc, argv);
+
+    // Load node's standard libraries after V8 is initialized
+    v8::V8::Initialize();
+    {
+      v8::Locker locker;
+      v8::HandleScope scope;
+
+      // Create the one and only Context.
+      node::g_context = v8::Context::New();
+      v8::Context::Scope context_scope(node::g_context);
+
+      node::Setup(argc, argv);
+
+      if (run_loop) {
 #if defined(OS_MACOSX)
-      if (pool)
-        pool->Recycle();
+        if (pool)
+          pool->Recycle();
 #endif
-      TRACE_EVENT_BEGIN_ETW("RendererMain.START_MSG_LOOP", 0, 0);
-      MessageLoop::current()->Run();
-      TRACE_EVENT_END_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+        TRACE_EVENT_BEGIN_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+        MessageLoop::current()->Run();
+        TRACE_EVENT_END_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+      }
     }
+    node::Shutdown();
   }
+
   platform.PlatformUninitialize();
   TRACE_EVENT_END_ETW("RendererMain", 0, "");
   return 0;

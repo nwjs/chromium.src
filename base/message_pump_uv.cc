@@ -12,8 +12,6 @@
 #include "base/mac/scoped_nsautorelease_pool.h"
 #endif
 
-#include "third_party/node/src/node.h"
-
 namespace base {
 
 MessagePumpUV::MessagePumpUV()
@@ -38,18 +36,11 @@ static void timer_callback(uv_timer_t* timer, int status) {
 void MessagePumpUV::Run(Delegate* delegate) {
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
-//  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-//  CommandLine::StringType node_args;
-//  node_args = command_line.GetSwitchValueNative("node-args"); //FIXME
-
-//  int argc = 2;
-//  char argv0[] = "node";
-//  char* argv[] = {argv0, (char*)node_args.c_str(), NULL};
-
   uv_timer_t delay_timer;
   uv_timer_init(uv_default_loop(), &delay_timer);
   uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
 
+  // Enter Loop
   for (;;) {
 #if defined(OS_MACOSX)
     mac::ScopedNSAutoreleasePool autorelease_pool;
@@ -116,27 +107,6 @@ void MessagePumpUV::onRenderViewCreated(void* render_view) {
   render_view_ = render_view;
   if (render_view_observer_cb_)
     render_view_observer_cb_(render_view);
-}
-
-bool print_js_stacktrace(int frameLimit) {
-  if (!v8::Context::InContext())
-    return false;
-  v8::Handle<v8::Context> context = v8::Context::GetCurrent();
-  if (context.IsEmpty())
-    return false;
-  v8::HandleScope scope;
-  v8::Context::Scope contextScope(context);
-  v8::Handle<v8::StackTrace> trace(v8::StackTrace::CurrentStackTrace(frameLimit));
-  int frameCount = trace->GetFrameCount();
-  if (trace.IsEmpty() || !frameCount)
-    return false;
-  for (int i = 0; i < frameCount; ++i) {
-    v8::Handle<v8::StackFrame> frame = trace->GetFrame(i);
-    v8::String::Utf8Value scriptName(frame->GetScriptName());
-    v8::String::Utf8Value functionName(frame->GetFunctionName());
-    fprintf(stderr, "%s:%d - %s\n", *scriptName, frame->GetLineNumber(), *functionName);
-  }
-  return true;
 }
 
 }  // namespace base
