@@ -434,6 +434,18 @@ bool TabDragController::IsActive() {
 }
 
 void TabDragController::Drag(const gfx::Point& screen_point) {
+#if defined(OS_WIN) && !defined(USE_AURA)
+  // Windows coordinates are 16 bit values. When we hide the frame we move it to
+  // the max x/y coordinate. If the distance between the hidden frame and the
+  // current mouse coordinate is greater than 32k then the coordinate passed to
+  // the mouse handler wraps and we drag to the wrong place. For this reason we
+  // ignore the coordinates and use the actual cursor position.
+  // NOTE: this works for touch too as dragging with touch updates the mouse
+  // position.
+  gfx::Point real_screen_point(GetCursorScreenPoint());
+#else
+  gfx::Point real_screen_point(screen_point);
+#endif
   bring_to_front_timer_.Stop();
   move_stacked_timer_.Stop();
 
@@ -441,7 +453,7 @@ void TabDragController::Drag(const gfx::Point& screen_point) {
     return;
 
   if (!started_drag_) {
-    if (!CanStartDrag(screen_point))
+    if (!CanStartDrag(real_screen_point))
       return;  // User hasn't dragged far enough yet.
 
     started_drag_ = true;
@@ -454,7 +466,7 @@ void TabDragController::Drag(const gfx::Point& screen_point) {
     }
   }
 
-  ContinueDragging(screen_point);
+  ContinueDragging(real_screen_point);
 }
 
 void TabDragController::EndDrag(bool canceled) {
