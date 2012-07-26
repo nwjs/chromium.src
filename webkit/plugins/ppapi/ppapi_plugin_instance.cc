@@ -106,7 +106,6 @@ using ppapi::PpapiGlobals;
 using ppapi::PPB_View_Shared;
 using ppapi::ScopedPPResource;
 using ppapi::StringVar;
-using ppapi::TrackedCallback;
 using ppapi::thunk::EnterResourceNoLock;
 using ppapi::thunk::PPB_Buffer_API;
 using ppapi::thunk::PPB_Graphics2D_API;
@@ -1334,12 +1333,12 @@ void PluginInstance::FlashSetFullscreen(bool fullscreen, bool delay_report) {
 }
 
 void PluginInstance::UpdateFlashFullscreenState(bool flash_fullscreen) {
-  bool is_mouselock_pending = TrackedCallback::IsPending(lock_mouse_callback_);
+  bool is_mouselock_pending = !!lock_mouse_callback_.func;
 
   if (flash_fullscreen == flash_fullscreen_) {
     // Manually clear callback when fullscreen fails with mouselock pending.
     if (!flash_fullscreen && is_mouselock_pending)
-      TrackedCallback::ClearAndRun(&lock_mouse_callback_, PP_ERROR_FAILED);
+      PP_RunAndClearCompletionCallback(&lock_mouse_callback_, PP_ERROR_FAILED);
     return;
   }
 
@@ -1347,7 +1346,7 @@ void PluginInstance::UpdateFlashFullscreenState(bool flash_fullscreen) {
   flash_fullscreen_ = flash_fullscreen;
   if (is_mouselock_pending && !delegate()->IsMouseLocked(this)) {
     if (!delegate()->LockMouse(this))
-      TrackedCallback::ClearAndRun(&lock_mouse_callback_, PP_ERROR_FAILED);
+      PP_RunAndClearCompletionCallback(&lock_mouse_callback_, PP_ERROR_FAILED);
   }
 
   if (PluginHasFocus() != old_plugin_focus)
