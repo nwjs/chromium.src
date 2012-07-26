@@ -15,9 +15,7 @@
 namespace base {
 
 MessagePumpUV::MessagePumpUV()
-    : keep_running_(true),
-      render_view_(NULL),
-      render_view_observer_cb_(NULL)
+    : keep_running_(true)
 {
 }
 
@@ -101,12 +99,6 @@ void MessagePumpUV::ScheduleDelayedWork(
   // only be called on the same thread as Run, so we only need to update our
   // record of how long to sleep when we do sleep.
   delayed_work_time_ = delayed_work_time;
-}
-
-void MessagePumpUV::onRenderViewCreated(void* render_view) {
-  render_view_ = render_view;
-  if (render_view_observer_cb_)
-    render_view_observer_cb_(render_view);
 }
 
 }  // namespace base
