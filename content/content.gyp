@@ -125,6 +125,7 @@
        'dependencies': [
           'content_common',
           'content_resources.gyp:content_resources',
+          '../third_party/node/node.gyp:node',
         ],
       },
       {'target_name': 'content_utility',
