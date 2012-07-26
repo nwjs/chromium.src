@@ -268,15 +268,28 @@ int RendererMain(const content::MainFunctionParams& parameters) {
     char* argv[] = { (char*)"node", NULL };
     node::SetupUv(argc, argv);
 
-    if (run_loop) {
+    v8::V8::Initialize();
+    {
+      v8::Locker locker;
+      v8::HandleScope scope;
+
+      v8::Persistent<v8::Context> context = v8::Context::New();
+      context->Enter();
+
+      node::SetupContext(argc, argv, context->Global());
+
+      if (run_loop) {
 #if defined(OS_MACOSX)
-      if (pool)
-        pool->Recycle();
+        if (pool)
+          pool->Recycle();
 #endif
-      TRACE_EVENT_BEGIN_ETW("RendererMain.START_MSG_LOOP", 0, 0);
-      MessageLoop::current()->Run();
-      TRACE_EVENT_END_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+        TRACE_EVENT_BEGIN_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+        MessageLoop::current()->Run();
+        TRACE_EVENT_END_ETW("RendererMain.START_MSG_LOOP", 0, 0);
+      }
     }
+
+    node::Shutdown();
   }
 
   platform.PlatformUninitialize();
