@@ -267,6 +267,10 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   // be true to avoid re-entrancy.
   void FlashSetFullscreen(bool fullscreen, bool delay_report);
 
+  // Updates |flash_fullscreen_| and sends focus change notification if
+  // necessary.
+  void UpdateFlashFullscreenState(bool flash_fullscreen);
+
   FullscreenContainer* fullscreen_container() const {
     return fullscreen_container_;
   }
@@ -428,6 +432,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   // Determines if we think the plugin has focus, both content area and webkit
   // (see has_webkit_focus_ below).
   bool PluginHasFocus() const;
+  void SendFocusChangeNotification();
 
   void ScheduleAsyncDidChangeView(const ::ppapi::ViewData& previous_view);
   void SendAsyncDidChangeView(const ::ppapi::ViewData& previous_view);
