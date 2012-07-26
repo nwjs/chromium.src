@@ -106,6 +106,7 @@ using ppapi::PpapiGlobals;
 using ppapi::PPB_View_Shared;
 using ppapi::ScopedPPResource;
 using ppapi::StringVar;
+using ppapi::TrackedCallback;
 using ppapi::thunk::EnterResourceNoLock;
 using ppapi::thunk::PPB_Buffer_API;
 using ppapi::thunk::PPB_Graphics2D_API;
