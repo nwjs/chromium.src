@@ -1113,29 +1113,8 @@ void NetworkMenu::ToggleWifi() {
 void NetworkMenu::ToggleMobile() {
   NetworkLibrary* cros = CrosLibrary::Get()->GetNetworkLibrary();
   const NetworkDevice* mobile = cros->FindMobileDevice();
-  if (!mobile) {
-    LOG(ERROR) << "No mobile device found, it should be available.";
+  if (!mobile || !mobile->is_sim_locked()) {
     cros->EnableMobileNetworkDevice(!cros->mobile_enabled());
-  } else if (!mobile->is_sim_locked()) {
-    if (mobile->is_sim_absent()) {
-      if (!chromeos::UserManager::Get()->IsSessionStarted())
-        return;
-      std::string setup_url;
-      MobileConfig* config = MobileConfig::GetInstance();
-      if (config->IsReady()) {
-        const MobileConfig::LocaleConfig* locale_config =
-            config->GetLocaleConfig();
-        if (locale_config)
-          setup_url = locale_config->setup_url();
-      }
-      if (!setup_url.empty()) {
-        GetAppropriateBrowser()->ShowSingletonTab(GURL(setup_url));
-      } else {
-        // TODO(nkostylev): Show generic error message. http://crosbug.com/15444
-      }
-    } else {
-      cros->EnableMobileNetworkDevice(!cros->mobile_enabled());
-    }
   } else {
     SimDialogDelegate::ShowDialog(delegate()->GetNativeWindow(),
                                   SimDialogDelegate::SIM_DIALOG_UNLOCK);
