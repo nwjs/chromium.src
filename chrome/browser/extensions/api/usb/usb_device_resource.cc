@@ -101,7 +101,7 @@ static bool GetTransferSize(const T& input, size_t* output) {
     }
   } else if (input.direction == kDirectionOut) {
     if (input.data.get()) {
-      *output = input.data->GetSize();
+      *output = input.data->size();
       return true;
     }
   }
@@ -120,7 +120,7 @@ static scoped_refptr<net::IOBuffer> CreateBufferForTransfer(const T& input) {
     return buffer;
   }
 
-  memcpy(buffer->data(), input.data->GetBuffer(), size);
+  memcpy(buffer->data(), input.data->data(), size);
 
   return buffer;
 }
@@ -152,9 +152,9 @@ static const char* ConvertTransferStatusToErrorString(
 
 namespace extensions {
 
-UsbDeviceResource::UsbDeviceResource(APIResourceEventNotifier* notifier,
+UsbDeviceResource::UsbDeviceResource(ApiResourceEventNotifier* notifier,
                                      UsbDevice* device)
-    : APIResource(APIResource::UsbDeviceResource, notifier), device_(device) {}
+    : ApiResource(notifier), device_(device) {}
 
 UsbDeviceResource::~UsbDeviceResource() {}
 

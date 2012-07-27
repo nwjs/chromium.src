@@ -36,6 +36,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/test/net/url_request_mock_http_job.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -367,10 +368,10 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, DISABLED_AutoResize) {
 
   // Expand the test page.
   gfx::Rect initial_bounds = panel->GetBounds();
-  ui_test_utils::WindowedNotificationObserver enlarge(
+  content::WindowedNotificationObserver enlarge(
       chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
       content::Source<Panel>(panel));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScript(
+  EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),
       L"changeSize(50);"));
@@ -380,10 +381,10 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, DISABLED_AutoResize) {
   EXPECT_EQ(bounds_on_grow.height(), initial_bounds.height());
 
   // Shrink the test page.
-  ui_test_utils::WindowedNotificationObserver shrink(
+  content::WindowedNotificationObserver shrink(
       chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
       content::Source<Panel>(panel));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScript(
+  EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),
       L"changeSize(-30);"));
@@ -406,7 +407,7 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, DISABLED_AutoResize) {
   EXPECT_EQ(new_bounds.size(), panel->GetRestoredBounds().size());
 
   // Turn back on auto-resize and verify that it works.
-  ui_test_utils::WindowedNotificationObserver auto_resize_enabled(
+  content::WindowedNotificationObserver auto_resize_enabled(
       chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
       content::Source<Panel>(panel));
   panel->SetAutoResizable(true);
@@ -1260,7 +1261,7 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest,
   Panel* panel2 = CreatePanelWithParams(params);
 
   // Close main tabbed window.
-  ui_test_utils::WindowedNotificationObserver signal(
+  content::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_BROWSER_CLOSED,
       content::Source<Browser>(browser()));
   chrome::CloseWindow(browser());
@@ -1337,10 +1338,10 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest,
       web_app::GenerateApplicationNameFromExtensionId(extension_other->id());
   Panel* panel_other = CreatePanel(extension_app_name_other);
 
-  ui_test_utils::WindowedNotificationObserver signal(
+  content::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_PANEL_CLOSED,
       content::Source<Panel>(panel));
-  ui_test_utils::WindowedNotificationObserver signal1(
+  content::WindowedNotificationObserver signal1(
       chrome::NOTIFICATION_PANEL_CLOSED,
       content::Source<Panel>(panel1));
 
@@ -1380,8 +1381,8 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, OnBeforeUnloadOnClose) {
 
   // Close panel and respond to the onbeforeunload dialog with cancel. This is
   // equivalent to clicking "Stay on this page"
-  scoped_ptr<ui_test_utils::TitleWatcher> title_watcher(
-      new ui_test_utils::TitleWatcher(web_contents, title_first_close));
+  scoped_ptr<content::TitleWatcher> title_watcher(
+      new content::TitleWatcher(web_contents, title_first_close));
   panel->Close();
   AppModalDialog* alert = ui_test_utils::WaitForAppModalDialog();
   alert->native_dialog()->CancelAppModalDialog();
@@ -1391,7 +1392,7 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, OnBeforeUnloadOnClose) {
   // Close panel and respond to the onbeforeunload dialog with close. This is
   // equivalent to clicking the OS close button on the dialog.
   title_watcher.reset(
-      new ui_test_utils::TitleWatcher(web_contents, title_second_close));
+      new content::TitleWatcher(web_contents, title_second_close));
   panel->Close();
   alert = ui_test_utils::WaitForAppModalDialog();
   alert->native_dialog()->CloseAppModalDialog();
@@ -1400,7 +1401,7 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, OnBeforeUnloadOnClose) {
 
   // Close panel and respond to the onbeforeunload dialog with accept. This is
   // equivalent to clicking "Leave this page".
-  ui_test_utils::WindowedNotificationObserver signal(
+  content::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_PANEL_CLOSED,
       content::Source<Panel>(panel));
   panel->Close();
@@ -1453,10 +1454,10 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, TightAutosizeAroundSingleLine) {
   int initial_height = panel->GetBounds().height();
 
   // Inject some HTML content into the panel.
-  ui_test_utils::WindowedNotificationObserver enlarge(
+  content::WindowedNotificationObserver enlarge(
       chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
       content::Source<Panel>(panel));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScript(
+  EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),
       L"document.body.innerHTML ="

@@ -25,25 +25,23 @@ namespace gdata {
 
 class GDataFile;
 class GDataDirectory;
-class GDataRootDirectory;
 class GDataDirectoryService;
 
 class GDataEntryProto;
-class GDataFileProto;
 class GDataDirectoryProto;
 class GDataRootDirectoryProto;
 class PlatformFileInfoProto;
 
-// Directory content origin.
+// The root directory content origin.
 enum ContentOrigin {
   UNINITIALIZED,
-  // Directory content is currently loading from somewhere.  needs to wait.
+  // Content is currently loading from somewhere.  Needs to wait.
   INITIALIZING,
-  // Directory content is initialized, but during refreshing.
+  // Content is initialized, but during refreshing.
   REFRESHING,
-  // Directory content is initialized from disk cache.
+  // Content is initialized from disk cache.
   FROM_CACHE,
-  // Directory content is initialized from the direct server response.
+  // Content is initialized from the direct server response.
   FROM_SERVER,
 };
 
@@ -61,6 +59,10 @@ const FilePath::CharType kGDataRootDirectory[] = FILE_PATH_LITERAL("drive");
 // The resource ID for the root directory is defined in the spec:
 // https://developers.google.com/google-apps/documents-list/
 const char kGDataRootDirectoryResourceId[] = "folder:root";
+
+// This should be incremented when incompatibility change is made in
+// gdata.proto.
+const int32 kProtoVersion = 1;
 
 // Base class for representing files and directories in gdata virtual file
 // system.
@@ -99,9 +101,16 @@ class GDataEntry {
       const base::PlatformFileInfo& file_info,
       PlatformFileInfoProto* proto);
 
-  // Converts to/from proto.
+  // Converts to/from proto. Only handles the common part (i.e. does not
+  // touch |file_specific_info| and |directory_specific_info|.
   bool FromProto(const GDataEntryProto& proto) WARN_UNUSED_RESULT;
   void ToProto(GDataEntryProto* proto) const;
+
+  // Similar to ToProto() but this fills in |file_specific_info| and
+  // |directory_specific_info| based on the actual type of the entry.
+  // Used to obtain full metadata of a file or a directory as
+  // GDataEntryProto.
+  void ToProtoFull(GDataEntryProto* proto) const;
 
   // Escapes forward slashes from file names with magic unicode character
   // \u2215 pretty much looks the same in UI.
@@ -115,12 +124,11 @@ class GDataEntry {
   const base::PlatformFileInfo& file_info() const { return file_info_; }
 
   // This is not the full path, use GetFilePath for that.
-  // Note that file_name_ gets reset by SetFileNameFromTitle() in a number of
+  // Note that base_name_ gets reset by SetBaseNameFromTitle() in a number of
   // situations due to de-duplication (see AddEntry).
-  // TODO(achuith/satorux): Rename this to base_name.
-  const FilePath::StringType& file_name() const { return file_name_; }
+  const FilePath::StringType& base_name() const { return base_name_; }
   // TODO(achuith): Make this private when GDataDB no longer uses path as a key.
-  void set_file_name(const FilePath::StringType& name) { file_name_ = name; }
+  void set_base_name(const FilePath::StringType& name) { base_name_ = name; }
 
   const FilePath::StringType& title() const { return title_; }
   void set_title(const FilePath::StringType& title) { title_ = title; }
@@ -154,9 +162,9 @@ class GDataEntry {
   // class.
   FilePath GetFilePath() const;
 
-  // Sets |file_name_| based on the value of |title_| without name
+  // Sets |base_name_| based on the value of |title_| without name
   // de-duplication (see AddEntry() for details on de-duplication).
-  virtual void SetFileNameFromTitle();
+  virtual void SetBaseNameFromTitle();
 
  protected:
   // For access to SetParent from AddEntry.
@@ -169,8 +177,8 @@ class GDataEntry {
   base::PlatformFileInfo file_info_;
   // Title of this file (i.e. the 'title' attribute associated with a regular
   // file, hosted document, or collection). The title is used to derive
-  // |file_name_| but may be different from |file_name_|. For example,
-  // |file_name_| has an added .g<something> extension for hosted documents or
+  // |base_name_| but may be different from |base_name_|. For example,
+  // |base_name_| has an added .g<something> extension for hosted documents or
   // may have an extra suffix for name de-duplication on the gdata file system.
   FilePath::StringType title_;
   std::string resource_id_;
@@ -187,7 +195,7 @@ class GDataEntry {
 
   // Name of this file in the gdata virtual file system. This can change
   // due to de-duplication (See AddEntry).
-  FilePath::StringType file_name_;
+  FilePath::StringType base_name_;
 
   GDataDirectory* parent_;
   // Weak pointer to GDataDirectoryService.
@@ -218,8 +226,8 @@ class GDataFile : public GDataEntry {
       GDataDirectoryService* directory_service);
 
   // Converts to/from proto.
-  bool FromProto(const GDataFileProto& proto) WARN_UNUSED_RESULT;
-  void ToProto(GDataFileProto* proto) const;
+  bool FromProto(const GDataEntryProto& proto) WARN_UNUSED_RESULT;
+  void ToProto(GDataEntryProto* proto) const;
 
   DocumentEntry::EntryKind kind() const { return kind_; }
   const GURL& thumbnail_url() const { return thumbnail_url_; }
@@ -231,14 +239,13 @@ class GDataFile : public GDataEntry {
   bool is_hosted_document() const { return is_hosted_document_; }
   void set_file_info(const base::PlatformFileInfo& info) { file_info_ = info; }
 
-  // Overrides GDataEntry::SetFileNameFromTitle() to set |file_name_| based
+  // Overrides GDataEntry::SetBaseNameFromTitle() to set |base_name_| based
   // on the value of |title_| as well as |is_hosted_document_| and
   // |document_extension_| for hosted documents.
-  virtual void SetFileNameFromTitle() OVERRIDE;
+  virtual void SetBaseNameFromTitle() OVERRIDE;
 
  private:
-  // Content URL for files.
-  DocumentEntry::EntryKind kind_;
+  DocumentEntry::EntryKind kind_;  // Not saved in proto.
   GURL thumbnail_url_;
   GURL alternate_url_;
   std::string content_mime_type_;
@@ -294,20 +301,11 @@ class GDataDirectory : public GDataEntry {
   void RemoveChildFiles();
   void RemoveChildDirectories();
 
-  // Url for this feed.
-  const GURL& start_feed_url() const { return start_feed_url_; }
-  void set_start_feed_url(const GURL& url) { start_feed_url_ = url; }
-  // Continuing feed's url.
-  const GURL& next_feed_url() const { return next_feed_url_; }
-  void set_next_feed_url(const GURL& url) { next_feed_url_ = url; }
   // Collection of children files/directories.
   const GDataFileCollection& child_files() const { return child_files_; }
   const GDataDirectoryCollection& child_directories() const {
     return child_directories_;
   }
-  // Directory content origin.
-  const ContentOrigin origin() const { return origin_; }
-  void set_origin(ContentOrigin value) { origin_ = value; }
 
  private:
   // Add |entry| to children.
@@ -316,14 +314,6 @@ class GDataDirectory : public GDataEntry {
   // Removes the entry from its children without destroying the
   // entry instance.
   bool RemoveChild(GDataEntry* entry);
-
-  // Url for this feed.
-  GURL start_feed_url_;
-  // Continuing feed's url.
-  GURL next_feed_url_;
-
-  // Directory content origin.
-  ContentOrigin origin_;
 
   // Collection of children GDataEntry items.
   GDataFileCollection child_files_;
@@ -354,6 +344,10 @@ class GDataDirectoryService {
   // state of the root directory.
   const int largest_changestamp() const { return largest_changestamp_; }
   void set_largest_changestamp(int value) { largest_changestamp_ = value; }
+
+  // The root directory content origin.
+  const ContentOrigin origin() const { return origin_; }
+  void set_origin(ContentOrigin value) { origin_ = value; }
 
   // Adds the entry to resource map.
   void AddEntryToResourceMap(GDataEntry* entry);
@@ -392,6 +386,7 @@ class GDataDirectoryService {
   base::Time last_serialized_;
   size_t serialized_size_;
   int largest_changestamp_;  // Stored in the serialized proto.
+  ContentOrigin origin_;
 
   DISALLOW_COPY_AND_ASSIGN(GDataDirectoryService);
 };

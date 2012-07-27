@@ -12,6 +12,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
 #include "content/public/browser/browser_thread.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
+#include "ui/gfx/rect.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_switches.h"
@@ -28,6 +29,7 @@
 
 #define SHADER_STRING_GLSL(shader) #shader
 
+namespace content {
 namespace {
 
 static const char* g_vertex_shader_blit_rgb = SHADER_STRING_GLSL(
@@ -302,7 +304,10 @@ void CompositingIOSurfaceMac::DrawIOSurface(NSView* view, float scale_factor) {
   CGLSetCurrentContext(0);
 }
 
-bool CompositingIOSurfaceMac::CopyTo(const gfx::Size& dst_size, void* out) {
+bool CompositingIOSurfaceMac::CopyTo(
+      const gfx::Rect& src_pixel_subrect,
+      const gfx::Size& dst_pixel_size,
+      void* out) {
   if (!MapIOSurfaceToTexture(io_surface_handle_))
     return false;
 
@@ -320,8 +325,8 @@ bool CompositingIOSurfaceMac::CopyTo(const gfx::Size& dst_size, void* out) {
   glTexImage2D(target,
                0,
                GL_RGBA,
-               dst_size.width(),
-               dst_size.height(),
+               dst_pixel_size.width(),
+               dst_pixel_size.height(),
                0,
                GL_BGRA,
                GL_UNSIGNED_INT_8_8_8_8_REV,
@@ -333,11 +338,11 @@ bool CompositingIOSurfaceMac::CopyTo(const gfx::Size& dst_size, void* out) {
                             0); CHECK_GL_ERROR();
   glBindTexture(target, 0); CHECK_GL_ERROR();
 
-  glViewport(0, 0, dst_size.width(), dst_size.height());
+  glViewport(0, 0, dst_pixel_size.width(), dst_pixel_size.height());
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(0, dst_size.width(), 0, dst_size.height(), -1, 1);
+  glOrtho(0, dst_pixel_size.width(), 0, dst_pixel_size.height(), -1, 1);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
 
@@ -352,7 +357,9 @@ bool CompositingIOSurfaceMac::CopyTo(const gfx::Size& dst_size, void* out) {
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, texture_);
 
   SurfaceQuad quad;
-  quad.set_size(dst_size, pixel_io_surface_size_);
+  quad.set_rect(0.0f, 0.0f, dst_pixel_size.width(), dst_pixel_size.height());
+  quad.set_texcoord_rect(src_pixel_subrect.x(), src_pixel_subrect.y(),
+                         src_pixel_subrect.right(), src_pixel_subrect.bottom());
   DrawQuad(quad);
 
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0); CHECK_GL_ERROR();
@@ -360,7 +367,7 @@ bool CompositingIOSurfaceMac::CopyTo(const gfx::Size& dst_size, void* out) {
 
   CGLFlushDrawable(cglContext_);
 
-  glReadPixels(0, 0, dst_size.width(), dst_size.height(),
+  glReadPixels(0, 0, dst_pixel_size.width(), dst_pixel_size.height(),
                GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, out);
 
   glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0); CHECK_GL_ERROR();
@@ -465,3 +472,5 @@ void CompositingIOSurfaceMac::ClearDrawable() {
   [glContext_ clearDrawable];
   UnrefIOSurface();
 }
+
+}  // namespace content

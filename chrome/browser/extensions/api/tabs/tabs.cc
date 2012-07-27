@@ -242,7 +242,7 @@ Browser* CreateBrowserWindow(const Browser::CreateParams& params,
     new_window = browser::FindTabbedBrowser(profile, false);
 
   if (!new_window)
-    new_window = Browser::CreateWithParams(params);
+    new_window = new Browser(params);
   return new_window;
 }
 
@@ -595,9 +595,8 @@ bool CreateWindowFunction::RunImpl() {
   }
 
   // Create a new BrowserWindow.
-  Browser::CreateParams create_params;
+  Browser::CreateParams create_params(window_type, window_profile);
   if (extension_id.empty()) {
-    create_params = Browser::CreateParams(window_type, window_profile);
     create_params.initial_bounds = window_bounds;
   } else {
     create_params = Browser::CreateParams::CreateForApp(
@@ -1043,7 +1042,7 @@ bool CreateTabFunction::RunImpl() {
     Profile* profile = browser->profile()->GetOriginalProfile();
     browser = browser::FindTabbedBrowser(profile, false);
     if (!browser) {
-      browser = Browser::Create(profile);
+      browser = new Browser(Browser::CreateParams(profile));
       browser->window()->Show();
     }
   }
@@ -1349,7 +1348,8 @@ void UpdateTabFunction::PopulateResult() {
 
 void UpdateTabFunction::OnExecuteCodeFinished(bool success,
                                               int32 page_id,
-                                              const std::string& error) {
+                                              const std::string& error,
+                                              const ListValue& script_result) {
   if (!error.empty()) {
     CHECK(!success);
     error_ = error;

@@ -20,7 +20,7 @@
 #include "content/public/browser/worker_service_observer.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/process_type.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 
 namespace content {
 
@@ -57,6 +57,17 @@ void WorkerServiceImpl::OnWorkerMessageFilterClosing(
     i->RemoveFilters(filter);
     if (i->NumFilters() == 0) {
       i = queued_workers_.erase(i);
+    } else {
+      ++i;
+    }
+  }
+
+  for (WorkerProcessHost::Instances::iterator i =
+           pending_shared_workers_.begin();
+       i != pending_shared_workers_.end(); ) {
+     i->RemoveFilters(filter);
+     if (i->NumFilters() == 0) {
+      i = pending_shared_workers_.erase(i);
     } else {
       ++i;
     }

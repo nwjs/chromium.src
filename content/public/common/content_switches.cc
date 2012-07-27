@@ -86,8 +86,13 @@ const char kDisableDesktopNotifications[]   = "disable-desktop-notifications";
 // Disables device orientation events.
 const char kDisableDeviceOrientation[]      = "disable-device-orientation";
 
+#if defined(OS_ANDROID)
+// WebGL is disabled by default on Android.
+const char kEnableExperimentalWebGL[]       = "enable-webgl";
+#else
 // Disable experimental WebGL support.
 const char kDisableExperimentalWebGL[]      = "disable-webgl";
+#endif
 
 // Blacklist the GPU for accelerated compositing.
 const char kBlacklistAcceleratedCompositing[] =
@@ -113,7 +118,7 @@ const char kDisableGLMultisampling[]        = "disable-gl-multisampling";
 
 // Do not launch the GPU process shortly after browser process launch. Instead
 // launch it when it is first needed.
-const char kDisableGpuProcessPrelaunch[]    = "diasable-gpu-process-prelaunch";
+const char kDisableGpuProcessPrelaunch[]    = "disable-gpu-process-prelaunch";
 
 // Disable the GPU process sandbox.
 const char kDisableGpuSandbox[]             = "disable-gpu-sandbox";
@@ -163,9 +168,6 @@ const char kDisablePlugins[]                = "disable-plugins";
 // Disable the JavaScript Pointer Lock API.
 const char kDisablePointerLock[]            = "disable-pointer-lock";
 
-// Disable pop-up blocking.
-const char kDisablePopupBlocking[]          = "disable-popup-blocking";
-
 // Disables remote web font support. SVG font should always work whether this
 // option is specified or not.
 const char kDisableRemoteFonts[]            = "disable-remote-fonts";
@@ -210,8 +212,13 @@ const char kSpeechRecognitionWebserviceKey[] = "speech-service-key";
 // Disables animation on the compositor thread.
 const char kDisableThreadedAnimation[]      = "disable-threaded-animation";
 
+#if defined(OS_ANDROID)
+// Enable web audio API.
+const char kEnableWebAudio[]                = "enable-webaudio";
+#else
 // Disable web audio API.
 const char kDisableWebAudio[]               = "disable-webaudio";
+#endif
 
 // Don't enforce the same-origin policy. (Used by people testing their sites.)
 const char kDisableWebSecurity[]            = "disable-web-security";
@@ -250,6 +257,9 @@ const char kEnableCssRegions[]              = "enable-css-regions";
 
 // Enables CSS3 custom filters
 const char kEnableCssShaders[]              = "enable-css-shaders";
+
+// Enables CSS variables
+const char kEnableCssVariables[]            = "enable-css-variables";
 
 // Enables device motion events.
 const char kEnableDeviceMotion[]            = "enable-device-motion";
@@ -293,6 +303,10 @@ const char kEnableMonitorProfile[]          = "enable-monitor-profile";
 
 // Enables partial swaps in the WK compositor on platforms that support it.
 const char kEnablePartialSwap[]             = "enable-partial-swap";
+
+// Enables UI releasing handle to front surface for background tabs on platforms
+// that support it.
+const char kEnableUIReleaseFrontSurface[] = "enable-ui-release-front-surface";
 
 // Enables touch-screen pinch gestures.
 const char kEnablePinch[]                   = "enable-pinch";
@@ -354,8 +368,9 @@ const char kDisableThreadedCompositing[]     = "disable-threaded-compositing";
 // SYN packet.
 const char kEnableTcpFastOpen[]             = "enable-tcp-fastopen";
 
-// Enables hardware acceleration of video decode, where available.
-const char kEnableAcceleratedVideoDecode[] = "enable-accelerated-video-decode";
+// Disables hardware acceleration of video decode, where available.
+const char kDisableAcceleratedVideoDecode[] =
+    "disable-accelerated-video-decode";
 
 // Enables support for video tracks. Current implementation is
 // incomplete and this flag is used for development and testing.
@@ -634,6 +649,11 @@ const char kZygoteProcess[]                 = "zygote";
 // Enables moving cursor by word in visual order.
 const char kEnableVisualWordMovement[]      = "enable-visual-word-movement";
 
+#if defined(OS_ANDROID)
+// Set when Chromium should use a mobile user agent.
+const char kUseMobileUserAgent[] = "use-mobile-user-agent";
+#endif
+
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
 // Specify the amount the trackpad should scroll by.
 const char kScrollPixels[]                  = "scroll-pixels";
@@ -673,6 +693,9 @@ const char kDefaultTileHeight[]             = "default-tile-height";
 const char kMaxUntiledLayerWidth[]          = "max-untiled-layer-width";
 const char kMaxUntiledLayerHeight[]         = "max-untiled-layer-height";
 
-const char kFixedPositionCreatesStackingContext[]
-    = "fixed-position-creates-stacking-context";
+const char kEnableFixedPositionCreatesStackingContext[]
+    = "enable-fixed-position-creates-stacking-context";
+const char kDisableFixedPositionCreatesStackingContext[]
+    = "disable-fixed-position-creates-stacking-context";
+
 }  // namespace switches

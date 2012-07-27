@@ -334,19 +334,6 @@ TEST_F(ToplevelWindowEventFilterTest, BottomRightPastMinimum) {
   EXPECT_EQ(gfx::Size(40, 40), w1->bounds().size());
 }
 
-TEST_F(ToplevelWindowEventFilterTest, DoubleClickCaptionTogglesMaximize) {
-  scoped_ptr<aura::Window> w1(CreateWindow(HTCAPTION));
-  EXPECT_FALSE(wm::IsWindowMaximized(w1.get()));
-
-  aura::test::EventGenerator generator(Shell::GetPrimaryRootWindow(), w1.get());
-  generator.DoubleClickLeftButton();
-
-  EXPECT_TRUE(wm::IsWindowMaximized(w1.get()));
-  generator.DoubleClickLeftButton();
-
-  EXPECT_FALSE(wm::IsWindowMaximized(w1.get()));
-}
-
 TEST_F(ToplevelWindowEventFilterTest, BottomRightWorkArea) {
   scoped_ptr<aura::Window> target(CreateWindow(HTBOTTOMRIGHT));
   gfx::Rect work_area =
@@ -477,7 +464,7 @@ TEST_F(ToplevelWindowEventFilterTest, GestureDrag) {
   old_bounds = target->bounds();
 
   // Snap left.
-  end = location = target->GetRootWindowBounds().CenterPoint();
+  end = location = target->GetBoundsInRootWindow().CenterPoint();
   end.Offset(-100, 0);
   generator.GestureScrollSequence(location, end,
       base::TimeDelta::FromMilliseconds(5),
@@ -493,7 +480,7 @@ TEST_F(ToplevelWindowEventFilterTest, GestureDrag) {
 
   old_bounds = target->bounds();
   // Maximize.
-  end = location = target->GetRootWindowBounds().CenterPoint();
+  end = location = target->GetBoundsInRootWindow().CenterPoint();
   end.Offset(0, -100);
   generator.GestureScrollSequence(location, end,
       base::TimeDelta::FromMilliseconds(5),
@@ -506,7 +493,7 @@ TEST_F(ToplevelWindowEventFilterTest, GestureDrag) {
   target->SetBounds(old_bounds);
 
   // Minimize.
-  end = location = target->GetRootWindowBounds().CenterPoint();
+  end = location = target->GetBoundsInRootWindow().CenterPoint();
   end.Offset(0, 100);
   generator.GestureScrollSequence(location, end,
       base::TimeDelta::FromMilliseconds(5),

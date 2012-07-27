@@ -7,6 +7,7 @@
     # TODO(dmaclach): can we pick this up some other way? Right now it's
     # duplicated from chrome.gyp
     'chromium_code': 1,
+    'remoting_audio': 0,
     # Use consistent strings across all platforms. Note that the plugin name
     # is brand-dependent and is defined further down.
     # Must match host/plugin/constants.h
@@ -197,6 +198,13 @@
     'include_dirs': [
       '..',  # Root of Chrome checkout
     ],
+    'conditions': [
+      ['remoting_audio == 1', {
+        'defines': [
+          'ENABLE_REMOTING_AUDIO',
+        ],
+      }],
+    ],
   },
 
   'conditions': [
@@ -264,8 +272,12 @@
             '<(DEPTH)/base/base.gyp:base',
           ],
           'sources': [
+            'host/constants_mac.cc',
+            'host/constants_mac.h',
             'host/installer/mac/uninstaller/remoting_uninstaller.h',
             'host/installer/mac/uninstaller/remoting_uninstaller.mm',
+            'host/installer/mac/uninstaller/remoting_uninstaller_app.h',
+            'host/installer/mac/uninstaller/remoting_uninstaller_app.mm',
           ],
           'xcode_settings': {
             'INFOPLIST_FILE': 'host/installer/mac/uninstaller/remoting_uninstaller-Info.plist',
@@ -475,6 +487,18 @@
 
     ['OS=="win"', {
       'targets': [
+        {
+          'target_name': 'remoting_breakpad_tester',
+          'type': 'executable',
+          'variables': { 'enable_wexit_time_destructors': 1, },
+          'dependencies': [
+            '../base/base.gyp:base',
+          ],
+          'sources': [
+            'tools/breakpad_tester_win.cc',
+          ],
+        },  # end of target 'remoting_breakpad_tester'
+
         {
           'target_name': 'remoting_elevated_controller',
           'type': 'static_library',
@@ -1106,18 +1130,12 @@
         '../crypto/crypto.gyp:crypto',
       ],
       'sources': [
-        'host/audio_capturer.cc',
         'host/audio_capturer.h',
+        'host/audio_capturer_linux.cc',
+        'host/audio_capturer_mac.cc',
+        'host/audio_capturer_win.cc',
         'host/audio_scheduler.cc',
         'host/audio_scheduler.h',
-        'host/capturer.h',
-        'host/capturer_helper.cc',
-        'host/capturer_helper.h',
-        'host/capturer_fake.cc',
-        'host/capturer_fake.h',
-        'host/capturer_linux.cc',
-        'host/capturer_mac.mm',
-        'host/capturer_win.cc',
         'host/capture_scheduler.cc',
         'host/capture_scheduler.h',
         'host/chromoting_host.cc',
@@ -1188,11 +1206,11 @@
         'host/network_settings.h',
         'host/pin_hash.cc',
         'host/pin_hash.h',
-        'host/policy_hack/nat_policy.h',
-        'host/policy_hack/nat_policy.cc',
-        'host/policy_hack/nat_policy_linux.cc',
-        'host/policy_hack/nat_policy_mac.mm',
-        'host/policy_hack/nat_policy_win.cc',
+        'host/policy_hack/policy_watcher.h',
+        'host/policy_hack/policy_watcher.cc',
+        'host/policy_hack/policy_watcher_linux.cc',
+        'host/policy_hack/policy_watcher_mac.mm',
+        'host/policy_hack/policy_watcher_win.cc',
         'host/register_support_host_request.cc',
         'host/register_support_host_request.h',
         'host/remote_input_filter.cc',
@@ -1217,6 +1235,14 @@
         'host/user_authenticator_linux.cc',
         'host/user_authenticator_mac.cc',
         'host/user_authenticator_win.cc',
+        'host/video_frame_capturer.h',
+        'host/video_frame_capturer_fake.cc',
+        'host/video_frame_capturer_fake.h',
+        'host/video_frame_capturer_helper.cc',
+        'host/video_frame_capturer_helper.h',
+        'host/video_frame_capturer_linux.cc',
+        'host/video_frame_capturer_mac.mm',
+        'host/video_frame_capturer_win.cc',
         'host/vlog_net_log.cc',
         'host/vlog_net_log.h',
         'host/x_server_pixel_buffer.cc',
@@ -1295,11 +1321,11 @@
         'client/chromoting_client.h',
         'client/chromoting_stats.cc',
         'client/chromoting_stats.h',
-        'client/chromoting_view.h',
         'client/client_config.cc',
         'client/client_config.h',
         'client/client_context.cc',
         'client/client_context.h',
+        'client/client_user_interface.h',
         'client/frame_consumer.h',
         'client/frame_consumer_proxy.cc',
         'client/frame_consumer_proxy.h',
@@ -1478,6 +1504,8 @@
         '../third_party/libjingle/libjingle.gyp:libjingle_p2p',
       ],
       'sources': [
+        'jingle_glue/chromium_socket_factory.cc',
+        'jingle_glue/chromium_socket_factory.h',
         'jingle_glue/iq_sender.cc',
         'jingle_glue/iq_sender.h',
         'jingle_glue/javascript_signal_strategy.cc',
@@ -1684,9 +1712,6 @@
         'base/util_unittest.cc',
         'client/key_event_mapper_unittest.cc',
         'client/plugin/mac_key_event_processor_unittest.cc',
-        'host/capturer_helper_unittest.cc',
-        'host/capturer_mac_unittest.cc',
-        'host/capturer_unittest.cc',
         'host/chromoting_host_context_unittest.cc',
         'host/chromoting_host_unittest.cc',
         'host/client_session_unittest.cc',
@@ -1699,11 +1724,20 @@
         'host/json_host_config_unittest.cc',
         'host/log_to_server_unittest.cc',
         'host/pin_hash_unittest.cc',
+        'host/policy_hack/fake_policy_watcher.cc',
+        'host/policy_hack/fake_policy_watcher.h',
+        'host/policy_hack/mock_policy_callback.cc',
+        'host/policy_hack/mock_policy_callback.h',
+        'host/policy_hack/policy_watcher_unittest.cc',
         'host/register_support_host_request_unittest.cc',
         'host/remote_input_filter_unittest.cc',
         'host/screen_recorder_unittest.cc',
         'host/server_log_entry_unittest.cc',
         'host/test_key_pair.h',
+        'host/video_frame_capturer_helper_unittest.cc',
+        'host/video_frame_capturer_mac_unittest.cc',
+        'host/video_frame_capturer_unittest.cc',
+        'jingle_glue/chromium_socket_factory_unittest.cc',
         'jingle_glue/fake_signal_strategy.cc',
         'jingle_glue/fake_signal_strategy.h',
         'jingle_glue/iq_sender_unittest.cc',
@@ -1716,6 +1750,7 @@
         'protocol/connection_tester.cc',
         'protocol/connection_tester.h',
         'protocol/connection_to_client_unittest.cc',
+        'protocol/content_description_unittest.cc',
         'protocol/fake_authenticator.cc',
         'protocol/fake_authenticator.h',
         'protocol/fake_session.cc',

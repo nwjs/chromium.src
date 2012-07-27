@@ -10,11 +10,13 @@
 #include "base/message_loop.h"
 #include "base/string_split.h"
 #include "base/time.h"
+#include "third_party/khronos/GLES2/gl2.h"
 #include "third_party/skia/include/core/SkXfermode.h"
 #include "ui/aura/env.h"
 #include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/single_display_manager.h"
+#include "ui/aura/shared/root_window_capture_client.h"
 #include "ui/aura/window.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -27,7 +29,6 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/skia_util.h"
-#include "third_party/khronos/GLES2/gl2.h"
 #ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES 1
 #endif
@@ -278,7 +279,7 @@ class SoftwareScrollBench : public BenchCompositorObserver {
   DISALLOW_COPY_AND_ASSIGN(SoftwareScrollBench);
 };
 
-}  // anonymous namespace
+}  // namespace
 
 int main(int argc, char** argv) {
   CommandLine::Init(argc, argv);
@@ -296,6 +297,9 @@ int main(int argc, char** argv) {
   aura::Env::GetInstance()->SetDisplayManager(manager);
   scoped_ptr<aura::RootWindow> root_window(
       aura::DisplayManager::CreateRootWindowForPrimaryDisplay());
+  aura::client::SetCaptureClient(
+      root_window.get(),
+      new aura::shared::RootWindowCaptureClient(root_window.get()));
 
   // add layers
   ColoredLayer background(SK_ColorRED);

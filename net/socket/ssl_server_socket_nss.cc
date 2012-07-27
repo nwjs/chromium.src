@@ -92,6 +92,8 @@ SSLServerSocketNSS::SSLServerSocketNSS(
     const SSLConfig& ssl_config)
     : transport_send_busy_(false),
       transport_recv_busy_(false),
+      user_read_buf_len_(0),
+      user_write_buf_len_(0),
       nss_fd_(NULL),
       nss_bufs_(NULL),
       transport_socket_(transport_socket),
@@ -279,9 +281,18 @@ base::TimeDelta SSLServerSocketNSS::GetConnectTimeMicros() const {
   return transport_socket_->GetConnectTimeMicros();
 }
 
+bool SSLServerSocketNSS::WasNpnNegotiated() const {
+  return false;
+}
+
 NextProto SSLServerSocketNSS::GetNegotiatedProtocol() const {
   // NPN is not supported by this class.
   return kProtoUnknown;
+}
+
+bool SSLServerSocketNSS::GetSSLInfo(SSLInfo* ssl_info) {
+  NOTIMPLEMENTED();
+  return false;
 }
 
 int SSLServerSocketNSS::InitializeSSLOptions() {

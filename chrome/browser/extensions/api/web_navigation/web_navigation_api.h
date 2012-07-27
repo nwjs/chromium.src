@@ -47,52 +47,64 @@ class WebNavigationTabObserver : public content::NotificationObserver,
 
 
   // content::WebContentsObserver implementation.
+  virtual void AboutToNavigateRenderView(
+      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidStartProvisionalLoadForFrame(
-      int64 frame_id,
+      int64 frame_num,
       bool is_main_frame,
       const GURL& validated_url,
       bool is_error_page,
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidCommitProvisionalLoadForFrame(
-      int64 frame_id,
+      int64 frame_num,
       bool is_main_frame,
       const GURL& url,
       content::PageTransition transition_type,
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidFailProvisionalLoad(
-      int64 frame_id,
+      int64 frame_num,
       bool is_main_frame,
       const GURL& validated_url,
       int error_code,
       const string16& error_description,
       content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DocumentLoadedInFrame(int64 frame_id) OVERRIDE;
-  virtual void DidFinishLoad(int64 frame_id,
-                             const GURL& validated_url,
-                             bool is_main_frame) OVERRIDE;
-  virtual void DidFailLoad(int64 frame_id,
-                           const GURL& validated_url,
-                           bool is_main_frame,
-                           int error_code,
-                           const string16& error_description) OVERRIDE;
+  virtual void DocumentLoadedInFrame(
+      int64 frame_num,
+      content::RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidFinishLoad(
+      int64 frame_num,
+      const GURL& validated_url,
+      bool is_main_frame,
+      content::RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidFailLoad(
+      int64 frame_num,
+      const GURL& validated_url,
+      bool is_main_frame,
+      int error_code,
+      const string16& error_description,
+      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidOpenRequestedURL(content::WebContents* new_contents,
                                    const GURL& url,
                                    const content::Referrer& referrer,
                                    WindowOpenDisposition disposition,
                                    content::PageTransition transition,
-                                   int64 source_frame_id) OVERRIDE;
+                                   int64 source_frame_num) OVERRIDE;
   virtual void WebContentsDestroyed(content::WebContents* tab) OVERRIDE;
 
  private:
   // True if the transition and target url correspond to a reference fragment
   // navigation.
-  bool IsReferenceFragmentNavigation(int64 frame_id, const GURL& url);
+  bool IsReferenceFragmentNavigation(FrameNavigationState::FrameID frame_id,
+                                     const GURL& url);
 
   // Tracks the state of the frames we are sending events for.
   FrameNavigationState navigation_state_;
 
   // Used for tracking registrations to redirect notifications.
   content::NotificationRegistrar registrar_;
+
+  content::RenderViewHost* render_view_host_;
+  content::RenderViewHost* pending_render_view_host_;
 
   DISALLOW_COPY_AND_ASSIGN(WebNavigationTabObserver);
 };

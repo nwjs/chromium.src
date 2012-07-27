@@ -100,7 +100,8 @@ BackingStore* TestRenderWidgetHostView::AllocBackingStore(
 }
 
 void TestRenderWidgetHostView::CopyFromCompositingSurface(
-    const gfx::Size& size,
+    const gfx::Rect& src_subrect,
+    const gfx::Size& dst_size,
     const base::Callback<void(bool)>& callback,
     skia::PlatformCanvas* output) {
   callback.Run(false);
@@ -183,7 +184,7 @@ void TestRenderWidgetHostView::StartContentIntent(const GURL&) {}
 #endif
 
 #if defined(OS_POSIX) || defined(USE_AURA)
-gfx::Rect TestRenderWidgetHostView::GetRootWindowBounds() {
+gfx::Rect TestRenderWidgetHostView::GetBoundsInRootWindow() {
   return gfx::Rect();
 }
 #endif
@@ -261,9 +262,12 @@ void TestRenderViewHost::SendNavigate(int page_id, const GURL& url) {
 
 void TestRenderViewHost::SendNavigateWithTransition(
     int page_id, const GURL& url, PageTransition transition) {
+  OnMsgDidStartProvisionalLoadForFrame(0, true, GURL(), url);
+
   ViewHostMsg_FrameNavigate_Params params;
 
   params.page_id = page_id;
+  params.frame_id = 0;
   params.url = url;
   params.referrer = Referrer();
   params.transition = transition;

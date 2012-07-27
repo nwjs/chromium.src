@@ -68,15 +68,14 @@ chrome::NavigateParams BrowserNavigatorTest::MakeNavigateParams(
 
 Browser* BrowserNavigatorTest::CreateEmptyBrowserForType(Browser::Type type,
                                                          Profile* profile) {
-  Browser* browser = Browser::CreateWithParams(
-      Browser::CreateParams(type, profile));
+  Browser* browser = new Browser(Browser::CreateParams(type, profile));
   chrome::AddBlankTab(browser, true);
   return browser;
 }
 
 Browser* BrowserNavigatorTest::CreateEmptyBrowserForApp(Browser::Type type,
                                                         Profile* profile) {
-  Browser* browser = Browser::CreateWithParams(
+  Browser* browser = new Browser(
       Browser::CreateParams::CreateForApp(
           Browser::TYPE_POPUP, "Test", gfx::Rect(), profile));
   chrome::AddBlankTab(browser, true);
@@ -903,7 +902,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                                 content::PAGE_TRANSITION_AUTO_BOOKMARK);
   params.disposition = OFF_THE_RECORD;
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::Navigate(&params);
@@ -988,7 +987,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        NavigateFromDefaultToOptionsInSameTab) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1006,7 +1005,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   ui_test_utils::NavigateToURL(&p);
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1027,7 +1026,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
             chrome::GetActiveWebContents(browser())->GetURL());
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1047,7 +1046,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   EXPECT_EQ(1, browser()->tab_count());
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1061,7 +1060,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        NavigateFromNTPToOptionsSingleton) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1073,7 +1072,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   EXPECT_EQ(2, browser()->tab_count());
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1087,7 +1086,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        NavigateFromNTPToOptionsPageInSameTab) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowClearBrowsingDataDialog(browser());
@@ -1101,7 +1100,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   EXPECT_EQ(2, browser()->tab_count());
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowClearBrowsingDataDialog(browser());
@@ -1122,14 +1121,14 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        MAYBE_NavigateFromOtherTabToSingletonOptions) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
     observer.Wait();
   }
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::AddSelectedTabWithURL(browser(), GetGoogleURL(),
@@ -1138,7 +1137,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   }
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowSettings(browser());
@@ -1190,7 +1189,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        DISABLED_NavigateFromDefaultToHistoryInSameTab) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowHistory(browser());
@@ -1204,7 +1203,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        NavigateFromDefaultToBookmarksInSameTab) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowBookmarkManager(browser());
@@ -1218,7 +1217,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
                        NavigateFromDefaultToDownloadsInSameTab) {
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::ShowDownloads(browser());
@@ -1243,7 +1242,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserNavigatorTest, NavigateFromCrashedPanel) {
   GURL url2("http://maps.google.com/#b");
 
   // Create a panel.
-  Browser* panel_browser = Browser::CreateWithParams(
+  Browser* panel_browser = new Browser(
       Browser::CreateParams::CreateForApp(
           Browser::TYPE_PANEL, "Test", gfx::Rect(100, 100),
           browser()->profile()));

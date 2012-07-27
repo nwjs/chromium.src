@@ -69,7 +69,8 @@ class HandlebarDictGenerator(object):
       'name': type_.name,
       'description': type_.description,
       'properties': self._GenerateProperties(type_.properties),
-      'functions': self._GenerateFunctions(type_.functions)
+      'functions': self._GenerateFunctions(type_.functions),
+      'events': map(self._GenerateEvent, type_.events.values())
     }
     self._RenderTypeInformation(type_, type_dict)
     return type_dict
@@ -82,8 +83,11 @@ class HandlebarDictGenerator(object):
       'name': function.name,
       'description': function.description,
       'callback': self._GenerateCallback(function.callback),
-      'parameters': []
+      'parameters': [],
+      'returns': None
     }
+    if function.returns:
+      function_dict['returns'] = self._GenerateProperty(function.returns)
     for param in function.params:
       function_dict['parameters'].append(self._GenerateProperty(param))
     if function_dict['callback']:
@@ -104,11 +108,11 @@ class HandlebarDictGenerator(object):
 
   def _GenerateCallback(self, callback):
     if not callback:
-      return {}
+      return None
     callback_dict = {
       'name': 'callback',
       'description': callback.description,
-      'simple_type': {'type': 'function'},
+      'simple_type': {'simple_type': 'function'},
       'optional': callback.optional,
       'parameters': []
     }
@@ -139,20 +143,27 @@ class HandlebarDictGenerator(object):
     return property_dict
 
   def _RenderTypeInformation(self, property_, dst_dict):
-    dst_dict['type'] = property_.type_.name.lower()
     if property_.type_ == model.PropertyType.CHOICES:
-      dst_dict['choices'] = []
-      for choice_name in property_.choices:
-        dst_dict['choices'].append(self._GenerateProperty(
-            property_.choices[choice_name]))
+      dst_dict['choices'] = map(self._GenerateProperty,
+                                property_.choices.values())
       # We keep track of which is last for knowing when to add "or" between
       # choices in templates.
       if len(dst_dict['choices']) > 0:
         dst_dict['choices'][-1]['last'] = True
+    elif property_.type_ == model.PropertyType.ADDITIONAL_PROPERTIES:
+      dst_dict['additional_properties'] = True
     elif property_.type_ == model.PropertyType.REF:
       dst_dict['link'] = _GetLinkToRefType(self._namespace.name,
                                         property_.ref_type)
     elif property_.type_ == model.PropertyType.ARRAY:
       dst_dict['array'] = self._GenerateProperty(property_.item_type)
+    elif property_.type_ == model.PropertyType.ENUM:
+      dst_dict['enum_values'] = []
+      for enum_value in property_.enum_values:
+        dst_dict['enum_values'].append({'name': enum_value})
+      if len(dst_dict['enum_values']) > 0:
+        dst_dict['enum_values'][-1]['last'] = True
+    elif property_.instance_of:
+      dst_dict['simple_type'] = property_.instance_of.lower()
     else:
-      dst_dict['simple_type'] = {'type': dst_dict['type']}
+      dst_dict['simple_type'] = property_.type_.name.lower()

@@ -83,13 +83,14 @@ class RenderWidgetHostViewAndroid : public RenderWidgetHostViewBase {
   virtual bool HasAcceleratedSurface(const gfx::Size& desired_size) OVERRIDE;
   virtual void SetBackground(const SkBitmap& background) OVERRIDE;
   virtual void CopyFromCompositingSurface(
-      const gfx::Size& size,
+      const gfx::Rect& src_subrect,
+      const gfx::Size& dst_size,
       const base::Callback<void(bool)>& callback,
       skia::PlatformCanvas* output) OVERRIDE;
   virtual BackingStore* AllocBackingStore(const gfx::Size& size) OVERRIDE;
   virtual gfx::GLSurfaceHandle GetCompositingSurface() OVERRIDE;
   virtual void GetScreenInfo(WebKit::WebScreenInfo* results) OVERRIDE;
-  virtual gfx::Rect GetRootWindowBounds() OVERRIDE;
+  virtual gfx::Rect GetBoundsInRootWindow() OVERRIDE;
   virtual void UnhandledWheelEvent(
       const WebKit::WebMouseWheelEvent& event) OVERRIDE;
   virtual void ProcessTouchAck(WebKit::WebInputEvent::Type type,

@@ -726,6 +726,8 @@
     'browser/system_message_window_win.h',
     'browser/tcmalloc_internals_request_job.cc',
     'browser/tcmalloc_internals_request_job.h',
+    'browser/udev_linux.cc',
+    'browser/udev_linux.h',
     'browser/web_contents/debug_urls.cc',
     'browser/web_contents/debug_urls.h',
     'browser/web_contents/drag_utils_gtk.cc',
@@ -788,8 +790,8 @@
     'browser/worker_host/worker_process_host.h',
     'browser/worker_host/worker_service_impl.cc',
     'browser/worker_host/worker_service_impl.h',
-    'browser/zygote_host_impl_linux.cc',
-    'browser/zygote_host_impl_linux.h',
+    'browser/zygote_host/zygote_host_impl_linux.cc',
+    'browser/zygote_host/zygote_host_impl_linux.h',
     'zygote/zygote_linux.cc',
     'zygote/zygote_linux.h',
     'zygote/zygote_main_linux.cc',
@@ -838,7 +840,6 @@
           'VCLinkerTool': {
             'DelayLoadDLLs': [
               'user32.dll',
-              'xinput1_3.dll',
             ],
           },
         },

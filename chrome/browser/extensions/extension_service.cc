@@ -29,7 +29,6 @@
 #include "chrome/browser/bookmarks/bookmark_extension_api.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_plugin_service_filter.h"
-#include "chrome/browser/extensions/api/api_resource_controller.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
@@ -37,17 +36,16 @@
 #include "chrome/browser/extensions/app_notification_manager.h"
 #include "chrome/browser/extensions/app_sync_data.h"
 #include "chrome/browser/extensions/apps_promo.h"
+#include "chrome/browser/extensions/browser_event_router.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/default_apps_trial.h"
-#include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_data_deleter.h"
 #include "chrome/browser/extensions/extension_disabled_ui.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_error_ui.h"
 #include "chrome/browser/extensions/extension_font_settings_api.h"
 #include "chrome/browser/extensions/extension_host.h"
-#include "chrome/browser/extensions/extension_input_ime_api.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_management_api.h"
 #include "chrome/browser/extensions/extension_preference_api.h"
@@ -66,6 +64,7 @@
 #include "chrome/browser/extensions/settings/settings_frontend.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
+#include "chrome/browser/extensions/window_event_router.h"
 #include "chrome/browser/history/history_extension_api.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -102,7 +101,7 @@
 #include "content/public/common/pepper_plugin_info.h"
 #include "googleurl/src/gurl.h"
 #include "grit/generated_resources.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "sync/api/sync_change.h"
 #include "sync/api/sync_error_factory.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -116,7 +115,7 @@
 #include "chrome/browser/chromeos/extensions/input_method_event_router.h"
 #include "chrome/browser/chromeos/extensions/media_player_event_router.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
-#include "chrome/browser/extensions/extension_input_ime_api.h"
+#include "chrome/browser/extensions/api/input_ime/input_ime_api.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_mount_point_provider.h"
 #endif
@@ -127,6 +126,7 @@ using content::BrowserThread;
 using content::DevToolsAgentHost;
 using content::DevToolsAgentHostRegistry;
 using content::PluginService;
+using extensions::CrxInstaller;
 using extensions::Extension;
 using extensions::ExtensionIdSet;
 using extensions::ExtensionInfo;
@@ -340,7 +340,6 @@ ExtensionService::ExtensionService(Profile* profile,
       app_sync_bundle_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       extension_sync_bundle_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       extension_warnings_(profile),
-      api_resource_controller_(NULL),
       app_shortcut_manager_(profile) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
@@ -426,7 +425,8 @@ const ExtensionSet* ExtensionService::GenerateInstalledExtensionsSet() const {
   return installed_extensions;
 }
 
-PendingExtensionManager* ExtensionService::pending_extension_manager() {
+extensions::PendingExtensionManager*
+    ExtensionService::pending_extension_manager() {
   return &pending_extension_manager_;
 }
 
@@ -472,8 +472,10 @@ void ExtensionService::InitEventRouters() {
 #if defined(ENABLE_EXTENSIONS)
   history_event_router_.reset(new HistoryExtensionEventRouter());
   history_event_router_->ObserveProfile(profile_);
-  browser_event_router_.reset(new ExtensionBrowserEventRouter(profile_));
+  browser_event_router_.reset(new extensions::BrowserEventRouter(profile_));
   browser_event_router_->Init();
+  window_event_router_.reset(new extensions::WindowEventRouter(profile_));
+  window_event_router_->Init();
   preference_event_router_.reset(new ExtensionPreferenceEventRouter(profile_));
   bookmark_event_router_.reset(new BookmarkExtensionEventRouter(
       profile_->GetBookmarkModel()));
@@ -505,7 +507,7 @@ void ExtensionService::InitEventRouters() {
       new chromeos::ExtensionInputMethodEventRouter);
 
   ExtensionMediaPlayerEventRouter::GetInstance()->Init(profile_);
-  ExtensionInputImeEventRouter::GetInstance()->Init();
+  extensions::InputImeEventRouter::GetInstance()->Init();
 #endif
 #endif  // defined(ENABLE_EXTENSIONS)
   event_routers_initialized_ = true;
@@ -553,7 +555,7 @@ bool ExtensionService::UpdateExtension(
     CrxInstaller** out_crx_installer) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  const PendingExtensionInfo* pending_extension_info =
+  const extensions::PendingExtensionInfo* pending_extension_info =
       pending_extension_manager()->GetById(id);
 
   const Extension* extension =
@@ -1031,7 +1033,7 @@ void ExtensionService::NotifyExtensionLoaded(const Extension* extension) {
        component != extension->input_components().end();
        ++component) {
     if (component->type == Extension::INPUT_COMPONENT_TYPE_IME) {
-      ExtensionInputImeEventRouter::GetInstance()->RegisterIme(
+      extensions::InputImeEventRouter::GetInstance()->RegisterIme(
           profile_, extension->id(), *component);
     }
   }
@@ -1073,7 +1075,7 @@ void ExtensionService::NotifyExtensionUnloaded(
   }
 
   if (extension->input_components().size() > 0) {
-    ExtensionInputImeEventRouter::GetInstance()->UnregisterAllImes(
+    extensions::InputImeEventRouter::GetInstance()->UnregisterAllImes(
         profile_, extension->id());
   }
 #endif
@@ -1804,7 +1806,7 @@ void ExtensionService::UnloadExtension(
   // Clean up runtime data.
   extension_runtime_data_.erase(extension_id);
 
-if (disabled_extensions_.Contains(extension->id())) {
+  if (disabled_extensions_.Contains(extension->id())) {
     UnloadedExtensionInfo details(extension, reason);
     details.already_disabled = true;
     disabled_extensions_.Remove(extension->id());
@@ -1819,7 +1821,7 @@ if (disabled_extensions_.Contains(extension->id())) {
     return;
   }
 
-// Remove the extension from our list.
+  // Remove the extension from our list.
   extensions_.Remove(extension->id());
 
   NotifyExtensionUnloaded(extension.get(), reason);
@@ -2102,7 +2104,7 @@ void ExtensionService::OnExtensionInstalled(
   bool initial_enable =
       !extension_prefs_->IsExtensionDisabled(id) ||
       system_->management_policy()->MustRemainEnabled(extension, NULL);
-  const PendingExtensionInfo* pending_extension_info = NULL;
+  const extensions::PendingExtensionInfo* pending_extension_info = NULL;
   if ((pending_extension_info = pending_extension_manager()->GetById(id))) {
     if (!pending_extension_info->ShouldAllowInstall(*extension)) {
       pending_extension_manager()->Remove(id);
@@ -2544,19 +2546,4 @@ ExtensionService::NaClModuleInfoList::iterator
       return iter;
   }
   return nacl_module_list_.end();
-}
-
-extensions::APIResourceController*
-ExtensionService::api_resource_controller() {
-  // TODO(miket): Find a better place for this thing to live. Like every other
-  // piece of baggage on ExtensionService, it's scoped along with a Profile.
-
-  // To coexist with certain unit tests that don't have a work-thread message
-  // loop available at ExtensionService shutdown, we lazy-initialize this
-  // object so that those cases neither create nor destroy an
-  // APIResourceController.
-  if (!api_resource_controller_.get()) {
-    api_resource_controller_.reset(new extensions::APIResourceController());
-  }
-  return api_resource_controller_.get();
 }

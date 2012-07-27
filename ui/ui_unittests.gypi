@@ -113,7 +113,6 @@
         'test/run_all_unittests.cc',
         'test/test_suite.cc',
         'test/test_suite.h',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
       ],
       'include_dirs': [
         '../',
@@ -198,7 +197,7 @@
             '../build/linux/system.gyp:gtk',
           ],
         }],
-        ['toolkit_views==0 and use_canvas_skia==0', {
+        ['OS=="android" or OS=="ios"', {
           'sources!': [
             'gfx/render_text_unittest.cc',
           ],

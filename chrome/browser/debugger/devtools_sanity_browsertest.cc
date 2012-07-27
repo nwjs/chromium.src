@@ -35,6 +35,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/worker_service.h"
 #include "content/public/browser/worker_service_observer.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/test/test_server.h"
 
 using content::BrowserThread;
@@ -55,7 +56,7 @@ class BrowserClosedObserver : public content::NotificationObserver {
   explicit BrowserClosedObserver(Browser* browser) {
     registrar_.Add(this, chrome::NOTIFICATION_BROWSER_CLOSED,
                    content::Source<Browser>(browser));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   virtual void Observe(int type,
@@ -97,7 +98,7 @@ void RunTestFunction(DevToolsWindow* window, const char* test_name) {
   // checking that global variable uiTests exists(it's created after all js
   // files have been loaded) and has runTest method.
   ASSERT_TRUE(
-      ui_test_utils::ExecuteJavaScriptAndExtractString(
+      content::ExecuteJavaScriptAndExtractString(
           window->GetRenderViewHost(),
           L"",
           L"window.domAutomationController.send("
@@ -106,7 +107,7 @@ void RunTestFunction(DevToolsWindow* window, const char* test_name) {
 
   if (result == "function") {
     ASSERT_TRUE(
-        ui_test_utils::ExecuteJavaScriptAndExtractString(
+        content::ExecuteJavaScriptAndExtractString(
             window->GetRenderViewHost(),
             L"",
             UTF8ToWide(base::StringPrintf("uiTests.runTest('%s')",
@@ -136,7 +137,7 @@ class DevToolsSanityTest : public InProcessBrowserTest {
     GURL url = test_server()->GetURL(test_page);
     ui_test_utils::NavigateToURL(browser(), url);
 
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     inspected_rvh_ = GetInspectedTab()->GetRenderViewHost();
@@ -203,7 +204,7 @@ class DevToolsExtensionTest : public DevToolsSanityTest,
       MessageLoop::current()->PostDelayedTask(
           FROM_HERE, timeout.callback(), base::TimeDelta::FromSeconds(4));
       extensions::UnpackedInstaller::Create(service)->Load(path);
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
       timeout.Cancel();
     }
     size_t num_after = service->extensions()->size();
@@ -235,7 +236,7 @@ class DevToolsExtensionTest : public DevToolsSanityTest,
       if (!(*iter)->IsLoading())
         ++iter;
       else
-        ui_test_utils::RunMessageLoop();
+        content::RunMessageLoop();
     }
 
     timeout.Cancel();
@@ -351,7 +352,7 @@ class WorkerDevToolsSanityTest : public InProcessBrowserTest {
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
         base::Bind(&TerminateWorkerOnIOThread, worker_data));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   static void WaitForFirstSharedWorkerOnIOThread(
@@ -375,7 +376,7 @@ class WorkerDevToolsSanityTest : public InProcessBrowserTest {
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
         base::Bind(&WaitForFirstSharedWorkerOnIOThread, worker_data));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
     return worker_data;
   }
 
@@ -393,7 +394,7 @@ class WorkerDevToolsSanityTest : public InProcessBrowserTest {
     RenderViewHost* client_rvh = window_->GetRenderViewHost();
     WebContents* client_contents = WebContents::FromRenderViewHost(client_rvh);
     if (client_contents->IsLoading()) {
-      ui_test_utils::WindowedNotificationObserver observer(
+      content::WindowedNotificationObserver observer(
           content::NOTIFICATION_LOAD_STOP,
           content::Source<NavigationController>(
               &client_contents->GetController()));
@@ -527,8 +528,8 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestConsoleOnNavigateBack) {
 IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestReattachAfterCrash) {
   OpenDevToolsWindow(kDebuggerTestPage);
 
-  ui_test_utils::CrashTab(GetInspectedTab());
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::CrashTab(GetInspectedTab());
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::Source<NavigationController>(
           &chrome::GetActiveWebContents(browser())->GetController()));
@@ -543,7 +544,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestPageWithNoJavaScript) {
   OpenDevToolsWindow("about:blank");
   std::string result;
   ASSERT_TRUE(
-      ui_test_utils::ExecuteJavaScriptAndExtractString(
+      content::ExecuteJavaScriptAndExtractString(
           window_->GetRenderViewHost(),
           L"",
           L"window.domAutomationController.send("

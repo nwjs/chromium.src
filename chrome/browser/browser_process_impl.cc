@@ -29,7 +29,7 @@
 #include "chrome/browser/debugger/remote_debugging_server.h"
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_status_updater.h"
-#include "chrome/browser/extensions/extension_event_router_forwarder.h"
+#include "chrome/browser/extensions/event_router_forwarder.h"
 #include "chrome/browser/extensions/extension_tab_id_map.h"
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/icon_manager.h"
@@ -156,7 +156,7 @@ BrowserProcessImpl::BrowserProcessImpl(const CommandLine& command_line)
   ChildProcessSecurityPolicy::GetInstance()->RegisterWebSafeScheme(
       chrome::kExtensionResourceScheme);
 
-  extension_event_router_forwarder_ = new ExtensionEventRouterForwarder;
+  extension_event_router_forwarder_ = new extensions::EventRouterForwarder;
 
   ExtensionTabIdMap::GetInstance()->Init();
 }
@@ -412,7 +412,7 @@ chromeos::OomPriorityManager* BrowserProcessImpl::oom_priority_manager() {
 }
 #endif  // defined(OS_CHROMEOS)
 
-ExtensionEventRouterForwarder*
+extensions::EventRouterForwarder*
 BrowserProcessImpl::extension_event_router_forwarder() {
   return extension_event_router_forwarder_.get();
 }
@@ -707,10 +707,6 @@ void BrowserProcessImpl::CreateLocalState() {
   chrome::RegisterLocalState(local_state_.get());
 
   pref_change_registrar_.Init(local_state_.get());
-
-#if defined(ENABLE_PRINTING)
-  print_job_manager_->InitOnUIThread(local_state_.get());
-#endif
 
   // Initialize the notification for the default browser setting policy.
   local_state_->RegisterBooleanPref(prefs::kDefaultBrowserSettingEnabled,

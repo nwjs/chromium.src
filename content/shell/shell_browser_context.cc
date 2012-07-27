@@ -25,11 +25,10 @@
 #include "base/base_paths_mac.h"
 #endif
 
-using content::BrowserThread;
-
 namespace content {
 
-ShellBrowserContext::ShellBrowserContext() {
+ShellBrowserContext::ShellBrowserContext(bool off_the_record)
+    : off_the_record_(off_the_record) {
   InitWhileIOAllowed();
 }
 
@@ -41,7 +40,9 @@ ShellBrowserContext::~ShellBrowserContext() {
 }
 
 void ShellBrowserContext::InitWhileIOAllowed() {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree)) {
+  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  if (cmd_line->HasSwitch(switches::kContentBrowserTest) ||
+      cmd_line->HasSwitch(switches::kDumpRenderTree)) {
     CHECK(testing_path_.CreateUniqueTempDir());
     path_ = testing_path_.path();
     return;
@@ -75,7 +76,7 @@ FilePath ShellBrowserContext::GetPath() {
 }
 
 bool ShellBrowserContext::IsOffTheRecord() const {
-  return false;
+  return off_the_record_;
 }
 
 DownloadManagerDelegate* ShellBrowserContext::GetDownloadManagerDelegate()  {

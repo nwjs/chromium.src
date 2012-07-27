@@ -140,7 +140,7 @@ class FakeMalwareDetails : public MalwareDetails {
     // sleep(1) in malware_dom_details it triggers :).
     waiting_ = true;
     LOG(INFO) << "Waiting for dom details.";
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
     EXPECT_TRUE(got_dom_);
   }
 
@@ -205,7 +205,7 @@ class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPage {
 
   void WaitForDelete() {
     wait_for_delete_ = true;
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
  private:
@@ -320,16 +320,16 @@ class SafeBrowsingBlockingPageTest : public InProcessBrowserTest {
 
   void WaitForInterstitial() {
     WebContents* contents = chrome::GetActiveWebContents(browser());
-    ui_test_utils::WindowedNotificationObserver interstitial_observer(
-          content::NOTIFICATION_INTERSTITIAL_ATTACHED,
-          content::Source<WebContents>(contents));
+    content::WindowedNotificationObserver interstitial_observer(
+        content::NOTIFICATION_INTERSTITIAL_ATTACHED,
+        content::Source<WebContents>(contents));
     if (!InterstitialPage::GetInterstitialPage(contents))
       interstitial_observer.Wait();
   }
 
   void AssertReportSent() {
     // When a report is scheduled in the IO thread we should get notified.
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
 
     FakeSafeBrowsingService* service =
         static_cast<FakeSafeBrowsingService*>(
@@ -455,7 +455,7 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageTest, MalwareProceed) {
   // Note: NOTIFICATION_LOAD_STOP may come before or after the DidNavigate
   // event that clears the interstitial.  We wait for DidNavigate instead.
   ui_test_utils::NavigateToURL(browser(), url);
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(
           &chrome::GetActiveWebContents(browser())->GetController()));
@@ -486,7 +486,7 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageTest, PhishingProceed) {
 
   // Note: NOTIFICATION_LOAD_STOP may come before or after the DidNavigate
   // event that clears the interstitial.  We wait for DidNavigate instead.
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(
           &chrome::GetActiveWebContents(browser())->GetController()));
@@ -504,7 +504,7 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageTest, PhishingReportError) {
 
   // Note: NOTIFICATION_LOAD_STOP may come before or after the DidNavigate
   // event that clears the interstitial.  We wait for DidNavigate instead.
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(
           &chrome::GetActiveWebContents(browser())->GetController()));
@@ -527,7 +527,7 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageTest,
 
   // Note: NOTIFICATION_LOAD_STOP may come before or after the DidNavigate
   // event that clears the interstitial.  We wait for DidNavigate instead.
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(
           &chrome::GetActiveWebContents(browser())->GetController()));
@@ -548,7 +548,7 @@ IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageTest, MalwareIframeDontProceed) {
 
   ui_test_utils::NavigateToURL(browser(), url);
 
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(
           &chrome::GetActiveWebContents(browser())->GetController()));

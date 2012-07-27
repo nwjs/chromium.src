@@ -4,11 +4,14 @@
 
 #include "chrome/browser/extensions/settings/settings_api.h"
 
+#include <string>
+#include <vector>
+
 #include "base/bind.h"
+#include "base/stringprintf.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extensions_quota_service.h"
-#include "chrome/browser/extensions/settings/settings_api.h"
 #include "chrome/browser/extensions/settings/settings_frontend.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/api/storage.h"
@@ -19,7 +22,10 @@ namespace extensions {
 using content::BrowserThread;
 
 namespace {
-const char* kUnsupportedArgumentType = "Unsupported argument type";
+const char kUnsupportedArgumentType[] = "Unsupported argument type";
+const char kInvalidNamespaceErrorMessage[] =
+    "\"%s\" is not available in this instance of Chrome";
+const char kStorageErrorMessage[] = "Storage error";
 }  // namespace
 
 // SettingsFunction
@@ -41,29 +47,31 @@ bool SettingsFunction::ShouldSkipQuotaLimiting() const {
 }
 
 bool SettingsFunction::RunImpl() {
-  {
-    std::string settings_namespace_string;
-    EXTENSION_FUNCTION_VALIDATE(
-        args_->GetString(0, &settings_namespace_string));
-    args_->Remove(0, NULL);
-    settings_namespace_ =
-        settings_namespace::FromString(settings_namespace_string);
-    EXTENSION_FUNCTION_VALIDATE(
-        settings_namespace_ != settings_namespace::INVALID);
-  }
+  std::string settings_namespace_string;
+  EXTENSION_FUNCTION_VALIDATE(args_->GetString(0, &settings_namespace_string));
+  args_->Remove(0, NULL);
+  settings_namespace_ =
+      settings_namespace::FromString(settings_namespace_string);
+  EXTENSION_FUNCTION_VALIDATE(
+      settings_namespace_ != settings_namespace::INVALID);
 
   SettingsFrontend* frontend =
       profile()->GetExtensionService()->settings_frontend();
+  if (!frontend->IsStorageEnabled(settings_namespace_)) {
+    error_ = base::StringPrintf(kInvalidNamespaceErrorMessage,
+                                settings_namespace_string.c_str());
+    return false;
+  }
+
   observers_ = frontend->GetObservers();
   frontend->RunWithStorage(
       extension_id(),
       settings_namespace_,
-      base::Bind(&SettingsFunction::RunWithStorageOnFileThread, this));
+      base::Bind(&SettingsFunction::AsyncRunWithStorage, this));
   return true;
 }
 
-void SettingsFunction::RunWithStorageOnFileThread(ValueStore* storage) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+void SettingsFunction::AsyncRunWithStorage(ValueStore* storage) {
   bool success = RunWithStorage(storage);
   BrowserThread::PostTask(
       BrowserThread::UI,
@@ -72,7 +80,6 @@ void SettingsFunction::RunWithStorageOnFileThread(ValueStore* storage) {
 }
 
 bool SettingsFunction::UseReadResult(ValueStore::ReadResult result) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   if (result->HasError()) {
     error_ = result->error();
     return false;
@@ -83,7 +90,6 @@ bool SettingsFunction::UseReadResult(ValueStore::ReadResult result) {
 }
 
 bool SettingsFunction::UseWriteResult(ValueStore::WriteResult result) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   if (result->HasError()) {
     error_ = result->error();
     return false;
@@ -126,8 +132,7 @@ std::vector<std::string> GetKeys(const DictionaryValue& dict) {
 }
 
 // Creates quota heuristics for settings modification.
-static void GetModificationQuotaLimitHeuristics(
-    QuotaLimitHeuristics* heuristics) {
+void GetModificationQuotaLimitHeuristics(QuotaLimitHeuristics* heuristics) {
   QuotaLimitHeuristic::Config longLimitConfig = {
     // See storage.json for current value.
     api::storage::sync::MAX_WRITE_OPERATIONS_PER_HOUR,
@@ -153,7 +158,6 @@ static void GetModificationQuotaLimitHeuristics(
 }  // namespace
 
 bool GetSettingsFunction::RunWithStorage(ValueStore* storage) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   Value* input = NULL;
   EXTENSION_FUNCTION_VALIDATE(args_->Get(0, &input));
 
@@ -193,7 +197,6 @@ bool GetSettingsFunction::RunWithStorage(ValueStore* storage) {
 }
 
 bool GetBytesInUseSettingsFunction::RunWithStorage(ValueStore* storage) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   Value* input = NULL;
   EXTENSION_FUNCTION_VALIDATE(args_->Get(0, &input));
 
@@ -228,7 +231,6 @@ bool GetBytesInUseSettingsFunction::RunWithStorage(ValueStore* storage) {
 }
 
 bool SetSettingsFunction::RunWithStorage(ValueStore* storage) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   DictionaryValue* input = NULL;
   EXTENSION_FUNCTION_VALIDATE(args_->GetDictionary(0, &input));
   return UseWriteResult(storage->Set(ValueStore::DEFAULTS, *input));
@@ -240,7 +242,6 @@ void SetSettingsFunction::GetQuotaLimitHeuristics(
 }
 
 bool RemoveSettingsFunction::RunWithStorage(ValueStore* storage) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   Value* input = NULL;
   EXTENSION_FUNCTION_VALIDATE(args_->Get(0, &input));
 
@@ -269,7 +270,6 @@ void RemoveSettingsFunction::GetQuotaLimitHeuristics(
 }
 
 bool ClearSettingsFunction::RunWithStorage(ValueStore* storage) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
   return UseWriteResult(storage->Clear());
 }
 

@@ -180,8 +180,7 @@ ui::GestureStatus FrameMaximizeButton::OnGestureEvent(
   return ImageButton::OnGestureEvent(event);
 }
 
-gfx::ImageSkia FrameMaximizeButton::GetImageToPaint(
-    ui::ScaleFactor scale_factor) {
+gfx::ImageSkia FrameMaximizeButton::GetImageToPaint() {
   if (is_snap_enabled_) {
     int id = 0;
     if (frame_->GetWidget()->IsMaximized()) {
@@ -226,7 +225,7 @@ gfx::ImageSkia FrameMaximizeButton::GetImageToPaint(
     return *ResourceBundle::GetSharedInstance().GetImageNamed(id).ToImageSkia();
   }
   // Hot and pressed states handled by regular ImageButton.
-  return ImageButton::GetImageToPaint(scale_factor);
+  return ImageButton::GetImageToPaint();
 }
 
 void FrameMaximizeButton::ProcessStartEvent(const views::LocatedEvent& event) {
@@ -363,7 +362,7 @@ gfx::Rect FrameMaximizeButton::ScreenBoundsForType(SnapType type) const {
     case SNAP_MAXIMIZE:
       return ScreenAsh::ConvertRectToScreen(
           window->parent(),
-          ScreenAsh::GetMaximizedWindowParentBounds(window));
+          ScreenAsh::GetMaximizedWindowBoundsInParent(window));
     case SNAP_MINIMIZE: {
       Launcher* launcher = Shell::GetInstance()->launcher();
       gfx::Rect item_rect(launcher->GetScreenBoundsOfItemIconForWindow(window));
@@ -373,11 +372,12 @@ gfx::Rect FrameMaximizeButton::ScreenBoundsForType(SnapType type) const {
         item_rect.Inset(-8, -8);
         return item_rect;
       }
-      return launcher->widget()->GetWindowScreenBounds();
+      return launcher->widget()->GetWindowBoundsInScreen();
     }
     case SNAP_RESTORE: {
       const gfx::Rect* restore = GetRestoreBoundsInScreen(window);
-      return restore ? *restore : frame_->GetWidget()->GetWindowScreenBounds();
+      return restore ?
+          *restore : frame_->GetWidget()->GetWindowBoundsInScreen();
     }
     case SNAP_NONE:
       NOTREACHED();

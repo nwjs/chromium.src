@@ -4,7 +4,7 @@
 
 #include "chrome/browser/extensions/script_badge_controller.h"
 
-#include "chrome/browser/extensions/extension_browser_event_router.h"
+#include "chrome/browser/extensions/browser_event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -93,7 +93,8 @@ void ScriptBadgeController::OnExecuteScriptFinished(
     const std::string& extension_id,
     bool success,
     int32 page_id,
-    const std::string& error) {
+    const std::string& error,
+    const base::ListValue& script_results) {
   if (success && page_id == GetPageID()) {
     if (MarkExtensionExecuting(extension_id))
       NotifyChange();

@@ -85,7 +85,6 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
   PrefService* local_state = g_browser_process->local_state();
   if (local_state) {
     local_pref_registrar_.Init(local_state);
-    local_pref_registrar_.Add(prefs::kPrintingEnabled, this);
     local_pref_registrar_.Add(prefs::kAllowFileSelectionDialogs, this);
     local_pref_registrar_.Add(prefs::kInManagedMode, this);
   }
@@ -95,6 +94,7 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
   profile_pref_registrar_.Add(prefs::kEditBookmarksEnabled, this);
   profile_pref_registrar_.Add(prefs::kShowBookmarkBar, this);
   profile_pref_registrar_.Add(prefs::kIncognitoModeAvailability, this);
+  profile_pref_registrar_.Add(prefs::kPrintingEnabled, this);
 
   InitCommandState();
 
@@ -351,7 +351,7 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_BOOKMARK_PAGE:
       BookmarkCurrentPage(browser_);
       break;
-    case IDC_PIN_TO_START_SCREEN:
+    case IDC_METRO_PIN_TO_START_SCREEN:
       TogglePagePinnedToStartScreen(browser_);
       break;
     case IDC_BOOKMARK_ALL_TABS:
@@ -930,7 +930,7 @@ void BrowserCommandController::UpdateCommandsForBookmarkEditing() {
                                         CanBookmarkCurrentPage(browser_));
   command_updater_.UpdateCommandEnabled(IDC_BOOKMARK_ALL_TABS,
                                         CanBookmarkAllTabs(browser_));
-  command_updater_.UpdateCommandEnabled(IDC_PIN_TO_START_SCREEN,
+  command_updater_.UpdateCommandEnabled(IDC_METRO_PIN_TO_START_SCREEN,
                                         true);
 }
 

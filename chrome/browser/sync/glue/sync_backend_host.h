@@ -16,7 +16,6 @@
 #include "base/threading/thread.h"
 #include "chrome/browser/sync/glue/backend_data_type_configurer.h"
 #include "chrome/browser/sync/glue/chrome_extensions_activity_monitor.h"
-#include "chrome/browser/sync/glue/chrome_sync_notification_bridge.h"
 #include "chrome/common/net/gaia/google_service_auth_error.h"
 #include "googleurl/src/gurl.h"
 #include "sync/internal_api/public/base/model_type.h"
@@ -41,6 +40,7 @@ class SyncManagerFactory;
 namespace browser_sync {
 
 class ChangeProcessor;
+class ChromeSyncNotificationBridge;
 struct Experiments;
 class InvalidatorStorage;
 class JsBackend;
@@ -299,7 +299,7 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
         syncer::SyncManagerFactory* sync_manager_factory,
         bool delete_sync_data_folder,
         const std::string& restored_key_for_bootstrapping,
-        syncer::SyncManager::TestingMode testing_mode,
+        syncer::InternalComponentsFactory* internal_components_factory,
         syncer::UnrecoverableErrorHandler* unrecoverable_error_handler,
         syncer::ReportUnrecoverableErrorFunction
             report_unrecoverable_error_function);
@@ -321,7 +321,7 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
     std::string lsid;
     bool delete_sync_data_folder;
     std::string restored_key_for_bootstrapping;
-    syncer::SyncManager::TestingMode testing_mode;
+    syncer::InternalComponentsFactory* internal_components_factory;
     syncer::UnrecoverableErrorHandler* unrecoverable_error_handler;
     syncer::ReportUnrecoverableErrorFunction
         report_unrecoverable_error_function;
@@ -341,8 +341,7 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
 
   // Called when the syncer has finished performing a configuration.
   void FinishConfigureDataTypesOnFrontendLoop(
-      const syncer::ModelTypeSet types_to_configure,
-      const syncer::ModelTypeSet configured_types,
+      const syncer::ModelTypeSet failed_configuration_types,
       const base::Callback<void(syncer::ModelTypeSet)>& ready_task);
 
  private:
@@ -477,9 +476,9 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
 
   const base::WeakPtr<SyncPrefs> sync_prefs_;
 
-  // A thread-safe listener for handling notifications triggered by
-  // chrome events.
-  ChromeSyncNotificationBridge chrome_sync_notification_bridge_;
+  // A bridge that converts Chrome notifications (on the UI thread)
+  // into invalidations (on the sync thread).
+  scoped_ptr<ChromeSyncNotificationBridge> chrome_sync_notification_bridge_;
 
   syncer::SyncNotifierFactory sync_notifier_factory_;
 

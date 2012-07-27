@@ -10,9 +10,11 @@
 #include "base/compiler_specific.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
-#include "remoting/host/capturer.h"
 #include "remoting/host/clipboard.h"
 #include "remoting/proto/event.pb.h"
+// SkSize.h assumes that stdint.h-style types are already defined.
+#include "third_party/skia/include/core/SkTypes.h"
+#include "third_party/skia/include/core/SkSize.h"
 
 namespace remoting {
 
@@ -31,8 +33,7 @@ using protocol::MouseEvent;
 class EventExecutorWin : public EventExecutor {
  public:
   EventExecutorWin(scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
-                   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner,
-                   Capturer* capturer);
+                   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner);
   virtual ~EventExecutorWin() {}
 
   // ClipboardStub interface.
@@ -54,7 +55,6 @@ class EventExecutorWin : public EventExecutor {
 
   scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner_;
-  Capturer* capturer_;
   scoped_ptr<Clipboard> clipboard_;
 
   DISALLOW_COPY_AND_ASSIGN(EventExecutorWin);
@@ -62,11 +62,9 @@ class EventExecutorWin : public EventExecutor {
 
 EventExecutorWin::EventExecutorWin(
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
-    scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner,
-    Capturer* capturer)
+    scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner)
     : main_task_runner_(main_task_runner),
       ui_task_runner_(ui_task_runner),
-      capturer_(capturer),
       clipboard_(Clipboard::Create()) {
 }
 
@@ -221,11 +219,15 @@ void EventExecutorWin::HandleMouse(const MouseEvent& event) {
     INPUT input;
     input.type = INPUT_MOUSE;
     input.mi.time = 0;
-    SkISize screen_size = capturer_->size_most_recent();
+    SkISize screen_size(SkISize::Make(GetSystemMetrics(SM_CXVIRTUALSCREEN),
+                                      GetSystemMetrics(SM_CYVIRTUALSCREEN)));
     if ((screen_size.width() > 1) && (screen_size.height() > 1)) {
+      x = std::max(0, std::min(screen_size.width(), x));
+      y = std::max(0, std::min(screen_size.height(), y));
       input.mi.dx = static_cast<int>((x * 65535) / (screen_size.width() - 1));
       input.mi.dy = static_cast<int>((y * 65535) / (screen_size.height() - 1));
-      input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+      input.mi.dwFlags =
+          MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK;
       if (SendInput(1, &input, sizeof(INPUT)) == 0) {
         LOG_GETLASTERROR(ERROR) << "Failed to inject a mouse move event";
       }
@@ -289,10 +291,9 @@ void EventExecutorWin::HandleMouse(const MouseEvent& event) {
 
 scoped_ptr<EventExecutor> EventExecutor::Create(
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
-    scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner,
-    Capturer* capturer) {
+    scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner) {
   return scoped_ptr<EventExecutor>(
-      new EventExecutorWin(main_task_runner, ui_task_runner, capturer));
+      new EventExecutorWin(main_task_runner, ui_task_runner));
 }
 
 }  // namespace remoting

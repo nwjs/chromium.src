@@ -70,6 +70,11 @@
         'android_upstream_bringup%': '<(android_upstream_bringup)',
         'buildtype%': '<(buildtype)',
 
+        # Sets whether we're building with the Android SDK/NDK (and hence with
+        # Ant, value 0), or as part of the Android system (and hence with the
+        # Android build system, value 1).
+        'android_build_type%': 0,
+
         # Compute the architecture that we're building on.
         'conditions': [
           ['OS=="win" or OS=="mac" or OS=="ios"', {
@@ -131,6 +136,7 @@
       'enable_hidpi%': '<(enable_hidpi)',
       'enable_touch_ui%': '<(enable_touch_ui)',
       'android_upstream_bringup%': '<(android_upstream_bringup)',
+      'android_build_type%': '<(android_build_type)',
 
       # We used to provide a variable for changing how libraries were built.
       # This variable remains until we can clean up all the users.
@@ -513,6 +519,12 @@
         ['OS!="mac" and OS!="android"', {
           'use_canvas_skia%': 1,
         }],
+
+        ['OS=="android"', {
+          # When building as part of the Android system, use system libraries
+          # where possible to reduce ROM size.
+          'use_system_libjpeg%': '<(android_build_type)',
+        }],
       ],
     },
 
@@ -593,6 +605,8 @@
     'sas_dll_path%': '<(sas_dll_path)',
     'wix_path%': '<(wix_path)',
     'android_upstream_bringup%': '<(android_upstream_bringup)',
+    'use_system_libjpeg%': '<(use_system_libjpeg)',
+    'android_build_type%': '<(android_build_type)',
 
     # Use system yasm instead of bundled one.
     'use_system_yasm%': 0,
@@ -629,8 +643,11 @@
     # http://developer.apple.com/mac/library/technotes/tn2002/tn2064.html#SECTION3
     # Chrome normally builds with the Mac OS X 10.6 SDK and sets the
     # deployment target to 10.5.  Other projects, such as O3D, may override
-    # these defaults.
+    # these defaults. If the SDK is installed someplace that Xcode doesn't
+    # know about, set mac_sdk_path to the path to the SDK. If set to a
+    # non-empty string, mac_sdk_path will be used in preference to mac_sdk.
     'mac_sdk%': '10.6',
+    'mac_sdk_path%': '',
     'mac_deployment_target%': '10.5',
 
     # The default value for mac_strip in target_defaults. This cannot be
@@ -780,6 +797,9 @@
     # Set to 1 to compile with the built in pdf viewer.
     'internal_pdf%': 0,
 
+    # Set to 1 to compile with the OpenGL ES 2.0 conformance tests.
+    'internal_gles2_conform_tests%': 0,
+
     # NOTE: When these end up in the Mac bundle, we need to replace '-' for '_'
     # so Cocoa is happy (http://crbug.com/20441).
     'locales': [
@@ -868,7 +888,9 @@
       }],  # os_posix==1 and OS!="mac" and OS!="ios"
       ['OS=="ios"', {
         'disable_nacl%': 1,
+        'use_system_bzip2%': 1,
         'use_system_libxml%': 1,
+        'use_system_sqlite%': 1,
       }],
       ['OS=="android"', {
         # Location of Android NDK.
@@ -892,14 +914,9 @@
                 'android_app_abi%': 'armeabi-v7a',
               }],
             ],
-
-            # Switch between different build types, currently only '0' is
-            # supported.
-            'android_build_type%': 0,
           },
           'android_ndk_root%': '<(android_ndk_root)',
-          'android_ndk_sysroot': '<(android_ndk_root)/platforms/android-9/arch-<(target_arch)',
-          'android_build_type%': '<(android_build_type)',
+          'android_ndk_sysroot%': '<(android_ndk_root)/platforms/android-9/arch-<(target_arch)',
           'android_app_abi%': '<(android_app_abi)',
         },
         'android_ndk_root%': '<(android_ndk_root)',
@@ -964,31 +981,24 @@
         # Always use the system zlib.
         'use_system_zlib%': 1,
 
+        # Configure crash reporting and build options based on release type.
         'conditions': [
-          # Determine whether or not to use breakpad crash reporting for native
-          # code. Java code stacktraces will be collected by GoogleFeedback when
-          # chrome is installed by either market or bazaar where the installer
-          # package is automatically set to AndroidFeedback.
           ['buildtype=="Official"', {
+            # Only report crash dumps for Official builds.
             'linux_breakpad%': 1,
           }, {
             'linux_breakpad%': 0,
           }],
         ],
 
-        # TODO(steveblock): Investigate using the system versions of sqlite and
-        # libjpeg.
-        # Enable to use system sqlite.
+        # When building as part of the Android system, use system libraries
+        # where possible to reduce ROM size.
+        # TODO(steveblock): Investigate using the system version of sqlite.
         'use_system_sqlite%': 0,  # '<(android_build_type)',
-        # Enable to use system libjpeg.
-        'use_system_libjpeg%': 0,  # '<(android_build_type)',
-        # Enable to use the system expat.
         'use_system_expat%': '<(android_build_type)',
-        # Enable to use the system ICU.
         'use_system_icu%': '<(android_build_type)',
-        # Enable to use the system stlport, otherwise statically
-        # link the NDK one?
         'use_system_stlport%': '<(android_build_type)',
+
         # Copy it out one scope.
         'android_build_type%': '<(android_build_type)',
       }],  # OS=="android"
@@ -2318,35 +2328,41 @@
           ['asan==1', {
             'target_conditions': [
               ['_toolset=="target"', {
-                  'cflags': [
-                      '-faddress-sanitizer',
-                      '-fno-omit-frame-pointer',
-                  ],
-                  'ldflags': [
-                      '-faddress-sanitizer',
-                  ],
-                  'defines': [
-                      'ADDRESS_SANITIZER',
-                  ],
+                'cflags': [
+                  '-faddress-sanitizer',
+                  '-fno-omit-frame-pointer',
+                ],
+                'ldflags': [
+                  '-faddress-sanitizer',
+                ],
+                'defines': [
+                  'ADDRESS_SANITIZER',
+                ],
               }],
             ],
           }],
           ['tsan==1', {
             'target_conditions': [
               ['_toolset=="target"', {
-                  'cflags': [
-                      '-fthread-sanitizer',
-                      '-fno-omit-frame-pointer',
-                      '-fPIE',
-                  ],
-                  'ldflags': [
-                      '-fthread-sanitizer',
+                'cflags': [
+                  '-fthread-sanitizer',
+                  '-fno-omit-frame-pointer',
+                  '-fPIE',
+                ],
+                'ldflags': [
+                  '-fthread-sanitizer',
+                ],
+                'defines': [
+                  'THREAD_SANITIZER',
+                  'DYNAMIC_ANNOTATIONS_EXTERNAL_IMPL=1',
+                ],
+                'target_conditions': [
+                  ['_type=="executable"', {
+                    'ldflags': [
                       '-pie',
-                  ],
-                  'defines': [
-                      'THREAD_SANITIZER',
-                      'DYNAMIC_ANNOTATIONS_EXTERNAL_IMPL=1',
-                  ],
+                    ],
+                  }],
+                ],
               }],
             ],
           }],
@@ -2516,7 +2532,6 @@
               '-pthread',  # Not supported by Android toolchain.
             ],
             'cflags': [
-              '-U__linux__',  # Don't allow toolchain to claim -D__linux__
               '-ffunction-sections',
               '-funwind-tables',
               '-g',
@@ -2524,19 +2539,13 @@
               '-fno-short-enums',
               '-finline-limit=64',
               '-Wa,--noexecstack',
-              '-Wno-error=non-virtual-dtor',  # TODO(michaelbai): Fix warnings.
               '<@(release_extra_cflags)',
-              # Note: This include is in cflags to ensure that it comes after
-              # all of the includes.
-              '-I<(android_ndk_include)',
             ],
             'defines': [
               'ANDROID',
               '__GNU_SOURCE=1',  # Necessary for clone()
               'USE_STLPORT=1',
               '_STLP_USE_PTR_SPECIALIZATIONS=1',
-              'HAVE_SYS_UIO_H',
-              'ANDROID_BINSIZE_HACK', # Enable temporary hacks to reduce binsize.
             ],
             'ldflags!': [
               '-pthread',  # Not supported by Android toolchain.
@@ -2562,7 +2571,12 @@
               }],
               ['android_build_type==0', {
                 'defines': [
-                  'HAVE_OFF64_T',
+                  # The NDK has these things, but doesn't define the constants
+                  # to say that it does. Define them here instead.
+                  'HAVE_SYS_UIO_H',
+                ],
+                'cflags': [
+                  '--sysroot=<(android_ndk_sysroot)',
                 ],
                 'ldflags': [
                   '--sysroot=<(android_ndk_sysroot)',
@@ -2634,7 +2648,7 @@
                   '<(android_ndk_lib)/crtend_android.o',
                 ],
               }],
-              ['_type=="shared_library"', {
+              ['_type=="shared_library" or _type=="loadable_module"', {
                 'ldflags': [
                   '-Wl,-shared,-Bsymbolic',
                   # crtbegin_so.o should be the last item in ldflags.
@@ -3286,18 +3300,26 @@
     # custom xcode_settings in target_defaults to add them to targets instead.
 
     'conditions': [
-      ['OS=="mac"', {
-        # In an Xcode Project Info window, the "Base SDK for All Configurations"
-        # setting sets the SDK on a project-wide basis.  In order to get the
-        # configured SDK to show properly in the Xcode UI, SDKROOT must be set
-        # here at the project level.
-        'SDKROOT': 'macosx<(mac_sdk)',  # -isysroot
+      # In an Xcode Project Info window, the "Base SDK for All Configurations"
+      # setting sets the SDK on a project-wide basis. In order to get the
+      # configured SDK to show properly in the Xcode UI, SDKROOT must be set
+      # here at the project level.
+      ['mac_sdk_path==""', {
+        'conditions': [
+          ['OS=="mac"', {
+            'SDKROOT': 'macosx<(mac_sdk)',  # -isysroot
+          }],
+          ['OS=="ios"', {
+            'SDKROOT': 'iphoneos<(ios_sdk)',  # -isysroot
+          }],
+        ],
+      }, {  # else: mac_sdk_path!=""
+        'SDKROOT': '<(mac_sdk_path)',  # -isysroot
       }],
       ['OS=="ios"', {
         # Just build armv7 since iOS 4.3+ only supports armv7.
         'ARCHS': '$(ARCHS_UNIVERSAL_IPHONE_OS)',
         'IPHONEOS_DEPLOYMENT_TARGET': '<(ios_deployment_target)',
-        'SDKROOT': 'iphoneos<(ios_sdk)',  # -isysroot
         # Target both iPhone and iPad.
         'TARGETED_DEVICE_FAMILY': '1,2',
       }],

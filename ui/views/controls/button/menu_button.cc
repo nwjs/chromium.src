@@ -224,6 +224,7 @@ ui::GestureStatus MenuButton::OnGestureEvent(const GestureEvent& event) {
   if (state() != BS_DISABLED && event.type() == ui::ET_GESTURE_TAP) {
     if (Activate())
       return ui::GESTURE_STATUS_CONSUMED;
+    return ui::GESTURE_STATUS_UNKNOWN;
   }
   return TextButton::OnGestureEvent(event);
 }
@@ -266,7 +267,7 @@ int MenuButton::GetMaximumScreenXCoordinate() {
     return 0;
   }
 
-  gfx::Rect monitor_bounds = GetWidget()->GetWorkAreaScreenBounds();
+  gfx::Rect monitor_bounds = GetWidget()->GetWorkAreaBoundsInScreen();
   return monitor_bounds.right() - 1;
 }
 

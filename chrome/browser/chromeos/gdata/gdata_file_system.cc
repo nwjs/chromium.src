@@ -315,6 +315,19 @@ void SaveFeedOnBlockingPoolForDebugging(
   }
 }
 
+// Gets the file size of |local_file|.
+void GetLocalFileSizeOnBlockingPool(const FilePath& local_file,
+                                    GDataFileError* error,
+                                    int64* file_size) {
+  DCHECK(error);
+  DCHECK(file_size);
+
+  *file_size = 0;
+  *error = file_util::GetFileSize(local_file, file_size) ?
+      GDATA_FILE_OK :
+      GDATA_FILE_ERROR_NOT_FOUND;
+}
+
 // Gets the file size and the content type of |local_file|.
 void GetLocalFileInfoOnBlockingPool(
     const FilePath& local_file,
@@ -592,6 +605,17 @@ void PostBlockingPoolSequencedTaskAndReply(
   DCHECK(posted);
 }
 
+// Helper function for binding |path| to GetEntryInfoWithFilePathCallback and
+// create GetEntryInfoCallback.
+void RunGetEntryInfoWithFilePathCallback(
+    const GetEntryInfoWithFilePathCallback& callback,
+    const FilePath& path,
+    GDataFileError error,
+    scoped_ptr<GDataEntryProto> entry_proto) {
+  if (!callback.is_null())
+    callback.Run(error, path, entry_proto.Pass());
+}
+
 }  // namespace
 
 // GDataFileSystem::GetDocumentsParams struct implementation.
@@ -753,6 +777,19 @@ struct GDataFileSystem::FeedToFileResourceMapUmaStats {
   EntryKindToCountMap num_files_with_entry_kind;
 };
 
+// GDataFileSystem::StartFileUploadParams implementation.
+struct GDataFileSystem::StartFileUploadParams {
+  StartFileUploadParams(const FilePath& in_local_file_path,
+                        const FilePath& in_remote_file_path,
+                        const FileOperationCallback& in_callback)
+      : local_file_path(in_local_file_path),
+        remote_file_path(in_remote_file_path),
+        callback(in_callback) {}
+
+  const FilePath local_file_path;
+  const FilePath remote_file_path;
+  const FileOperationCallback callback;
+};
 
 // GDataFileSystem class implementation.
 
@@ -792,9 +829,9 @@ void GDataFileSystem::Initialize() {
 
 void GDataFileSystem::CheckForUpdates() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  ContentOrigin initial_origin = directory_service_->root()->origin();
+  ContentOrigin initial_origin = directory_service_->origin();
   if (initial_origin == FROM_SERVER) {
-    directory_service_->root()->set_origin(REFRESHING);
+    directory_service_->set_origin(REFRESHING);
     ReloadFeedFromServerIfNeeded(
         initial_origin,
         directory_service_->largest_changestamp(),
@@ -811,7 +848,7 @@ void GDataFileSystem::OnUpdateChecked(ContentOrigin initial_origin,
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (error != GDATA_FILE_OK) {
-    directory_service_->root()->set_origin(initial_origin);
+    directory_service_->set_origin(initial_origin);
   }
 }
 
@@ -851,43 +888,44 @@ void GDataFileSystem::StopUpdates() {
   update_timer_.Stop();
 }
 
-void GDataFileSystem::GetFileInfoByResourceId(
+void GDataFileSystem::GetEntryInfoByResourceId(
     const std::string& resource_id,
-    const GetFileInfoWithFilePathCallback& callback) {
+    const GetEntryInfoWithFilePathCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI) ||
          BrowserThread::CurrentlyOn(BrowserThread::IO));
   RunTaskOnUIThread(
-      base::Bind(&GDataFileSystem::GetFileInfoByResourceIdOnUIThread,
+      base::Bind(&GDataFileSystem::GetEntryInfoByResourceIdOnUIThread,
                  ui_weak_ptr_,
                  resource_id,
                  CreateRelayCallback(callback)));
 }
 
-void GDataFileSystem::GetFileInfoByResourceIdOnUIThread(
+void GDataFileSystem::GetEntryInfoByResourceIdOnUIThread(
     const std::string& resource_id,
-    const GetFileInfoWithFilePathCallback& callback) {
+    const GetEntryInfoWithFilePathCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   directory_service_->GetEntryByResourceIdAsync(resource_id,
-      base::Bind(&GDataFileSystem::GetFileInfoByEntryOnUIThread,
+      base::Bind(&GDataFileSystem::GetEntryInfoByEntryOnUIThread,
                  ui_weak_ptr_,
                  callback));
 }
 
-void GDataFileSystem::GetFileInfoByEntryOnUIThread(
-    const GetFileInfoWithFilePathCallback& callback,
+void GDataFileSystem::GetEntryInfoByEntryOnUIThread(
+    const GetEntryInfoWithFilePathCallback& callback,
     GDataEntry* entry) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (entry && entry->AsGDataFile()) {
-    scoped_ptr<GDataFileProto> file_proto(new GDataFileProto);
-    entry->AsGDataFile()->ToProto(file_proto.get());
-    callback.Run(GDATA_FILE_OK,
-                 entry->GetFilePath(),
-                 file_proto.Pass());
+  if (entry) {
+    scoped_ptr<GDataEntryProto> entry_proto(new GDataEntryProto);
+    entry->ToProtoFull(entry_proto.get());
+    CheckLocalModificationAndRun(
+        entry_proto.Pass(),
+        base::Bind(&RunGetEntryInfoWithFilePathCallback,
+                   callback, entry->GetFilePath()));
   } else {
     callback.Run(GDATA_FILE_ERROR_NOT_FOUND,
                  FilePath(),
-                 scoped_ptr<GDataFileProto>());
+                 scoped_ptr<GDataEntryProto>());
   }
 }
 
@@ -896,7 +934,7 @@ void GDataFileSystem::FindEntryByPathAsyncOnUIThread(
     const FindEntryCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (directory_service_->root()->origin() == INITIALIZING) {
+  if (directory_service_->origin() == INITIALIZING) {
     // If root feed is not initialized but the initialization process has
     // already started, add an observer to execute the remaining task after
     // the end of the initialization.
@@ -907,10 +945,10 @@ void GDataFileSystem::FindEntryByPathAsyncOnUIThread(
                    search_file_path,
                    callback)));
     return;
-  } else if (directory_service_->root()->origin() == UNINITIALIZED) {
+  } else if (directory_service_->origin() == UNINITIALIZED) {
     // Load root feed from this disk cache. Upon completion, kick off server
     // fetching.
-    directory_service_->root()->set_origin(INITIALIZING);
+    directory_service_->set_origin(INITIALIZING);
     LoadRootFeedFromCache(
         true,  // should_load_from_server
         search_file_path,
@@ -1020,7 +1058,7 @@ void GDataFileSystem::OnGetAccountMetadata(
                    << ", server = "
                    << account_metadata->largest_changestamp();
     }
-    directory_service_->root()->set_origin(initial_origin);
+    directory_service_->set_origin(initial_origin);
     changes_detected = false;
   }
 
@@ -1231,18 +1269,16 @@ void GDataFileSystem::TransferRegularFile(
                  content_type),
       base::Bind(&GDataFileSystem::StartFileUploadOnUIThread,
                  ui_weak_ptr_,
-                 local_file_path,
-                 remote_dest_file_path,
-                 callback,
+                 StartFileUploadParams(local_file_path,
+                                       remote_dest_file_path,
+                                       callback),
                  base::Owned(error),
                  base::Owned(file_size),
                  base::Owned(content_type)));
 }
 
 void GDataFileSystem::StartFileUploadOnUIThread(
-    const FilePath& local_file,
-    const FilePath& remote_dest_file,
-    const FileOperationCallback& callback,
+    const StartFileUploadParams& params,
     GDataFileError* error,
     int64* file_size,
     std::string* content_type) {
@@ -1254,38 +1290,57 @@ void GDataFileSystem::StartFileUploadOnUIThread(
   DCHECK(content_type);
 
   if (*error != GDATA_FILE_OK) {
-    if (!callback.is_null())
-      callback.Run(*error);
+    if (!params.callback.is_null())
+      params.callback.Run(*error);
 
     return;
   }
 
   // Make sure the destination directory exists.
-  GDataEntry* dest_dir = GetGDataEntryByPath(remote_dest_file.DirName());
-  if (!dest_dir || !dest_dir->AsGDataDirectory()) {
-    if (!callback.is_null())
-      callback.Run(GDATA_FILE_ERROR_NOT_FOUND);
-    NOTREACHED();
+  GetEntryInfoByPath(
+      params.remote_file_path.DirName(),
+      base::Bind(
+          &GDataFileSystem::StartFileUploadOnUIThreadAfterGetEntryInfo,
+          ui_weak_ptr_,
+          params,
+          *file_size,
+          *content_type));
+}
+
+void GDataFileSystem::StartFileUploadOnUIThreadAfterGetEntryInfo(
+    const StartFileUploadParams& params,
+    int64 file_size,
+    std::string content_type,
+    GDataFileError error,
+    scoped_ptr<GDataEntryProto> entry_proto) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (entry_proto.get() && !entry_proto->file_info().is_directory())
+    error = GDATA_FILE_ERROR_NOT_A_DIRECTORY;
+
+  if (error != GDATA_FILE_OK) {
+    if (!params.callback.is_null())
+      params.callback.Run(error);
     return;
   }
+  DCHECK(entry_proto.get());
 
   // Fill in values of UploadFileInfo.
   scoped_ptr<UploadFileInfo> upload_file_info(new UploadFileInfo);
-  upload_file_info->file_path = local_file;
-  upload_file_info->file_size = *file_size;
-  upload_file_info->gdata_path = remote_dest_file;
+  upload_file_info->file_path = params.local_file_path;
+  upload_file_info->file_size = file_size;
+  upload_file_info->gdata_path = params.remote_file_path;
   // Use the file name as the title.
-  upload_file_info->title = remote_dest_file.BaseName().value();
-  upload_file_info->content_length = *file_size;
+  upload_file_info->title = params.remote_file_path.BaseName().value();
+  upload_file_info->content_length = file_size;
   upload_file_info->all_bytes_present = true;
-  upload_file_info->content_type = *content_type;
-  upload_file_info->initial_upload_location =
-      dest_dir->AsGDataDirectory()->upload_url();
+  upload_file_info->content_type = content_type;
+  upload_file_info->initial_upload_location = GURL(entry_proto->upload_url());
 
   upload_file_info->completion_callback =
       base::Bind(&GDataFileSystem::OnTransferCompleted,
                  ui_weak_ptr_,
-                 callback);
+                 params.callback);
 
   uploader_->UploadNewFile(upload_file_info.Pass());
 }
@@ -1470,28 +1525,46 @@ void GDataFileSystem::Rename(const FilePath& file_path,
     return;
   }
 
-  GDataEntry* entry = GetGDataEntryByPath(file_path);
-  if (!entry) {
-    if (!callback.is_null()) {
-      MessageLoop::current()->PostTask(FROM_HERE,
-          base::Bind(callback, GDATA_FILE_ERROR_NOT_FOUND, file_path));
-    }
+  // Get the edit URL of an entry at |file_path|.
+  GetEntryInfoByPath(file_path,
+                     base::Bind(
+                         &GDataFileSystem::RenameAfterGetEntryInfo,
+                         ui_weak_ptr_,
+                         file_path,
+                         new_name,
+                         callback));
+}
+
+void GDataFileSystem::RenameAfterGetEntryInfo(
+    const FilePath& file_path,
+    const FilePath::StringType& new_name,
+    const FilePathUpdateCallback& callback,
+    GDataFileError error,
+    scoped_ptr<GDataEntryProto> entry_proto) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (error != GDATA_FILE_OK) {
+    if (!callback.is_null())
+      callback.Run(error, file_path);
     return;
   }
+  DCHECK(entry_proto.get());
 
   // Drop the .g<something> extension from |new_name| if the file being
   // renamed is a hosted document and |new_name| has the same .g<something>
   // extension as the file.
   FilePath::StringType file_name = new_name;
-  if (entry->AsGDataFile() && entry->AsGDataFile()->is_hosted_document()) {
+  if (entry_proto->has_file_specific_info() &&
+      entry_proto->file_specific_info().is_hosted_document()) {
     FilePath new_file(file_name);
-    if (new_file.Extension() == entry->AsGDataFile()->document_extension()) {
+    if (new_file.Extension() ==
+        entry_proto->file_specific_info().document_extension()) {
       file_name = new_file.RemoveExtension().value();
     }
   }
 
   documents_service_->RenameResource(
-      entry->edit_url(),
+      GURL(entry_proto->edit_url()),
       file_name,
       base::Bind(&GDataFileSystem::OnRenameResourceCompleted,
                  ui_weak_ptr_,
@@ -1679,7 +1752,7 @@ void GDataFileSystem::RemoveOnUIThread(
 
 void GDataFileSystem::RemoveOnUIThreadAfterGetEntryInfo(
     const FilePath& file_path,
-    bool is_recursive,
+    bool /* is_recursive */,
     const FileOperationCallback& callback,
     GDataFileError error,
     scoped_ptr<GDataEntryProto> entry_proto) {
@@ -1872,31 +1945,31 @@ void GDataFileSystem::GetFileByPathOnUIThread(
     const GetDownloadDataCallback& get_download_data_callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  GetFileInfoByPath(
+  GetEntryInfoByPath(
       file_path,
-      base::Bind(&GDataFileSystem::OnGetFileInfoCompleteForGetFileByPath,
+      base::Bind(&GDataFileSystem::OnGetEntryInfoCompleteForGetFileByPath,
                  ui_weak_ptr_,
                  file_path,
                  CreateRelayCallback(get_file_callback),
                  CreateRelayCallback(get_download_data_callback)));
 }
 
-void GDataFileSystem::OnGetFileInfoCompleteForGetFileByPath(
+void GDataFileSystem::OnGetEntryInfoCompleteForGetFileByPath(
     const FilePath& file_path,
     const GetFileCallback& get_file_callback,
     const GetDownloadDataCallback& get_download_data_callback,
     GDataFileError error,
-    scoped_ptr<GDataFileProto> file_info) {
+    scoped_ptr<GDataEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  // If |error| == PLATFORM_FILE_OK then |file_info| must be valid.
+  // If |error| == PLATFORM_FILE_OK then |entry_proto| must be valid.
   DCHECK(error != GDATA_FILE_OK ||
-         (file_info.get() && !file_info->gdata_entry().resource_id().empty()));
+         (entry_proto.get() && !entry_proto->resource_id().empty()));
   GetResolvedFileByPath(file_path,
                         get_file_callback,
                         get_download_data_callback,
                         error,
-                        file_info.get());
+                        entry_proto.get());
 }
 
 void GDataFileSystem::GetResolvedFileByPath(
@@ -1904,10 +1977,13 @@ void GDataFileSystem::GetResolvedFileByPath(
     const GetFileCallback& get_file_callback,
     const GetDownloadDataCallback& get_download_data_callback,
     GDataFileError error,
-    const GDataFileProto* file_proto) {
+    const GDataEntryProto* entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (error != GDATA_FILE_OK || !file_proto) {
+  if (entry_proto && !entry_proto->has_file_specific_info())
+    error = GDATA_FILE_ERROR_NOT_FOUND;
+
+  if (error != GDATA_FILE_OK) {
     if (!get_file_callback.is_null()) {
       MessageLoop::current()->PostTask(
           FROM_HERE,
@@ -1924,7 +2000,7 @@ void GDataFileSystem::GetResolvedFileByPath(
   // document instead of fetching the document content in one of the exported
   // formats. The JSON file contains the edit URL and resource ID of the
   // document.
-  if (file_proto->is_hosted_document()) {
+  if (entry_proto->file_specific_info().is_hosted_document()) {
     GDataFileError* error =
         new GDataFileError(GDATA_FILE_OK);
     FilePath* temp_file_path = new FilePath;
@@ -1936,8 +2012,8 @@ void GDataFileSystem::GetResolvedFileByPath(
         base::Bind(&CreateDocumentJsonFileOnBlockingPool,
                    cache_->GetCacheDirectoryPath(
                        GDataCache::CACHE_TYPE_TMP_DOCUMENTS),
-                   GURL(file_proto->alternate_url()),
-                   file_proto->gdata_entry().resource_id(),
+                   GURL(entry_proto->file_specific_info().alternate_url()),
+                   entry_proto->resource_id(),
                    error,
                    temp_file_path,
                    mime_type,
@@ -1953,24 +2029,25 @@ void GDataFileSystem::GetResolvedFileByPath(
 
   // Returns absolute path of the file if it were cached or to be cached.
   FilePath local_tmp_path = cache_->GetCacheFilePath(
-      file_proto->gdata_entry().resource_id(),
-      file_proto->file_md5(),
+      entry_proto->resource_id(),
+      entry_proto->file_specific_info().file_md5(),
       GDataCache::CACHE_TYPE_TMP,
       GDataCache::CACHED_FILE_FROM_SERVER);
   cache_->GetFileOnUIThread(
-      file_proto->gdata_entry().resource_id(),
-      file_proto->file_md5(),
+      entry_proto->resource_id(),
+      entry_proto->file_specific_info().file_md5(),
       base::Bind(
           &GDataFileSystem::OnGetFileFromCache,
           ui_weak_ptr_,
-          GetFileFromCacheParams(file_path,
-                                 local_tmp_path,
-                                 GURL(file_proto->gdata_entry().content_url()),
-                                 file_proto->gdata_entry().resource_id(),
-                                 file_proto->file_md5(),
-                                 file_proto->content_mime_type(),
-                                 get_file_callback,
-                                 get_download_data_callback)));
+          GetFileFromCacheParams(
+              file_path,
+              local_tmp_path,
+              GURL(entry_proto->content_url()),
+              entry_proto->resource_id(),
+              entry_proto->file_specific_info().file_md5(),
+              entry_proto->file_specific_info().content_mime_type(),
+              get_file_callback,
+              get_download_data_callback)));
 }
 
 void GDataFileSystem::GetFileByResourceId(
@@ -2196,58 +2273,9 @@ void GDataFileSystem::OnGetEntryInfo(const GetEntryInfoCallback& callback,
   DCHECK(entry);
 
   scoped_ptr<GDataEntryProto> entry_proto(new GDataEntryProto);
-  entry->ToProto(entry_proto.get());
+  entry->ToProtoFull(entry_proto.get());
 
-  if (!callback.is_null())
-    callback.Run(GDATA_FILE_OK, entry_proto.Pass());
-}
-
-void GDataFileSystem::GetFileInfoByPath(const FilePath& file_path,
-                                        const GetFileInfoCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI) ||
-         BrowserThread::CurrentlyOn(BrowserThread::IO));
-  RunTaskOnUIThread(
-      base::Bind(&GDataFileSystem::GetFileInfoByPathAsyncOnUIThread,
-                 ui_weak_ptr_,
-                 file_path,
-                 CreateRelayCallback(callback)));
-}
-
-void GDataFileSystem::GetFileInfoByPathAsyncOnUIThread(
-    const FilePath& file_path,
-    const GetFileInfoCallback& callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  FindEntryByPathAsyncOnUIThread(
-      file_path,
-      base::Bind(&GDataFileSystem::OnGetFileInfo, ui_weak_ptr_, callback));
-}
-
-void GDataFileSystem::OnGetFileInfo(const GetFileInfoCallback& callback,
-                                    GDataFileError error,
-                                    GDataEntry* entry) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  if (error != GDATA_FILE_OK) {
-    if (!callback.is_null())
-      callback.Run(error, scoped_ptr<GDataFileProto>());
-    return;
-  }
-  DCHECK(entry);
-
-  GDataFile* file = entry->AsGDataFile();
-  if (!file) {
-    if (!callback.is_null())
-      callback.Run(GDATA_FILE_ERROR_NOT_FOUND,
-                   scoped_ptr<GDataFileProto>());
-    return;
-  }
-
-  scoped_ptr<GDataFileProto> file_proto(new GDataFileProto);
-  file->ToProto(file_proto.get());
-
-  if (!callback.is_null())
-    callback.Run(GDATA_FILE_OK, file_proto.Pass());
+  CheckLocalModificationAndRun(entry_proto.Pass(), callback);
 }
 
 void GDataFileSystem::ReadDirectoryByPath(
@@ -2283,7 +2311,7 @@ void GDataFileSystem::OnReadDirectory(const ReadDirectoryCallback& callback,
     if (!callback.is_null())
       callback.Run(error,
                    hide_hosted_docs_,
-                   scoped_ptr<GDataDirectoryProto>());
+                   scoped_ptr<GDataEntryProtoVector>());
     return;
   }
   DCHECK(entry);
@@ -2293,17 +2321,28 @@ void GDataFileSystem::OnReadDirectory(const ReadDirectoryCallback& callback,
     if (!callback.is_null())
       callback.Run(GDATA_FILE_ERROR_NOT_FOUND,
                    hide_hosted_docs_,
-                   scoped_ptr<GDataDirectoryProto>());
+                   scoped_ptr<GDataEntryProtoVector>());
     return;
   }
 
-  scoped_ptr<GDataDirectoryProto> directory_proto(new GDataDirectoryProto);
-  directory->ToProto(directory_proto.get());
+  scoped_ptr<GDataEntryProtoVector> entries(new GDataEntryProtoVector);
+  for (GDataFileCollection::const_iterator iter =
+           directory->child_files().begin();
+       iter != directory->child_files().end(); ++iter) {
+    GDataEntryProto proto;
+    static_cast<const GDataEntry*>(iter->second)->ToProtoFull(&proto);
+    entries->push_back(proto);
+  }
+  for (GDataDirectoryCollection::const_iterator iter =
+           directory->child_directories().begin();
+       iter != directory->child_directories().end(); ++iter) {
+    GDataEntryProto proto;
+    static_cast<const GDataEntry*>(iter->second)->ToProtoFull(&proto);
+    entries->push_back(proto);
+  }
 
   if (!callback.is_null())
-    callback.Run(GDATA_FILE_OK,
-                 hide_hosted_docs_,
-                 directory_proto.Pass());
+    callback.Run(GDATA_FILE_OK, hide_hosted_docs_, entries.Pass());
 }
 
 void GDataFileSystem::RequestDirectoryRefresh(const FilePath& file_path) {
@@ -2340,7 +2379,7 @@ void GDataFileSystem::RequestDirectoryRefreshOnUIThreadAfterGetEntryInfo(
     return;
   }
 
-  LoadFeedFromServer(directory_service_->root()->origin(),
+  LoadFeedFromServer(directory_service_->origin(),
                      0,  // Not delta feed.
                      0,  // Not used.
                      true,  // multiple feeds
@@ -2489,17 +2528,55 @@ void GDataFileSystem::OnGetFileCompleteForUpdateFile(
     return;
   }
 
+  // Gets the size of the cache file. Since the file is locally modified, the
+  // file size information stored in GDataEntry is not correct.
+  GDataFileError* get_size_error = new GDataFileError(GDATA_FILE_ERROR_FAILED);
+  int64* file_size = new int64(-1);
+  PostBlockingPoolSequencedTaskAndReply(
+      FROM_HERE,
+      blocking_task_runner_,
+      base::Bind(&GetLocalFileSizeOnBlockingPool,
+                 cache_file_path,
+                 get_size_error,
+                 file_size),
+      base::Bind(&GDataFileSystem::OnGetFileSizeCompleteForUpdateFile,
+                 ui_weak_ptr_,
+                 callback,
+                 resource_id,
+                 md5,
+                 cache_file_path,
+                 base::Owned(get_size_error),
+                 base::Owned(file_size)));
+}
+
+void GDataFileSystem::OnGetFileSizeCompleteForUpdateFile(
+    const FileOperationCallback& callback,
+    const std::string& resource_id,
+    const std::string& md5,
+    const FilePath& cache_file_path,
+    GDataFileError* error,
+    int64* file_size) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (*error != GDATA_FILE_OK) {
+    if (!callback.is_null())
+      callback.Run(*error);
+    return;
+  }
+
   directory_service_->GetEntryByResourceIdAsync(resource_id,
       base::Bind(&GDataFileSystem::OnGetFileCompleteForUpdateFileByEntry,
           ui_weak_ptr_,
           callback,
           md5,
+          *file_size,
           cache_file_path));
 }
 
 void GDataFileSystem::OnGetFileCompleteForUpdateFileByEntry(
     const FileOperationCallback& callback,
     const std::string& md5,
+    int64 file_size,
     const FilePath& cache_file_path,
     GDataEntry* entry) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -2515,7 +2592,7 @@ void GDataFileSystem::OnGetFileCompleteForUpdateFileByEntry(
       file->upload_url(),
       file->GetFilePath(),
       cache_file_path,
-      file->file_info().size,
+      file_size,
       file->content_mime_type(),
       base::Bind(&GDataFileSystem::OnUpdatedFileUploaded,
                  ui_weak_ptr_,
@@ -2650,6 +2727,13 @@ void GDataFileSystem::OnSearch(const SearchCallback& callback,
   DCHECK_EQ(1u, params->feed_list->size());
   DocumentFeed* feed = params->feed_list->at(0);
 
+  if (feed->entries().empty()) {
+    scoped_ptr<std::vector<SearchResultInfo> > result_vec(results);
+    if (!callback.is_null())
+      callback.Run(error, result_vec.Pass());
+    return;
+  }
+
   // Go through all entires generated by the feed and add them to the search
   // result directory.
   for (size_t i = 0; i < feed->entries().size(); ++i) {
@@ -2703,7 +2787,7 @@ void GDataFileSystem::SearchAsyncOnUIThread(
   scoped_ptr<std::vector<DocumentFeed*> > feed_list(
       new std::vector<DocumentFeed*>);
 
-  ContentOrigin initial_origin = directory_service_->root()->origin();
+  ContentOrigin initial_origin = directory_service_->origin();
   LoadFeedFromServer(initial_origin,
                      0, 0,  // We don't use change stamps when fetching search
                             // data; we always fetch the whole result feed.
@@ -2738,7 +2822,7 @@ void GDataFileSystem::OnGetDocuments(ContentOrigin initial_origin,
   }
 
   if (error != GDATA_FILE_OK) {
-    directory_service_->root()->set_origin(initial_origin);
+    directory_service_->set_origin(initial_origin);
 
     if (!callback.is_null())
       callback.Run(params, error);
@@ -2746,8 +2830,6 @@ void GDataFileSystem::OnGetDocuments(ContentOrigin initial_origin,
     return;
   }
 
-  // TODO(zelidrag): Find a faster way to get next url rather than parsing
-  // the entire feed.
   GURL next_feed_url;
   scoped_ptr<DocumentFeed> current_feed(DocumentFeed::ExtractAndParse(*data));
   if (!current_feed.get()) {
@@ -2849,7 +2931,7 @@ void GDataFileSystem::OnProtoLoaded(LoadRootFeedParams* params) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // If we have already received updates from the server, bail out.
-  if (directory_service_->root()->origin() == FROM_SERVER)
+  if (directory_service_->origin() == FROM_SERVER)
     return;
 
   int local_changestamp = 0;
@@ -2885,11 +2967,11 @@ void GDataFileSystem::OnProtoLoaded(LoadRootFeedParams* params) {
   // By default, if directory content is not yet initialized, restore content
   // origin to UNINITIALIZED in case of failure.
   ContentOrigin initial_origin = UNINITIALIZED;
-  if (directory_service_->root()->origin() != INITIALIZING) {
+  if (directory_service_->origin() != INITIALIZING) {
     // If directory content is already initialized, restore content origin
     // to FROM_CACHE in case of failure.
     initial_origin = FROM_CACHE;
-    directory_service_->root()->set_origin(REFRESHING);
+    directory_service_->set_origin(REFRESHING);
   }
 
   // Kick of the retrieval of the feed from server. If we have previously
@@ -3256,7 +3338,7 @@ GDataFileError GDataFileSystem::UpdateFromFeed(
 
   bool is_delta_feed = start_changestamp != 0;
 
-  directory_service_->root()->set_origin(origin);
+  directory_service_->set_origin(origin);
 
   int delta_feed_changestamp = 0;
   FeedToFileResourceMapUmaStats uma_stats;
@@ -3338,7 +3420,7 @@ void GDataFileSystem::ApplyFeedFromFileUrlMap(
         directory_service_->GetEntryByResourceId(entry->resource_id());
     GDataDirectory* dest_dir = NULL;
     if (entry->is_deleted()) {  // Deleted file/directory.
-      DVLOG(1) << "Removing file " << entry->file_name();
+      DVLOG(1) << "Removing file " << entry->base_name();
       if (!old_entry)
         continue;
 
@@ -3352,7 +3434,7 @@ void GDataFileSystem::ApplyFeedFromFileUrlMap(
     } else if (old_entry) {  // Change or move of existing entry.
       // Please note that entry rename is just a special case of change here
       // since name is just one of the properties that can change.
-      DVLOG(1) << "Changed file " << entry->file_name();
+      DVLOG(1) << "Changed file " << entry->base_name();
       dest_dir = old_entry->parent();
       if (!dest_dir) {
         NOTREACHED();
@@ -3420,7 +3502,7 @@ GDataDirectory* GDataFileSystem::FindDirectoryForNewEntry(
   const std::string& parent_id = new_entry->parent_resource_id();
   if (parent_id.empty()) {
     dir = directory_service_->root();
-    DVLOG(1) << "Root parent for " << new_entry->file_name();
+    DVLOG(1) << "Root parent for " << new_entry->base_name();
   } else {
     GDataEntry* entry = directory_service_->GetEntryByResourceId(parent_id);
     dir = entry ? entry->AsGDataDirectory() : NULL;
@@ -3432,7 +3514,7 @@ GDataDirectory* GDataFileSystem::FindDirectoryForNewEntry(
              find_iter->second) ?
                 find_iter->second->AsGDataDirectory() : NULL;
       if (dir) {
-        DVLOG(1) << "Found parent for " << new_entry->file_name()
+        DVLOG(1) << "Found parent for " << new_entry->base_name()
                  << " in file_map " << parent_id;
       } else {
         DVLOG(1) << "Adding orphan " << new_entry->GetFilePath().value();
@@ -3497,7 +3579,7 @@ GDataFileError GDataFileSystem::FeedToFileResourceMap(
       // entry with another GDataEntry instance.
       if (map_entry != file_map->end()) {
         LOG(WARNING) << "Found duplicate file "
-                     << map_entry->second->file_name();
+                     << map_entry->second->base_name();
 
         delete map_entry->second;
         file_map->erase(map_entry);
@@ -3805,9 +3887,9 @@ void GDataFileSystem::OpenFileOnUIThread(const FilePath& file_path,
   }
   open_files_.insert(file_path);
 
-  GetFileInfoByPath(
+  GetEntryInfoByPath(
       file_path,
-      base::Bind(&GDataFileSystem::OnGetFileInfoCompleteForOpenFile,
+      base::Bind(&GDataFileSystem::OnGetEntryInfoCompleteForOpenFile,
                  ui_weak_ptr_,
                  file_path,
                  base::Bind(&GDataFileSystem::OnOpenFileFinished,
@@ -3816,15 +3898,19 @@ void GDataFileSystem::OpenFileOnUIThread(const FilePath& file_path,
                             callback)));
 }
 
-void GDataFileSystem::OnGetFileInfoCompleteForOpenFile(
+void GDataFileSystem::OnGetEntryInfoCompleteForOpenFile(
     const FilePath& file_path,
     const OpenFileCallback& callback,
     GDataFileError error,
-    scoped_ptr<GDataFileProto> file_info) {
+    scoped_ptr<GDataEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  if (entry_proto.get() && !entry_proto->has_file_specific_info())
+    error = GDATA_FILE_ERROR_NOT_FOUND;
+
   if (error == GDATA_FILE_OK) {
-    if (file_info->file_md5().empty() || file_info->is_hosted_document()) {
+    if (entry_proto->file_specific_info().file_md5().empty() ||
+        entry_proto->file_specific_info().is_hosted_document()) {
       // No support for opening a directory or hosted document.
       error = GDATA_FILE_ERROR_INVALID_OPERATION;
     }
@@ -3836,23 +3922,23 @@ void GDataFileSystem::OnGetFileInfoCompleteForOpenFile(
     return;
   }
 
-  DCHECK(!file_info->gdata_entry().resource_id().empty());
+  DCHECK(!entry_proto->resource_id().empty());
   GetResolvedFileByPath(
       file_path,
       base::Bind(&GDataFileSystem::OnGetFileCompleteForOpenFile,
                  ui_weak_ptr_,
                  callback,
                  GetFileCompleteForOpenParams(
-                     file_info->gdata_entry().resource_id(),
-                     file_info->file_md5())),
+                     entry_proto->resource_id(),
+                     entry_proto->file_specific_info().file_md5())),
       GetDownloadDataCallback(),
       error,
-      file_info.get());
+      entry_proto.get());
 }
 
 void GDataFileSystem::OnGetFileCompleteForOpenFile(
     const OpenFileCallback& callback,
-    const GetFileCompleteForOpenParams& file_info,
+    const GetFileCompleteForOpenParams& entry_proto,
     GDataFileError error,
     const FilePath& file_path,
     const std::string& mime_type,
@@ -3869,8 +3955,8 @@ void GDataFileSystem::OnGetFileCompleteForOpenFile(
   DCHECK_EQ(REGULAR_FILE, file_type);
 
   cache_->MarkDirtyOnUIThread(
-      file_info.resource_id,
-      file_info.md5,
+      entry_proto.resource_id,
+      entry_proto.md5,
       base::Bind(&GDataFileSystem::OnMarkDirtyInCacheCompleteForOpenFile,
                  ui_weak_ptr_,
                  callback));
@@ -3928,9 +4014,9 @@ void GDataFileSystem::CloseFileOnUIThread(
   }
 
   // Step 1 of CloseFile: Get resource_id and md5 for |file_path|.
-  GetFileInfoByPathAsyncOnUIThread(
+  GetEntryInfoByPathAsyncOnUIThread(
       file_path,
-      base::Bind(&GDataFileSystem::OnGetFileInfoCompleteForCloseFile,
+      base::Bind(&GDataFileSystem::OnGetEntryInfoCompleteForCloseFile,
                  ui_weak_ptr_,
                  file_path,
                  base::Bind(&GDataFileSystem::OnCloseFileFinished,
@@ -3939,11 +4025,14 @@ void GDataFileSystem::CloseFileOnUIThread(
                             callback)));
 }
 
-void GDataFileSystem::OnGetFileInfoCompleteForCloseFile(
+void GDataFileSystem::OnGetEntryInfoCompleteForCloseFile(
     const FilePath& file_path,
     const FileOperationCallback& callback,
     GDataFileError error,
-    scoped_ptr<GDataFileProto> file_proto) {
+    scoped_ptr<GDataEntryProto> entry_proto) {
+  if (entry_proto.get() && !entry_proto->has_file_specific_info())
+    error = GDATA_FILE_ERROR_NOT_FOUND;
+
   if (error != GDATA_FILE_OK) {
     if (!callback.is_null())
       callback.Run(error);
@@ -3953,8 +4042,8 @@ void GDataFileSystem::OnGetFileInfoCompleteForCloseFile(
   // Step 2 of CloseFile: Get the local path of the cache. Since CloseFile must
   // always be called on paths opened by OpenFile, the file must be cached,
   cache_->GetFileOnUIThread(
-      file_proto->gdata_entry().resource_id(),
-      file_proto->file_md5(),
+      entry_proto->resource_id(),
+      entry_proto->file_specific_info().file_md5(),
       base::Bind(&GDataFileSystem::OnGetCacheFilePathCompleteForCloseFile,
                  ui_weak_ptr_,
                  file_path,
@@ -4090,6 +4179,110 @@ void GDataFileSystem::OnCloseFileFinished(
   // Then invokes the user-supplied callback function.
   if (!callback.is_null())
     callback.Run(result);
+}
+
+void GDataFileSystem::CheckLocalModificationAndRun(
+    scoped_ptr<GDataEntryProto> entry_proto,
+    const GetEntryInfoCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(entry_proto.get());
+
+  // For entries that will never be cached, use the original entry info as is.
+  if (!entry_proto->has_file_specific_info() ||
+      entry_proto->file_specific_info().is_hosted_document()) {
+    if (!callback.is_null())
+      callback.Run(GDATA_FILE_OK, entry_proto.Pass());
+    return;
+  }
+
+  // Checks if the file is cached and modified locally.
+  const std::string resource_id = entry_proto->resource_id();
+  const std::string md5 = entry_proto->file_specific_info().file_md5();
+  cache_->GetCacheEntryOnUIThread(
+      resource_id,
+      md5,
+      base::Bind(
+          &GDataFileSystem::CheckLocalModificationAndRunAfterGetCacheEntry,
+          ui_weak_ptr_, base::Passed(&entry_proto), callback));
+}
+
+void GDataFileSystem::CheckLocalModificationAndRunAfterGetCacheEntry(
+    scoped_ptr<GDataEntryProto> entry_proto,
+    const GetEntryInfoCallback& callback,
+    bool success,
+    const GDataCacheEntry& cache_entry) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  // When no dirty cache is found, use the original entry info as is.
+  if (!success || !cache_entry.is_dirty()) {
+    if (!callback.is_null())
+      callback.Run(GDATA_FILE_OK, entry_proto.Pass());
+    return;
+  }
+
+  // Gets the cache file path.
+  const std::string& resource_id = entry_proto->resource_id();
+  const std::string& md5 = entry_proto->file_specific_info().file_md5();
+  cache_->GetFileOnUIThread(
+      resource_id,
+      md5,
+      base::Bind(
+          &GDataFileSystem::CheckLocalModificationAndRunAfterGetCacheFile,
+          ui_weak_ptr_, base::Passed(&entry_proto), callback));
+}
+
+void GDataFileSystem::CheckLocalModificationAndRunAfterGetCacheFile(
+    scoped_ptr<GDataEntryProto> entry_proto,
+    const GetEntryInfoCallback& callback,
+    GDataFileError error,
+    const std::string& resource_id,
+    const std::string& md5,
+    const FilePath& local_cache_path) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  // When no dirty cache is found, use the original entry info as is.
+  if (error != GDATA_FILE_OK) {
+    if (!callback.is_null())
+      callback.Run(GDATA_FILE_OK, entry_proto.Pass());
+    return;
+  }
+
+  // If the cache is dirty, obtain the file info from the cache file itself.
+  base::PlatformFileInfo* file_info = new base::PlatformFileInfo;
+  bool* get_file_info_result = new bool(false);
+  PostBlockingPoolSequencedTaskAndReply(
+      FROM_HERE,
+      blocking_task_runner_,
+      base::Bind(&GetFileInfoOnBlockingPool,
+                 local_cache_path,
+                 base::Unretained(file_info),
+                 base::Unretained(get_file_info_result)),
+      base::Bind(&GDataFileSystem::CheckLocalModificationAndRunAfterGetFileInfo,
+                 ui_weak_ptr_,
+                 base::Passed(&entry_proto),
+                 callback,
+                 base::Owned(file_info),
+                 base::Owned(get_file_info_result)));
+}
+
+void GDataFileSystem::CheckLocalModificationAndRunAfterGetFileInfo(
+    scoped_ptr<GDataEntryProto> entry_proto,
+    const GetEntryInfoCallback& callback,
+    base::PlatformFileInfo* file_info,
+    bool* get_file_info_result) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  if (!*get_file_info_result) {
+    if (!callback.is_null())
+      callback.Run(GDATA_FILE_ERROR_NOT_FOUND, scoped_ptr<GDataEntryProto>());
+    return;
+  }
+
+  PlatformFileInfoProto entry_file_info;
+  GDataEntry::ConvertPlatformFileInfoToProto(*file_info, &entry_file_info);
+  *entry_proto->mutable_file_info() = entry_file_info;
+  if (!callback.is_null())
+    callback.Run(GDATA_FILE_OK, entry_proto.Pass());
 }
 
 }  // namespace gdata

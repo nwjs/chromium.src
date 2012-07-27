@@ -61,7 +61,7 @@ class Waiter : public content::NotificationObserver {
         tester(chromeos::ScreenLocker::GetTester());
     while (tester->IsLocked() != locker_state ||
            browser_->window()->IsFullscreen() != fullscreen) {
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
     }
     // Make sure all pending tasks are executed.
     ui_test_utils::RunAllPendingInMessageLoop();
@@ -90,41 +90,10 @@ class ScreenLockerTest : public CrosInProcessBrowserTest {
  protected:
   MockPowerManagerClient* mock_power_manager_client_;
 
-  // Test the no password mode with different unlock scheme given by
-  // |unlock| function.
-  void TestNoPassword(void (unlock)(views::Widget*)) {
-    EXPECT_CALL(*mock_power_manager_client_, NotifyScreenLockCompleted())
-        .Times(1)
-        .RetiresOnSaturation();
-    UserManager::Get()->GuestUserLoggedIn();
-    ScreenLocker::Show();
-    scoped_ptr<test::ScreenLockerTester> tester(ScreenLocker::GetTester());
-    tester->EmulateWindowManagerReady();
-    ui_test_utils::WindowedNotificationObserver lock_state_observer(
-        chrome::NOTIFICATION_SCREEN_LOCK_STATE_CHANGED,
-        content::NotificationService::AllSources());
-    if (!chromeos::ScreenLocker::GetTester()->IsLocked())
-      lock_state_observer.Wait();
-    EXPECT_TRUE(tester->IsLocked());
-    tester->InjectMockAuthenticator("", "");
-
-    unlock(tester->GetWidget());
-
-    ui_test_utils::RunAllPendingInMessageLoop();
-    EXPECT_TRUE(tester->IsLocked());
-
-    // Emulate UnlockScreen request from SessionManager.
-    ScreenLocker::Hide();
-    ui_test_utils::RunAllPendingInMessageLoop();
-    EXPECT_FALSE(tester->IsLocked());
-  }
-
-  void LockScreenWithUser(test::ScreenLockerTester* tester,
-                          const std::string& user) {
-    UserManager::Get()->UserLoggedIn(user, true);
+  void LockScreen(test::ScreenLockerTester* tester) {
     ScreenLocker::Show();
     tester->EmulateWindowManagerReady();
-    ui_test_utils::WindowedNotificationObserver lock_state_observer(
+    content::WindowedNotificationObserver lock_state_observer(
         chrome::NOTIFICATION_SCREEN_LOCK_STATE_CHANGED,
         content::NotificationService::AllSources());
     if (!tester->IsLocked())
@@ -170,7 +139,7 @@ IN_PROC_BROWSER_TEST_F(ScreenLockerTest, TestBasic) {
   ScreenLocker::Show();
   scoped_ptr<test::ScreenLockerTester> tester(ScreenLocker::GetTester());
   tester->EmulateWindowManagerReady();
-  ui_test_utils::WindowedNotificationObserver lock_state_observer(
+  content::WindowedNotificationObserver lock_state_observer(
       chrome::NOTIFICATION_SCREEN_LOCK_STATE_CHANGED,
       content::NotificationService::AllSources());
   if (!chromeos::ScreenLocker::GetTester()->IsLocked())
@@ -179,7 +148,7 @@ IN_PROC_BROWSER_TEST_F(ScreenLockerTest, TestBasic) {
   // Test to make sure that the widget is actually appearing and is of
   // reasonable size, preventing a regression of
   // http://code.google.com/p/chromium-os/issues/detail?id=5987
-  gfx::Rect lock_bounds = tester->GetChildWidget()->GetWindowScreenBounds();
+  gfx::Rect lock_bounds = tester->GetChildWidget()->GetWindowBoundsInScreen();
   EXPECT_GT(lock_bounds.width(), 10);
   EXPECT_GT(lock_bounds.height(), 10);
 
@@ -242,7 +211,7 @@ IN_PROC_BROWSER_TEST_F(ScreenLockerTest, TestShowTwice) {
       .Times(2)
       .RetiresOnSaturation();
   scoped_ptr<test::ScreenLockerTester> tester(ScreenLocker::GetTester());
-  LockScreenWithUser(tester.get(), UserManager::kStubUser);
+  LockScreen(tester.get());
 
   // Ensure there's a profile or this test crashes.
   ProfileManager::GetDefaultProfile();
@@ -264,7 +233,7 @@ IN_PROC_BROWSER_TEST_F(ScreenLockerTest, DISABLED_TestEscape) {
       .Times(1)
       .RetiresOnSaturation();
   scoped_ptr<test::ScreenLockerTester> tester(ScreenLocker::GetTester());
-  LockScreenWithUser(tester.get(), UserManager::kStubUser);
+  LockScreen(tester.get());
 
   // Ensure there's a profile or this test crashes.
   ProfileManager::GetDefaultProfile();

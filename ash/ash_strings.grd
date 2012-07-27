@@ -200,6 +200,10 @@ This file contains the strings for ash.
         Pull down to minimize, left or right to tile
       </message>
 
+      <message name="IDS_ASH_KEYBOARD_OVERLAY_TITLE" desc="The title of the keyboard overlay.">
+        Keyboard Overlay
+      </message>
+
       <!-- Status tray items -->
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the status tray.">
         Status tray
@@ -296,6 +300,9 @@ This file contains the strings for ash.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_VOLUME" desc="The accessible text for the volume slider.">
         Volume
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_VOLUME_MUTE" desc="The label text for the volume mute segment.">
+        mute
       </message>
       <message name="IDS_ASH_STATUS_TRAY_DISABLE_BLUETOOTH" desc="The label used in the tray popup to disable bluetooth.">
         Disable Bluetooth
@@ -406,8 +413,8 @@ Press Search key to cancel.
       <message name="IDS_ASH_WEB_NOTFICATION_TRAY_SETTINGS" desc="The menu entry or button for visiting the appropriate settings page.">
         Settings...
       </message>
-      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_CLOSE_ALL" desc="The button for closing all notifications.">
-        Close All
+      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_CLEAR_ALL" desc="The button for clearing all notifications.">
+        Clear All
       </message>
     </messages>
   </release>

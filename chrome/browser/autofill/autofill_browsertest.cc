@@ -30,6 +30,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_renderer_host.h"
 #include "net/url_request/test_url_fetcher_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -81,7 +82,7 @@ class WindowedPersonalDataManagerObserver : public PersonalDataManagerObserver {
   void Wait() {
     if (!personal_data_changed_) {
       has_run_message_loop_ = true;
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
     }
   }
 
@@ -130,7 +131,7 @@ class AutofillTest : public InProcessBrowserTest {
   void ExpectFieldValue(const std::wstring& field_name,
                         const std::string& expected_value) {
     std::string value;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
         chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
         L"window.domAutomationController.send("
         L"document.getElementById('" + field_name + L"').value);", &value));
@@ -183,11 +184,11 @@ class AutofillTest : public InProcessBrowserTest {
 
   void FocusFirstNameField() {
     LOG(WARNING) << "Clicking on the tab.";
-    ui_test_utils::SimulateMouseClick(chrome::GetActiveWebContents(browser()));
+    content::SimulateMouseClick(chrome::GetActiveWebContents(browser()));
 
     LOG(WARNING) << "Focusing the first name field.";
     bool result = false;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         render_view_host(), L"",
         L"if (document.readyState === 'complete')"
         L"  document.getElementById('firstname').focus();"
@@ -210,9 +211,9 @@ class AutofillTest : public InProcessBrowserTest {
   }
 
   void SendKeyAndWait(ui::KeyboardCode key, int notification_type) {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         notification_type, content::Source<RenderViewHost>(render_view_host()));
-    ui_test_utils::SimulateKeyPress(chrome::GetActiveWebContents(
+    content::SimulateKeyPress(chrome::GetActiveWebContents(
         browser()), key, false, false, false, false);
     observer.Wait();
   }
@@ -357,17 +358,17 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, OnChangeAfterAutofill) {
   bool unfocused_fired = false;
   bool changed_select_fired = false;
   bool unchanged_select_fired = false;
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       render_view_host(), L"",
       L"domAutomationController.send(focused_fired);", &focused_fired));
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       render_view_host(), L"",
       L"domAutomationController.send(unfocused_fired);", &unfocused_fired));
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       render_view_host(), L"",
       L"domAutomationController.send(changed_select_fired);",
       &changed_select_fired));
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       render_view_host(), L"",
       L"domAutomationController.send(unchanged_select_fired);",
       &unchanged_select_fired));
@@ -377,7 +378,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, OnChangeAfterAutofill) {
   EXPECT_FALSE(unchanged_select_fired);
 
   // Unfocus the first name field. Its change event should fire.
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       render_view_host(), L"",
       L"document.getElementById('firstname').blur();"
       L"domAutomationController.send(focused_fired);", &focused_fired));
@@ -592,8 +593,8 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, DynamicFormFill) {
            "</script>")));
 
   // Dynamically construct the form.
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(render_view_host(), L"",
-                                               L"BuildForm();"));
+  ASSERT_TRUE(content::ExecuteJavaScript(render_view_host(), L"",
+                                         L"BuildForm();"));
 
   // Invoke Autofill.
   TryBasicFormFill();
@@ -623,7 +624,7 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, MAYBE_AutofillAfterReload) {
   LOG(WARNING) << "Reloading the page.";
   WebContents* tab = chrome::GetActiveWebContents(browser());
   tab->GetController().Reload(false);
-  ui_test_utils::WaitForLoadStop(tab);
+  content::WaitForLoadStop(tab);
 
   // Invoke Autofill.
   LOG(WARNING) << "Trying to fill the form.";
@@ -691,14 +692,14 @@ IN_PROC_BROWSER_TEST_F(AutofillTest, AutofillAfterTranslate) {
   // Pass fake google.translate lib as the translate script.
   SimulateURLFetch(true);
 
-  ui_test_utils::WindowedNotificationObserver translation_observer(
+  content::WindowedNotificationObserver translation_observer(
       chrome::NOTIFICATION_PAGE_TRANSLATED,
       content::NotificationService::AllSources());
 
   // Simulate translation to kick onTranslateElementLoad.
   // But right now, the call stucks here.
   // Once click the text field, it starts again.
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
+  ASSERT_TRUE(content::ExecuteJavaScript(
       render_view_host(), L"",
       L"cr.googleTranslate.onTranslateElementLoad();"));
 

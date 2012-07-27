@@ -174,19 +174,6 @@ bool DownloadPathIsDangerous(const FilePath& download_path) {
   return (download_path == desktop_dir);
 }
 
-void GenerateFileNameFromRequest(const DownloadItem& download_item,
-                                 FilePath* generated_name) {
-  std::string default_file_name(
-      l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
-
-  *generated_name = net::GenerateFileName(download_item.GetURL(),
-                                          download_item.GetContentDisposition(),
-                                          download_item.GetReferrerCharset(),
-                                          download_item.GetSuggestedFilename(),
-                                          download_item.GetMimeType(),
-                                          default_file_name);
-}
-
 // Download progress painting --------------------------------------------------
 
 // Common images used for download progress animations. We load them once the
@@ -610,11 +597,6 @@ void UpdateAppIconDownloadProgress(int download_count,
 #endif
 }
 #endif
-
-int GetUniquePathNumberWithCrDownload(const FilePath& path) {
-  return file_util::GetUniquePathNumber(
-      path, FILE_PATH_LITERAL(".crdownload"));
-}
 
 FilePath GetCrDownloadPath(const FilePath& suggested_path) {
   return FilePath(suggested_path.value() + FILE_PATH_LITERAL(".crdownload"));

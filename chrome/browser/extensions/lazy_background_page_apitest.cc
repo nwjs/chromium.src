@@ -8,7 +8,6 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/extensions/browser_action_test_util.h"
 #include "chrome/browser/extensions/extension_apitest.h"
-#include "chrome/browser/extensions/extension_event_router.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_test_message_listener.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -24,6 +23,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
 #include "googleurl/src/gurl.h"
 #include "net/base/mock_host_resolver.h"
 
@@ -150,7 +150,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, BroadcastEvent) {
 
   // Open a tab to a URL that will trigger the page action to show.
   LazyBackgroundObserver page_complete;
-  ui_test_utils::WindowedNotificationObserver page_action_changed(
+  content::WindowedNotificationObserver page_action_changed(
         chrome::NOTIFICATION_EXTENSION_PAGE_ACTION_VISIBILITY_CHANGED,
         content::NotificationService::AllSources());
   ui_test_utils::NavigateToURL(
@@ -247,7 +247,7 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest, WaitForRequest) {
 
   // Abort the request.
   bool result = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       host->render_view_host(), std::wstring(), L"abortRequest()", &result));
   EXPECT_TRUE(result);
   page_complete.Wait();

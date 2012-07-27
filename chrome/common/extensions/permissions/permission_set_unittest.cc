@@ -546,6 +546,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kBrowsingData);
   skip.insert(APIPermission::kContextMenus);
   skip.insert(APIPermission::kDeclarative);
+  skip.insert(APIPermission::kFontSettings);
   skip.insert(APIPermission::kIdle);
   skip.insert(APIPermission::kNotification);
   skip.insert(APIPermission::kUnlimitedStorage);
@@ -577,6 +578,11 @@ TEST(PermissionsTest, PermissionMessages) {
   // prompt for it.
   skip.insert(APIPermission::kKeybinding);
 
+  // These permissions require explicit user action (configuration dialog)
+  // so we don't prompt for them at install time.
+  skip.insert(APIPermission::kMediaGalleries);
+  skip.insert(APIPermission::kMediaGalleriesRead);
+
   // If you've turned on the experimental command-line flag, we don't need
   // to warn you further.
   skip.insert(APIPermission::kExperimental);
@@ -593,6 +599,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kEchoPrivate);
   skip.insert(APIPermission::kSystemPrivate);
   skip.insert(APIPermission::kTerminalPrivate);
+  skip.insert(APIPermission::kWallpaperPrivate);
   skip.insert(APIPermission::kWebRequestInternal);
   skip.insert(APIPermission::kWebSocketProxyPrivate);
   skip.insert(APIPermission::kWebstorePrivate);
@@ -1120,6 +1127,18 @@ TEST(PermissionsTest, IsEmpty) {
   perm_set = new PermissionSet(
       empty_apis, empty_extent, non_empty_extent);
   EXPECT_FALSE(perm_set->IsEmpty());
+}
+
+TEST(PermissionsTest, ImpliedPermissions) {
+  URLPatternSet empty_extent;
+  APIPermissionSet apis;
+  apis.insert(APIPermission::kWebRequest);
+  apis.insert(APIPermission::kFileBrowserHandler);
+  EXPECT_EQ(2U, apis.size());
+
+  scoped_refptr<PermissionSet> perm_set;
+  perm_set = new PermissionSet(apis, empty_extent, empty_extent);
+  EXPECT_EQ(4U, perm_set->apis().size());
 }
 
 }  // namespace extensions

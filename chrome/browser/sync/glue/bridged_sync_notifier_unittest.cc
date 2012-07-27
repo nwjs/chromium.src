@@ -29,14 +29,14 @@ using syncer::HasModelTypes;
 
 class MockChromeSyncNotificationBridge : public ChromeSyncNotificationBridge {
  public:
-  MockChromeSyncNotificationBridge()
-      : ChromeSyncNotificationBridge(&mock_profile_) {}
+  MockChromeSyncNotificationBridge(
+      const Profile* profile,
+      const scoped_refptr<base::SequencedTaskRunner>& sync_task_runner)
+      : ChromeSyncNotificationBridge(profile, sync_task_runner) {}
   virtual ~MockChromeSyncNotificationBridge() {}
 
-  MOCK_METHOD1(AddObserver, void(syncer::SyncNotifierObserver*));
-  MOCK_METHOD1(RemoveObserver, void(syncer::SyncNotifierObserver*));
- private:
-  NiceMock<ProfileMock> mock_profile_;
+  MOCK_METHOD2(UpdateRegisteredIds, void(syncer::SyncNotifierObserver*,
+                                         const syncer::ObjectIdSet&));
 };
 
 class MockSyncNotifier : public syncer::SyncNotifier {
@@ -44,22 +44,22 @@ class MockSyncNotifier : public syncer::SyncNotifier {
   MockSyncNotifier() {}
   virtual ~MockSyncNotifier() {}
 
-  MOCK_METHOD1(AddObserver, void(syncer::SyncNotifierObserver*));
-  MOCK_METHOD1(RemoveObserver, void(syncer::SyncNotifierObserver*));
+  MOCK_METHOD2(UpdateRegisteredIds,
+               void(syncer::SyncNotifierObserver*, const syncer::ObjectIdSet&));
   MOCK_METHOD1(SetUniqueId, void(const std::string&));
   MOCK_METHOD1(SetStateDeprecated, void(const std::string&));
   MOCK_METHOD2(UpdateCredentials, void(const std::string&, const std::string&));
-  MOCK_METHOD1(UpdateEnabledTypes, void(syncer::ModelTypeSet));
   MOCK_METHOD1(SendNotification, void(syncer::ModelTypeSet));
 };
 
 // All tests just verify that each call is passed through to the delegate, with
-// the exception of AddObserver/RemoveObserver, which also verify the observer
-// is registered with the bridge.
+// the exception of UpdateRegisteredIds, which also verifies the call is
+// forwarded to the bridge.
 class BridgedSyncNotifierTest : public testing::Test {
  public:
   BridgedSyncNotifierTest()
       : ui_thread_(BrowserThread::UI, &ui_loop_),
+        mock_bridge_(&mock_profile_, ui_loop_.message_loop_proxy()),
         mock_delegate_(new MockSyncNotifier),  // Owned by bridged_notifier_.
         bridged_notifier_(&mock_bridge_, mock_delegate_) {}
   virtual ~BridgedSyncNotifierTest() {}
@@ -67,23 +67,19 @@ class BridgedSyncNotifierTest : public testing::Test {
  protected:
   MessageLoop ui_loop_;
   content::TestBrowserThread ui_thread_;
+  NiceMock<ProfileMock> mock_profile_;
   StrictMock<MockChromeSyncNotificationBridge> mock_bridge_;
   MockSyncNotifier* mock_delegate_;
   BridgedSyncNotifier bridged_notifier_;
 };
 
-TEST_F(BridgedSyncNotifierTest, AddObserver) {
+TEST_F(BridgedSyncNotifierTest, UpdateRegisteredIds) {
   syncer::MockSyncNotifierObserver observer;
-  EXPECT_CALL(mock_bridge_, AddObserver(&observer));
-  EXPECT_CALL(*mock_delegate_, AddObserver(&observer));
-  bridged_notifier_.AddObserver(&observer);
-}
-
-TEST_F(BridgedSyncNotifierTest, RemoveObserver) {
-  syncer::MockSyncNotifierObserver observer;
-  EXPECT_CALL(mock_bridge_, RemoveObserver(&observer));
-  EXPECT_CALL(*mock_delegate_, RemoveObserver(&observer));
-  bridged_notifier_.RemoveObserver(&observer);
+  EXPECT_CALL(mock_bridge_, UpdateRegisteredIds(
+      &observer, syncer::ObjectIdSet()));
+  EXPECT_CALL(*mock_delegate_, UpdateRegisteredIds(
+      &observer, syncer::ObjectIdSet()));
+  bridged_notifier_.UpdateRegisteredIds(&observer, syncer::ObjectIdSet());
 }
 
 TEST_F(BridgedSyncNotifierTest, SetUniqueId) {
@@ -103,13 +99,6 @@ TEST_F(BridgedSyncNotifierTest, UpdateCredentials) {
   std::string token = "token";
   EXPECT_CALL(*mock_delegate_, UpdateCredentials(email, token));
   bridged_notifier_.UpdateCredentials(email, token);
-}
-
-TEST_F(BridgedSyncNotifierTest, UpdateEnabledTypes) {
-  syncer::ModelTypeSet enabled_types(syncer::BOOKMARKS, syncer::PREFERENCES);
-  EXPECT_CALL(*mock_delegate_,
-              UpdateEnabledTypes(HasModelTypes(enabled_types)));
-  bridged_notifier_.UpdateEnabledTypes(enabled_types);
 }
 
 TEST_F(BridgedSyncNotifierTest, SendNotification) {

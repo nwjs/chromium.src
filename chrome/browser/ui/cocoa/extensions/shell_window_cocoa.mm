@@ -56,16 +56,26 @@
 
 @end
 
+// This is really a method on NSGrayFrame, so it should only be called on the
+// view passed into -[NSWindow drawCustomFrameRect:forView:].
+@interface NSView (PrivateMethods)
+- (CGFloat)roundedCornerRadius;
+@end
+
 @implementation ShellNSWindow
 
 - (void)drawCustomFrameRect:(NSRect)rect forView:(NSView*)view {
   [[NSBezierPath bezierPathWithRect:rect] addClip];
   [[NSColor clearColor] set];
   NSRectFill(rect);
-  const CGFloat kWindowBorderRadius = 3.0;
+
+  // Set up our clip.
+  CGFloat cornerRadius = 4.0;
+  if ([view respondsToSelector:@selector(roundedCornerRadius)])
+    cornerRadius = [view roundedCornerRadius];
   [[NSBezierPath bezierPathWithRoundedRect:[view bounds]
-                                   xRadius:kWindowBorderRadius
-                                   yRadius:kWindowBorderRadius] addClip];
+                                   xRadius:cornerRadius
+                                   yRadius:cornerRadius] addClip];
   [[NSColor whiteColor] set];
   NSRectFill(rect);
 }
@@ -92,7 +102,7 @@ ShellWindowCocoa::ShellWindowCocoa(Profile* profile,
                   backing:NSBackingStoreBuffered
                     defer:NO]);
   [window setTitle:base::SysUTF8ToNSString(extension->name())];
-  gfx::Size min_size = params.maximum_size;
+  gfx::Size min_size = params.minimum_size;
   if (min_size.width() || min_size.height()) {
     [window setContentMinSize:NSMakeSize(min_size.width(), min_size.height())];
   }

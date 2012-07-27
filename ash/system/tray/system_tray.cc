@@ -41,6 +41,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/screen.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/label.h"
@@ -54,7 +55,7 @@ namespace {
 const int kTrayContainerVerticalPaddingBottomAlignment  = 1;
 const int kTrayContainerHorizontalPaddingBottomAlignment  = 1;
 const int kTrayContainerVerticalPaddingVerticalAlignment  = 1;
-const int kTrayContainerHorizontalPaddingVerticalAlignment = 2;
+const int kTrayContainerHorizontalPaddingVerticalAlignment = 1;
 
 }  // namespace
 
@@ -240,6 +241,9 @@ void SystemTray::AddTrayItem(SystemTrayItem* item) {
 
   SystemTrayDelegate* delegate = Shell::GetInstance()->tray_delegate();
   views::View* tray_item = item->CreateTrayView(delegate->GetUserLoginStatus());
+  item->UpdateAfterShelfAlignmentChange(
+      ash::Shell::GetInstance()->system_tray()->shelf_alignment());
+
   if (tray_item) {
     tray_container_->AddChildViewAt(tray_item, 0);
     PreferredSizeChanged();
@@ -349,9 +353,8 @@ void SystemTray::RemoveBubble(SystemTrayBubble* bubble) {
     if (should_show_launcher_) {
       // No need to show the launcher if the mouse isn't over the status area
       // anymore.
-      aura::RootWindow* root = GetWidget()->GetNativeView()->GetRootWindow();
-      should_show_launcher_ = GetWidget()->GetWindowScreenBounds().Contains(
-          root->last_mouse_location());
+      should_show_launcher_ = GetWidget()->GetWindowBoundsInScreen().Contains(
+          gfx::Screen::GetCursorScreenPoint());
       if (!should_show_launcher_)
         Shell::GetInstance()->shelf()->UpdateAutoHideState();
     }
@@ -581,7 +584,7 @@ void SystemTray::OnPaintFocusBorder(gfx::Canvas* canvas) {
   // sure clicking on the edges brings up the popup. However, the focus border
   // should be only around the container.
   if (GetWidget() && GetWidget()->IsActive())
-    canvas->DrawFocusRect(tray_container_->bounds());
+    DrawBorder(canvas, GetContentsBounds());
 }
 
 }  // namespace ash

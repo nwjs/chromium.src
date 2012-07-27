@@ -18,6 +18,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_plugin_service_filter.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
+#include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/extensions/api/web_request/web_request_api.h"
@@ -37,7 +38,6 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager_factory.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
@@ -47,6 +47,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/transport_security_state.h"
@@ -114,9 +115,7 @@ void OffTheRecordProfileImpl::Init() {
 }
 
 OffTheRecordProfileImpl::~OffTheRecordProfileImpl() {
-  content::NotificationService::current()->Notify(
-    chrome::NOTIFICATION_PROFILE_DESTROYED, content::Source<Profile>(this),
-    content::NotificationService::NoDetails());
+  MaybeSendDestroyedNotification();
 
   ChromePluginServiceFilter::GetInstance()->UnregisterResourceContext(
     io_data_.GetResourceContextNoInit());
@@ -205,7 +204,7 @@ ExtensionProcessManager*
   return extensions::ExtensionSystem::Get(this)->process_manager();
 }
 
-ExtensionEventRouter* OffTheRecordProfileImpl::GetExtensionEventRouter() {
+extensions::EventRouter* OffTheRecordProfileImpl::GetExtensionEventRouter() {
   return extensions::ExtensionSystem::Get(this)->event_router();
 }
 
@@ -372,10 +371,6 @@ void OffTheRecordProfileImpl::MarkAsCleanShutdown() {
 }
 
 void OffTheRecordProfileImpl::InitPromoResources() {
-  NOTREACHED();
-}
-
-void OffTheRecordProfileImpl::InitRegisteredProtocolHandlers() {
   NOTREACHED();
 }
 

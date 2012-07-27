@@ -387,6 +387,8 @@
         '../third_party/skia/src/gpu/GrIndexBuffer.h',
         '../third_party/skia/src/gpu/GrMatrix.cpp',
         '../third_party/skia/src/gpu/GrMemory.cpp',
+        '../third_party/skia/src/gpu/GrMemoryPool.cpp',
+        '../third_party/skia/src/gpu/GrMemoryPool.h',
         '../third_party/skia/src/gpu/GrPathRenderer.cpp',
         '../third_party/skia/src/gpu/GrPathRenderer.h',
         '../third_party/skia/src/gpu/GrPathRendererChain.cpp',
@@ -430,6 +432,8 @@
         '../third_party/skia/src/gpu/SkGrPixelRef.cpp',
         '../third_party/skia/src/gpu/SkGrTexturePixelRef.cpp',
         '../third_party/skia/src/gpu/effects/Gr1DKernelEffect.h',
+        '../third_party/skia/src/gpu/effects/GrColorTableEffect.cpp',
+        '../third_party/skia/src/gpu/effects/GrColorTableEffect.h',
         '../third_party/skia/src/gpu/effects/GrConvolutionEffect.cpp',
         '../third_party/skia/src/gpu/effects/GrConvolutionEffect.h',
         '../third_party/skia/src/gpu/effects/GrMorphologyEffect.cpp',
@@ -438,6 +442,8 @@
         '../third_party/skia/src/gpu/effects/GrGradientEffects.h',
         '../third_party/skia/src/gpu/effects/GrSingleTextureEffect.cpp',
         '../third_party/skia/src/gpu/effects/GrSingleTextureEffect.h',
+        '../third_party/skia/src/gpu/effects/GrTextureDomainEffect.cpp',
+        '../third_party/skia/src/gpu/effects/GrTextureDomainEffect.h',
         '../third_party/skia/src/gpu/gl/GrGLCaps.cpp',
         '../third_party/skia/src/gpu/gl/GrGLCaps.h',
         '../third_party/skia/src/gpu/gl/GrGLContextInfo.cpp',
@@ -464,6 +470,9 @@
         '../third_party/skia/src/gpu/gl/GrGLStencilBuffer.cpp',
         '../third_party/skia/src/gpu/gl/GrGLTexture.cpp',
         '../third_party/skia/src/gpu/gl/GrGLTexture.h',
+        '../third_party/skia/src/gpu/gl/GrGLUniformManager.cpp',
+        '../third_party/skia/src/gpu/gl/GrGLUniformManager.h',
+        '../third_party/skia/src/gpu/gl/GrGLUniformHandle.h',
         '../third_party/skia/src/gpu/gl/GrGLUtil.cpp',
         '../third_party/skia/src/gpu/gl/GrGLUtil.h',
         '../third_party/skia/src/gpu/gl/GrGLVertexBuffer.cpp',
@@ -722,6 +731,8 @@
         '../third_party/skia/include/pdf/SkPDFDevice.h',
         '../third_party/skia/include/pdf/SkPDFDocument.h',
 
+        '../third_party/skia/include/pipe/SkGPipe.h',
+
         '../third_party/skia/include/ports/SkStream_Win.h',
         '../third_party/skia/include/ports/SkTypeface_win.h',
 
@@ -793,6 +804,7 @@
         '../third_party/skia/include/gpu/gl',
         '../third_party/skia/include/images',
         '../third_party/skia/include/pdf',
+        '../third_party/skia/include/pipe',
         '../third_party/skia/include/ports',
         '../third_party/skia/include/utils',
         '../third_party/skia/src/core',
@@ -807,7 +819,7 @@
         'GR_STATIC_RECT_VB=1',
         'GR_AGGRESSIVE_SHADER_OPTS=1',
         'SK_DISABLE_FAST_AA_STROKE_RECT',
-        'SK_DEFAULT_FONT_CACHE_LIMIT=(20*1024*1024)',
+        'SK_DEFERRED_CANVAS_USES_GPIPE=1',
 
         # temporary for landing Skia rev 3077 with minimal layout test breakage
         'SK_SIMPLE_TWOCOLOR_VERTICAL_GRADIENTS',
@@ -823,7 +835,7 @@
         # fix will require substantial rebaselining.
         'SK_DRAW_POS_TEXT_IGNORE_SUBPIXEL_LEFT_ALIGN_FIX',
 
-        # Temporarily ignore fix to antialias coverage, until we can rebaseline	 
+        # Temporarily ignore fix to antialias coverage, until we can rebaseline
         'SK_USE_LEGACY_AA_COVERAGE',
       ],
       'sources!': [
@@ -850,10 +862,11 @@
         [ 'OS != "android"', {
           'sources/': [
             ['exclude', '_android\\.(cc|cpp)$'],
-          ],
-          'sources!': [
             # Below files are only used by Android
-            '../third_party/skia/src/ports/SkFontHost_gamma.cpp',
+            ['exclude', '../third_party/skia/src/ports/SkFontHost_gamma\\.cpp$'],
+          ],
+          'defines': [
+            'SK_DEFAULT_FONT_CACHE_LIMIT=(20*1024*1024)',
           ],
         }],
         [ 'OS != "mac"', {
@@ -908,13 +921,6 @@
             '../third_party/skia/src/ports/SkFontHost_gamma_none.cpp',
           ],
         }],
-        [ 'OS == "android"', {
-          'sources/': [
-            ['exclude', '_linux\\.(cc|cpp)$'],
-            ['include', 'ext/platform_device_linux\\.cc$'],
-            ['include', 'ext/platform_canvas_linux\\.cc$'],
-          ],
-        }],
         [ 'use_aura == 1 and use_canvas_skia == 1', {
           'sources/': [
             ['exclude', 'ext/platform_canvas_mac\\.cc$'],
@@ -932,20 +938,24 @@
           'sources/': [ ['exclude', '_gtk\\.(cc|cpp)$'] ],
         }],
         [ 'OS == "android"', {
-          'defines': [
-            'SK_BUILD_FOR_ANDROID_NDK',
+          'sources/': [
+            ['exclude', '_linux\\.(cc|cpp)$'],
           ],
           'conditions': [
             [ '_toolset == "target"', {
               'defines': [
                 'HAVE_PTHREADS',
                 'OS_ANDROID',
+                'SK_BUILD_FOR_ANDROID_NDK',
+                # Android devices are typically more memory constrained, so
+                # use a smaller glyph cache.
+                'SK_DEFAULT_FONT_CACHE_LIMIT=(8*1024*1024)',
                 'USE_CHROMIUM_SKIA',
               ],
               'dependencies': [
+                '../third_party/expat/expat.gyp:expat',
                 '../third_party/freetype/freetype.gyp:ft2',
                 '../third_party/harfbuzz/harfbuzz.gyp:harfbuzz',
-                '../third_party/expat/expat.gyp:expat',
                 'skia_opts'
               ],
               'dependencies!': [
@@ -958,6 +968,10 @@
               'hard_dependency': 1,
               'include_dirs': [
                 '../third_party/expat/files/lib',
+              ],
+              'sources/': [
+                ['include', 'ext/platform_device_linux\\.cc$'],
+                ['include', 'ext/platform_canvas_linux\\.cc$'],
               ],
               'sources!': [
                 'ext/vector_platform_device_skia.cc',
@@ -1081,23 +1095,11 @@
               'skia_opts',
               '../third_party/zlib/zlib.gyp:zlib',
             ],
+            'defines': [
+              # Don't use non-NDK available stuff.
+              'SK_BUILD_FOR_ANDROID_NDK',
+            ],
             'conditions': [
-              ['use_system_skia==1', {
-                'defines': [
-                  'SK_RELEASE',  # Assume platform has a release build.
-                ],
-                'include_dirs!': [
-                  'config',  # Avoid including Chromium skia config.
-                ],
-                'libraries': [
-                  '-lskia',
-                ],
-              }, {  # !use_system_skia
-                'defines': [
-                  # Don't use non-NDK available stuff.
-                  'SK_BUILD_FOR_ANDROID_NDK',
-                 ],
-              }],
               [ '_toolset == "target" and android_build_type == 0', {
                 'defines': [
                   'HAVE_ENDIAN_H',

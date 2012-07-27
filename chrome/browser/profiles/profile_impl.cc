@@ -27,9 +27,11 @@
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
+#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
+#include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
-#include "chrome/browser/extensions/extension_event_router.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_pref_store.h"
 #include "chrome/browser/extensions/extension_pref_value_map.h"
 #include "chrome/browser/extensions/extension_pref_value_map_factory.h"
@@ -221,6 +223,18 @@ void ProfileImpl::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterStringPref(prefs::kHomePage,
                             std::string(),
                             PrefService::SYNCABLE_PREF);
+#if defined(ENABLE_PRINTING)
+  prefs->RegisterBooleanPref(prefs::kPrintingEnabled,
+                             true,
+                             PrefService::UNSYNCABLE_PREF);
+#endif
+  prefs->RegisterBooleanPref(prefs::kPrintPreviewDisabled,
+#if defined(GOOGLE_CHROME_BUILD)
+                             false,
+#else
+                             true,
+#endif
+                             PrefService::UNSYNCABLE_PREF);
 
   // Initialize the cache prefs.
   prefs->RegisterFilePathPref(prefs::kDiskCacheDir,
@@ -350,8 +364,6 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
       g_browser_process->background_mode_manager()->RegisterProfile(this);
   }
 
-  InitRegisteredProtocolHandlers();
-
   InstantController::RecordMetrics(this);
 
   FilePath cookie_path = GetPath();
@@ -453,33 +465,6 @@ void ProfileImpl::InitPromoResources() {
   promo_resource_service_->StartAfterDelay();
 }
 
-void ProfileImpl::InitRegisteredProtocolHandlers() {
-  if (protocol_handler_registry_)
-    return;
-  protocol_handler_registry_ = new ProtocolHandlerRegistry(this,
-      new ProtocolHandlerRegistry::Delegate());
-
-  // Install predefined protocol handlers.
-  InstallDefaultProtocolHandlers();
-
-  protocol_handler_registry_->Load();
-}
-
-void ProfileImpl::InstallDefaultProtocolHandlers() {
-#if defined(OS_CHROMEOS)
-  protocol_handler_registry_->AddPredefinedHandler(
-      ProtocolHandler::CreateProtocolHandler(
-          "mailto",
-          GURL(l10n_util::GetStringUTF8(IDS_GOOGLE_MAILTO_HANDLER_URL)),
-          l10n_util::GetStringUTF16(IDS_GOOGLE_MAILTO_HANDLER_NAME)));
-  protocol_handler_registry_->AddPredefinedHandler(
-      ProtocolHandler::CreateProtocolHandler(
-          "webcal",
-          GURL(l10n_util::GetStringUTF8(IDS_GOOGLE_WEBCAL_HANDLER_URL)),
-          l10n_util::GetStringUTF16(IDS_GOOGLE_WEBCAL_HANDLER_NAME)));
-#endif
-}
-
 FilePath ProfileImpl::last_selected_directory() {
   return GetPrefs()->GetFilePath(prefs::kSelectFileLastDirectory);
 }
@@ -489,10 +474,8 @@ void ProfileImpl::set_last_selected_directory(const FilePath& path) {
 }
 
 ProfileImpl::~ProfileImpl() {
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_PROFILE_DESTROYED,
-      content::Source<Profile>(this),
-      content::NotificationService::NoDetails());
+  MaybeSendDestroyedNotification();
+
   bool prefs_loaded = prefs_->GetInitializationStatus() !=
       PrefService::INITIALIZATION_STATUS_WAITING;
 
@@ -533,9 +516,6 @@ ProfileImpl::~ProfileImpl() {
 
   if (pref_proxy_config_tracker_.get())
     pref_proxy_config_tracker_->DetachFromPrefService();
-
-  if (protocol_handler_registry_)
-    protocol_handler_registry_->Finalize();
 
   if (host_content_settings_map_)
     host_content_settings_map_->ShutdownOnUIThread();
@@ -608,7 +588,7 @@ ExtensionProcessManager* ProfileImpl::GetExtensionProcessManager() {
   return extensions::ExtensionSystem::Get(this)->process_manager();
 }
 
-ExtensionEventRouter* ProfileImpl::GetExtensionEventRouter() {
+extensions::EventRouter* ProfileImpl::GetExtensionEventRouter() {
   return extensions::ExtensionSystem::Get(this)->event_router();
 }
 
@@ -812,7 +792,11 @@ BookmarkModel* ProfileImpl::GetBookmarkModel() {
 }
 
 ProtocolHandlerRegistry* ProfileImpl::GetProtocolHandlerRegistry() {
-  return protocol_handler_registry_.get();
+  // TODO(smckay): Update all existing callers to use
+  // ProtocolHandlerRegistryFactory. Once that's done, this method
+  // can be nuked from Profile and ProfileImpl.
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  return ProtocolHandlerRegistryFactory::GetForProfile(this);
 }
 
 bool ProfileImpl::IsSameProfile(Profile* profile) {

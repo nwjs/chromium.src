@@ -37,8 +37,7 @@ const AcceleratorData kAcceleratorData[] = {
   // Shortcut for Koren IME.
   { true, ui::VKEY_HANGUL, ui::EF_NONE, SWITCH_IME },
 
-  { true, ui::VKEY_TAB,
-    ui::EF_ALT_DOWN, CYCLE_FORWARD_MRU },
+  { true, ui::VKEY_TAB, ui::EF_ALT_DOWN, CYCLE_FORWARD_MRU },
   { true, ui::VKEY_TAB, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN,
     CYCLE_BACKWARD_MRU },
   { true, ui::VKEY_F5, ui::EF_NONE, CYCLE_FORWARD_LINEAR },
@@ -50,6 +49,10 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_KBD_BRIGHTNESS_UP, ui::EF_NONE, KEYBOARD_BRIGHTNESS_UP },
   { true, ui::VKEY_F4, ui::EF_CONTROL_DOWN, CYCLE_DISPLAY_MODE },
   { true, ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, LOCK_SCREEN },
+#if !defined(NDEBUG)
+  // Extra shortcut for debug build to activate lock screen on linux desktop.
+  { true, ui::VKEY_L, ui::EF_ALT_DOWN, LOCK_SCREEN },
+#endif
   { true, ui::VKEY_O, ui::EF_CONTROL_DOWN, OPEN_FILE_MANAGER_DIALOG },
   { true, ui::VKEY_M, ui::EF_CONTROL_DOWN, OPEN_FILE_MANAGER_TAB },
   { true, ui::VKEY_T, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN, OPEN_CROSH },
@@ -122,6 +125,13 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_F2, ui::EF_CONTROL_DOWN, FOCUS_NEXT_PANE },
   { true, ui::VKEY_F1, ui::EF_CONTROL_DOWN, FOCUS_PREVIOUS_PANE },
 
+  // TODO(yusukes): Handle VKEY_MEDIA_STOP, VKEY_MEDIA_PLAY_PAUSE, and
+  // VKEY_MEDIA_LAUNCH_MAIL.
+};
+
+const size_t kAcceleratorDataLength = arraysize(kAcceleratorData);
+
+const AcceleratorData kDebugAcceleratorData[] = {
   { true, ui::VKEY_F3,
     ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
     ROTATE_WINDOWS },
@@ -144,12 +154,9 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_W, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
     PRINT_WINDOW_HIERARCHY },
 #endif
-
-  // TODO(yusukes): Handle VKEY_MEDIA_STOP, VKEY_MEDIA_PLAY_PAUSE, and
-  // VKEY_MEDIA_LAUNCH_MAIL.
 };
 
-const size_t kAcceleratorDataLength = arraysize(kAcceleratorData);
+const size_t kDebugAcceleratorDataLength = arraysize(kDebugAcceleratorData);
 
 const AcceleratorAction kReservedActions[] = {
   // Window cycling accelerators.

@@ -18,6 +18,7 @@
     
     <link rel="stylesheet" href="css/combobutton.css"></link>
     <link rel="stylesheet" href="css/file_manager.css"></link>
+    <link rel="stylesheet" href="css/file_types.css"></link>
     <link rel="stylesheet" href="css/common.css"></link>
 
     <script src="js/main_scripts.js"></script>
@@ -67,16 +68,18 @@
 
       <script src="js/combobutton.js"></script>
 
+      <script src="js/path_util.js"></script>
       <script src="js/util.js"></script>
+      <script src="js/breadcrumbs_controller.js"></script>
       <script src="js/directory_contents.js"></script>
-      <script src="js/volume_manager.js"></script>
       <script src="js/directory_model.js"></script>
-      <script src="js/file_copy_manager.js"></script>
+      <script src="js/file_copy_manager_wrapper.js"></script>
       <script src="js/file_manager.js"></script>
       <script src="js/file_manager_pyauto.js"></script>
       <script src="js/file_tasks.js"></script>
       <script src="js/file_transfer_controller.js"></script>
       <script src="js/file_type.js"></script>
+      <script src="js/volume_manager.js"></script>
       <script src="js/media/media_util.js"></script>
       <script src="js/metadata/metadata_cache.js"></script>
       <script src="js/default_action_dialog.js"></script>
@@ -101,6 +104,8 @@
           ></command>
       <command id="format" i18n-values="label:FORMAT_DEVICE_BUTTON_LABEL"
           ></command>
+      <command id="import-photos" i18n-values="label:IMPORT_PHOTOS_BUTTON_LABEL"
+          ></command>
 
       <command id="gdata-buy-more-space"
           i18n-values="label:GDATA_BUY_MORE_SPACE"
@@ -110,6 +115,9 @@
     </commands>
 
     <menu class="file-context-menu chrome-menu">
+      <menuitem id="default-action"
+          visibleif="full-page" hidden></menuitem>
+      <hr id="default-action-separator" visibleif="full-page" hidden>
       <menuitem command="#cut" visibleif="full-page"></menuitem>
       <menuitem command="#copy" visibleif="full-page"></menuitem>
       <menuitem command="#paste" visibleif="full-page"></menuitem>
@@ -122,6 +130,7 @@
     </menu>
 
     <menu class="roots-context-menu chrome-menu" >
+      <menuitem command="#import-photos"></menuitem>
       <menuitem command="#unmount"></menuitem>
       <menuitem command="#format"></menuitem>
     </menu>
@@ -154,30 +163,27 @@
       <div class=sidebar-splitter></div>
       <div class=dialog-main>
         <div class=dialog-header>
-          <div class=breadcrumbs></div>
+          <div id="dir-breadcrumbs" class="breadcrumbs"></div>
           <input id="search-box" type="search" tabindex="4"
               i18n-values="aria-label:SEARCH_TEXT_LABEL">
 
           <div class="right buttonbar">
             <div>
               <button class="left small" id="detail-view" tabindex="5"
-                  i18n-values="aria-label:DETAIL_VIEW_TOOLTIP">
-                <img src="images/view_list_black_12x12.png">
+                      i18n-values="aria-label:DETAIL_VIEW_TOOLTIP">
               </button>
               <div class="tooltip" i18n-content=DETAIL_VIEW_TOOLTIP
                    >[DETAIL VIEW]</div>
             </div>
-              <div>
-               <button class="right small" id="thumbnail-view" tabindex="6"
-                   i18n-values="aria-label:THUMBNAIL_VIEW_TOOLTIP">
-                <img src="images/view_thumbs_black_12x12.png">
+            <div>
+              <button class="right small" id="thumbnail-view" tabindex="6"
+                      i18n-values="aria-label:THUMBNAIL_VIEW_TOOLTIP">
               </button>
               <div class="tooltip" i18n-content=THUMBNAIL_VIEW_TOOLTIP
                    >[THUMBNAIL VIEW]</div>
             </div>
             <button class="menubutton" id="gdata-settings" tabindex="7"
                     menu="#docs-settings" visibleif="full-page">
-              <img src="images/settings.svg">
               <span class="disclosureindicator"></span>
             </button>
           </div>
@@ -193,16 +199,16 @@
               <div class="gdrive-welcome page"></div>
               <div id="no-search-results"></div>
             </div>
-            <div class=downloads-warning hidden>
-              <img src=images/warning_icon_square_26x26.png>
-              <div></div>
-            </div>
+            <div class=downloads-warning hidden></div>
           </div>
-          <div class=preview-panel visibility=hidden>
+          <div class="preview-panel" visibility="hidden">
             <div>
-              <div class=preview-thumbnails></div>
+              <div class="preview-thumbnails"></div>
             </div>
-            <div class=preview-summary></div>
+            <div id="preview-lines"> 
+              <div class="preview-summary"></div>
+              <div id="search-breadcrumbs" class="breadcrumbs"></div>
+            </div>
             <div class="right buttonbar" visibleif="full-page">
               <button id="tasks" class="combobutton" menu="#tasks-menu">
               </button>
@@ -221,6 +227,7 @@
         <input type=text spellcheck=false>
       </div>
       <div class=horizontal-spacer></div>
+      <select id="file-type"></select>
       <button class=ok disabled>[OK]</button>
       <div class=preparing-label i18n-content=PREPARING_LABEL>[PREPARING]</div>
       <div class=progress-bar>

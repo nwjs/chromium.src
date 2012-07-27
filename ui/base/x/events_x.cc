@@ -11,6 +11,7 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/memory/singleton.h"
 #include "base/message_pump_aurax11.h"
 #include "ui/base/keycodes/keyboard_code_conversion_x.h"
 #include "ui/base/touch/touch_factory.h"
@@ -719,11 +720,21 @@ int EventFlagsFromNative(const base::NativeEvent& native_event) {
       XIDeviceEvent* xievent =
           static_cast<XIDeviceEvent*>(native_event->xcookie.data);
 
-      const bool touch =
-          TouchFactory::GetInstance()->IsTouchDevice(xievent->sourceid);
       switch (xievent->evtype) {
+#if defined(USE_XI2_MT)
+        case XI_TouchBegin:
+        case XI_TouchUpdate:
+        case XI_TouchEnd:
+          return GetButtonMaskForX2Event(xievent) |
+                 GetEventFlagsFromXState(xievent->mods.effective) |
+                 GetEventFlagsFromXState(
+                     XModifierStateWatcher::GetInstance()->state());
+          break;
+#endif
         case XI_ButtonPress:
         case XI_ButtonRelease: {
+          const bool touch =
+              TouchFactory::GetInstance()->IsTouchDevice(xievent->sourceid);
           int flags = GetButtonMaskForX2Event(xievent) |
               GetEventFlagsFromXState(xievent->mods.effective);
           if (touch) {

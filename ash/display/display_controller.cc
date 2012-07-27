@@ -9,6 +9,7 @@
 #include "ash/root_window_controller.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
+#include "ash/wm/property_util.h"
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
 #include "ui/aura/env.h"
@@ -19,13 +20,6 @@
 
 namespace ash {
 namespace internal {
-namespace {
-// True if the extended desktop mode is enabled.
-bool extended_desktop_enabled = false;
-
-// True if the virtual screen coordinates is enabled.
-bool virtual_screen_coordinates_enabled = false;
-}
 
 DisplayController::DisplayController()
     : secondary_display_layout_(RIGHT) {
@@ -39,7 +33,7 @@ DisplayController::~DisplayController() {
   for (std::map<int, aura::RootWindow*>::const_reverse_iterator it =
            root_windows_.rbegin(); it != root_windows_.rend(); ++it) {
     internal::RootWindowController* controller =
-        wm::GetRootWindowController(it->second);
+        GetRootWindowController(it->second);
     // RootWindow may not have RootWindowController in non
     // extended desktop mode.
     if (controller)
@@ -66,6 +60,7 @@ void DisplayController::InitSecondaryDisplays() {
     aura::RootWindow* root = AddRootWindowForDisplay(*display);
     Shell::GetInstance()->InitRootWindowForSecondaryDisplay(root);
   }
+  UpdateDisplayBoundsForLayout();
 }
 
 aura::RootWindow* DisplayController::GetPrimaryRootWindow() {
@@ -82,7 +77,7 @@ void DisplayController::CloseChildWindows() {
            root_windows_.begin(); it != root_windows_.end(); ++it) {
     aura::RootWindow* root_window = it->second;
     internal::RootWindowController* controller =
-        wm::GetRootWindowController(root_window);
+        GetRootWindowController(root_window);
     if (controller) {
       controller->CloseChildWindows();
     } else {
@@ -99,7 +94,7 @@ std::vector<aura::RootWindow*> DisplayController::GetAllRootWindows() {
   for (std::map<int, aura::RootWindow*>::const_iterator it =
            root_windows_.begin(); it != root_windows_.end(); ++it) {
     DCHECK(it->second);
-    if (wm::GetRootWindowController(it->second))
+    if (GetRootWindowController(it->second))
       windows.push_back(it->second);
   }
   return windows;
@@ -111,7 +106,7 @@ DisplayController::GetAllRootWindowControllers() {
   for (std::map<int, aura::RootWindow*>::const_iterator it =
            root_windows_.begin(); it != root_windows_.end(); ++it) {
     internal::RootWindowController* controller =
-        wm::GetRootWindowController(it->second);
+        GetRootWindowController(it->second);
     if (controller)
       controllers.push_back(controller);
   }
@@ -223,7 +218,7 @@ void DisplayController::OnDisplayRemoved(const gfx::Display& display) {
   if (root != Shell::GetPrimaryRootWindow()) {
     root_windows_.erase(display.id());
     internal::RootWindowController* controller =
-        wm::GetRootWindowController(root);
+        GetRootWindowController(root);
     if (controller) {
       controller->MoveWindowsTo(Shell::GetPrimaryRootWindow());
       delete controller;
@@ -235,27 +230,10 @@ void DisplayController::OnDisplayRemoved(const gfx::Display& display) {
 
 // static
 bool DisplayController::IsExtendedDesktopEnabled(){
-  return extended_desktop_enabled ||
+  static bool extended_desktop_disabled =
       CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kAshExtendedDesktop);
-}
-
-// static
-void DisplayController::SetExtendedDesktopEnabled(bool enabled) {
-  extended_desktop_enabled = enabled;
-}
-
-// static
-bool DisplayController::IsVirtualScreenCoordinatesEnabled() {
-  return IsExtendedDesktopEnabled() &&
-      (virtual_screen_coordinates_enabled ||
-       CommandLine::ForCurrentProcess()->HasSwitch(
-           switches::kAshVirtualScreenCoordinates));
-}
-
-// static
-void DisplayController::SetVirtualScreenCoordinatesEnabled(bool enabled) {
-  virtual_screen_coordinates_enabled = enabled;
+          switches::kAshExtendedDesktopDisabled);
+  return !extended_desktop_disabled;
 }
 
 aura::RootWindow* DisplayController::AddRootWindowForDisplay(
@@ -276,8 +254,7 @@ aura::RootWindow* DisplayController::AddRootWindowForDisplay(
 }
 
 void DisplayController::UpdateDisplayBoundsForLayout() {
-  if (!IsVirtualScreenCoordinatesEnabled() ||
-      gfx::Screen::GetNumDisplays() <= 1) {
+  if (!IsExtendedDesktopEnabled() || gfx::Screen::GetNumDisplays() <= 1) {
     return;
   }
   DCHECK_EQ(2, gfx::Screen::GetNumDisplays());

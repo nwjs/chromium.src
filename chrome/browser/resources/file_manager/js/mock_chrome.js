@@ -321,7 +321,13 @@ chrome.fileBrowserPrivate = {
     });
   },
 
-  getSizeStats: function() {},
+  getSizeStats: function(url, callback) {
+    var kB_inGb = 1024 * 1024;
+    callback({
+      remainingSizeKB: 9 * kB_inGb,
+      totalSizeKB: 10 * kB_inGb
+    });
+  },
 
   getVolumeMetadata: function(url, callback) {
     var metadata = {};
@@ -433,6 +439,8 @@ chrome.fileBrowserPrivate = {
 
       FILE_IS_DIRECTORY: 'Folder',
 
+      CHROMEOS_RELEASE_BOARD: 'stumpy',
+
       GDATA_DIRECTORY_LABEL: 'Google Drive',
       ENABLE_GDATA: true,
       PDF_VIEW_ENABLED: true,
@@ -478,6 +486,9 @@ chrome.fileBrowserPrivate = {
       ACTION_WATCH: 'Watch',
       ACTION_LISTEN: 'Listen',
       INSTALL_CRX: 'Open',
+
+      CHANGE_DEFAULT_MENU_ITEM: 'Change default...',
+      CHANGE_DEFAULT_CAPTION: 'Choose the default app for $1 files:',
 
       GALLERY_EDIT: 'Edit',
       GALLERY_SHARE: 'Share',
@@ -539,6 +550,7 @@ chrome.fileBrowserPrivate = {
       GDATA_CANNOT_REACH: '$1 cannot be reached at this time',
 
       GDATA_WELCOME_TITLE: 'Welcome to Google Drive!',
+      GDATA_WELCOME_TITLE_ALTERNATIVE: 'Get 100 GB free with Google Drive',
       GDATA_WELCOME_TEXT_SHORT:
           'All files saved in this folder are backed up online automatically',
       GDATA_WELCOME_TEXT_LONG:
@@ -549,6 +561,7 @@ chrome.fileBrowserPrivate = {
           'safely stored in Google Drive .</p>' +
           '<p><strong>Share, create and collaborate</strong> ' +
           'on files with others all in one place .</p>',
+      GDATA_WELCOME_GET_STARTED: 'Get started',
       GDATA_WELCOME_DISMISS: 'Dismiss',
       GDATA_LOADING_PROGRESS: '$1 files fetched',
 
@@ -631,6 +644,7 @@ chrome.fileBrowserPrivate = {
       IMAGE_FILE_TYPE: '$1 image',
       VIDEO_FILE_TYPE: '$1 video',
       AUDIO_FILE_TYPE: '$1 audio',
+      GENERIC_FILE_TYPE: '$1 file',
       HTML_DOCUMENT_FILE_TYPE: 'HTML document',
       ZIP_ARCHIVE_FILE_TYPE: 'Zip archive',
       RAR_ARCHIVE_FILE_TYPE: 'RAR archive',
@@ -643,10 +657,13 @@ chrome.fileBrowserPrivate = {
       POWERPOINT_PRESENTATION_FILE_TYPE: 'PowerPoint presentation',
       EXCEL_FILE_TYPE: 'Excel spreadsheet',
 
+      SEARCH_TEXT_LABEL: 'Search',
       SEARCH_NO_MATCHING_FILES: 'No files match <b>"$1"</b>',
 
       TIME_TODAY: 'Today, $1',
       TIME_YESTERDAY: 'Yesterday, $1',
+
+      ALL_FILES_FILTER: 'All files',
 
       DEFAULT_ACTION_LABEL: '(default)',
       ASH: true,

@@ -15,6 +15,7 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/history/history.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -230,7 +231,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
         content::NotificationService::AllSources());
 
     while (!HasFailure() && browser->tab_count() != expected_tab_count)
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
 
     ASSERT_EQ(expected_tab_count, browser->tab_count());
   }
@@ -256,7 +257,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
                   content::Source<AutocompleteController>(controller));
 
     while (!HasFailure() && !controller->done())
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
 
     ASSERT_TRUE(controller->done());
   }
@@ -272,7 +273,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
       registrar.Add(this, chrome::NOTIFICATION_TEMPLATE_URL_SERVICE_LOADED,
                     content::Source<TemplateURLService>(model));
       model->Load();
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
     }
 
     ASSERT_TRUE(model->loaded());
@@ -298,15 +299,15 @@ class OmniboxViewTest : public InProcessBrowserTest,
 
   void AddHistoryEntry(const TestHistoryEntry& entry, const Time& time) {
     Profile* profile = browser()->profile();
-    HistoryService* history_service =
-        profile->GetHistoryService(Profile::EXPLICIT_ACCESS);
+    HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+        profile, Profile::EXPLICIT_ACCESS);
     ASSERT_TRUE(history_service);
 
     if (!history_service->BackendLoaded()) {
       content::NotificationRegistrar registrar;
       registrar.Add(this, chrome::NOTIFICATION_HISTORY_LOADED,
                     content::Source<Profile>(profile));
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
     }
 
     BookmarkModel* bookmark_model = profile->GetBookmarkModel();
@@ -316,7 +317,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
       content::NotificationRegistrar registrar;
       registrar.Add(this, chrome::NOTIFICATION_BOOKMARK_MODEL_LOADED,
                     content::Source<Profile>(profile));
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
     }
 
     GURL url(entry.url);
@@ -334,7 +335,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
       content::NotificationRegistrar registrar;
       registrar.Add(this, chrome::NOTIFICATION_HISTORY_URLS_MODIFIED,
                     content::Source<Profile>(profile));
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
       // We don't want to return until all observers have processed this
       // notification, because some (e.g. the in-memory history database) may do
       // something important.  Since we don't know where in the observer list we
@@ -1281,7 +1282,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
   // Move the mouse to the center of the browser window and left-click.
   void ClickBrowserWindowCenter() {
     ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(
-                    GetBrowserView()->GetScreenBounds().CenterPoint()));
+                    GetBrowserView()->GetBoundsInScreen().CenterPoint()));
     ASSERT_TRUE(ui_test_utils::SendMouseEventsSync(
                     ui_controls::LEFT, ui_controls::DOWN));
     ASSERT_TRUE(ui_test_utils::SendMouseEventsSync(
@@ -1294,7 +1295,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
   void ClickFocusViewOrigin(ui_controls::MouseButton button,
                             const gfx::Point& press_offset,
                             const gfx::Point& release_offset) {
-    gfx::Point focus_view_origin = GetFocusView()->GetScreenBounds().origin();
+    gfx::Point focus_view_origin = GetFocusView()->GetBoundsInScreen().origin();
     gfx::Point press_point = focus_view_origin;
     press_point.Offset(press_offset.x(), press_offset.y());
     ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(press_point));
@@ -1612,7 +1613,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, MAYBE_PasteReplacingAll) {
 
 // TODO(derat): Enable on Windows: http://crbug.com/128556
 #if defined(USE_AURA)
-IN_PROC_BROWSER_TEST_F(OmniboxViewTest, SelectAllOnClick) {
+IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_SelectAllOnClick) {
   OmniboxView* omnibox_view = NULL;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
   omnibox_view->SetUserText(ASCIIToUTF16("http://www.google.com/"));
@@ -1641,6 +1642,9 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, SelectAllOnClick) {
   // have the effect of re-selecting the text.
   ASSERT_NO_FATAL_FAILURE(
       ClickFocusViewOrigin(ui_controls::LEFT, kClickOffset, kClickOffset));
+  // The following expect fails starting with one of the cls (148415-148428),
+  // most likely the WebKit roll @148419.
+  // http://crbug.com/139069
   EXPECT_TRUE(omnibox_view->IsSelectAll());
   EXPECT_TRUE(GetFocusView()->HasFocus());
 

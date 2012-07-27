@@ -219,12 +219,13 @@ class ServiceRuntime {
   // describing the error.
   bool Start(nacl::DescWrapper* nacl_file_desc,
              ErrorInfo* error_info,
-             const nacl::string& url);
+             const nacl::string& url,
+             pp::CompletionCallback crash_cb);
 
   // Starts the application channel to the nexe.
   SrpcClient* SetupAppChannel();
 
-  bool Log(int severity, nacl::string msg);
+  bool Log(int severity, const nacl::string& msg);
   Plugin* plugin() const { return plugin_; }
   void Shutdown();
 
@@ -234,6 +235,8 @@ class ServiceRuntime {
   // exit syscall).
   int exit_status();  // const, but grabs mutex etc.
   void set_exit_status(int exit_status);
+
+  nacl::string GetCrashLogOutput();
 
   // To establish quota callbacks the pnacl coordinator needs to communicate
   // with the reverse interface.

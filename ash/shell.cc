@@ -33,6 +33,7 @@
 #include "ash/tooltips/tooltip_controller.h"
 #include "ash/touch/touch_observer_hud.h"
 #include "ash/wm/activation_controller.h"
+#include "ash/wm/always_on_top_controller.h"
 #include "ash/wm/app_list_controller.h"
 #include "ash/wm/base_layout_manager.h"
 #include "ash/wm/capture_controller.h"
@@ -40,16 +41,16 @@
 #include "ash/wm/dialog_frame_view.h"
 #include "ash/wm/event_client_impl.h"
 #include "ash/wm/event_rewriter_event_filter.h"
+#include "ash/wm/overlay_event_filter.h"
 #include "ash/wm/panel_layout_manager.h"
 #include "ash/wm/panel_window_event_filter.h"
-#include "ash/wm/partial_screenshot_event_filter.h"
 #include "ash/wm/power_button_controller.h"
+#include "ash/wm/property_util.h"
 #include "ash/wm/resize_shadow_controller.h"
 #include "ash/wm/root_window_layout_manager.h"
 #include "ash/wm/screen_dimmer.h"
 #include "ash/wm/shadow_controller.h"
 #include "ash/wm/shelf_layout_manager.h"
-#include "ash/wm/slow_animation_event_filter.h"
 #include "ash/wm/stacking_controller.h"
 #include "ash/wm/status_area_layout_manager.h"
 #include "ash/wm/system_gesture_event_filter.h"
@@ -61,6 +62,7 @@
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_modality_controller.h"
 #include "ash/wm/window_util.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/workspace/workspace_event_filter.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace/workspace_manager.h"
@@ -70,7 +72,6 @@
 #include "grit/ui_resources.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/user_action_client.h"
-#include "ui/aura/cursor_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/layout_manager.h"
@@ -116,6 +117,10 @@ class DummyUserWallpaperDelegate : public UserWallpaperDelegate {
   DummyUserWallpaperDelegate() {}
 
   virtual ~DummyUserWallpaperDelegate() {}
+
+  virtual ash::WindowVisibilityAnimationType GetAnimationType() OVERRIDE {
+    return WINDOW_VISIBILITY_ANIMATION_TYPE_FADE;
+  }
 
   virtual void InitializeWallpaper() OVERRIDE {
     ash::Shell::GetInstance()->desktop_background_controller()->
@@ -200,18 +205,17 @@ Shell::~Shell() {
   if (active_root_window_)
     active_root_window_->GetFocusManager()->SetFocusedWindow(NULL, NULL);
 
-  aura::Env::GetInstance()->cursor_manager()->set_delegate(NULL);
+  cursor_manager_.set_delegate(NULL);
 
   // Please keep in same order as in Init() because it's easy to miss one.
   RemoveEnvEventFilter(user_activity_detector_.get());
   RemoveEnvEventFilter(event_rewriter_filter_.get());
-  RemoveEnvEventFilter(partial_screenshot_filter_.get());
+  RemoveEnvEventFilter(overlay_filter_.get());
   RemoveEnvEventFilter(input_method_filter_.get());
   RemoveEnvEventFilter(window_modality_controller_.get());
   if (mouse_cursor_filter_.get())
     RemoveEnvEventFilter(mouse_cursor_filter_.get());
   RemoveEnvEventFilter(system_gesture_filter_.get());
-  RemoveEnvEventFilter(slow_animation_filter_.get());
 #if !defined(OS_MACOSX)
   RemoveEnvEventFilter(accelerator_filter_.get());
 #endif
@@ -303,7 +307,7 @@ void Shell::DeleteInstance() {
 
 // static
 internal::RootWindowController* Shell::GetPrimaryRootWindowController() {
-  return wm::GetRootWindowController(GetPrimaryRootWindow());
+  return GetRootWindowController(GetPrimaryRootWindow());
 }
 
 // static
@@ -359,8 +363,6 @@ std::vector<aura::Window*> Shell::GetAllContainers(int container_id) {
 }
 
 void Shell::Init() {
-  if (internal::DisplayController::IsVirtualScreenCoordinatesEnabled())
-    VLOG(1) << "Using virtual screen coordinates";
   // Install the custom factory first so that views::FocusManagers for Tray,
   // Launcher, and WallPaper could be created by the factory.
   views::FocusManagerFactory::Install(new AshFocusManagerFactory);
@@ -369,8 +371,7 @@ void Shell::Init() {
   // Pass ownership of the filter to the Env.
   aura::Env::GetInstance()->SetEventFilter(env_filter_);
 
-  aura::Env::GetInstance()->cursor_manager()->set_delegate(this);
-
+  cursor_manager_.set_delegate(this);
 
   focus_manager_.reset(new aura::FocusManager);
   activation_controller_.reset(
@@ -398,9 +399,9 @@ void Shell::Init() {
   AddEnvEventFilter(event_rewriter_filter_.get());
 
   DCHECK_EQ(2U, GetEnvEventFilterCount());
-  partial_screenshot_filter_.reset(new internal::PartialScreenshotEventFilter);
-  AddEnvEventFilter(partial_screenshot_filter_.get());
-  AddShellObserver(partial_screenshot_filter_.get());
+  overlay_filter_.reset(new internal::OverlayEventFilter);
+  AddEnvEventFilter(overlay_filter_.get());
+  AddShellObserver(overlay_filter_.get());
 
   DCHECK_EQ(3U, GetEnvEventFilterCount());
   input_method_filter_.reset(new aura::shared::InputMethodEventFilter());
@@ -413,9 +414,6 @@ void Shell::Init() {
 
   system_gesture_filter_.reset(new internal::SystemGestureEventFilter);
   AddEnvEventFilter(system_gesture_filter_.get());
-
-  slow_animation_filter_.reset(new internal::SlowAnimationEventFilter);
-  AddEnvEventFilter(slow_animation_filter_.get());
 
   capture_controller_.reset(new internal::CaptureController);
 
@@ -454,6 +452,10 @@ void Shell::Init() {
   video_detector_.reset(new VideoDetector);
   window_cycle_controller_.reset(new WindowCycleController);
 
+  tooltip_controller_.reset(new internal::TooltipController(
+      drag_drop_controller_.get()));
+  AddEnvEventFilter(tooltip_controller_.get());
+
   InitRootWindowController(root_window_controller);
 
   // Initialize Primary RootWindow specific items.
@@ -478,13 +480,6 @@ void Shell::Init() {
     shadow_controller_.reset(new internal::ShadowController());
   }
 
-  // Tooltip controller must be created after shadow controller so that the
-  // tooltip window can be initialized with appropriate shadows.
-  tooltip_controller_.reset(new internal::TooltipController(
-      drag_drop_controller_.get()));
-  AddEnvEventFilter(tooltip_controller_.get());
-  aura::client::SetTooltipClient(root_window, tooltip_controller_.get());
-
   if (!delegate_.get() || delegate_->IsUserLoggedIn())
     CreateLauncher();
 
@@ -501,7 +496,7 @@ void Shell::Init() {
   display_controller_->InitSecondaryDisplays();
 
   if (initially_hide_cursor_)
-    aura::Env::GetInstance()->cursor_manager()->ShowCursor(false);
+    cursor_manager_.ShowCursor(false);
 }
 
 void Shell::AddEnvEventFilter(aura::EventFilter* filter) {
@@ -604,7 +599,15 @@ void Shell::CreateLauncher() {
   if (panel_layout_manager_)
     panel_layout_manager_->SetLauncher(launcher_.get());
 
+  if (delegate())
+    launcher_->SetVisible(delegate()->IsSessionStarted());
   launcher_->widget()->Show();
+}
+
+void Shell::ShowLauncher() {
+  if (!launcher_.get())
+    return;
+  launcher_->SetVisible(true);
 }
 
 void Shell::AddShellObserver(ShellObserver* observer) {
@@ -703,6 +706,8 @@ void Shell::InitRootWindowController(
   aura::client::SetCaptureClient(root_window, capture_controller_.get());
   aura::client::SetScreenPositionClient(root_window,
                                         screen_position_controller_.get());
+  aura::client::SetCursorClient(root_window, &cursor_manager_);
+  aura::client::SetTooltipClient(root_window, tooltip_controller_.get());
 
   if (nested_dispatcher_controller_.get()) {
     aura::client::SetDispatcherClient(root_window,
@@ -713,6 +718,16 @@ void Shell::InitRootWindowController(
 
   root_window->SetCursor(ui::kCursorPointer);
   controller->InitLayoutManagers();
+
+  // TODO(oshima): Move the instance to RootWindowController when
+  // the extended desktop is enabled by default.
+  internal::AlwaysOnTopController* always_on_top_controller =
+      new internal::AlwaysOnTopController;
+  always_on_top_controller->SetContainers(
+      root_window->GetChildById(internal::kShellWindowId_DefaultContainer),
+      root_window->GetChildById(internal::kShellWindowId_AlwaysOnTopContainer));
+  root_window->SetProperty(internal::kAlwaysOnTopControllerKey,
+                           always_on_top_controller);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

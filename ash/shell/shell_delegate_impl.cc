@@ -8,7 +8,6 @@
 #include "ash/shell/launcher_delegate_impl.h"
 #include "ash/shell/toplevel_window.h"
 #include "ash/shell_window_ids.h"
-#include "ash/wm/partial_screenshot_view.h"
 #include "base/message_loop.h"
 #include "ui/aura/window.h"
 
@@ -32,6 +31,10 @@ void ShellDelegateImpl::SetWatcher(WindowWatcher* watcher) {
 }
 
 bool ShellDelegateImpl::IsUserLoggedIn() {
+  return true;
+}
+
+bool ShellDelegateImpl::IsSessionStarted() {
   return true;
 }
 
@@ -105,11 +108,6 @@ app_list::AppListViewDelegate* ShellDelegateImpl::CreateAppListViewDelegate() {
   return ash::shell::CreateAppListViewDelegate();
 }
 
-void ShellDelegateImpl::StartPartialScreenshot(
-    ash::ScreenshotDelegate* screenshot_delegate) {
-  ash::PartialScreenshotView::StartPartialScreenshot(screenshot_delegate);
-}
-
 ash::LauncherDelegate* ShellDelegateImpl::CreateLauncherDelegate(
     ash::LauncherModel* model) {
   launcher_delegate_ = new LauncherDelegateImpl(watcher_);
@@ -130,6 +128,9 @@ aura::client::UserActionClient* ShellDelegateImpl::CreateUserActionClient() {
 }
 
 void ShellDelegateImpl::OpenFeedbackPage() {
+}
+
+void ShellDelegateImpl::RecordUserMetricsAction(UserMetricsAction action) {
 }
 
 }  // namespace shell

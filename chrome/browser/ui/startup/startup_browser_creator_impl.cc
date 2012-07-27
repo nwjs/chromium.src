@@ -712,7 +712,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
     profile_ = browser->profile();
 
   if (!browser || !browser->is_type_tabbed()) {
-    browser = Browser::Create(profile_);
+    browser = new Browser(Browser::CreateParams(profile_));
   } else {
 #if defined(TOOLKIT_GTK)
     // Setting the time of the last action on the window here allows us to steal
@@ -835,7 +835,8 @@ void StartupBrowserCreatorImpl::AddStartupURLs(
     GURL old_url = (*startup_urls)[0];
     (*startup_urls)[0] =
         SyncPromoUI::GetSyncPromoURL(GURL(chrome::kChromeUINewTabURL),
-                                     SyncPromoUI::SOURCE_START_PAGE);
+                                     SyncPromoUI::SOURCE_START_PAGE,
+                                     false);
 
     // An empty URL means to go to the home page.
     if (old_url.is_empty() &&
@@ -891,8 +892,8 @@ void StartupBrowserCreatorImpl::CheckPreferencesBackup(Profile* profile) {
     LOG(WARNING) << "Homepage has changed";
     PrefService* prefs = profile->GetPrefs();
     std::string backup_homepage;
-    bool backup_homepage_is_ntp;
-    bool backup_show_home_button;
+    bool backup_homepage_is_ntp = false;
+    bool backup_show_home_button = false;
     if (!prefs_watcher->GetBackupForPref(prefs::kHomePage)->
             GetAsString(&backup_homepage) ||
         !prefs_watcher->GetBackupForPref(prefs::kHomePageIsNewTabPage)->

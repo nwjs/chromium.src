@@ -49,6 +49,7 @@
 using content::BrowserThread;
 using content::ChildProcessHost;
 using content::RenderProcessHost;
+using content::RenderWidgetHelper;
 using content::RenderWidgetHost;
 using content::RenderWidgetHostImpl;
 
@@ -781,6 +782,7 @@ bool GpuProcessHost::LaunchGpuProcess(const std::string& channel_id) {
     switches::kDisableGpuVsync,
     switches::kDisableGpuWatchdog,
     switches::kDisableImageTransportSurface,
+    switches::kDisableAcceleratedVideoDecode,
     switches::kDisableLogging,
     switches::kEnableGPUServiceLogging,
     switches::kEnableLogging,
@@ -795,6 +797,7 @@ bool GpuProcessHost::LaunchGpuProcess(const std::string& channel_id) {
     switches::kTraceStartup,
     switches::kV,
     switches::kVModule,
+    switches::kEnableUIReleaseFrontSurface,
 #if defined(USE_AURA)
     switches::kUIPrioritizeInGpuProcess,
 #endif

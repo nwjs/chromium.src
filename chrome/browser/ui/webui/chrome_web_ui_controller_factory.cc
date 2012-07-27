@@ -6,7 +6,6 @@
 
 #include "base/command_line.h"
 #include "chrome/browser/about_flags.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_web_ui.h"
 #include "chrome/browser/history/history_types.h"
@@ -62,7 +61,9 @@
 #include "ui/web_dialogs/web_dialog_ui.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/ui/webui/chromeos/drive_internals_ui.h"
 #include "chrome/browser/ui/webui/chromeos/choose_mobile_network_ui.h"
+#include "chrome/browser/ui/webui/chromeos/cryptohome_ui.h"
 #include "chrome/browser/ui/webui/chromeos/imageburner/imageburner_ui.h"
 #include "chrome/browser/ui/webui/chromeos/keyboard_overlay_ui.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
@@ -254,10 +255,8 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #endif
 #if defined(ENABLE_PRINTING)
   if (url.host() == chrome::kChromeUIPrintHost &&
-      !g_browser_process->local_state()->GetBoolean(
-          prefs::kPrintPreviewDisabled)) {
+      !profile->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled))
     return &NewWebUI<PrintPreviewUI>;
-  }
 #endif
 #if defined(OS_WIN)
   if (url.host() == chrome::kChromeUIConflictsHost)
@@ -272,6 +271,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #if defined(OS_CHROMEOS)
   if (url.host() == chrome::kChromeUIChooseMobileNetworkHost)
     return &NewWebUI<chromeos::ChooseMobileNetworkUI>;
+  if (url.host() == chrome::kChromeUICryptohomeHost)
+    return &NewWebUI<chromeos::CryptohomeUI>;
+  if (url.host() == chrome::kChromeUIDriveInternalsHost)
+    return &NewWebUI<chromeos::DriveInternalsUI>;
   if (url.host() == chrome::kChromeUIImageBurnerHost)
     return &NewWebUI<ImageBurnUI>;
   if (url.host() == chrome::kChromeUIKeyboardOverlayHost)
@@ -341,7 +344,6 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
       || url.host() == chrome::kChromeUISandboxHost
 #endif
 #if defined(OS_CHROMEOS)
-      || url.host() == chrome::kChromeUICryptohomeHost
       || url.host() == chrome::kChromeUIDiscardsHost
       || url.host() == chrome::kChromeUINetworkHost
       || url.host() == chrome::kChromeUIOSCreditsHost

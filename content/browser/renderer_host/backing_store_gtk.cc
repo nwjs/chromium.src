@@ -34,8 +34,7 @@
 #include "ui/gfx/rect.h"
 #include "ui/surface/transport_dib.h"
 
-using content::RenderWidgetHost;
-
+namespace content {
 namespace {
 
 // Assume that somewhere along the line, someone will do width * height * 4
@@ -330,7 +329,7 @@ void BackingStoreGtk::PaintRectWithoutXrender(
 }
 
 void BackingStoreGtk::PaintToBackingStore(
-    content::RenderProcessHost* process,
+    RenderProcessHost* process,
     TransportDIB::Id bitmap,
     const gfx::Rect& bitmap_rect,
     const std::vector<gfx::Rect>& copy_rects,
@@ -564,6 +563,8 @@ bool BackingStoreGtk::CopyFromBackingStore(const gfx::Rect& rect,
   // using.  This code assumes a visual mode where a pixel is
   // represented using a 32-bit unsigned int, with a byte per component.
   SkBitmap bitmap = skia::GetTopDevice(*output)->accessBitmap(true);
+  SkAutoLockPixels alp(bitmap);
+
   for (int y = 0; y < height; y++) {
     const uint32* src_row = reinterpret_cast<uint32*>(
         &image->data[image->bytes_per_line * y]);
@@ -663,3 +664,5 @@ void BackingStoreGtk::PaintToRect(const gfx::Rect& rect, GdkDrawable* target) {
   cairo_destroy(cr);
 }
 #endif
+
+}  // namespace content

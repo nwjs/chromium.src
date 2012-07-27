@@ -22,9 +22,9 @@ class ShellContentBrowserClient : public ContentBrowserClient {
   ShellContentBrowserClient();
   virtual ~ShellContentBrowserClient();
 
-  // content::ContentBrowserClient overrides.
+  // ContentBrowserClient overrides.
   virtual BrowserMainParts* CreateBrowserMainParts(
-      const content::MainFunctionParams& parameters) OVERRIDE;
+      const MainFunctionParams& parameters) OVERRIDE;
   virtual void RenderViewHostCreated(
       RenderViewHost* render_view_host) OVERRIDE;
   virtual void AppendExtraCommandLineSwitches(CommandLine* command_line,
@@ -40,6 +40,10 @@ class ShellContentBrowserClient : public ContentBrowserClient {
 #endif
 
   ShellBrowserContext* browser_context();
+  ShellBrowserContext* off_the_record_browser_context();
+  ShellResourceDispatcherHostDelegate* resource_dispatcher_host_delegate() {
+    return resource_dispatcher_host_delegate_.get();
+  }
 
  private:
   scoped_ptr<ShellResourceDispatcherHostDelegate>

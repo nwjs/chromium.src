@@ -106,6 +106,14 @@ const Experiment::Choice kOmniboxInlineHistoryQuickProviderChoices[] = {
     switches::kOmniboxInlineHistoryQuickProviderProhibited }
 };
 
+const Experiment::Choice kFixedPositionCreatesStackingContextChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    switches::kEnableFixedPositionCreatesStackingContext, ""},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    switches::kDisableFixedPositionCreatesStackingContext, ""}
+};
+
 const Experiment::Choice kForceCompositingModeChoices[] = {
   { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
   { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
@@ -304,7 +312,7 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_FIXED_POSITION_CREATES_STACKING_CONTEXT_NAME,
     IDS_FLAGS_FIXED_POSITION_CREATES_STACKING_CONTEXT_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kFixedPositionCreatesStackingContext)
+    MULTI_VALUE_TYPE(kFixedPositionCreatesStackingContextChoices)
   },
   // TODO(dspringer): When NaCl is on by default, remove this flag entry.
   {
@@ -610,6 +618,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableCssRegions)
   },
   {
+    "enable-css-variables",
+    IDS_FLAGS_CSS_VARIABLES_NAME,
+    IDS_FLAGS_CSS_VARIABLES_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableCssVariables)
+  },
+  {
     "enable-extension-activity-ui",
     IDS_FLAGS_ENABLE_EXTENSION_ACTIVITY_UI_NAME,
     IDS_FLAGS_ENABLE_EXTENSION_ACTIVITY_UI_DESCRIPTION,
@@ -645,6 +660,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_NTP_SUGGESTIONS_PAGE_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableSuggestionsTabPage)
+  },
+  {
+    "enable-discovery-ntp",
+    IDS_FLAGS_ENABLE_NTP_DISCOVERY_NAME,
+    IDS_FLAGS_ENABLE_NTP_DISCOVERY_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableDiscoveryInNewTabPage)
   },
   {
     "disable-chrome-to-mobile",  // FLAGS:RECORD_UMA
@@ -713,6 +735,13 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     SINGLE_VALUE_TYPE_AND_VALUE(switches::kForceDeviceScaleFactor, "2")
   },
+  {
+    "enable-hidpi-pdf-plugin",
+    IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_NAME,
+    IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_DESCRIPTION,
+    kOsCrOS | kOsMac,
+    SINGLE_VALUE_TYPE(switches::kEnableHighDPIPDFPlugin)
+  },
 #if defined(OS_CHROMEOS)
   {
     "allow-touchpad-three-finger-click",
@@ -723,11 +752,11 @@ const Experiment kExperiments[] = {
   },
 #endif
   {
-    "enable-client-oauth-signin",
-    IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_NAME,
-    IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION,
+    "disable-client-oauth-signin",
+    IDS_FLAGS_DISABLE_CLIENT_OAUTH_SIGNIN_NAME,
+    IDS_FLAGS_DISABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION,
     kOsMac | kOsWin | kOsLinux,
-    SINGLE_VALUE_TYPE(switches::kEnableClientOAuthSignin)
+    SINGLE_VALUE_TYPE(switches::kDisableClientOAuthSignin)
   },
 #if defined(USE_ASH)
   {
@@ -766,11 +795,11 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(app_list::switches::kAppListShowAppsOnly),
   },
   {
-    "ash-extended-desktop",
-    IDS_FLAGS_ENABLE_ASH_EXTENDED_DESKTOP_NAME,
-    IDS_FLAGS_ENABLE_ASH_EXTENDED_DESKTOP_DESCRIPTION,
+    "ash-extended-desktop-disabled",
+    IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_NAME,
+    IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(ash::switches::kAshExtendedDesktop)
+    SINGLE_VALUE_TYPE(ash::switches::kAshExtendedDesktopDisabled)
   },
 #endif  // defined(USE_ASH)
 #if defined(OS_CHROMEOS)
@@ -789,18 +818,18 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableDriveV2Api),
   },
   {
-    "enable-html5-camera",
-    IDS_FLAGS_ENABLE_HTML5_CAMERA,
-    IDS_FLAGS_ENABLE_HTML5_CAMERA_DESCRIPTION,
+    "disable-html5-camera",
+    IDS_FLAGS_DISABLE_HTML5_CAMERA,
+    IDS_FLAGS_DISABLE_HTML5_CAMERA_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableHtml5Camera),
+    SINGLE_VALUE_TYPE(switches::kDisableHtml5Camera),
   },
   {
-    "enable-new-oobe",
-    IDS_FLAGS_ENABLE_NEW_OOBE,
-    IDS_FLAGS_ENABLE_NEW_OOBE_DESCRIPTION,
+    "disable-new-oobe",
+    IDS_FLAGS_DISABLE_NEW_OOBE,
+    IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableNewOobe),
+    SINGLE_VALUE_TYPE(switches::kDisableNewOobe),
   },
 #endif
   {
@@ -811,18 +840,18 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableViewsTextfield),
   },
   {
+    "old-checkbox-style",
+    IDS_FLAGS_OLD_CHECKBOX_STYLE,
+    IDS_FLAGS_OLD_CHECKBOX_STYLE_DESCRIPTION,
+    kOsLinux | kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kOldCheckboxStyle),
+  },
+  {
     "enable-frameless-constrained-dialogs",
     IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_NAME,
     IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_DESCRIPTION,
     kOsWin | kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kEnableFramelessConstrainedDialogs),
-  },
-  {
-    "new-checkbox-style",
-    IDS_FLAGS_NEW_CHECKBOX_STYLE,
-    IDS_FLAGS_NEW_CHECKBOX_STYLE_DESCRIPTION,
-    kOsLinux | kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kNewCheckboxStyle),
   },
   {
     "disable-non-fullscreen-mouse-lock",
@@ -840,11 +869,11 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableUnsupportedBluetoothDevices)
   },
 #endif
-  { "enable-accelerated-video-decode",
-    IDS_FLAGS_ENABLE_ACCELERATED_VIDEO_DECODE_NAME,
-    IDS_FLAGS_ENABLE_ACCELERATED_VIDEO_DECODE_DESCRIPTION,
+  { "disable-accelerated-video-decode",
+    IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_NAME,
+    IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableAcceleratedVideoDecode),
+    SINGLE_VALUE_TYPE(switches::kDisableAcceleratedVideoDecode),
   },
 #if defined(USE_ASH)
   {
@@ -976,7 +1005,8 @@ void SanitizeList(PrefService* prefs) {
       enabled_experiments.begin(), enabled_experiments.end(),
       std::inserter(new_enabled_experiments, new_enabled_experiments.begin()));
 
-  SetEnabledFlags(prefs, new_enabled_experiments);
+  if (new_enabled_experiments != enabled_experiments)
+    SetEnabledFlags(prefs, new_enabled_experiments);
 }
 
 void GetSanitizedEnabledFlags(

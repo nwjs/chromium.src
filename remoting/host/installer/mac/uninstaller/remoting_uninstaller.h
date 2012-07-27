@@ -4,11 +4,9 @@
 
 #import <Cocoa/Cocoa.h>
 
-@interface RemotingUninstallerAppDelegate : NSObject {
+@interface RemotingUninstaller : NSObject {
 }
 
-- (IBAction)uninstall:(id)sender;
-- (IBAction)cancel:(id)sender;
+- (OSStatus)remotingUninstall;
 
-- (IBAction)handleMenuClose:(NSMenuItem*)sender;
 @end

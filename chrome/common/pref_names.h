@@ -264,6 +264,7 @@ extern const char kUseSharedProxies[];
 extern const char kOAuth1Token[];
 extern const char kOAuth1Secret[];
 extern const char kEnableCrosDRM[];
+extern const char kSecondaryDisplayLayout[];
 #endif  // defined(OS_CHROMEOS)
 extern const char kIpcDisabledMessages[];
 extern const char kShowHomeButton[];
@@ -344,10 +345,6 @@ extern const char kDisable3DAPIs[];
 extern const char kEnableHyperlinkAuditing[];
 extern const char kEnableReferrers[];
 
-#if defined(OS_MACOSX)
-extern const char kPresentationModeEnabled[];
-#endif
-
 extern const char kImportBookmarks[];
 extern const char kImportHistory[];
 extern const char kImportHomepage[];
@@ -366,6 +363,9 @@ extern const char kProfileAvatarIndex[];
 extern const char kProfileName[];
 
 extern const char kInvertNotificationShown[];
+
+extern const char kPrintingEnabled[];
+extern const char kPrintPreviewDisabled[];
 
 // Local state prefs. Please add Profile prefs above instead.
 extern const char kCertRevocationCheckingEnabled[];
@@ -616,10 +616,7 @@ extern const char kGeolocationEnabled[];
 
 extern const char kRemoteAccessHostFirewallTraversal[];
 
-extern const char kPrintingEnabled[];
-extern const char kPrintPreviewDisabled[];
 extern const char kPrintPreviewStickySettings[];
-
 extern const char kCloudPrintServiceURL[];
 extern const char kCloudPrintSigninURL[];
 extern const char kCloudPrintDialogWidth[];
@@ -637,6 +634,11 @@ extern const char kCloudPrintRobotRefreshToken[];
 extern const char kCloudPrintRobotEmail[];
 extern const char kVirtualPrinterDriverEnabled[];
 extern const char kCloudPrintSubmitEnabled[];
+
+#if !defined(OS_ANDROID)
+extern const char kChromeToMobileDeviceList[];
+extern const char kChromeToMobileTimestamp[];
+#endif
 
 extern const char kProxy[];
 extern const char kMaxConnectionsPerProxy[];
@@ -674,6 +676,7 @@ extern const char kAutoEnrollmentPowerLimit[];
 extern const char kDeviceActivityTimes[];
 extern const char kDeviceLocation[];
 extern const char kSyncSpareBootstrapToken[];
+extern const char kExternalStorageDisabled[];
 #endif
 
 extern const char kClearPluginLSODataEnabled[];

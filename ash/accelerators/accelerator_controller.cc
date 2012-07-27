@@ -4,7 +4,9 @@
 
 #include "ash/accelerators/accelerator_controller.h"
 
+#include <algorithm>
 #include <cmath>
+#include <string>
 
 #include "ash/accelerators/accelerator_table.h"
 #include "ash/ash_switches.h"
@@ -28,6 +30,7 @@
 #include "ash/system/keyboard_brightness/keyboard_brightness_control_delegate.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/volume_control_delegate.h"
+#include "ash/wm/partial_screenshot_view.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_util.h"
@@ -150,9 +153,6 @@ bool HandleRotatePaneFocus(Shell::Direction direction) {
 
 // Rotates the default window container.
 bool HandleRotateWindows() {
-  if (!DebugShortcutsEnabled())
-    return true;
-
   aura::Window* target =
       Shell::GetPrimaryRootWindowController()->GetContainer(
           internal::kShellWindowId_DefaultContainer);
@@ -165,9 +165,6 @@ bool HandleRotateWindows() {
 
 // Rotates the screen.
 bool HandleRotateScreen() {
-  if (!DebugShortcutsEnabled())
-    return true;
-
   static int i = 0;
   int delta = 0;
   switch (i) {
@@ -199,9 +196,6 @@ bool HandleRotateScreen() {
 }
 
 bool HandleToggleDesktopBackgroundMode() {
-  if (!DebugShortcutsEnabled())
-    return true;
-
   DesktopBackgroundController* desktop_background_controller =
       Shell::GetInstance()->desktop_background_controller();
   if (desktop_background_controller->desktop_background_mode() ==
@@ -216,9 +210,6 @@ bool HandleToggleDesktopBackgroundMode() {
 }
 
 bool HandleToggleRootWindowFullScreen() {
-  if (!DebugShortcutsEnabled())
-    return true;
-
   Shell::GetPrimaryRootWindow()->ToggleFullScreen();
   return true;
 }
@@ -245,7 +236,7 @@ bool HandleMagnifyScreen(int delta_index) {
 bool HandlePrintLayerHierarchy() {
   aura::RootWindow* root_window = Shell::GetPrimaryRootWindow();
   ui::PrintLayerHierarchy(root_window->layer(),
-                          root_window->last_mouse_location());
+                          root_window->GetLastMouseLocationInRoot());
   return true;
 }
 
@@ -308,15 +299,10 @@ void AcceleratorController::Init() {
     reserved_actions_.insert(kReservedActions[i]);
   }
 
-  for (size_t i = 0; i < kAcceleratorDataLength; ++i) {
-    ui::Accelerator accelerator(kAcceleratorData[i].keycode,
-                                kAcceleratorData[i].modifiers);
-    accelerator.set_type(kAcceleratorData[i].trigger_on_press ?
-                         ui::ET_KEY_PRESSED : ui::ET_KEY_RELEASED);
-    Register(accelerator, this);
-    accelerators_.insert(
-        std::make_pair(accelerator, kAcceleratorData[i].action));
-  }
+  RegisterAccelerators(kAcceleratorData, kAcceleratorDataLength);
+
+  if (DebugShortcutsEnabled())
+    RegisterAccelerators(kDebugAcceleratorData, kDebugAcceleratorDataLength);
 }
 
 void AcceleratorController::Register(const ui::Accelerator& accelerator,
@@ -383,21 +369,30 @@ bool AcceleratorController::PerformAction(int action,
       actions_allowed_at_lock_screen_.end()) {
     return false;
   }
+  const ui::KeyboardCode key_code = accelerator.key_code();
 
   // You *MUST* return true when some action is performed. Otherwise, this
   // function might be called *twice*, via BrowserView::PreHandleKeyboardEvent
   // and BrowserView::HandleKeyboardEvent, for a single accelerator press.
   switch (action) {
     case CYCLE_BACKWARD_MRU:
+      if (key_code == ui::VKEY_TAB && shell->delegate())
+        shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_PREVWINDOW_TAB);
       return HandleCycleWindowMRU(WindowCycleController::BACKWARD,
                                   accelerator.IsAltDown());
     case CYCLE_FORWARD_MRU:
+      if (key_code == ui::VKEY_TAB && shell->delegate())
+        shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEXTWINDOW_TAB);
       return HandleCycleWindowMRU(WindowCycleController::FORWARD,
                                   accelerator.IsAltDown());
     case CYCLE_BACKWARD_LINEAR:
+      if (key_code == ui::VKEY_F5 && shell->delegate())
+        shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_PREVWINDOW_F5);
       HandleCycleWindowLinear(CYCLE_BACKWARD);
       return true;
     case CYCLE_FORWARD_LINEAR:
+      if (key_code == ui::VKEY_F5 && shell->delegate())
+        shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEXTWINDOW_F5);
       HandleCycleWindowLinear(CYCLE_FORWARD);
       return true;
 #if defined(OS_CHROMEOS)
@@ -423,6 +418,8 @@ bool AcceleratorController::PerformAction(int action,
     case NEW_INCOGNITO_WINDOW:
       return HandleNewWindow(true /* is_incognito */);
     case NEW_TAB:
+      if (key_code == ui::VKEY_T && shell->delegate())
+        shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_NEWTAB_T);
       return HandleNewTab();
     case NEW_WINDOW:
       return HandleNewWindow(false /* is_incognito */);
@@ -430,7 +427,8 @@ bool AcceleratorController::PerformAction(int action,
       return HandleRestoreTab();
     case TAKE_SCREENSHOT:
     case TAKE_SCREENSHOT_BY_PRTSCN_KEY:
-      if (screenshot_delegate_.get()) {
+      if (screenshot_delegate_.get() &&
+          screenshot_delegate_->CanTakeScreenshot()) {
         Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
         for (size_t i = 0; i < root_windows.size(); ++i)
           screenshot_delegate_->HandleTakeScreenshot(root_windows[i]);
@@ -438,13 +436,16 @@ bool AcceleratorController::PerformAction(int action,
       // Return true to prevent propagation of the key event.
       return true;
     case TAKE_PARTIAL_SCREENSHOT:
-      if (screenshot_delegate_.get())
-        ash::Shell::GetInstance()->delegate()->
-            StartPartialScreenshot(screenshot_delegate_.get());
+      if (screenshot_delegate_.get()) {
+        ash::PartialScreenshotView::StartPartialScreenshot(
+            screenshot_delegate_.get());
+      }
       // Return true to prevent propagation of the key event because
       // this key combination is reserved for partial screenshot.
       return true;
     case TOGGLE_APP_LIST:
+      if (key_code == ui::VKEY_LWIN && shell->delegate())
+        shell->delegate()->RecordUserMetricsAction(UMA_ACCEL_SEARCH_LWIN);
       // When spoken feedback is enabled, we should neither toggle the list nor
       // consume the key since Search+Shift is one of the shortcuts the a11y
       // feature uses. crbug.com/132296
@@ -554,9 +555,14 @@ bool AcceleratorController::PerformAction(int action,
     case WINDOW_SNAP_LEFT:
     case WINDOW_SNAP_RIGHT: {
       aura::Window* window = wm::GetActiveWindow();
-      // Disable window docking shortcut key due to http://crbug.com/135487.
-      if (!window || wm::IsWindowFullscreen(window))
+      // Disable window docking shortcut key for full screen window due to
+      // http://crbug.com/135487.
+      if (!window ||
+          window->type() != aura::client::WINDOW_TYPE_NORMAL ||
+          wm::IsWindowFullscreen(window)) {
         break;
+      }
+
       internal::SnapSizer sizer(window,
           gfx::Point(),
           action == WINDOW_SNAP_LEFT ? internal::SnapSizer::LEFT_EDGE :
@@ -618,16 +624,13 @@ bool AcceleratorController::PerformAction(int action,
     case TOGGLE_ROOT_WINDOW_FULL_SCREEN:
       return HandleToggleRootWindowFullScreen();
     case DISPLAY_ADD_REMOVE:
-      if (DebugShortcutsEnabled())
-        internal::MultiDisplayManager::AddRemoveDisplay();
+      internal::MultiDisplayManager::AddRemoveDisplay();
       return true;
     case DISPLAY_CYCLE:
-      if (DebugShortcutsEnabled())
-        internal::MultiDisplayManager::CycleDisplay();
+      internal::MultiDisplayManager::CycleDisplay();
       return true;
     case DISPLAY_TOGGLE_SCALE:
-      if (DebugShortcutsEnabled())
-        internal::MultiDisplayManager::ToggleDisplayScale();
+      internal::MultiDisplayManager::ToggleDisplayScale();
       return true;
     case MAGNIFY_SCREEN_ZOOM_IN:
       return HandleMagnifyScreen(1);
@@ -712,9 +715,24 @@ void AcceleratorController::SwitchToWindow(int window) {
   // found (which is true when indexes_left is -1) or b.) the last item was
   // requested (which is true when index was passed in as a negative number).
   if (found_index >= 0 && (indexes_left == -1 || window < 0) &&
-      items[found_index].status == ash::STATUS_RUNNING) {
+      (items[found_index].status == ash::STATUS_RUNNING ||
+       items[found_index].status == ash::STATUS_CLOSED)) {
     // Then set this one as active.
     Shell::GetInstance()->launcher()->ActivateLauncherItem(found_index);
+  }
+}
+
+void AcceleratorController::RegisterAccelerators(
+    const AcceleratorData accelerators[],
+    size_t accelerators_length) {
+  for (size_t i = 0; i < accelerators_length; ++i) {
+    ui::Accelerator accelerator(accelerators[i].keycode,
+                                accelerators[i].modifiers);
+    accelerator.set_type(accelerators[i].trigger_on_press ?
+                         ui::ET_KEY_PRESSED : ui::ET_KEY_RELEASED);
+    Register(accelerator, this);
+    accelerators_.insert(
+        std::make_pair(accelerator, accelerators[i].action));
   }
 }
 

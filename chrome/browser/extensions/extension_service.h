@@ -22,7 +22,6 @@
 #include "base/string16.h"
 #include "base/time.h"
 #include "base/tuple.h"
-#include "chrome/browser/extensions/api/api_resource_controller.h"
 #include "chrome/browser/extensions/app_shortcut_manager.h"
 #include "chrome/browser/extensions/app_sync_bundle.h"
 #include "chrome/browser/extensions/apps_promo.h"
@@ -49,8 +48,6 @@
 
 class AppNotificationManager;
 class BookmarkExtensionEventRouter;
-class CrxInstaller;
-class ExtensionBrowserEventRouter;
 class ExtensionErrorUI;
 class ExtensionFontSettingsEventRouter;
 class ExtensionManagementEventRouter;
@@ -59,7 +56,6 @@ class ExtensionSyncData;
 class ExtensionToolbarModel;
 class HistoryExtensionEventRouter;
 class GURL;
-class PendingExtensionManager;
 class Profile;
 class Version;
 
@@ -69,25 +65,26 @@ class ExtensionInputMethodEventRouter;
 }
 
 namespace extensions {
+class AppSyncData;
+class BrowserEventRouter;
+class ComponentLoader;
+class ContentSettingsStore;
+class CrxInstaller;
+class Extension;
+class ExtensionCookiesEventRouter;
 class ExtensionManagedModeEventRouter;
+class ExtensionSyncData;
+class ExtensionSystem;
+class ExtensionUpdater;
+class PendingExtensionManager;
+class SettingsFrontend;
+class WebNavigationEventRouter;
+class WindowEventRouter;
 }
 
 namespace syncer {
 class SyncData;
 class SyncErrorFactory;
-}
-
-namespace extensions {
-class AppSyncData;
-class ComponentLoader;
-class ContentSettingsStore;
-class Extension;
-class ExtensionCookiesEventRouter;
-class ExtensionSyncData;
-class ExtensionSystem;
-class ExtensionUpdater;
-class SettingsFrontend;
-class WebNavigationEventRouter;
 }
 
 // This is an interface class to encapsulate the dependencies that
@@ -102,7 +99,7 @@ class ExtensionServiceInterface : public syncer::SyncableService {
   virtual ~ExtensionServiceInterface() {}
   virtual const ExtensionSet* extensions() const = 0;
   virtual const ExtensionSet* disabled_extensions() const = 0;
-  virtual PendingExtensionManager* pending_extension_manager() = 0;
+  virtual extensions::PendingExtensionManager* pending_extension_manager() = 0;
 
   // Install an update.  Return true if the install can be started.
   // Set out_crx_installer to the installer if one was started.
@@ -110,7 +107,7 @@ class ExtensionServiceInterface : public syncer::SyncableService {
       const std::string& id,
       const FilePath& path,
       const GURL& download_url,
-      CrxInstaller** out_crx_installer) = 0;
+      extensions::CrxInstaller** out_crx_installer) = 0;
   virtual const extensions::Extension* GetExtensionById(const std::string& id,
                                             bool include_disabled) const = 0;
   virtual const extensions::Extension* GetInstalledExtension(
@@ -216,7 +213,8 @@ class ExtensionService
   const ExtensionSet* GenerateInstalledExtensionsSet() const;
 
   // Gets the object managing the set of pending extensions.
-  virtual PendingExtensionManager* pending_extension_manager() OVERRIDE;
+  virtual extensions::PendingExtensionManager*
+      pending_extension_manager() OVERRIDE;
 
   const FilePath& install_directory() const { return install_directory_; }
 
@@ -316,7 +314,7 @@ class ExtensionService
       const std::string& id,
       const FilePath& extension_path,
       const GURL& download_url,
-      CrxInstaller** out_crx_installer) OVERRIDE;
+      extensions::CrxInstaller** out_crx_installer) OVERRIDE;
 
   // Reloads the specified extension.
   void ReloadExtension(const std::string& extension_id);
@@ -501,8 +499,12 @@ class ExtensionService
     return app_notification_manager_.get();
   }
 
-  ExtensionBrowserEventRouter* browser_event_router() {
+  extensions::BrowserEventRouter* browser_event_router() {
     return browser_event_router_.get();
+  }
+
+  extensions::WindowEventRouter* window_event_router() {
+    return window_event_router_.get();
   }
 
 #if defined(OS_CHROMEOS)
@@ -615,9 +617,6 @@ class ExtensionService
     return &extension_warnings_;
   }
 
-  // Call only from IO thread.
-  extensions::APIResourceController* api_resource_controller();
-
   AppShortcutManager* app_shortcut_manager() { return &app_shortcut_manager_; }
 
   // Specialization of syncer::SyncableService::AsWeakPtr.
@@ -729,7 +728,7 @@ class ExtensionService
   ExtensionSet terminated_extensions_;
 
   // Hold the set of pending extensions.
-  PendingExtensionManager pending_extension_manager_;
+  extensions::PendingExtensionManager pending_extension_manager_;
 
   // The map of extension IDs to their runtime data.
   ExtensionRuntimeDataMap extension_runtime_data_;
@@ -803,7 +802,9 @@ class ExtensionService
 
   scoped_ptr<HistoryExtensionEventRouter> history_event_router_;
 
-  scoped_ptr<ExtensionBrowserEventRouter> browser_event_router_;
+  scoped_ptr<extensions::BrowserEventRouter> browser_event_router_;
+
+  scoped_ptr<extensions::WindowEventRouter> window_event_router_;
 
   scoped_ptr<ExtensionPreferenceEventRouter> preference_event_router_;
 
@@ -845,8 +846,6 @@ class ExtensionService
 
   // Contains an entry for each warning that shall be currently shown.
   ExtensionWarningSet extension_warnings_;
-
-  scoped_ptr<extensions::APIResourceController> api_resource_controller_;
 
   extensions::ProcessMap process_map_;
 

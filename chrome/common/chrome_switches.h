@@ -41,6 +41,7 @@ extern const char kAppsGalleryInstallAutoConfirmForTests[];
 extern const char kAppsGalleryReturnTokens[];
 extern const char kAppsGalleryURL[];
 extern const char kAppsGalleryUpdateURL[];
+extern const char kAppsInstallFromManifestURL[];
 extern const char kAppsNewInstallBubble[];
 extern const char kAppsNoThrob[];
 extern const char kAuthNegotiateDelegateWhitelist[];
@@ -82,6 +83,7 @@ extern const char kDisableBackgroundMode[];
 extern const char kDisableBackgroundNetworking[];
 extern const char kDisableBundledPpapiFlash[];
 extern const char kDisableChromeToMobile[];
+extern const char kDisableClientOAuthSignin[];
 extern const char kDisableClientSidePhishingDetection[];
 extern const char kDisableComponentUpdate[];
 extern const char kDisableConnectBackupJobs[];
@@ -102,6 +104,7 @@ extern const char kDisableIPPooling[];
 extern const char kDisableNonFullscreenMouseLock[];
 extern const char kDisableNTPOtherSessionsMenu[];
 extern const char kDisableLoginAnimations[];
+extern const char kDisablePopupBlocking[];
 extern const char kDisablePreconnect[];
 extern const char kDisablePromptOnRepost[];
 extern const char kDisableRestoreBackgroundContents[];
@@ -135,13 +138,13 @@ extern const char kEnableAutofillFeedback[];
 extern const char kEnableAutologin[];
 extern const char kEnableBenchmarking[];
 extern const char kEnableBundledPpapiFlash[];
-extern const char kEnableClientOAuthSignin[];
 extern const char kEnableChromeToMobile[];
 extern const char kEnableCloudPolicyService[];
 extern const char kEnableCloudPrintProxy[];
 extern const char kEnableConnectBackupJobs[];
 extern const char kEnableCrxlessWebApps[];
 extern const char kEnableDevToolsExperiments[];
+extern const char kEnableDiscoveryInNewTabPage[];
 extern const char kEnableEasyOffStoreExtensionInstall[];
 extern const char kEnableExperimentalExtensionApis[];
 extern const char kEnableExtensionActivityLogging[];
@@ -149,8 +152,8 @@ extern const char kEnableExtensionActivityUI[];
 extern const char kEnableExtensionTimelineApi[];
 extern const char kEnableFramelessConstrainedDialogs[];
 extern const char kEnableFileCookies[];
+extern const char kEnableHighDPIPDFPlugin[];
 extern const char kEnableHttpPipelining[];
-extern const char kEnableHtml5Camera[];
 extern const char kEnableInstantExtendedAPI[];
 extern const char kEnableIPv6[];
 extern const char kEnableIPCFuzzing[];
@@ -356,13 +359,14 @@ extern const char kWindowSize[];
 extern const char kWinHttpProxyResolver[];
 
 #if defined(OS_ANDROID)
-extern const char kTabletUi[];
+extern const char kTabletUI[];
 #endif
 
 #if defined(OS_CHROMEOS)
 // Keep switches in alphabetical order.
 extern const char kDisableGData[];
-extern const char kEnableNewOobe[];
+extern const char kDisableHtml5Camera[];
+extern const char kDisableNewOobe[];
 extern const char kEnableTouchpadThreeFingerClick[];
 extern const char kSkipOAuthLogin[];
 extern const char kEnableDevicePolicy[];
@@ -392,6 +396,7 @@ extern const char kCompressSystemFeedback[];
 extern const char kAuthExtensionPath[];
 extern const char kEnterpriseEnrollmentInitialModulus[];
 extern const char kEnterpriseEnrollmentModulusLimit[];
+extern const char kChromeOSReleaseBoard[];
 #ifndef NDEBUG
 extern const char kOobeSkipPostLogin[];
 #endif
@@ -413,6 +418,7 @@ extern const char kUseMockKeychain[];
 
 #if defined(OS_WIN)
 extern const char kDisableDesktopShortcuts[];
+extern const char kDisableWebsiteSettings[];
 #endif
 
 #if defined(USE_AURA)

@@ -165,7 +165,7 @@ class AppNonClientFrameViewAura::Host : public views::MouseWatcherHost {
   virtual bool Contains(
       const gfx::Point& screen_point,
       views::MouseWatcherHost::MouseEventType type) OVERRIDE {
-    gfx::Rect top_margin = owner_->GetScreenBounds();
+    gfx::Rect top_margin = owner_->GetBoundsInScreen();
     top_margin.set_height(kTopMargin);
     gfx::Rect control_bounds = owner_->GetControlBounds();
     control_bounds.Inset(kShadowStart, 0, 0, kShadowStart);
@@ -234,9 +234,9 @@ gfx::Rect AppNonClientFrameViewAura::GetBoundsForTabStrip(
   return gfx::Rect();
 }
 
-int AppNonClientFrameViewAura::GetHorizontalTabStripVerticalOffset(
-    bool restored) const {
-  return 0;
+BrowserNonClientFrameView::TabStripInsets
+AppNonClientFrameViewAura::GetTabStripInsets(bool restored) const {
+  return TabStripInsets();
 }
 
 void AppNonClientFrameViewAura::UpdateThrobber(bool running) {

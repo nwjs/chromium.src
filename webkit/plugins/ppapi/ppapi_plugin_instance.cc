@@ -853,6 +853,10 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   // store when seeing if we cover the given paint bounds, since the backing
   // store could be smaller than the declared plugin area.
   PPB_ImageData_Impl* image_data = GetBoundGraphics2D()->image_data();
+  // ImageDatas created by NaCl don't have a PlatformImage, so can't be
+  // optimized this way.
+  if (!image_data->PlatformImage())
+    return false;
   gfx::Rect plugin_backing_store_rect(
       PP_ToGfxPoint(view_data_.rect.point),
       gfx::Size(image_data->width(), image_data->height()));
@@ -863,7 +867,7 @@ bool PluginInstance::GetBitmapForOptimizedPluginPaint(
   if (!plugin_paint_rect.Contains(paint_bounds))
     return false;
 
-  *dib = image_data->platform_image()->GetTransportDIB();
+  *dib = image_data->PlatformImage()->GetTransportDIB();
   *location = plugin_backing_store_rect;
   *clip = clip_page;
   return true;
@@ -1347,11 +1351,22 @@ void PluginInstance::FlashSetFullscreen(bool fullscreen, bool delay_report) {
 }
 
 void PluginInstance::UpdateFlashFullscreenState(bool flash_fullscreen) {
-  if (flash_fullscreen == flash_fullscreen_)
+  bool is_mouselock_pending = TrackedCallback::IsPending(lock_mouse_callback_);
+
+  if (flash_fullscreen == flash_fullscreen_) {
+    // Manually clear callback when fullscreen fails with mouselock pending.
+    if (!flash_fullscreen && is_mouselock_pending)
+      TrackedCallback::ClearAndRun(&lock_mouse_callback_, PP_ERROR_FAILED);
     return;
+  }
 
   bool old_plugin_focus = PluginHasFocus();
   flash_fullscreen_ = flash_fullscreen;
+  if (is_mouselock_pending && !delegate()->IsMouseLocked(this)) {
+    if (!delegate()->LockMouse(this))
+      TrackedCallback::ClearAndRun(&lock_mouse_callback_, PP_ERROR_FAILED);
+  }
+
   if (PluginHasFocus() != old_plugin_focus)
     SendFocusChangeNotification();
 }
@@ -1991,12 +2006,16 @@ int32_t PluginInstance::LockMouse(PP_Instance instance,
   if (!CanAccessMainFrame())
     return PP_ERROR_NOACCESS;
 
-  if (delegate()->LockMouse(this)) {
-    lock_mouse_callback_ = callback;
-    return PP_OK_COMPLETIONPENDING;
-  } else {
-    return PP_ERROR_FAILED;
+  // Attempt mouselock only if Flash isn't waiting on fullscreen, otherwise
+  // we wait and call LockMouse() in UpdateFlashFullscreenState().
+  if (!FlashIsFullscreenOrPending() || flash_fullscreen()) {
+    if (!delegate()->LockMouse(this))
+      return PP_ERROR_FAILED;
   }
+
+  // Either mouselock succeeded or a Flash fullscreen is pending.
+  lock_mouse_callback_ = callback;
+  return PP_OK_COMPLETIONPENDING;
 }
 
 void PluginInstance::UnlockMouse(PP_Instance instance) {

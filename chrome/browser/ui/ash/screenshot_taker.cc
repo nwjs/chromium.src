@@ -33,6 +33,8 @@
 #endif
 
 namespace {
+const int kScreenshotMinimumIntervalInMS = 500;
+
 bool ShouldUse24HourClock() {
 #if defined(OS_CHROMEOS)
   Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
@@ -120,7 +122,7 @@ bool GrabWindowSnapshot(aura::Window* window,
     return true;
 #endif  // OS_LINUX
 
-  return browser::GrabWindowSnapshot(window, png_data, snapshot_bounds);
+  return chrome::GrabWindowSnapshot(window, png_data, snapshot_bounds);
 }
 
 // How opaque should the layer that we flash onscreen to provide visual
@@ -138,6 +140,10 @@ ScreenshotTaker::ScreenshotTaker() {
 ScreenshotTaker::~ScreenshotTaker() {
 }
 
+void ScreenshotTaker::HandleTakeScreenshot(aura::Window* window) {
+  HandleTakePartialScreenshot(window, window->bounds());
+}
+
 void ScreenshotTaker::HandleTakePartialScreenshot(
     aura::Window* window, const gfx::Rect& rect) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
@@ -153,7 +159,7 @@ void ScreenshotTaker::HandleTakePartialScreenshot(
   if (is_logged_in) {
     DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(
         ash::Shell::GetInstance()->delegate()->GetCurrentBrowserContext());
-    screenshot_directory = download_prefs->download_path();
+    screenshot_directory = download_prefs->DownloadPath();
   } else {
     if (!file_util::GetTempDir(&screenshot_directory)) {
       LOG(ERROR) << "Failed to find temporary directory.";
@@ -164,6 +170,7 @@ void ScreenshotTaker::HandleTakePartialScreenshot(
   bool use_24hour_clock = ShouldUse24HourClock();
 
   if (GrabWindowSnapshot(window, rect, &png_data->data())) {
+    last_screenshot_timestamp_ = base::Time::Now();
     DisplayVisualFeedback(rect);
     content::BrowserThread::PostTask(
         content::BrowserThread::FILE, FROM_HERE,
@@ -174,8 +181,11 @@ void ScreenshotTaker::HandleTakePartialScreenshot(
   }
 }
 
-void ScreenshotTaker::HandleTakeScreenshot(aura::Window* window) {
-  HandleTakePartialScreenshot(window, window->bounds());
+bool ScreenshotTaker::CanTakeScreenshot() {
+  return last_screenshot_timestamp_.is_null() ||
+      base::Time::Now() - last_screenshot_timestamp_ >
+      base::TimeDelta::FromMilliseconds(
+          kScreenshotMinimumIntervalInMS);
 }
 
 void ScreenshotTaker::CloseVisualFeedbackLayer() {

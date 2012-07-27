@@ -34,6 +34,8 @@
         'client/capture_client.cc',
         'client/capture_client.h',
         'client/capture_delegate.h',
+        'client/cursor_client.cc',
+        'client/cursor_client.h',
         'client/dispatcher_client.cc',
         'client/dispatcher_client.h',
         'client/drag_drop_client.cc',
@@ -55,11 +57,10 @@
         'client/window_move_client.cc',
         'client/window_move_client.h',
         'client/window_types.h',
-        'cursor_delegate.h',
-        'cursor_manager.cc',
-        'cursor_manager.h',
         'desktop/desktop_activation_client.cc',
         'desktop/desktop_activation_client.h',
+        'desktop/desktop_cursor_client.cc',
+        'desktop/desktop_cursor_client.h',
         'desktop/desktop_dispatcher_client.cc',
         'desktop/desktop_dispatcher_client.h',
         'desktop/desktop_screen.h',
@@ -191,7 +192,7 @@
           'action_name': 'repack_test_support_aura_pack',
           'variables': {
             'pak_inputs': [
-              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_100_percent.pak',
             ],
           },
           'inputs': [
@@ -226,7 +227,6 @@
       ],
       'sources': [
         'demo/demo_main.cc',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
       ],
     },
     {
@@ -249,7 +249,6 @@
       ],
       'sources': [
         'bench/bench_main.cc',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
       ],
     },
     {
@@ -283,7 +282,6 @@
         'event_filter_unittest.cc',
         'event_unittest.cc',
         'window_unittest.cc',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
       ],
       'conditions': [
         # osmesa GL implementation is used on linux.

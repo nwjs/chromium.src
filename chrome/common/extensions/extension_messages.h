@@ -92,6 +92,7 @@ IPC_STRUCT_TRAITS_BEGIN(WebApplicationInfo)
   IPC_STRUCT_TRAITS_MEMBER(icons)
   IPC_STRUCT_TRAITS_MEMBER(permissions)
   IPC_STRUCT_TRAITS_MEMBER(launch_container)
+  IPC_STRUCT_TRAITS_MEMBER(is_offline_enabled)
 IPC_STRUCT_TRAITS_END()
 
 // Singly-included section for custom IPC traits.
@@ -286,6 +287,10 @@ IPC_MESSAGE_CONTROL2(ExtensionMsg_ShouldUnload,
 IPC_MESSAGE_CONTROL1(ExtensionMsg_Unload,
                      std::string /* extension_id */)
 
+// The browser changed its mind about unloading this extension.
+IPC_MESSAGE_CONTROL1(ExtensionMsg_CancelUnload,
+                     std::string /* extension_id */)
+
 // Send to renderer once the installation mentioned on
 // ExtensionHostMsg_InlineWebstoreInstall is complete.
 IPC_MESSAGE_ROUTED3(ExtensionMsg_InlineWebstoreInstallResponse,
@@ -424,11 +429,12 @@ IPC_SYNC_MESSAGE_CONTROL1_1(ExtensionHostMsg_GetMessageBundle,
                             SubstitutionMap /* message bundle */)
 
 // Sent from the renderer to the browser to return the script running result.
-IPC_MESSAGE_ROUTED4(ExtensionHostMsg_ExecuteCodeFinished,
+IPC_MESSAGE_ROUTED5(ExtensionHostMsg_ExecuteCodeFinished,
                     int /* request id */,
                     bool /* whether the script ran successfully */,
                     int32 /* page_id the code executed on, if successful */,
-                    std::string /* error message, if unsuccessful */)
+                    std::string /* error message, if unsuccessful */,
+                    ListValue /* result of the script */)
 
 // Sent from the renderer to the browser to notify that content scripts are
 // running in the renderer that the IPC originated from.

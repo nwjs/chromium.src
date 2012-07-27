@@ -93,6 +93,11 @@ NSButton* CreateHyperlinkButton(NSString* title, const NSRect& frame) {
 - (BOOL)isFlipped {
   return YES;
 }
+
+- (void)drawRect:(NSRect)rect {
+  [[NSColor colorWithCalibratedWhite:1.0 alpha:1.0] set];
+  NSRectFill(rect);
+}
 @end
 
 // NSImageView subclassed to allow fading the alpha value of the image to
@@ -389,16 +394,7 @@ NSButton* CreateHyperlinkButton(NSString* title, const NSRect& frame) {
 
 - (void)updateSuggestionLabelForModel:(WebIntentPickerModel*)model {
   DCHECK(suggestionLabel_.get());
-  string16 labelText;
-
-  if (model->GetSuggestedExtensionCount() > 0) {
-    if (model->GetInstalledServiceCount() == 0)
-      labelText = l10n_util::GetStringUTF16(
-          IDS_INTENT_PICKER_GET_MORE_SERVICES_NONE_INSTALLED);
-    else
-      labelText = l10n_util::GetStringUTF16(
-          IDS_INTENT_PICKER_GET_MORE_SERVICES);
-  }
+  string16 labelText = model->GetSuggestionsLinkText();
 
   if (labelText.empty()) {
     [suggestionLabel_ setHidden:TRUE];

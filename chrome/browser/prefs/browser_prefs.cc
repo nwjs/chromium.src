@@ -45,7 +45,6 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
-#include "chrome/browser/printing/print_job_manager.h"
 #include "chrome/browser/profiles/chrome_version_service.h"
 #include "chrome/browser/profiles/gaia_info_update_service.h"
 #include "chrome/browser/profiles/profile_impl.h"
@@ -76,7 +75,6 @@
 
 #if defined(OS_MACOSX)
 #include "chrome/browser/ui/cocoa/confirm_quit.h"
-#include "chrome/browser/ui/cocoa/presentation_mode_prefs.h"
 #include "chrome/browser/ui/startup/obsolete_os_prompt.h"
 #endif
 
@@ -106,6 +104,10 @@
 
 #if defined(USE_ASH)
 #include "chrome/browser/ui/ash/chrome_launcher_prefs.h"
+#endif
+
+#if !defined(OS_ANDROID)
+#include "chrome/browser/chrome_to_mobile_service.h"
 #endif
 
 namespace {
@@ -167,10 +169,6 @@ void RegisterLocalState(PrefService* local_state) {
   UpgradeDetector::RegisterPrefs(local_state);
 #endif
 
-#if defined(ENABLE_PRINTING)
-  printing::PrintJobManager::RegisterPrefs(local_state);
-#endif
-
 #if defined(OS_CHROMEOS)
   chromeos::AudioHandler::RegisterPrefs(local_state);
   chromeos::language_prefs::RegisterPrefs(local_state);
@@ -210,6 +208,7 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   PrefProxyConfigTrackerImpl::RegisterPrefs(user_prefs);
   PrefsTabHelper::RegisterUserPrefs(user_prefs);
   ProfileImpl::RegisterUserPrefs(user_prefs);
+  PromoResourceService::RegisterUserPrefs(user_prefs);
   ProtocolHandlerRegistry::RegisterPrefs(user_prefs);
   SessionStartupPref::RegisterUserPrefs(user_prefs);
   TemplateURLPrepopulateData::RegisterUserPrefs(user_prefs);
@@ -234,9 +233,9 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   ash::RegisterChromeLauncherUserPrefs(user_prefs);
 #endif
 
-  PromoResourceService::RegisterUserPrefs(user_prefs);
 #if !defined(OS_ANDROID)
   AppsPromo::RegisterUserPrefs(user_prefs);
+  ChromeToMobileService::RegisterUserPrefs(user_prefs);
   extensions::CommandService::RegisterUserPrefs(user_prefs);
   extensions::ComponentLoader::RegisterUserPrefs(user_prefs);
   extensions::ExtensionPrefs::RegisterUserPrefs(user_prefs);
@@ -250,7 +249,6 @@ void RegisterUserPrefs(PrefService* user_prefs) {
   PluginsUI::RegisterUserPrefs(user_prefs);
   SyncPromoUI::RegisterUserPrefs(user_prefs);
   printing::StickySettings::RegisterUserPrefs(user_prefs);
-
 #endif
 
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
@@ -260,10 +258,6 @@ void RegisterUserPrefs(PrefService* user_prefs) {
 #if defined(OS_CHROMEOS)
   chromeos::Preferences::RegisterUserPrefs(user_prefs);
   chromeos::ProxyConfigServiceImpl::RegisterPrefs(user_prefs);
-#endif
-
-#if defined(OS_MACOSX)
-  PresentationModePrefs::RegisterUserPrefs(user_prefs);
 #endif
 
 #if defined(OS_WIN)

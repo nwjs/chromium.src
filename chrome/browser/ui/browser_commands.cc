@@ -11,8 +11,8 @@
 #include "chrome/browser/bookmarks/bookmark_model.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/browsing_data_helper.h"
-#include "chrome/browser/browsing_data_remover.h"
+#include "chrome/browser/browsing_data/browsing_data_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_remover.h"
 #include "chrome/browser/chrome_page_zoom.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/download/download_util.h"
@@ -101,7 +101,7 @@ WebContents* GetOrCloneTabForDisposition(Browser* browser,
     }
     case NEW_WINDOW: {
       current_tab = current_tab->Clone();
-      Browser* b = Browser::Create(browser->profile());
+      Browser* b = new Browser(Browser::CreateParams(browser->profile()));
       b->tab_strip_model()->AddTabContents(
           current_tab, -1, content::PAGE_TRANSITION_LINK,
           TabStripModel::ADD_ACTIVE);
@@ -254,7 +254,7 @@ void NewEmptyWindow(Profile* profile) {
 }
 
 Browser* OpenEmptyWindow(Profile* profile) {
-  Browser* browser = Browser::Create(profile);
+  Browser* browser = new Browser(Browser::CreateParams(profile));
   AddBlankTab(browser, true);
   browser->window()->Show();
   return browser;
@@ -507,13 +507,13 @@ void DuplicateTabAt(Browser* browser, int index) {
     if (browser->is_app()) {
       CHECK(!browser->is_type_popup());
       CHECK(!browser->is_type_panel());
-      browser = Browser::CreateWithParams(
+      browser = new Browser(
           Browser::CreateParams::CreateForApp(Browser::TYPE_POPUP,
                                               browser->app_name(),
                                               gfx::Rect(),
                                               browser->profile()));
     } else if (browser->is_type_popup()) {
-      browser = Browser::CreateWithParams(
+      browser = new Browser(
           Browser::CreateParams(Browser::TYPE_POPUP, browser->profile()));
     }
 
@@ -547,7 +547,7 @@ void ConvertPopupToTabbedBrowser(Browser* browser) {
   content::RecordAction(UserMetricsAction("ShowAsTab"));
   TabContents* contents =
       browser->tab_strip_model()->DetachTabContentsAt(browser->active_index());
-  Browser* b = Browser::Create(browser->profile());
+  Browser* b = new Browser(Browser::CreateParams(browser->profile()));
   b->tab_strip_model()->AppendTabContents(contents, true);
   b->window()->Show();
 }
@@ -637,8 +637,18 @@ void ShowPageInfo(Browser* browser,
       web_contents->GetBrowserContext());
   TabContents* tab_contents = TabContents::FromWebContents(web_contents);
 
+#if defined(OS_WIN)
+  bool website_settings_enabled = true;
   if (CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableWebsiteSettings)) {
+      switches::kDisableWebsiteSettings))
+    website_settings_enabled = false;
+#else
+  bool website_settings_enabled = false;
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableWebsiteSettings))
+    website_settings_enabled = true;
+#endif
+  if (website_settings_enabled) {
     browser->window()->ShowWebsiteSettings(
         profile, tab_contents, url, ssl, show_history);
   } else {
@@ -654,8 +664,8 @@ void ShowChromeToMobileBubble(Browser* browser) {
 }
 
 void Print(Browser* browser) {
-  if (g_browser_process->local_state()->GetBoolean(
-          prefs::kPrintPreviewDisabled)) {
+  if (browser->profile()->GetPrefs()->GetBoolean(
+      prefs::kPrintPreviewDisabled)) {
     GetActiveTabContents(browser)->print_view_manager()->PrintNow();
   } else {
     GetActiveTabContents(browser)->print_view_manager()->
@@ -664,15 +674,11 @@ void Print(Browser* browser) {
 }
 
 bool CanPrint(const Browser* browser) {
-  // LocalState can be NULL in tests.
-  if (g_browser_process->local_state() &&
-      !g_browser_process->local_state()->GetBoolean(prefs::kPrintingEnabled)) {
-    return false;
-  }
-
+  // Do not print when printing is disabled via pref or policy.
   // Do not print when a constrained window is showing. It's confusing.
   // Do not print if instant extended API is enabled and mode is NTP.
-  return !(HasConstrainedWindow(browser) ||
+  return browser->profile()->GetPrefs()->GetBoolean(prefs::kPrintingEnabled) &&
+      !(HasConstrainedWindow(browser) ||
       GetContentRestrictions(browser) & content::CONTENT_RESTRICTION_PRINT ||
       IsNTPModeForInstantExtendedAPI(browser));
 }
@@ -683,14 +689,10 @@ void AdvancedPrint(Browser* browser) {
 }
 
 bool CanAdvancedPrint(const Browser* browser) {
-  // LocalState can be NULL in tests.
-  if (g_browser_process->local_state() &&
-      !g_browser_process->local_state()->GetBoolean(prefs::kPrintingEnabled)) {
-    return false;
-  }
-
-  // It is always possible to advanced print when print preview is visible.
-  return PrintPreviewShowing(browser) || CanPrint(browser);
+  // If printing is not disabled via pref or policy, it is always possible to
+  // advanced print when the print preview is visible.
+  return browser->profile()->GetPrefs()->GetBoolean(prefs::kPrintingEnabled) &&
+      (PrintPreviewShowing(browser) || CanPrint(browser));
 }
 
 void PrintToDestination(Browser* browser) {
@@ -926,7 +928,7 @@ void ViewSource(Browser* browser,
                                                     view_source_contents,
                                                     add_types);
   } else {
-    Browser* b = Browser::CreateWithParams(
+    Browser* b = new Browser(
         Browser::CreateParams(Browser::TYPE_TABBED, browser->profile()));
 
     // Preserve the size of the original window. The new window has already
@@ -977,7 +979,7 @@ void ConvertTabToAppWindow(Browser* browser,
   if (index >= 0)
     browser->tab_strip_model()->DetachTabContentsAt(index);
 
-  Browser* app_browser = Browser::CreateWithParams(
+  Browser* app_browser = new Browser(
       Browser::CreateParams::CreateForApp(
           Browser::TYPE_POPUP, app_name, gfx::Rect(), browser->profile()));
   TabContents* tab_contents = TabContents::FromWebContents(contents);

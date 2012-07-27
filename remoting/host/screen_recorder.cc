@@ -15,6 +15,7 @@
 #include "base/sys_info.h"
 #include "base/time.h"
 #include "remoting/base/capture_data.h"
+#include "remoting/host/video_frame_capturer.h"
 #include "remoting/proto/control.pb.h"
 #include "remoting/proto/internal.pb.h"
 #include "remoting/proto/video.pb.h"
@@ -35,7 +36,7 @@ ScreenRecorder::ScreenRecorder(
     scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> encode_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
-    Capturer* capturer,
+    VideoFrameCapturer* capturer,
     Encoder* encoder)
     : capture_task_runner_(capture_task_runner),
       encode_task_runner_(encode_task_runner),
@@ -116,7 +117,7 @@ void ScreenRecorder::UpdateSequenceNumber(int64 sequence_number) {
 ScreenRecorder::~ScreenRecorder() {
 }
 
-Capturer* ScreenRecorder::capturer() {
+VideoFrameCapturer* ScreenRecorder::capturer() {
   DCHECK(capture_task_runner_->BelongsToCurrentThread());
   DCHECK(capturer_);
   return capturer_;
@@ -249,7 +250,10 @@ void ScreenRecorder::DoFinishOneRecording() {
 void ScreenRecorder::DoInvalidateFullScreen() {
   DCHECK(capture_task_runner_->BelongsToCurrentThread());
 
-  capturer_->InvalidateFullScreen();
+  SkRegion region;
+  region.op(SkIRect::MakeSize(capturer_->size_most_recent()),
+            SkRegion::kUnion_Op);
+  capturer_->InvalidateRegion(region);
 }
 
 // Network thread --------------------------------------------------------------

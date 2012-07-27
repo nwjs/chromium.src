@@ -64,6 +64,7 @@ class Type(object):
   - |description| the description of the type (if provided)
   - |properties| a map of property unix_names to their model.Property
   - |functions| a map of function names to their model.Function
+  - |events| a map of event names to their model.Event
   - |from_client| indicates that instances of the Type can originate from the
     users of generated code, such as top-level types and function results
   - |from_json| indicates that instances of the Type can originate from the
@@ -92,7 +93,9 @@ class Type(object):
     self.from_json = True
     self.from_client = True
     self.parent = parent
+    self.instance_of = json.get('isInstanceOf', None)
     _AddFunctions(self, json)
+    _AddEvents(self, json)
     _AddProperties(self, json, from_json=True, from_client=True)
 
     additional_properties_key = 'additionalProperties'
@@ -133,6 +136,9 @@ class Function(object):
       else:
         self.params.append(Property(self, param['name'], param,
             from_json=from_json, from_client=from_client))
+    self.returns = None
+    if 'returns' in json:
+      self.returns = Property(self, 'return', json['returns'])
 
 class Property(object):
   """A property of a type OR a parameter to a function.
@@ -168,6 +174,7 @@ class Property(object):
     self.parent = parent
     self.from_json = from_json
     self.from_client = from_client
+    self.instance_of = json.get('isInstanceOf', None)
     _AddProperties(self, json)
     if is_additional_properties:
       self.type_ = PropertyType.ADDITIONAL_PROPERTIES
@@ -205,6 +212,8 @@ class Property(object):
         # self.properties will already have some value from |_AddProperties|.
         self.properties.update(type_.properties)
         self.functions = type_.functions
+      elif json_type == 'function':
+        self.type_ = PropertyType.FUNCTION
       elif json_type == 'binary':
         self.type_ = PropertyType.BINARY
       else:
@@ -286,6 +295,7 @@ class PropertyType(object):
   REF = _Info(False, "REF")
   CHOICES = _Info(False, "CHOICES")
   OBJECT = _Info(False, "OBJECT")
+  FUNCTION = _Info(False, "FUNCTION")
   BINARY = _Info(False, "BINARY")
   ANY = _Info(False, "ANY")
   ADDITIONAL_PROPERTIES = _Info(False, "ADDITIONAL_PROPERTIES")
@@ -343,16 +353,6 @@ def _AddProperties(model, json, from_json=False, from_client=False):
   """
   model.properties = {}
   for name, property_json in json.get('properties', {}).items():
-    # TODO(calamity): support functions (callbacks) as properties.  The model
-    # doesn't support it yet because the h/cc generators don't -- this is
-    # because we'd need to hook it into a base::Callback or something.
-    #
-    # However, pragmatically it's not necessary to support them anyway, since
-    # the instances of functions-on-properties in the extension APIs are all
-    # handled in pure Javascript on the render process (and .: never reach
-    # C++ let alone the browser).
-    if property_json.get('type') == 'function':
-      continue
     model.properties[name] = Property(
         model,
         name,

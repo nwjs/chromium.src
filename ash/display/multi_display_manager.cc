@@ -154,9 +154,8 @@ const gfx::Display& MultiDisplayManager::GetDisplayNearestWindow(
 
 const gfx::Display& MultiDisplayManager::GetDisplayNearestPoint(
     const gfx::Point& point) const {
-  if (!internal::DisplayController::IsVirtualScreenCoordinatesEnabled())
+  if (!DisplayController::IsExtendedDesktopEnabled())
     return displays_[0];
-
   for (std::vector<gfx::Display>::const_iterator iter = displays_.begin();
        iter != displays_.end(); ++iter) {
     const gfx::Display& display = *iter;
@@ -170,7 +169,7 @@ const gfx::Display& MultiDisplayManager::GetDisplayNearestPoint(
 
 const gfx::Display& MultiDisplayManager::GetDisplayMatching(
     const gfx::Rect& rect) const {
-  if (!internal::DisplayController::IsVirtualScreenCoordinatesEnabled())
+  if (!DisplayController::IsExtendedDesktopEnabled())
     return displays_[0];
   if (rect.IsEmpty())
     return GetDisplayNearestPoint(rect.origin());
@@ -276,11 +275,10 @@ gfx::Display& MultiDisplayManager::FindDisplayForRootWindow(
 void MultiDisplayManager::AddDisplayFromSpec(const std::string& spec) {
   gfx::Display display = CreateDisplayFromSpec(spec);
 
-  if (internal::DisplayController::IsVirtualScreenCoordinatesEnabled()) {
+  if (DisplayController::IsExtendedDesktopEnabled()) {
     const gfx::Insets insets = display.GetWorkAreaInsets();
     const gfx::Rect& native_bounds = display.bounds_in_pixel();
-    display.set_bounds(
-        gfx::Rect(native_bounds.origin(), display.bounds().size()));
+    display.SetScaleAndBounds(display.device_scale_factor(), native_bounds);
     display.UpdateWorkAreaFromInsets(insets);
   }
   displays_.push_back(display);

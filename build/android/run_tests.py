@@ -73,6 +73,7 @@ _TEST_SUITES = ['base_unittests',
                 'content_unittests',
                 'gpu_unittests',
                 'ipc_tests',
+                'media_unittests',
                 'net_unittests',
                 'sql_unittests',
                 'sync_unit_tests',
@@ -426,6 +427,7 @@ def main(argv):
     option_parser.print_usage()
     sys.exit(1)
   run_tests_helper.SetLogLevel(options.verbose_count)
+  emulator.DeleteAllTempAVDs()
   failed_tests_count = Dispatch(options)
 
   # Failures of individual test suites are communicated by printing a

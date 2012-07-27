@@ -14,6 +14,8 @@ JS_DIR = os.path.join(DOC_DIR, 'js')
 CSS_DIR = os.path.join(DOC_DIR, 'css')
 STATIC_DIR = os.path.join(DOC_DIR, 'static')
 SAMPLES_DIR = os.path.join(DOC_DIR, 'examples')
+APPS_DIR = os.path.join(DOC_DIR, 'apps')
+EXTENSIONS_DIR = os.path.join(DOC_DIR, 'extensions')
 
 EXCEPTIONS = ['README', 'README.txt', 'OWNERS']
 
@@ -24,7 +26,8 @@ REBUILD_WARNING = (
     'not been updated properly. See %s for more info.' % README)
 BUILD_SCRIPT = os.path.join(BUILD_DIR, 'build.py')
 REBUILD_INSTRUCTIONS = (
-    'First build DumpRenderTree, then update the docs by running:\n  %s' %
+    'First build DumpRenderTree, then update the docs by running:\n  %s'
+    ' --page-name=<apiName>' %
     BUILD_SCRIPT)
 
 
@@ -111,7 +114,7 @@ def IsSampleFile(path, input_api):
   return input_api.os_path.dirname(path).startswith(SAMPLES_DIR)
 
 def IsGeneratedDoc(path, input_api):
-  return (input_api.os_path.dirname(path) == DOC_DIR and
+  return (input_api.os_path.dirname(path) in [APPS_DIR, EXTENSIONS_DIR]  and
           path.endswith('.html'))
 
 def DocsGenerated(input_api):
@@ -142,8 +145,11 @@ def StaticDocBuilt(static_file, input_api):
   """Return True if the generated doc that corresponds to the |static_file|
   is also in this change. Both files must also contain matching changes.
   """
-  generated_file = _FindFileInAlternateDir(static_file, DOC_DIR, input_api)
-  return _ChangesMatch(generated_file, static_file)
+  for subdir in [APPS_DIR, EXTENSIONS_DIR]:
+    generated_file = _FindFileInAlternateDir(static_file, subdir, input_api)
+    if not _ChangesMatch(generated_file, static_file):
+      return False
+  return True
 
 def _FindFileInAlternateDir(affected_file, alt_dir, input_api):
   """Return an AffectFile for the file in |alt_dir| that corresponds to

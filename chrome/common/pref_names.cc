@@ -723,6 +723,14 @@ const char kOAuth1Secret[] = "settings.account.oauth1_secret";
 
 // A boolean pref that enables the (private) pepper GetID() call.
 const char kEnableCrosDRM[] = "settings.privacy.drm_enabled";
+
+// An enumeration that specifies the layout of the secondary display.
+//  0 - The secondary display is at the top of the primary display.
+//  1 - The secondary display is at the right of the primary display.
+//  2 - The secondary display is at the bottom of the primary display.
+//  3 - The secondary display is at the left of the primary display.
+// TODO(mukai,oshima): update the format of the multi-display settings.
+const char kSecondaryDisplayLayout[] = "settings.display.secondary_layout";
 #endif  // defined(OS_CHROMEOS)
 
 // The disabled messages in IPC logging.
@@ -974,11 +982,6 @@ const char kEnableReferrers[] = "enable_referrers";
 // Boolean to enable reporting memory info to page.
 const char kEnableMemoryInfo[] = "enable_memory_info";
 
-#if defined(OS_MACOSX)
-// Whether presentation mode is enabled for fullscreen (used on Lion only).
-const char kPresentationModeEnabled[] = "presentation_mode_enabled";
-#endif
-
 // Boolean that specifies whether to import bookmarks from the default browser
 // on first run.
 const char kImportBookmarks[] = "import_bookmarks";
@@ -1024,6 +1027,12 @@ const char kProfileName[] = "profile.name";
 // Indicates if we've already shown a notification that high contrast
 // mode is on, recommending high-contrast extensions and themes.
 const char kInvertNotificationShown[] = "invert_notification_version_2_shown";
+
+// Boolean controlling whether printing is enabled.
+const char kPrintingEnabled[] = "printing.enabled";
+
+// Boolean controlling whether print preview is disabled.
+const char kPrintPreviewDisabled[] = "printing.print_preview_disabled";
 
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
@@ -1684,16 +1693,10 @@ const char kGeolocationAccessToken[] = "geolocation.access_token";
 const char kRemoteAccessHostFirewallTraversal[] =
     "remote_access.host_firewall_traversal";
 
-// Boolean controlling whether printing is enabled.
-const char kPrintingEnabled[] = "printing.enabled";
-
-// Boolean controlling whether print preview is disabled.
-const char kPrintPreviewDisabled[] = "printing.print_preview_disabled";
 
 // The last used printer and its settings.
 const char kPrintPreviewStickySettings[] =
     "printing.print_preview_sticky_settings";
-
 // The root URL of the cloud print service.
 const char kCloudPrintServiceURL[] = "cloud_print.service_url";
 
@@ -1707,6 +1710,12 @@ const char kCloudPrintSigninDialogWidth[] =
     "cloud_print.signin_dialog_size.width";
 const char kCloudPrintSigninDialogHeight[] =
     "cloud_print.signin_dialog_size.height";
+
+#if !defined(OS_ANDROID)
+// The Chrome To Mobile service prefs; the device list and last update time.
+const char kChromeToMobileDeviceList[] = "chrome_to_mobile.device_list";
+const char kChromeToMobileTimestamp[] = "chrome_to_mobile.timestamp";
+#endif
 
 // The list of BackgroundContents that should be loaded when the browser
 // launches.
@@ -1777,6 +1786,10 @@ const char kDeviceLocation[] = "device_status.location";
 // A string that is used to store first-time sync startup after once sync is
 // disabled. This will be refreshed every sign-in.
 const char kSyncSpareBootstrapToken[] = "sync.spare_bootstrap_token";
+
+// A pref holding the value of the policy used to disable mounting of external
+// storage for the user.
+const char kExternalStorageDisabled[] = "hardware.external_storage_disabled";
 #endif
 
 // Whether there is a Flash version installed that supports clearing LSO data.

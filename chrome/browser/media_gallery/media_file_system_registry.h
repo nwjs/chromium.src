@@ -25,6 +25,10 @@ namespace content {
 class RenderProcessHost;
 }
 
+namespace extensions {
+class Extension;
+}
+
 namespace fileapi {
 class IsolatedContext;
 }
@@ -44,11 +48,11 @@ class MediaFileSystemRegistry
   // Returns the list of media filesystem IDs and paths for a given RPH.
   // Called on the UI thread.
   std::vector<MediaFSIDAndPath> GetMediaFileSystems(
-      const content::RenderProcessHost* rph);
+      const content::RenderProcessHost* rph,
+      const extensions::Extension& extension);
 
   // base::SystemMonitor::DevicesChangedObserver implementation.
-  virtual void OnMediaDeviceDetached(
-      const base::SystemMonitor::DeviceIdType& id) OVERRIDE;
+  virtual void OnMediaDeviceDetached(const std::string& id) OVERRIDE;
 
   // content::NotificationObserver implementation.
   virtual void Observe(int type,
@@ -66,8 +70,7 @@ class MediaFileSystemRegistry
                    MediaPathToFSIDMap> ChildIdToMediaFSMap;
 
   // Mapping of device id to mount path.
-  typedef std::map<base::SystemMonitor::DeviceIdType, FilePath>
-      DeviceIdToMediaPathMap;
+  typedef std::map<std::string, FilePath> DeviceIdToMediaPathMap;
 
   // Obtain an instance of this class via GetInstance().
   MediaFileSystemRegistry();

@@ -37,7 +37,7 @@ Display* g_display;
 const char* g_glx_extensions = NULL;
 bool g_glx_create_context_robustness_supported = false;
 
-}  // namespace anonymous
+}  // namespace
 
 GLSurfaceGLX::GLSurfaceGLX() {}
 
@@ -78,17 +78,7 @@ const char* GLSurfaceGLX::GetGLXExtensions() {
 
 // static
 bool GLSurfaceGLX::HasGLXExtension(const char* name) {
-  DCHECK(name);
-  const char* c_extensions = GetGLXExtensions();
-  if (!c_extensions)
-    return false;
-  std::string extensions(c_extensions);
-  extensions += " ";
-
-  std::string delimited_name(name);
-  delimited_name += " ";
-
-  return extensions.find(delimited_name) != std::string::npos;
+  return ExtensionsContain(GetGLXExtensions(), name);
 }
 
 // static

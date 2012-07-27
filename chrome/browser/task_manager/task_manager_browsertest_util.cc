@@ -66,7 +66,7 @@ void TaskManagerBrowserTestUtil::WaitForResourceChange(int target_count) {
     return;
   }
 
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
   model->RemoveObserver(&observer);
 }
 
@@ -74,7 +74,7 @@ void TaskManagerBrowserTestUtil::WaitForResourceChange(int target_count) {
 void TaskManagerBrowserTestUtil::ShowTaskManagerAndWaitForReady(
     Browser* browser) {
 #if defined(USE_AURA)
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       chrome::NOTIFICATION_TASK_MANAGER_WINDOW_READY,
       content::Source<TaskManagerModel>(TaskManager::GetInstance()->model()));
   browser->window()->ShowTaskManager();

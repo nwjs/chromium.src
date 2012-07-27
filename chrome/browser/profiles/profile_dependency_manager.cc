@@ -13,6 +13,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/captive_portal/captive_portal_service_factory.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
+#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/extensions/api/commands/command_service_factory.h"
 #include "chrome/browser/extensions/api/discovery/suggested_links_registry_factory.h"
@@ -28,6 +29,7 @@
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/predictors/predictor_database_factory.h"
 #include "chrome/browser/predictors/resource_prefetch_predictor_factory.h"
+#include "chrome/browser/prerender/prerender_link_manager_factory.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/printing/cloud_print/cloud_print_proxy_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -43,6 +45,9 @@
 #include "chrome/browser/speech/chrome_speech_recognition_preferences.h"
 #include "chrome/browser/speech/speech_input_extension_manager.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
+#if defined(OS_WIN)
+#include "chrome/browser/sync/credential_cache_service_factory_win.h"
+#endif  // OS_WIN
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
@@ -232,7 +237,9 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
   predictors::PredictorDatabaseFactory::GetInstance();
   predictors::ResourcePrefetchPredictorFactory::GetInstance();
   prerender::PrerenderManagerFactory::GetInstance();
+  prerender::PrerenderLinkManagerFactory::GetInstance();
   ProfileSyncServiceFactory::GetInstance();
+  ProtocolHandlerRegistryFactory::GetInstance();
 #if defined(ENABLE_PROTECTOR_SERVICE)
   protector::ProtectorServiceFactory::GetInstance();
 #endif
@@ -246,6 +253,9 @@ void ProfileDependencyManager::AssertFactoriesBuilt() {
   ChromeSpeechRecognitionPreferences::InitializeFactory();
 #endif
   SpellCheckFactory::GetInstance();
+#if defined(OS_WIN)
+  syncer::CredentialCacheServiceFactory::GetInstance();
+#endif  // OS_WIN
   TabRestoreServiceFactory::GetInstance();
   TemplateURLFetcherFactory::GetInstance();
   TemplateURLServiceFactory::GetInstance();

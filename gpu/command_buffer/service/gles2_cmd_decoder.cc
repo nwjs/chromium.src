@@ -38,7 +38,6 @@
 #include "gpu/command_buffer/service/gles2_cmd_validation.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
-#include "gpu/command_buffer/service/program_cache.h"
 #include "gpu/command_buffer/service/program_manager.h"
 #include "gpu/command_buffer/service/query_manager.h"
 #include "gpu/command_buffer/service/renderbuffer_manager.h"
@@ -1362,6 +1361,8 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
            surface_->DeferDraws();
   }
 
+  void ForceCompileShaderIfPending(ShaderManager::ShaderInfo* info);
+
   // Generate a member function prototype for each command in an automated and
   // typesafe way.
   #define GLES2_CMD_OP(name) \
@@ -1541,7 +1542,7 @@ class GLES2DecoderImpl : public base::SupportsWeakPtr<GLES2DecoderImpl>,
 
   int frame_number_;
 
-  bool has_arb_robustness_;
+  bool has_robustness_extension_;
   GLenum reset_status_;
 
   bool needs_mac_nvidia_driver_workaround_;
@@ -1962,7 +1963,7 @@ GLES2DecoderImpl::GLES2DecoderImpl(ContextGroup* group)
       feature_info_(group_->feature_info()),
       tex_image_2d_failed_(false),
       frame_number_(0),
-      has_arb_robustness_(false),
+      has_robustness_extension_(false),
       reset_status_(GL_NO_ERROR),
       needs_mac_nvidia_driver_workaround_(false),
       needs_glsl_built_in_function_emulation_(false),
@@ -2249,7 +2250,9 @@ bool GLES2DecoderImpl::Initialize(
     glEnable(GL_POINT_SPRITE);
   }
 
-  has_arb_robustness_ = context->HasExtension("GL_ARB_robustness");
+  has_robustness_extension_ =
+      context->HasExtension("GL_ARB_robustness") ||
+      context->HasExtension("GL_EXT_robustness");
 
   if (!feature_info_->feature_flags().disable_workarounds) {
 #if defined(OS_MACOSX)
@@ -5126,6 +5129,25 @@ void GLES2DecoderImpl::PerformanceWarning(const std::string& msg) {
   LogMessage(std::string("PERFORMANCE WARNING: ") + msg);
 }
 
+void GLES2DecoderImpl::ForceCompileShaderIfPending(
+    ShaderManager::ShaderInfo* info) {
+  if (info->compilation_status() ==
+      ShaderManager::ShaderInfo::PENDING_DEFERRED_COMPILE) {
+
+    ShaderTranslator* translator = NULL;
+    if (use_shader_translator_) {
+      translator = info->shader_type() == GL_VERTEX_SHADER ?
+          vertex_translator_.get() : fragment_translator_.get();
+    }
+    // We know there will be no errors, because we only defer compilation on
+    // shaders that were previously compiled successfully.
+    program_manager()->ForceCompileShader(info->deferred_compilation_source(),
+                                          info,
+                                          translator,
+                                          feature_info_);
+  }
+}
+
 void GLES2DecoderImpl::CopyRealGLErrorsToWrapper() {
   GLenum error;
   while ((error = glGetError()) != GL_NO_ERROR) {
@@ -5393,10 +5415,16 @@ void GLES2DecoderImpl::RestoreStateForAttrib(GLuint attrib) {
   glBindBuffer(GL_ARRAY_BUFFER,
                bound_array_buffer_ ? bound_array_buffer_->service_id() : 0);
 
-  if (info->enabled()) {
-    glEnableVertexAttribArray(attrib);
-  } else {
-    glDisableVertexAttribArray(attrib);
+  // Never touch vertex attribute 0's state (in particular, never
+  // disable it) when running on desktop GL because it will never be
+  // re-enabled.
+  if (attrib != 0 ||
+      gfx::GetGLImplementation() == gfx::kGLImplementationEGLGLES2) {
+    if (info->enabled()) {
+      glEnableVertexAttribArray(attrib);
+    } else {
+      glDisableVertexAttribArray(attrib);
+    }
   }
 }
 
@@ -5843,6 +5871,7 @@ void GLES2DecoderImpl::DoGetShaderiv(
       *params = info->log_info() ? info->log_info()->size() + 1 : 0;
       return;
     case GL_TRANSLATED_SHADER_SOURCE_LENGTH_ANGLE:
+      ForceCompileShaderIfPending(info);
       *params = info->translated_source() ?
           info->translated_source()->size() + 1 : 0;
       return;
@@ -5880,6 +5909,7 @@ error::Error GLES2DecoderImpl::HandleGetTranslatedShaderSourceANGLE(
     bucket->SetSize(0);
     return error::kNoError;
   }
+  ForceCompileShaderIfPending(info);
 
   bucket->SetFromString(info->translated_source() ?
       info->translated_source()->c_str() : NULL);
@@ -8200,6 +8230,11 @@ error::Error GLES2DecoderImpl::HandleSwapBuffers(
   }
 
   int this_frame_number = frame_number_++;
+  // TRACE_EVENT for gpu tests:
+  TRACE_EVENT_INSTANT2("test_gpu", "SwapBuffersLatency",
+                       "GLImpl", static_cast<int>(gfx::GetGLImplementation()),
+                       "width", (is_offscreen ? offscreen_size_.width() :
+                                 surface_->GetSize().width()));
   TRACE_EVENT2("gpu", "GLES2DecoderImpl::HandleSwapBuffers",
                "offscreen", is_offscreen,
                "frame", this_frame_number);
@@ -8499,13 +8534,15 @@ error::ContextLostReason GLES2DecoderImpl::GetContextLostReason() {
 }
 
 bool GLES2DecoderImpl::WasContextLost() {
-  if (context_->WasAllocatedUsingARBRobustness() && has_arb_robustness_) {
-    GLenum status = glGetGraphicsResetStatusARB();
+  if (context_->WasAllocatedUsingRobustnessExtension()) {
+    GLenum status = GL_NO_ERROR;
+    if (has_robustness_extension_)
+      status = glGetGraphicsResetStatusARB();
     if (status != GL_NO_ERROR) {
       // The graphics card was reset. Signal a lost context to the application.
       reset_status_ = status;
       LOG(ERROR) << (surface_->IsOffscreen() ? "Offscreen" : "Onscreen")
-                 << " context lost via ARB_robustness. Reset status = 0x"
+                 << " context lost via ARB/EXT_robustness. Reset status = 0x"
                  << std::hex << status << std::dec;
       return true;
     }

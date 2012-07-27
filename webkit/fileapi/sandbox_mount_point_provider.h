@@ -89,7 +89,7 @@ class FILEAPI_EXPORT SandboxMountPointProvider
       FileSystemType type,
       const FilePath& virtual_path) OVERRIDE;
   virtual bool IsRestrictedFileName(const FilePath& filename) const OVERRIDE;
-  virtual FileSystemFileUtil* GetFileUtil() OVERRIDE;
+  virtual FileSystemFileUtil* GetFileUtil(FileSystemType type) OVERRIDE;
   virtual FilePath GetPathForPermissionsCheck(const FilePath& virtual_path)
       const OVERRIDE;
   virtual FileSystemOperationInterface* CreateFileSystemOperation(
@@ -177,7 +177,7 @@ class FILEAPI_EXPORT SandboxMountPointProvider
   // filesystem.
   bool IsAllowedScheme(const GURL& url) const;
 
-  friend class FileSystemTestOriginHelper;
+  friend class LocalFileSystemTestOriginHelper;
   friend class SandboxMountPointProviderMigrationTest;
   friend class SandboxMountPointProviderOriginEnumeratorTest;
 

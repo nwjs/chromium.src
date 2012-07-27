@@ -8,11 +8,19 @@
 
 namespace media {
 
-DecryptConfig::DecryptConfig(const uint8* key_id, int key_id_size)
-    : key_id_size_(key_id_size) {
-  CHECK_GT(key_id_size, 0);
-  key_id_.reset(new uint8[key_id_size]);
-  memcpy(key_id_.get(), key_id, key_id_size);
+DecryptConfig::DecryptConfig(const std::string& key_id,
+                             const std::string& iv,
+                             const std::string& checksum,
+                             const int data_offset,
+                             const std::vector<SubsampleEntry>& subsamples)
+    : key_id_(key_id),
+      iv_(iv),
+      checksum_(checksum),
+      data_offset_(data_offset),
+      subsamples_(subsamples) {
+  CHECK_GT(key_id.size(), 0u);
+  CHECK_EQ(iv.size(), static_cast<size_t>(DecryptConfig::kDecryptionKeySize));
+  CHECK_GE(data_offset, 0);
 }
 
 DecryptConfig::~DecryptConfig() {}

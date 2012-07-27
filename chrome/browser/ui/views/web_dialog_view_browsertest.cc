@@ -11,7 +11,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/views/web_dialog_view.h"
+#include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "chrome/browser/ui/webui/test_web_dialog_delegate.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -22,8 +22,10 @@
 #include "content/public/browser/web_contents_view.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/views/controls/webview/web_dialog_view.h"
 #include "ui/views/widget/widget.h"
 
+using content::BrowserContext;
 using content::WebContents;
 using testing::Eq;
 using ui::WebDialogDelegate;
@@ -34,11 +36,11 @@ namespace {
 const int kInitialWidth = 40;
 const int kInitialHeight = 40;
 
-class TestWebDialogView : public WebDialogView {
+class TestWebDialogView : public views::WebDialogView {
  public:
-  TestWebDialogView(Profile* profile,
+  TestWebDialogView(content::BrowserContext* context,
                     WebDialogDelegate* delegate)
-      : WebDialogView(profile, delegate),
+      : views::WebDialogView(context, delegate, new ChromeWebContentsHandler),
         should_quit_on_size_change_(false) {
     delegate->GetDialogSize(&last_size_);
   }
@@ -64,7 +66,7 @@ class TestWebDialogView : public WebDialogView {
 
   virtual void OnDialogClosed(const std::string& json_retval) OVERRIDE {
     should_quit_on_size_change_ = false;  // No quit when we are closing.
-    WebDialogView::OnDialogClosed(json_retval);
+    views::WebDialogView::OnDialogClosed(json_retval);
   }
 
   // Whether we should quit message loop when size change is detected.
@@ -109,7 +111,7 @@ IN_PROC_BROWSER_TEST_F(WebDialogBrowserTest, MAYBE_SizeWindow) {
   // TestWebDialogView should quit current message loop on size change.
   view->set_should_quit_on_size_change(true);
 
-  gfx::Rect bounds = view->GetWidget()->GetClientAreaScreenBounds();
+  gfx::Rect bounds = view->GetWidget()->GetClientAreaBoundsInScreen();
 
   gfx::Rect set_bounds = bounds;
   gfx::Rect actual_bounds, rwhv_bounds;
@@ -119,8 +121,8 @@ IN_PROC_BROWSER_TEST_F(WebDialogBrowserTest, MAYBE_SizeWindow) {
   set_bounds.set_height(300);
 
   view->MoveContents(web_contents, set_bounds);
-  ui_test_utils::RunMessageLoop();  // TestWebDialogView will quit.
-  actual_bounds = view->GetWidget()->GetClientAreaScreenBounds();
+  content::RunMessageLoop();  // TestWebDialogView will quit.
+  actual_bounds = view->GetWidget()->GetClientAreaBoundsInScreen();
   EXPECT_EQ(set_bounds, actual_bounds);
 
   rwhv_bounds =
@@ -135,8 +137,8 @@ IN_PROC_BROWSER_TEST_F(WebDialogBrowserTest, MAYBE_SizeWindow) {
   set_bounds.set_height(250);
 
   view->MoveContents(web_contents, set_bounds);
-  ui_test_utils::RunMessageLoop();  // TestWebDialogView will quit.
-  actual_bounds = view->GetWidget()->GetClientAreaScreenBounds();
+  content::RunMessageLoop();  // TestWebDialogView will quit.
+  actual_bounds = view->GetWidget()->GetClientAreaBoundsInScreen();
   EXPECT_EQ(set_bounds, actual_bounds);
 
   rwhv_bounds =
@@ -151,8 +153,8 @@ IN_PROC_BROWSER_TEST_F(WebDialogBrowserTest, MAYBE_SizeWindow) {
   set_bounds.set_size(min_size);
 
   view->MoveContents(web_contents, set_bounds);
-  ui_test_utils::RunMessageLoop();  // TestWebDialogView will quit.
-  actual_bounds = view->GetWidget()->GetClientAreaScreenBounds();
+  content::RunMessageLoop();  // TestWebDialogView will quit.
+  actual_bounds = view->GetWidget()->GetClientAreaBoundsInScreen();
   EXPECT_EQ(set_bounds, actual_bounds);
 
   rwhv_bounds =
@@ -167,8 +169,8 @@ IN_PROC_BROWSER_TEST_F(WebDialogBrowserTest, MAYBE_SizeWindow) {
   set_bounds.set_height(0);
 
   view->MoveContents(web_contents, set_bounds);
-  ui_test_utils::RunMessageLoop();  // TestWebDialogView will quit.
-  actual_bounds = view->GetWidget()->GetClientAreaScreenBounds();
+  content::RunMessageLoop();  // TestWebDialogView will quit.
+  actual_bounds = view->GetWidget()->GetClientAreaBoundsInScreen();
   EXPECT_LT(0, actual_bounds.width());
   EXPECT_LT(0, actual_bounds.height());
 }

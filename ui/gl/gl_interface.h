@@ -409,6 +409,8 @@ class GL_EXPORT GLInterface {
                              const GLvoid* binary,
                              GLsizei length) = 0;
 
+  virtual void ProgramParameteri(GLuint program, GLenum pname, GLint value) = 0;
+
   virtual void QueryCounter(GLuint id, GLenum target) = 0;
 
   virtual void ReadBuffer(GLenum src) = 0;

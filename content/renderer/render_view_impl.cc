@@ -101,6 +101,7 @@
 #include "media/base/message_loop_factory.h"
 #include "media/filters/audio_renderer_impl.h"
 #include "media/filters/gpu_video_decoder.h"
+#include "net/base/data_url.h"
 #include "net/base/escape.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_util.h"
@@ -748,14 +749,6 @@ RenderViewImpl* RenderViewImpl::Create(
       accessibility_mode);
 }
 
-WebPeerConnectionHandler* RenderViewImpl::CreatePeerConnectionHandler(
-    WebPeerConnectionHandlerClient* client) {
-  EnsureMediaStreamImpl();
-  if (!media_stream_impl_)
-    return NULL;
-  return media_stream_impl_->CreatePeerConnectionHandler(client);
-}
-
 WebPeerConnection00Handler* RenderViewImpl::CreatePeerConnectionHandlerJsep(
     WebPeerConnection00HandlerClient* client) {
   EnsureMediaStreamImpl();
@@ -1053,6 +1046,21 @@ void RenderViewImpl::OnNavigate(const ViewMsg_Navigate_Params& params) {
     DCHECK_NE(params.page_id, -1);
     main_frame->loadHistoryItem(
         webkit_glue::HistoryItemFromString(params.state));
+  } else if (!params.base_url_for_data_url.is_empty()) {
+    // A loadData request with a specified base URL.
+    std::string mime_type, charset, data;
+    if (net::DataURL::Parse(params.url, &mime_type, &charset, &data)) {
+      main_frame->loadData(
+          WebData(data.c_str(), data.length()),
+          WebString::fromUTF8(mime_type),
+          WebString::fromUTF8(charset),
+          params.base_url_for_data_url,
+          params.history_url_for_data_url,
+          false);
+    } else {
+      CHECK(false) <<
+          "Invalid URL passed: " << params.url.possibly_invalid_spec();
+    }
   } else {
     // Navigate to the given URL.
     WebURLRequest request(params.url);
@@ -1706,7 +1714,7 @@ RenderWidgetFullscreenPepper* RenderViewImpl::CreatePepperFullscreenContainer(
   if (webview() && webview()->mainFrame())
     active_url = GURL(webview()->mainFrame()->document().url());
   RenderWidgetFullscreenPepper* widget = RenderWidgetFullscreenPepper::Create(
-      routing_id_, plugin, active_url);
+      routing_id_, plugin, active_url, screen_info_);
   widget->show(WebKit::WebNavigationPolicyIgnore);
   return widget;
 }
@@ -2367,11 +2375,18 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
     collection->AddAudioRenderer(audio_renderer);
   }
 
+  // Accelerated video decode is not enabled by default on Linux.
+  // crbug.com/137247
+  bool use_accelerated_video_decode = false;
+#if defined(OS_CHROMEOS) || defined(OS_WIN)
+  use_accelerated_video_decode = true;
+#endif
+  use_accelerated_video_decode &= !CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableAcceleratedVideoDecode);
   base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> context3d =
-      !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableAcceleratedVideoDecode) ?
-      base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>() :
-      RenderThreadImpl::current()->GetGpuVDAContext3D();
+      use_accelerated_video_decode ?
+      RenderThreadImpl::current()->GetGpuVDAContext3D() :
+      base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>();
   if (context3d) {
     MessageLoop* factories_loop =
         RenderThreadImpl::current()->compositor_thread() ?
@@ -3286,12 +3301,11 @@ void RenderViewImpl::willSendRequest(WebFrame* frame,
 
   content::PageTransition transition_type = content::PAGE_TRANSITION_LINK;
   DocumentState* document_state = DocumentState::FromDataSource(data_source);
+  DCHECK(document_state);
   NavigationState* navigation_state = document_state->navigation_state();
-  if (document_state) {
-    if (document_state->is_cache_policy_override_set())
-      request.setCachePolicy(document_state->cache_policy_override());
-    transition_type = navigation_state->transition_type();
-  }
+  if (document_state->is_cache_policy_override_set())
+    request.setCachePolicy(document_state->cache_policy_override());
+  transition_type = navigation_state->transition_type();
 
   WebKit::WebReferrerPolicy referrer_policy;
   if (document_state && document_state->is_referrer_policy_set()) {
@@ -3596,8 +3610,8 @@ void RenderViewImpl::numberOfWheelEventHandlersChanged(unsigned num_handlers) {
   Send(new ViewHostMsg_DidChangeNumWheelEvents(routing_id_, num_handlers));
 }
 
-void RenderViewImpl::numberOfTouchEventHandlersChanged(unsigned num_handlers) {
-  Send(new ViewHostMsg_DidChangeNumTouchEvents(routing_id_, num_handlers));
+void RenderViewImpl::hasTouchEventHandlers(bool has_handlers) {
+  Send(new ViewHostMsg_HasTouchEventHandlers(routing_id_, has_handlers));
 }
 
 void RenderViewImpl::reportFindInPageMatchCount(int request_id, int count,
@@ -4642,7 +4656,7 @@ void RenderViewImpl::OnFileChooserResponse(
       files.size());
   for (size_t i = 0; i < files.size(); ++i) {
     WebFileChooserCompletion::SelectedFileInfo selected_file;
-    selected_file.path = webkit_glue::FilePathToWebString(files[i].path);
+    selected_file.path = webkit_glue::FilePathToWebString(files[i].local_path);
     selected_file.displayName = webkit_glue::FilePathStringToWebString(
         files[i].display_name);
     selected_files[i] = selected_file;

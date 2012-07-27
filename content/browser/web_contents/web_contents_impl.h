@@ -259,7 +259,8 @@ class CONTENT_EXPORT WebContentsImpl
   virtual content::RenderViewHostDelegateView* GetDelegateView() OVERRIDE;
   virtual content::RenderViewHostDelegate::RendererManagement*
       GetRendererManagementDelegate() OVERRIDE;
-  virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
+  virtual bool OnMessageReceived(content::RenderViewHost* render_view_host,
+                                 const IPC::Message& message) OVERRIDE;
   virtual const GURL& GetURL() const OVERRIDE;
   virtual WebContents* GetAsWebContents() OVERRIDE;
   virtual gfx::Rect GetRootWindowResizerRect() const OVERRIDE;
@@ -304,8 +305,10 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void Close(content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void RequestMove(const gfx::Rect& new_bounds) OVERRIDE;
   virtual void SwappedOut(content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DidStartLoading() OVERRIDE;
-  virtual void DidStopLoading() OVERRIDE;
+  virtual void DidStartLoading(
+      content::RenderViewHost* render_view_host) OVERRIDE;
+  virtual void DidStopLoading(
+      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidCancelLoading() OVERRIDE;
   virtual void DidChangeLoadProgress(double progress) OVERRIDE;
   virtual void DocumentAvailableInMainFrame(
@@ -362,7 +365,9 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void LostCapture() OVERRIDE;
   virtual void HandleMouseDown() OVERRIDE;
   virtual void HandleMouseUp() OVERRIDE;
-  virtual void HandleMouseActivate() OVERRIDE;
+  virtual void HandlePointerActivate() OVERRIDE;
+  virtual void HandleGestureBegin() OVERRIDE;
+  virtual void HandleGestureEnd() OVERRIDE;
   virtual void RunFileChooser(
       content::RenderViewHost* render_view_host,
       const content::FileChooserParams& params) OVERRIDE;
@@ -408,8 +413,6 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void BeforeUnloadFiredFromRenderManager(
       bool proceed,
       bool* proceed_to_fire_unload) OVERRIDE;
-  virtual void DidStartLoadingFromRenderManager(
-      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void RenderViewGoneFromRenderManager(
       content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void UpdateRenderViewSizeForRenderManager() OVERRIDE;
@@ -792,6 +795,10 @@ class CONTENT_EXPORT WebContentsImpl
   // This must be at the end, or else we might get notifications and use other
   // member variables that are gone.
   content::NotificationRegistrar registrar_;
+
+  // Used during IPC message dispatching so that the handlers can get a pointer
+  // to the RVH through which the message was received.
+  content::RenderViewHost* message_source_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsImpl);
 };

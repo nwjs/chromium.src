@@ -15,6 +15,13 @@ extern const int kPaddingFromOuterEdgeOfLauncherVerticalAlignment;
 extern const int kPaddingFromInnerEdgeOfLauncherVerticalAlignment;
 extern const int kPaddingFromBottomOfScreenVerticalAlignment;
 
+extern const int kTrayImageItemHorizontalPaddingBottomAlignment;
+extern const int kTrayImageItemHorizontalPaddingVerticalAlignment;
+extern const int kTrayImageItemVerticalPaddingVerticalAlignment;
+
+extern const int kTrayLabelItemHorizontalPaddingBottomAlignment;
+extern const int kTrayLabelItemVerticalPaddingVeriticalAlignment;
+
 extern const int kTrayPopupAutoCloseDelayInSeconds;
 extern const int kTrayPopupAutoCloseDelayForTextInSeconds;
 extern const int kTrayPopupPaddingHorizontal;
@@ -24,6 +31,7 @@ extern const int kTrayPopupTextSpacingVertical;
 extern const int kTrayPopupItemHeight;
 extern const int kTrayPopupDetailsIconWidth;
 extern const int kTrayRoundedBorderRadius;
+extern const int kTrayBarButtonWidth;
 
 extern const SkColor kBackgroundColor;
 extern const SkColor kHoverBackgroundColor;

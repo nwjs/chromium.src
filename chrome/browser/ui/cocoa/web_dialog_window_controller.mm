@@ -8,24 +8,25 @@
 #include "base/memory/scoped_nsobject.h"
 #include "base/property_bag.h"
 #include "base/sys_string_conversions.h"
-#include "chrome/browser/profiles/profile.h"
 #import "chrome/browser/ui/browser_dialogs.h"
 #import "chrome/browser/ui/cocoa/browser_command_executor.h"
 #import "chrome/browser/ui/cocoa/chrome_event_processing_window.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
-#include "chrome/browser/ui/webui/web_dialog_web_contents_delegate.h"
+#include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/size.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
+#include "ui/web_dialogs/web_dialog_web_contents_delegate.h"
 
 using content::NativeWebKeyboardEvent;
 using content::WebContents;
 using content::WebUIMessageHandler;
 using ui::WebDialogDelegate;
 using ui::WebDialogUI;
+using ui::WebDialogWebContentsDelegate;
 
 // Thin bridge that routes notifications to
 // WebDialogWindowController's member variables.
@@ -108,7 +109,7 @@ WebDialogWindowDelegateBridge::WebDialogWindowDelegateBridge(
     WebDialogWindowController* controller,
     content::BrowserContext* context,
     WebDialogDelegate* delegate)
-    : WebDialogWebContentsDelegate(context),
+    : WebDialogWebContentsDelegate(context, new ChromeWebContentsHandler),
       controller_(controller),
       delegate_(delegate) {
   DCHECK(controller_);
@@ -336,7 +337,7 @@ void WebDialogWindowDelegateBridge::HandleKeyboardEvent(
 
 - (void)loadDialogContents {
   tabContents_.reset(new TabContents(WebContents::Create(
-      delegate_->profile(), NULL, MSG_ROUTING_NONE, NULL, NULL)));
+      delegate_->browser_context(), NULL, MSG_ROUTING_NONE, NULL, NULL)));
   [[self window]
       setContentView:tabContents_->web_contents()->GetNativeView()];
   tabContents_->web_contents()->SetDelegate(delegate_.get());

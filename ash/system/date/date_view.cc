@@ -164,6 +164,7 @@ TimeView::TimeView(TrayDate::ClockLayout clock_layout)
   SetupLabels();
   UpdateTextInternal(base::Time::Now());
   UpdateClockLayout(clock_layout);
+  set_focusable(false);
 }
 
 TimeView::~TimeView() {
@@ -222,22 +223,23 @@ void TimeView::UpdateClockLayout(TrayDate::ClockLayout clock_layout){
                        0, views::GridLayout::USE_PREF, 0, 0);
     columns->AddColumn(views::GridLayout::CENTER, views::GridLayout::CENTER,
                        0, views::GridLayout::USE_PREF, 0, 0);
-    layout->AddPaddingRow(0, 4);
+    layout->AddPaddingRow(0, kTrayLabelItemVerticalPaddingVeriticalAlignment);
     layout->StartRow(0, 0);
     layout->AddView(label_hour_left_.get());
     layout->AddView(label_hour_right_.get());
     layout->StartRow(0, 0);
     layout->AddView(label_minute_left_.get());
     layout->AddView(label_minute_right_.get());
-    layout->AddPaddingRow(0, 4);
+    layout->AddPaddingRow(0, kTrayLabelItemVerticalPaddingVeriticalAlignment);
   }
   Layout();
-  set_focusable(true);
 }
 
 void TimeView::SetBorder(TrayDate::ClockLayout clock_layout) {
   if (clock_layout == TrayDate::HORIZONTAL_CLOCK)
-    set_border(views::Border::CreateEmptyBorder(0, 10, 0, 7));
+    set_border(views::Border::CreateEmptyBorder(
+        0, kTrayLabelItemHorizontalPaddingBottomAlignment,
+        0, kTrayLabelItemHorizontalPaddingBottomAlignment));
   else
     set_border(NULL);
 }

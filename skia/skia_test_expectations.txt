@@ -225,16 +225,12 @@ BUGCR131189 WIN : fast/forms/menulist-separator-painting.html = IMAGE
 BUGCR131189 WIN : fast/forms/menulist-style-color.html = IMAGE
 BUGCR131189 WIN : fast/forms/menulist-width-change.html = IMAGE
 BUGCR131189 WIN : fast/forms/minWidthPercent.html = IMAGE
-BUGCR131189 WIN : fast/forms/number/input-appearance-number-rtl.html = IMAGE
-BUGCR131189 WIN : fast/forms/number/input-appearance-spinbutton-disabled-readonly.html = IMAGE
-BUGCR131189 WIN : fast/forms/number/input-appearance-spinbutton-layer.html = IMAGE
 BUGCR131189 WIN : fast/forms/option-script.html = IMAGE
 BUGCR131189 WIN : fast/forms/option-strip-whitespace.html = IMAGE
 BUGCR131189 WIN : fast/forms/option-text-clip.html = IMAGE
 BUGCR131189 WIN : fast/forms/placeholder-position.html = IMAGE
 BUGCR131189 WIN : fast/forms/placeholder-pseudo-style.html = IMAGE
 BUGCR131189 WIN : fast/forms/plaintext-mode-2.html = IMAGE
-BUGCR131189 WIN : fast/forms/range/input-appearance-range.html = IMAGE
 BUGCR131189 WIN : fast/forms/search-cancel-button-style-sharing.html = IMAGE
 BUGCR131189 WIN : fast/forms/search-display-none-cancel-button.html = IMAGE
 BUGCR131189 WIN : fast/forms/search-rtl.html = IMAGE
@@ -397,5 +393,7 @@ BUGCR131189 WIN : tables/mozilla_expected_failures/bugs/bug92647-1.html = IMAGE
 BUGCR131189 LINUX WIN : tables/mozilla_expected_failures/marvin/backgr_fixed-bg.html = IMAGE
 BUGCR131189 WIN : tables/mozilla_expected_failures/marvin/backgr_layers-show.html = IMAGE
 BUGCR131189 WIN : transforms/2d/zoom-menulist.html = IMAGE
+// Rebaseline this after Skia rev. 4780 has landed
+BUGCR139162 LINUX : svg/W3C-SVG-1.1/filters-example-01-b.svg = IMAGE
 
 // END OVERRIDES HERE (this line ensures that the file is newline-terminated)

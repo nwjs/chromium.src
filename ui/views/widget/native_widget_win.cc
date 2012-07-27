@@ -58,9 +58,6 @@
 
 #pragma comment(lib, "dwmapi.lib")
 
-// From msdn:
-#define MOUSEEVENTF_FROMTOUCH 0xFF515700
-
 using ui::ViewProp;
 
 namespace views {
@@ -801,13 +798,13 @@ void NativeWidgetWin::InitModalType(ui::ModalType modal_type) {
   }
 }
 
-gfx::Rect NativeWidgetWin::GetWindowScreenBounds() const {
+gfx::Rect NativeWidgetWin::GetWindowBoundsInScreen() const {
   RECT r;
   GetWindowRect(&r);
   return gfx::Rect(r);
 }
 
-gfx::Rect NativeWidgetWin::GetClientAreaScreenBounds() const {
+gfx::Rect NativeWidgetWin::GetClientAreaBoundsInScreen() const {
   RECT r;
   GetClientRect(&r);
   POINT point = { r.left, r.top };
@@ -1169,7 +1166,7 @@ void NativeWidgetWin::FocusNativeView(gfx::NativeView native_view) {
     ::SetFocus(native_view);
 }
 
-gfx::Rect NativeWidgetWin::GetWorkAreaScreenBounds() const {
+gfx::Rect NativeWidgetWin::GetWorkAreaBoundsInScreen() const {
   return gfx::Screen::GetDisplayNearestWindow(GetNativeView()).work_area();
 }
 
@@ -1631,14 +1628,8 @@ LRESULT NativeWidgetWin::OnMouseRange(UINT message,
   MSG msg = { hwnd(), message, w_param, l_param, 0,
               { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) } };
   MouseEvent event(msg);
-  // Only button up/down have MOUSEEVENTF_FROMTOUCH set.
-  if (!touch_ids_.empty() ||
-      ((message == WM_LBUTTONDOWN || message == WM_LBUTTONUP ||
-        message == WM_RBUTTONDOWN || message == WM_RBUTTONUP) &&
-       (GetMessageExtraInfo() & MOUSEEVENTF_FROMTOUCH) ==
-       MOUSEEVENTF_FROMTOUCH)) {
+  if (!touch_ids_.empty() || ui::IsMouseEventFromTouch(message))
     event.set_flags(event.flags() | ui::EF_FROM_TOUCH);
-  }
 
   if (!(event.flags() & ui::EF_IS_NON_CLIENT))
     if (tooltip_manager_.get())
@@ -2511,7 +2502,8 @@ void NativeWidgetWin::ClientAreaSizeChanged() {
               std::max(0, static_cast<int>(r.bottom - r.top)));
   delegate_->OnNativeWidgetSizeChanged(s);
   if (use_layered_buffer_)
-    layered_window_contents_.reset(new gfx::Canvas(s, false));
+    layered_window_contents_.reset(
+        new gfx::Canvas(s, ui::SCALE_FACTOR_100P, false));
 }
 
 void NativeWidgetWin::UpdateDWMFrame() {

@@ -91,6 +91,10 @@ const char kAppsGalleryURL[]                = "apps-gallery-url";
 // The update url used by gallery/webstore extensions.
 const char kAppsGalleryUpdateURL[]          = "apps-gallery-update-url";
 
+// Specifies the URL of an application manifest to retrieve. The user will be
+// prompted for consent and the application retrieved/installed if consented.
+const char kAppsInstallFromManifestURL[]    = "apps-install-from-manifest-url";
+
 // Whether to always use the new app install bubble when installing an app.
 const char kAppsNewInstallBubble[]          = "apps-new-install-bubble";
 
@@ -270,6 +274,10 @@ const char kDisableBackgroundNetworking[]   = "disable-background-networking";
 // Disables the bundled PPAPI version of Flash (if it's enabled by default).
 const char kDisableBundledPpapiFlash[]      = "disable-bundled-ppapi-flash";
 
+// Disable the ClientOAuth signin flow for connecting a profile to a Google
+// account.  When disabled, Chrome will use the ClientLogin flow instead.
+const char kDisableClientOAuthSignin[]      = "disable-client-oauth-signin";
+
 // Disables Chrome To Mobile.
 const char kDisableChromeToMobile[]         = "disable-chrome-to-mobile";
 
@@ -353,6 +361,9 @@ const char kDisableLoginAnimations[]        = "disable-login-animations";
 
 // Disables the menu on the NTP for accessing sessions from other devices.
 const char kDisableNTPOtherSessionsMenu[]   = "disable-ntp-other-sessions-menu";
+
+// Disable pop-up blocking.
+const char kDisablePopupBlocking[]          = "disable-popup-blocking";
 
 // Disable speculative TCP/IP preconnection.
 const char kDisablePreconnect[]             = "disable-preconnect";
@@ -474,10 +485,6 @@ const char kEnableBenchmarking[]            = "enable-benchmarking";
 // Enables the bundled PPAPI version of Flash.
 const char kEnableBundledPpapiFlash[]       = "enable-bundled-ppapi-flash";
 
-// Enables the new ClientOAuth signin flow for connecting a profile a Google
-// account.  When disabled, Chrome will use the ClientLogin flow instead.
-const char kEnableClientOAuthSignin[]       = "enable-client-oauth-signin";
-
 // Enables Chrome To Mobile.
 // This switch is not currently respected; use the disable switch instead.
 const char kEnableChromeToMobile[]          = "enable-chrome-to-mobile";
@@ -498,6 +505,9 @@ const char kEnableCrxlessWebApps[]          = "enable-crxless-web-apps";
 
 // If true devtools experimental settings are enabled.
 const char kEnableDevToolsExperiments[]     = "enable-devtools-experiments";
+
+// Enables experimental discovery slots in New Tab page.
+const char kEnableDiscoveryInNewTabPage[]   = "enable-discovery-ntp";
 
 // Enables extensions to be easily installed from sites other than the web
 // store. Without this flag, they can still be installed, but must be manually
@@ -528,13 +538,13 @@ const char kEnableFramelessConstrainedDialogs[] =
 // for example page cycler and layout tests. See bug 1157243.
 const char kEnableFileCookies[]             = "enable-file-cookies";
 
+// Enable High DPI rendering in Chrome PDF Viewer on High DPI displays.
+const char kEnableHighDPIPDFPlugin[]        = "enable-hidpi-pdf-plugin";
+
 // Enable HTTP pipelining. Attempt to pipeline HTTP connections. Heuristics will
 // try to figure out if pipelining can be used for a given host and request.
 // Without this flag, pipelining will never be used.
 const char kEnableHttpPipelining[]          = "enable-http-pipelining";
-
-// Enables new WebRTC implementation of user image picker.
-const char kEnableHtml5Camera[]             = "enable-html5-camera";
 
 // Enable Instant extended API.
 const char kEnableInstantExtendedAPI[]      = "enable-instant-extended-api";
@@ -1327,15 +1337,18 @@ const char kWinHttpProxyResolver[]          = "winhttp-proxy-resolver";
 
 #if defined(OS_ANDROID)
 // Use the tablet specific UI components when available.
-const char kTabletUi[]                      = "tablet-ui";
+const char kTabletUI[]                      = "tablet-ui";
 #endif
 
 #if defined(OS_CHROMEOS)
 // Disables gdata content provider.
 const char kDisableGData[]                  = "disable-gdata";
 
-// Enables new OOBE/sign in design.
-extern const char kEnableNewOobe[]         = "enable-new-oobe";
+// Disables new WebRTC implementation of user image picker.
+const char kDisableHtml5Camera[]            = "disable-html5-camera";
+
+// Disables new OOBE/sign in design.
+const char kDisableNewOobe[]                = "disable-new-oobe";
 
 // Enables touchpad three-finger-click as middle button.
 const char kEnableTouchpadThreeFingerClick[]
@@ -1437,6 +1450,9 @@ const char kEnterpriseEnrollmentInitialModulus[] =
 const char kEnterpriseEnrollmentModulusLimit[] =
     "enterprise-enrollment-modulus-limit";
 
+// Enables overriding the Chrome OS board type when running on Linux.
+const char kChromeOSReleaseBoard[]          = "chromeos-release-board";
+
 #ifndef NDEBUG
 // Skips all other OOBE pages after user login.
 const char kOobeSkipPostLogin[]             = "oobe-skip-postlogin";
@@ -1477,6 +1493,10 @@ const char kUseMockKeychain[]               = "use-mock-keychain";
 // Disables profile desktop shortcuts handling, preventing their creation,
 // modification or removal.
 const char kDisableDesktopShortcuts[]       = "disable-desktop-shortcuts";
+
+// Enable Website Settings. The Website Settings UI will replace the Page Info
+// Bubble.
+const char kDisableWebsiteSettings[]         = "disable-website-settings";
 #endif
 
 #if defined(USE_AURA)

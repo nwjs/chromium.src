@@ -230,7 +230,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/shell_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/devtools_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
@@ -417,6 +417,15 @@
             'shell/shell_content_main.cc',
             'shell/shell_content_main.h',
           ],
+          'copies': [
+            {
+              # Copy FFmpeg binaries for audio/video support.
+              'destination': '<(PRODUCT_DIR)/$(CONTENTS_FOLDER_PATH)/Libraries',
+              'files': [
+                '<(PRODUCT_DIR)/ffmpegsumo.so',
+              ],
+            },
+          ],
         },  # target content_shell_framework
         {
           'target_name': 'content_shell_helper_app',
@@ -503,15 +512,12 @@
           # require specifying the java directory and generate the rest.
           'target_name': 'content_shell_jni_headers',
           'type': 'none',
+          'sources': [
+            'shell/android/java/src/org/chromium/content_shell/ShellManager.java',
+            'shell/android/java/src/org/chromium/content_shell/Shell.java',
+          ],
           'variables': {
-            'java_sources': [
-              'shell/android/java/src/org/chromium/content_shell/ShellManager.java',
-              'shell/android/java/src/org/chromium/content_shell/Shell.java',
-            ],
-            'jni_headers': [
-              '<(SHARED_INTERMEDIATE_DIR)/content/shell/jni/shell_manager_jni.h',
-              '<(SHARED_INTERMEDIATE_DIR)/content/shell/jni/shell_jni.h',
-            ],
+            'jni_gen_dir': 'content/shell',
           },
           'includes': [ '../build/jni_generator.gypi' ],
         },
@@ -620,32 +626,6 @@
                 '-buildfile',
                 'shell/android/java/content_shell_apk.xml',
                 # '<(CONFIGURATION_NAME)',
-              ]
-            }
-          ],
-        },
-        {
-          'target_name': 'content_shell_test_apk',
-          'type': 'none',
-          'dependencies': [
-            'content_shell_apk',
-          ],
-          'actions': [
-            {
-              'action_name': 'content_shell_test_generate_apk',
-              'inputs': [
-                '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
-                '<(DEPTH)/content/shell/android/javatests/AndroidManifest.xml',
-              ],
-              'outputs': [
-                '<(PRODUCT_DIR)/content_shell_test/ContentShellTest-debug.apk',
-              ],
-              'action': [
-                'ant',
-                '-DPRODUCT_DIR=<(ant_build_out)',
-                '-DAPP_ABI=<(android_app_abi)',
-                '-buildfile',
-                '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
               ]
             }
           ],

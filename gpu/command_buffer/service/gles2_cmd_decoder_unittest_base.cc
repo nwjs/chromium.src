@@ -84,9 +84,7 @@ void GLES2DecoderTestBase::InitDecoder(
     bool bind_generates_resource) {
   gl_.reset(new StrictMock<MockGLInterface>());
   ::gfx::GLInterface::SetGLInterface(gl_.get());
-  group_ = ContextGroup::Ref(new ContextGroup(NULL,
-                                              bind_generates_resource,
-                                              NULL));
+  group_ = ContextGroup::Ref(new ContextGroup(NULL, bind_generates_resource));
 
   InSequence sequence;
 
@@ -1325,10 +1323,6 @@ void GLES2DecoderTestBase::AddExpectationsForSimulatedAttrib0WithError(
         .Times(1)
         .RetiresOnSaturation();
     EXPECT_CALL(*gl_, BindBuffer(GL_ARRAY_BUFFER, buffer_id))
-        .Times(1)
-        .RetiresOnSaturation();
-
-    EXPECT_CALL(*gl_, DisableVertexAttribArray(0))
         .Times(1)
         .RetiresOnSaturation();
   }

@@ -289,10 +289,6 @@ void PanelBrowserWindow::ToggleBookmarkBar() {
   NOTIMPLEMENTED();
 }
 
-void PanelBrowserWindow::ShowAboutChromeDialog() {
-  NOTIMPLEMENTED();
-}
-
 void PanelBrowserWindow::ShowUpdateChromeDialog() {
   NOTIMPLEMENTED();
 }
@@ -337,7 +333,7 @@ DownloadShelf* PanelBrowserWindow::GetDownloadShelf() {
                                         browser_, &window_bounds);
     Browser::CreateParams params(Browser::TYPE_TABBED, profile);
     params.initial_bounds = window_bounds;
-    tabbed_browser = Browser::CreateWithParams(params);
+    tabbed_browser = new Browser(params);
     chrome::NewTab(tabbed_browser);
   }
 

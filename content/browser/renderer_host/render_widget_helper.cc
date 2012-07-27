@@ -17,11 +17,7 @@
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/common/view_messages.h"
 
-using content::BrowserThread;
-using content::RenderViewHostImpl;
-using content::ResourceDispatcherHostImpl;
-using content::SessionStorageNamespace;
-
+namespace content {
 namespace {
 
 typedef std::map<int, RenderWidgetHelper*> WidgetHelperMap;
@@ -147,9 +143,7 @@ void RenderWidgetHelper::CrossSiteSwapOutACK(
 }
 
 bool RenderWidgetHelper::WaitForBackingStoreMsg(
-    int render_widget_id,
-                                          const base::TimeDelta& max_delay,
-                                          IPC::Message* msg) {
+    int render_widget_id, const base::TimeDelta& max_delay, IPC::Message* msg) {
   base::TimeTicks time_start = base::TimeTicks::Now();
 
   for (;;) {
@@ -191,6 +185,17 @@ bool RenderWidgetHelper::WaitForBackingStoreMsg(
   }
 
   return false;
+}
+
+void RenderWidgetHelper::ResumeRequestsForView(int route_id) {
+  // We only need to resume blocked requests if we used a valid route_id.
+  // See CreateNewWindow.
+  if (route_id != MSG_ROUTING_NONE) {
+    BrowserThread::PostTask(
+        BrowserThread::IO, FROM_HERE,
+        base::Bind(&RenderWidgetHelper::OnResumeRequestsForView,
+            this, route_id));
+  }
 }
 
 void RenderWidgetHelper::DidReceiveBackingStoreMsg(const IPC::Message& msg) {
@@ -236,8 +241,7 @@ void RenderWidgetHelper::OnDispatchBackingStoreMsg(
   OnDiscardBackingStoreMsg(proxy);
 
   // It is reasonable for the host to no longer exist.
-  content::RenderProcessHost* host =
-      content::RenderProcessHost::FromID(render_process_id_);
+  RenderProcessHost* host = RenderProcessHost::FromID(render_process_id_);
   if (host)
     host->OnMessageReceived(proxy->message());
 }
@@ -293,17 +297,9 @@ void RenderWidgetHelper::OnCreateWindowOnUI(
       RenderViewHostImpl::FromID(render_process_id_, params.opener_id);
   if (host)
     host->CreateNewWindow(route_id, params, session_storage_namespace);
-
-  // We only need to resume blocked requests if we used a valid route_id.
-  // See CreateNewWindow.
-  if (route_id != MSG_ROUTING_NONE) {
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE,
-        base::Bind(&RenderWidgetHelper::OnCreateWindowOnIO, this, route_id));
-  }
 }
 
-void RenderWidgetHelper::OnCreateWindowOnIO(int route_id) {
+void RenderWidgetHelper::OnResumeRequestsForView(int route_id) {
   resource_dispatcher_host_->ResumeBlockedRequestsForRoute(
       render_process_id_, route_id);
 }
@@ -407,3 +403,5 @@ void RenderWidgetHelper::ClearAllocatedDIBs() {
   allocated_dibs_.clear();
 }
 #endif
+
+}  // namespace content

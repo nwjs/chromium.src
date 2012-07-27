@@ -18,11 +18,12 @@
 #include "media/base/audio_decoder.h"
 #include "media/base/audio_decoder_config.h"
 #include "media/base/audio_renderer.h"
+#include "media/base/decoder_buffer.h"
+#include "media/base/decryptor.h"
 #include "media/base/decryptor_client.h"
 #include "media/base/demuxer.h"
-#include "media/base/filters.h"
 #include "media/base/filter_collection.h"
-#include "media/base/pipeline.h"
+#include "media/base/pipeline_status.h"
 #include "media/base/video_decoder.h"
 #include "media/base/video_decoder_config.h"
 #include "media/base/video_frame.h"
@@ -50,32 +51,6 @@ class Destroyable : public MockClass {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Destroyable);
-};
-
-// TODO(scherkus): remove when CompositeFilter is removed, see
-// http://crbug.com/126069
-class MockFilter : public Filter {
- public:
-  MockFilter();
-
-  // Filter implementation.
-  void SetHost(FilterHost* host) OVERRIDE;
-  MOCK_METHOD1(Play, void(const base::Closure& callback));
-  MOCK_METHOD1(Pause, void(const base::Closure& callback));
-  MOCK_METHOD1(Flush, void(const base::Closure& callback));
-  MOCK_METHOD1(Stop, void(const base::Closure& callback));
-  MOCK_METHOD1(SetPlaybackRate, void(float playback_rate));
-  MOCK_METHOD2(Seek, void(base::TimeDelta time, const PipelineStatusCB& cb));
-
-  FilterHost* host() { return host_; }
-
- protected:
-  virtual ~MockFilter();
-
- private:
-  FilterHost* host_;
-
-  DISALLOW_COPY_AND_ASSIGN(MockFilter);
 };
 
 class MockDemuxer : public Demuxer {
@@ -165,26 +140,23 @@ class MockVideoRenderer : public VideoRenderer {
  public:
   MockVideoRenderer();
 
-  // Filter implementation.
-  MOCK_METHOD1(SetHost, void(FilterHost* host));
+  // VideoRenderer implementation.
+  MOCK_METHOD9(Initialize, void(const scoped_refptr<VideoDecoder>& decoder,
+                                const PipelineStatusCB& init_cb,
+                                const StatisticsCB& statistics_cb,
+                                const TimeCB& time_cb,
+                                const NaturalSizeChangedCB& size_changed_cb,
+                                const base::Closure& ended_cb,
+                                const PipelineStatusCB& error_cb,
+                                const TimeDeltaCB& get_time_cb,
+                                const TimeDeltaCB& get_duration_cb));
   MOCK_METHOD1(Play, void(const base::Closure& callback));
   MOCK_METHOD1(Pause, void(const base::Closure& callback));
   MOCK_METHOD1(Flush, void(const base::Closure& callback));
+  MOCK_METHOD2(Preroll, void(base::TimeDelta time, const PipelineStatusCB& cb));
   MOCK_METHOD1(Stop, void(const base::Closure& callback));
   MOCK_METHOD1(SetPlaybackRate, void(float playback_rate));
-  MOCK_METHOD2(Seek, void(base::TimeDelta time, const PipelineStatusCB& cb));
-
-  // VideoRenderer implementation.
-  MOCK_METHOD4(Initialize, void(const scoped_refptr<VideoDecoder>& decoder,
-                                const PipelineStatusCB& status_cb,
-                                const StatisticsCB& statistics_cb,
-                                const TimeCB& time_cb));
-
   MOCK_METHOD0(HasEnded, bool());
-
-  // TODO(scherkus): although VideoRendererBase defines this method, this really
-  // shouldn't be here OR should be renamed.
-  MOCK_METHOD1(ConsumeVideoFrame, void(scoped_refptr<VideoFrame> frame));
 
  protected:
   virtual ~MockVideoRenderer();
@@ -197,23 +169,22 @@ class MockAudioRenderer : public AudioRenderer {
  public:
   MockAudioRenderer();
 
-  // Filter implementation.
-  MOCK_METHOD1(SetHost, void(FilterHost* host));
+  // AudioRenderer implementation.
+  MOCK_METHOD7(Initialize, void(const scoped_refptr<AudioDecoder>& decoder,
+                                const PipelineStatusCB& init_cb,
+                                const base::Closure& underflow_cb,
+                                const TimeCB& time_cb,
+                                const base::Closure& ended_cb,
+                                const base::Closure& disabled_cb,
+                                const PipelineStatusCB& error_cb));
   MOCK_METHOD1(Play, void(const base::Closure& callback));
   MOCK_METHOD1(Pause, void(const base::Closure& callback));
   MOCK_METHOD1(Flush, void(const base::Closure& callback));
   MOCK_METHOD1(Stop, void(const base::Closure& callback));
   MOCK_METHOD1(SetPlaybackRate, void(float playback_rate));
-  MOCK_METHOD2(Seek, void(base::TimeDelta time, const PipelineStatusCB& cb));
-
-  // AudioRenderer implementation.
-  MOCK_METHOD4(Initialize, void(const scoped_refptr<AudioDecoder>& decoder,
-                                const PipelineStatusCB& init_cb,
-                                const base::Closure& underflow_cb,
-                                const TimeCB& time_cb));
+  MOCK_METHOD2(Preroll, void(base::TimeDelta time, const PipelineStatusCB& cb));
   MOCK_METHOD0(HasEnded, bool());
   MOCK_METHOD1(SetVolume, void(float volume));
-
   MOCK_METHOD1(ResumeAfterUnderflow, void(bool buffer_more_audio));
 
  protected:
@@ -221,6 +192,29 @@ class MockAudioRenderer : public AudioRenderer {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockAudioRenderer);
+};
+
+class MockDecryptor : public Decryptor {
+ public:
+  MockDecryptor();
+  virtual ~MockDecryptor();
+
+  MOCK_METHOD3(GenerateKeyRequest, void(const std::string& key_system,
+                                        const uint8* init_data,
+                                        int init_data_length));
+  MOCK_METHOD6(AddKey, void(const std::string& key_system,
+                            const uint8* key,
+                            int key_length,
+                            const uint8* init_data,
+                            int init_data_length,
+                            const std::string& session_id));
+  MOCK_METHOD2(CancelKeyRequest, void(const std::string& key_system,
+                                      const std::string& session_id));
+  MOCK_METHOD2(Decrypt, void(const scoped_refptr<DecoderBuffer>& encrypted,
+                             const DecryptCB& decrypt_cb));
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MockDecryptor);
 };
 
 class MockDecryptorClient : public DecryptorClient {
@@ -285,19 +279,6 @@ class MockFilterCollection {
   DISALLOW_COPY_AND_ASSIGN(MockFilterCollection);
 };
 
-// Helper gmock functions that immediately executes and destroys the
-// Closure on behalf of the provided filter. Can be used when mocking
-// the Initialize() and Seek() methods.
-void RunPipelineStatusCB(const PipelineStatusCB& status_cb);
-void RunPipelineStatusCB2(::testing::Unused, const PipelineStatusCB& status_cb);
-void RunPipelineStatusCB3(::testing::Unused, const PipelineStatusCB& status_cb,
-                          ::testing::Unused);
-void RunPipelineStatusCB4(::testing::Unused, const PipelineStatusCB& status_cb,
-                          ::testing::Unused, ::testing::Unused);
-// Helper gmock function that immediately executes the Closure on behalf of the
-// provided filter. Can be used when mocking the Stop() method.
-void RunClosure(const base::Closure& closure);
-
 // Helper gmock action that calls SetError() on behalf of the provided filter.
 ACTION_P2(SetError, filter, error) {
   filter->host()->SetError(error);
@@ -307,6 +288,10 @@ ACTION_P2(SetError, filter, error) {
 // filter.
 ACTION_P2(SetDuration, filter, duration) {
   filter->host()->SetDuration(duration);
+}
+
+ACTION(RunClosure) {
+  arg0.Run();
 }
 
 // Helper mock statistics callback.

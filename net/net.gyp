@@ -218,8 +218,8 @@
         'base/prioritized_dispatcher.h',
         'base/priority_queue.h',
         'base/rand_callback.h',
-        'base/registry_controlled_domain.cc',
-        'base/registry_controlled_domain.h',
+        'base/registry_controlled_domains/registry_controlled_domain.cc',
+        'base/registry_controlled_domains/registry_controlled_domain.h',
         'base/request_priority.h',
         'base/sdch_filter.cc',
         'base/sdch_filter.h',
@@ -902,6 +902,7 @@
               'base/keygen_handler_openssl.cc',
               'base/openssl_memory_private_key_store.cc',
               'base/openssl_private_key_store.h',
+              'base/openssl_private_key_store_android.cc',
               'base/test_root_certs_openssl.cc',
               'base/x509_certificate_openssl.cc',
               'base/x509_util_openssl.cc',
@@ -1029,6 +1030,9 @@
               '../third_party/openssl/openssl.gyp:openssl',
               'net_jni_headers',
             ],
+            'sources!': [
+              'base/openssl_memory_private_key_store.cc',
+            ],
           }, {  # else OS! = "android"
             'defines': [
               # These are the features Android doesn't support.
@@ -1106,7 +1110,7 @@
         'base/pem_tokenizer_unittest.cc',
         'base/prioritized_dispatcher_unittest.cc',
         'base/priority_queue_unittest.cc',
-        'base/registry_controlled_domain_unittest.cc',
+        'base/registry_controlled_domains/registry_controlled_domain_unittest.cc',
         'base/run_all_unittests.cc',
         'base/sdch_filter_unittest.cc',
         'base/server_bound_cert_service_unittest.cc',
@@ -1262,6 +1266,8 @@
         'spdy/spdy_session_spdy2_unittest.cc',
         'spdy/spdy_stream_spdy3_unittest.cc',
         'spdy/spdy_stream_spdy2_unittest.cc',
+        'spdy/spdy_stream_test_util.cc',
+        'spdy/spdy_stream_test_util.h',
         'spdy/spdy_test_util_spdy3.cc',
         'spdy/spdy_test_util_spdy3.h',
         'spdy/spdy_test_util_spdy2.cc',
@@ -1901,17 +1907,13 @@
         {
           'target_name': 'net_jni_headers',
           'type': 'none',
+          'sources': [
+            'android/java/src/org/chromium/net/AndroidNetworkLibrary.java',
+            'android/java/src/org/chromium/net/NetworkChangeNotifier.java',
+            'android/java/src/org/chromium/net/ProxyChangeListener.java',
+          ],
           'variables': {
-            'java_sources': [
-              'android/java/src/org/chromium/net/AndroidNetworkLibrary.java',
-              'android/java/src/org/chromium/net/NetworkChangeNotifier.java',
-              'android/java/src/org/chromium/net/ProxyChangeListener.java',
-            ],
-            'jni_headers': [
-              '<(SHARED_INTERMEDIATE_DIR)/net/jni/android_network_library_jni.h',
-              '<(SHARED_INTERMEDIATE_DIR)/net/jni/network_change_notifier_jni.h',
-              '<(SHARED_INTERMEDIATE_DIR)/net/jni/proxy_change_listener_jni.h',
-            ],
+            'jni_gen_dir': 'net',
           },
           'includes': [ '../build/jni_generator.gypi' ],
         },

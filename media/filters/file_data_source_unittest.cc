@@ -11,7 +11,6 @@
 #include "base/utf_string_conversions.h"
 #include "media/base/mock_callback.h"
 #include "media/base/mock_data_source_host.h"
-#include "media/base/mock_filters.h"
 #include "media/filters/file_data_source.h"
 
 using ::testing::NiceMock;
@@ -57,7 +56,7 @@ TEST(FileDataSourceTest, OpenFile) {
 
   scoped_refptr<FileDataSource> filter(new FileDataSource());
   filter->set_host(&host);
-  EXPECT_EQ(PIPELINE_OK, filter->Initialize(TestFileURL()));
+  EXPECT_TRUE(filter->Initialize(TestFileURL()));
 
   filter->Stop(NewExpectedClosure());
 }
@@ -72,7 +71,7 @@ TEST(FileDataSourceTest, ReadData) {
   scoped_refptr<FileDataSource> filter(new FileDataSource());
 
   filter->set_host(&host);
-  EXPECT_EQ(PIPELINE_OK, filter->Initialize(TestFileURL()));
+  EXPECT_TRUE(filter->Initialize(TestFileURL()));
 
   EXPECT_TRUE(filter->GetSize(&size));
   EXPECT_EQ(10, size);

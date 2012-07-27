@@ -9,11 +9,10 @@
     <!-- TODO(oshima): Remove gfx_resources.pak once DumpRenderTree.gyp
          is updated. -->
     <output filename="gfx_resources.pak" type="data_package" context="default_100_percent" />
-    <output filename="ui_resources_standard.pak" type="data_package" context="default_100_percent" />
-    <output filename="ui_resources_2x.pak" type="data_package" context="default_200_percent" />
-    <output filename="ui_resources_touch.pak" type="data_package" context="touch_100_percent" />
-    <output filename="ui_resources_touch_2x.pak" type="data_package" context="touch_200_percent" />
-    <output filename="ui_resources_standard.rc" type="rc_all" context="default_100_percent" />
+    <output filename="ui_resources_100_percent.pak" type="data_package" context="default_100_percent" />
+    <output filename="ui_resources_200_percent.pak" type="data_package" context="default_200_percent" />
+    <output filename="ui_resources_touch_100_percent.pak" type="data_package" context="touch_100_percent" />
+    <output filename="ui_resources_touch_200_percent.pak" type="data_package" context="touch_200_percent" />
   </outputs>
   <release seq="1">
     <structures fallback_to_low_resolution="true">
@@ -154,11 +153,18 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_DARK" file="ash/status_update_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_VOLUME_LEVELS" file="ash/status_volume_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_VOLUME_MUTE" file="ash/status_volume_mute.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WEB_NOTIFICATON" file="ash/statusbar_notifications.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_BAR_BUTTON_ACTIVE_CENTER" file="ash/slider_center_active.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_BAR_BUTTON_ACTIVE_LEFT" file="ash/slider_left_active.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_BAR_BUTTON_ACTIVE_RIGHT" file="ash/slider_right_active.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_BAR_BUTTON_DISABLED_CENTER" file="ash/slider_center_disabled.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_BAR_BUTTON_DISABLED_LEFT" file="ash/slider_left_disabled.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_BAR_BUTTON_DISABLED_RIGHT" file="ash/slider_right_disabled.png" />        
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WEB_NOTIFICATON" file="ash/statusbar_notifications.png" />        
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_DISABLED" file="ash/status_wifi_disabled.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_DISABLED_HOVER" file="ash/status_wifi_disabled_h.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_ENABLED" file="ash/status_wifi_enabled.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_ENABLED_HOVER" file="ash/status_wifi_enabled_h.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NOTIFY_CLOSE" file="ash/status_notify_x.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_BUTTON_SEPARATOR" file="aura/window_button_separator.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE" file="aura/window_close_normal.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_H" file="aura/window_close_hover.png" />
@@ -331,7 +337,6 @@
         <structure type="chrome_scaled_image" name="IDR_MENU_CHECK" file="menu_check.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_MENU_DROPARROW" file="menu_droparrow.png" />
-      <structure type="chrome_scaled_image" name="IDR_MENU_DROPARROW_SHARP" file="menu_droparrow_sharp.png" />
       <if expr="not pp_ifdef('toolkit_views') and is_posix and not is_macosx">
         <structure type="chrome_scaled_image" name="IDR_MINIMIZE" file="linux_minimize.png" />
         <structure type="chrome_scaled_image" name="IDR_MINIMIZE_H" file="linux_minimize_hover.png" />

@@ -9,6 +9,7 @@
 #include "chrome/browser/bookmarks/bookmark_manager_extension_api.h"
 #include "chrome/browser/extensions/api/app/app_api.h"
 #include "chrome/browser/extensions/api/browsing_data/browsing_data_api.h"
+#include "chrome/browser/extensions/api/chrome_auth_private/chrome_auth_private_api.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_api.h"
 #include "chrome/browser/extensions/api/context_menu/context_menu_api.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
@@ -17,9 +18,7 @@
 #include "chrome/browser/extensions/api/extension_action/extension_browser_actions_api.h"
 #include "chrome/browser/extensions/api/extension_action/extension_page_actions_api.h"
 #include "chrome/browser/extensions/api/extension_action/extension_script_badge_api.h"
-#include "chrome/browser/extensions/api/identity/identity_api.h"
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
-#include "chrome/browser/extensions/api/media_gallery/media_gallery_api.h"
 #include "chrome/browser/extensions/api/metrics/metrics.h"
 #include "chrome/browser/extensions/api/offscreen_tabs/offscreen_tabs_api.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
@@ -36,7 +35,6 @@
 #include "chrome/browser/extensions/api/web_request/web_request_api.h"
 #include "chrome/browser/extensions/api/web_socket_proxy_private/web_socket_proxy_private_api.h"
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
-#include "chrome/browser/extensions/extension_chrome_auth_private_api.h"
 #include "chrome/browser/extensions/extension_font_settings_api.h"
 #include "chrome/browser/extensions/extension_i18n_api.h"
 #include "chrome/browser/extensions/extension_idle_api.h"
@@ -63,10 +61,11 @@
 #include "chrome/browser/chromeos/extensions/echo_private_api.h"
 #include "chrome/browser/chromeos/extensions/file_browser_handler_api.h"
 #include "chrome/browser/chromeos/extensions/file_browser_private_api.h"
+#include "chrome/browser/chromeos/extensions/wallpaper_private_api.h"
 #include "chrome/browser/chromeos/media/media_player_extension_api.h"
+#include "chrome/browser/extensions/api/input_ime/input_ime_api.h"
 #include "chrome/browser/extensions/api/terminal/terminal_private_api.h"
 #include "chrome/browser/extensions/extension_info_private_api_chromeos.h"
-#include "chrome/browser/extensions/extension_input_ime_api.h"
 #include "chrome/browser/extensions/extension_input_method_api.h"
 #endif
 
@@ -134,6 +133,8 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<BrowserActionGetBadgeTextFunction>();
   RegisterFunction<BrowserActionGetBadgeBackgroundColorFunction>();
   RegisterFunction<BrowserActionGetPopupFunction>();
+  RegisterFunction<BrowserActionEnableFunction>();
+  RegisterFunction<BrowserActionDisableFunction>();
 
   // Script Badges.
   RegisterFunction<ScriptBadgeGetAttentionFunction>();
@@ -281,16 +282,16 @@ void ExtensionFunctionRegistry::ResetFunctions() {
 
 #if defined(OS_CHROMEOS)
   // IME
-  RegisterFunction<SetCompositionFunction>();
-  RegisterFunction<ClearCompositionFunction>();
-  RegisterFunction<CommitTextFunction>();
-  RegisterFunction<SetCandidateWindowPropertiesFunction>();
-  RegisterFunction<SetCandidatesFunction>();
-  RegisterFunction<SetCursorPositionFunction>();
-  RegisterFunction<SetMenuItemsFunction>();
-  RegisterFunction<UpdateMenuItemsFunction>();
+  RegisterFunction<extensions::SetCompositionFunction>();
+  RegisterFunction<extensions::ClearCompositionFunction>();
+  RegisterFunction<extensions::CommitTextFunction>();
+  RegisterFunction<extensions::SetCandidateWindowPropertiesFunction>();
+  RegisterFunction<extensions::SetCandidatesFunction>();
+  RegisterFunction<extensions::SetCursorPositionFunction>();
+  RegisterFunction<extensions::SetMenuItemsFunction>();
+  RegisterFunction<extensions::UpdateMenuItemsFunction>();
 
-  RegisterFunction<InputEventHandled>();
+  RegisterFunction<extensions::InputEventHandled>();
 #endif
 
   // Managed mode.
@@ -386,6 +387,10 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<SetWindowHeightMediaplayerFunction>();
   RegisterFunction<CloseWindowMediaplayerFunction>();
 
+  // WallpaperManagerPrivate functions.
+  RegisterFunction<WallpaperStringsFunction>();
+  RegisterFunction<WallpaperSetWallpaperFunction>();
+
   // InputMethod
   RegisterFunction<GetInputMethodFunction>();
 
@@ -438,7 +443,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<SetMinimumFontSizeFunction>();
 
   // ChromeAuth settings.
-  RegisterFunction<SetCloudPrintCredentialsFunction>();
+  RegisterFunction<extensions::SetCloudPrintCredentialsFunction>();
 
   // Experimental App API.
   RegisterFunction<extensions::AppNotifyFunction>();
@@ -489,17 +494,8 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<ToDataUrlOffscreenTabFunction>();
   RegisterFunction<UpdateOffscreenTabFunction>();
 
-  // Identity
-  RegisterFunction<extensions::GetAuthTokenFunction>();
-  RegisterFunction<extensions::LaunchWebAuthFlowFunction>();
-
   // Runtime
   RegisterFunction<extensions::RuntimeGetBackgroundPageFunction>();
-
-  // Media Gallery
-  RegisterFunction<extensions::GetMediaFileSystemsFunction>();
-  RegisterFunction<extensions::OpenMediaGalleryManagerFunction>();
-  RegisterFunction<extensions::AssembleMediaFileFunction>();
 
   // Generated APIs
   extensions::api::GeneratedFunctionRegistry::RegisterAll(this);

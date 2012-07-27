@@ -8,12 +8,17 @@
 
 #include <set>
 
+#include "base/file_path.h"
 #include "base/path_service.h"
+#include "base/system_monitor/system_monitor.h"
+#include "base/utf_string_conversions.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/extensions/extension.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host.h"
+#include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/isolated_context.h"
 
 namespace chrome {
@@ -26,6 +31,22 @@ using content::BrowserThread;
 using content::RenderProcessHost;
 using fileapi::IsolatedContext;
 
+namespace {
+
+bool IsGalleryPermittedForExtension(const extensions::Extension& extension,
+                                    SystemMonitor::MediaDeviceType type,
+                                    const FilePath::StringType& location) {
+  if (extension.HasAPIPermission(
+        extensions::APIPermission::kMediaGalleriesAllGalleries)) {
+    return true;
+  }
+  // TODO(vandebo) Check with prefs for permission to this gallery.
+  return false;
+}
+
+}  // namespace
+
+
 /******************
  * Public methods
  ******************/
@@ -37,7 +58,8 @@ MediaFileSystemRegistry* MediaFileSystemRegistry::GetInstance() {
 
 std::vector<MediaFileSystemRegistry::MediaFSIDAndPath>
 MediaFileSystemRegistry::GetMediaFileSystems(
-    const content::RenderProcessHost* rph) {
+    const content::RenderProcessHost* rph,
+    const extensions::Extension& extension) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   std::vector<MediaFSIDAndPath> results;
@@ -49,7 +71,10 @@ MediaFileSystemRegistry::GetMediaFileSystems(
     // file system mappings.
     RegisterForRPHGoneNotifications(rph);
     FilePath pictures_path;
-    if (PathService::Get(chrome::DIR_USER_PICTURES, &pictures_path)) {
+    // TODO(vandebo) file system galleries need a unique id as well.
+    if (PathService::Get(chrome::DIR_USER_PICTURES, &pictures_path) &&
+        IsGalleryPermittedForExtension(extension, SystemMonitor::TYPE_PATH,
+                                       pictures_path.value())) {
       std::string fsid = RegisterPathAsFileSystem(pictures_path);
       child_it->second.insert(std::make_pair(pictures_path, fsid));
     }
@@ -60,11 +85,14 @@ MediaFileSystemRegistry::GetMediaFileSystems(
   const std::vector<SystemMonitor::MediaDeviceInfo> media_devices =
       monitor->GetAttachedMediaDevices();
   for (size_t i = 0; i < media_devices.size(); ++i) {
-    const SystemMonitor::DeviceIdType& id = media_devices[i].a;
-    const FilePath& path = media_devices[i].c;
-    device_id_map_.insert(std::make_pair(id, path));
-    std::string fsid = RegisterPathAsFileSystem(path);
-    child_it->second.insert(std::make_pair(path, fsid));
+    if (media_devices[i].type == SystemMonitor::TYPE_PATH &&
+        IsGalleryPermittedForExtension(extension, media_devices[i].type,
+                                       media_devices[i].location)) {
+      FilePath path(media_devices[i].location);
+      device_id_map_.insert(std::make_pair(media_devices[i].unique_id, path));
+      const std::string fsid = RegisterPathAsFileSystem(path);
+      child_it->second.insert(std::make_pair(path, fsid));
+    }
   }
 
   MediaPathToFSIDMap& child_map = child_it->second;
@@ -78,8 +106,7 @@ MediaFileSystemRegistry::GetMediaFileSystems(
   return results;
 }
 
-void MediaFileSystemRegistry::OnMediaDeviceDetached(
-    const base::SystemMonitor::DeviceIdType& id) {
+void MediaFileSystemRegistry::OnMediaDeviceDetached(const std::string& id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   DeviceIdToMediaPathMap::iterator it = device_id_map_.find(id);
@@ -145,8 +172,8 @@ std::string MediaFileSystemRegistry::RegisterPathAsFileSystem(
   // a fixed name (as we only register a single directory per file system).
   std::string register_name("_");
   const std::string fsid =
-      IsolatedContext::GetInstance()->RegisterFileSystemForFile(
-          path, &register_name);
+      IsolatedContext::GetInstance()->RegisterFileSystemForPath(
+          fileapi::kFileSystemTypeIsolated, path, &register_name);
   CHECK(!fsid.empty());
   return fsid;
 }

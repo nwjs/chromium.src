@@ -65,7 +65,8 @@ class TestPresubmit(unittest.TestCase):
         ' - Changes to %s not reflected in generated doc.\n'
         ' - Changes to sample %s have not been re-zipped.\n'
         ' - Docs out of sync with %s changes.\n'
-        'First build DumpRenderTree, then update the docs by running:\n  %s' %
+        'First build DumpRenderTree, then update the docs by running:\n  %s'
+        ' --page-name=<apiName>' %
         (os.path.normpath('chrome/common/extensions/docs/README.txt'),
          os.path.normpath('chrome/common/extensions/docs/static/foo.html'),
          os.path.normpath('chrome/common/extensions/docs/examples/foo/b/bz.js'),
@@ -76,17 +77,28 @@ class TestPresubmit(unittest.TestCase):
 
   def testCheckDocsChanges_OnlyGeneratedDocs(self):
     input_api = FakeInputApi(affected_files=[
-        FakeAffectedFile(local_path='chrome/common/extensions/docs/foo.html'),
-        FakeAffectedFile(local_path='chrome/common/extensions/docs/bar.html')])
+        FakeAffectedFile(
+            local_path='chrome/common/extensions/docs/apps/foo.html'),
+        FakeAffectedFile(
+            local_path='chrome/common/extensions/docs/extensions/foo.html'),
+        FakeAffectedFile(
+            local_path='chrome/common/extensions/docs/apps/bar.html'),
+        FakeAffectedFile(
+            local_path='chrome/common/extensions/docs/extensions/baz.html')])
     expected_warning = (
         'This change modifies the extension docs but the generated docs '
         'have not been updated properly. See %s for more info.\n'
         ' - Changes to generated doc %s not reflected in non-generated files.\n'
         ' - Changes to generated doc %s not reflected in non-generated files.\n'
-        'First build DumpRenderTree, then update the docs by running:\n  %s' %
+        ' - Changes to generated doc %s not reflected in non-generated files.\n'
+        ' - Changes to generated doc %s not reflected in non-generated files.\n'
+        'First build DumpRenderTree, then update the docs by running:\n  %s'
+        ' --page-name=<apiName>' %
         (os.path.normpath('chrome/common/extensions/docs/README.txt'),
-         os.path.normpath('chrome/common/extensions/docs/bar.html'),
-         os.path.normpath('chrome/common/extensions/docs/foo.html'),
+         os.path.normpath('chrome/common/extensions/docs/apps/bar.html'),
+         os.path.normpath('chrome/common/extensions/docs/apps/foo.html'),
+         os.path.normpath('chrome/common/extensions/docs/extensions/baz.html'),
+         os.path.normpath('chrome/common/extensions/docs/extensions/foo.html'),
          os.path.normpath('chrome/common/extensions/docs/build/build.py')))
     self.assertEqual([expected_warning],
                      PRESUBMIT.CheckDocChanges(input_api, self.output_api))
@@ -206,7 +218,10 @@ class TestPresubmit(unittest.TestCase):
 
   def testIsGeneratedDoc(self):
     self.assertTrue(PRESUBMIT.IsGeneratedDoc(
-        os.path.normpath('chrome/common/extensions/docs/foo.html'),
+        os.path.normpath('chrome/common/extensions/docs/apps/foo.html'),
+        self.input_api))
+    self.assertTrue(PRESUBMIT.IsGeneratedDoc(
+        os.path.normpath('chrome/common/extensions/docs/extensions/foo.html'),
         self.input_api))
     self.assertFalse(PRESUBMIT.IsGeneratedDoc(
         os.path.normpath('chrome/common/extensions/docs/static/foo.html'),
@@ -219,12 +234,11 @@ class TestPresubmit(unittest.TestCase):
         self.input_api))
 
   def testDocsGenerated_SomeGeneratedDocs(self):
-    api_file = FakeAffectedFile(
-        local_path='chrome/common/extensions/api/foo.json')
-    input_api = FakeInputApi(affected_files=[
-        FakeAffectedFile(local_path='chrome/common/extensions/docs/foo.html'),
-        FakeAffectedFile(local_path='chrome/common/extensions/docs/bar.html')])
-    self.assertTrue(PRESUBMIT.DocsGenerated(input_api))
+    for path in ['apps', 'extensions']:
+      input_api = FakeInputApi(affected_files=[
+          FakeAffectedFile(
+              local_path='chrome/common/extensions/docs/%s/foo.html' % path)])
+      self.assertTrue(PRESUBMIT.DocsGenerated(input_api))
 
   def testDocsGenerated_NoGeneratedDocs(self):
     api_file = FakeAffectedFile(
@@ -249,10 +263,16 @@ class TestPresubmit(unittest.TestCase):
     static_file = FakeAffectedFile(
         local_path='chrome/common/extensions/docs/static/index.html',
         changed_contents=[(3, 'foo!'), (4, 'bar!')])
-    generated_file = FakeAffectedFile(
-        local_path='chrome/common/extensions/docs/index.html',
+    generated_apps_file = FakeAffectedFile(
+        local_path='chrome/common/extensions/docs/apps/index.html',
         changed_contents=[(13, 'foo!'), (14, 'bar!')])
-    input_api = FakeInputApi(affected_files=[generated_file, static_file])
+    generated_extensions_file = FakeAffectedFile(
+        local_path='chrome/common/extensions/docs/extensions/index.html',
+        changed_contents=[(13, 'foo!'), (14, 'bar!')])
+    input_api = FakeInputApi(affected_files=[
+        generated_apps_file,
+        generated_extensions_file,
+        static_file])
 
     self.assertTrue(PRESUBMIT.StaticDocBuilt(static_file, input_api))
 

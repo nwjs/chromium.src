@@ -97,10 +97,8 @@ void GLManager::Setup(
   attribs.push_back(EGL_NONE);
 
   if (!context_group) {
-    context_group = new gles2::ContextGroup(
-        mailbox_manager_.get(),
-        kBindGeneratesResource,
-        NULL);
+    context_group = new gles2::ContextGroup(mailbox_manager_.get(),
+                                            kBindGeneratesResource);
   }
 
   decoder_.reset(::gpu::gles2::GLES2Decoder::Create(context_group));

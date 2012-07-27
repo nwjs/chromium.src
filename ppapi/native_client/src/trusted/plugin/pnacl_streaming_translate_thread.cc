@@ -24,7 +24,6 @@ void PnaclStreamingTranslateThread::RunTranslate(
     const Manifest* ld_manifest,
     LocalTempFile* obj_file,
     LocalTempFile* nexe_file,
-    nacl::DescWrapper* pexe_wrapper,
     ErrorInfo* error_info,
     PnaclResources* resources,
     Plugin* plugin) {
@@ -33,8 +32,6 @@ void PnaclStreamingTranslateThread::RunTranslate(
   ld_manifest_ = ld_manifest;
   obj_file_ = obj_file;
   nexe_file_ = nexe_file;
-  pexe_wrapper_ = NULL; // The streaming translator doesn't use a pexe desc.
-  DCHECK(pexe_wrapper == NULL);
   coordinator_error_info_ = error_info;
   resources_ = resources;
   plugin_ = plugin;
@@ -63,23 +60,31 @@ void PnaclStreamingTranslateThread::PutBytes(std::vector<char>* bytes,
   PLUGIN_PRINTF(("PutBytes, this %p bytes %p, size %d, count %d\n", this, bytes,
                  bytes ? bytes->size(): 0, count));
   size_t buffer_size = 0;
+  // If we are done (error or not), Signal the translation thread to stop.
+  if (count <= PP_OK) {
+    NaClXMutexLock(&cond_mu_);
+    done_ = true;
+    NaClXCondVarSignal(&buffer_cond_);
+    NaClXMutexUnlock(&cond_mu_);
+    return;
+  }
+
+  CHECK(bytes != NULL);
   // Ensure that the buffer we send to the translation thread is the right size
   // (count can be < the buffer size). This can be done without the lock.
-  if (bytes != NULL && count >= 0) {
-    buffer_size = bytes->size();
-    bytes->resize(count);
-  }
+  buffer_size = bytes->size();
+  bytes->resize(count);
+
   NaClXMutexLock(&cond_mu_);
-  if (count == PP_OK || count < 0) {
-    done_ = true;
-  } else {
-    data_buffers_.push_back(std::vector<char>());
-    bytes->swap(data_buffers_.back()); // Avoid copying the buffer data.
-  }
+
+  data_buffers_.push_back(std::vector<char>());
+  bytes->swap(data_buffers_.back()); // Avoid copying the buffer data.
+
   NaClXCondVarSignal(&buffer_cond_);
   NaClXMutexUnlock(&cond_mu_);
+
   // Ensure the buffer we send back to the coordinator is the expected size
-  if (bytes != NULL) bytes->resize(buffer_size);
+  bytes->resize(buffer_size);
 }
 
 void PnaclStreamingTranslateThread::DoTranslate() {

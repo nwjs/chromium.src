@@ -138,7 +138,7 @@ void PipelineIntegrationTestBase::Stop() {
 
 void PipelineIntegrationTestBase::QuitAfterCurrentTimeTask(
     const base::TimeDelta& quit_time) {
-  if (pipeline_->GetCurrentTime() >= quit_time ||
+  if (pipeline_->GetMediaTime() >= quit_time ||
       pipeline_status_ != PIPELINE_OK) {
     message_loop_.Quit();
     return;
@@ -170,7 +170,7 @@ bool PipelineIntegrationTestBase::WaitUntilCurrentTimeIsAfter(
 scoped_ptr<FilterCollection>
 PipelineIntegrationTestBase::CreateFilterCollection(const std::string& url) {
   scoped_refptr<FileDataSource> data_source = new FileDataSource();
-  CHECK_EQ(PIPELINE_OK, data_source->Initialize(url));
+  CHECK(data_source->Initialize(url));
   return CreateFilterCollection(new FFmpegDemuxer(&message_loop_, data_source));
 }
 

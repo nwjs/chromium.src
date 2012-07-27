@@ -41,7 +41,7 @@ class SignalStrategy;
 class SupportAccessVerifier;
 
 namespace policy_hack {
-class NatPolicy;
+class PolicyWatcher;
 }  // namespace policy_hack
 
 // NPAPI plugin implementation for remoting host script object.
@@ -208,17 +208,29 @@ class HostNPScriptObject : public HostStatusObserver {
   // Callback for ChromotingHost::Shutdown().
   void OnShutdownFinished();
 
+  // Called when a policy is updated.
+  void OnPolicyUpdate(scoped_ptr<base::DictionaryValue> policies);
+
   // Called when the nat traversal policy is updated.
   void OnNatPolicyUpdate(bool nat_traversal_enabled);
 
   void LocalizeStrings(NPObject* localize_func);
 
   // Helper function for executing InvokeDefault on an NPObject that performs
-  // a string->string mapping with one optional substitution parameter. Stores
-  // the translation in |result| and returns true on success, or leaves it
-  // unchanged and returns false on failure.
+  // a string->string mapping without substitution. Stores the translation in
+  // |result| and returns true on success, or leaves it unchanged and returns
+  // false on failure.
   bool LocalizeString(NPObject* localize_func, const char* tag,
                       string16* result);
+
+  // Helper function for executing InvokeDefault on an NPObject that performs
+  // a string->string mapping with one substitution. Stores the translation in
+  // |result| and returns true on success, or leaves it unchanged and returns
+  // false on failure.
+  bool LocalizeStringWithSubstitution(NPObject* localize_func,
+                                      const char* tag,
+                                      const char* substitution,
+                                      string16* result);
 
   // If the web-app has registered a callback to be notified of changes to the
   // NAT traversal policy, notify it.
@@ -310,7 +322,7 @@ class HostNPScriptObject : public HostStatusObserver {
 
   base::Lock nat_policy_lock_;
 
-  scoped_ptr<policy_hack::NatPolicy> nat_policy_;
+  scoped_ptr<policy_hack::PolicyWatcher> policy_watcher_;
 
   // Host the current nat traversal policy setting.
   bool nat_traversal_enabled_;

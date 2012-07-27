@@ -36,6 +36,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/test/browser_test_utils.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -63,7 +64,7 @@ class InstantTest : public InProcessBrowserTest {
     TemplateURLService* model =
         TemplateURLServiceFactory::GetForProfile(profile);
 
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_TEMPLATE_URL_SERVICE_LOADED,
         content::NotificationService::AllSources());
     if (!model->loaded()) {
@@ -86,7 +87,7 @@ class InstantTest : public InProcessBrowserTest {
 
   // Type a character to get instant to trigger and determine instant support.
   void DetermineInstantSupport() {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
         content::NotificationService::AllSources());
     // "a" triggers the "about:" provider. "b" begins the "bing.com" keyword.
@@ -97,7 +98,7 @@ class InstantTest : public InProcessBrowserTest {
 
   // Types "def" into the omnibox and waits for the preview to be shown.
   void SearchAndWaitForPreviewToShow() {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_INSTANT_CONTROLLER_SHOWN,
         content::NotificationService::AllSources());
     omnibox()->SetUserText(ASCIIToUTF16("def"));
@@ -142,7 +143,7 @@ class InstantTest : public InProcessBrowserTest {
         "window.setSuggestionsArgument = %s;", argument.c_str()));
     content::RenderViewHost* rvh =
         preview()->web_contents()->GetRenderViewHost();
-    return ui_test_utils::ExecuteJavaScript(rvh, std::wstring(), script);
+    return content::ExecuteJavaScript(rvh, std::wstring(), script);
   }
 
   std::wstring WrapScript(const std::string& script) {
@@ -153,21 +154,21 @@ class InstantTest : public InProcessBrowserTest {
   bool GetStringFromJavascript(WebContents* tab,
                                const std::string& script,
                                std::string* result) {
-    return ui_test_utils::ExecuteJavaScriptAndExtractString(
+    return content::ExecuteJavaScriptAndExtractString(
         tab->GetRenderViewHost(), std::wstring(), WrapScript(script), result);
   }
 
   bool GetIntFromJavascript(WebContents* tab,
                             const std::string& script,
                             int* result) {
-    return ui_test_utils::ExecuteJavaScriptAndExtractInt(
+    return content::ExecuteJavaScriptAndExtractInt(
         tab->GetRenderViewHost(), std::wstring(), WrapScript(script), result);
   }
 
   bool GetBoolFromJavascript(WebContents* tab,
                              const std::string& script,
                              bool* result) {
-    return ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    return content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(), WrapScript(script), result);
   }
 
@@ -588,7 +589,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(SearchToNonSearch)) {
   EnableInstant();
   SetupInstantProvider("instant.html");
 
-  ui_test_utils::WindowedNotificationObserver instant_support_observer(
+  content::WindowedNotificationObserver instant_support_observer(
       chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
       content::NotificationService::AllSources());
 
@@ -610,7 +611,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(SearchToNonSearch)) {
 
   // Send onchange so that the page sends up suggestions. See the comments in
   // NonSearchToSearch for why this is needed.
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
+  ASSERT_TRUE(content::ExecuteJavaScript(
       preview()->web_contents()->GetRenderViewHost(), std::wstring(),
       L"window.chrome.searchBox.onchange();"));
   ASSERT_TRUE(WaitForMessageToBeProcessedByRenderer());
@@ -629,7 +630,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(SearchServerDoesntSupportInstant)) {
   EnableInstant();
   SetupInstantProvider("empty.html");
 
-  ui_test_utils::WindowedNotificationObserver tab_closed_observer(
+  content::WindowedNotificationObserver tab_closed_observer(
       content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::NotificationService::AllSources());
 
@@ -655,7 +656,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest,
   omnibox()->SetUserText(UTF8ToUTF16(url.spec()));
   EXPECT_FALSE(preview());
 
-  ui_test_utils::WindowedNotificationObserver tab_closed_observer(
+  content::WindowedNotificationObserver tab_closed_observer(
       content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::NotificationService::AllSources());
 
@@ -757,7 +758,7 @@ IN_PROC_BROWSER_TEST_F(InstantTest, MAYBE(PreloadsInstant)) {
   EXPECT_FALSE(preview());
 
   // Focusing the omnibox should cause instant to be preloaded.
-  ui_test_utils::WindowedNotificationObserver instant_support_observer(
+  content::WindowedNotificationObserver instant_support_observer(
       chrome::NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
       content::NotificationService::AllSources());
   browser()->window()->GetLocationBar()->FocusLocation(false);

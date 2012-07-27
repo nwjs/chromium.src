@@ -77,7 +77,7 @@
 #if defined(OS_POSIX) && !defined(OS_MACOSX)
 #include <sys/stat.h>
 #include "content/browser/renderer_host/render_sandbox_host_linux.h"
-#include "content/browser/zygote_host_impl_linux.h"
+#include "content/browser/zygote_host/zygote_host_impl_linux.h"
 #endif
 
 #if defined(USE_X11)
@@ -436,6 +436,22 @@ void BrowserMainLoop::CreateThreads() {
 
   if (parts_.get())
     parts_->PreMainMessageLoopRun();
+
+  // When running the GPU thread in-process, avoid optimistically starting it
+  // since creating the GPU thread races against creation of the one-and-only
+  // ChildProcess instance which is created by the renderer thread.
+  GpuDataManager* gpu_data_manager = content::GpuDataManager::GetInstance();
+  if (gpu_data_manager->GpuAccessAllowed() &&
+      !parsed_command_line_.HasSwitch(switches::kDisableGpuProcessPrelaunch) &&
+      !parsed_command_line_.HasSwitch(switches::kSingleProcess) &&
+      !parsed_command_line_.HasSwitch(switches::kInProcessGPU)) {
+    TRACE_EVENT_INSTANT0("gpu", "Post task to launch GPU process");
+    BrowserThread::PostTask(
+        BrowserThread::IO, FROM_HERE, base::Bind(
+            base::IgnoreResult(&GpuProcessHost::Get),
+            GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED,
+            content::CAUSE_FOR_GPU_LAUNCH_BROWSER_STARTUP));
+  }
 
   // If the UI thread blocks, the whole UI is unresponsive.
   // Do not allow disk IO from the UI thread.

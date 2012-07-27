@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import json
+import logging
 import os
 
 from handlebar_dict_generator import HandlebarDictGenerator
@@ -12,7 +13,7 @@ import third_party.json_schema_compiler.idl_schema as idl_schema
 import third_party.json_schema_compiler.idl_parser as idl_parser
 
 class APIDataSource(object):
-  """This class fetches and loads JSON APIs with the fetcher passed in with
+  """This class fetches and loads JSON APIs from the FileSystem passed in with
   |cache_builder|, so the APIs can be plugged into templates.
   """
   def __init__(self, cache_builder, base_path):
@@ -39,9 +40,10 @@ class APIDataSource(object):
     json_path = unix_name + '.json'
     idl_path = unix_name + '.idl'
     try:
-      return self._json_cache.getFromFile(self._base_path + '/' + json_path)
-    except:
+      return self._json_cache.GetFromFile(self._base_path + '/' + json_path)
+    except Exception:
       try:
-        return self._idl_cache.getFromFile(self._base_path + '/' + idl_path)
-      except:
+        return self._idl_cache.GetFromFile(self._base_path + '/' + idl_path)
+      except Exception as e:
+        logging.warn(e)
         return None

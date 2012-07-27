@@ -566,7 +566,8 @@ void PrerenderContents::RenderViewGone(base::TerminationStatus status) {
   Destroy(FINAL_STATUS_RENDERER_CRASHED);
 }
 
-void PrerenderContents::DidStopLoading() {
+void PrerenderContents::DidStopLoading(
+    content::RenderViewHost* render_view_host) {
   has_stopped_loading_ = true;
 }
 
@@ -592,7 +593,8 @@ void PrerenderContents::DidStartProvisionalLoadForFrame(
 
 void PrerenderContents::DidFinishLoad(int64 frame_id,
                                       const GURL& validated_url,
-                                      bool is_main_frame) {
+                                      bool is_main_frame,
+                                      RenderViewHost* render_view_host) {
   if (is_main_frame)
     has_finished_loading_ = true;
 }

@@ -240,9 +240,10 @@ void RenderWidgetHostViewAndroid::SetBackground(const SkBitmap& background) {
 }
 
 void RenderWidgetHostViewAndroid::CopyFromCompositingSurface(
-      const gfx::Size& size,
-      const base::Callback<void(bool)>& callback,
-      skia::PlatformCanvas* output) {
+    const gfx::Rect& src_subrect,
+    const gfx::Size& dst_size,
+    const base::Callback<void(bool)>& callback,
+    skia::PlatformCanvas* output) {
   NOTIMPLEMENTED();
   callback.Run(false);
 }
@@ -296,7 +297,7 @@ void RenderWidgetHostViewAndroid::GetScreenInfo(WebKit::WebScreenInfo* result) {
 
 // TODO(jrg): Find out the implications and answer correctly here,
 // as we are returning the WebView and not root window bounds.
-gfx::Rect RenderWidgetHostViewAndroid::GetRootWindowBounds() {
+gfx::Rect RenderWidgetHostViewAndroid::GetBoundsInRootWindow() {
   return GetViewBounds();
 }
 

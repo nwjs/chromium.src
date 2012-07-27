@@ -22,6 +22,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/url_request/url_fetcher.h"
 
 using extensions::Extension;
@@ -50,7 +51,7 @@ class ExtensionManagementTest : public ExtensionBrowserTest {
       return false;
 
     std::string version_from_bg;
-    bool exec = ui_test_utils::ExecuteJavaScriptAndExtractString(
+    bool exec = content::ExecuteJavaScriptAndExtractString(
         ext_host->render_view_host(), L"", L"version()", &version_from_bg);
     EXPECT_TRUE(exec);
     if (!exec)
@@ -388,7 +389,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalUrlUpdate) {
   const size_t size_before = service->extensions()->size();
   ASSERT_TRUE(service->disabled_extensions()->is_empty());
 
-  PendingExtensionManager* pending_extension_manager =
+  extensions::PendingExtensionManager* pending_extension_manager =
       service->pending_extension_manager();
 
   // The code that reads external_extensions.json uses this method to inform

@@ -27,7 +27,7 @@ import getos
 SUPPORTED_HOSTS = ['win']
 
 def ErrorExit(text):
-  sys.stderr.write(text + '\n')
+  ErrorMsgFunc(text)
   sys.exit(1)
 
 
@@ -63,7 +63,7 @@ def SetVar(varname, values):
   return out
 
 
-def GenerateCopyList(desc):
+def GenerateSourceCopyList(desc):
   sources = []
   # Add sources for each target
   for target in desc['TARGETS']:
@@ -87,7 +87,7 @@ def GetSourcesDict(sources):
     else:
       source_map[key] = []
   return source_map
-    
+
 
 def GetPlatforms(plat_list, plat_filter):
   platforms = []
@@ -101,7 +101,7 @@ def GenerateToolDefaults(desc, tools):
   defaults = ''
   for tool in tools:
     defaults += BUILD_RULES[tool]['DEFS']
-  return defaults  
+  return defaults
 
 
 def GenerateSettings(desc, tools):
@@ -137,7 +137,7 @@ def GenerateCompile(target, tool, arch, srcs):
 
   For the given target, toolset and architecture, returns a rule to generate
   the object files for the set of sources.
-  
+
   Returns:
     Returns a tuple containin the objects and the rule.
   """
@@ -159,6 +159,7 @@ def GenerateCompile(target, tool, arch, srcs):
     compile_rule = GetBuildRule(tool, 'CXX')
     rules += Replace(compile_rule, replace)
     object_sets.append('$(%s)' % replace['<OBJS>'])
+
   return (' '.join(object_sets), rules)
 
 
@@ -168,13 +169,13 @@ def GenerateLink(target, tool, arch, objs):
   Returns:
     Returns a tuple containing the rule and target.
   """
-  targ_type =  target['TYPE'] 
+  targ_type =  target['TYPE']
   link_rule = GetBuildRule(tool, targ_type.upper())
   libs = target.get('LIBS', [])
   libs = BuildLibList(tool, libs)
   replace = BuildToolDict(tool, target['NAME'], arch, 'nexe',
                           OBJS=objs, LIBLIST=libs)
-  rule = Replace(link_rule, replace) 
+  rule = Replace(link_rule, replace)
   target_out = GetTarget(tool, targ_type, replace)
   return target_out, rule
 
@@ -213,9 +214,9 @@ def GenerateRules(desc, tools):
       targs, nmf_rule = GenerateNMF(main, tc)
       rules += nmf_rule
       all_targets.append(targs)
-  rules += '\n.PHONY : clean\nclean:\n\t$(RM) ' + ' '.join(clean)
+  rules += '\n.PHONY : clean\nclean:\n\t$(RM) $(DEPFILES) ' + ' '.join(clean)
+  rules += '\n\n-include $(DEPFILES)'
   return ' '.join(all_targets), rules
-
 
 
 def GenerateTargets(desc, tools):
@@ -257,7 +258,6 @@ def GenerateReplacements(desc, tools):
   }
 
 
-
 # 'KEY' : ( <TYPE>, [Accepted Values], <Required?>)
 DSC_FORMAT = {
     'TOOLS' : (list, ['newlib', 'glibc', 'pnacl', 'win'], True),
@@ -271,6 +271,10 @@ DSC_FORMAT = {
         'LDFLAGS': (list, '', False),
         'LIBS' : (list, '', False)
     }, True),
+    'HEADERS': (list, {
+        'FILES': (list, '', True),
+        'DEST': (str, '', True),
+    }, False),
     'SEARCH': (list, '', False),
     'POST': (str, '', False),
     'PRE': (str, '', False),
@@ -306,7 +310,7 @@ def ValidateFormat(src, format, ErrorMsg=ErrorMsgFunc):
       continue
 
     exp_type, exp_value, required = format[key]
-    value = src[key] 
+    value = src[key]
 
     # Verify the key is of the expected type
     if exp_type != type(value):
@@ -405,7 +409,7 @@ def IsNexe(desc):
 def ProcessHTML(srcroot, dstroot, desc, toolchains):
   name = desc['NAME']
   outdir = os.path.join(dstroot, desc['DEST'], name)
-  
+
   srcfile = os.path.join(srcroot, 'index.html')
   tools = GetPlatforms(toolchains, desc['TOOLS'])
   for tool in tools:
@@ -422,17 +426,17 @@ def ProcessHTML(srcroot, dstroot, desc, toolchains):
   srcfile = os.path.join(SDK_SRC_DIR, 'build_tools', 'redirect.html')
   dstfile = os.path.join(outdir, 'index.html')
   WriteReplaced(srcfile, dstfile, replace)
-    
+
 
 def LoadProject(filename, toolchains):
-  """Generate a Master Makefile that builds all examples. 
+  """Generate a Master Makefile that builds all examples.
 
   Load a project desciption file, verifying it conforms and checking
   if it matches the set of requested toolchains.  Return None if the
   project is filtered out."""
 
   print '\n\nProcessing %s...' % filename
-  # Default src directory is the directory the description was found in 
+  # Default src directory is the directory the description was found in
   desc = open(filename, 'r').read()
   desc = eval(desc, {}, {})
 
@@ -451,6 +455,17 @@ def LoadProject(filename, toolchains):
   return desc
 
 
+def FindAndCopyFiles(src_files, root, search_dirs, dst_dir):
+  buildbot_common.MakeDir(dst_dir)
+  for src_name in src_files:
+    src_file = FindFile(src_name, root, search_dirs)
+    if not src_file:
+      ErrorMsgFunc('Failed to find: ' + src_name)
+      return None
+    dst_file = os.path.join(dst_dir, src_name)
+    buildbot_common.CopyFile(src_file, dst_file)
+
+
 def ProcessProject(srcroot, dstroot, desc, toolchains):
   name = desc['NAME']
   out_dir = os.path.join(dstroot, desc['DEST'], name)
@@ -458,14 +473,14 @@ def ProcessProject(srcroot, dstroot, desc, toolchains):
   srcdirs = desc.get('SEARCH', ['.', '..'])
 
   # Copy sources to example directory
-  sources = GenerateCopyList(desc)
-  for src_name in sources:
-    src_file = FindFile(src_name, srcroot, srcdirs)
-    if not src_file:
-      ErrorMsgFunc('Failed to find: ' + src_name)
-      return None
-    dst_file = os.path.join(out_dir, src_name)
-    buildbot_common.CopyFile(src_file, dst_file)
+  sources = GenerateSourceCopyList(desc)
+  FindAndCopyFiles(sources, srcroot, srcdirs, out_dir)
+
+  # Copy public headers to the include directory.
+  for headers_set in desc.get('HEADERS', []):
+    headers = headers_set['FILES']
+    header_out_dir = os.path.join(dstroot, headers_set['DEST'])
+    FindAndCopyFiles(headers, srcroot, srcdirs, header_out_dir)
 
   if IsNexe(desc):
     template=os.path.join(SCRIPT_DIR, 'template.mk')
@@ -496,7 +511,7 @@ def GenerateMasterMakefile(in_path, out_path, projects):
   outdir = os.path.dirname(os.path.abspath(out_path))
   pepperdir = os.path.dirname(outdir)
   AddMakeBat(pepperdir, outdir)
-  
+
 
 def main(argv):
   parser = optparse.OptionParser()
@@ -525,6 +540,9 @@ def main(argv):
     toolchains.append('pnacl')
   if options.host:
     toolchains.append(platform)
+
+  if not args:
+    ErrorExit('Please specify one or more projects to generate Makefiles for.')
 
   # By default support newlib and glibc
   if not toolchains:

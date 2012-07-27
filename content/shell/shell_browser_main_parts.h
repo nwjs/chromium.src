@@ -21,22 +21,31 @@ struct MainFunctionParams;
 
 class ShellBrowserMainParts : public BrowserMainParts {
  public:
-  explicit ShellBrowserMainParts(const content::MainFunctionParams& parameters);
+  explicit ShellBrowserMainParts(const MainFunctionParams& parameters);
   virtual ~ShellBrowserMainParts();
 
-  // content::BrowserMainParts overrides.
+  // BrowserMainParts overrides.
   virtual void PreEarlyInitialization() OVERRIDE;
   virtual void PreMainMessageLoopStart() OVERRIDE;
   virtual void PostMainMessageLoopStart() OVERRIDE;
   virtual void PreMainMessageLoopRun() OVERRIDE;
+  virtual bool MainMessageLoopRun(int* result_code) OVERRIDE;
   virtual void PostMainMessageLoopRun() OVERRIDE;
 
   ShellDevToolsDelegate* devtools_delegate() { return devtools_delegate_; }
 
   ShellBrowserContext* browser_context() { return browser_context_.get(); }
+  ShellBrowserContext* off_the_record_browser_context() {
+    return off_the_record_browser_context_.get();
+  }
 
  private:
   scoped_ptr<ShellBrowserContext> browser_context_;
+  scoped_ptr<ShellBrowserContext> off_the_record_browser_context_;
+
+  // For running content_browsertests.
+  const MainFunctionParams& parameters_;
+  bool run_message_loop_;
 
   ShellDevToolsDelegate* devtools_delegate_;
 

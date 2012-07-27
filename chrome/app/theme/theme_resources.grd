@@ -6,11 +6,10 @@
     </output>
     <output filename="grit/theme_resources_map.cc" type="resource_map_source" context="default_100_percent" />
     <output filename="grit/theme_resources_map.h" type="resource_map_header" context="default_100_percent" />
-    <output filename="theme_resources_standard.pak" type="data_package" context="default_100_percent" />
-    <output filename="theme_resources_2x.pak" type="data_package" context="default_200_percent" />
-    <output filename="theme_resources_touch_1x.pak" type="data_package" context="touch_100_percent" />
-    <output filename="theme_resources_touch_2x.pak" type="data_package" context="touch_200_percent" />
-    <output filename="theme_resources_standard.rc" type="rc_all" context="default_100_percent" />
+    <output filename="theme_resources_100_percent.pak" type="data_package" context="default_100_percent" />
+    <output filename="theme_resources_200_percent.pak" type="data_package" context="default_200_percent" />
+    <output filename="theme_resources_touch_100_percent.pak" type="data_package" context="touch_100_percent" />
+    <output filename="theme_resources_touch_200_percent.pak" type="data_package" context="touch_200_percent" />
   </outputs>
   <release seq="1">
     <structures fallback_to_low_resolution="true">
@@ -22,11 +21,20 @@
         <structure type="chrome_scaled_image" name="IDR_ACCESSIBILITY_ICON" file="accessibility_icon.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_ACTION_BOX_BUTTON" file="action_box_button.png" />
+      <structure type="chrome_scaled_image" name="IDR_ACTION_BOX_BUTTON_PRESSED" file="action_box_button_pressed.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_FULLSCREEN" file="allowed_fullscreen.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_IMAGES" file="allowed_images.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_MOUSE_CURSOR" file="allowed_mouse_cursor.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_NOTIFICATION" file="allowed_notifications.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_POPUPS" file="allowed_popups.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_PLUGINS" file="allowed_plugins.png" />
+      <structure type="chrome_scaled_image" name="IDR_ALLOWED_JAVASCRIPT" file="allowed_script.png" />
       <structure type="chrome_scaled_image" name="IDR_APP_DEFAULT_ICON" file="app_default_icon.png" />
       <structure type="chrome_scaled_image" name="IDR_APP_DROPARROW" file="app_droparrow.png" />
       <structure type="chrome_scaled_image" name="IDR_APP_NOTIFICATION_NUB" file="nub.png" />
       <structure type="chrome_scaled_image" name="IDR_APP_NOTIFICATION_NUB_MASK" file="nub_mask.png" />
       <structure type="chrome_scaled_image" name="IDR_APP_NOTIFICATION_SMALL_BUBBLE" file="small_bubble.png" />
+      <structure type="chrome_scaled_image" name="IDR_ASK_MEDIA" file="ask_media.png" />
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_BACK" file="back.png" />
         <structure type="chrome_scaled_image" name="IDR_BACK_D" file="back_disabled.png" />
@@ -47,9 +55,13 @@
       <structure type="chrome_scaled_image" name="IDR_BALLOON_WRENCH_H" file="notification_wrench_hover.png" />
       <structure type="chrome_scaled_image" name="IDR_BALLOON_WRENCH_P" file="notification_wrench_pressed.png" />
       <structure type="chrome_scaled_image" name="IDR_BLOCKED_COOKIES" file="blocked_cookies.png" />
+      <structure type="chrome_scaled_image" name="IDR_BLOCKED_FULLSCREEN" file="blocked_fullscreen.png" />
       <structure type="chrome_scaled_image" name="IDR_BLOCKED_IMAGES" file="blocked_images.png" />
       <structure type="chrome_scaled_image" name="IDR_BLOCKED_JAVASCRIPT" file="blocked_script.png" />
+      <structure type="chrome_scaled_image" name="IDR_BLOCKED_MEDIA" file="blocked_media.png" />
+      <structure type="chrome_scaled_image" name="IDR_BLOCKED_MOUSE_CURSOR" file="blocked_mouse_cursor.png" />
       <structure type="chrome_scaled_image" name="IDR_BLOCKED_MIXED_CONTENT" file="blocked_mixed_content.png" />
+      <structure type="chrome_scaled_image" name="IDR_BLOCKED_NOTIFICATION" file="blocked_notifications.png" />
       <structure type="chrome_scaled_image" name="IDR_BLOCKED_PLUGINS" file="blocked_plugins.png" />
       <structure type="chrome_scaled_image" name="IDR_BLOCKED_POPUPS" file="blocked_popups.png" />
       <structure type="chrome_scaled_image" name="IDR_BOOKMARKS_FAVICON" file="bookmarks_favicon.png" />
@@ -485,6 +497,10 @@
       <structure type="chrome_scaled_image" name="IDR_PANEL_RESTORE" file="panel_restore.png" />
       <structure type="chrome_scaled_image" name="IDR_PANEL_RESTORE_C" file="panel_restore_click.png" />
       <structure type="chrome_scaled_image" name="IDR_PANEL_RESTORE_H" file="panel_restore_hover.png" />
+      <if expr="is_win">
+        <structure type="chrome_scaled_image" name="IDR_METRO_PIN" file="metro_pin.png" />
+        <structure type="chrome_scaled_image" name="IDR_METRO_PINNED" file="metro_pinned.png" />
+      </if>
       <structure type="chrome_scaled_image" name="IDR_PLUGIN" file="plugin.png" />
       <structure type="chrome_scaled_image" name="IDR_PRERENDER" file="prerender_succeed_icon.png" />
       <structure type="chrome_scaled_image" name="IDR_PRERENDER_FAIL_ICON" file="prerender_fail_icon.png" />

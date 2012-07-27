@@ -20,10 +20,10 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/select_file_dialog.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/test/test_utils.h"
 #include "ui/base/dialogs/selected_file_info.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_mount_point_provider.h"
@@ -45,7 +45,9 @@ class MockSelectFileDialogListener : public SelectFileDialog::Listener {
   void* params() const { return params_; }
 
   // SelectFileDialog::Listener implementation.
-  virtual void FileSelected(const FilePath& path, int index, void* params) {
+  virtual void FileSelected(const FilePath& path,
+                            int index,
+                            void* params) OVERRIDE {
     file_selected_ = true;
     path_ = path;
     params_ = params;
@@ -53,11 +55,11 @@ class MockSelectFileDialogListener : public SelectFileDialog::Listener {
   virtual void FileSelectedWithExtraInfo(
       const ui::SelectedFileInfo& selected_file_info,
       int index,
-      void* params) {
-    FileSelected(selected_file_info.path, index, params);
+      void* params) OVERRIDE {
+    FileSelected(selected_file_info.local_path, index, params);
   }
   virtual void MultiFilesSelected(
-      const std::vector<FilePath>& files, void* params) {}
+      const std::vector<FilePath>& files, void* params) OVERRIDE {}
   virtual void FileSelectionCanceled(void* params) {
     canceled_ = true;
     params_ = params;
@@ -173,7 +175,7 @@ class SelectFileDialogExtensionBrowserTest : public ExtensionBrowserTest {
                    const gfx::NativeWindow& owning_window) {
     // Inject JavaScript to click the cancel button and wait for notification
     // that the window has closed.
-    ui_test_utils::WindowedNotificationObserver host_destroyed(
+    content::WindowedNotificationObserver host_destroyed(
         content::NOTIFICATION_RENDER_WIDGET_HOST_DESTROYED,
         content::NotificationService::AllSources());
     content::RenderViewHost* host = dialog_->GetRenderViewHost();

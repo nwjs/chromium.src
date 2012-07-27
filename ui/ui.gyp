@@ -111,10 +111,16 @@
         'base/dialogs/base_shell_dialog.h',
         'base/dialogs/base_shell_dialog_win.cc',
         'base/dialogs/base_shell_dialog_win.h',
+        'base/dialogs/gtk/select_file_dialog_impl.cc',
+        'base/dialogs/gtk/select_file_dialog_impl.h',
+        'base/dialogs/gtk/select_file_dialog_impl_gtk.cc',
+        'base/dialogs/gtk/select_file_dialog_impl_kde.cc',
         'base/dialogs/select_file_dialog.cc',
         'base/dialogs/select_file_dialog.h',
         'base/dialogs/select_file_dialog_factory.cc',
         'base/dialogs/select_file_dialog_factory.h',
+        'base/dialogs/select_file_dialog_mac.h',
+        'base/dialogs/select_file_dialog_mac.mm',
         'base/dialogs/select_file_dialog_win.cc',
         'base/dialogs/select_file_dialog_win.h',
         'base/dialogs/select_file_policy.cc',
@@ -399,12 +405,18 @@
         'gfx/point.cc',
         'gfx/point.h',
         'gfx/point_base.h',
+        'gfx/point_f.cc',
+        'gfx/point_f.h',
         'gfx/rect.cc',
         'gfx/rect.h',
         'gfx/rect_base.h',
         'gfx/rect_base_impl.h',
+        'gfx/rect_f.cc',
+        'gfx/rect_f.h',
         'gfx/render_text.cc',
         'gfx/render_text.h',
+        'gfx/render_text_mac.cc',
+        'gfx/render_text_mac.h',
         'gfx/render_text_linux.cc',
         'gfx/render_text_linux.h',
         'gfx/render_text_win.cc',
@@ -429,6 +441,8 @@
         'gfx/size.h',
         'gfx/size_base.h',
         'gfx/size_base_impl.h',
+        'gfx/size_f.cc',
+        'gfx/size_f.h',
         'gfx/skbitmap_operations.cc',
         'gfx/skbitmap_operations.h',
         'gfx/skia_util.cc',
@@ -472,6 +486,7 @@
             ['exclude', 'gfx/gtk_util.h'],
             ['exclude', 'gfx/screen_gtk.cc'],
             ['exclude', 'gfx/screen_win.cc'],
+            ['exclude', 'base/dialogs/select_file_dialog_mac.mm'],
             ['exclude', 'base/dialogs/select_file_dialog_win.cc'],
             ['exclude', 'base/dragdrop/drag_utils_win.cc'],
             ['exclude', 'base/win/mouse_wheel_util.cc'],
@@ -662,14 +677,6 @@
             ],
           },
         }],
-        ['OS=="android"', {
-          'sources!': [
-            'gfx/pango_util.h',
-            'gfx/pango_util.cc',
-            'gfx/platform_font_pango.h',
-            'gfx/platform_font_pango.cc',
-          ],
-        }],
         ['use_x11==1', {
           'all_dependent_settings': {
             'ldflags': [
@@ -692,16 +699,6 @@
             'base/x/events_x.cc',
           ],
         }],
-        ['toolkit_views==0 and use_canvas_skia==0', {
-          'sources!': [
-            'gfx/render_text.cc',
-            'gfx/render_text.h',
-            'gfx/render_text_linux.cc',
-            'gfx/render_text_linux.h',
-            'gfx/render_text_win.cc',
-            'gfx/render_text_win.h',
-          ],
-        }],
         ['OS=="android"', {
           'sources!': [
             'base/touch/touch_factory.cc',
@@ -710,6 +707,12 @@
             'gfx/pango_util.cc',
             'gfx/platform_font_pango.cc',
             'gfx/platform_font_pango.h',
+          ],
+        }],
+        ['OS=="android" or OS=="ios"', {
+          'sources!': [
+            'gfx/render_text.cc',
+            'gfx/render_text.h',
           ],
         }],
         ['OS=="linux"', {

@@ -12,7 +12,6 @@
 #include "content/public/common/page_transition_types.h"
 #include "content/public/test/browser_test.h"
 #include "content/test/browser_test_base.h"
-#include "net/test/test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_CHROMEOS)
@@ -49,9 +48,9 @@ class RuleBasedHostResolverProc;
 // . Your test method is invoked on the ui thread. If you need to block until
 //   state changes you'll need to run the message loop from your test method.
 //   For example, if you need to wait till a find bar has completely been shown
-//   you'll need to invoke ui_test_utils::RunMessageLoop. When the message bar
-//   is shown, invoke MessageLoop::current()->Quit() to return control back to
-//   your test method.
+//   you'll need to invoke content::RunMessageLoop. When the message bar is
+//   shown, invoke MessageLoop::current()->Quit() to return control back to your
+//   test method.
 // . If you subclass and override SetUp, be sure and invoke
 //   InProcessBrowserTest::SetUp. (But see also SetUpOnMainThread,
 //   SetUpInProcessBrowserTestFixture and other related hook methods for a
@@ -110,11 +109,6 @@ class InProcessBrowserTest : public BrowserTestBase {
   void AddTabAtIndex(int index, const GURL& url,
                      content::PageTransition transition);
 
-  // Override this to add any custom setup code that needs to be done on the
-  // main thread after the browser is created and just before calling
-  // RunTestOnMainThread().
-  virtual void SetUpOnMainThread() {}
-
   // Initializes the contents of the user data directory. Called by SetUp()
   // after creating the user data directory, but before any browser is launched.
   // If a test wishes to set up some initial non-empty state in the user data
@@ -122,19 +116,12 @@ class InProcessBrowserTest : public BrowserTestBase {
   // successful.
   virtual bool SetUpUserDataDirectory() WARN_UNUSED_RESULT;
 
-  // Override this to add command line flags specific to your test.
-  virtual void SetUpCommandLine(CommandLine* command_line) {}
-
   // Override this to add any custom cleanup code that needs to be done on the
   // main thread before the browser is torn down.
   virtual void CleanUpOnMainThread() {}
 
   // BrowserTestBase:
   virtual void RunTestOnMainThreadLoop() OVERRIDE;
-
-  // Returns the testing server. Guaranteed to be non-NULL.
-  const net::TestServer* test_server() const { return test_server_.get(); }
-  net::TestServer* test_server() { return test_server_.get(); }
 
   // Creates a browser with a single tab (about:blank), waits for the tab to
   // finish loading and shows the browser.
@@ -202,9 +189,6 @@ class InProcessBrowserTest : public BrowserTestBase {
 
   // Browser created from CreateBrowser.
   Browser* browser_;
-
-  // Testing server, started on demand.
-  scoped_ptr<net::TestServer> test_server_;
 
   // ContentRendererClient when running in single-process mode.
   scoped_ptr<content::ContentRendererClient> single_process_renderer_client_;

@@ -8,7 +8,6 @@
 #ifndef SYNC_NOTIFIER_CHROME_INVALIDATION_CLIENT_H_
 #define SYNC_NOTIFIER_CHROME_INVALIDATION_CLIENT_H_
 
-#include <map>
 #include <string>
 
 #include "base/basictypes.h"
@@ -21,8 +20,8 @@
 #include "sync/internal_api/public/util/weak_handle.h"
 #include "sync/notifier/chrome_system_resources.h"
 #include "sync/notifier/invalidation_state_tracker.h"
-#include "sync/notifier/invalidation_util.h"
 #include "sync/notifier/notifications_disabled_reason.h"
+#include "sync/notifier/object_id_payload_map.h"
 #include "sync/notifier/state_writer.h"
 
 namespace buzz {
@@ -36,10 +35,6 @@ class PushClient;
 namespace syncer {
 
 class RegistrationManager;
-
-typedef std::map<invalidation::ObjectId,
-                 std::string,
-                 ObjectIdLessThan> ObjectIdPayloadMap;
 
 // ChromeInvalidationClient is not thread-safe and lives on the sync
 // thread.
@@ -73,8 +68,7 @@ class ChromeInvalidationClient
       const std::string& client_id, const std::string& client_info,
       const std::string& state,
       const InvalidationVersionMap& initial_max_invalidation_versions,
-      const syncer::WeakHandle<InvalidationStateTracker>&
-          invalidation_state_tracker,
+      const WeakHandle<InvalidationStateTracker>& invalidation_state_tracker,
       Listener* listener);
 
   void UpdateCredentials(const std::string& email, const std::string& token);
@@ -139,8 +133,7 @@ class ChromeInvalidationClient
   notifier::PushClient* const push_client_;
   ChromeSystemResources chrome_system_resources_;
   InvalidationVersionMap max_invalidation_versions_;
-  syncer::WeakHandle<InvalidationStateTracker>
-      invalidation_state_tracker_;
+  WeakHandle<InvalidationStateTracker> invalidation_state_tracker_;
   Listener* listener_;
   scoped_ptr<invalidation::InvalidationClient> invalidation_client_;
   scoped_ptr<RegistrationManager> registration_manager_;

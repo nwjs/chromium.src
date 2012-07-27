@@ -167,7 +167,7 @@ base::FileUtilProxy::Entry GDataEntryProtoToFileUtilProxyEntry(
   GDataEntry::ConvertProtoToPlatformFileInfo(proto.file_info(), &file_info);
 
   base::FileUtilProxy::Entry entry;
-  entry.name = proto.file_name();
+  entry.name = proto.base_name();
   entry.is_directory = file_info.is_directory;
   entry.size = file_info.size;
   entry.last_modified_time = file_info.last_modified;
@@ -677,7 +677,7 @@ void GDataFileSystemProxy::OnReadDirectory(
     callback,
     GDataFileError error,
     bool hide_hosted_documents,
-    scoped_ptr<gdata::GDataDirectoryProto> directory_proto) {
+    scoped_ptr<gdata::GDataEntryProtoVector> proto_entries) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   if (error != GDATA_FILE_OK) {
@@ -686,19 +686,18 @@ void GDataFileSystemProxy::OnReadDirectory(
                  false);
     return;
   }
+  DCHECK(proto_entries.get());
+
   std::vector<base::FileUtilProxy::Entry> entries;
   // Convert gdata files to something File API stack can understand.
-  for (int i = 0; i < directory_proto->child_directories_size(); ++i) {
-    const GDataDirectoryProto& proto = directory_proto->child_directories(i);
-    entries.push_back(
-        GDataEntryProtoToFileUtilProxyEntry(proto.gdata_entry()));
-  }
-  for (int i = 0; i < directory_proto->child_files_size(); ++i) {
-    const GDataFileProto& proto = directory_proto->child_files(i);
-    if (hide_hosted_documents && proto.is_hosted_document())
-        continue;
-    entries.push_back(
-        GDataEntryProtoToFileUtilProxyEntry(proto.gdata_entry()));
+  for (size_t i = 0; i < proto_entries->size(); ++i) {
+    const GDataEntryProto& proto = (*proto_entries)[i];
+    if (proto.has_file_specific_info() &&
+        proto.file_specific_info().is_hosted_document() &&
+        hide_hosted_documents) {
+      continue;
+    }
+    entries.push_back(GDataEntryProtoToFileUtilProxyEntry(proto));
   }
 
   callback.Run(base::PLATFORM_FILE_OK, entries, false);

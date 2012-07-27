@@ -39,9 +39,6 @@ class WaitableEvent;
 
 namespace gpu {
 struct RefCountedCounter;
-namespace gles2 {
-class ProgramCache;
-}
 }
 
 #if defined(OS_ANDROID)
@@ -62,8 +59,7 @@ class GpuChannel : public IPC::Listener,
              gfx::GLShareGroup* share_group,
              gpu::gles2::MailboxManager* mailbox_manager,
              int client_id,
-             bool software,
-             gpu::gles2::ProgramCache* program_cache);
+             bool software);
 
   bool Init(base::MessageLoopProxy* io_message_loop,
             base::WaitableEvent* shutdown_event);
@@ -165,8 +161,6 @@ class GpuChannel : public IPC::Listener,
   // The GpuChannelManager destroy all the GpuChannels that they own when they
   // are destroyed. So a raw pointer is safe.
   GpuChannelManager* gpu_channel_manager_;
-
-  gpu::gles2::ProgramCache* program_cache_;
 
   scoped_ptr<IPC::SyncChannel> channel_;
 

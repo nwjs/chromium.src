@@ -4,17 +4,17 @@
 
 #include "chrome/browser/content_settings/local_shared_objects_container.h"
 
-#include "chrome/browser/browsing_data_appcache_helper.h"
-#include "chrome/browser/browsing_data_cookie_helper.h"
-#include "chrome/browser/browsing_data_database_helper.h"
-#include "chrome/browser/browsing_data_file_system_helper.h"
-#include "chrome/browser/browsing_data_indexed_db_helper.h"
-#include "chrome/browser/browsing_data_local_storage_helper.h"
-#include "chrome/browser/browsing_data_server_bound_cert_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_appcache_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_database_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_indexed_db_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_local_storage_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_server_bound_cert_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/common/url_constants.h"
 #include "googleurl/src/gurl.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/cookies/canonical_cookie.h"
 
 LocalSharedObjectsContainer::LocalSharedObjectsContainer(Profile* profile)

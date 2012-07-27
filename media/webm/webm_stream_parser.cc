@@ -235,7 +235,8 @@ bool WebMStreamParser::Parse(const uint8* buf, int size) {
   int cur_size = 0;
 
   byte_queue_.Peek(&cur, &cur_size);
-  do {
+  while (cur_size > 0) {
+    State oldState = state_;
     switch (state_) {
       case kParsingHeaders:
         result = ParseInfoAndTracks(cur, cur_size);
@@ -255,10 +256,14 @@ bool WebMStreamParser::Parse(const uint8* buf, int size) {
       return false;
     }
 
+    if (state_ == oldState && result == 0)
+      break;
+
+    DCHECK_GE(result, 0);
     cur += result;
     cur_size -= result;
     bytes_parsed += result;
-  } while (result > 0 && cur_size > 0);
+  }
 
   byte_queue_.Pop(bytes_parsed);
   return true;
@@ -352,6 +357,7 @@ int WebMStreamParser::ParseInfoAndTracks(const uint8* data, int size) {
   if (tracks_parser.video_encryption_key_id()) {
     int key_id_size = tracks_parser.video_encryption_key_id_size();
     CHECK_GT(key_id_size, 0);
+    CHECK_LT(key_id_size, 2048);
     scoped_array<uint8> key_id(new uint8[key_id_size]);
     memcpy(key_id.get(), tracks_parser.video_encryption_key_id(), key_id_size);
     need_key_cb_.Run(key_id.Pass(), key_id_size);

@@ -5,13 +5,8 @@
 -->
 <html>
 <head>
-<script>
-function setCookie() {
-  var expire = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  document.cookie = 'isolation_guest=true ; path=/; expires=' + expire + ';';
-}
-</script>
 </head>
-<body onload="setCookie();">
+<body>
+Empty page, which will have cookies injected into by the browser test.
 </body>
 </html>

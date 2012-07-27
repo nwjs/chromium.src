@@ -16,6 +16,8 @@ SGI GLU library   src/glu/sgi/
 The license is in MesaLib/docs/license.html.
  
 Modifications made with initial commit:
+- Converted to utf-8 with: vim +"argdo write ++enc=utf-8" *.c
+
 - Added the file README.chromium (this file)
 
 Later modifications (see chromium.patch):
@@ -93,3 +95,6 @@ Later modifications (see chromium.patch):
   from gl_apinop.c.
   http://code.google.com/p/chromium/issues/detail?id=92568
   https://bugs.freedesktop.org/show_bug.cgi?id=40028
+
+- Merged fix for https://bugs.freedesktop.org/show_bug.cgi?id=51574
+  (commit b1802a2115323233352da558430e109ff187b8af)

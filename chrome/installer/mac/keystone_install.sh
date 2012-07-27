@@ -279,6 +279,104 @@ ensure_writable_symlinks_recursive() {
   fi
 }
 
+# is_version_ge accepts two version numbers, left and right, and performs a
+# piecewise comparison determining the result of left >= right, returning true
+# (0) if left >= right, and false (1) if left < right. If left or right are
+# missing components relative to the other, the missing components are assumed
+# to be 0, such that 10.6 == 10.6.0.
+is_version_ge() {
+  local left="${1}"
+  local right="${2}"
+
+  local -a left_array right_array
+  IFS=. left_array=(${left})
+  IFS=. right_array=(${right})
+
+  local left_count=${#left_array[@]}
+  local right_count=${#right_array[@]}
+  local count=${left_count}
+  if [[ ${right_count} -lt ${count} ]]; then
+    count=${right_count}
+  fi
+
+  # Compare the components piecewise, as long as there are corresponding
+  # components on each side. If left_element and right_element are unequal,
+  # a comparison can be made.
+  local index=0
+  while [[ ${index} -lt ${count} ]]; do
+    local left_element="${left_array[${index}]}"
+    local right_element="${right_array[${index}]}"
+    if [[ ${left_element} -gt ${right_element} ]]; then
+      return 0
+    elif [[ ${left_element} -lt ${right_element} ]]; then
+      return 1
+    fi
+    ((++index))
+  done
+
+  # If there are more components on the left than on the right, continue
+  # comparing, assuming 0 for each of the missing components on the right.
+  while [[ ${index} -lt ${left_count} ]]; do
+    local left_element="${left_array[${index}]}"
+    if [[ ${left_element} -gt 0 ]]; then
+      return 0
+    fi
+    ((++index))
+  done
+
+  # If there are more components on the right than on the left, continue
+  # comparing, assuming 0 for each of the missing components on the left.
+  while [[ ${index} -lt ${right_count} ]]; do
+    local right_element="${right_array[${index}]}"
+    if [[ ${right_element} -gt 0 ]]; then
+      return 1
+    fi
+    ((++index))
+  done
+
+  # Upon reaching this point, the two version numbers are semantically equal.
+  return 0
+}
+
+# Prints the OS version, as reported by sw_vers -productVersion, to stdout.
+# This function operates with "static" variables: it will only check the OS
+# version once per script run.
+g_checked_os_version=
+g_os_version=
+os_version() {
+  if [[ -z "${g_checked_os_version}" ]]; then
+    g_checked_os_version="y"
+    g_os_version="$(sw_vers -productVersion)"
+    note "g_os_version = ${g_os_version}"
+  fi
+  echo "${g_os_version}"
+  return 0
+}
+
+# Compares the running OS version against a supplied version number,
+# |check_version|, and returns 0 (true) if the running OS version is greater
+# than or equal to |check_version| according to a piece-wise comparison.
+# Returns 1 (false) if the running OS version number cannot be determined or
+# if |check_version| is greater than the running OS version. |check_version|
+# should be a string of the form "major.minor" or "major.minor.micro".
+is_os_version_ge() {
+  local check_version="${1}"
+
+  local os_version="$(os_version)"
+  is_version_ge "${os_version}" "${check_version}"
+
+  # The return value of is_version_ge is used as this function's return value.
+}
+
+# Returns 0 (true) if xattr supports -r for recursive operation.
+os_xattr_supports_r() {
+  # xattr -r is supported in Mac OS X 10.6.
+  is_os_version_ge 10.6
+
+  # The return value of is_os_version_ge is used as this function's return
+  # value.
+}
+
 # Prints the version of ksadmin, as reported by ksadmin --ksadmin-version, to
 # stdout.  This function operates with "static" variables: it will only check
 # the ksadmin version once per script run.  If ksadmin is old enough to not
@@ -290,6 +388,7 @@ ksadmin_version() {
   if [[ -z "${g_checked_ksadmin_version}" ]]; then
     g_checked_ksadmin_version="y"
     g_ksadmin_version="$(ksadmin --ksadmin-version || true)"
+    note "g_ksadmin_version = ${g_ksadmin_version}"
   fi
   echo "${g_ksadmin_version}"
   return 0
@@ -301,50 +400,14 @@ ksadmin_version() {
 # comparison.  Returns 1 (false) if the installed Keystone version number
 # cannot be determined or if |check_version| is greater than the installed
 # Keystone version.  |check_version| should be a string of the form
-# "major.minor.micro.build".  Returns 1 (false) if either |check_version| or
-# the Keystone version do not match this format.
-readonly KSADMIN_VERSION_RE="^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)\$"
+# "major.minor.micro.build".
 is_ksadmin_version_ge() {
   local check_version="${1}"
 
-  if ! [[ "${check_version}" =~ ${KSADMIN_VERSION_RE} ]]; then
-    return 1
-  fi
+  local ksadmin_version="$(ksadmin_version)"
+  is_version_ge "${ksadmin_version}" "${check_version}"
 
-  local check_components=("${BASH_REMATCH[1]}"
-                          "${BASH_REMATCH[2]}"
-                          "${BASH_REMATCH[3]}"
-                          "${BASH_REMATCH[4]}")
-
-  local ksadmin_version
-  ksadmin_version="$(ksadmin_version)"
-
-  if ! [[ "${ksadmin_version}" =~ ${KSADMIN_VERSION_RE} ]]; then
-    return 1
-  fi
-
-  local ksadmin_components=("${BASH_REMATCH[1]}"
-                            "${BASH_REMATCH[2]}"
-                            "${BASH_REMATCH[3]}"
-                            "${BASH_REMATCH[4]}")
-
-  local i
-  for i in "${!check_components[@]}"; do
-    local check_component="${check_components[${i}]}"
-    local ksadmin_component="${ksadmin_components[${i}]}"
-
-    if [[ ${ksadmin_component} -lt ${check_component} ]]; then
-      # ksadmin_version is less than check_version.
-      return 1
-    fi
-    if [[ ${ksadmin_component} -gt ${check_component} ]]; then
-      # ksadmin_version is greater than check_version.
-      return 0
-    fi
-  done
-
-  # The version numbers are equal.
-  return 0
+  # The return value of is_version_ge is used as this function's return value.
 }
 
 # Returns 0 (true) if ksadmin supports --tag.
@@ -386,6 +449,39 @@ ksadmin_supports_versionpath_versionkey() {
 
   # The return value of is_ksadmin_version_ge is used as this function's
   # return value.
+}
+
+# Runs "defaults read" to obtain the value of a key in a property list. As
+# with "defaults read", an absolute path to a plist is supplied, without the
+# ".plist" extension.
+#
+# As of Mac OS X 10.8, defaults (and NSUserDefaults and CFPreferences)
+# normally communicates with cfprefsd to read and write plists. Changes to a
+# plist file aren't necessarily reflected immediately via this API family when
+# not made through this API family, because cfprefsd may return cached data
+# from a former on-disk version of a plist file instead of reading the current
+# version from disk. The old behavior can be restored by setting the
+# __CFPREFERENCES_AVOID_DAEMON environment variable, although extreme care
+# should be used because portions of the system that use this API family
+# normally and thus use cfprefsd and its cache will become unsynchronized with
+# the on-disk state.
+#
+# This function is provided to set __CFPREFERENCES_AVOID_DAEMON when calling
+# "defaults read" and thus avoid cfprefsd and its on-disk cache, and is
+# intended only to be used to read values from Info.plist files, which are not
+# preferences. The use of "defaults" for this purpose has always been
+# questionable, but there's no better option to interact with plists from
+# shell scripts. Definitely don't use infoplist_read to read preference
+# plists.
+#
+# This function exists because the update process delivers new copies of
+# Info.plist files to the disk behind cfprefsd's back, and if cfprefsd becomes
+# aware of the original version of the file for any reason (such as this
+# script reading values from it via "defaults read"), the new version of the
+# file will not be immediately effective or visible via cfprefsd after the
+# update is applied.
+infoplist_read() {
+  __CFPREFERENCES_AVOID_DAEMON=1 defaults read "${@}"
 }
 
 usage() {
@@ -538,8 +634,8 @@ main() {
 
     local update_app_plist="${update_app}/${APP_PLIST}"
     note "update_app_plist = ${update_app_plist}"
-    if ! update_version_app="$(defaults read "${update_app_plist}" \
-                                             "${APP_VERSION_KEY}")" ||
+    if ! update_version_app="$(infoplist_read "${update_app_plist}" \
+                                              "${APP_VERSION_KEY}")" ||
        [[ -z "${update_version_app}" ]]; then
       err "couldn't determine update_version_app"
       exit 2
@@ -548,16 +644,16 @@ main() {
 
     local update_ks_plist="${update_app_plist}"
     note "update_ks_plist = ${update_ks_plist}"
-    if ! update_version_ks="$(defaults read "${update_ks_plist}" \
-                                            "${KS_VERSION_KEY}")" ||
+    if ! update_version_ks="$(infoplist_read "${update_ks_plist}" \
+                                             "${KS_VERSION_KEY}")" ||
        [[ -z "${update_version_ks}" ]]; then
       err "couldn't determine update_version_ks"
       exit 2
     fi
     note "update_version_ks = ${update_version_ks}"
 
-    if ! product_id="$(defaults read "${update_ks_plist}" \
-                                     "${KS_PRODUCT_KEY}")" ||
+    if ! product_id="$(infoplist_read "${update_ks_plist}" \
+                                      "${KS_PRODUCT_KEY}")" ||
        [[ -z "${product_id}" ]]; then
       err "couldn't determine product_id"
       exit 2
@@ -692,8 +788,8 @@ main() {
   local installed_app_plist_path="${installed_app_plist}.plist"
   note "installed_app_plist_path = ${installed_app_plist_path}"
   local old_version_app
-  old_version_app="$(defaults read "${installed_app_plist}" \
-                                   "${APP_VERSION_KEY}" || true)"
+  old_version_app="$(infoplist_read "${installed_app_plist}" \
+                                    "${APP_VERSION_KEY}" || true)"
   note "old_version_app = ${old_version_app}"
 
   # old_version_app is not required, because it won't be present in skeleton
@@ -728,8 +824,8 @@ main() {
   local old_ks_plist="${installed_app_plist}"
   note "old_ks_plist = ${old_ks_plist}"
   local old_brand
-  old_brand="$(defaults read "${old_ks_plist}" \
-                             "${KS_BRAND_KEY}" 2> /dev/null ||
+  old_brand="$(infoplist_read "${old_ks_plist}" \
+                              "${KS_BRAND_KEY}" 2> /dev/null ||
                true)"
   note "old_brand = ${old_brand}"
 
@@ -923,8 +1019,8 @@ main() {
   note "reading new values"
 
   local new_version_app
-  if ! new_version_app="$(defaults read "${installed_app_plist}" \
-                                        "${APP_VERSION_KEY}")" ||
+  if ! new_version_app="$(infoplist_read "${installed_app_plist}" \
+                                         "${APP_VERSION_KEY}")" ||
      [[ -z "${new_version_app}" ]]; then
     err "couldn't determine new_version_app"
     exit 9
@@ -938,8 +1034,8 @@ main() {
   note "new_ks_plist = ${new_ks_plist}"
 
   local new_version_ks
-  if ! new_version_ks="$(defaults read "${new_ks_plist}" \
-                                       "${KS_VERSION_KEY}")" ||
+  if ! new_version_ks="$(infoplist_read "${new_ks_plist}" \
+                                        "${KS_VERSION_KEY}")" ||
      [[ -z "${new_version_ks}" ]]; then
     err "couldn't determine new_version_ks"
     exit 9
@@ -947,7 +1043,7 @@ main() {
   note "new_version_ks = ${new_version_ks}"
 
   local update_url
-  if ! update_url="$(defaults read "${new_ks_plist}" "${KS_URL_KEY}")" ||
+  if ! update_url="$(infoplist_read "${new_ks_plist}" "${KS_URL_KEY}")" ||
      [[ -z "${update_url}" ]]; then
     err "couldn't determine update_url"
     exit 9
@@ -957,8 +1053,8 @@ main() {
   # The channel ID is optional.  Suppress stderr to prevent Keystone from
   # seeing possible error output.
   local channel
-  channel="$(defaults read "${new_ks_plist}" "${KS_CHANNEL_KEY}" 2> /dev/null ||
-             true)"
+  channel="$(infoplist_read "${new_ks_plist}" \
+                            "${KS_CHANNEL_KEY}" 2> /dev/null || true)"
   note "channel = ${channel}"
 
   # Make sure that the update was successful by comparing the version found in
@@ -979,7 +1075,7 @@ main() {
   note "cs_fwk = ${cs_fwk}"
   note "ls_fwk = ${ls_fwk}"
   note "lsregister = ${lsregister}"
-  "${lsregister}" "${installed_app}" > /dev/null || true
+  "${lsregister}" -f "${installed_app}" > /dev/null || true
 
   # The brand information is stored differently depending on whether this is
   # running for a system or user ticket.
@@ -1230,21 +1326,6 @@ main() {
   find "${installed_app}" -type l -exec chmod -h "${chmod_mode}" {} + \
       2> /dev/null
 
-  # Host OS version check, to be able to take advantage of features on newer
-  # systems and fall back to slow ways of doing things on older systems.
-  local os_version
-  os_version="$(sw_vers -productVersion)"
-  note "os_version = ${os_version}"
-
-  local os_major=0
-  local os_minor=0
-  if [[ "${os_version}" =~ ^([0-9]+)\.([0-9]+) ]]; then
-    os_major="${BASH_REMATCH[1]}"
-    os_minor="${BASH_REMATCH[2]}"
-  fi
-  note "os_major = ${os_major}"
-  note "os_minor = ${os_minor}"
-
   # If an update is triggered from within the application itself, the update
   # process inherits the quarantine bit (LSFileQuarantineEnabled).  Any files
   # or directories created during the update will be quarantined in that case,
@@ -1260,8 +1341,7 @@ main() {
   # the application.
   note "lifting quarantine"
 
-  if [[ ${os_major} -gt 10 ]] ||
-     ([[ ${os_major} -eq 10 ]] && [[ ${os_minor} -ge 6 ]]); then
+  if os_xattr_supports_r; then
     # On 10.6, xattr supports -r for recursive operation.
     xattr -d -r "${QUARANTINE_ATTR}" "${installed_app}" 2> /dev/null
   else
@@ -1291,8 +1371,8 @@ main() {
 
   if [[ -z "${system_ticket}" ]]; then
     local new_bundleid_app
-    new_bundleid_app="$(defaults read "${installed_app_plist}" \
-                                      "${APP_BUNDLEID_KEY}" || true)"
+    new_bundleid_app="$(infoplist_read "${installed_app_plist}" \
+                                       "${APP_BUNDLEID_KEY}" || true)"
     note "new_bundleid_app = ${new_bundleid_app}"
 
     local keychain_reauthorize_dir="\

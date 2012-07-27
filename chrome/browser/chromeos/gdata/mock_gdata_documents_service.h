@@ -77,8 +77,28 @@ class MockDocumentsService : public DocumentsServiceInterface {
   MOCK_METHOD3(AuthorizeApp, void(const GURL& resource_url,
                                   const std::string& app_ids,
                                   const GetDataCallback& callback));
+  MOCK_CONST_METHOD0(HasAccessToken, bool());
+  MOCK_CONST_METHOD0(HasRefreshToken, bool());
 
+  void set_account_metadata(base::Value* account_metadata) {
+    feed_data_.reset(account_metadata);
+  }
 
+  void set_feed_data(base::Value* feed_data) {
+    feed_data_.reset(feed_data);
+  }
+
+  void set_directory_data(base::Value* directory_data) {
+    directory_data_.reset(directory_data);
+  }
+
+  void set_file_data(std::string* file_data) {
+    file_data_.reset(file_data);
+  }
+
+  void set_search_result(const std::string& search_result_feed);
+
+ private:
   // Helper stub methods for functions which take callbacks, so that
   // the callbacks get called with testable results.
 
@@ -148,23 +168,6 @@ class MockDocumentsService : public DocumentsServiceInterface {
       const DownloadActionCallback& download_action_callback,
       const GetDownloadDataCallback& get_download_data_callback);
 
-  void set_account_metadata(base::Value* account_metadata) {
-    feed_data_.reset(account_metadata);
-  }
-
-  void set_feed_data(base::Value* feed_data) {
-    feed_data_.reset(feed_data);
-  }
-
-  void set_directory_data(base::Value* directory_data) {
-    directory_data_.reset(directory_data);
-  }
-
-  void set_file_data(std::string* file_data) {
-    file_data_.reset(file_data);
-  }
-
- private:
   // Account meta data to be returned from GetAccountMetadata.
   scoped_ptr<base::Value> account_metadata_;
 

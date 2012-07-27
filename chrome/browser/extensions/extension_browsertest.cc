@@ -36,6 +36,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/test/browser_test_utils.h"
 
 using extensions::Extension;
 using extensions::ExtensionCreator;
@@ -84,7 +85,7 @@ const Extension* ExtensionBrowserTest::LoadExtensionWithOptions(
         extensions::UnpackedInstaller::Create(service));
     installer->set_prompt_for_plugins(false);
     installer->Load(path);
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   // Find the loaded extension by its path. See crbug.com/59531 for why
@@ -115,7 +116,7 @@ const Extension* ExtensionBrowserTest::LoadExtensionWithOptions(
   // incognito disabled and file access enabled, so we don't wait in those
   // cases.
   {
-    ui_test_utils::WindowedNotificationObserver load_signal(
+    content::WindowedNotificationObserver load_signal(
         chrome::NOTIFICATION_EXTENSION_LOADED,
         content::Source<Profile>(browser()->profile()));
     CHECK(!service->IsIncognitoEnabled(extension_id));
@@ -129,7 +130,7 @@ const Extension* ExtensionBrowserTest::LoadExtensionWithOptions(
   }
 
   {
-    ui_test_utils::WindowedNotificationObserver load_signal(
+    content::WindowedNotificationObserver load_signal(
         chrome::NOTIFICATION_EXTENSION_LOADED,
         content::Source<Profile>(browser()->profile()));
     CHECK(service->AllowFileAccess(extension));
@@ -244,7 +245,7 @@ class MockAbortExtensionInstallPrompt : public ExtensionInstallPrompt {
 
   virtual void OnInstallSuccess(const Extension* extension, SkBitmap* icon) {}
 
-  virtual void OnInstallFailure(const CrxInstallerError& error) {}
+  virtual void OnInstallFailure(const extensions::CrxInstallerError& error) {}
 };
 
 class MockAutoConfirmExtensionInstallPrompt : public ExtensionInstallPrompt {
@@ -311,22 +312,22 @@ const Extension* ExtensionBrowserTest::InstallOrUpdateExtension(
     if (crx_path.empty())
       return NULL;
 
-    scoped_refptr<CrxInstaller> installer(
-        CrxInstaller::Create(service, install_ui));
+    scoped_refptr<extensions::CrxInstaller> installer(
+        extensions::CrxInstaller::Create(service, install_ui));
     installer->set_expected_id(id);
     installer->set_is_gallery_install(from_webstore);
     if (!from_webstore) {
       installer->set_off_store_install_allow_reason(
-          CrxInstaller::OffStoreInstallAllowedInTest);
+          extensions::CrxInstaller::OffStoreInstallAllowedInTest);
     }
 
     content::NotificationRegistrar registrar;
     registrar.Add(this, chrome::NOTIFICATION_CRX_INSTALLER_DONE,
-                  content::Source<CrxInstaller>(installer.get()));
+                  content::Source<extensions::CrxInstaller>(installer.get()));
 
     installer->InstallCrx(crx_path);
 
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   size_t num_after = service->extensions()->size();
@@ -422,7 +423,7 @@ bool ExtensionBrowserTest::WaitForExtensionViewsToLoad() {
     if (!(*iter)->IsLoading()) {
       ++iter;
     } else {
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
 
       // Test activity may have modified the set of extension processes during
       // message processing, so re-start the iteration to catch added/removed
@@ -490,10 +491,10 @@ void ExtensionBrowserTest::OpenWindow(content::WebContents* contents,
                                       const GURL& url,
                                       bool newtab_process_should_equal_opener,
                                       content::WebContents** newtab_result) {
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
+  ASSERT_TRUE(content::ExecuteJavaScript(
       contents->GetRenderViewHost(), L"",
       L"window.open('" + UTF8ToWide(url.spec()) + L"');"));
 
@@ -518,10 +519,10 @@ void ExtensionBrowserTest::OpenWindow(content::WebContents* contents,
 void ExtensionBrowserTest::NavigateInRenderer(content::WebContents* contents,
                                               const GURL& url) {
   bool result = false;
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       contents->GetRenderViewHost(), L"",
       L"window.addEventListener('unload', function() {"
       L"    window.domAutomationController.send(true);"

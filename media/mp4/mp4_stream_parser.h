@@ -5,6 +5,8 @@
 #ifndef MEDIA_MP4_MP4_STREAM_PARSER_H_
 #define MEDIA_MP4_MP4_STREAM_PARSER_H_
 
+#include <vector>
+
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/compiler_specific.h"
@@ -22,7 +24,7 @@ class BoxReader;
 
 class MEDIA_EXPORT MP4StreamParser : public StreamParser {
  public:
-  MP4StreamParser();
+  MP4StreamParser(bool has_sbr);
   virtual ~MP4StreamParser();
 
   virtual void Init(const InitCB& init_cb, const NewConfigCB& config_cb,
@@ -45,11 +47,16 @@ class MEDIA_EXPORT MP4StreamParser : public StreamParser {
   bool ParseMoov(mp4::BoxReader* reader);
   bool ParseMoof(mp4::BoxReader* reader);
 
+  bool EmitKeyNeeded(const TrackEncryption& track_encryption);
+
   bool ReadMDATsUntil(const int64 tgt_tail);
 
   void ChangeState(State new_state);
 
   bool EmitConfigs();
+  bool PrepareAVCBuffer(const AVCDecoderConfigurationRecord& avc_config,
+                        std::vector<uint8>* frame_buf,
+                        std::vector<SubsampleEntry>* subsamples) const;
   bool EnqueueSample(BufferQueue* audio_buffers,
                      BufferQueue* video_buffers,
                      bool* err);
@@ -83,6 +90,7 @@ class MEDIA_EXPORT MP4StreamParser : public StreamParser {
   bool has_video_;
   uint32 audio_track_id_;
   uint32 video_track_id_;
+  bool has_sbr_;
 
   DISALLOW_COPY_AND_ASSIGN(MP4StreamParser);
 };

@@ -15,6 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
 #include "base/timer.h"
+#include "base/values.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/sessions/session_id.h"
 #include "chrome/common/net/gaia/oauth2_access_token_consumer.h"
@@ -27,11 +28,8 @@ class OAuth2AccessTokenFetcher;
 class Browser;
 class CloudPrintURL;
 class MockChromeToMobileService;
+class PrefService;
 class Profile;
-
-namespace base {
-class DictionaryValue;
-}
 
 namespace net {
 class URLFetcher;
@@ -100,14 +98,20 @@ class ChromeToMobileService : public ProfileKeyedService,
   // 'enable' command line switches, otherwise relay the default enabled state.
   static bool IsChromeToMobileEnabled();
 
+  // Register the user prefs associated with this service.
+  static void RegisterUserPrefs(PrefService* prefs);
+
   explicit ChromeToMobileService(Profile* profile);
   virtual ~ChromeToMobileService();
 
   // Returns true if the service has found any registered mobile devices.
-  bool HasDevices();
+  bool HasMobiles();
 
-  // Get the list of mobile devices.
-  const std::vector<base::DictionaryValue*>& mobiles();
+  // Get the non-NULL ListValue of mobile devices from the cloud print service.
+  // The list is owned by PrefService, which outlives ChromeToMobileService.
+  // Each device DictionaryValue contains strings "type", "name", and "id".
+  // Virtual for unit test mocking.
+  virtual const base::ListValue* GetMobiles() const;
 
   // Request an updated mobile device list, request auth first if needed.
   // Virtual for unit test mocking.
@@ -145,7 +149,8 @@ class ChromeToMobileService : public ProfileKeyedService,
                        const content::NotificationDetails& details) OVERRIDE;
 
   // OAuth2AccessTokenConsumer methods.
-  virtual void OnGetTokenSuccess(const std::string& access_token) OVERRIDE;
+  virtual void OnGetTokenSuccess(const std::string& access_token,
+                                 const base::Time& expiration_time) OVERRIDE;
   virtual void OnGetTokenFailure(const GoogleServiceAuthError& error) OVERRIDE;
 
  private:
@@ -192,9 +197,6 @@ class ChromeToMobileService : public ProfileKeyedService,
   scoped_ptr<CloudPrintURL> cloud_print_url_;
   std::string access_token_;
 
-  // The list of mobile devices retrieved from the cloud print service.
-  ScopedVector<base::DictionaryValue> mobiles_;
-
   // The set of snapshots currently available.
   std::set<FilePath> snapshots_;
 
@@ -211,9 +213,8 @@ class ChromeToMobileService : public ProfileKeyedService,
   scoped_ptr<net::URLFetcher> account_info_request_;
   bool cloud_print_accessible_;
 
-  // The pending mobile device search request; and the time of the last request.
+  // The pending mobile device search request.
   scoped_ptr<net::URLFetcher> search_request_;
-  base::TimeTicks previous_search_time_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeToMobileService);
 };

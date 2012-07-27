@@ -42,7 +42,7 @@ class OffTheRecordProfileImpl : public Profile,
   virtual ExtensionService* GetExtensionService() OVERRIDE;
   virtual extensions::UserScriptMaster* GetUserScriptMaster() OVERRIDE;
   virtual ExtensionProcessManager* GetExtensionProcessManager() OVERRIDE;
-  virtual ExtensionEventRouter* GetExtensionEventRouter() OVERRIDE;
+  virtual extensions::EventRouter* GetExtensionEventRouter() OVERRIDE;
   virtual ExtensionSpecialStoragePolicy*
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
@@ -66,7 +66,6 @@ class OffTheRecordProfileImpl : public Profile,
   virtual history::TopSites* GetTopSites() OVERRIDE;
   virtual void MarkAsCleanShutdown() OVERRIDE;
   virtual void InitPromoResources() OVERRIDE;
-  virtual void InitRegisteredProtocolHandlers() OVERRIDE;
   virtual FilePath last_selected_directory() OVERRIDE;
   virtual void set_last_selected_directory(const FilePath& path) OVERRIDE;
   virtual bool WasCreatedByVersionOrLater(const std::string& version) OVERRIDE;

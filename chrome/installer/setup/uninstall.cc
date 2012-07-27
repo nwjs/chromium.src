@@ -6,11 +6,14 @@
 
 #include "chrome/installer/setup/uninstall.h"
 
+#include <windows.h>
+
 #include <vector>
 
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
+#include "base/string16.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -49,6 +52,23 @@ using installer::MasterPreferences;
 
 namespace {
 
+// Avoid leaving behind a Temp dir.  If one exists, ask SelfCleaningTempDir to
+// clean it up for us.  This may involve scheduling it for deletion after
+// reboot.  Don't report that a reboot is required in this case, however.
+// TODO(erikwright): Shouldn't this still lead to
+// ScheduleParentAndGrandparentForDeletion?
+void DeleteInstallTempDir(const FilePath& target_path) {
+  FilePath temp_path(target_path.DirName().Append(installer::kInstallTempDir));
+  if (file_util::DirectoryExists(temp_path)) {
+    installer::SelfCleaningTempDir temp_dir;
+    if (!temp_dir.Initialize(target_path.DirName(),
+                             installer::kInstallTempDir) ||
+        !temp_dir.Delete()) {
+      LOG(ERROR) << "Failed to delete temp dir " << temp_path.value();
+    }
+  }
+}
+
 // Makes appropriate changes to the Google Update "ap" value in the registry.
 // Specifically, removes the flags associated with this product ("-chrome" or
 // "-chromeframe[-readymode]") from the "ap" values for all other
@@ -72,17 +92,15 @@ void ProcessGoogleUpdateItems(
 
   // Apply the new channel value to all other products and to the multi package.
   if (modified) {
-    BrowserDistribution::Type other_dist_types[] = {
-        (distribution->GetType() == BrowserDistribution::CHROME_BROWSER) ?
-            BrowserDistribution::CHROME_FRAME :
-            BrowserDistribution::CHROME_BROWSER,
-        BrowserDistribution::CHROME_BINARIES
-    };
     scoped_ptr<WorkItemList>
         update_list(WorkItem::CreateNoRollbackWorkItemList());
 
-    for (int i = 0; i < arraysize(other_dist_types); ++i) {
-      BrowserDistribution::Type other_dist_type = other_dist_types[i];
+    for (size_t i = 0; i < BrowserDistribution::NUM_TYPES; ++i) {
+      BrowserDistribution::Type other_dist_type =
+          static_cast<BrowserDistribution::Type>(i);
+      if (distribution->GetType() == other_dist_type)
+        continue;
+
       product_state =
           original_state.GetProductState(system_level, other_dist_type);
       // Only modify other products if they're installed and multi.
@@ -117,8 +135,11 @@ void ProcessQuickEnableWorkItems(
   scoped_ptr<WorkItemList> work_item_list(
       WorkItem::CreateNoRollbackWorkItemList());
 
-  AddQuickEnableWorkItems(installer_state, machine_state, NULL, NULL,
-                          work_item_list.get());
+  AddQuickEnableChromeFrameWorkItems(installer_state, machine_state, NULL, NULL,
+                                     work_item_list.get());
+
+  AddQuickEnableApplicationHostWorkItems(installer_state, machine_state, NULL,
+                                         NULL, work_item_list.get());
   if (!work_item_list->Do())
     LOG(ERROR) << "Failed to update quick-enable-cf command.";
 }
@@ -396,44 +417,80 @@ bool MoveSetupOutOfInstallFolder(const InstallerState& installer_state,
   return ret;
 }
 
-DeleteResult DeleteFilesAndFolders(const InstallerState& installer_state,
-                                   const Version& installed_version) {
+DeleteResult DeleteAppHostFilesAndFolders(const InstallerState& installer_state,
+                                          const Version& installed_version) {
   const FilePath& target_path = installer_state.target_path();
   if (target_path.empty()) {
-    LOG(ERROR) << "DeleteFilesAndFolders: no installation destination path.";
+    LOG(ERROR) << "DeleteAppHostFilesAndFolders: no installation destination "
+               << "path.";
     return DELETE_FAILED;  // Nothing else we can do to uninstall, so we return.
   }
 
+  DeleteInstallTempDir(target_path);
+
   DeleteResult result = DELETE_SUCCEEDED;
 
-  // Avoid leaving behind a Temp dir.  If one exists, ask SelfCleaningTempDir to
-  // clean it up for us.  This may involve scheduling it for deletion after
-  // reboot.  Don't report that a reboot is required in this case, however.
-  FilePath temp_path(target_path.DirName().Append(kInstallTempDir));
-  if (file_util::DirectoryExists(temp_path)) {
-    installer::SelfCleaningTempDir temp_dir;
-    if (!temp_dir.Initialize(target_path.DirName(), kInstallTempDir) ||
-        !temp_dir.Delete()) {
-      LOG(ERROR) << "Failed to delete temp dir " << temp_path.value();
-    }
+  FilePath app_host_exe(target_path.Append(installer::kChromeAppHostExe));
+  if (!file_util::Delete(app_host_exe, false)) {
+    result = DELETE_FAILED;
+    LOG(ERROR) << "Failed to delete path: " << app_host_exe.value();
+  } else {
+    DeleteEmptyParentDir(target_path);
   }
 
-  VLOG(1) << "Deleting install path " << target_path.value();
-  if (!file_util::Delete(target_path, true)) {
-    LOG(ERROR) << "Failed to delete folder (1st try): " << target_path.value();
-    if (installer_state.FindProduct(BrowserDistribution::CHROME_FRAME)) {
-      // We don't try killing Chrome processes for Chrome Frame builds since
-      // that is unlikely to help. Instead, schedule files for deletion and
-      // return a value that will trigger a reboot prompt.
-      ScheduleDirectoryForDeletion(target_path.value().c_str());
-      result = DELETE_REQUIRES_REBOOT;
-    } else {
-      // Try closing any running chrome processes and deleting files once again.
-      CloseAllChromeProcesses();
-      if (!file_util::Delete(target_path, true)) {
-        LOG(ERROR) << "Failed to delete folder (2nd try): "
-                   << target_path.value();
-        result = DELETE_FAILED;
+  return result;
+}
+
+DeleteResult DeleteChromeFilesAndFolders(const InstallerState& installer_state,
+                                         const Version& installed_version) {
+  const FilePath& target_path = installer_state.target_path();
+  if (target_path.empty()) {
+    LOG(ERROR) << "DeleteChromeFilesAndFolders: no installation destination "
+               << "path.";
+    return DELETE_FAILED;  // Nothing else we can do to uninstall, so we return.
+  }
+
+  DeleteInstallTempDir(target_path);
+
+  DeleteResult result = DELETE_SUCCEEDED;
+
+  using file_util::FileEnumerator;
+  FileEnumerator file_enumerator(
+      target_path,
+      false,
+      static_cast<FileEnumerator::FileType>(FileEnumerator::FILES |
+                                            FileEnumerator::DIRECTORIES));
+  while (true) {
+    FilePath to_delete(file_enumerator.Next());
+    if (to_delete.empty())
+      break;
+    if (to_delete.BaseName().value() == installer::kChromeAppHostExe)
+      continue;
+
+    VLOG(1) << "Deleting install path " << target_path.value();
+    if (!file_util::Delete(to_delete, true)) {
+      LOG(ERROR) << "Failed to delete path (1st try): " << to_delete.value();
+      if (installer_state.FindProduct(BrowserDistribution::CHROME_FRAME)) {
+        // We don't try killing Chrome processes for Chrome Frame builds since
+        // that is unlikely to help. Instead, schedule files for deletion and
+        // return a value that will trigger a reboot prompt.
+        FileEnumerator::FindInfo find_info;
+        file_enumerator.GetFindInfo(&find_info);
+        if (FileEnumerator::IsDirectory(find_info))
+          ScheduleDirectoryForDeletion(to_delete.value().c_str());
+        else
+          ScheduleFileSystemEntityForDeletion(to_delete.value().c_str());
+        result = DELETE_REQUIRES_REBOOT;
+      } else {
+        // Try closing any running Chrome processes and deleting files once
+        // again.
+        CloseAllChromeProcesses();
+        if (!file_util::Delete(to_delete, true)) {
+          LOG(ERROR) << "Failed to delete path (2nd try): "
+                     << to_delete.value();
+          result = DELETE_FAILED;
+          break;
+        }
       }
     }
   }
@@ -497,7 +554,7 @@ bool ShouldDeleteProfile(const InstallerState& installer_state,
   // UI to prompt otherwise and the profile stores no useful data anyway)
   // unless they are managed by MSI. MSI uninstalls will explicitly include
   // the --delete-profile flag to distinguish them from MSI upgrades.
-  if (!product.is_chrome() && !installer_state.is_msi()) {
+  if (product.is_chrome_frame() && !installer_state.is_msi()) {
     should_delete = true;
   } else {
     should_delete =
@@ -683,6 +740,128 @@ bool ProcessDelegateExecuteWorkItems(const InstallerState& installer_state,
   return item_list->Do();
 }
 
+// Removes Active Setup entries from the registry. This cannot be done through
+// a work items list as usual because of different paths based on conditionals,
+// but otherwise respects the no rollback/best effort uninstall mentality.
+// This will only apply for system-level installs of Chrome/Chromium and will be
+// a no-op for all other types of installs.
+void UninstallActiveSetupEntries(const InstallerState& installer_state,
+                                 const Product& product) {
+  VLOG(1) << "Uninstalling registry entries for ActiveSetup.";
+  BrowserDistribution* distribution = product.distribution();
+
+  if (!product.is_chrome() || !installer_state.system_install()) {
+    const char* install_level =
+        installer_state.system_install() ? "system" : "user";
+    VLOG(1) << "No Active Setup processing to do for " << install_level
+            << "-level " << distribution->GetAppShortCutName();
+    return;
+  }
+
+  const string16 active_setup_path(GetActiveSetupPath(distribution));
+  InstallUtil::DeleteRegistryKey(HKEY_LOCAL_MACHINE, active_setup_path);
+
+  // Windows leaves keys behind in HKCU\\Software\\(Wow6432Node\\)?Microsoft\\
+  //     Active Setup\\Installed Components\\{guid}
+  // for every user that logged in since system-level Chrome was installed.
+  // This is a problem because Windows compares the value of the Version subkey
+  // in there with the value of the Version subkey in the matching HKLM entries
+  // before running Chrome's Active Setup so if Chrome was to be reinstalled
+  // with a lesser version (e.g. switching back to a more stable channel), the
+  // affected users would not have Chrome's Active Setup called until Chrome
+  // eventually updated passed that user's registered Version.
+  //
+  // It is however very hard to delete those values as the registry hives for
+  // other users are not loaded by default under HKEY_USERS (unless a user is
+  // logged on or has a process impersonating him).
+  //
+  // Following our best effort uninstall practices, try to delete the value in
+  // all users hives. If a given user's hive is not loaded, try to load it to
+  // proceed with the deletion (failure to do so is ignored).
+
+  static const wchar_t kProfileList[] =
+      L"Software\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList\\";
+
+  // Windows automatically adds Wow6432Node when creating/deleting the HKLM key,
+  // but doesn't seem to do so when manually deleting the user-level keys it
+  // created.
+  string16 alternate_active_setup_path(active_setup_path);
+  alternate_active_setup_path.insert(arraysize("Software\\") - 1,
+                                     L"Wow6432Node\\");
+
+  // These two privileges are required by RegLoadKey() and RegUnloadKey() below.
+  ScopedTokenPrivilege se_restore_name_privilege(SE_RESTORE_NAME);
+  ScopedTokenPrivilege se_backup_name_privilege(SE_BACKUP_NAME);
+  if (!se_restore_name_privilege.is_enabled() ||
+      !se_backup_name_privilege.is_enabled()) {
+    // This is not a critical failure as those privileges aren't required to
+    // clean hives that are already loaded, but attempts to LoadRegKey() below
+    // will fail.
+    LOG(WARNING) << "Failed to enable privileges required to load registry "
+                    "hives.";
+  }
+
+  for (base::win::RegistryKeyIterator it(HKEY_LOCAL_MACHINE, kProfileList);
+       it.Valid(); ++it) {
+    const wchar_t* profile_sid = it.Name();
+
+    // First check if this user's registry hive needs to be loaded in
+    // HKEY_USERS.
+    base::win::RegKey user_reg_root_probe(
+        HKEY_USERS, profile_sid, KEY_READ);
+    bool loaded_hive = false;
+    if (!user_reg_root_probe.Valid()) {
+      VLOG(1) << "Attempting to load registry hive for " << profile_sid;
+
+      string16 reg_profile_info_path(kProfileList);
+      reg_profile_info_path.append(profile_sid);
+      base::win::RegKey reg_profile_info_key(
+          HKEY_LOCAL_MACHINE, reg_profile_info_path.c_str(), KEY_READ);
+
+      string16 profile_path;
+      LONG result = reg_profile_info_key.ReadValue(L"ProfileImagePath",
+                                                   &profile_path);
+      if (result != ERROR_SUCCESS) {
+        LOG(ERROR) << "Error reading ProfileImagePath: " << result;
+        continue;
+      }
+      FilePath registry_hive_file(profile_path);
+      registry_hive_file = registry_hive_file.AppendASCII("NTUSER.DAT");
+
+      result = RegLoadKey(HKEY_USERS, profile_sid,
+                          registry_hive_file.value().c_str());
+      if (result != ERROR_SUCCESS) {
+        LOG(ERROR) << "Error loading registry hive: " << result;
+        continue;
+      }
+
+      VLOG(1) << "Loaded registry hive for " << profile_sid;
+      loaded_hive = true;
+    }
+
+    base::win::RegKey user_reg_root(
+        HKEY_USERS, profile_sid, KEY_ALL_ACCESS);
+
+    LONG result = user_reg_root.DeleteKey(active_setup_path.c_str());
+    if (result != ERROR_SUCCESS) {
+      result = user_reg_root.DeleteKey(alternate_active_setup_path.c_str());
+      if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND) {
+        LOG(ERROR) << "Failed to delete key at " << active_setup_path
+                   << " and at " << alternate_active_setup_path
+                   << ", result: " << result;
+      }
+    }
+
+    if (loaded_hive) {
+      user_reg_root.Close();
+      if (RegUnLoadKey(HKEY_USERS, profile_sid) == ERROR_SUCCESS)
+        VLOG(1) << "Unloaded registry hive for " << profile_sid;
+      else
+        LOG(ERROR) << "Error unloading registry hive for " << profile_sid;
+    }
+  }
+}
+
 bool ProcessChromeFrameWorkItems(const InstallationState& original_state,
                                  const InstallerState& installer_state,
                                  const FilePath& setup_path,
@@ -764,10 +943,10 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
 
     auto_launch_util::DisableAllAutoStartFeatures(
         ASCIIToUTF16(chrome::kInitialProfile));
-  }
 
-  // First delete shortcuts from Start->Programs, Desktop & Quick Launch.
-  DeleteChromeShortcuts(installer_state, product);
+    // First delete shortcuts from Start->Programs, Desktop & Quick Launch.
+    DeleteChromeShortcuts(installer_state, product);
+  }
 
   // Delete the registry keys (Uninstall key and Version key).
   HKEY reg_root = installer_state.root_key();
@@ -776,8 +955,13 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   // product.GetVersionKey().
   string16 distribution_data(browser_dist->GetDistributionData(reg_root));
 
-  // Remove Control Panel uninstall link and Omaha product key.
-  InstallUtil::DeleteRegistryKey(reg_root, browser_dist->GetUninstallRegPath());
+  // Remove Control Panel uninstall link.
+  if (product.ShouldCreateUninstallEntry()) {
+    InstallUtil::DeleteRegistryKey(reg_root,
+                                   browser_dist->GetUninstallRegPath());
+  }
+
+  // Remove Omaha product key.
   InstallUtil::DeleteRegistryKey(reg_root, browser_dist->GetVersionKey());
 
   // Also try to delete the MSI value in the ClientState key (it might not be
@@ -786,61 +970,66 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   // being picked up on reinstall.
   product.SetMsiMarker(installer_state.system_install(), false);
 
-  // Remove all Chrome registration keys.
-  // Registration data is put in HKCU for both system level and user level
-  // installs.
   InstallStatus ret = installer::UNKNOWN_STATUS;
-  DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, suffix,
-                               installer_state.target_path(), &ret);
 
-  // If the user's Chrome is registered with a suffix: it is possible that old
-  // unsuffixed registrations were left in HKCU (e.g. if this install was
-  // previously installed with no suffix in HKCU (old suffix rules if the user
-  // is not an admin (or declined UAC at first run)) and later had to be
-  // suffixed when fully registered in HKLM (e.g. when later making Chrome
-  // default through the UI)).
-  // Remove remaining HKCU entries with no suffix if any.
-  if (!suffix.empty()) {
-    DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, string16(),
+  if (is_chrome) {
+    // Remove all Chrome registration keys.
+    // Registration data is put in HKCU for both system level and user level
+    // installs.
+    DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, suffix,
                                  installer_state.target_path(), &ret);
 
-    // For similar reasons it is possible in very few installs (from 21.0.1180.0
-    // and fixed shortly after) to be installed with the new-style suffix, but
-    // have some old-style suffix registrations left behind.
-    string16 old_style_suffix;
-    if (ShellUtil::GetOldUserSpecificRegistrySuffix(&old_style_suffix) &&
-        suffix != old_style_suffix) {
-      DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER,
-                                   old_style_suffix,
+    // If the user's Chrome is registered with a suffix: it is possible that old
+    // unsuffixed registrations were left in HKCU (e.g. if this install was
+    // previously installed with no suffix in HKCU (old suffix rules if the user
+    // is not an admin (or declined UAC at first run)) and later had to be
+    // suffixed when fully registered in HKLM (e.g. when later making Chrome
+    // default through the UI)).
+    // Remove remaining HKCU entries with no suffix if any.
+    if (!suffix.empty()) {
+      DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER, string16(),
+                                   installer_state.target_path(), &ret);
+
+      // For similar reasons it is possible in very few installs (from
+      // 21.0.1180.0 and fixed shortly after) to be installed with the new-style
+      // suffix, but have some old-style suffix registrations left behind.
+      string16 old_style_suffix;
+      if (ShellUtil::GetOldUserSpecificRegistrySuffix(&old_style_suffix) &&
+          suffix != old_style_suffix) {
+        DeleteChromeRegistrationKeys(browser_dist, HKEY_CURRENT_USER,
+                                     old_style_suffix,
+                                     installer_state.target_path(), &ret);
+      }
+    }
+
+    // Chrome is registered in HKLM for all system-level installs and for
+    // user-level installs for which Chrome has been made the default browser.
+    // Always remove the HKLM registration for system-level installs.  For
+    // user-level installs, only remove it if both: 1) this uninstall isn't a
+    // self destruct following the installation of a system-level Chrome
+    // (because the system-level Chrome owns the HKLM registration now), and 2)
+    // this user has made Chrome their default browser (i.e. has shell
+    // integration entries registered with |suffix| (note: |suffix| will be the
+    // empty string if required as it is obtained by
+    // GetCurrentInstallationSuffix() above)).
+    // TODO(gab): This can still leave parts of a suffixed install behind. To be
+    // able to remove them we would need to be able to remove only suffixed
+    // entries (as it is now some of the shell integration entries are
+    // unsuffixed; thus removing suffixed installs is prohibited in HKLM if
+    // !|remove_all| for now).
+    if (installer_state.system_install() ||
+        (remove_all &&
+         ShellUtil::QuickIsChromeRegisteredInHKLM(
+             browser_dist, chrome_exe, suffix))) {
+      DeleteChromeRegistrationKeys(browser_dist, HKEY_LOCAL_MACHINE, suffix,
                                    installer_state.target_path(), &ret);
     }
+
+    ProcessDelegateExecuteWorkItems(installer_state, product);
+    UninstallActiveSetupEntries(installer_state, product);
   }
 
-  // Chrome is registered in HKLM for all system-level installs and for
-  // user-level installs for which Chrome has been made the default browser.
-  // Always remove the HKLM registration for system-level installs.  For
-  // user-level installs, only remove it if both: 1) this uninstall isn't a self
-  // destruct following the installation of a system-level Chrome (because the
-  // system-level Chrome owns the HKLM registration now), and 2) this user has
-  // made Chrome their default browser (i.e. has shell integration entries
-  // registered with |suffix| (note: |suffix| will be the empty string if
-  // required as it is obtained by GetCurrentInstallationSuffix() above)).
-  // TODO(gab): This can still leave parts of a suffixed install behind. To be
-  // able to remove them we would need to be able to remove only suffixed
-  // entries (as it is now some of the shell integration entries are unsuffixed;
-  // thus removing suffixed installs is prohibited in HKLM if !|remove_all| for
-  // now).
-  if (installer_state.system_install() ||
-      (remove_all &&
-       ShellUtil::QuickIsChromeRegisteredInHKLM(
-           browser_dist, chrome_exe, suffix))) {
-    DeleteChromeRegistrationKeys(browser_dist, HKEY_LOCAL_MACHINE, suffix,
-                                 installer_state.target_path(), &ret);
-  }
-
-  ProcessDelegateExecuteWorkItems(installer_state, product);
-
-  if (!is_chrome) {
+  if (product.is_chrome_frame()) {
     ProcessChromeFrameWorkItems(original_state, installer_state, setup_path,
                                 product);
   }
@@ -888,7 +1077,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
       unreg_work_item_list->Do();
     }
 
-    if (!is_chrome)
+    if (product.is_chrome_frame())
       ProcessIELowRightsPolicyWorkItems(installer_state);
   }
 
@@ -908,41 +1097,25 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   ret = installer::UNINSTALL_SUCCESSFUL;
 
   // When deleting files, we must make sure that we're either a "single"
-  // (aka non-multi) installation or, in the case of multi, that no other
-  // "multi" products share the binaries we are about to delete.
+  // (aka non-multi) installation or we are the Chrome Binaries.
 
-  bool can_delete_files = true;
-  if (installer_state.is_multi_install()) {
-    ProductState prod_state;
-    for (size_t i = 0; i < BrowserDistribution::kNumProductTypes; ++i) {
-      if (prod_state.Initialize(installer_state.system_install(),
-                                BrowserDistribution::kProductTypes[i]) &&
-          prod_state.is_multi_install()) {
-        can_delete_files = false;
-        break;
-      }
-    }
-    LOG(INFO) << (can_delete_files ? "Shared binaries will be deleted." :
-                                     "Shared binaries still in use.");
-    if (can_delete_files) {
-      BrowserDistribution* multi_dist =
-          installer_state.multi_package_binaries_distribution();
-      InstallUtil::DeleteRegistryKey(reg_root, multi_dist->GetVersionKey());
-    }
-  }
-
-  FilePath backup_state_file(BackupLocalStateFile(
-      GetLocalStateFolder(product)));
+  FilePath backup_state_file(
+      BackupLocalStateFile(GetLocalStateFolder(product)));
 
   DeleteResult delete_result = DELETE_SUCCEEDED;
-  if (can_delete_files) {
+
+  if (product.is_chrome_app_host()) {
+    DeleteAppHostFilesAndFolders(installer_state, product_state->version());
+  } else if (!installer_state.is_multi_install() ||
+             product.is_chrome_binaries()) {
+
     // In order to be able to remove the folder in which we're running, we
     // need to move setup.exe out of the install folder.
     // TODO(tommi): What if the temp folder is on a different volume?
     MoveSetupOutOfInstallFolder(installer_state, setup_path,
                                 product_state->version());
-    delete_result = DeleteFilesAndFolders(installer_state,
-                                          product_state->version());
+    delete_result = DeleteChromeFilesAndFolders(installer_state,
+                                                product_state->version());
   }
 
   if (delete_profile)
@@ -955,7 +1128,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   }
 
   if (!force_uninstall) {
-    VLOG(1) << "Uninstallation complete. Launching Uninstall survey.";
+    VLOG(1) << "Uninstallation complete. Launching post-uninstall operations.";
     browser_dist->DoPostUninstallOperations(product_state->version(),
         backup_state_file, distribution_data);
   }

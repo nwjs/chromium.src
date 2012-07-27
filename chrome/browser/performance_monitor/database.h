@@ -52,7 +52,7 @@ struct TimeRange {
 // database is constructed, the time is noted as the start of the active
 // interval. Then, every write operation the current time is marked as the end
 // of the current active interval. If the database has no write operations for
-// a certian amount of time, then the database is considered inactive for that
+// a certain amount of time, then the database is considered inactive for that
 // time period and a new start time is noted. Having the key be the beginning
 // of the active interval allows for efficient upserts to the current active
 // interval. If the end of the active interval was in the key, then every update
@@ -141,58 +141,59 @@ class Database {
   }
 
   // Add a metric instance to the database.
-  bool AddMetric(const std::string& activity, const std::string& metric,
+  bool AddMetric(const std::string& activity,
+                 MetricType metric_type,
                  const std::string& value);
 
-  bool AddMetric(const std::string& metric, const std::string& value) {
-    return AddMetric(kProcessChromeAggregate, metric, value);
+  bool AddMetric(MetricType metric_type, const std::string& value) {
+    return AddMetric(kProcessChromeAggregate, metric_type, value);
   }
-
-  void AddMetricDetails(const MetricDetails& details);
 
   // Get the metrics that are active for the given process between |start|
   // (inclusive) and |end| (exclusive).
-  std::vector<MetricDetails> GetActiveMetrics(const base::Time& start,
-                                              const base::Time& end);
+  std::vector<const MetricDetails*> GetActiveMetrics(const base::Time& start,
+                                                     const base::Time& end);
 
   // Get the activities that are active for the given metric after |start|.
-  std::vector<std::string> GetActiveActivities(const std::string& metric,
+  std::vector<std::string> GetActiveActivities(MetricType metric_type,
                                                const base::Time& start);
 
-  // Query given metric and activity.
+  // Query given |metric_type| and |activity|.
   MetricInfoVector GetStatsForActivityAndMetric(const std::string& activity,
-                                                const std::string& metric,
+                                                MetricType metric_type,
                                                 const base::Time& start,
                                                 const base::Time& end);
 
-  MetricInfoVector GetStatsForActivityAndMetric(const std::string& metric,
+  MetricInfoVector GetStatsForActivityAndMetric(MetricType metric_type,
                                                 const base::Time& start,
                                                 const base::Time& end) {
-    return GetStatsForActivityAndMetric(kProcessChromeAggregate, metric,
+    return GetStatsForActivityAndMetric(kProcessChromeAggregate, metric_type,
                                         start, end);
   }
 
   MetricInfoVector GetStatsForActivityAndMetric(const std::string& activity,
-                                                const std::string& metric) {
-    return GetStatsForActivityAndMetric(activity, metric, base::Time(),
+                                                MetricType metric_type) {
+    return GetStatsForActivityAndMetric(activity, metric_type, base::Time(),
                                         clock_->GetTime());
   }
 
-  MetricInfoVector GetStatsForActivityAndMetric(const std::string& metric) {
-    return GetStatsForActivityAndMetric(kProcessChromeAggregate, metric,
+  MetricInfoVector GetStatsForActivityAndMetric(MetricType metric_type) {
+    return GetStatsForActivityAndMetric(kProcessChromeAggregate, metric_type,
                                         base::Time(), clock_->GetTime());
   }
 
-  // Query given metric. The returned map is keyed by activity.
-  MetricVectorMap GetStatsForMetricByActivity(const std::string& metric,
+  // Query given |metric_type|. The returned map is keyed by activity.
+  MetricVectorMap GetStatsForMetricByActivity(MetricType metric_type,
                                               const base::Time& start,
                                               const base::Time& end);
 
-  MetricVectorMap GetStatsForMetricByActivity(const std::string& metric) {
-    return GetStatsForMetricByActivity(metric, base::Time(), clock_->GetTime());
+  MetricVectorMap GetStatsForMetricByActivity(MetricType metric_type) {
+    return GetStatsForMetricByActivity(
+        metric_type, base::Time(), clock_->GetTime());
   }
 
-  // Returns the times for which there is data in the database.
+  // Returns the active time intervals that overlap with the time interval
+  // defined by |start| and |end|.
   std::vector<TimeRange> GetActiveIntervals(const base::Time& start,
                                             const base::Time& end);
 
@@ -207,7 +208,6 @@ class Database {
   FRIEND_TEST_ALL_PREFIXES(PerformanceMonitorDatabaseSetupTest, ActiveInterval);
 
   typedef std::map<std::string, std::string> RecentMap;
-  typedef std::map<std::string, MetricDetails> MetricDetailsMap;
 
   // By default, the database uses a clock that simply returns the current time.
   class SystemClock : public Clock {
@@ -221,8 +221,6 @@ class Database {
 
   void InitDBs();
 
-  void InitMetricDetails();
-
   bool Close();
 
   // Load recent info from the db into recent_map_.
@@ -235,10 +233,6 @@ class Database {
   // is maintained to prevent having to search through the recent db every
   // insert.
   RecentMap recent_map_;
-
-  // A mapping of a metric key to details about that metric. New metrics should
-  // modify InitMetricDetails to add an entry in this map.
-  MetricDetailsMap metric_details_map_;
 
   // The directory where all the databases will reside.
   FilePath path_;

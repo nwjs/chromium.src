@@ -373,18 +373,12 @@ void ExtensionAPI::InitDefaultConfiguration() {
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_APP));
   RegisterSchema("experimental.bookmarkManager", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_BOOKMARKMANAGER));
-  RegisterSchema("experimental.fontSettings", ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_FONTSSETTINGS));
-  RegisterSchema("experimental.identity", ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_IDENTITY));
   RegisterSchema("experimental.infobars", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_INFOBARS));
   RegisterSchema("experimental.input.virtualKeyboard", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_INPUT_VIRTUALKEYBOARD));
   RegisterSchema("experimental.keybinding", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_KEYBINDING));
-  RegisterSchema("experimental.mediaGalleries", ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_MEDIAGALLERIES));
   RegisterSchema("experimental.offscreenTabs", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_OFFSCREENTABS));
   RegisterSchema("experimental.processes", ReadFromResource(
@@ -405,6 +399,8 @@ void ExtensionAPI::InitDefaultConfiguration() {
       IDR_EXTENSION_API_JSON_FILEBROWSERHANDLERINTERNAL));
   RegisterSchema("fileBrowserPrivate", ReadFromResource(
       IDR_EXTENSION_API_JSON_FILEBROWSERPRIVATE));
+  RegisterSchema("fontSettings", ReadFromResource(
+      IDR_EXTENSION_API_JSON_FONTSSETTINGS));
   RegisterSchema("history", ReadFromResource(
       IDR_EXTENSION_API_JSON_HISTORY));
   RegisterSchema("i18n", ReadFromResource(
@@ -459,6 +455,8 @@ void ExtensionAPI::InitDefaultConfiguration() {
       IDR_EXTENSION_API_JSON_TTS));
   RegisterSchema("types", ReadFromResource(
       IDR_EXTENSION_API_JSON_TYPES));
+  RegisterSchema("wallpaperPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_WALLPAPERPRIVATE));
   RegisterSchema("webNavigation", ReadFromResource(
       IDR_EXTENSION_API_JSON_WEBNAVIGATION));
   RegisterSchema("webRequest", ReadFromResource(

@@ -13,16 +13,17 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/browsing_data_cookie_helper.h"
-#include "chrome/browser/browsing_data_database_helper.h"
-#include "chrome/browser/browsing_data_local_storage_helper.h"
-#include "chrome/browser/browsing_data_indexed_db_helper.h"
-#include "chrome/browser/browsing_data_file_system_helper.h"
-#include "chrome/browser/browsing_data_server_bound_cert_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_database_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_indexed_db_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_local_storage_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_server_bound_cert_helper.h"
 #include "chrome/browser/content_settings/content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/content_settings/local_shared_objects_container.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/ssl/ssl_error_info.h"
 #include "chrome/browser/ui/website_settings/website_settings_ui.h"
 #include "chrome/common/content_settings_pattern.h"
@@ -33,7 +34,7 @@
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "net/base/cert_status_flags.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/base/ssl_cipher_suite_names.h"
 #include "net/base/ssl_connection_status_flags.h"
 #include "net/base/x509_certificate.h"
@@ -77,8 +78,8 @@ WebsiteSettings::WebsiteSettings(
       content_settings_(profile->GetHostContentSettingsMap()) {
   Init(profile, url, ssl);
 
-  HistoryService* history_service =
-      profile->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+      profile, Profile::EXPLICIT_ACCESS);
   if (history_service) {
     history_service->GetVisibleVisitCountToHost(
         site_url_,

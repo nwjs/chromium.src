@@ -581,8 +581,7 @@ const AEEventClass kAECloudPrintUninstallClass = 'GCPu';
 
   // Since Chrome is localized to more languages than the OS, tell Cocoa which
   // menu is the Help so it can add the search item to it.
-  if (helpMenu_ && [NSApp respondsToSelector:@selector(setHelpMenu:)])
-    [NSApp setHelpMenu:helpMenu_];
+  [NSApp setHelpMenu:helpMenu_];
 
   // Record the path to the (browser) app bundle; this is used by the app mode
   // shim.
@@ -675,7 +674,7 @@ const AEEventClass kAECloudPrintUninstallClass = 'GCPu';
         // downloads page if the user chooses to wait.
         Browser* browser = browser::FindBrowserWithProfile(profiles[i]);
         if (!browser) {
-          browser = Browser::Create(profiles[i]);
+          browser = new Browser(Browser::CreateParams(profiles[i]));
           browser->window()->Show();
         }
         DCHECK(browser);
@@ -1093,7 +1092,7 @@ const AEEventClass kAECloudPrintUninstallClass = 'GCPu';
   Browser* browser = browser::GetLastActiveBrowser();
   // if no browser window exists then create one with no tabs to be filled in
   if (!browser) {
-    browser = Browser::Create([self lastProfile]);
+    browser = new Browser(Browser::CreateParams([self lastProfile]));
     browser->window()->Show();
   }
 

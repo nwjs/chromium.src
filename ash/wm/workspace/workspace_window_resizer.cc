@@ -9,11 +9,11 @@
 
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
+#include "ash/wm/cursor_manager.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/phantom_window_controller.h"
 #include "ash/wm/workspace/snap_sizer.h"
-#include "ui/aura/cursor_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
@@ -46,16 +46,16 @@ const int WorkspaceWindowResizer::kMinOnscreenSize = 20;
 const int WorkspaceWindowResizer::kMinOnscreenHeight = 32;
 
 WorkspaceWindowResizer::~WorkspaceWindowResizer() {
-  aura::Env::GetInstance()->cursor_manager()->UnlockCursor();
+  ash::Shell::GetInstance()->cursor_manager()->UnlockCursor();
 }
 
 // static
 WorkspaceWindowResizer* WorkspaceWindowResizer::Create(
     aura::Window* window,
-    const gfx::Point& location,
+    const gfx::Point& location_in_parent,
     int window_component,
     const std::vector<aura::Window*>& attached_windows) {
-  Details details(window, location, window_component);
+  Details details(window, location_in_parent, window_component);
   return details.is_resizable ?
       new WorkspaceWindowResizer(details, attached_windows) : NULL;
 }
@@ -106,13 +106,23 @@ void WorkspaceWindowResizer::CompleteDrag(int event_flags) {
     details_.window->SetBounds(bounds);
     return;
   }
-
-  ui::ScopedLayerAnimationSettings scoped_setter(
-      details_.window->layer()->GetAnimator());
-  // Use a small duration since the grid is small.
-  scoped_setter.SetTransitionDuration(
-      base::TimeDelta::FromMilliseconds(kSnapDurationMS));
-  details_.window->SetBounds(bounds);
+  // TODO(oshima|yusukes): This is temporary solution until better drag & move
+  // is implemented. (crbug.com/136816).
+  gfx::Rect dst_bounds =
+      ScreenAsh::ConvertRectToScreen(details_.window->parent(), bounds);
+  gfx::Display dst_display = gfx::Screen::GetDisplayMatching(dst_bounds);
+  if (dst_display.id() !=
+      gfx::Screen::GetDisplayNearestWindow(details_.window).id()) {
+    // Don't animate when moving to another display.
+    details_.window->SetBoundsInScreen(dst_bounds);
+  } else {
+    ui::ScopedLayerAnimationSettings scoped_setter(
+        details_.window->layer()->GetAnimator());
+    // Use a small duration since the grid is small.
+    scoped_setter.SetTransitionDuration(
+        base::TimeDelta::FromMilliseconds(kSnapDurationMS));
+    details_.window->SetBounds(bounds);
+  }
 }
 
 void WorkspaceWindowResizer::RevertDrag() {
@@ -154,7 +164,7 @@ WorkspaceWindowResizer::WorkspaceWindowResizer(
       snap_type_(SNAP_NONE),
       num_mouse_moves_since_bounds_change_(0) {
   DCHECK(details_.is_resizable);
-  aura::Env::GetInstance()->cursor_manager()->LockCursor();
+  ash::Shell::GetInstance()->cursor_manager()->LockCursor();
 
   // Only support attaching to the right/bottom.
   DCHECK(attached_windows_.empty() ||
@@ -281,7 +291,7 @@ void WorkspaceWindowResizer::AdjustBoundsForMainWindow(
     gfx::Rect* bounds, int grid_size) const {
   // Always keep kMinOnscreenHeight on the bottom.
   gfx::Rect work_area(
-      ScreenAsh::GetDisplayWorkAreaParentBounds(details_.window));
+      ScreenAsh::GetDisplayWorkAreaBoundsInParent(details_.window));
   int max_y = AlignToGridRoundUp(work_area.bottom() - kMinOnscreenHeight,
                                  grid_size);
   if (bounds->y() > max_y)
@@ -335,7 +345,7 @@ void WorkspaceWindowResizer::SnapToWorkAreaEdges(
 
 bool WorkspaceWindowResizer::TouchesBottomOfScreen() const {
   gfx::Rect work_area(
-      ScreenAsh::GetDisplayWorkAreaParentBounds(details_.window));
+      ScreenAsh::GetDisplayWorkAreaBoundsInParent(details_.window));
   return (attached_windows_.empty() &&
           details_.window->bounds().bottom() == work_area.bottom()) ||
       (!attached_windows_.empty() &&
@@ -423,7 +433,7 @@ WorkspaceWindowResizer::SnapType WorkspaceWindowResizer::GetSnapType(
     const gfx::Point& location) const {
   // TODO: this likely only wants total display area, not the area of a single
   // display.
-  gfx::Rect area(ScreenAsh::GetDisplayParentBounds(details_.window));
+  gfx::Rect area(ScreenAsh::GetDisplayBoundsInParent(details_.window));
   if (location.x() <= area.x())
     return SNAP_LEFT_EDGE;
   if (location.x() >= area.right() - 1)

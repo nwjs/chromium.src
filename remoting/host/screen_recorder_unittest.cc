@@ -28,6 +28,7 @@ using ::testing::Expectation;
 using ::testing::InSequence;
 using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
+using ::testing::ReturnRef;
 using ::testing::SaveArg;
 
 namespace remoting {
@@ -73,7 +74,7 @@ class ScreenRecorderTest : public testing::Test {
   }
 
   virtual void SetUp() OVERRIDE {
-    // Capturer and Encoder are owned by ScreenRecorder.
+    // VideoFrameCapturer and Encoder are owned by ScreenRecorder.
     encoder_ = new MockEncoder();
 
     session_ = new MockSession();
@@ -107,7 +108,7 @@ class ScreenRecorderTest : public testing::Test {
   scoped_ptr<MockConnectionToClient> connection_;
 
   // The following mock objects are owned by ScreenRecorder.
-  MockCapturer capturer_;
+  MockVideoFrameCapturer capturer_;
   MockEncoder* encoder_;
 
  private:
@@ -130,7 +131,11 @@ TEST_F(ScreenRecorderTest, StartAndStop) {
 
   SkISize size(SkISize::Make(kWidth, kHeight));
   scoped_refptr<CaptureData> data(new CaptureData(planes, size, kFormat));
-  EXPECT_CALL(capturer_, InvalidateFullScreen());
+
+  EXPECT_CALL(capturer_, size_most_recent())
+      .WillRepeatedly(ReturnRef(size));
+
+  EXPECT_CALL(capturer_, InvalidateRegion(_));
 
   // First the capturer is called.
   Expectation capturer_capture = EXPECT_CALL(capturer_, CaptureInvalidRegion(_))

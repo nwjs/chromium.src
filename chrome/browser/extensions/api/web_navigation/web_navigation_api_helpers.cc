@@ -11,10 +11,12 @@
 #include "base/time.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api_constants.h"
-#include "chrome/browser/extensions/extension_event_router.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/event_filtering_info.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/net_errors.h"
 
@@ -39,7 +41,7 @@ void DispatchEvent(content::BrowserContext* browser_context,
   std::string json_args;
   base::JSONWriter::Write(&args, &json_args);
 
-  extensions::EventFilteringInfo info;
+  EventFilteringInfo info;
   info.SetURL(url);
 
   Profile* profile = Profile::FromBrowserContext(browser_context);
@@ -57,6 +59,7 @@ int GetFrameId(bool is_main_frame, int64 frame_id) {
 
 // Constructs and dispatches an onBeforeNavigate event.
 void DispatchOnBeforeNavigate(content::WebContents* web_contents,
+                              int render_process_id,
                               int64 frame_id,
                               bool is_main_frame,
                               const GURL& validated_url) {
@@ -64,6 +67,7 @@ void DispatchOnBeforeNavigate(content::WebContents* web_contents,
   DictionaryValue* dict = new DictionaryValue();
   dict->SetInteger(keys::kTabIdKey, ExtensionTabUtil::GetTabId(web_contents));
   dict->SetString(keys::kUrlKey, validated_url.spec());
+  dict->SetInteger(keys::kProcessIdKey, render_process_id);
   dict->SetInteger(keys::kFrameIdKey, GetFrameId(is_main_frame, frame_id));
   dict->SetDouble(keys::kTimeStampKey, MilliSecondsFromTime(base::Time::Now()));
   args.Append(dict);
@@ -86,6 +90,8 @@ void DispatchOnCommitted(const char* event_name,
   DictionaryValue* dict = new DictionaryValue();
   dict->SetInteger(keys::kTabIdKey, ExtensionTabUtil::GetTabId(web_contents));
   dict->SetString(keys::kUrlKey, url.spec());
+  dict->SetInteger(keys::kProcessIdKey,
+                   web_contents->GetRenderViewHost()->GetProcess()->GetID());
   dict->SetInteger(keys::kFrameIdKey, GetFrameId(is_main_frame, frame_id));
   dict->SetString(
       keys::kTransitionTypeKey,
@@ -116,6 +122,8 @@ void DispatchOnDOMContentLoaded(content::WebContents* web_contents,
   dict->SetInteger(keys::kTabIdKey,
                    ExtensionTabUtil::GetTabId(web_contents));
   dict->SetString(keys::kUrlKey, url.spec());
+  dict->SetInteger(keys::kProcessIdKey,
+                   web_contents->GetRenderViewHost()->GetProcess()->GetID());
   dict->SetInteger(keys::kFrameIdKey, GetFrameId(is_main_frame, frame_id));
   dict->SetDouble(keys::kTimeStampKey, MilliSecondsFromTime(base::Time::Now()));
   args.Append(dict);
@@ -136,6 +144,8 @@ void DispatchOnCompleted(content::WebContents* web_contents,
   dict->SetInteger(keys::kTabIdKey,
                    ExtensionTabUtil::GetTabId(web_contents));
   dict->SetString(keys::kUrlKey, url.spec());
+  dict->SetInteger(keys::kProcessIdKey,
+                   web_contents->GetRenderViewHost()->GetProcess()->GetID());
   dict->SetInteger(keys::kFrameIdKey, GetFrameId(is_main_frame, frame_id));
   dict->SetDouble(keys::kTimeStampKey, MilliSecondsFromTime(base::Time::Now()));
   args.Append(dict);
@@ -163,6 +173,8 @@ void DispatchOnCreatedNavigationTarget(
   DictionaryValue* dict = new DictionaryValue();
   dict->SetInteger(keys::kSourceTabIdKey,
                    ExtensionTabUtil::GetTabId(web_contents));
+  dict->SetInteger(keys::kSourceProcessIdKey,
+                   web_contents->GetRenderViewHost()->GetProcess()->GetID());
   dict->SetInteger(keys::kSourceFrameIdKey,
       GetFrameId(source_frame_is_main_frame, source_frame_id));
   dict->SetString(keys::kUrlKey, target_url.possibly_invalid_spec());
@@ -177,6 +189,7 @@ void DispatchOnCreatedNavigationTarget(
 
 // Constructs and dispatches an onErrorOccurred event.
 void DispatchOnErrorOccurred(content::WebContents* web_contents,
+                             int render_process_id,
                              const GURL& url,
                              int64 frame_id,
                              bool is_main_frame,
@@ -185,6 +198,7 @@ void DispatchOnErrorOccurred(content::WebContents* web_contents,
   DictionaryValue* dict = new DictionaryValue();
   dict->SetInteger(keys::kTabIdKey, ExtensionTabUtil::GetTabId(web_contents));
   dict->SetString(keys::kUrlKey, url.spec());
+  dict->SetInteger(keys::kProcessIdKey, render_process_id);
   dict->SetInteger(keys::kFrameIdKey, GetFrameId(is_main_frame, frame_id));
   dict->SetString(keys::kErrorKey, net::ErrorToString(error_code));
   dict->SetDouble(keys::kTimeStampKey, MilliSecondsFromTime(base::Time::Now()));

@@ -945,10 +945,10 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_NEW_INCOGNITO_WINDOW" desc="The text label of the New incognito window menu item">
           New &amp;incognito window
         </message>
-        <message name="IDS_PIN_TO_START_SCREEN" desc="The text label of the Pin to start screen menu item">
+        <message name="IDS_METRO_PIN_TO_START_SCREEN" desc="The text label of the Pin to start screen menu item">
           Pin to Start Screen
         </message>
-        <message name="IDS_UNPIN_FROM_START_SCREEN" desc="The text label of the unpin from start screen menu item">
+        <message name="IDS_METRO_UNPIN_FROM_START_SCREEN" desc="The text label of the unpin from start screen menu item">
           Unpin from Start Screen
         </message>
         <message name="IDS_EDIT2" desc="The text label before the cut/copy/paste buttons in the merged menu">
@@ -1037,10 +1037,10 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
         <message name="IDS_NEW_INCOGNITO_WINDOW" desc="In Title Case: The text label of the New incognito window menu item">
           New &amp;Incognito Window
         </message>
-        <message name="IDS_PIN_TO_START_SCREEN" desc="In Title Case: The text label of the Pin to start screen menu item">
+        <message name="IDS_METRO_PIN_TO_START_SCREEN" desc="In Title Case: The text label of the Pin to start screen menu item">
           Pin to Start Screen
         </message>
-        <message name="IDS_UNPIN_FROM_START_SCREEN" desc="In Title Case: The text label of the Unpin from start screen menu item">
+        <message name="IDS_METRO_UNPIN_FROM_START_SCREEN" desc="In Title Case: The text label of the Unpin from start screen menu item">
           Unpin from Start Screen
         </message>
         <message name="IDS_UNDO" desc="In Title Case: The text label of the Undo menu item">
@@ -4414,6 +4414,9 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
       <message name="IDS_EXTENSION_PROMPT_WARNING_FILE_SYSTEM_WRITE" desc="Permission string for write access to the file system.">
         Write to files that you have opened in the application
       </message>
+      <message name="IDS_EXTENSION_PROMPT_WARNING_MEDIA_GALLERIES_ALL_GALLERIES" desc="Permission string for access to all of the user's media galleries.">
+        Access all known media files on your device
+      </message>
 
       <!-- Extension/App error messages -->
       <message name="IDS_EXTENSION_CANT_GET_ABSOLUTE_PATH" desc="Warning displayed in pack dialog when the absolute path to the extension directory can not be found.">
@@ -5357,6 +5360,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_FORCE_HIGH_DPI_DESCRIPTION" desc="Description of the 'Force high DPI mode' lab.">
         Overrides the device display density to force the use of high DPI mode and assets.
       </message>
+      <message name="IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_NAME" desc="Name of the 'Enable high DPI PDF Plugin' lab.">
+        Enable high DPI Chrome PDF Viewer
+      </message>
+      <message name="IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_DESCRIPTION" desc="Description of the 'Enable high DPI PDF Plugin' lab.">
+        Enables high DPI mode for the Chrome PDF Viewer on high DPI displays.
+      </message>
       <message name="IDS_FLAGS_IGNORE_GPU_BLACKLIST_NAME" desc="Name of the 'Ignore GPU blacklist' lab.">
         Override software rendering list
       </message>
@@ -5757,6 +5766,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_CSS_REGIONS_DESCRIPTION" desc="Description for the flag to enable CSS Regions.">
         Enable CSS Regions.
       </message>
+      <message name="IDS_FLAGS_CSS_VARIABLES_NAME" desc="Name for the flag to enable CSS Variables.">
+        Enable CSS Variables.
+      </message>
+      <message name="IDS_FLAGS_CSS_VARIABLES_DESCRIPTION" desc="Description for the flag to enable CSS Variables.">
+        Enable CSS Variables.
+      </message>
       <message name="IDS_FLAGS_APP_INSTALL_HINT_NAME" desc="Name for the flag to show the app install hint on the NTP.">
         NTP App Install Hint
       </message>
@@ -5811,6 +5826,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING_DESCRIPTION" desc="Description for the flag to disable asynchronous spellchecking.">
         Disable experimental asynchronous spellchecking. It also disallows Chrome to use a web service to get spellchecking results.
       </message>
+      <message name="IDS_FLAGS_ENABLE_NTP_DISCOVERY_NAME" desc="Name for the flag to enable discovery in the new tab page.">
+        Enable discovery in the new tab page.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_NTP_DISCOVERY_DESCRIPTION" desc="Description for the flag to enable discovery in the new tab page.">
+        Enable this and the Experimental Extension APIs and install discovery extensions to see some suggested links in the new tab page.
+      </message>
       <message name="IDS_FLAGS_NO_DISCARD_TABS_NAME" desc="Name for the flag to disable the tab discarding feature.">
         Don't discard tabs.
       </message>
@@ -5843,11 +5864,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_EXPERIMENTAL_WALLPAPER_UI_DESCRIPTION" desc="Description of the flag to enabel experimental wallpaper picker ui in chromeos.">
         Enables the experimental wallpaper UI.
       </message>
-      <message name="IDS_FLAGS_ENABLE_ASH_EXTENDED_DESKTOP_NAME" desc="Name of the flag to enable extended desktop in ash.">
-        Enables extended desktop support.
+      <message name="IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_NAME" desc="Name of the flag to disable extended desktop in ash.">
+        Disable extended desktop support.
       </message>
-      <message name="IDS_FLAGS_ENABLE_ASH_EXTENDED_DESKTOP_DESCRIPTION" desc="Description of the flag to enable extended desktop in ash.">
-        Enables extended desktop, which allows you to open a browser in secondary displays.
+      <message name="IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_DESCRIPTION" desc="Description of the flag to disable extended desktop in ash.">
+        Disable extended desktop, which allows you to open a browser in secondary displays.
       </message>
       <message name="IDS_FLAGS_DISABLE_ASH_NOTIFY_NAME" desc="Name of the flag to enable applist v2 in ash.">
         Disable Ash notifications.
@@ -5893,17 +5914,17 @@ Keep your key file in a safe place. You will need it to create new versions of y
         <message name="IDS_FLAGS_ENABLE_DRIVE_V2_API_DESCRIPTION" desc="Description for the flag to enable Drive V2 API.">
           Enables to use Drive V2 API for accessing Google Drive folder.
         </message>
-        <message name="IDS_FLAGS_ENABLE_HTML5_CAMERA" desc="Name for the flag to enable new camera WebUI.">
-          Enable HTML5 camera in WebUI.
+        <message name="IDS_FLAGS_DISABLE_HTML5_CAMERA" desc="Name for the flag to disable new camera WebUI.">
+          Disable HTML5 camera in WebUI.
         </message>
-        <message name="IDS_FLAGS_ENABLE_HTML5_CAMERA_DESCRIPTION" desc="Description for the flag to enable new new camera WebUI.">
-          Enables HTML5 camera support in some WebUI parts.
+        <message name="IDS_FLAGS_DISABLE_HTML5_CAMERA_DESCRIPTION" desc="Description for the flag to disable new new camera WebUI.">
+          Disables HTML5 camera support in some WebUI parts.
         </message>
-        <message name="IDS_FLAGS_ENABLE_NEW_OOBE" desc="Name for the flag to enable new design for OOBE / sign in flows.">
-          Enable OOBE/sign in redesign.
+        <message name="IDS_FLAGS_DISABLE_NEW_OOBE" desc="Name for the flag to disable new design for OOBE / sign in flows.">
+          Disable OOBE/sign in redesign.
         </message>
-        <message name="IDS_FLAGS_ENABLE_NEW_OOBE_DESCRIPTION" desc="Description for the flag to enable new design for OOBE / sign in flows.">
-          Enables new design for OOBE / sign in flows.
+        <message name="IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION" desc="Description for the flag to disable new design for OOBE / sign in flows.">
+          Disables new design for OOBE / sign in flows.
         </message>
       </if>
 
@@ -5913,11 +5934,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_CAPTIVE_PORTAL_CHECK_ON_ERROR_DESCRIPTION" desc="Description for the flag to enable automatic checking for captive portals.">
         Check for captive portals and open a new tab at the login page if one is found.
       </message>
-      <message name="IDS_FLAGS_NEW_CHECKBOX_STYLE" desc="Name of the flag to turn on the new checkbox style.">
-        Enable new checkbox style.
+      <message name="IDS_FLAGS_OLD_CHECKBOX_STYLE" desc="Name of the flag to turn off the new checkbox style.">
+        Disable new checkbox style.
       </message>
-      <message name="IDS_FLAGS_NEW_CHECKBOX_STYLE_DESCRIPTION" desc="Description of the flag to turn on the new checkbox style.">
-        Enables new appearance and sizing behavior for checkboxes and radio buttons.
+      <message name="IDS_FLAGS_OLD_CHECKBOX_STYLE_DESCRIPTION" desc="Description of the flag to turn off the new checkbox style.">
+        Disables new appearance and sizing behavior for checkboxes and radio buttons.
       </message>
       <message name="IDS_FLAGS_DISABLE_NON_FULLSCREEN_MOUSE_LOCK_NAME" desc="Name for the flag to disable mouse lock when the browser is not full screen.">
         Disable non full screen mouse lock.
@@ -5925,11 +5946,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_DISABLE_NON_FULLSCREEN_MOUSE_LOCK_DESCRIPTION" desc="Description for the flag to disable mouse lock when the browser is not full screen.">
         Disables mouse lock (pointer lock) when an application or page is not already full screen.
       </message>
-      <message name="IDS_FLAGS_ENABLE_ACCELERATED_VIDEO_DECODE_NAME" desc="Name of the flag to enable accelerated video decode where available.">
-        Enable hardware-accelerated video decode.
+      <message name="IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_NAME" desc="Name of the flag to disable accelerated video decode where available.">
+        Disable hardware-accelerated video decode.
       </message>
-      <message name="IDS_FLAGS_ENABLE_ACCELERATED_VIDEO_DECODE_DESCRIPTION" desc="Description for the flag to enable accelerated video decode where available.">
-        Enables hardware-accelerated video decode where available.
+      <message name="IDS_FLAGS_DISABLE_ACCELERATED_VIDEO_DECODE_DESCRIPTION" desc="Description for the flag to disable accelerated video decode where available.">
+        Disables hardware-accelerated video decode where available.
       </message>
 
       <!-- Crashes -->
@@ -6377,6 +6398,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_TOOLTIP_HOME" desc="The tooltip for the home button">
         Open the home page
       </message>
+      <message name="IDS_TOOLTIP_METRO_PIN" desc="The tooltip for the pin button">
+        Pin this page to the start menu
+      </message>
+      <message name="IDS_TOOLTIP_METRO_PINNED" desc="The tooltip for the pin button when the page is pinned">
+        Unpin this page from the start menu
+      </message>
       <message name="IDS_TOOLTIP_RELOAD" desc="The tooltip for reload button">
         Reload this page
       </message>
@@ -6432,6 +6459,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_ACCNAME_LOCATION" desc="The accessible name for the location bar edit field.">
         Address
+      </message>
+      <message name="IDS_ACCNAME_METRO_PIN" desc="The accessible name for the pin button.">
+        Pin
       </message>
       <message name="IDS_ACCNAME_STAR" desc="The accessible name for the bookmark button.">
         Bookmark
@@ -8536,10 +8566,6 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
 
       <message name="IDS_ERRORPAGES_APP_WARNING" desc="The error message displayed when the browser can not reach the requested page from an app.">
         The app is currently unreachable.
-      </message>
-
-      <message name="IDS_SAVEAS_ALL_FILES" desc="Save As dialog box default text">
-        All Files
       </message>
 
       <message name="IDS_SECURE_CONNECTION_EV" desc="Short text shown in the location bar when the connection is secure with an EV cert.">
@@ -10798,6 +10824,29 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Deny
       </message>
 
+      <!-- Wallpaper Manager -->
+      <message name="IDS_WALLPAPER_MANAGER_SEARCH_TEXT_LABEL" desc="Search text field label.">
+        Search backgrounds
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_AUTHOR_LABEL" desc="Wallpaper author label.">
+        By
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_CUSTOM_CATEGORY_LABEL" desc="Wallpaper category label.">
+        Custom
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_SELECT_CUSTOM_LABEL" desc="Selects custom wallpaper label.">
+        Custom Image:
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_POSITION_LABEL" desc="Custom wallpaper position label">
+        Position:
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_COLOR_LABEL" desc="Custom wallpaper color label.">
+        Color:
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_PREVIEW_LABEL" desc="Custom wallpaper preview label.">
+        Preview:
+      </message>
+ 
       <!-- File Browser -->
       <message name="IDS_FILE_BROWSER_ROOT_DIRECTORY_LABEL" desc="Root directory label.">
         Files
@@ -10920,6 +10969,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_UNMOUNT_DEVICE_BUTTON_LABEL" desc="Title of the action for unmounting removable device.">
         Eject device
       </message>
+      <message name="IDS_FILE_BROWSER_IMPORT_PHOTOS_BUTTON_LABEL" desc="Title of the action for importing photos.">
+        Import photos
+      </message>
 
       <message name="IDS_FILE_BROWSER_ACTION_VIEW" desc="Title of the action to view (no edit) a file.">
         View
@@ -11011,6 +11063,34 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_AUDIO_OFFLINE" desc="In the Audio Player, message informing that the audio file could not be played in the offline mode.">
         This file is not available offline.
+      </message>
+
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORT_BUTTON" desc="In the Photo import, label of import button.">
+        Import
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_CANCEL_BUTTON" desc="In the Photo import, label of cancel button.">
+        Cancel
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_GDATA_ERROR" desc="In the Photo import, error message when drive is unaccessible.">
+        Error accessing "My Photos".
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_SOURCE_ERROR" desc="In the Photo import, error message inidcating that photos cannot be read.">
+        Cannot read the photos.
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_UNKNOWN_DATE" desc="In the Photo import, label of group for photos with unknown date.">
+        Unknown date
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_NEW_ALBUM_NAME" desc="In the Photo import, default name for new album.">
+        New Album
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_SELECT_ALBUM_CAPTION" desc="In the Photo import, caption of select album dialog.">
+        Where to import this photo?
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_SELECT_ALBUM_CAPTION_PLURAL" desc="In the Photo import, caption of select album dialog (plural).">
+        Where to import these $1 photos?
+      </message>
+      <message name="IDS_FILE_BROWSER_PHOTO_IMPORT_IMPORTING_ERROR" desc="In the Photo import, importing error message.">
+        Cannot import. An error occured.
       </message>
 
       <message name="IDS_FILE_BROWSER_CONFIRM_OVERWRITE_FILE" desc="Asks the user if they are sure they want to overwrite an existing file with another one.">
@@ -11214,6 +11294,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TITLE" desc="In the Welcome to Google Drive banner, title of banner.">
         Welcome to Google Drive!
       </message>
+      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TITLE_ALTERNATIVE" desc="In the Welcome to Google Drive banner, title of the alternative banner.">
+        Get 100 GB free with Google Drive
+      </message>
       <message name="IDS_FILE_BROWSER_GDATA_WELCOME_TEXT_SHORT" desc="In the Welcome to Google Drive banner, text of the welcome message, short version.">
         All files saved in this folder are backed up online automatically
       </message>
@@ -11224,6 +11307,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
         No matter what happens to your device, your files are safely stored in Google Drive.<ph name="MARKUP_6">&lt;/p&gt;<ex>&lt;/p&gt;</ex></ph>
         <ph name="MARKUP_7">&lt;p&gt;&lt;strong&gt;<ex>&lt;strong&gt;</ex></ph>Share, create and collaborate<ph name="MARKUP_8">&lt;/strong&gt;<ex>&lt;/strong&gt;</ex></ph>
         on files with others all in one place.<ph name="MARKUP_9">&lt;/p&gt;<ex>&lt;/p&gt;</ex></ph>
+      </message>
+      <message name="IDS_FILE_BROWSER_GDATA_WELCOME_GET_STARTED" desc="In the Welcome to Google Drive banner, a text on the button to get started.">
+        Get started
       </message>
       <message name="IDS_FILE_BROWSER_GDATA_WELCOME_DISMISS" desc="In the Welcome to Google Drive banner, a text on the button to dismiss the banner.">
         Dismiss
@@ -11449,6 +11535,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_TIME_YESTERDAY" desc="File date and time in case the date is yesterday.">
         Yesterday, <ph name="YESTERDAY_DAYTIME">$1<ex>4:48 PM</ex></ph>
+      </message>
+
+      <message name="IDS_FILE_BROWSER_ALL_FILES_FILTER" desc="All Files filter for Open/Save dialog">
+        All files
       </message>
 
       <!-- Bookmark manager -->
@@ -12751,20 +12841,6 @@ Some features may be unavailable.  Please check that the profile exists and you 
     <!-- Color chooser dialog default titles (only used on Linux) -->
     <message name="IDS_SELECT_COLOR_DIALOG_TITLE" desc="The default title for the Select Color color chooser dialog.">
       Select Color
-    </message>
-
-    <!-- File chooser dialog default titles (only used on Linux) -->
-    <message name="IDS_SELECT_FOLDER_DIALOG_TITLE" desc="The default title for the Select Folder file chooser dialog.">
-      Select Folder
-    </message>
-    <message name="IDS_SAVE_AS_DIALOG_TITLE" desc="The default title for the Save As file chooser dialog.">
-      Save File
-    </message>
-    <message name="IDS_OPEN_FILE_DIALOG_TITLE" desc="The default title for the Open File file chooser dialog (single file).">
-      Open File
-    </message>
-    <message name="IDS_OPEN_FILES_DIALOG_TITLE" desc="The default title for the Open File file chooser dialog (multiple files).">
-      Open Files
     </message>
 
     <!-- Geolocation messages -->
@@ -15217,6 +15293,9 @@ Battery full
       <message name="IDS_MULTIPART_DEVICE_UNSUPPORTED_DEFAULT_MESSAGE" desc="Text of notification message which is shown when user inserts removable device (SD card, USB key...)">
        Sorry, at least one partition on your external storage device could not be mounted.
       </message>
+      <message name="IDS_EXTERNAL_STORAGE_DISABLED_MESSAGE" desc="Text of notification message which is shown when user inserts removable device but external storage is disabled by policy">
+       Sorry, your administrator has disabled external storage on your account.
+      </message>
 
       <!-- Formatting device notifications -->
       <message name="IDS_FORMATTING_OF_DEVICE_PENDING_TITLE" desc="Text of notification message which is shown when formatting process of some device is pending">
@@ -16116,12 +16195,6 @@ Battery full
       </message>
     </if>
 
-    <if expr="is_macosx">
-      <message name="IDS_SELECT_FOLDER_BUTTON_TITLE" desc="The name of the Select button in the folder selection dialog.">
-        Select
-      </message>
-    </if>
-
     <!-- GoogleURL tracker info bar -->
     <message name="IDS_GOOGLE_URL_TRACKER_INFOBAR_MESSAGE" desc="Message displayed when the user's current Google TLD doesn't match the default for their location.  This can be shortened in other languages (e.g. by removing 'would you like to') as needed to keep the translated strings from being much longer than English, so the infobar can still display all three IDS_GOOGLE_URL_TRACKER_ strings and a 'Learn more' link.">
        Would you like to search with <ph name="NEW_GOOGLE_HOST">$1<ex>google.de</ex></ph> instead of <ph name="CURRENT_GOOGLE_HOST">$2<ex>google.fr</ex></ph>?
@@ -16401,6 +16474,9 @@ Battery full
     </message>
     <message name="IDS_INTENT_PICKER_USE_ALTERNATE_SERVICE" desc="Link text that, when clicked, allows the user to choose an alternate intent service from the picker.">
       or use another service...
+    </message>
+    <message name="IDS_INTENT_PICKER_USE_ANOTHER_SERVICE" desc="Button text providing a way for the user to not use the web intents service they are on, and select a new one.">
+      Use another service
     </message>
 
     <!-- Web Intents common actions -->
@@ -16703,12 +16779,12 @@ Battery full
       Dark Theme
     </message>
 
-    <message name="IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_NAME" desc="Name of about:flag option to turn on ClientOAuth sign in">
-      Enable ClientOAuth signin
+    <message name="IDS_FLAGS_DISABLE_CLIENT_OAUTH_SIGNIN_NAME" desc="Name of about:flag option to turn off ClientOAuth sign in">
+      Use ClientLogin signin
     </message>
-    <message name="IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION" desc="Description of about:flag option to turn on ClientOAuth sign in">
-      When enabled, will use ClientOAuth to connect a profile to a Google account.  Otherwise ClientLogin is used.
-      ClientOAuth permits using verification codes instead of ASPs during authentication.
+    <message name="IDS_FLAGS_DISABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION" desc="Description of about:flag option to turn off ClientOAuth sign in">
+      Enable this option to use ClientLogin to connect a profile to a Google account instead of ClientOAuth.
+      ClientLogin uses ASPs during authentication. ClientOAuth uses verification codes (i.e. OTPs) during authentication.
     </message>
 
     <!-- Windows 8 Metro mode. -->

@@ -98,7 +98,7 @@ TEST_F(WorkspaceManagerTest, AddNormalWindowWhenEmpty) {
   scoped_ptr<Window> w1(CreateTestWindow());
   w1->SetBounds(gfx::Rect(0, 0, 250, 251));
 
-  ASSERT_TRUE(manager_->IsManagedWindow(w1.get()));
+  ASSERT_TRUE(manager_->ShouldManageWindow(w1.get()));
   EXPECT_FALSE(FindBy(w1.get()));
 
   EXPECT_TRUE(GetRestoreBoundsInScreen(w1.get()) == NULL);
@@ -125,7 +125,7 @@ TEST_F(WorkspaceManagerTest, SingleMaximizeWindow) {
   scoped_ptr<Window> w1(CreateTestWindow());
   w1->SetBounds(gfx::Rect(0, 0, 250, 251));
 
-  ASSERT_TRUE(manager_->IsManagedWindow(w1.get()));
+  ASSERT_TRUE(manager_->ShouldManageWindow(w1.get()));
 
   w1->Show();
 
@@ -143,9 +143,9 @@ TEST_F(WorkspaceManagerTest, SingleMaximizeWindow) {
   EXPECT_EQ(Workspace::TYPE_MAXIMIZED, workspaces()[1]->type());
   ASSERT_EQ(1u, workspaces()[1]->windows().size());
   EXPECT_EQ(w1.get(), workspaces()[1]->windows()[0]);
-  EXPECT_EQ(ScreenAsh::GetMaximizedWindowParentBounds(w1.get()).width(),
+  EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(w1.get()).width(),
             w1->bounds().width());
-  EXPECT_EQ(ScreenAsh::GetMaximizedWindowParentBounds(w1.get()).height(),
+  EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(w1.get()).height(),
             w1->bounds().height());
 
   // Restore the window.
@@ -204,7 +204,7 @@ TEST_F(WorkspaceManagerTest, AddMaximizedWindowWhenEmpty) {
   ASSERT_TRUE(w1->layer() != NULL);
   EXPECT_TRUE(w1->layer()->visible());
   gfx::Rect work_area(
-      ScreenAsh::GetMaximizedWindowParentBounds(w1.get()));
+      ScreenAsh::GetMaximizedWindowBoundsInParent(w1.get()));
   EXPECT_EQ(work_area.width(), w1->bounds().width());
   EXPECT_EQ(work_area.height(), w1->bounds().height());
 
@@ -242,7 +242,7 @@ TEST_F(WorkspaceManagerTest, MaximizeWithNormalWindow) {
   ASSERT_TRUE(w2->layer() != NULL);
   EXPECT_TRUE(w2->layer()->visible());
 
-  gfx::Rect work_area(ScreenAsh::GetMaximizedWindowParentBounds(w1.get()));
+  gfx::Rect work_area(ScreenAsh::GetMaximizedWindowBoundsInParent(w1.get()));
   EXPECT_EQ(work_area.width(), w2->bounds().width());
   EXPECT_EQ(work_area.height(), w2->bounds().height());
 
@@ -292,7 +292,7 @@ TEST_F(WorkspaceManagerTest, ChangeBoundsOfNormalWindow) {
   scoped_ptr<Window> w1(CreateTestWindow());
   w1->Show();
 
-  EXPECT_TRUE(manager_->IsManagedWindow(w1.get()));
+  EXPECT_TRUE(manager_->ShouldManageWindow(w1.get()));
   // Setting the bounds should go through since the window is in the normal
   // workspace.
   w1->SetBounds(gfx::Rect(0, 0, 200, 500));
@@ -512,7 +512,7 @@ TEST_F(WorkspaceManagerTest, ShelfStateUpdated) {
   w1->Show();
   EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
-  EXPECT_EQ(ScreenAsh::GetMaximizedWindowParentBounds(w2.get()).ToString(),
+  EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(w2.get()).ToString(),
             w2->bounds().ToString());
 
   // Switch to w2.
@@ -520,7 +520,7 @@ TEST_F(WorkspaceManagerTest, ShelfStateUpdated) {
   EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE, shelf->visibility_state());
   EXPECT_EQ(ShelfLayoutManager::AUTO_HIDE_HIDDEN, shelf->auto_hide_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
-  EXPECT_EQ(ScreenAsh::GetMaximizedWindowParentBounds(w2.get()).ToString(),
+  EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(w2.get()).ToString(),
             w2->bounds().ToString());
 }
 
@@ -606,7 +606,7 @@ TEST_F(WorkspaceManagerTest, GetWindowStateWithUnmanagedFullscreenWindow) {
   w2->Show();
 
   EXPECT_EQ(ShelfLayoutManager::HIDDEN, shelf->visibility_state());
-  ASSERT_FALSE(manager_->IsManagedWindow(w2.get()));
+  ASSERT_FALSE(manager_->ShouldManageWindow(w2.get()));
   EXPECT_EQ(WorkspaceManager::WINDOW_STATE_FULL_SCREEN,
             manager_->GetWindowState());
 
@@ -642,7 +642,7 @@ TEST_F(WorkspaceManagerTest,
   // Even though auto-hide behavior is NEVER full-screen windows cause the shelf
   // to hide.
   EXPECT_EQ(ShelfLayoutManager::HIDDEN, shelf->visibility_state());
-  ASSERT_FALSE(manager_->IsManagedWindow(w2.get()));
+  ASSERT_FALSE(manager_->ShouldManageWindow(w2.get()));
   EXPECT_EQ(WorkspaceManager::WINDOW_STATE_FULL_SCREEN,
             manager_->GetWindowState());
 

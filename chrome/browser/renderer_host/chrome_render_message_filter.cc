@@ -12,14 +12,15 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
-#include "chrome/browser/extensions/extension_event_router.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_function_dispatcher.h"
 #include "chrome/browser/extensions/extension_info_map.h"
-#include "chrome/browser/extensions/extension_message_service.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
+#include "chrome/browser/extensions/message_service.h"
 #include "chrome/browser/nacl_host/nacl_process_host.h"
+#include "chrome/browser/nacl_host/pnacl_file_host.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/profiles/profile.h"
@@ -28,8 +29,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_file_util.h"
-#include "chrome/common/extensions/extension_message_bundle.h"
 #include "chrome/common/extensions/extension_messages.h"
+#include "chrome/common/extensions/message_bundle.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/notification_service.h"
@@ -73,6 +74,8 @@ bool ChromeRenderMessageFilter::OnMessageReceived(const IPC::Message& message,
   IPC_BEGIN_MESSAGE_MAP_EX(ChromeRenderMessageFilter, message, *message_was_ok)
 #if !defined(DISABLE_NACL)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(ChromeViewHostMsg_LaunchNaCl, OnLaunchNaCl)
+    IPC_MESSAGE_HANDLER_DELAY_REPLY(ChromeViewHostMsg_GetReadonlyPnaclFD,
+                                    OnGetReadonlyPnaclFd)
 #endif
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_DnsPrefetch, OnDnsPrefetch)
     IPC_MESSAGE_HANDLER(ChromeViewHostMsg_ResourceTypeStats,
@@ -169,6 +172,13 @@ void ChromeRenderMessageFilter::OnLaunchNaCl(const GURL& manifest_url,
   NaClProcessHost* host = new NaClProcessHost(manifest_url, off_the_record_);
   host->Launch(this, socket_count, reply_msg, extension_info_map_);
 }
+
+void ChromeRenderMessageFilter::OnGetReadonlyPnaclFd(
+    const std::string& filename, IPC::Message* reply_msg) {
+  // This posts a task to another thread, but the renderer will
+  // block until the reply is sent.
+  pnacl_file_host::GetReadonlyPnaclFd(this, filename, reply_msg);
+}
 #endif
 
 void ChromeRenderMessageFilter::OnDnsPrefetch(
@@ -258,7 +268,7 @@ void ChromeRenderMessageFilter::OnOpenChannelToExtension(
     const std::string& target_extension_id,
     const std::string& channel_name, int* port_id) {
   int port2_id;
-  ExtensionMessageService::AllocatePortIdPair(port_id, &port2_id);
+  extensions::MessageService::AllocatePortIdPair(port_id, &port2_id);
 
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
@@ -284,7 +294,7 @@ void ChromeRenderMessageFilter::OnOpenChannelToTab(
     int routing_id, int tab_id, const std::string& extension_id,
     const std::string& channel_name, int* port_id) {
   int port2_id;
-  ExtensionMessageService::AllocatePortIdPair(port_id, &port2_id);
+  extensions::MessageService::AllocatePortIdPair(port_id, &port2_id);
 
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
@@ -331,8 +341,8 @@ void ChromeRenderMessageFilter::OnGetExtensionMessageBundleOnFileThread(
     IPC::Message* reply_msg) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
 
-  scoped_ptr<ExtensionMessageBundle::SubstitutionMap> dictionary_map(
-      extension_file_util::LoadExtensionMessageBundleSubstitutionMap(
+  scoped_ptr<extensions::MessageBundle::SubstitutionMap> dictionary_map(
+      extension_file_util::LoadMessageBundleSubstitutionMap(
           extension_path,
           extension_id,
           default_locale));
@@ -413,7 +423,7 @@ void ChromeRenderMessageFilter::OnExtensionCloseChannel(int port_id,
   if (!content::RenderProcessHost::FromID(render_process_id_))
     return;  // To guard against crash in browser_tests shutdown.
 
-  ExtensionMessageService* message_service =
+  extensions::MessageService* message_service =
       extensions::ExtensionSystem::Get(profile_)->message_service();
   if (message_service)
     message_service->CloseChannel(port_id, connection_error);

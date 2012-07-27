@@ -10,13 +10,14 @@
 
 #include "ash/ash_export.h"
 #include "ash/system/user/login_status.h"
+#include "ash/wm/cursor_delegate.h"
+#include "ash/wm/cursor_manager.h"
 #include "ash/wm/shelf_types.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
-#include "ui/aura/cursor_delegate.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/size.h"
 
@@ -78,14 +79,14 @@ class AcceleratorFilter;
 class ActivationController;
 class AppListController;
 class CaptureController;
+class DisplayController;
 class DragDropController;
 class EventRewriterEventFilter;
 class FocusCycler;
 class MagnificationController;
-class DisplayController;
 class MouseCursorEventFilter;
+class OverlayEventFilter;
 class PanelLayoutManager;
-class PartialScreenshotEventFilter;
 class ResizeShadowController;
 class RootWindowController;
 class RootWindowLayoutManager;
@@ -94,9 +95,9 @@ class ShadowController;
 class ShelfLayoutManager;
 class ShellContextMenu;
 class SlowAnimationEventFilter;
-class SystemGestureEventFilter;
 class StackingController;
 class StatusAreaWidget;
+class SystemGestureEventFilter;
 class TooltipController;
 class TouchObserverHUD;
 class VisibilityController;
@@ -109,7 +110,7 @@ class WorkspaceController;
 //
 // Upon creation, the Shell sets itself as the RootWindow's delegate, which
 // takes ownership of the Shell.
-class ASH_EXPORT Shell : aura::CursorDelegate {
+class ASH_EXPORT Shell : ash::CursorDelegate {
  public:
   typedef std::vector<aura::RootWindow*> RootWindowList;
   typedef std::vector<internal::RootWindowController*> RootWindowControllerList;
@@ -239,6 +240,9 @@ class ASH_EXPORT Shell : aura::CursorDelegate {
   // Initializes |launcher_|.  Does nothing if it's already initialized.
   void CreateLauncher();
 
+  // Show launcher view if it was created hidden (before session has started).
+  void ShowLauncher();
+
   // Adds/removes observer.
   void AddShellObserver(ShellObserver* observer);
   void RemoveShellObserver(ShellObserver* observer);
@@ -258,8 +262,8 @@ class ASH_EXPORT Shell : aura::CursorDelegate {
   internal::EventRewriterEventFilter* event_rewriter_filter() {
     return event_rewriter_filter_.get();
   }
-  internal::PartialScreenshotEventFilter* partial_screenshot_filter() {
-    return partial_screenshot_filter_.get();
+  internal::OverlayEventFilter* overlay_filter() {
+    return overlay_filter_.get();
   }
   DesktopBackgroundController* desktop_background_controller() {
     return desktop_background_controller_.get();
@@ -282,6 +286,7 @@ class ASH_EXPORT Shell : aura::CursorDelegate {
   internal::DisplayController* display_controller() {
     return display_controller_.get();
   }
+  CursorManager* cursor_manager() { return &cursor_manager_; }
 
   ShellDelegate* delegate() { return delegate_.get(); }
 
@@ -392,7 +397,7 @@ class ASH_EXPORT Shell : aura::CursorDelegate {
 
   ScreenAsh* screen_;
 
-  // Active root window. Never become NULL.
+  // Active root window. Never becomes NULL during the session.
   aura::RootWindow* active_root_window_;
 
   // The CompoundEventFilter owned by aura::Env object.
@@ -442,7 +447,7 @@ class ASH_EXPORT Shell : aura::CursorDelegate {
 
   // An event filter that pre-handles key events while the partial
   // screenshot UI is active.
-  scoped_ptr<internal::PartialScreenshotEventFilter> partial_screenshot_filter_;
+  scoped_ptr<internal::OverlayEventFilter> overlay_filter_;
 
   // An event filter which handles system level gestures
   scoped_ptr<internal::SystemGestureEventFilter> system_gesture_filter_;
@@ -459,14 +464,12 @@ class ASH_EXPORT Shell : aura::CursorDelegate {
   // a heads-up display. This is enabled only if --ash-touch-hud flag is used.
   scoped_ptr<internal::TouchObserverHUD> touch_observer_hud_;
 
-  // An event filter that looks for modifier keypresses and triggers a slowdown
-  // of layer animations for visual debugging.
-  scoped_ptr<internal::SlowAnimationEventFilter> slow_animation_filter_;
-
 #if defined(OS_CHROMEOS)
   // Controls video output device state.
   scoped_ptr<chromeos::OutputConfigurator> output_configurator_;
 #endif  // defined(OS_CHROMEOS)
+
+  CursorManager cursor_manager_;
 
   // The shelf for managing the launcher and the status widget in non-compact
   // mode. Shell does not own the shelf. Instead, it is owned by container of

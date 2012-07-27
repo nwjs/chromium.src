@@ -36,6 +36,8 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener,
   virtual void RenderViewDeleted(RenderViewHost* render_view_host) {}
   virtual void RenderViewReady() {}
   virtual void RenderViewGone(base::TerminationStatus status) {}
+  virtual void AboutToNavigateRenderView(
+      RenderViewHost* render_view_host) {}
   virtual void NavigateToPendingEntry(
       const GURL& url,
       NavigationController::ReloadType reload_type) {}
@@ -70,20 +72,23 @@ class CONTENT_EXPORT WebContentsObserver : public IPC::Listener,
                                       const string16& error_description,
                                       RenderViewHost* render_view_host) {}
   virtual void DocumentAvailableInMainFrame() {}
-  virtual void DocumentLoadedInFrame(int64 frame_id) {}
+  virtual void DocumentLoadedInFrame(int64 frame_id,
+                                     RenderViewHost* render_view_host) {}
   virtual void DidFinishLoad(int64 frame_id,
                              const GURL& validated_url,
-                             bool is_main_frame) {}
+                             bool is_main_frame,
+                             RenderViewHost* render_view_host) {}
   virtual void DidFailLoad(int64 frame_id,
                            const GURL& validated_url,
                            bool is_main_frame,
                            int error_code,
-                           const string16& error_description) {}
+                           const string16& error_description,
+                           RenderViewHost* render_view_host) {}
+  virtual void DidStartLoading(RenderViewHost* render_view_host) {}
+  virtual void DidStopLoading(RenderViewHost* render_view_host) {}
+
   virtual void DidGetUserGesture() {}
   virtual void DidGetIgnoredUIEvent() {}
-
-  virtual void DidStartLoading() {}
-  virtual void DidStopLoading() {}
   virtual void StopNavigation() {}
 
   virtual void DidOpenURL(const GURL& url,

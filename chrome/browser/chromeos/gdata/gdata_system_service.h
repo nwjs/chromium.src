@@ -5,11 +5,15 @@
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_GDATA_SYSTEM_SERVICE_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_SYSTEM_SERVICE_H_
 
+#include <string>
+
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/profiles/profile_keyed_service.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
+
+class FilePath;
 
 namespace gdata {
 
@@ -53,7 +57,8 @@ class GDataSystemService : public ProfileKeyedService  {
 
   // Initializes the object. This function should be called before any
   // other functions.
-  void Initialize(DocumentsServiceInterface* documents_service);
+  void Initialize(DocumentsServiceInterface* documents_service,
+                  const FilePath& cache_root);
 
   // Registers remote file system proxy for drive mount point.
   void AddDriveMountPoint();
@@ -63,7 +68,7 @@ class GDataSystemService : public ProfileKeyedService  {
   friend class GDataSystemServiceFactory;
 
   Profile* profile_;
-  const base::SequencedWorkerPool::SequenceToken sequence_token_;
+  scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   GDataCache* cache_;
   scoped_ptr<DocumentsServiceInterface> documents_service_;
   scoped_ptr<GDataUploader> uploader_;
@@ -89,15 +94,19 @@ class GDataSystemServiceFactory : public ProfileKeyedServiceFactory {
   // Returns the GDataSystemServiceFactory instance.
   static GDataSystemServiceFactory* GetInstance();
 
-  // Just creates a new instance without initializing most of the fields.
-  // This is useful for tests such as injecting mocks.
-  static ProfileKeyedService* CreateInstance(Profile* profile);
-
-  // Returns GDataSystemService for testing, with |documents_service| injected
-  // to GDataFileSystem.
-  GDataSystemService* GetWithCustomDocumentsServiceForTesting(
-      Profile* profile,
+  // Sets documents service that should be used to initialize file system in
+  // test. Should be called before the service is created.
+  // Please, make sure |documents_service| gets deleted if no system service is
+  // created (e.g. by calling this method with NULL).
+  static void set_documents_service_for_test(
       DocumentsServiceInterface* documents_service);
+
+  // Sets root path for the cache used in test. Should be called before the
+  // service is created.
+  // If |cache_root| is not empty, new string object will be created. Please,
+  // make sure it gets deleted if no system service is created (e.g. by calling
+  // this method with empty string).
+  static void set_cache_root_for_test(const std::string& cache_root);
 
  private:
   friend struct DefaultSingletonTraits<GDataSystemServiceFactory>;

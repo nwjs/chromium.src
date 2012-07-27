@@ -315,6 +315,9 @@ class MockGLInterface : public GLInterface {
       GLuint program, GLenum binaryFormat, const GLvoid* binary,
       GLsizei length));
 
+  MOCK_METHOD3(ProgramParameteri, void(
+      GLuint program, GLenum pname, GLint value));
+
   MOCK_METHOD2(QueryCounter, void(GLuint id, GLenum target));
 
   MOCK_METHOD1(ReadBuffer, void(GLenum src));

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/base_paths.h"
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
@@ -101,11 +102,6 @@ void PyUITestBase::SetLaunchSwitches() {
   launch_arguments_.AppendSwitchASCII(switches::kHomePage, homepage_);
 }
 
-bool PyUITestBase::ActivateTab(int tab_index, int window_index) {
-  scoped_refptr<BrowserProxy> browser_proxy = GetBrowserWindow(window_index);
-  return browser_proxy->BringToFront() && browser_proxy->ActivateTab(tab_index);
-}
-
 void PyUITestBase::SetDownloadShelfVisible(bool is_visible, int window_index) {
   scoped_refptr<BrowserProxy> browser_proxy = GetBrowserWindow(window_index);
   ASSERT_TRUE(browser_proxy.get());
@@ -120,14 +116,6 @@ bool PyUITestBase::IsDownloadShelfVisible(int window_index) {
   bool visible = false;
   EXPECT_TRUE(browser_proxy->IsShelfVisible(&visible));
   return visible;
-}
-
-int PyUITestBase::GetTabCount(int window_index) {
-  return UITestBase::GetTabCount(window_index);
-}
-
-GURL PyUITestBase::GetActiveTabURL(int window_index) {
-  return UITestBase::GetActiveTabURL(window_index);
 }
 
 void PyUITestBase::OpenFindInPage(int window_index) {

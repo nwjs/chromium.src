@@ -184,7 +184,7 @@ bool ShelfLayoutManager::SetAlignment(ShelfAlignment alignment) {
 gfx::Rect ShelfLayoutManager::GetIdealBounds() {
   // TODO(oshima): this is wrong. Figure out what display shelf is on
   // and everything should be based on it.
-  gfx::Rect bounds(ScreenAsh::GetDisplayParentBounds(
+  gfx::Rect bounds(ScreenAsh::GetDisplayBoundsInParent(
       status_->GetNativeView()));
   int width = 0, height = 0;
   GetShelfSize(&width, &height);
@@ -209,12 +209,17 @@ void ShelfLayoutManager::LayoutShelf() {
   CalculateTargetBounds(state_, &target_bounds);
   if (launcher_widget()) {
     GetLayer(launcher_widget())->SetOpacity(target_bounds.opacity);
-
-    launcher_widget()->SetBounds(target_bounds.launcher_bounds);
-    launcher_->SetStatusSize(target_bounds.status_bounds.size());
+    launcher_widget()->SetBounds(
+        ScreenAsh::ConvertRectToScreen(
+            launcher_widget()->GetNativeView()->parent(),
+            target_bounds.launcher_bounds_in_root));
+    launcher_->SetStatusSize(target_bounds.status_bounds_in_root.size());
   }
   GetLayer(status_)->SetOpacity(target_bounds.opacity);
-  status_->SetBounds(target_bounds.status_bounds);
+  status_->SetBounds(
+      ScreenAsh::ConvertRectToScreen(
+          status_->GetNativeView()->parent(),
+          target_bounds.status_bounds_in_root));
   Shell::GetInstance()->SetDisplayWorkAreaInsets(
       Shell::GetPrimaryRootWindow(),
       target_bounds.work_area_insets);
@@ -325,7 +330,7 @@ void ShelfLayoutManager::OnWindowActivated(aura::Window* active,
 
 gfx::Rect ShelfLayoutManager::GetMaximizedWindowBounds(
     aura::Window* window) {
-  gfx::Rect bounds(ScreenAsh::GetDisplayParentBounds(window));
+  gfx::Rect bounds(ScreenAsh::GetDisplayBoundsInParent(window));
   if (auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_DEFAULT ||
       auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
     AdjustBoundsBasedOnAlignment(kAutoHideSize, &bounds);
@@ -337,7 +342,7 @@ gfx::Rect ShelfLayoutManager::GetMaximizedWindowBounds(
 
 gfx::Rect ShelfLayoutManager::GetUnmaximizedWorkAreaBounds(
     aura::Window* window) {
-  gfx::Rect bounds(ScreenAsh::GetDisplayParentBounds(window));
+  gfx::Rect bounds(ScreenAsh::GetDisplayBoundsInParent(window));
   int size;
   if (auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS) {
     size = kAutoHideSize;
@@ -392,7 +397,8 @@ void ShelfLayoutManager::SetState(VisibilityState visibility_state) {
     launcher_animation_setter.SetTransitionDuration(
         base::TimeDelta::FromMilliseconds(130));
     launcher_animation_setter.SetTweenType(ui::Tween::EASE_OUT);
-    GetLayer(launcher_widget())->SetBounds(target_bounds.launcher_bounds);
+    GetLayer(launcher_widget())->SetBounds(
+        target_bounds.launcher_bounds_in_root);
     GetLayer(launcher_widget())->SetOpacity(target_bounds.opacity);
   }
   ui::ScopedLayerAnimationSettings status_animation_setter(
@@ -400,7 +406,7 @@ void ShelfLayoutManager::SetState(VisibilityState visibility_state) {
   status_animation_setter.SetTransitionDuration(
       base::TimeDelta::FromMilliseconds(130));
   status_animation_setter.SetTweenType(ui::Tween::EASE_OUT);
-  GetLayer(status_)->SetBounds(target_bounds.status_bounds);
+  GetLayer(status_)->SetBounds(target_bounds.status_bounds_in_root);
   GetLayer(status_)->SetOpacity(target_bounds.opacity);
   Shell::GetInstance()->SetDisplayWorkAreaInsets(
       Shell::GetPrimaryRootWindow(),
@@ -417,13 +423,13 @@ void ShelfLayoutManager::StopAnimating() {
 
 void ShelfLayoutManager::GetShelfSize(int* width, int* height) {
   *width = *height = 0;
-  gfx::Rect status_bounds(status_->GetWindowScreenBounds());
+  gfx::Size status_size(status_->GetWindowBoundsInScreen().size());
   gfx::Size launcher_size = launcher_ ?
       launcher_widget()->GetContentsView()->GetPreferredSize() : gfx::Size();
   if (alignment_ == SHELF_ALIGNMENT_BOTTOM)
-    *height = std::max(launcher_size.height(), status_bounds.height());
+    *height = std::max(launcher_size.height(), status_size.height());
   else
-    *width = std::max(launcher_size.width(), status_bounds.width());
+    *width = std::max(launcher_size.width(), status_size.width());
 }
 
 void ShelfLayoutManager::AdjustBoundsBasedOnAlignment(int inset,
@@ -446,7 +452,7 @@ void ShelfLayoutManager::CalculateTargetBounds(
     TargetBounds* target_bounds) {
   const gfx::Rect& available_bounds(
       status_->GetNativeView()->GetRootWindow()->bounds());
-  gfx::Rect status_bounds(status_->GetWindowScreenBounds());
+  gfx::Rect status_size(status_->GetWindowBoundsInScreen().size());
   gfx::Size launcher_size = launcher_ ?
       launcher_widget()->GetContentsView()->GetPreferredSize() : gfx::Size();
   int shelf_size = 0;
@@ -464,13 +470,13 @@ void ShelfLayoutManager::CalculateTargetBounds(
     int y = available_bounds.bottom();
     y -= shelf_size;
     // The status widget should extend to the bottom and right edges.
-    target_bounds->status_bounds = gfx::Rect(
+    target_bounds->status_bounds_in_root = gfx::Rect(
         base::i18n::IsRTL() ? available_bounds.x() :
-        available_bounds.right() - status_bounds.width(),
-        y + shelf_height - status_bounds.height(),
-        status_bounds.width(), status_bounds.height());
+        available_bounds.right() - status_size.width(),
+        y + shelf_height - status_size.height(),
+        status_size.width(), status_size.height());
     if (launcher_widget()) {
-      target_bounds->launcher_bounds = gfx::Rect(
+      target_bounds->launcher_bounds_in_root = gfx::Rect(
           available_bounds.x(),
           y + (shelf_height - launcher_size.height()) / 2,
           available_bounds.width(),
@@ -482,11 +488,11 @@ void ShelfLayoutManager::CalculateTargetBounds(
     int x = (alignment_ == SHELF_ALIGNMENT_LEFT) ?
         available_bounds.x() + shelf_size - shelf_width :
         available_bounds.right() - shelf_size;
-    target_bounds->status_bounds = gfx::Rect(
-        x, available_bounds.bottom() - status_bounds.height(),
-        shelf_width, status_bounds.height());
+    target_bounds->status_bounds_in_root = gfx::Rect(
+        x, available_bounds.bottom() - status_size.height(),
+        shelf_width, status_size.height());
     if (launcher_widget()) {
-      target_bounds->launcher_bounds = gfx::Rect(
+      target_bounds->launcher_bounds_in_root = gfx::Rect(
           x,
           available_bounds.y(),
           launcher_size.width(),
@@ -552,10 +558,9 @@ ShelfLayoutManager::AutoHideState ShelfLayoutManager::CalculateAutoHideState(
   if (event_filter_.get() && event_filter_->in_mouse_drag())
     return AUTO_HIDE_HIDDEN;
 
-  aura::RootWindow* root = launcher_widget()->GetNativeView()->GetRootWindow();
   bool mouse_over_launcher =
-      launcher_widget()->GetWindowScreenBounds().Contains(
-          root->last_mouse_location());
+      launcher_widget()->GetWindowBoundsInScreen().Contains(
+          gfx::Screen::GetCursorScreenPoint());
   return mouse_over_launcher ? AUTO_HIDE_SHOWN : AUTO_HIDE_HIDDEN;
 }
 

@@ -36,6 +36,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/test/net/url_request_mock_http_job.h"
 #include "net/base/net_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -374,10 +375,10 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, AutoResize) {
 
   // Expand the test page. The resize will update the docked panel strip.
   gfx::Rect initial_bounds = panel->GetBounds();
-  ui_test_utils::WindowedNotificationObserver enlarge(
+  content::WindowedNotificationObserver enlarge(
       chrome::NOTIFICATION_PANEL_STRIP_UPDATED,
       content::NotificationService::AllSources());
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScript(
+  EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),
       L"changeSize(50);"));
@@ -387,10 +388,10 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, AutoResize) {
   EXPECT_EQ(bounds_on_grow.height(), initial_bounds.height());
 
   // Shrink the test page. The resize will update the docked panel strip.
-  ui_test_utils::WindowedNotificationObserver shrink(
+  content::WindowedNotificationObserver shrink(
       chrome::NOTIFICATION_PANEL_STRIP_UPDATED,
       content::NotificationService::AllSources());
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScript(
+  EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),
       L"changeSize(-30);"));
@@ -413,7 +414,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest, AutoResize) {
   EXPECT_EQ(new_bounds.size(), panel->GetRestoredBounds().size());
 
   // Turn back on auto-resize and verify that panel auto resizes.
-  ui_test_utils::WindowedNotificationObserver auto_resize_enabled(
+  content::WindowedNotificationObserver auto_resize_enabled(
       chrome::NOTIFICATION_PANEL_STRIP_UPDATED,
       content::NotificationService::AllSources());
   panel->SetAutoResizable(true);
@@ -1338,7 +1339,7 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   Panel* panel2 = CreatePanelWithParams(params);
 
   // Close main tabbed window.
-  ui_test_utils::WindowedNotificationObserver signal(
+  content::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_BROWSER_CLOSED,
       content::Source<Browser>(browser()));
   chrome::CloseWindow(browser());
@@ -1408,10 +1409,10 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
       web_app::GenerateApplicationNameFromExtensionId(extension_other->id());
   Panel* panel_other = CreatePanel(extension_app_name_other);
 
-  ui_test_utils::WindowedNotificationObserver signal(
+  content::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_PANEL_CLOSED,
       content::Source<Panel>(panel));
-  ui_test_utils::WindowedNotificationObserver signal1(
+  content::WindowedNotificationObserver signal1(
       chrome::NOTIFICATION_PANEL_CLOSED,
       content::Source<Panel>(panel1));
 
@@ -1497,10 +1498,10 @@ IN_PROC_BROWSER_TEST_F(PanelBrowserTest,
   int initial_height = panel->GetBounds().height();
 
   // Inject some HTML content into the panel.
-  ui_test_utils::WindowedNotificationObserver enlarge(
+  content::WindowedNotificationObserver enlarge(
       chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
       content::Source<Panel>(panel));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScript(
+  EXPECT_TRUE(content::ExecuteJavaScript(
       panel->GetWebContents()->GetRenderViewHost(),
       std::wstring(),
       L"document.body.innerHTML ="

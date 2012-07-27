@@ -108,6 +108,16 @@
             ],
           },
         }],
+        ['OS=="android" and android_app_abi=="x86"', {
+          'defines': [
+            'GTEST_HAS_CLONE=0',
+          ],
+          'direct_dependent_settings': {
+            'defines': [
+              'GTEST_HAS_CLONE=0',
+            ],
+          },
+        }],
         ['clang==1 or OS=="android"', {
           # We want gtest features that use tr1::tuple, but we currently
           # don't support the variadic templates used by libstdc++'s
@@ -144,7 +154,7 @@
                   # Use a variable so the path gets fixed up so it is always
                   # correct when the action finally gets used.
                   'ios_run_unittest_script_path':
-                    '<(DEPTH)/testing/gtest_ios/RunUnittest.sh',
+                    '<(DEPTH)/testing/gtest_ios/run-unittest.sh',
                 },
                 'run_as': {
                   'action????': ['>(ios_run_unittest_script_path)'],

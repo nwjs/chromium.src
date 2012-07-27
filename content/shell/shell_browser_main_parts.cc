@@ -11,6 +11,8 @@
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/main_function_params.h"
+#include "content/public/common/url_constants.h"
 #include "content/shell/shell.h"
 #include "content/shell/shell_browser_context.h"
 #include "content/shell/shell_devtools_delegate.h"
@@ -26,8 +28,10 @@
 namespace content {
 
 static GURL GetStartupURL() {
-  const CommandLine::StringVector& args =
-      CommandLine::ForCurrentProcess()->GetArgs();
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kContentBrowserTest))
+    return GURL();
+  const CommandLine::StringVector& args = command_line->GetArgs();
   if (args.empty())
     return GURL("http://www.google.com/");
 
@@ -35,8 +39,10 @@ static GURL GetStartupURL() {
 }
 
 ShellBrowserMainParts::ShellBrowserMainParts(
-    const content::MainFunctionParams& parameters)
+    const MainFunctionParams& parameters)
     : BrowserMainParts(),
+      parameters_(parameters),
+      run_message_loop_(true),
       devtools_delegate_(NULL) {
 }
 
@@ -62,7 +68,8 @@ void ShellBrowserMainParts::PreEarlyInitialization() {
 }
 
 void ShellBrowserMainParts::PreMainMessageLoopRun() {
-  browser_context_.reset(new ShellBrowserContext);
+  browser_context_.reset(new ShellBrowserContext(false));
+  off_the_record_browser_context_.reset(new ShellBrowserContext(true));
 
   Shell::PlatformInitialize();
   net::NetModule::SetResourceProvider(Shell::PlatformResourceProvider);
@@ -88,12 +95,23 @@ void ShellBrowserMainParts::PreMainMessageLoopRun() {
                            MSG_ROUTING_NONE,
                            NULL);
   }
+
+  if (parameters_.ui_task) {
+    parameters_.ui_task->Run();
+    delete parameters_.ui_task;
+    run_message_loop_ = false;
+  }
+}
+
+bool ShellBrowserMainParts::MainMessageLoopRun(int* result_code)  {
+  return !run_message_loop_;
 }
 
 void ShellBrowserMainParts::PostMainMessageLoopRun() {
   if (devtools_delegate_)
     devtools_delegate_->Stop();
   browser_context_.reset();
+  off_the_record_browser_context_.reset();
 }
 
 }  // namespace

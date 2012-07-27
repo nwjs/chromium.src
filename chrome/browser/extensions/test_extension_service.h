@@ -10,13 +10,12 @@
 
 #include "chrome/browser/extensions/extension_service.h"
 
-class CrxInstaller;
-
 namespace syncer {
 class SyncErrorFactory;
 }
 
 namespace extensions {
+class CrxInstaller;
 class Extension;
 }
 
@@ -30,13 +29,14 @@ class TestExtensionService : public ExtensionServiceInterface {
   // ExtensionServiceInterface implementation.
   virtual const ExtensionSet* extensions() const OVERRIDE;
   virtual const ExtensionSet* disabled_extensions() const OVERRIDE;
-  virtual PendingExtensionManager* pending_extension_manager() OVERRIDE;
+  virtual extensions::PendingExtensionManager*
+      pending_extension_manager() OVERRIDE;
 
   virtual bool UpdateExtension(
       const std::string& id,
       const FilePath& path,
       const GURL& download_url,
-      CrxInstaller** out_crx_installer) OVERRIDE;
+      extensions::CrxInstaller** out_crx_installer) OVERRIDE;
   virtual const extensions::Extension* GetExtensionById(
       const std::string& id, bool include_disabled) const OVERRIDE;
   virtual const extensions::Extension* GetInstalledExtension(

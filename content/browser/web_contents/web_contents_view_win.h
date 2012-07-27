@@ -14,12 +14,12 @@
 #include "content/public/browser/web_contents_view.h"
 #include "ui/base/win/window_impl.h"
 
-class RenderWidgetHostViewWin;
 class WebDragDest;
 class WebContentsDragWin;
 class WebContentsImpl;
 
 namespace content {
+class RenderWidgetHostViewWin;
 class WebContentsViewDelegate;
 }
 
@@ -31,7 +31,7 @@ class HWNDMessageFilter;
 class CONTENT_EXPORT WebContentsViewWin
     : public content::WebContentsView,
       public content::RenderViewHostDelegateView,
-                                          public ui::WindowImpl {
+      public ui::WindowImpl {
  public:
   WebContentsViewWin(WebContentsImpl* web_contents,
                      content::WebContentsViewDelegate* delegate);
@@ -128,7 +128,7 @@ class CONTENT_EXPORT WebContentsViewWin
   // The WebContentsImpl whose contents we display.
   WebContentsImpl* web_contents_;
 
-  RenderWidgetHostViewWin* view_;
+  content::RenderWidgetHostViewWin* view_;
 
   scoped_ptr<content::WebContentsViewDelegate> delegate_;
 

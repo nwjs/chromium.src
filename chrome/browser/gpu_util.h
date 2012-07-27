@@ -50,7 +50,8 @@ std::string GpuFeatureTypeToString(content::GpuFeatureType feature);
 //    'webgl',
 //    'multisampling',
 //    'flash_3d',
-//    'flash_stage3d'
+//    'flash_stage3d',
+//    'texture_sharing'
 //
 // Each problems has:
 // {
@@ -68,9 +69,9 @@ base::DictionaryValue* GpuInfoAsDictionaryValue();
 // Send UMA histograms about the enabled features.
 void UpdateStats();
 
-// Returs whether this client has been selected for the force-compositing-mode
-// trial.
-bool InForceCompositingModeTrial();
+// Returns whether this client has been selected for the force-compositing-mode
+// or threaded-compositor trial.
+bool InForceCompositingModeOrThreadTrial();
 
 // Sets up the force-compositing-mode field trial.
 void InitializeForceCompositingModeFieldTrial();

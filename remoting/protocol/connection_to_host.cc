@@ -36,7 +36,7 @@ ConnectionToHost::ConnectionToHost(
       clipboard_stub_(NULL),
       video_stub_(NULL),
       audio_stub_(NULL),
-      state_(CONNECTING),
+      state_(INITIALIZING),
       error_(OK) {
 }
 
@@ -88,6 +88,8 @@ void ConnectionToHost::Connect(scoped_refptr<XmppProxy> xmpp_proxy,
   session_manager_.reset(new JingleSessionManager(
       transport_factory.Pass(), allow_nat_traversal_));
   session_manager_->Init(signal_strategy_.get(), this);
+
+  SetState(CONNECTING, OK);
 }
 
 void ConnectionToHost::Disconnect(const base::Closure& shutdown_task) {
@@ -205,6 +207,17 @@ void ConnectionToHost::OnSessionStateChange(
 
 void ConnectionToHost::OnSessionRouteChange(const std::string& channel_name,
                                             const TransportRoute& route) {
+}
+
+void ConnectionToHost::OnSessionChannelReady(const std::string& channel_name,
+                                             bool ready) {
+  if (ready) {
+    not_ready_channels_.erase(channel_name);
+  } else if (!ready) {
+    not_ready_channels_.insert(channel_name);
+  }
+
+  event_callback_->OnConnectionReady(not_ready_channels_.empty());
 }
 
 ConnectionToHost::State ConnectionToHost::state() const {

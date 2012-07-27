@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "content/public/browser/web_intents_dispatcher.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/isolated_context.h"
 #include "webkit/glue/web_intent_data.h"
 
@@ -31,23 +32,29 @@ DeviceAttachedIntentSource::~DeviceAttachedIntentSource() {
 }
 
 void DeviceAttachedIntentSource::OnMediaDeviceAttached(
-    const base::SystemMonitor::DeviceIdType& id,
-    const std::string& name,
-    const FilePath& device_path) {
+    const std::string& id,
+    const string16& name,
+    base::SystemMonitor::MediaDeviceType type,
+    const FilePath::StringType& location) {
   if (!browser_->window()->IsActive())
     return;
 
-  // Sanity checks for |device_path|.
-  if (!device_path.IsAbsolute() || device_path.ReferencesParent()) {
+  // Only handle FilePaths for now.
+  if (type != SystemMonitor::TYPE_PATH)
     return;
-  }
+
+  // Sanity checks for |device_path|.
+  const FilePath device_path(location);
+  if (!device_path.IsAbsolute() || device_path.ReferencesParent())
+    return;
 
   std::string device_name;
 
   // Register device path as an isolated file system.
+  // TODO(kinuko, kmadhusu): Use a different file system type for MTP.
   const std::string filesystem_id =
-      fileapi::IsolatedContext::GetInstance()->RegisterFileSystemForFile(
-          device_path, &device_name);
+      fileapi::IsolatedContext::GetInstance()->RegisterFileSystemForPath(
+          fileapi::kFileSystemTypeIsolated, device_path, &device_name);
 
   CHECK(!filesystem_id.empty());
   webkit_glue::WebIntentData intent(
@@ -56,7 +63,6 @@ void DeviceAttachedIntentSource::OnMediaDeviceAttached(
       device_name,
       filesystem_id);
 
-  content::WebIntentsDispatcher* dispatcher =
-      content::WebIntentsDispatcher::Create(intent);
-  delegate_->WebIntentDispatch(NULL, dispatcher);
+  delegate_->WebIntentDispatch(NULL  /* no WebContents */,
+                               content::WebIntentsDispatcher::Create(intent));
 }

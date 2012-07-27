@@ -57,7 +57,6 @@
 #include "googleurl/src/gurl.h"
 #include "media/base/audio_renderer_sink.h"
 #include "media/base/decryptor.h"
-#include "media/base/filters.h"
 #include "media/base/message_loop_factory.h"
 #include "media/base/pipeline.h"
 #include "skia/ext/platform_canvas.h"
@@ -257,7 +256,7 @@ class WebMediaPlayerImpl
 
  private:
   // Called after asynchronous initialization of a data source completed.
-  void DataSourceInitialized(const GURL& gurl, media::PipelineStatus status);
+  void DataSourceInitialized(const GURL& gurl, bool success);
 
   // Called when the data source is downloading or paused.
   void NotifyDownloading(bool is_downloading);

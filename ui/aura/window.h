@@ -61,6 +61,7 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
     explicit TestApi(Window* window);
 
     bool OwnsLayer() const;
+    bool ContainsMouse();
 
    private:
     TestApi();
@@ -132,13 +133,13 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   bool TargetVisibility() const { return visible_; }
 
   // Returns the window's bounds in root window's coordinates.
-  gfx::Rect GetRootWindowBounds() const;
+  gfx::Rect GetBoundsInRootWindow() const;
 
   // Returns the window's bounds in screen coordinates.
   // How the root window's coordinates is mapped to screen's coordinates
   // is platform dependent and defined in the implementation of the
   // |aura::client::ScreenPositionClient| interface.
-  gfx::Rect GetScreenBounds() const;
+  gfx::Rect GetBoundsInScreen() const;
 
   virtual void SetTransform(const ui::Transform& transform);
 
@@ -153,7 +154,7 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
 
   // Changes the bounds of the window in the screen coordintates.
   // If present, the window's parent's LayoutManager may adjust the bounds.
-  void SetScreenBounds(const gfx::Rect& new_bounds_in_screen_coords);
+  void SetBoundsInScreen(const gfx::Rect& new_bounds_in_screen_coords);
 
   // Returns the target bounds of the window. If the window's layer is
   // not animating, it simply returns the current bounds.
@@ -258,11 +259,11 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Returns true if the |point_in_root| in root window's coordinate falls
   // within this window's bounds. Returns false if the window is detached
   // from root window.
-  bool ContainsPointInRoot(const gfx::Point& point_in_root);
+  bool ContainsPointInRoot(const gfx::Point& point_in_root) const;
 
   // Returns true if relative-to-this-Window's-origin |local_point| falls
   // within this Window's bounds.
-  bool ContainsPoint(const gfx::Point& local_point);
+  bool ContainsPoint(const gfx::Point& local_point) const;
 
   // Returns true if the mouse pointer at relative-to-this-Window's-origin
   // |local_point| can trigger an event for this Window.
@@ -478,13 +479,6 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   };
 
   std::map<const void*, Value> prop_map_;
-
-  // A boolean flag to debug crash in http://crbug.com/134507. It is set when
-  // SetVisible is called and reset when SetVisible finishes. In Window dtor,
-  // the flag is CHECKed to catch the case that Window is destroyed during
-  // SetVisbile(false).
-  // TODO(xiyuan): Remove this when http://crbug.com/134507 is resolved.
-  bool in_set_visible_call_;
 
   DISALLOW_COPY_AND_ASSIGN(Window);
 };

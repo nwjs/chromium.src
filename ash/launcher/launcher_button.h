@@ -6,6 +6,7 @@
 #define ASH_LAUNCHER_LAUNCHER_BUTTON_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "ui/gfx/shadow_value.h"
 #include "ui/views/controls/button/custom_button.h"
 #include "ui/views/controls/image_view.h"
 
@@ -88,6 +89,8 @@ class LauncherButton : public views::CustomButton {
   virtual void OnMouseMoved(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
   virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual ui::GestureStatus OnGestureEvent(const views::GestureEvent& event)
+      OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
   virtual void Layout() OVERRIDE;
   virtual void OnFocus() OVERRIDE;
@@ -125,6 +128,8 @@ class LauncherButton : public views::CustomButton {
   // Runs a pulse animation for |icon_view_|. It is created when button state
   // has a STATE_PENDING bit and destroyed when that bit is clear.
   scoped_ptr<IconPulseAnimation> icon_pulse_animation_;
+
+  gfx::ShadowValues icon_shadows_;
 
   DISALLOW_COPY_AND_ASSIGN(LauncherButton);
 };

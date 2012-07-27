@@ -52,7 +52,7 @@ class ViewFocusChangeWaiter : public views::FocusChangeListener {
   }
 
   void Wait() {
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
  private:
@@ -148,7 +148,7 @@ void KeyboardAccessTest::TestMenuKeyboardAccess(bool alternate_key_sequence,
   // page menu, then wait until the focused view changes.
   int original_view_id = GetFocusedViewID();
 
-  ui_test_utils::WindowedNotificationObserver new_tab_observer(
+  content::WindowedNotificationObserver new_tab_observer(
       chrome::NOTIFICATION_TAB_ADDED,
       content::Source<content::WebContentsDelegate>(browser()));
 

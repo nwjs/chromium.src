@@ -127,7 +127,6 @@ class CppTypeGenerator(object):
     optional.
     """
     cpp_type = None
-    force_wrapping = False
     if prop.type_ == PropertyType.REF:
       dependency_namespace = self._ResolveTypeNamespace(prop.ref_type)
       if not dependency_namespace:
@@ -153,6 +152,11 @@ class CppTypeGenerator(object):
       cpp_type = any_helper.ANY_CLASS
     elif prop.type_ == PropertyType.OBJECT:
       cpp_type = cpp_util.Classname(prop.name)
+    elif prop.type_ == PropertyType.FUNCTION:
+      # Functions come into the json schema compiler as empty objects. We can
+      # record these as empty DictionaryValue's so that we know if the function
+      # was passed in or not.
+      cpp_type = 'base::DictionaryValue'
     elif prop.type_ == PropertyType.ARRAY:
       item_type = prop.item_type
       if item_type.type_ == PropertyType.REF:
@@ -165,17 +169,13 @@ class CppTypeGenerator(object):
       cpp_type = cpp_type % self.GetType(
           prop.item_type, pad_for_generics=True)
     elif prop.type_ == PropertyType.BINARY:
-      # Since base::BinaryValue's are immutable, we wrap them in a scoped_ptr to
-      # allow them to be modified after the fact.
-      force_wrapping = True
-      cpp_type = 'base::BinaryValue'
+      cpp_type = 'std::string'
     else:
       raise NotImplementedError(prop.type_)
 
     # Enums aren't wrapped because C++ won't allow it. Optional enums have a
     # NONE value generated instead.
-    if force_wrapping or (wrap_optional and prop.optional and prop.type_ !=
-                          PropertyType.ENUM):
+    if wrap_optional and prop.optional and prop.type_ != PropertyType.ENUM:
       cpp_type = 'scoped_ptr<%s> ' % cpp_type
     if pad_for_generics:
       return cpp_type

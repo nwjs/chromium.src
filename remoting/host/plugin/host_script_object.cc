@@ -26,7 +26,7 @@
 #include "remoting/host/pin_hash.h"
 #include "remoting/host/plugin/daemon_controller.h"
 #include "remoting/host/plugin/host_log_handler.h"
-#include "remoting/host/policy_hack/nat_policy.h"
+#include "remoting/host/policy_hack/policy_watcher.h"
 #include "remoting/host/register_support_host_request.h"
 #include "remoting/host/session_manager_factory.h"
 #include "remoting/jingle_glue/xmpp_signal_strategy.h"
@@ -104,11 +104,11 @@ HostNPScriptObject::~HostNPScriptObject() {
   plugin_task_runner_->Detach();
 
   // Stop listening for policy updates.
-  if (nat_policy_.get()) {
-    base::WaitableEvent nat_policy_stopped_(true, false);
-    nat_policy_->StopWatching(&nat_policy_stopped_);
-    nat_policy_stopped_.Wait();
-    nat_policy_.reset();
+  if (policy_watcher_.get()) {
+    base::WaitableEvent policy_watcher_stopped_(true, false);
+    policy_watcher_->StopWatching(&policy_watcher_stopped_);
+    policy_watcher_stopped_.Wait();
+    policy_watcher_.reset();
   }
 
   if (host_context_.get()) {
@@ -144,10 +144,10 @@ bool HostNPScriptObject::Init() {
     return false;
   }
 
-  nat_policy_.reset(
-      policy_hack::NatPolicy::Create(host_context_->network_task_runner()));
-  nat_policy_->StartWatching(
-      base::Bind(&HostNPScriptObject::OnNatPolicyUpdate,
+  policy_watcher_.reset(
+      policy_hack::PolicyWatcher::Create(host_context_->network_task_runner()));
+  policy_watcher_->StartWatching(
+      base::Bind(&HostNPScriptObject::OnPolicyUpdate,
                  base::Unretained(this)));
   return true;
 }
@@ -891,6 +891,23 @@ void HostNPScriptObject::OnShutdownFinished() {
   disconnected_event_.Signal();
 }
 
+void HostNPScriptObject::OnPolicyUpdate(
+    scoped_ptr<base::DictionaryValue> policies) {
+  if (!host_context_->network_task_runner()->BelongsToCurrentThread()) {
+    host_context_->network_task_runner()->PostTask(
+        FROM_HERE,
+        base::Bind(&HostNPScriptObject::OnPolicyUpdate,
+                   base::Unretained(this), base::Passed(&policies)));
+    return;
+  }
+
+  bool bool_value;
+  if (policies->GetBoolean(policy_hack::PolicyWatcher::kNatPolicyName,
+                           &bool_value)) {
+    OnNatPolicyUpdate(bool_value);
+  }
+}
+
 void HostNPScriptObject::OnNatPolicyUpdate(bool nat_traversal_enabled) {
   if (!host_context_->network_task_runner()->BelongsToCurrentThread()) {
     host_context_->network_task_runner()->PostTask(
@@ -1051,8 +1068,9 @@ void HostNPScriptObject::LocalizeStrings(NPObject* localize_func) {
                  &ui_strings.continue_button_text);
   LocalizeString(localize_func, /*i18n-content*/"STOP_SHARING_BUTTON",
                  &ui_strings.stop_sharing_button_text);
-  LocalizeString(localize_func, /*i18n-content*/"MESSAGE_SHARED",
-                 &ui_strings.disconnect_message);
+  LocalizeStringWithSubstitution(localize_func,
+                                 /*i18n-content*/"MESSAGE_SHARED", "$1",
+                                 &ui_strings.disconnect_message);
 
   base::AutoLock auto_lock(ui_strings_lock_);
   ui_strings_ = ui_strings;
@@ -1060,11 +1078,23 @@ void HostNPScriptObject::LocalizeStrings(NPObject* localize_func) {
 
 bool HostNPScriptObject::LocalizeString(NPObject* localize_func,
                                         const char* tag, string16* result) {
-  NPVariant args[2];
+  return LocalizeStringWithSubstitution(localize_func, tag, NULL, result);
+}
+
+bool HostNPScriptObject::LocalizeStringWithSubstitution(
+    NPObject* localize_func,
+    const char* tag,
+    const char* substitution,
+    string16* result) {
+  int argc = substitution ? 2 : 1;
+  scoped_array<NPVariant> args(new NPVariant[argc]);
   STRINGZ_TO_NPVARIANT(tag, args[0]);
+  if (substitution) {
+    STRINGZ_TO_NPVARIANT(substitution, args[1]);
+  }
   NPVariant np_result;
   bool is_good = g_npnetscape_funcs->invokeDefault(
-      plugin_, localize_func, &args[0], 1, &np_result);
+      plugin_, localize_func, args.get(), argc, &np_result);
   if (!is_good) {
     LOG(ERROR) << "Localization failed for " << tag;
     return false;

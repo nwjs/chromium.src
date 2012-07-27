@@ -32,13 +32,7 @@
 #include "ui/surface/accelerated_surface_win.h"
 #include "webkit/glue/webcursor.h"
 
-class BackingStore;
 class SkRegion;
-class WebTouchState;
-
-namespace content {
-class RenderWidgetHost;
-}
 
 namespace gfx {
 class Size;
@@ -52,6 +46,11 @@ class Message;
 namespace ui {
 class ViewProp;
 }
+
+namespace content {
+class BackingStore;
+class RenderWidgetHost;
+class WebTouchState;
 
 typedef CWinTraits<WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, 0>
     RenderWidgetHostHWNDTraits;
@@ -78,8 +77,8 @@ class RenderWidgetHostViewWin
     : public CWindowImpl<RenderWidgetHostViewWin,
                          CWindow,
                          RenderWidgetHostHWNDTraits>,
-      public content::RenderWidgetHostViewBase,
-      public content::NotificationObserver,
+      public RenderWidgetHostViewBase,
+      public NotificationObserver,
       public BrowserAccessibilityDelegate,
       public ui::GestureConsumer,
       public ui::GestureEventHelper {
@@ -146,7 +145,7 @@ class RenderWidgetHostViewWin
 
   // RenderWidgetHostView implementation.
   virtual void InitAsChild(gfx::NativeView parent_view) OVERRIDE;
-  virtual content::RenderWidgetHost* GetRenderWidgetHost() const OVERRIDE;
+  virtual RenderWidgetHost* GetRenderWidgetHost() const OVERRIDE;
   virtual void SetSize(const gfx::Size& size) OVERRIDE;
   virtual void SetBounds(const gfx::Rect& rect) OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
@@ -161,10 +160,10 @@ class RenderWidgetHostViewWin
   virtual void SetBackground(const SkBitmap& background) OVERRIDE;
 
   // Implementation of RenderWidgetHostViewPort.
-  virtual void InitAsPopup(content::RenderWidgetHostView* parent_host_view,
+  virtual void InitAsPopup(RenderWidgetHostView* parent_host_view,
                            const gfx::Rect& pos) OVERRIDE;
   virtual void InitAsFullscreen(
-      content::RenderWidgetHostView* reference_host_view) OVERRIDE;
+      RenderWidgetHostView* reference_host_view) OVERRIDE;
   virtual void WasRestored() OVERRIDE;
   virtual void WasHidden() OVERRIDE;
   virtual void MovePluginWindows(
@@ -192,7 +191,8 @@ class RenderWidgetHostViewWin
   virtual void SetTooltipText(const string16& tooltip_text) OVERRIDE;
   virtual BackingStore* AllocBackingStore(const gfx::Size& size) OVERRIDE;
   virtual void CopyFromCompositingSurface(
-      const gfx::Size& size,
+      const gfx::Rect& src_subrect,
+      const gfx::Size& dst_size,
       const base::Callback<void(bool)>& callback,
       skia::PlatformCanvas* output) OVERRIDE;
   virtual void OnAcceleratedCompositingStateChange() OVERRIDE;
@@ -218,10 +218,10 @@ class RenderWidgetHostViewWin
   virtual void UnlockMouse() OVERRIDE;
   virtual void SetClickthroughRegion(SkRegion* region) OVERRIDE;
 
-  // Implementation of content::NotificationObserver:
+  // Implementation of NotificationObserver:
   virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
+                       const NotificationSource& source,
+                       const NotificationDetails& details) OVERRIDE;
 
   // Implementation of BrowserAccessibilityDelegate:
   virtual void SetAccessibilityFocus(int acc_obj_id) OVERRIDE;
@@ -235,12 +235,10 @@ class RenderWidgetHostViewWin
 
   // Overridden from ui::GestureEventHelper.
   virtual ui::GestureEvent* CreateGestureEvent(
-      ui::EventType type,
+      const ui::GestureEventDetails& details,
       const gfx::Point& location,
       int flags,
       base::Time time,
-      float param_first,
-      float param_second,
       unsigned int touch_id_bitfield) OVERRIDE;
   virtual ui::TouchEvent* CreateTouchEvent(
       ui::EventType type,
@@ -251,12 +249,12 @@ class RenderWidgetHostViewWin
   virtual bool DispatchCancelTouchEvent(ui::TouchEvent* event) OVERRIDE;
 
  protected:
-  friend class content::RenderWidgetHostView;
+  friend class RenderWidgetHostView;
 
   // Should construct only via RenderWidgetHostView::CreateViewForWidget.
   //
   // The view will associate itself with the given widget.
-  explicit RenderWidgetHostViewWin(content::RenderWidgetHost* widget);
+  explicit RenderWidgetHostViewWin(RenderWidgetHost* widget);
 
   // Windows Message Handlers
   LRESULT OnCreate(CREATESTRUCT* create_struct);
@@ -407,7 +405,7 @@ class RenderWidgetHostViewWin
   // The associated Model.  While |this| is being Destroyed,
   // |render_widget_host_| is NULL and the Windows message loop is run one last
   // time. Message handlers must check for a NULL |render_widget_host_|.
-  content::RenderWidgetHostImpl* render_widget_host_;
+  RenderWidgetHostImpl* render_widget_host_;
 
   // When we are doing accelerated compositing
   HWND compositor_host_window_;
@@ -485,7 +483,7 @@ class RenderWidgetHostViewWin
   base::TimeTicks web_contents_switch_paint_time_;
 
   // Registrar so we can listen to RENDERER_PROCESS_TERMINATED events.
-  content::NotificationRegistrar registrar_;
+  NotificationRegistrar registrar_;
 
   // Stores the current text input type received by TextInputStateChanged()
   // method.
@@ -556,5 +554,7 @@ class RenderWidgetHostViewWin
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewWin);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_VIEW_WIN_H_

@@ -12,6 +12,7 @@
 #include "base/debug/trace_event.h"
 #include "base/i18n/rtl.h"
 #include "base/message_loop.h"
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
@@ -34,6 +35,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/user_metrics.h"
+#include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
 #include "skia/ext/image_operations.h"
@@ -64,16 +66,17 @@ using WebKit::WebMouseEvent;
 using WebKit::WebMouseWheelEvent;
 using WebKit::WebTextDirection;
 
+namespace content {
 namespace {
 
 // How long to (synchronously) wait for the renderer to respond with a
 // PaintRect message, when our backing-store is invalid, before giving up and
 // returning a null or incorrectly sized backing-store from GetBackingStore.
 // This timeout impacts the "choppiness" of our window resize perf.
-static const int kPaintMsgTimeoutMS = 50;
+const int kPaintMsgTimeoutMS = 50;
 
 // How long to wait before we consider a renderer hung.
-static const int kHungRendererDelayMs = 30000;
+const int kHungRendererDelayMs = 30000;
 
 // How many milliseconds apart synthetic scroll messages should be sent.
 static const int kSyntheticScrollMessageIntervalMs = 8;
@@ -98,8 +101,6 @@ bool ShouldCoalesceGestureEvents(const WebKit::WebGestureEvent& last_event,
 }
 
 }  // namespace
-
-namespace content {
 
 // static
 void RenderWidgetHost::RemoveAllBackingStores() {
@@ -246,6 +247,8 @@ void RenderWidgetHostImpl::Init() {
 
   // Send the ack along with the information on placement.
   Send(new ViewMsg_CreatingNew_ACK(routing_id_, GetNativeViewId()));
+  GetProcess()->ResumeRequestsForView(routing_id_);
+
   WasResized();
 }
 
@@ -287,8 +290,8 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_BeginSmoothScroll, OnMsgBeginSmoothScroll)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Focus, OnMsgFocus)
     IPC_MESSAGE_HANDLER(ViewHostMsg_Blur, OnMsgBlur)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DidChangeNumTouchEvents,
-                        OnMsgDidChangeNumTouchEvents)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_HasTouchEventHandlers,
+                        OnMsgHasTouchEventHandlers)
     IPC_MESSAGE_HANDLER(ViewHostMsg_SetCursor, OnMsgSetCursor)
     IPC_MESSAGE_HANDLER(ViewHostMsg_TextInputStateChanged,
                         OnMsgTextInputStateChanged)
@@ -493,16 +496,23 @@ void RenderWidgetHostImpl::SetIsLoading(bool is_loading) {
 }
 
 void RenderWidgetHostImpl::CopyFromBackingStore(
-    const gfx::Rect& src_rect,
-    const gfx::Size& accelerated_dest_size,
+    const gfx::Rect& src_subrect,
+    const gfx::Size& accelerated_dst_size,
     const base::Callback<void(bool)>& callback,
     skia::PlatformCanvas* output) {
   if (view_ && is_accelerated_compositing_active_) {
     TRACE_EVENT0("browser",
         "RenderWidgetHostImpl::CopyFromBackingStore::FromCompositingSurface");
-    // TODO(mazda): Support partial copy with |src_rect|
-    // (http://crbug.com/118571).
-    view_->CopyFromCompositingSurface(accelerated_dest_size,
+#if defined(USE_AURA) || defined(OS_LINUX) || defined(OS_MACOSX)
+    gfx::Rect copy_rect = src_subrect.IsEmpty() ?
+        gfx::Rect(view_->GetViewBounds().size()) : src_subrect;
+#else
+    // Just passes an empty rect to CopyFromCompositingSurface on non-Aura Win
+    // because copying a partial rectangle is not supported.
+    gfx::Rect copy_rect;
+#endif
+    view_->CopyFromCompositingSurface(copy_rect,
+                                      accelerated_dst_size,
                                       callback,
                                       output);
     return;
@@ -516,10 +526,8 @@ void RenderWidgetHostImpl::CopyFromBackingStore(
 
   TRACE_EVENT0("browser",
       "RenderWidgetHostImpl::CopyFromBackingStore::FromBackingStore");
-  const gfx::Size backing_store_size = backing_store->size();
-  gfx::Rect copy_rect = src_rect.IsEmpty() ?
-      gfx::Rect(0, 0, backing_store_size.width(), backing_store_size.height()) :
-      src_rect;
+  gfx::Rect copy_rect = src_subrect.IsEmpty() ?
+      gfx::Rect(backing_store->size()) : src_subrect;
   // When the result size is equal to the backing store size, copy from the
   // backing store directly to the output canvas.
   bool result = backing_store->CopyFromBackingStore(copy_rect, output);
@@ -782,7 +790,7 @@ void RenderWidgetHostImpl::ForwardMouseEvent(const WebMouseEvent& mouse_event) {
   ForwardInputEvent(mouse_event, sizeof(WebMouseEvent), false);
 }
 
-void RenderWidgetHostImpl::OnMouseActivate() {
+void RenderWidgetHostImpl::OnPointerEventActivate() {
 }
 
 void RenderWidgetHostImpl::ForwardWheelEvent(
@@ -880,7 +888,11 @@ void RenderWidgetHostImpl::ForwardKeyboardEvent(
 
     bool is_keyboard_shortcut = false;
     // Only pre-handle the key event if it's not handled by the input method.
-    if (!key_event.skip_in_browser) {
+    // A delegate_ of NULL seems impossible but crash reports show that it
+    // can happen (see http://crbug.com/134465). This doesn't seem to happen
+    // with Chrome 22 and later, so checking the delegate_ here can be removed
+    // once Chrome 22 goes to stable..
+    if (delegate_ && !key_event.skip_in_browser) {
       // We need to set |suppress_next_char_events_| to true if
       // PreHandleKeyboardEvent() returns true, but |this| may already be
       // destroyed at that time. So set |suppress_next_char_events_| true here,
@@ -1120,10 +1132,9 @@ void RenderWidgetHostImpl::SetShouldAutoResize(bool enable) {
 void RenderWidgetHostImpl::GetWebScreenInfo(WebKit::WebScreenInfo* result) {
 #if defined(OS_POSIX) || defined(USE_AURA)
   if (GetView()) {
-    static_cast<content::RenderWidgetHostViewPort*>(
-        GetView())->GetScreenInfo(result);
+    static_cast<RenderWidgetHostViewPort*>(GetView())->GetScreenInfo(result);
   } else {
-    content::RenderWidgetHostViewPort::GetDefaultScreenInfo(result);
+    RenderWidgetHostViewPort::GetDefaultScreenInfo(result);
   }
 #else
   *result = WebKit::WebScreenInfoFactory::screenInfo(
@@ -1556,8 +1567,8 @@ void RenderWidgetHostImpl::OnMsgBlur() {
   GetProcess()->ReceivedBadMessage();
 }
 
-void RenderWidgetHostImpl::OnMsgDidChangeNumTouchEvents(int count) {
-  has_touch_handler_ = count > 0;
+void RenderWidgetHostImpl::OnMsgHasTouchEventHandlers(bool has_handlers) {
+  has_touch_handler_ = has_handlers;
 }
 
 void RenderWidgetHostImpl::OnMsgSetCursor(const WebCursor& cursor) {
@@ -1629,9 +1640,9 @@ void RenderWidgetHostImpl::OnMsgGetWindowRect(gfx::NativeViewId window_id,
 }
 
 void RenderWidgetHostImpl::OnMsgGetRootWindowRect(gfx::NativeViewId window_id,
-                                              gfx::Rect* results) {
+                                                  gfx::Rect* results) {
   if (view_)
-    *results = view_->GetRootWindowBounds();
+    *results = view_->GetBoundsInRootWindow();
 }
 #endif
 
@@ -1893,14 +1904,35 @@ void RenderWidgetHostImpl::AcknowledgeBufferPresent(
 }
 
 void RenderWidgetHostImpl::AcknowledgeSwapBuffersToRenderer() {
+  base::FieldTrial* trial =
+      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
+  bool is_thread_trial = trial && trial->group_name() ==
+      content::kGpuCompositingFieldTrialThreadEnabledName;
+  bool has_enable = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableThreadedCompositing);
+  bool has_disable = CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableThreadedCompositing);
+  DCHECK(!is_thread_trial || !has_disable);
   bool enable_threaded_compositing =
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableThreadedCompositing) &&
-      !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableThreadedCompositing);
+      is_thread_trial || (has_enable && !has_disable);
   if (!enable_threaded_compositing)
     Send(new ViewMsg_SwapBuffers_ACK(routing_id_));
 }
+
+#if defined(USE_AURA)
+// static
+void RenderWidgetHostImpl::SendFrontSurfaceIsProtected(
+    bool is_protected,
+    uint32 protection_state_id,
+    int32 route_id,
+    int gpu_host_id) {
+  GpuProcessHostUIShim* ui_shim = GpuProcessHostUIShim::FromID(gpu_host_id);
+  if (ui_shim) {
+    ui_shim->Send(new AcceleratedSurfaceMsg_SetFrontSurfaceIsProtected(
+        route_id, is_protected, protection_state_id));
+  }
+}
+#endif
 
 void RenderWidgetHostImpl::DelayedAutoResized() {
   gfx::Size new_size = new_auto_size_;

@@ -9,15 +9,14 @@
 #include "base/file_path.h"
 #include "base/string_tokenizer.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/extensions/api/alarms/alarm_manager.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
+#include "chrome/browser/extensions/component_loader.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_devtools_manager.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
-#include "chrome/browser/extensions/extension_event_router.h"
 #include "chrome/browser/extensions/extension_info_map.h"
-#include "chrome/browser/extensions/extension_message_service.h"
 #include "chrome/browser/extensions/extension_navigation_observer.h"
 #include "chrome/browser/extensions/extension_pref_store.h"
 #include "chrome/browser/extensions/extension_pref_value_map.h"
@@ -27,6 +26,7 @@
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/lazy_background_task_queue.h"
 #include "chrome/browser/extensions/management_policy.h"
+#include "chrome/browser/extensions/message_service.h"
 #include "chrome/browser/extensions/state_store.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/extensions/user_script_master.h"
@@ -107,9 +107,8 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   const CommandLine* command_line = CommandLine::ForCurrentProcess();
 
   lazy_background_task_queue_.reset(new LazyBackgroundTaskQueue(profile_));
-  extension_event_router_.reset(new ExtensionEventRouter(profile_));
-  extension_message_service_.reset(new ExtensionMessageService(
-      lazy_background_task_queue_.get()));
+  message_service_.reset(new MessageService(lazy_background_task_queue_.get()));
+  extension_event_router_.reset(new EventRouter(profile_));
   extension_navigation_observer_.reset(
       new ExtensionNavigationObserver(profile_));
 
@@ -229,11 +228,11 @@ LazyBackgroundTaskQueue*
   return lazy_background_task_queue_.get();
 }
 
-ExtensionMessageService* ExtensionSystemImpl::Shared::message_service() {
-  return extension_message_service_.get();
+MessageService* ExtensionSystemImpl::Shared::message_service() {
+  return message_service_.get();
 }
 
-ExtensionEventRouter* ExtensionSystemImpl::Shared::event_router() {
+EventRouter* ExtensionSystemImpl::Shared::event_router() {
   return extension_event_router_.get();
 }
 
@@ -278,8 +277,13 @@ void ExtensionSystemImpl::Init(bool extensions_enabled) {
   shared_->InitInfoMap();
 
   extension_process_manager_.reset(ExtensionProcessManager::Create(profile_));
-  alarm_manager_.reset(new AlarmManager(profile_,
-                                        &base::Time::Now));
+  alarm_manager_.reset(new AlarmManager(profile_, &base::Time::Now));
+
+  serial_connection_manager_.reset(new ApiResourceManager<SerialConnection>(
+      BrowserThread::FILE));
+  socket_manager_.reset(new ApiResourceManager<Socket>(BrowserThread::IO));
+  usb_device_resource_manager_.reset(
+      new ApiResourceManager<UsbDeviceResource>(BrowserThread::IO));
 
   shared_->Init(extensions_enabled);
 }
@@ -322,16 +326,30 @@ LazyBackgroundTaskQueue* ExtensionSystemImpl::lazy_background_task_queue() {
   return shared_->lazy_background_task_queue();
 }
 
-ExtensionMessageService* ExtensionSystemImpl::message_service() {
+MessageService* ExtensionSystemImpl::message_service() {
   return shared_->message_service();
 }
 
-ExtensionEventRouter* ExtensionSystemImpl::event_router() {
+EventRouter* ExtensionSystemImpl::event_router() {
   return shared_->event_router();
 }
 
 RulesRegistryService* ExtensionSystemImpl::rules_registry_service() {
   return shared_->rules_registry_service();
+}
+
+ApiResourceManager<SerialConnection>*
+ExtensionSystemImpl::serial_connection_manager() {
+  return serial_connection_manager_.get();
+}
+
+ApiResourceManager<Socket>*ExtensionSystemImpl::socket_manager() {
+  return socket_manager_.get();
+}
+
+ApiResourceManager<UsbDeviceResource>*
+ExtensionSystemImpl::usb_device_resource_manager() {
+  return usb_device_resource_manager_.get();
 }
 
 void ExtensionSystemImpl::RegisterExtensionWithRequestContexts(

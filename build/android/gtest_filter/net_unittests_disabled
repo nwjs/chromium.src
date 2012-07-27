@@ -98,6 +98,9 @@ HttpCache.RangeGET_SyncOK
 HttpCache.RangeGET_Revalidate2
 HttpCache.RangeGET_Previous200
 HttpCache.RangeGET_Cancel2
+# crbug.com/139144
+UDPSocketTest.Broadcast
+
 UDPSocketTest.ConnectRandomBind
 UDPSocketTest.ClientGetLocalPeerAddresses
 # Disabled 4/13/12 by jrg.  More CertVerifyProcTest.* tests fail on
@@ -114,3 +117,9 @@ VerifyEndEntity/CertVerifyProcWeakDigestTest.*
 VerifyIncompleteIntermediate/CertVerifyProcWeakDigestTest.*
 VerifyIncompleteEndEntity/CertVerifyProcWeakDigestTest.*
 VerifyMixed/CertVerifyProcWeakDigestTest.*
+
+# Death tests are not supported with apks.
+*DeathTest*
+# These are death tests and thus also disabled.
+PrioritizedDispatcherTest.CancelNull
+PrioritizedDispatcherTest.CancelMissing

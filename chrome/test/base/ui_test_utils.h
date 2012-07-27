@@ -12,27 +12,20 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/process.h"
-#include "base/run_loop.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string16.h"
 #include "chrome/browser/ui/view_ids.h"
-#include "chrome/test/automation/dom_element_proxy.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/test/test_utils.h"
+#include "googleurl/src/gurl.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/ui_controls/ui_controls.h"
 #include "webkit/glue/window_open_disposition.h"
-
-#if defined(OS_WIN)
-#include "base/win/scoped_handle.h"
-#endif
 
 #if defined(TOOLKIT_VIEWS)
 #include "ui/views/view.h"
@@ -44,11 +37,9 @@ class Browser;
 class CommandLine;
 class ExtensionAction;
 class FilePath;
-class GURL;
 class HistoryService;
 class MessageLoop;
 class Profile;
-class ScopedTempDir;
 class SkBitmap;
 class TabContents;
 class TemplateURLService;
@@ -58,6 +49,7 @@ struct NavigateParams;
 }
 
 namespace content {
+class MessageLoopRunner;
 class RenderViewHost;
 class RenderWidgetHost;
 class WebContents;
@@ -83,24 +75,11 @@ enum BrowserTestWaitFlags {
   BROWSER_TEST_WAIT_FOR_BROWSER = 1 << 0,     // Wait for a new browser.
   BROWSER_TEST_WAIT_FOR_TAB = 1 << 1,         // Wait for a new tab.
   BROWSER_TEST_WAIT_FOR_NAVIGATION = 1 << 2,  // Wait for navigation to finish.
-  BROWSER_TEST_WAIT_FOR_AUTH = 1 << 3,        // Wait for auth prompt.
 
   BROWSER_TEST_MASK = BROWSER_TEST_WAIT_FOR_BROWSER |
                       BROWSER_TEST_WAIT_FOR_TAB |
                       BROWSER_TEST_WAIT_FOR_NAVIGATION
 };
-
-// Turns on nestable tasks, runs the message loop, then resets nestable tasks
-// to what they were originally. Prefer this over MessageLoop::Run for in
-// process browser tests that need to block until a condition is met.
-void RunMessageLoop();
-
-// Variant of RunMessageLoop that takes RunLoop.
-void RunThisRunLoop(base::RunLoop* run_loop);
-
-// Get task to quit the given RunLoop. It allows a few generations of pending
-// tasks to run as opposed to run_loop->QuitClosure().
-base::Closure GetQuitTaskForRunLoop(base::RunLoop* run_loop);
 
 // Turns on nestable tasks, runs all pending tasks in the message loop,
 // then resets nestable tasks to what they were originally. Prefer this
@@ -118,10 +97,6 @@ bool GetCurrentTabTitle(const Browser* browser, string16* title);
 // Waits for a new tab to be added to |browser|. TODO(gbillock): remove this
 // race hazard. Use WindowedNotificationObserver instead.
 void WaitForNewTab(Browser* browser);
-
-// Waits for a load stop for the specified |tab|'s controller, if the tab is
-// currently loading.  Otherwise returns immediately.
-void WaitForLoadStop(content::WebContents* tab);
 
 // Opens |url| in an incognito browser window with the incognito profile of
 // |profile|, blocking until the navigation finishes. This will create a new
@@ -153,38 +128,6 @@ void NavigateToURLBlockUntilNavigationsComplete(Browser* browser,
                                                 const GURL& url,
                                                 int number_of_navigations);
 
-// Gets the DOMDocument for the active tab in |browser|.
-// Returns a NULL reference on failure.
-DOMElementProxyRef GetActiveDOMDocument(Browser* browser);
-
-// Executes the passed |script| in the frame pointed to by |frame_xpath| (use
-// empty string for main frame).  The |script| should not invoke
-// domAutomationController.send(); otherwise, your test will hang or be flaky.
-// If you want to extract a result, use one of the below functions.
-// Returns true on success.
-bool ExecuteJavaScript(content::RenderViewHost* render_view_host,
-                       const std::wstring& frame_xpath,
-                       const std::wstring& script) WARN_UNUSED_RESULT;
-
-// The following methods executes the passed |script| in the frame pointed to by
-// |frame_xpath| (use empty string for main frame) and sets |result| to the
-// value returned by the script evaluation.
-// They return true on success, false if the script evaluation failed or did not
-// evaluate to the expected type.
-bool ExecuteJavaScriptAndExtractInt(content::RenderViewHost* render_view_host,
-                                    const std::wstring& frame_xpath,
-                                    const std::wstring& script,
-                                    int* result) WARN_UNUSED_RESULT;
-bool ExecuteJavaScriptAndExtractBool(content::RenderViewHost* render_view_host,
-                                     const std::wstring& frame_xpath,
-                                     const std::wstring& script,
-                                     bool* result) WARN_UNUSED_RESULT;
-bool ExecuteJavaScriptAndExtractString(
-    content::RenderViewHost* render_view_host,
-    const std::wstring& frame_xpath,
-    const std::wstring& script,
-    std::string* result) WARN_UNUSED_RESULT;
-
 // Generate the file path for testing a particular test.
 // The file for the tests is all located in
 // test_root_directory/dir/<file>
@@ -197,15 +140,8 @@ FilePath GetTestFilePath(const FilePath& dir, const FilePath& file);
 // The returned path is GURL format.
 GURL GetTestUrl(const FilePath& dir, const FilePath& file);
 
-// Generate a URL for a file path including a query string.
-GURL GetFileUrlWithQuery(const FilePath& path, const std::string& query_string);
-
 // Blocks until an application modal dialog is showns and returns it.
 AppModalDialog* WaitForAppModalDialog();
-void WaitForAppModalDialogAndCloseIt();
-
-// Causes the specified tab to crash. Blocks until it is crashed.
-void CrashTab(content::WebContents* tab);
 
 // Performs a find in the page of the specified tab. Returns the number of
 // matches found.  |ordinal| is an optional parameter which is set to the index
@@ -219,28 +155,6 @@ int FindInPage(TabContents* tab,
 // Closes all infobars |tab| has open, if any.  Tests that depend on there being
 // no InfoBar open when the test starts may need to use this.
 void CloseAllInfoBars(TabContents* tab);
-
-// Simulates clicking at the center of the given tab asynchronously. Unlike
-// ClickOnView, this works even if the browser isn't in the foreground.
-void SimulateMouseClick(content::WebContents* tab);
-
-// Simulates asynchronously a mouse enter/move/leave event.
-void SimulateMouseEvent(content::WebContents* tab,
-                        WebKit::WebInputEvent::Type type,
-                        const gfx::Point& point);
-
-// Sends a key press asynchronously. Unlike the SendKeyPress functions, this
-// works even if the browser isn't in the foreground.
-void SimulateKeyPress(content::WebContents* tab,
-                      ui::KeyboardCode key,
-                      bool control,
-                      bool shift,
-                      bool alt,
-                      bool command);
-
-#if defined OS_MACOSX
-void SetWindowBounds(gfx::NativeWindow window, const gfx::Rect& bounds);
-#endif
 
 // Returns true if the View is focused.
 bool IsViewFocused(const Browser* browser, ViewID vid);
@@ -262,10 +176,6 @@ void WaitForTemplateURLServiceToLoad(TemplateURLService* service);
 
 // Blocks until the |history_service|'s history finishes loading.
 void WaitForHistoryToLoad(HistoryService* history_service);
-
-// Puts the native window for |browser| in |native_window|. Returns true on
-// success.
-bool GetNativeWindow(const Browser* browser, gfx::NativeWindow* native_window);
 
 // Brings the native window for |browser| to the foreground. Returns true on
 // success.
@@ -305,157 +215,10 @@ bool SendMouseMoveSync(const gfx::Point& location) WARN_UNUSED_RESULT;
 bool SendMouseEventsSync(ui_controls::MouseButton type,
                          int state) WARN_UNUSED_RESULT;
 
-// Helper class to Run and Quit the message loop. Run and Quit can only happen
-// once per instance. Make a new instance for each use. Calling Quit after Run
-// has returned is safe and has no effect.
-class MessageLoopRunner
-    : public base::RefCounted<MessageLoopRunner> {
- public:
-  MessageLoopRunner();
-
-  // Run the current MessageLoop.
-  void Run();
-
-  // Quit the matching call to Run (nested MessageLoops are unaffected).
-  void Quit();
-
-  // Hand this closure off to code that uses callbacks to notify completion.
-  // Example:
-  //   scoped_refptr<MessageLoopRunner> runner = new MessageLoopRunner;
-  //   kick_off_some_api(runner.QuitNowClosure());
-  //   runner.Run();
-  base::Closure QuitClosure();
-
- private:
-  friend class base::RefCounted<MessageLoopRunner>;
-  ~MessageLoopRunner();
-
-  base::RunLoop run_loop_;
-
-  DISALLOW_COPY_AND_ASSIGN(MessageLoopRunner);
-};
-
-// This is a utility class for running a python websocket server
-// during tests. The server is started during the construction of the
-// object, and is stopped when the destructor is called. Note that
-// because of the underlying script that is used:
-//
-//    third_paty/WebKit/Tools/Scripts/new-run-webkit-websocketserver
-//
-// Only *_wsh.py handlers found under "http/tests/websocket/tests" from the
-// |root_directory| will be found and active while running the test
-// server.
-class TestWebSocketServer {
- public:
-  TestWebSocketServer();
-
-  // Stops the python websocket server if it was already started.
-  ~TestWebSocketServer();
-
-  // Use a random port, useful for tests that are sharded. Returns the port.
-  int UseRandomPort();
-
-  // Serves with TLS.
-  void UseTLS();
-
-  // Starts the python websocket server using |root_directory|. Returns whether
-  // the server was successfully started.
-  bool Start(const FilePath& root_directory);
-
- private:
-  // Sets up PYTHONPATH to run websocket_server.py.
-  void SetPythonPath();
-
-  // Creates a CommandLine for invoking the python interpreter.
-  CommandLine* CreatePythonCommandLine();
-
-  // Creates a CommandLine for invoking the python websocker server.
-  CommandLine* CreateWebSocketServerCommandLine();
-
-  // Has the server been started?
-  bool started_;
-
-  // A Scoped temporary directory for holding the python pid file.
-  ScopedTempDir temp_dir_;
-
-  // Used to close the same python interpreter when server falls out
-  // scope.
-  FilePath websocket_pid_file_;
-
-#if defined(OS_POSIX)
-  // ProcessHandle used to terminate child process.
-  base::ProcessHandle process_group_id_;
-#elif defined(OS_WIN)
-  // JobObject used to clean up orphaned child process.
-  base::win::ScopedHandle job_handle_;
-#endif
-
-  // Holds port number which the python websocket server uses.
-  int port_;
-
-  // If the python websocket server serves with TLS.
-  bool secure_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestWebSocketServer);
-};
-
-// A WindowedNotificationObserver allows code to watch for a notification
-// over a window of time. Typically testing code will need to do something
-// like this:
-//   PerformAction()
-//   WaitForCompletionNotification()
-// This leads to flakiness as there's a window between PerformAction returning
-// and the observers getting registered, where a notification will be missed.
-//
-// Rather, one can do this:
-//   WindowedNotificationObserver signal(...)
-//   PerformAction()
-//   signal.Wait()
-class WindowedNotificationObserver : public content::NotificationObserver {
- public:
-  // Register to listen for notifications of the given type from either a
-  // specific source, or from all sources if |source| is
-  // NotificationService::AllSources().
-  WindowedNotificationObserver(int notification_type,
-                               const content::NotificationSource& source);
-  virtual ~WindowedNotificationObserver();
-
-  // Wait until the specified notification occurs.  If the notification was
-  // emitted between the construction of this object and this call then it
-  // returns immediately.
-  void Wait();
-
-  // Returns NotificationService::AllSources() if we haven't observed a
-  // notification yet.
-  const content::NotificationSource& source() const {
-    return source_;
-  }
-
-  const content::NotificationDetails& details() const {
-    return details_;
-  }
-
-  // content::NotificationObserver:
-  virtual void Observe(int type,
-                       const content::NotificationSource& source,
-                       const content::NotificationDetails& details) OVERRIDE;
-
- private:
-  bool seen_;
-  bool running_;
-  content::NotificationRegistrar registrar_;
-
-  content::NotificationSource source_;
-  content::NotificationDetails details_;
-  scoped_refptr<MessageLoopRunner> message_loop_runner_;
-
-  DISALLOW_COPY_AND_ASSIGN(WindowedNotificationObserver);
-};
-
 // A WindowedNotificationObserver hard-wired to observe
 // chrome::NOTIFICATION_TAB_ADDED.
 class WindowedTabAddedNotificationObserver
-    : public WindowedNotificationObserver {
+    : public content::WindowedNotificationObserver {
  public:
   // Register to listen for notifications of NOTIFICATION_TAB_ADDED from either
   // a specific source, or from all sources if |source| is
@@ -482,12 +245,12 @@ class WindowedTabAddedNotificationObserver
 // which is the case with most notifications.
 template <class U>
 class WindowedNotificationObserverWithDetails
-    : public WindowedNotificationObserver {
+    : public content::WindowedNotificationObserver {
  public:
   WindowedNotificationObserverWithDetails(
       int notification_type,
       const content::NotificationSource& source)
-      : WindowedNotificationObserver(notification_type, source) {}
+      : content::WindowedNotificationObserver(notification_type, source) {}
 
   // Fills |details| with the details of the notification received for |source|.
   bool GetDetailsFor(uintptr_t source, U* details) {
@@ -505,7 +268,7 @@ class WindowedNotificationObserverWithDetails
     const U* details_ptr = content::Details<U>(details).ptr();
     if (details_ptr)
       details_[source.map_key()] = *details_ptr;
-    WindowedNotificationObserver::Observe(type, source, details);
+    content::WindowedNotificationObserver::Observe(type, source, details);
   }
 
  private:
@@ -514,42 +277,25 @@ class WindowedNotificationObserverWithDetails
   DISALLOW_COPY_AND_ASSIGN(WindowedNotificationObserverWithDetails);
 };
 
-// Watches title changes on a tab, blocking until an expected title is set.
-class TitleWatcher : public content::NotificationObserver {
+// Notification observer which waits for navigation events and blocks until
+// a specific URL is loaded. The URL must be an exact match.
+class UrlLoadObserver : public content::WindowedNotificationObserver {
  public:
-  // |web_contents| must be non-NULL and needs to stay alive for the
-  // entire lifetime of |this|. |expected_title| is the title that |this|
-  // will wait for.
-  TitleWatcher(content::WebContents* web_contents,
-               const string16& expected_title);
-  virtual ~TitleWatcher();
+  // Register to listen for notifications of the given type from either a
+  // specific source, or from all sources if |source| is
+  // NotificationService::AllSources().
+  UrlLoadObserver(const GURL& url, const content::NotificationSource& source);
+  virtual ~UrlLoadObserver();
 
-  // Adds another title to watch for.
-  void AlsoWaitForTitle(const string16& expected_title);
-
-  // Waits until the title matches either expected_title or one of the titles
-  // added with  AlsoWaitForTitle.  Returns the value of the most recently
-  // observed matching title.
-  const string16& WaitAndGetTitle() WARN_UNUSED_RESULT;
-
- private:
-  // content::NotificationObserver
+  // content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
-  content::WebContents* web_contents_;
-  std::vector<string16> expected_titles_;
-  content::NotificationRegistrar notification_registrar_;
-  scoped_refptr<MessageLoopRunner> message_loop_runner_;
+ private:
+  GURL url_;
 
-  // The most recently observed expected title, if any.
-  string16 observed_title_;
-
-  bool expected_title_observed_;
-  bool quit_loop_on_observation_;
-
-  DISALLOW_COPY_AND_ASSIGN(TitleWatcher);
+  DISALLOW_COPY_AND_ASSIGN(UrlLoadObserver);
 };
 
 // Convenience class for waiting for a new browser to be created.
@@ -564,7 +310,7 @@ class BrowserAddedObserver {
   Browser* WaitForSingleNewBrowser();
 
  private:
-  WindowedNotificationObserver notification_observer_;
+  content::WindowedNotificationObserver notification_observer_;
   std::set<Browser*> original_browsers_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserAddedObserver);
@@ -641,7 +387,7 @@ class DOMMessageQueue : public content::NotificationObserver {
   content::NotificationRegistrar registrar_;
   std::queue<std::string> message_queue_;
   bool waiting_for_message_;
-  scoped_refptr<MessageLoopRunner> message_loop_runner_;
+  scoped_refptr<content::MessageLoopRunner> message_loop_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(DOMMessageQueue);
 };

@@ -489,8 +489,6 @@ def CheckChangeOnCommit(input_api, output_api):
 
   results.extend(input_api.canned_checks.CheckChangeHasBugField(
       input_api, output_api))
-  results.extend(input_api.canned_checks.CheckChangeHasTestField(
-      input_api, output_api))
   results.extend(input_api.canned_checks.CheckChangeHasDescription(
       input_api, output_api))
   results.extend(_CheckSubversionConfig(input_api, output_api))
@@ -510,12 +508,10 @@ def GetPreferredTrySlaves(project, change):
   if all(re.search('[/_]android[/_.]', f) for f in files):
     return ['android']
 
-  trybots = ['win_rel', 'linux_rel', 'mac_rel', 'linux_clang:compile']
+  trybots = ['win_rel', 'linux_rel', 'mac_rel', 'linux_clang:compile',
+             'android']
   # match things like aurax11.cc or aura_oak.cc
   if any(re.search('[/_]aura', f) for f in files):
     trybots.append('linux_chromeos')
-
-  if not all(f.startswith('chrome/') for f in files):
-    trybots.append('android')
 
   return trybots

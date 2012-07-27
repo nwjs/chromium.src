@@ -14,7 +14,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/extension_event_router_forwarder.h"
+#include "chrome/browser/extensions/event_router_forwarder.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/io_thread.h"
@@ -28,6 +28,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_pref_service.h"
 #include "chrome/test/base/testing_profile.h"
@@ -96,7 +97,7 @@ class ProfileManagerTest : public testing::Test {
 
   ProfileManagerTest()
       : local_state_(static_cast<TestingBrowserProcess*>(g_browser_process)),
-        extension_event_router_forwarder_(new ExtensionEventRouterForwarder),
+        extension_event_router_forwarder_(new extensions::EventRouterForwarder),
         ui_thread_(BrowserThread::UI, &message_loop_),
         db_thread_(BrowserThread::DB, &message_loop_),
         file_thread_(BrowserThread::FILE, &message_loop_),
@@ -137,7 +138,7 @@ class ProfileManagerTest : public testing::Test {
   // The path to temporary directory used to contain the test operations.
   ScopedTempDir temp_dir_;
   ScopedTestingLocalState local_state_;
-  scoped_refptr<ExtensionEventRouterForwarder>
+  scoped_refptr<extensions::EventRouterForwarder>
       extension_event_router_forwarder_;
 
   MessageLoopForUI message_loop_;
@@ -414,14 +415,16 @@ TEST_F(ProfileManagerTest, LastOpenedProfiles) {
   ASSERT_EQ(0U, last_opened_profiles.size());
 
   // Create a browser for profile1.
-  scoped_ptr<Browser> browser1a(new Browser(Browser::TYPE_TABBED, profile1));
+  scoped_ptr<Browser> browser1a(
+      chrome::CreateBrowserWithTestWindowForProfile(profile1));
 
   last_opened_profiles = profile_manager->GetLastOpenedProfiles();
   ASSERT_EQ(1U, last_opened_profiles.size());
   EXPECT_EQ(profile1, last_opened_profiles[0]);
 
   // And for profile2.
-  scoped_ptr<Browser> browser2(new Browser(Browser::TYPE_TABBED, profile2));
+  scoped_ptr<Browser> browser2(
+      chrome::CreateBrowserWithTestWindowForProfile(profile2));
 
   last_opened_profiles = profile_manager->GetLastOpenedProfiles();
   ASSERT_EQ(2U, last_opened_profiles.size());
@@ -429,7 +432,8 @@ TEST_F(ProfileManagerTest, LastOpenedProfiles) {
   EXPECT_EQ(profile2, last_opened_profiles[1]);
 
   // Adding more browsers doesn't change anything.
-  scoped_ptr<Browser> browser1b(new Browser(Browser::TYPE_TABBED, profile1));
+  scoped_ptr<Browser> browser1b(
+      chrome::CreateBrowserWithTestWindowForProfile(profile1));
   last_opened_profiles = profile_manager->GetLastOpenedProfiles();
   ASSERT_EQ(2U, last_opened_profiles.size());
   EXPECT_EQ(profile1, last_opened_profiles[0]);
@@ -471,10 +475,12 @@ TEST_F(ProfileManagerTest, LastOpenedProfilesAtShutdown) {
   ASSERT_TRUE(profile2);
 
   // Create a browser for profile1.
-  scoped_ptr<Browser> browser1(new Browser(Browser::TYPE_TABBED, profile1));
+  scoped_ptr<Browser> browser1(
+      chrome::CreateBrowserWithTestWindowForProfile(profile1));
 
   // And for profile2.
-  scoped_ptr<Browser> browser2(new Browser(Browser::TYPE_TABBED, profile2));
+  scoped_ptr<Browser> browser2(
+      chrome::CreateBrowserWithTestWindowForProfile(profile2));
 
   std::vector<Profile*> last_opened_profiles =
       profile_manager->GetLastOpenedProfiles();
@@ -524,21 +530,24 @@ TEST_F(ProfileManagerTest, LastOpenedProfilesDoesNotContainIncognito) {
   ASSERT_EQ(0U, last_opened_profiles.size());
 
   // Create a browser for profile1.
-  scoped_ptr<Browser> browser1(new Browser(Browser::TYPE_TABBED, profile1));
+  scoped_ptr<Browser> browser1(
+      chrome::CreateBrowserWithTestWindowForProfile(profile1));
 
   last_opened_profiles = profile_manager->GetLastOpenedProfiles();
   ASSERT_EQ(1U, last_opened_profiles.size());
   EXPECT_EQ(profile1, last_opened_profiles[0]);
 
   // And for profile2.
-  scoped_ptr<Browser> browser2a(new Browser(Browser::TYPE_TABBED, profile2));
+  scoped_ptr<Browser> browser2a(
+      chrome::CreateBrowserWithTestWindowForProfile(profile2));
 
   last_opened_profiles = profile_manager->GetLastOpenedProfiles();
   ASSERT_EQ(1U, last_opened_profiles.size());
   EXPECT_EQ(profile1, last_opened_profiles[0]);
 
   // Adding more browsers doesn't change anything.
-  scoped_ptr<Browser> browser2b(new Browser(Browser::TYPE_TABBED, profile1));
+  scoped_ptr<Browser> browser2b(
+      chrome::CreateBrowserWithTestWindowForProfile(profile1));
   last_opened_profiles = profile_manager->GetLastOpenedProfiles();
   ASSERT_EQ(1U, last_opened_profiles.size());
   EXPECT_EQ(profile1, last_opened_profiles[0]);

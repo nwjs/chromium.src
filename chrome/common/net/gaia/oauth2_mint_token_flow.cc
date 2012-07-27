@@ -14,6 +14,7 @@
 #include "base/message_loop.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/net/gaia/gaia_urls.h"
@@ -63,8 +64,6 @@ static GoogleServiceAuthError CreateAuthError(URLRequestStatus status) {
   }
 }
 
-OAuth2MintTokenFlow::InterceptorForTests* g_interceptor_for_tests = NULL;
-
 }  // namespace
 
 IssueAdviceInfoEntry::IssueAdviceInfoEntry() {}
@@ -91,14 +90,6 @@ OAuth2MintTokenFlow::Parameters::Parameters(
 
 OAuth2MintTokenFlow::Parameters::~Parameters() {}
 
-// static
-void OAuth2MintTokenFlow::SetInterceptorForTests(
-    OAuth2MintTokenFlow::InterceptorForTests* interceptor) {
-  CHECK(CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType));
-  CHECK(NULL == g_interceptor_for_tests);  // Only one at a time.
-  g_interceptor_for_tests = interceptor;
-}
-
 OAuth2MintTokenFlow::OAuth2MintTokenFlow(
     URLRequestContextGetter* context,
     Delegate* delegate,
@@ -114,32 +105,6 @@ OAuth2MintTokenFlow::OAuth2MintTokenFlow(
 }
 
 OAuth2MintTokenFlow::~OAuth2MintTokenFlow() { }
-
-void OAuth2MintTokenFlow::Start() {
-  if (g_interceptor_for_tests) {
-    std::string auth_token;
-    GoogleServiceAuthError error = GoogleServiceAuthError::None();
-
-    // We use PostTask, instead of calling the delegate directly, because the
-    // message loop will run a few times before we notify the delegate in the
-    // real implementation.
-    if (g_interceptor_for_tests->DoIntercept(this, &auth_token, &error)) {
-      MessageLoop::current()->PostTask(
-          FROM_HERE,
-          base::Bind(&OAuth2MintTokenFlow::ReportSuccess,
-                     weak_factory_.GetWeakPtr(), auth_token));
-    } else {
-      MessageLoop::current()->PostTask(
-          FROM_HERE,
-          base::Bind(&OAuth2MintTokenFlow::ReportFailure,
-                     weak_factory_.GetWeakPtr(), error));
-    }
-    return;
-  }
-
-
-  OAuth2ApiCallFlow::Start();
-}
 
 void OAuth2MintTokenFlow::FireAndForget() {
   delete_when_done_ = true;
@@ -274,7 +239,7 @@ bool OAuth2MintTokenFlow::ParseIssueAdviceResponse(
   for (size_t index = 0; index < scopes_list->GetSize(); ++index) {
     base::DictionaryValue* scopes_entry = NULL;
     IssueAdviceInfoEntry entry;
-    std::string detail;
+    string16 detail;
     if (!scopes_list->GetDictionary(index, &scopes_entry) ||
         !scopes_entry->GetString(kDescriptionKey, &entry.description) ||
         !scopes_entry->GetString(kDetailKey, &detail)) {
@@ -282,7 +247,11 @@ bool OAuth2MintTokenFlow::ParseIssueAdviceResponse(
       break;
     }
 
-    Tokenize(detail, kDetailSeparators, &entry.details);
+    TrimWhitespace(entry.description, TRIM_ALL, &entry.description);
+    static const string16 detail_separators = ASCIIToUTF16(kDetailSeparators);
+    Tokenize(detail, detail_separators, &entry.details);
+    for (size_t i = 0; i < entry.details.size(); i++)
+      TrimWhitespace(entry.details[i], TRIM_ALL, &entry.details[i]);
     issue_advice->push_back(entry);
   }
 

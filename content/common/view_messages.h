@@ -210,6 +210,7 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(password_echo_enabled)
   IPC_STRUCT_TRAITS_MEMBER(css_regions_enabled)
   IPC_STRUCT_TRAITS_MEMBER(css_shaders_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(css_variables_enabled)
   IPC_STRUCT_TRAITS_MEMBER(device_supports_touch)
   IPC_STRUCT_TRAITS_MEMBER(device_supports_mouse)
 #if !defined(WEBCOMPOSITOR_OWNS_SETTINGS)
@@ -360,7 +361,8 @@ IPC_STRUCT_TRAITS_BEGIN(media::MediaLogEvent)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(ui::SelectedFileInfo)
-  IPC_STRUCT_TRAITS_MEMBER(path)
+  IPC_STRUCT_TRAITS_MEMBER(file_path)
+  IPC_STRUCT_TRAITS_MEMBER(local_path)
   IPC_STRUCT_TRAITS_MEMBER(display_name)
 IPC_STRUCT_TRAITS_END()
 
@@ -641,6 +643,14 @@ IPC_STRUCT_BEGIN(ViewMsg_Navigate_Params)
 
   // The URL to load.
   IPC_STRUCT_MEMBER(GURL, url)
+
+  // Base URL for use in WebKit's SubstituteData.
+  // Is only used with data: URLs.
+  IPC_STRUCT_MEMBER(GURL, base_url_for_data_url)
+
+  // History URL for use in WebKit's SubstituteData.
+  // Is only used with data: URLs.
+  IPC_STRUCT_MEMBER(GURL, history_url_for_data_url)
 
   // The URL to send in the "Referer" header field. Can be empty if there is
   // no referrer.
@@ -1764,9 +1774,9 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_DidChangeScrollbarsForMainFrame,
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidChangeNumWheelEvents,
                     int /* count */)
 
-// Notifies that the number of JavaScript touch event handlers changed.
-IPC_MESSAGE_ROUTED1(ViewHostMsg_DidChangeNumTouchEvents,
-                    int /* count */)
+// Notifies whether there are JavaScript touche event handlers or not.
+IPC_MESSAGE_ROUTED1(ViewHostMsg_HasTouchEventHandlers,
+                    bool /* has_handlers */)
 
 // A message from HTML-based UI.  When (trusted) Javascript calls
 // send(message, args), this message is sent to the browser.

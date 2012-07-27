@@ -8,11 +8,11 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "123007",
+  "webkit_revision": "123763",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9121",
+  "nacl_revision": "9262",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9016",  # native_client/DEPS: tools_rev
@@ -22,33 +22,33 @@ vars = {
   # After changing nacl_toolchain_revision, run 'gclient runhooks' to get the
   # new values.
   "nacl_toolchain_linux_x86_hash":
-      "96afe9e4038482db59a8f231b13a59f7a7c0c38f",
+      "5a013540b816336f6f2af26c525f8d9f8e20e144",
   "nacl_toolchain_linux_x86_newlib_hash":
-      "5778f4d048907ba1ed871463aac7b15c391b5753",
+      "c3598baef5a49e6ce8ca768d7f01383641d56025",
   "nacl_toolchain_mac_x86_hash":
-      "cbf2c42160780a97186fd6ec56b2c720f8117c7e",
+      "664e057b1507923b0526ebb7294deb8c31cb8bfc",
   "nacl_toolchain_mac_x86_newlib_hash":
-      "1e94ee62258eacfe8c9c8cd562e93e65427e58e1",
+      "93f3a7ca6f97b093380ab4c305b2be42e89004c0",
   "nacl_toolchain_pnacl_linux_x86_32_hash":
-      "640b146a6f9b6fa75c86889b02d79e0347b6d6ae",
+      "a3b1a1221f3198302c2437321e2ef8f736fecd16",
   "nacl_toolchain_pnacl_linux_x86_64_hash":
-      "1ced4adbfd532afe6af12992cbd49a5073bbac62",
+      "d3275949352c35aa6272117e34931068ac190c14",
   "nacl_toolchain_pnacl_mac_x86_32_hash":
-      "8402a8e08d7ff4b5e22fd0446ca2baf7fd83f626",
+      "1aff8c3c105dfb01224fd92e7cb39cdbb130edbc",
   "nacl_toolchain_pnacl_translator_hash":
-      "7bbb4b1d4cc55b5855c86e174fc09c5213e665c2",
+      "689ef2a1b4b013b4cbfb42e0ff71eaaf5aba5c1d",
   "nacl_toolchain_pnacl_win_x86_32_hash":
-      "f12a43ce3156dc0e7958fdee112dd2025575cb28",
+      "906beb9ecbc6be9a8f456f45dabd715bae8db16a",
   "nacl_toolchain_win_x86_hash":
-      "a65981a52a9e8efd06d45c7347e31acdfe2d8c92",
+      "9a854462e601338153bc65bfdc1171a87dc0bfe6",
   "nacl_toolchain_win_x86_newlib_hash":
-      "2a88bdecf2a53000bddc775ca632f732d3d9fe2b",
-  "nacl_toolchain_revision": "9093",
-  "pnacl_toolchain_revision": "9117",
+      "c4dd3f8b65e309d242a3bfce89a15f580ef2e4f0",
+  "nacl_toolchain_revision": "9170",
+  "pnacl_toolchain_revision": "9213",
 
   "libjingle_revision": "161",
   "libphonenumber_revision": "456",
-  "libvpx_revision": "134182",
+  "libvpx_revision": "147803",
   "lss_revision": "11",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
@@ -57,19 +57,19 @@ vars = {
   "ffmpeg_hash": "23f177366e3bce3a628a7d3feedceed4e18dcc04",
 
   "sfntly_revision": "134",
-  "skia_revision": "4634",
+  "skia_revision": "4780",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12118",
-  "webrtc_revision": "2486",
+  "v8_revision": "12191",
+  "webrtc_revision": "2529",
   "jsoncpp_revision": "248",
   "nss_revision": "145873",
 }
 
 deps = {
   "src/breakpad/src":
-    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@977",
+    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@999",
 
   "src/googleurl":
     (Var("googlecode_url") % "google-url") + "/trunk@175",
@@ -87,7 +87,7 @@ deps = {
     (Var("googlecode_url") % "googlemock") + "/trunk@405",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@1222",
+    (Var("googlecode_url") % "angleproject") + "/trunk@1243",
 
   "src/third_party/trace-viewer":
     (Var("googlecode_url") % "trace-viewer") + "/trunk@89",
@@ -125,10 +125,10 @@ deps = {
     (Var("googlecode_url") % "snappy") + "/trunk@63",
 
   "src/tools/grit":
-    (Var("googlecode_url") % "grit-i18n") + "/trunk@57",
+    (Var("googlecode_url") % "grit-i18n") + "/trunk@63",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1429",
+    (Var("googlecode_url") % "gyp") + "/trunk@1440",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -192,7 +192,7 @@ deps = {
   # When roll to another webgl conformance tests revision, please goto
   # chrome/test/gpu and run generate_webgl_conformance_test_list.py.
   "src/third_party/webgl_conformance":
-    "/trunk/deps/third_party/webgl/sdk/tests@138171",
+    "/trunk/deps/third_party/webgl/sdk/tests@148561",
 
   # We run these layout tests as UI tests. Since many of the buildbots that
   # run layout tests do NOT have access to the LayoutTest directory, we need
@@ -281,7 +281,7 @@ deps = {
     "/trunk/deps/third_party/yasm/patched-yasm@134927",
 
   "src/third_party/libjpeg_turbo":
-    "/trunk/deps/third_party/libjpeg_turbo@144411",
+    "/trunk/deps/third_party/libjpeg_turbo@147428",
 
   "src/third_party/flac":
     "/trunk/deps/third_party/flac@120197",
@@ -308,7 +308,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@306",
+    (Var("googlecode_url") % "libyuv") + "/trunk@311",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -336,7 +336,7 @@ deps = {
     "/trunk/tools/deps2git@139377",
 
   "src/third_party/webpagereplay":
-    (Var("googlecode_url") % "web-page-replay") + "/trunk@482",
+    (Var("googlecode_url") % "web-page-replay") + "/trunk@489",
 }
 
 
@@ -361,7 +361,7 @@ deps_os = {
       "/trunk/deps/third_party/gperf@147304",
 
     "src/third_party/perl":
-      "/trunk/deps/third_party/perl@147306",
+      "/trunk/deps/third_party/perl@147900",
 
     "src/third_party/lighttpd":
       "/trunk/deps/third_party/lighttpd@33727",
@@ -421,7 +421,7 @@ deps_os = {
       (Var("googlecode_url") % "google-toolbox-for-mac") + "/trunk@" +
       Var("gtm_revision"),
     "src/third_party/pdfsqueeze":
-      (Var("googlecode_url") % "pdfsqueeze") + "/trunk@4",
+      (Var("googlecode_url") % "pdfsqueeze") + "/trunk@5",
     "src/third_party/lighttpd":
       "/trunk/deps/third_party/lighttpd@33737",
 
@@ -470,7 +470,7 @@ deps_os = {
       "@1f74e4e7ad3ca4163b4578fc30da26a165dd55e7",
 
     "src/third_party/aosp":
-      "/trunk/deps/third_party/aosp@122156",
+      "/trunk/deps/third_party/aosp@148330",
   },
 }
 
@@ -495,7 +495,6 @@ skip_child_includes = [
   "chrome_frame",
   "delegate_execute",
   "metro_driver",
-  "native_client",
   "native_client_sdk",
   "o3d",
   "pdf",

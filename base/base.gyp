@@ -140,7 +140,6 @@
             'USE_SYMBOLIZE',
           ],
           'sources!': [
-            'debug/stack_trace.cc',
             'debug/stack_trace_posix.cc',
           ],
         }],
@@ -168,6 +167,7 @@
           'link_settings': {
             'libraries': [
               '$(SDKROOT)/System/Library/Frameworks/AppKit.framework',
+              '$(SDKROOT)/System/Library/Frameworks/ApplicationServices.framework',
               '$(SDKROOT)/System/Library/Frameworks/Carbon.framework',
               '$(SDKROOT)/System/Library/Frameworks/CoreFoundation.framework',
               '$(SDKROOT)/System/Library/Frameworks/Foundation.framework',
@@ -183,6 +183,8 @@
           'link_settings': {
             'libraries': [
               '$(SDKROOT)/System/Library/Frameworks/CoreFoundation.framework',
+              '$(SDKROOT)/System/Library/Frameworks/CoreGraphics.framework',
+              '$(SDKROOT)/System/Library/Frameworks/CoreText.framework',
               '$(SDKROOT)/System/Library/Frameworks/Foundation.framework',
               '$(SDKROOT)/System/Library/Frameworks/UIKit.framework',
             ],
@@ -208,8 +210,6 @@
         'third_party/xdg_user_dirs/xdg_user_dir_lookup.cc',
         'third_party/xdg_user_dirs/xdg_user_dir_lookup.h',
         'auto_reset.h',
-        'base64.cc',
-        'base64.h',
         'event_recorder.h',
         'event_recorder_stubs.cc',
         'event_recorder_win.cc',
@@ -236,13 +236,9 @@
         'message_pump_uv.cc',
         'metrics/field_trial.cc',
         'metrics/field_trial.h',
-        'string16.cc',
-        'string16.h',
         'sync_socket.h',
         'sync_socket_win.cc',
         'sync_socket_posix.cc',
-        'time_mac.cc',
-        'time_posix.cc',
       ],
     },
     {
@@ -332,6 +328,10 @@
         'win/pe_image.cc',
         'win/pe_image.h',
       ],
+      'sources!': [
+        # base64.cc depends on modp_b64.
+        'base64.cc',
+      ],
       'include_dirs': [
         '..',
       ],
@@ -414,6 +414,7 @@
         'lazy_instance_unittest.cc',
         'linked_list_unittest.cc',
         'logging_unittest.cc',
+        'mac/bind_objc_block_unittest.mm',
         'mac/foundation_util_unittest.mm',
         'mac/mac_util_unittest.mm',
         'mac/objc_property_releaser_unittest.mm',
@@ -436,6 +437,7 @@
         'message_loop_unittest.cc',
         'message_pump_glib_unittest.cc',
         'message_pump_libevent_unittest.cc',
+        'metrics/bucket_ranges_unittest.cc',
         'metrics/field_trial_unittest.cc',
         'metrics/histogram_unittest.cc',
         'metrics/stats_table_unittest.cc',
@@ -566,8 +568,7 @@
             # TODO(ios): Remove these as base/ is unforked.
             # For now, exclude everything that doesn't build as-is, just to
             # get a minimal target building.
-            ['exclude', '^memory/aligned_memory_unittest\\.cc$'],
-	    # Unittests that don't pass.
+            # Unittests that don't pass.
             ['exclude', '^message_loop_unittest\\.cc$'],
           ],
           'actions': [
@@ -646,6 +647,7 @@
             # Pull in specific Mac files for iOS (which have been filtered out
             # by file name rules).
             ['include', '^mac/objc_property_releaser_unittest\\.mm$'],
+            ['include', '^mac/bind_objc_block_unittest\\.mm$'],
             ['include', '^sys_string_conversions_mac_unittest\\.mm$'],
           ],
         }],
@@ -718,6 +720,8 @@
         'test/test_suite.h',
         'test/test_support_android.cc',
         'test/test_support_android.h',
+        'test/test_support_ios.h',
+        'test/test_support_ios.mm',
         'test/test_switches.cc',
         'test/test_switches.h',
         'test/test_timeouts.cc',
@@ -828,6 +832,10 @@
           },
           'defines': [
             '<@(nacl_win64_defines)',
+          ],
+          'sources!': [
+            # base64.cc depends on modp_b64.
+            'base64.cc',
           ],
           'configurations': {
             'Common_Base': {
@@ -943,19 +951,14 @@
         {
           'target_name': 'base_jni_headers',
           'type': 'none',
+          'sources': [
+            'android/java/src/org/chromium/base/BuildInfo.java',
+            'android/java/src/org/chromium/base/LocaleUtils.java',
+            'android/java/src/org/chromium/base/PathUtils.java',
+            'android/java/src/org/chromium/base/SystemMessageHandler.java',
+          ],
           'variables': {
-            'java_sources': [
-              'android/java/src/org/chromium/base/BuildInfo.java',
-              'android/java/src/org/chromium/base/LocaleUtils.java',
-              'android/java/src/org/chromium/base/PathUtils.java',
-              'android/java/src/org/chromium/base/SystemMessageHandler.java',
-            ],
-            'jni_headers': [
-              '<(SHARED_INTERMEDIATE_DIR)/base/jni/build_info_jni.h',
-              '<(SHARED_INTERMEDIATE_DIR)/base/jni/locale_utils_jni.h',
-              '<(SHARED_INTERMEDIATE_DIR)/base/jni/path_utils_jni.h',
-              '<(SHARED_INTERMEDIATE_DIR)/base/jni/system_message_handler_jni.h',
-            ],
+            'jni_gen_dir': 'base',
           },
           'includes': [ '../build/jni_generator.gypi' ],
         },
@@ -1007,6 +1010,18 @@
             'input_jars_paths': ['<(PRODUCT_DIR)/lib.java/chromium_base.jar',],
           },
           'includes': [ '../build/apk_test.gypi' ],
+        },
+        {
+          'target_name': 'base_java_test_support',
+          'type': 'none',
+          'dependencies': [
+            'base_java',
+          ],
+          'variables': {
+            'package_name': 'base_javatests',
+            'java_in_dir': '../base/android/javatests',
+          },
+          'includes': [ '../build/java.gypi' ],
         },
       ],
     }],

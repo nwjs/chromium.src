@@ -57,7 +57,7 @@ ShaderTranslator* ShaderIndexToTranslator(
 // and sets element_index to 456. returns false if element expression was not a
 // whole decimal number. For example: "foo[1b2]"
 bool GetUniformNameSansElement(
-    const std::string name, int* element_index, std::string* new_name) {
+    const std::string& name, int* element_index, std::string* new_name) {
   DCHECK(element_index);
   DCHECK(new_name);
   if (name.size() < 3 || name[name.size() - 1] != ']') {
@@ -83,10 +83,6 @@ bool GetUniformNameSansElement(
     index = index * 10 + digit;
   }
 
-  if (index < 0) {
-    return false;
-  }
-
   *element_index = index;
   *new_name = name.substr(0, open_pos);
   return true;
@@ -95,7 +91,10 @@ bool GetUniformNameSansElement(
 }  // anonymous namespace.
 
 ProgramManager::ProgramInfo::UniformInfo::UniformInfo()
-    : size(0) {
+    : size(0),
+      type(GL_NONE),
+      fake_location_base(0),
+      is_array(false) {
 }
 
 ProgramManager::ProgramInfo::UniformInfo::UniformInfo(
@@ -237,7 +236,7 @@ void ProgramManager::ProgramInfo::ClearUniforms(
 namespace {
 
 struct UniformData {
-  UniformData() : size(-1), type(GL_NONE), added(false) {
+  UniformData() : size(-1), type(GL_NONE), location(0), added(false) {
   }
   std::string queried_name;
   std::string corrected_name;
@@ -469,54 +468,48 @@ bool ProgramManager::ProgramInfo::Link(ShaderManager* manager,
 
   bool link = true;
   ProgramCache* cache = manager_->program_cache_;
-  const std::string* shader_a =
-      attached_shaders_[0]->deferred_compilation_source();
-  const std::string* shader_b =
-      attached_shaders_[1]->deferred_compilation_source();
   if (cache) {
     ProgramCache::LinkedProgramStatus status = cache->GetLinkedProgramStatus(
-        *shader_a,
-        *shader_b,
+        *attached_shaders_[0]->deferred_compilation_source(),
+        *attached_shaders_[1]->deferred_compilation_source(),
         &bind_attrib_location_map_);
-    switch (status) {
-      case ProgramCache::LINK_SUCCEEDED: {
-        ProgramCache::ProgramLoadResult success = cache->LoadLinkedProgram(
-            service_id(),
-            attached_shaders_[0],
-            attached_shaders_[1],
-            &bind_attrib_location_map_);
-        if (success == ProgramCache::PROGRAM_LOAD_SUCCESS) {
-          link = false;
-          break;
+
+    if (status == ProgramCache::LINK_SUCCEEDED) {
+      ProgramCache::ProgramLoadResult success = cache->LoadLinkedProgram(
+                  service_id(),
+                  attached_shaders_[0],
+                  attached_shaders_[1],
+                  &bind_attrib_location_map_);
+      link = success != ProgramCache::PROGRAM_LOAD_SUCCESS;
+    }
+
+    if (link) {
+      // compile our shaders if they're pending
+      const int kShaders = ProgramManager::ProgramInfo::kMaxAttachedShaders;
+      for (int i = 0; i < kShaders; ++i) {
+        ShaderManager::ShaderInfo* info = attached_shaders_[i].get();
+        if (info->compilation_status() ==
+            ShaderManager::ShaderInfo::PENDING_DEFERRED_COMPILE) {
+          ShaderTranslator* translator = ShaderIndexToTranslator(
+              i,
+              vertex_translator,
+              fragment_translator);
+          manager_->ForceCompileShader(info->deferred_compilation_source(),
+                                       attached_shaders_[i],
+                                       translator,
+                                       feature_info);
+          CHECK(info->IsValid());
         }
       }
-      // no break
-      case ProgramCache::LINK_UNKNOWN: {
-        // compile our shaders + attach
-        const int kShaders = ProgramManager::ProgramInfo::kMaxAttachedShaders;
-        for (int i = 0; i < kShaders; ++i) {
-          ShaderManager::ShaderInfo* info = attached_shaders_[i].get();
-          if (!info->source_compiled()) {
-            ShaderTranslator* translator = ShaderIndexToTranslator(
-                i,
-                vertex_translator,
-                fragment_translator);
-            manager_->ForceCompileShader(info->deferred_compilation_source(),
-                                         attached_shaders_[i],
-                                         translator,
-                                         feature_info);
-            CHECK(info->IsValid());
-          }
-        }
-        link = true;
-        break;
-      }
-      default:
-        NOTREACHED();
     }
   }
 
   if (link) {
+    if (cache && gfx::g_GL_ARB_get_program_binary) {
+      glProgramParameteri(service_id(),
+                          PROGRAM_BINARY_RETRIEVABLE_HINT,
+                          GL_TRUE);
+    }
     glLinkProgram(service_id());
   }
 
@@ -1127,5 +1120,3 @@ int32 ProgramManager::MakeFakeLocation(int32 index, int32 element) {
 
 }  // namespace gles2
 }  // namespace gpu
-
-

@@ -8,12 +8,12 @@
 
 #include "ash/ash_switches.h"
 #include "ash/shell.h"
+#include "ash/wm/cursor_manager.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/string_split.h"
 #include "base/time.h"
 #include "ui/aura/client/drag_drop_client.h"
-#include "ui/aura/cursor_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
@@ -48,6 +48,7 @@ const size_t kMaxLines = 10;
 // difference in font metrics.  Rationalize this.
 const int kTooltipVerticalPadding = 2;
 const int kTooltipTimeoutMs = 500;
+const int kTooltipShownTimeoutMs = 10000;
 
 // FIXME: get cursor offset from actual cursor size.
 const int kCursorOffsetX = 10;
@@ -184,7 +185,6 @@ TooltipController::TooltipController(
       tooltip_window_(NULL),
       tooltip_window_at_mouse_press_(NULL),
       mouse_pressed_(false),
-      tooltip_(new Tooltip),
       tooltips_enabled_(true) {
   tooltip_timer_.Start(FROM_HERE,
       base::TimeDelta::FromMilliseconds(kTooltipTimeoutMs),
@@ -199,8 +199,19 @@ TooltipController::~TooltipController() {
 
 void TooltipController::UpdateTooltip(aura::Window* target) {
   // If tooltip is visible, we may want to hide it. If it is not, we are ok.
-  if (tooltip_window_ == target && tooltip_->IsVisible())
+  if (tooltip_window_ == target && GetTooltip()->IsVisible())
     UpdateIfRequired();
+
+  // If we had stopped the tooltip timer for some reason, we must restart it if
+  // there is a change in the tooltip.
+  if (!tooltip_timer_.IsRunning()) {
+    if (tooltip_window_ != target || (tooltip_window_ &&
+        tooltip_text_ != aura::client::GetTooltipText(tooltip_window_))) {
+      tooltip_timer_.Start(FROM_HERE,
+          base::TimeDelta::FromMilliseconds(kTooltipTimeoutMs),
+          this, &TooltipController::TooltipTimerFired);
+    }
+  }
 }
 
 void TooltipController::SetTooltipsEnabled(bool enable) {
@@ -212,6 +223,13 @@ void TooltipController::SetTooltipsEnabled(bool enable) {
 
 bool TooltipController::PreHandleKeyEvent(aura::Window* target,
                                           aura::KeyEvent* event) {
+  // On key press, we want to hide the tooltip and not show it until change.
+  // This is the same behavior as hiding tooltips on timeout. Hence, we can
+  // simply simulate a timeout.
+  if (tooltip_shown_timer_.IsRunning()) {
+    tooltip_shown_timer_.Stop();
+    TooltipShownTimerFired();
+  }
   return false;
 }
 
@@ -232,7 +250,7 @@ bool TooltipController::PreHandleMouseEvent(aura::Window* target,
 
       // We update the tooltip if it is visible, or if we force-hid it due to a
       // mouse press.
-      if (tooltip_->IsVisible() || tooltip_window_at_mouse_press_)
+      if (GetTooltip()->IsVisible() || tooltip_window_at_mouse_press_)
         UpdateIfRequired();
       break;
     case ui::ET_MOUSE_PRESSED:
@@ -240,7 +258,7 @@ bool TooltipController::PreHandleMouseEvent(aura::Window* target,
       tooltip_window_at_mouse_press_ = target;
       if (target)
         tooltip_text_at_mouse_press_ = aura::client::GetTooltipText(target);
-      tooltip_->Hide();
+      GetTooltip()->Hide();
       break;
     case ui::ET_MOUSE_RELEASED:
       mouse_pressed_ = false;
@@ -250,8 +268,8 @@ bool TooltipController::PreHandleMouseEvent(aura::Window* target,
       mouse_pressed_ = false;
     case ui::ET_MOUSEWHEEL:
       // Hide the tooltip for click, release, drag, wheel events.
-      if (tooltip_->IsVisible())
-        tooltip_->Hide();
+      if (GetTooltip()->IsVisible())
+        GetTooltip()->Hide();
       break;
     default:
       break;
@@ -265,8 +283,8 @@ ui::TouchStatus TooltipController::PreHandleTouchEvent(
   // TODO(varunjain): need to properly implement tooltips for
   // touch events.
   // Hide the tooltip for touch events.
-  if (tooltip_->IsVisible())
-    tooltip_->Hide();
+  if (GetTooltip()->IsVisible())
+    GetTooltip()->Hide();
   if (tooltip_window_)
     tooltip_window_->RemoveObserver(this);
   tooltip_window_ = NULL;
@@ -374,10 +392,19 @@ void TooltipController::TooltipTimerFired() {
   UpdateIfRequired();
 }
 
+void TooltipController::TooltipShownTimerFired() {
+  GetTooltip()->Hide();
+
+  // Since the user presumably no longer needs the tooltip, we also stop the
+  // tooltip timer so that tooltip does not pop back up. We will restart this
+  // timer if the tooltip changes (see UpdateTooltip()).
+  tooltip_timer_.Stop();
+}
+
 void TooltipController::UpdateIfRequired() {
   if (!tooltips_enabled_ || mouse_pressed_ || IsDragDropInProgress() ||
-      !aura::Env::GetInstance()->cursor_manager()->cursor_visible()) {
-    tooltip_->Hide();
+      !ash::Shell::GetInstance()->cursor_manager()->cursor_visible()) {
+    GetTooltip()->Hide();
     return;
   }
 
@@ -390,38 +417,48 @@ void TooltipController::UpdateIfRequired() {
   if (tooltip_window_at_mouse_press_) {
     if (tooltip_window_ == tooltip_window_at_mouse_press_ &&
         tooltip_text == tooltip_text_at_mouse_press_) {
-      tooltip_->Hide();
+      GetTooltip()->Hide();
       return;
     }
     tooltip_window_at_mouse_press_ = NULL;
   }
 
-  // We add the !tooltip_->IsVisible() below because when we come here from
+  // We add the !GetTooltip()->IsVisible() below because when we come here from
   // TooltipTimerFired(), the tooltip_text may not have changed but we still
   // want to update the tooltip because the timer has fired.
   // If we come here from UpdateTooltip(), we have already checked for tooltip
   // visibility and this check below will have no effect.
-  if (tooltip_text_ != tooltip_text || !tooltip_->IsVisible()) {
+  if (tooltip_text_ != tooltip_text || !GetTooltip()->IsVisible()) {
+    tooltip_shown_timer_.Stop();
     tooltip_text_ = tooltip_text;
     if (tooltip_text_.empty()) {
-      tooltip_->Hide();
+      GetTooltip()->Hide();
     } else {
       string16 tooltip_text(tooltip_text_);
       gfx::Point widget_loc = curr_mouse_loc_;
       widget_loc = widget_loc.Add(
-          tooltip_window_->GetScreenBounds().origin());
-      tooltip_->SetText(tooltip_text, widget_loc);
-      tooltip_->Show();
+          tooltip_window_->GetBoundsInScreen().origin());
+      GetTooltip()->SetText(tooltip_text, widget_loc);
+      GetTooltip()->Show();
+      tooltip_shown_timer_.Start(FROM_HERE,
+          base::TimeDelta::FromMilliseconds(kTooltipShownTimeoutMs),
+          this, &TooltipController::TooltipShownTimerFired);
     }
   }
 }
 
 bool TooltipController::IsTooltipVisible() {
-  return tooltip_->IsVisible();
+  return GetTooltip()->IsVisible();
 }
 
 bool TooltipController::IsDragDropInProgress() {
   return drag_drop_client_->IsDragDropInProgress();
+}
+
+TooltipController::Tooltip* TooltipController::GetTooltip() {
+  if (!tooltip_.get())
+    tooltip_.reset(new Tooltip);
+  return tooltip_.get();
 }
 
 }  // namespace internal

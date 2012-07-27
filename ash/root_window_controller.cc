@@ -61,11 +61,6 @@ void MoveAllWindows(aura::RootWindow* src,
     internal::kShellWindowId_SystemModalContainer,
     internal::kShellWindowId_LockSystemModalContainer,
   };
-  const gfx::Point src_origin =
-      gfx::Screen::GetDisplayNearestWindow(src).bounds().origin();
-  const gfx::Point dst_origin =
-      gfx::Screen::GetDisplayNearestWindow(src).bounds().origin();
-
   for (size_t i = 0; i < arraysize(kContainerIdsToMove); i++) {
     int id = kContainerIdsToMove[i];
     aura::Window* src_container = Shell::GetContainer(src, id);
@@ -75,15 +70,11 @@ void MoveAllWindows(aura::RootWindow* src,
          iter != children.end(); ++iter) {
       aura::Window* window = *iter;
       // Don't move modal screen.
-      if ((id == internal::kShellWindowId_SystemModalContainer ||
-           id == internal::kShellWindowId_LockSystemModalContainer) &&
-          window->GetProperty(aura::client::kModalKey) == ui::MODAL_TYPE_NONE) {
+      if (internal::SystemModalContainerLayoutManager::IsModalScreen(window))
         continue;
-      }
+
       // Update the restore bounds to make it relative to the display.
-      gfx::Rect restore_bounds;
-      if (internal::DisplayController::IsVirtualScreenCoordinatesEnabled())
-        restore_bounds = GetRestoreBoundsInParent(window);
+      gfx::Rect restore_bounds(GetRestoreBoundsInParent(window));
       dst_container->AddChild(window);
       if (!restore_bounds.IsEmpty())
         SetRestoreBoundsInParent(window, restore_bounds);
@@ -200,9 +191,11 @@ void CreateContainersInRootWindow(aura::RootWindow* root_window) {
   SetChildWindowVisibilityChangesAnimated(lock_modal_container);
   SetUsesScreenCoordinates(lock_modal_container);
 
-  CreateContainer(internal::kShellWindowId_StatusContainer,
-                  "StatusContainer",
-                  lock_screen_related_containers);
+  aura::Window* status_container =
+      CreateContainer(internal::kShellWindowId_StatusContainer,
+                      "StatusContainer",
+                      lock_screen_related_containers);
+  SetUsesScreenCoordinates(status_container);
 
   aura::Window* settings_bubble_container = CreateContainer(
       internal::kShellWindowId_SettingBubbleContainer,
@@ -245,6 +238,11 @@ RootWindowController::RootWindowController(aura::RootWindow* root_window)
 }
 
 RootWindowController::~RootWindowController() {
+  if (Shell::GetActiveRootWindow() == root_window_.get()) {
+    Shell::GetInstance()->set_active_root_window(
+        Shell::GetPrimaryRootWindow() == root_window_.get() ?
+        NULL : Shell::GetPrimaryRootWindow());
+  }
   SetRootWindowController(root_window_.get(), NULL);
   event_client_.reset();
   screen_dimmer_.reset();

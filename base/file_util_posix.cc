@@ -58,8 +58,7 @@ namespace file_util {
 
 namespace {
 
-#if defined(OS_BSD) || defined(OS_IOS) || (defined(OS_MACOSX) && \
-    MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5)
+#if defined(OS_BSD) || defined(OS_MACOSX)
 typedef struct stat stat_wrapper_t;
 static int CallStat(const char *path, stat_wrapper_t *sb) {
   base::ThreadRestrictions::AssertIOAllowed();
@@ -1086,7 +1085,7 @@ bool CopyFile(const FilePath& from_path, const FilePath& to_path) {
 
   return result;
 }
-#endif  // defined(OS_MACOSX)
+#endif  // !defined(OS_MACOSX)
 
 bool VerifyPathControlledByUser(const FilePath& base,
                                 const FilePath& path,
@@ -1156,6 +1155,6 @@ bool VerifyPathControlledByAdmin(const FilePath& path) {
   return VerifyPathControlledByUser(
       kFileSystemRoot, path, kRootUid, allowed_group_ids);
 }
-#endif  // defined(OS_MACOSX)
+#endif  // defined(OS_MACOSX) && !defined(OS_IOS)
 
 }  // namespace file_util

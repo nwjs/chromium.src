@@ -23,6 +23,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host_observer.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/base/net_util.h"
 #include "net/test/test_server.h"
 
@@ -73,7 +74,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, NoScriptAccessAfterSwapOut) {
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
       content::Source<content::WebContentsDelegate>(browser())));
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -85,7 +86,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, NoScriptAccessAfterSwapOut) {
   EXPECT_EQ(1, browser()->active_index());
 
   // Wait for the navigation in the new tab to finish, if it hasn't.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   EXPECT_EQ("/files/navigate_opener.html",
             chrome::GetActiveWebContents(browser())->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
@@ -98,7 +99,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, NoScriptAccessAfterSwapOut) {
   // We should have access to the opened tab's location.
   chrome::ActivateTabAt(browser(), 0, true);
   success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(testScriptAccessToWindow());",
       &success));
@@ -115,7 +116,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, NoScriptAccessAfterSwapOut) {
   // We should no longer have script access to the opened tab's location.
   chrome::ActivateTabAt(browser(), 0, true);
   success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(testScriptAccessToWindow());",
       &success));
@@ -150,7 +151,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // Test clicking a rel=noreferrer + target=blank link.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickNoRefTargetBlankLink());",
       &success));
@@ -167,7 +168,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
             chrome::GetActiveWebContents(browser())->GetURL().path());
 
   // Wait for the cross-site transition in the new tab to finish.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   WebContentsImpl* web_contents = static_cast<WebContentsImpl*>(
       chrome::GetActiveWebContents(browser()));
   EXPECT_FALSE(web_contents->GetRenderManagerForTesting()->
@@ -208,7 +209,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // Test clicking a same-site rel=noreferrer + target=foo link.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteNoRefTargetedLink());",
       &success));
@@ -225,7 +226,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
             chrome::GetActiveWebContents(browser())->GetURL().path());
 
   // Wait for the cross-site transition in the new tab to finish.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   WebContentsImpl* web_contents = static_cast<WebContentsImpl*>(
       chrome::GetActiveWebContents(browser()));
   EXPECT_FALSE(web_contents->GetRenderManagerForTesting()->
@@ -265,7 +266,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // Test clicking a target=blank link.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickTargetBlankLink());",
       &success));
@@ -280,7 +281,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   EXPECT_EQ(1, browser()->active_index());
 
   // Wait for the cross-site transition in the new tab to finish.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   EXPECT_EQ("/files/title2.html",
             chrome::GetActiveWebContents(browser())->GetURL().path());
 
@@ -318,14 +319,14 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // Test clicking a rel=noreferrer link.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickNoRefLink());",
       &success));
   EXPECT_TRUE(success);
 
   // Wait for the cross-site transition in the current tab to finish.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
 
   // Opens in same tab.
   EXPECT_EQ(1, browser()->tab_count());
@@ -369,7 +370,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
       content::Source<content::WebContentsDelegate>(browser())));
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -381,7 +382,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   EXPECT_EQ(1, browser()->active_index());
 
   // Wait for the navigation in the new tab to finish, if it hasn't.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   EXPECT_EQ("/files/navigate_opener.html",
             chrome::GetActiveWebContents(browser())->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
@@ -401,11 +402,11 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // Clicking the original link in the first tab should cause us to swap back.
   chrome::ActivateTabAt(browser(), 0, true);
-  ui_test_utils::WindowedNotificationObserver navigation_observer(
+  content::WindowedNotificationObserver navigation_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &new_contents->GetController()));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -425,10 +426,10 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   EXPECT_EQ(new_site_instance,
             chrome::GetActiveWebContents(browser())->GetSiteInstance());
   chrome::ActivateTabAt(browser(), 0, true);
-  ui_test_utils::WindowedNotificationObserver close_observer(
+  content::WindowedNotificationObserver close_observer(
         content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
         content::Source<content::WebContents>(new_contents));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(testCloseWindow());",
       &success));
@@ -479,7 +480,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
       content::Source<content::WebContentsDelegate>(browser())));
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       opener_contents->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -489,7 +490,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   // Wait for the navigation in the new tab to finish, if it hasn't, then
   // send it to post_message.html on a different site.
   content::WebContents* foo_contents = chrome::GetActiveWebContents(browser());
-  ui_test_utils::WaitForLoadStop(foo_contents);
+  content::WaitForLoadStop(foo_contents);
   EXPECT_EQ("/files/navigate_opener.html", foo_contents->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
   ui_test_utils::NavigateToURL(browser(),
@@ -502,7 +503,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   chrome::ActivateTabAt(browser(), 0, true);
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer2((
       content::Source<content::WebContentsDelegate>(browser())));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetBlankLink());",
       &success));
@@ -512,7 +513,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   // Wait for the navigation in the new tab to finish, if it hasn't, then
   // send it to post_message.html on the original site.
   content::WebContents* new_contents = chrome::GetActiveWebContents(browser());
-  ui_test_utils::WaitForLoadStop(new_contents);
+  content::WaitForLoadStop(new_contents);
   EXPECT_EQ("/files/title2.html", new_contents->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
   ui_test_utils::NavigateToURL(
@@ -530,7 +531,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   // 2) Fail to post a message from the foo window to the opener if the target
   // origin is wrong.  We won't see an error, but we can check for the right
   // number of received messages below.
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       foo_contents->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(postToOpener('msg',"
       L"'http://google.com'));",
@@ -539,10 +540,10 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // 3) Post a message from the foo window to the opener.  The opener will
   // reply, causing the foo window to update its own title.
-  ui_test_utils::WindowedNotificationObserver title_observer(
+  content::WindowedNotificationObserver title_observer(
         content::NOTIFICATION_WEB_CONTENTS_TITLE_UPDATED,
         content::Source<content::WebContents>(foo_contents));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       foo_contents->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(postToOpener('msg','*'));",
       &success));
@@ -552,12 +553,12 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   // We should have received only 1 message in the opener and "foo" tabs,
   // and updated the title.
   int opener_received_messages = 0;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractInt(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractInt(
       opener_contents->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(window.receivedMessages);",
       &opener_received_messages));
   int foo_received_messages = 0;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractInt(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractInt(
       foo_contents->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(window.receivedMessages);",
       &foo_received_messages));
@@ -567,10 +568,10 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // 4) Now post a message from the _blank window to the foo window.  The
   // foo window will update its title and will not reply.
-  ui_test_utils::WindowedNotificationObserver title_observer2(
+  content::WindowedNotificationObserver title_observer2(
         content::NOTIFICATION_WEB_CONTENTS_TITLE_UPDATED,
         content::Source<content::WebContents>(foo_contents));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       new_contents->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(postToFoo('msg2'));",
       &success));
@@ -614,7 +615,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
       content::Source<content::WebContentsDelegate>(browser())));
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -626,7 +627,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   EXPECT_EQ(1, browser()->active_index());
 
   // Wait for the navigation in the new tab to finish, if it hasn't.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   EXPECT_EQ("/files/navigate_opener.html",
             chrome::GetActiveWebContents(browser())->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
@@ -646,11 +647,11 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   // The opened tab should be able to navigate the opener back to its process.
   chrome::ActivateTabAt(browser(), 1, true);
-  ui_test_utils::WindowedNotificationObserver navigation_observer(
+  content::WindowedNotificationObserver navigation_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &orig_contents->GetController()));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(navigateOpener());",
       &success));
@@ -698,7 +699,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
       content::Source<content::WebContentsDelegate>(browser())));
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -710,7 +711,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   EXPECT_EQ(1, browser()->active_index());
 
   // Wait for the navigation in the new tab to finish, if it hasn't.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   EXPECT_EQ("/files/navigate_opener.html",
             chrome::GetActiveWebContents(browser())->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
@@ -735,7 +736,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   // Navigate the first tab to a different site as well.  The original process
   // should exit, since all of its views are now swapped out.
   chrome::ActivateTabAt(browser(), 0, true);
-  ui_test_utils::WindowedNotificationObserver exit_observer(
+  content::WindowedNotificationObserver exit_observer(
         content::NOTIFICATION_RENDERER_PROCESS_TERMINATED,
         content::Source<content::RenderProcessHost>(orig_process));
   ui_test_utils::NavigateToURL(browser(),
@@ -789,14 +790,14 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, ClickLinkAfter204Error) {
 
   // Renderer-initiated navigations should work.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickNoRefLink());",
       &success));
   EXPECT_TRUE(success);
 
   // Wait for the cross-site transition in the current tab to finish.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
 
   // Opens in same tab.
   EXPECT_EQ(1, browser()->tab_count());
@@ -865,7 +866,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
 
   // Go back three times to first site.
   {
-    ui_test_utils::WindowedNotificationObserver back_nav_load_observer(
+    content::WindowedNotificationObserver back_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -873,7 +874,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
     back_nav_load_observer.Wait();
   }
   {
-    ui_test_utils::WindowedNotificationObserver back_nav_load_observer(
+    content::WindowedNotificationObserver back_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -881,7 +882,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
     back_nav_load_observer.Wait();
   }
   {
-    ui_test_utils::WindowedNotificationObserver back_nav_load_observer(
+    content::WindowedNotificationObserver back_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -891,7 +892,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
 
   // Now go forward twice to B2.  Shouldn't be left spinning.
   {
-    ui_test_utils::WindowedNotificationObserver forward_nav_load_observer(
+    content::WindowedNotificationObserver forward_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -899,7 +900,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
     forward_nav_load_observer.Wait();
   }
   {
-    ui_test_utils::WindowedNotificationObserver forward_nav_load_observer(
+    content::WindowedNotificationObserver forward_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -909,7 +910,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
 
   // Go back twice to first site.
   {
-    ui_test_utils::WindowedNotificationObserver back_nav_load_observer(
+    content::WindowedNotificationObserver back_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -917,7 +918,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
     back_nav_load_observer.Wait();
   }
   {
-    ui_test_utils::WindowedNotificationObserver back_nav_load_observer(
+    content::WindowedNotificationObserver back_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -927,7 +928,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest, BackForwardNotStale) {
 
   // Now go forward directly to B3.  Shouldn't be left spinning.
   {
-    ui_test_utils::WindowedNotificationObserver forward_nav_load_observer(
+    content::WindowedNotificationObserver forward_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &contents->GetController()));
@@ -961,7 +962,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   ui_test_utils::WindowedTabAddedNotificationObserver new_tab_observer((
       content::Source<content::WebContentsDelegate>(browser())));
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"window.domAutomationController.send(clickSameSiteTargetedLink());",
       &success));
@@ -973,14 +974,14 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   EXPECT_EQ(1, browser()->active_index());
 
   // Wait for the navigation in the new tab to finish, if it hasn't.
-  ui_test_utils::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
+  content::WaitForLoadStop(chrome::GetActiveWebContents(browser()));
   EXPECT_EQ("/files/navigate_opener.html",
             chrome::GetActiveWebContents(browser())->GetURL().path());
   EXPECT_EQ(1, browser()->active_index());
 
   RenderViewHost* rvh =
       chrome::GetActiveWebContents(browser())->GetRenderViewHost();
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       rvh, L"",
       L"window.domAutomationController.send("
           L"document.webkitVisibilityState == 'visible');",
@@ -993,7 +994,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   ui_test_utils::NavigateToURL(browser(),
                                https_server.GetURL("files/title1.html"));
 
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       rvh, L"",
       L"window.domAutomationController.send("
           L"document.webkitVisibilityState == 'hidden');",
@@ -1003,7 +1004,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
   // Going back should make the previously swapped-out view to become visible
   // again.
   {
-    ui_test_utils::WindowedNotificationObserver back_nav_load_observer(
+    content::WindowedNotificationObserver back_nav_load_observer(
         content::NOTIFICATION_NAV_ENTRY_COMMITTED,
         content::Source<content::NavigationController>(
             &chrome::GetActiveWebContents(browser())->GetController()));
@@ -1017,7 +1018,7 @@ IN_PROC_BROWSER_TEST_F(RenderViewHostManagerTest,
 
   EXPECT_EQ(rvh, chrome::GetActiveWebContents(browser())->GetRenderViewHost());
 
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       rvh, L"",
       L"window.domAutomationController.send("
           L"document.webkitVisibilityState == 'visible');",

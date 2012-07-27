@@ -136,6 +136,7 @@ class DevtoolsNotificationBridge : public content::NotificationObserver {
                         defer:YES]);
   if (!window.get())
     return nil;
+
   anchoredAt = [parentWindow convertBaseToScreen:anchoredAt];
   if ((self = [super initWithWindow:window
                        parentWindow:parentWindow

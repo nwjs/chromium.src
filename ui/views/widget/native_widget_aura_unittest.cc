@@ -81,13 +81,29 @@ TEST_F(NativeWidgetAuraTest, CenterWindowSmallParent) {
   parent->Init(ui::LAYER_NOT_DRAWN);
   parent->SetBounds(gfx::Rect(0, 0, 480, 320));
   scoped_ptr<Widget> widget(new Widget());
-  NativeWidgetAura* window  = Init(parent.get(), widget.get());
+  NativeWidgetAura* window = Init(parent.get(), widget.get());
 
   window->CenterWindow(gfx::Size(100, 100));
   EXPECT_EQ(gfx::Rect( (480 - 100) / 2,
                        (320 - 100) / 2,
                        100, 100),
             window->GetNativeWindow()->bounds());
+  widget->CloseNow();
+}
+
+// Verifies CenterWindow() constrains to parent size.
+TEST_F(NativeWidgetAuraTest, CenterWindowSmallParentNotAtOrigin) {
+  // Make a parent window smaller than the host represented by rootwindow and
+  // offset it slightly from the origin.
+  scoped_ptr<aura::Window> parent(new aura::Window(NULL));
+  parent->Init(ui::LAYER_NOT_DRAWN);
+  parent->SetBounds(gfx::Rect(20, 40, 480, 320));
+  scoped_ptr<Widget> widget(new Widget());
+  NativeWidgetAura* window = Init(parent.get(), widget.get());
+  window->CenterWindow(gfx::Size(500, 600));
+
+  // |window| should be no bigger than |parent|.
+  EXPECT_EQ("20,40 480x320", window->GetNativeWindow()->bounds().ToString());
   widget->CloseNow();
 }
 
@@ -172,7 +188,7 @@ TEST_F(NativeWidgetAuraTest, GetClientAreaScreenBounds) {
   widget->Init(params);
 
   // For Aura, client area bounds match window bounds.
-  gfx::Rect client_bounds = widget->GetClientAreaScreenBounds();
+  gfx::Rect client_bounds = widget->GetClientAreaBoundsInScreen();
   EXPECT_EQ(10, client_bounds.x());
   EXPECT_EQ(20, client_bounds.y());
   EXPECT_EQ(300, client_bounds.width());

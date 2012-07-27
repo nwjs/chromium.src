@@ -19,10 +19,11 @@
 #include "webkit/chromeos/fileapi/remote_file_stream_writer.h"
 #include "webkit/chromeos/fileapi/remote_file_system_operation.h"
 #include "webkit/fileapi/file_system_file_stream_reader.h"
-#include "webkit/fileapi/file_system_operation.h"
+#include "webkit/fileapi/file_system_operation_context.h"
 #include "webkit/fileapi/file_system_url.h"
 #include "webkit/fileapi/file_system_util.h"
 #include "webkit/fileapi/local_file_stream_writer.h"
+#include "webkit/fileapi/local_file_system_operation.h"
 #include "webkit/glue/webkit_glue.h"
 
 namespace {
@@ -212,7 +213,8 @@ std::vector<FilePath> CrosMountPointProvider::GetRootDirectories() const {
   return root_dirs;
 }
 
-fileapi::FileSystemFileUtil* CrosMountPointProvider::GetFileUtil() {
+fileapi::FileSystemFileUtil* CrosMountPointProvider::GetFileUtil(
+    fileapi::FileSystemType type) {
   return local_file_util_.get();
 }
 
@@ -252,7 +254,10 @@ CrosMountPointProvider::CreateFileSystemOperation(
   if (mount_point && mount_point->location == REMOTE)
     return new chromeos::RemoteFileSystemOperation(mount_point->remote_proxy);
 
-  return new fileapi::FileSystemOperation(context);
+  scoped_ptr<fileapi::FileSystemOperationContext> operation_context(
+      new fileapi::FileSystemOperationContext(context));
+  return new fileapi::LocalFileSystemOperation(context,
+                                               operation_context.Pass());
 }
 
 webkit_blob::FileStreamReader* CrosMountPointProvider::CreateFileStreamReader(

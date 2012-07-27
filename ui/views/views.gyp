@@ -30,12 +30,12 @@
         '../../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../../build/temp_gyp/googleurl.gyp:googleurl',
         '../../content/content.gyp:content',
-        '../../net/net.gyp:net',
         '../../skia/skia.gyp:skia',
         '../../third_party/icu/icu.gyp:icui18n',
         '../../third_party/icu/icu.gyp:icuuc',
         '../base/strings/ui_strings.gyp:ui_strings',
         '../compositor/compositor.gyp:compositor',
+        '../web_dialogs/web_dialogs.gyp:web_dialogs',
         '../ui.gyp:ui',
         '../ui.gyp:ui_resources',
       ],
@@ -233,6 +233,8 @@
         'controls/tree/tree_view_views.h',
         'controls/tree/tree_view_win.cc',
         'controls/tree/tree_view_win.h',
+        'controls/webview/web_dialog_view.cc',
+        'controls/webview/web_dialog_view.h',
         'controls/webview/webview.cc',
         'controls/webview/webview.h',
         'debug_utils.cc',
@@ -410,8 +412,6 @@
         }],
         ['use_aura==0', {
           'sources!': [
-            'controls/tabbed_pane/native_tabbed_pane_views.cc',
-            'controls/tabbed_pane/native_tabbed_pane_views.h',
             'widget/tooltip_manager_views.cc',
           ],
         }],
@@ -463,7 +463,6 @@
         '../../base/base.gyp:base',
         '../../content/content.gyp:test_support_content',
         '../../ipc/ipc.gyp:test_support_ipc',
-        '../../net/net.gyp:net_test_support',
         '../../skia/skia.gyp:skia',
         '../../testing/gtest.gyp:gtest',
         '../ui.gyp:ui',
@@ -547,8 +546,6 @@
         'widget/native_widget_win_unittest.cc',
         'widget/widget_unittest.cc',
         'run_all_unittests.cc',
-
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
       ],
       'conditions': [
         ['OS=="win"', {
@@ -704,7 +701,6 @@
         'examples/examples_main.cc',
         'test/test_views_delegate.cc',
         'test/test_views_delegate.h',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
       ],
       'conditions': [
         ['OS=="win"', {

@@ -22,6 +22,7 @@ class ShellDelegateImpl : public ash::ShellDelegate {
   void SetWatcher(WindowWatcher* watcher);
 
   virtual bool IsUserLoggedIn() OVERRIDE;
+  virtual bool IsSessionStarted() OVERRIDE;
   virtual void LockScreen() OVERRIDE;
   virtual void UnlockScreen() OVERRIDE;
   virtual bool IsScreenLocked() const OVERRIDE;
@@ -40,8 +41,6 @@ class ShellDelegateImpl : public ash::ShellDelegate {
   virtual void ToggleSpokenFeedback() OVERRIDE;
   virtual bool IsSpokenFeedbackEnabled() const OVERRIDE;
   virtual app_list::AppListViewDelegate* CreateAppListViewDelegate() OVERRIDE;
-  virtual void StartPartialScreenshot(
-      ash::ScreenshotDelegate* screenshot_delegate) OVERRIDE;
   virtual ash::LauncherDelegate* CreateLauncherDelegate(
       ash::LauncherModel* model) OVERRIDE;
   virtual ash::SystemTrayDelegate* CreateSystemTrayDelegate(
@@ -49,6 +48,7 @@ class ShellDelegateImpl : public ash::ShellDelegate {
   virtual ash::UserWallpaperDelegate* CreateUserWallpaperDelegate() OVERRIDE;
   virtual aura::client::UserActionClient* CreateUserActionClient() OVERRIDE;
   virtual void OpenFeedbackPage() OVERRIDE;
+  virtual void RecordUserMetricsAction(UserMetricsAction action) OVERRIDE;
 
  private:
   // Used to update Launcher. Owned by main.

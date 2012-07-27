@@ -7,7 +7,6 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/api/commands/command_service.h"
 #include "chrome/browser/extensions/api/commands/command_service_factory.h"
-#include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
@@ -153,7 +152,8 @@ void PageActionImageView::OnMouseReleased(const views::MouseEvent& event) {
   } else if (event.IsMiddleMouseButton()) {
     button = 2;
   } else if (event.IsRightMouseButton()) {
-    ShowContextMenu(gfx::Point(), true);
+    // Don't show a menu here, its handled in View::ProcessMouseReleased. We
+    // show the context menu by way of being the ContextMenuController.
     return;
   }
 

@@ -54,14 +54,15 @@ TEST_F(SyncNotifierFactoryTest, Basic) {
   SyncNotifierFactory factory(
       notifier_options_,
       "test client info",
-      base::WeakPtr<syncer::InvalidationStateTracker>());
+      base::WeakPtr<InvalidationStateTracker>());
   scoped_ptr<SyncNotifier> notifier(factory.CreateSyncNotifier());
 #if defined(OS_ANDROID)
   ASSERT_FALSE(notifier.get());
 #else
   ASSERT_TRUE(notifier.get());
-  notifier->AddObserver(&mock_observer_);
-  notifier->RemoveObserver(&mock_observer_);
+  ObjectIdSet ids = ModelTypeSetToObjectIdSet(ModelTypeSet(syncer::BOOKMARKS));
+  notifier->UpdateRegisteredIds(&mock_observer_, ids);
+  notifier->UpdateRegisteredIds(&mock_observer_, ObjectIdSet());
 #endif
 }
 
@@ -71,14 +72,15 @@ TEST_F(SyncNotifierFactoryTest, Basic_P2P) {
   SyncNotifierFactory factory(
       notifier_options_,
       "test client info",
-      base::WeakPtr<syncer::InvalidationStateTracker>());
+      base::WeakPtr<InvalidationStateTracker>());
   scoped_ptr<SyncNotifier> notifier(factory.CreateSyncNotifier());
 #if defined(OS_ANDROID)
   ASSERT_FALSE(notifier.get());
 #else
   ASSERT_TRUE(notifier.get());
-  notifier->AddObserver(&mock_observer_);
-  notifier->RemoveObserver(&mock_observer_);
+  ObjectIdSet ids = ModelTypeSetToObjectIdSet(ModelTypeSet(syncer::BOOKMARKS));
+  notifier->UpdateRegisteredIds(&mock_observer_, ids);
+  notifier->UpdateRegisteredIds(&mock_observer_, ObjectIdSet());
 #endif
 }
 

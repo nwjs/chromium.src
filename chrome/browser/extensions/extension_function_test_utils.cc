@@ -129,6 +129,8 @@ std::string RunFunctionAndReturnError(UIThreadExtensionFunction* function,
                                       Browser* browser,
                                       RunFunctionFlags flags) {
   scoped_refptr<ExtensionFunction> function_owner(function);
+  // Without a callback the function will not generate a result.
+  function->set_has_callback(true);
   RunFunction(function, args, browser, flags);
   EXPECT_FALSE(function->GetResultList()) << "Did not expect a result";
   return function->GetError();
@@ -146,6 +148,8 @@ base::Value* RunFunctionAndReturnSingleResult(
     Browser* browser,
     RunFunctionFlags flags) {
   scoped_refptr<ExtensionFunction> function_owner(function);
+  // Without a callback the function will not generate a result.
+  function->set_has_callback(true);
   RunFunction(function, args, browser, flags);
   EXPECT_TRUE(function->GetError().empty()) << "Unexpected error: "
       << function->GetError();
@@ -220,7 +224,7 @@ bool RunFunction(UIThreadExtensionFunction* function,
   // message loop until they do.
   if (!response_delegate.HasResponse()) {
     response_delegate.set_should_post_quit(true);
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   EXPECT_TRUE(response_delegate.HasResponse());

@@ -35,6 +35,7 @@ class HGenerator(object):
       .Append('#include <vector>')
       .Append()
       .Append('#include "base/basictypes.h"')
+      .Append('#include "base/logging.h"')
       .Append('#include "base/memory/linked_ptr.h"')
       .Append('#include "base/memory/scoped_ptr.h"')
       .Append('#include "base/values.h"')
@@ -157,10 +158,11 @@ class HGenerator(object):
     for prop in self._cpp_type_generator.ExpandParams(props):
       if prop.description:
         c.Comment(prop.description)
-      c.Append('%s %s;' % (
+      (c.Append('%s %s;' % (
           self._cpp_type_generator.GetType(prop, wrap_optional=True),
           prop.unix_name))
-      c.Append()
+        .Append()
+      )
     return c
 
   def _GenerateType(self, type_):
@@ -214,6 +216,9 @@ class HGenerator(object):
 
       (c.Eblock()
         .Sblock(' private:')
+          .Concat(self._GeneratePrivatePropertyStructures(
+              type_.properties.values()))
+          .Append()
           .Append('DISALLOW_COPY_AND_ASSIGN(%(classname)s);')
         .Eblock('};')
       )
@@ -301,6 +306,22 @@ class HGenerator(object):
         if prop.from_json:
           create_enum_value = 'static ' + create_enum_value
         c.Append(create_enum_value)
+    return c
+
+  def _GeneratePrivatePropertyStructures(self, props):
+    """Generate the private structures required by a property such as OBJECT
+    classes and enums.
+    """
+    c = Code()
+    for prop in props:
+      if prop.type_ == PropertyType.ARRAY:
+        c.Concat(self._GeneratePrivatePropertyStructures([prop.item_type]))
+        c.Append()
+      elif prop.type_ == PropertyType.CHOICES:
+        # We only need GetChoiceValue() if there is a ToValue() method.
+        if prop.from_client:
+          c.Append('scoped_ptr<base::Value> Get%sChoiceValue() const;' % (
+              cpp_util.Classname(prop.name)))
     return c
 
   def _GenerateCreateCallbackArguments(self, function):

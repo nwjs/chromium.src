@@ -35,8 +35,8 @@ namespace {
 class ScriptBadgeControllerTest : public TabContentsTestHarness {
  public:
   ScriptBadgeControllerTest()
-      : ui_thread_(BrowserThread::UI, MessageLoop::current()) {
-  }
+      : ui_thread_(BrowserThread::UI, MessageLoop::current()),
+        file_thread_(BrowserThread::FILE, MessageLoop::current()) {}
 
   virtual void SetUp() OVERRIDE {
     // Note that this sets a PageActionController into the
@@ -82,6 +82,7 @@ class ScriptBadgeControllerTest : public TabContentsTestHarness {
 
  private:
   content::TestBrowserThread ui_thread_;
+  content::TestBrowserThread file_thread_;
 };
 
 struct CountingNotificationObserver : public content::NotificationObserver {
@@ -117,11 +118,13 @@ TEST_F(ScriptBadgeControllerTest, ExecutionMakesBadgeVisible) {
   EXPECT_THAT(script_badge_controller_->GetCurrentActions(),
               testing::ElementsAre());
 
+  ListValue val;
   script_badge_controller_->OnExecuteScriptFinished(
       extension->id(), true,
       tab_contents()->web_contents()->GetController().GetActiveEntry()->
       GetPageID(),
-      "");
+      "",
+      val);
   EXPECT_THAT(script_badge_controller_->GetCurrentActions(),
               testing::ElementsAre(extension->script_badge()));
   EXPECT_THAT(location_bar_updated.events, testing::Gt(0));
@@ -142,11 +145,13 @@ TEST_F(ScriptBadgeControllerTest, FragmentNavigation) {
         chrome::NOTIFICATION_EXTENSION_LOCATION_BAR_UPDATED,
         content::Source<Profile>(tab_contents()->profile()));
 
+    ListValue val;
     script_badge_controller_->OnExecuteScriptFinished(
         extension->id(), true,
         tab_contents()->web_contents()->GetController().GetActiveEntry()->
             GetPageID(),
-        "");
+        "",
+        val);
 
     EXPECT_THAT(script_badge_controller_->GetCurrentActions(),
                 testing::ElementsAre(extension->script_badge()));

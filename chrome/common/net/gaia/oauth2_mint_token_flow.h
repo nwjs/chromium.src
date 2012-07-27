@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
+#include "base/string16.h"
 #include "chrome/common/net/gaia/oauth2_api_call_flow.h"
 
 class GoogleServiceAuthError;
@@ -42,8 +43,8 @@ struct IssueAdviceInfoEntry {
   IssueAdviceInfoEntry();
   ~IssueAdviceInfoEntry();
 
-  std::string description;
-  std::vector<std::string> details;
+  string16 description;
+  std::vector<string16> details;
 
   bool operator==(const IssueAdviceInfoEntry& rhs) const;
 };
@@ -97,23 +98,10 @@ class OAuth2MintTokenFlow : public OAuth2ApiCallFlow {
     virtual ~Delegate() {}
   };
 
-  // An interceptor for tests.
-  class InterceptorForTests {
-   public:
-    // Returns true if the success callback should be called and false for
-    // failures.
-    virtual bool DoIntercept(const OAuth2MintTokenFlow* flow,
-                             std::string* access_token,
-                             GoogleServiceAuthError* error) = 0;
-  };
-  static void SetInterceptorForTests(InterceptorForTests* interceptor);
-
   OAuth2MintTokenFlow(net::URLRequestContextGetter* context,
                       Delegate* delegate,
                       const Parameters& parameters);
   virtual ~OAuth2MintTokenFlow();
-
-  virtual void Start() OVERRIDE;
 
   // Starts the flow, and deletes |this| when done. Useful when the caller
   // does not care about the response (|delegate_| is NULL).

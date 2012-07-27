@@ -17,8 +17,8 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/test/test_utils.h"
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
@@ -121,7 +121,7 @@ TEST_F(BrowserWindowControllerTest, TestNormal) {
 
   // And make sure a controller for a pop-up window is not normal.
   // popup_browser will be owned by its window.
-  Browser* popup_browser(Browser::CreateWithParams(
+  Browser* popup_browser(new Browser(
       Browser::CreateParams(Browser::TYPE_POPUP, profile())));
   NSWindow *cocoaWindow = popup_browser->window()->GetNativeWindow();
   BrowserWindowController* controller =
@@ -138,7 +138,7 @@ TEST_F(BrowserWindowControllerTest, TestSetBounds) {
   // Create a normal browser with bounds smaller than the minimum.
   Browser::CreateParams params(Browser::TYPE_TABBED, profile());
   params.initial_bounds = gfx::Rect(0, 0, 50, 50);
-  Browser* browser = Browser::CreateWithParams(params);
+  Browser* browser = new Browser(params);
   NSWindow *cocoaWindow = browser->window()->GetNativeWindow();
   BrowserWindowController* controller =
     static_cast<BrowserWindowController*>([cocoaWindow windowController]);
@@ -163,7 +163,7 @@ TEST_F(BrowserWindowControllerTest, TestSetBoundsPopup) {
   // Create a popup with bounds smaller than the minimum.
   Browser::CreateParams params(Browser::TYPE_POPUP, profile());
   params.initial_bounds = gfx::Rect(0, 0, 50, 50);
-  Browser* browser = Browser::CreateWithParams(params);
+  Browser* browser = new Browser(params);
   NSWindow *cocoaWindow = browser->window()->GetNativeWindow();
   BrowserWindowController* controller =
     static_cast<BrowserWindowController*>([cocoaWindow windowController]);
@@ -206,8 +206,8 @@ TEST_F(BrowserWindowControllerTest, BookmarkBarControllerIndirection) {
 TEST_F(BrowserWindowControllerTest, TestIncognitoWidthSpace) {
   scoped_ptr<TestingProfile> incognito_profile(new TestingProfile());
   incognito_profile->set_off_the_record(true);
-  scoped_ptr<Browser> browser(new Browser(Browser::TYPE_TABBED,
-                                          incognito_profile.get()));
+  scoped_ptr<Browser> browser(
+      new Browser(Browser::CreateParams(incognito_profile.get()));
   controller_.reset([[BrowserWindowController alloc]
                               initWithBrowser:browser.get()
                                 takeOwnership:NO]);
@@ -668,14 +668,13 @@ static bool IsFrontWindow(NSWindow *window) {
 }
 
 void WaitForFullScreenTransition() {
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       chrome::NOTIFICATION_FULLSCREEN_CHANGED,
       content::NotificationService::AllSources());
   observer.Wait();
 }
 
 TEST_F(BrowserWindowFullScreenControllerTest, TestFullscreen) {
-  CreateBrowserWindow();
   [controller_ showWindow:nil];
   EXPECT_FALSE([controller_ isFullscreen]);
 
@@ -694,7 +693,6 @@ TEST_F(BrowserWindowFullScreenControllerTest, TestFullscreen) {
 // please do not mark it as flaky without first verifying that there are no bot
 // problems.
 TEST_F(BrowserWindowFullScreenControllerTest, TestActivate) {
-  CreateBrowserWindow();
   [controller_ showWindow:nil];
 
   EXPECT_FALSE([controller_ isFullscreen]);

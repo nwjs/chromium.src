@@ -10,6 +10,8 @@ var nextFrameId;
 var frameIds;
 var nextTabId;
 var tabIds;
+var nextProcessId;
+var processIds;
 var initialized = false;
 
 function deepCopy(obj) {
@@ -48,6 +50,8 @@ function expect(data, order) {
   frameIds = {};
   nextTabId = 0;
   tabIds = {};
+  nextProcessId = 0;
+  processIds = {}
   initListeners();
 }
 
@@ -129,6 +133,18 @@ function captureEvent(name, details) {
       tabIds[details.replacedTabId] = nextTabId++;
     }
     details.replacedTabId = tabIds[details.replacedTabId];
+  }
+  if ('processId' in details) {
+    if (processIds[details.processId] === undefined) {
+      processIds[details.processId] = nextProcessId++;
+    }
+    details.processId = processIds[details.processId];
+  }
+  if ('sourceProcessId' in details) {
+    if (processIds[details.sourceProcessId] === undefined) {
+      processIds[details.sourceProcessId] = nextProcessId++;
+    }
+    details.sourceProcessId = processIds[details.sourceProcessId];
   }
 
   // find |details| in expectedEventData

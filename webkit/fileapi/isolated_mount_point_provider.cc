@@ -15,12 +15,12 @@
 #include "webkit/fileapi/file_system_callback_dispatcher.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_file_stream_reader.h"
-#include "webkit/fileapi/file_system_operation.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_util.h"
 #include "webkit/fileapi/isolated_context.h"
 #include "webkit/fileapi/isolated_file_util.h"
 #include "webkit/fileapi/local_file_stream_writer.h"
+#include "webkit/fileapi/local_file_system_operation.h"
 #include "webkit/fileapi/native_file_util.h"
 
 namespace fileapi {
@@ -31,20 +31,11 @@ IsolatedContext* isolated_context() {
   return IsolatedContext::GetInstance();
 }
 
-FilePath GetPathFromURL(const FileSystemURL& url) {
-  if (!url.is_valid() || url.type() != kFileSystemTypeIsolated)
-    return FilePath();
-  std::string fsid;
-  FilePath path;
-  if (!isolated_context()->CrackIsolatedPath(url.path(), &fsid, NULL, &path))
-    return FilePath();
-  return path;
-}
-
 }  // namespace
 
 IsolatedMountPointProvider::IsolatedMountPointProvider()
-    : isolated_file_util_(new IsolatedFileUtil()) {
+    : isolated_file_util_(new IsolatedFileUtil()),
+      dragged_file_util_(new DraggedFileUtil()) {
 }
 
 IsolatedMountPointProvider::~IsolatedMountPointProvider() {
@@ -66,50 +57,45 @@ FilePath IsolatedMountPointProvider::GetFileSystemRootPathOnFileThread(
     FileSystemType type,
     const FilePath& virtual_path,
     bool create) {
-  if (create || type != kFileSystemTypeIsolated)
-    return FilePath();
-  std::string fsid;
-  FilePath path;
-  IsolatedContext::FileInfo root;
-  if (!isolated_context()->CrackIsolatedPath(virtual_path, &fsid, &root, &path))
-    return FilePath();
-  return root.path;
+  // This is not supposed to be used.
+  NOTREACHED();
+  return FilePath();
 }
 
 bool IsolatedMountPointProvider::IsAccessAllowed(
     const GURL& origin_url, FileSystemType type, const FilePath& virtual_path) {
-  if (type != fileapi::kFileSystemTypeIsolated)
-    return false;
-
-  std::string filesystem_id;
-  FilePath path;
-  return isolated_context()->CrackIsolatedPath(
-      virtual_path, &filesystem_id, NULL, &path);
+  return true;
 }
 
 bool IsolatedMountPointProvider::IsRestrictedFileName(
     const FilePath& filename) const {
+  // TODO(kinuko): We need to check platform-specific restricted file names
+  // before we actually start allowing file creation in isolated file systems.
   return false;
 }
 
-FileSystemFileUtil* IsolatedMountPointProvider::GetFileUtil() {
-  return isolated_file_util_.get();
+FileSystemFileUtil* IsolatedMountPointProvider::GetFileUtil(
+    FileSystemType type) {
+  if (type == kFileSystemTypeDragged)
+    return dragged_file_util_.get();
+  else
+    return isolated_file_util_.get();
 }
 
 FilePath IsolatedMountPointProvider::GetPathForPermissionsCheck(
     const FilePath& virtual_path) const {
-  std::string fsid;
-  FilePath path;
-  if (!isolated_context()->CrackIsolatedPath(virtual_path, &fsid, NULL, &path))
-    return FilePath();
-  return path;
+  // For isolated filesystems we only check per-filesystem permissions.
+  NOTREACHED();
+  return virtual_path;
 }
 
 FileSystemOperationInterface*
 IsolatedMountPointProvider::CreateFileSystemOperation(
     const FileSystemURL& url,
     FileSystemContext* context) const {
-  return new FileSystemOperation(context);
+  scoped_ptr<FileSystemOperationContext> operation_context(
+      new FileSystemOperationContext(context));
+  return new LocalFileSystemOperation(context, operation_context.Pass());
 }
 
 webkit_blob::FileStreamReader*
@@ -117,17 +103,15 @@ IsolatedMountPointProvider::CreateFileStreamReader(
     const FileSystemURL& url,
     int64 offset,
     FileSystemContext* context) const {
-  FilePath path = GetPathFromURL(url);
-  return path.empty() ? NULL : new webkit_blob::LocalFileStreamReader(
-      context->file_task_runner(), path, offset, base::Time());
+  return new webkit_blob::LocalFileStreamReader(
+      context->file_task_runner(), url.path(), offset, base::Time());
 }
 
 FileStreamWriter* IsolatedMountPointProvider::CreateFileStreamWriter(
     const FileSystemURL& url,
     int64 offset,
     FileSystemContext* context) const {
-  FilePath path = GetPathFromURL(url);
-  return path.empty() ? NULL : new LocalFileStreamWriter(path, offset);
+  return new LocalFileStreamWriter(url.path(), offset);
 }
 
 FileSystemQuotaUtil* IsolatedMountPointProvider::GetQuotaUtil() {

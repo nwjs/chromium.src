@@ -614,7 +614,8 @@ bool Plugin::LoadNaClModuleCommon(nacl::DescWrapper* wrapper,
   bool service_runtime_started =
       new_service_runtime->Start(wrapper,
                                  error_info,
-                                 manifest_base_url());
+                                 manifest_base_url(),
+                                 crash_cb);
   PLUGIN_PRINTF(("Plugin::LoadNaClModuleCommon (service_runtime_started=%d)\n",
                  service_runtime_started));
   if (!service_runtime_started) {
@@ -1146,6 +1147,28 @@ void Plugin::NexeFileDidOpenContinuation(int32_t pp_error) {
   NaClLog(4, "Leaving NexeFileDidOpenContinuation\n");
 }
 
+static void LogLineToConsole(Plugin* plugin, const nacl::string& one_line) {
+  PLUGIN_PRINTF(("LogLineToConsole: %s\n",
+                 one_line.c_str()));
+  plugin->AddToConsole(one_line);
+}
+
+void Plugin::CopyCrashLogToJsConsole() {
+  nacl::string fatal_msg(main_service_runtime()->GetCrashLogOutput());
+  size_t ix_start = 0;
+  size_t ix_end;
+
+  PLUGIN_PRINTF(("Plugin::CopyCrashLogToJsConsole: got %d bytes\n",
+                 fatal_msg.size()));
+  while (nacl::string::npos != (ix_end = fatal_msg.find('\n', ix_start))) {
+    LogLineToConsole(this, fatal_msg.substr(ix_start, ix_end - ix_start));
+    ix_start = ix_end + 1;
+  }
+  if (ix_start != fatal_msg.size()) {
+    LogLineToConsole(this, fatal_msg.substr(ix_start));
+  }
+}
+
 void Plugin::NexeDidCrash(int32_t pp_error) {
   PLUGIN_PRINTF(("Plugin::NexeDidCrash (pp_error=%"NACL_PRId32")\n",
                  pp_error));
@@ -1170,16 +1193,27 @@ void Plugin::NexeDidCrash(int32_t pp_error) {
   if (nexe_error_reported()) {
     PLUGIN_PRINTF(("Plugin::NexeDidCrash: error already reported;"
                    " suppressing\n"));
-    return;
-  }
-  if (nacl_ready_state() == DONE) {
-    ReportDeadNexe();
   } else {
-    ErrorInfo error_info;
-    error_info.SetReport(ERROR_START_PROXY_CRASH,  // Not quite right.
-                         "Nexe crashed during startup");
-    ReportLoadError(error_info);
+    if (nacl_ready_state() == DONE) {
+      ReportDeadNexe();
+    } else {
+      ErrorInfo error_info;
+      // The error is not quite right.  In particular, the crash
+      // reported by this path could be due to NaCl application
+      // crashes that occur after the pepper proxy has started.
+      error_info.SetReport(ERROR_START_PROXY_CRASH,
+                           "Nexe crashed during startup");
+      ReportLoadError(error_info);
+    }
   }
+
+  // In all cases, try to grab the crash log.  The first error
+  // reported may have come from the start_module RPC reply indicating
+  // a validation error or something similar, which wouldn't grab the
+  // crash log.  In the event that this is called twice, the second
+  // invocation will just be a no-op, since all the crash log will
+  // have been received and we'll just get an EOF indication.
+  CopyCrashLogToJsConsole();
 }
 
 void Plugin::BitcodeDidTranslate(int32_t pp_error) {

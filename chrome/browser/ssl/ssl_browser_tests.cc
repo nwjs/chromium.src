@@ -30,6 +30,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/security_style.h"
 #include "content/public/common/ssl_status.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_renderer_host.h"
 #include "net/base/cert_status_flags.h"
 #include "net/test/test_server.h"
@@ -54,7 +55,7 @@ class ProvisionalLoadWaiter : public content::WebContentsObserver {
       return;
 
     waiting_ = true;
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   void DidFailProvisionalLoad(
@@ -163,7 +164,7 @@ class SSLUITest : public InProcessBrowserTest {
 
     while (base::Time::Now() < timeToQuit) {
       bool workerFinished = false;
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+      ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
           tab->GetRenderViewHost(), std::wstring(),
           L"window.domAutomationController.send(IsWorkerFinished());",
           &workerFinished));
@@ -176,11 +177,11 @@ class SSLUITest : public InProcessBrowserTest {
           FROM_HERE,
           MessageLoop::QuitClosure(),
           base::TimeDelta::FromMilliseconds(timeout_ms));
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
     }
 
     bool actuallyLoadedContent = false;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(),
         L"window.domAutomationController.send(IsContentLoaded());",
         &actuallyLoadedContent));
@@ -190,7 +191,7 @@ class SSLUITest : public InProcessBrowserTest {
   void ProceedThroughInterstitial(WebContents* tab) {
     InterstitialPage* interstitial_page = tab->GetInterstitialPage();
     ASSERT_TRUE(interstitial_page);
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
     interstitial_page->Proceed();
@@ -486,7 +487,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestHTTPSExpiredCertAndGoForward) {
 
   // Now go back so that a page is in the forward history.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
     tab->GetController().GoBack();
@@ -504,7 +505,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestHTTPSExpiredCertAndGoForward) {
 
   // Simulate user clicking and holding on forward button.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
     tab->GetController().GoToOffset(1);
@@ -528,7 +529,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestWSSInvalidCertAndClose) {
 
   // Setup page title observer.
   WebContents* tab = chrome::GetActiveWebContents(browser());
-  ui_test_utils::TitleWatcher watcher(tab, ASCIIToUTF16("PASS"));
+  content::TitleWatcher watcher(tab, ASCIIToUTF16("PASS"));
   watcher.AlsoWaitForTitle(ASCIIToUTF16("FAIL"));
 
   // Create GURLs to test pages.
@@ -569,7 +570,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestWSSInvalidCertAndGoForward) {
   ASSERT_TRUE(https_server_expired_.Start());
 
   // Start pywebsocket with TLS.
-  ui_test_utils::TestWebSocketServer wss_server;
+  content::TestWebSocketServer wss_server;
   int port = wss_server.UseRandomPort();
   wss_server.UseTLS();
   FilePath wss_root_dir;
@@ -578,7 +579,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestWSSInvalidCertAndGoForward) {
 
   // Setup page title observer.
   WebContents* tab = chrome::GetActiveWebContents(browser());
-  ui_test_utils::TitleWatcher watcher(tab, ASCIIToUTF16("PASS"));
+  content::TitleWatcher watcher(tab, ASCIIToUTF16("PASS"));
   watcher.AlsoWaitForTitle(ASCIIToUTF16("FAIL"));
 
   // Visit bad HTTPS page.
@@ -615,7 +616,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, MAYBE_TestHTTPSErrorWithNoNavEntry) {
   GURL url = https_server_expired_.GetURL("files/ssl/google.htm");
   TabContents* tab2 = chrome::AddSelectedTabWithURL(
       browser(), url, content::PAGE_TRANSITION_TYPED);
-  ui_test_utils::WaitForLoadStop(tab2->web_contents());
+  content::WaitForLoadStop(tab2->web_contents());
 
   // Verify our assumption that there was no prior navigation.
   EXPECT_FALSE(chrome::CanGoBack(browser()));
@@ -638,7 +639,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestBadHTTPSDownload) {
 
   // Now, start a transition to dangerous download.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::NavigateParams navigate_params(browser(), url_dangerous,
@@ -653,7 +654,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestBadHTTPSDownload) {
   ASSERT_TRUE(tab != NULL);
   ASSERT_TRUE(tab->GetInterstitialPage() != NULL);
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_DOWNLOAD_INITIATED,
         content::NotificationService::AllSources());
     tab->GetInterstitialPage()->Proceed();
@@ -734,7 +735,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestUnsafeContents) {
   EXPECT_EQ(0, GetConstrainedWindowCount());
 
   int img_width;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractInt(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractInt(
       tab->GetRenderViewHost(), std::wstring(),
       L"window.domAutomationController.send(ImageWidth());", &img_width));
   // In order to check that the image was not loaded, we check its width.
@@ -743,7 +744,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestUnsafeContents) {
   EXPECT_LT(img_width, 100);
 
   bool js_result = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       tab->GetRenderViewHost(), std::wstring(),
       L"window.domAutomationController.send(IsFooSet());", &js_result));
   EXPECT_FALSE(js_result);
@@ -768,7 +769,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestDisplaysInsecureContentLoadedFromJS) {
 
   // Load the insecure image.
   bool js_result = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       tab->GetRenderViewHost(), std::wstring(), L"loadBadImage();",
       &js_result));
   EXPECT_TRUE(js_result);
@@ -804,7 +805,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestDisplaysInsecureContentTwoTabs) {
   params.disposition = NEW_FOREGROUND_TAB;
   params.tabstrip_index = 0;
   params.source_contents = tab1;
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
   chrome::Navigate(&params);
@@ -846,7 +847,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestRunsInsecureContentTwoTabs) {
   chrome::NavigateParams params(browser(), url, content::PAGE_TRANSITION_TYPED);
   params.disposition = NEW_FOREGROUND_TAB;
   params.source_contents = tab1;
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
   chrome::Navigate(&params);
@@ -1018,14 +1019,14 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestCloseTabWithUnsafePopup) {
       break;
     MessageLoop::current()->PostDelayedTask(
         FROM_HERE, MessageLoop::QuitClosure(), base::TimeDelta::FromSeconds(1));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
   ASSERT_EQ(1, GetConstrainedWindowCount());
 
   // Let's add another tab to make sure the browser does not exit when we close
   // the first tab.
   GURL url = test_server()->GetURL("files/ssl/google.html");
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       content::NOTIFICATION_LOAD_STOP,
       content::NotificationService::AllSources());
   chrome::AddSelectedTabWithURL(browser(), url, content::PAGE_TRANSITION_TYPED);
@@ -1167,10 +1168,10 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestGoodFrameNavigation) {
   bool success = false;
   // Now navigate inside the frame.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
-    EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(),
         L"window.domAutomationController.send(clickLink('goodHTTPSLink'));",
         &success));
@@ -1183,10 +1184,10 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestGoodFrameNavigation) {
 
   // Now let's hit a bad page.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
-    EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(),
         L"window.domAutomationController.send(clickLink('badHTTPSLink'));",
         &success));
@@ -1202,14 +1203,14 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestGoodFrameNavigation) {
   std::wstring content_frame_xpath(L"html/frameset/frame[2]");
   std::wstring is_evil_js(L"window.domAutomationController.send("
                           L"document.getElementById('evilDiv') != null);");
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       tab->GetRenderViewHost(), content_frame_xpath, is_evil_js,
       &is_content_evil));
   EXPECT_FALSE(is_content_evil);
 
   // Now go back, our state should still be OK.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
     tab->GetController().GoBack();
@@ -1219,10 +1220,10 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestGoodFrameNavigation) {
 
   // Navigate to a page served over HTTP.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
-    EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(),
         L"window.domAutomationController.send(clickLink('HTTPLink'));",
         &success));
@@ -1235,7 +1236,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestGoodFrameNavigation) {
 
   // Go back, our state should be unchanged.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
     tab->GetController().GoBack();
@@ -1266,10 +1267,10 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestBadFrameNavigation) {
 
   // Navigate to a good frame.
   bool success = false;
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       tab->GetRenderViewHost(), std::wstring(),
       L"window.domAutomationController.send(clickLink('goodHTTPSLink'));",
       &success));
@@ -1303,10 +1304,10 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestUnauthenticatedFrameNavigation) {
   // Now navigate inside the frame to a secure HTTPS frame.
   {
     bool success = false;
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
-    EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(),
         L"window.domAutomationController.send(clickLink('goodHTTPSLink'));",
         &success));
@@ -1320,10 +1321,10 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestUnauthenticatedFrameNavigation) {
   // Now navigate to a bad HTTPS frame.
   {
     bool success = false;
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(&tab->GetController()));
-    EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         tab->GetRenderViewHost(), std::wstring(),
         L"window.domAutomationController.send(clickLink('badHTTPSLink'));",
         &success));
@@ -1339,7 +1340,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestUnauthenticatedFrameNavigation) {
   std::wstring content_frame_xpath(L"html/frameset/frame[2]");
   std::wstring is_evil_js(L"window.domAutomationController.send("
                           L"document.getElementById('evilDiv') != null);");
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       tab->GetRenderViewHost(), content_frame_xpath, is_evil_js,
       &is_content_evil));
   EXPECT_FALSE(is_content_evil);

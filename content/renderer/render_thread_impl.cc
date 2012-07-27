@@ -40,6 +40,7 @@
 #include "content/common/resource_messages.h"
 #include "content/common/view_messages.h"
 #include "content/common/web_database_observer_impl.h"
+#include "content/public/common/content_constants.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/renderer_preferences.h"
@@ -494,6 +495,10 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   webkit_platform_support_.reset(new RendererWebKitPlatformSupportImpl);
   WebKit::initialize(webkit_platform_support_.get());
 
+  base::FieldTrial* thread_trial =
+      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
+  bool is_thread_trial = thread_trial && thread_trial->group_name() ==
+      content::kGpuCompositingFieldTrialThreadEnabledName;
   bool has_enable = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableThreadedCompositing);
   bool has_disable = CommandLine::ForCurrentProcess()->HasSwitch(
@@ -503,13 +508,15 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   // The new design can be tracked at: http://crbug.com/134492.
   bool is_guest = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kGuestRenderer);
-  bool enable = has_enable && (!has_disable) && (!is_guest);
+  DCHECK(!is_thread_trial || !has_disable);
+  bool enable = (is_thread_trial || (has_enable && !has_disable)) && !is_guest;
   if (enable) {
     compositor_thread_.reset(new CompositorThread(this));
     AddFilter(compositor_thread_->GetMessageFilter());
     WebKit::WebCompositor::initialize(compositor_thread_->GetWebThread());
-  } else
+  } else {
     WebKit::WebCompositor::initialize(NULL);
+  }
   compositor_initialized_ = true;
 
   WebScriptController::enableV8SingleThreadMode();
@@ -581,9 +588,15 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   WebKit::WebRuntimeFeatures::enableEncryptedMedia(
       command_line.HasSwitch(switches::kEnableEncryptedMedia));
 
+#if defined(OS_ANDROID)
+  WebRuntimeFeatures::enableWebAudio(
+      command_line.HasSwitch(switches::kEnableWebAudio) &&
+      media::IsMediaLibraryInitialized());
+#else
   WebRuntimeFeatures::enableWebAudio(
       !command_line.HasSwitch(switches::kDisableWebAudio) &&
       media::IsMediaLibraryInitialized());
+#endif
 
   WebRuntimeFeatures::enablePushState(true);
 
@@ -730,6 +743,21 @@ void RenderThreadImpl::SetIdleNotificationDelayInMs(
   idle_notification_delay_in_ms_ = idle_notification_delay_in_ms;
 }
 
+void RenderThreadImpl::ToggleWebKitSharedTimer(bool suspend) {
+  if (suspend_webkit_shared_timer_) {
+    EnsureWebKitInitialized();
+    if (suspend) {
+      webkit_platform_support_->SuspendSharedTimer();
+    } else {
+      webkit_platform_support_->ResumeSharedTimer();
+    }
+  }
+}
+
+void RenderThreadImpl::UpdateHistograms(int sequence_number) {
+  child_histogram_message_filter()->SendHistograms(sequence_number);
+}
+
 void RenderThreadImpl::PostponeIdleNotification() {
   idle_notifications_to_skip_ = 2;
 }
@@ -752,6 +780,8 @@ RenderThreadImpl::GetGpuVDAContext3D() {
             this, WebKit::WebGraphicsContext3D::Attributes(),
             GURL("chrome://gpu/RenderThreadImpl::GetGpuVDAContext3D")));
   }
+  if (!gpu_vda_context3d_.get())
+    return base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>();
   return gpu_vda_context3d_->AsWeakPtr();
 }
 
@@ -776,10 +806,6 @@ void RenderThreadImpl::ReleaseCachedFonts() {
 }
 
 #endif  // OS_WIN
-
-void RenderThreadImpl::UpdateHistograms(int sequence_number) {
-  child_histogram_message_filter()->SendHistograms(sequence_number);
-}
 
 bool RenderThreadImpl::IsWebFrameValid(WebKit::WebFrame* web_frame) {
   if (!web_frame)

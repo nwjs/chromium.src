@@ -31,7 +31,7 @@
 #include "googleurl/src/url_parse.h"
 #include "googleurl/src/url_util.h"
 #include "net/base/net_util.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 
 namespace {
 
@@ -306,12 +306,12 @@ void HistoryURLProvider::Start(const AutocompleteInput& input,
   // re-run the query from scratch and ignore |minimal_changes|.
 
   // Cancel any in-progress query.
-  Stop();
+  Stop(false);
 
   RunAutocompletePasses(input, true);
 }
 
-void HistoryURLProvider::Stop() {
+void HistoryURLProvider::Stop(bool clear_cached_results) {
   done_ = true;
 
   if (params_)

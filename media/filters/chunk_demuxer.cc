@@ -27,7 +27,8 @@ struct CodecInfo {
   DemuxerStream::Type type;
 };
 
-typedef StreamParser* (*ParserFactoryFunction)();
+typedef StreamParser* (*ParserFactoryFunction)(
+    const std::vector<std::string>& codecs);
 
 struct SupportedTypeInfo {
   const char* type;
@@ -49,7 +50,7 @@ static const CodecInfo* kAudioWebMCodecs[] = {
   NULL
 };
 
-static StreamParser* BuildWebMParser() {
+static StreamParser* BuildWebMParser(const std::vector<std::string>& codecs) {
   return new WebMStreamParser();
 }
 
@@ -68,8 +69,19 @@ static const CodecInfo* kAudioMP4Codecs[] = {
   NULL
 };
 
-static StreamParser* BuildMP4Parser() {
-  return new mp4::MP4StreamParser();
+// Mimetype codec string that indicates the content contains AAC SBR frames.
+static const char* kSBRCodecId = "mp4a.40.5";
+
+static StreamParser* BuildMP4Parser(const std::vector<std::string>& codecs) {
+  bool has_sbr = false;
+  for (size_t i = 0; i < codecs.size(); ++i) {
+    if (codecs[i] == kSBRCodecId) {
+      has_sbr = true;
+      break;
+    }
+  }
+
+  return new mp4::MP4StreamParser(has_sbr);
 }
 #endif
 
@@ -314,46 +326,13 @@ Ranges<TimeDelta> ChunkDemuxerStream::GetBufferedRanges() {
 bool ChunkDemuxerStream::UpdateAudioConfig(const AudioDecoderConfig& config) {
   DCHECK(config.IsValidConfig());
   DCHECK_EQ(type_, AUDIO);
-
-  const AudioDecoderConfig& current_config =
-      stream_->GetCurrentAudioDecoderConfig();
-
-  bool success = (current_config.codec() == config.codec()) &&
-      (current_config.bits_per_channel() == config.bits_per_channel()) &&
-      (current_config.channel_layout() == config.channel_layout()) &&
-      (current_config.samples_per_second() == config.samples_per_second()) &&
-      (current_config.extra_data_size() == config.extra_data_size()) &&
-      (!current_config.extra_data() ||
-       !memcmp(current_config.extra_data(), config.extra_data(),
-               current_config.extra_data_size()));
-
-  if (!success)
-    DVLOG(1) << "UpdateAudioConfig() : Failed to update audio config.";
-
-  return success;
+  return stream_->UpdateAudioConfig(config);
 }
 
 bool ChunkDemuxerStream::UpdateVideoConfig(const VideoDecoderConfig& config) {
   DCHECK(config.IsValidConfig());
   DCHECK_EQ(type_, VIDEO);
-  const VideoDecoderConfig& current_config =
-      stream_->GetCurrentVideoDecoderConfig();
-
-  bool success = (current_config.codec() == config.codec()) &&
-      (current_config.format() == config.format()) &&
-      (current_config.profile() == config.profile()) &&
-      (current_config.coded_size() == config.coded_size()) &&
-      (current_config.visible_rect() == config.visible_rect()) &&
-      (current_config.natural_size() == config.natural_size()) &&
-      (current_config.extra_data_size() == config.extra_data_size()) &&
-      (!current_config.extra_data() ||
-       !memcmp(current_config.extra_data(), config.extra_data(),
-               current_config.extra_data_size()));
-
-  if (!success)
-    DVLOG(1) << "UpdateVideoConfig() : Failed to update video config.";
-
-  return success;
+  return stream_->UpdateVideoConfig(config);
 }
 
 void ChunkDemuxerStream::EndOfStream() {
@@ -436,6 +415,9 @@ const VideoDecoderConfig& ChunkDemuxerStream::video_decoder_config() {
 
 void ChunkDemuxerStream::ChangeState_Locked(State state) {
   lock_.AssertAcquired();
+  DVLOG(1) << "ChunkDemuxerStream::ChangeState_Locked() : "
+           << "type " << type_
+           << " - " << state_ << " -> " << state;
   state_ = state;
 }
 
@@ -473,17 +455,23 @@ bool ChunkDemuxerStream::GetNextBuffer_Locked(
 
   switch (state_) {
     case RETURNING_DATA_FOR_READS:
-      if (stream_->GetNextBuffer(buffer)) {
-        *status = DemuxerStream::kOk;
-        return true;
+      switch (stream_->GetNextBuffer(buffer)) {
+        case SourceBufferStream::kSuccess:
+          *status = DemuxerStream::kOk;
+          return true;
+        case SourceBufferStream::kNeedBuffer:
+          if (end_of_stream_) {
+            *status = DemuxerStream::kOk;
+            *buffer = StreamParserBuffer::CreateEOSBuffer();
+            return true;
+          }
+          return false;
+        case SourceBufferStream::kConfigChange:
+          *status = kConfigChanged;
+          *buffer = NULL;
+          return true;
       }
-
-      if (end_of_stream_) {
-        *status = DemuxerStream::kOk;
-        *buffer = StreamParserBuffer::CreateEOSBuffer();
-        return true;
-      }
-      return false;
+      break;
     case WAITING_FOR_SEEK:
       // Null buffers should be returned in this state since we are waiting
       // for a seek. Any buffers in the SourceBuffer should NOT be returned
@@ -639,11 +627,11 @@ ChunkDemuxer::Status ChunkDemuxer::AddId(const std::string& id,
                           base::Unretained(this));
   }
 
-  scoped_ptr<StreamParser> stream_parser(factory_function());
+  scoped_ptr<StreamParser> stream_parser(factory_function(codecs));
   CHECK(stream_parser.get());
 
   stream_parser->Init(
-      base::Bind(&ChunkDemuxer::OnStreamParserInitDone, this),
+      base::Bind(&ChunkDemuxer::OnStreamParserInitDone, base::Unretained(this)),
       base::Bind(&ChunkDemuxer::OnNewConfigs, base::Unretained(this),
                  has_audio, has_video),
       audio_cb,
@@ -844,12 +832,6 @@ void ChunkDemuxer::Shutdown() {
 
     if (video_)
       video_->Shutdown();
-
-    for (StreamParserMap::iterator it = stream_parser_map_.begin();
-         it != stream_parser_map_.end(); ++it) {
-      delete it->second;
-    }
-    stream_parser_map_.clear();
 
     ChangeState_Locked(SHUTDOWN);
   }

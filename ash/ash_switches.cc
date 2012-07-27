@@ -13,17 +13,14 @@ const char kAshDebugShortcuts[] = "ash-debug-shortcuts";
 // Enables the Oak tree viewer.
 const char kAshEnableOak[] = "ash-enable-oak";
 
-// Enable extended desktop.
-const char kAshExtendedDesktop[] = "ash-extended-desktop";
+// Disables extended desktop.
+const char kAshExtendedDesktopDisabled[] = "ash-extended-desktop-disabled";
 
 // Disable using Ash notifications.
 const char kAshNotifyDisabled[] = "ash-notify-disabled";
 
 // Enables the heads-up display for tracking touch points.
 const char kAshTouchHud[] = "ash-touch-hud";
-
-// Enables virtual screen coordinate system.
-const char kAshVirtualScreenCoordinates[] = "ash-virtual-screen-coordinates";
 
 // If present animations are disabled.
 const char kAshWindowAnimationsDisabled[] = "ash-window-animations-disabled";

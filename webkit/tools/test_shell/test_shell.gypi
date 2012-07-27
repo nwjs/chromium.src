@@ -174,7 +174,7 @@
                 'pak_inputs': [
                   '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/test_shell/test_shell_resources.pak',
-                  '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.pak',
+                  '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_100_percent.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
                   '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.pak',
@@ -387,6 +387,7 @@
         '../../plugins/ppapi/mock_plugin_delegate.cc',
         '../../plugins/ppapi/mock_plugin_delegate.h',
         '../../plugins/ppapi/mock_resource.h',
+        '../../plugins/ppapi/ppb_graphics_2d_impl_unittest.cc',
         '../../plugins/ppapi/ppapi_unittest.cc',
         '../../plugins/ppapi/ppapi_unittest.h',
         '../../plugins/ppapi/quota_file_io_unittest.cc',

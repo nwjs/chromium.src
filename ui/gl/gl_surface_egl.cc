@@ -8,16 +8,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "build/build_config.h"
-#if !defined(OS_ANDROID)
 #include "third_party/angle/include/EGL/egl.h"
 #include "third_party/angle/include/EGL/eglext.h"
-#endif
 #include "ui/gl/egl_util.h"
 #include "ui/gl/gl_context.h"
-
-#if defined(OS_ANDROID)
-#include <EGL/egl.h>
-#endif
 
 // This header must come after the above third-party include, as
 // it brings in #defines that cause conflicts.
@@ -32,12 +26,17 @@ extern "C" {
 namespace gfx {
 
 namespace {
+
 EGLConfig g_config;
 EGLDisplay g_display;
 EGLNativeDisplayType g_native_display;
 EGLConfig g_software_config;
 EGLDisplay g_software_display;
 EGLNativeDisplayType g_software_native_display;
+
+const char* g_egl_extensions = NULL;
+bool g_egl_create_context_robustness_supported = false;
+
 }
 
 GLSurfaceEGL::GLSurfaceEGL() : software_(false) {}
@@ -102,6 +101,10 @@ bool GLSurfaceEGL::InitializeOneOff() {
     return false;
   }
 
+  g_egl_extensions = eglQueryString(g_display, EGL_EXTENSIONS);
+  g_egl_create_context_robustness_supported =
+      HasEGLExtension("EGL_EXT_create_context_robustness");
+
   initialized = true;
 
 #if defined(USE_X11) || defined(OS_ANDROID)
@@ -160,6 +163,18 @@ EGLNativeDisplayType GLSurfaceEGL::GetNativeDisplay() {
   return g_native_display;
 }
 
+const char* GLSurfaceEGL::GetEGLExtensions() {
+  return g_egl_extensions;
+}
+
+bool GLSurfaceEGL::HasEGLExtension(const char* name) {
+  return ExtensionsContain(GetEGLExtensions(), name);
+}
+
+bool GLSurfaceEGL::IsCreateContextRobustnessSupported() {
+  return g_egl_create_context_robustness_supported;
+}
+
 GLSurfaceEGL::~GLSurfaceEGL() {}
 
 NativeViewGLSurfaceEGL::NativeViewGLSurfaceEGL(bool software,
@@ -172,10 +187,6 @@ NativeViewGLSurfaceEGL::NativeViewGLSurfaceEGL(bool software,
 }
 
 bool NativeViewGLSurfaceEGL::Initialize() {
-#if defined(OS_ANDROID)
-  NOTREACHED();
-  return false;
-#else
   DCHECK(!surface_);
 
   if (!GetDisplay()) {
@@ -211,7 +222,6 @@ bool NativeViewGLSurfaceEGL::Initialize() {
   supports_post_sub_buffer_ = (surfaceVal && retVal) == EGL_TRUE;
 
   return true;
-#endif
 }
 
 void NativeViewGLSurfaceEGL::Destroy() {

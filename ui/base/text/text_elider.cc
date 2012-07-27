@@ -5,7 +5,7 @@
 // This file implements utility functions for eliding and formatting UI text.
 //
 // Note that several of the functions declared in text_elider.h are implemented
-// in this file using helper classes in the anonymous namespace.
+// in this file using helper classes in an unnamed namespace.
 
 #include "ui/base/text/text_elider.h"
 
@@ -24,7 +24,7 @@
 #include "googleurl/src/gurl.h"
 #include "net/base/escape.h"
 #include "net/base/net_util.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/gfx/font.h"
 #include "unicode/rbbi.h"
 #include "unicode/uloc.h"

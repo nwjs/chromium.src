@@ -29,14 +29,12 @@ namespace base {
 class TimeDelta;
 }
 
-namespace content {
-class ResourceDispatcherHostImpl;
-class SessionStorageNamespace;
-}
-
 struct ViewHostMsg_CreateWindow_Params;
 struct ViewMsg_SwapOut_Params;
 
+namespace content {
+class ResourceDispatcherHostImpl;
+class SessionStorageNamespace;
 
 // Instantiated per RenderProcessHost to provide various optimizations on
 // behalf of a RenderWidgetHost.  This class bridges between the IO thread
@@ -104,13 +102,13 @@ struct ViewMsg_SwapOut_Params;
 //   renderers can refer to.
 //
 class RenderWidgetHelper
-    : public base::RefCountedThreadSafe<
-          RenderWidgetHelper, content::BrowserThread::DeleteOnIOThread> {
+    : public base::RefCountedThreadSafe<RenderWidgetHelper,
+                                        BrowserThread::DeleteOnIOThread> {
  public:
   RenderWidgetHelper();
 
   void Init(int render_process_id,
-            content::ResourceDispatcherHostImpl* resource_dispatcher_host);
+            ResourceDispatcherHostImpl* resource_dispatcher_host);
 
   // Gets the next available routing id.  This is thread safe.
   int GetNextRoutingID();
@@ -132,6 +130,9 @@ class RenderWidgetHelper
   bool WaitForBackingStoreMsg(int render_widget_id,
                               const base::TimeDelta& max_delay,
                               IPC::Message* msg);
+  // Called to resume the requests for a view after it's ready. The view was
+  // created by CreateNewWindow which initially blocked the requests.
+  void ResumeRequestsForView(int route_id);
 
 #if defined(OS_MACOSX)
   // Given the id of a transport DIB, return a mapping to it or NULL on error.
@@ -149,7 +150,7 @@ class RenderWidgetHelper
       base::ProcessHandle render_process,
       int* route_id,
       int* surface_id,
-      content::SessionStorageNamespace* session_storage_namespace);
+      SessionStorageNamespace* session_storage_namespace);
   void CreateNewWidget(int opener_id,
                        WebKit::WebPopupType popup_type,
                        int* route_id,
@@ -176,8 +177,7 @@ class RenderWidgetHelper
   class BackingStoreMsgProxy;
   friend class BackingStoreMsgProxy;
   friend class base::RefCountedThreadSafe<RenderWidgetHelper>;
-  friend struct content::BrowserThread::DeleteOnThread<
-      content::BrowserThread::IO>;
+  friend struct BrowserThread::DeleteOnThread<BrowserThread::IO>;
   friend class base::DeleteHelper<RenderWidgetHelper>;
 
   typedef std::deque<BackingStoreMsgProxy*> BackingStoreMsgProxyQueue;
@@ -197,10 +197,10 @@ class RenderWidgetHelper
   void OnCreateWindowOnUI(
       const ViewHostMsg_CreateWindow_Params& params,
       int route_id,
-      content::SessionStorageNamespace* session_storage_namespace);
+      SessionStorageNamespace* session_storage_namespace);
 
   // Called on the IO thread after a window was created on the UI thread.
-  void OnCreateWindowOnIO(int route_id);
+  void OnResumeRequestsForView(int route_id);
 
   // Called on the UI thread to finish creating a widget.
   void OnCreateWidgetOnUI(int opener_id,
@@ -241,9 +241,11 @@ class RenderWidgetHelper
   // The next routing id to use.
   base::AtomicSequenceNumber next_routing_id_;
 
-  content::ResourceDispatcherHostImpl* resource_dispatcher_host_;
+  ResourceDispatcherHostImpl* resource_dispatcher_host_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHelper);
 };
+
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HELPER_H_

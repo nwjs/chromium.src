@@ -40,7 +40,6 @@ class GpuWatchdog;
 
 namespace gpu {
 namespace gles2 {
-class ProgramCache;
 class MailboxManager;
 }
 }
@@ -105,8 +104,7 @@ class GpuCommandBufferStub
       int32 surface_id,
       GpuWatchdog* watchdog,
       bool software,
-      const GURL& active_url,
-      gpu::gles2::ProgramCache* program_cache);
+      const GURL& active_url);
 
   virtual ~GpuCommandBufferStub();
 

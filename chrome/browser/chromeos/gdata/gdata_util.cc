@@ -16,9 +16,11 @@
 #include "base/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/threading/sequenced_worker_pool.h"
+#include "base/time.h"
 #include "chrome/browser/chromeos/gdata/gdata.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
@@ -100,36 +102,39 @@ void OpenEditURLUIThread(Profile* profile, const GURL* edit_url) {
   }
 }
 
-// Invoked upon completion of GetFileInfoByResourceId initiated by
+// Invoked upon completion of GetEntryInfoByResourceId initiated by
 // ModifyGDataFileResourceUrl.
-void OnGetFileInfoByResourceId(Profile* profile,
+void OnGetEntryInfoByResourceId(Profile* profile,
                                const std::string& resource_id,
                                GDataFileError error,
                                const FilePath& /* gdata_file_path */,
-                               scoped_ptr<GDataFileProto> file_proto) {
+                               scoped_ptr<GDataEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (error != GDATA_FILE_OK)
     return;
 
-  DCHECK(file_proto.get());
-  const std::string& file_name = file_proto->gdata_entry().file_name();
-  const GURL edit_url = GetFileResourceUrl(resource_id, file_name);
+  DCHECK(entry_proto.get());
+  const std::string& base_name = entry_proto->base_name();
+  const GURL edit_url = GetFileResourceUrl(resource_id, base_name);
   OpenEditURLUIThread(profile, &edit_url);
   DVLOG(1) << "OnFindEntryByResourceId " << edit_url;
 }
 
-// Invoked upon completion of GetFileInfoByPath initiated by
+// Invoked upon completion of GetEntryInfoByPath initiated by
 // InsertGDataCachePathPermissions.
-void OnGetFileInfoForInsertGDataCachePathsPermissions(
+void OnGetEntryInfoForInsertGDataCachePathsPermissions(
     Profile* profile,
     std::vector<std::pair<FilePath, int> >* cache_paths,
     const base::Closure& callback,
     GDataFileError error,
-    scoped_ptr<GDataFileProto> file_info) {
+    scoped_ptr<GDataEntryProto> entry_proto) {
   DCHECK(profile);
   DCHECK(cache_paths);
   DCHECK(!callback.is_null());
+
+  if (entry_proto.get() && !entry_proto->has_file_specific_info())
+    error = GDATA_FILE_ERROR_NOT_FOUND;
 
   GDataCache* cache = GetGDataCache(profile);
   if (!cache || error != GDATA_FILE_OK) {
@@ -137,9 +142,9 @@ void OnGetFileInfoForInsertGDataCachePathsPermissions(
     return;
   }
 
-  DCHECK(file_info.get());
-  std::string resource_id = file_info->gdata_entry().resource_id();
-  std::string file_md5 = file_info->file_md5();
+  DCHECK(entry_proto.get());
+  const std::string& resource_id = entry_proto->resource_id();
+  const std::string& file_md5 = entry_proto->file_specific_info().file_md5();
 
   // We check permissions for raw cache file paths only for read-only
   // operations (when fileEntry.file() is called), so read only permissions
@@ -169,6 +174,26 @@ void OnGetFileInfoForInsertGDataCachePathsPermissions(
       kReadOnlyFilePermissions));
 
   callback.Run();
+}
+
+bool ParseTimezone(const base::StringPiece& timezone,
+                   bool ahead,
+                   int* out_offset_to_utc_in_minutes) {
+  DCHECK(out_offset_to_utc_in_minutes);
+
+  std::vector<base::StringPiece> parts;
+  int num_of_token = Tokenize(timezone, ":", &parts);
+
+  int hour = 0;
+  if (!base::StringToInt(parts[0], &hour))
+    return false;
+
+  int minute = 0;
+  if (num_of_token > 1 && !base::StringToInt(parts[1], &minute))
+    return false;
+
+  *out_offset_to_utc_in_minutes = (hour * 60 + minute) * (ahead ? +1 : -1);
+  return true;
 }
 
 }  // namespace
@@ -229,9 +254,9 @@ void ModifyGDataFileResourceUrl(Profile* profile,
     // Handle all other gdata files.
     const std::string resource_id =
         gdata_cache_path.BaseName().RemoveExtension().AsUTF8Unsafe();
-    file_system->GetFileInfoByResourceId(
+    file_system->GetEntryInfoByResourceId(
         resource_id,
-        base::Bind(&OnGetFileInfoByResourceId,
+        base::Bind(&OnGetEntryInfoByResourceId,
                    profile,
                    resource_id));
     *url = GURL();
@@ -279,15 +304,15 @@ void InsertGDataCachePathsPermissions(
   FilePath gdata_path = gdata_paths->back();
   gdata_paths->pop_back();
 
-  // Call GetFileInfoByPath() to get file info for |gdata_path| then insert
+  // Call GetEntryInfoByPath() to get file info for |gdata_path| then insert
   // all possible cache paths to the output vector |cache_paths|.
   // Note that we can only process one file path at a time. Upon completion
-  // of OnGetFileInfoForInsertGDataCachePathsPermissions(), we recursively call
+  // of OnGetEntryInfoForInsertGDataCachePathsPermissions(), we recursively call
   // InsertGDataCachePathsPermissions() to process the next file path from the
   // back of the input vector |gdata_paths| until it is empty.
-  file_system->GetFileInfoByPath(
+  file_system->GetEntryInfoByPath(
       gdata_path,
-      base::Bind(&OnGetFileInfoForInsertGDataCachePathsPermissions,
+      base::Bind(&OnGetEntryInfoForInsertGDataCachePathsPermissions,
                  profile,
                  cache_paths,
                  base::Bind(&InsertGDataCachePathsPermissions,
@@ -442,6 +467,116 @@ base::PlatformFileError GDataFileErrorToPlatformError(
 
   NOTREACHED();
   return base::PLATFORM_FILE_ERROR_FAILED;
+}
+
+bool GetTimeFromString(const base::StringPiece& raw_value,
+                       base::Time* parsed_time) {
+  base::StringPiece date;
+  base::StringPiece time_and_tz;
+  base::StringPiece time;
+  base::Time::Exploded exploded = {0};
+  bool has_timezone = false;
+  int offset_to_utc_in_minutes = 0;
+
+  // Splits the string into "date" part and "time" part.
+  {
+    std::vector<base::StringPiece> parts;
+    if (Tokenize(raw_value, "T", &parts) != 2)
+      return false;
+    date = parts[0];
+    time_and_tz = parts[1];
+  }
+
+  // Parses timezone suffix on the time part if available.
+  {
+    std::vector<base::StringPiece> parts;
+    if (time_and_tz[time_and_tz.size() - 1] == 'Z') {
+      // Timezone is 'Z' (UTC)
+      has_timezone = true;
+      offset_to_utc_in_minutes = 0;
+      time = time_and_tz;
+      time.remove_suffix(1);
+    } else if (Tokenize(time_and_tz, "+", &parts) == 2) {
+      // Timezone is "+hh:mm" format
+      if (!ParseTimezone(parts[1], true, &offset_to_utc_in_minutes))
+        return false;
+      has_timezone = true;
+      time = parts[0];
+    } else if (Tokenize(time_and_tz, "-", &parts) == 2) {
+      // Timezone is "-hh:mm" format
+      if (!ParseTimezone(parts[1], false, &offset_to_utc_in_minutes))
+        return false;
+      has_timezone = true;
+      time = parts[0];
+    } else {
+      // No timezone (uses local timezone)
+      time = time_and_tz;
+    }
+  }
+
+  // Parses the date part.
+  {
+    std::vector<base::StringPiece> parts;
+    if (Tokenize(date, "-", &parts) != 3)
+      return false;
+
+    if (!base::StringToInt(parts[0], &exploded.year) ||
+        !base::StringToInt(parts[1], &exploded.month) ||
+        !base::StringToInt(parts[2], &exploded.day_of_month)) {
+      return false;
+    }
+  }
+
+  // Parses the time part.
+  {
+    std::vector<base::StringPiece> parts;
+    int num_of_token = Tokenize(time, ":", &parts);
+    if (num_of_token != 3)
+      return false;
+
+    if (!base::StringToInt(parts[0], &exploded.hour) ||
+        !base::StringToInt(parts[1], &exploded.minute)) {
+      return false;
+    }
+
+    std::vector<base::StringPiece> seconds_parts;
+    int num_of_seconds_token = Tokenize(parts[2], ".", &seconds_parts);
+    if (num_of_seconds_token >= 3)
+      return false;
+
+    if (!base::StringToInt(seconds_parts[0], &exploded.second))
+        return false;
+
+    // Only accept milli-seconds (3-digits).
+    if (num_of_seconds_token > 1 &&
+        seconds_parts[1].length() == 3 &&
+        !base::StringToInt(seconds_parts[1], &exploded.millisecond)) {
+      return false;
+    }
+  }
+
+  exploded.day_of_week = 0;
+  if (!exploded.HasValidValues())
+    return false;
+
+  if (has_timezone) {
+    *parsed_time = base::Time::FromUTCExploded(exploded);
+    if (offset_to_utc_in_minutes != 0)
+      *parsed_time -= base::TimeDelta::FromMinutes(offset_to_utc_in_minutes);
+  } else {
+    *parsed_time = base::Time::FromLocalExploded(exploded);
+  }
+
+  return true;
+}
+
+std::string FormatTimeAsString(const base::Time& time) {
+  base::Time::Exploded exploded;
+  time.UTCExplode(&exploded);
+  return base::StringPrintf(
+      "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+      exploded.year, exploded.month, exploded.day_of_month,
+      exploded.hour, exploded.minute, exploded.second, exploded.millisecond);
 }
 
 }  // namespace util

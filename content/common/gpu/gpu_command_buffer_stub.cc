@@ -79,8 +79,7 @@ GpuCommandBufferStub::GpuCommandBufferStub(
     int32 surface_id,
     GpuWatchdog* watchdog,
     bool software,
-    const GURL& active_url,
-    gpu::gles2::ProgramCache* program_cache)
+    const GURL& active_url)
     : channel_(channel),
       handle_(handle),
       initial_size_(size),
@@ -104,9 +103,7 @@ GpuCommandBufferStub::GpuCommandBufferStub(
   if (share_group) {
     context_group_ = share_group->context_group_;
   } else {
-    context_group_ = new gpu::gles2::ContextGroup(mailbox_manager,
-                                                  true,
-                                                  program_cache);
+    context_group_ = new gpu::gles2::ContextGroup(mailbox_manager, true);
   }
   if (surface_id != 0)
     surface_state_.reset(new GpuCommandBufferStubBase::SurfaceState(
@@ -282,14 +279,15 @@ void GpuCommandBufferStub::Destroy() {
     delayed_echos_.pop_front();
   }
 
+  bool have_context = false;
   if (decoder_.get())
-    decoder_->MakeCurrent();
+    have_context = decoder_->MakeCurrent();
   FOR_EACH_OBSERVER(DestructionObserver,
                     destruction_observers_,
                     OnWillDestroyStub(this));
 
   if (decoder_.get()) {
-    decoder_->Destroy(true);
+    decoder_->Destroy(have_context);
     decoder_.reset();
   }
 
@@ -377,6 +375,11 @@ void GpuCommandBufferStub::OnInitialize(
     LOG(ERROR) << "Failed to make context current.";
     OnInitializeFailed(reply_message);
     return;
+  }
+
+  if (!context_group_->has_program_cache()) {
+    context_group_->set_program_cache(
+        channel_->gpu_channel_manager()->program_cache());
   }
 
   // Initialize the decoder with either the view or pbuffer GLContext.

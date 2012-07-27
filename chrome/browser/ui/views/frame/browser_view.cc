@@ -39,6 +39,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/metro_pin_tab_helper.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
@@ -81,6 +82,7 @@
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
@@ -130,6 +132,7 @@
 #include "chrome/browser/ui/views/accelerator_table.h"
 #include "chrome/browser/ui/views/search_view_controller.h"
 #include "chrome/browser/ui/webui/task_manager/task_manager_dialog.h"
+#include "ui/aura/window.h"
 #include "ui/gfx/screen.h"
 #endif
 
@@ -430,7 +433,7 @@ gfx::Point BrowserView::OffsetPointForToolbarBackgroundImage(
   // vertically at the top edge of the horizontal tab strip (or where it would
   // be).  We expect our parent's origin to be the window origin.
   gfx::Point window_point(point.Add(GetMirroredPosition()));
-  window_point.Offset(0, -frame_->GetHorizontalTabStripVerticalOffset(false));
+  window_point.Offset(0, -frame_->GetTabStripInsets(false).top);
   return window_point;
 }
 
@@ -715,7 +718,7 @@ gfx::Rect BrowserView::GetRestoredBounds() const {
 }
 
 gfx::Rect BrowserView::GetBounds() const {
-  return frame_->GetWindowScreenBounds();
+  return frame_->GetWindowBoundsInScreen();
 }
 
 bool BrowserView::IsMaximized() const {
@@ -941,6 +944,8 @@ void BrowserView::UpdateReloadStopState(bool is_loading, bool force) {
 void BrowserView::UpdateToolbar(TabContents* contents,
                                 bool should_restore_state) {
   toolbar_->Update(contents->web_contents(), should_restore_state);
+  GetLocationBarView()->SetMetroPinnedState(
+      contents->metro_pin_tab_helper()->is_pinned());
 }
 
 void BrowserView::FocusToolbar() {
@@ -1107,10 +1112,6 @@ void BrowserView::ConfirmAddSearchProvider(TemplateURL* template_url,
 
 void BrowserView::ToggleBookmarkBar() {
   bookmark_utils::ToggleWhenVisible(browser_->profile());
-}
-
-void BrowserView::ShowAboutChromeDialog() {
-  chrome::ShowAboutChromeView(GetWidget()->GetNativeWindow(), browser_.get());
 }
 
 void BrowserView::ShowUpdateChromeDialog() {
@@ -1322,18 +1323,28 @@ void BrowserView::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
 // won't do anything. We'll need something like an overall clipboard command
 // manager to do that.
 void BrowserView::Cut() {
-  ui_controls::SendKeyPress(GetNativeWindow(), ui::VKEY_X,
-                            true, false, false, false);
+  // If a WebContent is focused, call RenderWidgetHost::Cut. Otherwise, e.g. if
+  // Omnibox is focused, send a Ctrl+x key event to Chrome. Using RWH interface
+  // rather than the fake key event for a WebContent is important since the fake
+  // event might be consumed by the web content (crbug.com/137908).
+  if (!DoCutCopyPaste(&content::RenderWidgetHost::Cut)) {
+    ui_controls::SendKeyPress(GetNativeWindow(), ui::VKEY_X,
+                              true, false, false, false);
+  }
 }
 
 void BrowserView::Copy() {
-  ui_controls::SendKeyPress(GetNativeWindow(), ui::VKEY_C,
-                            true, false, false, false);
+  if (!DoCutCopyPaste(&content::RenderWidgetHost::Copy)) {
+    ui_controls::SendKeyPress(GetNativeWindow(), ui::VKEY_C,
+                              true, false, false, false);
+  }
 }
 
 void BrowserView::Paste() {
-  ui_controls::SendKeyPress(GetNativeWindow(), ui::VKEY_V,
-                            true, false, false, false);
+  if (!DoCutCopyPaste(&content::RenderWidgetHost::Paste)) {
+    ui_controls::SendKeyPress(GetNativeWindow(), ui::VKEY_V,
+                              true, false, false, false);
+  }
 }
 
 void BrowserView::ShowInstant(TabContents* preview) {
@@ -1405,7 +1416,14 @@ ToolbarView* BrowserView::GetToolbarView() const {
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, TabStripModelObserver implementation:
 
+void BrowserView::TabInsertedAt(TabContents* contents,
+                                int index,
+                                bool foreground) {
+  contents->metro_pin_tab_helper()->set_observer(this);
+}
+
 void BrowserView::TabDetachedAt(TabContents* contents, int index) {
+  contents->metro_pin_tab_helper()->set_observer(NULL);
   // We use index here rather than comparing |contents| because by this time
   // the model has already removed |contents| from its list, so
   // browser_->GetActiveWebContents() will return NULL or something else.
@@ -1442,6 +1460,8 @@ void BrowserView::TabReplacedAt(TabStripModel* tab_strip_model,
                                 TabContents* old_contents,
                                 TabContents* new_contents,
                                 int index) {
+  new_contents->metro_pin_tab_helper()->set_observer(this);
+
   if (index != browser_->tab_strip_model()->active_index())
     return;
 
@@ -1865,6 +1885,12 @@ void BrowserView::OnSysColorChange() {
   browser::MaybeShowInvertBubbleView(browser_.get(), contents_);
 }
 
+void BrowserView::MetroPinnedStateChanged(content::WebContents* contents,
+                                          bool is_pinned) {
+  if (contents == chrome::GetActiveWebContents(browser()))
+    GetLocationBarView()->SetMetroPinnedState(is_pinned);
+}
+
 int BrowserView::GetOTRIconResourceID() const {
   int otr_resource_id = IDR_OTR_ICON;
   if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH) {
@@ -1926,7 +1952,8 @@ void BrowserView::Init() {
   // SearchViewController doesn't work on windows yet.
 #if defined(USE_AURA)
   if (chrome::search::IsInstantExtendedAPIEnabled(browser_->profile())) {
-    search_view_controller_.reset(new SearchViewController(contents_));
+    search_view_controller_.reset(
+        new SearchViewController(browser_->profile(), contents_));
     omnibox_popup_view_parent =
         search_view_controller_->omnibox_popup_view_parent();
   }
@@ -2416,14 +2443,6 @@ void BrowserView::UpdateAcceleratorMetrics(
       if (key_code == ui::VKEY_F4)
         content::RecordAction(UserMetricsAction("Accel_Fullscreen_F4"));
       break;
-    case IDC_NEW_TAB:
-      if (key_code == ui::VKEY_T)
-        content::RecordAction(UserMetricsAction("Accel_NewTab_T"));
-      break;
-    case IDC_SEARCH:
-      if (key_code == ui::VKEY_LWIN)
-        content::RecordAction(UserMetricsAction("Accel_Search_LWin"));
-      break;
     case IDC_FOCUS_LOCATION:
       if (key_code == ui::VKEY_D)
         content::RecordAction(UserMetricsAction("Accel_FocusLocation_D"));
@@ -2571,4 +2590,18 @@ void BrowserView::RestackLocationBarContainer() {
     search_view_controller_->StackAtTop();
 #endif
   toolbar_->location_bar_container()->StackAtTop();
+}
+
+bool BrowserView::DoCutCopyPaste(void (content::RenderWidgetHost::*method)()) {
+#if defined(USE_AURA)
+  WebContents* contents = chrome::GetActiveWebContents(browser_.get());
+  if (contents && contents->GetContentNativeView() &&
+      contents->GetContentNativeView()->HasFocus()) {
+    (contents->GetRenderViewHost()->*method)();
+    return true;
+  }
+#elif defined(OS_WIN)
+  // TODO(yusukes): Support non-Aura Windows.
+#endif
+  return false;
 }

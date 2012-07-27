@@ -126,7 +126,8 @@ class ObfuscatedFileEnumerator
         obfuscated_file_util_(obfuscated_file_util),
         origin_(root_url.origin()),
         type_(root_url.type()),
-        recursive_(recursive) {
+        recursive_(recursive),
+        current_file_id_(0) {
     FilePath root_virtual_path = root_url.path();
     FileId file_id;
 
@@ -891,6 +892,18 @@ PlatformFileError ObfuscatedFileUtil::DeleteSingleDirectory(
   return base::PLATFORM_FILE_OK;
 }
 
+scoped_refptr<webkit_blob::ShareableFileReference>
+ObfuscatedFileUtil::CreateSnapshotFile(
+    FileSystemOperationContext* context,
+    const FileSystemURL& url,
+    base::PlatformFileError* result,
+    base::PlatformFileInfo* file_info,
+    FilePath* platform_path) {
+  DCHECK(result);
+  *result = GetFileInfo(context, url, file_info, platform_path);
+  return NULL;
+}
+
 FilePath ObfuscatedFileUtil::GetDirectoryForOriginAndType(
     const GURL& origin,
     FileSystemType type,
@@ -959,6 +972,7 @@ bool ObfuscatedFileUtil::DeleteDirectoryForOriginAndType(
     case kFileSystemTypeIsolated:
     case kFileSystemTypeExternal:
     case kFileSystemTypeTest:
+    case kFileSystemTypeDragged:
       NOTREACHED();
   }
   if (!file_util::DirectoryExists(

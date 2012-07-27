@@ -185,7 +185,7 @@ void GDataDBTest::TestIter(const std::string& parent,
     }
     ASSERT_LT(i, file_paths_size);
     // TODO(achuith): Also test entry->GetFilePath().
-    EXPECT_EQ(FilePath(file_paths[i]).BaseName().value(), entry->file_name());
+    EXPECT_EQ(FilePath(file_paths[i]).BaseName().value(), entry->base_name());
     EXPECT_EQ(file_paths[i], path);
     DVLOG(1) << "Iter " << path;
   }
@@ -197,7 +197,7 @@ TEST_F(GDataDBTest, PutTest) {
   GDataDirectoryService directory_service;
   GDataDirectory dir(directory_service.root(), &directory_service);
   dir.set_title("dir");
-  dir.set_file_name("dir");
+  dir.set_base_name("dir");
   dir.set_resource_id("dir_resource_id");
   dir.set_content_url(GURL("http://content/dir"));
   dir.set_upload_url(GURL("http://upload/dir"));
@@ -222,7 +222,7 @@ TEST_F(GDataDBTest, PutTest) {
 
   GDataFile file(&dir, &directory_service);
   file.set_title("file");
-  file.set_file_name("file");
+  file.set_base_name("file");
   file.set_resource_id("file_resource_id");
   file.set_content_url(GURL("http://content/dir/file"));
   file.set_file_md5("file_md5");
@@ -299,7 +299,7 @@ TEST_F(GDataDBTest, IncompatibleProtoTest) {
   GDataDirectoryService directory_service;
   GDataFile file(directory_service.root(), &directory_service);
   file.set_title("file");
-  file.set_file_name("file");
+  file.set_base_name("file");
   file.set_resource_id("file_resource_id");
   file.set_content_url(GURL("http://content/dir/file"));
   file.set_file_md5("file_md5");
@@ -315,12 +315,12 @@ TEST_F(GDataDBTest, IncompatibleProtoTest) {
   TestIter("", all_entries, arraysize(all_entries));
 
   // Tweak the file proto to simulate an incompatible proto in the DB.
-  GDataFileProto file_proto;
-  file.ToProto(&file_proto);
+  GDataEntryProto entry_proto;
+  file.ToProto(&entry_proto);
   // This will make FromProto() fail.
-  file_proto.mutable_gdata_entry()->clear_upload_url();
+  entry_proto.clear_upload_url();
   std::string serialized_proto;
-  file_proto.SerializeToString(&serialized_proto);
+  entry_proto.SerializeToString(&serialized_proto);
   gdata_db_->PutRawForTesting("file_resource_id", serialized_proto);
 
   // Check if the corruption is detected.

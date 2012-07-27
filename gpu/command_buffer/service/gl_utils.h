@@ -103,6 +103,8 @@
 
 #define GL_GLEXT_PROTOTYPES 1
 
+// GL_ARB_get_program_binary
+#define PROGRAM_BINARY_RETRIEVABLE_HINT        0x8257
 // GL_OES_get_program_binary
 #define GL_PROGRAM_BINARY_LENGTH_OES           0x8741
 #define GL_NUM_PROGRAM_BINARY_FORMATS_OES      0x87FE

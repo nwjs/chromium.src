@@ -111,7 +111,7 @@ FileSystemFileUtil* FileSystemContext::GetFileUtil(
       GetMountPointProvider(type);
   if (!mount_point_provider)
     return NULL;
-  return mount_point_provider->GetFileUtil();
+  return mount_point_provider->GetFileUtil(type);
 }
 
 FileSystemMountPointProvider* FileSystemContext::GetMountPointProvider(
@@ -123,6 +123,7 @@ FileSystemMountPointProvider* FileSystemContext::GetMountPointProvider(
     case kFileSystemTypeExternal:
       return external_provider_.get();
     case kFileSystemTypeIsolated:
+    case kFileSystemTypeDragged:
       return isolated_provider_.get();
     default:
       if (provider_map_.find(type) != provider_map_.end())

@@ -16,7 +16,9 @@ import trace_inputs
 
 FILE_PATH = os.path.realpath(unicode(os.path.abspath(__file__)))
 ROOT_DIR = os.path.dirname(FILE_PATH)
-TARGET_PATH = os.path.join(ROOT_DIR, 'data', 'gtest_fake', 'gtest_fake.py')
+TARGET_UTIL_PATH = os.path.join(ROOT_DIR, 'data', 'gtest_fake',
+                                'gtest_fake_base.py')
+TARGET_PATH = os.path.join(ROOT_DIR, 'data', 'gtest_fake', 'gtest_fake_fail.py')
 
 
 class TraceTestCases(unittest.TestCase):
@@ -40,6 +42,9 @@ class TraceTestCases(unittest.TestCase):
         self.executable += suffix
 
     self.real_executable = trace_inputs.get_native_path_case(self.executable)
+    # Make sure there's no environment variable that could do side effects.
+    os.environ.pop('GTEST_SHARD_INDEX', '')
+    os.environ.pop('GTEST_TOTAL_SHARDS', '')
 
   def tearDown(self):
     if self.temp_file:
@@ -60,7 +65,13 @@ class TraceTestCases(unittest.TestCase):
           u'executable': self.real_executable,
           u'files': [
             {
-              u'path': os.path.join(u'data', 'gtest_fake', 'gtest_fake.py'),
+              u'path': os.path.join(u'data', 'gtest_fake',
+                                    'gtest_fake_base.py'),
+              u'size': os.stat(TARGET_UTIL_PATH).st_size,
+            },
+            {
+              u'path': os.path.join(u'data', 'gtest_fake',
+                                    'gtest_fake_fail.py'),
               u'size': os.stat(TARGET_PATH).st_size,
             },
           ],
@@ -70,7 +81,8 @@ class TraceTestCases(unittest.TestCase):
       u'valid': True,
       u'variables': {
         u'isolate_dependency_tracked': [
-          u'<(PRODUCT_DIR)/gtest_fake/gtest_fake.py',
+          u'<(PRODUCT_DIR)/gtest_fake/gtest_fake_base.py',
+          u'<(PRODUCT_DIR)/gtest_fake/gtest_fake_fail.py',
         ],
       },
     }
@@ -108,19 +120,24 @@ class TraceTestCases(unittest.TestCase):
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate() or ('', '')  # pylint is confused.
     self.assertEquals(0, proc.returncode, (out, err))
-    if sys.platform == 'win32':
-      # TODO(maruel): Figure out why replace('\r\n', '\n') doesn't work.
-      out = out.replace('\r', '')
-    expected_out_re = '\n'.join([
-        r'',
-        r'\d+\.\ds Done post-processing logs\. Parsing logs\.',
-        r'\d+\.\ds Done parsing logs\.',
-        r'\d+.\ds Done stripping root\.',
-        r'\d+.\ds Done flattening\.',
-        r'',
-      ])
-    self.assertTrue(re.match('^%s$' % expected_out_re, out), repr(out))
-    self.assertTrue(err.startswith('\r'), err)
+    lines = out.splitlines()
+    expected_out_re = [
+      r'\[1/4\]   \d\.\d\ds .+',
+      r'\[2/4\]   \d\.\d\ds .+',
+      r'\[3/4\]   \d\.\d\ds .+',
+      r'\[4/4\]   \d\.\d\ds .+',
+      r'\d+\.\ds Done post-processing logs\. Parsing logs\.',
+      r'\d+\.\ds Done parsing logs\.',
+      r'\d+\.\ds Done stripping root\.',
+      r'\d+\.\ds Done flattening\.',
+    ]
+    for index in range(len(expected_out_re)):
+      self.assertTrue(
+          re.match('^%s$' % expected_out_re[index], lines[index]),
+          (index, expected_out_re[index], repr(lines[index])))
+    # Junk is printed on win32.
+    if sys.platform != 'win32':
+      self.assertEquals('', err)
 
     expected_json = {}
     test_cases = (

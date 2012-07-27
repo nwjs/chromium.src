@@ -24,7 +24,6 @@
 #include "ui/base/ime/text_input_type.h"
 #include "ui/gfx/native_widget_types.h"
 
-class BackingStore;
 class MockRenderWidgetHost;
 class WebCursor;
 struct EditCommand;
@@ -46,7 +45,7 @@ struct WebScreenInfo;
 }
 
 namespace content {
-
+class BackingStore;
 class RenderWidgetHostDelegate;
 class RenderWidgetHostViewPort;
 class SmoothScrollGesture;
@@ -84,7 +83,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   virtual void Blur() OVERRIDE;
   virtual void CopyFromBackingStore(
       const gfx::Rect& src_rect,
-      const gfx::Size& accelerated_dest_size,
+      const gfx::Size& accelerated_dst_size,
       const base::Callback<void(bool)>& callback,
       skia::PlatformCanvas* output) OVERRIDE;
 #if defined(TOOLKIT_GTK)
@@ -156,6 +155,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // having been hidden.
   void WasHidden();
   void WasRestored();
+  bool IsHidden() const { return is_hidden_; }
+
+  // Returns true if the RenderWidget is hidden.
+  bool is_hidden() const { return is_hidden_; }
 
   // Called to notify the RenderWidget that its associated native window got
   // focused.
@@ -238,8 +241,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 
   void CancelUpdateTextDirection();
 
-  // Called when a mouse click activates the renderer.
-  virtual void OnMouseActivate();
+  // Called when a mouse click/gesture tap activates the renderer.
+  virtual void OnPointerEventActivate();
 
   // Notifies the renderer whether or not the input method attached to this
   // process is activated.
@@ -369,6 +372,17 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // TODO(jbates) Once the compositor thread is always on, this can be removed.
   void AcknowledgeSwapBuffersToRenderer();
 
+#if defined(USE_AURA)
+  // Called by the view in response to visibility changes:
+  // 1. After the front surface is guarenteed to no longer be in use by the ui
+  //    (protected false),
+  // 2. When the ui expects to have a valid front surface (protected true).
+  static void SendFrontSurfaceIsProtected(bool is_protected,
+                                          uint32 protection_state_id,
+                                          int32 route_id,
+                                          int gpu_host_id);
+#endif
+
   // Signals that the compositing surface was updated, e.g. after a lost context
   // event.
   void CompositingSurfaceUpdated();
@@ -494,7 +508,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnMsgBeginSmoothScroll(bool scroll_down, bool scroll_far);
   virtual void OnMsgFocus();
   virtual void OnMsgBlur();
-  void OnMsgDidChangeNumTouchEvents(int count);
+  void OnMsgHasTouchEventHandlers(bool has_handlers);
 
   void OnMsgSetCursor(const WebCursor& cursor);
   void OnMsgTextInputStateChanged(ui::TextInputType type,

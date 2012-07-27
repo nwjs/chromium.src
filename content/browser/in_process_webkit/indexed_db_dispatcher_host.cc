@@ -242,6 +242,7 @@ void IndexedDBDispatcherHost::OnIDBFactoryOpen(
   // created) if this origin is already over quota.
   Context()->GetIDBFactory()->open(
       params.name,
+      params.version,
       new IndexedDBCallbacks<WebIDBDatabase>(this, params.thread_id,
                                              params.response_id, origin_url),
       origin, NULL, webkit_glue::FilePathToWebString(indexed_db_path));
@@ -276,6 +277,7 @@ ObjectType* IndexedDBDispatcherHost::GetOrTerminateProcess(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
   ObjectType* return_object = map->Lookup(return_object_id);
   if (!return_object) {
+    NOTREACHED() << "Uh oh, couldn't find object with id " << return_object_id;
     content::RecordAction(UserMetricsAction("BadMessageTerminate_IDBMF"));
     BadMessageReceived();
   }
@@ -356,6 +358,7 @@ void IndexedDBDispatcherHost::DatabaseDispatcherHost::OnMetadata(
   WebIDBMetadata web_metadata = idb_database->metadata();
   metadata->name = web_metadata.name;
   metadata->version = web_metadata.version;
+  metadata->intVersion = web_metadata.intVersion;
 
   for (size_t i = 0; i < web_metadata.objectStores.size(); ++i) {
     const WebIDBMetadata::ObjectStore& web_store_metadata =
@@ -711,9 +714,10 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnPut(
   scoped_ptr<WebIDBCallbacks> callbacks(
       new IndexedDBCallbacks<WebIDBKey>(parent_, params.thread_id,
                                         params.response_id));
-  // TODO(alecflett): switch to putWithIndexKeys when available.
-  idb_object_store->put(params.serialized_value, params.key, params.put_mode,
-                        callbacks.release(), *idb_transaction, *ec);
+  idb_object_store->putWithIndexKeys(params.serialized_value, params.key,
+                                     params.put_mode, callbacks.release(),
+                                     *idb_transaction, params.index_names,
+                                     params.index_keys, *ec);
   if (*ec)
     return;
   int64 size = UTF16ToUTF8(params.serialized_value.data()).size();
@@ -1141,6 +1145,8 @@ void IndexedDBDispatcherHost::
 
 void IndexedDBDispatcherHost::TransactionDispatcherHost::OnDestroyed(
     int32 object_id) {
+  // TODO(dgrogan): This doesn't seem to be happening with some version change
+  // transactions. Possibly introduced with integer version support.
   transaction_size_map_.erase(object_id);
   transaction_url_map_.erase(object_id);
   parent_->DestroyObject(&map_, object_id);

@@ -10,7 +10,9 @@
 
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/image/image_skia_source.h"
+#include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 #include "ui/gfx/skia_util.h"
 
@@ -52,6 +54,8 @@ class ImageSkiaStorage : public base::RefCounted<ImageSkiaStorage> {
       : source_(source),
         size_(size) {
   }
+
+  bool has_source() const { return source_.get() != NULL; }
 
   std::vector<gfx::ImageSkiaRep>& image_reps() { return image_reps_; }
 
@@ -213,6 +217,39 @@ const ImageSkiaRep& ImageSkia::GetRepresentation(
   return *it;
 }
 
+#if defined(OS_MACOSX)
+
+std::vector<ImageSkiaRep> ImageSkia::GetRepresentations() const {
+  if (isNull())
+    return std::vector<ImageSkiaRep>();
+
+  if (!storage_->has_source())
+    return image_reps();
+
+  // Attempt to generate image reps for as many scale factors supported by
+  // this platform as possible.
+  // Do not build return array here because the mapping from scale factor to
+  // image rep is one to many in some cases.
+  std::vector<ui::ScaleFactor> supported_scale_factors =
+      ui::GetSupportedScaleFactors();
+  for (size_t i = 0; i < supported_scale_factors.size(); ++i)
+    storage_->FindRepresentation(supported_scale_factors[i], true);
+
+  ImageSkiaReps internal_image_reps = storage_->image_reps();
+  // Create list of image reps to return, skipping null image reps which were
+  // added for caching purposes only.
+  ImageSkiaReps image_reps;
+  for (ImageSkiaReps::iterator it = internal_image_reps.begin();
+       it != internal_image_reps.end(); ++it) {
+    if (!it->is_null())
+      image_reps.push_back(*it);
+  }
+
+  return image_reps;
+}
+
+#endif  // OS_MACOSX
+
 bool ImageSkia::empty() const {
   return isNull() || storage_->size().IsEmpty();
 }
@@ -230,30 +267,9 @@ int ImageSkia::height() const {
 }
 
 bool ImageSkia::extractSubset(ImageSkia* dst, const SkIRect& subset) const {
-  if (isNull())
-    return false;
-  ImageSkia image;
-  ImageSkiaReps& image_reps = storage_->image_reps();
-  for (ImageSkiaReps::iterator it = image_reps.begin();
-       it != image_reps.end(); ++it) {
-    const ImageSkiaRep& image_rep = *it;
-    float dip_scale = image_rep.GetScale();
-    // Rounding boundary in case of a non-integer scale factor.
-    int x = static_cast<int>(subset.left() * dip_scale + 0.5);
-    int y = static_cast<int>(subset.top() * dip_scale + 0.5);
-    int w = static_cast<int>(subset.width() * dip_scale + 0.5);
-    int h = static_cast<int>(subset.height() * dip_scale + 0.5);
-    SkBitmap dst_bitmap;
-    SkIRect scaled_subset = SkIRect::MakeXYWH(x, y, w, h);
-    if (image_rep.sk_bitmap().extractSubset(&dst_bitmap, scaled_subset))
-      image.AddRepresentation(ImageSkiaRep(dst_bitmap,
-                                           image_rep.scale_factor()));
-  }
-  if (image.empty())
-    return false;
-
-  *dst = image;
-  return true;
+  gfx::Rect rect(subset.x(), subset.y(), subset.width(), subset.height());
+  *dst = ImageSkiaOperations::ExtractSubset(*this, rect);
+  return (!dst->isNull());
 }
 
 std::vector<ImageSkiaRep> ImageSkia::image_reps() const {

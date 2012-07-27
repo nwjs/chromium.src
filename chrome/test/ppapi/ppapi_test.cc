@@ -24,6 +24,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/test/gpu/test_switches.h"
 #include "media/audio/audio_manager.h"
 #include "net/base/net_util.h"
@@ -60,20 +61,19 @@ bool IsAudioOutputAvailable() {
 
 PPAPITestBase::TestFinishObserver::TestFinishObserver(
     RenderViewHost* render_view_host,
-    int timeout_s)
+    base::TimeDelta timeout)
     : finished_(false),
       waiting_(false),
-      timeout_s_(timeout_s) {
+      timeout_(timeout) {
   registrar_.Add(this, content::NOTIFICATION_DOM_OPERATION_RESPONSE,
                  content::Source<RenderViewHost>(render_view_host));
-  timer_.Start(FROM_HERE, base::TimeDelta::FromSeconds(timeout_s),
-               this, &TestFinishObserver::OnTimeout);
+  timer_.Start(FROM_HERE, timeout, this, &TestFinishObserver::OnTimeout);
 }
 
 bool PPAPITestBase::TestFinishObserver::WaitForFinish() {
   if (!finished_) {
     waiting_ = true;
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
     waiting_ = false;
   }
   return finished_;
@@ -91,8 +91,7 @@ void PPAPITestBase::TestFinishObserver::Observe(
   TrimString(dom_op_details->json, "\"", &response);
   if (response == "...") {
     timer_.Stop();
-    timer_.Start(FROM_HERE, base::TimeDelta::FromSeconds(timeout_s_),
-                 this, &TestFinishObserver::OnTimeout);
+    timer_.Start(FROM_HERE, timeout_, this, &TestFinishObserver::OnTimeout);
   } else {
     result_ = response;
     finished_ = true;
@@ -186,7 +185,7 @@ void PPAPITestBase::RunTestWithWebSocketServer(const std::string& test_case) {
   FilePath websocket_root_dir;
   ASSERT_TRUE(
       PathService::Get(content::DIR_LAYOUT_TESTS, &websocket_root_dir));
-  ui_test_utils::TestWebSocketServer server;
+  content::TestWebSocketServer server;
   int port = server.UseRandomPort();
   ASSERT_TRUE(server.Start(websocket_root_dir));
   FilePath http_document_root;
@@ -231,7 +230,8 @@ void PPAPITestBase::RunTestURL(const GURL& test_url) {
   // any other value indicates completion (in this case it will start with
   // "PASS" or "FAIL"). This keeps us from timing out on waits for long tests.
   TestFinishObserver observer(
-      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), kTimeoutMs);
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
+      base::TimeDelta::FromMilliseconds(kTimeoutMs));
 
   ui_test_utils::NavigateToURL(browser(), test_url);
 

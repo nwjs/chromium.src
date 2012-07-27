@@ -12,12 +12,14 @@
 #include "chrome/browser/sync/test/test_http_bridge_factory.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "sync/internal_api/public/sessions/sync_session_snapshot.h"
+#include "sync/internal_api/public/test/test_internal_components_factory.h"
 #include "sync/internal_api/public/user_share.h"
 #include "sync/js/js_reply_handler.h"
 #include "sync/protocol/encryption.pb.h"
 #include "sync/syncable/directory.h"
 
 using syncer::ModelSafeRoutingInfo;
+using syncer::TestInternalComponentsFactory;
 using syncer::sessions::ModelNeutralState;
 using syncer::sessions::SyncSessionSnapshot;
 using syncer::sessions::SyncSourceInfo;
@@ -59,9 +61,16 @@ void SyncBackendHostForProfileSyncTest::InitCore(
   test_options.credentials.email = "testuser@gmail.com";
   test_options.credentials.sync_token = "token";
   test_options.restored_key_for_bootstrapping = "";
-  test_options.testing_mode =
-      use_real_database_ ? syncer::SyncManager::TEST_ON_DISK
-                         : syncer::SyncManager::TEST_IN_MEMORY;
+  TestInternalComponentsFactory::StorageOption storage =
+      use_real_database_ ? TestInternalComponentsFactory::ON_DISK
+                         : TestInternalComponentsFactory::IN_MEMORY;
+
+  // It'd be nice if we avoided creating the InternalComponentsFactory in the
+  // first place, but SyncBackendHost will have created one by now so we must
+  // free it.
+  delete test_options.internal_components_factory;
+  test_options.internal_components_factory =
+      new TestInternalComponentsFactory(storage);
   SyncBackendHost::InitCore(test_options);
   // TODO(akalin): Figure out a better way to do this.
   if (synchronous_init_) {
@@ -77,12 +86,11 @@ void SyncBackendHostForProfileSyncTest::RequestConfigureSyncer(
     const syncer::ModelSafeRoutingInfo& routing_info,
     const base::Callback<void(syncer::ModelTypeSet)>& ready_task,
     const base::Closure& retry_callback) {
-  syncer::ModelTypeSet sync_ended;
-  if (!fail_initial_download_)
-    sync_ended.PutAll(types_to_config);
+  syncer::ModelTypeSet failed_configuration_types;
+  if (fail_initial_download_)
+    failed_configuration_types = types_to_config;
 
-  FinishConfigureDataTypesOnFrontendLoop(types_to_config,
-                                         sync_ended,
+  FinishConfigureDataTypesOnFrontendLoop(failed_configuration_types,
                                          ready_task);
 }
 

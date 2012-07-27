@@ -51,7 +51,7 @@ PerformanceMonitor* PerformanceMonitor::GetInstance() {
 }
 
 void PerformanceMonitor::Start() {
-  BrowserThread::PostBlockingPoolTaskAndReply(
+  util::PostTaskToDatabaseThreadAndReply(
       FROM_HERE,
       base::Bind(&PerformanceMonitor::InitOnBackgroundThread,
                  base::Unretained(this)),
@@ -81,6 +81,7 @@ void PerformanceMonitor::FinishInit() {
   // to the background thread, and do not rely upon a reply from the background
   // thread; this is necessary for this notification to be valid.
   util::PostTaskToDatabaseThreadAndReply(
+      FROM_HERE,
       base::Bind(&base::DoNothing),
       base::Bind(&PerformanceMonitor::NotifyInitialized,
                  base::Unretained(this)));
@@ -205,8 +206,8 @@ void PerformanceMonitor::Observe(int type,
       break;
     }
     case chrome::NOTIFICATION_CRX_INSTALLER_DONE: {
-      const CrxInstaller* installer =
-          content::Source<CrxInstaller>(source).ptr();
+      const extensions::CrxInstaller* installer =
+          content::Source<extensions::CrxInstaller>(source).ptr();
 
       // Check if the reason for the install was due to an extension update.
       if (installer->install_cause() != extension_misc::INSTALL_CAUSE_UPDATE)

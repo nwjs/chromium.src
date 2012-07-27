@@ -27,8 +27,7 @@ namespace gles2 {
 
 ContextGroup::ContextGroup(
     MailboxManager* mailbox_manager,
-    bool bind_generates_resource,
-    ProgramCache* program_cache)
+    bool bind_generates_resource)
     : mailbox_manager_(mailbox_manager ? mailbox_manager : new MailboxManager),
       num_contexts_(0),
       enforce_gl_minimums_(CommandLine::ForCurrentProcess()->HasSwitch(
@@ -41,7 +40,7 @@ ContextGroup::ContextGroup(
       max_fragment_uniform_vectors_(0u),
       max_varying_vectors_(0u),
       max_vertex_uniform_vectors_(0u),
-      program_cache_(program_cache),
+      program_cache_(NULL),
       feature_info_(new FeatureInfo()) {
   {
     TransferBufferManager* manager = new TransferBufferManager();

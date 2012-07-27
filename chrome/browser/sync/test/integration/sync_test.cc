@@ -281,7 +281,7 @@ void SyncTest::InitializeInstance(int index) {
   EXPECT_FALSE(GetProfile(index) == NULL) << "Could not create Profile "
                                           << index << ".";
 
-  browsers_[index] = Browser::Create(GetProfile(index));
+  browsers_[index] = new Browser(Browser::CreateParams(GetProfile(index)));
   EXPECT_FALSE(GetBrowser(index) == NULL) << "Could not create Browser "
                                           << index << ".";
 
@@ -335,7 +335,7 @@ bool SyncTest::SetupSync() {
   // This value must be updated whenever new permanent items are added (although
   // this should handle new datatype-specific top level folders).
   number_of_default_sync_items_ = GetClient(0)->GetNumEntries() -
-                                  GetClient(0)->GetNumDatatypes() - 7;
+                                  GetClient(0)->GetNumDatatypes() - 6;
   DVLOG(1) << "Setting " << number_of_default_sync_items_ << " as default "
            << " number of entries.";
 
@@ -568,7 +568,7 @@ bool SyncTest::IsTestServerRunning() {
                         net::LOAD_DO_NOT_SAVE_COOKIES);
   fetcher->SetRequestContext(g_browser_process->system_request_context());
   fetcher->Start();
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
   return delegate.running();
 }
 

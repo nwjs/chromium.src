@@ -10,7 +10,6 @@
 #include "base/stl_util.h"
 #include "media/base/decoder_buffer.h"
 #include "media/base/demuxer_stream.h"
-#include "media/base/filter_host.h"
 #include "media/base/pipeline.h"
 #include "media/base/pipeline_status.h"
 #include "media/base/video_decoder_config.h"
@@ -151,7 +150,8 @@ void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
   demuxer_stream_ = stream;
   statistics_cb_ = statistics_cb;
 
-  demuxer_stream_->EnableBitstreamConverter();
+  if (config.codec() == kCodecH264)
+    demuxer_stream_->EnableBitstreamConverter();
 
   natural_size_ = config.natural_size();
   config_frame_duration_ = GetFrameDuration(config);

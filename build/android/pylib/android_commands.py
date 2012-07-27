@@ -84,6 +84,13 @@ def GetEmulators():
   return devices
 
 
+def GetAVDs():
+  """Returns a list of AVDs."""
+  re_avd = re.compile('^[ ]+Name: ([a-zA-Z0-9_:.-]+)', re.MULTILINE)
+  avds = re_avd.findall(cmd_helper.GetCmdOutput(['android', 'list', 'avd']))
+  return avds
+
+
 def GetAttachedDevices():
   """Returns a list of attached, online android devices.
 
@@ -219,7 +226,7 @@ class AndroidCommands(object):
       self._adb.SetTargetSerial(device)
     # So many users require root that we just always do it. This could
     # be made more fine grain if necessary.
-    self._adb.EnableAdbRoot()
+    self._root_enabled = self._adb.EnableAdbRoot()
     self._logcat = None
     self._original_governor = None
     self._pushed_files = []
@@ -228,6 +235,10 @@ class AndroidCommands(object):
   def Adb(self):
     """Returns our AdbInterface to avoid us wrapping all its methods."""
     return self._adb
+
+  def IsRootEnabled(self):
+    """Returns whether or not _adb.EnabledAdbRoot() has succeeded."""
+    return self._root_enabled
 
   def GetDeviceYear(self):
     """Returns the year information of the date on device"""

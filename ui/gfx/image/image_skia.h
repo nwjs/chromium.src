@@ -83,6 +83,14 @@ class UI_EXPORT ImageSkia {
   const gfx::ImageSkiaRep& GetRepresentation(
       ui::ScaleFactor scale_factor) const;
 
+#if defined(OS_MACOSX)
+  // Returns the image reps contained by this object.
+  // If the image has a source, this method will attempt to generate
+  // representations from the source for all supported scale factors.
+  // Mac only for now.
+  std::vector<ImageSkiaRep> GetRepresentations() const;
+#endif  // OS_MACOSX
+
   // Returns true if object is null or its size is empty.
   bool empty() const;
 
@@ -96,10 +104,8 @@ class UI_EXPORT ImageSkia {
   gfx::Size size() const;
 
   // Wrapper function for SkBitmap::extractBitmap.
-  // Operates on each stored image rep. Note that it may not have
-  // all image reps for supported scale factors.
-  // TODO(oshima|pkotwicz): Investigate if this can be eliminated
-  // after ImageSkiaSource conversion.
+  // Deprecated, use ImageSkiaOperations::ExtractSubset instead.
+  // TODO(pkotwicz): Remove this function.
   bool extractSubset(ImageSkia* dst, const SkIRect& subset) const;
 
   // Returns pointer to 1x bitmap contained by this object. If there is no 1x

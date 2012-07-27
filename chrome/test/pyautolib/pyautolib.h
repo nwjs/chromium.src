@@ -69,15 +69,6 @@ class PyUITestBase : public UITestBase {
   virtual void SetUp() OVERRIDE;
   virtual void TearDown() OVERRIDE;
 
-  // Get the URL of the active tab.
-  GURL GetActiveTabURL(int window_index = 0);
-
-  int GetTabCount(int window_index = 0);
-
-  // Activate the tab at the given zero-based index in the given or first
-  // browser window.  Also brings the window to front.
-  bool ActivateTab(int tab_index, int window_index = 0);
-
   // Shows or hides the download shelf.
   void SetDownloadShelfVisible(bool is_visible, int window_index = 0);
 
@@ -167,12 +158,20 @@ class PyUITestBase : public UITestBase {
   std::string GetCookie(const GURL& cookie_url, int window_index = 0,
                         int tab_index = 0);
 
+  base::TimeDelta action_max_timeout() const {
+    return TestTimeouts::action_max_timeout();
+  }
+
   int action_max_timeout_ms() const {
-    return TestTimeouts::action_max_timeout_ms();
+    return action_max_timeout().InMilliseconds();
+  }
+
+  base::TimeDelta large_test_timeout() const {
+    return TestTimeouts::large_test_timeout();
   }
 
   int large_test_timeout_ms() const {
-    return TestTimeouts::large_test_timeout_ms();
+    return large_test_timeout().InMilliseconds();
   }
 
  protected:

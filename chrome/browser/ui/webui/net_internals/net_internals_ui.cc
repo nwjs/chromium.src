@@ -30,8 +30,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/browsing_data_helper.h"
-#include "chrome/browser/browsing_data_remover.h"
+#include "chrome/browser/browsing_data/browsing_data_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_remover.h"
 #include "chrome/browser/download/download_util.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/net/chrome_net_log.h"
@@ -459,6 +459,7 @@ class NetInternalsMessageHandler::IOThreadImpl
   void OnGetBadProxies(const ListValue* list);
   void OnClearBadProxies(const ListValue* list);
   void OnGetHostResolverInfo(const ListValue* list);
+  void OnRunIPv6Probe(const ListValue* list);
   void OnClearHostResolverCache(const ListValue* list);
   void OnEnableIPv6(const ListValue* list);
   void OnStartConnectionTests(const ListValue* list);
@@ -603,6 +604,10 @@ void NetInternalsMessageHandler::RegisterMessages() {
       "getHostResolverInfo",
       base::Bind(&IOThreadImpl::CallbackHelper,
                  &IOThreadImpl::OnGetHostResolverInfo, proxy_));
+  web_ui()->RegisterMessageCallback(
+      "onRunIPv6Probe",
+      base::Bind(&IOThreadImpl::CallbackHelper,
+                 &IOThreadImpl::OnRunIPv6Probe, proxy_));
   web_ui()->RegisterMessageCallback(
       "clearHostResolverCache",
       base::Bind(&IOThreadImpl::CallbackHelper,
@@ -1031,6 +1036,17 @@ void NetInternalsMessageHandler::IOThreadImpl::OnGetHostResolverInfo(
   SendJavascriptCommand("receivedHostResolverInfo", dict);
 }
 
+void NetInternalsMessageHandler::IOThreadImpl::OnRunIPv6Probe(
+    const ListValue* list) {
+  net::URLRequestContext* context = context_getter_->GetURLRequestContext();
+  net::HostResolver* resolver = context->host_resolver();
+
+  // Have to set the default address family manually before calling
+  // ProbeIPv6Support.
+  resolver->SetDefaultAddressFamily(net::ADDRESS_FAMILY_UNSPECIFIED);
+  resolver->ProbeIPv6Support();
+}
+
 void NetInternalsMessageHandler::IOThreadImpl::OnClearHostResolverCache(
     const ListValue* list) {
   net::HostCache* cache =
@@ -1065,7 +1081,9 @@ void NetInternalsMessageHandler::IOThreadImpl::OnStartConnectionTests(
   GURL url(URLFixerUpper::FixupURL(UTF16ToUTF8(url_str), std::string()));
 
   connection_tester_.reset(new ConnectionTester(
-      this, io_thread_->globals()->proxy_script_fetcher_context.get()));
+      this,
+      io_thread_->globals()->proxy_script_fetcher_context.get(),
+      net_log()));
   connection_tester_->RunAllTests(url);
 }
 

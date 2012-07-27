@@ -17,13 +17,13 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/observer_list.h"
 #include "base/threading/non_thread_safe.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/util/weak_handle.h"
 #include "sync/notifier/chrome_invalidation_client.h"
 #include "sync/notifier/invalidation_state_tracker.h"
 #include "sync/notifier/sync_notifier.h"
+#include "sync/notifier/sync_notifier_helper.h"
 
 namespace notifier {
 class PushClient;
@@ -42,23 +42,20 @@ class InvalidationNotifier
       scoped_ptr<notifier::PushClient> push_client,
       const InvalidationVersionMap& initial_max_invalidation_versions,
       const std::string& initial_invalidation_state,
-      const syncer::WeakHandle<InvalidationStateTracker>&
+      const WeakHandle<InvalidationStateTracker>&
           invalidation_state_tracker,
       const std::string& client_info);
 
   virtual ~InvalidationNotifier();
 
   // SyncNotifier implementation.
-  virtual void AddObserver(SyncNotifierObserver* observer) OVERRIDE;
-  virtual void RemoveObserver(SyncNotifierObserver* observer) OVERRIDE;
+  virtual void UpdateRegisteredIds(SyncNotifierObserver* handler,
+                                   const ObjectIdSet& ids) OVERRIDE;
   virtual void SetUniqueId(const std::string& unique_id) OVERRIDE;
   virtual void SetStateDeprecated(const std::string& state) OVERRIDE;
   virtual void UpdateCredentials(
       const std::string& email, const std::string& token) OVERRIDE;
-  virtual void UpdateEnabledTypes(
-      syncer::ModelTypeSet enabled_types) OVERRIDE;
-  virtual void SendNotification(
-      syncer::ModelTypeSet changed_types) OVERRIDE;
+  virtual void SendNotification(ModelTypeSet changed_types) OVERRIDE;
 
   // ChromeInvalidationClient::Listener implementation.
   virtual void OnInvalidate(const ObjectIdPayloadMap& id_payloads) OVERRIDE;
@@ -78,18 +75,17 @@ class InvalidationNotifier
   };
   State state_;
 
+  SyncNotifierHelper helper_;
+
   // Passed to |invalidation_client_|.
   const InvalidationVersionMap initial_max_invalidation_versions_;
 
   // Passed to |invalidation_client_|.
-  const syncer::WeakHandle<InvalidationStateTracker>
+  const WeakHandle<InvalidationStateTracker>
       invalidation_state_tracker_;
 
   // Passed to |invalidation_client_|.
   const std::string client_info_;
-
-  // Our observers (which must live on the same thread).
-  ObserverList<SyncNotifierObserver> observers_;
 
   // The client ID to pass to |chrome_invalidation_client_|.
   std::string invalidation_client_id_;

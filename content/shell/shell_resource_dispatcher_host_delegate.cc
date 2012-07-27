@@ -21,9 +21,15 @@ bool ShellResourceDispatcherHostDelegate::AcceptAuthRequest(
   return true;
 }
 
-content::ResourceDispatcherHostLoginDelegate*
+ResourceDispatcherHostLoginDelegate*
 ShellResourceDispatcherHostDelegate::CreateLoginDelegate(
     net::AuthChallengeInfo* auth_info, net::URLRequest* request) {
+  if (!login_request_callback_.is_null()) {
+    login_request_callback_.Run();
+    login_request_callback_.Reset();
+    return NULL;
+  }
+
 #if !defined(OS_MACOSX)
 // TODO: implement ShellLoginDialog for other platforms, drop this #if
   return NULL;

@@ -7,7 +7,7 @@
 #include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "remoting/host/audio_capturer.h"
-#include "remoting/host/capturer.h"
+#include "remoting/host/video_frame_capturer.h"
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/event_executor.h"
 
@@ -20,10 +20,9 @@ namespace remoting {
 // static
 scoped_ptr<DesktopEnvironment> DesktopEnvironment::Create(
     ChromotingHostContext* context) {
-  scoped_ptr<Capturer> capturer(Capturer::Create());
+  scoped_ptr<VideoFrameCapturer> capturer(VideoFrameCapturer::Create());
   scoped_ptr<EventExecutor> event_executor = EventExecutor::Create(
-      context->desktop_task_runner(), context->ui_task_runner(),
-      capturer.get());
+      context->desktop_task_runner(), context->ui_task_runner());
   scoped_ptr<AudioCapturer> audio_capturer = AudioCapturer::Create();
 
   if (capturer.get() == NULL || event_executor.get() == NULL) {
@@ -41,10 +40,9 @@ scoped_ptr<DesktopEnvironment> DesktopEnvironment::Create(
 // static
 scoped_ptr<DesktopEnvironment> DesktopEnvironment::CreateForService(
     ChromotingHostContext* context) {
-  scoped_ptr<Capturer> capturer(Capturer::Create());
+  scoped_ptr<VideoFrameCapturer> capturer(VideoFrameCapturer::Create());
   scoped_ptr<EventExecutor> event_executor = EventExecutor::Create(
-      context->desktop_task_runner(), context->ui_task_runner(),
-      capturer.get());
+      context->desktop_task_runner(), context->ui_task_runner());
   scoped_ptr<AudioCapturer> audio_capturer = AudioCapturer::Create();
 
   if (capturer.get() == NULL || event_executor.get() == NULL) {
@@ -69,7 +67,7 @@ scoped_ptr<DesktopEnvironment> DesktopEnvironment::CreateForService(
 // static
 scoped_ptr<DesktopEnvironment> DesktopEnvironment::CreateFake(
     ChromotingHostContext* context,
-    scoped_ptr<Capturer> capturer,
+    scoped_ptr<VideoFrameCapturer> capturer,
     scoped_ptr<EventExecutor> event_executor,
     scoped_ptr<AudioCapturer> audio_capturer) {
   return scoped_ptr<DesktopEnvironment>(
@@ -81,7 +79,7 @@ scoped_ptr<DesktopEnvironment> DesktopEnvironment::CreateFake(
 
 DesktopEnvironment::DesktopEnvironment(
     ChromotingHostContext* context,
-    scoped_ptr<Capturer> capturer,
+    scoped_ptr<VideoFrameCapturer> capturer,
     scoped_ptr<EventExecutor> event_executor,
     scoped_ptr<AudioCapturer> audio_capturer)
     : context_(context),

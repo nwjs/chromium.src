@@ -414,9 +414,7 @@ bool GLInProcessContext::Initialize(const gfx::Size& size,
   bool bind_generates_resource = false;
   decoder_.reset(::gpu::gles2::GLES2Decoder::Create(context_group ?
       context_group->decoder_->GetContextGroup() :
-          new ::gpu::gles2::ContextGroup(NULL,
-                                         bind_generates_resource,
-                                         NULL)));
+          new ::gpu::gles2::ContextGroup(NULL, bind_generates_resource)));
 
   gpu_scheduler_.reset(new GpuScheduler(command_buffer_.get(),
                                         decoder_.get(),
@@ -1642,6 +1640,8 @@ void WebGraphicsContext3DInProcessCommandBufferImpl::OnContextLost() {
 
 DELEGATE_TO_GL_3(bindUniformLocationCHROMIUM, BindUniformLocationCHROMIUM,
                  WebGLId, WGC3Dint, const WGC3Dchar*)
+
+DELEGATE_TO_GL(shallowFlushCHROMIUM, ShallowFlushCHROMIUM)
 
 }  // namespace gpu
 }  // namespace webkit

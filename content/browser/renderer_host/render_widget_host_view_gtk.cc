@@ -52,6 +52,11 @@
 #include "webkit/glue/webcursor_gtk_data.h"
 #include "webkit/plugins/npapi/webplugin.h"
 
+using WebKit::WebInputEventFactory;
+using WebKit::WebMouseWheelEvent;
+using WebKit::WebScreenInfo;
+
+namespace content {
 namespace {
 
 // Paint rects on Linux are bounded by the maximum size of a shared memory
@@ -103,13 +108,6 @@ bool MovedToCenter(const WebKit::WebMouseEvent& mouse_event,
 }
 
 }  // namespace
-
-using content::NativeWebKeyboardEvent;
-using content::RenderWidgetHostImpl;
-using content::RenderWidgetHostView;
-using content::RenderWidgetHostViewPort;
-using WebKit::WebInputEventFactory;
-using WebKit::WebMouseWheelEvent;
 
 // This class is a simple convenience wrapper for Gtk functions. It has only
 // static methods.
@@ -318,7 +316,7 @@ class RenderWidgetHostViewGtkWidget {
 
     // If we don't have focus already, this mouse click will focus us.
     if (!gtk_widget_is_focus(widget))
-      host_view->host_->OnMouseActivate();
+      host_view->host_->OnPointerEventActivate();
 
     // Confirm existing composition text on mouse click events, to make sure
     // the input caret won't be moved with an ongoing composition session.
@@ -567,8 +565,7 @@ class RenderWidgetHostViewGtkWidget {
   DISALLOW_IMPLICIT_CONSTRUCTORS(RenderWidgetHostViewGtkWidget);
 };
 
-RenderWidgetHostViewGtk::RenderWidgetHostViewGtk(
-    content::RenderWidgetHost* widget_host)
+RenderWidgetHostViewGtk::RenderWidgetHostViewGtk(RenderWidgetHost* widget_host)
     : host_(RenderWidgetHostImpl::From(widget_host)),
       about_to_validate_and_paint_(false),
       is_hidden_(false),
@@ -693,8 +690,7 @@ void RenderWidgetHostViewGtk::InitAsFullscreen(
   DoPopupOrFullscreenInit(window, bounds);
 }
 
-content::RenderWidgetHost*
-RenderWidgetHostViewGtk::GetRenderWidgetHost() const {
+RenderWidgetHost* RenderWidgetHostViewGtk::GetRenderWidgetHost() const {
   return host_;
 }
 
@@ -948,7 +944,7 @@ void RenderWidgetHostViewGtk::SetTooltipText(const string16& tooltip_text) {
 void RenderWidgetHostViewGtk::SelectionChanged(const string16& text,
                                                size_t offset,
                                                const ui::Range& range) {
-  content::RenderWidgetHostViewBase::SelectionChanged(text, offset, range);
+  RenderWidgetHostViewBase::SelectionChanged(text, offset, range);
 
   if (text.empty() || range.is_empty())
     return;
@@ -1034,23 +1030,26 @@ BackingStore* RenderWidgetHostViewGtk::AllocBackingStore(
                              depth);
 }
 
-// NOTE: |output| is initialized with the size of the view and |size| is
-// ignored on GTK.
+// NOTE: |output| is initialized with the size of |src_subrect|, and |dst_size|
+// is ignored on GTK.
 void RenderWidgetHostViewGtk::CopyFromCompositingSurface(
-    const gfx::Size& /* size */,
+    const gfx::Rect& src_subrect,
+    const gfx::Size& /* dst_size */,
     const base::Callback<void(bool)>& callback,
     skia::PlatformCanvas* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
 
   const gfx::Rect bounds = GetViewBounds();
   XImage* image = XGetImage(ui::GetXDisplay(), ui::GetX11RootWindow(),
-                            bounds.x(), bounds.y(),
-                            bounds.width(), bounds.height(),
+                            bounds.x() + src_subrect.x(),
+                            bounds.y() + src_subrect.y(),
+                            src_subrect.width(),
+                            src_subrect.height(),
                             AllPlanes, ZPixmap);
   if (!image)
     return;
 
-  if (!output->initialize(bounds.width(), bounds.height(), true)) {
+  if (!output->initialize(src_subrect.width(), src_subrect.height(), true)) {
     XFree(image);
     return;
   }
@@ -1093,7 +1092,7 @@ bool RenderWidgetHostViewGtk::HasAcceleratedSurface(
 }
 
 void RenderWidgetHostViewGtk::SetBackground(const SkBitmap& background) {
-  content::RenderWidgetHostViewBase::SetBackground(background);
+  RenderWidgetHostViewBase::SetBackground(background);
   host_->Send(new ViewMsg_SetBackground(host_->GetRoutingID(), background));
 }
 
@@ -1263,7 +1262,7 @@ void RenderWidgetHostViewGtk::OnAcceleratedCompositingStateChange() {
   gtk_preserve_window_delegate_resize(widget, activated);
 }
 
-void RenderWidgetHostViewGtk::GetScreenInfo(WebKit::WebScreenInfo* results) {
+void RenderWidgetHostViewGtk::GetScreenInfo(WebScreenInfo* results) {
   GdkWindow* gdk_window = gtk_widget_get_window(view_.get());
   if (!gdk_window) {
     GdkDisplay* display = gdk_display_get_default();
@@ -1271,10 +1270,10 @@ void RenderWidgetHostViewGtk::GetScreenInfo(WebKit::WebScreenInfo* results) {
   }
   if (!gdk_window)
     return;
-  content::GetScreenInfoFromNativeWindow(gdk_window, results);
+  GetScreenInfoFromNativeWindow(gdk_window, results);
 }
 
-gfx::Rect RenderWidgetHostViewGtk::GetRootWindowBounds() {
+gfx::Rect RenderWidgetHostViewGtk::GetBoundsInRootWindow() {
   GtkWidget* toplevel = gtk_widget_get_toplevel(view_.get());
   if (!toplevel)
     return gfx::Rect();
@@ -1476,16 +1475,15 @@ void RenderWidgetHostViewGtk::ModifyEventMovementAndCoords(
 
 // static
 RenderWidgetHostView* RenderWidgetHostView::CreateViewForWidget(
-    content::RenderWidgetHost* widget) {
+    RenderWidgetHost* widget) {
   return new RenderWidgetHostViewGtk(widget);
 }
 
 // static
-void content::RenderWidgetHostViewPort::GetDefaultScreenInfo(
-    WebKit::WebScreenInfo* results) {
+void RenderWidgetHostViewPort::GetDefaultScreenInfo(WebScreenInfo* results) {
   GdkWindow* gdk_window =
       gdk_display_get_default_group(gdk_display_get_default());
-  content::GetScreenInfoFromNativeWindow(gdk_window, results);
+  GetScreenInfoFromNativeWindow(gdk_window, results);
 }
 
 void RenderWidgetHostViewGtk::SetAccessibilityFocus(int acc_obj_id) {
@@ -1533,7 +1531,7 @@ void RenderWidgetHostViewGtk::OnAccessibilityNotifications(
     browser_accessibility_manager_.reset(
         BrowserAccessibilityManager::CreateEmptyDocument(
             parent,
-            static_cast<content::AccessibilityNodeData::State>(0),
+            static_cast<AccessibilityNodeData::State>(0),
             this));
   }
   browser_accessibility_manager_->OnAccessibilityNotifications(params);
@@ -1545,7 +1543,7 @@ AtkObject* RenderWidgetHostViewGtk::GetAccessible() {
     browser_accessibility_manager_.reset(
         BrowserAccessibilityManager::CreateEmptyDocument(
             parent,
-            static_cast<content::AccessibilityNodeData::State>(0),
+            static_cast<AccessibilityNodeData::State>(0),
             this));
   }
   BrowserAccessibilityGtk* root =
@@ -1554,3 +1552,5 @@ AtkObject* RenderWidgetHostViewGtk::GetAccessible() {
   atk_object_set_role(root->GetAtkObject(), ATK_ROLE_HTML_CONTAINER);
   return root->GetAtkObject();
 }
+
+}  // namespace content

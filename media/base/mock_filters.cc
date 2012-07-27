@@ -6,7 +6,6 @@
 
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "media/base/filter_host.h"
 
 using ::testing::_;
 using ::testing::Invoke;
@@ -40,6 +39,10 @@ MockVideoRenderer::~MockVideoRenderer() {}
 MockAudioRenderer::MockAudioRenderer() {}
 
 MockAudioRenderer::~MockAudioRenderer() {}
+
+MockDecryptor::MockDecryptor() {}
+
+MockDecryptor::~MockDecryptor() {}
 
 MockDecryptorClient::MockDecryptorClient() {}
 
@@ -79,37 +82,6 @@ scoped_ptr<FilterCollection> MockFilterCollection::Create() {
   collection->AddVideoRenderer(video_renderer_);
   collection->AddAudioRenderer(audio_renderer_);
   return collection.Pass();
-}
-
-void RunPipelineStatusCB(const PipelineStatusCB& status_cb) {
-  status_cb.Run(PIPELINE_OK);
-}
-
-void RunPipelineStatusCB2(::testing::Unused,
-                          const PipelineStatusCB& status_cb) {
-  status_cb.Run(PIPELINE_OK);
-}
-
-void RunPipelineStatusCB3(::testing::Unused, const PipelineStatusCB& status_cb,
-                          ::testing::Unused) {
-  status_cb.Run(PIPELINE_OK);
-}
-
-void RunPipelineStatusCB4(::testing::Unused, const PipelineStatusCB& status_cb,
-                          ::testing::Unused, ::testing::Unused) {
-  status_cb.Run(PIPELINE_OK);
-}
-
-void RunClosure(const base::Closure& closure) {
-  closure.Run();
-}
-
-MockFilter::MockFilter() : host_(NULL) {}
-
-MockFilter::~MockFilter() {}
-
-void MockFilter::SetHost(FilterHost* host) {
-  host_ = host;
 }
 
 MockStatisticsCB::MockStatisticsCB() {}

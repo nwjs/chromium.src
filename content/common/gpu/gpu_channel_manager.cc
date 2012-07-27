@@ -11,6 +11,7 @@
 #include "content/common/gpu/gpu_memory_manager.h"
 #include "content/common/gpu/gpu_messages.h"
 #include "content/common/gpu/sync_point_manager.h"
+#include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/memory_program_cache.h"
@@ -29,12 +30,7 @@ GpuChannelManager::GpuChannelManager(ChildThread* gpu_child_thread,
           GpuMemoryManager::kDefaultMaxSurfacesWithFrontbufferSoftLimit)),
       watchdog_(watchdog),
       sync_point_manager_(new SyncPointManager),
-      program_cache_(
-          gfx::g_glProgramBinary &&
-          gfx::g_glGetProgramBinary &&
-          !CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kDisableGpuProgramCache) ?
-              new gpu::gles2::MemoryProgramCache() : NULL) {
+      program_cache_(NULL) {
   DCHECK(gpu_child_thread);
   DCHECK(io_message_loop);
   DCHECK(shutdown_event);
@@ -42,6 +38,16 @@ GpuChannelManager::GpuChannelManager(ChildThread* gpu_child_thread,
 
 GpuChannelManager::~GpuChannelManager() {
   gpu_channels_.clear();
+}
+
+gpu::gles2::ProgramCache* GpuChannelManager::program_cache() {
+  if (!program_cache_.get() &&
+      (gfx::g_ARB_get_program_binary || gfx::g_OES_get_program_binary) &&
+      !CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableGpuProgramCache)) {
+    program_cache_.reset(new gpu::gles2::MemoryProgramCache());
+  }
+  return program_cache_.get();
 }
 
 void GpuChannelManager::RemoveChannel(int client_id) {
@@ -114,8 +120,7 @@ void GpuChannelManager::OnEstablishChannel(int client_id, bool share_context) {
                                                      share_group,
                                                      mailbox_manager,
                                                      client_id,
-                                                     false,
-                                                     program_cache_.get());
+                                                     false);
   if (channel->Init(io_message_loop_, shutdown_event_)) {
     gpu_channels_[client_id] = channel;
     channel_handle.name = channel->GetChannelName();

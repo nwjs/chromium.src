@@ -10,7 +10,6 @@
 
 #include "chrome/browser/extensions/browser_action_test_util.h"
 #include "chrome/browser/extensions/extension_apitest.h"
-#include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -24,6 +23,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 
@@ -42,7 +42,7 @@ class BrowserActionApiTest : public ExtensionApiTest {
 
   bool OpenPopup(int index) {
     ResultCatcher catcher;
-    ui_test_utils::WindowedNotificationObserver popup_observer(
+    content::WindowedNotificationObserver popup_observer(
         content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
         content::NotificationService::AllSources());
     GetBrowserActionsBar().Press(index);
@@ -84,7 +84,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, Basic) {
   // Verify the command worked.
   WebContents* tab = chrome::GetActiveWebContents(browser());
   bool result = false;
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       tab->GetRenderViewHost(), L"",
       L"setInterval(function(){"
       L"  if(document.body.bgColor == 'red'){"
@@ -295,7 +295,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoBasic) {
   // Open an incognito window and test that the browser action isn't there by
   // default.
   Profile* incognito_profile = browser()->profile()->GetOffTheRecordProfile();
-  Browser* incognito_browser = Browser::Create(incognito_profile);
+  Browser* incognito_browser =
+      new Browser(Browser::CreateParams(incognito_profile));
 
   ASSERT_EQ(0,
             BrowserActionTestUtil(incognito_browser).NumberOfBrowserActions());
@@ -307,7 +308,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoBasic) {
       SetIsIncognitoEnabled(extension->id(), true);
 
   chrome::CloseWindow(incognito_browser);
-  incognito_browser = Browser::Create(incognito_profile);
+  incognito_browser = new Browser(Browser::CreateParams(incognito_profile));
   ASSERT_EQ(1,
             BrowserActionTestUtil(incognito_browser).NumberOfBrowserActions());
 
@@ -345,7 +346,8 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, IncognitoDragging) {
   service->extension_prefs()->SetIsIncognitoEnabled(extension_c->id(), true);
 
   Profile* incognito_profile = browser()->profile()->GetOffTheRecordProfile();
-  Browser* incognito_browser = Browser::Create(incognito_profile);
+  Browser* incognito_browser =
+      new Browser(Browser::CreateParams(incognito_profile));
   BrowserActionTestUtil incognito_bar(incognito_browser);
 
   // Navigate just to have a tab in this window, otherwise wonky things happen.
@@ -399,7 +401,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiTest, DISABLED_CloseBackgroundPage) {
   ExtensionAction* action = extension->browser_action();
   ASSERT_EQ("", action->GetBadgeText(ExtensionAction::kDefaultTabId));
 
-  ui_test_utils::WindowedNotificationObserver host_destroyed_observer(
+  content::WindowedNotificationObserver host_destroyed_observer(
       chrome::NOTIFICATION_EXTENSION_HOST_DESTROYED,
       content::NotificationService::AllSources());
 

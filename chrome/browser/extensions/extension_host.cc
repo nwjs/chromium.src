@@ -14,7 +14,7 @@
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_shutdown.h"
-#include "chrome/browser/extensions/extension_event_router.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_system.h"
@@ -334,7 +334,7 @@ void ExtensionHost::InsertInfobarCSS() {
   render_view_host()->InsertCSS(string16(), css.as_string());
 }
 
-void ExtensionHost::DidStopLoading() {
+void ExtensionHost::DidStopLoading(content::RenderViewHost* render_view_host) {
   bool notify = !did_stop_loading_;
   did_stop_loading_ = true;
   if (extension_host_type_ == chrome::VIEW_TYPE_EXTENSION_POPUP ||
@@ -502,7 +502,8 @@ void ExtensionHost::OnRequest(const ExtensionHostMsg_Request_Params& params) {
 }
 
 void ExtensionHost::OnEventAck() {
-  ExtensionEventRouter* router = ExtensionSystem::Get(profile_)->event_router();
+  extensions::EventRouter* router =
+      ExtensionSystem::Get(profile_)->event_router();
   if (router)
     router->OnEventAck(profile_, extension_id());
 }

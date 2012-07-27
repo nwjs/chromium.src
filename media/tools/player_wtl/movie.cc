@@ -66,7 +66,7 @@ bool Movie::Open(const wchar_t* url, VideoRendererBase* video_renderer) {
   // Open the file.
   std::string url_utf8 = WideToUTF8(string16(url));
   scoped_refptr<FileDataSource> data_source = new FileDataSource();
-  if (data_source->Initialize(url_utf8) != PIPELINE_OK) {
+  if (!data_source->Initialize(url_utf8)) {
     return false;
   }
 
@@ -128,7 +128,7 @@ float Movie::GetDuration() {
 float Movie::GetPosition() {
   float position = 0.f;
   if (pipeline_)
-    position = (pipeline_->GetCurrentTime()).InMicroseconds() / 1000000.0f;
+    position = (pipeline_->GetMediaTime()).InMicroseconds() / 1000000.0f;
   return position;
 }
 

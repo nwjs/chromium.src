@@ -108,7 +108,7 @@ class SavePageBrowserTest : public InProcessBrowserTest {
 
 
   GURL WaitForSavePackageToFinish() const {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_SAVE_PACKAGE_SUCCESSFULLY_FINISHED,
         content::NotificationService::AllSources());
     observer.Wait();
@@ -134,7 +134,7 @@ class SavePageBrowserTest : public InProcessBrowserTest {
 
     // Run message loop until a quit message is sent from
     // OnQueryDownloadEntriesComplete().
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   void OnQueryDownloadEntriesComplete(
@@ -352,7 +352,7 @@ IN_PROC_BROWSER_TEST_F(SavePageBrowserTest, CleanFilenameFromPageTitle) {
   const FilePath file_name(FILE_PATH_LITERAL("c.htm"));
   FilePath download_dir =
       DownloadPrefs::FromDownloadManager(GetDownloadManager())->
-          download_path();
+          DownloadPath();
   FilePath full_file_name =
       download_dir.AppendASCII(std::string("test.exe") + kAppendedExtension);
   FilePath dir = download_dir.AppendASCII("test.exe_files");
@@ -363,7 +363,7 @@ IN_PROC_BROWSER_TEST_F(SavePageBrowserTest, CleanFilenameFromPageTitle) {
   ui_test_utils::NavigateToURL(browser(), url);
 
   SavePackageFilePicker::SetShouldPromptUser(false);
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
         content::NOTIFICATION_SAVE_PACKAGE_SUCCESSFULLY_FINISHED,
         content::NotificationService::AllSources());
   chrome::SavePage(browser());
@@ -395,7 +395,7 @@ IN_PROC_BROWSER_TEST_F(SavePageAsMHTMLBrowserTest, SavePageAsMHTML) {
   static const int64 kFileSizeMin = 2758;
   GURL url = NavigateToMockURL("b");
   FilePath download_dir = DownloadPrefs::FromDownloadManager(
-      GetDownloadManager())->download_path();
+      GetDownloadManager())->DownloadPath();
   FilePath full_file_name = download_dir.AppendASCII(std::string(
       "Test page for saving page feature.mhtml"));
 #if defined(OS_CHROMEOS)
@@ -403,7 +403,7 @@ IN_PROC_BROWSER_TEST_F(SavePageAsMHTMLBrowserTest, SavePageAsMHTML) {
 #else
   SavePackageFilePicker::SetShouldPromptUser(false);
 #endif
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
         content::NOTIFICATION_SAVE_PACKAGE_SUCCESSFULLY_FINISHED,
         content::NotificationService::AllSources());
   chrome::SavePage(browser());

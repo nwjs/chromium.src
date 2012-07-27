@@ -20,6 +20,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_util.h"
 #include "webkit/fileapi/isolated_context.h"
 
@@ -51,19 +52,14 @@ struct RewritePair {
 const RewritePair g_rewrite_pairs[] = {
 #if defined(OS_WIN)
   {base::DIR_PROFILE, "~"},
+#elif defined(OS_POSIX)
+  {base::DIR_HOME, "~"},
 #endif
 };
 
 FilePath PrettifyPath(const FilePath& file_path) {
-  // Note that when g_rewrite_pairs includes at least one value on all
-  // platforms, this code can be cleaned up.
-#if defined(OS_WIN)
-  size_t size = arraysize(g_rewrite_pairs);
-#else
-  size_t size = 0;
-#endif
-
-  for (size_t i = 0; i < size; ++i) {
+#if defined(OS_WIN) || defined(OS_POSIX)
+  for (size_t i = 0; i < arraysize(g_rewrite_pairs); ++i) {
     FilePath candidate_path;
     if (!PathService::Get(g_rewrite_pairs[i].path_key, &candidate_path))
       continue;  // We don't DCHECK this value, as Get will return false even
@@ -77,6 +73,7 @@ FilePath PrettifyPath(const FilePath& file_path) {
       return output;
     }
   }
+#endif
 
   return file_path;
 }
@@ -185,8 +182,8 @@ void FileSystemEntryFunction::RegisterFileSystemAndSendResponse(
   DCHECK(isolated_context);
 
   std::string registered_name;
-  std::string filesystem_id = isolated_context->RegisterFileSystemForFile(
-      path, &registered_name);
+  std::string filesystem_id = isolated_context->RegisterFileSystemForPath(
+      fileapi::kFileSystemTypeIsolated, path, &registered_name);
 
   content::ChildProcessSecurityPolicy* policy =
       content::ChildProcessSecurityPolicy::GetInstance();

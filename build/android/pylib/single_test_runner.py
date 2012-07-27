@@ -226,6 +226,7 @@ class SingleTestRunner(BaseTestRunner):
           'chrome/test/gpu/webgl_conformance_test_expectations.txt',
           'net/data/ssl/certificates/',
           'webkit/data/dom_storage/webcore_test_database.localstorage',
+          'third_party/hyphen/hyph_en_US.dic',
           ]
     elif self.test_package.test_suite_basename == 'media_unittests':
       return [
@@ -316,10 +317,6 @@ class SingleTestRunner(BaseTestRunner):
     """Sets up necessary test enviroment for the test suite."""
     super(SingleTestRunner, self).SetUp()
     self.adb.ClearApplicationState(constants.CHROME_PACKAGE)
-    if self._running_on_emulator:
-      # Sometimes adb server lost connection to the emulator, which will break
-      # the test, so restart the adb server before the test.
-      self.adb.RestartAdbServer()
     if self.test_package.performance_test:
       self.adb.SetupPerformanceTest()
     if self.dump_debug_info:

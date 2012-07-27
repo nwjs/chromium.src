@@ -243,11 +243,11 @@ void WebIntentPickerController::ShowDialog(const string16& action,
                    weak_ptr_factory_.GetWeakPtr()));
   }
 
-  GetCWSIntentsRegistry(tab_contents_)->GetIntentServices(
-      action, type,
-      base::Bind(&WebIntentPickerController::OnCWSIntentServicesAvailable,
-                 weak_ptr_factory_.GetWeakPtr()));
-}
+    GetCWSIntentsRegistry(tab_contents_)->GetIntentServices(
+        action, type,
+        base::Bind(&WebIntentPickerController::OnCWSIntentServicesAvailable,
+                   weak_ptr_factory_.GetWeakPtr()));
+  }
 
 void WebIntentPickerController::Observe(
     int type,

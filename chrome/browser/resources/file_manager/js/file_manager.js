@@ -36,6 +36,8 @@ function FileManager(dialogDom) {
   this.document_ = dialogDom.ownerDocument;
   this.dialogType_ = this.params_.type || FileManager.DialogType.FULL_PAGE;
 
+  // Optional list of file types.
+  this.fileTypes_ = this.params_.typeList || [];
   metrics.recordEnum('Create', this.dialogType_,
       [FileManager.DialogType.SELECT_FOLDER,
       FileManager.DialogType.SELECT_SAVEAS_FILE,
@@ -77,6 +79,11 @@ FileManager.prototype = {
    */
   var GOOGLE_DRIVE_FAQ_URL =
       'https://support.google.com/chromeos/?p=filemanager_drive';
+
+  /**
+   * Location of the Chromebook information page.
+   */
+  var CHROMEBOOK_INFO_URL = 'http://google.com/chromebook';
 
   /**
    * Location of the page to buy more storage for Google Drive.
@@ -197,26 +204,6 @@ FileManager.prototype = {
     }
     return loadTimeData.getString('FILE_ERROR_' + code) ||
         loadTimeData.getStringF('FILE_ERROR_GENERIC', code);
-  }
-
-  /**
-   * Checks if |parent_path| is parent file path of |child_path|.
-   *
-   * @param {string} parent_path The parent path.
-   * @param {string} child_path The child path.
-   */
-  function isParentPath(parent_path, child_path) {
-    if (!parent_path || parent_path.length == 0 ||
-        !child_path || child_path.length == 0)
-      return false;
-
-    if (parent_path[parent_path.length - 1] != '/')
-      parent_path += '/';
-
-    if (child_path[child_path.length - 1] != '/')
-      child_path += '/';
-
-    return child_path.indexOf(parent_path) == 0;
   }
 
   function removeChildren(element) {
@@ -462,9 +449,6 @@ FileManager.prototype = {
 
     this.collator_ = v8Intl.Collator([], {numeric: true, sensitivity: 'base'});
 
-    // Optional list of file types.
-    this.fileTypes_ = this.params_.typeList;
-
     this.showCheckboxes_ =
         (this.dialogType_ == FileManager.DialogType.FULL_PAGE ||
          this.dialogType_ == FileManager.DialogType.SELECT_OPEN_MULTI_FILE);
@@ -525,6 +509,8 @@ FileManager.prototype = {
     this.table_.endBatchUpdates();
     this.grid_.endBatchUpdates();
 
+    this.updateFileTypeFilter_();
+
     // Show the page now unless it's already delayed.
     this.delayShow_(0);
 
@@ -533,7 +519,8 @@ FileManager.prototype = {
   };
 
   FileManager.prototype.initDataTransferOperations_ = function() {
-    this.copyManager_ = new FileCopyManager(this.filesystem_.root);
+    this.copyManager_ = new FileCopyManagerWrapper.getInstance(
+        this.filesystem_.root);
     this.copyManager_.addEventListener('copy-progress',
                                        this.onCopyProgress_.bind(this));
     this.copyManager_.addEventListener('copy-operation-complete',
@@ -627,6 +614,16 @@ FileManager.prototype = {
     this.butter_ = this.dialogDom_.querySelector('.butter-bar');
     this.unmountedPanel_ = this.dialogDom_.querySelector('#unmounted-panel');
 
+    this.breadcrumbs_ = new BreadcrumbsController(
+         this.dialogDom_.querySelector('#dir-breadcrumbs'));
+    this.breadcrumbs_.addEventListener(
+         'pathclick', this.onBreadcrumbClick_.bind(this));
+    this.searchBreadcrumbs_ = new BreadcrumbsController(
+         this.dialogDom_.querySelector('#search-breadcrumbs'));
+    this.searchBreadcrumbs_.addEventListener(
+         'pathclick', this.onBreadcrumbClick_.bind(this));
+    this.searchBreadcrumbs_.setHideLast(true);
+
     cr.ui.Table.decorate(this.table_);
     cr.ui.Grid.decorate(this.grid_);
 
@@ -697,8 +694,19 @@ FileManager.prototype = {
     this.dialogDom_.querySelector('#search-box').addEventListener(
         'input', this.onSearchBoxUpdate_.bind(this));
 
+    this.defaultActionMenuItem_ =
+        this.dialogDom_.querySelector('#default-action');
+    this.defaultActionMenuItem_.addEventListener('activate',
+        this.dispatchSelectionAction_.bind(this));
+
+    this.fileTypeSelector_ = this.dialogDom_.querySelector('#file-type');
+    this.initFileTypeFilter_();
     // Populate the static localized strings.
     i18nTemplate.process(this.document_, loadTimeData);
+  };
+
+  FileManager.prototype.onBreadcrumbClick_ = function(event) {
+    this.directoryModel_.changeDirectory(event.path);
   };
 
   /**
@@ -1030,26 +1038,13 @@ FileManager.prototype = {
   };
 
   /**
-   * "Save a file" dialog is supposed to have a combo box with available
-   * file types. Selecting an item filters files by extension and specifies how
-   * file should be saved.
+   * Index of selected item in the typeList of the dialog params.
    * @return {intener} Index of selected type from this.fileTypes_ + 1. 0
    *                   means value is not specified.
    */
-  FileManager.prototype.getSelectedFilterIndex_ = function(fileName) {
-    // TODO(serya): Implement the combo box
-    // For now try to guess choice by file extension.
-    if (!this.fileTypes_ || this.fileTypes_.length == 0) return 0;
-
-    var extension = /\.[^\.]+$/.exec(fileName);
-    extension = extension ? extension[0].substring(1).toLowerCase() : '';
-    var result = 0;  // Use first type by default.
-    for (var i = 0; i < this.fileTypes_.length; i++) {
-      if (this.fileTypes_[i].extensions.indexOf(extension)) {
-        result = i;
-      }
-    }
-    return result + 1;  // 1-based index.
+  FileManager.prototype.getSelectedFilterIndex_ = function() {
+    // 0 is the 'All files' item.
+    return Math.min(0, this.fileTypeSelector_.selectedIndex);
   };
 
   /**
@@ -1100,11 +1095,17 @@ FileManager.prototype = {
                (this.dialogType_ == FileManager.DialogType.SELECT_SAVEAS_FILE ||
                 this.dialogType_ == FileManager.DialogType.FULL_PAGE);
 
+      // TODO(dgozman): current root may be not yet updated here due
+      // to async issues.
       case 'unmount':
-        return true;
+        return this.directoryModel_.getCurrentRootType() == RootType.ARCHIVE ||
+               this.directoryModel_.getCurrentRootType() == RootType.REMOVABLE;
 
       case 'format':
         return this.directoryModel_.getCurrentRootType() == RootType.REMOVABLE;
+
+      case 'import-photos':
+        return this.directoryModel_.getCurrentRootType() != RootType.GDATA;
 
       case 'gdata-help':
       case 'gdata-buy-more-space':
@@ -1379,6 +1380,61 @@ FileManager.prototype = {
   };
 
   /**
+   * Fills the file type list or hides it.
+   */
+  FileManager.prototype.initFileTypeFilter_ = function() {
+    if (this.fileTypes_.length == 0) {
+      this.fileTypeSelector_.hidden = true;
+      return;
+    }
+
+    var option = this.document_.createElement('option');
+    option.innerText = str('ALL_FILES_FILTER');
+    this.fileTypeSelector_.appendChild(option);
+    option.value = 0;
+
+    for (var i = 0; i < this.fileTypes_.length; i++) {
+       var option = this.document_.createElement('option');
+       var description = this.fileTypes_[i].description;
+       if (!description) {
+         if (this.fileTypes_[i].extensions.length == 1) {
+           description = this.getFileTypeString_('.' +
+               this.fileTypes_[i].extensions[0]);
+         } else {
+           description = this.fileTypes_[i].extensions.join(', ');
+         }
+       }
+       option.innerText = description;
+
+       option.value = i + 1;
+
+       if (this.fileTypes_[i].selected)
+         option.selected = true;
+
+       this.fileTypeSelector_.appendChild(option);
+    }
+
+    this.fileTypeSelector_.addEventListener('change',
+        this.updateFileTypeFilter_.bind(this));
+  };
+
+  /**
+   * Filters file according to the selected file type.
+   */
+  FileManager.prototype.updateFileTypeFilter_ = function() {
+    this.directoryModel_.removeFilter('fileType');
+    var selectedIndex = Number(this.fileTypeSelector_.selectedIndex);
+    if (selectedIndex < 1)  // 'All files' or nothing selected.
+      return;
+    var regexp = new RegExp('.*(' +
+        this.fileTypes_[selectedIndex - 1].extensions.join('|') + ')$', 'i');
+    function filter(entry) {
+      return entry.isDirectory || regexp.test(entry.name);
+    }
+    this.directoryModel_.addFilter('fileType', filter);
+  };
+
+  /**
    * Respond to a command being executed.
    */
   FileManager.prototype.onCommand_ = function(event) {
@@ -1414,6 +1470,11 @@ FileManager.prototype = {
         this.confirm.show(
             str('FORMATTING_WARNING'),
             chrome.fileBrowserPrivate.formatDevice.bind(null, url));
+        return;
+
+      case 'import-photos':
+        chrome.tabs.create({url: chrome.extension.getURL('photo_import.html') +
+            '#' + this.directoryModel_.getCurrentRootPath()});
         return;
 
       case 'gdata-buy-more-space':
@@ -1462,7 +1523,8 @@ FileManager.prototype = {
     this.rootsList_.style.height =
         this.rootsList_.parentNode.clientHeight + 'px';
     this.rootsList_.redraw();
-    this.truncateBreadcrumbs_();
+    this.breadcrumbs_.truncate();
+    this.searchBreadcrumbs_.truncate();
   };
 
   FileManager.prototype.resolvePath = function(
@@ -1573,7 +1635,9 @@ FileManager.prototype = {
       var self = this;
       function onLoadedActivateLeaf() {
         if (foundLeaf) {
-          var tasks = new FileTasks(self, [util.makeFilesystemUrl(path)]);
+          // TODO(kaznacheev): use |makeFIlesystemUrl| instead of
+          // self.selection.
+          var tasks = new FileTasks(self, [self.selection.urls[0]]);
           // There are 3 ways we can get here:
           // 1. Invoked from file_manager_util::ViewFile. This can only
           //    happen for 'gallery' and 'mount-archive' actions.
@@ -1820,33 +1884,8 @@ FileManager.prototype = {
   FileManager.prototype.renderIconType_ = function(entry, columnId, table) {
     var icon = this.document_.createElement('div');
     icon.className = 'detail-icon';
-    icon.setAttribute('iconType', FileType.getIcon(entry));
+    icon.setAttribute('file-type-icon', FileType.getIcon(entry));
     return icon;
-  };
-
-  /**
-   * Return the localized name for the root.
-   * @param {string} path The full path of the root (starting with slash).
-   * @return {string} The localized name.
-   */
-  FileManager.prototype.getRootLabel_ = function(path) {
-    if (path === RootDirectory.DOWNLOADS)
-      return str('DOWNLOADS_DIRECTORY_LABEL');
-
-    if (path === RootDirectory.ARCHIVE)
-      return str('ARCHIVE_DIRECTORY_LABEL');
-    if (isParentPath(RootDirectory.ARCHIVE, path))
-      return path.substring(RootDirectory.ARCHIVE.length + 1);
-
-    if (path === RootDirectory.REMOVABLE)
-      return str('REMOVABLE_DIRECTORY_LABEL');
-    if (isParentPath(RootDirectory.REMOVABLE, path))
-      return path.substring(RootDirectory.REMOVABLE.length + 1);
-
-    if (path === RootDirectory.GDATA)
-      return str('GDATA_DIRECTORY_LABEL');
-
-    return path;
   };
 
   FileManager.prototype.renderRoot_ = function(path) {
@@ -1866,11 +1905,12 @@ FileManager.prototype = {
     var div = this.document_.createElement('div');
     div.className = 'root-label';
 
-    div.setAttribute('type', rootType);
+    div.setAttribute('volume-type-icon', rootType);
     if (rootType === RootType.REMOVABLE)
-      div.setAttribute('subType', this.volumeManager_.getDeviceType(path));
+      div.setAttribute('volume-subtype',
+          this.volumeManager_.getDeviceType(path));
 
-    div.textContent = this.getRootLabel_(path);
+    div.textContent = PathUtil.getRootLabel(path);
     li.appendChild(div);
 
     if (rootType === RootType.ARCHIVE || rootType === RootType.REMOVABLE) {
@@ -1884,18 +1924,14 @@ FileManager.prototype = {
       eject.addEventListener('mouseup', function(e) { e.stopPropagation() });
       eject.addEventListener('mousedown', function(e) { e.stopPropagation() });
       li.appendChild(eject);
+    }
 
+    if (rootType != RootType.GDATA) {
       cr.ui.contextMenuHandler.setContextMenu(li, this.rootsContextMenu_);
     }
 
     cr.defineProperty(li, 'lead', cr.PropertyKind.BOOL_ATTR);
     cr.defineProperty(li, 'selected', cr.PropertyKind.BOOL_ATTR);
-
-    var icon = rootType;
-    if (this.volumeManager_.isUnreadable(path)) {
-      icon = 'unreadable';
-    }
-    div.setAttribute('icon', icon);
 
     return li;
   };
@@ -1905,7 +1941,7 @@ FileManager.prototype = {
    * @param {string} path Path to a volume to unmount.
    */
   FileManager.prototype.unmountVolume_ = function(path) {
-    listItem = this.rootsList_.getItemByIndex(
+    var listItem = this.rootsList_.getListItemByIndex(
         this.directoryModel_.findRootsListIndex(path));
     if (listItem)
       listItem.setAttribute('disabled', '');
@@ -2210,6 +2246,8 @@ FileManager.prototype = {
    * This method dispatches the 'selection-summarized' event when it completes.
    * Depending on how many of the selected files already have known sizes, the
    * dispatch may happen immediately, or after a number of async calls complete.
+   *
+   * TODO(olege): I believe we need a separate PreviewPanel controller class.
    */
   FileManager.prototype.summarizeSelection_ = function() {
     var selection = this.selection = {
@@ -2328,15 +2366,21 @@ FileManager.prototype = {
 
     // Now this.selection is complete. Update buttons.
     this.updateCommonActionButtons_();
+    this.updateSearchBreadcrumbs_();
     this.updatePreviewPanelVisibility_();
     forcedShowTimeout = setTimeout(showThumbnails,
         FileManager.THUMBNAIL_SHOW_DELAY);
     onThumbnailLoaded();
 
+    this.setDefaultActionMenuItem(null);
+
     if (this.dialogType_ == FileManager.DialogType.FULL_PAGE &&
         selection.directoryCount == 0 && selection.fileCount > 0) {
       selection.tasks = new FileTasks(this, selection.urls).
-          display(this.taskItems_);
+          display(this.taskItems_).
+          updateMenuItem();
+    } else {
+      this.taskItems_.hidden = true;
     }
 
     this.metadataCache_.get(selection.entries, 'filesystem', function(props) {
@@ -2361,6 +2405,19 @@ FileManager.prototype = {
         this.updateOkButton_();
       }.bind(this));
     }
+  };
+
+  FileManager.prototype.updateSearchBreadcrumbs_ = function() {
+    var selectedIndexes = this.currentList_.selectionModel.selectedIndexes;
+    if (selectedIndexes.length !== 1 || !this.directoryModel_.isSearching()) {
+      this.searchBreadcrumbs_.hide();
+      return;
+    }
+
+    var entry = this.directoryModel_.getFileList().item(selectedIndexes[0]);
+    this.searchBreadcrumbs_.show(
+        PathUtil.getRootPath(entry.fullPath),
+        entry.fullPath);
   };
 
   /**
@@ -2535,7 +2592,7 @@ FileManager.prototype = {
 
       var format = '';
 
-      if (extensions.length != 1) {
+      if (extensions.length == 1) {
         format = extensions[0];
       }
 
@@ -2554,7 +2611,7 @@ FileManager.prototype = {
    */
   FileManager.prototype.onDefaultTaskDone_ = function(task) {
     chrome.fileBrowserPrivate.setDefaultTask(task.taskId);
-    this.selection.tasks = new FileTasks(this, this.selection.url).
+    this.selection.tasks = new FileTasks(this, this.selection.urls).
         display(this.taskItems_);
   };
 
@@ -2689,143 +2746,8 @@ FileManager.prototype = {
     new FileTasks(urls).getExternals(callback);
   };
 
-  /**
-   * Update the breadcrumb display to reflect the current directory.
-   */
-  FileManager.prototype.updateBreadcrumbs_ = function() {
-    var bc = this.dialogDom_.querySelector('.breadcrumbs');
-    removeChildren(bc);
-
-    var rootPath = this.directoryModel_.getCurrentRootPath();
-    var relativePath = this.directoryModel_.getCurrentDirPath().
-                       substring(rootPath.length).replace(/\/$/, '');
-
-    var pathNames = relativePath.replace(/\/$/, '').split('/');
-    if (pathNames[0] == '')
-      pathNames.splice(0, 1);
-
-    // We need a first breadcrumb for root, so placing last name from
-    // rootPath as first name of relativePath.
-    var rootPathNames = rootPath.replace(/\/$/, '').split('/');
-    pathNames.splice(0, 0, rootPathNames[rootPathNames.length - 1]);
-    rootPathNames.splice(rootPathNames.length - 1, 1);
-    var path = rootPathNames.join('/') + '/';
-    var doc = this.document_;
-
-    for (var i = 0; i < pathNames.length; i++) {
-      var pathName = pathNames[i];
-      path += pathName;
-
-      var div = doc.createElement('div');
-
-      div.className = 'breadcrumb-path';
-      div.textContent = i == 0 ? this.getRootLabel_(path) : pathName;
-
-      path = path + '/';
-      div.path = path;
-
-      bc.appendChild(div);
-
-      if (i == pathNames.length - 1) {
-        div.classList.add('breadcrumb-last');
-      } else {
-        div.addEventListener('click', this.onBreadcrumbClick_.bind(this));
-        var spacer = doc.createElement('div');
-        spacer.className = 'separator';
-        bc.appendChild(spacer);
-      }
-    }
-    this.truncateBreadcrumbs_();
-  };
-
   FileManager.prototype.isRenamingInProgress = function() {
     return !!this.renameInput_.currentEntry;
-  };
-
-  /**
-   * Updates breadcrumbs widths in order to truncate it properly.
-   */
-  FileManager.prototype.truncateBreadcrumbs_ = function() {
-    var bc = this.dialogDom_.querySelector('.breadcrumbs');
-    if (!bc.firstChild)
-     return;
-
-    // Assume style.width == clientWidth (items have no margins or paddings).
-
-    for (var item = bc.firstChild; item; item = item.nextSibling) {
-      item.removeAttribute('style');
-      item.removeAttribute('collapsed');
-    }
-
-    var containerWidth = bc.clientWidth;
-
-    var pathWidth = 0;
-    var currentWidth = 0;
-    var lastSeparator;
-    for (var item = bc.firstChild; item; item = item.nextSibling) {
-      if (item.className == 'separator') {
-        pathWidth += currentWidth;
-        currentWidth = item.clientWidth;
-        lastSeparator = item;
-      } else {
-        currentWidth += item.clientWidth;
-      }
-    }
-    if (pathWidth + currentWidth <= containerWidth)
-      return;
-    if (!lastSeparator) {
-      bc.lastChild.style.width = Math.min(currentWidth, containerWidth) + 'px';
-      return;
-    }
-    var lastCrumbSeparatorWidth = lastSeparator.clientWidth;
-    // Current directory name may occupy up to 70% of space or even more if the
-    // path is short.
-    var maxPathWidth = Math.max(Math.round(containerWidth * 0.3),
-                                containerWidth - currentWidth);
-    maxPathWidth = Math.min(pathWidth, maxPathWidth);
-
-    var parentCrumb = lastSeparator.previousSibling;
-    var collapsedWidth = 0;
-    if (parentCrumb && pathWidth - maxPathWidth > parentCrumb.clientWidth) {
-      // At least one crumb is hidden completely (or almost completely).
-      // Show sign of hidden crumbs like this:
-      // root > some di... > ... > current directory.
-      parentCrumb.setAttribute('collapsed', '');
-      collapsedWidth = Math.min(maxPathWidth, parentCrumb.clientWidth);
-      maxPathWidth -= collapsedWidth;
-      if (parentCrumb.clientWidth != collapsedWidth)
-        parentCrumb.style.width = collapsedWidth + 'px';
-
-      lastSeparator = parentCrumb.previousSibling;
-      if (!lastSeparator)
-        return;
-      collapsedWidth += lastSeparator.clientWidth;
-      maxPathWidth = Math.max(0, maxPathWidth - lastSeparator.clientWidth);
-    }
-
-    pathWidth = 0;
-    for (var item = bc.firstChild; item != lastSeparator;
-         item = item.nextSibling) {
-      // TODO(serya): Mixing access item.clientWidth and modifying style and
-      // attributes could cause multiple layout reflows.
-      if (pathWidth + item.clientWidth <= maxPathWidth) {
-        pathWidth += item.clientWidth;
-      } else if (pathWidth == maxPathWidth) {
-        item.style.width = '0';
-      } else if (item.classList.contains('separator')) {
-        // Do not truncate separator. Instead let the last crumb be longer.
-        item.style.width = '0';
-        maxPathWidth = pathWidth;
-      } else {
-        // Truncate the last visible crumb.
-        item.style.width = (maxPathWidth - pathWidth) + 'px';
-        pathWidth = maxPathWidth;
-      }
-    }
-
-    currentWidth = Math.min(currentWidth,
-                            containerWidth - pathWidth - collapsedWidth);
-    bc.lastChild.style.width = (currentWidth - lastCrumbSeparatorWidth) + 'px';
   };
 
   FileManager.prototype.focusCurrentList_ = function() {
@@ -2932,15 +2854,6 @@ FileManager.prototype = {
       if (!selection.showBytes) text = text.substring(0, text.lastIndexOf(','));
     }
     this.previewSummary_.textContent = text;
-  };
-
-  /**
-   * Handle a click event on a breadcrumb element.
-   *
-   * @param {Event} event The click event.
-   */
-  FileManager.prototype.onBreadcrumbClick_ = function(event) {
-    this.directoryModel_.changeDirectory(event.srcElement.path);
   };
 
   FileManager.prototype.onCheckboxClick_ = function(event) {
@@ -3158,12 +3071,12 @@ FileManager.prototype = {
 
     if (show) {
       var html = util.htmlUnescape(str('DOWNLOADS_DIRECTORY_WARNING'));
-      box.lastElementChild.innerHTML = html;
+      box.innerHTML = html;
       var link = box.querySelector('a');
       link.addEventListener('click',
           this.onExternalLinkClick_.bind(this, DOWNLOADS_FAQ_URL));
     } else {
-      box.lastElementChild.innerHTML = '';
+      box.innerHTML = '';
     }
 
     box.hidden = !show;
@@ -3214,7 +3127,9 @@ FileManager.prototype = {
   FileManager.prototype.onDirectoryChanged_ = function(event) {
     this.updateCommonActionButtons_();
     this.updateOkButton_();
-    this.updateBreadcrumbs_();
+    this.breadcrumbs_.update(
+        this.directoryModel_.getCurrentRootPath(),
+        this.directoryModel_.getCurrentDirPath());
     this.updateColumnModel_();
     this.updateSearchBoxOnDirChange_();
 
@@ -3874,7 +3789,7 @@ FileManager.prototype = {
       var singleSelection = {
         urls: [url],
         multiple: false,
-        filterIndex: this.getSelectedFilterIndex_(url)
+        filterIndex: this.getSelectedFilterIndex_()
       };
       this.selectFilesAndClose_(singleSelection);
       return;
@@ -3924,7 +3839,7 @@ FileManager.prototype = {
     var singleSelection = {
       urls: [files[0]],
       multiple: false,
-      filterIndex: this.getSelectedFilterIndex_(files[0])
+      filterIndex: this.getSelectedFilterIndex_()
     };
     this.selectFilesAndClose_(singleSelection);
   };
@@ -4122,6 +4037,9 @@ FileManager.prototype = {
   };
 
   FileManager.prototype.createGDataWelcomeHandler_ = function() {
+    var board = str('CHROMEOS_RELEASE_BOARD');
+    var new_welcome = board.match(/^(stumpy|lumpy)/i);
+
     var WELCOME_HEADER_COUNTER_KEY = 'gdataWelcomeHeaderCounter';
     var WELCOME_HEADER_COUNTER_LIMIT = 5;
 
@@ -4167,21 +4085,42 @@ FileManager.prototype = {
       var message = createDiv('gdrive-welcome-message', wrapper);
 
       var title = createDiv('gdrive-welcome-title', message);
-      title.textContent = str('GDATA_WELCOME_TITLE');
 
       var text = createDiv('gdrive-welcome-text', message);
       text.innerHTML = str(messageId);
 
       var links = createDiv('gdrive-welcome-links', message);
 
-      var more = createDiv('gdrive-welcome-more plain-link', links);
-      more.textContent = str('GDATA_LEARN_MORE');
-      more.addEventListener('click',
-          self.onExternalLinkClick_.bind(self, GOOGLE_DRIVE_FAQ_URL));
+      var more;
+      if (new_welcome) {
+        title.textContent = str('GDATA_WELCOME_TITLE_ALTERNATIVE');
+        more = self.document_.createElement('a');
+        more.className = 'gdata-welcome-button gdata-welcome-start';
+        more.textContent = str('GDATA_WELCOME_GET_STARTED');
+        more.addEventListener('click',
+            self.onExternalLinkClick_.bind(self, CHROMEBOOK_INFO_URL));
+      } else {
+        title.textContent = str('GDATA_WELCOME_TITLE');
+        more = self.document_.createElement('div');
+        more.className = 'plain-link';
+        more.textContent = str('GDATA_LEARN_MORE');
+        more.addEventListener('click',
+            self.onExternalLinkClick_.bind(self, GOOGLE_DRIVE_FAQ_URL));
+      }
+      links.appendChild(more);
 
-      var dismiss = createDiv('gdrive-welcome-dismiss plain-link', links);
+      var dismiss;
+      if (new_welcome) {
+        dismiss = self.document_.createElement('a');
+        dismiss.className = 'gdata-welcome-button';
+      } else {
+        dismiss = self.document_.createElement('div');
+        dismiss.className = 'plain-link';
+      }
+      dismiss.classList.add('gdrive-welcome-dismiss');
       dismiss.textContent = str('GDATA_WELCOME_DISMISS');
       dismiss.addEventListener('click', closeBanner);
+      links.appendChild(dismiss);
     }
 
     var previousDirWasOnGData = false;
@@ -4224,7 +4163,19 @@ FileManager.prototype = {
       localStorage[WELCOME_HEADER_COUNTER_KEY] = WELCOME_HEADER_COUNTER_LIMIT;
     }
 
-    return maybeShowBanner;
+    function checkSpaceAndShowBanner() {
+      if (new_welcome && self.isOnGData())
+        chrome.fileBrowserPrivate.getSizeStats(self.getCurrentDirectoryURL(),
+           function(result) {
+             if (result.totalSizeKB >= 100 * 1024 * 1024)  // Already >= 100 GB.
+               new_welcome = false;
+             maybeShowBanner();
+           });
+      else
+        maybeShowBanner();
+    }
+
+    return checkSpaceAndShowBanner;
   };
 
   /**
@@ -4256,4 +4207,24 @@ FileManager.prototype = {
           }
         }.bind(this));
   }
+
+  /**
+   * Updates default action menu item to match passed taskItem(icon,
+   * label and action).
+   * @param {Object} taskItem - taskItem to match.
+   */
+  FileManager.prototype.setDefaultActionMenuItem = function(taskItem) {
+    if (taskItem) {
+      this.defaultActionMenuItem_.iconUrl = taskItem.iconUrl;
+      this.defaultActionMenuItem_.label = taskItem.title;
+      this.defaultActionMenuItem_.taskId = taskItem.taskId;
+    }
+
+    var defaultActionSeparator =
+        this.dialogDom_.querySelector('#default-action-separator');
+
+    this.defaultActionMenuItem_.hidden = !taskItem;
+    defaultActionSeparator.hidden = !taskItem;
+  }
 })();
+

@@ -22,6 +22,7 @@ using content::WebContents;
 using ui::ConstrainedWebDialogDelegate;
 using ui::ConstrainedWebDialogUI;
 using ui::WebDialogDelegate;
+using ui::WebDialogWebContentsDelegate;
 
 namespace {
 
@@ -141,6 +142,10 @@ class ConstrainedWebDialogDelegateViewViews
     if (!impl_->closed_via_webui())
       GetWebDialogDelegate()->GetDialogSize(&size);
     return size;
+  }
+  virtual gfx::Size GetMinimumSize() OVERRIDE {
+    // Return an empty size so that we can be made smaller.
+    return gfx::Size();
   }
 
  private:

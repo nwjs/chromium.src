@@ -11,6 +11,7 @@
 
 #include "ash/ash_switches.h"
 #include "ash/launcher/launcher.h"
+#include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
@@ -68,6 +69,13 @@ const int kDefaultAnimationDurationForMenuMS = 150;
 // Durations for the cross-fade animation, in milliseconds.
 const float kCrossFadeDurationMinMs = 100.f;
 const float kCrossFadeDurationMaxMs = 400.f;
+
+// Durations for the brightness/grayscale fade animation, in milliseconds.
+const int kBrightnessGrayscaleFadeDurationMs = 2000;
+
+// Brightness/grayscale values for hide/show window animations.
+const float kWindowAnimation_HideBrightnessGrayscale = 1.f;
+const float kWindowAnimation_ShowBrightnessGrayscale = 0.f;
 
 const float kWindowAnimation_HideOpacity = 0.f;
 const float kWindowAnimation_ShowOpacity = 1.f;
@@ -390,6 +398,8 @@ gfx::Rect GetMinimizeRectForWindow(aura::Window* window) {
         gfx::Screen::GetDisplayNearestWindow(window).work_area();
     target_bounds.SetRect(work_area.right(), work_area.bottom(), 0, 0);
   }
+  target_bounds =
+      ScreenAsh::ConvertRectFromScreen(window->parent(), target_bounds);
   return target_bounds;
 }
 
@@ -465,6 +475,66 @@ void AnimateHideWindow_Minimize(aura::Window* window) {
   AddLayerAnimationsForMinimize(window, false);
 }
 
+void AnimateShowHideWindowCommon_BrightnessGrayscale(aura::Window* window,
+                                                     bool show) {
+  window->layer()->set_delegate(window);
+
+  float start_value, end_value;
+  if (show) {
+    start_value = kWindowAnimation_HideBrightnessGrayscale;
+    end_value = kWindowAnimation_ShowBrightnessGrayscale;
+  } else {
+    start_value = kWindowAnimation_ShowBrightnessGrayscale;
+    end_value = kWindowAnimation_HideBrightnessGrayscale;
+  }
+
+  window->layer()->SetLayerBrightness(start_value);
+  window->layer()->SetLayerGrayscale(start_value);
+  if (show) {
+    window->layer()->SetOpacity(kWindowAnimation_ShowOpacity);
+    window->layer()->SetVisible(true);
+  }
+
+  ui::ScopedLayerAnimationSettings settings(window->layer()->GetAnimator());
+  settings.SetTransitionDuration(
+      base::TimeDelta::FromMilliseconds(kBrightnessGrayscaleFadeDurationMs));
+  if (!show)
+    settings.AddObserver(new HidingWindowAnimationObserver(window));
+
+  scoped_ptr<ui::LayerAnimationSequence> brightness_sequence(
+      new ui::LayerAnimationSequence());
+  scoped_ptr<ui::LayerAnimationSequence> grayscale_sequence(
+      new ui::LayerAnimationSequence());
+
+  brightness_sequence->AddElement(
+      ui::LayerAnimationElement::CreateBrightnessElement(
+          end_value,
+          base::TimeDelta::FromMilliseconds(
+              kBrightnessGrayscaleFadeDurationMs)));
+  grayscale_sequence->AddElement(
+      ui::LayerAnimationElement::CreateGrayscaleElement(
+          end_value,
+          base::TimeDelta::FromMilliseconds(
+              kBrightnessGrayscaleFadeDurationMs)));
+
+   std::vector<ui::LayerAnimationSequence*> animations;
+   animations.push_back(brightness_sequence.release());
+   animations.push_back(grayscale_sequence.release());
+   window->layer()->GetAnimator()->ScheduleTogether(animations);
+   if (!show) {
+     window->layer()->SetOpacity(kWindowAnimation_HideOpacity);
+     window->layer()->SetVisible(false);
+   }
+}
+
+void AnimateShowWindow_BrightnessGrayscale(aura::Window* window) {
+  AnimateShowHideWindowCommon_BrightnessGrayscale(window, true);
+}
+
+void AnimateHideWindow_BrightnessGrayscale(aura::Window* window) {
+  AnimateShowHideWindowCommon_BrightnessGrayscale(window, false);
+}
+
 bool AnimateShowWindow(aura::Window* window) {
   if (!HasWindowVisibilityAnimationTransition(window, ANIMATE_SHOW))
     return false;
@@ -485,6 +555,9 @@ bool AnimateShowWindow(aura::Window* window) {
     case WINDOW_VISIBILITY_ANIMATION_TYPE_MINIMIZE:
       AnimateShowWindow_Minimize(window);
       return true;
+    case WINDOW_VISIBILITY_ANIMATION_TYPE_BRIGHTNESS_GRAYSCALE:
+        AnimateShowWindow_BrightnessGrayscale(window);
+        return true;
     default:
       NOTREACHED();
       return false;
@@ -510,6 +583,9 @@ bool AnimateHideWindow(aura::Window* window) {
       return true;
     case WINDOW_VISIBILITY_ANIMATION_TYPE_MINIMIZE:
       AnimateHideWindow_Minimize(window);
+      return true;
+    case WINDOW_VISIBILITY_ANIMATION_TYPE_BRIGHTNESS_GRAYSCALE:
+      AnimateHideWindow_BrightnessGrayscale(window);
       return true;
     default:
       NOTREACHED();

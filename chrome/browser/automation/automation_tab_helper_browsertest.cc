@@ -26,6 +26,7 @@
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/base/net_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -92,7 +93,7 @@ class AutomationTabHelperBrowserTest : public InProcessBrowserTest {
     content::RenderViewHost* host =
         chrome::GetActiveWebContents(browser())->GetRenderViewHost();
     if (wait_for_response) {
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
+      ASSERT_TRUE(content::ExecuteJavaScript(
           host, L"", ASCIIToWide(script)));
     } else {
       script += "window.domAutomationController.setAutomationId(0);"
@@ -120,7 +121,7 @@ IN_PROC_BROWSER_TEST_F(AutomationTabHelperBrowserTest, FormSubmission) {
   ExpectClientRedirectAndBreak(&mock_observer, &mock_notification_observer);
 
   ASSERT_NO_FATAL_FAILURE(RunTestCaseInJavaScript(1, false));
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
 }
 
 IN_PROC_BROWSER_TEST_F(AutomationTabHelperBrowserTest,
@@ -148,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(AutomationTabHelperBrowserTest,
   ExpectClientRedirectAndBreak(&mock_observer, &mock_notification_observer);
 
   ASSERT_NO_FATAL_FAILURE(RunTestCaseInJavaScript(3, false));
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
 }
 
 IN_PROC_BROWSER_TEST_F(AutomationTabHelperBrowserTest,
@@ -162,7 +163,7 @@ IN_PROC_BROWSER_TEST_F(AutomationTabHelperBrowserTest,
   ExpectClientRedirectAndBreak(&mock_observer, &mock_notification_observer);
 
   ASSERT_NO_FATAL_FAILURE(RunTestCaseInJavaScript(4, false));
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
 }
 
 IN_PROC_BROWSER_TEST_F(AutomationTabHelperBrowserTest,

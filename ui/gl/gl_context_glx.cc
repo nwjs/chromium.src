@@ -30,7 +30,7 @@ class ScopedPtrXFree {
   }
 };
 
-}  // namespace anonymous
+}  // namespace
 
 GLContextGLX::GLContextGLX(GLShareGroup* share_group)
   : GLContext(share_group),
@@ -244,7 +244,7 @@ std::string GLContextGLX::GetExtensions() {
   return GLContext::GetExtensions();
 }
 
-bool GLContextGLX::WasAllocatedUsingARBRobustness() {
+bool GLContextGLX::WasAllocatedUsingRobustnessExtension() {
   return GLSurfaceGLX::IsCreateContextRobustnessSupported();
 }
 

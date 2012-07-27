@@ -6,8 +6,14 @@
 #define CONTENT_TEST_CONTENT_BROWSER_TEST_H_
 
 #include "base/memory/scoped_ptr.h"
+#include "content/public/test/browser_test.h"
 #include "content/test/browser_test_base.h"
 
+class GURL;
+
+namespace content {
+class ContentRendererClient;
+class Shell;
 class ShellMainDelegate;
 
 class ContentBrowserTest : public BrowserTestBase {
@@ -22,8 +28,25 @@ class ContentBrowserTest : public BrowserTestBase {
   // BrowserTestBase:
   virtual void RunTestOnMainThreadLoop() OVERRIDE;
 
+ protected:
+  // Creates a new window and loads about:blank.
+  Shell* CreateBrowser();
+
+  // Creates an off-the-record window and loads about:blank.
+  Shell* CreateOffTheRecordBrowser();
+
+  // Returns the window for the test.
+  Shell* shell() const { return shell_; }
+
  private:
-  scoped_ptr<ShellMainDelegate> shell_main_delegate_;
+  scoped_ptr<content::ShellMainDelegate> shell_main_delegate_;
+
+  Shell* shell_;
+
+  // ContentRendererClient when running in single-process mode.
+  scoped_ptr<ContentRendererClient> single_process_renderer_client_;
 };
+
+}  // namespace content
 
 #endif  // CONTENT_TEST_CONTENT_BROWSER_TEST_H_

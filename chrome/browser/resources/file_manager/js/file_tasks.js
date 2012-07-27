@@ -61,46 +61,34 @@ FileTasks.prototype.processTasks_ = function(tasks) {
       if (task_parts[1] == 'play') {
         // TODO(serya): This hack needed until task.iconUrl is working
         //             (see GetFileTasksFileBrowserFunction::RunImpl).
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_audio.png');
+        task.iconType = 'audio';
         task.title = loadTimeData.getString('ACTION_LISTEN');
       } else if (task_parts[1] == 'mount-archive') {
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_archive.png');
+        task.iconType = 'archive';
         task.title = loadTimeData.getString('MOUNT_ARCHIVE');
       } else if (task_parts[1] == 'gallery') {
+        task.iconType = 'image';
         task.title = loadTimeData.getString('ACTION_OPEN');
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_image.png');
       } else if (task_parts[1] == 'watch') {
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_video.png');
+        task.iconType = 'video';
         task.title = loadTimeData.getString('ACTION_WATCH');
       } else if (task_parts[1] == 'open-hosted') {
-        if (this.urls_.length > 1) {
-          task.iconUrl =
-              chrome.extension.getURL('images/filetype_generic.png');
-        } else {
-          // Use specific icon.
-          var icon = FileType.getIcon(this.urls_[0]);
-          task.iconUrl =
-              chrome.extension.getURL('images/filetype_' + icon + '.png');
-        }
+        if (this.urls_.length > 1)
+          task.iconType = 'generic';
+        else // Use specific icon.
+          task.iconType = FileType.getIcon(this.urls_[0]);
         task.title = loadTimeData.getString('ACTION_OPEN');
       } else if (task_parts[1] == 'view-pdf') {
         // Do not render this task if disabled.
         if (!loadTimeData.getBoolean('PDF_VIEW_ENABLED'))
           continue;
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_pdf.png');
+        task.iconType = 'pdf';
         task.title = loadTimeData.getString('ACTION_VIEW');
       } else if (task_parts[1] == 'view-in-browser') {
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_generic.png');
+        task.iconType = 'generic';
         task.title = loadTimeData.getString('ACTION_VIEW');
       } else if (task_parts[1] == 'install-crx') {
-        task.iconUrl =
-            chrome.extension.getURL('images/filetype_generic.png');
+        task.iconType = 'generic';
         task.title = loadTimeData.getString('INSTALL_CRX');
       }
     }
@@ -354,7 +342,7 @@ FileTasks.prototype.openGallery_ = function(urls) {
   fm.updateLocation_(false /*push*/, dirPath);
 
   var getShareActions = function(urls, callback) {
-    this.getExternals_(callback);
+    this.getExternals(callback);
   }.bind(this);
 
   galleryFrame.onload = function() {
@@ -369,7 +357,7 @@ FileTasks.prototype.openGallery_ = function(urls) {
     var readonlyDirName = null;
     if (readonly) {
       readonlyDirName = fm.isOnGData() ?
-          fm.getRootLabel_(PathUtil.getRootPath(currentDir.fullPath)) :
+          PathUtil.getRootLabel(PathUtil.getRootPath(currentDir.fullPath)) :
           fm.directoryModel_.getCurrentRootName();
     }
 
@@ -395,7 +383,7 @@ FileTasks.prototype.openGallery_ = function(urls) {
   };
 
   galleryFrame.src = 'gallery.html';
-  fm.openFilePopup_(galleryFrame, fm.updateTitle_.bind(this));
+  fm.openFilePopup_(galleryFrame, fm.updateTitle_.bind(fm));
 };
 
 /**
@@ -409,6 +397,7 @@ FileTasks.prototype.display_ = function(combobutton) {
     return;
   }
 
+  combobutton.clear();
   combobutton.hidden = false;
   combobutton.defaultItem = this.createCombobuttonItem_(this.defaultTask_);
 
@@ -445,6 +434,14 @@ FileTasks.prototype.display_ = function(combobutton) {
 };
 
 /**
+ * Updates context menu with default item.
+ * @private
+ */
+FileTasks.prototype.updateMenuItem_ = function() {
+  this.fileManager_.setDefaultActionMenuItem(this.defaultTask_);
+};
+
+/**
  * Returns a list of external tasks (i.e. not defined in file manager).
  * @param {function(Array.<Object>)} callback The callback.
  * @private
@@ -452,8 +449,8 @@ FileTasks.prototype.display_ = function(combobutton) {
 FileTasks.prototype.getExternals_ = function(callback) {
   var externals = [];
   var id = this.fileManager_.getExtensionId();
-  for (var index = 0; index < this.tasks.length; index++) {
-    var task = this.tasks[index];
+  for (var index = 0; index < this.tasks_.length; index++) {
+    var task = this.tasks_[index];
     var task_parts = task.taskId.split('|');
     if (task_parts[0] != id) {
       // Add callback, so gallery can execute the task.
@@ -472,7 +469,12 @@ FileTasks.prototype.getExternals_ = function(callback) {
  * @private
  */
 FileTasks.prototype.createCombobuttonItem_ = function(task, opt_title) {
-  return { label: opt_title || task.title, iconUrl: task.iconUrl, task: task };
+  return {
+    label: opt_title || task.title,
+    iconUrl: task.iconUrl,
+    iconType: task.iconType,
+    task: task
+  };
 };
 
 
@@ -495,6 +497,8 @@ FileTasks.decorate = function(method) {
 };
 
 FileTasks.decorate('display');
+FileTasks.decorate('updateMenuItem');
 FileTasks.decorate('execute');
 FileTasks.decorate('executeDefault');
 FileTasks.decorate('getExternals');
+

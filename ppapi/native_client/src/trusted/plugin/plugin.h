@@ -202,11 +202,13 @@ class Plugin : public pp::InstancePrivate {
   // plugin_base_url is the URL used for resolving relative URLs used in
   // src="...".
   nacl::string plugin_base_url() const { return plugin_base_url_; }
-  void set_plugin_base_url(nacl::string url) { plugin_base_url_ = url; }
+  void set_plugin_base_url(const nacl::string& url) { plugin_base_url_ = url; }
   // manifest_base_url is the URL used for resolving relative URLs mentioned
   // in manifest files.  If the manifest is a data URI, this is an empty string.
   nacl::string manifest_base_url() const { return manifest_base_url_; }
-  void set_manifest_base_url(nacl::string url) { manifest_base_url_ = url; }
+  void set_manifest_base_url(const nacl::string& url) {
+    manifest_base_url_ = url;
+  }
 
   // The URL of the manifest file as set by the "src" attribute.
   // It is not the fully resolved URL if it was set as relative.
@@ -417,6 +419,12 @@ class Plugin : public pp::InstancePrivate {
 
   // Shuts down the proxy for PPAPI nexes.
   void ShutdownProxy();  // Nexe shutdown + proxy deletion.
+
+  // Copy the main service runtime's most recent NaClLog output to the
+  // JavaScript console.  Valid to use only after a crash, e.g., via a
+  // detail level LOG_FATAL NaClLog entry.  If the crash was not due
+  // to a LOG_FATAL this method will do nothing.
+  void CopyCrashLogToJsConsole();
 
   ScriptablePlugin* scriptable_plugin_;
 

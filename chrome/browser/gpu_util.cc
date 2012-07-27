@@ -18,6 +18,7 @@
 #include "chrome/browser/gpu_blacklist.h"
 #include "chrome/common/chrome_version_info.h"
 #include "content/public/browser/gpu_data_manager.h"
+#include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/gpu_info.h"
 
@@ -38,6 +39,7 @@ const char kGpuFeatureNameWebgl[] = "webgl";
 const char kGpuFeatureNameMultisampling[] = "multisampling";
 const char kGpuFeatureNameFlash3d[] = "flash_3d";
 const char kGpuFeatureNameFlashStage3d[] = "flash_stage3d";
+const char kGpuFeatureNameTextureSharing[] = "texture_sharing";
 const char kGpuFeatureNameAll[] = "all";
 const char kGpuFeatureNameUnknown[] = "unknown";
 
@@ -166,12 +168,16 @@ int GetGpuBlacklistHistogramValueWin(GpuFeatureStatus status) {
 }
 #endif  // OS_WIN
 
+bool InForceThreadedCompositingModeTrial() {
+  base::FieldTrial* trial =
+      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
+  return trial && trial->group_name() ==
+      content::kGpuCompositingFieldTrialThreadEnabledName;
+}
+
 }  // namespace
 
 namespace gpu_util {
-
-const char kForceCompositingModeFieldTrialName[] = "ForceCompositingMode";
-const char kFieldTrialEnabledName[] = "enabled";
 
 void InitializeForceCompositingModeFieldTrial() {
 // Enable the field trial only on desktop OS's.
@@ -193,35 +199,48 @@ void InitializeForceCompositingModeFieldTrial() {
     return;
 #endif
 
+  // The performance of accelerated compositing is too low with software
+  // rendering.
+  if (content::GpuDataManager::GetInstance()->ShouldUseSoftwareRendering())
+    return;
+
   // Don't activate the field trial if force-compositing-mode has been
   // explicitly disabled from the command line.
   if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableForceCompositingMode))
+          switches::kDisableForceCompositingMode) ||
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableThreadedCompositing))
     return;
 
-  const base::FieldTrial::Probability kDivisor = 100;
+  const base::FieldTrial::Probability kDivisor = 3;
   scoped_refptr<base::FieldTrial> trial(
     base::FieldTrialList::FactoryGetFieldTrial(
-        kForceCompositingModeFieldTrialName, kDivisor,
+        content::kGpuCompositingFieldTrialName, kDivisor,
         "disable", 2012, 12, 31, NULL));
 
   // Produce the same result on every run of this client.
   trial->UseOneTimeRandomization();
-  // 50% probability of being in the enabled group.
-  const base::FieldTrial::Probability kEnableProbability = 50;
+  // 1/3 probability of being in the enabled or thread group.
+  const base::FieldTrial::Probability kEnableProbability = 1;
   int enable_group = trial->AppendGroup(
-      kFieldTrialEnabledName, kEnableProbability);
+      content::kGpuCompositingFieldTrialEnabledName, kEnableProbability);
+  int thread_group = trial->AppendGroup(
+      content::kGpuCompositingFieldTrialThreadEnabledName, kEnableProbability);
 
   bool enabled = (trial->group() == enable_group);
+  bool thread = (trial->group() == thread_group);
   UMA_HISTOGRAM_BOOLEAN("GPU.InForceCompositingModeFieldTrial", enabled);
+  UMA_HISTOGRAM_BOOLEAN("GPU.InCompositorThreadFieldTrial", thread);
 }
 
-bool InForceCompositingModeTrial() {
+bool InForceCompositingModeOrThreadTrial() {
   base::FieldTrial* trial =
-      base::FieldTrialList::Find(kForceCompositingModeFieldTrialName);
+      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
   if (!trial)
     return false;
-  return trial->group_name() == kFieldTrialEnabledName;
+  return trial->group_name() == content::kGpuCompositingFieldTrialEnabledName ||
+         trial->group_name() ==
+             content::kGpuCompositingFieldTrialThreadEnabledName;
 }
 
 GpuFeatureType StringToGpuFeatureType(const std::string& feature_string) {
@@ -237,6 +256,8 @@ GpuFeatureType StringToGpuFeatureType(const std::string& feature_string) {
     return content::GPU_FEATURE_TYPE_FLASH3D;
   else if (feature_string == kGpuFeatureNameFlashStage3d)
     return content::GPU_FEATURE_TYPE_FLASH_STAGE3D;
+  else if (feature_string == kGpuFeatureNameTextureSharing)
+    return content::GPU_FEATURE_TYPE_TEXTURE_SHARING;
   else if (feature_string == kGpuFeatureNameAll)
     return content::GPU_FEATURE_TYPE_ALL;
   return content::GPU_FEATURE_TYPE_UNKNOWN;
@@ -259,6 +280,8 @@ std::string GpuFeatureTypeToString(GpuFeatureType type) {
       matches.push_back(kGpuFeatureNameFlash3d);
     if (type & content::GPU_FEATURE_TYPE_FLASH_STAGE3D)
       matches.push_back(kGpuFeatureNameFlashStage3d);
+    if (type & content::GPU_FEATURE_TYPE_TEXTURE_SHARING)
+      matches.push_back(kGpuFeatureNameTextureSharing);
     if (!matches.size())
       matches.push_back(kGpuFeatureNameUnknown);
   }
@@ -309,7 +332,11 @@ Value* GetFeatureStatus() {
       {
           "webgl",
           flags & content::GPU_FEATURE_TYPE_WEBGL,
+#if defined(OS_ANDROID)
+          !command_line.HasSwitch(switches::kEnableExperimentalWebGL),
+#else
           command_line.HasSwitch(switches::kDisableExperimentalWebGL),
+#endif
           "WebGL has been disabled, either via about:flags or command line.",
           false
       },
@@ -335,6 +362,14 @@ Value* GetFeatureStatus() {
           command_line.HasSwitch(switches::kDisableFlashStage3d),
           "Using Stage3d in Flash has been disabled, either via about:flags or"
           " command line.",
+          false
+      },
+      {
+          "texture_sharing",
+          flags & content::GPU_FEATURE_TYPE_TEXTURE_SHARING,
+          command_line.HasSwitch(switches::kDisableImageTransportSurface),
+          "Sharing textures between processes has been disabled, either via"
+          " about:flags or command line.",
           false
       }
   };
@@ -372,14 +407,15 @@ Value* GetFeatureStatus() {
              (flags & content::GPU_FEATURE_TYPE_ACCELERATED_COMPOSITING)))
           status += "_readback";
         bool has_thread =
-            command_line.HasSwitch(switches::kEnableThreadedCompositing) &&
-            !command_line.HasSwitch(switches::kDisableThreadedCompositing);
+            (command_line.HasSwitch(switches::kEnableThreadedCompositing) &&
+             !command_line.HasSwitch(switches::kDisableThreadedCompositing)) ||
+            InForceThreadedCompositingModeTrial();
         if (kGpuFeatureInfo[i].name == "compositing") {
           bool force_compositing =
               (command_line.HasSwitch(switches::kForceCompositingMode) &&
                !command_line.HasSwitch(
                    switches::kDisableForceCompositingMode)) ||
-              InForceCompositingModeTrial();
+              InForceCompositingModeOrThreadTrial();
           if (force_compositing)
             status += "_force";
           if (has_thread)
@@ -545,7 +581,11 @@ void UpdateStats() {
   const bool kGpuFeatureUserFlags[] = {
       command_line.HasSwitch(switches::kDisableAccelerated2dCanvas),
       command_line.HasSwitch(switches::kDisableAcceleratedCompositing),
+#if defined(OS_ANDROID)
+      !command_line.HasSwitch(switches::kEnableExperimentalWebGL)
+#else
       command_line.HasSwitch(switches::kDisableExperimentalWebGL)
+#endif
   };
 #if defined(OS_WIN)
   const std::string kGpuBlacklistFeatureHistogramNamesWin[] = {

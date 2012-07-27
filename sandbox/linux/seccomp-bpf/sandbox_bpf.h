@@ -176,7 +176,10 @@ class Sandbox {
     // field.
     // This is not only quiet efficient, it also makes the API really easy to
     // use.
-    ErrorCode(int err = SB_INVALID) {
+    ErrorCode(int err = SB_INVALID)
+        : id_(0),
+          fnc_(NULL),
+          aux_(NULL) {
       switch (err) {
       case SB_INVALID:
         err_ = SECCOMP_RET_INVALID;
@@ -322,7 +325,7 @@ class Sandbox {
   friend class Util;
   friend class Verifier;
   struct Range {
-    Range(uint32_t f, uint32_t t, ErrorCode e) :
+    Range(uint32_t f, uint32_t t, const ErrorCode& e) :
       from(f),
       to(t),
       err(e) {

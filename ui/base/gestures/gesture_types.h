@@ -8,12 +8,21 @@
 #include "base/logging.h"
 #include "base/time.h"
 #include "ui/base/events.h"
+#include "ui/gfx/rect.h"
 
 namespace ui {
 
 struct UI_EXPORT GestureEventDetails {
  public:
   GestureEventDetails(EventType type, float delta_x, float delta_y);
+
+  EventType type() const { return type_; }
+
+  int touch_points() const { return touch_points_; }
+  void set_touch_points(int touch_points) { touch_points_ = touch_points; }
+
+  const gfx::Rect& bounding_box() const { return bounding_box_; }
+  void set_bounding_box(const gfx::Rect& box) { bounding_box_ = box; }
 
   float scroll_x() const {
     CHECK_EQ(ui::ET_GESTURE_SCROLL_UPDATE, type_);
@@ -33,23 +42,9 @@ struct UI_EXPORT GestureEventDetails {
     return data.velocity.y;
   }
 
-  float radius_x() const {
-    CHECK_EQ(ui::ET_GESTURE_TAP, type_);
-    return data.radius.x;
-  }
-  float radius_y() const {
-    CHECK_EQ(ui::ET_GESTURE_TAP, type_);
-    return data.radius.y;
-  }
-
   int touch_id() const {
     CHECK_EQ(ui::ET_GESTURE_LONG_PRESS, type_);
     return data.touch_id;
-  }
-
-  int touch_points() const {
-    DCHECK(type_ == ui::ET_GESTURE_BEGIN || type_ == ui::ET_GESTURE_END);
-    return data.touch_points;
   }
 
   float scale() const {
@@ -97,14 +92,7 @@ struct UI_EXPORT GestureEventDetails {
       float y;
     } velocity;
 
-    struct {  // TAP radius.
-      float x;
-      float y;
-    } radius;
-
     int touch_id;  // LONG_PRESS touch-id.
-
-    int touch_points;  // Number of active touch points for BEGIN/END.
 
     struct {  // SWIPE direction.
       bool left;
@@ -118,6 +106,12 @@ struct UI_EXPORT GestureEventDetails {
       float delta_y;
     } generic;
   } data;
+
+  int touch_points_;  // Number of active touch points in the gesture.
+
+  // Bounding box is an axis-aligned rectangle that contains all the
+  // enclosing rectangles of the touch-points in the gesture.
+  gfx::Rect bounding_box_;
 };
 
 // An abstract type to represent touch-events. The gesture-recognizer uses this
@@ -187,12 +181,10 @@ class UI_EXPORT GestureEventHelper {
 
   // |flags| is ui::EventFlags. The meaning of |param_first| and |param_second|
   // depends on the specific gesture type (|type|).
-  virtual GestureEvent* CreateGestureEvent(EventType type,
+  virtual GestureEvent* CreateGestureEvent(const GestureEventDetails& details,
                                            const gfx::Point& location,
                                            int flags,
                                            base::Time time,
-                                           float param_first,
-                                           float param_second,
                                            unsigned int touch_id_bitfield) = 0;
 
   virtual TouchEvent* CreateTouchEvent(EventType type,

@@ -88,7 +88,7 @@ class SessionRestoreTest : public InProcessBrowserTest {
   }
 
   void CloseBrowserSynchronously(Browser* browser) {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         chrome::NOTIFICATION_BROWSER_CLOSED,
         content::NotificationService::AllSources());
     browser->window()->Close();
@@ -121,7 +121,7 @@ class SessionRestoreTest : public InProcessBrowserTest {
   }
 
   void GoBack(Browser* browser) {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::GoBack(browser, CURRENT_TAB);
@@ -129,7 +129,7 @@ class SessionRestoreTest : public InProcessBrowserTest {
   }
 
   void GoForward(Browser* browser) {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::GoForward(browser, CURRENT_TAB);
@@ -227,8 +227,8 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
 
   // Create a new popup.
   Profile* profile = browser()->profile();
-  Browser* popup = Browser::CreateWithParams(
-      Browser::CreateParams(Browser::TYPE_POPUP, profile));
+  Browser* popup =
+      new Browser(Browser::CreateParams(Browser::TYPE_POPUP, profile));
   popup->window()->Show();
 
   // Close the browser.
@@ -263,7 +263,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreIndividualTabFromWindow) {
   // Add and navigate three tabs.
   ui_test_utils::NavigateToURL(browser(), url1);
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::AddSelectedTabWithURL(browser(), url2,
@@ -271,7 +271,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreIndividualTabFromWindow) {
     observer.Wait();
   }
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::AddSelectedTabWithURL(browser(), url3,
@@ -394,7 +394,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreForeignTab) {
 
   // Restore in the current tab.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     SessionRestore::RestoreForeignSessionTab(
@@ -407,7 +407,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreForeignTab) {
 
   // Restore in a new tab.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     SessionRestore::RestoreForeignSessionTab(
@@ -601,7 +601,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, NormalAndPopup) {
   AssertOneWindowWithOneTab(browser());
 
   // Open a popup.
-  Browser* popup = Browser::CreateWithParams(
+  Browser* popup = new Browser(
       Browser::CreateParams(Browser::TYPE_POPUP, browser()->profile()));
   popup->window()->Show();
   ASSERT_EQ(2u, BrowserList::size());

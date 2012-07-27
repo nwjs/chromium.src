@@ -21,14 +21,15 @@ SyncSessionSnapshot::SyncSessionSnapshot()
       num_server_conflicts_(0),
       notifications_enabled_(false),
       num_entries_(0),
-      retry_scheduled_(false) {
+      retry_scheduled_(false),
+      is_initialized_(false) {
 }
 
 SyncSessionSnapshot::SyncSessionSnapshot(
     const ModelNeutralState& model_neutral_state,
     bool is_share_usable,
-    syncer::ModelTypeSet initial_sync_ended,
-    const syncer::ModelTypePayloadMap& download_progress_markers,
+    ModelTypeSet initial_sync_ended,
+    const ModelTypePayloadMap& download_progress_markers,
     bool more_to_sync,
     bool is_silenced,
     int num_encryption_conflicts,
@@ -54,7 +55,8 @@ SyncSessionSnapshot::SyncSessionSnapshot(
       notifications_enabled_(notifications_enabled),
       num_entries_(num_entries),
       sync_start_time_(sync_start_time),
-      retry_scheduled_(retry_scheduled) {
+      retry_scheduled_(retry_scheduled),
+      is_initialized_(true) {
 }
 
 SyncSessionSnapshot::~SyncSessionSnapshot() {}
@@ -80,9 +82,9 @@ DictionaryValue* SyncSessionSnapshot::ToValue() const {
       static_cast<int>(model_neutral_state_.num_server_changes_remaining));
   value->SetBoolean("isShareUsable", is_share_usable_);
   value->Set("initialSyncEnded",
-             syncer::ModelTypeSetToValue(initial_sync_ended_));
+             ModelTypeSetToValue(initial_sync_ended_));
   value->Set("downloadProgressMarkers",
-             syncer::ModelTypePayloadMapToValue(download_progress_markers_));
+             ModelTypePayloadMapToValue(download_progress_markers_));
   value->SetBoolean("hasMoreToSync", has_more_to_sync_);
   value->SetBoolean("isSilenced", is_silenced_);
   // We don't care too much if we lose precision here, also.
@@ -117,12 +119,11 @@ bool SyncSessionSnapshot::is_share_usable() const {
   return is_share_usable_;
 }
 
-syncer::ModelTypeSet SyncSessionSnapshot::initial_sync_ended() const {
+ModelTypeSet SyncSessionSnapshot::initial_sync_ended() const {
   return initial_sync_ended_;
 }
 
-syncer::ModelTypePayloadMap
-    SyncSessionSnapshot::download_progress_markers() const {
+ModelTypePayloadMap SyncSessionSnapshot::download_progress_markers() const {
   return download_progress_markers_;
 }
 
@@ -168,6 +169,10 @@ base::Time SyncSessionSnapshot::sync_start_time() const {
 
 bool SyncSessionSnapshot::retry_scheduled() const {
   return retry_scheduled_;
+}
+
+bool SyncSessionSnapshot::is_initialized() const {
+  return is_initialized_;
 }
 
 }  // namespace sessions

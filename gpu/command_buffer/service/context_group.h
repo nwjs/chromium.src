@@ -42,8 +42,7 @@ class GPU_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
 
   ContextGroup(
       MailboxManager* mailbox_manager,
-      bool bind_generates_resource,
-      ProgramCache* program_cache);
+      bool bind_generates_resource);
 
   // This should only be called by GLES2Decoder. This must be paired with a
   // call to destroy if it succeeds.
@@ -112,6 +111,14 @@ class GPU_EXPORT ContextGroup : public base::RefCounted<ContextGroup> {
 
   ProgramManager* program_manager() const {
     return program_manager_.get();
+  }
+
+  bool has_program_cache() const {
+    return program_cache_ != NULL;
+  }
+
+  void set_program_cache(ProgramCache* program_cache) {
+    program_cache_ = program_cache;
   }
 
   ShaderManager* shader_manager() const {

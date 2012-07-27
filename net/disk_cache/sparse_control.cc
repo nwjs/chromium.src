@@ -188,8 +188,19 @@ SparseControl::SparseControl(EntryImpl* entry)
     : entry_(entry),
       child_(NULL),
       operation_(kNoOperation),
+      pending_(false),
+      finished_(false),
       init_(false),
-      child_map_(child_data_.bitmap, kNumSparseBits, kNumSparseBits / 32) {
+      range_found_(false),
+      abort_(false),
+      child_map_(child_data_.bitmap, kNumSparseBits, kNumSparseBits / 32),
+      offset_(0),
+      buf_len_(0),
+      child_offset_(0),
+      child_len_(0),
+      result_(0) {
+  memset(&sparse_header_, 0, sizeof(sparse_header_));
+  memset(&child_data_, 0, sizeof(child_data_));
 }
 
 SparseControl::~SparseControl() {
@@ -339,7 +350,7 @@ void SparseControl::DeleteChildren(EntryImpl* entry) {
 
   entry->net_log().AddEvent(net::NetLog::TYPE_SPARSE_DELETE_CHILDREN);
 
-  DCHECK(entry && entry->backend_);
+  DCHECK(entry->backend_);
   ChildrenDeleter* deleter = new ChildrenDeleter(entry->backend_,
                                                  entry->GetKey());
   // The object will self destruct when finished.

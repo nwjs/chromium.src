@@ -23,6 +23,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui.h"
+#include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/views/widget/widget.h"
 
@@ -57,14 +58,19 @@ WebUILoginDisplayHost::WebUILoginDisplayHost(const gfx::Rect& background_bounds)
   bool is_registered = WizardController::IsDeviceRegistered();
   // TODO(nkostylev): Add switch to disable wallpaper transition on OOBE.
   // Should be used on test images so that they are not slowed down.
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableNewOobe))
+  bool zero_delay_enabled = WizardController::IsZeroDelayEnabled();
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableNewOobe) &&
+      !zero_delay_enabled) {
     waiting_for_wallpaper_load_ = !is_registered;
-  else
+  } else {
     waiting_for_wallpaper_load_ = false;
+  }
 
   if (waiting_for_wallpaper_load_) {
     registrar_.Add(this, chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED,
                    content::NotificationService::AllSources());
+    // Prevents white flashing on OOBE (http://crbug.com/131569).
+    aura::Env::GetInstance()->set_render_white_bg(false);
   }
 }
 
@@ -181,7 +187,7 @@ void WebUILoginDisplayHost::LoadURL(const GURL& url) {
         views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     params.bounds = background_bounds();
     params.show_state = ui::SHOW_STATE_FULLSCREEN;
-    if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableNewOobe))
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableNewOobe))
       params.transparent = true;
     params.parent =
         ash::Shell::GetContainer(

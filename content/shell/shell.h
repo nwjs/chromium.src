@@ -27,13 +27,12 @@ typedef struct _GtkToolItem GtkToolItem;
 #endif
 
 class GURL;
-class WebContents;
-
 namespace content {
 
 class BrowserContext;
 class ShellJavaScriptDialogCreator;
 class SiteInstance;
+class WebContents;
 
 // This represents one window of the Content Shell, i.e. all the UI including
 // buttons and url bar, as well as the web content area.
@@ -55,7 +54,7 @@ class Shell : public WebContentsDelegate,
   // This is called indirectly by the modules that need access resources.
   static base::StringPiece PlatformResourceProvider(int key);
 
-  static Shell* CreateNewWindow(content::BrowserContext* browser_context,
+  static Shell* CreateNewWindow(BrowserContext* browser_context,
                                 const GURL& url,
                                 SiteInstance* site_instance,
                                 int routing_id,
@@ -64,6 +63,9 @@ class Shell : public WebContentsDelegate,
   // Returns the Shell object corresponding to the given RenderViewHost.
   static Shell* FromRenderViewHost(RenderViewHost* rvh);
 
+  // Returns the currently open windows.
+  static std::vector<Shell*>& windows() { return windows_; }
+
   // Closes all windows and returns. This runs a message loop.
   static void CloseAllWindows();
 
@@ -71,6 +73,7 @@ class Shell : public WebContentsDelegate,
   static void PlatformExit();
 
   WebContents* web_contents() const { return web_contents_.get(); }
+  gfx::NativeWindow window() { return window_; }
 
 #if defined(OS_MACOSX)
   // Public to be called by an ObjC bridge object.
@@ -80,6 +83,28 @@ class Shell : public WebContentsDelegate,
   // Registers the Android Java to native methods.
   static bool Register(JNIEnv* env);
 #endif
+
+  // WebContentsDelegate
+  virtual void LoadingStateChanged(WebContents* source) OVERRIDE;
+#if defined(OS_ANDROID)
+  virtual void LoadProgressChanged(double progress) OVERRIDE;
+#endif
+  virtual void WebContentsCreated(WebContents* source_contents,
+                                  int64 source_frame_id,
+                                  const GURL& target_url,
+                                  WebContents* new_contents) OVERRIDE;
+  virtual void DidNavigateMainFramePostCommit(
+      WebContents* web_contents) OVERRIDE;
+  virtual JavaScriptDialogCreator* GetJavaScriptDialogCreator() OVERRIDE;
+#if defined(OS_MACOSX)
+  virtual void HandleKeyboardEvent(
+      const NativeWebKeyboardEvent& event) OVERRIDE;
+#endif
+  virtual bool AddMessageToConsole(WebContents* source,
+                                   int32 level,
+                                   const string16& message,
+                                   int32 line_no,
+                                   const string16& source_id) OVERRIDE;
 
  private:
   enum UIControl {
@@ -119,29 +144,7 @@ class Shell : public WebContentsDelegate,
 
   gfx::NativeView GetContentView();
 
-  // content::WebContentsDelegate
-  virtual void LoadingStateChanged(WebContents* source) OVERRIDE;
-#if defined(OS_ANDROID)
-  virtual void LoadProgressChanged(double progress) OVERRIDE;
-#endif
-  virtual void WebContentsCreated(WebContents* source_contents,
-                                  int64 source_frame_id,
-                                  const GURL& target_url,
-                                  WebContents* new_contents) OVERRIDE;
-  virtual void DidNavigateMainFramePostCommit(
-      WebContents* web_contents) OVERRIDE;
-  virtual JavaScriptDialogCreator* GetJavaScriptDialogCreator() OVERRIDE;
-#if defined(OS_MACOSX)
-  virtual void HandleKeyboardEvent(
-      const NativeWebKeyboardEvent& event) OVERRIDE;
-#endif
-  virtual bool AddMessageToConsole(WebContents* source,
-                                   int32 level,
-                                   const string16& message,
-                                   int32 line_no,
-                                   const string16& source_id) OVERRIDE;
-
-  // content::NotificationObserver
+  // NotificationObserver
   virtual void Observe(int type,
                        const NotificationSource& source,
                        const NotificationDetails& details) OVERRIDE;

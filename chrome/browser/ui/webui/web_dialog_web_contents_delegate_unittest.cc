@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/webui/web_dialog_web_contents_delegate.h"
+#include "ui/web_dialogs/web_dialog_web_contents_delegate.h"
 
 #include <vector>
 
@@ -11,6 +11,7 @@
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/test_browser_window.h"
@@ -24,15 +25,17 @@
 
 using content::OpenURLParams;
 using content::Referrer;
+using content::BrowserContext;
 using content::WebContents;
 using content::WebContentsTester;
+using ui::WebDialogWebContentsDelegate;
 
 namespace {
 
 class TestWebContentsDelegate : public WebDialogWebContentsDelegate {
  public:
-  explicit TestWebContentsDelegate(Profile* profile)
-      : WebDialogWebContentsDelegate(profile) {
+  explicit TestWebContentsDelegate(content::BrowserContext* context)
+      : WebDialogWebContentsDelegate(context, new ChromeWebContentsHandler) {
   }
   virtual ~TestWebContentsDelegate() {
   }
@@ -96,9 +99,9 @@ TEST_F(WebDialogWebContentsDelegateTest, AddNewContentsForegroundTabTest) {
 }
 
 TEST_F(WebDialogWebContentsDelegateTest, DetachTest) {
-  EXPECT_EQ(profile(), test_web_contents_delegate_->profile());
+  EXPECT_EQ(profile(), test_web_contents_delegate_->browser_context());
   test_web_contents_delegate_->Detach();
-  EXPECT_EQ(NULL, test_web_contents_delegate_->profile());
+  EXPECT_EQ(NULL, test_web_contents_delegate_->browser_context());
   // Now, none of the following calls should do anything.
   test_web_contents_delegate_->OpenURLFromTab(
       NULL, OpenURLParams(GURL(chrome::kAboutBlankURL), Referrer(),

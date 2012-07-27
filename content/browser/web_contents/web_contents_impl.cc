@@ -216,6 +216,10 @@ void MakeNavigateParams(const NavigationEntryImpl& entry,
   params->current_history_list_offset = controller.GetLastCommittedEntryIndex();
   params->current_history_list_length = controller.GetEntryCount();
   params->url = entry.GetURL();
+  if (!entry.GetBaseURLForDataURL().is_empty()) {
+    params->base_url_for_data_url = entry.GetBaseURLForDataURL();
+    params->history_url_for_data_url = entry.GetVirtualURL();
+  }
   params->referrer = entry.GetReferrer();
   params->transition = entry.GetTransitionType();
   params->state = entry.GetContentState();
@@ -424,13 +428,22 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       !command_line.HasSwitch(switches::kDisableLocalStorage);
   prefs.databases_enabled =
       !command_line.HasSwitch(switches::kDisableDatabases);
+#if defined(OS_ANDROID)
+  prefs.webaudio_enabled =
+      command_line.HasSwitch(switches::kEnableWebAudio);
+#else
   prefs.webaudio_enabled =
       !command_line.HasSwitch(switches::kDisableWebAudio);
+#endif
 
   prefs.experimental_webgl_enabled =
       GpuProcessHost::gpu_enabled() &&
       !command_line.HasSwitch(switches::kDisable3DAPIs) &&
+#if defined(OS_ANDROID)
+      command_line.HasSwitch(switches::kEnableExperimentalWebGL);
+#else
       !command_line.HasSwitch(switches::kDisableExperimentalWebGL);
+#endif
 
   prefs.flash_3d_enabled =
       GpuProcessHost::gpu_enabled() &&
@@ -487,6 +500,8 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       command_line.HasSwitch(switches::kEnableCssRegions);
   prefs.css_shaders_enabled =
       command_line.HasSwitch(switches::kEnableCssShaders);
+  prefs.css_variables_enabled =
+      command_line.HasSwitch(switches::kEnableCssVariables);
   prefs.device_supports_touch =
       ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
 #if defined(OS_ANDROID)
@@ -582,8 +597,8 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
     prefs.apply_default_device_scale_factor_in_compositor = true;
   }
 
-  prefs.fixed_position_creates_stacking_context =
-      command_line.HasSwitch(switches::kFixedPositionCreatesStackingContext);
+  prefs.fixed_position_creates_stacking_context = !command_line.HasSwitch(
+      switches::kDisableFixedPositionCreatesStackingContext);
 
   prefs.number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
 
@@ -600,7 +615,8 @@ RenderViewHostManager* WebContentsImpl::GetRenderManagerForTesting() {
   return &render_manager_;
 }
 
-bool WebContentsImpl::OnMessageReceived(const IPC::Message& message) {
+bool WebContentsImpl::OnMessageReceived(RenderViewHost* render_view_host,
+                                        const IPC::Message& message) {
   if (GetWebUI() &&
       static_cast<WebUIImpl*>(GetWebUI())->OnMessageReceived(message)) {
     return true;
@@ -612,6 +628,9 @@ bool WebContentsImpl::OnMessageReceived(const IPC::Message& message) {
     if (observer->OnMessageReceived(message))
       return true;
 
+  // Message handlers should be aware of which RenderViewHost sent the
+  // message, which is temporarily stored in message_source_.
+  message_source_ = render_view_host;
   bool handled = true;
   bool message_is_ok = true;
   IPC_BEGIN_MESSAGE_MAP_EX(WebContentsImpl, message, message_is_ok)
@@ -650,6 +669,7 @@ bool WebContentsImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewHostMsg_WebUISend, OnWebUISend)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP_EX()
+  message_source_ = NULL;
 
   if (!message_is_ok) {
     content::RecordAction(UserMetricsAction("BadMessageTerminate_RVD"));
@@ -662,7 +682,8 @@ bool WebContentsImpl::OnMessageReceived(const IPC::Message& message) {
 void WebContentsImpl::RunFileChooser(
     RenderViewHost* render_view_host,
     const content::FileChooserParams& params) {
-  delegate_->RunFileChooser(this, params);
+  if (delegate_)
+    delegate_->RunFileChooser(this, params);
 }
 
 NavigationController& WebContentsImpl::GetController() {
@@ -1095,9 +1116,19 @@ void WebContentsImpl::HandleMouseUp() {
     delegate_->HandleMouseUp();
 }
 
-void WebContentsImpl::HandleMouseActivate() {
+void WebContentsImpl::HandlePointerActivate() {
   if (delegate_)
-    delegate_->HandleMouseActivate();
+    delegate_->HandlePointerActivate();
+}
+
+void WebContentsImpl::HandleGestureBegin() {
+  if (delegate_)
+    delegate_->HandleGestureBegin();
+}
+
+void WebContentsImpl::HandleGestureEnd() {
+  if (delegate_)
+    delegate_->HandleGestureEnd();
 }
 
 void WebContentsImpl::ToggleFullscreenMode(bool enter_fullscreen) {
@@ -1130,6 +1161,7 @@ void WebContentsImpl::CreateNewWindow(
   if (delegate_ && !delegate_->ShouldCreateWebContents(
           this, route_id, params.window_container_type, params.frame_name,
           params.target_url)) {
+    GetRenderViewHost()->GetProcess()->ResumeRequestsForView(route_id);
     return;
   }
 
@@ -1395,6 +1427,11 @@ bool WebContentsImpl::NavigateToEntry(
       GetRenderViewHost(),
       dest_render_view_host,
       entry.GetURL());
+
+  // Notify observers that we will navigate in this RV.
+  FOR_EACH_OBSERVER(WebContentsObserver,
+                    observers_,
+                    AboutToNavigateRenderView(dest_render_view_host));
 
   // Used for page load time metrics.
   current_load_start_ = base::TimeTicks::Now();
@@ -1756,12 +1793,16 @@ void WebContentsImpl::SetFocusToLocationBar(bool select_all) {
 void WebContentsImpl::OnRegisterIntentService(
     const webkit_glue::WebIntentServiceData& data,
     bool user_gesture) {
-  delegate_->RegisterIntentHandler(this, data, user_gesture);
+  if (delegate_)
+    delegate_->RegisterIntentHandler(this, data, user_gesture);
 }
 
 void WebContentsImpl::OnWebIntentDispatch(
     const webkit_glue::WebIntentData& intent,
     int intent_id) {
+  if (!delegate_)
+    return;
+
   WebIntentsDispatcherImpl* intents_dispatcher =
       new WebIntentsDispatcherImpl(this, intent, intent_id);
   delegate_->WebIntentDispatch(this, intents_dispatcher);
@@ -1953,7 +1994,7 @@ void WebContentsImpl::OnDidRunInsecureContent(
 void WebContentsImpl::OnDocumentLoadedInFrame(int64 frame_id) {
   controller_.DocumentLoadedInFrame();
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,
-                    DocumentLoadedInFrame(frame_id));
+                    DocumentLoadedInFrame(frame_id, message_source_));
 }
 
 void WebContentsImpl::OnDidFinishLoad(
@@ -1961,7 +2002,8 @@ void WebContentsImpl::OnDidFinishLoad(
     const GURL& validated_url,
     bool is_main_frame) {
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,
-                    DidFinishLoad(frame_id, validated_url, is_main_frame));
+                    DidFinishLoad(frame_id, validated_url, is_main_frame,
+                                  message_source_));
 }
 
 void WebContentsImpl::OnDidFailLoadWithError(
@@ -1972,12 +2014,14 @@ void WebContentsImpl::OnDidFailLoadWithError(
     const string16& error_description) {
   FOR_EACH_OBSERVER(WebContentsObserver, observers_,
                     DidFailLoad(frame_id, validated_url, is_main_frame,
-                                error_code, error_description));
+                                error_code, error_description,
+                                message_source_));
 }
 
 void WebContentsImpl::OnUpdateContentRestrictions(int restrictions) {
   content_restrictions_ = restrictions;
-  delegate_->ContentRestrictionsChanged(this);
+  if (delegate_)
+    delegate_->ContentRestrictionsChanged(this);
 }
 
 void WebContentsImpl::OnGoToEntryAtOffset(int offset) {
@@ -2029,6 +2073,9 @@ void WebContentsImpl::OnSaveURL(const GURL& url,
 
 void WebContentsImpl::OnEnumerateDirectory(int request_id,
                                            const FilePath& path) {
+  if (!delegate_)
+    return;
+
   ChildProcessSecurityPolicyImpl* policy =
       ChildProcessSecurityPolicyImpl::GetInstance();
   if (policy->CanReadDirectory(GetRenderProcessHost()->GetID(), path))
@@ -2036,13 +2083,17 @@ void WebContentsImpl::OnEnumerateDirectory(int request_id,
 }
 
 void WebContentsImpl::OnJSOutOfMemory() {
-  delegate_->JSOutOfMemory(this);
+  if (delegate_)
+    delegate_->JSOutOfMemory(this);
 }
 
 void WebContentsImpl::OnRegisterProtocolHandler(const std::string& protocol,
                                                 const GURL& url,
                                                 const string16& title,
                                                 bool user_gesture) {
+  if (!delegate_)
+    return;
+
   ChildProcessSecurityPolicyImpl* policy =
       ChildProcessSecurityPolicyImpl::GetInstance();
   if (policy->IsPseudoScheme(protocol) || policy->IsDisabledScheme(protocol))
@@ -2055,8 +2106,11 @@ void WebContentsImpl::OnFindReply(int request_id,
                                   const gfx::Rect& selection_rect,
                                   int active_match_ordinal,
                                   bool final_update) {
-  delegate_->FindReply(this, request_id, number_of_matches, selection_rect,
-                       active_match_ordinal, final_update);
+  if (delegate_) {
+    delegate_->FindReply(this, request_id, number_of_matches, selection_rect,
+                         active_match_ordinal, final_update);
+  }
+
   // Send a notification to the renderer that we are ready to receive more
   // results from the scoping effort of the Find operation. The FindInPage
   // scoping is asynchronous and periodically sends results back up to the
@@ -2081,7 +2135,8 @@ void WebContentsImpl::OnAppCacheAccessed(const GURL& manifest_url,
 
 void WebContentsImpl::OnOpenColorChooser(int color_chooser_id,
                                          SkColor color) {
-  color_chooser_ = delegate_->OpenColorChooser(this, color_chooser_id, color);
+  color_chooser_ = delegate_ ?
+      delegate_->OpenColorChooser(this, color_chooser_id, color) : NULL;
 }
 
 void WebContentsImpl::OnEndColorChooser(int color_chooser_id) {
@@ -2561,17 +2616,20 @@ void WebContentsImpl::RequestMove(const gfx::Rect& new_bounds) {
     delegate_->MoveContents(this, new_bounds);
 }
 
-void WebContentsImpl::DidStartLoading() {
+void WebContentsImpl::DidStartLoading(
+    content::RenderViewHost* render_view_host) {
   SetIsLoading(true, NULL);
 
   if (delegate_ && content_restrictions_)
     OnUpdateContentRestrictions(0);
 
   // Notify observers about navigation.
-  FOR_EACH_OBSERVER(WebContentsObserver, observers_, DidStartLoading());
+  FOR_EACH_OBSERVER(WebContentsObserver, observers_,
+                    DidStartLoading(render_view_host));
 }
 
-void WebContentsImpl::DidStopLoading() {
+void WebContentsImpl::DidStopLoading(
+    content::RenderViewHost* render_view_host) {
   scoped_ptr<LoadNotificationDetails> details;
 
   NavigationEntry* entry = controller_.GetActiveEntry();
@@ -2591,7 +2649,8 @@ void WebContentsImpl::DidStopLoading() {
   SetIsLoading(false, details.get());
 
   // Notify observers about navigation.
-  FOR_EACH_OBSERVER(WebContentsObserver, observers_, DidStopLoading());
+  FOR_EACH_OBSERVER(WebContentsObserver, observers_,
+                    DidStopLoading(render_view_host));
 }
 
 void WebContentsImpl::DidCancelLoading() {
@@ -2910,11 +2969,6 @@ void WebContentsImpl::BeforeUnloadFiredFromRenderManager(
     delegate_->BeforeUnloadFired(this, proceed, proceed_to_fire_unload);
 }
 
-void WebContentsImpl::DidStartLoadingFromRenderManager(
-      RenderViewHost* render_view_host) {
-  DidStartLoading();
-}
-
 void WebContentsImpl::RenderViewGoneFromRenderManager(
     RenderViewHost* render_view_host) {
   DCHECK(crashed_status_ != base::TERMINATION_STATUS_STILL_RUNNING);
@@ -3018,7 +3072,7 @@ void WebContentsImpl::OnDialogClosed(RenderViewHost* rvh,
   if (is_showing_before_unload_dialog_ && !success) {
     // If a beforeunload dialog is canceled, we need to stop the throbber from
     // spinning, since we forced it to start spinning in Navigate.
-    DidStopLoading();
+    DidStopLoading(rvh);
     controller_.DiscardNonCommittedEntries();
 
     close_start_time_ = base::TimeTicks();

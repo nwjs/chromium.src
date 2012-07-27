@@ -41,7 +41,7 @@
 namespace {
 using views::Widget;
 
-const int kSystemPinchPoints = 4;
+const int kSystemGesturePoints = 4;
 
 const int kAffordanceOuterRadius = 60;
 const int kAffordanceInnerRadius = 50;
@@ -376,7 +376,7 @@ class SystemPinchHandler {
 
     switch (event.type()) {
       case ui::ET_GESTURE_END: {
-        if (event.details().touch_points() > kSystemPinchPoints)
+        if (event.details().touch_points() > kSystemGesturePoints)
           break;
 
         if (phantom_state_ == PHANTOM_WINDOW_MAXIMIZED) {
@@ -409,8 +409,18 @@ class SystemPinchHandler {
       }
 
       case ui::ET_GESTURE_MULTIFINGER_SWIPE: {
-        // Snap for left/right swipes.
+        phantom_.Hide();
+        pinch_factor_ = 1.0;
+        phantom_state_ = PHANTOM_WINDOW_NORMAL;
+
         if (event.details().swipe_left() || event.details().swipe_right()) {
+          // Snap for left/right swipes. In case the window is
+          // maximized/fullscreen, then restore the window first so that tiling
+          // works correctly.
+          if (wm::IsWindowMaximized(target_) ||
+              wm::IsWindowFullscreen(target_))
+            wm::RestoreWindow(target_);
+
           ui::ScopedLayerAnimationSettings settings(
               target_->layer()->GetAnimator());
           SnapSizer sizer(target_,
@@ -419,8 +429,14 @@ class SystemPinchHandler {
                                              internal::SnapSizer::RIGHT_EDGE,
               Shell::GetInstance()->GetGridSize());
           target_->SetBounds(sizer.GetSnapBounds(target_->bounds()));
-          phantom_.Hide();
-          pinch_factor_ = 1.0;
+        } else if (event.details().swipe_up()) {
+          if (!wm::IsWindowMaximized(target_) &&
+              !wm::IsWindowFullscreen(target_))
+            wm::MaximizeWindow(target_);
+        } else if (event.details().swipe_down()) {
+          wm::MinimizeWindow(target_);
+        } else {
+          NOTREACHED() << "Swipe happened without a direction.";
         }
         break;
       }
@@ -439,7 +455,7 @@ class SystemPinchHandler {
       phantom_state_ = PHANTOM_WINDOW_MAXIMIZED;
       return ScreenAsh::ConvertRectToScreen(
           target_->parent(),
-          ScreenAsh::GetMaximizedWindowParentBounds(target_));
+          ScreenAsh::GetMaximizedWindowBoundsInParent(target_));
     }
 
     if (pinch_factor_ < kPinchThresholdForMinimize) {
@@ -455,7 +471,7 @@ class SystemPinchHandler {
       Launcher* launcher = Shell::GetInstance()->launcher();
       gfx::Rect rect = launcher->GetScreenBoundsOfItemIconForWindow(target_);
       if (rect.IsEmpty())
-        rect = launcher->widget()->GetWindowScreenBounds();
+        rect = launcher->widget()->GetWindowBoundsInScreen();
       else
         rect.Inset(-8, -8);
       phantom_state_ = PHANTOM_WINDOW_MINIMIZED;
@@ -588,6 +604,24 @@ ui::GestureStatus SystemGestureEventFilter::PreHandleGestureEvent(
   if (!system_target)
     return ui::GESTURE_STATUS_UNKNOWN;
 
+  RootWindowController* root_controller =
+      GetRootWindowController(system_target->GetRootWindow());
+  CHECK(root_controller);
+  aura::Window* desktop_container = root_controller->GetContainer(
+      ash::internal::kShellWindowId_DesktopBackgroundContainer);
+  if (desktop_container->Contains(system_target)) {
+    // The gesture was on the desktop window.
+    if (event->type() == ui::ET_GESTURE_MULTIFINGER_SWIPE &&
+        event->details().swipe_up() &&
+        event->details().touch_points() == kSystemGesturePoints) {
+      ash::AcceleratorController* accelerator =
+          ash::Shell::GetInstance()->accelerator_controller();
+      if (accelerator->PerformAction(CYCLE_FORWARD_MRU, ui::Accelerator()))
+        return ui::GESTURE_STATUS_CONSUMED;
+    }
+    return ui::GESTURE_STATUS_UNKNOWN;
+  }
+
   WindowPinchHandlerMap::iterator find = pinch_handlers_.find(system_target);
   if (find != pinch_handlers_.end()) {
     SystemGestureStatus status =
@@ -597,7 +631,7 @@ ui::GestureStatus SystemGestureEventFilter::PreHandleGestureEvent(
     return ui::GESTURE_STATUS_CONSUMED;
   } else {
     if (event->type() == ui::ET_GESTURE_BEGIN &&
-        event->details().touch_points() >= kSystemPinchPoints) {
+        event->details().touch_points() >= kSystemGesturePoints) {
       pinch_handlers_[system_target] = new SystemPinchHandler(system_target);
       system_target->AddObserver(this);
       return ui::GESTURE_STATUS_CONSUMED;

@@ -11,12 +11,29 @@
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/memory/scoped_vector.h"
+#include "base/shared_memory.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/task_runner.h"
 #include "ipc/ipc_channel.h"
+#include "ipc/ipc_message.h"
 
 struct NaClDesc;
+struct NaClImcTypedMsgHdr;
+struct PP_Size;
+
+namespace IPC {
+class Message;
+}
+
+namespace nacl {
+class DescWrapper;
+}
+
+namespace ppapi {
+class HostResource;
+}
 
 // Adapts a Chrome IPC channel to an IPC channel that we expose to Native
 // Client. This provides a mapping in both directions, so when IPC messages
@@ -62,12 +79,12 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
 
   // Implementation of sendmsg. Returns the number of bytes written or -1 on
   // failure.
-  int Send(const char* input_data, size_t input_data_len);
+  int Send(const NaClImcTypedMsgHdr* msg);
 
   // Implementation of recvmsg. Returns the number of bytes read or -1 on
   // failure. This will block until there's an error or there is data to
   // read.
-  int BlockingReceive(char* output_buffer, size_t output_buffer_size);
+  int BlockingReceive(NaClImcTypedMsgHdr* msg);
 
   // Closes the IPC channel.
   void CloseChannel();
@@ -123,8 +140,8 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
 
   virtual ~NaClIPCAdapter();
 
-  // Reads up to the given amount of data. Returns 0 if nothing is waiting.
-  int LockedReceive(char* output_buffer, size_t output_buffer_size);
+  // Returns 0 if nothing is waiting.
+  int LockedReceive(NaClImcTypedMsgHdr* msg);
 
   // Sends a message that we know has been completed to the Chrome process.
   bool SendCompleteMessage(const char* buffer, size_t buffer_len);
@@ -137,6 +154,11 @@ class NaClIPCAdapter : public base::RefCountedThreadSafe<NaClIPCAdapter>,
   void ConnectChannelOnIOThread();
   void CloseChannelOnIOThread();
   void SendMessageOnIOThread(scoped_ptr<IPC::Message> message);
+
+  // Saves the message to forward to NaCl. This method assumes that the caller
+  // holds the lock for locked_data_.
+  void SaveMessage(const IPC::Message& message,
+                   RewrittenMessage* rewritten_message);
 
   base::Lock lock_;
   base::ConditionVariable cond_var_;

@@ -722,6 +722,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kChromeFrame,
     switches::kDisable3DAPIs,
     switches::kDisableAcceleratedCompositing,
+    switches::kDisableAcceleratedVideoDecode,
     switches::kDisableApplicationCache,
     switches::kDisableAudio,
     switches::kDisableBreakpad,
@@ -747,10 +748,13 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableSpeechInput,
     switches::kEnableScriptedSpeech,
     switches::kDisableThreadedAnimation,
+#if defined(OS_ANDROID)
+    switches::kEnableWebAudio,
+#else
     switches::kDisableWebAudio,
+#endif
     switches::kDisableWebSockets,
     switches::kDomAutomationController,
-    switches::kEnableAcceleratedVideoDecode,
     switches::kEnableAccessibilityLogging,
     switches::kEnableDCHECK,
     switches::kEnableEncryptedMedia,
@@ -794,7 +798,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kInProcessWebGL,
     switches::kJavaScriptFlags,
     switches::kLoggingLevel,
-    switches::kNewCheckboxStyle,
+    switches::kOldCheckboxStyle,
     switches::kNoReferrers,
     switches::kNoSandbox,
     switches::kPpapiOutOfProcess,
@@ -1136,6 +1140,10 @@ void RenderProcessHostImpl::SurfaceUpdated(int32 surface_id) {
       surface_id));
 }
 
+void RenderProcessHostImpl::ResumeRequestsForView(int route_id) {
+  widget_helper_->ResumeRequestsForView(route_id);
+}
+
 IPC::ChannelProxy* RenderProcessHostImpl::GetChannel() {
   return channel_.get();
 }
@@ -1292,14 +1300,14 @@ bool RenderProcessHostImpl::ShouldUseProcessPerSite(
   // process-per-tab or process-per-site-instance models.
   // Note that --single-process is handled in ShouldTryToUseExistingProcessHost.
 
-  if (content::GetContentClient()->browser()->
+  if (GetContentClient()->browser()->
           ShouldUseProcessPerSite(browser_context, url)) {
     return true;
   }
 
   // DevTools pages have WebUI type but should not reuse the same host.
   WebUIControllerFactory* factory =
-      content::GetContentClient()->browser()->GetWebUIControllerFactory();
+      GetContentClient()->browser()->GetWebUIControllerFactory();
   if (factory &&
       factory->UseWebUIForURL(browser_context, url) &&
       !url.SchemeIs(chrome::kChromeDevToolsScheme)) {

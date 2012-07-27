@@ -26,6 +26,7 @@
 #include "chrome/browser/sync/glue/bridged_sync_notifier.h"
 #include "chrome/browser/sync/glue/change_processor.h"
 #include "chrome/browser/sync/glue/chrome_encryptor.h"
+#include "chrome/browser/sync/glue/chrome_sync_notification_bridge.h"
 #include "chrome/browser/sync/glue/sync_backend_registrar.h"
 #include "chrome/browser/sync/invalidations/invalidator_storage.h"
 #include "chrome/browser/sync/sync_prefs.h"
@@ -42,6 +43,7 @@
 #include "net/url_request/url_request_context_getter.h"
 #include "sync/internal_api/public/base_transaction.h"
 #include "sync/internal_api/public/engine/model_safe_worker.h"
+#include "sync/internal_api/public/internal_components_factory_impl.h"
 #include "sync/internal_api/public/http_bridge.h"
 #include "sync/internal_api/public/read_transaction.h"
 #include "sync/internal_api/public/sync_manager_factory.h"
@@ -62,6 +64,8 @@ typedef GoogleServiceAuthError AuthError;
 namespace browser_sync {
 
 using content::BrowserThread;
+using syncer::InternalComponentsFactory;
+using syncer::InternalComponentsFactoryImpl;
 using syncer::sessions::SyncSessionSnapshot;
 using syncer::SyncCredentials;
 
@@ -119,9 +123,6 @@ class SyncBackendHost::Core
   // Called to perform credential update on behalf of
   // SyncBackendHost::UpdateCredentials
   void DoUpdateCredentials(const syncer::SyncCredentials& credentials);
-
-  // Called when the user disables or enables a sync type.
-  void DoUpdateEnabledTypes(const syncer::ModelTypeSet& enabled_types);
 
   // Called to tell the syncapi to start syncing (generally after
   // initialization and authentication).
@@ -217,6 +218,10 @@ class SyncBackendHost::Core
   // calls to DoInitialize() and DoShutdown().
   SyncBackendRegistrar* registrar_;
 
+  // Our parent's notification bridge (not owned).  Non-NULL only
+  // between calls to DoInitialize() and DoShutdown().
+  ChromeSyncNotificationBridge* chrome_sync_notification_bridge_;
+
   // The timer used to periodically call SaveChanges.
   scoped_ptr<base::RepeatingTimer<Core> > save_changes_timer_;
 
@@ -289,7 +294,6 @@ SyncBackendHost::SyncBackendHost(
                      weak_ptr_factory_.GetWeakPtr())),
       initialization_state_(NOT_ATTEMPTED),
       sync_prefs_(sync_prefs),
-      chrome_sync_notification_bridge_(profile_),
       sync_notifier_factory_(
           ParseNotifierOptions(*CommandLine::ForCurrentProcess(),
                                profile_->GetRequestContext()),
@@ -305,7 +309,6 @@ SyncBackendHost::SyncBackendHost(Profile* profile)
       profile_(profile),
       name_("Unknown"),
       initialization_state_(NOT_ATTEMPTED),
-      chrome_sync_notification_bridge_(profile_),
       sync_notifier_factory_(
           ParseNotifierOptions(*CommandLine::ForCurrentProcess(),
                                profile_->GetRequestContext()),
@@ -316,6 +319,7 @@ SyncBackendHost::SyncBackendHost(Profile* profile)
 
 SyncBackendHost::~SyncBackendHost() {
   DCHECK(!core_ && !frontend_) << "Must call Shutdown before destructor.";
+  DCHECK(!chrome_sync_notification_bridge_.get());
   DCHECK(!registrar_.get());
 }
 
@@ -375,6 +379,10 @@ void SyncBackendHost::Initialize(
   if (!sync_thread_.Start())
     return;
 
+  chrome_sync_notification_bridge_.reset(
+      new ChromeSyncNotificationBridge(
+          profile_, sync_thread_.message_loop_proxy()));
+
   frontend_ = frontend;
   DCHECK(frontend);
 
@@ -405,12 +413,12 @@ void SyncBackendHost::Initialize(
       base::Bind(&MakeHttpBridgeFactory,
                  make_scoped_refptr(profile_->GetRequestContext())),
       credentials,
-      &chrome_sync_notification_bridge_,
+      chrome_sync_notification_bridge_.get(),
       &sync_notifier_factory_,
       sync_manager_factory,
       delete_sync_data_folder,
       sync_prefs_->GetEncryptionBootstrapToken(),
-      syncer::SyncManager::NON_TEST,
+      new InternalComponentsFactoryImpl(),
       unrecoverable_error_handler,
       report_unrecoverable_error_function));
 }
@@ -582,6 +590,7 @@ void SyncBackendHost::Shutdown(bool sync_disabled) {
 
   registrar_.reset();
   frontend_ = NULL;
+  chrome_sync_notification_bridge_.reset();
   core_ = NULL;  // Releases reference to core_.
 }
 
@@ -738,28 +747,11 @@ void SyncBackendHost::RequestConfigureSyncer(
 }
 
 void SyncBackendHost::FinishConfigureDataTypesOnFrontendLoop(
-    syncer::ModelTypeSet types_to_configure,
-    syncer::ModelTypeSet configured_types,
+    syncer::ModelTypeSet failed_configuration_types,
     const base::Callback<void(syncer::ModelTypeSet)>& ready_task) {
-  const syncer::ModelTypeSet failed_configuration_types =
-      Difference(types_to_configure, configured_types);
-  SDVLOG(1)
-      << "Added types: "
-      << syncer::ModelTypeSetToString(types_to_configure)
-      << ", configured types: "
-      << syncer::ModelTypeSetToString(configured_types)
-      << ", failed configuration types: "
-      << syncer::ModelTypeSetToString(failed_configuration_types);
-
-  // Update |chrome_sync_notification_bridge_|'s enabled types here as it has
-  // to happen on the UI thread.
-  chrome_sync_notification_bridge_.UpdateEnabledTypes(configured_types);
-
-  // Notify SyncManager (especially the notification listener) about new types.
-  sync_thread_.message_loop()->PostTask(FROM_HERE,
-      base::Bind(&SyncBackendHost::Core::DoUpdateEnabledTypes, core_.get(),
-                 configured_types));
-
+  if (!frontend_)
+    return;
+  DCHECK_EQ(MessageLoop::current(), frontend_loop_);
   if (!ready_task.is_null())
     ready_task.Run(failed_configuration_types);
 }
@@ -779,7 +771,7 @@ SyncBackendHost::DoInitializeOptions::DoInitializeOptions(
     syncer::SyncManagerFactory* sync_manager_factory,
     bool delete_sync_data_folder,
     const std::string& restored_key_for_bootstrapping,
-    syncer::SyncManager::TestingMode testing_mode,
+    InternalComponentsFactory* internal_components_factory,
     syncer::UnrecoverableErrorHandler* unrecoverable_error_handler,
     syncer::ReportUnrecoverableErrorFunction
         report_unrecoverable_error_function)
@@ -797,7 +789,7 @@ SyncBackendHost::DoInitializeOptions::DoInitializeOptions(
       sync_manager_factory(sync_manager_factory),
       delete_sync_data_folder(delete_sync_data_folder),
       restored_key_for_bootstrapping(restored_key_for_bootstrapping),
-      testing_mode(testing_mode),
+      internal_components_factory(internal_components_factory),
       unrecoverable_error_handler(unrecoverable_error_handler),
       report_unrecoverable_error_function(
           report_unrecoverable_error_function) {
@@ -812,7 +804,8 @@ SyncBackendHost::Core::Core(const std::string& name,
       sync_data_folder_path_(sync_data_folder_path),
       host_(backend),
       sync_loop_(NULL),
-      registrar_(NULL) {
+      registrar_(NULL),
+      chrome_sync_notification_bridge_(NULL) {
   DCHECK(backend.get());
 }
 
@@ -961,6 +954,10 @@ void SyncBackendHost::Core::DoInitialize(const DoInitializeOptions& options) {
   registrar_ = options.registrar;
   DCHECK(registrar_);
 
+  DCHECK(!chrome_sync_notification_bridge_);
+  chrome_sync_notification_bridge_ = options.chrome_sync_notification_bridge;
+  DCHECK(chrome_sync_notification_bridge_);
+
   sync_manager_ = options.sync_manager_factory->CreateSyncManager(name_);
   sync_manager_->AddObserver(this);
   success = sync_manager_->Init(
@@ -980,7 +977,8 @@ void SyncBackendHost::Core::DoInitialize(const DoInitializeOptions& options) {
           options.chrome_sync_notification_bridge,
           options.sync_notifier_factory->CreateSyncNotifier())),
       options.restored_key_for_bootstrapping,
-      options.testing_mode,
+      scoped_ptr<InternalComponentsFactory>(
+          options.internal_components_factory),
       &encryptor_,
       options.unrecoverable_error_handler,
       options.report_unrecoverable_error_function);
@@ -1002,12 +1000,6 @@ void SyncBackendHost::Core::DoUpdateCredentials(
     const SyncCredentials& credentials) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
   sync_manager_->UpdateCredentials(credentials);
-}
-
-void SyncBackendHost::Core::DoUpdateEnabledTypes(
-    const syncer::ModelTypeSet& enabled_types) {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  sync_manager_->UpdateEnabledTypes(enabled_types);
 }
 
 void SyncBackendHost::Core::DoStartSyncing(
@@ -1057,6 +1049,7 @@ void SyncBackendHost::Core::DoShutdown(bool sync_disabled) {
   sync_manager_->ShutdownOnSyncThread();
   sync_manager_->RemoveObserver(this);
   sync_manager_.reset();
+  chrome_sync_notification_bridge_ = NULL;
   registrar_ = NULL;
 
   if (sync_disabled)
@@ -1091,13 +1084,19 @@ void SyncBackendHost::Core::DoFinishConfigureDataTypes(
     syncer::ModelTypeSet types_to_config,
     const base::Callback<void(syncer::ModelTypeSet)>& ready_task) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  syncer::ModelTypeSet configured_types =
-      sync_manager_->InitialSyncEndedTypes();
-  configured_types.RetainAll(types_to_config);
+
+  // Update the enabled types for the bridge and sync manager.
+  syncer::ModelSafeRoutingInfo routing_info;
+  registrar_->GetModelSafeRoutingInfo(&routing_info);
+  const syncer::ModelTypeSet enabled_types = GetRoutingInfoTypes(routing_info);
+  chrome_sync_notification_bridge_->UpdateEnabledTypes(enabled_types);
+  sync_manager_->UpdateEnabledTypes(enabled_types);
+
+  const syncer::ModelTypeSet failed_configuration_types =
+      Difference(types_to_config, sync_manager_->InitialSyncEndedTypes());
   host_.Call(FROM_HERE,
              &SyncBackendHost::FinishConfigureDataTypesOnFrontendLoop,
-             types_to_config,
-             configured_types,
+             failed_configuration_types,
              ready_task);
 }
 

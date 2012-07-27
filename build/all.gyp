@@ -11,9 +11,12 @@
       'dependencies': [
         'some.gyp:*',
         '../base/base.gyp:*',
+        '../sql/sql.gyp:*',
         '../testing/gtest.gyp:*',
+        '../third_party/bzip2/bzip2.gyp:*',
         '../third_party/icu/icu.gyp:*',
         '../third_party/libxml/libxml.gyp:*',
+        '../third_party/sqlite/sqlite.gyp:*',
         '../third_party/zlib/zlib.gyp:*',
         'temp_gyp/googleurl.gyp:*',
         # Add new dependencies to the !ios section just below, not here (see
@@ -40,10 +43,8 @@
             '../printing/printing.gyp:*',
             '../sdch/sdch.gyp:*',
             '../skia/skia.gyp:*',
-            '../sql/sql.gyp:*',
             '../sync/sync.gyp:*',
             '../testing/gmock.gyp:*',
-            '../third_party/bzip2/bzip2.gyp:*',
             '../third_party/cacheinvalidation/cacheinvalidation.gyp:*',
             '../third_party/cld/cld.gyp:*',
             '../third_party/codesighs/codesighs.gyp:*',
@@ -59,7 +60,6 @@
             '../third_party/npapi/npapi.gyp:*',
             '../third_party/ots/ots.gyp:*',
             '../third_party/qcms/qcms.gyp:*',
-            '../third_party/sqlite/sqlite.gyp:*',
             '../third_party/WebKit/Source/WebKit/chromium/All.gyp:*',
             '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:generate_devtools_zip',
             '../v8/tools/gyp/v8.gyp:*',
@@ -78,6 +78,11 @@
             '../third_party/nss/nss.gyp:*',
            ],
         }],
+        ['OS=="win" or OS=="ios" or OS=="linux"', {
+          'dependencies': [
+            '../breakpad/breakpad.gyp:*',
+           ],
+        }],
         ['OS=="mac"', {
           'dependencies': [
             '../third_party/ocmock/ocmock.gyp:*',
@@ -85,7 +90,6 @@
         }],
         ['OS=="linux"', {
           'dependencies': [
-            '../breakpad/breakpad.gyp:*',
             '../courgette/courgette.gyp:*',
             '../dbus/dbus.gyp:*',
             '../sandbox/sandbox.gyp:*',
@@ -113,7 +117,6 @@
             }],
           ],
           'dependencies': [
-            '../breakpad/breakpad.gyp:*',
             '../chrome_frame/chrome_frame.gyp:*',
             '../cloud_print/cloud_print.gyp:*',
             '../courgette/courgette.gyp:*',
@@ -199,6 +202,8 @@
       'target_name': 'chromium_builder_tests',
       'type': 'none',
       'dependencies': [
+        '../base/base.gyp:base_unittests',
+        '../sql/sql.gyp:sql_unittests',
         # Add new dependencies to the !ios section just below, not here (see
         # the comment there).
       ],
@@ -208,7 +213,6 @@
             # TODO(ios): This is temporary; currently almost nothing builds with
             # OS=ios. Move dependencies back to the main dependencies section
             # above as gyp files come online.
-            '../base/base.gyp:base_unittests',
             '../chrome/chrome.gyp:browser_tests',
             '../chrome/chrome.gyp:interactive_ui_tests',
             '../chrome/chrome.gyp:safe_browsing_tests',
@@ -227,7 +231,6 @@
             '../net/net.gyp:net_unittests',
             '../printing/printing.gyp:printing_unittests',
             '../remoting/remoting.gyp:remoting_unittests',
-            '../sql/sql.gyp:sql_unittests',
             '../sync/sync.gyp:sync_unit_tests',
             '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_unittests',
             '../third_party/libphonenumber/libphonenumber.gyp:libphonenumber_unittests',
@@ -307,6 +310,13 @@
             '../chrome/chrome.gyp:performance_ui_tests',
             '../gpu/gpu.gyp:gl_tests',
           ],
+          'conditions': [
+            ['internal_gles2_conform_tests', {
+              'dependencies': [
+                '../gpu/gles2_conform_test/gles2_conform_test.gyp:gles2_conform_test_windowless',
+              ],
+            }], # internal_gles2_conform
+          ],
         }, # target_name: chromium_gpu_builder
         {
           'target_name': 'chromium_gpu_debug_builder',
@@ -314,6 +324,13 @@
           'dependencies': [
             '../chrome/chrome.gyp:gpu_tests',
             '../gpu/gpu.gyp:gl_tests',
+          ],
+          'conditions': [
+            ['internal_gles2_conform_tests', {
+              'dependencies': [
+                '../gpu/gles2_conform_test/gles2_conform_test.gyp:gles2_conform_test_windowless',
+              ],
+            }], # internal_gles2_conform
           ],
         }, # target_name: chromium_gpu_debug_builder
         {

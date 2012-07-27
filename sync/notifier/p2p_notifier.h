@@ -20,6 +20,7 @@
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/notifier/notifications_disabled_reason.h"
 #include "sync/notifier/sync_notifier.h"
+#include "sync/notifier/sync_notifier_helper.h"
 
 namespace notifier {
 class PushClient;
@@ -55,14 +56,14 @@ class P2PNotificationData {
   P2PNotificationData();
   P2PNotificationData(const std::string& sender_id,
                       P2PNotificationTarget target,
-                      syncer::ModelTypeSet changed_types);
+                      ModelTypeSet changed_types);
 
   ~P2PNotificationData();
 
   // Returns true if the given ID is targeted by this notification.
   bool IsTargeted(const std::string& id) const;
 
-  syncer::ModelTypeSet GetChangedTypes() const;
+  ModelTypeSet GetChangedTypes() const;
 
   bool Equals(const P2PNotificationData& other) const;
 
@@ -78,12 +79,11 @@ class P2PNotificationData {
   // The intendent recipient(s) of the notification.
   P2PNotificationTarget target_;
   // The types the notification is for.
-  syncer::ModelTypeSet changed_types_;
+  ModelTypeSet changed_types_;
 };
 
-class P2PNotifier
-    : public SyncNotifier,
-      public notifier::PushClientObserver {
+class P2PNotifier : public SyncNotifier,
+                    public notifier::PushClientObserver {
  public:
   // The |send_notification_target| parameter was added to allow us to send
   // self-notifications in some cases, but not others.  The value should be
@@ -96,16 +96,13 @@ class P2PNotifier
   virtual ~P2PNotifier();
 
   // SyncNotifier implementation
-  virtual void AddObserver(SyncNotifierObserver* observer) OVERRIDE;
-  virtual void RemoveObserver(SyncNotifierObserver* observer) OVERRIDE;
+  virtual void UpdateRegisteredIds(SyncNotifierObserver* handler,
+                                   const ObjectIdSet& ids) OVERRIDE;
   virtual void SetUniqueId(const std::string& unique_id) OVERRIDE;
   virtual void SetStateDeprecated(const std::string& state) OVERRIDE;
   virtual void UpdateCredentials(
       const std::string& email, const std::string& token) OVERRIDE;
-  virtual void UpdateEnabledTypes(
-      syncer::ModelTypeSet enabled_types) OVERRIDE;
-  virtual void SendNotification(
-      syncer::ModelTypeSet changed_types) OVERRIDE;
+  virtual void SendNotification(ModelTypeSet changed_types) OVERRIDE;
 
   // PushClientObserver implementation.
   virtual void OnNotificationsEnabled() OVERRIDE;
@@ -122,7 +119,7 @@ class P2PNotifier
 
   base::ThreadChecker thread_checker_;
 
-  ObserverList<SyncNotifierObserver> observer_list_;
+  SyncNotifierHelper helper_;
 
   // The push client.
   scoped_ptr<notifier::PushClient> push_client_;
@@ -134,7 +131,7 @@ class P2PNotifier
   // Which set of clients should be sent notifications.
   P2PNotificationTarget send_notification_target_;
 
-  syncer::ModelTypeSet enabled_types_;
+  ModelTypeSet enabled_types_;
 };
 
 }  // namespace syncer

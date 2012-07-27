@@ -24,9 +24,13 @@
 //<include src="../../../shared/js/cr/ui/list_single_selection_model.js"/>
 //<include src="../../../shared/js/cr/ui/list_selection_controller.js"/>
 //<include src="../../../shared/js/cr/ui/list.js"/>
+//<include src="../../../shared/js/cr/ui/grid.js"/>
 
 //<include src="../util.js"/>
 //<include src="../file_type.js"/>
+//<include src="../directory_contents.js"/>
+//<include src="../volume_manager.js"/>
+//<include src="../file_copy_manager_wrapper.js"/>
 //<include src="../metadata/metadata_cache.js"/>
 //<include src="../metrics.js"/>
 //<include src="../image_editor/image_util.js"/>

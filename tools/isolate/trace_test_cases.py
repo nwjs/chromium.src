@@ -9,7 +9,6 @@ Gives detailed information about each test case. The logs can be read afterward
 with ./trace_inputs.py read -l /path/to/executable.logs
 """
 
-import fnmatch
 import logging
 import multiprocessing
 import optparse
@@ -18,9 +17,8 @@ import sys
 import time
 
 import isolate_common
-import list_test_cases
+import run_test_cases
 import trace_inputs
-import worker_pool
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(os.path.dirname(BASE_DIR))
@@ -37,7 +35,7 @@ class Tracer(object):
   def map(self, test_case):
     """Traces a single test case and returns its output."""
     cmd = [self.executable, '--gtest_filter=%s' % test_case]
-    cmd = list_test_cases.fix_python_path(cmd)
+    cmd = run_test_cases.fix_python_path(cmd)
     tracename = test_case.replace('/', '-')
 
     out = []
@@ -58,41 +56,14 @@ class Tracer(object):
           })
       logging.debug(
           'Tracing %s done: %d, %.1fs' % (test_case, returncode,  duration))
-      if not valid:
-        self.progress.increase_count()
       if retry:
-        self.progress.update_item('%s - %d' % (test_case, retry))
+        self.progress.update_item(
+            '%s - %d' % (test_case, retry), True, not valid)
       else:
-        self.progress.update_item(test_case)
+        self.progress.update_item(test_case, True, not valid)
       if valid:
         break
     return out
-
-
-def get_test_cases(executable, whitelist, blacklist, index, shards):
-  """Returns the filtered list of test cases.
-
-  This is done synchronously.
-  """
-  try:
-    tests = list_test_cases.list_test_cases(
-        executable, index, shards, False, False, False)
-  except list_test_cases.Failure, e:
-    print e.args[0]
-    return None
-
-  # Filters the test cases with the two lists.
-  if blacklist:
-    tests = [
-      t for t in tests if not any(fnmatch.fnmatch(t, s) for s in blacklist)
-    ]
-  if whitelist:
-    tests = [
-      t for t in tests if any(fnmatch.fnmatch(t, s) for s in whitelist)
-    ]
-  logging.info(
-      'Found %d test cases in %s' % (len(tests), os.path.basename(executable)))
-  return tests
 
 
 def trace_test_cases(
@@ -111,8 +82,8 @@ def trace_test_cases(
   assert os.path.isdir(full_cwd_dir)
   logname = output_file + '.logs'
 
-  progress = worker_pool.Progress(len(test_cases))
-  with worker_pool.ThreadPool(jobs or multiprocessing.cpu_count()) as pool:
+  progress = run_test_cases.Progress(len(test_cases))
+  with run_test_cases.ThreadPool(jobs or multiprocessing.cpu_count()) as pool:
     api = trace_inputs.get_api()
     api.clean_trace(logname)
     with api.get_tracer(logname) as tracer:
@@ -199,6 +170,11 @@ def trace_test_cases(
 
 def main():
   """CLI frontend to validate arguments."""
+  def as_digit(variable, default):
+    if variable.isdigit():
+      return int(variable)
+    return default
+
   default_variables = [('OS', isolate_common.get_flavor())]
   if sys.platform in ('win32', 'cygwin'):
     default_variables.append(('EXECUTABLE_SUFFIX', '.exe'))
@@ -244,6 +220,7 @@ def main():
       action='count',
       default=0,
       help='Use multiple times to increase verbosity')
+
   group = optparse.OptionGroup(parser, 'Which test cases to run')
   group.add_option(
       '-w', '--whitelist',
@@ -260,10 +237,12 @@ def main():
   group.add_option(
       '-i', '--index',
       type='int',
+      default=as_digit(os.environ.get('GTEST_SHARD_INDEX', ''), None),
       help='Shard index to run')
   group.add_option(
       '-s', '--shards',
       type='int',
+      default=as_digit(os.environ.get('GTEST_TOTAL_SHARDS', ''), None),
       help='Total number of shards to calculate from the --index to run')
   group.add_option(
       '-T', '--test-case-file',
@@ -307,7 +286,7 @@ def main():
     with open(options.test_case_file, 'r') as f:
       test_cases = filter(None, f.read().splitlines())
   else:
-    test_cases = get_test_cases(
+    test_cases = run_test_cases.get_test_cases(
         executable,
         options.whitelist,
         options.blacklist,

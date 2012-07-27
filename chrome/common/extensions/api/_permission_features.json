@@ -13,7 +13,7 @@
     "extension_types": ["extension", "packaged_app", "platform_app"],
     "min_manifest_version": 2
   },
-  "appWindow": {
+  "app.window": {
     "channel": "dev",
     "extension_types": ["platform_app"]
   },
@@ -132,6 +132,10 @@
     "channel": "dev",
     "extension_types": ["platform_app"]
   },
+  "fontSettings": {
+    "channel": "stable",
+    "extension_types": ["extension", "packaged_app", "platform_app"]
+  },
   "geolocation": {
     "channel": "stable",
     "extension_types": [
@@ -174,6 +178,18 @@
   "management": {
     "channel": "stable",
     "extension_types": ["extension", "packaged_app"]
+  },
+  "mediaGalleries": {
+    "channel": "stable",
+    "extension_types": [ "platform_app" ]
+  },
+  "mediaGalleriesAllGalleries": {
+    "channel": "stable",
+    "extension_types": [ "platform_app" ]
+  },
+  "mediaGalleriesRead": {
+    "channel": "stable",
+    "extension_types": [ "platform_app" ]
   },
   "mediaPlayerPrivate": {
     "channel": "stable",
@@ -274,6 +290,11 @@
   "videoCapture": {
     "channel": "stable",
     "extension_types": ["platform_app"]
+  },
+  "wallpaperPrivate": {
+    "channel": "stable",
+    "extension_types": ["extension", "packaged_app"],
+    "location": "component"
   },
   "webNavigation": {
     "channel": "stable",

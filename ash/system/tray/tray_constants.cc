@@ -14,6 +14,13 @@ const int kPaddingFromOuterEdgeOfLauncherVerticalAlignment = 8;
 const int kPaddingFromInnerEdgeOfLauncherVerticalAlignment = 7;
 const int kPaddingFromBottomOfScreenVerticalAlignment = 10;
 
+const int kTrayImageItemHorizontalPaddingBottomAlignment = 1;
+const int kTrayImageItemHorizontalPaddingVerticalAlignment = 1;
+const int kTrayImageItemVerticalPaddingVerticalAlignment = 1;
+
+const int kTrayLabelItemHorizontalPaddingBottomAlignment = 7;
+const int kTrayLabelItemVerticalPaddingVeriticalAlignment = 4;
+
 const int kTrayPopupAutoCloseDelayInSeconds = 2;
 const int kTrayPopupAutoCloseDelayForTextInSeconds = 5;
 const int kTrayPopupPaddingHorizontal = 18;
@@ -23,6 +30,7 @@ const int kTrayPopupTextSpacingVertical = 4;
 const int kTrayPopupItemHeight = 48;
 const int kTrayPopupDetailsIconWidth = 27;
 const int kTrayRoundedBorderRadius = 2;
+const int kTrayBarButtonWidth = 39;
 
 const SkColor kBackgroundColor = SkColorSetRGB(0xfe, 0xfe, 0xfe);
 const SkColor kHoverBackgroundColor = SkColorSetRGB(0xf5, 0xf5, 0xf5);

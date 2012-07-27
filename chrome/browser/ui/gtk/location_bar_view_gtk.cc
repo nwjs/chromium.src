@@ -26,7 +26,6 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/api/commands/command_service.h"
 #include "chrome/browser/extensions/api/commands/command_service_factory.h"
-#include "chrome/browser/extensions/extension_browser_event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/location_bar_controller.h"
@@ -1342,7 +1341,7 @@ void LocationBarViewGtk::UpdateChromeToMobileIcon() {
 
   Profile* profile = browser_->profile();
   bool enabled = !toolbar_model_->input_in_progress() &&
-      ChromeToMobileServiceFactory::GetForProfile(profile)->HasDevices();
+      ChromeToMobileServiceFactory::GetForProfile(profile)->HasMobiles();
   gtk_widget_set_visible(chrome_to_mobile_view_.get(), enabled);
   command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE, enabled);
 }

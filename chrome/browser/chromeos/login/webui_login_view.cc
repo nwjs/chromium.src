@@ -33,6 +33,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "ui/aura/env.h"
 #include "ui/gfx/rect.h"
 #include "ui/gfx/size.h"
 #include "ui/views/controls/webview/webview.h"
@@ -204,7 +205,7 @@ void WebUILoginView::LoadURL(const GURL & url) {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   // Only enable transparency on sign in screen, not on lock screen.
   if (BaseLoginDisplayHost::default_host() &&
-      command_line->HasSwitch(switches::kEnableNewOobe)) {
+      !command_line->HasSwitch(switches::kDisableNewOobe)) {
     // TODO(nkostylev): Use WebContentsObserver::RenderViewCreated to track
     // when RenderView is created.
     // Use a background with transparency to trigger transparency in Webkit.
@@ -235,10 +236,13 @@ void WebUILoginView::OpenProxySettings() {
 void WebUILoginView::SetStatusAreaVisible(bool visible) {
   ash::SystemTray* tray = ash::Shell::GetInstance()->system_tray();
   if (tray) {
-    if (visible)
+    if (visible) {
+      // Tray may have been initialized being hidden.
+      tray->SetVisible(visible);
       tray->GetWidget()->Show();
-    else
+    } else {
       tray->GetWidget()->Hide();
+    }
   }
 }
 
@@ -348,6 +352,10 @@ void WebUILoginView::OnLoginPromptVisible() {
   // Notify OOBE that the login frame has been rendered. Currently
   // this is used to start camera presence check.
   oobe_ui->OnLoginPromptVisible();
+
+  // Let RenderWidgetHostViewAura::OnPaint() show white background when
+  // loading page and when backing store is not present.
+  aura::Env::GetInstance()->set_render_white_bg(true);
 }
 
 void WebUILoginView::ReturnFocus(bool reverse) {

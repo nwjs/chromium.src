@@ -115,6 +115,11 @@ bool BrowserActionButton::CanHandleAccelerators() const {
   return true;
 }
 
+void BrowserActionButton::GetAccessibleState(ui::AccessibleViewState* state) {
+  views::MenuButton::GetAccessibleState(state);
+  state->role = ui::AccessibilityTypes::ROLE_PUSHBUTTON;
+}
+
 void BrowserActionButton::ButtonPressed(views::Button* sender,
                                         const views::Event& event) {
   panel_->OnBrowserActionExecuted(this);
@@ -165,8 +170,8 @@ void BrowserActionButton::UpdateState() {
     SetState(views::CustomButton::BS_DISABLED);
   } else {
     SetState(menu_visible_ ?
-             views::CustomButton::BS_NORMAL :
-             views::CustomButton::BS_PUSHED);
+             views::CustomButton::BS_PUSHED :
+             views::CustomButton::BS_NORMAL);
   }
 
   SkBitmap icon(browser_action()->GetIcon(tab_id));

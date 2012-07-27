@@ -26,7 +26,6 @@
   ],
   'defines': [
     'HAS_OUT_OF_PROC_TEST_RUNNER',
-    'BROWSER_TESTS_HEADER_OVERRIDE="chrome/test/base/in_process_browser_test.h"',
   ],
   'include_dirs': [
     '<(src_dir)',
@@ -56,11 +55,9 @@
         '<(SHARED_INTERMEDIATE_DIR)/chrome/common_resources.rc',
         '<(SHARED_INTERMEDIATE_DIR)/chrome/extensions_api_resources.rc',
         '<(SHARED_INTERMEDIATE_DIR)/chrome/renderer_resources.rc',
-        '<(SHARED_INTERMEDIATE_DIR)/chrome/theme_resources_standard.rc',
         '<(SHARED_INTERMEDIATE_DIR)/chrome_version/other_version.rc',
         '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.rc',
         '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
-        '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_standard.rc',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.rc',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.rc',
       ],

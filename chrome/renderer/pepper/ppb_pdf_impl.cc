@@ -4,9 +4,11 @@
 
 #include "chrome/renderer/pepper/ppb_pdf_impl.h"
 
+#include "base/command_line.h"
 #include "base/metrics/histogram.h"
 #include "base/utf_string_conversions.h"
 #include "build/build_config.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/renderer/print_web_view_helper.h"
 #include "content/public/common/child_process_sandbox_support_linux.h"
@@ -170,7 +172,9 @@ PP_Resource GetResourceImage(PP_Instance instance_id,
   if (!content::GetHostGlobals()->GetInstance(instance_id))
     return 0;
   scoped_refptr<webkit::ppapi::PPB_ImageData_Impl> image_data(
-      new webkit::ppapi::PPB_ImageData_Impl(instance_id));
+      new webkit::ppapi::PPB_ImageData_Impl(
+          instance_id,
+          webkit::ppapi::PPB_ImageData_Impl::PLATFORM));
   if (!image_data->Init(
           webkit::ppapi::PPB_ImageData_Impl::GetNativeImageDataFormat(),
           res_bitmap->width(), res_bitmap->height(), false)) {
@@ -347,6 +351,18 @@ void SaveAs(PP_Instance instance_id) {
   instance->delegate()->SaveURLAs(instance->plugin_url());
 }
 
+PP_Bool IsFeatureEnabled(PP_PDFFeature feature) {
+  PP_Bool result = PP_FALSE;
+  switch (feature) {
+    case PP_PDFFEATURE_HIDPI:
+      if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableHighDPIPDFPlugin))
+        result = PP_TRUE;
+      break;
+  }
+  return result;
+}
+
 const PPB_PDF ppb_pdf = {
   &GetLocalizedString,
   &GetResourceImage,
@@ -360,7 +376,8 @@ const PPB_PDF ppb_pdf = {
   &UserMetricsRecordAction,
   &HasUnsupportedFeature,
   &SaveAs,
-  &PPB_PDF_Impl::InvokePrintingForInstance
+  &PPB_PDF_Impl::InvokePrintingForInstance,
+  &IsFeatureEnabled
 };
 
 }  // namespace

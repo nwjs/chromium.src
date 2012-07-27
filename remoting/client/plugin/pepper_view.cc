@@ -8,9 +8,11 @@
 
 #include "base/message_loop.h"
 #include "base/string_util.h"
+#include "base/time.h"
 #include "base/synchronization/waitable_event.h"
 #include "ppapi/cpp/completion_callback.h"
-#include "ppapi/cpp/graphics_2d.h"
+#include "ppapi/cpp/dev/graphics_2d_dev.h"
+#include "ppapi/cpp/dev/view_dev.h"
 #include "ppapi/cpp/image_data.h"
 #include "ppapi/cpp/point.h"
 #include "ppapi/cpp/rect.h"
@@ -31,39 +33,6 @@ namespace {
 // The maximum number of image buffers to be allocated at any point of time.
 const size_t kMaxPendingBuffersCount = 2;
 
-// TODO(sergeyu): Ideally we should just pass ErrorCode to the webapp
-// and let it handle it, but it would be hard to fix it now because
-// client plugin and webapp versions may not be in sync. It should be
-// easy to do after we are finished moving the client plugin to NaCl.
-ChromotingInstance::ConnectionError ConvertConnectionError(
-    protocol::ErrorCode error) {
-  switch (error) {
-    case protocol::OK:
-      return ChromotingInstance::ERROR_NONE;
-
-    case protocol::PEER_IS_OFFLINE:
-      return ChromotingInstance::ERROR_HOST_IS_OFFLINE;
-
-    case protocol::SESSION_REJECTED:
-    case protocol::AUTHENTICATION_FAILED:
-      return ChromotingInstance::ERROR_SESSION_REJECTED;
-
-    case protocol::INCOMPATIBLE_PROTOCOL:
-      return ChromotingInstance::ERROR_INCOMPATIBLE_PROTOCOL;
-
-    case protocol::HOST_OVERLOAD:
-      return ChromotingInstance::ERROR_HOST_OVERLOAD;
-
-    case protocol::CHANNEL_CONNECTION_ERROR:
-    case protocol::SIGNALING_ERROR:
-    case protocol::SIGNALING_TIMEOUT:
-    case protocol::UNKNOWN_ERROR:
-      return ChromotingInstance::ERROR_NETWORK_FAILURE;
-  }
-  DLOG(FATAL) << "Unknown error code" << error;
-  return  ChromotingInstance::ERROR_NONE;
-}
-
 }  // namespace
 
 PepperView::PepperView(ChromotingInstance* instance,
@@ -77,30 +46,16 @@ PepperView::PepperView(ChromotingInstance* instance,
     view_size_(SkISize::Make(0, 0)),
     clip_area_(SkIRect::MakeEmpty()),
     source_size_(SkISize::Make(0, 0)),
+    source_dpi_(SkIPoint::Make(0, 0)),
+    view_size_dips_(SkISize::Make(0, 0)),
+    view_scale_(1.0f),
     flush_pending_(false),
     is_initialized_(false),
     frame_received_(false) {
+  InitiateDrawing();
 }
 
 PepperView::~PepperView() {
-  DCHECK(merge_buffer_ == NULL);
-  DCHECK(buffers_.empty());
-}
-
-bool PepperView::Initialize() {
-  DCHECK(!is_initialized_);
-
-  is_initialized_ = true;
-  InitiateDrawing();
-  return true;
-}
-
-void PepperView::TearDown() {
-  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
-  DCHECK(is_initialized_);
-
-  is_initialized_ = false;
-
   // The producer should now return any pending buffers. At this point, however,
   // ReturnBuffer() tasks scheduled by the producer will not be delivered,
   // so we free all the buffers once the producer's queue is empty.
@@ -115,66 +70,46 @@ void PepperView::TearDown() {
   }
 }
 
-void PepperView::SetConnectionState(protocol::ConnectionToHost::State state,
-                                    protocol::ErrorCode error) {
-  DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
-
-  switch (state) {
-    case protocol::ConnectionToHost::CONNECTING:
-      instance_->SetConnectionState(
-          ChromotingInstance::STATE_CONNECTING,
-          ConvertConnectionError(error));
-      break;
-
-    case protocol::ConnectionToHost::CONNECTED:
-      instance_->SetConnectionState(
-          ChromotingInstance::STATE_CONNECTED,
-          ConvertConnectionError(error));
-      break;
-
-    case protocol::ConnectionToHost::CLOSED:
-      instance_->SetConnectionState(
-          ChromotingInstance::STATE_CLOSED,
-          ConvertConnectionError(error));
-      break;
-
-    case protocol::ConnectionToHost::FAILED:
-      instance_->SetConnectionState(
-          ChromotingInstance::STATE_FAILED,
-          ConvertConnectionError(error));
-      break;
-  }
-}
-
-protocol::ClipboardStub* PepperView::GetClipboardStub() {
-  return instance_;
-}
-
-protocol::CursorShapeStub* PepperView::GetCursorShapeStub() {
-  return instance_;
-}
-
-void PepperView::SetView(const SkISize& view_size, const SkIRect& clip_area) {
+void PepperView::SetView(const pp::View& view) {
   bool view_changed = false;
 
-  if (view_size_ != view_size) {
+  pp::Rect pp_size = view.GetRect();
+  SkISize new_size_dips = SkISize::Make(pp_size.width(), pp_size.height());
+  pp::ViewDev view_dev(view);
+  float new_scale = view_dev.GetDeviceScale();
+
+  if (view_size_dips_ != new_size_dips || view_scale_ != new_scale) {
     view_changed = true;
-    view_size_ = view_size;
+    view_scale_ = new_scale;
+    view_size_dips_ = new_size_dips;
+    view_size_ = SkISize::Make(ceilf(view_size_dips_.width() * view_scale_),
+                               ceilf(view_size_dips_.height() * view_scale_));
 
     pp::Size pp_size = pp::Size(view_size_.width(), view_size_.height());
     graphics2d_ = pp::Graphics2D(instance_, pp_size, true);
+
+    // Ideally we would always let Graphics2D scale us, but the output quality
+    // is lousy, so we don't.
+    pp::Graphics2DDev graphics2d_dev(graphics2d_);
+    graphics2d_dev.SetScale(1.0f / view_scale_);
+
     bool result = instance_->BindGraphics(graphics2d_);
 
     // There is no good way to handle this error currently.
     DCHECK(result) << "Couldn't bind the device context.";
   }
 
-  if (clip_area_ != clip_area) {
+  pp::Rect pp_clip = view.GetClipRect();
+  SkIRect new_clip = SkIRect::MakeLTRB(floorf(pp_clip.x() * view_scale_),
+                                       floorf(pp_clip.y() * view_scale_),
+                                       ceilf(pp_clip.right() * view_scale_),
+                                       ceilf(pp_clip.bottom() * view_scale_));
+  if (clip_area_ != new_clip) {
     view_changed = true;
 
     // YUV to RGB conversion may require even X and Y coordinates for
     // the top left corner of the clipping area.
-    clip_area_ = AlignRect(clip_area);
+    clip_area_ = AlignRect(new_clip);
     clip_area_.intersect(SkIRect::MakeSize(view_size_));
   }
 
@@ -210,12 +145,6 @@ void PepperView::ApplyBuffer(const SkISize& view_size,
 void PepperView::ReturnBuffer(pp::ImageData* buffer) {
   DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
 
-  // Free the buffer if there is nothing to paint.
-  if (!is_initialized_) {
-    FreeBuffer(buffer);
-    return;
-  }
-
   // Reuse the buffer if it is large enough, otherwise drop it on the floor
   // and allocate a new one.
   if (buffer->size().width() >= clip_area_.width() &&
@@ -227,16 +156,18 @@ void PepperView::ReturnBuffer(pp::ImageData* buffer) {
   }
 }
 
-void PepperView::SetSourceSize(const SkISize& source_size) {
+void PepperView::SetSourceSize(const SkISize& source_size,
+                               const SkIPoint& source_dpi) {
   DCHECK(context_->main_task_runner()->BelongsToCurrentThread());
 
-  if (source_size_ == source_size)
+  if (source_size_ == source_size && source_dpi_ == source_dpi)
     return;
 
   source_size_ = source_size;
+  source_dpi_ = source_dpi;
 
   // Notify JavaScript of the change in source size.
-  instance_->SetDesktopSize(source_size.width(), source_size.height());
+  instance_->SetDesktopSize(source_size, source_dpi);
 }
 
 pp::ImageData* PepperView::AllocateBuffer() {
@@ -268,9 +199,6 @@ void PepperView::FreeBuffer(pp::ImageData* buffer) {
 }
 
 void PepperView::InitiateDrawing() {
-  if (!is_initialized_)
-    return;
-
   pp::ImageData* buffer = AllocateBuffer();
   while (buffer) {
     producer_->DrawBuffer(buffer);

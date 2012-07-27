@@ -25,6 +25,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/test/browser_test_utils.h"
 
 using extensions::Extension;
 using performance_monitor::Event;
@@ -131,7 +132,7 @@ class PerformanceMonitorBrowserTest : public ExtensionBrowserTest {
     // If we begin the tests prior to full initialization, we cannot predict
     // the behavior or mock synchronicity as we must. Wait for initialization
     // to complete fully before proceeding with the test.
-    ui_test_utils::WindowedNotificationObserver windowed_observer(
+    content::WindowedNotificationObserver windowed_observer(
         chrome::NOTIFICATION_PERFORMANCE_MONITOR_INITIALIZED,
         content::NotificationService::AllSources());
 
@@ -285,12 +286,12 @@ IN_PROC_BROWSER_TEST_F(PerformanceMonitorBrowserTest, UpdateExtensionEvent) {
   ExtensionService* extension_service =
       browser()->profile()->GetExtensionService();
 
-  CrxInstaller* crx_installer = NULL;
+  extensions::CrxInstaller* crx_installer = NULL;
 
   // Create an observer to wait for the update to finish.
-  ui_test_utils::WindowedNotificationObserver windowed_observer(
+  content::WindowedNotificationObserver windowed_observer(
       chrome::NOTIFICATION_CRX_INSTALLER_DONE,
-      content::Source<CrxInstaller>(crx_installer));
+      content::Source<extensions::CrxInstaller>(crx_installer));
   ASSERT_TRUE(extension_service->
       UpdateExtension(extension->id(), path_v2_, GURL(), &crx_installer));
   windowed_observer.Wait();
@@ -401,7 +402,7 @@ IN_PROC_BROWSER_TEST_F(PerformanceMonitorBrowserTest, NewVersionEvent) {
 // case when hand-testing). This code can be traced to MSDN functions in
 // base::GetTerminationStatus(), so there's not much we can do.
 IN_PROC_BROWSER_TEST_F(PerformanceMonitorBrowserTest, KilledByOSEvent) {
-  ui_test_utils::CrashTab(chrome::GetActiveWebContents(browser()));
+  content::CrashTab(chrome::GetActiveWebContents(browser()));
 
   std::vector<linked_ptr<Event> > events = GetEvents();
 
@@ -410,7 +411,8 @@ IN_PROC_BROWSER_TEST_F(PerformanceMonitorBrowserTest, KilledByOSEvent) {
 }
 #endif  // !defined(OS_WIN)
 
-IN_PROC_BROWSER_TEST_F(PerformanceMonitorBrowserTest, RendererCrashEvent) {
+IN_PROC_BROWSER_TEST_F(PerformanceMonitorBrowserTest,
+                       DISABLED_RendererCrashEvent) {
   ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUICrashURL));
 
   std::vector<linked_ptr<Event> > events = GetEvents();

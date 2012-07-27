@@ -37,6 +37,7 @@
 #include "webkit/media/webmediaplayer_proxy.h"
 #include "webkit/media/webmediaplayer_util.h"
 #include "webkit/media/webvideoframe_impl.h"
+#include "webkit/plugins/ppapi/ppapi_webplugin_impl.h"
 
 using WebKit::WebCanvas;
 using WebKit::WebMediaPlayer;
@@ -131,7 +132,7 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       audio_source_provider_(audio_source_provider),
       audio_renderer_sink_(audio_renderer_sink),
       is_local_source_(false),
-      decryptor_(proxy_.get()) {
+      decryptor_(proxy_.get(), client, frame) {
   media_log_->AddEvent(
       media_log_->CreateEvent(media::MediaLogEvent::WEBMEDIAPLAYER_CREATED));
 
@@ -293,7 +294,7 @@ void WebMediaPlayerImpl::pause() {
 
   paused_ = true;
   pipeline_->SetPlaybackRate(0.0f);
-  paused_time_ = pipeline_->GetCurrentTime();
+  paused_time_ = pipeline_->GetMediaTime();
 
   media_log_->AddEvent(media_log_->CreateEvent(media::MediaLogEvent::PAUSE));
 
@@ -458,7 +459,7 @@ float WebMediaPlayerImpl::currentTime() const {
   DCHECK_EQ(main_loop_, MessageLoop::current());
   if (paused_)
     return static_cast<float>(paused_time_.InSecondsF());
-  return static_cast<float>(pipeline_->GetCurrentTime().InSecondsF());
+  return static_cast<float>(pipeline_->GetMediaTime().InSecondsF());
 }
 
 int WebMediaPlayerImpl::dataRate() const {
@@ -818,7 +819,7 @@ void WebMediaPlayerImpl::OnPipelineSeek(PipelineStatus status) {
 
   // Update our paused time.
   if (paused_)
-    paused_time_ = pipeline_->GetCurrentTime();
+    paused_time_ = pipeline_->GetMediaTime();
 
   GetClient()->timeChanged();
 }
@@ -951,13 +952,10 @@ void WebMediaPlayerImpl::SetOpaque(bool opaque) {
   GetClient()->setOpaque(opaque);
 }
 
-void WebMediaPlayerImpl::DataSourceInitialized(
-    const GURL& gurl,
-    media::PipelineStatus status) {
+void WebMediaPlayerImpl::DataSourceInitialized(const GURL& gurl, bool success) {
   DCHECK_EQ(main_loop_, MessageLoop::current());
 
-  if (status != media::PIPELINE_OK) {
-    DVLOG(1) << "DataSourceInitialized status: " << status;
+  if (!success) {
     SetNetworkState(WebMediaPlayer::NetworkStateFormatError);
     Repaint();
     return;

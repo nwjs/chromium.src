@@ -99,6 +99,7 @@ using content::IndexedDBContext;
 using content::PluginService;
 using extensions::APIPermission;
 using extensions::APIPermissionSet;
+using extensions::CrxInstaller;
 using extensions::Extension;
 using extensions::ExtensionCreator;
 using extensions::ExtensionPrefs;
@@ -2502,7 +2503,7 @@ TEST_F(ExtensionServiceTest, AddPendingExtensionFromSync) {
       kFakeId, kFakeUpdateURL, &IsExtension,
       kFakeInstallSilently));
 
-  const PendingExtensionInfo* pending_extension_info;
+  const extensions::PendingExtensionInfo* pending_extension_info;
   ASSERT_TRUE((pending_extension_info = service_->pending_extension_manager()->
       GetById(kFakeId)));
   EXPECT_EQ(kFakeUpdateURL, pending_extension_info->update_url());
@@ -2605,7 +2606,7 @@ TEST_F(ExtensionServiceTest, UpdatePendingExternalCrxWinsOverSync) {
       kGoodInstallSilently));
 
   // Check that there is a pending crx, with is_from_sync set to true.
-  const PendingExtensionInfo* pending_extension_info;
+  const extensions::PendingExtensionInfo* pending_extension_info;
   ASSERT_TRUE((pending_extension_info = service_->pending_extension_manager()->
       GetById(kGoodId)));
   EXPECT_TRUE(pending_extension_info->is_from_sync());
@@ -4138,6 +4139,8 @@ TEST(ExtensionServiceTestSimple, Enabledness) {
   // Explicitly delete all the resources used in this test.
   profile.reset();
   service = NULL;
+  // Execute any pending deletion tasks.
+  loop.RunAllPending();
 }
 
 // Test loading extensions that require limited and unlimited storage quotas.
@@ -4768,7 +4771,7 @@ TEST_F(ExtensionServiceTest, ProcessSyncDataNotInstalled) {
   EXPECT_FALSE(service_->IsExtensionEnabled(good_crx));
   EXPECT_TRUE(service_->IsIncognitoEnabled(good_crx));
 
-  const PendingExtensionInfo* info;
+  const extensions::PendingExtensionInfo* info;
   EXPECT_TRUE((info = service_->pending_extension_manager()->
       GetById(good_crx)));
   EXPECT_EQ(ext_specifics->update_url(), info->update_url().spec());
@@ -4787,7 +4790,8 @@ TEST_F(ExtensionServiceTest, InstallPriorityExternalUpdateUrl) {
   ValidateIntegerPref(good_crx, "state", Extension::ENABLED);
   ValidateIntegerPref(good_crx, "location", Extension::INTERNAL);
 
-  PendingExtensionManager* pending = service_->pending_extension_manager();
+  extensions::PendingExtensionManager* pending =
+      service_->pending_extension_manager();
   EXPECT_FALSE(pending->IsIdPending(kGoodId));
 
   // Skip install when the location is the same.
@@ -4848,7 +4852,8 @@ TEST_F(ExtensionServiceTest, InstallPriorityExternalLocalFile) {
             Extension::GetHigherPriorityLocation(Extension::EXTERNAL_PREF,
                                                  Extension::INTERNAL));
 
-  PendingExtensionManager* pending = service_->pending_extension_manager();
+  extensions::PendingExtensionManager* pending =
+      service_->pending_extension_manager();
   EXPECT_FALSE(pending->IsIdPending(kGoodId));
 
   // Simulate an external source adding the extension as INTERNAL.
@@ -4986,7 +4991,8 @@ TEST_F(ExtensionServiceTest, ConcurrentExternalLocalFile) {
 
   InitializeEmptyExtensionService();
 
-  PendingExtensionManager* pending = service_->pending_extension_manager();
+  extensions::PendingExtensionManager* pending =
+      service_->pending_extension_manager();
   EXPECT_FALSE(pending->IsIdPending(kGoodId));
 
   // An external provider starts installing from a local crx.
@@ -4994,7 +5000,7 @@ TEST_F(ExtensionServiceTest, ConcurrentExternalLocalFile) {
       service_->OnExternalExtensionFileFound(
           kGoodId, &kVersion123, kInvalidPathToCrx,
           Extension::EXTERNAL_PREF, kCreationFlags, kDontMarkAcknowledged));
-  const PendingExtensionInfo* info;
+  const extensions::PendingExtensionInfo* info;
   EXPECT_TRUE((info = pending->GetById(kGoodId)));
   EXPECT_TRUE(info->version().IsValid());
   EXPECT_TRUE(info->version().Equals(kVersion123));
@@ -5102,7 +5108,7 @@ class ExtensionSourcePriorityTest : public ExtensionServiceTest {
 
   // Get the install source of a pending extension.
   Extension::Location GetPendingLocation() {
-    const PendingExtensionInfo* info;
+    const extensions::PendingExtensionInfo* info;
     EXPECT_TRUE((info = service_->pending_extension_manager()->
         GetById(crx_id_)));
     return info->install_source();
@@ -5110,7 +5116,7 @@ class ExtensionSourcePriorityTest : public ExtensionServiceTest {
 
   // Is an extension pending from a sync request?
   bool GetPendingIsFromSync() {
-    const PendingExtensionInfo* info;
+    const extensions::PendingExtensionInfo* info;
     EXPECT_TRUE((info = service_->pending_extension_manager()->
         GetById(crx_id_)));
     return info->is_from_sync();

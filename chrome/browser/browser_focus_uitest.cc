@@ -32,6 +32,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/test/test_server.h"
 
 #if defined(TOOLKIT_VIEWS) || defined(OS_WIN)
@@ -176,7 +177,7 @@ class BrowserFocusTest : public InProcessBrowserTest {
         FROM_HERE,
         base::Bind(&CheckFocus, browser(), vid, timeout),
         base::TimeDelta::FromMilliseconds(100));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
     return IsViewFocused(vid);
   }
 
@@ -234,7 +235,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_ClickingMovesFocus) {
       FROM_HERE,
       MessageLoop::QuitClosure(),
       base::TimeDelta::FromMilliseconds(kActionDelayMs));
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
 #endif  // defined(OS_POSIX)
 
   ASSERT_TRUE(IsViewFocused(location_bar_focus_view_id_));
@@ -275,7 +276,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_BrowsersRememberFocus) {
   // of Activate() is not well defined and can vary by window manager.
 #if defined(OS_WIN)
   // Open a new browser window.
-  Browser* browser2 = Browser::Create(browser()->profile());
+  Browser* browser2 = new Browser(Browser::CreateParams(browser()->profile()));
   ASSERT_TRUE(browser2);
   chrome::AddBlankTab(browser2, true);
   browser2->window()->Show();
@@ -429,7 +430,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest,
   ASSERT_TRUE(test_server()->Start());
 
   // Open a new browser window.
-  Browser* browser2 = Browser::Create(browser()->profile());
+  Browser* browser2 = new Browser(Browser::CreateParams(browser()->profile()));
   ASSERT_TRUE(browser2);
   chrome::AddBlankTab(browser2, true);
   browser2->window()->Show();
@@ -463,7 +464,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest,
   // Activate the first browser.
   focused_browser->window()->Activate();
 
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
+  ASSERT_TRUE(content::ExecuteJavaScript(
       chrome::GetActiveWebContents(unfocused_browser)->GetRenderViewHost(), L"",
       L"stealFocus();"));
 
@@ -482,7 +483,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, LocationBarLockFocus) {
 
   chrome::FocusLocationBar(browser());
 
-  ASSERT_TRUE(ui_test_utils::ExecuteJavaScript(
+  ASSERT_TRUE(content::ExecuteJavaScript(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
       L"stealFocus();"));
 
@@ -528,7 +529,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FocusTraversal) {
       SCOPED_TRACE(base::StringPrintf("inner loop %" PRIuS, j));
       // Let's make sure the focus is on the expected element in the page.
       std::string actual;
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+      ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
           chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
           L"",
           L"window.domAutomationController.send(getFocusedElement());",
@@ -601,7 +602,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FocusTraversal) {
 
       // Let's make sure the focus is on the expected element in the page.
       std::string actual;
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+      ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
           chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
           L"",
           L"window.domAutomationController.send(getFocusedElement());",
@@ -636,7 +637,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FocusTraversalOnInterstitial) {
   MessageLoop::current()->PostDelayedTask(FROM_HERE,
                                           MessageLoop::QuitClosure(),
                                           base::TimeDelta::FromSeconds(1));
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
 
   chrome::FocusLocationBar(browser());
 
@@ -660,7 +661,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FocusTraversalOnInterstitial) {
     for (size_t j = 0; j < 7; ++j) {
       // Let's make sure the focus is on the expected element in the page.
       std::string actual;
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+      ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
           interstitial_page->render_view_host(), L"",
           L"window.domAutomationController.send(getFocusedElement());",
           &actual));
@@ -720,7 +721,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FocusTraversalOnInterstitial) {
 
       // Let's make sure the focus is on the expected element in the page.
       std::string actual;
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+      ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
           interstitial_page->render_view_host(), L"",
           L"window.domAutomationController.send(getFocusedElement());",
           &actual));
@@ -761,7 +762,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, InterstitialFocus) {
   MessageLoop::current()->PostDelayedTask(FROM_HERE,
                                           MessageLoop::QuitClosure(),
                                           base::TimeDelta::FromSeconds(1));
-  ui_test_utils::RunMessageLoop();
+  content::RunMessageLoop();
 
   // The interstitial should have focus now.
   ASSERT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
@@ -840,26 +841,26 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_TabInitialFocus) {
 
   // Open the history tab, focus should be on the tab contents.
   chrome::ShowHistory(browser());
-  ASSERT_NO_FATAL_FAILURE(ui_test_utils::WaitForLoadStop(
+  ASSERT_NO_FATAL_FAILURE(content::WaitForLoadStop(
       chrome::GetActiveWebContents(browser())));
   EXPECT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
 
   // Open the new tab, focus should be on the location bar.
   chrome::NewTab(browser());
-  ASSERT_NO_FATAL_FAILURE(ui_test_utils::WaitForLoadStop(
+  ASSERT_NO_FATAL_FAILURE(content::WaitForLoadStop(
       chrome::GetActiveWebContents(browser())));
   EXPECT_TRUE(IsViewFocused(location_bar_focus_view_id_));
 
   // Open the download tab, focus should be on the tab contents.
   chrome::ShowDownloads(browser());
-  ASSERT_NO_FATAL_FAILURE(ui_test_utils::WaitForLoadStop(
+  ASSERT_NO_FATAL_FAILURE(content::WaitForLoadStop(
       chrome::GetActiveWebContents(browser())));
   EXPECT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
 
   // Open about:blank, focus should be on the location bar.
   chrome::AddSelectedTabWithURL(browser(), GURL(chrome::kAboutBlankURL),
                                 content::PAGE_TRANSITION_LINK);
-  ASSERT_NO_FATAL_FAILURE(ui_test_utils::WaitForLoadStop(
+  ASSERT_NO_FATAL_FAILURE(content::WaitForLoadStop(
       chrome::GetActiveWebContents(browser())));
   EXPECT_TRUE(IsViewFocused(location_bar_focus_view_id_));
 }
@@ -871,7 +872,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusOnReload) {
 
   // Open the new tab, reload.
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
     chrome::NewTab(browser());
@@ -880,7 +881,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusOnReload) {
   ui_test_utils::RunAllPendingInMessageLoop();
 
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(
             &chrome::GetActiveWebContents(browser())->GetController()));
@@ -895,7 +896,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusOnReload) {
   chrome::FocusLocationBar(browser());
   ASSERT_TRUE(IsViewFocused(location_bar_focus_view_id_));
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(
             &chrome::GetActiveWebContents(browser())->GetController()));
@@ -915,9 +916,9 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, DISABLED_FocusOnReloadCrashedTab) {
 
   // Open a regular page, crash, reload.
   ui_test_utils::NavigateToURL(browser(), test_server()->GetURL(kSimplePage));
-  ui_test_utils::CrashTab(chrome::GetActiveWebContents(browser()));
+  content::CrashTab(chrome::GetActiveWebContents(browser()));
   {
-    ui_test_utils::WindowedNotificationObserver observer(
+    content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::Source<NavigationController>(
             &chrome::GetActiveWebContents(browser())->GetController()));

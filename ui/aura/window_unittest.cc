@@ -268,6 +268,25 @@ TEST_F(WindowTest, Contains) {
   EXPECT_FALSE(child2.Contains(&child1));
 }
 
+TEST_F(WindowTest, ContainsPointInRoot) {
+  scoped_ptr<Window> w(
+      CreateTestWindow(SK_ColorWHITE, 1, gfx::Rect(10, 10, 5, 5), NULL));
+  EXPECT_FALSE(w->ContainsPointInRoot(gfx::Point(9, 9)));
+  EXPECT_TRUE(w->ContainsPointInRoot(gfx::Point(10, 10)));
+  EXPECT_TRUE(w->ContainsPointInRoot(gfx::Point(14, 14)));
+  EXPECT_FALSE(w->ContainsPointInRoot(gfx::Point(15, 15)));
+  EXPECT_FALSE(w->ContainsPointInRoot(gfx::Point(20, 20)));
+}
+
+TEST_F(WindowTest, ContainsPoint) {
+  scoped_ptr<Window> w(
+      CreateTestWindow(SK_ColorWHITE, 1, gfx::Rect(10, 10, 5, 5), NULL));
+  EXPECT_TRUE(w->ContainsPoint(gfx::Point(0, 0)));
+  EXPECT_TRUE(w->ContainsPoint(gfx::Point(4, 4)));
+  EXPECT_FALSE(w->ContainsPoint(gfx::Point(5, 5)));
+  EXPECT_FALSE(w->ContainsPoint(gfx::Point(10, 10)));
+}
+
 TEST_F(WindowTest, ConvertPointToWindow) {
   // Window::ConvertPointToWindow is mostly identical to
   // Layer::ConvertPointToLayer, except NULL values for |source| are permitted,
@@ -291,15 +310,27 @@ TEST_F(WindowTest, MoveCursorTo) {
 
   RootWindow* root = root_window();
   root->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("10,10", root->last_mouse_location().ToString());
+  EXPECT_EQ("10,10", gfx::Screen::GetCursorScreenPoint().ToString());
   w1->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("20,20", root->last_mouse_location().ToString());
+  EXPECT_EQ("20,20", gfx::Screen::GetCursorScreenPoint().ToString());
   w11->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("25,25", root->last_mouse_location().ToString());
+  EXPECT_EQ("25,25", gfx::Screen::GetCursorScreenPoint().ToString());
   w111->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("30,30", root->last_mouse_location().ToString());
+  EXPECT_EQ("30,30", gfx::Screen::GetCursorScreenPoint().ToString());
   w1111->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("35,35", root->last_mouse_location().ToString());
+  EXPECT_EQ("35,35", gfx::Screen::GetCursorScreenPoint().ToString());
+}
+
+TEST_F(WindowTest, ContainsMouse) {
+  scoped_ptr<Window> w(
+      CreateTestWindow(SK_ColorWHITE, 1, gfx::Rect(10, 10, 500, 500), NULL));
+  w->Show();
+  Window::TestApi w_test_api(w.get());
+  RootWindow* root = root_window();
+  root->MoveCursorTo(gfx::Point(10, 10));
+  EXPECT_TRUE(w_test_api.ContainsMouse());
+  root->MoveCursorTo(gfx::Point(9, 10));
+  EXPECT_FALSE(w_test_api.ContainsMouse());
 }
 
 // Test Window::ConvertPointToWindow() with transform to root_window.
@@ -315,7 +346,7 @@ TEST_F(WindowTest, MoveCursorToWithTransformRootWindow) {
   // TODO(yoshiki): fix this to build on Windows. See crbug.com/133413.OD
   EXPECT_EQ("50,120", root->QueryMouseLocationForTest().ToString());
 #endif
-  EXPECT_EQ("10,10", root->last_mouse_location().ToString());
+  EXPECT_EQ("10,10", gfx::Screen::GetCursorScreenPoint().ToString());
 }
 
 // Tests Window::ConvertPointToWindow() with transform to non-root windows.
@@ -323,24 +354,23 @@ TEST_F(WindowTest, MoveCursorToWithTransformWindow) {
   scoped_ptr<Window> w1(
       CreateTestWindow(SK_ColorWHITE, 1, gfx::Rect(10, 10, 500, 500), NULL));
 
-  RootWindow* root = root_window();
   ui::Transform transform1;
   transform1.ConcatScale(2, 2);
   w1->SetTransform(transform1);
   w1->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("30,30", root->last_mouse_location().ToString());
+  EXPECT_EQ("30,30", gfx::Screen::GetCursorScreenPoint().ToString());
 
   ui::Transform transform2;
   transform2.ConcatTranslate(-10, 20);
   w1->SetTransform(transform2);
   w1->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("10,40", root->last_mouse_location().ToString());
+  EXPECT_EQ("10,40", gfx::Screen::GetCursorScreenPoint().ToString());
 
   ui::Transform transform3;
   transform3.ConcatRotate(90.0f);
   w1->SetTransform(transform3);
   w1->MoveCursorTo(gfx::Point(5, 5));
-  EXPECT_EQ("5,15", root->last_mouse_location().ToString());
+  EXPECT_EQ("5,15", gfx::Screen::GetCursorScreenPoint().ToString());
 
   ui::Transform transform4;
   transform4.ConcatScale(2, 5);
@@ -348,7 +378,7 @@ TEST_F(WindowTest, MoveCursorToWithTransformWindow) {
   transform4.ConcatTranslate(100, 100);
   w1->SetTransform(transform4);
   w1->MoveCursorTo(gfx::Point(10, 10));
-  EXPECT_EQ("60,130", root->last_mouse_location().ToString());
+  EXPECT_EQ("60,130", gfx::Screen::GetCursorScreenPoint().ToString());
 }
 
 // Test Window::ConvertPointToWindow() with complex transforms to both root and
@@ -381,7 +411,7 @@ TEST_F(WindowTest, MoveCursorToWithComplexTransform) {
   // TODO(yoshiki): fix this to build on Windows. See crbug.com/133413.OD
   EXPECT_EQ("11,47", root->QueryMouseLocationForTest().ToString());
 #endif
-  EXPECT_EQ("20,53", root->last_mouse_location().ToString());
+  EXPECT_EQ("20,53", gfx::Screen::GetCursorScreenPoint().ToString());
 }
 
 TEST_F(WindowTest, HitTest) {
@@ -934,22 +964,22 @@ TEST_F(WindowTest, ReleaseCaptureOnDestroy) {
   EXPECT_EQ(NULL, aura::client::GetCaptureWindow(root_window()));
 }
 
-TEST_F(WindowTest, GetRootWindowBounds) {
+TEST_F(WindowTest, GetBoundsInRootWindow) {
   scoped_ptr<Window> viewport(CreateTestWindowWithBounds(
       gfx::Rect(0, 0, 300, 300), NULL));
   scoped_ptr<Window> child(CreateTestWindowWithBounds(
       gfx::Rect(0, 0, 100, 100), viewport.get()));
   // Sanity check.
-  EXPECT_EQ("0,0 100x100", child->GetRootWindowBounds().ToString());
+  EXPECT_EQ("0,0 100x100", child->GetBoundsInRootWindow().ToString());
 
   // The |child| window's screen bounds should move along with the |viewport|.
   viewport->SetBounds(gfx::Rect(-100, -100, 300, 300));
-  EXPECT_EQ("-100,-100 100x100", child->GetRootWindowBounds().ToString());
+  EXPECT_EQ("-100,-100 100x100", child->GetBoundsInRootWindow().ToString());
 
   // The |child| window is moved to the 0,0 in screen coordinates.
-  // |GetRootWindowBounds()| should return 0,0.
+  // |GetBoundsInRootWindow()| should return 0,0.
   child->SetBounds(gfx::Rect(100, 100, 100, 100));
-  EXPECT_EQ("0,0 100x100", child->GetRootWindowBounds().ToString());
+  EXPECT_EQ("0,0 100x100", child->GetBoundsInRootWindow().ToString());
 }
 
 class MouseEnterExitWindowDelegate : public TestWindowDelegate {

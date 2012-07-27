@@ -71,6 +71,11 @@ ProgramCache::ProgramLoadResult MemoryProgramCache::LoadLinkedProgram(
                   value->format,
                   static_cast<const GLvoid*>(value->data.get()),
                   value->length);
+  GLint success = 0;
+  glGetProgramiv(program, GL_LINK_STATUS, &success);
+  if (success == GL_FALSE) {
+    return PROGRAM_LOAD_FAILURE;
+  }
   shader_a->set_attrib_map(value->attrib_map_0);
   shader_a->set_uniform_map(value->uniform_map_0);
   shader_b->set_attrib_map(value->attrib_map_1);

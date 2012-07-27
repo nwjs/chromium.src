@@ -164,16 +164,19 @@ class PrerenderContents : public content::NotificationObserver,
       const content::SessionStorageNamespace* session_storage_namespace) const;
 
   // content::WebContentsObserver implementation.
-  virtual void DidStopLoading() OVERRIDE;
+  virtual void DidStopLoading(
+      content::RenderViewHost* render_view_host) OVERRIDE;
   virtual void DidStartProvisionalLoadForFrame(
       int64 frame_id,
       bool is_main_frame,
       const GURL& validated_url,
       bool is_error_page,
       content::RenderViewHost* render_view_host) OVERRIDE;
-  virtual void DidFinishLoad(int64 frame_id,
-                             const GURL& validated_url,
-                             bool is_main_frame) OVERRIDE;
+  virtual void DidFinishLoad(
+      int64 frame_id,
+      const GURL& validated_url,
+      bool is_main_frame,
+      content::RenderViewHost* render_view_host) OVERRIDE;
 
   virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
 

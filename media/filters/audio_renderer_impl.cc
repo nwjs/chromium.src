@@ -10,14 +10,12 @@
 #include "base/callback.h"
 #include "base/callback_helpers.h"
 #include "base/logging.h"
-#include "media/base/filter_host.h"
 #include "media/audio/audio_util.h"
 
 namespace media {
 
 AudioRendererImpl::AudioRendererImpl(media::AudioRendererSink* sink)
-    : host_(NULL),
-      state_(kUninitialized),
+    : state_(kUninitialized),
       pending_read_(false),
       received_end_of_stream_(false),
       rendered_end_of_stream_(false),
@@ -31,12 +29,6 @@ AudioRendererImpl::AudioRendererImpl(media::AudioRendererSink* sink)
       underflow_disabled_(false),
       read_cb_(base::Bind(&AudioRendererImpl::DecodedAudioReady,
                           base::Unretained(this))) {
-}
-
-void AudioRendererImpl::SetHost(FilterHost* host) {
-  DCHECK(host);
-  DCHECK(!host_);
-  host_ = host;
 }
 
 void AudioRendererImpl::Play(const base::Closure& callback) {
@@ -110,15 +102,16 @@ void AudioRendererImpl::Stop(const base::Closure& callback) {
   }
 }
 
-void AudioRendererImpl::Seek(base::TimeDelta time, const PipelineStatusCB& cb) {
+void AudioRendererImpl::Preroll(base::TimeDelta time,
+                                const PipelineStatusCB& cb) {
   base::AutoLock auto_lock(lock_);
   DCHECK_EQ(kPaused, state_);
   DCHECK(!pending_read_) << "Pending read must complete before seeking";
   DCHECK(pause_cb_.is_null());
-  DCHECK(seek_cb_.is_null());
-  state_ = kSeeking;
-  seek_cb_ = cb;
-  seek_timestamp_ = time;
+  DCHECK(preroll_cb_.is_null());
+  state_ = kPrerolling;
+  preroll_cb_ = cb;
+  preroll_timestamp_ = time;
 
   // Throw away everything and schedule our reads.
   audio_time_buffered_ = kNoTimestamp();
@@ -132,28 +125,32 @@ void AudioRendererImpl::Seek(base::TimeDelta time, const PipelineStatusCB& cb) {
   if (stopped_)
     return;
 
-  DoSeek();
-}
-
-void AudioRendererImpl::DoSeek() {
+  // Pause and flush the stream when we preroll to a new location.
   earliest_end_time_ = base::Time::Now();
-
-  // Pause and flush the stream when we seek to a new location.
   sink_->Pause(true);
 }
 
 void AudioRendererImpl::Initialize(const scoped_refptr<AudioDecoder>& decoder,
                                    const PipelineStatusCB& init_cb,
                                    const base::Closure& underflow_cb,
-                                   const TimeCB& time_cb) {
+                                   const TimeCB& time_cb,
+                                   const base::Closure& ended_cb,
+                                   const base::Closure& disabled_cb,
+                                   const PipelineStatusCB& error_cb) {
   DCHECK(decoder);
   DCHECK(!init_cb.is_null());
   DCHECK(!underflow_cb.is_null());
   DCHECK(!time_cb.is_null());
+  DCHECK(!ended_cb.is_null());
+  DCHECK(!disabled_cb.is_null());
+  DCHECK(!error_cb.is_null());
   DCHECK_EQ(kUninitialized, state_);
   decoder_ = decoder;
   underflow_cb_ = underflow_cb;
   time_cb_ = time_cb;
+  ended_cb_ = ended_cb;
+  disabled_cb_ = disabled_cb;
+  error_cb_ = error_cb;
 
   // Create a callback so our algorithm can request more reads.
   base::Closure cb = base::Bind(&AudioRendererImpl::ScheduleRead_Locked, this);
@@ -235,7 +232,7 @@ AudioRendererImpl::~AudioRendererImpl() {
 void AudioRendererImpl::DecodedAudioReady(AudioDecoder::Status status,
                                           const scoped_refptr<Buffer>& buffer) {
   base::AutoLock auto_lock(lock_);
-  DCHECK(state_ == kPaused || state_ == kSeeking || state_ == kPlaying ||
+  DCHECK(state_ == kPaused || state_ == kPrerolling || state_ == kPlaying ||
          state_ == kUnderflow || state_ == kRebuffering || state_ == kStopped);
 
   CHECK(pending_read_);
@@ -273,8 +270,8 @@ void AudioRendererImpl::DecodedAudioReady(AudioDecoder::Status status,
       DCHECK(!pending_read_);
       base::ResetAndReturn(&pause_cb_).Run();
       return;
-    case kSeeking:
-      if (IsBeforeSeekTime(buffer)) {
+    case kPrerolling:
+      if (IsBeforePrerollTime(buffer)) {
         ScheduleRead_Locked();
         return;
       }
@@ -284,7 +281,7 @@ void AudioRendererImpl::DecodedAudioReady(AudioDecoder::Status status,
           return;
       }
       state_ = kPaused;
-      base::ResetAndReturn(&seek_cb_).Run(PIPELINE_OK);
+      base::ResetAndReturn(&preroll_cb_).Run(PIPELINE_OK);
       return;
     case kPlaying:
     case kUnderflow:
@@ -332,9 +329,10 @@ float AudioRendererImpl::GetPlaybackRate() {
   return algorithm_->playback_rate();
 }
 
-bool AudioRendererImpl::IsBeforeSeekTime(const scoped_refptr<Buffer>& buffer) {
-  return (state_ == kSeeking) && buffer && !buffer->IsEndOfStream() &&
-      (buffer->GetTimestamp() + buffer->GetDuration()) < seek_timestamp_;
+bool AudioRendererImpl::IsBeforePrerollTime(
+    const scoped_refptr<Buffer>& buffer) {
+  return (state_ == kPrerolling) && buffer && !buffer->IsEndOfStream() &&
+      (buffer->GetTimestamp() + buffer->GetDuration()) < preroll_timestamp_;
 }
 
 int AudioRendererImpl::Render(const std::vector<float*>& audio_data,
@@ -436,7 +434,7 @@ uint32 AudioRendererImpl::FillBuffer(uint8* dest,
     if (!algorithm_->CanFillBuffer() && received_end_of_stream_ &&
         !rendered_end_of_stream_ && base::Time::Now() >= earliest_end_time_) {
       rendered_end_of_stream_ = true;
-      host_->NotifyEnded();
+      ended_cb_.Run();
     } else if (!algorithm_->CanFillBuffer() && !received_end_of_stream_ &&
                state_ == kPlaying && !underflow_disabled_) {
       state_ = kUnderflow;
@@ -519,7 +517,7 @@ base::TimeDelta AudioRendererImpl::ConvertToDuration(int bytes) {
 }
 
 void AudioRendererImpl::OnRenderError() {
-  host_->DisableAudioRenderer();
+  disabled_cb_.Run();
 }
 
 void AudioRendererImpl::DisableUnderflowForTesting() {
@@ -535,19 +533,19 @@ void AudioRendererImpl::HandleAbortedReadOrDecodeError(bool is_decode_error) {
       return;
     case kPaused:
       if (status != PIPELINE_OK)
-        host_->SetError(status);
+        error_cb_.Run(status);
       base::ResetAndReturn(&pause_cb_).Run();
       return;
-    case kSeeking:
+    case kPrerolling:
       state_ = kPaused;
-      base::ResetAndReturn(&seek_cb_).Run(status);
+      base::ResetAndReturn(&preroll_cb_).Run(status);
       return;
     case kPlaying:
     case kUnderflow:
     case kRebuffering:
     case kStopped:
       if (status != PIPELINE_OK)
-        host_->SetError(status);
+        error_cb_.Run(status);
       return;
   }
 }

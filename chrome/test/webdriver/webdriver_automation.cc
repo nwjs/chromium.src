@@ -208,6 +208,14 @@ class BackwardsCompatAutomationMessageFilter
  private:
   virtual ~BackwardsCompatAutomationMessageFilter();
 
+  // The first version of Chrome using the new IPC automation message set,
+  // after r137672 changed most of the message IDs.
+  static const int kNewAutomationVersion = 1142;
+
+  // The first version of Chrome using the new JSON interface which takes a
+  // browser index instead of a browser handle.
+  static const int kNewJSONInterfaceVersion = 1195;
+
   AutomationProxy* server_;
   bool old_version_;
 
@@ -250,18 +258,24 @@ bool BackwardsCompatAutomationMessageFilter::OnMessageReceived(
 
 IPC::Message* BackwardsCompatAutomationMessageFilter::Rewrite(
     IPC::Message* message) {
-  // If we're not using an old version, don't rewrite the message.
-  if (!old_version_)
-    return message;
-  const uint32 kOldSendJSONRequestType = 1301;
-  int type = -1;
-  switch (message->type()) {
-    case AutomationMsg_SendJSONRequest::ID:
-      type = kOldSendJSONRequestType;
-      break;
-  }
-  // Just crash here instead of sending a bad message to Chrome.
-  CHECK(type != -1) << "Tried to send unknown message: " << message->type();
+  int build_no = -1;
+  std::string version = server_->server_version();
+  std::vector<std::string> version_parts;
+  base::SplitString(version, '.', &version_parts);
+  CHECK(version_parts.size() == 4 &&
+        base::StringToInt(version_parts[2], &build_no))
+      << "Can't rewrite message (type: " << message->type()
+      << ") because unknown server (version: " << version << ")";
+  CHECK_EQ(static_cast<uint32>(AutomationMsg_SendJSONRequest::ID),
+           message->type());
+  int type = AutomationMsg_SendJSONRequest::ID;
+  // These old message types are determined by inspecting the line number
+  // of the SendJSONRequest message in older versions of
+  // automation_messages_internal.h.
+  if (build_no < kNewAutomationVersion)
+    type = 1301;
+  else if (build_no < kNewJSONInterfaceVersion)
+    type = 863;
   IPC::Message* new_message = new MessageWithAlternateType(*message, type);
   delete message;
   return new_message;
@@ -286,7 +300,7 @@ class WebDriverAnonymousProxyLauncher : public AnonymousProxyLauncher {
   virtual ~WebDriverAnonymousProxyLauncher() {}
 
   virtual AutomationProxy* CreateAutomationProxy(
-      int execution_timeout) OVERRIDE {
+      base::TimeDelta execution_timeout) OVERRIDE {
     AutomationProxy* proxy =
         AnonymousProxyLauncher::CreateAutomationProxy(execution_timeout);
     AddBackwardsCompatFilter(proxy);
@@ -302,7 +316,7 @@ class WebDriverNamedProxyLauncher : public NamedProxyLauncher {
   virtual ~WebDriverNamedProxyLauncher() {}
 
   virtual AutomationProxy* CreateAutomationProxy(
-      int execution_timeout) OVERRIDE {
+      base::TimeDelta execution_timeout) OVERRIDE {
     AutomationProxy* proxy =
         NamedProxyLauncher::CreateAutomationProxy(execution_timeout);
     // We can only add the filter here if the browser has not already been
@@ -436,9 +450,10 @@ void Automation::Init(
     return;
   }
 
-  launcher_->automation()->set_action_timeout_ms(base::kNoTimeout);
+  launcher_->automation()->set_action_timeout(
+      base::TimeDelta::FromMilliseconds(base::kNoTimeout));
   logger_.Log(kInfoLogLevel, "Connected to Chrome successfully. Version: " +
-                  automation()->server_version());
+              automation()->server_version());
 
   *error = DetermineBuildNumber();
   if (*error)
@@ -475,14 +490,17 @@ void Automation::Terminate() {
     scoped_ptr<Error> scoped_error(error);
 
     kill(launcher_->process(), SIGTERM);
+#else
+    automation()->Disconnect();
+#endif
     int exit_code = -1;
-    if (!launcher_->WaitForBrowserProcessToQuit(10000, &exit_code)) {
+    if (!launcher_->WaitForBrowserProcessToQuit(
+            base::TimeDelta::FromSeconds(10), &exit_code)) {
+      logger_.Log(kWarningLogLevel, "Chrome still running, terminating...");
       TerminateAllChromeProcesses(launcher_->process_id());
     }
     base::CloseProcessHandle(launcher_->process());
-#else
-    launcher_->TerminateBrowser();
-#endif
+    logger_.Log(kInfoLogLevel, "Chrome shutdown");
   }
 }
 

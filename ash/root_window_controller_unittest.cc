@@ -61,52 +61,34 @@ aura::Window* GetModalContainer(aura::RootWindow* root_window) {
 }  // namespace
 
 namespace test {
-class RootWindowControllerTest : public test::AshTestBase {
- public:
-  RootWindowControllerTest() {}
-  virtual ~RootWindowControllerTest() {}
 
-  virtual void SetUp() OVERRIDE {
-    internal::DisplayController::SetExtendedDesktopEnabled(true);
-    internal::DisplayController::SetVirtualScreenCoordinatesEnabled(true);
-    AshTestBase::SetUp();
-  }
-
-  virtual void TearDown() OVERRIDE {
-    AshTestBase::TearDown();
-    internal::DisplayController::SetExtendedDesktopEnabled(false);
-    internal::DisplayController::SetVirtualScreenCoordinatesEnabled(false);
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(RootWindowControllerTest);
-};
+typedef test::AshTestBase RootWindowControllerTest;
 
 TEST_F(RootWindowControllerTest, MoveWindows_Basic) {
-  UpdateDisplay("0+0-600x600,600+0-500x500");
+  UpdateDisplay("600x600,500x500");
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
 
   views::Widget* normal = CreateTestWidget(gfx::Rect(650, 10, 100, 100));
   EXPECT_EQ(root_windows[1], normal->GetNativeView()->GetRootWindow());
-  EXPECT_EQ("650,10 100x100", normal->GetWindowScreenBounds().ToString());
+  EXPECT_EQ("650,10 100x100", normal->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("50,10 100x100",
-            normal->GetNativeView()->GetRootWindowBounds().ToString());
+            normal->GetNativeView()->GetBoundsInRootWindow().ToString());
 
   views::Widget* maximized = CreateTestWidget(gfx::Rect(700, 10, 100, 100));
   maximized->Maximize();
   EXPECT_EQ(root_windows[1], maximized->GetNativeView()->GetRootWindow());
 #if !defined(OS_WIN)
   // TODO(oshima): Window reports smaller screen size. Investigate why.
-  EXPECT_EQ("600,0 500x500", maximized->GetWindowScreenBounds().ToString());
+  EXPECT_EQ("600,0 500x500", maximized->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("0,0 500x500",
-            maximized->GetNativeView()->GetRootWindowBounds().ToString());
+            maximized->GetNativeView()->GetBoundsInRootWindow().ToString());
 #endif
 
   views::Widget* minimized = CreateTestWidget(gfx::Rect(800, 10, 100, 100));
   minimized->Minimize();
   EXPECT_EQ(root_windows[1], minimized->GetNativeView()->GetRootWindow());
   EXPECT_EQ("800,10 100x100",
-            minimized->GetWindowScreenBounds().ToString());
+            minimized->GetWindowBoundsInScreen().ToString());
 
   views::Widget* fullscreen = CreateTestWidget(gfx::Rect(900, 10, 100, 100));
   fullscreen->SetFullscreen(true);
@@ -114,52 +96,52 @@ TEST_F(RootWindowControllerTest, MoveWindows_Basic) {
 #if !defined(OS_WIN)
   // TODO(oshima): Window reports smaller screen size. Investigate why.
   EXPECT_EQ("600,0 500x500",
-            fullscreen->GetWindowScreenBounds().ToString());
+            fullscreen->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("0,0 500x500",
-            fullscreen->GetNativeView()->GetRootWindowBounds().ToString());
+            fullscreen->GetNativeView()->GetBoundsInRootWindow().ToString());
 #endif
 
-  UpdateDisplay("0+0-600x600");
+  UpdateDisplay("600x600");
 
   EXPECT_EQ(root_windows[0], normal->GetNativeView()->GetRootWindow());
-  EXPECT_EQ("50,10 100x100", normal->GetWindowScreenBounds().ToString());
+  EXPECT_EQ("50,10 100x100", normal->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("50,10 100x100",
-            normal->GetNativeView()->GetRootWindowBounds().ToString());
+            normal->GetNativeView()->GetBoundsInRootWindow().ToString());
 
   // Maximized area on primary display has 2px (given as
   // kAutoHideSize in shelf_layout_manager.cc) inset at the bottom.
   EXPECT_EQ(root_windows[0], maximized->GetNativeView()->GetRootWindow());
   EXPECT_EQ("0,0 600x598",
-            maximized->GetWindowScreenBounds().ToString());
+            maximized->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("0,0 600x598",
-            maximized->GetNativeView()->GetRootWindowBounds().ToString());
+            maximized->GetNativeView()->GetBoundsInRootWindow().ToString());
 
   EXPECT_EQ(root_windows[0], minimized->GetNativeView()->GetRootWindow());
   EXPECT_EQ("200,10 100x100",
-            minimized->GetWindowScreenBounds().ToString());
+            minimized->GetWindowBoundsInScreen().ToString());
 
   EXPECT_EQ(root_windows[0], fullscreen->GetNativeView()->GetRootWindow());
   EXPECT_TRUE(fullscreen->IsFullscreen());
   EXPECT_EQ("0,0 600x600",
-            fullscreen->GetWindowScreenBounds().ToString());
+            fullscreen->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("0,0 600x600",
-            fullscreen->GetNativeView()->GetRootWindowBounds().ToString());
+            fullscreen->GetNativeView()->GetBoundsInRootWindow().ToString());
 
   // Test if the restore bounds are correctly updated.
   wm::RestoreWindow(maximized->GetNativeView());
-  EXPECT_EQ("100,10 100x100", maximized->GetWindowScreenBounds().ToString());
+  EXPECT_EQ("100,10 100x100", maximized->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("100,10 100x100",
-            maximized->GetNativeView()->GetRootWindowBounds().ToString());
+            maximized->GetNativeView()->GetBoundsInRootWindow().ToString());
 
   fullscreen->SetFullscreen(false);
   EXPECT_EQ("300,10 100x100",
-            fullscreen->GetWindowScreenBounds().ToString());
+            fullscreen->GetWindowBoundsInScreen().ToString());
   EXPECT_EQ("300,10 100x100",
-            fullscreen->GetNativeView()->GetRootWindowBounds().ToString());
+            fullscreen->GetNativeView()->GetBoundsInRootWindow().ToString());
 }
 
 TEST_F(RootWindowControllerTest, MoveWindows_Modal) {
-  UpdateDisplay("0+0-500x500,500+0-500x500");
+  UpdateDisplay("500x500,500x500");
 
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
   // Emulate virtual screen coordinate system.
@@ -180,7 +162,7 @@ TEST_F(RootWindowControllerTest, MoveWindows_Modal) {
   generator_1st.ClickLeftButton();
   EXPECT_TRUE(wm::IsActiveWindow(modal->GetNativeView()));
 
-  UpdateDisplay("0+0-500x500");
+  UpdateDisplay("500x500");
   EXPECT_EQ(root_windows[0], modal->GetNativeView()->GetRootWindow());
   EXPECT_TRUE(wm::IsActiveWindow(modal->GetNativeView()));
   generator_1st.ClickLeftButton();

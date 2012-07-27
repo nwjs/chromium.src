@@ -522,7 +522,7 @@ class TestSBClient
         BrowserThread::IO, FROM_HERE,
         base::Bind(&TestSBClient::CheckDownloadUrlOnIOThread,
                    this, url_chain));
-    ui_test_utils::RunMessageLoop();  // Will stop in OnDownloadUrlCheckResult.
+    content::RunMessageLoop();  // Will stop in OnDownloadUrlCheckResult.
   }
 
   void CheckDownloadHash(const std::string& full_hash) {
@@ -530,7 +530,7 @@ class TestSBClient
         BrowserThread::IO, FROM_HERE,
         base::Bind(&TestSBClient::CheckDownloadHashOnIOThread,
                    this, full_hash));
-    ui_test_utils::RunMessageLoop();  // Will stop in OnDownloadHashCheckResult.
+    content::RunMessageLoop();  // Will stop in OnDownloadHashCheckResult.
   }
 
  private:
@@ -875,7 +875,7 @@ class SafeBrowsingServiceCookieTest : public InProcessBrowserTest {
 // Test that a Safe Browsing database update request both sends cookies and can
 // save cookies.
 IN_PROC_BROWSER_TEST_F(SafeBrowsingServiceCookieTest, TestSBUpdateCookies) {
-  ui_test_utils::WindowedNotificationObserver observer(
+  content::WindowedNotificationObserver observer(
       chrome::NOTIFICATION_SAFE_BROWSING_UPDATE_COMPLETE,
       content::Source<SafeBrowsingService>(sb_service_.get()));
   BrowserThread::PostTask(

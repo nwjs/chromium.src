@@ -84,6 +84,8 @@ class GpuChannelManager : public IPC::Listener,
   void AddRoute(int32 routing_id, IPC::Listener* listener);
   void RemoveRoute(int32 routing_id);
 
+  gpu::gles2::ProgramCache* program_cache();
+
   GpuMemoryManager* gpu_memory_manager() { return &gpu_memory_manager_; }
 
   GpuChannel* LookupChannel(int32 client_id);

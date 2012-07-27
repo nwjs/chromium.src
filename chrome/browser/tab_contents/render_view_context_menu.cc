@@ -1151,7 +1151,12 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return IsDevCommandEnabled(id);
 
     case IDC_CONTENT_CONTEXT_VIEWPAGEINFO:
-      return source_web_contents_->GetController().GetActiveEntry() != NULL;
+      if (source_web_contents_->GetController().GetActiveEntry() == NULL)
+        return false;
+      // Disabled if no browser is associated (e.g. desktop notifications).
+      if (browser::FindBrowserWithWebContents(source_web_contents_) == NULL)
+        return false;
+      return true;
 
     case IDC_CONTENT_CONTEXT_TRANSLATE: {
       TabContents* tab_contents =
@@ -1329,19 +1334,19 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
              incognito_avail != IncognitoModePrefs::DISABLED;
 
     case IDC_PRINT:
-      if (g_browser_process->local_state() &&
-          !g_browser_process->local_state()->GetBoolean(
-              prefs::kPrintingEnabled)) {
-        return false;
-      }
-      return params_.media_type == WebContextMenuData::MediaTypeNone ||
-             params_.media_flags & WebContextMenuData::MediaCanPrint;
+      return profile_->GetPrefs()->GetBoolean(prefs::kPrintingEnabled) &&
+          (params_.media_type == WebContextMenuData::MediaTypeNone ||
+           params_.media_flags & WebContextMenuData::MediaCanPrint);
 
     case IDC_CONTENT_CONTEXT_SEARCHWEBFOR:
     case IDC_CONTENT_CONTEXT_GOTOURL:
     case IDC_SPELLPANEL_TOGGLE:
     case IDC_CONTENT_CONTEXT_LANGUAGE_SETTINGS:
+      return true;
     case IDC_CONTENT_CONTEXT_VIEWFRAMEINFO:
+      // Disabled if no browser is associated (e.g. desktop notifications).
+      if (browser::FindBrowserWithWebContents(source_web_contents_) == NULL)
+        return false;
       return true;
 
     case IDC_CHECK_SPELLING_WHILE_TYPING:
@@ -1694,8 +1699,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
             TabContents::FromWebContents(source_web_contents_);
         if (!tab_contents)
           break;
-        if (g_browser_process->local_state()->GetBoolean(
-                prefs::kPrintPreviewDisabled)) {
+        if (profile_->GetPrefs()->GetBoolean(prefs::kPrintPreviewDisabled)) {
           tab_contents->print_view_manager()->PrintNow();
         } else {
           tab_contents->print_view_manager()->PrintPreviewNow();

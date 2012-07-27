@@ -16,30 +16,12 @@
 
 namespace ash {
 namespace test {
-class ScreenAshTest : public test::AshTestBase {
- public:
-  ScreenAshTest() {}
-  virtual ~ScreenAshTest() {}
 
-  virtual void SetUp() OVERRIDE {
-    internal::DisplayController::SetExtendedDesktopEnabled(true);
-    internal::DisplayController::SetVirtualScreenCoordinatesEnabled(true);
-    AshTestBase::SetUp();
-  }
-
-  virtual void TearDown() OVERRIDE {
-    AshTestBase::TearDown();
-    internal::DisplayController::SetExtendedDesktopEnabled(false);
-    internal::DisplayController::SetVirtualScreenCoordinatesEnabled(false);
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(ScreenAshTest);
-};
+typedef test::AshTestBase ScreenAshTest;
 
 #if !defined(OS_WIN)
 TEST_F(ScreenAshTest, Bounds) {
-  UpdateDisplay("0+0-600x600,600+0-500x500");
+  UpdateDisplay("600x600,500x500");
 
   views::Widget* primary =
       views::Widget::CreateWindowWithBounds(NULL, gfx::Rect(10, 10, 100, 100));
@@ -50,40 +32,40 @@ TEST_F(ScreenAshTest, Bounds) {
 
   // Maximized bounds
   EXPECT_EQ("0,0 600x598",
-            ScreenAsh::GetMaximizedWindowParentBounds(
+            ScreenAsh::GetMaximizedWindowBoundsInParent(
                 primary->GetNativeView()).ToString());
   EXPECT_EQ("0,0 500x500",
-            ScreenAsh::GetMaximizedWindowParentBounds(
+            ScreenAsh::GetMaximizedWindowBoundsInParent(
                 secondary->GetNativeView()).ToString());
 
   // Unmaximized work area bounds
   EXPECT_EQ("0,0 600x552",
-            ScreenAsh::GetUnmaximizedWorkAreaParentBounds(
+            ScreenAsh::GetUnmaximizedWorkAreaBoundsInParent(
                 primary->GetNativeView()).ToString());
   EXPECT_EQ("0,0 500x500",
-            ScreenAsh::GetUnmaximizedWorkAreaParentBounds(
+            ScreenAsh::GetUnmaximizedWorkAreaBoundsInParent(
                 secondary->GetNativeView()).ToString());
 
   // Display bounds
   EXPECT_EQ("0,0 600x600",
-            ScreenAsh::GetDisplayParentBounds(
+            ScreenAsh::GetDisplayBoundsInParent(
                 primary->GetNativeView()).ToString());
   EXPECT_EQ("0,0 500x500",
-            ScreenAsh::GetDisplayParentBounds(
+            ScreenAsh::GetDisplayBoundsInParent(
                 secondary->GetNativeView()).ToString());
 
   // Work area bounds
   EXPECT_EQ("0,0 600x552",
-            ScreenAsh::GetDisplayWorkAreaParentBounds(
+            ScreenAsh::GetDisplayWorkAreaBoundsInParent(
                 primary->GetNativeView()).ToString());
   EXPECT_EQ("0,0 500x500",
-            ScreenAsh::GetDisplayWorkAreaParentBounds(
+            ScreenAsh::GetDisplayWorkAreaBoundsInParent(
                 secondary->GetNativeView()).ToString());
 }
 #endif
 
 TEST_F(ScreenAshTest, ConvertRect) {
-  UpdateDisplay("0+0-600x600,600+0-500x500");
+  UpdateDisplay("600x600,500x500");
 
   views::Widget* primary =
       views::Widget::CreateWindowWithBounds(NULL, gfx::Rect(10, 10, 100, 100));

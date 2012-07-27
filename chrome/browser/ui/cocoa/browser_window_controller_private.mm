@@ -292,14 +292,16 @@ willPositionSheet:(NSWindow*)sheet
 
   // Calculate the right indentation.  The default indentation built into the
   // tabstrip leaves enough room for the fullscreen button or presentation mode
-  // toggle button on Lion.  On non-Lion systems, the default indentation also
-  // looks fine.
+  // toggle button on Lion.  On non-Lion systems, the right indent needs to be
+  // adjusted to make room for the new tab button when an avatar is present.
   CGFloat rightIndent = 0;
   if (base::mac::IsOSLionOrLater()) {
     FramedBrowserWindow* window =
         static_cast<FramedBrowserWindow*>([self window]);
     DCHECK([window isKindOfClass:[FramedBrowserWindow class]]);
     rightIndent += -[window fullScreenButtonOriginAdjustment].x;
+  } else if ([self shouldShowAvatar]) {
+    rightIndent += kAvatarTabStripShrink;
   }
   [tabStripController_ setRightIndentForControls:rightIndent];
 
@@ -507,16 +509,6 @@ willPositionSheet:(NSWindow*)sheet
 }
 
 // Fullscreen and presentation mode methods
-
-- (BOOL)shouldUsePresentationModeWhenEnteringFullscreen {
-  return browser_->profile()->GetPrefs()->GetBoolean(
-      prefs::kPresentationModeEnabled);
-}
-
-- (void)setShouldUsePresentationModeWhenEnteringFullscreen:(BOOL)flag {
-  browser_->profile()->GetPrefs()->SetBoolean(
-      prefs::kPresentationModeEnabled, flag);
-}
 
 - (BOOL)shouldShowPresentationModeToggle {
   return base::mac::IsOSLionOrLater() && [self isFullscreen];
@@ -807,9 +799,8 @@ willPositionSheet:(NSWindow*)sheet
 
   NSWindow* window = [self window];
   savedRegularWindowFrame_ = [window frame];
-  BOOL mode = [self shouldUsePresentationModeWhenEnteringFullscreen];
-  mode = mode ||
-         browser_->fullscreen_controller()->IsFullscreenForTabOrPending();
+  BOOL mode = enteringPresentationMode_ ||
+       browser_->fullscreen_controller()->IsFullscreenForTabOrPending();
   enteringFullscreen_ = YES;
   [self setPresentationModeInternal:mode forceDropdown:NO];
 }
@@ -818,6 +809,7 @@ willPositionSheet:(NSWindow*)sheet
   if (base::mac::IsOSLionOrLater())
     [self deregisterForContentViewResizeNotifications];
   enteringFullscreen_ = NO;
+  enteringPresentationMode_ = NO;
   [self showFullscreenExitBubbleIfNecessary];
   browser_->WindowFullscreenStateChanged();
 }

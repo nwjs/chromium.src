@@ -87,6 +87,7 @@ void APIPermission::RegisterAllPermissions(
     { kContextMenus, "contextMenus" },
     { kCookie, "cookies" },
     { kFileBrowserHandler, "fileBrowserHandler", kFlagCannotBeOptional },
+    { kFontSettings, "fontSettings", kFlagCannotBeOptional },
     { kHistory, "history", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_BROWSING_HISTORY,
       PermissionMessage::kBrowsingHistory },
@@ -98,6 +99,8 @@ void APIPermission::RegisterAllPermissions(
     { kManagement, "management", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_MANAGEMENT,
       PermissionMessage::kManagement },
+    { kMediaGalleries, "mediaGalleries" },
+    { kMediaGalleriesRead, "mediaGalleriesRead" },
     { kPageCapture, "pageCapture", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_ALL_PAGES_CONTENT,
       PermissionMessage::kAllPageContent },
@@ -136,7 +139,8 @@ void APIPermission::RegisterAllPermissions(
     { kInputMethodPrivate, "inputMethodPrivate", kFlagCannotBeOptional },
     { kEchoPrivate, "echoPrivate", kFlagCannotBeOptional },
     { kTerminalPrivate, "terminalPrivate", kFlagCannotBeOptional },
-    { kWebRequestInternal, "webRequestInternal", kFlagCannotBeOptional },
+    { kWallpaperPrivate, "wallpaperPrivate", kFlagCannotBeOptional },
+    { kWebRequestInternal, "webRequestInternal" },
     { kWebSocketProxyPrivate, "webSocketProxyPrivate", kFlagCannotBeOptional },
     { kWebstorePrivate, "webstorePrivate", kFlagCannotBeOptional },
 
@@ -155,7 +159,7 @@ void APIPermission::RegisterAllPermissions(
 
     // Platform-app permissions.
     { kSocket, "socket", kFlagCannotBeOptional },
-    { kAppWindow, "appWindow" },
+    { kAppWindow, "app.window" },
     { kAudioCapture, "audioCapture", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_AUDIO_CAPTURE,
       PermissionMessage::kAudioCapture },
@@ -166,6 +170,10 @@ void APIPermission::RegisterAllPermissions(
     { kFileSystemWrite, "fileSystemWrite", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_FILE_SYSTEM_WRITE,
       PermissionMessage::kFileSystemWrite },
+    { kMediaGalleriesAllGalleries, "mediaGalleriesAllGalleries",
+      kFlagCannotBeOptional,
+      IDS_EXTENSION_PROMPT_WARNING_MEDIA_GALLERIES_ALL_GALLERIES,
+      PermissionMessage::kMediaGalleriesAllGalleries },
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(PermissionsToRegister); ++i) {

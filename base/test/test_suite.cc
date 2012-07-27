@@ -17,7 +17,6 @@
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/test/multiprocess_test.h"
-#include "base/test/test_switches.h"
 #include "base/test/test_timeouts.h"
 #include "base/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -34,6 +33,10 @@
 
 #if defined(OS_ANDROID)
 #include "base/test/test_support_android.h"
+#endif
+
+#if defined(OS_IOS)
+#include "base/test/test_support_ios.h"
 #endif
 
 #if defined(TOOLKIT_GTK)
@@ -73,46 +76,6 @@ class TestClientInitializer : public testing::EmptyTestEventListener {
 };
 
 }  // namespace
-
-namespace base {
-
-class TestWatchAtExitManager : public testing::EmptyTestEventListener {
- public:
-  TestWatchAtExitManager() { }
-  ~TestWatchAtExitManager() { }
-
-  virtual void OnTestStart(const testing::TestInfo& test_info) OVERRIDE {
-    initial_top_manager_ = AtExitManager::current();
-    at_exit_stack_size_ = initial_top_manager_->CallbackStackSize();
-  }
-
-  virtual void OnTestEnd(const testing::TestInfo& test_info) OVERRIDE {
-    AtExitManager* new_top_manager = AtExitManager::current();
-    size_t new_stack_size = new_top_manager->CallbackStackSize();
-
-    if (initial_top_manager_ != new_top_manager) {
-      ADD_FAILURE() << "The current AtExitManager has changed across the "
-          "test " << test_info.test_case_name() << "." << test_info.name() <<
-          " most likely because one was created without being destroyed.";
-    } else if (new_stack_size != at_exit_stack_size_) {
-      // TODO(scottbyer): clean up all the errors that result from this and
-      // turn this into a test failure with
-      // ADD_FAILURE(). http://crbug.com/133403
-      LOG(WARNING) <<
-          "AtExitManager: items were added to the callback list by " <<
-          test_info.test_case_name() << "." << test_info.name() <<
-          ". Global state should be cleaned up before a test exits.";
-    }
-  }
-
- private:
-  AtExitManager* initial_top_manager_;
-  size_t at_exit_stack_size_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestWatchAtExitManager);
-};
-
-}  // namespace base
 
 const char TestSuite::kStrictFailureHandling[] = "strict_failure_handling";
 
@@ -215,12 +178,6 @@ void TestSuite::ResetCommandLine() {
   listeners.Append(new TestClientInitializer);
 }
 
-void TestSuite::WatchAtExitManager() {
-  testing::TestEventListeners& listeners =
-      testing::UnitTest::GetInstance()->listeners();
-  listeners.Append(new TestWatchAtExitManager);
-}
-
 // Don't add additional code to this method.  Instead add it to
 // Initialize().  See bug 6436.
 int TestSuite::Run() {
@@ -303,6 +260,10 @@ void TestSuite::Initialize() {
   mock_cr_app::RegisterMockCrApp();
 #endif
 
+#if defined(OS_IOS)
+  InitIOSTestMessageLoop();
+#endif  // OS_IOS
+
 #if defined(OS_ANDROID)
   InitAndroidTest();
 #else
@@ -340,15 +301,6 @@ void TestSuite::Initialize() {
 
   CatchMaybeTests();
   ResetCommandLine();
-
-  // Don't watch for AtExit items being added if we're running as a child
-  // process (e.g., browser_tests or interactive_ui_tests).
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kSingleProcessTestsFlag) &&
-      !CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kSingleProcessChromeFlag)) {
-    WatchAtExitManager();
-  }
 
   TestTimeouts::Initialize();
 }

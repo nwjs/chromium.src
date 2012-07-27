@@ -30,6 +30,7 @@ import urllib2
 import uuid
 
 # Local modules
+sys.path.insert(0, "/usr/share/chrome-remote-desktop")
 import gaia_auth
 import keygen
 
@@ -58,7 +59,8 @@ else:
 EXE_PATHS_TO_TRY = [
     ".",
     "../../out/Debug",
-    "../../out/Release"
+    "../../out/Release",
+    "/usr/lib/chrome-remote-desktop",
 ]
 
 CONFIG_DIR = os.path.expanduser("~/.config/chrome-remote-desktop")
@@ -281,9 +283,14 @@ class Desktop:
     max_width = max([width for width, height in self.sizes])
     max_height = max([height for width, height in self.sizes])
 
-    logging.info("Starting Xvfb on display :%d" % display);
+    try:
+      xvfb = locate_executable("Xvfb-randr")
+    except Exception:
+      xvfb = "Xvfb"
+
+    logging.info("Starting %s on display :%d" % (xvfb, display));
     screen_option = "%dx%dx24" % (max_width, max_height)
-    self.x_proc = subprocess.Popen(["Xvfb", ":%d" % display,
+    self.x_proc = subprocess.Popen([xvfb, ":%d" % display,
                                     "-noreset",
                                     "-auth", X_AUTH_FILE,
                                     "-nolisten", "tcp",

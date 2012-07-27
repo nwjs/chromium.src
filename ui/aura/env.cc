@@ -5,7 +5,7 @@
 #include "ui/aura/env.h"
 
 #include "base/command_line.h"
-#include "ui/aura/cursor_manager.h"
+#include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env_observer.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/display_manager.h"
@@ -29,6 +29,7 @@ Env* Env::instance_ = NULL;
 Env::Env()
     : mouse_button_flags_(0),
       is_touch_down_(false),
+      render_white_bg_(true),
       stacking_client_(NULL) {
 }
 
@@ -57,6 +58,15 @@ void Env::AddObserver(EnvObserver* observer) {
 
 void Env::RemoveObserver(EnvObserver* observer) {
   observers_.RemoveObserver(observer);
+}
+
+void Env::SetLastMouseLocation(const Window& window,
+                               const gfx::Point& location_in_root) {
+  last_mouse_location_ = location_in_root;
+  client::ScreenPositionClient* client =
+      client::GetScreenPositionClient(window.GetRootWindow());
+  if (client)
+    client->ConvertPointToScreen(&window, &last_mouse_location_);
 }
 
 void Env::SetDisplayManager(DisplayManager* display_manager) {

@@ -307,6 +307,13 @@ void RenderViewHostImpl::SyncRendererPrefs() {
 void RenderViewHostImpl::Navigate(const ViewMsg_Navigate_Params& params) {
   ChildProcessSecurityPolicyImpl::GetInstance()->GrantRequestURL(
       GetProcess()->GetID(), params.url);
+  if (params.url.SchemeIs(chrome::kDataScheme) &&
+      params.base_url_for_data_url.SchemeIs(chrome::kFileScheme)) {
+    // If 'data:' is used, and we have a 'file:' base url, grant access to
+    // local files.
+    ChildProcessSecurityPolicyImpl::GetInstance()->GrantRequestURL(
+        GetProcess()->GetID(), params.base_url_for_data_url);
+  }
 
   ViewMsg_Navigate* nav_message = new ViewMsg_Navigate(GetRoutingID(), params);
 
@@ -339,7 +346,7 @@ void RenderViewHostImpl::Navigate(const ViewMsg_Navigate_Params& params) {
   // WebKit doesn't send throb notifications for JavaScript URLs, so we
   // don't want to either.
   if (!params.url.SchemeIs(chrome::kJavaScriptScheme))
-    delegate_->DidStartLoading();
+    delegate_->DidStartLoading(this);
 
   FOR_EACH_OBSERVER(content::RenderViewHostObserver,
                     observers_, Navigate(params.url));
@@ -534,8 +541,13 @@ void RenderViewHostImpl::DragTargetDragEnter(
     FilePath path = FilePath::FromUTF8Unsafe(UTF16ToUTF8(iter->path));
 
     // Make sure we have the same display_name as the one we register.
-    std::string name = files.AddPath(path);
-    iter->display_name = UTF8ToUTF16(name);
+    if (iter->display_name.empty()) {
+      std::string name;
+      files.AddPath(path, &name);
+      iter->display_name = UTF8ToUTF16(name);
+    } else {
+      files.AddPathWithName(path, UTF16ToUTF8(iter->display_name));
+    }
 
     policy->GrantRequestSpecificFileURL(renderer_id,
                                         net::FilePathToFileURL(path));
@@ -557,7 +569,8 @@ void RenderViewHostImpl::DragTargetDragEnter(
   fileapi::IsolatedContext* isolated_context =
       fileapi::IsolatedContext::GetInstance();
   DCHECK(isolated_context);
-  std::string filesystem_id = isolated_context->RegisterFileSystem(files);
+  std::string filesystem_id = isolated_context->RegisterDraggedFileSystem(
+      files);
   if (!filesystem_id.empty()) {
     // Grant the permission iff the ID is valid.
     policy->GrantReadFileSystem(renderer_id, filesystem_id);
@@ -785,7 +798,7 @@ void RenderViewHostImpl::FilesSelectedInChooser(
   for (size_t i = 0; i < files.size(); ++i) {
     const ui::SelectedFileInfo& file = files[i];
     ChildProcessSecurityPolicyImpl::GetInstance()->GrantPermissionsForFile(
-        GetProcess()->GetID(), file.path, permissions);
+        GetProcess()->GetID(), file.local_path, permissions);
   }
   Send(new ViewMsg_RunFileChooserResponse(GetRoutingID(), files));
 }
@@ -848,9 +861,13 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
       return true;
   }
 
-  if (delegate_->OnMessageReceived(msg))
+  if (delegate_->OnMessageReceived(this, msg))
     return true;
 
+  // TODO(jochen): Consider removing message handlers that only add a this
+  // pointer and forward the messages to the RenderViewHostDelegate. The
+  // respective delegates can handle the messages themselves in their
+  // OnMessageReceived implementation.
   bool handled = true;
   bool msg_is_ok = true;
   IPC_BEGIN_MESSAGE_MAP_EX(RenderViewHostImpl, msg, msg_is_ok)
@@ -1021,10 +1038,12 @@ void RenderViewHostImpl::OnMsgRunModal(int opener_id, IPC::Message* reply_msg) {
 
   RenderViewHostImpl* opener =
       RenderViewHostImpl::FromID(GetProcess()->GetID(), run_modal_opener_id_);
-  opener->StopHangMonitorTimeout();
-  // The ack for the mouse down won't come until the dialog closes, so fake it
-  // so that we don't get a timeout.
-  opener->decrement_in_flight_event_count();
+  if (opener) {
+    opener->StopHangMonitorTimeout();
+    // The ack for the mouse down won't come until the dialog closes, so fake it
+    // so that we don't get a timeout.
+    opener->decrement_in_flight_event_count();
+  }
 
   // TODO(darin): Bug 1107929: Need to inform our delegate to show this view in
   // an app-modal fashion.
@@ -1190,11 +1209,11 @@ void RenderViewHostImpl::OnMsgRequestMove(const gfx::Rect& pos) {
 }
 
 void RenderViewHostImpl::OnMsgDidStartLoading() {
-  delegate_->DidStartLoading();
+  delegate_->DidStartLoading(this);
 }
 
 void RenderViewHostImpl::OnMsgDidStopLoading() {
-  delegate_->DidStopLoading();
+  delegate_->DidStopLoading(this);
 }
 
 void RenderViewHostImpl::OnMsgDidChangeLoadProgress(double load_progress) {
@@ -1527,8 +1546,8 @@ void RenderViewHostImpl::ForwardMouseEvent(
   }
 }
 
-void RenderViewHostImpl::OnMouseActivate() {
-  delegate_->HandleMouseActivate();
+void RenderViewHostImpl::OnPointerEventActivate() {
+  delegate_->HandlePointerActivate();
 }
 
 void RenderViewHostImpl::ForwardKeyboardEvent(

@@ -450,6 +450,7 @@ DeterministicSocketData::DeterministicSocketData(MockRead* reads,
       stopping_sequence_number_(0),
       stopped_(false),
       print_debug_(false) {
+  VerifyCorrectSequenceNumbers(reads, reads_count, writes, writes_count);
 }
 
 DeterministicSocketData::~DeterministicSocketData() {}
@@ -603,6 +604,32 @@ void DeterministicSocketData::NextStep() {
     SetStopped(true);
 }
 
+void DeterministicSocketData::VerifyCorrectSequenceNumbers(
+    MockRead* reads, size_t reads_count,
+    MockWrite* writes, size_t writes_count) {
+  size_t read = 0;
+  size_t write = 0;
+  int expected = 0;
+  while (read < reads_count || write < writes_count) {
+    // Check to see that we have a read or write at the expected
+    // state.
+    if (read < reads_count  && reads[read].sequence_number == expected) {
+      ++read;
+      ++expected;
+      continue;
+    }
+    if (write < writes_count && writes[write].sequence_number == expected) {
+      ++write;
+      ++expected;
+      continue;
+    }
+    NOTREACHED() << "Missing sequence number: " << expected;
+    return;
+  }
+  DCHECK_EQ(read, reads_count);
+  DCHECK_EQ(write, writes_count);
+}
+
 MockClientSocketFactory::MockClientSocketFactory() {}
 
 MockClientSocketFactory::~MockClientSocketFactory() {}
@@ -702,10 +729,6 @@ int MockClientSocket::GetLocalAddress(IPEndPoint* address) const {
 
 const BoundNetLog& MockClientSocket::NetLog() const {
   return net_log_;
-}
-
-void MockClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
-  NOTREACHED();
 }
 
 void MockClientSocket::GetSSLCertRequestInfo(
@@ -870,6 +893,14 @@ base::TimeDelta MockTCPClientSocket::GetConnectTimeMicros() const {
   static const base::TimeDelta kTestingConnectTimeMicros =
       base::TimeDelta::FromMicroseconds(20);
   return kTestingConnectTimeMicros;
+}
+
+bool MockTCPClientSocket::WasNpnNegotiated() const {
+  return false;
+}
+
+bool MockTCPClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
+  return false;
 }
 
 void MockTCPClientSocket::OnReadComplete(const MockRead& data) {
@@ -1071,6 +1102,14 @@ base::TimeDelta DeterministicMockTCPClientSocket::GetConnectTimeMicros() const {
   return base::TimeDelta::FromMicroseconds(-1);
 }
 
+bool DeterministicMockTCPClientSocket::WasNpnNegotiated() const {
+  return false;
+}
+
+bool DeterministicMockTCPClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
+  return false;
+}
+
 void DeterministicMockTCPClientSocket::OnReadComplete(const MockRead& data) {}
 
 // static
@@ -1158,11 +1197,12 @@ base::TimeDelta MockSSLClientSocket::GetConnectTimeMicros() const {
   return base::TimeDelta::FromMicroseconds(-1);
 }
 
-void MockSSLClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
+bool MockSSLClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
   ssl_info->Reset();
   ssl_info->cert = data_->cert;
   ssl_info->client_cert_sent = data_->client_cert_sent;
   ssl_info->channel_id_sent = data_->channel_id_sent;
+  return true;
 }
 
 void MockSSLClientSocket::GetSSLCertRequestInfo(
@@ -1184,15 +1224,15 @@ SSLClientSocket::NextProtoStatus MockSSLClientSocket::GetNextProto(
   return data_->next_proto_status;
 }
 
-bool MockSSLClientSocket::was_npn_negotiated() const {
-  if (is_npn_state_set_)
-    return new_npn_value_;
-  return data_->was_npn_negotiated;
-}
-
 bool MockSSLClientSocket::set_was_npn_negotiated(bool negotiated) {
   is_npn_state_set_ = true;
   return new_npn_value_ = negotiated;
+}
+
+bool MockSSLClientSocket::WasNpnNegotiated() const {
+  if (is_npn_state_set_)
+    return new_npn_value_;
+  return data_->was_npn_negotiated;
 }
 
 NextProto MockSSLClientSocket::GetNegotiatedProtocol() const {

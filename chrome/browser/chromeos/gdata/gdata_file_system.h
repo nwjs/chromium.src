@@ -32,7 +32,6 @@ namespace gdata {
 
 class DocumentsServiceInterface;
 class DriveWebAppsRegistryInterface;
-class GDataFileProto;
 struct UploadFileInfo;
 
 namespace {
@@ -58,9 +57,9 @@ class GDataFileSystem : public GDataFileSystemInterface,
   virtual void StartUpdates() OVERRIDE;
   virtual void StopUpdates() OVERRIDE;
   virtual void CheckForUpdates() OVERRIDE;
-  virtual void GetFileInfoByResourceId(
+  virtual void GetEntryInfoByResourceId(
       const std::string& resource_id,
-      const GetFileInfoWithFilePathCallback& callback) OVERRIDE;
+      const GetEntryInfoWithFilePathCallback& callback) OVERRIDE;
   virtual void Search(const std::string& search_query,
                       const SearchCallback& callback) OVERRIDE;
   virtual void TransferFileFromRemoteToLocal(
@@ -105,9 +104,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
   virtual void GetEntryInfoByPath(
       const FilePath& file_path,
       const GetEntryInfoCallback& callback) OVERRIDE;
-  virtual void GetFileInfoByPath(
-      const FilePath& file_path,
-      const GetFileInfoCallback& callback) OVERRIDE;
   virtual void ReadDirectoryByPath(
       const FilePath& file_path,
       const ReadDirectoryCallback& callback) OVERRIDE;
@@ -176,6 +172,9 @@ class GDataFileSystem : public GDataFileSystemInterface,
   // Struct used to record UMA stats with FeedToFileResourceMap().
   struct FeedToFileResourceMapUmaStats;
 
+  // Struct used for StartFileUploadOnUIThread().
+  struct StartFileUploadParams;
+
   // Finds entry object by |file_path| and returns the entry object.
   // Returns NULL if it does not find the entry.
   GDataEntry* GetGDataEntryByPath(const FilePath& file_path);
@@ -242,22 +241,23 @@ class GDataFileSystem : public GDataFileSystemInterface,
       const FileOperationCallback& callback,
       GDataFileError result);
 
-  // Invoked upon completion of GetFileInfoByPath initiated by
+  // Invoked upon completion of GetEntryInfoByPath initiated by
   // GetFileByPath. It then continues to invoke GetResolvedFileByPath.
-  void OnGetFileInfoCompleteForGetFileByPath(
+  void OnGetEntryInfoCompleteForGetFileByPath(
       const FilePath& file_path,
       const GetFileCallback& get_file_callback,
       const GetDownloadDataCallback& get_download_data_callback,
       GDataFileError error,
-      scoped_ptr<GDataFileProto> file_info);
+      scoped_ptr<GDataEntryProto> file_info);
 
-  // Invoked upon completion of GetFileInfoByPath initiated by OpenFile.
+  // Invoked upon completion of GetEntryInfoByPath initiated by OpenFile.
   // It then continues to invoke GetResolvedFileByPath and proceeds to
   // OnGetFileCompleteForOpenFile.
-  void OnGetFileInfoCompleteForOpenFile(const FilePath& file_path,
-                                        const OpenFileCallback& callback,
-                                        GDataFileError error,
-                                        scoped_ptr<GDataFileProto> file_info);
+  void OnGetEntryInfoCompleteForOpenFile(
+      const FilePath& file_path,
+      const OpenFileCallback& callback,
+      GDataFileError error,
+      scoped_ptr<GDataEntryProto> file_info);
 
   // Invoked at the last step of OpenFile. It removes |file_path| from the
   // current set of opened files if |result| is an error, and then invokes the
@@ -275,11 +275,11 @@ class GDataFileSystem : public GDataFileSystemInterface,
   // 5) Modifies GDataEntry using the new PlatformFileInfo.
   // 6) Commits the modification to the cache system.
   // 7) Invokes the user-supplied |callback|.
-  void OnGetFileInfoCompleteForCloseFile(
+  void OnGetEntryInfoCompleteForCloseFile(
       const FilePath& file_path,
       const FileOperationCallback& callback,
       GDataFileError error,
-      scoped_ptr<GDataFileProto> file_proto);
+      scoped_ptr<GDataEntryProto> entry_proto);
   void OnGetCacheFilePathCompleteForCloseFile(
       const FilePath& file_path,
       const FileOperationCallback& callback,
@@ -361,6 +361,13 @@ class GDataFileSystem : public GDataFileSystemInterface,
   void Rename(const FilePath& file_path,
               const FilePath::StringType& new_name,
               const FilePathUpdateCallback& callback);
+
+  // Part of Rename(). Called after GetEntryInfoByPath() is complete.
+  void RenameAfterGetEntryInfo(const FilePath& file_path,
+                               const FilePath::StringType& new_name,
+                               const FilePathUpdateCallback& callback,
+                               GDataFileError error,
+                               scoped_ptr<GDataEntryProto> entry_proto);
 
   // Adds a file or directory at |file_path| to the directory at |dir_path|.
   //
@@ -651,12 +658,19 @@ class GDataFileSystem : public GDataFileSystemInterface,
 
   // Kicks off file upload once it receives |file_size| and |content_type|.
   void StartFileUploadOnUIThread(
-      const FilePath& local_file,
-      const FilePath& remote_dest_file,
-      const FileOperationCallback& callback,
+      const StartFileUploadParams& params,
       GDataFileError* error,
       int64* file_size,
       std::string* content_type);
+
+  // Part of StartFileUploadOnUIThread(). Called after GetEntryInfoByPath()
+  // is complete.
+  void StartFileUploadOnUIThreadAfterGetEntryInfo(
+      const StartFileUploadParams& params,
+      int64 file_size,
+      std::string content_type,
+      GDataFileError error,
+      scoped_ptr<GDataEntryProto> entry_proto);
 
   // Cache intermediate callbacks, that run on calling thread, for above cache
   // tasks that were run on blocking pool.
@@ -703,11 +717,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
                       GDataFileError error,
                       GDataEntry* entry);
 
-  // Called when an entry is found for GetFileInfoByPath().
-  void OnGetFileInfo(const GetFileInfoCallback& callback,
-                     GDataFileError error,
-                     GDataEntry* entry);
-
   // Called when an entry is found for ReadDirectoryByPath().
   void OnReadDirectory(const ReadDirectoryCallback& callback,
                        GDataFileError error,
@@ -719,14 +728,15 @@ class GDataFileSystem : public GDataFileSystemInterface,
                                       const FindEntryCallback& callback);
 
   // Gets |file_path| from the file system after the file info is already
-  // resolved with GetFileInfoByPath(). This function is called by
-  // OnGetFileInfoCompleteForGetFileByPath and OnGetFileInfoCompleteForOpenFile.
+  // resolved with GetEntryInfoByPath(). This function is called by
+  // OnGetEntryInfoCompleteForGetFileByPath and
+  // OnGetEntryInfoCompleteForOpenFile.
   void GetResolvedFileByPath(
       const FilePath& file_path,
       const GetFileCallback& get_file_callback,
       const GetDownloadDataCallback& get_download_data_callback,
       GDataFileError error,
-      const GDataFileProto* file_proto);
+      const GDataEntryProto* entry_proto);
 
   // Called when GDataCache::GetFileOnUIThread() is completed for
   // UpdateFileByResourceId().
@@ -736,10 +746,19 @@ class GDataFileSystem : public GDataFileSystemInterface,
       const std::string& resource_id,
       const std::string& md5,
       const FilePath& cache_file_path);
+  // Callback for getting the size of the cache file in the blocking pool.
+  void OnGetFileSizeCompleteForUpdateFile(
+      const FileOperationCallback& callback,
+      const std::string& resource_id,
+      const std::string& md5,
+      const FilePath& cache_file_path,
+      GDataFileError* error,
+      int64* file_size);
   // Callback for GDataRootDirectory::GetEntryByResourceIdAsync.
   void OnGetFileCompleteForUpdateFileByEntry(
     const FileOperationCallback& callback,
     const std::string& md5,
+    int64 file_size,
     const FilePath& cache_file_path,
     GDataEntry* entry);
 
@@ -787,8 +806,8 @@ class GDataFileSystem : public GDataFileSystemInterface,
       const GetFileCallback& get_file_callback,
       const GetDownloadDataCallback& get_download_data_callback,
       GDataEntry* entry);
-  void GetFileInfoByEntryOnUIThread(
-      const GetFileInfoWithFilePathCallback& callback,
+  void GetEntryInfoByEntryOnUIThread(
+      const GetEntryInfoWithFilePathCallback& callback,
       GDataEntry* entry);
   void UpdateFileByResourceIdOnUIThread(
       const std::string& resource_id,
@@ -798,12 +817,9 @@ class GDataFileSystem : public GDataFileSystemInterface,
   void GetEntryInfoByPathAsyncOnUIThread(
       const FilePath& file_path,
       const GetEntryInfoCallback& callback);
-  void GetFileInfoByPathAsyncOnUIThread(
-      const FilePath& file_path,
-      const GetFileInfoCallback& callback);
-  void GetFileInfoByResourceIdOnUIThread(
+  void GetEntryInfoByResourceIdOnUIThread(
       const std::string& resource_id,
-      const GetFileInfoWithFilePathCallback& callback);
+      const GetEntryInfoWithFilePathCallback& callback);
   void ReadDirectoryByPathAsyncOnUIThread(
       const FilePath& file_path,
       const ReadDirectoryCallback& callback);
@@ -838,6 +854,29 @@ class GDataFileSystem : public GDataFileSystemInterface,
     const FilePath& file_path,
     GDataFileError error,
     scoped_ptr<GDataEntryProto> entry_proto);
+
+  // Part of GetEntryByResourceId and GetEntryByPath. Checks whether there is a
+  // local dirty cache for the entry, and if there is, replace the
+  // PlatformFileInfo part of the |entry_proto| with the locally modified info.
+  void CheckLocalModificationAndRun(scoped_ptr<GDataEntryProto> entry_proto,
+                                    const GetEntryInfoCallback& callback);
+  void CheckLocalModificationAndRunAfterGetCacheEntry(
+      scoped_ptr<GDataEntryProto> entry_proto,
+      const GetEntryInfoCallback& callback,
+      bool success,
+      const GDataCacheEntry& cache_entry);
+  void CheckLocalModificationAndRunAfterGetCacheFile(
+      scoped_ptr<GDataEntryProto> entry_proto,
+      const GetEntryInfoCallback& callback,
+      GDataFileError error,
+      const std::string& resource_id,
+      const std::string& md5,
+      const FilePath& local_cache_path);
+  void CheckLocalModificationAndRunAfterGetFileInfo(
+      scoped_ptr<GDataEntryProto> entry_proto,
+      const GetEntryInfoCallback& callback,
+      base::PlatformFileInfo* file_info,
+      bool* get_file_info_result);
 
   // All members should be accessed only on UI thread. Do not post tasks to
   // other threads with base::Unretained(this).

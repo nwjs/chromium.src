@@ -16,6 +16,9 @@ class MockChromeToMobileService : public ChromeToMobileService {
   // A utility function to add mock devices.
   void AddDevices(size_t count);
 
+  // ChromeToMobileService overrides:
+  virtual const base::ListValue* GetMobiles() const OVERRIDE;
+
   MOCK_METHOD0(RequestMobileListUpdate, void());
   MOCK_METHOD2(GenerateSnapshot, void(Browser* browser,
                                       base::WeakPtr<Observer> observer));
@@ -25,14 +28,21 @@ class MockChromeToMobileService : public ChromeToMobileService {
                                   base::WeakPtr<Observer> observer));
   MOCK_METHOD1(DeleteSnapshot, void(const FilePath& snapshot));
   MOCK_CONST_METHOD1(LogMetric, void(ChromeToMobileService::Metric));
+
+  // A set of mock mobile devices, kept in lieu of the list in profile prefs.
+  base::ListValue mobiles_;
 };
 
 void MockChromeToMobileService::AddDevices(size_t count) {
   for(size_t i = 0; i < count; i++) {
     base::DictionaryValue* device = new base::DictionaryValue();
     device->SetString("name", "Device Name");
-    mobiles_.push_back(device);
+    mobiles_.Append(device);
   }
+}
+
+const base::ListValue* MockChromeToMobileService::GetMobiles() const {
+  return &mobiles_;
 }
 
 namespace {

@@ -34,7 +34,8 @@ class AuthOperation : public GDataOperationRegistry::Operation,
   void Start();
 
   // Overridden from OAuth2AccessTokenConsumer:
-  virtual void OnGetTokenSuccess(const std::string& access_token) OVERRIDE;
+  virtual void OnGetTokenSuccess(const std::string& access_token,
+                                 const base::Time& expiration_time) OVERRIDE;
   virtual void OnGetTokenFailure(const GoogleServiceAuthError& error) OVERRIDE;
 
   // Overridden from GDataOpertionRegistry::Operation
@@ -42,7 +43,7 @@ class AuthOperation : public GDataOperationRegistry::Operation,
 
  private:
   Profile* profile_;
-  std::string token_;
+  std::string refresh_token_;
   AuthStatusCallback callback_;
   scoped_ptr<OAuth2AccessTokenFetcher> oauth2_access_token_fetcher_;
 

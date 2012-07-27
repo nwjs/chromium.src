@@ -20,6 +20,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
 
@@ -66,7 +67,7 @@ class HistoryEnumerator : public HistoryService::URLEnumerator {
         BrowserThread::UI,
         FROM_HERE,
         base::Bind(&HistoryService::IterateURLs, history, this));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   virtual void OnURL(const GURL& url) {
@@ -128,7 +129,7 @@ class HistoryBrowserTest : public InProcessBrowserTest {
                             FROM_HERE,
                             base::Bind(&HistoryService::ScheduleDBTask,
                                        history, task, &request_consumer));
-    ui_test_utils::RunMessageLoop();
+    content::RunMessageLoop();
   }
 
   void ExpectEmptyHistory() {
@@ -138,7 +139,7 @@ class HistoryBrowserTest : public InProcessBrowserTest {
 
   void LoadAndWaitForURL(const GURL& url) {
     string16 expected_title(ASCIIToUTF16("OK"));
-    ui_test_utils::TitleWatcher title_watcher(
+    content::TitleWatcher title_watcher(
         chrome::GetActiveWebContents(browser()), expected_title);
     title_watcher.AlsoWaitForTitle(ASCIIToUTF16("FAIL"));
     ui_test_utils::NavigateToURL(browser(), url);
@@ -278,7 +279,7 @@ IN_PROC_BROWSER_TEST_F(HistoryBrowserTest,
   // Therefore, Page 11 should be in the history in addition to Page 12.
   LoadAndWaitForFile("history_length_test_page_11.html");
 
-  ui_test_utils::SimulateMouseClick(chrome::GetActiveWebContents(browser()));
+  content::SimulateMouseClick(chrome::GetActiveWebContents(browser()));
   LoadAndWaitForFile("history_length_test_page_11.html");
 }
 

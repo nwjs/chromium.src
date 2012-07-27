@@ -56,13 +56,13 @@ AuthOperation::AuthOperation(GDataOperationRegistry* registry,
                              const AuthStatusCallback& callback,
                              const std::string& refresh_token)
     : GDataOperationRegistry::Operation(registry),
-      profile_(profile), token_(refresh_token), callback_(callback) {
+      profile_(profile), refresh_token_(refresh_token), callback_(callback) {
 }
 
 AuthOperation::~AuthOperation() {}
 
 void AuthOperation::Start() {
-  DCHECK(!token_.empty());
+  DCHECK(!refresh_token_.empty());
   std::vector<std::string> scopes;
   scopes.push_back(kDocsListScope);
   scopes.push_back(kSpreadsheetsScope);
@@ -73,7 +73,7 @@ void AuthOperation::Start() {
   oauth2_access_token_fetcher_->Start(
       GaiaUrls::GetInstance()->oauth2_chrome_client_id(),
       GaiaUrls::GetInstance()->oauth2_chrome_client_secret(),
-      token_,
+      refresh_token_,
       scopes);
 }
 
@@ -85,7 +85,8 @@ void AuthOperation::DoCancel() {
 
 // Callback for OAuth2AccessTokenFetcher on success. |access_token| is the token
 // used to start fetching user data.
-void AuthOperation::OnGetTokenSuccess(const std::string& access_token) {
+void AuthOperation::OnGetTokenSuccess(const std::string& access_token,
+                                      const base::Time& expiration_time) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   UMA_HISTOGRAM_ENUMERATION("GData.AuthSuccess",

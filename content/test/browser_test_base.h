@@ -7,6 +7,9 @@
 
 #include "base/compiler_specific.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "net/test/test_server.h"
+
+class CommandLine;
 
 class BrowserTestBase : public testing::Test {
  public:
@@ -24,6 +27,14 @@ class BrowserTestBase : public testing::Test {
 
   // Restores state configured in SetUp.
   virtual void TearDown() OVERRIDE;
+
+  // Override this to add any custom setup code that needs to be done on the
+  // main thread after the browser is created and just before calling
+  // RunTestOnMainThread().
+  virtual void SetUpOnMainThread() {}
+
+  // Override this to add command line flags specific to your test.
+  virtual void SetUpCommandLine(CommandLine* command_line) {}
 
  protected:
   // We need these special methods because SetUp is the bottom of the stack
@@ -46,8 +57,23 @@ class BrowserTestBase : public testing::Test {
   // (RunTestOnMainThread), quits the browsers and returns.
   virtual void RunTestOnMainThreadLoop() = 0;
 
+  // Returns the testing server. Guaranteed to be non-NULL.
+  const net::TestServer* test_server() const { return test_server_.get(); }
+  net::TestServer* test_server() { return test_server_.get(); }
+
+  // This function is meant only for classes that directly derive from this
+  // class to construct the test server in their constructor. They might need to
+  // call this after setting up the paths. Actual test cases should never call
+  // this.
+  // |test_server_base| is the path, relative to src, to give to the test HTTP
+  // server.
+  void CreateTestServer(const char* test_server_base);
+
  private:
   void ProxyRunTestOnMainThreadLoop();
+
+  // Testing server, started on demand.
+  scoped_ptr<net::TestServer> test_server_;
 };
 
 #endif  // CONTENT_TEST_BROWSER_TEST_BASE_H_

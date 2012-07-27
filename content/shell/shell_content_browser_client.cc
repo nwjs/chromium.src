@@ -34,7 +34,7 @@ ShellContentBrowserClient::~ShellContentBrowserClient() {
 }
 
 BrowserMainParts* ShellContentBrowserClient::CreateBrowserMainParts(
-    const content::MainFunctionParams& parameters) {
+    const MainFunctionParams& parameters) {
   shell_browser_main_parts_ = new ShellBrowserMainParts(parameters);
   return shell_browser_main_parts_;
 }
@@ -86,6 +86,11 @@ void ShellContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
 
 ShellBrowserContext* ShellContentBrowserClient::browser_context() {
   return shell_browser_main_parts_->browser_context();
+}
+
+ShellBrowserContext*
+    ShellContentBrowserClient::off_the_record_browser_context() {
+  return shell_browser_main_parts_->off_the_record_browser_context();
 }
 
 AccessTokenStore* ShellContentBrowserClient::CreateAccessTokenStore() {

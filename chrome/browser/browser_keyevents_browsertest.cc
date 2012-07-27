@@ -23,6 +23,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/test/test_server.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 
@@ -98,7 +99,7 @@ class TestFinishObserver : public content::NotificationObserver {
   bool WaitForFinish() {
     if (!finished_) {
       waiting_ = true;
-      ui_test_utils::RunMessageLoop();
+      content::RunMessageLoop();
       waiting_ = false;
     }
     return finished_;
@@ -144,7 +145,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
   void SuppressEventByType(int tab_index, const wchar_t* type, bool suppress) {
     ASSERT_LT(tab_index, browser()->tab_count());
     bool actual;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"",
         base::StringPrintf(kSuppressEventJS, type, GetBoolString(!suppress)),
@@ -170,7 +171,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
 
   void GetResultLength(int tab_index, int* length) {
     ASSERT_LT(tab_index, browser()->tab_count());
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractInt(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractInt(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"", kGetResultLengthJS, length));
   }
@@ -182,7 +183,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
     ASSERT_GE(actual_length, length);
     for (int i = 0; i < actual_length; ++i) {
       std::string actual;
-      ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+      ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
           chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
           L"", base::StringPrintf(kGetResultJS, i), &actual));
 
@@ -198,7 +199,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
   void CheckFocusedElement(int tab_index, const wchar_t* focused) {
     ASSERT_LT(tab_index, browser()->tab_count());
     std::string actual;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"", kGetFocusedElementJS, &actual));
     ASSERT_EQ(WideToUTF8(focused), actual);
@@ -207,7 +208,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
   void SetFocusedElement(int tab_index, const wchar_t* focused) {
     ASSERT_LT(tab_index, browser()->tab_count());
     bool actual;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"",
         base::StringPrintf(kSetFocusedElementJS, focused),
@@ -219,7 +220,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
                          const wchar_t* value) {
     ASSERT_LT(tab_index, browser()->tab_count());
     std::string actual;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"",
         base::StringPrintf(kGetTextBoxValueJS, id),
@@ -231,7 +232,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
                        const wchar_t* value) {
     ASSERT_LT(tab_index, browser()->tab_count());
     std::string actual;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractString(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"",
         base::StringPrintf(kSetTextBoxValueJS, id, value),
@@ -242,7 +243,7 @@ class BrowserKeyEventsTest : public InProcessBrowserTest {
   void StartTest(int tab_index, int result_length) {
     ASSERT_LT(tab_index, browser()->tab_count());
     bool actual;
-    ASSERT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+    ASSERT_TRUE(content::ExecuteJavaScriptAndExtractBool(
         chrome::GetWebContentsAt(browser(), tab_index)->GetRenderViewHost(),
         L"", base::StringPrintf(kStartTestJS, result_length), &actual));
     ASSERT_TRUE(actual);
@@ -707,7 +708,7 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, MAYBE_ReservedAccelerators) {
 #endif
   };
 
-  ui_test_utils::WindowedNotificationObserver wait_for_new_tab(
+  content::WindowedNotificationObserver wait_for_new_tab(
       chrome::NOTIFICATION_TAB_PARENTED,
       content::NotificationService::AllSources());
 
@@ -734,7 +735,7 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, MAYBE_ReservedAccelerators) {
   // Reserved accelerators can't be suppressed.
   ASSERT_NO_FATAL_FAILURE(SuppressAllEvents(1, true));
 
-  ui_test_utils::WindowedNotificationObserver wait_for_tab_closed(
+  content::WindowedNotificationObserver wait_for_tab_closed(
       content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
       content::Source<content::WebContents>(chrome::GetWebContentsAt(browser(), 1)));
 

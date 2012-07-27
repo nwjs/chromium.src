@@ -271,7 +271,7 @@ LauncherView::LauncherView(LauncherModel* model,
       first_visible_index_(0),
       last_visible_index_(-1),
       overflow_button_(NULL),
-      dragging_(false),
+      drag_pointer_(NONE),
       drag_view_(NULL),
       drag_offset_(0),
       start_drag_index_(-1),
@@ -283,7 +283,8 @@ LauncherView::LauncherView(LauncherModel* model,
   bounds_animator_->AddObserver(this);
   set_context_menu_controller(this);
   focus_search_.reset(new LauncherFocusSearch(view_model_.get()));
-  tooltip_.reset(new LauncherTooltipManager(alignment_, shelf_layout_manager));
+  tooltip_.reset(new LauncherTooltipManager(
+      alignment_, shelf_layout_manager, this));
 }
 
 LauncherView::~LauncherView() {
@@ -582,9 +583,11 @@ void LauncherView::FadeIn(views::View* view) {
       view, new FadeInAnimationDelegate(view), true);
 }
 
-void LauncherView::PrepareForDrag(const views::MouseEvent& event) {
+void LauncherView::PrepareForDrag(Pointer pointer,
+                                  const views::LocatedEvent& event) {
+  DCHECK(!dragging());
   DCHECK(drag_view_);
-  dragging_ = true;
+  drag_pointer_ = pointer;
   start_drag_index_ = view_model_->GetIndexOfView(drag_view_);
 
   // If the item is no longer draggable, bail out.
@@ -599,7 +602,7 @@ void LauncherView::PrepareForDrag(const views::MouseEvent& event) {
   bounds_animator_->StopAnimatingView(drag_view_);
 }
 
-void LauncherView::ContinueDrag(const views::MouseEvent& event) {
+void LauncherView::ContinueDrag(const views::LocatedEvent& event) {
   // TODO: I don't think this works correctly with RTL.
   gfx::Point drag_point(event.location());
   views::View::ConvertPointToView(drag_view_, this, &drag_point);
@@ -759,9 +762,9 @@ bool LauncherView::ShouldHideTooltip(const gfx::Point& cursor_location) {
 int LauncherView::CancelDrag(int modified_index) {
   if (!drag_view_)
     return modified_index;
-  bool was_dragging = dragging_;
+  bool was_dragging = dragging();
   int drag_view_index = view_model_->GetIndexOfView(drag_view_);
-  dragging_ = false;
+  drag_pointer_ = NONE;
   drag_view_ = NULL;
   if (drag_view_index == modified_index) {
     // The view that was being dragged is being modified. Don't do anything.
@@ -810,20 +813,6 @@ void LauncherView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
 
 views::FocusTraversable* LauncherView::GetPaneFocusTraversable() {
   return this;
-}
-
-void LauncherView::OnMouseMoved(const views::MouseEvent& event) {
-  if (ShouldHideTooltip(event.location()) && tooltip_->IsVisible())
-    tooltip_->Close();
-}
-
-void LauncherView::OnMouseExited(const views::MouseEvent& event) {
-  // Mouse exit events are fired for entering to a launcher button from
-  // the launcher view, so it checks the location by ShouldHideTooltip().
-  gfx::Point point = event.location();
-  views::View::ConvertPointToView(parent(), this, &point);
-  if (ShouldHideTooltip(point) && tooltip_->IsVisible())
-    tooltip_->Close();
 }
 
 void LauncherView::LauncherItemAdded(int model_index) {
@@ -922,8 +911,12 @@ void LauncherView::LauncherItemMoved(int start_index, int target_index) {
   AnimateToIdealBounds();
 }
 
-void LauncherView::MousePressedOnButton(views::View* view,
-                                        const views::MouseEvent& event) {
+void LauncherView::PointerPressedOnButton(views::View* view,
+                                          Pointer pointer,
+                                          const views::LocatedEvent& event) {
+  if (drag_view_)
+    return;
+
   tooltip_->Close();
   int index = view_model_->GetIndexOfView(view);
   if (index == -1 ||
@@ -935,24 +928,26 @@ void LauncherView::MousePressedOnButton(views::View* view,
   drag_offset_ = primary_axis_coordinate(event.x(), event.y());
 }
 
-void LauncherView::MouseDraggedOnButton(views::View* view,
-                                        const views::MouseEvent& event) {
-  if (!dragging_ && drag_view_ &&
+void LauncherView::PointerDraggedOnButton(views::View* view,
+                                          Pointer pointer,
+                                          const views::LocatedEvent& event) {
+  if (!dragging() && drag_view_ &&
       primary_axis_coordinate(abs(event.x() - drag_offset_),
                               abs(event.y() - drag_offset_)) >=
       kMinimumDragDistance) {
-    PrepareForDrag(event);
+    PrepareForDrag(pointer, event);
   }
-  if (dragging_)
+  if (drag_pointer_ == pointer)
     ContinueDrag(event);
 }
 
-void LauncherView::MouseReleasedOnButton(views::View* view,
-                                         bool canceled) {
+void LauncherView::PointerReleasedOnButton(views::View* view,
+                                           Pointer pointer,
+                                           bool canceled) {
   if (canceled) {
     CancelDrag(-1);
-  } else {
-    dragging_ = false;
+  } else if (drag_pointer_ == pointer) {
+    drag_pointer_ = NONE;
     drag_view_ = NULL;
     AnimateToIdealBounds();
   }
@@ -1008,7 +1003,7 @@ string16 LauncherView::GetAccessibleName(const views::View* view) {
 void LauncherView::ButtonPressed(views::Button* sender,
                                  const views::Event& event) {
   // Do not handle mouse release during drag.
-  if (dragging_)
+  if (dragging())
     return;
 
   if (sender == overflow_button_) {

@@ -12,8 +12,8 @@
 #include "base/memory/linked_ptr.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/browsing_data_cookie_helper.h"
-#include "chrome/browser/browsing_data_server_bound_cert_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
+#include "chrome/browser/browsing_data/browsing_data_server_bound_cert_helper.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
@@ -21,7 +21,7 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "grit/ui_resources.h"
-#include "net/base/registry_controlled_domain.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/url_request/url_request_context.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -863,7 +863,7 @@ CookiesTreeModel::~CookiesTreeModel() {
 // this if you don't want to use the default folder icons.
 void CookiesTreeModel::GetIcons(std::vector<gfx::ImageSkia>* icons) {
   icons->push_back(*ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-      IDR_OMNIBOX_HTTP));
+      IDR_DEFAULT_FAVICON));
   icons->push_back(*ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
       IDR_COOKIE_ICON));
   icons->push_back(*ResourceBundle::GetSharedInstance().GetImageSkiaNamed(

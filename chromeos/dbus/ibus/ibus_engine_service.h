@@ -5,6 +5,7 @@
 #ifndef CHROMEOS_DBUS_IBUS_IBUS_ENGINE_SERVICE_H_
 #define CHROMEOS_DBUS_IBUS_IBUS_ENGINE_SERVICE_H_
 
+#include <string>
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/memory/scoped_vector.h"
@@ -29,6 +30,8 @@ typedef ScopedVector<IBusProperty> IBusPropertyList;
 // A interface to handle the engine client method call.
 class CHROMEOS_EXPORT IBusEngineHandlerInterface {
  public:
+  typedef base::Callback<void (bool consumed)> KeyEventDoneCallback;
+
   // Following capability mask is introduced from
   // http://ibus.googlecode.com/svn/docs/ibus-1.4/ibus-ibustypes.html#IBusCapabilite
   // TODO(nona): Move to ibus_contants and merge one in ui/base/ime/*
@@ -68,14 +71,14 @@ class CHROMEOS_EXPORT IBusEngineHandlerInterface {
   virtual void Disable() = 0;
 
   // Called when a property is activated or changed.
-  virtual void PropertyActivate(std::string property_name,
+  virtual void PropertyActivate(const std::string& property_name,
                                 IBusPropertyState property_state) = 0;
 
   // Called when a property is shown.
-  virtual void PropertyShow(std::string property_name) = 0;
+  virtual void PropertyShow(const std::string& property_name) = 0;
 
   // Called when a property is hidden.
-  virtual void PropertyHide(std::string property_name) = 0;
+  virtual void PropertyHide(const std::string& property_name) = 0;
 
   // Called when the Chrome input field set their capabilities.
   virtual void SetCapability(IBusCapability capability) = 0;
@@ -86,11 +89,13 @@ class CHROMEOS_EXPORT IBusEngineHandlerInterface {
   // Called when the key event is received. The |keycode| is raw layout
   // independent keycode. The |keysym| is result of XLookupString function
   // which translate |keycode| to keyboard layout dependent symbol value.
+  // Actual implementation must call |callback| after key event handling.
   // For example: key press event for 'd' key on us layout and dvorak layout.
   //                  keyval keycode state
   //      us layout :  0x64   0x20    0x00
   //  dvorak layout :  0x65   0x20    0x00
-  virtual bool ProcessKeyEvent(uint32 keysym, uint32 keycode, uint32 state) = 0;
+  virtual void ProcessKeyEvent(uint32 keysym, uint32 keycode, uint32 state,
+                               const KeyEventDoneCallback& callback) = 0;
 
   // Called when the candidate in lookup table is clicked. The |index| is 0
   // based candidate index in lookup table. The |state| is same value as
@@ -105,8 +110,9 @@ class CHROMEOS_EXPORT IBusEngineHandlerInterface {
   // Otherwise |anchor_pos| is equal to |cursor_pos|.
   virtual void SetSurroundingText(const std::string& text, uint32 cursor_pos,
                                   uint32 anchor_pos) = 0;
+
  protected:
-  IBusEngineHandlerInterface() {};
+  IBusEngineHandlerInterface() {}
 };
 
 // A class to make the actual DBus method call handling for IBusEngine service.
@@ -147,6 +153,8 @@ class CHROMEOS_EXPORT IBusEngineService {
   virtual void ForwardKeyEvent(uint32 keyval, uint32 keycode, uint32 state) = 0;
   // Emits RequireSurroundingText signal.
   virtual void RequireSurroundingText() = 0;
+  // Emits CommitText signal.
+  virtual void CommitText(const std::string& text) = 0;
 
   // Factory function, creates a new instance and returns ownership.
   // For normal usage, access the singleton via DBusThreadManager::Get().

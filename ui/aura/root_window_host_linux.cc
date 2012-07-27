@@ -321,12 +321,13 @@ class RootWindowHostLinux::ImageCursors {
       return;
     scale_factor_ = scale_factor;
     UnloadAll();
-    // The cursor's hot points are defined in chromeos's
-    // src/platforms/assets/cursors/*.cfg files.
-    LoadImageCursor(ui::kCursorNull, IDR_AURA_CURSOR_PTR, 9, 5);
-    LoadImageCursor(ui::kCursorPointer, IDR_AURA_CURSOR_PTR, 9, 5);
-    LoadImageCursor(ui::kCursorNoDrop, IDR_AURA_CURSOR_NO_DROP, 9, 5);
-    LoadImageCursor(ui::kCursorCopy, IDR_AURA_CURSOR_COPY, 9, 5);
+    // The cursor's hot points are defined in chromeos cursor images at:
+    // http://folder/kuscher/projects/Chrome_OS/Pointers/focuspoint
+    LoadImageCursor(ui::kCursorNull, IDR_AURA_CURSOR_PTR, 8, 3);
+    LoadImageCursor(ui::kCursorPointer, IDR_AURA_CURSOR_PTR, 8, 3);
+    LoadImageCursor(ui::kCursorNoDrop, IDR_AURA_CURSOR_NO_DROP, 5, 4);
+    LoadImageCursor(ui::kCursorNotAllowed, IDR_AURA_CURSOR_NO_DROP, 5, 4);
+    LoadImageCursor(ui::kCursorCopy, IDR_AURA_CURSOR_COPY, 5, 5);
     LoadImageCursor(ui::kCursorHand, IDR_AURA_CURSOR_HAND, 9, 4);
     LoadImageCursor(ui::kCursorMove, IDR_AURA_CURSOR_MOVE, 12, 12);
     LoadImageCursor(ui::kCursorNorthEastResize,
@@ -632,7 +633,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
       // moved/resized.
       if (pointer_barriers_.get()) {
         UnConfineCursor();
-        gfx::Point p = root_window_->last_mouse_location();
+        gfx::Point p = gfx::Screen::GetCursorScreenPoint();
         XWarpPointer(xdisplay_, None,  xwindow_, 0, 0, 0, 0, p.x(), p.y());
         ConfineCursorToRootWindow();
       }
@@ -820,11 +821,6 @@ void RootWindowHostLinux::SetBounds(const gfx::Rect& bounds) {
   bool size_changed = bounds_.size() != bounds.size() ||
       current_scale != new_scale;
 
-  if (!size_changed) {
-    root_window_->SchedulePaintInRect(root_window_->bounds());
-    return;
-  }
-
   if (bounds.size() != bounds_.size())
     XResizeWindow(xdisplay_, xwindow_, bounds.width(), bounds.height());
 
@@ -839,6 +835,8 @@ void RootWindowHostLinux::SetBounds(const gfx::Rect& bounds) {
   bounds_ = bounds;
   if (size_changed)
     root_window_->OnHostResized(bounds.size());
+  else
+    root_window_->SchedulePaintInRect(root_window_->bounds());
 }
 
 gfx::Point RootWindowHostLinux::GetLocationOnNativeScreen() const {
@@ -869,7 +867,7 @@ void RootWindowHostLinux::ShowCursor(bool show) {
   SetCursorInternal(show ? current_cursor_ : ui::kCursorNone);
 }
 
-gfx::Point RootWindowHostLinux::QueryMouseLocation() {
+bool RootWindowHostLinux::QueryMouseLocation(gfx::Point* location_return) {
   ::Window root_return, child_return;
   int root_x_return, root_y_return, win_x_return, win_y_return;
   unsigned int mask_return;
@@ -880,8 +878,10 @@ gfx::Point RootWindowHostLinux::QueryMouseLocation() {
                 &root_x_return, &root_y_return,
                 &win_x_return, &win_y_return,
                 &mask_return);
-  return gfx::Point(max(0, min(bounds_.width(), win_x_return)),
-                    max(0, min(bounds_.height(), win_y_return)));
+  *location_return = gfx::Point(max(0, min(bounds_.width(), win_x_return)),
+                                max(0, min(bounds_.height(), win_y_return)));
+  return (win_x_return >= 0 && win_x_return < bounds_.width() &&
+          win_y_return >= 0 && win_y_return < bounds_.height());
 }
 
 bool RootWindowHostLinux::ConfineCursorToRootWindow() {

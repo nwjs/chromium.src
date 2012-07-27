@@ -486,6 +486,9 @@ class DeterministicSocketData
 
   void NextStep();
 
+  void VerifyCorrectSequenceNumbers(MockRead* reads, size_t reads_count,
+                                    MockWrite* writes, size_t writes_count);
+
   int sequence_number_;
   MockRead current_read_;
   MockWrite current_write_;
@@ -595,7 +598,6 @@ class MockClientSocket : public SSLClientSocket {
   virtual void SetOmniboxSpeculation() OVERRIDE {}
 
   // SSLClientSocket implementation.
-  virtual void GetSSLInfo(SSLInfo* ssl_info) OVERRIDE;
   virtual void GetSSLCertRequestInfo(
       SSLCertRequestInfo* cert_request_info) OVERRIDE;
   virtual int ExportKeyingMaterial(const base::StringPiece& label,
@@ -647,6 +649,8 @@ class MockTCPClientSocket : public MockClientSocket, public AsyncSocket {
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual bool WasNpnNegotiated() const OVERRIDE;
+  virtual bool GetSSLInfo(SSLInfo* ssl_info) OVERRIDE;
 
   // AsyncSocket:
   virtual void OnReadComplete(const MockRead& data) OVERRIDE;
@@ -705,6 +709,8 @@ class DeterministicMockTCPClientSocket
   virtual bool UsingTCPFastOpen() const OVERRIDE;
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual bool WasNpnNegotiated() const OVERRIDE;
+  virtual bool GetSSLInfo(SSLInfo* ssl_info) OVERRIDE;
 
   // AsyncSocket:
   virtual void OnReadComplete(const MockRead& data) OVERRIDE;
@@ -748,14 +754,14 @@ class MockSSLClientSocket : public MockClientSocket, public AsyncSocket {
   virtual int64 NumBytesRead() const OVERRIDE;
   virtual int GetPeerAddress(IPEndPoint* address) const OVERRIDE;
   virtual base::TimeDelta GetConnectTimeMicros() const OVERRIDE;
+  virtual bool WasNpnNegotiated() const OVERRIDE;
+  virtual bool GetSSLInfo(SSLInfo* ssl_info) OVERRIDE;
 
   // SSLClientSocket implementation.
-  virtual void GetSSLInfo(SSLInfo* ssl_info) OVERRIDE;
   virtual void GetSSLCertRequestInfo(
       SSLCertRequestInfo* cert_request_info) OVERRIDE;
   virtual NextProtoStatus GetNextProto(std::string* proto,
                                        std::string* server_protos) OVERRIDE;
-  virtual bool was_npn_negotiated() const OVERRIDE;
   virtual bool set_was_npn_negotiated(bool negotiated) OVERRIDE;
   virtual void set_protocol_negotiated(
       NextProto protocol_negotiated) OVERRIDE;

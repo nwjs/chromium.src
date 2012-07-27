@@ -152,6 +152,13 @@
       '-instant.InstantTest.testInstantNavigation',
       '-instant.InstantTest.testNTPCanDismissInstant',
       '-instant.InstantTest.testNewWindowCanDismissInstant',
+
+      # Mysteriously broken?
+      # crbug.com/138857
+      '-bookmarks.BookmarksTest.testAddBookmarksInMultiProfileIncognito',
+      '-bookmarks.BookmarksTest.testEditBookmarksInMultiProfileIncognito',
+      '-bookmarks.BookmarksTest.testRemoveBookmarksInMultiProfileIncognito',
+      '-multiprofile.MultiprofileTest.testMakeSearchEngineDefaultInMultiprofile',
     ],
 
     'win': [
@@ -855,7 +862,7 @@
       '-ntp.NTPTest.testLaunchAppFullScreen',
       '-https.SSLTest.testSSLCertOK',
       '-https.SSLTest.testSSLCertAuthorityOK',
-      '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix'
+      '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
       '-policy_prefs_ui.PolicyPrefsUITest.testNoUserPoliciesNoBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
     ],

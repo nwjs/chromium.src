@@ -25,7 +25,6 @@ class RootWindowController;
 
 // DisplayController owns and maintains RootWindows for each attached
 // display, keeping them in sync with display configuration changes.
-// TODO(oshima): Rename DisplayXXX to DisplayXXX.
 class ASH_EXPORT DisplayController : public aura::DisplayObserver {
  public:
   // Layout options where the secondary display should be positioned.
@@ -85,13 +84,6 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
 
   // Is extended desktop enabled?
   static bool IsExtendedDesktopEnabled();
-  // Change the extended desktop mode. Used for testing.
-  static void SetExtendedDesktopEnabled(bool enabled);
-
-  // Is virtual screen coordinates enabled?
-  static bool IsVirtualScreenCoordinatesEnabled();
-  // Turns on/off the virtual screen coordinates.
-  static void SetVirtualScreenCoordinatesEnabled(bool enabled);
 
  private:
   // Creates a root window for |display| and stores it in the |root_windows_|

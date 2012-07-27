@@ -18,6 +18,7 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/test/net/url_request_failed_job.h"
 #include "content/test/net/url_request_mock_http_job.h"
 #include "net/base/net_errors.h"
@@ -86,7 +87,7 @@ class ResourceDispatcherHostBrowserTest : public InProcessBrowserTest,
                       const std::string& expected_title,
                       int expected_navigations) {
     string16 expected_title16(ASCIIToUTF16(expected_title));
-    ui_test_utils::TitleWatcher title_watcher(
+    content::TitleWatcher title_watcher(
         chrome::GetActiveWebContents(browser()), expected_title16);
     ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
         browser(), url, expected_navigations);
@@ -123,8 +124,7 @@ bool ResourceDispatcherHostBrowserTest::GetPopupTitle(const GURL& url,
       content::NotificationService::AllSources());
 
   // Create dynamic popup.
-  if (!ui_test_utils::ExecuteJavaScript(
-          render_view_host(), L"", L"OpenPopup();"))
+  if (!content::ExecuteJavaScript(render_view_host(), L"", L"OpenPopup();"))
     return false;
 
   observer.Wait();
@@ -215,7 +215,7 @@ IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest, SyncXMLHttpRequest) {
 
   // Let's check the XMLHttpRequest ran successfully.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
       L"",
       L"window.domAutomationController.send(DidSyncRequestSucceed());",
@@ -233,7 +233,7 @@ IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest,
 
   // Let's check the XMLHttpRequest ran successfully.
   bool success = false;
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
       L"",
       L"window.domAutomationController.send(DidSucceed());",
@@ -335,9 +335,9 @@ IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest,
 // strip the app on the build bots, this is bad times.
 IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest, CrossSiteAfterCrash) {
   // Cause the renderer to crash.
-  ui_test_utils::WindowedNotificationObserver crash_observer(
-        content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
-        content::NotificationService::AllSources());
+  content::WindowedNotificationObserver crash_observer(
+      content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
+      content::NotificationService::AllSources());
   ui_test_utils::NavigateToURL(browser(), GURL(chrome::kChromeUICrashURL));
   // Wait for browser to notice the renderer crash.
   crash_observer.Wait();
@@ -400,7 +400,7 @@ IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest,
   // pages of which the error page is one.  Instead, use automation to kick
   // off the navigation, and wait to see that the tab loads.
   string16 expected_title16(ASCIIToUTF16("Title Of Awesomeness"));
-  ui_test_utils::TitleWatcher title_watcher(
+  content::TitleWatcher title_watcher(
       chrome::GetActiveWebContents(browser()), expected_title16);
 
   bool success;
@@ -408,7 +408,7 @@ IN_PROC_BROWSER_TEST_F(ResourceDispatcherHostBrowserTest,
   std::string redirect_script = "window.location='" +
       test_url.possibly_invalid_spec() + "';" +
       "window.domAutomationController.send(true);";
-  EXPECT_TRUE(ui_test_utils::ExecuteJavaScriptAndExtractBool(
+  EXPECT_TRUE(content::ExecuteJavaScriptAndExtractBool(
       chrome::GetActiveWebContents(browser())->GetRenderViewHost(),
       L"", ASCIIToWide(redirect_script), &success));
   EXPECT_EQ(expected_title16, title_watcher.WaitAndGetTitle());

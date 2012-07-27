@@ -25,15 +25,15 @@
 #import "chrome/browser/ui/panels/panel_window_controller_cocoa.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/test/base/ui_test_utils.h"
+#include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gtest_mac.h"
 
 class PanelAnimatedBoundsObserver :
-    public ui_test_utils::WindowedNotificationObserver {
+    public content::WindowedNotificationObserver {
  public:
   PanelAnimatedBoundsObserver(Panel* panel)
-    : ui_test_utils::WindowedNotificationObserver(
+    : content::WindowedNotificationObserver(
         chrome::NOTIFICATION_PANEL_BOUNDS_ANIMATIONS_FINISHED,
         content::Source<Panel>(panel)) { }
   virtual ~PanelAnimatedBoundsObserver() { }
@@ -56,9 +56,8 @@ class PanelBrowserWindowCocoaTest : public CocoaProfileTest {
     PanelManager* manager = PanelManager::GetInstance();
     int panels_count = manager->num_panels();
 
-    Browser* panel_browser = Browser::CreateWithParams(
-        Browser::CreateParams::CreateForApp(
-            Browser::TYPE_PANEL, panel_name, gfx::Rect(), profile()));
+    Browser* panel_browser = new Browser(Browser::CreateParams::CreateForApp(
+        Browser::TYPE_PANEL, panel_name, gfx::Rect(), profile()));
     EXPECT_EQ(panels_count + 1, manager->num_panels());
 
     PanelBrowserWindow* panel_browser_window =
@@ -103,7 +102,7 @@ class PanelBrowserWindowCocoaTest : public CocoaProfileTest {
     // message pump and wait for the notification.
     PanelManager* manager = PanelManager::GetInstance();
     int panel_count = manager->num_panels();
-    ui_test_utils::WindowedNotificationObserver signal(
+    content::WindowedNotificationObserver signal(
         chrome::NOTIFICATION_PANEL_CLOSED,
         content::Source<Panel>(panel));
     panel->Close();
@@ -300,7 +299,7 @@ TEST_F(PanelBrowserWindowCocoaTest, TitlebarViewClose) {
   PanelManager* manager = PanelManager::GetInstance();
   EXPECT_EQ(1, manager->num_panels());
   // Simulate clicking Close Button and wait until the Panel closes.
-  ui_test_utils::WindowedNotificationObserver signal(
+  content::WindowedNotificationObserver signal(
       chrome::NOTIFICATION_PANEL_CLOSED,
       content::Source<Panel>(panel));
   [titlebar simulateCloseButtonClick];

@@ -30,6 +30,7 @@
 #include "sync/internal_api/public/base_node.h"
 #include "sync/internal_api/public/engine/passive_model_worker.h"
 #include "sync/internal_api/public/http_bridge.h"
+#include "sync/internal_api/public/internal_components_factory_impl.h"
 #include "sync/internal_api/public/read_node.h"
 #include "sync/internal_api/public/sync_manager.h"
 #include "sync/internal_api/public/sync_manager_factory.h"
@@ -52,6 +53,7 @@
 
 // TODO(akalin): Refactor to combine shared code with
 // sync_listen_notifications.
+namespace syncer {
 namespace {
 
 const char kEmailSwitch[] = "email";
@@ -64,22 +66,20 @@ const char kNotificationMethodSwitch[] = "notification-method";
 
 class NullInvalidationStateTracker
     : public base::SupportsWeakPtr<NullInvalidationStateTracker>,
-      public syncer::InvalidationStateTracker {
+      public InvalidationStateTracker {
  public:
   NullInvalidationStateTracker() {}
   virtual ~NullInvalidationStateTracker() {}
 
-  virtual syncer::InvalidationVersionMap
-      GetAllMaxVersions() const OVERRIDE {
-    return syncer::InvalidationVersionMap();
+  virtual InvalidationVersionMap GetAllMaxVersions() const OVERRIDE {
+    return InvalidationVersionMap();
   }
 
   virtual void SetMaxVersion(
       const invalidation::ObjectId& id,
       int64 max_invalidation_version) OVERRIDE {
     VLOG(1) << "Setting max invalidation version for "
-            << syncer::ObjectIdToString(id) << " to "
-            << max_invalidation_version;
+            << ObjectIdToString(id) << " to " << max_invalidation_version;
   }
 
   virtual std::string GetInvalidationState() const OVERRIDE {
@@ -129,7 +129,7 @@ class MyTestURLRequestContextGetter : public TestURLRequestContextGetter {
 };
 
 // TODO(akalin): Use system encryptor once it's moved to sync/.
-class NullEncryptor : public syncer::Encryptor {
+class NullEncryptor : public Encryptor {
  public:
   virtual ~NullEncryptor() {}
 
@@ -152,26 +152,26 @@ std::string ValueToString(const Value& value) {
   return str;
 }
 
-class LoggingChangeDelegate : public syncer::SyncManager::ChangeDelegate {
+class LoggingChangeDelegate : public SyncManager::ChangeDelegate {
  public:
   virtual ~LoggingChangeDelegate() {}
 
   virtual void OnChangesApplied(
-      syncer::ModelType model_type,
-      const syncer::BaseTransaction* trans,
-      const syncer::ImmutableChangeRecordList& changes) OVERRIDE {
+      ModelType model_type,
+      const BaseTransaction* trans,
+      const ImmutableChangeRecordList& changes) OVERRIDE {
     LOG(INFO) << "Changes applied for "
-              << syncer::ModelTypeToString(model_type);
+              << ModelTypeToString(model_type);
     size_t i = 1;
     size_t change_count = changes.Get().size();
-    for (syncer::ChangeRecordList::const_iterator it =
+    for (ChangeRecordList::const_iterator it =
              changes.Get().begin(); it != changes.Get().end(); ++it) {
       scoped_ptr<base::DictionaryValue> change_value(it->ToValue());
       LOG(INFO) << "Change (" << i << "/" << change_count << "): "
                 << ValueToString(*change_value);
-      if (it->action != syncer::ChangeRecord::ACTION_DELETE) {
-        syncer::ReadNode node(trans);
-        CHECK_EQ(node.InitByIdLookup(it->id), syncer::BaseNode::INIT_OK);
+      if (it->action != ChangeRecord::ACTION_DELETE) {
+        ReadNode node(trans);
+        CHECK_EQ(node.InitByIdLookup(it->id), BaseNode::INIT_OK);
         scoped_ptr<base::DictionaryValue> details(node.GetDetailsAsValue());
         VLOG(1) << "Details: " << ValueToString(*details);
       }
@@ -179,14 +179,14 @@ class LoggingChangeDelegate : public syncer::SyncManager::ChangeDelegate {
     }
   }
 
-  virtual void OnChangesComplete(syncer::ModelType model_type) OVERRIDE {
+  virtual void OnChangesComplete(ModelType model_type) OVERRIDE {
     LOG(INFO) << "Changes complete for "
-              << syncer::ModelTypeToString(model_type);
+              << ModelTypeToString(model_type);
   }
 };
 
 class LoggingUnrecoverableErrorHandler
-    : public syncer::UnrecoverableErrorHandler {
+    : public UnrecoverableErrorHandler {
  public:
   virtual ~LoggingUnrecoverableErrorHandler() {}
 
@@ -201,14 +201,14 @@ class LoggingUnrecoverableErrorHandler
 };
 
 class LoggingJsEventHandler
-    : public syncer::JsEventHandler,
+    : public JsEventHandler,
       public base::SupportsWeakPtr<LoggingJsEventHandler> {
  public:
   virtual ~LoggingJsEventHandler() {}
 
   virtual void HandleJsEvent(
       const std::string& name,
-      const syncer::JsEventDetails& details) OVERRIDE {
+      const JsEventDetails& details) OVERRIDE {
     VLOG(1) << name << ": " << details.ToString();
   }
 };
@@ -252,9 +252,7 @@ notifier::NotifierOptions ParseNotifierOptions(
   return notifier_options;
 }
 
-}  // namespace
-
-int main(int argc, char* argv[]) {
+int SyncClientMain(int argc, char* argv[]) {
 #if defined(OS_MACOSX)
   base::mac::ScopedNSAutoreleasePool pool;
 #endif
@@ -275,7 +273,7 @@ int main(int argc, char* argv[]) {
 
   // Parse command line.
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  syncer::SyncCredentials credentials;
+  SyncCredentials credentials;
   credentials.email = command_line.GetSwitchValueASCII(kEmailSwitch);
   credentials.sync_token = command_line.GetSwitchValueASCII(kTokenSwitch);
   // TODO(akalin): Write a wrapper script that gets a token for an
@@ -285,7 +283,7 @@ int main(int argc, char* argv[]) {
                 "[--%s=host:port] [--%s] [--%s]\n"
                 "[--%s=(server|p2p)]\n\n"
                 "Run chrome and set a breakpoint on\n"
-                "syncer::SyncManager::SyncInternal::UpdateCredentials() "
+                "syncer::SyncManagerImpl::UpdateCredentials() "
                 "after logging into\n"
                 "sync to get the token to pass into this utility.\n",
                 argv[0],
@@ -307,7 +305,7 @@ int main(int argc, char* argv[]) {
       ParseNotifierOptions(command_line, context_getter);
   const char kClientInfo[] = "sync_listen_notifications";
   NullInvalidationStateTracker null_invalidation_state_tracker;
-  syncer::SyncNotifierFactory sync_notifier_factory(
+  SyncNotifierFactory sync_notifier_factory(
       notifier_options, kClientInfo,
       null_invalidation_state_tracker.AsWeakPtr());
 
@@ -316,20 +314,20 @@ int main(int argc, char* argv[]) {
   CHECK(database_dir.CreateUniqueTempDir());
 
   // Set up model type parameters.
-  const syncer::ModelTypeSet model_types = syncer::ModelTypeSet::All();
-  syncer::ModelSafeRoutingInfo routing_info;
-  for (syncer::ModelTypeSet::Iterator it = model_types.First();
+  const ModelTypeSet model_types = ModelTypeSet::All();
+  ModelSafeRoutingInfo routing_info;
+  for (ModelTypeSet::Iterator it = model_types.First();
        it.Good(); it.Inc()) {
-    routing_info[it.Get()] = syncer::GROUP_PASSIVE;
+    routing_info[it.Get()] = GROUP_PASSIVE;
   }
-  scoped_refptr<syncer::PassiveModelWorker> passive_model_safe_worker =
-      new syncer::PassiveModelWorker(&sync_loop);
-  std::vector<syncer::ModelSafeWorker*> workers;
+  scoped_refptr<PassiveModelWorker> passive_model_safe_worker =
+      new PassiveModelWorker(&sync_loop);
+  std::vector<ModelSafeWorker*> workers;
   workers.push_back(passive_model_safe_worker.get());
 
   // Set up sync manager.
-  syncer::SyncManagerFactory sync_manager_factory;
-  scoped_ptr<syncer::SyncManager> sync_manager =
+  SyncManagerFactory sync_manager_factory;
+  scoped_ptr<SyncManager> sync_manager =
       sync_manager_factory.CreateSyncManager("sync_client manager");
   LoggingJsEventHandler js_event_handler;
   const char kSyncServerAndPath[] = "clients4.google.com/chrome-sync/dev";
@@ -340,19 +338,17 @@ int main(int argc, char* argv[]) {
   const char kUserAgent[] = "sync_client";
   // TODO(akalin): Replace this with just the context getter once
   // HttpPostProviderFactory is removed.
-  scoped_ptr<syncer::HttpPostProviderFactory> post_factory(
-      new syncer::HttpBridgeFactory(context_getter, kUserAgent));
+  scoped_ptr<HttpPostProviderFactory> post_factory(
+      new HttpBridgeFactory(context_getter, kUserAgent));
   // Used only when committing bookmarks, so it's okay to leave this
   // as NULL.
-  syncer::ExtensionsActivityMonitor* extensions_activity_monitor = NULL;
+  ExtensionsActivityMonitor* extensions_activity_monitor = NULL;
   LoggingChangeDelegate change_delegate;
   const char kRestoredKeyForBootstrapping[] = "";
-  const syncer::SyncManager::TestingMode kTestingMode =
-      syncer::SyncManager::NON_TEST;
   NullEncryptor null_encryptor;
   LoggingUnrecoverableErrorHandler unrecoverable_error_handler;
   sync_manager->Init(database_dir.path(),
-                    syncer::WeakHandle<syncer::JsEventHandler>(
+                    WeakHandle<JsEventHandler>(
                         js_event_handler.AsWeakPtr()),
                     kSyncServerAndPath,
                     kSyncServerPort,
@@ -364,15 +360,16 @@ int main(int argc, char* argv[]) {
                     extensions_activity_monitor,
                     &change_delegate,
                     credentials,
-                    scoped_ptr<syncer::SyncNotifier>(
+                    scoped_ptr<SyncNotifier>(
                         sync_notifier_factory.CreateSyncNotifier()),
                     kRestoredKeyForBootstrapping,
-                    kTestingMode,
+                    scoped_ptr<InternalComponentsFactory>(
+                        new InternalComponentsFactoryImpl()),
                     &null_encryptor,
                     &unrecoverable_error_handler,
                     &LogUnrecoverableErrorContext);
-  // TODO(akalin): We have pass in model parameters multiple times.
-  // Organize handling of model types.
+  // TODO(akalin): Avoid passing in model parameters multiple times by
+  // organizing handling of model types.
   sync_manager->UpdateEnabledTypes(model_types);
   sync_manager->StartSyncingNormally(routing_info);
 
@@ -380,4 +377,11 @@ int main(int argc, char* argv[]) {
 
   io_thread.Stop();
   return 0;
+}
+
+}  // namespace
+}  // namespace syncer
+
+int main(int argc, char* argv[]) {
+  return syncer::SyncClientMain(argc, argv);
 }

@@ -54,6 +54,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/test/mock_resource_context.h"
+#include "content/public/test/test_utils.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -247,11 +248,7 @@ void TestingProfile::FinishInit() {
 }
 
 TestingProfile::~TestingProfile() {
-  DCHECK(content::NotificationService::current());
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_PROFILE_DESTROYED,
-      content::Source<Profile>(static_cast<Profile*>(this)),
-      content::NotificationService::NoDetails());
+  MaybeSendDestroyedNotification();
 
   profile_dependency_manager_->DestroyProfileServices(this);
 
@@ -368,16 +365,6 @@ void TestingProfile::CreateBookmarkModel(bool delete_file) {
   }
 }
 
-void TestingProfile::CreateProtocolHandlerRegistry() {
-  CreateProtocolHandlerRegistry(
-      new ProtocolHandlerRegistry::Delegate());
-}
-
-void TestingProfile::CreateProtocolHandlerRegistry(
-    ProtocolHandlerRegistry::Delegate* delegate) {
-  protocol_handler_registry_ = new ProtocolHandlerRegistry(this, delegate);
-}
-
 static scoped_refptr<RefcountedProfileKeyedService> BuildWebDataService(
     Profile* profile) {
   WebDataService* web_data_service = new WebDataService();
@@ -396,8 +383,7 @@ void TestingProfile::BlockUntilBookmarkModelLoaded() {
   if (GetBookmarkModel()->IsLoaded())
     return;
   base::RunLoop run_loop;
-  BookmarkLoadObserver observer(
-      ui_test_utils::GetQuitTaskForRunLoop(&run_loop));
+  BookmarkLoadObserver observer(content::GetQuitTaskForRunLoop(&run_loop));
   GetBookmarkModel()->AddObserver(&observer);
   run_loop.Run();
   GetBookmarkModel()->RemoveObserver(&observer);
@@ -406,7 +392,7 @@ void TestingProfile::BlockUntilBookmarkModelLoaded() {
 
 // TODO(phajdan.jr): Doesn't this hang if Top Sites are already loaded?
 void TestingProfile::BlockUntilTopSitesLoaded() {
-  ui_test_utils::WindowedNotificationObserver top_sites_loaded_observer(
+  content::WindowedNotificationObserver top_sites_loaded_observer(
       chrome::NOTIFICATION_TOP_SITES_LOADED,
       content::NotificationService::AllSources());
   if (!GetHistoryService(Profile::EXPLICIT_ACCESS))
@@ -473,7 +459,7 @@ ExtensionProcessManager* TestingProfile::GetExtensionProcessManager() {
   return extensions::ExtensionSystem::Get(this)->process_manager();
 }
 
-ExtensionEventRouter* TestingProfile::GetExtensionEventRouter() {
+extensions::EventRouter* TestingProfile::GetExtensionEventRouter() {
   return extensions::ExtensionSystem::Get(this)->event_router();
 }
 
@@ -688,7 +674,7 @@ base::Time TestingProfile::GetStartTime() const {
 }
 
 ProtocolHandlerRegistry* TestingProfile::GetProtocolHandlerRegistry() {
-  return protocol_handler_registry_.get();
+  return NULL;
 }
 
 FilePath TestingProfile::last_selected_directory() {

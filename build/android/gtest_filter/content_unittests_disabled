@@ -19,7 +19,6 @@ URLFetcherDownloadProgressTest.Basic
 URLFetcherUploadProgressTest.Basic
 URLFetcherStopOnRedirectTest.StopOnRedirect
 BaseFileTest.ReadonlyBaseFile
-GPUTestConfigTest.LoadCurrentConfig
 URLFetcherFileTest.SmallGet
 URLFetcherFileTest.LargeGet
 URLFetcherFileTest.CanTakeOwnershipOfFile
@@ -37,21 +36,12 @@ AudioRendererHostTest.CreatePlayAndShutdown
 AudioRendererHostTest.CreatePlayPauseAndShutdown
 AudioRendererHostTest.SimulateError
 AudioRendererHostTest.SimulateErrorAndClose
-# crbug.com/118542
-GPUTestExpectationsParserTest.WebGLTestExpectationsValidation
 # crbug.com/104950
 DeviceOrientationProviderTest.ObserverNotRemoved
 DeviceOrientationProviderTest.StartFailing
-# Test failures on APK, due to sqlite errors.
-ChromeAppCacheServiceTest.*
-AppCacheDatabaseTest.ReCreate
-AppCacheDatabaseTest.UpgradeSchema3to4
-DatabaseTrackerTest.*
-QuotaDatabaseTest.*
-QuotaManagerTest.*
-#
-SavePackageTest.TestEnsureHtmlExtension
-SavePackageTest.TestEnsureMimeExtension
-SavePackageTest.TestSuggestedSaveNames
-# crbug.com/137879
-HyphenatorTest.HyphenateWords
+# crbug.com/138138
+GpuMemoryManagerTest.StubMemoryStatsForLastManageTests
+# crbug.com/138930
+SkCanvasVideoRendererTest.*
+# crbug.com/139095
+RenderWidgetTest.OnMsgPaintAtSize

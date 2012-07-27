@@ -18,8 +18,8 @@
 #include "chrome/browser/chromeos/login/base_login_display_host.h"
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
-#include "chrome/browser/extensions/extension_event_names.h"
-#include "chrome/browser/extensions/extension_event_router.h"
+#include "chrome/browser/extensions/event_names.h"
+#include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -29,6 +29,7 @@
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_source.h"
 #include "grit/generated_resources.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "webkit/fileapi/file_system_types.h"
 #include "webkit/fileapi/file_system_util.h"
 
@@ -155,6 +156,7 @@ void FileBrowserEventRouter::ObserveFileSystemEvents() {
   pref_change_registrar_->Add(prefs::kDisableGDataOverCellular, this);
   pref_change_registrar_->Add(prefs::kDisableGDataHostedFiles, this);
   pref_change_registrar_->Add(prefs::kDisableGData, this);
+  pref_change_registrar_->Add(prefs::kExternalStorageDisabled, this);
 }
 
 // File watch setup routines.
@@ -332,7 +334,7 @@ void FileBrowserEventRouter::OnNetworkManagerChanged(
     return;
   }
   profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      extension_event_names::kOnFileBrowserNetworkConnectionChanged,
+      extensions::event_names::kOnFileBrowserNetworkConnectionChanged,
       "[]", NULL, GURL());
 }
 
@@ -344,9 +346,30 @@ void FileBrowserEventRouter::Observe(
     NOTREACHED();
     return;
   }
-  profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      extension_event_names::kOnFileBrowserGDataPreferencesChanged,
-      "[]", NULL, GURL());
+  if (type == chrome::NOTIFICATION_PREF_CHANGED) {
+    std::string* pref_name = content::Details<std::string>(details).ptr();
+    // If the policy just got disabled we have to unmount every device currently
+    // mounted. The opposite is fine - we can let the user re-plug her device to
+    // make it available.
+    if (*pref_name == prefs::kExternalStorageDisabled &&
+        profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
+      DiskMountManager *manager = DiskMountManager::GetInstance();
+      DiskMountManager::MountPointMap mounts(manager->mount_points());
+      for (DiskMountManager::MountPointMap::const_iterator it = mounts.begin();
+           it != mounts.end(); ++it) {
+        LOG(INFO) << "Unmounting " << it->second.mount_path
+                  << " because of policy.";
+        manager->UnmountPath(it->second.mount_path);
+      }
+      return;
+    } else if (*pref_name == prefs::kDisableGDataOverCellular ||
+        *pref_name == prefs::kDisableGDataHostedFiles ||
+        *pref_name == prefs::kDisableGData) {
+      profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
+          extensions::event_names::kOnFileBrowserGDataPreferencesChanged,
+          "[]", NULL, GURL());
+    }
+  }
 }
 
 void FileBrowserEventRouter::OnProgressUpdate(
@@ -368,7 +391,7 @@ void FileBrowserEventRouter::OnProgressUpdate(
 
   profile_->GetExtensionEventRouter()->DispatchEventToExtension(
       std::string(kFileBrowserDomain),
-      extension_event_names::kOnFileTransfersUpdated, args_json,
+      extensions::event_names::kOnFileTransfersUpdated, args_json,
       NULL, GURL());
 }
 
@@ -389,7 +412,7 @@ void FileBrowserEventRouter::OnDocumentFeedFetched(
 
   profile_->GetExtensionEventRouter()->DispatchEventToExtension(
       std::string(kFileBrowserDomain),
-      extension_event_names::kOnDocumentFeedFetched, args_json,
+      extensions::event_names::kOnDocumentFeedFetched, args_json,
       NULL, GURL());
 }
 
@@ -444,7 +467,7 @@ void FileBrowserEventRouter::DispatchFolderChangeEvent(
     base::JSONWriter::Write(&args, &args_json);
 
     profile_->GetExtensionEventRouter()->DispatchEventToExtension(
-        iter->first, extension_event_names::kOnFileChanged, args_json,
+        iter->first, extensions::event_names::kOnFileChanged, args_json,
         NULL, GURL());
   }
 }
@@ -468,7 +491,7 @@ void FileBrowserEventRouter::DispatchDiskEvent(
   std::string args_json;
   base::JSONWriter::Write(&args, &args_json);
   profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      extension_event_names::kOnFileBrowserDiskChanged, args_json, NULL,
+      extensions::event_names::kOnFileBrowserDiskChanged, args_json, NULL,
       GURL());
 }
 
@@ -519,7 +542,7 @@ void FileBrowserEventRouter::DispatchMountCompletedEvent(
   std::string args_json;
   base::JSONWriter::Write(&args, &args_json);
   profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
-      extension_event_names::kOnFileBrowserMountCompleted, args_json, NULL,
+      extensions::event_names::kOnFileBrowserMountCompleted, args_json, NULL,
       GURL());
 
   // Do not attempt to open File Manager while the login is in progress or
@@ -546,8 +569,10 @@ void FileBrowserEventRouter::OnDiskAdded(
     return;
   }
 
-  // If disk is not mounted yet and it has media, give it a try.
-  if (disk->mount_path().empty() && disk->has_media()) {
+  // If disk is not mounted yet and it has media and there is no policy
+  // forbidding external storage, give it a try.
+  if (disk->mount_path().empty() && disk->has_media() &&
+      !profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
     // Initiate disk mount operation. MountPath auto-detects the filesystem
     // format if the second argument is empty. The third argument (mount label)
     // is not used in a disk mount operation.
@@ -580,6 +605,16 @@ void FileBrowserEventRouter::OnDeviceAdded(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   VLOG(1) << "Device added : " << device_path;
+
+  // If the policy is set instead of showing the new device notification we show
+  // a notification that the operation is not permitted.
+  if (profile_->GetPrefs()->GetBoolean(prefs::kExternalStorageDisabled)) {
+    notifications_->ShowNotificationWithMessage(
+        FileBrowserNotifications::DEVICE_FAIL,
+        device_path,
+        l10n_util::GetStringUTF16(IDS_EXTERNAL_STORAGE_DISABLED_MESSAGE));
+    return;
+  }
 
   notifications_->RegisterDevice(device_path);
   notifications_->ShowNotificationDelayed(FileBrowserNotifications::DEVICE,

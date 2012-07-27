@@ -7,6 +7,7 @@
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
+#include "build/build_config.h"
 #include "ui/base/dialogs/selected_file_info.h"
 #include "ui/base/dialogs/select_file_dialog_factory.h"
 #include "ui/base/dialogs/select_file_policy.h"
@@ -14,6 +15,10 @@
 
 #if defined(OS_WIN)
 #include "ui/base/dialogs/select_file_dialog_win.h"
+#elif defined(OS_MACOSX)
+#include "ui/base/dialogs/select_file_dialog_mac.h"
+#elif defined(TOOLKIT_GTK)
+#include "ui/base/dialogs/gtk/select_file_dialog_impl.h"
 #endif
 
 namespace {
@@ -33,7 +38,8 @@ void SelectFileDialog::Listener::FileSelectedWithExtraInfo(
     const ui::SelectedFileInfo& file,
     int index,
     void* params) {
-  FileSelected(file.path, index, params);
+  // Most of the dialogs need actual local path, so default to it.
+  FileSelected(file.local_path, index, params);
 }
 
 void SelectFileDialog::Listener::MultiFilesSelectedWithExtraInfo(
@@ -41,7 +47,7 @@ void SelectFileDialog::Listener::MultiFilesSelectedWithExtraInfo(
     void* params) {
   std::vector<FilePath> file_paths;
   for (size_t i = 0; i < files.size(); ++i)
-    file_paths.push_back(files[i].path);
+    file_paths.push_back(files[i].local_path);
 
   MultiFilesSelected(file_paths, params);
 }
@@ -52,10 +58,6 @@ void SelectFileDialog::SetFactory(ui::SelectFileDialogFactory* factory) {
   dialog_factory_ = factory;
 }
 
-// TODO(erg): As each implementation moves into ui/base/dialogs, consolidate
-// the Create() methods into the following single method, which has to check
-// all options.
-#if defined(USE_AURA) || defined(OS_WIN)
 // static
 SelectFileDialog* SelectFileDialog::Create(Listener* listener,
                                            ui::SelectFilePolicy* policy) {
@@ -68,14 +70,20 @@ SelectFileDialog* SelectFileDialog::Create(Listener* listener,
   // TODO(erg): Proxy to LinuxUI here.
 
   // TODO(erg): Add other OSs one by one here.
-
 #if defined(OS_WIN) && !defined(USE_AURA)
+  // TODO(port): The windows people need this to work in aura, too.
   return CreateWinSelectFileDialog(listener, policy);
+#elif defined(OS_MACOSX) && !defined(USE_AURA)
+  return CreateMacSelectFileDialog(listener, policy);
+#elif defined(TOOLKIT_GTK)
+  return CreateLinuxSelectFileDialog(listener, policy);
+#elif defined(OS_ANDROID)
+  // see crbug.com/116131 to track implemenation of SelectFileDialog
+  NOTIMPLEMENTED();
 #endif
 
   return NULL;
 }
-#endif
 
 void SelectFileDialog::SelectFile(Type type,
                                   const string16& title,

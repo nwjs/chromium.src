@@ -20,7 +20,7 @@
 #include "ui/views/background.h"
 #include "ui/views/widget/widget.h"
 
-#if defined(USE_AURA)
+#if defined(USE_ASH)
 #include "ash/shell.h"
 #include "ui/aura/root_window.h"
 #endif
@@ -123,7 +123,7 @@ ExtensionHost* ExtensionDialog::CreateExtensionHost(const GURL& url,
   return manager->CreateDialogHost(url);
 }
 
-#if defined(USE_AURA)
+#if defined(USE_ASH)
 void ExtensionDialog::InitWindowFullscreen() {
   aura::RootWindow* root_window = ash::Shell::GetPrimaryRootWindow();
   gfx::Rect screen_rect =
@@ -186,8 +186,10 @@ void ExtensionDialog::Close() {
 
 void ExtensionDialog::MaybeFocusRenderView() {
   views::FocusManager* focus_manager = GetWidget()->GetFocusManager();
+  DCHECK(focus_manager != NULL);
+
   // Already there's a focused view, so no need to switch the focus.
-  if (focus_manager && focus_manager->GetFocusedView())
+  if (focus_manager->GetFocusedView())
     return;
 
   content::RenderWidgetHostView* view = host()->render_view_host()->GetView();

@@ -11,10 +11,8 @@
 #include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/threading/thread.h"
-#include "media/base/filters.h"
 #include "media/base/mock_callback.h"
 #include "media/base/mock_demuxer_host.h"
-#include "media/base/mock_filters.h"
 #include "media/ffmpeg/ffmpeg_common.h"
 #include "media/filters/ffmpeg_demuxer.h"
 #include "media/filters/file_data_source.h"
@@ -184,7 +182,7 @@ class FFmpegDemuxerTest : public testing::Test {
         .AppendASCII(name);
 
     data_source_ = new FileDataSource(disable_file_size);
-    EXPECT_EQ(PIPELINE_OK, data_source_->Initialize(file_path.MaybeAsASCII()));
+    EXPECT_TRUE(data_source_->Initialize(file_path.MaybeAsASCII()));
   }
 
   DISALLOW_COPY_AND_ASSIGN(FFmpegDemuxerTest);
