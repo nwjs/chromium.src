@@ -606,45 +606,32 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
   CHECK(NSApp);
 
   if (!for_node_ && ![NSApp isRunning]) {
-  // if (0) {
     running_own_loop_ = false;
     // NSApplication manages autorelease pools itself when run this way.
     [NSApp run];
   } else if (for_node_) {
     running_own_loop_ = true;
     // NSDate* distant_future = [NSDate distantFuture];
-    int argc = 1;
-    char argv0[] = "node";
-    char* argv[] = {argv0, NULL};
-    node::Start0(argc, argv);
-    {
-        v8::Locker locker;
-        v8::HandleScope handle_scope;
-        node::Start(argc, argv);
-
-        while (keep_running_) {
-          MessagePumpScopedAutoreleasePool autorelease_pool(this);
-          PumpNode();
-          double next_waittime = ev_next_waittime();
-          // TODO(deanm): Fix loop integration with newest version of Node.
-          next_waittime = 0.01;
-          NSDate* next_date = [NSDate dateWithTimeIntervalSinceNow:next_waittime];
-          // printf("Running a loop iteration with timeout %f\n", next_waittime);
-          NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                              // untilDate:distant_future
-                                              untilDate:next_date
-                                                 inMode:NSDefaultRunLoopMode
-                                                dequeue:YES];
-          if (event) {
-            [NSApp sendEvent:event];
-          }
-        }
-        keep_running_ = true;
+    while (keep_running_) {
+      MessagePumpScopedAutoreleasePool autorelease_pool(this);
+      PumpNode();
+      double next_waittime = ev_next_waittime();
+      next_waittime = 0.01;
+      NSDate* next_date = [NSDate dateWithTimeIntervalSinceNow:next_waittime];
+      // printf("Running a loop iteration with timeout %f\n", next_waittime);
+      NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                          // untilDate:distant_future
+                                          untilDate:next_date
+                                             inMode:NSDefaultRunLoopMode
+                                            dequeue:YES];
+      if (event) {
+        [NSApp sendEvent:event];
+      }
     }
+    keep_running_ = true;
   } else {
     running_own_loop_ = true;
     NSDate* distant_future = [NSDate distantFuture];
-
     while (keep_running_) {
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
