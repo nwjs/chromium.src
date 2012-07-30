@@ -266,7 +266,7 @@ int RendererMain(const content::MainFunctionParams& parameters) {
       v8::HandleScope scope;
 
       v8::Persistent<v8::Context> context = v8::Context::New();
-      context->Enter();
+      v8::Context::Scope context_scope(context);
 
       node::SetupContext(argc, argv, context->Global());
 
