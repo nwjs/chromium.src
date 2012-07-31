@@ -23,13 +23,6 @@
               'binaries/ppapi/linux_x64/manifest.json',
             ],
           }],
-          [ 'OS == "win"', {
-            'flapper_version_h_file%': 'symbols/ppapi/win/flapper_version.h',
-            'flapper_binary_files%': [
-              'binaries/ppapi/win/pepflashplayer.dll',
-              'binaries/ppapi/win/manifest.json',
-            ],
-          }],
         ],
       }],
     ],
