@@ -407,7 +407,7 @@ void UserManagerImpl::UserSelected(const std::string& email) {
       ash::WallpaperLayout layout = static_cast<ash::WallpaperLayout>(index);
       // Load user image asynchronously.
       image_loader_->Start(
-          wallpaper_path, 0, false,
+          wallpaper_path, 0, true,
           base::Bind(&UserManagerImpl::OnCustomWallpaperLoaded,
                      base::Unretained(this), email, layout));
       return;
@@ -616,7 +616,7 @@ void UserManagerImpl::SaveUserWallpaperFromFile(
     base::WeakPtr<WallpaperDelegate> delegate) {
   // For wallpapers, save the image without resizing.
   image_loader_->Start(
-      path.value(), 0 /* Original size */, false,
+      path.value(), 0 /* Original size */, true,
       base::Bind(&UserManagerImpl::SaveUserWallpaperInternal,
                  base::Unretained(this), username, layout, User::CUSTOMIZED,
                  delegate));
@@ -1211,7 +1211,7 @@ void UserManagerImpl::OnCustomWallpaperLoaded(const std::string& email,
   std::string wallpaper_thumbnail_path =
       GetWallpaperPathForUser(email, true).value();
   image_loader_->Start(
-      wallpaper_thumbnail_path, 0, false,
+      wallpaper_thumbnail_path, 0, true,
       base::Bind(&UserManagerImpl::OnCustomWallpaperThumbnailLoaded,
       base::Unretained(this), email));
 }

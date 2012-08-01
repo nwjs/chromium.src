@@ -39,9 +39,12 @@ UserImage::UserImage(const gfx::ImageSkia& image,
   if (IsAnimatedImage(raw_image)) {
     has_animated_image_ = true;
     animated_image_ = raw_image;
-  }
-  if (gfx::PNGCodec::EncodeBGRASkBitmap(image_, false, &raw_image_))
+    if (gfx::PNGCodec::EncodeBGRASkBitmap(image_, false, &raw_image_))
+      has_raw_image_ = true;
+  } else {
     has_raw_image_ = true;
+    raw_image_ = raw_image;
+  }
 }
 
 UserImage::~UserImage() {}
