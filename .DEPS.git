@@ -138,7 +138,7 @@ deps = {
     'src/third_party/libuv':
         'https://github.com/zcbenz/libuv.git@2849888b5a',
     'src/third_party/node':
-        'https://github.com/zcbenz/node.git@b395408d94',
+        'https://github.com/zcbenz/node.git@8fb3b7755b905bba3a2b7e63a10777910b1afc2c',
 }
 
 deps_os = {
