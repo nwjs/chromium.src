@@ -1,0 +1,65 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Sync protocol datatype extension for autofill.
+
+// Update proto_value_conversions{.h,.cc,_unittest.cc} if you change
+// any fields in this file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+option retain_unknown_fields = true;
+
+package sync_pb;
+
+// Properties of autofill sync objects.
+
+// An AutofillProfile.
+message AutofillProfileSpecifics {
+  // User-defined label.
+  optional string label = 1;
+
+  optional string guid = 15;
+
+  // Contact info.
+  repeated string name_first = 2;
+  repeated string name_middle = 3;
+  repeated string name_last = 4;
+  repeated string email_address = 5;
+  optional string company_name = 6;
+
+  // Home address.
+  optional string address_home_line1 = 7;
+  optional string address_home_line2 = 8;
+  optional string address_home_city = 9;
+  optional string address_home_state = 10;
+  optional string address_home_zip = 11;
+  optional string address_home_country = 12;
+
+  // Phone.
+  repeated string phone_home_whole_number = 13;
+
+  // Deprecated.
+  optional string phone_fax_whole_number = 14 [deprecated=true];
+}
+
+message AutofillSpecifics {
+  // If any of these 3 fields are present, then all 3 should be, and it implies
+  // that this entity represents a classic autofill object.  In this case,
+  // none of the autofill++ objects below should be present.
+  optional string name = 1;
+  optional string value = 2;
+  repeated int64 usage_timestamp = 3;
+
+  // An autofill++ profile object.  If present, indicates this entity
+  // represents an AutofillProfile exclusively, and no other fields (such as
+  // name/value or credit_card) should be present.
+  optional AutofillProfileSpecifics profile = 4;
+
+  // Obsolete credit card fields.
+  // optional bytes deprecated_encrypted_credit_card = 5;
+  // optional AutofillCreditCardSpecifics deprecated_credit_card = 6;
+}
+

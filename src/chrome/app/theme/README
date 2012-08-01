@@ -1,0 +1,3 @@
+Please run pngcrush on all new icons. For example:
+  mkdir crushed
+  pngcrush -d crushed -brute -reduce new/*.png

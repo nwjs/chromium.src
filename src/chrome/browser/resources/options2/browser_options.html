@@ -1,0 +1,539 @@
+<div id="settings" class="page" hidden>
+  <header>
+    <h1 i18n-content="settingsTitle"></h1>
+  </header>
+<if expr="not pp_ifdef('chromeos')">
+  <include src="sync_section.html">
+</if>
+<if expr="pp_ifdef('chromeos')">
+  <section>
+    <h3 i18n-content="sectionTitleInternet"></h3>
+    <div id="network-settings">
+      <list id="network-list"></list>
+      <div id="shared-proxies" class="checkbox">
+        <label>
+          <input id="use-shared-proxies" type="checkbox"
+              pref="settings.use_shared_proxies">
+          <span i18n-content="useSharedProxies"></span>
+        </label>
+      </div>
+      <div id="network-locked-message" hidden>
+        <span i18n-content="accessLockedMsg"></span>
+      </div>
+      <div id="network-menus"></div>
+    </div>
+  </section>
+</if>
+<if expr="not pp_ifdef('chromeos')">
+  <include src="startup_section.html">
+</if>
+  <section>
+    <h3 i18n-content="sectionTitleAppearance"></h3>
+    <div>
+<if expr="pp_ifdef('chromeos') and pp_ifdef('use_ash')">
+      <button id="set-wallpaper" i18n-content="setWallpaper"
+          guest-visibility="disabled"></button>
+</if>
+<if expr="not pp_ifdef('toolkit_views') and is_posix and not is_macosx">
+      <button id="themes-gallery" i18n-content="themesGallery"></button>
+      <button id="themes-GTK-button"
+          i18n-content="themesGTKButton"></button>
+      <button id="themes-reset"
+          i18n-content="themesSetClassic"></button>
+</if>
+<if expr="pp_ifdef('toolkit_views') or is_win or is_macosx">
+      <button id="themes-gallery" i18n-content="themesGallery"></button>
+      <button id="themes-reset" i18n-content="themesReset"></button>
+</if>
+    </div>
+    <div class="checkbox" guest-visibility="disabled"><label>
+      <input id="show-home-button" type="checkbox"
+          pref="browser.show_home_button" metric="Options_Homepage_HomeButton">
+      <span i18n-content="homePageShowHomeButton"></span>
+    </label></div>
+    <div id="change-home-page-section" hidden>
+      <div id="change-home-page-section-container" guest-visibility="disabled">
+        <span id="home-page-ntp" class="home-page-label"
+            i18n-content="homePageNtp"></span>
+        <span id="home-page-url" class="home-page-label"></span>
+        <button id="change-home-page" class="link-button"
+            i18n-content="changeHomePage"></button>
+      </div>
+    </div>
+    <div class="checkbox" guest-visibility="disabled"><label>
+        <input type="checkbox" pref="bookmark_bar.show_on_all_tabs"
+            metric="Options_ShowBookmarksBar">
+        <span i18n-content="toolbarShowBookmarksBar"></span>
+    </label></div>
+<if expr="not pp_ifdef('toolkit_views') and is_posix and not is_macosx">
+    <div class="checkbox"><label>
+        <input id="show-window-decorations" type="checkbox"
+            pref="browser.custom_chrome_frame" metric="Options_CustomFrame"
+            inverted_pref>
+        <span i18n-content="showWindowDecorations"></span>
+    </label></div>
+</if>
+  </section>
+<if expr="pp_ifdef('chromeos')">
+  <section>
+    <h3 i18n-content="sectionTitleDevice"></h3>
+    <div>
+      <span i18n-content="deviceGroupDescription"></span>
+      <div id="touchpad-settings" class="settings-row" hidden>
+        <span class="option-name" i18n-content="touchpadSpeed"></span>
+        <input id="sensitivity-range" type="range" min="1" max="5"
+            pref="settings.touchpad.sensitivity2" class="touch-slider">
+      </div>
+      <div id="mouse-settings" class="settings-row" hidden>
+        <span class="option-name" i18n-content="mouseSpeed"></span>
+        <input id="sensitivity-range" type="range" min="1" max="5"
+            pref="settings.mouse.sensitivity2" class="touch-slider">
+      </div>
+      <div id="no-pointing-devices" i18n-content="noPointingDevices" 
+          class="settings-row" hidden>
+      </div>
+      <div class="settings-row">
+        <button id="pointer-settings-button">
+        </button>
+        <button id="keyboard-settings-button"
+            i18n-content="keyboardSettingsButtonTitle">
+        </button>
+      </div>
+    </div>
+  </section>
+</if>
+  <section>
+    <h3 i18n-content="sectionTitleSearch"></h3>
+      <div>
+        <span class="settings-row"
+            i18n-values=".innerHTML:defaultSearchGroupLabel">
+        </span>
+        <div class="settings-row">
+          <select id="default-search-engine" class="weakrtl"></select>
+          <button id="manage-default-search-engines"
+              i18n-content="defaultSearchManageEngines">
+          </button>
+        </div>
+        <div class="checkbox" guest-visibility="disabled">
+          <label id="instant-label">
+            <!-- TODO(estade): metric? -->
+            <input id="instant-enabled-control" type="checkbox"
+                pref="instant.enabled">
+            <!-- TODO(estade) There's a link in here which should not be inside
+                 a <label>. -->
+            <span i18n-values=".innerHTML:instantPrefAndWarning"></span>
+          </label>
+        </div>
+      </div>
+  </section>
+  <section guest-visibility="hidden">
+    <h3 i18n-content="sectionTitleUsers"></h3>
+<if expr="pp_ifdef('chromeos')">
+    <include src="sync_section.html">
+</if>
+    <div id="profiles-section" hidden>
+      <list id="profiles-list" class="settings-list" hidden></list>
+      <div id="profiles-single-message" class="settings-row"
+          i18n-content="profilesSingleUser">
+      </div>
+      <div id="profiles-buttons">
+        <button id="profiles-create" i18n-content="profilesCreate"></button>
+        <button id="profiles-manage" i18n-content="profilesManage" disabled>
+        </button>
+        <button id="profiles-delete" i18n-content="profilesDelete"></button>
+<if expr="not pp_ifdef('chromeos')">
+        <button id="import-data" i18n-content="importData"></button>
+</if>
+      </div>
+    </div>
+  </section>
+<if expr="not pp_ifdef('chromeos')">
+  <section>
+    <h3 i18n-content="sectionTitleDefaultBrowser"></h3>
+    <div>
+      <button id="set-as-default-browser"
+          i18n-content="defaultBrowserUseAsDefault" hidden>
+      </button>
+      <div id="default-browser-state" i18n-content="defaultBrowserUnknown">
+      </div>
+      <div id="auto-launch-option" class="checkbox" hidden>
+        <label id="auto-launch-label">
+          <input id="auto-launch" type="checkbox">
+          <span i18n-content="autoLaunchText"></span>
+        </label>
+      </div>
+    </div>
+  </section>
+</if>  <!-- not pp_ifdef('chromeos') -->
+<div id="advanced-settings" hidden>
+<div id="advanced-settings-container">
+<if expr="pp_ifdef('chromeos')">
+  <section>
+    <h3 i18n-content="datetimeTitle"></h3>
+    <div class="option-control-table">
+      <div guest-visibility="disabled">
+        <span class="option-name" i18n-content="timezone"></span>
+        <div id="timezone-value">
+          <select id="timezone-select" class="control"
+              i18n-options="timezoneList" data-type="string"
+              pref="cros.system.timezone">
+          </select>
+        </div>
+      </div>
+      <div class="checkbox">
+        <label>
+          <input id="use-24hour-clock" pref="settings.clock.use_24hour_clock"
+              type="checkbox">
+          <span i18n-content="use24HourClock"></span>
+        </label>
+      </div>
+    </div>
+  </section>
+</if>
+  <section>
+    <h3 i18n-content="advancedSectionTitlePrivacy"></h3>
+    <div>
+      <div class="settings-row">
+        <button id="privacyContentSettingsButton"
+            i18n-content="privacyContentSettingsButton"></button>
+        <button id="privacyClearDataButton"
+            i18n-content="privacyClearDataButton"></button>
+      </div>
+      <div id="privacy-explanation" class="settings-row">
+        <span i18n-content="improveBrowsingExperience"></span>
+        <span i18n-content="disableWebServices"></span>
+        <a target="_blank" i18n-content="learnMore"
+            i18n-values="href:privacyLearnMoreURL"></a>
+      </div>
+      <div class="checkbox">
+        <label>
+          <input id="alternateErrorPagesEnabled"
+              pref="alternate_error_pages.enabled"
+              metric="Options_LinkDoctorCheckbox" type="checkbox">
+          <span i18n-content="linkDoctorPref"></span>
+        </label>
+      </div>
+      <div class="checkbox" guest-visibility="disabled">
+        <label>
+          <input id="searchSuggestEnabled" pref="search.suggest_enabled"
+              metric="Options_UseSuggestCheckbox" type="checkbox">
+          <span i18n-content="suggestPref"></span>
+        </label>
+      </div>
+      <div class="checkbox" guest-visibility="disabled">
+        <label>
+          <input id="dnsPrefetchingEnabled" pref="dns_prefetching.enabled"
+              metric="Options_DnsPrefetchCheckbox" type="checkbox">
+          <span i18n-content="networkPredictionEnabledDescription"></span>
+        </label>
+      </div>
+      <div class="checkbox">
+        <label>
+          <input id="safeBrowsingEnabled" pref="safebrowsing.enabled"
+              metric="Options_SafeBrowsingCheckbox" type="checkbox">
+          <span i18n-content="safeBrowsingEnableProtection"></span>
+        </label>
+      </div>
+<if expr="pp_ifdef('_google_chrome')">
+      <div class="checkbox">
+        <label id="spelling-label">
+          <input id="spelling-enabled-control" type="checkbox"
+              pref="spellcheck.use_spelling_service">
+          <span i18n-content="spellingPref"></span>
+        </label>
+      </div>
+      <div id="metricsReportingSetting" class="checkbox">
+        <label>
+<if expr="pp_ifdef('chromeos')">
+          <input id="metricsReportingEnabled"
+              pref="cros.metrics.reportingEnabled" type="checkbox">
+</if>
+<if expr="not pp_ifdef('chromeos')">
+          <input id="metricsReportingEnabled" type="checkbox">
+</if>
+          <span i18n-content="enableLogging"></span>
+        </label>
+      </div>
+</if>  <!-- pp_ifdef('_google_chrome') -->
+    </div>
+  </section>
+<if expr="pp_ifdef('chromeos')">
+  <!-- By default, the display section is hidden.  It is only visible if
+       more than one display is found. -->
+  <section id="display-options-section" hidden>
+    <h3 i18n-content="displayOptionsTitle"></h3>
+    <div class="settings-row">
+      <button id="display-options-button"
+          i18n-content="displayOptionsButton">
+      </button>
+    </div>
+  </section>
+  <!-- By default, the bluetooth section is hidden.  It is only visible if a
+       bluetooth adapter is discovered -->
+  <section id="bluetooth-devices" hidden>
+    <h3 i18n-content="bluetooth"></h3>
+    <div id="bluetooth-options-div">
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" id="enable-bluetooth">
+          <span i18n-content="enableBluetooth">
+        </label>
+      </div>
+      <div class="settings-list bluetooth-device-list" hidden>
+        <list id="bluetooth-paired-devices-list"></list>
+        <div id="bluetooth-paired-devices-list-empty-placeholder"
+            class="bluetooth-empty-list-label" hidden>
+          <span i18n-content="bluetoothNoDevices"></span>
+        </div>
+      </div>
+      <div id="bluetooth-button-group">
+        <button id="bluetooth-add-device"
+            i18n-content="addBluetoothDevice" hidden></button>
+        <button id="bluetooth-reconnect-device"
+            i18n-content="bluetoothConnectDevice" disabled hidden></button>
+      </div>
+    </div>
+  </section>
+</if>  <!-- pp_ifdef('chromeos') -->
+  <section id="passwords-and-autofill-section">
+    <h3 i18n-content="passwordsAndAutofillGroupName"></h3>
+    <div class="checkbox">
+      <label>
+        <input id="autofill-enabled" pref="autofill.enabled"
+            metric="Options_FormAutofill" type="checkbox">
+        <span i18n-content="autofillEnabled"></span>
+      </label>
+      <button id="autofill-settings" class="link-button"
+          pref="autofill.enabled"
+          i18n-content="manageAutofillSettings"></button>
+    </div>
+    <div class="checkbox">
+      <label>
+        <input id="password-manager-enabled"
+            pref="profile.password_manager_enabled"
+            metric="Options_PasswordManager" type="checkbox">
+        <span i18n-content="passwordManagerEnabled"></span>
+      </label>
+      <button id="manage-passwords" class="link-button"
+          i18n-content="managePasswords"
+          pref="profile.password_manager_enabled"></button>
+    </div>
+    <div class="checkbox" id="password-generation-checkbox">
+      <label>
+        <input id="password-generation-enabled" pref="password_generation.enabled"
+            metric="Options_PasswordGenerationCheckbox" type="checkbox">
+        <span i18n-content="passwordGenerationEnabledDescription"></span>
+      </label>
+    </div>
+<if expr="is_macosx">
+    <div id="mac-passwords-warning" i18n-content="macPasswordsWarning" hidden>
+    </div>
+</if>
+    <!-- This makes the managed-banner appear when the "pref" is configured by
+         the IT administrator. -->
+    <input name="password_allow_show_hidden" type="text"
+        pref="profile.password_manager_allow_show_passwords" hidden>
+  </section>
+  <section id="web-content-section">
+    <h3 i18n-content="advancedSectionTitleContent"></h3>
+    <div>
+      <div class="settings-row">
+        <label class="web-content-select-label">
+          <span i18n-content="defaultFontSizeLabel"></span>
+          <select id="defaultFontSize">
+            <option value="9" i18n-content="fontSizeLabelVerySmall">
+            </option>
+            <option value="12" i18n-content="fontSizeLabelSmall"></option>
+            <option value="16" i18n-content="fontSizeLabelMedium"></option>
+            <option value="20" i18n-content="fontSizeLabelLarge"></option>
+            <option value="24" i18n-content="fontSizeLabelVeryLarge">
+            </option>
+          </select>
+        </label>
+        <button id="fontSettingsCustomizeFontsButton"
+            i18n-content="fontSettingsCustomizeFontsButton"></button>
+      </div>
+      <div class="settings-row">
+        <label class="web-content-select-label">
+          <span i18n-content="defaultZoomFactorLabel"></span>
+          <select id="defaultZoomFactor" dataType="double"></select>
+        </label>
+      </div>
+<if expr="is_macosx">
+      <div class="checkbox">
+        <label>
+          <input id="tabsToLinksPref" pref="webkit.webprefs.tabs_to_links"
+              metric="Options_TabsToLinks" type="checkbox">
+          <span i18n-content="tabsToLinksPref"></span>
+        </label>
+      </div>
+</if>
+    </div>
+  </section>
+<if expr="not pp_ifdef('chromeos')">
+  <section>
+    <h3 i18n-content="advancedSectionTitleNetwork"></h3>
+    <div>
+      <span id="proxiesLabel" class="settings-row"></span>
+      <div class="settings-row">
+        <button id="proxiesConfigureButton"
+            i18n-content="proxiesConfigureButton"></button>
+      </div>
+    </div>
+  </section>
+</if>
+  <section>
+    <h3 i18n-content="advancedSectionTitleLanguages"></h3>
+    <span class="settings-row" i18n-content="languageSectionLabel"></span>
+    <button id="language-button"
+        i18n-content="languageAndSpellCheckSettingsButton"></button>
+    <div class="checkbox">
+      <label>
+        <input id="enableTranslate" pref="translate.enabled"
+            metric="Options_Translate" type="checkbox">
+        <span i18n-content="translateEnableTranslate"></span>
+      </label>
+    </div>
+  </section>
+  <section>
+    <h3 i18n-content="downloadLocationGroupName"></h3>
+    <div>
+      <div class="settings-row">
+        <label>
+          <span i18n-content="downloadLocationBrowseTitle"></span>
+          <input id="downloadLocationPath" class="weakrtl" type="text"
+            size="36" readonly>
+        </label>
+        <button id="downloadLocationChangeButton"
+            pref="download.prompt_for_download"
+            i18n-content="downloadLocationChangeButton"></button>
+      </div>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox"
+              pref="download.prompt_for_download"
+              metric="Options_AskForSaveLocation">
+          <span i18n-content="downloadLocationAskForSaveLocation"></span>
+        </label>
+      </div>
+<if expr="pp_ifdef('chromeos')">
+      <div class="checkbox" guest-visibility="disabled">
+        <label>
+          <input type="checkbox" 
+          pref="gdata.disabled" 
+          metric="Options_DisableGData">
+          <span i18n-content="disableGData"></span>
+        </label>
+      </div>  
+</if>    
+<if expr="not pp_ifdef('chromeos')">
+      <div id="auto-open-file-types-section" hidden>
+        <div id="auto-open-file-types-container">
+          <div id="auto-open-file-types-label"
+              i18n-content="autoOpenFileTypesInfo"></div>
+          <button id="autoOpenFileTypesResetToDefault"
+              i18n-content="autoOpenFileTypesResetToDefault"></button>
+        </div>
+      </div>
+</if>
+    </div>
+  </section>
+  <section>
+      <h3 i18n-content="advancedSectionTitleSecurity"></h3>
+      <div>
+<if expr="pp_ifdef('use_nss') or is_win or is_macosx">
+        <div class="settings-row">
+          <button id="certificatesManageButton"
+              i18n-content="certificatesManageButton"></button>
+        </div>
+</if>
+        <div class="checkbox">
+          <label>
+            <input id="sslCheckRevocation" type="checkbox">
+            <span i18n-content="sslCheckRevocation"></span>
+          </label>
+        </div>
+      </div>
+    </section>
+<if expr="not pp_ifdef('chromeos')">
+    <section id="cloud-print-connector-section">
+      <h3 i18n-content="advancedSectionTitleCloudPrint"></h3>
+      <div>
+        <span id="cloudPrintConnectorLabel" class="settings-row"
+             i18n-content="cloudPrintConnectorDisabledLabel"></span>
+        <div class="settings-row">
+          <button id="cloudPrintConnectorSetupButton"
+              i18n-content="cloudPrintConnectorDisabledButton"></button>
+          <button id="cloudPrintManageButton"
+              i18n-content="cloudPrintConnectorEnabledManageButton"></button>
+        </div>
+      </div>
+    </section>
+</if>
+<if expr="pp_ifdef('chromeos')">
+  <section id="cloud-print-connector-section">
+    <h3 i18n-content="advancedSectionTitleCloudPrint"></h3>
+    <div>
+      <div>
+        <span i18n-content="cloudPrintChromeosOptionLabel"></span> 
+        <a target="_blank" i18n-content="learnMore"
+            i18n-values="href:cloudPrintLearnMoreURL"></a>
+      </div>
+      <div class="settings-row">
+        <button id="cloudPrintManageButton"
+            i18n-content="cloudPrintChromeosOptionButton"></button>
+      </div>
+    </div>
+  </section>
+<if expr="pp_ifdef('chromeos')">
+  <include src="startup_section.html">
+</if>
+  <section>
+    <h3 i18n-content="accessibilityTitle"></h3>
+    <div class="option-control-table">
+      <div class="option-name">
+        <div class="checkbox">
+          <label>
+            <input id="accessibility-spoken-feedback-check" type="checkbox">
+            <span i18n-content="accessibilitySpokenFeedback"></span>
+          </label>
+        </div>
+      </div>
+      <div class="option-name">
+        <div class="checkbox">
+          <label>
+            <input id="accessibility-high-contrast-check" type="checkbox">
+            <span i18n-content="accessibilityHighContrast"></span>
+          </label>
+        </div>
+      </div>
+      <div class="option-name">
+        <div class="checkbox">
+          <label>
+            <input id="accessibility-screen-magnifier-check" type="checkbox">
+            <span i18n-content="accessibilityScreenMagnifier"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+</if>
+<if expr="not is_macosx and not pp_ifdef('chromeos')">
+  <section id="background-section">
+    <h3 i18n-content="advancedSectionTitleBackground"></h3>
+    <div class="checkbox">
+      <label>
+        <input id="backgroundModeCheckbox" type="checkbox">
+        <span i18n-content="backgroundModeCheckbox"></span>
+      </label>
+    </div>
+  </section>
+</if>
+</div>  <!-- advanced-settings-container -->
+</div>  <!-- advanced-settings -->
+<footer>
+  <button id="advanced-settings-expander" class="link-button"
+      i18n-content="showAdvancedSettings">
+  </button>
+</footer>
+</div>

@@ -1,0 +1,10 @@
+{
+  "name": "chrome.experimental.bookmarkManager (edit disabled)",
+  "version": "0.1",
+  "manifest_version": 2,
+  "description": "end-to-end browser test for chrome.experimental.bookmarkManager API with editing disabled",
+  "background": {
+    "page": "test.html"
+  },
+  "permissions": ["bookmarks", "experimental"]
+}

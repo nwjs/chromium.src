@@ -1,0 +1,90 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Common sync protocol for encrypted data.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+option retain_unknown_fields = true;
+
+package sync_pb;
+
+import "get_updates_caller_info.proto";
+
+// The additional info here is from the StatusController. They get sent when
+// the event SYNC_CYCLE_COMPLETED  is sent.
+message SyncCycleCompletedEventInfo {
+  // optional bool syncer_stuck = 1; // Was always false, now obsolete.
+
+  // The client has never set these values correctly.  It set
+  // num_blocking_conflicts to the total number of conflicts detected and set
+  // num_non_blocking_conflicts to the number of blocking (aka. simple)
+  // conflicts.
+  //
+  // These counters have been deprecated to avoid further confusion.  The newer
+  // counters provide more detail and are less buggy.
+  optional int32 num_blocking_conflicts = 2 [deprecated = true];
+  optional int32 num_non_blocking_conflicts = 3 [deprecated = true];
+
+  // These new conflict counters replace the ones above.
+  optional int32 num_encryption_conflicts = 4;
+  optional int32 num_hierarchy_conflicts = 5;
+  optional int32 num_simple_conflicts = 6;
+  optional int32 num_server_conflicts = 7;
+
+  // Counts to track the effective usefulness of our GetUpdate requests.
+  optional int32 num_updates_downloaded = 8;
+  optional int32 num_reflected_updates_downloaded = 9;
+  optional GetUpdatesCallerInfo caller_info = 10;
+}
+
+message DebugEventInfo {
+  // These events are sent by |SyncManager| class. Note: In the code they each
+  // of these events have some additional info but we are not sending them to
+  // server.
+  enum EventType {
+    CONNECTION_STATUS_CHANGE = 1; // Connection status change. Note this
+                                  // gets generated even during a successful
+                                  // connection.
+    UPDATED_TOKEN = 2; // Client received an updated token.
+    PASSPHRASE_REQUIRED = 3; // Cryptographer needs passphrase.
+    PASSPHRASE_ACCEPTED = 4; // Passphrase was accepted by cryptographer.
+    INITIALIZATION_COMPLETE = 5; // Sync Initialization is complete.
+
+    // |STOP_SYNCING_PERMANENTLY| event should never be seen by the server in
+    // the absence of bugs.
+    STOP_SYNCING_PERMANENTLY = 6; // Server sent stop syncing permanently.
+
+    ENCRYPTED_TYPES_CHANGED = 9; // Set of encrypted types has changed.
+    ENCRYPTION_COMPLETE = 7; // Client has finished encrypting all data.
+    ACTIONABLE_ERROR = 8; // Client received an actionable error.
+    BOOTSTRAP_TOKEN_UPDATED = 9;  // A new cryptographer bootstrap token was
+                                  // generated.
+  }
+  // In a given |DebugEventInfo| only one of the following would be set.
+  optional EventType type = 1;
+
+  optional SyncCycleCompletedEventInfo sync_cycle_completed_event_info = 2;
+
+   // Datatype that caused the nudge.
+   optional int32 nudging_datatype = 3;
+
+   // Datatypes that were notified from server.
+   repeated int32 datatypes_notified_from_server = 4;
+}
+
+message DebugInfo {
+  repeated DebugEventInfo events = 1;
+
+  // Whether cryptographer is ready to encrypt and decrypt data.
+  optional bool cryptographer_ready = 2;
+
+  // Cryptographer has pending keys which indicates the correct passphrase
+  // has not been provided yet.
+  optional bool cryptographer_has_pending_keys = 3;
+
+  // Indicates client has dropped some events to save bandwidth.
+  optional bool events_dropped = 4;
+}

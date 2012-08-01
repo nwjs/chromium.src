@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<grit latest_public_release="0" current_release="1">
+  <outputs>
+    <output filename="grit/content_resources.h" type="rc_header">
+      <emit emit_type='prepend'></emit>
+    </output>
+    <output filename="content_resources.pak" type="data_package" />
+    <output filename="content_resources.rc" type="rc_all" />
+  </outputs>
+  <translations />
+  <release seq="1">
+    <includes>
+      <include name="IDR_DOM_AUTOMATION_JS" file="renderer/dom_automation.js" type="BINDATA" />
+      <if expr="is_macosx">
+        <include name="IDR_GPU_SANDBOX_PROFILE" file="browser/gpu.sb" type="BINDATA" />
+        <include name="IDR_WORKER_SANDBOX_PROFILE" file="browser/worker.sb" type="BINDATA" />
+        <include name="IDR_COMMON_SANDBOX_PROFILE" file="common/common.sb" type="BINDATA" />
+        <include name="IDR_PPAPI_SANDBOX_PROFILE" file="ppapi_plugin/ppapi.sb" type="BINDATA" />
+        <include name="IDR_RENDERER_SANDBOX_PROFILE" file="renderer/renderer.sb" type="BINDATA" />
+        <include name="IDR_UTILITY_SANDBOX_PROFILE" file="utility/utility.sb" type="BINDATA" />
+      </if>
+    </includes>
+  </release>
+</grit>

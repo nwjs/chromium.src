@@ -1,0 +1,42 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+div#chooseMetrics {
+   float: left;
+}
+
+div#chooseEvents {
+   float: left;
+   margin-left: 20px;
+}
+
+div#chooseTimeRange {
+   float: right;
+}
+
+div#chooseBlock {
+   background: #eee;
+   overflow: hidden;
+}
+
+div#charts {
+   height: 500px;
+   width: 900px;
+}
+
+div.chart {
+   height: 500px;
+   width: 900px;
+}
+
+div.event-label {
+   background: #fff;
+   border: 1px solid;
+   font: 0.6em;
+   position: absolute;
+}
+
+.hidden {
+   visibility: hidden;
+}

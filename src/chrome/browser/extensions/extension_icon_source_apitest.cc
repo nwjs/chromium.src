@@ -1,0 +1,84 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "base/logging.h"
+#include "chrome/browser/extensions/extension_apitest.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/test/browser_test_utils.h"
+#include "googleurl/src/gurl.h"
+#include "net/base/mock_host_resolver.h"
+
+class ExtensionIconSourceTest : public ExtensionApiTest {
+ protected:
+  virtual void SetUpCommandLine(CommandLine* command_line) OVERRIDE {
+    ExtensionApiTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(switches::kAllowLegacyExtensionManifests);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ExtensionIconSourceTest, IconsLoaded) {
+  FilePath basedir = test_data_dir_.AppendASCII("icons");
+  ASSERT_TRUE(LoadExtension(basedir.AppendASCII("extension_with_permission")));
+  ASSERT_TRUE(LoadExtension(basedir.AppendASCII("extension_no_permission")));
+  std::string result;
+
+  // Test that the icons are loaded and that the chrome://extension-icon
+  // parameters work correctly.
+  ui_test_utils::NavigateToURL(
+      browser(),
+      GURL("chrome-extension://gbmgkahjioeacddebbnengilkgbkhodg/index.html"));
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+      &result));
+  EXPECT_EQ(result, "Loaded");
+
+  // Verify that the an extension can't load chrome://extension-icon icons
+  // without the management permission.
+  ui_test_utils::NavigateToURL(
+      browser(),
+      GURL("chrome-extension://apocjbpjpkghdepdngjlknfpmabcmlao/index.html"));
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
+      chrome::GetActiveWebContents(browser())->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+      &result));
+  EXPECT_EQ(result, "Not Loaded");
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionIconSourceTest, IconsLoadedIncognito) {
+  FilePath basedir = test_data_dir_.AppendASCII("icons");
+  ASSERT_TRUE(LoadExtensionIncognito(
+      basedir.AppendASCII("extension_with_permission")));
+  ASSERT_TRUE(LoadExtensionIncognito(
+      basedir.AppendASCII("extension_no_permission")));
+  std::string result;
+
+  // Test that the icons are loaded and that the chrome://extension-icon
+  // parameters work correctly.
+  Browser* otr_browser = ui_test_utils::OpenURLOffTheRecord(
+      browser()->profile(),
+      GURL("chrome-extension://gbmgkahjioeacddebbnengilkgbkhodg/index.html"));
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
+      chrome::GetActiveWebContents(otr_browser)->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+      &result));
+  EXPECT_EQ(result, "Loaded");
+
+  // Verify that the an extension can't load chrome://extension-icon icons
+  // without the management permission.
+  ui_test_utils::OpenURLOffTheRecord(
+      browser()->profile(),
+      GURL("chrome-extension://apocjbpjpkghdepdngjlknfpmabcmlao/index.html"));
+  ASSERT_TRUE(content::ExecuteJavaScriptAndExtractString(
+      chrome::GetActiveWebContents(otr_browser)->GetRenderViewHost(), L"",
+      L"window.domAutomationController.send(document.title)",
+      &result));
+  EXPECT_EQ(result, "Not Loaded");
+}

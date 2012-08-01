@@ -1,0 +1,3 @@
+UNKNOWN_TYPE | userName | Your name:* | 
+EMAIL_ADDRESS | email | Your email address:* | 
+EMAIL_ADDRESS | emailCheck | Re-enter email address:* | 

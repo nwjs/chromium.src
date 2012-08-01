@@ -1,0 +1,304 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "ppapi/proxy/ppb_image_data_proxy.h"
+
+#include <string.h>  // For memcpy
+
+#include <vector>
+
+#include "base/logging.h"
+#include "build/build_config.h"
+#include "ppapi/c/pp_completion_callback.h"
+#include "ppapi/c/pp_errors.h"
+#include "ppapi/c/pp_resource.h"
+#include "ppapi/proxy/host_dispatcher.h"
+#include "ppapi/proxy/plugin_dispatcher.h"
+#include "ppapi/proxy/plugin_resource_tracker.h"
+#include "ppapi/proxy/ppapi_messages.h"
+#include "ppapi/shared_impl/host_resource.h"
+#include "ppapi/shared_impl/resource.h"
+#include "ppapi/thunk/enter.h"
+#include "ppapi/thunk/thunk.h"
+
+#if !defined(OS_NACL)
+#include "skia/ext/platform_canvas.h"
+#include "ui/surface/transport_dib.h"
+#endif
+
+namespace ppapi {
+namespace proxy {
+
+#if !defined(OS_NACL)
+ImageData::ImageData(const HostResource& resource,
+                     const PP_ImageDataDesc& desc,
+                     ImageHandle handle)
+    : Resource(OBJECT_IS_PROXY, resource),
+      desc_(desc) {
+#if defined(OS_WIN)
+  transport_dib_.reset(TransportDIB::CreateWithHandle(handle));
+#else
+  transport_dib_.reset(TransportDIB::Map(handle));
+#endif  // defined(OS_WIN)
+}
+#else  // !defined(OS_NACL)
+
+ImageData::ImageData(const HostResource& resource,
+                     const PP_ImageDataDesc& desc,
+                     const base::SharedMemoryHandle& handle)
+    : Resource(OBJECT_IS_PROXY, resource),
+      desc_(desc),
+      shm_(handle, false /* read_only */),
+      size_(desc.size.width * desc.size.height * 4),
+      map_count_(0) {
+}
+#endif  // !defined(OS_NACL)
+
+ImageData::~ImageData() {
+}
+
+thunk::PPB_ImageData_API* ImageData::AsPPB_ImageData_API() {
+  return this;
+}
+
+PP_Bool ImageData::Describe(PP_ImageDataDesc* desc) {
+  memcpy(desc, &desc_, sizeof(PP_ImageDataDesc));
+  return PP_TRUE;
+}
+
+void* ImageData::Map() {
+#if defined(OS_NACL)
+  if (map_count_++ == 0)
+    shm_.Map(size_);
+  return shm_.memory();
+#else
+  if (!mapped_canvas_.get()) {
+    mapped_canvas_.reset(transport_dib_->GetPlatformCanvas(desc_.size.width,
+                                                           desc_.size.height));
+    if (!mapped_canvas_.get())
+      return NULL;
+  }
+  const SkBitmap& bitmap =
+      skia::GetTopDevice(*mapped_canvas_)->accessBitmap(true);
+
+  bitmap.lockPixels();
+  return bitmap.getAddr(0, 0);
+#endif
+}
+
+void ImageData::Unmap() {
+#if defined(OS_NACL)
+  if (--map_count_ == 0)
+    shm_.Unmap();
+#else
+  // TODO(brettw) have a way to unmap a TransportDIB. Currently this isn't
+  // possible since deleting the TransportDIB also frees all the handles.
+  // We need to add a method to TransportDIB to release the handles.
+#endif
+}
+
+int32_t ImageData::GetSharedMemory(int* /* handle */,
+                                   uint32_t* /* byte_count */) {
+  // Not supported in the proxy (this method is for actually implementing the
+  // proxy in the host).
+  return PP_ERROR_NOACCESS;
+}
+
+skia::PlatformCanvas* ImageData::GetPlatformCanvas() {
+#if defined(OS_NACL)
+  return NULL;  // No canvas in NaCl.
+#else
+  return mapped_canvas_.get();
+#endif
+}
+
+SkCanvas* ImageData::GetCanvas() {
+#if defined(OS_NACL)
+  return NULL;  // No canvas in NaCl.
+#else
+  return mapped_canvas_.get();
+#endif
+}
+
+#if !defined(OS_NACL)
+// static
+ImageHandle ImageData::NullHandle() {
+#if defined(OS_WIN)
+  return NULL;
+#elif defined(OS_MACOSX) || defined(OS_ANDROID)
+  return ImageHandle();
+#else
+  return 0;
+#endif
+}
+
+ImageHandle ImageData::HandleFromInt(int32_t i) {
+#if defined(OS_WIN)
+    return reinterpret_cast<ImageHandle>(i);
+#elif defined(OS_MACOSX) || defined(OS_ANDROID)
+    return ImageHandle(i, false);
+#else
+    return static_cast<ImageHandle>(i);
+#endif
+}
+#endif  // !defined(OS_NACL)
+
+PPB_ImageData_Proxy::PPB_ImageData_Proxy(Dispatcher* dispatcher)
+    : InterfaceProxy(dispatcher) {
+}
+
+PPB_ImageData_Proxy::~PPB_ImageData_Proxy() {
+}
+
+// static
+PP_Resource PPB_ImageData_Proxy::CreateProxyResource(PP_Instance instance,
+                                                     PP_ImageDataFormat format,
+                                                     const PP_Size& size,
+                                                     PP_Bool init_to_zero) {
+  PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(instance);
+  if (!dispatcher)
+    return 0;
+
+  HostResource result;
+  std::string image_data_desc;
+#if defined(OS_NACL)
+  base::SharedMemoryHandle image_handle = base::SharedMemory::NULLHandle();
+  dispatcher->Send(new PpapiHostMsg_PPBImageData_CreateNaCl(
+      kApiID, instance, format, size, init_to_zero,
+      &result, &image_data_desc, &image_handle));
+#else
+  ImageHandle image_handle = ImageData::NullHandle();
+  dispatcher->Send(new PpapiHostMsg_PPBImageData_Create(
+      kApiID, instance, format, size, init_to_zero,
+      &result, &image_data_desc, &image_handle));
+#endif
+
+  if (result.is_null() || image_data_desc.size() != sizeof(PP_ImageDataDesc))
+    return 0;
+
+  // We serialize the PP_ImageDataDesc just by copying to a string.
+  PP_ImageDataDesc desc;
+  memcpy(&desc, image_data_desc.data(), sizeof(PP_ImageDataDesc));
+
+  return (new ImageData(result, desc, image_handle))->GetReference();
+}
+
+bool PPB_ImageData_Proxy::OnMessageReceived(const IPC::Message& msg) {
+  bool handled = true;
+  IPC_BEGIN_MESSAGE_MAP(PPB_ImageData_Proxy, msg)
+    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBImageData_Create, OnHostMsgCreate)
+    IPC_MESSAGE_HANDLER(PpapiHostMsg_PPBImageData_CreateNaCl,
+                        OnHostMsgCreateNaCl)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+  return handled;
+}
+
+void PPB_ImageData_Proxy::OnHostMsgCreate(PP_Instance instance,
+                                          int32_t format,
+                                          const PP_Size& size,
+                                          PP_Bool init_to_zero,
+                                          HostResource* result,
+                                          std::string* image_data_desc,
+                                          ImageHandle* result_image_handle) {
+#if defined(OS_NACL)
+  // This message should never be received in untrusted code. To minimize the
+  // size of the IRT, we just don't handle it.
+  return;
+#else
+  *result_image_handle = ImageData::NullHandle();
+
+  thunk::EnterResourceCreation enter(instance);
+  if (enter.failed())
+    return;
+
+  PP_Resource resource = enter.functions()->CreateImageData(
+      instance, static_cast<PP_ImageDataFormat>(format), size, init_to_zero);
+  if (!resource)
+    return;
+  result->SetHostResource(instance, resource);
+
+  // Get the description, it's just serialized as a string.
+  thunk::EnterResourceNoLock<thunk::PPB_ImageData_API> enter_resource(
+      resource, false);
+  PP_ImageDataDesc desc;
+  if (enter_resource.object()->Describe(&desc) == PP_TRUE) {
+    image_data_desc->resize(sizeof(PP_ImageDataDesc));
+    memcpy(&(*image_data_desc)[0], &desc, sizeof(PP_ImageDataDesc));
+  }
+
+  // Get the shared memory handle.
+  uint32_t byte_count = 0;
+  int32_t handle = 0;
+  if (enter_resource.object()->GetSharedMemory(&handle, &byte_count) == PP_OK) {
+#if defined(OS_WIN)
+    ImageHandle ih = ImageData::HandleFromInt(handle);
+    *result_image_handle = dispatcher()->ShareHandleWithRemote(ih, false);
+#else
+    *result_image_handle = ImageData::HandleFromInt(handle);
+#endif  // defined(OS_WIN)
+  }
+#endif  // defined(OS_NACL)
+}
+
+void PPB_ImageData_Proxy::OnHostMsgCreateNaCl(
+    PP_Instance instance,
+    int32_t format,
+    const PP_Size& size,
+    PP_Bool init_to_zero,
+    HostResource* result,
+    std::string* image_data_desc,
+    base::SharedMemoryHandle* result_image_handle) {
+#if defined(OS_NACL)
+  // This message should never be received in untrusted code. To minimize the
+  // size of the IRT, we just don't handle it.
+  return;
+#else
+  *result_image_handle = base::SharedMemory::NULLHandle();
+  HostDispatcher* dispatcher = HostDispatcher::GetForInstance(instance);
+  if (!dispatcher)
+    return;
+
+  thunk::EnterResourceCreation enter(instance);
+  if (enter.failed())
+    return;
+
+  PP_Resource resource = enter.functions()->CreateImageDataNaCl(
+      instance, static_cast<PP_ImageDataFormat>(format), size, init_to_zero);
+  if (!resource)
+    return;
+  result->SetHostResource(instance, resource);
+
+  // Get the description, it's just serialized as a string.
+  thunk::EnterResourceNoLock<thunk::PPB_ImageData_API> enter_resource(
+      resource, false);
+  if (enter_resource.failed())
+    return;
+  PP_ImageDataDesc desc;
+  if (enter_resource.object()->Describe(&desc) == PP_TRUE) {
+    image_data_desc->resize(sizeof(PP_ImageDataDesc));
+    memcpy(&(*image_data_desc)[0], &desc, sizeof(PP_ImageDataDesc));
+  }
+  int local_fd;
+  uint32_t byte_count;
+  if (enter_resource.object()->GetSharedMemory(&local_fd, &byte_count) != PP_OK)
+    return;
+
+  // TODO(dmichael): Change trusted interface to return a PP_FileHandle, those
+  // casts are ugly.
+  base::PlatformFile platform_file =
+#if defined(OS_WIN)
+      reinterpret_cast<HANDLE>(static_cast<intptr_t>(local_fd));
+#elif defined(OS_POSIX)
+      local_fd;
+#else
+  #error Not implemented.
+#endif  // defined(OS_WIN)
+  *result_image_handle =
+      dispatcher->ShareHandleWithRemote(platform_file, false);
+#endif  // defined(OS_NACL)
+}
+
+}  // namespace proxy
+}  // namespace ppapi

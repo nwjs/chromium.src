@@ -1,0 +1,47 @@
+<!-- Proxy info -->
+
+<style>
+
+#proxy-view-tab-content td,
+#proxy-view-tab-content th {
+  font-size: 12px;
+}
+
+</style>
+
+<div id=proxy-view-tab-content class=content-box>
+  <h4>
+    Current proxy settings
+    <input type=button value="Re-apply settings" id=proxy-view-reload-settings class="hide-when-not-capturing"/>
+  </h4>
+
+  <table><tr>
+
+  <td valign=top>
+  <h3>Effective settings</h3>
+  <pre id=proxy-view-effective-settings></pre>
+  </td>
+
+  <td style='width: 30px'>&nbsp;</td>
+
+  <td valign=top>
+  <h3>Original settings</h3>
+  <pre id=proxy-view-original-settings></pre>
+  </td>
+
+  </tr></table>
+
+  <h4>
+    Proxies which have failed recently, and are marked as bad
+    <input type=button value="Clear bad proxies" id=proxy-view-clear-bad-proxies class="hide-when-not-capturing" />
+  </h4>
+  <table class="styled-table">
+    <thead>
+      <tr>
+        <th>Bad proxy server</th>
+        <th>Time for next retry</th>
+      </tr>
+    </thead>
+    <tbody id=proxy-view-bad-proxies-tbody></tbody>
+  </table>
+</div>

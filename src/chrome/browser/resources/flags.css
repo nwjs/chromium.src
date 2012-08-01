@@ -1,0 +1,165 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+body {
+  margin: 10px;
+  min-width: 47em;
+  /* Should match needs-restart.(height + padding-top + padding-bottom + 5) */
+  padding-bottom: 65px;
+}
+
+a {
+  color: blue;
+  font-size: 103%;
+}
+
+div#header {
+  -webkit-padding-start: 0;
+  box-sizing: border-box;
+  margin-bottom: 1.05em;
+  /* 67px is the height of the header's background image. */
+  min-height: 67px;
+  overflow: hidden;
+  padding-bottom: 20px;
+  padding-top: 20px;
+  position: relative;
+}
+
+#header h1 {
+  -webkit-padding-start: 75px;
+  background: url('../../app/theme/flags_section.png') 0 20px no-repeat;
+  display: inline;
+  margin: 0;
+  padding-bottom: 40px;
+  padding-top: 40px;
+}
+
+html[dir=rtl] #header h1 {
+  background: url('../../app/theme/flags_section.png') right no-repeat;
+}
+
+h1 {
+  font-size: 156%;
+  font-weight: bold;
+  margin: 0;
+  padding: 0;
+}
+
+#blurb-container {
+  font-size: 120%;
+  padding-bottom: 1.5em;
+}
+
+#blurb-warning {
+  color: red;
+  font-weight: bold;
+}
+
+div.content {
+  font-size: 88%;
+  margin-top: 5px;
+}
+
+.section-header {
+  -webkit-padding-start: 5px;
+  background: rgb(235, 239, 249);
+  border-top: 1px solid rgb(181, 199, 222);
+  font-size: 99%;
+  padding-bottom: 2px;
+  padding-top: 3px;
+  width: 100%;
+}
+
+.section-header > table tr td:first-child {
+  width: 100%;
+}
+
+.section-header > table {
+  width: 100%;
+}
+
+.section-header-title {
+  font-weight: bold;
+}
+
+.vbox-container {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+}
+
+.wbox {
+  -webkit-box-align: stretch;
+  -webkit-box-flex: 1;
+  display: -webkit-box;
+}
+
+#top {
+  -webkit-padding-end: 5px;
+}
+
+/* Disabled and unsupported experiments display grey text on a grey background.
+   The title, however, should remain legible. */
+
+.experiment-unsupported > td,
+.experiment-disabled > td {
+  background: #F0F0F0;
+  color: #A0A0A0;
+}
+
+.experiment-unsupported .experiment-name,
+.experiment-disabled .experiment-name {
+  color: #000;
+}
+
+.experiment {
+  border-bottom: 1px solid #cdcdcd;
+}
+
+.experiment td {
+  padding-bottom: 4px;
+  padding-top: 5px;
+}
+
+/* Indent the text related to each experiment. */
+.experiment-text {
+  -webkit-padding-start: 5px;
+}
+
+.experiment-name {
+  font-weight: bold;
+}
+
+.no-experiments {
+  font-size: 1.2em;
+  margin: 6em 0 0;
+  text-align: center;
+}
+
+/* Match the indentation of .experiment-text. */
+.experiment-actions {
+  -webkit-padding-start: 5px;
+  margin-bottom: 0.2em;
+  margin-top: 0.2em;
+}
+
+div.needs-restart {
+  background: #FFF;
+  border-top: 1px solid rgb(181, 199, 222);
+  bottom: 0;
+  /* If you change this, update body.padding-bottom */
+  height: 30px;
+  left: 0;
+  /* If you change this, update body.padding-bottom */
+  padding-bottom: 25px;
+  padding-left: 15px;
+  /* If you change this, update body.padding-bottom */
+  padding-top: 15px;
+  position: fixed;
+  width: 100%;
+}
+
+button {
+  font-size: 104%;
+}
+

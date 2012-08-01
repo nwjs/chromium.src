@@ -1,0 +1,45 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "base/command_line.h"
+#include "base/file_path.h"
+#include "base/file_util.h"
+#include "base/message_loop.h"
+#include "base/path_service.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/common/chrome_paths.h"
+#include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/web_contents.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+using content::WebContents;
+
+namespace {
+
+static const FilePath::CharType* kTestDir = FILE_PATH_LITERAL("popup_blocker");
+
+typedef InProcessBrowserTest PopupBlockerBrowserTest;
+
+IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, PopupBlockedPostBlank) {
+  FilePath file_name(FILE_PATH_LITERAL("popup-blocked-to-post-blank.html"));
+  FilePath test_dir(kTestDir);
+  GURL url(ui_test_utils::GetTestUrl(test_dir, file_name));
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  // If the popup blocker blocked the blank post, there should be only one
+  // tab in only one browser window and the URL of current tab must be equal
+  // to the original URL.
+  EXPECT_EQ(1u, browser::GetBrowserCount(browser()->profile()));
+  EXPECT_EQ(1, browser()->tab_count());
+  WebContents* cur_tab = chrome::GetActiveWebContents(browser());
+  ASSERT_TRUE(cur_tab);
+  EXPECT_EQ(url, cur_tab->GetURL());
+}
+
+}  // namespace

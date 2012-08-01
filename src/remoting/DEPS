@@ -1,0 +1,25 @@
+include_rules = [
+  # Hack for NPAPI policy support. REMOVE ASAP.
+  # Bug: http://crbug.com/92576
+  "+content/common",
+
+  "+crypto",
+  "+media/base",
+
+  # Note: Only for net::EnableSSLServerSockets(), which must be called by
+  # unit tests at process start.
+  "-net",
+  "+net/socket",
+
+  "-remoting",
+  "+remoting/base",
+  "+remoting/proto",
+  "+skia/config",
+  "+skia/ext",
+  "+third_party/GTM",
+  "+third_party/GTM/AppKit",
+  "+third_party/libjingle",
+  "+third_party/libvpx",
+  "+third_party/skia/include/core",
+  "+ui/base/keycodes",
+]

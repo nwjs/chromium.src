@@ -1,0 +1,12 @@
+{
+  "name": "chrome.experimental.accessibility",
+  "version": "0.1",
+  "description": "browser test for chrome.experimental.accessibility.getAlertsForTab API",
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "permissions": [
+    "tabs",
+    "experimental"
+  ]
+}

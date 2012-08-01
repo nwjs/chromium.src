@@ -1,0 +1,50 @@
+<html>
+<body>
+<h1>Instant</h1>
+<script>
+window.chrome.sv = true;
+
+window.onsubmitcalls = 0;
+window.onchangecalls = 0;
+window.oncancelcalls = 0;
+window.onresizecalls = 0;
+
+Object.prototype.clone = function() {
+  var copy = {};
+  for (var prop in this) copy[prop] = this[prop];
+  return copy;
+};
+
+window.beforeLoadSearchBox = window.chrome.searchBox.clone();
+window.lastSearchBox = window.chrome.searchBox.clone();
+
+window.setSuggestionsArgument = {
+  suggestions: [
+    { value: "defghi" }
+  ]
+};
+
+window.chrome.searchBox.onsubmit = function() {
+  window.chrome.searchBox.setSuggestions(setSuggestionsArgument);
+  window.lastSearchBox = window.chrome.searchBox.clone();
+  window.onsubmitcalls++;
+};
+
+window.chrome.searchBox.onchange = function() {
+  window.chrome.searchBox.setSuggestions(setSuggestionsArgument);
+  window.lastSearchBox = window.chrome.searchBox.clone();
+  window.onchangecalls++;
+};
+
+window.chrome.searchBox.oncancel = function() {
+  window.chrome.searchBox.setSuggestions(setSuggestionsArgument);
+  window.lastSearchBox = window.chrome.searchBox.clone();
+  window.oncancelcalls++;
+};
+
+window.chrome.searchBox.onresize = function() {
+  window.onresizecalls++;
+};
+</script>
+</body>
+</html>

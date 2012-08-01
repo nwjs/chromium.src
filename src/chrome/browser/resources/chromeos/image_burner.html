@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html i18n-values="dir:textdirection;">
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="UTF-8"></meta>
+<title i18n-content="title"></title>
+<style>
+html, body, ul, li {
+  margin: 0;
+  padding: 0;
+}
+
+body, html {
+  height: 100%;
+}
+
+a {
+  text-decoration: none;
+  color: #0066cc;
+}
+
+button {
+  min-width: 80px;
+  -webkit-margin-start: 15px;
+}
+
+h1 {
+  margin-top: 0;
+  font-size: 15pt;
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 13pt;
+}
+
+header {
+  background-color: rgb(242, 247, 250);
+  border-bottom: 1px solid rgb(218, 236, 248);
+  padding: 50px;
+  -webkit-padding-start: 120px;
+}
+
+header p {
+  width: 800px;
+  margin-bottom: 0;
+}
+
+input {
+  margin-top: 7px;
+  margin-bottom: 7px;
+}
+
+li {
+  margin-bottom: 8px;
+  list-style: none;
+}
+
+p {
+  margin-top: 0;
+}
+
+progress {
+  width: 371px;
+  margin-bottom: 0;
+}
+
+ul {
+  webkit-margin-after: 25px;
+  webkit-margin-before: 0;
+}
+
+.aligned-to-start {
+  -webkit-padding-start: 120px;
+}
+
+.float-start {
+  float: left;
+}
+
+html[dir='rtl'] .float-start {
+  float-right;
+}
+
+.float-stop {
+  clear: both;
+}
+
+.default-text {
+  font-family: 'Chrome Droid Sans', 'Droid Sans Fallback', sans-serif;
+  margin-bottom: 0;
+}
+
+.normal-text {
+  font-size: 15;
+}
+
+.progress-text {
+  color: #666;
+  margin-bottom: 2px;
+  margin-top: 2px;
+}
+
+.select-option {
+  margin-top: 5px;
+}
+
+.new-line {
+  clear: both;
+}
+
+#main-content {
+  background-image: -webkit-linear-gradient(#FFFFFF, #EFF5FF);
+  padding: 35px;
+  -webkit-padding-start: 120px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 195px;
+}
+
+#status-icon {
+  position: absolute;
+  left: 32px;
+  right: 37px;
+  width: 64px;
+  height: 64px;
+  display: none;
+}
+
+#main-content.device-detected-none #status-icon {
+  background: url('../shared/images/insert.png');
+  background-repeat: no-repeat;
+  display: block;
+}
+
+#main-content.device-detected-usb #status-icon {
+  background: url('../shared/images/detected_usb.png');
+  background-repeat: no-repeat;
+  display: block;
+}
+
+#main-content.device-detected-sd #status-icon {
+  background: url('../shared/images/detected_sd.png');
+  background-repeat: no-repeat;
+  display: block;
+}
+
+#progress-status-div {
+  display: none;
+}
+
+#main-content.progress #progress-status-div {
+  display: block;
+}
+
+#cancel-button {
+  display: none;
+  margin-top: -4px;
+  margin-bottom: 0;
+}
+
+#main-content.progress-canceble #cancel-button {
+  display: block;
+}
+
+#pending-time {
+  clear:both
+}
+
+#device-selection {
+  display: none;
+}
+
+#main-content.device-detected-mul #device-selection {
+  display: block;
+}
+
+#warning-icon{
+  width:25px;
+  height:26px;
+  -webkit-margin-end: 10px;
+  display: none;
+}
+
+#main-content.warning #warning-icon, #main-content.error #warning-icon {
+  background:url('../shared/images/icon_warning.png');
+  background-repeat:no-repeat;
+  display: block;
+}
+
+#main-content.success #warning-icon {
+  background:url('../shared/images/icon_checkmark.png');
+  background-repeat:no-repeat;
+  display: block;
+}
+
+#warning-div {
+  display:block;
+}
+
+#main-content.progress #warning-div {
+  display: none;
+}
+
+#warning-text {
+  max-width: 550px;
+  padding-top: 4px;
+}
+
+#main-content.success #warning-button,
+#main-content.warning-no-conf #warning-button,
+#main-content.device-detected-none #warning-button {
+  display: none;
+}
+
+#main-content.error #warning-button {
+  clear: both;
+}
+</style>
+<script src="chrome://resources/js/util.js"></script>
+<script src="chrome://resources/js/local_strings.js"></script>
+<script src="chrome://imageburner/strings.js"></script>
+<script src="chrome://imageburner/image_burner.js"></script>
+</head>
+<body class="default-text">
+  <header id="burn-header">
+    <h1 i18n-content="headerTitle"></h1>
+    <p  i18n-content="headerDescription"></p>
+    <a id="more-info-link" jsvalues="href:moreInfoLink"
+        i18n-content="headerLink"></a>
+  </header>
+  <div id="main-content">
+    <div id="status-icon"></div>
+    <div id="status-info">
+      <h2 id="status-text" class="status-text"></h2>
+      <div id="progress-status-div">
+        <p id="progress-text" class="progress-text"></p>
+        <div id="progress-status" class="float-start">
+          <progress id="progress-div" class="float-start"></progress>
+          <button id="cancel-button" class="float-start"
+              i18n-content="cancelButton">
+          </button>
+        </div>
+        <p id="pending-time" class="progress-text"></p>
+      </div>
+      <ul id="device-selection"></ul>
+      <div id="warning-div">
+        <div id="warning-icon" class="float-start"></div>
+        <p id="warning-text" class="float-start"></p>
+        <button id="warning-button" class="float-start"></button>
+      </div>
+      <div class="new-line"></div>
+    </div>
+    <div id="burn-footer"></div>
+  </div>
+  <script src="chrome://resources/js/i18n_template.js"></script>
+  <script src="chrome://resources/js/i18n_process.js"></script>
+  <script src="chrome://resources/js/jstemplate_compiled.js"></script>
+</body>
+</html>

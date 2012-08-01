@@ -1,0 +1,106 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// The following is the C version of code from base/process_utils_linux.cc.
+// We shouldn't link against C++ code in a setuid binary.
+
+#define _GNU_SOURCE  // needed for O_DIRECTORY
+
+#include "process_util.h"
+
+#include <fcntl.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+// Ranges for the current (oom_score_adj) and previous (oom_adj)
+// flavors of OOM score.
+static const int kMaxOomScore = 1000;
+static const int kMaxOldOomScore = 15;
+
+// Kernel pseudo-file that allows setting of the low memory margin.
+static const char kLowMemMarginFile[] =
+    "/sys/kernel/mm/chromeos-low_mem/margin";
+
+// NOTE: This is not the only version of this function in the source:
+// the base library (in process_util_linux.cc) also has its own C++ version.
+bool AdjustOOMScore(pid_t process, int score) {
+  if (score < 0 || score > kMaxOomScore)
+    return false;
+
+  char oom_adj[27];  // "/proc/" + log_10(2**64) + "\0"
+                     //    6     +       20     +     1         = 27
+  snprintf(oom_adj, sizeof(oom_adj), "/proc/%" PRIdMAX, (intmax_t)process);
+
+  const int dirfd = open(oom_adj, O_RDONLY | O_DIRECTORY);
+  if (dirfd < 0)
+    return false;
+
+  struct stat statbuf;
+  if (fstat(dirfd, &statbuf) < 0) {
+    close(dirfd);
+    return false;
+  }
+  if (getuid() != statbuf.st_uid) {
+    close(dirfd);
+    return false;
+  }
+
+  int fd = openat(dirfd, "oom_score_adj", O_WRONLY);
+  if (fd < 0) {
+    // We failed to open oom_score_adj, so let's try for the older
+    // oom_adj file instead.
+    fd = openat(dirfd, "oom_adj", O_WRONLY);
+    if (fd < 0) {
+      // Nope, that doesn't work either.
+      return false;
+    } else {
+      // If we're using the old oom_adj file, the allowed range is now
+      // [0, kMaxOldOomScore], so we scale the score.  This may result in some
+      // aliasing of values, of course.
+      score = score * kMaxOldOomScore / kMaxOomScore;
+    }
+  }
+  close(dirfd);
+
+  char buf[11];  // 0 <= |score| <= kMaxOomScore; using log_10(2**32) + 1 size
+  snprintf(buf, sizeof(buf), "%d", score);
+  size_t len = strlen(buf);
+
+  ssize_t bytes_written = write(fd, buf, len);
+  close(fd);
+  return (bytes_written == len);
+}
+
+bool AdjustLowMemoryMargin(int64_t margin_mb) {
+  int file_descriptor = open(kLowMemMarginFile, O_WRONLY);
+  if (file_descriptor < 0)
+    return false;
+
+  // Only allow those values which are reasonable, to prevent mischief.
+  char value[21];
+  switch (margin_mb) {
+    case -1L:
+      snprintf(value, sizeof(value), "off");
+      break;
+    case 0L:
+    case 25L:
+    case 50L:
+    case 100L:
+    case 200L:
+      snprintf(value, sizeof(value), "%lld", (long long int)margin_mb);
+      break;
+    default:
+      return false;
+  }
+
+  bool success = (write(file_descriptor, value, strlen(value)) >= 0);
+  close(file_descriptor);
+  return success;
+}

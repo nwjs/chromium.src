@@ -1,0 +1,95 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+html[oobe=old] #gaia-signin {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  display: -webkit-box;
+  height: 470px;
+}
+
+#signin-right {
+  font-size: 12px;
+  top: 60px;
+  width: 200px;
+}
+
+html[oobe=old] #signin-right {
+  position: absolute;
+}
+
+/*  For touch-optimized UI, make the links bigger. */
+@media (pointer:coarse) {
+  #signin-right {
+    font-size: 14px;
+  }
+}
+
+html[dir=ltr][oobe=old] #signin-right {
+  right: -150px;  /* ('gaia-sign'.width - 'signin-frame'.width) / 2 -
+                     desiredGap - 'signin-right'.width =
+                     (640 - 340) / 2 - 100 - 200 = -150
+                   */
+}
+
+html[dir=rtl][oobe=old] #signin-right {
+  left: -150px;
+}
+
+html[oobe=new] #signin-right {
+  -webkit-margin-before: 80px;
+  -webkit-margin-start: 30px;
+}
+
+.signin-text {
+  color: #666;
+  margin-top: 20px;
+}
+
+.signin-link {
+  color: rgb(37, 79, 155);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+#signin-frame {
+  height: 100%;
+  width: 340px;
+}
+
+html[oobe=old] #signin-frame {
+  background-color: #fefefe;
+  border: 1px solid lightgray;
+}
+
+html[oobe=new] #signin-frame {
+  background-color: transparent;
+  border-right: 1px solid lightgray;
+}
+
+#gaia-loading {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+#gaia-loading .spinner {
+  height: 32px;
+  width: 32px;
+}
+
+/* Position to be aligned with the login box in iframe  */
+#login-box {
+  height: 31px;
+  position: absolute;
+  top: 77px;
+  visibility: hidden;
+  z-index: -1;
+}

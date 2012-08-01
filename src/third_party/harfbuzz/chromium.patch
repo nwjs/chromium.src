@@ -1,0 +1,158 @@
+diff --git a/contrib/harfbuzz-unicode.c b/contrib/harfbuzz-unicode.c
+index 72c5cf2..49e47b0 100644
+--- a/contrib/harfbuzz-unicode.c
++++ b/contrib/harfbuzz-unicode.c
+@@ -120,7 +120,6 @@ hb_utf16_script_run_next(unsigned *num_code_points, HB_ScriptItem *output,
+         current_script = script;
+         continue;
+       } else if (script == HB_Script_Inherited) {
+-        current_script = script;
+         continue;
+       } else {
+         *iter = prev_iter;
+@@ -171,7 +170,10 @@ hb_utf16_script_run_prev(unsigned *num_code_points, HB_ScriptItem *output,
+         current_script = script;
+         continue;
+       } else if (script == HB_Script_Inherited) {
+-        current_script = script;
++        // Just assume that whatever follows this combining character is within
++        // the same script.  This is incorrect if you had language1 + combining
++        // char + language 2, but that is rare and this code is suspicious
++        // anyway.
+         continue;
+       } else {
+         *iter = prev_iter;
+diff --git a/src/harfbuzz-arabic.c b/src/harfbuzz-arabic.c
+index 3837087..ce2ca6c 100644
+--- a/src/harfbuzz-arabic.c
++++ b/src/harfbuzz-arabic.c
+@@ -1107,6 +1107,7 @@ HB_Bool HB_ArabicShape(HB_ShaperItem *item)
+     assert(item->item.script == HB_Script_Arabic || item->item.script == HB_Script_Syriac
+            || item->item.script == HB_Script_Nko);
+ 
++    item->shaperFlags |= HB_ShaperFlag_ForceMarksToZeroWidth;
+ #ifndef NO_OPENTYPE
+ 
+     if (HB_SelectScript(item, item->item.script == HB_Script_Arabic ? arabic_features : syriac_features)) {
+diff --git a/src/harfbuzz-shaper.cpp b/src/harfbuzz-shaper.cpp
+index 7d433ea..dd86a40 100644
+--- a/src/harfbuzz-shaper.cpp
++++ b/src/harfbuzz-shaper.cpp
+@@ -430,8 +430,6 @@ void HB_HeuristicSetGlyphAttributes(HB_ShaperItem *item)
+ 
+     // ### zeroWidth and justification are missing here!!!!!
+ 
+-    assert(item->num_glyphs <= length);
+-
+ //     qDebug("QScriptEngine::heuristicSetGlyphAttributes, num_glyphs=%d", item->num_glyphs);
+     HB_GlyphAttributes *attributes = item->attributes;
+     unsigned short *logClusters = item->log_clusters;
+@@ -448,7 +446,6 @@ void HB_HeuristicSetGlyphAttributes(HB_ShaperItem *item)
+         }
+         ++glyph_pos;
+     }
+-    assert(glyph_pos == item->num_glyphs);
+ 
+     // first char in a run is never (treated as) a mark
+     int cStart = 0;
+@@ -1151,10 +1148,12 @@ HB_Bool HB_OpenTypeShape(HB_ShaperItem *item, const hb_uint32 *properties)
+         return false;
+     face->tmpLogClusters = tmpLogClusters;
+ 
++    const int itemLength = item->item.length;
++    assert(itemLength > 0);
+     for (int i = 0; i < face->length; ++i) {
+         hb_buffer_add_glyph(face->buffer, item->glyphs[i], properties ? properties[i] : 0, i);
+         face->tmpAttributes[i] = item->attributes[i];
+-        face->tmpLogClusters[i] = item->log_clusters[i];
++        face->tmpLogClusters[i] = i < itemLength ? item->log_clusters[i] : item->log_clusters[itemLength - 1];
+     }
+ 
+ #ifdef OT_DEBUG
+@@ -1190,6 +1189,24 @@ HB_Bool HB_OpenTypeShape(HB_ShaperItem *item, const hb_uint32 *properties)
+     return true;
+ }
+ 
++/* See comments near the definition of HB_ShaperFlag_ForceMarksToZeroWidth for a description
++   of why this function exists. */
++void HB_FixupZeroWidth(HB_ShaperItem *item)
++{
++    HB_UShort property;
++
++    if (!item->face->gdef)
++        return;
++
++    for (unsigned int i = 0; i < item->num_glyphs; ++i) {
++        /* If the glyph is a mark, force its advance to zero. */
++        if (HB_GDEF_Get_Glyph_Property (item->face->gdef, item->glyphs[i], &property) == HB_Err_Ok &&
++            property == HB_GDEF_MARK) {
++            item->advances[i] = 0;
++        }
++    }
++}
++
+ HB_Bool HB_OpenTypePosition(HB_ShaperItem *item, int availableGlyphs, HB_Bool doLogClusters)
+ {
+     HB_Face face = item->face;
+@@ -1204,6 +1221,8 @@ HB_Bool HB_OpenTypePosition(HB_ShaperItem *item, int availableGlyphs, HB_Bool do
+ 
+     if (!face->glyphs_substituted && !glyphs_positioned) {
+         HB_GetGlyphAdvances(item);
++        if (item->face->current_flags & HB_ShaperFlag_ForceMarksToZeroWidth)
++            HB_FixupZeroWidth(item);
+         return true; // nothing to do for us
+     }
+ 
+diff --git a/src/harfbuzz-shaper.h b/src/harfbuzz-shaper.h
+index ab5c07a..72c9aa3 100644
+--- a/src/harfbuzz-shaper.h
++++ b/src/harfbuzz-shaper.h
+@@ -170,7 +170,11 @@ typedef enum {
+ typedef enum {
+     HB_ShaperFlag_Default = 0,
+     HB_ShaperFlag_NoKerning = 1,
+-    HB_ShaperFlag_UseDesignMetrics = 2
++    HB_ShaperFlag_UseDesignMetrics = 1 << 1,
++    /* Arabic vowels in some fonts (Times New Roman, at least) have
++       non-zero advances, when they should be zero.  Setting this shaper
++       flag causes us to zero out the advances for mark glyphs. */
++    HB_ShaperFlag_ForceMarksToZeroWidth = 1 << 2
+ } HB_ShaperFlag;
+ 
+ /* 
+diff --git a/src/harfbuzz-tibetan.c b/src/harfbuzz-tibetan.c
+index 847ac52..6f9a55b 100644
+--- a/src/harfbuzz-tibetan.c
++++ b/src/harfbuzz-tibetan.c
+@@ -90,7 +90,7 @@ static const unsigned char tibetanForm[0x80] = {
+ 
+ 
+ #define tibetan_form(c) \
+-    ((c) >= 0x0f40 && (c) <= 0x0fc0 ? (TibetanForm)tibetanForm[(c) - 0x0f40] : TibetanOther)
++    ((c) >= 0x0f40 && (c) < 0x0fc0 ? (TibetanForm)tibetanForm[(c) - 0x0f40] : TibetanOther)
+ 
+ static const HB_OpenTypeFeature tibetan_features[] = {
+     { HB_MAKE_TAG('c', 'c', 'm', 'p'), CcmpProperty },
+diff --git a/src/harfbuzz-shaper.cpp b/src/harfbuzz-shaper.cpp
+index ce4d4ac..6b4d6d2 100644
+--- a/src/harfbuzz-shaper.cpp
++++ b/src/harfbuzz-shaper.cpp
+@@ -1263,16 +1263,13 @@ HB_Bool HB_OpenTypePosition(HB_ShaperItem *item, int availableGlyphs, HB_Bool do
+ //                    (int)(positions[i].x_pos >> 6), (int)(positions[i].y_pos >> 6),
+ //                    positions[i].back, positions[i].new_advance);
+ 
+-            HB_Fixed adjustment = (item->item.bidiLevel % 2) ? -positions[i].x_advance : positions[i].x_advance;
++            HB_Fixed adjustment = positions[i].x_advance;
+ 
+             if (!(face->current_flags & HB_ShaperFlag_UseDesignMetrics))
+                 adjustment = HB_FIXED_ROUND(adjustment);
+ 
+-            if (positions[i].new_advance) {
+-                advances[i] = adjustment;
+-            } else {
++            if (positions[i].new_advance == 0)
+                 advances[i] += adjustment;
+-            }
+ 
+             int back = 0;
+             HB_FixedPoint *offsets = item->offsets;

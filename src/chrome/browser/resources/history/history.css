@@ -1,0 +1,223 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+#editing-controls,
+#loading-spinner {
+  margin-top: 16px;
+  white-space: nowrap;
+}
+
+#loading-spinner[hidden] {
+  display: inline-block;
+}
+
+#spinner {
+  position: relative;
+  top: 3px;
+}
+
+#editing-controls button:first-of-type {
+  -webkit-margin-start: 0;
+}
+
+#results-display {
+  margin: 16px 0 0 0;
+  max-width: 740px;
+}
+
+.edit-button {
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  color: blue; /* -webkit-link makes it purple :'( */
+  cursor: pointer;
+  display: inline-block;
+  font: inherit;
+  padding: 0 9px;
+  text-decoration: underline;
+}
+
+.gap,
+.entry,
+.no-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gap {
+  -webkit-border-end: 1px solid rgb(192, 195, 198);
+  height: 14px;
+  margin: 1px 0;
+  width: 45px;
+}
+
+.entry {
+  overflow: auto; /* Make sure it's at least as large as its children. */
+}
+
+.entry-box {
+  -webkit-box-orient: horizontal;
+  cursor: default;
+  display: -webkit-box;
+  float: left;  /* Box will shrink to fit its content. */
+  /* An odd line-height ensures a consistent baseline on all platforms. */
+  line-height: 1.75em;
+  /* The box should be no bigger than its parent. */
+  max-width: 100%;
+  overflow: hidden;
+  padding-bottom: 1px;
+}
+
+html[dir=rtl] .entry-box {
+  float: right; /* To make the box shrink to fit its content. */
+}
+
+.day {
+  white-space: nowrap;
+}
+
+.search-results,
+.day-results {
+  margin: 0 0 24px 0;
+  padding: 0;
+}
+
+.snippet {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  -webkit-margin-start: 110px;
+  clear: both;
+  color: rgb(34, 34, 34);
+  display: -webkit-box;
+  line-height: 1.6em;
+  margin-bottom: 1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entry .domain {
+  color: rgb(151, 156, 160);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.drop-down {
+  -webkit-margin-end: 5px;
+  background: white -webkit-canvas(drop-down-arrow) no-repeat center 4px;
+  border: 1px solid rgb(192, 195, 198);
+  border-radius: 2px;
+  height: 12px;
+  padding: 0;
+  position: relative;
+  top: 2px;
+  width: 12px;
+}
+
+.drop-down:hover {
+  background-image: -webkit-canvas(drop-down-arrow-hover);
+  border-color: rgb(48, 57, 66);
+}
+
+.drop-down[menu-shown],
+.drop-down:focus {
+  background-color: rgb(48, 57, 66);
+  background-image: -webkit-canvas(drop-down-arrow-active);
+  border-color: rgb(48, 57, 66);
+}
+
+html[dir='rtl'] .entry .title {
+  /* Put the favicon on the right. */
+  background-position-x: right;
+}
+
+.entry .time {
+  color: rgb(151, 156, 160);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 90px;
+}
+
+.search-results .time {
+  width: 110px;
+}
+
+.entry input[type=checkbox] {
+  -webkit-margin-end: 6px;
+  -webkit-margin-start: 4px;
+  line-height: 1em;
+}
+
+/* Checkboxes are shown when checked or focused, or when the entry is hovered.
+   Fade in on focus, but not on hover, because it makes the UI feel laggy. */
+.entry input[type=checkbox]:not(:checked) {
+  opacity: 0;
+}
+
+.entry-box:hover input[type=checkbox],
+.entry-box input[type=checkbox]:focus {
+  opacity: 1;
+}
+
+.entry-box input[type=checkbox]:focus {
+  -webkit-transition: opacity 150ms;
+}
+
+.entry-box {
+  background-color: none;
+}
+
+.entry-box:hover,
+.entry-box.contains-focus {
+  background-color: rgb(252, 252, 252);
+  border-radius: 2px;
+}
+
+.entry .title {
+  -webkit-box-flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry .title {
+  /* Make room for the favicon. */
+  -webkit-padding-start: 20px;
+
+  /* Control the favicon appearance. */
+  background-position-y: 3px;
+  background-repeat: no-repeat;
+}
+
+.entry .starred {
+  -webkit-margin-start: 4px;
+  background: url('../shared/images/star_small.png') no-repeat;
+  display: inline-block;
+  height: 11px;
+  width: 11px;
+}
+
+.entry .title > a {
+  color: rgb(48, 57, 66);
+  text-decoration: none;
+}
+
+.entry .title > a.to-be-removed {
+  text-decoration: line-through;
+}
+
+.entry .title > a:hover {
+  text-decoration: underline;
+}
+
+.fade-out {
+  -webkit-transition: opacity 200ms;
+  opacity: 0;
+}
+
+.menu-button.drop-down {
+  position: relative;
+  top: 2px;
+}

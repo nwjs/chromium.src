@@ -1,0 +1,55 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+html[oobe=new] #error-message {
+  min-height: 184px;
+  /* Screen has no controls but has padding at the last text message */
+  padding: 70px 17px 50px;
+  width: 688px;
+}
+
+#error-message-screen-title {
+  -webkit-margin-end: 60px;
+  -webkit-margin-start: 60px;
+  display: block;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+#error-message-body {
+  -webkit-margin-end: 60px;
+  -webkit-margin-start: 60px;
+  display: block;
+}
+
+#captive-portal-proxy-message-text {
+  margin-top: 20px;
+}
+
+#captive-portal-network-select-text {
+  margin-top: 20px;
+}
+
+.show-with-offline-message,
+.show-with-captive-portal,
+.show-with-proxy-error {
+  display: none;
+}
+
+.show-offline-message .show-with-offline-message,
+.show-captive-portal .show-with-captive-portal,
+.show-proxy-error .show-with-proxy-error {
+  display: block;
+}
+
+.show-captive-portal .dont-show-with-captive-portal {
+  display: none;
+}
+
+#error-guest-signin,
+#error-offline-login {
+  -webkit-margin-start: 60px;
+  margin-bottom: 21px;
+}

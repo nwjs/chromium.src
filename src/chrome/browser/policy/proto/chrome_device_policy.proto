@@ -1,0 +1,229 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+package enterprise_management;
+
+message DevicePolicyRefreshRateProto {
+  // In milliseconds.
+  optional int64 device_policy_refresh_rate = 1;
+}
+
+message UserWhitelistProto {
+  repeated string user_whitelist = 1;
+}
+
+message AllowNewUsersProto {
+  // Determines whether we allow arbitrary users to log into the device.
+  // This interacts with the UserWhitelistProto as follows:
+  // allow_new_users | user_whitelist | user_whitelist_size | anyone can log in
+  //-----------------+----------------+---------------------+------------------
+  //  present, true  | not present    | N/A                 | Yes
+  //-----------------+----------------+---------------------+------------------
+  //  present, true  | present        | >= 0                | Yes
+  //-----------------+----------------+---------------------+------------------
+  //  present, false | not present    | N/A                 | (Broken) Yes
+  //-----------------+----------------+---------------------+------------------
+  //  present, false | present        | 0                   | (Broken) Yes
+  //-----------------+----------------+---------------------+------------------
+  //  present, false | present        | > 0                 | No, W/L enforced
+  //-----------------+----------------+---------------------+------------------
+  //  not present    | not present    | N/A                 | Yes
+  //-----------------+----------------+---------------------+------------------
+  //  not present    | present        | 0                   | Yes
+  //-----------------+----------------+---------------------+------------------
+  //  not present    | present        | > 0                 | No, W/L enforced
+  //-----------------+----------------+---------------------+------------------
+  optional bool allow_new_users = 1 [default = true];
+}
+
+message GuestModeEnabledProto {
+  // Determines if guests are allowed to log in to the device.
+  optional bool guest_mode_enabled = 1 [default = true];
+}
+
+message ShowUserNamesOnSigninProto {
+  // Determines if we show pods for existing users on the sign in screen.
+  optional bool show_user_names = 1 [default = true];
+}
+
+message DataRoamingEnabledProto {
+  // Determines if cellular data roaming is enabled.
+  optional bool data_roaming_enabled = 1 [default = false];
+}
+
+message DeviceProxySettingsProto {
+  // One of "direct", "auto_detect", "pac_script", "fixed_servers", "system"
+  optional string proxy_mode = 1;
+  optional string proxy_server = 2;
+  optional string proxy_pac_url = 3;
+  optional string proxy_bypass_list = 4;
+}
+
+message CameraEnabledProto {
+  optional bool camera_enabled = 1;
+}
+
+message MetricsEnabledProto {
+  optional bool metrics_enabled = 1;
+}
+
+message ReleaseChannelProto {
+  // One of "stable-channel", "beta-channel", or "dev-channel"
+  optional string release_channel = 1;
+
+  // If |release_channel_delegated| is set to true and the |release_channel|
+  // field is not set or left empty, the user can select the channel. If the
+  // |release_channel| is specified it will always override users choice!
+  optional bool release_channel_delegated = 2;
+}
+
+message DeviceOpenNetworkConfigurationProto {
+  // The network configuration blob. This is a JSON string as specified by ONC.
+  optional string open_network_configuration = 1;
+}
+
+// Policies to turn on portions of the device status reports.
+message DeviceReportingProto {
+  optional bool report_version_info = 1;
+  optional bool report_activity_times = 2;
+  optional bool report_boot_mode = 3;
+  optional bool report_location = 4;
+}
+
+message EphemeralUsersEnabledProto {
+  // Determines whether users should be treated as ephemeral. In ephemeral users
+  // mode, no cryptohome is created for the user, but a tmpfs mount is used
+  // instead such that upon logout all user state is discarded.
+  optional bool ephemeral_users_enabled = 1;
+}
+
+// Details of an extension to install as part of the AppPack.
+message AppPackEntryProto {
+  optional string extension_id = 1;
+  optional string update_url = 2;
+  optional bool online_only = 3;
+}
+
+message AppPackProto {
+  // List of extensions to install as part of the AppPack.
+  repeated AppPackEntryProto app_pack = 1;
+}
+
+// This is a special policy for kiosk/retail mode that specifies what apps
+// should be pinned to the launcher. For regular accounts, pinned apps are
+// controlled through user policy.
+message PinnedAppsProto {
+  // App IDs for the apps to pin.
+  repeated string app_id = 1;
+}
+
+message ForcedLogoutTimeoutsProto {
+  // All timeouts are specified in milliseconds.
+
+  // Specifies the timeout before an idle user session is terminated.
+  // If this field is omitted or set to 0, no logout on idle will be performed.
+  optional int64 idle_logout_timeout = 1;
+
+  // Specifies the duration of a warning countdown before the user is logged out
+  // because of idleness as specified by the |idle_logout_timeout| value.
+  // This field is only used if |idle_logout_timeout| != 0 is specified.
+  optional int64 idle_logout_warning_duration = 2;
+}
+
+message ScreenSaverProto {
+  // Specifies the extension ID which is to be used as a screen saver on the
+  // login screen if no user activity is present. Only respected if the device
+  // is in RETAIL mode.
+  optional string screen_saver_extension_id = 1;
+
+  // Specifies the timeout before the screen saver is activated. If this field
+  // is omitted or set to 0, no screen-saver will be started.
+  // Measured in milliseconds.
+  optional int64 screen_saver_timeout = 2;
+}
+
+// Enterprise controls for auto-update behavior of Chrome OS.
+message AutoUpdateSettingsProto {
+  // True if we don't want the device to auto-update (target_version_prefix is
+  // ignored in this case).
+  optional bool update_disabled = 1;
+
+  // Specifies the prefix of the target version we want the device to
+  // update to, if it's on a older version. If the device is already on
+  // a version with the given prefix, then there's no effect. If the device is
+  // on a higher version, it will remain on the higher version as we
+  // don't support rollback yet. The format of this version can be one
+  // of the following:
+  // ---------------------------------------------------------------------
+  // "" (or not set at all): update to latest version available.
+  // 1412.: update to any minor version of 1412 (e.g. 1412.24.34 or 1412.60.2)
+  // 1412.2.: update to any minor version of 1412.2 (e.g. 1412.2.34 or 1412.2.2)
+  // 1412.24.34: update to this specific version only
+  // ---------------------------------------------------------------------
+  optional string target_version_prefix = 2;
+
+  // The Chrome browser version (e.g. "17.*") corresponding to the
+  // target_version_prefix above. The target_version_prefix is the internal OS
+  // version that external users normally are not aware of. This display_name
+  // can be used by the devices to display a message to end-users about the auto
+  // update setting.
+  optional string target_version_display_name = 3;
+
+  // Specifies the number of seconds up to which a device may randomly
+  // delay its download of an update from the time the update was first pushed
+  // out to the server. The device may wait a portion of this time in terms
+  // of wall-clock-time and the remaining portion in terms of the number of
+  // update checks. In any case, the scatter is upper bounded by a constant
+  // amount of time so that a device does not ever get stuck waiting to download
+  // an update forever.
+  optional int64 scatter_factor_in_seconds = 4;
+
+  // Enumerates network connection types.
+  enum ConnectionType {
+    CONNECTION_TYPE_ETHERNET = 0;
+    CONNECTION_TYPE_WIFI = 1;
+    CONNECTION_TYPE_WIMAX = 2;
+    CONNECTION_TYPE_BLUETOOTH = 3;
+    CONNECTION_TYPE_CELLULAR = 4;
+  }
+
+  // The types of connections that are OK to use for OS updates. OS updates
+  // potentially put heavy strain on the connection due to their size and may
+  // incur additional cost. Therefore, they are by default not enabled for
+  // connection types that are considered expensive, which include WiMax,
+  // Bluetooth and Cellular at the moment.
+  repeated ConnectionType allowed_connection_types = 5;
+}
+
+message StartUpUrlsProto {
+  // Specifies the URLs to be loaded on login to the anonymous account used if
+  // the device is in RETAIL mode.
+  repeated string start_up_urls = 1;
+}
+
+message ChromeDeviceSettingsProto {
+  optional DevicePolicyRefreshRateProto device_policy_refresh_rate = 1;
+  optional UserWhitelistProto user_whitelist = 2;
+  optional GuestModeEnabledProto guest_mode_enabled = 3;
+  optional DeviceProxySettingsProto device_proxy_settings = 4;
+  optional CameraEnabledProto camera_enabled = 5;
+  optional ShowUserNamesOnSigninProto show_user_names = 6;
+  optional DataRoamingEnabledProto data_roaming_enabled = 7;
+  optional AllowNewUsersProto allow_new_users = 8;
+  optional MetricsEnabledProto metrics_enabled = 9;
+  optional ReleaseChannelProto release_channel = 10;
+  optional DeviceOpenNetworkConfigurationProto open_network_configuration = 11;
+  optional DeviceReportingProto device_reporting = 12;
+  optional EphemeralUsersEnabledProto ephemeral_users_enabled = 13;
+  optional AppPackProto app_pack = 14;
+  optional ForcedLogoutTimeoutsProto forced_logout_timeouts = 15;
+  optional ScreenSaverProto login_screen_saver = 16;
+  optional AutoUpdateSettingsProto auto_update_settings = 17;
+  optional StartUpUrlsProto start_up_urls = 18;
+  optional PinnedAppsProto pinned_apps = 19;
+}

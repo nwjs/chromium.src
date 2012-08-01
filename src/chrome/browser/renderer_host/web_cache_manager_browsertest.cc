@@ -1,0 +1,67 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include <string>
+
+#include "base/message_loop.h"
+#include "base/process_util.h"
+#include "chrome/browser/renderer_host/web_cache_manager.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/common/result_codes.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+using content::WebContents;
+
+class WebCacheManagerBrowserTest : public InProcessBrowserTest {
+};
+
+// Regression test for http://crbug.com/12362.  If a renderer crashes and the
+// user navigates to another tab and back, the browser doesn't crash.
+IN_PROC_BROWSER_TEST_F(WebCacheManagerBrowserTest, CrashOnceOnly) {
+  const FilePath kTestDir(FILE_PATH_LITERAL("google"));
+  const FilePath kTestFile(FILE_PATH_LITERAL("google.html"));
+  GURL url(ui_test_utils::GetTestUrl(kTestDir, kTestFile));
+
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  chrome::NewTab(browser());
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  WebContents* tab = chrome::GetWebContentsAt(browser(), 0);
+  ASSERT_TRUE(tab != NULL);
+  base::KillProcess(tab->GetRenderProcessHost()->GetHandle(),
+                    content::RESULT_CODE_KILLED, true);
+
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::NewTab(browser());
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::NewTab(browser());
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  // We would have crashed at the above line with the bug.
+
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::CloseTab(browser());
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::CloseTab(browser());
+  chrome::ActivateTabAt(browser(), 0, true);
+  chrome::CloseTab(browser());
+
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  EXPECT_EQ(
+      WebCacheManager::GetInstance()->active_renderers_.size(), 1U);
+  EXPECT_EQ(
+      WebCacheManager::GetInstance()->inactive_renderers_.size(), 0U);
+  EXPECT_EQ(
+      WebCacheManager::GetInstance()->stats_.size(), 1U);
+}

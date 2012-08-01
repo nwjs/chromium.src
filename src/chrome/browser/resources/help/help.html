@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html i18n-values="dir:textdirection;">
+<head>
+  <meta charset="utf-8">
+  <title i18n-content="helpTitle"></title>
+  <link rel="stylesheet" href="chrome://resources/css/chrome_shared.css">
+  <link rel="stylesheet" href="../uber/uber_shared.css">
+  <link rel="stylesheet" href="help.css">
+  <script src="chrome://resources/js/cr.js"></script>
+  <script src="chrome://resources/js/load_time_data.js"></script>
+  <script src="chrome://resources/js/util.js"></script>
+  <script src="chrome://help-frame/help.js"></script>
+</head>
+<body class="uber-frame"
+    i18n-values=".style.fontFamily:fontfamily;.style.fontSize:fontsize">
+  <div class="page">
+    <header>
+      <h1 i18n-content="aboutTitle"></h1>
+    </header>
+    <div id="about-container">
+      <img src="chrome://theme/IDR_PRODUCT_LOGO_32">
+      <div id="product-description">
+        <h2 i18n-content="aboutProductTitle"></h2>
+        <span i18n-content="aboutProductDescription"></span>
+      </div>
+    </div>
+    <div id="help-container">
+      <button id="get-help" i18n-content="getHelpWithChrome"></button>
+      <button id="report-issue" i18n-content="reportAnIssue"></button>
+    </div>
+    <div id="version-container">
+      <div i18n-content="browserVersion" dir="ltr"></div>
+<if expr="pp_ifdef('chromeos')">
+      <div>
+        <span i18n-content="platform"></span>&nbsp;<span id="os-version"></span>
+      </div>
+      <div>
+        <span i18n-content="firmware"></span>&nbsp;<span id="firmware"></span>
+      </div>
+      <div id="more-info-container">
+        <section id="channel-changer-container">
+          <h3 i18n-content="channel"></h3>
+          <select id="channel-changer">
+            <option value="stable-channel" i18n-content="stable"></option>
+            <option value="beta-channel" i18n-content="beta"></option>
+            <option value="dev-channel" i18n-content="dev"></option>
+          </select>
+        </section>
+        <section>
+          <h3 i18n-content="webkit"></h3>
+          <div i18n-content="webkitVersion" dir="ltr"></div>
+        </section>
+        <section>
+          <h3 i18n-content="jsEngine" dir="ltr"></h3>
+          <div i18n-content="jsEngineVersion"></div>
+        </section>
+        <section>
+          <h3 i18n-content="userAgent"></h3>
+          <div i18n-content="userAgentInfo" dir="ltr"></div>
+        </section>
+        <section>
+          <h3 i18n-content="commandLine"></h3>
+          <div i18n-content="commandLineInfo" dir="ltr"></div>
+        </section>
+        <section id="last-updated-container" class="empty">
+          <h3 i18n-content="lastUpdated"></h3>
+          <div id="last-updated"></div>
+        </section>
+      </div>
+      <button id="more-info-expander" class="link-button"
+          i18n-content="showMoreInfo">
+      </button>
+</if>
+<if expr="pp_ifdef('chromeos') or pp_ifdef('_google_chrome') or is_linux">
+      <div id="update-status-container" hidden>
+        <div id="update-status-icon" class="up-to-date"></div>
+        <span id="update-status" i18n-content="updateCheckStarted"></span>
+      </div>
+<if expr="is_macosx">
+      <div id="update-obsolete-os-container" hidden>
+        <span id="update-obsolete-os" i18n-content="updateObsoleteOS"></span>
+        <a i18n-values="href:updateObsoleteOSURL" i18n-content="learnMore"
+            target="_blank"></a>
+      </div>
+</if>
+      <div id="update-buttons-container">
+        <div id="update-percentage" hidden></div>
+<if expr="is_macosx">
+        <button id="promote" i18n-content="promote" hidden></button>
+</if>
+        <button id="relaunch" i18n-content="relaunch" hidden></button>
+      </div>
+</if>
+    </div>
+    <div id="product-container">
+      <div i18n-content="productName"></div>
+      <div i18n-content="productCopyright"></div>
+      <div id="product-license"></div>
+<if expr="pp_ifdef('chromeos')">
+      <div id="product-os-license"></div>
+</if>
+<if expr="pp_ifdef('_google_chrome')">
+      <div id="product-tos"></div>
+</if>
+    </div>
+  </div>
+</body>
+<script src="chrome://help-frame/strings.js"></script>
+<script src="chrome://resources/js/i18n_template2.js"></script>
+</html>

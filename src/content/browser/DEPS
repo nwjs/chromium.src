@@ -1,0 +1,18 @@
+include_rules = [
+  "+content/gpu",  # For gpu_info_collector.h and in-process GPU
+  "+content/port/browser",
+  "+content/public/browser",
+  "+media/audio",  # For audio input for speech input feature.
+  "+media/base/android",  # For Android JNI registration.
+  "+ui/ui_controls",  # this should probably move into a DEPS file under test.
+
+  # Other libraries.
+  "+third_party/iaccessible2",
+  "+third_party/isimpledom",
+  "+third_party/smhasher",
+  "+third_party/speex",
+
+  # DO NOT ADD ANY CHROME INCLUDES HERE!!!
+  # See https://sites.google.com/a/chromium.org/dev/developers/content-module
+  # for more information.
+]

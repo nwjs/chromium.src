@@ -1,0 +1,60 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Sync protocol datatype extension for apps.
+
+// Update proto_value_conversions{.h,.cc,_unittest.cc} if you change
+// any fields in this file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+option retain_unknown_fields = true;
+
+package sync_pb;
+
+import "extension_specifics.proto";
+
+// Settings related to push notifications for apps.
+message AppNotificationSettings {
+  // DEPRECATED: Use oauth_client_id below.
+  // Whether or not the user has setup notifications at least once.
+  // The value for this field will start out false and will be set
+  // to true when the user accepts receiving notifications for the
+  // first time and then it will always remain true.
+  optional bool initial_setup_done = 1;
+
+  // Whether or not the user has disabled notifications.
+  optional bool disabled = 2;
+
+  // OAuth2 client id to which the user granted the notification permission.
+  // This field will start out empty.
+  // It will be set when the user accepts receiving notifications.
+  // This field is used when the user revokes the notifications permission.
+  // Note that it is never cleared after it was set once. Hence, the presence
+  // of this field can be used to determine if the user has setup notifications
+  // at least once for the given app.
+  optional string oauth_client_id = 3;
+}
+
+// Properties of app sync objects.
+//
+// For now, an app is just an extension.  We keep the two data types
+// separate for future-proofing purposes.
+message AppSpecifics {
+  // Extension data.
+  optional ExtensionSpecifics extension = 1;
+
+  // Notification settings.
+  optional AppNotificationSettings notification_settings = 2; 
+
+  // This controls where on a page this application icon will appear.
+  optional string app_launch_ordinal = 3;
+
+  // This specifics which page the application icon will appear on in the NTP.
+  // This values only provide the order within the application pages, not within
+  // all of the panels in the NTP.
+  optional string page_ordinal = 4;
+}
+

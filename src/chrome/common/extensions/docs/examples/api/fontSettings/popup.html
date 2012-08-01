@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+  <head>
+  <meta charset="utf-8">
+  <title>Font Settings Sample Extension</title>
+  <script src="./popup.js"></script>
+  <style>
+    .font-setting-container {
+      -webkit-box-flex: 1;
+      display: -webkit-box;
+    }
+
+    .font-input-div {
+      -webkit-margin-end: 1em;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div style="min-width: 600px;">
+  <h3>Font Settings Sample Extension</h3>
+    <div>Script</div>
+    <div>
+    <select id="scriptList">
+      <option value="Zyyy">Default</option>
+      <option value="Arab">Arabic</option>
+      <option value="Armn">Armenian</option>
+      <option value="Beng">Bengali</option>
+      <option value="Cher">Cherokee</option>
+      <option value="Cyrl">Cyrillic</option>
+      <option value="Deva">Devanagari</option>
+      <option value="Ethi">Ethiopic</option>
+      <option value="Geor">Georgian</option>
+      <option value="Grek">Greek</option>
+      <option value="Gujr">Gujarati</option>
+      <option value="Guru">Gurmukhi</option>
+      <option value="Hebr">Hebrew</option>
+      <option value="Jpan">Japanese</option>
+      <option value="Knda">Kannada</option>
+      <option value="Khmr">Khmer</option>
+      <option value="Hang">Korean</option>
+      <option value="Laoo">Lao</option>
+      <option value="Mlym">Malayalam</option>
+      <option value="Mong">Mongolian</option>
+      <option value="Mymr">Myanmar</option>
+      <option value="Orya">Oriya</option>
+      <option value="Hans">Simplified Chinese</option>
+      <option value="Sinh">Sinhala</option>
+      <option value="Taml">Tamil</option>
+      <option value="Telu">Telugu</option>
+      <option value="Thaa">Thaana</option>
+      <option value="Thai">Thai</option>
+      <option value="Tibt">Tibetan</option>
+      <option value="Hant">Traditional Chinese</option>
+      <option value="Cans">Unified Canadian Aboriginal Syllabics</option>
+      <option value="Yiii">Yi</option>
+    </select>
+    </div>
+    <div style="margin-left: 20px; overflow-x: auto;">
+      <div>Standard</div>
+      <div class="font-setting-container">
+        <div class="font-input-div">
+          <select id="standardFontList"></select>
+        </div>
+        <div id="standardFontSample" style="font-family: standard;">
+          Lorem ipsum dolor sit amat.
+        </div>
+      </div>
+      <div>Serif</div>
+      <div class="font-setting-container">
+        <div class="font-input-div">
+          <select id="serifFontList"></select>
+        </div>
+        <div id="serifFontSample" style="font-family: serif;">
+          Lorem ipsum dolor sit amat.
+        </div>
+      </div>
+      <div>Sans-Serif</div>
+      <div class="font-setting-container">
+        <div class="font-input-div">
+          <select id="sansSerifFontList"></select>
+        </div>
+        <div id="sansSerifFontSample" style="font-family: sans-serif;">
+          Lorem ipsum dolor sit amat.
+        </div>
+      </div>
+      <div>Fixed</div>
+      <div class="font-setting-container">
+        <div class="font-input-div">
+          <select id="fixedFontList"></select>
+        </div>
+        <div id="fixedFontSample" style="font-family: monospace;">
+          Lorem ipsum dolor sit amat.
+        </div>
+      </div>
+    </div>
+    <div class="font-setting-container">Default Font Size</div>
+    <div class="font-input-div"><input type="text" id="defaultFontSize"></div>
+    <div class="font-setting-container">Default Fixed Font Size</div>
+    <div class="font-input-div">
+      <input type="text" id="defaultFixedFontSize">
+    </div>
+    <div>Minimum Font Size</div>
+    <div class="font-setting-container">
+      <div class="font-input-div"><input type="text" id="minFontSize"></div>
+      <div id="minFontSample" style="font-family: standard; font-size: 1px;">
+        Lorem ipsum dolor sit amat.
+      </div>
+    </div>
+    <button id="clearButton">Clear All Settings</button>
+  </div>
+</div>
+</body>
+</html>

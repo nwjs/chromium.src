@@ -1,0 +1,56 @@
+<?xml version="1.0" ?>
+<!DOCTYPE translationbundle>
+<translationbundle lang="nl">
+<translation id="248395913932153421">Dag</translation>
+<translation id="6015796118275082299">Jaar</translation>
+<translation id="9186171386827445984">Document wordt geladen: <ph name="PAGE_NUMBER"/>/<ph name="NUMBER_OF_PAGES"/> pagina's...</translation>
+<translation id="1235745349614807883">Recente zoekopdrachten wissen</translation>
+<translation id="1171774979989969504">Geef een e-mailadres op.</translation>
+<translation id="709897737746224366">Zorg dat de indeling voldoet aan de gevraagde indeling.</translation>
+<translation id="5048533449481078685">lijstmarkering</translation>
+<translation id="4202807286478387388">Gaan naar</translation>
+<translation id="4611115858363067980"><ph name="FILENAME"/><ph name="WIDTH"/>×<ph name="HEIGHT"/></translation>
+<translation id="795667975304826397">Geen bestand gekozen</translation>
+<translation id="8141602879876242471">Dit is een doorzoekbare index. Geef zoekwoorden op:</translation>
+<translation id="370665806235115550">Laden...</translation>
+<translation id="6845533974506654842">Indrukken</translation>
+<translation id="8244226242650769279">image map</translation>
+<translation id="310520048233152454">Geef een URL op.</translation>
+<translation id="2548326553472216322">Geen recente zoekopdrachten</translation>
+<translation id="7263440858009898357">Selecteer een item in de lijst.</translation>
+<translation id="5164977714490026579">Waarde moet groter dan of gelijk zijn aan <ph name="MINIMUM"/>.</translation>
+<translation id="5944544982112848342">2048 (hoog niveau)</translation>
+<translation id="3040011195152428237">link</translation>
+<translation id="4522570452068850558">Details</translation>
+<translation id="8451268428117625855">Selecteer een bestand.</translation>
+<translation id="2674318244760992338">voettekst</translation>
+<translation id="8987927404178983737">Maand</translation>
+<translation id="7364796246159120393">Bestand kiezen</translation>
+<translation id="2761667185364618470">Vink dit selectievakje aan als u wilt doorgaan.</translation>
+<translation id="8964020114565522021">Sleep bestand hier naartoe</translation>
+<translation id="838869780401515933">Selecteren</translation>
+<translation id="2846343701378493991">1024 (gemiddeld niveau)</translation>
+<translation id="1637811476055996098">Bestanden kiezen</translation>
+<translation id="5476505524087279545">Deselecteren</translation>
+<translation id="2148716181193084225">Vandaag</translation>
+<translation id="2507943997699731163">Vul dit veld in.</translation>
+<translation id="5919473608089529604">Kan plug-in niet laden.</translation>
+<translation id="6663448176199120256">Recente zoekopdrachten</translation>
+<translation id="2597378329261239068">Dit document is beveiligd met een wachtwoord. Geef een wachtwoord op.</translation>
+<translation id="5466621249238537318">Selecteer een of meer bestanden.</translation>
+<translation id="8750798805984357768">Selecteer een van deze opties.</translation>
+<translation id="7740050170769002709">HTML-inhoud</translation>
+<translation id="2226276347425096477">Kort deze tekst in tot <ph name="MAX_CHARACTERS"/> tekens of minder (u gebruikt momenteel <ph name="CURRENT_LENGTH"/> tekens).</translation>
+<translation id="1639239467298939599">Laden</translation>
+<translation id="2908441821576996758">Voer een door komma's gescheiden lijst met e-mailadressen in.</translation>
+<translation id="5939518447894949180">Herstellen</translation>
+<translation id="835897206747267392">Ongeldige waarde.</translation>
+<translation id="1842960171412779397">Selecteren</translation>
+<translation id="3450233048674729344">Waarde moet kleiner dan of gelijk zijn aan <ph name="MAXIMUM"/>.</translation>
+<translation id="6119846243427417423">Activeren</translation>
+<translation id="8444882422881193423"><ph name="NUMBER_OF_FILES"/> bestanden</translation>
+<translation id="6643016212128521049">Wissen</translation>
+<translation id="3934680773876859118">PDF-document kan niet worden geladen</translation>
+<translation id="8597182159515967513">kop</translation>
+<translation id="2653659639078652383">Verzenden</translation>
+</translationbundle>

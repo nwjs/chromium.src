@@ -1,0 +1,103 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+body {
+  -webkit-user-select: text;
+}
+
+#about-container {
+  -webkit-box-align: center;
+  display: -webkit-box;
+  margin-top: 10px;
+}
+
+#product-description {
+  -webkit-margin-start: 10px;
+}
+
+#version-container {
+  margin-top: 30px;
+}
+
+#update-buttons-container {
+  margin-top: 5px;
+}
+
+#update-status-container {
+  margin-top: 10px;
+}
+
+#update-status {
+  vertical-align: middle;
+}
+
+#update-percentage {
+  font-size: 90%;
+}
+
+#get-help,
+#promote {
+  -webkit-margin-end: 4px;
+}
+
+#help-container {
+  margin-top: 16px;
+}
+
+#product-container {
+  line-height: 1.8em;
+  margin-top: 200px;
+}
+
+#update-status-icon {
+  background-repeat: no-repeat;
+  display: inline-block;
+  height: 17px;
+  margin-right: 4px;
+  vertical-align: middle;
+  width: 17px;
+}
+
+#update-status-icon.available {
+  background-image: url('chrome://theme/IDR_UPDATE_AVAILABLE');
+  background-size: 17px;
+}
+
+#update-status-icon.up-to-date {
+  background-image: url('chrome://theme/IDR_UPDATE_UPTODATE');
+  background-size: 17px;
+}
+
+#update-status-icon.working {
+  background-image: url('chrome://resources/images/throbber.svg');
+}
+
+#update-status-icon.failed {
+  background-image: url('chrome://theme/IDR_UPDATE_FAIL');
+  background-size: 17px;
+}
+
+#update-obsolete-os-container {
+  -webkit-margin-start: 25px;
+}
+
+#more-info-expander {
+  -webkit-padding-start: 0;
+}
+
+#more-info-container.visible {
+  margin-bottom: 1.5em;
+}
+
+#more-info-container {
+  -webkit-transition: all 500ms linear;
+  height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+#last-updated-container.empty {
+  visibility: hidden;
+}

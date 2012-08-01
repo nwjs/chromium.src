@@ -1,0 +1,206 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+.language-options {
+  display: -webkit-box;
+  margin: 10px 0;
+}
+
+.language-options-lower-left button,
+.language-options-right button {
+  min-width: 70px;
+}
+
+.language-options h3 {
+  -webkit-margin-start: 12px;
+  font-size: 100%;
+  font-weight: bold;
+  margin-bottom: 12px;
+  margin-top: 12px;
+}
+
+.language-options-contents  {
+  padding: 0 12px 4px;
+}
+
+.language-options-contents span:not(.input-method-label) {
+  display: inline-block;
+  margin: 1px;
+  padding: 0.42em 10px;
+}
+
+.language-options-header,
+.language-options-footer {
+  margin: 10px 0;
+}
+
+.language-options-left,
+.language-options-right {
+  border: 1px solid #ccc;
+  height: 400px;
+  padding: 0;
+  vertical-align: top;
+}
+
+.language-options-left {
+  -webkit-box-orient: vertical;
+<if expr="not is_macosx">
+  background-color: rgb(235, 239, 249);
+</if>
+<if expr="is_macosx">
+  background-color: white;
+</if>
+  display: -webkit-box;
+  width: 300px;
+}
+
+.language-options-lower-left {
+  -webkit-box-flex: 0;
+  -webkit-padding-start: 12px;
+  padding-bottom: 10px;
+}
+
+.language-options-right {
+  /* To share the center line with the left pane. */
+  -webkit-margin-start: -1px;
+  width: 360px;
+}
+
+.language-options-right h3:not(:first-of-type) {
+  margin-top: 24px;
+}
+
+.language-options-notification {
+  background-color: rgb(255, 242, 158);
+  border-bottom: 1px solid #ccc;
+  border-top: 1px solid #ccc;
+  padding: 8px 30px 8px 12px;
+}
+
+#language-options-input-method-list button {
+  -webkit-margin-start: 20px;
+  display: block;
+}
+
+#language-options-list {
+  -webkit-box-flex: 1;
+  outline: none;
+  padding: 1px 0 0;
+  width: 100%;
+}
+
+#language-options-list .language-name {
+  -webkit-box-flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#language-options-list li {
+  -webkit-padding-start: 12px;
+  padding-bottom: 2px;
+  padding-top: 2px;
+}
+
+#language-options-list-dropmarker {
+  background-clip: padding-box;
+  background-color: hsl(214, 91%, 65%);
+  border: 3px solid hsl(214, 91%, 65%);
+  border-bottom-color: transparent;
+  border-radius: 0;
+  border-top-color: transparent;
+  box-sizing: border-box;
+  display: none;
+  height: 8px;
+  overflow: hidden;
+  pointer-events: none;
+  position: fixed;
+  z-index: 10;
+}
+
+#language-options-ui-restart-button {
+  margin-top: 4px;
+}
+
+/* In ChromeOS we present the language choices as a big page of links. */
+<if expr="pp_ifdef('chromeos')">
+#add-language-overlay-language-list {
+  -webkit-column-count: 2;
+  -webkit-column-gap: 20px;
+}
+
+#add-language-overlay-page {
+  width: 800px;
+}
+
+#add-language-overlay-page button.link-button {
+  padding-left: 0;
+  padding-right: 0;
+  text-align: left;
+}
+
+#add-language-overlay-page ul {
+  margin: 0;
+  padding: 0;
+}
+</if>
+
+/* TODO(kochi): This is temporary copy from new_tab.css */
+/* Notification */
+
+#notification {
+  -webkit-transition: opacity 150ms;
+  background-color: hsl(52, 100%, 80%);
+  border: 1px solid rgb(211, 211, 211);
+  border-radius: 6px;
+  color: black;
+  display: table;
+  font-weight: bold;
+  /* Set the height and margin so that the element does not use any vertical
+    space. */
+  height: 16px;
+  margin: -44px auto 12px auto;
+  opacity: 0;
+  padding: 7px 15px;
+  pointer-events: none;
+  position: relative;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+#notification > * {
+  display: table-cell;
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#notification.show {
+  -webkit-transition: opacity 1s;
+  opacity: 1;
+  pointer-events: all;
+}
+
+#notification .link {
+  -webkit-appearance: none;
+  -webkit-padding-start: 20px;
+  background: none;
+  border: 0;
+  color: rgba(0, 102, 204, 0.3);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+#notification .link-color {
+  color: rgb(0, 102, 204);
+}
+
+#chewing-max-chi-symbol-len {
+  height: 30%;
+  width: 100px;
+}
+
+#add-language-overlay-page .content-area {
+  padding-bottom: 10px;
+}

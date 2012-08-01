@@ -1,0 +1,82 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+#content-settings-page {
+  min-width: 600px;
+}
+
+#content-settings-exceptions-area {
+  min-width: 540px;
+}
+
+.exception-pattern {
+  -webkit-box-flex: 1;
+  -webkit-margin-end: 10px;
+  -webkit-margin-start: 14px;
+}
+
+.exception-setting {
+  display: inline-block;
+  width: 120px;
+}
+
+select.exception-setting {
+  vertical-align: middle;
+}
+
+#exception-column-headers {
+  -webkit-margin-start: 17px;
+  display: -webkit-box;
+  margin-top: 17px;
+}
+
+#exception-column-headers > div {
+  font-weight: bold;
+}
+
+#exception-pattern-column {
+  -webkit-box-flex: 1;
+}
+
+#exception-behavior-column {
+  width: 145px;
+}
+
+.otr-explanation {
+  font-style: italic;
+}
+
+#content-settings-exceptions-area list {
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+
+#disable-plugins-container {
+  margin: 7px 0;
+}
+
+div[role='listitem'][managedby] {
+  color: #666;
+  font-style: italic;
+  position: relative;
+}
+
+.settings-list div[role='listitem'][managedby='policy'],
+.settings-list div[role='listitem'][managedby='extension'] {
+  background: -webkit-linear-gradient(rgb(250, 230, 146), rgb(250, 230, 146));
+  border-bottom: 1px solid rgb(201, 189, 141);
+  border-top: 0;
+}
+
+list div[role='listitem'][managedby='policy'] .close-button {
+  background-image: url('chrome://theme/IDR_MANAGED');
+  background-size: 16px;
+  opacity: 1;
+}
+
+list div[role='listitem'][managedby='extension'] .close-button {
+  background-image: url('chrome://theme/IDR_EXTENSIONS_SECTION_SMALL');
+  background-size: 16px;
+  opacity: 1;
+}

@@ -1,0 +1,41 @@
+<div id="pointer-overlay" class="page" hidden>
+  <div class="close-button"></div>
+  <h1 id="pointer-overlay-title"></h1>
+  <div class="content-area">
+    <div id="pointer-section-touchpad" hidden>
+      <div i18n-content="pointerOverlaySectionTitleTouchpad"></div>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" metric="Options_TouchpadTapToClick"
+              pref="settings.touchpad.enable_tap_to_click" dialog-pref>
+          <span i18n-content="enableTapToClick"></span>
+        </label>
+      </div>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" metric="Options_TouchpadNaturalScroll"
+              pref="settings.touchpad.natural_scroll" dialog-pref>
+          <span i18n-values=".innerHTML:naturalScroll"></span>
+        </label>
+      </div>
+    </div>
+    <div id="pointer-section-mouse" hidden>
+      <div i18n-content="pointerOverlaySectionTitleMouse"></div>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" metric="Options_MousePrimaryRight"
+              pref="settings.mouse.primary_right" dialog-pref>
+          <span i18n-content="primaryMouseRight"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="action-area">
+    <div class="button-strip">
+      <button id="pointer-overlay-cancel" type="reset" i18n-content="cancel">
+      </button>
+      <button id="pointer-overlay-confirm" type="submit" i18n-content="ok">
+      </button>
+    </div>
+  </div>
+</div>

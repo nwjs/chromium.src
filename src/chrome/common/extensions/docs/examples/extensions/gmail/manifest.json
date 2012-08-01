@@ -1,0 +1,22 @@
+{
+  "background": {
+    "persistent": false,
+    "page": "background.html"
+  },
+  "browser_action": {
+    "default_title": ""
+  },
+  "default_locale": "en",
+  "description": "__MSG_gmailcheck_description__",
+  "icons": {
+    "128": "icon_128.png"
+  },
+  "name": "__MSG_gmailcheck_name__",
+  "options_page": "options.html",
+  "permissions": [
+    "alarms", "tabs", "http://*.google.com/", "https://*.google.com/"
+   ],
+  "version": "4.0",
+  "minimum_chrome_version": "21",
+  "manifest_version": 2
+}

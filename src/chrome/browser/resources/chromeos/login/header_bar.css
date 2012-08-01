@@ -1,0 +1,100 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#login-header-bar {
+  -webkit-padding-after: 7px;
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+}
+
+html[oobe=new][dir=ltr] #login-header-bar {
+  left: 15px;
+}
+
+html[oobe=new][dir=rtl] #login-header-bar {
+  right: 15px;
+}
+
+html[oobe=new] .header-bar-item {
+  /* Same as default status tray opacity. */
+  background-color: rgba(0, 0, 0, .39);
+}
+
+#login-header-bar button,
+#login-header-bar button:active,
+#login-header-bar button:focus,
+#login-header-bar button:hover {
+  -webkit-box-shadow: none;
+  background: transparent none;
+  cursor: pointer;
+  height: 34px;
+  margin: 0;
+  min-width: 0;
+  opacity: 0.6;
+  padding: 5px 8px;
+  vertical-align: middle;
+}
+
+html[oobe=new] #login-header-bar button,
+html[oobe=new] #login-header-bar button:active,
+html[oobe=new] #login-header-bar button:focus,
+html[oobe=new] #login-header-bar button:hover {
+  color: white !important;
+  opacity: 1;
+}
+
+html[oobe=old] .header-bar-item {
+  -webkit-padding-start: 15px;
+  background-image: url('chrome://theme/IDR_DIVIDER_VERT');
+  background-position: -2px center;
+  background-repeat: no-repeat;
+  background-size: 15px;
+}
+
+.header-bar-item {
+  display: inline-block;
+  height: 34px;
+}
+
+html[dir=rtl] .header-bar-item {
+  background-position: right center;
+}
+
+html[oobe=old] .header-bar-item:first-child {
+  -webkit-padding-start: 9px;
+  background: none;
+}
+
+#login-header-bar #shutdown-button,
+#login-header-bar #add-user-button {
+  -webkit-padding-start: 24px;
+  background-position: left center;
+  background-repeat: no-repeat;
+}
+
+html[dir=rtl] #login-header-bar #shutdown-button,
+html[dir=rtl] #login-header-bar #add-user-button {
+  background-position: right center;
+}
+
+#login-header-bar #shutdown-button {
+  background-image: url('chrome://theme/IDR_ICON_POWER24');
+  background-size: 24px;
+}
+
+html[oobe=new] #login-header-bar #shutdown-button {
+  background-image: url('chrome://theme/IDR_ICON_POWER24_WHITE');
+}
+
+#login-header-bar #add-user-button {
+  background-image: url('chrome://theme/IDR_ICON_ADD_USER24');
+  background-size: 24px;
+}
+
+html[oobe=new] #login-header-bar #add-user-button {
+  background-image: url('chrome://theme/IDR_ICON_ADD_USER24_WHITE');
+}

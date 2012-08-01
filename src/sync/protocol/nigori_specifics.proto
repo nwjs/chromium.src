@@ -1,0 +1,98 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Sync protocol datatype extension for nigori keys.
+
+// Update proto_value_conversions{.h,.cc,_unittest.cc} if you change
+// any fields in this file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+option retain_unknown_fields = true;
+
+package sync_pb;
+
+import "encryption.proto";
+
+message NigoriKey {
+  optional string name = 1;
+  optional bytes user_key = 2;
+  optional bytes encryption_key = 3;
+  optional bytes mac_key = 4;
+}
+
+message NigoriKeyBag {
+  repeated NigoriKey key = 2;
+}
+
+// Information about a device that is running a sync-enabled Chrome browser.
+// We are mapping the unique per-device cache guid to more specific information
+// about the device.
+message DeviceInformation {
+  optional string cache_guid = 1;
+
+  // The name of the device is dependent on the OS running the Chrome instance.
+  // On a Chromebook this is "Chromebook", on Linux the distribution name, on
+  // Mac OSX the hadware model name and on Windows the computer name.
+  optional string name = 2;
+
+  // The platform of the device (ChromeOS, Linux, Mac, or Windows).
+  optional string platform = 3;
+
+  // The Chrome version of the sync-enabled Chrome browser.
+  optional string chrome_version = 4;
+}
+
+// Properties of nigori sync object.
+message NigoriSpecifics {
+  optional EncryptedData encrypted = 1;
+  // True if |encrypted| is encrypted using a passphrase
+  // explicitly set by the user.
+  optional bool using_explicit_passphrase = 2;
+
+  // Obsolete encryption fields. These were deprecated due to legacy versions
+  // that understand their usage but did not perform encryption properly.
+  // optional bool deprecated_encrypt_bookmarks = 3;
+  // optional bool deprecated_encrypt_preferences = 4;
+  // optional bool deprecated_encrypt_autofill_profile = 5;
+  // optional bool deprecated_encrypt_autofill = 6;
+  // optional bool deprecated_encrypt_themes = 7;
+  // optional bool deprecated_encrypt_typed_urls = 8;
+  // optional bool deprecated_encrypt_extensions = 9;
+  // optional bool deprecated_encrypt_sessions = 10;
+  // optional bool deprecated_encrypt_apps = 11;
+  // optional bool deprecated_encrypt_search_engines = 12;
+
+  // Booleans corresponding to whether a datatype should be encrypted.
+  // Passwords are always encrypted, so we don't need a field here.
+  optional bool encrypt_bookmarks = 13;
+  optional bool encrypt_preferences = 14;
+  optional bool encrypt_autofill_profile = 15;
+  optional bool encrypt_autofill = 16;
+  optional bool encrypt_themes = 17;
+  optional bool encrypt_typed_urls = 18;
+  optional bool encrypt_extensions = 19;
+  optional bool encrypt_sessions = 20;
+  optional bool encrypt_apps = 21;
+  optional bool encrypt_search_engines = 22;
+
+  // Deprecated on clients where tab sync is enabled by default.
+  // optional bool sync_tabs = 23;
+
+  // If true, all current and future datatypes will be encrypted.
+  optional bool encrypt_everything = 24;
+
+  optional bool encrypt_extension_settings = 25;
+  optional bool encrypt_app_notifications = 26;
+  optional bool encrypt_app_settings = 27;
+
+  // User device information. Contains information about each device that has a
+  // sync-enabled Chrome browser connected to the user account.
+  repeated DeviceInformation device_information = 28;
+  
+  // Enable syncing favicons as part of tab sync.
+  optional bool sync_tab_favicons = 29;
+}
+

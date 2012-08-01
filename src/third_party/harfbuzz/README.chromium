@@ -1,0 +1,22 @@
+Name: harfbuzz
+Short Name: harfbuzz
+URL: http://anongit.freedesktop.org/git/harfbuzz.old.git
+Version: 0
+Date: 20111101
+Revision: 93d8573ddcf97648983a1c1b5cdda8a3ec6d4432
+Security Critical: yes
+
+Description:
+"Harfbuzz is an OpenType text shaping engine."
+Read http://behdad.org/text/ if you dare learn more.
+This code was taken from 90138e5a4d15c44f05456f90083ecacdc3196c8e
+(git://anongit.freedesktop.org/harfbuzz)
+
+The patch in chromium.patch was applied on top of this; I will talk with
+upstream about it.  (Note that chromium.patch is just a record of our
+changes against upstream; you must also apply any changes that you make to
+the checked-in copy of the source.)
+
+Added support for building on Android.
+
+The patch for Arabic alignment bug was added (bug 105685).

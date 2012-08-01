@@ -1,0 +1,116 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+.bubble {
+  position: absolute;
+  /* Height is dynamic, width fixed. */
+  width: 300px;
+  z-index: 9999;
+}
+
+.bubble-contents {
+  color: black;
+  left: 1px;
+  line-height: 150%;
+  padding: 8px 11px 12px;
+  position: relative;
+  right: 1px;
+  top: 1px;
+  width: 298px;
+  z-index: 3;
+}
+
+.bubble-close {
+  background-image: no-repeat 50% 50%;  
+  height: 16px;
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 16px;
+  z-index: 4;
+}
+
+html[dir='rtl'] .bubble-close {
+  left: 6px;
+  right: auto;
+}
+
+.bubble-close {
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/close_bar.png') 1x,
+      url('../../../../../ui/resources/default_200_percent/close_bar.png') 2x);
+}
+
+.bubble-close:hover {
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/close_bar_hover.png')
+          1x,
+      url('../../../../../ui/resources/default_200_percent/close_bar_hover.png')
+          2x);
+}
+
+.bubble-close:active {
+  background-image: -webkit-image-set(
+    url('../../../../../ui/resources/default_100_percent/close_bar_pressed.png')
+        1x,
+    url('../../../../../ui/resources/default_200_percent/close_bar_pressed.png')
+        2x);
+}
+
+.bubble-shadow {
+  bottom: -2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 1;
+}
+
+.bubble-arrow {
+  -webkit-transform: rotate(45deg);
+  /* The tip of the arrow.  */
+  border-bottom-right-radius: 1px;
+  /* No border on the right or top (inner sides of the rotated square) because
+   * it would overlap/darken the content shadow. */
+  border-right: none;
+  border-top: none;
+  bottom: -9px;
+  height: 15px;
+  left: 22px;
+  position: absolute;
+  right: 22px;
+  width: 15px;
+  z-index: 2;
+}
+
+.bubble-contents,
+.bubble-arrow {
+  background: white;
+}
+
+.bubble-arrow[is-right='true'] {
+  left: auto;
+}
+
+.bubble-arrow[is-right='false'] {
+  right: auto;
+}
+
+.bubble-arrow[is-top='true'] {
+  bottom: auto;
+  top: -8px;
+}
+
+.bubble-shadow,
+.bubble-arrow {
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.bubble-shadow,
+.bubble-contents {
+  border-radius: 6px;
+  box-sizing: border-box;
+}
