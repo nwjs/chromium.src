@@ -105,7 +105,10 @@ void ChromeInvalidationClient::UpdateCredentials(
 void ChromeInvalidationClient::RegisterTypes(syncable::ModelTypeSet types) {
   DCHECK(CalledOnValidThread());
   registered_types_ = types;
-  if (GetState() == NO_NOTIFICATION_ERROR && registration_manager_.get()) {
+  // |ticl_state_| can go to NO_NOTIFICATION_ERROR even without a
+  // working XMPP connection (as observed by us), so check it instead
+  // of GetState() (see http://crbug.com/139424).
+  if (ticl_state_ == NO_NOTIFICATION_ERROR && registration_manager_.get()) {
     registration_manager_->SetRegisteredTypes(registered_types_);
   }
   // TODO(akalin): Clear invalidation versions for unregistered types.
