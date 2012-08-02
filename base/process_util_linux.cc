@@ -684,7 +684,9 @@ void OnNoMemory() {
 
 }  // namespace
 
+#ifndef USE_TCMALLOC
 #define USE_TCMALLOC
+#endif
 
 extern "C" {
 #if !defined(USE_TCMALLOC) && !defined(ADDRESS_SANITIZER) && \
