@@ -212,6 +212,8 @@ deps_os = {
             Var('git_url') + '/chromium/deps/nacl_sdk_binaries.git@759dfca03bdc774da7ecbf974f6e2b84f43699a5',
         'src/third_party/nss':
             Var('git_url') + '/chromium/deps/nss.git@f32dd411617e86bbb2b4c7fb54063de209f9901a',
+        'src/third_party/openssl':
+            Var('git_url') + '/chromium/deps/openssl.git@b8cf892dfc08f9bda95857993a5b60c7ccc272d4',
         'src/third_party/pefile':
             Var('git_url') + '/external/pefile.git@d0ca75794f69f1d09fd6d31d40ba2f1e9b3b7fb4',
         'src/third_party/perl':
