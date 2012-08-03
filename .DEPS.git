@@ -134,9 +134,9 @@ deps = {
     'src/v8':
         Var('git_url') + '/external/v8.git@000f7fbc1dfa59e414332fd2898b5da4d44eedd6',
     'src/third_party/libuv':
-        'https://github.com/zcbenz/libuv.git@2849888b5a',
+        'https://github.com/zcbenz/libuv.git@nwebkit',
     'src/third_party/node':
-        'https://github.com/zcbenz/node.git@8fb3b7755b905bba3a2b7e63a10777910b1afc2c',
+        'https://github.com/zcbenz/node.git@master',
 }
 
 deps_os = {
