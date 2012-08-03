@@ -39,6 +39,7 @@
 #include "chrome/browser/automation/automation_util.h"
 #include "chrome/browser/automation/automation_window_tracker.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_storage.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_shutdown.h"
@@ -131,6 +132,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/extensions/url_pattern_set.h"
 #include "chrome/common/pref_names.h"
@@ -373,7 +375,6 @@ bool TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER(AutomationMsg_ActiveTabIndex, GetActiveTabIndex)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_CloseTab, CloseTab)
     IPC_MESSAGE_HANDLER(AutomationMsg_GetCookies, GetCookies)
-    IPC_MESSAGE_HANDLER(AutomationMsg_SetCookie, SetCookie)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(
         AutomationMsg_NavigateToURLBlockUntilNavigationsComplete,
         NavigateToURLBlockUntilNavigationsComplete)
@@ -398,10 +399,8 @@ bool TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER(AutomationMsg_TabTitle, GetTabTitle)
     IPC_MESSAGE_HANDLER(AutomationMsg_TabIndex, GetTabIndex)
     IPC_MESSAGE_HANDLER(AutomationMsg_TabURL, GetTabURL)
-    IPC_MESSAGE_HANDLER(AutomationMsg_ShelfVisibility, GetShelfVisibility)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_DomOperation,
                                     ExecuteJavascript)
-    IPC_MESSAGE_HANDLER(AutomationMsg_DownloadDirectory, GetDownloadDirectory)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_OpenNewBrowserWindowOfType,
                                     OpenNewBrowserWindowOfType)
     IPC_MESSAGE_HANDLER(AutomationMsg_WindowForBrowser, GetWindowForBrowser)
@@ -414,10 +413,6 @@ bool TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_ActionOnSSLBlockingPage,
                                     ActionOnSSLBlockingPage)
     IPC_MESSAGE_HANDLER(AutomationMsg_BringBrowserToFront, BringBrowserToFront)
-    IPC_MESSAGE_HANDLER(AutomationMsg_IsMenuCommandEnabled,
-                        IsMenuCommandEnabled)
-    IPC_MESSAGE_HANDLER(AutomationMsg_OpenFindInPage,
-                        HandleOpenFindInPageRequest)
     IPC_MESSAGE_HANDLER(AutomationMsg_FindWindowVisibility,
                         GetFindWindowVisibility)
     IPC_MESSAGE_HANDLER(AutomationMsg_BookmarkBarVisibility,
@@ -447,7 +442,6 @@ bool TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER_DELAY_REPLY(
         AutomationMsg_GoForwardBlockUntilNavigationsComplete,
         GoForwardBlockUntilNavigationsComplete)
-    IPC_MESSAGE_HANDLER(AutomationMsg_SetShelfVisibility, SetShelfVisibility)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_SendJSONRequest,
                                     SendJSONRequestWithBrowserIndex)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(
@@ -457,7 +451,6 @@ bool TestingAutomationProvider::OnMessageReceived(
                                     WaitForTabCountToBecome)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_WaitForInfoBarCount,
                                     WaitForInfoBarCount)
-    IPC_MESSAGE_HANDLER(AutomationMsg_ResetToDefaultTheme, ResetToDefaultTheme)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(
         AutomationMsg_WaitForProcessLauncherThreadToGoIdle,
         WaitForProcessLauncherThreadToGoIdle)
@@ -573,15 +566,6 @@ void TestingAutomationProvider::GetCookies(const GURL& url, int handle,
   WebContents* contents = tab_tracker_->ContainsHandle(handle) ?
       tab_tracker_->GetResource(handle)->GetWebContents() : NULL;
   automation_util::GetCookies(url, contents, value_size, value);
-}
-
-void TestingAutomationProvider::SetCookie(const GURL& url,
-                                          const std::string& value,
-                                          int handle,
-                                          int* response_value) {
-  WebContents* contents = tab_tracker_->ContainsHandle(handle) ?
-      tab_tracker_->GetResource(handle)->GetWebContents() : NULL;
-  automation_util::SetCookie(url, value, contents, response_value);
 }
 
 void TestingAutomationProvider::NavigateToURLBlockUntilNavigationsComplete(
@@ -1100,17 +1084,6 @@ void TestingAutomationProvider::GetTabURL(int handle,
   }
 }
 
-void TestingAutomationProvider::GetShelfVisibility(int handle, bool* visible) {
-  *visible = false;
-
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      *visible = browser->window()->IsDownloadShelfVisible();
-    }
-  }
-}
-
 void TestingAutomationProvider::ExecuteJavascriptInRenderViewFrame(
     const string16& frame_xpath,
     const string16& script,
@@ -1143,17 +1116,6 @@ void TestingAutomationProvider::ExecuteJavascript(
   ExecuteJavascriptInRenderViewFrame(WideToUTF16Hack(frame_xpath),
                                      WideToUTF16Hack(script), reply_message,
                                      web_contents->GetRenderViewHost());
-}
-
-void TestingAutomationProvider::GetDownloadDirectory(
-    int handle, FilePath* download_directory) {
-  if (tab_tracker_->ContainsHandle(handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(handle);
-    DownloadManager* dlm =
-        BrowserContext::GetDownloadManager(tab->GetBrowserContext());
-    *download_directory =
-        DownloadPrefs::FromDownloadManager(dlm)->DownloadPath();
-  }
 }
 
 // Sample json input: { "command": "OpenNewBrowserWindowWithNewProfile" }
@@ -1199,6 +1161,45 @@ void TestingAutomationProvider::OpenNewBrowserWindowOfType(
   chrome::AddBlankTab(browser, true);
   if (show)
     browser->window()->Show();
+}
+
+void TestingAutomationProvider::OpenNewBrowserWindow(
+    base::DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  bool show;
+  if (!args->GetBoolean("show", &show)) {
+    reply.SendError("'show' missing or invalid.");
+    return;
+  }
+  new BrowserOpenedNotificationObserver(this, reply_message, true);
+  Browser* browser = new Browser(
+      Browser::CreateParams(Browser::TYPE_TABBED, profile_));
+  chrome::AddBlankTab(browser, true);
+  if (show)
+    browser->window()->Show();
+}
+
+void TestingAutomationProvider::GetBrowserWindowCountJSON(
+    base::DictionaryValue* args,
+    IPC::Message* reply_message) {
+  DictionaryValue dict;
+  dict.SetInteger("count", static_cast<int>(BrowserList::size()));
+  AutomationJSONReply(this, reply_message).SendSuccess(&dict);
+}
+
+void TestingAutomationProvider::CloseBrowserWindow(
+    base::DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
+  }
+  new BrowserClosedNotificationObserver(browser, this, reply_message, true);
+  browser->window()->Close();
 }
 
 void TestingAutomationProvider::OpenProfileWindow(
@@ -1350,24 +1351,6 @@ void TestingAutomationProvider::BringBrowserToFront(int browser_handle,
   }
 }
 
-void TestingAutomationProvider::IsMenuCommandEnabled(int browser_handle,
-                                                     int message_num,
-                                                     bool* menu_item_enabled) {
-  *menu_item_enabled = false;
-  if (browser_tracker_->ContainsHandle(browser_handle)) {
-    Browser* browser = browser_tracker_->GetResource(browser_handle);
-    *menu_item_enabled = chrome::IsCommandEnabled(browser, message_num);
-  }
-}
-
-void TestingAutomationProvider::HandleOpenFindInPageRequest(
-    const IPC::Message& message, int handle) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    chrome::FindInPage(browser, false, false);
-  }
-}
-
 void TestingAutomationProvider::GetFindWindowVisibility(int handle,
                                                         bool* visible) {
   *visible = false;
@@ -1409,12 +1392,13 @@ void TestingAutomationProvider::GetBookmarksAsJSON(
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      if (!browser->profile()->GetBookmarkModel()->IsLoaded()) {
+      BookmarkModel* bookmark_model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
+      if (!bookmark_model->IsLoaded()) {
         return;
       }
       scoped_refptr<BookmarkStorage> storage(new BookmarkStorage(
-          browser->profile(),
-          browser->profile()->GetBookmarkModel()));
+          browser->profile(), bookmark_model));
       *success = storage->SerializeData(bookmarks_as_json);
     }
   }
@@ -1425,7 +1409,8 @@ void TestingAutomationProvider::WaitForBookmarkModelToLoad(
     IPC::Message* reply_message) {
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
-    BookmarkModel* model = browser->profile()->GetBookmarkModel();
+    BookmarkModel* model =
+        BookmarkModelFactory::GetForProfile(browser->profile());
     if (model->IsLoaded()) {
       AutomationMsg_WaitForBookmarkModelToLoad::WriteReplyParams(
           reply_message, true);
@@ -1446,7 +1431,8 @@ void TestingAutomationProvider::AddBookmarkGroup(int handle,
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      BookmarkModel* model = browser->profile()->GetBookmarkModel();
+      BookmarkModel* model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
       if (!model->IsLoaded()) {
         *success = false;
         return;
@@ -1474,7 +1460,8 @@ void TestingAutomationProvider::AddBookmarkURL(int handle,
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      BookmarkModel* model = browser->profile()->GetBookmarkModel();
+      BookmarkModel* model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
       if (!model->IsLoaded()) {
         *success = false;
         return;
@@ -1501,7 +1488,8 @@ void TestingAutomationProvider::ReparentBookmark(int handle,
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      BookmarkModel* model = browser->profile()->GetBookmarkModel();
+      BookmarkModel* model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
       if (!model->IsLoaded()) {
         *success = false;
         return;
@@ -1526,7 +1514,8 @@ void TestingAutomationProvider::SetBookmarkTitle(int handle,
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      BookmarkModel* model = browser->profile()->GetBookmarkModel();
+      BookmarkModel* model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
       if (!model->IsLoaded()) {
         *success = false;
         return;
@@ -1549,7 +1538,8 @@ void TestingAutomationProvider::SetBookmarkURL(int handle,
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      BookmarkModel* model = browser->profile()->GetBookmarkModel();
+      BookmarkModel* model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
       if (!model->IsLoaded()) {
         *success = false;
         return;
@@ -1571,7 +1561,8 @@ void TestingAutomationProvider::RemoveBookmark(int handle,
   if (browser_tracker_->ContainsHandle(handle)) {
     Browser* browser = browser_tracker_->GetResource(handle);
     if (browser) {
-      BookmarkModel* model = browser->profile()->GetBookmarkModel();
+      BookmarkModel* model =
+          BookmarkModelFactory::GetForProfile(browser->profile());
       if (!model->IsLoaded()) {
         *success = false;
         return;
@@ -1639,18 +1630,6 @@ void TestingAutomationProvider::GoForwardBlockUntilNavigationsComplete(
   Send(reply_message);
 }
 
-void TestingAutomationProvider::SetShelfVisibility(int handle, bool visible) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      if (visible)
-        browser->window()->GetDownloadShelf()->Show();
-      else
-        browser->window()->GetDownloadShelf()->Close();
-    }
-  }
-}
-
 void TestingAutomationProvider::BuildJSONHandlerMaps() {
   // Map json commands to their handlers.
   handler_map_["ApplyAccelerator"] =
@@ -1673,6 +1652,10 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::GetActiveTabIndexJSON;
   handler_map_["AppendTab"] =
       &TestingAutomationProvider::AppendTabJSON;
+  handler_map_["OpenNewBrowserWindow"] =
+      &TestingAutomationProvider::OpenNewBrowserWindow;
+  handler_map_["CloseBrowserWindow"] =
+      &TestingAutomationProvider::CloseBrowserWindow;
   handler_map_["WaitUntilNavigationCompletes"] =
       &TestingAutomationProvider::WaitUntilNavigationCompletes;
   handler_map_["GetLocalStatePrefsInfo"] =
@@ -1699,14 +1682,30 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::GoBack;
   handler_map_["Reload"] =
       &TestingAutomationProvider::ReloadJSON;
+  handler_map_["OpenFindInPage"] =
+      &TestingAutomationProvider::OpenFindInPage;
+  handler_map_["IsFindInPageVisible"] =
+      &TestingAutomationProvider::IsFindInPageVisible;
   handler_map_["CaptureEntirePage"] =
       &TestingAutomationProvider::CaptureEntirePageJSON;
+  handler_map_["SetDownloadShelfVisible"] =
+      &TestingAutomationProvider::SetDownloadShelfVisibleJSON;
+  handler_map_["IsDownloadShelfVisible"] =
+      &TestingAutomationProvider::IsDownloadShelfVisibleJSON;
+  handler_map_["GetDownloadDirectory"] =
+      &TestingAutomationProvider::GetDownloadDirectoryJSON;
   handler_map_["GetCookies"] =
       &TestingAutomationProvider::GetCookiesJSON;
   handler_map_["DeleteCookie"] =
       &TestingAutomationProvider::DeleteCookieJSON;
   handler_map_["SetCookie"] =
       &TestingAutomationProvider::SetCookieJSON;
+  handler_map_["GetCookiesInBrowserContext"] =
+      &TestingAutomationProvider::GetCookiesInBrowserContext;
+  handler_map_["DeleteCookieInBrowserContext"] =
+      &TestingAutomationProvider::DeleteCookieInBrowserContext;
+  handler_map_["SetCookieInBrowserContext"] =
+      &TestingAutomationProvider::SetCookieInBrowserContext;
   handler_map_["GetTabIds"] =
       &TestingAutomationProvider::GetTabIds;
   handler_map_["GetViews"] =
@@ -1753,6 +1752,8 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::IsPageActionVisible;
   handler_map_["CreateNewAutomationProvider"] =
       &TestingAutomationProvider::CreateNewAutomationProvider;
+  handler_map_["GetBrowserWindowCount"] =
+      &TestingAutomationProvider::GetBrowserWindowCountJSON;
   handler_map_["GetBrowserInfo"] =
       &TestingAutomationProvider::GetBrowserInfo;
   handler_map_["GetTabInfo"] =
@@ -1959,6 +1960,8 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::GetBlockedPopupsInfo;
   browser_handler_map_["UnblockAndLaunchBlockedPopup"] =
       &TestingAutomationProvider::UnblockAndLaunchBlockedPopup;
+  handler_map_["ResetToDefaultTheme"] =
+      &TestingAutomationProvider::ResetToDefaultTheme;
 
   // SetTheme() implemented using InstallExtension().
   browser_handler_map_["GetThemeInfo"] =
@@ -2865,6 +2868,63 @@ void TestingAutomationProvider::PerformActionOnDownload(
     AutomationJSONReply(this, reply_message)
         .SendError(StringPrintf("Invalid action '%s' given.", action.c_str()));
   }
+}
+
+void TestingAutomationProvider::SetDownloadShelfVisibleJSON(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  bool is_visible;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
+  }
+  if (!args->GetBoolean("is_visible", &is_visible)) {
+    reply.SendError("'is_visible' missing or invalid.");
+    return;
+  }
+  if (is_visible) {
+    browser->window()->GetDownloadShelf()->Show();
+  } else {
+    browser->window()->GetDownloadShelf()->Close();
+  }
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::IsDownloadShelfVisibleJSON(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
+  }
+  DictionaryValue dict;
+  dict.SetBoolean("is_visible", browser->window()->IsDownloadShelfVisible());
+  reply.SendSuccess(&dict);
+}
+
+void TestingAutomationProvider::GetDownloadDirectoryJSON(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  WebContents* web_contents;
+  std::string error;
+  if (!GetTabFromJSONArgs(args, &web_contents, &error)) {
+    reply.SendError(error);
+    return;
+  }
+  DownloadManager* dlm =
+      BrowserContext::GetDownloadManager(
+          web_contents->GetController().GetBrowserContext());
+  DictionaryValue dict;
+  dict.SetString("path",
+      DownloadPrefs::FromDownloadManager(dlm)->DownloadPath().value());
+  reply.SendSuccess(&dict);
 }
 
 // Sample JSON input { "command": "LoadSearchEngineInfo" }
@@ -3790,6 +3850,39 @@ void TestingAutomationProvider::FindInPage(
                   match_case,
                   find_next,
                   reply_message);
+}
+
+void TestingAutomationProvider::OpenFindInPage(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
+  }
+  chrome::FindInPage(browser, false, false);
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::IsFindInPageVisible(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  bool visible;
+  Browser* browser;
+  std::string error_msg;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
+  }
+  FindBarTesting* find_bar =
+      browser->GetFindBarController()->find_bar()->GetFindBarTesting();
+  find_bar->GetFindBarWindowInfo(NULL, &visible);
+  DictionaryValue dict;
+  dict.SetBoolean("is_visible", visible);
+  reply.SendSuccess(&dict);
 }
 
 // See GetTranslateInfo() in chrome/test/pyautolib/pyauto.py for sample json
@@ -6629,6 +6722,121 @@ void TestingAutomationProvider::SetCookieJSON(
   automation_util::SetCookieJSON(this, args, reply_message);
 }
 
+void TestingAutomationProvider::GetCookiesInBrowserContext(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  WebContents* web_contents;
+  std::string value, url_string;
+  int windex, value_size;
+  if (!args->GetInteger("windex", &windex)) {
+    reply.SendError("'windex' missing or invalid.");
+    return;
+  }
+  web_contents = automation_util::GetWebContentsAt(windex, 0);
+  if (!web_contents) {
+    reply.SendError("'windex' does not refer to a browser window.");
+    return;
+  }
+  if (!args->GetString("url", &url_string)) {
+    reply.SendError("'url' missing or invalid.");
+    return;
+  }
+  GURL url(url_string);
+  if (!url.is_valid()) {
+    reply.SendError("Invalid url.");
+    return;
+  }
+  automation_util::GetCookies(url, web_contents, &value_size, &value);
+  if (value_size == -1) {
+    reply.SendError(
+        StringPrintf("Unable to retrieve cookies for url=%s.",
+                     url_string.c_str()));
+    return;
+  }
+  DictionaryValue dict;
+  dict.SetString("cookies", value);
+  reply.SendSuccess(&dict);
+}
+
+void TestingAutomationProvider::DeleteCookieInBrowserContext(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  WebContents* web_contents;
+  std::string cookie_name, error, url_string;
+  int windex;
+  bool success = false;
+  if (!args->GetInteger("windex", &windex)) {
+    reply.SendError("'windex' missing or invalid.");
+    return;
+  }
+  web_contents = automation_util::GetWebContentsAt(windex, 0);
+  if (!web_contents) {
+    reply.SendError("'windex' does not refer to a browser window.");
+    return;
+  }
+  if (!args->GetString("cookie_name", &cookie_name)) {
+    reply.SendError("'cookie_name' missing or invalid.");
+    return;
+  }
+  if (!args->GetString("url", &url_string)) {
+    reply.SendError("'url' missing or invalid.");
+    return;
+  }
+  GURL url(url_string);
+  if (!url.is_valid()) {
+    reply.SendError("Invalid url.");
+    return;
+  }
+  automation_util::DeleteCookie(url, cookie_name, web_contents, &success);
+  if (!success) {
+    reply.SendError(
+        StringPrintf("Failed to delete cookie with name=%s for url=%s.",
+                     cookie_name.c_str(), url_string.c_str()));
+    return;
+  }
+  reply.SendSuccess(NULL);
+}
+
+void TestingAutomationProvider::SetCookieInBrowserContext(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  WebContents* web_contents;
+  std::string value, error, url_string;
+  int windex, response_value = -1;
+  if (!args->GetInteger("windex", &windex)) {
+    reply.SendError("'windex' missing or invalid.");
+    return;
+  }
+  web_contents = automation_util::GetWebContentsAt(windex, 0);
+  if (!web_contents) {
+    reply.SendError("'windex' does not refer to a browser window.");
+    return;
+  }
+  if (!args->GetString("value", &value)) {
+    reply.SendError("'value' missing or invalid.");
+    return;
+  }
+  if (!args->GetString("url", &url_string)) {
+    reply.SendError("'url' missing or invalid.");
+    return;
+  }
+  GURL url(url_string);
+  if (!url.is_valid()) {
+    reply.SendError("Invalid url.");
+    return;
+  }
+  automation_util::SetCookie(url, value, web_contents, &response_value);
+  if (response_value != 1) {
+    reply.SendError(
+        StringPrintf("Unable set cookie for url=%s.", url_string.c_str()));
+    return;
+  }
+  reply.SendSuccess(NULL);
+}
+
 void TestingAutomationProvider::GetTabIds(
     DictionaryValue* args, IPC::Message* reply_message) {
   ListValue* id_list = new ListValue();
@@ -6829,6 +7037,20 @@ void TestingAutomationProvider::ActivateTabJSON(
   reply.SendSuccess(NULL);
 }
 
+void TestingAutomationProvider::ResetToDefaultTheme(
+    base::DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
+  }
+  ThemeServiceFactory::GetForProfile(browser->profile())->UseDefaultTheme();
+  reply.SendSuccess(NULL);
+}
+
 void TestingAutomationProvider::IsPageActionVisible(
     base::DictionaryValue* args,
     IPC::Message* reply_message) {
@@ -6945,10 +7167,6 @@ void TestingAutomationProvider::WaitForInfoBarCount(
   // The delegate will delete itself.
   new InfoBarCountObserver(this, reply_message,
       TabContents::FromWebContents(controller->GetWebContents()), target_count);
-}
-
-void TestingAutomationProvider::ResetToDefaultTheme() {
-  ThemeServiceFactory::GetForProfile(profile_)->UseDefaultTheme();
 }
 
 void TestingAutomationProvider::WaitForProcessLauncherThreadToGoIdle(

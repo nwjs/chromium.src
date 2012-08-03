@@ -38,6 +38,7 @@
 #include "chrome/common/extensions/file_browser_handler.h"
 #include "chrome/common/extensions/manifest.h"
 #include "chrome/common/extensions/permissions/permissions_info.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/extensions/url_pattern_set.h"
 #include "chrome/common/extensions/user_script.h"
 #include "chrome/common/url_constants.h"
@@ -598,7 +599,7 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
   }
 
   // matches (required)
-  ListValue* matches = NULL;
+  const ListValue* matches = NULL;
   if (!content_script->GetList(keys::kMatches, &matches)) {
     *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
         errors::kInvalidMatches,
@@ -640,9 +641,10 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
     if (pattern.MatchesScheme(chrome::kFileScheme) &&
         !CanExecuteScriptEverywhere()) {
       wants_file_access_ = true;
-      if (!(creation_flags_ & ALLOW_FILE_ACCESS))
+      if (!(creation_flags_ & ALLOW_FILE_ACCESS)) {
         pattern.SetValidSchemes(
             pattern.valid_schemes() & ~URLPattern::SCHEME_FILE);
+      }
     }
 
     result->add_url_pattern(pattern);
@@ -650,7 +652,7 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
 
   // exclude_matches
   if (content_script->HasKey(keys::kExcludeMatches)) {  // optional
-    ListValue* exclude_matches = NULL;
+    const ListValue* exclude_matches = NULL;
     if (!content_script->GetList(keys::kExcludeMatches, &exclude_matches)) {
       *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
           errors::kInvalidExcludeMatches,
@@ -697,7 +699,7 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
   }
 
   // js and css keys
-  ListValue* js = NULL;
+  const ListValue* js = NULL;
   if (content_script->HasKey(keys::kJs) &&
       !content_script->GetList(keys::kJs, &js)) {
     *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
@@ -706,7 +708,7 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
     return false;
   }
 
-  ListValue* css = NULL;
+  const ListValue* css = NULL;
   if (content_script->HasKey(keys::kCss) &&
       !content_script->GetList(keys::kCss, &css)) {
     *error = ExtensionErrorUtils::
@@ -774,7 +776,7 @@ bool Extension::LoadGlobsHelper(
   if (!content_script->HasKey(globs_property_name))
     return true;  // they are optional
 
-  ListValue* list = NULL;
+  const ListValue* list = NULL;
   if (!content_script->GetList(globs_property_name, &list)) {
     *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
         errors::kInvalidGlobList,
@@ -806,13 +808,13 @@ scoped_ptr<ExtensionAction> Extension::LoadExtensionActionHelper(
     string16* error) {
   scoped_ptr<ExtensionAction> result(new ExtensionAction(id(), action_type));
 
-  // Page actions are hidden/disabled by default, and browser actions are
+  // Page/script actions are hidden/disabled by default, and browser actions are
   // visible/enabled by default.
   result->SetIsVisible(ExtensionAction::kDefaultTabId,
-                       action_type != ExtensionAction::TYPE_PAGE);
+                       action_type == ExtensionAction::TYPE_BROWSER);
 
   if (manifest_version_ == 1) {
-    ListValue* icons = NULL;
+    const ListValue* icons = NULL;
     if (extension_action->HasKey(keys::kPageActionIcons) &&
         extension_action->GetList(keys::kPageActionIcons, &icons)) {
       for (ListValue::const_iterator iter = icons->begin();
@@ -883,7 +885,7 @@ scoped_ptr<ExtensionAction> Extension::LoadExtensionActionHelper(
   }
 
   if (popup_key) {
-    DictionaryValue* popup = NULL;
+    const DictionaryValue* popup = NULL;
     std::string url_str;
 
     if (extension_action->GetString(popup_key, &url_str)) {
@@ -1907,7 +1909,7 @@ bool Extension::LoadWebIntentAction(const std::string& action_name,
 
   service.action = UTF8ToUTF16(action_name);
 
-  ListValue* mime_types = NULL;
+  const ListValue* mime_types = NULL;
   if (!intent_service.HasKey(keys::kIntentType) ||
       !intent_service.GetList(keys::kIntentType, &mime_types) ||
       mime_types->GetSize() == 0) {
@@ -2377,8 +2379,6 @@ bool Extension::LoadScriptBadge(string16* error) {
             IDR_EXTENSIONS_FAVICON).ToSkBitmap());
   }
 
-  script_badge_->SetIsVisible(ExtensionAction::kDefaultTabId, true);
-
   return true;
 }
 
@@ -2444,7 +2444,7 @@ FileBrowserHandler* Extension::LoadFileBrowserHandler(
   result->set_title(title);
 
   // Initialize access permissions (optional).
-  ListValue* access_list_value = NULL;
+  const ListValue* access_list_value = NULL;
   if (file_browser_handler->HasKey(keys::kFileAccessList)) {
     if (!file_browser_handler->GetList(keys::kFileAccessList,
                                        &access_list_value) ||
@@ -2470,7 +2470,7 @@ FileBrowserHandler* Extension::LoadFileBrowserHandler(
   // Initialize file filters (mandatory, unless "create" access is specified,
   // in which case is ignored).
   if (!result->HasCreateAccessPermission()) {
-    ListValue* list_value = NULL;
+    const ListValue* list_value = NULL;
     if (!file_browser_handler->HasKey(keys::kFileFilters) ||
         !file_browser_handler->GetList(keys::kFileFilters, &list_value) ||
         list_value->empty()) {
@@ -2802,7 +2802,7 @@ bool Extension::LoadThemeFeatures(string16* error) {
 
 bool Extension::LoadThemeImages(const DictionaryValue* theme_value,
                                 string16* error) {
-  DictionaryValue* images_value = NULL;
+  const DictionaryValue* images_value = NULL;
   if (theme_value->GetDictionary(keys::kThemeImages, &images_value)) {
     // Validate that the images are all strings
     for (DictionaryValue::key_iterator iter = images_value->begin_keys();
@@ -2820,12 +2820,12 @@ bool Extension::LoadThemeImages(const DictionaryValue* theme_value,
 
 bool Extension::LoadThemeColors(const DictionaryValue* theme_value,
                                 string16* error) {
-  DictionaryValue* colors_value = NULL;
+  const DictionaryValue* colors_value = NULL;
   if (theme_value->GetDictionary(keys::kThemeColors, &colors_value)) {
     // Validate that the colors are RGB or RGBA lists
     for (DictionaryValue::key_iterator iter = colors_value->begin_keys();
          iter != colors_value->end_keys(); ++iter) {
-      ListValue* color_list = NULL;
+      const ListValue* color_list = NULL;
       double alpha = 0.0;
       int color = 0;
       // The color must be a list
@@ -2851,12 +2851,12 @@ bool Extension::LoadThemeColors(const DictionaryValue* theme_value,
 
 bool Extension::LoadThemeTints(const DictionaryValue* theme_value,
                                string16* error) {
-  DictionaryValue* tints_value = NULL;
+  const DictionaryValue* tints_value = NULL;
   if (theme_value->GetDictionary(keys::kThemeTints, &tints_value)) {
     // Validate that the tints are all reals.
     for (DictionaryValue::key_iterator iter = tints_value->begin_keys();
          iter != tints_value->end_keys(); ++iter) {
-      ListValue* tint_list = NULL;
+      const ListValue* tint_list = NULL;
       double v = 0.0;
       if (!tints_value->GetListWithoutPathExpansion(*iter, &tint_list) ||
           tint_list->GetSize() != 3 ||
@@ -2874,7 +2874,7 @@ bool Extension::LoadThemeTints(const DictionaryValue* theme_value,
 
 bool Extension::LoadThemeDisplayProperties(const DictionaryValue* theme_value,
                                            string16* error) {
-  DictionaryValue* display_properties_value = NULL;
+  const DictionaryValue* display_properties_value = NULL;
   if (theme_value->GetDictionary(keys::kThemeDisplayProperties,
                                  &display_properties_value)) {
     theme_display_properties_.reset(
@@ -3402,9 +3402,10 @@ bool Extension::ParsePermissions(const char* key,
         if (pattern.MatchesScheme(chrome::kFileScheme) &&
             !CanExecuteScriptEverywhere()) {
           wants_file_access_ = true;
-          if (!(creation_flags_ & ALLOW_FILE_ACCESS))
+          if (!(creation_flags_ & ALLOW_FILE_ACCESS)) {
             pattern.SetValidSchemes(
                 pattern.valid_schemes() & ~URLPattern::SCHEME_FILE);
+          }
         }
 
         host_permissions->AddPattern(pattern);
@@ -3452,17 +3453,26 @@ bool Extension::CanSpecifyHostPermission(const URLPattern& pattern,
   return true;
 }
 
-bool Extension::HasAPIPermission(
-    APIPermission::ID permission) const {
+bool Extension::HasAPIPermission(APIPermission::ID permission) const {
   base::AutoLock auto_lock(runtime_data_lock_);
   return runtime_data_.GetActivePermissions()->HasAPIPermission(permission);
 }
 
-bool Extension::HasAPIPermission(
-    const std::string& function_name) const {
+bool Extension::HasAPIPermission(const std::string& function_name) const {
   base::AutoLock auto_lock(runtime_data_lock_);
   return runtime_data_.GetActivePermissions()->
       HasAccessToFunction(function_name);
+}
+
+bool Extension::HasAPIPermissionForTab(int tab_id,
+                                       APIPermission::ID permission) const {
+  base::AutoLock auto_lock(runtime_data_lock_);
+  if (runtime_data_.GetActivePermissions()->HasAPIPermission(permission))
+    return true;
+  scoped_refptr<const PermissionSet> tab_specific_permissions =
+      runtime_data_.GetTabSpecificPermissions(tab_id);
+  return tab_specific_permissions.get() &&
+         tab_specific_permissions->HasAPIPermission(permission);
 }
 
 const URLPatternSet& Extension::GetEffectiveHostPermissions() const {
@@ -3495,10 +3505,12 @@ bool Extension::HasFullPermissions() const {
 
 PermissionMessages Extension::GetPermissionMessages() const {
   base::AutoLock auto_lock(runtime_data_lock_);
-  if (IsTrustedId(id()))
+  if (IsTrustedId(id())) {
     return PermissionMessages();
-  else
-    return runtime_data_.GetActivePermissions()->GetPermissionMessages();
+  } else {
+    return runtime_data_.GetActivePermissions()->GetPermissionMessages(
+        GetType());
+  }
 }
 
 std::vector<string16> Extension::GetPermissionMessageStrings() const {
@@ -3506,7 +3518,7 @@ std::vector<string16> Extension::GetPermissionMessageStrings() const {
   if (IsTrustedId(id()))
     return std::vector<string16>();
   else
-    return runtime_data_.GetActivePermissions()->GetWarningMessages();
+    return runtime_data_.GetActivePermissions()->GetWarningMessages(GetType());
 }
 
 void Extension::SetActivePermissions(
@@ -3562,10 +3574,10 @@ bool Extension::CanExecuteScriptOnPage(const GURL& page_url,
 
   // If a tab ID is specified, try the tab-specific permissions.
   if (tab_id >= 0) {
-    const URLPatternSet* tab_permissions =
-        runtime_data_.GetTabSpecificHostPermissions(tab_id);
-    if (tab_permissions &&
-        tab_permissions->MatchesSecurityOrigin(page_url)) {
+    scoped_refptr<const PermissionSet> tab_permissions =
+        runtime_data_.GetTabSpecificPermissions(tab_id);
+    if (tab_permissions.get() &&
+        tab_permissions->explicit_hosts().MatchesSecurityOrigin(page_url)) {
       return true;
     }
   }
@@ -3635,10 +3647,10 @@ bool Extension::CanCaptureVisiblePage(const GURL& page_url,
                                       int tab_id,
                                       std::string *error) const {
   if (tab_id >= 0) {
-    const URLPatternSet* tab_permissions =
-        GetTabSpecificHostPermissions(tab_id);
-    if (tab_permissions &&
-        tab_permissions->MatchesSecurityOrigin(page_url)) {
+    scoped_refptr<const PermissionSet> tab_permissions =
+        GetTabSpecificPermissions(tab_id);
+    if (tab_permissions.get() &&
+        tab_permissions->explicit_hosts().MatchesSecurityOrigin(page_url)) {
       return true;
     }
   }
@@ -3797,22 +3809,22 @@ bool Extension::HasContentScriptAtURL(const GURL& url) const {
   return false;
 }
 
-const URLPatternSet* Extension::GetTabSpecificHostPermissions(
+scoped_refptr<const PermissionSet> Extension::GetTabSpecificPermissions(
     int tab_id) const {
   base::AutoLock auto_lock(runtime_data_lock_);
-  return runtime_data_.GetTabSpecificHostPermissions(tab_id);
+  return runtime_data_.GetTabSpecificPermissions(tab_id);
 }
 
-void Extension::SetTabSpecificHostPermissions(
+void Extension::UpdateTabSpecificPermissions(
     int tab_id,
-    const URLPatternSet& permissions) const {
+    scoped_refptr<const PermissionSet> permissions) const {
   base::AutoLock auto_lock(runtime_data_lock_);
-  runtime_data_.SetTabSpecificHostPermissions(tab_id, permissions);
+  runtime_data_.UpdateTabSpecificPermissions(tab_id, permissions);
 }
 
-void Extension::ClearTabSpecificHostPermissions(int tab_id) const {
+void Extension::ClearTabSpecificPermissions(int tab_id) const {
   base::AutoLock auto_lock(runtime_data_lock_);
-  runtime_data_.ClearTabSpecificHostPermissions(tab_id);
+  runtime_data_.ClearTabSpecificPermissions(tab_id);
 }
 
 bool Extension::CheckPlatformAppFeatures(std::string* utf8_error) {
@@ -3854,25 +3866,29 @@ void Extension::RuntimeData::SetActivePermissions(
   active_permissions_ = active;
 }
 
-const URLPatternSet*
-    Extension::RuntimeData::GetTabSpecificHostPermissions(int tab_id) const {
+scoped_refptr<const PermissionSet>
+    Extension::RuntimeData::GetTabSpecificPermissions(int tab_id) const {
   CHECK_GE(tab_id, 0);
-  TabHostPermissionsMap::const_iterator it =
-      tab_specific_host_permissions_.find(tab_id);
-  return (it != tab_specific_host_permissions_.end()) ? it->second.get() : NULL;
+  TabPermissionsMap::const_iterator it = tab_specific_permissions_.find(tab_id);
+  return (it != tab_specific_permissions_.end()) ? it->second : NULL;
 }
 
-void Extension::RuntimeData::SetTabSpecificHostPermissions(
+void Extension::RuntimeData::UpdateTabSpecificPermissions(
     int tab_id,
-    const URLPatternSet& hosts) {
+    scoped_refptr<const PermissionSet> permissions) {
   CHECK_GE(tab_id, 0);
-  tab_specific_host_permissions_[tab_id] =
-      make_linked_ptr(new URLPatternSet(hosts));
+  if (tab_specific_permissions_.count(tab_id)) {
+    tab_specific_permissions_[tab_id] = PermissionSet::CreateUnion(
+        tab_specific_permissions_[tab_id],
+        permissions.get());
+  } else {
+    tab_specific_permissions_[tab_id] = permissions;
+  }
 }
 
-void Extension::RuntimeData::ClearTabSpecificHostPermissions(int tab_id) {
+void Extension::RuntimeData::ClearTabSpecificPermissions(int tab_id) {
   CHECK_GE(tab_id, 0);
-  tab_specific_host_permissions_.erase(tab_id);
+  tab_specific_permissions_.erase(tab_id);
 }
 
 UnloadedExtensionInfo::UnloadedExtensionInfo(

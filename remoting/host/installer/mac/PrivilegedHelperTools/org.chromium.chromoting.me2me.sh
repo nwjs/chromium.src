@@ -21,7 +21,7 @@ SIGTERM_EXIT_CODE=143
 # has occurred and that the host should not be restarted. Please, keep these
 # constants in sync with remoting/host/constants.h.
 MIN_PERMANENT_ERROR_EXIT_CODE=2
-MAX_PERMANENT_ERROR_EXIT_CODE=4
+MAX_PERMANENT_ERROR_EXIT_CODE=5
 
 HOST_PID=0
 SIGNAL_WAS_TRAPPED=0
@@ -45,7 +45,7 @@ run_host() {
     fi
 
     # Execute the host asynchronously
-    "$HOST_EXE" --auth-config="$CONFIG_FILE" --host-config="$CONFIG_FILE" &
+    "$HOST_EXE" --host-config="$CONFIG_FILE" &
     HOST_PID="$!"
 
     # Wait for the host to return and process its exit code.

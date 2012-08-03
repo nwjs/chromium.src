@@ -12,7 +12,6 @@
 #import <objc/objc-class.h>
 
 #include <algorithm>
-#include <iostream>
 
 #include "base/debug/stack_trace.h"
 #include "base/lazy_instance.h"
@@ -26,7 +25,10 @@
 // Deallocated objects are re-classed as |CrZombie|.  No superclass
 // because then the class would have to override many/most of the
 // inherited methods (|NSObject| is like a category magnet!).
-@interface CrZombie {
+// Without the __attribute__, clang's -Wobjc-root-class warns on the missing
+// superclass.
+__attribute__((objc_root_class))
+@interface CrZombie  {
   Class isa;
 }
 @end
@@ -253,8 +255,7 @@ BOOL GetZombieRecord(id object, ZombieRecord* record) {
 // Dump the symbols.  This is pulled out into a function to make it
 // easy to use DCHECK to dump only in debug builds.
 BOOL DumpDeallocTrace(const void* const* array, int size) {
-  // |cerr| because that's where PrintBacktrace() sends output.
-  std::cerr << "Backtrace from -dealloc:\n";
+  fprintf(stderr, "Backtrace from -dealloc:\n");
   base::debug::StackTrace(array, size).PrintBacktrace();
 
   return YES;

@@ -33,6 +33,7 @@
 #include "content/public/common/media_stream_request.h"
 #include "content/public/common/referrer.h"
 #include "content/public/renderer/content_renderer_client.h"
+#include "content/public/renderer/renderer_restrict_dispatch_group.h"
 #include "content/renderer/browser_plugin/old/browser_plugin_constants.h"
 #include "content/renderer/browser_plugin/old/browser_plugin_registry.h"
 #include "content/renderer/gamepad_shared_memory_reader.h"
@@ -57,7 +58,6 @@
 #include "content/renderer/render_view_impl.h"
 #include "content/renderer/render_widget_fullscreen_pepper.h"
 #include "content/renderer/renderer_clipboard_client.h"
-#include "content/renderer/renderer_restrict_dispatch_group.h"
 #include "content/renderer/webplugin_delegate_proxy.h"
 #include "googleurl/src/gurl.h"
 #include "ipc/ipc_channel_handle.h"
@@ -111,7 +111,8 @@ class HostDispatcherWrapper
                         const ppapi::PpapiPermissions& perms)
       : module_(module),
         instance_state_(module),
-        host_factory_(rv, perms, &instance_state_) {
+        host_factory_(rv, perms, &instance_state_),
+        render_view_(rv) {
   }
   virtual ~HostDispatcherWrapper() {}
 
@@ -147,6 +148,7 @@ class HostDispatcherWrapper
     }
     dispatcher_->channel()->SetRestrictDispatchChannelGroup(
         content::kRendererRestrictDispatchGroup_Pepper);
+    render_view_->PpapiPluginCreated(host_.get());
     return true;
   }
 
@@ -166,6 +168,7 @@ class HostDispatcherWrapper
   PepperInstanceStateAccessorImpl instance_state_;
   ContentRendererPepperHostFactory host_factory_;
 
+  RenderViewImpl* render_view_;
   scoped_ptr<ppapi::host::PpapiHost> host_;
 
   scoped_ptr<ppapi::proxy::HostDispatcher> dispatcher_;
@@ -1397,6 +1400,16 @@ std::string PepperPluginDelegateImpl::GetDeviceID() {
   std::string result;
   render_view_->Send(new PepperMsg_GetDeviceID(&result));
   return result;
+}
+
+PP_FlashLSORestrictions PepperPluginDelegateImpl::GetLocalDataRestrictions(
+    const GURL& document_url,
+    const GURL& plugin_url) {
+  PP_FlashLSORestrictions restrictions = PP_FLASHLSORESTRICTIONS_NONE;
+  render_view_->Send(
+      new PepperMsg_GetLocalDataRestrictions(document_url, plugin_url,
+                                             &restrictions));
+  return restrictions;
 }
 
 base::SharedMemory* PepperPluginDelegateImpl::CreateAnonymousSharedMemory(

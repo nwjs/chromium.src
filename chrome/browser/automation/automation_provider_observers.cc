@@ -26,6 +26,7 @@
 #include "chrome/browser/automation/automation_provider.h"
 #include "chrome/browser/automation/automation_provider_json.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/extensions/crx_installer.h"
@@ -878,7 +879,9 @@ void BrowserClosedNotificationObserver::Observe(
     return;
   }
 
-  content::Details<bool> close_app(details);
+  int browser_count = static_cast<int>(BrowserList::size());
+  // We get the notification before the browser is removed from the BrowserList.
+  bool app_closing = browser_count == 1;
 
   if (use_json_interface_) {
     AutomationJSONReply(automation_,
@@ -889,7 +892,7 @@ void BrowserClosedNotificationObserver::Observe(
                                                            true);
     } else {
       AutomationMsg_CloseBrowser::WriteReplyParams(reply_message_.get(), true,
-                                                   *(close_app.ptr()));
+                                                   app_closing);
     }
     automation_->Send(reply_message_.release());
   }
@@ -1613,7 +1616,8 @@ void AutomationProviderHistoryObserver::HistoryQueryComplete(
     page_value->SetString("snippet", page.snippet().text());
     page_value->SetBoolean(
         "starred",
-        provider_->profile()->GetBookmarkModel()->IsBookmarked(page.url()));
+        BookmarkModelFactory::GetForProfile(
+            provider_->profile())->IsBookmarked(page.url()));
     history_list->Append(page_value);
   }
 
@@ -3074,7 +3078,8 @@ void ExtensionPopupObserver::Observe(
     return;
   }
 
-  ExtensionHost* host = content::Details<ExtensionHost>(details).ptr();
+  extensions::ExtensionHost* host =
+      content::Details<extensions::ExtensionHost>(details).ptr();
   if (host->extension_id() == extension_id_ &&
       host->extension_host_type() == chrome::VIEW_TYPE_EXTENSION_POPUP) {
     AutomationJSONReply(automation_, reply_message_.release())

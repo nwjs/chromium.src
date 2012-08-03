@@ -46,13 +46,13 @@ class InternalComponentsFactory {
   virtual scoped_ptr<sessions::SyncSessionContext> BuildContext(
       ServerConnectionManager* connection_manager,
       syncable::Directory* directory,
-      const ModelSafeRoutingInfo& routing_info,
       const std::vector<ModelSafeWorker*> workers,
       ExtensionsActivityMonitor* monitor,
       ThrottledDataTypeTracker* throttled_data_type_tracker,
       const std::vector<SyncEngineEventListener*>& listeners,
       sessions::DebugInfoGetter* debug_info_getter,
-      TrafficRecorder* traffic_recorder) = 0;
+      TrafficRecorder* traffic_recorder,
+      bool keystore_encryption_enabled) = 0;
 
   virtual scoped_ptr<syncable::DirectoryBackingStore>
   BuildDirectoryBackingStore(

@@ -11,6 +11,7 @@
       'dependencies': [
         'some.gyp:*',
         '../base/base.gyp:*',
+        '../net/net.gyp:*',
         '../sql/sql.gyp:*',
         '../testing/gtest.gyp:*',
         '../third_party/bzip2/bzip2.gyp:*',
@@ -18,6 +19,7 @@
         '../third_party/libxml/libxml.gyp:*',
         '../third_party/sqlite/sqlite.gyp:*',
         '../third_party/zlib/zlib.gyp:*',
+        '../ui/ui.gyp:*',
         'temp_gyp/googleurl.gyp:*',
         # Add new dependencies to the !ios section just below, not here (see
         # the comment there).
@@ -31,13 +33,11 @@
             '../chrome/chrome.gyp:*',
             '../content/content.gyp:*',
             '../crypto/crypto.gyp:*',
-            '../ui/ui.gyp:*',
             '../gpu/gpu.gyp:*',
             '../gpu/tools/tools.gyp:*',
             '../ipc/ipc.gyp:*',
             '../jingle/jingle.gyp:*',
             '../media/media.gyp:*',
-            '../net/net.gyp:*',
             '../ppapi/ppapi.gyp:*',
             '../ppapi/ppapi_internal.gyp:*',
             '../printing/printing.gyp:*',
@@ -60,6 +60,7 @@
             '../third_party/npapi/npapi.gyp:*',
             '../third_party/ots/ots.gyp:*',
             '../third_party/qcms/qcms.gyp:*',
+            '../third_party/re2/re2.gyp:re2',
             '../third_party/WebKit/Source/WebKit/chromium/All.gyp:*',
             '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:generate_devtools_zip',
             '../v8/tools/gyp/v8.gyp:*',
@@ -178,27 +179,6 @@
       ],
     }, # target_name: All_syzygy
     {
-      'target_name': 'chromium_swarm_tests',
-      'type': 'none',
-      'dependencies': [
-        # Add new dependencies to the !ios section just below, not here (see
-        # the comment there).
-      ],
-      'conditions': [
-        ['OS!="ios"', {
-          'dependencies': [
-            # TODO(ios): This is temporary; currently almost nothing builds with
-            # OS=ios. Move dependencies back to the main dependencies section
-            # above as gyp files come online.
-            '../base/base.gyp:base_unittests_run',
-            '../chrome/chrome.gyp:browser_tests_run',
-            '../chrome/chrome.gyp:unit_tests_run',
-            '../net/net.gyp:net_unittests_run',
-          ],
-        }],
-      ],
-    }, # target_name: chromium_swarm_tests
-    {
       'target_name': 'chromium_builder_tests',
       'type': 'none',
       'dependencies': [
@@ -222,7 +202,6 @@
             '../content/content.gyp:content_browsertests',
             '../content/content.gyp:content_unittests',
             '../crypto/crypto.gyp:crypto_unittests',
-            '../ui/ui.gyp:gfx_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../gpu/gles2_conform_support/gles2_conform_support.gyp:gles2_conform_support',
             '../ipc/ipc.gyp:ipc_tests',
@@ -234,6 +213,7 @@
             '../sync/sync.gyp:sync_unit_tests',
             '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_unittests',
             '../third_party/libphonenumber/libphonenumber.gyp:libphonenumber_unittests',
+            '../ui/ui.gyp:ui_unittests',
             'temp_gyp/googleurl.gyp:googleurl_unittests',
           ],
         }],
@@ -379,7 +359,7 @@
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_browsertests',
             '../content/content.gyp:content_unittests',
-            '../ui/ui.gyp:gfx_unittests',
+            '../ui/ui.gyp:ui_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../ipc/ipc.gyp:ipc_tests',
             '../jingle/jingle.gyp:jingle_unittests',
@@ -407,7 +387,7 @@
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_browsertests',
             '../content/content.gyp:content_unittests',
-            '../ui/ui.gyp:gfx_unittests',
+            '../ui/ui.gyp:ui_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../ipc/ipc.gyp:ipc_tests',
             '../jingle/jingle.gyp:jingle_unittests',
@@ -454,7 +434,7 @@
             '../chrome/chrome.gyp:safe_browsing_tests',
             '../chrome/chrome.gyp:unit_tests',
             '../content/content.gyp:content_unittests',
-            '../ui/ui.gyp:gfx_unittests',
+            '../ui/ui.gyp:ui_unittests',
             '../jingle/jingle.gyp:jingle_unittests',
             '../sql/sql.gyp:sql_unittests',
             '../sync/sync.gyp:sync_unit_tests',
@@ -495,7 +475,7 @@
             '../chrome_frame/chrome_frame.gyp:chrome_frame_unittests',
             '../chrome_frame/chrome_frame.gyp:npchrome_frame',
             '../courgette/courgette.gyp:courgette_unittests',
-            '../ui/ui.gyp:gfx_unittests',
+            '../ui/ui.gyp:ui_unittests',
             '../gpu/gpu.gyp:gpu_unittests',
             '../ipc/ipc.gyp:ipc_tests',
             '../jingle/jingle.gyp:jingle_unittests',
@@ -632,13 +612,13 @@
           'dependencies': [
             '../chrome/chrome.gyp:browser_tests',
             '../chrome/chrome.gyp:chrome',
-            '../chrome/chrome.gyp:interactive_ui_tests',            
+            '../chrome/chrome.gyp:interactive_ui_tests',
             '../chrome/chrome.gyp:unit_tests',
             '../content/content.gyp:content_browsertests',
             '../remoting/remoting.gyp:remoting_unittests',
             '../ui/aura/aura.gyp:*',
             '../ui/compositor/compositor.gyp:*',
-            '../ui/ui.gyp:gfx_unittests',
+            '../ui/ui.gyp:ui_unittests',
             '../ui/views/views.gyp:views',
             '../ui/views/views.gyp:views_unittests',
             '../webkit/webkit.gyp:pull_in_webkit_unit_tests',
@@ -695,5 +675,19 @@
         },
       ],  # targets
     }], # "use_aura==1"
+    ['test_isolation_mode != "noop"', {
+      'targets': [
+        {
+          'target_name': 'chromium_swarm_tests',
+          'type': 'none',
+          'dependencies': [
+            '../base/base.gyp:base_unittests_run',
+            '../chrome/chrome.gyp:browser_tests_run',
+            '../chrome/chrome.gyp:unit_tests_run',
+            '../net/net.gyp:net_unittests_run',
+          ],
+        }, # target_name: chromium_swarm_tests
+      ],
+    }],
   ], # conditions
 }

@@ -69,7 +69,7 @@ int64 GetAmountOfFreeDiskSpace() {
 // bytes, while keeping kMinFreeSpace bytes on the disk.
 bool HasEnoughSpaceFor(int64 num_bytes) {
   int64 free_space = GetAmountOfFreeDiskSpace();
-  // Substract this as if this portion does not exist.
+  // Subtract this as if this portion does not exist.
   free_space -= kMinFreeSpace;
   return (free_space >= num_bytes);
 }
@@ -95,7 +95,7 @@ void InitCachePaths(const std::vector<FilePath>& cache_paths) {
 }
 
 // Remove all files under the given directory, non-recursively.
-// Do not remove recursively as we don't want to touch <gache>/tmp/downloads,
+// Do not remove recursively as we don't want to touch <gcache>/tmp/downloads,
 // which is used for user initiated downloads like "Save As"
 void RemoveAllFiles(const FilePath& directory) {
   using file_util::FileEnumerator;
@@ -228,6 +228,15 @@ void CollectExistingPinnedFile(std::vector<std::string>* resource_ids,
     resource_ids->push_back(resource_id);
 }
 
+// Appends |resource_id| ID to |resource_ids| unconditionally.
+void CollectAnyFile(std::vector<std::string>* resource_ids,
+                    const std::string& resource_id,
+                    const GDataCacheEntry& /* cache_entry */) {
+  DCHECK(resource_ids);
+
+  resource_ids->push_back(resource_id);
+}
+
 // Runs callback with pointers dereferenced.
 // Used to implement SetMountedStateOnUIThread.
 void RunSetMountedStateCallback(const SetMountedStateCallback& callback,
@@ -315,8 +324,7 @@ GDataCache::GDataCache(const FilePath& cache_root_path,
     : cache_root_path_(cache_root_path),
       cache_paths_(GetCachePaths(cache_root_path_)),
       blocking_task_runner_(blocking_task_runner),
-      ui_weak_ptr_factory_(this),
-      ui_weak_ptr_(ui_weak_ptr_factory_.GetWeakPtr()) {
+      weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
 
@@ -433,6 +441,21 @@ void GDataCache::GetResourceIdsOfExistingPinnedFilesOnUIThread(
                  base::Owned(resource_ids)));
 }
 
+void GDataCache::GetResourceIdsOfAllFilesOnUIThread(
+    const GetResourceIdsCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  std::vector<std::string>* resource_ids = new std::vector<std::string>;
+  blocking_task_runner_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&GDataCache::GetResourceIdsOfAllFiles,
+                 base::Unretained(this),
+                 resource_ids),
+      base::Bind(&RunGetResourceIdsCallback,
+                 callback,
+                 base::Owned(resource_ids)));
+}
+
 void GDataCache::FreeDiskSpaceIfNeededFor(int64 num_bytes,
                                           bool* has_enough_space) {
   AssertOnSequencedWorkerPool();
@@ -518,7 +541,7 @@ void GDataCache::PinOnUIThread(const std::string& resource_id,
                  GDataCache::FILE_OPERATION_MOVE,
                  error),
       base::Bind(&GDataCache::OnPinned,
-                 ui_weak_ptr_,
+                 weak_ptr_factory_.GetWeakPtr(),
                  base::Owned(error),
                  resource_id,
                  md5,
@@ -540,7 +563,7 @@ void GDataCache::UnpinOnUIThread(const std::string& resource_id,
                  GDataCache::FILE_OPERATION_MOVE,
                  error),
       base::Bind(&GDataCache::OnUnpinned,
-                 ui_weak_ptr_,
+                 weak_ptr_factory_.GetWeakPtr(),
                  base::Owned(error),
                  resource_id,
                  md5,
@@ -610,7 +633,7 @@ void GDataCache::CommitDirtyOnUIThread(const std::string& resource_id,
                  GDataCache::FILE_OPERATION_MOVE,
                  error),
       base::Bind(&GDataCache::OnCommitDirty,
-                 ui_weak_ptr_,
+                 weak_ptr_factory_.GetWeakPtr(),
                  base::Owned(error),
                  resource_id,
                  md5,
@@ -695,7 +718,7 @@ void GDataCache::DestroyOnUIThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Invalidate the weak pointer.
-  ui_weak_ptr_factory_.InvalidateWeakPtrs();
+  weak_ptr_factory_.InvalidateWeakPtrs();
 
   // Destroy myself on the blocking pool.
   blocking_task_runner_->PostTask(
@@ -739,6 +762,14 @@ void GDataCache::GetResourceIdsOfExistingPinnedFiles(
   DCHECK(resource_ids);
 
   metadata_->Iterate(base::Bind(&CollectExistingPinnedFile, resource_ids));
+}
+
+void GDataCache::GetResourceIdsOfAllFiles(
+    std::vector<std::string>* resource_ids) {
+  AssertOnSequencedWorkerPool();
+  DCHECK(resource_ids);
+
+  metadata_->Iterate(base::Bind(&CollectAnyFile, resource_ids));
 }
 
 void GDataCache::GetFile(const std::string& resource_id,

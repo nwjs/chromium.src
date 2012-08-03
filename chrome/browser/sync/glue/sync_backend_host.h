@@ -27,6 +27,7 @@
 #include "sync/internal_api/public/util/unrecoverable_error_handler.h"
 #include "sync/internal_api/public/util/weak_handle.h"
 #include "sync/notifier/sync_notifier_factory.h"
+#include "sync/notifier/sync_notifier_observer.h"
 #include "sync/protocol/encryption.pb.h"
 #include "sync/protocol/sync_protocol_error.h"
 
@@ -43,8 +44,6 @@ class ChangeProcessor;
 class ChromeSyncNotificationBridge;
 struct Experiments;
 class InvalidatorStorage;
-class JsBackend;
-class JsEventHandler;
 class SyncBackendRegistrar;
 class SyncPrefs;
 
@@ -53,7 +52,7 @@ class SyncPrefs;
 // activity.
 // NOTE: All methods will be invoked by a SyncBackendHost on the same thread
 // used to create that SyncBackendHost.
-class SyncFrontend {
+class SyncFrontend : public syncer::SyncNotifierObserver {
  public:
   SyncFrontend() {}
 
@@ -170,7 +169,6 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
       SyncFrontend* frontend,
       const syncer::WeakHandle<syncer::JsEventHandler>& event_handler,
       const GURL& service_url,
-      syncer::ModelTypeSet initial_types,
       const syncer::SyncCredentials& credentials,
       bool delete_sync_data_folder,
       syncer::SyncManagerFactory* sync_manager_factory,
@@ -178,8 +176,12 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
       syncer::ReportUnrecoverableErrorFunction
           report_unrecoverable_error_function);
 
-  // Called from |frontend_loop| to update SyncCredentials.
+  // Called on |frontend_loop| to update SyncCredentials.
   void UpdateCredentials(const syncer::SyncCredentials& credentials);
+
+  // Registers the underlying frontend for the given IDs to the
+  // underlying notifier.
+  void UpdateRegisteredInvalidationIds(const syncer::ObjectIdSet& ids);
 
   // This starts the SyncerThread running a Syncer object to communicate with
   // sync servers.  Until this is called, no changes will leave or enter this
@@ -246,8 +248,9 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // Deactivates change processing for the given data type.
   void DeactivateDataType(syncer::ModelType type);
 
-  // Called on |frontend_loop_| to obtain a handle to the UserShare needed
-  // for creating transactions.
+  // Called on |frontend_loop_| to obtain a handle to the UserShare needed for
+  // creating transactions.  Should not be called before we signal
+  // initialization is complete with OnBackendInitialized().
   syncer::UserShare* GetUserShare() const;
 
   // Called from any thread to obtain current status information in detailed or
@@ -299,6 +302,7 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
         syncer::SyncManagerFactory* sync_manager_factory,
         bool delete_sync_data_folder,
         const std::string& restored_key_for_bootstrapping,
+        const std::string& restored_keystore_key_for_bootstrapping,
         syncer::InternalComponentsFactory* internal_components_factory,
         syncer::UnrecoverableErrorHandler* unrecoverable_error_handler,
         syncer::ReportUnrecoverableErrorFunction
@@ -321,6 +325,7 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
     std::string lsid;
     bool delete_sync_data_folder;
     std::string restored_key_for_bootstrapping;
+    std::string restored_keystore_key_for_bootstrapping;
     syncer::InternalComponentsFactory* internal_components_factory;
     syncer::UnrecoverableErrorHandler* unrecoverable_error_handler;
     syncer::ReportUnrecoverableErrorFunction
@@ -344,6 +349,13 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
       const syncer::ModelTypeSet failed_configuration_types,
       const base::Callback<void(syncer::ModelTypeSet)>& ready_task);
 
+  // Called when the SyncManager has been constructed and initialized.
+  virtual void HandleSyncManagerInitializationOnFrontendLoop(
+      const syncer::WeakHandle<syncer::JsBackend>& js_backend, bool success,
+      syncer::ModelTypeSet restored_types);
+
+  SyncFrontend* frontend() { return frontend_; }
+
  private:
   // The real guts of SyncBackendHost, to keep the public client API clean.
   class Core;
@@ -363,6 +375,12 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
                             // still need to refresh encryption. Also, we need
                             // to update the device information in the nigori.
     INITIALIZED,            // Initialization is complete.
+  };
+
+  // Enum used to distinguish which bootstrap encryption token is being updated.
+  enum BootstrapTokenType {
+    PASSPHRASE_BOOTSTRAP_TOKEN,
+    KEYSTORE_BOOTSTRAP_TOKEN
   };
 
   // Checks if we have received a notice to turn on experimental datatypes
@@ -394,7 +412,9 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // across browser restart to avoid requiring the user to re-enter their
   // passphrase.  |token| must be valid UTF-8 as we use the PrefService for
   // storage.
-  void PersistEncryptionBootstrapToken(const std::string& token);
+  void PersistEncryptionBootstrapToken(
+      const std::string& token,
+      BootstrapTokenType token_type);
 
   // For convenience, checks if initialization state is INITIALIZED.
   bool initialized() const { return initialization_state_ == INITIALIZED; }
@@ -446,6 +466,14 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   void HandleNigoriConfigurationCompletedOnFrontendLoop(
       const syncer::WeakHandle<syncer::JsBackend>& js_backend,
       syncer::ModelTypeSet failed_configuration_types);
+
+  // syncer::SyncNotifierObserver-like functions.
+  void HandleNotificationsEnabledOnFrontendLoop();
+  void HandleNotificationsDisabledOnFrontendLoop(
+      syncer::NotificationsDisabledReason reason);
+  void HandleIncomingNotificationOnFrontendLoop(
+      const syncer::ObjectIdPayloadMap& id_payloads,
+      syncer::IncomingNotificationSource source);
 
   // Must be called on |frontend_loop_|.  |done_callback| is called on
   // |frontend_loop_|.

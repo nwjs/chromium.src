@@ -5,6 +5,7 @@
 import os
 
 import third_party.json_schema_compiler.model as model
+from docs_server_utils import SanitizeAPIName
 
 class APIListDataSource(object):
   """ This class creates a list of chrome.* APIs and chrome.experimental.* APIs
@@ -17,12 +18,12 @@ class APIListDataSource(object):
     self._public_path = public_path + '/'
 
   def _ListAPIs(self, apis):
-    api_names = set(os.path.splitext(name)[0] for name in apis)
+    api_names = set(SanitizeAPIName(name, self._api_path) for name in apis)
     public_templates = self._file_system.ReadSingle(self._public_path)
     template_names = [os.path.splitext(name)[0] for name in public_templates]
     experimental_apis = []
     chrome_apis = []
-    for i, template_name in enumerate(template_names):
+    for i, template_name in enumerate(sorted(template_names)):
       if model.UnixName(template_name) in api_names:
         if template_name.startswith('experimental'):
           experimental_apis.append({ 'name': template_name.replace('_', '.') })
@@ -31,8 +32,8 @@ class APIListDataSource(object):
     chrome_apis[-1]['last'] = True
     experimental_apis[-1]['last'] = True
     return {
-      'chrome': sorted(chrome_apis),
-      'experimental': sorted(experimental_apis)
+      'chrome': chrome_apis,
+      'experimental': experimental_apis
     }
 
   def __getitem__(self, key):
@@ -40,6 +41,6 @@ class APIListDataSource(object):
 
   def get(self, key):
     try:
-      return self._cache.GetFromFile(self._api_path)[key]
+      return self._cache.GetFromFileListing(self._api_path)[key]
     except Exception as e:
       return None

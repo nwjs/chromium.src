@@ -232,6 +232,7 @@
         '../webkit/support/webkit_support.gyp:glue',
         '../webkit/support/webkit_support.gyp:quota',
         '../webkit/support/webkit_support.gyp:webkit_media',
+        '../webkit/webkit.gyp:test_shell_test_support',
       ],
       'include_dirs': [
         '..',
@@ -253,6 +254,7 @@
         'browser/download/download_id_unittest.cc',
         'browser/download/download_item_impl_unittest.cc',
         'browser/download/download_manager_impl_unittest.cc',
+        'browser/download/file_metadata_unittest_linux.cc',
         'browser/download/save_package_unittest.cc',
         'browser/gamepad/gamepad_provider_unittest.cc',
         'browser/geolocation/device_data_provider_unittest.cc',
@@ -331,7 +333,6 @@
         'renderer/android/phone_number_detector_unittest.cc',
         'renderer/gpu/input_event_filter_unittest.cc',
         'renderer/hyphenator/hyphenator_unittest.cc',
-        'renderer/media/audio_device_unittest.cc',
         'renderer/media/audio_message_filter_unittest.cc',
         'renderer/media/audio_renderer_mixer_manager_unittest.cc',
         'renderer/media/capture_video_decoder_unittest.cc',
@@ -400,6 +401,7 @@
         '../webkit/fileapi/local_file_system_test_helper.h',
         '../webkit/fileapi/local_file_stream_writer_unittest.cc',
         '../webkit/fileapi/local_file_util_unittest.cc',
+        '../webkit/fileapi/media/native_media_file_util_unittest.cc',
         '../webkit/fileapi/mock_file_system_options.cc',
         '../webkit/fileapi/mock_file_system_options.h',
         '../webkit/fileapi/obfuscated_file_util_unittest.cc',
@@ -415,6 +417,10 @@
         '../webkit/media/test_response_generator.h',
         '../webkit/mocks/mock_weburlloader.cc',
         '../webkit/mocks/mock_weburlloader.h',
+        '../webkit/plugins/npapi/plugin_group_unittest.cc',
+        '../webkit/plugins/npapi/plugin_lib_unittest.cc',
+        '../webkit/plugins/npapi/plugin_list_unittest.cc',
+        '../webkit/plugins/npapi/webplugin_impl_unittest.cc',
         '../webkit/quota/mock_quota_manager.cc',
         '../webkit/quota/mock_quota_manager.h',
         '../webkit/quota/mock_quota_manager_unittest.cc',
@@ -561,6 +567,7 @@
         'browser/device_orientation/device_orientation_browsertest.cc',
         'browser/dom_storage/dom_storage_browsertest.cc',
         'browser/download/mhtml_generation_browsertest.cc',
+        'browser/download/save_package_browsertest.cc',
         'browser/fileapi/file_system_browsertest.cc',
         'browser/in_process_webkit/indexed_db_browsertest.cc',
         'browser/in_process_webkit/indexed_db_layout_browsertest.cc',
@@ -570,6 +577,8 @@
         'browser/plugin_browsertest.cc',
         'browser/plugin_service_impl_browsertest.cc',
         'browser/renderer_host/render_view_host_browsertest.cc',
+        'browser/renderer_host/render_view_host_manager_browsertest.cc',
+        'browser/renderer_host/resource_dispatcher_host_browsertest.cc',
         'browser/session_history_browsertest.cc',
         'browser/speech/speech_recognition_browsertest.cc',
         'browser/webkit_browsertest.cc',
@@ -683,9 +692,6 @@
             ],
             'conditions': [
               ['target_arch=="arm"', {
-                # TODO(fischman): remove this name override when autotest config
-                # is ready.
-                'target_name': 'omx_video_decode_accelerator_unittest',
                 'include_dirs': [
                   '<(DEPTH)/third_party/openmax/il',
                 ],
@@ -722,16 +728,18 @@
           },
         ]
     }],
-    ['chromeos == 1', {
+    ['chromeos == 1 or OS == "linux"', {
       'targets': [
         {
           'target_name': 'h264_parser_unittest',
           'type': 'executable',
           'dependencies': [
             'content_common',
+            '../base/base.gyp:base',
             '../testing/gtest.gyp:gtest',
           ],
           'sources': [
+            'common/gpu/media/h264_bit_reader_unittest.cc',
             'common/gpu/media/h264_parser_unittest.cc',
           ],
         }

@@ -161,9 +161,9 @@ class ScopedLocale {
 class CWSIntentsRegistryTest : public testing::Test {
  public:
   virtual void SetUp() {
-    scoped_refptr<TestURLRequestContextGetter> context_getter_(
+    scoped_refptr<TestURLRequestContextGetter> context_getter(
         new TestURLRequestContextGetter(ui_loop_.message_loop_proxy()));
-    registry_.reset(context_getter_);
+    registry_.reset(context_getter);
   }
 
   virtual void TearDown() {
@@ -199,9 +199,11 @@ class CWSIntentsRegistryTest : public testing::Test {
 
 
  protected:
+  // UI loop MUST be declared first, (and thus destroyed last) to allow posted
+  // DeleteSoon() for e.g.TestURLRequestContextGetter.
+  MessageLoop ui_loop_;
   CWSIntentsRegistryForTest registry_;
   CWSIntentsRegistry::IntentExtensionList extensions_;
-  MessageLoop ui_loop_;
 };
 
 }  // namespace

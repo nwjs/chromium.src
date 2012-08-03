@@ -7,6 +7,7 @@
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/values.h"
+#include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 #include "chrome/common/net/url_util.h"
 #include "content/public/browser/browser_thread.h"
@@ -47,6 +48,18 @@ const char kGetDocumentEntryURLFormat[] =
 // Metadata feed with things like user quota.
 const char kAccountMetadataURL[] =
     "https://docs.google.com/feeds/metadata/default";
+
+// URL requesting all contacts.
+// TODO(derat): Per https://goo.gl/AufHP, "The feed may not contain all of the
+// user's contacts, because there's a default limit on the number of results
+// returned."  Decide if 10000 is reasonable or not.
+const char kGetContactsURL[] =
+    "https://www.google.com/m8/feeds/contacts/default/full"
+    "?alt=json&showdeleted=true&max-results=10000";
+
+// Query parameter optionally appended to |kGetContactsURL| to return only
+// recently-updated contacts.
+const char kGetContactsUpdatedMinParam[] = "updated-min";
 
 const char kUploadContentRange[] = "Content-Range: bytes ";
 const char kUploadContentType[] = "X-Upload-Content-Type: ";
@@ -144,7 +157,6 @@ GetDocumentsOperation::GetDocumentsOperation(
     int start_changestamp,
     const std::string& search_string,
     const std::string& directory_resource_id,
-
     const GetDataCallback& callback)
     : GetDataOperation(registry, profile, callback),
       start_changestamp_(start_changestamp),
@@ -261,8 +273,7 @@ void DownloadFileOperation::OnURLFetchDownloadData(
     get_download_data_callback_.Run(HTTP_SUCCESS, download_data.Pass());
 }
 
-bool DownloadFileOperation::ProcessURLFetchResults(
-    const URLFetcher* source) {
+void DownloadFileOperation::ProcessURLFetchResults(const URLFetcher* source) {
   GDataErrorCode code = GetErrorCode(source);
 
   // Take over the ownership of the the downloaded temp file.
@@ -275,7 +286,7 @@ bool DownloadFileOperation::ProcessURLFetchResults(
 
   if (!download_action_callback_.is_null())
     download_action_callback_.Run(code, document_url_, temp_file);
-  return code == HTTP_SUCCESS;
+  OnProcessURLFetchResultsComplete(code == HTTP_SUCCESS);
 }
 
 void DownloadFileOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
@@ -477,11 +488,10 @@ AuthorizeAppsOperation::GetExtraRequestHeaders() const {
   return headers;
 }
 
-bool AuthorizeAppsOperation::ProcessURLFetchResults(
-    const URLFetcher* source) {
+void AuthorizeAppsOperation::ProcessURLFetchResults(const URLFetcher* source) {
   std::string data;
   source->GetResponseAsString(&data);
-  return GetDataOperation::ProcessURLFetchResults(source);
+  GetDataOperation::ProcessURLFetchResults(source);
 }
 
 bool AuthorizeAppsOperation::GetContentData(std::string* upload_content_type,
@@ -502,7 +512,9 @@ bool AuthorizeAppsOperation::GetContentData(std::string* upload_content_type,
   return true;
 }
 
-base::Value* AuthorizeAppsOperation::ParseResponse(const std::string& data) {
+void AuthorizeAppsOperation::ParseResponse(
+    GDataErrorCode fetch_error_code,
+    const std::string& data) {
   // Parse entry XML.
   XmlReader xml_reader;
   scoped_ptr<DocumentEntry> entry;
@@ -531,7 +543,9 @@ base::Value* AuthorizeAppsOperation::ParseResponse(const std::string& data) {
     }
   }
 
-  return link_list.release();
+  RunCallback(fetch_error_code, link_list.PassAs<base::Value>());
+  const bool success = true;
+  OnProcessURLFetchResultsComplete(success);
 }
 
 GURL AuthorizeAppsOperation::GetURL() const {
@@ -644,7 +658,7 @@ GURL InitiateUploadOperation::GetURL() const {
   return initiate_upload_url_;
 }
 
-bool InitiateUploadOperation::ProcessURLFetchResults(
+void InitiateUploadOperation::ProcessURLFetchResults(
     const URLFetcher* source) {
   GDataErrorCode code = GetErrorCode(source);
 
@@ -661,7 +675,7 @@ bool InitiateUploadOperation::ProcessURLFetchResults(
 
   if (!callback_.is_null())
     callback_.Run(code, GURL(upload_location));
-  return code == HTTP_SUCCESS;
+  OnProcessURLFetchResultsComplete(code == HTTP_SUCCESS);
 }
 
 void InitiateUploadOperation::NotifySuccessToOperationRegistry() {
@@ -748,8 +762,7 @@ GURL ResumeUploadOperation::GetURL() const {
   return params_.upload_location;
 }
 
-bool ResumeUploadOperation::ProcessURLFetchResults(
-    const URLFetcher* source) {
+void ResumeUploadOperation::ProcessURLFetchResults(const URLFetcher* source) {
   GDataErrorCode code = GetErrorCode(source);
   net::HttpResponseHeaders* hdrs = source->GetResponseHeaders();
   int64 start_range_received = -1;
@@ -810,7 +823,8 @@ bool ResumeUploadOperation::ProcessURLFetchResults(
     last_chunk_completed_ = true;
   }
 
-  return last_chunk_completed_ || code == HTTP_RESUME_INCOMPLETE;
+  OnProcessURLFetchResultsComplete(
+      last_chunk_completed_ || code == HTTP_RESUME_INCOMPLETE);
 }
 
 void ResumeUploadOperation::NotifyStartToOperationRegistry() {
@@ -873,6 +887,64 @@ void ResumeUploadOperation::OnURLFetchUploadProgress(
     const URLFetcher* source, int64 current, int64 total) {
   // Adjust the progress values according to the range currently uploaded.
   NotifyProgress(params_.start_range + current, params_.content_length);
+}
+
+//============================ GetContactsOperation ============================
+
+GetContactsOperation::GetContactsOperation(GDataOperationRegistry* registry,
+                                           Profile* profile,
+                                           const base::Time& min_update_time,
+                                           const GetDataCallback& callback)
+    : GetDataOperation(registry, profile, callback),
+      min_update_time_(min_update_time) {
+}
+
+GetContactsOperation::~GetContactsOperation() {}
+
+GURL GetContactsOperation::GetURL() const {
+  if (!feed_url_for_testing_.is_empty())
+    return GURL(feed_url_for_testing_);
+
+  GURL url(kGetContactsURL);
+  if (!min_update_time_.is_null()) {
+    std::string time_rfc3339 = util::FormatTimeAsString(min_update_time_);
+    url = chrome_common_net::AppendQueryParameter(
+              url, kGetContactsUpdatedMinParam, time_rfc3339);
+  }
+  return url;
+}
+
+//========================== GetContactPhotoOperation ==========================
+
+GetContactPhotoOperation::GetContactPhotoOperation(
+    GDataOperationRegistry* registry,
+    Profile* profile,
+    const GURL& photo_url,
+    const GetDownloadDataCallback& callback)
+    : UrlFetchOperationBase(registry, profile),
+      photo_url_(photo_url),
+      callback_(callback) {
+}
+
+GetContactPhotoOperation::~GetContactPhotoOperation() {}
+
+GURL GetContactPhotoOperation::GetURL() const {
+  return photo_url_;
+}
+
+void GetContactPhotoOperation::ProcessURLFetchResults(
+    const net::URLFetcher* source) {
+  GDataErrorCode code = static_cast<GDataErrorCode>(source->GetResponseCode());
+  scoped_ptr<std::string> data(new std::string);
+  source->GetResponseAsString(data.get());
+  callback_.Run(code, data.Pass());
+  OnProcessURLFetchResultsComplete(code == HTTP_SUCCESS);
+}
+
+void GetContactPhotoOperation::RunCallbackOnPrematureFailure(
+    GDataErrorCode code) {
+  scoped_ptr<std::string> data(new std::string);
+  callback_.Run(code, data.Pass());
 }
 
 }  // namespace gdata

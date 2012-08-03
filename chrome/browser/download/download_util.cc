@@ -166,12 +166,17 @@ bool DownloadPathIsDangerous(const FilePath& download_path) {
   }
 #endif
 
+#if defined(OS_ANDROID)
+  // Android does not have a desktop dir.
+  return false;
+#else
   FilePath desktop_dir;
   if (!PathService::Get(chrome::DIR_USER_DESKTOP, &desktop_dir)) {
     NOTREACHED();
     return false;
   }
   return (download_path == desktop_dir);
+#endif
 }
 
 // Download progress painting --------------------------------------------------
@@ -501,8 +506,6 @@ DictionaryValue* CreateDownloadItemValue(DownloadItem* download, int id) {
       file_value->SetString("state", "DANGEROUS");
     else
       file_value->SetString("state", "COMPLETE");
-  } else if (download->GetState() == DownloadItem::REMOVING) {
-    file_value->SetString("state", "REMOVING");
   } else {
     NOTREACHED() << "state undefined";
   }

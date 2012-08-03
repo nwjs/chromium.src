@@ -797,6 +797,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
 #endif  // GOOGLE_CHROME_BUILD
     switches::kInProcessWebGL,
     switches::kJavaScriptFlags,
+    switches::kLoad2xResources,
     switches::kLoggingLevel,
     switches::kOldCheckboxStyle,
     switches::kNoReferrers,
@@ -805,7 +806,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kRegisterPepperPlugins,
     switches::kRendererAssertTest,
 #if defined(OS_POSIX)
-    switches::kRendererCleanExit,
+    switches::kChildCleanExit,
 #endif
     switches::kRendererStartupDialog,
     switches::kShowPaintRects,

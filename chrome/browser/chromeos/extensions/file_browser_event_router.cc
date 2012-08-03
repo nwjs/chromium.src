@@ -238,7 +238,7 @@ void FileBrowserEventRouter::HandleRemoteUpdateRequestOnUIThread(bool start) {
       file_system->StartUpdates();
     ++num_remote_update_requests_;
   } else {
-    DCHECK_LE(0, num_remote_update_requests_);
+    DCHECK_LE(1, num_remote_update_requests_);
     --num_remote_update_requests_;
     if (num_remote_update_requests_ == 0)
       file_system->StopUpdates();
@@ -305,7 +305,7 @@ void FileBrowserEventRouter::MountCompleted(
     }
     DiskMountManager::Disk* disk = disk_it->second;
 
-     notifications_->ManageNotificationsOnMountCompleted(
+    notifications_->ManageNotificationsOnMountCompleted(
         disk->system_path_prefix(), disk->drive_label(), disk->is_parent(),
         error_code == chromeos::MOUNT_ERROR_NONE,
         error_code == chromeos::MOUNT_ERROR_UNSUPPORTED_FILESYSTEM);

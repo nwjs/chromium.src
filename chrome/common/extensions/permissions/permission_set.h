@@ -14,13 +14,12 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/singleton.h"
 #include "base/string16.h"
+#include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/permissions/api_permission.h"
 #include "chrome/common/extensions/permissions/permission_message.h"
 #include "chrome/common/extensions/url_pattern_set.h"
 
 namespace extensions {
-
-class Extension;
 
 // The PermissionSet is an immutable class that encapsulates an
 // extension's permissions. The class exposes set operations for combining and
@@ -70,7 +69,6 @@ class PermissionSet
   // Gets the API permissions in this set, plus any that have implicit access
   // (such as APIs that require no permissions, or APIs with functions that
   // require no permissions).
-  // TODO(kalman): return scoped_ptr to avoid copying.
   std::set<std::string> GetAPIsWithAnyAccessAsStrings() const;
 
   // Returns whether this namespace has any functions which the extension has
@@ -79,17 +77,15 @@ class PermissionSet
   // HasAnyAPIPermission("tabs") will return true.
   bool HasAnyAccessToAPI(const std::string& api_name) const;
 
-  // Gets a list of the distinct hosts for displaying to the user.
-  // NOTE: do not use this for comparing permissions, since this disgards some
-  // information.
-  std::set<std::string> GetDistinctHostsForDisplay() const;
-
   // Gets the localized permission messages that represent this set.
-  PermissionMessages GetPermissionMessages() const;
+  // The set of permission messages shown varies by extension type.
+  PermissionMessages GetPermissionMessages(Extension::Type extension_type)
+      const;
 
   // Gets the localized permission messages that represent this set (represented
-  // as strings).
-  std::vector<string16> GetWarningMessages() const;
+  // as strings). The set of permission messages shown varies by extension type.
+  std::vector<string16> GetWarningMessages(Extension::Type extension_type)
+      const;
 
   // Returns true if this is an empty set (e.g., the default permission set).
   bool IsEmpty() const;
@@ -133,6 +129,15 @@ class PermissionSet
  private:
   FRIEND_TEST_ALL_PREFIXES(PermissionsTest, HasLessHostPrivilegesThan);
   FRIEND_TEST_ALL_PREFIXES(PermissionsTest, GetWarningMessages_AudioVideo);
+  FRIEND_TEST_ALL_PREFIXES(PermissionsTest, GetDistinctHostsForDisplay);
+  FRIEND_TEST_ALL_PREFIXES(PermissionsTest,
+                           GetDistinctHostsForDisplay_ComIsBestRcd);
+  FRIEND_TEST_ALL_PREFIXES(PermissionsTest,
+                           GetDistinctHostsForDisplay_NetIs2ndBestRcd);
+  FRIEND_TEST_ALL_PREFIXES(PermissionsTest,
+                           GetDistinctHostsForDisplay_OrgIs3rdBestRcd);
+  FRIEND_TEST_ALL_PREFIXES(PermissionsTest,
+                           GetDistinctHostsForDisplay_FirstInListIs4thBestRcd);
   friend class base::RefCountedThreadSafe<PermissionSet>;
 
   ~PermissionSet();
@@ -163,6 +168,11 @@ class PermissionSet
   // set.
   bool HasLessHostPrivilegesThan(
       const PermissionSet* permissions) const;
+
+  // Gets a list of the distinct hosts for displaying to the user.
+  // NOTE: do not use this for comparing permissions, since this disgards some
+  // information.
+  std::set<std::string> GetDistinctHostsForDisplay() const;
 
   // The api list is used when deciding if an extension can access certain
   // extension APIs and features.

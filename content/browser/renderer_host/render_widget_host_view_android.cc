@@ -4,13 +4,16 @@
 
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
 #include "content/browser/android/content_view_core_impl.h"
+#include "content/browser/android/draw_delegate_impl.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/common/android/device_info.h"
+#include "content/common/gpu/gpu_messages.h"
 #include "content/common/view_messages.h"
 
 namespace content {
@@ -53,11 +56,11 @@ RenderWidgetHostViewAndroid::GetRenderWidgetHost() const {
   return host_;
 }
 
-void RenderWidgetHostViewAndroid::WasRestored() {
+void RenderWidgetHostViewAndroid::WasShown() {
   if (!is_hidden_)
     return;
   is_hidden_ = false;
-  host_->WasRestored();
+  host_->WasShown();
 }
 
 void RenderWidgetHostViewAndroid::WasHidden() {
@@ -150,6 +153,10 @@ bool RenderWidgetHostViewAndroid::IsShowing() {
 }
 
 gfx::Rect RenderWidgetHostViewAndroid::GetViewBounds() const {
+  gfx::Size bounds = DrawDelegateImpl::GetInstance()->GetBounds();
+  if (!bounds.IsEmpty())
+    return gfx::Rect(bounds);
+
   if (content_view_core_) {
     return content_view_core_->GetBounds();
   } else {
@@ -258,7 +265,11 @@ void RenderWidgetHostViewAndroid::OnAcceleratedCompositingStateChange() {
 void RenderWidgetHostViewAndroid::AcceleratedSurfaceBuffersSwapped(
     const GpuHostMsg_AcceleratedSurfaceBuffersSwapped_Params& params,
     int gpu_host_id) {
-  NOTREACHED();
+  DrawDelegateImpl::GetInstance()->OnSurfaceUpdated(
+      params.surface_handle,
+      this,
+      base::Bind(&RenderWidgetHostImpl::AcknowledgeBufferPresent,
+                 params.route_id, gpu_host_id));
 }
 
 void RenderWidgetHostViewAndroid::AcceleratedSurfacePostSubBuffer(
@@ -284,6 +295,11 @@ void RenderWidgetHostViewAndroid::StartContentIntent(
 }
 
 gfx::GLSurfaceHandle RenderWidgetHostViewAndroid::GetCompositingSurface() {
+  gfx::GLSurfaceHandle handle =
+      DrawDelegateImpl::GetInstance()->GetDrawSurface();
+  if (!handle.is_null())
+    return handle;
+
   // On Android, we cannot generate a window handle that can be passed to the
   // GPU process through the native side. Instead, we send the surface handle
   // through Binder after the compositing context has been created.
@@ -330,6 +346,18 @@ void RenderWidgetHostViewAndroid::UnlockMouse() {
   NOTIMPLEMENTED();
 }
 
+void RenderWidgetHostViewAndroid::TouchEvent(
+    const WebKit::WebTouchEvent& event) {
+  if (host_)
+    host_->ForwardTouchEvent(event);
+}
+
+void RenderWidgetHostViewAndroid::GestureEvent(
+    const WebKit::WebGestureEvent& event) {
+  if (host_)
+    host_->ForwardGestureEvent(event);
+}
+
 void RenderWidgetHostViewAndroid::SetContentViewCore(
     ContentViewCoreImpl* content_view_core) {
   content_view_core_ = content_view_core;
@@ -338,6 +366,12 @@ void RenderWidgetHostViewAndroid::SetContentViewCore(
         host_->surface_id(), content_view_core_ ?
             GetCompositingSurface() : gfx::GLSurfaceHandle());
   }
+}
+
+void RenderWidgetHostViewAndroid::DidSetNeedTouchEvents(
+    bool need_touch_events) {
+  if (content_view_core_)
+    content_view_core_->DidSetNeedTouchEvents(need_touch_events);
 }
 
 // static

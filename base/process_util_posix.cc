@@ -1227,14 +1227,10 @@ bool WaitForProcessesToExit(const FilePath::StringType& executable_name,
 }
 
 bool CleanupProcesses(const FilePath::StringType& executable_name,
-                      int64 wait_milliseconds,
+                      base::TimeDelta wait,
                       int exit_code,
                       const ProcessFilter* filter) {
-  bool exited_cleanly =
-      WaitForProcessesToExit(
-          executable_name,
-          base::TimeDelta::FromMilliseconds(wait_milliseconds),
-          filter);
+  bool exited_cleanly = WaitForProcessesToExit(executable_name, wait, filter);
   if (!exited_cleanly)
     KillProcesses(executable_name, exit_code, filter);
   return exited_cleanly;
@@ -1268,7 +1264,8 @@ class BackgroundReaper : public PlatformThread::Delegate {
         timeout_(timeout) {
   }
 
-  void ThreadMain() {
+  // Overridden from PlatformThread::Delegate:
+  virtual void ThreadMain() OVERRIDE {
     WaitForChildToDie();
     delete this;
   }

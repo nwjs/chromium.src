@@ -120,8 +120,7 @@
     "chrome.events.Event.hasListeners": "events.html#method-Event-hasListeners",
     "chrome.events.Event.removeListener": "events.html#method-Event-removeListener",
     "chrome.events.Event.removeRules": "events.html#method-Event-removeRules",
-    "chrome.experimental.app.clearAllNotifications": "experimental.app.html#method-clearAllNotifications",
-    "chrome.experimental.app.notify": "experimental.app.html#method-notify",
+    "chrome.experimental.app.onLaunched": "experimental.app.html#event-onLaunched",
     "chrome.experimental.bluetooth.connect": "experimental.bluetooth.html#method-connect",
     "chrome.experimental.bluetooth.disconnect": "experimental.bluetooth.html#method-disconnect",
     "chrome.experimental.bluetooth.getAddress": "experimental.bluetooth.html#method-getAddress",
@@ -131,12 +130,14 @@
     "chrome.experimental.bluetooth.isAvailable": "experimental.bluetooth.html#method-isAvailable",
     "chrome.experimental.bluetooth.isPowered": "experimental.bluetooth.html#method-isPowered",
     "chrome.experimental.bluetooth.onAvailabilityChanged": "experimental.bluetooth.html#event-onAvailabilityChanged",
+    "chrome.experimental.bluetooth.onDiscoveringChanged": "experimental.bluetooth.html#event-onDiscoveringChanged",
     "chrome.experimental.bluetooth.onPowerChanged": "experimental.bluetooth.html#event-onPowerChanged",
     "chrome.experimental.bluetooth.read": "experimental.bluetooth.html#method-read",
     "chrome.experimental.bluetooth.setOutOfBandPairingData": "experimental.bluetooth.html#method-setOutOfBandPairingData",
     "chrome.experimental.bluetooth.startDiscovery": "experimental.bluetooth.html#method-startDiscovery",
     "chrome.experimental.bluetooth.stopDiscovery": "experimental.bluetooth.html#method-stopDiscovery",
     "chrome.experimental.bluetooth.write": "experimental.bluetooth.html#method-write",
+    "chrome.experimental.commands.onCommand": "experimental.commands.html#event-onCommand",
     "chrome.experimental.devtools.audits.AuditCategory.onAuditStarted": "experimental.devtools.audits.html#event-AuditCategory-onAuditStarted",
     "chrome.experimental.devtools.audits.AuditResultNode.addChild": "experimental.devtools.audits.html#method-AuditResultNode-addChild",
     "chrome.experimental.devtools.audits.AuditResults.addResult": "experimental.devtools.audits.html#method-AuditResults-addResult",
@@ -154,7 +155,6 @@
     "chrome.experimental.identity.getAuthToken": "experimental.identity.html#method-getAuthToken",
     "chrome.experimental.identity.launchWebAuthFlow": "experimental.identity.html#method-launchWebAuthFlow",
     "chrome.experimental.infobars.show": "experimental.infobars.html#method-show",
-    "chrome.experimental.keybinding.onCommand": "experimental.keybinding.html#event-onCommand",
     "chrome.experimental.mediaGalleries.assembleMediaFile": "experimental.mediaGalleries.html#method-assembleMediaFile",
     "chrome.experimental.mediaGalleries.extractEmbeddedThumbnails": "experimental.mediaGalleries.html#method-extractEmbeddedThumbnails",
     "chrome.experimental.offscreenTabs.create": "experimental.offscreenTabs.html#method-create",
@@ -184,17 +184,6 @@
     "chrome.experimental.serial.read": "experimental.serial.html#method-read",
     "chrome.experimental.serial.setControlSignals": "experimental.serial.html#method-setControlSignals",
     "chrome.experimental.serial.write": "experimental.serial.html#method-write",
-    "chrome.experimental.socket.bind": "experimental.socket.html#method-bind",
-    "chrome.experimental.socket.connect": "experimental.socket.html#method-connect",
-    "chrome.experimental.socket.create": "experimental.socket.html#method-create",
-    "chrome.experimental.socket.destroy": "experimental.socket.html#method-destroy",
-    "chrome.experimental.socket.disconnect": "experimental.socket.html#method-disconnect",
-    "chrome.experimental.socket.read": "experimental.socket.html#method-read",
-    "chrome.experimental.socket.recvFrom": "experimental.socket.html#method-recvFrom",
-    "chrome.experimental.socket.sendTo": "experimental.socket.html#method-sendTo",
-    "chrome.experimental.socket.setKeepAlive": "experimental.socket.html#method-setKeepAlive",
-    "chrome.experimental.socket.setNoDelay": "experimental.socket.html#method-setNoDelay",
-    "chrome.experimental.socket.write": "experimental.socket.html#method-write",
     "chrome.experimental.speechInput.isRecording": "experimental.speechInput.html#method-isRecording",
     "chrome.experimental.speechInput.onError": "experimental.speechInput.html#event-onError",
     "chrome.experimental.speechInput.onResult": "experimental.speechInput.html#event-onResult",
@@ -315,6 +304,17 @@
     "chrome.scriptBadge.getPopup": "scriptBadge.html#method-getPopup",
     "chrome.scriptBadge.onClicked": "scriptBadge.html#event-onClicked",
     "chrome.scriptBadge.setPopup": "scriptBadge.html#method-setPopup",
+    "chrome.socket.bind": "socket.html#method-bind",
+    "chrome.socket.connect": "socket.html#method-connect",
+    "chrome.socket.create": "socket.html#method-create",
+    "chrome.socket.destroy": "socket.html#method-destroy",
+    "chrome.socket.disconnect": "socket.html#method-disconnect",
+    "chrome.socket.read": "socket.html#method-read",
+    "chrome.socket.recvFrom": "socket.html#method-recvFrom",
+    "chrome.socket.sendTo": "socket.html#method-sendTo",
+    "chrome.socket.setKeepAlive": "socket.html#method-setKeepAlive",
+    "chrome.socket.setNoDelay": "socket.html#method-setNoDelay",
+    "chrome.socket.write": "socket.html#method-write",
     "chrome.storage.StorageArea.clear": "storage.html#method-StorageArea-clear",
     "chrome.storage.StorageArea.get": "storage.html#method-StorageArea-get",
     "chrome.storage.StorageArea.getBytesInUse": "storage.html#method-StorageArea-getBytesInUse",
@@ -1136,7 +1136,6 @@
         "chrome.browserAction.onClicked",
         "chrome.browserAction.setBadgeText",
         "chrome.declarativeWebRequest.onRequest",
-        "chrome.experimental.keybinding.onCommand",
         "chrome.extension.onMessage",
         "chrome.extension.sendMessage",
         "chrome.runtime.onInstalled",
@@ -1165,7 +1164,7 @@
       "protocols": [
         "http://"
       ],
-      "search_string": "EVENT PAGE EXAMPLE DEMONSTRATES USAGE AND FEATURES OF THE EVENT PAGE ALARMS BACKGROUND_PAGE BOOKMARKS BROWSER_ACTION EXPERIMENTAL KEYBINDING TABS CHROME.ALARMS.CREATE CHROME.ALARMS.ONALARM CHROME.BOOKMARKS.ONREMOVED CHROME.BROWSERACTION.ONCLICKED CHROME.BROWSERACTION.SETBADGETEXT CHROME.DECLARATIVEWEBREQUEST.ONREQUEST CHROME.EXPERIMENTAL.KEYBINDING.ONCOMMAND CHROME.EXTENSION.ONMESSAGE CHROME.EXTENSION.SENDMESSAGE CHROME.RUNTIME.ONINSTALLED CHROME.RUNTIME.ONSUSPEND CHROME.TABS.CREATE CHROME.TABS.EXECUTESCRIPT CHROME.TABS.QUERY CHROME.TABS.SENDMESSAGE",
+      "search_string": "EVENT PAGE EXAMPLE DEMONSTRATES USAGE AND FEATURES OF THE EVENT PAGE ALARMS BACKGROUND_PAGE BOOKMARKS BROWSER_ACTION EXPERIMENTAL KEYBINDING TABS CHROME.ALARMS.CREATE CHROME.ALARMS.ONALARM CHROME.BOOKMARKS.ONREMOVED CHROME.BROWSERACTION.ONCLICKED CHROME.BROWSERACTION.SETBADGETEXT CHROME.DECLARATIVEWEBREQUEST.ONREQUEST CHROME.EXTENSION.ONMESSAGE CHROME.EXTENSION.SENDMESSAGE CHROME.RUNTIME.ONINSTALLED CHROME.RUNTIME.ONSUSPEND CHROME.TABS.CREATE CHROME.TABS.EXECUTESCRIPT CHROME.TABS.QUERY CHROME.TABS.SENDMESSAGE",
       "source_files": [
         "background.js",
         "content.js",
@@ -1252,8 +1251,7 @@
       "description": "Sample extension for Font Settings API",
       "features": [
         "browser_action",
-        "fontSettings",
-        "popup"
+        "fontSettings"
       ],
       "icon": "fonts128.png",
       "id": "31d10fd5e61ca51eb59073b358d4ab5267cbf318",
@@ -1261,13 +1259,13 @@
       "packaged_app": false,
       "path": "examples/api/fontSettings/",
       "protocols": [],
-      "search_string": "FONT SETTINGS SAMPLE EXTENSION FOR FONT SETTINGS API BROWSER_ACTION FONTSETTINGS POPUP CHROME.FONTSETTINGS.CLEARDEFAULTFIXEDFONTSIZE CHROME.FONTSETTINGS.CLEARDEFAULTFONTSIZE CHROME.FONTSETTINGS.CLEARFONT CHROME.FONTSETTINGS.CLEARMINIMUMFONTSIZE CHROME.FONTSETTINGS.GETDEFAULTFIXEDFONTSIZE CHROME.FONTSETTINGS.GETDEFAULTFONTSIZE CHROME.FONTSETTINGS.GETFONT CHROME.FONTSETTINGS.GETFONTLIST CHROME.FONTSETTINGS.GETMINIMUMFONTSIZE CHROME.FONTSETTINGS.ONDEFAULTFIXEDFONTSIZECHANGED CHROME.FONTSETTINGS.ONDEFAULTFONTSIZECHANGED CHROME.FONTSETTINGS.ONFONTCHANGED CHROME.FONTSETTINGS.ONMINIMUMFONTSIZECHANGED CHROME.FONTSETTINGS.SETDEFAULTFIXEDFONTSIZE CHROME.FONTSETTINGS.SETDEFAULTFONTSIZE CHROME.FONTSETTINGS.SETFONT CHROME.FONTSETTINGS.SETMINIMUMFONTSIZE",
+      "search_string": "FONT SETTINGS SAMPLE EXTENSION FOR FONT SETTINGS API BROWSER_ACTION FONTSETTINGS CHROME.FONTSETTINGS.CLEARDEFAULTFIXEDFONTSIZE CHROME.FONTSETTINGS.CLEARDEFAULTFONTSIZE CHROME.FONTSETTINGS.CLEARFONT CHROME.FONTSETTINGS.CLEARMINIMUMFONTSIZE CHROME.FONTSETTINGS.GETDEFAULTFIXEDFONTSIZE CHROME.FONTSETTINGS.GETDEFAULTFONTSIZE CHROME.FONTSETTINGS.GETFONT CHROME.FONTSETTINGS.GETFONTLIST CHROME.FONTSETTINGS.GETMINIMUMFONTSIZE CHROME.FONTSETTINGS.ONDEFAULTFIXEDFONTSIZECHANGED CHROME.FONTSETTINGS.ONDEFAULTFONTSIZECHANGED CHROME.FONTSETTINGS.ONFONTCHANGED CHROME.FONTSETTINGS.ONMINIMUMFONTSIZECHANGED CHROME.FONTSETTINGS.SETDEFAULTFIXEDFONTSIZE CHROME.FONTSETTINGS.SETDEFAULTFONTSIZE CHROME.FONTSETTINGS.SETFONT CHROME.FONTSETTINGS.SETMINIMUMFONTSIZE",
       "source_files": [
         "manifest.json",
         "popup.html",
         "popup.js"
       ],
-      "source_hash": "02a9aac2ea6ab8095d0b53a1b8433fcc354133f6",
+      "source_hash": "d46eaac64f67efa4d433b8589605effb50b99795",
       "zip_path": "examples/api/fontSettings.zip"
     },
     {
@@ -1944,7 +1942,7 @@
         "options.js",
         "style.css"
       ],
-      "source_hash": "a4052b597b547934e7c84ae39627a5378cd2e397",
+      "source_hash": "6a1b18989fb2b403d947c1f879fd0ac086145b8b",
       "zip_path": "examples/api/notifications.zip"
     },
     {
@@ -2326,6 +2324,34 @@
       ],
       "source_hash": "194d8d5d6ec2ef0e06d8ed8134fcaf174dc7e811",
       "zip_path": "examples/extensions/oauth_contacts.zip"
+    },
+    {
+      "api_calls": [
+        "chrome.browserAction.onClicked"
+      ],
+      "crx_path": null,
+      "description": "",
+      "features": [
+        "background_page",
+        "browser_action",
+        "notifications"
+      ],
+      "icon": null,
+      "id": "3c6dfba67f6a7480d931b5a4a646c151ad1a049b",
+      "name": "Sandboxed Frame",
+      "packaged_app": false,
+      "path": "examples/howto/sandbox/",
+      "protocols": [],
+      "search_string": "SANDBOXED FRAME  BACKGROUND_PAGE BROWSER_ACTION NOTIFICATIONS CHROME.BROWSERACTION.ONCLICKED",
+      "source_files": [
+        "eventpage.html",
+        "eventpage.js",
+        "handlebars-1.0.0.beta.6.js",
+        "manifest.json",
+        "sandbox.html"
+      ],
+      "source_hash": "5e3132df5468ab2cbec3f21fced28b492bc26ca9",
+      "zip_path": "examples/howto/sandbox.zip"
     },
     {
       "api_calls": [

@@ -1152,8 +1152,7 @@ void AddMountFunction::GetLocalPathsResponseOnUIThread(
   }
 
   const FilePath& source_path = files[0].local_path;
-  const FilePath::StringType& display_name =
-      files[0].file_path.BaseName().value();
+  const FilePath::StringType& display_name = files[0].display_name;
   // Check if the source path is under GData cache directory.
   gdata::GDataSystemService* system_service =
       gdata::GDataSystemServiceFactory::GetForProfile(profile_);
@@ -1708,6 +1707,7 @@ bool FileDialogStringsFunction::RunImpl() {
 
   SET_STRING(IDS_FILE_BROWSER, SEARCH_NO_MATCHING_FILES);
   SET_STRING(IDS_FILE_BROWSER, SEARCH_EXPAND);
+  SET_STRING(IDS_FILE_BROWSER, SEARCH_SPINNER);
 
   SET_STRING(IDS_FILE_BROWSER, CHANGE_DEFAULT_MENU_ITEM);
   SET_STRING(IDS_FILE_BROWSER, CHANGE_DEFAULT_CAPTION);

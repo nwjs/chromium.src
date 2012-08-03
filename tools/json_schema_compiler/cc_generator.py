@@ -88,7 +88,7 @@ class CCGenerator(object):
       )
     for event in self._namespace.events.values():
       (c.Concat(self._GenerateCreateCallbackArguments(
-          cpp_util.Classname(event.name), event))
+          cpp_util.Classname(event.name), event, generate_to_json=True))
         .Append()
       )
     (c.Concat(self._cpp_type_generator.GetNamespaceEnd())
@@ -214,7 +214,7 @@ class CCGenerator(object):
     """
     c = Code()
     value_var = prop.unix_name + '_value'
-    c.Append('base::Value* %(value_var)s = NULL;')
+    c.Append('const base::Value* %(value_var)s = NULL;')
     if prop.optional:
       (c.Sblock(
           'if (%(src)s->GetWithoutPathExpansion("%(key)s", &%(value_var)s)) {'
@@ -253,20 +253,36 @@ class CCGenerator(object):
       else:
         if prop.optional:
           if prop.type_ == PropertyType.ENUM:
-            c.Sblock('if (%s != %s)' %
+            c.Sblock('if (%s != %s) {' %
                 (prop.unix_name,
                  self._cpp_type_generator.GetEnumNoneValue(prop)))
           elif prop.type_ == PropertyType.CHOICES:
-            c.Sblock('if (%s_type != %s)' %
+            c.Sblock('if (%s_type != %s) {' %
                 (prop.unix_name,
                  self._cpp_type_generator.GetEnumNoneValue(prop)))
           else:
-            c.Sblock('if (%s.get())' % prop.unix_name)
-        c.Append('value->SetWithoutPathExpansion("%s", %s);' % (
-            prop.name,
-            self._CreateValueFromProperty(prop, 'this->' + prop.unix_name)))
+            c.Sblock('if (%s.get()) {' % prop.unix_name)
+
+        if prop.type_ == prop.compiled_type:
+          c.Append('value->SetWithoutPathExpansion("%s", %s);' % (
+              prop.name,
+              self._CreateValueFromProperty(prop, 'this->' + prop.unix_name)))
+        else:
+          conversion_src = 'this->' + prop.unix_name
+          if prop.optional:
+            conversion_src = '*' + conversion_src
+          (c.Append('%s %s;' % (self._cpp_type_generator.GetType(prop),
+                                prop.unix_name))
+            .Append(cpp_util.GenerateCompiledTypeToTypeConversion(
+                self._cpp_type_generator.GetReferencedProperty(prop),
+                conversion_src,
+                prop.unix_name) + ';')
+            .Append('value->SetWithoutPathExpansion("%s", %s);' % (
+                prop.unix_name,
+                self._CreateValueFromProperty(prop, prop.unix_name)))
+          )
         if prop.optional:
-          c.Eblock();
+          c.Eblock('}');
     (c.Append()
       .Append('return value.Pass();')
       .Eblock('}')
@@ -337,7 +353,11 @@ class CCGenerator(object):
           self._cpp_type_generator.GetReferencedProperty(prop), var,
           prop.optional)
     elif self._IsFundamentalOrFundamentalRef(prop):
-      if prop.optional:
+      # If prop.type != prop.compiled_type, then no asterisk is necessary
+      # because the target is a local variable and not a dereferenced scoped
+      # pointer. The asterisk is instead prepended to conversion_src around line
+      # 273.
+      if prop.optional and prop.type_ == prop.compiled_type:
         var = '*' + var
       prop = self._cpp_type_generator.GetReferencedProperty(prop);
       return {
@@ -448,19 +468,45 @@ class CCGenerator(object):
                   value_var,
                   '&temp'))
           .Append('  return %(failure_value)s;')
-          .Append('%(dst)s->%(name)s.reset(new %(ctype)s(temp));')
         )
+        if prop.type_ != prop.compiled_type:
+          (c.Append('%(compiled_ctype)s temp2;')
+            .Append('if (!%s)' %
+                 cpp_util.GenerateTypeToCompiledTypeConversion(
+                     self._cpp_type_generator.GetReferencedProperty(prop),
+                     'temp',
+                     'temp2'))
+            .Append('  return %(failure_value)s;')
+            .Append('%(dst)s->%(name)s.reset(new %(compiled_ctype)s(temp2));')
+          )
+        else:
+          c.Append('%(dst)s->%(name)s.reset(new %(ctype)s(temp));')
+
       else:
+        if prop.type_ == prop.compiled_type:
+          assignment_target = '&%s->%s' % (dst, prop.unix_name)
+        else:
+          c.Append('%(ctype)s temp;')
+          assignment_target = '&temp'
         (c.Append('if (!%s)' %
             cpp_util.GetAsFundamentalValue(
                 self._cpp_type_generator.GetReferencedProperty(prop),
                 value_var,
-                '&%s->%s' % (dst, prop.unix_name)))
+                assignment_target))
           .Append('  return %(failure_value)s;')
         )
+        if prop.type_ != prop.compiled_type:
+          (c.Append('if (!%s)' %
+              cpp_util.GenerateTypeToCompiledTypeConversion(
+                  self._cpp_type_generator.GetReferencedProperty(prop),
+                  'temp',
+                  '%s->%s' % (dst, prop.unix_name)))
+            .Append('  return %(failure_value)s;')
+          )
+
     elif self._IsObjectOrObjectRef(prop):
       if prop.optional:
-        (c.Append('base::DictionaryValue* dictionary = NULL;')
+        (c.Append('const base::DictionaryValue* dictionary = NULL;')
           .Append('if (!%(value_var)s->GetAsDictionary(&dictionary))')
           .Append('  return %(failure_value)s;')
           .Append('scoped_ptr<%(ctype)s> temp(new %(ctype)s());')
@@ -469,7 +515,7 @@ class CCGenerator(object):
           .Append('%(dst)s->%(name)s = temp.Pass();')
         )
       else:
-        (c.Append('base::DictionaryValue* dictionary = NULL;')
+        (c.Append('const base::DictionaryValue* dictionary = NULL;')
           .Append('if (!%(value_var)s->GetAsDictionary(&dictionary))')
           .Append('  return %(failure_value)s;')
           .Append(
@@ -485,7 +531,7 @@ class CCGenerator(object):
       c.Append(self._any_helper.Init(prop, value_var, dst) + ';')
     elif self._IsArrayOrArrayRef(prop):
       # util_cc_helper deals with optional and required arrays
-      (c.Append('base::ListValue* list = NULL;')
+      (c.Append('const base::ListValue* list = NULL;')
         .Append('if (!%(value_var)s->GetAsList(&list))')
         .Append('  return %(failure_value)s;'))
       if prop.item_type.type_ == PropertyType.ENUM:
@@ -523,8 +569,8 @@ class CCGenerator(object):
     elif prop.type_ == PropertyType.BINARY:
       (c.Append('if (!%(value_var)s->IsType(%(value_type)s))')
         .Append('  return %(failure_value)s;')
-        .Append('base::BinaryValue* binary_value =')
-        .Append('    static_cast<base::BinaryValue*>(%(value_var)s);')
+        .Append('const base::BinaryValue* binary_value =')
+        .Append('    static_cast<const base::BinaryValue*>(%(value_var)s);')
        )
       if prop.optional:
         (c.Append('%(dst)s->%(name)s.reset(')
@@ -546,6 +592,7 @@ class CCGenerator(object):
     }
     if prop.type_ not in (PropertyType.CHOICES, PropertyType.ANY):
       sub['ctype'] = self._cpp_type_generator.GetType(prop)
+      sub['compiled_ctype'] = self._cpp_type_generator.GetCompiledType(prop)
       sub['value_type'] = cpp_util.GetValueType(self._cpp_type_generator
           .GetReferencedProperty(prop).type_)
     c.Substitute(sub)
@@ -564,7 +611,7 @@ class CCGenerator(object):
         c.Append('%(dst)s->%(name)s.reset(new std::vector<' + (
           self._cpp_type_generator.GetType(prop.item_type) + '>);'))
         accessor = '->'
-      c.Sblock('for (ListValue::iterator it = list->begin(); '
+      c.Sblock('for (ListValue::const_iterator it = list->begin(); '
                 'it != list->end(); ++it) {')
       self._GenerateStringToEnumConversion(c, prop.item_type,
                                            '(*it)', 'enum_temp')
@@ -689,7 +736,10 @@ class CCGenerator(object):
     )
     return c
 
-  def _GenerateCreateCallbackArguments(self, function_scope, callback):
+  def _GenerateCreateCallbackArguments(self,
+                                       function_scope,
+                                       callback,
+                                       generate_to_json=False):
     """Generate all functions to create Value parameters for a callback.
 
     E.g for function "Bar", generate Bar::Results::Create
@@ -698,6 +748,7 @@ class CCGenerator(object):
     function_scope: the function scope path, e.g. Foo::Bar for the function
     Foo::Bar::Baz().
     callback: the Function object we are creating callback arguments for.
+    generate_to_json: Generate a ToJson method.
     """
     c = Code()
     params = callback.params
@@ -717,16 +768,39 @@ class CCGenerator(object):
         # scoped_ptr if it's optional.
         param_copy = param.Copy()
         param_copy.optional = False
-        c.Append('create_results->Append(%s);' %
-            self._CreateValueFromProperty(param_copy, param_copy.unix_name))
         declaration_list.append("const %s" % cpp_util.GetParameterDeclaration(
-            param_copy, self._cpp_type_generator.GetType(param_copy)))
+            param_copy, self._cpp_type_generator.GetCompiledType(param_copy)))
+        param_name = param_copy.unix_name
+        if param_copy.type_ != param_copy.compiled_type:
+          param_name = 'temp_' + param_name
+          (c.Append('%s %s;' % (self._cpp_type_generator.GetType(param_copy),
+                                param_name))
+            .Append(cpp_util.GenerateCompiledTypeToTypeConversion(
+                 param_copy,
+                 param_copy.unix_name,
+                 param_name) + ';')
+          )
+        c.Append('create_results->Append(%s);' %
+            self._CreateValueFromProperty(param_copy, param_name))
 
       c.Append('return create_results.Pass();')
       c.Eblock('}')
+      if generate_to_json:
+        c.Append()
+        (c.Sblock('std::string %(function_scope)s::'
+                  'ToJson(%(declaration_list)s) {')
+          .Append('scoped_ptr<base::ListValue> create_results = '
+                  '%(function_scope)s::Create(%(param_list)s);')
+          .Append('std::string json;')
+          .Append('base::JSONWriter::Write(create_results.get(), &json);')
+          .Append('return json;')
+        )
+        c.Eblock('}')
+
       c.Substitute({
           'function_scope': function_scope,
-          'declaration_list': ', '.join(declaration_list)
+          'declaration_list': ', '.join(declaration_list),
+          'param_list': ', '.join(param.unix_name for param in param_list)
       })
 
     return c

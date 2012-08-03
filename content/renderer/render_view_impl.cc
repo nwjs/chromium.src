@@ -26,7 +26,6 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "content/common/appcache/appcache_dispatcher.h"
-#include "content/common/browser_plugin_messages.h"
 #include "content/common/child_thread.h"
 #include "content/common/clipboard_messages.h"
 #include "content/common/database_messages.h"
@@ -36,6 +35,7 @@
 #include "content/common/gpu/client/webgraphicscontext3d_command_buffer_impl.h"
 #include "content/common/intents_messages.h"
 #include "content/common/java_bridge_messages.h"
+#include "content/common/old_browser_plugin_messages.h"
 #include "content/common/pepper_messages.h"
 #include "content/common/pepper_plugin_registry.h"
 #include "content/common/quota_dispatcher.h"
@@ -146,6 +146,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebCString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebDragData.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebGraphicsContext3D.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebHTTPBody.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebImage.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnection00Handler.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebPeerConnection00HandlerClient.h"
@@ -235,6 +236,7 @@ using WebKit::WebFormElement;
 using WebKit::WebFrame;
 using WebKit::WebGraphicsContext3D;
 using WebKit::WebHistoryItem;
+using WebKit::WebHTTPBody;
 using WebKit::WebIconURL;
 using WebKit::WebImage;
 using WebKit::WebInputElement;
@@ -1088,6 +1090,20 @@ void RenderViewImpl::OnNavigate(const ViewMsg_Navigate_Params& params) {
                                    WebString::fromUTF8(i.values()));
       }
     }
+
+    if (params.is_post) {
+      request.setHTTPMethod(WebString::fromUTF8("POST"));
+
+      // Set post data.
+      WebHTTPBody http_body;
+      http_body.initialize();
+      http_body.appendData(WebData(
+          reinterpret_cast<const char*>(
+              &params.browser_initiated_post_data.front()),
+          params.browser_initiated_post_data.size()));
+      request.setHTTPBody(http_body);
+    }
+
     main_frame->loadRequest(request);
   }
 
@@ -3671,6 +3687,25 @@ void RenderViewImpl::openFileSystem(
       size, create, new WebFileSystemCallbackDispatcher(callbacks));
 }
 
+void RenderViewImpl::deleteFileSystem(
+    WebFrame* frame,
+    WebFileSystem::Type type ,
+    WebFileSystemCallbacks* callbacks) {
+  DCHECK(callbacks);
+
+  WebSecurityOrigin origin = frame->document().securityOrigin();
+  if (origin.isUnique()) {
+    // Unique origins cannot store persistent state.
+    callbacks->didSucceed();
+    return;
+  }
+
+  ChildThread::current()->file_system_dispatcher()->DeleteFileSystem(
+      GURL(origin.toString()),
+      static_cast<fileapi::FileSystemType>(type),
+      new WebFileSystemCallbackDispatcher(callbacks));
+}
+
 void RenderViewImpl::queryStorageUsageAndQuota(
     WebFrame* frame,
     WebStorageQuotaType type,
@@ -5206,8 +5241,8 @@ void RenderViewImpl::OnWasHidden() {
 #endif  // OS_MACOSX
 }
 
-void RenderViewImpl::OnWasRestored(bool needs_repainting) {
-  RenderWidget::OnWasRestored(needs_repainting);
+void RenderViewImpl::OnWasShown(bool needs_repainting) {
+  RenderWidget::OnWasShown(needs_repainting);
 
   if (webview()) {
     webview()->settings()->setMinimumTimerInterval(
@@ -5305,6 +5340,11 @@ void RenderViewImpl::PpapiPluginCancelComposition() {
 
 void RenderViewImpl::PpapiPluginSelectionChanged() {
   SyncSelectionIfRequired();
+}
+
+void RenderViewImpl::PpapiPluginCreated(ppapi::host::PpapiHost* host) {
+  FOR_EACH_OBSERVER(RenderViewObserver, observers_,
+                    DidCreatePepperPlugin(host));
 }
 
 void RenderViewImpl::OnImeSetComposition(

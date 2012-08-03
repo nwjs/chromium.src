@@ -13,7 +13,7 @@
 #include "google/cacheinvalidation/include/invalidation-client-factory.h"
 #include "google/cacheinvalidation/include/invalidation-client.h"
 #include "google/cacheinvalidation/include/types.h"
-#include "google/cacheinvalidation/v2/types.pb.h"
+#include "google/cacheinvalidation/types.pb.h"
 #include "jingle/notifier/listener/push_client.h"
 #include "sync/notifier/invalidation_util.h"
 #include "sync/notifier/registration_manager.h"
@@ -103,7 +103,10 @@ void ChromeInvalidationClient::UpdateCredentials(
 void ChromeInvalidationClient::RegisterIds(const ObjectIdSet& ids) {
   DCHECK(CalledOnValidThread());
   registered_ids_ = ids;
-  if (GetState() == NO_NOTIFICATION_ERROR && registration_manager_.get()) {
+  // |ticl_state_| can go to NO_NOTIFICATION_ERROR even without a
+  // working XMPP connection (as observed by us), so check it instead
+  // of GetState() (see http://crbug.com/139424).
+  if (ticl_state_ == NO_NOTIFICATION_ERROR && registration_manager_.get()) {
     registration_manager_->SetRegisteredIds(registered_ids_);
   }
   // TODO(akalin): Clear invalidation versions for unregistered types.

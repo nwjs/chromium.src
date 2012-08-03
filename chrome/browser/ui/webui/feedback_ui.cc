@@ -16,14 +16,20 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/feedback/feedback_data.h"
 #include "chrome/browser/feedback/feedback_util.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/signin/signin_manager.h"
+#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
@@ -31,6 +37,7 @@
 #include "chrome/browser/ui/webui/screenshot_source.h"
 #include "chrome/browser/ui/window_snapshot/window_snapshot.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
@@ -111,6 +118,20 @@ std::string GetUserEmail() {
     return manager->GetLoggedInUser().display_email();
 }
 
+#else
+
+std::string GetUserEmail() {
+  Profile* profile = ProfileManager::GetLastUsedProfile();
+  if (!profile)
+    return std::string();
+
+  SigninManager* signin = SigninManagerFactory::GetForProfile(profile);
+  if (!signin)
+    return std::string();
+
+  return signin->GetAuthenticatedUsername();
+}
+
 #endif  // OS_CHROMEOS
 
 // Returns the index of the feedback tab if already open, -1 otherwise
@@ -127,12 +148,11 @@ int GetIndexOfFeedbackTab(Browser* browser) {
 
 }  // namespace
 
+namespace chrome {
 
-namespace browser {
-
-void ShowWebFeedbackView(Browser* browser,
-                         const std::string& description_template,
-                         const std::string& category_tag) {
+void ShowFeedbackPage(Browser* browser,
+                      const std::string& description_template,
+                      const std::string& category_tag) {
 #if defined(OS_CHROMEOS)
   // Grab the timestamp before we do anything else - this is crucial to help
   // diagnose some hardware issues.
@@ -168,8 +188,7 @@ void ShowWebFeedbackView(Browser* browser,
   native_window = browser->window()->GetNativeWindow();
   snapshot_bounds = gfx::Rect(browser->window()->GetBounds().size());
 #endif
-  bool success = chrome::GrabWindowSnapshot(native_window,
-                                            last_screenshot_png,
+  bool success = chrome::GrabWindowSnapshot(native_window, last_screenshot_png,
                                             snapshot_bounds);
   FeedbackUtil::SetScreenshotSize(success ? snapshot_bounds : gfx::Rect());
 
@@ -187,7 +206,7 @@ void ShowWebFeedbackView(Browser* browser,
   chrome::ShowSingletonTab(browser, GURL(feedback_url));
 }
 
-}  // namespace browser
+}  // namespace chrome
 
 // The handler for Javascript messages related to the "bug report" dialog
 class FeedbackHandler : public WebUIMessageHandler,
@@ -250,8 +269,9 @@ ChromeWebUIDataSource* CreateFeedbackUIHTMLSource(bool successful_init) {
                              IDS_FEEDBACK_SCREENSHOT_LABEL);
   source->AddLocalizedString("saved-screenshot",
                              IDS_FEEDBACK_SAVED_SCREENSHOT_LABEL);
-#if defined(OS_CHROMEOS)
   source->AddLocalizedString("user-email", IDS_FEEDBACK_USER_EMAIL_LABEL);
+
+#if defined(OS_CHROMEOS)
   source->AddLocalizedString("sysinfo",
                              IDS_FEEDBACK_INCLUDE_SYSTEM_INFORMATION_CHKBOX);
   source->AddLocalizedString("currentscreenshots",
@@ -440,18 +460,22 @@ void FeedbackHandler::HandleGetDialogDefaults(const ListValue*) {
   // Will delete itself when feedback_data_->SendReport() is called.
   feedback_data_ = new FeedbackData();
 
-  // send back values which the dialog js needs initially
-  ListValue dialog_defaults;
+  // Send back values which the dialog js needs initially.
+  DictionaryValue dialog_defaults;
 
-  // 0: current url
-  if (target_tab_url_.length())
-    dialog_defaults.Append(new StringValue(target_tab_url_));
-  else
-    dialog_defaults.Append(new StringValue(""));
+  // Current url.
+  dialog_defaults.SetString("currentUrl", target_tab_url_);
+
+  // Are screenshots disabled?
+  dialog_defaults.SetBoolean(
+      "disableScreenshots",
+      g_browser_process->local_state()->GetBoolean(prefs::kDisableScreenshots));
+
+  // User e-mail
+  std::string user_email = GetUserEmail();
+  dialog_defaults.SetString("userEmail", user_email);
 
 #if defined(OS_CHROMEOS)
-  // 1: about:system
-  dialog_defaults.Append(new StringValue(chrome::kChromeUISystemInfoURL));
   // Trigger the request for system information here.
   chromeos::system::SyslogsProvider* provider =
       chromeos::system::SyslogsProvider::GetInstance();
@@ -463,8 +487,10 @@ void FeedbackHandler::HandleGetDialogDefaults(const ListValue*) {
         base::Bind(&FeedbackData::SyslogsComplete,
                    base::Unretained(feedback_data_)));
   }
-  // 2: user e-mail
-  dialog_defaults.Append(new StringValue(GetUserEmail()));
+
+  // On ChromeOS if the user's email is blank, it means we don't
+  // have a logged in user, hence don't use saved screenshots.
+  dialog_defaults.SetBoolean("useSaved", !user_email.empty());
 #endif
 
   web_ui()->CallJavascriptFunction("setupDialogDefaults", dialog_defaults);
@@ -506,7 +532,7 @@ void FeedbackHandler::HandleSendReport(const ListValue* list_value) {
 #if defined(OS_CHROMEOS)
   if (list_value->GetSize() != 6) {
 #else
-  if (list_value->GetSize() != 4) {
+  if (list_value->GetSize() != 5) {
 #endif
     LOG(ERROR) << "Feedback data corrupt! Feedback not sent.";
     return;
@@ -519,6 +545,8 @@ void FeedbackHandler::HandleSendReport(const ListValue* list_value) {
   (*i++)->GetAsString(&category_tag);
   std::string description;
   (*i++)->GetAsString(&description);
+  std::string user_email;
+  (*i++)->GetAsString(&user_email);
   std::string screenshot_path;
   (*i++)->GetAsString(&screenshot_path);
   screenshot_path.erase(0, strlen(kScreenshotBaseUrl));
@@ -529,8 +557,6 @@ void FeedbackHandler::HandleSendReport(const ListValue* list_value) {
     image_ptr = screenshot_source_->GetCachedScreenshot(screenshot_path);
 
 #if defined(OS_CHROMEOS)
-  std::string user_email;
-  (*i++)->GetAsString(&user_email);
   std::string sys_info_checkbox;
   (*i++)->GetAsString(&sys_info_checkbox);
   bool send_sys_info = (sys_info_checkbox == "true");
@@ -546,9 +572,9 @@ void FeedbackHandler::HandleSendReport(const ListValue* list_value) {
                                , std::string()
                                , page_url
                                , description
+                               , user_email
                                , image_ptr
 #if defined(OS_CHROMEOS)
-                               , user_email
                                , send_sys_info
                                , false  // sent_report
                                , timestamp_

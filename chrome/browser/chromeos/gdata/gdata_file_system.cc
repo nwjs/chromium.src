@@ -65,13 +65,13 @@ typedef struct {
 SerializationTimetable kSerializeTimetable[] = {
 #ifndef NDEBUG
     {0.5, 0},    // Less than 0.5MB, dump immediately.
-    {-1,  1},    // Any size, dump if older than 1 minue.
+    {-1,  1},    // Any size, dump if older than 1 minute.
 #else
     {0.5, 0},    // Less than 0.5MB, dump immediately.
     {1.0, 15},   // Less than 1.0MB, dump after 15 minutes.
     {2.0, 30},
     {4.0, 60},
-    {-1,  120},  // Any size, dump if older than 120 minues.
+    {-1,  120},  // Any size, dump if older than 120 minutes.
 #endif
 };
 
@@ -136,51 +136,6 @@ GDataFileError GDataToGDataFileError(GDataErrorCode status) {
 }
 
 //================================ Helper functions ============================
-
-// Recursively extracts the paths set of all sub-directories of |entry|.
-void GetChildDirectoryPaths(GDataEntry* entry,
-                            std::set<FilePath>* changed_dirs) {
-  GDataDirectory* dir = entry->AsGDataDirectory();
-  if (!dir)
-    return;
-
-  for (GDataDirectoryCollection::const_iterator it =
-       dir->child_directories().begin();
-       it != dir->child_directories().end(); ++it) {
-    GDataDirectory* child_dir = it->second;
-    changed_dirs->insert(child_dir->GetFilePath());
-    GetChildDirectoryPaths(child_dir, changed_dirs);
-  }
-}
-
-
-// Helper function for removing |entry| from |directory|. If |entry| is a
-// directory too, it will collect all its children file paths into
-// |changed_dirs| as well.
-void RemoveEntryFromDirectoryAndCollectChangedDirectories(
-    GDataDirectory* directory,
-    GDataEntry* entry,
-    std::set<FilePath>* changed_dirs) {
-  // Get the list of all sub-directory paths, so we can notify their listeners
-  // that they are smoked.
-  GetChildDirectoryPaths(entry, changed_dirs);
-  directory->RemoveEntry(entry);
-}
-
-// Helper function for adding new |file| from the feed into |directory|. It
-// checks the type of file and updates |changed_dirs| if this file adding
-// operation needs to raise directory notification update. If file is being
-// added to |orphaned_dir_service| such notifications are not raised since
-// we ignore such files and don't add them to the file system now.
-void AddEntryToDirectoryAndCollectChangedDirectories(
-    GDataEntry* entry,
-    GDataDirectory* directory,
-    GDataDirectoryService* orphaned_dir_service,
-    std::set<FilePath>* changed_dirs) {
-  directory->AddEntry(entry);
-  if (entry->AsGDataDirectory() && directory != orphaned_dir_service->root())
-    changed_dirs->insert(entry->GetFilePath());
-}
 
 // Invoked upon completion of TransferRegularFile initiated by Copy.
 //
@@ -433,34 +388,27 @@ void RunTaskOnThread(scoped_refptr<base::MessageLoopProxy> relay_proxy,
 }
 
 // Callback for GetEntryByResourceIdAsync.
-// Removes stale entry upon upload of file.
-void RemoveStaleEntryOnUpload(const std::string& resource_id,
-                              GDataDirectory* parent_dir,
-                              GDataEntry* existing_entry) {
-  if (existing_entry &&
-      // This should always match, but just in case.
-      existing_entry->parent() == parent_dir) {
-    parent_dir->RemoveEntry(existing_entry);
-  } else {
-    LOG(ERROR) << "Entry for the existing file not found: " << resource_id;
-  }
-}
-
-// Callback for GetEntryByResourceIdAsync.
 // Adds |entry| to |results|. Runs |callback| with |results| when
-// |run_callback| is true.
+// |run_callback| is true. When |entry| is not present in our local file system
+// snapshot, it is not added to |results|. Instead, |entry_skipped_callback| is
+// called.
 void AddEntryToSearchResults(
     std::vector<SearchResultInfo>* results,
     const SearchCallback& callback,
+    const base::Closure& entry_skipped_callback,
     GDataFileError error,
     bool run_callback,
     GDataEntry* entry) {
-  // If a result is not present in our local file system snapshot, ignore it.
+  // If a result is not present in our local file system snapshot, invoke
+  // |entry_skipped_callback| and refreshes the snapshot with delta feed.
   // For example, this may happen if the entry has recently been added to the
   // drive (and we still haven't received its delta feed).
   if (entry) {
     const bool is_directory = entry->AsGDataDirectory() != NULL;
     results->push_back(SearchResultInfo(entry->GetFilePath(), is_directory));
+  } else {
+    if (!entry_skipped_callback.is_null())
+      entry_skipped_callback.Run();
   }
 
   if (run_callback) {
@@ -571,14 +519,6 @@ CallbackType CreateRelayCallback(const CallbackType& callback) {
                     callback);
 }
 
-// Callback used to find a directory element for file system updates.
-void ReadOnlyFindEntryCallback(GDataEntry** out,
-                               GDataFileError error,
-                               GDataEntry* entry) {
-  if (error == GDATA_FILE_OK)
-    *out = entry;
-}
-
 // Wrapper around BrowserThread::PostTask to post a task to the blocking
 // pool with the given sequence token.
 void PostBlockingPoolSequencedTask(
@@ -618,8 +558,36 @@ void RunGetEntryInfoWithFilePathCallback(
 
 }  // namespace
 
-// GDataFileSystem::GetDocumentsParams struct implementation.
-struct GDataFileSystem::GetDocumentsParams {
+GDataWapiFeedLoader::GDataWapiFeedLoader(
+    GDataDirectoryService* directory_service,
+    DocumentsServiceInterface* documents_service,
+    DriveWebAppsRegistryInterface* webapps_registry,
+    GDataCache* cache,
+    scoped_refptr<base::SequencedTaskRunner> blocking_task_runner)
+    : directory_service_(directory_service),
+      documents_service_(documents_service),
+      webapps_registry_(webapps_registry),
+      cache_(cache),
+      blocking_task_runner_(blocking_task_runner),
+      weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+}
+
+GDataWapiFeedLoader::~GDataWapiFeedLoader() {
+}
+
+void GDataWapiFeedLoader::AddObserver(Observer* observer) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  observers_.AddObserver(observer);
+}
+
+void GDataWapiFeedLoader::RemoveObserver(Observer* observer) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  observers_.RemoveObserver(observer);
+}
+
+// Defines set of parameters sent to callback OnGetDocuments().
+// TODO(satorux): Move this to a new file: crbug.com/138268
+struct GetDocumentsParams {
   GetDocumentsParams(int start_changestamp,
                      int root_feed_changestamp,
                      std::vector<DocumentFeed*>* feed_list,
@@ -646,7 +614,7 @@ struct GDataFileSystem::GetDocumentsParams {
   FindEntryCallback callback;
 };
 
-GDataFileSystem::GetDocumentsParams::GetDocumentsParams(
+GetDocumentsParams::GetDocumentsParams(
     int start_changestamp,
     int root_feed_changestamp,
     std::vector<DocumentFeed*>* feed_list,
@@ -665,7 +633,7 @@ GDataFileSystem::GetDocumentsParams::GetDocumentsParams(
       callback(callback) {
 }
 
-GDataFileSystem::GetDocumentsParams::~GetDocumentsParams() {
+GetDocumentsParams::~GetDocumentsParams() {
   STLDeleteElements(feed_list.get());
 }
 
@@ -765,18 +733,6 @@ GDataFileSystem::GetFileFromCacheParams::GetFileFromCacheParams(
 GDataFileSystem::GetFileFromCacheParams::~GetFileFromCacheParams() {
 }
 
-// GDataFileSystem::FeedToFileResourceMapUmaStats implementation.
-struct GDataFileSystem::FeedToFileResourceMapUmaStats {
-  FeedToFileResourceMapUmaStats()
-      : num_regular_files(0),
-        num_hosted_documents(0) {}
-
-  typedef std::map<DocumentEntry::EntryKind, int> EntryKindToCountMap;
-  int num_regular_files;
-  int num_hosted_documents;
-  EntryKindToCountMap num_files_with_entry_kind;
-};
-
 // GDataFileSystem::StartFileUploadParams implementation.
 struct GDataFileSystem::StartFileUploadParams {
   StartFileUploadParams(const FilePath& in_local_file_path,
@@ -807,9 +763,9 @@ GDataFileSystem::GDataFileSystem(
       webapps_registry_(webapps_registry),
       update_timer_(true /* retain_user_task */, true /* is_repeating */),
       hide_hosted_docs_(false),
+      blocking_task_runner_(blocking_task_runner),
       ui_weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
-      ui_weak_ptr_(ui_weak_ptr_factory_.GetWeakPtr()),
-      blocking_task_runner_(blocking_task_runner) {
+      ui_weak_ptr_(ui_weak_ptr_factory_.GetWeakPtr()) {
   // Should be created from the file browser extension API on UI thread.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 }
@@ -820,6 +776,12 @@ void GDataFileSystem::Initialize() {
   documents_service_->Initialize(profile_);
 
   directory_service_.reset(new GDataDirectoryService);
+  feed_loader_.reset(new GDataWapiFeedLoader(directory_service_.get(),
+                                             documents_service_,
+                                             webapps_registry_,
+                                             cache_,
+                                             blocking_task_runner_));
+  feed_loader_->AddObserver(this);
 
   PrefService* pref_service = profile_->GetPrefs();
   hide_hosted_docs_ = pref_service->GetBoolean(prefs::kDisableGDataHostedFiles);
@@ -832,7 +794,7 @@ void GDataFileSystem::CheckForUpdates() {
   ContentOrigin initial_origin = directory_service_->origin();
   if (initial_origin == FROM_SERVER) {
     directory_service_->set_origin(REFRESHING);
-    ReloadFeedFromServerIfNeeded(
+    feed_loader_->ReloadFromServerIfNeeded(
         initial_origin,
         directory_service_->largest_changestamp(),
         directory_service_->root()->GetFilePath(),
@@ -856,17 +818,21 @@ GDataFileSystem::~GDataFileSystem() {
   // This should be called from UI thread, from GDataSystemService shutdown.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  feed_loader_->RemoveObserver(this);
+
   // Cancel all the in-flight operations.
   // This asynchronously cancels the URL fetch operations.
   documents_service_->CancelAll();
 }
 
-void GDataFileSystem::AddObserver(Observer* observer) {
+void GDataFileSystem::AddObserver(
+    GDataFileSystemInterface::Observer* observer) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   observers_.AddObserver(observer);
 }
 
-void GDataFileSystem::RemoveObserver(Observer* observer) {
+void GDataFileSystem::RemoveObserver(
+    GDataFileSystemInterface::Observer* observer) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   observers_.RemoveObserver(observer);
 }
@@ -949,7 +915,7 @@ void GDataFileSystem::FindEntryByPathAsyncOnUIThread(
     // Load root feed from this disk cache. Upon completion, kick off server
     // fetching.
     directory_service_->set_origin(INITIALIZING);
-    LoadRootFeedFromCache(
+    feed_loader_->LoadFromCache(
         true,  // should_load_from_server
         search_file_path,
         // This is the initial load, hence we'll notify when it's done.
@@ -974,10 +940,10 @@ void GDataFileSystem::FindEntryByPathSyncOnUIThread(
     const FindEntryCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  directory_service_->FindEntryByPath(search_file_path, callback);
+  directory_service_->FindEntryByPathAndRunSync(search_file_path, callback);
 }
 
-void GDataFileSystem::ReloadFeedFromServerIfNeeded(
+void GDataWapiFeedLoader::ReloadFromServerIfNeeded(
     ContentOrigin initial_origin,
     int local_changestamp,
     const FilePath& search_file_path,
@@ -987,15 +953,15 @@ void GDataFileSystem::ReloadFeedFromServerIfNeeded(
   // First fetch the latest changestamp to see if there were any new changes
   // there at all.
   documents_service_->GetAccountMetadata(
-      base::Bind(&GDataFileSystem::OnGetAccountMetadata,
-                 ui_weak_ptr_,
+      base::Bind(&GDataWapiFeedLoader::OnGetAccountMetadata,
+                 weak_ptr_factory_.GetWeakPtr(),
                  initial_origin,
                  local_changestamp,
                  search_file_path,
                  callback));
 }
 
-void GDataFileSystem::OnGetAccountMetadata(
+void GDataWapiFeedLoader::OnGetAccountMetadata(
     ContentOrigin initial_origin,
     int local_changestamp,
     const FilePath& search_file_path,
@@ -1007,15 +973,15 @@ void GDataFileSystem::OnGetAccountMetadata(
   GDataFileError error = GDataToGDataFileError(status);
   if (error != GDATA_FILE_OK) {
     // Get changes starting from the next changestamp from what we have locally.
-    LoadFeedFromServer(initial_origin,
-                       local_changestamp + 1, 0,
-                       true,  /* should_fetch_multiple_feeds */
-                       search_file_path,
-                       std::string() /* no search query */,
-                       std::string() /* no directory resource ID */,
-                       callback,
-                       base::Bind(&GDataFileSystem::OnFeedFromServerLoaded,
-                                  ui_weak_ptr_));
+    LoadFromServer(initial_origin,
+                   local_changestamp + 1, 0,
+                   true,  /* should_fetch_multiple_feeds */
+                   search_file_path,
+                   std::string() /* no search query */,
+                   std::string() /* no directory resource ID */,
+                   callback,
+                   base::Bind(&GDataWapiFeedLoader::OnFeedFromServerLoaded,
+                              weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
@@ -1036,15 +1002,15 @@ void GDataFileSystem::OnGetAccountMetadata(
   }
 
   if (!account_metadata.get()) {
-    LoadFeedFromServer(initial_origin,
-                       local_changestamp + 1, 0,
-                       true,  /* should_fetch_multiple_feeds */
-                       search_file_path,
-                       std::string() /* no search query */,
-                       std::string() /* no directory resource ID */,
-                       callback,
-                       base::Bind(&GDataFileSystem::OnFeedFromServerLoaded,
-                                  ui_weak_ptr_));
+    LoadFromServer(initial_origin,
+                   local_changestamp + 1, 0,
+                   true,  /* should_fetch_multiple_feeds */
+                   search_file_path,
+                   std::string() /* no search query */,
+                   std::string() /* no directory resource ID */,
+                   callback,
+                   base::Bind(&GDataWapiFeedLoader::OnFeedFromServerLoaded,
+                              weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
@@ -1058,31 +1024,36 @@ void GDataFileSystem::OnGetAccountMetadata(
                    << ", server = "
                    << account_metadata->largest_changestamp();
     }
-    directory_service_->set_origin(initial_origin);
+    // If our cache holds the latest state from the server, change the
+    // state to FROM_SERVER.
+    directory_service_->set_origin(
+        initial_origin == FROM_CACHE ? FROM_SERVER : initial_origin);
     changes_detected = false;
   }
 
   // No changes detected, continue with search as planned.
   if (!changes_detected) {
-    if (!callback.is_null())
-      FindEntryByPathSyncOnUIThread(search_file_path, callback);
+    if (!callback.is_null()) {
+      directory_service_->FindEntryByPathAndRunSync(search_file_path,
+                                                    callback);
+    }
     return;
   }
 
   // Load changes from the server.
-  LoadFeedFromServer(initial_origin,
-                     local_changestamp > 0 ? local_changestamp + 1 : 0,
-                     account_metadata->largest_changestamp(),
-                     true,  /* should_fetch_multiple_feeds */
-                     search_file_path,
-                     std::string() /* no search query */,
-                     std::string() /* no directory resource ID */,
-                     callback,
-                     base::Bind(&GDataFileSystem::OnFeedFromServerLoaded,
-                                ui_weak_ptr_));
+  LoadFromServer(initial_origin,
+                 local_changestamp > 0 ? local_changestamp + 1 : 0,
+                 account_metadata->largest_changestamp(),
+                 true,  /* should_fetch_multiple_feeds */
+                 search_file_path,
+                 std::string() /* no search query */,
+                 std::string() /* no directory resource ID */,
+                 callback,
+                 base::Bind(&GDataWapiFeedLoader::OnFeedFromServerLoaded,
+                            weak_ptr_factory_.GetWeakPtr()));
 }
 
-void GDataFileSystem::LoadFeedFromServer(
+void GDataWapiFeedLoader::LoadFromServer(
     ContentOrigin initial_origin,
     int start_changestamp,
     int root_feed_changestamp,
@@ -1104,8 +1075,8 @@ void GDataFileSystem::LoadFeedFromServer(
       start_changestamp,
       search_query,
       directory_resource_id,
-      base::Bind(&GDataFileSystem::OnGetDocuments,
-                 ui_weak_ptr_,
+      base::Bind(&GDataWapiFeedLoader::OnGetDocuments,
+                 weak_ptr_factory_.GetWeakPtr(),
                  initial_origin,
                  feed_load_callback,
                  base::Owned(new GetDocumentsParams(start_changestamp,
@@ -1119,8 +1090,8 @@ void GDataFileSystem::LoadFeedFromServer(
                  start_time));
 }
 
-void GDataFileSystem::OnFeedFromServerLoaded(GetDocumentsParams* params,
-                                             GDataFileError error) {
+void GDataWapiFeedLoader::OnFeedFromServerLoaded(GetDocumentsParams* params,
+                                                 GDataFileError error) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (error != GDATA_FILE_OK) {
@@ -1130,7 +1101,6 @@ void GDataFileSystem::OnFeedFromServerLoaded(GetDocumentsParams* params,
   }
 
   error = UpdateFromFeed(*params->feed_list,
-                         FROM_SERVER,
                          params->start_changestamp,
                          params->root_feed_changestamp);
 
@@ -1146,8 +1116,10 @@ void GDataFileSystem::OnFeedFromServerLoaded(GetDocumentsParams* params,
 
   // If we had someone to report this too, then this retrieval was done in a
   // context of search... so continue search.
-  if (!params->callback.is_null())
-    FindEntryByPathSyncOnUIThread(params->search_file_path, params->callback);
+  if (!params->callback.is_null()) {
+    directory_service_->FindEntryByPathAndRunSync(params->search_file_path,
+                                                  params->callback);
+  }
 
   FOR_EACH_OBSERVER(Observer, observers_, OnFeedFromServerLoaded());
 }
@@ -1387,8 +1359,10 @@ void GDataFileSystem::CopyOnUIThread(const FilePath& src_file_path,
   std::string src_file_resource_id;
   bool src_file_is_hosted_document = false;
 
-  GDataEntry* src_entry = GetGDataEntryByPath(src_file_path);
-  GDataEntry* dest_parent = GetGDataEntryByPath(dest_parent_path);
+  GDataEntry* src_entry = directory_service_->FindEntryByPathSync(
+      src_file_path);
+  GDataEntry* dest_parent = directory_service_->FindEntryByPathSync(
+      dest_parent_path);
   if (!src_entry || !dest_parent) {
     error = GDATA_FILE_ERROR_NOT_FOUND;
   } else if (!dest_parent->AsGDataDirectory()) {
@@ -1593,8 +1567,10 @@ void GDataFileSystem::MoveOnUIThread(const FilePath& src_file_path,
   GDataFileError error = GDATA_FILE_OK;
   FilePath dest_parent_path = dest_file_path.DirName();
 
-  GDataEntry* src_entry = GetGDataEntryByPath(src_file_path);
-  GDataEntry* dest_parent = GetGDataEntryByPath(dest_parent_path);
+  GDataEntry* src_entry = directory_service_->FindEntryByPathSync(
+      src_file_path);
+  GDataEntry* dest_parent = directory_service_->FindEntryByPathSync(
+      dest_parent_path);
   if (!src_entry || !dest_parent) {
     error = GDATA_FILE_ERROR_NOT_FOUND;
   } else if (!dest_parent->AsGDataDirectory()) {
@@ -1653,8 +1629,8 @@ void GDataFileSystem::AddEntryToDirectory(
     const FilePath& file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  GDataEntry* entry = GetGDataEntryByPath(file_path);
-  GDataEntry* dir_entry = GetGDataEntryByPath(dir_path);
+  GDataEntry* entry = directory_service_->FindEntryByPathSync(file_path);
+  GDataEntry* dir_entry = directory_service_->FindEntryByPathSync(dir_path);
   if (error == GDATA_FILE_OK) {
     if (!entry || !dir_entry) {
       error = GDATA_FILE_ERROR_NOT_FOUND;
@@ -1690,8 +1666,8 @@ void GDataFileSystem::RemoveEntryFromDirectory(
     const FilePath& file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  GDataEntry* entry = GetGDataEntryByPath(file_path);
-  GDataEntry* dir = GetGDataEntryByPath(dir_path);
+  GDataEntry* entry = directory_service_->FindEntryByPathSync(file_path);
+  GDataEntry* dir = directory_service_->FindEntryByPathSync(dir_path);
   if (error == GDATA_FILE_OK) {
     if (!entry || !dir) {
       error = GDATA_FILE_ERROR_NOT_FOUND;
@@ -2379,16 +2355,17 @@ void GDataFileSystem::RequestDirectoryRefreshOnUIThreadAfterGetEntryInfo(
     return;
   }
 
-  LoadFeedFromServer(directory_service_->origin(),
-                     0,  // Not delta feed.
-                     0,  // Not used.
-                     true,  // multiple feeds
-                     file_path,
-                     std::string(),  // No search query
-                     entry_proto->resource_id(),
-                     FindEntryCallback(),  // Not used.
-                     base::Bind(&GDataFileSystem::OnRequestDirectoryRefresh,
-                                ui_weak_ptr_));
+  feed_loader_->LoadFromServer(
+      directory_service_->origin(),
+      0,  // Not delta feed.
+      0,  // Not used.
+      true,  // multiple feeds
+      file_path,
+      std::string(),  // No search query
+      entry_proto->resource_id(),
+      FindEntryCallback(),  // Not used.
+      base::Bind(&GDataFileSystem::OnRequestDirectoryRefresh,
+                 ui_weak_ptr_));
 }
 
 void GDataFileSystem::OnRequestDirectoryRefresh(
@@ -2407,10 +2384,12 @@ void GDataFileSystem::OnRequestDirectoryRefresh(
   int unused_delta_feed_changestamp = 0;
   FeedToFileResourceMapUmaStats unused_uma_stats;
   FileResourceIdMap file_map;
-  error = FeedToFileResourceMap(*params->feed_list,
-                                &file_map,
-                                &unused_delta_feed_changestamp,
-                                &unused_uma_stats);
+  GDataWapiFeedProcessor feed_processor(directory_service_.get());
+  error = feed_processor.FeedToFileResourceMap(
+      *params->feed_list,
+      &file_map,
+      &unused_delta_feed_changestamp,
+      &unused_uma_stats);
   if (error != GDATA_FILE_OK) {
     LOG(ERROR) << "Failed to convert feed: " << directory_path.value()
                << ": " << error;
@@ -2454,19 +2433,9 @@ void GDataFileSystem::RequestDirectoryRefreshByEntry(
   // Note that there may be no change in the directory, but it's expensive to
   // check if the new metadata matches the existing one, so we just always
   // notify that the directory is changed.
-  NotifyDirectoryChanged(directory_path);
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer,
+                    observers_, OnDirectoryChanged(directory_path));
   DVLOG(1) << "Directory refreshed: " << directory_path.value();
-}
-
-GDataEntry* GDataFileSystem::GetGDataEntryByPath(
-    const FilePath& file_path) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  // Find directory element within the cached file system snapshot.
-  GDataEntry* entry = NULL;
-  directory_service_->FindEntryByPath(file_path,
-      base::Bind(&ReadOnlyFindEntryCallback, &entry));
-  return entry;
 }
 
 void GDataFileSystem::UpdateFileByResourceId(
@@ -2765,6 +2734,7 @@ void GDataFileSystem::OnSearch(const SearchCallback& callback,
         base::Bind(&AddEntryToSearchResults,
                    results,
                    callback,
+                   base::Bind(&GDataFileSystem::CheckForUpdates, ui_weak_ptr_),
                    error,
                    i+1 == feed->entries().size()));
   }
@@ -2788,26 +2758,27 @@ void GDataFileSystem::SearchAsyncOnUIThread(
       new std::vector<DocumentFeed*>);
 
   ContentOrigin initial_origin = directory_service_->origin();
-  LoadFeedFromServer(initial_origin,
-                     0, 0,  // We don't use change stamps when fetching search
-                            // data; we always fetch the whole result feed.
-                     false,  // Stop fetching search results after first feed
-                             // chunk to avoid displaying huge number of search
-                             // results (especially since we don't cache them).
-                     FilePath(),  // Not used.
-                     search_query,
-                     std::string(),  // No directory resource ID.
-                     FindEntryCallback(),  // Not used.
-                     base::Bind(&GDataFileSystem::OnSearch,
-                                ui_weak_ptr_, callback));
+  feed_loader_->LoadFromServer(
+      initial_origin,
+      0, 0,  // We don't use change stamps when fetching search
+      // data; we always fetch the whole result feed.
+      false,  // Stop fetching search results after first feed
+      // chunk to avoid displaying huge number of search
+      // results (especially since we don't cache them).
+      FilePath(),  // Not used.
+      search_query,
+      std::string(),  // No directory resource ID.
+      FindEntryCallback(),  // Not used.
+      base::Bind(&GDataFileSystem::OnSearch, ui_weak_ptr_, callback));
 }
 
-void GDataFileSystem::OnGetDocuments(ContentOrigin initial_origin,
-                                     const LoadDocumentFeedCallback& callback,
-                                     GetDocumentsParams* params,
-                                     base::TimeTicks start_time,
-                                     GDataErrorCode status,
-                                     scoped_ptr<base::Value> data) {
+void GDataWapiFeedLoader::OnGetDocuments(
+    ContentOrigin initial_origin,
+    const LoadDocumentFeedCallback& callback,
+    GetDocumentsParams* params,
+    base::TimeTicks start_time,
+    GDataErrorCode status,
+    scoped_ptr<base::Value> data) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (params->feed_list->empty()) {
@@ -2862,7 +2833,10 @@ void GDataFileSystem::OnGetDocuments(ContentOrigin initial_origin,
   int num_accumulated_entries = 0;
   for (size_t i = 0; i < params->feed_list->size(); ++i)
     num_accumulated_entries += params->feed_list->at(i)->entries().size();
-  NotifyDocumentFeedFetched(num_accumulated_entries);
+
+  // Notify the observers that a document feed is fetched.
+  FOR_EACH_OBSERVER(Observer, observers_,
+                    OnDocumentFeedFetched(num_accumulated_entries));
 
   // Check if we need to collect more data to complete the directory list.
   if (params->should_fetch_multiple_feeds && has_next_feed_url &&
@@ -2873,8 +2847,8 @@ void GDataFileSystem::OnGetDocuments(ContentOrigin initial_origin,
         params->start_changestamp,
         params->search_query,
         params->directory_resource_id,
-        base::Bind(&GDataFileSystem::OnGetDocuments,
-                   ui_weak_ptr_,
+        base::Bind(&GDataWapiFeedLoader::OnGetDocuments,
+                   weak_ptr_factory_.GetWeakPtr(),
                    initial_origin,
                    callback,
                    base::Owned(
@@ -2898,7 +2872,7 @@ void GDataFileSystem::OnGetDocuments(ContentOrigin initial_origin,
     callback.Run(params, error);
 }
 
-void GDataFileSystem::LoadRootFeedFromCache(
+void GDataWapiFeedLoader::LoadFromCache(
     bool should_load_from_server,
     const FilePath& search_file_path,
     const FindEntryCallback& callback) {
@@ -2912,22 +2886,54 @@ void GDataFileSystem::LoadRootFeedFromCache(
                                                       callback);
   BrowserThread::GetBlockingPool()->PostTaskAndReply(FROM_HERE,
       base::Bind(&LoadProtoOnBlockingPool, path, params),
-      base::Bind(&GDataFileSystem::OnProtoLoaded,
-                 ui_weak_ptr_,
+      base::Bind(&GDataWapiFeedLoader::OnProtoLoaded,
+                 weak_ptr_factory_.GetWeakPtr(),
                  base::Owned(params)));
+}
+
+void GDataFileSystem::OnDirectoryChanged(const FilePath& directory_path) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(directory_path));
+}
+
+void GDataFileSystem::OnDocumentFeedFetched(int num_accumulated_entries) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDocumentFeedFetched(num_accumulated_entries));
+}
+
+void GDataFileSystem::OnFeedFromServerLoaded() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnFeedFromServerLoaded());
 }
 
 void GDataFileSystem::LoadRootFeedFromCacheForTesting() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  LoadRootFeedFromCache(
+  feed_loader_->LoadFromCache(
       false,  // should_load_from_server.
       // search_path doesn't matter if FindEntryCallback parameter is null .
       FilePath(),
       FindEntryCallback());
 }
 
-void GDataFileSystem::OnProtoLoaded(LoadRootFeedParams* params) {
+GDataFileError GDataFileSystem::UpdateFromFeedForTesting(
+    const std::vector<DocumentFeed*>& feed_list,
+    int start_changestamp,
+    int root_feed_changestamp) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  return feed_loader_->UpdateFromFeed(feed_list,
+                                      start_changestamp,
+                                      root_feed_changestamp);
+}
+
+void GDataWapiFeedLoader::OnProtoLoaded(LoadRootFeedParams* params) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // If we have already received updates from the server, bail out.
@@ -2954,14 +2960,15 @@ void GDataFileSystem::OnProtoLoaded(LoadRootFeedParams* params) {
   if (params->load_error == GDATA_FILE_OK && !callback.is_null()) {
     // Continue file content search operation if the delegate hasn't terminated
     // this search branch already.
-    FindEntryByPathSyncOnUIThread(params->search_file_path, callback);
+    directory_service_->FindEntryByPathAndRunSync(params->search_file_path,
+                                                  callback);
     callback.Reset();
   }
 
   if (!params->should_load_from_server)
     return;
 
-  // Decide the |initial_origin| to pass to ReloadFeedFromServerIfNeeded().
+  // Decide the |initial_origin| to pass to ReloadFromServerIfNeeded().
   // This is used to restore directory content origin to its initial value when
   // we fail to retrieve the feed from server.
   // By default, if directory content is not yet initialized, restore content
@@ -2977,13 +2984,13 @@ void GDataFileSystem::OnProtoLoaded(LoadRootFeedParams* params) {
   // Kick of the retrieval of the feed from server. If we have previously
   // |reported| to the original callback, then we just need to refresh the
   // content without continuing search upon operation completion.
-  ReloadFeedFromServerIfNeeded(initial_origin,
-                               local_changestamp,
-                               params->search_file_path,
-                               callback);
+  ReloadFromServerIfNeeded(initial_origin,
+                           local_changestamp,
+                           params->search_file_path,
+                           callback);
 }
 
-void GDataFileSystem::SaveFileSystemAsProto() {
+void GDataWapiFeedLoader::SaveFileSystemAsProto() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   DVLOG(1) << "SaveFileSystemAsProto";
@@ -3081,7 +3088,7 @@ void GDataFileSystem::OnAddEntryToDirectoryCompleted(
 
   GDataFileError error = GDataToGDataFileError(status);
   if (error == GDATA_FILE_OK) {
-    GDataEntry* entry = GetGDataEntryByPath(file_path);
+    GDataEntry* entry = directory_service_->FindEntryByPathSync(file_path);
     if (entry) {
       DCHECK_EQ(directory_service_->root(), entry->parent());
       error = AddEntryToDirectoryOnFilesystem(entry, dir_path);
@@ -3242,7 +3249,7 @@ GDataFileError GDataFileSystem::RenameFileOnFilesystem(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(updated_file_path);
 
-  GDataEntry* entry = GetGDataEntryByPath(file_path);
+  GDataEntry* entry = directory_service_->FindEntryByPathSync(file_path);
   if (!entry)
     return GDATA_FILE_ERROR_NOT_FOUND;
 
@@ -3260,7 +3267,8 @@ GDataFileError GDataFileSystem::RenameFileOnFilesystem(
 
   *updated_file_path = entry->GetFilePath();
 
-  NotifyDirectoryChanged(updated_file_path->DirName());
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(updated_file_path->DirName()));
   return GDATA_FILE_OK;
 }
 
@@ -3269,7 +3277,7 @@ GDataFileError GDataFileSystem::AddEntryToDirectoryOnFilesystem(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(entry);
 
-  GDataEntry* dir_entry = GetGDataEntryByPath(dir_path);
+  GDataEntry* dir_entry = directory_service_->FindEntryByPathSync(dir_path);
   if (!dir_entry)
     return GDATA_FILE_ERROR_NOT_FOUND;
 
@@ -3280,7 +3288,8 @@ GDataFileError GDataFileSystem::AddEntryToDirectoryOnFilesystem(
   if (!dir->TakeEntry(entry))
     return GDATA_FILE_ERROR_FAILED;
 
-  NotifyDirectoryChanged(dir_path);
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(dir_path));
   return GDATA_FILE_OK;
 }
 
@@ -3290,11 +3299,11 @@ GDataFileError GDataFileSystem::RemoveEntryFromDirectoryOnFilesystem(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(updated_file_path);
 
-  GDataEntry* entry = GetGDataEntryByPath(file_path);
+  GDataEntry* entry = directory_service_->FindEntryByPathSync(file_path);
   if (!entry)
     return GDATA_FILE_ERROR_NOT_FOUND;
 
-  GDataEntry* dir = GetGDataEntryByPath(dir_path);
+  GDataEntry* dir = directory_service_->FindEntryByPathSync(dir_path);
   if (!dir)
     return GDATA_FILE_ERROR_NOT_FOUND;
 
@@ -3308,7 +3317,8 @@ GDataFileError GDataFileSystem::RemoveEntryFromDirectoryOnFilesystem(
 
   *updated_file_path = entry->GetFilePath();
 
-  NotifyDirectoryChanged(updated_file_path->DirName());
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(updated_file_path->DirName()));
   return GDATA_FILE_OK;
 }
 
@@ -3328,292 +3338,48 @@ GDataFileError GDataFileSystem::RemoveEntryFromFileSystem(
   return GDATA_FILE_OK;
 }
 
-GDataFileError GDataFileSystem::UpdateFromFeed(
+GDataFileError GDataWapiFeedLoader::UpdateFromFeed(
     const std::vector<DocumentFeed*>& feed_list,
-    ContentOrigin origin,
     int start_changestamp,
     int root_feed_changestamp) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DVLOG(1) << "Updating directory with a feed";
 
-  bool is_delta_feed = start_changestamp != 0;
+  std::set<FilePath> changed_dirs;
 
-  directory_service_->set_origin(origin);
-
-  int delta_feed_changestamp = 0;
-  FeedToFileResourceMapUmaStats uma_stats;
-  FileResourceIdMap file_map;
-  GDataFileError error = FeedToFileResourceMap(feed_list,
-                                                        &file_map,
-                                                        &delta_feed_changestamp,
-                                                        &uma_stats);
-  if (error != GDATA_FILE_OK)
-    return error;
-
-  ApplyFeedFromFileUrlMap(
-      is_delta_feed,
-      is_delta_feed ? delta_feed_changestamp : root_feed_changestamp,
-      &file_map);
-
-  // Shouldn't record histograms when processing delta feeds.
-  if (!is_delta_feed)
-    UpdateFileCountUmaHistograms(uma_stats);
-
-  return GDATA_FILE_OK;
-}
-
-void GDataFileSystem::UpdateFileCountUmaHistograms(
-    const FeedToFileResourceMapUmaStats& uma_stats) const {
-  const int num_total_files =
-      uma_stats.num_hosted_documents + uma_stats.num_regular_files;
-  UMA_HISTOGRAM_COUNTS("GData.NumberOfRegularFiles",
-                       uma_stats.num_regular_files);
-  UMA_HISTOGRAM_COUNTS("GData.NumberOfHostedDocuments",
-                       uma_stats.num_hosted_documents);
-  UMA_HISTOGRAM_COUNTS("GData.NumberOfTotalFiles", num_total_files);
-  const std::vector<int> all_entry_kinds = DocumentEntry::GetAllEntryKinds();
-  for (FeedToFileResourceMapUmaStats::EntryKindToCountMap::const_iterator iter =
-           uma_stats.num_files_with_entry_kind.begin();
-       iter != uma_stats.num_files_with_entry_kind.end();
-       ++iter) {
-    const DocumentEntry::EntryKind kind = iter->first;
-    const int count = iter->second;
-    for (int i = 0; i < count; ++i) {
-      UMA_HISTOGRAM_CUSTOM_ENUMERATION(
-          "GData.EntryKind", kind, all_entry_kinds);
-    }
-  }
-}
-
-void GDataFileSystem::ApplyFeedFromFileUrlMap(
-    bool is_delta_feed,
-    int feed_changestamp,
-    FileResourceIdMap* file_map) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  GDataWapiFeedProcessor feed_processor(directory_service_);
+  const GDataFileError error = feed_processor.ApplyFeeds(
+      feed_list,
+      start_changestamp,
+      root_feed_changestamp,
+      &changed_dirs);
 
   // Don't send directory content change notification while performing
   // the initial content retrieval.
-  const bool should_notify_directory_changed = is_delta_feed;
-
-  std::set<FilePath> changed_dirs;
-
-  if (!is_delta_feed) {  // Full update.
-    directory_service_->root()->RemoveChildren();
-    changed_dirs.insert(directory_service_->root()->GetFilePath());
-  }
-  directory_service_->set_largest_changestamp(feed_changestamp);
-
-  scoped_ptr<GDataDirectoryService> orphaned_dir_service(
-      new GDataDirectoryService);
-  // Go through all entries generated by the feed and apply them to the local
-  // snapshot of the file system.
-  for (FileResourceIdMap::iterator it = file_map->begin();
-       it != file_map->end();) {
-    // Ensure that the entry is deleted, unless the ownership is explicitly
-    // transferred by entry.release().
-    scoped_ptr<GDataEntry> entry(it->second);
-    DCHECK_EQ(it->first, entry->resource_id());
-    // Erase the entry so the deleted entry won't be referenced.
-    file_map->erase(it++);
-
-    GDataEntry* old_entry =
-        directory_service_->GetEntryByResourceId(entry->resource_id());
-    GDataDirectory* dest_dir = NULL;
-    if (entry->is_deleted()) {  // Deleted file/directory.
-      DVLOG(1) << "Removing file " << entry->base_name();
-      if (!old_entry)
-        continue;
-
-      dest_dir = old_entry->parent();
-      if (!dest_dir) {
-        NOTREACHED();
-        continue;
-      }
-      RemoveEntryFromDirectoryAndCollectChangedDirectories(
-          dest_dir, old_entry, &changed_dirs);
-    } else if (old_entry) {  // Change or move of existing entry.
-      // Please note that entry rename is just a special case of change here
-      // since name is just one of the properties that can change.
-      DVLOG(1) << "Changed file " << entry->base_name();
-      dest_dir = old_entry->parent();
-      if (!dest_dir) {
-        NOTREACHED();
-        continue;
-      }
-      // Move children files over if we are dealing with directories.
-      if (old_entry->AsGDataDirectory() && entry->AsGDataDirectory()) {
-        entry->AsGDataDirectory()->TakeOverEntries(
-            old_entry->AsGDataDirectory());
-      }
-      // Remove the old instance of this entry.
-      RemoveEntryFromDirectoryAndCollectChangedDirectories(
-          dest_dir, old_entry, &changed_dirs);
-      // Did we actually move the new file to another directory?
-      if (dest_dir->resource_id() != entry->parent_resource_id()) {
-        changed_dirs.insert(dest_dir->GetFilePath());
-        dest_dir = FindDirectoryForNewEntry(entry.get(),
-                                            *file_map,
-                                            orphaned_dir_service.get());
-      }
-      DCHECK(dest_dir);
-      AddEntryToDirectoryAndCollectChangedDirectories(
-          entry.release(),
-          dest_dir,
-          orphaned_dir_service.get(),
-          &changed_dirs);
-    } else {  // Adding a new file.
-      dest_dir = FindDirectoryForNewEntry(entry.get(),
-                                          *file_map,
-                                          orphaned_dir_service.get());
-      DCHECK(dest_dir);
-      AddEntryToDirectoryAndCollectChangedDirectories(
-          entry.release(),
-          dest_dir,
-          orphaned_dir_service.get(),
-          &changed_dirs);
-    }
-
-    // Record changed directory if this was a delta feed and the parent
-    // directory is already properly rooted within its parent.
-    if (dest_dir && (dest_dir->parent() ||
-        dest_dir == directory_service_->root()) &&
-        dest_dir != orphaned_dir_service->root() && is_delta_feed) {
-      changed_dirs.insert(dest_dir->GetFilePath());
-    }
-  }
-  // All entry must be erased from the map.
-  DCHECK(file_map->empty());
-
+  const bool should_notify_directory_changed = (start_changestamp != 0);
   if (should_notify_directory_changed) {
     for (std::set<FilePath>::iterator dir_iter = changed_dirs.begin();
         dir_iter != changed_dirs.end(); ++dir_iter) {
-      NotifyDirectoryChanged(*dir_iter);
+      FOR_EACH_OBSERVER(Observer, observers_,
+                        OnDirectoryChanged(*dir_iter));
     }
-  }
-}
-
-GDataDirectory* GDataFileSystem::FindDirectoryForNewEntry(
-    GDataEntry* new_entry,
-    const FileResourceIdMap& file_map,
-    GDataDirectoryService* orphaned_dir_service) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  GDataDirectory* dir = NULL;
-  // Added file.
-  const std::string& parent_id = new_entry->parent_resource_id();
-  if (parent_id.empty()) {
-    dir = directory_service_->root();
-    DVLOG(1) << "Root parent for " << new_entry->base_name();
-  } else {
-    GDataEntry* entry = directory_service_->GetEntryByResourceId(parent_id);
-    dir = entry ? entry->AsGDataDirectory() : NULL;
-    if (!dir) {
-      // The parent directory was also added with this set of feeds.
-      FileResourceIdMap::const_iterator find_iter =
-          file_map.find(parent_id);
-      dir = (find_iter != file_map.end() &&
-             find_iter->second) ?
-                find_iter->second->AsGDataDirectory() : NULL;
-      if (dir) {
-        DVLOG(1) << "Found parent for " << new_entry->base_name()
-                 << " in file_map " << parent_id;
-      } else {
-        DVLOG(1) << "Adding orphan " << new_entry->GetFilePath().value();
-        dir = orphaned_dir_service->root();
-      }
-    }
-  }
-  return dir;
-}
-
-GDataFileError GDataFileSystem::FeedToFileResourceMap(
-    const std::vector<DocumentFeed*>& feed_list,
-    FileResourceIdMap* file_map,
-    int* feed_changestamp,
-    FeedToFileResourceMapUmaStats* uma_stats) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(uma_stats);
-
-  GDataFileError error = GDATA_FILE_OK;
-  uma_stats->num_regular_files = 0;
-  uma_stats->num_hosted_documents = 0;
-  uma_stats->num_files_with_entry_kind.clear();
-  for (size_t i = 0; i < feed_list.size(); ++i) {
-    const DocumentFeed* feed = feed_list[i];
-
-    // Get upload url from the root feed. Links for all other collections will
-    // be handled in GDatadirectory::FromDocumentEntry();
-    if (i == 0) {
-      const Link* root_feed_upload_link =
-          feed->GetLinkByType(Link::RESUMABLE_CREATE_MEDIA);
-      if (root_feed_upload_link)
-        directory_service_->root()->set_upload_url(
-            root_feed_upload_link->href());
-      *feed_changestamp = feed->largest_changestamp();
-      DCHECK_GE(*feed_changestamp, 0);
-    }
-
-    for (ScopedVector<DocumentEntry>::const_iterator iter =
-             feed->entries().begin();
-         iter != feed->entries().end(); ++iter) {
-      DocumentEntry* doc = *iter;
-      GDataEntry* entry = GDataEntry::FromDocumentEntry(
-          NULL, doc, directory_service_.get());
-      // Some document entries don't map into files (i.e. sites).
-      if (!entry)
-        continue;
-      // Count the number of files.
-      GDataFile* as_file = entry->AsGDataFile();
-      if (as_file) {
-        if (as_file->is_hosted_document())
-          ++uma_stats->num_hosted_documents;
-        else
-          ++uma_stats->num_regular_files;
-        ++uma_stats->num_files_with_entry_kind[as_file->kind()];
-      }
-
-      FileResourceIdMap::iterator map_entry =
-          file_map->find(entry->resource_id());
-
-      // An entry with the same self link may already exist, so we need to
-      // release the existing GDataEntry instance before overwriting the
-      // entry with another GDataEntry instance.
-      if (map_entry != file_map->end()) {
-        LOG(WARNING) << "Found duplicate file "
-                     << map_entry->second->base_name();
-
-        delete map_entry->second;
-        file_map->erase(map_entry);
-      }
-      file_map->insert(
-          std::pair<std::string, GDataEntry*>(entry->resource_id(), entry));
-    }
-  }
-
-  if (error != GDATA_FILE_OK) {
-    // If the code above fails to parse a feed, any GDataEntry instance
-    // added to |file_by_url| is not managed by a GDataDirectory instance,
-    // so we need to explicitly release them here.
-    STLDeleteValues(file_map);
   }
 
   return error;
 }
 
-void GDataFileSystem::NotifyDirectoryChanged(const FilePath& directory_path) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  DVLOG(1) << "Content changed of " << directory_path.value();
-  // Notify the observers that content of |directory_path| has been changed.
-  FOR_EACH_OBSERVER(Observer, observers_, OnDirectoryChanged(directory_path));
-}
-
-void GDataFileSystem::NotifyDocumentFeedFetched(int num_accumulated_entries) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  DVLOG(1) << "Document feed fetched: " << num_accumulated_entries;
-  // Notify the observers that a document feed is fetched.
-  FOR_EACH_OBSERVER(Observer, observers_,
-                    OnDocumentFeedFetched(num_accumulated_entries));
+// static
+void GDataFileSystem::RemoveStaleEntryOnUpload(const std::string& resource_id,
+                                               GDataDirectory* parent_dir,
+                                               GDataEntry* existing_entry) {
+  if (existing_entry &&
+      // This should always match, but just in case.
+      existing_entry->parent() == parent_dir) {
+    parent_dir->RemoveEntry(existing_entry);
+  } else {
+    LOG(ERROR) << "Entry for the existing file not found: " << resource_id;
+  }
 }
 
 void GDataFileSystem::RunAndNotifyInitialLoadFinished(
@@ -3627,7 +3393,8 @@ void GDataFileSystem::RunAndNotifyInitialLoadFinished(
     callback.Run(error, entry);
 
   // Notify the observers that root directory has been initialized.
-  FOR_EACH_OBSERVER(Observer, observers_, OnInitialLoadFinished());
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnInitialLoadFinished());
 }
 
 GDataFileError GDataFileSystem::AddNewDirectory(
@@ -3643,7 +3410,7 @@ GDataFileError GDataFileSystem::AddNewDirectory(
     return GDATA_FILE_ERROR_FAILED;
 
   // Find parent directory element within the cached file system snapshot.
-  GDataEntry* entry = GetGDataEntryByPath(directory_path);
+  GDataEntry* entry = directory_service_->FindEntryByPathSync(directory_path);
   if (!entry)
     return GDATA_FILE_ERROR_FAILED;
 
@@ -3661,7 +3428,8 @@ GDataFileError GDataFileSystem::AddNewDirectory(
 
   parent_dir->AddEntry(new_entry);
 
-  NotifyDirectoryChanged(directory_path);
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(directory_path));
   return GDATA_FILE_OK;
 }
 
@@ -3682,7 +3450,7 @@ GDataFileSystem::FindFirstMissingParentDirectory(
           path_parts.begin();
        iter != path_parts.end(); ++iter) {
     current_path = current_path.Append(*iter);
-    GDataEntry* entry = GetGDataEntryByPath(current_path);
+    GDataEntry* entry = directory_service_->FindEntryByPathSync(current_path);
     if (entry) {
       if (entry->file_info().is_directory) {
         *last_dir_content_url = entry->content_url();
@@ -3705,7 +3473,7 @@ GDataFileError GDataFileSystem::RemoveEntryFromGData(
   resource_id->clear();
 
   // Find directory element within the cached file system snapshot.
-  GDataEntry* entry = GetGDataEntryByPath(file_path);
+  GDataEntry* entry = directory_service_->FindEntryByPathSync(file_path);
 
   if (!entry)
     return GDATA_FILE_ERROR_NOT_FOUND;
@@ -3723,7 +3491,8 @@ GDataFileError GDataFileSystem::RemoveEntryFromGData(
   if (!parent_dir->RemoveEntry(entry))
     return GDATA_FILE_ERROR_NOT_FOUND;
 
-  NotifyDirectoryChanged(parent_dir->GetFilePath());
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(parent_dir->GetFilePath()));
   return GDATA_FILE_OK;
 }
 
@@ -3758,33 +3527,30 @@ void GDataFileSystem::AddUploadedFileOnUIThread(
     GDataCache::FileOperationType cache_operation,
     const base::Closure& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!callback.is_null());
+
+  // ScopedClosureRunner ensures that the specified callback is always invoked
+  // upon return or passed on.
+  base::ScopedClosureRunner callback_runner(callback);
 
   if (!entry.get()) {
     NOTREACHED();
-    callback.Run();
     return;
   }
 
-  GDataEntry* dir_entry = GetGDataEntryByPath(virtual_dir_path);
-  if (!dir_entry) {
-    callback.Run();
+  GDataEntry* dir_entry = directory_service_->FindEntryByPathSync(
+      virtual_dir_path);
+  if (!dir_entry)
     return;
-  }
 
   GDataDirectory* parent_dir  = dir_entry->AsGDataDirectory();
-  if (!parent_dir) {
-    callback.Run();
+  if (!parent_dir)
     return;
-  }
 
   scoped_ptr<GDataEntry> new_entry(
       GDataEntry::FromDocumentEntry(
           parent_dir, entry.get(), directory_service_.get()));
-  if (!new_entry.get()) {
-    callback.Run();
+  if (!new_entry.get())
     return;
-  }
 
   if (upload_mode == UPLOAD_EXISTING_FILE) {
     // Remove an existing entry, which should be present.
@@ -3799,7 +3565,8 @@ void GDataFileSystem::AddUploadedFileOnUIThread(
   const std::string& md5 = file->file_md5();
   parent_dir->AddEntry(new_entry.release());
 
-  NotifyDirectoryChanged(virtual_dir_path);
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(virtual_dir_path));
 
   if (upload_mode == UPLOAD_NEW_FILE) {
     // Add the file to the cache if we have uploaded a new file.
@@ -3808,13 +3575,13 @@ void GDataFileSystem::AddUploadedFileOnUIThread(
                             file_content_path,
                             cache_operation,
                             base::Bind(&OnCacheUpdatedForAddUploadedFile,
-                                       callback));
+                                       callback_runner.Release()));
   } else if (upload_mode == UPLOAD_EXISTING_FILE) {
     // Clear the dirty bit if we have updated an existing file.
     cache_->ClearDirtyOnUIThread(resource_id,
                                  md5,
                                  base::Bind(&OnCacheUpdatedForAddUploadedFile,
-                                            callback));
+                                            callback_runner.Release()));
   } else {
     NOTREACHED() << "Unexpected upload mode: " << upload_mode;
   }
@@ -3847,7 +3614,8 @@ void GDataFileSystem::SetHideHostedDocuments(bool hide) {
   const FilePath root_path = directory_service_->root()->GetFilePath();
 
   // Kick off directory refresh when this setting changes.
-  NotifyDirectoryChanged(root_path);
+  FOR_EACH_OBSERVER(GDataFileSystemInterface::Observer, observers_,
+                    OnDirectoryChanged(root_path));
 }
 
 //============= GDataFileSystem: internal helper functions =====================

@@ -107,12 +107,12 @@
         'browser/chromeos/login/mock_login_status_consumer.h',
         'browser/chromeos/login/mock_login_utils.cc',
         'browser/chromeos/login/mock_login_utils.h',
-        'browser/chromeos/login/mock_signed_settings_helper.cc',
-        'browser/chromeos/login/mock_signed_settings_helper.h',
         'browser/chromeos/login/mock_url_fetchers.cc',
         'browser/chromeos/login/mock_url_fetchers.h',
         'browser/chromeos/login/mock_user_manager.cc',
         'browser/chromeos/login/mock_user_manager.h',
+        'browser/chromeos/settings/mock_signed_settings_helper.cc',
+        'browser/chromeos/settings/mock_signed_settings_helper.h',
         # The only thing used from browser is Browser::Type.
         'browser/extensions/mock_extension_special_storage_policy.cc',
         'browser/extensions/mock_extension_special_storage_policy.h',
@@ -132,6 +132,8 @@
         'browser/browsing_data/mock_browsing_data_database_helper.h',
         'browser/browsing_data/mock_browsing_data_file_system_helper.cc',
         'browser/browsing_data/mock_browsing_data_file_system_helper.h',
+        'browser/browsing_data/mock_browsing_data_flash_lso_helper.cc',
+        'browser/browsing_data/mock_browsing_data_flash_lso_helper.h',
         'browser/browsing_data/mock_browsing_data_indexed_db_helper.cc',
         'browser/browsing_data/mock_browsing_data_indexed_db_helper.h',
         'browser/browsing_data/mock_browsing_data_local_storage_helper.cc',
@@ -488,6 +490,7 @@
         'browser/browser_focus_uitest.cc',
         'browser/browser_keyevents_browsertest.cc',
         'browser/instant/instant_browsertest.cc',
+        'browser/mouseleave_browsertest.cc',
         'browser/printing/print_dialog_cloud_interative_uitest.cc',
         'browser/task_manager/task_manager_browsertest_util.cc',
         'browser/ui/fullscreen/fullscreen_controller_interactive_browsertest.cc',
@@ -519,7 +522,6 @@
         'test/base/view_event_test_base.cc',
         'test/base/view_event_test_base.h',
         'test/ppapi/ppapi_interactive_browsertest.cc',
-        '../content/browser/mouseleave_browsertest.cc',
       ],
       'conditions': [
         ['toolkit_uses_gtk == 1', {
@@ -956,6 +958,7 @@
         # 3) anything tests directly depend on
         '../skia/skia.gyp:skia',
         '../third_party/bzip2/bzip2.gyp:bzip2',
+        '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation',
         '../third_party/cld/cld.gyp:cld',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
@@ -1078,8 +1081,11 @@
         'browser/chrome_page_zoom_unittest.cc',
         'browser/chromeos/bluetooth/bluetooth_service_record_unittest.cc',
         'browser/chromeos/bluetooth/bluetooth_utils_unittest.cc',
+        'browser/chromeos/contacts/contact_database_unittest.cc',
         'browser/chromeos/contacts/contact_test_util.cc',
         'browser/chromeos/contacts/contact_test_util.h',
+        'browser/chromeos/contacts/fake_contact_database.cc',
+        'browser/chromeos/contacts/fake_contact_database.h',
         'browser/chromeos/cros/cros_network_functions_unittest.cc',
         'browser/chromeos/cros/network_constants.h',
         'browser/chromeos/cros/network_library.cc',
@@ -1087,23 +1093,24 @@
         'browser/chromeos/cros/network_library_unittest.cc',
         'browser/chromeos/cros/network_ui_data_unittest.cc',
         'browser/chromeos/cros/onc_network_parser_unittest.cc',
-        'browser/chromeos/cros_settings_unittest.cc',
         'browser/chromeos/customization_document_unittest.cc',
         'browser/chromeos/disks/mock_disk_mount_manager.cc',
         'browser/chromeos/disks/mock_disk_mount_manager.h',
         'browser/chromeos/dbus/cros_dbus_service_unittest.cc',
         'browser/chromeos/dbus/proxy_resolution_service_provider_unittest.cc',
-        'browser/chromeos/device_settings_provider_unittest.cc',
         'browser/chromeos/extensions/file_browser_notifications_unittest.cc',
         'browser/chromeos/external_metrics_unittest.cc',
         'browser/chromeos/gdata/drive_api_parser_unittest.cc',
         'browser/chromeos/gdata/drive_webapps_registry_unittest.cc',
         'browser/chromeos/gdata/gdata_cache_metadata_unittest.cc',
         'browser/chromeos/gdata/gdata_cache_unittest.cc',
+        'browser/chromeos/gdata/gdata_contacts_service_stub.cc',
+        'browser/chromeos/gdata/gdata_contacts_service_stub.h',
         'browser/chromeos/gdata/gdata_db_unittest.cc',
         'browser/chromeos/gdata/gdata_file_system_unittest.cc',
         'browser/chromeos/gdata/gdata_files_unittest.cc',
         'browser/chromeos/gdata/gdata_operation_registry_unittest.cc',
+        'browser/chromeos/gdata/gdata_operations_unittest.cc',
         'browser/chromeos/gdata/gdata_sync_client_unittest.cc',
         'browser/chromeos/gdata/gdata_test_util.cc',
         'browser/chromeos/gdata/gdata_test_util.h',
@@ -1138,18 +1145,8 @@
         'browser/chromeos/language_preferences_unittest.cc',
         'browser/chromeos/login/mock_auth_attempt_state_resolver.cc',
         'browser/chromeos/login/mock_auth_attempt_state_resolver.h',
-        'browser/chromeos/login/mock_owner_key_utils.cc',
-        'browser/chromeos/login/mock_owner_key_utils.h',
-        'browser/chromeos/login/mock_ownership_service.cc',
-        'browser/chromeos/login/mock_ownership_service.h',
         'browser/chromeos/login/online_attempt_unittest.cc',
-        'browser/chromeos/login/owner_key_utils_unittest.cc',
-        'browser/chromeos/login/owner_manager_unittest.cc',
-        'browser/chromeos/login/ownership_service_unittest.cc',
         'browser/chromeos/login/parallel_authenticator_unittest.cc',
-        'browser/chromeos/login/signed_settings_cache_unittest.cc',
-        'browser/chromeos/login/signed_settings_helper_unittest.cc',
-        'browser/chromeos/login/signed_settings_unittest.cc',
         'browser/chromeos/login/user_manager_unittest.cc',
         'browser/chromeos/mobile_config_unittest.cc',
         'browser/chromeos/network_message_observer_unittest.cc',
@@ -1158,9 +1155,21 @@
         'browser/chromeos/preferences_unittest.cc',
         'browser/chromeos/process_proxy/process_output_watcher_unittest.cc',
         'browser/chromeos/proxy_config_service_impl_unittest.cc',
+        'browser/chromeos/settings/cros_settings_unittest.cc',
+        'browser/chromeos/settings/device_settings_provider_unittest.cc',
+        'browser/chromeos/settings/mock_owner_key_utils.cc',
+        'browser/chromeos/settings/mock_owner_key_utils.h',
+        'browser/chromeos/settings/mock_ownership_service.cc',
+        'browser/chromeos/settings/mock_ownership_service.h',
+        'browser/chromeos/settings/owner_key_utils_unittest.cc',
+        'browser/chromeos/settings/owner_manager_unittest.cc',
+        'browser/chromeos/settings/ownership_service_unittest.cc',
+        'browser/chromeos/settings/signed_settings_cache_unittest.cc',
+        'browser/chromeos/settings/signed_settings_helper_unittest.cc',
+        'browser/chromeos/settings/signed_settings_unittest.cc',
+        'browser/chromeos/settings/stub_cros_settings_provider_unittest.cc',
         'browser/chromeos/status/network_menu_icon.cc',
         'browser/chromeos/status/network_menu_icon_unittest.cc',
-        'browser/chromeos/stub_cros_settings_provider_unittest.cc',
         'browser/chromeos/system/mock_statistics_provider.cc',
         'browser/chromeos/system/mock_statistics_provider.h',
         'browser/chromeos/system/name_value_pairs_parser_unittest.cc',
@@ -1206,21 +1215,24 @@
         'browser/extensions/api/cookies/cookies_unittest.cc',
         'browser/extensions/api/declarative/initializing_rules_registry_unittest.cc',
         'browser/extensions/api/declarative/rules_registry_service_unittest.cc',
-        'browser/extensions/api/discovery/discovery_api_unittest.cc',
         'browser/extensions/api/declarative/rules_registry_with_cache_unittest.cc',
         'browser/extensions/api/declarative_webrequest/webrequest_action_unittest.cc',
         'browser/extensions/api/declarative_webrequest/webrequest_condition_attribute_unittest.cc',
         'browser/extensions/api/declarative_webrequest/webrequest_condition_unittest.cc',
         'browser/extensions/api/declarative_webrequest/webrequest_rules_registry_unittest.cc',
+        'browser/extensions/api/discovery/discovery_api_unittest.cc',
         'browser/extensions/api/extension_action/extension_browser_actions_api_unittest.cc',
         'browser/extensions/api/identity/web_auth_flow_unittest.cc',
+        'browser/extensions/api/idle/idle_api_unittest.cc',
         'browser/extensions/api/omnibox/omnibox_unittest.cc',
         'browser/extensions/api/permissions/permissions_api_helpers_unittest.cc',
         'browser/extensions/api/proxy/proxy_api_helpers_unittest.cc',
         'browser/extensions/api/serial/serial_port_enumerator_unittest.cc',
+        'browser/extensions/api/socket/socket_api_unittest.cc',
         'browser/extensions/api/socket/tcp_socket_unittest.cc',
         'browser/extensions/api/web_navigation/frame_navigation_state_unittest.cc',
         'browser/extensions/api/web_request/web_request_api_unittest.cc',
+        'browser/extensions/api/web_request/web_request_permissions_unittest.cc',
         'browser/extensions/api/web_request/web_request_time_tracker_unittest.cc',
         'browser/extensions/app_notification_manager_sync_unittest.cc',
         'browser/extensions/app_notification_manager_unittest.cc',
@@ -1238,7 +1250,6 @@
         'browser/extensions/extension_function_test_utils.cc',
         'browser/extensions/extension_function_test_utils.h',
         'browser/extensions/extension_icon_manager_unittest.cc',
-        'browser/extensions/extension_idle_api_unittest.cc',
         'browser/extensions/extension_info_map_unittest.cc',
         'browser/extensions/extension_pref_value_map_unittest.cc',
         'browser/extensions/extension_prefs_unittest.cc',
@@ -1346,7 +1357,6 @@
         'browser/media_gallery/media_gallery_database_unittest.cc',
         'browser/metrics/metrics_log_unittest.cc',
         'browser/metrics/metrics_log_serializer_unittest.cc',
-        'browser/metrics/metrics_response_unittest.cc',
         'browser/metrics/metrics_service_unittest.cc',
         'browser/metrics/thread_watcher_unittest.cc',
         'browser/metrics/variations_service_unittest.cc',
@@ -2081,7 +2091,6 @@
         ['enable_extensions==0', {
           'sources/': [
             ['exclude', '^browser/extensions/api/'],
-            ['exclude', '^browser/extensions/extension_idle_api_unittest.cc'],
             ['exclude', '^browser/sync/glue/chrome_extensions_activity_monitor_unittest.cc'],
           ],
         }],
@@ -2262,6 +2271,15 @@
             '../dbus/dbus.gyp:dbus_test_support',
             '../ui/aura/aura.gyp:test_support_aura',
           ],
+        }],
+        ['OS=="linux" and buildtype=="Official" and target_arch=="ia32"', {
+          'configurations': {
+            'Release': {
+              'ldflags': [
+                '-Wl,--strip-debug',
+              ],
+            },
+          },
         }],
         ['os_posix == 1 and OS != "mac" and OS != "android"', {
           'conditions': [
@@ -2564,37 +2582,6 @@
       ],
     },
     {
-      'target_name': 'unit_tests_run',
-      'type': 'none',
-      'dependencies': [
-        'unit_tests',
-      ],
-      'includes': [
-        'unit_tests.isolate',
-      ],
-      'actions': [
-        {
-          'action_name': 'isolate',
-          'inputs': [
-            '<@(isolate_dependency_tracked)',
-          ],
-          'outputs': [
-            '<(PRODUCT_DIR)/unit_tests.results',
-          ],
-          'action': [
-            'python',
-            '../tools/isolate/isolate.py',
-            '<(test_isolation_mode)',
-            '--outdir', '<(test_isolation_outdir)',
-            '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',
-            '--variable', 'OS', '<(OS)',
-            '--result', '<@(_outputs)',
-            '--isolate', 'unit_tests.isolate',
-          ],
-        },
-      ],
-    },
-    {
       # Executable that runs each browser test in a new process.
       'target_name': 'browser_tests',
       'type': 'executable',
@@ -2602,7 +2589,6 @@
       'msvs_cygwin_dirs': ['<(DEPTH)/third_party/cygwin'],
       'dependencies': [
         'browser',
-        '../sync/protocol/sync_proto.gyp:sync_proto',
         'chrome_resources.gyp:chrome_resources',
         'chrome_resources.gyp:chrome_strings',
         'chrome_resources.gyp:packed_extra_resources',
@@ -2616,6 +2602,7 @@
         '../net/net.gyp:net',
         '../net/net.gyp:net_test_support',
         '../skia/skia.gyp:skia',
+        '../sync/protocol/sync_proto.gyp:sync_proto',
         '../sync/sync.gyp:test_support_syncapi_service',
         '../testing/gmock.gyp:gmock',
         '../testing/gtest.gyp:gtest',
@@ -2663,6 +2650,7 @@
         'browser/chromeos/bluetooth/test/mock_bluetooth_adapter.h',
         'browser/chromeos/bluetooth/test/mock_bluetooth_device.cc',
         'browser/chromeos/bluetooth/test/mock_bluetooth_device.h',
+        'browser/chromeos/contacts/contact_test_util.cc',
         'browser/chromeos/cros/cros_in_process_browser_test.cc',
         'browser/chromeos/cros/cros_in_process_browser_test.h',
         'browser/chromeos/cros/cros_mock.cc',
@@ -2674,6 +2662,7 @@
         'browser/chromeos/extensions/file_browser_private_apitest.cc',
         'browser/chromeos/extensions/echo_private_apitest.cc',
         'browser/chromeos/extensions/external_filesystem_apitest.cc',
+        'browser/chromeos/gdata/gdata_contacts_service_browsertest.cc',
         'browser/chromeos/gdata/gdata_documents_service_browsertest.cc',
         'browser/chromeos/gdata/mock_gdata_documents_service.cc',
         'browser/chromeos/gdata/mock_gdata_documents_service.h',
@@ -2718,12 +2707,13 @@
         'browser/download/download_test_observer.cc',
         'browser/download/save_page_browsertest.cc',
         'browser/errorpage_browsertest.cc',
+        'browser/extensions/active_tab_apitest.cc',
         'browser/extensions/alert_apitest.cc',
         'browser/extensions/all_urls_apitest.cc',
         'browser/extensions/api/app/app_apitest.cc',
         'browser/extensions/api/bluetooth/bluetooth_apitest_chromeos.cc',
         'browser/extensions/api/browsing_data/browsing_data_test.cc',
-        'browser/extensions/api/chrome_auth_private/chrome_auth_private_apitest.cc',
+        'browser/extensions/api/cloud_print_private/cloud_print_private_apitest.cc',
         'browser/extensions/api/cookies/cookies_apitest.cc',
         'browser/extensions/api/context_menu/context_menu_apitest.cc',
         'browser/extensions/api/content_settings/content_settings_apitest.cc',
@@ -2737,10 +2727,15 @@
         'browser/extensions/api/extension_action/page_as_browser_action_apitest.cc',
         'browser/extensions/api/extension_action/script_badge_apitest.cc',
         'browser/extensions/api/file_system/file_system_apitest.cc',
+        'browser/extensions/api/i18n/i18n_apitest.cc',
         'browser/extensions/api/identity/identity_apitest.cc',
+        'browser/extensions/api/idle/idle_apitest.cc',
         'browser/extensions/api/idltest/idltest_apitest.cc',
         'browser/extensions/api/input_ime/input_ime_apitest_chromeos.cc',
         'browser/extensions/api/managed_mode/managed_mode_apitest.cc',
+        'browser/extensions/api/management/management_api_browsertest.cc',
+        'browser/extensions/api/management/management_apitest.cc',
+        'browser/extensions/api/management/management_browsertest.cc',
         'browser/extensions/api/media_galleries/media_galleries_apitest.cc',
         'browser/extensions/api/metrics/metrics_apitest.cc',
         'browser/extensions/api/offscreen_tabs/offscreen_tabs_apitest.cc',
@@ -2748,6 +2743,7 @@
         'browser/extensions/api/page_capture/page_capture_apitest.cc',
         'browser/extensions/api/permissions/permissions_apitest.cc',
         'browser/extensions/api/proxy/proxy_apitest.cc',
+        'browser/extensions/api/push_messaging/push_messaging_apitest.cc',
         'browser/extensions/api/record/record_api_test.cc',
         'browser/extensions/api/runtime/runtime_apitest.cc',
         'browser/extensions/api/serial/serial_apitest.cc',
@@ -2793,9 +2789,7 @@
         'browser/extensions/extension_function_test_utils.h',
         'browser/extensions/extension_geolocation_apitest.cc',
         'browser/extensions/extension_get_views_apitest.cc',
-        'browser/extensions/extension_i18n_apitest.cc',
         'browser/extensions/extension_icon_source_apitest.cc',
-        'browser/extensions/extension_idle_apitest.cc',
         'browser/extensions/extension_incognito_apitest.cc',
         'browser/extensions/extension_info_private_apitest_chromeos.cc',
         'browser/extensions/extension_input_apitest.cc',
@@ -2803,9 +2797,6 @@
         'browser/extensions/extension_install_ui_browsertest.cc',
         'browser/extensions/extension_javascript_url_apitest.cc',
         'browser/extensions/extension_keybinding_apitest.cc',
-        'browser/extensions/extension_management_api_browsertest.cc',
-        'browser/extensions/extension_management_apitest.cc',
-        'browser/extensions/extension_management_browsertest.cc',
         'browser/extensions/extension_messages_apitest.cc',
         'browser/extensions/extension_module_apitest.cc',
         'browser/extensions/extension_override_apitest.cc',
@@ -2875,6 +2866,7 @@
         'browser/prefs/pref_service_browsertest.cc',
         'browser/prerender/prefetch_browsertest.cc',
         'browser/prerender/prerender_browsertest.cc',
+        'browser/printing/cloud_print/test/cloud_print_policy_browsertest.cc',
         'browser/printing/cloud_print/test/cloud_print_proxy_process_browsertest.cc',
         'browser/printing/printing_layout_browsertest.cc',
         'browser/printing/print_preview_tab_controller_browsertest.cc',
@@ -2922,6 +2914,7 @@
         'browser/ui/cocoa/applescript/browsercrapplication+applescript_test.mm',
         'browser/ui/cocoa/applescript/window_applescript_test.mm',
         'browser/ui/cocoa/web_intent_sheet_controller_browsertest.mm',
+        'browser/ui/cocoa/browser_window_controller_browsertest.mm',
         'browser/ui/find_bar/find_bar_host_browsertest.cc',
         'browser/ui/fullscreen/fullscreen_controller_browsertest.cc',
         'browser/ui/global_error/global_error_service_browsertest.cc',
@@ -2983,7 +2976,7 @@
         'common/mac/mock_launchd.cc',
         'common/mac/mock_launchd.h',
         'common/time_format_browsertest.cc',
-        'renderer/autofill/autofill_browsertest.cc',
+        'renderer/autofill/autofill_renderer_browsertest.cc',
         'renderer/autofill/form_autocomplete_browsertest.cc',
         'renderer/autofill/form_autofill_browsertest.cc',
         'renderer/autofill/password_autofill_manager_browsertest.cc',
@@ -3036,9 +3029,6 @@
         # TODO(craig): Rename this and run from base_unittests when the test
         # is safe to run there. See http://crbug.com/78722 for details.
         '../base/files/file_path_watcher_browsertest.cc',
-        '../content/browser/renderer_host/render_process_host_browsertest.cc',
-        '../content/browser/renderer_host/render_view_host_manager_browsertest.cc',
-        '../content/browser/renderer_host/resource_dispatcher_host_browsertest.cc',
       ],
       'rules': [
         {
@@ -3111,6 +3101,7 @@
           ],
           'sources!': [
             'browser/notifications/desktop_notifications_unittest.cc',
+            'browser/printing/cloud_print/test/cloud_print_policy_browsertest.cc',
             'browser/printing/cloud_print/test/cloud_print_proxy_process_browsertest.cc',
             'browser/service/service_process_control_browsertest.cc',
             # chromeos does not use cross-platform panels
@@ -3260,6 +3251,9 @@
             'browser/spellchecker/spellcheck_host_browsertest.cc',
             # ProcessSingletonMac doesn't do anything.
             'browser/process_singleton_browsertest.cc',
+            # This test depends on GetCommandLineForRelaunch, which is not
+            # available on Mac.
+            'browser/printing/cloud_print/test/cloud_print_policy_browsertest.cc',
           ],
         }],
         ['os_posix == 0 or chromeos == 1', {
@@ -3314,37 +3308,6 @@
         }],
       ],  # conditions
     },  # target browser_tests
-    {
-      'target_name': 'browser_tests_run',
-      'type': 'none',
-      'dependencies': [
-        'browser_tests',
-      ],
-      'includes': [
-        'browser_tests.isolate',
-      ],
-      'actions': [
-        {
-          'action_name': 'isolate',
-          'inputs': [
-            '<@(isolate_dependency_tracked)',
-          ],
-          'outputs': [
-            '<(PRODUCT_DIR)/browser_tests.results',
-          ],
-          'action': [
-            'python',
-            '../tools/isolate/isolate.py',
-            '<(test_isolation_mode)',
-            '--outdir', '<(test_isolation_outdir)',
-            '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',
-            '--variable', 'OS', '<(OS)',
-            '--result', '<@(_outputs)',
-            '--isolate', 'browser_tests.isolate',
-          ],
-        },
-      ],
-    },
     {
       # Executable that runs each perf browser test in a new process.
       'target_name': 'performance_browser_tests',
@@ -4368,10 +4331,15 @@
                 '..',
                 '../third_party/python_26/include',
               ],
-              'link_settings': {
-                'libraries': [
-                  '../third_party/python_26/libs/python26.lib',
-                ],
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'AdditionalLibraryDirectories': [
+                    '<(DEPTH)/third_party/python_26/libs',
+                  ],
+                  'AdditionalDependencies': [
+                    'python26.lib',
+                  ],
+                },
               }
             }],
             ['clang == 1', {
@@ -4618,6 +4586,7 @@
           'type': 'none',
           'dependencies': [
             '../base/base.gyp:base_java',
+            '../net/net.gyp:net_java',
             'unit_tests',
           ],
           'variables': {
@@ -4625,9 +4594,76 @@
             'input_shlib_path': '<(SHARED_LIB_DIR)/<(SHARED_LIB_PREFIX)unit_tests<(SHARED_LIB_SUFFIX)',
             'input_jars_paths': [
               '<(PRODUCT_DIR)/lib.java/chromium_base.jar',
+              '<(PRODUCT_DIR)/lib.java/chromium_net.jar',
              ],
           },
           'includes': [ '../build/apk_test.gypi' ],
+        },
+      ],
+    }],
+    ['test_isolation_mode != "noop"', {
+      'targets': [
+        {
+          'target_name': 'unit_tests_run',
+          'type': 'none',
+          'dependencies': [
+            'unit_tests',
+          ],
+          'includes': [
+            'unit_tests.isolate',
+          ],
+          'actions': [
+            {
+              'action_name': 'isolate',
+              'inputs': [
+                '<@(isolate_dependency_tracked)',
+              ],
+              'outputs': [
+                '<(PRODUCT_DIR)/unit_tests.results',
+              ],
+              'action': [
+                'python',
+                '../tools/isolate/isolate.py',
+                '<(test_isolation_mode)',
+                '--outdir', '<(test_isolation_outdir)',
+                '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',
+                '--variable', 'OS', '<(OS)',
+                '--result', '<@(_outputs)',
+                '--isolate', 'unit_tests.isolate',
+              ],
+            },
+          ],
+        },
+        {
+          'target_name': 'browser_tests_run',
+          'type': 'none',
+          'dependencies': [
+            'browser_tests',
+          ],
+          'includes': [
+            'browser_tests.isolate',
+          ],
+          'actions': [
+            {
+              'action_name': 'isolate',
+              'inputs': [
+                '<@(isolate_dependency_tracked)',
+              ],
+              'outputs': [
+                '<(PRODUCT_DIR)/browser_tests.results',
+              ],
+              'action': [
+                'python',
+                '../tools/isolate/isolate.py',
+                '<(test_isolation_mode)',
+                '--outdir', '<(test_isolation_outdir)',
+                '--variable', 'PRODUCT_DIR', '<(PRODUCT_DIR)',
+                '--variable', 'OS', '<(OS)',
+                '--result', '<@(_outputs)',
+                '--isolate', 'browser_tests.isolate',
+              ],
+            },
+          ],
         },
       ],
     }],

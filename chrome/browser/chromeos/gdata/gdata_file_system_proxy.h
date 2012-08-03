@@ -9,23 +9,19 @@
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "webkit/chromeos/fileapi/remote_file_system_proxy.h"
 
-class Profile;
-
 namespace fileapi {
 class FileSystemURL;
 }
 
 namespace gdata {
 
-class GDataEntry;
 class GDataEntryProto;
 class GDataFileSystemInterface;
 
-// The interface class for remote file system proxy.
+// Implementation of File API's remote file system proxy for GData file system.
 class GDataFileSystemProxy : public fileapi::RemoteFileSystemProxyInterface {
  public:
-  // |profile| is used to create GDataFileSystem, which is a per-profile
-  // instance.
+  // |file_system| is the GDataFileSystem instance owned by GDataSystemService.
   explicit GDataFileSystemProxy(GDataFileSystemInterface* file_system);
 
   // fileapi::RemoteFileSystemProxyInterface overrides.
@@ -182,10 +178,10 @@ class GDataFileSystemProxy : public fileapi::RemoteFileSystemProxyInterface {
       base::PlatformFile* platform_file,
       base::PlatformFileError* truncate_result);
 
-  // GDataFileSystemProxy is owned by Profile, which outlives
-  // GDataFileSystemProxy, which is owned by CrosMountPointProvider (i.e. by
-  // the time Profile is removed, the file manager is already gone). Hence
-  // it's safe to use this as a raw pointer.
+  // GDataFileSystem is owned by Profile, which outlives GDataFileSystemProxy,
+  // which is owned by CrosMountPointProvider (i.e. by the time Profile is
+  // removed, the file manager is already gone). Hence it's safe to use this as
+  // a raw pointer.
   GDataFileSystemInterface* file_system_;
 };
 

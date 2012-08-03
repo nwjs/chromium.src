@@ -249,6 +249,7 @@
               'files': [
                 '<(grit_out_dir)/theme_resources_200_percent.pak',
                 '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_200_percent.pak',
+                '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources_200_percent.pak',
               ],
             },
           ],
@@ -344,13 +345,13 @@
             {
               'destination': '<(PRODUCT_DIR)/locales',
               'files': [
-                '<!@pymod_do_main(repack_locales -o -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(locales))'
+                '<!@pymod_do_main(repack_locales -o -p <(OS) -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(locales))'
               ],
             },
             {
               'destination': '<(PRODUCT_DIR)/pseudo_locales',
               'files': [
-                '<!@pymod_do_main(repack_locales -o -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(pseudo_locales))'
+                '<!@pymod_do_main(repack_locales -o -p <(OS) -g <(grit_out_dir) -s <(SHARED_INTERMEDIATE_DIR) -x <(SHARED_INTERMEDIATE_DIR) <(pseudo_locales))'
               ],
             },
           ],

@@ -32,13 +32,31 @@ bool GetBooleanOrDefault(const base::DictionaryValue* dict, const char* key,
   if (!dict->HasKey(key)) {
     return default_if_value_missing;
   }
-  base::Value* value;
+  const base::Value* value;
   if (dict->Get(key, &value) && value->IsType(base::Value::TYPE_BOOLEAN)) {
     bool bool_value;
     CHECK(value->GetAsBoolean(&bool_value));
     return bool_value;
   }
   return default_if_value_not_boolean;
+}
+
+// Gets a string from a dictionary, or returns a default value if the string
+// couldn't be read.
+std::string GetStringOrDefault(const base::DictionaryValue* dict,
+                               const char* key,
+                               const std::string& default_if_value_missing,
+                               const std::string& default_if_value_not_string) {
+  if (!dict->HasKey(key)) {
+    return default_if_value_missing;
+  }
+  const base::Value* value;
+  if (dict->Get(key, &value) && value->IsType(base::Value::TYPE_STRING)) {
+    std::string string_value;
+    CHECK(value->GetAsString(&string_value));
+    return string_value;
+  }
+  return default_if_value_not_string;
 }
 
 // Copies a boolean from one dictionary to another, using a default value
@@ -52,6 +70,17 @@ void CopyBooleanOrDefault(base::DictionaryValue* to,
                           default_if_value_not_boolean)));
 }
 
+// Copies a string from one dictionary to another, using a default value
+// if the string couldn't be read from the first dictionary.
+void CopyStringOrDefault(base::DictionaryValue* to,
+                         const base::DictionaryValue* from, const char* key,
+                         const std::string& default_if_value_missing,
+                         const std::string& default_if_value_not_string) {
+  to->Set(key, base::Value::CreateStringValue(
+      GetStringOrDefault(from, key, default_if_value_missing,
+                         default_if_value_not_string)));
+}
+
 // Copies all policy values from one dictionary to another, using default values
 // when necessary.
 scoped_ptr<base::DictionaryValue> AddDefaultValuesWhenNecessary(
@@ -59,6 +88,15 @@ scoped_ptr<base::DictionaryValue> AddDefaultValuesWhenNecessary(
   scoped_ptr<base::DictionaryValue> to(new base::DictionaryValue());
   CopyBooleanOrDefault(to.get(), from,
                        PolicyWatcher::kNatPolicyName, true, false);
+  CopyBooleanOrDefault(to.get(), from,
+                       PolicyWatcher::kRequireTwoFactorPolicyName,
+                       false, false);
+  CopyStringOrDefault(to.get(), from,
+                      PolicyWatcher::kHostDomainPolicyName, "", "");
+  CopyStringOrDefault(to.get(), from,
+                      PolicyWatcher::kTalkGadgetPolicyName,
+                      "chromoting", "chromoting");
+
   return to.Pass();
 }
 
@@ -67,11 +105,30 @@ scoped_ptr<base::DictionaryValue> AddDefaultValuesWhenNecessary(
 const char PolicyWatcher::kNatPolicyName[] =
     "RemoteAccessHostFirewallTraversal";
 
+const char PolicyWatcher::kRequireTwoFactorPolicyName[] =
+    "RemoteAccessHostRequireTwoFactor";
+
+const char PolicyWatcher::kHostDomainPolicyName[] =
+    "RemoteAccessHostDomain";
+
+const char PolicyWatcher::kTalkGadgetPolicyName[] =
+    "RemoteAccessHostTalkGadget";
+
 const char* const PolicyWatcher::kBooleanPolicyNames[] =
-    { PolicyWatcher::kNatPolicyName };
+    { PolicyWatcher::kNatPolicyName,
+      PolicyWatcher::kRequireTwoFactorPolicyName
+    };
 
 const int PolicyWatcher::kBooleanPolicyNamesNum =
     arraysize(kBooleanPolicyNames);
+
+const char* const PolicyWatcher::kStringPolicyNames[] =
+    { PolicyWatcher::kHostDomainPolicyName,
+      PolicyWatcher::kTalkGadgetPolicyName
+    };
+
+const int PolicyWatcher::kStringPolicyNamesNum =
+    arraysize(kStringPolicyNames);
 
 PolicyWatcher::PolicyWatcher(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner)

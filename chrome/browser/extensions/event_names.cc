@@ -62,9 +62,13 @@ const char kBluetoothOnAvailabilityChanged[] =
     "experimental.bluetooth.onAvailabilityChanged";
 const char kBluetoothOnDeviceDiscovered[] =
     "experimental.bluetooth.onDeviceDiscovered";
+const char kBluetoothOnDiscoveringChanged[] =
+    "experimental.bluetooth.onDiscoveringChanged";
 const char kBluetoothOnPowerChanged[] =
     "experimental.bluetooth.onPowerChanged";
 #endif
+
+const char kOnPushMessage[] = "experimental.pushMessaging.onMessage";
 
 }  // namespace event_names
 

@@ -62,6 +62,11 @@ const char kURLsToRestoreOnStartup[] = "session.urls_to_restore_on_startup";
 // higher.
 const char kRestoreOnStartupMigrated[] = "session.restore_on_startup_migrated";
 
+// Disables screenshot accelerators and extension APIs.
+// This setting resides both in profile prefs and local state. Accelerator
+// handling code reads local state, while extension APIs use profile pref.
+const char kDisableScreenshots[] = "disable_screenshots";
+
 // The application locale.
 // For OS_CHROMEOS we maintain kApplicationLocale property in both local state
 // and user's profile.  Global property determines locale of login screen,
@@ -313,6 +318,11 @@ const char kPasswordGenerationEnabled[] = "password_generation.enabled";
 // Booleans identifying whether normal and reverse auto-logins are enabled.
 const char kAutologinEnabled[] = "autologin.enabled";
 const char kReverseAutologinEnabled[] = "reverse_autologin.enabled";
+
+// List to keep track of emails for which the user has rejected one-click
+// sign-in.
+const char kReverseAutologinRejectedEmailList[] =
+    "reverse_autologin.rejected_email_list";
 
 // Boolean that is true when SafeBrowsing is enabled.
 const char kSafeBrowsingEnabled[] = "safebrowsing.enabled";
@@ -797,9 +807,9 @@ const char kExtensionsUIDeveloperMode[] = "extensions.ui.developer_mode";
 // actions toolbar.
 const char kExtensionToolbarSize[] = "extensions.toolbarsize";
 
-// Dictionary pref that tracks which keybinding belongs to which
+// Dictionary pref that tracks which command belongs to which
 // extension + named command pair.
-const char kExtensionKeybindings[] = "extensions.keybindings";
+const char kExtensionCommands[] = "extensions.commands";
 
 // Pref containing the directory for internal plugins as written to the plugins
 // list (below).
@@ -1636,6 +1646,11 @@ const char kInvalidatorMaxInvalidationVersions[] =
 const char kSyncEncryptionBootstrapToken[] =
     "sync.encryption_bootstrap_token";
 
+// Same as kSyncEncryptionBootstrapToken, but derived from the keystore key,
+// so we don't have to do a GetKey command at restart.
+const char kSyncKeystoreEncryptionBootstrapToken[] =
+    "sync.keystore_encryption_bootstrap_token";
+
 // Boolean tracking whether the user chose to specify a secondary encryption
 // passphrase.
 const char kSyncUsingSecondaryPassphrase[] = "sync.using_secondary_passphrase";
@@ -1790,6 +1805,9 @@ const char kSyncSpareBootstrapToken[] = "sync.spare_bootstrap_token";
 // A pref holding the value of the policy used to disable mounting of external
 // storage for the user.
 const char kExternalStorageDisabled[] = "hardware.external_storage_disabled";
+
+// A dictionary that maps usernames to wallpaper properties.
+const char kUsersWallpaperInfo[] = "user_wallpaper_info";
 #endif
 
 // Whether there is a Flash version installed that supports clearing LSO data.
@@ -1936,12 +1954,12 @@ const char kComponentUpdaterState[] = "component_updater.state";
 const char kWebIntentsEnabled[] = "webintents.enabled";
 
 // The next media gallery ID to assign.
-const char kMediaGalleryUniqueId[] = "media_gallery.gallery_id";
+const char kMediaGalleriesUniqueId[] = "media_galleries.gallery_id";
 
 // A list of dictionaries, where each dictionary represents a known media
 // gallery.
-const char kMediaGalleryRememberedGalleries[] =
-    "media_gallery.remembered_galleries";
+const char kMediaGalleriesRememberedGalleries[] =
+    "media_galleries.remembered_galleries";
 
 #if defined(USE_AURA)
 // String value corresponding to ash::Shell::ShelfAlignment.

@@ -329,6 +329,9 @@ class RenderViewImpl : public RenderWidget,
   // Informs the render view that a PPAPI plugin has changed selection.
   void PpapiPluginSelectionChanged();
 
+  // Notification that a PPAPI plugin has been created.
+  void PpapiPluginCreated(ppapi::host::PpapiHost* host);
+
   // Retrieves the current caret position if a PPAPI plugin has focus.
   bool GetPpapiPluginCaretBounds(gfx::Rect* rect);
 
@@ -632,6 +635,9 @@ class RenderViewImpl : public RenderWidget,
                               long long size,
                               bool create,
                               WebKit::WebFileSystemCallbacks* callbacks);
+  virtual void deleteFileSystem(WebKit::WebFrame* frame,
+                                WebKit::WebFileSystem::Type type,
+                                WebKit::WebFileSystemCallbacks* callbacks);
   virtual void queryStorageUsageAndQuota(
       WebKit::WebFrame* frame,
       WebKit::WebStorageQuotaType type,
@@ -748,7 +754,7 @@ class RenderViewImpl : public RenderWidget,
   virtual void DidHandleTouchEvent(const WebKit::WebTouchEvent& event) OVERRIDE;
   virtual void OnSetFocus(bool enable) OVERRIDE;
   virtual void OnWasHidden() OVERRIDE;
-  virtual void OnWasRestored(bool needs_repainting) OVERRIDE;
+  virtual void OnWasShown(bool needs_repainting) OVERRIDE;
   virtual bool SupportsAsynchronousSwapBuffers() OVERRIDE;
   virtual void OnImeSetComposition(
       const string16& text,
@@ -792,6 +798,7 @@ class RenderViewImpl : public RenderWidget,
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, UpdateTargetURLWithInvalidURL);
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest,
                            GetCompositionCharacterBoundsTest);
+  FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, OnNavigationHttpPost);
 #if defined(OS_MACOSX)
   FRIEND_TEST_ALL_PREFIXES(RenderViewTest, MacTestCmdUp);
 #endif

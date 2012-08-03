@@ -479,6 +479,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
 
   base::Value* RunFunctionAndReturnResult(UIThreadExtensionFunction* function,
                                           const std::string& args) {
+    scoped_refptr<UIThreadExtensionFunction> delete_function(function);
     SetUpExtensionFunction(function);
     return extension_function_test_utils::RunFunctionAndReturnSingleResult(
         function, args, browser(), GetFlags());
@@ -486,6 +487,7 @@ class DownloadExtensionTest : public ExtensionApiTest {
 
   std::string RunFunctionAndReturnError(UIThreadExtensionFunction* function,
                                         const std::string& args) {
+    scoped_refptr<UIThreadExtensionFunction> delete_function(function);
     SetUpExtensionFunction(function);
     return extension_function_test_utils::RunFunctionAndReturnError(
         function, args, browser(), GetFlags());
@@ -968,7 +970,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   // be able to query the file icon.
   download_item->Cancel(true);
   // Let cleanup complete on the FILE thread.
-  ui_test_utils::RunAllPendingInMessageLoop(BrowserThread::FILE);
+  content::RunAllPendingInMessageLoop(BrowserThread::FILE);
   args = base::StringPrintf("[%d, {\"size\": 32}]", download_item->GetId());
   EXPECT_TRUE(RunFunctionAndReturnString(new DownloadsGetFileIconFunction(),
                                          args, &result_string));

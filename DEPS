@@ -8,61 +8,33 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "123763",
+  "webkit_revision": "124518",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9262",
+  "nacl_revision": "9341",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
-  "nacl_tools_revision": "9016",  # native_client/DEPS: tools_rev
+  "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
   "gtm_revision": "534",
 
-  # These hashes need to be updated when nacl_toolchain_revision is changed.
-  # After changing nacl_toolchain_revision, run 'gclient runhooks' to get the
-  # new values.
-  "nacl_toolchain_linux_x86_hash":
-      "5a013540b816336f6f2af26c525f8d9f8e20e144",
-  "nacl_toolchain_linux_x86_newlib_hash":
-      "c3598baef5a49e6ce8ca768d7f01383641d56025",
-  "nacl_toolchain_mac_x86_hash":
-      "664e057b1507923b0526ebb7294deb8c31cb8bfc",
-  "nacl_toolchain_mac_x86_newlib_hash":
-      "93f3a7ca6f97b093380ab4c305b2be42e89004c0",
-  "nacl_toolchain_pnacl_linux_x86_32_hash":
-      "a3b1a1221f3198302c2437321e2ef8f736fecd16",
-  "nacl_toolchain_pnacl_linux_x86_64_hash":
-      "d3275949352c35aa6272117e34931068ac190c14",
-  "nacl_toolchain_pnacl_mac_x86_32_hash":
-      "1aff8c3c105dfb01224fd92e7cb39cdbb130edbc",
-  "nacl_toolchain_pnacl_translator_hash":
-      "689ef2a1b4b013b4cbfb42e0ff71eaaf5aba5c1d",
-  "nacl_toolchain_pnacl_win_x86_32_hash":
-      "906beb9ecbc6be9a8f456f45dabd715bae8db16a",
-  "nacl_toolchain_win_x86_hash":
-      "9a854462e601338153bc65bfdc1171a87dc0bfe6",
-  "nacl_toolchain_win_x86_newlib_hash":
-      "c4dd3f8b65e309d242a3bfce89a15f580ef2e4f0",
-  "nacl_toolchain_revision": "9170",
-  "pnacl_toolchain_revision": "9213",
-
-  "libjingle_revision": "161",
+  "libjingle_revision": "165",
   "libphonenumber_revision": "456",
-  "libvpx_revision": "147803",
+  "libvpx_revision": "149334",
   "lss_revision": "11",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
   # checkouts and the other for Git checkouts.
-  "ffmpeg_revision": "142289",
-  "ffmpeg_hash": "23f177366e3bce3a628a7d3feedceed4e18dcc04",
+  "ffmpeg_revision": "149654",
+  "ffmpeg_hash": "f5a6dc3ba5038dca504545164bff477bb75a9a0e",
 
   "sfntly_revision": "134",
-  "skia_revision": "4780",
+  "skia_revision": "4919",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12191",
-  "webrtc_revision": "2529",
+  "v8_revision": "12243",
+  "webrtc_revision": "2549",
   "jsoncpp_revision": "248",
   "nss_revision": "145873",
 }
@@ -90,7 +62,7 @@ deps = {
     (Var("googlecode_url") % "angleproject") + "/trunk@1243",
 
   "src/third_party/trace-viewer":
-    (Var("googlecode_url") % "trace-viewer") + "/trunk@89",
+    (Var("googlecode_url") % "trace-viewer") + "/trunk@103",
 
   # Note that this is *not* where we check out WebKit -- this just
   # puts some extra files into place for the real WebKit checkout to
@@ -100,23 +72,23 @@ deps = {
     "/trunk/deps/third_party/WebKit@76115",
 
   "src/third_party/icu":
-    "/trunk/deps/third_party/icu46@146527",
+    "/trunk/deps/third_party/icu46@149334",
 
   "src/third_party/libexif/sources":
     "/trunk/deps/third_party/libexif/sources@146817",
 
   "src/third_party/hunspell":
-   "/trunk/deps/third_party/hunspell@132738",
+   "/trunk/deps/third_party/hunspell@149334",
 
   "src/third_party/hunspell_dictionaries":
-    "/trunk/deps/third_party/hunspell_dictionaries@138928",
+    "/trunk/deps/third_party/hunspell_dictionaries@149334",
 
   "src/third_party/safe_browsing/testing":
     (Var("googlecode_url") % "google-safe-browsing") + "/trunk/testing@110",
 
   "src/third_party/cacheinvalidation/files/src/google":
     (Var("googlecode_url") % "google-cache-invalidation-api") +
-    "/trunk/src/google@218",
+    "/trunk/src/google@219",
 
   "src/third_party/leveldatabase/src":
     (Var("googlecode_url") % "leveldb") + "/trunk@67",
@@ -128,7 +100,7 @@ deps = {
     (Var("googlecode_url") % "grit-i18n") + "/trunk@63",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1440",
+    (Var("googlecode_url") % "gyp") + "/trunk@1451",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -275,23 +247,20 @@ deps = {
     "/trunk/deps/third_party/libsrtp@123853",
 
   "src/third_party/speex":
-    "/trunk/deps/third_party/speex@111570",
+    "/trunk/deps/third_party/speex@149334",
 
   "src/third_party/yasm/source/patched-yasm":
     "/trunk/deps/third_party/yasm/patched-yasm@134927",
 
   "src/third_party/libjpeg_turbo":
-    "/trunk/deps/third_party/libjpeg_turbo@147428",
+    "/trunk/deps/third_party/libjpeg_turbo@149334",
 
   "src/third_party/flac":
-    "/trunk/deps/third_party/flac@120197",
+    "/trunk/deps/third_party/flac@149334",
 
   "src/third_party/pyftpdlib/src":
     (Var("googlecode_url") % "pyftpdlib") + "/trunk@977",
 
-  # Needed to support nacl browser test jig.
-  "src/third_party/pylib":
-    Var("nacl_trunk") + "/src/third_party/pylib@" + Var("nacl_tools_revision"),
   "src/third_party/scons-2.0.1":
     Var("nacl_trunk") + "/src/third_party/scons-2.0.1@" +
         Var("nacl_tools_revision"),
@@ -317,7 +286,7 @@ deps = {
     (Var("googlecode_url") % "mozc") + "/trunk/src/chrome/chromeos/renderer@83",
 
   "src/third_party/smhasher/src":
-    (Var("googlecode_url") % "smhasher") + "/trunk@136",
+    (Var("googlecode_url") % "smhasher") + "/trunk@146",
 
   "src/third_party/libphonenumber/src/phonenumbers":
      (Var("googlecode_url") % "libphonenumber") +
@@ -333,7 +302,7 @@ deps = {
     "/trunk/deps/third_party/undoview@119694",
 
   "src/tools/deps2git":
-    "/trunk/tools/deps2git@139377",
+    "/trunk/tools/deps2git@148781",
 
   "src/third_party/webpagereplay":
     (Var("googlecode_url") % "web-page-replay") + "/trunk@489",
@@ -412,6 +381,82 @@ deps_os = {
 
     "src/third_party/nss":
       "/trunk/deps/third_party/nss@" + Var("nss_revision"),
+
+    # class-dump utility to generate header files for undocumented SDKs
+    "src/testing/iossim/third_party/class-dump":
+      "/trunk/deps/third_party/class-dump@147231",
+
+    # Code that's not needed due to not building everything (especially WebKit).
+    "src/build/util/support": None,
+    "src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin": None,
+    "src/content/test/data/layout_tests/LayoutTests/fast/events": None,
+    "src/content/test/data/layout_tests/LayoutTests/fast/filesystem/resources": None,
+    "src/content/test/data/layout_tests/LayoutTests/fast/js/resources": None,
+    "src/content/test/data/layout_tests/LayoutTests/fast/workers": None,
+    "src/content/test/data/layout_tests/LayoutTests/http/tests/appcache": None,
+    "src/content/test/data/layout_tests/LayoutTests/http/tests/resources": None,
+    "src/content/test/data/layout_tests/LayoutTests/http/tests/websocket/tests": None,
+    "src/content/test/data/layout_tests/LayoutTests/http/tests/workers": None,
+    "src/content/test/data/layout_tests/LayoutTests/http/tests/xmlhttprequest": None,
+    "src/content/test/data/layout_tests/LayoutTests/media": None,
+    "src/content/test/data/layout_tests/LayoutTests/platform/chromium-win/fast/events": None,
+    "src/content/test/data/layout_tests/LayoutTests/platform/chromium-win/fast/workers": None,
+    "src/content/test/data/layout_tests/LayoutTests/platform/chromium-win/http/tests/workers": None,
+    "src/content/test/data/layout_tests/LayoutTests/platform/chromium-win/storage/domstorage": None,
+    "src/content/test/data/layout_tests/LayoutTests/platform/chromium/fast/events": None,
+    "src/content/test/data/layout_tests/LayoutTests/platform/chromium/fast/workers": None,
+    "src/content/test/data/layout_tests/LayoutTests/storage/indexeddb": None,
+    "src/content/test/data/layout_tests/LayoutTests/storage/domstorage": None,
+    "src/chrome/test/data/perf/canvas_bench": None,
+    "src/chrome/test/data/perf/frame_rate/content": None,
+    "src/native_client": None,
+    "src/native_client/src/third_party/ppapi": None,
+    "src/native_client_sdk/src/site_scons": None,
+    "src/sandbox/linux/seccomp-legacy": None,
+    "src/third_party/angle": None,
+    "src/third_party/bidichecker": None,
+    "src/third_party/webgl_conformance": None,
+    "src/third_party/ffmpeg": None,
+    "src/third_party/hunspell_dictionaries": None,
+    "src/third_party/hunspell": None,
+    "src/third_party/leveldatabase/src": None,
+    "src/third_party/libexif/sources": None,
+    "src/third_party/libjingle/source": None,
+    "src/third_party/libjpeg_turbo": None,
+    "src/third_party/libphonenumber/src/phonenumbers": None,
+    "src/third_party/libphonenumber/src/test": None,
+    "src/third_party/libphonenumber/src/resources": None,
+    "src/third_party/jsoncpp/source/include": None,
+    "src/third_party/jsoncpp/source/src/lib_json": None,
+    "src/third_party/libsrtp": None,
+    "src/third_party/libvpx": None,
+    "src/third_party/libyuv": None,
+    "src/third_party/mozc/session": None,
+    "src/third_party/mozc/chrome/chromeos/renderer": None,
+    "src/third_party/ots": None,
+    "src/third_party/pylib": None,
+    "src/third_party/pymox/src": None,
+    "src/third_party/safe_browsing/testing": None,
+    "src/third_party/scons-2.0.1": None,
+    "src/third_party/sfntly/cpp/src": None,
+    "src/third_party/skia/src": None,
+    "src/third_party/smhasher/src": None,
+    "src/third_party/snappy/src": None,
+    "src/third_party/swig/Lib": None,
+    "src/third_party/undoview": None,
+    "src/third_party/v8-i18n": None,
+    "src/third_party/webdriver/pylib": None,
+    "src/third_party/webpagereplay": None,
+    "src/third_party/webrtc": None,
+    "src/third_party/WebKit": None,
+    "src/third_party/WebKit/LayoutTests": None,
+    "src/third_party/WebKit/Source": None,
+    "src/third_party/WebKit/Tools/DumpRenderTree": None,
+    "src/third_party/WebKit/Tools/Scripts": None,
+    "src/third_party/WebKit/Tools/TestWebKitAPI": None,
+    "src/third_party/yasm/source/patched-yasm": None,
+    "src/tools/page_cycler/acid3": None,
+    "src/v8": None,
   },
   "mac": {
     "src/chrome/tools/test/reference_build/chrome_mac":
@@ -441,7 +486,7 @@ deps_os = {
       "/trunk/deps/reference_builds/chrome_linux@137712",
 
     "src/third_party/xdg-utils":
-      "/trunk/deps/third_party/xdg-utils@93299",
+      "/trunk/deps/third_party/xdg-utils@149334",
 
     "src/third_party/swig/linux":
       "/trunk/deps/third_party/swig/linux@" + Var("swig_revision"),
@@ -459,10 +504,13 @@ deps_os = {
     "src/third_party/gold":
       "/trunk/deps/third_party/gold@124239",
 
+    "src/third_party/libmtp":
+      "/trunk/deps/third_party/libmtp@149713",
+
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@da5b4f13d8f80f70909d474f1b6814df1a97302d",
+      "@715c98d7d0ca9a1f0576fca77cb4a49498d303ae",
   },
   "android": {
     "src/third_party/freetype":
@@ -471,6 +519,10 @@ deps_os = {
 
     "src/third_party/aosp":
       "/trunk/deps/third_party/aosp@148330",
+
+    "src/third_party/android_tools":
+      Var("chromium_git") + "/android_tools.git" +
+      "@21f9993b4ce955f1af6a88e5dc1135ba645920a7",
   },
 }
 
@@ -516,30 +568,6 @@ hooks = [
         "python", "src/build/download_nacl_toolchains.py",
          "--no-arm-trusted",
          "--optional-pnacl",
-         "--pnacl-version", Var("pnacl_toolchain_revision"),
-         "--file-hash", "pnacl_linux_x86_32",
-             Var("nacl_toolchain_pnacl_linux_x86_32_hash"),
-         "--file-hash", "pnacl_linux_x86_64",
-             Var("nacl_toolchain_pnacl_linux_x86_64_hash"),
-         "--file-hash", "pnacl_translator",
-             Var("nacl_toolchain_pnacl_translator_hash"),
-         "--file-hash", "pnacl_mac_x86_32",
-             Var("nacl_toolchain_pnacl_mac_x86_32_hash"),
-         "--file-hash", "pnacl_win_x86_32",
-             Var("nacl_toolchain_pnacl_win_x86_32_hash"),
-         "--x86-version", Var("nacl_toolchain_revision"),
-         "--file-hash", "mac_x86_newlib",
-             Var("nacl_toolchain_mac_x86_newlib_hash"),
-         "--file-hash", "win_x86_newlib",
-             Var("nacl_toolchain_win_x86_newlib_hash"),
-         "--file-hash", "linux_x86_newlib",
-             Var("nacl_toolchain_linux_x86_newlib_hash"),
-         "--file-hash", "mac_x86",
-             Var("nacl_toolchain_mac_x86_hash"),
-         "--file-hash", "win_x86",
-             Var("nacl_toolchain_win_x86_hash"),
-         "--file-hash", "linux_x86",
-             Var("nacl_toolchain_linux_x86_hash"),
          "--save-downloads-dir",
              "src/native_client_sdk/src/build_tools/toolchain_archives",
          "--keep",

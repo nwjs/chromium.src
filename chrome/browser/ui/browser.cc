@@ -19,6 +19,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram.h"
 #include "base/path_service.h"
+#include "base/process_info.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -59,6 +60,7 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/intents/device_attached_intent_source.h"
 #include "chrome/browser/intents/register_intent_handler_infobar_delegate.h"
 #include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -138,7 +140,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_ui.h"
-#include "chrome/browser/ui/webui/feedback_ui.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
@@ -152,6 +153,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/profiling.h"
+#include "chrome/common/startup_metric_utils.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/web_apps.h"
 #include "content/public/browser/color_chooser.h"
@@ -349,7 +351,6 @@ Browser::Browser(const CreateParams& params)
           synced_window_delegate_(
               new BrowserSyncedWindowDelegate(this))),
       bookmark_bar_state_(BookmarkBar::HIDDEN),
-      device_attached_intent_source_(this, this),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           command_controller_(new chrome::BrowserCommandController(this))),
       window_has_shown_(false) {
@@ -394,6 +395,8 @@ Browser::Browser(const CreateParams& params)
                              profile_->GetPrefs(), NULL);
 
   instant_controller_.reset(new chrome::BrowserInstantController(this));
+  device_attached_intent_source_.reset(
+      new DeviceAttachedIntentSource(this, (this)));
 
   UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_INIT);
 
@@ -443,7 +446,7 @@ Browser::Browser(const CreateParams& params)
     local_state->ClearPref(prefs::kAutofillPersonalDataManagerFirstRun);
   }
 
-  fullscreen_controller_ = new FullscreenController(window_, profile_, this);
+  fullscreen_controller_.reset(new FullscreenController(this));
 }
 
 Browser::~Browser() {
@@ -588,8 +591,6 @@ void Browser::OnWindowClosing() {
   if (!ShouldCloseWindow())
     return;
 
-  bool exiting = false;
-
   // Application should shutdown on last window close if the user is explicitly
   // trying to quit, or if there is nothing keeping the browser alive (such as
   // AppController on the Mac, or BackgroundContentsService for background
@@ -597,10 +598,8 @@ void Browser::OnWindowClosing() {
   bool should_quit_if_last_browser =
       browser_shutdown::IsTryingToQuit() || !browser::WillKeepAlive();
 
-  if (should_quit_if_last_browser && BrowserList::size() == 1) {
+  if (should_quit_if_last_browser && BrowserList::size() == 1)
     browser_shutdown::OnShutdownStarting(browser_shutdown::WINDOW_CLOSE);
-    exiting = true;
-  }
 
   // Don't use GetForProfileIfExisting here, we want to force creation of the
   // session service so that user can restore what was open.
@@ -624,7 +623,7 @@ void Browser::OnWindowClosing() {
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_BROWSER_CLOSING,
       content::Source<Browser>(this),
-      content::Details<bool>(&exiting));
+      content::NotificationService::NoDetails());
 
   chrome::CloseAllTabs(this);
 }
@@ -793,7 +792,7 @@ void Browser::OverrideEncoding(int encoding_id) {
 
 void Browser::OpenFile() {
   content::RecordAction(UserMetricsAction("OpenFile"));
-  select_file_dialog_ = SelectFileDialog::Create(
+  select_file_dialog_ = ui::SelectFileDialog::Create(
       this, new ChromeSelectFilePolicy(
           chrome::GetActiveWebContents(this)));
 
@@ -801,7 +800,7 @@ void Browser::OpenFile() {
 
   // TODO(beng): figure out how to juggle this.
   gfx::NativeWindow parent_window = window_->GetNativeWindow();
-  select_file_dialog_->SelectFile(SelectFileDialog::SELECT_OPEN_FILE,
+  select_file_dialog_->SelectFile(ui::SelectFileDialog::SELECT_OPEN_FILE,
                                   string16(), directory,
                                   NULL, 0, FILE_PATH_LITERAL(""),
                                   parent_window, NULL);
@@ -1198,6 +1197,26 @@ void Browser::OnWindowDidShow() {
   if (window_has_shown_)
     return;
   window_has_shown_ = true;
+
+// CurrentProcessInfo::CreationTime() is currently only implemented on Mac and
+// Windows.
+#if defined(OS_MACOSX) || defined(OS_WIN)
+  // Measure the latency from startup till the first browser window becomes
+  // visible.
+  static bool is_first_browser_window = true;
+  if (is_first_browser_window &&
+      !startup_metric_utils::WasNonBrowserUIDisplayed()) {
+    is_first_browser_window = false;
+    const base::Time* process_creation_time =
+        base::CurrentProcessInfo::CreationTime();
+
+    if (process_creation_time) {
+      UMA_HISTOGRAM_LONG_TIMES(
+          "Startup.BrowserWindowDisplay",
+          base::Time::Now() - *process_creation_time);
+    }
+  }
+#endif // OS_MACOSX || OS_WIN
 
   // Nothing to do for non-tabbed windows.
   if (!is_type_tabbed())
@@ -1737,7 +1756,7 @@ void Browser::OnZoomChanged(TabContents* source,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Browser, SelectFileDialog::Listener implementation:
+// Browser, ui::SelectFileDialog::Listener implementation:
 
 void Browser::FileSelected(const FilePath& path, int index, void* params) {
   FileSelectedWithExtraInfo(ui::SelectedFileInfo(path, path), index, params);

@@ -16,9 +16,8 @@ namespace media {
 static const int kWebMTrackTypeVideo = 1;
 static const int kWebMTrackTypeAudio = 2;
 
-WebMTracksParser::WebMTracksParser(int64 timecode_scale)
-    : timecode_scale_(timecode_scale),
-      track_type_(-1),
+WebMTracksParser::WebMTracksParser()
+    : track_type_(-1),
       track_num_(-1),
       audio_track_num_(-1),
       video_track_num_(-1) {
@@ -26,22 +25,13 @@ WebMTracksParser::WebMTracksParser(int64 timecode_scale)
 
 WebMTracksParser::~WebMTracksParser() {}
 
-const uint8* WebMTracksParser::video_encryption_key_id() const {
+const std::string& WebMTracksParser::video_encryption_key_id() const {
   if (!video_content_encodings_client_.get())
-    return NULL;
+    return EmptyString();
 
   DCHECK(!video_content_encodings_client_->content_encodings().empty());
   return video_content_encodings_client_->content_encodings()[0]->
       encryption_key_id();
-}
-
-int WebMTracksParser::video_encryption_key_id_size() const {
-  if (!video_content_encodings_client_.get())
-    return 0;
-
-  DCHECK(!video_content_encodings_client_->content_encodings().empty());
-  return video_content_encodings_client_->content_encodings()[0]->
-      encryption_key_id_size();
 }
 
 int WebMTracksParser::Parse(const uint8* buf, int size) {

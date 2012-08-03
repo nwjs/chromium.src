@@ -13,6 +13,7 @@
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/autocomplete/history_quick_provider.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_service_factory.h"
@@ -310,7 +311,8 @@ class OmniboxViewTest : public InProcessBrowserTest,
       content::RunMessageLoop();
     }
 
-    BookmarkModel* bookmark_model = profile->GetBookmarkModel();
+    BookmarkModel* bookmark_model =
+        BookmarkModelFactory::GetForProfile(profile);
     ASSERT_TRUE(bookmark_model);
 
     if (!bookmark_model->IsLoaded()) {
@@ -341,7 +343,7 @@ class OmniboxViewTest : public InProcessBrowserTest,
       // something important.  Since we don't know where in the observer list we
       // stand, just spin the message loop once more to allow the current
       // callstack to complete.
-      ui_test_utils::RunAllPendingInMessageLoop();
+      content::RunAllPendingInMessageLoop();
     }
   }
 

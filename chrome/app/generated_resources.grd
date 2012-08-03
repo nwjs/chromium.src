@@ -203,6 +203,12 @@ are declared in build/common.gypi.
       </if>
 
       <!-- Website Settings UI -->
+      <message name="IDS_WEBSITE_SETTINGS_INFOBAR_TEXT" desc="The string shown in the infobar after the user has changed site permissions settings, reminding them to reload the page in order for the new settings to take effect.">
+        New site permissions settings will take effect after reloading the page. 
+      </message>
+      <message name="IDS_WEBSITE_SETTINGS_INFOBAR_BUTTON" desc="The string used in the infobar button allowing the user to reload the page directly from the infobar.">
+        Reload
+      </message>
       <message name="IDS_WEBSITE_SETTINGS_TITLE_SITE_PERMISSIONS" desc="Title of the permissions section of the website settings popup.">
         Permissions
       </message>
@@ -946,10 +952,10 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
           New &amp;incognito window
         </message>
         <message name="IDS_METRO_PIN_TO_START_SCREEN" desc="The text label of the Pin to start screen menu item">
-          Pin to Start Screen
+          Pin to Start screen
         </message>
         <message name="IDS_METRO_UNPIN_FROM_START_SCREEN" desc="The text label of the unpin from start screen menu item">
-          Unpin from Start Screen
+          Unpin from Start screen
         </message>
         <message name="IDS_EDIT2" desc="The text label before the cut/copy/paste buttons in the merged menu">
           Edit
@@ -3137,19 +3143,6 @@ Psst! Incognito mode <ph name="SHORTCUT_KEY">$1<ex>(Ctrl+Shift+N)</ex></ph> may 
       </message>
       <message name="IDS_CERT_ERROR_WEAK_KEY_DESCRIPTION" desc="Description of the error page for a certificate containing a weak key">
         The server certificate contains a weak cryptographic key.
-      </message>
-
-      <message name="IDS_CERT_ERROR_NOT_IN_DNS_TITLE" desc="Title of the error page for a certificate which was excluded by DNS data">
-        Unlisted Server Certificate
-      </message>
-      <message name="IDS_CERT_ERROR_NOT_IN_DNS_DESCRIPTION" desc="Description of the error for a certificate which was excluded by DNS data">
-        Server's certificate is not included in DNS.
-      </message>
-      <message name="IDS_CERT_ERROR_NOT_IN_DNS_DETAILS" desc="Details of the error for a certificate which was excluded by DNS data">
-        This site lists all its valid certificates in DNS. However the server used one which isn't listed.
-      </message>
-      <message name="IDS_CERT_ERROR_NOT_IN_DNS_EXTRA_INFO" desc="Extra for when a certificate was excluded by DNS data">
-        This is an experimental scheme where by HTTPS certificates can be authenticated and rejected by (DNSSEC secured) DNS records. If you are seeing this message then you have enabled experiemental features using command line options. You can remove those command line options to ignore this error.
       </message>
 
       <message name="IDS_CERT_ERROR_UNKNOWN_ERROR_TITLE" desc="Title of the error page for an unknown ssl error">
@@ -5928,12 +5921,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
         </message>
       </if>
 
-      <message name="IDS_FLAGS_CAPTIVE_PORTAL_CHECK_ON_ERROR_NAME" desc="Name for the flag to enable automatic checking for captive portals.">
-        Enable captive portal detection.
-      </message>
-      <message name="IDS_FLAGS_CAPTIVE_PORTAL_CHECK_ON_ERROR_DESCRIPTION" desc="Description for the flag to enable automatic checking for captive portals.">
-        Check for captive portals and open a new tab at the login page if one is found.
-      </message>
       <message name="IDS_FLAGS_OLD_CHECKBOX_STYLE" desc="Name of the flag to turn off the new checkbox style.">
         Disable new checkbox style.
       </message>
@@ -7165,7 +7152,7 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
           Machine identifiers may be used to uniquely identify you for the purposes of authorizing access to protected content.
         </message>
         <message name="IDS_PROTECTED_CONTENT_ENABLE" desc="The label of the checkbox for enabling protected content.">
-          Run protected content
+          Run protected content (computer restart may be required)
         </message>
       </if>
 
@@ -9849,6 +9836,9 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
       <message name="IDS_COOKIES_APPLICATION_CACHE" desc="The text shown when there is an Application Cache (name of an HTML standard) in the Cookies table">
         Application cache
       </message>
+      <message name="IDS_COOKIES_FLASH_LSO" desc="The text shown when Flash has Local Shared Objects (informally known as 'Flash cookies') stored">
+        Flash data
+      </message>
       <message name="IDS_COOKIES_APPLICATION_CACHE_MANIFEST_LABEL" desc="The Manifest label (manifest is a URL specified by the application cache)">
         Manifest:
       </message>
@@ -10897,7 +10887,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Type
       </message>
       <message name="IDS_FILE_BROWSER_DATE_COLUMN_LABEL" desc="Date column label.">
-        Date
+        Date modified
       </message>
       <message name="IDS_FILE_BROWSER_PREVIEW_COLUMN_LABEL" desc="Preview column label.">
         Preview
@@ -10971,6 +10961,16 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_IMPORT_PHOTOS_BUTTON_LABEL" desc="Title of the action for importing photos.">
         Import photos
+      </message>
+
+      <message name="IDS_FILE_BROWSER_NOT_FORMATTED_USB" desc="In the File Manager, message shown for an unformatted USB device.">
+        Your USB device is not formatted.
+      </message>
+      <message name="IDS_FILE_BROWSER_NOT_FORMATTED_SD" desc="In the File Manager, message shown for an unformatted SD card.">
+        Your SD card is not formatted.
+      </message>
+      <message name="IDS_FILE_BROWSER_NOT_FORMATTED_EXTERNAL" desc="In the File Manager, message shown for an unformatted external storage device.">
+        Your external storage device is not formatted.
       </message>
 
       <message name="IDS_FILE_BROWSER_ACTION_VIEW" desc="Title of the action to view (no edit) a file.">
@@ -11229,6 +11229,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_HOSTED_OFFLINE_MESSAGE" desc="Message informing the user that the selected file is only available online.">
         You must be online to access this file.
       </message>
+      <message name="IDS_FILE_BROWSER_GDRIVE_OFFLINE_MESSAGE" desc="Message informing the user that they should go online to access Google Drive for the first time.">
+        You must be online to access Google Drive for the first time.
+      </message>
       <message name="IDS_FILE_BROWSER_HOSTED_OFFLINE_MESSAGE_PLURAL" desc="Message informing the user that the selected files are only available online.">
         You must be online to access these files.
       </message>
@@ -11254,7 +11257,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
         <ph name="SPACE_AVAILABLE">$1<ex>4.8 GB</ex></ph> left
       </message>
       <message name="IDS_FILE_BROWSER_GDATA_BUY_MORE_SPACE" desc="Menu item, offering user to buy more space on Google Drive">
-        Buy more...
+        Buy more storage...
       </message>
       <message name="IDS_FILE_BROWSER_GDATA_WAITING_FOR_SPACE_INFO" desc="Menu item, saying that FileBrowser is waiting for account's space information from GData servers. When actual data arrives, this item will be replaced with IDS_FILE_BROWSER_GDATA_SPACE_AVAILABLE">
         Waiting for space info...
@@ -11315,7 +11318,8 @@ Some features may be unavailable.  Please check that the profile exists and you 
         Dismiss
       </message>
       <message name="IDS_FILE_BROWSER_NO_ACTION_FOR_FILE" desc="Message shown when user tries to open file, which we can't handle.">
-	      To view this file, convert it to a format that's viewable on the web.  <ph name="BEGIN_LINK">&lt;a target='_blank' href='$1'&gt;<ex>&lt;a target='_blank' href='$1'&gt;</ex></ph>Learn More<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
+	      This file type is not supported. Please visit the <ph name="BEGIN_LINK">&lt;a target='_blank' href='$1'&gt;<ex>&lt;a target='_blank' href='$1'&gt;</ex></ph>Chrome Web Store<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph> to find an app that can open this type of file.
+	      <ph name="BEGIN_LINK">&lt;a target='_blank' href='$2'&gt;<ex>&lt;a target='_blank' href='$2'&gt;</ex></ph>Learn More<ph name="END_LINK">&lt;/a&gt;<ex>&lt;/a&gt;</ex></ph>
       </message>
       <message name="IDS_FILE_BROWSER_ID3_ALBUM" desc="Album">
         Album
@@ -11464,8 +11468,8 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_ERROR_VIEWING_FILE_TITLE" desc="Title of error message propmt when user attempts to open a non-supported file in file browser.">
         <ph name="FILENAME">$1</ph>
       </message>
-      <message name="IDS_FILE_BROWSER_ERROR_VIEWING_FILE" desc="Error message when user attempts to open a non-supported file in file browser.">
-        To view this file, convert it to a format that's viewable on the web. For example, you can upload it to Google Docs.
+      <message name="IDS_FILE_BROWSER_ERROR_VIEWING_FILE" desc="Error message when user attempts to open a non-supported file in the Files app via Downloads panel.">
+        This file type is not supported. Please visit the Chrome Web Store to find an app that can open this type of file.
       </message>
       <message name="IDS_FILE_BROWSER_ERROR_UNKNOWN_FILE_TYPE" desc="Error message when user attempts to open a file of unknown type in file browser.">
         <ph name="FILENAME">$1</ph> - Unknown file type.
@@ -11479,7 +11483,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
 
       <message name="IDS_FILE_BROWSER_FILE_ERROR_GENERIC" desc="In the File Manager, the error message when the file operation failed.">
-        An error occurred (code: <ph name="ERROR_CODE">$1<ex>ABORT</ex></ph>).
+        An error occurred.
       </message>
       <message name="IDS_FILE_BROWSER_FILE_ERROR_NOT_FOUND" desc="In the File Manager, the error message when the file could not be found.">
         The file could not be found.
@@ -11493,8 +11497,8 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_FILE_ERROR_NO_MODIFICATION_ALLOWED" desc="In the File Manager, the error message when the file could not be modified.">
         The file could not be modified.
       </message>
-      <message name="IDS_FILE_BROWSER_FILE_ERROR_INVALID_STATE" desc="In the File Manager, the error message when the file is no longer usable.">
-        The file is no longer usable.
+      <message name="IDS_FILE_BROWSER_FILE_ERROR_INVALID_STATE" desc="In the File Manager, the error message when the file is not usable.">
+        The file or the directory is not usable.
       </message>
       <message name="IDS_FILE_BROWSER_FILE_ERROR_INVALID_MODIFICATION" desc="In the File Manager, the error message when the file could not be modified.">
         The file could not be modified.
@@ -11511,6 +11515,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_SEARCH_EXPAND" desc="In the File Manager, the text on the link to expand search when no matching files were found.">
         Search all <ph name="DRIVE_NAME">$1<ex>Downloads</ex></ph>
+      </message>
+      <message name="IDS_FILE_BROWSER_SEARCH_SPINNER" desc="In the File Manager, the text is shown near the spinner while waiting for the results of a search.">
+        Searching...
       </message>
 
       <message name="IDS_FILE_BROWSER_CHANGE_DEFAULT_MENU_ITEM" desc="In the File Manager, the text in the menu item to change the default action for a particular file type.">
@@ -11531,10 +11538,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
 
       <message name="IDS_FILE_BROWSER_TIME_TODAY" desc="File date and time in case the date is today.">
-        Today, <ph name="TODAY_DAYTIME">$1<ex>6:19 AM</ex></ph>
+        Today <ph name="TODAY_DAYTIME">$1<ex>6:19 AM</ex></ph>
       </message>
       <message name="IDS_FILE_BROWSER_TIME_YESTERDAY" desc="File date and time in case the date is yesterday.">
-        Yesterday, <ph name="YESTERDAY_DAYTIME">$1<ex>4:48 PM</ex></ph>
+        Yesterday <ph name="YESTERDAY_DAYTIME">$1<ex>4:48 PM</ex></ph>
       </message>
 
       <message name="IDS_FILE_BROWSER_ALL_FILES_FILTER" desc="All Files filter for Open/Save dialog">
@@ -11954,6 +11961,14 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_SYNC_SYNC_EVERYTHING" desc="The text of the OK button of the 'Confirm Sync Settings' page of the customize sync dialog.">
         OK, sync everything
+      </message>
+
+      <!-- Notify network connection goes time out -->
+      <message name="IDS_SYNC_SETUP_TIME_OUT_TITLE" desc="The title of the 'Timeout' page for sync settings.">
+        Failed to start up the sync backend
+      </message>
+      <message name="IDS_SYNC_SETUP_TIME_OUT_CONTENT" desc="Text explaining what to do if sync times out.">
+        Please make sure your network connection is working and if the problem persists, please sign out and sign in again to refresh your credentials.
       </message>
 
       <!-- Choose data types dialog strings -->
@@ -15061,7 +15076,7 @@ Press Ctrl+Alt+Z to cancel.
         Disconnect private network
       </message>
       <message name="IDS_STATUSBAR_NETWORK_VIEW_ACCOUNT" desc="In the network status menu, the text of the top-up URL link.">
-        View Account
+        View account
       </message>
       <message name="IDS_STATUSBAR_NO_NETWORKS_MESSAGE" desc="No networks are available">
         No networks are available
@@ -16787,9 +16802,14 @@ Battery full
       ClientLogin uses ASPs during authentication. ClientOAuth uses verification codes (i.e. OTPs) during authentication.
     </message>
 
+    <!-- Toast experiment. -->
+    <message name="IDS_TRY_TOAST_SET_DEFAULT" desc="Text of the checkbox to make chrome the default browser">
+      Make it my default browser
+    </message>
+
     <!-- Windows 8 Metro mode. -->
     <message name="IDS_METRO_FLOW_TAB_TITLE"
-	         desc="The dialog window title.">
+             desc="The dialog window title.">
       Welcome to Chrome
     </message>
     <message name="IDS_METRO_FLOW_TITLE_SHORT"

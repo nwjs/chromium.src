@@ -159,7 +159,7 @@ class MockGDataUploader : public GDataUploaderInterface {
         DocumentEntry::ExtractAndParse(*value));
     upload_file_info->entry = document_entry.Pass();
 
-    // Run the complection callback.
+    // Run the completion callback.
     const UploadFileInfo::UploadCompletionCallback callback =
         upload_file_info->completion_callback;
     if (!callback.is_null())
@@ -328,9 +328,8 @@ class GDataFileSystemTest : public testing::Test {
   bool UpdateContent(const std::vector<DocumentFeed*>& list,
                      int largest_changestamp) {
     GURL unused;
-    return file_system_->UpdateFromFeed(
+    return file_system_->UpdateFromFeedForTesting(
         list,
-        FROM_SERVER,
         largest_changestamp,
         root_feed_changestamp_++) == GDATA_FILE_OK;
   }
@@ -603,7 +602,7 @@ class GDataFileSystemTest : public testing::Test {
         std::string(),
         GDataCache::CACHE_TYPE_PINNED,
         GDataCache::CACHED_FILE_FROM_SERVER);
-    // Check that pin symlink exists, without deferencing to target path.
+    // Check that pin symlink exists, without dereferencing to target path.
     exists = file_util::IsLink(symlink_path);
     if (test_util::ToCacheEntry(expected_cache_state_).is_pinned()) {
       EXPECT_TRUE(exists);
@@ -623,7 +622,7 @@ class GDataFileSystemTest : public testing::Test {
         std::string(),
         GDataCache::CACHE_TYPE_OUTGOING,
         GDataCache::CACHED_FILE_FROM_SERVER);
-    // Check that outgoing symlink exists, without deferencing to target path.
+    // Check that outgoing symlink exists, without dereferencing to target path.
     exists = file_util::IsLink(symlink_path);
     if (expect_outgoing_symlink_ &&
         test_util::ToCacheEntry(expected_cache_state_).is_dirty()) {
@@ -654,10 +653,13 @@ class GDataFileSystemTest : public testing::Test {
   // Creates a proto file representing a filesystem with directories:
   // drive, drive/Dir1, drive/Dir1/SubDir2
   // and files
-  // drive/File1, drive/Dir1/File2, drive/Dir1/SubDir2/File3
+  // drive/File1, drive/Dir1/File2, drive/Dir1/SubDir2/File3.
+  // Sets the changestamp to 654321, equal to that of "account_metadata.json"
+  // test data, indicating the cache is holding the latest file system info.
   void SaveTestFileSystem() {
     GDataRootDirectoryProto root;
     root.set_version(kProtoVersion);
+    root.set_largest_changestamp(654321);
     GDataDirectoryProto* root_dir = root.mutable_gdata_directory();
     GDataEntryProto* dir_base = root_dir->mutable_gdata_entry();
     PlatformFileInfoProto* platform_info = dir_base->mutable_file_info();
@@ -825,7 +827,7 @@ class GDataFileSystemTest : public testing::Test {
 
   MessageLoopForUI message_loop_;
   // The order of the test threads is important, do not change the order.
-  // See also content/browser/browser_thread_imple.cc.
+  // See also content/browser/browser_thread_impl.cc.
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread io_thread_;
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
@@ -1212,6 +1214,32 @@ TEST_F(GDataFileSystemTest, CachedFeedLoading) {
       FilePath(FILE_PATH_LITERAL("drive/Dir1/SubDir2/File3"))));
 }
 
+TEST_F(GDataFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
+  SaveTestFileSystem();
+
+  // SaveTestFileSystem and "account_metadata.json" have the same changestamp,
+  // so no request for new feeds (i.e., call to GetDocuments) should happen.
+  mock_doc_service_->set_account_metadata(
+      LoadJSONFile("account_metadata.json"));
+  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+  EXPECT_CALL(*mock_doc_service_, GetDocuments(_, _, _, _, _)).Times(0);
+
+  // Kicks loading of cached file system and query for server update.
+  EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL("drive/File1"))));
+
+  // Since the file system has verified that it holds the latest snapshot,
+  // it should change its state to FROM_SERVER, which admits periodic refresh.
+  // To test it, call CheckForUpdates and verify it does try to check updates.
+  mock_doc_service_->set_account_metadata(
+      LoadJSONFile("account_metadata.json"));
+  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+
+  file_system_->CheckForUpdates();
+  test_util::RunBlockingPoolTask();
+}
+
 TEST_F(GDataFileSystemTest, TransferFileFromLocalToRemote_RegularFile) {
   LoadRootFeedDocument("root_feed.json");
 
@@ -1425,7 +1453,7 @@ TEST_F(GDataFileSystemTest, CopyFileToNonExistingDirectory) {
   EXPECT_FALSE(EntryExists(dest_file_path));
 }
 
-// Test the case where the parent of |dest_file_path| is a existing file,
+// Test the case where the parent of |dest_file_path| is an existing file,
 // not a directory.
 TEST_F(GDataFileSystemTest, CopyFileToInvalidPath) {
   FilePath src_file_path(FILE_PATH_LITERAL("drive/Document 1.gdoc"));
@@ -2415,13 +2443,46 @@ TEST_F(GDataFileSystemTest, ContentSearch) {
   EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
       .Times(1);
 
-  const SearchResultPair expected_results[] = {
+  const SearchResultPair kExpectedResults[] = {
     { "drive/Directory 1/SubDirectory File 1.txt", false },
     { "drive/Directory 1", true }
   };
 
   SearchCallback callback = base::Bind(&DriveSearchCallback,
-      &message_loop_, expected_results, 2u);
+      &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));
+
+  file_system_->Search("foo", callback);
+  message_loop_.Run();  // Wait to get our result.
+}
+
+TEST_F(GDataFileSystemTest, ContentSearchWithNewEntry) {
+  LoadRootFeedDocument("root_feed.json");
+
+  // Search result returning two entries "Directory 1/" and
+  // "Directory 1/SubDirectory Newly Added File.txt". The latter is not
+  // contained in the root feed.
+  mock_doc_service_->set_search_result(
+      "search_result_with_new_entry_feed.json");
+
+  EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
+      .Times(1);
+
+  // As the result of the first Search(), only entries in the current file
+  // system snapshot are expected to be returned.
+  const SearchResultPair kExpectedResults[] = {
+    { "drive/Directory 1", true }
+  };
+
+  // At the same time, unknown entry should trigger delta feed request.
+  // This will cause notification to observers (e.g., File Browser) so that
+  // they can request search again.
+  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "", _, _))
+      .Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+
+  SearchCallback callback = base::Bind(&DriveSearchCallback,
+      &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));
 
   file_system_->Search("foo", callback);
   message_loop_.Run();  // Wait to get our result.

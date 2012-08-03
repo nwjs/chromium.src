@@ -14,7 +14,7 @@ import build_server
 SERVER_PATH = sys.path[0]
 SRC_PATH = os.path.join(SERVER_PATH, os.pardir, os.pardir, os.pardir, os.pardir,
     os.pardir)
-FILENAMES = ['app.yaml', 'echo_handler.py']
+FILENAMES = ['app.yaml', 'appengine_main.py']
 
 def CleanUp(signal, frame):
   for filename in FILENAMES:
@@ -30,6 +30,5 @@ build_server.main()
 for filename in FILENAMES:
   shutil.copy(os.path.join(SERVER_PATH, filename),
       os.path.join(SRC_PATH, filename))
-args = sys.argv[1:]
-args.append(SRC_PATH)
+args = [sys.executable] + sys.argv[1:] + [SRC_PATH]
 subprocess.call(args)

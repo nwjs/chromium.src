@@ -11,7 +11,7 @@
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/native_network_constants.h"
 #include "chrome/browser/chromeos/cros/native_network_parser.h"
-#include "chrome/browser/chromeos/cros_settings.h"
+#include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
@@ -726,7 +726,7 @@ void NetworkLibraryImplCros::NetworkManagerUpdate(
   for (DictionaryValue::key_iterator iter = properties->begin_keys();
        iter != properties->end_keys(); ++iter) {
     const std::string& key = *iter;
-    Value* value;
+    const Value* value;
     bool res = properties->GetWithoutPathExpansion(key, &value);
     CHECK(res);
     if (!NetworkManagerStatusChanged(key, value)) {
@@ -839,11 +839,16 @@ void NetworkLibraryImplCros::UpdateNetworkServiceList(
             << " State = " << network->GetStateString()
             << " connecting = " << network->connecting()
             << " connection_started = " << network->connection_started();
+    WifiNetwork* wifi = NULL;
+    if (network->type() == TYPE_WIFI)
+      wifi = static_cast<WifiNetwork*>(network);
     if (network->failed() && network->notify_failure()) {
       // We have not notified observers of a connection failure yet.
       AddNetwork(network);
-    } else if (network->connecting() && network->connection_started()) {
-      // Network was in connecting state; set state to failed.
+    } else if (network->connecting() && network->connection_started() &&
+               !(wifi && wifi->hidden_ssid())) {
+      // Network was in connecting state; set state to failed, but not if it
+      // had a hidden SSID (since that won't appear in the scanning list).
       VLOG(2) << "Removed network was connecting: " << network->name();
       network->SetState(STATE_FAILURE);
       AddNetwork(network);
@@ -997,7 +1002,7 @@ void NetworkLibraryImplCros::UpdateProfile(
     return;
   }
   VLOG(1) << "UpdateProfile for path: " << profile_path;
-  ListValue* profile_entries(NULL);
+  const ListValue* profile_entries(NULL);
   properties->GetList(flimflam::kEntriesProperty, &profile_entries);
   if (!profile_entries) {
     LOG(ERROR) << "'Entries' property is missing.";

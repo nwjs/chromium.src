@@ -61,19 +61,8 @@ common_vars_defines() {
   # to canonicalize them (remove double '/', remove trailing '/', etc).
   DEFINES="OS=android"
   DEFINES+=" host_os=${host_os}"
-  DEFINES+=" linux_fpic=1"
-  DEFINES+=" release_optimize=s"
-  DEFINES+=" linux_use_tcmalloc=0"
-  DEFINES+=" disable_nacl=1"
-  DEFINES+=" remoting=0"
-  DEFINES+=" p2p_apis=0"
-  DEFINES+=" enable_touch_events=1"
-  DEFINES+=" build_ffmpegsumo=0"
 
-  DEFINES+=" gtest_target_type=shared_library"
-  if [ -z "$CHROME_ANDROID_OFFICIAL_BUILD" ]; then
-    DEFINES+=" branding=Chromium"
-  else
+  if [ -n "$CHROME_ANDROID_OFFICIAL_BUILD" ]; then
     DEFINES+=" branding=Chrome"
     DEFINES+=" buildtype=Official"
 
@@ -133,7 +122,7 @@ common_vars_defines() {
 ################################################################################
 common_gyp_vars() {
   export GYP_DEFINES="${DEFINES}"
-  export GYP_GENERATORS="make-android,ninja"
+  export GYP_GENERATORS="make-android"
 
   # Use our All target as the default
   export GYP_GENERATOR_FLAGS="${GYP_GENERATOR_FLAGS} default_target=All"
@@ -146,14 +135,16 @@ common_gyp_vars() {
 ################################################################################
 # Initializes environment variables for NDK/SDK build. Only Android NDK Revision
 # 7 on Linux or Mac is offically supported. To run this script, the system
-# environment ANDROID_NDK_ROOT must be set to Android NDK's root path as well as
-# ANDROID_SDK_ROOT to the SDK root.
+# environment ANDROID_NDK_ROOT must be set to Android NDK's root path.  The
+# ANDROID_SDK_ROOT only needs to be set to override the default SDK which is in
+# the tree under $ROOT/src/third_party/android_tools/sdk.
+# TODO(navabi): Add NDK to $ROOT/src/third_party/android_tools/ndk.
 # To build Chromium for Android with NDK/SDK follow the steps below:
 #  > export ANDROID_NDK_ROOT=<android ndk root>
-#  > export ANDROID_SDK_ROOT=<android sdk root>
+#  > export ANDROID_SDK_ROOT=<android sdk root> # to override the default sdk
 #  > . build/android/envsetup.sh --sdk
 #  > make
-#############################################################################
+################################################################################
 sdk_build_init() {
   if [ ! -d "${ANDROID_NDK_ROOT}" ]; then
     echo "ANDROID_NDK_ROOT must be set to the path of Android NDK." >& 2
@@ -162,11 +153,10 @@ sdk_build_init() {
     return 1
   fi
 
+  # If ANDROID_SDK_ROOT is set when envsetup is run, use the sdk pointed to by
+  # the environment variable.  Otherwise, use the default sdk from the tree.
   if [ ! -d "${ANDROID_SDK_ROOT}" ]; then
-    echo "ANDROID_SDK_ROOT must be set to the path of Android SDK." >& 2
-    echo "which could be installed by" >& 2
-    echo "<chromium_tree>/src/build/install-build-deps-android-sdk.sh" >& 2
-    return 1
+    export ANDROID_SDK_ROOT="${CHROME_SRC}/third_party/android_tools/sdk/"
   fi
 
   # Makes sure ANDROID_BUILD_TOP is unset if build has option --sdk
@@ -201,7 +191,10 @@ sdk_build_init() {
   DEFINES+=" android_static_lib='NOT_SDK_COMPLIANT'"
   DEFINES+=\
 " android_sdk=${ANDROID_SDK_ROOT}/platforms/android-${ANDROID_SDK_VERSION}"
+  DEFINES+=" android_sdk_root=${ANDROID_SDK_ROOT}"
   DEFINES+=" android_sdk_tools=${ANDROID_SDK_ROOT}/platform-tools"
+  DEFINES+=" android_sdk_version=${ANDROID_SDK_VERSION}"
+  DEFINES+=" android_toolchain=${ANDROID_TOOLCHAIN}"
 
   common_gyp_vars
 
@@ -255,7 +248,10 @@ ${ANDROID_SDK_VERSION}
   # The non-SDK build currently requires the SDK path to build the framework
   # Java aidl files. TODO(steveblock): Investigate avoiding this requirement.
   DEFINES+=" android_sdk=${ANDROID_SDK_ROOT}"
+  DEFINES+=" android_sdk_root=${ANDROID_SDK_ROOT}"
   DEFINES+=" android_sdk_tools=${ANDROID_SDK_ROOT}/../tools/linux"
+  DEFINES+=" android_sdk_version=${ANDROID_SDK_VERSION}"
+  DEFINES+=" android_toolchain=${ANDROID_TOOLCHAIN}"
 
   common_gyp_vars
 }
@@ -278,7 +274,10 @@ webview_build_init() {
   DEFINES+=" android_build_type=1"
   DEFINES+=" android_upstream_bringup=1"
   DEFINES+=" android_sdk=\$(GYP_ABS_ANDROID_TOP_DIR)/${ANDROID_SDK}"
+  DEFINES+=" android_sdk_root=${ANDROID_SDK_ROOT}"
   DEFINES+=" android_sdk_tools=\$(GYP_ABS_ANDROID_TOP_DIR)/${ANDROID_SDK_TOOLS}"
+  DEFINES+=" android_sdk_version=${ANDROID_SDK_VERSION}"
+  DEFINES+=" android_toolchain=${ANDROID_TOOLCHAIN}"
   export GYP_DEFINES="${DEFINES}"
 
   export GYP_GENERATORS="android"

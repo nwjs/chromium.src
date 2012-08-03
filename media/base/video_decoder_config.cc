@@ -4,8 +4,6 @@
 
 #include "media/base/video_decoder_config.h"
 
-#include <cmath>
-
 #include "base/logging.h"
 #include "base/metrics/histogram.h"
 
@@ -15,10 +13,6 @@ VideoDecoderConfig::VideoDecoderConfig()
     : codec_(kUnknownVideoCodec),
       profile_(VIDEO_CODEC_PROFILE_UNKNOWN),
       format_(VideoFrame::INVALID),
-      frame_rate_numerator_(0),
-      frame_rate_denominator_(0),
-      aspect_ratio_numerator_(0),
-      aspect_ratio_denominator_(0),
       extra_data_size_(0) {
 }
 
@@ -27,15 +21,10 @@ VideoDecoderConfig::VideoDecoderConfig(VideoCodec codec,
                                        VideoFrame::Format format,
                                        const gfx::Size& coded_size,
                                        const gfx::Rect& visible_rect,
-                                       int frame_rate_numerator,
-                                       int frame_rate_denominator,
-                                       int aspect_ratio_numerator,
-                                       int aspect_ratio_denominator,
+                                       const gfx::Size& natural_size,
                                        const uint8* extra_data,
                                        size_t extra_data_size) {
-  Initialize(codec, profile, format, coded_size, visible_rect,
-             frame_rate_numerator, frame_rate_denominator,
-             aspect_ratio_numerator, aspect_ratio_denominator,
+  Initialize(codec, profile, format, coded_size, visible_rect, natural_size,
              extra_data, extra_data_size, true);
 }
 
@@ -68,10 +57,7 @@ void VideoDecoderConfig::Initialize(VideoCodec codec,
                                     VideoFrame::Format format,
                                     const gfx::Size& coded_size,
                                     const gfx::Rect& visible_rect,
-                                    int frame_rate_numerator,
-                                    int frame_rate_denominator,
-                                    int aspect_ratio_numerator,
-                                    int aspect_ratio_denominator,
+                                    const gfx::Size& natural_size,
                                     const uint8* extra_data,
                                     size_t extra_data_size,
                                     bool record_stats) {
@@ -95,10 +81,7 @@ void VideoDecoderConfig::Initialize(VideoCodec codec,
   format_ = format;
   coded_size_ = coded_size;
   visible_rect_ = visible_rect;
-  frame_rate_numerator_ = frame_rate_numerator;
-  frame_rate_denominator_ = frame_rate_denominator;
-  aspect_ratio_numerator_ = aspect_ratio_numerator;
-  aspect_ratio_denominator_ = aspect_ratio_denominator;
+  natural_size_ = natural_size;
   extra_data_size_ = extra_data_size;
 
   if (extra_data_size_ > 0) {
@@ -107,22 +90,6 @@ void VideoDecoderConfig::Initialize(VideoCodec codec,
   } else {
     extra_data_.reset();
   }
-
-  // Calculate the natural size given the aspect ratio and visible rect.
-  if (aspect_ratio_denominator == 0) {
-    natural_size_.SetSize(0, 0);
-    return;
-  }
-
-  double aspect_ratio = aspect_ratio_numerator /
-      static_cast<double>(aspect_ratio_denominator);
-
-  int width = floor(visible_rect.width() * aspect_ratio + 0.5);
-  int height = visible_rect.height();
-
-  // An even width makes things easier for YV12 and appears to be the behavior
-  // expected by WebKit layout tests.
-  natural_size_.SetSize(width & ~1, height);
 }
 
 void VideoDecoderConfig::CopyFrom(const VideoDecoderConfig& video_config) {
@@ -131,10 +98,7 @@ void VideoDecoderConfig::CopyFrom(const VideoDecoderConfig& video_config) {
              video_config.format(),
              video_config.coded_size(),
              video_config.visible_rect(),
-             video_config.frame_rate_numerator(),
-             video_config.frame_rate_denominator(),
-             video_config.aspect_ratio_numerator(),
-             video_config.aspect_ratio_denominator(),
+             video_config.natural_size(),
              video_config.extra_data(),
              video_config.extra_data_size(),
              false);
@@ -142,11 +106,9 @@ void VideoDecoderConfig::CopyFrom(const VideoDecoderConfig& video_config) {
 
 bool VideoDecoderConfig::IsValidConfig() const {
   return codec_ != kUnknownVideoCodec &&
-      frame_rate_denominator_ > 0 &&
-      aspect_ratio_numerator_ > 0 &&
-      aspect_ratio_denominator_ > 0 &&
-      VideoFrame::IsValidConfig(
-          format_, natural_size_.width(), natural_size_.height());
+      natural_size_.width() > 0 &&
+      natural_size_.height() > 0 &&
+      VideoFrame::IsValidConfig(format_, visible_rect().size(), natural_size_);
 }
 
 bool VideoDecoderConfig::Matches(const VideoDecoderConfig& config) const {
@@ -172,11 +134,7 @@ std::string VideoDecoderConfig::AsHumanReadableString() const {
     << "," << visible_rect().width()
     << "," << visible_rect().height() << "]"
     << " natural size: [" << natural_size().width()
-    << "," << natural_size().height() << "]"
-    << " frame rate: " << frame_rate_numerator()
-    << "/" << frame_rate_denominator()
-    << " aspect ratio: " << aspect_ratio_numerator()
-    << "/" << aspect_ratio_denominator();
+    << "," << natural_size().height() << "]";
   return s.str();
 }
 
@@ -202,22 +160,6 @@ gfx::Rect VideoDecoderConfig::visible_rect() const {
 
 gfx::Size VideoDecoderConfig::natural_size() const {
   return natural_size_;
-}
-
-int VideoDecoderConfig::frame_rate_numerator() const {
-  return frame_rate_numerator_;
-}
-
-int VideoDecoderConfig::frame_rate_denominator() const {
-  return frame_rate_denominator_;
-}
-
-int VideoDecoderConfig::aspect_ratio_numerator() const {
-  return aspect_ratio_numerator_;
-}
-
-int VideoDecoderConfig::aspect_ratio_denominator() const {
-  return aspect_ratio_denominator_;
 }
 
 uint8* VideoDecoderConfig::extra_data() const {

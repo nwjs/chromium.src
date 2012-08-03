@@ -2824,6 +2824,22 @@ int SSLClientSocketNSS::ExportKeyingMaterial(const base::StringPiece& label,
   return OK;
 }
 
+int SSLClientSocketNSS::GetTLSUniqueChannelBinding(std::string* out) {
+  if (!IsConnected())
+    return ERR_SOCKET_NOT_CONNECTED;
+  unsigned char buf[64];
+  unsigned int len;
+  SECStatus result = SSL_GetChannelBinding(nss_fd_,
+                                           SSL_CHANNEL_BINDING_TLS_UNIQUE,
+                                           buf, &len, arraysize(buf));
+  if (result != SECSuccess) {
+    LogFailedNSSFunction(net_log_, "SSL_GetChannelBinding", "");
+    return MapNSSError(PORT_GetError());
+  }
+  out->assign(reinterpret_cast<char*>(buf), len);
+  return OK;
+}
+
 SSLClientSocket::NextProtoStatus
 SSLClientSocketNSS::GetNextProto(std::string* proto,
                                  std::string* server_protos) {
@@ -3107,17 +3123,6 @@ int SSLClientSocketNSS::InitializeSSLOptions() {
   }
 #else
   #error "You need to install NSS-3.12 or later to build chromium"
-#endif
-
-#ifdef SSL_ENABLE_DEFLATE
-  // Some web servers have been found to break if TLS is used *or* if DEFLATE
-  // is advertised. Thus, if TLS is disabled (probably because we are doing
-  // SSLv3 fallback), we disable DEFLATE also.
-  // See http://crbug.com/31628
-  rv = SSL_OptionSet(nss_fd_, SSL_ENABLE_DEFLATE,
-                     ssl_config_.version_max >= SSL_PROTOCOL_VERSION_TLS1);
-  if (rv != SECSuccess)
-    LogFailedNSSFunction(net_log_, "SSL_OptionSet", "SSL_ENABLE_DEFLATE");
 #endif
 
 #ifdef SSL_ENABLE_FALSE_START

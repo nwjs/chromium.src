@@ -31,6 +31,7 @@
 #include "ppapi/c/pp_resource.h"
 #include "ppapi/c/pp_size.h"
 #include "ppapi/c/pp_time.h"
+#include "ppapi/c/private/ppb_flash.h"
 #include "ppapi/c/private/ppb_host_resolver_private.h"
 #include "ppapi/c/private/ppb_net_address_private.h"
 #include "ppapi/c/private/ppb_tcp_socket_private.h"
@@ -58,6 +59,7 @@
 IPC_ENUM_TRAITS(PP_DeviceType_Dev)
 IPC_ENUM_TRAITS(PP_Flash_BrowserOperations_Permission)
 IPC_ENUM_TRAITS(PP_Flash_BrowserOperations_SettingType)
+IPC_ENUM_TRAITS(PP_FlashSetting)
 IPC_ENUM_TRAITS(PP_InputEvent_MouseButton)
 IPC_ENUM_TRAITS(PP_InputEvent_Type)
 IPC_ENUM_TRAITS(PP_NetAddressFamily_Private)
@@ -289,15 +291,27 @@ IPC_SYNC_MESSAGE_CONTROL1_1(PpapiMsg_SupportsInterface,
 IPC_MESSAGE_CONTROL1(PpapiMsg_SetNetworkState,
                      bool /* online */)
 
+// Requests a list of sites that have data stored from the plugin. The plugin
+// process will respond with PpapiHostMsg_GetSitesWithDataResult. This is used
+// for Flash.
+IPC_MESSAGE_CONTROL2(PpapiMsg_GetSitesWithData,
+                     uint32 /* request_id */,
+                     FilePath /* plugin_data_path */)
+IPC_MESSAGE_CONTROL2(PpapiHostMsg_GetSitesWithDataResult,
+                     uint32 /* request_id */,
+                     std::vector<std::string> /* sites */)
+
 // Instructs the plugin to clear data for the given site & time. The plugin
 // process will respond with PpapiHostMsg_ClearSiteDataResult. This is used
 // for Flash.
-IPC_MESSAGE_CONTROL4(PpapiMsg_ClearSiteData,
+IPC_MESSAGE_CONTROL5(PpapiMsg_ClearSiteData,
+                     uint32 /* request_id */,
                      FilePath /* plugin_data_path */,
                      std::string /* site */,
                      uint64 /* flags */,
                      uint64 /* max_age */)
-IPC_MESSAGE_CONTROL1(PpapiHostMsg_ClearSiteDataResult,
+IPC_MESSAGE_CONTROL2(PpapiHostMsg_ClearSiteDataResult,
+                     uint32 /* request_id */,
                      bool /* success */)
 
 IPC_MESSAGE_CONTROL2(PpapiMsg_DeauthorizeContentLicenses,
@@ -1292,6 +1306,10 @@ IPC_SYNC_MESSAGE_ROUTED2_2(PpapiHostMsg_PPBFlash_QueryFileRef,
                            ppapi::HostResource /* file_ref */,
                            PP_FileInfo /* info */,
                            int32_t /* result */)
+IPC_SYNC_MESSAGE_ROUTED2_1(PpapiHostMsg_PPBFlash_GetSetting,
+                           PP_Instance /* instance */,
+                           PP_FlashSetting /* setting */,
+                           ppapi::proxy::SerializedVar /* result */)
 IPC_MESSAGE_ROUTED1(PpapiHostMsg_PPBFlash_InvokePrinting,
                     PP_Instance /* instance */)
 

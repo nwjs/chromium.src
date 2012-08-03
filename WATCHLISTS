@@ -179,6 +179,9 @@
     'installer': {
       'filepath': 'chrome/installer/',
     },
+    'instant': {
+      'filepath': 'instant|searchbox',
+    },
     'ipc': {
       'filepath': 'ipc/ipc',
     },
@@ -203,7 +206,7 @@
     },
     'media': {
       'filepath': 'media/|third_party/(ffmpeg|openmax)/|webmediaplayer|'\
-        'audio_message_filter|video_layer',
+        'audio_message_filter|video_layer|media_internals',
     },
     'message_loop': {
       'filepath': 'base/message_'
@@ -462,6 +465,9 @@
     'imageburner': ['achuith+watch@chromium.org', 'tbarzic+watch@chromium.org'],
     'importer': ['tfarina@chromium.org'],
     'installer': ['grt+watch@chromium.org'],
+    'instant': ['sreeram@chromium.org', 'gideonwald@chromium.org',
+                'dcblack@chromium.org', 'jered@chromium.org',
+                'shishir@chromium.org', 'dominich@chromium.org'],
     'ipc': ['jam@chromium.org', 'darin-cc@chromium.org'],
     'labs': ['thakis@chromium.org'],
     'linux-sandboxing': ['agl@chromium.org', 'jln+watch@chromium.org'],

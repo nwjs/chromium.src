@@ -5,6 +5,7 @@
 #include "media/ffmpeg/ffmpeg_common.h"
 
 #include "base/logging.h"
+#include "media/base/video_util.h"
 
 namespace media {
 
@@ -250,14 +251,12 @@ void AVStreamToVideoDecoderConfig(
   VideoCodec codec = CodecIDToVideoCodec(stream->codec->codec_id);
   VideoCodecProfile profile = (codec == kCodecVP8) ? VP8PROFILE_MAIN :
       ProfileIDToVideoCodecProfile(stream->codec->profile);
+  gfx::Size natural_size = GetNaturalSize(
+      visible_rect.size(), aspect_ratio.num, aspect_ratio.den);
   config->Initialize(codec,
                      profile,
                      PixelFormatToVideoFormat(stream->codec->pix_fmt),
-                     coded_size, visible_rect,
-                     stream->r_frame_rate.num,
-                     stream->r_frame_rate.den,
-                     aspect_ratio.num,
-                     aspect_ratio.den,
+                     coded_size, visible_rect, natural_size,
                      stream->codec->extradata,
                      stream->codec->extradata_size,
                      true);
@@ -354,14 +353,6 @@ PixelFormat VideoFormatToPixelFormat(VideoFrame::Format video_format) {
       DVLOG(1) << "Unsupported VideoFrame::Format: " << video_format;
   }
   return PIX_FMT_NONE;
-}
-
-base::TimeDelta GetFrameDuration(const VideoDecoderConfig& config) {
-  AVRational time_base = {
-    config.frame_rate_denominator(),
-    config.frame_rate_numerator()
-  };
-  return ConvertFromTimeBase(time_base, 1);
 }
 
 void DestroyAVFormatContext(AVFormatContext* format_context) {

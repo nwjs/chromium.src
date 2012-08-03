@@ -418,16 +418,7 @@ class LocalGestureEvent :
     data().deltaX = details.generic_x();
     data().deltaY = details.generic_y();
     data().type = ConvertToWebInputEvent(type_);
-
-    // WebKit gesture events do not have bounding-boxes yet, and expect the data
-    // in deltaX/deltaY instead (and instead of bounding box, WebKit expects the
-    // radius). This is currently used only for tap events. So special case this
-    // particular case.
-    // http://crbug.com/138572
-    if (type_ == ui::ET_GESTURE_TAP) {
-      data().deltaX = details.bounding_box().width() / 2;
-      data().deltaY = details.bounding_box().height() / 2;
-    }
+    data().boundingBox = details.bounding_box();
   }
 
   virtual int GetLowestTouchId() const OVERRIDE {
@@ -686,7 +677,7 @@ RenderWidgetHost* RenderWidgetHostViewWin::GetRenderWidgetHost() const {
   return render_widget_host_;
 }
 
-void RenderWidgetHostViewWin::WasRestored() {
+void RenderWidgetHostViewWin::WasShown() {
   if (!is_hidden_)
     return;
 
@@ -697,7 +688,7 @@ void RenderWidgetHostViewWin::WasRestored() {
   // |render_widget_host_| may be NULL if the WebContentsImpl is in the process
   // of closing.
   if (render_widget_host_)
-    render_widget_host_->WasRestored();
+    render_widget_host_->WasShown();
 }
 
 void RenderWidgetHostViewWin::WasHidden() {
@@ -963,7 +954,7 @@ bool RenderWidgetHostViewWin::IsSurfaceAvailableForCopy() const {
 
 void RenderWidgetHostViewWin::Show() {
   ShowWindow(SW_SHOW);
-  WasRestored();
+  WasShown();
 }
 
 void RenderWidgetHostViewWin::Hide() {
@@ -1199,13 +1190,6 @@ void RenderWidgetHostViewWin::CopyFromCompositingSurface(
     const base::Callback<void(bool)>& callback,
     skia::PlatformCanvas* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
-  // TODO(mazda): Support copying a partial rectangle from the compositing
-  // surface with |src_subrect| (http://crbug.com/118571).
-  if (!src_subrect.IsEmpty()) {
-    NOTIMPLEMENTED();
-    return;
-  }
-
   if (!accelerated_surface_.get())
     return;
 
@@ -1216,7 +1200,9 @@ void RenderWidgetHostViewWin::CopyFromCompositingSurface(
     return;
 
   const bool result = accelerated_surface_->CopyTo(
-      dst_size, output->getTopDevice()->accessBitmap(true).getPixels());
+      src_subrect,
+      dst_size,
+      output->getTopDevice()->accessBitmap(true).getPixels());
   scoped_callback_runner.Release();
   callback.Run(result);
 }

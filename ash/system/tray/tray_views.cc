@@ -29,15 +29,15 @@ const int kIconPaddingLeft = 5;
 const int kPaddingAroundButtons = 5;
 
 const int kBarImagesActive[] = {
-  IDR_AURA_UBER_TRAY_BAR_BUTTON_ACTIVE_LEFT,
-  IDR_AURA_UBER_TRAY_BAR_BUTTON_ACTIVE_CENTER,
-  IDR_AURA_UBER_TRAY_BAR_BUTTON_ACTIVE_RIGHT,
+    IDR_SLIDER_ACTIVE_LEFT,
+    IDR_SLIDER_ACTIVE_CENTER,
+    IDR_SLIDER_ACTIVE_RIGHT,
 };
 
 const int kBarImagesDisabled[] = {
-  IDR_AURA_UBER_TRAY_BAR_BUTTON_DISABLED_LEFT,
-  IDR_AURA_UBER_TRAY_BAR_BUTTON_DISABLED_CENTER,
-  IDR_AURA_UBER_TRAY_BAR_BUTTON_DISABLED_RIGHT,
+    IDR_SLIDER_DISABLED_LEFT,
+    IDR_SLIDER_DISABLED_CENTER,
+    IDR_SLIDER_DISABLED_RIGHT,
 };
 
 views::View* CreatePopupHeaderButtonsContainer() {
@@ -404,7 +404,8 @@ TrayPopupHeaderButton::TrayPopupHeaderButton(views::ButtonListener* listener,
                                              int enabled_resource_id,
                                              int disabled_resource_id,
                                              int enabled_resource_id_hover,
-                                             int disabled_resource_id_hover)
+                                             int disabled_resource_id_hover,
+                                             int accessible_name_id)
     : views::ToggleImageButton(listener) {
   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
   SetImage(views::CustomButton::BS_NORMAL,
@@ -417,6 +418,7 @@ TrayPopupHeaderButton::TrayPopupHeaderButton(views::ButtonListener* listener,
       bundle.GetImageNamed(disabled_resource_id_hover).ToImageSkia());
   SetImageAlignment(views::ImageButton::ALIGN_CENTER,
                     views::ImageButton::ALIGN_MIDDLE);
+  SetAccessibleName(bundle.GetLocalizedString(accessible_name_id));
   set_focusable(true);
   set_request_focus_on_press(false);
 }

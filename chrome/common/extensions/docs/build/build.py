@@ -27,8 +27,12 @@ _extension_api_dir = os.path.normpath(_base_dir + "/../api")
 
 _extension_api_json_schemas = glob.glob(_extension_api_dir +
                                         '/[a-zA-Z0-9]*.json')
+_extension_api_json_schemas += glob.glob(_extension_api_dir +
+                                         '/*/[a-zA-Z0-9]*.json')
 _extension_api_idl_schemas = glob.glob(_extension_api_dir +
                                        '/[a-zA-Z0-9]*.idl')
+_extension_api_idl_schemas += glob.glob(_extension_api_dir +
+                                        '/*/[a-zA-Z0-9]*.idl')
 _api_template_html = _template_dir + "/api_template.html"
 _page_shell_html = _template_dir + "/page_shell.html"
 _generator_html = _build_dir + "/generator.html"
@@ -80,7 +84,7 @@ def RenderPages(family, dump_render_tree, single_page_name):
   print generator_url
 
   # Run DumpRenderTree and capture result
-  p = Popen([dump_render_tree, generator_url], stdout=PIPE)
+  p = Popen([dump_render_tree, "--no-timeout", generator_url], stdout=PIPE)
 
   # The remaining output will be the content of the generated pages.
   output = p.stdout.read()

@@ -18,6 +18,7 @@
 #include "media/base/test_data_util.h"
 #include "media/base/video_decoder.h"
 #include "media/base/video_frame.h"
+#include "media/base/video_util.h"
 #include "media/ffmpeg/ffmpeg_common.h"
 #include "media/filters/ffmpeg_decoder_unittest.h"
 #include "media/filters/ffmpeg_glue.h"
@@ -36,8 +37,7 @@ namespace media {
 static const VideoFrame::Format kVideoFormat = VideoFrame::YV12;
 static const gfx::Size kCodedSize(320, 240);
 static const gfx::Rect kVisibleRect(320, 240);
-static const AVRational kFrameRate = { 100, 1 };
-static const AVRational kAspectRatio = { 1, 1 };
+static const gfx::Size kNaturalSize(320, 240);
 static const uint8 kFakeKeyId[] = { 0x4b, 0x65, 0x79, 0x20, 0x49, 0x44 };
 static const uint8 kFakeIv[DecryptConfig::kDecryptionKeySize] = { 0 };
 static const uint8 kFakeCheckSum[] = { 0, 0 };
@@ -88,9 +88,7 @@ class FFmpegVideoDecoderTest : public testing::Test {
     encrypted_i_frame_buffer_ = CreateFakeEncryptedBuffer();
 
     config_.Initialize(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN,
-                       kVideoFormat, kCodedSize, kVisibleRect,
-                       kFrameRate.num, kFrameRate.den,
-                       kAspectRatio.num, kAspectRatio.den,
+                       kVideoFormat, kCodedSize, kVisibleRect, kNaturalSize,
                        NULL, 0, true);
   }
 
@@ -103,7 +101,7 @@ class FFmpegVideoDecoderTest : public testing::Test {
   void InitializeWithConfigAndStatus(const VideoDecoderConfig& config,
                                      PipelineStatus status) {
     EXPECT_CALL(*demuxer_, video_decoder_config())
-        .WillOnce(ReturnRef(config));
+        .WillRepeatedly(ReturnRef(config));
 
     decoder_->Initialize(demuxer_, NewExpectedStatusCB(status),
                          base::Bind(&MockStatisticsCB::OnStatistics,
@@ -169,8 +167,8 @@ class FFmpegVideoDecoderTest : public testing::Test {
   // the file named |test_file_name|. This function expects both buffers
   // to decode to frames that are the same size.
   void DecodeIFrameThenTestFile(const std::string& test_file_name,
-                                size_t expected_width,
-                                size_t expected_height) {
+                                int expected_width,
+                                int expected_height) {
     Initialize();
 
     VideoDecoder::DecoderStatus status_a;
@@ -191,17 +189,15 @@ class FFmpegVideoDecoderTest : public testing::Test {
     Read(&status_a, &video_frame_a);
     Read(&status_b, &video_frame_b);
 
-    size_t original_width = static_cast<size_t>(kVisibleRect.width());
-    size_t original_height = static_cast<size_t>(kVisibleRect.height());
-
+    gfx::Size original_size = kVisibleRect.size();
     EXPECT_EQ(status_a, VideoDecoder::kOk);
     EXPECT_EQ(status_b, VideoDecoder::kOk);
     ASSERT_TRUE(video_frame_a);
     ASSERT_TRUE(video_frame_b);
-    EXPECT_EQ(original_width, video_frame_a->width());
-    EXPECT_EQ(original_height, video_frame_a->height());
-    EXPECT_EQ(expected_width, video_frame_b->width());
-    EXPECT_EQ(expected_height, video_frame_b->height());
+    EXPECT_EQ(original_size.width(), video_frame_a->data_size().width());
+    EXPECT_EQ(original_size.height(), video_frame_a->data_size().height());
+    EXPECT_EQ(expected_width, video_frame_b->data_size().width());
+    EXPECT_EQ(expected_height, video_frame_b->data_size().height());
   }
 
   void Read(VideoDecoder::DecoderStatus* status,
@@ -248,9 +244,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_UnsupportedDecoder) {
   // Test avcodec_find_decoder() returning NULL.
   VideoDecoderConfig config(kUnknownVideoCodec, VIDEO_CODEC_PROFILE_UNKNOWN,
                             kVideoFormat,
-                            kCodedSize, kVisibleRect,
-                            kFrameRate.num, kFrameRate.den,
-                            kAspectRatio.num, kAspectRatio.den,
+                            kCodedSize, kVisibleRect, kNaturalSize,
                             NULL, 0);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
@@ -259,9 +253,7 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_UnsupportedPixelFormat) {
   // Ensure decoder handles unsupport pixel formats without crashing.
   VideoDecoderConfig config(kCodecVP8, VIDEO_CODEC_PROFILE_UNKNOWN,
                             VideoFrame::INVALID,
-                            kCodedSize, kVisibleRect,
-                            kFrameRate.num, kFrameRate.den,
-                            kAspectRatio.num, kAspectRatio.den,
+                            kCodedSize, kVisibleRect, kNaturalSize,
                             NULL, 0);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }
@@ -270,9 +262,64 @@ TEST_F(FFmpegVideoDecoderTest, Initialize_OpenDecoderFails) {
   // Specify Theora w/o extra data so that avcodec_open2() fails.
   VideoDecoderConfig config(kCodecTheora, VIDEO_CODEC_PROFILE_UNKNOWN,
                             kVideoFormat,
-                            kCodedSize, kVisibleRect,
-                            kFrameRate.num, kFrameRate.den,
-                            kAspectRatio.num, kAspectRatio.den,
+                            kCodedSize, kVisibleRect, kNaturalSize,
+                            NULL, 0);
+  InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
+}
+
+TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioNumeratorZero) {
+  gfx::Size natural_size = GetNaturalSize(kVisibleRect.size(), 0, 1);
+  VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
+                            kVideoFormat,
+                            kCodedSize, kVisibleRect, natural_size,
+                            NULL, 0);
+  InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
+}
+
+TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioDenominatorZero) {
+  gfx::Size natural_size = GetNaturalSize(kVisibleRect.size(), 1, 0);
+  VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
+                            kVideoFormat,
+                            kCodedSize, kVisibleRect, natural_size,
+                            NULL, 0);
+  InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
+}
+
+TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioNumeratorNegative) {
+  gfx::Size natural_size = GetNaturalSize(kVisibleRect.size(), -1, 1);
+  VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
+                            kVideoFormat,
+                            kCodedSize, kVisibleRect, natural_size,
+                            NULL, 0);
+  InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
+}
+
+TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioDenominatorNegative) {
+  gfx::Size natural_size = GetNaturalSize(kVisibleRect.size(), 1, -1);
+  VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
+                            kVideoFormat,
+                            kCodedSize, kVisibleRect, natural_size,
+                            NULL, 0);
+  InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
+}
+
+TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioNumeratorTooLarge) {
+  int width = kVisibleRect.size().width();
+  int num = ceil(static_cast<double>(limits::kMaxDimension + 1) / width);
+  gfx::Size natural_size = GetNaturalSize(kVisibleRect.size(), num, 1);
+  VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
+                            kVideoFormat,
+                            kCodedSize, kVisibleRect, natural_size,
+                            NULL, 0);
+  InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
+}
+
+TEST_F(FFmpegVideoDecoderTest, Initialize_AspectRatioDenominatorTooLarge) {
+  int den = kVisibleRect.size().width() + 1;
+  gfx::Size natural_size = GetNaturalSize(kVisibleRect.size(), 1, den);
+  VideoDecoderConfig config(kCodecVP8, VP8PROFILE_MAIN,
+                            kVideoFormat,
+                            kCodedSize, kVisibleRect, natural_size,
                             NULL, 0);
   InitializeWithConfigAndStatus(config, PIPELINE_ERROR_DECODE);
 }

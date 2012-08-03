@@ -6,12 +6,12 @@
 //     WebKit::WebAudioSourceProvider <---> media::AudioRendererSink
 //
 // RenderAudioSourceProvider is a "sink" of audio, and uses a default
-// AudioDevice if a client has not explicitly been set.
+// AudioOutputDevice if a client has not explicitly been set.
 //
 // WebKit optionally sets a client, and then periodically calls provideInput()
 // to render a certain number of audio sample-frames.  provideInput()
 // uses the renderer to get this data, and then massages it into the form
-// required by provideInput().  In this case, the default AudioDevice
+// required by provideInput().  In this case, the default AudioOutputDevice
 // is no longer used.
 //
 // THREAD SAFETY:
@@ -56,7 +56,6 @@ class RenderAudioSourceProvider
   virtual void Stop() OVERRIDE;
   virtual void Play() OVERRIDE;
   virtual void Pause(bool flush) OVERRIDE;
-  virtual void SetPlaybackRate(float rate) OVERRIDE;
   virtual bool SetVolume(double volume) OVERRIDE;
   virtual void Initialize(const media::AudioParameters& params,
                           RenderCallback* renderer) OVERRIDE;

@@ -48,6 +48,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #import "ui/base/cocoa/fullscreen_window_manager.h"
 #import "ui/base/cocoa/underlay_opengl_hosting_window.h"
+#include "ui/base/layout.h"
 #include "ui/gfx/point.h"
 #include "ui/gfx/scoped_ns_graphics_context_save_gstate_mac.h"
 #include "ui/surface/io_surface_support_mac.h"
@@ -72,10 +73,6 @@ using WebKit::WebGestureEvent;
 + (id)addLocalMonitorForEventsMatchingMask:(NSEventMask)mask
                                    handler:(NSEvent* (^)(NSEvent*))block;
 + (void)removeMonitor:(id)eventMonitor;
-@end
-
-@interface NSScreen (LionAPI)
-- (CGFloat)backingScaleFactor;
 @end
 
 @interface NSWindow (LionAPI)
@@ -110,17 +107,7 @@ static inline int ToWebKitModifiers(NSUInteger flags) {
 }
 
 static float ScaleFactor(NSView* view) {
-  if (NSWindow* window = [view window]) {
-    if ([window respondsToSelector:@selector(backingScaleFactor)])
-      return [window backingScaleFactor];
-    return [window userSpaceScaleFactor];
-  }
-  if (NSScreen* screen = [NSScreen mainScreen]) {
-    if ([screen respondsToSelector:@selector(backingScaleFactor)])
-      return [screen backingScaleFactor];
-    return [screen userSpaceScaleFactor];
-  }
-  return 1;
+  return ui::GetScaleFactorScale(ui::GetScaleFactorForNativeView(view));
 }
 
 // Private methods:
@@ -377,7 +364,7 @@ RenderWidgetHost* RenderWidgetHostViewMac::GetRenderWidgetHost() const {
   return render_widget_host_;
 }
 
-void RenderWidgetHostViewMac::WasRestored() {
+void RenderWidgetHostViewMac::WasShown() {
   if (!is_hidden_)
     return;
 
@@ -388,7 +375,7 @@ void RenderWidgetHostViewMac::WasRestored() {
   if (web_contents_switch_paint_time_.is_null())
     web_contents_switch_paint_time_ = base::TimeTicks::Now();
   is_hidden_ = false;
-  render_widget_host_->WasRestored();
+  render_widget_host_->WasShown();
 
   // We're messing with the window, so do this to ensure no flashes.
   [[cocoa_view_ window] disableScreenUpdatesUntilFlush];
@@ -557,7 +544,7 @@ bool RenderWidgetHostViewMac::IsSurfaceAvailableForCopy() const {
 void RenderWidgetHostViewMac::Show() {
   [cocoa_view_ setHidden:NO];
 
-  WasRestored();
+  WasShown();
 }
 
 void RenderWidgetHostViewMac::Hide() {
@@ -832,10 +819,14 @@ void RenderWidgetHostViewMac::CopyFromCompositingSurface(
       dst_pixel_size.width(), dst_pixel_size.height(), true))
     return;
 
-  gfx::Rect src_pixel_subrect(src_subrect.origin().Scale(scale),
-                              src_subrect.size().Scale(scale));
+  // Convert |src_subrect| from the views coordinate (upper-left origin) into
+  // the OpenGL coordinate (lower-left origin).
+  gfx::Rect src_gl_subrect = src_subrect;
+  src_gl_subrect.set_y(GetViewBounds().height() - src_subrect.bottom());
+
+  gfx::Rect src_pixel_gl_subrect = src_gl_subrect.Scale(scale);
   const bool result = compositing_iosurface_->CopyTo(
-      src_pixel_subrect,
+      src_pixel_gl_subrect,
       dst_pixel_size,
       output->getTopDevice()->accessBitmap(true).getPixels());
   scoped_callback_runner.Release();
@@ -2057,7 +2048,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
       doubleValue];
   if (newBackingScaleFactor != oldBackingScaleFactor) {
     // Background tabs check if their scale factor changed when they become
-    // active, in WasRestored().
+    // active, in WasShown().
 
     // Allocating a CGLayerRef with the current scale factor immediately from
     // this handler doesn't work. Schedule the backing store update on the
@@ -2812,9 +2803,8 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
   // flip the coordinate system and then convert it into screen coordinates for
   // return.
   NSRect viewFrame = [self frame];
-  rect.origin.y = NSHeight(viewFrame) - rect.origin.y;
-  rect.origin.y -= rect.size.height;
-  rect = [self convertRectToBase:rect];
+  rect.origin.y = NSHeight(viewFrame) - NSMaxY(rect);
+  rect = [self convertRect:rect toView:nil];
   rect.origin = [[self window] convertBaseToScreen:rect.origin];
   return rect;
 }
@@ -2997,8 +2987,8 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
     if (newWindow) {
       // If we move into a new window, refresh the frame information. We
       // don't need to do it if it was the same window as it used to be in,
-      // since that case is covered by WasRestored(). We only want to
-      // do this for real browser views, not popups.
+      // since that case is covered by WasShown(). We only want to do this for
+      // real browser views, not popups.
       if (newWindow != lastWindow_) {
         lastWindow_ = newWindow;
         renderWidgetHostView_->WindowFrameChanged();

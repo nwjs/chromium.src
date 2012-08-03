@@ -19,6 +19,7 @@
 #include "chrome/common/extensions/api/generated_schemas.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/features/simple_feature_provider.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "googleurl/src/gurl.h"
 #include "grit/common_resources.h"
 #include "grit/extensions_api_resources.h"
@@ -50,8 +51,8 @@ bool IsUnprivileged(const DictionaryValue* dict) {
 // children with an { "unprivileged": true } property.
 bool HasUnprivilegedChild(const DictionaryValue* name_space_node,
                           const std::string& child_kind) {
-  ListValue* child_list = NULL;
-  DictionaryValue* child_dict = NULL;
+  const ListValue* child_list = NULL;
+  const DictionaryValue* child_dict = NULL;
 
   if (name_space_node->GetList(child_kind, &child_list)) {
     for (size_t i = 0; i < child_list->GetSize(); ++i) {
@@ -119,7 +120,7 @@ const DictionaryValue* GetSchemaChild(const DictionaryValue* schema_node,
                                       const std::string& child_name) {
   DictionaryValue* child_node = NULL;
   for (size_t i = 0; i < arraysize(kChildKinds); ++i) {
-    ListValue* list_node = NULL;
+    const ListValue* list_node = NULL;
     if (!schema_node->GetList(kChildKinds[i], &list_node))
       continue;
     child_node = FindListItem(list_node, "name", child_name);
@@ -349,10 +350,10 @@ void ExtensionAPI::InitDefaultConfiguration() {
       IDR_EXTENSION_API_JSON_BROWSERACTION));
   RegisterSchema("browsingData", ReadFromResource(
       IDR_EXTENSION_API_JSON_BROWSINGDATA));
-  RegisterSchema("chromeAuthPrivate", ReadFromResource(
-      IDR_EXTENSION_API_JSON_CHROMEAUTHPRIVATE));
   RegisterSchema("chromeosInfoPrivate", ReadFromResource(
       IDR_EXTENSION_API_JSON_CHROMEOSINFOPRIVATE));
+  RegisterSchema("cloudPrintPrivate", ReadFromResource(
+      IDR_EXTENSION_API_JSON_CLOUDPRINTPRIVATE));
   RegisterSchema("contentSettings", ReadFromResource(
       IDR_EXTENSION_API_JSON_CONTENTSETTINGS));
   RegisterSchema("contextMenus", ReadFromResource(
@@ -373,12 +374,12 @@ void ExtensionAPI::InitDefaultConfiguration() {
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_APP));
   RegisterSchema("experimental.bookmarkManager", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_BOOKMARKMANAGER));
+  RegisterSchema("experimental.commands", ReadFromResource(
+      IDR_EXTENSION_API_JSON_EXPERIMENTAL_COMMANDS));
   RegisterSchema("experimental.infobars", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_INFOBARS));
   RegisterSchema("experimental.input.virtualKeyboard", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_INPUT_VIRTUALKEYBOARD));
-  RegisterSchema("experimental.keybinding", ReadFromResource(
-      IDR_EXTENSION_API_JSON_EXPERIMENTAL_KEYBINDING));
   RegisterSchema("experimental.offscreenTabs", ReadFromResource(
       IDR_EXTENSION_API_JSON_EXPERIMENTAL_OFFSCREENTABS));
   RegisterSchema("experimental.processes", ReadFromResource(
@@ -798,7 +799,7 @@ void ExtensionAPI::GetMissingDependencies(
   const DictionaryValue* schema = GetSchema(feature_name);
   CHECK(schema) << "Schema for " << feature_name << " not found";
 
-  ListValue* dependencies = NULL;
+  const ListValue* dependencies = NULL;
   if (!schema->GetList("dependencies", &dependencies))
     return;
 

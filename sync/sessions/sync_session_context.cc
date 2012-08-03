@@ -17,24 +17,24 @@ const unsigned int kMaxMessageSizeToRecord = 5 * 1024;
 SyncSessionContext::SyncSessionContext(
     ServerConnectionManager* connection_manager,
     syncable::Directory* directory,
-    const ModelSafeRoutingInfo& model_safe_routing_info,
     const std::vector<ModelSafeWorker*>& workers,
     ExtensionsActivityMonitor* extensions_activity_monitor,
     ThrottledDataTypeTracker* throttled_data_type_tracker,
     const std::vector<SyncEngineEventListener*>& listeners,
     DebugInfoGetter* debug_info_getter,
-    TrafficRecorder* traffic_recorder)
+    TrafficRecorder* traffic_recorder,
+    bool keystore_encryption_enabled)
     : resolver_(NULL),
       connection_manager_(connection_manager),
       directory_(directory),
-      routing_info_(model_safe_routing_info),
       workers_(workers),
       extensions_activity_monitor_(extensions_activity_monitor),
       notifications_enabled_(false),
       max_commit_batch_size_(kDefaultMaxCommitBatchSize),
       throttled_data_type_tracker_(throttled_data_type_tracker),
       debug_info_getter_(debug_info_getter),
-      traffic_recorder_(traffic_recorder) {
+      traffic_recorder_(traffic_recorder),
+      keystore_encryption_enabled_(keystore_encryption_enabled) {
   std::vector<SyncEngineEventListener*>::const_iterator it;
   for (it = listeners.begin(); it != listeners.end(); ++it)
     listeners_.AddObserver(*it);

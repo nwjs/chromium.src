@@ -64,8 +64,6 @@ std::string EscapeAmpersands(const std::string& input) {
 // Activate a cellular network.
 void ActivateCellular(const chromeos::CellularNetwork* cellular) {
   DCHECK(cellular);
-  if (!chromeos::UserManager::Get()->IsSessionStarted())
-    return;
 
   ash::Shell::GetInstance()->delegate()->OpenMobileSetup(
       cellular->service_path());
@@ -590,7 +588,7 @@ void MainMenuModel::InitMenuItems(bool should_open_button_options) {
       chromeos::ActivationState activation_state =
           cell_networks[i]->activation_state();
 
-      // This is currently only used in the OOBE/login screen, do not show
+      // This is currently only used in the OOBE screen, do not show
       // activating 3G option.
       if (activation_state != ACTIVATION_STATE_ACTIVATED)
         continue;
@@ -982,6 +980,13 @@ void NetworkMenu::DoConnect(Network* network) {
       cros->ConnectToWimaxNetwork(wimax);
       // Connection failures are responsible for updating the UI, including
       // reopening dialogs.
+    }
+  } else if (network->type() == TYPE_CELLULAR) {
+    CellularNetwork* cellular = static_cast<CellularNetwork*>(network);
+    if (cellular->activation_state() != ACTIVATION_STATE_ACTIVATED) {
+      ActivateCellular(cellular);
+    } else {
+      cros->ConnectToCellularNetwork(cellular);
     }
   }
 }

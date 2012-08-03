@@ -391,10 +391,11 @@ bool DXVAVideoDecodeAccelerator::DXVAPictureBuffer::
     // Ideally, this should be done immediately before the draw call that uses
     // the texture. Flush it once here though.
     hr = query_->Issue(D3DISSUE_END);
+    RETURN_ON_HR_FAILURE(hr, "Failed to issue END", false);
     do {
       hr = query_->GetData(NULL, 0, D3DGETDATA_FLUSH);
       if (hr == S_FALSE)
-        Sleep(0);
+        Sleep(1);  // Poor-man's Yield().
     } while (hr == S_FALSE);
 
     eglBindTexImage(
@@ -489,6 +490,10 @@ bool DXVAVideoDecodeAccelerator::CreateD3DDevManager() {
 
   hr = device_->CreateQuery(D3DQUERYTYPE_EVENT, &query_);
   RETURN_ON_HR_FAILURE(hr, "Failed to create D3D device query", false);
+  // Ensure query_ API works (to avoid an infinite loop later in
+  // CopyOutputSampleDataToPictureBuffer).
+  hr = query_->Issue(D3DISSUE_END);
+  RETURN_ON_HR_FAILURE(hr, "Failed to issue END test query", false);
 
   return true;
 }
@@ -673,6 +678,8 @@ void DXVAVideoDecodeAccelerator::Reset() {
       "Reset: invalid state: " << state_, ILLEGAL_STATE,);
 
   state_ = kResetting;
+
+  pending_output_samples_.clear();
 
   RETURN_AND_NOTIFY_ON_FAILURE(SendMFTMessage(MFT_MESSAGE_COMMAND_FLUSH, 0),
       "Reset: Failed to send message.", PLATFORM_FAILURE,);

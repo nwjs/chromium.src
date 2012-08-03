@@ -199,21 +199,7 @@ void ChromeShellDelegate::OpenCrosh() {
 
 void ChromeShellDelegate::OpenMobileSetup(const std::string& service_path) {
 #if defined(OS_CHROMEOS)
-  Browser* browser = GetTargetBrowser();
-  if (CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableMobileSetupDialog)) {
-    MobileSetupDialog::Show(service_path);
-  } else {
-    std::string url(chrome::kChromeUIMobileSetupURL);
-    url.append(service_path);
-    browser->OpenURL(
-        content::OpenURLParams(GURL(url),
-                               content::Referrer(),
-                               NEW_FOREGROUND_TAB,
-                               content::PAGE_TRANSITION_LINK,
-                               false));
-    browser->window()->Activate();
-  }
+  MobileSetupDialog::Show(service_path);
 #endif
 }
 
@@ -360,6 +346,12 @@ void ChromeShellDelegate::RecordUserMetricsAction(
       break;
     case ash::UMA_ACCEL_SEARCH_LWIN:
       content::RecordAction(content::UserMetricsAction("Accel_Search_LWin"));
+      break;
+    case ash::UMA_MOUSE_DOWN:
+      content::RecordAction(content::UserMetricsAction("Mouse_Down"));
+      break;
+    case ash::UMA_TOUCHSCREEN_TAP_DOWN:
+      content::RecordAction(content::UserMetricsAction("Touchscreen_Down"));
       break;
   }
 }

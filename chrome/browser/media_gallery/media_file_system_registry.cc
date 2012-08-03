@@ -13,6 +13,7 @@
 #include "base/system_monitor/system_monitor.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_source.h"
@@ -56,13 +57,13 @@ MediaFileSystemRegistry* MediaFileSystemRegistry::GetInstance() {
   return g_media_file_system_registry.Pointer();
 }
 
-std::vector<MediaFileSystemRegistry::MediaFSIDAndPath>
-MediaFileSystemRegistry::GetMediaFileSystems(
+std::vector<MediaFileSystemRegistry::MediaFSInfo>
+MediaFileSystemRegistry::GetMediaFileSystemsForExtension(
     const content::RenderProcessHost* rph,
     const extensions::Extension& extension) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  std::vector<MediaFSIDAndPath> results;
+  std::vector<MediaFSInfo> results;
   std::pair<ChildIdToMediaFSMap::iterator, bool> ret =
       media_fs_map_.insert(std::make_pair(rph, MediaPathToFSIDMap()));
   ChildIdToMediaFSMap::iterator& child_it = ret.first;
@@ -99,9 +100,12 @@ MediaFileSystemRegistry::GetMediaFileSystems(
   for (MediaPathToFSIDMap::const_iterator it = child_map.begin();
        it != child_map.end();
        ++it) {
-    const FilePath path = it->first;
-    const std::string fsid = it->second;
-    results.push_back(std::make_pair(fsid, path));
+    MediaFSInfo entry;
+    // TODO(vandebo) use a better name, fsid for now.
+    entry.name = it->second;
+    entry.fsid = it->second;
+    entry.path = it->first;
+    results.push_back(entry);
   }
   return results;
 }
@@ -170,7 +174,7 @@ std::string MediaFileSystemRegistry::RegisterPathAsFileSystem(
 
   // The directory name is not exposed to the js layer and we simply use
   // a fixed name (as we only register a single directory per file system).
-  std::string register_name("_");
+  std::string register_name(extension_misc::kMediaFileSystemPathPart);
   const std::string fsid =
       IsolatedContext::GetInstance()->RegisterFileSystemForPath(
           fileapi::kFileSystemTypeIsolated, path, &register_name);
@@ -182,6 +186,8 @@ void MediaFileSystemRegistry::RevokeMediaFileSystem(const FilePath& path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   IsolatedContext* isolated_context = IsolatedContext::GetInstance();
+  isolated_context->RevokeFileSystemByPath(path);
+
   for (ChildIdToMediaFSMap::iterator child_it = media_fs_map_.begin();
        child_it != media_fs_map_.end();
        ++child_it) {
@@ -189,7 +195,6 @@ void MediaFileSystemRegistry::RevokeMediaFileSystem(const FilePath& path) {
     MediaPathToFSIDMap::iterator media_path_it = child_map.find(path);
     if (media_path_it == child_map.end())
       continue;
-    isolated_context->RevokeFileSystem(media_path_it->second);
     child_map.erase(media_path_it);
   }
 }

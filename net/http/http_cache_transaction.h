@@ -22,6 +22,7 @@ namespace net {
 
 class PartialData;
 struct HttpRequestInfo;
+class HttpTransactionDelegate;
 
 // This is the transaction that is returned by the HttpCache transaction
 // factory.
@@ -56,7 +57,7 @@ class HttpCache::Transaction : public HttpTransaction {
     UPDATE          = READ_META | WRITE,  // READ_WRITE & ~READ_DATA
   };
 
-  explicit Transaction(HttpCache* cache);
+  Transaction(HttpCache* cache, HttpTransactionDelegate* transaction_delegate);
   virtual ~Transaction();
 
   Mode mode() const { return mode_; }
@@ -326,6 +327,11 @@ class HttpCache::Transaction : public HttpTransaction {
   // working with range requests.
   int DoPartialCacheReadCompleted(int result);
 
+  // Restarts this transaction after deleting the cached data. It is meant to
+  // be used when the current request cannot be fulfilled due to conflicts
+  // between the byte range request and the cached entry.
+  int DoRestartPartialRequest();
+
   // Returns true if we should bother attempting to resume this request if it
   // is aborted while in progress. If |has_data| is true, the size of the stored
   // data is considered for the result.
@@ -333,6 +339,9 @@ class HttpCache::Transaction : public HttpTransaction {
 
   // Called to signal completion of asynchronous IO.
   void OnIOComplete(int result);
+
+  void ReportCacheActionStart();
+  void ReportCacheActionFinish();
 
   State next_state_;
   const HttpRequestInfo* request_;
@@ -371,6 +380,7 @@ class HttpCache::Transaction : public HttpTransaction {
   uint64 final_upload_progress_;
   base::WeakPtrFactory<Transaction> weak_factory_;
   CompletionCallback io_callback_;
+  HttpTransactionDelegate* transaction_delegate_;
 };
 
 }  // namespace net

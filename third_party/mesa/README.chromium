@@ -1,7 +1,7 @@
 Name: mesa
 Version: 7.9
 URL: http://www.mesa3d.org/
-License File: MesaLib/docs/COPYING
+License: MIT and LGPL v2
 Security Critical: Yes
 
 Description:
@@ -13,8 +13,9 @@ Ext headers       include/GL/glext.h
                   include/GL/glxext.h
 SGI GLU library   src/glu/sgi/
 
-The license is in MesaLib/docs/license.html.
- 
+The license file in this directory is derived from MesaLib/docs/license.html
+and MesaLib/docs/COPYING.
+
 Modifications made with initial commit:
 - Converted to utf-8 with: vim +"argdo write ++enc=utf-8" *.c
 
@@ -98,3 +99,11 @@ Later modifications (see chromium.patch):
 
 - Merged fix for https://bugs.freedesktop.org/show_bug.cgi?id=51574
   (commit b1802a2115323233352da558430e109ff187b8af)
+
+- Merged the replacement of memcpy() with memmove() in SHIFT_ARRAY declared in
+  s_span.c (commit a44d715d2b19dc2f8f48b01144cc38e4e2c5015a)
+
+- Suppressed the OOB read reported by AddressSanitizer in swizzle_for_size from
+  ir_to_mesa.cpp
+  https://code.google.com/p/chromium/issues/detail?id=139772
+  https://bugs.freedesktop.org/show_bug.cgi?id=52996

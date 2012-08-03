@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/callback_forward.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string_piece.h"
 #include "content/public/browser/notification_registrar.h"
@@ -24,6 +25,16 @@
 typedef struct _GtkToolItem GtkToolItem;
 #elif defined(OS_ANDROID)
 #include "base/android/scoped_java_ref.h"
+#elif defined(USE_AURA)
+namespace views {
+class Widget;
+class ViewsDelegate;
+}
+namespace aura {
+namespace client {
+class StackingClient;
+}
+}
 #endif
 
 class GURL;
@@ -72,6 +83,10 @@ class Shell : public WebContentsDelegate,
   // Closes all windows and exits.
   static void PlatformExit();
 
+  // Used for content_browsertests. Called once.
+  static void SetShellCreatedCallback(
+      base::Callback<void(Shell*)> shell_created_callback);
+
   WebContents* web_contents() const { return web_contents_.get(); }
   gfx::NativeWindow window() { return window_; }
 
@@ -85,10 +100,13 @@ class Shell : public WebContentsDelegate,
 #endif
 
   // WebContentsDelegate
+  virtual WebContents* OpenURLFromTab(WebContents* source,
+                                      const OpenURLParams& params) OVERRIDE;
   virtual void LoadingStateChanged(WebContents* source) OVERRIDE;
 #if defined(OS_ANDROID)
   virtual void LoadProgressChanged(double progress) OVERRIDE;
 #endif
+  virtual void CloseContents(WebContents* source) OVERRIDE;
   virtual void WebContentsCreated(WebContents* source_contents,
                                   int64 source_frame_id,
                                   const GURL& target_url,
@@ -195,11 +213,18 @@ class Shell : public WebContentsDelegate,
   int content_height_;
 #elif defined(OS_ANDROID)
   base::android::ScopedJavaGlobalRef<jobject> java_object_;
+#elif defined(USE_AURA)
+  static aura::client::StackingClient* stacking_client_;
+  static views::ViewsDelegate* views_delegate_;
+
+  views::Widget* window_widget_;
 #endif
 
   // A container of all the open windows. We use a vector so we can keep track
   // of ordering.
   static std::vector<Shell*> windows_;
+
+  static base::Callback<void(Shell*)> shell_created_callback_;
 
   // True if the destructur of Shell should post a quit closure on the current
   // message loop if the destructed Shell object was the last one.

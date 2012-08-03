@@ -67,12 +67,17 @@ chrome.fileBrowserPrivate = {
   /**
    * View multiple files.
    */
-  viewFiles: function(selectedFiles) {
-    console.log('viewFiles called: ' + selectedFiles.length +
-                ' files selected');
-    for (var i = 0; i != selectedFiles.length; i++) {
-      window.open(selectedFiles[i]);
+  viewFiles: function(urls, actionId, callback) {
+    var success = true;
+    for (var i = 0; i != urls.length; i++) {
+      var url = urls[i];
+      if (!url.match(/\.(pdf|txt)$/i)) {
+        success = false;
+        break;
+      }
+      window.open(url);
     }
+    callback(success);
   },
 
   /**
@@ -456,7 +461,7 @@ chrome.fileBrowserPrivate = {
       SIZE_TB: 'TB',
       SIZE_PB: 'PB',
       TYPE_COLUMN_LABEL: 'Type',
-      DATE_COLUMN_LABEL: 'Date',
+      DATE_COLUMN_LABEL: 'Date modified',
       PREVIEW_COLUMN_LABEL: 'Preview',
 
       ERROR_CREATING_FOLDER: 'Unable to create folder "$1". $2',
@@ -540,7 +545,7 @@ chrome.fileBrowserPrivate = {
       GDATA_SHOW_HOSTED_FILES_OPTION: 'Show Google Docs files',
       GDATA_WAITING_FOR_SPACE_INFO: 'Waiting for space info...',
       GDATA_FAILED_SPACE_INFO: 'Failed to retrieve space info',
-      GDATA_BUY_MORE_SPACE: 'Buy more...',
+      GDATA_BUY_MORE_SPACE: 'Buy more storage...',
       GDATA_SPACE_AVAILABLE: '$1 left',
 
       OFFLINE_COLUMN_LABEL: 'Available offline',
@@ -588,7 +593,10 @@ chrome.fileBrowserPrivate = {
       OPEN_LABEL: 'Open',
       SAVE_LABEL: 'Save',
       OK_LABEL: 'OK',
-      NO_ACTION_FOR_FILE: "To view this file, convert it to a format that's viewable on the web. <a target='_blank' href='$1'>Learn More.</a>",
+      NO_ACTION_FOR_FILE: 'This file type is not supported. Please visit the ' +
+          '<a target=\'_blank\' href=\'$1\'>Chrome Web Store</a>' +
+          ' to find an app that can open this type of file.' +
+          ' <a target=\'_blank\' href=\'$2\'>Learn More.</a>',
 
       DEFAULT_NEW_FOLDER_NAME: 'New Folder',
       MORE_FILES: 'Show all files',
@@ -659,9 +667,10 @@ chrome.fileBrowserPrivate = {
 
       SEARCH_TEXT_LABEL: 'Search',
       SEARCH_NO_MATCHING_FILES: 'No files match <b>"$1"</b>',
+      SEARCH_SPINNER: 'Searching...',
 
-      TIME_TODAY: 'Today, $1',
-      TIME_YESTERDAY: 'Yesterday, $1',
+      TIME_TODAY: 'Today $1',
+      TIME_YESTERDAY: 'Yesterday $1',
 
       ALL_FILES_FILTER: 'All files',
 
@@ -688,6 +697,14 @@ chrome.extension = {
       return path.replace('external/', 'file:///persistent/');
     }
     return path || document.location.href;
+  },
+
+  getBackgroundPage: function() {
+    return window;
+  },
+
+  getViews: function() {
+    return [window];
   }
 };
 
@@ -708,6 +725,15 @@ chrome.test = {
  */
 chrome.fileBrowserHandler = {
   onExecute: new MockEventSource()
+};
+
+/**
+ * Mock object for |chrome.runtime|.
+ */
+chrome.runtime = {
+  getBackgroundPage: function(callback) {
+    setTimeout(function() {callback(window);}, 0);
+  }
 };
 
 /**
@@ -782,44 +808,3 @@ chrome.mediaPlayerPrivate = {
     this.popup_ = null;
   }
 };
-
-/**
- * TODO(olege): Remove once a Chrome with this interface available is released.
- */
-var v8Intl = (function() {
-
-var v8Intl = {};
-
-/**
- * Constructs v8Intl.DateTimeFormat object given optional locales and options
- * parameters.
- *
- * @constructor
- * @param {Array?} locales Unused in the mock.
- * @param {Object} options Unused in the mock.
- */
-v8Intl.DateTimeFormat = function(locales, options) {
-  return {
-    format: function(dateValue) {
-      return dateValue.toString();
-    }
-  };
-};
-
-/**
- * @constructor
- * @param {Array?} locales Unused in the mock.
- * @param {Object} options Unused in the mock.
- */
-v8Intl.Collator = function(locales, options) {
-  return {
-    compare: function(a, b) {
-      if (a > b) return 1;
-      if (a < b) return -1;
-      return 0;
-    }
-  };
-};
-
-return v8Intl;
-}());

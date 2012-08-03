@@ -6,11 +6,6 @@
 
 #ifndef DISABLE_NACL
 
-#if defined(OS_WIN)
-#include <fcntl.h>
-#include <io.h>
-#endif
-
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
@@ -18,12 +13,16 @@
 #include "base/rand_util.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/render_messages.h"
+#include "chrome/renderer/chrome_render_process_observer.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/sandbox_init.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
+#include "content/public/renderer/renderer_restrict_dispatch_group.h"
 #include "ipc/ipc_sync_message_filter.h"
+#include "ppapi/c/pp_bool.h"
+#include "ppapi/c/private/pp_file_handle.h"
 #include "ppapi/c/private/ppb_nacl_private.h"
 #include "ppapi/native_client/src/trusted/plugin/nacl_entry_points.h"
 #include "ppapi/proxy/host_dispatcher.h"
@@ -175,6 +174,10 @@ class OutOfProcessProxy : public PluginDelegate::OutOfProcessProxy {
       return false;
     }
 
+    // Make sure that incoming plugin->renderer "unblock" messages can ONLY
+    // unblock other pepper messages.
+    dispatcher_->channel()->SetRestrictDispatchChannelGroup(
+        content::kRendererRestrictDispatchGroup_Pepper);
     return true;
   }
 
@@ -265,7 +268,7 @@ int BrokerDuplicateHandle(void* source_handle,
 #endif
 }
 
-int GetReadonlyPnaclFD(const char* filename) {
+PP_FileHandle GetReadonlyPnaclFD(const char* filename) {
   IPC::PlatformFileForTransit out_fd = IPC::InvalidPlatformFileForTransit();
   IPC::Sender* sender = content::RenderThread::Get();
   if (sender == NULL)
@@ -274,29 +277,40 @@ int GetReadonlyPnaclFD(const char* filename) {
   if (!sender->Send(new ChromeViewHostMsg_GetReadonlyPnaclFD(
           std::string(filename),
           &out_fd))) {
-    return -1;
+    return base::kInvalidPlatformFileValue;
   }
 
   if (out_fd == IPC::InvalidPlatformFileForTransit()) {
-    return -1;
+    return base::kInvalidPlatformFileValue;
   }
 
   base::PlatformFile handle =
       IPC::PlatformFileForTransitToPlatformFile(out_fd);
-#if defined(OS_WIN)
-  int posix_desc = _open_osfhandle(reinterpret_cast<intptr_t>(handle),
-                                   _O_RDONLY | _O_BINARY);
-  if (posix_desc == -1) {
-    // Close the Windows HANDLE if it can't be converted.
-    CloseHandle(handle);
-    return -1;
-  }
-  return posix_desc;
-#elif defined(OS_POSIX)
   return handle;
-#else
-#error "GetReadonlyPnaclFD: Don't know how to convert FileDescriptor to native."
-#endif
+}
+
+PP_FileHandle CreateTemporaryFile(PP_Instance instance) {
+  IPC::PlatformFileForTransit transit_fd = IPC::InvalidPlatformFileForTransit();
+  IPC::Sender* sender = content::RenderThread::Get();
+  if (sender == NULL)
+    sender = g_background_thread_sender.Pointer()->get();
+
+  if (!sender->Send(new ChromeViewHostMsg_NaClCreateTemporaryFile(
+          &transit_fd))) {
+    return base::kInvalidPlatformFileValue;
+  }
+
+  if (transit_fd == IPC::InvalidPlatformFileForTransit()) {
+    return base::kInvalidPlatformFileValue;
+  }
+
+  base::PlatformFile handle = IPC::PlatformFileForTransitToPlatformFile(
+      transit_fd);
+  return handle;
+}
+
+PP_Bool IsOffTheRecord() {
+  return PP_FromBool(ChromeRenderProcessObserver::is_incognito_process());
 }
 
 const PPB_NaCl_Private nacl_interface = {
@@ -306,7 +320,9 @@ const PPB_NaCl_Private nacl_interface = {
   &Are3DInterfacesDisabled,
   &EnableBackgroundSelLdrLaunch,
   &BrokerDuplicateHandle,
-  &GetReadonlyPnaclFD
+  &GetReadonlyPnaclFD,
+  &CreateTemporaryFile,
+  &IsOffTheRecord
 };
 
 }  // namespace

@@ -6,9 +6,11 @@
 
 #include <vector>
 
+#include "base/message_loop_proxy.h"
 #include "base/platform_file.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/tracked_objects.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/chromeos/gdata/gdata.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
@@ -25,19 +27,6 @@ const char kEscapedSlash[] = "\xE2\x88\x95";
 std::string ExtractResourceId(const GURL& url) {
   return net::UnescapeURLComponent(url.ExtractFileName(),
                                    net::UnescapeRule::URL_SPECIAL_CHARS);
-}
-
-// Replaces file entry |old_entry| with its fresh value |fresh_file|.
-void RefreshFileInternal(scoped_ptr<GDataFile> fresh_file,
-                         GDataEntry* old_entry) {
-  GDataDirectory* entry_parent = old_entry ? old_entry->parent() : NULL;
-  if (entry_parent) {
-    DCHECK_EQ(fresh_file->resource_id(), old_entry->resource_id());
-    DCHECK(old_entry->AsGDataFile());
-
-    entry_parent->RemoveEntry(old_entry);
-    entry_parent->AddEntry(fresh_file.release());
-  }
 }
 
 // Returns true if |proto| is a valid proto as the root directory.
@@ -112,7 +101,7 @@ void GDataEntry::SetBaseNameFromTitle() {
   base_name_ = EscapeUtf8FileName(title_);
 }
 
-// static.
+// static
 GDataEntry* GDataEntry::FromDocumentEntry(
     GDataDirectory* parent,
     DocumentEntry* doc,
@@ -126,7 +115,7 @@ GDataEntry* GDataEntry::FromDocumentEntry(
   return NULL;
 }
 
-// static.
+// static
 std::string GDataEntry::EscapeUtf8FileName(const std::string& input) {
   std::string output;
   if (ReplaceChars(input, kSlash, std::string(kEscapedSlash), &output))
@@ -135,7 +124,7 @@ std::string GDataEntry::EscapeUtf8FileName(const std::string& input) {
   return input;
 }
 
-// static.
+// static
 std::string GDataEntry::UnescapeUtf8FileName(const std::string& input) {
   std::string output = input;
   ReplaceSubstringsAfterOffset(&output, 0, std::string(kEscapedSlash), kSlash);
@@ -167,7 +156,7 @@ void GDataFile::SetBaseNameFromTitle() {
   }
 }
 
-// static.
+// static
 GDataEntry* GDataFile::FromDocumentEntry(
     GDataDirectory* parent,
     DocumentEntry* doc,
@@ -186,7 +175,7 @@ GDataEntry* GDataFile::FromDocumentEntry(
     file->file_info_.size = doc->file_size();
     file->file_md5_ = doc->file_md5();
 
-    // The resumable-edit-media link should only be present for regualar
+    // The resumable-edit-media link should only be present for regular
     // files as hosted documents are not uploadable.
     const Link* upload_link = doc->GetLinkByType(Link::RESUMABLE_EDIT_MEDIA);
     if (upload_link)
@@ -456,6 +445,26 @@ GDataDirectoryService::~GDataDirectoryService() {
   resource_map_.clear();
 }
 
+void GDataDirectoryService::AddEntryToDirectory(
+    const FilePath& directory_path,
+    GDataEntry* entry,
+    const FileOperationCallback& callback) {
+  GDataEntry* destination = FindEntryByPathSync(directory_path);
+  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  if (!destination) {
+    error = GDATA_FILE_ERROR_NOT_FOUND;
+  } else if (!destination->AsGDataDirectory()) {
+    error = GDATA_FILE_ERROR_NOT_A_DIRECTORY;
+  } else {
+    destination->AsGDataDirectory()->AddEntry(entry);
+    error = GDATA_FILE_OK;
+  }
+  if (!callback.is_null()) {
+    base::MessageLoopProxy::current()->PostTask(
+        FROM_HERE, base::Bind(callback, error));
+  }
+}
+
 void GDataDirectoryService::AddEntryToResourceMap(GDataEntry* entry) {
   // GDataFileSystem has already locked.
   DVLOG(1) << "AddEntryToResourceMap " << entry->resource_id();
@@ -467,11 +476,8 @@ void GDataDirectoryService::RemoveEntryFromResourceMap(GDataEntry* entry) {
   resource_map_.erase(entry->resource_id());
 }
 
-void GDataDirectoryService::FindEntryByPath(const FilePath& file_path,
-                                         const FindEntryCallback& callback) {
-  // GDataFileSystem has already locked.
-  DCHECK(!callback.is_null());
-
+GDataEntry* GDataDirectoryService::FindEntryByPathSync(
+    const FilePath& file_path) {
   std::vector<FilePath::StringType> components;
   file_path.GetComponents(&components);
 
@@ -484,17 +490,15 @@ void GDataDirectoryService::FindEntryByPath(const FilePath& file_path,
     // Last element must match, if not last then it must be a directory.
     if (i == components.size() - 1) {
       if (current_dir->base_name() == components[i])
-        callback.Run(GDATA_FILE_OK, current_dir);
+        return current_dir;
       else
-        callback.Run(GDATA_FILE_ERROR_NOT_FOUND, NULL);
-      return;
+        return NULL;
     }
 
     // Not the last part of the path, search for the next segment.
     GDataEntry* entry = current_dir->FindChild(components[i + 1]);
     if (!entry) {
-      callback.Run(GDATA_FILE_ERROR_NOT_FOUND, NULL);
-      return;
+      return NULL;
     }
 
     // Found file, must be the last segment.
@@ -503,14 +507,19 @@ void GDataDirectoryService::FindEntryByPath(const FilePath& file_path,
       current_dir = entry->AsGDataDirectory();
     } else {
       if ((i + 1) == (components.size() - 1))
-        callback.Run(GDATA_FILE_OK, entry);
+        return entry;
       else
-        callback.Run(GDATA_FILE_ERROR_NOT_FOUND, NULL);
-
-      return;
+        return NULL;
     }
   }
-  callback.Run(GDATA_FILE_ERROR_NOT_FOUND, NULL);
+  return NULL;
+}
+
+void GDataDirectoryService::FindEntryByPathAndRunSync(
+    const FilePath& search_file_path,
+    const FindEntryCallback& callback) {
+  GDataEntry* entry = FindEntryByPathSync(search_file_path);
+  callback.Run(entry ? GDATA_FILE_OK : GDATA_FILE_ERROR_NOT_FOUND, entry);
 }
 
 GDataEntry* GDataDirectoryService::GetEntryByResourceId(
@@ -532,8 +541,24 @@ void GDataDirectoryService::RefreshFile(scoped_ptr<GDataFile> fresh_file) {
 
   // Need to get a reference here because Passed() could get evaluated first.
   const std::string& resource_id = fresh_file->resource_id();
-  GetEntryByResourceIdAsync(resource_id,
-      base::Bind(&RefreshFileInternal, base::Passed(&fresh_file)));
+  GetEntryByResourceIdAsync(
+      resource_id,
+      base::Bind(&GDataDirectoryService::RefreshFileInternal,
+                 base::Passed(&fresh_file)));
+}
+
+// static
+void GDataDirectoryService::RefreshFileInternal(
+    scoped_ptr<GDataFile> fresh_file,
+    GDataEntry* old_entry) {
+  GDataDirectory* entry_parent = old_entry ? old_entry->parent() : NULL;
+  if (entry_parent) {
+    DCHECK_EQ(fresh_file->resource_id(), old_entry->resource_id());
+    DCHECK(old_entry->AsGDataFile());
+
+    entry_parent->RemoveEntry(old_entry);
+    entry_parent->AddEntry(fresh_file.release());
+  }
 }
 
 // Convert to/from proto.

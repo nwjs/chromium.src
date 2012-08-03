@@ -25,6 +25,7 @@ extern const char kSessionExitedCleanly[];
 extern const char kRestoreOnStartup[];
 extern const char kURLsToRestoreOnStartup[];
 extern const char kRestoreOnStartupMigrated[];
+extern const char kDisableScreenshots[];
 
 // For OS_CHROMEOS we maintain kApplicationLocale property in both local state
 // and user's profile.  Global property determines locale of login screen,
@@ -139,6 +140,7 @@ extern const char kPasswordManagerAllowShowPasswords[];
 extern const char kPasswordGenerationEnabled[];
 extern const char kAutologinEnabled[];
 extern const char kReverseAutologinEnabled[];
+extern const char kReverseAutologinRejectedEmailList[];
 extern const char kSafeBrowsingEnabled[];
 extern const char kSafeBrowsingReportingEnabled[];
 extern const char kSafeBrowsingProceedAnywayDisabled[];
@@ -295,7 +297,7 @@ extern const char kCurrentThemeTints[];
 extern const char kCurrentThemeDisplayProperties[];
 extern const char kExtensionsUIDeveloperMode[];
 extern const char kExtensionToolbarSize[];
-extern const char kExtensionKeybindings[];
+extern const char kExtensionCommands[];
 extern const char kPluginsLastInternalDirectory[];
 extern const char kPluginsPluginsList[];
 extern const char kPluginsDisabledPlugins[];
@@ -586,6 +588,7 @@ extern const char kGoogleServicesUsername[];
 extern const char kGoogleServicesUsernamePattern[];
 extern const char kSyncUsingSecondaryPassphrase[];
 extern const char kSyncEncryptionBootstrapToken[];
+extern const char kSyncKeystoreEncryptionBootstrapToken[];
 extern const char kSyncAcknowledgedSyncTypes[];
 // Deprecated in favor of kInvalidatorMaxInvalidationVersions.
 extern const char kSyncMaxInvalidationVersions[];
@@ -677,6 +680,7 @@ extern const char kDeviceActivityTimes[];
 extern const char kDeviceLocation[];
 extern const char kSyncSpareBootstrapToken[];
 extern const char kExternalStorageDisabled[];
+extern const char kUsersWallpaperInfo[];
 #endif
 
 extern const char kClearPluginLSODataEnabled[];
@@ -716,8 +720,8 @@ extern const char kComponentUpdaterState[];
 
 extern const char kWebIntentsEnabled[];
 
-extern const char kMediaGalleryUniqueId[];
-extern const char kMediaGalleryRememberedGalleries[];
+extern const char kMediaGalleriesUniqueId[];
+extern const char kMediaGalleriesRememberedGalleries[];
 
 #if defined(USE_AURA)
 extern const char kShelfAlignment[];

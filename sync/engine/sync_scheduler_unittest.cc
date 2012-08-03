@@ -118,9 +118,11 @@ class SyncSchedulerTest : public testing::Test {
     connection_->SetServerReachable();
     throttled_data_type_tracker_.reset(new ThrottledDataTypeTracker(NULL));
     context_.reset(new SyncSessionContext(
-            connection_.get(), directory(), routing_info, workers,
+            connection_.get(), directory(), workers,
             &extensions_activity_monitor_, throttled_data_type_tracker_.get(),
-            std::vector<SyncEngineEventListener*>(), NULL, NULL));
+            std::vector<SyncEngineEventListener*>(), NULL, NULL,
+            true  /* enable keystore encryption */));
+    context_->set_routing_info(routing_info);
     context_->set_notifications_enabled(true);
     context_->set_account_name("Test");
     scheduler_.reset(
@@ -300,9 +302,7 @@ TEST_F(SyncSchedulerTest, Config) {
   SyncShareRecords records;
   const ModelTypeSet model_types(BOOKMARKS);
 
-  EXPECT_CALL(*syncer(),
-              SyncShare(_,_,_))
-      .WillOnce(Invoke(sessions::test_util::SimulateSuccess))
+  EXPECT_CALL(*syncer(), SyncShare(_,_,_))
       .WillOnce(DoAll(Invoke(sessions::test_util::SimulateSuccess),
                       WithArg<0>(RecordSyncShare(&records))));
 
@@ -313,7 +313,6 @@ TEST_F(SyncSchedulerTest, Config) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       model_types,
       TypesToRoutingInfo(model_types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_TRUE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(1, counter.times_called());
@@ -333,9 +332,7 @@ TEST_F(SyncSchedulerTest, ConfigWithBackingOff) {
   SyncShareRecords records;
   const ModelTypeSet model_types(BOOKMARKS);
 
-  EXPECT_CALL(*syncer(),
-              SyncShare(_,_,_))
-      .WillOnce(Invoke(sessions::test_util::SimulateSuccess))
+  EXPECT_CALL(*syncer(), SyncShare(_,_,_))
       .WillOnce(DoAll(Invoke(sessions::test_util::SimulateCommitFailed),
                       WithArg<0>(RecordSyncShare(&records))))
       .WillOnce(DoAll(Invoke(sessions::test_util::SimulateSuccess),
@@ -349,7 +346,6 @@ TEST_F(SyncSchedulerTest, ConfigWithBackingOff) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       model_types,
       TypesToRoutingInfo(model_types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_FALSE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(0, counter.times_called());
@@ -392,7 +388,6 @@ TEST_F(SyncSchedulerTest, NudgeWithConfigWithBackingOff) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       model_types,
       TypesToRoutingInfo(model_types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_FALSE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(0, counter.times_called());
@@ -709,19 +704,14 @@ TEST_F(SyncSchedulerTest, HasMoreToSyncThenFails) {
   EXPECT_TRUE(RunAndGetBackoff());
 }
 
-// Test that no syncing occurs when throttled (although CleanupDisabledTypes
-// is allowed).
+// Test that no syncing occurs when throttled.
 TEST_F(SyncSchedulerTest, ThrottlingDoesThrottle) {
   const ModelTypeSet types(BOOKMARKS);
   TimeDelta poll(TimeDelta::FromMilliseconds(5));
   TimeDelta throttle(TimeDelta::FromMinutes(10));
   scheduler()->OnReceivedLongPollIntervalUpdate(poll);
 
-  EXPECT_CALL(*syncer(),
-              SyncShare(_, CLEANUP_DISABLED_TYPES, CLEANUP_DISABLED_TYPES))
-      .WillOnce(Invoke(sessions::test_util::SimulateSuccess));
-  EXPECT_CALL(*syncer(), SyncShare(_,Not(CLEANUP_DISABLED_TYPES),
-                                     Not(CLEANUP_DISABLED_TYPES)))
+  EXPECT_CALL(*syncer(), SyncShare(_,_,_))
       .WillOnce(WithArg<0>(sessions::test_util::SimulateThrottled(throttle)))
       .WillRepeatedly(AddFailureAndQuitLoopNow());
 
@@ -738,7 +728,6 @@ TEST_F(SyncSchedulerTest, ThrottlingDoesThrottle) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       types,
       TypesToRoutingInfo(types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_FALSE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(0, counter.times_called());
@@ -774,7 +763,6 @@ TEST_F(SyncSchedulerTest, ConfigurationMode) {
   SyncShareRecords records;
   scheduler()->OnReceivedLongPollIntervalUpdate(poll);
   EXPECT_CALL(*syncer(), SyncShare(_,_,_))
-      .WillOnce(Invoke(sessions::test_util::SimulateSuccess))
       .WillOnce(DoAll(Invoke(sessions::test_util::SimulateSuccess),
                       WithArg<0>(RecordSyncShare(&records))));
 
@@ -793,7 +781,6 @@ TEST_F(SyncSchedulerTest, ConfigurationMode) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       config_types,
       TypesToRoutingInfo(config_types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_TRUE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(1, counter.times_called());
@@ -857,6 +844,17 @@ TEST_F(BackoffTriggersSyncSchedulerTest, FailDownloadTwice) {
   EXPECT_TRUE(RunAndGetBackoff());
 }
 
+// Have the syncer fail to get the encryption key yet succeed in downloading
+// updates. Expect this will leave the scheduler in backoff.
+TEST_F(BackoffTriggersSyncSchedulerTest, FailGetEncryptionKey) {
+  EXPECT_CALL(*syncer(), SyncShare(_,_,_))
+      .WillOnce(Invoke(sessions::test_util::SimulateGetEncryptionKeyFailed))
+      .WillRepeatedly(DoAll(
+              Invoke(sessions::test_util::SimulateGetEncryptionKeyFailed),
+              QuitLoopNowAction()));
+  EXPECT_TRUE(RunAndGetBackoff());
+}
+
 // Test that no polls or extraneous nudges occur when in backoff.
 TEST_F(SyncSchedulerTest, BackoffDropsJobs) {
   SyncShareRecords r;
@@ -899,10 +897,6 @@ TEST_F(SyncSchedulerTest, BackoffDropsJobs) {
   EXPECT_EQ(GetUpdatesCallerInfo::LOCAL,
             r.snapshots[1].source().updates_source);
 
-  // Cleanup is not affected by backoff, but it should not relieve it either.
-  EXPECT_CALL(*syncer(),
-              SyncShare(_, CLEANUP_DISABLED_TYPES, CLEANUP_DISABLED_TYPES))
-      .WillOnce(Invoke(sessions::test_util::SimulateSuccess));
   EXPECT_CALL(*delay(), GetDelay(_)).Times(0);
 
   StartSyncScheduler(SyncScheduler::CONFIGURATION_MODE);
@@ -912,7 +906,6 @@ TEST_F(SyncSchedulerTest, BackoffDropsJobs) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       types,
       TypesToRoutingInfo(types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_FALSE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(0, counter.times_called());
@@ -1076,10 +1069,7 @@ TEST_F(SyncSchedulerTest, SyncerSteps) {
   StopSyncScheduler();
   Mock::VerifyAndClearExpectations(syncer());
 
-  // Configuration (always includes a cleanup disabled types).
-  EXPECT_CALL(*syncer(),
-              SyncShare(_, CLEANUP_DISABLED_TYPES, CLEANUP_DISABLED_TYPES))
-      .WillOnce(Invoke(sessions::test_util::SimulateSuccess));
+  // Configuration.
   EXPECT_CALL(*syncer(), SyncShare(_, DOWNLOAD_UPDATES, APPLY_UPDATES))
       .WillOnce(Invoke(sessions::test_util::SimulateSuccess));
   StartSyncScheduler(SyncScheduler::CONFIGURATION_MODE);
@@ -1090,30 +1080,10 @@ TEST_F(SyncSchedulerTest, SyncerSteps) {
       GetUpdatesCallerInfo::RECONFIGURATION,
       model_types,
       TypesToRoutingInfo(model_types),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
       base::Bind(&CallbackCounter::Callback, base::Unretained(&counter)));
   ASSERT_TRUE(scheduler()->ScheduleConfiguration(params));
   ASSERT_EQ(1, counter.times_called());
   // Runs directly so no need to pump the loop.
-  StopSyncScheduler();
-  Mock::VerifyAndClearExpectations(syncer());
-
-  // Cleanup disabled types. Because no types are being configured, we just
-  // perform the cleanup.
-  EXPECT_CALL(*syncer(),
-              SyncShare(_, CLEANUP_DISABLED_TYPES, CLEANUP_DISABLED_TYPES)).
-      WillOnce(Invoke(sessions::test_util::SimulateSuccess));
-  StartSyncScheduler(SyncScheduler::CONFIGURATION_MODE);
-
-  CallbackCounter counter2;
-  ConfigurationParams params2(
-      GetUpdatesCallerInfo::RECONFIGURATION,
-      ModelTypeSet(),
-      ModelSafeRoutingInfo(),
-      ConfigurationParams::KEYSTORE_KEY_UNNECESSARY,
-      base::Bind(&CallbackCounter::Callback, base::Unretained(&counter2)));
-  ASSERT_TRUE(scheduler()->ScheduleConfiguration(params2));
-  ASSERT_EQ(1, counter2.times_called());
   StopSyncScheduler();
   Mock::VerifyAndClearExpectations(syncer());
 
@@ -1160,26 +1130,6 @@ TEST_F(SyncSchedulerTest, StartWhenNotConnected) {
   connection()->UpdateConnectionStatus();
   scheduler()->OnConnectionStatusChange();
   MessageLoop::current()->RunAllPending();
-}
-
-TEST_F(SyncSchedulerTest, SetsPreviousRoutingInfo) {
-  ModelSafeRoutingInfo info;
-  EXPECT_TRUE(info == context()->previous_session_routing_info());
-  ModelSafeRoutingInfo expected(context()->routing_info());
-  ASSERT_FALSE(expected.empty());
-  EXPECT_CALL(*syncer(), SyncShare(_,_,_)).Times(1);
-
-  StartSyncScheduler(SyncScheduler::NORMAL_MODE);
-
-  scheduler()->ScheduleNudgeAsync(
-      zero(), NUDGE_SOURCE_LOCAL, ModelTypeSet(), FROM_HERE);
-  PumpLoop();
-  // Pump again to run job.
-  PumpLoop();
-
-  StopSyncScheduler();
-
-  EXPECT_TRUE(expected == context()->previous_session_routing_info());
 }
 
 }  // namespace syncer

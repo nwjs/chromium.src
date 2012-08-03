@@ -19,6 +19,7 @@
 #include "base/values.h"
 #include "chrome/browser/bookmarks/bookmark_codec.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/history/history_types.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -292,7 +293,7 @@ class Writer : public base::RefCountedThreadSafe<Writer> {
 
     // Folder.
     std::string last_modified_date;
-    Value* child_values;
+    const Value* child_values;
     if (!value.GetString(BookmarkCodec::kDateModifiedKey,
                          &last_modified_date) ||
         !value.Get(BookmarkCodec::kChildrenKey, &child_values) ||
@@ -331,7 +332,7 @@ class Writer : public base::RefCountedThreadSafe<Writer> {
     }
 
     // Write the children.
-    ListValue* children = static_cast<ListValue*>(child_values);
+    const ListValue* children = static_cast<const ListValue*>(child_values);
     for (size_t i = 0; i < children->GetSize(); ++i) {
       Value* child_value;
       if (!children->Get(i, &child_value) ||
@@ -339,7 +340,7 @@ class Writer : public base::RefCountedThreadSafe<Writer> {
         NOTREACHED();
         return false;
       }
-      if (!WriteNode(*static_cast<DictionaryValue*>(child_value),
+      if (!WriteNode(*static_cast<const DictionaryValue*>(child_value),
                      BookmarkNode::FOLDER)) {
         return false;
       }
@@ -399,9 +400,10 @@ BookmarkFaviconFetcher::~BookmarkFaviconFetcher() {
 }
 
 void BookmarkFaviconFetcher::ExportBookmarks() {
-  ExtractUrls(profile_->GetBookmarkModel()->bookmark_bar_node());
-  ExtractUrls(profile_->GetBookmarkModel()->other_node());
-  ExtractUrls(profile_->GetBookmarkModel()->mobile_node());
+  ExtractUrls(BookmarkModelFactory::GetForProfile(
+      profile_)->bookmark_bar_node());
+  ExtractUrls(BookmarkModelFactory::GetForProfile(profile_)->other_node());
+  ExtractUrls(BookmarkModelFactory::GetForProfile(profile_)->mobile_node());
   if (!bookmark_urls_.empty())
     FetchNextFavicon();
   else
@@ -437,7 +439,8 @@ void BookmarkFaviconFetcher::ExecuteWriter() {
   BrowserThread::PostTask(
       BrowserThread::FILE, FROM_HERE,
       base::Bind(&Writer::DoWrite,
-                 new Writer(codec.Encode(profile_->GetBookmarkModel()),
+                 new Writer(codec.Encode(BookmarkModelFactory::GetForProfile(
+                                profile_)),
                             path_, favicons_map_.release(), observer_)));
   if (fetcher != NULL) {
     MessageLoop::current()->DeleteSoon(FROM_HERE, fetcher);

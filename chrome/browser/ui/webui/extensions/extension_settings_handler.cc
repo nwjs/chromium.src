@@ -571,7 +571,8 @@ void ExtensionSettingsHandler::HandleInspectMessage(const ListValue* args) {
     extensions::LazyBackgroundTaskQueue* queue =
         extensions::ExtensionSystem::Get(profile)->lazy_background_task_queue();
 
-    ExtensionHost* host = pm->GetBackgroundHostForExtension(extension->id());
+    extensions::ExtensionHost* host =
+        pm->GetBackgroundHostForExtension(extension->id());
     if (host) {
       InspectExtensionHost(host);
     } else {
@@ -733,8 +734,9 @@ void ExtensionSettingsHandler::HandleLoadUnpackedExtensionMessage(
       l10n_util::GetStringUTF16(IDS_EXTENSION_LOAD_FROM_DIRECTORY);
 
   const int kFileTypeIndex = 0;  // No file type information to index.
-  const SelectFileDialog::Type kSelectType = SelectFileDialog::SELECT_FOLDER;
-  load_extension_dialog_ = SelectFileDialog::Create(
+  const ui::SelectFileDialog::Type kSelectType =
+      ui::SelectFileDialog::SELECT_FOLDER;
+  load_extension_dialog_ = ui::SelectFileDialog::Create(
       this, new ChromeSelectFilePolicy(web_ui()->GetWebContents()));
   load_extension_dialog_->SelectFile(
       kSelectType, select_title, last_unpacked_directory_, NULL,
@@ -879,7 +881,8 @@ ExtensionSettingsHandler::GetExtensionUninstallDialog() {
 #endif  // !defined(OS_ANDROID)
 }
 
-void ExtensionSettingsHandler::InspectExtensionHost(ExtensionHost* host) {
+void ExtensionSettingsHandler::InspectExtensionHost(
+    extensions::ExtensionHost* host) {
   if (host)
     DevToolsWindow::OpenDevToolsWindow(host->render_view_host());
 }

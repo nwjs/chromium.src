@@ -27,11 +27,14 @@
 #include "base/version.h"
 #include "chrome/browser/accessibility/accessibility_extension_api.h"
 #include "chrome/browser/bookmarks/bookmark_extension_api.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_plugin_service_filter.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
+#include "chrome/browser/extensions/api/management/management_api.h"
+#include "chrome/browser/extensions/api/push_messaging/push_messaging_api.h"
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
 #include "chrome/browser/extensions/app_notification_manager.h"
 #include "chrome/browser/extensions/app_sync_data.h"
@@ -47,7 +50,6 @@
 #include "chrome/browser/extensions/extension_font_settings_api.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
-#include "chrome/browser/extensions/extension_management_api.h"
 #include "chrome/browser/extensions/extension_preference_api.h"
 #include "chrome/browser/extensions/extension_process_manager.h"
 #include "chrome/browser/extensions/extension_processes_api.h"
@@ -333,7 +335,8 @@ ExtensionService::ExtensionService(Profile* profile,
       ready_(false),
       toolbar_model_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       menu_manager_(profile),
-      app_notification_manager_(new AppNotificationManager(profile)),
+      app_notification_manager_(
+          new extensions::AppNotificationManager(profile)),
       apps_promo_(profile->GetPrefs()),
       event_routers_initialized_(false),
       update_once_all_providers_are_ready_(false),
@@ -478,7 +481,7 @@ void ExtensionService::InitEventRouters() {
   window_event_router_->Init();
   preference_event_router_.reset(new ExtensionPreferenceEventRouter(profile_));
   bookmark_event_router_.reset(new BookmarkExtensionEventRouter(
-      profile_->GetBookmarkModel()));
+      BookmarkModelFactory::GetForProfile(profile_)));
   bookmark_event_router_->Init();
   cookies_event_router_.reset(new
       extensions::ExtensionCookiesEventRouter(profile_));
@@ -495,6 +498,9 @@ void ExtensionService::InitEventRouters() {
   managed_mode_event_router_.reset(
       new extensions::ExtensionManagedModeEventRouter(profile_));
   managed_mode_event_router_->Init();
+  push_messaging_event_router_.reset(
+      new extensions::PushMessagingEventRouter(profile_));
+  push_messaging_event_router_->Init();
 
 #if defined(OS_CHROMEOS)
   FileBrowserEventRouterFactory::GetForProfile(
@@ -635,7 +641,8 @@ void ExtensionService::ReloadExtension(const std::string& extension_id) {
     // later.
     // TODO(yoz): this is not incognito-safe!
     ExtensionProcessManager* manager = system_->process_manager();
-    ExtensionHost* host = manager->GetBackgroundHostForExtension(extension_id);
+    extensions::ExtensionHost* host =
+        manager->GetBackgroundHostForExtension(extension_id);
     if (host && DevToolsAgentHostRegistry::HasDevToolsAgentHost(
             host->render_view_host())) {
       // Look for an open inspector for the background page.
@@ -2313,7 +2320,7 @@ void ExtensionService::ReportExtensionLoadError(
 }
 
 void ExtensionService::DidCreateRenderViewForBackgroundPage(
-    ExtensionHost* host) {
+    extensions::ExtensionHost* host) {
   OrphanedDevTools::iterator iter =
       orphaned_dev_tools_.find(host->extension_id());
   if (iter == orphaned_dev_tools_.end())
@@ -2336,7 +2343,8 @@ void ExtensionService::Observe(int type,
         break;
       }
 
-      ExtensionHost* host = content::Details<ExtensionHost>(details).ptr();
+      extensions::ExtensionHost* host =
+          content::Details<extensions::ExtensionHost>(details).ptr();
 
       // Mark the extension as terminated and Unload it. We want it to
       // be in a consistent state: either fully working or not loaded

@@ -387,6 +387,7 @@ DirectoryModel.prototype.rescan = function() {
  */
 DirectoryModel.prototype.clearAndScan_ = function(newDirContents,
                                                   opt_callback) {
+  this.currentDirContents_.cancelScan();
   this.currentDirContents_ = newDirContents;
   this.clearRescanTimeout_();
 
@@ -493,6 +494,7 @@ DirectoryModel.prototype.replaceDirectoryContents_ = function(dirContents) {
  */
 DirectoryModel.prototype.deleteEntries = function(entries, opt_callback) {
   var downcount = entries.length + 1;
+  var currentDirPath = this.getCurrentDirPath();
 
   var onComplete = opt_callback ? function() {
     if (--downcount == 0)
@@ -504,11 +506,13 @@ DirectoryModel.prototype.deleteEntries = function(entries, opt_callback) {
     var entry = entries[i];
 
     var onSuccess = function(removedEntry) {
-      var index = fileList.indexOf(removedEntry);
-      if (index >= 0)
-        fileList.splice(index, 1);
+      if (currentDirPath == this.getCurrentDirPath()) {
+        var index = fileList.indexOf(removedEntry);
+        if (index >= 0)
+          fileList.splice(index, 1);
+      }
       onComplete();
-    }.bind(null, entry);
+    }.bind(this, entry);
 
     util.removeFileOrDirectory(
         entry,
@@ -581,8 +585,14 @@ DirectoryModel.prototype.renameEntry = function(entry, newName,
                                                 errorCallback,
                                                 opt_successCallback) {
   var self = this;
+  var currentDirPath = this.getCurrentDirPath();
   function onSuccess(newEntry) {
     self.currentDirContents_.prefetchMetadata([newEntry], function() {
+      // Do not change anything or call the callback if current
+      // directory changed.
+      if (currentDirPath != self.getCurrentDirPath())
+        return;
+
       var index = self.findIndexByName_(entry.name);
       if (index >= 0)
         self.getFileList().splice(index, 1, newEntry);
@@ -630,7 +640,14 @@ DirectoryModel.prototype.doesExist = function(entry, name, callback) {
  */
 DirectoryModel.prototype.createDirectory = function(name, successCallback,
                                                     errorCallback) {
+  var currentDirPath = this.getCurrentDirPath();
+
   var onSuccess = function(newEntry) {
+    // Do not change anything or call the callback if current
+    // directory changed.
+    if (currentDirPath != this.getCurrentDirPath())
+      return;
+
     var existing = this.getFileList().slice().filter(
         function(e) {return e.name == name;});
 
@@ -1132,8 +1149,8 @@ DirectoryModel.isSystemDirectory = function(path) {
  * TODO(olege): Change callbacks to events.
  */
 DirectoryModel.prototype.search = function(query,
-                                             onSearchRescan,
-                                             onClearSearch) {
+                                           onSearchRescan,
+                                           onClearSearch) {
   query = query.trimLeft();
 
   var newDirContents;
@@ -1149,13 +1166,13 @@ DirectoryModel.prototype.search = function(query,
   }
 
   // If we already have event listener for an old search, we have to remove it.
-  if (this.onSearchRescan_)
-    this.removeEventListener('rescan-completed', this.onSearchRescan_);
+  if (this.onSearchCompleted_)
+    this.removeEventListener('scan-completed', this.onSearchCompleted_);
 
-  this.onSearchRescan_ = onSearchRescan;
+  this.onSearchCompleted_ = onSearchRescan;
   this.onClearSearch_ = onClearSearch;
 
-  this.addEventListener('rescan-completed', this.onSearchRescan_);
+  this.addEventListener('scan-completed', this.onSearchCompleted_);
 
   // If we are offline, let's fallback to file name search inside dir.
   if (this.getCurrentRootType() === RootType.GDATA && !this.isOffline()) {
@@ -1178,9 +1195,9 @@ DirectoryModel.prototype.clearSearch_ = function() {
   if (!this.isSearching())
     return;
 
-  if (this.onSearchRescan_) {
-    this.removeEventListener('rescan-completed', this.onSearchRescan_);
-    this.onSearchRescan_ = null;
+  if (this.onSearchCompleted_) {
+    this.removeEventListener('scan-completed', this.onSearchCompleted_);
+    this.onSearchCompleted_ = null;
   }
 
   if (this.onClearSearch_) {

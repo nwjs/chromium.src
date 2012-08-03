@@ -42,21 +42,25 @@ namespace options2 {
 namespace {
 
 // Returns info about extensions for files we support as user images.
-SelectFileDialog::FileTypeInfo GetUserImageFileTypeInfo() {
-  SelectFileDialog::FileTypeInfo file_type_info;
-  file_type_info.extensions.resize(5);
+ui::SelectFileDialog::FileTypeInfo GetUserImageFileTypeInfo() {
+  ui::SelectFileDialog::FileTypeInfo file_type_info;
+  file_type_info.extensions.resize(1);
 
   file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("bmp"));
 
-  file_type_info.extensions[1].push_back(FILE_PATH_LITERAL("gif"));
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("gif"));
 
-  file_type_info.extensions[2].push_back(FILE_PATH_LITERAL("jpg"));
-  file_type_info.extensions[2].push_back(FILE_PATH_LITERAL("jpeg"));
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("jpg"));
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("jpeg"));
 
-  file_type_info.extensions[3].push_back(FILE_PATH_LITERAL("png"));
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("png"));
 
-  file_type_info.extensions[4].push_back(FILE_PATH_LITERAL("tif"));
-  file_type_info.extensions[4].push_back(FILE_PATH_LITERAL("tiff"));
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("tif"));
+  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("tiff"));
+
+  file_type_info.extension_description_overrides.resize(1);
+  file_type_info.extension_description_overrides[0] =
+      l10n_util::GetStringUTF16(IDS_IMAGE_FILES);
 
   return file_type_info;
 }
@@ -141,7 +145,7 @@ void ChangePictureOptionsHandler::SendDefaultImages() {
 
 void ChangePictureOptionsHandler::HandleChooseFile(const ListValue* args) {
   DCHECK(args && args->empty());
-  select_file_dialog_ = SelectFileDialog::Create(
+  select_file_dialog_ = ui::SelectFileDialog::Create(
       this, new ChromeSelectFilePolicy(web_ui()->GetWebContents()));
 
   FilePath downloads_path;
@@ -151,11 +155,11 @@ void ChangePictureOptionsHandler::HandleChooseFile(const ListValue* args) {
   }
 
   // Static so we initialize it only once.
-  CR_DEFINE_STATIC_LOCAL(SelectFileDialog::FileTypeInfo, file_type_info,
+  CR_DEFINE_STATIC_LOCAL(ui::SelectFileDialog::FileTypeInfo, file_type_info,
       (GetUserImageFileTypeInfo()));
 
   select_file_dialog_->SelectFile(
-      SelectFileDialog::SELECT_OPEN_FILE,
+      ui::SelectFileDialog::SELECT_OPEN_FILE,
       l10n_util::GetStringUTF16(IDS_DOWNLOAD_TITLE),
       downloads_path,
       &file_type_info,
@@ -298,7 +302,7 @@ void ChangePictureOptionsHandler::HandleSelectImage(const ListValue* args) {
 
     DCHECK(!previous_image_.empty());
     user_manager->SaveUserImage(user.email(),
-                                chromeos::UserImage(previous_image_));
+                                UserImage::CreateAndEncode(previous_image_));
 
     UMA_HISTOGRAM_ENUMERATION("UserImage.ChangeChoice",
                               kHistogramImageOld,
@@ -357,8 +361,10 @@ void ChangePictureOptionsHandler::FileSelected(const FilePath& path,
 
 void ChangePictureOptionsHandler::OnPhotoAccepted(const gfx::ImageSkia& photo) {
   UserManager* user_manager = UserManager::Get();
+  // TODO(ivankr): once old camera UI is gone, there's always raw data in
+  // |image_decoder_|, pass UserImage and user it instead.
   user_manager->SaveUserImage(user_manager->GetLoggedInUser().email(),
-                              chromeos::UserImage(photo));
+                              UserImage::CreateAndEncode(photo));
   UMA_HISTOGRAM_ENUMERATION("UserImage.ChangeChoice",
                             kHistogramImageFromCamera,
                             kHistogramImagesCount);

@@ -28,6 +28,7 @@
 #include "chrome/browser/extensions/extension_resource_protocols.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/io_thread.h"
+#include "chrome/browser/net/cache_stats.h"
 #include "chrome/browser/net/chrome_cookie_notification_details.h"
 #include "chrome/browser/net/chrome_fraudulent_certificate_reporter.h"
 #include "chrome/browser/net/chrome_net_log.h"
@@ -60,14 +61,15 @@
 #include "net/proxy/proxy_config_service_fixed.h"
 #include "net/proxy/proxy_script_fetcher_impl.h"
 #include "net/proxy/proxy_service.h"
+#include "net/url_request/data_protocol_handler.h"
 #include "net/url_request/url_request.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/cros_settings.h"
-#include "chrome/browser/chromeos/cros_settings_names.h"
 #include "chrome/browser/chromeos/gdata/gdata_protocol_handler.h"
 #include "chrome/browser/chromeos/gview_request_interceptor.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
+#include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "chrome/browser/chromeos/settings/cros_settings_names.h"
 #endif  // defined(OS_CHROMEOS)
 
 using content::BrowserContext;
@@ -219,7 +221,11 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
   BrowserContext::EnsureResourceContextInitialized(profile);
 }
 
-ProfileIOData::AppRequestContext::AppRequestContext() {}
+ProfileIOData::AppRequestContext::AppRequestContext(
+    chrome_browser_net::CacheStats* cache_stats)
+    : ChromeURLRequestContext(ChromeURLRequestContext::CONTEXT_TYPE_APP,
+                              cache_stats) {
+}
 
 void ProfileIOData::AppRequestContext::SetCookieStore(
     net::CookieStore* cookie_store) {
@@ -455,10 +461,16 @@ void ProfileIOData::LazyInitialize() const {
   IOThread* const io_thread = profile_params_->io_thread;
   IOThread::Globals* const io_thread_globals = io_thread->globals();
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
+  cache_stats_ = GetCacheStats(io_thread_globals);
 
   // Create the common request contexts.
-  main_request_context_.reset(new ChromeURLRequestContext);
-  extensions_request_context_.reset(new ChromeURLRequestContext);
+  main_request_context_.reset(
+      new ChromeURLRequestContext(ChromeURLRequestContext::CONTEXT_TYPE_MAIN,
+                                  cache_stats_));
+  extensions_request_context_.reset(
+      new ChromeURLRequestContext(
+          ChromeURLRequestContext::CONTEXT_TYPE_EXTENSIONS,
+          cache_stats_));
 
   chrome_url_data_manager_backend_.reset(new ChromeURLDataManagerBackend);
 
@@ -468,7 +480,8 @@ void ProfileIOData::LazyInitialize() const {
         url_blacklist_manager_.get(),
         profile_params_->profile,
         profile_params_->cookie_settings,
-        &enable_referrers_));
+        &enable_referrers_,
+        cache_stats_));
 
   fraudulent_certificate_reporter_.reset(
       new chrome_browser_net::ChromeFraudulentCertificateReporter(
@@ -547,6 +560,9 @@ void ProfileIOData::SetUpJobFactoryDefaults(
   set_protocol = job_factory->SetProtocolHandler(
       chrome::kChromeDevToolsScheme,
       CreateDevToolsProtocolHandler(chrome_url_data_manager_backend_.get()));
+  DCHECK(set_protocol);
+  set_protocol = job_factory->SetProtocolHandler(
+      chrome::kDataScheme, new net::DataProtocolHandler());
   DCHECK(set_protocol);
 #if defined(OS_CHROMEOS)
   if (!is_incognito()) {

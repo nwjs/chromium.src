@@ -19,15 +19,10 @@ class MEDIA_EXPORT WebMClusterParser : public WebMParserClient {
  public:
   typedef std::deque<scoped_refptr<StreamParserBuffer> > BufferQueue;
 
-  // Size is defined by the WebM encryption specification.
-  // http://wiki.webmproject.org/encryption/webm-encryption-rfc
-  static const int kIvSize = 8;
-
   WebMClusterParser(int64 timecode_scale,
                     int audio_track_num,
                     int video_track_num,
-                    const uint8* video_encryption_key_id,
-                    int video_encryption_key_id_size);
+                    const std::string& video_encryption_key_id);
   virtual ~WebMClusterParser();
 
   // Resets the parser state so it can accept a new cluster.
@@ -43,6 +38,9 @@ class MEDIA_EXPORT WebMClusterParser : public WebMParserClient {
   base::TimeDelta cluster_start_time() const { return cluster_start_time_; }
   const BufferQueue& audio_buffers() const { return audio_.buffers(); }
   const BufferQueue& video_buffers() const { return video_.buffers(); }
+
+  // Returns true if the last Parse() call stopped at the end of a cluster.
+  bool cluster_ended() const { return cluster_ended_; }
 
  private:
   // Helper class that manages per-track state.
@@ -76,8 +74,7 @@ class MEDIA_EXPORT WebMClusterParser : public WebMParserClient {
 
   double timecode_multiplier_;  // Multiplier used to convert timecodes into
                                 // microseconds.
-  scoped_array<uint8> video_encryption_key_id_;
-  int video_encryption_key_id_size_;
+  std::string video_encryption_key_id_;
 
   WebMListParser parser_;
 
@@ -88,6 +85,7 @@ class MEDIA_EXPORT WebMClusterParser : public WebMParserClient {
 
   int64 cluster_timecode_;
   base::TimeDelta cluster_start_time_;
+  bool cluster_ended_;
 
   Track audio_;
   Track video_;

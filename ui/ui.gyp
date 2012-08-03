@@ -31,7 +31,6 @@
         '../third_party/zlib/zlib.gyp:zlib',
         'base/strings/ui_strings.gyp:ui_strings',
         'ui_resources',
-        '<(libjpeg_gyp_path):libjpeg',
       ],
       'defines': [
         'UI_IMPLEMENTATION',
@@ -219,6 +218,7 @@
         'base/l10n/l10n_util_win.h',
         'base/layout.cc',
         'base/layout.h',
+        'base/layout_mac.mm',
         'base/models/button_menu_item_model.cc',
         'base/models/button_menu_item_model.h',
         'base/models/combobox_model.h',
@@ -293,6 +293,8 @@
         'base/win/extra_sdk_defines.h',
         'base/win/foreground_helper.cc',
         'base/win/foreground_helper.h',
+        'base/win/hidden_window.cc',
+        'base/win/hidden_window.h',
         'base/win/hwnd_util.cc',
         'base/win/hwnd_util.h',
         'base/win/hwnd_subclass.cc',
@@ -407,6 +409,7 @@
         'gfx/point_base.h',
         'gfx/point_f.cc',
         'gfx/point_f.h',
+        'gfx/point3.h',
         'gfx/rect.cc',
         'gfx/rect.h',
         'gfx/rect_base.h',
@@ -451,6 +454,7 @@
         'gfx/skia_utils_gtk.h',
         'gfx/sys_color_change_listener.cc',
         'gfx/sys_color_change_listener.h',
+        'gfx/text_constants.h',
         'gfx/transform.cc',
         'gfx/transform.h',
         'gfx/transform_util.cc',
@@ -466,6 +470,11 @@
         'ui_controls/ui_controls_win.cc',
       ],
       'conditions': [
+        ['OS!="ios"', {
+          'dependencies': [
+            '<(libjpeg_gyp_path):libjpeg',
+          ],
+        }],
         # TODO(asvitkine): Switch all platforms to use canvas_skia.cc.
         #                  http://crbug.com/105550
         ['use_canvas_skia==1', {
@@ -548,7 +557,7 @@
           ],
           'link_settings': {
             'libraries': [
-              '-lXcursor',  # For XCursor* function calls in x11_util.cc. 
+              '-lXcursor',  # For XCursor* function calls in x11_util.cc.
               '-lXrender',  # For XRender* function calls in x11_util.cc.
             ],
           },
@@ -677,6 +686,30 @@
             ],
           },
         }],
+        ['OS=="ios"', {
+          'sources/': [
+            # iOS uses so little of ui that it is is easier to simply exclude
+            # everything and then just select the parts needed.
+            # TODO(ios): Add new files as they are made iOS ready.
+            ['exclude', '^base/'],
+            ['exclude', '^ui_controls/'],
+            ['exclude', '^gfx/'],
+            ['include', '^gfx/point\\.'],
+            ['include', '^gfx/point_base\\.h'],
+            ['include', '^gfx/point3\\.h'],
+            ['include', '^gfx/rect\\.'],
+            ['include', '^gfx/rect_base\\.h'],
+            ['include', '^gfx/rect_base_impl\\.h'],
+            ['include', '^gfx/size\\.'],
+            ['include', '^gfx/size_base\\.h'],
+            ['include', '^gfx/size_base_impl\\.h'],
+          ],
+          'link_settings': {
+            'libraries': [
+              '$(SDKROOT)/System/Library/Frameworks/CoreGraphics.framework',
+            ],
+          },
+        }],
         ['use_x11==1', {
           'all_dependent_settings': {
             'ldflags': [
@@ -729,39 +762,11 @@
     },
   ],
   'conditions': [
-    ['inside_chromium_build==1', {
+    ['inside_chromium_build == 1 and OS != "ios"', {
+      # TODO(ios): The ui tests do not compile yet on iOS.
       'includes': [
         'ui_unittests.gypi',
-      ],
-      'targets': [
-        {
-          # TODO(rsesek): Remove this target once ui_unittests is run on the
-          # waterfall instead of gfx_unittests.
-          'target_name': 'gfx_unittests',
-          'type': 'none',
-          'dependencies': [
-            'ui_unittests',
-          ],
-          'actions': [
-            {
-              'message': 'TEMPORARY: Copying ui_unittests to gfx_unittests',
-              'variables': {
-                'ui_copy_target': '<(PRODUCT_DIR)/ui_unittests<(EXECUTABLE_SUFFIX)',
-                'ui_copy_dest': '<(PRODUCT_DIR)/gfx_unittests<(EXECUTABLE_SUFFIX)',
-              },
-              'inputs': ['<(ui_copy_target)'],
-              'outputs': ['<(ui_copy_dest)'],
-              'action_name': 'TEMP_copy_ui_unittests',
-              'action': [
-                'python', '-c',
-                'import os, shutil; ' \
-                'shutil.copyfile(\'<(ui_copy_target)\', \'<(ui_copy_dest)\'); ' \
-                'os.chmod(\'<(ui_copy_dest)\', 0700)'
-              ]
-            }
-          ],
-        },
-      ],
-    }],
+      ]},
+    ],
   ],
 }

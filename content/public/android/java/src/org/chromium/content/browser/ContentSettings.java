@@ -12,6 +12,7 @@ import android.webkit.WebView;
 import org.chromium.base.CalledByNative;
 import org.chromium.base.JNINamespace;
 import org.chromium.base.ThreadUtils;
+import org.chromium.content.common.CleanupReference;
 
 /**
  * Manages settings state for a ContentView. A ContentSettings instance is obtained
@@ -30,6 +31,19 @@ public class ContentSettings {
     private int mNativeContentSettings = 0;
 
     private ContentViewCore mContentViewCore;
+
+    private static final class DestroyRunnable implements Runnable {
+        private int mNativeContentSettings;
+        private DestroyRunnable(int nativeContentSettings) {
+            mNativeContentSettings = nativeContentSettings;
+        }
+        @Override
+        public void run() {
+            nativeDestroy(mNativeContentSettings);
+        }
+    }
+
+    private final CleanupReference mCleanupReference;
 
     // When ContentView is used in PERSONALITY_CHROME mode, settings can't
     // be modified through the ContentSettings instance.
@@ -65,6 +79,7 @@ public class ContentSettings {
     private boolean mJavaScriptEnabled = false;
     private boolean mJavaScriptCanOpenWindowsAutomatically = false;
     private PluginState mPluginState = PluginState.OFF;
+    private boolean mDomStorageEnabled = false;
 
     // Not accessed by the native side.
     private String mDefaultUserAgent = "";
@@ -146,6 +161,8 @@ public class ContentSettings {
         mCanModifySettings = mContentViewCore.isPersonalityView();
         mNativeContentSettings = nativeInit(nativeContentView, mCanModifySettings);
         assert mNativeContentSettings != 0;
+        mCleanupReference = new CleanupReference(this,
+                new DestroyRunnable(mNativeContentSettings));
 
         mEventHandler = new EventHandler();
         if (mCanModifySettings) {
@@ -169,7 +186,7 @@ public class ContentSettings {
      * when related ContentView is destroyed.
      */
     void destroy() {
-        nativeDestroy(mNativeContentSettings);
+        mCleanupReference.cleanupNow();
         mNativeContentSettings = 0;
     }
 
@@ -625,6 +642,28 @@ public class ContentSettings {
     }
 
     /**
+     * Sets whether the DOM storage API is enabled. The default value is false.
+     *
+     * @param flag true if the ContentView should use the DOM storage API
+     */
+    public synchronized void setDomStorageEnabled(boolean flag) {
+       if (mDomStorageEnabled != flag) {
+           mDomStorageEnabled = flag;
+           sendSyncMessage();
+       }
+    }
+
+    /**
+     * Gets whether the DOM Storage APIs are enabled.
+     *
+     * @return true if the DOM Storage APIs are enabled
+     * @see #setDomStorageEnabled
+     */
+    public synchronized boolean getDomStorageEnabled() {
+       return mDomStorageEnabled;
+    }
+
+    /**
      * Set the default text encoding name to use when decoding html pages.
      * @param encoding The text encoding name.
      */
@@ -668,7 +707,7 @@ public class ContentSettings {
     // Initialize the ContentSettings native side.
     private native int nativeInit(int contentViewPtr, boolean isMasterMode);
 
-    private native void nativeDestroy(int nativeContentSettings);
+    private static native void nativeDestroy(int nativeContentSettings);
 
     private static native String nativeGetDefaultUserAgent();
 

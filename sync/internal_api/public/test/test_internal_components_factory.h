@@ -9,16 +9,18 @@
 
 namespace syncer {
 
+enum StorageOption {
+  // BuildDirectoryBackingStore should not use persistent on-disk storage.
+  STORAGE_IN_MEMORY,
+  // Use this if you want BuildDirectoryBackingStore to create a real
+  // on disk store.
+  STORAGE_ON_DISK,
+  // Use this to test the case where a directory fails to load.
+  STORAGE_INVALID
+};
+
 class TestInternalComponentsFactory : public InternalComponentsFactory {
  public:
-  enum StorageOption {
-    // BuildDirectoryBackingStore should not use persistent on-disk storage.
-    IN_MEMORY,
-    // Use this if you want BuildDirectoryBackingStore to create a real
-    // on disk store.
-    ON_DISK
-  };
-
   explicit TestInternalComponentsFactory(StorageOption option);
   virtual ~TestInternalComponentsFactory();
 
@@ -29,13 +31,13 @@ class TestInternalComponentsFactory : public InternalComponentsFactory {
   virtual scoped_ptr<sessions::SyncSessionContext> BuildContext(
       ServerConnectionManager* connection_manager,
       syncable::Directory* directory,
-      const ModelSafeRoutingInfo& routing_info,
       const std::vector<ModelSafeWorker*> workers,
       ExtensionsActivityMonitor* monitor,
       ThrottledDataTypeTracker* throttled_data_type_tracker,
       const std::vector<SyncEngineEventListener*>& listeners,
       sessions::DebugInfoGetter* debug_info_getter,
-      TrafficRecorder* traffic_recorder) OVERRIDE;
+      TrafficRecorder* traffic_recorder,
+      bool keystore_encryption_enabled) OVERRIDE;
 
   virtual scoped_ptr<syncable::DirectoryBackingStore>
   BuildDirectoryBackingStore(

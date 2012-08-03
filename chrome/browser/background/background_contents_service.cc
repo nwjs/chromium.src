@@ -299,8 +299,8 @@ void BackgroundContentsService::Observe(
         extension =
           profile->GetExtensionService()->GetExtensionById(extension_id, false);
       } else {
-        ExtensionHost* extension_host =
-            content::Details<ExtensionHost>(details).ptr();
+        extensions::ExtensionHost* extension_host =
+            content::Details<extensions::ExtensionHost>(details).ptr();
         extension = extension_host->extension();
       }
       if (!extension)
@@ -431,7 +431,7 @@ void BackgroundContentsService::LoadBackgroundContentsFromDictionary(
   ExtensionService* extensions_service = profile->GetExtensionService();
   DCHECK(extensions_service);
 
-  DictionaryValue* dict;
+  const DictionaryValue* dict;
   if (!contents->GetDictionaryWithoutPathExpansion(extension_id, &dict) ||
       dict == NULL)
     return;

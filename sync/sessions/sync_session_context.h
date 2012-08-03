@@ -51,13 +51,14 @@ class SyncSessionContext {
  public:
   SyncSessionContext(ServerConnectionManager* connection_manager,
                      syncable::Directory* directory,
-                     const ModelSafeRoutingInfo& model_safe_routing_info,
                      const std::vector<ModelSafeWorker*>& workers,
                      ExtensionsActivityMonitor* extensions_activity_monitor,
                      ThrottledDataTypeTracker* throttled_data_type_tracker,
                      const std::vector<SyncEngineEventListener*>& listeners,
                      DebugInfoGetter* debug_info_getter,
-                     TrafficRecorder* traffic_recorder);
+                     TrafficRecorder* traffic_recorder,
+                     bool keystore_encryption_enabled);
+
   ~SyncSessionContext();
 
   ConflictResolver* resolver() { return resolver_; }
@@ -110,14 +111,6 @@ class SyncSessionContext {
   }
   int32 max_commit_batch_size() const { return max_commit_batch_size_; }
 
-  const ModelSafeRoutingInfo& previous_session_routing_info() const {
-    return previous_session_routing_info_;
-  }
-
-  void set_previous_session_routing_info(const ModelSafeRoutingInfo& info) {
-    previous_session_routing_info_ = info;
-  }
-
   void NotifyListeners(const SyncEngineEvent& event) {
     FOR_EACH_OBSERVER(SyncEngineEventListener, listeners_,
                       OnSyncEngineEvent(event));
@@ -125,6 +118,10 @@ class SyncSessionContext {
 
   TrafficRecorder* traffic_recorder() {
     return traffic_recorder_;
+  }
+
+  bool keystore_encryption_enabled() const {
+    return keystore_encryption_enabled_;
   }
 
  private:
@@ -163,10 +160,6 @@ class SyncSessionContext {
   // The server limits the number of items a client can commit in one batch.
   int max_commit_batch_size_;
 
-  // Some routing info history to help us clean up types that get disabled
-  // by the user.
-  ModelSafeRoutingInfo previous_session_routing_info_;
-
   ThrottledDataTypeTracker* throttled_data_type_tracker_;
 
   // We use this to get debug info to send to the server for debugging
@@ -174,6 +167,11 @@ class SyncSessionContext {
   DebugInfoGetter* const debug_info_getter_;
 
   TrafficRecorder* traffic_recorder_;
+
+  // Temporary variable while keystore encryption is behind a flag. True if
+  // we should attempt performing keystore encryption related work, false if
+  // the experiment is not enabled.
+  bool keystore_encryption_enabled_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncSessionContext);
 };

@@ -25,7 +25,7 @@ public class ContentShellActivity extends Activity {
     private static final String TAG = ContentShellActivity.class.getName();
 
     private static final String ACTIVE_SHELL_URL_KEY = "activeUrl";
-    private static final String DEFAULT_SHELL_URL = "http://www.google.com";
+    public static final String DEFAULT_SHELL_URL = "http://www.google.com";
 
     private ShellManager mShellManager;
 
@@ -35,11 +35,6 @@ public class ContentShellActivity extends Activity {
 
         // Initializing the command line must occur before loading the library.
         if (!CommandLine.isInitialized()) CommandLine.initFromFile(COMMAND_LINE_FILE);
-        String startupUrl = getUrlFromIntent(getIntent());
-        if (!TextUtils.isEmpty(startupUrl)) {
-            CommandLine.getInstance().appendSwitchesAndArguments(
-                    new String[] {Shell.sanitizeUrl(startupUrl)});
-        }
         waitForDebuggerIfNeeded();
 
         LibraryLoader.loadAndInitSync();
@@ -47,6 +42,12 @@ public class ContentShellActivity extends Activity {
 
         setContentView(R.layout.content_shell_activity);
         mShellManager = (ShellManager) findViewById(R.id.shell_container);
+
+        String startupUrl = getUrlFromIntent(getIntent());
+        if (!TextUtils.isEmpty(startupUrl)) {
+            mShellManager.setStartupUrl(Shell.sanitizeUrl(startupUrl));
+        }
+
         if (!ContentView.enableMultiProcess(this, ContentView.MAX_RENDERERS_AUTOMATIC)) {
             String shellUrl = DEFAULT_SHELL_URL;
             if (savedInstanceState != null
@@ -98,6 +99,22 @@ public class ContentShellActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onPause() {
+        ContentView view = getActiveContentView();
+        if (view != null) view.onActivityPause();
+
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        ContentView view = getActiveContentView();
+        if (view != null) view.onActivityResume();
+    }
+
     private static String getUrlFromIntent(Intent intent) {
         return intent != null ? intent.getDataString() : null;
     }
@@ -115,6 +132,15 @@ public class ContentShellActivity extends Activity {
      */
     public Shell getActiveShell() {
         return mShellManager != null ? mShellManager.getActiveShell() : null;
+    }
+
+    /**
+     * @return The {@link ContentView} owned by the currently visible {@link Shell} or null if one
+     *         is not showing.
+     */
+    public ContentView getActiveContentView() {
+        Shell shell = getActiveShell();
+        return shell != null ? shell.getContentView() : null;
     }
 
     private void initializeContentViewResources() {

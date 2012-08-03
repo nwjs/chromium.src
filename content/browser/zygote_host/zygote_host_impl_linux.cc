@@ -33,6 +33,7 @@
 #include "content/public/common/result_codes.h"
 #include "sandbox/linux/suid/client/setuid_sandbox_client.h"
 #include "sandbox/linux/suid/common/sandbox.h"
+#include "ui/base/ui_base_switches.h"
 
 #if defined(USE_TCMALLOC)
 #include "third_party/tcmalloc/chromium/src/gperftools/heap-profiler.h"
@@ -99,7 +100,13 @@ void ZygoteHostImpl::Init(const std::string& sandbox_cmd) {
     switches::kVModule,
     switches::kRegisterPepperPlugins,
     switches::kDisableSeccompSandbox,
+    switches::kDisableSeccompFilterSandbox,
     switches::kEnableSeccompSandbox,
+    // Zygote process needs to know what resources to have loaded when it
+    // becomes a renderer process.
+    switches::kForceDeviceScaleFactor,
+    switches::kLoad2xResources,
+    switches::kNoSandbox,
   };
   cmd_line.CopySwitchesFrom(browser_command_line, kForwardSwitches,
                             arraysize(kForwardSwitches));

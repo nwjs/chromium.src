@@ -58,8 +58,8 @@
 #endif
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/cros/cryptohome_library.h"
+#include "chromeos/dbus/cryptohome_client.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #endif
 
@@ -162,6 +162,18 @@ void OnOpenWindowForNewProfile(Profile* profile,
         false);
   }
 }
+
+#if defined(OS_CHROMEOS)
+void CheckCryptohomeIsMounted(chromeos::DBusMethodCallStatus call_status,
+                              bool is_mounted) {
+  if (call_status != chromeos::DBUS_METHOD_CALL_SUCCESS) {
+    LOG(ERROR) << "IsMounted call failed.";
+    return;
+  }
+  if (!is_mounted)
+    LOG(ERROR) << "Cryptohome is not mounted.";
+}
+#endif
 
 } // namespace
 
@@ -526,8 +538,8 @@ void ProfileManager::Observe(
       // TODO(davemoore) Once we have better api this check should ensure that
       // our profile directory is the one that's mounted, and that it's mounted
       // as the current user.
-      CHECK(chromeos::CrosLibrary::Get()->GetCryptohomeLibrary()->IsMounted())
-          << "The cryptohome was not mounted at login.";
+      chromeos::DBusThreadManager::Get()->GetCryptohomeClient()->IsMounted(
+          base::Bind(&CheckCryptohomeIsMounted));
 
       // Confirm that we hadn't loaded the new profile previously.
       FilePath default_profile_dir =
@@ -561,8 +573,13 @@ void ProfileManager::Observe(
       DCHECK(profile);
       if (!profile->IsOffTheRecord() && ++browser_counts_[profile] == 1) {
         active_profiles_.push_back(profile);
-        save_active_profiles = !closing_all_browsers_;
+        save_active_profiles = true;
       }
+      // If browsers are opening, we can't be closing all the browsers. This
+      // can happen if the application was exited, but background mode or
+      // packaged apps prevented the process from shutting down, and then
+      // a new browser window was opened.
+      closing_all_browsers_ = false;
       break;
     }
     case chrome::NOTIFICATION_BROWSER_CLOSED: {
@@ -671,7 +688,8 @@ void ProfileManager::DoFinalInit(Profile* profile, bool go_off_the_record) {
 void ProfileManager::DoFinalInitForServices(Profile* profile,
                                             bool go_off_the_record) {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  extensions::ExtensionSystem::Get(profile)->Init(!go_off_the_record);
+  extensions::ExtensionSystem::Get(profile)->InitForRegularProfile(
+      !go_off_the_record);
   // During tests, when |profile| is an instance of TestingProfile,
   // ExtensionSystem might not create an ExtensionService.
   if (extensions::ExtensionSystem::Get(profile)->extension_service()) {

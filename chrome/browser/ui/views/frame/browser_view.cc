@@ -71,7 +71,6 @@
 #include "chrome/browser/ui/views/toolbar_view.h"
 #include "chrome/browser/ui/views/update_recommended_message_box.h"
 #include "chrome/browser/ui/views/website_settings/website_settings_popup_view.h"
-#include "chrome/browser/ui/webui/feedback_ui.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -2495,7 +2494,6 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   if (search_view_controller_.get())
     search_view_controller_->SetTabContents(new_contents);
 #endif
-  RestackLocationBarContainer();
 
   UpdateDevToolsForContents(new_contents);
   if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
@@ -2507,6 +2505,12 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
 
   // Update all the UI bits.
   UpdateTitleBar();
+
+  // Restacking needs to happen after other UI updates. This restores special
+  // "widget" stacking that governs the SearchViewController's NTP "content"
+  // area.
+  RestackLocationBarContainer();
+
   // No need to update Toolbar because it's already updated in
   // browser.cc.
 }

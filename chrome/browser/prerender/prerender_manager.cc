@@ -62,15 +62,8 @@ namespace prerender {
 
 namespace {
 
-// Time window for which we will record windowed PLT's from the last
-// observed link rel=prefetch tag.
-const int kWindowDurationSeconds = 30;
-
 // Time interval at which periodic cleanups are performed.
 const int kPeriodicCleanupIntervalMs = 1000;
-
-// Time interval before a new prerender is allowed.
-const int kMinTimeBetweenPrerendersMs = 500;
 
 // Valid HTTP methods for prerendering.
 const char* const kValidHttpMethods[] = {
@@ -190,12 +183,12 @@ PrerenderManager::PrerenderManager(Profile* profile,
           base::TimeDelta::FromMilliseconds(kMinTimeBetweenPrerendersMs)),
       weak_factory_(this),
       prerender_history_(new PrerenderHistory(kHistoryLength)),
-      histograms_(new PrerenderHistograms()),
-      local_predictor_(new PrerenderLocalPredictor(this)) {
+      histograms_(new PrerenderHistograms()) {
   // There are some assumptions that the PrerenderManager is on the UI thread.
   // Any other checks simply make sure that the PrerenderManager is accessed on
   // the same thread that it was created on.
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  config_.max_concurrency = GetMaxConcurrency();
 }
 
 PrerenderManager::~PrerenderManager() {
@@ -214,7 +207,7 @@ PrerenderHandle* PrerenderManager::AddPrerenderFromLinkRelPrerender(
 #if defined(OS_ANDROID)
   // TODO(jcivelli): http://crbug.com/113322 We should have an option to disable
   //                link-prerender and enable omnibox-prerender only.
-  return false;
+  return NULL;
 #else
   DCHECK(!size.IsEmpty());
   if (PrerenderData* parent_prerender_data =
@@ -555,6 +548,8 @@ const char* PrerenderManager::GetModeString() {
       return "_Enabled";
     case PRERENDER_MODE_EXPERIMENT_CONTROL_GROUP:
       return "_Control";
+    case PRERENDER_MODE_EXPERIMENT_MULTI_PRERENDER_GROUP:
+      return "_Multi";
     case PRERENDER_MODE_EXPERIMENT_5MIN_TTL_GROUP:
       return "_5MinTTL";
     case PRERENDER_MODE_EXPERIMENT_NO_USE_GROUP:
@@ -584,6 +579,13 @@ bool PrerenderManager::IsControlGroup() {
 // static
 bool PrerenderManager::IsNoUseGroup() {
   return GetMode() == PRERENDER_MODE_EXPERIMENT_NO_USE_GROUP;
+}
+
+// static
+size_t PrerenderManager::GetMaxConcurrency() {
+  if (GetMode() == PRERENDER_MODE_EXPERIMENT_MULTI_PRERENDER_GROUP)
+    return 3;
+  return 1;
 }
 
 bool PrerenderManager::IsWebContentsPrerendering(
@@ -945,11 +947,13 @@ PrerenderHandle* PrerenderManager::AddPrerender(
                                         session_storage_namespace,
                                         control_group_behavior);
 
-  while (active_prerender_list_.size() > config_.max_elements) {
+  while (active_prerender_list_.size() > config_.max_concurrency) {
     prerender_contents = active_prerender_list_.front()->contents_;
     DCHECK(prerender_contents);
     prerender_contents->Destroy(FINAL_STATUS_EVICTED);
   }
+
+  histograms_->RecordConcurrency(active_prerender_list_.size());
 
   StartSchedulingPeriodicCleanups();
   return prerender_handle;

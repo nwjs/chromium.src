@@ -53,9 +53,9 @@ class CryptohomeClientImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual bool IsMounted(bool* is_mounted) OVERRIDE {
+  virtual void IsMounted(const BoolDBusMethodCallback& callback) {
     INITIALIZE_METHOD_CALL(method_call, cryptohome::kCryptohomeIsMounted);
-    return CallBoolMethodAndBlock(&method_call, is_mounted);
+    CallBoolMethod(&method_call, callback);
   }
 
   // CryptohomeClient override.
@@ -151,23 +151,15 @@ class CryptohomeClientImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual void TpmIsReady(const BoolMethodCallback& callback) OVERRIDE {
+  virtual void TpmIsReady(const BoolDBusMethodCallback& callback) OVERRIDE {
     INITIALIZE_METHOD_CALL(method_call, cryptohome::kCryptohomeTpmIsReady);
-    proxy_->CallMethod(&method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-                       base::Bind(
-                           &CryptohomeClientImpl::OnBoolMethod,
-                           weak_ptr_factory_.GetWeakPtr(),
-                           callback));
+    CallBoolMethod(&method_call, callback);
   }
 
   // CryptohomeClient override.
-  virtual void TpmIsEnabled(const BoolMethodCallback& callback) OVERRIDE {
+  virtual void TpmIsEnabled(const BoolDBusMethodCallback& callback) OVERRIDE {
     INITIALIZE_METHOD_CALL(method_call, cryptohome::kCryptohomeTpmIsEnabled);
-    proxy_->CallMethod(&method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-                       base::Bind(
-                           &CryptohomeClientImpl::OnBoolMethod,
-                           weak_ptr_factory_.GetWeakPtr(),
-                           callback));
+    CallBoolMethod(&method_call, callback);
   }
 
   // CryptohomeClient override.
@@ -181,7 +173,8 @@ class CryptohomeClientImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual void TpmGetPassword(const StringMethodCallback& callback) OVERRIDE {
+  virtual void TpmGetPassword(
+      const StringDBusMethodCallback& callback) OVERRIDE {
     INITIALIZE_METHOD_CALL(method_call, cryptohome::kCryptohomeTpmGetPassword);
     proxy_->CallMethod(
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
@@ -203,12 +196,11 @@ class CryptohomeClientImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual bool TpmCanAttemptOwnership() OVERRIDE {
+  virtual void TpmCanAttemptOwnership(
+      const VoidDBusMethodCallback& callback) OVERRIDE {
     INITIALIZE_METHOD_CALL(method_call,
                            cryptohome::kCryptohomeTpmCanAttemptOwnership);
-    scoped_ptr<dbus::Response> response(
-        blocking_method_caller_.CallMethodAndBlock(&method_call));
-    return response.get() != NULL;
+    CallVoidMethod(&method_call, callback);
   }
 
   // CryptohomeClient override.
@@ -221,16 +213,11 @@ class CryptohomeClientImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual void Pkcs11IsTpmTokenReady(const BoolMethodCallback& callback)
+  virtual void Pkcs11IsTpmTokenReady(const BoolDBusMethodCallback& callback)
       OVERRIDE {
     INITIALIZE_METHOD_CALL(method_call,
                            cryptohome::kCryptohomePkcs11IsTpmTokenReady);
-    proxy_->CallMethod(
-        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
-        base::Bind(
-            &CryptohomeClientImpl::OnBoolMethod,
-            weak_ptr_factory_.GetWeakPtr(),
-            callback));
+    CallBoolMethod(&method_call, callback);
   }
 
   // CryptohomeClient override.
@@ -324,6 +311,24 @@ class CryptohomeClientImpl : public CryptohomeClient {
     callback.Run(async_id);
   }
 
+  // Calls a method without result values.
+  void CallVoidMethod(dbus::MethodCall* method_call,
+                      const VoidDBusMethodCallback& callback) {
+    proxy_->CallMethod(method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+                       base::Bind(&CryptohomeClientImpl::OnVoidMethod,
+                                  weak_ptr_factory_.GetWeakPtr(),
+                                  callback));
+  }
+
+  void OnVoidMethod(const VoidDBusMethodCallback& callback,
+                    dbus::Response* response) {
+    if (!response) {
+      callback.Run(DBUS_METHOD_CALL_FAILURE);
+      return;
+    }
+    callback.Run(DBUS_METHOD_CALL_SUCCESS);
+  }
+
   // Calls a method with a bool value reult and block.
   bool CallBoolMethodAndBlock(dbus::MethodCall* method_call,
                               bool* result) {
@@ -335,8 +340,18 @@ class CryptohomeClientImpl : public CryptohomeClient {
     return reader.PopBool(result);
   }
 
+  // Calls a method with a bool value result.
+  void CallBoolMethod(dbus::MethodCall* method_call,
+                      const BoolDBusMethodCallback& callback) {
+    proxy_->CallMethod(method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+                       base::Bind(
+                           &CryptohomeClientImpl::OnBoolMethod,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           callback));
+  }
+
   // Handles responses for methods with a bool value result.
-  void OnBoolMethod(const BoolMethodCallback& callback,
+  void OnBoolMethod(const BoolDBusMethodCallback& callback,
                     dbus::Response* response) {
     if (!response) {
       callback.Run(DBUS_METHOD_CALL_FAILURE, false);
@@ -352,7 +367,7 @@ class CryptohomeClientImpl : public CryptohomeClient {
   }
 
   // Handles responses for methods with a string value result.
-  void OnStringMethod(const StringMethodCallback& callback,
+  void OnStringMethod(const StringDBusMethodCallback& callback,
                       dbus::Response* response) {
     if (!response) {
       callback.Run(DBUS_METHOD_CALL_FAILURE, std::string());
@@ -440,9 +455,9 @@ class CryptohomeClientStubImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual bool IsMounted(bool* is_mounted) OVERRIDE {
-    *is_mounted = true;
-    return true;
+  virtual void IsMounted(const BoolDBusMethodCallback& callback) OVERRIDE {
+    MessageLoop::current()->PostTask(
+        FROM_HERE, base::Bind(callback, DBUS_METHOD_CALL_SUCCESS, true));
   }
 
   // CryptohomeClient override.
@@ -494,13 +509,13 @@ class CryptohomeClientStubImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual void TpmIsReady(const BoolMethodCallback& callback) OVERRIDE {
+  virtual void TpmIsReady(const BoolDBusMethodCallback& callback) OVERRIDE {
     MessageLoop::current()->PostTask(
         FROM_HERE, base::Bind(callback, DBUS_METHOD_CALL_SUCCESS, true));
   }
 
   // CryptohomeClient override.
-  virtual void TpmIsEnabled(const BoolMethodCallback& callback) OVERRIDE {
+  virtual void TpmIsEnabled(const BoolDBusMethodCallback& callback) OVERRIDE {
     MessageLoop::current()->PostTask(
         FROM_HERE, base::Bind(callback, DBUS_METHOD_CALL_SUCCESS, true));
   }
@@ -512,7 +527,8 @@ class CryptohomeClientStubImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual void TpmGetPassword(const StringMethodCallback& callback) OVERRIDE {
+  virtual void TpmGetPassword(
+      const StringDBusMethodCallback& callback) OVERRIDE {
     const char kStubTpmPassword[] = "Stub-TPM-password";
     MessageLoop::current()->PostTask(
         FROM_HERE,
@@ -532,14 +548,18 @@ class CryptohomeClientStubImpl : public CryptohomeClient {
   }
 
   // CryptohomeClient override.
-  virtual bool TpmCanAttemptOwnership() OVERRIDE { return true; }
+  virtual void TpmCanAttemptOwnership(
+      const VoidDBusMethodCallback& callback) OVERRIDE {
+    MessageLoop::current()->PostTask(
+        FROM_HERE, base::Bind(callback, DBUS_METHOD_CALL_SUCCESS));
+  }
 
   // CryptohomeClient override.
   virtual bool TpmClearStoredPassword() OVERRIDE { return true; }
 
   // CryptohomeClient override.
   virtual void Pkcs11IsTpmTokenReady(
-      const BoolMethodCallback& callback) OVERRIDE {
+      const BoolDBusMethodCallback& callback) OVERRIDE {
     MessageLoop::current()->PostTask(
         FROM_HERE, base::Bind(callback, DBUS_METHOD_CALL_SUCCESS, true));
   }

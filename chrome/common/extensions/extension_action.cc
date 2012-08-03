@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "chrome/common/badge_util.h"
 #include "googleurl/src/gurl.h"
+#include "grit/theme_resources.h"
 #include "grit/ui_resources.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -52,17 +53,23 @@ const int kMaxTextWidth = 23;
 const int kCenterAlignThreshold = 20;
 
 
+int Width(const gfx::Image& image) {
+  if (image.IsEmpty())
+    return 0;
+  return image.ToSkBitmap()->width();
+}
+
 }  // namespace
 
-// Wraps an IconAnimation and implements its ui::AnimationDelegate to erase the
-// animation from a map when the animation ends or is cancelled, causing itself
-// and its owned IconAnimation to be deleted.
-class ExtensionAction::IconAnimationWrapper : public ui::AnimationDelegate {
+// Wraps an IconAnimation and implements its ui::AnimationDelegate to delete
+// itself when the animation ends or is cancelled, causing its owned
+// IconAnimation to be destroyed.
+class ExtensionAction::IconAnimationWrapper
+    : public ui::AnimationDelegate,
+      public base::SupportsWeakPtr<IconAnimationWrapper> {
  public:
-  IconAnimationWrapper(ExtensionAction* owner, int tab_id)
-      : owner_(owner),
-        tab_id_(tab_id),
-        ALLOW_THIS_IN_INITIALIZER_LIST(animation_(this)) {}
+  IconAnimationWrapper()
+      : ALLOW_THIS_IN_INITIALIZER_LIST(animation_(this)) {}
 
   virtual ~IconAnimationWrapper() {}
 
@@ -80,12 +87,9 @@ class ExtensionAction::IconAnimationWrapper : public ui::AnimationDelegate {
   }
 
   void Done() {
-    owner_->icon_animation_.erase(tab_id_);
-    // this will now have been deleted.
+    delete this;
   }
 
-  ExtensionAction* owner_;
-  int tab_id_;
   IconAnimation animation_;
 };
 
@@ -190,12 +194,42 @@ GURL ExtensionAction::GetPopupUrl(int tab_id) const {
   return GetValue(&popup_url_, tab_id);
 }
 
-void ExtensionAction::SetIcon(int tab_id, const SkBitmap& bitmap) {
-  SetValue(&icon_, tab_id, bitmap);
+void ExtensionAction::CacheIcon(const std::string& path,
+                                const gfx::Image& icon) {
+  if (!icon.IsEmpty())
+    path_to_icon_cache_.insert(std::make_pair(path, icon));
 }
 
-SkBitmap ExtensionAction::GetIcon(int tab_id) const {
-  return GetValue(&icon_, tab_id);
+void ExtensionAction::SetIcon(int tab_id, const SkBitmap& bitmap) {
+  SetValue(&icon_, tab_id, gfx::Image(bitmap));
+}
+
+gfx::Image ExtensionAction::GetIcon(int tab_id) const {
+  // Check if a specific icon is set for this tab.
+  gfx::Image icon = GetValue(&icon_, tab_id);
+  if (icon.IsEmpty()) {
+    // Need to find an icon from a path.
+    const std::string* path = NULL;
+    // Check if one of the elements of icon_path() was selected.
+    int icon_index = GetIconIndex(tab_id);
+    if (icon_index >= 0) {
+      path = &icon_paths()->at(icon_index);
+    } else {
+      // Otherwise, use the default icon.
+      path = &default_icon_path();
+    }
+
+    std::map<std::string, gfx::Image>::const_iterator cached_icon =
+        path_to_icon_cache_.find(*path);
+    if (cached_icon != path_to_icon_cache_.end()) {
+      icon = cached_icon->second;
+    } else {
+      icon = ui::ResourceBundle::GetSharedInstance().GetImageNamed(
+          IDR_EXTENSIONS_FAVICON);
+    }
+  }
+
+  return ApplyIconAnimation(tab_id, icon);
 }
 
 void ExtensionAction::SetIconIndex(int tab_id, int index) {
@@ -248,10 +282,10 @@ void ExtensionAction::PaintBadge(gfx::Canvas* canvas,
   // Calculate badge size. It is clamped to a min width just because it looks
   // silly if it is too skinny.
   int badge_width = SkScalarFloor(text_width) + kPadding * 2;
-  int icon_width = GetIcon(tab_id).width();
+  int icon_width = Width(GetValue(&icon_, tab_id));
   // Force the pixel width of badge to be either odd (if the icon width is odd)
   // or even otherwise. If there is a mismatch you get http://crbug.com/26400.
-  if (icon_width != 0 && (badge_width % 2 != GetIcon(tab_id).width() % 2))
+  if (icon_width != 0 && (badge_width % 2 != icon_width % 2))
     badge_width += 1;
   badge_width = std::max(kBadgeHeight, badge_width);
 
@@ -307,17 +341,47 @@ void ExtensionAction::PaintBadge(gfx::Canvas* canvas,
   canvas->Restore();
 }
 
+ExtensionAction::IconAnimationWrapper* ExtensionAction::GetIconAnimationWrapper(
+    int tab_id) const {
+  std::map<int, base::WeakPtr<IconAnimationWrapper> >::iterator it =
+      icon_animation_.find(tab_id);
+  if (it == icon_animation_.end())
+    return NULL;
+  if (it->second)
+    return it->second;
+
+  // Take this opportunity to remove all the NULL IconAnimationWrappers from
+  // icon_animation_.
+  icon_animation_.erase(it);
+  for (it = icon_animation_.begin(); it != icon_animation_.end();) {
+    if (it->second) {
+      ++it;
+    } else {
+      // The WeakPtr is null; remove it from the map.
+      icon_animation_.erase(it++);
+    }
+  }
+  return NULL;
+}
+
 base::WeakPtr<ExtensionAction::IconAnimation> ExtensionAction::GetIconAnimation(
     int tab_id) const {
-  std::map<int, linked_ptr<IconAnimationWrapper> >::const_iterator it =
-      icon_animation_.find(tab_id);
-  return (it != icon_animation_.end()) ? it->second->animation()->AsWeakPtr()
-                                       : base::WeakPtr<IconAnimation>();
+  IconAnimationWrapper* wrapper = GetIconAnimationWrapper(tab_id);
+  return wrapper ? wrapper->animation()->AsWeakPtr()
+      : base::WeakPtr<IconAnimation>();
+}
+
+gfx::Image ExtensionAction::ApplyIconAnimation(int tab_id,
+                                               const gfx::Image& orig) const {
+  IconAnimationWrapper* wrapper = GetIconAnimationWrapper(tab_id);
+  if (wrapper == NULL)
+    return orig;
+  return gfx::Image(wrapper->animation()->Apply(*orig.ToSkBitmap()));
 }
 
 void ExtensionAction::RunIconAnimation(int tab_id) {
   IconAnimationWrapper* icon_animation =
-      new IconAnimationWrapper(this, tab_id);
-  icon_animation_[tab_id] = make_linked_ptr(icon_animation);
+      new IconAnimationWrapper();
+  icon_animation_[tab_id] = icon_animation->AsWeakPtr();
   icon_animation->animation()->Start();
 }

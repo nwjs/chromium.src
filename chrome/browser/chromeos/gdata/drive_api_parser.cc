@@ -34,13 +34,16 @@ bool GetGURLFromString(const base::StringPiece& url_string, GURL* result) {
 
 // Common
 const char kKind[] = "kind";
+const char kId[] = "id";
+const char kETag[] = "etag";
+const char kItems[] = "items";
+const char kLargestChangeId[] = "largestChangeId";
 
 // About Resource:
 const char kAboutKind[] = "drive#about";
 const char kRootFolderId[] = "rootFolderId";
 const char kQuotaBytesTotal[] = "quotaBytesTotal";
 const char kQuotaBytesUsed[] = "quotaBytesUsed";
-const char kLargestChangeId[] = "largestChangeId";
 
 // App Icon:
 const char kCategory[] = "category";
@@ -49,8 +52,6 @@ const char kIconUrl[] = "iconUrl";
 
 // Apps Resource:
 const char kAppKind[] = "drive#app";
-const char kId[] = "id";
-const char kETag[] = "etag";
 const char kName[] = "name";
 const char kObjectType[] = "objectType";
 const char kSupportsCreate[] = "supportsCreate";
@@ -66,8 +67,36 @@ const char kIcons[] = "icons";
 
 // Apps List:
 const char kAppListKind[] = "drive#appList";
-const char kItems[] = "items";
 
+// Parent Resource:
+const char kParentReferenceKind[] = "drive#parentReference";
+const char kIsRoot[] = "isRoot";
+
+// File Resource:
+const char kFileKind[] = "drive#file";
+const char kMimeType[] = "mimeType";
+const char kTitle[] = "title";
+const char kModifiedByMeDate[] = "modifiedByMeDate";
+const char kParents[] = "parents";
+const char kDownloadUrl[] = "downloadUrl";
+const char kFileExtension[] = "fileExtension";
+const char kMd5Checksum[] = "md5Checksum";
+const char kFileSize[] = "fileSize";
+
+const char kDriveFolderMimeType[] = "application/vnd.google-apps.folder";
+
+// Files List:
+const char kFileListKind[] = "drive#fileList";
+const char kNextPageToken[] = "nextPageToken";
+const char kNextLink[] = "nextLink";
+
+// Change Resource:
+const char kChangeKind[] = "drive#change";
+const char kFileId[] = "fileId";
+const char kFile[] = "file";
+
+// Changes List:
+const char kChangeListKind[] = "drive#changeList";
 
 // Maps category name to enum IconCategory.
 struct AppIconCategoryMap {
@@ -205,7 +234,7 @@ AppResource::~AppResource() {}
 // static
 void AppResource::RegisterJSONConverter(
     base::JSONValueConverter<AppResource>* converter) {
-  converter->RegisterStringField(kId, &AppResource::id_);
+  converter->RegisterStringField(kId, &AppResource::application_id_);
   converter->RegisterStringField(kName, &AppResource::name_);
   converter->RegisterStringField(kObjectType, &AppResource::object_type_);
   converter->RegisterBoolField(kSupportsCreate, &AppResource::supports_create_);
@@ -274,6 +303,213 @@ bool AppList::Parse(const base::Value& value) {
   base::JSONValueConverter<AppList> converter;
   if (!converter.Convert(value, this)) {
     LOG(ERROR) << "Unable to parse: Invalid AppList";
+    return false;
+  }
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ParentReference implementation
+
+ParentReference::ParentReference() : is_root_(false) {}
+
+ParentReference::~ParentReference() {}
+
+// static
+void ParentReference::RegisterJSONConverter(
+    base::JSONValueConverter<ParentReference>* converter) {
+  converter->RegisterStringField(kId, &ParentReference::file_id_);
+  converter->RegisterBoolField(kIsRoot, &ParentReference::is_root_);
+}
+
+// static
+scoped_ptr<ParentReference>
+ParentReference::CreateFrom(const base::Value& value) {
+  scoped_ptr<ParentReference> reference(new ParentReference());
+  if (!IsResourceKindExpected(value, kParentReferenceKind) ||
+      !reference->Parse(value)) {
+    LOG(ERROR) << "Unable to create: Invalid ParentRefernce JSON!";
+    return scoped_ptr<ParentReference>(NULL);
+  }
+  return reference.Pass();
+}
+
+bool ParentReference::Parse(const base::Value& value) {
+  base::JSONValueConverter<ParentReference> converter;
+  if (!converter.Convert(value, this)) {
+    LOG(ERROR) << "Unable to parse: Invalid ParentReference";
+    return false;
+  }
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// FileResource implementation
+
+FileResource::FileResource() : file_size_(0) {}
+
+FileResource::~FileResource() {}
+
+// static
+void FileResource::RegisterJSONConverter(
+    base::JSONValueConverter<FileResource>* converter) {
+  converter->RegisterStringField(kId, &FileResource::file_id_);
+  converter->RegisterStringField(kETag, &FileResource::etag_);
+  converter->RegisterStringField(kMimeType, &FileResource::mime_type_);
+  converter->RegisterStringField(kTitle, &FileResource::title_);
+  converter->RegisterCustomField<base::Time>(
+      kModifiedByMeDate,
+      &FileResource::modified_by_me_date_,
+      &gdata::util::GetTimeFromString);
+  converter->RegisterRepeatedMessage<ParentReference>(kParents,
+                                                      &FileResource::parents_);
+  converter->RegisterCustomField<GURL>(kDownloadUrl,
+                                       &FileResource::download_url_,
+                                       GetGURLFromString);
+  converter->RegisterStringField(kFileExtension,
+                                 &FileResource::file_extension_);
+  converter->RegisterStringField(kMd5Checksum, &FileResource::md5_checksum_);
+  converter->RegisterCustomField<int64>(kFileSize,
+                                        &FileResource::file_size_,
+                                        &base::StringToInt64);
+}
+
+// static
+scoped_ptr<FileResource> FileResource::CreateFrom(const base::Value& value) {
+  scoped_ptr<FileResource> resource(new FileResource());
+  if (!IsResourceKindExpected(value, kFileKind) || !resource->Parse(value)) {
+    LOG(ERROR) << "Unable to create: Invalid FileResource JSON!";
+    return scoped_ptr<FileResource>(NULL);
+  }
+  return resource.Pass();
+}
+
+bool FileResource::IsDirectory() const {
+  return mime_type_ == kDriveFolderMimeType;
+}
+
+bool FileResource::Parse(const base::Value& value) {
+  base::JSONValueConverter<FileResource> converter;
+  if (!converter.Convert(value, this)) {
+    LOG(ERROR) << "Unable to parse: Invalid FileResource";
+    return false;
+  }
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// FileList implementation
+
+FileList::FileList() {}
+
+FileList::~FileList() {}
+
+// static
+void FileList::RegisterJSONConverter(
+    base::JSONValueConverter<FileList>* converter) {
+  converter->RegisterStringField(kETag, &FileList::etag_);
+  converter->RegisterStringField(kNextPageToken, &FileList::next_page_token_);
+  converter->RegisterCustomField<GURL>(kNextLink,
+                                       &FileList::next_link_,
+                                       GetGURLFromString);
+  converter->RegisterRepeatedMessage<FileResource>(kItems,
+                                                   &FileList::items_);
+}
+
+// static
+scoped_ptr<FileList> FileList::CreateFrom(const base::Value& value) {
+  scoped_ptr<FileList> resource(new FileList());
+  if (!IsResourceKindExpected(value, kFileListKind) ||
+      !resource->Parse(value)) {
+    LOG(ERROR) << "Unable to create: Invalid FileList JSON!";
+    return scoped_ptr<FileList>(NULL);
+  }
+  return resource.Pass();
+}
+
+bool FileList::Parse(const base::Value& value) {
+  base::JSONValueConverter<FileList> converter;
+  if (!converter.Convert(value, this)) {
+    LOG(ERROR) << "Unable to parse: Invalid FileList";
+    return false;
+  }
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ChangeResource implementation
+
+ChangeResource::ChangeResource() : change_id_(0), deleted_(false) {}
+
+ChangeResource::~ChangeResource() {}
+
+// static
+void ChangeResource::RegisterJSONConverter(
+    base::JSONValueConverter<ChangeResource>* converter) {
+  converter->RegisterCustomField<int64>(kId,
+                                        &ChangeResource::change_id_,
+                                        &base::StringToInt64);
+  converter->RegisterStringField(kFileId, &ChangeResource::file_id_);
+  converter->RegisterNestedField(kFile, &ChangeResource::file_);
+}
+
+// static
+scoped_ptr<ChangeResource>
+ChangeResource::CreateFrom(const base::Value& value) {
+  scoped_ptr<ChangeResource> resource(new ChangeResource());
+  if (!IsResourceKindExpected(value, kChangeKind) || !resource->Parse(value)) {
+    LOG(ERROR) << "Unable to create: Invalid ChangeResource JSON!";
+    return scoped_ptr<ChangeResource>(NULL);
+  }
+  return resource.Pass();
+}
+
+bool ChangeResource::Parse(const base::Value& value) {
+  base::JSONValueConverter<ChangeResource> converter;
+  if (!converter.Convert(value, this)) {
+    LOG(ERROR) << "Unable to parse: Invalid ChangeResource";
+    return false;
+  }
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ChangeList implementation
+
+ChangeList::ChangeList() : largest_change_id_(0) {}
+
+ChangeList::~ChangeList() {}
+
+// static
+void ChangeList::RegisterJSONConverter(
+    base::JSONValueConverter<ChangeList>* converter) {
+  converter->RegisterStringField(kETag, &ChangeList::etag_);
+  converter->RegisterStringField(kNextPageToken, &ChangeList::next_page_token_);
+  converter->RegisterCustomField<GURL>(kNextLink,
+                                       &ChangeList::next_link_,
+                                       GetGURLFromString);
+  converter->RegisterCustomField<int64>(kLargestChangeId,
+                                        &ChangeList::largest_change_id_,
+                                        &base::StringToInt64);
+  converter->RegisterRepeatedMessage<ChangeResource>(kItems,
+                                                   &ChangeList::items_);
+}
+
+// static
+scoped_ptr<ChangeList> ChangeList::CreateFrom(const base::Value& value) {
+  scoped_ptr<ChangeList> resource(new ChangeList());
+  if (!IsResourceKindExpected(value, kChangeListKind) ||
+      !resource->Parse(value)) {
+    LOG(ERROR) << "Unable to create: Invalid ChangeList JSON!";
+    return scoped_ptr<ChangeList>(NULL);
+  }
+  return resource.Pass();
+}
+
+bool ChangeList::Parse(const base::Value& value) {
+  base::JSONValueConverter<ChangeList> converter;
+  if (!converter.Convert(value, this)) {
+    LOG(ERROR) << "Unable to parse: Invalid ChangeList";
     return false;
   }
   return true;

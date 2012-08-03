@@ -19,6 +19,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/history/history_notifications.h"
 #include "chrome/browser/history/history_service_factory.h"
@@ -48,6 +49,11 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
+
+#if defined(OS_ANDROID)
+#include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#endif
 
 using content::UserMetricsAction;
 using content::WebContents;
@@ -283,7 +289,11 @@ void BrowsingHistoryHandler::HandleRemoveURLsOnOneDay(const ListValue* args) {
 
 void BrowsingHistoryHandler::HandleClearBrowsingData(const ListValue* args) {
 #if defined(OS_ANDROID)
-  NOTIMPLEMENTED() << "TODO(yfriedman): Upstream the Android version.";
+  Profile* profile = Profile::FromWebUI(web_ui());
+  const TabModel* tab_model =
+      TabModelList::GetTabModelWithProfile(profile);
+  if (tab_model)
+    tab_model->OpenClearBrowsingData();
 #else
   // TODO(beng): This is an improper direct dependency on Browser. Route this
   // through some sort of delegate.
@@ -296,7 +306,7 @@ void BrowsingHistoryHandler::HandleClearBrowsingData(const ListValue* args) {
 void BrowsingHistoryHandler::HandleRemoveBookmark(const ListValue* args) {
   string16 url = ExtractStringValue(args);
   Profile* profile = Profile::FromWebUI(web_ui());
-  BookmarkModel* model = profile->GetBookmarkModel();
+  BookmarkModel* model = BookmarkModelFactory::GetForProfile(profile);
   bookmark_utils::RemoveAllBookmarks(model, GURL(url));
 }
 
@@ -344,7 +354,8 @@ void BrowsingHistoryHandler::QueryComplete(
     }
     Profile* profile = Profile::FromWebUI(web_ui());
     page_value->SetBoolean("starred",
-        profile->GetBookmarkModel()->IsBookmarked(page.url()));
+        BookmarkModelFactory::GetForProfile(profile)->IsBookmarked(
+            page.url()));
     results_value.Append(page_value);
   }
 

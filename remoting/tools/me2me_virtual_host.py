@@ -44,9 +44,6 @@ XSESSION_COMMAND = None
 
 REMOTING_COMMAND = "remoting_me2me_host"
 
-# Command-line switch for passing the config path to remoting_me2me_host.
-HOST_CONFIG_SWITCH_NAME = "host-config"
-
 # Needs to be an absolute path, since the current working directory is changed
 # when this process self-daemonizes.
 SCRIPT_PATH = os.path.dirname(sys.argv[0])
@@ -93,7 +90,7 @@ class Authentication:
     """
     print "Email:",
     self.login = raw_input()
-    password = getpass.getpass("Password: ")
+    password = getpass.getpass("App-specific password: ")
 
     chromoting_auth = gaia_auth.GaiaAuthenticator('chromoting')
     self.chromoting_auth_token = chromoting_auth.authenticate(self.login,
@@ -148,20 +145,23 @@ class Host:
   server = 'www.googleapis.com'
   url = 'https://' + server + '/chromoting/v1/@me/hosts'
 
-  def __init__(self, config_file):
+  def __init__(self, config_file, auth):
+    """
+    Args:
+      config_file: Host configuration file path
+      auth: Authentication object with credentials for authenticating with the
+        Directory service.
+    """
     self.config_file = config_file
+    self.auth = auth
     self.host_id = str(uuid.uuid1())
     self.host_name = socket.gethostname()
     self.host_secret_hash = None
     self.private_key = None
 
-  def register(self, auth):
+  def register(self):
     """Generates a private key for the stored |host_id|, and registers it with
     the Directory service.
-
-    Args:
-      auth: Authentication object with credentials for authenticating with the
-        Directory service.
 
     Raises:
       urllib2.HTTPError: An error occurred talking to the Directory server
@@ -184,7 +184,7 @@ class Host:
     }
     params = json.dumps(json_data)
     headers = {
-        "Authorization": "GoogleLogin auth=" + auth.chromoting_auth_token,
+        "Authorization": "GoogleLogin auth=" + self.auth.chromoting_auth_token,
         "Content-Type": "application/json",
     }
 
@@ -383,8 +383,11 @@ class Desktop:
   def launch_host(self, host):
     # Start remoting host
     args = [locate_executable(REMOTING_COMMAND),
-            "--%s=%s" % (HOST_CONFIG_SWITCH_NAME, host.config_file)]
+            "--host-config=%s" % (host.config_file)]
+    if host.auth.config_file != host.config_file:
+      args.append("--auth-config=%s" % (host.auth.config_file))
     self.host_proc = subprocess.Popen(args, env=self.child_env)
+    logging.info(args)
     if not self.host_proc.pid:
       raise Exception("Could not start remoting host")
 
@@ -487,16 +490,29 @@ def choose_x_session():
   if XSESSION_COMMAND is not None:
     return XSESSION_COMMAND
 
+  # Use a custom startup file if present
+  startup_file = os.path.expanduser("~/.chrome-remote-desktop-session")
+  if os.path.exists(startup_file):
+    # Use the same logic that a Debian system typically uses with ~/.xsession
+    # (see /etc/X11/Xsession.d/50x11-common_determine-startup), to determine
+    # exactly how to run this file.
+    if os.access(startup_file, os.X_OK):
+      return startup_file
+    else:
+      shell = os.environ.get("SHELL", "sh")
+      return [shell, startup_file]
+
   # Unity-2d would normally be the preferred choice on Ubuntu 12.04.  At the
   # time of writing, this session does not work properly (missing launcher and
   # panel), so gnome-session-fallback is used in preference.
   # "unity-2d-panel" was chosen here simply because it appears in the TryExec
   # line of the session's .desktop file; other choices might be just as good.
   for test_file, command in [
-    ("/usr/bin/gnome-session-fallback", "/usr/bin/gnome-session-fallback"),
+    ("/usr/bin/gnome-session-fallback",
+      ["/etc/X11/Xsession", "gnome-session-fallback"]),
     ("/etc/gdm/Xsession", "/etc/gdm/Xsession"),
     ("/usr/bin/unity-2d-panel",
-      ["/usr/bin/gnome-session", "--session=ubuntu-2d"]),
+      ["/etc/X11/Xsession", "/usr/bin/gnome-session --session=ubuntu-2d"]),
   ]:
     if os.path.exists(test_file):
       return command
@@ -622,8 +638,9 @@ def main():
   parser.add_option("", "--check-running", dest="check_running", default=False,
                     action="store_true",
                     help="return 0 if the daemon is running, or 1 otherwise")
-  parser.add_option("", "--explicit-config", dest="explicit_config",
-                    help="explicitly specify content of the config")
+  parser.add_option("", "--silent", dest="silent", default=False,
+                    action="store_true",
+                    help="Start the host without trying to configure it.")
   (options, args) = parser.parse_args()
 
   host_hash = hashlib.md5(socket.gethostname()).hexdigest()
@@ -685,31 +702,41 @@ def main():
   if not os.path.exists(CONFIG_DIR):
     os.makedirs(CONFIG_DIR, mode=0700)
 
-  if options.explicit_config:
-    for file_name in ["auth.json", "host#%s.json" % host_hash]:
-      settings_file = open(os.path.join(CONFIG_DIR, file_name), 'w')
-      settings_file.write(options.explicit_config)
-      settings_file.close()
+  host_config_file = os.path.join(CONFIG_DIR, "host#%s.json" % host_hash)
 
-  auth = Authentication(os.path.join(CONFIG_DIR, "auth.json"))
-  need_auth_tokens = not auth.load_config()
+  # --silent option is specified when we are started from WebApp UI. Don't use
+  # separate auth file in that case.
+  # TODO(sergeyu): Always use host config for auth parameters.
+  if options.silent:
+    auth_config_file = host_config_file
+  else:
+    auth_config_file = os.path.join(CONFIG_DIR, "auth.json")
 
-  host = Host(os.path.join(CONFIG_DIR, "host#%s.json" % host_hash))
-  register_host = not host.load_config()
+  auth = Authentication(auth_config_file)
+  auth_config_loaded = auth.load_config()
 
-  # Outside the loop so user doesn't get asked twice.
-  if register_host:
-    host.ask_pin()
-  elif options.new_pin or not host.is_pin_set():
-    host.ask_pin()
-    host.save_config()
-    running, pid = PidFile(pid_filename).check()
-    if running and pid != 0:
-      os.kill(pid, signal.SIGUSR1)
-      print "The running instance has been updated with the new PIN."
-      return 0
+  host = Host(host_config_file, auth)
+  host_config_loaded = host.load_config()
 
-  if not options.explicit_config:
+  if options.silent:
+    if not host_config_loaded or not auth_config_loaded:
+      logging.error("Failed to load host configuration.")
+      return 1
+  else:
+    need_auth_tokens = not auth_config_loaded
+    need_register_host = not host_config_loaded
+    # Outside the loop so user doesn't get asked twice.
+    if need_register_host:
+      host.ask_pin()
+    elif options.new_pin or not host.is_pin_set():
+      host.ask_pin()
+      host.save_config()
+      running, pid = PidFile(pid_filename).check()
+      if running and pid != 0:
+        os.kill(pid, signal.SIGUSR1)
+        print "The running instance has been updated with the new PIN."
+        return 0
+
     # The loop is to deal with the case of registering a new Host with
     # previously-saved auth tokens (from a previous run of this script), which
     # may require re-prompting for username & password.
@@ -724,8 +751,8 @@ def main():
         return 1
 
       try:
-        if register_host:
-          host.register(auth)
+        if need_register_host:
+          host.register()
           host.save_config()
       except urllib2.HTTPError, err:
         if err.getcode() == 401:
@@ -839,16 +866,29 @@ def main():
       # will be created and registered.
       if os.WEXITSTATUS(status) == 2:
         logging.info("Host configuration is invalid - exiting.")
-        os.remove(auth.config_file)
-        os.remove(host.config_file)
+        try:
+          os.remove(host.config_file)
+          os.remove(auth.config_file)
+        except:
+          pass
         return 0
       elif os.WEXITSTATUS(status) == 3:
         logging.info("Host ID has been deleted - exiting.")
-        os.remove(host.config_file)
+        try:
+          os.remove(host.config_file)
+        except:
+          pass
         return 0
       elif os.WEXITSTATUS(status) == 4:
         logging.info("OAuth credentials are invalid - exiting.")
-        os.remove(auth.config_file)
+        try:
+          os.remove(auth.config_file)
+        except:
+          pass
+        return 0
+      elif os.WEXITSTATUS(status) == 5:
+        logging.info("Host domain is blocked by policy - exiting.")
+        os.remove(host.config_file)
         return 0
 
 if __name__ == "__main__":

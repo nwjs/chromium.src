@@ -27,6 +27,7 @@
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/painter.h"
+#include "ui/views/widget/widget_observer.h"
 
 namespace {
 
@@ -43,7 +44,7 @@ const int kNotificationImageIconInset = 4;
 
 // Web Notification Bubble constants
 const int kWebNotificationBubbleMinHeight = 80;
-const int kWebNotificationBubbleMaxHeight = 400;
+const int kWebNotificationBubbleMaxHeight = 480;
 // Delay laying out the Bubble until all notifications have been added and icons
 // have had a chance to load.
 const int kUpdateDelayMs = 50;
@@ -51,7 +52,7 @@ const int kUpdateDelayMs = 50;
 const int kMaxVisibleNotifications = 100;
 
 // Individual notifications constants
-const int kWebNotificationWidth = 400;
+const int kWebNotificationWidth = 320;
 const int kWebNotificationButtonWidth = 32;
 const int kWebNotificationIconSize = 40;
 
@@ -124,7 +125,7 @@ class WebNotificationList {
       iter->display_source = display_source;
       iter->extension_id = extension_id;
     } else {
-      notifications_.push_back(
+      notifications_.push_front(
           WebNotification(id, title, message, display_source, extension_id));
     }
   }
@@ -342,7 +343,8 @@ class WebNotificationView : public views::View,
 
     views::ColumnSet* columns = layout->AddColumnSet(0);
 
-    columns->AddPaddingColumn(0, kTrayPopupPaddingHorizontal/2);
+    const int padding_width = kTrayPopupPaddingHorizontal/2;
+    columns->AddPaddingColumn(0, padding_width);
 
     // Notification Icon.
     columns->AddColumn(views::GridLayout::CENTER, views::GridLayout::LEADING,
@@ -350,14 +352,16 @@ class WebNotificationView : public views::View,
                        views::GridLayout::FIXED,
                        kWebNotificationIconSize, kWebNotificationIconSize);
 
-    columns->AddPaddingColumn(0, kTrayPopupPaddingHorizontal/2);
+    columns->AddPaddingColumn(0, padding_width);
 
     // Notification message text.
+    const int message_width = kWebNotificationWidth - kWebNotificationIconSize -
+        kWebNotificationButtonWidth - (padding_width * 3);
     columns->AddColumn(views::GridLayout::FILL, views::GridLayout::LEADING,
                        100, /* resize percent */
-                       views::GridLayout::USE_PREF, 0, 0);
+                       views::GridLayout::FIXED, message_width, message_width);
 
-    columns->AddPaddingColumn(0, kTrayPopupPaddingHorizontal/2);
+    columns->AddPaddingColumn(0, padding_width);
 
     // Close and menu buttons.
     columns->AddColumn(views::GridLayout::CENTER, views::GridLayout::LEADING,
@@ -482,6 +486,7 @@ class WebNotificationButtonView : public views::View,
 
 }  // namespace internal
 
+using internal::TrayBubbleView;
 using internal::WebNotificationList;
 using internal::WebNotificationView;
 
@@ -499,6 +504,7 @@ class WebNotificationTray::BubbleContentsView : public views::View {
     scroll_content_ = new views::View;
     scroll_content_->SetLayoutManager(
         new views::BoxLayout(views::BoxLayout::kVertical, 0, 0, 1));
+
     scroller_ = new internal::FixedSizedScrollView;
     scroller_->SetContentsView(scroll_content_);
     AddChildView(scroller_);
@@ -509,36 +515,16 @@ class WebNotificationTray::BubbleContentsView : public views::View {
 
   void Update(const WebNotificationList::Notifications& notifications) {
     scroll_content_->RemoveAllChildViews(true);
-    int num_children = notifications.size();
-    WebNotificationList::Notifications::const_iterator iter =
-        notifications.begin();
-    if (num_children > kMaxVisibleNotifications) {
-      std::advance(iter, num_children - kMaxVisibleNotifications);
-      num_children = kMaxVisibleNotifications;
-    }
-    for (; iter != notifications.end(); ++iter) {
+    int num_children = 0;
+    for (WebNotificationList::Notifications::const_iterator iter =
+             notifications.begin(); iter != notifications.end(); ++iter) {
       WebNotificationView* view = new WebNotificationView(tray_, *iter);
       scroll_content_->AddChildView(view);
+      if (++num_children >= kMaxVisibleNotifications)
+        break;
     }
-    // Layout this first to set the preferred size of the scroller.
-    PreferredSizeChanged();
-    Layout();
-    // Now layout the widget with this correctly sized.
-    PreferredSizeChanged();
-    GetWidget()->GetRootView()->Layout();
-    GetWidget()->GetRootView()->SchedulePaint();
-
-    // Scroll to show the most recent notification.
-    if (num_children > 0) {
-      scroll_content_->ScrollRectToVisible(
-          scroll_content_->child_at(num_children - 1)->bounds());
-    }
-  }
-
-  // Overridden from views::View:
-  virtual void Layout() OVERRIDE {
     SizeScrollContent();
-    views::View::Layout();
+    GetWidget()->GetRootView()->SchedulePaint();
   }
 
  private:
@@ -549,13 +535,9 @@ class WebNotificationTray::BubbleContentsView : public views::View {
         std::max(scroll_size.height(),
                  kWebNotificationBubbleMinHeight - button_height),
         kWebNotificationBubbleMaxHeight - button_height);
-    if (scroll_height < scroll_size.height()) {
-      scroll_size.set_height(scroll_height);
-      scroller_->SetFixedSize(scroll_size);
-    } else {
-      scroller_->SetFixedSize(gfx::Size());
-    }
-    scroller_->InvalidateLayout();
+    scroll_size.set_height(scroll_height);
+    scroller_->SetFixedSize(scroll_size);
+    scroller_->SizeToPreferredSize();
   }
 
   WebNotificationTray* tray_;
@@ -566,8 +548,8 @@ class WebNotificationTray::BubbleContentsView : public views::View {
   DISALLOW_COPY_AND_ASSIGN(BubbleContentsView);
 };
 
-class WebNotificationTray::Bubble : public internal::TrayBubbleView::Host,
-                                    public views::Widget::Observer {
+class WebNotificationTray::Bubble : public TrayBubbleView::Host,
+                                    public views::WidgetObserver {
  public:
   explicit Bubble(WebNotificationTray* tray)
       : tray_(tray),
@@ -576,32 +558,24 @@ class WebNotificationTray::Bubble : public internal::TrayBubbleView::Host,
         contents_view_(NULL),
         ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
     views::View* anchor = tray->tray_container();
-    views::BubbleBorder::ArrowLocation arrow_location;
-    int arrow_offset = 0;
+    TrayBubbleView::InitParams init_params(TrayBubbleView::ANCHOR_TYPE_TRAY,
+                                           tray->shelf_alignment());
+    init_params.bubble_width = kWebNotificationWidth;
+    init_params.max_height = kWebNotificationBubbleMaxHeight;
     if (tray_->shelf_alignment() == SHELF_ALIGNMENT_BOTTOM) {
-      arrow_location = views::BubbleBorder::BOTTOM_RIGHT;
-      arrow_offset = anchor->GetContentsBounds().width() / 2;
-    } else if (tray_->shelf_alignment() == SHELF_ALIGNMENT_LEFT) {
-      arrow_location = views::BubbleBorder::LEFT_BOTTOM;
-    } else {
-      arrow_location = views::BubbleBorder::RIGHT_BOTTOM;
+      gfx::Point bounds(anchor->width() / 2, 0);
+      ConvertPointToWidget(anchor, &bounds);
+      init_params.arrow_offset = bounds.x();
     }
-    bubble_view_ = new internal::TrayBubbleView(
-        anchor, arrow_location, this, false, kWebNotificationWidth);
-    bubble_view_->SetMaxHeight(kWebNotificationBubbleMaxHeight);
-
-    bubble_widget_ = views::BubbleDelegateView::CreateBubble(bubble_view_);
-
-    bubble_view_->SetAlignment(views::BubbleBorder::ALIGN_EDGE_TO_ANCHOR_EDGE);
-    bubble_widget_->non_client_view()->frame_view()->set_background(NULL);
-    bubble_view_->SetBubbleBorder(arrow_offset);
-
-    bubble_widget_->AddObserver(this);
+    bubble_view_ = TrayBubbleView::Create(anchor, this, init_params);
 
     contents_view_ = new BubbleContentsView(tray);
     bubble_view_->AddChildView(contents_view_);
 
-    InitializeHost(bubble_widget_, tray_);
+    bubble_widget_ = views::BubbleDelegateView::CreateBubble(bubble_view_);
+    bubble_widget_->AddObserver(this);
+
+    InitializeAndShowBubble(bubble_widget_, bubble_view_, tray_);
 
     ScheduleUpdate();
   }
@@ -632,11 +606,6 @@ class WebNotificationTray::Bubble : public internal::TrayBubbleView::Host,
     contents_view_ = NULL;
   }
 
-  virtual gfx::Rect GetAnchorRect() const OVERRIDE {
-    gfx::Rect anchor_rect = tray_->tray_container()->GetBoundsInScreen();
-    return anchor_rect;
-  }
-
   virtual void OnMouseEnteredView() OVERRIDE {
   }
 
@@ -648,7 +617,7 @@ class WebNotificationTray::Bubble : public internal::TrayBubbleView::Host,
     tray_->status_area_widget()->HideWebNotificationBubble();
   }
 
-  // Overridden from views::Widget::Observer.
+  // Overridden from views::WidgetObserver:
   virtual void OnWidgetClosing(views::Widget* widget) OVERRIDE {
     CHECK_EQ(bubble_widget_, widget);
     bubble_widget_ = NULL;
@@ -659,10 +628,11 @@ class WebNotificationTray::Bubble : public internal::TrayBubbleView::Host,
   void UpdateBubbleView() {
     contents_view_->Update(tray_->notification_list()->notifications());
     bubble_view_->Show();
+    bubble_view_->UpdateBubble();
   }
 
   WebNotificationTray* tray_;
-  internal::TrayBubbleView* bubble_view_;
+  TrayBubbleView* bubble_view_;
   views::Widget* bubble_widget_;
   BubbleContentsView* contents_view_;
   base::WeakPtrFactory<Bubble> weak_ptr_factory_;
@@ -817,6 +787,8 @@ void WebNotificationTray::SetShelfAlignment(ShelfAlignment alignment) {
       alignment == SHELF_ALIGNMENT_BOTTOM ?
           views::BoxLayout::kHorizontal : views::BoxLayout::kVertical,
       0, 0, 0));
+  // Destroy any existing bubble so that it will be rebuilt correctly.
+  bubble_.reset();
 }
 
 bool WebNotificationTray::PerformAction(const views::Event& event) {

@@ -163,6 +163,7 @@
 #include "base/values.h"
 #include "chrome/browser/autocomplete/autocomplete_log.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/process_map.h"
@@ -179,6 +180,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_otr_state.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_result_codes.h"
@@ -712,7 +714,7 @@ void MetricsService::Observe(int type,
     case chrome::NOTIFICATION_BOOKMARK_MODEL_LOADED: {
       Profile* p = content::Source<Profile>(source).ptr();
       if (p)
-        LogBookmarks(p->GetBookmarkModel());
+        LogBookmarks(BookmarkModelFactory::GetForProfile(p));
       break;
     }
     default:
@@ -1863,7 +1865,7 @@ bool MetricsService::CanLogNotification(
   // We simply don't log anything to UMA if there is a single incognito
   // session visible. The problem is that we always notify using the orginal
   // profile in order to simplify notification processing.
-  return !BrowserList::IsOffTheRecordSessionActive();
+  return !chrome::IsOffTheRecordSessionActive();
 }
 
 void MetricsService::RecordBooleanPrefValue(const char* path, bool value) {

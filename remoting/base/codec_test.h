@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -14,11 +14,6 @@ namespace remoting {
 class Decoder;
 class Encoder;
 
-// Prepare testing data for encoding. Memory created is written to |memory|.
-// Returns randomly generated data in CaptureData.
-scoped_refptr<CaptureData> PrepareEncodeData(media::VideoFrame::Format format,
-                                             uint8** memory);
-
 // Generate test data and test the encoder for a regular encoding sequence.
 // This will test encoder test and the sequence of messages sent.
 //
@@ -31,6 +26,14 @@ void TestEncoder(Encoder* encoder, bool strict);
 // If |strict| is set to true, this routine will make sure the updated rects
 // are correct.
 void TestEncoderDecoder(Encoder* encoder, Decoder* decoder, bool strict);
+
+// Generate a frame containing a gradient, and test the encoder and decoder
+// pair.
+void TestEncoderDecoderGradient(Encoder* encoder, Decoder* decoder,
+                                const SkISize& screen_size,
+                                const SkISize& view_size,
+                                double max_error_limit,
+                                double mean_error_limit);
 
 }  // namespace remoting
 

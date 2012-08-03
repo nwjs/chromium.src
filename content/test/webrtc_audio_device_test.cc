@@ -25,6 +25,7 @@
 #include "content/public/test/test_browser_thread.h"
 #include "content/renderer/media/audio_device_factory.h"
 #include "content/renderer/media/audio_hardware.h"
+#include "content/renderer/media/audio_input_message_filter.h"
 #include "content/renderer/media/audio_message_filter.h"
 #include "content/renderer/media/webrtc_audio_device_impl.h"
 #include "content/renderer/render_process.h"
@@ -60,7 +61,8 @@ class WebRTCMockRenderProcess : public RenderProcess {
   virtual bool UseInProcessPlugins() const OVERRIDE { return false; }
   virtual void AddBindings(int bindings) OVERRIDE {}
   virtual int GetEnabledBindings() const { return 0; }
-  virtual bool HasInitializedMediaLibrary() const { return false; }
+  virtual TransportDIB* CreateTransportDIB(size_t size)  { return NULL; }
+  virtual void FreeTransportDIB(TransportDIB*) {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(WebRTCMockRenderProcess);

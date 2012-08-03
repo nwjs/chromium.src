@@ -82,7 +82,7 @@ GURL GetWebstoreInstallURL(
     params.push_back("installsource=" + install_source);
   params.push_back("lang=" + g_browser_process->GetApplicationLocale());
   params.push_back("uc");
-  std::string url_string = extension_urls::GetWebstoreUpdateUrl(true).spec();
+  std::string url_string = extension_urls::GetWebstoreUpdateUrl().spec();
 
   GURL url(url_string + "?response=redirect&x=" +
       net::EscapeQueryParamValue(JoinString(params, '&'), true));
@@ -188,6 +188,7 @@ WebstoreInstaller::WebstoreInstaller(Profile* profile,
   download_url_ = GetWebstoreInstallURL(id, flags & FLAG_INLINE_INSTALL ?
       kInlineInstallSource : kDefaultInstallSource);
 
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   registrar_.Add(this, chrome::NOTIFICATION_CRX_INSTALLER_DONE,
                  content::NotificationService::AllSources());
   registrar_.Add(this, chrome::NOTIFICATION_EXTENSION_INSTALLED,
@@ -295,10 +296,6 @@ void WebstoreInstaller::OnDownloadUpdated(DownloadItem* download) {
     case DownloadItem::INTERRUPTED:
       ReportFailure(kDownloadInterruptedError);
       break;
-    case DownloadItem::REMOVING:
-      download_item_->RemoveObserver(this);
-      download_item_ = NULL;
-      break;
     case DownloadItem::COMPLETE:
       // Wait for other notifications if the download is really an extension.
       if (!download_crx_util::IsExtensionDownload(*download))
@@ -310,8 +307,10 @@ void WebstoreInstaller::OnDownloadUpdated(DownloadItem* download) {
   }
 }
 
-void WebstoreInstaller::OnDownloadOpened(DownloadItem* download) {
+void WebstoreInstaller::OnDownloadDestroyed(DownloadItem* download) {
   CHECK_EQ(download_item_, download);
+  download_item_->RemoveObserver(this);
+  download_item_ = NULL;
 }
 
 void WebstoreInstaller::StartDownload(const FilePath& file) {

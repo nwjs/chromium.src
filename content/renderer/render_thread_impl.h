@@ -84,10 +84,6 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   explicit RenderThreadImpl(const std::string& channel_name);
   virtual ~RenderThreadImpl();
 
-  // Returns the routing ID of the RenderWidget containing the current script
-  // execution context (corresponding to WebFrame::frameForCurrentContext).
-  static int32 RoutingIDForCurrentContext();
-
   // When initializing WebKit, ensure that any schemes needed for the content
   // module are registered properly.  Static to allow sharing with tests.
   static void RegisterSchemes();
@@ -202,8 +198,6 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
     return vc_manager_.get();
   }
 
-  bool plugin_refresh_allowed() const { return plugin_refresh_allowed_; }
-
   // Get the GPU channel. Returns NULL if the channel is not established or
   // has been lost.
   GpuChannelHost* GetGpuChannel();
@@ -271,9 +265,6 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
 
   // Initialize COM when using plugins outside the sandbox (Windows only).
   scoped_ptr<base::win::ScopedCOMInitializer> initialize_com_;
-
-  // If true, then a GetPlugins call is allowed to rescan the disk.
-  bool plugin_refresh_allowed_;
 
   // The count of RenderWidgets running through this thread.
   int widget_count_;

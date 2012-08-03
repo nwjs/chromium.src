@@ -8,6 +8,9 @@ import codecs
 import os
 import re
 
+import results
+from rules import Rule
+
 
 class JavaChecker(object):
   """Import checker for Java files.
@@ -81,7 +84,7 @@ class JavaChecker(object):
     if self._verbose:
       print 'Checking: ' + filepath
 
-    result = ''
+    dependee_status = results.DependeeStatus(filepath)
     with codecs.open(filepath, encoding='utf-8') as f:
       for line in f:
         for clazz in re.findall('^import\s+(?:static\s+)?([\w\.]+)\s*;', line):
@@ -93,14 +96,12 @@ class JavaChecker(object):
               self._classmap[clazz], self._base_directory)
           # Convert Windows paths to Unix style, as used in DEPS files.
           include_path = include_path.replace(os.path.sep, '/')
-          (allowed, why_failed) = rules.DirAllowed(include_path)
-          if not allowed:
-            if self._verbose:
-              result += '\nFor %s' % rules
-            result += 'Illegal include: "%s"\n    Because of %s\n' % (
-                include_path, why_failed)
+          rule = rules.RuleApplyingTo(include_path)
+          if rule.allow == Rule.DISALLOW:
+            dependee_status.AddViolation(
+                results.DependencyViolation(include_path, rule, rules))
         if '{' in line:
           # This is code, so we're finished reading imports for this file.
           break
 
-    return result
+    return dependee_status

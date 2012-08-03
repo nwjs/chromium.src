@@ -19,6 +19,7 @@
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "chrome/browser/chromeos/gdata/gdata_files.h"
+#include "chrome/browser/chromeos/gdata/gdata_wapi_feed_processor.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 
@@ -32,14 +33,163 @@ namespace gdata {
 
 class DocumentsServiceInterface;
 class DriveWebAppsRegistryInterface;
+class GDataWapiFeedLoader;
+struct GetDocumentsParams;
 struct UploadFileInfo;
 
 namespace {
 struct LoadRootFeedParams;
 }  // namespace
 
+// Callback run as a response to LoadFromServer.
+//
+// TODO(satorux): Move this to a new file: crbug.com/138268
+typedef base::Callback<void(GetDocumentsParams* params,
+                            GDataFileError error)>
+    LoadDocumentFeedCallback;
+
+// GDataWapiFeedLoader is used to load feeds from WAPI (codename for
+// Documents List API) and load the cached proto file.
+//
+// TODO(satorux): Move this to a new file: crbug.com/138268
+class GDataWapiFeedLoader {
+ public:
+  // Used to notify events from the loader.
+  // All events are notified on UI thread.
+  class Observer {
+   public:
+    // Triggered when a content of a directory has been changed.
+    // |directory_path| is a virtual directory path representing the
+    // changed directory.
+    virtual void OnDirectoryChanged(const FilePath& directory_path) {}
+
+    // Triggered when a document feed is fetched. |num_accumulated_entries|
+    // tells the number of entries fetched so far.
+    virtual void OnDocumentFeedFetched(int num_accumulated_entries) {}
+
+    // Triggered when the feed from the server is loaded.
+    virtual void OnFeedFromServerLoaded() {}
+
+   protected:
+    virtual ~Observer() {}
+  };
+
+  GDataWapiFeedLoader(
+      GDataDirectoryService* directory_service,
+      DocumentsServiceInterface* documents_service,
+      DriveWebAppsRegistryInterface* webapps_registry,
+      GDataCache* cache,
+      scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_);
+  ~GDataWapiFeedLoader();
+
+  // Adds and removes the observer.
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
+
+  // Starts root feed load from the cache. If successful, it will try to find
+  // the file upon retrieval completion. In addition to that, it will
+  // initiate retrieval of the root feed from the server unless
+  // |should_load_from_server| is set to false. |should_load_from_server| is
+  // false only for testing.
+  void LoadFromCache(bool should_load_from_server,
+                     const FilePath& search_file_path,
+                     const FindEntryCallback& callback);
+
+  // Starts root feed load from the server. Value of |start_changestamp|
+  // determines the type of feed to load - 0 means root feed, every other
+  // value would trigger delta feed.
+  // In the case of loading the root feed we use |root_feed_changestamp| as its
+  // initial changestamp value since it does not come with that info.
+  // When done |load_feed_callback| is invoked.
+  // |entry_found_callback| is used only when this is invoked while searching
+  // for file info, and is used in |load_feed_callback|. If successful, it will
+  // try to find the file upon retrieval completion.
+  // |should_fetch_multiple_feeds| is true iff don't want to stop feed loading
+  // after we retrieve first feed chunk.
+  // If invoked as a part of content search, query will be set in
+  // |search_query|.
+  void LoadFromServer(
+      ContentOrigin initial_origin,
+      int start_changestamp,
+      int root_feed_changestamp,
+      bool should_fetch_multiple_feeds,
+      const FilePath& search_file_path,
+      const std::string& search_query,
+      const std::string& directory_resource_id,
+      const FindEntryCallback& entry_found_callback,
+      const LoadDocumentFeedCallback& feed_load_callback);
+
+  // Retrieves account metadata and determines from the last change timestamp
+  // if the feed content loading from the server needs to be initiated.
+  void ReloadFromServerIfNeeded(
+      ContentOrigin initial_origin,
+      int local_changestamp,
+      const FilePath& search_file_path,
+      const FindEntryCallback& callback);
+
+  // Updates whole directory structure feeds collected in |feed_list|.
+  // On success, returns PLATFORM_FILE_OK. Record file statistics as UMA
+  // histograms.
+  //
+  // See comments at GDataWapiFeedProcessor::ApplyFeeds() for
+  // |start_changestamp| and |root_feed_changestamp|.
+  GDataFileError UpdateFromFeed(
+    const std::vector<DocumentFeed*>& feed_list,
+    int start_changestamp,
+    int root_feed_changestamp);
+
+ private:
+  // Callback for handling root directory refresh from the cache.
+  void OnProtoLoaded(LoadRootFeedParams* params);
+
+  // Helper callback for handling results of metadata retrieval initiated from
+  // ReloadFeedFromServerIfNeeded(). This method makes a decision about fetching
+  // the content of the root feed during the root directory refresh process.
+  void OnGetAccountMetadata(
+      ContentOrigin initial_origin,
+      int local_changestamp,
+      const FilePath& search_file_path,
+      const FindEntryCallback& callback,
+      GDataErrorCode status,
+      scoped_ptr<base::Value> feed_data);
+
+  // Callback for handling feed content fetching while searching for file info.
+  // This callback is invoked after async feed fetch operation that was
+  // invoked by StartDirectoryRefresh() completes. This callback will update
+  // the content of the refreshed directory object and continue initially
+  // started FindEntryByPath() request.
+  void OnFeedFromServerLoaded(GetDocumentsParams* params,
+                              GDataFileError error);
+
+  // Callback for handling response from |GDataDocumentsService::GetDocuments|.
+  // Invokes |callback| when done.
+  void OnGetDocuments(
+      ContentOrigin initial_origin,
+      const LoadDocumentFeedCallback& callback,
+      GetDocumentsParams* params,
+      base::TimeTicks start_time,
+      GDataErrorCode status,
+      scoped_ptr<base::Value> data);
+
+  // Save filesystem as proto file.
+  void SaveFileSystemAsProto();
+
+  GDataDirectoryService* directory_service_;  // Not owned.
+  DocumentsServiceInterface* documents_service_;  // Not owned.
+  DriveWebAppsRegistryInterface* webapps_registry_;  // Not owned.
+  GDataCache* cache_;  // Not owned.
+  scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
+  ObserverList<Observer> observers_;
+
+  // Note: This should remain the last member so it'll be destroyed and
+  // invalidate its weak pointers before any other members are destroyed.
+  base::WeakPtrFactory<GDataWapiFeedLoader> weak_ptr_factory_;
+  DISALLOW_COPY_AND_ASSIGN(GDataWapiFeedLoader);
+};
+
 // The production implementation of GDataFileSystemInterface.
 class GDataFileSystem : public GDataFileSystemInterface,
+                        public GDataWapiFeedLoader::Observer,
                         public content::NotificationObserver {
  public:
   GDataFileSystem(Profile* profile,
@@ -52,8 +202,10 @@ class GDataFileSystem : public GDataFileSystemInterface,
 
   // GDataFileSystem overrides.
   virtual void Initialize() OVERRIDE;
-  virtual void AddObserver(Observer* observer) OVERRIDE;
-  virtual void RemoveObserver(Observer* observer) OVERRIDE;
+  virtual void AddObserver(
+      GDataFileSystemInterface::Observer* observer) OVERRIDE;
+  virtual void RemoveObserver(
+      GDataFileSystemInterface::Observer* observer) OVERRIDE;
   virtual void StartUpdates() OVERRIDE;
   virtual void StopUpdates() OVERRIDE;
   virtual void CheckForUpdates() OVERRIDE;
@@ -123,8 +275,21 @@ class GDataFileSystem : public GDataFileSystemInterface,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
 
+  // GDataWapiFeedLoader::Observer overrides.
+  // Used to propagate events from GDataWapiFeedLoader.
+  virtual void OnDirectoryChanged(const FilePath& directory_path) OVERRIDE;
+  virtual void OnDocumentFeedFetched(int num_accumulated_entries) OVERRIDE;
+  virtual void OnFeedFromServerLoaded() OVERRIDE;
+
   // Used in tests to load the root feed from the cache.
   void LoadRootFeedFromCacheForTesting();
+
+  // Used in tests to update the file system from |feed_list|.
+  // See also the comment at GDataWapiFeedLoader::UpdateFromFeed().
+  GDataFileError UpdateFromFeedForTesting(
+      const std::vector<DocumentFeed*>& feed_list,
+      int start_changestamp,
+      int root_feed_changestamp);
 
  private:
   friend class GDataFileSystemTest;
@@ -141,9 +306,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
     DIRECTORY_ALREADY_PRESENT,
   };
 
-  // Defines set of parameters sent to callback OnGetDocuments().
-  struct GetDocumentsParams;
-
   // Defines set of parameters passes to intermediate callbacks during
   // execution of CreateDirectory() method.
   struct CreateDirectoryParams;
@@ -156,28 +318,13 @@ class GDataFileSystem : public GDataFileSystemInterface,
   // execution of GetFileByPath() method.
   struct GetFileFromCacheParams;
 
-  typedef std::map<std::string /* resource_id */, GDataEntry*>
-      FileResourceIdMap;
-
   // Callback similar to FileOperationCallback but with a given |file_path|.
   typedef base::Callback<void(GDataFileError error,
                               const FilePath& file_path)>
       FilePathUpdateCallback;
 
-  // Callback run as a response to LoadFeedFromServer.
-  typedef base::Callback<void(GetDocumentsParams* params,
-                              GDataFileError error)>
-      LoadDocumentFeedCallback;
-
-  // Struct used to record UMA stats with FeedToFileResourceMap().
-  struct FeedToFileResourceMapUmaStats;
-
   // Struct used for StartFileUploadOnUIThread().
   struct StartFileUploadParams;
-
-  // Finds entry object by |file_path| and returns the entry object.
-  // Returns NULL if it does not find the entry.
-  GDataEntry* GetGDataEntryByPath(const FilePath& file_path);
 
   // Callback passed to |LoadFeedFromServer| from |Search| method.
   // |callback| is that should be run with data received from
@@ -393,15 +540,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
   GDataFileError RemoveEntryFromGData(const FilePath& file_path,
                                                std::string* resource_id);
 
-  // Callback for handling response from |GDataDocumentsService::GetDocuments|.
-  // Invokes |callback| when done.
-  void OnGetDocuments(ContentOrigin initial_origin,
-                      const LoadDocumentFeedCallback& callback,
-                      GetDocumentsParams* params,
-                      base::TimeTicks start_time,
-                      GDataErrorCode status,
-                      scoped_ptr<base::Value> data);
-
   // A pass-through callback used for bridging from
   // FilePathUpdateCallback to FileOperationCallback.
   void OnFilePathUpdated(const FileOperationCallback& cllback,
@@ -520,41 +658,11 @@ class GDataFileSystem : public GDataFileSystemInterface,
   // Return PLATFORM_FILE_OK if successful.
   GDataFileError RemoveEntryFromFileSystem(const FilePath& file_path);
 
-  // Updates whole directory structure feeds collected in |feed_list|.
-  // On success, returns PLATFORM_FILE_OK. Record file statistics as UMA
-  // histograms.
-  GDataFileError UpdateFromFeed(
-      const std::vector<DocumentFeed*>& feed_list,
-      ContentOrigin origin,
-      int largest_changestamp,
-      int root_feed_changestamp);
-
-  // Updates UMA histograms about file counts.
-  void UpdateFileCountUmaHistograms(
-      const FeedToFileResourceMapUmaStats& uma_stats) const;
-
-  // Applies the pre-processed feed from |file_map| map onto the file system.
-  // All entries in |file_map| will be erased (i.e. the map becomes empty),
-  // and values are deleted.
-  void ApplyFeedFromFileUrlMap(bool is_delta_feed,
-                               int feed_changestamp,
-                               FileResourceIdMap* file_map);
-
-  // Finds directory where new |file| should be added to during feed processing.
-  // |orphaned_entries_dir| collects files/dirs that don't have a parent in
-  // either locally cached file system or in this new feed.
-  GDataDirectory* FindDirectoryForNewEntry(
-      GDataEntry* new_entry,
-      const FileResourceIdMap& file_map,
-      GDataDirectoryService* orphaned_entries);
-
-  // Converts list of document feeds from collected feeds into
-  // FileResourceIdMap.
-  GDataFileError FeedToFileResourceMap(
-      const std::vector<DocumentFeed*>& feed_list,
-      FileResourceIdMap* file_map,
-      int* feed_changestamp,
-      FeedToFileResourceMapUmaStats* uma_stats);
+  // Callback for GetEntryByResourceIdAsync.
+  // Removes stale entry upon upload of file.
+  static void RemoveStaleEntryOnUpload(const std::string& resource_id,
+                                       GDataDirectory* parent_dir,
+                                       GDataEntry* existing_entry);
 
   // Converts |entry_value| into GFileDocument instance and adds it
   // to virtual file system at |directory_path|.
@@ -568,54 +676,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
       GURL* last_dir_content_url,
       FilePath* first_missing_parent_path);
 
-  // Retrieves account metadata and determines from the last change timestamp
-  // if the feed content loading from the server needs to be initiated.
-  void ReloadFeedFromServerIfNeeded(ContentOrigin initial_origin,
-                                    int local_changestamp,
-                                    const FilePath& search_file_path,
-                                    const FindEntryCallback& callback);
-
-  // Helper callback for handling results of metadata retrieval initiated from
-  // ReloadFeedFromServerIfNeeded(). This method makes a decision about fetching
-  // the content of the root feed during the root directory refresh process.
-  void OnGetAccountMetadata(ContentOrigin initial_origin,
-                            int local_changestamp,
-                            const FilePath& search_file_path,
-                            const FindEntryCallback& callback,
-                            GDataErrorCode error,
-                            scoped_ptr<base::Value> feed_data);
-
-  // Starts root feed load from the server. Value of |start_changestamp|
-  // determines the type of feed to load - 0 means root feed, every other
-  // value would trigger delta feed.
-  // In the case of loading the root feed we use |root_feed_changestamp| as its
-  // initial changestamp value since it does not come with that info.
-  // When done |load_feed_callback| is invoked.
-  // |entry_found_callback| is used only when this is invoked while searching
-  // for file info, and is used in |load_feed_callback|. If successful, it will
-  // try to find the file upon retrieval completion.
-  // |should_fetch_multiple_feeds| is true iff don't want to stop feed loading
-  // after we retrieve first feed chunk.
-  // If invoked as a part of content search, query will be set in
-  // |search_query|.
-  void LoadFeedFromServer(ContentOrigin initial_origin,
-                          int start_changestamp,
-                          int root_feed_changestamp,
-                          bool should_fetch_multiple_feeds,
-                          const FilePath& search_file_path,
-                          const std::string& search_query,
-                          const std::string& directory_resource_id,
-                          const FindEntryCallback& entry_found_callback,
-                          const LoadDocumentFeedCallback& load_feed_callback);
-
-  // Callback for handling feed content fetching while searching for file info.
-  // This callback is invoked after async feed fetch operation that was
-  // invoked by StartDirectoryRefresh() completes. This callback will update
-  // the content of the refreshed directory object and continue initially
-  // started FindEntryByPath() request.
-  void OnFeedFromServerLoaded(GetDocumentsParams* params,
-                              GDataFileError status);
-
   // Callback for handling results of ReloadFeedFromServerIfNeeded() initiated
   // from CheckForUpdates(). This callback checks whether feed is successfully
   // reloaded, and in case of failure, restores the content origin of the root
@@ -623,25 +683,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
   void OnUpdateChecked(ContentOrigin initial_origin,
                        GDataFileError error,
                        GDataEntry* entry);
-
-  // Starts root feed load from the cache. If successful, it will try to find
-  // the file upon retrieval completion. In addition to that, it will
-  // initiate retrieval of the root feed from the server unless
-  // |should_load_from_server| is set to false. |should_load_from_server| is
-  // false only for testing.
-  void LoadRootFeedFromCache(bool should_load_from_server,
-                             const FilePath& search_file_path,
-                             const FindEntryCallback& callback);
-
-  // Callback for handling root directory refresh from the cache.
-  void OnProtoLoaded(LoadRootFeedParams* params);
-
-  // Save filesystem as proto file.
-  void SaveFileSystemAsProto();
-
-  // Notifies events to observers on UI thread.
-  void NotifyDirectoryChanged(const FilePath& directory_path);
-  void NotifyDocumentFeedFetched(int num_accumulated_entries);
 
   // Runs the callback and notifies that the initial load is finished.
   void RunAndNotifyInitialLoadFinished(
@@ -746,6 +787,7 @@ class GDataFileSystem : public GDataFileSystemInterface,
       const std::string& resource_id,
       const std::string& md5,
       const FilePath& cache_file_path);
+
   // Callback for getting the size of the cache file in the blocking pool.
   void OnGetFileSizeCompleteForUpdateFile(
       const FileOperationCallback& callback,
@@ -754,6 +796,7 @@ class GDataFileSystem : public GDataFileSystemInterface,
       const FilePath& cache_file_path,
       GDataFileError* error,
       int64* file_size);
+
   // Callback for GDataRootDirectory::GetEntryByResourceIdAsync.
   void OnGetFileCompleteForUpdateFileByEntry(
     const FileOperationCallback& callback,
@@ -761,7 +804,6 @@ class GDataFileSystem : public GDataFileSystemInterface,
     int64 file_size,
     const FilePath& cache_file_path,
     GDataEntry* entry);
-
 
   // Called when GDataUploader::UploadUpdatedFile() is completed for
   // UpdateFileByResourceId().
@@ -827,7 +869,8 @@ class GDataFileSystem : public GDataFileSystemInterface,
       const FilePath& file_path);
   void OnRequestDirectoryRefresh(GetDocumentsParams* params,
                                  GDataFileError error);
-  void RequestDirectoryRefreshByEntry(const FilePath& directory_path,
+  void RequestDirectoryRefreshByEntry(
+      const FilePath& directory_path,
       const std::string& directory_resource_id,
       const FileResourceIdMap& file_map,
       GDataEntry* directory_entry);
@@ -908,13 +951,20 @@ class GDataFileSystem : public GDataFileSystemInterface,
 
   scoped_ptr<PrefChangeRegistrar> pref_registrar_;
 
-  // WeakPtrFactory and WeakPtr bound to the UI thread.
-  base::WeakPtrFactory<GDataFileSystem> ui_weak_ptr_factory_;
-  base::WeakPtr<GDataFileSystem> ui_weak_ptr_;
+  // The loader is used to load the feeds.
+  scoped_ptr<GDataWapiFeedLoader> feed_loader_;
 
-  ObserverList<Observer> observers_;
+  ObserverList<GDataFileSystemInterface::Observer> observers_;
 
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
+
+  // WeakPtrFactory and WeakPtr bound to the UI thread.
+  // Note: These should remain the last member so they'll be destroyed and
+  // invalidate the weak pointers before any other members are destroyed.
+  base::WeakPtrFactory<GDataFileSystem> ui_weak_ptr_factory_;
+  // Unlike other classes, we need this as we need this to redirect a task
+  // from IO thread to UI thread.
+  base::WeakPtr<GDataFileSystem> ui_weak_ptr_;
 };
 
 }  // namespace gdata

@@ -17,6 +17,7 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/extensions/manifest.h"
+#include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/extensions/permissions/permissions_info.h"
 #include "chrome/common/extensions/url_pattern.h"
 #include "chrome/common/pref_names.h"
@@ -178,6 +179,15 @@ const char kFilteredEvents[] = "filtered_events";
 // Persisted value for omnibox.setDefaultSuggestion.
 const char kOmniboxDefaultSuggestion[] = "omnibox_default_suggestion";
 
+// List of media gallery permissions.
+const char kMediaGalleriesPermissions[] = "media_galleries_permissions";
+
+// Key for Media Gallery ID.
+const char kMediaGalleryIdKey[] = "id";
+
+// Key for Media Gallery Permission Value.
+const char kMediaGalleryHasPermissionKey[] = "has_permission";
+
 // Provider of write access to a dictionary storing extension prefs.
 class ScopedExtensionPrefUpdate : public DictionaryPrefUpdate {
  public:
@@ -311,7 +321,7 @@ void ExtensionPrefs::MakePathsRelative() {
   std::set<std::string> absolute_keys;
   for (DictionaryValue::key_iterator i = dict->begin_keys();
        i != dict->end_keys(); ++i) {
-    DictionaryValue* extension_dict = NULL;
+    const DictionaryValue* extension_dict = NULL;
     if (!dict->GetDictionaryWithoutPathExpansion(*i, &extension_dict))
       continue;
     int location_value;
@@ -332,7 +342,7 @@ void ExtensionPrefs::MakePathsRelative() {
 
   // Fix these paths.
   DictionaryPrefUpdate update(prefs_, kExtensionsPref);
-  const DictionaryValue* update_dict = update.Get();
+  DictionaryValue* update_dict = update.Get();
   for (std::set<std::string>::iterator i = absolute_keys.begin();
        i != absolute_keys.end(); ++i) {
     DictionaryValue* extension_dict = NULL;
@@ -430,7 +440,7 @@ bool ExtensionPrefs::ReadExtensionPrefList(
     const std::string& extension_id, const std::string& pref_key,
     const ListValue** out_value) const {
   const DictionaryValue* ext = GetExtensionPref(extension_id);
-  ListValue* out = NULL;
+  const ListValue* out = NULL;
   if (!ext || !ext->GetList(pref_key, &out))
     return false;
   if (out_value)
@@ -540,7 +550,7 @@ void ExtensionPrefs::SetExtensionPrefPermissionSet(
 }
 
 // static
-bool ExtensionPrefs::IsBlacklistBitSet(DictionaryValue* ext) {
+bool ExtensionPrefs::IsBlacklistBitSet(const DictionaryValue* ext) {
   return ReadBooleanFromPref(ext, kPrefBlacklist);
 }
 
@@ -707,7 +717,7 @@ void ExtensionPrefs::UpdateBlacklist(
   if (extensions) {
     for (DictionaryValue::key_iterator extension_id = extensions->begin_keys();
          extension_id != extensions->end_keys(); ++extension_id) {
-      DictionaryValue* ext;
+      const DictionaryValue* ext;
       if (!extensions->GetDictionaryWithoutPathExpansion(*extension_id, &ext)) {
         NOTREACHED() << "Invalid pref for extension " << *extension_id;
         continue;
@@ -848,7 +858,7 @@ void ExtensionPrefs::MigratePermissions(const ExtensionIdSet& extension_ids) {
 
     // Add the plugin permission if the full access bit was set.
     if (full_access) {
-      ListValue* apis = NULL;
+      const ListValue* apis = NULL;
       ListValue* new_apis = NULL;
 
       std::string granted_apis =
@@ -870,7 +880,7 @@ void ExtensionPrefs::MigratePermissions(const ExtensionIdSet& extension_ids) {
     // does not matter how we treat the old effective hosts as long as the
     // new effective hosts will be the same, so we move them to explicit
     // host permissions.
-    ListValue* hosts;
+    const ListValue* hosts;
     std::string explicit_hosts =
         JoinPrefs(kPrefGrantedPermissions, kPrefExplicitHosts);
     if (ext->GetList(kPrefOldGrantedHosts, &hosts)) {
@@ -945,7 +955,7 @@ std::set<std::string> ExtensionPrefs::GetRegisteredEvents(
   if (!extension)
     return events;
 
-  ListValue* value = NULL;
+  const ListValue* value = NULL;
   if (!extension->GetList(kRegisteredEvents, &value))
     return events;
 
@@ -1004,7 +1014,7 @@ const DictionaryValue* ExtensionPrefs::GetFilteredEvents(
   const DictionaryValue* extension = GetExtensionPref(extension_id);
   if (!extension)
     return NULL;
-  DictionaryValue* result = NULL;
+  const DictionaryValue* result = NULL;
   if (!extension->GetDictionary(kFilteredEvents, &result))
     return NULL;
   return result;
@@ -1024,8 +1034,8 @@ ExtensionOmniboxSuggestion
 ExtensionPrefs::GetOmniboxDefaultSuggestion(const std::string& extension_id) {
   ExtensionOmniboxSuggestion suggestion;
 
-  const base::DictionaryValue* extension = GetExtensionPref(extension_id);
-  base::DictionaryValue* dict = NULL;
+  const DictionaryValue* extension = GetExtensionPref(extension_id);
+  const DictionaryValue* dict = NULL;
   if (extension && extension->GetDictionary(kOmniboxDefaultSuggestion, &dict))
     suggestion.Populate(*dict, false);
 
@@ -1148,6 +1158,121 @@ void ExtensionPrefs::SetLaunchType(const std::string& extension_id,
                                    LaunchType launch_type) {
   UpdateExtensionPref(extension_id, kPrefLaunchType,
       Value::CreateIntegerValue(static_cast<int>(launch_type)));
+}
+
+namespace {
+
+bool GetMediaGalleryPermissionFromDictionary(
+    const DictionaryValue* dict,
+    MediaGalleryPermission* out_permission) {
+  std::string string_id;
+  if (dict->GetString(kMediaGalleryIdKey, &string_id) &&
+      base::StringToUint64(string_id, &out_permission->pref_id) &&
+      dict->GetBoolean(kMediaGalleryHasPermissionKey,
+                       &out_permission->has_permission)) {
+    return true;
+  }
+  NOTREACHED();
+  return false;
+}
+
+void RemoveMediaGalleryPermissionsFromExtension(PrefService* prefs,
+                                                const std::string& extension_id,
+                                                MediaGalleryPrefId gallery_id) {
+  ScopedExtensionPrefUpdate update(prefs, extension_id);
+  DictionaryValue* extension_dict = update.Get();
+  ListValue* permissions = NULL;
+  if (!extension_dict->GetList(kMediaGalleriesPermissions, &permissions))
+    return;
+
+  for (ListValue::iterator it = permissions->begin();
+       it != permissions->end();
+       ++it) {
+    const DictionaryValue* dict = NULL;
+    if (!(*it)->GetAsDictionary(&dict))
+      continue;
+    MediaGalleryPermission perm;
+    if (!GetMediaGalleryPermissionFromDictionary(dict, &perm))
+      continue;
+    if (perm.pref_id == gallery_id) {
+      permissions->Erase(it, NULL);
+      return;
+    }
+  }
+}
+
+}  // namespace
+
+void ExtensionPrefs::SetMediaGalleryPermission(const std::string& extension_id,
+                                               MediaGalleryPrefId gallery,
+                                               bool has_access) {
+  ScopedExtensionPrefUpdate update(prefs_, extension_id);
+  DictionaryValue* extension_dict = update.Get();
+  ListValue* permissions = NULL;
+  if (!extension_dict->GetList(kMediaGalleriesPermissions, &permissions)) {
+    permissions = new ListValue;
+    extension_dict->Set(kMediaGalleriesPermissions, permissions);
+  } else {
+    // If the gallery is already in the list, update the permission.
+    for (ListValue::const_iterator it = permissions->begin();
+         it != permissions->end();
+         ++it) {
+      DictionaryValue* dict = NULL;
+      if (!(*it)->GetAsDictionary(&dict))
+        continue;
+      MediaGalleryPermission perm;
+      if (!GetMediaGalleryPermissionFromDictionary(dict, &perm))
+        continue;
+      if (perm.pref_id == gallery) {
+        dict->SetBoolean(kMediaGalleryHasPermissionKey, has_access);
+        return;
+      }
+    }
+  }
+
+  DictionaryValue* dict = new DictionaryValue;
+  dict->SetString(kMediaGalleryIdKey, base::Uint64ToString(gallery));
+  dict->SetBoolean(kMediaGalleryHasPermissionKey, has_access);
+  permissions->Append(dict);
+}
+
+std::vector<MediaGalleryPermission> ExtensionPrefs::GetMediaGalleryPermissions(
+        const std::string& extension_id) {
+  std::vector<MediaGalleryPermission> result;
+  const ListValue* permissions = NULL;
+  if (ReadExtensionPrefList(extension_id, kMediaGalleriesPermissions,
+                            &permissions)) {
+    for (ListValue::const_iterator it = permissions->begin();
+         it != permissions->end();
+         ++it) {
+      DictionaryValue* dict = NULL;
+      if (!(*it)->GetAsDictionary(&dict))
+        continue;
+      MediaGalleryPermission perm;
+      if (!GetMediaGalleryPermissionFromDictionary(dict, &perm))
+        continue;
+      result.push_back(perm);
+    }
+  }
+  return result;
+}
+
+void ExtensionPrefs::RemoveMediaGalleryPermissions(
+    MediaGalleryPrefId gallery_id) {
+  const DictionaryValue* extensions = prefs_->GetDictionary(kExtensionsPref);
+  if (!extensions)
+    return;
+
+  for (DictionaryValue::key_iterator it = extensions->begin_keys();
+       it != extensions->end_keys();
+       ++it) {
+    const std::string& id(*it);
+    if (!Extension::IdIsValid(id)) {
+      NOTREACHED();
+      continue;
+    }
+    RemoveMediaGalleryPermissionsFromExtension(prefs_, id, gallery_id);
+  }
 }
 
 bool ExtensionPrefs::DoesExtensionHaveState(
@@ -1336,7 +1461,7 @@ void ExtensionPrefs::UpdateManifest(const Extension* extension) {
     const DictionaryValue* extension_dict = GetExtensionPref(extension->id());
     if (!extension_dict)
       return;
-    DictionaryValue* old_manifest = NULL;
+    const DictionaryValue* old_manifest = NULL;
     bool update_required =
         !extension_dict->GetDictionary(kPrefManifest, &old_manifest) ||
         !extension->manifest()->value()->Equals(old_manifest);
@@ -1386,7 +1511,7 @@ const DictionaryValue* ExtensionPrefs::GetExtensionPref(
   const DictionaryValue* dict = prefs_->GetDictionary(kExtensionsPref);
   if (!dict)
     return NULL;
-  DictionaryValue* extension = NULL;
+  const DictionaryValue* extension = NULL;
   dict->GetDictionary(extension_id, &extension);
   return extension;
 }
@@ -1518,7 +1643,7 @@ bool ExtensionPrefs::GetIdleInstallInfo(const std::string& extension_id,
 
   // Do all the reads from the prefs together, and don't do any assignment
   // to the out parameters unless all the reads succeed.
-  DictionaryValue* info = NULL;
+  const DictionaryValue* info = NULL;
   if (!extension_prefs->GetDictionary(kIdleInstallInfo, &info))
     return false;
 
@@ -1683,7 +1808,7 @@ ExtensionPrefs::ExtensionIdSet ExtensionPrefs::GetExtensionsFrom(
   ExtensionIdSet result;
   for (base::DictionaryValue::key_iterator it = extension_prefs->begin_keys();
        it != extension_prefs->end_keys(); ++it) {
-    DictionaryValue* ext;
+    const DictionaryValue* ext;
     if (!extension_prefs->GetDictionaryWithoutPathExpansion(*it, &ext)) {
       NOTREACHED() << "Invalid pref for extension " << *it;
       continue;
@@ -1718,7 +1843,7 @@ void ExtensionPrefs::LoadExtensionControlledPrefs(
   bool success = ScopeToPrefKey(scope, &scope_string);
   DCHECK(success);
   std::string key = extension_id + "." + scope_string;
-  DictionaryValue* preferences = NULL;
+  const DictionaryValue* preferences = NULL;
   // First try the regular lookup.
   const DictionaryValue* source_dict = prefs_->GetDictionary(kExtensionsPref);
   if (!source_dict->GetDictionary(key, &preferences))
@@ -1778,7 +1903,7 @@ void ExtensionPrefs::InitPrefStore(bool extensions_disabled) {
     // Set content settings.
     const DictionaryValue* extension_prefs = GetExtensionPref(*ext_id);
     DCHECK(extension_prefs);
-    ListValue* content_settings = NULL;
+    const ListValue* content_settings = NULL;
     if (extension_prefs->GetList(kPrefContentSettings,
                                  &content_settings)) {
       content_settings_store_->SetExtensionContentSettingFromList(

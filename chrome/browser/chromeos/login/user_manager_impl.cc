@@ -6,8 +6,8 @@
 
 #include <vector>
 
-#include "ash/shell.h"
 #include "ash/desktop_background/desktop_background_controller.h"
+#include "ash/shell.h"
 #include "base/bind.h"
 #include "base/chromeos/chromeos_version.h"
 #include "base/command_line.h"
@@ -28,16 +28,16 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/cros/cert_library.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/cryptohome/async_method_caller.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
 #include "chrome/browser/chromeos/login/default_user_images.h"
 #include "chrome/browser/chromeos/login/helper.h"
 #include "chrome/browser/chromeos/login/login_display.h"
-#include "chrome/browser/chromeos/login/ownership_service.h"
 #include "chrome/browser/chromeos/login/remove_user_delegate.h"
 #include "chrome/browser/chromeos/login/user_image.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
+#include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "chrome/browser/chromeos/settings/ownership_service.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
@@ -420,7 +420,7 @@ void UserManagerImpl::UserSelected(const std::string& email) {
       ash::WallpaperLayout layout = static_cast<ash::WallpaperLayout>(index);
       // Load user image asynchronously.
       image_loader_->Start(
-          wallpaper_path, 0, false,
+          wallpaper_path, 0,
           base::Bind(&UserManagerImpl::OnCustomWallpaperLoaded,
                      base::Unretained(this), email, layout));
       return;
@@ -631,7 +631,7 @@ void UserManagerImpl::SaveUserImageFromFile(const std::string& username,
                                             const FilePath& path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   image_loader_->Start(
-      path.value(), login::kMaxUserImageSize, true,
+      path.value(), login::kMaxUserImageSize,
       base::Bind(&UserManagerImpl::SaveUserImage,
                  base::Unretained(this), username));
 }
@@ -644,7 +644,7 @@ void UserManagerImpl::SaveUserWallpaperFromFile(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   // For wallpapers, save the image without resizing.
   image_loader_->Start(
-      path.value(), 0 /* Original size */, false,
+      path.value(), 0 /* Original size */,
       base::Bind(&UserManagerImpl::SaveUserWallpaperInternal,
                  base::Unretained(this), username, layout, User::CUSTOMIZED,
                  delegate));
@@ -656,9 +656,10 @@ void UserManagerImpl::SaveUserImageFromProfileImage(
   if (!downloaded_profile_image_.empty()) {
     // Profile image has already been downloaded, so save it to file right now.
     DCHECK(profile_image_url_.is_valid());
-    SaveUserImageInternal(username,
-                          User::kProfileImageIndex, profile_image_url_,
-                          UserImage(downloaded_profile_image_));
+    SaveUserImageInternal(
+        username,
+        User::kProfileImageIndex, profile_image_url_,
+        UserImage::CreateAndEncode(downloaded_profile_image_));
   } else {
     // No profile image - use the stub image (gray avatar).
     SetUserImage(username, User::kProfileImageIndex,
@@ -837,7 +838,7 @@ void UserManagerImpl::EnsureUsersLoaded() {
           // TODO(avayvod): Reading image path as a string is here for
           // backward compatibility.
           std::string image_path;
-          base::DictionaryValue* image_properties;
+          const base::DictionaryValue* image_properties;
           if (prefs_images->GetStringWithoutPathExpansion(email, &image_path)) {
             int image_id = User::kInvalidImageIndex;
             if (IsDefaultImagePath(image_path, &image_id)) {
@@ -849,7 +850,7 @@ void UserManagerImpl::EnsureUsersLoaded() {
               DCHECK(!image_path.empty());
               // Load user image asynchronously.
               image_loader_->Start(
-                  image_path, user_image_size, true,
+                  image_path, user_image_size,
                   base::Bind(&UserManagerImpl::SetUserImage,
                              base::Unretained(this),
                              email, image_index, GURL()));
@@ -879,7 +880,7 @@ void UserManagerImpl::EnsureUsersLoaded() {
               if (!image_path.empty()) {
                 // Load user image asynchronously.
                 image_loader_->Start(
-                    image_path, user_image_size, true,
+                    image_path, user_image_size,
                     base::Bind(&UserManagerImpl::SetUserImage,
                                base::Unretained(this),
                                email, image_index, image_gurl));
@@ -1153,7 +1154,7 @@ void UserManagerImpl::GetUserWallpaperProperties(const std::string& username,
   if (!username.empty()) {
     const DictionaryValue* user_wallpapers = g_browser_process->local_state()->
         GetDictionary(UserManager::kUserWallpapersProperties);
-    base::DictionaryValue* wallpaper_properties;
+    const base::DictionaryValue* wallpaper_properties;
     if (user_wallpapers->GetDictionaryWithoutPathExpansion(
         username,
         &wallpaper_properties)) {
@@ -1270,7 +1271,7 @@ void UserManagerImpl::OnCustomWallpaperLoaded(const std::string& email,
   std::string wallpaper_thumbnail_path =
       GetWallpaperPathForUser(email, true).value();
   image_loader_->Start(
-      wallpaper_thumbnail_path, 0, false,
+      wallpaper_thumbnail_path, 0,
       base::Bind(&UserManagerImpl::OnCustomWallpaperThumbnailLoaded,
       base::Unretained(this), email));
 }

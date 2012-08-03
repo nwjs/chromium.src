@@ -46,7 +46,6 @@
 #include "sync/api/sync_change.h"
 #include "sync/api/syncable_service.h"
 
-class AppNotificationManager;
 class BookmarkExtensionEventRouter;
 class ExtensionErrorUI;
 class ExtensionFontSettingsEventRouter;
@@ -65,6 +64,7 @@ class ExtensionInputMethodEventRouter;
 }
 
 namespace extensions {
+class AppNotificationManager;
 class AppSyncData;
 class BrowserEventRouter;
 class ComponentLoader;
@@ -73,6 +73,7 @@ class CrxInstaller;
 class Extension;
 class ExtensionCookiesEventRouter;
 class ExtensionManagedModeEventRouter;
+class PushMessagingEventRouter;
 class ExtensionSyncData;
 class ExtensionSystem;
 class ExtensionUpdater;
@@ -495,7 +496,7 @@ class ExtensionService
 
   extensions::MenuManager* menu_manager() { return &menu_manager_; }
 
-  AppNotificationManager* app_notification_manager() {
+  extensions::AppNotificationManager* app_notification_manager() {
     return app_notification_manager_.get();
   }
 
@@ -516,6 +517,10 @@ class ExtensionService
   }
 #endif
 
+  extensions::PushMessagingEventRouter* push_messaging_event_router() {
+    return push_messaging_event_router_.get();
+  }
+
   // Notify the frontend that there was an error loading an extension.
   // This method is public because UnpackedInstaller and InstalledLoader
   // can post to here.
@@ -527,7 +532,7 @@ class ExtensionService
 
   // ExtensionHost of background page calls this method right after its render
   // view has been created.
-  void DidCreateRenderViewForBackgroundPage(ExtensionHost* host);
+  void DidCreateRenderViewForBackgroundPage(extensions::ExtensionHost* host);
 
   // For the extension in |version_path| with |id|, check to see if it's an
   // externally managed extension.  If so, uninstall it.
@@ -788,7 +793,7 @@ class ExtensionService
   extensions::MenuManager menu_manager_;
 
   // Keeps track of app notifications.
-  scoped_refptr<AppNotificationManager> app_notification_manager_;
+  scoped_refptr<extensions::AppNotificationManager> app_notification_manager_;
 
   // Keeps track of favicon-sized omnibox icons for extensions.
   ExtensionIconManager omnibox_icon_manager_;
@@ -813,6 +818,9 @@ class ExtensionService
   scoped_ptr<extensions::ExtensionCookiesEventRouter> cookies_event_router_;
 
   scoped_ptr<ExtensionManagementEventRouter> management_event_router_;
+
+  scoped_ptr<extensions::PushMessagingEventRouter>
+      push_messaging_event_router_;
 
   scoped_ptr<extensions::WebNavigationEventRouter> web_navigation_event_router_;
 

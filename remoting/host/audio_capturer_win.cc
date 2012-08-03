@@ -9,6 +9,8 @@
 #include <mmreg.h>
 #include <mmsystem.h>
 
+#include <stdlib.h>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
@@ -23,10 +25,15 @@
 namespace {
 const int kChannels = 2;
 const int kBitsPerSample = 16;
-const int kSamplesPerSecond = 44100;
 const int kBitsPerByte = 8;
 // Conversion factor from 100ns to 1ms.
 const int kHnsToMs = 10000;
+
+// Tolerance for catching packets of silence. If all samples have absolute
+// value less than this threshold, the packet will be counted as a packet of
+// silence. A value of 2 was chosen, because Windows can give samples of 1 and
+// -1, even when no audio is playing.
+const int kSilenceThreshold = 2;
 }  // namespace
 
 namespace remoting {
@@ -46,7 +53,11 @@ class AudioCapturerWin : public AudioCapturer {
   // to the network.
   void DoCapture();
 
+  static bool IsPacketOfSilence(const AudioPacket* packet);
+
   PacketCapturedCallback callback_;
+
+  AudioPacket::SamplingRate sampling_rate_;
 
   scoped_ptr<base::RepeatingTimer<AudioCapturerWin> > capture_timer_;
   base::TimeDelta audio_device_period_;
@@ -62,8 +73,9 @@ class AudioCapturerWin : public AudioCapturer {
   DISALLOW_COPY_AND_ASSIGN(AudioCapturerWin);
 };
 
-AudioCapturerWin::AudioCapturerWin() {
-  thread_checker_.DetachFromThread();
+AudioCapturerWin::AudioCapturerWin()
+    : sampling_rate_(AudioPacket::SAMPLING_RATE_INVALID) {
+      thread_checker_.DetachFromThread();
 }
 
 AudioCapturerWin::~AudioCapturerWin() {
@@ -131,13 +143,19 @@ bool AudioCapturerWin::Start(const PacketCapturedCallback& callback) {
     case WAVE_FORMAT_IEEE_FLOAT:
       // Intentional fall-through.
     case WAVE_FORMAT_PCM:
+      if (!AudioCapturer::IsValidSampleRate(wave_format_ex_->nSamplesPerSec)) {
+        LOG(ERROR) << "Host sampling rate is neither 44.1 kHz nor 48 kHz.";
+        return false;
+      }
+      sampling_rate_ = static_cast<AudioPacket::SamplingRate>(
+          wave_format_ex_->nSamplesPerSec);
+
       wave_format_ex_->wFormatTag = WAVE_FORMAT_PCM;
       wave_format_ex_->nChannels = kChannels;
-      wave_format_ex_->nSamplesPerSec = kSamplesPerSecond;
       wave_format_ex_->wBitsPerSample = kBitsPerSample;
       wave_format_ex_->nBlockAlign = kChannels * kBitsPerSample / kBitsPerByte;
       wave_format_ex_->nAvgBytesPerSec =
-          kSamplesPerSecond * kChannels * kBitsPerSample / kBitsPerByte;
+          sampling_rate_ * kChannels * kBitsPerSample / kBitsPerByte;
       break;
     case WAVE_FORMAT_EXTENSIBLE: {
       PWAVEFORMATEXTENSIBLE wave_format_extensible =
@@ -145,16 +163,24 @@ bool AudioCapturerWin::Start(const PacketCapturedCallback& callback) {
           static_cast<WAVEFORMATEX*>(wave_format_ex_));
       if (IsEqualGUID(KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
                       wave_format_extensible->SubFormat)) {
+        if (!AudioCapturer::IsValidSampleRate(
+                wave_format_extensible->Format.nSamplesPerSec)) {
+          LOG(ERROR) << "Host sampling rate is neither 44.1 kHz nor 48 kHz.";
+          return false;
+        }
+        sampling_rate_ = static_cast<AudioPacket::SamplingRate>(
+            wave_format_extensible->Format.nSamplesPerSec);
+
         wave_format_extensible->SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
         wave_format_extensible->Samples.wValidBitsPerSample = kBitsPerSample;
 
         wave_format_extensible->Format.nChannels = kChannels;
-        wave_format_extensible->Format.nSamplesPerSec = kSamplesPerSecond;
+        wave_format_extensible->Format.nSamplesPerSec = sampling_rate_;
         wave_format_extensible->Format.wBitsPerSample = kBitsPerSample;
         wave_format_extensible->Format.nBlockAlign =
             kChannels * kBitsPerSample / kBitsPerByte;
         wave_format_extensible->Format.nAvgBytesPerSec =
-            kSamplesPerSecond * kChannels * kBitsPerSample / kBitsPerByte;
+            sampling_rate_ * kChannels * kBitsPerSample / kBitsPerByte;
       } else {
         LOG(ERROR) << "Failed to force 16-bit samples";
         return false;
@@ -162,7 +188,7 @@ bool AudioCapturerWin::Start(const PacketCapturedCallback& callback) {
       break;
     }
     default:
-      LOG(ERROR) << "Failed to force 16-bit samples";
+      LOG(ERROR) << "Failed to force 16-bit PCM";
       return false;
   }
 
@@ -221,6 +247,7 @@ bool AudioCapturerWin::IsRunning() {
 }
 
 void AudioCapturerWin::DoCapture() {
+  DCHECK(AudioCapturer::IsValidSampleRate(sampling_rate_));
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(IsRunning());
 
@@ -249,8 +276,13 @@ void AudioCapturerWin::DoCapture() {
 
     scoped_ptr<AudioPacket> packet = scoped_ptr<AudioPacket>(new AudioPacket());
     packet->set_data(data, frames * wave_format_ex_->nBlockAlign);
+    packet->set_sampling_rate(sampling_rate_);
+    packet->set_bytes_per_sample(
+        static_cast<AudioPacket::BytesPerSample>(sizeof(int16)));
+    packet->set_encoding(AudioPacket::ENCODING_RAW);
 
-    callback_.Run(packet.Pass());
+    if (!IsPacketOfSilence(packet.get()))
+      callback_.Run(packet.Pass());
 
     hr = audio_capture_client_->ReleaseBuffer(frames);
     if (FAILED(hr)) {
@@ -258,6 +290,22 @@ void AudioCapturerWin::DoCapture() {
       return;
     }
   }
+}
+
+// Detects whether there is audio playing in a packet of samples.
+// Windows can give nonzero samples, even when there is no audio playing, so
+// extremely low amplitude samples are counted as silence.
+bool AudioCapturerWin::IsPacketOfSilence(const AudioPacket* packet) {
+  DCHECK_EQ(static_cast<AudioPacket::BytesPerSample>(sizeof(int16)),
+            packet->bytes_per_sample());
+  const int16* data = reinterpret_cast<const int16*>(packet->data().data());
+  int number_of_samples = packet->data().size() * kBitsPerByte / kBitsPerSample;
+
+  for (int i = 0; i < number_of_samples; i++) {
+    if (abs(data[i]) > kSilenceThreshold)
+      return false;
+  }
+  return true;
 }
 
 scoped_ptr<AudioCapturer> AudioCapturer::Create() {

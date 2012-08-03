@@ -37,6 +37,8 @@ class MockDocumentsService : public DocumentsServiceInterface {
   MOCK_METHOD2(GetDocumentEntry, void(const std::string& resource_id,
                                       const GetDataCallback& callback));
   MOCK_METHOD1(GetAccountMetadata, void(const GetDataCallback& callback));
+  MOCK_METHOD1(GetAboutResource, void(const GetDataCallback& callback));
+  MOCK_METHOD1(GetApplicationList, void(const GetDataCallback& callback));
   MOCK_METHOD2(DeleteDocument, void(const GURL& document_url,
                                     const EntryActionCallback& callback));
   MOCK_METHOD5(DownloadDocument, void(const FilePath& virtual_path,
@@ -81,7 +83,7 @@ class MockDocumentsService : public DocumentsServiceInterface {
   MOCK_CONST_METHOD0(HasRefreshToken, bool());
 
   void set_account_metadata(base::Value* account_metadata) {
-    feed_data_.reset(account_metadata);
+    account_metadata_.reset(account_metadata);
   }
 
   void set_feed_data(base::Value* feed_data) {

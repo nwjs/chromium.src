@@ -18,6 +18,7 @@
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
+#include "chrome/browser/net/cache_stats.h"
 #include "chrome/browser/omnibox_search_hint.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
@@ -27,6 +28,7 @@
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_tab_observer.h"
 #include "chrome/browser/sessions/restore_tab_helper.h"
+#include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
 #include "chrome/browser/tab_contents/tab_contents_ssl_helper.h"
 #include "chrome/browser/tab_contents/thumbnail_generator.h"
 #include "chrome/browser/translate/translate_tab_helper.h"
@@ -101,6 +103,8 @@ TabContents::TabContents(WebContents* contents)
 #endif
   blocked_content_tab_helper_.reset(new BlockedContentTabHelper(this));
   bookmark_tab_helper_.reset(new BookmarkTabHelper(this));
+  cache_stats_tab_helper_.reset(
+      new chrome_browser_net::CacheStatsTabHelper(this));
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
   captive_portal_tab_helper_.reset(
       new captive_portal::CaptivePortalTabHelper(profile(), web_contents()));
@@ -142,6 +146,7 @@ TabContents::TabContents(WebContents* contents)
   webnavigation_observer_.reset(
       new extensions::WebNavigationTabObserver(contents));
   external_protocol_observer_.reset(new ExternalProtocolObserver(contents));
+  navigation_metrics_recorder_.reset(new NavigationMetricsRecorder(contents));
   pdf_tab_observer_.reset(new PDFTabObserver(this));
   safe_browsing_tab_observer_.reset(
       new safe_browsing::SafeBrowsingTabObserver(this));
@@ -170,7 +175,7 @@ TabContents::TabContents(WebContents* contents)
   // one-click signin helper attached does not cause problems if the profile
   // happens to be already connected.
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
-  if (OneClickSigninHelper::CanOffer(contents, false))
+  if (OneClickSigninHelper::CanOffer(contents, "", false))
       one_click_signin_helper_.reset(new OneClickSigninHelper(contents));
 #endif
 }

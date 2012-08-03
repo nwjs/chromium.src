@@ -10,6 +10,8 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
+#include "chrome/browser/infobars/infobar_delegate.h"
+#include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/ui/website_settings/website_settings_ui.h"
 #include "chrome/common/content_settings.h"
 #include "chrome/common/content_settings_types.h"
@@ -31,7 +33,8 @@ using namespace testing;
 namespace {
 
 // SSL cipher suite like specified in RFC5246 Appendix A.5. "The Cipher Suite".
-static int TLS_RSA_WITH_AES_256_CBC_SHA256 = 0x3D;
+// Without the CR_ prefix, this clashes with the OS X 10.8 headers.
+int CR_TLS_RSA_WITH_AES_256_CBC_SHA256 = 0x3D;
 
 int SetSSLVersion(int connection_status, int version) {
   // Clear SSL version bits (Bits 20, 21 and 22).
@@ -72,6 +75,7 @@ class WebsiteSettingsTest : public ChromeRenderViewHostTestHarness {
         cert_id_(0),
         browser_thread_(content::BrowserThread::UI, &message_loop_),
         tab_specific_content_settings_(NULL),
+        infobar_tab_helper_(NULL),
         url_("http://www.example.com") {
   }
 
@@ -95,6 +99,7 @@ class WebsiteSettingsTest : public ChromeRenderViewHostTestHarness {
 
     tab_specific_content_settings_.reset(
         new TabSpecificContentSettings(contents()));
+    infobar_tab_helper_.reset(new InfoBarTabHelper(contents()));
 
     // Setup the mock cert store.
     EXPECT_CALL(cert_store_, RetrieveCert(cert_id_, _) )
@@ -128,12 +133,13 @@ class WebsiteSettingsTest : public ChromeRenderViewHostTestHarness {
   TabSpecificContentSettings* tab_specific_content_settings() {
     return tab_specific_content_settings_.get();
   }
+  InfoBarTabHelper* infobar_tab_helper() { return infobar_tab_helper_.get(); }
 
   WebsiteSettings* website_settings() {
     if (!website_settings_.get()) {
       website_settings_.reset(new WebsiteSettings(
-          mock_ui(), profile(), tab_specific_content_settings_.get(), url(),
-          ssl(), cert_store()));
+          mock_ui(), profile(), tab_specific_content_settings_.get(),
+          infobar_tab_helper_.get(), url(), ssl(), cert_store()));
     }
     return website_settings_.get();
   }
@@ -147,6 +153,7 @@ class WebsiteSettingsTest : public ChromeRenderViewHostTestHarness {
   scoped_refptr<net::X509Certificate> cert_;
   content::TestBrowserThread browser_thread_;
   scoped_ptr<TabSpecificContentSettings> tab_specific_content_settings_;
+  scoped_ptr<InfoBarTabHelper> infobar_tab_helper_;
   MockCertStore cert_store_;
   GURL url_;
 };
@@ -222,7 +229,7 @@ TEST_F(WebsiteSettingsTest, HTTPSConnection) {
   ssl_.security_bits = 81;  // No error if > 80.
   int status = 0;
   status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
-  status = SetSSLCipherSuite(status, TLS_RSA_WITH_AES_256_CBC_SHA256);
+  status = SetSSLCipherSuite(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
   ssl_.connection_status = status;
 
   SetDefaultUIExpectations(mock_ui());
@@ -242,7 +249,7 @@ TEST_F(WebsiteSettingsTest, HTTPSMixedContent) {
   ssl_.content_status = SSLStatus::DISPLAYED_INSECURE_CONTENT;
   int status = 0;
   status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
-  status = SetSSLCipherSuite(status, TLS_RSA_WITH_AES_256_CBC_SHA256);
+  status = SetSSLCipherSuite(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
   ssl_.connection_status = status;
 
   SetDefaultUIExpectations(mock_ui());
@@ -270,7 +277,7 @@ TEST_F(WebsiteSettingsTest, HTTPSEVCert) {
   ssl_.content_status = SSLStatus::DISPLAYED_INSECURE_CONTENT;
   int status = 0;
   status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
-  status = SetSSLCipherSuite(status, TLS_RSA_WITH_AES_256_CBC_SHA256);
+  status = SetSSLCipherSuite(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
   ssl_.connection_status = status;
 
   SetDefaultUIExpectations(mock_ui());
@@ -289,7 +296,7 @@ TEST_F(WebsiteSettingsTest, HTTPSRevocationError) {
   ssl_.security_bits = 81;  // No error if > 80.
   int status = 0;
   status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
-  status = SetSSLCipherSuite(status, TLS_RSA_WITH_AES_256_CBC_SHA256);
+  status = SetSSLCipherSuite(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
   ssl_.connection_status = status;
 
   SetDefaultUIExpectations(mock_ui());
@@ -308,7 +315,7 @@ TEST_F(WebsiteSettingsTest, HTTPSConnectionError) {
   ssl_.security_bits = 1;
   int status = 0;
   status = SetSSLVersion(status, net::SSL_CONNECTION_VERSION_TLS1);
-  status = SetSSLCipherSuite(status, TLS_RSA_WITH_AES_256_CBC_SHA256);
+  status = SetSSLCipherSuite(status, CR_TLS_RSA_WITH_AES_256_CBC_SHA256);
   ssl_.connection_status = status;
 
   SetDefaultUIExpectations(mock_ui());
@@ -318,4 +325,31 @@ TEST_F(WebsiteSettingsTest, HTTPSConnectionError) {
   EXPECT_EQ(WebsiteSettings::SITE_IDENTITY_STATUS_CERT,
             website_settings()->site_identity_status());
   EXPECT_EQ(string16(), website_settings()->organization_name());
+}
+
+TEST_F(WebsiteSettingsTest, NoInfoBar) {
+  SetDefaultUIExpectations(mock_ui());
+  EXPECT_EQ(0u, infobar_tab_helper()->infobar_count());
+  website_settings()->OnUIClosing();
+  EXPECT_EQ(0u, infobar_tab_helper()->infobar_count());
+}
+
+TEST_F(WebsiteSettingsTest, ShowInfoBar) {
+  SetDefaultUIExpectations(mock_ui());
+  EXPECT_EQ(0u, infobar_tab_helper()->infobar_count());
+  website_settings()->OnSitePermissionChanged(
+      CONTENT_SETTINGS_TYPE_GEOLOCATION, CONTENT_SETTING_ALLOW);
+  website_settings()->OnUIClosing();
+  EXPECT_EQ(1u, infobar_tab_helper()->infobar_count());
+
+  // Removing an |InfoBarDelegate| from the |InfoBarTabHelper| does not delete
+  // it. Hence the |delegate| must be cleaned up after it was removed from the
+  // |infobar_tab_helper|.
+  scoped_ptr<InfoBarDelegate> delegate(
+      infobar_tab_helper()->GetInfoBarDelegateAt(0));
+  infobar_tab_helper()->RemoveInfoBar(delegate.get());
+  // Right now InfoBarDelegates delete themselves via
+  // InfoBarClosed(); once InfoBars own their delegates, this can become a
+  // simple reset() call
+  delegate.release()->InfoBarClosed();
 }

@@ -18,7 +18,7 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/windows_version.h"
-#include "chrome/browser/browser_process_impl.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/safe_browsing_util.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -246,11 +246,11 @@ void FeedbackUtil::SendReport(
     , const std::string& category_tag
     , const std::string& page_url_text
     , const std::string& description
+    , const std::string& user_email_text
     , ScreenshotDataPtr image_data_ptr
     , int png_width
     , int png_height
 #if defined(OS_CHROMEOS)
-    , const std::string& user_email_text
     , const char* zipped_logs_data
     , int zipped_logs_length
     , const chromeos::system::LogDictionaryType* const sys_info
@@ -271,10 +271,8 @@ void FeedbackUtil::SendReport(
   // they wish
   common_data->set_gaia_id(0);
 
-#if defined(OS_CHROMEOS)
   // Add the user e-mail to the feedback object
   common_data->set_user_email(user_email_text);
-#endif
 
   // Add the description to the feedback object
   common_data->set_description(description);

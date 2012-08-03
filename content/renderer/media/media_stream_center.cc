@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "content/renderer/media/media_stream_impl.h"
 #include "content/renderer/media/media_stream_extra_data.h"
@@ -141,8 +142,16 @@ void MediaStreamCenter::didCreateMediaStream(
 
 WebKit::WebString MediaStreamCenter::constructSDP(
     const WebKit::WebICECandidateDescriptor& candidate) {
+  int m_line_index = -1;
+  if (!base::StringToInt(UTF16ToUTF8(candidate.label()), &m_line_index)) {
+    LOG(ERROR) << "Invalid candidate label: " << UTF16ToUTF8(candidate.label());
+    return WebKit::WebString();
+  }
+  // TODO(ronghuawu): Get sdp_mid from WebKit when is available.
+  const std::string sdp_mid;
   scoped_ptr<webrtc::IceCandidateInterface> native_candidate(
-      webrtc::CreateIceCandidate(UTF16ToUTF8(candidate.label()),
+      webrtc::CreateIceCandidate(sdp_mid,
+                                 m_line_index,
                                  UTF16ToUTF8(candidate.candidateLine())));
   std::string sdp;
   if (!native_candidate->ToString(&sdp))
@@ -159,10 +168,22 @@ WebKit::WebString MediaStreamCenter::constructSDP(
 
   for (size_t i = 0; i < description.numberOfAddedCandidates(); ++i) {
     WebKit::WebICECandidateDescriptor candidate = description.candidate(i);
+    int m_line_index = -1;
+    if (!base::StringToInt(UTF16ToUTF8(candidate.label()), &m_line_index)) {
+      LOG(ERROR) << "Invalid candidate label: "
+                 << UTF16ToUTF8(candidate.label());
+      continue;
+    }
+    // TODO(ronghuawu): Get sdp_mid from WebKit when is available.
+    const std::string sdp_mid;
     scoped_ptr<webrtc::IceCandidateInterface> native_candidate(
-        webrtc::CreateIceCandidate(UTF16ToUTF8(candidate.label()),
+        webrtc::CreateIceCandidate(sdp_mid,
+                                   m_line_index,
                                    UTF16ToUTF8(candidate.candidateLine())));
-    native_desc->AddCandidate(native_candidate.get());
+    if (!native_desc->AddCandidate(native_candidate.get())) {
+      LOG(ERROR) << "Failed to add candidate to SessionDescription.";
+      continue;
+    }
   }
 
   std::string sdp;

@@ -36,12 +36,12 @@ GpuVideoDecoder::BufferPair::BufferPair(
 
 GpuVideoDecoder::BufferPair::~BufferPair() {}
 
-GpuVideoDecoder::BufferTimeData::BufferTimeData(
-    int32 bbid, base::TimeDelta ts, base::TimeDelta dur)
-    : bitstream_buffer_id(bbid), timestamp(ts), duration(dur) {
+GpuVideoDecoder::BufferData::BufferData(
+    int32 bbid, base::TimeDelta ts, const gfx::Size& ns)
+    : bitstream_buffer_id(bbid), timestamp(ts), natural_size(ns) {
 }
 
-GpuVideoDecoder::BufferTimeData::~BufferTimeData() {}
+GpuVideoDecoder::BufferData::~BufferData() {}
 
 GpuVideoDecoder::GpuVideoDecoder(
     MessageLoop* message_loop,
@@ -107,8 +107,17 @@ void GpuVideoDecoder::Stop(const base::Closure& closure) {
     return;
   }
   VideoDecodeAccelerator* vda ALLOW_UNUSED = vda_.release();
-  vda_loop_proxy_->PostTask(FROM_HERE, base::Bind(
-      &VideoDecodeAccelerator::Destroy, weak_vda_));
+  // Tricky: |this| needs to stay alive until after VDA::Destroy is actually
+  // called, not just posted.  We can't simply PostTaskAndReply using |closure|
+  // as the |reply| because we might be called while the renderer thread
+  // (a.k.a. vda_loop_proxy_) is paused (during WebMediaPlayerImpl::Destroy()),
+  // which would result in an apparent hang.  Instead, we take an artificial ref
+  // to |this| and release it as |reply| after VDA::Destroy returns.
+  AddRef();
+  vda_loop_proxy_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&VideoDecodeAccelerator::Destroy, weak_vda_),
+      base::Bind(&GpuVideoDecoder::Release, this));
   closure.Run();
 }
 
@@ -152,9 +161,6 @@ void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
 
   if (config.codec() == kCodecH264)
     demuxer_stream_->EnableBitstreamConverter();
-
-  natural_size_ = config.natural_size();
-  config_frame_duration_ = GetFrameDuration(config);
 
   DVLOG(1) << "GpuVideoDecoder::Initialize() succeeded.";
   vda_loop_proxy_->PostTaskAndReply(
@@ -257,48 +263,39 @@ void GpuVideoDecoder::RequestBufferDecode(
   bool inserted = bitstream_buffers_in_decoder_.insert(std::make_pair(
       bitstream_buffer.id(), BufferPair(shm_buffer, buffer))).second;
   DCHECK(inserted);
-  RecordBufferTimeData(bitstream_buffer, *buffer);
+  RecordBufferData(bitstream_buffer, *buffer);
 
   vda_loop_proxy_->PostTask(FROM_HERE, base::Bind(
       &VideoDecodeAccelerator::Decode, weak_vda_, bitstream_buffer));
 }
 
-void GpuVideoDecoder::RecordBufferTimeData(
+void GpuVideoDecoder::RecordBufferData(
     const BitstreamBuffer& bitstream_buffer, const Buffer& buffer) {
-  base::TimeDelta duration = buffer.GetDuration();
-  if (duration == base::TimeDelta())
-    duration = config_frame_duration_;
-  input_buffer_time_data_.push_front(BufferTimeData(
-      bitstream_buffer.id(), buffer.GetTimestamp(), duration));
+  input_buffer_data_.push_front(BufferData(
+      bitstream_buffer.id(), buffer.GetTimestamp(),
+      demuxer_stream_->video_decoder_config().natural_size()));
   // Why this value?  Because why not.  avformat.h:MAX_REORDER_DELAY is 16, but
   // that's too small for some pathological B-frame test videos.  The cost of
   // using too-high a value is low (192 bits per extra slot).
-  static const size_t kMaxInputBufferTimeDataSize = 128;
+  static const size_t kMaxInputBufferDataSize = 128;
   // Pop from the back of the list, because that's the oldest and least likely
   // to be useful in the future data.
-  if (input_buffer_time_data_.size() > kMaxInputBufferTimeDataSize)
-    input_buffer_time_data_.pop_back();
+  if (input_buffer_data_.size() > kMaxInputBufferDataSize)
+    input_buffer_data_.pop_back();
 }
 
-void GpuVideoDecoder::GetBufferTimeData(
-    int32 id, base::TimeDelta* timestamp, base::TimeDelta* duration) {
-  // If all else fails later, at least we can set a default duration if there
-  // was one in the config.
-  *duration = config_frame_duration_;
-  for (std::list<BufferTimeData>::const_iterator it =
-           input_buffer_time_data_.begin(); it != input_buffer_time_data_.end();
+void GpuVideoDecoder::GetBufferData(int32 id, base::TimeDelta* timestamp,
+                                    gfx::Size* natural_size) {
+  for (std::list<BufferData>::const_iterator it =
+           input_buffer_data_.begin(); it != input_buffer_data_.end();
        ++it) {
     if (it->bitstream_buffer_id != id)
       continue;
     *timestamp = it->timestamp;
-    *duration = it->duration;
+    *natural_size = it->natural_size;
     return;
   }
   NOTREACHED() << "Missing bitstreambuffer id: " << id;
-}
-
-const gfx::Size& GpuVideoDecoder::natural_size() {
-  return natural_size_;
 }
 
 bool GpuVideoDecoder::HasAlpha() const {
@@ -385,13 +382,12 @@ void GpuVideoDecoder::PictureReady(const media::Picture& picture) {
 
   // Update frame's timestamp.
   base::TimeDelta timestamp;
-  base::TimeDelta duration;
-  GetBufferTimeData(picture.bitstream_buffer_id(), &timestamp, &duration);
-
+  gfx::Size natural_size;
+  GetBufferData(picture.bitstream_buffer_id(), &timestamp, &natural_size);
   DCHECK(decoder_texture_target_);
   scoped_refptr<VideoFrame> frame(VideoFrame::WrapNativeTexture(
-      pb.texture_id(), decoder_texture_target_, pb.size().width(),
-      pb.size().height(), timestamp, duration,
+      pb.texture_id(), decoder_texture_target_, pb.size(), natural_size,
+      timestamp,
       base::Bind(&GpuVideoDecoder::ReusePictureBuffer, this,
                  picture.picture_buffer_id())));
 
@@ -536,7 +532,7 @@ void GpuVideoDecoder::NotifyResetDone() {
 
   // This needs to happen after the Reset() on vda_ is done to ensure pictures
   // delivered during the reset can find their time data.
-  input_buffer_time_data_.clear();
+  input_buffer_data_.clear();
 
   if (!pending_reset_cb_.is_null())
     base::ResetAndReturn(&pending_reset_cb_).Run();

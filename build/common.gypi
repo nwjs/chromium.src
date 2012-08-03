@@ -456,6 +456,7 @@
         ['OS=="android"', {
           'proprietary_codecs%': 1,
           'enable_webrtc%': 0,
+          'remoting%': 0,
         }],
 
         ['OS=="ios"', {
@@ -642,13 +643,13 @@
     # Additional documentation on these macros is available at
     # http://developer.apple.com/mac/library/technotes/tn2002/tn2064.html#SECTION3
     # Chrome normally builds with the Mac OS X 10.6 SDK and sets the
-    # deployment target to 10.5.  Other projects, such as O3D, may override
+    # deployment target to 10.6.  Other projects, such as O3D, may override
     # these defaults. If the SDK is installed someplace that Xcode doesn't
     # know about, set mac_sdk_path to the path to the SDK. If set to a
     # non-empty string, mac_sdk_path will be used in preference to mac_sdk.
-    'mac_sdk%': '10.6',
+    # mac_sdk gets its default value elsewhere in this file.
     'mac_sdk_path%': '',
-    'mac_deployment_target%': '10.5',
+    'mac_deployment_target%': '10.6',
 
     # The default value for mac_strip in target_defaults. This cannot be
     # set there, per the comment about variable% in a target_defaults.
@@ -945,6 +946,8 @@
         'enable_automation%': 0,
         'enable_printing%': 0,
         'java_bridge%': 1,
+        'build_ffmpegsumo%': 0,
+        'linux_use_tcmalloc%': 0,
 
         # Disable Native Client.
         'disable_nacl%': 1,
@@ -964,11 +967,10 @@
 
         'p2p_apis%' : 0,
 
-        'gtest_target_type%': '<(gtest_target_type)',
         # TODO(jrg): when 'gtest_target_type'=='shared_library' and
         # OS==android, make all gtest_targets depend on
         # testing/android/native_test.gyp:native_test_apk.
-        ### 'gtest_target_type': 'shared_libary',
+        'gtest_target_type%': 'shared_library',
 
         # Uses system APIs for decoding audio and video.
         'use_libffmpeg%': '0',
@@ -1021,6 +1023,7 @@
           }],
 
           ['branding=="Chrome" and buildtype=="Official"', {
+            'mac_sdk%': '10.6',
             # Enable uploading crash dumps.
             'mac_breakpad_uploads%': 1,
             # Enable dumping symbols at build time for use by Mac Breakpad.
@@ -1028,6 +1031,7 @@
             # Enable Keystone auto-update support.
             'mac_keystone%': 1,
           }, { # else: branding!="Chrome" or buildtype!="Official"
+            'mac_sdk%': '<!(python <(DEPTH)/build/mac/find_sdk.py 10.6)',
             'mac_breakpad_uploads%': 0,
             'mac_breakpad%': 0,
             'mac_keystone%': 0,
@@ -1153,6 +1157,9 @@
       }],
       ['enable_printing==1', {
         'grit_defines': ['-D', 'enable_printing'],
+      }],
+      ['enable_themes==1', {
+        'grit_defines': ['-D', 'enable_themes'],
       }],
       ['clang_use_chrome_plugins==1 and OS!="win"', {
         'clang_chrome_plugins_flags': [
@@ -2053,7 +2060,7 @@
               'release_valgrind_build%': 0,
             },
             'cflags': [
-              '-O>(release_optimize)',
+              '-O<(release_optimize)',
               # Don't emit the GCC version ident directives, they just end up
               # in the .comment section taking up binary size.
               '-fno-ident',
@@ -2075,6 +2082,9 @@
                 ],
               }],
               ['OS=="android"', {
+                'variables': {
+                  'release_optimize%': 's',
+                },
                 'cflags': [
                   '-fomit-frame-pointer',
                 ],

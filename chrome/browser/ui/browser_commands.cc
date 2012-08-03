@@ -9,6 +9,7 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_editor.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/bookmark_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/browsing_data_helper.h"
@@ -37,6 +38,7 @@
 #include "chrome/browser/ui/browser_tab_restore_service_delegate.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/find_bar/find_tab_helper.h"
@@ -48,7 +50,6 @@
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/feedback_ui.h"
 #include "chrome/browser/ui/webui/ntp/app_launcher_handler.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_switches.h"
@@ -560,7 +561,8 @@ void Exit() {
 void BookmarkCurrentPage(Browser* browser) {
   content::RecordAction(UserMetricsAction("Star"));
 
-  BookmarkModel* model = browser->profile()->GetBookmarkModel();
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
   if (!model || !model->IsLoaded())
     return;  // Ignore requests until bookmarks are loaded.
 
@@ -585,7 +587,8 @@ void BookmarkCurrentPage(Browser* browser) {
 }
 
 bool CanBookmarkCurrentPage(const Browser* browser) {
-  BookmarkModel* model = browser->profile()->GetBookmarkModel();
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
   return browser_defaults::bookmarks_enabled &&
       browser->profile()->GetPrefs()->GetBoolean(
           prefs::kEditBookmarksEnabled) &&
@@ -835,7 +838,7 @@ void OpenTaskManager(Browser* browser, bool highlight_background_resources) {
 
 void OpenFeedbackDialog(Browser* browser) {
   content::RecordAction(UserMetricsAction("Feedback"));
-  browser::ShowWebFeedbackView(browser, std::string(), std::string());
+  chrome::ShowFeedbackPage(browser, std::string(), std::string());
 }
 
 void ToggleBookmarkBar(Browser* browser) {

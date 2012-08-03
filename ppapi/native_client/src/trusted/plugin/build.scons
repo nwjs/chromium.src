@@ -1,5 +1,5 @@
 # -*- python -*-
-# Copyright (c) 2011 The Native Client Authors. All rights reserved.
+# Copyright (c) 2012 The Native Client Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -65,13 +65,13 @@ common_inputs = [
     'plugin.cc',
     'pnacl_coordinator.cc',
     'pnacl_resources.cc',
-    'pnacl_streaming_translate_thread.cc',
     'pnacl_translate_thread.cc',
     'scriptable_plugin.cc',
     'sel_ldr_launcher_chrome.cc',
     'service_runtime.cc',
     'srpc_client.cc',
     'srpc_params.cc',
+    'temporary_file.cc',
     'utility.cc',
 ]
 

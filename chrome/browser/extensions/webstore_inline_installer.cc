@@ -183,8 +183,7 @@ void WebstoreInlineInstaller::BeginInstall() {
   // (it is the page that caused this request to happen) and so that we can
   // track top sites that trigger inline install requests.
   webstore_data_url_fetcher_->SetReferrer(requestor_url_.spec());
-  webstore_data_url_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SEND_COOKIES |
-                                           net::LOAD_DO_NOT_SAVE_COOKIES |
+  webstore_data_url_fetcher_->SetLoadFlags(net::LOAD_DO_NOT_SAVE_COOKIES |
                                            net::LOAD_DISABLE_CACHE);
   webstore_data_url_fetcher_->Start();
 }
@@ -351,7 +350,12 @@ void WebstoreInlineInstaller::OnWebstoreParseSuccess(
                                       rating_count_);
   std::string error;
   dummy_extension_ = ExtensionInstallPrompt::GetLocalizedExtensionForDisplay(
-      manifest, id_, localized_name_, localized_description_, &error);
+      manifest,
+      Extension::REQUIRE_KEY | Extension::FROM_WEBSTORE,
+      id_,
+      localized_name_,
+      localized_description_,
+      &error);
   if (!dummy_extension_) {
     OnWebstoreParseFailure(id_, WebstoreInstallHelper::Delegate::MANIFEST_ERROR,
                            kInvalidManifestError);

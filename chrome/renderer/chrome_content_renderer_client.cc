@@ -47,6 +47,7 @@
 #include "chrome/renderer/page_click_tracker.h"
 #include "chrome/renderer/page_load_histograms.h"
 #include "chrome/renderer/pepper/chrome_ppapi_interfaces.h"
+#include "chrome/renderer/pepper/pepper_helper.h"
 #include "chrome/renderer/playback_extension.h"
 #include "chrome/renderer/plugins/plugin_placeholder.h"
 #include "chrome/renderer/plugins/plugin_uma.h"
@@ -239,6 +240,13 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   // chrome-extension-resource: resources should be allowed to receive CORS
   // requests.
   WebSecurityPolicy::registerURLSchemeAsCORSEnabled(extension_resource_scheme);
+
+  // chrome-extension: resources should bypass Content Security Policy checks
+  // when included in protected resources.
+  WebSecurityPolicy::registerURLSchemeAsBypassingContentSecurityPolicy(
+      extension_scheme);
+  WebSecurityPolicy::registerURLSchemeAsBypassingContentSecurityPolicy(
+      extension_resource_scheme);
 }
 
 void ChromeContentRendererClient::RenderViewCreated(
@@ -280,6 +288,8 @@ void ChromeContentRendererClient::RenderViewCreated(
   new ChromeRenderViewObserver(
       render_view, content_settings, chrome_observer_.get(),
       extension_dispatcher_.get(), translate);
+
+  new PepperHelper(render_view);
 
   // Used only for testing/automation.
   if (CommandLine::ForCurrentProcess()->HasSwitch(

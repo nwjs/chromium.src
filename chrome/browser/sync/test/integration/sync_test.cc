@@ -18,6 +18,7 @@
 #include "base/threading/platform_thread.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/google/google_url_tracker.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/password_manager/encryptor.h"
@@ -197,6 +198,10 @@ void SyncTest::AddTestSwitches(CommandLine* cl) {
   // Disable non-essential access of external network resources.
   if (!cl->HasSwitch(switches::kDisableBackgroundNetworking))
     cl->AppendSwitch(switches::kDisableBackgroundNetworking);
+
+  // TODO(sync): remove this once keystore encryption is enabled by default.
+  if (!cl->HasSwitch(switches::kSyncKeystoreEncryption))
+    cl->AppendSwitch(switches::kSyncKeystoreEncryption);
 }
 
 void SyncTest::AddOptionalTypesToCommandLine(CommandLine* cl) {}
@@ -292,7 +297,7 @@ void SyncTest::InitializeInstance(int index) {
                                          << index << ".";
 
   ui_test_utils::WaitForBookmarkModelToLoad(
-      GetProfile(index)->GetBookmarkModel());
+      BookmarkModelFactory::GetForProfile(GetProfile(index)));
 
   ui_test_utils::WaitForTemplateURLServiceToLoad(
       TemplateURLServiceFactory::GetForProfile(GetProfile(index)));
@@ -345,7 +350,7 @@ bool SyncTest::SetupSync() {
 void SyncTest::CleanUpOnMainThread() {
   // Close all browser windows.
   browser::CloseAllBrowsers();
-  ui_test_utils::RunAllPendingInMessageLoop();
+  content::RunAllPendingInMessageLoop();
 
   // All browsers should be closed at this point, or else we could see memory
   // corruption in QuitBrowser().

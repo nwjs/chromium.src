@@ -48,9 +48,10 @@ class SyncSchedulerWhiteboxTest : public testing::Test {
     context_.reset(
         new SyncSessionContext(
             connection_.get(), dir_maker_.directory(),
-            routes, workers, &extensions_activity_monitor_,
+            workers, &extensions_activity_monitor_,
             throttled_data_type_tracker_.get(),
-            std::vector<SyncEngineEventListener*>(), NULL, NULL));
+            std::vector<SyncEngineEventListener*>(), NULL, NULL,
+            true  /* enable keystore encryption */));
     context_->set_notifications_enabled(true);
     context_->set_account_name("Test");
     scheduler_.reset(

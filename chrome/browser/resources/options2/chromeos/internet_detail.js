@@ -124,7 +124,8 @@ cr.define('options.internet', function() {
       });
 
       $('buyplan-details').addEventListener('click', function(event) {
-        chrome.send('buyDataPlan', [params.servicePath]);
+        var data = $('connection-state').data;
+        chrome.send('buyDataPlan', [String(data.servicePath)]);
         OptionsPage.closeOverlay();
       });
 
@@ -304,7 +305,7 @@ cr.define('options.internet', function() {
       /* Network information merged into the Wifi tab for wireless networks
          unless the option is set for enabling a static IP configuration. */
       updateHidden('#details-internet-page .network-details',
-                   this.wireless && !this.showStaticIPConfig);
+                   (this.wireless && !this.showStaticIPConfig) || this.vpn);
       updateHidden('#details-internet-page .wifi-network-setting',
                    this.showStaticIPConfig);
 

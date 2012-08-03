@@ -83,10 +83,10 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/accessibility/accessibility_util.h"
-#include "chrome/browser/chromeos/cros_settings.h"
 #include "chrome/browser/chromeos/extensions/wallpaper_manager_util.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/options/take_photo_dialog.h"
+#include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/webui/options2/chromeos/timezone_options_util.h"
 #include "ui/gfx/image/image_skia.h"
@@ -1058,10 +1058,10 @@ scoped_ptr<DictionaryValue> BrowserOptionsHandler::GetSyncStateDictionary() {
 void BrowserOptionsHandler::HandleSelectDownloadLocation(
     const ListValue* args) {
   PrefService* pref_service = Profile::FromWebUI(web_ui())->GetPrefs();
-  select_folder_dialog_ = SelectFileDialog::Create(
+  select_folder_dialog_ = ui::SelectFileDialog::Create(
       this, new ChromeSelectFilePolicy(web_ui()->GetWebContents()));
   select_folder_dialog_->SelectFile(
-      SelectFileDialog::SELECT_FOLDER,
+      ui::SelectFileDialog::SELECT_FOLDER,
       l10n_util::GetStringUTF16(IDS_OPTIONS_DOWNLOADLOCATION_BROWSE_TITLE),
       pref_service->GetFilePath(prefs::kDownloadDefaultDirectory),
       NULL, 0, FILE_PATH_LITERAL(""),

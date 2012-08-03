@@ -9,7 +9,7 @@
 #include "chrome/browser/bookmarks/bookmark_manager_extension_api.h"
 #include "chrome/browser/extensions/api/app/app_api.h"
 #include "chrome/browser/extensions/api/browsing_data/browsing_data_api.h"
-#include "chrome/browser/extensions/api/chrome_auth_private/chrome_auth_private_api.h"
+#include "chrome/browser/extensions/api/cloud_print_private/cloud_print_private_api.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_api.h"
 #include "chrome/browser/extensions/api/context_menu/context_menu_api.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
@@ -18,7 +18,11 @@
 #include "chrome/browser/extensions/api/extension_action/extension_browser_actions_api.h"
 #include "chrome/browser/extensions/api/extension_action/extension_page_actions_api.h"
 #include "chrome/browser/extensions/api/extension_action/extension_script_badge_api.h"
+#include "chrome/browser/extensions/api/identity/identity_api.h"
+#include "chrome/browser/extensions/api/i18n/i18n_api.h"
+#include "chrome/browser/extensions/api/idle/idle_api.h"
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
+#include "chrome/browser/extensions/api/management/management_api.h"
 #include "chrome/browser/extensions/api/metrics/metrics.h"
 #include "chrome/browser/extensions/api/offscreen_tabs/offscreen_tabs_api.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
@@ -36,9 +40,6 @@
 #include "chrome/browser/extensions/api/web_socket_proxy_private/web_socket_proxy_private_api.h"
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
 #include "chrome/browser/extensions/extension_font_settings_api.h"
-#include "chrome/browser/extensions/extension_i18n_api.h"
-#include "chrome/browser/extensions/extension_idle_api.h"
-#include "chrome/browser/extensions/extension_management_api.h"
 #include "chrome/browser/extensions/extension_module.h"
 #include "chrome/browser/extensions/extension_preference_api.h"
 #include "chrome/browser/extensions/extension_processes_api.h"
@@ -197,7 +198,7 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<SearchHistoryFunction>();
 
   // Idle
-  RegisterFunction<ExtensionIdleQueryStateFunction>();
+  RegisterFunction<extensions::ExtensionIdleQueryStateFunction>();
 
   // I18N.
   RegisterFunction<GetAcceptLanguagesFunction>();
@@ -442,8 +443,8 @@ void ExtensionFunctionRegistry::ResetFunctions() {
   RegisterFunction<GetMinimumFontSizeFunction>();
   RegisterFunction<SetMinimumFontSizeFunction>();
 
-  // ChromeAuth settings.
-  RegisterFunction<extensions::SetCloudPrintCredentialsFunction>();
+  // CloudPrint settings.
+  RegisterFunction<extensions::CloudPrintSetCredentialsFunction>();
 
   // Experimental App API.
   RegisterFunction<extensions::AppNotifyFunction>();

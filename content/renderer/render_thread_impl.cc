@@ -215,7 +215,6 @@ void RenderThreadImpl::Init() {
   // In single process the single process is all there is.
   suspend_webkit_shared_timer_ = true;
   notify_webkit_of_modal_loop_ = true;
-  plugin_refresh_allowed_ = true;
   widget_count_ = 0;
   hidden_widget_count_ = 0;
   idle_notification_delay_in_ms_ = kInitialIdleHandlerDelayMs;
@@ -881,21 +880,6 @@ int32 RenderThreadImpl::CreateViewCommandBuffer(
   return route_id;
 }
 
-int32 RenderThreadImpl::RoutingIDForCurrentContext() {
-  int32 routing_id = MSG_ROUTING_CONTROL;
-  if (v8::Context::InContext()) {
-    WebFrame* frame = WebFrame::frameForCurrentContext();
-    if (frame) {
-      RenderViewImpl* view = RenderViewImpl::FromWebView(frame->view());
-      if (view)
-        routing_id = view->routing_id();
-    }
-  } else {
-    DLOG(WARNING) << "Not called within a script context!";
-  }
-  return routing_id;
-}
-
 void RenderThreadImpl::DoNotSuspendWebKitSharedTimer() {
   suspend_webkit_shared_timer_ = false;
 }
@@ -1053,9 +1037,9 @@ void RenderThreadImpl::OnPurgePluginListCache(bool reload_pages) {
   // point we already know that the browser has refreshed its list, so disable
   // refresh temporarily to prevent each renderer process causing the list to be
   // regenerated.
-  plugin_refresh_allowed_ = false;
+  webkit_platform_support_->set_plugin_refresh_allowed(false);
   WebKit::resetPluginCache(reload_pages);
-  plugin_refresh_allowed_ = true;
+  webkit_platform_support_->set_plugin_refresh_allowed(true);
 
   FOR_EACH_OBSERVER(RenderProcessObserver, observers_, PluginListChanged());
 }

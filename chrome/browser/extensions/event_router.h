@@ -20,7 +20,6 @@
 #include "ipc/ipc_sender.h"
 
 class GURL;
-class ExtensionHost;
 class ExtensionDevToolsManager;
 class Profile;
 
@@ -30,6 +29,8 @@ class RenderProcessHost;
 
 namespace extensions {
 class Extension;
+class ExtensionHost;
+
 struct Event;
 
 class EventRouter : public content::NotificationObserver,
@@ -125,6 +126,13 @@ class EventRouter : public content::NotificationObserver,
                                 const std::string& event_args,
                                 Profile* restrict_to_profile,
                                 const GURL& event_url);
+
+  // As above, but enables sending an explicit user gesture indicator.
+  void DispatchEventToRenderers(const std::string& event_name,
+                                const std::string& event_args,
+                                Profile* restrict_to_profile,
+                                const GURL& event_url,
+                                UserGestureState user_gesture);
 
   // Same as above, except only send the event to the given extension.
   virtual void DispatchEventToExtension(const std::string& extension_id,

@@ -24,17 +24,19 @@ scoped_ptr<sessions::SyncSessionContext>
 InternalComponentsFactoryImpl::BuildContext(
     ServerConnectionManager* connection_manager,
     syncable::Directory* directory,
-    const ModelSafeRoutingInfo& routing_info,
     const std::vector<ModelSafeWorker*> workers,
     ExtensionsActivityMonitor* monitor,
     ThrottledDataTypeTracker* throttled_data_type_tracker,
     const std::vector<SyncEngineEventListener*>& listeners,
     sessions::DebugInfoGetter* debug_info_getter,
-    TrafficRecorder* traffic_recorder) {
+    TrafficRecorder* traffic_recorder,
+    bool keystore_encryption_enabled) {
   return scoped_ptr<sessions::SyncSessionContext>(
-      new sessions::SyncSessionContext(connection_manager, directory,
-          routing_info, workers, monitor, throttled_data_type_tracker,
-          listeners, debug_info_getter, traffic_recorder));
+      new sessions::SyncSessionContext(
+          connection_manager, directory, workers, monitor,
+          throttled_data_type_tracker, listeners, debug_info_getter,
+          traffic_recorder,
+          keystore_encryption_enabled));
 }
 
 scoped_ptr<syncable::DirectoryBackingStore>

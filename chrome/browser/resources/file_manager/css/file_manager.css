@@ -80,7 +80,7 @@ input[type='submit'][disabled]:hover {
   opacity: 0.8;
 }
 
-.butter-bar {
+#butter-bar {
   -webkit-box-align: end;
   -webkit-box-orient: horizontal;
   -webkit-transform: translate3d(0, 1px, 0);
@@ -96,17 +96,17 @@ input[type='submit'][disabled]:hover {
   top: 0;
 }
 
-.butter-bar.before-show {
+#butter-bar.before-show {
   -webkit-transform: translate3d(0, -30px, 0);
   opacity: 0;
 }
 
-.butter-bar.after-show {
+#butter-bar.after-show {
   -webkit-transform: translate3d(0, 50px, 0);
   opacity: 0;
 }
 
-.butter-bar .content {
+#butter-bar .content {
   padding-bottom: 8px;
   padding-right: 5px;
 }
@@ -115,13 +115,13 @@ input[type='submit'][disabled]:hover {
   display: none;
 }
 
-.butter-bar .actions {
+#butter-bar .actions {
   -webkit-box-orient: horizontal;
   -webkit-box-pack: end;
   display: -webkit-box;
 }
 
-.butter-bar .actions a {
+#butter-bar .actions a {
   background: center center no-repeat;
   background-image: -webkit-image-set(
     url('../images/files/ui/close_bar.png') 1x,
@@ -132,7 +132,7 @@ input[type='submit'][disabled]:hover {
   width: 12px;
 }
 
-.butter-bar.error {
+#butter-bar.error {
   background-color: rgba(221, 75, 57, 0.2);
   border: 1px solid rgba(221, 75, 57, 0.5);
   border-radius: 2px;
@@ -358,6 +358,10 @@ div.root-eject:hover {
   -webkit-margin-start: 20px;
 }
 
+#file-type {
+  -webkit-margin-end: 10px;
+}
+
 /* The container for breadcrumb elements. */
 .breadcrumbs {
   -webkit-box-align: center;
@@ -455,16 +459,18 @@ div.root-eject:hover {
   background: -webkit-image-set(
     url('../images/files/ui/icon_search.png') 1x,
     url('../images/files/ui/2x/icon_search.png') 2x);
-  background-position: 4px 3.5px;
+  background-position: 4px 4.5px;
   background-repeat: no-repeat;
   display: -webkit-box;
-  height: 25px;
+  height: 27px;
   margin-right: 10px;
-  padding-left: 22px;
+  padding: 1px 6px 2px 23px;
   width: 150px;
 }
 
 #search-box:focus {
+  border-color: rgb(77, 144, 254);
+  outline: none;
   width: 240px;
 }
 
@@ -472,6 +478,27 @@ div.root-eject:hover {
 #filename-input-box input {
   border: 1px solid #BBB;
   border-radius: 2px;
+}
+
+#search-box::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear.png') 1x,
+    url('../images/files/ui/2x/search_clear.png') 2x);
+  height: 16px;
+  width: 16px;
+}
+
+#search-box::-webkit-search-cancel-button:hover {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear_hover.png') 1x,
+    url('../images/files/ui/2x/search_clear_hover.png') 2x);
+}
+
+#search-box::-webkit-search-cancel-button:active {
+  background-image: -webkit-image-set(
+    url('../images/files/ui/search_clear_pressed.png') 1x,
+    url('../images/files/ui/2x/search_clear_pressed.png') 2x);
 }
 
 button#detail-view {
@@ -520,6 +547,28 @@ button#detail-view:not([disabled]) {
   position: absolute;
   top: 50%;
   width: 22px;
+}
+
+#spinner-container {
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  bottom: 0;
+  display: -webkit-box;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+#spinner-with-text {
+  background-image: url('../images/common/spinner.svg');
+  background-repeat: no-repeat;
+  font-size: 16px;
+  height: 22px;
+  min-width: 22px;
+  opacity: 0.6;
+  padding-left: 26px;
 }
 
 .downloads-warning {
@@ -723,6 +772,10 @@ body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
 .table-row-cell input.rename {
   -webkit-margin-start: -3px;
   line-height: 20px;
+}
+
+input.rename:focus {
+  outline-color: rgb(77, 144, 254);
 }
 
 /* Elements that need to be LTR even in an RTL context, but should align
@@ -1413,4 +1466,8 @@ body:not([type='saveas-file']):not([type='full-page'])
 
 #list-container .table-header-cell:hover {
   background-color: #f2f2f2;
+}
+
+button:focus {
+  outline-color: rgb(77, 144, 254);
 }

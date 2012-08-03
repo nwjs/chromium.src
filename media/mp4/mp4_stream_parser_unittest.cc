@@ -93,6 +93,10 @@ class MP4StreamParserTest : public testing::Test {
     segment_start_ = start_dts;
   }
 
+  void EndOfSegmentF() {
+    DVLOG(1) << "EndOfSegmentF()";
+  }
+
   void InitializeParser() {
     parser_->Init(
         base::Bind(&MP4StreamParserTest::InitF, base::Unretained(this)),
@@ -100,7 +104,9 @@ class MP4StreamParserTest : public testing::Test {
         base::Bind(&MP4StreamParserTest::NewBuffersF, base::Unretained(this)),
         base::Bind(&MP4StreamParserTest::NewBuffersF, base::Unretained(this)),
         base::Bind(&MP4StreamParserTest::KeyNeededF, base::Unretained(this)),
-        base::Bind(&MP4StreamParserTest::NewSegmentF, base::Unretained(this)));
+        base::Bind(&MP4StreamParserTest::NewSegmentF, base::Unretained(this)),
+        base::Bind(&MP4StreamParserTest::EndOfSegmentF,
+                   base::Unretained(this)));
   }
 
   bool ParseMP4File(const std::string& filename, int append_bytes) {
@@ -114,18 +120,34 @@ class MP4StreamParserTest : public testing::Test {
   }
 };
 
-
-
 TEST_F(MP4StreamParserTest, TestUnalignedAppend) {
   // Test small, non-segment-aligned appends (small enough to exercise
   // incremental append system)
   ParseMP4File("bear.1280x720_dash.mp4", 512);
 }
 
+TEST_F(MP4StreamParserTest, TestBytewiseAppend) {
+  // Ensure no incremental errors occur when parsing
+  ParseMP4File("bear.1280x720_dash.mp4", 1);
+}
+
 TEST_F(MP4StreamParserTest, TestMultiFragmentAppend) {
   // Large size ensures multiple fragments are appended in one call (size is
   // larger than this particular test file)
   ParseMP4File("bear.1280x720_dash.mp4", 768432);
+}
+
+TEST_F(MP4StreamParserTest, TestFlush) {
+  // Flush while reading sample data, then start a new stream.
+  InitializeParser();
+
+  scoped_refptr<DecoderBuffer> buffer =
+      ReadTestDataFile("bear.1280x720_dash.mp4");
+  EXPECT_TRUE(AppendDataInPieces(buffer->GetData(), 65536, 512));
+  parser_->Flush();
+  EXPECT_TRUE(AppendDataInPieces(buffer->GetData(),
+                                 buffer->GetDataSize(),
+                                 512));
 }
 
 TEST_F(MP4StreamParserTest, TestReinitialization) {
@@ -140,6 +162,9 @@ TEST_F(MP4StreamParserTest, TestReinitialization) {
                                  buffer->GetDataSize(),
                                  512));
 }
+
+// TODO(strobe): Create and test media which uses CENC auxiliary info stored
+// inside a private box
 
 }  // namespace mp4
 }  // namespace media

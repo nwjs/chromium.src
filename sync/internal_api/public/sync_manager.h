@@ -22,36 +22,31 @@
 #include "sync/internal_api/public/engine/sync_status.h"
 #include "sync/internal_api/public/util/report_unrecoverable_error_function.h"
 #include "sync/internal_api/public/util/weak_handle.h"
+#include "sync/notifier/invalidation_util.h"
 #include "sync/protocol/sync_protocol_error.h"
-
-namespace syncer {
-class Encryptor;
-struct Experiments;
-class ExtensionsActivityMonitor;
-class InternalComponentsFactory;
-class JsBackend;
-class JsEventHandler;
-class SyncScheduler;
-class UnrecoverableErrorHandler;
-
-namespace sessions {
-class SyncSessionSnapshot;
-}  // namespace sessions
-}  // namespace syncer
-
-namespace syncer {
-class SyncNotifier;
-}  // namespace syncer
 
 namespace sync_pb {
 class EncryptedData;
 }  // namespace sync_pb
 
 namespace syncer {
-
 class BaseTransaction;
+class Encryptor;
+struct Experiments;
+class ExtensionsActivityMonitor;
 class HttpPostProviderFactory;
+class InternalComponentsFactory;
+class JsBackend;
+class JsEventHandler;
+class SyncNotifier;
+class SyncNotifierObserver;
+class SyncScheduler;
+class UnrecoverableErrorHandler;
 struct UserShare;
+
+namespace sessions {
+class SyncSessionSnapshot;
+}  // namespace sessions
 
 // Used by SyncManager::OnConnectionStatusChange().
 enum ConnectionStatus {
@@ -298,7 +293,9 @@ class SyncManager {
     // function getChildNodeIds(id);
 
     virtual void OnInitializationComplete(
-        const WeakHandle<JsBackend>& js_backend, bool success) = 0;
+        const WeakHandle<syncer::JsBackend>& js_backend,
+        bool success,
+        syncer::ModelTypeSet restored_types) = 0;
 
     // We are no longer permitted to communicate with the server. Sync should
     // be disabled and state cleaned up at once.  This can happen for a number
@@ -357,6 +354,10 @@ class SyncManager {
   // |user_agent| is a 7-bit ASCII string suitable for use as the User-Agent
   // HTTP header. Used internally when collecting stats to classify clients.
   // |sync_notifier| is owned and used to listen for notifications.
+  // |restored_key_for_bootstrapping| is the key used to boostrap the
+  // cryptographer
+  // |keystore_encryption_enabled| determines whether we enable the keystore
+  // encryption functionality in the cryptographer/nigori.
   // |report_unrecoverable_error_function| may be NULL.
   //
   // TODO(akalin): Replace the |post_factory| parameter with a
@@ -369,13 +370,14 @@ class SyncManager {
       bool use_ssl,
       const scoped_refptr<base::TaskRunner>& blocking_task_runner,
       scoped_ptr<HttpPostProviderFactory> post_factory,
-      const ModelSafeRoutingInfo& model_safe_routing_info,
       const std::vector<ModelSafeWorker*>& workers,
       ExtensionsActivityMonitor* extensions_activity_monitor,
       ChangeDelegate* change_delegate,
       const SyncCredentials& credentials,
       scoped_ptr<SyncNotifier> sync_notifier,
       const std::string& restored_key_for_bootstrapping,
+      const std::string& restored_keystore_key_for_bootstrapping,
+      bool keystore_encryption_enabled,
       scoped_ptr<InternalComponentsFactory> internal_components_factory,
       Encryptor* encryptor,
       UnrecoverableErrorHandler* unrecoverable_error_handler,
@@ -403,6 +405,11 @@ class SyncManager {
   // Called when the user disables or enables a sync type.
   virtual void UpdateEnabledTypes(
       const ModelTypeSet& enabled_types) = 0;
+
+  // Forwards to the underlying notifier (see
+  // SyncNotifier::UpdateRegisteredIds()).
+  virtual void UpdateRegisteredInvalidationIds(
+      SyncNotifierObserver* handler, const ObjectIdSet& ids) = 0;
 
   // Put the syncer in normal mode ready to perform nudges and polls.
   virtual void StartSyncingNormally(
@@ -457,6 +464,10 @@ class SyncManager {
   // Whether or not the Nigori node is encrypted using an explicit passphrase.
   // May be called on any thread.
   virtual bool IsUsingExplicitPassphrase() = 0;
+
+  // Extracts the keystore encryption bootstrap token if a keystore key existed.
+  // Returns true if bootstrap token successfully extracted, false otherwise.
+  virtual bool GetKeystoreKeyBootstrapToken(std::string* token) = 0;
 
   // Call periodically from a database-safe thread to persist recent changes
   // to the syncapi model.

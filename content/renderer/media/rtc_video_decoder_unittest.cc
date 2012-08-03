@@ -16,7 +16,7 @@
 #include "media/base/mock_filters.h"
 #include "media/base/video_frame.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/libjingle/source/talk/session/phone/videoframe.h"
+#include "third_party/libjingle/source/talk/media/base/videoframe.h"
 
 using ::testing::_;
 using ::testing::AnyNumber;
@@ -152,13 +152,6 @@ class MockVideoTrack : public webrtc::VideoTrackInterface {
       webrtc::ObserverInterface* observer) OVERRIDE {
     NOTIMPLEMENTED();
   }
-  void SetRenderer(webrtc::VideoRendererWrapperInterface* renderer) OVERRIDE {
-     NOTIMPLEMENTED();
-  }
-  virtual webrtc::VideoRendererWrapperInterface* GetRenderer() OVERRIDE {
-    NOTIMPLEMENTED();
-    return NULL;
-  }
   MOCK_METHOD1(AddRenderer, void(webrtc::VideoRendererInterface* renderer));
   MOCK_METHOD1(RemoveRenderer, void(webrtc::VideoRendererInterface* renderer));
 
@@ -178,7 +171,6 @@ class RTCVideoDecoderTest : public testing::Test {
  protected:
   static const int kWidth;
   static const int kHeight;
-  static const char* kUrl;
   static const PipelineStatistics kStatistics;
 
   RTCVideoDecoderTest() {
@@ -223,6 +215,11 @@ class RTCVideoDecoderTest : public testing::Test {
                       base::Unretained(&statistics_cb_));
   }
 
+  void RenderFrame() {
+    NullVideoFrame video_frame;
+    decoder_->RenderFrame(&video_frame);
+  }
+
   MOCK_METHOD2(FrameReady, void(media::VideoDecoder::DecoderStatus status,
                                 const scoped_refptr<media::VideoFrame>&));
 
@@ -242,19 +239,31 @@ const int RTCVideoDecoderTest::kWidth = 640;
 const int RTCVideoDecoderTest::kHeight = 480;
 const PipelineStatistics RTCVideoDecoderTest::kStatistics;
 
+MATCHER_P2(HasSize, width, height, "") {
+  EXPECT_EQ(arg->data_size().width(), width);
+  EXPECT_EQ(arg->data_size().height(), height);
+  EXPECT_EQ(arg->natural_size().width(), width);
+  EXPECT_EQ(arg->natural_size().height(), height);
+  return (arg->data_size().width() == width) &&
+      (arg->data_size().height() == height) &&
+      (arg->natural_size().width() == width) &&
+      (arg->natural_size().height() == height);
+}
+
 TEST_F(RTCVideoDecoderTest, Initialize_Successful) {
   InitializeDecoderSuccessfully();
 
-  // Test that the output media format is an uncompressed video surface that
-  // matches the dimensions specified by RTC.
-  EXPECT_EQ(kWidth, decoder_->natural_size().width());
-  EXPECT_EQ(kHeight, decoder_->natural_size().height());
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk,
+                                HasSize(kWidth, kHeight)));
+  decoder_->Read(read_cb_);
+  RenderFrame();
 }
 
 TEST_F(RTCVideoDecoderTest, DoReset) {
   InitializeDecoderSuccessfully();
 
-  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk, _));
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk,
+                                scoped_refptr<media::VideoFrame>()));
   decoder_->Read(read_cb_);
   decoder_->Reset(media::NewExpectedClosure());
 
@@ -265,11 +274,8 @@ TEST_F(RTCVideoDecoderTest, DoReset) {
 TEST_F(RTCVideoDecoderTest, DoRenderFrame) {
   InitializeDecoderSuccessfully();
 
-  NullVideoFrame video_frame;
-
-  for (size_t i = 0; i < media::limits::kMaxVideoFrames; ++i) {
-    decoder_->RenderFrame(&video_frame);
-  }
+  for (size_t i = 0; i < media::limits::kMaxVideoFrames; ++i)
+    RenderFrame();
 
   message_loop_.RunAllPending();
   EXPECT_EQ(RTCVideoDecoder::kNormal, decoder_->state_);
@@ -278,15 +284,20 @@ TEST_F(RTCVideoDecoderTest, DoRenderFrame) {
 TEST_F(RTCVideoDecoderTest, DoSetSize) {
   InitializeDecoderSuccessfully();
 
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk,
+                                HasSize(kWidth, kHeight)));
+  decoder_->Read(read_cb_);
+  RenderFrame();
+  message_loop_.RunAllPending();
+
   int new_width = kWidth * 2;
   int new_height = kHeight * 2;
-  gfx::Size new_natural_size(new_width, new_height);
-
   decoder_->SetSize(new_width, new_height);
 
-  EXPECT_EQ(new_width, decoder_->natural_size().width());
-  EXPECT_EQ(new_height, decoder_->natural_size().height());
-
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk,
+                                HasSize(new_width, new_height)));
+  decoder_->Read(read_cb_);
+  RenderFrame();
   message_loop_.RunAllPending();
 }
 
@@ -295,7 +306,8 @@ TEST_F(RTCVideoDecoderTest, ReadAndShutdown) {
   // teardown the pipeline) even when there's no input frame.
   InitializeDecoderSuccessfully();
 
-  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk, _)).Times(2);
+  EXPECT_CALL(*this, FrameReady(media::VideoDecoder::kOk,
+                                scoped_refptr<media::VideoFrame>())).Times(2);
   decoder_->Read(read_cb_);
   EXPECT_FALSE(decoder_->shutting_down_);
   decoder_->PrepareForShutdownHack();

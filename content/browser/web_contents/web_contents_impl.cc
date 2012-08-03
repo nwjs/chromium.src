@@ -73,6 +73,7 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
+#include "ui/gl/gl_switches.h"
 #include "webkit/glue/web_intent_data.h"
 #include "webkit/glue/web_intent_service_data.h"
 #include "webkit/glue/webpreferences.h"
@@ -236,6 +237,14 @@ void MakeNavigateParams(const NavigationEntryImpl& entry,
   params->allow_download = !entry.IsViewSourceMode();
   params->embedder_channel_name = embedder_channel_name;
   params->embedder_container_id = embedder_container_id;
+  params->is_post = entry.GetHasPostData();
+  if(entry.GetBrowserInitiatedPostData()) {
+      params->browser_initiated_post_data.assign(
+          entry.GetBrowserInitiatedPostData()->front(),
+          entry.GetBrowserInitiatedPostData()->front() +
+              entry.GetBrowserInitiatedPostData()->size());
+
+  }
 
   if (delegate)
     delegate->AddNavigationHeaders(params->url, &params->extra_headers);
@@ -468,6 +477,8 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
       command_line.HasSwitch(switches::kShowFPSCounter);
   prefs.show_paint_rects =
       command_line.HasSwitch(switches::kShowPaintRects);
+  prefs.render_vsync_enabled =
+      !command_line.HasSwitch(switches::kDisableGpuVsync);
   prefs.accelerated_compositing_enabled =
       GpuProcessHost::gpu_enabled() &&
       !command_line.HasSwitch(switches::kDisableAcceleratedCompositing);
@@ -936,12 +947,12 @@ base::TimeTicks WebContentsImpl::GetLastSelectedTime() const {
   return last_selected_time_;
 }
 
-void WebContentsImpl::WasRestored() {
+void WebContentsImpl::WasShown() {
   controller_.SetActive(true);
   RenderWidgetHostViewPort* rwhv =
       RenderWidgetHostViewPort::FromRWHV(GetRenderWidgetHostView());
   if (rwhv) {
-    rwhv->WasRestored();
+    rwhv->WasShown();
 #if defined(OS_MACOSX)
     rwhv->SetActive(true);
 #endif
@@ -949,7 +960,7 @@ void WebContentsImpl::WasRestored() {
 
   last_selected_time_ = base::TimeTicks::Now();
 
-  FOR_EACH_OBSERVER(WebContentsObserver, observers_, WasRestored());
+  FOR_EACH_OBSERVER(WebContentsObserver, observers_, WasShown());
 
   // The resize rect might have changed while this was inactive -- send the new
   // one to make sure it's up to date.

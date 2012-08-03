@@ -104,6 +104,7 @@ void VideoRendererBase::Preroll(base::TimeDelta time,
   state_ = kPrerolling;
   preroll_cb_ = cb;
   preroll_timestamp_ = time;
+  prerolling_delayed_frame_ = NULL;
   AttemptRead_Locked();
 }
 
@@ -135,9 +136,6 @@ void VideoRendererBase::Initialize(const scoped_refptr<VideoDecoder>& decoder,
   error_cb_ = error_cb;
   get_time_cb_ = get_time_cb;
   get_duration_cb_ = get_duration_cb;
-
-  // Notify the pipeline of the video dimensions.
-  size_changed_cb_.Run(decoder_->natural_size());
 
   // We're all good!  Consider ourselves flushed. (ThreadMain() should never
   // see us in the kUninitialized state).
@@ -299,12 +297,23 @@ void VideoRendererBase::ThreadMain() {
     // signal to the client that a new frame is available.
     DCHECK(!pending_paint_);
     DCHECK(!ready_frames_.empty());
-    current_frame_ = ready_frames_.front();
-    ready_frames_.pop_front();
+    SetCurrentFrameToNextReadyFrame();
     AttemptRead_Locked();
 
     base::AutoUnlock auto_unlock(lock_);
     paint_cb_.Run();
+  }
+}
+
+void VideoRendererBase::SetCurrentFrameToNextReadyFrame() {
+  current_frame_ = ready_frames_.front();
+  ready_frames_.pop_front();
+
+  // Notify the pipeline of natural_size() changes.
+  const gfx::Size& natural_size = current_frame_->natural_size();
+  if (natural_size != last_natural_size_) {
+    size_changed_cb_.Run(natural_size);
+    last_natural_size_ = natural_size;
   }
 }
 
@@ -421,31 +430,19 @@ void VideoRendererBase::FrameReady(VideoDecoder::DecoderStatus status,
 
   // Discard frames until we reach our desired preroll timestamp.
   if (state_ == kPrerolling && !frame->IsEndOfStream() &&
-      (frame->GetTimestamp() + frame->GetDuration()) <= preroll_timestamp_) {
+      frame->GetTimestamp() <= preroll_timestamp_) {
+    prerolling_delayed_frame_ = frame;
     AttemptRead_Locked();
     return;
   }
 
-  // Adjust the incoming frame if its rendering stop time is past the duration
-  // of the video itself. This is typically the last frame of the video and
-  // occurs if the container specifies a duration that isn't a multiple of the
-  // frame rate.  Another way for this to happen is for the container to state a
-  // smaller duration than the largest packet timestamp.
-  if (!frame->IsEndOfStream()) {
-    base::TimeDelta duration = get_duration_cb_.Run();
-    if (frame->GetTimestamp() > duration)
-      frame->SetTimestamp(duration);
-    if ((frame->GetTimestamp() + frame->GetDuration()) > duration)
-      frame->SetDuration(duration - frame->GetTimestamp());
+  if (prerolling_delayed_frame_) {
+    DCHECK_EQ(state_, kPrerolling);
+    AddReadyFrame(prerolling_delayed_frame_);
+    prerolling_delayed_frame_ = NULL;
   }
 
-  // This one's a keeper! Place it in the ready queue.
-  ready_frames_.push_back(frame);
-  DCHECK_LE(NumFrames_Locked(), limits::kMaxVideoFrames);
-  if (!frame->IsEndOfStream())
-    time_cb_.Run(frame->GetTimestamp() + frame->GetDuration());
-  frame_available_.Signal();
-
+  AddReadyFrame(frame);
   PipelineStatistics statistics;
   statistics.video_frames_decoded = 1;
   statistics_cb_.Run(statistics);
@@ -468,10 +465,8 @@ void VideoRendererBase::FrameReady(VideoDecoder::DecoderStatus status,
     // Because we might remain in the prerolled state for an undetermined amount
     // of time (i.e., we were not playing before we started prerolling), we'll
     // manually update the current frame and notify the subclass below.
-    if (!ready_frames_.front()->IsEndOfStream()) {
-      current_frame_ = ready_frames_.front();
-      ready_frames_.pop_front();
-    }
+    if (!ready_frames_.front()->IsEndOfStream())
+      SetCurrentFrameToNextReadyFrame();
 
     // ...and we're done prerolling!
     DCHECK(!preroll_cb_.is_null());
@@ -480,6 +475,23 @@ void VideoRendererBase::FrameReady(VideoDecoder::DecoderStatus status,
     base::AutoUnlock ul(lock_);
     paint_cb_.Run();
   }
+}
+
+void VideoRendererBase::AddReadyFrame(const scoped_refptr<VideoFrame>& frame) {
+  // Adjust the incoming frame if its rendering stop time is past the duration
+  // of the video itself. This is typically the last frame of the video and
+  // occurs if the container specifies a duration that isn't a multiple of the
+  // frame rate.  Another way for this to happen is for the container to state a
+  // smaller duration than the largest packet timestamp.
+  base::TimeDelta duration = get_duration_cb_.Run();
+  if (frame->GetTimestamp() > duration || frame->IsEndOfStream()) {
+    frame->SetTimestamp(duration);
+  }
+
+  ready_frames_.push_back(frame);
+  DCHECK_LE(NumFrames_Locked(), limits::kMaxVideoFrames);
+  time_cb_.Run(frame->GetTimestamp());
+  frame_available_.Signal();
 }
 
 void VideoRendererBase::AttemptRead_Locked() {
@@ -511,7 +523,7 @@ void VideoRendererBase::AttemptFlush_Locked() {
   lock_.AssertAcquired();
   DCHECK_EQ(kFlushing, state_);
 
-  // Get rid of any ready frames.
+  prerolling_delayed_frame_ = NULL;
   ready_frames_.clear();
 
   if (!pending_paint_ && !pending_read_) {
@@ -526,13 +538,7 @@ base::TimeDelta VideoRendererBase::CalculateSleepDuration(
     float playback_rate) {
   // Determine the current and next presentation timestamps.
   base::TimeDelta now = get_time_cb_.Run();
-  base::TimeDelta this_pts = current_frame_->GetTimestamp();
-  base::TimeDelta next_pts;
-  if (!next_frame->IsEndOfStream()) {
-    next_pts = next_frame->GetTimestamp();
-  } else {
-    next_pts = this_pts + current_frame_->GetDuration();
-  }
+  base::TimeDelta next_pts = next_frame->GetTimestamp();
 
   // Scale our sleep based on the playback rate.
   base::TimeDelta sleep = next_pts - now;

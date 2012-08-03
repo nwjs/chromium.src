@@ -73,7 +73,8 @@ SpdyStream::SpdyStream(SpdySession* session,
       net_log_(net_log),
       send_bytes_(0),
       recv_bytes_(0),
-      domain_bound_cert_type_(CLIENT_CERT_INVALID_TYPE) {
+      domain_bound_cert_type_(CLIENT_CERT_INVALID_TYPE),
+      domain_bound_cert_request_handle_(NULL) {
 }
 
 class SpdyStream::SpdyStreamIOBufferProducer
@@ -87,6 +88,8 @@ class SpdyStream::SpdyStreamIOBufferProducer
   }
 
   virtual SpdyIOBuffer* ProduceNextBuffer(SpdySession* session) OVERRIDE {
+    if (stream_->cancelled())
+      return NULL;
     if (stream_->stream_id() == 0)
       SpdySession::SpdyIOBufferProducer::ActivateStream(session, stream_);
     frame_.reset(stream_->ProduceNextFrame());
@@ -526,6 +529,8 @@ void SpdyStream::Cancel() {
   cancelled_ = true;
   if (session_->IsStreamActive(stream_id_))
     session_->ResetStream(stream_id_, CANCEL, "");
+  else if (stream_id_ == 0)
+    session_->CloseCreatedStream(this, CANCEL);
 }
 
 void SpdyStream::Close() {

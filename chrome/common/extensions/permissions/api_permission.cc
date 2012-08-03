@@ -58,7 +58,6 @@ void APIPermission::RegisterAllPermissions(
       IDS_EXTENSION_PROMPT_WARNING_CLIPBOARD,
       PermissionMessage::kClipboard },
     { kClipboardWrite, "clipboardWrite" },
-    { kDeclarative, "declarative" },
     { kDeclarativeWebRequest, "declarativeWebRequest" },
     { kDownloads, "downloads", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_DOWNLOADS,
@@ -81,6 +80,7 @@ void APIPermission::RegisterAllPermissions(
       PermissionMessage::kBookmarks },
     { kBrowserTag, "browserTag", kFlagCannotBeOptional },
     { kBrowsingData, "browsingData" },
+    { kCommands, "commands" },
     { kContentSettings, "contentSettings", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_CONTENT_SETTINGS,
       PermissionMessage::kContentSettings },
@@ -91,7 +91,6 @@ void APIPermission::RegisterAllPermissions(
     { kHistory, "history", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_BROWSING_HISTORY,
       PermissionMessage::kBrowsingHistory },
-    { kKeybinding, "keybinding" },
     { kIdle, "idle" },
     { kInput, "input", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_INPUT,
@@ -135,7 +134,7 @@ void APIPermission::RegisterAllPermissions(
     { kMediaPlayerPrivate, "mediaPlayerPrivate", kFlagCannotBeOptional },
     { kMetricsPrivate, "metricsPrivate", kFlagCannotBeOptional },
     { kSystemPrivate, "systemPrivate", kFlagCannotBeOptional },
-    { kChromeAuthPrivate, "chromeAuthPrivate", kFlagCannotBeOptional },
+    { kCloudPrintPrivate, "cloudPrintPrivate", kFlagCannotBeOptional },
     { kInputMethodPrivate, "inputMethodPrivate", kFlagCannotBeOptional },
     { kEchoPrivate, "echoPrivate", kFlagCannotBeOptional },
     { kTerminalPrivate, "terminalPrivate", kFlagCannotBeOptional },
@@ -166,6 +165,9 @@ void APIPermission::RegisterAllPermissions(
     { kVideoCapture, "videoCapture", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_VIDEO_CAPTURE,
       PermissionMessage::kVideoCapture },
+    // "fileSystem" has no permission string because read-only access is only
+    // granted after the user has been shown a file chooser dialog and selected
+    // a file. Selecting the file is considered consent to read it.
     { kFileSystem, "fileSystem" },
     { kFileSystemWrite, "fileSystemWrite", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_FILE_SYSTEM_WRITE,

@@ -134,10 +134,6 @@ const char kAutomationReinitializeOnChannelError[] =
 // existing BrowserWindow Panels.
 const char kBrowserlessPanels[] = "browserless-panels";
 
-// This enables automatic captive portal checking on certain network errors.
-// If a captive portal is detected, a login tab will be opened.
-const char kCaptivePortalDetection[]        = "enable-captive-portal-detection";
-
 // How often (in seconds) to check for updates. Should only be used for testing
 // purposes.
 const char kCheckForUpdateIntervalSec[]     = "check-for-update-interval";
@@ -223,6 +219,10 @@ const char kCrashOnHangThreads[]            = "crash-on-hang-threads";
 //    --crash-on-live=1 --> Crash if only one thread is responsive and all
 //                          other threads are not responsive.
 const char kCrashOnLive[]                   = "crash-on-live";
+
+// Enables recursive devtools frontend debugging by enforcing the
+// "Inspect Element" context menu item in devtools windows.
+const char kDebugDevTools[]                 = "debug-devtools";
 
 // Path to the inspector files on disk (allows reloading of devtool files
 // without having to restart the browser).
@@ -1244,6 +1244,9 @@ const char kSyncAllowInsecureXmppConnection[] =
 // Invalidates any login info passed into sync's XMPP connection.
 const char kSyncInvalidateXmppLogin[]       = "sync-invalidate-xmpp-login";
 
+// Enable support for keystore key based encryption.
+const char kSyncKeystoreEncryption[] = "sync-keystore-encryption";
+
 // Overrides the default notification method for sync.
 const char kSyncNotificationMethod[]        = "sync-notification-method";
 
@@ -1369,9 +1372,6 @@ const char kEnableGView[]                   = "enable-gview";
 
 // Enable Kiosk mode for ChromeOS
 const char kEnableKioskMode[]               = "enable-kiosk-mode";
-
-// Enables mobile setup in a dialog.
-const char kEnableMobileSetupDialog[]       = "enable-mobile-dialog";
 
 // Enables support for policy-configured networks.
 const char kEnableONCPolicy[]               = "enable-onc-policy";

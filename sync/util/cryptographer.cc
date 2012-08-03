@@ -25,6 +25,7 @@ Cryptographer::Observer::~Observer() {}
 Cryptographer::Cryptographer(Encryptor* encryptor)
     : encryptor_(encryptor),
       default_nigori_(NULL),
+      keystore_nigori_(NULL),
       encrypted_types_(SensitiveTypes()),
       encrypt_everything_(false) {
   DCHECK(encryptor);
@@ -48,7 +49,19 @@ void Cryptographer::Bootstrap(const std::string& restored_bootstrap_token) {
 
   scoped_ptr<Nigori> nigori(UnpackBootstrapToken(restored_bootstrap_token));
   if (nigori.get())
-    AddKeyImpl(nigori.release());
+    AddKeyImpl(nigori.release(), false);
+}
+
+void Cryptographer::BootstrapKeystoreKey(
+    const std::string& restored_bootstrap_token) {
+  if (keystore_nigori_) {
+    NOTREACHED();
+    return;
+  }
+
+  scoped_ptr<Nigori> nigori(UnpackBootstrapToken(restored_bootstrap_token));
+  if (nigori.get())
+    AddKeyImpl(nigori.release(), true);
 }
 
 bool Cryptographer::CanDecrypt(const sync_pb::EncryptedData& data) const {
@@ -144,7 +157,7 @@ bool Cryptographer::AddKey(const KeyParams& params) {
     NOTREACHED();  // Invalid username or password.
     return false;
   }
-  return AddKeyImpl(nigori.release());
+  return AddKeyImpl(nigori.release(), false);
 }
 
 bool Cryptographer::AddKeyFromBootstrapToken(
@@ -153,10 +166,11 @@ bool Cryptographer::AddKeyFromBootstrapToken(
   scoped_ptr<Nigori> nigori(UnpackBootstrapToken(restored_bootstrap_token));
   if (!nigori.get())
     return false;
-  return AddKeyImpl(nigori.release());
+  return AddKeyImpl(nigori.release(), false);
 }
 
-bool Cryptographer::AddKeyImpl(Nigori* initialized_nigori) {
+bool Cryptographer::AddKeyImpl(Nigori* initialized_nigori,
+                               bool is_keystore_key) {
   scoped_ptr<Nigori> nigori(initialized_nigori);
   std::string name;
   if (!nigori->Permute(Nigori::Password, kNigoriKeyName, &name)) {
@@ -164,7 +178,10 @@ bool Cryptographer::AddKeyImpl(Nigori* initialized_nigori) {
     return false;
   }
   nigoris_[name] = make_linked_ptr(nigori.release());
-  default_nigori_ = &*nigoris_.find(name);
+  if (is_keystore_key)
+    keystore_nigori_ = &*nigoris_.find(name);
+  else
+    default_nigori_ = &*nigoris_.find(name);
   return true;
 }
 
@@ -219,6 +236,15 @@ bool Cryptographer::GetBootstrapToken(std::string* token) const {
     return false;
 
   return PackBootstrapToken(default_nigori_->second.get(), token);
+}
+
+bool Cryptographer::GetKeystoreKeyBootstrapToken(
+    std::string* token) const {
+  DCHECK(token);
+  if (!HasKeystoreKey())
+    return false;
+
+  return PackBootstrapToken(keystore_nigori_->second.get(), token);
 }
 
 bool Cryptographer::PackBootstrapToken(const Nigori* nigori,
@@ -306,6 +332,27 @@ Cryptographer::UpdateResult Cryptographer::Update(
     }
   }
   return Cryptographer::SUCCESS;
+}
+
+bool Cryptographer::SetKeystoreKey(const std::string& keystore_key) {
+  if (keystore_key.empty())
+    return false;
+  KeyParams params = {"localhost", "dummy", keystore_key};
+
+  // Create the new Nigori and make it the default keystore encryptor.
+  scoped_ptr<Nigori> nigori(new Nigori);
+  if (!nigori->InitByDerivation(params.hostname,
+                                params.username,
+                                params.password)) {
+    NOTREACHED();  // Invalid username or password.
+    return false;
+  }
+
+  return AddKeyImpl(nigori.release(), true);
+}
+
+bool Cryptographer::HasKeystoreKey() const {
+  return keystore_nigori_ != NULL;
 }
 
 // Static

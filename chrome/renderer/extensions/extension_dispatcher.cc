@@ -77,6 +77,7 @@ using WebKit::WebView;
 using content::RenderThread;
 using content::RenderView;
 using extensions::APIPermission;
+using extensions::APIPermissionSet;
 using extensions::ApiDefinitionsNatives;
 using extensions::AppWindowCustomBindings;
 using extensions::ContextMenusCustomBindings;
@@ -194,6 +195,56 @@ class LazyBackgroundPageNativeHandler : public ChromeV8Extension {
     return (extension && extension->has_lazy_background_page() &&
             helper->view_type() == chrome::VIEW_TYPE_EXTENSION_BACKGROUND_PAGE);
   }
+};
+
+class ProcessInfoNativeHandler : public ChromeV8Extension {
+ public:
+  explicit ProcessInfoNativeHandler(
+      ExtensionDispatcher* dispatcher,
+      const std::string& extension_id,
+      const std::string& context_type,
+      bool is_incognito_context,
+      int manifest_version)
+      : ChromeV8Extension(dispatcher),
+        extension_id_(extension_id),
+        context_type_(context_type),
+        is_incognito_context_(is_incognito_context),
+        manifest_version_(manifest_version) {
+    RouteFunction("GetExtensionId",
+        base::Bind(&ProcessInfoNativeHandler::GetExtensionId,
+                   base::Unretained(this)));
+    RouteFunction("GetContextType",
+        base::Bind(&ProcessInfoNativeHandler::GetContextType,
+                   base::Unretained(this)));
+    RouteFunction("InIncognitoContext",
+        base::Bind(&ProcessInfoNativeHandler::InIncognitoContext,
+                   base::Unretained(this)));
+    RouteFunction("GetManifestVersion",
+        base::Bind(&ProcessInfoNativeHandler::GetManifestVersion,
+                   base::Unretained(this)));
+  }
+
+  v8::Handle<v8::Value> GetExtensionId(const v8::Arguments& args) {
+    return v8::String::New(extension_id_.c_str());
+  }
+
+  v8::Handle<v8::Value> GetContextType(const v8::Arguments& args) {
+    return v8::String::New(context_type_.c_str());
+  }
+
+  v8::Handle<v8::Value> InIncognitoContext(const v8::Arguments& args) {
+    return v8::Boolean::New(is_incognito_context_);
+  }
+
+  v8::Handle<v8::Value> GetManifestVersion(const v8::Arguments& args) {
+    return v8::Integer::New(manifest_version_);
+  }
+
+ private:
+  std::string extension_id_;
+  std::string context_type_;
+  bool is_incognito_context_;
+  int manifest_version_;
 };
 
 class ChannelNativeHandler : public NativeHandler {
@@ -347,8 +398,8 @@ void ExtensionDispatcher::WebKitInitialized() {
   for (std::set<std::string>::iterator iter = active_extension_ids_.begin();
        iter != active_extension_ids_.end(); ++iter) {
     const Extension* extension = extensions_.GetByID(*iter);
-    if (extension)
-      InitOriginPermissions(extension);
+    CHECK(extension);
+    InitOriginPermissions(extension);
   }
 
   is_webkit_initialized_ = true;
@@ -487,6 +538,8 @@ void ExtensionDispatcher::OnLoaded(
 
 void ExtensionDispatcher::OnUnloaded(const std::string& id) {
   extensions_.Remove(id);
+  active_extension_ids_.erase(id);
+
   // If the extension is later reloaded with a different set of permissions,
   // we'd like it to get a new isolated world ID, so that it can pick up the
   // changed origin whitelist.
@@ -504,8 +557,11 @@ void ExtensionDispatcher::OnSetScriptingWhitelist(
 
 bool ExtensionDispatcher::IsExtensionActive(
     const std::string& extension_id) const {
-  return active_extension_ids_.find(extension_id) !=
-      active_extension_ids_.end();
+  bool is_active =
+      active_extension_ids_.find(extension_id) != active_extension_ids_.end();
+  if (is_active)
+    CHECK(extensions_.Contains(extension_id));
+  return is_active;
 }
 
 bool ExtensionDispatcher::AllowScriptExtension(
@@ -738,6 +794,16 @@ void ExtensionDispatcher::DidCreateScriptContext(
           static_cast<chrome::VersionInfo::Channel>(chrome_channel_))));
   module_system->RegisterNativeHandler("logging",
       scoped_ptr<NativeHandler>(new LoggingNativeHandler()));
+
+
+  int manifest_version = extension ? extension->manifest_version() : 1;
+  module_system->RegisterNativeHandler("process",
+      scoped_ptr<NativeHandler>(new ProcessInfoNativeHandler(
+          this, context->GetExtensionID(),
+          context->GetContextTypeDescription(),
+          ChromeRenderProcessObserver::is_incognito_process(),
+          manifest_version)));
+
   GetOrCreateChrome(v8_context);
 
   // Loading JavaScript is expensive, so only run the full API bindings
@@ -778,15 +844,12 @@ void ExtensionDispatcher::DidCreateScriptContext(
     module_system->Require("platformApp");
 
   if (context_type == Feature::BLESSED_EXTENSION_CONTEXT &&
-      extension && extension->HasAPIPermission(APIPermission::kBrowserTag)) {
+      extension->HasAPIPermission(APIPermission::kBrowserTag)) {
     module_system->Require("browserTag");
   }
 
   context->set_module_system(module_system.Pass());
 
-  int manifest_version = 1;
-  if (extension)
-    manifest_version = extension->manifest_version();
   context->DispatchOnLoadEvent(
       ChromeRenderProcessObserver::is_incognito_process(),
       manifest_version);
@@ -828,16 +891,14 @@ void ExtensionDispatcher::WillReleaseScriptContext(
 void ExtensionDispatcher::OnActivateExtension(
     const std::string& extension_id) {
   active_extension_ids_.insert(extension_id);
+  const Extension* extension = extensions_.GetByID(extension_id);
+  CHECK(extension);
 
   // This is called when starting a new extension page, so start the idle
   // handler ticking.
   RenderThread::Get()->ScheduleIdleHandler(kInitialExtensionIdleHandlerDelayMs);
 
   UpdateActiveExtensions();
-
-  const Extension* extension = extensions_.GetByID(extension_id);
-  if (!extension)
-    return;
 
   if (is_webkit_initialized_)
     InitOriginPermissions(extension);
@@ -936,7 +997,9 @@ void ExtensionDispatcher::OnUpdateTabSpecificPermissions(
   if (!extension)
     return;
 
-  extension->SetTabSpecificHostPermissions(tab_id, origin_set);
+  extension->UpdateTabSpecificPermissions(
+      tab_id,
+      new PermissionSet(APIPermissionSet(), origin_set, URLPatternSet()));
 }
 
 void ExtensionDispatcher::OnClearTabSpecificPermissions(
@@ -946,7 +1009,7 @@ void ExtensionDispatcher::OnClearTabSpecificPermissions(
        it != extension_ids.end(); ++it) {
     const Extension* extension = extensions_.GetByID(*it);
     if (extension)
-      extension->ClearTabSpecificHostPermissions(tab_id);
+      extension->ClearTabSpecificPermissions(tab_id);
   }
 }
 
@@ -1015,8 +1078,10 @@ Feature::Context ExtensionDispatcher::ClassifyJavaScriptContext(
     const std::string& extension_id,
     int extension_group,
     const ExtensionURLInfo& url_info) {
-  if (extension_group == EXTENSION_GROUP_CONTENT_SCRIPTS)
-    return Feature::CONTENT_SCRIPT_CONTEXT;
+  if (extension_group == EXTENSION_GROUP_CONTENT_SCRIPTS) {
+    return extensions_.Contains(extension_id) ?
+        Feature::CONTENT_SCRIPT_CONTEXT : Feature::UNSPECIFIED_CONTEXT;
+  }
 
   // We have an explicit check for sandboxed pages first since:
   // 1. Sandboxed pages run in the same process as regular extension pages, so
@@ -1055,7 +1120,24 @@ bool ExtensionDispatcher::CheckCurrentContextAccessToExtensionAPI(
     return false;
   }
 
-  if (!context->extension() ||
+  if (!context->extension()) {
+    v8::ThrowException(
+        v8::Exception::Error(v8::String::New("Not in an extension.")));
+    return false;
+  }
+
+  // We need to whitelist tabs.executeScript and tabs.insertCSS because they
+  // are granted under special circumstances with the activeTab permission
+  // (note that the browser checks too, so this isn't a security problem).
+  //
+  // Only the browser knows which tab this call will be sent to... sometimes we
+  // *could* figure it out (if the extension gives an explicit tab ID in the
+  // call), but the expected case will be the extension passing through -1,
+  // meaning the active tab, and only the browser safely knows what this is.
+  bool skip_permission_check = (function_name == "tabs.executeScript") ||
+                               (function_name == "tabs.insertCSS");
+
+  if (!skip_permission_check &&
       !context->extension()->HasAPIPermission(function_name)) {
     static const char kMessage[] =
         "You do not have permission to use '%s'. Be sure to declare"

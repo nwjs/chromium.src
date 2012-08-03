@@ -65,13 +65,14 @@ class SyncManagerImpl : public SyncManager,
       bool use_ssl,
       const scoped_refptr<base::TaskRunner>& blocking_task_runner,
       scoped_ptr<HttpPostProviderFactory> post_factory,
-      const ModelSafeRoutingInfo& model_safe_routing_info,
       const std::vector<ModelSafeWorker*>& workers,
       ExtensionsActivityMonitor* extensions_activity_monitor,
       SyncManager::ChangeDelegate* change_delegate,
       const SyncCredentials& credentials,
       scoped_ptr<SyncNotifier> sync_notifier,
       const std::string& restored_key_for_bootstrapping,
+      const std::string& restored_keystore_key_for_bootstrapping,
+      bool keystore_encryption_enabled,
       scoped_ptr<InternalComponentsFactory> internal_components_factory,
       Encryptor* encryptor,
       UnrecoverableErrorHandler* unrecoverable_error_handler,
@@ -85,6 +86,8 @@ class SyncManagerImpl : public SyncManager,
   virtual void UpdateCredentials(const SyncCredentials& credentials) OVERRIDE;
   virtual void UpdateEnabledTypes(
       const ModelTypeSet& enabled_types) OVERRIDE;
+  virtual void UpdateRegisteredInvalidationIds(
+      SyncNotifierObserver* handler, const ObjectIdSet& ids) OVERRIDE;
   virtual void StartSyncingNormally(
       const ModelSafeRoutingInfo& routing_info) OVERRIDE;
   virtual void SetEncryptionPassphrase(const std::string& passphrase,
@@ -100,6 +103,7 @@ class SyncManagerImpl : public SyncManager,
   virtual void RemoveObserver(SyncManager::Observer* observer) OVERRIDE;
   virtual SyncStatus GetDetailedStatus() const OVERRIDE;
   virtual bool IsUsingExplicitPassphrase() OVERRIDE;
+  virtual bool GetKeystoreKeyBootstrapToken(std::string* token) OVERRIDE;
   virtual void SaveChanges() OVERRIDE;
   virtual void StopSyncingForShutdown(const base::Closure& callback) OVERRIDE;
   virtual void ShutdownOnSyncThread() OVERRIDE;
@@ -180,6 +184,7 @@ class SyncManagerImpl : public SyncManager,
   FRIEND_TEST_ALL_PREFIXES(SyncManagerTest, NudgeDelayTest);
   FRIEND_TEST_ALL_PREFIXES(SyncManagerTest, OnNotificationStateChange);
   FRIEND_TEST_ALL_PREFIXES(SyncManagerTest, OnIncomingNotification);
+  FRIEND_TEST_ALL_PREFIXES(SyncManagerTest, PurgeDisabledTypes);
 
   struct NotificationInfo {
     NotificationInfo();
@@ -221,11 +226,10 @@ class SyncManagerImpl : public SyncManager,
   // Open the directory named with username_for_share
   bool OpenDirectory();
 
-  // Sign into sync with given credentials.
-  // We do not verify the tokens given. After this call, the tokens are set
-  // and the sync DB is open. True if successful, false if something
-  // went wrong.
-  bool SignIn(const SyncCredentials& credentials);
+  // Purge those types from |previously_enabled_types| that are no longer
+  // enabled in |currently_enabled_types|.
+  bool PurgeDisabledTypes(ModelTypeSet previously_enabled_types,
+                          ModelTypeSet currently_enabled_types);
 
   void RequestNudgeForDataTypes(
       const tracked_objects::Location& nudge_location,

@@ -168,10 +168,17 @@ class GDataCache {
   void GetResourceIdsOfBacklogOnUIThread(
       const GetResourceIdsOfBacklogCallback& callback);
 
-  // Gets the resource IDs of all pinned files, including pinned dirty files.
+  // Gets the resource IDs of all existing (i.e. cached locally) pinned
+  // files, including pinned dirty files.
   //
   // Must be called on UI thread. |callback| is run on UI thread.
   void GetResourceIdsOfExistingPinnedFilesOnUIThread(
+      const GetResourceIdsCallback& callback);
+
+  // Gets the resource IDs of all files in the cache.
+  //
+  // Must be called on UI thread. |callback| is run on UI thread.
+  void GetResourceIdsOfAllFilesOnUIThread(
       const GetResourceIdsCallback& callback);
 
   // Frees up disk space to store the given number of bytes, while keeping
@@ -331,6 +338,10 @@ class GDataCache {
   void GetResourceIdsOfExistingPinnedFiles(
       std::vector<std::string>* resource_ids);
 
+  // Used to implement GetResourceIdsOfAllFilesOnUIThread.
+  void GetResourceIdsOfAllFiles(
+      std::vector<std::string>* resource_ids);
+
   // Used to implement GetFileOnUIThread.
   void GetFile(const std::string& resource_id,
                const std::string& md5,
@@ -419,13 +430,12 @@ class GDataCache {
   // The cache state data. This member must be access only on the blocking pool.
   scoped_ptr<GDataCacheMetadata> metadata_;
 
-  // WeakPtrFactory and WeakPtr bound to the UI thread.
-  base::WeakPtrFactory<GDataCache> ui_weak_ptr_factory_;
-  base::WeakPtr<GDataCache> ui_weak_ptr_;
-
   // List of observers, this member must be accessed on UI thread.
   ObserverList<Observer> observers_;
 
+  // Note: This should remain the last member so it'll be destroyed and
+  // invalidate its weak pointers before any other members are destroyed.
+  base::WeakPtrFactory<GDataCache> weak_ptr_factory_;
   DISALLOW_COPY_AND_ASSIGN(GDataCache);
 };
 

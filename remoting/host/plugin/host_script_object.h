@@ -18,7 +18,7 @@
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "base/time.h"
-#include "remoting/base/plugin_message_loop_proxy.h"
+#include "remoting/base/plugin_thread_task_runner.h"
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/host_key_pair.h"
 #include "remoting/host/host_status_observer.h"
@@ -34,6 +34,7 @@ namespace remoting {
 
 class ChromotingHost;
 class DesktopEnvironment;
+class HostEventLogger;
 class It2MeHostUserInterface;
 class MutableHostConfig;
 class RegisterSupportHostRequest;
@@ -47,11 +48,11 @@ class PolicyWatcher;
 // NPAPI plugin implementation for remoting host script object.
 // HostNPScriptObject creates threads that are required to run
 // ChromotingHost and starts/stops the host on those threads. When
-// destroyed it sychronously shuts down the host and all threads.
+// destroyed it synchronously shuts down the host and all threads.
 class HostNPScriptObject : public HostStatusObserver {
  public:
   HostNPScriptObject(NPP plugin, NPObject* parent,
-                     PluginMessageLoopProxy::Delegate* plugin_thread_delegate);
+                     PluginThreadTaskRunner::Delegate* plugin_thread_delegate);
   virtual ~HostNPScriptObject();
 
   bool Init();
@@ -212,7 +213,10 @@ class HostNPScriptObject : public HostStatusObserver {
   void OnPolicyUpdate(scoped_ptr<base::DictionaryValue> policies);
 
   // Called when the nat traversal policy is updated.
-  void OnNatPolicyUpdate(bool nat_traversal_enabled);
+  void UpdateNatPolicy(bool nat_traversal_enabled);
+
+  // Called when the host domain policy is updated.
+  void UpdateHostDomainPolicy(const std::string& host_domain);
 
   void LocalizeStrings(NPObject* localize_func);
 
@@ -302,7 +306,7 @@ class HostNPScriptObject : public HostStatusObserver {
   ScopedRefNPObject on_nat_traversal_policy_changed_func_;
   ScopedRefNPObject on_state_changed_func_;
   base::PlatformThreadId np_thread_id_;
-  scoped_refptr<PluginMessageLoopProxy> plugin_task_runner_;
+  scoped_refptr<PluginThreadTaskRunner> plugin_task_runner_;
 
   scoped_ptr<ChromotingHostContext> host_context_;
   HostKeyPair host_key_pair_;
@@ -311,6 +315,7 @@ class HostNPScriptObject : public HostStatusObserver {
   scoped_ptr<LogToServer> log_to_server_;
   scoped_ptr<DesktopEnvironment> desktop_environment_;
   scoped_ptr<It2MeHostUserInterface> it2me_host_user_interface_;
+  scoped_ptr<HostEventLogger> host_event_logger_;
 
   scoped_refptr<ChromotingHost> host_;
   int failed_login_attempts_;
@@ -326,6 +331,9 @@ class HostNPScriptObject : public HostStatusObserver {
 
   // Host the current nat traversal policy setting.
   bool nat_traversal_enabled_;
+
+  // The host domain policy setting.
+  std::string required_host_domain_;
 
   // Indicates whether or not a policy has ever been read. This is to ensure
   // that on startup, we do not accidentally start a connection before we have

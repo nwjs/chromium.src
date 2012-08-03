@@ -80,9 +80,11 @@
         'shell/shell_download_manager_delegate.h',
         'shell/shell_javascript_dialog_creator.cc',
         'shell/shell_javascript_dialog_creator.h',
+        'shell/shell_javascript_dialog_gtk.cc',
         'shell/shell_javascript_dialog_mac.mm',
         'shell/shell_javascript_dialog_win.cc',
         'shell/shell_javascript_dialog.h',
+        'shell/shell_login_dialog_gtk.cc',
         'shell/shell_login_dialog_mac.mm',
         'shell/shell_login_dialog.cc',
         'shell/shell_login_dialog.h',
@@ -146,12 +148,29 @@
             '<(SHARED_INTERMEDIATE_DIR)/content/shell',
           ],
         }],  # OS=="android"
+        ['os_posix==1 and use_aura==1 and linux_use_tcmalloc==1', {
+          'dependencies': [
+            # This is needed by content/app/content_main_runner.cc
+            '../base/allocator/allocator.gyp:allocator',
+          ],
+        }],
         ['use_aura==1', {
+          'dependencies': [
+            '../ui/aura/aura.gyp:aura',
+            '../ui/base/strings/ui_strings.gyp:ui_strings',
+            '../ui/views/views.gyp:views',
+            '../ui/ui.gyp:ui_resources',
+          ],
           'sources/': [
             ['exclude', 'shell/shell_gtk.cc'],
             ['exclude', 'shell/shell_win.cc'],
           ],
         }],  # use_aura==1
+        ['chromeos==1', {
+          'dependencies': [
+            '../chromeos/chromeos.gyp:chromeos',
+           ],
+        }], # chromeos==1
         ['inside_chromium_build==0 or component!="shared_library"', {
           'dependencies': [
             '<(webkit_src_dir)/Source/WebCore/WebCore.gyp/WebCore.gyp:webcore_test_support',
@@ -230,10 +249,13 @@
               '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/shell_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/app_locale_settings/app_locale_settings_en-US.pak',
               '<(SHARED_INTERMEDIATE_DIR)/ui/ui_resources/ui_resources_100_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/ui_strings/ui_strings_en-US.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/devtools_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.pak',
             ],
           },
           'inputs': [
@@ -537,6 +559,8 @@
             '<(SHARED_INTERMEDIATE_DIR)/content/shell',
           ],
           'sources': [
+            'shell/android/draw_context.cc',
+            'shell/android/draw_context.h',
             'shell/android/shell_library_loader.cc',
             'shell/android/shell_library_loader.h',
             'shell/android/shell_manager.cc',
@@ -626,7 +650,10 @@
                 '-buildfile',
                 'shell/android/java/content_shell_apk.xml',
                 # '<(CONFIGURATION_NAME)',
-              ]
+              ],
+              'dependencies': [
+                'content_java',
+              ],
             }
           ],
         },

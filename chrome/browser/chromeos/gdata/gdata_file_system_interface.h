@@ -34,10 +34,6 @@ struct SearchResultInfo {
   bool is_directory;
 };
 
-// Used for file operations like removing files.
-typedef base::Callback<void(GDataFileError error)>
-    FileOperationCallback;
-
 // Used to get files from the file system.
 typedef base::Callback<void(GDataFileError error,
                             const FilePath& file_path,
@@ -309,7 +305,7 @@ class GDataFileSystemInterface {
   // In particular, this function is used to get the latest thumbnail
   // URLs. Thumbnail URLs change periodically even if contents of files are
   // not changed, hence we should get the new thumbnail URLs manually if we
-  // detect that the existing thumnail URLs are stale.
+  // detect that the existing thumbnail URLs are stale.
   //
   // Upon success, the metadata of files in the target directory is updated,
   // and the change is notified via Observer::OnDirectoryChanged(). Note that

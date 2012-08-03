@@ -2,6 +2,10 @@
 	path = breakpad/src
 	url = http://git.chromium.org/external/google-breakpad/src.git
 	os = all
+[submodule "build/util/support"]
+	path = build/util/support
+	url = 
+	os = ios
 [submodule "chrome/installer/mac/third_party/xz/xz"]
 	path = chrome/installer/mac/third_party/xz/xz
 	url = http://git.chromium.org/chromium/deps/xz.git
@@ -34,6 +38,78 @@
 	path = chrome_frame/tools/test/reference_build/chrome_win
 	url = http://git.chromium.org/chromium/reference_builds/chrome_win.git
 	os = win
+[submodule "content/test/data/layout_tests/LayoutTests/fast/events"]
+	path = content/test/data/layout_tests/LayoutTests/fast/events
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/fast/filesystem/resources"]
+	path = content/test/data/layout_tests/LayoutTests/fast/filesystem/resources
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/fast/js/resources"]
+	path = content/test/data/layout_tests/LayoutTests/fast/js/resources
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/fast/workers"]
+	path = content/test/data/layout_tests/LayoutTests/fast/workers
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/http/tests/appcache"]
+	path = content/test/data/layout_tests/LayoutTests/http/tests/appcache
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/http/tests/resources"]
+	path = content/test/data/layout_tests/LayoutTests/http/tests/resources
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/http/tests/websocket/tests"]
+	path = content/test/data/layout_tests/LayoutTests/http/tests/websocket/tests
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/http/tests/workers"]
+	path = content/test/data/layout_tests/LayoutTests/http/tests/workers
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/http/tests/xmlhttprequest"]
+	path = content/test/data/layout_tests/LayoutTests/http/tests/xmlhttprequest
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/media"]
+	path = content/test/data/layout_tests/LayoutTests/media
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/platform/chromium-win/fast/events"]
+	path = content/test/data/layout_tests/LayoutTests/platform/chromium-win/fast/events
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/platform/chromium-win/fast/workers"]
+	path = content/test/data/layout_tests/LayoutTests/platform/chromium-win/fast/workers
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/platform/chromium-win/http/tests/workers"]
+	path = content/test/data/layout_tests/LayoutTests/platform/chromium-win/http/tests/workers
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/platform/chromium-win/storage/domstorage"]
+	path = content/test/data/layout_tests/LayoutTests/platform/chromium-win/storage/domstorage
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/platform/chromium/fast/events"]
+	path = content/test/data/layout_tests/LayoutTests/platform/chromium/fast/events
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/platform/chromium/fast/workers"]
+	path = content/test/data/layout_tests/LayoutTests/platform/chromium/fast/workers
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/storage/domstorage"]
+	path = content/test/data/layout_tests/LayoutTests/storage/domstorage
+	url = 
+	os = ios
+[submodule "content/test/data/layout_tests/LayoutTests/storage/indexeddb"]
+	path = content/test/data/layout_tests/LayoutTests/storage/indexeddb
+	url = 
+	os = ios
 [submodule "googleurl"]
 	path = googleurl
 	url = http://git.chromium.org/external/google-url.git
@@ -42,6 +118,10 @@
 	path = native_client
 	url = http://git.chromium.org/native_client/src/native_client.git
 	os = all
+[submodule "native_client/src/third_party/ppapi"]
+	path = native_client/src/third_party/ppapi
+	url = 
+	os = ios
 [submodule "native_client_sdk/src/site_scons"]
 	path = native_client_sdk/src/site_scons
 	url = http://git.chromium.org/native_client/src/native_client/site_scons.git
@@ -62,6 +142,10 @@
 	path = testing/gtest
 	url = http://git.chromium.org/external/googletest.git
 	os = all
+[submodule "testing/iossim/third_party/class-dump"]
+	path = testing/iossim/third_party/class-dump
+	url = http://git.chromium.org/chromium/deps/class-dump.git
+	os = ios
 [submodule "third_party/GTM"]
 	path = third_party/GTM
 	url = http://git.chromium.org/external/google-toolbox-for-mac.git
@@ -70,6 +154,30 @@
 	path = third_party/WebKit
 	url = http://git.chromium.org/external/WebKit_trimmed.git
 	os = all
+[submodule "third_party/WebKit/LayoutTests"]
+	path = third_party/WebKit/LayoutTests
+	url = 
+	os = ios
+[submodule "third_party/WebKit/Source"]
+	path = third_party/WebKit/Source
+	url = 
+	os = ios
+[submodule "third_party/WebKit/Tools/DumpRenderTree"]
+	path = third_party/WebKit/Tools/DumpRenderTree
+	url = 
+	os = ios
+[submodule "third_party/WebKit/Tools/Scripts"]
+	path = third_party/WebKit/Tools/Scripts
+	url = 
+	os = ios
+[submodule "third_party/WebKit/Tools/TestWebKitAPI"]
+	path = third_party/WebKit/Tools/TestWebKitAPI
+	url = 
+	os = ios
+[submodule "third_party/android_tools"]
+	path = third_party/android_tools
+	url = http://git.chromium.org/git/android_tools.git
+	os = android
 [submodule "third_party/angle"]
 	path = third_party/angle
 	url = http://git.chromium.org/external/angleproject.git
@@ -158,6 +266,10 @@
 	path = third_party/libjpeg_turbo
 	url = http://git.chromium.org/chromium/deps/libjpeg_turbo.git
 	os = all
+[submodule "third_party/libmtp"]
+	path = third_party/libmtp
+	url = http://git.chromium.org/chromium/deps/libmtp.git
+	os = unix
 [submodule "third_party/libphonenumber/src/phonenumbers"]
 	path = third_party/libphonenumber/src/phonenumbers
 	url = http://git.chromium.org/external/libphonenumber/cpp/src/phonenumbers.git
@@ -240,8 +352,8 @@
 	os = all
 [submodule "third_party/pylib"]
 	path = third_party/pylib
-	url = http://git.chromium.org/native_client/src/third_party/pylib.git
-	os = all
+	url = 
+	os = ios
 [submodule "third_party/pymox/src"]
 	path = third_party/pymox/src
 	url = http://git.chromium.org/external/pymox.git

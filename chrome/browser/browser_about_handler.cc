@@ -66,7 +66,9 @@ const char* const kChromePaths[] = {
 #if defined(OS_CHROMEOS)
   chrome::kChromeUIChooseMobileNetworkHost,
   chrome::kChromeUICryptohomeHost,
+  chrome::kChromeUIDiagnosticsHost,
   chrome::kChromeUIDiscardsHost,
+  chrome::kChromeUIDriveInternalsHost,
   chrome::kChromeUIImageBurnerHost,
   chrome::kChromeUIKeyboardOverlayHost,
   chrome::kChromeUILoginHost,

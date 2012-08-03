@@ -7,6 +7,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "base/compiler_specific.h"
+#include "base/mac/foundation_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/single_thread_task_runner.h"
@@ -54,6 +55,23 @@ class PolicyWatcherMac : public PolicyWatcher {
                                                        &valid);
         if (valid) {
           policy.SetBoolean(policy_name, allowed);
+        }
+      }
+      for (int i = 0; i < kStringPolicyNamesNum; ++i) {
+        const char* policy_name = kStringPolicyNames[i];
+        base::mac::ScopedCFTypeRef<CFStringRef> policy_key(
+            base::SysUTF8ToCFStringRef(policy_name));
+        base::mac::ScopedCFTypeRef<CFPropertyListRef> property_list(
+            CFPreferencesCopyAppValue(policy_key, policy_bundle_id));
+        if (property_list.get() != NULL) {
+          CFStringRef policy_value = base::mac::CFCast<CFStringRef>(
+              property_list.get());
+          if (policy_value != NULL) {
+            policy.SetString(policy_name,
+                             base::SysCFStringRefToUTF8(policy_value));
+          } else {
+            LOG(WARNING) << "Policy " << policy_name << ": value not a string.";
+          }
         }
       }
     }

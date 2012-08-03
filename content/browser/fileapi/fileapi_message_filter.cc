@@ -150,6 +150,7 @@ bool FileAPIMessageFilter::OnMessageReceived(
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP_EX(FileAPIMessageFilter, message, *message_was_ok)
     IPC_MESSAGE_HANDLER(FileSystemHostMsg_Open, OnOpen)
+    IPC_MESSAGE_HANDLER(FileSystemHostMsg_DeleteFileSystem, OnDeleteFileSystem)
     IPC_MESSAGE_HANDLER(FileSystemHostMsg_Move, OnMove)
     IPC_MESSAGE_HANDLER(FileSystemHostMsg_Copy, OnCopy)
     IPC_MESSAGE_HANDLER(FileSystemMsg_Remove, OnRemove)
@@ -205,6 +206,15 @@ void FileAPIMessageFilter::OnOpen(
   }
   context_->OpenFileSystem(origin_url, type, create, base::Bind(
       &FileAPIMessageFilter::DidOpenFileSystem, this, request_id));
+}
+
+void FileAPIMessageFilter::OnDeleteFileSystem(
+    int request_id,
+    const GURL& origin_url,
+    fileapi::FileSystemType type) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+  context_->DeleteFileSystem(origin_url, type, base::Bind(
+      &FileAPIMessageFilter::DidDeleteFileSystem, this, request_id));
 }
 
 void FileAPIMessageFilter::OnMove(
@@ -490,10 +500,13 @@ void FileAPIMessageFilter::OnCreateSnapshotFile(
     int request_id, const GURL& blob_url, const GURL& path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   FileSystemURL url(path);
+  base::Callback<void(const FilePath&)> register_file_callback =
+      base::Bind(&FileAPIMessageFilter::RegisterFileAsBlob,
+                 this, blob_url, url.path());
   GetNewOperation(url, request_id)->CreateSnapshotFile(
       url,
       base::Bind(&FileAPIMessageFilter::DidCreateSnapshot,
-                 this, request_id, blob_url));
+                 this, request_id, register_file_callback));
 }
 
 void FileAPIMessageFilter::OnStartBuildingBlob(const GURL& url) {
@@ -649,9 +662,20 @@ void FileAPIMessageFilter::DidOpenFileSystem(int request_id,
   // For OpenFileSystem we do not create a new operation, so no unregister here.
 }
 
+void FileAPIMessageFilter::DidDeleteFileSystem(
+    int request_id,
+    base::PlatformFileError result) {
+  if (result == base::PLATFORM_FILE_OK)
+    Send(new FileSystemMsg_DidSucceed(request_id));
+  else
+    Send(new FileSystemMsg_DidFail(request_id, result));
+  // For DeleteFileSystem we do not create a new operation,
+  // so no unregister here.
+}
+
 void FileAPIMessageFilter::DidCreateSnapshot(
     int request_id,
-    const GURL& blob_url,
+    const base::Callback<void(const FilePath&)>& register_file_callback,
     base::PlatformFileError result,
     const base::PlatformFileInfo& info,
     const FilePath& platform_path,
@@ -662,17 +686,27 @@ void FileAPIMessageFilter::DidCreateSnapshot(
     return;
   }
 
-  FilePath::StringType extension = platform_path.Extension();
+  // Register the created file to the blob registry by calling
+  // RegisterFileAsBlob.
+  // Blob storage automatically finds and refs the file_ref, so we don't
+  // need to do anything for the returned file reference (|unused|) here.
+  register_file_callback.Run(platform_path);
+
+  // Return the file info and platform_path.
+  Send(new FileSystemMsg_DidReadMetadata(request_id, info, platform_path));
+}
+
+void FileAPIMessageFilter::RegisterFileAsBlob(const GURL& blob_url,
+                                              const FilePath& virtual_path,
+                                              const FilePath& platform_path) {
+  // Use the virtual path's extension to determine MIME type.
+  FilePath::StringType extension = virtual_path.Extension();
   if (!extension.empty())
     extension = extension.substr(1);  // Strip leading ".".
 
   // This may fail, but then we'll be just setting the empty mime type.
   std::string mime_type;
   net::GetWellKnownMimeTypeFromExtension(extension, &mime_type);
-
-  // Register the created file to the blob registry.
-  // Blob storage automatically finds and refs the file_ref, so we don't
-  // need to do anything for the returned file reference (|unused|) here.
   BlobData::Item item;
   item.SetToFile(platform_path, 0, -1, base::Time());
   BlobStorageController* controller = blob_storage_context_->controller();
@@ -680,9 +714,6 @@ void FileAPIMessageFilter::DidCreateSnapshot(
   controller->AppendBlobDataItem(blob_url, item);
   controller->FinishBuildingBlob(blob_url, mime_type);
   blob_urls_.insert(blob_url.spec());
-
-  // Return the file info and platform_path.
-  Send(new FileSystemMsg_DidReadMetadata(request_id, info, platform_path));
 }
 
 bool FileAPIMessageFilter::HasPermissionsForFile(

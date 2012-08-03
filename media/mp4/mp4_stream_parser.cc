@@ -11,6 +11,7 @@
 #include "media/base/audio_decoder_config.h"
 #include "media/base/stream_parser_buffer.h"
 #include "media/base/video_decoder_config.h"
+#include "media/base/video_util.h"
 #include "media/mp4/box_definitions.h"
 #include "media/mp4/box_reader.h"
 #include "media/mp4/es_descriptor.h"
@@ -37,13 +38,15 @@ void MP4StreamParser::Init(const InitCB& init_cb,
                            const NewBuffersCB& audio_cb,
                            const NewBuffersCB& video_cb,
                            const NeedKeyCB& need_key_cb,
-                           const NewMediaSegmentCB& new_segment_cb) {
+                           const NewMediaSegmentCB& new_segment_cb,
+                           const base::Closure& end_of_segment_cb) {
   DCHECK_EQ(state_, kWaitingForInit);
   DCHECK(init_cb_.is_null());
   DCHECK(!init_cb.is_null());
   DCHECK(!config_cb.is_null());
   DCHECK(!audio_cb.is_null() || !video_cb.is_null());
   DCHECK(!need_key_cb.is_null());
+  DCHECK(!end_of_segment_cb.is_null());
 
   ChangeState(kParsingBoxes);
   init_cb_ = init_cb;
@@ -52,14 +55,21 @@ void MP4StreamParser::Init(const InitCB& init_cb,
   video_cb_ = video_cb;
   need_key_cb_ = need_key_cb;
   new_segment_cb_ = new_segment_cb;
+  end_of_segment_cb_ = end_of_segment_cb;
+}
+
+void MP4StreamParser::Reset() {
+  queue_.Reset();
+  moov_.reset();
+  runs_.reset();
+  moof_head_ = 0;
+  mdat_tail_ = 0;
 }
 
 void MP4StreamParser::Flush() {
   DCHECK_NE(state_, kWaitingForInit);
-
-  queue_.Reset();
-  moof_head_ = 0;
-  mdat_tail_ = 0;
+  Reset();
+  ChangeState(kParsingBoxes);
 }
 
 bool MP4StreamParser::Parse(const uint8* buf, int size) {
@@ -77,18 +87,13 @@ bool MP4StreamParser::Parse(const uint8* buf, int size) {
 
   do {
     if (state_ == kParsingBoxes) {
-      if (mdat_tail_ > queue_.head()) {
-        result = queue_.Trim(mdat_tail_);
-      } else {
-        result = ParseBox(&err);
-      }
+      result = ParseBox(&err);
     } else {
       DCHECK_EQ(kEmittingSamples, state_);
       result = EnqueueSample(&audio_buffers, &video_buffers, &err);
       if (result) {
         int64 max_clear = runs_->GetMaxClearOffset() + moof_head_;
-        DCHECK(max_clear <= queue_.tail());
-        err = !(ReadMDATsUntil(max_clear) && queue_.Trim(max_clear));
+        err = !ReadAndDiscardMDATsUntil(max_clear);
       }
     }
   } while (result && !err);
@@ -98,9 +103,7 @@ bool MP4StreamParser::Parse(const uint8* buf, int size) {
 
   if (err) {
     DLOG(ERROR) << "Error while parsing MP4";
-    queue_.Reset();
-    moov_.reset();
-    runs_.reset();
+    Reset();
     ChangeState(kError);
     return false;
   }
@@ -123,8 +126,14 @@ bool MP4StreamParser::ParseBox(bool* err) {
     moof_head_ = queue_.head();
     *err = !ParseMoof(reader.get());
 
-    // Set up first mdat offset for ParseMDATsUntil()
+    // Set up first mdat offset for ReadMDATsUntil().
     mdat_tail_ = queue_.head() + reader->size();
+
+    // Return early to avoid evicting 'moof' data from queue. Auxiliary info may
+    // be located anywhere in the file, including inside the 'moof' itself.
+    // (Since 'default-base-is-moof' is mandated, no data references can come
+    // before the head of the 'moof', so keeping this box around is sufficient.)
+    return !(*err);
   } else {
     DVLOG(2) << "Skipping unrecognized top-level box: "
              << FourCCToString(reader->type());
@@ -214,17 +223,16 @@ bool MP4StreamParser::ParseMoov(BoxReader* reader) {
       RCHECK(EmitKeyNeeded(entry.sinf.info.track_encryption));
 
       // TODO(strobe): Recover correct crop box
+      gfx::Size coded_size(entry.width, entry.height);
+      gfx::Rect visible_rect(coded_size);
+      gfx::Size natural_size = GetNaturalSize(visible_rect.size(),
+                                              entry.pixel_aspect.h_spacing,
+                                              entry.pixel_aspect.v_spacing);
       video_config.Initialize(kCodecH264, H264PROFILE_MAIN,  VideoFrame::YV12,
-                              gfx::Size(entry.width, entry.height),
-                              gfx::Rect(0, 0, entry.width, entry.height),
-                              // Framerate of zero is provided to signal that
-                              // the decoder should trust demuxer timestamps
-                              0, 1,
-                              entry.pixel_aspect.h_spacing,
-                              entry.pixel_aspect.v_spacing,
+                              coded_size, visible_rect, natural_size,
                               // No decoder-specific buffer needed for AVC;
                               // SPS/PPS are embedded in the video stream
-                              NULL, 0, false);
+                              NULL, 0, true);
       has_video_ = true;
       video_track_id_ = track->header.track_id;
     }
@@ -316,8 +324,16 @@ bool MP4StreamParser::EnqueueSample(BufferQueue* audio_buffers,
     // Flush any buffers we've gotten in this chunk so that buffers don't
     // cross NewSegment() calls
     *err = !SendAndFlushSamples(audio_buffers, video_buffers);
-    if (*err) return false;
+    if (*err)
+      return false;
+
+    // Remain in kEnqueueingSamples state, discarding data, until the end of
+    // the current 'mdat' box has been appended to the queue.
+    if (!queue_.Trim(mdat_tail_))
+      return false;
+
     ChangeState(kParsingBoxes);
+    end_of_segment_cb_.Run();
     return true;
   }
 
@@ -337,7 +353,8 @@ bool MP4StreamParser::EnqueueSample(BufferQueue* audio_buffers,
   bool video = has_video_ && video_track_id_ == runs_->track_id();
 
   // Skip this entire track if it's not one we're interested in
-  if (!audio && !video) runs_->AdvanceRun();
+  if (!audio && !video)
+    runs_->AdvanceRun();
 
   // Attempt to cache the auxiliary information first. Aux info is usually
   // placed in a contiguous block before the sample data, rather than being
@@ -365,8 +382,12 @@ bool MP4StreamParser::EnqueueSample(BufferQueue* audio_buffers,
     std::vector<SubsampleEntry> subsamples;
     if (decrypt_config.get())
       subsamples = decrypt_config->subsamples();
-    RCHECK(PrepareAVCBuffer(runs_->video_description().avcc,
-                            &frame_buf, &subsamples));
+    if (!PrepareAVCBuffer(runs_->video_description().avcc,
+                          &frame_buf, &subsamples)) {
+      DLOG(ERROR) << "Failed to prepare AVC sample for decode";
+      *err = true;
+      return false;
+    }
     if (!subsamples.empty()) {
       decrypt_config.reset(new DecryptConfig(
           decrypt_config->key_id(),
@@ -379,7 +400,11 @@ bool MP4StreamParser::EnqueueSample(BufferQueue* audio_buffers,
 
   if (audio) {
     const AAC& aac = runs_->audio_description().esds.aac;
-    RCHECK(aac.ConvertEsdsToADTS(&frame_buf));
+    if (!aac.ConvertEsdsToADTS(&frame_buf)) {
+      DLOG(ERROR) << "Failed to convert ESDS to ADTS";
+      *err = true;
+      return false;
+    }
   }
 
   scoped_refptr<StreamParserBuffer> stream_buf =
@@ -424,29 +449,26 @@ bool MP4StreamParser::SendAndFlushSamples(BufferQueue* audio_buffers,
   return !err;
 }
 
-bool MP4StreamParser::ReadMDATsUntil(const int64 tgt_offset) {
-  DCHECK(tgt_offset <= queue_.tail());
-
-  while (mdat_tail_ < tgt_offset) {
+bool MP4StreamParser::ReadAndDiscardMDATsUntil(const int64 offset) {
+  bool err = false;
+  while (mdat_tail_ < offset) {
     const uint8* buf;
     int size;
     queue_.PeekAt(mdat_tail_, &buf, &size);
 
     FourCC type;
     int box_sz;
-    bool err;
     if (!BoxReader::StartTopLevelBox(buf, size, &type, &box_sz, &err))
-      return false;
+      break;
 
     if (type != FOURCC_MDAT) {
-      DLOG(WARNING) << "Unexpected type while parsing MDATs: "
+      DLOG(WARNING) << "Unexpected box type while parsing MDATs: "
                     << FourCCToString(type);
     }
-
     mdat_tail_ += box_sz;
   }
-
-  return true;
+  queue_.Trim(std::min(mdat_tail_, offset));
+  return !err;
 }
 
 void MP4StreamParser::ChangeState(State new_state) {

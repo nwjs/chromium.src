@@ -242,6 +242,9 @@ const char kDomAutomationController[]       = "dom-automation";
 // Enable hardware accelerated page painting.
 const char kEnableAcceleratedPainting[]     = "enable-accelerated-painting";
 
+// Enables the hardware acceleration of plugins.
+const char kEnableAcceleratedPlugins[]      = "enable-accelerated-plugins";
+
 // Enable gpu-accelerated SVG/W3C filters.
 const char kEnableAcceleratedFilters[]      = "enable-accelerated-filters";
 
@@ -529,11 +532,6 @@ const char kRemoteDebuggingPort[]           = "remote-debugging-port";
 // Causes the renderer process to throw an assertion on launch.
 const char kRendererAssertTest[]            = "renderer-assert-test";
 
-#if defined(OS_POSIX)
-// Causes the renderer process to cleanly exit via calling exit().
-const char kRendererCleanExit[]             = "renderer-clean-exit";
-#endif
-
 // On POSIX only: the contents of this flag are prepended to the renderer
 // command line. Useful values might be "valgrind" or "xterm -e gdb --args".
 const char kRendererCmdPrefix[]             = "renderer-cmd-prefix";
@@ -652,6 +650,17 @@ const char kEnableVisualWordMovement[]      = "enable-visual-word-movement";
 #if defined(OS_ANDROID)
 // Set when Chromium should use a mobile user agent.
 const char kUseMobileUserAgent[] = "use-mobile-user-agent";
+// Omnibus flag setting an Android graphics mode.  May be:
+//   "basic" (untiled software path)
+//   "compositor" (hardware-accelerated compositing),
+const char kGraphicsMode[]                  = "graphics-mode";
+const char kGraphicsModeValueBasic[]        = "basic";
+const char kGraphicsModeValueCompositor[]   = "compositor";
+#endif
+
+#if defined(OS_POSIX)
+// Causes the child processes to cleanly exit via calling exit().
+const char kChildCleanExit[]                = "child-clean-exit";
 #endif
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX)

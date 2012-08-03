@@ -161,19 +161,19 @@ class RenderWidgetHostViewAura::WindowObserver : public aura::WindowObserver {
   DISALLOW_COPY_AND_ASSIGN(WindowObserver);
 };
 
-class RenderWidgetHostViewAura::ResizeLock
-    : public base::SupportsWeakPtr<RenderWidgetHostViewAura::ResizeLock> {
+class RenderWidgetHostViewAura::ResizeLock {
  public:
   ResizeLock(aura::RootWindow* root_window, const gfx::Size new_size)
       : root_window_(root_window),
         new_size_(new_size),
-        compositor_lock_(root_window_->GetCompositorLock()) {
+        compositor_lock_(root_window_->GetCompositorLock()),
+        weak_ptr_factory_(this) {
     root_window_->HoldMouseMoves();
 
     BrowserThread::PostDelayedTask(
         BrowserThread::UI, FROM_HERE,
         base::Bind(&RenderWidgetHostViewAura::ResizeLock::CancelLock,
-                   AsWeakPtr()),
+                   weak_ptr_factory_.GetWeakPtr()),
         base::TimeDelta::FromMilliseconds(kResizeLockTimeoutMs));
   }
 
@@ -201,6 +201,7 @@ class RenderWidgetHostViewAura::ResizeLock
   aura::RootWindow* root_window_;
   gfx::Size new_size_;
   scoped_refptr<aura::CompositorLock> compositor_lock_;
+  base::WeakPtrFactory<ResizeLock> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ResizeLock);
 };
@@ -274,10 +275,10 @@ RenderWidgetHost* RenderWidgetHostViewAura::GetRenderWidgetHost() const {
   return host_;
 }
 
-void RenderWidgetHostViewAura::WasRestored() {
-  if (!host_->IsHidden())
+void RenderWidgetHostViewAura::WasShown() {
+  if (!host_->is_hidden())
     return;
-  host_->WasRestored();
+  host_->WasShown();
 
   if (!current_surface_ && host_->is_accelerated_compositing_active() &&
       !released_front_lock_.get()) {
@@ -288,7 +289,7 @@ void RenderWidgetHostViewAura::WasRestored() {
 }
 
 void RenderWidgetHostViewAura::WasHidden() {
-  if (host_->IsHidden())
+  if (host_->is_hidden())
     return;
   host_->WasHidden();
 
@@ -510,7 +511,13 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
       AsWeakPtr(),
       callback);
   pending_thumbnail_tasks_.push_back(callback);
-  gfx::Rect src_subrect_in_pixel = ConvertRectToPixel(this, src_subrect);
+
+  // Convert |src_subrect| from the views coordinate (upper-left origin) into
+  // the OpenGL coordinate (lower-left origin).
+  gfx::Rect src_subrect_in_gl = src_subrect;
+  src_subrect_in_gl.set_y(GetViewBounds().height() - src_subrect.bottom());
+
+  gfx::Rect src_subrect_in_pixel = ConvertRectToPixel(this, src_subrect_in_gl);
   gl_helper->CopyTextureTo(container->texture_id(),
                            container->size(),
                            src_subrect_in_pixel,
@@ -609,7 +616,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfaceBuffersSwapped(
   surface_route_id_ = params_in_pixel.route_id;
   // If protection state changed, then this swap is stale. We must still ACK but
   // do not update current_surface_ since it may have been discarded.
-  if (host_->IsHidden() ||
+  if (host_->is_hidden() ||
       (params_in_pixel.protection_state_id &&
           params_in_pixel.protection_state_id != protection_state_id_)) {
     DCHECK(!current_surface_);
@@ -680,7 +687,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfacePostSubBuffer(
   surface_route_id_ = params_in_pixel.route_id;
   // If visible state changed, then this PSB is stale. We must still ACK but
   // do not update current_surface_.
-  if (host_->IsHidden() ||
+  if (host_->is_hidden() ||
       (params_in_pixel.protection_state_id &&
           params_in_pixel.protection_state_id != protection_state_id_)) {
     DCHECK(!current_surface_);
@@ -711,6 +718,12 @@ void RenderWidgetHostViewAura::AcceleratedSurfacePostSubBuffer(
             params_in_pixel.height,
         params_in_pixel.width,
         params_in_pixel.height));
+
+    // Damage may not have been DIP aligned, so inflate damage to compensate
+    // for any round-off error.
+    rect_to_paint.Inset(-1, -1);
+    rect_to_paint.Intersect(window_->bounds());
+
     window_->SchedulePaintInRect(rect_to_paint);
 
     if (!resize_locks_.empty()) {
@@ -783,7 +796,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfaceRelease(
 }
 
 void RenderWidgetHostViewAura::SetSurfaceNotInUseByCompositor(ui::Compositor*) {
-  if (current_surface_ || !host_->IsHidden())
+  if (current_surface_ || !host_->is_hidden())
     return;
   current_surface_in_use_by_compositor_ = false;
   AdjustSurfaceProtection();
@@ -795,7 +808,7 @@ void RenderWidgetHostViewAura::AdjustSurfaceProtection() {
   // Otherwise, change to not proctected once done thumbnailing and compositing.
   bool surface_is_protected =
       current_surface_ ||
-      !host_->IsHidden() ||
+      !host_->is_hidden() ||
       (current_surface_is_protected_ &&
           (!pending_thumbnail_tasks_.empty() ||
               current_surface_in_use_by_compositor_));
@@ -1291,7 +1304,7 @@ ui::GestureStatus RenderWidgetHostViewAura::OnGestureEvent(
   }
 
   RenderViewHostDelegate* delegate = NULL;
-  if (popup_type_ == WebKit::WebPopupTypeNone)
+  if (popup_type_ == WebKit::WebPopupTypeNone && !is_fullscreen_)
     delegate = RenderViewHost::From(host_)->GetDelegate();
   if (delegate && event->type() == ui::ET_GESTURE_BEGIN &&
       event->details().touch_points() == 1) {
@@ -1373,7 +1386,7 @@ void RenderWidgetHostViewAura::OnWindowDestroyed() {
   delete this;
 }
 
-void RenderWidgetHostViewAura::OnWindowVisibilityChanged(bool visible) {
+void RenderWidgetHostViewAura::OnWindowTargetVisibilityChanged(bool visible) {
 }
 
 bool RenderWidgetHostViewAura::HasHitTestMask() const {

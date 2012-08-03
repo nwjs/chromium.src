@@ -14,6 +14,7 @@
 #include "base/time.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_notifications.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/in_memory_database.h"
 #include "chrome/browser/history/url_database.h"
 #include "chrome/browser/predictors/predictor_database.h"
@@ -84,11 +85,12 @@ ResourcePrefetchPredictor::URLRequestSummary::URLRequestSummary()
 
 ResourcePrefetchPredictor::URLRequestSummary::URLRequestSummary(
     const URLRequestSummary& other)
-      : navigation_id(other.navigation_id),
-        resource_url(other.resource_url),
-        resource_type(other.resource_type),
-        mime_type(other.mime_type),
-        was_cached(other.was_cached) {
+        : navigation_id(other.navigation_id),
+          resource_url(other.resource_url),
+          resource_type(other.resource_type),
+          mime_type(other.mime_type),
+          was_cached(other.was_cached),
+          redirect_url(other.redirect_url) {
 }
 
 ResourcePrefetchPredictor::URLRequestSummary::~URLRequestSummary() {
@@ -127,8 +129,8 @@ void ResourcePrefetchPredictor::LazilyInitialize() {
 
   // Request the in-memory database from the history to force it to load so it's
   // available as soon as possible.
-  HistoryService* history_service =
-      profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+      profile_, Profile::EXPLICIT_ACCESS);
   if (history_service)
     history_service->InMemoryDatabase();
 
@@ -167,7 +169,9 @@ void ResourcePrefetchPredictor::CreateCaches(
   }
 
   // Add notifications for history loading if it is not ready.
-  if (!profile_->GetHistoryService(Profile::EXPLICIT_ACCESS)) {
+  HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+    profile_, Profile::EXPLICIT_ACCESS);
+  if (!history_service) {
     notification_registrar_.Add(this, chrome::NOTIFICATION_HISTORY_LOADED,
                                 content::Source<Profile>(profile_));
   } else {
@@ -326,14 +330,6 @@ void ResourcePrefetchPredictor::OnMainFrameRequest(
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK_EQ(INITIALIZED, initialization_state_);
 
-  // TODO(shishir): Remove this code after verifying that the same navigation is
-  // not seen multiple times.
-  NavigationMap::const_iterator it =
-      inflight_navigations_.find(request.navigation_id);
-  if (it != inflight_navigations_.end()) {
-    DCHECK(it->first.creation_time != request.navigation_id.creation_time);
-  }
-
   // Cleanup older navigations.
   CleanupAbandonedNavigations(request.navigation_id);
 
@@ -353,7 +349,20 @@ void ResourcePrefetchPredictor::OnMainFrameRedirect(
     const URLRequestSummary& response) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
+  // Remove the older navigation.
   inflight_navigations_.erase(response.navigation_id);
+
+  // A redirect will not lead to another OnMainFrameRequest call, so record the
+  // redirect url as a new navigation.
+
+  // The redirect url may be empty if the url was invalid.
+  if (response.redirect_url.is_empty())
+    return;
+
+  NavigationID navigation_id(response.navigation_id);
+  navigation_id.main_frame_url = response.redirect_url;
+  inflight_navigations_.insert(std::make_pair(
+      navigation_id, std::vector<URLRequestSummary>()));
 }
 
 void ResourcePrefetchPredictor::OnSubresourceResponse(
@@ -416,7 +425,10 @@ void ResourcePrefetchPredictor::Observe(
       const content::WebContents* web_contents =
           content::Source<content::WebContents>(source).ptr();
       NavigationID navigation_id(*web_contents);
-      OnNavigationComplete(navigation_id);
+      // WebContents can return an empty URL if the navigation entry
+      // corresponding to the navigation has not been created yet.
+      if (!navigation_id.main_frame_url.is_empty())
+        OnNavigationComplete(navigation_id);
       break;
     }
 
@@ -467,8 +479,8 @@ void ResourcePrefetchPredictor::OnHistoryAndCacheLoaded() {
   DCHECK_EQ(initialization_state_, INITIALIZING);
 
   // Update the data with last visit info from in memory history db.
-  HistoryService* history_service =
-      profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+      profile_, Profile::EXPLICIT_ACCESS);
   DCHECK(history_service);
   history::URLDatabase* url_db = history_service->InMemoryDatabase();
   if (url_db) {
@@ -511,8 +523,8 @@ bool ResourcePrefetchPredictor::ShouldTrackUrl(const GURL& url) {
   if (url_table_cache_.find(url) != url_table_cache_.end())
     return true;
 
-  HistoryService* history_service =
-      profile_->GetHistoryService(Profile::EXPLICIT_ACCESS);
+  HistoryService* history_service = HistoryServiceFactory::GetForProfile(
+      profile_, Profile::EXPLICIT_ACCESS);
   DCHECK(history_service);
   history::URLDatabase* url_db = history_service->InMemoryDatabase();
   if (!url_db)

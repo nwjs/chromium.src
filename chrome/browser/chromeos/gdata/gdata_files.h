@@ -64,6 +64,10 @@ const char kGDataRootDirectoryResourceId[] = "folder:root";
 // gdata.proto.
 const int32 kProtoVersion = 1;
 
+// Used for file operations like removing files.
+typedef base::Callback<void(GDataFileError error)>
+    FileOperationCallback;
+
 // Base class for representing files and directories in gdata virtual file
 // system.
 class GDataEntry {
@@ -275,27 +279,6 @@ class GDataDirectory : public GDataEntry {
   bool FromProto(const GDataDirectoryProto& proto) WARN_UNUSED_RESULT;
   void ToProto(GDataDirectoryProto* proto) const;
 
-  // Adds child file to the directory and takes over the ownership of |file|
-  // object. The method will also do name de-duplication to ensure that the
-  // exposed presentation path does not have naming conflicts. Two files with
-  // the same name "Foo" will be renames to "Foo (1)" and "Foo (2)".
-  void AddEntry(GDataEntry* entry);
-
-  // Takes the ownership of |entry| from its current parent. If this directory
-  // is already the current parent of |file|, this method effectively goes
-  // through the name de-duplication for |file| based on the current state of
-  // the file system.
-  bool TakeEntry(GDataEntry* entry);
-
-  // Takes over all entries from |dir|.
-  bool TakeOverEntries(GDataDirectory* dir);
-
-  // Find a child by its name.
-  GDataEntry* FindChild(const FilePath::StringType& file_name) const;
-
-  // Removes the entry from its children list and destroys the entry instance.
-  bool RemoveEntry(GDataEntry* entry);
-
   // Removes child elements.
   void RemoveChildren();
   void RemoveChildFiles();
@@ -308,6 +291,37 @@ class GDataDirectory : public GDataEntry {
   }
 
  private:
+  // TODO(satorux): Remove the friend statements. crbug.com/139649
+  friend class GDataDirectoryService;
+  friend class GDataFileSystem;
+  friend class GDataWapiFeedProcessor;
+
+  // Adds child file to the directory and takes over the ownership of |file|
+  // object. The method will also do name de-duplication to ensure that the
+  // exposed presentation path does not have naming conflicts. Two files with
+  // the same name "Foo" will be renames to "Foo (1)" and "Foo (2)".
+  // TODO(satorux): Remove this. crbug.com/139649
+  void AddEntry(GDataEntry* entry);
+
+  // Removes the entry from its children list and destroys the entry instance.
+  // TODO(satorux): Remove this. crbug.com/139649
+  bool RemoveEntry(GDataEntry* entry);
+
+  // Takes the ownership of |entry| from its current parent. If this directory
+  // is already the current parent of |file|, this method effectively goes
+  // through the name de-duplication for |file| based on the current state of
+  // the file system.
+  // TODO(satorux): Remove this. crbug.com/139649
+  bool TakeEntry(GDataEntry* entry);
+
+  // Takes over all entries from |dir|.
+  // TODO(satorux): Remove this. crbug.com/139649
+  bool TakeOverEntries(GDataDirectory* dir);
+
+  // Find a child by its name.
+  // TODO(satorux): Remove this. crbug.com/139649
+  GDataEntry* FindChild(const FilePath::StringType& file_name) const;
+
   // Add |entry| to children.
   void AddChild(GDataEntry* entry);
 
@@ -349,15 +363,26 @@ class GDataDirectoryService {
   const ContentOrigin origin() const { return origin_; }
   void set_origin(ContentOrigin value) { origin_ = value; }
 
+  // Adds |entry| to |directory_path| asynchronously.
+  // Must be called on UI thread. |callback| is called on the UI thread.
+  void AddEntryToDirectory(const FilePath& directory_path,
+                           GDataEntry* entry,
+                           const FileOperationCallback& callback);
+
   // Adds the entry to resource map.
   void AddEntryToResourceMap(GDataEntry* entry);
 
   // Removes the entry from resource map.
   void RemoveEntryFromResourceMap(GDataEntry* entry);
 
-  // Searches for |file_path| triggering callback.
-  void FindEntryByPath(const FilePath& file_path,
-                       const FindEntryCallback& callback);
+  // Searches for |file_path| synchronously.
+  // TODO(satorux): Replace this with an async version crbug.com/137160
+  GDataEntry* FindEntryByPathSync(const FilePath& file_path);
+
+  // Searches for |file_path| synchronously, and runs |callback|.
+  // TODO(satorux): Replace this with an async version crbug.com/137160
+  void FindEntryByPathAndRunSync(const FilePath& file_path,
+                                 const FindEntryCallback& callback);
 
   // Returns the GDataEntry* with the corresponding |resource_id|.
   // TODO(achuith): Get rid of this in favor of async version crbug.com/13957.
@@ -371,6 +396,10 @@ class GDataDirectoryService {
   // Replaces file entry with the same resource id as |fresh_file| with its
   // fresh value |fresh_file|.
   void RefreshFile(scoped_ptr<GDataFile> fresh_file);
+
+  // Replaces file entry |old_entry| with its fresh value |fresh_file|.
+  static void RefreshFileInternal(scoped_ptr<GDataFile> fresh_file,
+                                  GDataEntry* old_entry);
 
   // Serializes/Parses to/from string via proto classes.
   void SerializeToString(std::string* serialized_proto) const;

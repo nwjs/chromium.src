@@ -7,7 +7,10 @@
     # TODO(dmaclach): can we pick this up some other way? Right now it's
     # duplicated from chrome.gyp
     'chromium_code': 1,
+
     'remoting_audio': 0,
+    'remoting_multi_process%': 0,
+
     # Use consistent strings across all platforms. Note that the plugin name
     # is brand-dependent and is defined further down.
     # Must match host/plugin/constants.h
@@ -202,6 +205,11 @@
       ['remoting_audio == 1', {
         'defines': [
           'ENABLE_REMOTING_AUDIO',
+        ],
+      }],
+      ['remoting_multi_process == 1', {
+        'defines': [
+          'REMOTING_MULTI_PROCESS',
         ],
       }],
     ],
@@ -503,7 +511,7 @@
           'target_name': 'remoting_elevated_controller',
           'type': 'static_library',
           'sources': [
-            'host/elevated_controller.idl',
+            'host/win/elevated_controller.idl',
             '<(SHARED_INTERMEDIATE_DIR)/remoting/host/elevated_controller.h',
             '<(SHARED_INTERMEDIATE_DIR)/remoting/host/elevated_controller_i.c',
           ],
@@ -542,19 +550,19 @@
             'remoting_version_resources',
           ],
           'sources': [
+            '<(SHARED_INTERMEDIATE_DIR)/remoting/elevated_controller_version.rc',
             'host/branding.cc',
             'host/branding.h',
-            'host/elevated_controller.rc',
-            'host/elevated_controller_module_win.cc',
-            'host/elevated_controller_win.cc',
-            'host/elevated_controller_win.h',
             'host/pin_hash.cc',
             'host/pin_hash.h',
             'host/usage_stats_consent.h',
             'host/usage_stats_consent_win.cc',
             'host/verify_config_window_win.cc',
             'host/verify_config_window_win.h',
-            '<(SHARED_INTERMEDIATE_DIR)/remoting/elevated_controller_version.rc'
+            'host/win/elevated_controller.rc',
+            'host/win/elevated_controller_module.cc',
+            'host/win/elevated_controller.cc',
+            'host/win/elevated_controller.h',
           ],
           'link_settings': {
             'libraries': [
@@ -584,10 +592,12 @@
             '../base/base.gyp:base_static',
             '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
             '../ipc/ipc.gyp:ipc',
+            'remoting_base',
             'remoting_breakpad',
             'remoting_version_resources',
           ],
           'sources': [
+            '<(SHARED_INTERMEDIATE_DIR)/remoting/host_service_version.rc',
             'base/scoped_sc_handle_win.h',
             'host/branding.cc',
             'host/branding.h',
@@ -595,21 +605,23 @@
             'host/chromoting_messages.h',
             'host/constants.h',
             'host/constants_win.cc',
-            'host/host_service.rc',
-            'host/host_service_resource.h',
-            'host/host_service_win.cc',
-            'host/host_service_win.h',
-            'host/launch_process_in_session_win.cc',
-            'host/launch_process_in_session_win.h',
+            'host/daemon_process.cc',
+            'host/daemon_process.h',
+            'host/daemon_process_win.cc',
             'host/sas_injector.h',
             'host/sas_injector_win.cc',
             'host/usage_stats_consent.h',
             'host/usage_stats_consent_win.cc',
-            'host/wts_console_monitor_win.h',
-            'host/wts_console_observer_win.h',
-            'host/wts_session_process_launcher_win.cc',
-            'host/wts_session_process_launcher_win.h',
-            '<(SHARED_INTERMEDIATE_DIR)/remoting/host_service_version.rc'
+            'host/win/host_service.cc',
+            'host/win/host_service.h',
+            'host/win/host_service.rc',
+            'host/win/host_service_resource.h',
+            'host/win/launch_process_with_token.cc',
+            'host/win/launch_process_with_token.h',
+            'host/win/wts_console_monitor.h',
+            'host/win/wts_console_observer.h',
+            'host/win/wts_session_process_launcher.cc',
+            'host/win/wts_session_process_launcher.h',
           ],
           'msvs_settings': {
             'VCLinkerTool': {
@@ -647,10 +659,10 @@
             ],
           },
           'sources': [
-            'host/elevated_controller.ver',
-            'host/host_service.ver',
             'host/plugin/host_plugin.ver',
             'host/remoting_me2me_host.ver',
+            'host/win/elevated_controller.ver',
+            'host/win/host_service.ver',
           ],
           'rules': [
             {
@@ -881,6 +893,57 @@
     },  # end of target 'remoting_client_plugin'
 
     {
+      'target_name': 'remoting_host_event_logger',
+      'type': 'static_library',
+      'variables': { 'enable_wexit_time_destructors': 1, },
+      'dependencies': [
+        'remoting_base',
+      ],
+      'sources': [
+        'host/host_event_logger.h',
+        'host/host_event_logger_posix.cc',
+        'host/host_event_logger_win.cc',
+      ],
+      'conditions': [
+        ['OS=="win"', {
+          'sources': [
+            'host/remoting_host_messages.mc',
+          ],
+          'output_dir': '<(SHARED_INTERMEDIATE_DIR)/remoting/host',
+          'include_dirs': [
+            '<(_output_dir)',
+          ],
+          'direct_dependent_settings': {
+            'include_dirs': [
+              '<(_output_dir)',
+            ],
+          },
+          # Rule to run the message compiler.
+          'rules': [
+            {
+              'rule_name': 'message_compiler',
+              'extension': 'mc',
+              'inputs': [ ],
+              'outputs': [
+                '<(_output_dir)/remoting_host_messages.h',
+                '<(_output_dir)/remoting_host_messages.rc',
+              ],
+              'msvs_cygwin_shell': 0,
+              'action': [
+                'mc.exe',
+                '-h', '<(_output_dir)',
+                '-r', '<(_output_dir)/.',
+                '<(RULE_INPUT_PATH)',
+              ],
+              'process_outputs_as_sources': 1,
+              'message': 'Running message compiler on <(RULE_INPUT_PATH).',
+            },
+          ],
+        }],
+      ],  # end of 'conditions'
+    },  # end of target 'remoting_host_event_logger'
+
+    {
       'target_name': 'remoting_host_plugin',
       'type': 'loadable_module',
       'variables': { 'enable_wexit_time_destructors': 1, },
@@ -889,6 +952,7 @@
       'dependencies': [
         'remoting_base',
         'remoting_host',
+        'remoting_host_event_logger',
         'remoting_jingle_glue',
         '../net/net.gyp:net',
         '../third_party/npapi/npapi.gyp:npapi',
@@ -957,9 +1021,9 @@
             '<(INTERMEDIATE_DIR)',
           ],
           'sources': [
+            '<(SHARED_INTERMEDIATE_DIR)/remoting/host_plugin_version.rc',
             'host/host_ui.rc',
             'host/plugin/host_plugin.def',
-            '<(SHARED_INTERMEDIATE_DIR)/remoting/host_plugin_version.rc'
           ],
         }],
       ],
@@ -1107,14 +1171,21 @@
         'base/encoder_vp8.h',
         'base/encoder_row_based.cc',
         'base/encoder_row_based.h',
-        'base/plugin_message_loop_proxy.cc',
-        'base/plugin_message_loop_proxy.h',
+        'base/plugin_thread_task_runner.cc',
+        'base/plugin_thread_task_runner.h',
         'base/rate_counter.cc',
         'base/rate_counter.h',
         'base/running_average.cc',
         'base/running_average.h',
+        'base/stoppable.cc',
+        'base/stoppable.h',
         'base/util.cc',
         'base/util.h',
+        # TODO(kxing): Seperate the audio and video codec files into a separate
+        # target.
+        'codec/audio_encoder.h',
+        'codec/audio_encoder_verbatim.cc',
+        'codec/audio_encoder_verbatim.h',
       ],
     },  # end of target 'remoting_base'
 
@@ -1130,6 +1201,7 @@
         '../crypto/crypto.gyp:crypto',
       ],
       'sources': [
+        'host/audio_capturer.cc',
         'host/audio_capturer.h',
         'host/audio_capturer_linux.cc',
         'host/audio_capturer_mac.cc',
@@ -1148,6 +1220,8 @@
         'host/clipboard_linux.cc',
         'host/clipboard_mac.mm',
         'host/clipboard_win.cc',
+        'host/composite_host_config.cc',
+        'host/composite_host_config.h',
         'host/constants.h',
         'host/constants_mac.cc',
         'host/constants_mac.h',
@@ -1158,8 +1232,6 @@
         'host/continue_window_win.cc',
         'host/desktop_environment.cc',
         'host/desktop_environment.h',
-        'host/desktop_win.cc',
-        'host/desktop_win.h',
         'host/differ.cc',
         'host/differ.h',
         'host/disconnect_window.h',
@@ -1171,10 +1243,10 @@
         'host/event_executor_linux.cc',
         'host/event_executor_mac.cc',
         'host/event_executor_win.cc',
-        'host/heartbeat_sender.cc',
-        'host/heartbeat_sender.h',
         'host/gaia_oauth_client.cc',
         'host/gaia_oauth_client.h',
+        'host/heartbeat_sender.cc',
+        'host/heartbeat_sender.h',
         'host/host_config.cc',
         'host/host_config.h',
         'host/host_key_pair.cc',
@@ -1225,8 +1297,6 @@
         'host/session_manager_factory.h',
         'host/signaling_connector.cc',
         'host/signaling_connector.h',
-        'host/scoped_thread_desktop_win.cc',
-        'host/scoped_thread_desktop_win.h',
         'host/ui_strings.cc',
         'host/ui_strings.h',
         'host/url_request_context.cc',
@@ -1245,6 +1315,10 @@
         'host/video_frame_capturer_win.cc',
         'host/vlog_net_log.cc',
         'host/vlog_net_log.h',
+        'host/win/desktop.cc',
+        'host/win/desktop.h',
+        'host/win/scoped_thread_desktop.cc',
+        'host/win/scoped_thread_desktop.h',
         'host/x_server_pixel_buffer.cc',
         'host/x_server_pixel_buffer.h',
       ],
@@ -1370,6 +1444,7 @@
         'remoting_base',
         'remoting_breakpad',
         'remoting_host',
+        'remoting_host_event_logger',
         'remoting_jingle_glue',
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
@@ -1379,7 +1454,6 @@
       'sources': [
         'host/branding.cc',
         'host/branding.h',
-        'host/host_event_logger.h',
         'host/sighup_listener_mac.cc',
         'host/sighup_listener_mac.h',
         'host/remoting_me2me_host.cc',
@@ -1387,11 +1461,6 @@
         'host/usage_stats_consent_win.cc',
       ],
       'conditions': [
-        ['os_posix==1', {
-          'sources': [
-            'host/host_event_logger_posix.cc',
-          ],
-        }],
         ['OS=="mac"', {
           'mac_bundle': 1,
           'conditions': [
@@ -1425,32 +1494,9 @@
             'remoting_version_resources',
           ],
           'sources': [
-            'host/host_event_logger_win.cc',
+            '<(SHARED_INTERMEDIATE_DIR)/remoting/host/remoting_host_messages.rc',
+            '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_me2me_host_version.rc',
             'host/host_ui.rc',
-            'host/remoting_host_messages.mc',
-            '<(SHARED_INTERMEDIATE_DIR)/remoting/remoting_me2me_host_version.rc'
-          ],
-          'include_dirs': [
-            '<(INTERMEDIATE_DIR)',
-          ],
-          # Rule to run the message compiler.
-          'rules': [
-            {
-              'rule_name': 'message_compiler',
-              'extension': 'mc',
-              'inputs': [ ],
-              'outputs': [
-                '<(INTERMEDIATE_DIR)/remoting_host_messages.h',
-                '<(INTERMEDIATE_DIR)/remoting_host_messages.rc',
-              ],
-              'msvs_cygwin_shell': 0,
-              'msvs_quote_cmd': 0,
-              'action': [
-                'mc.exe -h <(INTERMEDIATE_DIR) -r <(INTERMEDIATE_DIR) <(RULE_INPUT_PATH)',
-              ],
-              'process_outputs_as_sources': 1,
-              'message': 'Running message compiler on <(RULE_INPUT_PATH).',
-            },
           ],
           'link_settings': {
             'libraries': [
@@ -1512,18 +1558,10 @@
         'jingle_glue/javascript_signal_strategy.h',
         'jingle_glue/jingle_info_request.cc',
         'jingle_glue/jingle_info_request.h',
-        'jingle_glue/jingle_thread.cc',
-        'jingle_glue/jingle_thread.h',
         'jingle_glue/signal_strategy.h',
-        'jingle_glue/ssl_adapter.h',
-        'jingle_glue/ssl_adapter.cc',
-        'jingle_glue/ssl_socket_adapter.cc',
-        'jingle_glue/ssl_socket_adapter.h',
         'jingle_glue/xmpp_proxy.h',
         'jingle_glue/xmpp_signal_strategy.cc',
         'jingle_glue/xmpp_signal_strategy.h',
-        'jingle_glue/xmpp_socket_adapter.cc',
-        'jingle_glue/xmpp_socket_adapter.h',
       ],
     },  # end of target 'remoting_jingle_glue'
 
@@ -1741,11 +1779,11 @@
         'jingle_glue/fake_signal_strategy.cc',
         'jingle_glue/fake_signal_strategy.h',
         'jingle_glue/iq_sender_unittest.cc',
-        'jingle_glue/jingle_thread_unittest.cc',
         'jingle_glue/mock_objects.cc',
         'jingle_glue/mock_objects.h',
         'protocol/authenticator_test_base.cc',
         'protocol/authenticator_test_base.h',
+        'protocol/buffered_socket_writer_unittest.cc',
         'protocol/clipboard_echo_filter_unittest.cc',
         'protocol/connection_tester.cc',
         'protocol/connection_tester.h',

@@ -7,6 +7,7 @@
 #include "sync/sessions/sync_session_context.h"
 #include "sync/syncable/in_memory_directory_backing_store.h"
 #include "sync/syncable/on_disk_directory_backing_store.h"
+#include "sync/syncable/invalid_directory_backing_store.h"
 #include "sync/test/engine/fake_sync_scheduler.h"
 
 namespace syncer {
@@ -27,33 +28,42 @@ scoped_ptr<sessions::SyncSessionContext>
 TestInternalComponentsFactory::BuildContext(
     ServerConnectionManager* connection_manager,
     syncable::Directory* directory,
-    const ModelSafeRoutingInfo& routing_info,
     const std::vector<ModelSafeWorker*> workers,
     ExtensionsActivityMonitor* monitor,
     ThrottledDataTypeTracker* throttled_data_type_tracker,
     const std::vector<SyncEngineEventListener*>& listeners,
     sessions::DebugInfoGetter* debug_info_getter,
-    TrafficRecorder* traffic_recorder) {
+    TrafficRecorder* traffic_recorder,
+    bool keystore_encryption_enabled) {
 
   // Tests don't wire up listeners.
   std::vector<SyncEngineEventListener*> empty_listeners;
   return scoped_ptr<sessions::SyncSessionContext>(
-      new sessions::SyncSessionContext(connection_manager, directory,
-          routing_info, workers, monitor, throttled_data_type_tracker,
-           empty_listeners, debug_info_getter, traffic_recorder));
+      new sessions::SyncSessionContext(
+          connection_manager, directory, workers, monitor,
+          throttled_data_type_tracker, empty_listeners, debug_info_getter,
+          traffic_recorder,
+          keystore_encryption_enabled));
+
 }
 
 scoped_ptr<syncable::DirectoryBackingStore>
 TestInternalComponentsFactory::BuildDirectoryBackingStore(
       const std::string& dir_name, const FilePath& backing_filepath) {
-  if (storage_option_ == IN_MEMORY) {
-    return scoped_ptr<syncable::DirectoryBackingStore>(
-        new syncable::InMemoryDirectoryBackingStore(dir_name));
-  } else {
-    return scoped_ptr<syncable::DirectoryBackingStore>(
-        new syncable::OnDiskDirectoryBackingStore(dir_name,
-                                                  backing_filepath));
+  switch (storage_option_) {
+    case STORAGE_IN_MEMORY:
+      return scoped_ptr<syncable::DirectoryBackingStore>(
+          new syncable::InMemoryDirectoryBackingStore(dir_name));
+    case STORAGE_ON_DISK:
+      return scoped_ptr<syncable::DirectoryBackingStore>(
+          new syncable::OnDiskDirectoryBackingStore(dir_name,
+                                                    backing_filepath));
+    case STORAGE_INVALID:
+      return scoped_ptr<syncable::DirectoryBackingStore>(
+          new syncable::InvalidDirectoryBackingStore());
   }
+  NOTREACHED();
+  return scoped_ptr<syncable::DirectoryBackingStore>();
 }
 
 }  // namespace syncer

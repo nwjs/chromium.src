@@ -12,6 +12,7 @@
 #include "base/utf_string_conversions.h"
 #include "net/base/escape.h"
 #include "net/base/io_buffer.h"
+#include "net/base/load_flags.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_builder.h"
@@ -103,7 +104,7 @@ bool ServiceState::FromString(const std::string& json) {
   if (!data->GetAsDictionary(&services))
     return false;
 
-  base::DictionaryValue* cloud_print = NULL;
+  const base::DictionaryValue* cloud_print = NULL;
   if (!services->GetDictionary(kCloudPrintJsonName, &cloud_print))
     return false;
 
@@ -172,6 +173,10 @@ std::string ServiceState::LoginToGoogle(const std::string& service,
   post_body += "&service=" + net::EscapeUrlEncodedData(service, true);
 
   net::URLRequest request(url, &fetcher_delegate, context.get());
+  int load_flags = request.load_flags();
+  load_flags = load_flags | net::LOAD_DO_NOT_SEND_COOKIES;
+  load_flags = load_flags | net::LOAD_DO_NOT_SAVE_COOKIES;
+  request.set_load_flags(load_flags);
 
   request.AppendBytesToUpload(post_body.c_str(), post_body.size());
   request.SetExtraRequestHeaderByName(
@@ -208,4 +213,3 @@ bool ServiceState::Configure(const std::string& email,
   xmpp_auth_token_ = LoginToGoogle("chromiumsync", email_, password);
   return IsValid();
 }
-

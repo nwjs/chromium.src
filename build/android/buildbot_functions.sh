@@ -35,11 +35,11 @@ function bb_parse_args {
 }
 
 
-# Setup environment for Android build.
+# Setup environment for Android build.  Do not set ANDROID_SDK_ROOT so that
+# default version from $ROOT/src/third_party/android_tools/
 # Called from bb_baseline_setup.
 # Moved to top of file so it is easier to find.
 function bb_setup_environment {
-  export ANDROID_SDK_ROOT=/usr/local/google/android-sdk-linux
   export ANDROID_NDK_ROOT=/usr/local/google/android-ndk-r7
 }
 
@@ -254,11 +254,32 @@ function bb_run_tests {
   build/android/run_tests.py --xvfb --verbose
 }
 
-# Run simple content shell test on device.
-function bb_run_content_shell_test {
-  echo "@@@BUILD_STEP Run simple content shell test on actual hardware@@@"
-  content/shell/android/simple_content_shell_test.sh \
-    "${SRC_ROOT}"/out/Release/content_shell/ContentShell-debug.apk
+# Run instrumentation test.
+# Args:
+#   $1: TEST_APK.
+#   $2: EXTRA_FLAGS to be passed to run_instrumentation_tests.py.
+function bb_run_instrumentation_test {
+  local TEST_APK=${1}
+  local EXTRA_FLAGS=${2}
+  local APK_NAME=$(basename ${TEST_APK})
+  echo "@@@BUILD_STEP Android Instrumentation ${APK_NAME} ${EXTRA_FLAGS} "\
+       "on actual hardware@@@"
+  local INSTRUMENTATION_FLAGS="-vvv"
+  INSTRUMENTATION_FLAGS+=" --test-apk ${TEST_APK}"
+  INSTRUMENTATION_FLAGS+=" ${EXTRA_FLAGS}"
+  build/android/run_instrumentation_tests.py ${INSTRUMENTATION_FLAGS}
+}
+
+# Run content shell instrumentation test on device.
+function bb_run_content_shell_instrumentation_test {
+  build/android/adb_install_content_shell
+  local TEST_APK="content_shell_test/ContentShellTest-debug"
+  # Use -I to install the test apk only on the first run.
+  # TODO(bulach): remove the second once we have a Smoke test.
+  bb_run_instrumentation_test ${TEST_APK} "-I -A Smoke"
+  bb_run_instrumentation_test ${TEST_APK} "-I -A SmallTest"
+  bb_run_instrumentation_test ${TEST_APK} "-A MediumTest"
+  bb_run_instrumentation_test ${TEST_APK} "-A LargeTest"
 }
 
 # Zip and archive a build.
