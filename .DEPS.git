@@ -446,14 +446,5 @@ hooks = [
 ],
     'pattern':
          '.'
-},
-    {
-    'action':
-         [
-    'python',
-    'src/build/gyp_chromium'
-],
-    'pattern':
-         '.'
 }
 ]
