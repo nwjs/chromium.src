@@ -26,7 +26,7 @@ const char kUsePulseAudio[] = "use-pulseaudio";
 // Set number of threads to use for video decoding.
 const char kVideoThreads[] = "video-threads";
 
-// Disables browser-side audio mixer.
-const char kDisableAudioMixer[] = "disable-audio-mixer";
+// Enable browser-side audio mixer.
+const char kEnableAudioMixer[] = "enable-audio-mixer";
 
 }  // namespace switches
