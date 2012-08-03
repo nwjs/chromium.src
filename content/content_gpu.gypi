@@ -90,5 +90,11 @@
         },
       ],
     }],
+    ['OS=="win" and buildtype=="Official"', {
+      'sources': [
+        '../third_party/amd/AmdCfxPxExt.h',
+        '../third_party/amd/amd_videocard_info_win.cc',
+      ],
+    }],
   ],
 }
