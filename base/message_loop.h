@@ -39,7 +39,9 @@
 #endif
 #endif
 
+#if !defined(OS_MACOSX)
 #include "base/message_pump_uv.h"
+#endif
 
 namespace base {
 class Histogram;
@@ -667,6 +669,7 @@ class BASE_EXPORT MessageLoopForIO : public MessageLoop {
 COMPILE_ASSERT(sizeof(MessageLoop) == sizeof(MessageLoopForIO),
                MessageLoopForIO_should_not_have_extra_member_variables);
 
+#if !defined(OS_MACOSX)
 
 //-----------------------------------------------------------------------------
 // MessageLoopForUV extends MessageLoop with methods that are particular to a
@@ -701,5 +704,6 @@ class BASE_EXPORT MessageLoopForUV : public MessageLoop {
 COMPILE_ASSERT(sizeof(MessageLoop) == sizeof(MessageLoopForUV),
                MessageLoopForUV_should_not_have_extra_member_variables);
 
+#endif
 
 #endif  // BASE_MESSAGE_LOOP_H_
