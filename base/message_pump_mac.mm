@@ -12,7 +12,6 @@
 #include "base/run_loop.h"
 #include "base/time.h"
 #include "third_party/libuv/include/uv-private/ev.h"
-#include "third_party/node/src/node.h"
 
 #if !defined(OS_IOS)
 #import <AppKit/AppKit.h>
