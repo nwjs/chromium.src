@@ -42,7 +42,7 @@ CONTENT_EXPORT bool CollectDriverInfoD3D(const std::wstring& device_id,
 
 // Collect the DirectX Disagnostics information about the attached displays.
 bool GetDxDiagnostics(content::DxDiagNode* output);
-#endif  // OS_WIN
+#endif
 
 // All platforms have a GL version for collecting information
 CONTENT_EXPORT bool CollectGraphicsInfoGL(content::GPUInfo* gpu_info);
@@ -55,15 +55,6 @@ bool CollectVideoCardInfo(content::GPUInfo* gpu_info);
 
 // Each platform stores the driver version on the GL_VERSION string differently
 bool CollectDriverInfoGL(content::GPUInfo* gpu_info);
-
-// Advanced Micro Devices has interesting configurations on laptops were
-// there are two videocards that can alternatively a given process output.
-enum AMDVideoCardType {
-  UNKNOWN,
-  STANDALONE,
-  INTEGRATED,
-  SWITCHABLE
-};
 
 }  // namespace gpu_info_collector
 

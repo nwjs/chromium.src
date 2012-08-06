@@ -153,16 +153,6 @@ content::GpuPerformanceStats RetrieveGpuPerformanceStats() {
 
 namespace gpu_info_collector {
 
-#if !defined(OFFICIAL_BUILD)
-AMDVideoCardType GetAMDVideocardType() {
-  return UNKNOWN;
-}
-#else
-// This function has a real implementation for official builds that can
-// be found in src/third_party/amd.
-AMDVideoCardType GetAMDVideocardType();
-#endif
-
 bool CollectGraphicsInfo(content::GPUInfo* gpu_info) {
   TRACE_EVENT0("gpu", "CollectGraphicsInfo");
 
@@ -354,13 +344,12 @@ bool CollectDriverInfoD3D(const std::wstring& device_id,
             reinterpret_cast<LPBYTE>(value), &dwcb_data);
         if (result == ERROR_SUCCESS) {
           driver_vendor = WideToASCII(std::wstring(value));
-          if (driver_vendor == "Advanced Micro Devices, Inc." ||
-              driver_vendor == "ATI Technologies Inc.") {
-            // We are conservative and assume that in the absense of a clear
-            // signal the videocard is assumed to be switchable.
-            AMDVideoCardType amd_card_type = GetAMDVideocardType();
-            gpu_info->amd_switchable = (amd_card_type != STANDALONE);
-          }
+          // If it's an Intel GPU with a driver provided by AMD then it's
+          // probably AMD's Dynamic Switchable Graphics.
+          // TODO: detect only AMD switchable
+          gpu_info->amd_switchable =
+              driver_vendor == "Advanced Micro Devices, Inc." ||
+              driver_vendor == "ATI Technologies Inc.";
         }
 
         gpu_info->driver_vendor = driver_vendor;
