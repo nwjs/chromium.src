@@ -251,7 +251,7 @@ PnaclCoordinator::~PnaclCoordinator() {
   // will have been destroyed.  This will result in the cancellation of
   // translation_complete_callback_, so no notification will be delivered.
   if (translate_thread_.get() != NULL) {
-    translate_thread_->AbortSubprocesses();
+    translate_thread_->SetSubprocessesShouldDie();
   }
 }
 
@@ -444,8 +444,10 @@ void PnaclCoordinator::CachedFileDidOpen(int32_t pp_error) {
     ReportNonPpapiError("could not allocate translation thread.");
     return;
   }
-  // We also want to open the object file now so the
+  // In the streaming case we also want to open the object file now so the
   // translator can start writing to it during streaming translation.
+  // In the non-streaming case this can wait until the bitcode download is
+  // finished.
   obj_file_.reset(new TempFile(plugin_));
   pp::CompletionCallback obj_cb =
     callback_factory_.NewCallback(&PnaclCoordinator::ObjectFileDidOpen);
@@ -473,7 +475,7 @@ void PnaclCoordinator::BitcodeStreamDidFinish(int32_t pp_error) {
     translate_finish_error_ = pp_error;
     error_info_.SetReport(ERROR_UNKNOWN,
                           nacl::string("PnaclCoordinator: pexe load failed."));
-    translate_thread_->AbortSubprocesses();
+    translate_thread_->SetSubprocessesShouldDie();
   }
 }
 

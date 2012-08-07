@@ -13,8 +13,8 @@
 
 namespace plugin {
 
-PnaclTranslateThread::PnaclTranslateThread() : llc_subprocess_active_(false),
-                                               ld_subprocess_active_(false),
+PnaclTranslateThread::PnaclTranslateThread() : subprocesses_should_die_(false),
+                                               current_rev_interface_(NULL),
                                                done_(false),
                                                manifest_(NULL),
                                                ld_manifest_(NULL),
@@ -122,37 +122,28 @@ void WINAPI PnaclTranslateThread::DoTranslateThread(void* arg) {
 
 void PnaclTranslateThread::DoTranslate() {
   ErrorInfo error_info;
+  nacl::scoped_ptr<NaClSubprocess> llc_subprocess(
+      StartSubprocess(PnaclUrls::GetLlcUrl(), manifest_, &error_info));
+  if (llc_subprocess == NULL) {
+    TranslateFailed("Compile process could not be created: " +
+                    error_info.message());
+    return;
+  }
+  // Run LLC.
   SrpcParams params;
   nacl::DescWrapper* llc_out_file = obj_file_->get_wrapper();
+  PluginReverseInterface* llc_reverse =
+      llc_subprocess->service_runtime()->rev_interface();
+  llc_reverse->AddTempQuotaManagedFile(obj_file_->identifier());
+  RegisterReverseInterface(llc_reverse);
 
-  {
-    nacl::MutexLocker ml(&subprocess_mu_);
-    llc_subprocess_.reset(
-      StartSubprocess(PnaclUrls::GetLlcUrl(), manifest_, &error_info));
-    if (llc_subprocess_ == NULL) {
-      TranslateFailed("Compile process could not be created: " +
-                      error_info.message());
-      return;
-    }
-    llc_subprocess_active_ = true;
-    // Run LLC.
-    PluginReverseInterface* llc_reverse =
-        llc_subprocess_->service_runtime()->rev_interface();
-    llc_reverse->AddTempQuotaManagedFile(obj_file_->identifier());
-  }
-
-  if (!llc_subprocess_->InvokeSrpcMethod("StreamInit",
-                                         "h",
-                                         &params,
-                                         llc_out_file->desc())) {
-    if (llc_subprocess_->srpc_client()->GetLastError() ==
-        NACL_SRPC_RESULT_APP_ERROR) {
-      // The error message is only present if the error was returned from llc
-      TranslateFailed(nacl::string("Stream init failed: ") +
-                      nacl::string(params.outs()[0]->arrays.str));
-    } else {
-      TranslateFailed("Stream init internal error");
-    }
+  if (!llc_subprocess->InvokeSrpcMethod("StreamInit",
+                                        "h",
+                                        &params,
+                                        llc_out_file->desc())) {
+    // StreamInit returns an error message if the RPC fails.
+    TranslateFailed(nacl::string("Stream init failed: ") +
+                    nacl::string(params.outs()[0]->arrays.str));
     return;
   }
 
@@ -172,11 +163,11 @@ void PnaclTranslateThread::DoTranslate() {
       data_buffers_.pop_front();
       NaClXMutexUnlock(&cond_mu_);
       PLUGIN_PRINTF(("StreamChunk\n"));
-      if (!llc_subprocess_->InvokeSrpcMethod("StreamChunk",
-                                             "C",
-                                             &params,
-                                             &data[0],
-                                             data.size())) {
+      if (!llc_subprocess->InvokeSrpcMethod("StreamChunk",
+                                            "C",
+                                            &params,
+                                            &data[0],
+                                            data.size())) {
         TranslateFailed("Compile stream chunk failed.");
         return;
       }
@@ -184,20 +175,18 @@ void PnaclTranslateThread::DoTranslate() {
     } else {
       NaClXMutexUnlock(&cond_mu_);
     }
+    if (SubprocessesShouldDie()) {
+      TranslateFailed("Stopped by coordinator.");
+      return;
+    }
   }
   PLUGIN_PRINTF(("PnaclTranslateThread done with chunks\n"));
   // Finish llc.
-  if(!llc_subprocess_->InvokeSrpcMethod("StreamEnd",
+  if(!llc_subprocess->InvokeSrpcMethod("StreamEnd",
                                        "",
                                        &params)) {
     PLUGIN_PRINTF(("PnaclTranslateThread StreamEnd failed\n"));
-    if (llc_subprocess_->srpc_client()->GetLastError() ==
-        NACL_SRPC_RESULT_APP_ERROR) {
-      // The error string is only present if the error was sent back from llc
-      TranslateFailed(params.outs()[3]->arrays.str);
-    } else {
-      TranslateFailed("Compile StreamEnd internal error");
-    }
+    TranslateFailed(params.outs()[3]->arrays.str);
     return;
   }
   // LLC returns values that are used to determine how linking is done.
@@ -210,10 +199,12 @@ void PnaclTranslateThread::DoTranslate() {
                  lib_dependencies.c_str()));
 
   // Shut down the llc subprocess.
-  NaClXMutexLock(&subprocess_mu_);
-  llc_subprocess_active_ = false;
-  llc_subprocess_.reset(NULL);
-  NaClXMutexUnlock(&subprocess_mu_);
+  RegisterReverseInterface(NULL);
+  llc_subprocess.reset(NULL);
+  if (SubprocessesShouldDie()) {
+    TranslateFailed("stopped by coordinator.");
+    return;
+  }
 
   if(!RunLdSubprocess(is_shared_library, soname, lib_dependencies)) {
     return;
@@ -227,7 +218,16 @@ bool PnaclTranslateThread::RunLdSubprocess(int is_shared_library,
                                            const nacl::string& lib_dependencies
                                            ) {
   ErrorInfo error_info;
+  nacl::scoped_ptr<NaClSubprocess> ld_subprocess(
+      StartSubprocess(PnaclUrls::GetLdUrl(), ld_manifest_, &error_info));
+  if (ld_subprocess == NULL) {
+    TranslateFailed("Link process could not be created: " +
+                    error_info.message());
+    return false;
+  }
+  // Run LD.
   SrpcParams params;
+
   // Reset object file for reading first.
   if (!obj_file_->Reset()) {
     TranslateFailed("Link process could not reset object file");
@@ -235,25 +235,12 @@ bool PnaclTranslateThread::RunLdSubprocess(int is_shared_library,
   }
   nacl::DescWrapper* ld_in_file = obj_file_->get_wrapper();
   nacl::DescWrapper* ld_out_file = nexe_file_->write_wrapper();
-
-  {
-    // Create LD process
-    nacl::MutexLocker ml(&subprocess_mu_);
-    ld_subprocess_.reset(
-      StartSubprocess(PnaclUrls::GetLdUrl(), ld_manifest_, &error_info));
-    if (ld_subprocess_ == NULL) {
-      TranslateFailed("Link process could not be created: " +
-                      error_info.message());
-      return false;
-    }
-    ld_subprocess_active_ = true;
-    PluginReverseInterface* ld_reverse =
-        ld_subprocess_->service_runtime()->rev_interface();
-    ld_reverse->AddQuotaManagedFile(nexe_file_->identifier(),
-                                    nexe_file_->write_file_io());
-  }
-  // Run LD.
-  if (!ld_subprocess_->InvokeSrpcMethod("RunWithDefaultCommandLine",
+  PluginReverseInterface* ld_reverse =
+      ld_subprocess->service_runtime()->rev_interface();
+  ld_reverse->AddQuotaManagedFile(nexe_file_->identifier(),
+                                  nexe_file_->write_file_io());
+  RegisterReverseInterface(ld_reverse);
+  if (!ld_subprocess->InvokeSrpcMethod("RunWithDefaultCommandLine",
                                        "hhiss",
                                        &params,
                                        ld_in_file->desc(),
@@ -267,10 +254,12 @@ bool PnaclTranslateThread::RunLdSubprocess(int is_shared_library,
   PLUGIN_PRINTF(("PnaclCoordinator: link (translator=%p) succeeded\n",
                  this));
   // Shut down the ld subprocess.
-  NaClXMutexLock(&subprocess_mu_);
-  ld_subprocess_active_ = false;
-  ld_subprocess_.reset(NULL);
-  NaClXMutexUnlock(&subprocess_mu_);
+  RegisterReverseInterface(NULL);
+  ld_subprocess.reset(NULL);
+  if (SubprocessesShouldDie()) {
+    TranslateFailed("stopped by coordinator.");
+    return false;
+  }
   return true;
 }
 
@@ -288,32 +277,43 @@ void PnaclTranslateThread::TranslateFailed(const nacl::string& error_string) {
   core->CallOnMainThread(0, report_translate_finished_, PP_ERROR_FAILED);
 }
 
-void PnaclTranslateThread::AbortSubprocesses() {
-  PLUGIN_PRINTF(("PnaclTranslateThread::AbortSubprocesses\n"));
+// This synchronization method (using the pointer directly in the
+// translation thread, setting a copy here, and calling shutdown on the
+// main thread) is safe only because only the translation thread sets
+// the copy, and the shutdown method is thread-safe. This method must be
+// called on the translation thread before any RPCs are called, and called
+// again with NULL before the object is destroyed.
+void PnaclTranslateThread::RegisterReverseInterface(
+    PluginReverseInterface *iface) {
+  nacl::MutexLocker ml(&subprocess_mu_);
+  current_rev_interface_ = iface;
+}
+
+
+bool PnaclTranslateThread::SubprocessesShouldDie() {
+  nacl::MutexLocker ml(&subprocess_mu_);
+  return subprocesses_should_die_;
+}
+
+void PnaclTranslateThread::SetSubprocessesShouldDie() {
+  PLUGIN_PRINTF(("PnaclTranslateThread::SetSubprocessesShouldDie\n"));
   NaClXMutexLock(&subprocess_mu_);
-  if (llc_subprocess_ != NULL && llc_subprocess_active_) {
-    llc_subprocess_->service_runtime()->Shutdown();
-    llc_subprocess_active_ = false;
-  }
-  if (ld_subprocess_ != NULL && ld_subprocess_active_) {
-    ld_subprocess_->service_runtime()->Shutdown();
-    ld_subprocess_active_ = false;
+  subprocesses_should_die_ = true;
+  if (current_rev_interface_) {
+    current_rev_interface_->ShutDown();
+    current_rev_interface_ = NULL;
   }
   NaClXMutexUnlock(&subprocess_mu_);
   nacl::MutexLocker ml(&cond_mu_);
   done_ = true;
-  // Free all buffered bitcode chunks
-  data_buffers_.clear();
   NaClXCondVarSignal(&buffer_cond_);
 }
 
 PnaclTranslateThread::~PnaclTranslateThread() {
   PLUGIN_PRINTF(("~PnaclTranslateThread (translate_thread=%p)\n", this));
-  AbortSubprocesses();
+  SetSubprocessesShouldDie();
   NaClThreadJoin(translate_thread_.get());
   PLUGIN_PRINTF(("~PnaclTranslateThread joined\n"));
-  NaClCondVarDtor(&buffer_cond_);
-  NaClMutexDtor(&cond_mu_);
   NaClMutexDtor(&subprocess_mu_);
 }
 
