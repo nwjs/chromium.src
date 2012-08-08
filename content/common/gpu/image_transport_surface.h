@@ -128,6 +128,7 @@ class ImageTransportHelper : public IPC::Channel::Listener {
   void Suspend();
 
   GpuChannelManager* manager() const { return manager_; }
+  GpuCommandBufferStub* stub() const { return stub_.get(); }
 
  private:
   gpu::GpuScheduler* Scheduler();

@@ -75,8 +75,6 @@ TextureImageTransportSurface::TextureImageTransportSurface(
                                          manager,
                                          stub,
                                          gfx::kNullPluginWindow));
-
-  stub->AddDestructionObserver(this);
 }
 
 TextureImageTransportSurface::~TextureImageTransportSurface() {
@@ -162,9 +160,13 @@ bool TextureImageTransportSurface::OnMakeCurrent(gfx::GLContext* context) {
     GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
       DLOG(ERROR) << "Framebuffer incomplete.";
+      glDeleteFramebuffersEXT(1, &fbo_id_);
+      fbo_id_ = 0;
       return false;
     }
 #endif
+    DCHECK(helper_->stub());
+    helper_->stub()->AddDestructionObserver(this);
   }
 
   return true;
@@ -216,6 +218,7 @@ void TextureImageTransportSurface::OnWillDestroyStub(
     ReleaseParentStub();
     helper_->SetPreemptByCounter(NULL);
   } else {
+    DCHECK(stub == helper_->stub());
     stub->RemoveDestructionObserver(this);
 
     // We are losing the stub owning us, this is our last chance to clean up the
