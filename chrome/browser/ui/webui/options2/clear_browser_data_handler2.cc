@@ -143,7 +143,7 @@ void ClearBrowserDataHandler::HandleClearBrowserData(const ListValue* value) {
     int period_selected = prefs->GetInteger(prefs::kDeleteTimePeriod);
     remover_ = new BrowsingDataRemover(profile,
         static_cast<BrowsingDataRemover::TimePeriod>(period_selected),
-        base::Time());
+        base::Time::Now());
     remover_->AddObserver(this);
     remover_->Remove(remove_mask, BrowsingDataHelper::UNPROTECTED_WEB);
   }
@@ -162,7 +162,7 @@ void ClearBrowserDataHandler::ClearHostedAppData() {
   remover_ = new BrowsingDataRemover(
       profile,
       static_cast<BrowsingDataRemover::TimePeriod>(period_selected),
-      base::Time());
+      base::Time::Now());
   remover_->AddObserver(this);
   remover_->Remove(BrowsingDataRemover::REMOVE_SITE_DATA,
                    BrowsingDataHelper::PROTECTED_WEB);

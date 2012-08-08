@@ -126,6 +126,11 @@ BrowsingDataRemover::BrowsingDataRemover(Profile* profile,
       remove_origin_(GURL()),
       origin_set_mask_(0) {
   DCHECK(profile);
+  // crbug.com/140910: Many places were calling this with base::Time() as
+  // delete_end, even though they should've used base::Time::Now(). Work around
+  // it here. New code should use base::Time::Now().
+  if (delete_end_ == base::Time())
+    delete_end_ = base::Time::Now();
 }
 
 BrowsingDataRemover::BrowsingDataRemover(Profile* profile,
@@ -156,6 +161,11 @@ BrowsingDataRemover::BrowsingDataRemover(Profile* profile,
       remove_origin_(GURL()),
       origin_set_mask_(0) {
   DCHECK(profile);
+  // crbug.com/140910: Many places were calling this with base::Time() as
+  // delete_end, even though they should've used base::Time::Now(). Work around
+  // it here. New code should use base::Time::Now().
+  if (delete_end_ == base::Time())
+    delete_end_ = base::Time::Now();
 }
 
 BrowsingDataRemover::~BrowsingDataRemover() {
