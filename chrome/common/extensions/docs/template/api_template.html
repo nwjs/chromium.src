@@ -1,3 +1,6 @@
+  <link href="../css/ApiRefStyles.css" rel="stylesheet" type="text/css">
+  <link href="../css/prettify.css" rel="stylesheet" type="text/css">
+  <link href="../css/shared.css" rel="stylesheet" type="text/css">
   <div id="devModeWarning" class="displayModeWarning">
     You are viewing extension docs in chrome via the 'file:' scheme: are you expecting to see local changes when you refresh? You'll need run chrome with --allow-file-access-from-files.
   </div>
@@ -106,7 +109,7 @@
         <div id="conditionAndActionTemplate">
           <dt>
             <a jsvalues=".href: typeModule[$this].namespace + '.html#type-' + $this"
-               jscontent="$this">condition name</a>
+               jscontent="getPrettyTypeId($this)">condition name</a>
           </dt>
           <dd class="todo" jsdisplay="!typeModule[$this].description">
             Undocumented.
@@ -163,7 +166,7 @@
             <a href="#types">Types</a>
             <ol>
               <li jsselect="filterDocumented(types).sort(sortByName)">
-                <a jscontent="id"
+                <a jscontent="getPrettyTypeId(id)"
                    jsvalues=".href:'#type-' + id"
                    href="#id-anchor">id</a>
                 <ol jsvalues="$type:id">
@@ -185,7 +188,7 @@
     <table id="header" width="100%" cellspacing="0" border="0">
       <tr>
         <td valign="middle"
-          ><a href="http://code.google.com/"><img src="images/code_labs_logo.gif" height="43" width="161" alt="Google Code Labs"
+          ><a href="/"><img src="images/chrome_logo.gif" alt="Google Chrome Extensions"
             style="border:0; margin:0;"
         ></a></td>
         <td valign="middle" width="100%" style="padding-left:0.6em;">
@@ -195,7 +198,7 @@
               <input type="hidden" name="ie" value="UTF-8" />
               <input id="gsc-search-input" type="text" name="q" value="" size="55" />
               <button class="gsc-search-button" type="submit" name="sa">
-                <img class="gsc-search-button-lens" src="../images/search.png" alt="Search">
+                <img class="gsc-search-button-lens" src="images/search.png" alt="Search">
               </button>
               <br>
               <span class="greytext">e.g. "page action" or "tabs"</span>
@@ -443,11 +446,11 @@
                 </dl>
 
                 <!-- CALLBACK -->
-                <div jsdisplay="hasCallback(parameters)">
+                <div jsdisplay="hasFullyDefinedCallback(parameters)">
                   <div jsselect="getCallbackParameters(parameters)">
                   <h4>Callback function</h4>
                   <p jsdisplay="!$this.optional">
-                    The callback <em>parameter</em> should specify a function
+                    The <em>callback</em> parameter should specify a function
                     that looks like this:
                   </p>
                   <p jsdisplay="$this.optional">
