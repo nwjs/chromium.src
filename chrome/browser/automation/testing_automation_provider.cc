@@ -3763,7 +3763,7 @@ void TestingAutomationProvider::ClearBrowsingData(
   }
 
   BrowsingDataRemover* remover = new BrowsingDataRemover(
-      profile(), string_to_time_period[time_period], base::Time());
+      profile(), string_to_time_period[time_period], base::Time::Now());
 
   remover->AddObserver(
       new AutomationProviderBrowsingDataObserver(this, reply_message));
