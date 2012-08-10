@@ -97,6 +97,9 @@ const char kDocsListScope[] = "https://docs.google.com/feeds/";
 const char kSpreadsheetsScope[] = "https://spreadsheets.google.com/feeds/";
 const char kUserContentScope[] = "https://docs.googleusercontent.com/";
 
+// OAuth scope for Drive API.
+const char kDriveAppsScope[] = "https://www.googleapis.com/auth/drive.apps";
+
 // Adds additional parameters for API version, output content type and to show
 // folders in the feed are added to document feed URLs.
 GURL AddStandardUrlParams(const GURL& url) {
@@ -182,6 +185,8 @@ void AuthOperation::Start() {
   scopes.push_back(kDocsListScope);
   scopes.push_back(kSpreadsheetsScope);
   scopes.push_back(kUserContentScope);
+  // Drive App scope is required for even WAPI v3 apps access.
+  scopes.push_back(kDriveAppsScope);
   oauth2_access_token_fetcher_.reset(new OAuth2AccessTokenFetcher(
       this, g_browser_process->system_request_context()));
   NotifyStart();
