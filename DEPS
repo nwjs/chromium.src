@@ -286,7 +286,7 @@ deps = {
     (Var("googlecode_url") % "mozc") + "/trunk/src/chrome/chromeos/renderer@83",
 
   "src/third_party/smhasher/src":
-    (Var("googlecode_url") % "smhasher") + "/trunk@146",
+    (Var("googlecode_url") % "smhasher") + "/trunk@136",
 
   "src/third_party/libphonenumber/src/phonenumbers":
      (Var("googlecode_url") % "libphonenumber") +
