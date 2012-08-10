@@ -4,6 +4,7 @@
 
 #include "ash/system/status_area_widget.h"
 
+#include "ash/ash_switches.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
@@ -14,6 +15,7 @@
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/system_tray_delegate.h"
 #include "ash/system/web_notification/web_notification_tray.h"
+#include "base/command_line.h"
 #include "base/i18n/time_formatting.h"
 #include "base/utf_string_conversions.h"
 #include "ui/aura/window.h"
@@ -297,10 +299,12 @@ StatusAreaWidget::~StatusAreaWidget() {
 }
 
 void StatusAreaWidget::CreateTrayViews(ShellDelegate* shell_delegate) {
-  AddWebNotificationTray();
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAshNotify))
+    AddWebNotificationTray();
   AddSystemTray(shell_delegate);
   // SetBorder() must be called after all trays have been created.
-  web_notification_tray_->SetBorder();
+  if (web_notification_tray_)
+    web_notification_tray_->SetBorder();
   system_tray_->SetBorder();
 }
 
