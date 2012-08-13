@@ -7,11 +7,12 @@
 #import <Foundation/Foundation.h>
 
 #include <limits>
+#include <stdio.h>
 
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
-#include "third_party/libuv/include/uv-private/ev.h"
+#include "third_party/libuv/include/uv.h"
 
 #if !defined(OS_IOS)
 #import <AppKit/AppKit.h>
@@ -30,21 +31,6 @@ const CFTimeInterval kCFTimeIntervalMax =
 bool not_using_crapp = false;
 
 }  // namespace
-
-static void PumpNode() {
-  ev_now_update(EV_DEFAULT_UC); // Bring the clock forward since the last ev_loop().
-  ev_loop(EV_DEFAULT_UC_ EVLOOP_NONBLOCK);
-  while(ev_backend_changecount(EV_DEFAULT_UC) != 0) {
-    ev_loop(EV_DEFAULT_UC_ EVLOOP_NONBLOCK);
-  }
-}
-
-static void KqueueCallback(CFFileDescriptorRef backend_cffd,
-                           CFOptionFlags callBackTypes,
-                           void* info) {
-  PumpNode();
-  CFFileDescriptorEnableCallBacks(backend_cffd, kCFFileDescriptorReadCallBack);
-}
 
 namespace base {
 
@@ -104,25 +90,6 @@ MessagePumpCFRunLoopBase::MessagePumpCFRunLoopBase()
                                             2,     // priority
                                             &source_context);
   CFRunLoopAddSource(run_loop_, idle_work_source_, kCFRunLoopCommonModes);
-
-  int backend_fd = ev_backend_fd(EV_DEFAULT);
-
-  CFFileDescriptorRef backend_cffd =
-      CFFileDescriptorCreate(NULL, backend_fd, true, &KqueueCallback, NULL);
-  CFRunLoopSourceRef backend_rlsr =
-      CFFileDescriptorCreateRunLoopSource(NULL, backend_cffd, 0);
-  CFRunLoopAddSource(run_loop_,
-                     backend_rlsr,
-                     kCFRunLoopDefaultMode);
-  CFRelease(backend_rlsr);
-  CFFileDescriptorEnableCallBacks(backend_cffd, kCFFileDescriptorReadCallBack);
-
-
-  // source_context.perform = RunUVWorkSource;
-  // uv_work_source_ = CFRunLoopSourceCreate(NULL,  // allocator
-                                          // 1,     // priority
-                                          // &source_context);
-  // CFRunLoopAddSource(run_loop_, uv_work_source_, kCFRunLoopCommonModes);
 
   source_context.perform = RunNestingDeferredWorkSource;
   nesting_deferred_work_source_ = CFRunLoopSourceCreate(NULL,  // allocator
@@ -608,33 +575,17 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     running_own_loop_ = false;
     // NSApplication manages autorelease pools itself when run this way.
     [NSApp run];
-  } else if (for_node_) {
-    running_own_loop_ = true;
-    // NSDate* distant_future = [NSDate distantFuture];
-    while (keep_running_) {
-      MessagePumpScopedAutoreleasePool autorelease_pool(this);
-      PumpNode();
-      double next_waittime = ev_next_waittime();
-      next_waittime = 0.01;
-      NSDate* next_date = [NSDate dateWithTimeIntervalSinceNow:next_waittime];
-      // printf("Running a loop iteration with timeout %f\n", next_waittime);
-      NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                          // untilDate:distant_future
-                                          untilDate:next_date
-                                             inMode:NSDefaultRunLoopMode
-                                            dequeue:YES];
-      if (event) {
-        [NSApp sendEvent:event];
-      }
-    }
-    keep_running_ = true;
   } else {
     running_own_loop_ = true;
-    NSDate* distant_future = [NSDate distantFuture];
     while (keep_running_) {
+      if (for_node_) {
+        uv_run_once(uv_default_loop());
+      }
+
       MessagePumpScopedAutoreleasePool autorelease_pool(this);
+      NSDate* short_then = [NSDate dateWithTimeIntervalSinceNow:0.03];
       NSEvent* event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                          untilDate:distant_future
+                                          untilDate:short_then
                                              inMode:NSDefaultRunLoopMode
                                             dequeue:YES];
       if (event) {
