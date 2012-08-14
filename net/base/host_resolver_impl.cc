@@ -1602,7 +1602,6 @@ HostResolverImpl::HostResolverImpl(
   NetworkChangeNotifier::AddIPAddressObserver(this);
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_OPENBSD) && \
     !defined(OS_ANDROID)
-  NetworkChangeNotifier::AddDNSObserver(this);
   EnsureDnsReloaderInit();
 #endif
 
@@ -1620,7 +1619,6 @@ HostResolverImpl::~HostResolverImpl() {
   STLDeleteValues(&jobs_);
 
   NetworkChangeNotifier::RemoveIPAddressObserver(this);
-  NetworkChangeNotifier::RemoveDNSObserver(this);
 }
 
 void HostResolverImpl::SetMaxQueuedJobs(size_t value) {
@@ -1822,8 +1820,46 @@ bool HostResolverImpl::ServeFromCache(const Key& key,
   if (!info.allow_cached_response() || !cache_.get())
     return false;
 
-  const HostCache::Entry* cache_entry = cache_->Lookup(
-      key, base::TimeTicks::Now());
+  base::TimeTicks current_time = base::TimeTicks::Now();
+  const HostCache::Entry* cache_entry = cache_->Lookup(key, current_time);
+
+  {
+    bool found = cache_entry != NULL;
+    bool ipv4 = key.address_family == ADDRESS_FAMILY_IPV4;
+    // If we couldn't find the desired address family, check to see if the
+    // other family is in the cache, which indicates waste, and we should fix
+    // crbug.com/139811.
+    bool found_other_family = false;
+    if (!found && default_address_family_ == ADDRESS_FAMILY_UNSPECIFIED) {
+      Key other_family_key = key;
+      other_family_key.address_family = ipv4 ?
+          ADDRESS_FAMILY_UNSPECIFIED : ADDRESS_FAMILY_IPV4;
+      found_other_family =
+          cache_->Lookup(other_family_key, current_time) != NULL;
+    }
+    enum {  // Used in HISTOGRAM_ENUMERATION.
+      CACHE_IPV4_ONLY_FOUND,
+      CACHE_IPV4_ONLY_MISS,
+      CACHE_FOUND_IPV4,
+      CACHE_FOUND_UNSPEC,
+      CACHE_WASTE_IPV4,
+      CACHE_WASTE_UNSPEC,
+      CACHE_MISS_IPV4,
+      CACHE_MISS_UNSPEC,
+      CACHE_MAX,  // Bounding value.
+    } category = CACHE_MAX;
+    if (default_address_family_ != ADDRESS_FAMILY_UNSPECIFIED) {
+      category = found ? CACHE_IPV4_ONLY_FOUND : CACHE_IPV4_ONLY_MISS;
+    } else if (found) {
+      category = ipv4 ? CACHE_FOUND_IPV4 : CACHE_FOUND_UNSPEC;
+    } else if (found_other_family) {
+      category = ipv4 ? CACHE_WASTE_IPV4 : CACHE_WASTE_UNSPEC;
+    } else {
+      category = ipv4 ? CACHE_MISS_IPV4 : CACHE_MISS_UNSPEC;
+    }
+    UMA_HISTOGRAM_ENUMERATION("DNS.ResolveCacheCategory", category, CACHE_MAX);
+  }
+
   if (!cache_entry)
     return false;
 
@@ -1983,25 +2019,6 @@ void HostResolverImpl::OnIPAddressChanged() {
   // |this| may be deleted inside AbortAllInProgressJobs().
 }
 
-void HostResolverImpl::OnDNSChanged(unsigned detail) {
-  // Ignore signals about watches.
-  const unsigned kIgnoredDetail =
-      NetworkChangeNotifier::CHANGE_DNS_WATCH_STARTED |
-      NetworkChangeNotifier::CHANGE_DNS_WATCH_FAILED;
-  if ((detail & ~kIgnoredDetail) == 0)
-    return;
-  // If the DNS server has changed, existing cached info could be wrong so we
-  // have to drop our internal cache :( Note that OS level DNS caches, such
-  // as NSCD's cache should be dropped automatically by the OS when
-  // resolv.conf changes so we don't need to do anything to clear that cache.
-  if (cache_.get())
-    cache_->clear();
-  // Existing jobs will have been sent to the original server so they need to
-  // be aborted.
-  AbortAllInProgressJobs();
-  // |this| may be deleted inside AbortAllInProgressJobs().
-}
-
 void HostResolverImpl::OnDnsConfigChanged(const DnsConfig& dns_config) {
   if (net_log_) {
     net_log_->AddGlobalEntry(
@@ -2009,21 +2026,31 @@ void HostResolverImpl::OnDnsConfigChanged(const DnsConfig& dns_config) {
         base::Bind(&NetLogDnsConfigCallback, &dns_config));
   }
 
-  // TODO(szym): Remove once http://crbug.com/125599 is resolved.
+  // TODO(szym): Remove once http://crbug.com/137914 is resolved.
   received_dns_config_ = dns_config.IsValid();
 
   // Life check to bail once |this| is deleted.
   base::WeakPtr<HostResolverImpl> self = AsWeakPtr();
 
-  if (dns_client_.get()) {
-    // We want a new factory in place, before we Abort running Jobs, so that the
-    // newly started jobs use the new factory.
+  // We want a new DnsSession in place, before we Abort running Jobs, so that
+  // the newly started jobs use the new config.
+  if (dns_client_.get())
     dns_client_->SetConfig(dns_config);
-    OnDNSChanged(NetworkChangeNotifier::CHANGE_DNS_SETTINGS);
-    // |this| may be deleted inside OnDNSChanged().
-    if (self)
-      TryServingAllJobsFromHosts();
-  }
+
+  // If the DNS server has changed, existing cached info could be wrong so we
+  // have to drop our internal cache :( Note that OS level DNS caches, such
+  // as NSCD's cache should be dropped automatically by the OS when
+  // resolv.conf changes so we don't need to do anything to clear that cache.
+  if (cache_.get())
+    cache_->clear();
+
+  // Existing jobs will have been sent to the original server so they need to
+  // be aborted.
+  AbortAllInProgressJobs();
+
+  // |this| may be deleted inside AbortAllInProgressJobs().
+  if (self)
+    TryServingAllJobsFromHosts();
 }
 
 bool HostResolverImpl::HaveDnsConfig() const {

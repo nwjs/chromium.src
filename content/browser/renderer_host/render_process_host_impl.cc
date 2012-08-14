@@ -522,9 +522,6 @@ void RenderProcessHostImpl::CreateMessageFilters() {
       new RendererURLRequestContextSelector(browser_context, GetID()));
 
   channel_->AddFilter(resource_message_filter);
-#if !defined(OS_ANDROID)
-  // TODO(dtrainor, klobag): Enable this when BrowserMainLoop gets
-  // included in Android builds.  Tracked via 115941.
   media::AudioManager* audio_manager = BrowserMainLoop::GetAudioManager();
   media_stream::MediaStreamManager* media_stream_manager =
       BrowserMainLoop::GetMediaStreamManager();
@@ -532,7 +529,6 @@ void RenderProcessHostImpl::CreateMessageFilters() {
                                                  media_stream_manager));
   channel_->AddFilter(new AudioRendererHost(audio_manager, media_observer));
   channel_->AddFilter(new VideoCaptureHost());
-#endif
   channel_->AddFilter(new AppCacheDispatcherHost(
       static_cast<ChromeAppCacheService*>(
           BrowserContext::GetAppCacheService(browser_context)),
@@ -756,6 +752,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kDisableWebSockets,
     switches::kDomAutomationController,
     switches::kEnableAccessibilityLogging,
+    switches::kEnableCssExclusions,
     switches::kEnableDCHECK,
     switches::kEnableEncryptedMedia,
     switches::kEnableFixedLayout,
@@ -797,7 +794,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
 #endif  // GOOGLE_CHROME_BUILD
     switches::kInProcessWebGL,
     switches::kJavaScriptFlags,
-    switches::kLoad2xResources,
     switches::kLoggingLevel,
     switches::kOldCheckboxStyle,
     switches::kNoReferrers,

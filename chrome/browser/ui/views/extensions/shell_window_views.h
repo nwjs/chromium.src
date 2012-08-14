@@ -6,14 +6,15 @@
 #define CHROME_BROWSER_UI_VIEWS_EXTENSIONS_SHELL_WINDOW_VIEWS_H_
 
 #include "chrome/browser/ui/extensions/shell_window.h"
+#include "third_party/skia/include/core/SkRegion.h"
 #include "ui/gfx/rect.h"
-#include "ui/gfx/scoped_sk_region.h"
 #include "ui/views/widget/widget_delegate.h"
 
 class Profile;
 
 namespace extensions {
 class Extension;
+struct DraggableRegion;
 }
 
 namespace views {
@@ -27,6 +28,9 @@ class ShellWindowViews : public ShellWindow,
                    const extensions::Extension* extension,
                    const GURL& url,
                    const CreateParams& params);
+
+  bool frameless() const { return frameless_; }
+  SkRegion* draggable_region() { return draggable_region_.get(); }
 
   // BaseWindow implementation.
   virtual bool IsActive() const OVERRIDE;
@@ -45,7 +49,6 @@ class ShellWindowViews : public ShellWindow,
   virtual void Minimize() OVERRIDE;
   virtual void Restore() OVERRIDE;
   virtual void SetBounds(const gfx::Rect& bounds) OVERRIDE;
-  virtual void SetDraggableRegion(SkRegion* region) OVERRIDE;
   virtual void FlashFrame(bool flash) OVERRIDE;
   virtual bool IsAlwaysOnTop() const OVERRIDE;
 
@@ -70,15 +73,17 @@ class ShellWindowViews : public ShellWindow,
   virtual gfx::Size GetMaximumSize() OVERRIDE;
   virtual void OnFocus() OVERRIDE;
 
-  // ShellWindow implementation.
-  virtual void UpdateWindowTitle() OVERRIDE;
-  virtual void SetFullscreen(bool fullscreen) OVERRIDE;
-  virtual bool IsFullscreenOrPending() const OVERRIDE;
-
  private:
   friend class ShellWindowFrameView;
 
   virtual ~ShellWindowViews();
+
+  // ShellWindow implementation.
+  virtual void UpdateWindowTitle() OVERRIDE;
+  virtual void SetFullscreen(bool fullscreen) OVERRIDE;
+  virtual bool IsFullscreenOrPending() const OVERRIDE;
+  virtual void UpdateDraggableRegions(
+      const std::vector<extensions::DraggableRegion>& regions) OVERRIDE;
 
   void OnViewWasResized();
 
@@ -86,9 +91,9 @@ class ShellWindowViews : public ShellWindow,
   views::Widget* window_;
   bool is_fullscreen_;
 
-  gfx::ScopedSkRegion caption_region_;
+  scoped_ptr<SkRegion> draggable_region_;
 
-  bool use_custom_frame_;
+  bool frameless_;
   gfx::Size minimum_size_;
   gfx::Size maximum_size_;
 

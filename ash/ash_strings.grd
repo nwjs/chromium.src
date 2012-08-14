@@ -196,10 +196,6 @@ This file contains the strings for ash.
         Set wallpaper...
       </message>
 
-      <message name="IDS_FRAME_MAXIMIZE_BUTTON_TOOLTIP" desc="Tooltip for the maximize/restore button in window frames in aura">
-        Pull down to minimize, left or right to tile
-      </message>
-
       <message name="IDS_ASH_KEYBOARD_OVERLAY_TITLE" desc="The title of the keyboard overlay.">
         Keyboard Overlay
       </message>
@@ -241,6 +237,12 @@ Press Ctrl+Alt+Z to cancel.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_PROXY_SETTINGS" desc="The label used in the proxy settings entry in the network dialog in the login screen.">
         Proxy...
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_NETWORK_WIFI_ENABLED" desc="The label used in the tray popup to notify that Wi-Fi is turned on.">
+        Wi-Fi is turned on.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_NETWORK_WIFI_DISABLED" desc="The label used in the tray popup to notify that Wi-Fi is turned off.">
+        Wi-Fi is turned off.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_SMS" desc="The label used in the status tray for SMS.">
         SMS
@@ -434,6 +436,24 @@ Press Search key to cancel.
       </message>
       <message name="IDS_ASH_WEB_NOTFICATION_TRAY_CLEAR_ALL" desc="The button for clearing all notifications.">
         Clear All
+      </message>
+      <message name="IDS_ASH_WEB_NOTFICATION_TRAY_NO_MESSAGES" desc="The message displayed in the message center when there are no notifications.">
+        You have no notifications. Relax!
+      </message>
+      <message name="IDS_ASH_MAXIMIZE_WINDOW" desc="A help text to show that when the button gets clicked the window get maximized.">
+        Maximize
+      </message>
+      <message name="IDS_ASH_SNAP_WINDOW_RIGHT" desc="A help text to show that when the button gets clicked the window get snapped to the right side.">
+        Right
+      </message>
+      <message name="IDS_ASH_SNAP_WINDOW_LEFT" desc="A help text to show that when the button gets clicked the window get snapped to the left side.">
+        Left
+      </message>
+      <message name="IDS_ASH_RESTORE_WINDOW" desc="A help text to show that when the button gets clicked the window gets restored to its normal - non maximized - state.">
+        Restore
+      </message>
+      <message name="IDS_ASH_MINIMIZE_WINDOW" desc="A help text to show that when the button gets clicked the window gets minimized.">
+        Minimize
       </message>
     </messages>
   </release>

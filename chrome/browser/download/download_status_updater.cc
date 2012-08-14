@@ -55,12 +55,19 @@ void DownloadStatusUpdater::ModelChanged(content::DownloadManager* manager) {
   std::vector<content::DownloadItem*> downloads;
   manager->SearchDownloads(string16(), &downloads);
 
+  std::vector<content::DownloadItem*> added_downloads;
   for (std::vector<content::DownloadItem*>::iterator it = downloads.begin();
        it != downloads.end(); ++it) {
-    UpdateItem(*it);
+    if (UpdateItem(*it))
+      added_downloads.push_back(*it);
   }
 
-  UpdateAppIconDownloadProgress();
+  for (std::vector<content::DownloadItem*>::iterator it =
+           added_downloads.begin();
+       it != added_downloads.end();
+       ++it) {
+    UpdateAppIconDownloadProgress(*it);
+  }
 }
 
 void DownloadStatusUpdater::ManagerGoingDown(
@@ -68,38 +75,45 @@ void DownloadStatusUpdater::ManagerGoingDown(
   DCHECK(ContainsKey(managers_, manager));
   managers_.erase(manager);
   manager->RemoveObserver(this);
-  // Item removal will be handled in response to DownloadItem REMOVING
-  // notification (in the !IN_PROGRESS conditional branch in UpdateItem).
 }
 
 // Methods inherited from content::DownloadItem::Observer.
 void DownloadStatusUpdater::OnDownloadUpdated(
     content::DownloadItem* download) {
   UpdateItem(download);
-  UpdateAppIconDownloadProgress();
+  UpdateAppIconDownloadProgress(download);
+}
+
+void DownloadStatusUpdater::OnDownloadDestroyed(
+    content::DownloadItem* download) {
+  if (ContainsKey(items_, download)) {
+    items_.erase(download);
+    download->RemoveObserver(this);
+  }
+  UpdateAppIconDownloadProgress(download);
 }
 
 void DownloadStatusUpdater::OnDownloadOpened(content::DownloadItem* download) {
 }
 
-void DownloadStatusUpdater::UpdateAppIconDownloadProgress() {
-  float progress = 0;
-  int download_count = 0;
-  bool progress_known = GetProgress(&progress, &download_count);
-  download_util::UpdateAppIconDownloadProgress(download_count,
-                                               progress_known,
-                                               progress);
+#if defined(USE_AURA) || defined(OS_ANDROID)
+void DownloadStatusUpdater::UpdateAppIconDownloadProgress(
+    content::DownloadItem* download) {
+  // TODO(davemoore): Implement once UX for aura download is decided <104742>
+  // TODO(avi): Implement for Android?
 }
+#endif
 
 // React to a transition that a download associated with one of our
 // download managers has made.  Our goal is to have only IN_PROGRESS
 // items on our set list, as they're the only ones that have relevance
 // to GetProgress() return values.
-void DownloadStatusUpdater::UpdateItem(content::DownloadItem* download) {
+bool DownloadStatusUpdater::UpdateItem(content::DownloadItem* download) {
   if (download->GetState() == content::DownloadItem::IN_PROGRESS) {
     if (!ContainsKey(items_, download)) {
       items_.insert(download);
       download->AddObserver(this);
+      return true;
     }
   } else {
     if (ContainsKey(items_, download)) {
@@ -107,4 +121,6 @@ void DownloadStatusUpdater::UpdateItem(content::DownloadItem* download) {
       download->RemoveObserver(this);
     }
   }
+
+  return false;
 }

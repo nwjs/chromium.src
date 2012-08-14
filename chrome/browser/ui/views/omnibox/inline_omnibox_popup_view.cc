@@ -98,7 +98,7 @@ void InlineOmniboxPopupView::LayoutChildren() {
   // Make the children line up with the LocationBar.
   gfx::Point content_origin;
   // TODO(sky): this won't work correctly with LocationBarContainer.
-  views::View::ConvertPointToView(location_bar_, this, &content_origin);
+  views::View::ConvertPointToTarget(location_bar_, this, &content_origin);
   int x = content_origin.x();
   int width = location_bar_->width();
   gfx::Rect contents_rect = GetContentsBounds();
@@ -238,7 +238,7 @@ views::View* InlineOmniboxPopupView::GetEventHandlerForPoint(
 }
 
 bool InlineOmniboxPopupView::OnMousePressed(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   ignore_mouse_drag_ = false;  // See comment on |ignore_mouse_drag_| in header.
   if (event.IsLeftMouseButton() || event.IsMiddleMouseButton())
     UpdateLineEvent(event, event.IsLeftMouseButton());
@@ -246,14 +246,14 @@ bool InlineOmniboxPopupView::OnMousePressed(
 }
 
 bool InlineOmniboxPopupView::OnMouseDragged(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if (event.IsLeftMouseButton() || event.IsMiddleMouseButton())
     UpdateLineEvent(event, !ignore_mouse_drag_ && event.IsLeftMouseButton());
   return true;
 }
 
 void InlineOmniboxPopupView::OnMouseReleased(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if (ignore_mouse_drag_) {
     OnMouseCaptureLost();
     return;
@@ -270,17 +270,17 @@ void InlineOmniboxPopupView::OnMouseCaptureLost() {
 }
 
 void InlineOmniboxPopupView::OnMouseMoved(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   model_->SetHoveredLine(GetIndexForPoint(event.location()));
 }
 
 void InlineOmniboxPopupView::OnMouseEntered(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   model_->SetHoveredLine(GetIndexForPoint(event.location()));
 }
 
 void InlineOmniboxPopupView::OnMouseExited(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   model_->SetHoveredLine(OmniboxPopupModel::kNoMatch);
 }
 
@@ -359,7 +359,7 @@ void InlineOmniboxPopupView::OpenIndex(size_t index,
 }
 
 size_t InlineOmniboxPopupView::GetIndexForPoint(const gfx::Point& point) {
-  if (!HitTest(point))
+  if (!HitTestPoint(point))
     return OmniboxPopupModel::kNoMatch;
 
   int nb_match = model_->result().size();
@@ -367,8 +367,8 @@ size_t InlineOmniboxPopupView::GetIndexForPoint(const gfx::Point& point) {
   for (int i = 0; i < nb_match; ++i) {
     views::View* child = child_at(i);
     gfx::Point point_in_child_coords(point);
-    View::ConvertPointToView(this, child, &point_in_child_coords);
-    if (child->HitTest(point_in_child_coords))
+    View::ConvertPointToTarget(this, child, &point_in_child_coords);
+    if (child->HitTestPoint(point_in_child_coords))
       return i;
   }
   return OmniboxPopupModel::kNoMatch;
@@ -379,7 +379,7 @@ gfx::Rect InlineOmniboxPopupView::CalculateTargetBounds(int h) {
 }
 
 void InlineOmniboxPopupView::UpdateLineEvent(
-    const views::LocatedEvent& event,
+    const ui::LocatedEvent& event,
     bool should_set_selected_line) {
   size_t index = GetIndexForPoint(event.location());
   model_->SetHoveredLine(index);
@@ -388,7 +388,7 @@ void InlineOmniboxPopupView::UpdateLineEvent(
 }
 
 void InlineOmniboxPopupView::OpenSelectedLine(
-    const views::LocatedEvent& event,
+    const ui::LocatedEvent& event,
     WindowOpenDisposition disposition) {
   size_t index = GetIndexForPoint(event.location());
   OpenIndex(index, disposition);

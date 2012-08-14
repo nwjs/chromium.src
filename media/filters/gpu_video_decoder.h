@@ -56,8 +56,10 @@ class MEDIA_EXPORT GpuVideoDecoder
     virtual ~Factories();
   };
 
-  GpuVideoDecoder(MessageLoop* message_loop,
-                  MessageLoop* vda_loop,
+  typedef base::Callback<
+      scoped_refptr<base::MessageLoopProxy>()> MessageLoopFactoryCB;
+  GpuVideoDecoder(const MessageLoopFactoryCB& message_loop_factory_cb,
+                  const scoped_refptr<base::MessageLoopProxy>& vda_loop_proxy,
                   const scoped_refptr<Factories>& factories);
 
   // VideoDecoder implementation.
@@ -125,6 +127,10 @@ class MEDIA_EXPORT GpuVideoDecoder
   // thread).
   void SetVDA(VideoDecodeAccelerator* vda);
 
+  // Call VDA::Destroy() on |vda_loop_proxy_| ensuring that |this| outlives the
+  // Destroy() call.
+  void DestroyVDA();
+
   // A shared memory segment and its allocated size.
   struct SHMBuffer {
     SHMBuffer(base::SharedMemory* m, size_t s);
@@ -144,6 +150,9 @@ class MEDIA_EXPORT GpuVideoDecoder
 
   // Pointer to the demuxer stream that will feed us compressed buffers.
   scoped_refptr<DemuxerStream> demuxer_stream_;
+
+  // This is !is_null() iff Initialize() hasn't been called.
+  MessageLoopFactoryCB message_loop_factory_cb_;
 
   // MessageLoop on which to fire callbacks and trampoline calls to this class
   // if they arrive on other loops.

@@ -20,8 +20,8 @@ using base::win::ScopedHandle;
 
 namespace {
 
-const wchar_t kCreateProcessDefaultPipeNameFormat[] =
-    L"\\\\.\\Pipe\\TerminalServer\\SystemExecSrvr\\%d";
+const char kCreateProcessDefaultPipeNameFormat[] =
+    "\\\\.\\Pipe\\TerminalServer\\SystemExecSrvr\\%d";
 
 // Undocumented WINSTATIONINFOCLASS value causing
 // winsta!WinStationQueryInformationW() to return the name of the pipe for
@@ -38,20 +38,76 @@ const int kMaxLaunchDelaySeconds = 60;
 const int kMinLaunchDelaySeconds = 1;
 
 // Name of the default session desktop.
-wchar_t kDefaultDesktopName[] = L"winsta0\\default";
+const char kDefaultDesktopName[] = "winsta0\\default";
+
+// Copies the process token making it a primary impersonation token.
+// The returned handle will have |desired_access| rights.
+bool CopyProcessToken(DWORD desired_access, ScopedHandle* token_out) {
+  ScopedHandle process_token;
+  if (!OpenProcessToken(GetCurrentProcess(),
+                        TOKEN_DUPLICATE | desired_access,
+                        process_token.Receive())) {
+    LOG_GETLASTERROR(ERROR) << "Failed to open process token";
+    return false;
+  }
+
+  ScopedHandle copied_token;
+  if (!DuplicateTokenEx(process_token,
+                        desired_access,
+                        NULL,
+                        SecurityImpersonation,
+                        TokenPrimary,
+                        copied_token.Receive())) {
+    LOG_GETLASTERROR(ERROR) << "Failed to duplicate the process token";
+    return false;
+  }
+
+  *token_out = copied_token.Pass();
+  return true;
+}
+
+// Creates a copy of the current process with SE_TCB_NAME privilege enabled.
+bool CreatePrivilegedToken(ScopedHandle* token_out) {
+  ScopedHandle privileged_token;
+  DWORD desired_access = TOKEN_ADJUST_PRIVILEGES | TOKEN_IMPERSONATE |
+                         TOKEN_DUPLICATE | TOKEN_QUERY;
+  if (!CopyProcessToken(desired_access, &privileged_token)) {
+    return false;
+  }
+
+  // Get the LUID for the SE_TCB_NAME privilege.
+  TOKEN_PRIVILEGES state;
+  state.PrivilegeCount = 1;
+  state.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+  if (!LookupPrivilegeValue(NULL, SE_TCB_NAME, &state.Privileges[0].Luid)) {
+    LOG_GETLASTERROR(ERROR) <<
+        "Failed to lookup the LUID for the SE_TCB_NAME privilege";
+    return false;
+  }
+
+  // Enable the SE_TCB_NAME privilege.
+  if (!AdjustTokenPrivileges(privileged_token, FALSE, &state, 0, NULL, 0)) {
+    LOG_GETLASTERROR(ERROR) <<
+        "Failed to enable SE_TCB_NAME privilege in a token";
+    return false;
+  }
+
+  *token_out = privileged_token.Pass();
+  return true;
+}
 
 // Requests the execution server to create a process in the specified session
 // using the default (i.e. Winlogon) token. This routine relies on undocumented
 // OS functionality and will likely not work on anything but XP or W2K3.
 bool CreateRemoteSessionProcess(
     uint32 session_id,
-    const std::wstring& application_name,
-    const std::wstring& command_line,
+    const FilePath::StringType& application_name,
+    const CommandLine::StringType& command_line,
     PROCESS_INFORMATION* process_information_out)
 {
   DCHECK(base::win::GetVersion() == base::win::VERSION_XP);
 
-  std::wstring pipe_name;
+  string16 pipe_name;
 
   // Use winsta!WinStationQueryInformationW() to determine the process creation
   // pipe name for the session.
@@ -77,7 +133,8 @@ bool CreateRemoteSessionProcess(
 
   // Use the default pipe name if we couldn't query its name.
   if (pipe_name.empty()) {
-    pipe_name = StringPrintf(kCreateProcessDefaultPipeNameFormat, session_id);
+    pipe_name = UTF8ToUTF16(
+        StringPrintf(kCreateProcessDefaultPipeNameFormat, session_id));
   }
 
   // Try to connect to the named pipe.
@@ -111,7 +168,7 @@ bool CreateRemoteSessionProcess(
     return false;
   }
 
-  std::wstring desktop_name(kDefaultDesktopName);
+  string16 desktop_name(UTF8ToUTF16(kDefaultDesktopName));
 
   // |CreateProcessRequest| structure passes the same parameters to
   // the execution server as CreateProcessAsUser() function does. Strings are
@@ -172,7 +229,7 @@ bool CreateRemoteSessionProcess(
 
   // Pass the request to create a process in the target session.
   DWORD bytes;
-  if (!WriteFile(pipe.Get(), buffer.get(), size, &bytes, NULL)) {
+  if (!WriteFile(pipe, buffer.get(), size, &bytes, NULL)) {
     LOG_GETLASTERROR(ERROR) << "Failed to send CreateProcessAsUser request";
     return false;
   }
@@ -186,7 +243,7 @@ bool CreateRemoteSessionProcess(
   };
 
   CreateProcessResponse response;
-  if (!ReadFile(pipe.Get(), &response, sizeof(response), &bytes, NULL)) {
+  if (!ReadFile(pipe, &response, sizeof(response), &bytes, NULL)) {
     LOG_GETLASTERROR(ERROR) << "Failed to receive CreateProcessAsUser response";
     return false;
   }
@@ -243,18 +300,62 @@ bool CreateRemoteSessionProcess(
 
 namespace remoting {
 
+// Creates a copy of the current process token for the given |session_id| so
+// it can be used to launch a process in that session.
+bool CreateSessionToken(uint32 session_id, ScopedHandle* token_out) {
+  ScopedHandle session_token;
+  DWORD desired_access = TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_SESSIONID |
+                         TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY;
+  if (!CopyProcessToken(desired_access, &session_token)) {
+    return false;
+  }
+
+  // Temporarily enable the SE_TCB_NAME privilege as it is required by
+  // SetTokenInformation(TokenSessionId).
+  ScopedHandle privileged_token;
+  if (!CreatePrivilegedToken(&privileged_token)) {
+    return false;
+  }
+  if (!ImpersonateLoggedOnUser(privileged_token)) {
+    LOG_GETLASTERROR(ERROR) <<
+        "Failed to impersonate the privileged token";
+    return false;
+  }
+
+  // Change the session ID of the token.
+  DWORD new_session_id = session_id;
+  if (!SetTokenInformation(session_token,
+                           TokenSessionId,
+                           &new_session_id,
+                           sizeof(new_session_id))) {
+    LOG_GETLASTERROR(ERROR) << "Failed to change session ID of a token";
+
+    // Revert to the default token.
+    CHECK(RevertToSelf());
+    return false;
+  }
+
+  // Revert to the default token.
+  CHECK(RevertToSelf());
+
+  *token_out = session_token.Pass();
+  return true;
+}
+
 bool LaunchProcessWithToken(const FilePath& binary,
-                            const std::wstring& command_line,
+                            const CommandLine::StringType& command_line,
                             HANDLE user_token,
-                            base::Process* process_out) {
-  std::wstring application_name = binary.value();
+                            ScopedHandle* process_out) {
+  FilePath::StringType application_name = binary.value();
 
   base::win::ScopedProcessInformation process_info;
   STARTUPINFOW startup_info;
 
+  string16 desktop_name(UTF8ToUTF16(kDefaultDesktopName));
+
   memset(&startup_info, 0, sizeof(startup_info));
   startup_info.cb = sizeof(startup_info);
-  startup_info.lpDesktop = kDefaultDesktopName;
+  startup_info.lpDesktop = const_cast<char16*>(desktop_name.c_str());
 
   BOOL result = CreateProcessAsUser(user_token,
                                     application_name.c_str(),
@@ -303,7 +404,7 @@ bool LaunchProcessWithToken(const FilePath& binary,
   }
 
   CHECK(process_info.IsValid());
-  process_out->set_handle(process_info.TakeProcessHandle());
+  process_out->Set(process_info.TakeProcessHandle());
   return true;
 }
 

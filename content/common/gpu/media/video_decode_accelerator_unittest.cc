@@ -225,7 +225,6 @@ class GLRenderingVDAClient : public VideoDecodeAccelerator::Client {
   virtual void NotifyError(VideoDecodeAccelerator::Error error);
 
   // Simple getters for inspecting the state of the Client.
-  ClientState state() { return state_; }
   int num_done_bitstream_buffers() { return num_done_bitstream_buffers_; }
   int num_decoded_frames() { return num_decoded_frames_; }
   double frames_per_second();
@@ -311,7 +310,7 @@ GLRenderingVDAClient::~GLRenderingVDAClient() {
   SetState(CS_DESTROYED);
 }
 
-#if !defined(OS_WIN) && !defined(OS_MACOSX) && defined(ARCH_CPU_X86_FAMILY)
+#if !defined(OS_MACOSX)
 static bool DoNothingReturnTrue() { return true; }
 #endif
 
@@ -319,7 +318,8 @@ void GLRenderingVDAClient::CreateDecoder() {
   CHECK(decoder_deleted());
   CHECK(!decoder_.get());
 #if defined(OS_WIN)
-  decoder_.reset(new DXVAVideoDecodeAccelerator(this));
+  decoder_.reset(new DXVAVideoDecodeAccelerator(
+      this, base::Bind(&DoNothingReturnTrue)));
 #elif defined(OS_MACOSX)
   decoder_.reset(new MacVideoDecodeAccelerator(
       static_cast<CGLContextObj>(rendering_helper_->GetGLContext()), this));
@@ -328,7 +328,8 @@ void GLRenderingVDAClient::CreateDecoder() {
       new OmxVideoDecodeAccelerator(
           static_cast<EGLDisplay>(rendering_helper_->GetGLDisplay()),
           static_cast<EGLContext>(rendering_helper_->GetGLContext()),
-          this));
+          this,
+          base::Bind(&DoNothingReturnTrue)));
 #elif defined(ARCH_CPU_X86_FAMILY)
   decoder_.reset(new VaapiVideoDecodeAccelerator(
       static_cast<Display*>(rendering_helper_->GetGLDisplay()),
@@ -534,7 +535,7 @@ std::string GLRenderingVDAClient::GetBytesForNextFrames(
   for (int i = 0; i < num_fragments_per_decode_; ++i) {
     uint32 frame_size = *reinterpret_cast<uint32*>(&encoded_data_[*end_pos]);
     *end_pos += 12;  // Skip frame header.
-    bytes.append(encoded_data_.substr(*end_pos, *end_pos + frame_size));
+    bytes.append(encoded_data_.substr(*end_pos, frame_size));
     *end_pos += frame_size;
     if (*end_pos + 12 >= encoded_data_.size())
       return bytes;
@@ -889,6 +890,10 @@ int main(int argc, char **argv) {
 
 #if defined(OS_WIN)
   DXVAVideoDecodeAccelerator::PreSandboxInitialization();
+#elif defined(OS_CHROMEOS) && defined(ARCH_CPU_ARMEL)
+  OmxVideoDecodeAccelerator::PreSandboxInitialization();
+#elif defined(OS_CHROMEOS) && defined(ARCH_CPU_X86_FAMILY)
+  VaapiVideoDecodeAccelerator::PreSandboxInitialization();
 #endif
 
   return RUN_ALL_TESTS();

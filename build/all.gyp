@@ -11,6 +11,7 @@
       'dependencies': [
         'some.gyp:*',
         '../base/base.gyp:*',
+        '../crypto/crypto.gyp:*',
         '../net/net.gyp:*',
         '../sql/sql.gyp:*',
         '../testing/gtest.gyp:*',
@@ -32,7 +33,6 @@
           'dependencies': [
             '../chrome/chrome.gyp:*',
             '../content/content.gyp:*',
-            '../crypto/crypto.gyp:*',
             '../gpu/gpu.gyp:*',
             '../gpu/tools/tools.gyp:*',
             '../ipc/ipc.gyp:*',
@@ -293,7 +293,7 @@
           'conditions': [
             ['internal_gles2_conform_tests', {
               'dependencies': [
-                '../gpu/gles2_conform_test/gles2_conform_test.gyp:gles2_conform_test_windowless',
+                '../gpu/gles2_conform_test/gles2_conform_test.gyp:gles2_conform_test',
               ],
             }], # internal_gles2_conform
           ],
@@ -308,7 +308,7 @@
           'conditions': [
             ['internal_gles2_conform_tests', {
               'dependencies': [
-                '../gpu/gles2_conform_test/gles2_conform_test.gyp:gles2_conform_test_windowless',
+                '../gpu/gles2_conform_test/gles2_conform_test.gyp:gles2_conform_test',
               ],
             }], # internal_gles2_conform
           ],
@@ -640,12 +640,7 @@
             ['use_ash==1', {
               'dependencies': [
                 '../ash/ash.gyp:ash_shell',
-                # With aura_shell_unittests as a target ash_unittests (the new
-                # name) will be built as well.  We need both until all build
-                # bots are running ash_unittests as the test target.
-                # TODO(jamescook): Switch to ash_unittests after all bots on
-                # waterfall are using the new name.  crbug.com/110107
-                '../ash/ash.gyp:aura_shell_unittests',
+                '../ash/ash.gyp:ash_unittests',
               ],
             }],
             ['OS=="linux"', {

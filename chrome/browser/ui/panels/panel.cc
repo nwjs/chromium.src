@@ -429,9 +429,6 @@ bool Panel::IsActive() const {
   return native_panel_->IsPanelActive();
 }
 
-void Panel::SetDraggableRegion(SkRegion* region) {
-}
-
 void Panel::FlashFrame(bool draw_attention) {
   if (IsDrawingAttention() == draw_attention || !panel_strip_)
     return;
@@ -550,6 +547,16 @@ void Panel::ExecuteCommandWithDisposition(int id,
       break;
     case IDC_STOP:
       panel_host_->StopLoading();
+      break;
+
+    // Window management
+    case IDC_CLOSE_WINDOW:
+      content::RecordAction(UserMetricsAction("CloseWindow"));
+      Close();
+      break;
+    case IDC_EXIT:
+      content::RecordAction(UserMetricsAction("Exit"));
+      browser::AttemptUserExit();
       break;
 
     // Clipboard

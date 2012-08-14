@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/utf_string_conversions.h"
+#include "ui/base/event.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_font_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -53,7 +54,7 @@ void BuildRootLayers(View* view, std::vector<ui::Layer*>* layers) {
 // restore any previously active event afterwards.
 class ScopedEvent {
  public:
-  ScopedEvent(Widget* widget, const Event& event)
+  ScopedEvent(Widget* widget, const ui::Event& event)
       : widget_(widget),
         event_(&event) {
     widget->event_stack_.push(this);
@@ -68,13 +69,13 @@ class ScopedEvent {
     widget_ = NULL;
   }
 
-  const Event* event() {
+  const ui::Event* event() {
     return event_;
   }
 
  private:
   Widget* widget_;
-  const Event* event_;
+  const ui::Event* event_;
 
   DISALLOW_COPY_AND_ASSIGN(ScopedEvent);
 };
@@ -869,7 +870,7 @@ bool Widget::HasCapture() {
   return native_widget_->HasCapture();
 }
 
-const Event* Widget::GetCurrentEvent() {
+const ui::Event* Widget::GetCurrentEvent() {
   return event_stack_.empty() ? NULL : event_stack_.top()->event();
 }
 
@@ -1057,12 +1058,12 @@ int Widget::GetNonClientComponent(const gfx::Point& point) {
       HTNOWHERE;
 }
 
-bool Widget::OnKeyEvent(const KeyEvent& event) {
+bool Widget::OnKeyEvent(const ui::KeyEvent& event) {
   ScopedEvent scoped(this, event);
   return static_cast<internal::RootView*>(GetRootView())->OnKeyEvent(event);
 }
 
-bool Widget::OnMouseEvent(const MouseEvent& event) {
+bool Widget::OnMouseEvent(const ui::MouseEvent& event) {
   ScopedEvent scoped(this, event);
   switch (event.type()) {
     case ui::ET_MOUSE_PRESSED:

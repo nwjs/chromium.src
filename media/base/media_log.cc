@@ -46,8 +46,10 @@ const char* MediaLog::EventTypeToString(MediaLogEvent::Type type) {
       return "TOTAL_BYTES_SET";
     case MediaLogEvent::NETWORK_ACTIVITY_SET:
       return "NETWORK_ACTIVITY_SET";
-    case MediaLogEvent::ENDED:
-      return "ENDED";
+    case MediaLogEvent::AUDIO_ENDED:
+      return "AUDIO_ENDED";
+    case MediaLogEvent::VIDEO_ENDED:
+      return "VIDEO_ENDED";
     case MediaLogEvent::AUDIO_RENDERER_DISABLED:
       return "AUDIO_RENDERER_DISABLED";
     case MediaLogEvent::BUFFERED_EXTENTS_CHANGED:
@@ -67,8 +69,6 @@ const char* MediaLog::PipelineStateToString(Pipeline::State state) {
       return "initAudioDecoder";
     case Pipeline::kInitAudioRenderer:
       return "initAudioRenderer";
-    case Pipeline::kInitVideoDecoder:
-      return "initVideoDecoder";
     case Pipeline::kInitVideoRenderer:
       return "initVideoRenderer";
     case Pipeline::kPausing:
@@ -81,14 +81,10 @@ const char* MediaLog::PipelineStateToString(Pipeline::State state) {
       return "starting";
     case Pipeline::kStarted:
       return "started";
-    case Pipeline::kEnded:
-      return "ended";
     case Pipeline::kStopping:
       return "stopping";
     case Pipeline::kStopped:
       return "stopped";
-    case Pipeline::kError:
-      return "error";
   }
   NOTREACHED();
   return NULL;

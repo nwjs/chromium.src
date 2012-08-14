@@ -24,7 +24,9 @@ class SkDevice;
 namespace gfx {
 class Canvas;
 class Image;
+class ImageSkia;
 class Rect;
+class Size;
 }
 
 // ExtensionAction encapsulates the state of a browser action, page action, or
@@ -42,6 +44,16 @@ class ExtensionAction {
     TYPE_BROWSER,
     TYPE_PAGE,
     TYPE_SCRIPT_BADGE,
+  };
+
+  enum Appearance {
+    // The action icon is hidden.
+    INVISIBLE,
+    // The action is trying to get the user's attention but isn't yet
+    // running on the page.  Currently only used for script badges.
+    WANTS_ATTENTION,
+    // The action icon is visible with its normal appearance.
+    ACTIVE,
   };
 
   // A fade-in animation.
@@ -122,6 +134,9 @@ class ExtensionAction {
   std::vector<std::string>* icon_paths() { return &icon_paths_; }
   const std::vector<std::string>* icon_paths() const { return &icon_paths_; }
 
+  bool has_changed() const { return has_changed_; }
+  void set_has_changed(bool value) { has_changed_ = value; }
+
   // Set the url which the popup will load when the user clicks this action's
   // icon.  Setting an empty URL will disable the popup for a given tab.
   void SetPopupUrl(int tab_id, const GURL& url);
@@ -155,7 +170,7 @@ class ExtensionAction {
   void CacheIcon(const std::string& path, const gfx::Image& icon);
 
   // Set this action's icon bitmap on a specific tab.
-  void SetIcon(int tab_id, const SkBitmap& bitmap);
+  void SetIcon(int tab_id, const gfx::Image& image);
 
   // Get the icon for a tab, or the default if no icon was set for this tab,
   // retrieving icons that have been specified by path from the previous
@@ -211,14 +226,14 @@ class ExtensionAction {
     return GetValue(&badge_background_color_, tab_id);
   }
 
-  // Set this action's badge visibility on a specific tab.
-  void SetIsVisible(int tab_id, bool value) {
-    SetValue(&visible_, tab_id, value);
-  }
+  // Set this action's badge visibility on a specific tab.  This takes
+  // care of any appropriate transition animations.  Returns true if
+  // the appearance has changed.
+  bool SetAppearance(int tab_id, Appearance value);
   // Get the badge visibility for a tab, or the default badge visibility
   // if none was set.
   bool GetIsVisible(int tab_id) const {
-    return GetValue(&visible_, tab_id);
+    return GetValue(&appearance_, tab_id) != INVISIBLE;
   }
 
   // Remove all tab-specific state.
@@ -227,15 +242,21 @@ class ExtensionAction {
   // If the specified tab has a badge, paint it into the provided bounds.
   void PaintBadge(gfx::Canvas* canvas, const gfx::Rect& bounds, int tab_id);
 
+  // Returns icon image with badge for specified tab.
+  gfx::ImageSkia GetIconWithBadge(const gfx::ImageSkia& icon,
+                                  int tab_id,
+                                  const gfx::Size& spacing) const;
+
   // Gets a weak reference to the icon animation for a tab, if any. The
   // reference will only have a value while the animation is running.
   base::WeakPtr<IconAnimation> GetIconAnimation(int tab_id) const;
 
-  // Runs an animation on a tab.
-  void RunIconAnimation(int tab_id);
-
  private:
   class IconAnimationWrapper;
+  class IconWithBadgeImageSource;
+
+  // Runs an animation on a tab.
+  void RunIconAnimation(int tab_id);
 
   // Finds the icon animation wrapper for a tab, if any.  If the animation for
   // this tab has recently completed, also removes up any other dead wrappers
@@ -244,7 +265,16 @@ class ExtensionAction {
 
   // If the icon animation is running on tab |tab_id|, applies it to
   // |orig| and returns the result. Otherwise, just returns |orig|.
-  gfx::Image ApplyIconAnimation(int tab_id, const gfx::Image& orig) const;
+  gfx::ImageSkia ApplyIconAnimation(int tab_id,
+                                    const gfx::ImageSkia& orig) const;
+
+  // Paints badge with specified parameters to |canvas|.
+  static void DoPaintBadge(gfx::Canvas* canvas,
+                           const gfx::Rect& bounds,
+                           const std::string& text,
+                           const SkColor& text_color_in,
+                           const SkColor& background_color_in,
+                           int icon_width);
 
   template <class T>
   struct ValueTraits {
@@ -279,12 +309,12 @@ class ExtensionAction {
   // kDefaultTabId), or tab-specific state (stored with the tab_id as the key).
   std::map<int, GURL> popup_url_;
   std::map<int, std::string> title_;
-  std::map<int, gfx::Image> icon_;
+  std::map<int, gfx::ImageSkia> icon_;
   std::map<int, int> icon_index_;  // index into icon_paths_
   std::map<int, std::string> badge_text_;
   std::map<int, SkColor> badge_background_color_;
   std::map<int, SkColor> badge_text_color_;
-  std::map<int, bool> visible_;
+  std::map<int, Appearance> appearance_;
 
   // IconAnimationWrappers own themselves so that even if the Extension and
   // ExtensionAction are destroyed on a non-UI thread, the animation will still
@@ -305,7 +335,11 @@ class ExtensionAction {
   std::vector<std::string> icon_paths_;
 
   // Saves the arguments from CacheIcon() calls.
-  std::map<std::string, gfx::Image> path_to_icon_cache_;
+  std::map<std::string, gfx::ImageSkia> path_to_icon_cache_;
+
+  // True if the ExtensionAction's settings have changed from what was
+  // specified in the manifest.
+  bool has_changed_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionAction);
 };

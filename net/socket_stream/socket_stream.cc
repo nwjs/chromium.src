@@ -29,6 +29,7 @@
 #include "net/http/http_network_session.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_headers.h"
+#include "net/http/http_stream_factory.h"
 #include "net/http/http_transaction_factory.h"
 #include "net/http/http_util.h"
 #include "net/socket/client_socket_factory.h"
@@ -43,6 +44,36 @@ static const int kMaxPendingSendAllowed = 32768;  // 32 kilobytes.
 static const int kReadBufferSize = 4096;
 
 namespace net {
+
+int SocketStream::Delegate::OnStartOpenConnection(
+    SocketStream* socket, const CompletionCallback& callback) {
+  return OK;
+}
+
+void SocketStream::Delegate::OnAuthRequired(SocketStream* socket,
+                                            AuthChallengeInfo* auth_info) {
+  // By default, no credential is available and close the connection.
+  socket->Close();
+}
+
+void SocketStream::Delegate::OnSSLCertificateError(
+    SocketStream* socket,
+    const SSLInfo& ssl_info,
+    bool fatal) {
+  socket->CancelWithSSLError(ssl_info);
+}
+
+bool SocketStream::Delegate::CanGetCookies(SocketStream* socket,
+                                           const GURL& url) {
+  return true;
+}
+
+bool SocketStream::Delegate::CanSetCookie(SocketStream* request,
+                                          const GURL& url,
+                                          const std::string& cookie_line,
+                                          CookieOptions* options) {
+  return true;
+}
 
 SocketStream::ResponseHeaders::ResponseHeaders() : IOBuffer() {}
 
@@ -272,6 +303,8 @@ SocketStream::~SocketStream() {
   DCHECK(!delegate_);
   DCHECK(!pac_request_);
 }
+
+SocketStream::RequestHeaders::~RequestHeaders() { data_ = NULL; }
 
 void SocketStream::set_addresses(const AddressList& addresses) {
   addresses_ = addresses;
@@ -1008,7 +1041,7 @@ int SocketStream::DoSSLHandleCertError(int result) {
   DCHECK_EQ(STATE_NONE, next_state_);
   DCHECK(IsCertificateError(result));
   result = HandleCertificateError(result);
-  if (result == ERR_IO_PENDING)
+  if (result == OK || result == ERR_IO_PENDING)
     next_state_ = STATE_SSL_HANDLE_CERT_ERROR_COMPLETE;
   else
     next_state_ = STATE_CLOSE;
@@ -1265,12 +1298,16 @@ void SocketStream::DoRestartWithAuth() {
 
 int SocketStream::HandleCertificateError(int result) {
   DCHECK(IsCertificateError(result));
+  SSLClientSocket* ssl_socket = static_cast<SSLClientSocket*>(socket_.get());
+  DCHECK(ssl_socket);
+
+  if (HttpStreamFactory::ignore_certificate_errors() &&
+      ssl_socket->IgnoreCertError(result, LOAD_IGNORE_ALL_CERT_ERRORS))
+    return OK;
 
   if (!delegate_)
     return result;
 
-  SSLClientSocket* ssl_socket = static_cast<SSLClientSocket*>(socket_.get());
-  DCHECK(ssl_socket);
   SSLInfo ssl_info;
   ssl_socket->GetSSLInfo(&ssl_info);
 

@@ -9,6 +9,7 @@
 #include "grit/ui_strings.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/base/event.h"
 #include "ui/base/events.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -176,12 +177,13 @@ std::string MenuButton::GetClassName() const {
   return kViewClassName;
 }
 
-bool MenuButton::OnMousePressed(const MouseEvent& event) {
+bool MenuButton::OnMousePressed(const ui::MouseEvent& event) {
   RequestFocus();
   if (state() != BS_DISABLED) {
     // If we're draggable (GetDragOperations returns a non-zero value), then
     // don't pop on press, instead wait for release.
-    if (event.IsOnlyLeftMouseButton() && HitTest(event.location()) &&
+    if (event.IsOnlyLeftMouseButton() &&
+        HitTestPoint(event.location()) &&
         GetDragOperations(event.location()) == ui::DragDropTypes::DRAG_NONE) {
       TimeDelta delta = Time::Now() - menu_closed_time_;
       int64 delta_in_milliseconds = delta.InMilliseconds();
@@ -193,14 +195,14 @@ bool MenuButton::OnMousePressed(const MouseEvent& event) {
   return true;
 }
 
-void MenuButton::OnMouseReleased(const MouseEvent& event) {
+void MenuButton::OnMouseReleased(const ui::MouseEvent& event) {
   // Explicitly test for left mouse button to show the menu. If we tested for
   // !IsTriggerableEvent it could lead to a situation where we end up showing
   // the menu and context menu (this would happen if the right button is not
   // triggerable and there's a context menu).
   if (GetDragOperations(event.location()) != ui::DragDropTypes::DRAG_NONE &&
       state() != BS_DISABLED && !InDrag() && event.IsOnlyLeftMouseButton() &&
-      HitTest(event.location())) {
+      HitTestPoint(event.location())) {
     Activate();
   } else {
     TextButton::OnMouseReleased(event);
@@ -212,7 +214,7 @@ void MenuButton::OnMouseReleased(const MouseEvent& event) {
 // BaseButton::OnMouseExited will get the event and will set the button's state
 // to BS_NORMAL instead of keeping the state BM_PUSHED. This, in turn, will
 // cause the button to appear depressed while the menu is displayed.
-void MenuButton::OnMouseExited(const MouseEvent& event) {
+void MenuButton::OnMouseExited(const ui::MouseEvent& event) {
   if ((state_ != BS_DISABLED) && (!menu_visible_) && (!InDrag())) {
     SetState(BS_NORMAL);
   }
@@ -227,7 +229,7 @@ ui::GestureStatus MenuButton::OnGestureEvent(const GestureEvent& event) {
   return TextButton::OnGestureEvent(event);
 }
 
-bool MenuButton::OnKeyPressed(const KeyEvent& event) {
+bool MenuButton::OnKeyPressed(const ui::KeyEvent& event) {
   switch (event.key_code()) {
     case ui::VKEY_SPACE:
       // Alt-space on windows should show the window menu.
@@ -245,7 +247,7 @@ bool MenuButton::OnKeyPressed(const KeyEvent& event) {
   return false;
 }
 
-bool MenuButton::OnKeyReleased(const KeyEvent& event) {
+bool MenuButton::OnKeyReleased(const ui::KeyEvent& event) {
   // Override CustomButton's implementation, which presses the button when
   // you press space and clicks it when you release space.  For a MenuButton
   // we always activate the menu on key press.

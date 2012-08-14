@@ -374,6 +374,10 @@
 	path = third_party/sfntly/cpp/src
 	url = http://git.chromium.org/external/sfntly/cpp/src.git
 	os = all
+[submodule "third_party/skia/gyp"]
+	path = third_party/skia/gyp
+	url = http://git.chromium.org/external/skia/gyp.git
+	os = all
 [submodule "third_party/skia/include"]
 	path = third_party/skia/include
 	url = http://git.chromium.org/external/skia/include.git

@@ -29,6 +29,7 @@
 #include "chrome/browser/net/predictor.h"
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
+#include "chrome/browser/performance_monitor/startup_timer.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
@@ -73,6 +74,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/installer/util/browser_distribution.h"
 #include "content/public/browser/child_process_security_policy.h"
+#include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents.h"
@@ -362,8 +364,15 @@ bool StartupBrowserCreatorImpl::Launch(Profile* profile,
     if (process_startup) {
       if (browser_defaults::kOSSupportsOtherBrowsers &&
           !command_line_.HasSwitch(switches::kNoDefaultBrowserCheck)) {
-        if (!chrome::ShowAutolaunchPrompt(profile))
+        // Generally, the default browser prompt should not be shown on first
+        // run. However, when the set-as-default dialog has been suppressed, we
+        // need to allow it.
+        if ((!is_first_run_ ||
+             (browser_creator_ &&
+              browser_creator_->is_default_browser_dialog_suppressed())) &&
+            !chrome::ShowAutolaunchPrompt(profile)) {
           chrome::ShowDefaultBrowserPrompt(profile);
+        }
       }
 #if defined(OS_MACOSX)
       // Check whether the auto-update system needs to be promoted from user
@@ -598,8 +607,8 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
       return false;
     }
 
-  uint32 restore_behavior = SessionRestore::SYNCHRONOUS |
-                            SessionRestore::ALWAYS_CREATE_TABBED_BROWSER;
+    uint32 restore_behavior = SessionRestore::SYNCHRONOUS |
+                              SessionRestore::ALWAYS_CREATE_TABBED_BROWSER;
 #if defined(OS_MACOSX)
     // On Mac, when restoring a session with no windows, suppress the creation
     // of a new window in the case where the system is launching Chrome via a
@@ -610,10 +619,18 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
     }
 #endif
 
+    // Pause the StartupTimer. Since the restore here is synchronous, we can
+    // keep these two metrics (browser startup time and session restore time)
+    // separate.
+    performance_monitor::StartupTimer::PauseTimer();
+
     Browser* browser = SessionRestore::RestoreSession(profile_,
                                                       NULL,
                                                       restore_behavior,
                                                       urls_to_open);
+
+    performance_monitor::StartupTimer::UnpauseTimer();
+
     AddInfoBarsIfNecessary(browser, chrome::startup::IS_PROCESS_STARTUP);
     return true;
   }
@@ -623,6 +640,16 @@ bool StartupBrowserCreatorImpl::ProcessStartupURLs(
     return false;
 
   AddInfoBarsIfNecessary(browser, chrome::startup::IS_PROCESS_STARTUP);
+
+  // Session restore may occur if the startup preference is "last" or if the
+  // crash infobar is displayed. Otherwise, it's safe for the DOM storage system
+  // to start deleting leftover data.
+  if (pref.type != SessionStartupPref::LAST &&
+      !HasPendingUncleanExit(profile_)) {
+    content::BrowserContext::GetDefaultDOMStorageContext(profile_)->
+        StartScavengingUnusedSessionStorage();
+  }
+
   return true;
 }
 
@@ -763,10 +790,16 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(Browser* browser,
       chrome::ActivateTabAt(browser, 0, false);
   }
 
-  browser->window()->Show();
-  // TODO(jcampan): http://crbug.com/8123 we should not need to set the initial
-  //                focus explicitly.
-  chrome::GetActiveWebContents(browser)->GetView()->SetInitialFocus();
+  // The default behaviour is to show the window, as expressed by the default
+  // value of StartupBrowserCreated::show_main_browser_window_. If this was set
+  // to true ahead of this place, it means another task must have been spawned
+  // to take care of that.
+  if (!browser_creator_ || browser_creator_->show_main_browser_window()) {
+    browser->window()->Show();
+    // TODO(jcampan): http://crbug.com/8123 we should not need to set the
+    //                initial focus explicitly.
+    chrome::GetActiveWebContents(browser)->GetView()->SetInitialFocus();
+  }
 
   return browser;
 }

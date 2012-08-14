@@ -194,7 +194,7 @@ void NetworkConfigView::GetAccessibleState(ui::AccessibleViewState* state) {
 }
 
 void NetworkConfigView::ButtonPressed(views::Button* sender,
-                                      const views::Event& event) {
+                                      const ui::Event& event) {
   if (advanced_button_ && sender == advanced_button_) {
     advanced_button_->SetVisible(false);
     ShowAdvancedView();
@@ -300,12 +300,12 @@ void ControlledSettingIndicatorView::Layout() {
 }
 
 void ControlledSettingIndicatorView::OnMouseEntered(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   image_view_->SetImage(color_image_);
 }
 
 void ControlledSettingIndicatorView::OnMouseExited(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   image_view_->SetImage(gray_image_);
 }
 

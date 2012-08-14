@@ -12,11 +12,13 @@ from appengine_wrappers import urlfetch
 
 from api_data_source import APIDataSource
 from api_list_data_source import APIListDataSource
+from appengine_blobstore import AppEngineBlobstore
 from appengine_memcache import AppEngineMemcache
 from appengine_url_fetcher import AppEngineUrlFetcher
 from branch_utility import BranchUtility
 from example_zipper import ExampleZipper
 from file_system_cache import FileSystemCache
+from github_file_system import GithubFileSystem
 from intro_data_source import IntroDataSource
 from local_file_system import LocalFileSystem
 from memcache_file_system import MemcacheFileSystem
@@ -24,23 +26,24 @@ from samples_data_source import SamplesDataSource
 from server_instance import ServerInstance
 from subversion_file_system import SubversionFileSystem
 from template_data_source import TemplateDataSource
-from appengine_url_fetcher import AppEngineUrlFetcher
+import url_constants
 
 # The branch that the server will default to when no branch is specified in the
 # URL. This is necessary because it is not possible to pass flags to the script
 # handler.
 DEFAULT_BRANCH = 'local'
 
-SVN_URL = 'http://src.chromium.org/chrome'
-TRUNK_URL = SVN_URL + '/trunk'
-BRANCH_URL = SVN_URL + '/branches'
-
-OMAHA_PROXY_URL = 'http://omahaproxy.appspot.com/json'
 BRANCH_UTILITY_MEMCACHE = AppEngineMemcache('branch_utility')
-BRANCH_UTILITY = BranchUtility(OMAHA_PROXY_URL,
+BRANCH_UTILITY = BranchUtility(url_constants.OMAHA_PROXY_URL,
                                DEFAULT_BRANCH,
-                               AppEngineUrlFetcher(''),
+                               AppEngineUrlFetcher(None),
                                BRANCH_UTILITY_MEMCACHE)
+
+GITHUB_FILE_SYSTEM = GithubFileSystem(
+    AppEngineUrlFetcher(url_constants.GITHUB_URL),
+    AppEngineMemcache('github'),
+    AppEngineBlobstore())
+GITHUB_CACHE_BUILDER = FileSystemCache.Builder(GITHUB_FILE_SYSTEM)
 
 STATIC_DIR_PREFIX = 'docs/server2'
 EXTENSIONS_PATH = 'chrome/common/extensions'
@@ -56,7 +59,8 @@ FULL_EXAMPLES_PATH = DOCS_PATH + '/' + EXAMPLES_PATH
 # Global cache of instances because Handler is recreated for every request.
 SERVER_INSTANCES = {}
 
-def _GetInstanceForBranch(branch, local_path):
+def _GetInstanceForBranch(channel_name, local_path):
+  branch = BRANCH_UTILITY.GetBranchNumberForChannelName(channel_name)
   if branch in SERVER_INSTANCES:
     return SERVER_INSTANCES[branch]
   if branch == 'local':
@@ -76,13 +80,15 @@ def _GetInstanceForBranch(branch, local_path):
                                       [INTRO_PATH, ARTICLE_PATH])
   samples_data_source_factory = SamplesDataSource.Factory(branch,
                                                           file_system,
+                                                          GITHUB_FILE_SYSTEM,
                                                           cache_builder,
+                                                          GITHUB_CACHE_BUILDER,
                                                           EXAMPLES_PATH)
   api_data_source_factory = APIDataSource.Factory(cache_builder,
                                                   API_PATH,
                                                   samples_data_source_factory)
   template_data_source_factory = TemplateDataSource.Factory(
-      branch,
+      channel_name,
       api_data_source_factory,
       api_list_data_source,
       intro_data_source,
@@ -102,8 +108,14 @@ def _GetInstanceForBranch(branch, local_path):
 
 def _GetURLFromBranch(branch):
     if branch == 'trunk':
-      return TRUNK_URL + '/src'
-    return BRANCH_URL + '/' + branch + '/src'
+      return url_constants.SVN_TRUNK_URL + '/src'
+    return url_constants.SVN_BRANCH_URL + '/' + branch + '/src'
+
+def _CleanBranches():
+  numbers = BRANCH_UTILITY.GetAllBranchNumbers()
+  for key in SERVER_INSTANCES.keys():
+    if key not in numbers:
+      SERVER_INSTANCES.pop(key)
 
 class Handler(webapp.RequestHandler):
   def __init__(self, request, response, local_path=EXTENSIONS_PATH):
@@ -112,29 +124,34 @@ class Handler(webapp.RequestHandler):
 
   def _NavigateToPath(self, path):
     channel_name, real_path = BRANCH_UTILITY.SplitChannelNameFromPath(path)
-    branch = BRANCH_UTILITY.GetBranchNumberForChannelName(channel_name)
-    if real_path == '':
-      real_path = 'index.html'
-    # TODO: This leaks Server instances when branch bumps.
-    _GetInstanceForBranch(branch, self._local_path).Get(real_path,
-                                                        self.request,
-                                                        self.response)
+    # TODO: Detect that these are directories and serve index.html out of them.
+    if real_path.strip('/') == 'apps':
+      real_path = 'apps/index.html'
+    if real_path.strip('/') == 'extensions':
+      real_path = 'extensions/index.html'
+    _CleanBranches()
+    _GetInstanceForBranch(channel_name, self._local_path).Get(real_path,
+                                                              self.request,
+                                                              self.response)
 
   def get(self):
     path = self.request.path
     if '_ah/warmup' in path:
       logging.info('Warmup request.')
+      self._NavigateToPath('trunk/extensions/samples.html')
+      self._NavigateToPath('dev/extensions/samples.html')
+      self._NavigateToPath('beta/extensions/samples.html')
+      self._NavigateToPath('stable/extensions/samples.html')
+      # Only do this request if we are on the deployed server.
+      # Bug: http://crbug.com/141910
       if DEFAULT_BRANCH != 'local':
-        self._NavigateToPath('trunk/samples.html')
-      self._NavigateToPath('dev/samples.html')
-      self._NavigateToPath('beta/samples.html')
-      self._NavigateToPath('stable/samples.html')
+        self._NavigateToPath('apps/samples.html')
       return
 
     # Redirect paths like "directory" to "directory/". This is so relative file
     # paths will know to treat this as a directory.
     if os.path.splitext(path)[1] == '' and path[-1] != '/':
       self.redirect(path + '/')
-    path = path.replace('/chrome/extensions/', '')
+    path = path.replace('/chrome/', '')
     path = path.strip('/')
     self._NavigateToPath(path)

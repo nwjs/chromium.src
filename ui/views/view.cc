@@ -22,6 +22,7 @@
 #include "ui/gfx/interpolated_transform.h"
 #include "ui/gfx/path.h"
 #include "ui/gfx/point3.h"
+#include "ui/gfx/skia_util.h"
 #include "ui/gfx/transform.h"
 #include "ui/views/background.h"
 #include "ui/views/context_menu_controller.h"
@@ -600,9 +601,9 @@ View* View::GetSelectedViewForGroup(int group) {
 // Coordinate conversion -------------------------------------------------------
 
 // static
-void View::ConvertPointToView(const View* source,
-                              const View* target,
-                              gfx::Point* point) {
+void View::ConvertPointToTarget(const View* source,
+                                const View* target,
+                                gfx::Point* point) {
   if (source == target)
     return;
 
@@ -756,14 +757,14 @@ View* View::GetEventHandlerForPoint(const gfx::Point& point) {
       continue;
 
     gfx::Point point_in_child_coords(point);
-    View::ConvertPointToView(this, child, &point_in_child_coords);
-    if (child->HitTest(point_in_child_coords))
+    ConvertPointToTarget(this, child, &point_in_child_coords);
+    if (child->HitTestPoint(point_in_child_coords))
       return child->GetEventHandlerForPoint(point_in_child_coords);
   }
   return this;
 }
 
-gfx::NativeCursor View::GetCursor(const MouseEvent& event) {
+gfx::NativeCursor View::GetCursor(const ui::MouseEvent& event) {
 #if defined(OS_WIN) && !defined(USE_AURA)
   static HCURSOR arrow = LoadCursor(NULL, IDC_ARROW);
   return arrow;
@@ -772,8 +773,12 @@ gfx::NativeCursor View::GetCursor(const MouseEvent& event) {
 #endif
 }
 
-bool View::HitTest(const gfx::Point& l) const {
-  if (GetLocalBounds().Contains(l)) {
+bool View::HitTestPoint(const gfx::Point& point) const {
+  return HitTestRect(gfx::Rect(point, gfx::Size(1, 1)));
+}
+
+bool View::HitTestRect(const gfx::Rect& rect) const {
+  if (GetLocalBounds().Intersects(rect)) {
     if (HasHitTestMask()) {
       gfx::Path mask;
       GetHitTestMask(&mask);
@@ -783,10 +788,11 @@ bool View::HitTest(const gfx::Point& l) const {
       clip_region.setRect(0, 0, width(), height());
       SkRegion mask_region;
       return mask_region.setPath(mask, clip_region) &&
-          mask_region.contains(l.x(), l.y());
+             mask_region.intersects(RectToSkIRect(rect));
 #elif defined(OS_WIN)
       base::win::ScopedRegion rgn(mask.CreateNativeRegion());
-      return !!PtInRegion(rgn, l.x(), l.y());
+      const RECT r(rect.ToRECT());
+      return RectInRegion(rgn, &r) != 0;
 #endif
     }
     // No mask, but inside our bounds.
@@ -796,27 +802,27 @@ bool View::HitTest(const gfx::Point& l) const {
   return false;
 }
 
-bool View::OnMousePressed(const MouseEvent& event) {
+bool View::OnMousePressed(const ui::MouseEvent& event) {
   return false;
 }
 
-bool View::OnMouseDragged(const MouseEvent& event) {
+bool View::OnMouseDragged(const ui::MouseEvent& event) {
   return false;
 }
 
-void View::OnMouseReleased(const MouseEvent& event) {
+void View::OnMouseReleased(const ui::MouseEvent& event) {
 }
 
 void View::OnMouseCaptureLost() {
 }
 
-void View::OnMouseMoved(const MouseEvent& event) {
+void View::OnMouseMoved(const ui::MouseEvent& event) {
 }
 
-void View::OnMouseEntered(const MouseEvent& event) {
+void View::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
-void View::OnMouseExited(const MouseEvent& event) {
+void View::OnMouseExited(const ui::MouseEvent& event) {
 }
 
 ui::TouchStatus View::OnTouchEvent(const TouchEvent& event) {
@@ -833,11 +839,11 @@ void View::SetMouseHandler(View* new_mouse_handler) {
     parent_->SetMouseHandler(new_mouse_handler);
 }
 
-bool View::OnKeyPressed(const KeyEvent& event) {
+bool View::OnKeyPressed(const ui::KeyEvent& event) {
   return false;
 }
 
-bool View::OnKeyReleased(const KeyEvent& event) {
+bool View::OnKeyReleased(const ui::KeyEvent& event) {
   return false;
 }
 
@@ -960,7 +966,7 @@ void View::RequestFocus() {
     focus_manager->SetFocusedView(this);
 }
 
-bool View::SkipDefaultKeyEventProcessing(const KeyEvent& event) {
+bool View::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
   return false;
 }
 
@@ -1894,10 +1900,11 @@ void View::DestroyLayer() {
 
 // Input -----------------------------------------------------------------------
 
-bool View::ProcessMousePressed(const MouseEvent& event, DragInfo* drag_info) {
+bool View::ProcessMousePressed(const ui::MouseEvent& event, DragInfo* drag_info) {
   int drag_operations =
-      (enabled_ && event.IsOnlyLeftMouseButton() && HitTest(event.location())) ?
-      GetDragOperations(event.location()) : 0;
+      (enabled_ && event.IsOnlyLeftMouseButton() &&
+       HitTestPoint(event.location())) ?
+       GetDragOperations(event.location()) : 0;
   ContextMenuController* context_menu_controller = event.IsRightMouseButton() ?
       context_menu_controller_ : 0;
 
@@ -1915,7 +1922,7 @@ bool View::ProcessMousePressed(const MouseEvent& event, DragInfo* drag_info) {
   return !!context_menu_controller || result;
 }
 
-bool View::ProcessMouseDragged(const MouseEvent& event, DragInfo* drag_info) {
+bool View::ProcessMouseDragged(const ui::MouseEvent& event, DragInfo* drag_info) {
   // Copy the field, that way if we're deleted after drag and drop no harm is
   // done.
   ContextMenuController* context_menu_controller = context_menu_controller_;
@@ -1936,13 +1943,13 @@ bool View::ProcessMouseDragged(const MouseEvent& event, DragInfo* drag_info) {
   return (context_menu_controller != NULL) || possible_drag;
 }
 
-void View::ProcessMouseReleased(const MouseEvent& event) {
+void View::ProcessMouseReleased(const ui::MouseEvent& event) {
   if (context_menu_controller_ && event.IsOnlyRightMouseButton()) {
     // Assume that if there is a context menu controller we won't be deleted
     // from mouse released.
     gfx::Point location(event.location());
     OnMouseReleased(event);
-    if (HitTest(location)) {
+    if (HitTestPoint(location)) {
       ConvertPointToScreen(this, &location);
       ShowContextMenu(location, true);
     }
@@ -2092,7 +2099,7 @@ void View::UpdateTooltip() {
 
 // Drag and drop ---------------------------------------------------------------
 
-bool View::DoDrag(const LocatedEvent& event, const gfx::Point& press_pt) {
+bool View::DoDrag(const ui::LocatedEvent& event, const gfx::Point& press_pt) {
 #if !defined(OS_MACOSX)
   int drag_operations = GetDragOperations(press_pt);
   if (drag_operations == ui::DragDropTypes::DRAG_NONE)

@@ -10,7 +10,6 @@
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_drag_controller.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
-#include "chrome/browser/ui/panels/test_panel_mouse_watcher.h"
 
 // Refactor has only been done for Win and Mac panels so far.
 #if defined(OS_WIN) || defined(OS_MACOSX)
@@ -406,10 +405,6 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragThreeDockedPanels) {
 }
 
 IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragMinimizedPanel) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   Panel* panel = CreatePanel("panel1");
   scoped_ptr<NativePanelTesting> panel_testing(
       CreateNativePanelTesting(panel));
@@ -449,10 +444,6 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest, DragMinimizedPanel) {
 
 IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest,
                        DragMinimizedPanelWhileDrawingAttention) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   Panel* panel = CreatePanel("panel1");
   scoped_ptr<NativePanelTesting> panel_testing(
       CreateNativePanelTesting(panel));
@@ -482,6 +473,11 @@ IN_PROC_BROWSER_TEST_F(PanelDragBrowserTest,
   panel->FlashFrame(false);
   EXPECT_FALSE(panel->IsDrawingAttention());
   EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  // Typical user scenario will detect the mouse in the panel
+  // after attention is cleared, causing titles to pop up, so
+  // we simulate that here.
+  MoveMouse(mouse_location);
 
   // Verify panel returns to fully minimized state after dragging ends once
   // mouse moves away from the panel.

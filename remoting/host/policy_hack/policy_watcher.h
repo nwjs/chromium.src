@@ -50,13 +50,16 @@ class PolicyWatcher {
   static const char kNatPolicyName[];
 
   // The name of the policy for requiring 2-factor authentication.
-  static const char kRequireTwoFactorPolicyName[];
+  static const char kHostRequireTwoFactorPolicyName[];
 
   // The name of the host domain policy.
   static const char kHostDomainPolicyName[];
 
-  // The name of the talkgadget policy.
-  static const char kTalkGadgetPolicyName[];
+  // The name of the policy that controls the host talkgadget prefix.
+  static const char kHostTalkGadgetPrefixPolicyName[];
+
+  // The name of the policy for requiring curtain-mode.
+  static const char kHostRequireCurtainPolicyName[];
 
  protected:
   virtual void StartWatchingInternal() = 0;

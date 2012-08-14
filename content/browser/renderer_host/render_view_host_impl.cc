@@ -20,7 +20,6 @@
 #include "base/values.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/cross_site_request_manager.h"
-#include "content/browser/dom_storage/dom_storage_context_impl.h"
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/gpu/gpu_surface_tracker.h"
 #include "content/browser/host_zoom_map_impl.h"
@@ -172,14 +171,7 @@ RenderViewHostImpl::RenderViewHostImpl(
       save_accessibility_tree_for_testing_(false),
       send_accessibility_updated_notifications_(false),
       render_view_termination_status_(base::TERMINATION_STATUS_STILL_RUNNING) {
-  if (!session_storage_namespace_) {
-    DOMStorageContext* dom_storage_context =
-        BrowserContext::GetDOMStorageContext(GetProcess()->GetBrowserContext(),
-                                             instance->GetProcess()->GetID());
-    session_storage_namespace_ = new SessionStorageNamespaceImpl(
-        static_cast<DOMStorageContextImpl*>(dom_storage_context));
-  }
-
+  DCHECK(session_storage_namespace_);
   DCHECK(instance_);
   CHECK(delegate_);  // http://crbug.com/82827
 
@@ -1299,9 +1291,13 @@ void RenderViewHostImpl::OnMsgSelectionChanged(const string16& text,
 
 void RenderViewHostImpl::OnMsgSelectionBoundsChanged(
     const gfx::Rect& start_rect,
-    const gfx::Rect& end_rect) {
-  if (view_)
-    view_->SelectionBoundsChanged(start_rect, end_rect);
+    WebKit::WebTextDirection start_direction,
+    const gfx::Rect& end_rect,
+    WebKit::WebTextDirection end_direction) {
+  if (view_) {
+    view_->SelectionBoundsChanged(start_rect, start_direction,
+                                  end_rect, end_direction);
+  }
 }
 
 void RenderViewHostImpl::OnMsgRouteCloseEvent() {
@@ -1724,11 +1720,6 @@ void RenderViewHostImpl::StopFinding(content::StopFindAction action) {
   Send(new ViewMsg_StopFinding(GetRoutingID(), action));
 }
 
-content::SessionStorageNamespace*
-RenderViewHostImpl::GetSessionStorageNamespace() {
-  return session_storage_namespace_.get();
-}
-
 void RenderViewHostImpl::OnAccessibilityNotifications(
     const std::vector<AccessibilityHostMsg_NotificationParams>& params) {
   if (view_ && !is_swapped_out_)
@@ -1764,17 +1755,17 @@ void RenderViewHostImpl::OnAccessibilityNotifications(
 }
 
 void RenderViewHostImpl::OnScriptEvalResponse(int id, const ListValue& result) {
-  Value* result_value;
+  const Value* result_value;
   if (!result.Get(0, &result_value)) {
     // Programming error or rogue renderer.
     NOTREACHED() << "Got bad arguments for OnScriptEvalResponse";
     return;
   }
-  std::pair<int, Value*> details(id, result_value);
+  std::pair<int, const Value*> details(id, result_value);
   content::NotificationService::current()->Notify(
       content::NOTIFICATION_EXECUTE_JAVASCRIPT_RESULT,
       content::Source<RenderViewHost>(this),
-      content::Details<std::pair<int, Value*> >(&details));
+      content::Details<std::pair<int, const Value*> >(&details));
 }
 
 void RenderViewHostImpl::OnDidZoomURL(double zoom_level,

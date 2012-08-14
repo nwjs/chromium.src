@@ -190,7 +190,8 @@ bool WebDialogGtk::ShouldShowDialogTitle() const {
 // A simplified version of BrowserWindowGtk::HandleKeyboardEvent().
 // We don't handle global keyboard shortcuts here, but that's fine since
 // they're all browser-specific. (This may change in the future.)
-void WebDialogGtk::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
+void WebDialogGtk::HandleKeyboardEvent(content::WebContents* source,
+                                       const NativeWebKeyboardEvent& event) {
   GdkEventKey* os_event = &event.os_event->key;
   if (!os_event || event.type == WebKit::WebInputEvent::Char)
     return;
@@ -205,7 +206,7 @@ void WebDialogGtk::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
 
 gfx::NativeWindow WebDialogGtk::InitDialog() {
   tab_.reset(new TabContents(WebContents::Create(
-      browser_context(), NULL, MSG_ROUTING_NONE, NULL, NULL)));
+      browser_context(), NULL, MSG_ROUTING_NONE, NULL)));
   tab_->web_contents()->SetDelegate(this);
 
   // This must be done before loading the page; see the comments in

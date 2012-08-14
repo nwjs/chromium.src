@@ -17,7 +17,7 @@
 #include "chrome/browser/metrics/proto/trials_seed.pb.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/metrics/experiments_helper.h"
+#include "chrome/common/metrics/variations_util.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/url_fetcher.h"
@@ -98,12 +98,15 @@ GURL GetVariationsServerURL() {
 }  // namespace
 
 VariationsService::VariationsService()
-    : variations_server_url_(GetVariationsServerURL()) {
+    : variations_server_url_(GetVariationsServerURL()),
+      create_trials_from_seed_called_(false) {
 }
 
 VariationsService::~VariationsService() {}
 
 bool VariationsService::CreateTrialsFromSeed(PrefService* local_prefs) {
+  create_trials_from_seed_called_ = true;
+
   TrialsSeed seed;
   if (!LoadTrialsSeedFromPref(local_prefs, &seed))
     return false;
@@ -132,6 +135,10 @@ bool VariationsService::CreateTrialsFromSeed(PrefService* local_prefs) {
 void VariationsService::StartRepeatedVariationsSeedFetch() {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
 
+  // Check that |CreateTrialsFromSeed| was called, which is necessary to
+  // retrieve the serial number that will be sent to the server.
+  DCHECK(create_trials_from_seed_called_);
+
   // Perform the first fetch.
   FetchVariationsSeed();
 
@@ -157,6 +164,10 @@ void VariationsService::FetchVariationsSeed() {
   pending_seed_request_->SetRequestContext(
       g_browser_process->system_request_context());
   pending_seed_request_->SetMaxRetries(kMaxRetrySeedFetch);
+  if (!variations_serial_number_.empty()) {
+    pending_seed_request_->AddExtraRequestHeader("If-Match:" +
+                                                 variations_serial_number_);
+  }
   pending_seed_request_->Start();
 }
 
@@ -169,9 +180,10 @@ void VariationsService::OnURLFetchComplete(const net::URLFetcher* source) {
     DVLOG(1) << "Variations server request failed.";
     return;
   }
+
   if (request->GetResponseCode() != 200) {
     DVLOG(1) << "Variations server request returned non-200 response code: "
-            << request->GetResponseCode();
+             << request->GetResponseCode();
     return;
   }
 
@@ -214,6 +226,7 @@ bool VariationsService::StoreSeedData(const std::string& seed_data,
   local_prefs->SetString(prefs::kVariationsSeed, base64_seed_data);
   local_prefs->SetInt64(prefs::kVariationsSeedDate,
                         seed_date.ToInternalValue());
+  variations_serial_number_ = seed.serial_number();
   return true;
 }
 
@@ -415,6 +428,7 @@ bool VariationsService::LoadTrialsSeedFromPref(PrefService* local_prefs,
     local_prefs->ClearPref(prefs::kVariationsSeed);
     return false;
   }
+  variations_serial_number_ = seed->serial_number();
   return true;
 }
 
@@ -445,9 +459,9 @@ void VariationsService::CreateTrialFromStudy(const Study& study,
     if (experiment.has_experiment_id()) {
       const VariationID variation_id =
           static_cast<VariationID>(experiment.experiment_id());
-      experiments_helper::AssociateGoogleVariationIDForce(study.name(),
-                                                          experiment.name(),
-                                                          variation_id);
+      AssociateGoogleVariationIDForce(study.name(),
+                                      experiment.name(),
+                                      variation_id);
     }
   }
 

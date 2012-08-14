@@ -12,6 +12,7 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
@@ -50,14 +51,14 @@ bool StarView::GetTooltipText(const gfx::Point& p, string16* tooltip) const {
   return views::ImageView::GetTooltipText(p, tooltip);
 }
 
-bool StarView::OnMousePressed(const views::MouseEvent& event) {
+bool StarView::OnMousePressed(const ui::MouseEvent& event) {
   // We want to show the bubble on mouse release; that is the standard behavior
   // for buttons.
   return true;
 }
 
-void StarView::OnMouseReleased(const views::MouseEvent& event) {
-  if (event.IsOnlyLeftMouseButton() && HitTest(event.location()))
+void StarView::OnMouseReleased(const ui::MouseEvent& event) {
+  if (event.IsOnlyLeftMouseButton() && HitTestPoint(event.location()))
     command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);
 }
 
@@ -69,7 +70,7 @@ ui::GestureStatus StarView::OnGestureEvent(const views::GestureEvent& event) {
   return ui::GESTURE_STATUS_UNKNOWN;
 }
 
-bool StarView::OnKeyPressed(const views::KeyEvent& event) {
+bool StarView::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.key_code() == ui::VKEY_SPACE ||
       event.key_code() == ui::VKEY_RETURN) {
     command_updater_->ExecuteCommand(IDC_BOOKMARK_PAGE);

@@ -8,6 +8,7 @@
 #include "base/bind_helpers.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
+#include "chrome/browser/chromeos/gdata/file_write_helper.h"
 #include "chrome/browser/chromeos/gdata/gdata_contacts_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_download_observer.h"
@@ -39,7 +40,8 @@ const std::string* g_test_cache_root = NULL;
 
 GDataSystemService::GDataSystemService(Profile* profile)
     : profile_(profile),
-      cache_(NULL) {
+      cache_(NULL),
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   base::SequencedWorkerPool* blocking_pool = BrowserThread::GetBlockingPool();
   blocking_task_runner_ = blocking_pool->GetSequencedTaskRunner(
@@ -68,6 +70,7 @@ void GDataSystemService::Initialize(
                                          uploader(),
                                          webapps_registry(),
                                          blocking_task_runner_));
+  file_write_helper_.reset(new FileWriteHelper(file_system()));
   download_observer_.reset(new GDataDownloadObserver(uploader(),
                                                      file_system()));
   sync_client_.reset(new GDataSyncClient(profile_, file_system(), cache()));
@@ -97,10 +100,35 @@ void GDataSystemService::Shutdown() {
   contacts_service_.reset();
   sync_client_.reset();
   download_observer_.reset();
+  file_write_helper_.reset();
   file_system_.reset();
   webapps_registry_.reset();
   uploader_.reset();
   documents_service_.reset();
+}
+
+void GDataSystemService::ClearCacheAndRemountFileSystem(
+    const base::Callback<void(bool)>& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  RemoveDriveMountPoint();
+  docs_service()->CancelAll();
+  cache_->ClearAllOnUIThread(
+      base::Bind(&GDataSystemService::AddBackDriveMountPoint,
+                 weak_ptr_factory_.GetWeakPtr(),
+                 callback));
+}
+
+void GDataSystemService::AddBackDriveMountPoint(
+    const base::Callback<void(bool)>& callback,
+    GDataFileError error,
+    const FilePath& file_path) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  AddDriveMountPoint();
+
+  if (!callback.is_null())
+    callback.Run(error == GDATA_FILE_OK);
 }
 
 void GDataSystemService::AddDriveMountPoint() {
@@ -115,9 +143,15 @@ void GDataSystemService::AddDriveMountPoint() {
         mount_point,
         new GDataFileSystemProxy(file_system_.get()));
   }
+
+  file_system_->Initialize();
+  file_system_->NotifyFileSystemMounted();
 }
 
 void GDataSystemService::RemoveDriveMountPoint() {
+  file_system_->NotifyFileSystemToBeUnmounted();
+  file_system_->StopUpdates();
+
   const FilePath mount_point = gdata::util::GetGDataMountPointPath();
   fileapi::ExternalFileSystemMountPointProvider* provider =
       BrowserContext::GetFileSystemContext(profile_)->external_provider();

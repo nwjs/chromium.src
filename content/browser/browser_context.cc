@@ -7,7 +7,6 @@
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "webkit/database/database_tracker.h"
 #include "content/browser/dom_storage/dom_storage_context_impl.h"
-#include "content/browser/download/download_file_manager.h"
 #include "content/browser/download/download_manager_impl.h"
 #include "content/browser/in_process_webkit/indexed_db_context_impl.h"
 #include "content/browser/renderer_host/resource_dispatcher_host_impl.h"
@@ -33,8 +32,9 @@ namespace content {
 
 namespace {
 
-StoragePartition* GetStoragePartition(BrowserContext* browser_context,
-                                      int renderer_child_id) {
+StoragePartition* GetStoragePartitionByPartitionId(
+    BrowserContext* browser_context,
+    const std::string& partition_id) {
   StoragePartitionMap* partition_map = static_cast<StoragePartitionMap*>(
       browser_context->GetUserData(kStorageParitionMapKeyName));
   if (!partition_map) {
@@ -42,12 +42,17 @@ StoragePartition* GetStoragePartition(BrowserContext* browser_context,
     browser_context->SetUserData(kStorageParitionMapKeyName, partition_map);
   }
 
+  return partition_map->Get(partition_id);
+}
+
+StoragePartition* GetStoragePartition(BrowserContext* browser_context,
+                                      int renderer_child_id) {
   const std::string& partition_id =
       GetContentClient()->browser()->GetStoragePartitionIdForChildProcess(
           browser_context,
           renderer_child_id);
 
-  return partition_map->Get(partition_id);
+  return GetStoragePartitionByPartitionId(browser_context, partition_id);
 }
 
 // Run |callback| on each storage partition in |browser_context|.
@@ -111,11 +116,8 @@ DownloadManager* BrowserContext::GetDownloadManager(
   if (!context->GetUserData(kDownloadManagerKeyName)) {
     ResourceDispatcherHostImpl* rdh = ResourceDispatcherHostImpl::Get();
     DCHECK(rdh);
-    DownloadFileManager* file_manager = rdh->download_file_manager();
-    DCHECK(file_manager);
     scoped_refptr<DownloadManager> download_manager =
         new DownloadManagerImpl(
-            file_manager,
             scoped_ptr<DownloadItemFactory>(),
             GetContentClient()->browser()->GetNetLog());
 
@@ -154,6 +156,14 @@ DOMStorageContext* BrowserContext::GetDOMStorageContext(
     int render_child_id) {
   StoragePartition* partition =
       GetStoragePartition(browser_context, render_child_id);
+  return partition->dom_storage_context();
+}
+
+DOMStorageContext* BrowserContext::GetDOMStorageContextByPartitionId(
+    BrowserContext* browser_context,
+    const std::string& partition_id) {
+  StoragePartition* partition =
+      GetStoragePartitionByPartitionId(browser_context, partition_id);
   return partition->dom_storage_context();
 }
 

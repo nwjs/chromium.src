@@ -115,9 +115,11 @@ class DevToolsWindow : private content::NotificationObserver,
                               bool user_gesture) OVERRIDE;
   virtual void CloseContents(content::WebContents* source) OVERRIDE {}
   virtual bool PreHandleKeyboardEvent(
+      content::WebContents* source,
       const content::NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
   virtual void HandleKeyboardEvent(
+      content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) OVERRIDE;
   virtual content::JavaScriptDialogCreator*
       GetJavaScriptDialogCreator() OVERRIDE;
@@ -132,7 +134,6 @@ class DevToolsWindow : private content::NotificationObserver,
       bool force_open,
       DevToolsToggleAction action);
   static DevToolsWindow* AsDevToolsWindow(content::DevToolsClientHost*);
-  static DevToolsWindow* AsDevToolsWindow(content::RenderViewHost*);
 
   // content::DevToolsClientHandlerDelegate overrides.
   virtual void ActivateWindow() OVERRIDE;
@@ -153,6 +154,8 @@ class DevToolsWindow : private content::NotificationObserver,
   virtual void AppendedTo(const std::string& url)  OVERRIDE;
 
   void RequestSetDocked(bool docked);
+
+  void UpdateBrowserToolbar();
 
   Profile* profile_;
   TabContents* inspected_tab_;

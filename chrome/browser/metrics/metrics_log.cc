@@ -31,10 +31,10 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/logging_chrome.h"
-#include "chrome/common/metrics/experiments_helper.h"
 #include "chrome/common/metrics/proto/omnibox_event.pb.h"
 #include "chrome/common/metrics/proto/profiler_event.pb.h"
 #include "chrome/common/metrics/proto/system_profile.pb.h"
+#include "chrome/common/metrics/variations_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "content/public/browser/content_browser_client.h"
@@ -47,8 +47,10 @@
 
 #define OPEN_ELEMENT_FOR_SCOPE(name) ScopedElement scoped_element(this, name)
 
-// http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 #if defined(OS_WIN)
+#include "base/win/metro.h"
+
+// http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 #endif
 
@@ -57,7 +59,7 @@ using metrics::OmniboxEventProto;
 using metrics::ProfilerEventProto;
 using metrics::SystemProfileProto;
 using tracked_objects::ProcessDataSnapshot;
-typedef experiments_helper::SelectedGroupId SelectedGroupId;
+typedef chrome_variations::SelectedGroupId SelectedGroupId;
 typedef SystemProfileProto::GoogleUpdate::ProductInfo ProductInfo;
 
 namespace {
@@ -347,7 +349,7 @@ int MetricsLog::GetScreenCount() const {
 
 void MetricsLog::GetFieldTrialIds(
     std::vector<SelectedGroupId>* field_trial_ids) const {
-  experiments_helper::GetFieldTrialSelectedGroupIds(field_trial_ids);
+  chrome_variations::GetFieldTrialSelectedGroupIds(field_trial_ids);
 }
 
 void MetricsLog::WriteStabilityElement(
@@ -756,7 +758,17 @@ void MetricsLog::RecordEnvironmentProto(
 #endif
 
   SystemProfileProto::OS* os = system_profile->mutable_os();
-  os->set_name(base::SysInfo::OperatingSystemName());
+  std::string os_name = base::SysInfo::OperatingSystemName();
+#if defined(OS_WIN)
+  // TODO(mad): This only checks whether the main process is a Metro process at
+  // upload time; not whether the collected metrics were all gathered from
+  // Metro.  This is ok as an approximation for now, since users will rarely be
+  // switching from Metro to Desktop mode; but we should re-evaluate whether we
+  // can distinguish metrics more cleanly in the future: http://crbug.com/140568
+  if (base::win::IsMetroProcess())
+    os_name += " (Metro)";
+#endif
+  os->set_name(os_name);
   os->set_version(base::SysInfo::OperatingSystemVersion());
 
   const content::GPUInfo& gpu_info =

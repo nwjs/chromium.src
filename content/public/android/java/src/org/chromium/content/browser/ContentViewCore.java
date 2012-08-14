@@ -6,6 +6,7 @@ package org.chromium.content.browser;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.os.Build;
 import android.os.Bundle;
@@ -245,7 +246,7 @@ public class ContentViewCore implements MotionEventDelegate {
         mAccessibilityInjector = AccessibilityInjector.newInstance(this);
         mAccessibilityInjector.addOrRemoveAccessibilityApisIfNecessary();
 
-        initialize(context, nativeWebContents, personality);
+        initialize(context, nativeWebContents, personality, false);
     }
 
     /**
@@ -263,12 +264,14 @@ public class ContentViewCore implements MotionEventDelegate {
     }
 
     // TODO(jrg): incomplete; upstream the rest of this method.
-    private void initialize(Context context, int nativeWebContents, int personality) {
+    private void initialize(Context context, int nativeWebContents, int personality,
+            boolean isAccessFromFileURLsGrantedByDefault) {
         mNativeContentViewCore = nativeInit(nativeWebContents);
         mCleanupReference = new CleanupReference(this, new DestroyRunnable(mNativeContentViewCore));
 
         mPersonality = personality;
-        mContentSettings = new ContentSettings(this, mNativeContentViewCore);
+        mContentSettings = new ContentSettings(
+            this, mNativeContentViewCore, isAccessFromFileURLsGrantedByDefault);
         mContainerView.setFocusable(true);
         mContainerView.setFocusableInTouchMode(true);
         if (mContainerView.getScrollBarStyle() == View.SCROLLBARS_INSIDE_OVERLAY) {
@@ -1030,13 +1033,12 @@ public class ContentViewCore implements MotionEventDelegate {
      * @param object The Java object to inject into the ContentViewCore's
      *               JavaScript context. Null values are ignored.
      * @param name The name used to expose the instance in JavaScript.
-     * @param allowInheritedMethods Whether or not inherited methods may be
-     *                              called from JavaScript.
+     * @param requireAnnotation Restrict exposed methods to ones with the
+     *                          {@link JavascriptInterface} annotation.
      */
-    public void addJavascriptInterface(Object object, String name, boolean allowInheritedMethods) {
+    public void addJavascriptInterface(Object object, String name, boolean requireAnnotation) {
         if (mNativeContentViewCore != 0 && object != null) {
-            nativeAddJavascriptInterface(mNativeContentViewCore, object, name,
-                    allowInheritedMethods);
+            nativeAddJavascriptInterface(mNativeContentViewCore, object, name, requireAnnotation);
         }
     }
 
@@ -1105,6 +1107,26 @@ public class ContentViewCore implements MotionEventDelegate {
      */
     public void setAccessibilityState(boolean state) {
         mAccessibilityInjector.setScriptEnabled(state);
+    }
+
+    /**
+     * Callback factory method for nativeGetNavigationHistory().
+     */
+    @CalledByNative
+    private void addToNavigationHistory(Object history, String url, String virtualUrl,
+            String originalUrl, String title, Bitmap favicon) {
+        NavigationEntry entry = new NavigationEntry(url, virtualUrl, originalUrl, title, favicon);
+        ((NavigationHistory) history).addEntry(entry);
+    }
+
+    /**
+     * Get a copy of the navigation history of the view.
+     */
+    public NavigationHistory getNavigationHistory() {
+        NavigationHistory history = new NavigationHistory();
+        int currentIndex = nativeGetNavigationHistory(mNativeContentViewCore, history);
+        history.setCurrentEntryIndex(currentIndex);
+        return history;
     }
 
     // The following methods are implemented at native side.
@@ -1200,7 +1222,9 @@ public class ContentViewCore implements MotionEventDelegate {
     private native int nativeEvaluateJavaScript(String script);
 
     private native void nativeAddJavascriptInterface(int nativeContentViewCoreImpl, Object object,
-                                                     String name, boolean allowInheritedMethods);
+                                                     String name, boolean requireAnnotation);
 
     private native void nativeRemoveJavascriptInterface(int nativeContentViewCoreImpl, String name);
+
+    private native int nativeGetNavigationHistory(int nativeContentViewCoreImpl, Object context);
 }

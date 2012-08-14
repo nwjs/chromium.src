@@ -20,6 +20,7 @@
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_log.h"
+#include "net/base/network_change_notifier.h"
 #include "net/base/network_delegate.h"
 #include "net/base/ssl_cert_request_info.h"
 #include "net/base/upload_data.h"
@@ -610,7 +611,7 @@ void URLRequest::NotifyResponseStarted() {
       // In some cases (e.g. an event was canceled), we might have sent the
       // completion event and receive a NotifyResponseStarted() later.
       if (!has_notified_completion_ && status_.is_success()) {
-        if (context_ && context_->network_delegate())
+        if (context_->network_delegate())
           context_->network_delegate()->NotifyResponseStarted(this);
       }
 
@@ -694,7 +695,7 @@ int URLRequest::Redirect(const GURL& location, int http_status_code) {
         NetLog::StringCallback("location", &location.possibly_invalid_spec()));
   }
 
-  if (context_ && context_->network_delegate())
+  if (context_->network_delegate())
     context_->network_delegate()->NotifyBeforeRedirect(this, location);
 
   if (redirect_limit_ <= 0) {
@@ -788,7 +789,7 @@ void URLRequest::NotifyAuthRequired(AuthChallengeInfo* auth_info) {
   NetworkDelegate::AuthRequiredResponse rv =
       NetworkDelegate::AUTH_REQUIRED_RESPONSE_NO_ACTION;
   auth_info_ = auth_info;
-  if (context_ && context_->network_delegate()) {
+  if (context_->network_delegate()) {
     rv = context_->network_delegate()->NotifyAuthRequired(
         this,
         *auth_info,
@@ -855,7 +856,7 @@ void URLRequest::NotifySSLCertificateError(const SSLInfo& ssl_info,
 
 bool URLRequest::CanGetCookies(const CookieList& cookie_list) const {
   DCHECK(!(load_flags_ & LOAD_DO_NOT_SEND_COOKIES));
-  if (context_ && context_->network_delegate()) {
+  if (context_->network_delegate()) {
     return context_->network_delegate()->CanGetCookies(*this,
                                                               cookie_list);
   }
@@ -865,7 +866,7 @@ bool URLRequest::CanGetCookies(const CookieList& cookie_list) const {
 bool URLRequest::CanSetCookie(const std::string& cookie_line,
                               CookieOptions* options) const {
   DCHECK(!(load_flags_ & LOAD_DO_NOT_SAVE_COOKIES));
-  if (context_ && context_->network_delegate()) {
+  if (context_->network_delegate()) {
     return context_->network_delegate()->CanSetCookie(*this,
                                                              cookie_line,
                                                              options);
@@ -878,6 +879,11 @@ void URLRequest::NotifyReadCompleted(int bytes_read) {
   // Notify in case the entire URL Request has been finished.
   if (bytes_read <= 0)
     NotifyRequestCompleted();
+
+  // Notify NetworkChangeNotifier that we just received network data.
+  // This is to identify cases where the NetworkChangeNotifier thinks we
+  // are off-line but we are still receiving network data (crbug.com/124069).
+  NetworkChangeNotifier::NotifyDataReceived(url());
 
   if (delegate_)
     delegate_->OnReadCompleted(this, bytes_read);
@@ -893,7 +899,7 @@ void URLRequest::NotifyRequestCompleted() {
 
   is_pending_ = false;
   has_notified_completion_ = true;
-  if (context_ && context_->network_delegate())
+  if (context_->network_delegate())
     context_->network_delegate()->NotifyCompleted(this, job_ != NULL);
 }
 

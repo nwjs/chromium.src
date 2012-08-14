@@ -11,10 +11,6 @@
       '<(DEPTH)/third_party/khronos',
     ],
   },
-  'dependencies': [
-    '../base/base.gyp:base',
-    'command_buffer/command_buffer.gyp:gles2_utils',
-  ],
   'sources': [
     'command_buffer/common/bitfield_helpers.h',
     'command_buffer/common/buffer.h',
@@ -23,6 +19,8 @@
     'command_buffer/common/command_buffer.h',
     'command_buffer/common/compiler_specific.h',
     'command_buffer/common/constants.h',
+    'command_buffer/common/debug_marker_manager.cc',
+    'command_buffer/common/debug_marker_manager.h',
     'command_buffer/common/gles2_cmd_ids_autogen.h',
     'command_buffer/common/gles2_cmd_ids.h',
     'command_buffer/common/gles2_cmd_format_autogen.h',

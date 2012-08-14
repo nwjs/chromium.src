@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/font.h"
@@ -43,7 +44,7 @@ std::string Link::GetClassName() const {
   return kViewClassName;
 }
 
-gfx::NativeCursor Link::GetCursor(const MouseEvent& event) {
+gfx::NativeCursor Link::GetCursor(const ui::MouseEvent& event) {
   if (!enabled())
     return gfx::kNullCursor;
 #if defined(USE_AURA)
@@ -54,13 +55,13 @@ gfx::NativeCursor Link::GetCursor(const MouseEvent& event) {
 #endif
 }
 
-bool Link::HitTest(const gfx::Point& l) const {
+bool Link::HitTestRect(const gfx::Rect& rect) const {
   // We need to allow clicks on the link. So we override the implementation in
   // Label and use the default implementation of View.
-  return View::HitTest(l);
+  return View::HitTestRect(rect);
 }
 
-bool Link::OnMousePressed(const MouseEvent& event) {
+bool Link::OnMousePressed(const ui::MouseEvent& event) {
   if (!enabled() ||
       (!event.IsLeftMouseButton() && !event.IsMiddleMouseButton()))
     return false;
@@ -68,20 +69,20 @@ bool Link::OnMousePressed(const MouseEvent& event) {
   return true;
 }
 
-bool Link::OnMouseDragged(const MouseEvent& event) {
+bool Link::OnMouseDragged(const ui::MouseEvent& event) {
   SetPressed(enabled() &&
              (event.IsLeftMouseButton() || event.IsMiddleMouseButton()) &&
-             HitTest(event.location()));
+             HitTestPoint(event.location()));
   return true;
 }
 
-void Link::OnMouseReleased(const MouseEvent& event) {
+void Link::OnMouseReleased(const ui::MouseEvent& event) {
   // Change the highlight first just in case this instance is deleted
   // while calling the controller
   OnMouseCaptureLost();
   if (enabled() &&
       (event.IsLeftMouseButton() || event.IsMiddleMouseButton()) &&
-      HitTest(event.location())) {
+      HitTestPoint(event.location())) {
     // Focus the link on click.
     RequestFocus();
 
@@ -94,7 +95,7 @@ void Link::OnMouseCaptureLost() {
   SetPressed(false);
 }
 
-bool Link::OnKeyPressed(const KeyEvent& event) {
+bool Link::OnKeyPressed(const ui::KeyEvent& event) {
   bool activate = ((event.key_code() == ui::VKEY_SPACE) ||
                    (event.key_code() == ui::VKEY_RETURN));
   if (!activate)
@@ -128,7 +129,7 @@ ui::GestureStatus Link::OnGestureEvent(const GestureEvent& event) {
   return ui::GESTURE_STATUS_CONSUMED;
 }
 
-bool Link::SkipDefaultKeyEventProcessing(const KeyEvent& event) {
+bool Link::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
   // Make sure we don't process space or enter as accelerators.
   return (event.key_code() == ui::VKEY_SPACE) ||
       (event.key_code() == ui::VKEY_RETURN);

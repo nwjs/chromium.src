@@ -30,7 +30,7 @@
   width: 64px;
 }
 
-#user-image-grid [role=listitem] {
+#user-image-grid > li {
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 4px;
   display: inline-block;
@@ -96,6 +96,8 @@ html[dir=rtl] #user-image-preview {
 }
 
 #user-image-stream-crop {
+  /* TODO(ivankr): temporary workaround for crbug.com/142347. */
+  -webkit-transform: rotateY(360deg);
   -webkit-transition: -webkit-transform 200ms linear;
   height: 220px;
   overflow: hidden;
@@ -179,4 +181,13 @@ html[dir=rtl] #flip-photo {
   background: url('chrome://theme/IDR_USER_IMAGE_CAPTURE')
       no-repeat center -1px;
   display: block;
+}
+
+#user-image-attribution {
+  -webkit-padding-start: 34px;
+  line-height: 26px;
+}
+
+#user-image-author-website {
+  -webkit-padding-start: 5px;
 }

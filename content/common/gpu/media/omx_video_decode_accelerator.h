@@ -38,8 +38,10 @@ class CONTENT_EXPORT OmxVideoDecodeAccelerator :
     public media::VideoDecodeAccelerator {
  public:
   // Does not take ownership of |client| which must outlive |*this|.
-  OmxVideoDecodeAccelerator(EGLDisplay egl_display, EGLContext egl_context,
-                            media::VideoDecodeAccelerator::Client* client);
+  OmxVideoDecodeAccelerator(
+      EGLDisplay egl_display, EGLContext egl_context,
+      media::VideoDecodeAccelerator::Client* client,
+      const base::Callback<bool(void)>& make_context_current);
   virtual ~OmxVideoDecodeAccelerator();
 
   // media::VideoDecodeAccelerator implementation.
@@ -53,6 +55,9 @@ class CONTENT_EXPORT OmxVideoDecodeAccelerator :
   void Destroy() OVERRIDE;
 
   base::WeakPtr<OmxVideoDecodeAccelerator> weak_this() { return weak_this_; }
+
+  // Do any necessary initialization before the sandbox is enabled.
+  static void PreSandboxInitialization();
 
  private:
   // Because OMX state-transitions are described solely by the "state reached"
@@ -143,6 +148,10 @@ class CONTENT_EXPORT OmxVideoDecodeAccelerator :
   // Decode bitstream buffers that were queued (see queued_bitstream_buffers_).
   void DecodeQueuedBitstreamBuffers();
 
+  // Lazily initialize static data after sandbox is enabled.  Return false on
+  // init failure.
+  static bool PostSandboxInitialization();
+
   // Weak pointer to |this|; used to safely trampoline calls from the OMX thread
   // to the ChildThread.  Since |this| is kept alive until OMX is fully shut
   // down, only the OMX->Child thread direction needs to be guarded this way.
@@ -174,6 +183,7 @@ class CONTENT_EXPORT OmxVideoDecodeAccelerator :
   // TODO(fischman,vrk): handle lost contexts?
   EGLDisplay egl_display_;
   EGLContext egl_context_;
+  base::Callback<bool(void)> make_context_current_;
 
   // Free input OpenMAX buffers that can be used to take bitstream from demuxer.
   std::queue<OMX_BUFFERHEADERTYPE*> free_input_buffers_;
@@ -206,6 +216,9 @@ class CONTENT_EXPORT OmxVideoDecodeAccelerator :
   Codec codec_;
   uint32 h264_profile_;  // OMX_AVCProfile requested during Initialization.
   bool component_name_is_nvidia_h264ext_;
+
+  // Has static initialization of pre-sandbox components completed successfully?
+  static bool pre_sandbox_init_done_;
 
   // Method to handle events
   void EventHandlerCompleteTask(OMX_EVENTTYPE event,

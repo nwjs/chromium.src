@@ -15,8 +15,10 @@
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_builder.h"
+#include "chrome/common/extensions/features/feature.h"
 #include "chrome/common/extensions/value_builder.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -36,7 +38,8 @@ class ScriptBadgeControllerTest : public TabContentsTestHarness {
  public:
   ScriptBadgeControllerTest()
       : ui_thread_(BrowserThread::UI, MessageLoop::current()),
-        file_thread_(BrowserThread::FILE, MessageLoop::current()) {}
+        file_thread_(BrowserThread::FILE, MessageLoop::current()),
+        current_channel_(chrome::VersionInfo::CHANNEL_DEV) {}
 
   virtual void SetUp() OVERRIDE {
     // Note that this sets a PageActionController into the
@@ -83,6 +86,7 @@ class ScriptBadgeControllerTest : public TabContentsTestHarness {
  private:
   content::TestBrowserThread ui_thread_;
   content::TestBrowserThread file_thread_;
+  Feature::ScopedCurrentChannel current_channel_;
 };
 
 struct CountingNotificationObserver : public content::NotificationObserver {
@@ -120,10 +124,11 @@ TEST_F(ScriptBadgeControllerTest, ExecutionMakesBadgeVisible) {
 
   ListValue val;
   script_badge_controller_->OnExecuteScriptFinished(
-      extension->id(), true,
+      extension->id(),
+      "",  // no error
       tab_contents()->web_contents()->GetController().GetActiveEntry()->
       GetPageID(),
-      "",
+      GURL(""),
       val);
   EXPECT_THAT(script_badge_controller_->GetCurrentActions(),
               testing::ElementsAre(extension->script_badge()));
@@ -147,10 +152,11 @@ TEST_F(ScriptBadgeControllerTest, FragmentNavigation) {
 
     ListValue val;
     script_badge_controller_->OnExecuteScriptFinished(
-        extension->id(), true,
+        extension->id(),
+        "",  // no error
         tab_contents()->web_contents()->GetController().GetActiveEntry()->
             GetPageID(),
-        "",
+        GURL(""),
         val);
 
     EXPECT_THAT(script_badge_controller_->GetCurrentActions(),

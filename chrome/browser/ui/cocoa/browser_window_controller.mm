@@ -244,9 +244,9 @@ enum {
 
     // Set the window to not have rounded corners, which prevents the resize
     // control from being inset slightly and looking ugly. Only bother to do
-    // this on Snow Leopard and earlier; on Lion and later all windows have
-    // rounded bottom corners, and this won't work anyway.
-    if (base::mac::IsOSSnowLeopardOrEarlier() &&
+    // this on Snow Leopard; on Lion and later all windows have rounded bottom
+    // corners, and this won't work anyway.
+    if (base::mac::IsOSSnowLeopard() &&
         [window respondsToSelector:@selector(setBottomCornerRounded:)])
       [window setBottomCornerRounded:NO];
 
@@ -1045,7 +1045,7 @@ enum {
                     IDS_ENTER_FULLSCREEN_MAC);
             [static_cast<NSMenuItem*>(item) setTitle:menuTitle];
 
-            if (base::mac::IsOSSnowLeopardOrEarlier())
+            if (base::mac::IsOSSnowLeopard())
               [static_cast<NSMenuItem*>(item) setHidden:YES];
           }
           break;
@@ -1920,8 +1920,8 @@ willAnimateFromState:(bookmarks::VisualState)oldState
 
 - (void)commitInstant {
   InstantController* instant = browser_->instant_controller()->instant();
-  if (instant)
-    instant->CommitIfCurrent();
+  if (instant && instant->IsCurrent())
+    instant->CommitCurrentPreview(INSTANT_COMMIT_FOCUS_LOST);
 }
 
 
@@ -1981,9 +1981,9 @@ willAnimateFromState:(bookmarks::VisualState)oldState
       [static_cast<FramedBrowserWindow*>([self window]) toggleSystemFullScreen];
   } else {
     if (fullscreen)
-      [self enterFullscreenForSnowLeopardOrEarlier];
+      [self enterFullscreenForSnowLeopard];
     else
-      [self exitFullscreenForSnowLeopardOrEarlier];
+      [self exitFullscreenForSnowLeopard];
   }
 }
 
@@ -2022,9 +2022,8 @@ willAnimateFromState:(bookmarks::VisualState)oldState
   fullscreenUrl_ = url;
   fullscreenBubbleType_ = bubbleType;
 
-  // Presentation mode on Leopard and Snow Leopard maps directly to fullscreen
-  // mode.
-  if (base::mac::IsOSSnowLeopardOrEarlier()) {
+  // Presentation mode on Snow Leopard maps directly to fullscreen mode.
+  if (base::mac::IsOSSnowLeopard()) {
     [self setFullscreen:presentationMode url:url bubbleType:bubbleType];
     return;
   }
@@ -2057,11 +2056,9 @@ willAnimateFromState:(bookmarks::VisualState)oldState
         [static_cast<FramedBrowserWindow*>(window) toggleSystemFullScreen];
     }
   } else {
-    // The user is currently in presentation mode and is now exiting it, which
-    // also exits fullscreen using the Lion machinery.
-    NSWindow* window = [self window];
-    if ([window isKindOfClass:[FramedBrowserWindow class]])
-      [static_cast<FramedBrowserWindow*>(window) toggleSystemFullScreen];
+    // Exiting presentation mode does not exit system fullscreen; it merely
+    // switches from presentation mode to normal fullscreen.
+    [self setPresentationModeInternal:NO forceDropdown:NO];
   }
 }
 
@@ -2072,7 +2069,7 @@ willAnimateFromState:(bookmarks::VisualState)oldState
 
 - (void)exitPresentationMode {
   // url: and bubbleType: are ignored when leaving presentation mode.
- [self setPresentationMode:NO url:GURL() bubbleType:FEB_TYPE_NONE];
+  [self setPresentationMode:NO url:GURL() bubbleType:FEB_TYPE_NONE];
 }
 
 - (BOOL)inPresentationMode {

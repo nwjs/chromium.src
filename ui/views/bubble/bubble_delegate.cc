@@ -26,6 +26,7 @@ Widget* CreateBubbleWidget(BubbleDelegateView* bubble) {
   Widget::InitParams bubble_params(Widget::InitParams::TYPE_BUBBLE);
   bubble_params.delegate = bubble;
   bubble_params.transparent = true;
+  bubble_params.accept_events = bubble->accept_events();
   if (bubble->parent_window())
     bubble_params.parent = bubble->parent_window();
   else
@@ -115,6 +116,8 @@ BubbleDelegateView::BubbleDelegateView()
       original_opacity_(255),
       border_widget_(NULL),
       use_focusless_(false),
+      accept_events_(true),
+      try_mirroring_arrow_(true),
       parent_window_(NULL) {
   set_background(Background::CreateSolidBackground(color_));
   AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
@@ -134,6 +137,8 @@ BubbleDelegateView::BubbleDelegateView(
       original_opacity_(255),
       border_widget_(NULL),
       use_focusless_(false),
+      accept_events_(true),
+      try_mirroring_arrow_(true),
       parent_window_(NULL) {
   set_background(Background::CreateSolidBackground(color_));
   AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
@@ -230,7 +235,11 @@ void BubbleDelegateView::OnWidgetMoved(Widget* widget) {
 }
 
 gfx::Rect BubbleDelegateView::GetAnchorRect() {
-  return anchor_view() ? anchor_view()->GetBoundsInScreen() : gfx::Rect();
+  if (!anchor_view())
+    return gfx::Rect();
+  gfx::Rect anchor_bounds = anchor_view()->GetBoundsInScreen();
+  anchor_bounds.Inset(anchor_insets_);
+  return anchor_bounds;
 }
 
 void BubbleDelegateView::Show() {
@@ -332,7 +341,7 @@ gfx::Rect BubbleDelegateView::GetBubbleBounds() {
   // The argument rect has its origin at the bubble's arrow anchor point;
   // its size is the preferred size of the bubble's client view (this view).
   return GetBubbleFrameView()->GetUpdatedWindowBounds(GetAnchorRect(),
-      GetPreferredSize(), true /*try_mirroring_arrow*/);
+      GetPreferredSize(), try_mirroring_arrow_);
 }
 
 #if defined(OS_WIN) && !defined(USE_AURA)

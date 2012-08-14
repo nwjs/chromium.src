@@ -40,6 +40,7 @@
 #include "content/common/resource_messages.h"
 #include "content/common/view_messages.h"
 #include "content/common/web_database_observer_impl.h"
+#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
@@ -55,6 +56,7 @@
 #include "content/renderer/dom_storage/webstoragearea_impl.h"
 #include "content/renderer/dom_storage/webstoragenamespace_impl.h"
 #include "content/renderer/gpu/compositor_thread.h"
+#include "content/renderer/gpu/compositor_output_surface.h"
 #include "content/renderer/gpu/gpu_benchmarking_extension.h"
 #include "content/renderer/media/audio_hardware.h"
 #include "content/renderer/media/audio_input_message_filter.h"
@@ -69,13 +71,18 @@
 #include "content/renderer/renderer_webkitplatformsupport_impl.h"
 #include "grit/content_resources.h"
 #include "ipc/ipc_channel_handle.h"
+#include "ipc/ipc_forwarding_message_filter.h"
 #include "ipc/ipc_platform_file.h"
 #include "media/base/media.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
+<<<<<<< HEAD
 #include "third_party/node/src/node.h"
+=======
+#include "third_party/WebKit/Source/Platform/chromium/public/WebCompositor.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebString.h"
+>>>>>>> 49e409a3bd4834fae2676be18a0a112e19187f2c
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebColorName.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDatabase.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDocument.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFrame.h"
@@ -86,7 +93,6 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScriptController.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebSecurityPolicy.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/platform/WebString.h"
 #include "ui/base/layout.h"
 #include "ui/base/ui_base_switches.h"
 #include "v8/include/v8.h"
@@ -173,6 +179,17 @@ static void AddHistogramSample(void* hist, int sample) {
   histogram->Add(sample);
 }
 
+class RenderThreadImpl::GpuVDAContextLostCallback
+    : public WebKit::WebGraphicsContext3D::WebGraphicsContextLostCallback {
+ public:
+  GpuVDAContextLostCallback() {}
+  virtual ~GpuVDAContextLostCallback() {}
+  virtual void onContextLost() {
+    ChildThread::current()->message_loop()->PostTask(FROM_HERE, base::Bind(
+        &RenderThreadImpl::OnGpuVDAContextLoss));
+  }
+};
+
 RenderThreadImpl* RenderThreadImpl::current() {
   return lazy_tls.Pointer()->Get();
 }
@@ -225,9 +242,9 @@ void RenderThreadImpl::Init() {
   dom_storage_dispatcher_.reset(new DomStorageDispatcher());
   main_thread_indexed_db_dispatcher_.reset(new IndexedDBDispatcher());
 
-  browser_plugin_registry_.reset(new content::BrowserPluginRegistry());
+  browser_plugin_registry_.reset(new content::old::BrowserPluginRegistry());
   browser_plugin_channel_manager_.reset(
-      new content::BrowserPluginChannelManager());
+      new content::old::BrowserPluginChannelManager());
   AddObserver(browser_plugin_channel_manager_.get());
 
   media_stream_center_ = NULL;
@@ -255,14 +272,14 @@ void RenderThreadImpl::Init() {
   if (command_line.HasSwitch(switches::kEnableGpuBenchmarking))
       RegisterExtension(content::GpuBenchmarkingExtension::Get());
 
-#if defined(WEBCOMPOSITOR_OWNS_SETTINGS)
   WebKit::WebCompositor::setAcceleratedAnimationEnabled(
       !command_line.HasSwitch(switches::kDisableThreadedAnimation));
   WebKit::WebCompositor::setPerTilePaintingEnabled(
       command_line.HasSwitch(switches::kEnablePerTilePainting));
   WebKit::WebCompositor::setPartialSwapEnabled(
       command_line.HasSwitch(switches::kEnablePartialSwap));
-#endif
+
+  context_lost_cb_.reset(new GpuVDAContextLostCallback());
 
   // Note that under Linux, the media library will normally already have
   // been initialized by the Zygote before this instance became a Renderer.
@@ -300,6 +317,11 @@ RenderThreadImpl::~RenderThreadImpl() {
   // Shutdown the file thread if it's running.
   if (file_thread_.get())
     file_thread_->Stop();
+
+  if (compositor_output_surface_filter_.get()) {
+    RemoveFilter(compositor_output_surface_filter_.get());
+    compositor_output_surface_filter_ = NULL;
+  }
 
   if (compositor_initialized_) {
     WebKit::WebCompositor::shutdown();
@@ -494,21 +516,12 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   webkit_platform_support_.reset(new RendererWebKitPlatformSupportImpl);
   WebKit::initialize(webkit_platform_support_.get());
 
-  base::FieldTrial* thread_trial =
-      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
-  bool is_thread_trial = thread_trial && thread_trial->group_name() ==
-      content::kGpuCompositingFieldTrialThreadEnabledName;
-  bool has_enable = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kEnableThreadedCompositing);
-  bool has_disable = CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableThreadedCompositing);
   // TODO(fsamuel): Guests don't currently support threaded compositing.
   // This should go away with the new design of the browser plugin.
   // The new design can be tracked at: http://crbug.com/134492.
   bool is_guest = CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kGuestRenderer);
-  DCHECK(!is_thread_trial || !has_disable);
-  bool enable = (is_thread_trial || (has_enable && !has_disable)) && !is_guest;
+  bool enable = content::IsThreadedCompositingEnabled() && !is_guest;
   if (enable) {
     compositor_thread_.reset(new CompositorThread(this));
     AddFilter(compositor_thread_->GetMessageFilter());
@@ -517,6 +530,14 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
     WebKit::WebCompositor::initialize(NULL);
   }
   compositor_initialized_ = true;
+
+  MessageLoop* output_surface_loop = enable ?
+      compositor_thread_->message_loop() :
+      MessageLoop::current();
+
+  compositor_output_surface_filter_ = CompositorOutputSurface::CreateFilter(
+      output_surface_loop->message_loop_proxy());
+  AddFilter(compositor_output_surface_filter_.get());
 
   WebScriptController::enableV8SingleThreadMode();
 
@@ -630,6 +651,9 @@ void RenderThreadImpl::EnsureWebKitInitialized() {
   WebRuntimeFeatures::enableStyleScoped(
       command_line.HasSwitch(switches::kEnableStyleScoped));
 
+  WebRuntimeFeatures::enableCSSExclusions(
+      command_line.HasSwitch(switches::kEnableCssExclusions));
+
   FOR_EACH_OBSERVER(RenderProcessObserver, observers_, WebKitInitialized());
 
   if (content::GetContentClient()->renderer()->
@@ -660,12 +684,6 @@ base::SharedMemoryHandle RenderThreadImpl::HostAllocateSharedMemoryBuffer(
 
 void RenderThreadImpl::RegisterExtension(v8::Extension* extension) {
   WebScriptController::registerExtension(extension);
-  v8_extensions_.insert(extension->name());
-}
-
-bool RenderThreadImpl::IsRegisteredExtension(
-    const std::string& v8_extension_name) const {
-  return v8_extensions_.find(v8_extension_name) != v8_extensions_.end();
 }
 
 void RenderThreadImpl::ScheduleIdleHandler(int64 initial_delay_ms) {
@@ -761,27 +779,30 @@ void RenderThreadImpl::PostponeIdleNotification() {
   idle_notifications_to_skip_ = 2;
 }
 
-base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>
-RenderThreadImpl::GetGpuVDAContext3D() {
-  // If we already handed out a pointer to a context and it's been lost, create
-  // a new one.
-  if (gpu_vda_context3d_.get() && gpu_vda_context3d_->isContextLost()) {
-    if (compositor_thread()) {
-      compositor_thread()->GetWebThread()->message_loop()->DeleteSoon(
-          FROM_HERE, gpu_vda_context3d_.release());
-    } else {
-      gpu_vda_context3d_.reset();
-    }
+/* static */
+void RenderThreadImpl::OnGpuVDAContextLoss() {
+  RenderThreadImpl* self = RenderThreadImpl::current();
+  DCHECK(self);
+  if (!self->gpu_vda_context3d_.get())
+    return;
+  if (self->compositor_thread()) {
+    self->compositor_thread()->GetWebThread()->message_loop()->DeleteSoon(
+        FROM_HERE, self->gpu_vda_context3d_.release());
+  } else {
+    self->gpu_vda_context3d_.reset();
   }
+}
+
+WebGraphicsContext3DCommandBufferImpl*
+RenderThreadImpl::GetGpuVDAContext3D() {
   if (!gpu_vda_context3d_.get()) {
     gpu_vda_context3d_.reset(
         WebGraphicsContext3DCommandBufferImpl::CreateOffscreenContext(
             this, WebKit::WebGraphicsContext3D::Attributes(),
             GURL("chrome://gpu/RenderThreadImpl::GetGpuVDAContext3D")));
+    gpu_vda_context3d_->setContextLostCallback(context_lost_cb_.get());
   }
-  if (!gpu_vda_context3d_.get())
-    return base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>();
-  return gpu_vda_context3d_->AsWeakPtr();
+  return gpu_vda_context3d_.get();
 }
 
 content::AudioRendererMixerManager*

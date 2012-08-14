@@ -113,7 +113,7 @@ class TraySms::SmsMessageView : public views::View,
 
   // Overridden from ButtonListener.
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE {
+                             const ui::Event& event) OVERRIDE {
     tray_->RemoveMessage(index_);
     tray_->Update(false);
   }
@@ -209,7 +209,7 @@ class TraySms::SmsDetailedView : public TrayDetailsView,
     const base::ListValue& messages = tray_->messages();
     scroll_content()->RemoveAllChildViews(true);
     for (size_t index = 0; index < messages.GetSize(); ++index) {
-      base::DictionaryValue* message = NULL;
+      const base::DictionaryValue* message = NULL;
       if (!messages.GetDictionary(index, &message)) {
         LOG(ERROR) << "SMS message not a dictionary at: " << index;
         continue;

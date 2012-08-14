@@ -7,7 +7,6 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/message_loop.h"
-#include "base/string_number_conversions.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "content/public/common/content_switches.h"
@@ -18,7 +17,9 @@
 #include "content/shell/shell_devtools_delegate.h"
 #include "content/shell/shell_switches.h"
 #include "googleurl/src/gurl.h"
+#include "grit/net_resources.h"
 #include "net/base/net_module.h"
+#include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_ANDROID)
 #include "net/base/network_change_notifier.h"
@@ -26,6 +27,8 @@
 #endif
 
 namespace content {
+
+namespace {
 
 static GURL GetStartupURL() {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
@@ -43,6 +46,18 @@ static GURL GetStartupURL() {
 
   return GURL(args[0]);
 }
+
+base::StringPiece PlatformResourceProvider(int key) {
+  if (key == IDR_DIR_HEADER_HTML) {
+    base::StringPiece html_data =
+        ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
+            IDR_DIR_HEADER_HTML, ui::SCALE_FACTOR_NONE);
+    return html_data;
+  }
+  return base::StringPiece();
+}
+
+}  // namespace
 
 ShellBrowserMainParts::ShellBrowserMainParts(
     const MainFunctionParams& parameters)
@@ -78,21 +93,10 @@ void ShellBrowserMainParts::PreMainMessageLoopRun() {
   off_the_record_browser_context_.reset(new ShellBrowserContext(true));
 
   Shell::PlatformInitialize();
-  net::NetModule::SetResourceProvider(Shell::PlatformResourceProvider);
+  net::NetModule::SetResourceProvider(PlatformResourceProvider);
 
-  const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  if (command_line.HasSwitch(switches::kRemoteDebuggingPort)) {
-    std::string port_str =
-        command_line.GetSwitchValueASCII(switches::kRemoteDebuggingPort);
-    int port;
-    if (base::StringToInt(port_str, &port) && port > 0 && port < 65535) {
-      devtools_delegate_ = new ShellDevToolsDelegate(
-          port,
-          browser_context_->GetRequestContext());
-    } else {
-      DLOG(WARNING) << "Invalid http debugger port number " << port;
-    }
-  }
+  devtools_delegate_ = new ShellDevToolsDelegate(
+      browser_context_->GetRequestContext());
 
   if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDumpRenderTree)) {
     Shell::CreateNewWindow(browser_context_.get(),

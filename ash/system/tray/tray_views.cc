@@ -9,6 +9,7 @@
 #include "grit/ash_strings.h"
 #include "grit/ui_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
@@ -115,7 +116,7 @@ void ActionableView::DrawBorder(gfx::Canvas* canvas, const gfx::Rect& bounds) {
   canvas->DrawRect(rect, kFocusBorderColor);
 }
 
-bool ActionableView::OnKeyPressed(const views::KeyEvent& event) {
+bool ActionableView::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.key_code() == ui::VKEY_SPACE ||
       event.key_code() == ui::VKEY_RETURN) {
     return PerformAction(event);
@@ -123,13 +124,13 @@ bool ActionableView::OnKeyPressed(const views::KeyEvent& event) {
   return false;
 }
 
-bool ActionableView::OnMousePressed(const views::MouseEvent& event) {
+bool ActionableView::OnMousePressed(const ui::MouseEvent& event) {
   // Return true so that this view starts capturing the events.
   has_capture_ = true;
   return true;
 }
 
-void ActionableView::OnMouseReleased(const views::MouseEvent& event) {
+void ActionableView::OnMouseReleased(const ui::MouseEvent& event) {
   if (has_capture_ && GetLocalBounds().Contains(event.location()))
     PerformAction(event);
 }
@@ -214,7 +215,7 @@ void HoverHighlightView::AddLabel(const string16& text,
   SetAccessibleName(text);
 }
 
-bool HoverHighlightView::PerformAction(const views::Event& event) {
+bool HoverHighlightView::PerformAction(const ui::Event& event) {
   if (!listener_)
     return false;
   listener_->ClickedOn(this);
@@ -228,14 +229,14 @@ gfx::Size HoverHighlightView::GetPreferredSize() {
   return size;
 }
 
-void HoverHighlightView::OnMouseEntered(const views::MouseEvent& event) {
+void HoverHighlightView::OnMouseEntered(const ui::MouseEvent& event) {
   hover_ = true;
   if (text_highlight_color_ && text_label_)
     text_label_->SetEnabledColor(text_highlight_color_);
   SchedulePaint();
 }
 
-void HoverHighlightView::OnMouseExited(const views::MouseEvent& event) {
+void HoverHighlightView::OnMouseExited(const ui::MouseEvent& event) {
   hover_ = false;
   if (text_default_color_ && text_label_)
     text_label_->SetEnabledColor(text_default_color_);
@@ -307,7 +308,7 @@ void FixedSizedScrollView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   contents->SetBoundsRect(bounds);
 }
 
-void FixedSizedScrollView::OnMouseEntered(const views::MouseEvent& event) {
+void FixedSizedScrollView::OnMouseEntered(const ui::MouseEvent& event) {
   // TODO(sad): This is done to make sure that the scroll view scrolls on
   // mouse-wheel events. This is ugly, and Ben thinks this is weird. There
   // should be a better fix for this.
@@ -342,12 +343,12 @@ gfx::Size TrayPopupTextButton::GetPreferredSize() {
   return size;
 }
 
-void TrayPopupTextButton::OnMouseEntered(const views::MouseEvent& event) {
+void TrayPopupTextButton::OnMouseEntered(const ui::MouseEvent& event) {
   hover_ = true;
   SchedulePaint();
 }
 
-void TrayPopupTextButton::OnMouseExited(const views::MouseEvent& event) {
+void TrayPopupTextButton::OnMouseExited(const ui::MouseEvent& event) {
   hover_ = false;
   SchedulePaint();
 }

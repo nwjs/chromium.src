@@ -90,6 +90,8 @@
       '-autofill.AutofillTest.testMergeAggregatedProfilesWithSameAddress',
       # crbug.com/99475
       '-autofill.AutofillTest.testNoDuplicatePhoneNumsInPrefs',
+      # crbug.com/141443
+      '-browsing_data.BrowsingDataTest.testClearAutofillData',
       # crbug.com/123396
       '-fullscreen_mouselock.FullscreenMouselockTest.testPatternsForFSAndML',
       # crbug.com/132665
@@ -97,6 +99,8 @@
       '-fullscreen_mouselock.FullscreenMouselockTest.testTabFSExitWhenNavToNewPage',
       '-fullscreen_mouselock.FullscreenMouselockTest.testMLExitWhenNavBackToPrevPage',
       '-fullscreen_mouselock.FullscreenMouselockTest.testMLExitWhenNavToNewPage',
+      # crbug.com/140460
+      '-fullscreen_mouselock.FullscreenMouselockTest.testNoTabFSExitWhenJSExitMouseLock',
 
       # crosbug.com/136875
       '-fullscreen_mouselock.FullscreenMouselockTest.testTabFSDoesNotExitForAnchorLinks',
@@ -146,12 +150,6 @@
       '-infobars.OneClickInfobarTest.testNoSameIDSigninForTwoProfiles',
       # crbug.com/124280
       '-downloads.DownloadsTest.testPauseAndResume',
-      # crbug.com/137042
-      '-instant.InstantTest.testFindInCanDismissInstant',
-      '-instant.InstantTest.testInstantLoadsFor100CharsLongQuery',
-      '-instant.InstantTest.testInstantNavigation',
-      '-instant.InstantTest.testNTPCanDismissInstant',
-      '-instant.InstantTest.testNewWindowCanDismissInstant',
 
       # Mysteriously broken?
       # crbug.com/138857
@@ -281,8 +279,6 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
-      # crbug.com/85310
-      '-instant',
       # crbug.com/91033
       '-omnibox.OmniboxTest.testOmniboxSearchHistory',
       # crbug.com/103379
@@ -376,8 +372,6 @@
       '-infobars.InfobarTest.testPluginCrashForMultiTabs',
       # crbug.com/109035
       '-infobars.InfobarTest.testPluginCrashInfobar',
-      # Flaky: crosbug.com/14439
-      '-instant',
       # crosbug.com/14256
       '-ntp.NTPTest.testLaunchAppFullScreen',
       # Content history broken in omnibox.  crosbug.com/14416
@@ -572,7 +566,6 @@
       # Add back the omnibox tests excluded from the CONTINUOUS suite above
       # because they do not produce omnibox results under virtual X on linux.
       # crbug.com/85310
-      'instant',
       'omnibox.OmniboxTest.testAppComboNameWithSpecialCharSearch',
       'omnibox.OmniboxTest.testAppNameWithNumberSearch',
       'omnibox.OmniboxTest.testAppNameWithSpaceSearch',
@@ -603,9 +596,6 @@
       # crbug.com/109035
       '-youtube.YoutubeTest.testPlayerBytes',
       '-youtube.YoutubeTest.testPlayerResolution',
-      # crbug.com/135211
-      '-instant.InstantTest.testExtnPageCanDismissInstant',
-      '-instant.InstantSettingsTest.testEnableDisableInstant',
     ],
 
     'chromeos': [
@@ -829,7 +819,10 @@
   'WEBRTC': {
     'all': [
       'media_stream_infobar',
+      'webrtc_brutality_test',
       'webrtc_call',
+      # crbug.com/140465
+      '-webrtc_brutality_test.WebrtcBrutalityTest.testRepeatedGetUserMediaRequests'
     ],
   },
 

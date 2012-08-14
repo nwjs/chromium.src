@@ -6,7 +6,6 @@
 #define CONTENT_RENDERER_MEDIA_WEBRTC_AUDIO_DEVICE_IMPL_H_
 
 #include <string>
-#include <vector>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
@@ -217,18 +216,13 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
   virtual int32_t AddRef() OVERRIDE;
   virtual int32_t Release() OVERRIDE;
 
-  // We need this one to support runnable method tasks.
-  static bool ImplementsThreadSafeReferenceCounting() { return true; }
-
   // media::AudioRendererSink::RenderCallback implementation.
-  virtual int Render(const std::vector<float*>& audio_data,
-                     int number_of_frames,
+  virtual int Render(media::AudioBus* audio_bus,
                      int audio_delay_milliseconds) OVERRIDE;
   virtual void OnRenderError() OVERRIDE;
 
   // AudioInputDevice::CaptureCallback implementation.
-  virtual void Capture(const std::vector<float*>& audio_data,
-                       int number_of_frames,
+  virtual void Capture(media::AudioBus* audio_bus,
                        int audio_delay_milliseconds,
                        double volume) OVERRIDE;
   virtual void OnCaptureError() OVERRIDE;
@@ -382,8 +376,6 @@ class CONTENT_EXPORT WebRtcAudioDeviceImpl
   int output_sample_rate() const {
     return output_audio_parameters_.sample_rate();
   }
-  int input_delay_ms() const { return input_delay_ms_; }
-  int output_delay_ms() const { return output_delay_ms_; }
   bool initialized() const { return initialized_; }
   bool playing() const { return playing_; }
   bool recording() const { return recording_; }

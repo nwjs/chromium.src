@@ -205,6 +205,11 @@ class NET_EXPORT SpdySession : public base::RefCounted<SpdySession>,
                                                     const std::string& cert,
                                                     RequestPriority priority);
 
+  // Write a HEADERS frame to the stream.
+  SpdyHeadersControlFrame* CreateHeadersFrame(SpdyStreamId stream_id,
+                                              const SpdyHeaderBlock& headers,
+                                              SpdyControlFlags flags);
+
   // Write a data frame to the stream.
   // Used to create and queue a data frame for the given stream.
   SpdyDataFrame* CreateDataFrame(SpdyStreamId stream_id,
@@ -369,13 +374,7 @@ class NET_EXPORT SpdySession : public base::RefCounted<SpdySession>,
     PendingCreateStream(const GURL& url, RequestPriority priority,
                         scoped_refptr<SpdyStream>* spdy_stream,
                         const BoundNetLog& stream_net_log,
-                        const CompletionCallback& callback)
-        : url(&url),
-          priority(priority),
-          spdy_stream(spdy_stream),
-          stream_net_log(&stream_net_log),
-          callback(callback) {
-    }
+                        const CompletionCallback& callback);
 
     ~PendingCreateStream();
 
@@ -406,8 +405,7 @@ class NET_EXPORT SpdySession : public base::RefCounted<SpdySession>,
                               SpdyIOBufferProducerCompare> WriteQueue;
 
   struct CallbackResultPair {
-    CallbackResultPair(const CompletionCallback& callback_in, int result_in)
-        : callback(callback_in), result(result_in) {}
+    CallbackResultPair(const CompletionCallback& callback_in, int result_in);
     ~CallbackResultPair();
 
     CompletionCallback callback;

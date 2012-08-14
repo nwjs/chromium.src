@@ -23,6 +23,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/automation/automation_provider.h"
 #include "chrome/browser/automation/automation_provider_json.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
@@ -51,7 +52,6 @@
 #include "chrome/browser/sessions/restore_tab_helper.h"
 #include "chrome/browser/sessions/tab_restore_service.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/tab_contents/thumbnail_generator.h"
 #include "chrome/browser/translate/page_translated_details.h"
 #include "chrome/browser/translate/translate_infobar_delegate.h"
@@ -254,8 +254,8 @@ void NavigationControllerRestoredObserver::Observe(
     int type, const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   if (FinishedRestoring()) {
-    SendDone();
     registrar_.RemoveAll();
+    SendDone();
   }
 }
 
@@ -265,12 +265,11 @@ bool NavigationControllerRestoredObserver::FinishedRestoring() {
 }
 
 void NavigationControllerRestoredObserver::SendDone() {
-  if (!automation_)
-    return;
-
-  AutomationMsg_WaitForTabToBeRestored::WriteReplyParams(reply_message_.get(),
-                                                         true);
-  automation_->Send(reply_message_.release());
+  if (automation_) {
+    AutomationJSONReply(automation_, reply_message_.release())
+        .SendSuccess(NULL);
+  }
+  delete this;
 }
 
 NavigationNotificationObserver::NavigationNotificationObserver(
@@ -1403,10 +1402,12 @@ AutomationProviderBookmarkModelObserver::
 AutomationProviderBookmarkModelObserver(
     AutomationProvider* provider,
     IPC::Message* reply_message,
-    BookmarkModel* model)
+    BookmarkModel* model,
+    bool use_json_interface)
     : automation_provider_(provider->AsWeakPtr()),
       reply_message_(reply_message),
-      model_(model) {
+      model_(model),
+      use_json_interface_(use_json_interface) {
   model_->AddObserver(this);
 }
 
@@ -1425,11 +1426,20 @@ void AutomationProviderBookmarkModelObserver::BookmarkModelBeingDeleted(
   ReplyAndDelete(false);
 }
 
+IPC::Message* AutomationProviderBookmarkModelObserver::ReleaseReply() {
+  return reply_message_.release();
+}
+
 void AutomationProviderBookmarkModelObserver::ReplyAndDelete(bool success) {
   if (automation_provider_) {
-    AutomationMsg_WaitForBookmarkModelToLoad::WriteReplyParams(
-        reply_message_.get(), success);
-    automation_provider_->Send(reply_message_.release());
+    if (use_json_interface_) {
+      AutomationJSONReply(automation_provider_,
+                          reply_message_.release()).SendSuccess(NULL);
+    } else {
+      AutomationMsg_WaitForBookmarkModelToLoad::WriteReplyParams(
+          reply_message_.get(), success);
+      automation_provider_->Send(reply_message_.release());
+    }
   }
   delete this;
 }

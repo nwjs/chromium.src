@@ -15,6 +15,10 @@
 
 namespace media {
 
+base::TimeDelta VideoRendererBase::kMaxLastFrameDuration() {
+  return base::TimeDelta::FromMilliseconds(250);
+}
+
 VideoRendererBase::VideoRendererBase(const base::Closure& paint_cb,
                                      const SetOpaqueCB& set_opaque_cb,
                                      bool drop_frames)
@@ -70,7 +74,7 @@ void VideoRendererBase::Stop(const base::Closure& callback) {
     state_ = kStopped;
 
     statistics_cb_.Reset();
-    time_cb_.Reset();
+    max_time_cb_.Reset();
     if (!pending_paint_ && !pending_paint_with_last_available_)
       DoStopOrError_Locked();
 
@@ -108,34 +112,82 @@ void VideoRendererBase::Preroll(base::TimeDelta time,
   AttemptRead_Locked();
 }
 
-void VideoRendererBase::Initialize(const scoped_refptr<VideoDecoder>& decoder,
+void VideoRendererBase::Initialize(const scoped_refptr<DemuxerStream>& stream,
+                                   const VideoDecoderList& decoders,
                                    const PipelineStatusCB& init_cb,
                                    const StatisticsCB& statistics_cb,
-                                   const TimeCB& time_cb,
+                                   const TimeCB& max_time_cb,
                                    const NaturalSizeChangedCB& size_changed_cb,
                                    const base::Closure& ended_cb,
                                    const PipelineStatusCB& error_cb,
                                    const TimeDeltaCB& get_time_cb,
                                    const TimeDeltaCB& get_duration_cb) {
   base::AutoLock auto_lock(lock_);
-  DCHECK(decoder);
+  DCHECK(stream);
+  DCHECK(!decoders.empty());
+  DCHECK_EQ(stream->type(), DemuxerStream::VIDEO);
   DCHECK(!init_cb.is_null());
   DCHECK(!statistics_cb.is_null());
-  DCHECK(!time_cb.is_null());
+  DCHECK(!max_time_cb.is_null());
   DCHECK(!size_changed_cb.is_null());
   DCHECK(!ended_cb.is_null());
   DCHECK(!get_time_cb.is_null());
   DCHECK(!get_duration_cb.is_null());
   DCHECK_EQ(kUninitialized, state_);
-  decoder_ = decoder;
 
+  init_cb_ = init_cb;
   statistics_cb_ = statistics_cb;
-  time_cb_ = time_cb;
+  max_time_cb_ = max_time_cb;
   size_changed_cb_ = size_changed_cb;
   ended_cb_ = ended_cb;
   error_cb_ = error_cb;
   get_time_cb_ = get_time_cb;
   get_duration_cb_ = get_duration_cb;
+
+  scoped_ptr<VideoDecoderList> decoder_list(new VideoDecoderList(decoders));
+  InitializeNextDecoder(stream, decoder_list.Pass());
+}
+
+void VideoRendererBase::InitializeNextDecoder(
+    const scoped_refptr<DemuxerStream>& demuxer_stream,
+    scoped_ptr<VideoDecoderList> decoders) {
+  lock_.AssertAcquired();
+  DCHECK(!decoders->empty());
+
+  scoped_refptr<VideoDecoder> decoder = decoders->front();
+  decoders->pop_front();
+
+  DCHECK(decoder);
+  decoder_ = decoder;
+
+  base::AutoUnlock auto_unlock(lock_);
+  decoder->Initialize(
+      demuxer_stream,
+      base::Bind(&VideoRendererBase::OnDecoderInitDone, this,
+                 demuxer_stream,
+                 base::Passed(&decoders)),
+      statistics_cb_);
+}
+
+void VideoRendererBase::OnDecoderInitDone(
+    const scoped_refptr<DemuxerStream>& demuxer_stream,
+    scoped_ptr<VideoDecoderList> decoders,
+    PipelineStatus status) {
+  base::AutoLock auto_lock(lock_);
+
+  if (state_ == kStopped)
+    return;
+
+  if (!decoders->empty() && status == DECODER_ERROR_NOT_SUPPORTED) {
+    InitializeNextDecoder(demuxer_stream, decoders.Pass());
+    return;
+  }
+
+  if (status != PIPELINE_OK) {
+    state_ = kError;
+    base::ResetAndReturn(&init_cb_).Run(status);
+    return;
+  }
 
   // We're all good!  Consider ourselves flushed. (ThreadMain() should never
   // see us in the kUninitialized state).
@@ -143,14 +195,14 @@ void VideoRendererBase::Initialize(const scoped_refptr<VideoDecoder>& decoder,
   // have not populated any buffers yet.
   state_ = kFlushed;
 
-  set_opaque_cb_.Run(!decoder->HasAlpha());
+  set_opaque_cb_.Run(!decoder_->HasAlpha());
   set_opaque_cb_.Reset();
 
   // Create our video thread.
   if (!base::PlatformThread::Create(0, this, &thread_)) {
     NOTREACHED() << "Video thread creation failed";
     state_ = kError;
-    init_cb.Run(PIPELINE_ERROR_INITIALIZATION_FAILED);
+    base::ResetAndReturn(&init_cb_).Run(PIPELINE_ERROR_INITIALIZATION_FAILED);
     return;
   }
 
@@ -159,12 +211,13 @@ void VideoRendererBase::Initialize(const scoped_refptr<VideoDecoder>& decoder,
   // TODO(scherkus): find out if this is necessary, but it seems to help.
   ::SetThreadPriority(thread_, THREAD_PRIORITY_ABOVE_NORMAL);
 #endif  // defined(OS_WIN)
-  init_cb.Run(PIPELINE_OK);
+  base::ResetAndReturn(&init_cb_).Run(PIPELINE_OK);
 }
 
-bool VideoRendererBase::HasEnded() {
+void VideoRendererBase::PrepareForShutdownHack() {
   base::AutoLock auto_lock(lock_);
-  return state_ == kEnded;
+  if (decoder_)
+    decoder_->PrepareForShutdownHack();
 }
 
 // PlatformThread::Delegate implementation.
@@ -382,7 +435,7 @@ VideoRendererBase::~VideoRendererBase() {
   DCHECK(state_ == kUninitialized || state_ == kStopped) << state_;
 }
 
-void VideoRendererBase::FrameReady(VideoDecoder::DecoderStatus status,
+void VideoRendererBase::FrameReady(VideoDecoder::Status status,
                                    const scoped_refptr<VideoFrame>& frame) {
   base::AutoLock auto_lock(lock_);
   DCHECK_NE(state_, kUninitialized);
@@ -484,13 +537,30 @@ void VideoRendererBase::AddReadyFrame(const scoped_refptr<VideoFrame>& frame) {
   // frame rate.  Another way for this to happen is for the container to state a
   // smaller duration than the largest packet timestamp.
   base::TimeDelta duration = get_duration_cb_.Run();
-  if (frame->GetTimestamp() > duration || frame->IsEndOfStream()) {
+  if (frame->IsEndOfStream()) {
+    base::TimeDelta end_timestamp = kNoTimestamp();
+    if (!ready_frames_.empty()) {
+      end_timestamp = std::min(
+          duration,
+          ready_frames_.back()->GetTimestamp() + kMaxLastFrameDuration());
+    } else if (current_frame_) {
+      end_timestamp =
+          std::min(duration,
+                   current_frame_->GetTimestamp() + kMaxLastFrameDuration());
+    }
+    frame->SetTimestamp(end_timestamp);
+  } else if (frame->GetTimestamp() > duration) {
     frame->SetTimestamp(duration);
   }
 
   ready_frames_.push_back(frame);
   DCHECK_LE(NumFrames_Locked(), limits::kMaxVideoFrames);
-  time_cb_.Run(frame->GetTimestamp());
+
+  base::TimeDelta max_clock_time =
+      frame->IsEndOfStream() ? duration : frame->GetTimestamp();
+  DCHECK(max_clock_time != kNoTimestamp());
+  max_time_cb_.Run(max_clock_time);
+
   frame_available_.Signal();
 }
 

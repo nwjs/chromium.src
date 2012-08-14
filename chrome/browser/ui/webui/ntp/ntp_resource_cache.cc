@@ -371,8 +371,8 @@ void NTPResourceCache::CreateNewTabHTML() {
       GetUrlWithLang(GURL(extension_urls::GetWebstoreLaunchURL())));
   load_time_data.SetString("appInstallHintText",
       l10n_util::GetStringUTF16(IDS_NEW_TAB_APP_INSTALL_HINT_LABEL));
-  load_time_data.SetBoolean("isSuggestionsPageEnabled",
-      NewTabUI::IsSuggestionsPageEnabled());
+  load_time_data.SetBoolean("isDiscoveryInNTPEnabled",
+      NewTabUI::IsDiscoveryInNTPEnabled());
   load_time_data.SetBoolean("showApps", NewTabUI::ShouldShowApps());
   load_time_data.SetString("collapseSessionMenuItemText",
       l10n_util::GetStringUTF16(IDS_NEW_TAB_OTHER_SESSIONS_COLLAPSE_SESSION));
@@ -410,7 +410,7 @@ void NTPResourceCache::CreateNewTabHTML() {
 
   // Set the promo string for display if there is a valid outstanding promo.
   NotificationPromo notification_promo(profile_);
-  notification_promo.InitFromPrefs();
+  notification_promo.InitFromPrefs(NotificationPromo::NTP_NOTIFICATION_PROMO);
   if (notification_promo.CanShow())
     load_time_data.SetString("serverpromo", notification_promo.promo_text());
 

@@ -24,11 +24,6 @@ class StatusAreaWidgetDelegate;
 
 class ASH_EXPORT StatusAreaWidget : public views::Widget {
  public:
-  enum UserAction {
-    NON_USER_ACTION,
-    USER_ACTION
-  };
-
   StatusAreaWidget();
   virtual ~StatusAreaWidget();
 
@@ -47,16 +42,23 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget {
       bool value,
       internal::BackgroundAnimator::ChangeType change_type);
 
-  // Always used to show/hide the web notification tray. These handle any logic
-  // with hiding/supressing notifications from the system tray.
-  void ShowWebNotificationBubble(UserAction user_action);
-  void HideWebNotificationBubble();
+  // Hide any non system (i.e. web) notifications.
+  void HideNonSystemNotifications();
+
+  // Toggle the visibility of system notifications.
+  void SetHideSystemNotifications(bool hide);
+
+  // Returns true if it is OK to show a non system notification.
+  bool ShouldShowNonSystemNotifications();
 
   // Called by the client when the login status changes. Caches login_status
   // and calls UpdateAfterLoginStatusChange for the system tray and the web
   // notification tray.
   void UpdateAfterLoginStatusChange(user::LoginStatus login_status);
 
+  internal::StatusAreaWidgetDelegate* status_area_widget_delegate() {
+    return status_area_widget_delegate_;
+  }
   SystemTray* system_tray() { return system_tray_; }
   SystemTrayDelegate* system_tray_delegate() {
     return system_tray_delegate_.get();
@@ -68,12 +70,12 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget {
   user::LoginStatus login_status() const { return login_status_; }
 
  private:
-  void AddSystemTray(SystemTray* system_tray, ShellDelegate* shell_delegate);
-  void AddWebNotificationTray(WebNotificationTray* web_notification_tray);
+  void AddSystemTray(ShellDelegate* shell_delegate);
+  void AddWebNotificationTray();
 
   scoped_ptr<SystemTrayDelegate> system_tray_delegate_;
   // Weak pointers to View classes that are parented to StatusAreaWidget:
-  internal::StatusAreaWidgetDelegate* widget_delegate_;
+  internal::StatusAreaWidgetDelegate* status_area_widget_delegate_;
   SystemTray* system_tray_;
   WebNotificationTray* web_notification_tray_;
   user::LoginStatus login_status_;

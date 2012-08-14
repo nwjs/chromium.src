@@ -19,6 +19,7 @@
     <script type="text/javascript" src="../js/sidebar.js"></script>
   <meta name="description" content="Documentation for the chrome.declarativeWebRequest module, which is part of the Google Chrome  extension APIs."><title>chrome.declarativeWebRequest - Google Chrome Extensions - Google Code</title></head>
   <body doc-family="extensions">  <link href="../css/ApiRefStyles.css" rel="stylesheet" type="text/css">
+  <link href="../css/prettify.css" rel="stylesheet" type="text/css">
   <link href="../css/shared.css" rel="stylesheet" type="text/css">
   <div id="devModeWarning" class="displayModeWarning">
     You are viewing extension docs in chrome via the 'file:' scheme: are you expecting to see local changes when you refresh? You'll need run chrome with --allow-file-access-from-files.
@@ -53,14 +54,16 @@
     <!-- API HEADER -->
     <table id="header" width="100%" cellspacing="0" border="0">
       <tbody><tr>
-        <td valign="middle"><a href="http://code.google.com/"><img src="../images/code_labs_logo.gif" height="43" width="161" alt="Google Code Labs" style="border:0; margin:0;"></a></td>
+        <td valign="middle"><a href="/"><img src="../images/chrome_logo.gif" alt="Google Chrome Extensions" style="border:0; margin:0;"></a></td>
         <td valign="middle" width="100%" style="padding-left:0.6em;">
           <form action="http://www.google.com/cse" id="cse" style="margin-top:0.5em">
             <div id="gsc-search-box">
               <input type="hidden" name="cx" value="002967670403910741006:61_cvzfqtno">
               <input type="hidden" name="ie" value="UTF-8">
-              <input type="text" name="q" value="" size="55">
-              <input class="gsc-search-button" type="submit" name="sa" value="Search">
+              <input id="gsc-search-input" type="text" name="q" value="" size="55">
+              <button class="gsc-search-button" type="submit" name="sa">
+                <img class="gsc-search-button-lens" src="../images/search.png" alt="Search">
+              </button>
               <br>
               <span class="greytext">e.g. "page action" or "tabs"</span>
             </div>
@@ -75,25 +78,25 @@
     <div id="codesiteContent" class="">
       <a id="gc-topnav-anchor"></a>
       <div id="gc-topnav">
-        <h1>Google Chrome Extensions (<a href="http://code.google.com/labs/">Labs</a>)</h1>
+        <h1>Google Chrome Extensions</h1>
         <ul id="home" class="gc-topnav-tabs">
           <li id="home_link">
-            <a href="index.html" title="Google Chrome Extensions home page">Home</a>
+            <a href="index.html" title="Google Chrome Extensions home page"><span>Home</span></a>
           </li>
           <li id="docs_link">
-            <a href="docs.html" title="Official Google Chrome Extensions documentation">Docs</a>
+            <a href="docs.html" title="Official Google Chrome Extensions documentation"><span>Docs</span></a>
           </li>
           <li id="faq_link">
-            <a href="faq.html" title="Answers to frequently asked questions about Google Chrome Extensions">FAQ</a>
+            <a href="faq.html" title="Answers to frequently asked questions about Google Chrome Extensions"><span>FAQ</span></a>
           </li>
           <li id="samples_link">
-            <a href="samples.html" title="Sample extensions (with source code)">Samples</a>
+            <a href="samples.html" title="Sample extensions (with source code)"><span>Samples</span></a>
           </li>
           <li id="group_link">
-            <a href="http://groups.google.com/a/chromium.org/group/chromium-extensions" title="Google Chrome Extensions developer forum">Group</a>
+            <a href="http://groups.google.com/a/chromium.org/group/chromium-extensions" title="Google Chrome Extensions developer forum"><span>Group</span></a>
           </li>
           <li id="so_link">
-            <a href="http://stackoverflow.com/questions/tagged/google-chrome-extension" title="[google-chrome-extension] tag on Stack Overflow">Questions?</a>
+            <a href="http://stackoverflow.com/questions/tagged/google-chrome-extension" title="[google-chrome-extension] tag on Stack Overflow"><span>Questions?</span></a>
           </li>
         </ul>
       </div> <!-- end gc-topnav -->
@@ -106,7 +109,7 @@
           <li><a href="whats_new.html">What's New?</a></li>
           <li><h2><a href="devguide.html">Developer's Guide</a></h2>
             <ul>
-              <li>Browser UI
+              <li><span>Browser UI</span>
                 <ul>
                   <li><a href="browserAction.html">Browser Actions</a></li>
                   <li><a href="contextMenus.html">Context Menus</a></li>
@@ -117,7 +120,7 @@
                   <li><a href="pageAction.html">Page Actions</a></li>
                 </ul>
               </li>
-              <li>Browser Interaction
+              <li><span>Browser Interaction</span>
                 <ul>
                   <li><a href="bookmarks.html">Bookmarks</a></li>
                   <li><a href="cookies.html">Cookies</a></li>
@@ -129,7 +132,7 @@
                   <li><a href="windows.html">Windows</a></li>
                 </ul>
               </li>
-              <li>Implementation
+              <li><span>Implementation</span>
                 <ul>
                   <li><a href="a11y.html">Accessibility</a></li>
                   <li><a href="background_pages.html">Background Pages</a></li>
@@ -141,7 +144,7 @@
                   <li><a href="npapi.html">NPAPI Plugins</a></li>
                 </ul>
               </li>
-              <li>Finishing
+              <li><span>Finishing</span>
                 <ul>
                   <li><a href="hosting.html">Hosting</a></li>
                   <li><a href="external_extensions.html">Other Deployment Options</a></li>
@@ -159,7 +162,7 @@
           </li>
           <li><h2>Reference</h2>
             <ul>
-              <li>Formats
+              <li><span>Formats</span>
                 <ul>
                   <li><a href="manifest.html">Manifest Files</a></li>
                   <li><a href="match_patterns.html">Match Patterns</a></li>
@@ -171,11 +174,10 @@
             </ul>
           </li>
           <li><h2><a href="samples.html">Samples</a></h2></li>
-          <div class="line"> </div>
           <li><h2>More</h2>
             <ul>
-              <li><a href="http://code.google.com/chrome/webstore/docs/index.html">Chrome Web Store</a></li>
-              <li><a href="http://code.google.com/chrome/apps/docs/developers_guide.html">Hosted Apps</a></li>
+              <li><a href="https://developers.google.com/chrome/web-store/docs/">Chrome Web Store</a></li>
+              <li><a href="https://developers.google.com/chrome/apps/docs/developers_guide">Hosted Apps</a></li>
               <li><a href="themes.html">Themes</a></li>
             </ul>
           </li>
@@ -224,7 +226,7 @@
             <a href="#types">Types</a>
             <ol>
               <li>
-                <a href="#type-declarativeWebRequest.RedirectByRegEx">RedirectByRegEx</a>
+                <a href="#type-declarativeWebRequest.RemoveResponseHeader">RemoveResponseHeader</a>
                 <ol>
                 </ol>
               </li><li>
@@ -244,7 +246,7 @@
                 <ol>
                 </ol>
               </li><li>
-                <a href="#type-declarativeWebRequest.CancelRequest">CancelRequest</a>
+                <a href="#type-declarativeWebRequest.RedirectByRegEx">RedirectByRegEx</a>
                 <ol>
                 </ol>
               </li><li>
@@ -260,11 +262,43 @@
                 <ol>
                 </ol>
               </li><li>
-                <a href="#type-declarativeWebRequest.RemoveResponseHeader">RemoveResponseHeader</a>
+                <a href="#type-declarativeWebRequest.CancelRequest">CancelRequest</a>
                 <ol>
                 </ol>
               </li><li>
                 <a href="#type-declarativeWebRequest.IgnoreRules">IgnoreRules</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.RequestCookie">RequestCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.ResponseCookie">ResponseCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.AddRequestCookie">AddRequestCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.AddResponseCookie">AddResponseCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.EditRequestCookie">EditRequestCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.EditResponseCookie">EditResponseCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.RemoveRequestCookie">RemoveRequestCookie</a>
+                <ol>
+                </ol>
+              </li><li>
+                <a href="#type-declarativeWebRequest.RemoveResponseCookie">RemoveResponseCookie</a>
                 <ol>
                 </ol>
               </li>
@@ -327,7 +361,7 @@ requests if and only if all listed criteria are met. The following
 </p>
 <pre>var matcher = new chrome.declarativeWebRequest.RequestMatcher({
   url: { hostSuffix: 'example.com', schemes: ['http'] },
-  resourceType: 'main_frame'
+  resourceType: ['main_frame']
   });
 </pre>
 <p>
@@ -435,6 +469,24 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                     <div>
                       <div>
           <dt>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.AddRequestCookie">AddRequestCookie</a>
+          </dt>
+          <dd class="todo">
+            Undocumented.
+          </dd>
+        </div>
+                    </div><div>
+                      <div>
+          <dt>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.AddResponseCookie">AddResponseCookie</a>
+          </dt>
+          <dd class="todo">
+            Undocumented.
+          </dd>
+        </div>
+                    </div><div>
+                      <div>
+          <dt>
             <a href="declarativeWebRequest.html#type-declarativeWebRequest.AddResponseHeader">AddResponseHeader</a>
           </dt>
           <dd class="todo">
@@ -445,6 +497,24 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                       <div>
           <dt>
             <a href="declarativeWebRequest.html#type-declarativeWebRequest.CancelRequest">CancelRequest</a>
+          </dt>
+          <dd class="todo">
+            Undocumented.
+          </dd>
+        </div>
+                    </div><div>
+                      <div>
+          <dt>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.EditRequestCookie">EditRequestCookie</a>
+          </dt>
+          <dd class="todo">
+            Undocumented.
+          </dd>
+        </div>
+                    </div><div>
+                      <div>
+          <dt>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.EditResponseCookie">EditResponseCookie</a>
           </dt>
           <dd class="todo">
             Undocumented.
@@ -489,7 +559,16 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                     </div><div>
                       <div>
           <dt>
-            <a href="declarativeWebRequest.html#type-declarativeWebRequest.SetRequestHeader">SetRequestHeader</a>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.RemoveRequestCookie">RemoveRequestCookie</a>
+          </dt>
+          <dd class="todo">
+            Undocumented.
+          </dd>
+        </div>
+                    </div><div>
+                      <div>
+          <dt>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.RemoveResponseCookie">RemoveResponseCookie</a>
           </dt>
           <dd class="todo">
             Undocumented.
@@ -516,6 +595,15 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                     </div><div>
                       <div>
           <dt>
+            <a href="declarativeWebRequest.html#type-declarativeWebRequest.SetRequestHeader">SetRequestHeader</a>
+          </dt>
+          <dd class="todo">
+            Undocumented.
+          </dd>
+        </div>
+                    </div><div>
+                      <div>
+          <dt>
             <a href="declarativeWebRequest.html#type-declarativeWebRequest.IgnoreRules">IgnoreRules</a>
           </dt>
           <dd class="todo">
@@ -534,8 +622,8 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
             <h3 id="types">Types</h3>
             <!-- iterates over all types -->
             <div class="apiItem">
-              <a name="type-declarativeWebRequest.RedirectByRegEx"></a>
-              <h4>declarativeWebRequest.RedirectByRegEx</h4>
+              <a name="type-declarativeWebRequest.RemoveResponseHeader"></a>
+              <h4>declarativeWebRequest.RemoveResponseHeader</h4>
               <div>
           <dt>
               <em>
@@ -551,14 +639,14 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                 </div>
               </em>
           </dt>
-          <dd>Redirects a request by applying a regular expression on the URL. The regular expressions use the <a href="http://code.google.com/p/re2/wiki/Syntax">RE2 syntax</a>.</dd>
+          <dd>Removes all response headers of the specified names and values.</dd>
           <!-- OBJECT PROPERTIES -->
           <dd>
             <dl>
               <div>
                 <div>
           <dt>
-            <var>from</var>
+            <var>name</var>
               <em>
                 <!-- TYPE -->
                 <div style="display:inline">
@@ -572,7 +660,7 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                 </div>
               </em>
           </dt>
-          <dd>A match pattern that may contain capture groups. Capture groups are referenced in the Perl syntax ($1, $2, ...) instead of the RE2 syntax (\1, \2, ...) in order to be closer to JavaScript Regular Expressions.</dd>
+          <dd>HTTP request header name (case-insensitive).</dd>
           <!-- OBJECT PROPERTIES -->
           <!-- OBJECT METHODS -->
           <!-- OBJECT EVENT FIELDS -->
@@ -581,11 +669,12 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
               </div><div>
                 <div>
           <dt>
-            <var>to</var>
+            <var>value</var>
               <em>
                 <!-- TYPE -->
                 <div style="display:inline">
                   (
+                    <span class="optional">optional</span>
                     <span id="typeTemplate">
                       <span>
                         <span>string</span>
@@ -595,7 +684,7 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                 </div>
               </em>
           </dt>
-          <dd>Destination pattern.</dd>
+          <dd>HTTP request header value (case-insensitive).</dd>
           <!-- OBJECT PROPERTIES -->
           <!-- OBJECT METHODS -->
           <!-- OBJECT EVENT FIELDS -->
@@ -680,6 +769,66 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
               </em>
           </dt>
           <dd>Matches if the request type of a request is contained in the list. Requests that cannot match any of the types will be filtered out.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>contentType</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>
+                          array of <span><span>
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span></span>
+                        </span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Matches if the MIME media type of a response (from the HTTP Content-Type header) is contained in the list.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>excludeContentType</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>
+                          array of <span><span>
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span></span>
+                        </span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Matches if the MIME media type of a response (from the HTTP Content-Type header) is <em>not</em> contained in the list.</dd>
           <!-- OBJECT PROPERTIES -->
           <!-- OBJECT METHODS -->
           <!-- OBJECT EVENT FIELDS -->
@@ -801,8 +950,8 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
           <!-- FUNCTION PARAMETERS -->
         </div>
             </div><div class="apiItem">
-              <a name="type-declarativeWebRequest.CancelRequest"></a>
-              <h4>declarativeWebRequest.CancelRequest</h4>
+              <a name="type-declarativeWebRequest.RedirectByRegEx"></a>
+              <h4>declarativeWebRequest.RedirectByRegEx</h4>
               <div>
           <dt>
               <em>
@@ -818,10 +967,57 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                 </div>
               </em>
           </dt>
-          <dd>Declarative event action that cancels a network request.</dd>
+          <dd>Redirects a request by applying a regular expression on the URL. The regular expressions use the <a href="http://code.google.com/p/re2/wiki/Syntax">RE2 syntax</a>.</dd>
           <!-- OBJECT PROPERTIES -->
           <dd>
             <dl>
+              <div>
+                <div>
+          <dt>
+            <var>from</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>A match pattern that may contain capture groups. Capture groups are referenced in the Perl syntax ($1, $2, ...) instead of the RE2 syntax (\1, \2, ...) in order to be closer to JavaScript Regular Expressions.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>to</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Destination pattern.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
             </dl>
           </dd>
           <!-- OBJECT METHODS -->
@@ -1031,8 +1227,8 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
           <!-- FUNCTION PARAMETERS -->
         </div>
             </div><div class="apiItem">
-              <a name="type-declarativeWebRequest.RemoveResponseHeader"></a>
-              <h4>declarativeWebRequest.RemoveResponseHeader</h4>
+              <a name="type-declarativeWebRequest.CancelRequest"></a>
+              <h4>declarativeWebRequest.CancelRequest</h4>
               <div>
           <dt>
               <em>
@@ -1048,58 +1244,10 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
                 </div>
               </em>
           </dt>
-          <dd>Removes all response headers of the specified names and values.</dd>
+          <dd>Declarative event action that cancels a network request.</dd>
           <!-- OBJECT PROPERTIES -->
           <dd>
             <dl>
-              <div>
-                <div>
-          <dt>
-            <var>name</var>
-              <em>
-                <!-- TYPE -->
-                <div style="display:inline">
-                  (
-                    <span id="typeTemplate">
-                      <span>
-                        <span>string</span>
-                      </span>
-                    </span>
-                  )
-                </div>
-              </em>
-          </dt>
-          <dd>HTTP request header name (case-insensitive).</dd>
-          <!-- OBJECT PROPERTIES -->
-          <!-- OBJECT METHODS -->
-          <!-- OBJECT EVENT FIELDS -->
-          <!-- FUNCTION PARAMETERS -->
-        </div>
-              </div><div>
-                <div>
-          <dt>
-            <var>value</var>
-              <em>
-                <!-- TYPE -->
-                <div style="display:inline">
-                  (
-                    <span class="optional">optional</span>
-                    <span id="typeTemplate">
-                      <span>
-                        <span>string</span>
-                      </span>
-                    </span>
-                  )
-                </div>
-              </em>
-          </dt>
-          <dd>HTTP request header value (case-insensitive).</dd>
-          <!-- OBJECT PROPERTIES -->
-          <!-- OBJECT METHODS -->
-          <!-- OBJECT EVENT FIELDS -->
-          <!-- FUNCTION PARAMETERS -->
-        </div>
-              </div>
             </dl>
           </dd>
           <!-- OBJECT METHODS -->
@@ -1158,6 +1306,662 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
           <!-- OBJECT EVENT FIELDS -->
           <!-- FUNCTION PARAMETERS -->
         </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.RequestCookie"></a>
+              <h4>declarativeWebRequest.RequestCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>A filter or specification of a cookie in HTTP Requests.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>name</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Name of a cookie.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>value</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Value of a cookie, may be padded in double-quotes.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.ResponseCookie"></a>
+              <h4>declarativeWebRequest.ResponseCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>A filter or specification of a cookie in HTTP Responses.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>name</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Name of a cookie.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>value</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Value of a cookie, may be padded in double-quotes.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>expires</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Value of the Expires cookie attribute.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>maxAge</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>number</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Value of the Max-Age cookie attribute</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>domain</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Value of the Domain cookie attribute.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>path</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Value of the Path cookie attribute.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>secure</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Existence of the Secure cookie attribute.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>httpOnly</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span class="optional">optional</span>
+                    <span id="typeTemplate">
+                      <span>
+                        <span>string</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Existence of the HttpOnly cookie attribute.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.AddRequestCookie"></a>
+              <h4>declarativeWebRequest.AddRequestCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Adds a cookie to the request or overrides a cookie, in case another cookie of the same name exists already. Note that it is preferred to use the Cookies API because this is computationally less expensive.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>cookie</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.RequestCookie">declarativeWebRequest.RequestCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Cookie to be added to the request. No field may be undefined.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.AddResponseCookie"></a>
+              <h4>declarativeWebRequest.AddResponseCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Adds a cookie to the response or overrides a cookie, in case another cookie of the same name exists already. Note that it is preferred to use the Cookies API because this is computationally less expensive.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>cookie</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.ResponseCookie">declarativeWebRequest.ResponseCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Cookie to be added to the response. The name and value need to be specified.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.EditRequestCookie"></a>
+              <h4>declarativeWebRequest.EditRequestCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Edits one or more cookies of request. Note that it is preferred to use the Cookies API because this is computationally less expensive.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>filter</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.RequestCookie">declarativeWebRequest.RequestCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Filter for cookies that will be modified. All empty entries are ignored.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>modification</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.RequestCookie">declarativeWebRequest.RequestCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Attributes that shall be overridden in cookies that machted the filter. Attributes that are set to an empty string are removed.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.EditResponseCookie"></a>
+              <h4>declarativeWebRequest.EditResponseCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Edits one or more cookies of response. Note that it is preferred to use the Cookies API because this is computationally less expensive.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>filter</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.ResponseCookie">declarativeWebRequest.ResponseCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Filter for cookies that will be modified. All empty entries are ignored.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div><div>
+                <div>
+          <dt>
+            <var>modification</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.ResponseCookie">declarativeWebRequest.ResponseCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Attributes that shall be overridden in cookies that machted the filter. Attributes that are set to an empty string are removed.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.RemoveRequestCookie"></a>
+              <h4>declarativeWebRequest.RemoveRequestCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Removes one or more cookies of request. Note that it is preferred to use the Cookies API because this is computationally less expensive.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>filter</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.RequestCookie">declarativeWebRequest.RequestCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Filter for cookies that will be removed. All empty entries are ignored.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+            </div><div class="apiItem">
+              <a name="type-declarativeWebRequest.RemoveResponseCookie"></a>
+              <h4>declarativeWebRequest.RemoveResponseCookie</h4>
+              <div>
+          <dt>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <span>object</span>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Removes one or more cookies of response. Note that it is preferred to use the Cookies API because this is computationally less expensive.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <dd>
+            <dl>
+              <div>
+                <div>
+          <dt>
+            <var>filter</var>
+              <em>
+                <!-- TYPE -->
+                <div style="display:inline">
+                  (
+                    <span id="typeTemplate">
+                      <span>
+                        <a href="declarativeWebRequest.html#type-declarativeWebRequest.ResponseCookie">declarativeWebRequest.ResponseCookie</a>
+                      </span>
+                    </span>
+                  )
+                </div>
+              </em>
+          </dt>
+          <dd>Filter for cookies that will be removed. All empty entries are ignored.</dd>
+          <!-- OBJECT PROPERTIES -->
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
+              </div>
+            </dl>
+          </dd>
+          <!-- OBJECT METHODS -->
+          <!-- OBJECT EVENT FIELDS -->
+          <!-- FUNCTION PARAMETERS -->
+        </div>
             </div> <!-- /apiItem -->
           </div> <!-- /apiGroup -->
         </div> <!-- /apiPage -->
@@ -1173,11 +1977,20 @@ very fast URL matching algorithm for hundreds of thousands of URLs.
   <a rel="license" href="http://code.google.com/google_bsd_license.html">BSD License</a>.
   </p>
   <p>
-  ©2011 Google
+  ©2012 Google
   </p>
 <!-- begin analytics -->
 <script src="https://www.google-analytics.com/urchin.js" type="text/javascript"></script>
 <script src="https://www.google-analytics.com/ga.js" type="text/javascript"></script>
+<script src="../js/prettify.js" type="text/javascript"></script>
+<script>
+  // Auto syntax highlight all pre tags.
+  var pres = document.querySelectorAll('pre');
+  for (var i = 0, pre; pre = pres[i]; ++i) {
+    pre.className += ' prettyprint';
+  };
+  prettyPrint();
+</script>
 <script type="text/javascript">
   // chrome doc tracking
   try {

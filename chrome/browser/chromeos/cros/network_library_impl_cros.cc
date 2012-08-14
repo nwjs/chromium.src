@@ -5,9 +5,11 @@
 #include "chrome/browser/chromeos/cros/network_library_impl_cros.h"
 
 #include <dbus/dbus-glib.h>
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_writer.h"  // for debug output only.
 #include "base/metrics/histogram.h"
+#include "base/values.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/native_network_constants.h"
 #include "chrome/browser/chromeos/cros/native_network_parser.h"
@@ -25,7 +27,8 @@ namespace {
 // List of cellular operators names that should have data roaming always enabled
 // to be able to connect to any network.
 const char* kAlwaysInRoamingOperators[] = {
-  "CUBIC"
+  "CUBIC",
+  "Cubic",
 };
 
 // List of interfaces that have portal check enabled by default.
@@ -161,11 +164,12 @@ void NetworkLibraryImplCros::UpdateNetworkDeviceStatus(
   }
 }
 
-bool NetworkLibraryImplCros::UpdateCellularDeviceStatus(
-    NetworkDevice* device, PropertyIndex index) {
+bool NetworkLibraryImplCros::UpdateCellularDeviceStatus(NetworkDevice* device,
+                                                        PropertyIndex index) {
   if (index == PROPERTY_INDEX_CELLULAR_ALLOW_ROAMING) {
-    if (!device->data_roaming_allowed() && IsCellularAlwaysInRoaming()) {
-      SetCellularDataRoamingAllowed(true);
+    if (IsCellularAlwaysInRoaming()) {
+      if (!device->data_roaming_allowed())
+        SetCellularDataRoamingAllowed(true);
     } else {
       bool settings_value;
       if ((CrosSettings::Get()->GetBoolean(
@@ -454,6 +458,30 @@ bool NetworkLibraryImplCros::GetWifiAccessPoints(
     WifiAccessPointVector* result) {
   CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   return CrosGetWifiAccessPoints(result);
+}
+
+void NetworkLibraryImplCros::RefreshIPConfig(Network* network) {
+  DCHECK(network);
+  CrosRequestNetworkDeviceProperties(
+      network->device_path(),
+      base::Bind(&NetworkLibraryImplCros::RefreshIPConfigCallback,
+                 weak_ptr_factory_.GetWeakPtr()));
+}
+
+void NetworkLibraryImplCros::RefreshIPConfigCallback(
+    const std::string& device_path,
+    const base::DictionaryValue* properties) {
+  const ListValue* ips = NULL;
+  if (!properties->GetListWithoutPathExpansion(
+      flimflam::kIPConfigsProperty, &ips))
+    return;
+
+  for (size_t i = 0; i < ips->GetSize(); i++) {
+    std::string ipconfig_path;
+    if (!ips->GetString(i, &ipconfig_path))
+      continue;
+    CrosRequestIPConfigRefresh(ipconfig_path);
+  }
 }
 
 void NetworkLibraryImplCros::DisconnectFromNetwork(const Network* network) {
@@ -1175,19 +1203,11 @@ void NetworkLibraryImplCros::ParseNetworkDevice(const std::string& device_path,
     CHECK(device) << "Attempted to add NULL device for path: " << device_path;
   }
   VLOG(2) << "ParseNetworkDevice:" << device->name();
-  if (device && device->type() == TYPE_CELLULAR) {
-    if (!device->data_roaming_allowed() && IsCellularAlwaysInRoaming()) {
-      SetCellularDataRoamingAllowed(true);
-    } else {
-      bool settings_value;
-      if (CrosSettings::Get()->GetBoolean(
-              kSignedDataRoamingEnabled, &settings_value) &&
-          device->data_roaming_allowed() != settings_value) {
-        // Switch back to signed settings value.
-        SetCellularDataRoamingAllowed(settings_value);
-      }
-    }
-  }
+
+  // Re-synchronize the roaming setting with the device property if required.
+  if (device && device->type() == TYPE_CELLULAR)
+    UpdateCellularDeviceStatus(device, PROPERTY_INDEX_CELLULAR_ALLOW_ROAMING);
+
   NotifyNetworkManagerChanged(false);  // Not forced.
   AddNetworkDeviceObserver(device_path, network_device_observer_.get());
 }

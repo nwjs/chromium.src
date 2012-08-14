@@ -22,7 +22,7 @@
 #include "chrome/browser/prerender/prerender_field_trial.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_version_info.h"
-#include "chrome/common/metrics/experiments_helper.h"
+#include "chrome/common/metrics/variations_util.h"
 #include "net/http/http_network_layer.h"
 #include "net/http/http_stream_factory.h"
 #include "net/socket/client_socket_pool_base.h"
@@ -64,7 +64,7 @@ void SetupSingleUniformityFieldTrial(
           trial_name, divisor, kDefaultGroupName, 2015, 1, 1, NULL));
   if (one_time_randomized)
       trial->UseOneTimeRandomization();
-  experiments_helper::AssociateGoogleVariationID(trial_name, kDefaultGroupName,
+  chrome_variations::AssociateGoogleVariationID(trial_name, kDefaultGroupName,
       trial_base_id);
   // Loop starts with group 1 because the field trial automatically creates a
   // default group, which would be group 0.
@@ -72,7 +72,7 @@ void SetupSingleUniformityFieldTrial(
     const std::string group_name = StringPrintf("group_%02d", group_number);
     DVLOG(1) << "    Group name = " << group_name;
     trial->AppendGroup(group_name, kProbabilityPerGroup);
-    experiments_helper::AssociateGoogleVariationID(trial_name, group_name,
+    chrome_variations::AssociateGoogleVariationID(trial_name, group_name,
         static_cast<chrome_variations::VariationID>(trial_base_id +
                                                     group_number));
   }
@@ -120,11 +120,10 @@ void ChromeBrowserFieldTrials::SetupFieldTrials(bool proxy_policy_is_set) {
   PredictorFieldTrial();
   DefaultAppsFieldTrial();
   AutoLaunchChromeFieldTrial();
-  gpu_util::InitializeForceCompositingModeFieldTrial();
+  gpu_util::InitializeCompositingFieldTrial();
   SetupUniformityFieldTrials();
   AutocompleteFieldTrial::Activate();
   DisableNewTabFieldTrialIfNecesssary();
-  ChannelIDFieldTrial();
 }
 
 // This is an A/B test for the maximum number of persistent connections per
@@ -581,24 +580,5 @@ void ChromeBrowserFieldTrials::DisableNewTabFieldTrialIfNecesssary() {
 #endif
     if (ui::GetDisplayLayout() != ui::LAYOUT_DESKTOP || using_hidpi_assets)
       trial->Disable();
-  }
-}
-
-void ChromeBrowserFieldTrials::ChannelIDFieldTrial() {
-  chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  if (channel == chrome::VersionInfo::CHANNEL_CANARY) {
-    net::SSLConfigService::EnableChannelIDTrial();
-  } else if (channel == chrome::VersionInfo::CHANNEL_DEV &&
-             base::FieldTrialList::IsOneTimeRandomizationEnabled()) {
-    const base::FieldTrial::Probability kDivisor = 100;
-    // 10% probability of being in the enabled group.
-    const base::FieldTrial::Probability kEnableProbability = 10;
-    scoped_refptr<base::FieldTrial> trial =
-        base::FieldTrialList::FactoryGetFieldTrial(
-            "ChannelID", kDivisor, "disable", 2012, 8, 23, NULL);
-    trial->UseOneTimeRandomization();
-    int enable_group = trial->AppendGroup("enable", kEnableProbability);
-    if (trial->group() == enable_group)
-      net::SSLConfigService::EnableChannelIDTrial();
   }
 }

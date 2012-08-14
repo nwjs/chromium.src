@@ -44,7 +44,7 @@
 
 #include "base/event_types.h"
 #include "base/logging.h"
-#include "ui/aura/event.h"
+#include "ui/base/event.h"
 #include "ui/base/events.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/keycodes/keyboard_code_conversion_x.h"
@@ -62,7 +62,7 @@ const int kPixelsPerTick = 53;
 // Normalizes event.flags() to make it Windows/Mac compatible. Since the way
 // of setting modifier mask on X is very different than Windows/Mac as shown
 // in http://crbug.com/127142#c8, the normalization is necessary.
-int NormalizeEventFlags(const aura::KeyEvent& event) {
+int NormalizeEventFlags(const ui::KeyEvent& event) {
   int mask = 0;
   switch (event.key_code()) {
     case ui::VKEY_CONTROL:
@@ -182,7 +182,7 @@ WebKit::WebUChar GetControlCharacter(int windows_key_code, bool shift) {
 }
 
 WebKit::WebTouchPoint::State TouchPointStateFromEvent(
-    const aura::TouchEvent* event) {
+    const ui::TouchEvent* event) {
   switch (event->type()) {
     case ui::ET_TOUCH_PRESSED:
       return WebKit::WebTouchPoint::StatePressed;
@@ -198,7 +198,7 @@ WebKit::WebTouchPoint::State TouchPointStateFromEvent(
 }
 
 WebKit::WebInputEvent::Type TouchEventTypeFromEvent(
-    const aura::TouchEvent* event) {
+    const ui::TouchEvent* event) {
   switch (event->type()) {
     case ui::ET_TOUCH_PRESSED:
       return WebKit::WebInputEvent::TouchStart;
@@ -215,7 +215,7 @@ WebKit::WebInputEvent::Type TouchEventTypeFromEvent(
 
 }  // namespace
 
-WebKit::WebMouseEvent MakeWebMouseEventFromAuraEvent(aura::MouseEvent* event) {
+WebKit::WebMouseEvent MakeWebMouseEventFromAuraEvent(ui::MouseEvent* event) {
   WebKit::WebMouseEvent webkit_event;
 
   webkit_event.modifiers = EventFlagsToWebEventModifiers(event->flags());
@@ -252,7 +252,7 @@ WebKit::WebMouseEvent MakeWebMouseEventFromAuraEvent(aura::MouseEvent* event) {
 }
 
 WebKit::WebMouseWheelEvent MakeWebMouseWheelEventFromAuraEvent(
-    aura::MouseEvent* event) {
+    ui::MouseEvent* event) {
   WebKit::WebMouseWheelEvent webkit_event;
 
   webkit_event.type = WebKit::WebInputEvent::MouseWheel;
@@ -266,7 +266,7 @@ WebKit::WebMouseWheelEvent MakeWebMouseWheelEventFromAuraEvent(
 }
 
 WebKit::WebMouseWheelEvent MakeWebMouseWheelEventFromAuraEvent(
-    aura::ScrollEvent* event) {
+    ui::ScrollEvent* event) {
   WebKit::WebMouseWheelEvent webkit_event;
 
   webkit_event.type = WebKit::WebInputEvent::MouseWheel;
@@ -283,7 +283,7 @@ WebKit::WebMouseWheelEvent MakeWebMouseWheelEventFromAuraEvent(
 }
 
 WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
-    aura::ScrollEvent* event) {
+    ui::ScrollEvent* event) {
   WebKit::WebGestureEvent webkit_event;
 
   switch (event->type()) {
@@ -309,7 +309,7 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
 }
 
 WebKit::WebKeyboardEvent MakeWebKeyboardEventFromAuraEvent(
-    aura::KeyEvent* event) {
+    ui::KeyEvent* event) {
   base::NativeEvent native_event = event->native_event();
   WebKit::WebKeyboardEvent webkit_event;
   XKeyEvent* native_key_event = &native_event->xkey;
@@ -358,12 +358,13 @@ WebKit::WebKeyboardEvent MakeWebKeyboardEventFromAuraEvent(
 }
 
 WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   WebKit::WebGestureEvent gesture_event;
 
   switch (event->type()) {
     case ui::ET_GESTURE_TAP:
       gesture_event.type = WebKit::WebInputEvent::GestureTap;
+      gesture_event.deltaX = event->details().tap_count();
       break;
     case ui::ET_GESTURE_TAP_DOWN:
       gesture_event.type = WebKit::WebInputEvent::GestureTapDown;
@@ -376,6 +377,8 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       break;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       gesture_event.type = WebKit::WebInputEvent::GestureScrollUpdate;
+      gesture_event.deltaX = event->details().scroll_x();
+      gesture_event.deltaY = event->details().scroll_y();
       break;
     case ui::ET_GESTURE_SCROLL_END:
       gesture_event.type = WebKit::WebInputEvent::GestureScrollEnd;
@@ -385,12 +388,15 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       break;
     case ui::ET_GESTURE_PINCH_UPDATE:
       gesture_event.type = WebKit::WebInputEvent::GesturePinchUpdate;
+      gesture_event.deltaX = event->details().scale();
       break;
     case ui::ET_GESTURE_PINCH_END:
       gesture_event.type = WebKit::WebInputEvent::GesturePinchEnd;
       break;
     case ui::ET_SCROLL_FLING_START:
       gesture_event.type = WebKit::WebInputEvent::GestureFlingStart;
+      gesture_event.deltaX = event->details().velocity_x();
+      gesture_event.deltaY = event->details().velocity_y();
       break;
     case ui::ET_SCROLL_FLING_CANCEL:
       gesture_event.type = WebKit::WebInputEvent::GestureFlingCancel;
@@ -410,15 +416,13 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
   }
 
   gesture_event.boundingBox = event->details().bounding_box();
-  gesture_event.deltaX = event->details().generic_x();
-  gesture_event.deltaY = event->details().generic_y();
   gesture_event.modifiers = EventFlagsToWebEventModifiers(event->flags());
 
   return gesture_event;
 }
 
 WebKit::WebTouchPoint* UpdateWebTouchEventFromAuraEvent(
-    aura::TouchEvent* event, WebKit::WebTouchEvent* web_event) {
+    ui::TouchEvent* event, WebKit::WebTouchEvent* web_event) {
   WebKit::WebTouchPoint* point = NULL;
   switch (event->type()) {
     case ui::ET_TOUCH_PRESSED:

@@ -560,45 +560,6 @@ PlatformFileError ObfuscatedFileUtil::Truncate(
   return error;
 }
 
-bool ObfuscatedFileUtil::PathExists(
-    FileSystemOperationContext* context,
-    const FileSystemURL& url) {
-  FileSystemDirectoryDatabase* db = GetDirectoryDatabase(
-      url.origin(), url.type(), false);
-  if (!db)
-    return false;
-  FileId file_id;
-  return db->GetFileWithPath(url.path(), &file_id);
-}
-
-bool ObfuscatedFileUtil::DirectoryExists(
-    FileSystemOperationContext* context,
-    const FileSystemURL& url) {
-  if (IsRootDirectory(url)) {
-    // It's questionable whether we should return true or false for the
-    // root directory of nonexistent origin, but here we return true
-    // as the current implementation of ReadDirectory always returns an empty
-    // array (rather than erroring out with NOT_FOUND_ERR even) for
-    // nonexistent origins.
-    // Note: if you're going to change this behavior please also consider
-    // changiing the ReadDirectory's behavior!
-    return true;
-  }
-  FileSystemDirectoryDatabase* db = GetDirectoryDatabase(
-      url.origin(), url.type(), false);
-  if (!db)
-    return false;
-  FileId file_id;
-  if (!db->GetFileWithPath(url.path(), &file_id))
-    return false;
-  FileInfo file_info;
-  if (!db->GetFileInfo(file_id, &file_info)) {
-    NOTREACHED();
-    return false;
-  }
-  return file_info.is_directory();
-}
-
 bool ObfuscatedFileUtil::IsDirectoryEmpty(
     FileSystemOperationContext* context,
     const FileSystemURL& url) {
@@ -892,16 +853,16 @@ PlatformFileError ObfuscatedFileUtil::DeleteSingleDirectory(
   return base::PLATFORM_FILE_OK;
 }
 
-scoped_refptr<webkit_blob::ShareableFileReference>
-ObfuscatedFileUtil::CreateSnapshotFile(
+base::PlatformFileError ObfuscatedFileUtil::CreateSnapshotFile(
     FileSystemOperationContext* context,
     const FileSystemURL& url,
-    base::PlatformFileError* result,
     base::PlatformFileInfo* file_info,
-    FilePath* platform_path) {
-  DCHECK(result);
-  *result = GetFileInfo(context, url, file_info, platform_path);
-  return NULL;
+    FilePath* platform_path,
+    SnapshotFilePolicy* policy) {
+  DCHECK(policy);
+  // We're just returning the local file information.
+  *policy = kSnapshotFileLocal;
+  return GetFileInfo(context, url, file_info, platform_path);
 }
 
 FilePath ObfuscatedFileUtil::GetDirectoryForOriginAndType(
@@ -996,9 +957,8 @@ bool ObfuscatedFileUtil::MigrateFromOldSandbox(
     return false;
 
   file_util::FileEnumerator file_enum(src_root, true,
-      static_cast<file_util::FileEnumerator::FileType>(
-          file_util::FileEnumerator::FILES |
-          file_util::FileEnumerator::DIRECTORIES));
+      file_util::FileEnumerator::FILES |
+      file_util::FileEnumerator::DIRECTORIES);
   FilePath src_full_path;
   size_t root_path_length = src_root.value().length() + 1;  // +1 for the slash
   while (!(src_full_path = file_enum.Next()).empty()) {

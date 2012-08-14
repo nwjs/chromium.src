@@ -18,7 +18,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/extensions/tab_helper.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/managed_mode.h"
 #include "chrome/browser/native_window_notification_source.h"
 #include "chrome/browser/ntp_background_util.h"
@@ -31,15 +30,16 @@
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api.h"
 #include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog.h"
 #include "chrome/browser/ui/app_modal_dialogs/app_modal_dialog_queue.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window_state.h"
-#include "chrome/browser/ui/metro_pin_tab_helper.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
@@ -117,9 +117,9 @@
 #include "ash/launcher/launcher_model.h"
 #include "ash/shell.h"
 #include "chrome/browser/ui/ash/ash_util.h"
+#include "chrome/browser/ui/ash/launcher/browser_launcher_item_controller.h"
 #include "chrome/browser/ui/views/ash/chrome_shell_delegate.h"
-#include "chrome/browser/ui/views/ash/launcher/browser_launcher_item_controller.h"
-#include "chrome/browser/ui/views/ash/window_positioner.h"
+#include "chrome/browser/ui/ash/window_positioner.h"
 #elif defined(OS_WIN) && !defined(USE_AURA)
 #include "base/win/metro.h"
 #include "chrome/browser/jumplist_win.h"
@@ -332,7 +332,8 @@ BrowserView::BrowserView(Browser* browser)
       ticker_(0),
 #endif
       force_location_bar_focus_(false),
-      ALLOW_THIS_IN_INITIALIZER_LIST(color_change_listener_(this)) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(color_change_listener_(this)),
+      ALLOW_THIS_IN_INITIALIZER_LIST(activate_modal_dialog_factory_(this)) {
   browser_->tab_strip_model()->AddObserver(this);
 }
 
@@ -410,7 +411,7 @@ gfx::Rect BrowserView::GetToolbarBounds() const {
 gfx::Rect BrowserView::GetClientAreaBounds() const {
   gfx::Rect container_bounds = contents_->bounds();
   gfx::Point container_origin = container_bounds.origin();
-  ConvertPointToView(this, parent(), &container_origin);
+  ConvertPointToTarget(this, parent(), &container_origin);
   container_bounds.set_origin(container_origin);
   return container_bounds;
 }
@@ -432,7 +433,8 @@ gfx::Point BrowserView::OffsetPointForToolbarBackgroundImage(
   // vertically at the top edge of the horizontal tab strip (or where it would
   // be).  We expect our parent's origin to be the window origin.
   gfx::Point window_point(point.Add(GetMirroredPosition()));
-  window_point.Offset(0, -frame_->GetTabStripInsets(false).top);
+  window_point.Offset(frame_->GetThemeBackgroundXInset(),
+                      -frame_->GetTabStripInsets(false).top);
   return window_point;
 }
 
@@ -511,20 +513,6 @@ bool BrowserView::GetAccelerator(int cmd_id, ui::Accelerator* accelerator) {
       *accelerator = it->first;
       return true;
     }
-  }
-  return false;
-}
-
-bool BrowserView::ActivateAppModalDialog() const {
-  // If another browser is app modal, flash and activate the modal browser.
-  if (AppModalDialogQueue::GetInstance()->HasActiveDialog()) {
-    Browser* active_browser = BrowserList::GetLastActive();
-    if (active_browser && (browser_ != active_browser)) {
-      active_browser->window()->FlashFrame(true);
-      active_browser->window()->Activate();
-    }
-    AppModalDialogQueue::GetInstance()->ActivateModalDialog();
-    return true;
   }
   return false;
 }
@@ -846,9 +834,9 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
     // The +1 in the next line creates a 1-px gap between icon and arrow tip.
     gfx::Point icon_bottom(0, location_icon_view->GetImageBounds().bottom() -
         LocationBarView::kIconInternalPadding + 1);
-    ConvertPointToView(location_icon_view, this, &icon_bottom);
+    ConvertPointToTarget(location_icon_view, this, &icon_bottom);
     gfx::Point infobar_top(0, infobar_container_->GetVerticalOverlap(NULL));
-    ConvertPointToView(infobar_container_, this, &infobar_top);
+    ConvertPointToTarget(infobar_container_, this, &infobar_top);
 
     AutoReset<CallState> resetter(&call_state,
         is_animating ? REENTRANT_FORCE_FAST_RESIZE : REENTRANT);
@@ -943,8 +931,6 @@ void BrowserView::UpdateReloadStopState(bool is_loading, bool force) {
 void BrowserView::UpdateToolbar(TabContents* contents,
                                 bool should_restore_state) {
   toolbar_->Update(contents->web_contents(), should_restore_state);
-  GetLocationBarView()->SetMetroPinnedState(
-      contents->metro_pin_tab_helper()->is_pinned());
 }
 
 void BrowserView::FocusToolbar() {
@@ -1415,14 +1401,7 @@ ToolbarView* BrowserView::GetToolbarView() const {
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, TabStripModelObserver implementation:
 
-void BrowserView::TabInsertedAt(TabContents* contents,
-                                int index,
-                                bool foreground) {
-  contents->metro_pin_tab_helper()->set_observer(this);
-}
-
 void BrowserView::TabDetachedAt(TabContents* contents, int index) {
-  contents->metro_pin_tab_helper()->set_observer(NULL);
   // We use index here rather than comparing |contents| because by this time
   // the model has already removed |contents| from its list, so
   // browser_->GetActiveWebContents() will return NULL or something else.
@@ -1459,8 +1438,6 @@ void BrowserView::TabReplacedAt(TabStripModel* tab_strip_model,
                                 TabContents* old_contents,
                                 TabContents* new_contents,
                                 int index) {
-  new_contents->metro_pin_tab_helper()->set_observer(this);
-
   if (index != browser_->tab_strip_model()->active_index())
     return;
 
@@ -1506,7 +1483,18 @@ bool BrowserView::CanMaximize() const {
 }
 
 bool BrowserView::CanActivate() const {
-  return !ActivateAppModalDialog();
+  if (!AppModalDialogQueue::GetInstance()->active_dialog())
+    return true;
+
+  // If another browser is app modal, flash and activate the modal browser. This
+  // has to be done in a post task, otherwise if the user clicked on a window
+  // that doesn't have the modal dialog the windows keep trying to get the focus
+  // from each other on Windows. http://crbug.com/141650.
+  MessageLoop::current()->PostTask(
+      FROM_HERE,
+      base::Bind(&BrowserView::ActivateAppModalDialog,
+                 activate_modal_dialog_factory_.GetWeakPtr()));
+  return false;
 }
 
 string16 BrowserView::GetWindowTitle() const {
@@ -1712,7 +1700,7 @@ void BrowserView::OnWidgetMove() {
   // Close the omnibox popup, if any.
   LocationBarView* location_bar_view = GetLocationBarView();
   if (location_bar_view)
-    location_bar_view->GetLocationEntry()->ClosePopup();
+    location_bar_view->GetLocationEntry()->CloseOmniboxPopup();
 }
 
 views::Widget* BrowserView::GetWidget() {
@@ -1866,7 +1854,7 @@ bool BrowserView::DrawInfoBarArrows(int* x) const {
     const LocationIconView* location_icon_view =
         toolbar_->location_bar()->location_icon_view();
     gfx::Point icon_center(location_icon_view->GetImageBounds().CenterPoint());
-    ConvertPointToView(location_icon_view, this, &icon_center);
+    ConvertPointToTarget(location_icon_view, this, &icon_center);
     *x = icon_center.x();
   }
   return true;
@@ -1882,12 +1870,6 @@ bool BrowserView::SplitHandleMoved(views::SingleSplitView* sender) {
 
 void BrowserView::OnSysColorChange() {
   browser::MaybeShowInvertBubbleView(browser_.get(), contents_);
-}
-
-void BrowserView::MetroPinnedStateChanged(content::WebContents* contents,
-                                          bool is_pinned) {
-  if (contents == chrome::GetActiveWebContents(browser()))
-    GetLocationBarView()->SetMetroPinnedState(is_pinned);
 }
 
 int BrowserView::GetOTRIconResourceID() const {
@@ -1951,8 +1933,7 @@ void BrowserView::Init() {
   // SearchViewController doesn't work on windows yet.
 #if defined(USE_AURA)
   if (chrome::search::IsInstantExtendedAPIEnabled(browser_->profile())) {
-    search_view_controller_.reset(
-        new SearchViewController(browser_->profile(), contents_));
+    search_view_controller_.reset(new SearchViewController(contents_));
     omnibox_popup_view_parent =
         search_view_controller_->omnibox_popup_view_parent();
   }
@@ -2476,6 +2457,8 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   // When we toggle the NTP floating bookmarks bar and/or the info bar,
   // we don't want any WebContents to be attached, so that we
   // avoid an unnecessary resize and re-layout of a WebContents.
+  // This also applies to the |search_view_controller_| logic, as it can
+  // reparent the |contents_container_|.
   if (change_tab_contents)
     contents_container_->SetWebContents(NULL);
   infobar_container_->ChangeTabContents(new_contents->infobar_tab_helper());
@@ -2485,8 +2468,6 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
         BookmarkBar::DONT_ANIMATE_STATE_CHANGE);
   }
   UpdateUIForContents(new_contents);
-  if (change_tab_contents)
-    contents_container_->SetWebContents(new_contents->web_contents());
 
 #if defined(USE_AURA)
   // |change_tab_contents| can mean same WebContents but different TabContents,
@@ -2494,6 +2475,9 @@ void BrowserView::ProcessTabSelected(TabContents* new_contents) {
   if (search_view_controller_.get())
     search_view_controller_->SetTabContents(new_contents);
 #endif
+
+  if (change_tab_contents)
+    contents_container_->SetWebContents(new_contents->web_contents());
 
   UpdateDevToolsForContents(new_contents);
   if (!browser_->tab_strip_model()->closing_all() && GetWidget()->IsActive() &&
@@ -2608,4 +2592,21 @@ bool BrowserView::DoCutCopyPaste(void (content::RenderWidgetHost::*method)()) {
   // TODO(yusukes): Support non-Aura Windows.
 #endif
   return false;
+}
+
+void BrowserView::ActivateAppModalDialog() const {
+  // If another browser is app modal, flash and activate the modal browser.
+  AppModalDialog* active_dialog =
+      AppModalDialogQueue::GetInstance()->active_dialog();
+  if (!active_dialog)
+    return;
+
+  Browser* modal_browser =
+      browser::FindBrowserWithWebContents(active_dialog->web_contents());
+  if (modal_browser && (browser_ != modal_browser)) {
+    modal_browser->window()->FlashFrame(true);
+    modal_browser->window()->Activate();
+  }
+
+  AppModalDialogQueue::GetInstance()->ActivateModalDialog();
 }

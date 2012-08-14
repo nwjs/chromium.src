@@ -44,6 +44,12 @@ class VIEWS_EXPORT Label : public View {
     AUTO_DETECT_DIRECTIONALITY
   };
 
+  enum ElideBehavior {
+    NO_ELIDE,
+    ELIDE_IN_MIDDLE,
+    ELIDE_AT_END,
+  };
+
   // The view class name.
   static const char kViewClassName[];
 
@@ -130,10 +136,10 @@ class VIEWS_EXPORT Label : public View {
   // Default is false. This only works when is_multi_line is true.
   void SetAllowCharacterBreak(bool allow_character_break);
 
-  // Sets whether the label text should be elided in the middle (if necessary).
-  // The default is to elide at the end.
-  // NOTE: This is not supported for multi-line strings.
-  void SetElideInMiddle(bool elide_in_middle);
+  // Sets whether the label text should be elided in the middle or end (if
+  // necessary). The default is to not elide at all.
+  // NOTE: Eliding in the middle is not supported for multi-line strings.
+  void SetElideBehavior(ElideBehavior elide_behavior);
 
   // Sets the tooltip text.  Default behavior for a label (single-line) is to
   // show the full text if it is wider than its bounds.  Calling this overrides
@@ -178,12 +184,12 @@ class VIEWS_EXPORT Label : public View {
   // GetPreferredSize().height() if the receiver is not multi-line.
   virtual int GetHeightForWidth(int w) OVERRIDE;
   virtual std::string GetClassName() const OVERRIDE;
-  virtual bool HitTest(const gfx::Point& l) const OVERRIDE;
+  virtual bool HitTestRect(const gfx::Rect& rect) const OVERRIDE;
   // Mouse enter/exit are overridden to render mouse over background color.
   // These invoke SetContainsMouse as necessary.
-  virtual void OnMouseMoved(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseEntered(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const MouseEvent& event) OVERRIDE;
+  virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
   // Gets the tooltip text for labels that are wider than their bounds, except
   // when the label is multiline, in which case it just returns false (no
@@ -234,7 +240,7 @@ class VIEWS_EXPORT Label : public View {
 
   // If the mouse is over the text, SetContainsMouse(true) is invoked, otherwise
   // SetContainsMouse(false) is invoked.
-  void UpdateContainsMouse(const MouseEvent& event);
+  void UpdateContainsMouse(const ui::MouseEvent& event);
 
   // Updates whether the mouse is contained in the Label. If the new value
   // differs from the current value, and a mouse over background is specified,
@@ -265,7 +271,7 @@ class VIEWS_EXPORT Label : public View {
   mutable bool text_size_valid_;
   bool is_multi_line_;
   bool allow_character_break_;
-  bool elide_in_middle_;
+  ElideBehavior elide_behavior_;
   bool is_email_;
   Alignment horiz_alignment_;
   string16 tooltip_text_;

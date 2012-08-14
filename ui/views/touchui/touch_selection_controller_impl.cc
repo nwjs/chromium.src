@@ -112,17 +112,17 @@ class TouchSelectionControllerImpl::SelectionHandleView : public View {
         kSelectionHandleColor);
   }
 
-  virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE {
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE {
     controller_->dragging_handle_ = this;
     return true;
   }
 
-  virtual bool OnMouseDragged(const MouseEvent& event) OVERRIDE {
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE {
     controller_->SelectionHandleDragged(event.location());
     return true;
   }
 
-  virtual void OnMouseReleased(const MouseEvent& event) OVERRIDE {
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE {
     controller_->dragging_handle_ = NULL;
   }
 
@@ -273,8 +273,7 @@ class TouchSelectionControllerImpl::TouchContextMenuView
   }
 
   // Overridden from ButtonListener:
-  virtual void ButtonPressed(Button* sender,
-                             const views::Event& event) OVERRIDE {
+  virtual void ButtonPressed(Button* sender, const ui::Event& event) OVERRIDE {
     controller_->ExecuteCommand(sender->tag());
   }
 

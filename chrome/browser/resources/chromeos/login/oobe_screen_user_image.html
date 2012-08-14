@@ -1,19 +1,15 @@
-<div class="step right hidden" id="user-image"
-     aria-labelledby="user-image-screen-description">
-  <div class="step-logo">
-    <img src="chrome://theme/IDR_PRODUCT_LOGO">
-  </div>
+<div class="step right hidden" id="user-image">
   <div class="step-contents">
     <div id="user-image-screen-curtain">
       <p id="user-image-screen-description"
          i18n-content="userImageScreenDescription"></p>
     </div>
     <div id="user-image-screen-main">
-      <grid id="user-image-grid">
+      <grid id="user-image-grid"
+          aria-labelledby="user-image-screen-description">
       </grid>
       <div id="user-image-preview">
-        <img id="user-image-preview-img" alt=""
-             src="chrome://theme/IDR_LOGIN_DEFAULT_USER">
+        <img id="user-image-preview-img" alt="">
         <div class="user-image-stream-area">
           <div class="perspective-box">
             <div id="user-image-stream-crop">
@@ -21,11 +17,17 @@
             </div>
           </div>
           <div class="spinner"></div>
-          <button id="flip-photo" class="custom-appearance"></button>
+          <button id="flip-photo" class="custom-appearance"
+                  i18n-values="title:flipPhoto"></button>
         </div>
         <p id="user-image-preview-caption"></p>
-        <button id="discard-photo"></button>
-        <button id="take-photo"></button>
+        <button id="discard-photo" i18n-values="title:discardPhoto"></button>
+        <button id="take-photo" i18n-values="title:takePhoto"></button>
+      </div>
+      <div id="user-image-attribution">
+        <span i18n-content="authorCredit"></span>
+        <strong id="user-image-author-name"></strong>
+        <a id="user-image-author-website" target="_blank"></a>
       </div>
     </div>
   </div>

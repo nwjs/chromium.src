@@ -339,10 +339,12 @@ class BASE_EXPORT DictionaryValue : public Value {
   // YOU SHOULD ALWAYS USE THE XXXWithoutPathExpansion() APIs WITH THESE, NOT
   // THE NORMAL XXX() APIs.  This makes sure things will work correctly if any
   // keys have '.'s in them.
-  class key_iterator
+  class BASE_EXPORT key_iterator
       : private std::iterator<std::input_iterator_tag, const std::string> {
    public:
-    explicit key_iterator(ValueMap::const_iterator itr) { itr_ = itr; }
+    explicit key_iterator(ValueMap::const_iterator itr);
+    // Not explicit, because this is a copy constructor.
+    key_iterator(const key_iterator& rhs);
     key_iterator operator++() {
       ++itr_;
       return *this;
@@ -360,10 +362,9 @@ class BASE_EXPORT DictionaryValue : public Value {
 
   // This class provides an iterator over both keys and values in the
   // dictionary.  It can't be used to modify the dictionary.
-  class Iterator {
+  class BASE_EXPORT Iterator {
    public:
-    explicit Iterator(const DictionaryValue& target)
-        : target_(target), it_(target.dictionary_.begin()) {}
+    explicit Iterator(const DictionaryValue& target);
 
     bool HasNext() const { return it_ != target_.dictionary_.end(); }
     void Advance() { ++it_; }
@@ -414,7 +415,8 @@ class BASE_EXPORT ListValue : public Value {
   // Gets the Value at the given index.  Modifies |out_value| (and returns true)
   // only if the index falls within the current list range.
   // Note that the list always owns the Value passed out via |out_value|.
-  bool Get(size_t index, Value** out_value) const;
+  bool Get(size_t index, const Value** out_value) const;
+  bool Get(size_t index, Value** out_value);
 
   // Convenience forms of Get().  Modifies |out_value| (and returns true)
   // only if the index is valid and the Value at that index can be returned
@@ -424,9 +426,12 @@ class BASE_EXPORT ListValue : public Value {
   bool GetDouble(size_t index, double* out_value) const;
   bool GetString(size_t index, std::string* out_value) const;
   bool GetString(size_t index, string16* out_value) const;
-  bool GetBinary(size_t index, BinaryValue** out_value) const;
-  bool GetDictionary(size_t index, DictionaryValue** out_value) const;
-  bool GetList(size_t index, ListValue** out_value) const;
+  bool GetBinary(size_t index, const BinaryValue** out_value) const;
+  bool GetBinary(size_t index, BinaryValue** out_value);
+  bool GetDictionary(size_t index, const DictionaryValue** out_value) const;
+  bool GetDictionary(size_t index, DictionaryValue** out_value);
+  bool GetList(size_t index, const ListValue** out_value) const;
+  bool GetList(size_t index, ListValue** out_value);
 
   // Removes the Value with the specified index from this list.
   // If |out_value| is non-NULL, the removed Value AND ITS OWNERSHIP will be

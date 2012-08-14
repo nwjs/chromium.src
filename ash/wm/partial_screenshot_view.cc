@@ -10,6 +10,7 @@
 #include "ash/wm/overlay_event_filter.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/base/event.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/view.h"
@@ -58,7 +59,7 @@ void PartialScreenshotView::StartPartialScreenshot(
 }
 
 gfx::NativeCursor PartialScreenshotView::GetCursor(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   // Always use "crosshair" cursor.
   return ui::kCursorCross;
 }
@@ -70,7 +71,7 @@ void PartialScreenshotView::Cancel() {
     widget->Close();
 }
 
-bool PartialScreenshotView::IsCancelingKeyEvent(aura::KeyEvent* event) {
+bool PartialScreenshotView::IsCancelingKeyEvent(ui::KeyEvent* event) {
   return event->key_code() == ui::VKEY_ESCAPE;
 }
 
@@ -95,12 +96,12 @@ void PartialScreenshotView::OnMouseCaptureLost() {
   Cancel();
 }
 
-bool PartialScreenshotView::OnMousePressed(const views::MouseEvent& event) {
+bool PartialScreenshotView::OnMousePressed(const ui::MouseEvent& event) {
   start_position_ = event.location();
   return true;
 }
 
-bool PartialScreenshotView::OnMouseDragged(const views::MouseEvent& event) {
+bool PartialScreenshotView::OnMouseDragged(const ui::MouseEvent& event) {
   current_position_ = event.location();
   SchedulePaint();
   is_dragging_ = true;
@@ -112,7 +113,7 @@ bool PartialScreenshotView::OnMouseWheel(const views::MouseWheelEvent& event) {
   return true;
 }
 
-void PartialScreenshotView::OnMouseReleased(const views::MouseEvent& event) {
+void PartialScreenshotView::OnMouseReleased(const ui::MouseEvent& event) {
   Cancel();
   if (!is_dragging_)
     return;

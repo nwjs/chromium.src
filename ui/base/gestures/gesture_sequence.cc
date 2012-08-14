@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time.h"
+#include "ui/base/event.h"
 #include "ui/base/events.h"
 #include "ui/base/gestures/gesture_configuration.h"
 #include "ui/base/gestures/gesture_util.h"
@@ -81,6 +82,9 @@ enum EdgeStateSignatureType {
   GST_PENDING_SYNTHETIC_CLICK_FIRST_RELEASED =
       G(GS_PENDING_SYNTHETIC_CLICK, 0, TS_RELEASED, TSI_NOT_PROCESSED),
 
+  GST_PENDING_SYNTHETIC_CLICK_FIRST_RELEASED_HANDLED =
+      G(GS_PENDING_SYNTHETIC_CLICK, 0, TS_RELEASED, TSI_PROCESSED),
+
   // Ignore processed touch-move events until gesture-scroll starts.
   GST_PENDING_SYNTHETIC_CLICK_FIRST_MOVED =
       G(GS_PENDING_SYNTHETIC_CLICK, 0, TS_MOVED, TSI_NOT_PROCESSED),
@@ -89,20 +93,20 @@ enum EdgeStateSignatureType {
       G(GS_PENDING_SYNTHETIC_CLICK, 0, TS_STATIONARY, TSI_NOT_PROCESSED),
 
   GST_PENDING_SYNTHETIC_CLICK_FIRST_CANCELLED =
-      G(GS_PENDING_SYNTHETIC_CLICK, 0, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PENDING_SYNTHETIC_CLICK, 0, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PENDING_SYNTHETIC_CLICK_SECOND_PRESSED =
       G(GS_PENDING_SYNTHETIC_CLICK, 1, TS_PRESSED, TSI_NOT_PROCESSED),
 
   GST_SCROLL_FIRST_RELEASED =
-      G(GS_SCROLL, 0, TS_RELEASED, TSI_NOT_PROCESSED),
+      G(GS_SCROLL, 0, TS_RELEASED, TSI_ALWAYS),
 
   // Once scroll has started, process all touch-move events.
   GST_SCROLL_FIRST_MOVED =
       G(GS_SCROLL, 0, TS_MOVED, TSI_ALWAYS),
 
   GST_SCROLL_FIRST_CANCELLED =
-      G(GS_SCROLL, 0, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_SCROLL, 0, TS_CANCELLED, TSI_ALWAYS),
 
   GST_SCROLL_SECOND_PRESSED =
       G(GS_SCROLL, 1, TS_PRESSED, TSI_NOT_PROCESSED),
@@ -110,8 +114,14 @@ enum EdgeStateSignatureType {
   GST_PENDING_TWO_FINGER_TAP_FIRST_RELEASED =
       G(GS_PENDING_TWO_FINGER_TAP, 0, TS_RELEASED, TSI_NOT_PROCESSED),
 
+  GST_PENDING_TWO_FINGER_TAP_FIRST_RELEASED_HANDLED =
+      G(GS_PENDING_TWO_FINGER_TAP, 0, TS_RELEASED, TSI_PROCESSED),
+
   GST_PENDING_TWO_FINGER_TAP_SECOND_RELEASED =
       G(GS_PENDING_TWO_FINGER_TAP, 1, TS_RELEASED, TSI_NOT_PROCESSED),
+
+  GST_PENDING_TWO_FINGER_TAP_SECOND_RELEASED_HANDLED =
+      G(GS_PENDING_TWO_FINGER_TAP, 1, TS_RELEASED, TSI_PROCESSED),
 
   GST_PENDING_TWO_FINGER_TAP_FIRST_MOVED =
       G(GS_PENDING_TWO_FINGER_TAP, 0, TS_MOVED, TSI_ALWAYS),
@@ -120,10 +130,10 @@ enum EdgeStateSignatureType {
       G(GS_PENDING_TWO_FINGER_TAP, 1, TS_MOVED, TSI_ALWAYS),
 
   GST_PENDING_TWO_FINGER_TAP_FIRST_CANCELLED =
-      G(GS_PENDING_TWO_FINGER_TAP, 0, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PENDING_TWO_FINGER_TAP, 0, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PENDING_TWO_FINGER_TAP_SECOND_CANCELLED =
-      G(GS_PENDING_TWO_FINGER_TAP, 1, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PENDING_TWO_FINGER_TAP, 1, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PENDING_TWO_FINGER_TAP_THIRD_PRESSED =
       G(GS_PENDING_TWO_FINGER_TAP, 2, TS_PRESSED, TSI_NOT_PROCESSED),
@@ -135,16 +145,16 @@ enum EdgeStateSignatureType {
       G(GS_PINCH, 1, TS_MOVED, TSI_ALWAYS),
 
   GST_PINCH_FIRST_RELEASED =
-      G(GS_PINCH, 0, TS_RELEASED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 0, TS_RELEASED, TSI_ALWAYS),
 
   GST_PINCH_SECOND_RELEASED =
-      G(GS_PINCH, 1, TS_RELEASED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 1, TS_RELEASED, TSI_ALWAYS),
 
   GST_PINCH_FIRST_CANCELLED =
-      G(GS_PINCH, 0, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 0, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PINCH_SECOND_CANCELLED =
-      G(GS_PINCH, 1, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 1, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PINCH_THIRD_PRESSED =
       G(GS_PINCH, 2, TS_PRESSED, TSI_NOT_PROCESSED),
@@ -153,10 +163,10 @@ enum EdgeStateSignatureType {
       G(GS_PINCH, 2, TS_MOVED, TSI_ALWAYS),
 
   GST_PINCH_THIRD_RELEASED =
-      G(GS_PINCH, 2, TS_RELEASED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 2, TS_RELEASED, TSI_ALWAYS),
 
   GST_PINCH_THIRD_CANCELLED =
-      G(GS_PINCH, 2, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 2, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PINCH_FOURTH_PRESSED =
       G(GS_PINCH, 3, TS_PRESSED, TSI_NOT_PROCESSED),
@@ -165,10 +175,10 @@ enum EdgeStateSignatureType {
       G(GS_PINCH, 3, TS_MOVED, TSI_ALWAYS),
 
   GST_PINCH_FOURTH_RELEASED =
-      G(GS_PINCH, 3, TS_RELEASED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 3, TS_RELEASED, TSI_ALWAYS),
 
   GST_PINCH_FOURTH_CANCELLED =
-      G(GS_PINCH, 3, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 3, TS_CANCELLED, TSI_ALWAYS),
 
   GST_PINCH_FIFTH_PRESSED =
       G(GS_PINCH, 4, TS_PRESSED, TSI_NOT_PROCESSED),
@@ -177,10 +187,10 @@ enum EdgeStateSignatureType {
       G(GS_PINCH, 4, TS_MOVED, TSI_ALWAYS),
 
   GST_PINCH_FIFTH_RELEASED =
-      G(GS_PINCH, 4, TS_RELEASED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 4, TS_RELEASED, TSI_ALWAYS),
 
   GST_PINCH_FIFTH_CANCELLED =
-      G(GS_PINCH, 4, TS_CANCELLED, TSI_NOT_PROCESSED),
+      G(GS_PINCH, 4, TS_CANCELLED, TSI_ALWAYS),
 };
 
 // Builds a signature. Signatures are assembled by joining together
@@ -202,6 +212,7 @@ EdgeStateSignatureType Signature(GestureState gesture_state,
   switch (signature) {
     case GST_NO_GESTURE_FIRST_PRESSED:
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_RELEASED:
+    case GST_PENDING_SYNTHETIC_CLICK_FIRST_RELEASED_HANDLED:
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_MOVED:
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_STATIONARY:
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_CANCELLED:
@@ -211,7 +222,9 @@ EdgeStateSignatureType Signature(GestureState gesture_state,
     case GST_SCROLL_FIRST_CANCELLED:
     case GST_SCROLL_SECOND_PRESSED:
     case GST_PENDING_TWO_FINGER_TAP_FIRST_RELEASED:
+    case GST_PENDING_TWO_FINGER_TAP_FIRST_RELEASED_HANDLED:
     case GST_PENDING_TWO_FINGER_TAP_SECOND_RELEASED:
+    case GST_PENDING_TWO_FINGER_TAP_SECOND_RELEASED_HANDLED:
     case GST_PENDING_TWO_FINGER_TAP_FIRST_MOVED:
     case GST_PENDING_TWO_FINGER_TAP_SECOND_MOVED:
     case GST_PENDING_TWO_FINGER_TAP_FIRST_CANCELLED:
@@ -283,24 +296,30 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
     const TouchEvent& event,
     ui::TouchStatus status) {
   StopLongPressTimerIfRequired(event);
-  last_touch_location_ = event.GetLocation();
+  last_touch_location_ = event.location();
   if (status == ui::TOUCH_STATUS_QUEUED ||
       status == ui::TOUCH_STATUS_QUEUED_END)
     return NULL;
 
   // Set a limit on the number of simultaneous touches in a gesture.
-  if (event.GetTouchId() >= kMaxGesturePoints)
+  if (event.touch_id() >= kMaxGesturePoints)
     return NULL;
 
-  if (event.GetEventType() == ui::ET_TOUCH_PRESSED) {
+  if (event.type() == ui::ET_TOUCH_PRESSED) {
     if (point_count_ == kMaxGesturePoints)
       return NULL;
-    GesturePoint* new_point = &points_[event.GetTouchId()];
+    GesturePoint* new_point = &points_[event.touch_id()];
     // We shouldn't be able to get two PRESSED events from the same
-    // finger without either a RELEASE or CANCEL in between.
-    DCHECK(!new_point->in_use());
+    // finger without either a RELEASE or CANCEL in between. But let's not crash
+    // in a release build.
+    if (new_point->in_use()) {
+      LOG(ERROR) << "Received a second press for a point: " << event.touch_id();
+      new_point->ResetVelocity();
+      new_point->UpdateValues(event);
+      return NULL;
+    }
     new_point->set_point_id(point_count_++);
-    new_point->set_touch_id(event.GetTouchId());
+    new_point->set_touch_id(event.touch_id());
   }
 
   GestureState last_state = state_;
@@ -310,23 +329,23 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
   GesturePoint& point = GesturePointForEvent(event);
   point.UpdateValues(event);
   RecreateBoundingBox();
-  flags_ = event.GetEventFlags();
-  const int point_id = points_[event.GetTouchId()].point_id();
+  flags_ = event.flags();
+  const int point_id = point.point_id();
   if (point_id < 0)
     return NULL;
 
   // Send GESTURE_BEGIN for any touch pressed.
-  if (event.GetEventType() == ui::ET_TOUCH_PRESSED)
+  if (event.type() == ui::ET_TOUCH_PRESSED)
     AppendBeginGestureEvent(point, gestures.get());
 
   TouchStatusInternal status_internal = (status == ui::TOUCH_STATUS_UNKNOWN) ?
       TSI_NOT_PROCESSED : TSI_PROCESSED;
 
   EdgeStateSignatureType signature = Signature(state_, point_id,
-      event.GetEventType(), status_internal);
+      event.type(), status_internal);
 
   if (signature == GST_INVALID)
-    signature = Signature(state_, point_id, event.GetEventType(), TSI_ALWAYS);
+    signature = Signature(state_, point_id, event.type(), TSI_ALWAYS);
 
   switch (signature) {
     case GST_INVALID:
@@ -349,8 +368,9 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
           point.UpdateForScroll();
       }
       break;
+    case GST_PENDING_SYNTHETIC_CLICK_FIRST_RELEASED_HANDLED:
     case GST_PENDING_SYNTHETIC_CLICK_FIRST_CANCELLED:
-      NoGesture(event, point, gestures.get());
+      set_state(GS_NO_GESTURE);
       break;
     case GST_SCROLL_FIRST_MOVED:
       if (scroll_type_ == ST_VERTICAL ||
@@ -384,6 +404,8 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
       if (TwoFingerTouchMove(event, point, gestures.get()))
         set_state(GS_PINCH);
       break;
+    case GST_PENDING_TWO_FINGER_TAP_FIRST_RELEASED_HANDLED:
+    case GST_PENDING_TWO_FINGER_TAP_SECOND_RELEASED_HANDLED:
     case GST_PENDING_TWO_FINGER_TAP_FIRST_CANCELLED:
     case GST_PENDING_TWO_FINGER_TAP_SECOND_CANCELLED:
       scroll_type_ = ST_FREE;
@@ -439,14 +461,14 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
       break;
   }
 
-  if (event.GetEventType() == ui::ET_TOUCH_RELEASED ||
-      event.GetEventType() == ui::ET_TOUCH_CANCELLED)
+  if (event.type() == ui::ET_TOUCH_RELEASED ||
+      event.type() == ui::ET_TOUCH_CANCELLED)
     AppendEndGestureEvent(point, gestures.get());
 
   if (state_ != last_state)
     DVLOG(4) << "Gesture Sequence"
              << " State: " << state_
-             << " touch id: " << event.GetTouchId();
+             << " touch id: " << event.touch_id();
 
   if (last_state == GS_PENDING_SYNTHETIC_CLICK && state_ != last_state)
     long_press_timer_->Stop();
@@ -455,35 +477,24 @@ GestureSequence::Gestures* GestureSequence::ProcessTouchEventForGesture(
   // When a touch point is released, all points with ids greater than the
   // released point must have their ids decremented, or the set of point_ids
   // could end up with gaps.
-  if (event.GetEventType() == ui::ET_TOUCH_RELEASED ||
-      event.GetEventType() == ui::ET_TOUCH_CANCELLED) {
-    GesturePoint& old_point = points_[event.GetTouchId()];
+  if (event.type() == ui::ET_TOUCH_RELEASED ||
+      event.type() == ui::ET_TOUCH_CANCELLED) {
     for (int i = 0; i < kMaxGesturePoints; ++i) {
-      GesturePoint& point = points_[i];
-      if (point.point_id() > old_point.point_id())
-        point.set_point_id(point.point_id() - 1);
+      GesturePoint& iter_point = points_[i];
+      if (iter_point.point_id() > point.point_id())
+        iter_point.set_point_id(iter_point.point_id() - 1);
     }
 
-    if (old_point.in_use()) {
-      old_point.Reset();
-      --point_count_;
-      DCHECK_GE(point_count_, 0);
-      RecreateBoundingBox();
-      if (state_ == GS_PINCH) {
-        pinch_distance_current_ = BoundingBoxDiagonal(bounding_box_);
-        pinch_distance_start_ = pinch_distance_current_;
-      }
+    point.Reset();
+    --point_count_;
+    CHECK_GE(point_count_, 0);
+    RecreateBoundingBox();
+    if (state_ == GS_PINCH) {
+      pinch_distance_current_ = BoundingBoxDiagonal(bounding_box_);
+      pinch_distance_start_ = pinch_distance_current_;
     }
   }
-
   return gestures.release();
-}
-
-void GestureSequence::Reset() {
-  set_state(GS_NO_GESTURE);
-  for (int i = 0; i < kMaxGesturePoints; ++i)
-    points_[i].Reset();
-  point_count_ = 0;
 }
 
 void GestureSequence::RecreateBoundingBox() {
@@ -526,7 +537,7 @@ base::OneShotTimer<GestureSequence>* GestureSequence::CreateTimer() {
 
 GesturePoint& GestureSequence::GesturePointForEvent(
     const TouchEvent& event) {
-  return points_[event.GetTouchId()];
+  return points_[event.touch_id()];
 }
 
 GesturePoint* GestureSequence::GetPointByPointId(int point_id) {
@@ -561,8 +572,9 @@ GestureEvent* GestureSequence::CreateGestureEvent(
   GestureEventDetails gesture_details(details);
   gesture_details.set_touch_points(point_count_);
   gesture_details.set_bounding_box(bounding_box_);
-  return helper_->CreateGestureEvent(gesture_details, location, flags,
-      timestamp, touch_id_bitmask);
+  return new GestureEvent(gesture_details.type(), location.x(), location.y(),
+      flags, base::TimeDelta::FromMilliseconds(timestamp.ToDoubleT() * 1000),
+      gesture_details, touch_id_bitmask);
 }
 
 void GestureSequence::AppendTapDownGestureEvent(const GesturePoint& point,
@@ -596,11 +608,12 @@ void GestureSequence::AppendEndGestureEvent(const GesturePoint& point,
 }
 
 void GestureSequence::AppendClickGestureEvent(const GesturePoint& point,
+                                              int tap_count,
                                               Gestures* gestures) {
   gfx::Rect er = point.enclosing_rectangle();
   gfx::Point center = er.CenterPoint();
   gestures->push_back(CreateGestureEvent(
-      GestureEventDetails(ui::ET_GESTURE_TAP, 0, 0),
+      GestureEventDetails(ui::ET_GESTURE_TAP, tap_count, 0),
       center,
       flags_,
       base::Time::FromDoubleT(point.last_touch_time()),
@@ -641,15 +654,6 @@ void GestureSequence::AppendScrollGestureEnd(const GesturePoint& point,
   else if (scroll_type_ == ST_VERTICAL)
     railed_x_velocity = 0;
 
-  // TODO(rjkroege): It is conceivable that we could suppress sending the
-  // GestureScrollEnd if it is immediately followed by a GestureFlingStart.
-  gestures->push_back(CreateGestureEvent(
-      GestureEventDetails(ui::ET_GESTURE_SCROLL_END, 0, 0),
-      location,
-      flags_,
-      base::Time::FromDoubleT(point.last_touch_time()),
-      1 << point.touch_id()));
-
   if (railed_x_velocity != 0 || railed_y_velocity != 0) {
     // TODO(sad|rjkroege): fling-curve is currently configured to work well with
     // touchpad scroll-events. This curve needs to be adjusted to work correctly
@@ -665,6 +669,13 @@ void GestureSequence::AppendScrollGestureEnd(const GesturePoint& point,
         flags_,
         base::Time::FromDoubleT(point.last_touch_time()),
         1 << point.touch_id()));
+  } else {
+    gestures->push_back(CreateGestureEvent(
+        GestureEventDetails(ui::ET_GESTURE_SCROLL_END, 0, 0),
+        location,
+        flags_,
+        base::Time::FromDoubleT(point.last_touch_time()),
+        1 << point.touch_id()));
   }
 }
 
@@ -674,12 +685,12 @@ void GestureSequence::AppendScrollGestureUpdate(const GesturePoint& point,
   gfx::Point current_center = bounding_box_.CenterPoint();
   int dx = current_center.x() - bounding_box_last_center_.x();
   int dy = current_center.y() - bounding_box_last_center_.y();
-  if (dx == 0 && dy == 0)
-    return;
   if (scroll_type_ == ST_HORIZONTAL)
     dy = 0;
   else if (scroll_type_ == ST_VERTICAL)
     dx = 0;
+  if (dx == 0 && dy == 0)
+    return;
 
   gestures->push_back(CreateGestureEvent(
       GestureEventDetails(ui::ET_GESTURE_SCROLL_UPDATE, dx, dy),
@@ -753,8 +764,9 @@ bool GestureSequence::Click(const TouchEvent& event,
     const GesturePoint& point, Gestures* gestures) {
   DCHECK(state_ == GS_PENDING_SYNTHETIC_CLICK);
   if (point.IsInClickWindow(event)) {
-    AppendClickGestureEvent(point, gestures);
-    if (point.IsInDoubleClickWindow(event))
+    bool double_tap = point.IsInDoubleClickWindow(event);
+    AppendClickGestureEvent(point, double_tap ? 2 : 1, gestures);
+    if (double_tap)
       AppendDoubleClickGestureEvent(point, gestures);
     return true;
   }
@@ -798,12 +810,6 @@ bool GestureSequence::ScrollUpdate(const TouchEvent& event,
   return true;
 }
 
-bool GestureSequence::NoGesture(const TouchEvent&,
-    const GesturePoint& point, Gestures*) {
-  Reset();
-  return false;
-}
-
 bool GestureSequence::TouchDown(const TouchEvent& event,
     const GesturePoint& point, Gestures* gestures) {
   DCHECK(state_ == GS_NO_GESTURE);
@@ -824,7 +830,7 @@ bool GestureSequence::TwoFingerTouchDown(const TouchEvent& event,
     AppendScrollGestureEnd(point, point.last_touch_position(), gestures,
         0.f, 0.f);
   }
-  second_touch_time_ = event.GetTimestamp();
+  second_touch_time_ = event.time_stamp();
   return true;
 }
 
@@ -832,7 +838,7 @@ bool GestureSequence::TwoFingerTouchMove(const TouchEvent& event,
     const GesturePoint& point, Gestures* gestures) {
   DCHECK(state_ == GS_PENDING_TWO_FINGER_TAP);
 
-  base::TimeDelta time_delta = event.GetTimestamp() - second_touch_time_;
+  base::TimeDelta time_delta = event.time_stamp() - second_touch_time_;
   base::TimeDelta max_delta = base::TimeDelta::FromMilliseconds(1000 *
       ui::GestureConfiguration::max_touch_down_duration_in_seconds_for_click());
   if (time_delta > max_delta || !point.IsInsideManhattanSquare(event)) {
@@ -845,7 +851,7 @@ bool GestureSequence::TwoFingerTouchMove(const TouchEvent& event,
 bool GestureSequence::TwoFingerTouchReleased(const TouchEvent& event,
     const GesturePoint& point, Gestures* gestures) {
   DCHECK(state_ == GS_PENDING_TWO_FINGER_TAP);
-  base::TimeDelta time_delta = event.GetTimestamp() - second_touch_time_;
+  base::TimeDelta time_delta = event.time_stamp() - second_touch_time_;
   base::TimeDelta max_delta = base::TimeDelta::FromMilliseconds(1000 *
       ui::GestureConfiguration::max_touch_down_duration_in_seconds_for_click());
   if (time_delta < max_delta && point.IsInsideManhattanSquare(event))
@@ -905,6 +911,22 @@ bool GestureSequence::PinchStart(const TouchEvent& event,
 bool GestureSequence::PinchUpdate(const TouchEvent& event,
     const GesturePoint& point, Gestures* gestures) {
   DCHECK(state_ == GS_PINCH);
+
+  // It is possible that the none of the touch-points changed their position,
+  // but their radii changed, and that caused the bounding box to also change.
+  // But in such cases, we do not want to either pinch or scroll.
+  // To avoid small jiggles, it is also necessary to make sure that at least one
+  // of the fingers moved enough before a pinch or scroll update is created.
+  bool did_scroll = false;
+  for (int i = 0; i < kMaxGesturePoints; ++i) {
+    if (!points_[i].in_use() || !points_[i].DidScroll(event, 2))
+      continue;
+    did_scroll = true;
+    break;
+  }
+
+  if (!did_scroll)
+    return false;
 
   float distance = BoundingBoxDiagonal(bounding_box_);
 
@@ -1006,13 +1028,13 @@ bool GestureSequence::MaybeSwipe(const TouchEvent& event,
 
 void GestureSequence::StopLongPressTimerIfRequired(const TouchEvent& event) {
   if (!long_press_timer_->IsRunning() ||
-      event.GetEventType() != ui::ET_TOUCH_MOVED)
+      event.type() != ui::ET_TOUCH_MOVED)
     return;
 
   // Since long press timer has been started, there should be a non-NULL point.
   const GesturePoint* point = GetPointByPointId(0);
   if (!ui::gestures::IsInsideManhattanSquare(point->first_touch_position(),
-      event.GetLocation()))
+      event.location()))
     long_press_timer_->Stop();
 }
 

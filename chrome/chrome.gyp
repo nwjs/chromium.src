@@ -420,16 +420,6 @@
             'CHROMIUM_STRIP_SAVE_FILE': 'app/app.saves',
             'INFOPLIST_FILE': 'app/helper-Info.plist',
           },
-          # Turn off -dead_strip in Release mode for the helper app. There's
-          # little here to strip, and doing so preserves symbols from
-          # crt1.10.6.o, which get removed incorrectly. http://crbug.com/139902
-          'configurations': {
-            'Release': {
-              'xcode_settings': {
-                'DEAD_CODE_STRIPPING': 'NO',
-              },
-            },
-          },
           'postbuilds': [
             {
               # The helper doesn't have real localizations, it just has
@@ -1073,5 +1063,29 @@
         },
       ]},  # 'targets'
     ],  # OS=="win"
+    ['OS=="android"',
+      {
+      'targets': [
+        {
+          'target_name': 'chrome_java',
+          'type': 'none',
+          'dependencies': [
+            '../base/base.gyp:base_java',
+            '../content/content.gyp:content_java',
+            '../net/net.gyp:net_java',
+          ],
+          'export_dependent_settings': [
+            '../base/base.gyp:base_java',
+            '../content/content.gyp:content_java',
+            '../net/net.gyp:net_java',
+          ],
+          'variables': {
+            'package_name': 'chrome',
+            'java_in_dir': '../chrome/android/java',
+          },
+          'includes': [ '../build/java.gypi' ],
+        },
+      ]}, # 'targets'
+    ],  # OS=="android"
   ],  # 'conditions'
 }

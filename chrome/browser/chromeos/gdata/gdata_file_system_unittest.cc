@@ -58,6 +58,7 @@ void DriveSearchCallback(
     const SearchResultPair* expected_results,
     size_t expected_results_size,
     GDataFileError error,
+    const GURL& next_feed,
     scoped_ptr<std::vector<SearchResultInfo> > results) {
   ASSERT_TRUE(results.get());
   ASSERT_EQ(expected_results_size, results->size());
@@ -256,7 +257,7 @@ class GDataFileSystemTest : public testing::Test {
     file_system_->AddObserver(mock_directory_observer_.get());
 
     file_system_->Initialize();
-    cache_->RequestInitializeOnUIThread();
+    cache_->RequestInitializeOnUIThreadForTesting();
     test_util::RunBlockingPoolTask();
   }
 
@@ -335,7 +336,7 @@ class GDataFileSystemTest : public testing::Test {
   }
 
   bool RemoveEntry(const FilePath& file_path) {
-    return file_system_->RemoveEntryFromFileSystem(file_path) ==
+    return file_system_->RemoveEntryAndCacheLocally(file_path) ==
         GDATA_FILE_OK;
   }
 
@@ -1806,7 +1807,6 @@ TEST_F(GDataFileSystemTest, RemoveEntries) {
   scoped_ptr<GDataEntryProto> file_in_root_proto = GetEntryInfoByPathSync(
       file_in_root);
   ASSERT_TRUE(file_in_root_proto.get());
-  std::string file_in_root_resource_id = file_in_root_proto->resource_id();
 
   ASSERT_TRUE(EntryExists(dir_in_root));
   scoped_ptr<GDataEntryProto> dir_in_root_proto = GetEntryInfoByPathSync(
@@ -1818,7 +1818,6 @@ TEST_F(GDataFileSystemTest, RemoveEntries) {
   scoped_ptr<GDataEntryProto> file_in_subdir_proto = GetEntryInfoByPathSync(
       file_in_subdir);
   ASSERT_TRUE(file_in_subdir_proto.get());
-  std::string file_in_subdir_resource_id = file_in_subdir_proto->resource_id();
 
   // Once for file in root and once for file...
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
@@ -1981,7 +1980,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpace) {
       .Times(1);
 
   file_system_->GetFileByPath(file_in_root, callback,
-                              GetDownloadDataCallback());
+                              GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(GDATA_FILE_OK, callback_helper_->last_error_);
@@ -2022,7 +2021,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoSpaceAtAll) {
       .Times(0);
 
   file_system_->GetFileByPath(file_in_root, callback,
-                              GetDownloadDataCallback());
+                              GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(GDATA_FILE_ERROR_NO_SPACE,
@@ -2076,7 +2075,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoEnoughSpaceButCanFreeUp) {
       .Times(1);
 
   file_system_->GetFileByPath(file_in_root, callback,
-                              GetDownloadDataCallback());
+                              GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(GDATA_FILE_OK, callback_helper_->last_error_);
@@ -2127,7 +2126,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpaceButBecomeFull) {
       .Times(1);
 
   file_system_->GetFileByPath(file_in_root, callback,
-                              GetDownloadDataCallback());
+                              GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(GDATA_FILE_ERROR_NO_SPACE,
@@ -2167,7 +2166,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromCache) {
       .Times(0);
 
   file_system_->GetFileByPath(file_in_root, callback,
-                              GetDownloadDataCallback());
+                              GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(REGULAR_FILE, callback_helper_->file_type_);
@@ -2188,7 +2187,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_HostedDocument) {
   ASSERT_TRUE(src_entry_proto.get());
 
   file_system_->GetFileByPath(file_in_root, callback,
-                              GetDownloadDataCallback());
+                              GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(HOSTED_DOCUMENT, callback_helper_->file_type_);
@@ -2231,7 +2230,7 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId) {
 
   file_system_->GetFileByResourceId(entry_proto->resource_id(),
                                     callback,
-                                    GetDownloadDataCallback());
+                                    GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(REGULAR_FILE, callback_helper_->file_type_);
@@ -2267,7 +2266,7 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId_FromCache) {
 
   file_system_->GetFileByResourceId(entry_proto->resource_id(),
                                     callback,
-                                    GetDownloadDataCallback());
+                                    GetContentCallback());
   test_util::RunBlockingPoolTask();
 
   EXPECT_EQ(REGULAR_FILE, callback_helper_->file_type_);
@@ -2451,7 +2450,7 @@ TEST_F(GDataFileSystemTest, ContentSearch) {
   SearchCallback callback = base::Bind(&DriveSearchCallback,
       &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));
 
-  file_system_->Search("foo", callback);
+  file_system_->Search("foo", GURL(), callback);
   message_loop_.Run();  // Wait to get our result.
 }
 
@@ -2484,7 +2483,7 @@ TEST_F(GDataFileSystemTest, ContentSearchWithNewEntry) {
   SearchCallback callback = base::Bind(&DriveSearchCallback,
       &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));
 
-  file_system_->Search("foo", callback);
+  file_system_->Search("foo", GURL(), callback);
   message_loop_.Run();  // Wait to get our result.
 }
 
@@ -2501,7 +2500,7 @@ TEST_F(GDataFileSystemTest, ContentSearchEmptyResult) {
   SearchCallback callback = base::Bind(&DriveSearchCallback,
       &message_loop_, expected_results, 0u);
 
-  file_system_->Search("foo", callback);
+  file_system_->Search("foo", GURL(), callback);
   message_loop_.Run();  // Wait to get our result.
 }
 

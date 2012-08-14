@@ -22,9 +22,9 @@
 #include "ui/aura/client/user_action_client.h"
 #include "ui/aura/dispatcher_linux.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/touch/touch_factory.h"
@@ -302,11 +302,6 @@ bool ShouldSendCharEventForKeyboardCode(ui::KeyboardCode keycode) {
   }
 }
 
-bool HasLoaded2xResources() {
-  return gfx::Display::GetForcedDeviceScaleFactor() > 1.0f ||
-      CommandLine::ForCurrentProcess()->HasSwitch(switches::kLoad2xResources);
-}
-
 }  // namespace
 
 // A utility class that provides X Cursor for NativeCursors for which we have
@@ -325,11 +320,11 @@ class RootWindowHostLinux::ImageCursors {
     // http://folder/kuscher/projects/Chrome_OS/Pointers/focuspoint
     LoadImageCursor(ui::kCursorNull, IDR_AURA_CURSOR_PTR, 8, 3);
     LoadImageCursor(ui::kCursorPointer, IDR_AURA_CURSOR_PTR, 8, 3);
-    LoadImageCursor(ui::kCursorNoDrop, IDR_AURA_CURSOR_NO_DROP, 5, 4);
-    LoadImageCursor(ui::kCursorNotAllowed, IDR_AURA_CURSOR_NO_DROP, 5, 4);
-    LoadImageCursor(ui::kCursorCopy, IDR_AURA_CURSOR_COPY, 5, 5);
-    LoadImageCursor(ui::kCursorHand, IDR_AURA_CURSOR_HAND, 9, 4);
-    LoadImageCursor(ui::kCursorMove, IDR_AURA_CURSOR_MOVE, 12, 12);
+    LoadImageCursor(ui::kCursorNoDrop, IDR_AURA_CURSOR_NO_DROP, 3, 1);
+    LoadImageCursor(ui::kCursorNotAllowed, IDR_AURA_CURSOR_NO_DROP, 3, 1);
+    LoadImageCursor(ui::kCursorCopy, IDR_AURA_CURSOR_COPY, 3, 1);
+    LoadImageCursor(ui::kCursorHand, IDR_AURA_CURSOR_HAND, 9, 3);
+    LoadImageCursor(ui::kCursorMove, IDR_AURA_CURSOR_MOVE, 11, 11);
     LoadImageCursor(ui::kCursorNorthEastResize,
                     IDR_AURA_CURSOR_NORTH_EAST_RESIZE, 12, 11);
     LoadImageCursor(ui::kCursorSouthWestResize,
@@ -341,26 +336,26 @@ class RootWindowHostLinux::ImageCursors {
     LoadImageCursor(ui::kCursorNorthResize,
                     IDR_AURA_CURSOR_NORTH_RESIZE, 11, 10);
     LoadImageCursor(ui::kCursorSouthResize,
-                    IDR_AURA_CURSOR_SOUTH_RESIZE, 11, 10);
+                    IDR_AURA_CURSOR_SOUTH_RESIZE, 11, 11);
     LoadImageCursor(ui::kCursorEastResize, IDR_AURA_CURSOR_EAST_RESIZE, 11, 11);
     LoadImageCursor(ui::kCursorWestResize, IDR_AURA_CURSOR_WEST_RESIZE, 11, 11);
-    LoadImageCursor(ui::kCursorIBeam, IDR_AURA_CURSOR_IBEAM, 12, 11);
-    LoadImageCursor(ui::kCursorAlias, IDR_AURA_CURSOR_ALIAS, 8, 7);
-    LoadImageCursor(ui::kCursorCell, IDR_AURA_CURSOR_CELL, 16, 15);
-    LoadImageCursor(ui::kCursorContextMenu, IDR_AURA_CURSOR_CONTEXT_MENU, 5, 5);
-    LoadImageCursor(ui::kCursorCross, IDR_AURA_CURSOR_CROSSHAIR, 15, 15);
-    LoadImageCursor(ui::kCursorHelp, IDR_AURA_CURSOR_HELP, 5, 5);
+    LoadImageCursor(ui::kCursorIBeam, IDR_AURA_CURSOR_IBEAM, 12, 12);
+    LoadImageCursor(ui::kCursorAlias, IDR_AURA_CURSOR_ALIAS, 8, 5);
+    LoadImageCursor(ui::kCursorCell, IDR_AURA_CURSOR_CELL, 12, 11);
+    LoadImageCursor(ui::kCursorContextMenu, IDR_AURA_CURSOR_CONTEXT_MENU, 3, 1);
+    LoadImageCursor(ui::kCursorCross, IDR_AURA_CURSOR_CROSSHAIR, 12, 11);
+    LoadImageCursor(ui::kCursorHelp, IDR_AURA_CURSOR_HELP, 3, 1);
     LoadImageCursor(ui::kCursorVerticalText,
-                    IDR_AURA_CURSOR_XTERM_HORIZ, 10, 12);
-    LoadImageCursor(ui::kCursorZoomIn, IDR_AURA_CURSOR_ZOOM_IN, 14, 13);
-    LoadImageCursor(ui::kCursorZoomOut, IDR_AURA_CURSOR_ZOOM_OUT, 15, 14);
+                    IDR_AURA_CURSOR_XTERM_HORIZ, 12, 12);
+    LoadImageCursor(ui::kCursorZoomIn, IDR_AURA_CURSOR_ZOOM_IN, 12, 12);
+    LoadImageCursor(ui::kCursorZoomOut, IDR_AURA_CURSOR_ZOOM_OUT, 11, 11);
     LoadImageCursor(ui::kCursorRowResize, IDR_AURA_CURSOR_ROW_RESIZE, 11, 11);
     LoadImageCursor(ui::kCursorColumnResize,
-                    IDR_AURA_CURSOR_COL_RESIZE, 11, 10);
+                    IDR_AURA_CURSOR_COL_RESIZE, 11, 11);
     LoadImageCursor(ui::kCursorEastWestResize,
                     IDR_AURA_CURSOR_EAST_WEST_RESIZE, 11, 11);
     LoadImageCursor(ui::kCursorNorthSouthResize,
-                    IDR_AURA_CURSOR_NORTH_SOUTH_RESIZE, 11, 10);
+                    IDR_AURA_CURSOR_NORTH_SOUTH_RESIZE, 11, 11);
     LoadImageCursor(ui::kCursorNorthEastSouthWestResize,
                     IDR_AURA_CURSOR_NORTH_EAST_SOUTH_WEST_RESIZE, 12, 11);
     LoadImageCursor(ui::kCursorNorthWestSouthEastResize,
@@ -409,7 +404,6 @@ class RootWindowHostLinux::ImageCursors {
         ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(resource_id);
     const gfx::ImageSkiaRep& image_rep = image->GetRepresentation(
         ui::GetScaleFactorFromScale(scale_factor_));
-    DCHECK(!HasLoaded2xResources() || scale_factor_ == image_rep.GetScale());
     gfx::Point hot(hot_x * scale_factor_, hot_y * scale_factor_);
     XcursorImage* x_image =
         ui::SkBitmapToXcursorImage(&image_rep.sk_bitmap(), hot);
@@ -425,7 +419,6 @@ class RootWindowHostLinux::ImageCursors {
         ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(resource_id);
     const gfx::ImageSkiaRep& image_rep = image->GetRepresentation(
         ui::GetScaleFactorFromScale(scale_factor_));
-    DCHECK(!HasLoaded2xResources() || scale_factor_ == image_rep.GetScale());
     const SkBitmap bitmap = image_rep.sk_bitmap();
     DCHECK_EQ(bitmap.config(), SkBitmap::kARGB_8888_Config);
     int frame_width = bitmap.height();
@@ -585,12 +578,12 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
       delegate_->AsRootWindow()->ScheduleFullDraw();
       break;
     case KeyPress: {
-      KeyEvent keydown_event(xev, false);
+      ui::KeyEvent keydown_event(xev, false);
       delegate_->OnHostKeyEvent(&keydown_event);
       break;
     }
     case KeyRelease: {
-      KeyEvent keyup_event(xev, false);
+      ui::KeyEvent keyup_event(xev, false);
       delegate_->OnHostKeyEvent(&keyup_event);
       break;
     }
@@ -609,7 +602,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
       }
     }  // fallthrough
     case ButtonRelease: {
-      MouseEvent mouseev(xev);
+      ui::MouseEvent mouseev(xev);
       delegate_->OnHostMouseEvent(&mouseev);
       break;
     }
@@ -652,7 +645,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
         case ui::ET_TOUCH_PRESSED:
         case ui::ET_TOUCH_RELEASED:
         case ui::ET_TOUCH_MOVED: {
-          TouchEvent touchev(xev);
+          ui::TouchEvent touchev(xev);
           delegate_->OnHostTouchEvent(&touchev);
           break;
         }
@@ -688,14 +681,14 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
               break;
             }
           }
-          MouseEvent mouseev(xev);
+          ui::MouseEvent mouseev(xev);
           delegate_->OnHostMouseEvent(&mouseev);
           break;
         }
         case ui::ET_SCROLL_FLING_START:
         case ui::ET_SCROLL_FLING_CANCEL:
         case ui::ET_SCROLL: {
-          ScrollEvent scrollev(xev);
+          ui::ScrollEvent scrollev(xev);
           delegate_->OnHostScrollEvent(&scrollev);
           break;
         }
@@ -768,7 +761,7 @@ bool RootWindowHostLinux::Dispatch(const base::NativeEvent& event) {
         }
       }
 
-      MouseEvent mouseev(xev);
+      ui::MouseEvent mouseev(xev);
       delegate_->OnHostMouseEvent(&mouseev);
       break;
     }

@@ -312,7 +312,7 @@ views::View* OmniboxPopupContentsView::GetEventHandlerForPoint(
 }
 
 bool OmniboxPopupContentsView::OnMousePressed(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   ignore_mouse_drag_ = false;  // See comment on |ignore_mouse_drag_| in header.
   if (event.IsLeftMouseButton() || event.IsMiddleMouseButton())
     UpdateLineEvent(event, event.IsLeftMouseButton());
@@ -320,14 +320,14 @@ bool OmniboxPopupContentsView::OnMousePressed(
 }
 
 bool OmniboxPopupContentsView::OnMouseDragged(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if (event.IsLeftMouseButton() || event.IsMiddleMouseButton())
     UpdateLineEvent(event, !ignore_mouse_drag_ && event.IsLeftMouseButton());
   return true;
 }
 
 void OmniboxPopupContentsView::OnMouseReleased(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if (ignore_mouse_drag_) {
     OnMouseCaptureLost();
     return;
@@ -344,17 +344,17 @@ void OmniboxPopupContentsView::OnMouseCaptureLost() {
 }
 
 void OmniboxPopupContentsView::OnMouseMoved(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   model_->SetHoveredLine(GetIndexForPoint(event.location()));
 }
 
 void OmniboxPopupContentsView::OnMouseEntered(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   model_->SetHoveredLine(GetIndexForPoint(event.location()));
 }
 
 void OmniboxPopupContentsView::OnMouseExited(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   model_->SetHoveredLine(OmniboxPopupModel::kNoMatch);
 }
 
@@ -502,7 +502,7 @@ void OmniboxPopupContentsView::OpenIndex(size_t index,
 
 size_t OmniboxPopupContentsView::GetIndexForPoint(
     const gfx::Point& point) {
-  if (!HitTest(point))
+  if (!HitTestPoint(point))
     return OmniboxPopupModel::kNoMatch;
 
   int nb_match = model_->result().size();
@@ -510,8 +510,8 @@ size_t OmniboxPopupContentsView::GetIndexForPoint(
   for (int i = 0; i < nb_match; ++i) {
     views::View* child = child_at(i);
     gfx::Point point_in_child_coords(point);
-    View::ConvertPointToView(this, child, &point_in_child_coords);
-    if (child->HitTest(point_in_child_coords))
+    View::ConvertPointToTarget(this, child, &point_in_child_coords);
+    if (child->HitTestPoint(point_in_child_coords))
       return i;
   }
   return OmniboxPopupModel::kNoMatch;
@@ -541,7 +541,7 @@ gfx::Rect OmniboxPopupContentsView::CalculateTargetBounds(int h) {
 }
 
 void OmniboxPopupContentsView::UpdateLineEvent(
-    const views::LocatedEvent& event,
+    const ui::LocatedEvent& event,
     bool should_set_selected_line) {
   size_t index = GetIndexForPoint(event.location());
   model_->SetHoveredLine(index);
@@ -550,7 +550,7 @@ void OmniboxPopupContentsView::UpdateLineEvent(
 }
 
 void OmniboxPopupContentsView::OpenSelectedLine(
-    const views::LocatedEvent& event,
+    const ui::LocatedEvent& event,
     WindowOpenDisposition disposition) {
   size_t index = GetIndexForPoint(event.location());
   OpenIndex(index, disposition);

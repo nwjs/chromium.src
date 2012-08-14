@@ -86,7 +86,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestComplex) {
       message_;
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebRequestAuthRequired) {
+// Flaky (sometimes crash): http://crbug.com/140976
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
+                       DISABLED_WebRequestAuthRequired) {
   CancelLoginDialog login_dialog_helper;
 
   ASSERT_TRUE(RunExtensionSubtest("webrequest", "test_auth_required.html")) <<
@@ -156,11 +158,13 @@ void ExtensionWebRequestApiTest::RunPermissionTest(
   ExtensionTestMessageListener listener("done", true);
   ExtensionTestMessageListener listener_incognito("done_incognito", true);
 
-  ASSERT_TRUE(LoadExtensionWithOptions(
+  int load_extension_flags = kFlagNone;
+  if (load_extension_with_incognito_permission)
+    load_extension_flags |= kFlagEnableIncognito;
+  ASSERT_TRUE(LoadExtensionWithFlags(
       test_data_dir_.AppendASCII("webrequest_permissions")
                     .AppendASCII(extension_directory),
-      load_extension_with_incognito_permission,
-      false));
+      load_extension_flags));
 
   // Test that navigation in regular window is properly redirected.
   EXPECT_TRUE(listener.WaitUntilSatisfied());
@@ -224,4 +228,3 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
   // Test split without incognito permission.
   RunPermissionTest("split", false, false, "redirected1", "");
 }
-

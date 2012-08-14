@@ -4,7 +4,6 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/format_macros.h"
 #include "base/stl_util.h"
 #include "base/stringprintf.h"
 #include "base/synchronization/condition_variable.h"
@@ -30,19 +29,25 @@ using ::testing::StrictMock;
 
 namespace media {
 
-static const int64 kFrameDuration = 10;
-static const int64 kVideoDuration = kFrameDuration * 100;
-static const int64 kEndOfStream = kint64min;
+static const int kFrameDuration = 10;
+static const int kVideoDuration = kFrameDuration * 100;
+static const int kEndOfStream = -1;
 static const gfx::Size kNaturalSize(16u, 16u);
+
+ACTION_P(RunPipelineStatusCB1, status) {
+  arg1.Run(status);
+}
 
 class VideoRendererBaseTest : public ::testing::Test {
  public:
   VideoRendererBaseTest()
       : decoder_(new MockVideoDecoder()),
+        demuxer_stream_(new MockDemuxerStream()),
         cv_(&lock_),
         event_(false, false),
         timeout_(TestTimeouts::action_timeout()),
         prerolling_(false),
+        next_frame_timestamp_(0),
         paint_cv_(&lock_),
         paint_was_called_(false),
         should_queue_read_cb_(false) {
@@ -51,9 +56,10 @@ class VideoRendererBaseTest : public ::testing::Test {
         base::Bind(&VideoRendererBaseTest::OnSetOpaque, base::Unretained(this)),
         true);
 
+    EXPECT_CALL(*demuxer_stream_, type())
+        .WillRepeatedly(Return(DemuxerStream::VIDEO));
+
     // We expect these to be called but we don't care how/when.
-    EXPECT_CALL(*decoder_, natural_size())
-        .WillRepeatedly(ReturnRef(kNaturalSize));
     EXPECT_CALL(*decoder_, Stop(_))
         .WillRepeatedly(RunClosure());
     EXPECT_CALL(statistics_cb_object_, OnStatistics(_))
@@ -82,6 +88,12 @@ class VideoRendererBaseTest : public ::testing::Test {
   MOCK_METHOD1(OnError, void(PipelineStatus));
 
   void Initialize() {
+    Initialize(kVideoDuration);
+  }
+
+  void Initialize(int duration) {
+    duration_ = duration;
+
     // TODO(scherkus): really, really, really need to inject a thread into
     // VideoRendererBase... it makes mocking much harder.
 
@@ -94,13 +106,29 @@ class VideoRendererBaseTest : public ::testing::Test {
 
     InSequence s;
 
+    EXPECT_CALL(*decoder_, Initialize(_, _, _))
+      .WillOnce(RunPipelineStatusCB1(PIPELINE_OK));
+
     // Set playback rate before anything else happens.
     renderer_->SetPlaybackRate(1.0f);
 
     // Initialize, we shouldn't have any reads.
+    InitializeRenderer(PIPELINE_OK);
+
+    // We expect the video size to be set.
+    EXPECT_CALL(*this, OnNaturalSizeChanged(kNaturalSize));
+
+    // Start prerolling.
+    Preroll(0);
+  }
+
+  void InitializeRenderer(PipelineStatus expected_status) {
+    VideoRendererBase::VideoDecoderList decoders;
+    decoders.push_back(decoder_);
     renderer_->Initialize(
-        decoder_,
-        NewExpectedStatusCB(PIPELINE_OK),
+        demuxer_stream_,
+        decoders,
+        NewExpectedStatusCB(expected_status),
         base::Bind(&MockStatisticsCB::OnStatistics,
                    base::Unretained(&statistics_cb_object_)),
         base::Bind(&VideoRendererBaseTest::OnTimeUpdate,
@@ -112,12 +140,6 @@ class VideoRendererBaseTest : public ::testing::Test {
         base::Bind(&VideoRendererBaseTest::GetTime, base::Unretained(this)),
         base::Bind(&VideoRendererBaseTest::GetDuration,
                    base::Unretained(this)));
-
-    // We expect the video size to be set.
-    EXPECT_CALL(*this, OnNaturalSizeChanged(kNaturalSize));
-
-    // Start prerolling.
-    Preroll(0);
   }
 
   // Instead of immediately satisfying a decoder Read request, queue it up.
@@ -135,11 +157,12 @@ class VideoRendererBaseTest : public ::testing::Test {
     read_cb.Run(VideoDecoder::kOk, VideoFrame::CreateEmptyFrame());
   }
 
-  void StartPrerolling(int64 timestamp, PipelineStatus expected_status) {
+  void StartPrerolling(int timestamp, PipelineStatus expected_status) {
     EXPECT_FALSE(prerolling_);
 
+    next_frame_timestamp_ = 0;
     prerolling_ = true;
-    renderer_->Preroll(base::TimeDelta::FromMicroseconds(timestamp),
+    renderer_->Preroll(base::TimeDelta::FromMilliseconds(timestamp),
                        base::Bind(&VideoRendererBaseTest::OnPrerollComplete,
                                   base::Unretained(this), expected_status));
   }
@@ -153,10 +176,12 @@ class VideoRendererBaseTest : public ::testing::Test {
   // Preroll to the given timestamp.
   //
   // Use |kEndOfStream| to preroll end of stream frames.
-  void Preroll(int64 timestamp) {
-    SCOPED_TRACE(base::StringPrintf("Preroll(%" PRId64 ")", timestamp));
-    StartPrerolling(timestamp, PIPELINE_OK);
-    FinishPrerolling(timestamp);
+  void Preroll(int timestamp) {
+    SCOPED_TRACE(base::StringPrintf("Preroll(%d)", timestamp));
+    bool end_of_stream = (timestamp == kEndOfStream);
+    int preroll_timestamp = end_of_stream ? 0 : timestamp;
+    StartPrerolling(preroll_timestamp, PIPELINE_OK);
+    FinishPrerolling(end_of_stream);
   }
 
   void Pause() {
@@ -183,18 +208,27 @@ class VideoRendererBaseTest : public ::testing::Test {
     Stop();
   }
 
-  // Delivers a frame with the given timestamp to the video renderer.
-  //
-  // Use |kEndOfStream| to pass in an end of stream frame.
-  void DeliverFrame(int64 timestamp) {
-    // Lock+swap to avoid re-entrancy issues.
-    VideoDecoder::ReadCB read_cb;
-    {
-      base::AutoLock l(lock_);
-      std::swap(read_cb, read_cb_);
-    }
+  void DeliverNextFrame(bool end_of_stream) {
+    base::AutoLock l(lock_);
+    DeliverNextFrame_Locked(end_of_stream);
+  }
 
-    if (timestamp == kEndOfStream) {
+  // Delivers the next frame to the video renderer. If |end_of_stream|
+  // is true then an "end or stream" frame will be returned. Otherwise
+  // A frame with |next_frame_timestamp_| will be returned.
+  void DeliverNextFrame_Locked(bool end_of_stream) {
+    lock_.AssertAcquired();
+
+    VideoDecoder::ReadCB read_cb;
+    std::swap(read_cb, read_cb_);
+
+    DCHECK_LT(next_frame_timestamp_, duration_);
+    int timestamp = next_frame_timestamp_;
+    next_frame_timestamp_ += kFrameDuration;
+
+    // Unlock to deliver the frame to avoid re-entrancy issues.
+    base::AutoUnlock ul(lock_);
+    if (end_of_stream) {
       read_cb.Run(VideoDecoder::kOk, VideoFrame::CreateEmptyFrame());
     } else {
       read_cb.Run(VideoDecoder::kOk, CreateFrame(timestamp));
@@ -234,10 +268,10 @@ class VideoRendererBaseTest : public ::testing::Test {
     renderer_->PutCurrentFrame(frame);
   }
 
-  void ExpectCurrentTimestamp(int64 timestamp) {
+  void ExpectCurrentTimestamp(int timestamp) {
     scoped_refptr<VideoFrame> frame;
     renderer_->GetCurrentFrame(&frame);
-    EXPECT_EQ(timestamp, frame->GetTimestamp().InMicroseconds());
+    EXPECT_EQ(timestamp, frame->GetTimestamp().InMilliseconds());
     renderer_->PutCurrentFrame(frame);
   }
 
@@ -251,18 +285,18 @@ class VideoRendererBaseTest : public ::testing::Test {
   }
 
   // Creates a frame with given timestamp.
-  scoped_refptr<VideoFrame> CreateFrame(int64 timestamp) {
+  scoped_refptr<VideoFrame> CreateFrame(int timestamp) {
     scoped_refptr<VideoFrame> frame =
         VideoFrame::CreateFrame(VideoFrame::RGB32, kNaturalSize, kNaturalSize,
-                                base::TimeDelta::FromMicroseconds(timestamp));
+                                base::TimeDelta::FromMilliseconds(timestamp));
     return frame;
   }
 
   // Advances clock to |timestamp| and waits for the frame at |timestamp| to get
   // rendered using |read_cb_| as the signal that the frame has rendered.
-  void RenderFrame(int64 timestamp) {
+  void RenderFrame(int timestamp) {
     base::AutoLock l(lock_);
-    time_ = base::TimeDelta::FromMicroseconds(timestamp);
+    time_ = base::TimeDelta::FromMilliseconds(timestamp);
     paint_was_called_ = false;
     if (read_cb_.is_null()) {
       cv_.TimedWait(timeout_);
@@ -273,12 +307,12 @@ class VideoRendererBaseTest : public ::testing::Test {
 
   // Advances clock to |timestamp| (which should be the timestamp of the last
   // frame plus duration) and waits for the ended signal before returning.
-  void RenderLastFrame(int64 timestamp) {
+  void RenderLastFrame(int timestamp) {
     EXPECT_CALL(*this, OnEnded())
         .WillOnce(Invoke(&event_, &base::WaitableEvent::Signal));
     {
       base::AutoLock l(lock_);
-      time_ = base::TimeDelta::FromMicroseconds(timestamp);
+      time_ = base::TimeDelta::FromMilliseconds(timestamp);
     }
     CHECK(event_.TimedWait(timeout_)) << "Timed out waiting for ended signal.";
   }
@@ -295,6 +329,7 @@ class VideoRendererBaseTest : public ::testing::Test {
   // Fixture members.
   scoped_refptr<VideoRendererBase> renderer_;
   scoped_refptr<MockVideoDecoder> decoder_;
+  scoped_refptr<MockDemuxerStream> demuxer_stream_;
   MockStatisticsCB statistics_cb_object_;
 
   // Receives all the buffers that renderer had provided to |decoder_|.
@@ -308,7 +343,7 @@ class VideoRendererBaseTest : public ::testing::Test {
   }
 
   base::TimeDelta GetDuration() {
-    return base::TimeDelta::FromMicroseconds(kVideoDuration);
+    return base::TimeDelta::FromMilliseconds(duration_);
   }
 
   // Called by VideoRendererBase when it wants a frame.
@@ -348,28 +383,16 @@ class VideoRendererBaseTest : public ::testing::Test {
     cv_.Signal();
   }
 
-  void FinishPrerolling(int64 timestamp) {
+  void FinishPrerolling(bool end_of_stream) {
     // Satisfy the read requests.  The callback must be executed in order
     // to exit the loop since VideoRendererBase can read a few extra frames
     // after |timestamp| in order to preroll.
     base::AutoLock l(lock_);
     EXPECT_TRUE(prerolling_);
     paint_was_called_ = false;
-    int i = 0;
     while (prerolling_) {
       if (!read_cb_.is_null()) {
-        VideoDecoder::ReadCB read_cb;
-        std::swap(read_cb, read_cb_);
-
-        // Unlock to deliver the frame to avoid re-entrancy issues.
-        base::AutoUnlock ul(lock_);
-        if (timestamp == kEndOfStream) {
-          read_cb.Run(VideoDecoder::kOk, VideoFrame::CreateEmptyFrame());
-        } else {
-          read_cb.Run(VideoDecoder::kOk,
-                      CreateFrame(i * kFrameDuration));
-          i++;
-        }
+        DeliverNextFrame_Locked(end_of_stream);
       } else {
         // We want to wait iff we're still prerolling but have no pending read.
         cv_.TimedWait(timeout_);
@@ -404,6 +427,8 @@ class VideoRendererBaseTest : public ::testing::Test {
   // Used in conjunction with |lock_| and |cv_| for satisfying reads.
   bool prerolling_;
   VideoDecoder::ReadCB read_cb_;
+  int next_frame_timestamp_;
+  int duration_;
   base::TimeDelta time_;
 
   // Used in conjunction with |lock_| to wait for Paint() calls.
@@ -429,18 +454,53 @@ TEST_F(VideoRendererBaseTest, Play) {
   Shutdown();
 }
 
-TEST_F(VideoRendererBaseTest, EndOfStream) {
+TEST_F(VideoRendererBaseTest, EndOfStream_DefaultFrameDuration) {
   Initialize();
   Play();
 
   // Finish rendering up to the next-to-last frame.
-  for (int i = 1; i < limits::kMaxVideoFrames; ++i)
-    RenderFrame(kFrameDuration * i);
+  int timestamp = kFrameDuration;
+  for (int i = 1; i < limits::kMaxVideoFrames; ++i) {
+    RenderFrame(timestamp);
+    timestamp += kFrameDuration;
+  }
 
-  // Finish rendering the last frame, we should NOT get a new frame but instead
-  // get notified of end of stream.
-  DeliverFrame(kEndOfStream);
-  RenderLastFrame(kVideoDuration);
+  // Deliver the end of stream frame.
+  DeliverNextFrame(true);
+
+  // Verify that the ended callback fires when the default last frame duration
+  // has elapsed.
+  int end_timestamp =
+      timestamp + VideoRendererBase::kMaxLastFrameDuration().InMilliseconds();
+  EXPECT_LT(end_timestamp, kVideoDuration);
+  RenderLastFrame(end_timestamp);
+
+  Shutdown();
+}
+
+TEST_F(VideoRendererBaseTest, EndOfStream_ClipDuration) {
+  int duration = kVideoDuration + kFrameDuration / 2;
+  Initialize(duration);
+  Play();
+
+  // Render all frames except for the last |limits::kMaxVideoFrames| frames
+  // and deliver all the frames between the start and |duration|. The preroll
+  // inside Initialize() makes this a little confusing, but |timestamp| is
+  // the current render time and DeliverNextFrame() delivers a frame with a
+  // timestamp that is |timestamp| + limits::kMaxVideoFrames * kFrameDuration.
+  int timestamp = kFrameDuration;
+  int end_timestamp = duration - limits::kMaxVideoFrames * kFrameDuration;
+  for (; timestamp < end_timestamp; timestamp += kFrameDuration) {
+    RenderFrame(timestamp);
+    DeliverNextFrame(false);
+  }
+
+  // Render the next frame so that a Read() will get requested.
+  RenderFrame(timestamp);
+
+  // Deliver the end of stream frame and wait for the last frame to be rendered.
+  DeliverNextFrame(true);
+  RenderLastFrame(duration);
 
   Shutdown();
 }
@@ -629,5 +689,14 @@ TEST_F(VideoRendererBaseTest, AbortPendingRead_Preroll) {
   VerifyNotPrerolling();
   Shutdown();
 }
+
+TEST_F(VideoRendererBaseTest, VideoDecoder_InitFailure) {
+  InSequence s;
+
+  EXPECT_CALL(*decoder_, Initialize(_, _, _))
+      .WillOnce(RunPipelineStatusCB1(PIPELINE_ERROR_DECODE));
+  InitializeRenderer(PIPELINE_ERROR_DECODE);
+
+ }
 
 }  // namespace media

@@ -32,12 +32,12 @@ class WaitableEvent;
 class CONTENT_EXPORT RendererGpuVideoDecoderFactories
     : public media::GpuVideoDecoder::Factories {
  public:
-  // Takes a ref on |gpu_channel_host| and tests |context| for NULL before each
+  // Takes a ref on |gpu_channel_host| and tests |context| for loss before each
   // use.
   RendererGpuVideoDecoderFactories(
       GpuChannelHost* gpu_channel_host,
-      MessageLoop* message_loop,
-      const base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>& wgc3dcbi);
+      const scoped_refptr<base::MessageLoopProxy>& message_loop,
+      WebGraphicsContext3DCommandBufferImpl* wgc3dcbi);
 
   virtual media::VideoDecodeAccelerator* CreateVideoDecodeAccelerator(
       media::VideoCodecProfile profile,
@@ -58,7 +58,8 @@ class CONTENT_EXPORT RendererGpuVideoDecoderFactories
  private:
   // Helper for the constructor to acquire the ContentGLContext on the
   // compositor thread (when it is enabled).
-  void AsyncGetContext(base::WaitableEvent* waiter);
+  void AsyncGetContext(WebGraphicsContext3DCommandBufferImpl* context,
+                       base::WaitableEvent* waiter);
 
   // Async versions of the public methods.  They use output parameters instead
   // of return values and each takes a WaitableEvent* param to signal completion
@@ -77,7 +78,7 @@ class CONTENT_EXPORT RendererGpuVideoDecoderFactories
   void AsyncCreateSharedMemory(
       size_t size, base::SharedMemory** shm, base::WaitableEvent* waiter);
 
-  MessageLoop* message_loop_;
+  scoped_refptr<base::MessageLoopProxy> message_loop_;
   scoped_refptr<GpuChannelHost> gpu_channel_host_;
   base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> context_;
   DISALLOW_IMPLICIT_CONSTRUCTORS(RendererGpuVideoDecoderFactories);

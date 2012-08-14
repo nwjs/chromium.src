@@ -46,11 +46,25 @@ class FILEAPI_EXPORT FileSystemFileUtil {
     virtual bool IsDirectory() = 0;
   };
 
+  // A policy flag for CreateSnapshotFile.
+  enum SnapshotFilePolicy {
+    kSnapshotFileUnknown,
+
+    // The implementation just uses the local file as the snapshot file.
+    // The FileAPI backend does nothing on the returned file.
+    kSnapshotFileLocal,
+
+    // The implementation returns a temporary file as the snapshot file.
+    // The FileAPI backend takes care of the lifetime of the returned file
+    // and will delete when the last reference of the file is dropped.
+    kSnapshotFileTemporary,
+  };
+
   class EmptyFileEnumerator : public AbstractFileEnumerator {
-    virtual FilePath Next() OVERRIDE { return FilePath(); }
-    virtual int64 Size() OVERRIDE { return 0; }
-    virtual base::Time LastModifiedTime() OVERRIDE { return base::Time(); }
-    virtual bool IsDirectory() OVERRIDE { return false; }
+    virtual FilePath Next() OVERRIDE;
+    virtual int64 Size() OVERRIDE;
+    virtual base::Time LastModifiedTime() OVERRIDE;
+    virtual bool IsDirectory() OVERRIDE;
   };
 
   virtual ~FileSystemFileUtil() {}
@@ -135,16 +149,6 @@ class FILEAPI_EXPORT FileSystemFileUtil {
       const FileSystemURL& url,
       int64 length) = 0;
 
-  // Returns true if a given |url| exists.
-  virtual bool PathExists(
-      FileSystemOperationContext* context,
-      const FileSystemURL& url) = 0;
-
-  // Returns true if a given |url| exists and is a directory.
-  virtual bool DirectoryExists(
-      FileSystemOperationContext* context,
-      const FileSystemURL& url) = 0;
-
   // Returns true if a given |url| is an empty directory.
   virtual bool IsDirectoryEmpty(
       FileSystemOperationContext* context,
@@ -183,20 +187,16 @@ class FILEAPI_EXPORT FileSystemFileUtil {
   // temporary snapshot file which holds the file data and return
   // the metadata of the temporary file.
   //
-  // |result| is the return code of the operation.
   // |file_info| is the metadata of the snapshot file created.
   // |platform_path| is the path to the snapshot file created.
-  //
-  // The implementation can optionally return a file reference
-  // to let the fileapi backend manage the lifetime of the returned
-  // snapshot file. Otherwise it is ok to return NULL.
-  // Please see the comment for ShareableFileReference for details.
-  virtual scoped_refptr<webkit_blob::ShareableFileReference>
-      CreateSnapshotFile(FileSystemOperationContext* context,
-                         const FileSystemURL& url,
-                         base::PlatformFileError* result,
-                         base::PlatformFileInfo* file_info,
-                         FilePath* platform_path) = 0;
+  // |policy| should indicate the policy how the fileapi backend
+  // should handle the returned file.
+  virtual base::PlatformFileError CreateSnapshotFile(
+      FileSystemOperationContext* context,
+      const FileSystemURL& url,
+      base::PlatformFileInfo* file_info,
+      FilePath* platform_path,
+      SnapshotFilePolicy* policy) = 0;
 
  protected:
   FileSystemFileUtil() {}

@@ -6,12 +6,11 @@
 
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
+#include "ui/aura/display_manager.h"
+#include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
-
-#include "ui/aura/env.h"
-#include "ui/aura/display_manager.h"
 
 namespace ash {
 namespace test {
@@ -106,6 +105,121 @@ TEST_F(DisplayControllerTest, MAYBE_BoundsUpdated) {
   ASSERT_EQ(2, gfx::Screen::GetNumDisplays());
   EXPECT_EQ("0,0 700x700", GetPrimaryDisplay().bounds().ToString());
   EXPECT_EQ("0,700 1000x1000", GetSecondaryDisplay().bounds().ToString());
+}
+
+// Verifies if the mouse pointer correctly moves to another display when there
+// are two displays.
+TEST_F(DisplayControllerTest, WarpMouse) {
+  UpdateDisplay("500x500,500x500");
+
+  ash::internal::DisplayController* controller =
+      Shell::GetInstance()->display_controller();
+  EXPECT_EQ(internal::DisplayController::RIGHT,
+            controller->secondary_display_layout());
+
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  bool is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                          gfx::Point(11, 11));
+  EXPECT_FALSE(is_warped);
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                     gfx::Point(11, 11));
+  EXPECT_FALSE(is_warped);
+
+  // Touch the right edge of the primary root window. Pointer should warp.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                     gfx::Point(499, 11));
+  EXPECT_TRUE(is_warped);
+  EXPECT_EQ("501,11",  // by 2px.
+            aura::Env::GetInstance()->last_mouse_location().ToString());
+
+  // Touch the left edge of the secondary root window. Pointer should warp.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                     gfx::Point(0, 11));
+  EXPECT_TRUE(is_warped);
+  EXPECT_EQ("498,11",  // by 2px.
+            aura::Env::GetInstance()->last_mouse_location().ToString());
+
+  // Touch the left edge of the primary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                     gfx::Point(0, 11));
+  EXPECT_FALSE(is_warped);
+  // Touch the top edge of the primary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                     gfx::Point(11, 0));
+  EXPECT_FALSE(is_warped);
+  // Touch the bottom edge of the primary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                     gfx::Point(11, 499));
+  EXPECT_FALSE(is_warped);
+  // Touch the right edge of the secondary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                     gfx::Point(499, 11));
+  EXPECT_FALSE(is_warped);
+  // Touch the top edge of the secondary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                     gfx::Point(11, 0));
+  EXPECT_FALSE(is_warped);
+  // Touch the bottom edge of the secondary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                     gfx::Point(11, 499));
+  EXPECT_FALSE(is_warped);
+}
+
+// Verifies if the mouse pointer correctly moves to another display even when
+// two displays are not the same size.
+TEST_F(DisplayControllerTest, WarpMouseDifferentSizeDisplays) {
+  UpdateDisplay("500x500,600x600");  // the second one is larger.
+
+  ash::internal::DisplayController* controller =
+      Shell::GetInstance()->display_controller();
+  EXPECT_EQ(internal::DisplayController::RIGHT,
+            controller->secondary_display_layout());
+
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  aura::Env::GetInstance()->SetLastMouseLocation(*root_windows[1],
+                                                 gfx::Point(123, 123));
+
+  // Touch the left edge of the secondary root window. Pointer should NOT warp
+  // because 1px left of (0, 500) is outside the primary root window.
+  bool is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                          gfx::Point(0, 500));
+  EXPECT_FALSE(is_warped);
+  EXPECT_EQ("623,123",  // by 2px.
+            aura::Env::GetInstance()->last_mouse_location().ToString());
+
+  // Touch the left edge of the secondary root window. Pointer should warp
+  // because 1px left of (0, 499) is inside the primary root window.
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[1],
+                                                     gfx::Point(0, 499));
+  EXPECT_TRUE(is_warped);
+  EXPECT_EQ("498,499",  // by 2px.
+            aura::Env::GetInstance()->last_mouse_location().ToString());
+}
+
+// Verifies if DisplayController::dont_warp_mouse() works as expected.
+TEST_F(DisplayControllerTest, SetUnsetDontWarpMousedFlag) {
+  UpdateDisplay("500x500,500x500");
+
+  ash::internal::DisplayController* controller =
+      Shell::GetInstance()->display_controller();
+
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  aura::Env::GetInstance()->SetLastMouseLocation(*root_windows[0],
+                                                 gfx::Point(1, 1));
+
+  controller->set_dont_warp_mouse(true);
+  bool is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                          gfx::Point(499, 11));
+  EXPECT_FALSE(is_warped);
+  EXPECT_EQ("1,1",
+            aura::Env::GetInstance()->last_mouse_location().ToString());
+
+  controller->set_dont_warp_mouse(false);
+  is_warped = controller->WarpMouseCursorIfNecessary(root_windows[0],
+                                                     gfx::Point(499, 11));
+  EXPECT_TRUE(is_warped);
+  EXPECT_EQ("501,11",
+            aura::Env::GetInstance()->last_mouse_location().ToString());
 }
 
 }  // namespace test

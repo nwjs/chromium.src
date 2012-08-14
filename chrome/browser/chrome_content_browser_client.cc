@@ -37,7 +37,6 @@
 #include "chrome/browser/extensions/message_handler.h"
 #include "chrome/browser/geolocation/chrome_access_token_store.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/gpu_util.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/media/media_internals.h"
 #include "chrome/browser/net/chrome_net_log.h"
@@ -93,6 +92,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "content/public/common/child_process_host.h"
+#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_descriptors.h"
 #include "grit/generated_resources.h"
 #include "grit/ui_resources.h"
@@ -407,20 +407,53 @@ content::WebContentsView*
 std::string ChromeContentBrowserClient::GetStoragePartitionIdForChildProcess(
     content::BrowserContext* browser_context,
     int child_process_id) {
-  // In chrome, we use the extension ID as the partition ID. This works well
-  // because the extension ID fits the partition ID pattern and currently only
-  // apps can designate that storage should be isolated.
+  const Extension* extension = NULL;
   Profile* profile = Profile::FromBrowserContext(browser_context);
   ExtensionService* extension_service =
       extensions::ExtensionSystem::Get(profile)->extension_service();
   if (extension_service) {
-    const extensions::Extension* installed_app = extension_service->
-        GetInstalledAppForRenderer(child_process_id);
-    if (installed_app && installed_app->is_storage_isolated()) {
-      return installed_app->id();
-    }
+    extension = extension_service->GetInstalledAppForRenderer(
+        child_process_id);
   }
-  return std::string();
+
+  return GetStoragePartitionIdForExtension(browser_context, extension);
+}
+
+std::string ChromeContentBrowserClient::GetStoragePartitionIdForSiteInstance(
+    content::BrowserContext* browser_context,
+    SiteInstance* instance) {
+  const Extension* extension = NULL;
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
+  if (extension_service) {
+    extension = extension_service->extensions()->
+        GetExtensionOrAppByURL(ExtensionURLInfo(instance->GetSite()));
+  }
+
+  return GetStoragePartitionIdForExtension(browser_context, extension);
+}
+
+bool ChromeContentBrowserClient::IsValidStoragePartitionId(
+    content::BrowserContext* browser_context,
+    const std::string& partition_id) {
+  // The default ID is empty which is always allowed.
+  if (partition_id.empty())
+    return true;
+
+  // If it isn't empty, then it must belong to an extension of some sort. Parse
+  // out the extension ID and make sure it is still installed.
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  ExtensionService* extension_service =
+      extensions::ExtensionSystem::Get(profile)->extension_service();
+  if (!extension_service) {
+    // No extension service means no storage partitions in Chrome.
+    return false;
+  }
+
+  // See if we can find an extension. The |partition_id| is the extension ID so
+  // no parsing needed to be done.
+  return extension_service->GetExtensionById(partition_id, false) != NULL;
 }
 
 content::WebContentsViewDelegate*
@@ -821,6 +854,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
       switches::kEnableNaCl,
       switches::kEnableNaClIPCProxy,
       switches::kEnablePasswordGeneration,
+      switches::kEnablePnacl,
       switches::kEnableWatchdog,
       switches::kExperimentalSpellcheckerFeatures,
       switches::kMemoryProfiling,
@@ -1493,7 +1527,7 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
         extension, view_type, web_prefs);
   }
 
-  if (gpu_util::InForceCompositingModeOrThreadTrial())
+  if (content::IsForceCompositingModeEnabled())
     web_prefs->force_compositing_mode = true;
 
   if (view_type == chrome::VIEW_TYPE_NOTIFICATION) {
@@ -1562,7 +1596,7 @@ void ChromeContentBrowserClient::ClearCache(RenderViewHost* rvh) {
       rvh->GetSiteInstance()->GetProcess()->GetBrowserContext());
   BrowsingDataRemover* remover = new BrowsingDataRemover(profile,
       BrowsingDataRemover::EVERYTHING,
-      base::Time());
+      base::Time::Now());
   remover->Remove(BrowsingDataRemover::REMOVE_CACHE,
                   BrowsingDataHelper::UNPROTECTED_WEB);
   // BrowsingDataRemover takes care of deleting itself when done.
@@ -1573,7 +1607,7 @@ void ChromeContentBrowserClient::ClearCookies(RenderViewHost* rvh) {
       rvh->GetSiteInstance()->GetProcess()->GetBrowserContext());
   BrowsingDataRemover* remover = new BrowsingDataRemover(profile,
       BrowsingDataRemover::EVERYTHING,
-      base::Time());
+      base::Time::Now());
   int remove_mask = BrowsingDataRemover::REMOVE_SITE_DATA;
   remover->Remove(remove_mask, BrowsingDataHelper::UNPROTECTED_WEB);
   // BrowsingDataRemover takes care of deleting itself when done.
@@ -1686,5 +1720,24 @@ void ChromeContentBrowserClient::SetApplicationLocaleOnIOThread(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   io_thread_application_locale_ = locale;
 }
+
+std::string ChromeContentBrowserClient::GetStoragePartitionIdForExtension(
+    content::BrowserContext* browser_context, const Extension* extension) {
+  // In chrome, we use the extension ID as the partition ID. This works well
+  // because the extension ID fits the partition ID pattern and currently only
+  // apps can designate that storage should be isolated.
+  //
+  // If |extension| is NULL, then the default, empty string, partition id is
+  // used.
+  std::string partition_id;
+  if (extension && extension->is_storage_isolated()) {
+    partition_id = extension->id();
+  }
+
+  // Enforce that IsValidStoragePartitionId() implementation stays in sync.
+  DCHECK(IsValidStoragePartitionId(browser_context, partition_id));
+  return partition_id;
+}
+
 
 }  // namespace chrome

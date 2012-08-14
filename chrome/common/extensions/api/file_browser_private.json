@@ -15,6 +15,7 @@
           "taskId": {"type": "string", "description": "The unique identifier of the task."},
           "title": {"type": "string", "description": "Task title."},
           "iconUrl": {"type": "string", "description": "Task icon url (from chrome://extension-icon/...)"},
+          "driveApp": {"type": "boolean", "description": "True if this is Drive App."},
           "patterns": {
             "type": "array",
             "items": { "type": "string" },
@@ -928,6 +929,11 @@
             "type": "string"
           },
           {
+            "name": "nextFeed",
+            "type": "string",
+            "description": "ID of the search feed that should be fetched next. Value passed here should be gotten from previous searchGData call. It can be empty for the initial search request."
+          },
+          {
             "name": "callback",
             "type": "function",
             "parameters": [
@@ -938,11 +944,21 @@
                   "type": "object",
                   "isInstanceOf": "Entry",
                   "description": "Entry representing a search result."
-                }  
+                }
+              },
+              {
+                "name": "nextFeed",
+                "type": "string",
+                "description": "ID of the feed that contains next chunk of the search result. Should be sent to the next searchGData request to perform incremental search."
               }
             ]
           }
         ]
+      },
+      {
+        "name": "clearDriveCache",
+        "description": "Clear all GData local caches.",
+        "parameters": []
       },
       {
         "name": "getNetworkConnectionState",

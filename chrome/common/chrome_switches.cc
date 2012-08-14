@@ -220,10 +220,6 @@ const char kCrashOnHangThreads[]            = "crash-on-hang-threads";
 //                          other threads are not responsive.
 const char kCrashOnLive[]                   = "crash-on-live";
 
-// Enables recursive devtools frontend debugging by enforcing the
-// "Inspect Element" context menu item in devtools windows.
-const char kDebugDevTools[]                 = "debug-devtools";
-
 // Path to the inspector files on disk (allows reloading of devtool files
 // without having to restart the browser).
 const char kDebugDevToolsFrontend[]         = "debug-devtools-frontend";
@@ -273,10 +269,6 @@ const char kDisableBackgroundNetworking[]   = "disable-background-networking";
 
 // Disables the bundled PPAPI version of Flash (if it's enabled by default).
 const char kDisableBundledPpapiFlash[]      = "disable-bundled-ppapi-flash";
-
-// Disable the ClientOAuth signin flow for connecting a profile to a Google
-// account.  When disabled, Chrome will use the ClientLogin flow instead.
-const char kDisableClientOAuthSignin[]      = "disable-client-oauth-signin";
 
 // Disables Chrome To Mobile.
 const char kDisableChromeToMobile[]         = "disable-chrome-to-mobile";
@@ -485,6 +477,10 @@ const char kEnableBenchmarking[]            = "enable-benchmarking";
 // Enables the bundled PPAPI version of Flash.
 const char kEnableBundledPpapiFlash[]       = "enable-bundled-ppapi-flash";
 
+// Enables the new ClientOAuth signin flow for connecting a profile a Google
+// account.  When disabled, Chrome will use the ClientLogin flow instead.
+const char kEnableClientOAuthSignin[]       = "enable-client-oauth-signin";
+
 // Enables Chrome To Mobile.
 // This switch is not currently respected; use the disable switch instead.
 const char kEnableChromeToMobile[]          = "enable-chrome-to-mobile";
@@ -563,11 +559,21 @@ const char kEnableIPCFuzzing[]              = "enable-ipc-fuzzing";
 // attempt to use the existing connection.
 const char kEnableIPPooling[]               = "enable-ip-pooling";
 
+// The managed storage extension API is disabled by default for now. This
+// flag can be used to enable it until http://crbug.com/108992 is fixed.
+extern const char kEnableManagedStorage[]   = "enable-managed-storage";
+
 // Enables media gallery UI elements and permission management.
 const char kEnableMediaGalleryUI[]          = "enable-media-gallery-ui";
 
 // Allows reporting memory info (JS heap size) to page.
 const char kEnableMemoryInfo[]              = "enable-memory-info";
+
+// Enables metrics recording and reporting in the browser startup sequence, as
+// if this was an official Chrome build where the user allowed metrics
+// reporting. This is used for testing only.
+const char kEnableMetricsReportingForTesting[] =
+    "enable-metrics-reporting-for-testing";
 
 // Runs the Native Client inside the renderer process and enables GPU plugin
 // (internally adds lEnableGpuPlugin to the command line).
@@ -604,6 +610,11 @@ const char kEnablePasswordGeneration[]      = "enable-password-generation";
 // preferences.
 const char kEnableResourceContentSettings[] =
     "enable-resource-content-settings";
+
+// Enables experimental features of better session restore (backing up
+// sessionStorage on disk). See also kDisableRestoreSessionState which disables
+// the less exprimental features which are on by default.
+const char kEnableRestoreSessionState[]     = "enable-restore-session-state";
 
 // Enables the installation and usage of Portable Native Client.
 const char kEnablePnacl[]                   = "enable-pnacl";
@@ -703,10 +714,6 @@ const char kFileDescriptorLimit[]           = "file-descriptor-limit";
 // Displays the First Run experience when the browser is started, regardless of
 // whether or not it's actually the first run.
 const char kFirstRun[]                      = "first-run";
-
-// Forces the apps/webstore promo to be shown, independent of whether it has
-// timed out, etc. Useful for testing.
-const char kForceAppsPromoVisible[]         = "force-apps-promo-visible";
 
 // Specifies the backend server used for gaia authentications, like sync or
 // policies for example. The https:// prefix and the trailing slash should be
@@ -819,6 +826,10 @@ const char kKioskModePrinting[]             = "kiosk-printing";
 
 // Comma-separated list of directories with component extensions to load.
 const char kLoadComponentExtension[]        = "load-component-extension";
+
+// If present, cloud policy will be loaded and applied once the user is signed
+// in to the browser.
+const char kLoadCloudPolicyOnSignin[]        = "load-cloud-policy-on-signin";
 
 // Loads an extension from the specified directory.
 const char kLoadExtension[]                 = "load-extension";
@@ -1129,6 +1140,9 @@ const char kReloadKilledTabs[]              = "reload-killed-tabs";
 // Uses custom front-end URL for the remote debugging.
 const char kRemoteDebuggingFrontend[]       = "remote-debugging-frontend";
 
+// Enables remote debug over HTTP on the specified port.
+const char kRemoteDebuggingPort[]           = "remote-debugging-port";
+
 // Enables print preview in the renderer. This flag is generated internally by
 // Chrome and does nothing when directly passed to the browser.
 const char kRendererPrintPreview[]          = "renderer-print-preview";
@@ -1344,6 +1358,14 @@ const char kTabletUI[]                      = "tablet-ui";
 #endif
 
 #if defined(OS_CHROMEOS)
+// When wallpaper boot animation is not disabled this switch
+// is used to override OOBE/sign in WebUI init type.
+// Possible values: parallel|postpone. Default: parallel.
+const char kAshWebUIInit[]                  = "ash-webui-init";
+
+// Disables wallpaper boot animation (except of OOBE case).
+const char kDisableBootAnimation[]          = "disable-boot-animation";
+
 // Disables gdata content provider.
 const char kDisableGData[]                  = "disable-gdata";
 
@@ -1366,6 +1388,9 @@ const char kEnableDevicePolicy[]            = "enable-device-policy";
 // Enables Drive v2 API instead of Google Documents List API.
 const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
 
+// Use level db for drive metadata storage.
+const char kUseLevelDBForGData[]            = "use-leveldb-for-gdata";
+
 // Enables the redirection of viewable document requests to the Google Document
 // Viewer.
 const char kEnableGView[]                   = "enable-gview";
@@ -1387,6 +1412,9 @@ const char kEnableUnsupportedBluetoothDevices[] =
 
 // Enables the experimental wallpaper picker UI.
 const char kExperimentalWallpaperUI[] = "experimental-wallpaper-ui";
+
+// Passed to Chrome on first boot. Not passed on restart after sign out.
+const char kFirstBoot[] = "first-boot";
 
 // Path for the screensaver used in Kiosk mode
 const char kKioskModeScreensaverPath[]      = "kiosk-mode-screensaver-path";
@@ -1494,9 +1522,20 @@ const char kUseMockKeychain[]               = "use-mock-keychain";
 // modification or removal.
 const char kDisableDesktopShortcuts[]       = "disable-desktop-shortcuts";
 
-// Enable Website Settings. The Website Settings UI will replace the Page Info
-// Bubble.
-const char kDisableWebsiteSettings[]         = "disable-website-settings";
+// Disables sync credential caching on Windows 8.
+// See chrome/browser/sync/credential_cache_service_win.h.
+const char kDisableSyncCredentialCaching[]  = "disable-sync-credential-caching";
+
+// For the DelegateExecute verb handler to launch Chrome in metro mode on
+// Windows 8 and higher.  Used when relaunching metro Chrome.
+const char kForceImmersive[]                 = "force-immersive";
+
+// Relaunches metro Chrome on Windows 8 and higher using a given shortcut.
+const char kRelaunchShortcut[]               = "relaunch-shortcut";
+
+// Waits for the given handle to be signaled before relaunching metro Chrome on
+// Windows 8 and higher.
+const char kWaitForHandle[]                  = "wait-for-handle";
 #endif
 
 #if defined(USE_AURA)

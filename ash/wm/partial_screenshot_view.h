@@ -28,11 +28,11 @@ class ASH_EXPORT PartialScreenshotView
   static void StartPartialScreenshot(ScreenshotDelegate* screenshot_delegate);
 
   // Overriddden from View:
-  virtual gfx::NativeCursor GetCursor(const views::MouseEvent& event) OVERRIDE;
+  virtual gfx::NativeCursor GetCursor(const ui::MouseEvent& event) OVERRIDE;
 
   // Overridden from internal::OverlayEventFilter::Delegate:
   virtual void Cancel() OVERRIDE;
-  virtual bool IsCancelingKeyEvent(aura::KeyEvent* event) OVERRIDE;
+  virtual bool IsCancelingKeyEvent(ui::KeyEvent* event) OVERRIDE;
   virtual aura::Window* GetWindow() OVERRIDE;
 
  private:
@@ -41,10 +41,10 @@ class ASH_EXPORT PartialScreenshotView
   // Overridden from View:
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
   virtual bool OnMouseWheel(const views::MouseWheelEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
 
   bool is_dragging_;
   gfx::Point start_position_;

@@ -2,11 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
-
 from HTMLParser import HTMLParser
+import logging
+import re
 
 from docs_server_utils import FormatKey
+from file_system import FileNotFoundError
 from third_party.handlebar import Handlebar
 
 class _IntroParser(HTMLParser):
@@ -58,10 +59,12 @@ class IntroDataSource(object):
   def __init__(self, cache_builder, base_paths):
     self._cache = cache_builder.build(self._MakeIntroDict)
     self._base_paths = base_paths
+    self._intro_regex = re.compile('<h1[^>.]*?>.*?</h1>', flags=re.DOTALL)
 
   def _MakeIntroDict(self, intro):
     parser = _IntroParser()
     parser.feed(intro)
+    intro = re.sub(self._intro_regex, '', intro, count=1)
     return {
       'intro': Handlebar(intro),
       'toc': parser.toc,
@@ -73,9 +76,10 @@ class IntroDataSource(object):
 
   def get(self, key):
     real_path = FormatKey(key)
+    error = None
     for base_path in self._base_paths:
       try:
         return self._cache.GetFromFile(base_path + '/' + real_path)
-      except Exception:
+      except FileNotFoundError as error:
         pass
-    return None
+    raise ValueError(str(error) + ': No intro found for "%s".' % key)

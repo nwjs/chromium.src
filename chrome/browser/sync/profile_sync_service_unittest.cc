@@ -273,7 +273,7 @@ TEST_F(ProfileSyncServiceTest, JsControllerProcessJsMessageBasic) {
   StrictMock<syncer::MockJsReplyHandler> reply_handler;
 
   ListValue arg_list1;
-  arg_list1.Append(Value::CreateBooleanValue(false));
+  arg_list1.Append(Value::CreateStringValue("TRANSIENT_NOTIFICATION_ERROR"));
   syncer::JsArgList args1(&arg_list1);
   EXPECT_CALL(reply_handler,
               HandleJsReply("getNotificationState", HasArgs(args1)));
@@ -297,7 +297,7 @@ TEST_F(ProfileSyncServiceTest,
   StrictMock<syncer::MockJsReplyHandler> reply_handler;
 
   ListValue arg_list1;
-  arg_list1.Append(Value::CreateBooleanValue(false));
+  arg_list1.Append(Value::CreateStringValue("TRANSIENT_NOTIFICATION_ERROR"));
   syncer::JsArgList args1(&arg_list1);
   EXPECT_CALL(reply_handler,
               HandleJsReply("getNotificationState", HasArgs(args1)));
@@ -384,27 +384,28 @@ TEST_F(ProfileSyncServiceTest, UpdateRegisteredInvalidationIds) {
 
   StrictMock<syncer::MockSyncNotifierObserver> observer;
   EXPECT_CALL(observer, OnNotificationsEnabled());
-  EXPECT_CALL(observer, OnNotificationsDisabled(
-      syncer::TRANSIENT_NOTIFICATION_ERROR));
   EXPECT_CALL(observer, OnIncomingNotification(
       payloads, syncer::REMOTE_NOTIFICATION));
+  EXPECT_CALL(observer, OnNotificationsDisabled(
+      syncer::TRANSIENT_NOTIFICATION_ERROR));
 
+  service_->RegisterInvalidationHandler(&observer);
   service_->UpdateRegisteredInvalidationIds(&observer, ids);
 
   SyncBackendHostForProfileSyncTest* const backend =
       service_->GetBackendForTest();
 
   backend->EmitOnNotificationsEnabled();
-  backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
   backend->EmitOnIncomingNotification(payloads, syncer::REMOTE_NOTIFICATION);
+  backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
 
   Mock::VerifyAndClearExpectations(&observer);
 
-  service_->UpdateRegisteredInvalidationIds(&observer, syncer::ObjectIdSet());
+  service_->UnregisterInvalidationHandler(&observer);
 
   backend->EmitOnNotificationsEnabled();
-  backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
   backend->EmitOnIncomingNotification(payloads, syncer::REMOTE_NOTIFICATION);
+  backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
 }
 
 // Register for some IDs with the ProfileSyncService, restart sync,
@@ -413,17 +414,32 @@ TEST_F(ProfileSyncServiceTest, UpdateRegisteredInvalidationIds) {
 TEST_F(ProfileSyncServiceTest, UpdateRegisteredInvalidationIdsPersistence) {
   StartSyncService();
 
-  StrictMock<syncer::MockSyncNotifierObserver> observer;
-  EXPECT_CALL(observer, OnNotificationsEnabled());
-
   syncer::ObjectIdSet ids;
   ids.insert(invalidation::ObjectId(3, "id3"));
+  const syncer::ObjectIdPayloadMap& payloads =
+      syncer::ObjectIdSetToPayloadMap(ids, "payload");
+
+  StrictMock<syncer::MockSyncNotifierObserver> observer;
+  EXPECT_CALL(observer, OnNotificationsEnabled());
+  EXPECT_CALL(observer, OnIncomingNotification(
+      payloads, syncer::REMOTE_NOTIFICATION));
+  // This may get called more than once, as a real notifier is
+  // created.
+  EXPECT_CALL(observer, OnNotificationsDisabled(
+      syncer::TRANSIENT_NOTIFICATION_ERROR)).Times(AtLeast(1));
+
+  service_->RegisterInvalidationHandler(&observer);
   service_->UpdateRegisteredInvalidationIds(&observer, ids);
 
   service_->StopAndSuppress();
   service_->UnsuppressAndStart();
 
-  service_->GetBackendForTest()->EmitOnNotificationsEnabled();
+  SyncBackendHostForProfileSyncTest* const backend =
+      service_->GetBackendForTest();
+
+  backend->EmitOnNotificationsEnabled();
+  backend->EmitOnIncomingNotification(payloads, syncer::REMOTE_NOTIFICATION);
+  backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
 }
 
 }  // namespace

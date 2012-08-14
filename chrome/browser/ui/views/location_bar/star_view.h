@@ -11,13 +11,11 @@
 class CommandUpdater;
 
 namespace views {
-class KeyEvent;
 class MouseEvent;
 }
 
-class StarView
-    : public views::ImageView,
-      public TouchableLocationBarView {
+class StarView : public views::ImageView,
+                 public TouchableLocationBarView {
  public:
   explicit StarView(CommandUpdater* command_updater);
   virtual ~StarView();
@@ -33,11 +31,11 @@ class StarView
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
   virtual bool GetTooltipText(const gfx::Point& p,
                               string16* tooltip) const OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(
       const views::GestureEvent& event) OVERRIDE;
-  virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
 
   // The CommandUpdater for the Browser object that owns the location bar.
   CommandUpdater* command_updater_;

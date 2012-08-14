@@ -9,6 +9,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/cocoa/browser_window_utils.h"
 #include "chrome/browser/ui/cocoa/extensions/extension_view_mac.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -48,6 +49,29 @@
     shellWindow_->WindowDidResignKey();
 }
 
+- (void)gtm_systemRequestsVisibilityForView:(NSView*)view {
+  [[self window] makeKeyAndOrderFront:self];
+}
+
+- (void)attachConstrainedWindow:(ConstrainedWindowMac*)window {
+  if (!sheetController_.get()) {
+    sheetController_.reset([[GTMWindowSheetController alloc]
+        initWithWindow:[self window]
+              delegate:self]);
+  }
+
+  NSView* tabContentsView =
+      [window->owner()->web_contents()->GetNativeView() superview];
+  window->delegate()->RunSheet(sheetController_, tabContentsView);
+}
+
+- (void)removeConstrainedWindow:(ConstrainedWindowMac*)window {
+}
+
+- (BOOL)canAttachConstrainedWindow {
+  return YES;
+}
+
 @end
 
 @interface ShellNSWindow : UnderlayOpenGLHostingWindow
@@ -82,11 +106,27 @@
 
 @end
 
+@interface ControlRegionView : NSView
+@end
+@implementation ControlRegionView
+- (BOOL)mouseDownCanMoveWindow {
+  return NO;
+}
+- (NSView*)hitTest:(NSPoint)aPoint {
+  return nil;
+}
+@end
+
+@interface NSView (WebContentsView)
+- (void)setMouseDownCanMoveWindow:(BOOL)can_move;
+@end
+
 ShellWindowCocoa::ShellWindowCocoa(Profile* profile,
                                    const extensions::Extension* extension,
                                    const GURL& url,
                                    const ShellWindow::CreateParams& params)
     : ShellWindow(profile, extension, url),
+      has_frame_(params.frame == ShellWindow::CreateParams::FRAME_CHROME),
       attention_request_id_(0) {
   // Flip coordinates based on the primary screen.
   NSRect main_screen_rect = [[[NSScreen screens] objectAtIndex:0] frame];
@@ -113,19 +153,49 @@ ShellWindowCocoa::ShellWindowCocoa(Profile* profile,
     [window setContentMaxSize:NSMakeSize(max_width, max_height)];
   }
 
-  if (base::mac::IsOSSnowLeopardOrEarlier() &&
+  if (base::mac::IsOSSnowLeopard() &&
       [window respondsToSelector:@selector(setBottomCornerRounded:)])
     [window setBottomCornerRounded:NO];
 
-  NSView* view = web_contents()->GetView()->GetNativeView();
-  [view setFrame:[[window contentView] bounds]];
-  [view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-  [[window contentView] addSubview:view];
-
   window_controller_.reset(
       [[ShellWindowController alloc] initWithWindow:window.release()]);
+
+  NSView* view = web_contents()->GetView()->GetNativeView();
+  [view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+  InstallView();
+
   [[window_controller_ window] setDelegate:window_controller_];
   [window_controller_ setShellWindow:this];
+}
+
+void ShellWindowCocoa::InstallView() {
+  NSView* view = web_contents()->GetView()->GetNativeView();
+  if (has_frame_) {
+    [view setFrame:[[window() contentView] bounds]];
+    [[window() contentView] addSubview:view];
+  } else {
+    // TODO(jeremya): find a cleaner way to send this information to the
+    // WebContentsViewCocoa view.
+    DCHECK([view
+        respondsToSelector:@selector(setMouseDownCanMoveWindow:)]);
+    [view setMouseDownCanMoveWindow:YES];
+
+    NSView* frameView = [[window() contentView] superview];
+    [view setFrame:[frameView bounds]];
+    [frameView addSubview:view];
+
+    [[window() standardWindowButton:NSWindowZoomButton] setHidden:YES];
+    [[window() standardWindowButton:NSWindowMiniaturizeButton] setHidden:YES];
+    [[window() standardWindowButton:NSWindowCloseButton] setHidden:YES];
+
+    InstallDraggableRegionViews();
+  }
+}
+
+void ShellWindowCocoa::UninstallView() {
+  NSView* view = web_contents()->GetView()->GetNativeView();
+  [view removeFromSuperview];
 }
 
 bool ShellWindowCocoa::IsActive() const {
@@ -154,7 +224,7 @@ void ShellWindowCocoa::SetFullscreen(bool fullscreen) {
     return;
   }
 
-  DCHECK(base::mac::IsOSSnowLeopardOrEarlier());
+  DCHECK(base::mac::IsOSSnowLeopard());
 
   // Fade to black.
   const CGDisplayReservationInterval kFadeDurationSeconds = 0.6;
@@ -167,6 +237,12 @@ void ShellWindowCocoa::SetFullscreen(bool fullscreen) {
         kCGDisplayBlendSolidColor, 0.0, 0.0, 0.0, /*synchronous=*/true);
   }
 
+  // Since frameless windows insert the WebContentsView into the NSThemeFrame
+  // ([[window contentView] superview]), and since that NSThemeFrame is
+  // destroyed and recreated when we change the styleMask of the window, we
+  // need to remove the view from the window when we change the style, and
+  // add it back afterwards.
+  UninstallView();
   if (fullscreen) {
     restored_bounds_ = [window() frame];
     [window() setStyleMask:NSBorderlessWindowMask];
@@ -176,10 +252,13 @@ void ShellWindowCocoa::SetFullscreen(bool fullscreen) {
     base::mac::RequestFullScreen(base::mac::kFullScreenModeAutoHideAll);
   } else {
     base::mac::ReleaseFullScreen(base::mac::kFullScreenModeAutoHideAll);
-    [window() setStyleMask:NSTitledWindowMask | NSClosableWindowMask |
-                           NSMiniaturizableWindowMask | NSResizableWindowMask];
+    NSUInteger style_mask = NSTitledWindowMask | NSClosableWindowMask |
+                            NSMiniaturizableWindowMask | NSResizableWindowMask |
+                            NSTexturedBackgroundWindowMask;
+    [window() setStyleMask:style_mask];
     [window() setFrame:restored_bounds_ display:YES];
   }
+  InstallView();
 
   // Fade back in.
   if (did_fade_out) {
@@ -274,8 +353,48 @@ void ShellWindowCocoa::SetBounds(const gfx::Rect& bounds) {
   [window() setFrame:cocoa_bounds display:YES];
 }
 
-void ShellWindowCocoa::SetDraggableRegion(SkRegion* region) {
-  // TODO: implement
+void ShellWindowCocoa::UpdateDraggableRegions(
+    const std::vector<extensions::DraggableRegion>& regions) {
+  // Draggable region is not supported for non-frameless window.
+  if (has_frame_)
+    return;
+
+  draggable_regions_ = regions;
+  InstallDraggableRegionViews();
+}
+
+void ShellWindowCocoa::InstallDraggableRegionViews() {
+  DCHECK(!has_frame_);
+
+  // All ControlRegionViews should be added as children of the WebContentsView,
+  // because WebContentsView will be removed and re-added when entering and
+  // leaving fullscreen mode.
+  NSView* webView = web_contents()->GetView()->GetNativeView();
+  NSInteger webViewHeight = NSHeight([webView bounds]);
+
+  // Remove all ControlRegionViews that are added last time.
+  // Note that [webView subviews] returns the view's mutable internal array and
+  // it should be copied to avoid mutating the original array while enumerating
+  // it.
+  scoped_nsobject<NSArray> subviews([[webView subviews] copy]);
+  for (NSView* subview in subviews.get())
+    if ([subview isKindOfClass:[ControlRegionView class]])
+      [subview removeFromSuperview];
+
+  // Create and add ControlRegionView for each region that needs to be excluded
+  // from the dragging.
+  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
+           draggable_regions_.begin();
+       iter != draggable_regions_.end();
+       ++iter) {
+    const extensions::DraggableRegion& region = *iter;
+    scoped_nsobject<NSView> controlRegion([[ControlRegionView alloc] init]);
+    [controlRegion setFrame:NSMakeRect(region.bounds.x(),
+                                       webViewHeight - region.bounds.bottom(),
+                                       region.bounds.width(),
+                                       region.bounds.height())];
+    [webView addSubview:controlRegion];
+  }
 }
 
 void ShellWindowCocoa::FlashFrame(bool flash) {

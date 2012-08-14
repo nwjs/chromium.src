@@ -154,7 +154,10 @@ base::LazyInstance<ProfileLaunchObserver> profile_launch_observer =
 
 }  // namespace
 
-StartupBrowserCreator::StartupBrowserCreator() {}
+StartupBrowserCreator::StartupBrowserCreator()
+    : is_default_browser_dialog_suppressed_(false),
+      show_main_browser_window_(true) {
+}
 
 StartupBrowserCreator::~StartupBrowserCreator() {}
 

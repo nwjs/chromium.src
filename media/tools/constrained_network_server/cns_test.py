@@ -11,7 +11,7 @@ import tempfile
 import time
 import unittest
 import urllib2
-
+import cherrypy
 import cns
 import traffic_control
 
@@ -36,7 +36,7 @@ class PortAllocatorTest(unittest.TestCase):
     self._MockTrafficControl()
 
   def tearDown(self):
-    self._pa.Cleanup(_INTERFACE, all_ports=True)
+    self._pa.Cleanup(all_ports=True)
     # Ensure ports are cleaned properly.
     self.assertEquals(self._pa._ports, {})
     time.time = self._old_time
@@ -115,9 +115,44 @@ class PortAllocatorTest(unittest.TestCase):
     self.assertEquals(set(self._pa._ports.keys()), set([
         cns._DEFAULT_CNS_PORT_RANGE[0], cns._DEFAULT_CNS_PORT_RANGE[0] + 1]))
 
+  def testPortAllocatorCleanMatchingIP(self):
+    # Setup PortAllocator w/o port expiration.
+    self._pa = cns.PortAllocator(cns._DEFAULT_CNS_PORT_RANGE, 0)
+
+    # Ensure Get() succeeds and returns the correct port.
+    self.assertEquals(self._pa.Get('ip1', t=1), cns._DEFAULT_CNS_PORT_RANGE[0])
+    self.assertEquals(self._pa.Get('ip1', t=2),
+                      cns._DEFAULT_CNS_PORT_RANGE[0] + 1)
+    self.assertEquals(self._pa.Get('ip1', t=3),
+                      cns._DEFAULT_CNS_PORT_RANGE[0] + 2)
+    self.assertEquals(self._pa.Get('ip2', t=1),
+                      cns._DEFAULT_CNS_PORT_RANGE[0] + 3)
+
+    self._pa.Cleanup(all_ports=False, request_ip='ip1')
+
+    self.assertEquals(self._pa._ports.keys(),
+                      [cns._DEFAULT_CNS_PORT_RANGE[0] + 3])
+    self.assertEquals(self._pa.Get('ip2'), cns._DEFAULT_CNS_PORT_RANGE[0])
+    self.assertEquals(self._pa.Get('ip1'), cns._DEFAULT_CNS_PORT_RANGE[0] + 1)
+
+    self._pa.Cleanup(all_ports=False, request_ip='ip2')
+    self.assertEquals(self._pa._ports.keys(),
+                      [cns._DEFAULT_CNS_PORT_RANGE[0] + 1])
+
+    self._pa.Cleanup(all_ports=False, request_ip='abc')
+    self.assertEquals(self._pa._ports.keys(),
+                      [cns._DEFAULT_CNS_PORT_RANGE[0] + 1])
+
+    self._pa.Cleanup(all_ports=False, request_ip='ip1')
+    self.assertEquals(self._pa._ports.keys(), [])
+
 
 class ConstrainedNetworkServerTest(unittest.TestCase):
-  """End to end tests for ConstrainedNetworkServer system."""
+  """End to end tests for ConstrainedNetworkServer system.
+
+  These tests require root access and run the cherrypy server along with
+  tc/iptables commands.
+  """
 
   # Amount of time to wait for the CNS to start up.
   _SERVER_START_SLEEP_SECS = 1
@@ -192,8 +227,38 @@ class ConstrainedNetworkServerTest(unittest.TestCase):
     self.assertTrue(time.time() - now > self._LATENCY_TEST_SECS)
 
     # Verify the server properly redirected the URL.
-    self.assertEquals(f.geturl(), base_url.replace(
-        str(cns._DEFAULT_SERVING_PORT), str(cns._DEFAULT_CNS_PORT_RANGE[0])))
+    self.assertTrue(f.geturl().startswith(base_url.replace(
+        str(cns._DEFAULT_SERVING_PORT), str(cns._DEFAULT_CNS_PORT_RANGE[0]))))
+
+
+class ConstrainedNetworkServerUnitTests(unittest.TestCase):
+  """ConstrainedNetworkServer class unit tests."""
+
+  def testGetServerURL(self):
+    """Test server URL is correct when using Cherrypy port."""
+    cns_obj = cns.ConstrainedNetworkServer(self.DummyOptions(), None)
+
+    self.assertEqual(cns_obj._GetServerURL('ab/xz.webm', port=1234, t=1),
+                     'http://127.0.0.1:1234/ServeConstrained?f=ab/xz.webm&t=1')
+
+  def testGetServerURLWithLocalServer(self):
+    """Test server URL is correct when using --local-server-port port."""
+    cns_obj = cns.ConstrainedNetworkServer(self.DummyOptionsWithServer(), None)
+
+    self.assertEqual(cns_obj._GetServerURL('ab/xz.webm', port=1234, t=1),
+                     'http://127.0.0.1:1234/media/ab/xz.webm?t=1')
+
+  class DummyOptions(object):
+    www_root = 'media'
+    port = 9000
+    cherrypy.url = lambda: 'http://127.0.0.1:9000/ServeConstrained'
+    local_server_port = None
+
+  class DummyOptionsWithServer(object):
+    www_root = 'media'
+    port = 9000
+    cherrypy.url = lambda: 'http://127.0.0.1:9000/ServeConstrained'
+    local_server_port = 8080
 
 
 if __name__ == '__main__':

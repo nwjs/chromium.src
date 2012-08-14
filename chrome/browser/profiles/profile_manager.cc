@@ -656,6 +656,13 @@ void ProfileManager::BrowserListObserver::OnBrowserRemoved(
 
 void ProfileManager::BrowserListObserver::OnBrowserSetLastActive(
     Browser* browser) {
+  // If all browsers are being closed (e.g. the user is in the process of
+  // shutting down), this event will be fired after each browser is
+  // closed. This does not represent a user intention to change the active
+  // browser so is not handled here.
+  if (profile_manager_->closing_all_browsers_)
+    return;
+
   Profile* last_active = browser->profile();
   PrefService* local_state = g_browser_process->local_state();
   DCHECK(local_state);
@@ -1032,6 +1039,11 @@ void ProfileManager::RunCallbacks(const std::vector<CreateCallback>& callbacks,
                                   Profile::CreateStatus status) {
   for (size_t i = 0; i < callbacks.size(); ++i)
     callbacks[i].Run(profile, status);
+}
+
+ProfileManager::ProfileInfo::ProfileInfo(Profile* profile, bool created)
+    : profile(profile),
+      created(created) {
 }
 
 ProfileManager::ProfileInfo::~ProfileInfo() {

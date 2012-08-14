@@ -562,7 +562,8 @@ enum NotificationType {
   NOTIFICATION_EXTENSION_POPUP_VIEW_READY,
 
   // Sent when a browser action's state has changed. The source is the
-  // ExtensionAction* that changed.  There are no details.
+  // ExtensionAction* that changed.  The details are the Profile* that the
+  // browser action belongs to.
   NOTIFICATION_EXTENSION_BROWSER_ACTION_UPDATED,
 
   // Sent when the count of page actions has changed. Note that some of them
@@ -1096,13 +1097,16 @@ enum NotificationType {
   // Sent each time the InstantController shows the InstantLoader.
   NOTIFICATION_INSTANT_CONTROLLER_SHOWN,
 
-  // Sent when an Instant preview is committed.  The Source is the
-  // TabContents containing the committed preview.  There are no details.
+  // Sent each time the InstantController hides the InstantLoader.
+  NOTIFICATION_INSTANT_CONTROLLER_HIDDEN,
+
+  // Sent when an Instant preview is committed. The Source is the TabContents
+  // containing the committed preview. There are no details.
   NOTIFICATION_INSTANT_COMMITTED,
 
-  // Sent when the instant loader determines whether the page supports the
-  // instant API or not. The details is a boolean indicating if the page
-  // supports instant. The source is not used.
+  // Sent when the Instant loader determines whether the page supports the
+  // Instant API or not. The details is a boolean indicating if the page
+  // supports Instant. The source is not used.
   NOTIFICATION_INSTANT_SUPPORT_DETERMINED,
 
   // Sent when the CaptivePortalService checks if we're behind a captive portal.

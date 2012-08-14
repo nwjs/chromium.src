@@ -85,7 +85,7 @@ TabContents* BrowserTabStripModelDelegate::CreateTabContentsForURL(
     content::PageTransition transition, bool defer_load,
     content::SiteInstance* instance) const {
   TabContents* contents = TabContentsFactory(profile, instance,
-      MSG_ROUTING_NONE, GetActiveWebContents(browser_), NULL);
+      MSG_ROUTING_NONE, GetActiveWebContents(browser_));
   if (!defer_load) {
     // Load the initial URL before adding the new tab contents to the tab strip
     // so that the tab contents has navigation state.
@@ -131,7 +131,8 @@ void BrowserTabStripModelDelegate::CreateHistoricalTab(TabContents* contents) {
 
   // We only create historical tab entries for tabbed browser windows.
   if (service && browser_->CanSupportWindowFeature(Browser::FEATURE_TABSTRIP)) {
-    service->CreateHistoricalTab(contents->web_contents(),
+    service->CreateHistoricalTab(
+        &contents->web_contents()->GetController(),
         browser_->tab_strip_model()->GetIndexOfTabContents(contents));
   }
 }

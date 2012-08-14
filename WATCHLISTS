@@ -21,6 +21,11 @@
                   '|ui/base/accessibility/' \
                   '|ui/views/accessibility/'
     },
+    'android_infra': {
+      'filepath': 'build/android/' \
+                  '|testing/android/' \
+                  '|tools/android/'
+    },
     'app_list': {
       'filepath': 'ui/app_list/',
     },
@@ -105,6 +110,10 @@
     'clipboard': {
       'filepath': 'clipboard|dnd|drag|drop',
     },
+    'contacts': {
+      'filepath': 'chrome/browser/chromeos/contacts/|'\
+                  'chrome/browser/chromeos/gdata/gdata_contacts_service',
+    },
     'content': {
       'filepath': 'content/',
     },
@@ -154,8 +163,11 @@
     'fullscreen_controller': {
       'filepath': 'fullscreen_controller',
     },
-    'gdata' : {
+    'gdata': {
       'filepath': 'gdata'
+    },
+    'gfx_image': {
+      'filepath': 'ui/gfx/image/',
     },
     'gpu': {
       'filepath': 'gpu/',
@@ -414,6 +426,9 @@
                       'hashimoto+watch@chromium.org',
                       'yoshiki+watch@chromium.org',
                       'yuzo+watch@chromium.org'],
+    'android_infra': ['peter+watch@chromium.org',
+                      'bulach+watch@chromium.org',
+                      'yfriedman+watch@chromium.org'],
     'app_list': ['tfarina@chromium.org'],
     'appcache': ['michaeln@chromium.org'],
     'aura': ['ben+watch@chromium.org', 'sadrul@chromium.org'],
@@ -421,7 +436,7 @@
                  'dyu@chromium.org'],
     'automation': ['kkania@chromium.org',
                    'robertshield@chromium.org'],
-    'base': ['brettw-cc@chromium.org', 'erikwright@chromium.org'],
+    'base': ['brettw-cc@chromium.org', 'erikwright+watch@chromium.org'],
     'base_memory': ['gavinp+memory@chromium.org'],
     'browser_chromeos': ['davemoore+watch@chromium.org',
                          'stevenjb+watch@chromium.org',
@@ -443,6 +458,7 @@
     'clang_update': ['fischman+watch@chromium.org', 'ukai+watch@chromium.org',
                      'glotov+watch@chromium.org'],
     'clipboard': ['dcheng@chromium.org'],
+    'contacts': ['derat+watch@chromium.org'],
     'content': ['jam@chromium.org', 'joi+watch-content@chromium.org',
                 'darin-cc@chromium.org'],
     'cookie_monster': ['erikwright@chromium.org', 'rkn@chromium.org',
@@ -458,6 +474,7 @@
     'ftp': ['phajdan.jr@chromium.org'],
     'fullscreen_controller': ['scheib+watch@chromium.org'],
     'gdata': ['achuith+watch@chromium.org'],
+    'gfx_image': ['rsesek+watch@chromium.org'],
     'gpu': ['apatrick@chromium.org'],
     'history': ['brettw-cc@chromium.org'],
     'history_ui': ['dubroy@chromium.org'],
@@ -538,7 +555,8 @@
     'views_core': ['ben+watch@chromium.org'],
     'webintents': [
                    'gbillock+watch@chromium.org',
-                   'smckay+watch@chromium.org'],
+                   'smckay+watch@chromium.org',
+                   'groby+watch@chromium.org'],
     'website_settings': ['markusheintz@chromium.org'],
     'webkit': ['darin-cc@chromium.org'],
     'worker': ['jam@chromium.org'],

@@ -10,6 +10,7 @@ for more details about the presubmit API built into gcl.
 
 
 import re
+import subprocess
 import sys
 
 
@@ -292,14 +293,21 @@ def _CheckNoNewWStrings(input_api, output_api):
         f.LocalPath().endswith('test.cc')):
       continue
 
+    allowWString = False
     for line_num, line in f.ChangedContents():
-      if 'wstring' in line:
+      if 'presubmit: allow wstring' in line:
+        allowWString = True
+      elif not allowWString and 'wstring' in line:
         problems.append('    %s:%d' % (f.LocalPath(), line_num))
+        allowWString = False
+      else:
+        allowWString = False
 
   if not problems:
     return []
   return [output_api.PresubmitPromptWarning('New code should not use wstrings.'
-      '  If you are calling an API that accepts a wstring, fix the API.\n' +
+      '  If you are calling a cross-platform API that accepts a wstring, '
+      'fix the API.\n' +
       '\n'.join(problems))]
 
 
@@ -428,6 +436,22 @@ def _CheckUnwantedDependencies(input_api, output_api):
   return results
 
 
+def _CheckFilePermissions(input_api, output_api):
+  """Check that all files have their permissions properly set."""
+  args = [sys.executable, 'tools/checkperms/checkperms.py', '--root',
+          input_api.change.RepositoryRoot()]
+  for f in input_api.AffectedFiles():
+    args += ['--file', f.LocalPath()]
+  errors = []
+  (errors, stderrdata) = subprocess.Popen(args).communicate()
+
+  results = []
+  if errors:
+    results.append(output_api.PreSubmitError('checkperms.py failed.',
+                                             errors))
+  return results
+
+
 def _CommonChecks(input_api, output_api):
   """Checks common to both upload and commit."""
   results = []
@@ -443,6 +467,7 @@ def _CommonChecks(input_api, output_api):
   results.extend(_CheckNoBannedFunctions(input_api, output_api))
   results.extend(_CheckNoPragmaOnce(input_api, output_api))
   results.extend(_CheckUnwantedDependencies(input_api, output_api))
+  results.extend(_CheckFilePermissions(input_api, output_api))
   return results
 
 
@@ -567,8 +592,11 @@ def GetPreferredTrySlaves(project, change):
              'android']
 
   # Match things like path/aura/file.cc and path/file_aura.cc.
-  # Same for chromeos.
-  if any(re.search('[/_](aura|chromeos)', f) for f in files):
-    trybots += ['linux_chromeos', 'linux_chromeos_clang:compile']
+  # Same for ash and chromeos.
+  if any(re.search('[/_](ash|aura)', f) for f in files):
+    trybots += ['linux_chromeos', 'linux_chromeos_clang:compile', 'win_aura']
+  else:
+    if any(re.search('[/_]chromeos', f) for f in files):
+      trybots += ['linux_chromeos', 'linux_chromeos_clang:compile']
 
   return trybots

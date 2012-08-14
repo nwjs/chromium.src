@@ -66,6 +66,13 @@ class PolicyPrefsTestCases(object):
     # TODO(frankf): Enable on all OS after crbug.com/121066 is fixed.
     'RemoteAccessHostFirewallTraversal':
         ('kRemoteAccessHostFirewallTraversal', True, [], []),
+    'RemoteAccessHostRequireTwoFactor':
+        ('kRemoteAccessHostRequireTwoFactor', False, [], []),
+    'RemoteAccessHostDomain': ('kRemoteAccessHostDomain', '', [], []),
+    'RemoteAccessHostTalkGadgetPrefix':
+        ('kRemoteAccessHostTalkGadgetPrefix', 'chromoting-host', [], []),
+    'RemoteAccessHostRequireCurtain':
+        ('kRemoteAccessHostRequireCurtain', False, [], []),
     'PrintingEnabled': ('kPrintingEnabled', False, [], OS_ALL),
     # Note: supported_on is empty for this policy.
     'CloudPrintProxyEnabled': ('kCloudPrintProxyEnabled', True, [], []),
@@ -231,7 +238,7 @@ class PolicyPrefsTestCases(object):
     'ImportSavedPasswords':
         ('kImportSavedPasswords', False, [], ['win', 'mac', 'linux']),
     'MaxConnectionsPerProxy': ('kMaxConnectionsPerProxy', 32, [], OS_ALL),
-    'HideWebStorePromo': ('kNtpHideWebStorePromo', True, [], OS_ALL),
+    'HideWebStorePromo': (None, True, [], OS_ALL),
     'URLBlacklist': ('kUrlBlacklist', ['google.com'], [], OS_ALL),
     'URLWhitelist': ('kUrlWhitelist', ['google.com'], [], OS_ALL),
     'EnterpriseWebStoreURL': ('kEnterpriseWebStoreURL', '', [], OS_ALL),

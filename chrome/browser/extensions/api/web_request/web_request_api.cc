@@ -812,7 +812,11 @@ void ExtensionWebRequestEventRouter::OnCompleted(
     ExtensionInfoMap* extension_info_map,
     net::URLRequest* request) {
   // We hide events from the system context as well as sensitive requests.
-  if (!profile || WebRequestPermissions::HideRequest(request))
+  // However, if the request first became sensitive after redirecting we have
+  // already signaled it and thus we have to signal the end of it. This is
+  // risk-free because the handler cannot modify the request now.
+  if (!profile ||
+      (WebRequestPermissions::HideRequest(request) && !WasSignaled(*request)))
     return;
 
   request_time_tracker_->LogRequestEndTime(request->identifier(),
@@ -861,7 +865,11 @@ void ExtensionWebRequestEventRouter::OnErrorOccurred(
     net::URLRequest* request,
     bool started) {
   // We hide events from the system context as well as sensitive requests.
-  if (!profile || WebRequestPermissions::HideRequest(request))
+  // However, if the request first became sensitive after redirecting we have
+  // already signaled it and thus we have to signal the end of it. This is
+  // risk-free because the handler cannot modify the request now.
+  if (!profile ||
+      (WebRequestPermissions::HideRequest(request) && !WasSignaled(*request)))
     return;
 
   request_time_tracker_->LogRequestEndTime(request->identifier(),
@@ -917,8 +925,6 @@ bool ExtensionWebRequestEventRouter::DispatchEvent(
     net::URLRequest* request,
     const std::vector<const EventListener*>& listeners,
     const ListValue& args) {
-  std::string json_args;
-
   // TODO(mpcomplete): Consider consolidating common (extension_id,json_args)
   // pairs into a single message sent to a list of sub_event_names.
   int num_handlers_blocking = 0;
@@ -933,11 +939,10 @@ bool ExtensionWebRequestEventRouter::DispatchEvent(
     if (!((*it)->extra_info_spec & ExtraInfoSpec::RESPONSE_HEADERS))
       dict->Remove(keys::kResponseHeadersKey, NULL);
 
-    base::JSONWriter::Write(args_filtered.get(), &json_args);
-
     extensions::EventRouter::DispatchEvent(
         (*it)->ipc_sender.get(), (*it)->extension_id, (*it)->sub_event_name,
-        json_args, GURL(), extensions::EventRouter::USER_GESTURE_UNKNOWN,
+        args_filtered.Pass(), GURL(),
+        extensions::EventRouter::USER_GESTURE_UNKNOWN,
         extensions::EventFilteringInfo());
     if ((*it)->extra_info_spec &
         (ExtraInfoSpec::BLOCKING | ExtraInfoSpec::ASYNC_BLOCKING)) {
@@ -1097,6 +1102,13 @@ void* ExtensionWebRequestEventRouter::GetCrossProfile(void* profile) const {
   if (cross_profile == cross_profile_map_.end())
     return NULL;
   return cross_profile->second;
+}
+
+bool ExtensionWebRequestEventRouter::WasSignaled(
+    const net::URLRequest& request) const {
+  SignaledRequestMap::const_iterator flag =
+      signaled_requests_.find(request.identifier());
+  return (flag != signaled_requests_.end()) && (flag->second != 0);
 }
 
 void ExtensionWebRequestEventRouter::GetMatchingListenersImpl(
@@ -1400,7 +1412,7 @@ bool ExtensionWebRequestEventRouter::ProcessDeclarativeRules(
     ExtensionInfoMap* extension_info_map,
     const std::string& event_name,
     net::URLRequest* request,
-    extensions::RequestStages request_stage,
+    extensions::RequestStage request_stage,
     net::HttpResponseHeaders* original_response_headers) {
   // Rules of the current |profile| may apply but we need to check also whether
   // there are applicable rules from extensions whose background page
@@ -1459,12 +1471,12 @@ bool ExtensionWebRequestEventRouter::ProcessDeclarativeRules(
        i != relevant_registries.end(); ++i) {
     extensions::WebRequestRulesRegistry* rules_registry =
         i->first;
-    extensions::WebRequestRule::OptionalRequestData optional_request_data;
-    optional_request_data.original_response_headers =
-        original_response_headers;
     helpers::EventResponseDeltas result =
-        rules_registry->CreateDeltas(extension_info_map, request,
-            i->second, request_stage, optional_request_data);
+        rules_registry->CreateDeltas(
+            extension_info_map,
+            extensions::WebRequestRule::RequestData(
+                request, request_stage, original_response_headers),
+            i->second);
 
     if (!result.empty()) {
       helpers::EventResponseDeltas& deltas =
@@ -1485,7 +1497,7 @@ void ExtensionWebRequestEventRouter::OnRulesRegistryReady(
     void* profile,
     const std::string& event_name,
     uint64 request_id,
-    extensions::RequestStages request_stage) {
+    extensions::RequestStage request_stage) {
   // It's possible that this request was deleted, or cancelled by a previous
   // event handler. If so, ignore this response.
   if (blocked_requests_.find(request_id) == blocked_requests_.end())

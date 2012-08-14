@@ -62,9 +62,9 @@
           <h3 i18n-content="commandLine"></h3>
           <div i18n-content="commandLineInfo" dir="ltr"></div>
         </section>
-        <section id="last-updated-container" class="empty">
-          <h3 i18n-content="lastUpdated"></h3>
-          <div id="last-updated"></div>
+        <section id="build-date-container" class="empty">
+          <h3 i18n-content="buildDate"></h3>
+          <div id="build-date"></div>
         </section>
       </div>
       <button id="more-info-expander" class="link-button"
@@ -76,13 +76,6 @@
         <div id="update-status-icon" class="up-to-date"></div>
         <span id="update-status" i18n-content="updateCheckStarted"></span>
       </div>
-<if expr="is_macosx">
-      <div id="update-obsolete-os-container" hidden>
-        <span id="update-obsolete-os" i18n-content="updateObsoleteOS"></span>
-        <a i18n-values="href:updateObsoleteOSURL" i18n-content="learnMore"
-            target="_blank"></a>
-      </div>
-</if>
       <div id="update-buttons-container">
         <div id="update-percentage" hidden></div>
 <if expr="is_macosx">

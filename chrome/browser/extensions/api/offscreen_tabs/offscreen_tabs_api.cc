@@ -227,7 +227,7 @@ void OffscreenTab::Init(const GURL& url,
                         ParentTab* parent_tab) {
   // Create the offscreen tab.
   WebContents* web_contents = WebContents::Create(
-      profile, NULL, MSG_ROUTING_NONE, NULL, NULL);
+      profile, NULL, MSG_ROUTING_NONE, NULL);
   tab_contents_.reset(new TabContents(web_contents));
 
   // Setting the size starts the renderer.
@@ -264,19 +264,17 @@ void OffscreenTab::Observe(int type,
   changed_properties->SetString(
       tabs_keys::kUrlKey, web_contents()->GetURL().spec());
 
-  ListValue args;
-  args.Append(Value::CreateIntegerValue(
+  scoped_ptr<ListValue> args(new ListValue());
+  args->Append(Value::CreateIntegerValue(
       ExtensionTabUtil::GetTabId(web_contents())));
-  args.Append(changed_properties);
-  args.Append(CreateValue());
-  std::string json_args;
-  base::JSONWriter::Write(&args, &json_args);
+  args->Append(changed_properties);
+  args->Append(CreateValue());
 
   // The event router only dispatches the event to renderers listening for the
   // event.
   Profile* profile = parent_tab_->tab_contents()->profile();
   profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-      events::kOnOffscreenTabUpdated, json_args, profile, GURL(),
+      events::kOnOffscreenTabUpdated, args.Pass(), profile, GURL(),
       extensions::EventFilteringInfo());
 }
 

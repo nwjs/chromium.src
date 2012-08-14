@@ -59,8 +59,6 @@ class UI_EXPORT GestureSequence {
   }
 
  private:
-  void Reset();
-
   // Recreates the axis-aligned bounding box that contains all the touch-points
   // at their most recent position.
   void RecreateBoundingBox();
@@ -90,7 +88,9 @@ class UI_EXPORT GestureSequence {
   void AppendTapDownGestureEvent(const GesturePoint& point, Gestures* gestures);
   void AppendBeginGestureEvent(const GesturePoint& point, Gestures* gestures);
   void AppendEndGestureEvent(const GesturePoint& point, Gestures* gestures);
-  void AppendClickGestureEvent(const GesturePoint& point, Gestures* gestures);
+  void AppendClickGestureEvent(const GesturePoint& point,
+                               int tap_count,
+                               Gestures* gestures);
   void AppendDoubleClickGestureEvent(const GesturePoint& point,
                                      Gestures* gestures);
   void AppendLongPressGestureEvent();
@@ -142,9 +142,6 @@ class UI_EXPORT GestureSequence {
   bool ScrollUpdate(const TouchEvent& event,
                     const GesturePoint& point,
                     Gestures* gestures);
-  bool NoGesture(const TouchEvent& event,
-                 const GesturePoint& point,
-                 Gestures* gestures);
   bool TouchDown(const TouchEvent& event,
                  const GesturePoint& point,
                  Gestures* gestures);

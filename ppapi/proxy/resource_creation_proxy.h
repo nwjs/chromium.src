@@ -23,6 +23,7 @@ class HostResource;
 
 namespace proxy {
 
+struct Connection;
 class Dispatcher;
 
 class ResourceCreationProxy : public InterfaceProxy,
@@ -105,6 +106,13 @@ class ResourceCreationProxy : public InterfaceProxy,
   virtual PP_Resource CreateGraphics2D(PP_Instance pp_instance,
                                        const PP_Size& size,
                                        PP_Bool is_always_opaque) OVERRIDE;
+  virtual PP_Resource CreateGraphics3D(PP_Instance instance,
+                                       PP_Resource share_context,
+                                       const int32_t* attrib_list) OVERRIDE;
+  virtual PP_Resource CreateGraphics3DRaw(
+      PP_Instance instance,
+      PP_Resource share_context,
+      const int32_t* attrib_list) OVERRIDE;
 #if !defined(OS_NACL)
   virtual PP_Resource CreateAudioInput0_1(
       PP_Instance instance,
@@ -127,13 +135,6 @@ class ResourceCreationProxy : public InterfaceProxy,
   virtual PP_Resource CreateFlashMenu(PP_Instance instance,
                                       const PP_Flash_Menu* menu_data) OVERRIDE;
   virtual PP_Resource CreateFlashMessageLoop(PP_Instance instance) OVERRIDE;
-  virtual PP_Resource CreateGraphics3D(PP_Instance instance,
-                                       PP_Resource share_context,
-                                       const int32_t* attrib_list) OVERRIDE;
-  virtual PP_Resource CreateGraphics3DRaw(
-      PP_Instance instance,
-      PP_Resource share_context,
-      const int32_t* attrib_list) OVERRIDE;
   virtual PP_Resource CreateHostResolverPrivate(PP_Instance instance) OVERRIDE;
   virtual PP_Resource CreateNetworkMonitor(
       PP_Instance instance,
@@ -162,6 +163,7 @@ class ResourceCreationProxy : public InterfaceProxy,
   virtual bool OnMessageReceived(const IPC::Message& msg) OVERRIDE;
 
  private:
+  Connection GetConnection();
   DISALLOW_COPY_AND_ASSIGN(ResourceCreationProxy);
 };
 

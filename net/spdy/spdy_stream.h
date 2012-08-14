@@ -72,7 +72,8 @@ class NET_EXPORT_PRIVATE SpdyStream
                                    int status) = 0;
 
     // Called when data is received.
-    virtual void OnDataReceived(const char* data, int length) = 0;
+    // Returns network error code. OK when it successfully receives data.
+    virtual int OnDataReceived(const char* data, int length) = 0;
 
     // Called when data is sent.
     virtual void OnDataSent(int length) = 0;
@@ -87,6 +88,21 @@ class NET_EXPORT_PRIVATE SpdyStream
    private:
     DISALLOW_COPY_AND_ASSIGN(Delegate);
   };
+
+  // Indicates pending frame type.
+  enum PendingFrameType {
+    TYPE_HEADER,
+    TYPE_DATA
+  };
+
+  // Structure to contains pending frame information.
+  typedef struct {
+    PendingFrameType type;
+    union {
+      SpdyHeaderBlock* header_block;
+      SpdyDataFrame* data_frame;
+    };
+  } PendingFrame;
 
   // SpdyStream constructor
   SpdyStream(SpdySession* session,
@@ -222,6 +238,10 @@ class NET_EXPORT_PRIVATE SpdyStream
   // For non push stream, it will send SYN_STREAM frame.
   int SendRequest(bool has_upload_data);
 
+  // Sends a HEADERS frame. SpdyStream owns |headers| and will release it after
+  // the HEADERS frame is actually sent.
+  int WriteHeaders(SpdyHeaderBlock* headers);
+
   // Sends DATA frame.
   int WriteStreamData(IOBuffer* data, int length,
                       SpdyDataFlags flags);
@@ -345,7 +365,7 @@ class NET_EXPORT_PRIVATE SpdyStream
   scoped_ptr<SpdyHeaderBlock> response_;
   base::Time response_time_;
 
-  std::list<SpdyFrame*> pending_data_frames_;
+  std::list<PendingFrame> pending_frames_;
 
   State io_state_;
 

@@ -34,6 +34,9 @@ class MockDocumentsService : public DocumentsServiceInterface {
                                   const std::string& search_string,
                                   const std::string& directory_resource_id,
                                   const GetDataCallback& callback));
+  MOCK_METHOD3(GetChangelist, void(const GURL& feed_url,
+                                   int64 start_changestamp,
+                                   const GetDataCallback& callback));
   MOCK_METHOD2(GetDocumentEntry, void(const std::string& resource_id,
                                       const GetDataCallback& callback));
   MOCK_METHOD1(GetAccountMetadata, void(const GetDataCallback& callback));
@@ -70,7 +73,7 @@ class MockDocumentsService : public DocumentsServiceInterface {
                     const FilePath& local_cache_path,
                     const GURL& content_url,
                     const DownloadActionCallback& donwload_action_callback,
-                    const GetDownloadDataCallback& get_download_data_callback));
+                    const GetContentCallback& get_content_callback));
   MOCK_METHOD2(InitiateUpload,
                void(const InitiateUploadParams& upload_file_info,
                     const InitiateUploadCallback& callback));
@@ -168,7 +171,7 @@ class MockDocumentsService : public DocumentsServiceInterface {
       const FilePath& local_tmp_path,
       const GURL& content_url,
       const DownloadActionCallback& download_action_callback,
-      const GetDownloadDataCallback& get_download_data_callback);
+      const GetContentCallback& get_content_callback);
 
   // Account meta data to be returned from GetAccountMetadata.
   scoped_ptr<base::Value> account_metadata_;

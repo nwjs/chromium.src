@@ -40,7 +40,6 @@
 #include "sync/js/js_event_handler.h"
 #include "sync/js/js_reply_handler.h"
 #include "sync/notifier/invalidation_util.h"
-#include "sync/notifier/notifications_disabled_reason.h"
 #include "sync/notifier/sync_notifier.h"
 #include "sync/protocol/encryption.pb.h"
 #include "sync/protocol/proto_value_conversions.h"
@@ -175,6 +174,7 @@ SyncManagerImpl::SyncManagerImpl(const std::string& name)
       change_delegate_(NULL),
       initialized_(false),
       observing_ip_address_changes_(false),
+      notifications_disabled_reason_(TRANSIENT_NOTIFICATION_ERROR),
       throttled_data_type_tracker_(&allstatus_),
       traffic_recorder_(kMaxMessagesToRecord, kMaxMessageSizeToRecord),
       encryptor_(NULL),
@@ -362,7 +362,7 @@ void SyncManagerImpl::ConfigureSyncer(
 
 }
 
-bool SyncManagerImpl::Init(
+void SyncManagerImpl::Init(
     const FilePath& database_location,
     const WeakHandle<JsEventHandler>& event_handler,
     const std::string& sync_server_and_path,
@@ -396,6 +396,7 @@ bool SyncManagerImpl::Init(
   change_delegate_ = change_delegate;
 
   sync_notifier_ = sync_notifier.Pass();
+  sync_notifier_->RegisterHandler(this);
 
   AddObserver(&js_sync_manager_observer_);
   SetJsEventHandler(event_handler);
@@ -428,7 +429,8 @@ bool SyncManagerImpl::Init(
                       OnInitializationComplete(
                           MakeWeakHandle(weak_ptr_factory_.GetWeakPtr()),
                           false, syncer::ModelTypeSet()));
-    return false;
+    LOG(ERROR) << "Sync manager initialization failed!";
+    return;
   }
 
   connection_manager_.reset(new SyncAPIServerConnectionManager(
@@ -495,7 +497,6 @@ bool SyncManagerImpl::Init(
                     OnInitializationComplete(
                         MakeWeakHandle(weak_ptr_factory_.GetWeakPtr()),
                         true, InitialSyncEndedTypes()));
-  return true;
 }
 
 void SyncManagerImpl::RefreshNigori(const std::string& chrome_version,
@@ -733,15 +734,32 @@ void SyncManagerImpl::UpdateCredentials(
 void SyncManagerImpl::UpdateEnabledTypes(
     const ModelTypeSet& enabled_types) {
   DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(initialized_);
   sync_notifier_->UpdateRegisteredIds(
       this,
       ModelTypeSetToObjectIdSet(enabled_types));
 }
 
-void SyncManagerImpl::UpdateRegisteredInvalidationIds(
-    SyncNotifierObserver* handler, const ObjectIdSet& ids) {
+void SyncManagerImpl::RegisterInvalidationHandler(
+    SyncNotifierObserver* handler) {
   DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(initialized_);
+  sync_notifier_->RegisterHandler(handler);
+}
+
+void SyncManagerImpl::UpdateRegisteredInvalidationIds(
+    SyncNotifierObserver* handler,
+    const ObjectIdSet& ids) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(initialized_);
   sync_notifier_->UpdateRegisteredIds(handler, ids);
+}
+
+void SyncManagerImpl::UnregisterInvalidationHandler(
+    SyncNotifierObserver* handler) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(initialized_);
+  sync_notifier_->UnregisterHandler(handler);
 }
 
 void SyncManagerImpl::SetEncryptionPassphrase(
@@ -1215,14 +1233,17 @@ void SyncManagerImpl::ShutdownOnSyncThread() {
 
   RemoveObserver(&debug_info_event_listener_);
 
-  if (sync_notifier_.get()) {
-    sync_notifier_->UpdateRegisteredIds(this, ObjectIdSet());
-  }
+  // |sync_notifier_| and |connection_manager_| may end up being NULL here in
+  // tests (in synchronous initialization mode).
+  //
+  // TODO(akalin): Fix this behavior.
+
+  if (sync_notifier_.get())
+    sync_notifier_->UnregisterHandler(this);
   sync_notifier_.reset();
 
-  if (connection_manager_.get()) {
+  if (connection_manager_.get())
     connection_manager_->RemoveListener(this);
-  }
   connection_manager_.reset();
 
   net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
@@ -1615,6 +1636,29 @@ void SyncManagerImpl::BindJsMessageHandler(
       base::Bind(unbound_message_handler, base::Unretained(this));
 }
 
+void SyncManagerImpl::OnNotificationStateChange(
+    NotificationsDisabledReason reason) {
+  const std::string& reason_str = NotificationsDisabledReasonToString(reason);
+  notifications_disabled_reason_ = reason;
+  DVLOG(1) << "Notification state changed to: " << reason_str;
+  const bool notifications_enabled =
+      (notifications_disabled_reason_ == NO_NOTIFICATION_ERROR);
+  allstatus_.SetNotificationsEnabled(notifications_enabled);
+  scheduler_->SetNotificationsEnabled(notifications_enabled);
+
+  // TODO(akalin): Treat a CREDENTIALS_REJECTED state as an auth
+  // error.
+
+  if (js_event_handler_.IsInitialized()) {
+    DictionaryValue details;
+    details.Set("state", Value::CreateStringValue(reason_str));
+    js_event_handler_.Call(FROM_HERE,
+                           &JsEventHandler::HandleJsEvent,
+                           "onNotificationStateChange",
+                           JsEventDetails(&details));
+  }
+}
+
 DictionaryValue* SyncManagerImpl::NotificationInfoToValue(
     const NotificationInfoMap& notification_info) {
   DictionaryValue* value = new DictionaryValue();
@@ -1628,16 +1672,29 @@ DictionaryValue* SyncManagerImpl::NotificationInfoToValue(
   return value;
 }
 
+std::string SyncManagerImpl::NotificationInfoToString(
+    const NotificationInfoMap& notification_info) {
+  scoped_ptr<DictionaryValue> value(
+      NotificationInfoToValue(notification_info));
+  std::string str;
+  base::JSONWriter::Write(value.get(), &str);
+  return str;
+}
+
 JsArgList SyncManagerImpl::GetNotificationState(
     const JsArgList& args) {
-  bool notifications_enabled = allstatus_.status().notifications_enabled;
+  const std::string& notification_state =
+      NotificationsDisabledReasonToString(notifications_disabled_reason_);
+  DVLOG(1) << "GetNotificationState: " << notification_state;
   ListValue return_args;
-  return_args.Append(Value::CreateBooleanValue(notifications_enabled));
+  return_args.Append(Value::CreateStringValue(notification_state));
   return JsArgList(&return_args);
 }
 
 JsArgList SyncManagerImpl::GetNotificationInfo(
     const JsArgList& args) {
+  DVLOG(1) << "GetNotificationInfo: "
+           << NotificationInfoToString(notification_info_map_);
   ListValue return_args;
   return_args.Append(NotificationInfoToValue(notification_info_map_));
   return JsArgList(&return_args);
@@ -1683,7 +1740,7 @@ JsArgList GetNodeInfoById(const JsArgList& args,
   ListValue return_args;
   ListValue* node_summaries = new ListValue();
   return_args.Append(node_summaries);
-  ListValue* id_list = NULL;
+  const ListValue* id_list = NULL;
   ReadTransaction trans(FROM_HERE, user_share);
   if (args.Get().GetList(0, &id_list)) {
     CHECK(id_list);
@@ -1769,38 +1826,12 @@ void SyncManagerImpl::UpdateNotificationInfo(
 }
 
 void SyncManagerImpl::OnNotificationsEnabled() {
-  DVLOG(1) << "Notifications enabled";
-  allstatus_.SetNotificationsEnabled(true);
-  scheduler_->SetNotificationsEnabled(true);
-
-  // TODO(akalin): Separate onNotificationStateChange into
-  // enabled/disabled events.
-  if (js_event_handler_.IsInitialized()) {
-    DictionaryValue details;
-    details.Set("enabled", Value::CreateBooleanValue(true));
-    js_event_handler_.Call(FROM_HERE,
-                           &JsEventHandler::HandleJsEvent,
-                           "onNotificationStateChange",
-                           JsEventDetails(&details));
-  }
+  OnNotificationStateChange(NO_NOTIFICATION_ERROR);
 }
 
 void SyncManagerImpl::OnNotificationsDisabled(
     NotificationsDisabledReason reason) {
-  DVLOG(1) << "Notifications disabled with reason "
-           << NotificationsDisabledReasonToString(reason);
-  allstatus_.SetNotificationsEnabled(false);
-  scheduler_->SetNotificationsEnabled(false);
-  if (js_event_handler_.IsInitialized()) {
-    DictionaryValue details;
-    details.Set("enabled", Value::CreateBooleanValue(false));
-    js_event_handler_.Call(FROM_HERE,
-                           &JsEventHandler::HandleJsEvent,
-                           "onNotificationStateChange",
-                           JsEventDetails(&details));
-  }
-  // TODO(akalin): Treat a CREDENTIALS_REJECTED state as an auth
-  // error.
+  OnNotificationStateChange(reason);
 }
 
 void SyncManagerImpl::OnIncomingNotification(

@@ -132,7 +132,7 @@ class ToolbarView : public views::AccessiblePaneView,
 
   // Overridden from views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // Overridden from content::NotificationObserver:
   virtual void Observe(int type,
@@ -146,7 +146,7 @@ class ToolbarView : public views::AccessiblePaneView,
   // Overridden from views::View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual void Layout() OVERRIDE;
-  virtual bool HitTest(const gfx::Point& l) const OVERRIDE;
+  virtual bool HitTestRect(const gfx::Rect& rect) const OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual bool GetDropFormats(
       int* formats,
@@ -171,6 +171,13 @@ class ToolbarView : public views::AccessiblePaneView,
   virtual void RemovePaneFocus() OVERRIDE;
 
  private:
+  // Types of display mode this toolbar can have.
+  enum DisplayMode {
+    DISPLAYMODE_NORMAL,       // Normal toolbar with buttons, etc.
+    DISPLAYMODE_LOCATION      // Slimline toolbar showing only compact location
+                              // bar, used for popups.
+  };
+
   // Returns true if we should show the upgrade recommended dot.
   bool ShouldShowUpgradeRecommended();
 
@@ -186,13 +193,7 @@ class ToolbarView : public views::AccessiblePaneView,
   // Loads the images for all the child views.
   void LoadImages();
 
-  // Types of display mode this toolbar can have.
-  enum DisplayMode {
-    DISPLAYMODE_NORMAL,       // Normal toolbar with buttons, etc.
-    DISPLAYMODE_LOCATION      // Slimline toolbar showing only compact location
-                              // bar, used for popups.
-  };
-  bool IsDisplayModeNormal() const {
+  bool is_display_mode_normal() const {
     return display_mode_ == DISPLAYMODE_NORMAL;
   }
 
@@ -212,9 +213,6 @@ class ToolbarView : public views::AccessiblePaneView,
   // Sets the bounds of the LocationBarContainer. |bounds| is in the coordinates
   // of |this|.
   void SetLocationBarContainerBounds(const gfx::Rect& bounds);
-
-  scoped_ptr<BackForwardMenuModel> back_menu_model_;
-  scoped_ptr<BackForwardMenuModel> forward_menu_model_;
 
   // The model that contains the security level, text, icon to display...
   ToolbarModel* model_;

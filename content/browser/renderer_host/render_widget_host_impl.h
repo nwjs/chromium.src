@@ -46,10 +46,10 @@ struct WebScreenInfo;
 
 namespace content {
 class BackingStore;
+class GestureEventFilter;
 class RenderWidgetHostDelegate;
 class RenderWidgetHostViewPort;
 class SmoothScrollGesture;
-class TapSuppressionController;
 
 // This implements the RenderWidgetHost interface that is exposed to
 // embedders of content, and adds things only visible to content.
@@ -358,6 +358,13 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // locked.
   bool GotResponseToLockMouseRequest(bool allowed);
 
+  // Tells the RenderWidget about the latest vsync parameters.
+  // Note: Make sure the timebase was obtained using
+  // base::TimeTicks::HighResNow. Using the non-high res timer will result in
+  // incorrect synchronization across processes.
+  virtual void UpdateVSyncParameters(base::TimeTicks timebase,
+                                     base::TimeDelta interval);
+
   // Called by the view in response to AcceleratedSurfaceBuffersSwapped or
   // AcceleratedSurfacePostSubBuffer.
   static void AcknowledgeBufferPresent(
@@ -505,6 +512,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnMsgInputEventAck(WebKit::WebInputEvent::Type event_type,
                           bool processed);
   void OnMsgBeginSmoothScroll(bool scroll_down, bool scroll_far);
+  void OnMsgSelectRangeAck();
   virtual void OnMsgFocus();
   virtual void OnMsgBlur();
   void OnMsgHasTouchEventHandlers(bool has_handlers);
@@ -587,6 +595,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // previously queued coalesced gesture if it exists.
   void ProcessGestureAck(bool processed, int type);
 
+  void SimulateTouchGestureWithMouse(const WebKit::WebMouseEvent& mouse_event);
+
   // Called on OnMsgInputEventAck() to process a touch event ack message.
   // This can result in a gesture event being generated and sent back to the
   // renderer.
@@ -628,6 +638,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 
   // True when a page is rendered directly via the GPU process.
   bool is_accelerated_compositing_active_;
+
+  // True if threaded compositing is enabled on this view.
+  bool is_threaded_compositing_enabled_;
 
   // Set if we are waiting for a repaint ack for the view.
   bool repaint_ack_pending_;
@@ -676,15 +689,14 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // would be queued) results in very slow scrolling.
   WheelEventQueue coalesced_mouse_wheel_events_;
 
-  // (Similar to |mouse_wheel_pending_|.). True if gesture event was sent and
-  // we are waiting for a corresponding ack.
-  bool gesture_event_pending_;
+  // (Similar to |mouse_move_pending_|.) True while waiting for SelectRange_ACK.
+  bool select_range_pending_;
 
-  typedef std::deque<WebKit::WebGestureEvent> GestureEventQueue;
-
-  // (Similar to |coalesced_mouse_wheel_events_|.) GestureScrollUpdate events
-  // are coalesced by merging deltas in a similar fashion as wheel events.
-  GestureEventQueue coalesced_gesture_events_;
+  // (Similar to |next_mouse_move_|.) The next SelectRange to send, if any.
+  struct SelectionRange {
+    gfx::Point start, end;
+  };
+  scoped_ptr<SelectionRange> next_selection_range_;
 
   // The time when an input event was sent to the RenderWidget.
   base::TimeTicks input_event_start_time_;
@@ -775,9 +787,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 
   base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_;
 
-  scoped_ptr<TapSuppressionController> tap_suppression_controller_;
-
   scoped_ptr<SmoothScrollGesture> active_smooth_scroll_gesture_;
+
+  scoped_ptr<GestureEventFilter> gesture_event_filter_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostImpl);
 };

@@ -51,6 +51,11 @@ MockDiskMountManager::MockDiskMountManager() {
                             &MockDiskMountManager::RemoveObserverInternal));
   ON_CALL(*this, disks())
       .WillByDefault(Invoke(this, &MockDiskMountManager::disksInternal));
+  ON_CALL(*this, mount_points())
+      .WillByDefault(Invoke(this, &MockDiskMountManager::mountPointsInternal));
+  ON_CALL(*this, FindDiskBySourcePath(_))
+      .WillByDefault(Invoke(
+          this, &MockDiskMountManager::FindDiskBySourcePathInternal));
 }
 
 MockDiskMountManager::~MockDiskMountManager() {
@@ -143,6 +148,10 @@ void MockDiskMountManager::SetupDefaultReplies() {
       .Times(AnyNumber());
   EXPECT_CALL(*this, disks())
       .WillRepeatedly(ReturnRef(disks_));
+  EXPECT_CALL(*this, mount_points())
+      .WillRepeatedly(ReturnRef(mount_points_));
+  EXPECT_CALL(*this, FindDiskBySourcePath(_))
+      .Times(AnyNumber());
   EXPECT_CALL(*this, RequestMountInfoRefresh())
       .Times(AnyNumber());
   EXPECT_CALL(*this, MountPath(_, _, _, _))
@@ -191,6 +200,18 @@ void MockDiskMountManager::RemoveDiskEntryForMountDevice(
     delete it->second;
     disks_.erase(it);
   }
+}
+
+const DiskMountManager::MountPointMap&
+MockDiskMountManager::mountPointsInternal() const {
+  return mount_points_;
+}
+
+const DiskMountManager::Disk*
+MockDiskMountManager::FindDiskBySourcePathInternal(
+    const std::string& source_path) const {
+  DiskMap::const_iterator disk_it = disks_.find(source_path);
+  return disk_it == disks_.end() ? NULL : disk_it->second;
 }
 
 void MockDiskMountManager::NotifyDiskChanged(

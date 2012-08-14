@@ -18,7 +18,6 @@
 #include "chrome/common/extensions/extension_set.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/chrome_render_process_observer.h"
-#include "chrome/renderer/extensions/extension_dispatcher.h"
 #include "chrome/renderer/extensions/extension_groups.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
@@ -50,8 +49,8 @@ namespace extensions {
 static const char kUserScriptHead[] = "(function (unsafeWindow) {\n";
 static const char kUserScriptTail[] = "\n})(window);";
 
-int UserScriptSlave::GetIsolatedWorldIdForExtension(
-    const Extension* extension, WebFrame* frame) {
+int UserScriptSlave::GetIsolatedWorldIdForExtension(const Extension* extension,
+                                                    WebFrame* frame) {
   static int g_next_isolated_world_id = 1;
 
   IsolatedWorldMap::iterator iter = isolated_world_ids_.find(extension->id());
@@ -89,9 +88,8 @@ std::string UserScriptSlave::GetExtensionIdForIsolatedWorld(
 }
 
 // static
-void UserScriptSlave::InitializeIsolatedWorld(
-    int isolated_world_id,
-    const Extension* extension) {
+void UserScriptSlave::InitializeIsolatedWorld(int isolated_world_id,
+                                              const Extension* extension) {
   const URLPatternSet& permissions =
       extension->GetEffectiveHostPermissions();
   for (URLPatternSet::const_iterator i = permissions.begin();
@@ -339,16 +337,14 @@ void UserScriptSlave::InjectScripts(WebFrame* frame,
 
   // Notify the browser if any extensions are now executing scripts.
   if (!extensions_executing_scripts.empty()) {
-    WebKit::WebFrame* target_frame = frame;
-    while (target_frame->parent())
-      target_frame = target_frame->parent();
-
+    WebKit::WebFrame* top_frame = frame->top();
     content::RenderView* render_view =
-        content::RenderView::FromWebView(target_frame->view());
+        content::RenderView::FromWebView(top_frame->view());
     render_view->Send(new ExtensionHostMsg_ContentScriptsExecuting(
         render_view->GetRoutingID(),
         extensions_executing_scripts,
-        render_view->GetPageId()));
+        render_view->GetPageId(),
+        GetDataSourceURLForFrame(top_frame)));
   }
 
   // Log debug info.

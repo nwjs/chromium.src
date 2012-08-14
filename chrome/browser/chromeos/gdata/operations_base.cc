@@ -50,7 +50,10 @@ const char kUserContentScope[] = "https://docs.googleusercontent.com/";
 const char kContactsScope[] = "https://www.google.com/m8/feeds/";
 
 // OAuth scope for Drive API.
+const char kDriveScope[] = "https://www.googleapis.com/auth/drive";
 const char kDriveAppsScope[] = "https://www.googleapis.com/auth/drive.apps";
+const char kDriveAppsReadonlyScope[] =
+    "https://www.googleapis.com/auth/drive.apps.readonly";
 
 // Parse JSON string to base::Value object.
 void ParseJsonOnBlockingPool(const std::string& data,
@@ -81,11 +84,10 @@ namespace gdata {
 //================================ AuthOperation ===============================
 
 AuthOperation::AuthOperation(GDataOperationRegistry* registry,
-                             Profile* profile,
                              const AuthStatusCallback& callback,
                              const std::string& refresh_token)
     : GDataOperationRegistry::Operation(registry),
-      profile_(profile), refresh_token_(refresh_token), callback_(callback) {
+      refresh_token_(refresh_token), callback_(callback) {
 }
 
 AuthOperation::~AuthOperation() {}
@@ -93,12 +95,17 @@ AuthOperation::~AuthOperation() {}
 void AuthOperation::Start() {
   DCHECK(!refresh_token_.empty());
   std::vector<std::string> scopes;
-  scopes.push_back(kDocsListScope);
-  scopes.push_back(kSpreadsheetsScope);
-  scopes.push_back(kUserContentScope);
-  scopes.push_back(kContactsScope);
-  // Drive App scope is required for even WAPI v3 apps access.
-  scopes.push_back(kDriveAppsScope);
+  if (gdata::util::IsDriveV2ApiEnabled()) {
+    scopes.push_back(kDriveScope);
+    scopes.push_back(kDriveAppsReadonlyScope);
+  } else {
+    scopes.push_back(kDocsListScope);
+    scopes.push_back(kSpreadsheetsScope);
+    scopes.push_back(kUserContentScope);
+    scopes.push_back(kContactsScope);
+    // Drive App scope is required for even WAPI v3 apps access.
+    scopes.push_back(kDriveAppsScope);
+  }
   oauth2_access_token_fetcher_.reset(new OAuth2AccessTokenFetcher(
       this, g_browser_process->system_request_context()));
   NotifyStart();
@@ -155,10 +162,8 @@ void AuthOperation::OnGetTokenFailure(const GoogleServiceAuthError& error) {
 
 //============================ UrlFetchOperationBase ===========================
 
-UrlFetchOperationBase::UrlFetchOperationBase(GDataOperationRegistry* registry,
-                                             Profile* profile)
+UrlFetchOperationBase::UrlFetchOperationBase(GDataOperationRegistry* registry)
     : GDataOperationRegistry::Operation(registry),
-      profile_(profile),
       re_authenticate_count_(0),
       save_temp_file_(false),
       started_(false) {
@@ -167,10 +172,8 @@ UrlFetchOperationBase::UrlFetchOperationBase(GDataOperationRegistry* registry,
 UrlFetchOperationBase::UrlFetchOperationBase(
     GDataOperationRegistry* registry,
     GDataOperationRegistry::OperationType type,
-    const FilePath& path,
-    Profile* profile)
+    const FilePath& path)
     : GDataOperationRegistry::Operation(registry, type, path),
-      profile_(profile),
       re_authenticate_count_(0),
       save_temp_file_(false) {
 }
@@ -335,10 +338,9 @@ std::string UrlFetchOperationBase::GetResponseHeadersAsString(
 //============================ EntryActionOperation ============================
 
 EntryActionOperation::EntryActionOperation(GDataOperationRegistry* registry,
-                                           Profile* profile,
                                            const EntryActionCallback& callback,
                                            const GURL& document_url)
-    : UrlFetchOperationBase(registry, profile),
+    : UrlFetchOperationBase(registry),
       callback_(callback),
       document_url_(document_url) {
 }
@@ -362,9 +364,8 @@ void EntryActionOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
 //============================== GetDataOperation ==============================
 
 GetDataOperation::GetDataOperation(GDataOperationRegistry* registry,
-                                   Profile* profile,
                                    const GetDataCallback& callback)
-    : UrlFetchOperationBase(registry, profile),
+    : UrlFetchOperationBase(registry),
       callback_(callback),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
 }
@@ -436,7 +437,7 @@ void GetDataOperation::OnDataParsed(
   DCHECK(!value->get());
 
   OnProcessURLFetchResultsComplete(success);
-  // |value| will be deleted after return beause it is base::Owned()'d.
+  // |value| will be deleted after return because it is base::Owned()'d.
 }
 
 void GetDataOperation::RunCallback(GDataErrorCode fetch_error_code,

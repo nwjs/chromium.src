@@ -8,6 +8,7 @@
 #include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/process.h"
+#include "base/process_util.h"
 #include "base/string_util.h"
 #include "base/tracked_objects.h"
 #include "content/common/child_histogram_message_filter.h"
@@ -34,6 +35,12 @@ using tracked_objects::ThreadData;
 
 namespace {
 
+// How long to wait for a connection to the browser process before giving up.
+const int kConnectionTimeoutS = 15;
+
+// This isn't needed on Windows because there the sandbox's job object
+// terminates child processes automatically. For unsandboxed processes (i.e.
+// plugins), PluginThread has EnsureTerminateMessageFilter.
 #if defined(OS_POSIX)
 
 class SuicideOnChannelErrorFilter : public IPC::ChannelProxy::MessageFilter {
@@ -73,14 +80,16 @@ class SuicideOnChannelErrorFilter : public IPC::ChannelProxy::MessageFilter {
 
 }  // namespace
 
-ChildThread::ChildThread() {
+ChildThread::ChildThread()
+    : ALLOW_THIS_IN_INITIALIZER_LIST(channel_connected_factory_(this)) {
   channel_name_ = CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       switches::kProcessChannelID);
   Init();
 }
 
 ChildThread::ChildThread(const std::string& channel_name)
-    : channel_name_(channel_name) {
+    : channel_name_(channel_name),
+      ALLOW_THIS_IN_INITIALIZER_LIST(channel_connected_factory_(this)) {
   Init();
 }
 
@@ -114,6 +123,12 @@ void ChildThread::Init() {
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kProcessType))
     channel_->AddFilter(new SuicideOnChannelErrorFilter());
 #endif
+
+  MessageLoop::current()->PostDelayedTask(
+      FROM_HERE,
+      base::Bind(&ChildThread::EnsureConnected,
+                 channel_connected_factory_.GetWeakPtr()),
+      base::TimeDelta::FromSeconds(kConnectionTimeoutS));
 }
 
 ChildThread::~ChildThread() {
@@ -133,6 +148,10 @@ ChildThread::~ChildThread() {
   // automatically.  We used to watch the object handle on Windows to do this,
   // but it wasn't possible to do so on POSIX.
   channel_->ClearIPCTaskRunner();
+}
+
+void ChildThread::OnChannelConnected(int32 peer_pid) {
+  channel_connected_factory_.InvalidateWeakPtrs();
 }
 
 void ChildThread::OnChannelError() {
@@ -331,4 +350,9 @@ void ChildThread::OnProcessFinalRelease() {
   // race conditions if the process refcount is 0 but there's an IPC message
   // inflight that would addref it.
   Send(new ChildProcessHostMsg_ShutdownRequest);
+}
+
+void ChildThread::EnsureConnected() {
+  LOG(INFO) << "ChildThread::EnsureConnected()";
+  base::KillProcess(base::GetCurrentProcessHandle(), 0, false);
 }

@@ -17,17 +17,23 @@
     'variables': {
       'variables': {
         'variables': {
-          # Whether we're building a ChromeOS build.
-          'chromeos%': 0,
+          'variables': {
+            # Whether we're building a ChromeOS build.
+            'chromeos%': 0,
+
+            # Whether or not we are using the Aura windowing framework.
+            'use_aura%': 0,
+
+            # Whether or not we are building the Ash shell.
+            'use_ash%': 0,
+          },
+          # Copy conditionally-set variables out one scope.
+          'chromeos%': '<(chromeos)',
+          'use_aura%': '<(use_aura)',
+          'use_ash%': '<(use_ash)',
 
           # Whether we are using Views Toolkit
           'toolkit_views%': 0,
-
-          # Whether or not we are using the Aura windowing framework.
-          'use_aura%': 0,
-
-          # Whether or not we are building the Ash shell.
-          'use_ash%': 0,
 
           # Use OpenSSL instead of NSS. Under development: see http://crbug.com/62803
           'use_openssl%': 1,
@@ -57,6 +63,24 @@
           # based on 'buildtype' (i.e. we don't care about saving symbols for
           # non-Official # builds).
           'buildtype%': 'Dev',
+
+          'conditions': [
+            # ChromeOS implies ash.
+            ['chromeos==1', {
+              'use_ash%': 1,
+              'use_aura%': 1,
+            }],
+
+            # For now, Windows builds that |use_aura| should also imply using
+            # ash. This rule should be removed for the future when Windows is
+            # using the aura windows without the ash interface.
+            ['use_aura==1 and OS=="win"', {
+              'use_ash%': 1,
+            }],
+            ['use_ash==1', {
+              'use_aura%': 1,
+            }],
+          ],
         },
         # Copy conditionally-set variables out one scope.
         'chromeos%': '<(chromeos)',
@@ -88,23 +112,6 @@
               '<!(uname -m | sed -e "s/i.86/ia32/;s/x86_64/x64/;s/amd64/x64/;s/arm.*/arm/;s/i86pc/ia32/")',
           }],
 
-          # Chromeos implies ash.
-          ['chromeos==1', {
-            'use_ash%': 1,
-            'use_aura%': 1,
-          }],
-
-          # For now, Windows *AND* Linux builds that |use_aura| should also
-          # imply using ash. This rule should be removed for the future when
-          # both Linux and Windows are using the aura windows without the ash
-          # interface.
-          ['use_aura==1 and OS=="win"', {
-            'use_ash%': 1,
-          }],
-          ['use_ash==1', {
-            'use_aura%': 1,
-          }],
-
           # Set default value of toolkit_views based on OS.
           ['OS=="win" or chromeos==1 or use_aura==1', {
             'toolkit_views%': 1,
@@ -112,8 +119,15 @@
             'toolkit_views%': 0,
           }],
 
-          # Enable HiDPI on Mac OS.
-          ['OS=="mac"', {
+          # Set toolkit_uses_gtk for the Chromium browser on Linux.
+          ['(OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris") and use_aura==0', {
+            'toolkit_uses_gtk%': 1,
+          }, {
+            'toolkit_uses_gtk%': 0,
+          }],
+
+          # Enable HiDPI on Mac OS and Chrome OS.
+          ['OS=="mac" or chromeos==1', {
             'enable_hidpi%': 1,
           }],
 
@@ -128,6 +142,7 @@
       'chromeos%': '<(chromeos)',
       'host_arch%': '<(host_arch)',
       'toolkit_views%': '<(toolkit_views)',
+      'toolkit_uses_gtk%': '<(toolkit_uses_gtk)',
       'use_aura%': '<(use_aura)',
       'use_ash%': '<(use_ash)',
       'use_openssl%': '<(use_openssl)',
@@ -413,13 +428,6 @@
           'use_x11%': 1,
         }],
 
-        # Set toolkit_uses_gtk for the Chromium browser on Linux.
-        ['(OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris") and use_aura==0', {
-          'toolkit_uses_gtk%': 1,
-        }, {
-          'toolkit_uses_gtk%': 0,
-        }],
-
         # We always use skia text rendering in Aura on Windows, since GDI
         # doesn't agree with our BackingStore.
         # TODO(beng): remove once skia text rendering is on by default.
@@ -437,7 +445,7 @@
           'use_gnome_keyring%': 1,
         }],
 
-        ['toolkit_views==0 or OS=="mac" or OS=="ios"', {
+        ['toolkit_uses_gtk==1 or OS=="mac" or OS=="ios"', {
           # GTK+, Mac and iOS want Title Case strings
           'use_titlecase_in_grd_files%': 1,
         }],
@@ -704,7 +712,7 @@
 
     # Turn on Use Library Dependency Inputs for linking chrome.dll on Windows
     # to get incremental linking to be faster in debug builds.
-    'incremental_chrome_dll%': '<!(python <(DEPTH)/tools/win/supalink/check_installed.py)',
+    'incremental_chrome_dll%': '0',
 
     # This is the location of the sandbox binary. Chrome looks for this before
     # running the zygote process. If found, and SUID, it will be used to
@@ -979,9 +987,6 @@
         # match use_system_skia.
         'use_system_skia%': '0',
         'use_system_harfbuzz%': '0',
-
-        # Always use the system zlib.
-        'use_system_zlib%': 1,
 
         # Configure crash reporting and build options based on release type.
         'conditions': [
@@ -2218,7 +2223,7 @@
                         'cflags': [ '-mfpu=neon', ],
                       }, {
                         'cflags': [ '-mfpu=<(arm_fpu)', ],
-                      }]
+                      }],
                     ],
                   }],
                   ['OS=="android"', {
@@ -2261,6 +2266,15 @@
                           '__ARM_ARCH_5T__',
                           '__ARM_ARCH_5E__',
                           '__ARM_ARCH_5TE__',
+                        ],
+                      }],
+                      ['clang==1', {
+                        'cflags!': [
+                          # Clang does not support the following options.
+                          '-mthumb-interwork',
+                          '-finline-limit=64',
+                          '-fno-tree-sra',
+                          '-Wno-psabi',
                         ],
                       }],
                     ],
@@ -2578,6 +2592,33 @@
             'conditions': [
               ['android_upstream_bringup==1', {
                 'defines': ['ANDROID_UPSTREAM_BRINGUP=1',],
+              }],
+              ['clang==1', {
+                'cflags': [
+                  # Work around incompatibilities between bionic and clang
+                  # headers.
+                  '-D__compiler_offsetof=__builtin_offsetof',
+                  '-Dnan=__builtin_nan',
+                ],
+                'conditions': [
+                  ['target_arch=="arm"', {
+                    'cflags': [
+                      '-target arm-linux-androideabi',
+                      '-mllvm -arm-enable-ehabi',
+                    ],
+                    'ldflags': [
+                      '-target arm-linux-androideabi',
+                    ],
+                  }],
+                  ['target_arch=="ia32"', {
+                    'cflags': [
+                      '-target x86-linux-androideabi',
+                    ],
+                    'ldflags': [
+                      '-target x86-linux-androideabi',
+                    ],
+                  }],
+                ],
               }],
               ['android_build_type==0', {
                 'defines': [
@@ -3280,7 +3321,7 @@
         ],
       },
     }],
-    ['clang==1 and OS!="android"', {
+    ['clang==1', {
       'make_global_settings': [
         ['CC', '<(make_clang_dir)/bin/clang'],
         ['CXX', '<(make_clang_dir)/bin/clang++'],
@@ -3290,7 +3331,7 @@
         ['LINK.host', '$(LINK)'],
       ],
     }],
-    ['OS=="android" and "<(GENERATOR)"!="ninja"', {
+    ['OS=="android" and clang==0 and "<(GENERATOR)"!="ninja"', {
       # Hardcode the compiler names in the Makefile so that
       # it won't depend on the environment at make time.
       'make_global_settings': [

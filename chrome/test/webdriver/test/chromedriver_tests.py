@@ -288,28 +288,19 @@ class DesiredCapabilitiesTest(ChromeDriverTest):
     self.assertTrue('ExtTest2' in extension_names)
     driver.quit()
 
-  def testUseWebsiteTestingDefaults(self):
-    """Test that chromedriver initializes options for website testing."""
-    driver = self.GetNewDriver()
-    driver.get(self.GetTestDataUrl() + '/content_setting_test.html')
-    driver.set_script_timeout(10)
-    # Will timeout if infobar appears.
-    driver.execute_async_script('waitForGeo(arguments[0])')
-
   def testPrefs(self):
     """Test that chromedriver can set user preferences."""
     driver = self.GetNewDriver({
       'chrome.noWebsiteTestingDefaults': True,
       'chrome.prefs': {
         'profile.default_content_settings': {
-          'geolocation': 1
+          'popups': 1
         },
       }
     })
-    driver.get(self.GetTestDataUrl() + '/content_setting_test.html')
-    driver.set_script_timeout(10)
-    # Will timeout if infobar appears.
-    driver.execute_async_script('waitForGeo(arguments[0])')
+    driver.get(self.GetTestDataUrl() + '/empty.html')
+    driver.execute_script('window.open("about:blank")')
+    self.assertEquals(2, len(driver.window_handles))
 
 
 class DetachProcessTest(ChromeDriverTest):
@@ -1077,6 +1068,8 @@ class ExtensionTest(ChromeDriverTest):
       '/infobar_browser_action_extension'
   PAGE_ACTION_EXTENSION = test_paths.TEST_DATA_PATH + \
       '/page_action_extension'
+  APP_SHELL = test_paths.TEST_DATA_PATH + \
+      '/app_shell_extension'
 
   def testExtensionInstallAndUninstall(self):
     driver = self.GetNewDriver()
@@ -1147,6 +1140,21 @@ class ExtensionTest(ChromeDriverTest):
     ext.click_page_action()
     self._testExtensionView(driver, ext.get_popup_handle(), ext)
 
+  def testAppShellView(self):
+    driver = self.GetNewDriver({'chrome.switches':
+                                ['enable-experimental-extension-apis']})
+    ext = driver.install_extension(self.APP_SHELL)
+
+    # Navigates to the new tab page to launch the app.
+    driver.get('chrome:newtab')
+    app = driver.find_element_by_xpath("//div[@title='App Shell']")
+    app.click()
+    def is_app_window_launched(driver):
+      return ext.get_app_shell_handle() is not None
+    WebDriverWait(driver, 10).until(is_app_window_launched)
+    self._testExtensionView(driver, ext.get_app_shell_handle(), ext)
+
+
 class BadJSTest(ChromeDriverTest):
   """Tests that ensure sites with hacky JS don't break ChromeDriver."""
 
@@ -1155,3 +1163,48 @@ class BadJSTest(ChromeDriverTest):
     driver.get(self.GetTestDataUrl() + '/bad_native_funcs.html')
     # This will throw an exception if any native funcs are used.
     driver.find_element_by_tag_name('body').find_elements_by_tag_name('div')
+
+
+class ContentSettingsTest(ChromeDriverTest):
+  """Tests that various types of content are allowed by default."""
+
+  def testPopups(self):
+    driver = self.GetNewDriver()
+    driver.get(self.GetTestDataUrl() + '/empty.html')
+    driver.execute_script('window.open("about:blank")')
+    self.assertEquals(2, len(driver.window_handles))
+
+  # Failing on win7: crbug.com/141231.
+  @SkipIf(util.IsWin())
+  def testPopupsCanBeResized(self):
+    """Regression test for chromedriver issue 126."""
+    driver = self.GetNewDriver()
+    driver.get(self.GetTestDataUrl() + '/empty.html')
+    driver.execute_script(
+        'window.open("empty.html", "popup", "width=500,height=500")')
+    driver.switch_to_window(driver.window_handles[1])
+    size = driver.get_window_size()
+    bigger_size = dict(map(lambda x: (x, size[x] + 100), size))
+    smaller_size = dict(map(lambda x: (x, size[x] - 100), size))
+    driver.set_window_size(bigger_size['width'], bigger_size['height'])
+    self.assertEquals(bigger_size, driver.get_window_size())
+    driver.set_window_size(smaller_size['width'], smaller_size['height'])
+    self.assertEquals(smaller_size, driver.get_window_size())
+
+  def testGeolocation(self):
+    driver = self.GetNewDriver()
+    driver.get(self.GetTestDataUrl() + '/empty.html')
+    driver.set_script_timeout(10)
+    # Will timeout if infobar appears.
+    driver.execute_async_script(
+        'navigator.geolocation.getCurrentPosition(arguments[0], arguments[0]);')
+
+  def testMediaStream(self):
+    driver = self.GetNewDriver()
+    # Allowing camera/mic access by default only works for https sites.
+    driver.get(self.GetHttpsTestDataUrl() + '/empty.html')
+    driver.set_script_timeout(10)
+    # Will timeout if infobar appears.
+    driver.execute_async_script(
+        'navigator.webkitGetUserMedia({audio:true, video:true},' +
+        '                             arguments[0], arguments[0]);')

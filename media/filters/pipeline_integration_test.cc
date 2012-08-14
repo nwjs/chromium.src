@@ -19,8 +19,8 @@ static const uint8 kInitData[] = { 0x69, 0x6e, 0x69, 0x74 };
 
 // Key used to encrypt video track in test file "bear-320x240-encrypted.webm".
 static const uint8 kSecretKey[] = {
-  0xfb, 0x67, 0x8a, 0x91, 0x19, 0x12, 0x7b, 0x6b,
-  0x0b, 0x63, 0x11, 0xf8, 0x6f, 0xe1, 0xc4, 0x2d
+  0xeb, 0xdd, 0x62, 0xf1, 0x68, 0x14, 0xd2, 0x7b,
+  0x68, 0xef, 0x12, 0x2a, 0xfc, 0xe4, 0xae, 0x3c
 };
 
 // Helper class that emulates calls made on the ChunkDemuxer by the
@@ -45,8 +45,6 @@ class MockMediaSource : public ChunkDemuxerClient {
   void set_decryptor_client(DecryptorClient* decryptor_client) {
     decryptor_client_ = decryptor_client;
   }
-
-  const std::string& url() const { return url_; }
 
   void Seek(int new_position, int seek_append_size) {
     chunk_demuxer_->StartWaitingForSeek();
@@ -187,12 +185,10 @@ class PipelineIntegrationTest
  public:
   void StartPipelineWithMediaSource(MockMediaSource* source) {
     pipeline_->Start(
-        CreateFilterCollection(source),
+        CreateFilterCollection(source, NULL),
         base::Bind(&PipelineIntegrationTest::OnEnded, base::Unretained(this)),
         base::Bind(&PipelineIntegrationTest::OnError, base::Unretained(this)),
         QuitOnStatusCB(PIPELINE_OK));
-
-    ASSERT_TRUE(decoder_.get());
 
     message_loop_.Run();
   }
@@ -201,13 +197,11 @@ class PipelineIntegrationTest
       MockMediaSource* source,
       FakeDecryptorClient* encrypted_media) {
     pipeline_->Start(
-        CreateFilterCollection(source),
+        CreateFilterCollection(source, encrypted_media->decryptor()),
         base::Bind(&PipelineIntegrationTest::OnEnded, base::Unretained(this)),
         base::Bind(&PipelineIntegrationTest::OnError, base::Unretained(this)),
         QuitOnStatusCB(PIPELINE_OK));
 
-    ASSERT_TRUE(decoder_.get());
-    decoder_->set_decryptor(encrypted_media->decryptor());
     source->set_decryptor_client(encrypted_media);
 
     message_loop_.Run();
@@ -290,10 +284,8 @@ TEST_F(PipelineIntegrationTest, BasicPlayback_16x9AspectRatio) {
   ASSERT_TRUE(WaitUntilOnEnded());
 }
 
-// TODO(fgalligan): Enable test when encrypted test data is updated and new
-// decryption code is landed. http://crbug.com/132801
-TEST_F(PipelineIntegrationTest, DISABLED_EncryptedPlayback) {
-  MockMediaSource source("bear-320x240-encrypted.webm", 220730, true, true);
+TEST_F(PipelineIntegrationTest, EncryptedPlayback) {
+  MockMediaSource source("bear-320x240-encrypted.webm", 220788, true, true);
   FakeDecryptorClient encrypted_media;
   StartPipelineWithEncryptedMedia(&source, &encrypted_media);
 

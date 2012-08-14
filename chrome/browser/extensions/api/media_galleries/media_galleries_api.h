@@ -12,13 +12,22 @@
 
 namespace extensions {
 
-class MediaGalleriesGetMediaFileSystemsFunction : public SyncExtensionFunction {
+class MediaGalleriesGetMediaFileSystemsFunction
+    : public AsyncExtensionFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION_NAME("mediaGalleries.getMediaFileSystems")
+  DECLARE_EXTENSION_FUNCTION_NAME(
+      "experimental.mediaGalleries.getMediaFileSystems")
 
  protected:
   virtual ~MediaGalleriesGetMediaFileSystemsFunction();
   virtual bool RunImpl() OVERRIDE;
+
+ private:
+  // Grabs the galleries from the preferences system and returns them.
+  void ReturnGalleries();
+
+  // Shows the configuration dialog to edit gallery preferences.
+  void ShowDialog();
 };
 
 class MediaGalleriesAssembleMediaFileFunction : public SyncExtensionFunction {

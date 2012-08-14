@@ -91,14 +91,19 @@ class WebUIBindings;
 
 namespace content {
 class DocumentState;
-class GuestToEmbedderChannel;
 class NavigationState;
 class P2PSocketDispatcher;
 class RenderViewObserver;
 class RenderViewTest;
 class RendererAccessibility;
+class RendererPpapiHost;
 struct CustomContextMenuContext;
 struct FileChooserParams;
+
+namespace old {
+class GuestToEmbedderChannel;
+}
+
 }  // namespace content
 
 namespace gfx {
@@ -133,6 +138,7 @@ class WebMediaPlayerManagerAndroid;
 namespace WebKit {
 class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
+class WebCompositorOutputSurface;
 class WebDOMMessageEvent;
 class WebDataSource;
 class WebDragData;
@@ -211,7 +217,7 @@ class RenderViewImpl : public RenderWidget,
       bool swapped_out,
       int32 next_page_id,
       const WebKit::WebScreenInfo& screen_info,
-      content::GuestToEmbedderChannel* guest_to_embedder_channel,
+      content::old::GuestToEmbedderChannel* guest_to_embedder_channel,
       AccessibilityMode accessibility_mode);
 
   // Returns the RenderViewImpl containing the given WebView.
@@ -276,8 +282,8 @@ class RenderViewImpl : public RenderWidget,
   // Sets whether  the renderer should report load progress to the browser.
   void SetReportLoadProgressEnabled(bool enabled);
 
-  content::GuestToEmbedderChannel* GetGuestToEmbedderChannel() const;
-  void SetGuestToEmbedderChannel(content::GuestToEmbedderChannel* channel);
+  content::old::GuestToEmbedderChannel* GetGuestToEmbedderChannel() const;
+  void SetGuestToEmbedderChannel(content::old::GuestToEmbedderChannel* channel);
   PP_Instance guest_pp_instance() const { return guest_pp_instance_; }
   void set_guest_pp_instance(PP_Instance instance) {
     guest_pp_instance_ = instance;
@@ -330,7 +336,7 @@ class RenderViewImpl : public RenderWidget,
   void PpapiPluginSelectionChanged();
 
   // Notification that a PPAPI plugin has been created.
-  void PpapiPluginCreated(ppapi::host::PpapiHost* host);
+  void PpapiPluginCreated(content::RendererPpapiHost* host);
 
   // Retrieves the current caret position if a PPAPI plugin has focus.
   bool GetPpapiPluginCaretBounds(gfx::Rect* rect);
@@ -426,8 +432,7 @@ class RenderViewImpl : public RenderWidget,
       WebKit::WebExternalPopupMenuClient* popup_menu_client);
   virtual WebKit::WebStorageNamespace* createSessionStorageNamespace(
       unsigned quota);
-  virtual WebKit::WebGraphicsContext3D* createGraphicsContext3D(
-      const WebKit::WebGraphicsContext3D::Attributes& attributes);
+  virtual WebKit::WebCompositorOutputSurface* createOutputSurface() OVERRIDE;
   virtual void didAddMessageToConsole(
       const WebKit::WebConsoleMessage& message,
       const WebKit::WebString& source_name,
@@ -498,6 +503,7 @@ class RenderViewImpl : public RenderWidget,
                                        const WebKit::WebString& title);
   virtual WebKit::WebPageVisibilityState visibilityState() const;
   virtual WebKit::WebUserMediaClient* userMediaClient();
+  virtual void draggableRegionsChanged();
 
   // WebKit::WebFrameClient implementation -------------------------------------
 
@@ -803,6 +809,7 @@ class RenderViewImpl : public RenderWidget,
   FRIEND_TEST_ALL_PREFIXES(RenderViewTest, MacTestCmdUp);
 #endif
   FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, SetHistoryLengthAndPrune);
+  FRIEND_TEST_ALL_PREFIXES(RenderViewImplTest, ZoomLimit);
 
   typedef std::map<GURL, double> HostZoomLevels;
   typedef void (*update_url_cb_t)();
@@ -825,7 +832,8 @@ class RenderViewImpl : public RenderWidget,
                  bool swapped_out,
                  int32 next_page_id,
                  const WebKit::WebScreenInfo& screen_info,
-                 content::GuestToEmbedderChannel* guest_to_embedder_channel,
+                 content::old::GuestToEmbedderChannel*
+                    guest_to_embedder_channel,
                  AccessibilityMode accessibility_mode);
 
   // Do not delete directly.  This class is reference counted.
@@ -930,7 +938,6 @@ class RenderViewImpl : public RenderWidget,
   void OnFileChooserResponse(
       const std::vector<ui::SelectedFileInfo>& files);
   void OnFind(int request_id, const string16&, const WebKit::WebFindOptions&);
-  void OnFindReplyAck();
   void OnGetAllSavableResourceLinksForCurrentPage(const GURL& page_url);
   void OnGetSerializedHtmlDataForCurrentPageWithLocalLinks(
       const std::vector<GURL>& links,
@@ -984,7 +991,8 @@ class RenderViewImpl : public RenderWidget,
   void OnSetWindowVisibility(bool visible);
 #endif
   void OnSetZoomLevel(double zoom_level);
-  void OnSetZoomLevelForLoadingURL(const GURL& url, double zoom_level);
+  CONTENT_EXPORT void OnSetZoomLevelForLoadingURL(const GURL& url,
+                                                  double zoom_level);
   void OnExitFullscreen();
   void OnShouldClose();
   void OnStop();
@@ -1028,6 +1036,9 @@ class RenderViewImpl : public RenderWidget,
 
   // Check whether the preferred size has changed.
   void CheckPreferredSize();
+
+  WebKit::WebGraphicsContext3D* CreateGraphicsContext3D(
+      const WebKit::WebGraphicsContext3D::Attributes& attributes);
 
   void EnsureMediaStreamImpl();
 
@@ -1356,11 +1367,6 @@ class RenderViewImpl : public RenderWidget,
   // shouldn't count against their own |shared_popup_counter_|.
   bool decrement_shared_popup_at_destruction_;
 
-  // If the browser hasn't sent us an ACK for the last FindReply we sent
-  // to it, then we need to queue up the message (keeping only the most
-  // recent message if new ones come in).
-  scoped_ptr<IPC::Message> queued_find_reply_message_;
-
   // Stores edit commands associated to the next key event.
   // Shall be cleared as soon as the next key event is processed.
   EditCommands edit_commands_;
@@ -1411,7 +1417,8 @@ class RenderViewImpl : public RenderWidget,
   scoped_ptr<DomAutomationController> dom_automation_controller_;
 
   // Channel for communication with embedding renderer, if it exists.
-  scoped_refptr<content::GuestToEmbedderChannel> guest_to_embedder_channel_;
+  scoped_refptr<content::old::GuestToEmbedderChannel>
+      guest_to_embedder_channel_;
 
   // The pepper instance identifer for this guest RenderView.
   PP_Instance guest_pp_instance_;

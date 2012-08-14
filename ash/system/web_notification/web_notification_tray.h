@@ -20,14 +20,17 @@ class ImageSkia;
 }
 
 namespace views {
-class ImageView;
+class Label;
 }
 
 namespace ash {
 
 namespace internal {
 class StatusAreaWidget;
+class WebNotificationButtonView;
 class WebNotificationList;
+class WebNotificationMenuModel;
+class WebNotificationView;
 }
 
 // Status area tray for showing browser and app notifications. The client
@@ -85,33 +88,50 @@ class ASH_EXPORT WebNotificationTray : public internal::TrayBackgroundView {
                        const string16& display_source,
                        const std::string& extension_id);
 
-  // Update an existing notification.
-  void UpdateNotification(const std::string& id,
+  // Update an existing notification with id = old_id and set its id to new_id.
+  void UpdateNotification(const std::string& old_id,
+                          const std::string& new_id,
                           const string16& title,
                           const string16& message);
 
-  // Remove an existing notification and notify the delegate.
+  // Remove an existing notification.
   void RemoveNotification(const std::string& id);
-
-  // Remove all notifications and notify the delegate.
-  void RemoveAllNotifications();
 
   // Set the notification image.
   void SetNotificationImage(const std::string& id,
                             const gfx::ImageSkia& image);
 
-  // Disable all notifications matching notification |id|.
-  void DisableByExtension(const std::string& id);
-  void DisableByUrl(const std::string& id);
+  // Show the message center bubble. Should only be called by StatusAreaWidget.
+  void ShowMessageCenterBubble();
 
-  // Show the notification bubble. Should only be called by StatusAreaWidget.
-  void ShowBubble();
+  // Hide the message center bubble. Should only be called by StatusAreaWidget.
+  void HideMessageCenterBubble();
 
-  // Hide the notification bubble. Should only be called by StatusAreaWidget.
-  void HideBubble();
+  // Show a single notification bubble for the most recent notification.
+  void ShowNotificationBubble();
+
+  // Hide the single notification bubble if visible.
+  void HideNotificationBubble();
 
   // Updates tray visibility login status of the system changes.
   void UpdateAfterLoginStatusChange(user::LoginStatus login_status);
+
+  // Overridden from TrayBackgroundView.
+  virtual void SetShelfAlignment(ShelfAlignment alignment) OVERRIDE;
+
+  // Overridden from internal::ActionableView.
+  virtual bool PerformAction(const ui::Event& event) OVERRIDE;
+
+ protected:
+  // Send a remove request to the delegate.
+  void SendRemoveNotification(const std::string& id);
+
+  // Send a remove request for all notifications to the delegate.
+  void SendRemoveAllNotifications();
+
+  // Disable all notifications matching notification |id|.
+  void DisableByExtension(const std::string& id);
+  void DisableByUrl(const std::string& id);
 
   // Request the Delegate to the settings dialog.
   void ShowSettings(const std::string& id);
@@ -119,40 +139,32 @@ class ASH_EXPORT WebNotificationTray : public internal::TrayBackgroundView {
   // Called when a notification is clicked on. Event is passed to the Delegate.
   void OnClicked(const std::string& id);
 
-  internal::StatusAreaWidget* status_area_widget() {
-    return status_area_widget_;
-  }
-
-  // Overridden from TrayBackgroundView.
-  virtual void SetShelfAlignment(ShelfAlignment alignment) OVERRIDE;
-
-  // Overridden from internal::ActionableView.
-  virtual bool PerformAction(const views::Event& event) OVERRIDE;
-
  private:
   class Bubble;
-  class BubbleContentsView;
+  friend class internal::WebNotificationButtonView;
+  friend class internal::WebNotificationMenuModel;
+  friend class internal::WebNotificationView;
   FRIEND_TEST_ALL_PREFIXES(WebNotificationTrayTest, WebNotifications);
+  FRIEND_TEST_ALL_PREFIXES(WebNotificationTrayTest, WebNotificationBubble);
 
-  void SetBorder();
-  void SetTrayContainerBorder();
   int GetNotificationCount() const;
-  void UpdateIcon();
-  void UpdateBubbleAndIcon();
+  void UpdateTray();
+  void UpdateTrayAndBubble();
+  void HideBubble(Bubble* bubble);
+  bool HasNotificationForTest(const std::string& id) const;
 
   const internal::WebNotificationList* notification_list() const {
     return notification_list_.get();
   }
-  views::View* tray_container() const { return tray_container_; }
-  Bubble* bubble() const { return bubble_.get(); }
+  Bubble* message_center_bubble() const { return message_center_bubble_.get(); }
+  Bubble* notification_bubble() const { return notification_bubble_.get(); }
 
-  internal::StatusAreaWidget* status_area_widget_;  // Unowned parent.
   scoped_ptr<internal::WebNotificationList> notification_list_;
-  scoped_ptr<Bubble> bubble_;
-  views::View* tray_container_;
-  views::ImageView* icon_;
+  scoped_ptr<Bubble> message_center_bubble_;
+  scoped_ptr<Bubble> notification_bubble_;
+  views::Label* count_label_;
   Delegate* delegate_;
-  bool show_bubble_on_unlock_;
+  bool show_message_center_on_unlock_;
 
   DISALLOW_COPY_AND_ASSIGN(WebNotificationTray);
 };

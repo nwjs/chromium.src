@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "ash/desktop_background/desktop_background_widget_controller.h"
 #include "ash/display/display_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_factory.h"
@@ -19,7 +20,6 @@
 #include "ash/wm/toplevel_window_event_filter.h"
 #include "ash/wm/visibility_controller.h"
 #include "ash/wm/window_properties.h"
-#include "ash/wm/workspace/workspace_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/aura_constants.h"
@@ -169,6 +169,13 @@ void CreateContainersInRootWindow(aura::RootWindow* root_window) {
       non_lock_screen_containers);
   SetUsesScreenCoordinates(input_method_container);
 
+  aura::Window* lock_background_containers = CreateContainer(
+      internal::kShellWindowId_LockScreenBackgroundContainer,
+      "LockScreenBackgroundContainer",
+      lock_screen_containers);
+
+  SetChildWindowVisibilityChangesAnimated(lock_background_containers);
+
   // TODO(beng): Figure out if we can make this use
   // SystemModalContainerEventFilter instead of stops_event_propagation.
   aura::Window* lock_container = CreateContainer(
@@ -278,7 +285,9 @@ void RootWindowController::CreateContainers() {
 
 void RootWindowController::CloseChildWindows() {
   // Close background widget first as it depends on tooltip.
-  root_window_layout_->SetBackgroundWidget(NULL);
+  root_window_->SetProperty(kWindowDesktopComponent,
+      static_cast<DesktopBackgroundWidgetController*>(NULL));
+
   workspace_controller_.reset();
   aura::client::SetTooltipClient(root_window_.get(), NULL);
 
@@ -289,7 +298,7 @@ void RootWindowController::CloseChildWindows() {
 }
 
 bool RootWindowController::IsInMaximizedMode() const {
-  return workspace_controller_->workspace_manager()->IsInMaximizedMode();
+  return workspace_controller_->IsInMaximizedMode();
 }
 
 void RootWindowController::MoveWindowsTo(aura::RootWindow* dst) {

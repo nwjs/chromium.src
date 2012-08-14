@@ -68,12 +68,8 @@ scoped_ptr<VisitItem> GetVisitItem(const history::VisitRow& row) {
       new double(MilliSecondsFromTime(row.visit_time)));
   visit_item->referring_visit_id = base::Int64ToString(row.referring_visit);
 
-  const char* trans =
-      content::PageTransitionGetCoreTransitionString(row.transition);
-  DCHECK(trans) << "Invalid transition.";
-
   VisitItem::Transition transition = VisitItem::TRANSITION_LINK;
-  switch (row.transition) {
+  switch (row.transition & content::PAGE_TRANSITION_CORE_MASK) {
     case content::PAGE_TRANSITION_LINK:
       transition = VisitItem::TRANSITION_LINK;
       break;
@@ -159,9 +155,7 @@ void HistoryExtensionEventRouter::HistoryUrlVisited(
   scoped_ptr<HistoryItem> history_item = GetHistoryItem(details->row);
   scoped_ptr<ListValue> args = OnVisited::Create(*history_item);
 
-  std::string json_args;
-  base::JSONWriter::Write(args.get(), &json_args);
-  DispatchEvent(profile, kOnVisited, json_args);
+  DispatchEvent(profile, kOnVisited, args.Pass());
 }
 
 void HistoryExtensionEventRouter::HistoryUrlsRemoved(
@@ -178,17 +172,16 @@ void HistoryExtensionEventRouter::HistoryUrlsRemoved(
   removed.urls.reset(urls);
 
   scoped_ptr<ListValue> args = OnVisitRemoved::Create(removed);
-  std::string json_args;
-  base::JSONWriter::Write(args.get(), &json_args);
-  DispatchEvent(profile, kOnVisitRemoved, json_args);
+  DispatchEvent(profile, kOnVisitRemoved, args.Pass());
 }
 
-void HistoryExtensionEventRouter::DispatchEvent(Profile* profile,
-                                                const char* event_name,
-                                                const std::string& json_args) {
+void HistoryExtensionEventRouter::DispatchEvent(
+    Profile* profile,
+    const char* event_name,
+    scoped_ptr<ListValue> event_args) {
   if (profile && profile->GetExtensionEventRouter()) {
     profile->GetExtensionEventRouter()->DispatchEventToRenderers(
-        event_name, json_args, profile, GURL(),
+        event_name, event_args.Pass(), profile, GURL(),
         extensions::EventFilteringInfo());
   }
 }

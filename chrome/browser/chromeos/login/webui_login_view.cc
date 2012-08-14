@@ -115,6 +115,9 @@ WebUILoginView::WebUILoginView()
     : webui_login_(NULL),
       login_window_(NULL),
       host_window_frozen_(false),
+      is_hidden_(false),
+      login_visible_notification_fired_(false),
+      login_prompt_visible_handled_(false),
       should_emit_login_prompt_visible_(true) {
   registrar_.Add(this,
                  chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE,
@@ -150,7 +153,6 @@ void WebUILoginView::Init(views::Widget* login_window) {
       WebContents::Create(ProfileManager::GetDefaultProfile(),
                           NULL,
                           MSG_ROUTING_NONE,
-                          NULL,
                           NULL);
   tab_contents_.reset(new TabContents(web_contents));
   webui_login_->SetWebContents(web_contents);
@@ -203,9 +205,7 @@ void WebUILoginView::LoadURL(const GURL & url) {
   webui_login_->RequestFocus();
 
   CommandLine* command_line = CommandLine::ForCurrentProcess();
-  // Only enable transparency on sign in screen, not on lock screen.
-  if (BaseLoginDisplayHost::default_host() &&
-      !command_line->HasSwitch(switches::kDisableNewOobe)) {
+  if (!command_line->HasSwitch(switches::kDisableNewOobe)) {
     // TODO(nkostylev): Use WebContentsObserver::RenderViewCreated to track
     // when RenderView is created.
     // Use a background with transparency to trigger transparency in Webkit.
@@ -231,6 +231,13 @@ void WebUILoginView::OpenProxySettings() {
   ProxySettingsDialog* dialog =
       new ProxySettingsDialog(NULL, GetNativeWindow());
   dialog->Show();
+}
+
+void WebUILoginView::OnPostponedShow() {
+  set_is_hidden(false);
+  // If notification will happen later let it fire login-prompt-visible signal.
+  if (login_visible_notification_fired_)
+    OnLoginPromptVisible();
 }
 
 void WebUILoginView::SetStatusAreaVisible(bool visible) {
@@ -272,6 +279,7 @@ void WebUILoginView::Observe(int type,
                              const content::NotificationDetails& details) {
   switch (type) {
     case chrome::NOTIFICATION_LOGIN_WEBUI_VISIBLE: {
+      login_visible_notification_fired_ = true;
       OnLoginPromptVisible();
       registrar_.RemoveAll();
       break;
@@ -299,7 +307,8 @@ bool WebUILoginView::HandleContextMenu(
 #endif
 }
 
-void WebUILoginView::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
+void WebUILoginView::HandleKeyboardEvent(content::WebContents* source,
+                                         const NativeWebKeyboardEvent& event) {
   unhandled_keyboard_event_handler_.HandleKeyboardEvent(event,
                                                         GetFocusManager());
 
@@ -317,7 +326,7 @@ bool WebUILoginView::IsPopupOrPanel(const WebContents* source) const {
   return true;
 }
 
-bool WebUILoginView::TakeFocus(bool reverse) {
+bool WebUILoginView::TakeFocus(content::WebContents* source, bool reverse) {
   ash::SystemTray* tray = ash::Shell::GetInstance()->system_tray();
   if (tray && tray->GetWidget()->IsVisible()) {
     tray->SetNextFocusableView(this);
@@ -343,10 +352,15 @@ void WebUILoginView::RequestMediaAccessPermission(
 }
 
 void WebUILoginView::OnLoginPromptVisible() {
+  // If we're hidden than will generate this signal once we're shown.
+  if (is_hidden_ || login_prompt_visible_handled_)
+    return;
+
   if (should_emit_login_prompt_visible_) {
     chromeos::DBusThreadManager::Get()->GetSessionManagerClient()->
         EmitLoginPromptVisible();
   }
+  login_prompt_visible_handled_ = true;
 
   OobeUI* oobe_ui = static_cast<OobeUI*>(GetWebUI()->GetController());
   // Notify OOBE that the login frame has been rendered. Currently

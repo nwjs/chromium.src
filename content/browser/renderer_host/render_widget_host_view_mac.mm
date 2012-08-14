@@ -66,6 +66,13 @@ using WebKit::WebMouseEvent;
 using WebKit::WebMouseWheelEvent;
 using WebKit::WebGestureEvent;
 
+// These are not documented, so use only after checking -respondsToSelector:.
+@interface NSApplication (UndocumentedSpeechMethods)
+- (void)speakString:(NSString*)string;
+- (void)stopSpeaking:(id)sender;
+- (BOOL)isSpeaking;
+@end
+
 // Declare things that are part of the 10.7 SDK.
 #if !defined(MAC_OS_X_VERSION_10_7) || \
     MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_7
@@ -127,6 +134,8 @@ static float ScaleFactor(NSView* view) {
 - (void)windowChangedScreen:(NSNotification*)notification;
 - (void)checkForPluginImeCancellation;
 - (void)updateTabBackingStoreScaleFactor;
+- (NSRect)firstViewRectForCharacterRange:(NSRange)theRange
+                             actualRange:(NSRangePointer)actualRange;
 @end
 
 // NSEvent subtype for scroll gestures events.
@@ -154,9 +163,6 @@ namespace {
 
 // Maximum number of characters we allow in a tooltip.
 const size_t kMaxTooltipLength = 1024;
-
-// Invalidation NSRect to trigger a drawRect on BuffersSwapped.
-const NSRect kGpuSwapBuffersDirtyRect = { {0, 0}, {1, 1} };
 
 // TODO(suzhe): Upstream this function.
 WebKit::WebColor WebColorFromNSColor(NSColor *color) {
@@ -367,10 +373,6 @@ RenderWidgetHost* RenderWidgetHostViewMac::GetRenderWidgetHost() const {
 void RenderWidgetHostViewMac::WasShown() {
   if (!is_hidden_)
     return;
-
-  // Check if the backing scale factor changed while the tab was in the
-  // background.
-  [cocoa_view_ updateTabBackingStoreScaleFactor];
 
   if (web_contents_switch_paint_time_.is_null())
     web_contents_switch_paint_time_ = base::TimeTicks::Now();
@@ -601,7 +603,9 @@ void RenderWidgetHostViewMac::TextInputStateChanged(
 
 void RenderWidgetHostViewMac::SelectionBoundsChanged(
     const gfx::Rect& start_rect,
-    const gfx::Rect& end_rect) {
+    WebKit::WebTextDirection start_direction,
+    const gfx::Rect& end_rect,
+    WebKit::WebTextDirection end_direction) {
   if (start_rect == end_rect)
     caret_rect_ = start_rect;
 }
@@ -733,6 +737,26 @@ void RenderWidgetHostViewMac::SetTooltipText(const string16& tooltip_text) {
   }
 }
 
+bool RenderWidgetHostViewMac::SupportsSpeech() const {
+  return [NSApp respondsToSelector:@selector(speakString:)] &&
+         [NSApp respondsToSelector:@selector(stopSpeaking:)];
+}
+
+void RenderWidgetHostViewMac::SpeakSelection() {
+  if ([NSApp respondsToSelector:@selector(speakString:)])
+    [NSApp speakString:base::SysUTF8ToNSString(selected_text_)];
+}
+
+bool RenderWidgetHostViewMac::IsSpeaking() const {
+  return [NSApp respondsToSelector:@selector(isSpeaking)] &&
+         [NSApp isSpeaking];
+}
+
+void RenderWidgetHostViewMac::StopSpeaking() {
+  if ([NSApp respondsToSelector:@selector(stopSpeaking:)])
+    [NSApp stopSpeaking:cocoa_view_];
+}
+
 //
 // RenderWidgetHostViewCocoa uses the stored selection text,
 // which implements NSServicesRequests protocol.
@@ -741,7 +765,7 @@ void RenderWidgetHostViewMac::SelectionChanged(const string16& text,
                                                size_t offset,
                                                const ui::Range& range) {
   if (range.is_empty() || text.empty()) {
-      selected_text_.clear();
+    selected_text_.clear();
   } else {
     size_t pos = range.GetMin() - offset;
     size_t n = range.length();
@@ -755,7 +779,7 @@ void RenderWidgetHostViewMac::SelectionChanged(const string16& text,
   }
 
   [cocoa_view_ setSelectedRange:range.ToNSRange()];
-  // Updaes markedRange when there is no marked text so that retrieving
+  // Updates markedRange when there is no marked text so that retrieving
   // markedRange immediately after calling setMarkdText: returns the current
   // caret position.
   if (![cocoa_view_ hasMarkedText]) {
@@ -991,22 +1015,10 @@ bool RenderWidgetHostViewMac::CompositorSwapBuffers(uint64 surface_handle) {
   // No need to draw the surface if we are inside a drawRect. It will be done
   // later.
   if (!about_to_validate_and_paint_) {
-    // Trigger a drawRect, but don't invalidate the whole window because it
-    // is expensive to clear it with transparency to expose the GL underneath.
-    [cocoa_view_ setNeedsDisplayInRect:kGpuSwapBuffersDirtyRect];
-
-    // While resizing, OSX fails to call drawRect on the NSView unless the
-    // window size has changed. That means we won't see animations update if the
-    // user has the mouse button held down, but is not currently changing the
-    // size of the window. To work around that, display here while resizing.
-    // Also, OSX will never call drawRect faster than vsync rate, so if
-    // disable-gpu-vsync is set, we need to display now.
-    if (compositing_iosurface_->is_vsync_disabled() ||
-        [cocoa_view_ inLiveResize]) {
-      [cocoa_view_ displayIfNeeded];
-    }
+    compositing_iosurface_->DrawIOSurface(cocoa_view_,
+                                          ScaleFactor(cocoa_view_));
   }
-  return false;
+  return true;
 }
 
 void RenderWidgetHostViewMac::AckPendingSwapBuffers() {
@@ -1387,6 +1399,25 @@ void RenderWidgetHostViewMac::WindowFrameChanged() {
   }
 }
 
+void RenderWidgetHostViewMac::ShowDefinitionForSelection() {
+  // Brings up either Dictionary.app or a light-weight dictionary panel,
+  // depending on system settings.
+  NSRange selection_range = [cocoa_view_ selectedRange];
+  NSAttributedString* attr_string =
+      [cocoa_view_ attributedSubstringForProposedRange:selection_range
+                                           actualRange:nil];
+  NSRect rect = [cocoa_view_ firstViewRectForCharacterRange:selection_range
+                                                actualRange:nil];
+
+  // Set |rect.origin| to the text baseline based on |attr_string|'s font,
+  // since -baselineDeltaForCharacterAtIndex: is currently not implemented.
+  NSDictionary* attrs = [attr_string attributesAtIndex:0 effectiveRange:nil];
+  NSFont* font = [attrs objectForKey:NSFontAttributeName];
+  rect.origin.y += NSHeight(rect) - [font ascender];
+  [cocoa_view_ showDefinitionForAttributedString:attr_string
+                                         atPoint:rect.origin];
+}
+
 void RenderWidgetHostViewMac::SetBackground(const SkBitmap& background) {
   RenderWidgetHostViewBase::SetBackground(background);
   if (render_widget_host_)
@@ -1436,6 +1467,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
     renderWidgetHostView_.reset(r);
     canBeKeyView_ = YES;
     focusedPluginIdentifier_ = -1;
+    deviceScaleFactor_ = ScaleFactor(self);
 
     // OpenGL support:
     if ([self respondsToSelector:
@@ -2029,6 +2061,10 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
     return;
 
   float scaleFactor = ScaleFactor(self);
+  if (scaleFactor == deviceScaleFactor_)
+    return;
+  deviceScaleFactor_ = scaleFactor;
+
   BackingStoreMac* backingStore = static_cast<BackingStoreMac*>(
       renderWidgetHostView_->render_widget_host_->GetBackingStore(false));
   if (backingStore)  // NULL in hardware path.
@@ -2047,8 +2083,8 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
       [[notification userInfo] objectForKey:NSBackingPropertyOldScaleFactorKey])
       doubleValue];
   if (newBackingScaleFactor != oldBackingScaleFactor) {
-    // Background tabs check if their scale factor changed when they become
-    // active, in WasShown().
+    // Background tabs check if their scale factor changed when they are added
+    // to a window.
 
     // Allocating a CGLayerRef with the current scale factor immediately from
     // this handler doesn't work. Schedule the backing store update on the
@@ -2161,12 +2197,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
 
   if (renderWidgetHostView_->last_frame_was_accelerated_ &&
       renderWidgetHostView_->compositing_iosurface_.get()) {
-    bool is_swap_without_dirty =
-        (dirtyRect.origin.x == kGpuSwapBuffersDirtyRect.origin.x &&
-         dirtyRect.origin.y == kGpuSwapBuffersDirtyRect.origin.y &&
-         dirtyRect.size.width == kGpuSwapBuffersDirtyRect.size.width &&
-         dirtyRect.size.height == kGpuSwapBuffersDirtyRect.size.height);
-    if (!is_swap_without_dirty) {
+    {
       TRACE_EVENT2("gpu", "NSRectFill clear", "w", damagedRect.width(),
                    "h", damagedRect.height());
       // Draw transparency to expose the GL underlay. NSRectFill is extremely
@@ -2183,9 +2214,6 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
     // that on.
     renderWidgetHostView_->compositing_iosurface_->DrawIOSurface(
         self, ScaleFactor(self));
-    // For latency_tests.cc:
-    UNSHIPPED_TRACE_EVENT_INSTANT0("test_gpu", "CompositorSwapBuffersComplete");
-    renderWidgetHostView_->AckPendingSwapBuffers();
     return;
   }
 
@@ -2326,6 +2354,15 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   }
 
   SEL action = [item action];
+
+  if (action == @selector(stopSpeaking:)) {
+    return renderWidgetHostView_->render_widget_host_->IsRenderView() &&
+           renderWidgetHostView_->IsSpeaking();
+  }
+  if (action == @selector(startSpeaking:)) {
+    return renderWidgetHostView_->render_widget_host_->IsRenderView() &&
+           renderWidgetHostView_->SupportsSpeech();
+  }
 
   // For now, these actions are always enabled for render view,
   // this is sub-optimal.
@@ -2784,8 +2821,8 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
   return index;
 }
 
-- (NSRect)firstRectForCharacterRange:(NSRange)theRange
-                         actualRange:(NSRangePointer)actualRange {
+- (NSRect)firstViewRectForCharacterRange:(NSRange)theRange
+                             actualRange:(NSRangePointer)actualRange {
   NSRect rect;
   if (!renderWidgetHostView_->GetCachedFirstRectForCharacterRange(
           theRange,
@@ -2800,10 +2837,18 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
   }
 
   // The returned rectangle is in WebKit coordinates (upper left origin), so
-  // flip the coordinate system and then convert it into screen coordinates for
-  // return.
+  // flip the coordinate system.
   NSRect viewFrame = [self frame];
   rect.origin.y = NSHeight(viewFrame) - NSMaxY(rect);
+  return rect;
+}
+
+- (NSRect)firstRectForCharacterRange:(NSRange)theRange
+                         actualRange:(NSRangePointer)actualRange {
+  NSRect rect = [self firstViewRectForCharacterRange:theRange
+                                         actualRange:actualRange];
+
+  // Convert into screen coordinates for return.
   rect = [self convertRect:rect toView:nil];
   rect.origin = [[self window] convertBaseToScreen:rect.origin];
   return rect;
@@ -2974,12 +3019,13 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 }
 
 - (void)insertText:(id)string {
-  // This is a method on NSTextInput, not NSTextInputClient. But on 10.5, this
-  // gets called anyway. Forward to the right method. http://crbug.com/47890
   [self insertText:string replacementRange:NSMakeRange(NSNotFound, 0)];
 }
 
 - (void)viewDidMoveToWindow {
+  if ([self window])
+    [self updateTabBackingStoreScaleFactor];
+
   if (canBeKeyView_) {
     NSWindow* newWindow = [self window];
     // Pointer comparison only, since we don't know if lastWindow_ is still
@@ -3056,6 +3102,14 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
     static_cast<RenderViewHostImpl*>(
         renderWidgetHostView_->render_widget_host_)->PasteAndMatchStyle();
   }
+}
+
+- (void)startSpeaking:(id)sender {
+  renderWidgetHostView_->SpeakSelection();
+}
+
+- (void)stopSpeaking:(id)sender {
+  renderWidgetHostView_->StopSpeaking();
 }
 
 - (void)cancelComposition {

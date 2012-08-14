@@ -5,8 +5,8 @@
 #include "chrome/browser/ui/views/infobars/confirm_infobar.h"
 
 #include "base/logging.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/event_disposition.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/link.h"
@@ -97,7 +97,7 @@ void ConfirmInfoBar::ViewHierarchyChanged(bool is_add,
 }
 
 void ConfirmInfoBar::ButtonPressed(views::Button* sender,
-                                   const views::Event& event) {
+                                   const ui::Event& event) {
   if (!owned())
     return;  // We're closing; don't call anything, it might access the owner.
   ConfirmInfoBarDelegate* delegate = GetDelegate();

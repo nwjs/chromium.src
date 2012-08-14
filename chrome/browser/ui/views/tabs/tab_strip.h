@@ -175,7 +175,7 @@ class TabStrip : public views::View,
   virtual bool IsTabPinned(const BaseTab* tab) const OVERRIDE;
   virtual void MaybeStartDrag(
       BaseTab* tab,
-      const views::LocatedEvent& event,
+      const ui::LocatedEvent& event,
       const TabStripSelectionModel& original_selection) OVERRIDE;
   virtual void ContinueDrag(views::View* view,
                             const gfx::Point& location) OVERRIDE;
@@ -184,7 +184,7 @@ class TabStrip : public views::View,
                             const gfx::Point& tab_in_tab_coordinates) OVERRIDE;
   virtual void ClickActiveTab(const BaseTab* tab) const OVERRIDE;
   virtual void OnMouseEventInTab(views::View* source,
-                                 const views::MouseEvent& event) OVERRIDE;
+                                 const ui::MouseEvent& event) OVERRIDE;
   virtual bool ShouldPaintTab(const BaseTab* tab, gfx::Rect* clip) OVERRIDE;
   virtual bool IsInstantExtendedAPIEnabled() OVERRIDE;
 
@@ -219,15 +219,15 @@ class TabStrip : public views::View,
 
   // views::ButtonListener implementation:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // View overrides.
   virtual const views::View* GetViewByID(int id) const OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual void OnMouseMoved(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(
       const views::GestureEvent& event) OVERRIDE;
 
@@ -362,7 +362,7 @@ class TabStrip : public views::View,
   // Invoked when a mouse event occurs over |source|. Potentially switches the
   // layout type.
   void UpdateLayoutTypeFromMouseEvent(views::View* source,
-                                      const views::MouseEvent& event);
+                                      const ui::MouseEvent& event);
 
   // -- Tab Resize Layout -----------------------------------------------------
 

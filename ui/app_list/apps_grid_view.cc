@@ -8,6 +8,7 @@
 
 #include "ui/app_list/app_list_item_view.h"
 #include "ui/app_list/pagination_model.h"
+#include "ui/base/event.h"
 #include "ui/views/border.h"
 
 namespace {
@@ -24,7 +25,11 @@ const int kPreferredTileWidth = 88;
 const int kPreferredTileHeight = 98;
 
 // Max extra column padding space in pixels for invalid page transition.
-const int kMaxExtraColPaddingForInvalidTransition = 80;
+const int kMaxExtraColPaddingForInvalidTransition = 15;
+
+// Extra column padding space in pixels of first column for invalid page
+// transition.
+const int kBaseExtraColPaddingForInvalidTransition = 50;
 
 }  // namespace
 
@@ -128,6 +133,8 @@ void AppsGridView::Layout() {
   const int transition_offset = is_valid ?
       transition.progress * page_width * dir :
       transition.progress * kMaxExtraColPaddingForInvalidTransition * dir;
+  const int base_transition_offset = is_valid ? 0 :
+      transition.progress * kBaseExtraColPaddingForInvalidTransition * dir;
 
   const int first_visible_index = current_page * tiles_per_page();
   const int last_visible_index = (current_page + 1) * tiles_per_page() - 1;
@@ -148,6 +155,7 @@ void AppsGridView::Layout() {
         x_offset += transition_offset;
     } else {
       const int col = i % cols_;
+      x_offset += base_transition_offset;
       if (transition_offset > 0)
         x_offset += transition_offset * col;
       else
@@ -168,7 +176,7 @@ void AppsGridView::Layout() {
   }
 }
 
-bool AppsGridView::OnKeyPressed(const views::KeyEvent& event) {
+bool AppsGridView::OnKeyPressed(const ui::KeyEvent& event) {
   bool handled = false;
   if (selected_item_index_ >= 0)
     handled = GetItemViewAtIndex(selected_item_index_)->OnKeyPressed(event);
@@ -217,7 +225,7 @@ bool AppsGridView::OnKeyPressed(const views::KeyEvent& event) {
   return handled;
 }
 
-bool AppsGridView::OnKeyReleased(const views::KeyEvent& event) {
+bool AppsGridView::OnKeyReleased(const ui::KeyEvent& event) {
   bool handled = false;
   if (selected_item_index_ >= 0)
     handled = GetItemViewAtIndex(selected_item_index_)->OnKeyReleased(event);

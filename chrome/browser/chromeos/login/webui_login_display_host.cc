@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/login/webui_login_display_host.h"
 
+#include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/wm/window_animations.h"
@@ -22,6 +23,7 @@
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
@@ -42,6 +44,15 @@ const int kLoginFadeoutTransitionDurationMs = 700;
 // Number of times we try to reload OOBE/login WebUI if it crashes.
 const int kCrashCountLimit = 5;
 
+// When wallpaper animation is not disabled (no flag --disable-boot-animation)
+// initialize OOBE/sign in WebUI in hidden state in parallel with
+// wallpaper animation.
+const bool kInitializeWebUIInParallelDefault = true;
+
+// Switch values that might be used to override WebUI init type.
+const char kWebUIInitParallel[] = "parallel";
+const char kWebUIInitPostpone[] = "postpone";
+
 }  // namespace
 
 // WebUILoginDisplayHost -------------------------------------------------------
@@ -53,15 +64,17 @@ WebUILoginDisplayHost::WebUILoginDisplayHost(const gfx::Rect& background_bounds)
       webui_login_display_(NULL),
       is_showing_login_(false),
       is_wallpaper_loaded_(false),
+      initialize_webui_in_parallel_(kInitializeWebUIInParallelDefault),
+      status_area_saved_visibility_(false),
       crash_count_(0),
       restore_path_(RESTORE_UNKNOWN) {
   bool is_registered = WizardController::IsDeviceRegistered();
-  // TODO(nkostylev): Add switch to disable wallpaper transition on OOBE.
-  // Should be used on test images so that they are not slowed down.
   bool zero_delay_enabled = WizardController::IsZeroDelayEnabled();
   if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableNewOobe) &&
       !zero_delay_enabled) {
-    waiting_for_wallpaper_load_ = !is_registered;
+    bool disable_boot_animation = CommandLine::ForCurrentProcess()->
+        HasSwitch(switches::kDisableBootAnimation);
+    waiting_for_wallpaper_load_ = !is_registered || !disable_boot_animation;
   } else {
     waiting_for_wallpaper_load_ = false;
   }
@@ -71,7 +84,24 @@ WebUILoginDisplayHost::WebUILoginDisplayHost(const gfx::Rect& background_bounds)
                    content::NotificationService::AllSources());
     // Prevents white flashing on OOBE (http://crbug.com/131569).
     aura::Env::GetInstance()->set_render_white_bg(false);
+
+    // Check if WebUI init type is overriden.
+    if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kAshWebUIInit)) {
+      const std::string override_type = CommandLine::ForCurrentProcess()->
+          GetSwitchValueASCII(switches::kAshWebUIInit);
+      if (override_type == kWebUIInitParallel)
+        initialize_webui_in_parallel_ = true;
+      else if (override_type == kWebUIInitPostpone)
+        initialize_webui_in_parallel_ = false;
+    }
+
+    // Don't postpone WebUI initialization on first boot, otherwise we miss
+    // initial animation.
+    if (!WizardController::IsOobeCompleted())
+      initialize_webui_in_parallel_ = false;
   }
+  // In case if we're not waiting for wallpaper load,
+  // |initialize_webui_in_parallel_| value is ignored through the code flow.
 }
 
 WebUILoginDisplayHost::~WebUILoginDisplayHost() {
@@ -109,7 +139,9 @@ void WebUILoginDisplayHost::SetShutdownButtonEnabled(bool enable) {
 }
 
 void WebUILoginDisplayHost::SetStatusAreaVisible(bool visible) {
-  if (login_view_)
+  if (waiting_for_wallpaper_load_  && initialize_webui_in_parallel_)
+    status_area_saved_visibility_ = visible;
+  else if (login_view_)
     login_view_->SetStatusAreaVisible(visible);
 }
 
@@ -125,7 +157,7 @@ void WebUILoginDisplayHost::StartWizard(const std::string& first_screen_name,
   is_showing_login_ = false;
   scoped_ptr<DictionaryValue> scoped_parameters(screen_parameters);
 
-  if (waiting_for_wallpaper_load_)
+  if (waiting_for_wallpaper_load_ && !initialize_webui_in_parallel_)
     return;
 
   if (!login_window_)
@@ -139,7 +171,7 @@ void WebUILoginDisplayHost::StartSignInScreen() {
   restore_path_ = RESTORE_SIGN_IN;
   is_showing_login_ = true;
 
-  if (waiting_for_wallpaper_load_)
+  if (waiting_for_wallpaper_load_ && !initialize_webui_in_parallel_)
     return;
 
   if (!login_window_)
@@ -173,8 +205,18 @@ void WebUILoginDisplayHost::Observe(
   BaseLoginDisplayHost::Observe(type, source, details);
   if (chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED == type) {
     is_wallpaper_loaded_ = true;
-    if (waiting_for_wallpaper_load_)
-      StartPostponedWebUI();
+    ash::Shell::GetInstance()->user_wallpaper_delegate()->
+        OnWallpaperBootAnimationFinished();
+    if (waiting_for_wallpaper_load_) {
+      // StartWizard / StartSignInScreen could be called multiple times through
+      // the lifetime of host.
+      // Make sure that subsequent calls are not postponed.
+      waiting_for_wallpaper_load_ = false;
+      if (initialize_webui_in_parallel_)
+        ShowWebUI();
+      else
+        StartPostponedWebUI();
+    }
     registrar_.Remove(this,
                       chrome::NOTIFICATION_WALLPAPER_ANIMATION_FINISHED,
                       content::NotificationService::AllSources());
@@ -210,7 +252,16 @@ void WebUILoginDisplayHost::LoadURL(const GURL& url) {
     login_window_->SetContentsView(login_view_);
     login_view_->UpdateWindowType();
 
-    login_window_->Show();
+    // When not waiting for wallpaper any request to load a URL in WebUI
+    // should trigger window visibility as well.
+    // Otherwise, when we're waiting for wallpaper load then show WebUI
+    // right away only if it is not initialized in parallel i.e. was postponed.
+    // In case of WebUI being initialized in parallel with wallpaper load
+    // it will be hidden initially.
+    if (!waiting_for_wallpaper_load_ || !initialize_webui_in_parallel_)
+      login_window_->Show();
+    else
+      login_view_->set_is_hidden(true);
     login_window_->GetNativeView()->SetName("WebUILoginView");
     login_view_->OnWindowCreated();
   }
@@ -258,15 +309,22 @@ WizardController* WebUILoginDisplayHost::CreateWizardController() {
   return new WizardController(this, oobe_display);
 }
 
-void WebUILoginDisplayHost::StartPostponedWebUI() {
-  if (!waiting_for_wallpaper_load_ || !is_wallpaper_loaded_) {
+void WebUILoginDisplayHost::ShowWebUI() {
+  if (!login_window_ || !login_view_) {
     NOTREACHED();
     return;
   }
+  login_window_->Show();
+  login_view_->GetWebContents()->Focus();
+  login_view_->SetStatusAreaVisible(status_area_saved_visibility_);
+  login_view_->OnPostponedShow();
+}
 
-  // StartWizard / StartSignInScreen could be called multiple times through
-  // the lifetime of host. Make sure that subsequent calls are not postponed.
-  waiting_for_wallpaper_load_ = false;
+void WebUILoginDisplayHost::StartPostponedWebUI() {
+  if (!is_wallpaper_loaded_) {
+    NOTREACHED();
+    return;
+  }
 
   // Wallpaper has finished loading before StartWizard/StartSignInScreen has
   // been called. In general this should not happen.

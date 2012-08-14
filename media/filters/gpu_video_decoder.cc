@@ -44,11 +44,12 @@ GpuVideoDecoder::BufferData::BufferData(
 GpuVideoDecoder::BufferData::~BufferData() {}
 
 GpuVideoDecoder::GpuVideoDecoder(
-    MessageLoop* message_loop,
-    MessageLoop* vda_loop,
+    const MessageLoopFactoryCB& message_loop_factory_cb,
+    const scoped_refptr<base::MessageLoopProxy>& vda_loop_proxy,
     const scoped_refptr<Factories>& factories)
-    : gvd_loop_proxy_(message_loop->message_loop_proxy()),
-      vda_loop_proxy_(vda_loop->message_loop_proxy()),
+    : message_loop_factory_cb_(message_loop_factory_cb),
+      gvd_loop_proxy_(NULL),
+      vda_loop_proxy_(vda_loop_proxy),
       factories_(factories),
       state_(kNormal),
       demuxer_read_in_progress_(false),
@@ -57,7 +58,8 @@ GpuVideoDecoder::GpuVideoDecoder(
       next_bitstream_buffer_id_(0),
       shutting_down_(false),
       error_occured_(false) {
-  DCHECK(gvd_loop_proxy_ && factories_);
+  DCHECK(!message_loop_factory_cb_.is_null());
+  DCHECK(factories_);
 }
 
 void GpuVideoDecoder::Reset(const base::Closure& closure)  {
@@ -106,31 +108,22 @@ void GpuVideoDecoder::Stop(const base::Closure& closure) {
     closure.Run();
     return;
   }
-  VideoDecodeAccelerator* vda ALLOW_UNUSED = vda_.release();
-  // Tricky: |this| needs to stay alive until after VDA::Destroy is actually
-  // called, not just posted.  We can't simply PostTaskAndReply using |closure|
-  // as the |reply| because we might be called while the renderer thread
-  // (a.k.a. vda_loop_proxy_) is paused (during WebMediaPlayerImpl::Destroy()),
-  // which would result in an apparent hang.  Instead, we take an artificial ref
-  // to |this| and release it as |reply| after VDA::Destroy returns.
-  AddRef();
-  vda_loop_proxy_->PostTaskAndReply(
-      FROM_HERE,
-      base::Bind(&VideoDecodeAccelerator::Destroy, weak_vda_),
-      base::Bind(&GpuVideoDecoder::Release, this));
+  DestroyVDA();
   closure.Run();
 }
 
 void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
                                  const PipelineStatusCB& orig_status_cb,
                                  const StatisticsCB& statistics_cb) {
-  if (!gvd_loop_proxy_->BelongsToCurrentThread()) {
+  if (!gvd_loop_proxy_) {
+    gvd_loop_proxy_ = base::ResetAndReturn(&message_loop_factory_cb_).Run();
     gvd_loop_proxy_->PostTask(FROM_HERE, base::Bind(
         &GpuVideoDecoder::Initialize,
         this, stream, orig_status_cb, statistics_cb));
     return;
   }
 
+  DCHECK(gvd_loop_proxy_->BelongsToCurrentThread());
   PipelineStatusCB status_cb = CreateUMAReportingPipelineCB(
       "Media.GpuVideoDecoderInitializeStatus", orig_status_cb);
 
@@ -171,8 +164,22 @@ void GpuVideoDecoder::Initialize(const scoped_refptr<DemuxerStream>& stream,
 
 void GpuVideoDecoder::SetVDA(VideoDecodeAccelerator* vda) {
   DCHECK(vda_loop_proxy_->BelongsToCurrentThread());
+  DCHECK(!vda_.get());
   vda_.reset(vda);
   weak_vda_ = vda->AsWeakPtr();
+}
+
+void GpuVideoDecoder::DestroyVDA() {
+  DCHECK(gvd_loop_proxy_->BelongsToCurrentThread());
+  VideoDecodeAccelerator* vda ALLOW_UNUSED = vda_.release();
+  // Tricky: |this| needs to stay alive until after VDA::Destroy is actually
+  // called, not just posted, so we take an artificial ref to |this| and release
+  // it as |reply| after VDA::Destroy() returns.
+  AddRef();
+  vda_loop_proxy_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&VideoDecodeAccelerator::Destroy, weak_vda_),
+      base::Bind(&GpuVideoDecoder::Release, this));
 }
 
 void GpuVideoDecoder::Read(const ReadCB& read_cb) {
@@ -233,7 +240,7 @@ void GpuVideoDecoder::RequestBufferDecode(
 
     // TODO(acolwell): Add support for reinitializing the decoder when
     // |status| == kConfigChanged. For now we just trigger a decode error.
-    DecoderStatus decoder_status =
+    Status decoder_status =
         (status == DemuxerStream::kAborted) ? kOk : kDecodeError;
     gvd_loop_proxy_->PostTask(FROM_HERE, base::Bind(
         pending_read_cb_, decoder_status, scoped_refptr<VideoFrame>()));
@@ -549,8 +556,9 @@ void GpuVideoDecoder::NotifyError(media::VideoDecodeAccelerator::Error error) {
   }
   if (!vda_.get())
     return;
-  vda_loop_proxy_->DeleteSoon(FROM_HERE, vda_.release());
+
   DLOG(ERROR) << "VDA Error: " << error;
+  DestroyVDA();
 
   error_occured_ = true;
 

@@ -8,6 +8,7 @@
 
 #include "grit/ui_resources.h"
 #include "ui/base/keycodes/keyboard_codes.h"
+#include "ui/base/event.h"
 #include "ui/base/models/combobox_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
@@ -71,7 +72,7 @@ NativeComboboxViews::~NativeComboboxViews() {
 ////////////////////////////////////////////////////////////////////////////////
 // NativeComboboxViews, View overrides:
 
-bool NativeComboboxViews::OnMousePressed(const views::MouseEvent& mouse_event) {
+bool NativeComboboxViews::OnMousePressed(const ui::MouseEvent& mouse_event) {
   combobox_->RequestFocus();
   if (mouse_event.IsLeftMouseButton()) {
     UpdateFromModel();
@@ -81,7 +82,7 @@ bool NativeComboboxViews::OnMousePressed(const views::MouseEvent& mouse_event) {
   return true;
 }
 
-bool NativeComboboxViews::OnMouseDragged(const views::MouseEvent& mouse_event) {
+bool NativeComboboxViews::OnMouseDragged(const ui::MouseEvent& mouse_event) {
   return true;
 }
 
@@ -95,7 +96,7 @@ ui::GestureStatus NativeComboboxViews::OnGestureEvent(
   return View::OnGestureEvent(gesture_event);
 }
 
-bool NativeComboboxViews::OnKeyPressed(const views::KeyEvent& key_event) {
+bool NativeComboboxViews::OnKeyPressed(const ui::KeyEvent& key_event) {
   // TODO(oshima): handle IME.
   DCHECK_EQ(key_event.type(), ui::ET_KEY_PRESSED);
 
@@ -142,7 +143,7 @@ bool NativeComboboxViews::OnKeyPressed(const views::KeyEvent& key_event) {
   return true;
 }
 
-bool NativeComboboxViews::OnKeyReleased(const views::KeyEvent& key_event) {
+bool NativeComboboxViews::OnKeyReleased(const ui::KeyEvent& key_event) {
   return true;
 }
 
@@ -226,11 +227,11 @@ void NativeComboboxViews::SetFocus() {
   text_border_->set_has_focus(true);
 }
 
-bool NativeComboboxViews::HandleKeyPressed(const KeyEvent& e) {
+bool NativeComboboxViews::HandleKeyPressed(const ui::KeyEvent& e) {
   return OnKeyPressed(e);
 }
 
-bool NativeComboboxViews::HandleKeyReleased(const KeyEvent& e) {
+bool NativeComboboxViews::HandleKeyReleased(const ui::KeyEvent& e) {
   return false;  // crbug.com/127520
 }
 

@@ -32,13 +32,14 @@
 #include "chrome/browser/chrome_plugin_service_filter.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
 #include "chrome/browser/extensions/api/declarative/rules_registry_service.h"
+#include "chrome/browser/extensions/api/extension_action/extension_actions_api.h"
+#include "chrome/browser/extensions/api/font_settings/font_settings_api.h"
 #include "chrome/browser/extensions/api/managed_mode/managed_mode_api.h"
 #include "chrome/browser/extensions/api/management/management_api.h"
 #include "chrome/browser/extensions/api/push_messaging/push_messaging_api.h"
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
 #include "chrome/browser/extensions/app_notification_manager.h"
 #include "chrome/browser/extensions/app_sync_data.h"
-#include "chrome/browser/extensions/apps_promo.h"
 #include "chrome/browser/extensions/browser_event_router.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
@@ -47,7 +48,6 @@
 #include "chrome/browser/extensions/extension_disabled_ui.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_error_ui.h"
-#include "chrome/browser/extensions/extension_font_settings_api.h"
 #include "chrome/browser/extensions/extension_host.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
 #include "chrome/browser/extensions/extension_preference_api.h"
@@ -337,7 +337,6 @@ ExtensionService::ExtensionService(Profile* profile,
       menu_manager_(profile),
       app_notification_manager_(
           new extensions::AppNotificationManager(profile)),
-      apps_promo_(profile->GetPrefs()),
       event_routers_initialized_(false),
       update_once_all_providers_are_ready_(false),
       app_sync_bundle_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
@@ -402,6 +401,11 @@ ExtensionService::ExtensionService(Profile* profile,
   // Set this as the ExtensionService for extension sorting to ensure it
   // cause syncs if required.
   extension_prefs_->extension_sorting()->SetExtensionService(this);
+
+#if defined(ENABLE_EXTENSIONS)
+  extension_action_storage_manager_.reset(
+      new extensions::ExtensionActionStorageManager(profile_));
+#endif
 
   // How long is the path to the Extensions directory?
   UMA_HISTOGRAM_CUSTOM_COUNTS("Extensions.ExtensionRootPathLength",
@@ -493,7 +497,7 @@ void ExtensionService::InitEventRouters() {
       new extensions::WebNavigationEventRouter(profile_));
   web_navigation_event_router_->Init();
   font_settings_event_router_.reset(
-      new ExtensionFontSettingsEventRouter(profile_));
+      new extensions::FontSettingsEventRouter(profile_));
   font_settings_event_router_->Init();
   managed_mode_event_router_.reset(
       new extensions::ExtensionManagedModeEventRouter(profile_));

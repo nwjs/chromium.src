@@ -35,6 +35,7 @@
 #include "chrome/browser/chromeos/login/screen_locker.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/login/wallpaper_manager.h"
+#include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/low_memory_observer.h"
 #include "chrome/browser/chromeos/net/cros_network_change_notifier_factory.h"
 #include "chrome/browser/chromeos/net/network_change_notifier_chromeos.h"
@@ -284,9 +285,9 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopStart() {
   // Initialize DBusThreadManager for the browser. This must be done after
   // the main message loop is started, as it uses the message loop.
   chromeos::DBusThreadManager::Initialize();
-  // Add PowerManagerClient observer for WallpaperManager. WallpaperManager
-  // is initialized before DBusThreadManager.
-  chromeos::WallpaperManager::Get()->AddPowerManagerClientObserver();
+  // Add observers for WallpaperManager. WallpaperManager is initialized before
+  // DBusThreadManager.
+  chromeos::WallpaperManager::Get()->AddObservers();
 
   chromeos::CrosDBusService::Initialize();
 
@@ -418,6 +419,12 @@ void ChromeBrowserMainPartsChromeos::PostProfileInit() {
             g_browser_process->policy_service(),
             chromeos::CrosLibrary::Get()->GetNetworkLibrary()));
   }
+
+  // Make sure that wallpaper boot transition and other delays in OOBE
+  // are disabled for tests by default.
+  // Individual tests may enable them if they want.
+  if (parsed_command_line().HasSwitch(switches::kTestType))
+    chromeos::WizardController::SetZeroDelays();
 
   // Tests should be able to tune login manager before showing it.
   // Thus only show login manager in normal (non-testing) mode.

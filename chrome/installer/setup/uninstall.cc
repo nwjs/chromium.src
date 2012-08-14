@@ -318,78 +318,87 @@ bool ScheduleParentAndGrandparentForDeletion(const FilePath& path) {
   return ret;
 }
 
-// Deletes empty parent & empty grandparent dir of given path.
-bool DeleteEmptyParentDir(const FilePath& path) {
-  bool ret = true;
-  FilePath parent_dir = path.DirName();
-  if (!parent_dir.empty() && file_util::IsDirectoryEmpty(parent_dir)) {
-    if (!file_util::Delete(parent_dir, true)) {
-      ret = false;
-      LOG(ERROR) << "Failed to delete folder: " << parent_dir.value();
-    }
-
-    parent_dir = parent_dir.DirName();
-    if (!parent_dir.empty() && file_util::IsDirectoryEmpty(parent_dir)) {
-      if (!file_util::Delete(parent_dir, true)) {
-        ret = false;
-        LOG(ERROR) << "Failed to delete folder: " << parent_dir.value();
-      }
-    }
-  }
-  return ret;
-}
-
-FilePath GetLocalStateFolder(const Product& product) {
-  // Obtain the location of the user profile data.
-  FilePath local_state_folder = product.GetUserDataPath();
-  LOG_IF(ERROR, local_state_folder.empty())
-      << "Could not retrieve user's profile directory.";
-
-  return local_state_folder;
-}
-
-// Creates a copy of the local state file and returns a path to the copy.
-FilePath BackupLocalStateFile(const FilePath& local_state_folder) {
-  FilePath backup;
-  FilePath state_file(local_state_folder.Append(chrome::kLocalStateFilename));
-  if (!file_util::CreateTemporaryFile(&backup)) {
-    LOG(ERROR) << "Failed to create temporary file for Local State.";
-  } else {
-    file_util::CopyFile(state_file, backup);
-  }
-  return backup;
-}
-
 enum DeleteResult {
   DELETE_SUCCEEDED,
+  DELETE_NOT_EMPTY,
   DELETE_FAILED,
   DELETE_REQUIRES_REBOOT,
 };
 
-// Copies the local state to the temp folder and then deletes it.
-// The path to the copy is returned via the local_state_copy parameter.
-DeleteResult DeleteLocalState(const Product& product) {
-  FilePath user_local_state(GetLocalStateFolder(product));
-  if (user_local_state.empty())
+// Deletes the given directory if it is empty. Returns DELETE_SUCCEEDED if the
+// directory is deleted, DELETE_NOT_EMPTY if it is not empty, and DELETE_FAILED
+// otherwise.
+DeleteResult DeleteEmptyDir(const FilePath& path) {
+  if (!file_util::IsDirectoryEmpty(path))
+    return DELETE_NOT_EMPTY;
+
+  if (file_util::Delete(path, true))
+    return DELETE_SUCCEEDED;
+
+  LOG(ERROR) << "Failed to delete folder: " << path.value();
+  return DELETE_FAILED;
+}
+
+void GetLocalStateFolders(const Product& product,
+                          std::vector<FilePath>* paths) {
+  // Obtain the location of the user profile data.
+  product.GetUserDataPaths(paths);
+  LOG_IF(ERROR, paths->empty())
+      << "Could not retrieve user's profile directory.";
+}
+
+// Creates a copy of the local state file and returns a path to the copy.
+FilePath BackupLocalStateFile(
+    const std::vector<FilePath>& local_state_folders) {
+  FilePath backup;
+
+  // Copy the first local state file that is found.
+  for (size_t i = 0; i < local_state_folders.size(); ++i) {
+    const FilePath& local_state_folder = local_state_folders[i];
+    FilePath state_file(local_state_folder.Append(chrome::kLocalStateFilename));
+    if (!file_util::PathExists(state_file))
+      continue;
+    if (!file_util::CreateTemporaryFile(&backup))
+      LOG(ERROR) << "Failed to create temporary file for Local State.";
+    else
+      file_util::CopyFile(state_file, backup);
+    break;
+  }
+  return backup;
+}
+
+// Deletes all user data directories for a product.
+DeleteResult DeleteLocalState(const std::vector<FilePath>& local_state_folders,
+                              bool schedule_on_failure) {
+  if (local_state_folders.empty())
     return DELETE_SUCCEEDED;
 
   DeleteResult result = DELETE_SUCCEEDED;
-  VLOG(1) << "Deleting user profile " << user_local_state.value();
-  if (!file_util::Delete(user_local_state, true)) {
-    LOG(ERROR) << "Failed to delete user profile dir: "
-               << user_local_state.value();
-    if (product.is_chrome_frame()) {
-      ScheduleDirectoryForDeletion(user_local_state.value().c_str());
-      result = DELETE_REQUIRES_REBOOT;
-    } else {
-      result = DELETE_FAILED;
+  for (size_t i = 0; i < local_state_folders.size(); ++i) {
+    const FilePath& user_local_state = local_state_folders[i];
+    VLOG(1) << "Deleting user profile " << user_local_state.value();
+    if (!file_util::Delete(user_local_state, true)) {
+      LOG(ERROR) << "Failed to delete user profile dir: "
+                 << user_local_state.value();
+      if (schedule_on_failure) {
+        ScheduleDirectoryForDeletion(user_local_state.value().c_str());
+        result = DELETE_REQUIRES_REBOOT;
+      } else {
+        result = DELETE_FAILED;
+      }
     }
   }
 
   if (result == DELETE_REQUIRES_REBOOT) {
-    ScheduleParentAndGrandparentForDeletion(user_local_state);
+    ScheduleParentAndGrandparentForDeletion(local_state_folders[0]);
   } else {
-    DeleteEmptyParentDir(user_local_state);
+    const FilePath user_data_dir(local_state_folders[0].DirName());
+    if (!user_data_dir.empty() &&
+        DeleteEmptyDir(user_data_dir) == DELETE_SUCCEEDED) {
+      const FilePath product_dir(user_data_dir.DirName());
+      if (!product_dir.empty())
+        DeleteEmptyDir(product_dir);
+    }
   }
 
   return result;
@@ -419,6 +428,27 @@ bool MoveSetupOutOfInstallFolder(const InstallerState& installer_state,
   return ret;
 }
 
+DeleteResult DeleteApplicationProductAndVendorDirectories(
+    const FilePath& application_directory) {
+  DeleteResult result(DeleteEmptyDir(application_directory));
+  if (result == DELETE_SUCCEEDED) {
+    // Now check and delete if the parent directories are empty
+    // For example Google\Chrome or Chromium
+    const FilePath product_directory(application_directory.DirName());
+    if (!product_directory.empty()) {
+        result = DeleteEmptyDir(product_directory);
+        if (result == DELETE_SUCCEEDED) {
+          const FilePath vendor_directory(product_directory.DirName());
+          if (!vendor_directory.empty())
+            result = DeleteEmptyDir(vendor_directory);
+        }
+    }
+  }
+  if (result == DELETE_NOT_EMPTY)
+    result = DELETE_SUCCEEDED;
+  return result;
+}
+
 DeleteResult DeleteAppHostFilesAndFolders(const InstallerState& installer_state,
                                           const Version& installed_version) {
   const FilePath& target_path = installer_state.target_path();
@@ -437,7 +467,7 @@ DeleteResult DeleteAppHostFilesAndFolders(const InstallerState& installer_state,
     result = DELETE_FAILED;
     LOG(ERROR) << "Failed to delete path: " << app_host_exe.value();
   } else {
-    DeleteEmptyParentDir(target_path);
+    result = DeleteApplicationProductAndVendorDirectories(target_path);
   }
 
   return result;
@@ -457,11 +487,8 @@ DeleteResult DeleteChromeFilesAndFolders(const InstallerState& installer_state,
   DeleteResult result = DELETE_SUCCEEDED;
 
   using file_util::FileEnumerator;
-  FileEnumerator file_enumerator(
-      target_path,
-      false,
-      static_cast<FileEnumerator::FileType>(FileEnumerator::FILES |
-                                            FileEnumerator::DIRECTORIES));
+  FileEnumerator file_enumerator(target_path, false,
+      FileEnumerator::FILES | FileEnumerator::DIRECTORIES);
   while (true) {
     FilePath to_delete(file_enumerator.Next());
     if (to_delete.empty())
@@ -469,7 +496,7 @@ DeleteResult DeleteChromeFilesAndFolders(const InstallerState& installer_state,
     if (to_delete.BaseName().value() == installer::kChromeAppHostExe)
       continue;
 
-    VLOG(1) << "Deleting install path " << target_path.value();
+    VLOG(1) << "Deleting install path " << to_delete.value();
     if (!file_util::Delete(to_delete, true)) {
       LOG(ERROR) << "Failed to delete path (1st try): " << to_delete.value();
       if (installer_state.FindProduct(BrowserDistribution::CHROME_FRAME)) {
@@ -498,14 +525,15 @@ DeleteResult DeleteChromeFilesAndFolders(const InstallerState& installer_state,
   }
 
   if (result == DELETE_REQUIRES_REBOOT) {
+    // Delete the Application directory at reboot if empty.
+    ScheduleFileSystemEntityForDeletion(target_path.value().c_str());
+
     // If we need a reboot to continue, schedule the parent directories for
     // deletion unconditionally. If they are not empty, the session manager
     // will not delete them on reboot.
     ScheduleParentAndGrandparentForDeletion(target_path);
   } else {
-    // Now check and delete if the parent directories are empty
-    // For example Google\Chrome or Chromium
-    DeleteEmptyParentDir(target_path);
+    result = DeleteApplicationProductAndVendorDirectories(target_path);
   }
   return result;
 }
@@ -583,19 +611,19 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   // For user-level installs we now only write these entries in HKCU, but since
   // old installs did install them to HKLM we will try to remove them in HKLM as
   // well anyways.
-  string16 html_prog_id(ShellUtil::kRegClasses);
-  html_prog_id.push_back(FilePath::kSeparators[0]);
-  html_prog_id.append(ShellUtil::kChromeHTMLProgId);
-  html_prog_id.append(browser_entry_suffix);
-  InstallUtil::DeleteRegistryKey(root, html_prog_id);
+  const string16 prog_id(ShellUtil::kChromeHTMLProgId + browser_entry_suffix);
+  string16 reg_prog_id(ShellUtil::kRegClasses);
+  reg_prog_id.push_back(FilePath::kSeparators[0]);
+  reg_prog_id.append(prog_id);
+  InstallUtil::DeleteRegistryKey(root, reg_prog_id);
 
   // Delete Software\Classes\Chrome (Same comment as above applies for this too)
-  string16 chrome_app_id(ShellUtil::kRegClasses);
-  chrome_app_id.push_back(FilePath::kSeparators[0]);
+  string16 reg_app_id(ShellUtil::kRegClasses);
+  reg_app_id.push_back(FilePath::kSeparators[0]);
   // Append the requested suffix manually here (as ShellUtil::GetBrowserModelId
   // would otherwise try to figure out the currently installed suffix).
-  chrome_app_id.append(dist->GetBaseAppId() + browser_entry_suffix);
-  InstallUtil::DeleteRegistryKey(root, chrome_app_id);
+  reg_app_id.append(dist->GetBaseAppId() + browser_entry_suffix);
+  InstallUtil::DeleteRegistryKey(root, reg_app_id);
 
   // Delete all Start Menu Internet registrations that refer to this Chrome.
   {
@@ -635,7 +663,8 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   InstallUtil::DeleteRegistryValue(root, ShellUtil::kRegRegisteredApplications,
       dist->GetBaseAppName() + browser_entry_suffix);
 
-  // Delete Software\Classes\Applications\chrome.exe
+  // Delete the App Paths and Applications keys that let Explorer find Chrome:
+  // http://msdn.microsoft.com/en-us/library/windows/desktop/ee872121
   string16 app_key(ShellUtil::kRegClasses);
   app_key.push_back(FilePath::kSeparators[0]);
   app_key.append(L"Applications");
@@ -643,23 +672,31 @@ bool DeleteChromeRegistrationKeys(BrowserDistribution* dist, HKEY root,
   app_key.append(installer::kChromeExe);
   InstallUtil::DeleteRegistryKey(root, app_key);
 
-  // Delete the App Paths key that lets explorer find Chrome.
   string16 app_path_key(ShellUtil::kAppPathsRegistryKey);
   app_path_key.push_back(FilePath::kSeparators[0]);
   app_path_key.append(installer::kChromeExe);
   InstallUtil::DeleteRegistryKey(root, app_path_key);
 
-  // Cleanup OpenWithList
-  string16 open_with_key;
-  for (int i = 0; ShellUtil::kFileAssociations[i] != NULL; i++) {
-    open_with_key.assign(ShellUtil::kRegClasses);
-    open_with_key.push_back(FilePath::kSeparators[0]);
-    open_with_key.append(ShellUtil::kFileAssociations[i]);
-    open_with_key.push_back(FilePath::kSeparators[0]);
-    open_with_key.append(L"OpenWithList");
-    open_with_key.push_back(FilePath::kSeparators[0]);
-    open_with_key.append(installer::kChromeExe);
-    InstallUtil::DeleteRegistryKey(root, open_with_key);
+  // Cleanup OpenWithList and OpenWithProgids:
+  // http://msdn.microsoft.com/en-us/library/bb166549
+  string16 file_assoc_key;
+  string16 open_with_list_key;
+  string16 open_with_progids_key;
+  for (int i = 0; ShellUtil::kFileAssociations[i] != NULL; ++i) {
+    file_assoc_key.assign(ShellUtil::kRegClasses);
+    file_assoc_key.push_back(FilePath::kSeparators[0]);
+    file_assoc_key.append(ShellUtil::kFileAssociations[i]);
+    file_assoc_key.push_back(FilePath::kSeparators[0]);
+
+    open_with_list_key.assign(file_assoc_key);
+    open_with_list_key.append(L"OpenWithList");
+    open_with_list_key.push_back(FilePath::kSeparators[0]);
+    open_with_list_key.append(installer::kChromeExe);
+    InstallUtil::DeleteRegistryKey(root, open_with_list_key);
+
+    open_with_progids_key.assign(file_assoc_key);
+    open_with_progids_key.append(ShellUtil::kRegOpenWithProgids);
+    InstallUtil::DeleteRegistryValue(root, open_with_progids_key, prog_id);
   }
 
   // Cleanup in case Chrome had been made the default browser.
@@ -1016,7 +1053,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
     // GetCurrentInstallationSuffix() above)).
     // TODO(gab): This can still leave parts of a suffixed install behind. To be
     // able to remove them we would need to be able to remove only suffixed
-    // entries (as it is now some of the shell integration entries are
+    // entries (as it is now some of the registry entries (e.g. App Paths) are
     // unsuffixed; thus removing suffixed installs is prohibited in HKLM if
     // !|remove_all| for now).
     if (installer_state.system_install() ||
@@ -1028,7 +1065,12 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
     }
 
     ProcessDelegateExecuteWorkItems(installer_state, product);
+
+// TODO(gab): This is only disabled for M22 as the shortcut CL using Active
+// Setup will not make it in M22.
+#if 0
     UninstallActiveSetupEntries(installer_state, product);
+#endif
   }
 
   if (product.is_chrome_frame()) {
@@ -1101,8 +1143,9 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   // When deleting files, we must make sure that we're either a "single"
   // (aka non-multi) installation or we are the Chrome Binaries.
 
-  FilePath backup_state_file(
-      BackupLocalStateFile(GetLocalStateFolder(product)));
+  std::vector<FilePath> local_state_folders;
+  GetLocalStateFolders(product, &local_state_folders);
+  FilePath backup_state_file(BackupLocalStateFile(local_state_folders));
 
   DeleteResult delete_result = DELETE_SUCCEEDED;
 
@@ -1121,7 +1164,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
   }
 
   if (delete_profile)
-    DeleteLocalState(product);
+    DeleteLocalState(local_state_folders, product.is_chrome_frame());
 
   if (delete_result == DELETE_FAILED) {
     ret = installer::UNINSTALL_FAILED;

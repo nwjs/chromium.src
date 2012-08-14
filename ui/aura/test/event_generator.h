@@ -13,8 +13,11 @@ namespace base {
 class TimeDelta;
 }
 
-namespace aura {
+namespace ui {
 class Event;
+}
+
+namespace aura {
 class RootWindow;
 class Window;
 
@@ -36,6 +39,12 @@ class EventGenerator {
 
   virtual ~EventGenerator();
 
+  // Explicitly sets the location used by mouse/touch events. This is set by the
+  // various methods that take a location but can be manipulated directly,
+  // typically for touch.
+  void set_current_location(const gfx::Point& location) {
+    current_location_ = location;
+  }
   const gfx::Point& current_location() const { return current_location_; }
 
   // Resets the event flags bitmask.
@@ -90,6 +99,9 @@ class EventGenerator {
   // Generates a touch press event.
   void PressTouch();
 
+  // Generates a ET_TOUCH_MOVED event to |point|.
+  void MoveTouch(const gfx::Point& point);
+
   // Generates a touch release event.
   void ReleaseTouch();
 
@@ -129,6 +141,20 @@ class EventGenerator {
                              const base::TimeDelta& duration,
                              int steps);
 
+  // Generates press, move, release touch-events to generate a sequence of
+  // multi-finger scroll events. |count| specifies the number of touch-points
+  // that should generate the scroll events. |start| are the starting positions
+  // of all the touch points. |steps| and |event_separation_time_ms| are
+  // relevant when testing velocity/fling/swipe, otherwise these can be any
+  // non-zero value. |delta_x| and |delta_y| are the amount that each finger
+  // should be moved.
+  void GestureMultiFingerScroll(int count,
+                                const gfx::Point* start,
+                                int event_separation_time_ms,
+                                int steps,
+                                int move_x,
+                                int move_y);
+
   // Generates a key press event. On platforms except Windows and X11, a key
   // event without native_event() is generated. Note that ui::EF_ flags should
   // be passed as |flags|, not the native ones like 'ShiftMask' in <X11/X.h>.
@@ -142,7 +168,7 @@ class EventGenerator {
   void ReleaseKey(ui::KeyboardCode key_code, int flags);
 
   // Dispatch the |event| to the RootWindow.
-  void Dispatch(Event& event);
+  void Dispatch(ui::Event& event);
 
  private:
   // Dispatch a key event to the RootWindow.

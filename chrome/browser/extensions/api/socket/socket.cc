@@ -74,6 +74,10 @@ void Socket::OnWriteComplete(int result) {
     WriteData();
 }
 
+bool Socket::IsConnected() {
+  return is_connected_;
+}
+
 bool Socket::SetKeepAlive(bool enable, int delay) {
   return false;
 }
@@ -119,5 +123,16 @@ void Socket::IPEndPointToStringAndPort(const net::IPEndPoint& address,
     *port = address.port();
   }
 }
+
+Socket::WriteRequest::WriteRequest(scoped_refptr<net::IOBuffer> io_buffer,
+                                   int byte_count,
+                                   const CompletionCallback& callback)
+    : io_buffer(io_buffer),
+      byte_count(byte_count),
+      callback(callback),
+      bytes_written(0) {
+}
+
+Socket::WriteRequest::~WriteRequest() { }
 
 }  // namespace extensions

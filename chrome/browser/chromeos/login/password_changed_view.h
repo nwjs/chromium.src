@@ -61,13 +61,13 @@ class PasswordChangedView : public views::DialogDelegateView,
 
   // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // views::TextfieldController:
   virtual void ContentsChanged(views::Textfield* sender,
                                const string16& new_contents) OVERRIDE;
   virtual bool HandleKeyEvent(views::Textfield* sender,
-                              const views::KeyEvent& keystroke) OVERRIDE;
+                              const ui::KeyEvent& keystroke) OVERRIDE;
  protected:
   // views::View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;

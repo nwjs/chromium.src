@@ -19,12 +19,22 @@ namespace chromeos {
 
 namespace {
 
-std::string GetDeviceUuid(const std::string& source_path) {
-  // Get the media device uuid if exists.
-  const disks::DiskMountManager::DiskMap& disks =
-      disks::DiskMountManager::GetInstance()->disks();
-  disks::DiskMountManager::DiskMap::const_iterator it = disks.find(source_path);
-  return it == disks.end() ? std::string() : it->second->fs_uuid();
+bool GetDeviceInfo(const std::string& source_path, std::string* device_id,
+                   string16* device_label) {
+  // Get the media device uuid and label if exists.
+  const disks::DiskMountManager::Disk* disk =
+      disks::DiskMountManager::GetInstance()->FindDiskBySourcePath(source_path);
+  if (!disk)
+    return false;
+
+  *device_id = disk->fs_uuid();
+
+  // TODO(kmadhusu): If device label is empty, extract vendor and model details
+  // and use them as device_label.
+  *device_label = UTF8ToUTF16(disk->device_label().empty() ?
+                              FilePath(source_path).BaseName().value() :
+                              disk->device_label());
+  return true;
 }
 
 }  // namespace
@@ -34,12 +44,26 @@ using content::BrowserThread;
 MediaDeviceNotifications::MediaDeviceNotifications() {
   DCHECK(disks::DiskMountManager::GetInstance());
   disks::DiskMountManager::GetInstance()->AddObserver(this);
+  CheckExistingMountPointsOnUIThread();
 }
 
 MediaDeviceNotifications::~MediaDeviceNotifications() {
   disks::DiskMountManager* manager = disks::DiskMountManager::GetInstance();
   if (manager) {
     manager->RemoveObserver(this);
+  }
+}
+
+void MediaDeviceNotifications::CheckExistingMountPointsOnUIThread() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  const disks::DiskMountManager::MountPointMap& mount_point_map =
+      disks::DiskMountManager::GetInstance()->mount_points();
+  for (disks::DiskMountManager::MountPointMap::const_iterator it =
+           mount_point_map.begin(); it != mount_point_map.end(); ++it) {
+    BrowserThread::PostTask(
+        BrowserThread::FILE, FROM_HERE,
+        base::Bind(&MediaDeviceNotifications::CheckMountedPathOnFileThread,
+                   this, it->second));
   }
 }
 
@@ -114,19 +138,22 @@ void MediaDeviceNotifications::AddMountedPathOnUIThread(
     return;
   }
 
-  // Get the media device uuid if exists.
-  std::string device_id_str = GetDeviceUuid(mount_info.source_path);
+  // Get the media device uuid and label if exists.
+  std::string device_id;
+  string16 device_label;
+  if (!GetDeviceInfo(mount_info.source_path, &device_id, &device_label))
+    return;
 
   // Keep track of device uuid, to see how often we receive empty uuid values.
   UMA_HISTOGRAM_BOOLEAN("MediaDeviceNotification.device_uuid_available",
-                        !device_id_str.empty());
-  if (device_id_str.empty())
+                        !device_id.empty());
+  if (device_id.empty())
     return;
 
-  mount_map_.insert(std::make_pair(mount_info.mount_path, device_id_str));
+  mount_map_.insert(std::make_pair(mount_info.mount_path, device_id));
   base::SystemMonitor::Get()->ProcessMediaDeviceAttached(
-      device_id_str,
-      UTF8ToUTF16(FilePath(mount_info.source_path).BaseName().value()),
+      device_id,
+      device_label,
       base::SystemMonitor::TYPE_PATH,
       mount_info.mount_path);
 }

@@ -154,18 +154,6 @@ cr.define('help', function() {
     /**
      * @private
      */
-    setObsoleteOS_: function(obsolete) {
-      if (cr.isMac) {
-        var updateObsoleteOSContainer = $('update-obsolete-os-container');
-        if (updateObsoleteOSContainer) {
-          updateObsoleteOSContainer.hidden = !obsolete;
-        }
-      }
-    },
-
-    /**
-     * @private
-     */
     setOSVersion_: function(version) {
       if (!cr.isChromeOS)
         console.error('OS version unsupported on non-CrOS');
@@ -230,13 +218,13 @@ cr.define('help', function() {
     },
 
     /**
-     * Sets the value of the "Last Updated" field of the "More Info" section.
-     * @param {String} lastUpdated The date of the last update.
+     * Sets the value of the "Build Date" field of the "More Info" section.
+     * @param {String} buildDate The date of the build.
      * @private
      */
-    setLastUpdated_: function(lastUpdated) {
-      $('last-updated-container').classList.remove('empty');
-      $('last-updated').textContent = lastUpdated;
+    setBuildDate_: function(buildDate) {
+      $('build-date-container').classList.remove('empty');
+      $('build-date').textContent = buildDate;
     },
   };
 
@@ -280,8 +268,8 @@ cr.define('help', function() {
     HelpPage.getInstance().setReleaseChannel_(channel);
   };
 
-  HelpPage.setLastUpdated = function(lastUpdated) {
-    HelpPage.getInstance().setLastUpdated_(lastUpdated);
+  HelpPage.setBuildDate = function(buildDate) {
+    HelpPage.getInstance().setBuildDate_(buildDate);
   }
 
   // Export

@@ -21,7 +21,6 @@
 #include "chrome/browser/autocomplete/autocomplete_classifier.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
 #include "chrome/browser/background/background_mode_manager.h"
-#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_plugin_service_filter.h"
 #include "chrome/browser/content_settings/cookie_settings.h"
@@ -42,11 +41,8 @@
 #include "chrome/browser/extensions/user_script_master.h"
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context.h"
-#include "chrome/browser/history/history.h"
-#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/shortcuts_backend.h"
 #include "chrome/browser/history/top_sites.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/net_pref_observer.h"
@@ -56,6 +52,7 @@
 #include "chrome/browser/net/url_fixer_upper.h"
 #include "chrome/browser/plugin_prefs.h"
 #include "chrome/browser/policy/policy_service.h"
+#include "chrome/browser/policy/user_cloud_policy_manager.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
@@ -84,6 +81,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_process_host.h"
@@ -264,8 +262,7 @@ ProfileImpl::ProfileImpl(const FilePath& path,
       favicon_service_created_(false),
       start_time_(Time::Now()),
       delegate_(delegate),
-      predictor_(NULL),
-      session_restore_enabled_(false) {
+      predictor_(NULL) {
   DCHECK(!path.empty()) << "Using an empty path will attempt to write " <<
                             "profile files to the root directory!";
 
@@ -282,13 +279,18 @@ ProfileImpl::ProfileImpl(const FilePath& path,
       !command_line->HasSwitch(switches::kDisablePreconnect),
       g_browser_process->profile_manager() == NULL);
 
-  session_restore_enabled_ =
-      !command_line->HasSwitch(switches::kDisableRestoreSessionState);
 #if defined(ENABLE_CONFIGURATION_POLICY)
-  policy_service_.reset(
-      g_browser_process->browser_policy_connector()->CreatePolicyService(this));
+  // TODO(atwilson): Change these to ProfileKeyedServices once PrefService is
+  // a ProfileKeyedService (policy must be initialized before PrefService
+  // because PrefService depends on policy loading to get overridden pref
+  // values).
+  cloud_policy_manager_ =
+      g_browser_process->browser_policy_connector()->CreateCloudPolicyManager(
+          this);
+  policy_service_ =
+      g_browser_process->browser_policy_connector()->CreatePolicyService(this);
 #else
-    policy_service_.reset(new policy::PolicyServiceStub());
+  policy_service_.reset(new policy::PolicyServiceStub());
 #endif
   if (create_mode == CREATE_MODE_ASYNCHRONOUS) {
     prefs_.reset(PrefService::CreatePrefService(
@@ -312,6 +314,11 @@ ProfileImpl::ProfileImpl(const FilePath& path,
     OnPrefsLoaded(true);
   } else {
     NOTREACHED();
+  }
+
+  if (command_line->HasSwitch(switches::kEnableRestoreSessionState)) {
+    content::BrowserContext::GetDefaultDOMStorageContext(this)->
+        SetSaveSessionStorageOnDisk();
   }
 }
 
@@ -364,8 +371,6 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
       g_browser_process->background_mode_manager()->RegisterProfile(this);
   }
 
-  InstantController::RecordMetrics(this);
-
   FilePath cookie_path = GetPath();
   cookie_path = cookie_path.Append(chrome::kCookieFilename);
   FilePath server_bound_cert_path = GetPath();
@@ -396,7 +401,6 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
           *CommandLine::ForCurrentProcess(), this).type;
 #endif
   bool restore_old_session_cookies =
-      session_restore_enabled_ &&
       (!DidLastSessionExitCleanly() ||
        startup_pref_type == SessionStartupPref::LAST);
 
@@ -499,13 +503,6 @@ ProfileImpl::~ProfileImpl() {
   }
 
   ProfileDependencyManager::GetInstance()->DestroyProfileServices(this);
-
-  // The HistoryService maintains threads for background processing. Its
-  // possible each thread still has tasks on it that have increased the ref
-  // count of the service. In such a situation, when we decrement the refcount,
-  // it won't be 0, and the threads/databases aren't properly shut down. By
-  // explicitly calling Cleanup/Shutdown we ensure the databases are properly
-  // closed.
 
   if (top_sites_.get())
     top_sites_->Shutdown();
@@ -643,6 +640,10 @@ bool ProfileImpl::WasCreatedByVersionOrLater(const std::string& version) {
   return (profile_version.CompareTo(arg_version) >= 0);
 }
 
+policy::UserCloudPolicyManager* ProfileImpl::GetUserCloudPolicyManager() {
+  return cloud_policy_manager_.get();
+}
+
 policy::PolicyService* ProfileImpl::GetPolicyService() {
   DCHECK(policy_service_.get());  // Should explicitly be initialized.
   return policy_service_.get();
@@ -763,14 +764,6 @@ GAIAInfoUpdateService* ProfileImpl::GetGAIAInfoUpdateService() {
   return gaia_info_update_service_.get();
 }
 
-HistoryService* ProfileImpl::GetHistoryService(ServiceAccessType sat) {
-  return HistoryServiceFactory::GetForProfile(this, sat).get();
-}
-
-HistoryService* ProfileImpl::GetHistoryServiceWithoutCreating() {
-  return HistoryServiceFactory::GetForProfileWithoutCreating(this).get();
-}
-
 DownloadManagerDelegate* ProfileImpl::GetDownloadManagerDelegate() {
   return DownloadServiceFactory::GetForProfile(this)->
       GetDownloadManagerDelegate();
@@ -785,10 +778,6 @@ bool ProfileImpl::DidLastSessionExitCleanly() {
 
 quota::SpecialStoragePolicy* ProfileImpl::GetSpecialStoragePolicy() {
   return GetExtensionSpecialStoragePolicy();
-}
-
-BookmarkModel* ProfileImpl::GetBookmarkModel() {
-  return BookmarkModelFactory::GetForProfile(this);
 }
 
 ProtocolHandlerRegistry* ProfileImpl::GetProtocolHandlerRegistry() {

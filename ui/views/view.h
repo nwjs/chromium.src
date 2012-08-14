@@ -41,6 +41,7 @@ class Path;
 namespace ui {
 struct AccessibleViewState;
 class Compositor;
+class KeyEvent;
 class Layer;
 class TextInputClient;
 class Texture;
@@ -406,9 +407,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // |source| and |target| must be in the same widget, but doesn't need to be in
   // the same view hierarchy.
   // |source| can be NULL in which case it means the screen coordinate system.
-  static void ConvertPointToView(const View* source,
-                                 const View* target,
-                                 gfx::Point* point);
+  static void ConvertPointToTarget(const View* source,
+                                   const View* target,
+                                   gfx::Point* point);
 
   // Convert a point from a View's coordinate system to that of its Widget.
   static void ConvertPointToWidget(const View* src, gfx::Point* point);
@@ -507,10 +508,14 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // responsible for managing the lifetime of the returned object, though that
   // lifetime may vary from platform to platform. On Windows and Aura,
   // the cursor is a shared resource.
-  virtual gfx::NativeCursor GetCursor(const MouseEvent& event);
+  virtual gfx::NativeCursor GetCursor(const ui::MouseEvent& event);
 
-  // Convenience to test whether a point is within this view's bounds
-  virtual bool HitTest(const gfx::Point& l) const;
+  // A convenience function which calls HitTestRect() with a rect of size
+  // 1x1 and an origin of |point|.
+  bool HitTestPoint(const gfx::Point& point) const;
+
+  // Tests whether |rect| intersects this view's bounds.
+  virtual bool HitTestRect(const gfx::Rect& rect) const;
 
   // This method is invoked when the user clicks on this view.
   // The provided event is in the receiver's coordinate system.
@@ -527,7 +532,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Default implementation returns true if a ContextMenuController has been
   // set, false otherwise. Override as needed.
   //
-  virtual bool OnMousePressed(const MouseEvent& event);
+  virtual bool OnMousePressed(const ui::MouseEvent& event);
 
   // This method is invoked when the user clicked on this control.
   // and is still moving the mouse with a button pressed.
@@ -539,7 +544,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Default implementation returns true if a ContextMenuController has been
   // set, false otherwise. Override as needed.
   //
-  virtual bool OnMouseDragged(const MouseEvent& event);
+  virtual bool OnMouseDragged(const ui::MouseEvent& event);
 
   // This method is invoked when the user releases the mouse
   // button. The event is in the receiver's coordinate system.
@@ -547,7 +552,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Default implementation notifies the ContextMenuController is appropriate.
   // Subclasses that wish to honor the ContextMenuController should invoke
   // super.
-  virtual void OnMouseReleased(const MouseEvent& event);
+  virtual void OnMouseReleased(const ui::MouseEvent& event);
 
   // This method is invoked when the mouse press/drag was canceled by a
   // system/user gesture.
@@ -557,17 +562,17 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // The event is in the receiver's coordinate system.
   //
   // Default implementation does nothing. Override as needed.
-  virtual void OnMouseMoved(const MouseEvent& event);
+  virtual void OnMouseMoved(const ui::MouseEvent& event);
 
   // This method is invoked when the mouse enters this control.
   //
   // Default implementation does nothing. Override as needed.
-  virtual void OnMouseEntered(const MouseEvent& event);
+  virtual void OnMouseEntered(const ui::MouseEvent& event);
 
   // This method is invoked when the mouse exits this control
   // The provided event location is always (0, 0)
   // Default implementation does nothing. Override as needed.
-  virtual void OnMouseExited(const MouseEvent& event);
+  virtual void OnMouseExited(const ui::MouseEvent& event);
 
   // This method is invoked for each touch event. Default implementation
   // does nothing. Override as needed.
@@ -613,8 +618,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Subclasser should return true if the event has been processed and false
   // otherwise. If the event has not been processed, the parent will be given a
   // chance.
-  virtual bool OnKeyPressed(const KeyEvent& event);
-  virtual bool OnKeyReleased(const KeyEvent& event);
+  virtual bool OnKeyPressed(const ui::KeyEvent& event);
+  virtual bool OnKeyReleased(const ui::KeyEvent& event);
 
   // Invoked when the user uses the mousewheel. Implementors should return true
   // if the event has been processed and false otherwise. This message is sent
@@ -733,7 +738,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // have it processed as an accelerator (if any) or as a tab traversal (if the
   // key event is for the TAB key).  In that case, OnKeyPressed will
   // subsequently be invoked for that event.
-  virtual bool SkipDefaultKeyEventProcessing(const KeyEvent& event);
+  virtual bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& event);
 
   // Subclasses that contain traversable children that are not directly
   // accessible through the children hierarchy should return the associated
@@ -1028,14 +1033,14 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Input ---------------------------------------------------------------------
 
-  // Called by HitTest to see if this View has a custom hit test mask. If the
-  // return value is true, GetHitTestMask will be called to obtain the mask.
-  // Default value is false, in which case the View will hit-test against its
-  // bounds.
+  // Called by HitTestRect() to see if this View has a custom hit test mask. If
+  // the return value is true, GetHitTestMask() will be called to obtain the
+  // mask. Default value is false, in which case the View will hit-test against
+  // its bounds.
   virtual bool HasHitTestMask() const;
 
-  // Called by HitTest to retrieve a mask for hit-testing against. Subclasses
-  // override to provide custom shaped hit test regions.
+  // Called by HitTestRect() to retrieve a mask for hit-testing against.
+  // Subclasses override to provide custom shaped hit test regions.
   virtual void GetHitTestMask(gfx::Path* mask) const;
 
   // Focus ---------------------------------------------------------------------
@@ -1272,9 +1277,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // RootView invokes these. These in turn invoke the appropriate OnMouseXXX
   // method. If a drag is detected, DoDrag is invoked.
-  bool ProcessMousePressed(const MouseEvent& event, DragInfo* drop_info);
-  bool ProcessMouseDragged(const MouseEvent& event, DragInfo* drop_info);
-  void ProcessMouseReleased(const MouseEvent& event);
+  bool ProcessMousePressed(const ui::MouseEvent& event, DragInfo* drop_info);
+  bool ProcessMouseDragged(const ui::MouseEvent& event, DragInfo* drop_info);
+  void ProcessMouseReleased(const ui::MouseEvent& event);
 
   // RootView will invoke this with incoming TouchEvents. Returns the result
   // of OnTouchEvent.
@@ -1327,7 +1332,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // supported drag operations. When done, OnDragDone is invoked. |press_pt| is
   // in the view's coordinate system.
   // Returns true if a drag was started.
-  bool DoDrag(const LocatedEvent& event, const gfx::Point& press_pt);
+  bool DoDrag(const ui::LocatedEvent& event, const gfx::Point& press_pt);
 
   //////////////////////////////////////////////////////////////////////////////
 

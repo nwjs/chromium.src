@@ -15,6 +15,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/time.h"
 #include "base/values.h"
+#include "remoting/host/constants.h"
 
 namespace remoting {
 namespace policy_hack {
@@ -89,13 +90,16 @@ scoped_ptr<base::DictionaryValue> AddDefaultValuesWhenNecessary(
   CopyBooleanOrDefault(to.get(), from,
                        PolicyWatcher::kNatPolicyName, true, false);
   CopyBooleanOrDefault(to.get(), from,
-                       PolicyWatcher::kRequireTwoFactorPolicyName,
+                       PolicyWatcher::kHostRequireTwoFactorPolicyName,
                        false, false);
   CopyStringOrDefault(to.get(), from,
                       PolicyWatcher::kHostDomainPolicyName, "", "");
   CopyStringOrDefault(to.get(), from,
-                      PolicyWatcher::kTalkGadgetPolicyName,
-                      "chromoting", "chromoting");
+                      PolicyWatcher::kHostTalkGadgetPrefixPolicyName,
+                      kDefaultTalkGadgetPrefix, kDefaultTalkGadgetPrefix);
+  CopyBooleanOrDefault(to.get(), from,
+                       PolicyWatcher::kHostRequireCurtainPolicyName,
+                       false, false);
 
   return to.Pass();
 }
@@ -105,18 +109,21 @@ scoped_ptr<base::DictionaryValue> AddDefaultValuesWhenNecessary(
 const char PolicyWatcher::kNatPolicyName[] =
     "RemoteAccessHostFirewallTraversal";
 
-const char PolicyWatcher::kRequireTwoFactorPolicyName[] =
+const char PolicyWatcher::kHostRequireTwoFactorPolicyName[] =
     "RemoteAccessHostRequireTwoFactor";
 
 const char PolicyWatcher::kHostDomainPolicyName[] =
     "RemoteAccessHostDomain";
 
-const char PolicyWatcher::kTalkGadgetPolicyName[] =
-    "RemoteAccessHostTalkGadget";
+const char PolicyWatcher::kHostTalkGadgetPrefixPolicyName[] =
+    "RemoteAccessHostTalkGadgetPrefix";
+
+const char PolicyWatcher::kHostRequireCurtainPolicyName[] =
+    "RemoteAccessHostRequireCurtain";
 
 const char* const PolicyWatcher::kBooleanPolicyNames[] =
     { PolicyWatcher::kNatPolicyName,
-      PolicyWatcher::kRequireTwoFactorPolicyName
+      PolicyWatcher::kHostRequireTwoFactorPolicyName
     };
 
 const int PolicyWatcher::kBooleanPolicyNamesNum =
@@ -124,7 +131,7 @@ const int PolicyWatcher::kBooleanPolicyNamesNum =
 
 const char* const PolicyWatcher::kStringPolicyNames[] =
     { PolicyWatcher::kHostDomainPolicyName,
-      PolicyWatcher::kTalkGadgetPolicyName
+      PolicyWatcher::kHostTalkGadgetPrefixPolicyName
     };
 
 const int PolicyWatcher::kStringPolicyNamesNum =

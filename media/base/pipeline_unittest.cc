@@ -19,6 +19,7 @@
 using ::testing::_;
 using ::testing::DeleteArg;
 using ::testing::DoAll;
+// TODO(scherkus): Remove InSequence after refactoring Pipeline.
 using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::InvokeWithoutArgs;
@@ -41,12 +42,28 @@ ACTION_P(SetDemuxerProperties, duration) {
   arg0->SetDuration(duration);
 }
 
-ACTION(RunPipelineStatusCB1) {
+ACTION_P2(Stop, pipeline, stop_cb) {
+  pipeline->Stop(stop_cb);
+}
+
+ACTION_P2(SetError, pipeline, status) {
+  pipeline->SetErrorForTesting(status);
+}
+
+ACTION(RunPipelineStatusCB) {
   arg1.Run(PIPELINE_OK);
 }
 
-ACTION_P(RunPipelineStatusCB1WithStatus, status) {
+ACTION(RunPipelineStatusCB2) {
+  arg2.Run(PIPELINE_OK);
+}
+
+ACTION_P(RunPipelineStatusCBWithStatus, status) {
   arg1.Run(status);
+}
+
+ACTION_P(RunPipelineStatusCB2WithStatus, status) {
+  arg2.Run(status);
 }
 
 // Used for setting expectations on pipeline callbacks.  Using a StrictMock
@@ -75,7 +92,8 @@ class CallbackHelper {
 class PipelineTest : public ::testing::Test {
  public:
   PipelineTest()
-      : pipeline_(new Pipeline(&message_loop_, new MediaLog())) {
+      : pipeline_(new Pipeline(message_loop_.message_loop_proxy(),
+                               new MediaLog())) {
     mocks_.reset(new MockFilterCollection());
 
     // InitializeDemuxer() adds overriding expectations for expected non-NULL
@@ -89,15 +107,13 @@ class PipelineTest : public ::testing::Test {
   }
 
   virtual ~PipelineTest() {
-    if (!pipeline_->IsRunning()) {
-      return;
-    }
-
     // Shutdown sequence.
-    if (pipeline_->IsInitialized()) {
+    if (pipeline_->IsRunning()) {
       EXPECT_CALL(*mocks_->demuxer(), Stop(_))
           .WillOnce(RunClosure());
 
+      // TODO(scherkus): Don't pause+flush on shutdown,
+      // see http://crbug.com/110228
       if (audio_stream_) {
         EXPECT_CALL(*mocks_->audio_renderer(), Pause(_))
             .WillOnce(RunClosure());
@@ -134,12 +150,7 @@ class PipelineTest : public ::testing::Test {
                          const base::TimeDelta& duration) {
     EXPECT_CALL(*mocks_->demuxer(), Initialize(_, _))
         .WillOnce(DoAll(SetDemuxerProperties(duration),
-                        RunPipelineStatusCB1()));
-    EXPECT_CALL(*mocks_->demuxer(), SetPlaybackRate(0.0f));
-
-    // Demuxer properties.
-    EXPECT_CALL(*mocks_->demuxer(), GetBitrate())
-        .WillRepeatedly(Return(kBitrate));
+                        RunPipelineStatusCB()));
 
     // Configure the demuxer to return the streams.
     for (size_t i = 0; i < streams->size(); ++i) {
@@ -162,31 +173,23 @@ class PipelineTest : public ::testing::Test {
     return stream;
   }
 
-  // Sets up expectations to allow the video decoder to initialize.
-  void InitializeVideoDecoder(const scoped_refptr<DemuxerStream>& stream) {
-    EXPECT_CALL(*mocks_->video_decoder(),
-                Initialize(stream, _, _))
-        .WillOnce(RunPipelineStatusCB1());
-  }
-
   // Sets up expectations to allow the audio decoder to initialize.
   void InitializeAudioDecoder(const scoped_refptr<DemuxerStream>& stream) {
     EXPECT_CALL(*mocks_->audio_decoder(), Initialize(stream, _, _))
-        .WillOnce(RunPipelineStatusCB1());
+        .WillOnce(RunPipelineStatusCB());
   }
 
   // Sets up expectations to allow the video renderer to initialize.
-  void InitializeVideoRenderer() {
+  void InitializeVideoRenderer(const scoped_refptr<DemuxerStream>& stream) {
     EXPECT_CALL(*mocks_->video_renderer(), Initialize(
-        scoped_refptr<VideoDecoder>(mocks_->video_decoder()),
-        _, _, _, _, _, _, _, _))
-        .WillOnce(RunPipelineStatusCB1());
+        stream, _, _, _, _, _, _, _, _, _))
+        .WillOnce(RunPipelineStatusCB2());
     EXPECT_CALL(*mocks_->video_renderer(), SetPlaybackRate(0.0f));
 
     // Startup sequence.
     EXPECT_CALL(*mocks_->video_renderer(),
                 Preroll(mocks_->demuxer()->GetStartTime(), _))
-        .WillOnce(RunPipelineStatusCB1());
+        .WillOnce(RunPipelineStatusCB());
     EXPECT_CALL(*mocks_->video_renderer(), Play(_))
         .WillOnce(RunClosure());
   }
@@ -197,29 +200,36 @@ class PipelineTest : public ::testing::Test {
       EXPECT_CALL(*mocks_->audio_renderer(), Initialize(
           scoped_refptr<AudioDecoder>(mocks_->audio_decoder()),
           _, _, _, _, _, _))
-          .WillOnce(DoAll(RunPipelineStatusCB1(),
+          .WillOnce(DoAll(RunPipelineStatusCB(),
                           WithArg<5>(RunClosure())));  // |disabled_cb|.
     } else {
       EXPECT_CALL(*mocks_->audio_renderer(), Initialize(
           scoped_refptr<AudioDecoder>(mocks_->audio_decoder()),
           _, _, _, _, _, _))
           .WillOnce(DoAll(SaveArg<3>(&audio_time_cb_),
-                          RunPipelineStatusCB1()));
+                          RunPipelineStatusCB()));
     }
-    EXPECT_CALL(*mocks_->audio_renderer(), SetPlaybackRate(0.0f));
-    EXPECT_CALL(*mocks_->audio_renderer(), SetVolume(1.0f));
-
-    // Startup sequence.
-    EXPECT_CALL(*mocks_->audio_renderer(), Preroll(base::TimeDelta(), _))
-        .WillOnce(RunPipelineStatusCB1());
-    EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
-        .WillOnce(RunClosure());
   }
 
   // Sets up expectations on the callback and initializes the pipeline.  Called
   // after tests have set expectations any filters they wish to use.
   void InitializePipeline(PipelineStatus start_status) {
     EXPECT_CALL(callbacks_, OnStart(start_status));
+
+    if (start_status == PIPELINE_OK) {
+      EXPECT_CALL(*mocks_->demuxer(), SetPlaybackRate(0.0f));
+
+      if (audio_stream_) {
+        EXPECT_CALL(*mocks_->audio_renderer(), SetPlaybackRate(0.0f));
+        EXPECT_CALL(*mocks_->audio_renderer(), SetVolume(1.0f));
+
+        // Startup sequence.
+        EXPECT_CALL(*mocks_->audio_renderer(), Preroll(base::TimeDelta(), _))
+            .WillOnce(RunPipelineStatusCB());
+        EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
+            .WillOnce(RunClosure());
+      }
+    }
 
     pipeline_->Start(
         mocks_->Create().Pass(),
@@ -248,7 +258,7 @@ class PipelineTest : public ::testing::Test {
   void ExpectSeek(const base::TimeDelta& seek_time) {
     // Every filter should receive a call to Seek().
     EXPECT_CALL(*mocks_->demuxer(), Seek(seek_time, _))
-        .WillOnce(RunPipelineStatusCB1());
+        .WillOnce(RunPipelineStatusCB());
 
     if (audio_stream_) {
       EXPECT_CALL(*mocks_->audio_renderer(), Pause(_))
@@ -256,7 +266,7 @@ class PipelineTest : public ::testing::Test {
       EXPECT_CALL(*mocks_->audio_renderer(), Flush(_))
           .WillOnce(RunClosure());
       EXPECT_CALL(*mocks_->audio_renderer(), Preroll(seek_time, _))
-          .WillOnce(RunPipelineStatusCB1());
+          .WillOnce(RunPipelineStatusCB());
       EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
           .WillOnce(RunClosure());
     }
@@ -267,7 +277,7 @@ class PipelineTest : public ::testing::Test {
       EXPECT_CALL(*mocks_->video_renderer(), Flush(_))
           .WillOnce(RunClosure());
       EXPECT_CALL(*mocks_->video_renderer(), Preroll(seek_time, _))
-          .WillOnce(RunPipelineStatusCB1());
+          .WillOnce(RunPipelineStatusCB());
       EXPECT_CALL(*mocks_->video_renderer(), Play(_))
           .WillOnce(RunClosure());
     }
@@ -306,7 +316,6 @@ TEST_F(PipelineTest, NotStarted) {
   const base::TimeDelta kZero;
 
   EXPECT_FALSE(pipeline_->IsRunning());
-  EXPECT_FALSE(pipeline_->IsInitialized());
   EXPECT_FALSE(pipeline_->HasAudio());
   EXPECT_FALSE(pipeline_->HasVideo());
 
@@ -340,8 +349,6 @@ TEST_F(PipelineTest, NotStarted) {
 TEST_F(PipelineTest, NeverInitializes) {
   // Don't execute the callback passed into Initialize().
   EXPECT_CALL(*mocks_->demuxer(), Initialize(_, _));
-  EXPECT_CALL(*mocks_->demuxer(), Stop(_))
-      .WillOnce(RunClosure());
 
   // This test hangs during initialization by never calling
   // InitializationComplete().  StrictMock<> will ensure that the callback is
@@ -353,7 +360,6 @@ TEST_F(PipelineTest, NeverInitializes) {
         base::Bind(&CallbackHelper::OnStart, base::Unretained(&callbacks_)));
   message_loop_.RunAllPending();
 
-  EXPECT_FALSE(pipeline_->IsInitialized());
 
   // Because our callback will get executed when the test tears down, we'll
   // verify that nothing has been called, then set our expectation for the call
@@ -374,27 +380,24 @@ TEST_F(PipelineTest, RequiredFilterMissing) {
       base::Bind(&CallbackHelper::OnError, base::Unretained(&callbacks_)),
       base::Bind(&CallbackHelper::OnStart, base::Unretained(&callbacks_)));
   message_loop_.RunAllPending();
-  EXPECT_FALSE(pipeline_->IsInitialized());
 }
 
 TEST_F(PipelineTest, URLNotFound) {
   EXPECT_CALL(*mocks_->demuxer(), Initialize(_, _))
-      .WillOnce(RunPipelineStatusCB1WithStatus(PIPELINE_ERROR_URL_NOT_FOUND));
+      .WillOnce(RunPipelineStatusCBWithStatus(PIPELINE_ERROR_URL_NOT_FOUND));
   EXPECT_CALL(*mocks_->demuxer(), Stop(_))
       .WillOnce(RunClosure());
 
   InitializePipeline(PIPELINE_ERROR_URL_NOT_FOUND);
-  EXPECT_FALSE(pipeline_->IsInitialized());
 }
 
 TEST_F(PipelineTest, NoStreams) {
   EXPECT_CALL(*mocks_->demuxer(), Initialize(_, _))
-      .WillOnce(RunPipelineStatusCB1());
+      .WillOnce(RunPipelineStatusCB());
   EXPECT_CALL(*mocks_->demuxer(), Stop(_))
       .WillOnce(RunClosure());
 
   InitializePipeline(PIPELINE_ERROR_COULD_NOT_RENDER);
-  EXPECT_FALSE(pipeline_->IsInitialized());
 }
 
 TEST_F(PipelineTest, AudioStream) {
@@ -407,7 +410,6 @@ TEST_F(PipelineTest, AudioStream) {
   InitializeAudioRenderer();
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_TRUE(pipeline_->HasAudio());
   EXPECT_FALSE(pipeline_->HasVideo());
 }
@@ -418,11 +420,9 @@ TEST_F(PipelineTest, VideoStream) {
   streams.push_back(video_stream());
 
   InitializeDemuxer(&streams);
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_FALSE(pipeline_->HasAudio());
   EXPECT_TRUE(pipeline_->HasVideo());
 }
@@ -437,11 +437,9 @@ TEST_F(PipelineTest, AudioVideoStream) {
   InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_TRUE(pipeline_->HasAudio());
   EXPECT_TRUE(pipeline_->HasVideo());
 }
@@ -456,8 +454,7 @@ TEST_F(PipelineTest, Seek) {
   InitializeDemuxer(&streams, base::TimeDelta::FromSeconds(3000));
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   // Initialize then seek!
   InitializePipeline(PIPELINE_OK);
@@ -493,11 +490,9 @@ TEST_F(PipelineTest, Properties) {
 
   const base::TimeDelta kDuration = base::TimeDelta::FromSeconds(100);
   InitializeDemuxer(&streams, kDuration);
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_EQ(kDuration.ToInternalValue(),
             pipeline_->GetMediaDuration().ToInternalValue());
   EXPECT_EQ(kTotalBytes, pipeline_->GetTotalBytes());
@@ -511,11 +506,9 @@ TEST_F(PipelineTest, GetBufferedTimeRanges) {
 
   const base::TimeDelta kDuration = base::TimeDelta::FromSeconds(100);
   InitializeDemuxer(&streams, kDuration);
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
 
   EXPECT_EQ(0u, pipeline_->GetBufferedTimeRanges().size());
 
@@ -567,11 +560,9 @@ TEST_F(PipelineTest, DisableAudioRenderer) {
   InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_TRUE(pipeline_->HasAudio());
   EXPECT_TRUE(pipeline_->HasVideo());
 
@@ -579,10 +570,8 @@ TEST_F(PipelineTest, DisableAudioRenderer) {
   pipeline_->OnAudioDisabled();
 
   // Verify that ended event is fired when video ends.
-  EXPECT_CALL(*mocks_->video_renderer(), HasEnded())
-      .WillOnce(Return(true));
   EXPECT_CALL(callbacks_, OnEnded(PIPELINE_OK));
-  pipeline_->OnRendererEnded();
+  pipeline_->OnVideoRendererEnded();
 }
 
 TEST_F(PipelineTest, DisableAudioRendererDuringInit) {
@@ -595,22 +584,18 @@ TEST_F(PipelineTest, DisableAudioRendererDuringInit) {
   InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer(true);
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   EXPECT_CALL(*mocks_->demuxer(),
               OnAudioRendererDisabled());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_FALSE(pipeline_->HasAudio());
   EXPECT_TRUE(pipeline_->HasVideo());
 
   // Verify that ended event is fired when video ends.
-  EXPECT_CALL(*mocks_->video_renderer(), HasEnded())
-      .WillOnce(Return(true));
   EXPECT_CALL(callbacks_, OnEnded(PIPELINE_OK));
-  pipeline_->OnRendererEnded();
+  pipeline_->OnVideoRendererEnded();
 }
 
 TEST_F(PipelineTest, EndedCallback) {
@@ -623,28 +608,16 @@ TEST_F(PipelineTest, EndedCallback) {
   InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
   InitializePipeline(PIPELINE_OK);
 
-  // Due to short circuit evaluation we only need to test a subset of cases.
-  InSequence s;
-  EXPECT_CALL(*mocks_->audio_renderer(), HasEnded())
-      .WillOnce(Return(false));
-  pipeline_->OnRendererEnded();
+  // The ended callback shouldn't run until both renderers have ended.
+  pipeline_->OnAudioRendererEnded();
+  message_loop_.RunAllPending();
 
-  EXPECT_CALL(*mocks_->audio_renderer(), HasEnded())
-      .WillOnce(Return(true));
-  EXPECT_CALL(*mocks_->video_renderer(), HasEnded())
-      .WillOnce(Return(false));
-  pipeline_->OnRendererEnded();
-
-  EXPECT_CALL(*mocks_->audio_renderer(), HasEnded())
-      .WillOnce(Return(true));
-  EXPECT_CALL(*mocks_->video_renderer(), HasEnded())
-      .WillOnce(Return(true));
   EXPECT_CALL(callbacks_, OnEnded(PIPELINE_OK));
-  pipeline_->OnRendererEnded();
+  pipeline_->OnVideoRendererEnded();
+  message_loop_.RunAllPending();
 }
 
 // Static function & time variable used to simulate changes in wallclock time.
@@ -669,8 +642,7 @@ TEST_F(PipelineTest, AudioStreamShorterThanVideo) {
   InitializeDemuxer(&streams, duration);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
   InitializePipeline(PIPELINE_OK);
 
   EXPECT_EQ(0, pipeline_->GetMediaTime().ToInternalValue());
@@ -692,11 +664,7 @@ TEST_F(PipelineTest, AudioStreamShorterThanVideo) {
   EXPECT_EQ(pipeline_->GetMediaTime().ToInternalValue(), start_time);
 
   // Signal end of audio stream.
-  EXPECT_CALL(*mocks_->audio_renderer(), HasEnded())
-      .WillOnce(Return(true));
-  EXPECT_CALL(*mocks_->video_renderer(), HasEnded())
-      .WillOnce(Return(false));
-  pipeline_->OnRendererEnded();
+  pipeline_->OnAudioRendererEnded();
   message_loop_.RunAllPending();
 
   // Verify that the clock advances.
@@ -706,12 +674,8 @@ TEST_F(PipelineTest, AudioStreamShorterThanVideo) {
   EXPECT_GT(pipeline_->GetMediaTime().ToInternalValue(), start_time);
 
   // Signal end of video stream and make sure OnEnded() callback occurs.
-  EXPECT_CALL(*mocks_->audio_renderer(), HasEnded())
-      .WillOnce(Return(true));
-  EXPECT_CALL(*mocks_->video_renderer(), HasEnded())
-      .WillOnce(Return(true));
   EXPECT_CALL(callbacks_, OnEnded(PIPELINE_OK));
-  pipeline_->OnRendererEnded();
+  pipeline_->OnVideoRendererEnded();
 }
 
 TEST_F(PipelineTest, ErrorDuringSeek) {
@@ -719,7 +683,7 @@ TEST_F(PipelineTest, ErrorDuringSeek) {
   MockDemuxerStreamVector streams;
   streams.push_back(audio_stream());
 
-  InitializeDemuxer(&streams, base::TimeDelta::FromSeconds(10));
+  InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
   InitializePipeline(PIPELINE_OK);
@@ -741,7 +705,7 @@ TEST_F(PipelineTest, ErrorDuringSeek) {
       .WillOnce(RunClosure());
 
   EXPECT_CALL(*mocks_->demuxer(), Seek(seek_time, _))
-      .WillOnce(RunPipelineStatusCB1WithStatus(PIPELINE_ERROR_READ));
+      .WillOnce(RunPipelineStatusCBWithStatus(PIPELINE_ERROR_READ));
   EXPECT_CALL(*mocks_->demuxer(), Stop(_))
       .WillOnce(RunClosure());
 
@@ -775,7 +739,7 @@ TEST_F(PipelineTest, NoMessageDuringTearDownFromError) {
   MockDemuxerStreamVector streams;
   streams.push_back(audio_stream());
 
-  InitializeDemuxer(&streams, base::TimeDelta::FromSeconds(10));
+  InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
   InitializePipeline(PIPELINE_OK);
@@ -797,7 +761,7 @@ TEST_F(PipelineTest, NoMessageDuringTearDownFromError) {
       .WillOnce(RunClosure());
 
   EXPECT_CALL(*mocks_->demuxer(), Seek(seek_time, _))
-      .WillOnce(RunPipelineStatusCB1WithStatus(PIPELINE_ERROR_READ));
+      .WillOnce(RunPipelineStatusCBWithStatus(PIPELINE_ERROR_READ));
   EXPECT_CALL(*mocks_->demuxer(), Stop(_))
       .WillOnce(RunClosure());
 
@@ -814,11 +778,9 @@ TEST_F(PipelineTest, StartTimeIsZero) {
 
   const base::TimeDelta kDuration = base::TimeDelta::FromSeconds(100);
   InitializeDemuxer(&streams, kDuration);
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_FALSE(pipeline_->HasAudio());
   EXPECT_TRUE(pipeline_->HasVideo());
 
@@ -837,11 +799,9 @@ TEST_F(PipelineTest, StartTimeIsNonZero) {
   streams.push_back(video_stream());
 
   InitializeDemuxer(&streams, kDuration);
-  InitializeVideoDecoder(video_stream());
-  InitializeVideoRenderer();
+  InitializeVideoRenderer(video_stream());
 
   InitializePipeline(PIPELINE_OK);
-  EXPECT_TRUE(pipeline_->IsInitialized());
   EXPECT_FALSE(pipeline_->HasAudio());
   EXPECT_TRUE(pipeline_->HasVideo());
 
@@ -860,7 +820,7 @@ TEST_F(PipelineTest, AudioTimeUpdateDuringSeek) {
   MockDemuxerStreamVector streams;
   streams.push_back(audio_stream());
 
-  InitializeDemuxer(&streams, base::TimeDelta::FromSeconds(10));
+  InitializeDemuxer(&streams);
   InitializeAudioDecoder(audio_stream());
   InitializeAudioRenderer();
   InitializePipeline(PIPELINE_OK);
@@ -884,14 +844,14 @@ TEST_F(PipelineTest, AudioTimeUpdateDuringSeek) {
   base::Closure closure = base::Bind(&RunTimeCB, audio_time_cb_, 300, 700);
   EXPECT_CALL(*mocks_->demuxer(), Seek(seek_time, _))
       .WillOnce(DoAll(InvokeWithoutArgs(&closure, &base::Closure::Run),
-                      RunPipelineStatusCB1()));
+                      RunPipelineStatusCB()));
 
   EXPECT_CALL(*mocks_->audio_renderer(), Pause(_))
       .WillOnce(RunClosure());
   EXPECT_CALL(*mocks_->audio_renderer(), Flush(_))
       .WillOnce(RunClosure());
   EXPECT_CALL(*mocks_->audio_renderer(), Preroll(seek_time, _))
-      .WillOnce(RunPipelineStatusCB1());
+      .WillOnce(RunPipelineStatusCB());
   EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
       .WillOnce(RunClosure());
 
@@ -960,5 +920,386 @@ TEST(PipelineStatusNotificationTest, ImmediateCallback) {
 TEST(PipelineStatusNotificationTest, DelayedCallback) {
   TestPipelineStatusNotification(base::TimeDelta::FromMilliseconds(20));
 }
+
+class PipelineTeardownTest : public PipelineTest {
+ public:
+  enum TeardownState {
+    kInitDemuxer,
+    kInitAudioDecoder,
+    kInitAudioRenderer,
+    kInitVideoRenderer,
+    kPausing,
+    kFlushing,
+    kSeeking,
+    kPrerolling,
+    kStarting,
+    kPlaying,
+  };
+
+  enum StopOrError {
+    kStop,
+    kError,
+  };
+
+  PipelineTeardownTest() {}
+  virtual ~PipelineTeardownTest() {}
+
+  void RunTest(TeardownState state, StopOrError stop_or_error) {
+    switch (state) {
+      case kInitDemuxer:
+      case kInitAudioDecoder:
+      case kInitAudioRenderer:
+      case kInitVideoRenderer:
+        DoInitialize(state, stop_or_error);
+        break;
+
+      case kPausing:
+      case kFlushing:
+      case kSeeking:
+      case kPrerolling:
+      case kStarting: {
+        DoInitialize(state, stop_or_error);
+
+        InSequence s;
+        if (stop_or_error == kStop) {
+          ExpectSeekStop(state);
+        } else {
+          ExpectSeekError(state);
+        }
+        DoSeek();
+        break;
+      }
+
+      case kPlaying: {
+        DoInitialize(state, stop_or_error);
+
+        InSequence s;
+        if (stop_or_error == kStop) {
+          ExpectStop();
+          DoStop();
+        } else {
+          ExpectPlaybackError();
+          DoPlaybackError();
+        }
+        break;
+      }
+    }
+  }
+
+ private:
+  // TODO(scherkus): We do radically different things whether teardown is
+  // invoked via stop vs error. The teardown path should be the same,
+  // see http://crbug.com/110228
+  void DoInitialize(TeardownState state, StopOrError stop_or_error) {
+    PipelineStatus expected_status =
+        SetInitializeExpectations(state, stop_or_error);
+
+    EXPECT_CALL(callbacks_, OnStart(expected_status));
+    pipeline_->Start(
+        mocks_->Create().Pass(),
+        base::Bind(&CallbackHelper::OnEnded, base::Unretained(&callbacks_)),
+        base::Bind(&CallbackHelper::OnError, base::Unretained(&callbacks_)),
+        base::Bind(&CallbackHelper::OnStart, base::Unretained(&callbacks_)));
+    message_loop_.RunAllPending();
+  }
+
+  PipelineStatus SetInitializeExpectations(TeardownState state,
+                                           StopOrError stop_or_error) {
+    PipelineStatus status = PIPELINE_OK;
+    base::Closure stop_cb = base::Bind(
+        &CallbackHelper::OnStop, base::Unretained(&callbacks_));
+
+    if (state == kInitDemuxer) {
+      if (stop_or_error == kStop) {
+        EXPECT_CALL(*mocks_->demuxer(), Initialize(_, _))
+            .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunPipelineStatusCB()));
+        EXPECT_CALL(callbacks_, OnStop());
+      } else {
+        status = DEMUXER_ERROR_COULD_NOT_OPEN;
+        EXPECT_CALL(*mocks_->demuxer(), Initialize(_, _))
+            .WillOnce(RunPipelineStatusCBWithStatus(status));
+      }
+
+      EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+      return status;
+    }
+
+    CreateAudioStream();
+    CreateVideoStream();
+    MockDemuxerStreamVector streams;
+    streams.push_back(audio_stream());
+    streams.push_back(video_stream());
+    InitializeDemuxer(&streams, base::TimeDelta::FromSeconds(3000));
+
+    if (state == kInitAudioDecoder) {
+      if (stop_or_error == kStop) {
+        EXPECT_CALL(*mocks_->audio_decoder(), Initialize(_, _, _))
+            .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunPipelineStatusCB()));
+        EXPECT_CALL(callbacks_, OnStop());
+      } else {
+        status = PIPELINE_ERROR_DECODE;
+        EXPECT_CALL(*mocks_->audio_decoder(), Initialize(_, _, _))
+            .WillOnce(RunPipelineStatusCBWithStatus(status));
+      }
+
+      EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+      return status;
+    }
+
+    EXPECT_CALL(*mocks_->audio_decoder(), Initialize(_, _, _))
+        .WillOnce(RunPipelineStatusCB());
+
+    if (state == kInitAudioRenderer) {
+      if (stop_or_error == kStop) {
+        EXPECT_CALL(*mocks_->audio_renderer(), Initialize(_, _, _, _, _, _, _))
+            .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunPipelineStatusCB()));
+        EXPECT_CALL(callbacks_, OnStop());
+      } else {
+        status = PIPELINE_ERROR_INITIALIZATION_FAILED;
+        EXPECT_CALL(*mocks_->audio_renderer(), Initialize(_, _, _, _, _, _, _))
+            .WillOnce(RunPipelineStatusCBWithStatus(status));
+      }
+
+      EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+      EXPECT_CALL(*mocks_->audio_renderer(), Stop(_)).WillOnce(RunClosure());
+      return status;
+    }
+
+    EXPECT_CALL(*mocks_->audio_renderer(), Initialize(_, _, _, _, _, _, _))
+        .WillOnce(RunPipelineStatusCB());
+
+    if (state == kInitVideoRenderer) {
+      if (stop_or_error == kStop) {
+        EXPECT_CALL(*mocks_->video_renderer(),
+                    Initialize(_, _, _, _, _, _, _, _, _, _))
+            .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunPipelineStatusCB2()));
+        EXPECT_CALL(callbacks_, OnStop());
+      } else {
+        status = PIPELINE_ERROR_INITIALIZATION_FAILED;
+        EXPECT_CALL(*mocks_->video_renderer(),
+                    Initialize(_, _, _, _, _, _, _, _, _, _))
+            .WillOnce(RunPipelineStatusCB2WithStatus(status));
+      }
+
+      EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+      EXPECT_CALL(*mocks_->audio_renderer(), Stop(_)).WillOnce(RunClosure());
+      EXPECT_CALL(*mocks_->video_renderer(), Stop(_)).WillOnce(RunClosure());
+      return status;
+    }
+
+    EXPECT_CALL(*mocks_->video_renderer(),
+                Initialize(_, _, _, _, _, _, _, _, _, _))
+        .WillOnce(RunPipelineStatusCB2());
+
+    // If we get here it's a successful initialization.
+    EXPECT_CALL(*mocks_->demuxer(), SetPlaybackRate(0.0f));
+    EXPECT_CALL(*mocks_->audio_renderer(), SetPlaybackRate(0.0f));
+    EXPECT_CALL(*mocks_->video_renderer(), SetPlaybackRate(0.0f));
+
+    EXPECT_CALL(*mocks_->audio_renderer(), SetVolume(1.0f));
+
+    EXPECT_CALL(*mocks_->audio_renderer(), Preroll(base::TimeDelta(), _))
+        .WillOnce(RunPipelineStatusCB());
+    EXPECT_CALL(*mocks_->video_renderer(), Preroll(base::TimeDelta(), _))
+        .WillOnce(RunPipelineStatusCB());
+
+    EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
+        .WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Play(_))
+        .WillOnce(RunClosure());
+
+    return status;
+  }
+
+  void ExpectSeekStop(TeardownState state) {
+    base::Closure stop_cb = base::Bind(
+        &CallbackHelper::OnStop, base::Unretained(&callbacks_));
+
+    if (state == kPausing) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Pause(_))
+          .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunClosure()));
+    } else {
+      EXPECT_CALL(*mocks_->audio_renderer(), Pause(_)).WillOnce(RunClosure());
+    }
+
+    EXPECT_CALL(*mocks_->video_renderer(), Pause(_)).WillOnce(RunClosure());
+
+    if (state == kFlushing) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Flush(_))
+          .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunClosure()));
+    } else {
+      EXPECT_CALL(*mocks_->audio_renderer(), Flush(_)).WillOnce(RunClosure());
+    }
+
+    EXPECT_CALL(*mocks_->video_renderer(), Flush(_)).WillOnce(RunClosure());
+
+    if (state == kSeeking) {
+      EXPECT_CALL(*mocks_->demuxer(), Seek(_, _))
+          .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunPipelineStatusCB()));
+    } else {
+      EXPECT_CALL(*mocks_->demuxer(), Seek(_, _))
+          .WillOnce(RunPipelineStatusCB());
+    }
+
+    if (state == kPrerolling) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Preroll(_, _))
+          .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunPipelineStatusCB()));
+    } else {
+      EXPECT_CALL(*mocks_->audio_renderer(), Preroll(_, _))
+          .WillOnce(RunPipelineStatusCB());
+    }
+
+    EXPECT_CALL(*mocks_->video_renderer(), Preroll(_, _))
+        .WillOnce(RunPipelineStatusCB());
+
+    if (state == kStarting) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
+          .WillOnce(DoAll(Stop(pipeline_, stop_cb), RunClosure()));
+    } else {
+      EXPECT_CALL(*mocks_->audio_renderer(), Play(_)).WillOnce(RunClosure());
+    }
+
+    EXPECT_CALL(*mocks_->video_renderer(), Play(_)).WillOnce(RunClosure());
+
+    EXPECT_CALL(callbacks_, OnSeek(PIPELINE_OK));
+    ExpectStop();
+  }
+
+  void ExpectSeekError(TeardownState state) {
+    SetSeekErrorExpectations(state);
+
+    // Executed after the error is raised.
+    EXPECT_CALL(callbacks_, OnSeek(PIPELINE_ERROR_READ));
+    EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->audio_renderer(), Stop(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Stop(_)).WillOnce(RunClosure());
+  }
+
+  void SetSeekErrorExpectations(TeardownState state) {
+    if (state == kPausing) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Pause(_))
+          .WillOnce(DoAll(SetError(pipeline_, PIPELINE_ERROR_READ),
+                          RunClosure()));
+      EXPECT_CALL(*mocks_->video_renderer(), Pause(_)).WillOnce(RunClosure());
+      return;
+    }
+
+    EXPECT_CALL(*mocks_->audio_renderer(), Pause(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Pause(_)).WillOnce(RunClosure());
+
+    if (state == kFlushing) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Flush(_))
+          .WillOnce(DoAll(SetError(pipeline_, PIPELINE_ERROR_READ),
+                          RunClosure()));
+      EXPECT_CALL(*mocks_->video_renderer(), Flush(_)).WillOnce(RunClosure());
+      return;
+    }
+
+    EXPECT_CALL(*mocks_->audio_renderer(), Flush(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Flush(_)).WillOnce(RunClosure());
+
+    if (state == kSeeking) {
+      EXPECT_CALL(*mocks_->demuxer(), Seek(_, _))
+          .WillOnce(RunPipelineStatusCBWithStatus(PIPELINE_ERROR_READ));
+      return;
+    }
+
+    EXPECT_CALL(*mocks_->demuxer(), Seek(_, _))
+        .WillOnce(RunPipelineStatusCB());
+
+    if (state == kPrerolling) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Preroll(_, _))
+          .WillOnce(RunPipelineStatusCBWithStatus(PIPELINE_ERROR_READ));
+      return;
+    }
+
+    EXPECT_CALL(*mocks_->audio_renderer(), Preroll(_, _))
+        .WillOnce(RunPipelineStatusCB());
+    EXPECT_CALL(*mocks_->video_renderer(), Preroll(_, _))
+        .WillOnce(RunPipelineStatusCB());
+
+    if (state == kStarting) {
+      EXPECT_CALL(*mocks_->audio_renderer(), Play(_))
+          .WillOnce(DoAll(SetError(pipeline_, PIPELINE_ERROR_READ),
+                          RunClosure()));
+      EXPECT_CALL(*mocks_->video_renderer(), Play(_)).WillOnce(RunClosure());
+      return;
+    }
+
+    NOTREACHED() << "Unexpected TeardownState: " << state;
+  }
+
+  void ExpectStop() {
+    // TODO(scherkus): Don't pause+flush, see http://crbug.com/110228
+    EXPECT_CALL(*mocks_->audio_renderer(), Pause(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Pause(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->audio_renderer(), Flush(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Flush(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->audio_renderer(), Stop(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Stop(_)).WillOnce(RunClosure());
+
+    EXPECT_CALL(callbacks_, OnStop());
+  }
+
+  void ExpectPlaybackError() {
+    // TODO(scherkus): Don't pause+flush, see http://crbug.com/110228
+    EXPECT_CALL(*mocks_->audio_renderer(), Pause(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Pause(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->audio_renderer(), Flush(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Flush(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->demuxer(), Stop(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->audio_renderer(), Stop(_)).WillOnce(RunClosure());
+    EXPECT_CALL(*mocks_->video_renderer(), Stop(_)).WillOnce(RunClosure());
+
+    EXPECT_CALL(callbacks_, OnError(PIPELINE_ERROR_READ));
+  }
+
+  void DoSeek() {
+    pipeline_->Seek(base::TimeDelta::FromSeconds(10), base::Bind(
+        &CallbackHelper::OnSeek, base::Unretained(&callbacks_)));
+    message_loop_.RunAllPending();
+  }
+
+  void DoStop() {
+    pipeline_->Stop(base::Bind(
+        &CallbackHelper::OnStop, base::Unretained(&callbacks_)));
+    message_loop_.RunAllPending();
+  }
+
+  void DoPlaybackError() {
+    pipeline_->SetErrorForTesting(PIPELINE_ERROR_READ);
+    message_loop_.RunAllPending();
+  }
+
+  DISALLOW_COPY_AND_ASSIGN(PipelineTeardownTest);
+};
+
+#define INSTANTIATE_TEARDOWN_TEST(stop_or_error, state) \
+    TEST_F(PipelineTeardownTest, stop_or_error##_##state) { \
+      RunTest(k##state, k##stop_or_error); \
+    }
+
+INSTANTIATE_TEARDOWN_TEST(Stop, InitDemuxer);
+INSTANTIATE_TEARDOWN_TEST(Stop, InitAudioDecoder);
+INSTANTIATE_TEARDOWN_TEST(Stop, InitAudioRenderer);
+INSTANTIATE_TEARDOWN_TEST(Stop, InitVideoRenderer);
+INSTANTIATE_TEARDOWN_TEST(Stop, Pausing);
+INSTANTIATE_TEARDOWN_TEST(Stop, Flushing);
+INSTANTIATE_TEARDOWN_TEST(Stop, Seeking);
+INSTANTIATE_TEARDOWN_TEST(Stop, Prerolling);
+INSTANTIATE_TEARDOWN_TEST(Stop, Starting);
+INSTANTIATE_TEARDOWN_TEST(Stop, Playing);
+
+INSTANTIATE_TEARDOWN_TEST(Error, InitDemuxer);
+INSTANTIATE_TEARDOWN_TEST(Error, InitAudioDecoder);
+INSTANTIATE_TEARDOWN_TEST(Error, InitAudioRenderer);
+INSTANTIATE_TEARDOWN_TEST(Error, InitVideoRenderer);
+INSTANTIATE_TEARDOWN_TEST(Error, Pausing);
+INSTANTIATE_TEARDOWN_TEST(Error, Flushing);
+INSTANTIATE_TEARDOWN_TEST(Error, Seeking);
+INSTANTIATE_TEARDOWN_TEST(Error, Prerolling);
+INSTANTIATE_TEARDOWN_TEST(Error, Starting);
+INSTANTIATE_TEARDOWN_TEST(Error, Playing);
 
 }  // namespace media

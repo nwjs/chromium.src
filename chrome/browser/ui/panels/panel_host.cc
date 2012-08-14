@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/panels/panel_host.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "chrome/browser/chrome_page_zoom.h"
@@ -22,6 +23,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/gfx/image/image.h"
 #include "ipc/ipc_message.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -45,7 +47,7 @@ void PanelHost::Init(const GURL& url) {
 
   web_contents_.reset(content::WebContents::Create(
       profile_, content::SiteInstance::CreateForURL(profile_, url),
-      MSG_ROUTING_NONE, NULL, NULL));
+      MSG_ROUTING_NONE, NULL));
   chrome::SetViewType(web_contents_.get(), chrome::VIEW_TYPE_PANEL);
   web_contents_->SetDelegate(this);
   content::WebContentsObserver::Observe(web_contents_.get());
@@ -62,8 +64,9 @@ void PanelHost::DestroyWebContents() {
 }
 
 SkBitmap PanelHost::GetPageIcon() const {
+  // TODO: Make this function return gfx::Image.
   return favicon_tab_helper_.get() ?
-      favicon_tab_helper_->GetFavicon() : SkBitmap();
+      favicon_tab_helper_->GetFavicon().AsBitmap() : SkBitmap();
 }
 
 void PanelHost::NavigationStateChanged(const content::WebContents* source,
@@ -115,6 +118,7 @@ bool PanelHost::HandleContextMenu(const content::ContextMenuParams& params) {
 }
 
 void PanelHost::HandleKeyboardEvent(
+    content::WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
   return panel_->HandleKeyboardEvent(event);
 }

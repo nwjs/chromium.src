@@ -5,6 +5,7 @@
 #include "ui/views/controls/table/table_view_views.h"
 
 #include "base/i18n/rtl.h"
+#include "ui/base/event.h"
 #include "ui/base/models/table_model.h"
 #include "ui/base/native_theme/native_theme.h"
 #include "ui/gfx/canvas.h"
@@ -122,7 +123,7 @@ gfx::Size TableView::GetPreferredSize() {
   return gfx::Size(50, RowCount() * row_height_);
 }
 
-bool TableView::OnKeyPressed(const KeyEvent& event) {
+bool TableView::OnKeyPressed(const ui::KeyEvent& event) {
   if (!HasFocus())
     return false;
 
@@ -149,7 +150,7 @@ bool TableView::OnKeyPressed(const KeyEvent& event) {
   return false;
 }
 
-bool TableView::OnMousePressed(const MouseEvent& event) {
+bool TableView::OnMousePressed(const ui::MouseEvent& event) {
   RequestFocus();
   int row = event.y() / row_height_;
   if (row >= 0 && row < RowCount()) {

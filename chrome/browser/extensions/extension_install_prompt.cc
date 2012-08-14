@@ -215,8 +215,7 @@ size_t ExtensionInstallPrompt::Prompt::GetPermissionCount() const {
 
 string16 ExtensionInstallPrompt::Prompt::GetPermission(size_t index) const {
   CHECK_LT(index, permissions_.size());
-  return l10n_util::GetStringFUTF16(
-      IDS_EXTENSION_PERMISSION_LINE, permissions_[index]);
+  return permissions_[index];
 }
 
 size_t ExtensionInstallPrompt::Prompt::GetOAuthIssueCount() const {
@@ -470,8 +469,9 @@ void ExtensionInstallPrompt::ShowConfirmation() {
   prompt_.set_type(prompt_type_);
 
   if (permissions_) {
-    prompt_.SetPermissions(
-        permissions_->GetWarningMessages(extension_->GetType()));
+    Extension::Type extension_type = prompt_type_ == BUNDLE_INSTALL_PROMPT ?
+        Extension::TYPE_UNKNOWN : extension_->GetType();
+    prompt_.SetPermissions(permissions_->GetWarningMessages(extension_type));
   }
 
   switch (prompt_type_) {

@@ -103,7 +103,15 @@ TabContents* DevToolsWindow::GetDevToolsContents(WebContents* inspected_tab) {
 
 // static
 bool DevToolsWindow::IsDevToolsWindow(RenderViewHost* window_rvh) {
-  return AsDevToolsWindow(window_rvh) != NULL;
+  if (g_instances == NULL)
+    return false;
+  DevToolsWindowList& instances = g_instances.Get();
+  for (DevToolsWindowList::iterator it = instances.begin();
+       it != instances.end(); ++it) {
+    if ((*it)->tab_contents_->web_contents()->GetRenderViewHost() == window_rvh)
+      return true;
+  }
+  return false;
 }
 
 // static
@@ -168,7 +176,7 @@ DevToolsWindow* DevToolsWindow::Create(
     bool shared_worker_frontend) {
   // Create TabContents with devtools.
   TabContents* tab_contents =
-      chrome::TabContentsFactory(profile, NULL, MSG_ROUTING_NONE, NULL, NULL);
+      chrome::TabContentsFactory(profile, NULL, MSG_ROUTING_NONE, NULL);
   tab_contents->web_contents()->GetRenderViewHost()->AllowBindings(
       content::BINDINGS_POLICY_WEB_UI);
   tab_contents->web_contents()->GetController().LoadURL(
@@ -199,7 +207,7 @@ DevToolsWindow::DevToolsWindow(TabContents* tab_contents,
   // Wipe out page icon so that the default application icon is used.
   NavigationEntry* entry =
       tab_contents_->web_contents()->GetController().GetActiveEntry();
-  entry->GetFavicon().bitmap = SkBitmap();
+  entry->GetFavicon().image = gfx::Image();
   entry->GetFavicon().valid = true;
 
   // Register on-load actions.
@@ -236,9 +244,10 @@ DevToolsWindow::~DevToolsWindow() {
 }
 
 void DevToolsWindow::InspectedContentsClosing() {
+  UpdateBrowserToolbar();
+
   if (docked_) {
     // Update dev tools to reflect removed dev tools window.
-
     BrowserWindow* inspected_window = GetInspectedBrowserWindow();
     if (inspected_window)
       inspected_window->UpdateDevTools();
@@ -482,6 +491,7 @@ void DevToolsWindow::Observe(int type,
       // Notify manager that this DevToolsClientHost no longer exists and
       // initiate self-destuct here.
       DevToolsManager::GetInstance()->ClientHostClosing(frontend_host_);
+      UpdateBrowserToolbar();
       delete this;
     }
   } else if (type == chrome::NOTIFICATION_BROWSER_THEME_CHANGED) {
@@ -579,6 +589,7 @@ void DevToolsWindow::AddNewContents(WebContents* source,
 }
 
 bool DevToolsWindow::PreHandleKeyboardEvent(
+    content::WebContents* source,
     const NativeWebKeyboardEvent& event, bool* is_keyboard_shortcut) {
   if (docked_) {
     BrowserWindow* inspected_window = GetInspectedBrowserWindow();
@@ -589,7 +600,8 @@ bool DevToolsWindow::PreHandleKeyboardEvent(
   return false;
 }
 
-void DevToolsWindow::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
+void DevToolsWindow::HandleKeyboardEvent(content::WebContents* source,
+                                         const NativeWebKeyboardEvent& event) {
   if (docked_) {
     if (event.windowsKeyCode == 0x08) {
       // Do not navigate back in history on Windows (http://crbug.com/74156).
@@ -606,14 +618,6 @@ DevToolsWindow* DevToolsWindow::ToggleDevToolsWindow(
     RenderViewHost* inspected_rvh,
     bool force_open,
     DevToolsToggleAction action) {
-  if (!force_open) {
-    DevToolsWindow* currentDevToolsWindow = AsDevToolsWindow(inspected_rvh);
-    if (currentDevToolsWindow) {
-      chrome::CloseAllTabs(currentDevToolsWindow->browser());
-      return currentDevToolsWindow;
-    }
-  }
-
   DevToolsAgentHost* agent = DevToolsAgentHostRegistry::GetDevToolsAgentHost(
       inspected_rvh);
   DevToolsManager* manager = DevToolsManager::GetInstance();
@@ -634,6 +638,9 @@ DevToolsWindow* DevToolsWindow::ToggleDevToolsWindow(
     do_open = true;
   }
 
+  // Update toolbar to reflect DevTools changes.
+  window->UpdateBrowserToolbar();
+
   // If window is docked and visible, we hide it on toggle. If window is
   // undocked, we show (activate) it.
   if (!window->is_docked() || do_open)
@@ -653,19 +660,6 @@ DevToolsWindow* DevToolsWindow::AsDevToolsWindow(
   for (DevToolsWindowList::iterator it = instances.begin();
        it != instances.end(); ++it) {
     if ((*it)->frontend_host_ == client_host)
-      return *it;
-  }
-  return NULL;
-}
-
-// static
-DevToolsWindow* DevToolsWindow::AsDevToolsWindow(RenderViewHost* rvh) {
-  if (g_instances == NULL)
-    return NULL;
-  DevToolsWindowList& instances = g_instances.Get();
-  for (DevToolsWindowList::iterator it = instances.begin();
-       it != instances.end(); ++it) {
-    if ((*it)->tab_contents_->web_contents()->GetRenderViewHost() == rvh)
       return *it;
   }
   return NULL;
@@ -771,3 +765,10 @@ void DevToolsWindow::RunFileChooser(WebContents* web_contents,
   FileSelectHelper::RunFileChooser(web_contents, params);
 }
 
+void DevToolsWindow::UpdateBrowserToolbar() {
+  if (!inspected_tab_)
+    return;
+  BrowserWindow* inspected_window = GetInspectedBrowserWindow();
+  if (inspected_window)
+    inspected_window->UpdateToolbar(inspected_tab_, false);
+}

@@ -5,12 +5,12 @@
 #include "ash/magnifier/magnification_controller.h"
 
 #include "ash/shell.h"
-#include "ui/aura/event.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/shared/compound_event_filter.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_property.h"
+#include "ui/base/event.h"
 #include "ui/gfx/point3.h"
 #include "ui/gfx/screen.h"
 #include "ui/compositor/dip_util.h"
@@ -26,6 +26,7 @@ const float kMinMagnifiedScaleThreshold = 1.1f;
 const float kNonMagnifiedScale = 1.0f;
 
 const float kInitialMagnifiedScale = 2.0f;
+const float kScrollScaleChangeFactor = 0.05f;
 
 }  // namespace
 
@@ -79,6 +80,12 @@ class MagnificationControllerImpl : virtual public MagnificationController,
                                      bool animate);
   void OnMouseMove(const gfx::Point& location);
 
+  // Switch Magnified RootWindow to |new_root_window|. This does following:
+  //  - Unzoom the current root_window.
+  //  - Zoom the given new root_window |new_root_window|.
+  //  - Switch the target window from current window to |new_root_window|.
+  void SwitchTargetRootWindow(aura::RootWindow* new_root_window);
+
   // Returns if the magnification scale is 1.0 or not (larger then 1.0).
   bool IsMagnified() const;
 
@@ -92,14 +99,15 @@ class MagnificationControllerImpl : virtual public MagnificationController,
 
   // aura::EventFilter overrides:
   virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 aura::KeyEvent* event) OVERRIDE;
+                                 ui::KeyEvent* event) OVERRIDE;
   virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   aura::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(aura::Window* target,
-                                              aura::TouchEvent* event) OVERRIDE;
+                                   ui::MouseEvent* event) OVERRIDE;
+  virtual ui::TouchStatus PreHandleTouchEvent(
+      aura::Window* target,
+      ui::TouchEvent* event) OVERRIDE;
   virtual ui::GestureStatus PreHandleGestureEvent(
       aura::Window* target,
-      aura::GestureEvent* event) OVERRIDE;
+      ui::GestureEvent* event) OVERRIDE;
 
   aura::RootWindow* root_window_;
 
@@ -161,11 +169,12 @@ bool MagnificationControllerImpl::RedrawDIP(const gfx::Point& position_in_dip,
   if (y > max_y)
     y = max_y;
 
-  // Ignores 1 px diffirence because it may be error on calculation.
-  if (std::abs(origin_.x() - x) <= 1 &&
-      std::abs(origin_.y() - y) <= 1 &&
-      scale == scale_)
+  // Does nothing if both the origin and the scale are not changed.
+  if (origin_.x() == x  &&
+      origin_.y() == y &&
+      scale == scale_) {
     return false;
+  }
 
   origin_.set_x(x);
   origin_.set_y(y);
@@ -333,6 +342,18 @@ void MagnificationControllerImpl::OnImplicitAnimationsCompleted() {
   is_on_zooming_ = false;
 }
 
+void MagnificationControllerImpl::SwitchTargetRootWindow(
+    aura::RootWindow* new_root_window) {
+  if (new_root_window == root_window_)
+    return;
+
+  float scale = GetScale();
+
+  SetScale(1.0f, true);
+  root_window_ = new_root_window;
+  SetScale(scale, true);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // MagnificationControllerImpl: MagnificationController implementation
 
@@ -342,11 +363,10 @@ void MagnificationControllerImpl::SetScale(float scale, bool animate) {
 
   ValidateScale(&scale);
 
-  // Try not to change the point which the mouse cursor indicates to.
-  const gfx::Rect window_rect = GetWindowRectDIP(scale);
-  const gfx::Point mouse = gfx::Screen::GetCursorScreenPoint();
-  const gfx::Point origin = gfx::Point(mouse.x() * (1.0f - 1.0f / scale),
-                                       mouse.y() * (1.0f - 1.0f / scale));
+  gfx::Point mouse_in_root = root_window_->GetLastMouseLocationInRoot();
+  const gfx::Point origin =
+      gfx::Point(mouse_in_root.x() * (1.0f - 1.0f / scale),
+                 mouse_in_root.y() * (1.0f - 1.0f / scale));
   Redraw(origin, scale, animate);
 }
 
@@ -397,26 +417,44 @@ void MagnificationControllerImpl::SetEnabled(bool enabled) {
 // MagnificationControllerImpl: aura::EventFilter implementation
 
 bool MagnificationControllerImpl::PreHandleKeyEvent(aura::Window* target,
-                                                    aura::KeyEvent* event) {
+                                                    ui::KeyEvent* event) {
   return false;
 }
 
 bool MagnificationControllerImpl::PreHandleMouseEvent(aura::Window* target,
-                                                      aura::MouseEvent* event) {
-  if (IsMagnified() && event->type() == ui::ET_MOUSE_MOVED)
-    OnMouseMove(event->root_location());
+                                                      ui::MouseEvent* event) {
+  if (event->type() == ui::ET_SCROLL && event->IsAltDown()) {
+    ui::ScrollEvent* scroll_event = static_cast<ui::ScrollEvent*>(event);
+    float scale = GetScale();
+    scale += scroll_event->y_offset() * kScrollScaleChangeFactor;
+    SetScale(scale, true);
+    return true;
+  }
+
+  if (IsMagnified() && event->type() == ui::ET_MOUSE_MOVED) {
+    aura::RootWindow* current_root = target->GetRootWindow();
+    gfx::Rect root_bounds = current_root->bounds();
+
+    if (root_bounds.Contains(event->root_location())) {
+      if (current_root != root_window_)
+        SwitchTargetRootWindow(current_root);
+
+      OnMouseMove(event->root_location());
+    }
+  }
+
   return false;
 }
 
 ui::TouchStatus MagnificationControllerImpl::PreHandleTouchEvent(
     aura::Window* target,
-    aura::TouchEvent* event) {
+    ui::TouchEvent* event) {
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
 ui::GestureStatus MagnificationControllerImpl::PreHandleGestureEvent(
     aura::Window* target,
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   return ui::GESTURE_STATUS_UNKNOWN;
 }
 

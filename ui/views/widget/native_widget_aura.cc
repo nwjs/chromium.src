@@ -16,11 +16,11 @@
 #include "ui/aura/client/window_move_client.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/base/event.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/layer.h"
@@ -387,7 +387,7 @@ void NativeWidgetAura::CenterWindow(const gfx::Size& size) {
 
   // Convert the bounds back relative to the parent.
   gfx::Point origin = window_bounds.origin();
-  aura::Window::ConvertPointToWindow(window_->GetRootWindow(),
+  aura::Window::ConvertPointToTarget(window_->GetRootWindow(),
       window_->parent(), &origin);
   window_bounds.set_origin(origin);
   window_->SetBounds(window_bounds);
@@ -457,7 +457,8 @@ void NativeWidgetAura::SetBounds(const gfx::Rect& bounds) {
     aura::client::ScreenPositionClient* screen_position_client =
         aura::client::GetScreenPositionClient(root);
     if (screen_position_client) {
-      screen_position_client->SetBounds(window_, bounds);
+      gfx::Display dst_display = gfx::Screen::GetDisplayMatching(bounds);
+      screen_position_client->SetBounds(window_, bounds, dst_display);
       return;
     }
   }
@@ -687,7 +688,7 @@ void NativeWidgetAura::SetVisibilityChangedAnimationsEnabled(bool value) {
 ////////////////////////////////////////////////////////////////////////////////
 // NativeWidgetAura, views::InputMethodDelegate implementation:
 
-void NativeWidgetAura::DispatchKeyEventPostIME(const KeyEvent& key) {
+void NativeWidgetAura::DispatchKeyEventPostIME(const ui::KeyEvent& key) {
   FocusManager* focus_manager = GetWidget()->GetFocusManager();
   if (focus_manager)
     focus_manager->MaybeResetMenuKeyState(key);
@@ -734,7 +735,7 @@ void NativeWidgetAura::OnBlur() {
   delegate_->OnNativeBlur(window_->GetFocusManager()->GetFocusedWindow());
 }
 
-bool NativeWidgetAura::OnKeyEvent(aura::KeyEvent* event) {
+bool NativeWidgetAura::OnKeyEvent(ui::KeyEvent* event) {
   if (event->is_char()) {
     // If a ui::InputMethod object is attached to the root window, character
     // events are handled inside the object and are not passed to this function.
@@ -746,10 +747,7 @@ bool NativeWidgetAura::OnKeyEvent(aura::KeyEvent* event) {
   // and the window may be invisible by that time.
   if (!window_->IsVisible())
     return false;
-  InputMethod* input_method = GetWidget()->GetInputMethod();
-  DCHECK(input_method);
-  KeyEvent views_event(event);
-  input_method->DispatchKeyEvent(views_event);
+  GetWidget()->GetInputMethod()->DispatchKeyEvent(*event);
   return true;
 }
 
@@ -791,14 +789,14 @@ bool NativeWidgetAura::ShouldDescendIntoChildForEventHandling(
   return true;
 }
 
-bool NativeWidgetAura::OnMouseEvent(aura::MouseEvent* event) {
+bool NativeWidgetAura::OnMouseEvent(ui::MouseEvent* event) {
   DCHECK(window_->IsVisible());
   if (event->type() == ui::ET_MOUSEWHEEL) {
     MouseWheelEvent wheel_event(event);
     return delegate_->OnMouseEvent(wheel_event);
   }
   if (event->type() == ui::ET_SCROLL) {
-    ScrollEvent scroll_event(static_cast<aura::ScrollEvent*>(event));
+    ScrollEvent scroll_event(static_cast<ui::ScrollEvent*>(event));
     if (delegate_->OnMouseEvent(scroll_event))
       return true;
 
@@ -806,19 +804,19 @@ bool NativeWidgetAura::OnMouseEvent(aura::MouseEvent* event) {
     MouseWheelEvent wheel_event(scroll_event);
     return delegate_->OnMouseEvent(wheel_event);
   }
-  MouseEvent mouse_event(event);
   if (tooltip_manager_.get())
     tooltip_manager_->UpdateTooltip();
-  return delegate_->OnMouseEvent(mouse_event);
+  return delegate_->OnMouseEvent(*event);
 }
 
-ui::TouchStatus NativeWidgetAura::OnTouchEvent(aura::TouchEvent* event) {
+ui::TouchStatus NativeWidgetAura::OnTouchEvent(ui::TouchEvent* event) {
   DCHECK(window_->IsVisible());
   TouchEvent touch_event(event);
   return delegate_->OnTouchEvent(touch_event);
 }
 
-ui::GestureStatus NativeWidgetAura::OnGestureEvent(aura::GestureEvent* event) {
+ui::GestureStatus NativeWidgetAura::OnGestureEvent(
+    ui::GestureEvent* event) {
   DCHECK(window_->IsVisible());
   GestureEvent gesture_event(event);
   return delegate_->OnGestureEvent(gesture_event);
@@ -871,7 +869,7 @@ void NativeWidgetAura::GetHitTestMask(gfx::Path* mask) const {
 ////////////////////////////////////////////////////////////////////////////////
 // NativeWidgetAura, aura::ActivationDelegate implementation:
 
-bool NativeWidgetAura::ShouldActivate(const aura::Event* event) {
+bool NativeWidgetAura::ShouldActivate(const ui::Event* event) {
   return can_activate_ && delegate_->CanActivate();
 }
 
@@ -894,13 +892,13 @@ void NativeWidgetAura::OnLostActive() {
 ////////////////////////////////////////////////////////////////////////////////
 // NativeWidgetAura, aura::WindowDragDropDelegate implementation:
 
-void NativeWidgetAura::OnDragEntered(const aura::DropTargetEvent& event) {
+void NativeWidgetAura::OnDragEntered(const ui::DropTargetEvent& event) {
   DCHECK(drop_helper_.get() != NULL);
   last_drop_operation_ = drop_helper_->OnDragOver(event.data(),
       event.location(), event.source_operations());
 }
 
-int NativeWidgetAura::OnDragUpdated(const aura::DropTargetEvent& event) {
+int NativeWidgetAura::OnDragUpdated(const ui::DropTargetEvent& event) {
   DCHECK(drop_helper_.get() != NULL);
   last_drop_operation_ = drop_helper_->OnDragOver(event.data(),
       event.location(), event.source_operations());
@@ -912,7 +910,7 @@ void NativeWidgetAura::OnDragExited() {
   drop_helper_->OnDragExit();
 }
 
-int NativeWidgetAura::OnPerformDrop(const aura::DropTargetEvent& event) {
+int NativeWidgetAura::OnPerformDrop(const ui::DropTargetEvent& event) {
   DCHECK(drop_helper_.get() != NULL);
   return drop_helper_->OnDrop(event.data(), event.location(),
       last_drop_operation_);

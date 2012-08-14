@@ -10,12 +10,12 @@
 #include "base/hash_tables.h"
 #include "base/memory/scoped_vector.h"
 #include "base/synchronization/waitable_event.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
 #include "chrome/browser/geolocation/chrome_geolocation_permission_context.h"
 #include "chrome/browser/infobars/infobar.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -211,7 +211,7 @@ void GeolocationPermissionContextTests::CheckPermissionMessageSentInternal(
 
 void GeolocationPermissionContextTests::AddNewTab(const GURL& url) {
   WebContents* new_tab =
-      WebContents::Create(profile(), NULL, MSG_ROUTING_NONE, NULL, NULL);
+      WebContents::Create(profile(), NULL, MSG_ROUTING_NONE, NULL);
   new_tab->GetController().LoadURL(
       url, content::Referrer(), content::PAGE_TRANSITION_TYPED, std::string());
   RenderViewHostTester::For(new_tab->GetRenderViewHost())->

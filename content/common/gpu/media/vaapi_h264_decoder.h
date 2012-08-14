@@ -129,6 +129,13 @@ class VaapiH264Decoder {
   // Valid after a successful DecodeInitial().
   static size_t GetRequiredNumOfPictures();
 
+  // Do any necessary initialization before the sandbox is enabled.
+  static void PreSandboxInitialization();
+
+  // Lazily initialize static data after sandbox is enabled.  Return false on
+  // init failure.
+  static bool PostSandboxInitialization();
+
  private:
   // We need to keep at least kDPBMaxSize pictures in DPB for
   // reference/to display later and an additional one for the one currently
@@ -211,6 +218,10 @@ class VaapiH264Decoder {
 
   // Destroys allocated VASurfaces and related VAContext.
   void DestroyVASurfaces();
+  // Destroys all buffers in |pending_slice_bufs_| and |pending_va_bufs_|.
+  void DestroyPendingBuffers();
+  // Destroys a list of buffers.
+  void DestroyBuffers(size_t num_va_buffers, const VABufferID* va_buffers);
 
   // These queue up data for HW decoder to be committed on running HW decode.
   bool SendPPS();
@@ -322,12 +333,16 @@ class VaapiH264Decoder {
   VAConfigID va_config_id_;
   VAContextID va_context_id_;
   VAProfile profile_;
+  bool va_context_created_;
 
   // Allocated VASurfaces.
   VASurfaceID va_surface_ids_[kNumReqPictures];
 
   // Called by decoder when a picture should be outputted.
   OutputPicCB output_pic_cb_;
+
+  // Has static initialization of pre-sandbox components completed successfully?
+  static bool pre_sandbox_init_done_;
 
   DISALLOW_COPY_AND_ASSIGN(VaapiH264Decoder);
 };

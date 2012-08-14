@@ -11,10 +11,6 @@ namespace prefs {
 // *************** PROFILE PREFS ***************
 // These are attached to the user profile
 
-// A counter that controls whether the apps promo is shown in the app launcher
-// or not.
-const char kAppsPromoCounter[] = "apps_promo_counter";
-
 // A string property indicating whether default apps should be installed
 // in this profile.  Use the value "install" to enable defaults apps, or
 // "noinstall" to disable them.  This property is usually set in the
@@ -855,9 +851,13 @@ const char kPluginsAlwaysAuthorize[] = "plugins.always_authorize";
 // on start-up.
 const char kCheckDefaultBrowser[] = "browser.check_default_browser";
 
-// TODO(motek): Remove this once a firm decision is made regarding how the UI
-// should be presented.
-const char kDefaultBrowserFlowDialog[] = "browser.set_default_flow_dialog";
+#if defined(OS_WIN)
+// By default, setting Chrome as default during first run on Windows 8 will
+// trigger shutting down the current instance and spawning a new (Metro)
+// Chrome. This boolean preference supresses this behaviour.
+const char kSuppressSwitchToMetroModeOnSetDefault[] =
+    "browser.suppress_switch_to_metro_mode_on_set_default";
+#endif
 
 // Policy setting whether default browser check should be disabled and default
 // browser registration should take place.
@@ -1563,9 +1563,6 @@ const char kNtpWebStorePromoUserGroup[] = "ntp.webstorepromo.usergroup";
 // Customized app page names that appear on the New Tab Page.
 const char kNtpAppPageNames[] = "ntp.app_page_names";
 
-// When true, web store promos will never be shown.
-const char kNtpHideWebStorePromo[] = "ntp.hide_webstore_promo";
-
 const char kDevToolsDisabled[] = "devtools.disabled";
 
 // A boolean specifying whether dev tools window should be opened docked.
@@ -1708,6 +1705,23 @@ const char kGeolocationAccessToken[] = "geolocation.access_token";
 const char kRemoteAccessHostFirewallTraversal[] =
     "remote_access.host_firewall_traversal";
 
+// Boolean controlling whether 2-factor auth should be required when connecting
+// to a host (instead of a PIN).
+const char kRemoteAccessHostRequireTwoFactor[] =
+    "remote_access.host_require_two_factor";
+
+// String containing the domain name that hosts must belong to. If blank, then
+// hosts can belong to any domain.
+const char kRemoteAccessHostDomain[] = "remote_access.host_domain";
+
+// String containing the domain name of the Chromoting Directory.
+// Used by Chromoting host and client.
+const char kRemoteAccessHostTalkGadgetPrefix[] =
+    "remote_access.host_talkgadget_prefix";
+
+// Boolean controlling whether curtaining is required when connecting to a host.
+const char kRemoteAccessHostRequireCurtain[] =
+    "remote_access.host_require_curtain";
 
 // The last used printer and its settings.
 const char kPrintPreviewStickySettings[] =
@@ -1835,6 +1849,9 @@ const char kChromeOsReleaseChannel[] = "cros.system.releaseChannel";
 // Value of the enums in TabStrip::LayoutType as an int.
 const char kTabStripLayoutType[] = "tab_strip_layout_type";
 
+// If true, cloud policy for the user is loaded once the user signs in.
+const char kLoadCloudPolicyOnSignin[] = "policy.load_cloud_policy_on_signin";
+
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
 
@@ -1920,6 +1937,10 @@ const char kManagedAutoSelectCertificateForUrls[] =
 // Set to true if the user created a login item so we should not modify it when
 // uninstalling background apps.
 const char kUserCreatedLoginItem[] = "background_mode.user_created_login_item";
+
+// Set to true if the user removed our login item so we should not create a new
+// one when uninstalling background apps.
+const char kUserRemovedLoginItem[] = "background_mode.user_removed_login_item";
 
 // Set to true if background mode is enabled on this browser.
 const char kBackgroundModeEnabled[] = "background_mode.enabled";
@@ -2020,11 +2041,5 @@ const char kNetworkProfileWarningsLeft[] = "network_profile.warnings_left";
 // |network_profile.warnings_left| after a silence period.
 const char kNetworkProfileLastWarningTime[] =
     "network_profile.last_warning_time";
-
-#if defined(OS_MACOSX)
-// A timestamp of when the obsolete OS infobar was last shown to a user on 10.5.
-const char kMacLeopardObsoleteInfobarLastShown[] =
-    "mac_105_obsolete_infobar_last_shown";
-#endif  // defined(OS_MACOSX)
 
 }  // namespace prefs

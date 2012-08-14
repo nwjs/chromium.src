@@ -33,16 +33,6 @@ namespace {
 // TODO(jamescook): Border is specified to be a single pixel overlapping
 // the web content and may need to be built into the shadow layers instead.
 const int kBorderThickness = 0;
-// In the window corners, the resize areas don't actually expand bigger, but the
-// 16 px at the end of each edge triggers diagonal resizing.
-const int kResizeAreaCornerSize = 16;
-// Ash windows do not have a traditional visible window frame. Window content
-// extends to the edge of the window. We consider a small region outside the
-// window bounds and an even smaller region overlapping the window to be the
-// "non-client" area and use it for resizing.
-const int kResizeOutsideBoundsSizeTouch = 30;
-const int kResizeOutsideBoundsSize = 6;
-const int kResizeInsideBoundsSize = 1;
 // Space between left edge of window and popup window icon.
 const int kIconOffsetX = 4;
 // Space between top of window and popup window icon.
@@ -76,7 +66,7 @@ const int kButtonOverlap = 1;
 // we need to copy the theme image for the window header from a few pixels
 // inset to preserve alignment with the NTP image, or else we'll break a bunch
 // of existing themes.  We do something similar on OS X for the same reason.
-const int kThemeFrameImageOffsetX = 5;
+const int kThemeFrameImageInsetX = 5;
 // Duration of crossfade animation for activating and deactivating frame.
 const int kActivationCrossfadeDurationMs = 200;
 // Alpha/opacity value for fully-opaque headers.
@@ -89,7 +79,7 @@ void TileRoundRect(gfx::Canvas* canvas,
                    const SkPaint& paint,
                    const gfx::ImageSkia& image,
                    int corner_radius,
-                   int image_offset_x) {
+                   int image_inset_x) {
   // To get the shader to sample the image |inset_y| pixels in but tile across
   // the whole image, we adjust the target rectangle for the shader to the right
   // and translate the canvas left to compensate.
@@ -103,7 +93,7 @@ void TileRoundRect(gfx::Canvas* canvas,
       0, 0};  // bottom-left
   SkPath path;
   path.addRoundRect(rect, radii, SkPath::kCW_Direction);
-  canvas->DrawImageInPath(image, -image_offset_x, 0, path, paint);
+  canvas->DrawImageInPath(image, -image_inset_x, 0, path, paint);
 }
 
 // Returns true if |window| is a visible, normal window.
@@ -191,12 +181,10 @@ void FramePainter::Init(views::Widget* frame,
 
   window_ = frame->GetNativeWindow();
   // Ensure we get resize cursors for a few pixels outside our bounds.
-  int outside_bounds = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
-      kResizeOutsideBoundsSizeTouch :
-      kResizeOutsideBoundsSize;
-  window_->set_hit_test_bounds_override_outer(
-      gfx::Insets(-outside_bounds, -outside_bounds,
-                  -outside_bounds, -outside_bounds));
+  window_->SetHitTestBoundsOverrideOuter(
+      gfx::Insets(-kResizeOutsideBoundsSize, -kResizeOutsideBoundsSize,
+                  -kResizeOutsideBoundsSize, -kResizeOutsideBoundsSize),
+      kResizeOutsideBoundsScaleForTouch);
   // Ensure we get resize cursors just inside our bounds as well.
   window_->set_hit_test_bounds_override_inner(
       gfx::Insets(kResizeInsideBoundsSize, kResizeInsideBoundsSize,
@@ -234,7 +222,7 @@ int FramePainter::NonClientHitTest(views::NonClientFrameView* view,
 
   if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH &&
       aura::Env::GetInstance()->is_touch_down()) {
-    outside_bounds = kResizeOutsideBoundsSizeTouch;
+    outside_bounds *= kResizeOutsideBoundsScaleForTouch;
   }
   expanded_bounds.Inset(-outside_bounds, -outside_bounds);
 
@@ -301,6 +289,10 @@ int FramePainter::GetRightInset() const {
       kButtonOverlap;
 }
 
+int FramePainter::GetThemeBackgroundXInset() const {
+  return kThemeFrameImageInsetX;
+}
+
 void FramePainter::PaintHeader(views::NonClientFrameView* view,
                                gfx::Canvas* canvas,
                                HeaderMode header_mode,
@@ -341,7 +333,7 @@ void FramePainter::PaintHeader(views::NonClientFrameView* view,
                     paint,
                     *crossfade_theme_frame,
                     kCornerRadius,
-                    kThemeFrameImageOffsetX);
+                    GetThemeBackgroundXInset());
 
       paint.setAlpha(new_alpha);
     } else {
@@ -358,7 +350,7 @@ void FramePainter::PaintHeader(views::NonClientFrameView* view,
                 paint,
                 *theme_frame,
                 kCornerRadius,
-                kThemeFrameImageOffsetX);
+                GetThemeBackgroundXInset());
 
   previous_theme_frame_id_ = theme_frame_id;
   previous_opacity_ = opacity;
@@ -466,25 +458,19 @@ void FramePainter::LayoutHeader(views::NonClientFrameView* view,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H,
                     IDR_AURA_WINDOW_MAXIMIZED_CLOSE_P);
-    if (size_button_behavior_ == SIZE_BUTTON_MINIMIZES) {
-      SetButtonImages(size_button_,
-                      IDR_AURA_WINDOW_MAXIMIZED_MINIMIZE,
-                      IDR_AURA_WINDOW_MAXIMIZED_MINIMIZE_H,
-                      IDR_AURA_WINDOW_MAXIMIZED_MINIMIZE_P);
-    } else {
-      SetButtonImages(size_button_,
-                      IDR_AURA_WINDOW_MAXIMIZED_RESTORE,
-                      IDR_AURA_WINDOW_MAXIMIZED_RESTORE_H,
-                      IDR_AURA_WINDOW_MAXIMIZED_RESTORE_P);
-    }
+    // The chat window cannot be restored but only minimized.
+    // Case: (size_button_behavior_ == SIZE_BUTTON_MINIMIZES). We used to have
+    // a special set of artwork to show this case, but per discussion we
+    // removed this.
+    SetButtonImages(size_button_,
+                    IDR_AURA_WINDOW_MAXIMIZED_RESTORE,
+                    IDR_AURA_WINDOW_MAXIMIZED_RESTORE_H,
+                    IDR_AURA_WINDOW_MAXIMIZED_RESTORE_P);
   } else {
     SetButtonImages(close_button_,
                     IDR_AURA_WINDOW_CLOSE,
                     IDR_AURA_WINDOW_CLOSE_H,
                     IDR_AURA_WINDOW_CLOSE_P);
-    // TODO(jamescook): If we ever have normal-layout windows (with the
-    // standard 35 pixel tall headers) that can only minimize, we'll need art
-    // assets for SIZE_BUTTON_MINIMIZES.  As of R19 we don't use them.
     SetButtonImages(size_button_,
                     IDR_AURA_WINDOW_MAXIMIZE,
                     IDR_AURA_WINDOW_MAXIMIZE_H,

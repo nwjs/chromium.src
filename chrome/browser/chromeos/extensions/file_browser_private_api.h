@@ -276,11 +276,6 @@ class AddMountFunction : public FileBrowserFunction {
   virtual bool RunImpl() OVERRIDE;
 
  private:
-  // Sends gdata mount event to renderers.
-  void RaiseGDataMountEvent(gdata::GDataErrorCode error);
-  // A callback method to handle the result of GData authentication request.
-  void OnGDataAuthentication(gdata::GDataErrorCode error,
-                             const std::string& token);
   // A callback method to handle the result of
   // GetLocalPathsOnFileThreadAndRunCallbackOnUIThread.
   void GetLocalPathsResponseOnUIThread(const std::string& mount_type_str,
@@ -653,8 +648,10 @@ class SearchDriveFunction : public AsyncExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.searchGData");
 
+  SearchDriveFunction();
+
  protected:
-  virtual ~SearchDriveFunction() {}
+  virtual ~SearchDriveFunction();
 
   virtual bool RunImpl() OVERRIDE;
 
@@ -665,14 +662,26 @@ class SearchDriveFunction : public AsyncExtensionFunction {
                           const GURL& file_system_url);
   // Callback for gdata::SearchAsync called after file system is opened.
   void OnSearch(gdata::GDataFileError error,
+                const GURL& next_feed,
                 scoped_ptr<std::vector<gdata::SearchResultInfo> > result_paths);
 
   // Query for which the search is being performed.
   std::string query_;
+  std::string next_feed_;
   // Information about remote file system we will need to create file entries
   // to represent search results.
   std::string file_system_name_;
   GURL file_system_url_;
+};
+
+class ClearDriveCacheFunction : public AsyncExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION_NAME("fileBrowserPrivate.clearDriveCache");
+
+ protected:
+  virtual ~ClearDriveCacheFunction() {}
+
+  virtual bool RunImpl() OVERRIDE;
 };
 
 // Implements the chrome.fileBrowserPrivate.getNetworkConnectionState method.

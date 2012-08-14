@@ -148,6 +148,9 @@ const char* DangerString(content::DownloadDangerType danger) {
   DCHECK(danger >= 0);
   DCHECK(danger < static_cast<content::DownloadDangerType>(
       arraysize(kDangerStrings)));
+  if (danger < 0 || danger >= static_cast<content::DownloadDangerType>(
+      arraysize(kDangerStrings)))
+    return "";
   return kDangerStrings[danger];
 }
 
@@ -163,6 +166,9 @@ const char* StateString(DownloadItem::DownloadState state) {
   DCHECK(state >= 0);
   DCHECK(state < static_cast<DownloadItem::DownloadState>(
       arraysize(kStateStrings)));
+  if (state < 0 || state >= static_cast<DownloadItem::DownloadState>(
+      arraysize(kStateStrings)))
+    return "";
   return kStateStrings[state];
 }
 
@@ -920,13 +926,14 @@ void ExtensionDownloadsEventRouter::ManagerGoingDown(
 void ExtensionDownloadsEventRouter::DispatchEvent(
     const char* event_name, base::Value* arg) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  base::ListValue args;
-  args.Append(arg);
+  scoped_ptr<ListValue> args(new ListValue());
+  args->Append(arg);
   std::string json_args;
-  base::JSONWriter::Write(&args, &json_args);
+  base::JSONWriter::Write(args.get(), &json_args);
+
   profile_->GetExtensionEventRouter()->DispatchEventToRenderers(
       event_name,
-      json_args,
+      args.Pass(),
       profile_,
       GURL(),
       extensions::EventFilteringInfo());

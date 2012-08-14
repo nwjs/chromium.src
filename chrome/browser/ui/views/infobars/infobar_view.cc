@@ -12,7 +12,7 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/infobars/infobar_delegate.h"
+#include "chrome/browser/api/infobars/infobar_delegate.h"
 #include "chrome/browser/ui/views/infobars/infobar_background.h"
 #include "chrome/browser/ui/views/infobars/infobar_button_border.h"
 #include "grit/generated_resources.h"
@@ -259,7 +259,7 @@ void InfoBarView::PaintChildren(gfx::Canvas* canvas) {
 }
 
 void InfoBarView::ButtonPressed(views::Button* sender,
-                                const views::Event& event) {
+                                const ui::Event& event) {
   if (!owned())
     return;  // We're closing; don't call anything, it might access the owner.
   if (sender == close_button_) {

@@ -220,12 +220,8 @@ ToolbarView::~ToolbarView() {
 
 void ToolbarView::Init(views::View* location_bar_parent,
                        views::View* popup_parent_view) {
-  back_menu_model_.reset(new BackForwardMenuModel(
+  back_ = new views::ButtonDropDown(this, new BackForwardMenuModel(
       browser_, BackForwardMenuModel::BACKWARD_MENU));
-  forward_menu_model_.reset(new BackForwardMenuModel(
-      browser_, BackForwardMenuModel::FORWARD_MENU));
-
-  back_ = new views::ButtonDropDown(this, back_menu_model_.get());
   back_->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
                                      ui::EF_MIDDLE_MOUSE_BUTTON);
   back_->set_tag(IDC_BACK);
@@ -235,7 +231,8 @@ void ToolbarView::Init(views::View* location_bar_parent,
   back_->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_BACK));
   back_->set_id(VIEW_ID_BACK_BUTTON);
 
-  forward_ = new views::ButtonDropDown(this, forward_menu_model_.get());
+  forward_ = new views::ButtonDropDown(this, new BackForwardMenuModel(
+      browser_, BackForwardMenuModel::FORWARD_MENU));
   forward_->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
                                         ui::EF_MIDDLE_MOUSE_BUTTON);
   forward_->set_tag(IDC_FORWARD);
@@ -248,6 +245,7 @@ void ToolbarView::Init(views::View* location_bar_parent,
       location_bar_parent,
       chrome::search::IsInstantExtendedAPIEnabled(browser_->profile()));
   location_bar_ = new LocationBarView(
+      browser_,
       browser_->profile(),
       browser_->command_controller()->command_updater(),
       model_,
@@ -265,7 +263,6 @@ void ToolbarView::Init(views::View* location_bar_parent,
   reload_->set_triggerable_event_flags(ui::EF_LEFT_MOUSE_BUTTON |
                                        ui::EF_MIDDLE_MOUSE_BUTTON);
   reload_->set_tag(IDC_RELOAD);
-  reload_->SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_RELOAD));
   reload_->SetAccessibleName(l10n_util::GetStringUTF16(IDS_ACCNAME_RELOAD));
   reload_->set_id(VIEW_ID_RELOAD_BUTTON);
 
@@ -326,6 +323,9 @@ void ToolbarView::Update(WebContents* tab, bool should_restore_state) {
 
   if (browser_actions_)
     browser_actions_->RefreshBrowserActionViews();
+
+  if (reload_)
+    reload_->set_menu_enabled(chrome::IsDebuggerAttachedToCurrentTab(browser_));
 }
 
 void ToolbarView::SetPaneFocusAndFocusAppMenu() {
@@ -527,7 +527,7 @@ void ToolbarView::EnabledStateChangedForCommand(int id, bool enabled) {
 // ToolbarView, views::Button::ButtonListener implementation:
 
 void ToolbarView::ButtonPressed(views::Button* sender,
-                                const views::Event& event) {
+                                const ui::Event& event) {
   int command = sender->tag();
   WindowOpenDisposition disposition =
       chrome::DispositionFromEventFlags(sender->mouse_event_flags());
@@ -619,7 +619,7 @@ bool ToolbarView::GetAcceleratorForCommandId(int command_id,
 // ToolbarView, views::View overrides:
 
 gfx::Size ToolbarView::GetPreferredSize() {
-  if (IsDisplayModeNormal()) {
+  if (is_display_mode_normal()) {
     int min_width = kLeftEdgeSpacing +
         back_->GetPreferredSize().width() + kButtonSpacing +
         forward_->GetPreferredSize().width() + kButtonSpacing +
@@ -655,7 +655,7 @@ void ToolbarView::Layout() {
     return;
 
   bool maximized = browser_->window() && browser_->window()->IsMaximized();
-  if (!IsDisplayModeNormal()) {
+  if (!is_display_mode_normal()) {
     int edge_width = maximized ?
         0 : kPopupBackgroundEdge->width();  // See OnPaint().
     SetLocationBarContainerBounds(gfx::Rect(edge_width, PopupTopSpacing(),
@@ -731,7 +731,7 @@ void ToolbarView::Layout() {
     if (si_mode.animate && si_mode.is_search() &&
         !location_bar_container_->IsAnimating()) {
       gfx::Point location_bar_origin(location_bar_bounds.origin());
-      views::View::ConvertPointToView(this, location_bar_container_->parent(),
+      views::View::ConvertPointToTarget(this, location_bar_container_->parent(),
                                       &location_bar_origin);
       location_bar_container_->AnimateTo(
           gfx::Rect(location_bar_origin, location_bar_bounds.size()));
@@ -763,19 +763,19 @@ void ToolbarView::Layout() {
                        app_menu_width, child_height);
 }
 
-bool ToolbarView::HitTest(const gfx::Point& point) const {
+bool ToolbarView::HitTestRect(const gfx::Rect& rect) const {
   // Don't take hits in our top shadow edge.  Let them fall through to the
   // tab strip above us.
-  if (point.y() < kContentShadowHeight)
+  if (rect.y() < kContentShadowHeight)
     return false;
   // Otherwise let our superclass take care of it.
-  return AccessiblePaneView::HitTest(point);
+  return AccessiblePaneView::HitTestRect(rect);
 }
 
 void ToolbarView::OnPaint(gfx::Canvas* canvas) {
   View::OnPaint(canvas);
 
-  if (IsDisplayModeNormal())
+  if (is_display_mode_normal())
     return;
 
   // In maximized mode, we don't draw the endcaps on the location bar, because
@@ -908,22 +908,7 @@ void ToolbarView::LoadImages() {
   forward_->SetImage(views::CustomButton::BS_DISABLED,
       tp->GetImageSkiaNamed(IDR_FORWARD_D));
 
-  reload_->SetImage(views::CustomButton::BS_NORMAL,
-      tp->GetImageSkiaNamed(IDR_RELOAD));
-  reload_->SetImage(views::CustomButton::BS_HOT,
-      tp->GetImageSkiaNamed(IDR_RELOAD_H));
-  reload_->SetImage(views::CustomButton::BS_PUSHED,
-      tp->GetImageSkiaNamed(IDR_RELOAD_P));
-  reload_->SetImage(views::CustomButton::BS_DISABLED,
-      tp->GetImageSkiaNamed(IDR_RELOAD_D));
-  reload_->SetToggledImage(views::CustomButton::BS_NORMAL,
-      tp->GetImageSkiaNamed(IDR_STOP));
-  reload_->SetToggledImage(views::CustomButton::BS_HOT,
-      tp->GetImageSkiaNamed(IDR_STOP_H));
-  reload_->SetToggledImage(views::CustomButton::BS_PUSHED,
-      tp->GetImageSkiaNamed(IDR_STOP_P));
-  reload_->SetToggledImage(views::CustomButton::BS_DISABLED,
-      tp->GetImageSkiaNamed(IDR_STOP_D));
+  reload_->LoadImages(tp);
 
   home_->SetImage(views::CustomButton::BS_NORMAL,
       tp->GetImageSkiaNamed(IDR_HOME));
@@ -984,7 +969,7 @@ void ToolbarView::LayoutLocationBarNTP() {
     return;
 
   gfx::Point location_container_origin;
-  aura::Window::ConvertPointToWindow(
+  aura::Window::ConvertPointToTarget(
       contents_view, browser_window, &location_container_origin);
   views::View::ConvertPointFromWidget(location_bar_container_->parent(),
                                       &location_container_origin);
@@ -1026,7 +1011,7 @@ void ToolbarView::SetLocationBarContainerBounds(
 
   // LocationBarContainer is not a child of the ToolbarView.
   gfx::Point origin(bounds.origin());
-  views::View::ConvertPointToView(this, location_bar_container_->parent(),
+  views::View::ConvertPointToTarget(this, location_bar_container_->parent(),
                                   &origin);
   gfx::Rect target_bounds(origin, bounds.size());
   if (location_bar_container_->GetTargetBounds() != target_bounds) {

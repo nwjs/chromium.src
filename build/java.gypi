@@ -26,18 +26,26 @@
 #
 # Finally, the generated jar-file will be:
 #   <(PRODUCT_DIR)/lib.java/chromium_base.jar
-#
-# TODO(yfriedman): The "finally" statement isn't entirely true yet, as we don't
-# auto-generate the ant file yet.
 
 {
+  'direct_dependent_settings': {
+    'variables': {
+      'input_jars_paths': ['<(PRODUCT_DIR)/lib.java/chromium_<(package_name).jar'],
+    },
+  },
+  'variables': {
+    'input_jars_paths': [],
+    'additional_src_dirs': [],
+  },
   'actions': [
     {
       'action_name': 'ant_<(package_name)',
       'message': 'Building <(package_name) java sources.',
       'inputs': [
-         '<(java_in_dir)/<(package_name).xml',
-         '<!@(find <(java_in_dir) -name "*.java")'
+        'android/ant/common.xml',
+        'android/ant/chromium-jars.xml',
+        '<!@(find <(java_in_dir) -name "*.java")',
+        '>@(input_jars_paths)',
       ],
       'outputs': [
         '<(PRODUCT_DIR)/lib.java/chromium_<(package_name).jar',
@@ -46,9 +54,16 @@
         'ant',
         '-DPRODUCT_DIR=<(ant_build_out)',
         '-DPACKAGE_NAME=<(package_name)',
+        '-DINPUT_JARS_PATHS=>(input_jars_paths)',
+        '-DADDITIONAL_SRC_DIRS=>(additional_src_dirs)',
         '-DANDROID_SDK=<(android_sdk)',
+        '-DANDROID_SDK_ROOT=<(android_sdk_root)',
+        '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
+        '-DANDROID_SDK_VERSION=<(android_sdk_version)',
+        '-DANDROID_TOOLCHAIN=<(android_toolchain)',
+        '-Dbasedir=<(java_in_dir)',
         '-buildfile',
-        '<(java_in_dir)/<(package_name).xml',
+        '<(DEPTH)/build/android/ant/chromium-jars.xml'
       ]
     },
   ],

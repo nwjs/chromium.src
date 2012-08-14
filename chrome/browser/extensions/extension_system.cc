@@ -36,6 +36,7 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/features/feature.h"
 #include "chrome/common/pref_names.h"
@@ -50,10 +51,7 @@ namespace extensions {
 //
 
 ExtensionSystem::ExtensionSystem() {
-  // In lieu of a way for Feature to check whether it's running on the browser
-  // process, tell it.
-  // See http://crbug.com/126535.
-  Feature::SetChannelCheckingEnabled(true);
+  Feature::SetCurrentChannel(chrome::VersionInfo::GetChannel());
 }
 
 ExtensionSystem::~ExtensionSystem() {
@@ -93,12 +91,6 @@ void ExtensionSystemImpl::Shared::InitPrefs() {
 void ExtensionSystemImpl::Shared::RegisterManagementPolicyProviders() {
   DCHECK(extension_prefs_.get());
   management_policy_->RegisterProvider(extension_prefs_.get());
-}
-
-void ExtensionSystemImpl::Shared::InitInfoMap() {
-  // The ExtensionInfoMap needs to be created before the
-  // ExtensionProcessManager.
-  extension_info_map_ = new ExtensionInfoMap();
 }
 
 void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
@@ -215,6 +207,8 @@ UserScriptMaster* ExtensionSystemImpl::Shared::user_script_master() {
 }
 
 ExtensionInfoMap* ExtensionSystemImpl::Shared::info_map() {
+  if (!extension_info_map_)
+    extension_info_map_ = new ExtensionInfoMap();
   return extension_info_map_.get();
 }
 
@@ -267,7 +261,9 @@ void ExtensionSystemImpl::InitForRegularProfile(bool extensions_enabled) {
     extension_devtools_manager_ = new ExtensionDevToolsManager(profile_);
   }
 
-  shared_->InitInfoMap();
+  // The ExtensionInfoMap needs to be created before the
+  // ExtensionProcessManager.
+  shared_->info_map();
 
   extension_process_manager_.reset(ExtensionProcessManager::Create(profile_));
   alarm_manager_.reset(new AlarmManager(profile_, &base::Time::Now));

@@ -65,7 +65,6 @@ class MockDemuxer : public Demuxer {
   MOCK_METHOD0(OnAudioRendererDisabled, void());
   MOCK_METHOD1(GetStream, scoped_refptr<DemuxerStream>(DemuxerStream::Type));
   MOCK_CONST_METHOD0(GetStartTime, base::TimeDelta());
-  MOCK_METHOD0(GetBitrate, int());
 
  protected:
   virtual ~MockDemuxer();
@@ -84,7 +83,6 @@ class MockDemuxerStream : public DemuxerStream {
   MOCK_METHOD0(audio_decoder_config, const AudioDecoderConfig&());
   MOCK_METHOD0(video_decoder_config, const VideoDecoderConfig&());
   MOCK_METHOD0(EnableBitstreamConverter, void());
-  MOCK_METHOD0(GetBufferedRanges, Ranges<base::TimeDelta>());
 
  protected:
   virtual ~MockDemuxerStream();
@@ -104,7 +102,6 @@ class MockVideoDecoder : public VideoDecoder {
   MOCK_METHOD1(Read, void(const ReadCB&));
   MOCK_METHOD1(Reset, void(const base::Closure&));
   MOCK_METHOD1(Stop, void(const base::Closure&));
-  MOCK_METHOD0(natural_size, const gfx::Size&());
   MOCK_CONST_METHOD0(HasAlpha, bool());
 
  protected:
@@ -123,7 +120,6 @@ class MockAudioDecoder : public AudioDecoder {
                                 const PipelineStatusCB&,
                                 const StatisticsCB&));
   MOCK_METHOD1(Read, void(const ReadCB&));
-  MOCK_METHOD1(ProduceAudioSamples, void(scoped_refptr<Buffer>));
   MOCK_METHOD0(bits_per_channel, int(void));
   MOCK_METHOD0(channel_layout, ChannelLayout(void));
   MOCK_METHOD0(samples_per_second, int(void));
@@ -141,22 +137,23 @@ class MockVideoRenderer : public VideoRenderer {
   MockVideoRenderer();
 
   // VideoRenderer implementation.
-  MOCK_METHOD9(Initialize, void(const scoped_refptr<VideoDecoder>& decoder,
-                                const PipelineStatusCB& init_cb,
-                                const StatisticsCB& statistics_cb,
-                                const TimeCB& time_cb,
-                                const NaturalSizeChangedCB& size_changed_cb,
-                                const base::Closure& ended_cb,
-                                const PipelineStatusCB& error_cb,
-                                const TimeDeltaCB& get_time_cb,
-                                const TimeDeltaCB& get_duration_cb));
+  MOCK_METHOD10(Initialize, void(const scoped_refptr<DemuxerStream>& stream,
+                                 const VideoDecoderList& decoders,
+                                 const PipelineStatusCB& init_cb,
+                                 const StatisticsCB& statistics_cb,
+                                 const TimeCB& time_cb,
+                                 const NaturalSizeChangedCB& size_changed_cb,
+                                 const base::Closure& ended_cb,
+                                 const PipelineStatusCB& error_cb,
+                                 const TimeDeltaCB& get_time_cb,
+                                 const TimeDeltaCB& get_duration_cb));
   MOCK_METHOD1(Play, void(const base::Closure& callback));
   MOCK_METHOD1(Pause, void(const base::Closure& callback));
   MOCK_METHOD1(Flush, void(const base::Closure& callback));
   MOCK_METHOD2(Preroll, void(base::TimeDelta time, const PipelineStatusCB& cb));
   MOCK_METHOD1(Stop, void(const base::Closure& callback));
   MOCK_METHOD1(SetPlaybackRate, void(float playback_rate));
-  MOCK_METHOD0(HasEnded, bool());
+  MOCK_METHOD0(PrepareForShutdownHack, void());
 
  protected:
   virtual ~MockVideoRenderer();
@@ -183,7 +180,6 @@ class MockAudioRenderer : public AudioRenderer {
   MOCK_METHOD1(Stop, void(const base::Closure& callback));
   MOCK_METHOD1(SetPlaybackRate, void(float playback_rate));
   MOCK_METHOD2(Preroll, void(base::TimeDelta time, const PipelineStatusCB& cb));
-  MOCK_METHOD0(HasEnded, bool());
   MOCK_METHOD1(SetVolume, void(float volume));
   MOCK_METHOD1(ResumeAfterUnderflow, void(bool buffer_more_audio));
 
@@ -212,6 +208,7 @@ class MockDecryptor : public Decryptor {
                                       const std::string& session_id));
   MOCK_METHOD2(Decrypt, void(const scoped_refptr<DecoderBuffer>& encrypted,
                              const DecryptCB& decrypt_cb));
+  MOCK_METHOD0(Stop, void());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockDecryptor);
@@ -278,17 +275,6 @@ class MockFilterCollection {
 
   DISALLOW_COPY_AND_ASSIGN(MockFilterCollection);
 };
-
-// Helper gmock action that calls SetError() on behalf of the provided filter.
-ACTION_P2(SetError, filter, error) {
-  filter->host()->SetError(error);
-}
-
-// Helper gmock action that calls SetDuration() on behalf of the provided
-// filter.
-ACTION_P2(SetDuration, filter, duration) {
-  filter->host()->SetDuration(duration);
-}
 
 ACTION(RunClosure) {
   arg0.Run();

@@ -24,6 +24,7 @@
 #include "grit/theme_resources.h"
 #include "grit/ui_resources.h"
 #include "third_party/skia/include/effects/SkGradientShader.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
@@ -351,7 +352,7 @@ gfx::Size FindBarView::GetPreferredSize() {
 // FindBarView, views::ButtonListener implementation:
 
 void FindBarView::ButtonPressed(
-    views::Button* sender, const views::Event& event) {
+    views::Button* sender, const ui::Event& event) {
   switch (sender->tag()) {
     case FIND_PREVIOUS_TAG:
     case FIND_NEXT_TAG:
@@ -420,7 +421,7 @@ void FindBarView::ContentsChanged(views::Textfield* sender,
 }
 
 bool FindBarView::HandleKeyEvent(views::Textfield* sender,
-                                 const views::KeyEvent& key_event) {
+                                 const ui::KeyEvent& key_event) {
   // If the dialog is not visible, there is no reason to process keyboard input.
   if (!host()->IsVisible())
     return false;
@@ -460,7 +461,7 @@ void FindBarView::UpdateMatchCountAppearance(bool no_match) {
 }
 
 bool FindBarView::FocusForwarderView::OnMousePressed(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if (view_to_focus_on_mousedown_) {
     view_to_focus_on_mousedown_->ClearSelection();
     view_to_focus_on_mousedown_->RequestFocus();

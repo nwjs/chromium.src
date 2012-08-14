@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/panels/panel_manager.h"
 #include "chrome/browser/ui/panels/panel_mouse_watcher.h"
 #include "chrome/browser/ui/panels/test_panel_active_state_observer.h"
+#include "chrome/browser/ui/panels/test_panel_mouse_watcher.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_paths.h"
@@ -239,6 +240,11 @@ void OldBasePanelBrowserTest::SetUpOnMainThread() {
 
   PanelManager::shorten_time_intervals_for_testing();
 
+  // Simulate the mouse movement so that tests are not affected by actual mouse
+  // events.
+  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
+  panel_manager->SetMouseWatcherForTesting(mouse_watcher);
+
   // This is needed so the subsequently created panels can be activated.
   // On a Mac, it transforms background-only test process into foreground one.
   ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
@@ -285,6 +291,17 @@ void OldBasePanelBrowserTest::WaitForExpansionStateChanged(
     return;
   signal.Wait();
   EXPECT_EQ(expansion_state, panel->expansion_state());
+}
+
+OldBasePanelBrowserTest::CreatePanelParams::CreatePanelParams(
+    const std::string& name,
+    const gfx::Rect& bounds,
+    ActiveState show_flag)
+    : name(name),
+      bounds(bounds),
+      show_flag(show_flag),
+      wait_for_fully_created(true),
+      expected_active_state(show_flag) {
 }
 
 Panel* OldBasePanelBrowserTest::CreatePanelWithParams(

@@ -28,6 +28,7 @@
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/text/text_elider.h"
@@ -401,13 +402,13 @@ gfx::Size DownloadItemView::GetPreferredSize() {
 
 // Handle a mouse click and open the context menu if the mouse is
 // over the drop-down region.
-bool DownloadItemView::OnMousePressed(const views::MouseEvent& event) {
+bool DownloadItemView::OnMousePressed(const ui::MouseEvent& event) {
   HandlePressEvent(event, event.IsOnlyLeftMouseButton());
   return true;
 }
 
 // Handle drag (file copy) operations.
-bool DownloadItemView::OnMouseDragged(const views::MouseEvent& event) {
+bool DownloadItemView::OnMouseDragged(const ui::MouseEvent& event) {
   // Mouse should not activate us in dangerous mode.
   if (IsShowingWarningDialog())
     return true;
@@ -435,7 +436,7 @@ bool DownloadItemView::OnMouseDragged(const views::MouseEvent& event) {
   return true;
 }
 
-void DownloadItemView::OnMouseReleased(const views::MouseEvent& event) {
+void DownloadItemView::OnMouseReleased(const ui::MouseEvent& event) {
   HandleClickEvent(event, event.IsOnlyLeftMouseButton());
 }
 
@@ -453,7 +454,7 @@ void DownloadItemView::OnMouseCaptureLost() {
   }
 }
 
-void DownloadItemView::OnMouseMoved(const views::MouseEvent& event) {
+void DownloadItemView::OnMouseMoved(const ui::MouseEvent& event) {
   // Mouse should not activate us in dangerous mode.
   if (mode_ == DANGEROUS_MODE)
     return;
@@ -471,7 +472,7 @@ void DownloadItemView::OnMouseMoved(const views::MouseEvent& event) {
   }
 }
 
-void DownloadItemView::OnMouseExited(const views::MouseEvent& event) {
+void DownloadItemView::OnMouseExited(const ui::MouseEvent& event) {
   // Mouse should not activate us in dangerous mode.
   if (mode_ == DANGEROUS_MODE)
     return;
@@ -482,7 +483,7 @@ void DownloadItemView::OnMouseExited(const views::MouseEvent& event) {
   drop_hover_animation_->Hide();
 }
 
-bool DownloadItemView::OnKeyPressed(const views::KeyEvent& event) {
+bool DownloadItemView::OnKeyPressed(const ui::KeyEvent& event) {
   // Key press should not activate us in dangerous mode.
   if (IsShowingWarningDialog())
     return true;
@@ -542,7 +543,7 @@ void DownloadItemView::ShowContextMenuForView(View* source,
 }
 
 void DownloadItemView::ButtonPressed(
-    views::Button* sender, const views::Event& event) {
+    views::Button* sender, const ui::Event& event) {
   if (sender == discard_button_) {
     UMA_HISTOGRAM_LONG_TIMES("clickjacking.discard_download",
                              base::Time::Now() - creation_time_);
@@ -925,7 +926,7 @@ void DownloadItemView::ShowContextMenuImpl(const gfx::Point& p,
   // We could be deleted now.
 }
 
-void DownloadItemView::HandlePressEvent(const views::LocatedEvent& event,
+void DownloadItemView::HandlePressEvent(const ui::LocatedEvent& event,
                                         bool active_event) {
   // The event should not activate us in dangerous mode.
   if (mode_ == DANGEROUS_MODE)
@@ -952,7 +953,7 @@ void DownloadItemView::HandlePressEvent(const views::LocatedEvent& event,
   }
 }
 
-void DownloadItemView::HandleClickEvent(const views::LocatedEvent& event,
+void DownloadItemView::HandleClickEvent(const ui::LocatedEvent& event,
                                         bool active_event) {
   // Mouse should not activate us in dangerous mode.
   if (mode_ == DANGEROUS_MODE)

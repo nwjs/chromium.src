@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.chromium.content.browser.ContentViewCore;
+import org.chromium.content.browser.JavascriptInterface;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -80,8 +81,11 @@ public class AccessibilityInjector {
      * @return An instance of a {@link AccessibilityInjector}.
      */
     public static AccessibilityInjector newInstance(ContentViewCore view) {
-        // TODO(dtrainor): Upstream JellyBean version of AccessibilityInjector when SDK is 16.
-        return new AccessibilityInjector(view);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) {
+            return new AccessibilityInjector(view);
+        } else {
+            return new JellyBeanAccessibilityInjector(view);
+        }
     }
 
     /**
@@ -239,13 +243,13 @@ public class AccessibilityInjector {
             if (mTextToSpeech == null) {
                 mTextToSpeech = new TextToSpeechWrapper(context);
                 mContentViewCore.addJavascriptInterface(mTextToSpeech,
-                        ALIAS_ACCESSIBILITY_JS_INTERFACE, false);
+                        ALIAS_ACCESSIBILITY_JS_INTERFACE, true);
             }
 
             if (mVibrator == null) {
                 mVibrator = new VibratorWrapper(context);
                 mContentViewCore.addJavascriptInterface(mVibrator,
-                        ALIAS_ACCESSIBILITY_JS_INTERFACE_2, false);
+                        ALIAS_ACCESSIBILITY_JS_INTERFACE_2, true);
             }
         }
     }
@@ -314,17 +318,20 @@ public class AccessibilityInjector {
             mVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public boolean hasVibrator() {
             return mVibrator.hasVibrator();
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public void vibrate(long milliseconds) {
             milliseconds = Math.min(milliseconds, MAX_VIBRATE_DURATION_MS);
             mVibrator.vibrate(milliseconds);
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public void vibrate(long[] pattern, int repeat) {
             for (int i = 0; i < pattern.length; ++i) {
@@ -336,6 +343,7 @@ public class AccessibilityInjector {
             mVibrator.vibrate(pattern, repeat);
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public void cancel() {
             mVibrator.cancel();
@@ -352,16 +360,19 @@ public class AccessibilityInjector {
             mTextToSpeech = new TextToSpeech(context, null, null);
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public boolean isSpeaking() {
             return mTextToSpeech.isSpeaking();
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public int speak(String text, int queueMode, HashMap<String, String> params) {
             return mTextToSpeech.speak(text, queueMode, params);
         }
 
+        @JavascriptInterface
         @SuppressWarnings("unused")
         public int stop() {
             return mTextToSpeech.stop();

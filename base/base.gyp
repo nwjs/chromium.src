@@ -405,6 +405,7 @@
         'i18n/rtl_unittest.cc',
         'i18n/string_search_unittest.cc',
         'i18n/time_formatting_unittest.cc',
+        'ios/device_util_unittest.mm',
         'json/json_parser_unittest.cc',
         'json/json_reader_unittest.cc',
         'json/json_value_converter_unittest.cc',
@@ -440,6 +441,7 @@
         'metrics/bucket_ranges_unittest.cc',
         'metrics/field_trial_unittest.cc',
         'metrics/histogram_unittest.cc',
+        'metrics/sparse_histogram_unittest.cc',
         'metrics/stats_table_unittest.cc',
         'metrics/statistics_recorder_unittest.cc',
         'observer_list_unittest.cc',
@@ -923,6 +925,7 @@
           'sources': [
             'android/java/src/org/chromium/base/BuildInfo.java',
             'android/java/src/org/chromium/base/LocaleUtils.java',
+            'android/java/src/org/chromium/base/PathService.java',
             'android/java/src/org/chromium/base/PathUtils.java',
             'android/java/src/org/chromium/base/SystemMessageHandler.java',
           ],
@@ -976,7 +979,6 @@
           'variables': {
             'test_suite_name': 'base_unittests',
             'input_shlib_path': '<(SHARED_LIB_DIR)/<(SHARED_LIB_PREFIX)base_unittests<(SHARED_LIB_SUFFIX)',
-            'input_jars_paths': ['<(PRODUCT_DIR)/lib.java/chromium_base.jar',],
           },
           'includes': [ '../build/apk_test.gypi' ],
         },

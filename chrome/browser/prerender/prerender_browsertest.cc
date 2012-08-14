@@ -102,7 +102,7 @@ void ClearBrowsingData(Browser* browser, int remove_mask) {
   BrowsingDataRemover* remover =
       new BrowsingDataRemover(browser->profile(),
                               BrowsingDataRemover::EVERYTHING,
-                              base::Time());
+                              base::Time::Now());
   remover->Remove(remove_mask, BrowsingDataHelper::UNPROTECTED_WEB);
   // BrowsingDataRemover deletes itself.
 }
@@ -522,8 +522,8 @@ class PrerenderBrowserTest : virtual public InProcessBrowserTest {
         current_browser()->tab_strip_model()->GetActiveTabContents();
     if (!tab_contents)
       return NULL;
-    return tab_contents->web_contents()->GetRenderViewHost()->
-        GetSessionStorageNamespace();
+    return tab_contents->web_contents()->GetController()
+        .GetDefaultSessionStorageNamespace();
   }
 
   virtual void SetUpInProcessBrowserTestFixture() OVERRIDE {
@@ -1140,6 +1140,9 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderAlertAfterOnload) {
 #if defined(USE_AURA)
 // http://crbug.com/103496
 #define MAYBE_PrerenderDelayLoadPlugin DISABLED_PrerenderDelayLoadPlugin
+#elif defined(OS_MACOSX)
+// http://crbug.com/100514
+#define MAYBE_PrerenderDelayLoadPlugin FLAKY_PrerenderDelayLoadPlugin
 #else
 #define MAYBE_PrerenderDelayLoadPlugin PrerenderDelayLoadPlugin
 #endif

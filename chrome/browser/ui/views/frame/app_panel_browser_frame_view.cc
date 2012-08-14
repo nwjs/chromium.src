@@ -107,6 +107,10 @@ AppPanelBrowserFrameView::GetTabStripInsets(bool restored) const {
   return TabStripInsets();
 }
 
+int AppPanelBrowserFrameView::GetThemeBackgroundXInset() const {
+  return 0;
+}
+
 void AppPanelBrowserFrameView::UpdateThrobber(bool running) {
   window_icon_->Update();
 }
@@ -231,7 +235,7 @@ void AppPanelBrowserFrameView::Layout() {
 // AppPanelBrowserFrameView, views::ButtonListener implementation:
 
 void AppPanelBrowserFrameView::ButtonPressed(views::Button* sender,
-                                             const views::Event& event) {
+                                             const ui::Event& event) {
   if (sender == close_button_)
     frame()->Close();
 }

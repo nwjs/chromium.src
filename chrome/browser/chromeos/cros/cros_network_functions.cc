@@ -141,7 +141,7 @@ class DataPlanUpdateWatcher : public CrosNetworkWatcher {
                          const base::ListValue& data_plans) {
     CellularDataPlanVector* data_plan_vector = new CellularDataPlanVector;
     for (size_t i = 0; i != data_plans.GetSize(); ++i) {
-      base::DictionaryValue* data_plan = NULL;
+      const base::DictionaryValue* data_plan = NULL;
       if (!data_plans.GetDictionary(i, &data_plan)) {
         LOG(ERROR) << "data_plans["  << i << "] is not a dictionary.";
         continue;
@@ -678,6 +678,12 @@ bool CrosAddIPConfig(const std::string& device_path, IPConfigType type) {
 bool CrosRemoveIPConfig(const std::string& ipconfig_path) {
   return DBusThreadManager::Get()->GetFlimflamIPConfigClient()->
       CallRemoveAndBlock(dbus::ObjectPath(ipconfig_path));
+}
+
+void CrosRequestIPConfigRefresh(const std::string& ipconfig_path) {
+  DBusThreadManager::Get()->GetFlimflamIPConfigClient()->Refresh(
+      dbus::ObjectPath(ipconfig_path),
+      base::Bind(&DoNothing));
 }
 
 bool CrosGetWifiAccessPoints(WifiAccessPointVector* result) {

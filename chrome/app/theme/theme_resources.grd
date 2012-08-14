@@ -392,6 +392,20 @@
         <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_16" file="avatar_toolbox.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_17" file="avatar_user_color.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_18" file="avatar_user_enterprise.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_19" file="avatar_bicycle.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_20" file="avatar_bokeh.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_21" file="avatar_chess.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_22" file="avatar_coffee.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_23" file="avatar_dragonfly.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_24" file="avatar_frog.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_25" file="avatar_ganzania.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_26" file="avatar_jackrussellterrier.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_27" file="avatar_jellyfish.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_28" file="avatar_kiwi.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_29" file="avatar_penguin.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_30" file="avatar_rainbowfish.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_31" file="avatar_recordplayer.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOGIN_DEFAULT_USER_32" file="avatar_upsidedown.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_GUEST" file="login_guest.png" />
         <structure type="chrome_scaled_image" name="IDR_LOGIN_PASSWORD_CAPS_LOCK" file="login_password_capslock.png" />
       </if>
@@ -498,10 +512,6 @@
       <structure type="chrome_scaled_image" name="IDR_PANEL_RESTORE" file="panel_restore.png" />
       <structure type="chrome_scaled_image" name="IDR_PANEL_RESTORE_C" file="panel_restore_click.png" />
       <structure type="chrome_scaled_image" name="IDR_PANEL_RESTORE_H" file="panel_restore_hover.png" />
-      <if expr="is_win">
-        <structure type="chrome_scaled_image" name="IDR_METRO_PIN" file="metro_pin.png" />
-        <structure type="chrome_scaled_image" name="IDR_METRO_PINNED" file="metro_pinned.png" />
-      </if>
       <structure type="chrome_scaled_image" name="IDR_PLUGIN" file="plugin.png" />
       <structure type="chrome_scaled_image" name="IDR_PRERENDER" file="prerender_succeed_icon.png" />
       <structure type="chrome_scaled_image" name="IDR_PRERENDER_FAIL_ICON" file="prerender_fail_icon.png" />
@@ -583,7 +593,7 @@
         <structure type="chrome_scaled_image" name="IDR_PROFILE_PICTURE_LOADING" file="profile_loading.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_PROFILE_SELECTED" file="profile_selected.png" />
-      <structure type="chrome_scaled_image" name="IDR_REGISTER_PROTOCOL_HANDLER_LOCATIONBAR_ICON" file="register_protocol_handler_locationbar_icon.png" />
+      <structure type="chrome_scaled_image" name="IDR_REGISTER_PROTOCOL_HANDLER_LOCATIONBAR_ICON" file="webintents.png" />
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_RELOAD" file="reload.png" />
         <structure type="chrome_scaled_image" name="IDR_RELOAD_H" file="reload_hover.png" />
@@ -614,12 +624,12 @@
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_SPINNER" file="speech_input_spinner.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_BALLOON_ICON" file="speech_input_tray_balloon_icon.png" />
       <if expr="is_linux or pp_ifdef('chromeos')">
-        <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_EMPTY" file="speech_input_tray_macosx_mic_empty.png" />
-        <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_FULL" file="speech_input_tray_macosx_mic_full.png" />
-      </if>
-      <if expr="is_macosx">
         <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_EMPTY" file="speech_input_tray_linux_mic_empty.png" />
         <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_FULL" file="speech_input_tray_linux_mic_full.png" />
+      </if>
+      <if expr="is_macosx">
+        <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_EMPTY" file="speech_input_tray_macosx_mic_empty.png" />
+        <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_FULL" file="speech_input_tray_macosx_mic_full.png" />
       </if>
       <if expr="is_win">
         <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_EMPTY" file="speech_input_tray_windows_mic_empty.png" />
@@ -817,6 +827,10 @@
         <structure type="chrome_scaled_image" name="IDR_VOLUME_BUBBLE_UP_ICON" file="volume_up_icon.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_WARNING" file="alert_small.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_BACKGROUND" file="website_settings_tab_background.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_CENTER" file="website_settings_tab_center.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_LEFT" file="website_settings_tab_left.png" />
+      <structure type="chrome_scaled_image" name="IDR_WEBSITE_SETTINGS_TAB_RIGHT" file="website_settings_tab_right.png" />
       <if expr="not pp_ifdef('_google_chrome')">
         <structure type="chrome_scaled_image" name="IDR_WEBSTORE_ICON" file="chromium/webstore_icon.png" />
         <structure type="chrome_scaled_image" name="IDR_WEBSTORE_ICON_16" file="chromium/webstore_icon_16.png" />

@@ -11,10 +11,12 @@
 #include "media/base/demuxer_stream.h"
 #include "media/base/video_decoder.h"
 
-class MessageLoop;
-
 struct AVCodecContext;
 struct AVFrame;
+
+namespace base {
+class MessageLoopProxy;
+}
 
 namespace media {
 
@@ -22,7 +24,10 @@ class DecoderBuffer;
 
 class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
  public:
-  FFmpegVideoDecoder(const base::Callback<MessageLoop*()>& message_loop_cb);
+  typedef base::Callback<
+      scoped_refptr<base::MessageLoopProxy>()> MessageLoopFactoryCB;
+  FFmpegVideoDecoder(const MessageLoopFactoryCB& message_loop_factory_cb,
+                     Decryptor* decryptor);
 
   // VideoDecoder implementation.
   virtual void Initialize(const scoped_refptr<DemuxerStream>& stream,
@@ -31,10 +36,6 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
   virtual void Read(const ReadCB& read_cb) OVERRIDE;
   virtual void Reset(const base::Closure& closure) OVERRIDE;
   virtual void Stop(const base::Closure& closure) OVERRIDE;
-
-  // Must be called prior to initialization if decrypted buffers will be
-  // encountered.
-  void set_decryptor(Decryptor* decryptor);
 
   // Callback called from within FFmpeg to allocate a buffer based on
   // the dimensions of |codec_context|. See AVCodecContext.get_buffer
@@ -68,11 +69,11 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
   // Callback called by the decryptor to deliver decrypted data buffer and
   // reporting decrypt status. This callback could be called synchronously or
   // asynchronously.
-  void BufferDecrypted(Decryptor::DecryptStatus decrypt_status,
+  void BufferDecrypted(Decryptor::Status decrypt_status,
                        const scoped_refptr<DecoderBuffer>& buffer);
 
   // Carries out the operation scheduled by BufferDecrypted().
-  void DoBufferDecrypted(Decryptor::DecryptStatus decrypt_status,
+  void DoBufferDecrypted(Decryptor::Status decrypt_status,
                          const scoped_refptr<DecoderBuffer>& buffer);
 
   void DecodeBuffer(const scoped_refptr<DecoderBuffer>& buffer);
@@ -90,9 +91,9 @@ class MEDIA_EXPORT FFmpegVideoDecoder : public VideoDecoder {
   void DoStop();
 
   // This is !is_null() iff Initialize() hasn't been called.
-  base::Callback<MessageLoop*()> message_loop_factory_cb_;
+  MessageLoopFactoryCB message_loop_factory_cb_;
 
-  MessageLoop* message_loop_;
+  scoped_refptr<base::MessageLoopProxy> message_loop_;
 
   DecoderState state_;
 

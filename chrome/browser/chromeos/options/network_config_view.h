@@ -70,7 +70,7 @@ class NetworkConfigView : public views::DialogDelegateView,
 
   // views::ButtonListener overrides.
   virtual void ButtonPressed(
-      views::Button* sender, const views::Event& event) OVERRIDE;
+      views::Button* sender, const ui::Event& event) OVERRIDE;
 
   void set_delegate(Delegate* delegate) {
     delegate_ = delegate;
@@ -164,8 +164,8 @@ class ControlledSettingIndicatorView : public views::View {
   // views::View:
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual void Layout() OVERRIDE;
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
 
  private:
   // Initializes the view.

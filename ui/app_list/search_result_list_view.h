@@ -33,7 +33,7 @@ class SearchResultListView : public views::View,
   bool IsResultViewSelected(const SearchResultView* result_view) const;
 
   // Overridden from views::View:
-  virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
 
  private:
   // Helper function to get SearchResultView at given |index|.
@@ -48,7 +48,7 @@ class SearchResultListView : public views::View,
 
   // Overridden from views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // Overridden from ListModelObserver:
   virtual void ListItemsAdded(size_t start, size_t count) OVERRIDE;

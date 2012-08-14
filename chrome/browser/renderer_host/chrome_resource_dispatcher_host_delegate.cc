@@ -16,7 +16,6 @@
 #include "chrome/browser/extensions/user_script_listener.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/google/google_util.h"
-#include "chrome/browser/instant/instant_loader.h"
 #include "chrome/browser/net/load_timing_observer.h"
 #include "chrome/browser/net/resource_prefetch_predictor_observer.h"
 #include "chrome/browser/prerender/prerender_manager.h"
@@ -30,7 +29,7 @@
 #include "chrome/browser/ui/sync/one_click_signin_helper.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/extensions/user_script.h"
-#include "chrome/common/metrics/experiments_helper.h"
+#include "chrome/common/metrics/variations_util.h"
 #include "chrome/common/metrics/proto/chrome_experiments.pb.h"
 #include "chrome/common/render_messages.h"
 #include "content/public/browser/browser_thread.h"
@@ -235,17 +234,6 @@ bool ChromeResourceDispatcherHostDelegate::AcceptAuthRequest(
 ResourceDispatcherHostLoginDelegate*
     ChromeResourceDispatcherHostDelegate::CreateLoginDelegate(
         net::AuthChallengeInfo* auth_info, net::URLRequest* request) {
-  std::string instant_header_value;
-  // For instant, return a NULL delegate. Auth navigations don't commit the load
-  // (the load remains pending) until the user cancels or succeeds in
-  // authorizing. Since we don't allow merging of WebContents with pending loads
-  // we disallow auth dialogs from showing during instant. Returning NULL does
-  // that.
-  // TODO: see if we can handle this case more robustly.
-  if (request->extra_request_headers().GetHeader(
-          InstantLoader::kInstantHeader, &instant_header_value) &&
-      instant_header_value == InstantLoader::kInstantHeaderValue)
-    return NULL;
   return CreateLoginPrompt(auth_info, request);
 }
 
@@ -389,7 +377,7 @@ void ChromeResourceDispatcherHostDelegate::OnFieldTrialGroupFinalized(
     const std::string& group_name) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   chrome_variations::VariationID new_id =
-      experiments_helper::GetGoogleVariationID(trial_name, group_name);
+      chrome_variations::GetGoogleVariationID(trial_name, group_name);
   if (new_id == chrome_variations::kEmptyID)
     return;
   variation_ids_set_.insert(new_id);
@@ -410,7 +398,7 @@ void ChromeResourceDispatcherHostDelegate::InitVariationIDsCacheIfNeeded() {
   for (base::FieldTrial::SelectedGroups::const_iterator it =
        initial_groups.begin(); it != initial_groups.end(); ++it) {
     chrome_variations::VariationID id =
-        experiments_helper::GetGoogleVariationID(it->trial, it->group);
+        chrome_variations::GetGoogleVariationID(it->trial, it->group);
     if (id != chrome_variations::kEmptyID)
       variation_ids_set_.insert(id);
   }

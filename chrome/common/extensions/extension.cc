@@ -728,7 +728,7 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
   if (js) {
     for (size_t script_index = 0; script_index < js->GetSize();
          ++script_index) {
-      Value* value;
+      const Value* value;
       std::string relative;
       if (!js->Get(script_index, &value) || !value->GetAsString(&relative)) {
         *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
@@ -747,7 +747,7 @@ bool Extension::LoadUserScriptHelper(const DictionaryValue* content_script,
   if (css) {
     for (size_t script_index = 0; script_index < css->GetSize();
          ++script_index) {
-      Value* value;
+      const Value* value;
       std::string relative;
       if (!css->Get(script_index, &value) || !value->GetAsString(&relative)) {
         *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
@@ -810,8 +810,9 @@ scoped_ptr<ExtensionAction> Extension::LoadExtensionActionHelper(
 
   // Page/script actions are hidden/disabled by default, and browser actions are
   // visible/enabled by default.
-  result->SetIsVisible(ExtensionAction::kDefaultTabId,
-                       action_type == ExtensionAction::TYPE_BROWSER);
+  result->SetAppearance(ExtensionAction::kDefaultTabId,
+                        action_type == ExtensionAction::TYPE_BROWSER ?
+                        ExtensionAction::ACTIVE : ExtensionAction::INVISIBLE);
 
   if (manifest_version_ == 1) {
     const ListValue* icons = NULL;
@@ -1277,7 +1278,7 @@ bool Extension::LoadLaunchContainer(string16* error) {
       launch_container_ == extension_misc::LAUNCH_WINDOW;
 
   // Validate the container width if present.
-  if (!ReadLaunchDimension(manifest_,
+  if (!ReadLaunchDimension(manifest_.get(),
                            keys::kLaunchWidth,
                            &launch_width_,
                            can_specify_initial_size,
@@ -1285,7 +1286,7 @@ bool Extension::LoadLaunchContainer(string16* error) {
       return false;
 
   // Validate container height if present.
-  if (!ReadLaunchDimension(manifest_,
+  if (!ReadLaunchDimension(manifest_.get(),
                            keys::kLaunchHeight,
                            &launch_height_,
                            can_specify_initial_size,
@@ -1477,10 +1478,12 @@ bool Extension::LoadCommands(string16* error) {
         return false;  // |error| already set.
 
       std::string command_name = binding->command_name();
-      if (command_name == values::kPageActionKeybindingEvent) {
+      if (command_name == values::kPageActionCommandEvent) {
         page_action_command_.reset(binding.release());
-      } else if (command_name == values::kBrowserActionKeybindingEvent) {
+      } else if (command_name == values::kBrowserActionCommandEvent) {
         browser_action_command_.reset(binding.release());
+      } else if (command_name == values::kScriptBadgeCommandEvent) {
+        script_badge_command_.reset(binding.release());
       } else {
         if (command_name[0] != '_')  // All commands w/underscore are reserved.
           named_commands_[command_name] = *binding.get();
@@ -1495,7 +1498,7 @@ bool Extension::LoadCommands(string16* error) {
     // No keyboard shortcut will be assigned to it, until the user selects one.
     browser_action_command_.reset(
         new extensions::Command(
-            values::kBrowserActionKeybindingEvent, string16(), ""));
+            values::kBrowserActionCommandEvent, string16(), ""));
   }
 
   return true;
@@ -2375,8 +2378,8 @@ bool Extension::LoadScriptBadge(string16* error) {
   } else {
     script_badge_->SetIcon(
         ExtensionAction::kDefaultTabId,
-        *ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-            IDR_EXTENSIONS_FAVICON).ToSkBitmap());
+        ui::ResourceBundle::GetSharedInstance().GetImageNamed(
+            IDR_EXTENSIONS_FAVICON));
   }
 
   return true;
@@ -2909,8 +2912,6 @@ Extension::Extension(const FilePath& path,
 }
 
 Extension::~Extension() {
-  if (manifest_)
-    delete manifest_;
 }
 
 ExtensionResource Extension::GetResource(

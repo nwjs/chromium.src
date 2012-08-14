@@ -34,8 +34,6 @@
 #if defined(OS_CHROMEOS)
 #include "base/chromeos/chromeos_version.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
-#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_metrics.h"
-#include "chrome/browser/chromeos/kiosk_mode/kiosk_mode_settings.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
@@ -126,9 +124,6 @@ void NotifyAndTerminate(bool fast_path) {
 
 #if defined(OS_CHROMEOS)
   if (base::chromeos::IsRunningOnChromeOS()) {
-    if (chromeos::KioskModeSettings::Get()->IsKioskModeEnabled())
-      chromeos::KioskModeMetrics::Get()->SessionEnded();
-
     // If we're on a ChromeOS device, reboot if an update has been applied,
     // or else signal the session manager to log out.
     chromeos::UpdateEngineClient* update_engine_client
@@ -242,13 +237,10 @@ void AttemptUserExit() {
 }
 
 void AttemptRestart() {
-  if (!CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableRestoreSessionState)) {
-    // TODO(beng): Can this use ProfileManager::GetLoadedProfiles instead?
-    BrowserList::const_iterator it;
-    for (it = BrowserList::begin(); it != BrowserList::end(); ++it)
-      content::BrowserContext::SaveSessionState((*it)->profile());
-  }
+  // TODO(beng): Can this use ProfileManager::GetLoadedProfiles instead?
+  BrowserList::const_iterator it;
+  for (it = BrowserList::begin(); it != BrowserList::end(); ++it)
+    content::BrowserContext::SaveSessionState((*it)->profile());
 
   PrefService* pref_service = g_browser_process->local_state();
   pref_service->SetBoolean(prefs::kWasRestarted, true);

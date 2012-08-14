@@ -16,7 +16,6 @@ using testing::_;
 using testing::AllOf;
 using testing::AtLeast;
 using testing::DoAll;
-using testing::Eq;
 using testing::Field;
 using testing::InSequence;
 using testing::Invoke;
@@ -79,14 +78,10 @@ class MockAudioManagerLinux : public AudioManagerLinux {
   MOCK_METHOD0(Init, void());
   MOCK_METHOD0(HasAudioOutputDevices, bool());
   MOCK_METHOD0(HasAudioInputDevices, bool());
-  MOCK_METHOD0(MuteAll, void());
-  MOCK_METHOD0(UnMuteAll, void());
   MOCK_METHOD1(MakeLinearOutputStream, AudioOutputStream*(
       const AudioParameters& params));
   MOCK_METHOD1(MakeLowLatencyOutputStream, AudioOutputStream*(
       const AudioParameters& params));
-  MOCK_METHOD2(MakeLinearOutputStream, AudioInputStream*(
-      const AudioParameters& params, const std::string& device_id));
   MOCK_METHOD2(MakeLowLatencyInputStream, AudioInputStream*(
       const AudioParameters& params, const std::string& device_id));
 
@@ -147,10 +142,6 @@ class AlsaPcmOutputStreamTest : public testing::Test {
     packet_->SetDataSize(kTestPacketSize);
     test_stream->buffer_.reset(new media::SeekableBuffer(0, kTestPacketSize));
     test_stream->buffer_->Append(packet_.get());
-  }
-
-  MockAudioManagerLinux& mock_manager() {
-    return *(mock_manager_.get());
   }
 
   static const ChannelLayout kTestChannelLayout;

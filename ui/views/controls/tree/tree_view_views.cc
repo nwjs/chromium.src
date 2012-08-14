@@ -10,6 +10,7 @@
 #include "base/message_loop.h"
 #include "grit/ui_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/native_theme/native_theme.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -301,7 +302,7 @@ gfx::Size TreeView::GetPreferredSize() {
   return preferred_size_;
 }
 
-bool TreeView::OnMousePressed(const MouseEvent& event) {
+bool TreeView::OnMousePressed(const ui::MouseEvent& event) {
   int row = (event.y() - kVerticalInset) / row_height_;
   int depth;
   InternalNode* node = GetNodeByRow(row, &depth);
@@ -339,7 +340,7 @@ void TreeView::ShowContextMenu(const gfx::Point& p, bool is_mouse_gesture) {
     // Only invoke View's implementation (which notifies the
     // ContextMenuController) if over a node.
     gfx::Point local_point(p);
-    ConvertPointToView(NULL, this, &local_point);
+    ConvertPointToTarget(NULL, this, &local_point);
     int row = (local_point.y() - kVerticalInset) / row_height_;
     int depth;
     InternalNode* node = GetNodeByRow(row, &depth);
@@ -425,7 +426,7 @@ void TreeView::ContentsChanged(Textfield* sender,
 }
 
 bool TreeView::HandleKeyEvent(Textfield* sender,
-                              const KeyEvent& key_event) {
+                              const ui::KeyEvent& key_event) {
   switch (key_event.key_code()) {
     case ui::VKEY_RETURN:
       CommitEdit();
@@ -467,7 +468,7 @@ gfx::Point TreeView::GetKeyboardContextMenuLocation() {
   return screen_loc;
 }
 
-bool TreeView::OnKeyPressed(const KeyEvent& event) {
+bool TreeView::OnKeyPressed(const ui::KeyEvent& event) {
   if (!HasFocus())
     return false;
 

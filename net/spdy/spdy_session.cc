@@ -31,6 +31,7 @@
 #include "net/base/server_bound_cert_service.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties.h"
+#include "net/spdy/spdy_credential_builder.h"
 #include "net/spdy/spdy_frame_builder.h"
 #include "net/spdy/spdy_http_utils.h"
 #include "net/spdy/spdy_protocol.h"
@@ -323,7 +324,25 @@ SpdySession::SpdySession(const HostPortProxyPair& host_port_proxy_pair,
   // TODO(mbelshe): consider randomization of the stream_hi_water_mark.
 }
 
+SpdySession::PendingCreateStream::PendingCreateStream(
+    const GURL& url, RequestPriority priority,
+    scoped_refptr<SpdyStream>* spdy_stream,
+    const BoundNetLog& stream_net_log,
+    const CompletionCallback& callback)
+    : url(&url),
+      priority(priority),
+      spdy_stream(spdy_stream),
+      stream_net_log(&stream_net_log),
+      callback(callback) {
+}
+
 SpdySession::PendingCreateStream::~PendingCreateStream() {}
+
+SpdySession::CallbackResultPair::CallbackResultPair(
+    const CompletionCallback& callback_in, int result_in)
+    : callback(callback_in),
+      result(result_in) {
+}
 
 SpdySession::CallbackResultPair::~CallbackResultPair() {}
 
@@ -626,42 +645,19 @@ SpdyCredentialControlFrame* SpdySession::CreateCredentialFrame(
     const std::string& cert,
     RequestPriority priority) {
   DCHECK(is_secure_);
-  unsigned char secret[32];  // 32 bytes from the spec
-  GetSSLClientSocket()->ExportKeyingMaterial("SPDY certificate proof",
-                                             true, origin,
-                                             secret, arraysize(secret));
-
-  // Convert the key string into a vector<unit8>
-  std::vector<uint8> key_data;
-  for (size_t i = 0; i < key.length(); i++) {
-    key_data.push_back(key[i]);
-  }
-
-  std::vector<uint8> proof;
-  switch (type) {
-    case CLIENT_CERT_ECDSA_SIGN: {
-      base::StringPiece spki_piece;
-      asn1::ExtractSPKIFromDERCert(cert, &spki_piece);
-      std::vector<uint8> spki(spki_piece.data(),
-                              spki_piece.data() + spki_piece.size());
-      scoped_ptr<crypto::ECPrivateKey> private_key(
-          crypto::ECPrivateKey::CreateFromEncryptedPrivateKeyInfo(
-              ServerBoundCertService::kEPKIPassword, key_data, spki));
-      scoped_ptr<crypto::ECSignatureCreator> creator(
-          crypto::ECSignatureCreator::Create(private_key.get()));
-      creator->Sign(secret, arraysize(secret), &proof);
-      break;
-    }
-    default:
-      NOTREACHED();
-  }
+  SSLClientSocket* ssl_socket = GetSSLClientSocket();
+  DCHECK(ssl_socket);
+  DCHECK(ssl_socket->WasChannelIDSent());
 
   SpdyCredential credential;
-  GURL origin_url(origin);
-  credential.slot =
-      credential_state_.SetHasCredential(origin_url);
-  credential.certs.push_back(cert);
-  credential.proof.assign(proof.begin(), proof.end());
+  std::string tls_unique;
+  ssl_socket->GetTLSUniqueChannelBinding(&tls_unique);
+  size_t slot = credential_state_.SetHasCredential(GURL(origin));
+  int rv = SpdyCredentialBuilder::Build(tls_unique, type, key, cert, slot,
+                                        &credential);
+  DCHECK_EQ(OK, rv);
+  if (rv != OK)
+    return NULL;
 
   DCHECK(buffered_spdy_framer_.get());
   scoped_ptr<SpdyCredentialControlFrame> credential_frame(
@@ -673,6 +669,30 @@ SpdyCredentialControlFrame* SpdySession::CreateCredentialFrame(
         base::Bind(&NetLogSpdyCredentialCallback, credential.slot, &origin));
   }
   return credential_frame.release();
+}
+
+SpdyHeadersControlFrame* SpdySession::CreateHeadersFrame(
+    SpdyStreamId stream_id,
+    const SpdyHeaderBlock& headers,
+    SpdyControlFlags flags) {
+  // Find our stream
+  CHECK(IsStreamActive(stream_id));
+  scoped_refptr<SpdyStream> stream = active_streams_[stream_id];
+  CHECK_EQ(stream->stream_id(), stream_id);
+
+  // Create a HEADER frame.
+  scoped_ptr<SpdyHeadersControlFrame> frame(
+      buffered_spdy_framer_->CreateHeaders(stream_id, flags, true, &headers));
+
+  if (net_log().IsLoggingAllEvents()) {
+    bool fin = flags & CONTROL_FLAG_FIN;
+    net_log().AddEvent(
+        NetLog::TYPE_SPDY_SESSION_SEND_HEADERS,
+        base::Bind(&NetLogSpdySynCallback,
+                   &headers, fin, /*unidirectional=*/false,
+                   stream_id, 0));
+  }
+  return frame.release();
 }
 
 SpdyDataFrame* SpdySession::CreateDataFrame(SpdyStreamId stream_id,
@@ -1523,7 +1543,7 @@ void SpdySession::OnHeaders(SpdyStreamId stream_id,
                             const SpdyHeaderBlock& headers) {
   if (net_log().IsLoggingAllEvents()) {
     net_log().AddEvent(
-        NetLog::TYPE_SPDY_SESSION_HEADERS,
+        NetLog::TYPE_SPDY_SESSION_RECV_HEADERS,
         base::Bind(&NetLogSpdySynCallback,
                    &headers, fin, /*unidirectional=*/false,
                    stream_id, 0));

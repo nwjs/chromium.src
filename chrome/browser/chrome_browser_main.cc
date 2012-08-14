@@ -56,6 +56,7 @@
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/page_cycler/page_cycler.h"
+#include "chrome/browser/performance_monitor/startup_timer.h"
 #include "chrome/browser/plugin_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/pref_value_store.h"
@@ -76,6 +77,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_ui_prefs.h"
+#include "chrome/browser/ui/startup/default_browser_prompt.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/uma_browsing_activity_observer.h"
 #include "chrome/browser/ui/user_data_dir_dialog.h"
@@ -89,7 +91,7 @@
 #include "chrome/common/json_pref_store.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/logging_chrome.h"
-#include "chrome/common/metrics/experiments_helper.h"
+#include "chrome/common/metrics/variations_util.h"
 #include "chrome/common/net/net_resource_provider.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/profiling.h"
@@ -106,7 +108,6 @@
 #include "grit/platform_locale_settings.h"
 #include "net/base/net_module.h"
 #include "net/base/sdch_manager.h"
-#include "net/base/ssl_config_service.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/http/http_stream_factory.h"
 #include "net/spdy/spdy_session.h"
@@ -497,6 +498,7 @@ ChromeBrowserMainParts::ChromeBrowserMainParts(
       result_code_(content::RESULT_CODE_NORMAL_EXIT),
       startup_watcher_(new StartupTimeBomb()),
       shutdown_watcher_(new ShutdownWatcherHelper()),
+      startup_timer_(new performance_monitor::StartupTimer()),
       browser_field_trials_(parameters.command_line),
       record_search_engine_(false),
       translate_manager_(NULL),
@@ -539,10 +541,12 @@ void ChromeBrowserMainParts::SetupMetricsAndFieldTrials() {
   // Initialize FieldTrialList to support FieldTrials that use one-time
   // randomization.
   MetricsService* metrics = browser_process_->metrics_service();
-  if (IsMetricsReportingEnabled())
+  bool metrics_reporting_enabled = IsMetricsReportingEnabled();
+  if (metrics_reporting_enabled)
     metrics->ForceClientIdCreation();  // Needed below.
   field_trial_list_.reset(
-      new base::FieldTrialList(metrics->GetEntropySource()));
+      new base::FieldTrialList(
+          metrics->GetEntropySource(metrics_reporting_enabled)));
 
   // Ensure any field trials specified on the command line are initialized.
   // Also stop the metrics service so that we don't pollute UMA.
@@ -592,11 +596,14 @@ void ChromeBrowserMainParts::StartMetricsRecording() {
 bool ChromeBrowserMainParts::IsMetricsReportingEnabled() {
   // If the user permits metrics reporting with the checkbox in the
   // prefs, we turn on recording.  We disable metrics completely for
-  // non-official builds.
+  // non-official builds.  This can be forced with a flag.
+  const CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kEnableMetricsReportingForTesting))
+    return true;
+
   bool enabled = false;
 #ifndef NDEBUG
   // The debug build doesn't send UMA logs when FieldTrials are forced.
-  const CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kForceFieldTrials))
     return false;
 #endif  // #ifndef NDEBUG
@@ -794,6 +801,13 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
       return chrome::RESULT_CODE_NORMAL_EXIT_CANCEL;
     if (answer == TryChromeDialogView::UNINSTALL_CHROME)
       return chrome::RESULT_CODE_NORMAL_EXIT_EXP2;
+    // At this point the user is willing to try chrome again.
+    if (answer == TryChromeDialogView::TRY_CHROME_AS_DEFAULT) {
+      // Only set in the unattended case, the interactive case is Windows 8.
+      if (ShellIntegration::CanSetAsDefaultBrowser() ==
+          ShellIntegration::SET_DEFAULT_UNATTENDED)
+        ShellIntegration::SetAsDefaultBrowser();
+    }
 #else
     // We don't support retention experiments on Mac or Linux.
     return content::RESULT_CODE_NORMAL_EXIT;
@@ -1122,6 +1136,13 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
     chrome::SetNewHomePagePrefs(profile_->GetPrefs());
     browser_process_->profile_manager()->OnImportFinished(profile_);
+
+    if (!master_prefs_->suppress_first_run_default_browser_prompt) {
+      browser_creator_->set_show_main_browser_window(
+          !chrome::ShowFirstRunDefaultBrowserPrompt(profile_));
+    } else {
+      browser_creator_->set_is_default_browser_dialog_suppressed(true);
+    }
   }  // if (is_first_run_)
 
 #if defined(OS_WIN)
@@ -1370,6 +1391,10 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   PostBrowserStart();
 
   if (parameters().ui_task) {
+    // We end the startup timer here if we have parameters to run, because we
+    // never start to run the main loop (where we normally stop the timer).
+    startup_timer_->SignalStartupComplete(
+        performance_monitor::StartupTimer::STARTUP_TEST);
     parameters().ui_task->Run();
     delete parameters().ui_task;
     run_message_loop_ = false;
@@ -1379,15 +1404,24 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 }
 
 bool ChromeBrowserMainParts::MainMessageLoopRun(int* result_code) {
+#if defined(OS_ANDROID)
+  // Chrome on Android does not use default MessageLoop. It has its own
+  // Android specific MessageLoop
+  NOTREACHED();
+  return true;
+#else
   // Set the result code set in PreMainMessageLoopRun or set above.
   *result_code = result_code_;
   if (!run_message_loop_)
     return true;  // Don't run the default message loop.
 
-  // This should be invoked as close to the start of the browser's
+  // These should be invoked as close to the start of the browser's
   // UI thread message loop as possible to get a stable measurement
   // across versions.
   RecordBrowserStartupTime();
+  startup_timer_->SignalStartupComplete(
+      performance_monitor::StartupTimer::STARTUP_NORMAL);
+
   DCHECK_EQ(MessageLoop::TYPE_UI, MessageLoop::current()->type());
 #if !defined(USE_AURA) && defined(TOOLKIT_VIEWS)
   views::AcceleratorHandler accelerator_handler;
@@ -1398,9 +1432,15 @@ bool ChromeBrowserMainParts::MainMessageLoopRun(int* result_code) {
   run_loop.Run();
 
   return true;
+#endif
 }
 
 void ChromeBrowserMainParts::PostMainMessageLoopRun() {
+#if defined(OS_ANDROID)
+  // Chrome on Android does not use default MessageLoop. It has its own
+  // Android specific MessageLoop
+  NOTREACHED();
+#else
   // Start watching for jank during shutdown. It gets disarmed when
   // |shutdown_watcher_| object is destructed.
   shutdown_watcher_->Arm(base::TimeDelta::FromSeconds(300));
@@ -1446,6 +1486,7 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
 
   restart_last_session_ = browser_shutdown::ShutdownPreThreadsStop();
   browser_process_->StartTearDown();
+#endif
 }
 
 void ChromeBrowserMainParts::PostDestroyThreads() {

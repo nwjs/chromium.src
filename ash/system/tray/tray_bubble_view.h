@@ -9,7 +9,7 @@
 #include "ui/aura/event_filter.h"
 #include "ui/views/bubble/bubble_delegate.h"
 
-namespace aura {
+namespace ui {
 class LocatedEvent;
 }
 
@@ -48,18 +48,18 @@ class TrayBubbleView : public views::BubbleDelegateView {
 
     // Overridden from aura::EventFilter.
     virtual bool PreHandleKeyEvent(aura::Window* target,
-                                   aura::KeyEvent* event) OVERRIDE;
+                                   ui::KeyEvent* event) OVERRIDE;
     virtual bool PreHandleMouseEvent(aura::Window* target,
-                                     aura::MouseEvent* event) OVERRIDE;
+                                     ui::MouseEvent* event) OVERRIDE;
     virtual ui::TouchStatus PreHandleTouchEvent(
         aura::Window* target,
-        aura::TouchEvent* event) OVERRIDE;
+        ui::TouchEvent* event) OVERRIDE;
     virtual ui::GestureStatus PreHandleGestureEvent(
         aura::Window* target,
-        aura::GestureEvent* event) OVERRIDE;
+        ui::GestureEvent* event) OVERRIDE;
 
    private:
-    void ProcessLocatedEvent(const aura::LocatedEvent& event);
+    void ProcessLocatedEvent(const ui::LocatedEvent& event);
 
     views::Widget* widget_;
     views::View* tray_view_;
@@ -77,6 +77,7 @@ class TrayBubbleView : public views::BubbleDelegateView {
     int bubble_width;
     int max_height;
     bool can_activate;
+    bool close_on_deactivate;
     int arrow_offset;
     SkColor arrow_color;
   };
@@ -106,8 +107,8 @@ class TrayBubbleView : public views::BubbleDelegateView {
 
   // Overridden from views::View.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
 
  protected:

@@ -60,6 +60,7 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   typedef std::set<std::string> PrefKeySet;
 
   // Vector containing identifiers for extensions.
+  // TODO(yefim): rename to ExtensionIds.
   typedef std::vector<std::string> ExtensionIdSet;
 
   // This enum is used for the launch type the user wants to use for an
@@ -103,11 +104,13 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   // ExtensionService::IsExtensionEnabled instead.
   bool IsExtensionDisabled(const std::string& id) const;
 
-  // Get the order that the browser actions appear in the toolbar.
-  std::vector<std::string> GetToolbarOrder();
+  // Get/Set the order that the browser actions appear in the toolbar.
+  ExtensionIdSet GetToolbarOrder();
+  void SetToolbarOrder(const ExtensionIdSet& extension_ids);
 
-  // Set the order that the browser actions appear in the toolbar.
-  void SetToolbarOrder(const std::vector<std::string>& extension_ids);
+  // Get/Set the order that the browser actions appear in the action box.
+  ExtensionIdSet GetActionBoxOrder();
+  void SetActionBoxOrder(const ExtensionIdSet& extension_ids);
 
   // Called when an extension is installed, so that prefs get created.
   // If |page_ordinal| is an invalid ordinal, then a page will be found
@@ -325,10 +328,13 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   // Set and retrieve permissions for media galleries as identified by the
   // gallery id.
   void SetMediaGalleryPermission(const std::string& extension_id,
-                                 MediaGalleryPrefId gallery, bool has_access);
-  std::vector<MediaGalleryPermission> GetMediaGalleryPermissions(
+                                 chrome::MediaGalleryPrefId gallery,
+                                 bool has_access);
+  void UnsetMediaGalleryPermission(const std::string& extension_id,
+                                   chrome::MediaGalleryPrefId gallery);
+  std::vector<chrome::MediaGalleryPermission> GetMediaGalleryPermissions(
       const std::string& extension_id);
-  void RemoveMediaGalleryPermissions(MediaGalleryPrefId gallery_id);
+  void RemoveMediaGalleryPermissions(chrome::MediaGalleryPrefId gallery_id);
 
   // Saves ExtensionInfo for each installed extension with the path to the
   // version directory and the location. Blacklisted extensions won't be saved
@@ -552,6 +558,11 @@ class ExtensionPrefs : public ContentSettingsStore::Observer,
   // it matches |check_state|.
   bool DoesExtensionHaveState(const std::string& id,
                               Extension::State check_state) const;
+
+  // Helper function to Get/Set array of strings from/to prefs.
+  ExtensionIdSet GetExtensionPrefAsVector(const char* pref);
+  void SetExtensionPrefFromVector(const char* pref,
+                                  const ExtensionIdSet& extension_ids);
 
   // The pref service specific to this set of extension prefs. Owned by profile.
   PrefService* prefs_;

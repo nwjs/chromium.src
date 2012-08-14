@@ -117,8 +117,9 @@ class ContentViewCoreImpl : public ContentViewCore,
                               jobject obj,
                               jobject object,
                               jstring name,
-                              jboolean allow_inherited_methods);
+                              jboolean require_annotation);
   void RemoveJavascriptInterface(JNIEnv* env, jobject obj, jstring name);
+  int GetNavigationHistory(JNIEnv* env, jobject obj, jobject context);
 
   // --------------------------------------------------------------------------
   // Public methods that call to Java via JNI
@@ -148,10 +149,6 @@ class ContentViewCoreImpl : public ContentViewCore,
 
   // Called when page loading begins.
   void DidStartLoading();
-
-  void OnAcceleratedCompositingStateChange(RenderWidgetHostViewAndroid* rwhva,
-                                           bool activated,
-                                           bool force);
   void StartContentIntent(const GURL& content_url);
 
   // --------------------------------------------------------------------------

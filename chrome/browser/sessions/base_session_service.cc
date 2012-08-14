@@ -26,6 +26,11 @@ using content::NavigationEntry;
 
 // InternalGetCommandsRequest -------------------------------------------------
 
+BaseSessionService::InternalGetCommandsRequest::InternalGetCommandsRequest(
+    const CallbackType& callback)
+    : CancelableRequest<InternalGetCommandsCallback>(callback) {
+}
+
 BaseSessionService::InternalGetCommandsRequest::~InternalGetCommandsRequest() {
   STLDeleteElements(&commands);
 }
@@ -75,14 +80,10 @@ BaseSessionService::BaseSessionService(SessionType type,
     : profile_(profile),
       ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       pending_reset_(false),
-      commands_since_reset_(0),
-      save_post_data_(false) {
+      commands_since_reset_(0) {
   if (profile) {
     // We should never be created when incognito.
     DCHECK(!profile->IsOffTheRecord());
-    const CommandLine* command_line = CommandLine::ForCurrentProcess();
-    save_post_data_ =
-        !command_line->HasSwitch(switches::kDisableRestoreSessionState);
   }
   backend_ = new SessionBackend(type, profile_ ? profile_->GetPath() : path);
   DCHECK(backend_.get());
@@ -175,13 +176,8 @@ SessionCommand* BaseSessionService::CreateUpdateTabNavigationCommand(
 
   std::string content_state = entry.GetContentState();
   if (entry.GetHasPostData()) {
-    if (save_post_data_) {
-      content_state =
-          webkit_glue::RemovePasswordDataFromHistoryState(content_state);
-    } else {
-      content_state =
-          webkit_glue::RemoveFormDataFromHistoryState(content_state);
-    }
+    content_state =
+        webkit_glue::RemovePasswordDataFromHistoryState(content_state);
   }
   WriteStringToPickle(pickle, &bytes_written, max_state_size, content_state);
 

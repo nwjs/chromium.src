@@ -61,7 +61,8 @@ public:
 
   // WebDialogWebContentsDelegate declarations.
   virtual void MoveContents(WebContents* source, const gfx::Rect& pos);
-  virtual void HandleKeyboardEvent(const NativeWebKeyboardEvent& event);
+  virtual void HandleKeyboardEvent(content::WebContents* source,
+                                   const NativeWebKeyboardEvent& event);
   virtual void CloseContents(WebContents* source) OVERRIDE;
   virtual content::WebContents* OpenURLFromTab(
       content::WebContents* source,
@@ -250,6 +251,7 @@ void WebDialogWindowDelegateBridge::MoveContents(WebContents* source,
 // We don't handle global keyboard shortcuts here, but that's fine since
 // they're all browser-specific. (This may change in the future.)
 void WebDialogWindowDelegateBridge::HandleKeyboardEvent(
+    content::WebContents* source,
     const NativeWebKeyboardEvent& event) {
   if (event.skip_in_browser || event.type == NativeWebKeyboardEvent::Char)
     return;
@@ -337,7 +339,7 @@ void WebDialogWindowDelegateBridge::HandleKeyboardEvent(
 
 - (void)loadDialogContents {
   tabContents_.reset(new TabContents(WebContents::Create(
-      delegate_->browser_context(), NULL, MSG_ROUTING_NONE, NULL, NULL)));
+      delegate_->browser_context(), NULL, MSG_ROUTING_NONE, NULL)));
   [[self window]
       setContentView:tabContents_->web_contents()->GetNativeView()];
   tabContents_->web_contents()->SetDelegate(delegate_.get());

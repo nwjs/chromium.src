@@ -19,6 +19,7 @@
 #include "ui/base/dragdrop/drag_source.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_code_conversion_win.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/native_theme/native_theme_win.h"
@@ -1547,7 +1548,7 @@ LRESULT NativeWidgetWin::OnKeyEvent(UINT message,
                                     WPARAM w_param,
                                     LPARAM l_param) {
   MSG msg = { hwnd(), message, w_param, l_param };
-  KeyEvent key(msg);
+  ui::KeyEvent key(msg, message == WM_CHAR);
   InputMethod* input_method = GetWidget()->GetInputMethodDirect();
   if (input_method)
     input_method->DispatchKeyEvent(key);
@@ -1627,7 +1628,7 @@ LRESULT NativeWidgetWin::OnMouseRange(UINT message,
 
   MSG msg = { hwnd(), message, w_param, l_param, 0,
               { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) } };
-  MouseEvent event(msg);
+  ui::MouseEvent event(msg);
   if (!touch_ids_.empty() || ui::IsMouseEventFromTouch(message))
     event.set_flags(event.flags() | ui::EF_FROM_TOUCH);
 
@@ -2006,9 +2007,14 @@ void NativeWidgetWin::OnSetFocus(HWND old_focused_window) {
   SetMsgHandled(FALSE);
 }
 
+LRESULT NativeWidgetWin::OnSetIcon(UINT size_type, HICON new_icon) {
+  // Use a ScopedRedrawLock to avoid weird non-client painting.
+  return DefWindowProcWithRedrawLock(WM_SETICON, size_type,
+                                     reinterpret_cast<LPARAM>(new_icon));
+}
+
 LRESULT NativeWidgetWin::OnSetText(const wchar_t* text) {
-  // DefWindowProc for WM_SETTEXT does weird non-client painting, so we need to
-  // call it inside a ScopedRedrawLock.
+  // Use a ScopedRedrawLock to avoid weird non-client painting.
   return DefWindowProcWithRedrawLock(WM_SETTEXT, NULL,
                                      reinterpret_cast<LPARAM>(text));
 }
@@ -2495,10 +2501,13 @@ bool NativeWidgetWin::WidgetSizeIsClientSize() const {
 }
 
 void NativeWidgetWin::ClientAreaSizeChanged() {
-  RECT r;
-  if (WidgetSizeIsClientSize())
-    GetClientRect(&r);
-  else
+  RECT r = {0, 0, 0, 0};
+  if (WidgetSizeIsClientSize()) {
+    // TODO(beng): investigate whether this could be done
+    // from other branch of if-else.
+    if (!IsMinimized())
+      GetClientRect(&r);
+  } else
     GetWindowRect(&r);
   gfx::Size s(std::max(0, static_cast<int>(r.right - r.left)),
               std::max(0, static_cast<int>(r.bottom - r.top)));
@@ -2594,7 +2603,7 @@ void NativeWidgetWin::NotifyOwnedWindowsParentClosing() {
     data.owned_widgets[i]->OnOwnerClosing();
 }
 
-void NativeWidgetWin::DispatchKeyEventPostIME(const KeyEvent& key) {
+void NativeWidgetWin::DispatchKeyEventPostIME(const ui::KeyEvent& key) {
   SetMsgHandled(delegate_->OnKeyEvent(key));
 }
 

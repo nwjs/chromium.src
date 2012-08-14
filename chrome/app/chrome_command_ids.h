@@ -32,11 +32,12 @@
 #define IDC_STOP                        33006
 #define IDC_RELOAD_IGNORING_CACHE       33007
 #define IDC_LOAD_NEW_TAB_PAGE           33008
+#define IDC_RELOAD_CLEARING_CACHE       33009
 
 // Window management commands
 #define IDC_NEW_WINDOW                  34000
 #define IDC_NEW_INCOGNITO_WINDOW        34001
-#define IDC_METRO_PIN_TO_START_SCREEN   34005
+#define IDC_PIN_TO_START_SCREEN         34005
 #define IDC_CLOSE_WINDOW                34012
 #define IDC_ALWAYS_ON_TOP               34013
 #define IDC_NEW_TAB                     34014

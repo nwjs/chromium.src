@@ -65,13 +65,14 @@ DEFINE_WINDOW_PROPERTY_KEY(float,
 namespace {
 
 const int kDefaultAnimationDurationForMenuMS = 150;
+const int kLayerAnimationsForMinimizeDurationMS = 350;
 
 // Durations for the cross-fade animation, in milliseconds.
 const float kCrossFadeDurationMinMs = 100.f;
 const float kCrossFadeDurationMaxMs = 400.f;
 
 // Durations for the brightness/grayscale fade animation, in milliseconds.
-const int kBrightnessGrayscaleFadeDurationMs = 2000;
+const int kBrightnessGrayscaleFadeDurationMs = 1000;
 
 // Brightness/grayscale values for hide/show window animations.
 const float kWindowAnimation_HideBrightnessGrayscale = 1.f;
@@ -435,7 +436,8 @@ void AddLayerAnimationsForMinimize(aura::Window* window, bool show) {
 
   rotation_about_pivot->SetReversed(show);
 
-  base::TimeDelta duration = base::TimeDelta::FromMilliseconds(350);
+  base::TimeDelta duration = base::TimeDelta::FromMilliseconds(
+      kLayerAnimationsForMinimizeDurationMS);
 
   scoped_ptr<ui::LayerAnimationElement> transition(
       ui::LayerAnimationElement::CreateInterpolatedTransformElement(
@@ -447,10 +449,23 @@ void AddLayerAnimationsForMinimize(aura::Window* window, bool show) {
   window->layer()->GetAnimator()->ScheduleAnimation(
       new ui::LayerAnimationSequence(transition.release()));
 
+  // When hiding a window, turn off blending until the animation is
+  // 3 / 4 done to save bandwidth and reduce jank
+  if (!show) {
+    ui::LayerAnimationElement::AnimatableProperties propertiesToPause;
+    propertiesToPause.insert(ui::LayerAnimationElement::OPACITY);
+    window->layer()->GetAnimator()->ScheduleAnimation(
+      new ui::LayerAnimationSequence(
+          ui::LayerAnimationElement::CreatePauseElement(
+              propertiesToPause, (duration * 3 ) / 4)));
+  }
+
+  // Fade in and out quickly when the window is small to reduce jank
   float opacity = show ? 1.0f : 0.0f;
   window->layer()->GetAnimator()->ScheduleAnimation(
       new ui::LayerAnimationSequence(
-          ui::LayerAnimationElement::CreateOpacityElement(opacity, duration)));
+          ui::LayerAnimationElement::CreateOpacityElement(
+              opacity, duration / 4)));
 }
 
 void AnimateShowWindow_Minimize(aura::Window* window) {
@@ -469,6 +484,9 @@ void AnimateHideWindow_Minimize(aura::Window* window) {
 
   // Property sets within this scope will be implicitly animated.
   ui::ScopedLayerAnimationSettings settings(window->layer()->GetAnimator());
+  base::TimeDelta duration = base::TimeDelta::FromMilliseconds(
+      kLayerAnimationsForMinimizeDurationMS);
+  settings.SetTransitionDuration(duration);
   settings.AddObserver(new HidingWindowAnimationObserver(window));
   window->layer()->SetVisible(false);
 
@@ -506,16 +524,21 @@ void AnimateShowHideWindowCommon_BrightnessGrayscale(aura::Window* window,
   scoped_ptr<ui::LayerAnimationSequence> grayscale_sequence(
       new ui::LayerAnimationSequence());
 
-  brightness_sequence->AddElement(
+  scoped_ptr<ui::LayerAnimationElement> brightness_element(
       ui::LayerAnimationElement::CreateBrightnessElement(
           end_value,
           base::TimeDelta::FromMilliseconds(
               kBrightnessGrayscaleFadeDurationMs)));
-  grayscale_sequence->AddElement(
+  brightness_element->set_tween_type(ui::Tween::EASE_OUT);
+  brightness_sequence->AddElement(brightness_element.release());
+
+  scoped_ptr<ui::LayerAnimationElement> grayscale_element(
       ui::LayerAnimationElement::CreateGrayscaleElement(
           end_value,
           base::TimeDelta::FromMilliseconds(
               kBrightnessGrayscaleFadeDurationMs)));
+  grayscale_element->set_tween_type(ui::Tween::EASE_OUT);
+  grayscale_sequence->AddElement(grayscale_element.release());
 
    std::vector<ui::LayerAnimationSequence*> animations;
    animations.push_back(brightness_sequence.release());

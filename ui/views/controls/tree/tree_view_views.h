@@ -107,7 +107,7 @@ class VIEWS_EXPORT TreeView : public View,
   // View overrides:
   virtual void Layout() OVERRIDE;
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
   virtual void ShowContextMenu(const gfx::Point& p,
                                bool is_mouse_gesture) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
@@ -128,7 +128,7 @@ class VIEWS_EXPORT TreeView : public View,
   virtual void ContentsChanged(Textfield* sender,
                                const string16& new_contents) OVERRIDE;
   virtual bool HandleKeyEvent(Textfield* sender,
-                              const KeyEvent& key_event) OVERRIDE;
+                              const ui::KeyEvent& key_event) OVERRIDE;
 
   // FocusChangeListener overrides:
   virtual void OnWillChangeFocus(View* focused_before,
@@ -139,7 +139,7 @@ class VIEWS_EXPORT TreeView : public View,
  protected:
   // View overrides:
   virtual gfx::Point GetKeyboardContextMenuLocation() OVERRIDE;
-  virtual bool OnKeyPressed(const KeyEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnFocus() OVERRIDE;
   virtual void OnBlur() OVERRIDE;

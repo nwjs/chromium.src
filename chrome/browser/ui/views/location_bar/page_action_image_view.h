@@ -50,9 +50,9 @@ class PageActionImageView : public views::ImageView,
 
   // Overridden from views::View:
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
 
   // Overridden from ImageLoadingTracker:
   virtual void OnImageLoaded(const gfx::Image& image,
@@ -126,9 +126,13 @@ class PageActionImageView : public views::ImageView,
 
   content::NotificationRegistrar registrar_;
 
-  // The extension keybinding accelerator this page action is listening for (to
+  // The extension command accelerator this page action is listening for (to
   // show the popup).
-  scoped_ptr<ui::Accelerator> keybinding_;
+  scoped_ptr<ui::Accelerator> page_action_keybinding_;
+
+  // The extension command accelerator this script badge is listening for (to
+  // show the popup).
+  scoped_ptr<ui::Accelerator> script_badge_keybinding_;
 
   scoped_ptr<views::MenuRunner> menu_runner_;
 

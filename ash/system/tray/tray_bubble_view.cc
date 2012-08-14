@@ -15,9 +15,9 @@
 #include "third_party/skia/include/core/SkPaint.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/effects/SkBlurImageFilter.h"
-#include "ui/aura/event.h"
 #include "ui/aura/window.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/insets.h"
@@ -247,6 +247,7 @@ TrayBubbleView::InitParams::InitParams(AnchorType anchor_type,
       bubble_width(kTrayPopupWidth),
       max_height(0),
       can_activate(false),
+      close_on_deactivate(true),
       arrow_offset(kArrowDefaultOffset),
       arrow_color(kHeaderBackgroundColorDark) {
 }
@@ -286,6 +287,7 @@ TrayBubbleView::TrayBubbleView(
       anchor->GetWidget()->GetNativeWindow()->GetRootWindow(),
       internal::kShellWindowId_SettingBubbleContainer));
   set_notify_enter_exit_on_child(true);
+  set_close_on_deactivate(init_params.close_on_deactivate);
   SetPaintToLayer(true);
   SetFillsBoundsOpaquely(true);
 }
@@ -387,12 +389,12 @@ gfx::Size TrayBubbleView::GetPreferredSize() {
   return gfx::Size(params_.bubble_width, height);
 }
 
-void TrayBubbleView::OnMouseEntered(const views::MouseEvent& event) {
+void TrayBubbleView::OnMouseEntered(const ui::MouseEvent& event) {
   if (host_)
     host_->OnMouseEnteredView();
 }
 
-void TrayBubbleView::OnMouseExited(const views::MouseEvent& event) {
+void TrayBubbleView::OnMouseExited(const ui::MouseEvent& event) {
   if (host_)
     host_->OnMouseExitedView();
 }
@@ -454,12 +456,12 @@ void TrayBubbleView::Host::InitializeAndShowBubble(views::Widget* widget,
 }
 
 bool TrayBubbleView::Host::PreHandleKeyEvent(aura::Window* target,
-                                             aura::KeyEvent* event) {
+                                             ui::KeyEvent* event) {
   return false;
 }
 
 bool TrayBubbleView::Host::PreHandleMouseEvent(aura::Window* target,
-                                               aura::MouseEvent* event) {
+                                               ui::MouseEvent* event) {
   if (event->type() == ui::ET_MOUSE_PRESSED)
     ProcessLocatedEvent(*event);
   return false;
@@ -467,7 +469,7 @@ bool TrayBubbleView::Host::PreHandleMouseEvent(aura::Window* target,
 
 ui::TouchStatus TrayBubbleView::Host::PreHandleTouchEvent(
     aura::Window* target,
-    aura::TouchEvent* event) {
+    ui::TouchEvent* event) {
   if (event->type() == ui::ET_TOUCH_PRESSED)
     ProcessLocatedEvent(*event);
   return ui::TOUCH_STATUS_UNKNOWN;
@@ -475,12 +477,12 @@ ui::TouchStatus TrayBubbleView::Host::PreHandleTouchEvent(
 
 ui::GestureStatus TrayBubbleView::Host::PreHandleGestureEvent(
     aura::Window* target,
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   return ui::GESTURE_STATUS_UNKNOWN;
 }
 
 void TrayBubbleView::Host::ProcessLocatedEvent(
-    const aura::LocatedEvent& event) {
+    const ui::LocatedEvent& event) {
   if (!widget_)
     return;
   gfx::Rect bounds = widget_->GetNativeWindow()->GetBoundsInRootWindow();

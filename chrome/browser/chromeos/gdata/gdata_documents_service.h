@@ -9,9 +9,9 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/chromeos/gdata/gdata_operations.h"
 #include "chrome/browser/chromeos/gdata/gdata_auth_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
-#include "chrome/browser/chromeos/gdata/gdata_params.h"
 
 class FilePath;
 class GURL;
@@ -92,6 +92,16 @@ class DocumentsServiceInterface {
                             const std::string& directory_resource_id,
                             const GetDataCallback& callback) = 0;
 
+  // Fetches a changelist from |url| with |start_changestamp|, using Drive V2
+  // API. If this URL is empty the call will use the default URL. Specify |url|
+  // when pagenated request should be issued.
+  // |start_changestamp| specifies the starting point of change list or 0 if
+  // all changes are necessary.
+  // Upon completion, invokes |callback| with results on calling thread.
+  virtual void GetChangelist(const GURL& url,
+                             int64 start_changestamp,
+                             const GetDataCallback& callback) = 0;
+
   // Fetches single entry metadata from server. The entry's resource id equals
   // |resource_id|.
   // Upon completion, invokes |callback| with results on the calling thread.
@@ -169,15 +179,15 @@ class DocumentsServiceInterface {
   // Downloads a file identified by its |content_url|. The downloaded file will
   // be stored at |local_cache_path| location. Upon completion, invokes
   // |download_action_callback| with results on the calling thread.
-  // If |get_download_data_callback| is not empty,
+  // If |get_content_callback| is not empty,
   // URLFetcherDelegate::OnURLFetchDownloadData will be called, which will in
-  // turn invoke |get_download_data_callback| on the calling thread.
+  // turn invoke |get_content_callback| on the calling thread.
   virtual void DownloadFile(
       const FilePath& virtual_path,
       const FilePath& local_cache_path,
       const GURL& content_url,
       const DownloadActionCallback& download_action_callback,
-      const GetDownloadDataCallback& get_download_data_callback) = 0;
+      const GetContentCallback& get_content_callback) = 0;
 
   // Initiates uploading of a document/file.
   virtual void InitiateUpload(const InitiateUploadParams& params,
@@ -219,6 +229,9 @@ class DocumentsService : public DocumentsServiceInterface {
                             const std::string& search_query,
                             const std::string& directory_resource_id,
                             const GetDataCallback& callback) OVERRIDE;
+  virtual void GetChangelist(const GURL& url,
+                             int64 start_changestamp,
+                             const GetDataCallback& callback) OVERRIDE;
   virtual void GetDocumentEntry(const std::string& resource_id,
                                 const GetDataCallback& callback) OVERRIDE;
 
@@ -238,7 +251,7 @@ class DocumentsService : public DocumentsServiceInterface {
       const FilePath& local_cache_path,
       const GURL& content_url,
       const DownloadActionCallback& download_action_callback,
-      const GetDownloadDataCallback& get_download_data_callback) OVERRIDE;
+      const GetContentCallback& get_content_callback) OVERRIDE;
   virtual void CopyDocument(const std::string& resource_id,
                             const FilePath::StringType& new_name,
                             const GetDataCallback& callback) OVERRIDE;

@@ -21,6 +21,8 @@
 #include "base/stringprintf.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/time.h"
+#include "base/tracked_objects.h"
+#include "chrome/browser/chromeos/gdata/file_write_helper.h"
 #include "chrome/browser/chromeos/gdata/gdata.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
@@ -69,6 +71,12 @@ GDataCache* GetGDataCache(Profile* profile) {
   GDataSystemService* system_service =
       GDataSystemServiceFactory::GetForProfile(profile);
   return system_service ? system_service->cache() : NULL;
+}
+
+FileWriteHelper* GetFileWriteHelper(Profile* profile) {
+  GDataSystemService* system_service =
+      GDataSystemServiceFactory::GetForProfile(profile);
+  return system_service ? system_service->file_write_helper() : NULL;
 }
 
 void GetHostedDocumentURLBlockingThread(const FilePath& gdata_cache_path,
@@ -577,6 +585,76 @@ std::string FormatTimeAsString(const base::Time& time) {
       "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
       exploded.year, exploded.month, exploded.day_of_month,
       exploded.hour, exploded.minute, exploded.second, exploded.millisecond);
+}
+
+std::string FormatTimeAsStringLocaltime(const base::Time& time) {
+  base::Time::Exploded exploded;
+  time.LocalExplode(&exploded);
+
+  return base::StringPrintf(
+      "%04d-%02d-%02dT%02d:%02d:%02d.%03d",
+      exploded.year, exploded.month, exploded.day_of_month,
+      exploded.hour, exploded.minute, exploded.second, exploded.millisecond);
+}
+
+void PrepareWritableFileAndRun(Profile* profile,
+                               const FilePath& path,
+                               const OpenFileCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  if (IsUnderGDataMountPoint(path)) {
+    FileWriteHelper* file_write_helper = GetFileWriteHelper(profile);
+    if (!file_write_helper)
+      return;
+    FilePath remote_path(ExtractGDataPath(path));
+    file_write_helper->PrepareWritableFileAndRun(remote_path, callback);
+  } else {
+    if (!callback.is_null()) {
+      content::BrowserThread::GetBlockingPool()->PostTask(
+          FROM_HERE, base::Bind(callback, GDATA_FILE_OK, path));
+    }
+  }
+}
+
+GDataFileError GDataToGDataFileError(GDataErrorCode status) {
+  switch (status) {
+    case HTTP_SUCCESS:
+    case HTTP_CREATED:
+      return GDATA_FILE_OK;
+    case HTTP_UNAUTHORIZED:
+    case HTTP_FORBIDDEN:
+      return GDATA_FILE_ERROR_ACCESS_DENIED;
+    case HTTP_NOT_FOUND:
+      return GDATA_FILE_ERROR_NOT_FOUND;
+    case GDATA_PARSE_ERROR:
+    case GDATA_FILE_ERROR:
+      return GDATA_FILE_ERROR_ABORT;
+    case GDATA_NO_CONNECTION:
+      return GDATA_FILE_ERROR_NO_CONNECTION;
+    default:
+      return GDATA_FILE_ERROR_FAILED;
+  }
+}
+
+void PostBlockingPoolSequencedTask(
+    const tracked_objects::Location& from_here,
+    base::SequencedTaskRunner* blocking_task_runner,
+    const base::Closure& task) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  const bool posted = blocking_task_runner->PostTask(from_here, task);
+  DCHECK(posted);
+}
+
+void PostBlockingPoolSequencedTaskAndReply(
+    const tracked_objects::Location& from_here,
+    base::SequencedTaskRunner* blocking_task_runner,
+    const base::Closure& request_task,
+    const base::Closure& reply_task) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  const bool posted = blocking_task_runner->PostTaskAndReply(
+      from_here, request_task, reply_task);
+  DCHECK(posted);
 }
 
 }  // namespace util

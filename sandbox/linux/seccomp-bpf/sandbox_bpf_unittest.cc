@@ -13,6 +13,9 @@ using namespace playground2;
 namespace {
 
 const int kExpectedReturnValue = 42;
+#if defined(__arm__)
+const int kArmPublicSysnoCeiling = __NR_SYSCALL_BASE + 1024;
+#endif
 
 TEST(SandboxBpf, CallSupports) {
   // We check that we don't crash, but it's ok if the kernel doesn't
@@ -75,7 +78,7 @@ void StartSandboxOrDie(Sandbox::EvaluateSyscall evaluator) {
 
 void RunInSandbox(Sandbox::EvaluateSyscall evaluator,
                       void (*SandboxedCode)()) {
-  // TODO(jln): Implement IsEqual for ErrorCode
+  // TODO(markus): Implement IsEqual for ErrorCode
   // IsEqual(evaluator(__NR_exit_group), Sandbox::SB_ALLOWED) <<
   //    "You need to always allow exit_group() in your test policy";
   StartSandboxOrDie(evaluator);
@@ -97,6 +100,11 @@ void TryPolicyInProcess(Sandbox::EvaluateSyscall evaluator,
     EXPECT_EXIT(RunInSandbox(evaluator, SandboxedCode),
                 ::testing::ExitedWithCode(kExpectedReturnValue),
                 "");
+  } else {
+    // The sandbox is not available. We should still try to exercise what we
+    // can.
+    // TODO(markus): (crbug.com/141545) let us call the compiler from here.
+    Sandbox::setSandboxPolicy(evaluator, NULL);
   }
 }
 
@@ -229,6 +237,13 @@ Sandbox::ErrorCode SyntheticPolicy(int sysno) {
     // FIXME: we should really not have to do that in a trivial policy.
     return ENOSYS;
   }
+
+  // TODO(jorgelo): remove this restriction once crbug.com/141694 is fixed.
+#if defined(__arm__)
+  if (sysno > kArmPublicSysnoCeiling)
+    return ENOSYS;
+#endif
+
   if (sysno == __NR_exit_group) {
     // exit_group() is special, we really need it to work.
     return Sandbox::SB_ALLOWED;
@@ -244,8 +259,16 @@ void SyntheticProcess(void) {
       static_cast<int>(MAX_SYSCALL)) {
     ExitGroup(1);
   }
+
+  // TODO(jorgelo): remove this limit once crbug.com/141694 is fixed.
+#if defined(__arm__)
+  const int sysno_ceiling = kArmPublicSysnoCeiling;
+#else
+  const int sysno_ceiling = static_cast<int>(MAX_SYSCALL);
+#endif
+
   for (int syscall_number =  static_cast<int>(MIN_SYSCALL);
-           syscall_number <= static_cast<int>(MAX_SYSCALL);
+           syscall_number <= sysno_ceiling;
          ++syscall_number) {
     if (syscall_number == __NR_exit_group) {
       // exit_group() is special

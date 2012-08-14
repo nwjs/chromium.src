@@ -5,20 +5,21 @@
 import logging
 
 from docs_server_utils import FormatKey
+from file_system import FileNotFoundError
 from third_party.handlebar import Handlebar
 
 EXTENSIONS_URL = '/chrome/extensions'
 
-def _MakeBranchDict(branch):
+def _MakeChannelDict(channel_name):
   return {
-    'showWarning': branch != 'stable',
-    'branches': [
+    'showWarning': channel_name != 'stable',
+    'channels': [
       { 'name': 'Stable', 'path': 'stable' },
       { 'name': 'Dev',    'path': 'dev' },
       { 'name': 'Beta',   'path': 'beta' },
       { 'name': 'Trunk',  'path': 'trunk' }
     ],
-    'current': branch
+    'current': channel_name
   }
 
 class TemplateDataSource(object):
@@ -38,7 +39,7 @@ class TemplateDataSource(object):
     individual Requests.
     """
     def __init__(self,
-                 branch,
+                 channel_name,
                  api_data_source_factory,
                  api_list_data_source,
                  intro_data_source,
@@ -46,9 +47,7 @@ class TemplateDataSource(object):
                  cache_builder,
                  public_template_path,
                  private_template_path):
-      self._branch_info = _MakeBranchDict(branch)
-      self._static_resources = ((('/' + branch) if branch != 'local' else '') +
-                                '/static')
+      self._branch_info = _MakeChannelDict(channel_name)
       self._api_data_source_factory = api_data_source_factory
       self._api_list_data_source = api_list_data_source
       self._intro_data_source = intro_data_source
@@ -56,13 +55,14 @@ class TemplateDataSource(object):
       self._cache = cache_builder.build(Handlebar)
       self._public_template_path = public_template_path
       self._private_template_path = private_template_path
+      self._static_resources = (
+          (('/' + channel_name) if channel_name != 'local' else '') + '/static')
 
     def Create(self, request):
       """Returns a new TemplateDataSource bound to |request|.
       """
       return TemplateDataSource(
           self._branch_info,
-          self._static_resources,
           self._api_data_source_factory.Create(request),
           self._api_list_data_source,
           self._intro_data_source,
@@ -70,11 +70,11 @@ class TemplateDataSource(object):
           self._cache,
           self._public_template_path,
           self._private_template_path,
+          self._static_resources,
           request)
 
   def __init__(self,
                branch_info,
-               static_resources,
                api_data_source,
                api_list_data_source,
                intro_data_source,
@@ -82,9 +82,9 @@ class TemplateDataSource(object):
                cache,
                public_template_path,
                private_template_path,
+               static_resources,
                request):
     self._branch_info = branch_info
-    self._static_resources = static_resources
     self._api_list_data_source = api_list_data_source
     self._intro_data_source = intro_data_source
     self._samples_data_source = samples_data_source
@@ -92,6 +92,7 @@ class TemplateDataSource(object):
     self._cache = cache
     self._public_template_path = public_template_path
     self._private_template_path = private_template_path
+    self._static_resources = static_resources
     self._request = request
 
   def Render(self, template_name):
@@ -110,7 +111,11 @@ class TemplateDataSource(object):
       'intros': self._intro_data_source,
       'partials': self,
       'samples': self._samples_data_source,
-      'static': self._static_resources
+      'static': self._static_resources,
+      'apps_title': 'Apps',
+      'extensions_title': 'Extensions',
+      'true': True,
+      'false': False
     }).text
 
   def __getitem__(self, key):
@@ -123,6 +128,6 @@ class TemplateDataSource(object):
     real_path = FormatKey(template_name)
     try:
       return self._cache.GetFromFile(base_path + '/' + real_path)
-    except Exception as e:
+    except FileNotFoundError as e:
       logging.error(e)
       return None

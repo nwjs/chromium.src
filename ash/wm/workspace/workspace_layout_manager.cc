@@ -11,10 +11,10 @@
 #include "ash/wm/workspace/workspace_manager.h"
 #include "ash/wm/workspace/workspace_window_resizer.h"
 #include "ui/aura/client/aura_constants.h"
-#include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/base/event.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/rect.h"
 #include "ui/views/widget/native_widget_aura.h"
@@ -106,11 +106,12 @@ void WorkspaceLayoutManager::ShowStateChanged(
                !workspace_manager_->Contains(window)) {
       workspace_manager_->AddWindow(window);
     }
-  } else {
-    workspace_manager_->UpdateShelfVisibility();
   }
   BaseLayoutManager::ShowStateChanged(window, last_show_state);
   workspace_manager_->ShowStateChanged(window);
+  // As BaseLayoutManager::ShowStateChanged() may change the visibility of the
+  // window we need to invoke UpdateShelfVisibility() after ShowStateChanged().
+  workspace_manager_->UpdateShelfVisibility();
 }
 
 }  // namespace internal

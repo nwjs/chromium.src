@@ -30,6 +30,10 @@ ShellWindowGtk::ShellWindowGtk(Profile* profile,
   gtk_window_set_default_size(
       window_, params.bounds.width(), params.bounds.height());
 
+  // Hide titlebar when {frame: 'none'} specified on ShellWindow.
+  if (params.frame == ShellWindow::CreateParams::FRAME_NONE)
+    gtk_window_set_decorated(window_, false);
+
   int min_width = params.minimum_size.width();
   int min_height = params.minimum_size.height();
   int max_width = params.maximum_size.width();
@@ -149,10 +153,6 @@ void ShellWindowGtk::SetBounds(const gfx::Rect& bounds) {
   // TODO(mihaip): Do we need the same workaround as BrowserWindowGtk::
   // SetWindowSize in order to avoid triggering fullscreen mode?
   gtk_window_resize(window_, bounds.width(), bounds.height());
-}
-
-void ShellWindowGtk::SetDraggableRegion(SkRegion* region) {
-  // TODO: implement
 }
 
 void ShellWindowGtk::FlashFrame(bool flash) {

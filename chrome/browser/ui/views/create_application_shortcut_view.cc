@@ -381,7 +381,7 @@ bool CreateApplicationShortcutView::Accept() {
   shortcut_info_.create_in_quick_launch_bar = false;
 #endif
 
-  web_app::CreateShortcut(profile_->GetPath(), shortcut_info_);
+  web_app::CreateShortcuts(shortcut_info_);
   return true;
 }
 
@@ -399,7 +399,7 @@ views::Checkbox* CreateApplicationShortcutView::AddCheckbox(
 }
 
 void CreateApplicationShortcutView::ButtonPressed(views::Button* sender,
-                                                  const views::Event& event) {
+                                                  const ui::Event& event) {
   if (sender == desktop_check_box_)
     profile_->GetPrefs()->SetBoolean(prefs::kWebAppCreateOnDesktop,
         desktop_check_box_->checked() ? true : false);

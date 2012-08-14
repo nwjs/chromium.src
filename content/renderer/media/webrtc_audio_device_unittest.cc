@@ -10,11 +10,11 @@
 #include "media/audio/audio_manager.h"
 #include "media/audio/audio_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/webrtc/voice_engine/main/interface/voe_audio_processing.h"
-#include "third_party/webrtc/voice_engine/main/interface/voe_base.h"
-#include "third_party/webrtc/voice_engine/main/interface/voe_external_media.h"
-#include "third_party/webrtc/voice_engine/main/interface/voe_file.h"
-#include "third_party/webrtc/voice_engine/main/interface/voe_network.h"
+#include "third_party/webrtc/voice_engine/include/voe_audio_processing.h"
+#include "third_party/webrtc/voice_engine/include/voe_base.h"
+#include "third_party/webrtc/voice_engine/include/voe_external_media.h"
+#include "third_party/webrtc/voice_engine/include/voe_file.h"
+#include "third_party/webrtc/voice_engine/include/voe_network.h"
 
 using testing::_;
 using testing::AnyNumber;
@@ -23,10 +23,6 @@ using testing::Return;
 using testing::StrEq;
 
 namespace {
-
-ACTION_P(QuitMessageLoop, loop_or_proxy) {
-  loop_or_proxy->PostTask(FROM_HERE, MessageLoop::QuitClosure());
-}
 
 class AudioUtil : public AudioUtilInterface {
  public:
@@ -165,11 +161,6 @@ class WebRTCMediaProcessImpl : public webrtc::VoEMediaProcess {
   int sample_rate() const {
     base::AutoLock auto_lock(lock_);
     return sample_rate_;
-  }
-
-  int channels() const {
-    base::AutoLock auto_lock(lock_);
-    return channels_;
   }
 
  private:

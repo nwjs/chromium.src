@@ -6,11 +6,23 @@ import json
 import logging
 import os
 
+from file_system import FileNotFoundError
 from handlebar_dict_generator import HandlebarDictGenerator
 import third_party.json_schema_compiler.json_comment_eater as json_comment_eater
 import third_party.json_schema_compiler.model as model
 import third_party.json_schema_compiler.idl_schema as idl_schema
 import third_party.json_schema_compiler.idl_parser as idl_parser
+
+class _LazySamplesGetter(object):
+  """This class is needed so that an extensions API page does not have to fetch
+  the apps samples page and vice versa.
+  """
+  def __init__(self, api_name, samples):
+    self._api_name = api_name
+    self._samples = samples
+
+  def get(self, key):
+    return self._samples.FilterSamples(key, self._api_name)
 
 class APIDataSource(object):
   """This class fetches and loads JSON APIs from the FileSystem passed in with
@@ -60,23 +72,23 @@ class APIDataSource(object):
     try:
       perms = self._permissions_cache.GetFromFile(
           self._base_path + '/_permission_features.json')
-      api_perms = perms.get(path, None)
-      if api_perms['channel'] == 'dev':
-        api_perms['dev'] = True
-      return api_perms
-    except Exception:
+    except FileNotFoundError:
       return None
+    perms = dict((model.UnixName(k), v) for k, v in perms.iteritems())
+    api_perms = perms.get(path, None)
+    if api_perms is None:
+      return None
+    if api_perms['channel'] == 'dev':
+      api_perms['dev'] = True
+    return api_perms
 
-  def _GenerateHandlebarContext(self, api_name, handlebar, path):
-    return_dict = { 'permissions': self._GetFeature(path) }
-    return_dict.update(handlebar.Generate(
-        self._FilterSamples(api_name, self._samples.values())))
+  def _GenerateHandlebarContext(self, handlebar, path):
+    return_dict = {
+      'permissions': self._GetFeature(path),
+      'samples': _LazySamplesGetter(path, self._samples)
+    }
+    return_dict.update(handlebar.Generate())
     return return_dict
-
-  def _FilterSamples(self, api_name, samples):
-    api_search = '.' + api_name + '.'
-    return [sample for sample in samples
-            if any(api_search in api['name'] for api in sample['api_calls'])]
 
   def __getitem__(self, key):
     return self.get(key)
@@ -87,13 +99,13 @@ class APIDataSource(object):
     json_path = unix_name + '.json'
     idl_path = unix_name + '.idl'
     try:
-      return self._GenerateHandlebarContext(key,
+      return self._GenerateHandlebarContext(
           self._json_cache.GetFromFile(self._base_path + '/' + json_path),
           path)
-    except OSError:
+    except FileNotFoundError:
       try:
-        return self._GenerateHandlebarContext(key,
+        return self._GenerateHandlebarContext(
             self._idl_cache.GetFromFile(self._base_path + '/' + idl_path),
             path)
-      except OSError as e:
+      except FileNotFoundError:
         raise

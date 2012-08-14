@@ -71,12 +71,12 @@ class ASH_EXPORT ActionableView : public views::View {
   // Performs an action when user clicks on the view (on mouse-press event), or
   // presses a key when this view is in focus. Returns true if the event has
   // been handled and an action was performed. Returns false otherwise.
-  virtual bool PerformAction(const views::Event& event) = 0;
+  virtual bool PerformAction(const ui::Event& event) = 0;
 
   // Overridden from views::View.
-  virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(
       const views::GestureEvent& event) OVERRIDE;
@@ -122,12 +122,12 @@ class HoverHighlightView : public ActionableView {
 
  private:
   // Overridden from ActionableView.
-  virtual bool PerformAction(const views::Event& event) OVERRIDE;
+  virtual bool PerformAction(const ui::Event& event) OVERRIDE;
 
   // Overridden from views::View.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnEnabledChanged() OVERRIDE;
   virtual void OnPaintBackground(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnFocus() OVERRIDE;
@@ -157,7 +157,7 @@ class FixedSizedScrollView : public views::ScrollView {
   // views::View public method overrides.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
   virtual void Layout() OVERRIDE;
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
 
  protected:
   // views::View protected method overrides.
@@ -180,8 +180,8 @@ class TrayPopupTextButton : public views::TextButton {
  private:
   // Overridden from views::View.
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnPaintBackground(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnPaintBorder(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnPaintFocusBorder(gfx::Canvas* canvas) OVERRIDE;

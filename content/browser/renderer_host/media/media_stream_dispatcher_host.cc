@@ -100,25 +100,9 @@ void MediaStreamDispatcherHost::DevicesEnumerated(
   StreamMap::iterator it = streams_.find(label);
   DCHECK(it != streams_.end());
   StreamRequest request = it->second;
-  streams_.erase(it);
 
   Send(new MediaStreamMsg_DevicesEnumerated(
-      request.render_view_id, request.page_request_id, devices));
-}
-
-void MediaStreamDispatcherHost::DevicesEnumerationFailed(
-    const std::string& label) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  DVLOG(1) << "MediaStreamDispatcherHost::DevicesEnumerationFailed("
-           << ", {label = " << label <<  "})";
-
-  StreamMap::iterator it = streams_.find(label);
-  DCHECK(it != streams_.end());
-  StreamRequest request = it->second;
-  streams_.erase(it);
-
-  Send(new MediaStreamMsg_DevicesEnumerationFailed(
-      request.render_view_id, request.page_request_id));
+      request.render_view_id, request.page_request_id, label, devices));
 }
 
 void MediaStreamDispatcherHost::DeviceOpened(
@@ -134,21 +118,6 @@ void MediaStreamDispatcherHost::DeviceOpened(
 
   Send(new MediaStreamMsg_DeviceOpened(
       request.render_view_id, request.page_request_id, label, video_device));
-}
-
-void MediaStreamDispatcherHost::DeviceOpenFailed(
-    const std::string& label) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  DVLOG(1) << "MediaStreamDispatcherHost::DeviceOpenFailed("
-           << ", {label = " << label <<  "})";
-
-  StreamMap::iterator it = streams_.find(label);
-  DCHECK(it != streams_.end());
-  StreamRequest request = it->second;
-  streams_.erase(it);
-
-  Send(new MediaStreamMsg_DeviceOpenFailed(request.render_view_id,
-                                           request.page_request_id));
 }
 
 bool MediaStreamDispatcherHost::OnMessageReceived(
@@ -226,7 +195,6 @@ void MediaStreamDispatcherHost::OnStopGeneratedStream(
            << ", {label = " << label <<  "})";
 
   StreamMap::iterator it = streams_.find(label);
-  DCHECK(it != streams_.end());
   GetManager()->StopGeneratedStream(label);
   streams_.erase(it);
 }

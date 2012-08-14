@@ -16,7 +16,6 @@
 namespace views {
 
 class ColorChooserListener;
-class KeyEvent;
 class Textfield;
 
 // ColorChooserView provides the UI to choose a color by mouse and/or keyboard.
@@ -46,6 +45,7 @@ class VIEWS_EXPORT ColorChooserView : public WidgetDelegateView,
  private:
   class HueView;
   class SaturationValueView;
+  class SelectedColorPatchView;
 
   // WidgetDelegate overrides:
   virtual View* GetInitiallyFocusedView() OVERRIDE;
@@ -57,7 +57,7 @@ class VIEWS_EXPORT ColorChooserView : public WidgetDelegateView,
   virtual void ContentsChanged(Textfield* sender,
                                const string16& new_contents) OVERRIDE;
   virtual bool HandleKeyEvent(Textfield* sender,
-                              const KeyEvent& key_event) OVERRIDE;
+                              const ui::KeyEvent& key_event) OVERRIDE;
 
   // The current color in HSV coordinate.
   SkScalar hsv_[3];
@@ -76,6 +76,9 @@ class VIEWS_EXPORT ColorChooserView : public WidgetDelegateView,
 
   // The textfield to write the color explicitly.
   Textfield* textfield_;
+
+  // The rectangle to denote the selected color.
+  SelectedColorPatchView* selected_color_patch_;
 
   DISALLOW_COPY_AND_ASSIGN(ColorChooserView);
 };

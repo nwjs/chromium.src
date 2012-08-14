@@ -115,7 +115,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       ready_state_(WebMediaPlayer::ReadyStateHaveNothing),
       main_loop_(MessageLoop::current()),
       filter_collection_(collection),
-      started_(false),
       message_loop_factory_(message_loop_factory),
       paused_(true),
       seeking_(false),
@@ -132,12 +131,14 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       audio_source_provider_(audio_source_provider),
       audio_renderer_sink_(audio_renderer_sink),
       is_local_source_(false),
+      supports_save_(true),
       decryptor_(proxy_.get(), client, frame) {
   media_log_->AddEvent(
       media_log_->CreateEvent(media::MediaLogEvent::WEBMEDIAPLAYER_CREATED));
 
-  MessageLoop* pipeline_message_loop =
-      message_loop_factory_->GetMessageLoop("PipelineThread");
+  scoped_refptr<base::MessageLoopProxy> pipeline_message_loop =
+      message_loop_factory_->GetMessageLoop(
+          media::MessageLoopFactory::kPipeline);
   pipeline_ = new media::Pipeline(pipeline_message_loop, media_log_);
 
   // Let V8 know we started new thread if we did not did it yet.
@@ -236,18 +237,17 @@ void WebMediaPlayerImpl::load(const WebKit::WebURL& url, CORSMode cors_mode) {
   if (BuildMediaStreamCollection(url, media_stream_client_,
                                  message_loop_factory_.get(),
                                  filter_collection_.get())) {
+    supports_save_ = false;
     StartPipeline();
     return;
   }
 
   // Media source pipelines can start immediately.
-  scoped_refptr<media::FFmpegVideoDecoder> video_decoder;
   if (BuildMediaSourceCollection(url, GetClient()->sourceURL(), proxy_,
                                  message_loop_factory_.get(),
                                  filter_collection_.get(),
-                                 &decryptor_,
-                                 &video_decoder)) {
-    proxy_->set_video_decoder(video_decoder);
+                                 &decryptor_)) {
+    supports_save_ = false;
     StartPipeline();
     return;
   }
@@ -268,9 +268,7 @@ void WebMediaPlayerImpl::load(const WebKit::WebURL& url, CORSMode cors_mode) {
   BuildDefaultCollection(proxy_->data_source(),
                          message_loop_factory_.get(),
                          filter_collection_.get(),
-                         &decryptor_,
-                         &video_decoder);
-  proxy_->set_video_decoder(video_decoder);
+                         &decryptor_);
 }
 
 void WebMediaPlayerImpl::cancelLoad() {
@@ -309,7 +307,7 @@ bool WebMediaPlayerImpl::supportsFullscreen() const {
 
 bool WebMediaPlayerImpl::supportsSave() const {
   DCHECK_EQ(main_loop_, MessageLoop::current());
-  return true;
+  return supports_save_;
 }
 
 void WebMediaPlayerImpl::seek(float seconds) {
@@ -318,6 +316,7 @@ void WebMediaPlayerImpl::seek(float seconds) {
   if (seeking_) {
     pending_seek_ = true;
     pending_seek_seconds_ = seconds;
+    proxy_->DemuxerCancelPendingSeek();
     return;
   }
 
@@ -513,13 +512,6 @@ void WebMediaPlayerImpl::setSize(const WebSize& size) {
   // Don't need to do anything as we use the dimensions passed in via paint().
 }
 
-// This variant (without alpha) is just present during staging of this API
-// change. Later we will again only have one virtual paint().
-void WebMediaPlayerImpl::paint(WebKit::WebCanvas* canvas,
-                               const WebKit::WebRect& rect) {
-  paint(canvas, rect, 0xFF);
-}
-
 void WebMediaPlayerImpl::paint(WebCanvas* canvas,
                                const WebRect& rect,
                                uint8_t alpha) {
@@ -625,22 +617,6 @@ COMPILE_ASSERT_MATCHING_STATUS_ENUM(AddIdStatusReachedIdLimit, kReachedIdLimit);
 
 WebKit::WebMediaPlayer::AddIdStatus WebMediaPlayerImpl::sourceAddId(
     const WebKit::WebString& id,
-    const WebKit::WebString& type) {
-    DCHECK_EQ(main_loop_, MessageLoop::current());
-
-    WebKit::WebString kDefaultSourceType("video/webm; codecs=\"vp8, vorbis\"");
-
-    if (type != kDefaultSourceType)
-      return WebKit::WebMediaPlayer::AddIdStatusNotSupported;
-
-    WebKit::WebVector<WebKit::WebString> codecs(static_cast<size_t>(2));
-    codecs[0] = "vp8";
-    codecs[1] = "vorbis";
-    return sourceAddId(id, "video/webm", codecs);
-}
-
-WebKit::WebMediaPlayer::AddIdStatus WebMediaPlayerImpl::sourceAddId(
-    const WebKit::WebString& id,
     const WebKit::WebString& type,
     const WebKit::WebVector<WebKit::WebString>& codecs) {
   DCHECK_EQ(main_loop_, MessageLoop::current());
@@ -653,11 +629,6 @@ WebKit::WebMediaPlayer::AddIdStatus WebMediaPlayerImpl::sourceAddId(
                            new_codecs));
 }
 
-bool WebMediaPlayerImpl::sourceTimestampOffset(
-    const WebKit::WebString& id, double offset) {
-  return proxy_->DemuxerSetTimestampOffset(id.utf8().data(), offset);
-}
-
 bool WebMediaPlayerImpl::sourceRemoveId(const WebKit::WebString& id) {
   DCHECK(!id.isEmpty());
   proxy_->DemuxerRemoveId(id.utf8().data());
@@ -667,12 +638,6 @@ bool WebMediaPlayerImpl::sourceRemoveId(const WebKit::WebString& id) {
 WebKit::WebTimeRanges WebMediaPlayerImpl::sourceBuffered(
     const WebKit::WebString& id) {
   return ConvertToWebTimeRanges(proxy_->DemuxerBufferedRange(id.utf8().data()));
-}
-
-bool WebMediaPlayerImpl::sourceAppend(const unsigned char* data,
-                                      unsigned length) {
-  return sourceAppend(WebKit::WebString::fromUTF8("DefaultSourceId"),
-                      data, length);
 }
 
 bool WebMediaPlayerImpl::sourceAppend(const WebKit::WebString& id,
@@ -718,6 +683,11 @@ void WebMediaPlayerImpl::sourceEndOfStream(
 
   if (old_duration != duration())
     GetClient()->durationChanged();
+}
+
+bool WebMediaPlayerImpl::sourceSetTimestampOffset(const WebKit::WebString& id,
+                                                  double offset) {
+  return proxy_->DemuxerSetTimestampOffset(id.utf8().data(), offset);
 }
 
 WebKit::WebMediaPlayer::MediaKeyException
@@ -993,7 +963,6 @@ void WebMediaPlayerImpl::NotifyDownloading(bool is_downloading) {
 }
 
 void WebMediaPlayerImpl::StartPipeline() {
-  started_ = true;
   pipeline_->Start(
       filter_collection_.Pass(),
       base::Bind(&WebMediaPlayerProxy::PipelineEndedCallback, proxy_.get()),
@@ -1030,13 +999,10 @@ void WebMediaPlayerImpl::Destroy() {
 
   // Make sure to kill the pipeline so there's no more media threads running.
   // Note: stopping the pipeline might block for a long time.
-  if (started_) {
-    base::WaitableEvent waiter(false, false);
-    pipeline_->Stop(base::Bind(
-        &base::WaitableEvent::Signal, base::Unretained(&waiter)));
-    waiter.Wait();
-    started_ = false;
-  }
+  base::WaitableEvent waiter(false, false);
+  pipeline_->Stop(base::Bind(
+      &base::WaitableEvent::Signal, base::Unretained(&waiter)));
+  waiter.Wait();
 
   // Let V8 know we are not using extra resources anymore.
   if (incremented_externally_allocated_memory_) {

@@ -50,11 +50,11 @@ class Tab : public View {
 
   // Overridden from View:
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
-  virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual void OnMouseEntered(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual gfx::Size GetPreferredSize() OVERRIDE {
     const int kTabMinWidth = 54;
     gfx::Size ps(GetTabTitleFont().GetStringWidth(title_),
@@ -124,6 +124,20 @@ class TabStrip : public View {
   explicit TabStrip(NativeTabbedPaneViews* owner)
       : owner_(owner),
         selected_tab_(NULL) {
+    const int kCount = 4;
+    // The gradient colors are derived from the tabbed panes used for the
+    // WebUI.
+    SkColor colors[] = {
+        SkColorSetRGB(0xff, 0xff, 0xff),
+        SkColorSetRGB(0xff, 0xff, 0xff),
+        SkColorSetRGB(0xfa, 0xfa, 0xfa),
+        SkColorSetRGB(0xf2, 0xf2, 0xf2)
+    };
+    // The relative positions of the gradient colors are derived from the
+    // tabbed panes used for the WebUI.
+    SkScalar pos[4] = {0.0f, 0.6f, 0.8f, 1.0f};
+    set_background(Background::CreateVerticalMultiColorGradientBackground(
+        colors, pos, kCount));
   }
   virtual ~TabStrip() {}
 
@@ -167,6 +181,9 @@ class TabStrip : public View {
     }
   }
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE {
+    OnPaintBackground(canvas);
+
+    // Draw the TabStrip border.
     SkPaint paint;
     paint.setColor(kTabBorderColor);
     paint.setStrokeWidth(kTabBorderThickness);
@@ -195,12 +212,12 @@ void Tab::OnPaint(gfx::Canvas* canvas) {
   PaintTabTitle(canvas, selected);
 }
 
-bool Tab::OnMousePressed(const MouseEvent& event) {
+bool Tab::OnMousePressed(const ui::MouseEvent& event) {
   SetTitleColor(kTabTitleColor_Pressed);
   return true;
 }
 
-void Tab::OnMouseReleased(const MouseEvent& event) {
+void Tab::OnMouseReleased(const ui::MouseEvent& event) {
   SetTitleColor(kTabTitleColor_Hovered);
   tab_strip_->SelectTab(this);
 }
@@ -209,12 +226,12 @@ void Tab::OnMouseCaptureLost() {
   SetTitleColor(kTabTitleColor_Inactive);
 }
 
-void Tab::OnMouseEntered(const MouseEvent& event) {
+void Tab::OnMouseEntered(const ui::MouseEvent& event) {
   SetTitleColor(tab_strip_->IsTabSelected(this) ? kTabTitleColor_Active :
       kTabTitleColor_Hovered);
 }
 
-void Tab::OnMouseExited(const MouseEvent& event) {
+void Tab::OnMouseExited(const ui::MouseEvent& event) {
   SetTitleColor(tab_strip_->IsTabSelected(this) ? kTabTitleColor_Active :
       kTabTitleColor_Inactive);
 }

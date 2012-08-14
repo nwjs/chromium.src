@@ -42,7 +42,6 @@ class GURL;
 class InstantController;
 class KeywordHintView;
 class LocationIconView;
-class MetroPinView;
 class PageActionWithBadgeView;
 class PageActionImageView;
 class Profile;
@@ -151,7 +150,8 @@ class LocationBarView : public LocationBar,
     APP_LAUNCHER
   };
 
-  LocationBarView(Profile* profile,
+  LocationBarView(Browser* browser,
+                  Profile* profile,
                   CommandUpdater* command_updater,
                   ToolbarModel* model,
                   Delegate* delegate,
@@ -210,9 +210,6 @@ class LocationBarView : public LocationBar,
   // Shows the bookmark bubble.
   void ShowStarBubble(const GURL& url, bool newly_bookmarked);
 
-  // Toggles the metro pin on or off.
-  void SetMetroPinnedState(bool is_pinned);
-
   // Shows the Chrome To Mobile bubble.
   void ShowChromeToMobileBubble();
 
@@ -261,9 +258,9 @@ class LocationBarView : public LocationBar,
 
 #if defined(OS_WIN) && !defined(USE_AURA)
   // Event Handlers
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
 #endif
 
@@ -295,8 +292,8 @@ class LocationBarView : public LocationBar,
 
   // Overridden from views::View:
   virtual std::string GetClassName() const OVERRIDE;
-  virtual bool SkipDefaultKeyEventProcessing(const views::KeyEvent& event)
-      OVERRIDE;
+  virtual bool SkipDefaultKeyEventProcessing(
+      const ui::KeyEvent& event) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
   virtual bool HasFocus() const OVERRIDE;
 
@@ -425,7 +422,7 @@ class LocationBarView : public LocationBar,
 
 #if !defined(USE_AURA)
   // Helper for the Mouse event handlers that does all the real work.
-  void OnMouseEvent(const views::MouseEvent& event, UINT msg);
+  void OnMouseEvent(const ui::MouseEvent& event, UINT msg);
 #endif
 
   // Returns true if the suggest text is valid.
@@ -448,6 +445,11 @@ class LocationBarView : public LocationBar,
   // Cleans up layers used for the animation.
   void CleanupFadeAnimation();
 #endif
+
+  // The Browser this LocationBarView is in.  Note that at least
+  // chromeos::SimpleWebViewDialog uses a LocationBarView outside any browser
+  // window, so this may be NULL.
+  Browser* browser_;
 
   // The Autocomplete Edit field.
   scoped_ptr<OmniboxView> location_entry_;
@@ -529,9 +531,6 @@ class LocationBarView : public LocationBar,
 
   // The Chrome To Mobile page action icon view.
   ChromeToMobileView* chrome_to_mobile_view_;
-
-  // The button to pin the page to the Metro start screen.
-  MetroPinView* metro_pin_view_;
 
   // The mode that dictates how the bar shows.
   Mode mode_;

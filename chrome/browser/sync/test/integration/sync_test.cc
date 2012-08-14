@@ -55,6 +55,7 @@
 #include "net/url_request/url_request_status.h"
 #include "sync/notifier/p2p_notifier.h"
 #include "sync/protocol/sync.pb.h"
+#include "sync/engine/sync_scheduler_impl.h"
 
 using content::BrowserThread;
 
@@ -169,6 +170,9 @@ void SyncTest::SetUp() {
   Encryptor::UseMockKeychain(true);
 #endif
 
+  // TODO(tim): Use command line flag.
+  syncer::SyncSchedulerImpl::ForceShortInitialBackoffRetry();
+
   // Yield control back to the InProcessBrowserTest framework.
   InProcessBrowserTest::SetUp();
 }
@@ -274,7 +278,8 @@ bool SyncTest::SetupClients() {
 
   // Create the verifier profile.
   verifier_ = MakeProfile(FILE_PATH_LITERAL("Verifier"));
-  ui_test_utils::WaitForBookmarkModelToLoad(verifier()->GetBookmarkModel());
+  ui_test_utils::WaitForBookmarkModelToLoad(
+      BookmarkModelFactory::GetForProfile(verifier()));
   ui_test_utils::WaitForTemplateURLServiceToLoad(
       TemplateURLServiceFactory::GetForProfile(verifier()));
   return (verifier_ != NULL);

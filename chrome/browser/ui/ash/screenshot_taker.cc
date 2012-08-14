@@ -30,11 +30,21 @@
 #include "ui/aura/window.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #endif
 
 namespace {
-const int kScreenshotMinimumIntervalInMS = 500;
+// How opaque should the layer that we flash onscreen to provide visual
+// feedback after the screenshot is taken be?
+const float kVisualFeedbackLayerOpacity = 0.25f;
+
+// How long should the visual feedback layer be displayed?
+const int64 kVisualFeedbackLayerDisplayTimeMs = 100;
+
+// The minimum interval between two screenshot commands.  It has to be
+// more than 1000 to prevent the conflict of filenames.
+const int kScreenshotMinimumIntervalInMS = 1000;
 
 bool ShouldUse24HourClock() {
 #if defined(OS_CHROMEOS)
@@ -49,8 +59,12 @@ bool ShouldUse24HourClock() {
   return base::GetHourClockType() == base::k24HourClock;
 }
 
-FilePath GetScreenshotPath(const FilePath& base_directory,
-                           bool use_24hour_clock) {
+bool AreScreenshotsDisabled() {
+  return g_browser_process->local_state()->GetBoolean(
+      prefs::kDisableScreenshots);
+}
+
+std::string GetScreenshotBaseFilename() {
   base::Time::Exploded now;
   base::Time::Now().LocalExplode(&now);
 
@@ -59,11 +73,11 @@ FilePath GetScreenshotPath(const FilePath& base_directory,
   // for non-English locales.
   // TODO(mukai): integrate this logic somewhere time_formatting.h
   std::string file_name = base::StringPrintf(
-      "Screenshot %d-%02d-%02d ", now.year, now.month, now.day_of_month);
+      "Screenshot %d-%02d-%02d at ", now.year, now.month, now.day_of_month);
 
-  if (use_24hour_clock) {
+  if (ShouldUse24HourClock()) {
     file_name.append(base::StringPrintf(
-        "%02d:%02d:%02d", now.hour, now.minute, now.second));
+        "%02d.%02d.%02d", now.hour, now.minute, now.second));
   } else {
     int hour = now.hour;
     if (hour > 12) {
@@ -72,38 +86,39 @@ FilePath GetScreenshotPath(const FilePath& base_directory,
       hour = 12;
     }
     file_name.append(base::StringPrintf(
-        "%d:%02d:%02d ", hour, now.minute, now.second));
+        "%d.%02d.%02d ", hour, now.minute, now.second));
     file_name.append((now.hour >= 12) ? "PM" : "AM");
   }
 
-  for (int retry = 0; retry < INT_MAX; retry++) {
-    std::string retry_suffix;
-    if (retry > 0)
-      retry_suffix = base::StringPrintf(" (%d)", retry + 1);
-
-    FilePath file_path = base_directory.AppendASCII(
-        file_name + retry_suffix + ".png");
-    if (!file_util::PathExists(file_path))
-      return file_path;
-  }
-
-  return FilePath();
+  return file_name;
 }
 
-// |is_logged_in| is used only for ChromeOS.  Otherwise it is always true.
-void SaveScreenshot(const FilePath& screenshot_directory,
-                    bool use_24hour_clock,
+bool GetScreenshotDirectory(FilePath* directory) {
+  if (AreScreenshotsDisabled())
+    return false;
+
+  bool is_logged_in = true;
+#if defined(OS_CHROMEOS)
+  is_logged_in = chromeos::UserManager::Get()->IsUserLoggedIn();
+#endif
+
+  if (is_logged_in) {
+    DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(
+        ash::Shell::GetInstance()->delegate()->GetCurrentBrowserContext());
+    *directory = download_prefs->DownloadPath();
+  } else {
+    if (!file_util::GetTempDir(directory)) {
+      LOG(ERROR) << "Failed to find temporary directory.";
+      return false;
+    }
+  }
+  return true;
+}
+
+void SaveScreenshot(const FilePath& screenshot_path,
                     scoped_refptr<base::RefCountedBytes> png_data) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
-
-  FilePath screenshot_path = GetScreenshotPath(
-      screenshot_directory, use_24hour_clock);
-
-  if (screenshot_path.empty()) {
-    LOG(ERROR) << "Failed to find a screenshot file name.";
-    return;
-  }
-
+  DCHECK(!screenshot_path.empty());
   if (static_cast<size_t>(file_util::WriteFile(
           screenshot_path,
           reinterpret_cast<char*>(&(png_data->data()[0])),
@@ -112,18 +127,49 @@ void SaveScreenshot(const FilePath& screenshot_directory,
   }
 }
 
-bool AreScreenshotsDisabled() {
-  return g_browser_process->local_state()->GetBoolean(
-      prefs::kDisableScreenshots);
+// TODO(kinaba): crbug.com/140425, remove this ungly #ifdef dispatch.
+#ifdef OS_CHROMEOS
+void SaveScreenshotToGData(scoped_refptr<base::RefCountedBytes> png_data,
+                           gdata::GDataFileError error,
+                           const FilePath& local_path) {
+  if (error != gdata::GDATA_FILE_OK) {
+    LOG(ERROR) << "Failed to write screenshot image to Google Drive: " << error;
+    return;
+  }
+  SaveScreenshot(local_path, png_data);
 }
+
+void PostSaveScreenshotTask(const FilePath& screenshot_path,
+                            scoped_refptr<base::RefCountedBytes> png_data) {
+  if (gdata::util::IsUnderGDataMountPoint(screenshot_path)) {
+    Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
+    if (profile) {
+      gdata::util::PrepareWritableFileAndRun(
+          profile,
+          screenshot_path,
+          base::Bind(&SaveScreenshotToGData, png_data));
+    }
+  } else {
+    content::BrowserThread::PostTask(
+        content::BrowserThread::FILE, FROM_HERE,
+        base::Bind(&SaveScreenshot, screenshot_path, png_data));
+  }
+}
+#else
+void PostSaveScreenshotTask(const FilePath& screenshot_path,
+                            scoped_refptr<base::RefCountedBytes> png_data) {
+  content::BrowserThread::PostTask(
+      content::BrowserThread::FILE, FROM_HERE,
+      base::Bind(&SaveScreenshot, screenshot_path, png_data));
+}
+#endif
 
 bool GrabWindowSnapshot(aura::Window* window,
                         const gfx::Rect& snapshot_bounds,
                         std::vector<unsigned char>* png_data) {
 #if defined(OS_LINUX)
-  // browser::GrabWindowSnapshot checks this too, but RootWindow::GrabSnapshot
-  // does not. The statement below is only to support linux-specific XGetImage
-  // optimization.
+  // chrome::GrabWindowSnapshotForUser checks this too, but
+  // RootWindow::GrabSnapshot does not.
   if (AreScreenshotsDisabled())
     return false;
 
@@ -134,15 +180,8 @@ bool GrabWindowSnapshot(aura::Window* window,
     return true;
 #endif  // OS_LINUX
 
-  return chrome::GrabWindowSnapshot(window, png_data, snapshot_bounds);
+  return chrome::GrabWindowSnapshotForUser(window, png_data, snapshot_bounds);
 }
-
-// How opaque should the layer that we flash onscreen to provide visual
-// feedback after the screenshot is taken be?
-const float kVisualFeedbackLayerOpacity = 0.25f;
-
-// How long should the visual feedback layer be displayed?
-const int64 kVisualFeedbackLayerDisplayTimeMs = 100;
 
 }  // namespace
 
@@ -152,45 +191,47 @@ ScreenshotTaker::ScreenshotTaker() {
 ScreenshotTaker::~ScreenshotTaker() {
 }
 
-void ScreenshotTaker::HandleTakeScreenshot(aura::Window* window) {
-  HandleTakePartialScreenshot(window, window->bounds());
+void ScreenshotTaker::HandleTakeScreenshotForAllRootWindows() {
+  FilePath screenshot_directory;
+  if (!GetScreenshotDirectory(&screenshot_directory))
+    return;
+
+  std::string screenshot_basename = GetScreenshotBaseFilename();
+  ash::Shell::RootWindowList root_windows = ash::Shell::GetAllRootWindows();
+  for (size_t i = 0; i < root_windows.size(); ++i) {
+    aura::RootWindow* root_window = root_windows[i];
+    scoped_refptr<base::RefCountedBytes> png_data(new base::RefCountedBytes);
+    std::string basename = screenshot_basename;
+    gfx::Rect rect = root_window->bounds();
+    if (root_windows.size() > 1)
+      basename += base::StringPrintf(" - Display %d", static_cast<int>(i + 1));
+    if (GrabWindowSnapshot(root_window, rect, &png_data->data())) {
+      DisplayVisualFeedback(rect);
+      PostSaveScreenshotTask(
+          screenshot_directory.AppendASCII(basename + ".png"), png_data);
+    } else {
+      LOG(ERROR) << "Failed to grab the window screenshot for " << i;
+    }
+  }
+  last_screenshot_timestamp_ = base::Time::Now();
 }
 
 void ScreenshotTaker::HandleTakePartialScreenshot(
     aura::Window* window, const gfx::Rect& rect) {
   DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
 
-  if (AreScreenshotsDisabled())
+  FilePath screenshot_directory;
+  if (!GetScreenshotDirectory(&screenshot_directory))
     return;
 
   scoped_refptr<base::RefCountedBytes> png_data(new base::RefCountedBytes);
 
-  bool is_logged_in = true;
-#if defined(OS_CHROMEOS)
-  is_logged_in = chromeos::UserManager::Get()->IsUserLoggedIn();
-#endif
-
-  FilePath screenshot_directory;
-  if (is_logged_in) {
-    DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(
-        ash::Shell::GetInstance()->delegate()->GetCurrentBrowserContext());
-    screenshot_directory = download_prefs->DownloadPath();
-  } else {
-    if (!file_util::GetTempDir(&screenshot_directory)) {
-      LOG(ERROR) << "Failed to find temporary directory.";
-      return;
-    }
-  }
-
-  bool use_24hour_clock = ShouldUse24HourClock();
-
   if (GrabWindowSnapshot(window, rect, &png_data->data())) {
     last_screenshot_timestamp_ = base::Time::Now();
     DisplayVisualFeedback(rect);
-    content::BrowserThread::PostTask(
-        content::BrowserThread::FILE, FROM_HERE,
-        base::Bind(&SaveScreenshot, screenshot_directory, use_24hour_clock,
-                   png_data));
+    PostSaveScreenshotTask(
+        screenshot_directory.AppendASCII(GetScreenshotBaseFilename() + ".png"),
+        png_data);
   } else {
     LOG(ERROR) << "Failed to grab the window screenshot";
   }

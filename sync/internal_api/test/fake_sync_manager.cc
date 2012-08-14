@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/run_loop.h"
 #include "base/sequenced_task_runner.h"
 #include "base/single_thread_task_runner.h"
 #include "base/thread_task_runner_handle.h"
@@ -21,21 +22,14 @@
 
 namespace syncer {
 
-FakeSyncManager::FakeSyncManager() {}
+FakeSyncManager::FakeSyncManager(ModelTypeSet initial_sync_ended_types,
+                                 ModelTypeSet progress_marker_types,
+                                 ModelTypeSet configure_fail_types) :
+    initial_sync_ended_types_(initial_sync_ended_types),
+    progress_marker_types_(progress_marker_types),
+    configure_fail_types_(configure_fail_types) {}
 
 FakeSyncManager::~FakeSyncManager() {}
-
-void FakeSyncManager::set_initial_sync_ended_types(ModelTypeSet types) {
-  initial_sync_ended_types_ = types;
-}
-
-void FakeSyncManager::set_progress_marker_types(ModelTypeSet types) {
-  progress_marker_types_ = types;
-}
-
-void FakeSyncManager::set_configure_fail_types(ModelTypeSet types) {
-  configure_fail_types_ = types;
-}
 
 ModelTypeSet FakeSyncManager::GetAndResetCleanedTypes() {
   ModelTypeSet cleaned_types = cleaned_types_;
@@ -55,9 +49,8 @@ ModelTypeSet FakeSyncManager::GetAndResetEnabledTypes() {
   return enabled_types;
 }
 
-void FakeSyncManager::Invalidate(
-    const ObjectIdPayloadMap& id_payloads,
-    IncomingNotificationSource source) {
+void FakeSyncManager::Invalidate(const ObjectIdPayloadMap& id_payloads,
+                                 IncomingNotificationSource source) {
   if (!sync_task_runner_->PostTask(
       FROM_HERE,
       base::Bind(&FakeSyncManager::InvalidateOnSyncThread,
@@ -85,7 +78,25 @@ void FakeSyncManager::DisableNotifications(
   }
 }
 
-bool FakeSyncManager::Init(
+namespace {
+
+void DoNothing() {}
+
+}  // namespace
+
+void FakeSyncManager::WaitForSyncThread() {
+  // Post a task to |sync_task_runner_| and block until it runs.
+  base::RunLoop run_loop;
+  if (!sync_task_runner_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&DoNothing),
+      run_loop.QuitClosure())) {
+    NOTREACHED();
+  }
+  run_loop.Run();
+}
+
+void FakeSyncManager::Init(
     const FilePath& database_location,
     const WeakHandle<JsEventHandler>& event_handler,
     const std::string& sync_server_and_path,
@@ -112,7 +123,6 @@ bool FakeSyncManager::Init(
                     OnInitializationComplete(
                         syncer::WeakHandle<syncer::JsBackend>(),
                         true, initial_sync_ended_types_));
-  return true;
 }
 
 void FakeSyncManager::ThrowUnrecoverableError() {
@@ -150,9 +160,20 @@ void FakeSyncManager::UpdateEnabledTypes(const ModelTypeSet& types) {
   enabled_types_ = types;
 }
 
+void FakeSyncManager::RegisterInvalidationHandler(
+    SyncNotifierObserver* handler) {
+  registrar_.RegisterHandler(handler);
+}
+
 void FakeSyncManager::UpdateRegisteredInvalidationIds(
-    SyncNotifierObserver* handler, const ObjectIdSet& ids) {
-  notifier_helper_.UpdateRegisteredIds(handler, ids);
+    SyncNotifierObserver* handler,
+    const ObjectIdSet& ids) {
+  registrar_.UpdateRegisteredIds(handler, ids);
+}
+
+void FakeSyncManager::UnregisterInvalidationHandler(
+    SyncNotifierObserver* handler) {
+  registrar_.UnregisterHandler(handler);
 }
 
 void FakeSyncManager::StartSyncingNormally(
@@ -265,18 +286,18 @@ void FakeSyncManager::InvalidateOnSyncThread(
     const ObjectIdPayloadMap& id_payloads,
     IncomingNotificationSource source) {
   DCHECK(sync_task_runner_->RunsTasksOnCurrentThread());
-  notifier_helper_.DispatchInvalidationsToHandlers(id_payloads, source);
+  registrar_.DispatchInvalidationsToHandlers(id_payloads, source);
 }
 
 void FakeSyncManager::EnableNotificationsOnSyncThread() {
   DCHECK(sync_task_runner_->RunsTasksOnCurrentThread());
-  notifier_helper_.EmitOnNotificationsEnabled();
+  registrar_.EmitOnNotificationsEnabled();
 }
 
 void FakeSyncManager::DisableNotificationsOnSyncThread(
     NotificationsDisabledReason reason) {
   DCHECK(sync_task_runner_->RunsTasksOnCurrentThread());
-  notifier_helper_.EmitOnNotificationsDisabled(reason);
+  registrar_.EmitOnNotificationsDisabled(reason);
 }
 
 }  // namespace syncer

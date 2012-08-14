@@ -20,6 +20,7 @@
 #include "sync/internal_api/js_sync_manager_observer.h"
 #include "sync/internal_api/public/sync_manager.h"
 #include "sync/js/js_backend.h"
+#include "sync/notifier/notifications_disabled_reason.h"
 #include "sync/notifier/sync_notifier_observer.h"
 #include "sync/syncable/directory_change_delegate.h"
 #include "sync/util/cryptographer.h"
@@ -57,7 +58,7 @@ class SyncManagerImpl : public SyncManager,
   virtual ~SyncManagerImpl();
 
   // SyncManager implementation.
-  virtual bool Init(
+  virtual void Init(
       const FilePath& database_location,
       const WeakHandle<JsEventHandler>& event_handler,
       const std::string& sync_server_and_path,
@@ -86,8 +87,13 @@ class SyncManagerImpl : public SyncManager,
   virtual void UpdateCredentials(const SyncCredentials& credentials) OVERRIDE;
   virtual void UpdateEnabledTypes(
       const ModelTypeSet& enabled_types) OVERRIDE;
+  virtual void RegisterInvalidationHandler(
+      SyncNotifierObserver* handler) OVERRIDE;
   virtual void UpdateRegisteredInvalidationIds(
-      SyncNotifierObserver* handler, const ObjectIdSet& ids) OVERRIDE;
+      SyncNotifierObserver* handler,
+      const ObjectIdSet& ids) OVERRIDE;
+  virtual void UnregisterInvalidationHandler(
+      SyncNotifierObserver* handler) OVERRIDE;
   virtual void StartSyncingNormally(
       const ModelSafeRoutingInfo& routing_info) OVERRIDE;
   virtual void SetEncryptionPassphrase(const std::string& passphrase,
@@ -297,8 +303,14 @@ class SyncManagerImpl : public SyncManager,
   void BindJsMessageHandler(
     const std::string& name, UnboundJsMessageHandler unbound_message_handler);
 
+  // Helper function used by OnNotifications{Enabled,Disabled}().
+  void OnNotificationStateChange(NotificationsDisabledReason reason);
+
   // Returned pointer is owned by the caller.
   static DictionaryValue* NotificationInfoToValue(
+      const NotificationInfoMap& notification_info);
+
+  static std::string NotificationInfoToString(
       const NotificationInfoMap& notification_info);
 
   // JS message handlers.
@@ -379,6 +391,8 @@ class SyncManagerImpl : public SyncManager,
   bool initialized_;
 
   bool observing_ip_address_changes_;
+
+  NotificationsDisabledReason notifications_disabled_reason_;
 
   // Map used to store the notification info to be displayed in
   // about:sync page.

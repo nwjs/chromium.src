@@ -48,8 +48,6 @@ ui::SelectFileDialog::FileTypeInfo GetUserImageFileTypeInfo() {
 
   file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("bmp"));
 
-  file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("gif"));
-
   file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("jpg"));
   file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("jpeg"));
 
@@ -105,6 +103,8 @@ void ChangePictureOptionsHandler::GetLocalizedValues(
           IDS_OPTIONS_CHANGE_PICTURE_PROFILE_LOADING_PHOTO));
   localized_strings->SetString("previewAltText",
       l10n_util::GetStringUTF16(IDS_OPTIONS_CHANGE_PICTURE_PREVIEW_ALT));
+  localized_strings->SetString("authorCredit",
+      l10n_util::GetStringUTF16(IDS_OPTIONS_SET_WALLPAPER_AUTHOR_TEXT));
   if (!CommandLine::ForCurrentProcess()->
           HasSwitch(switches::kDisableHtml5Camera)) {
     localized_strings->SetString("cameraType", "webrtc");
@@ -135,9 +135,15 @@ void ChangePictureOptionsHandler::RegisterMessages() {
 }
 
 void ChangePictureOptionsHandler::SendDefaultImages() {
-  ListValue image_urls;
-  for (int i = 0; i < kDefaultImagesCount; ++i) {
-    image_urls.Append(new StringValue(GetDefaultImageUrl(i)));
+  base::ListValue image_urls;
+  for (int i = kFirstDefaultImageIndex; i < kDefaultImagesCount; ++i) {
+    scoped_ptr<base::DictionaryValue> image_data(new base::DictionaryValue);
+    image_data->SetString("url", GetDefaultImageUrl(i));
+    image_data->SetString(
+        "author", l10n_util::GetStringUTF16(kDefaultImageAuthorIDs[i]));
+    image_data->SetString(
+        "website", l10n_util::GetStringUTF16(kDefaultImageWebsiteIDs[i]));
+    image_urls.Append(image_data.release());
   }
   web_ui()->CallJavascriptFunction("ChangePictureOptions.setDefaultImages",
                                    image_urls);
@@ -251,10 +257,16 @@ void ChangePictureOptionsHandler::SendSelectedImage() {
     default: {
       DCHECK(previous_image_index_ >= 0 &&
              previous_image_index_ < kDefaultImagesCount);
-      // User has image from the set of default images.
-      base::StringValue image_url(GetDefaultImageUrl(previous_image_index_));
-      web_ui()->CallJavascriptFunction("ChangePictureOptions.setSelectedImage",
-                                       image_url);
+      if (previous_image_index_ >= kFirstDefaultImageIndex) {
+        // User has image from the current set of default images.
+        base::StringValue image_url(GetDefaultImageUrl(previous_image_index_));
+        web_ui()->CallJavascriptFunction(
+            "ChangePictureOptions.setSelectedImage", image_url);
+      } else {
+        // User has an old default image, so present it in the same manner as a
+        // previous image from file.
+        web_ui()->CallJavascriptFunction("ChangePictureOptions.setOldImage");
+      }
     }
   }
 }
@@ -295,14 +307,23 @@ void ChangePictureOptionsHandler::HandleSelectImage(const ListValue* args) {
   bool waiting_for_camera_photo = false;
 
   if (StartsWithASCII(image_url, chrome::kChromeUIUserImageURL, false)) {
-    // Image from file/camera uses kChromeUIUserImageURL as URL while
+    // Image from file/camera uses |kChromeUIUserImageURL| as URL while
     // current profile image always has a full data URL.
     // This way transition from (current profile image) to
     // (profile image, current image from file) is easier.
+    // Also, old (not available for selection any more) default images use
+    // this URL, too.
 
-    DCHECK(!previous_image_.empty());
-    user_manager->SaveUserImage(user.email(),
-                                UserImage::CreateAndEncode(previous_image_));
+    if (previous_image_index_ == User::kExternalImageIndex) {
+      DCHECK(!previous_image_.empty());
+      user_manager->SaveUserImage(user.email(),
+                                  UserImage::CreateAndEncode(previous_image_));
+    } else {
+      DCHECK(previous_image_index_ >= 0 &&
+             previous_image_index_ < kFirstDefaultImageIndex);
+      user_manager->SaveUserDefaultImageIndex(user.email(),
+                                              previous_image_index_);
+    }
 
     UMA_HISTOGRAM_ENUMERATION("UserImage.ChangeChoice",
                               kHistogramImageOld,
@@ -313,7 +334,7 @@ void ChangePictureOptionsHandler::HandleSelectImage(const ListValue* args) {
     user_manager->SaveUserDefaultImageIndex(user.email(), image_index);
 
     UMA_HISTOGRAM_ENUMERATION("UserImage.ChangeChoice",
-                              image_index,
+                              GetDefaultImageHistogramValue(image_index),
                               kHistogramImagesCount);
     VLOG(1) << "Selected default user image: " << image_index;
   } else if (image_url == user_photo_data_url_) {

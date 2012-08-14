@@ -8,9 +8,9 @@
 #include "ash/shell.h"
 #include "ash/wm/cursor_manager.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
+#include "ui/base/event.h"
 
 namespace ash {
 namespace internal {
@@ -25,31 +25,36 @@ MouseCursorEventFilter::~MouseCursorEventFilter() {
 }
 
 bool MouseCursorEventFilter::PreHandleKeyEvent(aura::Window* target,
-                                               aura::KeyEvent* event) {
+                                               ui::KeyEvent* event) {
   return false;
 }
 
 bool MouseCursorEventFilter::PreHandleMouseEvent(aura::Window* target,
-                                                 aura::MouseEvent* event) {
-  if (event->type() != ui::ET_MOUSE_MOVED ||
-      ash::Shell::GetInstance()->cursor_manager()->is_cursor_locked())
-    return false;
+                                                 ui::MouseEvent* event) {
+  // Handle both MOVED and DRAGGED events here because when the mouse pointer
+  // enters the other root window while dragging, the underlying window system
+  // (at least X11) stops generating a ui::ET_MOUSE_MOVED event.
+  if (event->type() != ui::ET_MOUSE_MOVED &&
+      event->type() != ui::ET_MOUSE_DRAGGED) {
+      return false;
+  }
+
   aura::RootWindow* current_root = target->GetRootWindow();
   gfx::Point location_in_root(event->location());
-  aura::Window::ConvertPointToWindow(target, current_root, &location_in_root);
+  aura::Window::ConvertPointToTarget(target, current_root, &location_in_root);
   return display_controller_->WarpMouseCursorIfNecessary(
       current_root, location_in_root);
 }
 
 ui::TouchStatus MouseCursorEventFilter::PreHandleTouchEvent(
     aura::Window* target,
-    aura::TouchEvent* event) {
+    ui::TouchEvent* event) {
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
 ui::GestureStatus MouseCursorEventFilter::PreHandleGestureEvent(
     aura::Window* target,
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   return ui::GESTURE_STATUS_UNKNOWN;
 }
 

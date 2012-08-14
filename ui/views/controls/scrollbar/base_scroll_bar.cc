@@ -13,6 +13,7 @@
 #include "base/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "grit/ui_strings.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/canvas.h"
@@ -111,13 +112,13 @@ void BaseScrollBar::ScrollByContentsOffset(int contents_offset) {
 ///////////////////////////////////////////////////////////////////////////////
 // BaseScrollBar, View implementation:
 
-bool BaseScrollBar::OnMousePressed(const MouseEvent& event) {
+bool BaseScrollBar::OnMousePressed(const ui::MouseEvent& event) {
   if (event.IsOnlyLeftMouseButton())
     ProcessPressEvent(event);
   return true;
 }
 
-void BaseScrollBar::OnMouseReleased(const MouseEvent& event) {
+void BaseScrollBar::OnMouseReleased(const ui::MouseEvent& event) {
   OnMouseCaptureLost();
 }
 
@@ -125,7 +126,7 @@ void BaseScrollBar::OnMouseCaptureLost() {
   ResetState();
 }
 
-bool BaseScrollBar::OnKeyPressed(const KeyEvent& event) {
+bool BaseScrollBar::OnKeyPressed(const ui::KeyEvent& event) {
   ScrollAmount amount = SCROLL_NONE;
   switch (event.key_code()) {
     case ui::VKEY_UP:
@@ -372,7 +373,7 @@ int BaseScrollBar::GetScrollIncrement(bool is_page, bool is_positive) {
 ///////////////////////////////////////////////////////////////////////////////
 // BaseScrollBar, private:
 
-void BaseScrollBar::ProcessPressEvent(const LocatedEvent& event) {
+void BaseScrollBar::ProcessPressEvent(const ui::LocatedEvent& event) {
   SetThumbTrackState(CustomButton::BS_PUSHED);
   gfx::Rect thumb_bounds = thumb_->bounds();
   if (IsHorizontal()) {

@@ -66,8 +66,6 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_NEW_BROWSER_HOT" file="ash/new_browser_hover.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_NEW_BROWSER_PUSHED" file="ash/new_browser_pressed.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_OVERFLOW" file="ash/launcher_overflow.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_OVERFLOW_HOT" file="ash/launcher_overflow_hover.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_OVERFLOW_PUSHED" file="ash/launcher_overflow_pressed.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_UNDERLINE_ACTIVE" file="ash/launcher_underline_active.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_UNDERLINE_HOVER" file="ash/launcher_underline_hover.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_LAUNCHER_UNDERLINE_RUNNING" file="ash/launcher_underline_running.png" />
@@ -153,27 +151,21 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_UPDATE_DARK" file="ash/status_update_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_VOLUME_LEVELS" file="ash/status_volume_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_VOLUME_MUTE" file="ash/status_volume_mute.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WEB_NOTIFICATON" file="ash/statusbar_notifications.png" />        
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_DISABLED" file="ash/status_wifi_disabled.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_DISABLED_HOVER" file="ash/status_wifi_disabled_h.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_ENABLED" file="ash/status_wifi_enabled.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_WIFI_ENABLED_HOVER" file="ash/status_wifi_enabled_h.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_UBER_TRAY_NOTIFY_CLOSE" file="ash/status_notify_x.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_BUTTON_SEPARATOR" file="aura/window_button_separator.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE" file="aura/window_close_normal.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_H" file="aura/window_close_hover.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_ICON" file="aura/slab_close.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_P" file="aura/window_close_pressed.png" />
         <!-- TODO(benrg): Get rid of all conditionals that test the output
              context. -->
         <if expr="context.startswith('default_')">
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE" file="aura/window_fullscreen_close_normal.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE_H" file="aura/window_fullscreen_close_hover.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE_P" file="aura/window_fullscreen_close_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE" file="aura/window_fullscreen_restore_normal.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE_H" file="aura/window_fullscreen_restore_hover.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE_P" file="aura/window_fullscreen_restore_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_SEPARATOR" file="aura/window_fullscreen_separator.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE" file="cros/window_close_fullscreen_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE_H" file="cros/window_close_fullscreen_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE_P" file="cros/window_close_fullscreen_pressed.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE" file="cros/window_size_fullscreen_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE_H" file="cros/window_size_fullscreen_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE_P" file="cros/window_size_fullscreen_pressed.png" />
         </if>
         <if expr="not context.startswith('default_')">
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_CLOSE" file="aura/window_close_normal.png" />
@@ -182,7 +174,6 @@
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE" file="aura/window_restore_normal.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE_H" file="aura/window_restore_hover.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_RESTORE_P" file="aura/window_restore_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_SEPARATOR" file="aura/window_button_separator.png" />
         </if>
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_FULLSCREEN_SHADOW" file="aura/window_fullscreen_shadow.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_BASE_ACTIVE" file="aura/window_header_base_active.png" />
@@ -199,45 +190,51 @@
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_SHADE_TOP" file="aura/window_header_shade_top.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_SHADE_TOP_LEFT" file="aura/window_header_shade_top_left.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_HEADER_SHADE_TOP_RIGHT" file="aura/window_header_shade_top_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE" file="aura/window_maximize_normal.png" />
+
         <if expr="context.startswith('default_')">
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE" file="aura/window_maximized_close_normal.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H" file="aura/window_maximized_close_hover.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_P" file="aura/window_maximized_close_pressed.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE" file="cros/window_close_tall_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_H" file="cros/window_close_tall_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_P" file="cros/window_close_tall_pressed.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE" file="cros/window_close_short_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H" file="cros/window_close_short_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_P" file="cros/window_close_short_pressed.png" />
+        
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE" file="cros/window_size_tall_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_H" file="cros/window_size_tall_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_P" file="cros/window_size_tall_pressed.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE" file="cros/window_size_short_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_H" file="cros/window_size_short_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_P" file="cros/window_size_short_pressed.png" />
         </if>
         <if expr="not context.startswith('default_')">
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE" file="aura/window_close_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_H" file="aura/window_close_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_P" file="aura/window_close_pressed.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE" file="aura/window_close_normal.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_H" file="aura/window_close_hover.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_CLOSE_P" file="aura/window_close_pressed.png" />
-        </if>
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_MINIMIZE" file="aura/window_maximized_minimize_normal.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_MINIMIZE_H" file="aura/window_maximized_minimize_hover.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_MINIMIZE_P" file="aura/window_maximized_minimize_pressed.png" />
-        <if expr="context.startswith('default_')">
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE" file="aura/window_maximized_restore_normal.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_H" file="aura/window_maximized_restore_hover.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_P" file="aura/window_maximized_restore_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_LEFT_P" file="aura/window_maximized_snap_left_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_MINIMIZE_P" file="aura/window_maximized_snap_minimize_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_P" file="aura/window_maximized_snap_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_RIGHT_P" file="aura/window_maximized_snap_right_pressed.png" />
-        </if>
-        <if expr="not context.startswith('default_')">
+
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE" file="aura/window_maximize_normal.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_H" file="aura/window_maximize_hover.png" />
+          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_P" file="aura/window_maximize_pressed.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE" file="aura/window_restore_normal.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_H" file="aura/window_restore_hover.png" />
           <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_RESTORE_P" file="aura/window_restore_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_LEFT_P" file="aura/window_snap_left_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_MINIMIZE_P" file="aura/window_snap_minimize_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_P" file="aura/window_snap_pressed.png" />
-          <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZED_SNAP_RIGHT_P" file="aura/window_snap_right_pressed.png" />
         </if>
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_H" file="aura/window_maximize_hover.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_MAXIMIZE_P" file="aura/window_maximize_pressed.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_SNAP_LEFT_P" file="aura/window_snap_left_pressed.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_SNAP_MINIMIZE_P" file="aura/window_snap_minimize_pressed.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_SNAP_P" file="aura/window_snap_pressed.png" />
-        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_SNAP_RIGHT_P" file="aura/window_snap_right_pressed.png" />
+
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_LEFT" file="cros/window_position_left_normal.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_LEFT_H" file="cros/window_position_left_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_LEFT_P" file="cros/window_position_left_pressed.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_MIDDLE" file="cros/window_position_middle_normal.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_MIDDLE_H" file="cros/window_position_middle_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_MIDDLE_P" file="cros/window_position_middle_pressed.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_RIGHT" file="cros/window_position_right_normal.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_RIGHT_H" file="cros/window_position_right_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_POSITION_RIGHT_P" file="cros/window_position_right_pressed.png" />
+
+        <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_CLOSE_ICON" file="aura/slab_close.png" />
         <structure type="chrome_scaled_image" name="IDR_AURA_WINDOW_ZOOM_ICON" file="aura/slab_zoom.png" />
+
       </if>
       <structure type="chrome_scaled_image" name="IDR_BROWSER_ACTION_BADGE_CENTER" file="browser_action_badge_center.png" />
       <structure type="chrome_scaled_image" name="IDR_BROWSER_ACTION_BADGE_LEFT" file="browser_action_badge_left.png" />
@@ -311,10 +308,10 @@
       <if expr="pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_DISCLOSURE_ARROW" file="discloure_arrow.png" />
       </if>
-      <structure type="chrome_scaled_image" name="IDR_FOLDER_CLOSED" file="folder_closed.png" />
-      <structure type="chrome_scaled_image" name="IDR_FOLDER_CLOSED_RTL" file="folder_closed_rtl.png" />
-      <structure type="chrome_scaled_image" name="IDR_FOLDER_OPEN" file="folder_open.png" />
-      <structure type="chrome_scaled_image" name="IDR_FOLDER_OPEN_RTL" file="folder_open_rtl.png" />
+      <structure type="chrome_scaled_image" name="IDR_FOLDER_CLOSED" file="common/folder_closed.png" />
+      <structure type="chrome_scaled_image" name="IDR_FOLDER_CLOSED_RTL" file="common/folder_closed_rtl.png" />
+      <structure type="chrome_scaled_image" name="IDR_FOLDER_OPEN" file="common/folder_open.png" />
+      <structure type="chrome_scaled_image" name="IDR_FOLDER_OPEN_RTL" file="common/folder_open_rtl.png" />
       <structure type="chrome_scaled_image" name="IDR_FRAME" file="frame_default.png" />
       <structure type="chrome_scaled_image" name="IDR_FRAME_APP_PANEL" file="frame_app_panel_default.png" />
       <structure type="chrome_scaled_image" name="IDR_FRAME_INACTIVE" file="frame_default_inactive.png" />
@@ -376,38 +373,38 @@
         <structure type="chrome_scaled_image" name="IDR_RADIO_DISABLED_ON" file="linux-radio-disabled-on.png" />
         <structure type="chrome_scaled_image" name="IDR_RADIO_OFF" file="linux-radio-off.png" />
         <structure type="chrome_scaled_image" name="IDR_RADIO_ON" file="linux-radio-on.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_CORNER" file="scrollbar_base_normal_edge.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_CORNER_H" file="scrollbar_base_hover_edge.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_CENTER" file="scrollbar_base_horizontal_normal_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_CENTER_H" file="scrollbar_base_horizontal_hover_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_LEFT" file="scrollbar_base_horizontal_normal_left.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_LEFT_H" file="scrollbar_base_horizontal_hover_left.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_RIGHT" file="scrollbar_base_horizontal_normal_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_RIGHT_H" file="scrollbar_base_horizontal_hover_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_BOTTOM" file="scrollbar_base_vertical_normal_bottom.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_BOTTOM_H" file="scrollbar_base_vertical_hover_bottom.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_CENTER" file="scrollbar_base_vertical_normal_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_CENTER_H" file="scrollbar_base_vertical_hover_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_TOP" file="scrollbar_base_vertical_normal_top.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_TOP_H" file="scrollbar_base_vertical_hover_top.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_CENTER" file="scrollbar_thumb_horizontal_normal_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_CENTER_H" file="scrollbar_thumb_horizontal_hover_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_CENTER_P" file="scrollbar_thumb_horizontal_pressed_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_LEFT" file="scrollbar_thumb_horizontal_normal_left.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_LEFT_H" file="scrollbar_thumb_horizontal_hover_left.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_LEFT_P" file="scrollbar_thumb_horizontal_pressed_left.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_RIGHT" file="scrollbar_thumb_horizontal_normal_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_RIGHT_H" file="scrollbar_thumb_horizontal_hover_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_RIGHT_P" file="scrollbar_thumb_horizontal_pressed_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_BOTTOM" file="scrollbar_thumb_vertical_normal_bottom.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_BOTTOM_H" file="scrollbar_thumb_vertical_hover_bottom.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_BOTTOM_P" file="scrollbar_thumb_vertical_pressed_bottom.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_CENTER" file="scrollbar_thumb_vertical_normal_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_CENTER_H" file="scrollbar_thumb_vertical_hover_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_CENTER_P" file="scrollbar_thumb_vertical_pressed_center.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_TOP" file="scrollbar_thumb_vertical_normal_top.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_TOP_H" file="scrollbar_thumb_vertical_hover_top.png" />
-        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_TOP_P" file="scrollbar_thumb_vertical_pressed_top.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_CORNER" file="cros/aura_scrollbar_base_normal_edge.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_CORNER_H" file="cros/aura_scrollbar_base_hover_edge.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_CENTER" file="cros/aura_scrollbar_base_horizontal_normal_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_CENTER_H" file="cros/aura_scrollbar_base_horizontal_hover_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_LEFT" file="cros/aura_scrollbar_base_horizontal_normal_left.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_LEFT_H" file="cros/aura_scrollbar_base_horizontal_hover_left.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_RIGHT" file="cros/aura_scrollbar_base_horizontal_normal_right.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_HORIZONTAL_RIGHT_H" file="cros/aura_scrollbar_base_horizontal_hover_right.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_BOTTOM" file="cros/aura_scrollbar_base_vertical_normal_bottom.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_BOTTOM_H" file="cros/aura_scrollbar_base_vertical_hover_bottom.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_CENTER" file="cros/aura_scrollbar_base_vertical_normal_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_CENTER_H" file="cros/aura_scrollbar_base_vertical_hover_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_TOP" file="cros/aura_scrollbar_base_vertical_normal_top.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_BASE_VERTICAL_TOP_H" file="cros/aura_scrollbar_base_vertical_hover_top.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_CENTER" file="cros/aura_scrollbar_thumb_horizontal_normal_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_CENTER_H" file="cros/aura_scrollbar_thumb_horizontal_hover_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_CENTER_P" file="cros/aura_scrollbar_thumb_horizontal_pressed_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_LEFT" file="cros/aura_scrollbar_thumb_horizontal_normal_left.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_LEFT_H" file="cros/aura_scrollbar_thumb_horizontal_hover_left.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_LEFT_P" file="cros/aura_scrollbar_thumb_horizontal_pressed_left.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_RIGHT" file="cros/aura_scrollbar_thumb_horizontal_normal_right.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_RIGHT_H" file="cros/aura_scrollbar_thumb_horizontal_hover_right.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_HORIZONTAL_RIGHT_P" file="cros/aura_scrollbar_thumb_horizontal_pressed_right.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_BOTTOM" file="cros/aura_scrollbar_thumb_vertical_normal_bottom.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_BOTTOM_H" file="cros/aura_scrollbar_thumb_vertical_hover_bottom.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_BOTTOM_P" file="cros/aura_scrollbar_thumb_vertical_pressed_bottom.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_CENTER" file="cros/aura_scrollbar_thumb_vertical_normal_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_CENTER_H" file="cros/aura_scrollbar_thumb_vertical_hover_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_CENTER_P" file="cros/aura_scrollbar_thumb_vertical_pressed_center.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_TOP" file="cros/aura_scrollbar_thumb_vertical_normal_top.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_TOP_H" file="cros/aura_scrollbar_thumb_vertical_hover_top.png" />
+        <structure type="chrome_scaled_image" name="IDR_SCROLL_THUMB_VERTICAL_TOP_P" file="cros/aura_scrollbar_thumb_vertical_pressed_top.png" />
       </if>
       <if expr="not pp_ifdef('toolkit_views') and is_posix and not is_macosx">
         <structure type="chrome_scaled_image" name="IDR_RESTORE" file="linux_restore.png" />
@@ -467,77 +464,5 @@
       <structure type="chrome_scaled_image" name="IDR_WINDOW_TOP_LEFT_CORNER" file="window_top_left_corner.png" />
       <structure type="chrome_scaled_image" name="IDR_WINDOW_TOP_RIGHT_CORNER" file="window_top_right_corner.png" />
     </structures>
-
-    <includes>
-      <!-- Wallpapers used by Ash when building ChromiumOS. -->
-      <if expr="pp_ifdef('use_ash') and not pp_ifdef('_google_chrome')">
-        <include name="IDR_AURA_WALLPAPERS_ROMAINGUY_0" file="aura/wallpapers/romainguy_0.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_ROMAINGUY_0_THUMB" file="aura/wallpapers/romainguy_0_thumb.jpg" type="BINDATA" />
-      </if>
-
-      <!-- Wallpapers available to Ash when building Official ChromeOS. -->
-      <if expr="pp_ifdef('use_ash') and pp_ifdef('_google_chrome')">
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE0" file="aura/google_wallpapers/1-nature0.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE0_THUMB" file="aura/google_wallpapers/1-nature0_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE1" file="aura/google_wallpapers/1-nature1.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE1_THUMB" file="aura/google_wallpapers/1-nature1_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE2" file="aura/google_wallpapers/1-nature2.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE2_THUMB" file="aura/google_wallpapers/1-nature2_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE3" file="aura/google_wallpapers/1-nature3.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE3_THUMB" file="aura/google_wallpapers/1-nature3_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE4" file="aura/google_wallpapers/1-nature4.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE4_THUMB" file="aura/google_wallpapers/1-nature4_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE5" file="aura/google_wallpapers/1-nature5.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE5_THUMB" file="aura/google_wallpapers/1-nature5_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE6" file="aura/google_wallpapers/1-nature6.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE6_THUMB" file="aura/google_wallpapers/1-nature6_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE7" file="aura/google_wallpapers/1-nature7.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_1_NATURE7_THUMB" file="aura/google_wallpapers/1-nature7_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE0" file="aura/google_wallpapers/2-landscape0.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE0_THUMB" file="aura/google_wallpapers/2-landscape0_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE1" file="aura/google_wallpapers/2-landscape1.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE1_THUMB" file="aura/google_wallpapers/2-landscape1_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE2" file="aura/google_wallpapers/2-landscape2.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE2_THUMB" file="aura/google_wallpapers/2-landscape2_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE3" file="aura/google_wallpapers/2-landscape3.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE3_THUMB" file="aura/google_wallpapers/2-landscape3_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE4" file="aura/google_wallpapers/2-landscape4.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE4_THUMB" file="aura/google_wallpapers/2-landscape4_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE5" file="aura/google_wallpapers/2-landscape5.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE5_THUMB" file="aura/google_wallpapers/2-landscape5_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE6" file="aura/google_wallpapers/2-landscape6.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE6_THUMB" file="aura/google_wallpapers/2-landscape6_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE7" file="aura/google_wallpapers/2-landscape7.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_2_LANDSCAPE7_THUMB" file="aura/google_wallpapers/2-landscape7_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN0" file="aura/google_wallpapers/3-urban0.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN0_THUMB" file="aura/google_wallpapers/3-urban0_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN1" file="aura/google_wallpapers/3-urban1.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN1_THUMB" file="aura/google_wallpapers/3-urban1_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN2" file="aura/google_wallpapers/3-urban2.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN2_THUMB" file="aura/google_wallpapers/3-urban2_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN3" file="aura/google_wallpapers/3-urban3.jpg" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_3_URBAN3_THUMB" file="aura/google_wallpapers/3-urban3_thumb.png" type="BINDATA" />
-      </if>
-
-      <!-- Wallpapers (gradients) used by Ash. -->
-      <if expr="pp_ifdef('use_ash')">
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT0" file="aura/wallpapers/5-gradient0.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT0_THUMB" file="aura/wallpapers/5-gradient0_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT1" file="aura/wallpapers/5-gradient1.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT1_THUMB" file="aura/wallpapers/5-gradient1_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT2" file="aura/wallpapers/5-gradient2.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT2_THUMB" file="aura/wallpapers/5-gradient2_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT3" file="aura/wallpapers/5-gradient3.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT3_THUMB" file="aura/wallpapers/5-gradient3_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT4" file="aura/wallpapers/5-gradient4.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT4_THUMB" file="aura/wallpapers/5-gradient4_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT5" file="aura/wallpapers/5-gradient5.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT5_THUMB" file="aura/wallpapers/5-gradient5_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT6" file="aura/wallpapers/5-gradient6.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT6_THUMB" file="aura/wallpapers/5-gradient6_thumb.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT7" file="aura/wallpapers/5-gradient7.png" type="BINDATA" />
-        <include name="IDR_AURA_WALLPAPERS_5_GRADIENT7_THUMB" file="aura/wallpapers/5-gradient7_thumb.png" type="BINDATA" />
-      </if>
-    </includes>
   </release>
 </grit>

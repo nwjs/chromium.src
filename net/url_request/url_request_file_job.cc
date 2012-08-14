@@ -200,7 +200,7 @@ bool URLRequestFileJob::IsRedirectResponse(GURL* location,
 
   FilePath new_path = file_path_;
   bool resolved;
-  resolved = file_util::ResolveShortcut(&new_path);
+  resolved = file_util::ResolveShortcut(new_path, &new_path, NULL);
 
   // If shortcut is not resolved succesfully, do not redirect.
   if (!resolved)
@@ -253,10 +253,7 @@ void URLRequestFileJob::SetExtraRequestHeaders(
 // static
 bool URLRequestFileJob::IsFileAccessAllowed(const URLRequest& request,
                                             const FilePath& path) {
-  const URLRequestContext* context = request.context();
-  if (!context)
-    return false;
-  const NetworkDelegate* delegate = context->network_delegate();
+  const NetworkDelegate* delegate = request.context()->network_delegate();
   if (delegate)
     return delegate->CanAccessFile(request, path);
   return false;

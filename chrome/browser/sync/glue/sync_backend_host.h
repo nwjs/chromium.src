@@ -179,8 +179,8 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   // Called on |frontend_loop| to update SyncCredentials.
   void UpdateCredentials(const syncer::SyncCredentials& credentials);
 
-  // Registers the underlying frontend for the given IDs to the
-  // underlying notifier.
+  // Registers the underlying frontend for the given IDs to the underlying
+  // notifier.  This lasts until StopSyncingForShutdown() is called.
   void UpdateRegisteredInvalidationIds(const syncer::ObjectIdSet& ids);
 
   // This starts the SyncerThread running a Syncer object to communicate with
@@ -211,9 +211,10 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
   bool SetDecryptionPassphrase(const std::string& passphrase)
       WARN_UNUSED_RESULT;
 
-  // Called on |frontend_loop_| to kick off shutdown procedure. After this,
-  // no further sync activity will occur with the sync server and no further
+  // Called on |frontend_loop_| to kick off shutdown procedure. After this, no
+  // further sync activity will occur with the sync server and no further
   // change applications will occur from changes already downloaded.
+  // Furthermore, no notifications will be sent to any invalidation handler.
   virtual void StopSyncingForShutdown();
 
   // Called on |frontend_loop_| to kick off shutdown.
@@ -230,7 +231,6 @@ class SyncBackendHost : public BackendDataTypeConfigurer {
       syncer::ConfigureReason reason,
       syncer::ModelTypeSet types_to_add,
       syncer::ModelTypeSet types_to_remove,
-      NigoriState nigori_state,
       const base::Callback<void(syncer::ModelTypeSet)>& ready_task,
       const base::Callback<void()>& retry_callback) OVERRIDE;
 

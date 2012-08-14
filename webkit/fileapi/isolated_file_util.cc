@@ -58,7 +58,7 @@ class SetFileEnumerator : public FileSystemFileUtil::AbstractFileEnumerator {
 class RecursiveSetFileEnumerator
     : public FileSystemFileUtil::AbstractFileEnumerator {
  public:
-  RecursiveSetFileEnumerator(const std::vector<FileInfo>& files)
+  explicit RecursiveSetFileEnumerator(const std::vector<FileInfo>& files)
       : files_(files) {
     file_iter_ = files_.begin();
     current_enumerator_.reset(new SetFileEnumerator(files));
@@ -118,6 +118,7 @@ PlatformFileError IsolatedFileUtil::GetLocalFilePath(
     const FileSystemURL& url,
     FilePath* local_file_path) {
   DCHECK(local_file_path);
+  DCHECK(url.is_valid());
   if (url.path().empty()) {
     // Root direcory case, which should not be accessed.
     return base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
@@ -137,6 +138,7 @@ PlatformFileError DraggedFileUtil::GetFileInfo(
     FilePath* platform_path) {
   DCHECK(file_info);
   std::string filesystem_id;
+  DCHECK(url.is_valid());
   if (url.path().empty()) {
     // The root directory case.
     // For now we leave three time fields (modified/accessed/creation time)
@@ -164,6 +166,7 @@ DraggedFileUtil::CreateFileEnumerator(
     FileSystemOperationContext* context,
     const FileSystemURL& root,
     bool recursive) {
+  DCHECK(root.is_valid());
   if (!root.path().empty())
     return NativeFileUtil::CreateFileEnumerator(root.path(), recursive);
 
@@ -176,29 +179,10 @@ DraggedFileUtil::CreateFileEnumerator(
   return new RecursiveSetFileEnumerator(toplevels);
 }
 
-bool DraggedFileUtil::PathExists(
-    FileSystemOperationContext* context,
-    const FileSystemURL& url) {
-  if (url.path().empty()) {
-    // The root directory case.
-    return true;
-  }
-  return NativeFileUtil::PathExists(url.path());
-}
-
-bool DraggedFileUtil::DirectoryExists(
-    FileSystemOperationContext* context,
-    const FileSystemURL& url) {
-  if (url.path().empty()) {
-    // The root directory case.
-    return true;
-  }
-  return NativeFileUtil::DirectoryExists(url.path());
-}
-
 bool DraggedFileUtil::IsDirectoryEmpty(
     FileSystemOperationContext* context,
     const FileSystemURL& url) {
+  DCHECK(url.is_valid());
   if (url.path().empty()) {
     // The root directory case.
     std::vector<FileInfo> toplevels;

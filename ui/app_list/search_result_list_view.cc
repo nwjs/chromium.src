@@ -10,6 +10,7 @@
 #include "base/message_loop.h"
 #include "ui/app_list/search_result_view.h"
 #include "ui/app_list/search_result_list_view_delegate.h"
+#include "ui/base/event.h"
 #include "ui/views/layout/box_layout.h"
 
 namespace {
@@ -72,7 +73,7 @@ bool SearchResultListView::IsResultViewSelected(
       result_view;
 }
 
-bool SearchResultListView::OnKeyPressed(const views::KeyEvent& event) {
+bool SearchResultListView::OnKeyPressed(const ui::KeyEvent& event) {
   switch (event.key_code()) {
     case ui::VKEY_UP:
       SetSelectedIndex(std::max(selected_index_ - 1, 0));
@@ -127,7 +128,7 @@ void SearchResultListView::ScheduleUpdate() {
 }
 
 void SearchResultListView::ButtonPressed(views::Button* sender,
-                                         const views::Event& event) {
+                                         const ui::Event& event) {
   if (sender->GetClassName() != SearchResultView::kViewClassName)
     return;
 

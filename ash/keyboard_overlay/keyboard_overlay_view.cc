@@ -9,6 +9,7 @@
 #include "base/utf_string_conversions.h"
 #include "content/public/browser/browser_context.h"
 #include "grit/ash_strings.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/widget/widget.h"
@@ -23,7 +24,7 @@ const struct KeyEventData {
   ui::KeyboardCode key_code;
   int flags;
 } kCancelKeys[] = {
-  { ui::VKEY_ESCAPE, 0},
+  { ui::VKEY_ESCAPE, ui::EF_NONE},
   { ui::VKEY_OEM_2, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN },
   { ui::VKEY_OEM_2, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN },
 };
@@ -47,12 +48,14 @@ void KeyboardOverlayView::Cancel() {
     widget->Close();
 }
 
-bool KeyboardOverlayView::IsCancelingKeyEvent(aura::KeyEvent* event) {
+bool KeyboardOverlayView::IsCancelingKeyEvent(ui::KeyEvent* event) {
   if (event->type() != ui::ET_KEY_PRESSED)
     return false;
+  // Ignore the caps lock state.
+  const int flags = (event->flags() & ~ui::EF_CAPS_LOCK_DOWN);
   for (size_t i = 0; i < arraysize(kCancelKeys); ++i) {
     if ((kCancelKeys[i].key_code == event->key_code()) &&
-        (kCancelKeys[i].flags == event->flags()))
+        (kCancelKeys[i].flags == flags))
       return true;
   }
   return false;

@@ -55,11 +55,11 @@ class APP_LIST_EXPORT AppListView : public views::BubbleDelegateView,
   virtual void GetHitTestMask(gfx::Path* mask) const OVERRIDE;
 
   // Overridden from views::View:
-  virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
 
   // Overridden from views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // Overridden from views::BubbleDelegate:
   virtual gfx::Rect GetBubbleBounds() OVERRIDE;

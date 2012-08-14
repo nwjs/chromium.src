@@ -30,7 +30,6 @@
 #include "media/base/media_log_event.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositionUnderline.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebFindOptions.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebMediaPlayerAction.h"
@@ -214,11 +213,6 @@ IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(css_variables_enabled)
   IPC_STRUCT_TRAITS_MEMBER(device_supports_touch)
   IPC_STRUCT_TRAITS_MEMBER(device_supports_mouse)
-#if !defined(WEBCOMPOSITOR_OWNS_SETTINGS)
-  IPC_STRUCT_TRAITS_MEMBER(threaded_animation_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(partial_swap_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(per_tile_painting_enabled)
-#endif
   IPC_STRUCT_TRAITS_MEMBER(default_tile_width)
   IPC_STRUCT_TRAITS_MEMBER(default_tile_height)
   IPC_STRUCT_TRAITS_MEMBER(max_untiled_layer_width)
@@ -323,6 +317,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(enable_referrers)
   IPC_STRUCT_TRAITS_MEMBER(default_zoom_level)
   IPC_STRUCT_TRAITS_MEMBER(user_agent_override)
+  IPC_STRUCT_TRAITS_MEMBER(throttle_input_events)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::SSLStatus)
@@ -476,6 +471,9 @@ IPC_STRUCT_BEGIN_WITH_PARENT(ViewHostMsg_FrameNavigate_Params,
 
   // Serialized history item state to store in the navigation entry.
   IPC_STRUCT_MEMBER(std::string, content_state)
+
+  // Original request's URL.
+  IPC_STRUCT_MEMBER(GURL, original_request_url)
 
   // User agent override used to navigate.
   IPC_STRUCT_MEMBER(bool, is_overriding_user_agent)
@@ -958,12 +956,6 @@ IPC_MESSAGE_ROUTED3(ViewMsg_Find,
 IPC_MESSAGE_ROUTED1(ViewMsg_StopFinding,
                     content::StopFindAction /* action */)
 
-// Used to notify the render-view that the browser has received a reply for
-// the Find operation and is interested in receiving the next one. This is
-// used to prevent the renderer from spamming the browser process with
-// results.
-IPC_MESSAGE_ROUTED0(ViewMsg_FindReplyACK)
-
 // These messages are typically generated from context menus and request the
 // renderer to apply the specified operation to the current selection.
 IPC_MESSAGE_ROUTED0(ViewMsg_Undo)
@@ -986,6 +978,7 @@ IPC_MESSAGE_ROUTED0(ViewMsg_SelectAll)
 IPC_MESSAGE_ROUTED0(ViewMsg_Unselect)
 
 // Requests the renderer to select the region between two points.
+// Expects a SelectRange_ACK message when finished.
 IPC_MESSAGE_ROUTED2(ViewMsg_SelectRange,
                     gfx::Point /* start */,
                     gfx::Point /* end */)
@@ -1588,6 +1581,11 @@ IPC_MESSAGE_ROUTED1(ViewHostMsg_UpdateRect,
 // which may get delayed until the browser's UI unblocks.
 IPC_MESSAGE_ROUTED0(ViewHostMsg_UpdateIsDelayed)
 
+// Sent by the renderer when the parameters for vsync alignment have changed.
+IPC_MESSAGE_ROUTED2(ViewMsg_UpdateVSyncParameters,
+                    base::TimeTicks /* timebase */,
+                    base::TimeDelta /* interval */)
+
 // Sent by the renderer when accelerated compositing is enabled or disabled to
 // notify the browser whether or not is should do painting.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidActivateAcceleratedCompositing,
@@ -1849,6 +1847,8 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_SetTooltipText,
                     string16 /* tooltip text string */,
                     WebKit::WebTextDirection /* text direction hint */)
 
+IPC_MESSAGE_ROUTED0(ViewHostMsg_SelectRange_ACK)
+
 // Notification that the text selection has changed.
 // Note: The secound parameter is the character based offset of the string16
 // text in the document.
@@ -1858,9 +1858,11 @@ IPC_MESSAGE_ROUTED3(ViewHostMsg_SelectionChanged,
                     ui::Range /* selection range in the document */)
 
 // Notification that the selection bounds have changed.
-IPC_MESSAGE_ROUTED2(ViewHostMsg_SelectionBoundsChanged,
+IPC_MESSAGE_ROUTED4(ViewHostMsg_SelectionBoundsChanged,
                     gfx::Rect /* start rect */,
-                    gfx::Rect /* end rect */)
+                    WebKit::WebTextDirection /* start text dir */,
+                    gfx::Rect /* end rect */,
+                    WebKit::WebTextDirection /* end text dir */)
 
 // Asks the browser to open the color chooser.
 IPC_MESSAGE_ROUTED2(ViewHostMsg_OpenColorChooser,

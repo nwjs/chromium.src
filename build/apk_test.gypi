@@ -19,6 +19,9 @@
 #
 
 {
+  'variables': {
+    'input_jars_paths': [],
+  },
   'target_conditions': [
     ['_toolset == "target"', {
       'conditions': [
@@ -30,7 +33,7 @@
               '<(DEPTH)/testing/android/AndroidManifest.xml',
               '<(DEPTH)/testing/android/generate_native_test.py',
               '<(input_shlib_path)',
-              '<@(input_jars_paths)',
+              '>@(input_jars_paths)',
             ],
             'outputs': [
               '<(PRODUCT_DIR)/<(test_suite_name)_apk/<(test_suite_name)-debug.apk',
@@ -40,14 +43,27 @@
               '--native_library',
               '<(input_shlib_path)',
               '--jars',
-              '"<@(input_jars_paths)"',
+              '">@(input_jars_paths)"',
               '--output',
               '<(PRODUCT_DIR)/<(test_suite_name)_apk',
               '--app_abi',
               '<(android_app_abi)',
+              '--sdk-build=<(sdk_build)',
               '--ant-args',
               '-DPRODUCT_DIR=<(ant_build_out)',
-              '--sdk-build=<(sdk_build)',
+              '--ant-args',
+              '-DANDROID_SDK=<(android_sdk)',
+              '--ant-args',
+              '-DANDROID_SDK_ROOT=<(android_sdk_root)',
+              '--ant-args',
+              '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
+              '--ant-args',
+              '-DANDROID_SDK_VERSION=<(android_sdk_version)',
+              '--ant-args',
+              '-DANDROID_TOOLCHAIN=<(android_toolchain)',
+              '--ant-args',
+              '-DCHROMIUM_SRC=<(ant_build_out)/../..',
+              '--ant-compile'
             ],
           }],
         }],  # 'OS == "android" and gtest_target_type == "shared_library"

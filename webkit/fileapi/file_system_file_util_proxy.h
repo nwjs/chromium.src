@@ -13,6 +13,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/platform_file.h"
 #include "base/tracked_objects.h"
+#include "webkit/fileapi/file_system_file_util.h"
 #include "webkit/fileapi/file_system_operation_interface.h"
 
 namespace fileapi {
@@ -39,12 +40,17 @@ class FileSystemFileUtilProxy {
   typedef base::Callback<void(PlatformFileError status,
                               bool created)> EnsureFileExistsCallback;
   typedef FileSystemOperationInterface::GetMetadataCallback GetFileInfoCallback;
-  typedef FileSystemOperationInterface::SnapshotFileCallback
-      SnapshotFileCallback;
   typedef FileSystemOperationInterface::ReadDirectoryCallback
       ReadDirectoryCallback;
 
-  // Deletes a file or a directory on the given context's file_task_runner.
+  typedef base::Callback<
+      void(base::PlatformFileError result,
+           const base::PlatformFileInfo& file_info,
+           const FilePath& platform_path,
+           FileSystemFileUtil::SnapshotFilePolicy snapshot_policy)>
+      SnapshotFileCallback;
+
+  // Deletes a file or a directory on the given context's task_runner.
   // It is an error to delete a non-empty directory with recursive=false.
   static bool Delete(
       FileSystemOperationContext* context,
@@ -54,7 +60,7 @@ class FileSystemFileUtilProxy {
       const StatusCallback& callback);
 
   // Creates or opens a file with the given flags by calling |file_util|'s
-  // CreateOrOpen method on the given context's file_task_runner.
+  // CreateOrOpen method on the given context's task_runner.
   static bool CreateOrOpen(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,
@@ -64,7 +70,7 @@ class FileSystemFileUtilProxy {
 
   // Copies a file or a directory from |src_url| to |dest_url| by calling
   // FileSystemFileUtil's following methods on the given context's
-  // file_task_runner.
+  // task_runner.
   // - CopyOrMoveFile() for same-filesystem operations
   // - CopyInForeignFile() for (limited) cross-filesystem operations
   //
@@ -85,7 +91,7 @@ class FileSystemFileUtilProxy {
 
   // Moves a file or a directory from |src_url| to |dest_url| by calling
   // FileSystemFileUtil's following methods on the given context's
-  // file_task_runner.
+  // task_runner.
   // - CopyOrMoveFile() for same-filesystem operations
   // - CopyInForeignFile() for (limited) cross-filesystem operations
   //
@@ -99,7 +105,7 @@ class FileSystemFileUtilProxy {
       const StatusCallback& callback);
 
   // Ensures that the given |url| exist by calling |file_util|'s
-  // EnsureFileExists method on the given context's file_task_runner.
+  // EnsureFileExists method on the given context's task_runner.
   static bool EnsureFileExists(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,
@@ -107,7 +113,7 @@ class FileSystemFileUtilProxy {
       const EnsureFileExistsCallback& callback);
 
   // Creates directory at a given url by calling |file_util|'s
-  // CreateDirectory method on the given context's file_task_runner.
+  // CreateDirectory method on the given context's task_runner.
   static bool CreateDirectory(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,
@@ -117,7 +123,7 @@ class FileSystemFileUtilProxy {
       const StatusCallback& callback);
 
   // Retrieves the information about a file by calling |file_util|'s
-  // GetFileInfo method on the given context's file_task_runner.
+  // GetFileInfo method on the given context's task_runner.
   static bool GetFileInfo(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,
@@ -125,7 +131,7 @@ class FileSystemFileUtilProxy {
       const GetFileInfoCallback& callback);
 
   // Creates a snapshot file by calling |file_util|'s CreateSnapshotFile
-  // method on the given context's file_task_runner.
+  // method on the given context's task_runner.
   static bool CreateSnapshotFile(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,
@@ -133,7 +139,7 @@ class FileSystemFileUtilProxy {
       const SnapshotFileCallback& callback);
 
   // Reads the filenames in |url| by calling |file_util|'s
-  // ReadDirectory method on the given context's file_task_runner.
+  // ReadDirectory method on the given context's task_runner.
   // TODO: this should support returning entries in multiple chunks.
   static bool ReadDirectory(
       FileSystemOperationContext* context,
@@ -142,7 +148,7 @@ class FileSystemFileUtilProxy {
       const ReadDirectoryCallback& callback);
 
   // Touches a file by calling |file_util|'s Touch method
-  // on the given context's file_task_runner.
+  // on the given context's task_runner.
   static bool Touch(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,
@@ -152,7 +158,7 @@ class FileSystemFileUtilProxy {
       const StatusCallback& callback);
 
   // Truncates a file to the given length by calling |file_util|'s
-  // Truncate method on the given context's file_task_runner.
+  // Truncate method on the given context's task_runner.
   static bool Truncate(
       FileSystemOperationContext* context,
       FileSystemFileUtil* file_util,

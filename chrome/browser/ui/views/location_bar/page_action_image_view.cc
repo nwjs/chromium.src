@@ -28,6 +28,7 @@
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_source.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
@@ -84,15 +85,41 @@ PageActionImageView::PageActionImageView(LocationBarView* owner,
           extensions::CommandService::ACTIVE_ONLY,
           &page_action_command,
           NULL)) {
-    keybinding_.reset(new ui::Accelerator(page_action_command.accelerator()));
+    page_action_keybinding_.reset(
+        new ui::Accelerator(page_action_command.accelerator()));
     owner_->GetFocusManager()->RegisterAccelerator(
-        *keybinding_.get(), ui::AcceleratorManager::kHighPriority, this);
+        *page_action_keybinding_.get(),
+        ui::AcceleratorManager::kHighPriority,
+        this);
+  }
+
+  extensions::Command script_badge_command;
+  if (command_service->GetScriptBadgeCommand(
+          extension->id(),
+          extensions::CommandService::ACTIVE_ONLY,
+          &script_badge_command,
+          NULL)) {
+    script_badge_keybinding_.reset(
+        new ui::Accelerator(script_badge_command.accelerator()));
+    owner_->GetFocusManager()->RegisterAccelerator(
+        *script_badge_keybinding_.get(),
+        ui::AcceleratorManager::kHighPriority,
+        this);
   }
 }
 
 PageActionImageView::~PageActionImageView() {
-  if (keybinding_.get() && owner_->GetFocusManager())
-    owner_->GetFocusManager()->UnregisterAccelerator(*keybinding_.get(), this);
+  if (owner_->GetFocusManager()) {
+    if (page_action_keybinding_.get()) {
+      owner_->GetFocusManager()->UnregisterAccelerator(
+          *page_action_keybinding_.get(), this);
+    }
+
+    if (script_badge_keybinding_.get()) {
+      owner_->GetFocusManager()->UnregisterAccelerator(
+          *script_badge_keybinding_.get(), this);
+    }
+  }
 
   if (popup_)
     popup_->GetWidget()->RemoveObserver(this);
@@ -135,15 +162,15 @@ void PageActionImageView::GetAccessibleState(ui::AccessibleViewState* state) {
   state->name = UTF8ToUTF16(tooltip_);
 }
 
-bool PageActionImageView::OnMousePressed(const views::MouseEvent& event) {
+bool PageActionImageView::OnMousePressed(const ui::MouseEvent& event) {
   // We want to show the bubble on mouse release; that is the standard behavior
   // for buttons.  (Also, triggering on mouse press causes bugs like
   // http://crbug.com/33155.)
   return true;
 }
 
-void PageActionImageView::OnMouseReleased(const views::MouseEvent& event) {
-  if (!HitTest(event.location()))
+void PageActionImageView::OnMouseReleased(const ui::MouseEvent& event) {
+  if (!HitTestPoint(event.location()))
     return;
 
   int button = -1;
@@ -160,7 +187,7 @@ void PageActionImageView::OnMouseReleased(const views::MouseEvent& event) {
   ExecuteAction(button);
 }
 
-bool PageActionImageView::OnKeyPressed(const views::KeyEvent& event) {
+bool PageActionImageView::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.key_code() == ui::VKEY_SPACE ||
       event.key_code() == ui::VKEY_RETURN) {
     ExecuteAction(1);
@@ -244,9 +271,8 @@ void PageActionImageView::UpdateVisibility(WebContents* contents,
 
   // Set the image.
   gfx::Image icon = page_action_->GetIcon(current_tab_id_);
-  if (!icon.IsEmpty()) {
+  if (!icon.IsEmpty())
     SetImage(*icon.ToImageSkia());
-  }
 
   SetVisible(true);
 }

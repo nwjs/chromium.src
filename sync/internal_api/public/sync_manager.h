@@ -30,6 +30,7 @@ class EncryptedData;
 }  // namespace sync_pb
 
 namespace syncer {
+
 class BaseTransaction;
 class Encryptor;
 struct Experiments;
@@ -362,7 +363,7 @@ class SyncManager {
   //
   // TODO(akalin): Replace the |post_factory| parameter with a
   // URLFetcher parameter.
-  virtual bool Init(
+  virtual void Init(
       const FilePath& database_location,
       const WeakHandle<JsEventHandler>& event_handler,
       const std::string& sync_server_and_path,
@@ -406,10 +407,18 @@ class SyncManager {
   virtual void UpdateEnabledTypes(
       const ModelTypeSet& enabled_types) = 0;
 
-  // Forwards to the underlying notifier (see
-  // SyncNotifier::UpdateRegisteredIds()).
+  // Forwards to the underlying notifier (see comments in sync_notifier.h).
+  virtual void RegisterInvalidationHandler(
+      SyncNotifierObserver* handler) = 0;
+
+  // Forwards to the underlying notifier (see comments in sync_notifier.h).
   virtual void UpdateRegisteredInvalidationIds(
-      SyncNotifierObserver* handler, const ObjectIdSet& ids) = 0;
+      SyncNotifierObserver* handler,
+      const ObjectIdSet& ids) = 0;
+
+  // Forwards to the underlying notifier (see comments in sync_notifier.h).
+  virtual void UnregisterInvalidationHandler(
+      SyncNotifierObserver* handler) = 0;
 
   // Put the syncer in normal mode ready to perform nudges and polls.
   virtual void StartSyncingNormally(

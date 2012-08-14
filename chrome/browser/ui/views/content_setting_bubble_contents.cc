@@ -52,9 +52,9 @@ class ContentSettingBubbleContents::Favicon : public views::ImageView {
 
  private:
   // views::View overrides:
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
-  virtual gfx::NativeCursor GetCursor(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
+  virtual gfx::NativeCursor GetCursor(const ui::MouseEvent& event) OVERRIDE;
 
   ContentSettingBubbleContents* parent_;
   views::Link* link_;
@@ -73,20 +73,20 @@ ContentSettingBubbleContents::Favicon::~Favicon() {
 }
 
 bool ContentSettingBubbleContents::Favicon::OnMousePressed(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   return event.IsLeftMouseButton() || event.IsMiddleMouseButton();
 }
 
 void ContentSettingBubbleContents::Favicon::OnMouseReleased(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if ((event.IsLeftMouseButton() || event.IsMiddleMouseButton()) &&
-     HitTest(event.location())) {
+     HitTestPoint(event.location())) {
     parent_->LinkClicked(link_, event.flags());
   }
 }
 
 gfx::NativeCursor ContentSettingBubbleContents::Favicon::GetCursor(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
 #if defined(USE_AURA)
   return ui::kCursorHand;
 #elif defined(OS_WIN)
@@ -190,7 +190,7 @@ void ContentSettingBubbleContents::Init() {
 
       views::Link* link = new views::Link(UTF8ToUTF16(i->title));
       link->set_listener(this);
-      link->SetElideInMiddle(true);
+      link->SetElideBehavior(views::Label::ELIDE_IN_MIDDLE);
       popup_links_[link] = i - bubble_content.popup_items.begin();
       layout->AddView(new Favicon(i->bitmap, this, link));
       layout->AddView(link);
@@ -286,7 +286,7 @@ void ContentSettingBubbleContents::Init() {
 }
 
 void ContentSettingBubbleContents::ButtonPressed(views::Button* sender,
-                                                 const views::Event& event) {
+                                                 const ui::Event& event) {
   if (sender == close_button_) {
     content_setting_bubble_model_->OnDoneClicked();
     StartFade(false);

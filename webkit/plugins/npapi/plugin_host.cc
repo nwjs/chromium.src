@@ -58,8 +58,6 @@ static PluginInstance* FindInstance(NPP id) {
 // OS supports shared accelerated surfaces via IOSurface. This is true on Snow
 // Leopard and higher.
 static bool SupportsCoreAnimationPlugins() {
-  if (base::mac::IsOSLeopardOrEarlier())
-    return false;
   if (CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableCoreAnimationPlugins))
     return false;
@@ -840,10 +838,9 @@ NPError NPN_GetValue(NPP id, NPNVariable variable, void* value) {
       break;
     }
     case NPNVsupportsUpdatedCocoaTextInputBool: {
-      // We support the clarifications to the Cocoa IME event spec, but since
-      // IME currently only works on 10.6, only answer true there.
+      // We support the clarifications to the Cocoa IME event spec.
       NPBool* supports_update = reinterpret_cast<NPBool*>(value);
-      *supports_update = base::mac::IsOSSnowLeopardOrLater();
+      *supports_update = true;
       rv = NPERR_NO_ERROR;
       break;
     }

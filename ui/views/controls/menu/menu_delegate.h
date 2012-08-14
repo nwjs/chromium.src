@@ -108,14 +108,14 @@ class VIEWS_EXPORT MenuDelegate {
   virtual bool ShouldCloseAllMenusOnExecute(int id);
 
   // Executes the specified command. mouse_event_flags give the flags of the
-  // mouse event that triggered this to be invoked (views::MouseEvent
+  // mouse event that triggered this to be invoked (ui::MouseEvent
   // flags). mouse_event_flags is 0 if this is triggered by a user gesture
   // other than a mouse event.
   virtual void ExecuteCommand(int id, int mouse_event_flags);
 
   // Returns true if the specified event is one the user can use to trigger, or
   // accept, the item. Defaults to left or right mouse buttons or tap.
-  virtual bool IsTriggerableEvent(MenuItemView* view, const Event& e);
+  virtual bool IsTriggerableEvent(MenuItemView* view, const ui::Event& e);
 
   // Invoked to determine if drops can be accepted for a submenu. This is
   // ONLY invoked for menus that have submenus and indicates whether or not

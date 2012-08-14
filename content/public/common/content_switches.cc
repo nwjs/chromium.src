@@ -255,6 +255,9 @@ const char kEnableAccessibilityLogging[]    = "enable-accessibility-logging";
 const char kEnableCompositingForFixedPosition[] =
      "enable-fixed-position-compositing";
 
+// Enables CSS3 exclusions
+const char kEnableCssExclusions[]           = "enable-css-exclusions";
+
 // Enables CSS3 regions
 const char kEnableCssRegions[]              = "enable-css-regions";
 
@@ -504,7 +507,8 @@ const char kPpapiPluginLauncher[]           = "ppapi-plugin-launcher";
 // Argument to the process type that indicates a PPAPI plugin process type.
 const char kPpapiPluginProcess[]            = "ppapi";
 
-// Causes the PPAPI sub process to display a dialog on launch.
+// Causes the PPAPI sub process to display a dialog on launch. Be sure to use
+// --no-sandbox as well or the sandbox won't allow the dialog to display.
 const char kPpapiStartupDialog[]            = "ppapi-startup-dialog";
 
 // Runs a single process for each site (i.e., group of pages from the same
@@ -525,9 +529,6 @@ const char kProcessType[]                   = "type";
 
 // Register Pepper plugins (see pepper_plugin_registry.cc for its format).
 const char kRegisterPepperPlugins[]         = "register-pepper-plugins";
-
-// Enables remote debug over HTTP on the specified port.
-const char kRemoteDebuggingPort[]           = "remote-debugging-port";
 
 // Causes the renderer process to throw an assertion on launch.
 const char kRendererAssertTest[]            = "renderer-assert-test";
@@ -564,6 +565,11 @@ const char kShowFPSCounter[]                = "show-fps-counter";
 // Visibly render a border around paint rects in the web page to help debug
 // and study painting behavior.
 const char kShowPaintRects[]                = "show-paint-rects";
+
+// Map mouse input events into touch gesture events.  Useful for debugging touch
+// gestures without needing a touchscreen.
+const char kSimulateTouchScreenWithMouse[]  =
+    "simulate-touch-screen-with-mouse";
 
 // Runs the renderer and plugins in the same process as the browser
 const char kSingleProcess[]                 = "single-process";

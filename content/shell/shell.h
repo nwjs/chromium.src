@@ -58,12 +58,10 @@ class Shell : public WebContentsDelegate,
   void Stop();
   void UpdateNavigationControls();
   void Close();
+  void ShowDevTools();
 
   // Do one time initialization at application startup.
   static void PlatformInitialize();
-
-  // This is called indirectly by the modules that need access resources.
-  static base::StringPiece PlatformResourceProvider(int key);
 
   static Shell* CreateNewWindow(BrowserContext* browser_context,
                                 const GURL& url,
@@ -116,6 +114,7 @@ class Shell : public WebContentsDelegate,
   virtual JavaScriptDialogCreator* GetJavaScriptDialogCreator() OVERRIDE;
 #if defined(OS_MACOSX)
   virtual void HandleKeyboardEvent(
+      WebContents* source,
       const NativeWebKeyboardEvent& event) OVERRIDE;
 #endif
   virtual bool AddMessageToConsole(WebContents* source,
@@ -180,6 +179,8 @@ class Shell : public WebContentsDelegate,
   CHROMEGTK_CALLBACK_0(Shell, gboolean, OnWindowDestroyed);
 
   CHROMEG_CALLBACK_3(Shell, gboolean, OnCloseWindowKeyPressed, GtkAccelGroup*,
+                     GObject*, guint, GdkModifierType);
+  CHROMEG_CALLBACK_3(Shell, gboolean, OnNewWindowKeyPressed, GtkAccelGroup*,
                      GObject*, guint, GdkModifierType);
   CHROMEG_CALLBACK_3(Shell, gboolean, OnHighlightURLView, GtkAccelGroup*,
                      GObject*, guint, GdkModifierType);

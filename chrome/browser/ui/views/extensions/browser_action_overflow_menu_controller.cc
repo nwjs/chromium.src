@@ -23,10 +23,12 @@
 
 BrowserActionOverflowMenuController::BrowserActionOverflowMenuController(
     BrowserActionsContainer* owner,
+    Browser* browser,
     views::MenuButton* menu_button,
     const std::vector<BrowserActionView*>& views,
     int start_index)
     : owner_(owner),
+      browser_(browser),
       observer_(NULL),
       menu_button_(menu_button),
       menu_(NULL),
@@ -40,11 +42,10 @@ BrowserActionOverflowMenuController::BrowserActionOverflowMenuController(
   size_t command_id = 1;  // Menu id 0 is reserved, start with 1.
   for (size_t i = start_index; i < views_->size(); ++i) {
     BrowserActionView* view = (*views_)[i];
-    scoped_ptr<gfx::Canvas> canvas(view->GetIconWithBadge());
     menu_->AppendMenuItemWithIcon(
         command_id,
         UTF8ToUTF16(view->button()->extension()->name()),
-        canvas->ExtractImageRep());
+        view->GetIconWithBadge());
 
     // Set the tooltip for this item.
     string16 tooltip = UTF8ToUTF16(
@@ -108,7 +109,7 @@ bool BrowserActionOverflowMenuController::ShowContextMenu(
     return false;
 
   scoped_refptr<ExtensionContextMenuModel> context_menu_contents =
-      new ExtensionContextMenuModel(extension, owner_->browser());
+      new ExtensionContextMenuModel(extension, browser_);
   views::MenuModelAdapter context_menu_model_adapter(
       context_menu_contents.get());
   views::MenuRunner context_menu_runner(

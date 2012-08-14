@@ -174,8 +174,11 @@ class RenderWidgetHostViewWin
   virtual void SetIsLoading(bool is_loading) OVERRIDE;
   virtual void TextInputStateChanged(ui::TextInputType type,
                                      bool can_compose_inline) OVERRIDE;
-  virtual void SelectionBoundsChanged(const gfx::Rect& start_rect,
-                                      const gfx::Rect& end_rect) OVERRIDE;
+  virtual void SelectionBoundsChanged(
+      const gfx::Rect& start_rect,
+      WebKit::WebTextDirection start_direction,
+      const gfx::Rect& end_rect,
+      WebKit::WebTextDirection end_direction) OVERRIDE;
   virtual void ImeCancelComposition() OVERRIDE;
   virtual void ImeCompositionRangeChanged(
       const ui::Range& range,
@@ -234,17 +237,6 @@ class RenderWidgetHostViewWin
       int acc_obj_id, int start_offset, int end_offset) OVERRIDE;
 
   // Overridden from ui::GestureEventHelper.
-  virtual ui::GestureEvent* CreateGestureEvent(
-      const ui::GestureEventDetails& details,
-      const gfx::Point& location,
-      int flags,
-      base::Time time,
-      unsigned int touch_id_bitfield) OVERRIDE;
-  virtual ui::TouchEvent* CreateTouchEvent(
-      ui::EventType type,
-      const gfx::Point& location,
-      int touch_id,
-      base::TimeDelta time_stamp) OVERRIDE;
   virtual bool DispatchLongPressGestureEvent(ui::GestureEvent* event) OVERRIDE;
   virtual bool DispatchCancelTouchEvent(ui::TouchEvent* event) OVERRIDE;
 
@@ -452,8 +444,7 @@ class RenderWidgetHostViewWin
   bool about_to_validate_and_paint_;
 
   // true if the View should be closed when its HWND is deactivated (used to
-  // support SELECT popups and fullscreen widgets which are closed when they are
-  // deactivated).
+  // support SELECT popups which are closed when they are deactivated).
   bool close_on_deactivate_;
 
   // Whether Destroy() has been called.  Used to detect a crasher

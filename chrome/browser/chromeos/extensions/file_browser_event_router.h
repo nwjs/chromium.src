@@ -52,6 +52,10 @@ class FileBrowserEventRouter
   void RemoveFileWatch(const FilePath& file_path,
                        const std::string& extension_id);
 
+  // Mounts Drive on File browser. |callback| will be called after raising a
+  // mount request event to file manager on JS-side.
+  void MountDrive(const base::Closure& callback);
+
   // CrosDisksClient::Observer overrides.
   virtual void DiskChanged(chromeos::disks::DiskMountManagerEventType event,
                            const chromeos::disks::DiskMountManager::Disk* disk)
@@ -82,6 +86,8 @@ class FileBrowserEventRouter
   // gdata::GDataFileSystemInterface::Observer overrides.
   virtual void OnDirectoryChanged(const FilePath& directory_path) OVERRIDE;
   virtual void OnDocumentFeedFetched(int num_accumulated_entries) OVERRIDE;
+  virtual void OnFileSystemMounted() OVERRIDE;
+  virtual void OnFileSystemBeingUnmounted() OVERRIDE;
 
  private:
   friend class FileBrowserEventRouterFactory;
@@ -112,7 +118,7 @@ class FileBrowserEventRouter
         const std::string& extension_id,
         bool is_remote_file_system);
 
-    ~FileWatcherExtensions() {}
+    ~FileWatcherExtensions();
 
     void AddExtension(const std::string& extension_id);
 
@@ -185,6 +191,11 @@ class FileBrowserEventRouter
   // periodic updates only if the number of outstanding update requests reaches
   // zero.
   void HandleRemoteUpdateRequestOnUIThread(bool start);
+
+  // Used to implement MountDrive(). Called after the authentication.
+  void OnAuthenticated(const base::Closure& callback,
+                       gdata::GDataErrorCode error,
+                       const std::string& tokeni);
 
   scoped_refptr<FileWatcherDelegate> delegate_;
   WatcherMap file_watchers_;

@@ -101,7 +101,6 @@ class COMPOSITOR_EXPORT Texture : public base::RefCounted<Texture> {
   void set_texture_id(unsigned int id) { texture_id_ = id; }
   bool flipped() const { return flipped_; }
   gfx::Size size() const { return size_; }
-  virtual WebKit::WebGraphicsContext3D* HostContext3D() = 0;
 
  protected:
   virtual ~Texture();
@@ -212,8 +211,8 @@ class COMPOSITOR_EXPORT Compositor
   virtual void layout();
   virtual void applyScrollAndScale(const WebKit::WebSize& scrollDelta,
                                    float scaleFactor);
-  virtual WebKit::WebGraphicsContext3D* createContext3D();
-  virtual void didRebindGraphicsContext(bool success);
+  virtual WebKit::WebCompositorOutputSurface* createOutputSurface();
+  virtual void didRecreateOutputSurface(bool success);
   virtual void didCommit();
   virtual void didCommitAndDrawFrame();
   virtual void didCompleteSwapBuffers();

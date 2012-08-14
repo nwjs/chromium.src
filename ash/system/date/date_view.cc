@@ -134,7 +134,7 @@ void DateView::UpdateTextInternal(const base::Time& now) {
   day_of_week_label_->SetText(FormatDayOfWeek(now));
 }
 
-bool DateView::PerformAction(const views::Event& event) {
+bool DateView::PerformAction(const ui::Event& event) {
   if (!actionable_)
     return false;
 
@@ -142,7 +142,7 @@ bool DateView::PerformAction(const views::Event& event) {
   return true;
 }
 
-void DateView::OnMouseEntered(const views::MouseEvent& event) {
+void DateView::OnMouseEntered(const ui::MouseEvent& event) {
   if (!actionable_)
     return;
   date_label_->SetEnabledColor(kHeaderTextColorHover);
@@ -150,7 +150,7 @@ void DateView::OnMouseEntered(const views::MouseEvent& event) {
   SchedulePaint();
 }
 
-void DateView::OnMouseExited(const views::MouseEvent& event) {
+void DateView::OnMouseExited(const ui::MouseEvent& event) {
   if (!actionable_)
     return;
   date_label_->SetEnabledColor(kHeaderTextColorNormal);
@@ -194,11 +194,11 @@ void TimeView::UpdateTextInternal(const base::Time& now) {
   Layout();
 }
 
-bool TimeView::PerformAction(const views::Event& event) {
+bool TimeView::PerformAction(const ui::Event& event) {
   return false;
 }
 
-bool TimeView::OnMousePressed(const views::MouseEvent& event) {
+bool TimeView::OnMousePressed(const ui::MouseEvent& event) {
   // Let the event fall through.
   return false;
 }

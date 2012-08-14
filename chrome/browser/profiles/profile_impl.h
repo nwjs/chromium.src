@@ -85,8 +85,7 @@ class ProfileImpl : public Profile,
       GetExtensionSpecialStoragePolicy() OVERRIDE;
   virtual FaviconService* GetFaviconService(ServiceAccessType sat) OVERRIDE;
   virtual GAIAInfoUpdateService* GetGAIAInfoUpdateService() OVERRIDE;
-  virtual HistoryService* GetHistoryService(ServiceAccessType sat) OVERRIDE;
-  virtual HistoryService* GetHistoryServiceWithoutCreating() OVERRIDE;
+  virtual policy::UserCloudPolicyManager* GetUserCloudPolicyManager() OVERRIDE;
   virtual policy::PolicyService* GetPolicyService() OVERRIDE;
   virtual PrefService* GetPrefs() OVERRIDE;
   virtual PrefService* GetOffTheRecordPrefs() OVERRIDE;
@@ -96,7 +95,6 @@ class ProfileImpl : public Profile,
       const std::string& app_id) OVERRIDE;
   virtual net::SSLConfigService* GetSSLConfigService() OVERRIDE;
   virtual HostContentSettingsMap* GetHostContentSettingsMap() OVERRIDE;
-  virtual BookmarkModel* GetBookmarkModel() OVERRIDE;
   virtual ProtocolHandlerRegistry* GetProtocolHandlerRegistry() OVERRIDE;
   virtual bool IsSameProfile(Profile* profile) OVERRIDE;
   virtual base::Time GetStartTime() const OVERRIDE;
@@ -186,9 +184,12 @@ class ProfileImpl : public Profile,
   //  that the declaration occurs AFTER things it depends on as destruction
   //  happens in reverse order of declaration.
 
-  // |prefs_| depends on |policy_service_|.
-  // TODO(bauerb): Once |prefs_| is a ProfileKeyedService, |policy_service_|
-  // should become one as well.
+  // |prefs_| depends on |policy_service_|, which depends on
+  // |user_cloud_policy_manager_|.
+  // TODO(bauerb, mnissler): Once |prefs_| is a ProfileKeyedService,
+  // |policy_service_| and |user_cloud_policy_manager_| should become
+  // ProfiledKeyedServices as well.
+  scoped_ptr<policy::UserCloudPolicyManager> cloud_policy_manager_;
   scoped_ptr<policy::PolicyService> policy_service_;
 
   // Keep |prefs_| on top for destruction order because |extension_prefs_|,
@@ -254,8 +255,6 @@ class ProfileImpl : public Profile,
   Profile::Delegate* delegate_;
 
   chrome_browser_net::Predictor* predictor_;
-
-  bool session_restore_enabled_;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileImpl);
 };

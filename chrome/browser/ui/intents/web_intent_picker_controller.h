@@ -94,6 +94,12 @@ class WebIntentPickerController
   friend class WebIntentPickerControllerBrowserTest;
   friend class WebIntentPickerControllerIncognitoBrowserTest;
 
+  // Dispatches intent to a just-installed extension with ID |extension_id|.
+  void DispatchToInstalledExtension(const std::string& extension_id);
+
+  // Adds a service to the data model.
+  void AddServiceToModel(const webkit_glue::WebIntentServiceData& service);
+
   // Gets a notification when the return message is sent to the source tab,
   // so we can close the picker dialog or service tab.
   void OnSendReturnMessage(webkit_glue::WebIntentReplyType reply_type);
@@ -164,12 +170,6 @@ class WebIntentPickerController
 
   // Called when an extension's icon failed to be decoded or resized.
   void OnExtensionIconUnavailable(const string16& extension_id);
-
-  // When an extension is installed, all that is known is the extension id.
-  // This callback receives the intent service data for that extension.
-  // |services| must be a non-empty list.
-  void OnExtensionInstallServiceAvailable(
-      const std::vector<webkit_glue::WebIntentServiceData>& services);
 
   // Decrements the |pending_async_count_| and notifies the picker if it
   // reaches zero.

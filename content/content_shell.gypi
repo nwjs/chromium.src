@@ -32,11 +32,12 @@
         '../ipc/ipc.gyp:ipc',
         '../media/media.gyp:media',
         '../net/net.gyp:net',
+        '../net/net.gyp:net_resources',
         '../skia/skia.gyp:skia',
-        '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
         '../ui/ui.gyp:ui',
         '../v8/tools/gyp/v8.gyp:v8',
         '../webkit/support/webkit_support.gyp:webkit_support',
+        '<(webkit_src_dir)/Source/WebKit/chromium/WebKit.gyp:webkit',
       ],
       'include_dirs': [
         '..',
@@ -75,6 +76,7 @@
         'shell/shell_content_renderer_client.cc',
         'shell/shell_content_renderer_client.h',
         'shell/shell_devtools_delegate.cc',
+        'shell/shell_devtools_delegate_android.cc',
         'shell/shell_devtools_delegate.h',
         'shell/shell_download_manager_delegate.cc',
         'shell/shell_download_manager_delegate.h',
@@ -134,18 +136,21 @@
             },
           },
         }],  # OS=="win"
-        ['OS!="android"', {
-          'dependencies': [
-            # This dependency is for running DRT against the content shell, and
-            # this combination is not yet supported on Android.
-            '../webkit/support/webkit_support.gyp:webkit_support',
-          ],
-        }, {  # else: OS=="android"
+        ['OS=="android"', {
           'dependencies': [
             'content_shell_jni_headers',
           ],
           'include_dirs': [
             '<(SHARED_INTERMEDIATE_DIR)/content/shell',
+          ],
+          'sources!': [
+            'shell/shell_devtools_delegate.cc',
+          ],
+        }, {  # else: OS!="android"
+          'dependencies': [
+            # This dependency is for running DRT against the content shell, and
+            # this combination is not yet supported on Android.
+            '../webkit/support/webkit_support.gyp:webkit_support',
           ],
         }],  # OS=="android"
         ['os_posix==1 and use_aura==1 and linux_use_tcmalloc==1', {
@@ -235,7 +240,6 @@
       'dependencies': [
         'browser/debugger/devtools_resources.gyp:devtools_resources',
         'content_shell_resources',
-        '<(DEPTH)/net/net.gyp:net_resources',
         '<(DEPTH)/ui/ui.gyp:ui_resources',
       ],
       'variables': {
@@ -643,13 +647,18 @@
                 # Pass the build type to ant. Currently it only assumes
                 # debug mode in java. Release mode will break the current
                 # workflow.
-                # 'shell/content_shell_ant_helper.sh',
+                'shell/content_shell_ant_helper.sh',
                 'ant',
                 '-DPRODUCT_DIR=<(ant_build_out)',
                 '-DAPP_ABI=<(android_app_abi)',
+                '-DANDROID_SDK=<(android_sdk)',
+                '-DANDROID_SDK_ROOT=<(android_sdk_root)',
+                '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
+                '-DANDROID_SDK_VERSION=<(android_sdk_version)',
+                '-DANDROID_TOOLCHAIN=<(android_toolchain)',
                 '-buildfile',
                 'shell/android/java/content_shell_apk.xml',
-                # '<(CONFIGURATION_NAME)',
+                '<(CONFIGURATION_NAME)',
               ],
               'dependencies': [
                 'content_java',

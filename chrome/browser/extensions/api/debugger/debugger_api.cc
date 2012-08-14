@@ -16,13 +16,13 @@
 #include "base/string_number_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/extensions/api/debugger/debugger_api_constants.h"
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/infobars/infobar.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -254,9 +254,9 @@ void ExtensionDevToolsClientHost::SendDetachedEvent() {
     Debuggee debuggee;
     debuggee.tab_id = tab_id_;
 
-    std::string json_args = OnDetach::ToJson(debuggee);
+    scoped_ptr<base::ListValue> args(OnDetach::Create(debuggee));
     profile->GetExtensionEventRouter()->DispatchEventToExtension(
-        extension_id_, keys::kOnDetach, json_args, profile, GURL());
+        extension_id_, keys::kOnDetach, args.Pass(), profile, GURL());
   }
 }
 
@@ -307,10 +307,9 @@ void ExtensionDevToolsClientHost::DispatchOnInspectorFrontend(
     if (dictionary->GetDictionary("params", &params_value))
       params.additional_properties.Swap(params_value);
 
-    std::string json_args = OnEvent::ToJson(debuggee, method_name, params);
-
+    scoped_ptr<ListValue> args(OnEvent::Create(debuggee, method_name, params));
     profile->GetExtensionEventRouter()->DispatchEventToExtension(
-        extension_id_, keys::kOnEvent, json_args, profile, GURL());
+        extension_id_, keys::kOnEvent, args.Pass(), profile, GURL());
   } else {
     SendCommandDebuggerFunction* function = pending_requests_[id];
     if (!function)

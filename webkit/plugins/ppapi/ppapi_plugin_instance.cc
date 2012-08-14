@@ -402,7 +402,13 @@ void PluginInstance::Delete() {
   // destroy it. We want to do this prior to calling DidDestroy in case the
   // destructor of the instance object tries to use the instance.
   message_channel_->SetPassthroughObject(NULL);
-  instance_interface_->DidDestroy(pp_instance());
+  // If this is a NaCl plugin instance, shut down the NaCl plugin by calling
+  // its DidDestroy. Don't call DidDestroy on the untrusted plugin instance,
+  // since there is little that it can do at this point.
+  if (nacl_plugin_instance_interface_.get())
+    nacl_plugin_instance_interface_->DidDestroy(pp_instance());
+  else
+    instance_interface_->DidDestroy(pp_instance());
 
   if (fullscreen_container_) {
     fullscreen_container_->Destroy();
@@ -1842,8 +1848,15 @@ PP_Var PluginInstance::ExecuteScript(PP_Instance instance,
   }
 
   NPVariant result;
-  bool ok = WebBindings::evaluate(NULL, frame->windowObject(), &np_script,
-                                  &result);
+  bool ok = false;
+  if (IsProcessingUserGesture()) {
+    WebKit::WebScopedUserGesture user_gesture;
+    ok = WebBindings::evaluate(NULL, frame->windowObject(), &np_script,
+                               &result);
+  } else {
+    ok = WebBindings::evaluate(NULL, frame->windowObject(), &np_script,
+                               &result);
+  }
   if (!ok) {
     // TryCatch doesn't catch the exceptions properly. Since this is only for
     // a trusted API, just set to a general exception message.
@@ -2133,6 +2146,10 @@ PP_Var PluginInstance::GetPluginInstanceURL(
 }
 
 bool PluginInstance::ResetAsProxied() {
+  // For NaCl instances, remember the NaCl plugin instance interface, so we
+  // can shut it down by calling its DidDestroy in our Delete() method.
+  nacl_plugin_instance_interface_.reset(instance_interface_.release());
+
   base::Callback<const void*(const char*)> get_plugin_interface_func =
       base::Bind(&PluginModule::GetPluginInterface, module_.get());
   PPP_Instance_Combined* ppp_instance_combined =

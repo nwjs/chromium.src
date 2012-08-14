@@ -206,6 +206,10 @@ BrowserNonClientFrameViewAsh::GetTabStripInsets(bool force_restored) const {
   return TabStripInsets(NonClientTopBorderHeight(force_restored), left, right);
 }
 
+int BrowserNonClientFrameViewAsh::GetThemeBackgroundXInset() const {
+  return frame_painter_->GetThemeBackgroundXInset();
+}
+
 void BrowserNonClientFrameViewAsh::UpdateThrobber(bool running) {
   if (window_icon_)
     window_icon_->Update();
@@ -233,7 +237,7 @@ int BrowserNonClientFrameViewAsh::NonClientHitTest(const gfx::Point& point) {
   if (hit_test == HTCLIENT && !frame()->IsMaximized()) {
     // Convert point to client coordinates.
     gfx::Point client_point(point);
-    View::ConvertPointToView(this, frame()->client_view(), &client_point);
+    View::ConvertPointToTarget(this, frame()->client_view(), &client_point);
     // Report hits in shadow at top of tabstrip as caption.
     gfx::Rect tabstrip_bounds(browser_view()->tabstrip()->bounds());
     if (client_point.y() < tabstrip_bounds.y() + tab_shadow_height())
@@ -328,9 +332,9 @@ std::string BrowserNonClientFrameViewAsh::GetClassName() const {
   return kViewClassName;
 }
 
-bool BrowserNonClientFrameViewAsh::HitTest(const gfx::Point& l) const {
-  // If the point is outside the bounds of the client area, claim it.
-  if (NonClientFrameView::HitTest(l))
+bool BrowserNonClientFrameViewAsh::HitTestRect(const gfx::Rect& rect) const {
+  // If the rect is outside the bounds of the client area, claim it.
+  if (NonClientFrameView::HitTestRect(rect))
     return true;
 
   // Otherwise claim it only if it's in a non-tab portion of the tabstrip.
@@ -338,16 +342,18 @@ bool BrowserNonClientFrameViewAsh::HitTest(const gfx::Point& l) const {
     return false;
   gfx::Rect tabstrip_bounds(browser_view()->tabstrip()->bounds());
   gfx::Point tabstrip_origin(tabstrip_bounds.origin());
-  View::ConvertPointToView(frame()->client_view(), this, &tabstrip_origin);
+  View::ConvertPointToTarget(frame()->client_view(), this, &tabstrip_origin);
   tabstrip_bounds.set_origin(tabstrip_origin);
-  if (l.y() > tabstrip_bounds.bottom())
+  if (rect.bottom() > tabstrip_bounds.bottom())
     return false;
 
   // We convert from our parent's coordinates since we assume we fill its bounds
   // completely. We need to do this since we're not a parent of the tabstrip,
-  // meaning ConvertPointToView would otherwise return something bogus.
-  gfx::Point browser_view_point(l);
-  View::ConvertPointToView(parent(), browser_view(), &browser_view_point);
+  // meaning ConvertPointToTarget would otherwise return something bogus.
+  // TODO(tdanderson): Initialize |browser_view_point| using |rect| instead of
+  // its center point once GetEventHandlerForRect() is implemented.
+  gfx::Point browser_view_point(rect.CenterPoint());
+  View::ConvertPointToTarget(parent(), browser_view(), &browser_view_point);
   return browser_view()->IsPositionInWindowCaption(browser_view_point);
 }
 
@@ -364,7 +370,7 @@ gfx::Size BrowserNonClientFrameViewAsh::GetMinimumSize() {
 // views::ButtonListener overrides:
 
 void BrowserNonClientFrameViewAsh::ButtonPressed(views::Button* sender,
-                                                  const views::Event& event) {
+                                                  const ui::Event& event) {
   // When shift-clicking slow down animations for visual debugging.
   // We used to do this via an event filter that looked for the shift key being
   // pressed but this interfered with several normal keyboard shortcuts.
@@ -491,7 +497,7 @@ void BrowserNonClientFrameViewAsh::PaintToolbarBackground(
   if (toolbar_bounds.IsEmpty())
     return;
   gfx::Point toolbar_origin(toolbar_bounds.origin());
-  ConvertPointToView(browser_view(), this, &toolbar_origin);
+  View::ConvertPointToTarget(browser_view(), this, &toolbar_origin);
   toolbar_bounds.set_origin(toolbar_origin);
 
   int x = toolbar_bounds.x();
@@ -521,7 +527,8 @@ void BrowserNonClientFrameViewAsh::PaintToolbarBackground(
       browser_view()->GetToolbarBackgroundImage(mode);
   canvas->TileImageInt(
       *theme_toolbar,
-      x, bottom_y - GetTabStripInsets(false).top,
+      x + GetThemeBackgroundXInset(),
+      bottom_y - GetTabStripInsets(false).top,
       x, bottom_y,
       w, theme_toolbar->height());
 

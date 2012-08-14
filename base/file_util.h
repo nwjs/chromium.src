@@ -235,10 +235,16 @@ enum ShortcutOptions {
 };
 
 // Resolve Windows shortcut (.LNK file)
-// This methods tries to resolve a shortcut .LNK file. If the |path| is valid
-// returns true and puts the target into the |path|, otherwise returns
-// false leaving the path as it is.
-BASE_EXPORT bool ResolveShortcut(FilePath* path);
+// This methods tries to resolve a shortcut .LNK file. The path of the shortcut
+// to resolve is in |shortcut_path|. If |target_path| is not NULL, the target
+// will be resolved and placed in |target_path|. If |args| is not NULL, the
+// arguments will be retrieved and placed in |args|. The function returns true
+// if all requested fields are are found successfully.
+// Callers can safely use the same variable for both |shortcut_path| and
+// |target_path|.
+BASE_EXPORT bool ResolveShortcut(const FilePath& shortcut_path,
+                                 FilePath* target_path,
+                                 string16* args);
 
 // Creates (or updates) a Windows shortcut (.LNK file)
 // This method creates (or updates) a shortcut link using the information given.
@@ -517,8 +523,8 @@ class BASE_EXPORT FileEnumerator {
   // files in one directory will be returned before any files in a
   // subdirectory.
   //
-  // |file_type| specifies whether the enumerator should match files,
-  // directories, or both.
+  // |file_type|, a bit mask of FileType, specifies whether the enumerator
+  // should match files, directories, or both.
   //
   // |pattern| is an optional pattern for which files to match. This
   // works like shell globbing. For example, "*.txt" or "Foo???.doc".
@@ -531,10 +537,10 @@ class BASE_EXPORT FileEnumerator {
   // TODO(erikkay): Fix the pattern matching to work at all levels.
   FileEnumerator(const FilePath& root_path,
                  bool recursive,
-                 FileType file_type);
+                 int file_type);
   FileEnumerator(const FilePath& root_path,
                  bool recursive,
-                 FileType file_type,
+                 int file_type,
                  const FilePath::StringType& pattern);
   ~FileEnumerator();
 
@@ -581,7 +587,7 @@ class BASE_EXPORT FileEnumerator {
 
   FilePath root_path_;
   bool recursive_;
-  FileType file_type_;
+  int file_type_;
   FilePath::StringType pattern_;  // Empty when we want to find everything.
 
   // A stack that keeps track of which subdirectories we still need to

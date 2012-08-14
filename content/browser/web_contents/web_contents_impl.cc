@@ -15,9 +15,10 @@
 #include "base/sys_info.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
-#include "content/browser/browser_plugin/old/browser_plugin_host.h"
+#include "content/browser/browser_plugin/old/old_browser_plugin_host.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/debugger/devtools_manager_impl.h"
+#include "content/browser/dom_storage/dom_storage_context_impl.h"
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/download/download_stats.h"
 #include "content/browser/download/mhtml_generation_manager.h"
@@ -67,7 +68,6 @@
 #include "net/base/net_util.h"
 #include "net/base/network_change_notifier.h"
 #include "net/url_request/url_request_context_getter.h"
-#include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositor.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebView.h"
 #include "ui/base/layout.h"
 #include "ui/base/ui_base_switches.h"
@@ -189,6 +189,8 @@ ViewMsg_Navigate_Type::Value GetNavigationType(
       return ViewMsg_Navigate_Type::RELOAD;
     case NavigationControllerImpl::RELOAD_IGNORING_CACHE:
       return ViewMsg_Navigate_Type::RELOAD_IGNORING_CACHE;
+    case NavigationControllerImpl::RELOAD_ORIGINAL_REQUEST_URL:
+      return ViewMsg_Navigate_Type::RELOAD_ORIGINAL_REQUEST_URL;
     case NavigationControllerImpl::NO_RELOAD:
       break;  // Fall through to rest of function.
   }
@@ -216,7 +218,6 @@ void MakeNavigateParams(const NavigationEntryImpl& entry,
   params->pending_history_list_offset = controller.GetIndexOfEntry(&entry);
   params->current_history_list_offset = controller.GetLastCommittedEntryIndex();
   params->current_history_list_length = controller.GetEntryCount();
-  params->url = entry.GetURL();
   if (!entry.GetBaseURLForDataURL().is_empty()) {
     params->base_url_for_data_url = entry.GetBaseURLForDataURL();
     params->history_url_for_data_url = entry.GetVirtualURL();
@@ -246,6 +247,17 @@ void MakeNavigateParams(const NavigationEntryImpl& entry,
 
   }
 
+  if (reload_type == NavigationControllerImpl::RELOAD_ORIGINAL_REQUEST_URL &&
+      entry.GetOriginalRequestURL().is_valid() && !entry.GetHasPostData()) {
+    // We may have been redirected when navigating to the current URL.
+    // Use the URL the user originally intended to visit, if it's valid and if a
+    // POST wasn't involved; the latter case avoids issues with sending data to
+    // the wrong page.
+    params->url = entry.GetOriginalRequestURL();
+  } else {
+    params->url = entry.GetURL();
+  }
+
   if (delegate)
     delegate->AddNavigationHeaders(params->url, &params->extra_headers);
 }
@@ -270,15 +282,31 @@ WebContents* WebContents::Create(
     BrowserContext* browser_context,
     SiteInstance* site_instance,
     int routing_id,
+    const WebContents* base_web_contents) {
+  return WebContentsImpl::Create(
+      browser_context, site_instance, routing_id,
+      static_cast<const WebContentsImpl*>(base_web_contents));
+}
+
+WebContents* WebContents::CreateWithSessionStorage(
+    BrowserContext* browser_context,
+    SiteInstance* site_instance,
+    int routing_id,
     const WebContents* base_web_contents,
-    SessionStorageNamespace* session_storage_namespace) {
-  return new WebContentsImpl(
-      browser_context,
-      site_instance,
-      routing_id,
-      static_cast<const WebContentsImpl*>(base_web_contents),
-      NULL,
-      static_cast<SessionStorageNamespaceImpl*>(session_storage_namespace));
+    const SessionStorageNamespaceMap& session_storage_namespace_map) {
+  WebContentsImpl* new_contents = new WebContentsImpl(browser_context, NULL);
+
+  for (SessionStorageNamespaceMap::const_iterator it =
+           session_storage_namespace_map.begin();
+       it != session_storage_namespace_map.end();
+       ++it) {
+    new_contents->GetController().SetSessionStorageNamespace(it->first,
+                                                             it->second);
+  }
+
+  new_contents->Init(browser_context, site_instance, routing_id,
+                     static_cast<const WebContentsImpl*>(base_web_contents));
+  return new_contents;
 }
 
 WebContents* WebContents::FromRenderViewHost(const RenderViewHost* rvh) {
@@ -291,14 +319,9 @@ WebContents* WebContents::FromRenderViewHost(const RenderViewHost* rvh) {
 
 WebContentsImpl::WebContentsImpl(
     content::BrowserContext* browser_context,
-    SiteInstance* site_instance,
-    int routing_id,
-    const WebContentsImpl* base_web_contents,
-    WebContentsImpl* opener,
-    SessionStorageNamespaceImpl* session_storage_namespace)
+    WebContentsImpl* opener)
     : delegate_(NULL),
-      ALLOW_THIS_IN_INITIALIZER_LIST(controller_(
-          this, browser_context, session_storage_namespace)),
+      ALLOW_THIS_IN_INITIALIZER_LIST(controller_(this, browser_context)),
       render_view_host_delegate_view_(NULL),
       opener_(opener),
       ALLOW_THIS_IN_INITIALIZER_LIST(render_manager_(this, this, this)),
@@ -327,43 +350,6 @@ WebContentsImpl::WebContentsImpl(
       temporary_zoom_settings_(false),
       content_restrictions_(0),
       color_chooser_(NULL) {
-  render_manager_.Init(browser_context, site_instance, routing_id);
-
-  view_.reset(content::GetContentClient()->browser()->
-      OverrideCreateWebContentsView(this, &render_view_host_delegate_view_));
-  if (view_.get()) {
-    CHECK(render_view_host_delegate_view_);
-  } else {
-    content::WebContentsViewDelegate* delegate =
-        content::GetContentClient()->browser()->GetWebContentsViewDelegate(
-            this);
-    view_.reset(CreateWebContentsView(
-        this, delegate, &render_view_host_delegate_view_));
-    CHECK(render_view_host_delegate_view_);
-  }
-  CHECK(view_.get());
-
-  // We have the initial size of the view be based on the size of the view of
-  // the passed in WebContents.
-  view_->CreateView(base_web_contents ?
-      base_web_contents->GetView()->GetContainerSize() : gfx::Size());
-
-  // Listen for whether our opener gets destroyed.
-  if (opener_) {
-    registrar_.Add(this, content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
-                   content::Source<WebContents>(opener_));
-  }
-
-  registrar_.Add(this,
-                 content::NOTIFICATION_RENDER_WIDGET_HOST_DESTROYED,
-                 content::NotificationService::AllBrowserContextsAndSources());
-
-#if defined(ENABLE_JAVA_BRIDGE)
-  java_bridge_dispatcher_host_manager_.reset(
-      new JavaBridgeDispatcherHostManager(this));
-#endif
-
-  browser_plugin_host_.reset(new content::BrowserPluginHost(this));
 }
 
 WebContentsImpl::~WebContentsImpl() {
@@ -406,6 +392,28 @@ WebContentsImpl::~WebContentsImpl() {
                     WebContentsImplDestroyed());
 
   SetDelegate(NULL);
+}
+
+WebContentsImpl* WebContentsImpl::Create(
+    BrowserContext* browser_context,
+    SiteInstance* site_instance,
+    int routing_id,
+    const WebContentsImpl* base_web_contents) {
+  return CreateWithOpener(browser_context, site_instance, routing_id,
+                          base_web_contents, NULL);
+}
+
+WebContentsImpl* WebContentsImpl::CreateWithOpener(
+    BrowserContext* browser_context,
+    SiteInstance* site_instance,
+    int routing_id,
+    const WebContentsImpl* base_web_contents,
+    WebContentsImpl* opener) {
+  WebContentsImpl* new_contents = new WebContentsImpl(browser_context, opener);
+
+  new_contents->Init(browser_context, site_instance, routing_id,
+                     static_cast<const WebContentsImpl*>(base_web_contents));
+  return new_contents;
 }
 
 WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
@@ -580,15 +588,6 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
     prefs.accelerated_2d_canvas_enabled = false;
   }
 
-#if !defined(WEBCOMPOSITOR_OWNS_SETTINGS)
-  prefs.threaded_animation_enabled =
-      !command_line.HasSwitch(switches::kDisableThreadedAnimation);
-  prefs.per_tile_painting_enabled =
-      command_line.HasSwitch(switches::kEnablePerTilePainting);
-  prefs.partial_swap_enabled =
-      command_line.HasSwitch(switches::kEnablePartialSwap);
-#endif
-
   if (command_line.HasSwitch(switches::kDefaultTileWidth))
     prefs.default_tile_width =
         GetSwitchValueAsInt(command_line, switches::kDefaultTileWidth, 1);
@@ -616,10 +615,6 @@ WebPreferences WebContentsImpl::GetWebkitPrefs(RenderViewHost* rvh,
   content::GetContentClient()->browser()->OverrideWebkitPrefs(rvh, url, &prefs);
 
   return prefs;
-}
-
-NavigationControllerImpl& WebContentsImpl::GetControllerImpl() {
-  return controller_;
 }
 
 RenderViewHostManager* WebContentsImpl::GetRenderManagerForTesting() {
@@ -697,11 +692,11 @@ void WebContentsImpl::RunFileChooser(
     delegate_->RunFileChooser(this, params);
 }
 
-NavigationController& WebContentsImpl::GetController() {
+NavigationControllerImpl& WebContentsImpl::GetController() {
   return controller_;
 }
 
-const NavigationController& WebContentsImpl::GetController() const {
+const NavigationControllerImpl& WebContentsImpl::GetController() const {
   return controller_;
 }
 
@@ -1015,10 +1010,10 @@ WebContents* WebContentsImpl::Clone() {
   // We use our current SiteInstance since the cloned entry will use it anyway.
   // We pass |this| for the |base_web_contents| to size the view correctly, and
   // our own opener so that the cloned page can access it if it was before.
-  WebContentsImpl* tc = new WebContentsImpl(
-      GetBrowserContext(), GetSiteInstance(),
-      MSG_ROUTING_NONE, this, opener_, NULL);
-  tc->GetControllerImpl().CopyStateFrom(controller_);
+  WebContentsImpl* tc = CreateWithOpener(GetBrowserContext(),
+                                         GetSiteInstance(), MSG_ROUTING_NONE,
+                                         this, opener_);
+  tc->GetController().CopyStateFrom(controller_);
   return tc;
 }
 
@@ -1073,6 +1068,48 @@ void WebContentsImpl::Observe(int type,
   }
 }
 
+void WebContentsImpl::Init(BrowserContext* browser_context,
+                           SiteInstance* site_instance,
+                           int routing_id,
+                           const WebContents* base_web_contents) {
+  render_manager_.Init(browser_context, site_instance, routing_id);
+
+  view_.reset(content::GetContentClient()->browser()->
+      OverrideCreateWebContentsView(this, &render_view_host_delegate_view_));
+  if (view_.get()) {
+    CHECK(render_view_host_delegate_view_);
+  } else {
+    content::WebContentsViewDelegate* delegate =
+        content::GetContentClient()->browser()->GetWebContentsViewDelegate(
+            this);
+    view_.reset(CreateWebContentsView(
+        this, delegate, &render_view_host_delegate_view_));
+    CHECK(render_view_host_delegate_view_);
+  }
+  CHECK(view_.get());
+
+  // We have the initial size of the view be based on the size of the view of
+  // the passed in WebContents.
+  view_->CreateView(base_web_contents ?
+      base_web_contents->GetView()->GetContainerSize() : gfx::Size());
+
+  // Listen for whether our opener gets destroyed.
+  if (opener_) {
+    registrar_.Add(this, content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
+                   content::Source<WebContents>(opener_));
+  }
+
+  registrar_.Add(this,
+                 content::NOTIFICATION_RENDER_WIDGET_HOST_DESTROYED,
+                 content::NotificationService::AllBrowserContextsAndSources());
+#if defined(ENABLE_JAVA_BRIDGE)
+  java_bridge_dispatcher_host_manager_.reset(
+      new JavaBridgeDispatcherHostManager(this));
+#endif
+
+  old_browser_plugin_host_.reset(new content::old::BrowserPluginHost(this));
+}
+
 void WebContentsImpl::OnWebContentsDestroyed(WebContents* web_contents) {
   // Clear the opener if it has been closed.
   if (web_contents == opener_) {
@@ -1109,12 +1146,12 @@ bool WebContentsImpl::PreHandleKeyboardEvent(
     const NativeWebKeyboardEvent& event,
     bool* is_keyboard_shortcut) {
   return delegate_ &&
-      delegate_->PreHandleKeyboardEvent(event, is_keyboard_shortcut);
+      delegate_->PreHandleKeyboardEvent(this, event, is_keyboard_shortcut);
 }
 
 void WebContentsImpl::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
   if (delegate_)
-    delegate_->HandleKeyboardEvent(event);
+    delegate_->HandleKeyboardEvent(this, event);
 }
 
 void WebContentsImpl::HandleMouseDown() {
@@ -1187,13 +1224,27 @@ void WebContentsImpl::CreateNewWindow(
 
   // Create the new web contents. This will automatically create the new
   // WebContentsView. In the future, we may want to create the view separately.
-  WebContentsImpl* new_contents = new WebContentsImpl(
-      GetBrowserContext(),
-                          site_instance,
-                          route_id,
-                          this,
-                          params.opener_suppressed ? NULL : this,
-      static_cast<SessionStorageNamespaceImpl*>(session_storage_namespace));
+  WebContentsImpl* new_contents =
+      new WebContentsImpl(GetBrowserContext(),
+                          params.opener_suppressed ? NULL : this);
+
+  // We must assign the SessionStorageNamespace before calling Init().
+  const std::string& partition_id =
+      content::GetContentClient()->browser()->
+          GetStoragePartitionIdForSiteInstance(GetBrowserContext(),
+                                               site_instance);
+  DOMStorageContextImpl* dom_storage_context =
+      static_cast<DOMStorageContextImpl*>(
+          BrowserContext::GetDOMStorageContextByPartitionId(
+              GetBrowserContext(), partition_id));
+  SessionStorageNamespaceImpl* session_storage_namespace_impl =
+      static_cast<SessionStorageNamespaceImpl*>(session_storage_namespace);
+  CHECK(session_storage_namespace_impl->IsFromContext(dom_storage_context));
+  new_contents->GetController().SetSessionStorageNamespace(
+      partition_id,
+      session_storage_namespace);
+  new_contents->Init(GetBrowserContext(), site_instance, route_id, this);
+
   new_contents->set_opener_web_ui_type(GetWebUITypeForCurrentState());
 
   if (!params.opener_suppressed) {
@@ -1987,7 +2038,7 @@ void WebContentsImpl::OnDidLoadResourceFromMemoryCache(
 void WebContentsImpl::OnDidDisplayInsecureContent() {
   content::RecordAction(UserMetricsAction("SSL.DisplayedInsecureContent"));
   displayed_insecure_content_ = true;
-  SSLManager::NotifySSLInternalStateChanged(&GetControllerImpl());
+  SSLManager::NotifySSLInternalStateChanged(&GetController());
 }
 
 void WebContentsImpl::OnDidRunInsecureContent(
@@ -1999,7 +2050,7 @@ void WebContentsImpl::OnDidRunInsecureContent(
     content::RecordAction(UserMetricsAction("SSL.RanInsecureContentGoogle"));
   controller_.ssl_manager()->DidRunInsecureContent(security_origin);
   displayed_insecure_content_ = true;
-  SSLManager::NotifySSLInternalStateChanged(&GetControllerImpl());
+  SSLManager::NotifySSLInternalStateChanged(&GetController());
 }
 
 void WebContentsImpl::OnDocumentLoadedInFrame(int64 frame_id) {
@@ -2121,15 +2172,6 @@ void WebContentsImpl::OnFindReply(int request_id,
     delegate_->FindReply(this, request_id, number_of_matches, selection_rect,
                          active_match_ordinal, final_update);
   }
-
-  // Send a notification to the renderer that we are ready to receive more
-  // results from the scoping effort of the Find operation. The FindInPage
-  // scoping is asynchronous and periodically sends results back up to the
-  // browser using IPC. In an effort to not spam the browser we have the
-  // browser send an ACK for each FindReply message and have the renderer
-  // queue up the latest status message while waiting for this ACK.
-  GetRenderViewHostImpl()->Send(
-      new ViewMsg_FindReplyACK(GetRenderViewHost()->GetRoutingID()));
 }
 
 void WebContentsImpl::OnCrashedPlugin(const FilePath& plugin_path) {
@@ -2673,7 +2715,7 @@ void WebContentsImpl::DidCancelLoading() {
 
 void WebContentsImpl::DidChangeLoadProgress(double progress) {
   if (delegate_)
-    delegate_->LoadProgressChanged(progress);
+    delegate_->LoadProgressChanged(this, progress);
 }
 
 void WebContentsImpl::DocumentAvailableInMainFrame(
@@ -3024,7 +3066,7 @@ int WebContentsImpl::CreateOpenerRenderViews(SiteInstance* instance) {
 }
 
 NavigationControllerImpl& WebContentsImpl::GetControllerForRenderManager() {
-  return GetControllerImpl();
+  return GetController();
 }
 
 WebUIImpl* WebContentsImpl::CreateWebUIForRenderManager(const GURL& url) {
@@ -3139,8 +3181,8 @@ void WebContentsImpl::GetBrowserPluginEmbedderInfo(
     std::string* embedder_channel_name,
     int* embedder_container_id) {
   content::RenderProcessHost* embedder_render_process_host =
-      browser_plugin_host()->embedder_render_process_host();
-  *embedder_container_id = browser_plugin_host()->instance_id();
+      old_browser_plugin_host()->embedder_render_process_host();
+  *embedder_container_id = old_browser_plugin_host()->instance_id();
   int embedder_process_id =
       embedder_render_process_host ? embedder_render_process_host->GetID() : -1;
   if (embedder_process_id != -1) {

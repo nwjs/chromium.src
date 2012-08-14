@@ -231,6 +231,7 @@
          'target_name': 'common_aidl',
          'type': 'none',
          'variables': {
+           'package_name': 'content',
            'aidl_interface_file': 'public/android/java/src/org/chromium/content/common/common.aidl',
          },
          'sources': [
@@ -245,7 +246,12 @@
          'dependencies': [
            '../base/base.gyp:base_java',
            '../net/net.gyp:net_java',
+           'common_aidl',
            'content_common',
+         ],
+         'export_dependent_settings': [
+           '../base/base.gyp:base_java',
+           '../net/net.gyp:net_java',
          ],
          'variables': {
            'package_name': 'content',

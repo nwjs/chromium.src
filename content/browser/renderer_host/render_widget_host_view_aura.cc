@@ -32,10 +32,10 @@
 #include "ui/aura/client/tooltip_client.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/base/event.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ime/input_method.h"
@@ -89,7 +89,7 @@ void UpdateWebTouchEventAfterDispatch(WebKit::WebTouchEvent* event,
   }
 }
 
-bool CanRendererHandleEvent(const aura::MouseEvent* event) {
+bool CanRendererHandleEvent(const ui::MouseEvent* event) {
   if (event->type() == ui::ET_MOUSE_CAPTURE_CHANGED)
     return false;
 
@@ -458,7 +458,9 @@ void RenderWidgetHostViewAura::SetTooltipText(const string16& tooltip_text) {
 
 void RenderWidgetHostViewAura::SelectionBoundsChanged(
     const gfx::Rect& start_rect,
-    const gfx::Rect& end_rect) {
+    WebKit::WebTextDirection start_direction,
+    const gfx::Rect& end_rect,
+    WebKit::WebTextDirection end_direction) {
   if (selection_start_rect_ == start_rect && selection_end_rect_ == end_rect)
     return;
 
@@ -774,8 +776,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfaceNew(
       uint64 surface_handle) {
   ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
   scoped_refptr<ui::Texture> surface(factory->CreateTransportClient(
-      gfx::Size(width_in_pixel, height_in_pixel), surface_handle,
-      GetCompositor()));
+      gfx::Size(width_in_pixel, height_in_pixel), surface_handle));
   if (!surface) {
     LOG(ERROR) << "Failed to create ImageTransport texture";
     return;
@@ -1149,7 +1150,7 @@ void RenderWidgetHostViewAura::OnBlur() {
   }
 }
 
-bool RenderWidgetHostViewAura::OnKeyEvent(aura::KeyEvent* event) {
+bool RenderWidgetHostViewAura::OnKeyEvent(ui::KeyEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnKeyEvent");
   if (popup_child_host_view_ && popup_child_host_view_->NeedsInputGrab() &&
       popup_child_host_view_->OnKeyEvent(event))
@@ -1196,7 +1197,7 @@ bool RenderWidgetHostViewAura::ShouldDescendIntoChildForEventHandling(
   return true;
 }
 
-bool RenderWidgetHostViewAura::OnMouseEvent(aura::MouseEvent* event) {
+bool RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnMouseEvent");
   if (mouse_locked_) {
     WebKit::WebMouseEvent mouse_event = MakeWebMouseEvent(event);
@@ -1236,13 +1237,13 @@ bool RenderWidgetHostViewAura::OnMouseEvent(aura::MouseEvent* event) {
         MakeWebGestureEventFlingCancel();
     host_->ForwardGestureEvent(gesture_event);
     WebKit::WebMouseWheelEvent mouse_wheel_event =
-        MakeWebMouseWheelEvent(static_cast<aura::ScrollEvent*>(event));
+        MakeWebMouseWheelEvent(static_cast<ui::ScrollEvent*>(event));
     host_->ForwardWheelEvent(mouse_wheel_event);
     RecordAction(UserMetricsAction("TrackpadScroll"));
   } else if (event->type() == ui::ET_SCROLL_FLING_START ||
       event->type() == ui::ET_SCROLL_FLING_CANCEL) {
     WebKit::WebGestureEvent gesture_event =
-        MakeWebGestureEvent(static_cast<aura::ScrollEvent*>(event));
+        MakeWebGestureEvent(static_cast<ui::ScrollEvent*>(event));
     host_->ForwardGestureEvent(gesture_event);
     if (event->type() == ui::ET_SCROLL_FLING_START)
       RecordAction(UserMetricsAction("TrackpadScrollFling"));
@@ -1276,7 +1277,7 @@ bool RenderWidgetHostViewAura::OnMouseEvent(aura::MouseEvent* event) {
 }
 
 ui::TouchStatus RenderWidgetHostViewAura::OnTouchEvent(
-    aura::TouchEvent* event) {
+    ui::TouchEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnTouchEvent");
   // Update the touch event first.
   WebKit::WebTouchPoint* point = UpdateWebTouchEvent(event,
@@ -1294,7 +1295,7 @@ ui::TouchStatus RenderWidgetHostViewAura::OnTouchEvent(
 }
 
 ui::GestureStatus RenderWidgetHostViewAura::OnGestureEvent(
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewAura::OnGestureEvent");
   // Pinch gestures are currently disabled by default. See crbug.com/128477.
   if ((event->type() == ui::ET_GESTURE_PINCH_BEGIN ||
@@ -1399,13 +1400,13 @@ void RenderWidgetHostViewAura::GetHitTestMask(gfx::Path* mask) const {
 ////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, aura::client::ActivationDelegate implementation:
 
-bool RenderWidgetHostViewAura::ShouldActivate(const aura::Event* event) {
+bool RenderWidgetHostViewAura::ShouldActivate(const ui::Event* event) {
   bool activate = false;
   if (event) {
     if (event->type() == ui::ET_MOUSE_PRESSED) {
       activate = true;
     } else if (event->type() == ui::ET_GESTURE_BEGIN) {
-      activate = static_cast<const aura::GestureEvent*>(event)->
+      activate = static_cast<const ui::GestureEvent*>(event)->
           details().touch_points() == 1;
     }
   }

@@ -38,12 +38,10 @@ class DefaultAlarmDelegate : public AlarmManager::Delegate {
 
   virtual void OnAlarm(const std::string& extension_id,
                        const Alarm& alarm) {
-    ListValue args;
-    std::string json_args;
-    args.Append(alarm.js_alarm->ToValue().release());
-    base::JSONWriter::Write(&args, &json_args);
+    scoped_ptr<ListValue> args(new ListValue());
+    args->Append(alarm.js_alarm->ToValue().release());
     ExtensionSystem::Get(profile_)->event_router()->DispatchEventToExtension(
-        extension_id, kOnAlarmEvent, json_args, NULL, GURL());
+        extension_id, kOnAlarmEvent, args.Pass(), NULL, GURL());
   }
 
  private:
@@ -59,11 +57,11 @@ base::TimeDelta TimeDeltaFromDelay(double delay_in_minutes) {
 std::vector<Alarm> AlarmsFromValue(const base::ListValue* list) {
   std::vector<Alarm> alarms;
   for (size_t i = 0; i < list->GetSize(); ++i) {
-    base::DictionaryValue* alarm_dict = NULL;
+    const base::DictionaryValue* alarm_dict = NULL;
     Alarm alarm;
     if (list->GetDictionary(i, &alarm_dict) &&
         api::alarms::Alarm::Populate(*alarm_dict, alarm.js_alarm.get())) {
-      base::Value* time_value = NULL;
+      const base::Value* time_value = NULL;
       if (alarm_dict->Get(kAlarmGranularity, &time_value))
         base::GetValueAsTimeDelta(*time_value, &alarm.granularity);
       alarms.push_back(alarm);
@@ -72,8 +70,7 @@ std::vector<Alarm> AlarmsFromValue(const base::ListValue* list) {
   return alarms;
 }
 
-scoped_ptr<base::ListValue> AlarmsToValue(
-    const std::vector<Alarm>& alarms) {
+scoped_ptr<base::ListValue> AlarmsToValue(const std::vector<Alarm>& alarms) {
   scoped_ptr<base::ListValue> list(new ListValue());
   for (size_t i = 0; i < alarms.size(); ++i) {
     scoped_ptr<base::DictionaryValue> alarm =

@@ -83,13 +83,13 @@ class DownloadItemView : public views::ButtonListener,
   // Overridden from views::View:
   virtual void Layout() OVERRIDE;
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual void OnMouseMoved(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnKeyPressed(const views::KeyEvent& event) OVERRIDE;
+  virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(
       const views::GestureEvent& event) OVERRIDE;
   virtual bool GetTooltipText(const gfx::Point& p,
@@ -102,7 +102,7 @@ class DownloadItemView : public views::ButtonListener,
 
   // ButtonListener implementation.
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // ui::AnimationDelegate implementation.
   virtual void AnimationProgressed(const ui::Animation* animation) OVERRIDE;
@@ -154,8 +154,8 @@ class DownloadItemView : public views::ButtonListener,
   void ShowContextMenuImpl(const gfx::Point& point, bool is_mouse_gesture);
 
   // Common code for handling pointer events (i.e. mouse or gesture).
-  void HandlePressEvent(const views::LocatedEvent& event, bool active_event);
-  void HandleClickEvent(const views::LocatedEvent& event, bool active_event);
+  void HandlePressEvent(const ui::LocatedEvent& event, bool active_event);
+  void HandleClickEvent(const ui::LocatedEvent& event, bool active_event);
 
   // Convenience method to paint the 3 vertical images (bottom, middle, top)
   // that form the background.

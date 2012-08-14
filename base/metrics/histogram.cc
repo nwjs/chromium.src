@@ -14,9 +14,12 @@
 #include <algorithm>
 #include <string>
 
+#include "base/compiler_specific.h"
+#include "base/debug/alias.h"
 #include "base/logging.h"
 #include "base/metrics/statistics_recorder.h"
 #include "base/pickle.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/synchronization/lock.h"
 
@@ -129,12 +132,37 @@ bool Histogram::SampleSet::Deserialize(PickleIterator* iter) {
   return count == redundant_count_;
 }
 
+// TODO(rtenneti): delete this code after debugging.
+void CheckCorruption(const Histogram& histogram) {
+  const std::string& histogram_name = histogram.histogram_name();
+  char histogram_name_buf[128];
+  base::strlcpy(histogram_name_buf,
+                histogram_name.c_str(),
+                arraysize(histogram_name_buf));
+  base::debug::Alias(histogram_name_buf);
+
+  Sample previous_range = -1;  // Bottom range is always 0.
+  for (size_t index = 0; index < histogram.bucket_count(); ++index) {
+    int new_range = histogram.ranges(index);
+    if (previous_range >= new_range) {
+      CHECK(false);  // Crash for the bucket order corruption.
+    }
+    previous_range = new_range;
+  }
+
+  if (!histogram.bucket_ranges()->HasValidChecksum()) {
+    CHECK(false);  // Crash for the checksum corruption.
+  }
+}
+
 Histogram* Histogram::FactoryGet(const string& name,
                                  Sample minimum,
                                  Sample maximum,
                                  size_t bucket_count,
-                                 Flags flags) {
-  CHECK(InspectConstructionArguments(name, &minimum, &maximum, &bucket_count));
+                                 int32 flags) {
+  bool valid_arguments =
+      InspectConstructionArguments(name, &minimum, &maximum, &bucket_count);
+  DCHECK(valid_arguments);
 
   Histogram* histogram = StatisticsRecorder::FindHistogram(name);
   if (!histogram) {
@@ -150,6 +178,8 @@ Histogram* Histogram::FactoryGet(const string& name,
     histogram =
         StatisticsRecorder::RegisterOrDeleteDuplicate(tentative_histogram);
   }
+  // TODO(rtenneti): delete this code after debugging.
+  CheckCorruption(*histogram);
 
   CHECK_EQ(HISTOGRAM, histogram->histogram_type());
   CHECK(histogram->HasConstructionArguments(minimum, maximum, bucket_count));
@@ -160,7 +190,7 @@ Histogram* Histogram::FactoryTimeGet(const string& name,
                                      TimeDelta minimum,
                                      TimeDelta maximum,
                                      size_t bucket_count,
-                                     Flags flags) {
+                                     int32 flags) {
   return FactoryGet(name, minimum.InMilliseconds(), maximum.InMilliseconds(),
                     bucket_count, flags);
 }
@@ -440,7 +470,6 @@ Histogram::Histogram(const string& name,
     declared_min_(minimum),
     declared_max_(maximum),
     bucket_count_(bucket_count),
-    flags_(kNoFlags),
     sample_(bucket_count) {}
 
 Histogram::~Histogram() {
@@ -465,8 +494,15 @@ bool Histogram::InspectConstructionArguments(const string& name,
     DVLOG(1) << "Histogram: " << name << " has bad maximum: " << *maximum;
     *maximum = kSampleType_MAX - 1;
   }
+  if (*bucket_count >= kBucketCount_MAX) {
+    DVLOG(1) << "Histogram: " << name << " has bad bucket_count: "
+             << *bucket_count;
+    *bucket_count = kBucketCount_MAX - 1;
+  }
 
-  if (*bucket_count < 3 || *bucket_count >= kBucketCount_MAX)
+  if (*minimum >= *maximum)
+    return false;
+  if (*bucket_count < 3)
     return false;
   if (*bucket_count > static_cast<size_t>(*maximum - *minimum + 2))
     return false;
@@ -522,7 +558,7 @@ double Histogram::GetBucketSize(Count current, size_t i) const {
 
 const string Histogram::GetAsciiBucketRange(size_t i) const {
   string result;
-  if (kHexRangePrintingFlag & flags_)
+  if (kHexRangePrintingFlag & flags())
     StringAppendF(&result, "%#x", ranges(i));
   else
     StringAppendF(&result, "%d", ranges(i));
@@ -627,8 +663,8 @@ void Histogram::WriteAsciiHeader(const SampleSet& snapshot,
 
     StringAppendF(output, ", average = %.1f", average);
   }
-  if (flags_ & ~kHexRangePrintingFlag)
-    StringAppendF(output, " (flags = 0x%x)", flags_ & ~kHexRangePrintingFlag);
+  if (flags() & ~kHexRangePrintingFlag)
+    StringAppendF(output, " (flags = 0x%x)", flags() & ~kHexRangePrintingFlag);
 }
 
 void Histogram::WriteAsciiBucketContext(const int64 past,
@@ -676,9 +712,10 @@ Histogram* LinearHistogram::FactoryGet(const string& name,
                                        Sample minimum,
                                        Sample maximum,
                                        size_t bucket_count,
-                                       Flags flags) {
-  CHECK(Histogram::InspectConstructionArguments(name, &minimum, &maximum,
-                                                &bucket_count));
+                                       int32 flags) {
+  bool valid_arguments = Histogram::InspectConstructionArguments(
+      name, &minimum, &maximum, &bucket_count);
+  DCHECK(valid_arguments);
 
   Histogram* histogram = StatisticsRecorder::FindHistogram(name);
   if (!histogram) {
@@ -695,6 +732,8 @@ Histogram* LinearHistogram::FactoryGet(const string& name,
     histogram =
         StatisticsRecorder::RegisterOrDeleteDuplicate(tentative_histogram);
   }
+  // TODO(rtenneti): delete this code after debugging.
+  CheckCorruption(*histogram);
 
   CHECK_EQ(LINEAR_HISTOGRAM, histogram->histogram_type());
   CHECK(histogram->HasConstructionArguments(minimum, maximum, bucket_count));
@@ -705,7 +744,7 @@ Histogram* LinearHistogram::FactoryTimeGet(const string& name,
                                            TimeDelta minimum,
                                            TimeDelta maximum,
                                            size_t bucket_count,
-                                           Flags flags) {
+                                           int32 flags) {
   return FactoryGet(name, minimum.InMilliseconds(), maximum.InMilliseconds(),
                     bucket_count, flags);
 }
@@ -771,7 +810,7 @@ void LinearHistogram::InitializeBucketRanges(Sample minimum,
 // This section provides implementation for BooleanHistogram.
 //------------------------------------------------------------------------------
 
-Histogram* BooleanHistogram::FactoryGet(const string& name, Flags flags) {
+Histogram* BooleanHistogram::FactoryGet(const string& name, int32 flags) {
   Histogram* histogram = StatisticsRecorder::FindHistogram(name);
   if (!histogram) {
     // To avoid racy destruction at shutdown, the following will be leaked.
@@ -786,6 +825,8 @@ Histogram* BooleanHistogram::FactoryGet(const string& name, Flags flags) {
     histogram =
         StatisticsRecorder::RegisterOrDeleteDuplicate(tentative_histogram);
   }
+  // TODO(rtenneti): delete this code after debugging.
+  CheckCorruption(*histogram);
 
   CHECK_EQ(BOOLEAN_HISTOGRAM, histogram->histogram_type());
   return histogram;
@@ -809,7 +850,7 @@ BooleanHistogram::BooleanHistogram(const string& name,
 
 Histogram* CustomHistogram::FactoryGet(const string& name,
                                        const vector<Sample>& custom_ranges,
-                                       Flags flags) {
+                                       int32 flags) {
   CHECK(ValidateCustomRanges(custom_ranges));
 
   Histogram* histogram = StatisticsRecorder::FindHistogram(name);
@@ -826,6 +867,8 @@ Histogram* CustomHistogram::FactoryGet(const string& name,
     histogram =
         StatisticsRecorder::RegisterOrDeleteDuplicate(tentative_histogram);
   }
+  // TODO(rtenneti): delete this code after debugging.
+  CheckCorruption(*histogram);
 
   CHECK_EQ(histogram->histogram_type(), CUSTOM_HISTOGRAM);
   return histogram;
@@ -883,14 +926,15 @@ double CustomHistogram::GetBucketSize(Count current, size_t i) const {
 // static
 bool CustomHistogram::ValidateCustomRanges(
     const vector<Sample>& custom_ranges) {
-  if (custom_ranges.size() < 1)
-    return false;
+  bool has_valid_range = false;
   for (size_t i = 0; i < custom_ranges.size(); i++) {
-    Sample s = custom_ranges[i];
-    if (s < 0 || s > HistogramBase::kSampleType_MAX - 1)
+    Sample sample = custom_ranges[i];
+    if (sample < 0 || sample > HistogramBase::kSampleType_MAX - 1)
       return false;
+    if (sample != 0)
+      has_valid_range = true;
   }
-  return true;
+  return has_valid_range;
 }
 
 // static

@@ -4,16 +4,20 @@
 
 #include "ash/wm/workspace/workspace_window_resizer.h"
 
+#include "ash/display/display_controller.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
+#include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/workspace_controller.h"
+#include "ash/wm/workspace/phantom_window_controller.h"
 #include "base/string_number_conversions.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/base/hit_test.h"
 #include "ui/gfx/insets.h"
+#include "ui/gfx/screen.h"
 
 namespace ash {
 namespace internal {
@@ -53,22 +57,28 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
     aura::RootWindow* root = Shell::GetPrimaryRootWindow();
     root->SetHostSize(gfx::Size(800, kRootHeight));
 
+    aura::Window* default_container =
+        Shell::GetContainer(root, kShellWindowId_DefaultContainer);
+
     gfx::Rect root_bounds(root->bounds());
     EXPECT_EQ(kRootHeight, root_bounds.height());
     Shell::GetInstance()->SetDisplayWorkAreaInsets(root, gfx::Insets());
     window_.reset(new aura::Window(&delegate_));
+    window_->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window_->Init(ui::LAYER_NOT_DRAWN);
-    window_->SetParent(root);
+    window_->SetParent(default_container);
     window_->set_id(1);
 
     window2_.reset(new aura::Window(&delegate2_));
+    window2_->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window2_->Init(ui::LAYER_NOT_DRAWN);
-    window2_->SetParent(root);
+    window2_->SetParent(default_container);
     window2_->set_id(2);
 
     window3_.reset(new aura::Window(&delegate3_));
+    window3_->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window3_->Init(ui::LAYER_NOT_DRAWN);
-    window3_->SetParent(root);
+    window3_->SetParent(default_container);
     window3_->set_id(3);
   }
 
@@ -84,8 +94,9 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
   // from topmost to bottomost windows.
   std::string WindowOrderAsString() const {
     std::string result;
-    const aura::Window::Windows& windows =
-        Shell::GetPrimaryRootWindow()->children();
+    aura::Window* default_container = Shell::GetContainer(
+        Shell::GetPrimaryRootWindow(), kShellWindowId_DefaultContainer);
+    const aura::Window::Windows& windows = default_container->children();
     for (aura::Window::Windows::const_reverse_iterator i = windows.rbegin();
          i != windows.rend(); ++i) {
       if (*i == window_.get() || *i == window2_.get() || *i == window3_.get()) {
@@ -102,6 +113,7 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
     Shell::TestApi shell_test(Shell::GetInstance());
     shell_test.workspace_controller()->SetGridSize(grid_size);
   }
+
   gfx::Point CalculateDragPoint(const WorkspaceWindowResizer& resizer,
                                 int delta_x,
                                 int delta_y) const {
@@ -126,11 +138,22 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
   DISALLOW_COPY_AND_ASSIGN(WorkspaceWindowResizerTest);
 };
 
-// TODO(oshima): Disabling these tests because these tests
-// depends on the window to be specific size, but bots doesn't
-// have enough space and the actual window gets smaller, which
-// causing mismatch.
-#if !defined(OS_WIN)
+}  // namespace
+
+// Fails on win_aura since wm::GetRootWindowRelativeToWindow is not implemented
+// yet for the platform.
+#if defined(OS_WIN)
+#define MAYBE_WindowDragWithMultiMonitors \
+  DISABLED_WindowDragWithMultiMonitors
+#define MAYBE_WindowDragWithMultiMonitorsRightToLeft \
+  DISABLED_WindowDragWithMultiMonitorsRightToLeft
+#define MAYBE_PhantomStyle DISABLED_PhantomStyle
+#else
+#define MAYBE_WindowDragWithMultiMonitors WindowDragWithMultiMonitors
+#define MAYBE_WindowDragWithMultiMonitorsRightToLeft \
+  WindowDragWithMultiMonitorsRightToLeft
+#define MAYBE_PhantomStyle PhantomStyle
+#endif
 
 // Assertions around attached window resize dragging from the right with 2
 // windows.
@@ -348,10 +371,15 @@ TEST_F(WorkspaceWindowResizerTest, AttachedResize_BOTTOM_2) {
 // windows.
 // TODO(oshima): Host window doesn't get a resize event after
 // SetHostSize on Windows trybot, which gives wrong work/display area.
-TEST_F(WorkspaceWindowResizerTest, AttachedResize_BOTTOM_3) {
+// crbug.com/141577.
+#if defined(OS_WIN)
+#define MAYBE_AttachedResize_BOTTOM_3 DISABLED_AttachedResize_BOTTOM_3
+#else
+#define MAYBE_AttachedResize_BOTTOM_3 AttachedResize_BOTTOM_3
+#endif
+TEST_F(WorkspaceWindowResizerTest, MAYBE_AttachedResize_BOTTOM_3) {
   aura::RootWindow* root = Shell::GetPrimaryRootWindow();
   root->SetHostSize(gfx::Size(600, 800));
-  LOG(ERROR) << "=== Calling OnHostResized, 600x800";
 
   Shell::GetInstance()->SetDisplayWorkAreaInsets(root, gfx::Insets());
 
@@ -458,6 +486,208 @@ TEST_F(WorkspaceWindowResizerTest, Edge) {
             window_->bounds().ToString());
   ASSERT_TRUE(GetRestoreBoundsInScreen(window_.get()));
   EXPECT_EQ("20,30 50x60", GetRestoreBoundsInScreen(window_.get())->ToString());
+}
+
+// Verifies a window can be moved from the primary display to another.
+TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiMonitors) {
+  // The secondary display is logically on the right, but on the system (e.g. X)
+  // layer, it's below the primary one. See UpdateDisplay() in ash_test_base.cc.
+  UpdateDisplay("800x600,800x600");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  ASSERT_EQ(2U, root_windows.size());
+
+  window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                             gfx::Screen::GetPrimaryDisplay());
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  {
+    SetGridSize(0);
+    // Grab (0, 0) of the window.
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    // Drag the pointer to the right. Once it reaches the right edge of the
+    // primary display, it warps to the secondary. Since the secondary root
+    // window's native origin held by aura::RootWindowHost is (0, 600), and a
+    // mouse drag event has a location in the primary root window's coordinates,
+    // (0, 610) below means (0, 10) in the second root window's coordinates.
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 610), 0);
+    resizer->CompleteDrag(0);
+    // The whole window is on the secondary display now. The parent should be
+    // changed.
+    EXPECT_EQ(root_windows[1], window_->GetRootWindow());
+    EXPECT_EQ("0,10 50x60", window_->bounds().ToString());
+  }
+
+  window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                             gfx::Screen::GetPrimaryDisplay());
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  {
+    // Grab (0, 0) of the window and move the pointer to (790, 10).
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, 790, 10), 0);
+    resizer->CompleteDrag(0);
+    // Since the pointer is still on the primary root window, the parent should
+    // not be changed.
+    EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+    EXPECT_EQ("790,10 50x60", window_->bounds().ToString());
+  }
+
+  window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                             gfx::Screen::GetPrimaryDisplay());
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  {
+    // Grab the top-right edge of the window and move the pointer to (0, 10)
+    // in the secondary root window's coordinates.
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(49, 0), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    resizer->Drag(CalculateDragPoint(*resizer, -49, 610), 0);
+    resizer->CompleteDrag(0);
+    // Since the pointer is on the secondary, the parent should not be changed
+    // even though only small fraction of the window is within the secondary
+    // root window's bounds.
+    EXPECT_EQ(root_windows[1], window_->GetRootWindow());
+    EXPECT_EQ("-49,10 50x60", window_->bounds().ToString());
+  }
+}
+
+// Verifies a window can be moved from the secondary display to primary.
+TEST_F(WorkspaceWindowResizerTest,
+       MAYBE_WindowDragWithMultiMonitorsRightToLeft) {
+  UpdateDisplay("800x600,800x600");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  ASSERT_EQ(2U, root_windows.size());
+
+  window_->SetBoundsInScreen(
+      gfx::Rect(800, 00, 50, 60),
+      gfx::Screen::GetDisplayNearestWindow(root_windows[1]));
+  EXPECT_EQ(root_windows[1], window_->GetRootWindow());
+  {
+    SetGridSize(0);
+    // Grab (0, 0) of the window.
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    // Move the mouse near the right edge, (798, 0), of the primary display.
+    resizer->Drag(CalculateDragPoint(*resizer, 798, -600), 0);
+    resizer->CompleteDrag(0);
+    EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+    EXPECT_EQ("798,0 50x60", window_->bounds().ToString());
+  }
+}
+
+// Verifies the style of the drag phantom window is correct.
+TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
+  UpdateDisplay("800x600,800x600");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+  ASSERT_EQ(2U, root_windows.size());
+
+  window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                             gfx::Screen::GetPrimaryDisplay());
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
+  {
+    SetGridSize(0);
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    EXPECT_FALSE(resizer->drag_phantom_window_controller_.get());
+
+    // The pointer is inside the primary root. Both phantoms should be NULL.
+    resizer->Drag(CalculateDragPoint(*resizer, 10, 10), 0);
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    EXPECT_FALSE(resizer->drag_phantom_window_controller_.get());
+
+    // The window spans both root windows.
+    resizer->Drag(CalculateDragPoint(*resizer, 798, 10), 0);
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    PhantomWindowController* controller =
+        resizer->drag_phantom_window_controller_.get();
+    ASSERT_TRUE(controller);
+    EXPECT_EQ(PhantomWindowController::STYLE_WINDOW, controller->style());
+    // |window_| should be opaque since the pointer is still on the primary
+    // root window. The phantom should be semi-transparent.
+    EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
+    EXPECT_GT(1.0f, controller->GetOpacity());
+
+    // Enter the pointer to the secondary display.
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 610), 0);
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    controller = resizer->drag_phantom_window_controller_.get();
+    ASSERT_TRUE(controller);
+    EXPECT_EQ(PhantomWindowController::STYLE_WINDOW, controller->style());
+    // |window_| should be transparent, and the phantom should be opaque.
+    EXPECT_GT(1.0f, window_->layer()->opacity());
+    EXPECT_FLOAT_EQ(1.0f, controller->GetOpacity());
+
+    resizer->CompleteDrag(0);
+    EXPECT_EQ(root_windows[1], window_->GetRootWindow());
+    EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
+  }
+
+  // Do the same test with RevertDrag().
+  window_->SetBoundsInScreen(gfx::Rect(0, 0, 50, 60),
+                             gfx::Screen::GetPrimaryDisplay());
+  EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+  EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    ASSERT_TRUE(resizer.get());
+    EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
+    EXPECT_FALSE(resizer->drag_phantom_window_controller_.get());
+
+    resizer->Drag(CalculateDragPoint(*resizer, 0, 610), 0);
+    resizer->RevertDrag();
+    EXPECT_EQ(root_windows[0], window_->GetRootWindow());
+    EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
+  }
+}
+
+// Verifies if the resizer sets and resets DisplayController::dont_warp_mouse_
+// as expected.
+TEST_F(WorkspaceWindowResizerTest, WarpMousePointer) {
+  DisplayController* controller = Shell::GetInstance()->display_controller();
+  ASSERT_TRUE(controller);
+  window_->SetBounds(gfx::Rect(0, 0, 50, 60));
+
+  EXPECT_FALSE(controller->dont_warp_mouse_);
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    // While dragging a window, warp should be allowed.
+    EXPECT_FALSE(controller->dont_warp_mouse_);
+    resizer->CompleteDrag(0);
+  }
+  EXPECT_FALSE(controller->dont_warp_mouse_);
+
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
+    EXPECT_FALSE(controller->dont_warp_mouse_);
+    resizer->RevertDrag();
+  }
+  EXPECT_FALSE(controller->dont_warp_mouse_);
+
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTRIGHT, empty_windows()));
+    // While resizing a window, warp should NOT be allowed.
+    EXPECT_TRUE(controller->dont_warp_mouse_);
+    resizer->CompleteDrag(0);
+  }
+  EXPECT_FALSE(controller->dont_warp_mouse_);
+
+  {
+    scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
+        window_.get(), gfx::Point(), HTRIGHT, empty_windows()));
+    EXPECT_TRUE(controller->dont_warp_mouse_);
+    resizer->RevertDrag();
+  }
+  EXPECT_FALSE(controller->dont_warp_mouse_);
 }
 
 // Verifies windows are correctly restacked when reordering multiple windows.
@@ -656,8 +886,5 @@ TEST_F(WorkspaceWindowResizerTest, CtrlCompleteDragMoveToExactPosition) {
   EXPECT_EQ("106,124 320x160", window_->bounds().ToString());
 }
 
-#endif
-
-}  // namespace
 }  // namespace test
 }  // namespace ash

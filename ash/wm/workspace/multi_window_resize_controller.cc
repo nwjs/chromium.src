@@ -79,26 +79,26 @@ class MultiWindowResizeController::ResizeView : public views::View {
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE {
     canvas->DrawImageInt(*image_, 0, 0);
   }
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE {
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE {
     gfx::Point location(event.location());
     views::View::ConvertPointToScreen(this, &location);
     controller_->StartResize(location);
     return true;
   }
-  virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE {
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE {
     gfx::Point location(event.location());
     views::View::ConvertPointToScreen(this, &location);
     controller_->Resize(location, event.flags());
     return true;
   }
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE {
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE {
     controller_->CompleteResize(event.flags());
   }
   virtual void OnMouseCaptureLost() OVERRIDE {
     controller_->CancelResize();
   }
   virtual gfx::NativeCursor GetCursor(
-      const views::MouseEvent& event) OVERRIDE {
+      const ui::MouseEvent& event) OVERRIDE {
     int component = (direction_ == LEFT_RIGHT) ? HTRIGHT : HTBOTTOM;
     return aura::shared::CompoundEventFilter::CursorForWindowComponent(
         component);
@@ -180,7 +180,7 @@ void MultiWindowResizeController::Show(Window* window,
   windows_.window1->AddObserver(this);
   windows_.window2->AddObserver(this);
   show_location_in_parent_ = point_in_window;
-  Window::ConvertPointToWindow(
+  Window::ConvertPointToTarget(
       window, window->parent(), &show_location_in_parent_);
   if (show_timer_.IsRunning())
     return;
@@ -225,7 +225,7 @@ MultiWindowResizeController::DetermineWindows(
     const gfx::Point& point) const {
   ResizeWindows result;
   gfx::Point point_in_parent(point);
-  Window::ConvertPointToWindow(window, window->parent(), &point_in_parent);
+  Window::ConvertPointToTarget(window, window->parent(), &point_in_parent);
   switch (window_component) {
     case HTRIGHT:
       result.direction = LEFT_RIGHT;
@@ -505,7 +505,7 @@ bool MultiWindowResizeController::IsOverWindow(
     return false;
 
   gfx::Point window_loc(location_in_screen);
-  aura::Window::ConvertPointToWindow(
+  aura::Window::ConvertPointToTarget(
       window->GetRootWindow(), window, &window_loc);
   return window->HitTest(window_loc) &&
       window->delegate()->GetNonClientComponent(window_loc) == component;

@@ -147,29 +147,9 @@ class TestingAutomationProvider : public AutomationProvider,
   // Retrieves a Browser from a Window and vice-versa.
   void GetWindowForBrowser(int window_handle, bool* success, int* handle);
 
-  void WaitForTabToBeRestored(int tab_handle, IPC::Message* reply_message);
-
-  // Gets the security state for the tab associated to the specified |handle|.
-  void GetSecurityState(int handle,
-                        bool* success,
-                        content::SecurityStyle* security_style,
-                        net::CertStatus* ssl_cert_status,
-                        int* insecure_content_status);
-
-  // Gets the page type for the tab associated to the specified |handle|.
-  void GetPageType(int handle, bool* success, content::PageType* page_type);
-
   // Gets the duration in ms of the last event matching |event_name|.
   // |duration_ms| is -1 if the event hasn't occurred yet.
   void GetMetricEventDuration(const std::string& event_name, int* duration_ms);
-
-  // Simulates an action on the SSL blocking page at the tab specified by
-  // |handle|. If |proceed| is true, it is equivalent to the user pressing the
-  // 'Proceed' button, if false the 'Get me out of there button'.
-  // Not that this fails if the tab is not displaying a SSL blocking page.
-  void ActionOnSSLBlockingPage(int handle,
-                               bool proceed,
-                               IPC::Message* reply_message);
 
   // Brings the browser window to the front and activates it.
   void BringBrowserToFront(int browser_handle, bool* success);
@@ -181,41 +161,35 @@ class TestingAutomationProvider : public AutomationProvider,
   // Get the visibility state of the Find window.
   void GetFindWindowVisibility(int handle, bool* visible);
 
-  // Get the visibility state of the Bookmark bar.
-  void GetBookmarkBarVisibility(
-      int handle, bool* visible, bool* animating, bool* detached);
-
-  // Get the bookmarks as a JSON string.
-  void GetBookmarksAsJSON(int handle, std::string* bookmarks_as_json,
-                          bool* success);
-
   // Wait for the bookmark model to load.
   void WaitForBookmarkModelToLoad(int handle, IPC::Message* reply_message);
 
   // Set |loaded| to true if the bookmark model has loaded, else false.
   void BookmarkModelHasLoaded(int handle, bool* loaded);
 
-  // Editing, modification, and removal of bookmarks.
+  // Get the visibility state of the Bookmark bar.
+  // Returns a status dictionary over the JSON interface.
+  void GetBookmarkBarStatus(base::DictionaryValue* args,
+                            IPC::Message* reply_message);
+
+  // Get the bookmarks as a JSON string.
+  void GetBookmarksAsJSON(base::DictionaryValue* args,
+                          IPC::Message* reply_message);
+
+  // Editing, modification, and removal of bookmarks through the JSON interface.
   // Bookmarks are referenced by id.
-  void AddBookmarkGroup(int handle,
-                        int64 parent_id, int index, std::wstring title,
-                        bool* success);
-  void AddBookmarkURL(int handle,
-                      int64 parent_id, int index,
-                      std::wstring title, const GURL& url,
-                      bool* success);
-  void ReparentBookmark(int handle,
-                        int64 id, int64 new_parent_id, int index,
-                        bool* success);
-  void SetBookmarkTitle(int handle,
-                        int64 id, std::wstring title,
-                        bool* success);
-  void SetBookmarkURL(int handle,
-                      int64 id, const GURL& url,
-                      bool* success);
-  void RemoveBookmark(int handle,
-                      int64 id,
-                      bool* success);
+  void WaitForBookmarkModelToLoadJSON(base::DictionaryValue* args,
+                                      IPC::Message* reply_message);
+  void AddBookmark(base::DictionaryValue* args,
+                   IPC::Message* reply_message);
+  void ReparentBookmark(base::DictionaryValue* args,
+                        IPC::Message* reply_message);
+  void SetBookmarkTitle(base::DictionaryValue* args,
+                        IPC::Message* reply_message);
+  void SetBookmarkURL(base::DictionaryValue* args,
+                      IPC::Message* reply_message);
+  void RemoveBookmark(base::DictionaryValue* args,
+                      IPC::Message* reply_message);
 
   void WaitForBrowserWindowCountToBecome(int target_count,
                                          IPC::Message* reply_message);
@@ -1441,6 +1415,37 @@ class TestingAutomationProvider : public AutomationProvider,
   //          }
   //   output: none
   void ActivateTabJSON(base::DictionaryValue* args, IPC::Message* message);
+
+  // Blocks until the given tab is restored.
+  // Uses the JSON interface.
+  void WaitForTabToBeRestored(DictionaryValue* args,
+                              IPC::Message* reply_message);
+
+  // Simulates an action on the SSL blocking page at the specified tab.
+  // If |proceed| is true, it is equivalent to the user pressing the
+  // 'Proceed' button, if false the 'Get me out of there button'.
+  // Note that this fails if the tab is not displaying a SSL blocking page.
+  // Uses the JSON interface.
+  // Example:
+  //   input: { "windex": 1,
+  //            "tab_index": 1,
+  //            "proceed": true
+  //          }
+  //   output: none
+  void ActionOnSSLBlockingPage(DictionaryValue* args,
+                               IPC::Message* reply_message);
+
+  // Gets the security state for the given tab. Uses the JSON interface.
+  // Example:
+  //   input: { "windex": 1,
+  //            "tab_index": 1,
+  //          }
+  //   output: { "security_style": SECURITY_STYLE_AUTHENTICATED,
+  //             "ssl_cert_status": 3,  // bitmask of status flags
+  //             "insecure_content_status": 1,  // bitmask of ContentStatusFlags
+  //           }
+  void GetSecurityState(DictionaryValue* args,
+                        IPC::Message* reply_message);
 
   // Brings the given brower's window to the front.
   // Example:

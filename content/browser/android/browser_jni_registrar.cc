@@ -16,7 +16,7 @@
 #include "content/browser/android/sandboxed_process_launcher.h"
 #include "content/browser/android/touch_point.h"
 #include "content/browser/geolocation/location_api_adapter_android.h"
-#include "content/common/android/device_info.h"
+#include "content/browser/renderer_host/java/java_bound_object.h"
 
 namespace {
 base::android::RegistrationMethod kContentRegisteredMethods[] = {
@@ -27,9 +27,9 @@ base::android::RegistrationMethod kContentRegisteredMethods[] = {
   { "ContentVideoView", content::ContentVideoView::RegisterContentVideoView },
   { "ContentViewClient", content::RegisterContentViewClient },
   { "ContentViewCore", content::RegisterContentViewCore },
-  { "DeviceInfo", content::RegisterDeviceInfo },
   { "DownloadController",
     content::DownloadController::RegisterDownloadController },
+  { "JavaBoundObject", JavaBoundObject::RegisterJavaBoundObject },
   { "SandboxedProcessLauncher", content::RegisterSandboxedProcessLauncher },
   { "TouchPoint", content::RegisterTouchPoint },
   { "WebViewStatics", content::RegisterWebViewStatics },

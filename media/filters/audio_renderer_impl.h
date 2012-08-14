@@ -55,7 +55,6 @@ class MEDIA_EXPORT AudioRendererImpl
   virtual void SetPlaybackRate(float rate) OVERRIDE;
   virtual void Preroll(base::TimeDelta time,
                        const PipelineStatusCB& cb) OVERRIDE;
-  virtual bool HasEnded() OVERRIDE;
   virtual void ResumeAfterUnderflow(bool buffer_more_audio) OVERRIDE;
   virtual void SetVolume(float volume) OVERRIDE;
 
@@ -120,8 +119,7 @@ class MEDIA_EXPORT AudioRendererImpl
   void DoPause();
 
   // media::AudioRendererSink::RenderCallback implementation.
-  virtual int Render(const std::vector<float*>& audio_data,
-                     int number_of_frames,
+  virtual int Render(AudioBus* audio_bus,
                      int audio_delay_milliseconds) OVERRIDE;
   virtual void OnRenderError() OVERRIDE;
 

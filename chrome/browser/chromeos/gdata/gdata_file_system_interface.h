@@ -11,7 +11,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "chrome/browser/chromeos/gdata/gdata_cache.h"
 #include "chrome/browser/chromeos/gdata/gdata_files.h"
-#include "chrome/browser/chromeos/gdata/gdata_params.h"
+#include "chrome/browser/chromeos/gdata/gdata_operations.h"
 #include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 
 namespace gdata {
@@ -41,7 +41,7 @@ typedef base::Callback<void(GDataFileError error,
                             GDataFileType file_type)> GetFileCallback;
 
 // Used to get entry info from the file system, with the gdata file path.
-// If |error| is not PLATFORM_FILE_OK, |file_info| is set to NULL.
+// If |error| is not GDATA_FILE_OK, |file_info| is set to NULL.
 //
 // |gdata_file_path| parameter is provided as GDataEntryProto does not contain
 // the gdata file path (i.e. only contains the base name without parent
@@ -51,25 +51,21 @@ typedef base::Callback<void(GDataFileError error,
                             scoped_ptr<GDataEntryProto> file_proto)>
     GetEntryInfoWithFilePathCallback;
 
-// Used to get entry info from the file system.
-// If |error| is not PLATFORM_FILE_OK, |entry_info| is set to NULL.
-typedef base::Callback<void(GDataFileError error,
-                            scoped_ptr<GDataEntryProto> entry_proto)>
-    GetEntryInfoCallback;
-
 // Used to read a directory from the file system.
-// If |error| is not PLATFORM_FILE_OK, |entries| is set to NULL.
+// Similar to ReadDirectoryCallback but this one provides
+// |hide_hosted_documents|
+// If |error| is not GDATA_FILE_OK, |entries| is set to NULL.
 // |entries| are contents, both files and directories, of the directory.
-typedef std::vector<GDataEntryProto> GDataEntryProtoVector;
 typedef base::Callback<void(GDataFileError error,
                             bool hide_hosted_documents,
                             scoped_ptr<GDataEntryProtoVector> entries)>
-    ReadDirectoryCallback;
+    ReadDirectoryWithSettingCallback;
 
 // Used to get drive content search results.
-// If |error| is not PLATFORM_FILE_OK, |result_paths| is empty.
+// If |error| is not GDATA_FILE_OK, |result_paths| is empty.
 typedef base::Callback<void(
     GDataFileError error,
+    const GURL& next_feed,
     scoped_ptr<std::vector<SearchResultInfo> > result_paths)> SearchCallback;
 
 // Used to open files from the file system. |file_path| is the path on the local
@@ -107,6 +103,11 @@ class GDataFileSystemInterface {
     // Triggered when the feed from the server is loaded.
     virtual void OnFeedFromServerLoaded() {}
 
+    // Triggered when the file system is mounted.
+    virtual void OnFileSystemMounted() {}
+    // Triggered when the file system is being unmounted.
+    virtual void OnFileSystemBeingUnmounted() {}
+
    protected:
     virtual ~Observer() {}
   };
@@ -122,6 +123,12 @@ class GDataFileSystemInterface {
   // Starts and stops periodic updates.
   virtual void StartUpdates() = 0;
   virtual void StopUpdates() = 0;
+
+  // Notifies the file system was just mounted.
+  virtual void NotifyFileSystemMounted() = 0;
+
+  // Notifies the file system is going to be unmounted.
+  virtual void NotifyFileSystemToBeUnmounted() = 0;
 
   // Checks for updates on the server.
   virtual void CheckForUpdates() = 0;
@@ -139,6 +146,7 @@ class GDataFileSystemInterface {
   // |local_dest_file_path| is the destination path on the local file system.
   //
   // Must be called from *UI* thread. |callback| is run on the calling thread.
+  // |callback| must not be null.
   virtual void TransferFileFromRemoteToLocal(
       const FilePath& remote_src_file_path,
       const FilePath& local_dest_file_path,
@@ -150,6 +158,7 @@ class GDataFileSystemInterface {
   // system.
   //
   // Must be called from *UI* thread. |callback| is run on the calling thread.
+  // |callback| must not be null.
   virtual void TransferFileFromLocalToRemote(
       const FilePath& local_src_file_path,
       const FilePath& remote_dest_file_path,
@@ -171,6 +180,7 @@ class GDataFileSystemInterface {
   // which is opened via OpenFile(). It commits the dirty flag on the cache.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
+  // |callback| must not be null.
   virtual void CloseFile(const FilePath& file_path,
                          const FileOperationCallback& callback) = 0;
 
@@ -192,6 +202,7 @@ class GDataFileSystemInterface {
   // of the file system.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
+  // |callback| must not be null.
   virtual void Copy(const FilePath& src_file_path,
                     const FilePath& dest_file_path,
                     const FileOperationCallback& callback) = 0;
@@ -212,6 +223,7 @@ class GDataFileSystemInterface {
   // of the file system.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
+  // |callback| must not be null.
   virtual void Move(const FilePath& src_file_path,
                     const FilePath& dest_file_path,
                     const FileOperationCallback& callback) = 0;
@@ -246,6 +258,7 @@ class GDataFileSystemInterface {
   // path, or the parent directory of the path is not present yet.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread
+  // |callback| must not be null.
   virtual void CreateFile(const FilePath& file_path,
                           bool is_exclusive,
                           const FileOperationCallback& callback) = 0;
@@ -256,21 +269,21 @@ class GDataFileSystemInterface {
   // will be downloaded through gdata api.
   //
   // Can be called from UI/IO thread. |get_file_callback| and
-  // |get_download_data| are run on the calling thread.
+  // |get_content_callback| are run on the calling thread.
   virtual void GetFileByPath(
       const FilePath& file_path,
       const GetFileCallback& get_file_callback,
-      const GetDownloadDataCallback& get_download_data_callback) = 0;
+      const GetContentCallback& get_content_callback) = 0;
 
   // Gets a file by the given |resource_id| from the gdata server. Used for
   // fetching pinned-but-not-fetched files.
   //
   // Can be called from UI/IO thread. |get_file_callback| and
-  // |get_download_data_callback| are run on the calling thread.
+  // |get_content_callback| are run on the calling thread.
   virtual void GetFileByResourceId(
       const std::string& resource_id,
       const GetFileCallback& get_file_callback,
-      const GetDownloadDataCallback& get_download_data_callback) = 0;
+      const GetContentCallback& get_content_callback) = 0;
 
   // Updates a file by the given |resource_id| on the gdata server by
   // uploading an updated version. Used for uploading dirty files. The file
@@ -296,8 +309,9 @@ class GDataFileSystemInterface {
   // and refresh file system content from server and disk cache.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
-  virtual void ReadDirectoryByPath(const FilePath& file_path,
-                                   const ReadDirectoryCallback& callback) = 0;
+  virtual void ReadDirectoryByPath(
+      const FilePath& file_path,
+      const ReadDirectoryWithSettingCallback& callback) = 0;
 
   // Requests a refresh of the directory pointed by |file_path| (i.e. fetches
   // the latest metadata of files in the target directory).
@@ -316,11 +330,13 @@ class GDataFileSystemInterface {
   virtual void RequestDirectoryRefresh(const FilePath& file_path) = 0;
 
   // Does server side content search for |search_query|.
+  // If |next_feed| is set, this is the feed url that will be fetched.
   // Search results will be returned as a list of results' |SearchResultInfo|
   // structs, which contains file's path and is_directory flag.
   //
   // Can be called from UI/IO thread. |callback| is run on the calling thread.
   virtual void Search(const std::string& search_query,
+                      const GURL& next_feed,
                       const SearchCallback& callback) = 0;
 
   // Fetches the user's Account Metadata to find out current quota information

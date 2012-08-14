@@ -6,7 +6,7 @@
 #define ASH_ACCELERATORS_ACCELERATOR_TABLE_H_
 
 #include "ash/ash_export.h"
-#include "ui/aura/event.h"
+#include "ui/base/events.h"
 
 namespace ash {
 
@@ -61,6 +61,7 @@ enum AcceleratorAction {
   TOGGLE_DESKTOP_BACKGROUND_MODE,
   TOGGLE_ROOT_WINDOW_FULL_SCREEN,
   TOGGLE_SPOKEN_FEEDBACK,
+  TOGGLE_WIFI,
   VOLUME_DOWN,
   VOLUME_MUTE,
   VOLUME_UP,

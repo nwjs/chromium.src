@@ -49,6 +49,10 @@ const char kGetDocumentEntryURLFormat[] =
 const char kAccountMetadataURL[] =
     "https://docs.google.com/feeds/metadata/default";
 
+// URL requesting all contact groups.
+const char kGetContactGroupsURL[] =
+    "https://www.google.com/m8/feeds/groups/default/full?alt=json";
+
 // URL requesting all contacts.
 // TODO(derat): Per https://goo.gl/AufHP, "The feed may not contain all of the
 // user's contacts, because there's a default limit on the number of results
@@ -56,6 +60,10 @@ const char kAccountMetadataURL[] =
 const char kGetContactsURL[] =
     "https://www.google.com/m8/feeds/contacts/default/full"
     "?alt=json&showdeleted=true&max-results=10000";
+
+// Query parameter optionally appended to |kGetContactsURL| to return contacts
+// from a specific group (as opposed to all contacts).
+const char kGetContactsGroupParam[] = "group";
 
 // Query parameter optionally appended to |kGetContactsURL| to return only
 // recently-updated contacts.
@@ -69,9 +77,11 @@ const char kUploadContentLength[] = "X-Upload-Content-Length: ";
 // Use smaller 'page' size while debugging to ensure we hit feed reload
 // almost always. Be careful not to use something too small on account that
 // have many items because server side 503 error might kick in.
-const int kMaxDocumentsPerFeed = 1000;
+const int kMaxDocumentsPerFeed = 500;
+const int kMaxDocumentsPerSearchFeed = 50;
 #else
-const int kMaxDocumentsPerFeed = 1000;
+const int kMaxDocumentsPerFeed = 500;
+const int kMaxDocumentsPerSearchFeed = 50;
 #endif
 
 const char kFeedField[] = "feed";
@@ -149,16 +159,69 @@ GURL FormatDocumentListURL(const std::string& directory_resource_id) {
 
 namespace gdata {
 
+//============================ Structs ===========================
+
+ResumeUploadResponse::ResumeUploadResponse(GDataErrorCode code,
+                                           int64 start_range_received,
+                                           int64 end_range_received)
+    : code(code),
+      start_range_received(start_range_received),
+      end_range_received(end_range_received) {
+}
+
+ResumeUploadResponse::~ResumeUploadResponse() {
+}
+
+InitiateUploadParams::InitiateUploadParams(
+    UploadMode upload_mode,
+    const std::string& title,
+    const std::string& content_type,
+    int64 content_length,
+    const GURL& upload_location,
+    const FilePath& virtual_path)
+    : upload_mode(upload_mode),
+      title(title),
+      content_type(content_type),
+      content_length(content_length),
+      upload_location(upload_location),
+      virtual_path(virtual_path) {
+}
+
+InitiateUploadParams::~InitiateUploadParams() {
+}
+
+ResumeUploadParams::ResumeUploadParams(
+    UploadMode upload_mode,
+    int64 start_range,
+    int64 end_range,
+    int64 content_length,
+    const std::string& content_type,
+    scoped_refptr<net::IOBuffer> buf,
+    const GURL& upload_location,
+    const FilePath& virtual_path) : upload_mode(upload_mode),
+                                    start_range(start_range),
+                                    end_range(end_range),
+                                    content_length(content_length),
+                                    content_type(content_type),
+                                    buf(buf),
+                                    upload_location(upload_location),
+                                    virtual_path(virtual_path) {
+}
+
+ResumeUploadParams::~ResumeUploadParams() {
+}
+
 //============================ GetDocumentsOperation ===========================
 
 GetDocumentsOperation::GetDocumentsOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
+    const GURL& url,
     int start_changestamp,
     const std::string& search_string,
     const std::string& directory_resource_id,
     const GetDataCallback& callback)
-    : GetDataOperation(registry, profile, callback),
+    : GetDataOperation(registry, callback),
+      override_url_(url),
       start_changestamp_(start_changestamp),
       search_string_(search_string),
       directory_resource_id_(directory_resource_id) {
@@ -166,20 +229,19 @@ GetDocumentsOperation::GetDocumentsOperation(
 
 GetDocumentsOperation::~GetDocumentsOperation() {}
 
-void GetDocumentsOperation::SetUrl(const GURL& url) {
-  override_url_ = url;
-}
-
 GURL GetDocumentsOperation::GetURL() const {
+  int max_docs = search_string_.empty() ? kMaxDocumentsPerFeed :
+                                          kMaxDocumentsPerSearchFeed;
+
   if (!override_url_.is_empty())
     return AddFeedUrlParams(override_url_,
-                            kMaxDocumentsPerFeed,
+                            max_docs,
                             0,
-                            std::string());
+                            search_string_);
 
   if (start_changestamp_ == 0) {
     return AddFeedUrlParams(FormatDocumentListURL(directory_resource_id_),
-                            kMaxDocumentsPerFeed,
+                            max_docs,
                             0,
                             search_string_);
   }
@@ -194,10 +256,9 @@ GURL GetDocumentsOperation::GetURL() const {
 
 GetDocumentEntryOperation::GetDocumentEntryOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const std::string& resource_id,
     const GetDataCallback& callback)
-    : GetDataOperation(registry, profile, callback),
+    : GetDataOperation(registry, callback),
       resource_id_(resource_id) {
 }
 
@@ -213,9 +274,8 @@ GURL GetDocumentEntryOperation::GetURL() const {
 
 GetAccountMetadataOperation::GetAccountMetadataOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const GetDataCallback& callback)
-    : GetDataOperation(registry, profile, callback) {
+    : GetDataOperation(registry, callback) {
 }
 
 GetAccountMetadataOperation::~GetAccountMetadataOperation() {}
@@ -228,18 +288,16 @@ GURL GetAccountMetadataOperation::GetURL() const {
 
 DownloadFileOperation::DownloadFileOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const DownloadActionCallback& download_action_callback,
-    const GetDownloadDataCallback& get_download_data_callback,
+    const GetContentCallback& get_content_callback,
     const GURL& document_url,
     const FilePath& virtual_path,
     const FilePath& output_file_path)
     : UrlFetchOperationBase(registry,
                             GDataOperationRegistry::OPERATION_DOWNLOAD,
-                            virtual_path,
-                            profile),
+                            virtual_path),
       download_action_callback_(download_action_callback),
-      get_download_data_callback_(get_download_data_callback),
+      get_content_callback_(get_content_callback),
       document_url_(document_url) {
   // Make sure we download the content into a temp file.
   if (output_file_path.empty())
@@ -255,22 +313,21 @@ GURL DownloadFileOperation::GetURL() const {
   return document_url_;
 }
 
-void DownloadFileOperation::OnURLFetchDownloadProgress(
-    const URLFetcher* source,
-    int64 current,
-    int64 total) {
+void DownloadFileOperation::OnURLFetchDownloadProgress(const URLFetcher* source,
+                                                       int64 current,
+                                                       int64 total) {
   NotifyProgress(current, total);
 }
 
 bool DownloadFileOperation::ShouldSendDownloadData() {
-  return !get_download_data_callback_.is_null();
+  return !get_content_callback_.is_null();
 }
 
 void DownloadFileOperation::OnURLFetchDownloadData(
     const URLFetcher* source,
     scoped_ptr<std::string> download_data) {
-  if (!get_download_data_callback_.is_null())
-    get_download_data_callback_.Run(HTTP_SUCCESS, download_data.Pass());
+  if (!get_content_callback_.is_null())
+    get_content_callback_.Run(HTTP_SUCCESS, download_data.Pass());
 }
 
 void DownloadFileOperation::ProcessURLFetchResults(const URLFetcher* source) {
@@ -298,10 +355,9 @@ void DownloadFileOperation::RunCallbackOnPrematureFailure(GDataErrorCode code) {
 
 DeleteDocumentOperation::DeleteDocumentOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const EntryActionCallback& callback,
     const GURL& document_url)
-    : EntryActionOperation(registry, profile, callback, document_url) {
+    : EntryActionOperation(registry, callback, document_url) {
 }
 
 DeleteDocumentOperation::~DeleteDocumentOperation() {}
@@ -325,11 +381,10 @@ DeleteDocumentOperation::GetExtraRequestHeaders() const {
 
 CreateDirectoryOperation::CreateDirectoryOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const GetDataCallback& callback,
     const GURL& parent_content_url,
     const FilePath::StringType& directory_name)
-    : GetDataOperation(registry, profile, callback),
+    : GetDataOperation(registry, callback),
       parent_content_url_(parent_content_url),
       directory_name_(directory_name) {
 }
@@ -377,11 +432,10 @@ bool CreateDirectoryOperation::GetContentData(std::string* upload_content_type,
 
 CopyDocumentOperation::CopyDocumentOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const GetDataCallback& callback,
     const std::string& resource_id,
     const FilePath::StringType& new_name)
-    : GetDataOperation(registry, profile, callback),
+    : GetDataOperation(registry, callback),
       resource_id_(resource_id),
       new_name_(new_name) {
 }
@@ -419,11 +473,10 @@ bool CopyDocumentOperation::GetContentData(std::string* upload_content_type,
 
 RenameResourceOperation::RenameResourceOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const EntryActionCallback& callback,
     const GURL& document_url,
     const FilePath::StringType& new_name)
-    : EntryActionOperation(registry, profile, callback, document_url),
+    : EntryActionOperation(registry, callback, document_url),
       new_name_(new_name) {
 }
 
@@ -466,11 +519,10 @@ bool RenameResourceOperation::GetContentData(std::string* upload_content_type,
 
 AuthorizeAppsOperation::AuthorizeAppsOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const GetDataCallback& callback,
     const GURL& document_url,
     const std::string& app_id)
-    : GetDataOperation(registry, profile, callback),
+    : GetDataOperation(registry, callback),
       app_id_(app_id),
       document_url_(document_url) {
 }
@@ -556,11 +608,10 @@ GURL AuthorizeAppsOperation::GetURL() const {
 
 AddResourceToDirectoryOperation::AddResourceToDirectoryOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const EntryActionCallback& callback,
     const GURL& parent_content_url,
     const GURL& document_url)
-    : EntryActionOperation(registry, profile, callback, document_url),
+    : EntryActionOperation(registry, callback, document_url),
       parent_content_url_(parent_content_url) {
 }
 
@@ -600,12 +651,11 @@ bool AddResourceToDirectoryOperation::GetContentData(
 
 RemoveResourceFromDirectoryOperation::RemoveResourceFromDirectoryOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const EntryActionCallback& callback,
     const GURL& parent_content_url,
     const GURL& document_url,
     const std::string& document_resource_id)
-    : EntryActionOperation(registry, profile, callback, document_url),
+    : EntryActionOperation(registry, callback, document_url),
       resource_id_(document_resource_id),
       parent_content_url_(parent_content_url) {
 }
@@ -637,13 +687,11 @@ RemoveResourceFromDirectoryOperation::GetExtraRequestHeaders() const {
 
 InitiateUploadOperation::InitiateUploadOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const InitiateUploadCallback& callback,
     const InitiateUploadParams& params)
     : UrlFetchOperationBase(registry,
                             GDataOperationRegistry::OPERATION_UPLOAD,
-                            params.virtual_path,
-                            profile),
+                            params.virtual_path),
       callback_(callback),
       params_(params),
       initiate_upload_url_(chrome_common_net::AppendOrReplaceQueryParameter(
@@ -744,13 +792,11 @@ bool InitiateUploadOperation::GetContentData(std::string* upload_content_type,
 
 ResumeUploadOperation::ResumeUploadOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const ResumeUploadCallback& callback,
     const ResumeUploadParams& params)
   : UrlFetchOperationBase(registry,
                           GDataOperationRegistry::OPERATION_UPLOAD,
-                          params.virtual_path,
-                          profile),
+                          params.virtual_path),
       callback_(callback),
       params_(params),
       last_chunk_completed_(false) {
@@ -889,13 +935,30 @@ void ResumeUploadOperation::OnURLFetchUploadProgress(
   NotifyProgress(params_.start_range + current, params_.content_length);
 }
 
+//========================== GetContactGroupsOperation =========================
+
+GetContactGroupsOperation::GetContactGroupsOperation(
+    GDataOperationRegistry* registry,
+    const GetDataCallback& callback)
+    : GetDataOperation(registry, callback) {
+}
+
+GetContactGroupsOperation::~GetContactGroupsOperation() {}
+
+GURL GetContactGroupsOperation::GetURL() const {
+  return !feed_url_for_testing_.is_empty() ?
+         feed_url_for_testing_ :
+         GURL(kGetContactGroupsURL);
+}
+
 //============================ GetContactsOperation ============================
 
 GetContactsOperation::GetContactsOperation(GDataOperationRegistry* registry,
-                                           Profile* profile,
+                                           const std::string& group_id,
                                            const base::Time& min_update_time,
                                            const GetDataCallback& callback)
-    : GetDataOperation(registry, profile, callback),
+    : GetDataOperation(registry, callback),
+      group_id_(group_id),
       min_update_time_(min_update_time) {
 }
 
@@ -906,6 +969,11 @@ GURL GetContactsOperation::GetURL() const {
     return GURL(feed_url_for_testing_);
 
   GURL url(kGetContactsURL);
+
+  if (!group_id_.empty()) {
+    url = chrome_common_net::AppendQueryParameter(
+              url, kGetContactsGroupParam, group_id_);
+  }
   if (!min_update_time_.is_null()) {
     std::string time_rfc3339 = util::FormatTimeAsString(min_update_time_);
     url = chrome_common_net::AppendQueryParameter(
@@ -918,10 +986,9 @@ GURL GetContactsOperation::GetURL() const {
 
 GetContactPhotoOperation::GetContactPhotoOperation(
     GDataOperationRegistry* registry,
-    Profile* profile,
     const GURL& photo_url,
-    const GetDownloadDataCallback& callback)
-    : UrlFetchOperationBase(registry, profile),
+    const GetContentCallback& callback)
+    : UrlFetchOperationBase(registry),
       photo_url_(photo_url),
       callback_(callback) {
 }

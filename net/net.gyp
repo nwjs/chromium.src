@@ -37,6 +37,7 @@
         '../base/base.gyp:base_i18n',
         '../base/third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../build/temp_gyp/googleurl.gyp:googleurl',
+        '../crypto/crypto.gyp:crypto',
         '../sdch/sdch.gyp:sdch',
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
@@ -676,6 +677,8 @@
         'spdy/buffered_spdy_framer.cc',
         'spdy/buffered_spdy_framer.h',
         'spdy/spdy_bitmasks.h',
+        'spdy/spdy_credential_builder.cc',
+        'spdy/spdy_credential_builder.h',
         'spdy/spdy_credential_state.cc',
         'spdy/spdy_credential_state.h',
         'spdy/spdy_frame_builder.cc',
@@ -796,6 +799,7 @@
         'websockets/websocket_job.h',
         'websockets/websocket_net_log_params.cc',
         'websockets/websocket_net_log_params.h',
+        'websockets/websocket_stream.h',
         'websockets/websocket_throttle.cc',
         'websockets/websocket_throttle.h',
       ],
@@ -808,9 +812,6 @@
       'conditions': [
         ['OS != "ios"', {
           'dependencies': [
-            # TODO(ios): This is temporary; Move this back to the main
-            # dependencies section once crypto builds for iOS.
-            '../crypto/crypto.gyp:crypto',
             # The v8 gyp file is not available in the iOS tree.
             '../v8/tools/gyp/v8.gyp:v8',
           ],
@@ -1300,6 +1301,7 @@
         'socket_stream/socket_stream_unittest.cc',
         'spdy/buffered_spdy_framer_spdy3_unittest.cc',
         'spdy/buffered_spdy_framer_spdy2_unittest.cc',
+        'spdy/spdy_credential_builder_unittest.cc',
         'spdy/spdy_credential_state_unittest.cc',
         'spdy/spdy_frame_reader_test.cc',
         'spdy/spdy_framer_test.cc',
@@ -1978,6 +1980,9 @@
           'dependencies': [
             '../base/base.gyp:base_java',
           ],
+          'export_dependent_settings': [
+            '../base/base.gyp:base_java',
+          ],
           'includes': [ '../build/java.gypi' ],
         },
       ],
@@ -1991,17 +1996,12 @@
           'target_name': 'net_unittests_apk',
           'type': 'none',
           'dependencies': [
-            '../base/base.gyp:base_java',
             'net_java',
             'net_unittests',
           ],
           'variables': {
             'test_suite_name': 'net_unittests',
             'input_shlib_path': '<(SHARED_LIB_DIR)/<(SHARED_LIB_PREFIX)net_unittests<(SHARED_LIB_SUFFIX)',
-            'input_jars_paths': [
-              '<(PRODUCT_DIR)/lib.java/chromium_base.jar',
-              '<(PRODUCT_DIR)/lib.java/chromium_net.jar',
-             ],
           },
           'includes': [ '../build/apk_test.gypi' ],
         },

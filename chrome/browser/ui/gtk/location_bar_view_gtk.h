@@ -38,13 +38,14 @@
 #include "ui/base/gtk/owned_widget_gtk.h"
 #include "webkit/glue/window_open_disposition.h"
 
-class OmniboxViewGtk;
+class ActionBoxButtonGtk;
 class Browser;
 class CommandUpdater;
 class ContentSettingImageModel;
 class ContentSettingBubbleGtk;
 class ExtensionAction;
 class GtkThemeService;
+class OmniboxViewGtk;
 class SkBitmap;
 class ToolbarModel;
 
@@ -324,7 +325,9 @@ class LocationBarViewGtk : public OmniboxEditController,
     GtkAccelGroup* accel_group_;
 
     // The keybinding accelerator registered to show the page action popup.
-    scoped_ptr<ui::AcceleratorGtk> keybinding_;
+    scoped_ptr<ui::AcceleratorGtk> page_action_keybinding_;
+    // The keybinding accelerator registered to show the script badge popup.
+    scoped_ptr<ui::AcceleratorGtk> script_badge_keybinding_;
 
     // This is used for post-install visual feedback. The page_action icon
     // is briefly shown even if it hasn't been enabled by its extension.
@@ -479,6 +482,8 @@ class LocationBarViewGtk : public OmniboxEditController,
 
   // Alignment used to wrap |location_entry_|.
   GtkWidget* location_entry_alignment_;
+
+  scoped_ptr<ActionBoxButtonGtk> action_box_button_;
 
   CommandUpdater* command_updater_;
   ToolbarModel* toolbar_model_;

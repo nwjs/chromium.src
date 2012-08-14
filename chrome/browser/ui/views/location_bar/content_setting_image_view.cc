@@ -20,6 +20,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/border.h"
+#include "ui/views/events/event.h"
 #include "ui/views/widget/widget.h"
 
 using content::WebContents;
@@ -69,8 +70,11 @@ ContentSettingImageView::~ContentSettingImageView() {
   }
 }
 
-void ContentSettingImageView::UpdateFromWebContents(WebContents* web_contents) {
-  content_setting_image_model_->UpdateFromWebContents(web_contents);
+void ContentSettingImageView::Update(TabContents* tab_contents) {
+  if (tab_contents) {
+    content_setting_image_model_->UpdateFromWebContents(
+        tab_contents->web_contents());
+  }
   if (!content_setting_image_model_->is_visible()) {
     SetVisible(false);
     return;
@@ -81,10 +85,9 @@ void ContentSettingImageView::UpdateFromWebContents(WebContents* web_contents) {
   SetVisible(true);
 
   TabSpecificContentSettings* content_settings = NULL;
-  if (web_contents) {
-    content_settings =
-        TabContents::FromWebContents(web_contents)->content_settings();
-  }
+  if (tab_contents)
+    content_settings = tab_contents->content_settings();
+
   if (!content_settings || content_settings->IsBlockageIndicated(
       content_setting_image_model_->get_content_settings_type()))
     return;
@@ -126,6 +129,19 @@ gfx::Size ContentSettingImageView::GetPreferredSize() {
   return preferred_size;
 }
 
+ui::GestureStatus ContentSettingImageView::OnGestureEvent(
+    const views::GestureEvent& event) {
+  if (event.type() == ui::ET_GESTURE_TAP) {
+    OnClick();
+    return ui::GESTURE_STATUS_CONSUMED;
+  } else if (event.type() == ui::ET_GESTURE_TAP_DOWN) {
+    return ui::GESTURE_STATUS_CONSUMED;
+  }
+
+  return ui::GESTURE_STATUS_UNKNOWN;
+}
+
+
 void ContentSettingImageView::AnimationEnded(const ui::Animation* animation) {
   if (pause_animation_)
     pause_animation_ = false;
@@ -158,16 +174,20 @@ void ContentSettingImageView::AnimationCanceled(
   AnimationEnded(animation);
 }
 
-bool ContentSettingImageView::OnMousePressed(const views::MouseEvent& event) {
+bool ContentSettingImageView::OnMousePressed(const ui::MouseEvent& event) {
   // We want to show the bubble on mouse release; that is the standard behavior
   // for buttons.
   return true;
 }
 
-void ContentSettingImageView::OnMouseReleased(const views::MouseEvent& event) {
-  if (!HitTest(event.location()))
+void ContentSettingImageView::OnMouseReleased(const ui::MouseEvent& event) {
+  if (!HitTestPoint(event.location()))
     return;
 
+  OnClick();
+}
+
+void ContentSettingImageView::OnClick() {
   TabContents* tab_contents = parent_->GetTabContents();
   if (!tab_contents)
     return;
@@ -234,7 +254,7 @@ void ContentSettingImageView::OnPaintBackground(gfx::Canvas* canvas) {
     SkPaint paint;
     paint.setShader(gfx::CreateGradientShader(kEdgeThickness,
                     height() - (2 * kEdgeThickness),
-                    kTopBoxColor, kBottomBoxColor));
+                    GradientTopColor(), GradientBottomColor()));
     SkSafeUnref(paint.getShader());
     SkRect color_rect;
     color_rect.iset(0, 0, width() - 1, height() - 1);
@@ -242,7 +262,7 @@ void ContentSettingImageView::OnPaintBackground(gfx::Canvas* canvas) {
                                        kBoxCornerRadius, paint);
     SkPaint outer_paint;
     outer_paint.setStyle(SkPaint::kStroke_Style);
-    outer_paint.setColor(kBorderColor);
+    outer_paint.setColor(ButtonBorderColor());
     color_rect.inset(SkIntToScalar(kEdgeThickness),
                      SkIntToScalar(kEdgeThickness));
     canvas->sk_canvas()->drawRoundRect(color_rect, kBoxCornerRadius,
@@ -270,3 +290,14 @@ int ContentSettingImageView::GetBuiltInHorizontalPadding() const {
   return GetBuiltInHorizontalPaddingImpl();
 }
 
+SkColor ContentSettingImageView::ButtonBorderColor() const {
+  return kBorderColor;
+}
+
+SkColor ContentSettingImageView::GradientTopColor() const {
+  return kTopBoxColor;
+}
+
+SkColor ContentSettingImageView::GradientBottomColor() const {
+  return kBottomBoxColor;
+}

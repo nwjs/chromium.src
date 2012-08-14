@@ -257,9 +257,9 @@
         'notifier/sync_notifier.h',
         'notifier/sync_notifier_factory.cc',
         'notifier/sync_notifier_factory.h',
-        'notifier/sync_notifier_helper.cc',
-        'notifier/sync_notifier_helper.h',
         'notifier/sync_notifier_observer.h',
+        'notifier/sync_notifier_registrar.cc',
+        'notifier/sync_notifier_registrar.h',
       ],
       'conditions': [
         ['OS != "android"', {
@@ -461,8 +461,8 @@
         'sync_notifier',
       ],
       'sources': [
-        'notifier/mock_invalidation_state_tracker.cc',
-        'notifier/mock_invalidation_state_tracker.h',
+        'notifier/fake_invalidation_state_tracker.cc',
+        'notifier/fake_invalidation_state_tracker.h',
         'notifier/mock_sync_notifier_observer.cc',
         'notifier/mock_sync_notifier_observer.h',
       ],
@@ -654,7 +654,7 @@
               'notifier/p2p_notifier_unittest.cc',
               'notifier/push_client_channel_unittest.cc',
               'notifier/registration_manager_unittest.cc',
-              'notifier/sync_notifier_helper_unittest.cc',
+              'notifier/sync_notifier_registrar_unittest.cc',
             ],
           }],
         ],
@@ -840,7 +840,6 @@
           'variables': {
             'test_suite_name': 'sync_unit_tests',
             'input_shlib_path': '<(SHARED_LIB_DIR)/<(SHARED_LIB_PREFIX)sync_unit_tests<(SHARED_LIB_SUFFIX)',
-            'input_jars_paths': [ '<(PRODUCT_DIR)/lib.java/chromium_base.jar', ],
           },
           'includes': [ '../build/apk_test.gypi' ],
         },

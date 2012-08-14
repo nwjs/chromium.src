@@ -22,6 +22,10 @@
     // via the manifest.
     "extension_types": ["packaged_app", "hosted_app"]
   },
+  "author": {
+    "channel": "stable",
+    "extension_types": "all"
+  },
   "background": {
     "channel": "stable",
     "extension_types": [
@@ -195,7 +199,7 @@
   "sandbox": {
     "channel": "stable",
     "extension_types": [
-      "extension", "platform_app"
+      "extension", "platform_app", "packaged_app"
     ],
     "min_manifest_version": 2
   },

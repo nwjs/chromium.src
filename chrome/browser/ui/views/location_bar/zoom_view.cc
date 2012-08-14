@@ -10,12 +10,15 @@
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/size.h"
 
-ZoomView::ZoomView(ToolbarModel* toolbar_model)
+ZoomView::ZoomView(ToolbarModel* toolbar_model,
+                   LocationBarView::Delegate* location_bar_delegate)
     : toolbar_model_(toolbar_model),
+      location_bar_delegate_(location_bar_delegate),
       zoom_icon_state_(ZoomController::NONE),
       zoom_percent_(100) {
   set_accessibility_focusable(true);
@@ -65,21 +68,24 @@ bool ZoomView::GetTooltipText(const gfx::Point& p, string16* tooltip) const {
   return !ZoomBubbleView::IsShowing() && ImageView::GetTooltipText(p, tooltip);
 }
 
-bool ZoomView::OnMousePressed(const views::MouseEvent& event) {
+bool ZoomView::OnMousePressed(const ui::MouseEvent& event) {
   // Do nothing until mouse is released.
   return true;
 }
 
-void ZoomView::OnMouseReleased(const views::MouseEvent& event) {
-  if (event.IsOnlyLeftMouseButton() && HitTest(event.location()))
-    ZoomBubbleView::ShowBubble(this, zoom_percent_, false);
+void ZoomView::OnMouseReleased(const ui::MouseEvent& event) {
+  if (event.IsOnlyLeftMouseButton() && HitTestPoint(event.location())) {
+    ZoomBubbleView::ShowBubble(
+        this, location_bar_delegate_->GetTabContents(), false);
+  }
 }
 
-bool ZoomView::OnKeyPressed(const views::KeyEvent& event) {
+bool ZoomView::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.key_code() != ui::VKEY_SPACE &&
       event.key_code() != ui::VKEY_RETURN)
     return false;
 
-  ZoomBubbleView::ShowBubble(this, zoom_percent_, false);
+  ZoomBubbleView::ShowBubble(
+      this, location_bar_delegate_->GetTabContents(), false);
   return true;
 }

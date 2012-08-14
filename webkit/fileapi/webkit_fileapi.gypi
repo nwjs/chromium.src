@@ -30,6 +30,7 @@
         'file_system_directory_database.h',
         'file_system_file_stream_reader.cc',
         'file_system_file_stream_reader.h',
+        'file_system_file_util.cc',
         'file_system_file_util.h',
         'file_system_file_util_proxy.cc',
         'file_system_file_util_proxy.h',
@@ -46,6 +47,8 @@
         'file_system_quota_util.cc',
         'file_system_quota_util.h',
         'file_system_types.h',
+        'file_system_task_runners.cc',
+        'file_system_task_runners.h',
         'file_system_url.cc',
         'file_system_url.h',
         'file_system_url_request_job.cc',
@@ -72,6 +75,9 @@
         'local_file_stream_writer.h',
         'local_file_system_operation.cc',
         'local_file_system_operation.h',
+        'media/filtering_file_enumerator.cc',
+        'media/filtering_file_enumerator.h',
+        'media/media_file_system_config.h',
         'media/media_path_filter.cc',
         'media/media_path_filter.h',
         'media/native_media_file_util.cc',
@@ -93,6 +99,18 @@
         ['inside_chromium_build==0', {
           'dependencies': [
             '<(DEPTH)/webkit/support/setup_third_party.gyp:third_party_headers',
+          ],
+        }],
+        ['OS == "linux"', {
+          'sources': [
+            'media/device_media_file_util.cc',
+            'media/device_media_file_util.h',
+            'media/media_device_interface.h',
+            'media/media_device_interface_impl.h',
+            'media/media_device_map_service.cc',
+            'media/media_device_map_service.h',
+            'media/mtp_device_interface_impl_linux.cc',
+            'media/mtp_device_interface_impl_linux.h',
           ],
         }],
         ['chromeos==1', {

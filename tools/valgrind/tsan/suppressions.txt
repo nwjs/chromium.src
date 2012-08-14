@@ -405,12 +405,6 @@
 ############################
 # Real races in Chromium
 {
-  bug_23433
-  ThreadSanitizer:Race
-  fun:*logging*SetMinLogLevel*
-}
-
-{
   bug_24419
   ThreadSanitizer:Race
   fun:*BrowserProcessImpl*nspector*iles*
@@ -429,18 +423,6 @@
   ...
   fun:base::LaunchApp*
   fun:ChildProcessLauncher::Context::LaunchInternal*
-}
-
-{
-  bug_46642a
-  ThreadSanitizer:Race
-  fun:*media*Pipeline*InitializeTask*
-}
-
-{
-  bug_46642b
-  ThreadSanitizer:Race
-  fun:*media*Pipeline*GetCurrentTime*
 }
 
 {
@@ -756,26 +738,6 @@
   fun:tracked_objects::ThreadData::InitializeAndSetTrackingStatus
   fun:ChildThread::OnSetProfilerStatus
   fun:DispatchToMethod
-}
-{
-  bug_107181a
-  ThreadSanitizer:Race
-  ...
-  fun:media::AudioRendererBase::SetPlaybackRate
-  fun:AudioRendererImpl::SetPlaybackRate
-  fun:media::CompositeFilter::SetPlaybackRate
-  fun:media::Pipeline::PlaybackRateChangedTask
-  ...
-  fun:base::internal::RunnableAdapter::Run
-}
-{
-  bug_107181b
-  ThreadSanitizer:Race
-  fun:media::AudioRendererAlgorithmBase::playback_rate
-  fun:media::AudioRendererBase::GetPlaybackRate
-  fun:AudioRendererImpl::Render
-  fun:AudioDevice::FireRenderCallback
-  fun:AudioDevice::Run
 }
 {
    bug_107903_a

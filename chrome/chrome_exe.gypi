@@ -247,16 +247,6 @@
             'CHROMIUM_CREATOR': '<(mac_creator)',
             'CHROMIUM_SHORT_NAME': '<(branding)',
           },
-          # Turn off -dead_strip in Release mode for the main app. There's
-          # little here to strip, and doing so preserves symbols from
-          # crt1.10.6.o, which get removed incorrectly. http://crbug.com/139902
-          'configurations': {
-            'Release': {
-              'xcode_settings': {
-                'DEAD_CODE_STRIPPING': 'NO',
-              },
-            },
-          },
           'dependencies': [
             'helper_app',
             'infoplist_strings_tool',
@@ -416,11 +406,12 @@
                 '../pdf/pdf.gyp:pdf',
               ],
               'conditions': [
-                ['OS=="linux" and linux_dump_symbols==1', {
+                # CrOS does this in a separate build step.
+                ['OS=="linux" and chromeos==0 and linux_dump_symbols==1', {
                   'dependencies': [
                     '../pdf/pdf.gyp:pdf_linux_symbols',
                   ],
-                }], # OS=="linux" and linux_dump_symbols==1
+                }], # OS=="linux" and chromeos==0 and linux_dump_symbols==1
               ],
             }], # internal_pdf
           ],

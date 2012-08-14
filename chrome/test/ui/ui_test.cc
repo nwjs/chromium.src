@@ -46,6 +46,7 @@
 #include "chrome/test/automation/window_proxy.h"
 #include "chrome/test/base/chrome_process_util.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/test_switches.h"
 #include "content/common/debug_flags.h"
 #include "googleurl/src/gurl.h"
@@ -174,6 +175,9 @@ void UITestBase::SetLaunchSwitches() {
   // All flags added here should also be added in ExtraChromeFlags() in
   // chrome/test/pyautolib/pyauto.py as well to take effect for all tests
   // on chromeos.
+
+  // Propagate commandline settings from test_launcher_utils.
+  test_launcher_utils::PrepareBrowserCommandLineForTests(&launch_arguments_);
 
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kWaitForDebugger))
     launch_arguments_.AppendSwitch(switches::kWaitForDebugger);
@@ -307,27 +311,6 @@ void UITestBase::NavigateToURLBlockUntilNavigationsComplete(
   EXPECT_EQ(AUTOMATION_MSG_NAVIGATION_SUCCESS,
             tab_proxy->NavigateToURLBlockUntilNavigationsComplete(
                 url, number_of_navigations)) << url.spec();
-}
-
-bool UITestBase::WaitForBookmarkBarVisibilityChange(BrowserProxy* browser,
-                                                    bool wait_for_open) {
-  const int kCycles = 10;
-  const TimeDelta kDelay = TestTimeouts::action_timeout() / kCycles;
-  for (int i = 0; i < kCycles; i++) {
-    bool visible = false;
-    bool animating = true;
-    bool detached;
-    if (!browser->GetBookmarkBarVisibility(&visible, &animating, &detached))
-      return false;  // Some error.
-    if (visible == wait_for_open && !animating)
-      return true;  // Bookmark bar visibility change complete.
-
-    // Give it a chance to catch up.
-    base::PlatformThread::Sleep(kDelay);
-  }
-
-  ADD_FAILURE() << "Timeout reached in WaitForBookmarkBarVisibilityChange";
-  return false;
 }
 
 GURL UITestBase::GetActiveTabURL(int window_index) {

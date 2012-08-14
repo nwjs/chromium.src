@@ -143,9 +143,6 @@ class WebMediaPlayerImpl
   // Methods for painting.
   virtual void setSize(const WebKit::WebSize& size);
 
-  // This variant (without alpha) is just present during staging of this API
-  // change. Later we will again only have one virtual paint().
-  virtual void paint(WebKit::WebCanvas* canvas, const WebKit::WebRect& rect);
   virtual void paint(WebKit::WebCanvas* canvas,
                      const WebKit::WebRect& rect,
                      uint8_t alpha);
@@ -191,25 +188,19 @@ class WebMediaPlayerImpl
 
   virtual WebKit::WebAudioSourceProvider* audioSourceProvider();
 
-  // TODO(acolwell): Remove once new sourceAddId() signature is checked into
-  // WebKit.
-  virtual AddIdStatus sourceAddId(const WebKit::WebString& id,
-                                  const WebKit::WebString& type);
   virtual AddIdStatus sourceAddId(
       const WebKit::WebString& id,
       const WebKit::WebString& type,
       const WebKit::WebVector<WebKit::WebString>& codecs);
   virtual bool sourceRemoveId(const WebKit::WebString& id);
   virtual WebKit::WebTimeRanges sourceBuffered(const WebKit::WebString& id);
-  // TODO(acolwell): Remove non-id version when http://webk.it/83788 fix lands.
-  virtual bool sourceAppend(const unsigned char* data, unsigned length);
   virtual bool sourceAppend(const WebKit::WebString& id,
                             const unsigned char* data,
                             unsigned length);
   virtual bool sourceAbort(const WebKit::WebString& id);
   virtual void sourceEndOfStream(EndOfStreamStatus status);
-  virtual bool sourceTimestampOffset(
-      const WebKit::WebString& id, double offset);
+  virtual bool sourceSetTimestampOffset(const WebKit::WebString& id,
+                                        double offset);
 
   virtual MediaKeyException generateKeyRequest(
       const WebKit::WebString& key_system,
@@ -293,16 +284,8 @@ class WebMediaPlayerImpl
   // for DCHECKs so methods calls won't execute in the wrong thread.
   MessageLoop* main_loop_;
 
-  // A collection of filters.
   scoped_ptr<media::FilterCollection> filter_collection_;
-
-  // The media pipeline and a bool tracking whether we have started it yet.
-  //
-  // TODO(scherkus): replace |started_| with a pointer check for |pipeline_| and
-  // have WebMediaPlayerImpl return the default values to WebKit instead of
-  // relying on Pipeline to take care of default values.
   scoped_refptr<media::Pipeline> pipeline_;
-  bool started_;
 
   // The currently selected key system. Empty string means that no key system
   // has been selected.
@@ -353,6 +336,7 @@ class WebMediaPlayerImpl
   scoped_refptr<media::AudioRendererSink> audio_renderer_sink_;
 
   bool is_local_source_;
+  bool supports_save_;
 
   // The decryptor that manages decryption keys and decrypts encrypted frames.
   ProxyDecryptor decryptor_;

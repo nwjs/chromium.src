@@ -21,8 +21,6 @@
 #endif
 
 class LocationBarView;
-class OmniboxEditController;
-class OmniboxEditModel;
 class OmniboxPopupView;
 class Profile;
 
@@ -65,16 +63,16 @@ class OmniboxViewViews
   void SetBaseColor();
 
   // Called after key even is handled either by HandleKeyEvent or by Textfield.
-  bool HandleAfterKeyEvent(const views::KeyEvent& event, bool handled);
+  bool HandleAfterKeyEvent(const ui::KeyEvent& event, bool handled);
 
   // Called when KeyRelease event is generated on textfield.
-  bool HandleKeyReleaseEvent(const views::KeyEvent& event);
+  bool HandleKeyReleaseEvent(const ui::KeyEvent& event);
 
   // Called when mouse events are generated on the textfield.
   // The views::Textfield implementations will be executed first.
-  void HandleMousePressEvent(const views::MouseEvent& event);
-  void HandleMouseDragEvent(const views::MouseEvent& event);
-  void HandleMouseReleaseEvent(const views::MouseEvent& event);
+  void HandleMousePressEvent(const ui::MouseEvent& event);
+  void HandleMouseDragEvent(const ui::MouseEvent& event);
+  void HandleMouseReleaseEvent(const ui::MouseEvent& event);
 
   // Called when Focus is set/unset on textfield.
   void HandleFocusIn();
@@ -94,22 +92,10 @@ class OmniboxViewViews
   virtual void OnBoundsChanged(const gfx::Rect& previous_bounds) OVERRIDE;
 
   // OmniboxView:
-  virtual OmniboxEditModel* model() OVERRIDE;
-  virtual const OmniboxEditModel* model() const OVERRIDE;
   virtual void SaveStateToTab(content::WebContents* tab) OVERRIDE;
   virtual void Update(
       const content::WebContents* tab_for_state_restoring) OVERRIDE;
-  virtual void OpenMatch(const AutocompleteMatch& match,
-                         WindowOpenDisposition disposition,
-                         const GURL& alternate_nav_url,
-                         size_t selected_line) OVERRIDE;
   virtual string16 GetText() const OVERRIDE;
-  virtual bool IsEditingOrEmpty() const OVERRIDE;
-  virtual int GetIcon() const OVERRIDE;
-  virtual void SetUserText(const string16& text) OVERRIDE;
-  virtual void SetUserText(const string16& text,
-                           const string16& display_text,
-                           bool update_popup) OVERRIDE;
   virtual void SetWindowTextAndCaretPos(const string16& text,
                                         size_t caret_pos,
                                         bool update_popup,
@@ -120,9 +106,7 @@ class OmniboxViewViews
   virtual void GetSelectionBounds(string16::size_type* start,
                                   string16::size_type* end) const OVERRIDE;
   virtual void SelectAll(bool reversed) OVERRIDE;
-  virtual void RevertAll() OVERRIDE;
   virtual void UpdatePopup() OVERRIDE;
-  virtual void ClosePopup() OVERRIDE;
   virtual void SetFocus() OVERRIDE;
   virtual void OnTemporaryTextMaybeChanged(
       const string16& display_text,
@@ -134,7 +118,6 @@ class OmniboxViewViews
   virtual bool OnAfterPossibleChange() OVERRIDE;
   virtual gfx::NativeView GetNativeView() const OVERRIDE;
   virtual gfx::NativeView GetRelativeWindowForPopup() const OVERRIDE;
-  virtual CommandUpdater* GetCommandUpdater() OVERRIDE;
   virtual void SetInstantSuggestion(const string16& input,
                                     bool animate_to_complete) OVERRIDE;
   virtual string16 GetInstantSuggestion() const OVERRIDE;
@@ -150,7 +133,7 @@ class OmniboxViewViews
   virtual void ContentsChanged(views::Textfield* sender,
                                const string16& new_contents) OVERRIDE;
   virtual bool HandleKeyEvent(views::Textfield* sender,
-                              const views::KeyEvent& key_event) OVERRIDE;
+                              const ui::KeyEvent& key_event) OVERRIDE;
   virtual void OnBeforeUserAction(views::Textfield* sender) OVERRIDE;
   virtual void OnAfterUserAction(views::Textfield* sender) OVERRIDE;
   virtual void OnAfterCutOrCopy() OVERRIDE;
@@ -171,13 +154,11 @@ class OmniboxViewViews
 
  private:
   // Return the number of characers in the current buffer.
+  virtual int GetOmniboxTextLength() const OVERRIDE;
   size_t GetTextLength() const;
 
   // Try to parse the current text as a URL and colorize the components.
-  void EmphasizeURLComponents();
-
-  // Internally invoked whenever the text changes in some way.
-  void TextChanged();
+  virtual void EmphasizeURLComponents() OVERRIDE;
 
   // Update the field with |text| and set the selection.
   void SetTextAndSelectedRange(const string16& text,
@@ -192,14 +173,7 @@ class OmniboxViewViews
   // different presentation (smaller font size). This is used for popups.
   bool popup_window_mode_;
 
-  scoped_ptr<OmniboxEditModel> model_;
   scoped_ptr<OmniboxPopupView> popup_view_;
-  OmniboxEditController* controller_;
-  ToolbarModel* toolbar_model_;
-
-  // The object that handles additional command functionality exposed on the
-  // edit, such as invoking the keyword editor.
-  CommandUpdater* command_updater_;
 
   ToolbarModel::SecurityLevel security_level_;
 

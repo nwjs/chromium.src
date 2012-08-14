@@ -133,8 +133,8 @@ class IssueAdviceView : public views::View,
   virtual ~IssueAdviceView() {}
 
   // Implementation of views::View:
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void ChildPreferredSizeChanged(views::View* child) OVERRIDE;
 
   // Implementation of ui::AnimationDelegate:
@@ -376,8 +376,8 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
     for (size_t i = 0; i < prompt.GetPermissionCount(); ++i) {
       layout->AddPaddingRow(0, views::kRelatedControlVerticalSpacing);
       layout->StartRow(0, column_set_id);
-      views::Label* permission_label = new views::Label(
-          prompt.GetPermission(i));
+      views::Label* permission_label = new views::Label(PrepareForDisplay(
+          prompt.GetPermission(i), true));
       permission_label->SetMultiLine(true);
       permission_label->SetHorizontalAlignment(views::Label::ALIGN_LEFT);
       permission_label->SizeToFit(left_column_width);
@@ -586,11 +586,11 @@ IssueAdviceView::IssueAdviceView(ExtensionInstallDialogView* owner,
     details_view_->AddDetail(issue_advice.details[i]);
 }
 
-bool IssueAdviceView::OnMousePressed(const views::MouseEvent& event) {
+bool IssueAdviceView::OnMousePressed(const ui::MouseEvent& event) {
   return details_view_ && event.IsLeftMouseButton();
 }
 
-void IssueAdviceView::OnMouseReleased(const views::MouseEvent& event) {
+void IssueAdviceView::OnMouseReleased(const ui::MouseEvent& event) {
   if (slide_animation_.IsShowing())
     slide_animation_.Hide();
   else

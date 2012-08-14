@@ -130,10 +130,8 @@ void ChangePosixFilePermissions(const FilePath& path,
 
 const wchar_t bogus_content[] = L"I'm cannon fodder.";
 
-const file_util::FileEnumerator::FileType FILES_AND_DIRECTORIES =
-    static_cast<file_util::FileEnumerator::FileType>(
-        file_util::FileEnumerator::FILES |
-        file_util::FileEnumerator::DIRECTORIES);
+const int FILES_AND_DIRECTORIES =
+    file_util::FileEnumerator::FILES | file_util::FileEnumerator::DIRECTORIES;
 
 // file_util winds up using autoreleased objects on the Mac, so this needs
 // to be a PlatformTest
@@ -1617,6 +1615,8 @@ TEST_F(FileUtilTest, ResolveShortcutTest) {
   EXPECT_TRUE(SUCCEEDED(result));
   result = shell->SetDescription(L"ResolveShortcutTest");
   EXPECT_TRUE(SUCCEEDED(result));
+  result = shell->SetArguments(L"--args");
+  EXPECT_TRUE(SUCCEEDED(result));
   result = persist->Save(link_file.value().c_str(), TRUE);
   EXPECT_TRUE(SUCCEEDED(result));
   if (persist)
@@ -1625,8 +1625,10 @@ TEST_F(FileUtilTest, ResolveShortcutTest) {
     shell->Release();
 
   bool is_solved;
-  is_solved = file_util::ResolveShortcut(&link_file);
+  std::wstring args;
+  is_solved = file_util::ResolveShortcut(link_file, &link_file, &args);
   EXPECT_TRUE(is_solved);
+  EXPECT_EQ(L"--args", args);
   std::wstring contents;
   contents = ReadTextFile(link_file);
   EXPECT_EQ(L"This is the target.", contents);
@@ -1649,8 +1651,8 @@ TEST_F(FileUtilTest, CreateShortcutTest) {
                   target_file.value().c_str(), link_file.value().c_str(), NULL,
                   NULL, NULL, NULL, 0, NULL,
                   file_util::SHORTCUT_CREATE_ALWAYS));
-  FilePath resolved_name = link_file;
-  EXPECT_TRUE(file_util::ResolveShortcut(&resolved_name));
+  FilePath resolved_name;
+  EXPECT_TRUE(file_util::ResolveShortcut(link_file, &resolved_name, NULL));
   std::wstring read_contents = ReadTextFile(resolved_name);
   EXPECT_EQ(file_contents, read_contents);
 
@@ -1863,8 +1865,7 @@ TEST_F(FileUtilTest, FileEnumeratorTest) {
 
   // Test an empty directory, non-recursively, including "..".
   file_util::FileEnumerator f0_dotdot(temp_dir_.path(), false,
-      static_cast<file_util::FileEnumerator::FileType>(
-          FILES_AND_DIRECTORIES | file_util::FileEnumerator::INCLUDE_DOT_DOT));
+      FILES_AND_DIRECTORIES | file_util::FileEnumerator::INCLUDE_DOT_DOT);
   EXPECT_EQ(temp_dir_.path().Append(FILE_PATH_LITERAL("..")).value(),
             f0_dotdot.Next().value());
   EXPECT_EQ(FILE_PATH_LITERAL(""),
@@ -1919,11 +1920,9 @@ TEST_F(FileUtilTest, FileEnumeratorTest) {
   EXPECT_EQ(c2_non_recursive.size(), 2);
 
   // Only enumerate directories, non-recursively, including "..".
-  file_util::FileEnumerator f2_dotdot(
-      temp_dir_.path(), false,
-      static_cast<file_util::FileEnumerator::FileType>(
-          file_util::FileEnumerator::DIRECTORIES |
-          file_util::FileEnumerator::INCLUDE_DOT_DOT));
+  file_util::FileEnumerator f2_dotdot(temp_dir_.path(), false,
+      file_util::FileEnumerator::DIRECTORIES |
+      file_util::FileEnumerator::INCLUDE_DOT_DOT);
   FindResultCollector c2_dotdot(f2_dotdot);
   EXPECT_TRUE(c2_dotdot.HasFile(dir1));
   EXPECT_TRUE(c2_dotdot.HasFile(dir2));

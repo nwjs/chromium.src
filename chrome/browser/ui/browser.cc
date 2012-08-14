@@ -28,6 +28,7 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/api/infobars/simple_alert_infobar_delegate.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/background/background_contents_service.h"
 #include "chrome/browser/background/background_contents_service_factory.h"
@@ -88,7 +89,6 @@
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/tab_contents/background_contents.h"
 #include "chrome/browser/tab_contents/retargeting_details.h"
-#include "chrome/browser/tab_contents/simple_alert_infobar_delegate.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -255,6 +255,14 @@ BrowserWindow* CreateBrowserWindow(Browser* browser) {
   return BrowserWindow::CreateBrowserWindow(browser);
 }
 
+#if defined(OS_CHROMEOS)
+chrome::HostDesktopType kDefaultHostDesktopType = chrome::HOST_DESKTOP_TYPE_ASH;
+#else
+chrome::HostDesktopType kDefaultHostDesktopType =
+    chrome::HOST_DESKTOP_TYPE_NATIVE;
+#endif
+
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -263,6 +271,7 @@ BrowserWindow* CreateBrowserWindow(Browser* browser) {
 Browser::CreateParams::CreateParams()
     : type(TYPE_TABBED),
       profile(NULL),
+      host_desktop_type(kDefaultHostDesktopType),
       app_type(APP_TYPE_HOST),
       initial_show_state(ui::SHOW_STATE_DEFAULT),
       is_session_restore(false),
@@ -270,17 +279,31 @@ Browser::CreateParams::CreateParams()
 }
 
 Browser::CreateParams::CreateParams(Profile* profile)
-  : type(TYPE_TABBED),
-    profile(profile),
-    app_type(APP_TYPE_HOST),
-    initial_show_state(ui::SHOW_STATE_DEFAULT),
-    is_session_restore(false),
-    window(NULL) {
+    : type(TYPE_TABBED),
+      profile(profile),
+      host_desktop_type(kDefaultHostDesktopType),
+      app_type(APP_TYPE_HOST),
+      initial_show_state(ui::SHOW_STATE_DEFAULT),
+      is_session_restore(false),
+      window(NULL) {
 }
 
 Browser::CreateParams::CreateParams(Type type, Profile* profile)
     : type(type),
       profile(profile),
+      host_desktop_type(kDefaultHostDesktopType),
+      app_type(APP_TYPE_HOST),
+      initial_show_state(ui::SHOW_STATE_DEFAULT),
+      is_session_restore(false),
+      window(NULL) {
+}
+
+Browser::CreateParams::CreateParams(Type type,
+                                    Profile* profile,
+                                    chrome::HostDesktopType host_desktop_type)
+    : type(type),
+      profile(profile),
+      host_desktop_type(host_desktop_type),
       app_type(APP_TYPE_HOST),
       initial_show_state(ui::SHOW_STATE_DEFAULT),
       is_session_restore(false),
@@ -335,6 +358,7 @@ Browser::Browser(const CreateParams& params)
       override_bounds_(params.initial_bounds),
       initial_show_state_(params.initial_show_state),
       is_session_restore_(params.is_session_restore),
+      host_desktop_type_(params.host_desktop_type),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           unload_controller_(new chrome::UnloadController(this))),
       weak_factory_(this),
@@ -534,7 +558,9 @@ SkBitmap Browser::GetCurrentPageIcon() const {
   TabContents* contents = chrome::GetActiveTabContents(this);
   // |contents| can be NULL since GetCurrentPageIcon() is called by the window
   // during the window's creation (before tabs have been added).
-  return contents ? contents->favicon_tab_helper()->GetFavicon() : SkBitmap();
+  // TODO: Let this return a gfx::Image.
+  return contents ?
+      contents->favicon_tab_helper()->GetFavicon().AsBitmap() : SkBitmap();
 }
 
 string16 Browser::GetWindowTitleForCurrentTab() const {
@@ -1170,7 +1196,8 @@ void Browser::TabStripEmpty() {
       FROM_HERE, base::Bind(&Browser::CloseFrame, weak_factory_.GetWeakPtr()));
 }
 
-bool Browser::PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
+bool Browser::PreHandleKeyboardEvent(content::WebContents* source,
+                                     const NativeWebKeyboardEvent& event,
                                      bool* is_keyboard_shortcut) {
   // Escape exits tabbed fullscreen mode.
   // TODO(koz): Write a test for this http://crbug.com/100441.
@@ -1181,7 +1208,8 @@ bool Browser::PreHandleKeyboardEvent(const NativeWebKeyboardEvent& event,
   return window()->PreHandleKeyboardEvent(event, is_keyboard_shortcut);
 }
 
-void Browser::HandleKeyboardEvent(const NativeWebKeyboardEvent& event) {
+void Browser::HandleKeyboardEvent(content::WebContents* source,
+                                  const NativeWebKeyboardEvent& event) {
   window()->HandleKeyboardEvent(event);
 }
 
@@ -1356,7 +1384,8 @@ void Browser::WebContentsFocused(WebContents* contents) {
   window_->WebContentsFocused(contents);
 }
 
-bool Browser::TakeFocus(bool reverse) {
+bool Browser::TakeFocus(content::WebContents* source,
+                        bool reverse) {
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_FOCUS_RETURNED_TO_BROWSER,
       content::Source<Browser>(this),

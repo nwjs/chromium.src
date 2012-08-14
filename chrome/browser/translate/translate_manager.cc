@@ -335,8 +335,11 @@ void TranslateManager::Observe(int type,
           load_details->type != content::NAVIGATION_TYPE_SAME_PAGE) {
         return;
       }
-      // When doing a page reload, we don't get a TAB_LANGUAGE_DETERMINED
-      // notification.  So we need to explictly initiate the translation.
+      // When doing a page reload, TAB_LANGUAGE_DETERMINED is not sent,
+      // so the translation needs to be explicitly initiated, but only when the
+      // page is translatable.
+      if (!helper->language_state().page_translatable())
+        return;
       // Note that we delay it as the TranslateManager gets this notification
       // before the WebContents and the WebContents processing might remove the
       // current infobars.  Since InitTranslation might add an infobar, it must
@@ -485,7 +488,7 @@ void TranslateManager::OnURLFetchComplete(const net::URLFetcher* source) {
       source->GetResponseAsString(&data);
       SetSupportedLanguages(data);
     } else {
-      VLOG(1) << "Failed to Fetch languages from: " << kLanguageListFetchURL;
+      VLOG(9) << "Failed to Fetch languages from: " << kLanguageListFetchURL;
     }
   }
 }

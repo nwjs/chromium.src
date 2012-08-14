@@ -97,8 +97,7 @@ OmniboxEditModel::OmniboxEditModel(OmniboxView* view,
       is_keyword_hint_(false),
       profile_(profile),
       in_revert_(false),
-      allow_exact_keyword_match_(false),
-      instant_complete_behavior_(INSTANT_COMPLETE_DELAYED) {
+      allow_exact_keyword_match_(false) {
 }
 
 OmniboxEditModel::~OmniboxEditModel() {
@@ -186,8 +185,7 @@ void OmniboxEditModel::FinalizeInstantQuery(const string16& input_text,
 
 void OmniboxEditModel::SetSuggestedText(const string16& text,
                                         InstantCompleteBehavior behavior) {
-  instant_complete_behavior_ = behavior;
-  if (instant_complete_behavior_ == INSTANT_COMPLETE_NOW) {
+  if (behavior == INSTANT_COMPLETE_NOW) {
     if (!text.empty())
       FinalizeInstantQuery(view_->GetText(), text, false);
     else
@@ -213,7 +211,8 @@ bool OmniboxEditModel::CommitSuggestedText(bool skip_inline_autocomplete) {
 
 bool OmniboxEditModel::AcceptCurrentInstantPreview() {
   InstantController* instant = controller_->GetInstant();
-  return instant && instant->CommitIfCurrent();
+  return instant && instant->IsCurrent() &&
+         instant->CommitCurrentPreview(INSTANT_COMMIT_PRESSED_ENTER);
 }
 
 void OmniboxEditModel::OnChanged() {
@@ -243,10 +242,12 @@ void OmniboxEditModel::OnChanged() {
   UMA_HISTOGRAM_ENUMERATION("AutocompleteActionPredictor.Action",
                             recommended_action,
                             AutocompleteActionPredictor::LAST_PREDICT_ACTION);
-  string16 suggested_text;
 
-  if (DoInstant(current_match, &suggested_text)) {
-    SetSuggestedText(suggested_text, instant_complete_behavior_);
+  string16 suggested_text;
+  InstantCompleteBehavior complete_behavior = INSTANT_COMPLETE_NOW;
+
+  if (DoInstant(current_match, &suggested_text, &complete_behavior)) {
+    SetSuggestedText(suggested_text, complete_behavior);
   } else {
     switch (recommended_action) {
       case AutocompleteActionPredictor::ACTION_PRERENDER:
@@ -442,14 +443,14 @@ void OmniboxEditModel::StopAutocomplete() {
   if (popup_->IsOpen() && !in_revert_) {
     InstantController* instant = controller_->GetInstant();
     if (instant && !instant->commit_on_pointer_release())
-      instant->DestroyPreviewContents();
+      instant->Hide();
   }
 
   autocomplete_controller_->Stop(true);
 }
 
 bool OmniboxEditModel::CanPasteAndGo(const string16& text) const {
-  if (!view_->GetCommandUpdater()->IsCommandEnabled(IDC_OPEN_CURRENT_URL))
+  if (!view_->command_updater()->IsCommandEnabled(IDC_OPEN_CURRENT_URL))
     return false;
 
   AutocompleteMatch match;
@@ -630,7 +631,7 @@ void OmniboxEditModel::OpenMatch(const AutocompleteMatch& match,
 
   InstantController* instant = controller_->GetInstant();
   if (instant && !popup_->IsOpen())
-    instant->DestroyPreviewContents();
+    instant->Hide();
   in_revert_ = false;
 }
 
@@ -648,10 +649,11 @@ bool OmniboxEditModel::AcceptKeyword() {
   // Ensure the current selection is saved before showing keyword mode
   // so that moving to another line and then reverting the text will restore
   // the current state properly.
+  bool save_original_selection = !has_temporary_text_;
+  has_temporary_text_ = true;
   view_->OnTemporaryTextMaybeChanged(
       DisplayTextFromUserText(CurrentMatch().fill_into_edit),
-      !has_temporary_text_);
-  has_temporary_text_ = true;
+      save_original_selection);
 
   content::RecordAction(UserMetricsAction("AcceptedKeywordHint"));
   return true;
@@ -700,8 +702,7 @@ void OmniboxEditModel::OnSetFocus(bool control_down) {
 void OmniboxEditModel::OnWillKillFocus(gfx::NativeView view_gaining_focus) {
   SetSuggestedText(string16(), INSTANT_COMPLETE_NOW);
 
-  InstantController* instant = controller_->GetInstant();
-  if (instant)
+  if (InstantController* instant = controller_->GetInstant())
     instant->OnAutocompleteLostFocus(view_gaining_focus);
 
   NotifySearchTabHelper();
@@ -1104,9 +1105,12 @@ void OmniboxEditModel::NotifySearchTabHelper() {
   }
 }
 
-bool OmniboxEditModel::DoInstant(const AutocompleteMatch& match,
-                                 string16* suggested_text) {
+bool OmniboxEditModel::DoInstant(
+    const AutocompleteMatch& match,
+    string16* suggested_text,
+    InstantCompleteBehavior* complete_behavior) {
   DCHECK(suggested_text);
+  DCHECK(complete_behavior);
 
   if (in_revert_)
     return false;
@@ -1117,8 +1121,25 @@ bool OmniboxEditModel::DoInstant(const AutocompleteMatch& match,
     return false;
 
   if (user_input_in_progress_ && popup_->IsOpen()) {
-    return instant->Update(match, view_->GetText(), UseVerbatimInstant(),
-                           suggested_text);
+    // The two pieces of text we want to send Instant, viz., what the user has
+    // typed, and any inline autocomplete suggestion.
+    string16 user_text = user_text_;
+    *suggested_text = inline_autocomplete_text_;
+
+    // If there's temporary text, that overrides the user_text. In this case, we
+    // should ignore any inline_autocomplete_text_, because it won't be visible.
+    if (has_temporary_text_) {
+      user_text = CurrentMatch().fill_into_edit;
+      suggested_text->clear();
+    }
+
+    // Remove any keywords and "?" prefix.
+    user_text = DisplayTextFromUserText(user_text);
+    AutocompleteInput::RemoveForcedQueryStringIfNecessary(
+        autocomplete_controller_->input().type(), &user_text);
+
+    return instant->Update(match, user_text, UseVerbatimInstant(),
+                           suggested_text, complete_behavior);
   }
 
   // It's possible DoInstant() was called due to an OnChanged() event from the
@@ -1144,8 +1165,8 @@ void OmniboxEditModel::DoPrerender(const AutocompleteMatch& match) {
   tab->web_contents()->GetView()->GetContainerBounds(&container_bounds);
   AutocompleteActionPredictorFactory::GetForProfile(profile_)->
       StartPrerendering(match.destination_url,
-                        tab->web_contents()->GetRenderViewHost()->
-                            GetSessionStorageNamespace(),
+                        tab->web_contents()->GetController()
+                            .GetSessionStorageNamespaceMap(),
                         container_bounds.size());
 }
 

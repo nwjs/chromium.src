@@ -20,7 +20,6 @@
 #include "chrome/browser/extensions/location_bar_controller.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -42,7 +41,6 @@
 #include "chrome/browser/ui/views/location_bar/ev_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/keyword_hint_view.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/metro_pin_view.h"
 #include "chrome/browser/ui/views/location_bar/page_action_image_view.h"
 #include "chrome/browser/ui/views/location_bar/page_action_with_badge_view.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
@@ -64,6 +62,7 @@
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/base/event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/layout.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -76,10 +75,6 @@
 #include "ui/views/button_drag_utils.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/widget/widget.h"
-
-#if defined(OS_WIN)
-#include "base/win/metro.h"
-#endif
 
 #if defined(OS_WIN) && !defined(USE_AURA)
 #include "chrome/browser/ui/views/omnibox/omnibox_view_win.h"
@@ -163,13 +158,15 @@ void LocationBarView::FadeAnimationObserver::OnImplicitAnimationsCompleted() {
 
 // LocationBarView -----------------------------------------------------------
 
-LocationBarView::LocationBarView(Profile* profile,
+LocationBarView::LocationBarView(Browser* browser,
+                                 Profile* profile,
                                  CommandUpdater* command_updater,
                                  ToolbarModel* model,
                                  Delegate* delegate,
                                  chrome::search::SearchModel* search_model,
                                  Mode mode)
-    : profile_(profile),
+    : browser_(browser),
+      profile_(profile),
       command_updater_(command_updater),
       model_(model),
       delegate_(delegate),
@@ -188,7 +185,6 @@ LocationBarView::LocationBarView(Profile* profile,
       star_view_(NULL),
       action_box_button_view_(NULL),
       chrome_to_mobile_view_(NULL),
-      metro_pin_view_(NULL),
       mode_(mode),
       show_focus_rect_(false),
       template_url_service_(NULL),
@@ -237,6 +233,7 @@ void LocationBarView::Init(views::View* popup_parent_view) {
 
   location_icon_view_ = new LocationIconView(this);
   AddChildView(location_icon_view_);
+  location_icon_view_->SetVisible(true);
   location_icon_view_->set_drag_controller(this);
 
   ev_bubble_view_ =
@@ -275,27 +272,18 @@ void LocationBarView::Init(views::View* popup_parent_view) {
     content_blocked_view->SetVisible(false);
   }
 
-  zoom_view_ = new ZoomView(model_);
+  zoom_view_ = new ZoomView(model_, delegate_);
   AddChildView(zoom_view_);
 
-  if (extensions::switch_utils::IsActionBoxEnabled()) {
-    action_box_button_view_ = new ActionBoxButtonView(
-        extensions::ExtensionSystem::Get(profile_)->extension_service());
+  if (extensions::switch_utils::IsActionBoxEnabled() && browser_) {
+    action_box_button_view_ = new ActionBoxButtonView(browser_, profile_);
     AddChildView(action_box_button_view_);
   } else if (browser_defaults::bookmarks_enabled && (mode_ == NORMAL)) {
     // Note: condition above means that the star and ChromeToMobile icons are
     // hidden in popups and in the app launcher.
     star_view_ = new StarView(command_updater_);
     AddChildView(star_view_);
-
-    // Add the metro pin view, if this is windows and we are running in Metro
-    // mode.
-#if defined(OS_WIN)
-    if (base::win::IsMetroProcess()) {
-      metro_pin_view_ = new MetroPinView(command_updater_);
-      AddChildView(metro_pin_view_);
-    }
-#endif
+    star_view_->SetVisible(true);
 
     // Also disable Chrome To Mobile for off-the-record and non-synced profiles,
     // or if the feature is disabled by a command line flag or chrome://flags.
@@ -509,15 +497,12 @@ views::View* LocationBarView::GetPageActionView(ExtensionAction *page_action) {
 void LocationBarView::SetStarToggled(bool on) {
   if (star_view_)
     star_view_->SetToggled(on);
+  if (action_box_button_view_)
+    action_box_button_view_->set_starred(on);
 }
 
 void LocationBarView::ShowStarBubble(const GURL& url, bool newly_bookmarked) {
   chrome::ShowBookmarkBubbleView(star_view_, profile_, url, newly_bookmarked);
-}
-
-void LocationBarView::SetMetroPinnedState(bool is_pinned) {
-  if (metro_pin_view_)
-    metro_pin_view_->SetIsPinned(is_pinned);
 }
 
 void LocationBarView::SetZoomIconTooltipPercent(int zoom_percent) {
@@ -533,7 +518,7 @@ void LocationBarView::SetZoomIconState(
 }
 
 void LocationBarView::ShowZoomBubble(int zoom_percent) {
-  ZoomBubbleView::ShowBubble(zoom_view_, zoom_percent, true);
+  ZoomBubbleView::ShowBubble(zoom_view_, GetTabContents(), true);
 }
 
 void LocationBarView::ShowChromeToMobileBubble() {
@@ -674,9 +659,6 @@ void LocationBarView::Layout() {
 
   if (star_view_ && star_view_->visible())
     entry_width -= star_view_->GetPreferredSize().width() + GetItemPadding();
-  if (metro_pin_view_ && metro_pin_view_->visible())
-    entry_width -= metro_pin_view_->GetPreferredSize().width() +
-                   GetItemPadding();
   if (chrome_to_mobile_view_ && chrome_to_mobile_view_->visible()) {
     entry_width -= chrome_to_mobile_view_->GetPreferredSize().width() +
         GetItemPadding();
@@ -713,10 +695,9 @@ void LocationBarView::Layout() {
     entry_width -= (total_padding + ev_bubble_width);
   }
 
-  int max_edit_width = location_entry_->GetMaxEditWidth(entry_width);
+  const int max_edit_width = location_entry_->GetMaxEditWidth(entry_width);
   if (max_edit_width < 0)
     return;
-  const int available_width = AvailableWidth(max_edit_width);
 
   const bool show_keyword_hint = !keyword.empty() && is_keyword_hint;
   selected_keyword_view_->SetVisible(show_selected_keyword);
@@ -763,14 +744,6 @@ void LocationBarView::Layout() {
     offset -= star_width;
     star_view_->SetBounds(offset, location_y, star_width, location_height);
     offset -= GetItemPadding() - star_view_->GetBuiltInHorizontalPadding();
-  }
-
-  if (metro_pin_view_ && metro_pin_view_->visible()) {
-    offset += metro_pin_view_->GetBuiltInHorizontalPadding();
-    int pin_width = metro_pin_view_->GetPreferredSize().width();
-    offset -= pin_width;
-    metro_pin_view_->SetBounds(offset, location_y, pin_width, location_height);
-    offset -= GetItemPadding() - metro_pin_view_->GetBuiltInHorizontalPadding();
   }
 
   if (chrome_to_mobile_view_ && chrome_to_mobile_view_->visible()) {
@@ -840,8 +813,8 @@ void LocationBarView::Layout() {
   if (show_selected_keyword) {
     selected_keyword_view_->SetBounds(0, location_y + kBubbleVerticalPadding,
         0, selected_keyword_view_->GetPreferredSize().height());
-    LayoutView(selected_keyword_view_, kItemEditPadding, available_width,
-               true, &location_bounds);
+    LayoutView(selected_keyword_view_, kItemEditPadding,
+               AvailableWidth(max_edit_width), true, &location_bounds);
     location_bounds.set_x(selected_keyword_view_->visible() ?
         (offset + selected_keyword_view_->width() + kItemEditPadding) :
         (kEdgeThickness + kEdgeEditPadding));
@@ -852,8 +825,8 @@ void LocationBarView::Layout() {
     // its left.  So we undo the enlargement, then include it in the padding for
     // the added view.
     location_bounds.Inset(0, 0, kEditInternalSpace, 0);
-    LayoutView(keyword_hint_view_, kItemEditPadding, available_width, false,
-               &location_bounds);
+    LayoutView(keyword_hint_view_, kItemEditPadding,
+               AvailableWidth(max_edit_width), false, &location_bounds);
     if (!keyword_hint_view_->visible()) {
       // Put back the enlargement that we undid above.
       location_bounds.Inset(0, 0, -kEditInternalSpace, 0);
@@ -960,7 +933,7 @@ void LocationBarView::SelectAll() {
 }
 
 #if defined(OS_WIN) && !defined(USE_AURA)
-bool LocationBarView::OnMousePressed(const views::MouseEvent& event) {
+bool LocationBarView::OnMousePressed(const ui::MouseEvent& event) {
   UINT msg;
   if (event.IsLeftMouseButton()) {
     msg = (event.flags() & ui::EF_IS_DOUBLE_CLICK) ?
@@ -979,12 +952,12 @@ bool LocationBarView::OnMousePressed(const views::MouseEvent& event) {
   return true;
 }
 
-bool LocationBarView::OnMouseDragged(const views::MouseEvent& event) {
+bool LocationBarView::OnMouseDragged(const ui::MouseEvent& event) {
   OnMouseEvent(event, WM_MOUSEMOVE);
   return true;
 }
 
-void LocationBarView::OnMouseReleased(const views::MouseEvent& event) {
+void LocationBarView::OnMouseReleased(const ui::MouseEvent& event) {
   UINT msg;
   if (event.IsLeftMouseButton()) {
     msg = WM_LBUTTONUP;
@@ -1074,7 +1047,8 @@ void LocationBarView::OnSetFocus() {
 }
 
 SkBitmap LocationBarView::GetFavicon() const {
-  return delegate_->GetTabContents()->favicon_tab_helper()->GetFavicon();
+  return delegate_->GetTabContents()->favicon_tab_helper()->
+             GetFavicon().AsBitmap();
 }
 
 string16 LocationBarView::GetTitle() const {
@@ -1115,8 +1089,7 @@ void LocationBarView::LayoutView(views::View* view,
 void LocationBarView::RefreshContentSettingViews() {
   for (ContentSettingViews::const_iterator i(content_setting_views_.begin());
        i != content_setting_views_.end(); ++i) {
-    (*i)->UpdateFromWebContents(model_->input_in_progress() ? NULL :
-                                GetWebContentsFromDelegate(delegate_));
+    (*i)->Update(model_->input_in_progress() ? NULL : GetTabContents());
   }
 }
 
@@ -1157,8 +1130,6 @@ void LocationBarView::RefreshPageActionViews() {
     page_action_views_.resize(page_actions_.size());
     View* right_anchor = chrome_to_mobile_view_;
     if (!right_anchor)
-      right_anchor = metro_pin_view_;
-    if (!right_anchor)
       right_anchor = star_view_;
     if (!right_anchor)
       right_anchor = action_box_button_view_;
@@ -1176,7 +1147,8 @@ void LocationBarView::RefreshPageActionViews() {
 
   WebContents* contents = GetWebContentsFromDelegate(delegate_);
   if (!page_action_views_.empty() && contents) {
-    Browser* browser = browser::FindBrowserWithWebContents(contents);
+    Browser* browser =
+        browser::FindBrowserForController(&contents->GetController(), NULL);
     GURL url = chrome::GetActiveWebContents(browser)->GetURL();
 
     for (PageActionViews::const_iterator i(page_action_views_.begin());
@@ -1198,7 +1170,7 @@ void LocationBarView::RefreshPageActionViews() {
 }
 
 #if defined(OS_WIN) && !defined(USE_AURA)
-void LocationBarView::OnMouseEvent(const views::MouseEvent& event, UINT msg) {
+void LocationBarView::OnMouseEvent(const ui::MouseEvent& event, UINT msg) {
   OmniboxViewWin* omnibox_win = GetOmniboxViewWin(location_entry_.get());
   if (omnibox_win) {
     UINT flags = event.native_event().wParam;
@@ -1213,7 +1185,7 @@ void LocationBarView::ShowFirstRunBubbleInternal() {
 #if !defined(OS_CHROMEOS)
   // First run bubble doesn't make sense for Chrome OS.
   Browser* browser = GetBrowserFromDelegate(delegate_);
-  FirstRunBubble::ShowBubble(browser, profile_, location_icon_view_);
+  FirstRunBubble::ShowBubble(browser, location_icon_view_);
 #endif
 }
 
@@ -1246,8 +1218,7 @@ std::string LocationBarView::GetClassName() const {
   return kViewClassName;
 }
 
-bool LocationBarView::SkipDefaultKeyEventProcessing(
-    const views::KeyEvent& event) {
+bool LocationBarView::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
 #if defined(OS_WIN)
   if (views::FocusManager::IsTabTraversalKeyEvent(event)) {
     if (location_entry_->model()->popup_model()->IsOpen()) {
@@ -1259,7 +1230,7 @@ bool LocationBarView::SkipDefaultKeyEventProcessing(
       return true;
     }
 
-    // Tab while showing instant commits instant immediately.
+    // Tab while showing Instant commits instant immediately.
     // Return true so that focus traversal isn't attempted. The edit ends
     // up doing nothing in this case.
     if (location_entry_->model()->AcceptCurrentInstantPreview())
@@ -1303,12 +1274,14 @@ void LocationBarView::WriteDragDataForView(views::View* sender,
   DCHECK_NE(GetDragOperationsForView(sender, press_pt),
             ui::DragDropTypes::DRAG_NONE);
 
-  TabContents* tab_contents = delegate_->GetTabContents();
+  TabContents* tab_contents = GetTabContents();
   DCHECK(tab_contents);
+  gfx::ImageSkia favicon =
+      tab_contents->favicon_tab_helper()->GetFavicon().AsImageSkia();
   button_drag_utils::SetURLAndDragImage(
       tab_contents->web_contents()->GetURL(),
       tab_contents->web_contents()->GetTitle(),
-      tab_contents->favicon_tab_helper()->GetFavicon(),
+      favicon,
       data,
       sender->GetWidget());
 }

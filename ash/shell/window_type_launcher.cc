@@ -96,7 +96,7 @@ class ModalWindow : public views::WidgetDelegateView,
 
   // Overridden from views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE {
+                             const ui::Event& event) OVERRIDE {
     DCHECK(sender == open_button_);
     OpenModalWindow(GetWidget()->GetNativeView(), modal_type_);
   }
@@ -265,7 +265,7 @@ void WindowTypeLauncher::OnPaint(gfx::Canvas* canvas) {
   canvas->FillRect(GetLocalBounds(), SK_ColorWHITE);
 }
 
-bool WindowTypeLauncher::OnMousePressed(const views::MouseEvent& event) {
+bool WindowTypeLauncher::OnMousePressed(const ui::MouseEvent& event) {
   // Overridden so we get OnMouseReleased and can show the context menu.
   return true;
 }
@@ -287,7 +287,7 @@ bool WindowTypeLauncher::CanMaximize() const {
 }
 
 void WindowTypeLauncher::ButtonPressed(views::Button* sender,
-                                       const views::Event& event) {
+                                       const ui::Event& event) {
   if (sender == create_button_) {
     ToplevelWindow::CreateParams params;
     params.can_resize = true;

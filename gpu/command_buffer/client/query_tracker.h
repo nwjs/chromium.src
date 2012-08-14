@@ -70,16 +70,7 @@ class GLES2_IMPL_EXPORT QueryTracker {
       kComplete        // completed
     };
 
-    Query(GLuint id, GLenum target, const QuerySyncManager::QueryInfo& info)
-        : id_(id),
-          target_(target),
-          info_(info),
-          state_(kUninitialized),
-          submit_count_(0),
-          token_(0),
-          flushed_(false),
-          result_(0) {
-    }
+    Query(GLuint id, GLenum target, const QuerySyncManager::QueryInfo& info);
 
     GLenum target() const {
       return target_;
@@ -150,7 +141,7 @@ class GLES2_IMPL_EXPORT QueryTracker {
 
   Query* CreateQuery(GLuint id, GLenum target);
   Query* GetQuery(GLuint id);
-  void RemoveQuery(GLuint id);
+  void RemoveQuery(GLuint id, bool context_lost);
 
  private:
   typedef gpu::hash_map<GLuint, Query*> QueryMap;

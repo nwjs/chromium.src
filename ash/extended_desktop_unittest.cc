@@ -6,6 +6,7 @@
 #include "ash/display/multi_display_manager.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
+#include "ash/wm/coordinate_conversion.h"
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_util.h"
@@ -220,9 +221,9 @@ TEST_F(ExtendedDesktopTest, CycleWindows) {
   EXPECT_EQ(root_windows[1], d2_w2->GetNativeView()->GetRootWindow());
 
   controller->HandleCycleWindow(WindowCycleController::FORWARD, true);
-  EXPECT_TRUE(wm::IsActiveWindow(d2_w1->GetNativeView()));
-  controller->HandleCycleWindow(WindowCycleController::FORWARD, true);
   EXPECT_TRUE(wm::IsActiveWindow(d1_w2->GetNativeView()));
+  controller->HandleCycleWindow(WindowCycleController::FORWARD, true);
+  EXPECT_TRUE(wm::IsActiveWindow(d2_w1->GetNativeView()));
   controller->HandleCycleWindow(WindowCycleController::FORWARD, true);
   EXPECT_TRUE(wm::IsActiveWindow(d1_w1->GetNativeView()));
   controller->HandleCycleWindow(WindowCycleController::FORWARD, true);
@@ -232,9 +233,9 @@ TEST_F(ExtendedDesktopTest, CycleWindows) {
   controller->HandleCycleWindow(WindowCycleController::BACKWARD, true);
   EXPECT_TRUE(wm::IsActiveWindow(d1_w1->GetNativeView()));
   controller->HandleCycleWindow(WindowCycleController::BACKWARD, true);
-  EXPECT_TRUE(wm::IsActiveWindow(d1_w2->GetNativeView()));
-  controller->HandleCycleWindow(WindowCycleController::BACKWARD, true);
   EXPECT_TRUE(wm::IsActiveWindow(d2_w1->GetNativeView()));
+  controller->HandleCycleWindow(WindowCycleController::BACKWARD, true);
+  EXPECT_TRUE(wm::IsActiveWindow(d1_w2->GetNativeView()));
   controller->HandleCycleWindow(WindowCycleController::BACKWARD, true);
   EXPECT_TRUE(wm::IsActiveWindow(d2_w2->GetNativeView()));
 }
@@ -245,17 +246,17 @@ TEST_F(ExtendedDesktopTest, GetRootWindowAt) {
       internal::DisplayController::LEFT);
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
 
-  EXPECT_EQ(root_windows[1], Shell::GetRootWindowAt(gfx::Point(-400, 100)));
-  EXPECT_EQ(root_windows[1], Shell::GetRootWindowAt(gfx::Point(-1, 100)));
-  EXPECT_EQ(root_windows[0], Shell::GetRootWindowAt(gfx::Point(0, 300)));
-  EXPECT_EQ(root_windows[0], Shell::GetRootWindowAt(gfx::Point(700,300)));
+  EXPECT_EQ(root_windows[1], wm::GetRootWindowAt(gfx::Point(-400, 100)));
+  EXPECT_EQ(root_windows[1], wm::GetRootWindowAt(gfx::Point(-1, 100)));
+  EXPECT_EQ(root_windows[0], wm::GetRootWindowAt(gfx::Point(0, 300)));
+  EXPECT_EQ(root_windows[0], wm::GetRootWindowAt(gfx::Point(700,300)));
 
   // Zero origin.
-  EXPECT_EQ(root_windows[0], Shell::GetRootWindowAt(gfx::Point(0, 0)));
+  EXPECT_EQ(root_windows[0], wm::GetRootWindowAt(gfx::Point(0, 0)));
 
   // Out of range point should return the primary root window
-  EXPECT_EQ(root_windows[0], Shell::GetRootWindowAt(gfx::Point(-600, 0)));
-  EXPECT_EQ(root_windows[0], Shell::GetRootWindowAt(gfx::Point(701, 100)));
+  EXPECT_EQ(root_windows[0], wm::GetRootWindowAt(gfx::Point(-600, 0)));
+  EXPECT_EQ(root_windows[0], wm::GetRootWindowAt(gfx::Point(701, 100)));
 }
 
 TEST_F(ExtendedDesktopTest, GetRootWindowMatching) {
@@ -267,33 +268,33 @@ TEST_F(ExtendedDesktopTest, GetRootWindowMatching) {
 
   // Containing rect.
   EXPECT_EQ(root_windows[1],
-            Shell::GetRootWindowMatching(gfx::Rect(-300, 10, 50, 50)));
+            wm::GetRootWindowMatching(gfx::Rect(-300, 10, 50, 50)));
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(100, 10, 50, 50)));
+            wm::GetRootWindowMatching(gfx::Rect(100, 10, 50, 50)));
 
   // Intersecting rect.
   EXPECT_EQ(root_windows[1],
-            Shell::GetRootWindowMatching(gfx::Rect(-200, 0, 300, 300)));
+            wm::GetRootWindowMatching(gfx::Rect(-200, 0, 300, 300)));
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(-100, 0, 300, 300)));
+            wm::GetRootWindowMatching(gfx::Rect(-100, 0, 300, 300)));
 
   // Zero origin.
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(0, 0, 0, 0)));
+            wm::GetRootWindowMatching(gfx::Rect(0, 0, 0, 0)));
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(0, 0, 1, 1)));
+            wm::GetRootWindowMatching(gfx::Rect(0, 0, 1, 1)));
 
   // Empty rect.
   EXPECT_EQ(root_windows[1],
-            Shell::GetRootWindowMatching(gfx::Rect(-400, 100, 0, 0)));
+            wm::GetRootWindowMatching(gfx::Rect(-400, 100, 0, 0)));
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(100, 100, 0, 0)));
+            wm::GetRootWindowMatching(gfx::Rect(100, 100, 0, 0)));
 
   // Out of range rect should return the primary root window.
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(-600, -300, 50, 50)));
+            wm::GetRootWindowMatching(gfx::Rect(-600, -300, 50, 50)));
   EXPECT_EQ(root_windows[0],
-            Shell::GetRootWindowMatching(gfx::Rect(0, 1000, 50, 50)));
+            wm::GetRootWindowMatching(gfx::Rect(0, 1000, 50, 50)));
 }
 
 TEST_F(ExtendedDesktopTest, Capture) {
@@ -382,6 +383,35 @@ TEST_F(ExtendedDesktopTest, MoveWindow) {
   EXPECT_EQ(root_windows[0], d1->GetNativeView()->GetRootWindow());
 }
 
+TEST_F(ExtendedDesktopTest, MoveWindowToDisplay) {
+  UpdateDisplay("1000x1000,1000x1000");
+  Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
+
+  gfx::Display display0 =
+      gfx::Screen::GetDisplayMatching(root_windows[0]->GetBoundsInScreen());
+  gfx::Display display1 =
+      gfx::Screen::GetDisplayMatching(root_windows[1]->GetBoundsInScreen());
+  EXPECT_NE(display0.id(), display1.id());
+
+  views::Widget* d1 = CreateTestWidget(gfx::Rect(10, 10, 1000, 100));
+  EXPECT_EQ(root_windows[0], d1->GetNativeView()->GetRootWindow());
+
+  // Move the window where the window spans both root windows. Since the second
+  // parameter is |display1|, the window should be shown on the secondary root.
+  d1->GetNativeWindow()->SetBoundsInScreen(gfx::Rect(500, 10, 1000, 100),
+                                           display1);
+  EXPECT_EQ("500,10 1000x100",
+            d1->GetWindowBoundsInScreen().ToString());
+  EXPECT_EQ(root_windows[1], d1->GetNativeView()->GetRootWindow());
+
+  // Move to the primary root.
+  d1->GetNativeWindow()->SetBoundsInScreen(gfx::Rect(500, 10, 1000, 100),
+                                           display0);
+  EXPECT_EQ("500,10 1000x100",
+            d1->GetWindowBoundsInScreen().ToString());
+  EXPECT_EQ(root_windows[0], d1->GetNativeView()->GetRootWindow());
+}
+
 TEST_F(ExtendedDesktopTest, MoveWindowWithTransient) {
   UpdateDisplay("1000x600,600x400");
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
@@ -438,7 +468,7 @@ TEST_F(ExtendedDesktopTest, MoveWindowWithTransient) {
 }
 
 namespace internal {
-// Test if the Window::ConvertPointToWindow works across root windows.
+// Test if the Window::ConvertPointToTarget works across root windows.
 // TODO(oshima): Move multiple display suport and this test to aura.
 TEST_F(ExtendedDesktopTest, ConvertPoint) {
   UpdateDisplay("1000x600,600x400");
@@ -459,18 +489,18 @@ TEST_F(ExtendedDesktopTest, ConvertPoint) {
 
   // Convert point in the Root2's window to the Root1's window Coord.
   gfx::Point p(0, 0);
-  aura::Window::ConvertPointToWindow(root_windows[1], root_windows[0], &p);
+  aura::Window::ConvertPointToTarget(root_windows[1], root_windows[0], &p);
   EXPECT_EQ("1000,0", p.ToString());
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(d2, d1, &p);
+  aura::Window::ConvertPointToTarget(d2, d1, &p);
   EXPECT_EQ("1010,10", p.ToString());
 
   // Convert point in the Root1's window to the Root2's window Coord.
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(root_windows[0], root_windows[1], &p);
+  aura::Window::ConvertPointToTarget(root_windows[0], root_windows[1], &p);
   EXPECT_EQ("-1000,0", p.ToString());
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(d1, d2, &p);
+  aura::Window::ConvertPointToTarget(d1, d2, &p);
   EXPECT_EQ("-1010,-10", p.ToString());
 
   // Move the 2nd display to the bottom and test again.
@@ -482,18 +512,18 @@ TEST_F(ExtendedDesktopTest, ConvertPoint) {
 
   // Convert point in Root2's window to Root1's window Coord.
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(root_windows[1], root_windows[0], &p);
+  aura::Window::ConvertPointToTarget(root_windows[1], root_windows[0], &p);
   EXPECT_EQ("0,600", p.ToString());
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(d2, d1, &p);
+  aura::Window::ConvertPointToTarget(d2, d1, &p);
   EXPECT_EQ("10,610", p.ToString());
 
   // Convert point in Root1's window to Root2's window Coord.
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(root_windows[0], root_windows[1], &p);
+  aura::Window::ConvertPointToTarget(root_windows[0], root_windows[1], &p);
   EXPECT_EQ("0,-600", p.ToString());
   p.SetPoint(0, 0);
-  aura::Window::ConvertPointToWindow(d1, d2, &p);
+  aura::Window::ConvertPointToTarget(d1, d2, &p);
   EXPECT_EQ("-10,-610", p.ToString());
 }
 

@@ -9,6 +9,7 @@
 #include "base/chromeos/chromeos_version.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/path_service.h"
 #include "base/stringprintf.h"
 #include "base/string_util.h"
 #include "base/sys_info.h"
@@ -38,20 +39,6 @@ const FilePath::CharType kGDataCacheTmpDownloadsDir[] =
 const FilePath::CharType kGDataCacheTmpDocumentsDir[] =
     FILE_PATH_LITERAL("tmp/documents");
 
-// Returns the home directory path, or an empty string if the home directory
-// is not found.
-// Copied from webkit/chromeos/cros_mount_point_provider.h.
-// TODO(satorux): Share the code.
-std::string GetHomeDirectory() {
-  if (base::chromeos::IsRunningOnChromeOS())
-    return "/home/chronos/user";
-
-  const char* home = getenv("HOME");
-  if (home)
-    return home;
-  return "";
-}
-
 // Used to tweak GetAmountOfFreeDiskSpace() behavior for testing.
 FreeDiskSpaceGetterInterface* global_free_disk_getter_for_testing = NULL;
 
@@ -61,8 +48,12 @@ int64 GetAmountOfFreeDiskSpace() {
   if (global_free_disk_getter_for_testing)
     return global_free_disk_getter_for_testing->AmountOfFreeDiskSpace();
 
-  return base::SysInfo::AmountOfFreeDiskSpace(
-      FilePath::FromUTF8Unsafe(GetHomeDirectory()));
+  FilePath path;
+  if (!PathService::Get(base::DIR_HOME, &path)) {
+    LOG(ERROR) << "Home directory not found";
+    return -1;
+  }
+  return base::SysInfo::AmountOfFreeDiskSpace(path);
 }
 
 // Returns true if we have sufficient space to store the given number of
@@ -179,12 +170,10 @@ void DeleteFilesSelectively(const FilePath& path_to_delete_pattern,
   // base name of |path_to_delete_pattern|.
   // If a file is not |path_to_keep|, delete it.
   bool success = true;
-  file_util::FileEnumerator enumerator(
-      path_to_delete_pattern.DirName(),
+  file_util::FileEnumerator enumerator(path_to_delete_pattern.DirName(),
       false,  // not recursive
-      static_cast<file_util::FileEnumerator::FileType>(
-          file_util::FileEnumerator::FILES |
-          file_util::FileEnumerator::SHOW_SYM_LINKS),
+      file_util::FileEnumerator::FILES |
+      file_util::FileEnumerator::SHOW_SYM_LINKS,
       path_to_delete_pattern.BaseName().value());
   for (FilePath current = enumerator.Next(); !current.empty();
        current = enumerator.Next()) {
@@ -238,10 +227,10 @@ void CollectAnyFile(std::vector<std::string>* resource_ids,
 }
 
 // Runs callback with pointers dereferenced.
-// Used to implement SetMountedStateOnUIThread.
-void RunSetMountedStateCallback(const SetMountedStateCallback& callback,
-                                GDataFileError* error,
-                                FilePath* cache_file_path) {
+// Used to implement SetMountedStateOnUIThread and ClearAllOnUIThread.
+void RunChangeCacheStateCallback(const ChangeCacheStateCallback& callback,
+                                 const GDataFileError* error,
+                                 const FilePath* cache_file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(error);
   DCHECK(cache_file_path);
@@ -573,7 +562,7 @@ void GDataCache::UnpinOnUIThread(const std::string& resource_id,
 void GDataCache::SetMountedStateOnUIThread(
     const FilePath& file_path,
     bool to_mount,
-    const SetMountedStateCallback& callback) {
+    const ChangeCacheStateCallback& callback) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   GDataFileError* error =
@@ -587,7 +576,7 @@ void GDataCache::SetMountedStateOnUIThread(
                  to_mount,
                  error,
                  cache_file_path),
-      base::Bind(&RunSetMountedStateCallback,
+      base::Bind(&RunChangeCacheStateCallback,
                  callback,
                  base::Owned(error),
                  base::Owned(cache_file_path)));
@@ -682,12 +671,36 @@ void GDataCache::RemoveOnUIThread(const std::string& resource_id,
                  ""  /* md5 */));
 }
 
+void GDataCache::ClearAllOnUIThread(const ChangeCacheStateCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  GDataFileError* error = new GDataFileError(GDATA_FILE_OK);
+
+  blocking_task_runner_->PostTaskAndReply(
+      FROM_HERE,
+      base::Bind(&GDataCache::ClearAll,
+                 base::Unretained(this),
+                 error),
+      base::Bind(&RunChangeCacheStateCallback,
+                 callback,
+                 base::Owned(error),
+                 &cache_root_path_));
+}
+
 void GDataCache::RequestInitializeOnUIThread() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   blocking_task_runner_->PostTask(
       FROM_HERE,
       base::Bind(&GDataCache::Initialize, base::Unretained(this)));
+}
+
+void GDataCache::RequestInitializeOnUIThreadForTesting() {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  blocking_task_runner_->PostTask(
+      FROM_HERE,
+      base::Bind(&GDataCache::InitializeForTesting, base::Unretained(this)));
 }
 
 void GDataCache::ForceRescanOnUIThreadForTesting() {
@@ -732,6 +745,15 @@ void GDataCache::Initialize() {
 
   InitCachePaths(cache_paths_);
   metadata_ = GDataCacheMetadata::CreateGDataCacheMetadata(
+      blocking_task_runner_).Pass();
+  metadata_->Initialize(cache_paths_);
+}
+
+void GDataCache::InitializeForTesting() {
+  AssertOnSequencedWorkerPool();
+
+  InitCachePaths(cache_paths_);
+  metadata_ = GDataCacheMetadata::CreateGDataCacheMetadataForTesting(
       blocking_task_runner_).Pass();
   metadata_->Initialize(cache_paths_);
 }
@@ -1433,6 +1455,16 @@ void GDataCache::Remove(const std::string& resource_id,
   metadata_->RemoveCacheEntry(resource_id);
 
   *error = GDATA_FILE_OK;
+}
+
+void GDataCache::ClearAll(GDataFileError* error) {
+  AssertOnSequencedWorkerPool();
+  DCHECK(error);
+
+  bool success = file_util::Delete(cache_root_path_, true);
+  Initialize();
+
+  *error = success ? GDATA_FILE_OK : GDATA_FILE_ERROR_FAILED;
 }
 
 void GDataCache::OnPinned(GDataFileError* error,

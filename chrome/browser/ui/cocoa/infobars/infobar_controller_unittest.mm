@@ -7,8 +7,8 @@
 #include "base/memory/scoped_nsobject.h"
 #include "base/string_util.h"
 #include "base/sys_string_conversions.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/ui/cocoa/cocoa_profile_test.h"
 #import "chrome/browser/ui/cocoa/infobars/infobar_container_controller.h"
 #import "chrome/browser/ui/cocoa/infobars/infobar_controller.h"
@@ -101,7 +101,7 @@ class LinkInfoBarControllerTest : public CocoaProfileTest,
   virtual void SetUp() {
     CocoaProfileTest::SetUp();
     tab_contents_.reset(new TabContents(WebContents::Create(
-        profile(), NULL, MSG_ROUTING_NONE, NULL, NULL)));
+        profile(), NULL, MSG_ROUTING_NONE, NULL)));
     tab_contents_->infobar_tab_helper()->set_infobars_enabled(false);
 
     delegate_ = new MockLinkInfoBarDelegate(this);
@@ -145,7 +145,7 @@ class ConfirmInfoBarControllerTest : public CocoaProfileTest,
   virtual void SetUp() {
     CocoaProfileTest::SetUp();
     tab_contents_.reset(new TabContents(WebContents::Create(
-        profile(), NULL, MSG_ROUTING_NONE, NULL, NULL)));
+        profile(), NULL, MSG_ROUTING_NONE, NULL)));
     tab_contents_->infobar_tab_helper()->set_infobars_enabled(false);
 
     delegate_ = new MockConfirmInfoBarDelegate(this);

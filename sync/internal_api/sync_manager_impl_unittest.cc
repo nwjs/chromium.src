@@ -696,8 +696,10 @@ class SyncManagerObserverMock : public SyncManager::Observer {
 
 class SyncNotifierMock : public SyncNotifier {
  public:
+  MOCK_METHOD1(RegisterHandler, void(SyncNotifierObserver*));
   MOCK_METHOD2(UpdateRegisteredIds,
                void(SyncNotifierObserver*, const ObjectIdSet&));
+  MOCK_METHOD1(UnregisterHandler, void(SyncNotifierObserver*));
   MOCK_METHOD1(SetUniqueId, void(const std::string&));
   MOCK_METHOD1(SetStateDeprecated, void(const std::string&));
   MOCK_METHOD2(UpdateCredentials,
@@ -742,6 +744,10 @@ class SyncManagerTest : public testing::Test,
     EXPECT_CALL(*sync_notifier_mock_, SetStateDeprecated(""));
     EXPECT_CALL(*sync_notifier_mock_,
                 UpdateCredentials(credentials.email, credentials.sync_token));
+    EXPECT_CALL(*sync_notifier_mock_, RegisterHandler(_));
+
+    // Called by ShutdownOnSyncThread().
+    EXPECT_CALL(*sync_notifier_mock_, UnregisterHandler(_));
 
     sync_manager_.AddObserver(&observer_);
     EXPECT_CALL(observer_, OnInitializationComplete(_, _, _)).
@@ -782,7 +788,8 @@ class SyncManagerTest : public testing::Test,
 
   void TearDown() {
     sync_manager_.RemoveObserver(&observer_);
-    EXPECT_CALL(*sync_notifier_mock_, UpdateRegisteredIds(_, ObjectIdSet()));
+    // |sync_notifier_mock_| is strict, which ensures we don't do anything but
+    // unregister |sync_manager_| as a handler on shutdown.
     sync_manager_.ShutdownOnSyncThread();
     sync_notifier_mock_ = NULL;
     PumpLoop();
@@ -956,11 +963,16 @@ TEST_F(SyncManagerTest, UpdateEnabledTypes) {
   ModelSafeRoutingInfo routes;
   GetModelSafeRoutingInfo(&routes);
   const ModelTypeSet enabled_types = GetRoutingInfoTypes(routes);
-
   EXPECT_CALL(*sync_notifier_mock_,
               UpdateRegisteredIds(
                   _, ModelTypeSetToObjectIdSet(enabled_types)));
+
   sync_manager_.UpdateEnabledTypes(enabled_types);
+}
+
+TEST_F(SyncManagerTest, RegisterInvalidationHandler) {
+  EXPECT_CALL(*sync_notifier_mock_, RegisterHandler(NULL));
+  sync_manager_.RegisterInvalidationHandler(NULL);
 }
 
 TEST_F(SyncManagerTest, UpdateRegisteredInvalidationIds) {
@@ -968,17 +980,23 @@ TEST_F(SyncManagerTest, UpdateRegisteredInvalidationIds) {
   sync_manager_.UpdateRegisteredInvalidationIds(NULL, ObjectIdSet());
 }
 
+TEST_F(SyncManagerTest, UnregisterInvalidationHandler) {
+  EXPECT_CALL(*sync_notifier_mock_, UnregisterHandler(NULL));
+  sync_manager_.UnregisterInvalidationHandler(NULL);
+}
+
 TEST_F(SyncManagerTest, ProcessJsMessage) {
   const JsArgList kNoArgs;
 
   StrictMock<MockJsReplyHandler> reply_handler;
 
-  ListValue false_args;
-  false_args.Append(Value::CreateBooleanValue(false));
+  ListValue disabled_args;
+  disabled_args.Append(
+      Value::CreateStringValue("TRANSIENT_NOTIFICATION_ERROR"));
 
   EXPECT_CALL(reply_handler,
               HandleJsReply("getNotificationState",
-                            HasArgsAsList(false_args)));
+                            HasArgsAsList(disabled_args)));
 
   // This message should be dropped.
   SendJsMessage("unknownMessage", kNoArgs, reply_handler.AsWeakHandle());
@@ -1000,7 +1018,7 @@ TEST_F(SyncManagerTest, ProcessJsMessageGetRootNodeDetails) {
   SendJsMessage("getRootNodeDetails", kNoArgs, reply_handler.AsWeakHandle());
 
   EXPECT_EQ(1u, return_args.Get().GetSize());
-  DictionaryValue* node_info = NULL;
+  const DictionaryValue* node_info = NULL;
   EXPECT_TRUE(return_args.Get().GetDictionary(0, &node_info));
   if (node_info) {
     ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
@@ -1017,11 +1035,11 @@ void CheckGetNodesByIdReturnArgs(SyncManager* sync_manager,
                                  int64 id,
                                  bool is_detailed) {
   EXPECT_EQ(1u, return_args.Get().GetSize());
-  ListValue* nodes = NULL;
+  const ListValue* nodes = NULL;
   ASSERT_TRUE(return_args.Get().GetList(0, &nodes));
   ASSERT_TRUE(nodes);
   EXPECT_EQ(1u, nodes->GetSize());
-  DictionaryValue* node_info = NULL;
+  const DictionaryValue* node_info = NULL;
   EXPECT_TRUE(nodes->GetDictionary(0, &node_info));
   ASSERT_TRUE(node_info);
   ReadTransaction trans(FROM_HERE, sync_manager->GetUserShare());
@@ -1164,7 +1182,7 @@ TEST_F(SyncManagerTest, GetChildNodeIds) {
   }
 
   EXPECT_EQ(1u, return_args.Get().GetSize());
-  ListValue* nodes = NULL;
+  const ListValue* nodes = NULL;
   ASSERT_TRUE(return_args.Get().GetList(0, &nodes));
   ASSERT_TRUE(nodes);
   EXPECT_EQ(6u, nodes->GetSize());
@@ -1238,8 +1256,8 @@ TEST_F(SyncManagerTest, GetAllNodesTest) {
   // would make this test brittle without greatly increasing our chances of
   // catching real bugs.
 
-  ListValue* node_list;
-  DictionaryValue* first_result;
+  const ListValue* node_list;
+  const DictionaryValue* first_result;
 
   // The resulting argument list should have one argument, a list of nodes.
   ASSERT_EQ(1U, return_args.Get().GetSize());
@@ -1261,17 +1279,17 @@ TEST_F(SyncManagerTest, OnNotificationStateChange) {
   InSequence dummy;
   StrictMock<MockJsEventHandler> event_handler;
 
-  DictionaryValue true_details;
-  true_details.SetBoolean("enabled", true);
-  DictionaryValue false_details;
-  false_details.SetBoolean("enabled", false);
+  DictionaryValue enabled_details;
+  enabled_details.SetString("state", "NO_NOTIFICATION_ERROR");
+  DictionaryValue disabled_details;
+  disabled_details.SetString("state", "TRANSIENT_NOTIFICATION_ERROR");
 
   EXPECT_CALL(event_handler,
               HandleJsEvent("onNotificationStateChange",
-                            HasDetailsAsDictionary(true_details)));
+                            HasDetailsAsDictionary(enabled_details)));
   EXPECT_CALL(event_handler,
               HandleJsEvent("onNotificationStateChange",
-                            HasDetailsAsDictionary(false_details)));
+                            HasDetailsAsDictionary(disabled_details)));
 
   SimulateEnableNotificationsForTest();
   SimulateDisableNotificationsForTest(TRANSIENT_NOTIFICATION_ERROR);

@@ -7,8 +7,11 @@
 #include "ppapi/c/pp_errors.h"
 #include "ppapi/c/pp_size.h"
 #include "ppapi/c/trusted/ppb_image_data_trusted.h"
+#include "ppapi/proxy/connection.h"
 #include "ppapi/proxy/file_chooser_resource.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
+#include "ppapi/proxy/plugin_globals.h"
+#include "ppapi/proxy/plugin_proxy_delegate.h"
 #include "ppapi/proxy/plugin_resource_tracker.h"
 #include "ppapi/proxy/ppapi_messages.h"
 #include "ppapi/proxy/ppb_audio_input_proxy.h"
@@ -207,6 +210,25 @@ PP_Resource ResourceCreationProxy::CreateGraphics2D(PP_Instance instance,
                                                    is_always_opaque);
 }
 
+PP_Resource ResourceCreationProxy::CreateGraphics3D(
+    PP_Instance instance,
+    PP_Resource share_context,
+    const int32_t* attrib_list) {
+  printf("ResourceCreationProxy::CreateGraphics3D\n");
+  return PPB_Graphics3D_Proxy::CreateProxyResource(
+      instance, share_context, attrib_list);
+}
+
+PP_Resource ResourceCreationProxy::CreateGraphics3DRaw(
+    PP_Instance instance,
+    PP_Resource share_context,
+    const int32_t* attrib_list) {
+  printf("ResourceCreationProxy::CreateGraphics3DRaw\n");
+  // Not proxied. The raw creation function is used only in the implementation
+  // of the proxy on the host side.
+  return 0;
+}
+
 #if !defined(OS_NACL)
 PP_Resource ResourceCreationProxy::CreateAudioInput0_1(
     PP_Instance instance,
@@ -252,7 +274,7 @@ PP_Resource ResourceCreationProxy::CreateFileChooser(
     PP_Instance instance,
     PP_FileChooserMode_Dev mode,
     const char* accept_types) {
-  return (new FileChooserResource(dispatcher(), instance, mode,
+  return (new FileChooserResource(GetConnection(), instance, mode,
                                   accept_types))->GetReference();
 }
 
@@ -282,23 +304,6 @@ PP_Resource ResourceCreationProxy::CreateNetworkMonitor(
       void* user_data) {
   return PPB_NetworkMonitor_Private_Proxy::CreateProxyResource(
       instance, callback, user_data);
-}
-
-PP_Resource ResourceCreationProxy::CreateGraphics3D(
-    PP_Instance instance,
-    PP_Resource share_context,
-    const int32_t* attrib_list) {
-  return PPB_Graphics3D_Proxy::CreateProxyResource(
-      instance, share_context, attrib_list);
-}
-
-PP_Resource ResourceCreationProxy::CreateGraphics3DRaw(
-    PP_Instance instance,
-    PP_Resource share_context,
-    const int32_t* attrib_list) {
-  // Not proxied. The raw creation function is used only in the implementation
-  // of the proxy on the host side.
-  return 0;
 }
 
 PP_Resource ResourceCreationProxy::CreateScrollbar(PP_Instance instance,
@@ -363,6 +368,12 @@ bool ResourceCreationProxy::Send(IPC::Message* msg) {
 
 bool ResourceCreationProxy::OnMessageReceived(const IPC::Message& msg) {
   return false;
+}
+
+Connection ResourceCreationProxy::GetConnection() {
+  return Connection(
+      PluginGlobals::Get()->plugin_proxy_delegate()->GetBrowserSender(),
+      dispatcher());
 }
 
 }  // namespace proxy

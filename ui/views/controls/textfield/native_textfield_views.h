@@ -30,7 +30,6 @@ class Canvas;
 namespace views {
 
 class FocusableBorder;
-class KeyEvent;
 class MenuModelAdapter;
 class MenuRunner;
 
@@ -53,12 +52,12 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual ~NativeTextfieldViews();
 
   // View overrides:
-  virtual gfx::NativeCursor GetCursor(const MouseEvent& event) OVERRIDE;
-  virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const MouseEvent& event) OVERRIDE;
+  virtual gfx::NativeCursor GetCursor(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(const GestureEvent& event) OVERRIDE;
-  virtual bool OnKeyPressed(const KeyEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
   virtual bool GetDropFormats(
       int* formats,
       std::set<ui::OSExchangeData::CustomFormat>* custom_formats) OVERRIDE;
@@ -66,7 +65,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual int OnDragUpdated(const DropTargetEvent& event) OVERRIDE;
   virtual int OnPerformDrop(const DropTargetEvent& event) OVERRIDE;
   virtual void OnDragDone() OVERRIDE;
-  virtual bool OnKeyReleased(const KeyEvent& event) OVERRIDE;
+  virtual bool OnKeyReleased(const ui::KeyEvent& event) OVERRIDE;
   virtual void OnPaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void OnFocus() OVERRIDE;
   virtual void OnBlur() OVERRIDE;
@@ -116,8 +115,8 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   virtual void GetSelectionModel(gfx::SelectionModel* sel) const OVERRIDE;
   virtual void SelectSelectionModel(const gfx::SelectionModel& sel) OVERRIDE;
   virtual size_t GetCursorPosition() const OVERRIDE;
-  virtual bool HandleKeyPressed(const KeyEvent& e) OVERRIDE;
-  virtual bool HandleKeyReleased(const KeyEvent& e) OVERRIDE;
+  virtual bool HandleKeyPressed(const ui::KeyEvent& e) OVERRIDE;
+  virtual bool HandleKeyReleased(const ui::KeyEvent& e) OVERRIDE;
   virtual void HandleFocus() OVERRIDE;
   virtual void HandleBlur() OVERRIDE;
   virtual ui::TextInputClient* GetTextInputClient() OVERRIDE;
@@ -193,7 +192,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   void PaintTextAndCursor(gfx::Canvas* canvas);
 
   // Handle the keyevent.
-  bool HandleKeyEvent(const KeyEvent& key_event);
+  bool HandleKeyEvent(const ui::KeyEvent& key_event);
 
   // Helper function to call MoveCursorTo on the TextfieldViewsModel.
   bool MoveCursorTo(const gfx::Point& point, bool select);
@@ -232,17 +231,17 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
   bool Paste();
 
   // Tracks the mouse clicks for single/double/triple clicks.
-  void TrackMouseClicks(const MouseEvent& event);
+  void TrackMouseClicks(const ui::MouseEvent& event);
 
   // Handles mouse press events.
-  void HandleMousePressEvent(const MouseEvent& event);
+  void HandleMousePressEvent(const ui::MouseEvent& event);
 
   // Returns true if the current text input type allows access by the IME.
   bool ImeEditingAllowed() const;
 
   // Returns true if distance between |event| and |last_click_location_|
   // exceeds the drag threshold.
-  bool ExceededDragThresholdFromLastClickLocation(const MouseEvent& event);
+  bool ExceededDragThresholdFromLastClickLocation(const ui::MouseEvent& event);
 
   // Checks if a char is ok to be inserted into the textfield. The |ch| is a
   // modified character, i.e., modifiers took effect when generating this char.
@@ -273,7 +272,7 @@ class VIEWS_EXPORT NativeTextfieldViews : public TouchSelectionClientView,
 
   // State variables used to track double and triple clicks.
   size_t aggregated_clicks_;
-  base::Time last_click_time_;
+  base::TimeDelta last_click_time_;
   gfx::Point last_click_location_;
 
   // Context menu and its content list for the textfield.

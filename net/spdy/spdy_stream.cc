@@ -137,19 +137,36 @@ SpdyFrame* SpdyStream::ProduceNextFrame() {
     // that our stream_id is correct.
     DCHECK_GT(io_state_, STATE_SEND_HEADERS_COMPLETE);
     DCHECK_GT(stream_id_, 0u);
-    DCHECK(!pending_data_frames_.empty());
-    SpdyFrame* frame = pending_data_frames_.front();
-    pending_data_frames_.pop_front();
-    return frame;
+    DCHECK(!pending_frames_.empty());
+
+    PendingFrame frame = pending_frames_.front();
+    pending_frames_.pop_front();
+
+    if (frame.type == TYPE_DATA) {
+      // Send queued data frame.
+      return frame.data_frame;
+    } else {
+      DCHECK(frame.type == TYPE_HEADER);
+      // Create actual HEADERS frame just in time because it depends on
+      // compression context and should not be reordered after the creation.
+      SpdyFrame* header_frame = session_->CreateHeadersFrame(
+          stream_id_, *frame.header_block, SpdyControlFlags());
+      delete frame.header_block;
+      return header_frame;
+    }
   }
+  NOTREACHED();
 }
 
 SpdyStream::~SpdyStream() {
   UpdateHistograms();
-  while (!pending_data_frames_.empty()) {
-    SpdyFrame* frame = pending_data_frames_.back();
-    pending_data_frames_.pop_back();
-    delete frame;
+  while (!pending_frames_.empty()) {
+    PendingFrame frame = pending_frames_.back();
+    pending_frames_.pop_back();
+    if (frame.type == TYPE_DATA)
+      delete frame.data_frame;
+    else
+      delete frame.header_block;
   }
 }
 
@@ -177,7 +194,11 @@ void SpdyStream::PushedStreamReplayData() {
     // We don't have complete headers.  Assume we're waiting for another
     // HEADERS frame.  Since we don't have headers, we had better not have
     // any pending data frames.
-    DCHECK_EQ(0U, pending_buffers_.size());
+    if (pending_buffers_.size() != 0U) {
+      LogStreamError(ERR_SPDY_PROTOCOL_ERROR,
+                     "HEADERS incomplete headers, but pending data frames.");
+      session_->CloseStream(stream_id_, ERR_SPDY_PROTOCOL_ERROR);
+    }
     return;
   }
 
@@ -491,7 +512,12 @@ void SpdyStream::OnDataReceived(const char* data, int length) {
     return;
   }
 
-  delegate_->OnDataReceived(data, length);
+  if (delegate_->OnDataReceived(data, length) != net::OK) {
+    // |delegate_| rejected the data.
+    LogStreamError(ERR_SPDY_PROTOCOL_ERROR, "Delegate rejected the data");
+    session_->CloseStream(stream_id_, ERR_SPDY_PROTOCOL_ERROR);
+    return;
+  }
 }
 
 // This function is only called when an entire frame is written.
@@ -556,15 +582,38 @@ int SpdyStream::SendRequest(bool has_upload_data) {
   return DoLoop(OK);
 }
 
-int SpdyStream::WriteStreamData(IOBuffer* data, int length,
+int SpdyStream::WriteHeaders(SpdyHeaderBlock* headers) {
+  // Until the first headers by SYN_STREAM have been completely sent, we can
+  // not be sure that our stream_id is correct.
+  DCHECK_GT(io_state_, STATE_SEND_HEADERS_COMPLETE);
+  CHECK_GT(stream_id_, 0u);
+
+  PendingFrame frame;
+  frame.type = TYPE_HEADER;
+  frame.header_block = headers;
+  pending_frames_.push_back(frame);
+
+  SetHasWriteAvailable();
+  return ERR_IO_PENDING;
+}
+
+int SpdyStream::WriteStreamData(IOBuffer* data,
+                                int length,
                                 SpdyDataFlags flags) {
   // Until the headers have been completely sent, we can not be sure
   // that our stream_id is correct.
   DCHECK_GT(io_state_, STATE_SEND_HEADERS_COMPLETE);
   CHECK_GT(stream_id_, 0u);
 
-  pending_data_frames_.push_back(
-      session_->CreateDataFrame(stream_id_, data, length, flags));
+  SpdyDataFrame* data_frame = session_->CreateDataFrame(
+      stream_id_, data, length, flags);
+  if (!data_frame)
+    return ERR_IO_PENDING;
+
+  PendingFrame frame;
+  frame.type = TYPE_DATA;
+  frame.data_frame = data_frame;
+  pending_frames_.push_back(frame);
 
   SetHasWriteAvailable();
   return ERR_IO_PENDING;

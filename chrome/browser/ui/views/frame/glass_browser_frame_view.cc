@@ -124,6 +124,10 @@ GlassBrowserFrameView::GetTabStripInsets(bool restored) const {
   return TabStripInsets(NonClientTopBorderHeight(restored), 0, 0);
 }
 
+int GlassBrowserFrameView::GetThemeBackgroundXInset() const {
+  return 0;
+}
+
 void GlassBrowserFrameView::UpdateThrobber(bool running) {
   if (throbber_running_) {
     if (running) {
@@ -238,10 +242,10 @@ void GlassBrowserFrameView::Layout() {
   LayoutClientView();
 }
 
-bool GlassBrowserFrameView::HitTest(const gfx::Point& l) const {
+bool GlassBrowserFrameView::HitTestRect(const gfx::Rect& rect) const {
   return (avatar_button() &&
-          avatar_button()->GetMirroredBounds().Contains(l)) ||
-      !frame()->client_view()->bounds().Contains(l);
+          avatar_button()->GetMirroredBounds().Intersects(rect)) ||
+          !frame()->client_view()->bounds().Intersects(rect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -276,7 +280,7 @@ void GlassBrowserFrameView::PaintToolbarBackground(gfx::Canvas* canvas) {
 
   gfx::Rect toolbar_bounds(browser_view()->GetToolbarBounds());
   gfx::Point toolbar_origin(toolbar_bounds.origin());
-  View::ConvertPointToView(browser_view(), this, &toolbar_origin);
+  View::ConvertPointToTarget(browser_view(), this, &toolbar_origin);
   toolbar_bounds.set_origin(toolbar_origin);
   int x = toolbar_bounds.x();
   int w = toolbar_bounds.width();
@@ -296,7 +300,8 @@ void GlassBrowserFrameView::PaintToolbarBackground(gfx::Canvas* canvas) {
   // the tabstrip is on the top.
   int y = toolbar_bounds.y();
   int dest_y = y + (kFrameShadowThickness * 2);
-  canvas->TileImageInt(*theme_toolbar, x,
+  canvas->TileImageInt(*theme_toolbar,
+                       x + GetThemeBackgroundXInset(),
                        dest_y - GetTabStripInsets(false).top, x,
                        dest_y, w, theme_toolbar->height());
 

@@ -64,6 +64,28 @@ class StringSet {
 
 }  // anonymous namespace.
 
+FeatureInfo::FeatureFlags::FeatureFlags()
+    : chromium_framebuffer_multisample(false),
+      oes_standard_derivatives(false),
+      oes_egl_image_external(false),
+      npot_ok(false),
+      enable_texture_float_linear(false),
+      enable_texture_half_float_linear(false),
+      chromium_webglsl(false),
+      chromium_stream_texture(false),
+      angle_translated_shader_source(false),
+      angle_pack_reverse_row_order(false),
+      arb_texture_rectangle(false),
+      angle_instanced_arrays(false),
+      occlusion_query_boolean(false),
+      use_arb_occlusion_query2_for_occlusion_query_boolean(false),
+      use_arb_occlusion_query_for_occlusion_query_boolean(false),
+      disable_workarounds(false),
+      is_intel(false),
+      is_nvidia(false),
+      is_amd(false) {
+}
+
 FeatureInfo::FeatureInfo() {
   static const GLenum kAlphaTypes[] = {
       GL_UNSIGNED_BYTE,
@@ -205,6 +227,7 @@ void FeatureInfo::AddFeatures(const char* desired_features) {
   AddExtensionString("GL_CHROMIUM_set_visibility");
   AddExtensionString("GL_CHROMIUM_strict_attribs");
   AddExtensionString("GL_CHROMIUM_texture_mailbox");
+  AddExtensionString("GL_EXT_debug_marker");
 
   if (!disallowed_features_.gpu_memory_manager)
     AddExtensionString("GL_CHROMIUM_gpu_memory_manager");

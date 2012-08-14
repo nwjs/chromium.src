@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <cstddef>
 #include <cstdio>
 #include <string>
 
@@ -20,6 +21,7 @@
 #include "net/base/host_port_pair.h"
 #include "net/base/host_resolver.h"
 #include "net/base/network_change_notifier.h"
+#include "net/base/transport_security_state.h"
 #include "net/url_request/url_request_test_util.h"
 #include "sync/internal_api/public/base/model_type.h"
 #include "sync/internal_api/public/base/model_type_payload_map.h"
@@ -118,6 +120,8 @@ class MyTestURLRequestContext : public TestURLRequestContext {
             net::HostResolver::kDefaultParallelism,
             net::HostResolver::kDefaultRetryAttempts,
             NULL));
+    context_storage_.set_transport_security_state(
+        new net::TransportSecurityState());
     Init();
   }
 
@@ -239,13 +243,15 @@ int SyncListenNotificationsMain(int argc, char* argv[]) {
   const char kUniqueId[] = "fake_unique_id";
   sync_notifier->SetUniqueId(kUniqueId);
   sync_notifier->UpdateCredentials(email, token);
+
   // Listen for notifications for all known types.
+  sync_notifier->RegisterHandler(&notification_printer);
   sync_notifier->UpdateRegisteredIds(
       &notification_printer, ModelTypeSetToObjectIdSet(ModelTypeSet::All()));
 
   ui_loop.Run();
 
-  sync_notifier->UpdateRegisteredIds(&notification_printer, ObjectIdSet());
+  sync_notifier->UnregisterHandler(&notification_printer);
   io_thread.Stop();
   return 0;
 }

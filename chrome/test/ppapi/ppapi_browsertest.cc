@@ -206,10 +206,7 @@ TEST_PPAPI_NACL_VIA_HTTP(Graphics3D)
 
 TEST_PPAPI_IN_PROCESS(ImageData)
 TEST_PPAPI_OUT_OF_PROCESS(ImageData)
-
-// PPAPINaClTest.ImageData times out consistently on all platforms.
-// http://crbug.com/130377
-TEST_PPAPI_NACL_VIA_HTTP(DISABLED_ImageData)
+TEST_PPAPI_NACL_VIA_HTTP(ImageData)
 
 TEST_PPAPI_IN_PROCESS(BrowserFont)
 TEST_PPAPI_OUT_OF_PROCESS(BrowserFont)
@@ -598,13 +595,17 @@ TEST_PPAPI_NACL_VIA_HTTP(MAYBE_NetAddressPrivateUntrusted_GetPort)
 TEST_PPAPI_NACL_VIA_HTTP(NetAddressPrivateUntrusted_GetAddress)
 
 TEST_PPAPI_IN_PROCESS(NetworkMonitorPrivate_Basic)
-TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_Basic)
 TEST_PPAPI_IN_PROCESS(NetworkMonitorPrivate_2Monitors)
-TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_2Monitors)
 TEST_PPAPI_IN_PROCESS(NetworkMonitorPrivate_DeleteInCallback)
-TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_DeleteInCallback)
 TEST_PPAPI_IN_PROCESS(NetworkMonitorPrivate_ListObserver)
+TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_Basic)
+TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_2Monitors)
+TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_DeleteInCallback)
 TEST_PPAPI_OUT_OF_PROCESS(NetworkMonitorPrivate_ListObserver)
+TEST_PPAPI_NACL_VIA_HTTP(NetworkMonitorPrivate_Basic)
+TEST_PPAPI_NACL_VIA_HTTP(NetworkMonitorPrivate_2Monitors)
+TEST_PPAPI_NACL_VIA_HTTP(NetworkMonitorPrivate_DeleteInCallback)
+TEST_PPAPI_NACL_VIA_HTTP(NetworkMonitorPrivate_ListObserver)
 
 TEST_PPAPI_IN_PROCESS(Flash_SetInstanceAlwaysOnTop)
 TEST_PPAPI_IN_PROCESS(Flash_GetProxyForURL)

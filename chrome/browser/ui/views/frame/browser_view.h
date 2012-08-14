@@ -16,7 +16,6 @@
 #include "chrome/browser/infobars/infobar_container.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/metro_pinned_state_observer.h"
 #include "chrome/browser/ui/search/search_types.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
@@ -94,8 +93,7 @@ class BrowserView : public BrowserWindow,
                     public views::ClientView,
                     public InfoBarContainer::Delegate,
                     public views::SingleSplitViewListener,
-                    public gfx::SysColorChangeListener,
-                    public MetroPinnedStateObserver {
+                    public gfx::SysColorChangeListener {
  public:
   // The browser view's class name.
   static const char kViewClassName[];
@@ -177,11 +175,6 @@ class BrowserView : public BrowserWindow,
   // Returns true if an accelerator was found for the specified |cmd_id|, false
   // otherwise.
   bool GetAccelerator(int cmd_id, ui::Accelerator* accelerator);
-
-  // Shows the next app-modal dialog box, if there is one to be shown, or moves
-  // an existing showing one to the front. Returns true if one was shown or
-  // activated, false if none was shown.
-  bool ActivateAppModalDialog() const;
 
   // Returns the selected WebContents/TabContents. Used by our
   // NonClientView's TabIconView::TabContentsProvider implementations.
@@ -355,9 +348,6 @@ class BrowserView : public BrowserWindow,
   virtual ToolbarView* GetToolbarView() const OVERRIDE;
 
   // Overridden from TabStripModelObserver:
-  virtual void TabInsertedAt(TabContents* contents,
-                             int index,
-                             bool foreground) OVERRIDE;
   virtual void TabDetachedAt(TabContents* contents, int index) OVERRIDE;
   virtual void TabDeactivated(TabContents* contents) OVERRIDE;
   virtual void ActiveTabChanged(TabContents* old_contents,
@@ -418,10 +408,6 @@ class BrowserView : public BrowserWindow,
 
   // gfx::ScopedSysColorChangeListener overrides:
   virtual void OnSysColorChange() OVERRIDE;
-
-  // MetroPinnedStateObserver overrides:
-  virtual void MetroPinnedStateChanged(content::WebContents* contents,
-                                       bool is_pinned) OVERRIDE;
 
   // Returns the resource ID to use for the OTR icon, which depends on
   // which layout is being shown and whether we are full-screen.
@@ -570,6 +556,10 @@ class BrowserView : public BrowserWindow,
   // Calls |method| which is either RenderWidgetHost::Cut, ::Copy, or ::Paste
   // and returns true if the focus is currently on a WebContent.
   bool DoCutCopyPaste(void (content::RenderWidgetHost::*method)());
+
+  // Shows the next app-modal dialog box, if there is one to be shown, or moves
+  // an existing showing one to the front.
+  void ActivateAppModalDialog() const;
 
   // Last focused view that issued a tab traversal.
   int last_focused_view_storage_id_;
@@ -723,6 +713,8 @@ class BrowserView : public BrowserWindow,
 #if defined(USE_AURA)
   scoped_ptr<SearchViewController> search_view_controller_;
 #endif
+
+  mutable base::WeakPtrFactory<BrowserView> activate_modal_dialog_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserView);
 };

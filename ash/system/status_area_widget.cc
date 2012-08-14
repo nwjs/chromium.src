@@ -276,20 +276,20 @@ class DummySystemTrayDelegate : public SystemTrayDelegate {
 namespace internal {
 
 StatusAreaWidget::StatusAreaWidget()
-    : widget_delegate_(new internal::StatusAreaWidgetDelegate),
+    : status_area_widget_delegate_(new internal::StatusAreaWidgetDelegate),
       system_tray_(NULL),
       web_notification_tray_(NULL),
       login_status_(user::LOGGED_IN_NONE) {
   views::Widget::InitParams params(
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.delegate = widget_delegate_;
+  params.delegate = status_area_widget_delegate_;
   params.parent =
       Shell::GetPrimaryRootWindowController()->GetContainer(
           ash::internal::kShellWindowId_StatusContainer);
   params.transparent = true;
   Init(params);
   set_focus_on_creation(false);
-  SetContentsView(widget_delegate_);
+  SetContentsView(status_area_widget_delegate_);
   GetNativeView()->SetName("StatusAreaWidget");
 }
 
@@ -297,49 +297,52 @@ StatusAreaWidget::~StatusAreaWidget() {
 }
 
 void StatusAreaWidget::CreateTrayViews(ShellDelegate* shell_delegate) {
-  AddWebNotificationTray(new WebNotificationTray(this));
-  AddSystemTray(new SystemTray(), shell_delegate);
+  AddWebNotificationTray();
+  AddSystemTray(shell_delegate);
+  // SetBorder() must be called after all trays have been created.
+  web_notification_tray_->SetBorder();
+  system_tray_->SetBorder();
 }
 
 void StatusAreaWidget::Shutdown() {
   // Destroy the trays early, causing them to be removed from the view
   // hierarchy. Do not used scoped pointers since we don't want to destroy them
   // in the destructor if Shutdown() is not called (e.g. in tests).
+  system_tray_delegate_.reset();
   delete system_tray_;
   system_tray_ = NULL;
   delete web_notification_tray_;
   web_notification_tray_ = NULL;
 }
 
-void StatusAreaWidget::AddSystemTray(SystemTray* system_tray,
-                                     ShellDelegate* shell_delegate) {
-  system_tray_ = system_tray;
-  widget_delegate_->AddTray(system_tray);
+void StatusAreaWidget::AddSystemTray(ShellDelegate* shell_delegate) {
+  system_tray_ = new SystemTray(this);
+  status_area_widget_delegate_->AddTray(system_tray_);
   system_tray_->Initialize();  // Called after added to widget.
 
   if (shell_delegate) {
     system_tray_delegate_.reset(
-        shell_delegate->CreateSystemTrayDelegate(system_tray));
+        shell_delegate->CreateSystemTrayDelegate(system_tray_));
   }
   if (!system_tray_delegate_.get())
     system_tray_delegate_.reset(new DummySystemTrayDelegate());
 
-  system_tray->CreateItems();  // Called after delegate is created.
+  system_tray_->CreateItems();  // Called after delegate is created.
+  UpdateAfterLoginStatusChange(system_tray_delegate_->GetUserLoginStatus());
 }
 
-void StatusAreaWidget::AddWebNotificationTray(
-    WebNotificationTray* web_notification_tray) {
-  web_notification_tray_ = web_notification_tray;
-  widget_delegate_->AddTray(web_notification_tray);
+void StatusAreaWidget::AddWebNotificationTray() {
+  web_notification_tray_ = new WebNotificationTray(this);
+  status_area_widget_delegate_->AddTray(web_notification_tray_);
 }
 
 void StatusAreaWidget::SetShelfAlignment(ShelfAlignment alignment) {
-  widget_delegate_->set_alignment(alignment);
+  status_area_widget_delegate_->set_alignment(alignment);
   if (system_tray_)
     system_tray_->SetShelfAlignment(alignment);
   if (web_notification_tray_)
     web_notification_tray_->SetShelfAlignment(alignment);
-  widget_delegate_->UpdateLayout();
+  status_area_widget_delegate_->UpdateLayout();
 }
 
 void StatusAreaWidget::SetPaintsBackground(
@@ -351,31 +354,24 @@ void StatusAreaWidget::SetPaintsBackground(
     web_notification_tray_->SetPaintsBackground(value, change_type);
 }
 
-void StatusAreaWidget::ShowWebNotificationBubble(UserAction user_action) {
-  if (system_tray_ && system_tray_->IsBubbleVisible()) {
-    // User actions should always hide the system tray bubble first.
-    DCHECK(user_action != USER_ACTION);
-    // Don't immediately show the web notification bubble if the system tray
-    // bubble is visible.
-    return;
-  }
-  DCHECK(web_notification_tray_);
-  web_notification_tray_->ShowBubble();
-  // Disable showing system notifications while viewing web notifications.
-  if (system_tray_)
-    system_tray_->SetHideNotifications(true);
+void StatusAreaWidget::HideNonSystemNotifications() {
+  if (web_notification_tray_)
+    web_notification_tray_->HideNotificationBubble();
 }
 
-void StatusAreaWidget::HideWebNotificationBubble() {
-  DCHECK(web_notification_tray_);
-  web_notification_tray_->HideBubble();
-  // Show any hidden or suppressed system notifications.
+void StatusAreaWidget::SetHideSystemNotifications(bool hide) {
   if (system_tray_)
-    system_tray_->SetHideNotifications(false);
+    system_tray_->SetHideNotifications(hide);
+}
+
+bool StatusAreaWidget::ShouldShowNonSystemNotifications() {
+  return !(system_tray_ && system_tray_->IsAnyBubbleVisible());
 }
 
 void StatusAreaWidget::UpdateAfterLoginStatusChange(
     user::LoginStatus login_status) {
+  if (login_status_ == login_status)
+    return;
   login_status_ = login_status;
   if (system_tray_)
     system_tray_->UpdateAfterLoginStatusChange(login_status);

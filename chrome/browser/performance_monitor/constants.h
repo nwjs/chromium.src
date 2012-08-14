@@ -19,16 +19,6 @@ extern const int kGatherIntervalInMinutes;
 extern const char kStateChromeVersion[];
 extern const char kStateProfilePrefix[];
 
-// Metric details
-extern const char kMetricCPUUsageName[];
-extern const char kMetricCPUUsageDescription[];
-extern const char kMetricCPUUsageUnits[];
-extern const double kMetricCPUUsageTickSize;
-extern const char kMetricPrivateMemoryUsageName[];
-extern const char kMetricPrivateMemoryUsageDescription[];
-extern const char kMetricPrivateMemoryUsageUnits[];
-extern const double kMetricPrivateMemoryUsageTickSize;
-
 }  // namespace performance_monitor
 
 #endif  // CHROME_BROWSER_PERFORMANCE_MONITOR_CONSTANTS_H_

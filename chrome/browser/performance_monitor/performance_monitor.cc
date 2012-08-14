@@ -5,10 +5,12 @@
 #include "chrome/browser/performance_monitor/performance_monitor.h"
 
 #include <set>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/process_util.h"
+#include "base/stl_util.h"
 #include "base/string_number_conversions.h"
 #include "base/threading/worker_pool.h"
 #include "base/time.h"
@@ -16,7 +18,6 @@
 #include "chrome/browser/browser_shutdown.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/performance_monitor/constants.h"
-#include "chrome/browser/performance_monitor/database.h"
 #include "chrome/browser/performance_monitor/performance_monitor_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -26,16 +27,22 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chrome/test/base/chrome_process_util.h"
+#include "content/public/browser/browser_child_process_host.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/load_notification_details.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/notification_types.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 
 using content::BrowserThread;
 using extensions::Extension;
 
 namespace {
+const uint32 kAccessFlags = base::kProcessAccessDuplicateHandle |
+                            base::kProcessAccessQueryInformation |
+                            base::kProcessAccessTerminate |
+                            base::kProcessAccessWaitForTermination;
 
 std::string TimeToString(base::Time time) {
   int64 time_int64 = time.ToInternalValue();
@@ -140,6 +147,10 @@ void PerformanceMonitor::RegisterForNotifications() {
   // Profiles (for unclean exit)
   registrar_.Add(this, chrome::NOTIFICATION_PROFILE_ADDED,
       content::NotificationService::AllSources());
+
+  // Page load times
+  registrar_.Add(this, content::NOTIFICATION_LOAD_STOP,
+      content::NotificationService::AllSources());
 }
 
 // We check if profiles exited cleanly initialization time in case they were
@@ -222,15 +233,10 @@ void PerformanceMonitor::AddEventOnBackgroundThread(scoped_ptr<Event> event) {
   database_->AddEvent(*event.get());
 }
 
-void PerformanceMonitor::GetStateValueOnBackgroundThread(
-    const std::string& key,
-    const StateValueCallback& callback) {
-  CHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
-  std::string state_value = database_->GetStateValue(key);
-
-  BrowserThread::PostTask(BrowserThread::UI,
-                          FROM_HERE,
-                          base::Bind(callback, state_value));
+void PerformanceMonitor::AddMetricOnBackgroundThread(MetricType type,
+                                                     const std::string& value) {
+  DCHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
+  database_->AddMetric(type, value);
 }
 
 void PerformanceMonitor::NotifyInitialized() {
@@ -238,6 +244,90 @@ void PerformanceMonitor::NotifyInitialized() {
       chrome::NOTIFICATION_PERFORMANCE_MONITOR_INITIALIZED,
       content::Source<PerformanceMonitor>(this),
       content::NotificationService::NoDetails());
+}
+
+void PerformanceMonitor::GatherStatisticsOnBackgroundThread() {
+  CHECK(!BrowserThread::CurrentlyOn(BrowserThread::UI));
+
+  // Because the CPU usage is gathered as an average since the last time the
+  // function was called, while the memory usage is gathered as an instantaneous
+  // usage, the CPU usage is gathered before the metrics map is wiped.
+  GatherCPUUsageOnBackgroundThread();
+  UpdateMetricsMapOnBackgroundThread();
+  GatherMemoryUsageOnBackgroundThread();
+}
+
+void PerformanceMonitor::GatherCPUUsageOnBackgroundThread() {
+  if (metrics_map_.size()) {
+    double cpu_usage = 0;
+    for (MetricsMap::const_iterator iter = metrics_map_.begin();
+         iter != metrics_map_.end(); ++iter) {
+      cpu_usage += iter->second->GetCPUUsage();
+    }
+
+    database_->AddMetric(METRIC_CPU_USAGE, base::DoubleToString(cpu_usage));
+  }
+}
+
+void PerformanceMonitor::GatherMemoryUsageOnBackgroundThread() {
+  size_t private_memory_sum = 0;
+  size_t shared_memory_sum = 0;
+  for (MetricsMap::const_iterator iter = metrics_map_.begin();
+       iter != metrics_map_.end(); ++iter) {
+    size_t private_memory = 0;
+    size_t shared_memory = 0;
+    if (iter->second->GetMemoryBytes(&private_memory, &shared_memory)) {
+      private_memory_sum += private_memory;
+      shared_memory_sum += shared_memory;
+    } else {
+      LOG(WARNING) << "GetMemoryBytes returned NULL (platform-specific error)";
+    }
+  }
+
+  database_->AddMetric(METRIC_PRIVATE_MEMORY_USAGE,
+                       base::Uint64ToString(private_memory_sum));
+  database_->AddMetric(METRIC_SHARED_MEMORY_USAGE,
+                       base::Uint64ToString(shared_memory_sum));
+}
+
+void PerformanceMonitor::UpdateMetricsMapOnBackgroundThread() {
+  // Remove old process handles. Use two iterators to safely call erase() on the
+  // current element.
+  for (MetricsMap::iterator iter_next = metrics_map_.begin();
+       iter_next != metrics_map_.end();) {
+    MetricsMap::iterator iter = iter_next++;
+
+    if (base::GetTerminationStatus(iter->first, NULL) !=
+        base::TERMINATION_STATUS_STILL_RUNNING) {
+      base::CloseProcessHandle(iter->first);
+      metrics_map_.erase(iter);
+    }
+  }
+
+  // Add new process handles.
+  base::ProcessId browser_pid = base::GetCurrentProcId();
+  ChromeProcessList chrome_processes(GetRunningChromeProcesses(browser_pid));
+  for (ChromeProcessList::const_iterator pid_iter = chrome_processes.begin();
+       pid_iter != chrome_processes.end(); ++pid_iter) {
+    base::ProcessHandle process_handle;
+    if (base::OpenProcessHandleWithAccess(*pid_iter,
+                                          kAccessFlags,
+                                          &process_handle) &&
+        !ContainsKey(metrics_map_, process_handle)) {
+#if defined(OS_MACOSX)
+      linked_ptr<base::ProcessMetrics> process_metrics(
+          base::ProcessMetrics::CreateProcessMetrics(process_handle,
+              content::BrowserChildProcessHost::GetPortProvider()));
+#else
+      linked_ptr<base::ProcessMetrics> process_metrics(
+          base::ProcessMetrics::CreateProcessMetrics(process_handle));
+#endif
+      // Prime the CPUUsage to be gathered next time.
+      process_metrics->GetCPUUsage();
+
+      metrics_map_[process_handle] = process_metrics;
+    }
+  }
 }
 
 void PerformanceMonitor::UpdateLiveProfiles() {
@@ -279,39 +369,24 @@ void PerformanceMonitor::Observe(int type,
                                  const content::NotificationDetails& details) {
   switch (type) {
     case chrome::NOTIFICATION_EXTENSION_INSTALLED: {
-      const Extension* extension = content::Details<Extension>(details).ptr();
-      AddEvent(util::CreateExtensionInstallEvent(base::Time::Now(),
-                                                 extension->id(),
-                                                 extension->name(),
-                                                 extension->url().spec(),
-                                                 extension->location(),
-                                                 extension->VersionString(),
-                                                 extension->description()));
+      AddExtensionEvent(EVENT_EXTENSION_INSTALL,
+                        content::Details<Extension>(details).ptr());
       break;
     }
     case chrome::NOTIFICATION_EXTENSION_ENABLED: {
-      const Extension* extension = content::Details<Extension>(details).ptr();
-      AddEvent(util::CreateExtensionEnableEvent(base::Time::Now(),
-                                                extension->id(),
-                                                extension->name(),
-                                                extension->url().spec(),
-                                                extension->location(),
-                                                extension->VersionString(),
-                                                extension->description()));
+      AddExtensionEvent(EVENT_EXTENSION_ENABLE,
+                        content::Details<Extension>(details).ptr());
       break;
     }
     case chrome::NOTIFICATION_EXTENSION_UNLOADED: {
       const extensions::UnloadedExtensionInfo* info =
           content::Details<extensions::UnloadedExtensionInfo>(details).ptr();
-      const Extension* extension = info->extension;
-      AddEvent(util::CreateExtensionUnloadEvent(base::Time::Now(),
-                                                extension->id(),
-                                                extension->name(),
-                                                extension->url().spec(),
-                                                extension->location(),
-                                                extension->VersionString(),
-                                                extension->description(),
-                                                info->reason));
+
+      // Check if the extension was unloaded because it was disabled.
+      if (info->reason == extension_misc::UNLOAD_REASON_DISABLE) {
+        AddExtensionEvent(EVENT_EXTENSION_DISABLE,
+                          info->extension);
+      }
       break;
     }
     case chrome::NOTIFICATION_CRX_INSTALLER_DONE: {
@@ -319,28 +394,15 @@ void PerformanceMonitor::Observe(int type,
           content::Source<extensions::CrxInstaller>(source).ptr();
 
       // Check if the reason for the install was due to an extension update.
-      if (installer->install_cause() != extension_misc::INSTALL_CAUSE_UPDATE)
-        break;
-
-      const Extension* extension = content::Details<Extension>(details).ptr();
-      AddEvent(util::CreateExtensionUpdateEvent(base::Time::Now(),
-                                                extension->id(),
-                                                extension->name(),
-                                                extension->url().spec(),
-                                                extension->location(),
-                                                extension->VersionString(),
-                                                extension->description()));
+      if (installer->install_cause() == extension_misc::INSTALL_CAUSE_UPDATE) {
+        AddExtensionEvent(EVENT_EXTENSION_UPDATE,
+                          content::Details<Extension>(details).ptr());
+      }
       break;
     }
     case chrome::NOTIFICATION_EXTENSION_UNINSTALLED: {
-      const Extension* extension = content::Details<Extension>(details).ptr();
-      AddEvent(util::CreateExtensionUninstallEvent(base::Time::Now(),
-                                                   extension->id(),
-                                                   extension->name(),
-                                                   extension->url().spec(),
-                                                   extension->location(),
-                                                   extension->VersionString(),
-                                                   extension->description()));
+      AddExtensionEvent(EVENT_EXTENSION_UNINSTALL,
+                        content::Details<Extension>(details).ptr());
       break;
     }
     case content::NOTIFICATION_RENDERER_PROCESS_HANG: {
@@ -351,22 +413,8 @@ void PerformanceMonitor::Observe(int type,
       break;
     }
     case content::NOTIFICATION_RENDERER_PROCESS_CLOSED: {
-      content::RenderProcessHost::RendererClosedDetails closed_details =
-          *content::Details<content::RenderProcessHost::RendererClosedDetails>(
-              details).ptr();
-
-      // We only care if this is an invalid termination.
-      if (closed_details.status == base::TERMINATION_STATUS_NORMAL_TERMINATION
-          || closed_details.status == base::TERMINATION_STATUS_STILL_RUNNING)
-        break;
-
-      // Determine the type of crash.
-      EventType type =
-          closed_details.status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ?
-          EVENT_KILLED_BY_OS_CRASH : EVENT_RENDERER_CRASH;
-
-      AddEvent(util::CreateCrashEvent(base::Time::Now(),
-                                      type));
+      AddCrashEvent(*content::Details<
+          content::RenderProcessHost::RendererClosedDetails>(details).ptr());
       break;
     }
     case chrome::NOTIFICATION_PROFILE_ADDED: {
@@ -382,11 +430,58 @@ void PerformanceMonitor::Observe(int type,
       }
       break;
     }
+    case content::NOTIFICATION_LOAD_STOP: {
+      const content::LoadNotificationDetails* load_details =
+          content::Details<content::LoadNotificationDetails>(details).ptr();
+      if (!load_details)
+        break;
+      BrowserThread::PostBlockingPoolSequencedTask(
+          Database::kDatabaseSequenceToken,
+          FROM_HERE,
+          base::Bind(
+              &PerformanceMonitor::AddMetricOnBackgroundThread,
+              base::Unretained(this),
+              METRIC_PAGE_LOAD_TIME,
+              base::Int64ToString(load_details->load_time.ToInternalValue())));
+      break;
+    }
     default: {
       NOTREACHED();
       break;
     }
   }
+}
+
+void PerformanceMonitor::AddExtensionEvent(EventType type,
+                                              const Extension* extension) {
+  DCHECK(type == EVENT_EXTENSION_INSTALL ||
+         type == EVENT_EXTENSION_UNINSTALL ||
+         type == EVENT_EXTENSION_UPDATE ||
+         type == EVENT_EXTENSION_ENABLE ||
+         type == EVENT_EXTENSION_DISABLE);
+  AddEvent(util::CreateExtensionEvent(type,
+                                      base::Time::Now(),
+                                      extension->id(),
+                                      extension->name(),
+                                      extension->url().spec(),
+                                      extension->location(),
+                                      extension->VersionString(),
+                                      extension->description()));
+}
+
+void PerformanceMonitor::AddCrashEvent(
+    const content::RenderProcessHost::RendererClosedDetails& details) {
+  // We only care if this is an invalid termination.
+  if (details.status == base::TERMINATION_STATUS_NORMAL_TERMINATION ||
+      details.status == base::TERMINATION_STATUS_STILL_RUNNING)
+    return;
+
+  // Determine the type of crash.
+  EventType type =
+      details.status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ?
+      EVENT_KILLED_BY_OS_CRASH : EVENT_RENDERER_CRASH;
+
+  AddEvent(util::CreateCrashEvent(base::Time::Now(), type));
 }
 
 }  // namespace performance_monitor

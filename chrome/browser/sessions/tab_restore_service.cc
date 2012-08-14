@@ -219,18 +219,18 @@ void TabRestoreService::RemoveObserver(TabRestoreServiceObserver* observer) {
   observer_list_.RemoveObserver(observer);
 }
 
-void TabRestoreService::CreateHistoricalTab(content::WebContents* contents,
+void TabRestoreService::CreateHistoricalTab(NavigationController* tab,
                                             int index) {
   if (restoring_)
     return;
 
   TabRestoreServiceDelegate* delegate =
-      TabRestoreServiceDelegate::FindDelegateForWebContents(contents);
+      TabRestoreServiceDelegate::FindDelegateForController(tab, NULL);
   if (closing_delegates_.find(delegate) != closing_delegates_.end())
     return;
 
   scoped_ptr<Tab> local_tab(new Tab());
-  PopulateTab(local_tab.get(), index, delegate, &contents->GetController());
+  PopulateTab(local_tab.get(), index, delegate, tab);
   if (local_tab->navigations.empty())
     return;
 
@@ -546,7 +546,9 @@ void TabRestoreService::PopulateTab(Tab* tab,
       tab->extension_app_id = extension->id();
   }
 
-  tab->session_storage_namespace = controller->GetSessionStorageNamespace();
+  // TODO(ajwong): This does not correctly handle storage for isolated apps.
+  tab->session_storage_namespace =
+      controller->GetDefaultSessionStorageNamespace();
 
   // Delegate may be NULL during unit tests.
   if (delegate) {

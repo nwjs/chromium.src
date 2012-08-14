@@ -89,6 +89,8 @@ void ClearDnsCache(IOThread* io_thread) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (browser_shutdown::IsTryingToQuit())
     return;
+
+  io_thread->ClearHostCache();
 }
 
 }  // namespace
@@ -804,7 +806,7 @@ void SigninScreenHandler::HandleShutdownSystem(const base::ListValue* args) {
 
 void SigninScreenHandler::HandleUserDeselected(const base::ListValue* args) {
   if (delegate_)
-    delegate_->UserDeselected();
+    delegate_->OnUserDeselected();
 }
 
 void SigninScreenHandler::HandleUserSelected(const base::ListValue* args) {
@@ -817,7 +819,7 @@ void SigninScreenHandler::HandleUserSelected(const base::ListValue* args) {
     return;
   }
 
-  delegate_->UserSelected(email);
+  delegate_->OnUserSelected(email);
 }
 
 void SigninScreenHandler::HandleRemoveUser(const base::ListValue* args) {
@@ -1085,7 +1087,7 @@ void SigninScreenHandler::StartClearingCookies() {
   cookie_remover_ = new BrowsingDataRemover(
       Profile::FromWebUI(web_ui()),
       BrowsingDataRemover::EVERYTHING,
-      base::Time());
+      base::Time::Now());
   cookie_remover_->AddObserver(this);
   cookie_remover_->Remove(BrowsingDataRemover::REMOVE_SITE_DATA,
                           BrowsingDataHelper::UNPROTECTED_WEB);

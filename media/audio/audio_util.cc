@@ -22,13 +22,13 @@
 #include "base/time.h"
 #include "media/audio/audio_parameters.h"
 #include "media/audio/audio_util.h"
+#include "media/base/audio_bus.h"
 
 #if defined(OS_MACOSX)
 #include "media/audio/mac/audio_low_latency_input_mac.h"
 #include "media/audio/mac/audio_low_latency_output_mac.h"
 #elif defined(OS_WIN)
 #include "base/command_line.h"
-#include "base/sys_info.h"
 #include "base/win/windows_version.h"
 #include "media/audio/audio_manager_base.h"
 #include "media/audio/win/audio_low_latency_input_win.h"
@@ -231,7 +231,7 @@ bool DeinterleaveAudioChannel(void* source,
 // |Format| is the destination type, |Fixed| is a type larger than |Format|
 // such that operations can be made without overflowing.
 template<class Format, class Fixed>
-static void InterleaveFloatToInt(const std::vector<float*>& source,
+static void InterleaveFloatToInt(const AudioBus* source,
                                  void* dst_bytes, size_t number_of_frames) {
   Format* destination = reinterpret_cast<Format*>(dst_bytes);
   Fixed max_value = std::numeric_limits<Format>::max();
@@ -244,9 +244,9 @@ static void InterleaveFloatToInt(const std::vector<float*>& source,
     min_value = -(bias - 1);
   }
 
-  int channels = source.size();
+  int channels = source->channels();
   for (int i = 0; i < channels; ++i) {
-    float* channel_data = source[i];
+    const float* channel_data = source->channel(i);
     for (size_t j = 0; j < number_of_frames; ++j) {
       Fixed sample = max_value * channel_data[j];
       if (sample > max_value)
@@ -259,7 +259,7 @@ static void InterleaveFloatToInt(const std::vector<float*>& source,
   }
 }
 
-void InterleaveFloatToInt(const std::vector<float*>& source, void* dst,
+void InterleaveFloatToInt(const AudioBus* source, void* dst,
                           size_t number_of_frames, int bytes_per_sample) {
   switch (bytes_per_sample) {
     case 1:
@@ -542,20 +542,13 @@ bool IsWASAPISupported() {
 }
 
 int NumberOfWaveOutBuffers() {
-  // The entire Windows audio stack was rewritten for Windows Vista, and the
-  // wave out API is simulated on top of new API, so there is noticeable
-  // performance degradation compared to Windows XP. So use 4 buffers for Vista.
-  if (base::win::GetVersion() == base::win::VERSION_VISTA)
-    return 4;
-
-  // Part of regression was apparently fixed in Windows 7, but problems remain
-  // at least with some configurations (compared to XP). So use 3 buffers for
-  // Windows 7 and higher.
-  if (base::win::GetVersion() >= base::win::VERSION_WIN7)
-    return 3;
-
-  // Otherwise (for XP), use 3 buffers on single-core systems and 2 otherwise.
-  return (base::SysInfo::NumberOfProcessors() < 2) ? 3 : 2;
+  // Use 4 buffers for Vista, 3 for everyone else:
+  //  - The entire Windows audio stack was rewritten for Windows Vista and wave
+  //    out performance was degraded compared to XP.
+  //  - The regression was fixed in Windows 7 and most configurations will work
+  //    with 2, but some (e.g., some Sound Blasters) still need 3.
+  //  - Some XP configurations (even multi-processor ones) also need 3.
+  return (base::win::GetVersion() == base::win::VERSION_VISTA) ? 4 : 3;
 }
 
 #endif

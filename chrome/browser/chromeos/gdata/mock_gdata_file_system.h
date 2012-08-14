@@ -24,11 +24,14 @@ class MockGDataFileSystem : public GDataFileSystemInterface {
   MOCK_METHOD1(RemoveObserver, void(Observer* observer));
   MOCK_METHOD0(StartUpdates, void());
   MOCK_METHOD0(StopUpdates, void());
+  MOCK_METHOD0(NotifyFileSystemMounted, void());
+  MOCK_METHOD0(NotifyFileSystemToBeUnmounted, void());
   MOCK_METHOD0(CheckForUpdates, void());
   MOCK_METHOD2(GetEntryInfoByResourceId,
                void(const std::string& resource_id,
                     const GetEntryInfoWithFilePathCallback& callback));
-  MOCK_METHOD2(Search, void(const std::string& search_query,
+  MOCK_METHOD3(Search, void(const std::string& search_query,
+                            const GURL& next_feed,
                             const SearchCallback& callback));
   MOCK_METHOD3(TransferFileFromRemoteToLocal,
                void(const FilePath& local_src_file_path,
@@ -63,11 +66,11 @@ class MockGDataFileSystem : public GDataFileSystemInterface {
   MOCK_METHOD3(GetFileByPath,
                void(const FilePath& file_path,
                     const GetFileCallback& get_file_callback,
-                    const GetDownloadDataCallback& get_download_data_callback));
+                    const GetContentCallback& get_content_callback));
   MOCK_METHOD3(GetFileByResourceId,
                void(const std::string& resource_id,
                     const GetFileCallback& get_file_callback,
-                    const GetDownloadDataCallback& get_download_data_callback));
+                    const GetContentCallback& get_content_callback));
   MOCK_METHOD2(UpdateFileByResourceId,
                void(const std::string& resource_id,
                     const FileOperationCallback& callback));
@@ -75,7 +78,7 @@ class MockGDataFileSystem : public GDataFileSystemInterface {
                                         const GetEntryInfoCallback& callback));
   MOCK_METHOD2(ReadDirectoryByPath,
                void(const FilePath& file_path,
-                    const ReadDirectoryCallback& callback));
+                    const ReadDirectoryWithSettingCallback& callback));
   MOCK_METHOD1(RequestDirectoryRefresh,
                void(const FilePath& file_path));
   MOCK_METHOD1(GetAvailableSpace,

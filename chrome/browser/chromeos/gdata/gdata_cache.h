@@ -30,9 +30,10 @@ namespace gdata {
 class GDataCacheEntry;
 class GDataCacheMetadata;
 
-// Callback for SetMountedStateOnUIThread.
+// Callback for SetMountedStateOnUIThread and ClearAllOnUIThread.
 typedef base::Callback<void(GDataFileError error,
-                            const FilePath& file_path)> SetMountedStateCallback;
+                            const FilePath& file_path)>
+    ChangeCacheStateCallback;
 
 // Callback for completion of cache operation.
 typedef base::Callback<void(GDataFileError error,
@@ -229,7 +230,7 @@ class GDataCache {
   //       |dest_path| is the mounted path and |source_path| the unmounted path.
   void SetMountedStateOnUIThread(const FilePath& file_path,
                                  bool to_mount,
-                                 const SetMountedStateCallback& callback);
+                                 const ChangeCacheStateCallback& callback);
 
   // Modifies cache state, which involves the following:
   // - moves |source_path| to |dest_path| in persistent dir, where
@@ -263,8 +264,16 @@ class GDataCache {
   void RemoveOnUIThread(const std::string& resource_id,
                         const CacheOperationCallback& callback);
 
+  // Does the following:
+  // - remove all the files in the cache directory.
+  // - re-create the |metadata_| instance.
+  void ClearAllOnUIThread(const ChangeCacheStateCallback& callback);
+
   // Utility method to call Initialize on UI thread.
   void RequestInitializeOnUIThread();
+
+  // Utility method to call InitializeForTesting on UI thread.
+  void RequestInitializeOnUIThreadForTesting();
 
   // Force a rescan of cache files, for testing.
   void ForceRescanOnUIThreadForTesting();
@@ -322,6 +331,10 @@ class GDataCache {
 
   // Initializes the cache.
   void Initialize();
+
+  // Initializes the cache with in-memory cache for testing.
+  // The in-memory cache is used since it's faster than the db.
+  void InitializeForTesting();
 
   // Deletes the cache.
   void Destroy();
@@ -395,6 +408,9 @@ class GDataCache {
   // Used to implement RemoveOnUIThread.
   void Remove(const std::string& resource_id,
               GDataFileError* error);
+
+  // Used to implement ClearAllUIThread.
+  void ClearAll(GDataFileError* error);
 
   // Runs callback and notifies the observers when file is pinned.
   void OnPinned(GDataFileError* error,

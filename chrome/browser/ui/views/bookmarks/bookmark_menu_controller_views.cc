@@ -93,7 +93,7 @@ string16 BookmarkMenuController::GetTooltipText(int id,
 }
 
 bool BookmarkMenuController::IsTriggerableEvent(views::MenuItemView* menu,
-                                                const views::Event& e) {
+                                                const ui::Event& e) {
   return menu_delegate_->IsTriggerableEvent(menu, e);
 }
 
@@ -166,7 +166,7 @@ views::MenuItemView* BookmarkMenuController::GetSiblingMenu(
   if (!bookmark_bar_ || for_drop_)
     return NULL;
   gfx::Point bookmark_bar_loc(screen_point);
-  views::View::ConvertPointToView(NULL, bookmark_bar_, &bookmark_bar_loc);
+  views::View::ConvertPointToTarget(NULL, bookmark_bar_, &bookmark_bar_loc);
   int start_index;
   const BookmarkNode* node = bookmark_bar_->GetNodeForButtonAtModelIndex(
       bookmark_bar_loc, &start_index);

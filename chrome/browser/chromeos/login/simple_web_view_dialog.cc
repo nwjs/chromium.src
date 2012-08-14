@@ -127,6 +127,7 @@ SimpleWebViewDialog::SimpleWebViewDialog(Profile* profile)
   command_updater_->UpdateCommandEnabled(IDC_STOP, true);
   command_updater_->UpdateCommandEnabled(IDC_RELOAD, true);
   command_updater_->UpdateCommandEnabled(IDC_RELOAD_IGNORING_CACHE, true);
+  command_updater_->UpdateCommandEnabled(IDC_RELOAD_CLEARING_CACHE, true);
 }
 
 SimpleWebViewDialog::~SimpleWebViewDialog() {
@@ -149,7 +150,6 @@ void SimpleWebViewDialog::StartLoad(const GURL& url) {
       WebContents::Create(ProfileManager::GetDefaultProfile(),
                           NULL,
                           MSG_ROUTING_NONE,
-                          NULL,
                           NULL);
   tab_contents_.reset(new TabContents(web_contents));
   web_view_->SetWebContents(web_contents);
@@ -182,7 +182,8 @@ void SimpleWebViewDialog::Init() {
   toolbar_model_.reset(new ToolbarModel(this));
 
   // Location bar.
-  location_bar_ = new LocationBarView(profile_,
+  location_bar_ = new LocationBarView(NULL,
+                                      profile_,
                                       command_updater_.get(),
                                       toolbar_model_.get(),
                                       this,
@@ -243,7 +244,7 @@ views::View* SimpleWebViewDialog::GetInitiallyFocusedView() {
 }
 
 void SimpleWebViewDialog::ButtonPressed(views::Button* sender,
-                                        const views::Event& event) {
+                                        const ui::Event& event) {
   command_updater_->ExecuteCommand(sender->tag());
 }
 
@@ -345,6 +346,7 @@ void SimpleWebViewDialog::ExecuteCommandWithDisposition(
     case IDC_RELOAD:
       // Always reload ignoring cache.
     case IDC_RELOAD_IGNORING_CACHE:
+    case IDC_RELOAD_CLEARING_CACHE:
       web_contents->GetController().ReloadIgnoringCache(true);
       break;
     default:
@@ -373,20 +375,7 @@ void SimpleWebViewDialog::LoadImages() {
   forward_->SetImage(views::CustomButton::BS_DISABLED,
                      tp->GetImageSkiaNamed(IDR_FORWARD_D));
 
-  reload_->SetImage(views::CustomButton::BS_NORMAL,
-                    tp->GetImageSkiaNamed(IDR_RELOAD));
-  reload_->SetImage(views::CustomButton::BS_HOT,
-                    tp->GetImageSkiaNamed(IDR_RELOAD_H));
-  reload_->SetImage(views::CustomButton::BS_PUSHED,
-                    tp->GetImageSkiaNamed(IDR_RELOAD_P));
-  reload_->SetToggledImage(views::CustomButton::BS_NORMAL,
-                           tp->GetImageSkiaNamed(IDR_STOP));
-  reload_->SetToggledImage(views::CustomButton::BS_HOT,
-                           tp->GetImageSkiaNamed(IDR_STOP_H));
-  reload_->SetToggledImage(views::CustomButton::BS_PUSHED,
-                           tp->GetImageSkiaNamed(IDR_STOP_P));
-  reload_->SetToggledImage(views::CustomButton::BS_DISABLED,
-                           tp->GetImageSkiaNamed(IDR_STOP_D));
+  reload_->LoadImages(tp);
 }
 
 void SimpleWebViewDialog::UpdateButtons() {

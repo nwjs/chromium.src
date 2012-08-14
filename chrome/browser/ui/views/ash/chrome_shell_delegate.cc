@@ -14,13 +14,13 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sessions/tab_restore_service.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
+#include "chrome/browser/ui/ash/app_list/app_list_view_delegate.h"
+#include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/views/ash/app_list/app_list_view_delegate.h"
-#include "chrome/browser/ui/views/ash/launcher/chrome_launcher_controller.h"
-#include "chrome/browser/ui/views/ash/user_action_handler.h"
-#include "chrome/browser/ui/views/ash/window_positioner.h"
+#include "chrome/browser/ui/ash/user_action_handler.h"
+#include "chrome/browser/ui/ash/window_positioner.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -352,6 +352,13 @@ void ChromeShellDelegate::RecordUserMetricsAction(
       break;
     case ash::UMA_TOUCHSCREEN_TAP_DOWN:
       content::RecordAction(content::UserMetricsAction("Touchscreen_Down"));
+      break;
+    case ash::UMA_LAUNCHER_CLICK_ON_APPLIST_BUTTON:
+      content::RecordAction(
+          content::UserMetricsAction("Launcher_ClickOnApplistButton"));
+      break;
+    case ash::UMA_LAUNCHER_CLICK_ON_APP:
+      content::RecordAction(content::UserMetricsAction("Launcher_ClickOnApp"));
       break;
   }
 }

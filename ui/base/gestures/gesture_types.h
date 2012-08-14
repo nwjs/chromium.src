@@ -12,6 +12,9 @@
 
 namespace ui {
 
+class GestureEvent;
+class TouchEvent;
+
 struct UI_EXPORT GestureEventDetails {
  public:
   GestureEventDetails(EventType type, float delta_x, float delta_y);
@@ -69,12 +72,9 @@ struct UI_EXPORT GestureEventDetails {
     return data.swipe.down;
   }
 
-  float generic_x() const {
-    return data.generic.delta_x;
-  }
-
-  float generic_y() const {
-    return data.generic.delta_y;
+  int tap_count() const {
+    CHECK_EQ(ui::ET_GESTURE_TAP, type_);
+    return data.tap_count;
   }
 
  private:
@@ -101,6 +101,8 @@ struct UI_EXPORT GestureEventDetails {
       bool down;
     } swipe;
 
+    int tap_count;  // TAP repeat count.
+
     struct {
       float delta_x;
       float delta_y;
@@ -112,42 +114,6 @@ struct UI_EXPORT GestureEventDetails {
   // Bounding box is an axis-aligned rectangle that contains all the
   // enclosing rectangles of the touch-points in the gesture.
   gfx::Rect bounding_box_;
-};
-
-// An abstract type to represent touch-events. The gesture-recognizer uses this
-// interface to communicate with the touch-events.
-class UI_EXPORT TouchEvent {
- public:
-  virtual ~TouchEvent() {}
-
-  virtual EventType GetEventType() const = 0;
-  virtual gfx::Point GetLocation() const = 0;
-  virtual int GetTouchId() const = 0;
-  virtual int GetEventFlags() const = 0;
-  virtual base::TimeDelta GetTimestamp() const = 0;
-  virtual float RadiusX() const = 0;
-  virtual float RadiusY() const = 0;
-  virtual float RotationAngle() const = 0;
-  virtual float Force() const = 0;
-};
-
-// An abstract type to represent gesture-events.
-class UI_EXPORT GestureEvent {
- public:
-  virtual ~GestureEvent() {}
-
-  // A gesture event can have multiple touches. This function should return the
-  // lowest ID of the touches in this gesture.
-  virtual int GetLowestTouchId() const = 0;
-
-  // A helper function used in several (all) derived classes.
-  // Returns lowest set bit, or -1 if no bits are set.
-  static int LowestBit(unsigned int bitfield) {
-    int i = -1;
-    // Find the index of the least significant 1 bit
-    while (bitfield && (!((1 << ++i) & bitfield)));
-    return i;
-  }
 };
 
 // An abstract type for consumers of gesture-events created by the
@@ -178,19 +144,6 @@ class UI_EXPORT GestureEventHelper {
  public:
   virtual ~GestureEventHelper() {
   }
-
-  // |flags| is ui::EventFlags. The meaning of |param_first| and |param_second|
-  // depends on the specific gesture type (|type|).
-  virtual GestureEvent* CreateGestureEvent(const GestureEventDetails& details,
-                                           const gfx::Point& location,
-                                           int flags,
-                                           base::Time time,
-                                           unsigned int touch_id_bitfield) = 0;
-
-  virtual TouchEvent* CreateTouchEvent(EventType type,
-                                       const gfx::Point& location,
-                                       int touch_id,
-                                       base::TimeDelta time_stamp) = 0;
 
   virtual bool DispatchLongPressGestureEvent(GestureEvent* event) = 0;
   virtual bool DispatchCancelTouchEvent(TouchEvent* event) = 0;

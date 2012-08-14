@@ -13,6 +13,7 @@
 #include "base/debug/trace_event.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
+#include "base/message_loop.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -31,7 +32,6 @@
 #include "chrome/browser/extensions/location_bar_controller.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
-#include "chrome/browser/instant/instant_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -45,6 +45,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
+#include "chrome/browser/ui/gtk/action_box_button_gtk.h"
 #include "chrome/browser/ui/gtk/bookmarks/bookmark_bubble_gtk.h"
 #include "chrome/browser/ui/gtk/bookmarks/bookmark_utils_gtk.h"
 #include "chrome/browser/ui/gtk/browser_window_gtk.h"
@@ -70,6 +71,7 @@
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/extension_resource.h"
+#include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
@@ -469,8 +471,23 @@ void LocationBarViewGtk::Init(bool popup_window_mode) {
   // doesn't work, someone is probably calling show_all on our parent box.
   gtk_box_pack_end(GTK_BOX(entry_box_), tab_to_search_hint_, FALSE, FALSE, 0);
 
-  // Hide the star and Chrome To Mobile icons in popups, app windows, etc.
-  if (browser_defaults::bookmarks_enabled && !ShouldOnlyShowLocation()) {
+  if (extensions::switch_utils::IsActionBoxEnabled()) {
+    // TODO(mpcomplete): should we hide this if ShouldOnlyShowLocation()==true?
+    action_box_button_.reset(new ActionBoxButtonGtk(browser_));
+
+    // TODO(mpcomplete): Figure out why CustomDrawButton is offset 3 pixels.
+    // This offset corrects the strange offset of CustomDrawButton.
+    const int kMagicActionBoxYOffset = 3;
+    GtkWidget* alignment = gtk_alignment_new(0, 0, 1, 1);
+    gtk_alignment_set_padding(GTK_ALIGNMENT(alignment),
+                              0, kMagicActionBoxYOffset,
+                              0, kInnerPadding);
+    gtk_container_add(GTK_CONTAINER(alignment), action_box_button_->widget());
+
+    gtk_box_pack_end(GTK_BOX(hbox_.get()), alignment,
+                     FALSE, FALSE, 0);
+  } else if (browser_defaults::bookmarks_enabled && !ShouldOnlyShowLocation()) {
+    // Hide the star and Chrome To Mobile icons in popups, app windows, etc.
     CreateStarButton();
     gtk_box_pack_end(GTK_BOX(hbox_.get()), star_.get(), FALSE, FALSE, 0);
 
@@ -798,7 +815,7 @@ void LocationBarViewGtk::OnSetFocus() {
 }
 
 SkBitmap LocationBarViewGtk::GetFavicon() const {
-  return GetTabContents()->favicon_tab_helper()->GetFavicon();
+  return GetTabContents()->favicon_tab_helper()->GetFavicon().AsBitmap();
 }
 
 string16 LocationBarViewGtk::GetTitle() const {
@@ -1851,28 +1868,55 @@ void LocationBarViewGtk::PageActionViewGtk::ConnectPageActionAccelerator() {
   extensions::CommandService* command_service =
       extensions::CommandServiceFactory::GetForProfile(
           owner_->browser()->profile());
-  extensions::Command command;
+
+  extensions::Command command_page_action;
   if (command_service->GetPageActionCommand(
           extension->id(),
           extensions::CommandService::ACTIVE_ONLY,
-          &command,
+          &command_page_action,
           NULL)) {
-    // Found the browser action shortcut command, register it.
-    keybinding_.reset(new ui::AcceleratorGtk(
-        command.accelerator().key_code(),
-        command.accelerator().IsShiftDown(),
-        command.accelerator().IsCtrlDown(),
-        command.accelerator().IsAltDown()));
+    // Found the page action shortcut command, register it.
+    page_action_keybinding_.reset(new ui::AcceleratorGtk(
+        command_page_action.accelerator().key_code(),
+        command_page_action.accelerator().IsShiftDown(),
+        command_page_action.accelerator().IsCtrlDown(),
+        command_page_action.accelerator().IsAltDown()));
+  }
 
+  extensions::Command command_script_badge;
+  if (command_service->GetScriptBadgeCommand(
+          extension->id(),
+          extensions::CommandService::ACTIVE_ONLY,
+          &command_script_badge,
+          NULL)) {
+    // Found the script badge shortcut command, register it.
+    script_badge_keybinding_.reset(new ui::AcceleratorGtk(
+        command_script_badge.accelerator().key_code(),
+        command_script_badge.accelerator().IsShiftDown(),
+        command_script_badge.accelerator().IsCtrlDown(),
+        command_script_badge.accelerator().IsAltDown()));
+  }
+
+  if (page_action_keybinding_.get() || script_badge_keybinding_.get()) {
     accel_group_ = gtk_accel_group_new();
     gtk_window_add_accel_group(window_, accel_group_);
 
-    gtk_accel_group_connect(
-        accel_group_,
-        keybinding_->GetGdkKeyCode(),
-        keybinding_->gdk_modifier_type(),
-        GtkAccelFlags(0),
-        g_cclosure_new(G_CALLBACK(OnGtkAccelerator), this, NULL));
+    if (page_action_keybinding_.get()) {
+      gtk_accel_group_connect(
+          accel_group_,
+          page_action_keybinding_->GetGdkKeyCode(),
+          page_action_keybinding_->gdk_modifier_type(),
+          GtkAccelFlags(0),
+          g_cclosure_new(G_CALLBACK(OnGtkAccelerator), this, NULL));
+    }
+    if (script_badge_keybinding_.get()) {
+      gtk_accel_group_connect(
+          accel_group_,
+          script_badge_keybinding_->GetGdkKeyCode(),
+          script_badge_keybinding_->gdk_modifier_type(),
+          GtkAccelFlags(0),
+          g_cclosure_new(G_CALLBACK(OnGtkAccelerator), this, NULL));
+    }
 
     // Since we've added an accelerator, we'll need to unregister it before
     // the window is closed, so we listen for the window being closed.
@@ -1889,14 +1933,25 @@ void LocationBarViewGtk::PageActionViewGtk::OnIconChanged(
 
 void LocationBarViewGtk::PageActionViewGtk::DisconnectPageActionAccelerator() {
   if (accel_group_) {
-    gtk_accel_group_disconnect_key(
-        accel_group_,
-        keybinding_.get()->GetGdkKeyCode(),
-        static_cast<GdkModifierType>(keybinding_.get()->modifiers()));
+    if (page_action_keybinding_.get()) {
+      gtk_accel_group_disconnect_key(
+          accel_group_,
+          page_action_keybinding_->GetGdkKeyCode(),
+          static_cast<GdkModifierType>(
+              page_action_keybinding_->modifiers()));
+    }
+    if (script_badge_keybinding_.get()) {
+      gtk_accel_group_disconnect_key(
+          accel_group_,
+          script_badge_keybinding_->GetGdkKeyCode(),
+          static_cast<GdkModifierType>(
+              script_badge_keybinding_->modifiers()));
+    }
     gtk_window_remove_accel_group(window_, accel_group_);
     g_object_unref(accel_group_);
     accel_group_ = NULL;
-    keybinding_.reset(NULL);
+    page_action_keybinding_.reset(NULL);
+    script_badge_keybinding_.reset(NULL);
   }
 }
 

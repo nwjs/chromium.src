@@ -121,8 +121,8 @@ body {
   -webkit-transition-duration: 300ms;
   -webkit-transition-property: webkit-transform, opacity;
   -webkit-transition-timing-function: ease;
-  background-color: rgba(18, 18, 18, 0.75);
-  border-top: 1px solid rgba(31, 31, 31, 0.75);
+  background-color: rgba(18, 18, 18, 0.875);
+  border-top: 1px solid rgba(31, 31, 31, 0.875);
   bottom: 0;
   display: -webkit-box;
   height: 55px;
@@ -310,23 +310,22 @@ body {
 .gallery .filename-spacer .saved,
 .gallery .filename-spacer .overwrite-original {
   -webkit-transition: all linear 120ms;
-  color: gray;
   cursor: inherit;
   display: inline-block;
   font-size: 90%;
-  margin-left: 6px;
-  margin-right: 10px;
+  margin-left: 3px;
+  margin-right: 18px;
   opacity: 0;
   pointer-events: none;
 }
 
 .gallery[editing] .filename-spacer .saved {
+  color: gray;
   opacity: 1;
 }
 
 .gallery[editing] .filename-spacer .overwrite-original,
 .gallery[editing] .filename-spacer .overwrite-original > * {
-  color: gray;
   cursor: pointer;
   opacity: 1;
   pointer-events: auto;
@@ -335,7 +334,6 @@ body {
 .gallery[editing] .filename-spacer[saved] .overwrite-original,
 .gallery[editing] .filename-spacer[saved] .overwrite-original > * {
   cursor: default;
-  opacity: 0.5;
   pointer-events: none;
 }
 
@@ -917,7 +915,7 @@ body {
 /* Load spinner and error banner */
 
 .gallery .spinner {
-  background-image: url('../images/common/spinner_white.svg);
+  background-image: url('../images/common/spinner_white.svg');
   background-size: 100%;
   height: 32px;
   left: 50%;
@@ -999,4 +997,18 @@ body {
 .gallery[video] > .toolbar .button.edit,
 .gallery[video] > .toolbar .edit-bar {
   display: none;
+}
+
+@media print {
+  .image-container > .image {
+    left: 0 !important;
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    top: 0 !important;
+  }
+
+  .gallery .tool {
+    opacity: 0 !important;
+  }
 }

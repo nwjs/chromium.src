@@ -74,13 +74,13 @@ class FindBarView : public DropdownBarView,
 
   // views::ButtonListener:
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // views::TextfieldController:
   virtual void ContentsChanged(views::Textfield* sender,
                                const string16& new_contents) OVERRIDE;
   virtual bool HandleKeyEvent(views::Textfield* sender,
-                              const views::KeyEvent& key_event) OVERRIDE;
+                              const ui::KeyEvent& key_event) OVERRIDE;
 
  private:
   // Update the appearance for the match count label.
@@ -102,7 +102,7 @@ class FindBarView : public DropdownBarView,
       : view_to_focus_on_mousedown_(view_to_focus_on_mousedown) {}
 
    private:
-    virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
+    virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
 
     views::Textfield* view_to_focus_on_mousedown_;
 

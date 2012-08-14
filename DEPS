@@ -8,33 +8,33 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "124518",
+  "webkit_revision": "125411",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9341",
+  "nacl_revision": "9434",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
   "gtm_revision": "534",
 
-  "libjingle_revision": "165",
+  "libjingle_revision": "168",
   "libphonenumber_revision": "456",
-  "libvpx_revision": "149334",
+  "libvpx_revision": "150392",
   "lss_revision": "11",
 
   # These two FFmpeg variables must be updated together.  One is used for SVN
   # checkouts and the other for Git checkouts.
-  "ffmpeg_revision": "149654",
-  "ffmpeg_hash": "f5a6dc3ba5038dca504545164bff477bb75a9a0e",
+  "ffmpeg_revision": "150165",
+  "ffmpeg_hash": "2079ffae30f8da6c6eed985cce00e04c31b40888",
 
   "sfntly_revision": "134",
-  "skia_revision": "4919",
+  "skia_revision": "5042",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12243",
-  "webrtc_revision": "2549",
+  "v8_revision": "12253",
+  "webrtc_revision": "2565",
   "jsoncpp_revision": "248",
   "nss_revision": "145873",
 }
@@ -59,7 +59,7 @@ deps = {
     (Var("googlecode_url") % "googlemock") + "/trunk@405",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@1243",
+    (Var("googlecode_url") % "angleproject") + "/trunk@1245",
 
   "src/third_party/trace-viewer":
     (Var("googlecode_url") % "trace-viewer") + "/trunk@103",
@@ -84,11 +84,11 @@ deps = {
     "/trunk/deps/third_party/hunspell_dictionaries@149334",
 
   "src/third_party/safe_browsing/testing":
-    (Var("googlecode_url") % "google-safe-browsing") + "/trunk/testing@110",
+    (Var("googlecode_url") % "google-safe-browsing") + "/trunk/testing@111",
 
   "src/third_party/cacheinvalidation/files/src/google":
     (Var("googlecode_url") % "google-cache-invalidation-api") +
-    "/trunk/src/google@219",
+    "/trunk/src/google@220",
 
   "src/third_party/leveldatabase/src":
     (Var("googlecode_url") % "leveldb") + "/trunk@67",
@@ -97,10 +97,10 @@ deps = {
     (Var("googlecode_url") % "snappy") + "/trunk@63",
 
   "src/tools/grit":
-    (Var("googlecode_url") % "grit-i18n") + "/trunk@63",
+    (Var("googlecode_url") % "grit-i18n") + "/trunk@67",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1451",
+    (Var("googlecode_url") % "gyp") + "/trunk@1463",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -125,6 +125,9 @@ deps = {
   "src/third_party/skia/src":
     (Var("googlecode_url") % "skia") + "/trunk/src@" + Var("skia_revision"),
 
+  "src/third_party/skia/gyp":
+    (Var("googlecode_url") % "skia") + "/trunk/gyp@" + Var("skia_revision"),
+
   "src/third_party/skia/include":
     (Var("googlecode_url") % "skia") + "/trunk/include@" + Var("skia_revision"),
 
@@ -147,7 +150,7 @@ deps = {
     (Var("googlecode_url") % "ots") + "/trunk@94",
 
   "src/tools/page_cycler/acid3":
-    "/trunk/deps/page_cycler/acid3@102714",
+    "/trunk/deps/page_cycler/acid3@150075",
 
   "src/chrome/test/data/perf/canvas_bench":
     "/trunk/deps/canvas_bench@122605",
@@ -159,7 +162,7 @@ deps = {
     (Var("googlecode_url") % "bidichecker") + "/trunk/lib@4",
 
   "src/third_party/v8-i18n":
-    (Var("googlecode_url") % "v8-i18n") + "/trunk@105",
+    (Var("googlecode_url") % "v8-i18n") + "/trunk@117",
 
   # When roll to another webgl conformance tests revision, please goto
   # chrome/test/gpu and run generate_webgl_conformance_test_list.py.
@@ -277,7 +280,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@311",
+    (Var("googlecode_url") % "libyuv") + "/trunk@319",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -502,7 +505,7 @@ deps_os = {
       Var("webkit_trunk") + "/Tools/gdb@" + Var("webkit_revision"),
 
     "src/third_party/gold":
-      "/trunk/deps/third_party/gold@124239",
+      "/trunk/deps/third_party/gold@149858",
 
     "src/third_party/libmtp":
       "/trunk/deps/third_party/libmtp@149713",
@@ -510,7 +513,7 @@ deps_os = {
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@715c98d7d0ca9a1f0576fca77cb4a49498d303ae",
+      "@da46e4a834820ed16cba29428ced3c14badfb351",
   },
   "android": {
     "src/third_party/freetype":
@@ -522,7 +525,7 @@ deps_os = {
 
     "src/third_party/android_tools":
       Var("chromium_git") + "/android_tools.git" +
-      "@21f9993b4ce955f1af6a88e5dc1135ba645920a7",
+      "@e55ecc54323647741d921b03a03b848bc853d39c",
   },
 }
 

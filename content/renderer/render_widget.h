@@ -17,6 +17,7 @@
 #include "content/common/content_export.h"
 #include "content/renderer/paint_aggregator.h"
 #include "ipc/ipc_channel.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebRenderingStats.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebCompositionUnderline.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebTextDirection.h"
@@ -155,6 +156,12 @@ class CONTENT_EXPORT RenderWidget
   // pending moves don't try to reference it.
   void CleanupWindowInPluginMoves(gfx::PluginWindowHandle window);
 
+  // Fills in a WebRenderingStats struct containing information about
+  // rendering, e.g. count of frames rendered, time spent painting.
+  // This call is relatively expensive in threaded compositing mode,
+  // as it blocks on the compositor thread.
+  void GetRenderingStats(WebKit::WebRenderingStats&) const;
+
   // Directs the host to begin a smooth scroll. This scroll should have the same
   // performance characteristics as a user-initiated scroll.
   void BeginSmoothScroll(bool scroll_down, bool scroll_far);
@@ -181,6 +188,7 @@ class CONTENT_EXPORT RenderWidget
   RenderWidget(WebKit::WebPopupType popup_type,
                const WebKit::WebScreenInfo& screen_info,
                bool swapped_out);
+
   virtual ~RenderWidget();
 
   // Initializes this view with the given opener.  CompleteInit must be called
@@ -322,6 +330,10 @@ class CONTENT_EXPORT RenderWidget
   void set_next_paint_is_resize_ack();
   void set_next_paint_is_restore_ack();
   void set_next_paint_is_repaint_ack();
+
+  void set_throttle_input_events(bool throttle_input_events) {
+    throttle_input_events_ = throttle_input_events;
+  }
 
   // Checks if the text input state and compose inline mode have been changed.
   // If they are changed, the new value will be sent to the browser process.
@@ -546,6 +558,8 @@ class CONTENT_EXPORT RenderWidget
   bool has_disable_gpu_vsync_switch_;
   base::TimeTicks last_do_deferred_update_time_;
 
+  WebKit::WebRenderingStats software_stats_;
+
   // UpdateRect parameters for the current compositing pass. This is used to
   // pass state between DoDeferredUpdate and OnSwapBuffersPosted.
   scoped_ptr<ViewHostMsg_UpdateRect_Params> pending_update_params_;
@@ -563,6 +577,9 @@ class CONTENT_EXPORT RenderWidget
   // The device scale factor. This value is computed from the DPI entries in
   // |screen_info_| on some platforms, and defaults to 1 on other platforms.
   float device_scale_factor_;
+
+  // Specifies whether input event throttling is enabled for this widget.
+  bool throttle_input_events_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidget);
 };

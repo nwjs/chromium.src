@@ -14,6 +14,7 @@
 #include "third_party/skia/include/core/SkPaint.h"
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/animation/slide_animation.h"
+#include "ui/base/event.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/point.h"
@@ -218,28 +219,28 @@ void Slider::OnPaint(gfx::Canvas* canvas) {
     paint.setAntiAlias(true);
     paint.setColor(kButtonColor);
     canvas->sk_canvas()->drawCircle(button_cx, button_cy, kButtonRadius, paint);
-    View::OnPaint(canvas);
   }
+  View::OnPaint(canvas);
 }
 
-bool Slider::OnMousePressed(const views::MouseEvent& event) {
+bool Slider::OnMousePressed(const ui::MouseEvent& event) {
   if (listener_)
     listener_->SliderDragStarted(this);
   MoveButtonTo(event.location());
   return true;
 }
 
-bool Slider::OnMouseDragged(const views::MouseEvent& event) {
+bool Slider::OnMouseDragged(const ui::MouseEvent& event) {
   MoveButtonTo(event.location());
   return true;
 }
 
-void Slider::OnMouseReleased(const views::MouseEvent& event) {
+void Slider::OnMouseReleased(const ui::MouseEvent& event) {
   if (listener_)
     listener_->SliderDragEnded(this);
 }
 
-bool Slider::OnKeyPressed(const views::KeyEvent& event) {
+bool Slider::OnKeyPressed(const ui::KeyEvent& event) {
   if (orientation_ == HORIZONTAL) {
     if (event.key_code() == ui::VKEY_LEFT) {
       SetValueInternal(value_ - keyboard_increment_, VALUE_CHANGED_BY_USER);

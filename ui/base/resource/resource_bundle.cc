@@ -67,7 +67,6 @@ void Create2xResourceIfMissing(gfx::ImageSkia image, int idr) {
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(
           switches::kHighlightMissing2xResources) &&
-      command_line->HasSwitch(switches::kLoad2xResources) &&
       !image.HasRepresentation(ui::SCALE_FACTOR_200P)) {
     gfx::ImageSkiaRep image_rep = image.GetRepresentation(SCALE_FACTOR_200P);
 
@@ -201,12 +200,7 @@ FilePath ResourceBundle::GetLocaleFilePath(const std::string& app_locale,
 
   FilePath locale_file_path;
 
-#if defined(OS_ANDROID)
-  PathService::Get(base::DIR_ANDROID_APP_DATA, &locale_file_path);
-  locale_file_path = locale_file_path.Append(FILE_PATH_LITERAL("paks"));
-#else
   PathService::Get(ui::DIR_LOCALES, &locale_file_path);
-#endif
 
   if (!locale_file_path.empty())
     locale_file_path = locale_file_path.AppendASCII(app_locale + ".pak");

@@ -6,6 +6,7 @@
 
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_host.h"
+#include "chrome/common/extensions/draggable_region.h"
 #include "chrome/common/extensions/extension.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -20,7 +21,6 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/path.h"
-#include "ui/gfx/scoped_sk_region.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/webview/webview.h"
@@ -35,21 +35,14 @@
 #endif
 
 #if defined(USE_ASH)
+#include "ash/ash_constants.h"
 #include "ash/wm/custom_frame_view_ash.h"
+#include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #endif
 
 namespace {
-// TODO(jeremya): these are copy/pasted from ash/wm/frame_painter.cc, and I'd
-// like to find a way to avoid duplicating the constants.
-#if defined(USE_ASH)
-const int kResizeOutsideBoundsSizeTouch = 30;
-const int kResizeOutsideBoundsSize = 6;
-const int kResizeInsideBoundsSize = 1;
-const int kResizeAreaCornerSize = 16;
-#else
-const int kResizeOutsideBoundsSizeTouch = 0;
-const int kResizeOutsideBoundsSize = 0;
+#if !defined(USE_ASH)
 const int kResizeInsideBoundsSize = 5;
 const int kResizeAreaCornerSize = 16;
 #endif
@@ -63,7 +56,7 @@ class ShellWindowFrameView : public views::NonClientFrameView,
  public:
   static const char kViewClassName[];
 
-  explicit ShellWindowFrameView(bool frameless);
+  explicit ShellWindowFrameView(ShellWindowViews* window);
   virtual ~ShellWindowFrameView();
 
   void Init(views::Widget* frame);
@@ -88,13 +81,12 @@ class ShellWindowFrameView : public views::NonClientFrameView,
 
  private:
   // views::ButtonListener implementation.
-  virtual void ButtonPressed(views::Button* sender, const views::Event& event)
+  virtual void ButtonPressed(views::Button* sender, const ui::Event& event)
       OVERRIDE;
 
+  ShellWindowViews* window_;
   views::Widget* frame_;
   views::ImageButton* close_button_;
-
-  bool is_frameless_;
 
   DISALLOW_COPY_AND_ASSIGN(ShellWindowFrameView);
 };
@@ -102,10 +94,9 @@ class ShellWindowFrameView : public views::NonClientFrameView,
 const char ShellWindowFrameView::kViewClassName[] =
     "browser/ui/views/extensions/ShellWindowFrameView";
 
-ShellWindowFrameView::ShellWindowFrameView(bool frameless)
-    : frame_(NULL),
-      close_button_(NULL),
-      is_frameless_(frameless) {
+ShellWindowFrameView::ShellWindowFrameView(ShellWindowViews* window)
+    : window_(window),
+      close_button_(NULL) {
 }
 
 ShellWindowFrameView::~ShellWindowFrameView() {
@@ -114,7 +105,7 @@ ShellWindowFrameView::~ShellWindowFrameView() {
 void ShellWindowFrameView::Init(views::Widget* frame) {
   frame_ = frame;
 
-  if (!is_frameless_) {
+  if (!window_->frameless()) {
     ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
     close_button_ = new views::ImageButton(this);
     close_button_->SetImage(views::CustomButton::BS_NORMAL,
@@ -131,22 +122,22 @@ void ShellWindowFrameView::Init(views::Widget* frame) {
 #if defined(USE_ASH)
   aura::Window* window = frame->GetNativeWindow();
   // Ensure we get resize cursors for a few pixels outside our bounds.
-  int outside_bounds = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
-      kResizeOutsideBoundsSizeTouch :
-      kResizeOutsideBoundsSize;
-  window->set_hit_test_bounds_override_outer(
-      gfx::Insets(-outside_bounds, -outside_bounds,
-                  -outside_bounds, -outside_bounds));
+  window->SetHitTestBoundsOverrideOuter(
+      gfx::Insets(-ash::kResizeOutsideBoundsSize,
+                  -ash::kResizeOutsideBoundsSize,
+                  -ash::kResizeOutsideBoundsSize,
+                  -ash::kResizeOutsideBoundsSize),
+      ash::kResizeOutsideBoundsScaleForTouch);
   // Ensure we get resize cursors just inside our bounds as well.
   // TODO(jeremya): do we need to update these when in fullscreen/maximized?
   window->set_hit_test_bounds_override_inner(
-      gfx::Insets(kResizeInsideBoundsSize, kResizeInsideBoundsSize,
-                  kResizeInsideBoundsSize, kResizeInsideBoundsSize));
+      gfx::Insets(ash::kResizeInsideBoundsSize, ash::kResizeInsideBoundsSize,
+                  ash::kResizeInsideBoundsSize, ash::kResizeInsideBoundsSize));
 #endif
 }
 
 gfx::Rect ShellWindowFrameView::GetBoundsForClientView() const {
-  if (is_frameless_ || frame_->IsFullscreen())
+  if (window_->frameless() || frame_->IsFullscreen())
     return bounds();
   return gfx::Rect(0, kCaptionHeight, width(),
       std::max(0, height() - kCaptionHeight));
@@ -154,7 +145,7 @@ gfx::Rect ShellWindowFrameView::GetBoundsForClientView() const {
 
 gfx::Rect ShellWindowFrameView::GetWindowBoundsForClientBounds(
       const gfx::Rect& client_bounds) const {
-  if (is_frameless_)
+  if (window_->frameless())
     return client_bounds;
 
   int closeButtonOffsetX =
@@ -172,12 +163,17 @@ int ShellWindowFrameView::NonClientHitTest(const gfx::Point& point) {
 
 #if defined(USE_ASH)
   gfx::Rect expanded_bounds = bounds();
-  int outside_bounds = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
-      kResizeOutsideBoundsSizeTouch :
-      kResizeOutsideBoundsSize;
+  int outside_bounds = ash::kResizeOutsideBoundsSize;
+  if (ui::GetDisplayLayout() == ui::LAYOUT_TOUCH &&
+      aura::Env::GetInstance()->is_touch_down()) {
+    outside_bounds *= ash::kResizeOutsideBoundsScaleForTouch;
+  }
   expanded_bounds.Inset(-outside_bounds, -outside_bounds);
   if (!expanded_bounds.Contains(point))
     return HTNOWHERE;
+
+  int kResizeInsideBoundsSize = ash::kResizeInsideBoundsSize;
+  int kResizeAreaCornerSize = ash::kResizeAreaCornerSize;
 #endif
 
   // Check the frame first, as we allow a small area overlapping the contents
@@ -199,12 +195,19 @@ int ShellWindowFrameView::NonClientHitTest(const gfx::Point& point) {
   if (frame_component != HTNOWHERE)
     return frame_component;
 
+  // Check for possible draggable region in the client area for the frameless
+  // window.
+  if (window_->frameless() &&
+      window_->draggable_region() &&
+      window_->draggable_region()->contains(point.x(), point.y()))
+    return HTCAPTION;
+
   int client_component = frame_->client_view()->NonClientHitTest(point);
   if (client_component != HTNOWHERE)
     return client_component;
 
   // Then see if the point is within any of the window controls.
-  if (close_button_->visible() &&
+  if (close_button_ && close_button_->visible() &&
       close_button_->GetMirroredBounds().Contains(point))
     return HTCLOSE;
 
@@ -225,7 +228,7 @@ gfx::Size ShellWindowFrameView::GetPreferredSize() {
 }
 
 void ShellWindowFrameView::Layout() {
-  if (is_frameless_)
+  if (window_->frameless())
     return;
   gfx::Size close_size = close_button_->GetPreferredSize();
   int closeButtonOffsetY =
@@ -239,7 +242,7 @@ void ShellWindowFrameView::Layout() {
 }
 
 void ShellWindowFrameView::OnPaint(gfx::Canvas* canvas) {
-  if (is_frameless_)
+  if (window_->frameless())
     return;
   // TODO(jeremya): different look for inactive?
   SkPaint paint;
@@ -264,7 +267,7 @@ std::string ShellWindowFrameView::GetClassName() const {
 
 gfx::Size ShellWindowFrameView::GetMinimumSize() {
   gfx::Size min_size = frame_->client_view()->GetMinimumSize();
-  if (is_frameless_)
+  if (window_->frameless())
     return min_size;
 
   // Ensure we can display the top of the caption area.
@@ -282,7 +285,7 @@ gfx::Size ShellWindowFrameView::GetMinimumSize() {
 
 gfx::Size ShellWindowFrameView::GetMaximumSize() {
   gfx::Size max_size = frame_->client_view()->GetMaximumSize();
-  if (is_frameless_)
+  if (window_->frameless())
     return max_size;
 
   if (!max_size.IsEmpty()) {
@@ -293,8 +296,8 @@ gfx::Size ShellWindowFrameView::GetMaximumSize() {
 }
 
 void ShellWindowFrameView::ButtonPressed(views::Button* sender,
-                                         const views::Event& event) {
-  DCHECK(!is_frameless_);
+                                         const ui::Event& event) {
+  DCHECK(!window_->frameless());
   if (sender == close_button_)
     frame_->Close();
 }
@@ -306,8 +309,7 @@ ShellWindowViews::ShellWindowViews(Profile* profile,
     : ShellWindow(profile, extension, url),
       web_view_(NULL),
       is_fullscreen_(false),
-      use_custom_frame_(
-          win_params.frame == ShellWindow::CreateParams::FRAME_NONE) {
+      frameless_(win_params.frame == ShellWindow::CreateParams::FRAME_NONE) {
   window_ = new views::Widget;
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
   params.delegate = this;
@@ -444,11 +446,6 @@ void ShellWindowViews::SetBounds(const gfx::Rect& bounds) {
   GetWidget()->SetBounds(bounds);
 }
 
-void ShellWindowViews::SetDraggableRegion(SkRegion* region) {
-  caption_region_.Set(region);
-  OnViewWasResized();
-}
-
 void ShellWindowViews::FlashFrame(bool flash) {
   window_->FlashFrame(flash);
 }
@@ -475,8 +472,7 @@ views::View* ShellWindowViews::GetContentsView() {
 
 views::NonClientFrameView* ShellWindowViews::CreateNonClientFrameView(
     views::Widget* widget) {
-  ShellWindowFrameView* frame_view =
-      new ShellWindowFrameView(use_custom_frame_);
+  ShellWindowFrameView* frame_view = new ShellWindowFrameView(this);
   frame_view->Init(window_);
   return frame_view;
 }
@@ -508,7 +504,7 @@ void ShellWindowViews::OnViewWasResized() {
     // Don't round the corners when the window is maximized or fullscreen.
     path.addRect(0, 0, width, height);
   } else {
-    if (use_custom_frame_) {
+    if (frameless_) {
       path.moveTo(0, radius);
       path.lineTo(radius, 0);
       path.lineTo(width - radius, 0);
@@ -528,10 +524,10 @@ void ShellWindowViews::OnViewWasResized() {
 
   SkRegion* rgn = new SkRegion;
   if (!window_->IsFullscreen()) {
-    if (caption_region_.Get())
-      rgn->op(*caption_region_.Get(), SkRegion::kUnion_Op);
+    if (draggable_region())
+      rgn->op(*draggable_region(), SkRegion::kUnion_Op);
     if (!window_->IsMaximized()) {
-      if (use_custom_frame_)
+      if (frameless_)
         rgn->op(0, 0, width, kResizeInsideBoundsSize, SkRegion::kUnion_Op);
       rgn->op(0, 0, kResizeInsideBoundsSize, height, SkRegion::kUnion_Op);
       rgn->op(width - kResizeInsideBoundsSize, 0, width, height,
@@ -552,6 +548,35 @@ void ShellWindowViews::Layout() {
 
 void ShellWindowViews::UpdateWindowTitle() {
   window_->UpdateWindowTitle();
+}
+
+void ShellWindowViews::UpdateDraggableRegions(
+    const std::vector<extensions::DraggableRegion>& regions) {
+  // Draggable region is not supported for non-frameless window.
+  if (!frameless_)
+    return;
+
+  SkRegion* draggable_region = new SkRegion;
+
+  // By default, the whole window is draggable.
+  gfx::Rect bounds = GetBounds();
+  draggable_region->op(0, 0, bounds.right(), bounds.bottom(),
+                       SkRegion::kUnion_Op);
+
+  // Exclude those desinated as non-draggable.
+  for (std::vector<extensions::DraggableRegion>::const_iterator iter =
+           regions.begin();
+       iter != regions.end(); ++iter) {
+    const extensions::DraggableRegion& region = *iter;
+    draggable_region->op(region.bounds.x(),
+                         region.bounds.y(),
+                         region.bounds.right(),
+                         region.bounds.bottom(),
+                         SkRegion::kDifference_Op);
+  }
+
+  draggable_region_.reset(draggable_region);
+  OnViewWasResized();
 }
 
 // static

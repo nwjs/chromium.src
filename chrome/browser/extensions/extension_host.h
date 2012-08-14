@@ -36,6 +36,7 @@ namespace content {
 class RenderProcessHost;
 class RenderWidgetHostView;
 class SiteInstance;
+class WebIntentsDispatcher;
 }
 
 namespace extensions {
@@ -145,9 +146,11 @@ class ExtensionHost : public content::WebContentsDelegate,
       content::WebContents* source,
       const content::OpenURLParams& params) OVERRIDE;
   virtual bool PreHandleKeyboardEvent(
+      content::WebContents* source,
       const content::NativeWebKeyboardEvent& event,
       bool* is_keyboard_shortcut) OVERRIDE;
   virtual void HandleKeyboardEvent(
+      content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) OVERRIDE;
   virtual void ResizeDueToAutoResize(content::WebContents* source,
                                      const gfx::Size& new_size) OVERRIDE;
@@ -164,6 +167,9 @@ class ExtensionHost : public content::WebContentsDelegate,
   virtual void CloseContents(content::WebContents* contents) OVERRIDE;
   virtual void OnStartDownload(content::WebContents* source,
                                content::DownloadItem* download) OVERRIDE;
+  virtual void WebIntentDispatch(
+      content::WebContents* web_contents,
+      content::WebIntentsDispatcher* intents_dispatcher) OVERRIDE;
 
   // content::NotificationObserver
   virtual void Observe(int type,
@@ -196,6 +202,7 @@ class ExtensionHost : public content::WebContentsDelegate,
   // Platform specific implementation may override this method to handle the
   // event in platform specific way.
   virtual void UnhandledKeyboardEvent(
+      content::WebContents* source,
       const content::NativeWebKeyboardEvent& event);
 
   // Returns true if we're hosting a background page.

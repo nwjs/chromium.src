@@ -4,6 +4,7 @@
 
 #include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/message_loop.h"
 #include "base/path_service.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_action.h"
@@ -12,7 +13,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/image/image.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/skia_util.h"
 #include "webkit/glue/image_decoder.h"
 
@@ -76,11 +77,11 @@ TEST_F(ExtensionActionTest, Icon) {
   action.CacheIcon("the_default.png", icon2);
   ASSERT_TRUE(ImagesAreEqual(icon2, action.GetIcon(1)));
 
-  action.SetIcon(ExtensionAction::kDefaultTabId, *icon1.ToSkBitmap());
+  action.SetIcon(ExtensionAction::kDefaultTabId, icon1);
   ASSERT_TRUE(ImagesAreEqual(icon1, action.GetIcon(100)))
       << "SetIcon(kDefaultTabId) overrides the default_icon_path.";
 
-  action.SetIcon(100, *icon2.ToSkBitmap());
+  action.SetIcon(100, icon2);
   ASSERT_TRUE(ImagesAreEqual(icon1, action.GetIcon(1)));
   ASSERT_TRUE(ImagesAreEqual(icon2, action.GetIcon(100)));
 }
@@ -112,19 +113,53 @@ TEST_F(ExtensionActionTest, IconIndex) {
 }
 
 TEST_F(ExtensionActionTest, Visibility) {
+  // Supports the icon animation.
+  MessageLoop message_loop;
+
   ASSERT_FALSE(action.GetIsVisible(1));
-  action.SetIsVisible(ExtensionAction::kDefaultTabId, true);
+  EXPECT_FALSE(action.GetIconAnimation(ExtensionAction::kDefaultTabId));
+  action.SetAppearance(ExtensionAction::kDefaultTabId, ExtensionAction::ACTIVE);
   ASSERT_TRUE(action.GetIsVisible(1));
   ASSERT_TRUE(action.GetIsVisible(100));
-  action.SetIsVisible(ExtensionAction::kDefaultTabId, false);
+  EXPECT_FALSE(action.GetIconAnimation(ExtensionAction::kDefaultTabId));
+
+  action.SetAppearance(ExtensionAction::kDefaultTabId,
+                       ExtensionAction::INVISIBLE);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_FALSE(action.GetIsVisible(100));
-  action.SetIsVisible(100, true);
+  EXPECT_FALSE(action.GetIconAnimation(100));
+  action.SetAppearance(100, ExtensionAction::ACTIVE);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_TRUE(action.GetIsVisible(100));
+  EXPECT_TRUE(action.GetIconAnimation(100));
+
   action.ClearAllValuesForTab(100);
   ASSERT_FALSE(action.GetIsVisible(1));
   ASSERT_FALSE(action.GetIsVisible(100));
+  EXPECT_FALSE(action.GetIconAnimation(100));
+
+  message_loop.RunAllPending();
+}
+
+TEST_F(ExtensionActionTest, GetAttention) {
+  // Supports the icon animation.
+  MessageLoop message_loop;
+
+  EXPECT_FALSE(action.GetIsVisible(1));
+  EXPECT_FALSE(action.GetIconAnimation(1));
+  action.SetAppearance(1, ExtensionAction::WANTS_ATTENTION);
+  EXPECT_TRUE(action.GetIsVisible(1));
+  EXPECT_TRUE(action.GetIconAnimation(1));
+
+  // Simulate waiting long enough for the animation to end.
+  action.GetIconAnimation(1)->Stop();
+  EXPECT_FALSE(action.GetIconAnimation(1));  // Sanity check.
+
+  action.SetAppearance(1, ExtensionAction::ACTIVE);
+  EXPECT_FALSE(action.GetIconAnimation(1))
+      << "The animation should not play again if the icon was already visible.";
+
+  message_loop.RunAllPending();
 }
 
 TEST_F(ExtensionActionTest, Badge) {

@@ -9,7 +9,12 @@
 
 #include "ash/wm/window_resizer.h"
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
+
+namespace aura {
+class RootWindow;
+}  // namespace aura
 
 namespace ash {
 namespace internal {
@@ -58,6 +63,8 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
                          const std::vector<aura::Window*>& attached_windows);
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(WorkspaceWindowResizerTest, PhantomStyle);
+
   // Type of snapping.
   enum SnapType {
     // Snap to the left/right edge of the screen.
@@ -105,11 +112,14 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   int PrimaryAxisSize(const gfx::Size& size) const;
   int PrimaryAxisCoordinate(int x, int y) const;
 
-  // Updates the bounds of the phantom window.
-  void UpdatePhantomWindow(
-      const gfx::Point& location,
-      const gfx::Rect& bounds,
-      int grid_size);
+  // Updates the bounds of the phantom window for window snapping.
+  void UpdateSnapPhantomWindow(const gfx::Point& location,
+                               const gfx::Rect& bounds,
+                               int grid_size);
+
+  // Updates the bounds of the phantom window for window dragging. Set true on
+  // |in_original_root| if the pointer is still in |window()->GetRootWindow()|.
+  void UpdateDragPhantomWindow(const gfx::Rect& bounds, bool in_original_root);
 
   // Restacks the windows z-order position so that one of the windows is at the
   // top of the z-order, and the rest directly underneath it.
@@ -118,6 +128,9 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   // Returns the SnapType for the specified point. SNAP_NONE is used if no
   // snapping should be used.
   SnapType GetSnapType(const gfx::Point& location) const;
+
+  // Returns true if we should allow the mouse pointer to warp.
+  bool ShouldAllowMouseWarp() const;
 
   aura::Window* window() const { return details_.window; }
 
@@ -154,7 +167,10 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
 
   // Gives a previews of where the the window will end up. Only used if there
   // is a grid and the caption is being dragged.
-  scoped_ptr<PhantomWindowController> phantom_window_controller_;
+  scoped_ptr<PhantomWindowController> snap_phantom_window_controller_;
+
+  // Shows a semi-transparent image of the window being dragged.
+  scoped_ptr<PhantomWindowController> drag_phantom_window_controller_;
 
   // Used to determine the target position of a snap.
   scoped_ptr<SnapSizer> snap_sizer_;
@@ -166,6 +182,9 @@ class ASH_EXPORT WorkspaceWindowResizer : public WindowResizer {
   // placement to track when the mouse is moved while pushed against the edge of
   // the screen.
   int num_mouse_moves_since_bounds_change_;
+
+  // The mouse location passed to Drag().
+  gfx::Point last_mouse_location_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkspaceWindowResizer);
 };

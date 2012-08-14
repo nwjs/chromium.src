@@ -69,9 +69,6 @@ class AppNonClientFrameViewAura::ControlView
         IDR_AURA_WINDOW_HEADER_BASE_INCOGNITO_ACTIVE :
         IDR_AURA_WINDOW_HEADER_BASE_ACTIVE;
     control_base_ = rb.GetImageNamed(control_base_resource_id).ToImageSkia();
-
-    separator_ =
-        rb.GetImageNamed(IDR_AURA_WINDOW_FULLSCREEN_SEPARATOR).ToImageSkia();
     shadow_ = rb.GetImageNamed(IDR_AURA_WINDOW_FULLSCREEN_SHADOW).ToImageSkia();
 
     AddChildView(close_button_);
@@ -117,14 +114,11 @@ class AppNonClientFrameViewAura::ControlView
 
     views::View::OnPaint(canvas);
 
-    // Separator overlaps the left edge of the close button.
-    canvas->DrawImageInt(*separator_,
-                         close_button_->x(), 0);
     canvas->DrawImageInt(*shadow_, 0, kShadowHeightStretch);
   }
 
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE {
+                             const ui::Event& event) OVERRIDE {
     if (sender == close_button_) {
       owner_->Close();
     } else if (sender == restore_button_) {
@@ -151,7 +145,6 @@ class AppNonClientFrameViewAura::ControlView
   views::ImageButton* close_button_;
   views::ImageButton* restore_button_;
   const gfx::ImageSkia* control_base_;
-  const gfx::ImageSkia* separator_;
   const gfx::ImageSkia* shadow_;
 
   DISALLOW_COPY_AND_ASSIGN(ControlView);
@@ -239,11 +232,15 @@ AppNonClientFrameViewAura::GetTabStripInsets(bool restored) const {
   return TabStripInsets();
 }
 
+int AppNonClientFrameViewAura::GetThemeBackgroundXInset() const {
+  return 0;
+}
+
 void AppNonClientFrameViewAura::UpdateThrobber(bool running) {
 }
 
 void AppNonClientFrameViewAura::OnMouseEntered(
-    const views::MouseEvent& event) {
+    const ui::MouseEvent& event) {
   if (!control_view_) {
     // This can only happen when the frame-view (|this|) is in the process of
     // destroying itself, but the control-widget has already closed, and some

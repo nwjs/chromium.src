@@ -341,12 +341,12 @@ class TestingSyncSetupHandler : public SyncSetupHandler {
 
 class SigninManagerMock : public FakeSigninManager {
  public:
-  SigninManagerMock() {}
+  explicit SigninManagerMock(Profile* profile) : FakeSigninManager(profile) {}
   MOCK_CONST_METHOD1(IsAllowedUsername, bool(const std::string& username));
 };
 
 static ProfileKeyedService* BuildSigninManagerMock(Profile* profile) {
-  return new SigninManagerMock();
+  return new SigninManagerMock(profile);
 }
 
 // The boolean parameter indicates whether the test is run with ClientOAuth
@@ -358,16 +358,15 @@ class SyncSetupHandlerTest : public testing::TestWithParam<bool> {
     // If the parameter is true, then use ClientOAuth for the tests.  Otherwise
     // use ClientLogin for the tests.
     if (GetParam()) {
-      ASSERT_FALSE(CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableClientOAuthSignin));
-    } else {
       CommandLine::ForCurrentProcess()->AppendSwitch(
-          switches::kDisableClientOAuthSignin);
+          switches::kEnableClientOAuthSignin);
+    } else {
+      ASSERT_FALSE(CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableClientOAuthSignin));
     }
 
     error_ = GoogleServiceAuthError::None();
     profile_.reset(ProfileSyncServiceMock::MakeSignedInTestingProfile());
-    SyncPromoUI::RegisterUserPrefs(profile_->GetPrefs());
     mock_pss_ = static_cast<ProfileSyncServiceMock*>(
         ProfileSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
             profile_.get(),

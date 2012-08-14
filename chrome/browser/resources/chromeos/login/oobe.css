@@ -17,6 +17,8 @@ body {
   margin: 0;
   overflow: hidden;
   padding: 0;
+  position: fixed;
+  top: 0;
 }
 
 html[oobe=old] body {
@@ -28,7 +30,7 @@ html[oobe=new]:not([screen=lock]) body {
 }
 
 html[oobe=new][screen=lock] body {
-  -webkit-background-size: 100% 100%;
+  background-color: transparent;
 }
 
 progress {
@@ -61,9 +63,18 @@ button.custom-appearance:focus {
   border-color: rgb(77, 144, 254);
 }
 
+button:not(.custom-appearance) {
+  min-width: 72px !important;
+}
+
+#back-button {
+  -webkit-margin-end: 8px;
+}
+
 #outer-container {
   -webkit-box-align: center;
   -webkit-box-pack: center;
+  -webkit-perspective: 600px;
   bottom: 41px;  /* Leave space for the header bar */
   display: -webkit-box;
   left: 0;
@@ -81,19 +92,43 @@ html[oobe=new] #oobe {
 }
 
 #inner-container {
-  /* Height/width of each step is set manually,
-     see DisplayManager.toggleStep_() */
-  height: 294px;
   position: relative;
-  width: 640px;
 }
 
 html[oobe=old] #inner-container {
+  height: 294px;
   padding: 20px;
+  width: 640px;
 }
 
 html[oobe=new] #inner-container {
+  border-radius: 2px;
+  overflow: hidden;
   padding: 0;
+}
+
+/* Screens that have a border and background. */
+html[oobe=new] #oobe.connect #inner-container,
+html[oobe=new] #oobe.eula #inner-container,
+html[oobe=new] #oobe.update #inner-container,
+html[oobe=new] #oobe.gaia-signin #inner-container,
+html[oobe=new] #oobe.enrollment #inner-container,
+html[oobe=new] #oobe.oauth-enrollment #inner-container,
+html[oobe=new] #oobe.user-image #inner-container {
+  background: -webkit-linear-gradient(rgba(255,255,255,0.99),
+                                      rgba(255,255,255,0.95));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3),
+              0 4px 23px 5px rgba(0, 0, 0, 0.2),
+              0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Only play this animation when 'down' class is removed. */
+html[oobe=new] #inner-container:not(.down) {
+  -webkit-transition: -webkit-transform 200ms ease-in-out;
+}
+
+html[oobe=new] #inner-container.down {
+  -webkit-transform: translateY(50px) rotateX(-2.5deg);
 }
 
 #security-info a,
@@ -130,11 +165,7 @@ hr.bottom {
 
 #header {
   -webkit-padding-start: 45px;
-  /* TODO(thakis): Move oobe.html to a structure element, then the
-   * image set should be inserted automatically. */
-  background-image: -webkit-image-set(
-      url('chrome://theme/IDR_PRODUCT_LOGO_32') 1x,
-      url('chrome://theme/IDR_PRODUCT_LOGO_32@2x') 2x);
+  background-image: url('chrome://theme/IDR_PRODUCT_LOGO_32');
   background-position: left center;
   background-repeat: no-repeat;
   background-size: 32px;
@@ -202,27 +233,19 @@ html[dir=rtl]  .header-section.left {
   right: -20px;
 }
 
-html[oobe=old] .step-logo {
+html[oobe=old] #step-logo {
   display: none;
 }
 
-.step-logo {
+#step-logo {
+  -webkit-margin-start: 17px;
   position: absolute;
   top: 15px;
 }
 
-html[dir=ltr] .step-logo {
-  left: 17px;
-}
-
-html[dir=rtl] .step-logo {
-  right: 17px;
-}
-
 html[oobe=new] #connect .step-contents {
-  /* TODO(nkostylev): Update after content layout changes. */
   -webkit-margin-after: 82px;
-  -webkit-margin-before: 82px;
+  -webkit-margin-before: 33px;
   -webkit-margin-start: 145px;
 }
 
@@ -253,48 +276,49 @@ html[oobe=new] #user-image-screen-description {
   -webkit-margin-before: 0;
 }
 
+.step {
+  position: absolute;
+}
+
 html[oobe=old] .step {
   min-height: 294px;
   opacity: 1;
-  position: absolute;
   width: 640px;
 }
 
 html[oobe=new] .step {
-  background: -webkit-linear-gradient(rgba(255,255,255,0.99),
-                                      rgba(255,255,255,0.95));
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3),
-              0 4px 23px 5px rgba(0, 0, 0, 0.2),
-              0 2px 6px rgba(0, 0, 0, 0.15);
-  position: absolute;
+  box-sizing: border-box;
+}
+
+html[oobe=new] .step.animated {
+  -webkit-transition: -webkit-transform 200ms ease-in-out,
+                      opacity 200ms ease-in-out,
+                      visibility 200ms ease-in-out;
 }
 
 html[oobe=old][dir=ltr] .step {
-  /* TODO(nkostylev): Change to new transitions. */
   -webkit-transition: left 200ms, opacity 200ms, visibility 200ms ease-in-out;
   left: 0;
 }
 
 html[oobe=old][dir=rtl] .step {
-  /* TODO(nkostylev): Change to new transitions. */
   -webkit-transition: right 200ms, opacity 200ms, visibility 200ms ease-in-out;
   right: 0;
 }
 
-.step.right {
+html[oobe=old] .step.right {
   left: 100px;
 }
 
-.step.left {
+html[oobe=old] .step.left {
   left: -50px;
 }
 
-html[dir=rtl] .step.right {
+html[oobe=old][dir=rtl] .step.right {
   right: 100px;
 }
 
-html[dir=rtl] .step.left {
+html[oobe=old][dir=rtl] .step.left {
   right: -50px;
 }
 
@@ -310,10 +334,18 @@ html[oobe=old] .right {
   opacity: 0;
 }
 
-html[oobe=new] .faded,
-html[oobe=new] .left,
-html[oobe=new] .right {
+html[oobe=new] .step.faded,
+html[oobe=new] .step.left,
+html[oobe=new] .step.right {
   opacity: 0;
+}
+
+html[oobe=new] .step.right {
+  -webkit-transform: translateX(50px);
+}
+
+html[oobe=new] .step.left {
+  -webkit-transform: translateX(-50px)
 }
 
 #footer {
@@ -341,19 +373,25 @@ html[oobe=new] #progress-dots {
   display: -webkit-box;
 }
 
+/* Hidden for the duration of initial transition. */
+html[oobe=new] #progress-dots.down {
+  visibility: hidden;
+}
+
 .progdot {
   -webkit-margin-end: 12px;
-  background: black;
-  opacity: 0.1;
+  opacity: 0.4;
 }
 
 html[oobe=old] .progdot {
+  background: black;
   border-radius: 2px;
   height: 8px;
   width: 8px;
 }
 
 html[oobe=new] .progdot {
+  background: white;
   height: 10px;
   width: 10px;
 }
@@ -373,6 +411,7 @@ html[oobe=new] .progdot {
 }
 
 .menu-control {
+  color: #444;
   font-family: inherit;
   line-height: 20px;
   position: relative;
@@ -400,41 +439,37 @@ html[oobe=old] #connect {
 }
 
 /* Padding for header and buttons. */
-/* TODO(nkostylev): Extract common style for OOBE steps. */
 html[oobe=new] #connect {
-  min-height: 304px;
+  min-height: 395px;
   padding: 70px 17px 21px;
-  width: 688px;
 }
 
 html[oobe=new] #eula {
-  min-height: 304px;
+  min-height: 395px;
   padding: 70px 17px 21px;
-  width: 688px;
 }
 
 html[oobe=new] #update {
-  min-height: 284px;
+  min-height: 423px;
   padding: 70px 17px 69px;    /* Screen has no controls. */
-  width: 688px;
 }
 
 html[oobe=new] #gaia-signin {
-  height: 470px;
+  height: 609px;
   padding: 70px 17px 69px;    /* Screen has no controls. */
-  width: 688px;
+  width: 722px;
 }
 
 html[oobe=new] #user-image {
-  min-height: 352px;
+  min-height: 443px;
   padding: 70px 17px 21px;
-  width: 688px;
+  width: 702px;
 }
 
 html[oobe=new] #oauth-enrollment {
-  min-height: 518px;
+  min-height: 609px;
   padding: 70px 17px 21px;
-  width: 688px;
+  width: 722px;
 }
 
 #logging {
@@ -465,6 +500,7 @@ html[oobe=old] #user-image {
   -webkit-user-drag: none;
   -webkit-user-select: none;
   display: inline-block;
+  height: 264px;
   margin: 0;
   outline: none;
   overflow: hidden;
@@ -479,7 +515,7 @@ html[oobe=old] #user-image {
   width: 50px;
 }
 
-#user-image-grid [role=listitem] {
+#user-image-grid > li {
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 4px;
   display: inline-block;
@@ -665,6 +701,11 @@ html[camera=webrtc] .camera.live.online #take-photo {
   -webkit-perspective: 600px;
 }
 
+#user-image-attribution {
+  /* Turned off for now. */
+  display: none;
+}
+
 /* TODO(nkostylev): Remove footer, button-strip styles. */
 #footer {
   height: 28px;  /* Same as button height */
@@ -684,8 +725,18 @@ html[camera=webrtc] .camera.live.online #take-photo {
 
 .step-controls {
   -webkit-box-pack: end;
+  -webkit-padding-end: 34px;  /* Double the padding of .step */
+  bottom: 21px;
+  box-sizing: border-box;
   display: -webkit-box;
-  height: 28px
+  height: 28px;
+  position: absolute;
+  width: 100%;
+}
+
+.animation .step-controls button {
+  /* Don't grey out disabled buttons during animation. */
+  color: buttontext !important;
 }
 
 html[oobe=old] .step-controls {
@@ -706,6 +757,7 @@ html[oobe=old] .step-controls {
 
 #oobe.connect #connect-dot,
 #oobe.eula #eula-dot,
+#oobe.update #update-dot,
 #oobe.signin #signin-dot,
 #oobe.gaia-signin #gaia-signin-dot,
 #oobe.enrollment #signin-dot,
@@ -713,14 +765,20 @@ html[oobe=old] .step-controls {
 #oobe.oauth-enrollment #signin-dot,
 #oobe.oauth-enrollment #gaia-signin-dot,
 #oobe.user-image #user-image-dot {
-  opacity: 0.4;
+  opacity: 1;
 }
 
 #account-picker-dot,
 #enrollment-dot,
-#oauth-enrollment-dot,
-#update-dot {
+#oauth-enrollment-dot {
   display: none;
+}
+
+#welcome-message {
+  color: #444;
+  font-size: 16px;
+  margin-bottom: 30px;
+  width: 435px;
 }
 
 #connect table {
@@ -775,8 +833,7 @@ html[dir=rtl] #security-tpm {
   right: 49px;
 }
 
-html[oobe=old] #update div,
-#update #update-screen-curtain {
+html[oobe=old] #update div {
   width: 32em;
 }
 
@@ -791,22 +848,28 @@ html[oobe=old] #update div {
 #update #update-screen-curtain {
   -webkit-box-align: start;
   -webkit-box-pack: center;
+}
+
+#update #update-checking-progress {
+  -webkit-box-align: start;
+  -webkit-box-pack: center;
+  color: #9c9c9c;
   display: -webkit-box;
 }
+
 
 html[oobe=old] #update #update-screen-curtain {
   margin: 9em auto;
 }
 
 html[oobe=new] #update #update-screen-curtain {
-  margin: 120px auto;
+  margin: 45px 45px;
 }
 
 html[oobe=new] #update-screen-main {
-  /* TODO(nkostylev): Update after strings are updated. */
-  margin: 85px auto;
+  margin: 45px 45px;
   min-height: 114px;
-  width: 448px;
+  text-align: center;
 }
 
 #update #update-checking-ellipsis {
@@ -829,32 +892,33 @@ html[oobe=old] #update #update-cancel-hint {
 }
 
 html[oobe=new] #update #update-cancel-hint {
+  -webkit-margin-before: 15px;
+  -webkit-margin-start: 45px;
   color: rgb(170, 0, 0);
   position: absolute;
-  top: 80px;
-}
-
-html[oobe=new][dir=ltr] #update #update-cancel-hint {
-  left: 137px;
-}
-
-html[oobe=new][dir=rtl] #update #update-cancel-hint {
-  right: 137px;
 }
 
 #update #update-upper-label {
   -webkit-margin-after: 4px;
 }
 
+#update #checking-updates-label {
+  -webkit-margin-after: 34px;
+}
+
 #update #update-bottom-label {
   -webkit-margin-after: 4px;
   -webkit-margin-before: 4px;
+  text-align: left;
+}
+
+html[oobe=old] #update progress {
+  -webkit-margin-start: 74px;
 }
 
 #update progress {
   -webkit-margin-after: 4px;
   -webkit-margin-before: 34px;
-  -webkit-margin-start: 74px;
   height: 15px;
   width: 300px;
 }
@@ -864,13 +928,9 @@ html[oobe=new][dir=rtl] #update #update-cancel-hint {
 }
 
 #update #update-estimated-time-left {
-  color: #666;
+  color: #a3a3a3;
   font-size: 13px;
   text-align: center;
-}
-
-button:not(.custom-appearance) {
-  min-width: 80px;
 }
 
 .eula-columns {

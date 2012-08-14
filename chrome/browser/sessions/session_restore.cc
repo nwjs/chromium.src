@@ -20,6 +20,7 @@
 #include "base/stringprintf.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/performance_monitor/startup_timer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
@@ -266,10 +267,10 @@ void TabLoader::LoadNextTab() {
       max_parallel_tab_loads_ = tabs_loading_.size();
     tabs_to_load_.pop_front();
     tab->LoadIfNecessary();
-    content::WebContents* contents = tab->GetWebContents();
-    if (contents) {
-      Browser* browser = browser::FindBrowserWithWebContents(contents);
-      if (browser && chrome::GetActiveWebContents(browser) != contents) {
+    if (tab->GetWebContents()) {
+      int tab_index;
+      Browser* browser = browser::FindBrowserForController(tab, &tab_index);
+      if (browser && browser->active_index() != tab_index) {
         // By default tabs are marked as visible. As only the active tab is
         // visible we need to explicitly tell non-active tabs they are hidden.
         // Without this call non-active tabs are not marked as backgrounded.
@@ -277,7 +278,7 @@ void TabLoader::LoadNextTab() {
         // NOTE: We need to do this here rather than when the tab is added to
         // the Browser as at that time not everything has been created, so that
         // the call would do nothing.
-        contents->WasHidden();
+        tab->GetWebContents()->WasHidden();
       }
     }
   }
@@ -440,6 +441,8 @@ void TabLoader::HandleTabClosedOrLoaded(NavigationController* tab) {
   if (tabs_loading_.empty() && tabs_to_load_.empty()) {
     base::TimeDelta time_to_load =
         base::TimeTicks::Now() - restore_started_;
+    performance_monitor::StartupTimer::SetElapsedSessionRestoreTime(
+        time_to_load);
     UMA_HISTOGRAM_CUSTOM_TIMES(
         "SessionRestore.AllTabsLoaded",
         time_to_load,
@@ -733,7 +736,10 @@ class SessionRestoreImpl : public content::NotificationObserver {
         100);
 
     if (windows->empty()) {
-      // Restore was unsuccessful.
+      // Restore was unsuccessful. The DOM storage system can also delete its
+      // data, since no session restore will happen at a later point in time.
+      content::BrowserContext::GetDefaultDOMStorageContext(profile_)->
+          StartScavengingUnusedSessionStorage();
       return FinishedTabCreation(false, false);
     }
 
@@ -822,6 +828,12 @@ class SessionRestoreImpl : public content::NotificationObserver {
     Browser* finished_browser = FinishedTabCreation(true, has_tabbed_browser);
     if (finished_browser)
       last_browser = finished_browser;
+
+    // sessionStorages needed for the session restore have now been recreated
+    // by RestoreTab. Now it's safe for the DOM storage system to start
+    // deleting leftover data.
+    content::BrowserContext::GetDefaultDOMStorageContext(profile_)->
+        StartScavengingUnusedSessionStorage();
     return last_browser;
   }
 

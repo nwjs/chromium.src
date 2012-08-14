@@ -5,12 +5,16 @@
 #ifndef CHROME_BROWSER_PERFORMANCE_MONITOR_PERFORMANCE_MONITOR_H_
 #define CHROME_BROWSER_PERFORMANCE_MONITOR_PERFORMANCE_MONITOR_H_
 
+#include <map>
 #include <string>
 
 #include "base/callback.h"
 #include "base/file_path.h"
+#include "base/memory/linked_ptr.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
+#include "base/process.h"
+#include "base/process_util.h"
 #include "base/timer.h"
 #include "chrome/browser/performance_monitor/database.h"
 #include "chrome/browser/performance_monitor/event.h"
@@ -18,13 +22,19 @@
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_source.h"
+#include "content/public/browser/render_process_host.h"
+
+namespace extensions {
+class Extension;
+}
 
 namespace performance_monitor {
 class Database;
 
 class PerformanceMonitor : public content::NotificationObserver {
  public:
-  typedef base::Callback<void(const std::string&)> StateValueCallback;
+  typedef std::map<base::ProcessHandle,
+                   linked_ptr<base::ProcessMetrics> > MetricsMap;
 
   // Set the path which the PerformanceMonitor should use for the database files
   // constructed. This must be done prior to the initialization of the
@@ -53,7 +63,7 @@ class PerformanceMonitor : public content::NotificationObserver {
 
  private:
   friend struct DefaultSingletonTraits<PerformanceMonitor>;
-  FRIEND_TEST_ALL_PREFIXES(PerformanceMonitorBrowserTest, NewVersionEvent);
+  friend class PerformanceMonitorBrowserTest;
   FRIEND_TEST_ALL_PREFIXES(PerformanceMonitorUncleanExitBrowserTest,
                            OneProfileUncleanExit);
   FRIEND_TEST_ALL_PREFIXES(PerformanceMonitorUncleanExitBrowserTest,
@@ -89,14 +99,15 @@ class PerformanceMonitor : public content::NotificationObserver {
 
   void AddEventOnBackgroundThread(scoped_ptr<Event> event);
 
-  // Gets the corresponding value of |key| from the database, and then runs
-  // |callback| on the UI thread with that value as a parameter.
-  void GetStateValueOnBackgroundThread(
-      const std::string& key,
-      const StateValueCallback& callback);
+  // Since Database::AddMetric() is overloaded, base::Bind() does not work and
+  // we need a helper function.
+  void AddMetricOnBackgroundThread(MetricType type, const std::string& value);
 
   // Notify any listeners that PerformanceMonitor has finished the initializing.
   void NotifyInitialized();
+
+  // Perform any collections that are done on a timed basis.
+  void DoTimedCollections();
 
   // Update the database record of the last time the active profiles were
   // running; this is used in determining when an unclean exit occurred.
@@ -104,14 +115,37 @@ class PerformanceMonitor : public content::NotificationObserver {
   void UpdateLiveProfilesHelper(
       scoped_ptr<std::set<std::string> > active_profiles, std::string time);
 
-  // Perform any collections that are done on a timed basis.
-  void DoTimedCollections();
+  // Gathers CPU usage and memory usage of all Chrome processes in order to.
+  void GatherStatisticsOnBackgroundThread();
+
+  // Gathers the CPU usage of every Chrome process that has been running since
+  // the last call to GatherStatistics().
+  void GatherCPUUsageOnBackgroundThread();
+
+  // Gathers the memory usage of every process in the current list of processes.
+  void GatherMemoryUsageOnBackgroundThread();
+
+  // Updates the ProcessMetrics map with the current list of processes.
+  void UpdateMetricsMapOnBackgroundThread();
+
+  // Generate an appropriate ExtensionEvent for an extension-related occurrance
+  // and insert it in the database.
+  void AddExtensionEvent(EventType type,
+                         const extensions::Extension* extension);
+
+  // Generate an appropriate CrashEvent for a renderer crash and insert it in
+  // the database.
+  void AddCrashEvent(
+      const content::RenderProcessHost::RendererClosedDetails& details);
 
   // The location at which the database files are stored; if empty, the database
   // will default to '<user_data_dir>/performance_monitor_dbs'.
   FilePath database_path_;
 
   scoped_ptr<Database> database_;
+
+  // A map of currently running ProcessHandles to ProcessMetrics.
+  MetricsMap metrics_map_;
 
   // The timer to signal PerformanceMonitor to perform its timed collections.
   base::RepeatingTimer<PerformanceMonitor> timer_;

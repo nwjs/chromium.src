@@ -72,12 +72,23 @@ class VIEWS_EXPORT BubbleDelegateView : public WidgetDelegateView,
   const gfx::Insets& margins() const { return margins_; }
   void set_margins(const gfx::Insets& margins) { margins_ = margins; }
 
+  void set_anchor_insets(const gfx::Insets& insets) { anchor_insets_ = insets; }
+  const gfx::Insets& anchor_insets() const { return anchor_insets_; }
+
   gfx::NativeView parent_window() const { return parent_window_; }
   void set_parent_window(gfx::NativeView window) { parent_window_ = window; }
 
   bool use_focusless() const { return use_focusless_; }
   void set_use_focusless(bool use_focusless) {
     use_focusless_ = use_focusless;
+  }
+
+  bool accept_events() const { return accept_events_; }
+  void set_accept_events(bool accept_events) { accept_events_ = accept_events; }
+
+  bool try_mirroring_arrow() const { return try_mirroring_arrow_; }
+  void set_try_mirroring_arrow(bool try_mirroring_arrow) {
+    try_mirroring_arrow_ = try_mirroring_arrow;
   }
 
   // Get the arrow's anchor rect in screen space.
@@ -157,6 +168,9 @@ class VIEWS_EXPORT BubbleDelegateView : public WidgetDelegateView,
   // The margins between the content and the inside of the border.
   gfx::Insets margins_;
 
+  // Insets applied to the |anchor_view_| bounds.
+  gfx::Insets anchor_insets_;
+
   // Original opacity of the bubble.
   int original_opacity_;
 
@@ -166,6 +180,13 @@ class VIEWS_EXPORT BubbleDelegateView : public WidgetDelegateView,
   // Create a popup window for focusless bubbles on Linux/ChromeOS.
   // These bubbles are not interactive and should not gain focus.
   bool use_focusless_;
+
+  // Specifies whether the popup accepts events or lets them pass through.
+  bool accept_events_;
+
+  // If true (defaults to true), the arrow may be mirrored to fit the
+  // bubble on screen better.
+  bool try_mirroring_arrow_;
 
   // Parent native window of the bubble.
   gfx::NativeView parent_window_;

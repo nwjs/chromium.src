@@ -7,7 +7,7 @@
 #include "base/process_util.h"
 #include "content/common/old_browser_plugin_messages.h"
 #include "content/common/view_messages.h"
-#include "content/renderer/browser_plugin/old/browser_plugin.h"
+#include "content/renderer/browser_plugin/old/old_browser_plugin.h"
 #include "content/renderer/browser_plugin/old/guest_to_embedder_channel.h"
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/render_view_impl.h"
@@ -17,6 +17,7 @@
 using webkit_glue::WebPreferences;
 
 namespace content {
+namespace old {
 
 BrowserPluginChannelManager::BrowserPluginChannelManager() {
 }
@@ -151,4 +152,5 @@ void BrowserPluginChannelManager::OnAdvanceFocus(int instance_id,
   browser_plugin->AdvanceFocus(reverse);
 }
 
+}  // namespace old
 }  // namespace content

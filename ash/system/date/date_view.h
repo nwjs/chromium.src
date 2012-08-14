@@ -64,11 +64,11 @@ class DateView : public BaseDateTimeView {
   virtual void UpdateTextInternal(const base::Time& now) OVERRIDE;
 
   // Overridden from ActionableView.
-  virtual bool PerformAction(const views::Event& event) OVERRIDE;
+  virtual bool PerformAction(const ui::Event& event) OVERRIDE;
 
   // Overridden from views::View.
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
 
   views::Label* date_label_;
   views::Label* day_of_week_label_;
@@ -101,10 +101,10 @@ class TimeView : public BaseDateTimeView {
   virtual void UpdateTextInternal(const base::Time& now) OVERRIDE;
 
   // Overridden from ActionableView.
-  virtual bool PerformAction(const views::Event& event) OVERRIDE;
+  virtual bool PerformAction(const ui::Event& event) OVERRIDE;
 
   // Overridden from views::View.
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
 
   void SetBorder(TrayDate::ClockLayout clock_layout);
   void SetupLabels();

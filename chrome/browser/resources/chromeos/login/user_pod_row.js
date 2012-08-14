@@ -33,7 +33,7 @@ cr.define('login', function() {
    * @type {number}
    * @const
    */
-  var WALLPAPER_BOAT_LOAD_DELAY_MS = 500;
+  var WALLPAPER_BOOT_LOAD_DELAY_MS = 500;
 
   /**
    * Oauth token status. These must match UserManager::OAuthTokenStatus.
@@ -324,9 +324,9 @@ cr.define('login', function() {
      */
     updateUserImage: function() {
       this.imageElement.src = this.isGuest ?
-          'chrome://theme/IDR_LOGIN_GUEST' :
+          'chrome://theme/IDR_LOGIN_GUEST@' + window.devicePixelRatio + 'x' :
           'chrome://userimage/' + this.user.username +
-              '?id=' + (new Date()).getTime() + '&animated';
+              '?id=' + new Date().getTime();
     },
 
     /**
@@ -679,8 +679,10 @@ cr.define('login', function() {
             // Boot transition. Delay wallpaper load to remove jank
             // happening when wallpaper load is competing for resources with
             // login WebUI.
-            this.loadWallpaperTimeout_ = window.setTimeout(
-                this.loadWallpaper_.bind(this), WALLPAPER_BOAT_LOAD_DELAY_MS);
+            if (Oobe.getInstance().shouldLoadWallpaperOnBoot()) {
+              this.loadWallpaperTimeout_ = window.setTimeout(
+                  this.loadWallpaper_.bind(this), WALLPAPER_BOOT_LOAD_DELAY_MS);
+            }
             this.firstShown_ = false;
           }
         }

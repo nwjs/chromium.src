@@ -651,25 +651,6 @@
    fun:IPC::ChannelProxy::Context::OnAddFilter
 }
 {
-   bug_66054_a
-   Heapcheck:Leak
-   ...
-   fun:policy::CreateSequencedTestDictionaryActionP::gmock_Impl::gmock_PerformImpl
-   fun:testing::internal::ActionHelper::Perform
-   fun:policy::CreateSequencedTestDictionaryActionP::gmock_Impl::Perform
-   fun:testing::Action::Perform
-   fun:testing::internal::FunctionMockerBase::InvokeWith
-   fun:testing::internal::FunctionMocker::Invoke
-   fun:policy::ProviderDelegateMock::Load
-   fun:policy::AsynchronousPolicyLoader::Reload
-   fun:policy::AsynchronousPolicyLoaderTest_ProviderNotificationOnPolicyChange_Test::TestBody
-}
-{
-   bug_66054_b
-   Heapcheck:Leak
-   fun:policy::AsynchronousPolicyTestBase_ProviderRefresh_Test::TestBody
-}
-{
    bug_67524
    Heapcheck:Leak
    ...
@@ -1486,4 +1467,23 @@
    fun:std::basic_string::_Rep::_S_create
    ...
    fun:base::PlatformThread::SetName
+}
+{
+   bug_140628_a
+   Heapcheck:Leak
+   ...
+   fun:ExtensionAction::RunIconAnimation
+   fun:ExtensionAction::SetAppearance
+}
+{
+   bug_140628_b
+   Heapcheck:Leak
+   ...
+   fun:ExtensionAction::GetIconAnimation
+}
+{
+   bug_141322
+   Heapcheck:Leak
+   fun:MessageLoop::MessageLoop
+   fun:MediaGalleriesPreferencesTest
 }

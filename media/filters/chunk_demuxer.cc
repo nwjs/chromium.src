@@ -4,10 +4,14 @@
 
 #include "media/filters/chunk_demuxer.h"
 
+#include <algorithm>
+#include <deque>
+
 #include "base/bind.h"
 #include "base/callback_helpers.h"
+#include "base/location.h"
 #include "base/logging.h"
-#include "base/message_loop.h"
+#include "base/message_loop_proxy.h"
 #include "base/string_util.h"
 #include "media/base/audio_decoder_config.h"
 #include "media/base/stream_parser_buffer.h"
@@ -169,6 +173,7 @@ class ChunkDemuxerStream : public DemuxerStream {
 
   void StartWaitingForSeek();
   void Seek(TimeDelta time);
+  void CancelPendingSeek();
   bool IsSeekPending() const;
 
   // Add buffers to this stream.  Buffers are stored in SourceBufferStreams,
@@ -210,6 +215,7 @@ class ChunkDemuxerStream : public DemuxerStream {
   enum State {
     RETURNING_DATA_FOR_READS,
     WAITING_FOR_SEEK,
+    CANCELED,
     SHUTDOWN,
   };
 
@@ -276,10 +282,27 @@ void ChunkDemuxerStream::Seek(TimeDelta time) {
 
   DCHECK(read_cbs_.empty());
 
+  // Ignore seek requests when canceled.
+  if (state_ == CANCELED)
+    return;
+
   stream_->Seek(time);
 
   if (state_ == WAITING_FOR_SEEK)
     ChangeState_Locked(RETURNING_DATA_FOR_READS);
+}
+
+void ChunkDemuxerStream::CancelPendingSeek() {
+  DVLOG(1) << "CancelPendingSeek()";
+  ReadCBQueue read_cbs;
+  {
+    base::AutoLock auto_lock(lock_);
+    ChangeState_Locked(CANCELED);
+    std::swap(read_cbs_, read_cbs);
+  }
+
+  for (ReadCBQueue::iterator it = read_cbs.begin(); it != read_cbs.end(); ++it)
+    it->Run(kAborted, NULL);
 }
 
 bool ChunkDemuxerStream::IsSeekPending() const {
@@ -381,14 +404,15 @@ void ChunkDemuxerStream::Shutdown() {
     it->Run(DemuxerStream::kOk, StreamParserBuffer::CreateEOSBuffer());
 }
 
-// Helper function that makes sure |read_cb| runs on |message_loop|.
-static void RunOnMessageLoop(const DemuxerStream::ReadCB& read_cb,
-                             MessageLoop* message_loop,
-                             DemuxerStream::Status status,
-                             const scoped_refptr<DecoderBuffer>& buffer) {
-  if (MessageLoop::current() != message_loop) {
-    message_loop->PostTask(FROM_HERE, base::Bind(
-        &RunOnMessageLoop, read_cb, message_loop, status, buffer));
+// Helper function that makes sure |read_cb| runs on |message_loop_proxy|.
+static void RunOnMessageLoop(
+    const DemuxerStream::ReadCB& read_cb,
+    const scoped_refptr<base::MessageLoopProxy>& message_loop_proxy,
+    DemuxerStream::Status status,
+    const scoped_refptr<DecoderBuffer>& buffer) {
+  if (!message_loop_proxy->BelongsToCurrentThread()) {
+    message_loop_proxy->PostTask(FROM_HERE, base::Bind(
+        &RunOnMessageLoop, read_cb, message_loop_proxy, status, buffer));
     return;
   }
 
@@ -441,7 +465,7 @@ void ChunkDemuxerStream::DeferRead_Locked(const ReadCB& read_cb) {
   // Wrap & store |read_cb| so that it will
   // get called on the current MessageLoop.
   read_cbs_.push_back(base::Bind(&RunOnMessageLoop, read_cb,
-                                 MessageLoop::current()));
+                                 base::MessageLoopProxy::current()));
 }
 
 void ChunkDemuxerStream::CreateReadDoneClosures_Locked(ClosureQueue* closures) {
@@ -485,6 +509,7 @@ bool ChunkDemuxerStream::GetNextBuffer_Locked(
           return true;
       }
       break;
+    case CANCELED:
     case WAITING_FOR_SEEK:
       // Null buffers should be returned in this state since we are waiting
       // for a seek. Any buffers in the SourceBuffer should NOT be returned
@@ -535,6 +560,7 @@ void ChunkDemuxer::Stop(const base::Closure& callback) {
 void ChunkDemuxer::Seek(TimeDelta time, const PipelineStatusCB& cb) {
   DVLOG(1) << "Seek(" << time.InSecondsF() << ")";
   DCHECK(time >= start_time_);
+  DCHECK(seek_cb_.is_null());
 
   PipelineStatus status = PIPELINE_ERROR_INVALID_STATE;
   {
@@ -563,11 +589,6 @@ void ChunkDemuxer::Seek(TimeDelta time, const PipelineStatusCB& cb) {
 void ChunkDemuxer::OnAudioRendererDisabled() {
   base::AutoLock auto_lock(lock_);
   audio_ = NULL;
-}
-
-int ChunkDemuxer::GetBitrate() {
-  // TODO(acolwell): Implement bitrate reporting.
-  return 0;
 }
 
 // Demuxer implementation.
@@ -605,13 +626,32 @@ void ChunkDemuxer::StartWaitingForSeek() {
   ChangeState_Locked(INITIALIZED);
 }
 
+void ChunkDemuxer::CancelPendingSeek() {
+  PipelineStatusCB cb;
+  {
+    base::AutoLock auto_lock(lock_);
+    if (IsSeekPending_Locked() && !seek_cb_.is_null()) {
+      std::swap(cb, seek_cb_);
+    }
+    if (audio_)
+      audio_->CancelPendingSeek();
+
+    if (video_)
+      video_->CancelPendingSeek();
+  }
+
+  if (!cb.is_null())
+    cb.Run(PIPELINE_OK);
+}
+
 ChunkDemuxer::Status ChunkDemuxer::AddId(const std::string& id,
                                          const std::string& type,
                                          std::vector<std::string>& codecs) {
   DCHECK_GT(codecs.size(), 0u);
   base::AutoLock auto_lock(lock_);
 
-  if (state_ != WAITING_FOR_INIT && state_ != INITIALIZING)
+  if ((state_ != WAITING_FOR_INIT && state_ != INITIALIZING) ||
+      stream_parser_map_.count(id) > 0u)
     return kReachedIdLimit;
 
   bool has_audio = false;

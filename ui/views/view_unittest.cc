@@ -11,6 +11,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/simple_menu_model.h"
@@ -40,7 +41,6 @@
 #include "ui/views/test/test_views_delegate.h"
 #endif
 #if defined(USE_AURA)
-#include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #endif
@@ -214,11 +214,11 @@ class TestView : public View {
   }
 
   virtual void OnBoundsChanged(const gfx::Rect& previous_bounds) OVERRIDE;
-  virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseEntered(const MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::TouchStatus OnTouchEvent(const TouchEvent& event) OVERRIDE;
   // Ignores GestureEvent by default.
   virtual ui::GestureStatus OnGestureEvent(const GestureEvent& event) OVERRIDE;
@@ -342,7 +342,7 @@ TEST_F(ViewTest, OnBoundsChanged) {
 // MouseEvent
 ////////////////////////////////////////////////////////////////////////////////
 
-bool TestView::OnMousePressed(const MouseEvent& event) {
+bool TestView::OnMousePressed(const ui::MouseEvent& event) {
   last_mouse_event_type_ = event.type();
   location_.SetPoint(event.x(), event.y());
   if (delete_on_pressed_)
@@ -350,22 +350,22 @@ bool TestView::OnMousePressed(const MouseEvent& event) {
   return true;
 }
 
-bool TestView::OnMouseDragged(const MouseEvent& event) {
+bool TestView::OnMouseDragged(const ui::MouseEvent& event) {
   last_mouse_event_type_ = event.type();
   location_.SetPoint(event.x(), event.y());
   return true;
 }
 
-void TestView::OnMouseReleased(const MouseEvent& event) {
+void TestView::OnMouseReleased(const ui::MouseEvent& event) {
   last_mouse_event_type_ = event.type();
   location_.SetPoint(event.x(), event.y());
 }
 
-void TestView::OnMouseEntered(const MouseEvent& event) {
+void TestView::OnMouseEntered(const ui::MouseEvent& event) {
   received_mouse_enter_ = true;
 }
 
-void TestView::OnMouseExited(const MouseEvent& event) {
+void TestView::OnMouseExited(const ui::MouseEvent& event) {
   received_mouse_exit_ = true;
 }
 
@@ -389,10 +389,9 @@ TEST_F(ViewTest, MouseEvent) {
   v1->Reset();
   v2->Reset();
 
-  MouseEvent pressed(ui::ET_MOUSE_PRESSED,
-                     110,
-                     120,
-                     ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point p1(110, 120);
+  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, p1, p1,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
   EXPECT_EQ(v2->last_mouse_event_type_, ui::ET_MOUSE_PRESSED);
   EXPECT_EQ(v2->location_.x(), 10);
@@ -403,10 +402,9 @@ TEST_F(ViewTest, MouseEvent) {
   // Drag event out of bounds. Should still go to v2
   v1->Reset();
   v2->Reset();
-  MouseEvent dragged(ui::ET_MOUSE_DRAGGED,
-                     50,
-                     40,
-                     ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point p2(50, 40);
+  ui::MouseEvent dragged(ui::ET_MOUSE_DRAGGED, p2, p2,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMouseDragged(dragged);
   EXPECT_EQ(v2->last_mouse_event_type_, ui::ET_MOUSE_DRAGGED);
   EXPECT_EQ(v2->location_.x(), -50);
@@ -417,7 +415,7 @@ TEST_F(ViewTest, MouseEvent) {
   // Releasted event out of bounds. Should still go to v2
   v1->Reset();
   v2->Reset();
-  MouseEvent released(ui::ET_MOUSE_RELEASED, 0, 0, 0);
+  ui::MouseEvent released(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(), 0);
   root->OnMouseDragged(released);
   EXPECT_EQ(v2->last_mouse_event_type_, ui::ET_MOUSE_RELEASED);
   EXPECT_EQ(v2->location_.x(), -100);
@@ -450,10 +448,9 @@ TEST_F(ViewTest, DeleteOnPressed) {
   v1->AddChildView(v2);
 
   v2->delete_on_pressed_ = true;
-  MouseEvent pressed(ui::ET_MOUSE_PRESSED,
-                     110,
-                     120,
-                     ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point point(110, 120);
+  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, point, point,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
   EXPECT_EQ(0, v1->child_count());
 
@@ -941,7 +938,13 @@ class HitTestView : public View {
 
 gfx::Point ConvertPointToView(View* view, const gfx::Point& p) {
   gfx::Point tmp(p);
-  View::ConvertPointToView(view->GetWidget()->GetRootView(), view, &tmp);
+  View::ConvertPointToTarget(view->GetWidget()->GetRootView(), view, &tmp);
+  return tmp;
+}
+
+gfx::Rect ConvertRectToView(View* view, const gfx::Rect& r) {
+  gfx::Rect tmp(r);
+  tmp.set_origin(ConvertPointToView(view, r.origin()));
   return tmp;
 }
 
@@ -980,16 +983,35 @@ TEST_F(ViewTest, HitTestMasks) {
   gfx::Point v1_origin = v1_bounds.origin();
   gfx::Point v2_origin = v2_bounds.origin();
 
-  // Test HitTest
-  EXPECT_TRUE(v1->HitTest(ConvertPointToView(v1, v1_centerpoint)));
-  EXPECT_TRUE(v2->HitTest(ConvertPointToView(v2, v2_centerpoint)));
+  gfx::Rect r1(10, 10, 110, 15);
+  gfx::Rect r2(106, 1, 98, 98);
+  gfx::Rect r3(0, 0, 300, 300);
+  gfx::Rect r4(115, 342, 200, 10);
 
-  EXPECT_TRUE(v1->HitTest(ConvertPointToView(v1, v1_origin)));
-  EXPECT_FALSE(v2->HitTest(ConvertPointToView(v2, v2_origin)));
+  // Test HitTestPoint
+  EXPECT_TRUE(v1->HitTestPoint(ConvertPointToView(v1, v1_centerpoint)));
+  EXPECT_TRUE(v2->HitTestPoint(ConvertPointToView(v2, v2_centerpoint)));
+
+  EXPECT_TRUE(v1->HitTestPoint(ConvertPointToView(v1, v1_origin)));
+  EXPECT_FALSE(v2->HitTestPoint(ConvertPointToView(v2, v2_origin)));
+
+  // Test HitTestRect
+  EXPECT_TRUE(v1->HitTestRect(ConvertRectToView(v1, r1)));
+  EXPECT_FALSE(v2->HitTestRect(ConvertRectToView(v2, r1)));
+
+  EXPECT_FALSE(v1->HitTestRect(ConvertRectToView(v1, r2)));
+  EXPECT_TRUE(v2->HitTestRect(ConvertRectToView(v2, r2)));
+
+  EXPECT_TRUE(v1->HitTestRect(ConvertRectToView(v1, r3)));
+  EXPECT_TRUE(v2->HitTestRect(ConvertRectToView(v2, r3)));
+
+  EXPECT_FALSE(v1->HitTestRect(ConvertRectToView(v1, r4)));
+  EXPECT_FALSE(v2->HitTestRect(ConvertRectToView(v2, r4)));
 
   // Test GetEventHandlerForPoint
   EXPECT_EQ(v1, root_view->GetEventHandlerForPoint(v1_centerpoint));
   EXPECT_EQ(v2, root_view->GetEventHandlerForPoint(v2_centerpoint));
+
   EXPECT_EQ(v1, root_view->GetEventHandlerForPoint(v1_origin));
   EXPECT_EQ(root_view, root_view->GetEventHandlerForPoint(v2_origin));
 
@@ -1049,7 +1071,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   v21->Reset();
 
   // Move the mouse in v111.
-  MouseEvent move1(ui::ET_MOUSE_MOVED, 6, 6, 0);
+  gfx::Point p1(6, 6);
+  ui::MouseEvent move1(ui::ET_MOUSE_MOVED, p1, p1, 0);
   root_view->OnMouseMoved(move1);
   EXPECT_TRUE(v111->received_mouse_enter_);
   EXPECT_FALSE(v11->last_mouse_event_type_);
@@ -1059,7 +1082,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   v1->Reset();
 
   // Now, move into v121.
-  MouseEvent move2(ui::ET_MOUSE_MOVED, 65, 21, 0);
+  gfx::Point p2(65, 21);
+  ui::MouseEvent move2(ui::ET_MOUSE_MOVED, p2, p2, 0);
   root_view->OnMouseMoved(move2);
   EXPECT_TRUE(v111->received_mouse_exit_);
   EXPECT_TRUE(v121->received_mouse_enter_);
@@ -1069,7 +1093,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   v121->Reset();
 
   // Now, move into v11.
-  MouseEvent move3(ui::ET_MOUSE_MOVED, 1, 1, 0);
+  gfx::Point p3(1, 1);
+  ui::MouseEvent move3(ui::ET_MOUSE_MOVED, p3, p3, 0);
   root_view->OnMouseMoved(move3);
   EXPECT_TRUE(v121->received_mouse_exit_);
   EXPECT_TRUE(v11->received_mouse_enter_);
@@ -1079,7 +1104,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   v11->Reset();
 
   // Move to v21.
-  MouseEvent move4(ui::ET_MOUSE_MOVED, 121, 15, 0);
+  gfx::Point p4(121, 15);
+  ui::MouseEvent move4(ui::ET_MOUSE_MOVED, p4, p4, 0);
   root_view->OnMouseMoved(move4);
   EXPECT_TRUE(v21->received_mouse_enter_);
   EXPECT_FALSE(v2->last_mouse_event_type_);
@@ -1091,7 +1117,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   v1->Reset();
 
   // Move to v1.
-  MouseEvent move5(ui::ET_MOUSE_MOVED, 21, 0, 0);
+  gfx::Point p5(21, 0);
+  ui::MouseEvent move5(ui::ET_MOUSE_MOVED, p5, p5, 0);
   root_view->OnMouseMoved(move5);
   EXPECT_TRUE(v21->received_mouse_exit_);
   EXPECT_TRUE(v1->received_mouse_enter_);
@@ -1100,7 +1127,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   v1->Reset();
 
   // Now, move into v11.
-  MouseEvent mouse6(ui::ET_MOUSE_MOVED, 15, 15, 0);
+  gfx::Point p6(15, 15);
+  ui::MouseEvent mouse6(ui::ET_MOUSE_MOVED, p6, p6, 0);
   root_view->OnMouseMoved(mouse6);
   EXPECT_TRUE(v11->received_mouse_enter_);
   EXPECT_FALSE(v1->last_mouse_event_type_);
@@ -1111,7 +1139,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   // Move back into v1. Although |v1| had already received an ENTER for mouse6,
   // and the mouse remains inside |v1| the whole time, it receives another ENTER
   // when the mouse leaves v11.
-  MouseEvent mouse7(ui::ET_MOUSE_MOVED, 21, 0, 0);
+  gfx::Point p7(21, 0);
+  ui::MouseEvent mouse7(ui::ET_MOUSE_MOVED, p7, p7, 0);
   root_view->OnMouseMoved(mouse7);
   EXPECT_TRUE(v11->received_mouse_exit_);
   EXPECT_FALSE(v1->received_mouse_enter_);
@@ -1597,7 +1626,7 @@ class TestDialog : public DialogDelegate, public ButtonListener {
   }
 
   // ButtonListener implementation.
-  virtual void ButtonPressed(Button* sender, const Event& event) OVERRIDE {
+  virtual void ButtonPressed(Button* sender, const ui::Event& event) OVERRIDE {
     last_pressed_button_ = sender;
   }
 
@@ -1670,7 +1699,7 @@ class DefaultButtonTest : public ViewTest {
   }
 
   void SimulatePressingEnterAndCheckDefaultButton(ButtonID button_id) {
-    KeyEvent event(ui::ET_KEY_PRESSED, ui::VKEY_RETURN, 0);
+    ui::KeyEvent event(ui::ET_KEY_PRESSED, ui::VKEY_RETURN, 0);
     focus_manager_->OnKeyEvent(event);
     switch (button_id) {
       case OK:
@@ -1762,7 +1791,7 @@ class ButtonDropDownTest : public ViewTest {
 
   virtual void SetUp() OVERRIDE {
     ViewTest::SetUp();
-    test_dialog_ = new TestDialog(&mock_menu_model_);
+    test_dialog_ = new TestDialog(new MockMenuModel());
     Widget* window =
         Widget::CreateWindowWithBounds(test_dialog_, gfx::Rect(0, 0, 100, 100));
     test_dialog_->widget_ = window;
@@ -1779,7 +1808,6 @@ class ButtonDropDownTest : public ViewTest {
   }
 
   TestDialog* test_dialog_;
-  MockMenuModel mock_menu_model_;
   // This is owned by test_dialog_.
   View* button_as_view_;
 
@@ -1790,9 +1818,11 @@ class ButtonDropDownTest : public ViewTest {
 // Ensure that regular clicks on the drop down button still work. (i.e. - the
 // click events are processed and the listener gets the click)
 TEST_F(ButtonDropDownTest, RegularClickTest) {
-  MouseEvent press_event(ui::ET_MOUSE_PRESSED, 1, 1, ui::EF_LEFT_MOUSE_BUTTON);
-  MouseEvent release_event(ui::ET_MOUSE_RELEASED, 1, 1,
-                           ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point point(1, 1);
+  ui::MouseEvent press_event(ui::ET_MOUSE_PRESSED, point, point,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent release_event(ui::ET_MOUSE_RELEASED, point, point,
+                               ui::EF_LEFT_MOUSE_BUTTON);
   button_as_view_->OnMousePressed(press_event);
   button_as_view_->OnMouseReleased(release_event);
   EXPECT_EQ(test_dialog_->last_pressed_button_, test_dialog_->button_drop_);
@@ -2048,16 +2078,16 @@ TEST_F(ViewTest, TransformEvent) {
   v1->Reset();
   v2->Reset();
 
-  MouseEvent pressed(ui::ET_MOUSE_PRESSED,
-                     110, 210,
-                     ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point p1(110, 210);
+  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, p1, p1,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
   EXPECT_EQ(0, v1->last_mouse_event_type_);
   EXPECT_EQ(ui::ET_MOUSE_PRESSED, v2->last_mouse_event_type_);
   EXPECT_EQ(190, v2->location_.x());
   EXPECT_EQ(10, v2->location_.y());
 
-  MouseEvent released(ui::ET_MOUSE_RELEASED, 0, 0, 0);
+  ui::MouseEvent released(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(), 0);
   root->OnMouseReleased(released);
 
   // Now rotate |v2| inside |v1| clockwise.
@@ -2072,9 +2102,9 @@ TEST_F(ViewTest, TransformEvent) {
   v1->Reset();
   v2->Reset();
 
-  MouseEvent p2(ui::ET_MOUSE_PRESSED,
-                110, 320,
-                ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point point2(110, 320);
+  ui::MouseEvent p2(ui::ET_MOUSE_PRESSED, point2, point2,
+                    ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(p2);
   EXPECT_EQ(0, v1->last_mouse_event_type_);
   EXPECT_EQ(ui::ET_MOUSE_PRESSED, v2->last_mouse_event_type_);
@@ -2107,9 +2137,9 @@ TEST_F(ViewTest, TransformEvent) {
   v2->Reset();
   v3->Reset();
 
-  MouseEvent p3(ui::ET_MOUSE_PRESSED,
-                112, 110,
-                ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point point(112, 110);
+  ui::MouseEvent p3(ui::ET_MOUSE_PRESSED, point, point,
+                    ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(p3);
 
   EXPECT_EQ(ui::ET_MOUSE_PRESSED, v3->last_mouse_event_type_);
@@ -2143,9 +2173,9 @@ TEST_F(ViewTest, TransformEvent) {
 
   // |v3| now occupies (120, 120) to (144, 130) in |root|.
 
-  MouseEvent p4(ui::ET_MOUSE_PRESSED,
-                124, 125,
-                ui::EF_LEFT_MOUSE_BUTTON);
+  gfx::Point point3(124, 125);
+  ui::MouseEvent p4(ui::ET_MOUSE_PRESSED, point3, point3,
+                    ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(p4);
 
   EXPECT_EQ(ui::ET_MOUSE_PRESSED, v3->last_mouse_event_type_);
@@ -2347,12 +2377,12 @@ TEST_F(ViewTest, ConvertPointToViewWithTransform) {
   // Conversions from child->top and top->child.
   {
     gfx::Point point(5, 5);
-    View::ConvertPointToView(child, &top_view, &point);
+    View::ConvertPointToTarget(child, &top_view, &point);
     EXPECT_EQ(22, point.x());
     EXPECT_EQ(39, point.y());
 
     point.SetPoint(22, 39);
-    View::ConvertPointToView(&top_view, child, &point);
+    View::ConvertPointToTarget(&top_view, child, &point);
     EXPECT_EQ(5, point.x());
     EXPECT_EQ(5, point.y());
   }
@@ -2360,12 +2390,12 @@ TEST_F(ViewTest, ConvertPointToViewWithTransform) {
   // Conversions from child_child->top and top->child_child.
   {
     gfx::Point point(5, 5);
-    View::ConvertPointToView(child_child, &top_view, &point);
+    View::ConvertPointToTarget(child_child, &top_view, &point);
     EXPECT_EQ(133, point.x());
     EXPECT_EQ(211, point.y());
 
     point.SetPoint(133, 211);
-    View::ConvertPointToView(&top_view, child_child, &point);
+    View::ConvertPointToTarget(&top_view, child_child, &point);
     EXPECT_EQ(5, point.x());
     EXPECT_EQ(5, point.y());
   }
@@ -2373,12 +2403,12 @@ TEST_F(ViewTest, ConvertPointToViewWithTransform) {
   // Conversions from child_child->child and child->child_child
   {
     gfx::Point point(5, 5);
-    View::ConvertPointToView(child_child, child, &point);
+    View::ConvertPointToTarget(child_child, child, &point);
     EXPECT_EQ(42, point.x());
     EXPECT_EQ(48, point.y());
 
     point.SetPoint(42, 48);
-    View::ConvertPointToView(child, child_child, &point);
+    View::ConvertPointToTarget(child, child_child, &point);
     EXPECT_EQ(5, point.x());
     EXPECT_EQ(5, point.y());
   }
@@ -2387,7 +2417,7 @@ TEST_F(ViewTest, ConvertPointToViewWithTransform) {
   // This ensures we don't round up with negative numbers.
   {
     gfx::Point point(6, 18);
-    View::ConvertPointToView(&top_view, child, &point);
+    View::ConvertPointToTarget(&top_view, child, &point);
     EXPECT_EQ(-1, point.x());
     EXPECT_EQ(-1, point.y());
   }

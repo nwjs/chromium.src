@@ -64,13 +64,13 @@ class OmniboxPopupContentsView : public views::View,
   virtual void Layout() OVERRIDE;
   virtual views::View* GetEventHandlerForPoint(
       const gfx::Point& point) OVERRIDE;
-  virtual bool OnMousePressed(const views::MouseEvent& event) OVERRIDE;
-  virtual bool OnMouseDragged(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseReleased(const views::MouseEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
+  virtual bool OnMouseDragged(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
-  virtual void OnMouseMoved(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(
       const views::GestureEvent& event) OVERRIDE;
 
@@ -134,12 +134,12 @@ class OmniboxPopupContentsView : public views::View,
 
   // Processes a located event (e.g. mouse/gesture) and sets the selection/hover
   // state of a line in the list.
-  void UpdateLineEvent(const views::LocatedEvent& event,
+  void UpdateLineEvent(const ui::LocatedEvent& event,
                        bool should_set_selected_line);
 
   // Opens an entry from the list depending on the event and the selected
   // disposition.
-  void OpenSelectedLine(const views::LocatedEvent& event,
+  void OpenSelectedLine(const ui::LocatedEvent& event,
                         WindowOpenDisposition disposition);
 
   // Returns the target bounds given the specified content height.

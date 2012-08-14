@@ -54,7 +54,7 @@ class TabController {
   // Potentially starts a drag for the specified Tab.
   virtual void MaybeStartDrag(
       BaseTab* tab,
-      const views::LocatedEvent& event,
+      const ui::LocatedEvent& event,
       const TabStripSelectionModel& original_selection) = 0;
 
   // Continues dragging a Tab.
@@ -76,7 +76,7 @@ class TabController {
 
   // Invoked when a mouse event occurs on |source|.
   virtual void OnMouseEventInTab(views::View* source,
-                                 const views::MouseEvent& event) = 0;
+                                 const ui::MouseEvent& event) = 0;
 
   // Returns true if |tab| needs to be painted. If false is returned the tab is
   // not painted. If true is returned the tab should be painted and |clip| is

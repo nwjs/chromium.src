@@ -14,13 +14,13 @@
 #include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray.h"
 #include "ash/system/web_notification/web_notification_tray.h"
-#include "ash/wm/workspace/workspace_manager.h"
+#include "ash/wm/workspace_controller.h"
 #include "base/auto_reset.h"
 #include "base/i18n/rtl.h"
 #include "ui/aura/client/activation_client.h"
-#include "ui/aura/event.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/root_window.h"
+#include "ui/base/event.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/layer_animator.h"
@@ -59,14 +59,15 @@ class ShelfLayoutManager::AutoHideEventFilter : public aura::EventFilter {
 
   // Overridden from aura::EventFilter:
   virtual bool PreHandleKeyEvent(aura::Window* target,
-                                 aura::KeyEvent* event) OVERRIDE;
+                                 ui::KeyEvent* event) OVERRIDE;
   virtual bool PreHandleMouseEvent(aura::Window* target,
-                                   aura::MouseEvent* event) OVERRIDE;
-  virtual ui::TouchStatus PreHandleTouchEvent(aura::Window* target,
-                                              aura::TouchEvent* event) OVERRIDE;
+                                   ui::MouseEvent* event) OVERRIDE;
+  virtual ui::TouchStatus PreHandleTouchEvent(
+      aura::Window* target,
+      ui::TouchEvent* event) OVERRIDE;
   virtual ui::GestureStatus PreHandleGestureEvent(
       aura::Window* target,
-      aura::GestureEvent* event) OVERRIDE;
+      ui::GestureEvent* event) OVERRIDE;
 
  private:
   ShelfLayoutManager* shelf_;
@@ -88,13 +89,13 @@ ShelfLayoutManager::AutoHideEventFilter::~AutoHideEventFilter() {
 
 bool ShelfLayoutManager::AutoHideEventFilter::PreHandleKeyEvent(
     aura::Window* target,
-    aura::KeyEvent* event) {
+    ui::KeyEvent* event) {
   return false;  // Always let the event propagate.
 }
 
 bool ShelfLayoutManager::AutoHideEventFilter::PreHandleMouseEvent(
     aura::Window* target,
-    aura::MouseEvent* event) {
+    ui::MouseEvent* event) {
   // This also checks IsShelfWindow() to make sure we don't attempt to hide the
   // shelf if the mouse down occurs on the shelf.
   in_mouse_drag_ = (event->type() == ui::ET_MOUSE_DRAGGED ||
@@ -108,14 +109,14 @@ bool ShelfLayoutManager::AutoHideEventFilter::PreHandleMouseEvent(
 
 ui::TouchStatus ShelfLayoutManager::AutoHideEventFilter::PreHandleTouchEvent(
     aura::Window* target,
-    aura::TouchEvent* event) {
+    ui::TouchEvent* event) {
   return ui::TOUCH_STATUS_UNKNOWN;  // Not handled.
 }
 
 ui::GestureStatus
 ShelfLayoutManager::AutoHideEventFilter::PreHandleGestureEvent(
     aura::Window* target,
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   return ui::GESTURE_STATUS_UNKNOWN;  // Not handled.
 }
 
@@ -129,7 +130,7 @@ ShelfLayoutManager::ShelfLayoutManager(views::Widget* status)
       alignment_(SHELF_ALIGNMENT_BOTTOM),
       launcher_(NULL),
       status_(status),
-      workspace_manager_(NULL),
+      workspace_controller_(NULL),
       window_overlaps_shelf_(false) {
   Shell::GetInstance()->AddShellObserver(this);
   aura::client::GetActivationClient(root_window_)->AddObserver(this);
@@ -231,24 +232,23 @@ void ShelfLayoutManager::UpdateVisibilityState() {
   if (delegate && delegate->IsScreenLocked()) {
     SetState(VISIBLE);
   } else {
-    WorkspaceManager::WindowState window_state(
-        workspace_manager_->GetWindowState());
+    WorkspaceWindowState window_state(workspace_controller_->GetWindowState());
     switch (window_state) {
-      case WorkspaceManager::WINDOW_STATE_FULL_SCREEN:
+      case WORKSPACE_WINDOW_STATE_FULL_SCREEN:
         SetState(HIDDEN);
         break;
 
-      case WorkspaceManager::WINDOW_STATE_MAXIMIZED:
+      case WORKSPACE_WINDOW_STATE_MAXIMIZED:
         SetState(auto_hide_behavior_ != SHELF_AUTO_HIDE_BEHAVIOR_NEVER ?
                  AUTO_HIDE : VISIBLE);
         break;
 
-      case WorkspaceManager::WINDOW_STATE_WINDOW_OVERLAPS_SHELF:
-      case WorkspaceManager::WINDOW_STATE_DEFAULT:
+      case WORKSPACE_WINDOW_STATE_WINDOW_OVERLAPS_SHELF:
+      case WORKSPACE_WINDOW_STATE_DEFAULT:
         SetState(auto_hide_behavior_ == SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS ?
                  AUTO_HIDE : VISIBLE);
         SetWindowOverlapsShelf(window_state ==
-            WorkspaceManager::WINDOW_STATE_WINDOW_OVERLAPS_SHELF);
+                               WORKSPACE_WINDOW_STATE_WINDOW_OVERLAPS_SHELF);
     }
   }
 }
@@ -327,6 +327,8 @@ void ShelfLayoutManager::OnWindowActivated(aura::Window* active,
 
 ////////////////////////////////////////////////////////////////////////////////
 // ShelfLayoutManager, private:
+
+ShelfLayoutManager::TargetBounds::TargetBounds() : opacity(0.0f) {}
 
 gfx::Rect ShelfLayoutManager::GetMaximizedWindowBounds(
     aura::Window* window) {
@@ -583,10 +585,11 @@ void ShelfLayoutManager::UpdateHitTestBounds() {
         break;
     }
   }
-  if (launcher_widget() && launcher_widget()->GetNativeWindow())
-    launcher_widget()->GetNativeWindow()->set_hit_test_bounds_override_outer(
-        insets);
-  status_->GetNativeWindow()->set_hit_test_bounds_override_outer(insets);
+  if (launcher_widget() && launcher_widget()->GetNativeWindow()) {
+    launcher_widget()->GetNativeWindow()->SetHitTestBoundsOverrideOuter(
+        insets, 1);
+  }
+  status_->GetNativeWindow()->SetHitTestBoundsOverrideOuter( insets, 1);
 }
 
 bool ShelfLayoutManager::IsShelfWindow(aura::Window* window) {

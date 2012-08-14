@@ -4,9 +4,11 @@
 
 #include "sync/notifier/invalidation_notifier.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/message_loop_proxy.h"
 #include "base/metrics/histogram.h"
+#include "google/cacheinvalidation/include/invalidation-client-factory.h"
 #include "jingle/notifier/listener/push_client.h"
 #include "net/url_request/url_request_context.h"
 #include "sync/internal_api/public/base/model_type_payload_map.h"
@@ -34,10 +36,21 @@ InvalidationNotifier::~InvalidationNotifier() {
   DCHECK(CalledOnValidThread());
 }
 
+void InvalidationNotifier::RegisterHandler(SyncNotifierObserver* handler) {
+  DCHECK(CalledOnValidThread());
+  registrar_.RegisterHandler(handler);
+}
+
 void InvalidationNotifier::UpdateRegisteredIds(SyncNotifierObserver* handler,
                                                const ObjectIdSet& ids) {
   DCHECK(CalledOnValidThread());
-  invalidation_client_.RegisterIds(helper_.UpdateRegisteredIds(handler, ids));
+  registrar_.UpdateRegisteredIds(handler, ids);
+  invalidation_client_.UpdateRegisteredIds(registrar_.GetAllRegisteredIds());
+}
+
+void InvalidationNotifier::UnregisterHandler(SyncNotifierObserver* handler) {
+  DCHECK(CalledOnValidThread());
+  registrar_.UnregisterHandler(handler);
 }
 
 void InvalidationNotifier::SetUniqueId(const std::string& unique_id) {
@@ -71,6 +84,7 @@ void InvalidationNotifier::UpdateCredentials(
     const std::string& email, const std::string& token) {
   if (state_ == STOPPED) {
     invalidation_client_.Start(
+        base::Bind(&invalidation::CreateInvalidationClient),
         invalidation_client_id_, client_info_, invalidation_state_,
         initial_max_invalidation_versions_,
         invalidation_state_tracker_,
@@ -88,18 +102,18 @@ void InvalidationNotifier::SendNotification(ModelTypeSet changed_types) {
 
 void InvalidationNotifier::OnInvalidate(const ObjectIdPayloadMap& id_payloads) {
   DCHECK(CalledOnValidThread());
-  helper_.DispatchInvalidationsToHandlers(id_payloads, REMOTE_NOTIFICATION);
+  registrar_.DispatchInvalidationsToHandlers(id_payloads, REMOTE_NOTIFICATION);
 }
 
 void InvalidationNotifier::OnNotificationsEnabled() {
   DCHECK(CalledOnValidThread());
-  helper_.EmitOnNotificationsEnabled();
+  registrar_.EmitOnNotificationsEnabled();
 }
 
 void InvalidationNotifier::OnNotificationsDisabled(
     NotificationsDisabledReason reason) {
   DCHECK(CalledOnValidThread());
-  helper_.EmitOnNotificationsDisabled(reason);
+  registrar_.EmitOnNotificationsDisabled(reason);
 }
 
 }  // namespace syncer

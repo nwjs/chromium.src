@@ -26,24 +26,4 @@ const char kStateChromeVersion[] = "chrome_version";
 // collisions in the database.
 const char kStateProfilePrefix[] = "profile";
 
-// Metric details follow.
-// All metric details have the following constants:
-// - Name
-// - Description
-// - Units
-// - TickSize (the smallest possible maximum which will be viewed in the ui.)
-
-// CPU Usage
-const char kMetricCPUUsageName[] = "CPU Usage";
-const char kMetricCPUUsageDescription[] = "The CPU usage measured in percent.";
-const char kMetricCPUUsageUnits[] = "percent";
-const double kMetricCPUUsageTickSize = 100.0;
-
-// Private Memory Usage
-const char kMetricPrivateMemoryUsageName[] = "Private Memory Usage";
-const char kMetricPrivateMemoryUsageDescription[] =
-    "The private memory usage measured in bytes.";
-const char kMetricPrivateMemoryUsageUnits[] = "percent";
-const double kMetricPrivateMemoryUsageTickSize = 10000000.0;
-
 }  // namespace performance_monitor

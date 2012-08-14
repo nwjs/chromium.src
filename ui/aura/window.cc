@@ -19,7 +19,6 @@
 #include "ui/aura/client/stacking_client.h"
 #include "ui/aura/client/visibility_client.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event.h"
 #include "ui/aura/event_filter.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/layout_manager.h"
@@ -67,7 +66,11 @@ Window::Window(WindowDelegate* delegate)
       id_(-1),
       transparent_(false),
       user_data_(NULL),
-      ignore_events_(false) {
+      ignore_events_(false),
+      // Don't notify newly added observers during notification. This causes
+      // problems for code that adds an observer as part of an observer
+      // notification (such as the workspace code).
+      observers_(ObserverList<WindowObserver>::NOTIFY_EXISTING_ONLY) {
 }
 
 Window::~Window() {
@@ -243,7 +246,7 @@ gfx::Rect Window::GetBoundsInRootWindow() const {
   if (!GetRootWindow())
     return bounds();
   gfx::Point origin = bounds().origin();
-  Window::ConvertPointToWindow(parent_, GetRootWindow(), &origin);
+  ConvertPointToTarget(parent_, GetRootWindow(), &origin);
   return gfx::Rect(origin, bounds().size());
 }
 
@@ -292,13 +295,14 @@ void Window::SetBounds(const gfx::Rect& new_bounds) {
     SetBoundsInternal(new_bounds);
 }
 
-void Window::SetBoundsInScreen(const gfx::Rect& new_bounds_in_screen) {
+void Window::SetBoundsInScreen(const gfx::Rect& new_bounds_in_screen,
+                               const gfx::Display& dst_display) {
   RootWindow* root = GetRootWindow();
   if (root) {
     gfx::Point origin = new_bounds_in_screen.origin();
     aura::client::ScreenPositionClient* screen_position_client =
         aura::client::GetScreenPositionClient(root);
-    screen_position_client->SetBounds(this, new_bounds_in_screen);
+    screen_position_client->SetBounds(this, new_bounds_in_screen, dst_display);
     return;
   }
   SetBounds(new_bounds_in_screen);
@@ -432,7 +436,7 @@ const Window* Window::GetChildById(int id) const {
 }
 
 // static
-void Window::ConvertPointToWindow(const Window* source,
+void Window::ConvertPointToTarget(const Window* source,
                                   const Window* target,
                                   gfx::Point* point) {
   if (!source)
@@ -459,7 +463,7 @@ void Window::MoveCursorTo(const gfx::Point& point_in_window) {
   RootWindow* root_window = GetRootWindow();
   DCHECK(root_window);
   gfx::Point point_in_root(point_in_window);
-  ConvertPointToWindow(this, root_window, &point_in_root);
+  ConvertPointToTarget(this, root_window, &point_in_root);
   root_window->MoveCursorTo(point_in_root);
 }
 
@@ -484,7 +488,7 @@ bool Window::ContainsPointInRoot(const gfx::Point& point_in_root) const {
   if (!root_window)
     return false;
   gfx::Point local_point(point_in_root);
-  ConvertPointToWindow(root_window, this, &local_point);
+  ConvertPointToTarget(root_window, this, &local_point);
   return gfx::Rect(GetTargetBounds().size()).Contains(local_point);
 }
 
@@ -496,7 +500,9 @@ bool Window::HitTest(const gfx::Point& local_point) {
   // Expand my bounds for hit testing (override is usually zero but it's
   // probably cheaper to do the math every time than to branch).
   gfx::Rect local_bounds(gfx::Point(), bounds().size());
-  local_bounds.Inset(hit_test_bounds_override_outer_);
+  local_bounds.Inset(aura::Env::GetInstance()->is_touch_down() ?
+      hit_test_bounds_override_outer_touch_ :
+      hit_test_bounds_override_outer_mouse_);
 
   if (!delegate_ || !delegate_->HasHitTestMask())
     return local_bounds.Contains(local_point);
@@ -753,7 +759,7 @@ Window* Window::GetWindowForPoint(const gfx::Point& local_point,
       continue;
 
     gfx::Point point_in_child_coords(local_point);
-    Window::ConvertPointToWindow(this, child, &point_in_child_coords);
+    ConvertPointToTarget(this, child, &point_in_child_coords);
     if (for_event_handling && delegate_ &&
         !delegate_->ShouldDescendIntoChildForEventHandling(
             child, local_point)) {

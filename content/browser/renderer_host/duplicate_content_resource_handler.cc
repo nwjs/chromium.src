@@ -92,6 +92,10 @@ void DuplicateContentResourceHandler::RecordContentMetrics() {
   MH_UINT32 contents_hash = PMurHash32_Result(pmurhash_ph1_,
                                               pmurhash_pcarry_, bytes_read_);
 
+  bool is_http_or_https = request_->url().SchemeIs("http") ||
+                          request_->url().SchemeIs("https");
+  UMA_HISTOGRAM_BOOLEAN("Duplicate.IsHttpOrHttps", is_http_or_https);
+
   // Combine the contents_hash with the url, so we can test if future content
   // identical resources have the same original url or not.
   MH_UINT32 hashed_with_url;
@@ -117,6 +121,8 @@ void DuplicateContentResourceHandler::RecordContentMetrics() {
   UMA_HISTOGRAM_BOOLEAN("Duplicate.Hits", did_match_contents);
   UMA_HISTOGRAM_BOOLEAN("Duplicate.HitsSameUrl",
                          did_match_contents && did_match_contents_and_url);
+  UMA_HISTOGRAM_ENUMERATION("Duplicate.ResourceType.All", resource_type_,
+                             ResourceType::LAST_TYPE);
   if (did_match_contents && !did_match_contents_and_url) {
     content_and_url_matches->insert(hashed_with_url);
     UMA_HISTOGRAM_CUSTOM_COUNTS("Duplicate.Size.HashHitUrlMiss", bytes_read_,

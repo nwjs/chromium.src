@@ -8,26 +8,30 @@
 #include <string>
 #include <vector>
 
+#include "base/callback.h"
+#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "chrome/browser/chromeos/gdata/gdata_operation_registry.h"
-#include "chrome/browser/chromeos/gdata/gdata_params.h"
 #include "chrome/common/net/gaia/oauth2_access_token_consumer.h"
+#include "googleurl/src/gurl.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_fetcher.h"
 #include "net/url_request/url_fetcher_delegate.h"
 
-class Profile;
 class OAuth2AccessTokenFetcher;
 
 namespace gdata {
 
 //================================ AuthOperation ===============================
 
+// Callback type for authentication related DocumentService calls.
+typedef base::Callback<void(GDataErrorCode error,
+                            const std::string& token)> AuthStatusCallback;
+
 // OAuth2 authorization token retrieval operation.
 class AuthOperation : public GDataOperationRegistry::Operation,
                       public OAuth2AccessTokenConsumer {
  public:
   AuthOperation(GDataOperationRegistry* registry,
-                Profile* profile,
                 const AuthStatusCallback& callback,
                 const std::string& refresh_token);
   virtual ~AuthOperation();
@@ -42,7 +46,6 @@ class AuthOperation : public GDataOperationRegistry::Operation,
   virtual void DoCancel() OVERRIDE;
 
  private:
-  Profile* profile_;
   std::string refresh_token_;
   AuthStatusCallback callback_;
   scoped_ptr<OAuth2AccessTokenFetcher> oauth2_access_token_fetcher_;
@@ -76,6 +79,11 @@ class GDataOperationInterface {
 
 //============================ UrlFetchOperationBase ===========================
 
+// Callback type for getting the content from URLFetcher::GetResponseAsString().
+typedef base::Callback<void(
+    GDataErrorCode error,
+    scoped_ptr<std::string> content)> GetContentCallback;
+
 // Base class for operations that are fetching URLs.
 class UrlFetchOperationBase : public GDataOperationInterface,
                               public GDataOperationRegistry::Operation,
@@ -89,11 +97,10 @@ class UrlFetchOperationBase : public GDataOperationInterface,
       const ReAuthenticateCallback& callback) OVERRIDE;
 
  protected:
-  UrlFetchOperationBase(GDataOperationRegistry* registry, Profile* profile);
+  UrlFetchOperationBase(GDataOperationRegistry* registry);
   UrlFetchOperationBase(GDataOperationRegistry* registry,
                         GDataOperationRegistry::OperationType type,
-                        const FilePath& path,
-                        Profile* profile);
+                        const FilePath& path);
   virtual ~UrlFetchOperationBase();
 
   // Gets URL for the request.
@@ -143,7 +150,6 @@ class UrlFetchOperationBase : public GDataOperationInterface,
   std::string GetResponseHeadersAsString(
       const net::URLFetcher* url_fetcher);
 
-  Profile* profile_;
   ReAuthenticateCallback re_authenticate_callback_;
   int re_authenticate_count_;
   bool save_temp_file_;
@@ -154,12 +160,15 @@ class UrlFetchOperationBase : public GDataOperationInterface,
 
 //============================ EntryActionOperation ============================
 
+// Callback type for Delete/Move DocumentServiceInterface calls.
+typedef base::Callback<void(GDataErrorCode error,
+                            const GURL& document_url)> EntryActionCallback;
+
 // This class performs a simple action over a given entry (document/file).
 // It is meant to be used for operations that return no JSON blobs.
 class EntryActionOperation : public UrlFetchOperationBase {
  public:
   EntryActionOperation(GDataOperationRegistry* registry,
-                       Profile* profile,
                        const EntryActionCallback& callback,
                        const GURL& document_url);
   virtual ~EntryActionOperation();
@@ -180,11 +189,16 @@ class EntryActionOperation : public UrlFetchOperationBase {
 
 //============================== GetDataOperation ==============================
 
+// Callback type for DocumentServiceInterface::GetDocuments.
+// Note: feed_data argument should be passed using base::Passed(&feed_data), not
+// feed_data.Pass().
+typedef base::Callback<void(GDataErrorCode error,
+                            scoped_ptr<base::Value> feed_data)> GetDataCallback;
+
 // This class performs the operation for fetching and parsing JSON data content.
 class GetDataOperation : public UrlFetchOperationBase {
  public:
   GetDataOperation(GDataOperationRegistry* registry,
-                   Profile* profile,
                    const GetDataCallback& callback);
   virtual ~GetDataOperation();
 

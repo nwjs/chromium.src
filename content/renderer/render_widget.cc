@@ -108,7 +108,8 @@ RenderWidget::RenderWidget(WebKit::WebPopupType popup_type,
       animation_update_pending_(false),
       invalidation_task_posted_(false),
       screen_info_(screen_info),
-      device_scale_factor_(1) {
+      device_scale_factor_(1),
+      throttle_input_events_(true) {
   if (!swapped_out)
     RenderProcess::current()->AddRefProcess();
   DCHECK(RenderThread::Get());
@@ -583,8 +584,9 @@ void RenderWidget::OnHandleInputEvent(const IPC::Message& message) {
       input_event->type == WebInputEvent::MouseWheel ||
       WebInputEvent::isTouchEventType(input_event->type);
   bool is_input_throttled =
-      webwidget_->isInputThrottled() ||
-      paint_aggregator_.HasPendingUpdate();
+      throttle_input_events_ &&
+      ((webwidget_ ? webwidget_->isInputThrottled() : false) ||
+      paint_aggregator_.HasPendingUpdate());
 
   if (event_type_gets_rate_limited && is_input_throttled && !is_hidden_) {
     // We want to rate limit the input events in this case, so we'll wait for
@@ -688,11 +690,19 @@ void RenderWidget::PaintRect(const gfx::Rect& rect,
     // WebKit and filling the background (which can be slow) and just painting
     // the plugin. Unlike the DoDeferredUpdate case, an extra copy is still
     // required.
+    base::TimeTicks paint_begin_ticks = base::TimeTicks::Now();
     optimized_instance->Paint(webkit_glue::ToWebCanvas(canvas),
                               optimized_copy_location, rect);
+    base::TimeDelta paint_time = base::TimeTicks::Now() - paint_begin_ticks;
+    if (!is_accelerated_compositing_active_)
+      software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
   } else {
     // Normal painting case.
+    base::TimeTicks paint_begin_ticks = base::TimeTicks::Now();
     webwidget_->paint(webkit_glue::ToWebCanvas(canvas), rect);
+    base::TimeDelta paint_time = base::TimeTicks::Now() - paint_begin_ticks;
+    if (!is_accelerated_compositing_active_)
+      software_stats_.totalPaintTimeInSeconds += paint_time.InSecondsF();
 
     // Flush to underlying bitmap.  TODO(darin): is this needed?
     skia::GetTopDevice(*canvas)->accessBitmap(false);
@@ -888,6 +898,11 @@ void RenderWidget::DoDeferredUpdate() {
         0.9f * filtered_time_per_frame_ + 0.1f * frame_time_elapsed;
   }
   last_do_deferred_update_time_ = frame_begin_ticks;
+
+  if (!is_accelerated_compositing_active_) {
+    software_stats_.numAnimationFrames++;
+    software_stats_.numFramesSentToScreen++;
+  }
 
   // OK, save the pending update to a local since painting may cause more
   // invalidation.  Some WebCore rendering objects only layout when painted.
@@ -1440,10 +1455,12 @@ void RenderWidget::OnMsgPaintAtSize(const TransportDIB::Handle& dib_handle,
   scoped_ptr<TransportDIB> paint_at_size_buffer(
       TransportDIB::CreateWithHandle(dib_handle));
 
-  gfx::Size canvas_size = page_size;
-  float x_scale = static_cast<float>(desired_size.width()) /
+  gfx::Size page_size_in_pixel = page_size.Scale(device_scale_factor_);
+  gfx::Size desired_size_in_pixel = desired_size.Scale(device_scale_factor_);
+  gfx::Size canvas_size = page_size_in_pixel;
+  float x_scale = static_cast<float>(desired_size_in_pixel.width()) /
                   static_cast<float>(canvas_size.width());
-  float y_scale = static_cast<float>(desired_size.height()) /
+  float y_scale = static_cast<float>(desired_size_in_pixel.height()) /
                   static_cast<float>(canvas_size.height());
 
   gfx::Rect orig_bounds(canvas_size);
@@ -1635,8 +1652,11 @@ void RenderWidget::UpdateSelectionBounds() {
   if (selection_start_rect_ != start_rect || selection_end_rect_ != end_rect) {
     selection_start_rect_ = start_rect;
     selection_end_rect_ = end_rect;
-    Send(new ViewHostMsg_SelectionBoundsChanged(
-        routing_id_, selection_start_rect_, selection_end_rect_));
+    WebTextDirection start_dir = WebKit::WebTextDirectionLeftToRight;
+    WebTextDirection end_dir = WebKit::WebTextDirectionLeftToRight;
+    webwidget_->selectionTextDirection(start_dir, end_dir);
+    Send(new ViewHostMsg_SelectionBoundsChanged(routing_id_,
+        selection_start_rect_, start_dir, selection_end_rect_, end_dir));
   }
 
   std::vector<gfx::Rect> character_bounds;
@@ -1767,6 +1787,13 @@ void RenderWidget::CleanupWindowInPluginMoves(gfx::PluginWindowHandle window) {
       break;
     }
   }
+}
+
+void RenderWidget::GetRenderingStats(WebKit::WebRenderingStats& stats) const {
+  webwidget()->renderingStats(stats);
+  stats.numAnimationFrames += software_stats_.numAnimationFrames;
+  stats.numFramesSentToScreen += software_stats_.numFramesSentToScreen;
+  stats.totalPaintTimeInSeconds += software_stats_.totalPaintTimeInSeconds;
 }
 
 void RenderWidget::BeginSmoothScroll(bool down, bool scroll_far) {

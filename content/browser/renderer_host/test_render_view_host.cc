@@ -3,11 +3,14 @@
 // found in the LICENSE file.
 
 #include "content/browser/renderer_host/test_backing_store.h"
+#include "content/browser/dom_storage/dom_storage_context_impl.h"
+#include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/renderer_host/test_render_view_host.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/navigation_controller_impl.h"
 #include "content/browser/web_contents/test_web_contents.h"
 #include "content/common/view_messages.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/common/content_client.h"
 #include "ui/gfx/rect.h"
@@ -20,6 +23,21 @@ using content::NativeWebKeyboardEvent;
 using webkit::forms::PasswordForm;
 
 namespace content {
+
+namespace {
+// Normally this is done by the NavigationController, but we'll fake it out
+// here for testing.
+SessionStorageNamespaceImpl* CreateSessionStorageNamespace(
+    SiteInstance* instance) {
+  RenderProcessHost* process_host = instance->GetProcess();
+  DOMStorageContext* dom_storage_context =
+      BrowserContext::GetDOMStorageContext(process_host->GetBrowserContext(),
+                                           process_host->GetID());
+  return new SessionStorageNamespaceImpl(
+      static_cast<DOMStorageContextImpl*>(dom_storage_context));
+}
+}  // namespace
+
 
 void InitNavigateParams(ViewHostMsg_FrameNavigate_Params* params,
                         int page_id,
@@ -137,6 +155,20 @@ void TestRenderWidgetHostView::SetActive(bool active) {
   // <viettrungluu@gmail.com>: Do I need to do anything here?
 }
 
+bool TestRenderWidgetHostView::SupportsSpeech() const {
+  return false;
+}
+
+void TestRenderWidgetHostView::SpeakSelection() {
+}
+
+bool TestRenderWidgetHostView::IsSpeaking() const {
+  return false;
+}
+
+void TestRenderWidgetHostView::StopSpeaking() {
+}
+
 void TestRenderWidgetHostView::PluginFocusChanged(bool focused,
                                                   int plugin_id) {
 }
@@ -221,7 +253,7 @@ TestRenderViewHost::TestRenderViewHost(
                          widget_delegate,
                          routing_id,
                          swapped_out,
-                         dom_storage::kInvalidSessionStorageNamespaceId),
+                         CreateSessionStorageNamespace(instance)),
       render_view_created_(false),
       delete_counter_(NULL),
       simulate_fetch_via_proxy_(false),
@@ -263,7 +295,19 @@ void TestRenderViewHost::SendNavigate(int page_id, const GURL& url) {
 void TestRenderViewHost::SendNavigateWithTransition(
     int page_id, const GURL& url, PageTransition transition) {
   OnMsgDidStartProvisionalLoadForFrame(0, true, GURL(), url);
+  SendNavigateWithParameters(page_id, url, transition, url);
+}
 
+void TestRenderViewHost::SendNavigateWithOriginalRequestURL(
+    int page_id, const GURL& url, const GURL& original_request_url) {
+  OnMsgDidStartProvisionalLoadForFrame(0, true, GURL(), url);
+  SendNavigateWithParameters(page_id, url, PAGE_TRANSITION_LINK,
+      original_request_url);
+}
+
+void TestRenderViewHost::SendNavigateWithParameters(
+    int page_id, const GURL& url, PageTransition transition,
+    const GURL& original_request_url) {
   ViewHostMsg_FrameNavigate_Params params;
 
   params.page_id = page_id;
@@ -286,6 +330,7 @@ void TestRenderViewHost::SendNavigateWithTransition(
   params.socket_address.set_port(80);
   params.was_fetched_via_proxy = simulate_fetch_via_proxy_;
   params.content_state = webkit_glue::CreateHistoryStateForURL(GURL(url));
+  params.original_request_url = original_request_url;
 
   ViewHostMsg_FrameNavigate msg(1, params);
   OnMsgNavigate(msg);

@@ -10,7 +10,6 @@
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_drag_controller.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
-#include "chrome/browser/ui/panels/test_panel_mouse_watcher.h"
 
 class OldPanelDragBrowserTest : public OldBasePanelBrowserTest {
  public:
@@ -403,10 +402,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest, DragThreeDockedPanels) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest, DragMinimizedPanel) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   Panel* panel = CreatePanel("panel1");
   scoped_ptr<NativePanelTesting> panel_testing(
       CreateNativePanelTesting(panel));
@@ -446,10 +441,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest, DragMinimizedPanel) {
 
 IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest,
                        DragMinimizedPanelWhileDrawingAttention) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   Panel* panel = CreatePanel("panel1");
   scoped_ptr<NativePanelTesting> panel_testing(
       CreateNativePanelTesting(panel));
@@ -479,6 +470,11 @@ IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest,
   panel->FlashFrame(false);
   EXPECT_FALSE(panel->IsDrawingAttention());
   EXPECT_EQ(Panel::TITLE_ONLY, panel->expansion_state());
+
+  // Typical user scenario will detect the mouse in the panel
+  // after attention is cleared, causing titles to pop up, so
+  // we simulate that here.
+  MoveMouse(mouse_location);
 
   // Verify panel returns to fully minimized state after dragging ends once
   // mouse moves away from the panel.
@@ -1214,7 +1210,8 @@ IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest, DetachWithSqueeze) {
   panel_manager->CloseAll();
 }
 
-IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest, AttachWithSqueeze) {
+// Flaky (sometimes timeout): http://crbug.com/141156
+IN_PROC_BROWSER_TEST_F(OldPanelDragBrowserTest, DISABLED_AttachWithSqueeze) {
   PanelManager* panel_manager = PanelManager::GetInstance();
   DockedPanelStrip* docked_strip = panel_manager->docked_strip();
   DetachedPanelStrip* detached_strip = panel_manager->detached_strip();

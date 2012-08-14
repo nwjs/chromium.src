@@ -30,9 +30,14 @@ namespace {
 // detailed view.
 const int kDetailedBubbleMaxHeight = kTrayPopupItemHeight * 5;
 
+// TODO(stevenjb/jennyz): Remove this when TrayBubbleBorder is integrated with
+// BubbleBorder. See crbug.com/132772, crbug.com/139813.
 class TrayPopupItemBorder : public views::Border {
  public:
-  explicit TrayPopupItemBorder(views::View* owner) : owner_(owner) {}
+  explicit TrayPopupItemBorder(views::View* owner, ShelfAlignment alignment)
+      : owner_(owner),
+        alignment_(alignment) {
+  }
   virtual ~TrayPopupItemBorder() {}
 
  private:
@@ -47,24 +52,36 @@ class TrayPopupItemBorder : public views::Border {
       canvas->FillRect(gfx::Rect(0, 0, view.width(), 1), kBorderDarkColor);
 
     // Bottom border.
-    if (index != parent->child_count() - 1) {
+    if ((index != parent->child_count() - 1) ||
+        (alignment_ != SHELF_ALIGNMENT_BOTTOM)) {
       canvas->FillRect(gfx::Rect(0, view.height() - 1, view.width(), 1),
                        kBorderLightColor);
     }
 
     // Left and right borders.
-    canvas->FillRect(gfx::Rect(0, 0, 1, view.height()), kBorderDarkColor);
-    canvas->FillRect(gfx::Rect(view.width() - 1, 0, 1, view.height()),
-        kBorderDarkColor);
+    if (alignment_ != SHELF_ALIGNMENT_LEFT) {
+      canvas->FillRect(gfx::Rect(0, 0, 1, view.height()),
+                       kBorderDarkColor);
+    }
+    if (alignment_ != SHELF_ALIGNMENT_RIGHT) {
+      canvas->FillRect(gfx::Rect(view.width() - 1, 0, 1, view.height()),
+                       kBorderDarkColor);
+    }
   }
 
   virtual void GetInsets(gfx::Insets* insets) const OVERRIDE {
     const views::View* parent = owner_->parent();
     int index = parent->GetIndexOf(owner_);
-    insets->Set(index == 0, 1, index != parent->child_count() - 1, 1);
+    int left = (alignment_ == SHELF_ALIGNMENT_LEFT) ? 0 : 1;
+    int right = (alignment_ == SHELF_ALIGNMENT_RIGHT) ? 0 : 1;
+    insets->Set(index == 0 ? 1 : 0,
+                left,
+                (index != parent->child_count() - 1) ? 1 : 0,
+                right);
   }
 
   views::View* owner_;
+  ShelfAlignment alignment_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayPopupItemBorder);
 };
@@ -73,11 +90,13 @@ class TrayPopupItemBorder : public views::Border {
 // - optionally changes background color on hover.
 class TrayPopupItemContainer : public views::View {
  public:
-  TrayPopupItemContainer(views::View* view, bool change_background)
+  TrayPopupItemContainer(views::View* view,
+                         ShelfAlignment alignment,
+                         bool change_background)
       : hover_(false),
         change_background_(change_background) {
     set_notify_enter_exit_on_child(true);
-    set_border(new TrayPopupItemBorder(this));
+    set_border(new TrayPopupItemBorder(this, alignment));
     views::BoxLayout* layout = new views::BoxLayout(
         views::BoxLayout::kVertical, 0, 0, 0);
     layout->set_spread_blank_space(true);
@@ -104,12 +123,12 @@ class TrayPopupItemContainer : public views::View {
     PreferredSizeChanged();
   }
 
-  virtual void OnMouseEntered(const views::MouseEvent& event) OVERRIDE {
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE {
     hover_ = true;
     SchedulePaint();
   }
 
-  virtual void OnMouseExited(const views::MouseEvent& event) OVERRIDE {
+  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE {
     hover_ = false;
     SchedulePaint();
   }
@@ -279,12 +298,11 @@ void SystemTrayBubble::InitView(views::View* anchor,
   if (bubble_type_ == BUBBLE_TYPE_DETAILED &&
       init_params.max_height < kDetailedBubbleMaxHeight) {
     init_params.max_height = kDetailedBubbleMaxHeight;
+  } else if (bubble_type_ == BUBBLE_TYPE_NOTIFICATION) {
+    init_params.close_on_deactivate = false;
   }
-
   bubble_view_ = TrayBubbleView::Create(anchor, this, init_params);
 
-  if (bubble_type_ == BUBBLE_TYPE_NOTIFICATION)
-    bubble_view_->set_close_on_deactivate(false);
 
   CreateItemViews(login_status);
 
@@ -386,7 +404,7 @@ void SystemTrayBubble::CreateItemViews(user::LoginStatus login_status) {
     }
     if (view) {
       bubble_view_->AddChildView(new TrayPopupItemContainer(
-          view, bubble_type_ == BUBBLE_TYPE_DEFAULT));
+          view, tray_->shelf_alignment(), bubble_type_ == BUBBLE_TYPE_DEFAULT));
     }
   }
 }

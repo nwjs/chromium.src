@@ -11,6 +11,7 @@
 #include "ash/ash_export.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "ui/aura/display_observer.h"
 #include "ui/aura/display_manager.h"
 
@@ -68,6 +69,10 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   }
   void SetSecondaryDisplayLayout(SecondaryDisplayLayout layout);
 
+  void set_dont_warp_mouse(bool dont_warp_mouse) {
+    dont_warp_mouse_ = dont_warp_mouse;
+  }
+
   // Warps the mouse cursor to an alternate root window when the
   // |point_in_root|, which is the location of the mouse cursor,
   // hits or exceeds the edge of the |root_window| and the mouse cursor
@@ -86,6 +91,8 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   static bool IsExtendedDesktopEnabled();
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(WorkspaceWindowResizerTest, WarpMousePointer);
+
   // Creates a root window for |display| and stores it in the |root_windows_|
   // map.
   aura::RootWindow* AddRootWindowForDisplay(const gfx::Display& display);
@@ -95,6 +102,9 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   std::map<int, aura::RootWindow*> root_windows_;
 
   SecondaryDisplayLayout secondary_display_layout_;
+
+  // If true, the mouse pointer can't move from one display to another.
+  bool dont_warp_mouse_;
 
   DISALLOW_COPY_AND_ASSIGN(DisplayController);
 };

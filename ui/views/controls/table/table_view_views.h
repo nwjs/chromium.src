@@ -109,8 +109,8 @@ class VIEWS_EXPORT TableView : public views::View,
   // View overrides:
   virtual void Layout() OVERRIDE;
   virtual gfx::Size GetPreferredSize() OVERRIDE;
-  virtual bool OnKeyPressed(const KeyEvent& event) OVERRIDE;
-  virtual bool OnMousePressed(const MouseEvent& event) OVERRIDE;
+  virtual bool OnKeyPressed(const ui::KeyEvent& event) OVERRIDE;
+  virtual bool OnMousePressed(const ui::MouseEvent& event) OVERRIDE;
 
   // ui::TableModelObserver overrides:
   virtual void OnModelChanged() OVERRIDE;

@@ -19,12 +19,15 @@
 
 class ChromeRenderProcessObserver;
 class ContentSettingsObserver;
-class ExtensionDispatcher;
 class ExternalHostBindings;
 class SkBitmap;
 class TranslateHelper;
 struct ThumbnailScore;
 class WebViewColorOverlay;
+
+namespace extensions {
+class Dispatcher;
+}
 
 namespace WebKit {
 class WebView;
@@ -35,7 +38,7 @@ class PhishingClassifierDelegate;
 }
 
 namespace webkit_glue {
-class ImageResourceFetcher;
+class MultiResolutionImageResourceFetcher;
 }
 
 // This class holds the Chrome specific parts of RenderView, and has the same
@@ -48,7 +51,7 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
       content::RenderView* render_view,
       ContentSettingsObserver* content_settings,
       ChromeRenderProcessObserver* chrome_render_process_observer,
-      ExtensionDispatcher* extension_dispatcher,
+      extensions::Dispatcher* extension_dispatcher,
       TranslateHelper* translate_helper);
   virtual ~ChromeRenderViewObserver();
 
@@ -167,8 +170,10 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
   // This callback is triggered when DownloadFavicon completes, either
   // succesfully or with a failure. See DownloadFavicon for more
   // details.
-  void DidDownloadFavicon(webkit_glue::ImageResourceFetcher* fetcher,
-                          const SkBitmap& image);
+  void DidDownloadFavicon(
+      int requested_size,
+      webkit_glue::MultiResolutionImageResourceFetcher* fetcher,
+      const std::vector<SkBitmap>& images);
 
   // Requests to download a favicon image. When done, the RenderView
   // is notified by way of DidDownloadFavicon. Returns true if the
@@ -195,7 +200,7 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
 
   // Owned by ChromeContentRendererClient and outlive us.
   ChromeRenderProcessObserver* chrome_render_process_observer_;
-  ExtensionDispatcher* extension_dispatcher_;
+  extensions::Dispatcher* extension_dispatcher_;
 
   // Have the same lifetime as us.
   ContentSettingsObserver* content_settings_;
@@ -218,8 +223,9 @@ class ChromeRenderViewObserver : public content::RenderViewObserver,
   // External host exposed through automation controller.
   scoped_ptr<ExternalHostBindings> external_host_bindings_;
 
-  typedef std::vector<linked_ptr<webkit_glue::ImageResourceFetcher> >
-      ImageResourceFetcherList;
+  typedef std::vector<
+      linked_ptr<webkit_glue::MultiResolutionImageResourceFetcher> >
+    ImageResourceFetcherList;
 
   // ImageResourceFetchers schedule via DownloadImage.
   ImageResourceFetcherList image_fetchers_;

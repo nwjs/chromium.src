@@ -40,7 +40,7 @@
 #endif
 
 #if defined(USE_AURA)
-#include "ui/aura/event.h"
+#include "ui/base/event.h"
 #endif
 
 #if defined(USE_AURA) && defined(USE_X11)
@@ -176,7 +176,7 @@ class RenderViewImplTest : public content::RenderViewTest {
     // WM_CHAR sends a composed Unicode character.
     MSG msg1 = { NULL, WM_KEYDOWN, key_code, 0 };
 #if defined(USE_AURA)
-    aura::KeyEvent evt1(msg1, false);
+    ui::KeyEvent evt1(msg1, false);
     NativeWebKeyboardEvent keydown_event(&evt1);
 #else
     NativeWebKeyboardEvent keydown_event(msg1);
@@ -185,7 +185,7 @@ class RenderViewImplTest : public content::RenderViewTest {
 
     MSG msg2 = { NULL, WM_CHAR, (*output)[0], 0 };
 #if defined(USE_AURA)
-    aura::KeyEvent evt2(msg2, true);
+    ui::KeyEvent evt2(msg2, true);
     NativeWebKeyboardEvent char_event(&evt2);
 #else
     NativeWebKeyboardEvent char_event(msg2);
@@ -194,7 +194,7 @@ class RenderViewImplTest : public content::RenderViewTest {
 
     MSG msg3 = { NULL, WM_KEYUP, key_code, 0 };
 #if defined(USE_AURA)
-    aura::KeyEvent evt3(msg3, false);
+    ui::KeyEvent evt3(msg3, false);
     NativeWebKeyboardEvent keyup_event(&evt3);
 #else
     NativeWebKeyboardEvent keyup_event(msg3);
@@ -213,7 +213,7 @@ class RenderViewImplTest : public content::RenderViewTest {
                             static_cast<ui::KeyboardCode>(key_code),
                             flags,
                             &xevent1);
-    aura::KeyEvent event1(&xevent1, false);
+    ui::KeyEvent event1(&xevent1, false);
     NativeWebKeyboardEvent keydown_event(&event1);
     SendNativeKeyEvent(keydown_event);
 
@@ -222,7 +222,7 @@ class RenderViewImplTest : public content::RenderViewTest {
                             static_cast<ui::KeyboardCode>(key_code),
                             flags,
                             &xevent2);
-    aura::KeyEvent event2(&xevent2, true);
+    ui::KeyEvent event2(&xevent2, true);
     NativeWebKeyboardEvent char_event(&event2);
     SendNativeKeyEvent(char_event);
 
@@ -231,7 +231,7 @@ class RenderViewImplTest : public content::RenderViewTest {
                             static_cast<ui::KeyboardCode>(key_code),
                             flags,
                             &xevent3);
-    aura::KeyEvent event3(&xevent3, false);
+    ui::KeyEvent event3(&xevent3, false);
     NativeWebKeyboardEvent keyup_event(&event3);
     SendNativeKeyEvent(keyup_event);
 
@@ -1697,4 +1697,34 @@ TEST_F(RenderViewImplTest, GetCompositionCharacterBoundsTest) {
     }
   }
   view()->OnImeConfirmComposition(empty_string, ui::Range::InvalidRange());
+}
+
+TEST_F(RenderViewImplTest, ZoomLimit) {
+  const double kMinZoomLevel =
+      WebKit::WebView::zoomFactorToZoomLevel(content::kMinimumZoomFactor);
+  const double kMaxZoomLevel =
+      WebKit::WebView::zoomFactorToZoomLevel(content::kMaximumZoomFactor);
+
+  ViewMsg_Navigate_Params params;
+  params.page_id = -1;
+  params.navigation_type = ViewMsg_Navigate_Type::NORMAL;
+
+  // Verifies navigation to a URL with preset zoom level indeed sets the level.
+  // Regression test for http://crbug.com/139559, where the level was not
+  // properly set when it is out of the default zoom limits of WebView.
+  params.url = GURL("data:text/html,min_zoomlimit_test");
+  view()->OnSetZoomLevelForLoadingURL(params.url, kMinZoomLevel);
+  view()->OnNavigate(params);
+  ProcessPendingMessages();
+  EXPECT_DOUBLE_EQ(kMinZoomLevel, view()->GetWebView()->zoomLevel());
+
+  // It should work even when the zoom limit is temporarily changed in the page.
+  view()->GetWebView()->zoomLimitsChanged(
+      WebKit::WebView::zoomFactorToZoomLevel(1.0),
+      WebKit::WebView::zoomFactorToZoomLevel(1.0));
+  params.url = GURL("data:text/html,max_zoomlimit_test");
+  view()->OnSetZoomLevelForLoadingURL(params.url, kMaxZoomLevel);
+  view()->OnNavigate(params);
+  ProcessPendingMessages();
+  EXPECT_DOUBLE_EQ(kMaxZoomLevel, view()->GetWebView()->zoomLevel());
 }

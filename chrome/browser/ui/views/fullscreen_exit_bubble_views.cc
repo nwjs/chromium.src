@@ -88,7 +88,7 @@ class FullscreenExitBubbleViews::FullscreenExitView
 
   // views::ButtonListener
   virtual void ButtonPressed(views::Button* sender,
-                             const views::Event& event) OVERRIDE;
+                             const ui::Event& event) OVERRIDE;
 
   // views::LinkListener
   virtual void LinkClicked(views::Link* source, int event_flags) OVERRIDE;
@@ -189,7 +189,7 @@ FullscreenExitBubbleViews::FullscreenExitView::~FullscreenExitView() {
 
 void FullscreenExitBubbleViews::FullscreenExitView::ButtonPressed(
     views::Button* sender,
-    const views::Event& event) {
+    const ui::Event& event) {
   if (sender == button_view_->accept_button())
     bubble_->Accept();
   else
@@ -358,12 +358,12 @@ gfx::Rect FullscreenExitBubbleViews::GetPopupRect(
 
 gfx::Point FullscreenExitBubbleViews::GetCursorScreenPoint() {
   gfx::Point cursor_pos = gfx::Screen::GetCursorScreenPoint();
-  views::View::ConvertPointToView(NULL, root_view_, &cursor_pos);
+  views::View::ConvertPointToTarget(NULL, root_view_, &cursor_pos);
   return cursor_pos;
 }
 
 bool FullscreenExitBubbleViews::WindowContainsPoint(gfx::Point pos) {
-  return root_view_->HitTest(pos);
+  return root_view_->HitTestPoint(pos);
 }
 
 bool FullscreenExitBubbleViews::IsWindowActive() {

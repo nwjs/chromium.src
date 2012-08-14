@@ -79,10 +79,6 @@ body {
   background-size: 17px;
 }
 
-#update-obsolete-os-container {
-  -webkit-margin-start: 25px;
-}
-
 #more-info-expander {
   -webkit-padding-start: 0;
 }
@@ -98,6 +94,6 @@ body {
   overflow: hidden;
 }
 
-#last-updated-container.empty {
+#build-date-container.empty {
   visibility: hidden;
 }

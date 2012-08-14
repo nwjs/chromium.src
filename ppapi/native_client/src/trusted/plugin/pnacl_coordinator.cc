@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "native_client/src/include/checked_cast.h"
 #include "native_client/src/include/portability_io.h"
 #include "native_client/src/shared/platform/nacl_check.h"
 #include "native_client/src/trusted/plugin/local_temp_file.h"
@@ -32,12 +33,17 @@ namespace plugin {
 //////////////////////////////////////////////////////////////////////
 //  Pnacl-specific manifest support.
 //////////////////////////////////////////////////////////////////////
-class ExtensionManifest : public Manifest {
+
+class PnaclManifest : public Manifest {
  public:
-  explicit ExtensionManifest(const pp::URLUtil_Dev* url_util)
+  PnaclManifest(const pp::URLUtil_Dev* url_util, bool use_extension)
       : url_util_(url_util),
-        manifest_base_url_(PnaclUrls::GetExtensionUrl()) { }
-  virtual ~ExtensionManifest() { }
+        manifest_base_url_(PnaclUrls::GetBaseUrl(use_extension)) {
+    // TODO(jvoung): get rid of use_extension when we no longer rely
+    // on the chrome webstore extension.  Most of this Manifest stuff
+    // can also be simplified then.
+  }
+  virtual ~PnaclManifest() { }
 
   virtual bool GetProgramURL(nacl::string* full_url,
                              nacl::string* cache_identity,
@@ -48,7 +54,7 @@ class ExtensionManifest : public Manifest {
     UNREFERENCED_PARAMETER(cache_identity);
     UNREFERENCED_PARAMETER(error_info);
     UNREFERENCED_PARAMETER(pnacl_translate);
-    PLUGIN_PRINTF(("ExtensionManifest does not contain a program\n"));
+    PLUGIN_PRINTF(("PnaclManifest does not contain a program\n"));
     error_info->SetReport(ERROR_MANIFEST_GET_NEXE_URL,
                           "pnacl manifest does not contain a program.");
     return false;
@@ -66,7 +72,7 @@ class ExtensionManifest : public Manifest {
 
   virtual bool GetFileKeys(std::set<nacl::string>* keys) const {
     // Does not support enumeration.
-    PLUGIN_PRINTF(("ExtensionManifest does not support key enumeration\n"));
+    PLUGIN_PRINTF(("PnaclManifest does not support key enumeration\n"));
     UNREFERENCED_PARAMETER(keys);
     return false;
   }
@@ -94,7 +100,7 @@ class ExtensionManifest : public Manifest {
   }
 
  private:
-  NACL_DISALLOW_COPY_AND_ASSIGN(ExtensionManifest);
+  NACL_DISALLOW_COPY_AND_ASSIGN(PnaclManifest);
 
   const pp::URLUtil_Dev* url_util_;
   nacl::string manifest_base_url_;
@@ -204,7 +210,7 @@ PnaclCoordinator* PnaclCoordinator::BitcodeToNative(
                          resource_urls,
                          resources_cb));
   CHECK(coordinator->resources_ != NULL);
-  coordinator->resources_->StartDownloads();
+  coordinator->resources_->StartLoad();
   // ResourcesDidLoad will be invoked when all resources have been received.
   return coordinator;
 }
@@ -237,7 +243,9 @@ PnaclCoordinator::PnaclCoordinator(
     plugin_(plugin),
     translate_notify_callback_(translate_notify_callback),
     file_system_(new pp::FileSystem(plugin, PP_FILESYSTEMTYPE_LOCALTEMPORARY)),
-    manifest_(new ExtensionManifest(plugin->url_util())),
+    manifest_(new PnaclManifest(
+        plugin->url_util(),
+        plugin::PnaclUrls::UsePnaclExtension(plugin))),
     pexe_url_(pexe_url),
     cache_identity_(cache_identity),
     error_already_reported_(false),
@@ -258,7 +266,7 @@ PnaclCoordinator::~PnaclCoordinator() {
   // will have been destroyed.  This will result in the cancellation of
   // translation_complete_callback_, so no notification will be delivered.
   if (translate_thread_.get() != NULL) {
-    translate_thread_->SetSubprocessesShouldDie();
+    translate_thread_->AbortSubprocesses();
   }
 }
 
@@ -344,7 +352,8 @@ void PnaclCoordinator::CachedNexeOpenedForWrite(int32_t pp_error) {
   int64_t cur_offset = 0;
   nacl::DescWrapper* read_wrapper = temp_nexe_file_->read_wrapper();
   char buf[kCopyBufSize];
-  ssize_t num_read = read_wrapper->Read(buf, sizeof buf);
+  int32_t num_read =
+    nacl::assert_cast<int32_t>(read_wrapper->Read(buf, sizeof buf));
   // Hit EOF or something.
   if (num_read == 0) {
     NexeWasCopiedToCache(PP_OK);
@@ -400,7 +409,8 @@ void PnaclCoordinator::DidCopyNexeToCachePartial(int32_t pp_error,
 
   int64_t next_offset = cur_offset + pp_error;
   char buf[kCopyBufSize];
-  ssize_t num_read = read_wrapper->Read(buf, sizeof buf);
+  int32_t num_read =
+    nacl::assert_cast<int32_t>(read_wrapper->Read(buf, sizeof buf));
   PLUGIN_PRINTF(("PnaclCoordinator::DidCopyNexeToCachePartial read (bytes=%"
                  NACL_PRId32")\n", num_read));
   // Hit EOF or something.
@@ -416,8 +426,8 @@ void PnaclCoordinator::DidCopyNexeToCachePartial(int32_t pp_error,
   }
   pp::CompletionCallback cb = callback_factory_.NewCallback(
       &PnaclCoordinator::DidCopyNexeToCachePartial, num_read, next_offset);
-  PLUGIN_PRINTF(("PnaclCoordinator::CopyNexeToCache Writing (bytes=%d, "
-                 "buf=%p, file_io=%p)\n", num_read, buf,
+  PLUGIN_PRINTF(("PnaclCoordinator::CopyNexeToCache Writing ("
+                 "bytes=%"NACL_PRId32", buf=%p, file_io=%p)\n", num_read, buf,
                  cached_nexe_file_->write_file_io()));
   cached_nexe_file_->write_file_io()->Write(next_offset, buf, num_read, cb);
 }
@@ -542,10 +552,8 @@ void PnaclCoordinator::CachedFileDidOpen(int32_t pp_error) {
     ReportNonPpapiError("could not allocate translation thread.");
     return;
   }
-  // In the streaming case we also want to open the object file now so the
+  // We also want to open the object file now so the
   // translator can start writing to it during streaming translation.
-  // In the non-streaming case this can wait until the bitcode download is
-  // finished.
   obj_file_.reset(new TempFile(plugin_));
   pp::CompletionCallback obj_cb =
     callback_factory_.NewCallback(&PnaclCoordinator::ObjectFileDidOpen);
@@ -573,7 +581,7 @@ void PnaclCoordinator::BitcodeStreamDidFinish(int32_t pp_error) {
     translate_finish_error_ = pp_error;
     error_info_.SetReport(ERROR_UNKNOWN,
                           nacl::string("PnaclCoordinator: pexe load failed."));
-    translate_thread_->SetSubprocessesShouldDie();
+    translate_thread_->AbortSubprocesses();
   }
 }
 

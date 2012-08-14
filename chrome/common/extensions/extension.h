@@ -609,19 +609,25 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   }
   // The browser action command that the extension wants to use, which is not
   // necessarily the one it can use, as it might be inactive (see also
-  // GetActiveBrowserActionCommand in ExtensionKeybindingRegistry).
+  // GetBrowserActionCommand in CommandService).
   const extensions::Command* browser_action_command() const {
     return browser_action_command_.get();
   }
   // The page action command that the extension wants to use, which is not
   // necessarily the one it can use, as it might be inactive (see also
-  // GetActivePageActionCommand in ExtensionKeybindingRegistry).
+  // GetPageActionCommand in CommandService).
   const extensions::Command* page_action_command() const {
     return page_action_command_.get();
   }
+  // The script badge command that the extension wants to use, which is not
+  // necessarily the one it can use, as it might be inactive (see also
+  // GetScriptBadgeCommand in CommandService).
+  const extensions::Command* script_badge_command() const {
+    return script_badge_command_.get();
+  }
   // The map (of command names to commands) that the extension wants to use,
   // which is not necessarily the one it can use, as they might be inactive
-  // (see also GetActiveNamedCommands in ExtensionKeybindingRegistry).
+  // (see also GetNamedCommands in CommandService).
   const extensions::CommandMap& named_commands() const {
     return named_commands_;
   }
@@ -656,7 +662,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   const GURL& update_url() const { return update_url_; }
   const ExtensionIconSet& icons() const { return icons_; }
   const extensions::Manifest* manifest() const {
-    return manifest_;
+    return manifest_.get();
   }
   const std::string default_locale() const { return default_locale_; }
   const URLOverrideMap& GetChromeURLOverrides() const {
@@ -1001,6 +1007,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // Optional list of commands (keyboard shortcuts).
   scoped_ptr<extensions::Command> browser_action_command_;
   scoped_ptr<extensions::Command> page_action_command_;
+  scoped_ptr<extensions::Command> script_badge_command_;
   extensions::CommandMap named_commands_;
 
   // Optional list of web accessible extension resources.
@@ -1062,15 +1069,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   GURL update_url_;
 
   // The manifest from which this extension was created.
-  //
-  // NOTE: This is an owned pointer, but can't use scoped_ptr because that would
-  // require manifest.h, which would in turn create a circulate dependency
-  // between extension.h and manifest.h.
-  //
-  // TODO(aa): Pull Extension::Type and Extension::Location out into their own
-  // files so that manifest.h can rely on them and not get all of extension.h
-  // too, and then change this back to a scoped_ptr.
-  extensions::Manifest* manifest_;
+  scoped_ptr<Manifest> manifest_;
 
   // A map of chrome:// hostnames (newtab, downloads, etc.) to Extension URLs
   // which override the handling of those URLs. (see ExtensionOverrideUI).

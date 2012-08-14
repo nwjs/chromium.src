@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/fullscreen/fullscreen_controller.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/sync_promo/sync_promo_ui.h"
@@ -41,6 +42,10 @@
 
 #if defined(OS_WIN)
 #include "base/win/metro.h"
+#endif
+
+#if defined(USE_ASH)
+#include "ash/wm/window_util.h"
 #endif
 
 using content::WebContents;
@@ -258,6 +263,9 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_RELOAD:
       Reload(browser_, disposition);
       break;
+    case IDC_RELOAD_CLEARING_CACHE:
+      ClearCache(browser_);
+      // FALL THROUGH
     case IDC_RELOAD_IGNORING_CACHE:
       ReloadIgnoringCache(browser_, disposition);
       break;
@@ -279,13 +287,31 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
       NewIncognitoWindow(browser_);
       break;
     case IDC_CLOSE_WINDOW:
-      CloseWindow(browser_);
+      // Destroying a tab / browser window while it has opened a full screen
+      // window will destroy it's content class - which will destroy the
+      // delegate - which is also used by the opened full screen window's
+      // event handler. That will cause then a crash. To avoid that we supress
+      // closing of windows via key stroke while a full screen window is open.
+      // http://crbug.com/134465,  http://crbug.com/131436
+#if defined(OS_CHROMEOS)
+      if (!IsFullScreenWindowOpen())
+#endif
+        CloseWindow(browser_);
       break;
     case IDC_NEW_TAB:
       NewTab(browser_);
       break;
     case IDC_CLOSE_TAB:
-      CloseTab(browser_);
+      // Destroying a tab / browser window while it has opened a full screen
+      // window will destroy it's content class - which will destroy the
+      // delegate - which is also used by the opened full screen window's
+      // event handler. That will cause then a crash. To avoid that we supress
+      // closing of windows via key stroke while a full screen window is open.
+      // http://crbug.com/134465,  http://crbug.com/131436
+#if defined(OS_CHROMEOS)
+      if (!IsFullScreenWindowOpen())
+#endif
+        CloseTab(browser_);
       break;
     case IDC_SELECT_NEXT_TAB:
       SelectNextTab(browser_);
@@ -351,7 +377,7 @@ void BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_BOOKMARK_PAGE:
       BookmarkCurrentPage(browser_);
       break;
-    case IDC_METRO_PIN_TO_START_SCREEN:
+    case IDC_PIN_TO_START_SCREEN:
       TogglePagePinnedToStartScreen(browser_);
       break;
     case IDC_BOOKMARK_ALL_TABS:
@@ -680,6 +706,7 @@ void BrowserCommandController::InitCommandState() {
   // Navigation commands
   command_updater_.UpdateCommandEnabled(IDC_RELOAD, true);
   command_updater_.UpdateCommandEnabled(IDC_RELOAD_IGNORING_CACHE, true);
+  command_updater_.UpdateCommandEnabled(IDC_RELOAD_CLEARING_CACHE, true);
 
   // Window management commands
   command_updater_.UpdateCommandEnabled(IDC_CLOSE_WINDOW, true);
@@ -862,6 +889,8 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   command_updater_.UpdateCommandEnabled(IDC_RELOAD, CanReload(browser_));
   command_updater_.UpdateCommandEnabled(IDC_RELOAD_IGNORING_CACHE,
                                         CanReload(browser_));
+  command_updater_.UpdateCommandEnabled(IDC_RELOAD_CLEARING_CACHE,
+                                        CanReload(browser_));
 
   // Window management commands
   command_updater_.UpdateCommandEnabled(IDC_DUPLICATE_TAB,
@@ -930,7 +959,7 @@ void BrowserCommandController::UpdateCommandsForBookmarkEditing() {
                                         CanBookmarkCurrentPage(browser_));
   command_updater_.UpdateCommandEnabled(IDC_BOOKMARK_ALL_TABS,
                                         CanBookmarkAllTabs(browser_));
-  command_updater_.UpdateCommandEnabled(IDC_METRO_PIN_TO_START_SCREEN,
+  command_updater_.UpdateCommandEnabled(IDC_PIN_TO_START_SCREEN,
                                         true);
 }
 
@@ -1070,6 +1099,15 @@ BrowserWindow* BrowserCommandController::window() {
 
 Profile* BrowserCommandController::profile() {
   return browser_->profile();
+}
+
+bool BrowserCommandController::IsFullScreenWindowOpen() {
+#if defined(USE_ASH)
+  aura::Window* window = ash::wm::GetActiveWindow();
+  return (window && ash::wm::IsWindowFullscreen(window));
+#else
+  return false;
+#endif
 }
 
 }  // namespace chrome

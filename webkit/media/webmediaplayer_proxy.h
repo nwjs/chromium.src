@@ -60,14 +60,6 @@ class WebMediaPlayerProxy
     frame_provider_ = frame_provider;
   }
 
-  void set_video_decoder(
-      const scoped_refptr<media::FFmpegVideoDecoder>& video_decoder) {
-    video_decoder_ = video_decoder;
-  }
-  const scoped_refptr<media::FFmpegVideoDecoder>& video_decoder() {
-    return video_decoder_;
-  }
-
   // Methods for Filter -> WebMediaPlayerImpl communication.
   void Repaint();
   void SetOpaque(bool opaque);
@@ -96,6 +88,7 @@ class WebMediaPlayerProxy
 
   // Methods for Demuxer communication.
   void DemuxerStartWaitingForSeek();
+  void DemuxerCancelPendingSeek();
   media::ChunkDemuxer::Status DemuxerAddId(const std::string& id,
                                            const std::string& type,
                                            std::vector<std::string>& codecs);
@@ -180,7 +173,6 @@ class WebMediaPlayerProxy
   scoped_refptr<BufferedDataSource> data_source_;
   scoped_refptr<media::VideoRendererBase> frame_provider_;
   SkCanvasVideoRenderer video_renderer_;
-  scoped_refptr<media::FFmpegVideoDecoder> video_decoder_;
 
   base::Lock lock_;
   int outstanding_repaints_;

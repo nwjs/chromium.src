@@ -114,7 +114,7 @@ bool ConvertedContainsCheck(gfx::Rect bounds, const views::View* src,
   DCHECK(src);
   DCHECK(dst);
   gfx::Point origin(bounds.origin());
-  views::View::ConvertPointToView(src, dst, &origin);
+  views::View::ConvertPointToTarget(src, dst, &origin);
   bounds.set_origin(origin);
   return bounds.Contains(pt);
 }
@@ -238,6 +238,10 @@ OpaqueBrowserFrameView::GetTabStripInsets(bool restored) const {
       0 : kNonClientRestoredExtraThickness);
   // TODO: include OTR and caption.
   return TabStripInsets(top, 0, 0);
+}
+
+int OpaqueBrowserFrameView::GetThemeBackgroundXInset() const {
+  return 0;
 }
 
 void OpaqueBrowserFrameView::UpdateThrobber(bool running) {
@@ -397,9 +401,9 @@ void OpaqueBrowserFrameView::Layout() {
   client_view_bounds_ = CalculateClientAreaBounds(width(), height());
 }
 
-bool OpaqueBrowserFrameView::HitTest(const gfx::Point& l) const {
-  // If the point is outside the bounds of the client area, claim it.
-  bool in_nonclient = NonClientFrameView::HitTest(l);
+bool OpaqueBrowserFrameView::HitTestRect(const gfx::Rect& rect) const {
+  // If |rect| does not intersect the bounds of the client area, claim it.
+  bool in_nonclient = NonClientFrameView::HitTestRect(rect);
   if (in_nonclient)
     return in_nonclient;
 
@@ -408,16 +412,18 @@ bool OpaqueBrowserFrameView::HitTest(const gfx::Point& l) const {
     return false;
   gfx::Rect tabstrip_bounds(browser_view()->tabstrip()->bounds());
   gfx::Point tabstrip_origin(tabstrip_bounds.origin());
-  View::ConvertPointToView(frame()->client_view(), this, &tabstrip_origin);
+  View::ConvertPointToTarget(frame()->client_view(), this, &tabstrip_origin);
   tabstrip_bounds.set_origin(tabstrip_origin);
-  if (l.y() > tabstrip_bounds.bottom())
+  if (rect.bottom() > tabstrip_bounds.bottom())
     return false;
 
   // We convert from our parent's coordinates since we assume we fill its bounds
   // completely. We need to do this since we're not a parent of the tabstrip,
-  // meaning ConvertPointToView would otherwise return something bogus.
-  gfx::Point browser_view_point(l);
-  View::ConvertPointToView(parent(), browser_view(), &browser_view_point);
+  // meaning ConvertPointToTarget would otherwise return something bogus.
+  // TODO(tdanderson): Initialize |browser_view_point| using |rect| instead of
+  // its center point once GetEventHandlerForRect() is implemented.
+  gfx::Point browser_view_point(rect.CenterPoint());
+  View::ConvertPointToTarget(parent(), browser_view(), &browser_view_point);
   return browser_view()->IsPositionInWindowCaption(browser_view_point);
 }
 
@@ -430,7 +436,7 @@ void OpaqueBrowserFrameView::GetAccessibleState(
 // OpaqueBrowserFrameView, views::ButtonListener implementation:
 
 void OpaqueBrowserFrameView::ButtonPressed(views::Button* sender,
-                                           const views::Event& event) {
+                                           const ui::Event& event) {
   if (sender == minimize_button_)
     frame()->Minimize();
   else if (sender == maximize_button_)
@@ -670,7 +676,7 @@ void OpaqueBrowserFrameView::PaintToolbarBackground(gfx::Canvas* canvas) {
   if (toolbar_bounds.IsEmpty())
     return;
   gfx::Point toolbar_origin(toolbar_bounds.origin());
-  ConvertPointToView(browser_view(), this, &toolbar_origin);
+  ConvertPointToTarget(browser_view(), this, &toolbar_origin);
   toolbar_bounds.set_origin(toolbar_origin);
 
   int x = toolbar_bounds.x();
@@ -710,9 +716,10 @@ void OpaqueBrowserFrameView::PaintToolbarBackground(gfx::Canvas* canvas) {
 
   // Tile the toolbar image starting at the frame edge on the left and where the
   // horizontal tabstrip is (or would be) on the top.
-  canvas->TileImageInt(*theme_toolbar, x,
-                       bottom_y - GetTabStripInsets(false).top, x,
-                       bottom_y, w, theme_toolbar->height());
+  canvas->TileImageInt(*theme_toolbar,
+                       x + GetThemeBackgroundXInset(),
+                       bottom_y - GetTabStripInsets(false).top,
+                       x, bottom_y, w, theme_toolbar->height());
 
   // Draw rounded corners for the tab.
   gfx::ImageSkia* toolbar_left_mask =

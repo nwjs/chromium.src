@@ -219,7 +219,7 @@ void WebIntentPickerController::ShowDialog(const string16& action,
 
   picker_model_->Clear();
   picker_model_->set_action(action);
-  picker_model_->set_mimetype(type);
+  picker_model_->set_type(type);
 
   // If the intent is explicit, skip showing the picker.
   if (intents_dispatcher_) {
@@ -305,13 +305,14 @@ void WebIntentPickerController::OnServiceChosen(const GURL& url,
       break;
 
     case WebIntentPickerModel::DISPOSITION_WINDOW: {
-      Browser* browser = browser::FindBrowserWithWebContents(
-          tab_contents_->web_contents());
+      int index = TabStripModel::kNoTab;
+      Browser* browser = browser::FindBrowserForController(
+          &tab_contents_->web_contents()->GetController(), &index);
       TabContents* contents = chrome::TabContentsFactory(
           tab_contents_->profile(),
           tab_util::GetSiteInstanceForNewTab(
               tab_contents_->profile(), url),
-          MSG_ROUTING_NONE, NULL, NULL);
+          MSG_ROUTING_NONE, NULL);
 
       // Let the controller for the target TabContents know that it is hosting a
       // web intents service.
@@ -382,7 +383,7 @@ void WebIntentPickerController::OnSuggestionsLinkClicked() {
       browser::FindBrowserWithWebContents(tab_contents_->web_contents());
   GURL query_url = extension_urls::GetWebstoreIntentQueryURL(
       UTF16ToUTF8(picker_model_->action()),
-      UTF16ToUTF8(picker_model_->mimetype()));
+      UTF16ToUTF8(picker_model_->type()));
   chrome::NavigateParams params(browser, query_url,
                                 content::PAGE_TRANSITION_AUTO_BOOKMARK);
   params.disposition = NEW_FOREGROUND_TAB;
@@ -417,16 +418,40 @@ void WebIntentPickerController::OnClosing() {
 }
 
 void WebIntentPickerController::OnExtensionInstallSuccess(
-    const std::string& id) {
-  picker_->OnExtensionInstallSuccess(id);
-  pending_async_count_++;
-  GetWebIntentsRegistry(tab_contents_)->GetIntentServicesForExtensionFilter(
-      picker_model_->action(),
-      picker_model_->mimetype(),
-      id,
+    const std::string& extension_id) {
+  // OnExtensionInstallSuccess is called via NotificationService::Notify before
+  // the extension is added to the ExtensionService. Dispatch via PostTask to
+  // allow ExtensionService to update.
+  MessageLoop::current()->PostTask(
+      FROM_HERE,
       base::Bind(
-          &WebIntentPickerController::OnExtensionInstallServiceAvailable,
-          weak_ptr_factory_.GetWeakPtr()));
+          &WebIntentPickerController::DispatchToInstalledExtension,
+          base::Unretained(this),
+          extension_id));
+}
+
+void WebIntentPickerController::DispatchToInstalledExtension(
+    const std::string& extension_id) {
+  picker_->OnExtensionInstallSuccess(extension_id);
+  WebIntentsRegistry::IntentServiceList services;
+  GetWebIntentsRegistry(tab_contents_)->GetIntentServicesForExtensionFilter(
+      picker_model_->action(), picker_model_->type(),
+      extension_id,
+      &services);
+
+  // Extension must be registered with registry by now.
+  DCHECK(services.size() > 0);
+
+  // TODO(binji): We're going to need to disambiguate if there are multiple
+  // services. For now, just choose the first.
+  const webkit_glue::WebIntentServiceData& service_data = services[0];
+
+  picker_model_->AddInstalledService(
+      service_data.title, service_data.service_url,
+      ConvertDisposition(service_data.disposition));
+  OnServiceChosen(
+      service_data.service_url,
+      ConvertDisposition(service_data.disposition));
   AsyncOperationFinished();
 }
 
@@ -443,10 +468,10 @@ void WebIntentPickerController::OnSendReturnMessage(
 
   if (service_tab_ &&
       reply_type != webkit_glue::WEB_INTENT_SERVICE_CONTENTS_CLOSED) {
-    Browser* browser = browser::FindBrowserWithWebContents(service_tab_);
+    int index = TabStripModel::kNoTab;
+    Browser* browser = browser::FindBrowserForController(
+        &service_tab_->GetController(), &index);
     if (browser) {
-      int index = browser->tab_strip_model()->GetIndexOfWebContents(
-          service_tab_);
       browser->tab_strip_model()->CloseTabContentsAt(
           index, TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
 
@@ -465,25 +490,31 @@ void WebIntentPickerController::OnSendReturnMessage(
   intents_dispatcher_ = NULL;
 }
 
+void WebIntentPickerController::AddServiceToModel(
+    const webkit_glue::WebIntentServiceData& service) {
+  FaviconService* favicon_service = GetFaviconService(tab_contents_);
+
+  picker_model_->AddInstalledService(
+      service.title,
+      service.service_url,
+      ConvertDisposition(service.disposition));
+
+  pending_async_count_++;
+  FaviconService::Handle handle = favicon_service->GetFaviconForURL(
+      service.service_url,
+      history::FAVICON,
+      &favicon_consumer_,
+      base::Bind(
+          &WebIntentPickerController::OnFaviconDataAvailable,
+          weak_ptr_factory_.GetWeakPtr()));
+  favicon_consumer_.SetClientData(
+      favicon_service, handle, picker_model_->GetInstalledServiceCount() - 1);
+}
+
 void WebIntentPickerController::OnWebIntentServicesAvailable(
     const std::vector<webkit_glue::WebIntentServiceData>& services) {
-  FaviconService* favicon_service = GetFaviconService(tab_contents_);
-  for (size_t i = 0; i < services.size(); ++i) {
-    picker_model_->AddInstalledService(
-        services[i].title,
-        services[i].service_url,
-        ConvertDisposition(services[i].disposition));
-
-    pending_async_count_++;
-    FaviconService::Handle handle = favicon_service->GetFaviconForURL(
-        services[i].service_url,
-        history::FAVICON,
-        &favicon_consumer_,
-        base::Bind(
-            &WebIntentPickerController::OnFaviconDataAvailable,
-            weak_ptr_factory_.GetWeakPtr()));
-    favicon_consumer_.SetClientData(favicon_service, handle, i);
-  }
+  for (size_t i = 0; i < services.size(); ++i)
+    AddServiceToModel(services[i]);
 
   RegistryCallsCompleted();
   AsyncOperationFinished();
@@ -497,23 +528,7 @@ void WebIntentPickerController::WebIntentServicesForExplicitIntent(
     if (services[i].service_url != intents_dispatcher_->GetIntent().service)
       continue;
 
-    picker_model_->AddInstalledService(
-        services[i].title,
-        services[i].service_url,
-        ConvertDisposition(services[i].disposition));
-
-    pending_async_count_++;
-    FaviconService* favicon_service = GetFaviconService(tab_contents_);
-    FaviconService::Handle handle = favicon_service->GetFaviconForURL(
-        services[i].service_url,
-        history::FAVICON,
-        &favicon_consumer_,
-        base::Bind(
-            &WebIntentPickerController::OnFaviconDataAvailable,
-            weak_ptr_factory_.GetWeakPtr()));
-    favicon_consumer_.SetClientData(
-        favicon_service, handle,
-        picker_model_->GetInstalledServiceCount() - 1);
+    AddServiceToModel(services[i]);
 
     if (services[i].disposition ==
         webkit_glue::WebIntentServiceData::DISPOSITION_INLINE)
@@ -738,22 +753,6 @@ void WebIntentPickerController::SourceDispatcherReplied(
 
 bool WebIntentPickerController::ShowLocationBarPickerTool() {
   return window_disposition_source_ || source_intents_dispatcher_;
-}
-
-void WebIntentPickerController::OnExtensionInstallServiceAvailable(
-    const std::vector<webkit_glue::WebIntentServiceData>& services) {
-  DCHECK(services.size() > 0);
-
-  // TODO(binji): We're going to need to disambiguate if there are multiple
-  // services. For now, just choose the first.
-  const webkit_glue::WebIntentServiceData& service_data = services[0];
-  picker_model_->AddInstalledService(
-      service_data.title, service_data.service_url,
-      ConvertDisposition(service_data.disposition));
-  OnServiceChosen(
-      service_data.service_url,
-      ConvertDisposition(service_data.disposition));
-  AsyncOperationFinished();
 }
 
 void WebIntentPickerController::AsyncOperationFinished() {

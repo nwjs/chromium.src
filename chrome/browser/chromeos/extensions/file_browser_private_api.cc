@@ -11,7 +11,6 @@
 #include "base/logging.h"
 #include "base/memory/scoped_vector.h"
 #include "base/memory/singleton.h"
-#include "base/memory/weak_ptr.h"
 #include "base/string_split.h"
 #include "base/stringprintf.h"
 #include "base/time.h"
@@ -39,6 +38,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
+#include "chrome/common/chrome_version_info.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/file_browser_handler.h"
@@ -109,15 +109,10 @@ const DiskMountManager::Disk* GetVolumeAsDisk(const std::string& mount_path) {
   if (mount_point_it == disk_mount_manager->mount_points().end())
     return NULL;
 
-  DiskMountManager::DiskMap::const_iterator disk_it =
-      disk_mount_manager->disks().find(mount_point_it->second.source_path);
+  const DiskMountManager::Disk* disk = disk_mount_manager->FindDiskBySourcePath(
+      mount_point_it->second.source_path);
 
-  if (disk_it == disk_mount_manager->disks().end() ||
-      disk_it->second->is_hidden()) {
-    return NULL;
-  }
-
-  return disk_it->second;
+  return (disk && disk->is_hidden()) ? NULL : disk;
 }
 
 base::DictionaryValue* CreateValueFromDisk(
@@ -345,6 +340,7 @@ void CreateDriveTasks(
     if (!best_icon.is_empty()) {
       task->SetString("iconUrl", best_icon.spec());
     }
+    task->SetBoolean("driveApp", true);
     result_list->Append(task);
   }
 }
@@ -701,6 +697,7 @@ bool GetFileTasksFileBrowserFunction::RunImpl() {
                                         ExtensionIconSet::MATCH_BIGGER,
                                         false, NULL);     // grayscale
     task->SetString("iconUrl", icon.spec());
+    task->SetBoolean("driveApp", false);
     result_list->Append(task);
   }
 
@@ -1089,13 +1086,15 @@ bool AddMountFunction::RunImpl() {
       break;
     }
     case chromeos::MOUNT_TYPE_GDATA: {
-      gdata::GDataSystemService* system_service =
-          gdata::GDataSystemServiceFactory::GetForProfile(profile_);
-      if (system_service) {
-        system_service->docs_service()->Authenticate(
-            base::Bind(&AddMountFunction::OnGDataAuthentication,
-                       this));
-      }
+      const bool success = true;
+      // Pass back the gdata mount point path as source path.
+      const std::string& gdata_path =
+          gdata::util::GetGDataMountPointPathAsString();
+      SetResult(Value::CreateStringValue(gdata_path));
+      FileBrowserEventRouterFactory::GetForProfile(profile_)->
+          MountDrive(base::Bind(&AddMountFunction::SendResponse,
+                                this,
+                                success));
       break;
     }
     default: {
@@ -1112,33 +1111,6 @@ bool AddMountFunction::RunImpl() {
   }
 
   return true;
-}
-
-void AddMountFunction::RaiseGDataMountEvent(gdata::GDataErrorCode error) {
-  chromeos::MountError error_code = chromeos::MOUNT_ERROR_NONE;
-  // For the file manager to work offline, GDATA_NO_CONNECTION is allowed.
-  if (error == gdata::HTTP_SUCCESS || error == gdata::GDATA_NO_CONNECTION) {
-    error_code = chromeos::MOUNT_ERROR_NONE;
-  } else {
-    error_code = chromeos::MOUNT_ERROR_NOT_AUTHENTICATED;
-  }
-  // Pass back the gdata mount point path as source path.
-  const std::string& gdata_path = gdata::util::GetGDataMountPointPathAsString();
-  SetResult(Value::CreateStringValue(gdata_path));
-  DiskMountManager::MountPointInfo mount_info(
-      gdata_path,
-      gdata_path,
-      chromeos::MOUNT_TYPE_GDATA,
-      chromeos::disks::MOUNT_CONDITION_NONE);
-  // Raise mount event
-  FileBrowserEventRouterFactory::GetForProfile(profile_)->
-      MountCompleted(DiskMountManager::MOUNTING, error_code, mount_info);
-}
-
-void AddMountFunction::OnGDataAuthentication(gdata::GDataErrorCode error,
-                                             const std::string& token) {
-  RaiseGDataMountEvent(error);
-  SendResponse(true);
 }
 
 void AddMountFunction::GetLocalPathsResponseOnUIThread(
@@ -1574,11 +1546,23 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, COPY_BUTTON_LABEL);
   SET_STRING(IDS_FILE_BROWSER, CUT_BUTTON_LABEL);
 
-  SET_STRING(IDS_FILE_BROWSER, PASTE_ITEMS_REMAINING);
-  SET_STRING(IDS_FILE_BROWSER, PASTE_CANCELLED);
-  SET_STRING(IDS_FILE_BROWSER, PASTE_TARGET_EXISTS_ERROR);
-  SET_STRING(IDS_FILE_BROWSER, PASTE_FILESYSTEM_ERROR);
-  SET_STRING(IDS_FILE_BROWSER, PASTE_UNEXPECTED_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, TRANSFER_ITEMS_REMAINING);
+  SET_STRING(IDS_FILE_BROWSER, TRANSFER_CANCELLED);
+  SET_STRING(IDS_FILE_BROWSER, TRANSFER_TARGET_EXISTS_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, TRANSFER_FILESYSTEM_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, TRANSFER_UNEXPECTED_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, COPY_FILE_NAME);
+  SET_STRING(IDS_FILE_BROWSER, COPY_ITEMS_REMAINING);
+  SET_STRING(IDS_FILE_BROWSER, COPY_CANCELLED);
+  SET_STRING(IDS_FILE_BROWSER, COPY_TARGET_EXISTS_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, COPY_FILESYSTEM_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, COPY_UNEXPECTED_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, MOVE_FILE_NAME);
+  SET_STRING(IDS_FILE_BROWSER, MOVE_ITEMS_REMAINING);
+  SET_STRING(IDS_FILE_BROWSER, MOVE_CANCELLED);
+  SET_STRING(IDS_FILE_BROWSER, MOVE_TARGET_EXISTS_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, MOVE_FILESYSTEM_ERROR);
+  SET_STRING(IDS_FILE_BROWSER, MOVE_UNEXPECTED_ERROR);
 
   SET_STRING(IDS_FILE_BROWSER, CANCEL_LABEL);
   SET_STRING(IDS_FILE_BROWSER, OPEN_LABEL);
@@ -1598,10 +1582,13 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, GDATA_MENU_HELP);
   SET_STRING(IDS_FILE_BROWSER, GDATA_SHOW_HOSTED_FILES_OPTION);
   SET_STRING(IDS_FILE_BROWSER, GDATA_MOBILE_CONNECTION_OPTION);
+  SET_STRING(IDS_FILE_BROWSER, GDATA_CLEAR_LOCAL_CACHE);
   SET_STRING(IDS_FILE_BROWSER, GDATA_SPACE_AVAILABLE);
+  SET_STRING(IDS_FILE_BROWSER, GDATA_SPACE_AVAILABLE_LONG);
   SET_STRING(IDS_FILE_BROWSER, GDATA_WAITING_FOR_SPACE_INFO);
   SET_STRING(IDS_FILE_BROWSER, GDATA_FAILED_SPACE_INFO);
   SET_STRING(IDS_FILE_BROWSER, GDATA_BUY_MORE_SPACE);
+  SET_STRING(IDS_FILE_BROWSER, GDATA_BUY_MORE_SPACE_LINK);
 
   SET_STRING(IDS_FILE_BROWSER, SELECT_FOLDER_TITLE);
   SET_STRING(IDS_FILE_BROWSER, SELECT_OPEN_FILE_TITLE);
@@ -1742,6 +1729,9 @@ bool FileDialogStringsFunction::RunImpl() {
   if (!provider->GetMachineStatistic(kMachineInfoBoard, &board))
     board = "unknown";
   dict->SetString(kMachineInfoBoard, board);
+
+  dict->SetString("BROWSER_VERSION_MODIFIER",
+                  chrome::VersionInfo::GetVersionStringModifier());
 
   return true;
 }
@@ -2073,7 +2063,7 @@ void GetGDataFilesFunction::GetFileOrSendResponse() {
   system_service->file_system()->GetFileByPath(
       gdata_path,
       base::Bind(&GetGDataFilesFunction::OnFileReady, this),
-      gdata::GetDownloadDataCallback());
+      gdata::GetContentCallback());
 }
 
 
@@ -2321,8 +2311,15 @@ bool SetGDataPreferencesFunction::RunImpl() {
   return true;
 }
 
+SearchDriveFunction::SearchDriveFunction() {}
+
+SearchDriveFunction::~SearchDriveFunction() {}
+
 bool SearchDriveFunction::RunImpl() {
   if (!args_->GetString(0, &query_))
+    return false;
+
+  if (!args_->GetString(1, &next_feed_))
     return false;
 
   BrowserContext::GetFileSystemContext(profile())->OpenFileSystem(
@@ -2351,12 +2348,13 @@ void SearchDriveFunction::OnFileSystemOpened(
   }
 
   system_service->file_system()->Search(
-      query_,
+      query_, GURL(next_feed_),
       base::Bind(&SearchDriveFunction::OnSearch, this));
 }
 
 void SearchDriveFunction::OnSearch(
     gdata::GDataFileError error,
+    const GURL& next_feed,
     scoped_ptr<std::vector<gdata::SearchResultInfo> > results) {
   if (error != gdata::GDATA_FILE_OK) {
     SendResponse(false);
@@ -2377,8 +2375,27 @@ void SearchDriveFunction::OnSearch(
     entries->Append(entry);
   }
 
-  SetResult(entries);
+  base::DictionaryValue* result = new DictionaryValue();
+  result->Set("entries", entries);
+  result->SetString("nextFeed", next_feed.spec());
+
+  SetResult(result);
   SendResponse(true);
+}
+
+bool ClearDriveCacheFunction::RunImpl() {
+  gdata::GDataSystemService* system_service =
+      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  // |system_service| is NULL if incognito window / guest login.
+  if (!system_service || !system_service->file_system())
+    return false;
+
+  // TODO(yoshiki): Receive a callback from JS-side and pass it to
+  // ClearCacheAndRemountFileSystem(). http://crbug.com/140511
+  system_service->ClearCacheAndRemountFileSystem(base::Callback<void(bool)>());
+
+  SendResponse(true);
+  return true;
 }
 
 bool GetNetworkConnectionStateFunction::RunImpl() {

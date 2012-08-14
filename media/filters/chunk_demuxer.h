@@ -44,10 +44,10 @@ class MEDIA_EXPORT ChunkDemuxer : public Demuxer {
   virtual scoped_refptr<DemuxerStream> GetStream(
       DemuxerStream::Type type) OVERRIDE;
   virtual base::TimeDelta GetStartTime() const OVERRIDE;
-  virtual int GetBitrate() OVERRIDE;
 
   // Methods used by an external object to control this demuxer.
   void StartWaitingForSeek();
+  void CancelPendingSeek();
 
   // Registers a new |id| to use for AppendData() calls. |type| indicates
   // the MIME type for the data that we intend to append for this ID.

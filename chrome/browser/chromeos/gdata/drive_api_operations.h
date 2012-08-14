@@ -19,7 +19,6 @@ namespace gdata {
 class GetAboutOperation : public GetDataOperation {
  public:
   GetAboutOperation(GDataOperationRegistry* registry,
-                    Profile* profile,
                     const GetDataCallback& callback);
   virtual ~GetAboutOperation();
 
@@ -37,7 +36,6 @@ class GetAboutOperation : public GetDataOperation {
 class GetApplistOperation : public GetDataOperation {
  public:
   GetApplistOperation(GDataOperationRegistry* registry,
-                      Profile* profile,
                       const GetDataCallback& callback);
   virtual ~GetApplistOperation();
 
@@ -47,6 +45,33 @@ class GetApplistOperation : public GetDataOperation {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(GetApplistOperation);
+};
+
+//============================ GetChangelistOperation ==========================
+
+// This class performs the operation for fetching changelist.
+class GetChangelistOperation : public GetDataOperation {
+ public:
+  // |start_changestamp| specifies the starting point of change list or 0 if
+  // all changes are necessary.
+  // |url| specifies URL for document feed fetching operation. If empty URL is
+  // passed, the default URL is used and returns the first page of the result.
+  // When non-first page result is requested, |url| should be specified.
+  GetChangelistOperation(GDataOperationRegistry* registry,
+                         const GURL& url,
+                         int64 start_changestamp,
+                         const GetDataCallback& callback);
+  virtual ~GetChangelistOperation();
+
+ protected:
+  // Overridden from GetDataOperation.
+  virtual GURL GetURL() const OVERRIDE;
+
+ private:
+  GURL url_;
+  int64 start_changestamp_;
+
+  DISALLOW_COPY_AND_ASSIGN(GetChangelistOperation);
 };
 
 }  // namespace gdata

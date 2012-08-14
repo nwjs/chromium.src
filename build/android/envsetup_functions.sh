@@ -146,11 +146,10 @@ common_gyp_vars() {
 #  > make
 ################################################################################
 sdk_build_init() {
+  # If ANDROID_NDK_ROOT is set when envsetup is run, use the ndk pointed to by
+  # the environment variable.  Otherwise, use the default ndk from the tree.
   if [ ! -d "${ANDROID_NDK_ROOT}" ]; then
-    echo "ANDROID_NDK_ROOT must be set to the path of Android NDK." >& 2
-    echo "which could be installed by" >& 2
-    echo "<chromium_tree>/src/build/install-build-deps-android-sdk.sh" >& 2
-    return 1
+    export ANDROID_NDK_ROOT="${CHROME_SRC}/third_party/android_tools/ndk/"
   fi
 
   # If ANDROID_SDK_ROOT is set when envsetup is run, use the sdk pointed to by
@@ -165,8 +164,6 @@ sdk_build_init() {
   # Set default target.
   export TARGET_PRODUCT="${TARGET_PRODUCT:-trygon}"
 
-  # Android sdk platform version to use
-  export ANDROID_SDK_VERSION=15
   # Unset toolchain so that it can be set based on TARGET_PRODUCT.
   # This makes it easy to switch between architectures.
   unset ANDROID_TOOLCHAIN
@@ -225,9 +222,6 @@ non_sdk_build_init() {
 
   # We export "ANDROID_NDK_ROOT" for building Chromium for Android by NDK.
   export ANDROID_NDK_ROOT=${ANDROID_BUILD_TOP}/prebuilts/ndk/android-ndk-r7
-
-  # Android sdk platform version to use
-  export ANDROID_SDK_VERSION=15
 
   # We export "ANDROID_SDK_ROOT" for building Java source with the SDK.
   export ANDROID_SDK_ROOT=${ANDROID_BUILD_TOP}/prebuilts/sdk/\

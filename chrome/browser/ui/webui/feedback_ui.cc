@@ -188,8 +188,9 @@ void ShowFeedbackPage(Browser* browser,
   native_window = browser->window()->GetNativeWindow();
   snapshot_bounds = gfx::Rect(browser->window()->GetBounds().size());
 #endif
-  bool success = chrome::GrabWindowSnapshot(native_window, last_screenshot_png,
-                                            snapshot_bounds);
+  bool success = chrome::GrabWindowSnapshotForUser(native_window,
+                                                   last_screenshot_png,
+                                                   snapshot_bounds);
   FeedbackUtil::SetScreenshotSize(success ? snapshot_bounds : gfx::Rect());
 
   std::string feedback_url = std::string(chrome::kChromeUIFeedbackURL) + "?" +
@@ -474,6 +475,16 @@ void FeedbackHandler::HandleGetDialogDefaults(const ListValue*) {
   // User e-mail
   std::string user_email = GetUserEmail();
   dialog_defaults.SetString("userEmail", user_email);
+
+  // Set email checkbox to checked by default for cros, unchecked for Chrome.
+  dialog_defaults.SetBoolean(
+      "emailCheckboxDefault",
+#if defined(OS_CHROMEOS)
+      true);
+#else
+      false);
+#endif
+
 
 #if defined(OS_CHROMEOS)
   // Trigger the request for system information here.

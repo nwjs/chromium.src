@@ -84,7 +84,7 @@ void TempFile::Open(const pp::CompletionCallback& cb) {
   write_wrapper_.reset(
       plugin_->wrapper_factory()->MakeFileDescQuota(fd, O_RDWR, identifier_));
   read_wrapper_.reset(
-      plugin_->wrapper_factory()->MakeFileDesc(fd, O_RDONLY));
+      plugin_->wrapper_factory()->MakeFileDesc(read_fd, O_RDONLY));
   core->CallOnMainThread(0, cb, PP_OK);
 }
 

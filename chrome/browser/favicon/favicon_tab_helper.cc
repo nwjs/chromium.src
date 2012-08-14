@@ -6,6 +6,7 @@
 
 #include "chrome/browser/favicon/favicon_handler.h"
 #include "chrome/browser/favicon/favicon_util.h"
+#include "chrome/browser/favicon/select_favicon_frames.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -24,6 +25,8 @@
 #include "content/public/browser/web_ui.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_rep.h"
 
 using content::FaviconStatus;
 using content::NavigationController;
@@ -49,18 +52,18 @@ void FaviconTabHelper::FetchFavicon(const GURL& url) {
     touch_icon_handler_->FetchFavicon(url);
 }
 
-SkBitmap FaviconTabHelper::GetFavicon() const {
+gfx::Image FaviconTabHelper::GetFavicon() const {
   // Like GetTitle(), we also want to use the favicon for the last committed
   // entry rather than a pending navigation entry.
   const NavigationController& controller = web_contents()->GetController();
   NavigationEntry* entry = controller.GetTransientEntry();
   if (entry)
-    return entry->GetFavicon().bitmap;
+    return entry->GetFavicon().image;
 
   entry = controller.GetLastCommittedEntry();
   if (entry)
-    return entry->GetFavicon().bitmap;
-  return SkBitmap();
+    return entry->GetFavicon().image;
+  return gfx::Image();
 }
 
 bool FaviconTabHelper::FaviconIsValid() const {
@@ -107,11 +110,13 @@ void FaviconTabHelper::SaveFavicon() {
     return;
   const FaviconStatus& favicon(entry->GetFavicon());
   if (!favicon.valid || favicon.url.is_empty() ||
-      favicon.bitmap.empty()) {
+      favicon.image.IsEmpty()) {
     return;
   }
   std::vector<unsigned char> image_data;
-  gfx::PNGCodec::EncodeBGRASkBitmap(favicon.bitmap, false, &image_data);
+  // TODO: Save all representations.
+  gfx::PNGCodec::EncodeBGRASkBitmap(
+      favicon.image.AsBitmap(), false, &image_data);
   service->SetFavicon(
       entry->GetURL(), favicon.url, image_data, history::FAVICON);
 }
@@ -184,11 +189,22 @@ bool FaviconTabHelper::OnMessageReceived(const IPC::Message& message) {
   return message_handled;
 }
 
-void FaviconTabHelper::OnDidDownloadFavicon(int id,
-                                            const GURL& image_url,
-                                            bool errored,
-                                            const SkBitmap& image) {
-  gfx::Image favicon(image);
+void FaviconTabHelper::OnDidDownloadFavicon(
+    int id,
+    const GURL& image_url,
+    bool errored,
+    int requested_size,
+    const std::vector<SkBitmap>& bitmaps) {
+  // TODO: Possibly do bitmap selection in FaviconHandler, so that it can score
+  // favicons better.
+  std::vector<ui::ScaleFactor> scale_factors;
+#if defined(OS_MACOSX)
+  scale_factors = ui::GetSupportedScaleFactors();
+#else
+  scale_factors.push_back(ui::SCALE_FACTOR_100P);  // TODO: Aura?
+#endif
+  gfx::Image favicon(
+      SelectFaviconFrames(bitmaps, scale_factors, requested_size));
   favicon_handler_->OnDidDownloadFavicon(id, image_url, errored, favicon);
   if (touch_icon_handler_.get())
     touch_icon_handler_->OnDidDownloadFavicon(id, image_url, errored, favicon);

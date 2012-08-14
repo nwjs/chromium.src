@@ -24,6 +24,8 @@
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
+#include "chrome/browser/api/infobars/link_infobar_delegate.h"
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/autocomplete/autocomplete_result.h"
@@ -91,8 +93,6 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sync/profile_sync_service.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
-#include "chrome/browser/tab_contents/link_infobar_delegate.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/translate/translate_infobar_delegate.h"
@@ -404,35 +404,13 @@ bool TestingAutomationProvider::OnMessageReceived(
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_OpenNewBrowserWindowOfType,
                                     OpenNewBrowserWindowOfType)
     IPC_MESSAGE_HANDLER(AutomationMsg_WindowForBrowser, GetWindowForBrowser)
-    IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_WaitForTabToBeRestored,
-                                    WaitForTabToBeRestored)
-    IPC_MESSAGE_HANDLER(AutomationMsg_GetSecurityState, GetSecurityState)
-    IPC_MESSAGE_HANDLER(AutomationMsg_GetPageType, GetPageType)
     IPC_MESSAGE_HANDLER(AutomationMsg_GetMetricEventDuration,
                         GetMetricEventDuration)
-    IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_ActionOnSSLBlockingPage,
-                                    ActionOnSSLBlockingPage)
     IPC_MESSAGE_HANDLER(AutomationMsg_BringBrowserToFront, BringBrowserToFront)
     IPC_MESSAGE_HANDLER(AutomationMsg_FindWindowVisibility,
                         GetFindWindowVisibility)
-    IPC_MESSAGE_HANDLER(AutomationMsg_BookmarkBarVisibility,
-                        GetBookmarkBarVisibility)
-    IPC_MESSAGE_HANDLER(AutomationMsg_GetBookmarksAsJSON,
-                        GetBookmarksAsJSON)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(AutomationMsg_WaitForBookmarkModelToLoad,
                                     WaitForBookmarkModelToLoad)
-    IPC_MESSAGE_HANDLER(AutomationMsg_AddBookmarkGroup,
-                        AddBookmarkGroup)
-    IPC_MESSAGE_HANDLER(AutomationMsg_AddBookmarkURL,
-                        AddBookmarkURL)
-    IPC_MESSAGE_HANDLER(AutomationMsg_ReparentBookmark,
-                        ReparentBookmark)
-    IPC_MESSAGE_HANDLER(AutomationMsg_SetBookmarkTitle,
-                        SetBookmarkTitle)
-    IPC_MESSAGE_HANDLER(AutomationMsg_SetBookmarkURL,
-                        SetBookmarkURL)
-    IPC_MESSAGE_HANDLER(AutomationMsg_RemoveBookmark,
-                        RemoveBookmark)
     IPC_MESSAGE_HANDLER_DELAY_REPLY(
         AutomationMsg_WaitForBrowserWindowCountToBecome,
         WaitForBrowserWindowCountToBecome)
@@ -547,8 +525,8 @@ void TestingAutomationProvider::CloseTab(int tab_handle,
                                          IPC::Message* reply_message) {
   if (tab_tracker_->ContainsHandle(tab_handle)) {
     NavigationController* controller = tab_tracker_->GetResource(tab_handle);
-    Browser* browser = browser::FindBrowserWithWebContents(
-        controller->GetWebContents());
+    int index;
+    Browser* browser = browser::FindBrowserForController(controller, &index);
     DCHECK(browser);
     new TabClosedNotificationObserver(this, wait_until_closed, reply_message,
                                       false);
@@ -1066,8 +1044,7 @@ void TestingAutomationProvider::GetTabIndex(int handle, int* tabstrip_index) {
 
   if (tab_tracker_->ContainsHandle(handle)) {
     NavigationController* tab = tab_tracker_->GetResource(handle);
-    Browser* browser = browser::FindBrowserWithWebContents(
-        tab->GetWebContents());
+    Browser* browser = browser::FindBrowserForController(tab, NULL);
     *tabstrip_index = chrome::GetIndexOfTab(browser, tab->GetWebContents());
   }
 }
@@ -1166,10 +1143,10 @@ void TestingAutomationProvider::OpenNewBrowserWindowOfType(
 void TestingAutomationProvider::OpenNewBrowserWindow(
     base::DictionaryValue* args,
     IPC::Message* reply_message) {
-  AutomationJSONReply reply(this, reply_message);
   bool show;
   if (!args->GetBoolean("show", &show)) {
-    reply.SendError("'show' missing or invalid.");
+    AutomationJSONReply(this, reply_message)
+        .SendError("'show' missing or invalid.");
     return;
   }
   new BrowserOpenedNotificationObserver(this, reply_message, true);
@@ -1247,98 +1224,11 @@ void TestingAutomationProvider::GetWindowForBrowser(int browser_handle,
   }
 }
 
-void TestingAutomationProvider::WaitForTabToBeRestored(
-    int tab_handle,
-    IPC::Message* reply_message) {
-  if (tab_tracker_->ContainsHandle(tab_handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(tab_handle);
-    restore_tracker_.reset(
-        new NavigationControllerRestoredObserver(this, tab, reply_message));
-  } else {
-    AutomationMsg_WaitForTabToBeRestored::WriteReplyParams(
-        reply_message, false);
-    Send(reply_message);
-  }
-}
-
-void TestingAutomationProvider::GetSecurityState(
-    int handle,
-    bool* success,
-    content::SecurityStyle* security_style,
-    net::CertStatus* ssl_cert_status,
-    int* insecure_content_status) {
-  if (tab_tracker_->ContainsHandle(handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(handle);
-    NavigationEntry* entry = tab->GetActiveEntry();
-    *success = true;
-    *security_style = entry->GetSSL().security_style;
-    *ssl_cert_status = entry->GetSSL().cert_status;
-    *insecure_content_status = entry->GetSSL().content_status;
-  } else {
-    *success = false;
-    *security_style = content::SECURITY_STYLE_UNKNOWN;
-    *ssl_cert_status = 0;
-    *insecure_content_status = 0;
-  }
-}
-
-void TestingAutomationProvider::GetPageType(
-    int handle,
-    bool* success,
-    content::PageType* page_type) {
-  if (tab_tracker_->ContainsHandle(handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(handle);
-    NavigationEntry* entry = tab->GetActiveEntry();
-    *page_type = entry->GetPageType();
-    *success = true;
-    // In order to return the proper result when an interstitial is shown and
-    // no navigation entry were created for it we need to ask the WebContents.
-    if (*page_type == content::PAGE_TYPE_NORMAL &&
-        tab->GetWebContents()->ShowingInterstitialPage())
-      *page_type = content::PAGE_TYPE_INTERSTITIAL;
-  } else {
-    *success = false;
-    *page_type = content::PAGE_TYPE_NORMAL;
-  }
-}
-
 void TestingAutomationProvider::GetMetricEventDuration(
     const std::string& event_name,
     int* duration_ms) {
   *duration_ms = metric_event_duration_observer_->GetEventDurationMs(
       event_name);
-}
-
-void TestingAutomationProvider::ActionOnSSLBlockingPage(
-    int handle,
-    bool proceed,
-    IPC::Message* reply_message) {
-  if (tab_tracker_->ContainsHandle(handle)) {
-    NavigationController* tab = tab_tracker_->GetResource(handle);
-    NavigationEntry* entry = tab->GetActiveEntry();
-    if (entry->GetPageType() == content::PAGE_TYPE_INTERSTITIAL) {
-      WebContents* web_contents = tab->GetWebContents();
-      InterstitialPage* ssl_blocking_page =
-          InterstitialPage::GetInterstitialPage(web_contents);
-      if (ssl_blocking_page) {
-        if (proceed) {
-          new NavigationNotificationObserver(tab, this, reply_message, 1,
-                                             false, false);
-          ssl_blocking_page->Proceed();
-          return;
-        }
-        ssl_blocking_page->DontProceed();
-        AutomationMsg_ActionOnSSLBlockingPage::WriteReplyParams(
-            reply_message, AUTOMATION_MSG_NAVIGATION_SUCCESS);
-        Send(reply_message);
-        return;
-      }
-    }
-  }
-  // We failed.
-  AutomationMsg_ActionOnSSLBlockingPage::WriteReplyParams(
-      reply_message, AUTOMATION_MSG_NAVIGATION_ERROR);
-  Send(reply_message);
 }
 
 void TestingAutomationProvider::BringBrowserToFront(int browser_handle,
@@ -1364,44 +1254,53 @@ void TestingAutomationProvider::GetFindWindowVisibility(int handle,
 
 // Bookmark bar visibility is based on the pref (e.g. is it in the toolbar).
 // Presence in the NTP is signalled in |detached|.
-void TestingAutomationProvider::GetBookmarkBarVisibility(int handle,
-                                                         bool* visible,
-                                                         bool* animating,
-                                                         bool* detached) {
-  *visible = false;
-  *animating = false;
-
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      // browser->window()->IsBookmarkBarVisible() is not consistent across
-      // platforms. bookmark_bar_state() also follows prefs::kShowBookmarkBar
-      // and has a shared implementation on all platforms.
-      *visible = browser->bookmark_bar_state() == BookmarkBar::SHOW;
-      *animating = browser->window()->IsBookmarkBarAnimating();
-      *detached = browser->bookmark_bar_state() == BookmarkBar::DETACHED;
-    }
+void TestingAutomationProvider::GetBookmarkBarStatus(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
+  // browser->window()->IsBookmarkBarVisible() is not consistent across
+  // platforms. bookmark_bar_state() also follows prefs::kShowBookmarkBar
+  // and has a shared implementation on all platforms.
+  DictionaryValue dict;
+  dict.SetBoolean("visible",
+                  browser->bookmark_bar_state() == BookmarkBar::SHOW);
+  dict.SetBoolean("animating", browser->window()->IsBookmarkBarAnimating());
+  dict.SetBoolean("detached",
+                  browser->bookmark_bar_state() == BookmarkBar::DETACHED);
+  reply.SendSuccess(&dict);
 }
 
 void TestingAutomationProvider::GetBookmarksAsJSON(
-    int handle,
-    std::string* bookmarks_as_json,
-    bool* success) {
-  *success = false;
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* bookmark_model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!bookmark_model->IsLoaded()) {
-        return;
-      }
-      scoped_refptr<BookmarkStorage> storage(new BookmarkStorage(
-          browser->profile(), bookmark_model));
-      *success = storage->SerializeData(bookmarks_as_json);
-    }
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg, bookmarks_as_json;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
+  BookmarkModel* bookmark_model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  if (!bookmark_model->IsLoaded()) {
+    reply.SendError("Bookmark model is not loaded");
+    return;
+  }
+  scoped_refptr<BookmarkStorage> storage(
+      new BookmarkStorage(browser->profile(), bookmark_model));
+  if (!storage->SerializeData(&bookmarks_as_json)) {
+    reply.SendError("Failed to serialize bookmarks");
+    return;
+  }
+  DictionaryValue dict;
+  dict.SetString("bookmarks_as_json", bookmarks_as_json);
+  reply.SendSuccess(&dict);
 }
 
 void TestingAutomationProvider::WaitForBookmarkModelToLoad(
@@ -1411,173 +1310,239 @@ void TestingAutomationProvider::WaitForBookmarkModelToLoad(
     Browser* browser = browser_tracker_->GetResource(handle);
     BookmarkModel* model =
         BookmarkModelFactory::GetForProfile(browser->profile());
+    AutomationProviderBookmarkModelObserver* observer =
+        new AutomationProviderBookmarkModelObserver(this, reply_message,
+                                                    model, false);
     if (model->IsLoaded()) {
+      observer->ReleaseReply();
+      delete observer;
       AutomationMsg_WaitForBookmarkModelToLoad::WriteReplyParams(
           reply_message, true);
       Send(reply_message);
-    } else {
-      // The observer will delete itself when done.
-      new AutomationProviderBookmarkModelObserver(this, reply_message,
-                                                  model);
     }
   }
 }
 
-void TestingAutomationProvider::AddBookmarkGroup(int handle,
-                                                 int64 parent_id,
-                                                 int index,
-                                                 std::wstring title,
-                                                 bool* success) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!model->IsLoaded()) {
-        *success = false;
-        return;
-      }
-      const BookmarkNode* parent = model->GetNodeByID(parent_id);
-      DCHECK(parent);
-      if (parent) {
-        const BookmarkNode* child = model->AddFolder(parent, index,
-                                                     WideToUTF16Hack(title));
-        DCHECK(child);
-        if (child)
-          *success = true;
-      }
-    }
+void TestingAutomationProvider::WaitForBookmarkModelToLoadJSON(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  Browser* browser;
+  std::string error_msg, bookmarks_as_json;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    AutomationJSONReply(this, reply_message).SendError(error_msg);
+    return;
   }
-  *success = false;
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  AutomationProviderBookmarkModelObserver* observer =
+      new AutomationProviderBookmarkModelObserver(this, reply_message, model,
+                                                  true);
+  if (model->IsLoaded()) {
+    observer->ReleaseReply();
+    delete observer;
+    AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+    return;
+  }
 }
 
-void TestingAutomationProvider::AddBookmarkURL(int handle,
-                                               int64 parent_id,
-                                               int index,
-                                               std::wstring title,
-                                               const GURL& url,
-                                               bool* success) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!model->IsLoaded()) {
-        *success = false;
-        return;
-      }
-      const BookmarkNode* parent = model->GetNodeByID(parent_id);
-      DCHECK(parent);
-      if (parent) {
-        const BookmarkNode* child = model->AddURL(parent, index,
-                                                  WideToUTF16Hack(title), url);
-        DCHECK(child);
-        if (child)
-          *success = true;
-      }
-    }
+void TestingAutomationProvider::AddBookmark(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg, url;
+  string16 title;
+  int parent_id, index;
+  bool folder;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
-  *success = false;
+  if (!args->GetBoolean("is_folder", &folder)) {
+    reply.SendError("'is_folder' missing or invalid");
+    return;
+  }
+  if (!folder && !args->GetString("url", &url)) {
+    reply.SendError("'url' missing or invalid");
+    return;
+  }
+  if (!args->GetInteger("parent_id", &parent_id)) {
+    reply.SendError("'parent_id' missing or invalid");
+    return;
+  }
+  if (!args->GetInteger("index", &index)) {
+    reply.SendError("'index' missing or invalid");
+    return;
+  }
+  if (!args->GetString("title", &title)) {
+    reply.SendError("'title' missing or invalid");
+    return;
+  }
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  if (!model->IsLoaded()) {
+    reply.SendError("Bookmark model is not loaded");
+    return;
+  }
+  const BookmarkNode* parent = model->GetNodeByID(parent_id);
+  if (!parent) {
+    reply.SendError("Failed to get parent bookmark node");
+    return;
+  }
+  const BookmarkNode* child;
+  if (folder) {
+    child = model->AddFolder(parent, index, title);
+  } else {
+    child = model->AddURL(parent, index, title, GURL(url));
+  }
+  if (!child) {
+    reply.SendError("Failed to add bookmark");
+    return;
+  }
+  reply.SendSuccess(NULL);
 }
 
-void TestingAutomationProvider::ReparentBookmark(int handle,
-                                                 int64 id,
-                                                 int64 new_parent_id,
-                                                 int index,
-                                                 bool* success) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!model->IsLoaded()) {
-        *success = false;
-        return;
-      }
-      const BookmarkNode* node = model->GetNodeByID(id);
-      DCHECK(node);
-      const BookmarkNode* new_parent = model->GetNodeByID(new_parent_id);
-      DCHECK(new_parent);
-      if (node && new_parent) {
-        model->Move(node, new_parent, index);
-        *success = true;
-      }
-    }
+void TestingAutomationProvider::ReparentBookmark(DictionaryValue* args,
+                                                 IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  int new_parent_id, id, index;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
-  *success = false;
+  if (!args->GetInteger("id", &id)) {
+    reply.SendError("'id' missing or invalid");
+    return;
+  }
+  if (!args->GetInteger("new_parent_id", &new_parent_id)) {
+    reply.SendError("'new_parent_id' missing or invalid");
+    return;
+  }
+  if (!args->GetInteger("index", &index)) {
+    reply.SendError("'index' missing or invalid");
+    return;
+  }
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  if (!model->IsLoaded()) {
+    reply.SendError("Bookmark model is not loaded");
+    return;
+  }
+  const BookmarkNode* node = model->GetNodeByID(id);
+  const BookmarkNode* new_parent = model->GetNodeByID(new_parent_id);
+  if (!node) {
+    reply.SendError("Failed to get bookmark node");
+    return;
+  }
+  if (!new_parent) {
+    reply.SendError("Failed to get new parent bookmark node");
+    return;
+  }
+  model->Move(node, new_parent, index);
+  reply.SendSuccess(NULL);
 }
 
-void TestingAutomationProvider::SetBookmarkTitle(int handle,
-                                                 int64 id,
-                                                 std::wstring title,
-                                                 bool* success) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!model->IsLoaded()) {
-        *success = false;
-        return;
-      }
-      const BookmarkNode* node = model->GetNodeByID(id);
-      DCHECK(node);
-      if (node) {
-        model->SetTitle(node, WideToUTF16Hack(title));
-        *success = true;
-      }
-    }
+void TestingAutomationProvider::SetBookmarkTitle(DictionaryValue* args,
+                                                 IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  string16 title;
+  int id;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
-  *success = false;
+  if (!args->GetInteger("id", &id)) {
+    reply.SendError("'id' missing or invalid");
+    return;
+  }
+  if (!args->GetString("title", &title)) {
+    reply.SendError("'title' missing or invalid");
+    return;
+  }
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  if (!model->IsLoaded()) {
+    reply.SendError("Bookmark model is not loaded");
+    return;
+  }
+  const BookmarkNode* node = model->GetNodeByID(id);
+  if (!node) {
+    reply.SendError("Failed to get bookmark node");
+    return;
+  }
+  model->SetTitle(node, title);
+  reply.SendSuccess(NULL);
 }
 
-void TestingAutomationProvider::SetBookmarkURL(int handle,
-                                               int64 id,
-                                               const GURL& url,
-                                               bool* success) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!model->IsLoaded()) {
-        *success = false;
-        return;
-      }
-      const BookmarkNode* node = model->GetNodeByID(id);
-      DCHECK(node);
-      if (node) {
-        model->SetURL(node, url);
-        *success = true;
-      }
-    }
+void TestingAutomationProvider::SetBookmarkURL(DictionaryValue* args,
+                                               IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg, url;
+  int id;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
-  *success = false;
+  if (!args->GetInteger("id", &id)) {
+    reply.SendError("'id' missing or invalid");
+    return;
+  }
+  if (!args->GetString("url", &url)) {
+    reply.SendError("'url' missing or invalid");
+    return;
+  }
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  if (!model->IsLoaded()) {
+    reply.SendError("Bookmark model is not loaded");
+    return;
+  }
+  const BookmarkNode* node = model->GetNodeByID(id);
+  if (!node) {
+    reply.SendError("Failed to get bookmark node");
+    return;
+  }
+  model->SetURL(node, GURL(url));
+  reply.SendSuccess(NULL);
 }
 
-void TestingAutomationProvider::RemoveBookmark(int handle,
-                                               int64 id,
-                                               bool* success) {
-  if (browser_tracker_->ContainsHandle(handle)) {
-    Browser* browser = browser_tracker_->GetResource(handle);
-    if (browser) {
-      BookmarkModel* model =
-          BookmarkModelFactory::GetForProfile(browser->profile());
-      if (!model->IsLoaded()) {
-        *success = false;
-        return;
-      }
-      const BookmarkNode* node = model->GetNodeByID(id);
-      DCHECK(node);
-      if (node) {
-        const BookmarkNode* parent = node->parent();
-        DCHECK(parent);
-        model->Remove(parent, parent->GetIndexOf(node));
-        *success = true;
-      }
-    }
+void TestingAutomationProvider::RemoveBookmark(DictionaryValue* args,
+                                               IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  Browser* browser;
+  std::string error_msg;
+  int id;
+  if (!GetBrowserFromJSONArgs(args, &browser, &error_msg)) {
+    reply.SendError(error_msg);
+    return;
   }
-  *success = false;
+  if (!args->GetInteger("id", &id)) {
+    reply.SendError("'id' missing or invalid");
+    return;
+  }
+  BookmarkModel* model =
+      BookmarkModelFactory::GetForProfile(browser->profile());
+  if (!model->IsLoaded()) {
+    reply.SendError("Bookmark model is not loaded");
+    return;
+  }
+  const BookmarkNode* node = model->GetNodeByID(id);
+  if (!node) {
+    reply.SendError("Failed to get bookmark node");
+    return;
+  }
+  const BookmarkNode* parent = node->parent();
+  if (!parent) {
+    reply.SendError("Failed to get parent bookmark node");
+    return;
+  }
+  model->Remove(parent, parent->GetIndexOf(node));
+  reply.SendSuccess(NULL);
 }
 
 void TestingAutomationProvider::WaitForBrowserWindowCountToBecome(
@@ -1706,6 +1671,24 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::DeleteCookieInBrowserContext;
   handler_map_["SetCookieInBrowserContext"] =
       &TestingAutomationProvider::SetCookieInBrowserContext;
+
+  handler_map_["WaitForBookmarkModelToLoad"] =
+      &TestingAutomationProvider::WaitForBookmarkModelToLoadJSON;
+  handler_map_["GetBookmarksAsJSON"] =
+      &TestingAutomationProvider::GetBookmarksAsJSON;
+  handler_map_["GetBookmarkBarStatus"] =
+      &TestingAutomationProvider::GetBookmarkBarStatus;
+  handler_map_["AddBookmark"] =
+      &TestingAutomationProvider::AddBookmark;
+  handler_map_["ReparentBookmark"] =
+      &TestingAutomationProvider::ReparentBookmark;
+  handler_map_["SetBookmarkTitle"] =
+      &TestingAutomationProvider::SetBookmarkTitle;
+  handler_map_["SetBookmarkURL"] =
+      &TestingAutomationProvider::SetBookmarkURL;
+  handler_map_["RemoveBookmark"] =
+      &TestingAutomationProvider::RemoveBookmark;
+
   handler_map_["GetTabIds"] =
       &TestingAutomationProvider::GetTabIds;
   handler_map_["GetViews"] =
@@ -1746,6 +1729,10 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::GetAppModalDialogMessage;
   handler_map_["AcceptOrDismissAppModalDialog"] =
       &TestingAutomationProvider::AcceptOrDismissAppModalDialog;
+  handler_map_["ActionOnSSLBlockingPage"] =
+      &TestingAutomationProvider::ActionOnSSLBlockingPage;
+  handler_map_["GetSecurityState"] =
+      &TestingAutomationProvider::GetSecurityState;
   handler_map_["GetChromeDriverAutomationVersion"] =
       &TestingAutomationProvider::GetChromeDriverAutomationVersion;
   handler_map_["IsPageActionVisible"] =
@@ -2131,7 +2118,8 @@ void TestingAutomationProvider::SendJSONRequest(Browser* browser,
     (this->*handler_map_[command])(dict_value.get(), reply_message);
   // Command has no handler.
   } else {
-    error_string = "Unknown command. Options: ";
+    error_string = StringPrintf("Unknown command '%s'. Options: ",
+                                command.c_str());
     for (std::map<std::string, JsonHandler>::const_iterator it =
          handler_map_.begin(); it != handler_map_.end(); ++it) {
       error_string += it->first + ", ";
@@ -3285,8 +3273,7 @@ void TestingAutomationProvider::OmniboxMovePopupSelection(
     reply.SendError("The specified browser does not have a location bar.");
     return;
   }
-  OmniboxEditModel* model = loc_bar->GetLocationEntry()->model();
-  model->OnUpOrDownKeyPressed(count);
+  loc_bar->GetLocationEntry()->model()->OnUpOrDownKeyPressed(count);
   reply.SendSuccess(NULL);
 }
 
@@ -3763,7 +3750,7 @@ void TestingAutomationProvider::ClearBrowsingData(
   }
 
   BrowsingDataRemover* remover = new BrowsingDataRemover(
-      profile(), string_to_time_period[time_period], base::Time());
+      profile(), string_to_time_period[time_period], base::Time::Now());
 
   remover->AddObserver(
       new AutomationProviderBrowsingDataObserver(this, reply_message));
@@ -4495,6 +4482,61 @@ void TestingAutomationProvider::TriggerBrowserActionById(
   }
 }
 
+void TestingAutomationProvider::ActionOnSSLBlockingPage(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  WebContents* web_contents;
+  bool proceed;
+  std::string error;
+  if (!GetTabFromJSONArgs(args, &web_contents, &error)) {
+    AutomationJSONReply(this, reply_message).SendError(error);
+    return;
+  }
+  if (!args->GetBoolean("proceed", &proceed)) {
+    AutomationJSONReply(this, reply_message).SendError(
+        "'proceed' is missing or invalid");
+    return;
+  }
+  NavigationController& controller = web_contents->GetController();
+  NavigationEntry* entry = controller.GetActiveEntry();
+  if (entry->GetPageType() == content::PAGE_TYPE_INTERSTITIAL) {
+    InterstitialPage* ssl_blocking_page =
+        InterstitialPage::GetInterstitialPage(web_contents);
+    if (ssl_blocking_page) {
+      if (proceed) {
+        new NavigationNotificationObserver(&controller, this, reply_message, 1,
+                                           false, true);
+        ssl_blocking_page->Proceed();
+        return;
+      }
+      ssl_blocking_page->DontProceed();
+      AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+      return;
+    }
+  }
+  AutomationJSONReply(this, reply_message).SendError(error);
+}
+
+void TestingAutomationProvider::GetSecurityState(DictionaryValue* args,
+                                                 IPC::Message* reply_message) {
+  AutomationJSONReply reply(this, reply_message);
+  WebContents* web_contents;
+  std::string error;
+  if (!GetTabFromJSONArgs(args, &web_contents, &error)) {
+    reply.SendError(error);
+    return;
+  }
+  NavigationEntry* entry = web_contents->GetController().GetActiveEntry();
+  DictionaryValue dict;
+  dict.SetInteger("security_style",
+                  static_cast<int>(entry->GetSSL().security_style));
+  dict.SetInteger("ssl_cert_status",
+                  static_cast<int>(entry->GetSSL().cert_status));
+  dict.SetInteger("insecure_content_status",
+                  static_cast<int>(entry->GetSSL().content_status));
+  reply.SendSuccess(&dict);
+}
+
 // Sample json input: { "command": "UpdateExtensionsNow" }
 // Sample json output: {}
 void TestingAutomationProvider::UpdateExtensionsNow(
@@ -5194,8 +5236,8 @@ std::vector<AutofillProfile>
 TestingAutomationProvider::GetAutofillProfilesFromList(
     const ListValue& profiles, std::string* error_message) {
   std::vector<AutofillProfile> autofill_profiles;
-  DictionaryValue* profile_info = NULL;
-  ListValue* current_value = NULL;
+  const DictionaryValue* profile_info = NULL;
+  const ListValue* current_value = NULL;
 
   std::map<AutofillFieldType, std::string> autofill_type_to_string =
       GetAutofillFieldToStringMap();
@@ -5211,7 +5253,7 @@ TestingAutomationProvider::GetAutofillProfilesFromList(
       if (profile_info->HasKey(type_it->second)) {
         if (profile_info->GetList(type_it->second, &current_value)) {
           std::vector<string16> value_list;
-          for (ListValue::iterator list_it = current_value->begin();
+          for (ListValue::const_iterator list_it = current_value->begin();
                list_it != current_value->end(); ++list_it) {
             string16 value;
             if ((*list_it)->GetAsString(&value)) {
@@ -5237,7 +5279,7 @@ TestingAutomationProvider::GetAutofillProfilesFromList(
 std::vector<CreditCard> TestingAutomationProvider::GetCreditCardsFromList(
     const ListValue& cards, std::string* error_message) {
   std::vector<CreditCard> credit_cards;
-  DictionaryValue* card_info = NULL;
+  const DictionaryValue* card_info = NULL;
   string16 current_value;
 
   std::map<AutofillFieldType, std::string> credit_card_type_to_string =
@@ -6095,6 +6137,19 @@ void TestingAutomationProvider::WaitForAllViewsToStopLoading(
       this, reply_message, profile()->GetExtensionProcessManager());
 }
 
+void TestingAutomationProvider::WaitForTabToBeRestored(
+    DictionaryValue* args,
+    IPC::Message* reply_message) {
+  WebContents* web_contents;
+  std::string error;
+  if (!GetTabFromJSONArgs(args, &web_contents, &error)) {
+    AutomationJSONReply(this, reply_message).SendError(error);
+    return;
+  }
+  NavigationController& controller = web_contents->GetController();
+  new NavigationControllerRestoredObserver(this, &controller, reply_message);
+}
+
 void TestingAutomationProvider::GetPolicyDefinitionList(
     DictionaryValue* args,
     IPC::Message* reply_message) {
@@ -6245,9 +6300,13 @@ void TestingAutomationProvider::NavigateToURL(
         .SendError("'navigation_count' missing or invalid");
     return;
   }
-  new NavigationNotificationObserver(
-      &web_contents->GetController(), this, reply_message,
-      navigation_count, false, true);
+  if (navigation_count > 0) {
+    new NavigationNotificationObserver(
+        &web_contents->GetController(), this, reply_message,
+        navigation_count, false, true);
+  } else {
+    AutomationJSONReply(this, reply_message).SendSuccess(NULL);
+  }
   OpenURLParams params(
       GURL(url), content::Referrer(), CURRENT_TAB,
       content::PageTransitionFromInt(
@@ -6946,25 +7005,30 @@ void TestingAutomationProvider::DoesAutomationObjectExist(
 
 void TestingAutomationProvider::CloseTabJSON(
     DictionaryValue* args, IPC::Message* reply_message) {
-  AutomationJSONReply reply(this, reply_message);
   Browser* browser;
   WebContents* tab;
   std::string error;
+  bool wait_until_closed = false;  // ChromeDriver does not use this.
+  args->GetBoolean("wait_until_closed", &wait_until_closed);
   // Close tabs synchronously.
   if (GetBrowserAndTabFromJSONArgs(args, &browser, &tab, &error)) {
+    if (wait_until_closed) {
+      new TabClosedNotificationObserver(this, wait_until_closed, reply_message,
+                                        true);
+    }
     chrome::CloseWebContents(browser, tab);
-    reply.SendSuccess(NULL);
+    if (!wait_until_closed)
+      AutomationJSONReply(this, reply_message).SendSuccess(NULL);
     return;
   }
-
   // Close other types of views asynchronously.
   RenderViewHost* view;
   if (!GetRenderViewFromJSONArgs(args, profile(), &view, &error)) {
-    reply.SendError(error);
+    AutomationJSONReply(this, reply_message).SendError(error);
     return;
   }
   view->ClosePage();
-  reply.SendSuccess(NULL);
+  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
 }
 
 void TestingAutomationProvider::SetViewBounds(

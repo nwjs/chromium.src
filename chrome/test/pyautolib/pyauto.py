@@ -84,6 +84,7 @@ import history_info
 import omnibox_info
 import plugins_info
 import prefs_info
+from pyauto_errors import JavascriptRuntimeError
 from pyauto_errors import JSONInterfaceError
 from pyauto_errors import NTPThumbnailNotShownError
 import pyauto_utils
@@ -208,10 +209,18 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     if self.IsChromeOS():
       self.WaitUntil(lambda: not self.GetNetworkInfo()['offline_mode'])
 
-    if (self.IsChromeOS() and self.ShouldOOBESkipToLogin() and
-        not self.GetLoginInfo()['is_logged_in'] and
-        self.GetOOBEScreenInfo()['screen_name'] != 'login'):
-      self.SkipToLogin()
+    if (self.IsChromeOS() and not self.GetLoginInfo()['is_logged_in'] and
+        self.ShouldOOBESkipToLogin()):
+      if self.GetOOBEScreenInfo()['screen_name'] != 'login':
+        self.SkipToLogin()
+      if self.ShouldAutoLogin():
+        # Login with default creds.
+        sys.path.append('/usr/local')  # to import autotest libs
+        from autotest.cros import constants
+        creds = constants.CREDENTIALS['$default']
+        self.Login(creds[0], creds[1])
+        assert self.GetLoginInfo()['is_logged_in']
+        logging.info('Logged in as %s.' % creds[0])
 
     # If we are connected to any RemoteHosts, create PyAuto
     # instances on the remote sides and set them up too.
@@ -297,6 +306,23 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       True, if the OOBE should be skipped and automation should
             go to the 'Add user' login screen directly
       False, if the OOBE should not be skipped.
+    """
+    assert self.IsChromeOS()
+    return True
+
+  def ShouldAutoLogin(self):
+    """Determine if we should auto-login on ChromeOS at browser startup.
+
+    To be used for tests that expect user to be logged in before running test,
+    without caring which user. ShouldOOBESkipToLogin() should return True
+    for this to take effect.
+
+    Override and return False to not auto login, for tests where login is part
+    of the use case.
+
+    Returns:
+      True, if chrome should auto login after startup.
+      False, otherwise.
     """
     assert self.IsChromeOS()
     return True
@@ -1084,7 +1110,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     """Navigate the given tab to the given URL.
 
     Note that this method also activates the corresponding tab/window if it's
-    not active already. Blocks until page has loaded.
+    not active already. Blocks until |navigation_count| navigations have
+    completed.
 
     Args:
       url: The URL to which to navigate, can be a string or GURL object.
@@ -1108,6 +1135,13 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
         'navigation_count': navigation_count,
     }
     self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def NavigateToURLAsync(self, url, windex=0, tab_index=None):
+    """Initiate a URL navigation.
+
+    A wrapper for NavigateToURL with navigation_count set to 0.
+    """
+    self.NavigateToURL(url, windex, tab_index, 0)
 
   def ApplyAccelerator(self, accelerator, windex=0):
     """Apply the accelerator with the given id.
@@ -1176,6 +1210,30 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     }
     return self._GetResultFromJSONRequest(cmd_dict, windex=None).get('enabled')
 
+  def TabGoForward(self, tab_index=0, windex=0):
+    """Navigate a tab forward in history.
+
+    Equivalent to clicking the Forward button in the UI. Activates the tab as a
+    side effect.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    self.ActivateTab(tab_index, windex)
+    self.RunCommand(IDC_FORWARD, windex)
+
+  def TabGoBack(self, tab_index=0, windex=0):
+    """Navigate a tab backwards in history.
+
+    Equivalent to clicking the Back button in the UI. Activates the tab as a
+    side effect.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    self.ActivateTab(tab_index, windex)
+    self.RunCommand(IDC_BACK, windex)
+
   def ReloadTab(self, tab_index=0, windex=0):
     """Reload the given tab.
 
@@ -1189,12 +1247,50 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     Raises:
       pyauto_errors.JSONInterfaceError if the automation call returns an error.
     """
+    self.ActivateTab(tab_index, windex)
+    self.RunCommand(IDC_RELOAD, windex)
+
+  def CloseTab(self, tab_index=0, windex=0, wait_until_closed=True):
+    """Close the given tab.
+
+    Note: Be careful closing the last tab in a window as it may close the
+        browser.
+
+    Args:
+      tab_index: The index of the tab to reload. Defaults to 0.
+      windex: The index of the browser window to work on. Defaults to the first
+          window.
+      wait_until_closed: Whether to block until the tab finishes closing.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
     cmd_dict = {
-        'command': 'Reload',
+        'command': 'CloseTab',
+        'tab_index': tab_index,
+        'windex': windex,
+        'wait_until_closed': wait_until_closed,
+    }
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def WaitForTabToBeRestored(self, tab_index=0, windex=0, timeout=-1):
+    """Wait for the given tab to be restored.
+
+    Args:
+      tab_index: The index of the tab to reload. Defaults to 0.
+      windex: The index of the browser window to work on. Defaults to the first
+          window.
+      timeout: Timeout in milliseconds.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    cmd_dict = {
+        'command': 'CloseTab',
         'tab_index': tab_index,
         'windex': windex,
     }
-    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None, timeout=timeout)
 
   def ReloadActiveTab(self, windex=0):
     """Reload an active tab.
@@ -1421,6 +1517,28 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     return GURL(str(self.GetTabInfo(self.GetActiveTabIndex(windex),
                                     windex)['url']))
 
+  def ActionOnSSLBlockingPage(self, tab_index=0, windex=0, proceed=True):
+    """Take action on an interstitial page.
+
+    Calling this when an interstitial page is not showing is an error.
+
+    Args:
+      tab_index: Integer index of the tab to activate; defaults to 0.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+      proceed: Whether to proceed to the URL or not.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    cmd_dict = {
+        'command': 'ActionOnSSLBlockingPage',
+        'tab_index': tab_index,
+        'windex': windex,
+        'proceed': proceed,
+    }
+    return self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
   def GetBookmarkModel(self, windex=0):
     """Return the bookmark model as a BookmarkModel object.
 
@@ -1431,6 +1549,299 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     if not bookmarks_as_json:
       raise JSONInterfaceError('Could not resolve browser proxy.')
     return bookmark_model.BookmarkModel(bookmarks_as_json)
+
+  def _GetBookmarksAsJSON(self, windex=0):
+    """Get bookmarks as a JSON dictionary; used by GetBookmarkModel()."""
+    cmd_dict = {
+        'command': 'GetBookmarksAsJSON',
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    return self._GetResultFromJSONRequest(cmd_dict,
+                                          windex=None)['bookmarks_as_json']
+
+  def WaitForBookmarkModelToLoad(self, windex=0):
+    """Gets the status of the bookmark bar as a dictionary.
+
+    Args:
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    cmd_dict = {
+        'command': 'WaitForBookmarkModelToLoad',
+        'windex': windex,
+    }
+    return self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def GetBookmarkBarStatus(self, windex=0):
+    """Gets the status of the bookmark bar as a dictionary.
+
+    Args:
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Returns:
+      A dictionary.
+      Example:
+        { u'visible': True,
+          u'animating': False,
+          u'detached': False, }
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    cmd_dict = {
+        'command': 'GetBookmarkBarStatus',
+        'windex': windex,
+    }
+    return self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def GetBookmarkBarStatus(self, windex=0):
+    """Gets the status of the bookmark bar as a dictionary.
+
+    Args:
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Returns:
+      A dictionary.
+      Example:
+        { u'visible': True,
+          u'animating': False,
+          u'detached': False, }
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    cmd_dict = {
+        'command': 'GetBookmarkBarStatus',
+        'windex': windex,
+    }
+    return self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def GetBookmarkBarStatus(self, windex=0):
+    """Gets the status of the bookmark bar as a dictionary.
+
+    Args:
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Returns:
+      A dictionary.
+      Example:
+        { u'visible': True,
+          u'animating': False,
+          u'detached': False, }
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    cmd_dict = {
+        'command': 'GetBookmarkBarStatus',
+        'windex': windex,
+    }
+    return self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def GetBookmarkBarVisibility(self, windex=0):
+    """Returns the visibility of the bookmark bar.
+
+    Args:
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Returns:
+      True if the bookmark bar is visible, false otherwise.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    return self.GetBookmarkBarStatus(windex)['visible']
+
+  def IsBookmarkBarDetached(self, windex=0):
+    """Returns whether the bookmark bar is detached.
+
+    Args:
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Returns:
+      True if the bookmark bar is detached, false otherwise.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    return self.GetBookmarkBarStatus(windex)['detached']
+
+  def WaitForBookmarkBarVisibilityChange(self, wait_for_open, windex=0):
+    """Waits until the bookmark bar is either visible or not visible.
+
+    Args:
+      wait_for_open: If True, wait until bookmark bar is visible; otherwise wait
+          until bookmark bar is not visible.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    def IsChanged(wait_for_open, windex):
+      status = self.GetBookmarkBarStatus(windex)
+      return status['visible'] == wait_for_open and not status['animating']
+    return self.WaitUntil(lambda: IsChanged(wait_for_open, windex))
+
+  def AddBookmarkGroup(self, parent_id, index, title, windex=0):
+    """Adds a bookmark folder.
+
+    Args:
+      parent_id: The parent bookmark folder.
+      index: The location in the parent's list to insert this bookmark folder.
+      title: The name of the bookmark folder.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Returns:
+      True if the bookmark bar is detached, false otherwise.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    if isinstance(parent_id, basestring):
+      parent_id = int(parent_id)
+    cmd_dict = {
+        'command': 'AddBookmark',
+        'parent_id': parent_id,
+        'index': index,
+        'title': title,
+        'is_folder': True,
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def AddBookmarkURL(self, parent_id, index, title, url, windex=0):
+    """Add a bookmark URL.
+
+    Args:
+      parent_id: The parent bookmark folder.
+      index: The location in the parent's list to insert this bookmark.
+      title: The name of the bookmark.
+      url: The url of the bookmark.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    if isinstance(parent_id, basestring):
+      parent_id = int(parent_id)
+    cmd_dict = {
+        'command': 'AddBookmark',
+        'parent_id': parent_id,
+        'index': index,
+        'title': title,
+        'url': url,
+        'is_folder': False,
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def ReparentBookmark(self, id, new_parent_id, index, windex=0):
+    """Move a bookmark.
+
+    Args:
+      id: The bookmark to move.
+      new_parent_id: The new parent bookmark folder.
+      index: The location in the parent's list to insert this bookmark.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    if isinstance(id, basestring):
+      id = int(id)
+    if isinstance(new_parent_id, basestring):
+      new_parent_id = int(new_parent_id)
+    cmd_dict = {
+        'command': 'ReparentBookmark',
+        'id': id,
+        'new_parent_id': new_parent_id,
+        'index': index,
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def SetBookmarkTitle(self, id, title, windex=0):
+    """Change the title of a bookmark.
+
+    Args:
+      id: The bookmark to rename.
+      title: The new title for the bookmark.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    if isinstance(id, basestring):
+      id = int(id)
+    cmd_dict = {
+        'command': 'SetBookmarkTitle',
+        'id': id,
+        'title': title,
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def SetBookmarkURL(self, id, url, windex=0):
+    """Change the URL of a bookmark.
+
+    Args:
+      id: The bookmark to change.
+      url: The new url for the bookmark.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    if isinstance(id, basestring):
+      id = int(id)
+    cmd_dict = {
+        'command': 'SetBookmarkURL',
+        'id': id,
+        'url': url,
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
+
+  def RemoveBookmark(self, id, windex=0):
+    """Remove a bookmark.
+
+    Args:
+      id: The bookmark to remove.
+      windex: Integer index of the browser window to use; defaults to the first
+          window.
+
+    Raises:
+      pyauto_errors.JSONInterfaceError if the automation call returns an error.
+    """
+    if isinstance(id, basestring):
+      id = int(id)
+    cmd_dict = {
+        'command': 'RemoveBookmark',
+        'id': id,
+        'windex': windex,
+    }
+    self.WaitForBookmarkModelToLoad(windex)
+    self._GetResultFromJSONRequest(cmd_dict, windex=None)
 
   def GetDownloadsInfo(self, windex=0):
     """Return info about downloads.
@@ -2346,6 +2757,28 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       'tab_index': tab_index,
     }
     return self._GetResultFromJSONRequest(cmd_dict, windex=windex)
+
+  def GetSecurityState(self, tab_index=0, windex=0):
+    """Get security details for a given tab.
+
+    Args:
+      tab_index: The tab index, default is 0.
+      window_index: The window index, default is 0.
+
+    Returns:
+      a dictionary.
+      Sample:
+      { "security_style": SECURITY_STYLE_AUTHENTICATED,
+        "ssl_cert_status": 3,  // bitmask of status flags
+        "insecure_content_status": 1,  // bitmask of status flags
+      }
+    """
+    cmd_dict = {  # Prepare command for the json interface
+      'command': 'GetSecurityState',
+      'tab_index': tab_index,
+      'windex': windex,
+    }
+    return self._GetResultFromJSONRequest(cmd_dict, windex=None)
 
   def GetHistoryInfo(self, search_text=''):
     """Return info about browsing history.
@@ -3594,7 +4027,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       raise JSONInterfaceError('Failed to inject DOM mutation observer.')
     if jsreturn != 'success':
       self.RemoveEventObserver(observer_id)
-      raise pyauto_errors.JavascriptRuntimeError(jsreturn)
+      raise JavascriptRuntimeError(jsreturn)
     return observer_id
 
   def WaitForDomNode(self, xpath, attribute='textContent',

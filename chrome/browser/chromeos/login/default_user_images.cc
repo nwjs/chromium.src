@@ -1,4 +1,4 @@
-// Copyright (c) 2011 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,8 +10,10 @@
 #include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace chromeos {
@@ -20,7 +22,7 @@ namespace {
 
 const char kDefaultPathPrefix[] = "default:";
 const char kDefaultUrlPrefix[] = "chrome://theme/IDR_LOGIN_DEFAULT_USER_";
-const char kFirstDefaultUrl[] = "chrome://theme/IDR_LOGIN_DEFAULT_USER";
+const char kZeroDefaultUrl[] = "chrome://theme/IDR_LOGIN_DEFAULT_USER";
 
 const char* kOldDefaultImageNames[] = {
   "default:gray",
@@ -28,6 +30,43 @@ const char* kOldDefaultImageNames[] = {
   "default:blue",
   "default:yellow",
   "default:red",
+};
+
+// IDs of default user image descriptions.
+const int kDefaultImageDescriptions[] = {
+  0,  // No description for deprecated user image 0.
+  0,  // No description for deprecated user image 1.
+  0,  // No description for deprecated user image 2.
+  0,  // No description for deprecated user image 3.
+  0,  // No description for deprecated user image 4.
+  0,  // No description for deprecated user image 5.
+  0,  // No description for deprecated user image 6.
+  0,  // No description for deprecated user image 7.
+  0,  // No description for deprecated user image 8.
+  0,  // No description for deprecated user image 9.
+  0,  // No description for deprecated user image 10.
+  0,  // No description for deprecated user image 11.
+  0,  // No description for deprecated user image 12.
+  0,  // No description for deprecated user image 13.
+  0,  // No description for deprecated user image 14.
+  0,  // No description for deprecated user image 15.
+  0,  // No description for deprecated user image 16.
+  0,  // No description for deprecated user image 17.
+  0,  // No description for deprecated user image 18.
+  IDS_LOGIN_DEFAULT_USER_DESC_19,
+  IDS_LOGIN_DEFAULT_USER_DESC_20,
+  IDS_LOGIN_DEFAULT_USER_DESC_21,
+  IDS_LOGIN_DEFAULT_USER_DESC_22,
+  IDS_LOGIN_DEFAULT_USER_DESC_23,
+  IDS_LOGIN_DEFAULT_USER_DESC_24,
+  IDS_LOGIN_DEFAULT_USER_DESC_25,
+  IDS_LOGIN_DEFAULT_USER_DESC_26,
+  IDS_LOGIN_DEFAULT_USER_DESC_27,
+  IDS_LOGIN_DEFAULT_USER_DESC_28,
+  IDS_LOGIN_DEFAULT_USER_DESC_29,
+  IDS_LOGIN_DEFAULT_USER_DESC_30,
+  IDS_LOGIN_DEFAULT_USER_DESC_31,
+  IDS_LOGIN_DEFAULT_USER_DESC_32,
 };
 
 // Returns a string consisting of the prefix specified and the index of the
@@ -84,12 +123,12 @@ bool IsDefaultImagePath(const std::string& path, int* image_id) {
 
 std::string GetDefaultImageUrl(int index) {
   if (index == 0)
-    return kFirstDefaultUrl;
+    return kZeroDefaultUrl;
   return GetDefaultImageString(index, kDefaultUrlPrefix);
 }
 
 bool IsDefaultImageUrl(const std::string url, int* image_id) {
-  if (url == kFirstDefaultUrl) {
+  if (url == kZeroDefaultUrl) {
     *image_id = 0;
     return true;
   }
@@ -99,11 +138,20 @@ bool IsDefaultImageUrl(const std::string url, int* image_id) {
 const gfx::ImageSkia& GetDefaultImage(int index) {
   DCHECK(index >= 0 && index < kDefaultImagesCount);
   return *ResourceBundle::GetSharedInstance().
-      GetImageSkiaNamed(kDefaultImageResources[index]);
+      GetImageSkiaNamed(kDefaultImageResourceIDs[index]);
+}
+
+string16 GetDefaultImageDescription(int index) {
+  DCHECK(index >= 0 && index < kDefaultImagesCount);
+  int string_id = kDefaultImageDescriptions[index];
+  if (string_id)
+    return l10n_util::GetStringUTF16(string_id);
+  else
+    return string16();
 }
 
 // Resource IDs of default user images.
-const int kDefaultImageResources[] = {
+const int kDefaultImageResourceIDs[] = {
   IDR_LOGIN_DEFAULT_USER,
   IDR_LOGIN_DEFAULT_USER_1,
   IDR_LOGIN_DEFAULT_USER_2,
@@ -123,16 +171,115 @@ const int kDefaultImageResources[] = {
   IDR_LOGIN_DEFAULT_USER_16,
   IDR_LOGIN_DEFAULT_USER_17,
   IDR_LOGIN_DEFAULT_USER_18,
+  IDR_LOGIN_DEFAULT_USER_19,
+  IDR_LOGIN_DEFAULT_USER_20,
+  IDR_LOGIN_DEFAULT_USER_21,
+  IDR_LOGIN_DEFAULT_USER_22,
+  IDR_LOGIN_DEFAULT_USER_23,
+  IDR_LOGIN_DEFAULT_USER_24,
+  IDR_LOGIN_DEFAULT_USER_25,
+  IDR_LOGIN_DEFAULT_USER_26,
+  IDR_LOGIN_DEFAULT_USER_27,
+  IDR_LOGIN_DEFAULT_USER_28,
+  IDR_LOGIN_DEFAULT_USER_29,
+  IDR_LOGIN_DEFAULT_USER_30,
+  IDR_LOGIN_DEFAULT_USER_31,
+  IDR_LOGIN_DEFAULT_USER_32,
 };
 
-const int kDefaultImagesCount = arraysize(kDefaultImageResources);
+const int kDefaultImageAuthorIDs[] = {
+  IDS_LOGIN_DEFAULT_USER_AUTHOR,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_1,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_2,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_3,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_4,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_5,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_6,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_7,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_8,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_9,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_10,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_11,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_12,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_13,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_14,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_15,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_16,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_17,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_18,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_19,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_20,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_21,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_22,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_23,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_24,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_25,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_26,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_27,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_28,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_29,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_30,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_31,
+  IDS_LOGIN_DEFAULT_USER_AUTHOR_32,
+};
+
+const int kDefaultImageWebsiteIDs[] = {
+  IDS_LOGIN_DEFAULT_USER_WEBSITE,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_1,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_2,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_3,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_4,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_5,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_6,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_7,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_8,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_9,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_10,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_11,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_12,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_13,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_14,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_15,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_16,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_17,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_18,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_19,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_20,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_21,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_22,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_23,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_24,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_25,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_26,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_27,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_28,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_29,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_30,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_31,
+  IDS_LOGIN_DEFAULT_USER_WEBSITE_32,
+};
+
+const int kDefaultImagesCount = arraysize(kDefaultImageResourceIDs);
+
+const int kFirstDefaultImageIndex = 19;
 
 // The order and the values of these constants are important for histograms
 // of different Chrome OS versions to be merged smoothly.
-const int kHistogramImageFromCamera = kDefaultImagesCount;
-const int kHistogramImageFromFile = kDefaultImagesCount + 1;
-const int kHistogramImageOld = kDefaultImagesCount + 2;
-const int kHistogramImageFromProfile = kDefaultImagesCount + 3;
-const int kHistogramImagesCount = kDefaultImagesCount + 4;
+const int kHistogramImageFromCamera = 19;
+const int kHistogramImageFromFile = 20;
+const int kHistogramImageOld = 21;
+const int kHistogramImageFromProfile = 22;
+const int kHistogramVideoFromCamera = 23;
+const int kHistogramVideoFromFile = 24;
+const int kHistogramImagesCount = kDefaultImagesCount + 6;
+
+int GetDefaultImageHistogramValue(int index) {
+  DCHECK(index >= 0 && index < kDefaultImagesCount);
+  // Create a gap in histogram values for
+  // [kHistogramImageFromCamera..kHistogramImageFromProfile] block to fit.
+  if (index < kHistogramImageFromCamera)
+    return index;
+  return index + 6;
+}
 
 }  // namespace chromeos

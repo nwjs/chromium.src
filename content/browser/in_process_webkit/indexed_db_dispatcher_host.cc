@@ -643,6 +643,10 @@ bool IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnMessageReceived(
                            message, *msg_is_ok)
     IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStoreGet, OnGet)
     IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStorePut, OnPut)
+    IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStoreSetIndexKeys,
+                        OnSetIndexKeys)
+    IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStoreSetIndexesReady,
+                        OnSetIndexesReady)
     IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStoreDelete, OnDelete)
     IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStoreClear, OnClear)
     IPC_MESSAGE_HANDLER(IndexedDBHostMsg_ObjectStoreCreateIndex, OnCreateIndex)
@@ -708,6 +712,38 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnPut(
   WebIDBTransactionIDToSizeMap* map =
       &parent_->transaction_dispatcher_host_->transaction_size_map_;
   (*map)[params.transaction_id] += size;
+}
+
+void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnSetIndexKeys(
+    int32 idb_object_store_id,
+    const content::IndexedDBKey& primary_key,
+    const std::vector<string16>& index_names,
+    const std::vector<std::vector<content::IndexedDBKey> >& index_keys,
+    int32 transaction_id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
+  WebIDBObjectStore* idb_object_store = parent_->GetOrTerminateProcess(
+      &map_, idb_object_store_id);
+  WebIDBTransaction* idb_transaction = parent_->GetOrTerminateProcess(
+      &parent_->transaction_dispatcher_host_->map_, transaction_id);
+  if (!idb_transaction || !idb_object_store)
+    return;
+  idb_object_store->setIndexKeys(primary_key, index_names,
+                                 index_keys, *idb_transaction);
+}
+
+void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnSetIndexesReady(
+    int32 idb_object_store_id,
+    const std::vector<string16>& index_names,
+    int32 transaction_id) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::WEBKIT_DEPRECATED));
+  WebIDBObjectStore* idb_object_store = parent_->GetOrTerminateProcess(
+      &map_, idb_object_store_id);
+  WebIDBTransaction* idb_transaction = parent_->GetOrTerminateProcess(
+      &parent_->transaction_dispatcher_host_->map_, transaction_id);
+  if (!idb_transaction || !idb_object_store)
+    return;
+
+  idb_object_store->setIndexesReady(index_names, *idb_transaction);
 }
 
 void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnDelete(
@@ -828,6 +864,7 @@ void IndexedDBDispatcherHost::ObjectStoreDispatcherHost::OnOpenCursor(
                                            params.response_id, -1));
   idb_object_store->openCursor(
       params.key_range, params.direction, callbacks.release(),
+      params.task_type,
       *idb_transaction, *ec);
 }
 
@@ -892,6 +929,7 @@ void IndexedDBDispatcherHost::CursorDispatcherHost::Send(
   parent_->Send(message);
 }
 
+// TODO(jsbell): Remove this after WK92278 rolls.
 void IndexedDBDispatcherHost::CursorDispatcherHost::OnKey(
     int32 object_id, IndexedDBKey* key) {
   WebIDBCursor* idb_cursor = parent_->GetOrTerminateProcess(&map_, object_id);
@@ -901,6 +939,7 @@ void IndexedDBDispatcherHost::CursorDispatcherHost::OnKey(
   *key = IndexedDBKey(idb_cursor->key());
 }
 
+// TODO(jsbell): Remove this after WK92278 rolls.
 void IndexedDBDispatcherHost::CursorDispatcherHost::OnPrimaryKey(
     int32 object_id, IndexedDBKey* primary_key) {
   WebIDBCursor* idb_cursor = parent_->GetOrTerminateProcess(&map_, object_id);
@@ -910,6 +949,7 @@ void IndexedDBDispatcherHost::CursorDispatcherHost::OnPrimaryKey(
   *primary_key = IndexedDBKey(idb_cursor->primaryKey());
 }
 
+// TODO(jsbell): Remove this after WK92278 rolls.
 void IndexedDBDispatcherHost::CursorDispatcherHost::OnValue(
     int32 object_id,
     SerializedScriptValue* script_value) {

@@ -119,6 +119,7 @@ v8.log
 /remoting/appengine/
 /remoting/proto/chromotocol_proto_lib.xml
 /remoting/proto/trace_proto_lib.xml
+/remoting/remoting_host_event_logger.xml
 /remoting/remoting_host_installation.xml
 /remoting/remoting_host_installation_unittest.xml
 /remoting/remoting_me2me_host.xml
@@ -173,6 +174,7 @@ v8.log
 /third_party/libyuv
 /third_party/lighttpd
 /third_party/llvm
+/third_party/llvm-allocated-type
 /third_party/llvm-build
 /third_party/lss
 /third_party/mingw-w64
@@ -230,6 +232,7 @@ v8.log
 /tools/json_schema_compiler/test/json_schema_compiler_tests.xml
 /tools/page_cycler/acid3
 /tools/tryserver
+/tools/win/link_limiter/build
 /ui/resources/aura/google_wallpapers
 /v8
 /webkit/Debug

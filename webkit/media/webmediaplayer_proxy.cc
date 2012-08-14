@@ -87,7 +87,6 @@ void WebMediaPlayerProxy::Detach() {
   webmediaplayer_ = NULL;
   data_source_ = NULL;
   frame_provider_ = NULL;
-  video_decoder_ = NULL;
 }
 
 void WebMediaPlayerProxy::PipelineInitializationCallback(
@@ -187,6 +186,11 @@ void WebMediaPlayerProxy::DemuxerNeedKey(scoped_array<uint8> init_data,
 void WebMediaPlayerProxy::DemuxerStartWaitingForSeek() {
   if (chunk_demuxer_.get())
     chunk_demuxer_->StartWaitingForSeek();
+}
+
+void WebMediaPlayerProxy::DemuxerCancelPendingSeek() {
+  if (chunk_demuxer_.get())
+    chunk_demuxer_->CancelPendingSeek();
 }
 
 media::ChunkDemuxer::Status WebMediaPlayerProxy::DemuxerAddId(

@@ -150,6 +150,8 @@
         'base/dragdrop/os_exchange_data_provider_gtk.h',
         'base/dragdrop/os_exchange_data_provider_win.cc',
         'base/dragdrop/os_exchange_data_provider_win.h',
+        'base/event.cc',
+        'base/event.h',
         'base/events.h',
         'base/gestures/gesture_configuration.cc',
         'base/gestures/gesture_configuration.h',
@@ -328,12 +330,15 @@
         'base/x/x11_util.cc',
         'base/x/x11_util.h',
         'base/x/x11_util_internal.h',
+        'gfx/android/gfx_jni_registrar.cc',
+        'gfx/android/gfx_jni_registrar.h',
+        'gfx/android/java_bitmap.cc',
+        'gfx/android/java_bitmap.h',
         'gfx/blit.cc',
         'gfx/blit.h',
         'gfx/canvas.cc',
         'gfx/canvas.h',
         'gfx/canvas_android.cc',
-        'gfx/canvas_linux.cc',
         'gfx/canvas_mac.mm',
         'gfx/canvas_paint.h',
         'gfx/canvas_paint_win.cc',
@@ -370,6 +375,7 @@
         'gfx/image/canvas_image_source.h',
         'gfx/image/image.cc',
         'gfx/image/image.h',
+        'gfx/image/image_mac.mm',
         'gfx/image/image_skia.cc',
         'gfx/image/image_skia.h',
         'gfx/image/image_skia_operations.cc',
@@ -480,7 +486,6 @@
         ['use_canvas_skia==1', {
           'sources!': [
             'gfx/canvas_android.cc',
-            'gfx/canvas_linux.cc',
             'gfx/canvas_mac.mm',
           ],
         }, {  # use_canvas_skia!=1
@@ -630,10 +635,12 @@
               'DelayLoadDLLs': [
                 'd2d1.dll',
                 'd3d10_1.dll',
+                'dwmapi.dll',
               ],
               'AdditionalDependencies': [
                 'd2d1.lib',
                 'd3d10_1.lib',
+                'dwmapi.lib',
               ],
             },
           },
@@ -641,6 +648,7 @@
             'libraries': [
               '-limm32.lib',
               '-ld2d1.lib',
+              '-ldwmapi.lib',
               '-loleacc.lib',
             ],
           },
@@ -729,6 +737,8 @@
         }],
         ['toolkit_views==0', {
           'sources!': [
+            'base/event.cc',
+            'base/event.h',
             'base/x/events_x.cc',
           ],
         }],

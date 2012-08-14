@@ -6,6 +6,7 @@
 
 #include "ui/base/accessibility/accessible_view_state.h"
 #include "ui/base/animation/throb_animation.h"
+#include "ui/base/event.h"
 #include "ui/base/keycodes/keyboard_codes.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/widget/widget.h"
@@ -72,8 +73,8 @@ bool CustomButton::IsMouseHovered() const {
     return false;
 
   gfx::Point cursor_pos(gfx::Screen::GetCursorScreenPoint());
-  ConvertPointToView(NULL, this, &cursor_pos);
-  return HitTest(cursor_pos);
+  ConvertPointToTarget(NULL, this, &cursor_pos);
+  return HitTestPoint(cursor_pos);
 }
 
 void CustomButton::SetHotTracked(bool is_hot_tracked) {
@@ -107,9 +108,9 @@ std::string CustomButton::GetClassName() const {
   return kViewClassName;
 }
 
-bool CustomButton::OnMousePressed(const MouseEvent& event) {
+bool CustomButton::OnMousePressed(const ui::MouseEvent& event) {
   if (state_ != BS_DISABLED) {
-    if (ShouldEnterPushedState(event) && HitTest(event.location()))
+    if (ShouldEnterPushedState(event) && HitTestPoint(event.location()))
       SetState(BS_PUSHED);
     if (request_focus_on_press_)
       RequestFocus();
@@ -117,9 +118,9 @@ bool CustomButton::OnMousePressed(const MouseEvent& event) {
   return true;
 }
 
-bool CustomButton::OnMouseDragged(const MouseEvent& event) {
+bool CustomButton::OnMouseDragged(const ui::MouseEvent& event) {
   if (state_ != BS_DISABLED) {
-    if (HitTest(event.location()))
+    if (HitTestPoint(event.location()))
       SetState(ShouldEnterPushedState(event) ? BS_PUSHED : BS_HOT);
     else
       SetState(BS_NORMAL);
@@ -127,11 +128,11 @@ bool CustomButton::OnMouseDragged(const MouseEvent& event) {
   return true;
 }
 
-void CustomButton::OnMouseReleased(const MouseEvent& event) {
+void CustomButton::OnMouseReleased(const ui::MouseEvent& event) {
   if (state_ == BS_DISABLED)
     return;
 
-  if (!HitTest(event.location())) {
+  if (!HitTestPoint(event.location())) {
     SetState(BS_NORMAL);
     return;
   }
@@ -150,23 +151,23 @@ void CustomButton::OnMouseCaptureLost() {
     SetState(BS_NORMAL);
 }
 
-void CustomButton::OnMouseEntered(const MouseEvent& event) {
+void CustomButton::OnMouseEntered(const ui::MouseEvent& event) {
   if (state_ != BS_DISABLED)
     SetState(BS_HOT);
 }
 
-void CustomButton::OnMouseExited(const MouseEvent& event) {
+void CustomButton::OnMouseExited(const ui::MouseEvent& event) {
   // Starting a drag results in a MouseExited, we need to ignore it.
   if (state_ != BS_DISABLED && !InDrag())
     SetState(BS_NORMAL);
 }
 
-void CustomButton::OnMouseMoved(const MouseEvent& event) {
+void CustomButton::OnMouseMoved(const ui::MouseEvent& event) {
   if (state_ != BS_DISABLED)
-    SetState(HitTest(event.location()) ? BS_HOT : BS_NORMAL);
+    SetState(HitTestPoint(event.location()) ? BS_HOT : BS_NORMAL);
 }
 
-bool CustomButton::OnKeyPressed(const KeyEvent& event) {
+bool CustomButton::OnKeyPressed(const ui::KeyEvent& event) {
   if (state_ == BS_DISABLED)
     return false;
 
@@ -177,19 +178,29 @@ bool CustomButton::OnKeyPressed(const KeyEvent& event) {
     SetState(BS_PUSHED);
   } else if (event.key_code() == ui::VKEY_RETURN) {
     SetState(BS_NORMAL);
-    NotifyClick(event);
+    // TODO(beng): remove once NotifyClick takes ui::Event.
+    ui::MouseEvent synthetic_event(ui::ET_MOUSE_RELEASED,
+                                   gfx::Point(),
+                                   gfx::Point(),
+                                   ui::EF_LEFT_MOUSE_BUTTON);
+    NotifyClick(synthetic_event);
   } else {
     return false;
   }
   return true;
 }
 
-bool CustomButton::OnKeyReleased(const KeyEvent& event) {
+bool CustomButton::OnKeyReleased(const ui::KeyEvent& event) {
   if ((state_ == BS_DISABLED) || (event.key_code() != ui::VKEY_SPACE))
     return false;
 
   SetState(BS_NORMAL);
-  NotifyClick(event);
+  // TODO(beng): remove once NotifyClick takes ui::Event.
+  ui::MouseEvent synthetic_event(ui::ET_MOUSE_RELEASED,
+                                 gfx::Point(),
+                                 gfx::Point(),
+                                 ui::EF_LEFT_MOUSE_BUTTON);
+  NotifyClick(synthetic_event);
   return true;
 }
 
@@ -219,9 +230,16 @@ ui::GestureStatus CustomButton::OnGestureEvent(const GestureEvent& event) {
 
 bool CustomButton::AcceleratorPressed(const ui::Accelerator& accelerator) {
   SetState(BS_NORMAL);
-  KeyEvent key_event(ui::ET_KEY_RELEASED, accelerator.key_code(),
-                     accelerator.modifiers());
-  NotifyClick(key_event);
+  /*
+  ui::KeyEvent key_event(ui::ET_KEY_RELEASED, accelerator.key_code(),
+                         accelerator.modifiers());
+                         */
+  // TODO(beng): remove once NotifyClick takes ui::Event.
+  ui::MouseEvent synthetic_event(ui::ET_MOUSE_RELEASED,
+                                 gfx::Point(),
+                                 gfx::Point(),
+                                 ui::EF_LEFT_MOUSE_BUTTON);
+  NotifyClick(synthetic_event);
   return true;
 }
 
@@ -283,14 +301,14 @@ CustomButton::CustomButton(ButtonListener* listener)
 void CustomButton::StateChanged() {
 }
 
-bool CustomButton::IsTriggerableEvent(const Event& event) {
+bool CustomButton::IsTriggerableEvent(const ui::Event& event) {
   return event.type() == ui::ET_GESTURE_TAP_DOWN ||
          event.type() == ui::ET_GESTURE_TAP ||
          (event.IsMouseEvent() &&
              (triggerable_event_flags_ & event.flags()) != 0);
 }
 
-bool CustomButton::ShouldEnterPushedState(const Event& event) {
+bool CustomButton::ShouldEnterPushedState(const ui::Event& event) {
   return IsTriggerableEvent(event);
 }
 

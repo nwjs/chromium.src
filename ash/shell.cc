@@ -65,7 +65,6 @@
 #include "ash/wm/window_properties.h"
 #include "ash/wm/workspace/workspace_event_filter.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
-#include "ash/wm/workspace/workspace_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -136,6 +135,9 @@ class DummyUserWallpaperDelegate : public UserWallpaperDelegate {
   }
 
   virtual void OnWallpaperAnimationFinished() OVERRIDE {
+  }
+
+  virtual void OnWallpaperBootAnimationFinished() OVERRIDE {
   }
 
  private:
@@ -332,20 +334,6 @@ aura::RootWindow* Shell::GetActiveRootWindow() {
 }
 
 // static
-aura::RootWindow* Shell::GetRootWindowAt(const gfx::Point& point) {
-  const gfx::Display& display = gfx::Screen::GetDisplayNearestPoint(point);
-  return Shell::GetInstance()->display_controller()->
-      GetRootWindowForDisplayId(display.id());
-}
-
-// static
-aura::RootWindow* Shell::GetRootWindowMatching(const gfx::Rect& rect) {
-  const gfx::Display& display = gfx::Screen::GetDisplayMatching(rect);
-  return Shell::GetInstance()->display_controller()->
-      GetRootWindowForDisplayId(display.id());
-}
-
-// static
 Shell::RootWindowList Shell::GetAllRootWindows() {
   return Shell::GetInstance()->display_controller()->
       GetAllRootWindows();
@@ -455,7 +443,8 @@ void Shell::Init() {
 
   high_contrast_controller_.reset(new HighContrastController);
   video_detector_.reset(new VideoDetector);
-  window_cycle_controller_.reset(new WindowCycleController);
+  window_cycle_controller_.reset(
+      new WindowCycleController(activation_controller_.get()));
 
   tooltip_controller_.reset(new internal::TooltipController(
       drag_drop_controller_.get()));
@@ -661,8 +650,8 @@ SystemTray* Shell::system_tray() {
 }
 
 int Shell::GetGridSize() const {
-  return GetPrimaryRootWindowController()->workspace_controller()->
-      workspace_manager()->grid_size();
+  return
+      GetPrimaryRootWindowController()->workspace_controller()->GetGridSize();
 }
 
 void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
@@ -702,6 +691,7 @@ void Shell::InitRootWindowController(
   DCHECK(visibility_controller_.get());
   DCHECK(drag_drop_controller_.get());
   DCHECK(capture_controller_.get());
+  DCHECK(window_cycle_controller_.get());
 
   root_window->set_focus_manager(focus_manager_.get());
   input_method_filter_->SetInputMethodPropertyInRootWindow(root_window);
@@ -733,6 +723,8 @@ void Shell::InitRootWindowController(
       root_window->GetChildById(internal::kShellWindowId_AlwaysOnTopContainer));
   root_window->SetProperty(internal::kAlwaysOnTopControllerKey,
                            always_on_top_controller);
+
+  window_cycle_controller_->OnRootWindowAdded(root_window);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -753,12 +745,11 @@ void Shell::InitLayoutManagersForPrimaryDisplay(
   controller->GetContainer(internal::kShellWindowId_StatusContainer)->
       SetLayoutManager(status_area_layout_manager);
 
-  shelf_layout_manager->set_workspace_manager(
-      controller->workspace_controller()->workspace_manager());
+  shelf_layout_manager->set_workspace_controller(
+      controller->workspace_controller());
 
   // TODO(oshima): Support multiple displays.
-  controller->workspace_controller()->workspace_manager()->
-      set_shelf(shelf());
+  controller->workspace_controller()->SetShelf(shelf());
 
   // Create Panel layout manager
   aura::Window* panel_container = GetContainer(
@@ -772,11 +763,12 @@ void Shell::InitLayoutManagersForPrimaryDisplay(
   panel_container->SetLayoutManager(panel_layout_manager_);
 }
 
+// TODO: this is only used in tests, move with test.
 void Shell::DisableWorkspaceGridLayout() {
   RootWindowControllerList controllers = GetAllRootWindowControllers();
   for (RootWindowControllerList::iterator iter = controllers.begin();
        iter != controllers.end(); ++iter)
-    (*iter)->workspace_controller()->workspace_manager()->set_grid_size(0);
+    (*iter)->workspace_controller()->SetGridSize(0);
 }
 
 void Shell::SetCursor(gfx::NativeCursor cursor) {

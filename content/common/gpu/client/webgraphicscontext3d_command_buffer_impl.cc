@@ -26,6 +26,7 @@
 #include "content/common/gpu/gpu_memory_allocation.h"
 #include "content/common/gpu/client/gpu_channel_host.h"
 #include "content/common/gpu/gpu_process_launch_causes.h"
+#include "content/public/common/compositor_util.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "gpu/command_buffer/client/gles2_cmd_helper.h"
@@ -151,7 +152,12 @@ WebGraphicsContext3DCommandBufferImpl::WebGraphicsContext3DCommandBufferImpl(
       transfer_buffer_(NULL),
       gl_(NULL),
       frame_number_(0),
-      bind_generates_resources_(false) {
+      bind_generates_resources_(false),
+      use_echo_for_swap_ack_(true) {
+#if defined(OS_MACOSX) || defined(OS_WIN)
+  // Get ViewMsg_SwapBuffers_ACK from browser for single-threaded path.
+  use_echo_for_swap_ack_ = content::IsThreadedCompositingEnabled();
+#endif
 }
 
 WebGraphicsContext3DCommandBufferImpl::
@@ -521,20 +527,7 @@ void WebGraphicsContext3DCommandBufferImpl::prepareTexture() {
   if (command_buffer_->GetLastState().error == gpu::error::kNoError)
     gl_->SwapBuffers();
 
-  bool use_echo_for_swap_ack = true;
-#if defined(OS_MACOSX) || defined(OS_WIN)
-  // Get ViewMsg_SwapBuffers_ACK from browser for single-threaded path.
-  base::FieldTrial* trial =
-      base::FieldTrialList::Find(content::kGpuCompositingFieldTrialName);
-  bool thread_trial = trial && trial->group_name() ==
-      content::kGpuCompositingFieldTrialThreadEnabledName;
-  use_echo_for_swap_ack = thread_trial ||
-      (CommandLine::ForCurrentProcess()->HasSwitch(
-           switches::kEnableThreadedCompositing) &&
-       !CommandLine::ForCurrentProcess()->HasSwitch(
-           switches::kDisableThreadedCompositing));
-#endif
-  if (use_echo_for_swap_ack) {
+  if (use_echo_for_swap_ack_) {
     command_buffer_->Echo(base::Bind(
         &WebGraphicsContext3DCommandBufferImpl::OnSwapBuffersComplete,
         weak_ptr_factory_.GetWeakPtr()));
@@ -943,10 +936,6 @@ void WebGraphicsContext3DCommandBufferImpl::flush() {
   gl_->Flush();
   if (!visible_ && free_command_buffer_when_invisible_)
     gl_->FreeEverything();
-}
-
-void WebGraphicsContext3DCommandBufferImpl::shallowFlushCHROMIUM() {
-  gl_->ShallowFlushCHROMIUM();
 }
 
 DELEGATE_TO_GL_4(framebufferRenderbuffer, FramebufferRenderbuffer,
@@ -1535,6 +1524,14 @@ DELEGATE_TO_GL_5(copyTextureCHROMIUM, CopyTextureCHROMIUM,  WGC3Denum,
 
 DELEGATE_TO_GL_3(bindUniformLocationCHROMIUM, BindUniformLocationCHROMIUM,
                  WebGLId, WGC3Dint, const WGC3Dchar*)
+
+DELEGATE_TO_GL(shallowFlushCHROMIUM,ShallowFlushCHROMIUM);
+
+DELEGATE_TO_GL_1(genMailboxCHROMIUM, GenMailboxCHROMIUM, WGC3Dbyte*)
+DELEGATE_TO_GL_2(produceTextureCHROMIUM, ProduceTextureCHROMIUM,
+                 WGC3Denum, const WGC3Dbyte*)
+DELEGATE_TO_GL_2(consumeTextureCHROMIUM, ConsumeTextureCHROMIUM,
+                 WGC3Denum, const WGC3Dbyte*)
 
 GrGLInterface* WebGraphicsContext3DCommandBufferImpl::onCreateGrGLInterface() {
   return webkit_glue::CreateCommandBufferSkiaGLBinding();

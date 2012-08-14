@@ -323,6 +323,8 @@ static const struct HSTSPreload kPreloadedSTS[] = {
   {16, true, "\012googleplex\003com", true, kGooglePins, DOMAIN_GOOGLEPLEX_COM },
   {19, true, "\006groups\006google\003com", true, kGooglePins, DOMAIN_GOOGLE_COM },
   {17, true, "\004apis\006google\003com", true, kGooglePins, DOMAIN_GOOGLE_COM },
+  {32, true, "\022chromiumcodereview\007appspot\003com", true, kGooglePins, DOMAIN_APPSPOT_COM },
+  {24, true, "\012codereview\007appspot\003com", true, kGooglePins, DOMAIN_APPSPOT_COM },
   {23, true, "\005chart\004apis\006google\003com", false, kGooglePins, DOMAIN_GOOGLE_COM },
   {11, true, "\005ytimg\003com", false, kGooglePins, DOMAIN_YTIMG_COM },
   {23, true, "\021googleusercontent\003com", false, kGooglePins, DOMAIN_GOOGLEUSERCONTENT_COM },
@@ -428,6 +430,10 @@ static const struct HSTSPreload kPreloadedSTS[] = {
   {11, true, "\006passwd\002io", true, kNoPins, DOMAIN_NOT_PINNED },
   {15, true, "\011browserid\003org", true, kNoPins, DOMAIN_NOT_PINNED },
   {19, true, "\005login\007persona\003org", true, kNoPins, DOMAIN_NOT_PINNED },
+  {13, false, "\007neonisi\003com", true, kNoPins, DOMAIN_NOT_PINNED },
+  {17, true, "\003www\007neonisi\003com", true, kNoPins, DOMAIN_NOT_PINNED },
+  {19, true, "\005shops\007neonisi\003com", true, kNoPins, DOMAIN_NOT_PINNED },
+  {17, true, "\014piratenlogin\002de", true, kNoPins, DOMAIN_NOT_PINNED },
 };
 static const size_t kNumPreloadedSTS = ARRAYSIZE_UNSAFE(kPreloadedSTS);
 

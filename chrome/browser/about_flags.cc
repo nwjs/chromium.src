@@ -346,6 +346,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kNaClGdbScript)
   },
   {
+    "enable-pnacl",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ENABLE_PNACL_NAME,
+    IDS_FLAGS_ENABLE_PNACL_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnablePnacl)
+  },
+  {
     "extension-apis",  // FLAGS:RECORD_UMA
     IDS_FLAGS_EXPERIMENTAL_EXTENSION_APIS_NAME,
     IDS_FLAGS_EXPERIMENTAL_EXTENSION_APIS_DESCRIPTION,
@@ -745,11 +752,11 @@ const Experiment kExperiments[] = {
   },
 #endif
   {
-    "disable-client-oauth-signin",
-    IDS_FLAGS_DISABLE_CLIENT_OAUTH_SIGNIN_NAME,
-    IDS_FLAGS_DISABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION,
+    "enable-client-oauth-signin",
+    IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_NAME,
+    IDS_FLAGS_ENABLE_CLIENT_OAUTH_SIGNIN_DESCRIPTION,
     kOsMac | kOsWin | kOsLinux,
-    SINGLE_VALUE_TYPE(switches::kDisableClientOAuthSignin)
+    SINGLE_VALUE_TYPE(switches::kEnableClientOAuthSignin)
   },
 #if defined(USE_ASH)
   {
@@ -811,6 +818,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kEnableDriveV2Api),
   },
   {
+    "use-leveldb-for-gdata",
+    IDS_FLAGS_USE_LEVELDB_FOR_GDATA_NAME,
+    IDS_FLAGS_USE_LEVELDB_FOR_GDATA_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kUseLevelDBForGData),
+  },
+  {
     "disable-html5-camera",
     IDS_FLAGS_DISABLE_HTML5_CAMERA,
     IDS_FLAGS_DISABLE_HTML5_CAMERA_DESCRIPTION,
@@ -823,6 +837,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kDisableNewOobe),
+  },
+  {
+    "disable-boot-animation",
+    IDS_FLAGS_DISABLE_BOOT_ANIMATION,
+    IDS_FLAGS_DISABLE_BOOT_ANIMATION_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kDisableBootAnimation),
   },
 #endif
   {
@@ -877,6 +898,13 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(ash::switches::kAshDebugShortcuts),
   },
 #endif
+  {
+    "enable-website-settings",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_ENABLE_WEBSITE_SETTINGS_NAME,
+    IDS_FLAGS_ENABLE_WEBSITE_SETTINGS_DESCRIPTION,
+    kOsAll,
+    SINGLE_VALUE_TYPE(switches::kEnableWebsiteSettings),
+  },
 };
 
 const Experiment* experiments = kExperiments;

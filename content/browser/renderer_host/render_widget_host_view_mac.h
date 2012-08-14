@@ -7,6 +7,10 @@
 
 #import <Cocoa/Cocoa.h>
 #include <list>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/scoped_ptr.h"
@@ -56,7 +60,7 @@ class RenderWidgetHostViewMacEditCommandHelper;
 
   // These are part of the magic tooltip code from WebKit's WebHTMLView:
   id trackingRectOwner_;              // (not retained)
-  void *trackingRectUserData_;
+  void* trackingRectUserData_;
   NSTrackingRectTag lastToolTipTag_;
   scoped_nsobject<NSString> toolTip_;
 
@@ -135,6 +139,9 @@ class RenderWidgetHostViewMacEditCommandHelper;
 
   // recursive globalFrameDidChange protection:
   BOOL handlingGlobalFrameDidChange_;
+
+  // The scale factor of the display this view is in.
+  float deviceScaleFactor_;
 }
 
 @property(nonatomic, readonly) NSRange selectedRange;
@@ -205,6 +212,11 @@ class RenderWidgetHostViewMac : public RenderWidgetHostViewBase {
   virtual void SetTakesFocusOnlyOnMouseDown(bool flag) OVERRIDE;
   virtual void SetWindowVisibility(bool visible) OVERRIDE;
   virtual void WindowFrameChanged() OVERRIDE;
+  virtual void ShowDefinitionForSelection() OVERRIDE;
+  virtual bool SupportsSpeech() const OVERRIDE;
+  virtual void SpeakSelection() OVERRIDE;
+  virtual bool IsSpeaking() const OVERRIDE;
+  virtual void StopSpeaking() OVERRIDE;
   virtual void SetBackground(const SkBitmap& background) OVERRIDE;
 
   // Implementation of RenderWidgetHostViewPort.
@@ -222,8 +234,11 @@ class RenderWidgetHostViewMac : public RenderWidgetHostViewBase {
   virtual void SetIsLoading(bool is_loading) OVERRIDE;
   virtual void TextInputStateChanged(ui::TextInputType state,
                                      bool can_compose_inline) OVERRIDE;
-  virtual void SelectionBoundsChanged(const gfx::Rect& start_rect,
-                                      const gfx::Rect& end_rect) OVERRIDE;
+  virtual void SelectionBoundsChanged(
+      const gfx::Rect& start_rect,
+      WebKit::WebTextDirection start_direction,
+      const gfx::Rect& end_rect,
+      WebKit::WebTextDirection end_direction) OVERRIDE;
   virtual void ImeCancelComposition() OVERRIDE;
   virtual void ImeCompositionRangeChanged(
       const ui::Range& range,

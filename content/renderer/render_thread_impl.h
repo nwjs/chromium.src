@@ -52,12 +52,20 @@ class ScopedCOMInitializer;
 }
 }
 
+namespace IPC {
+class ForwardingMessageFilter;
+}
+
 namespace content {
 class AudioRendererMixerManager;
-class BrowserPluginChannelManager;
-class BrowserPluginRegistry;
 class MediaStreamCenter;
 class RenderProcessObserver;
+
+namespace old {
+class BrowserPluginChannelManager;
+class BrowserPluginRegistry;
+}
+
 }
 
 namespace v8 {
@@ -115,8 +123,6 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   virtual base::SharedMemoryHandle HostAllocateSharedMemoryBuffer(
       uint32 buffer_size) OVERRIDE;
   virtual void RegisterExtension(v8::Extension* extension) OVERRIDE;
-  virtual bool IsRegisteredExtension(
-      const std::string& v8_extension_name) const OVERRIDE;
   virtual void ScheduleIdleHandler(int64 initial_delay_ms) OVERRIDE;
   virtual void IdleHandler() OVERRIDE;
   virtual int64 GetIdleNotificationDelayInMs() const OVERRIDE;
@@ -160,16 +166,21 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   void DoNotSuspendWebKitSharedTimer();
   void DoNotNotifyWebKitOfModalLoop();
 
+  IPC::ForwardingMessageFilter* compositor_output_surface_filter() const {
+    return compositor_output_surface_filter_.get();
+  }
+
   // Will be NULL if threaded compositing has not been enabled.
   CompositorThread* compositor_thread() const {
     return compositor_thread_.get();
   }
 
-  content::BrowserPluginRegistry* browser_plugin_registry() const {
+  content::old::BrowserPluginRegistry* browser_plugin_registry() const {
     return browser_plugin_registry_.get();
   }
 
-  content::BrowserPluginChannelManager* browser_plugin_channel_manager() const {
+  content::old::BrowserPluginChannelManager*
+      browser_plugin_channel_manager() const {
     return browser_plugin_channel_manager_.get();
   }
 
@@ -215,9 +226,12 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   // Returns a graphics context shared among all
   // RendererGpuVideoDecoderFactories, or NULL on error.  Context remains owned
   // by this class and must be null-tested before each use to detect context
-  // loss.  The returned WeakPtr<> is only valid on the compositor thread when
+  // loss.  The returned context is only valid on the compositor thread when
   // threaded compositing is enabled.
-  base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> GetGpuVDAContext3D();
+  WebGraphicsContext3DCommandBufferImpl* GetGpuVDAContext3D();
+
+  // Handle loss of the shared GpuVDAContext3D context above.
+  static void OnGpuVDAContextLoss();
 
   // AudioRendererMixerManager instance which manages renderer side mixer
   // instances shared based on configured audio parameters.  Lazily created on
@@ -245,7 +259,7 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   scoped_ptr<DomStorageDispatcher> dom_storage_dispatcher_;
   scoped_ptr<IndexedDBDispatcher> main_thread_indexed_db_dispatcher_;
   scoped_ptr<RendererWebKitPlatformSupportImpl> webkit_platform_support_;
-  scoped_ptr<content::BrowserPluginChannelManager>
+  scoped_ptr<content::old::BrowserPluginChannelManager>
       browser_plugin_channel_manager_;
 
   // Used on the render thread and deleted by WebKit at shutdown.
@@ -290,15 +304,16 @@ class CONTENT_EXPORT RenderThreadImpl : public content::RenderThread,
   // A lazily initiated thread on which file operations are run.
   scoped_ptr<base::Thread> file_thread_;
 
-  // Map of registered v8 extensions. The key is the extension name.
-  std::set<std::string> v8_extensions_;
-
   bool compositor_initialized_;
   scoped_ptr<CompositorThread> compositor_thread_;
-  scoped_ptr<content::BrowserPluginRegistry> browser_plugin_registry_;
+  scoped_refptr<IPC::ForwardingMessageFilter> compositor_output_surface_filter_;
+
+  scoped_ptr<content::old::BrowserPluginRegistry> browser_plugin_registry_;
 
   ObserverList<content::RenderProcessObserver> observers_;
 
+  class GpuVDAContextLostCallback;
+  scoped_ptr<GpuVDAContextLostCallback> context_lost_cb_;
   scoped_ptr<WebGraphicsContext3DCommandBufferImpl> gpu_vda_context3d_;
 
   scoped_ptr<content::AudioRendererMixerManager> audio_renderer_mixer_manager_;

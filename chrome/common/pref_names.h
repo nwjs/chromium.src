@@ -14,7 +14,6 @@
 namespace prefs {
 
 // Profile prefs. Please add Local State prefs below instead.
-extern const char kAppsPromoCounter[];
 extern const char kDefaultApps[];
 extern const char kDefaultAppsInstalled[];
 extern const char kHomePageIsNewTabPage[];
@@ -310,7 +309,9 @@ extern const char kPluginsShowDetails[];
 extern const char kPluginsAllowOutdated[];
 extern const char kPluginsAlwaysAuthorize[];
 extern const char kCheckDefaultBrowser[];
-extern const char kDefaultBrowserFlowDialog[];
+#if defined(OS_WIN)
+extern const char kSuppressSwitchToMetroModeOnSetDefault[];
+#endif
 extern const char kDefaultBrowserSettingEnabled[];
 #if defined(OS_MACOSX)
 extern const char kShowUpdatePromotionInfoBar[];
@@ -546,17 +547,7 @@ extern const char kNtpPromoPlatform[];
 extern const char kNtpPromoBuild[];
 extern const char kNtpPromoGplusRequired[];
 extern const char kNtpWebStoreEnabled[];
-extern const char kNtpWebStorePromoLastId[];
-extern const char kNtpWebStorePromoId[];
-extern const char kNtpWebStorePromoHeader[];
-extern const char kNtpWebStorePromoButton[];
-extern const char kNtpWebStorePromoLink[];
-extern const char kNtpWebStorePromoLogo[];
-extern const char kNtpWebStorePromoLogoSource[];
-extern const char kNtpWebStorePromoExpire[];
-extern const char kNtpWebStorePromoUserGroup[];
 extern const char kNtpAppPageNames[];
-extern const char kNtpHideWebStorePromo[];
 
 extern const char kDevToolsDisabled[];
 extern const char kDevToolsOpenDocked[];
@@ -618,6 +609,10 @@ extern const char kGeolocationEnabled[];
 #endif
 
 extern const char kRemoteAccessHostFirewallTraversal[];
+extern const char kRemoteAccessHostRequireTwoFactor[];
+extern const char kRemoteAccessHostDomain[];
+extern const char kRemoteAccessHostTalkGadgetPrefix[];
+extern const char kRemoteAccessHostRequireCurtain[];
 
 extern const char kPrintPreviewStickySettings[];
 extern const char kCloudPrintServiceURL[];
@@ -710,10 +705,12 @@ extern const char kIgnoredProtocolHandlers[];
 extern const char kCustomHandlersEnabled[];
 
 extern const char kUserCreatedLoginItem[];
+extern const char kUserRemovedLoginItem[];
 extern const char kBackgroundModeEnabled[];
 
 extern const char kDevicePolicyRefreshRate[];
 extern const char kUserPolicyRefreshRate[];
+extern const char kLoadCloudPolicyOnSignin[];
 
 extern const char kRecoveryComponentVersion[];
 extern const char kComponentUpdaterState[];
@@ -753,10 +750,6 @@ extern const char kInManagedMode[];
 
 extern const char kNetworkProfileWarningsLeft[];
 extern const char kNetworkProfileLastWarningTime[];
-
-#if defined(OS_MACOSX)
-extern const char kMacLeopardObsoleteInfobarLastShown[];
-#endif  // defined(OS_MACOSX)
 
 }  // namespace prefs
 

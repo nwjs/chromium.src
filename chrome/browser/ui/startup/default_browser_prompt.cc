@@ -7,13 +7,13 @@
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop.h"
 #include "base/metrics/histogram.h"
+#include "chrome/browser/api/infobars/confirm_infobar_delegate.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/tab_contents/confirm_infobar_delegate.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -181,12 +181,10 @@ namespace chrome {
 void ShowDefaultBrowserPrompt(Profile* profile) {
   // We do not check if we are the default browser if:
   // - the user said "don't ask me again" on the infobar earlier.
-  // - this is the first launch after the first run flow.
   // - There is a policy in control of this setting.
-  if (!profile->GetPrefs()->GetBoolean(prefs::kCheckDefaultBrowser) ||
-      first_run::IsChromeFirstRun()) {
+  if (!profile->GetPrefs()->GetBoolean(prefs::kCheckDefaultBrowser))
     return;
-  }
+
   if (g_browser_process->local_state()->IsManagedPreference(
       prefs::kDefaultBrowserSettingEnabled)) {
     if (g_browser_process->local_state()->GetBoolean(
@@ -207,7 +205,8 @@ void ShowDefaultBrowserPrompt(Profile* profile) {
 }
 
 #if !defined(OS_WIN)
-void ShowFirstRunDefaultBrowserPrompt(Profile* profile) {
+bool ShowFirstRunDefaultBrowserPrompt(Profile* profile) {
+  return false;
 }
 #endif
 

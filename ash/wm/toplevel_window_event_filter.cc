@@ -15,11 +15,11 @@
 #include "base/run_loop.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
-#include "ui/aura/event.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/base/cursor/cursor.h"
+#include "ui/base/event.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ui_base_types.h"
@@ -39,7 +39,7 @@ namespace {
 gfx::Point ConvertPointToParent(aura::Window* window,
                                 const gfx::Point& point) {
   gfx::Point result(point);
-  aura::Window::ConvertPointToWindow(window, window->parent(), &result);
+  aura::Window::ConvertPointToTarget(window, window->parent(), &result);
   return result;
 }
 
@@ -56,7 +56,7 @@ ToplevelWindowEventFilter::~ToplevelWindowEventFilter() {
 }
 
 bool ToplevelWindowEventFilter::PreHandleKeyEvent(aura::Window* target,
-                                                  aura::KeyEvent* event) {
+                                                  ui::KeyEvent* event) {
   if (window_resizer_.get() && event->type() == ui::ET_KEY_PRESSED &&
       event->key_code() == ui::VKEY_ESCAPE) {
     CompleteDrag(DRAG_REVERT, event->flags());
@@ -65,7 +65,7 @@ bool ToplevelWindowEventFilter::PreHandleKeyEvent(aura::Window* target,
 }
 
 bool ToplevelWindowEventFilter::PreHandleMouseEvent(aura::Window* target,
-                                                    aura::MouseEvent* event) {
+                                                    ui::MouseEvent* event) {
   if ((event->flags() &
       (ui::EF_MIDDLE_MOUSE_BUTTON | ui::EF_RIGHT_MOUSE_BUTTON)) != 0)
     return false;
@@ -120,13 +120,13 @@ bool ToplevelWindowEventFilter::PreHandleMouseEvent(aura::Window* target,
 
 ui::TouchStatus ToplevelWindowEventFilter::PreHandleTouchEvent(
     aura::Window* target,
-    aura::TouchEvent* event) {
+    ui::TouchEvent* event) {
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
 ui::GestureStatus ToplevelWindowEventFilter::PreHandleGestureEvent(
     aura::Window* target,
-    aura::GestureEvent* event) {
+    ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::ET_GESTURE_SCROLL_BEGIN: {
       int component =
@@ -149,17 +149,22 @@ ui::GestureStatus ToplevelWindowEventFilter::PreHandleGestureEvent(
       break;
     }
     case ui::ET_GESTURE_SCROLL_END:
-      if (!in_gesture_resize_)
-        return ui::GESTURE_STATUS_UNKNOWN;
-      CompleteDrag(DRAG_COMPLETE, event->flags());
-      if (in_move_loop_) {
-        quit_closure_.Run();
-        in_move_loop_ = false;
-      }
-      in_gesture_resize_ = false;
-      break;
-
     case ui::ET_SCROLL_FLING_START: {
+      ui::GestureStatus status = ui::GESTURE_STATUS_UNKNOWN;
+      if (in_gesture_resize_) {
+        // If the window was being resized, then just complete the resize.
+        CompleteDrag(DRAG_COMPLETE, event->flags());
+        if (in_move_loop_) {
+          quit_closure_.Run();
+          in_move_loop_ = false;
+        }
+        in_gesture_resize_ = false;
+        status = ui::GESTURE_STATUS_CONSUMED;
+      }
+
+      if (event->type() == ui::ET_GESTURE_SCROLL_END)
+        return status;
+
       int component =
           target->delegate()->GetNonClientComponent(event->location());
       if (WindowResizer::GetBoundsChangeForWindowComponent(component) == 0)
@@ -210,7 +215,7 @@ void ToplevelWindowEventFilter::RunMoveLoop(aura::Window* source) {
     DCHECK(has_point);
   } else {
     drag_location = root_window->GetLastMouseLocationInRoot();
-    aura::Window::ConvertPointToWindow(
+    aura::Window::ConvertPointToTarget(
         root_window, source->parent(), &drag_location);
   }
   window_resizer_.reset(
@@ -261,7 +266,7 @@ void ToplevelWindowEventFilter::CompleteDrag(DragCompletionStatus status,
 }
 
 bool ToplevelWindowEventFilter::HandleDrag(aura::Window* target,
-                                           aura::LocatedEvent* event) {
+                                           ui::LocatedEvent* event) {
   // This function only be triggered to move window
   // by mouse drag or touch move event.
   DCHECK(event->type() == ui::ET_MOUSE_DRAGGED ||
@@ -276,7 +281,7 @@ bool ToplevelWindowEventFilter::HandleDrag(aura::Window* target,
 }
 
 bool ToplevelWindowEventFilter::HandleMouseMoved(aura::Window* target,
-                                                 aura::LocatedEvent* event) {
+                                                 ui::LocatedEvent* event) {
   // TODO(jamescook): Move the resize cursor update code into here from
   // CompoundEventFilter?
   internal::ResizeShadowController* controller =
@@ -294,7 +299,7 @@ bool ToplevelWindowEventFilter::HandleMouseMoved(aura::Window* target,
 }
 
 bool ToplevelWindowEventFilter::HandleMouseExited(aura::Window* target,
-                                                  aura::LocatedEvent* event) {
+                                                  ui::LocatedEvent* event) {
   internal::ResizeShadowController* controller =
       Shell::GetInstance()->resize_shadow_controller();
   if (controller)

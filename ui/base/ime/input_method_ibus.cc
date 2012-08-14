@@ -38,11 +38,13 @@ namespace {
 
 const int kIBusReleaseMask = 1 << 30;
 const char kClientName[] = "chrome";
+const int kMaxRetryCount = 10;
 
 // Following capability mask is introduced from
 // http://ibus.googlecode.com/svn/docs/ibus-1.4/ibus-ibustypes.html#IBusCapabilite
 const uint32 kIBusCapabilityPreeditText = 1U;
 const uint32 kIBusCapabilityFocus = 8U;
+const uint32 kIBusCapabilitySurroundingText = 32U;
 
 XKeyEvent* GetKeyEvent(XEvent* event) {
   DCHECK(event && (event->type == KeyPress || event->type == KeyRelease));
@@ -161,69 +163,12 @@ void InputMethodIBus::PendingKeyEvent::ProcessPostIME(bool handled) {
   // and 'unmodified_character_' to support i18n VKs like a French VK!
 }
 
-// A class to hold information of a pending request for creating an ibus input
-// context.
-class InputMethodIBus::PendingCreateICRequest {
- public:
-  PendingCreateICRequest(InputMethodIBus* input_method,
-                         PendingCreateICRequest** request_ptr);
-  virtual ~PendingCreateICRequest();
-
-  // Set up signal handlers, or destroy object proxy if the input context is
-  // already abandoned.
-  void InitOrAbandonInputContext();
-
-  // Called if the create input context method call is failed.
-  void OnCreateInputContextFailed();
-
-  // Abandon this pending key event. Its result will just be discarded.
-  void Abandon() {
-    input_method_ = NULL;
-    request_ptr_ = NULL;
-    // Do not reset |ibus_client_| here.
-  }
-
- private:
-  InputMethodIBus* input_method_;
-  PendingCreateICRequest** request_ptr_;
-
-  DISALLOW_COPY_AND_ASSIGN(PendingCreateICRequest);
-};
-
-InputMethodIBus::PendingCreateICRequest::PendingCreateICRequest(
-    InputMethodIBus* input_method,
-    PendingCreateICRequest** request_ptr)
-    : input_method_(input_method),
-      request_ptr_(request_ptr) {
-}
-
-InputMethodIBus::PendingCreateICRequest::~PendingCreateICRequest() {
-  if (request_ptr_) {
-    DCHECK_EQ(*request_ptr_, this);
-    *request_ptr_ = NULL;
-  }
-}
-
-void InputMethodIBus::PendingCreateICRequest::OnCreateInputContextFailed() {
-  // TODO(nona): If the connection between Chrome and ibus-daemon terminates
-  // for some reason, the create ic request will fail. We might want to call
-  // ibus_client_->CreateContext() again after some delay.
-}
-
-void InputMethodIBus::PendingCreateICRequest::InitOrAbandonInputContext() {
-  if (input_method_) {
-    DCHECK(input_method_->IsContextReady());
-    input_method_->SetUpSignalHandlers();
-  } else {
-    GetInputContextClient()->ResetObjectProxy();
-  }
-}
-
 // InputMethodIBus implementation -----------------------------------------
 InputMethodIBus::InputMethodIBus(
     internal::InputMethodDelegate* delegate)
     : ibus_client_(new internal::IBusClient),
-      pending_create_ic_request_(NULL),
+      input_context_state_(INPUT_CONTEXT_STOP),
+      create_input_context_fail_count_(0),
       context_focused_(false),
       composing_text_(false),
       composition_changed_(false),
@@ -354,6 +299,33 @@ void InputMethodIBus::OnCaretBoundsChanged(const TextInputClient* client) {
 
   // This function runs asynchronously.
   ibus_client_->SetCursorLocation(rect, composition_head);
+
+  ui::Range selection_range;
+  if (!GetTextInputClient()->GetSelectionRange(&selection_range)) {
+    previous_selected_text_.clear();
+    return;
+  }
+
+  string16 selection_text;
+  if (!GetTextInputClient()->GetTextFromRange(selection_range,
+                                              &selection_text)) {
+    previous_selected_text_.clear();
+    return;
+  }
+
+  if (previous_selected_text_ == selection_text)
+    return;
+
+  previous_selected_text_ = selection_text;
+
+  // In the original meaning of SetSurroundingText is not just selection text,
+  // but currently there are no way to retrieve surrounding text in
+  // TextInputClient.
+  // TODO(nona): Implement fully surrounding text retrieval.
+  GetInputContextClient()->SetSurroundingText(
+      UTF16ToUTF8(selection_text),
+      0UL, /* cursor position. */
+      selection_range.length()); /* selection anchor position. */
 }
 
 void InputMethodIBus::CancelComposition(const TextInputClient* client) {
@@ -395,20 +367,23 @@ void InputMethodIBus::OnDidChangeFocusedClient(TextInputClient* focused_before,
 
 void InputMethodIBus::CreateContext() {
   DCHECK(IsConnected());
-  DCHECK(!pending_create_ic_request_);
 
-  pending_create_ic_request_ = new PendingCreateICRequest(
-      this, &pending_create_ic_request_);
+  if (input_context_state_ != INPUT_CONTEXT_STOP) {
+    DVLOG(1) << "Input context is already created or waiting ibus-daemon"
+                " response.";
+    return;
+  }
+
+  input_context_state_ = INPUT_CONTEXT_WAIT_CREATE_INPUT_CONTEXT_RESPONSE;
 
   // Creates the input context asynchronously.
+  DCHECK(!IsContextReady());
   chromeos::DBusThreadManager::Get()->GetIBusClient()->CreateInputContext(
       kClientName,
       base::Bind(&InputMethodIBus::CreateInputContextDone,
-                 weak_ptr_factory_.GetWeakPtr(),
-                 base::Unretained(pending_create_ic_request_)),
+                 weak_ptr_factory_.GetWeakPtr()),
       base::Bind(&InputMethodIBus::CreateInputContextFail,
-                 weak_ptr_factory_.GetWeakPtr(),
-                 base::Unretained(pending_create_ic_request_)));
+                 weak_ptr_factory_.GetWeakPtr()));
 }
 
 void InputMethodIBus::SetUpSignalHandlers() {
@@ -438,7 +413,8 @@ void InputMethodIBus::SetUpSignalHandlers() {
                  weak_ptr_factory_.GetWeakPtr()));
 
   GetInputContextClient()->SetCapabilities(
-      kIBusCapabilityPreeditText | kIBusCapabilityFocus);
+      kIBusCapabilityPreeditText | kIBusCapabilityFocus |
+      kIBusCapabilitySurroundingText);
 
   UpdateContextFocusState();
   // Since ibus-daemon is launched in an on-demand basis on Chrome OS, RWHVA (or
@@ -449,13 +425,9 @@ void InputMethodIBus::SetUpSignalHandlers() {
 }
 
 void InputMethodIBus::DestroyContext() {
-  if (pending_create_ic_request_) {
-    DCHECK(!IsContextReady());
-    // |pending_create_ic_request_| will be deleted in CreateInputContextDone().
-    pending_create_ic_request_->Abandon();
-    pending_create_ic_request_ = NULL;
+  if (input_context_state_ == INPUT_CONTEXT_STOP)
     return;
-  }
+  input_context_state_ = INPUT_CONTEXT_STOP;
   const chromeos::IBusInputContextClient* input_context =
       chromeos::DBusThreadManager::Get()->GetIBusInputContextClient();
   if (input_context && input_context->IsObjectProxyReady()) {
@@ -535,7 +507,7 @@ void InputMethodIBus::UpdateContextFocusState() {
     GetInputContextClient()->FocusIn();
 
   if (context_focused_) {
-    uint32 capability = kIBusCapabilityFocus;
+    uint32 capability = kIBusCapabilityFocus | kIBusCapabilitySurroundingText;
     if (CanComposeInline())
       capability |= kIBusCapabilityPreeditText;
     GetInputContextClient()->SetCapabilities(capability);
@@ -877,19 +849,46 @@ void InputMethodIBus::ResetInputContext() {
 }
 
 void InputMethodIBus::CreateInputContextDone(
-    PendingCreateICRequest* ic_request,
     const dbus::ObjectPath& object_path) {
+  DCHECK_NE(INPUT_CONTEXT_RUNNING, input_context_state_);
+
+  if (input_context_state_ == INPUT_CONTEXT_STOP) {
+    // DestroyContext has already been called.
+    return;
+  }
+
   chromeos::DBusThreadManager::Get()->GetIBusInputContextClient()
       ->Initialize(chromeos::DBusThreadManager::Get()->GetIBusBus(),
                    object_path);
-  ic_request->InitOrAbandonInputContext();
-  delete ic_request;
+
+  input_context_state_ = INPUT_CONTEXT_RUNNING;
+  DCHECK(IsContextReady());
+  SetUpSignalHandlers();
 }
 
-void InputMethodIBus::CreateInputContextFail(
-    PendingCreateICRequest* ic_request) {
-  ic_request->OnCreateInputContextFailed();
-  delete ic_request;
+void InputMethodIBus::CreateInputContextFail() {
+  DCHECK_NE(INPUT_CONTEXT_RUNNING, input_context_state_);
+  if (input_context_state_ == INPUT_CONTEXT_STOP) {
+    // CreateInputContext failed but the input context is no longer
+    // necessary, thus do nothing.
+    return;
+  }
+
+  if (++create_input_context_fail_count_ >= kMaxRetryCount) {
+    DVLOG(1) << "CreateInputContext failed even tried "
+             << kMaxRetryCount << " times, give up.";
+    create_input_context_fail_count_ = 0;
+    input_context_state_ = INPUT_CONTEXT_STOP;
+    return;
+  }
+
+  // Try CreateInputContext again.
+  chromeos::DBusThreadManager::Get()->GetIBusClient()->CreateInputContext(
+      kClientName,
+      base::Bind(&InputMethodIBus::CreateInputContextDone,
+                 weak_ptr_factory_.GetWeakPtr()),
+      base::Bind(&InputMethodIBus::CreateInputContextFail,
+                 weak_ptr_factory_.GetWeakPtr()));
 }
 
 bool InputMethodIBus::IsConnected() {

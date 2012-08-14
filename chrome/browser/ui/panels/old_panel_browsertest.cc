@@ -24,7 +24,6 @@
 #include "chrome/browser/ui/panels/native_panel.h"
 #include "chrome/browser/ui/panels/panel.h"
 #include "chrome/browser/ui/panels/panel_manager.h"
-#include "chrome/browser/ui/panels/test_panel_mouse_watcher.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_notification_types.h"
@@ -475,10 +474,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, AnimateBounds) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, RestoredBounds) {
-  // Disable mouse watcher. We don't care about mouse movements in this test.
-  PanelManager* panel_manager = PanelManager::GetInstance();
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  panel_manager->SetMouseWatcherForTesting(mouse_watcher);
   Panel* panel = CreatePanelWithBounds("PanelTest", gfx::Rect(0, 0, 100, 100));
   EXPECT_EQ(Panel::EXPANDED, panel->expansion_state());
   EXPECT_EQ(panel->GetBounds(), panel->GetRestoredBounds());
@@ -536,10 +531,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, RestoredBounds) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, MinimizeRestore) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   // Test with one panel.
   CreatePanelWithBounds("PanelTest1", gfx::Rect(0, 0, 100, 100));
   TestMinimizeRestore();
@@ -548,10 +539,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, MinimizeRestore) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, MinimizeRestoreTwoPanels) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   // Test with two panels.
   CreatePanelWithBounds("PanelTest1", gfx::Rect(0, 0, 100, 100));
   CreatePanelWithBounds("PanelTest2", gfx::Rect(0, 0, 110, 110));
@@ -561,10 +548,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, MinimizeRestoreTwoPanels) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, MinimizeRestoreThreePanels) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   // Test with three panels.
   CreatePanelWithBounds("PanelTest1", gfx::Rect(0, 0, 100, 100));
   CreatePanelWithBounds("PanelTest2", gfx::Rect(0, 0, 110, 110));
@@ -622,10 +605,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, MinimizeRestoreButtonClick) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, RestoreAllWithTitlebarClick) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   // Test with three panels.
   Panel* panel1 = CreatePanel("PanelTest1");
   Panel* panel2 = CreatePanel("PanelTest2");
@@ -962,10 +941,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, DrawAttentionBasic) {
 }
 
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, DrawAttentionWhileMinimized) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   // Create 3 panels so we end up with an inactive panel that can
   // be made to draw attention.
   Panel* panel = CreatePanel("test panel1");
@@ -1015,10 +990,6 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest, DrawAttentionWhileMinimized) {
 // is stopped when there are other minimized panels.
 IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest,
                        StopDrawingAttentionWhileMinimized) {
-  // We'll simulate mouse movements for test.
-  PanelMouseWatcher* mouse_watcher = new TestPanelMouseWatcher();
-  PanelManager::GetInstance()->SetMouseWatcherForTesting(mouse_watcher);
-
   Panel* panel1 = CreatePanel("panel1");
   Panel* panel2 = CreatePanel("panel2");
 
@@ -1072,7 +1043,14 @@ IN_PROC_BROWSER_TEST_F(OldPanelBrowserTest,
   EXPECT_EQ(Panel::TITLE_ONLY, panel1->expansion_state());
   EXPECT_EQ(Panel::MINIMIZED, panel2->expansion_state());
 
-  // Move mouse away and panel should go back to fully minimized state.
+  // Typical user scenario will detect the mouse in the panel
+  // after attention is cleared, causing titles to pop up, so
+  // we simulate that here.
+  MoveMouseAndWaitForExpansionStateChange(panel2, hover_point_in_panel);
+  EXPECT_EQ(Panel::TITLE_ONLY, panel1->expansion_state());
+  EXPECT_EQ(Panel::TITLE_ONLY, panel2->expansion_state());
+
+  // Move mouse away and panels should go back to fully minimized state.
   MoveMouseAndWaitForExpansionStateChange(panel1, hover_point);
   EXPECT_EQ(Panel::MINIMIZED, panel1->expansion_state());
   EXPECT_EQ(Panel::MINIMIZED, panel2->expansion_state());
