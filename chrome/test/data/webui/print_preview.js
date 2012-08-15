@@ -658,7 +658,8 @@ TEST_F('PrintPreviewWebUITest', 'TestDuplexSettings', function() {
     'setColorAsDefault': true,
     'disableCopiesOption': false,
     'disableLandscapeOption': true,
-    'printerDefaultDuplexValue': 0
+    'printerDefaultDuplexValue': 0,
+    'setDuplexAsDefault': false
   };
   this.nativeLayer_.dispatchEvent(capsSetEvent);
 
@@ -691,7 +692,8 @@ TEST_F('PrintPreviewWebUITest', 'TestDuplexSettings', function() {
     'setColorAsDefault': false,
     'disableCopiesOption': false,
     'disableLandscapeOption': false,
-    'printerDefaultDuplexValue': 1
+    'printerDefaultDuplexValue': 1,
+    'setDuplexAsDefault': true
   };
   this.nativeLayer_.dispatchEvent(capsSetEvent);
 
