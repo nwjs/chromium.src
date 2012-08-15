@@ -362,6 +362,7 @@ void RootView::OnMouseMoved(const MouseEvent& event) {
     // as we do above.
     if (!(e.flags() & ui::EF_IS_NON_CLIENT))
       widget_->SetCursor(gfx::kNullCursor);
+    mouse_move_handler_ = NULL;
   }
 }
 
