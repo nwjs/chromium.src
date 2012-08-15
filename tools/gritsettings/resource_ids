@@ -16,12 +16,6 @@
 {
   "SRCDIR": "../..",
 
-  "cef/libcef/resources/cef_resources.grd": {
-    "includes": [26000],
-  },
-  "cef/libcef/resources/cef_strings.grd": {
-    "messages": [26500],
-  },
   "chrome/browser/browser_resources.grd": {
     "includes": [500],
     "structures": [750],
@@ -178,6 +172,9 @@
     "includes": [25000],
   },
   "content/shell/shell_resources.grd": {
+    "includes": [25500],
+  },
+  "content/nw/src/nw_resources.grd": {
     "includes": [25500],
   },
   "ash/ash_strings.grd": {

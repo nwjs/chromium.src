@@ -17,6 +17,7 @@
   'includes': [
     '../build/win_precompile.gypi',
     'content_shell.gypi',
+    'nw.gypi',
   ],
   'target_defaults': {
     'defines': ['CONTENT_IMPLEMENTATION'],

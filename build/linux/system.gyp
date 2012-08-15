@@ -124,7 +124,7 @@
           'conditions': [
             ['use_openssl==1', {
               'dependencies': [
-                '../../third_party/openssl/openssl.gyp:openssl',
+                '../../third_party/node/deps/openssl/openssl.gyp:openssl',
               ],
             }],
           ],
@@ -133,7 +133,7 @@
           'conditions': [
             ['use_openssl==1', {
               'dependencies': [
-                '../../third_party/openssl/openssl.gyp:openssl',
+                '../../third_party/node/deps/openssl/openssl.gyp:openssl',
               ],
             }],
             ['use_openssl==0 and use_system_ssl==0', {

@@ -219,11 +219,6 @@ int RendererMain(const content::MainFunctionParams& parameters) {
 
     startup_timer.Stop();  // End of Startup Time Measurement.
 
-    // Initialize uv stuff before V8 is initialized
-    int argc = 1;
-    char* argv[] = { (char*)"node", NULL };
-    node::SetupUv(argc, argv);
-
     v8::V8::Initialize();
     {
       v8::Locker locker;
@@ -232,6 +227,8 @@ int RendererMain(const content::MainFunctionParams& parameters) {
       v8::Persistent<v8::Context> context = v8::Context::New();
       v8::Context::Scope context_scope(context);
 
+      int argc = 1;
+      char* argv[] = { (char*)"node", NULL };
       node::SetupContext(argc, argv, context->Global());
 
       if (run_loop) {

@@ -7,21 +7,13 @@
 #include "base/logging.h"
 #include "base/command_line.h"
 #include "content/public/common/content_switches.h"
+#include "third_party/node/src/node.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
 #endif
 
-namespace base {
-
-MessagePumpUV::MessagePumpUV()
-    : keep_running_(true)
-{
-}
-
-MessagePumpUV::~MessagePumpUV()
-{
-}
+namespace {
 
 static void wakeup_callback(uv_async_t* handle, int status) {
   // Do nothing
@@ -31,12 +23,29 @@ static void timer_callback(uv_timer_t* timer, int status) {
   uv_timer_stop(timer);
 }
 
+}
+
+namespace base {
+
+MessagePumpUV::MessagePumpUV()
+    : keep_running_(true)
+{
+  int argc = 1;
+  char* argv[] = { (char*)"node", NULL };
+  node::SetupUv(argc, argv);
+
+  uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
+}
+
+MessagePumpUV::~MessagePumpUV()
+{
+}
+
 void MessagePumpUV::Run(Delegate* delegate) {
   DCHECK(keep_running_) << "Quit must have been called outside of Run!";
 
   uv_timer_t delay_timer;
   uv_timer_init(uv_default_loop(), &delay_timer);
-  uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
 
   // Enter Loop
   for (;;) {
