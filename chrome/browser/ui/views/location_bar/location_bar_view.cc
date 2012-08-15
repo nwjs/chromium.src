@@ -383,9 +383,10 @@ void LocationBarView::SetAnimationOffset(int offset) {
   animation_offset_ = offset;
 }
 
-void LocationBarView::ModeChanged(const chrome::search::Mode& mode) {
+void LocationBarView::ModeChanged(const chrome::search::Mode& old_mode,
+                                  const chrome::search::Mode& new_mode) {
 #if defined(USE_AURA)
-  if (mode.is_search() && mode.animate) {
+  if (new_mode.is_search() && new_mode.animate) {
     // Fade in so the icons don't pop.
     StartFadeAnimation();
   } else {
@@ -1147,8 +1148,7 @@ void LocationBarView::RefreshPageActionViews() {
 
   WebContents* contents = GetWebContentsFromDelegate(delegate_);
   if (!page_action_views_.empty() && contents) {
-    Browser* browser =
-        browser::FindBrowserForController(&contents->GetController(), NULL);
+    Browser* browser = browser::FindBrowserWithWebContents(contents);
     GURL url = chrome::GetActiveWebContents(browser)->GetURL();
 
     for (PageActionViews::const_iterator i(page_action_views_.begin());

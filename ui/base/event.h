@@ -20,12 +20,6 @@
 namespace ui {
 class Transform;
 
-#if defined(USE_AURA)
-typedef Event* NativeEvent;
-#else
-typedef base::NativeEvent NativeEvent;
-#endif
-
 class UI_EXPORT Event {
  public:
   virtual ~Event();
@@ -45,7 +39,6 @@ class UI_EXPORT Event {
   };
 
   const base::NativeEvent& native_event() const { return native_event_; }
-  const ui::NativeEvent& ui_native_event() const { return ui_native_event_; }
   EventType type() const { return type_; }
   // time_stamp represents time since machine was booted.
   const base::TimeDelta& time_stamp() const { return time_stamp_; }
@@ -63,32 +56,32 @@ class UI_EXPORT Event {
   bool IsAltDown() const { return (flags_ & EF_ALT_DOWN) != 0; }
 
   bool IsMouseEvent() const {
-    return type_ == ui::ET_MOUSE_PRESSED ||
-           type_ == ui::ET_MOUSE_DRAGGED ||
-           type_ == ui::ET_MOUSE_RELEASED ||
-           type_ == ui::ET_MOUSE_MOVED ||
-           type_ == ui::ET_MOUSE_ENTERED ||
-           type_ == ui::ET_MOUSE_EXITED ||
-           type_ == ui::ET_MOUSEWHEEL;
+    return type_ == ET_MOUSE_PRESSED ||
+           type_ == ET_MOUSE_DRAGGED ||
+           type_ == ET_MOUSE_RELEASED ||
+           type_ == ET_MOUSE_MOVED ||
+           type_ == ET_MOUSE_ENTERED ||
+           type_ == ET_MOUSE_EXITED ||
+           type_ == ET_MOUSEWHEEL;
   }
 
   bool IsTouchEvent() const {
-    return type_ == ui::ET_TOUCH_RELEASED ||
-           type_ == ui::ET_TOUCH_PRESSED ||
-           type_ == ui::ET_TOUCH_MOVED ||
-           type_ == ui::ET_TOUCH_STATIONARY ||
-           type_ == ui::ET_TOUCH_CANCELLED;
+    return type_ == ET_TOUCH_RELEASED ||
+           type_ == ET_TOUCH_PRESSED ||
+           type_ == ET_TOUCH_MOVED ||
+           type_ == ET_TOUCH_STATIONARY ||
+           type_ == ET_TOUCH_CANCELLED;
   }
 
   bool IsScrollGestureEvent() const {
-    return type_ == ui::ET_GESTURE_SCROLL_BEGIN ||
-           type_ == ui::ET_GESTURE_SCROLL_UPDATE ||
-           type_ == ui::ET_GESTURE_SCROLL_END;
+    return type_ == ET_GESTURE_SCROLL_BEGIN ||
+           type_ == ET_GESTURE_SCROLL_UPDATE ||
+           type_ == ET_GESTURE_SCROLL_END;
   }
 
   bool IsFlingScrollEvent() const {
-    return type_ == ui::ET_SCROLL_FLING_CANCEL ||
-           type_ == ui::ET_SCROLL_FLING_START;
+    return type_ == ET_SCROLL_FLING_CANCEL ||
+           type_ == ET_SCROLL_FLING_START;
   }
 
   // Returns true if the event has a valid |native_event_|.
@@ -112,8 +105,6 @@ class UI_EXPORT Event {
   void InitWithNativeEvent(const base::NativeEvent& native_event);
 
   base::NativeEvent native_event_;
-  // TODO(beng): check to see if this is necessary.
-  ui::NativeEvent ui_native_event_;
   EventType type_;
   base::TimeDelta time_stamp_;
   int flags_;
@@ -170,7 +161,8 @@ class UI_EXPORT LocatedEvent : public Event {
                const gfx::Point& root_location,
                int flags);
 
-  LocatedEvent(const LocatedEvent& model);
+  // Called from MouseEvent's copy ctor.
+  explicit LocatedEvent(const LocatedEvent& model);
 
   gfx::Point location_;
 
@@ -187,7 +179,8 @@ class UI_EXPORT MouseEvent : public LocatedEvent {
   // converted from |source| coordinate system to |target| coordinate system.
   template <class T>
   MouseEvent(const MouseEvent& model, T* source, T* target)
-      : LocatedEvent(model, source, target) {
+      : LocatedEvent(model, source, target),
+        changed_button_flags_(model.changed_button_flags_) {
   }
 
   template <class T>
@@ -196,7 +189,8 @@ class UI_EXPORT MouseEvent : public LocatedEvent {
              T* target,
              EventType type,
              int flags)
-      : LocatedEvent(model, source, target) {
+      : LocatedEvent(model, source, target),
+        changed_button_flags_(model.changed_button_flags_) {
     set_type(type);
     set_flags(flags);
   }
@@ -209,30 +203,30 @@ class UI_EXPORT MouseEvent : public LocatedEvent {
 
   // Conveniences to quickly test what button is down
   bool IsOnlyLeftMouseButton() const {
-    return (flags() & ui::EF_LEFT_MOUSE_BUTTON) &&
-      !(flags() & (ui::EF_MIDDLE_MOUSE_BUTTON | ui::EF_RIGHT_MOUSE_BUTTON));
+    return (flags() & EF_LEFT_MOUSE_BUTTON) &&
+      !(flags() & (EF_MIDDLE_MOUSE_BUTTON | EF_RIGHT_MOUSE_BUTTON));
   }
 
   bool IsLeftMouseButton() const {
-    return (flags() & ui::EF_LEFT_MOUSE_BUTTON) != 0;
+    return (flags() & EF_LEFT_MOUSE_BUTTON) != 0;
   }
 
   bool IsOnlyMiddleMouseButton() const {
-    return (flags() & ui::EF_MIDDLE_MOUSE_BUTTON) &&
-      !(flags() & (ui::EF_LEFT_MOUSE_BUTTON | ui::EF_RIGHT_MOUSE_BUTTON));
+    return (flags() & EF_MIDDLE_MOUSE_BUTTON) &&
+      !(flags() & (EF_LEFT_MOUSE_BUTTON | EF_RIGHT_MOUSE_BUTTON));
   }
 
   bool IsMiddleMouseButton() const {
-    return (flags() & ui::EF_MIDDLE_MOUSE_BUTTON) != 0;
+    return (flags() & EF_MIDDLE_MOUSE_BUTTON) != 0;
   }
 
   bool IsOnlyRightMouseButton() const {
-    return (flags() & ui::EF_RIGHT_MOUSE_BUTTON) &&
-      !(flags() & (ui::EF_LEFT_MOUSE_BUTTON | ui::EF_MIDDLE_MOUSE_BUTTON));
+    return (flags() & EF_RIGHT_MOUSE_BUTTON) &&
+      !(flags() & (EF_LEFT_MOUSE_BUTTON | EF_MIDDLE_MOUSE_BUTTON));
   }
 
   bool IsRightMouseButton() const {
-    return (flags() & ui::EF_RIGHT_MOUSE_BUTTON) != 0;
+    return (flags() & EF_RIGHT_MOUSE_BUTTON) != 0;
   }
 
   // Compares two mouse down events and returns true if the second one should
@@ -247,16 +241,49 @@ class UI_EXPORT MouseEvent : public LocatedEvent {
   // Set the click count for a mousedown message. Can be 1, 2 or 3.
   void SetClickCount(int click_count);
 
+  // Identifies the button that changed. During a press this corresponds to the
+  // button that was pressed and during a release this corresponds to the button
+  // that was released.
+  // NOTE: during a press and release flags() contains the complete set of
+  // flags. Use this to determine the button that was pressed or released.
+  int changed_button_flags() const { return changed_button_flags_; }
+
  protected:
+  // Called from MouseWheelEvent's ctor.
   explicit MouseEvent(const MouseEvent& model);
 
  private:
-  gfx::Point root_location_;
-
-  static MouseEvent* last_click_event_;
   // Returns the repeat count based on the previous mouse click, if it is
   // recent enough and within a small enough distance.
   static int GetRepeatCount(const MouseEvent& click_event);
+
+  gfx::Point root_location_;
+
+  // See description above getter for details.
+  int changed_button_flags_;
+
+  static MouseEvent* last_click_event_;
+};
+
+class ScrollEvent;
+
+class UI_EXPORT MouseWheelEvent : public MouseEvent {
+ public:
+  // See |offset| for details.
+  static const int kWheelDelta;
+
+  explicit MouseWheelEvent(const base::NativeEvent& native_event);
+  explicit MouseWheelEvent(const MouseEvent& mouse_event);
+  explicit MouseWheelEvent(const ScrollEvent& scroll_event);
+
+  // The amount to scroll. This is in multiples of kWheelDelta.
+  // Note: offset() > 0 means scroll up / left.
+  int offset() const { return offset_; }
+
+ private:
+  int offset_;
+
+  DISALLOW_COPY_AND_ASSIGN(MouseWheelEvent);
 };
 
 class UI_EXPORT TouchEvent : public LocatedEvent {
@@ -328,6 +355,22 @@ class UI_EXPORT TouchEvent : public LocatedEvent {
   DISALLOW_COPY_AND_ASSIGN(TouchEvent);
 };
 
+class UI_EXPORT TestTouchEvent : public TouchEvent {
+ public:
+  // Create a new touch event.
+  TestTouchEvent(EventType type,
+                 int x,
+                 int y,
+                 int flags,
+                 int touch_id,
+                 float radius_x,
+                 float radius_y,
+                 float angle,
+                 float force);
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TestTouchEvent);
+};
+
 class UI_EXPORT KeyEvent : public Event {
  public:
   KeyEvent(const base::NativeEvent& native_event, bool is_char);
@@ -371,6 +414,8 @@ class UI_EXPORT KeyEvent : public Event {
 
   uint16 character_;
   uint16 unmodified_character_;
+
+  DISALLOW_COPY_AND_ASSIGN(KeyEvent);
 };
 
 // A key event which is translated by an input method (IME).
@@ -389,6 +434,9 @@ class UI_EXPORT TranslatedKeyEvent : public KeyEvent {
   // Changes the type() of the object from ET_TRANSLATED_KEY_* to ET_KEY_* so
   // that RenderWidgetHostViewAura and NativeWidgetAura could handle the event.
   void ConvertToKeyEvent();
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TranslatedKeyEvent);
 };
 
 class UI_EXPORT DropTargetEvent : public LocatedEvent {

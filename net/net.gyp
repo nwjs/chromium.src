@@ -1073,6 +1073,7 @@
               'net_jni_headers',
             ],
             'sources!': [
+              'base/dnssec_chain_verifier.cc',
               'base/openssl_memory_private_key_store.cc',
             ],
           }, {  # else OS! = "android"
@@ -1352,6 +1353,8 @@
         'websockets/websocket_frame_parser_unittest.cc',
         'websockets/websocket_frame_unittest.cc',
         'websockets/websocket_handshake_handler_unittest.cc',
+        'websockets/websocket_handshake_handler_spdy2_unittest.cc',
+        'websockets/websocket_handshake_handler_spdy3_unittest.cc',
         'websockets/websocket_job_spdy2_unittest.cc',
         'websockets/websocket_job_spdy3_unittest.cc',
         'websockets/websocket_net_log_params_unittest.cc',

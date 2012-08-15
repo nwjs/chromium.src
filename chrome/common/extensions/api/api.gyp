@@ -20,6 +20,7 @@
         'json_schema_files': [
           'bookmarks.json',
           'content_settings.json',
+          'context_menus.json',
           'cookies.json',
           'debugger.json',
           'events.json',
@@ -38,6 +39,7 @@
         ],
         'idl_schema_files': [
           'alarms.idl',
+          'app_runtime.idl',
           'app_window.idl',
           'downloads.idl',
           'experimental_bluetooth.idl',
@@ -47,6 +49,7 @@
           'experimental_idltest.idl',
           'experimental_media_galleries.idl',
           'experimental_push_messaging.idl',
+          'experimental_system_info_cpu.idl',
           'experimental_usb.idl',
           'file_system.idl',
           'serial.idl',

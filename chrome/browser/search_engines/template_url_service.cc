@@ -199,7 +199,7 @@ std::string OldBaseURLSearchTermsData::GoogleBaseURLValue() const {
 // Sync and TemplateURLs that were initially local, assuming |sync_data| is the
 // |initial_sync_data| parameter.
 bool IsFromSync(const TemplateURL* turl, const SyncDataMap& sync_data) {
-  return (sync_data.find(turl->sync_guid()) != sync_data.end());
+  return !!sync_data.count(turl->sync_guid());
 }
 
 }  // namespace
@@ -2374,8 +2374,6 @@ void TemplateURLService::MergeInSyncTemplateURL(
   // directly. Otherwise, modify |conflicting_turl| to make room for
   // |sync_turl|.
   if (conflicting_turl) {
-    DCHECK(conflicting_turl);
-
     if (IsFromSync(conflicting_turl, sync_data)) {
       // |conflicting_turl| is already known to Sync, so we're not allowed to
       // remove it. In this case, we want to uniquify the worse one and send an

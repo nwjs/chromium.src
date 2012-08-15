@@ -39,6 +39,9 @@ base::NativeEvent CopyNativeEvent(const base::NativeEvent& event) {
 
 namespace ui {
 
+////////////////////////////////////////////////////////////////////////////////
+// Event
+
 Event::~Event() {
 #if defined(USE_X11)
   if (delete_native_event_)
@@ -72,7 +75,6 @@ Event::Event(const base::NativeEvent& native_event,
 
 Event::Event(const Event& copy)
     : native_event_(copy.native_event_),
-      ui_native_event_(copy.ui_native_event_),
       type_(copy.type_),
       time_stamp_(copy.time_stamp_),
       flags_(copy.flags_),
@@ -81,13 +83,14 @@ Event::Event(const Event& copy)
 
 void Event::Init() {
   std::memset(&native_event_, 0, sizeof(native_event_));
-  std::memset(&ui_native_event_, 0, sizeof(ui_native_event_));
 }
 
 void Event::InitWithNativeEvent(const base::NativeEvent& native_event) {
   native_event_ = native_event;
-  std::memset(&ui_native_event_, 0, sizeof(ui_native_event_));
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// LocatedEvent
 
 LocatedEvent::~LocatedEvent() {
 }
@@ -124,8 +127,13 @@ void LocatedEvent::UpdateForRootTransform(const Transform& root_transform) {
   root_location_ = location_ = p.AsPoint();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// MouseEvent
+
 MouseEvent::MouseEvent(const base::NativeEvent& native_event)
-    : LocatedEvent(native_event) {
+    : LocatedEvent(native_event),
+      changed_button_flags_(
+          GetChangedMouseButtonFlagsFromNative(native_event)) {
   if (type() == ET_MOUSE_PRESSED)
     SetClickCount(GetRepeatCount(*this));
 }
@@ -134,7 +142,8 @@ MouseEvent::MouseEvent(EventType type,
                        const gfx::Point& location,
                        const gfx::Point& root_location,
                        int flags)
-    : LocatedEvent(type, location, root_location, flags) {
+    : LocatedEvent(type, location, root_location, flags),
+      changed_button_flags_(0) {
 }
 
 // static
@@ -227,9 +236,40 @@ void MouseEvent::SetClickCount(int click_count) {
 MouseEvent::MouseEvent(const MouseEvent& model) : LocatedEvent(model) {
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// MouseWheelEvent
+
+MouseWheelEvent::MouseWheelEvent(const base::NativeEvent& native_event)
+    : MouseEvent(native_event),
+      offset_(GetMouseWheelOffset(native_event)) {
+}
+
+MouseWheelEvent::MouseWheelEvent(const MouseEvent& mouse_event)
+    : MouseEvent(mouse_event),
+      offset_(GetMouseWheelOffset(mouse_event.native_event())) {
+}
+
+MouseWheelEvent::MouseWheelEvent(const ScrollEvent& scroll_event)
+    : MouseEvent(scroll_event),
+      offset_(scroll_event.y_offset()) {
+  set_type(ET_MOUSEWHEEL);
+}
+
+#if defined(OS_WIN)
+// This value matches windows WHEEL_DELTA.
+// static
+const int MouseWheelEvent::kWheelDelta = 120;
+#else
+// This value matches GTK+ wheel scroll amount.
+const int MouseWheelEvent::kWheelDelta = 53;
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
+// TouchEvent
+
 TouchEvent::TouchEvent(const base::NativeEvent& native_event)
     : LocatedEvent(native_event),
-      touch_id_(ui::GetTouchId(native_event)),
+      touch_id_(GetTouchId(native_event)),
       radius_x_(GetTouchRadiusX(native_event)),
       radius_y_(GetTouchRadiusY(native_event)),
       rotation_angle_(GetTouchAngle(native_event)),
@@ -237,9 +277,9 @@ TouchEvent::TouchEvent(const base::NativeEvent& native_event)
 }
 
 TouchEvent::TouchEvent(EventType type,
-                               const gfx::Point& location,
-                               int touch_id,
-                               base::TimeDelta time_stamp)
+                       const gfx::Point& location,
+                       int touch_id,
+                       base::TimeDelta time_stamp)
     : LocatedEvent(type, location, location, 0),
       touch_id_(touch_id),
       radius_x_(0.0f),
@@ -261,6 +301,28 @@ void TouchEvent::UpdateForRootTransform(const Transform& root_transform) {
   if (scale.y())
     radius_y_ /= scale.y();
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// TestTouchEvent
+
+TestTouchEvent::TestTouchEvent(EventType type,
+                               int x,
+                               int y,
+                               int flags,
+                               int touch_id,
+                               float radius_x,
+                               float radius_y,
+                               float angle,
+                               float force)
+    : TouchEvent(type, gfx::Point(x, y), touch_id, base::TimeDelta()) {
+  set_flags(flags);
+  set_radius(radius_x, radius_y);
+  set_rotation_angle(angle);
+  set_force(force);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// KeyEvent
 
 KeyEvent::KeyEvent(const base::NativeEvent& native_event, bool is_char)
     : Event(native_event,
@@ -344,6 +406,9 @@ KeyEvent* KeyEvent::Copy() {
   return copy;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// TranslatedKeyEvent
+
 TranslatedKeyEvent::TranslatedKeyEvent(const base::NativeEvent& native_event,
                                        bool is_char)
     : KeyEvent(native_event, is_char) {
@@ -364,6 +429,9 @@ void TranslatedKeyEvent::ConvertToKeyEvent() {
            ET_KEY_PRESSED : ET_KEY_RELEASED);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// ScrollEvent
+
 ScrollEvent::ScrollEvent(const base::NativeEvent& native_event)
     : MouseEvent(native_event) {
   if (type() == ET_SCROLL) {
@@ -375,6 +443,9 @@ ScrollEvent::ScrollEvent(const base::NativeEvent& native_event)
     GetFlingData(native_event, &x_offset_, &y_offset_, &is_cancel);
   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// GestureEvent
 
 GestureEvent::GestureEvent(EventType type,
                            int x,

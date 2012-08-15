@@ -231,6 +231,8 @@
       </div>
     </div>
     <div class=dialog-footer invisibleif="full-page">
+      <button id="new-folder" i18n-content=NEW_FOLDER_BUTTON_LABEL
+              visibleif="saveas-file">[NEW FOLDER]</button>
       <div id="filename-input-box">
         <div class=filename-label i18n-content=FILENAME_LABEL>[FILENAME]</div>
         <input type=text spellcheck=false>
@@ -244,14 +246,16 @@
       </div>
       <button class=cancel i18n-content=CANCEL_LABEL>[CANCEL]</button>
     </div>
-    <div id="butter-bar">
-      <div class="content">
-        <div class="butter-message"></div>
-        <div class="progress-bar" hidden>
-          <div class="progress-track"></div>
+    <div id="butter-bar-container">
+      <div id="butter-bar">
+        <div class="content">
+          <div class="butter-message"></div>
+          <div class="progress-bar" hidden>
+            <div class="progress-track"></div>
+          </div>
         </div>
+        <div class="actions" hidden></div>
       </div>
-      <div class="actions" hidden></div>
     </div>
     <div id="drag-image-container"></div>
     <iframe id="command-dispatcher" hidden></iframe>

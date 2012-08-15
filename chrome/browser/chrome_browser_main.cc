@@ -37,7 +37,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/extensions/extension_protocols.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extensions_startup.h"
+#include "chrome/browser/extensions/startup_helper.h"
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/google/google_search_counter.h"
 #include "chrome/browser/google/google_util.h"
@@ -50,12 +50,13 @@
 #include "chrome/browser/metrics/metrics_service.h"
 #include "chrome/browser/metrics/thread_watcher.h"
 #include "chrome/browser/metrics/tracking_synchronizer.h"
-#include "chrome/browser/metrics/variations_service.h"
+#include "chrome/browser/metrics/variations/variations_service.h"
 #include "chrome/browser/nacl_host/nacl_process_host.h"
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
 #include "chrome/browser/page_cycler/page_cycler.h"
+#include "chrome/browser/performance_monitor/performance_monitor.h"
 #include "chrome/browser/performance_monitor/startup_timer.h"
 #include "chrome/browser/plugin_prefs.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -91,7 +92,7 @@
 #include "chrome/common/json_pref_store.h"
 #include "chrome/common/jstemplate_builder.h"
 #include "chrome/common/logging_chrome.h"
-#include "chrome/common/metrics/variations_util.h"
+#include "chrome/common/metrics/variations/variations_util.h"
 #include "chrome/common/net/net_resource_provider.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/profiling.h"
@@ -460,8 +461,8 @@ bool ProcessSingletonNotificationCallback(const CommandLine& command_line,
       return true;
     }
 
-    ExtensionsStartupUtil ext_startup_util;
-    ext_startup_util.UninstallExtension(command_line, profile);
+    extensions::StartupHelper extension_startup_helper;
+    extension_startup_helper.UninstallExtension(command_line, profile);
     return true;
   }
 
@@ -989,8 +990,8 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // If the command line specifies --pack-extension, attempt the pack extension
   // startup action and exit.
   if (parsed_command_line().HasSwitch(switches::kPackExtension)) {
-    ExtensionsStartupUtil extension_startup_util;
-    if (extension_startup_util.PackExtension(parsed_command_line()))
+    extensions::StartupHelper extension_startup_helper;
+    if (extension_startup_helper.PackExtension(parsed_command_line()))
       return content::RESULT_CODE_NORMAL_EXIT;
     return chrome::RESULT_CODE_PACK_EXTENSION_ERROR;
   }
@@ -1265,8 +1266,9 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // specifies --uninstall-extension, attempt the uninstall extension startup
   // action.
   if (parsed_command_line().HasSwitch(switches::kUninstallExtension)) {
-    ExtensionsStartupUtil ext_startup_util;
-    if (ext_startup_util.UninstallExtension(parsed_command_line(), profile_))
+    extensions::StartupHelper extension_startup_helper;
+    if (extension_startup_helper.UninstallExtension(
+            parsed_command_line(), profile_))
       return content::RESULT_CODE_NORMAL_EXIT;
     return chrome::RESULT_CODE_UNINSTALL_EXTENSION_ERROR;
   }
@@ -1429,6 +1431,12 @@ bool ChromeBrowserMainParts::MainMessageLoopRun(int* result_code) {
 #else
   base::RunLoop run_loop;
 #endif
+
+  if (CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kRunPerformanceMonitor)) {
+    performance_monitor::PerformanceMonitor::GetInstance()->Start();
+  }
+
   run_loop.Run();
 
   return true;

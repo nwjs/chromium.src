@@ -1140,9 +1140,6 @@ const char kReloadKilledTabs[]              = "reload-killed-tabs";
 // Uses custom front-end URL for the remote debugging.
 const char kRemoteDebuggingFrontend[]       = "remote-debugging-frontend";
 
-// Enables remote debug over HTTP on the specified port.
-const char kRemoteDebuggingPort[]           = "remote-debugging-port";
-
 // Enables print preview in the renderer. This flag is generated internally by
 // Chrome and does nothing when directly passed to the browser.
 const char kRendererPrintPreview[]          = "renderer-print-preview";
@@ -1156,6 +1153,12 @@ const char kResetVariationState[]           = "reset-variation-state";
 // switch is the number of tabs to wait until loaded before 'load completed' is
 // sent to the ui_test.
 const char kRestoreLastSession[]            = "restore-last-session";
+
+// Launches PerformanceMonitor at startup, which will gather statistics about
+// Chrome's CPU and memory usage, page load times, startup times, and network
+// usage, and will also store information about events which may be of interest,
+// such as extension-related occurrences and crashes.
+const char kRunPerformanceMonitor[]         = "run-performance-monitor";
 
 // Disable saving pages as HTML-only, disable saving pages as HTML Complete
 // (with a directory of sub-resources). Enable only saving pages as MHTML.

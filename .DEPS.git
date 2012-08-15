@@ -11,12 +11,12 @@ vars = {
     'git_url':
          'http://git.chromium.org',
     'webkit_rev':
-         '@7ceedd688bb399d5c1b9ca23baf6ca76527b7296'
+         '@9bc477e798a86323339795571eb9bd0035d6cbad'
 }
 
 deps = {
     'src/breakpad/src':
-        Var('git_url') + '/external/google-breakpad/src.git@c2c0aaed1f1f1e4c003f9529fd0e9f1e8cac2b0b',
+        Var('git_url') + '/external/google-breakpad/src.git@7d88a77d696ab140935cc55a94717337924fc5fe',
     'src/chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin':
         Var('git_url') + '/native_client/src/native_client/tests/prebuilt.git@3e17365176c94624f46cace174f61834b7f3c35d',
     'src/chrome/test/data/perf/canvas_bench':
@@ -30,17 +30,17 @@ deps = {
     'src/native_client_sdk/src/site_scons':
         Var('git_url') + '/native_client/src/native_client/site_scons.git@863e3ade9901bc54bc8578b4257d6a75dbc61620',
     'src/sandbox/linux/seccomp-legacy':
-        Var('git_url') + '/external/seccompsandbox.git@197650a0f9a2535b6494e2f66990e43032588fdc',
+        Var('git_url') + '/external/seccompsandbox.git@95fc762804a289168b66f3a9a9676ad9a9dd89a4',
     'src/sdch/open-vcdiff':
         Var('git_url') + '/external/open-vcdiff.git@438f2a5be6d809bc21611a94cd37bfc8c28ceb33',
     'src/testing/gmock':
         Var('git_url') + '/external/googlemock.git@9bc5e4afdb0407b5fd4acb101e3b11850a90a873',
     'src/testing/gtest':
-        Var('git_url') + '/external/googletest.git@090d8a824857f24e5ec780112a3d4b269f9a7d3d',
+        Var('git_url') + '/external/googletest.git@a92a6f792395e1ad462472d474ab0c76949813fa',
     'src/third_party/WebKit':
         Var('webkit_url') + Var('webkit_rev'),
     'src/third_party/angle':
-        Var('git_url') + '/external/angleproject.git@03b4d5fbb51570a07e4b99e78396473f15f97ce3',
+        Var('git_url') + '/external/angleproject.git@75fe676331271d3b39d05352309bbaa7a994c5ae',
     'src/third_party/bidichecker':
         Var('git_url') + '/external/bidichecker/lib.git@97f2aa645b74c28c57eca56992235c79850fa9e0',
     'src/third_party/cacheinvalidation/files/src/google':
@@ -110,7 +110,7 @@ deps = {
     'src/third_party/swig/Lib':
         Var('git_url') + '/chromium/deps/swig/Lib.git@549f0b084ad9c40ef42d111303d831eb8d91252e',
     'src/third_party/trace-viewer':
-        Var('git_url') + '/external/trace-viewer.git@95c9e64abef0fe96048e13fb543171f3345a8904',
+        Var('git_url') + '/external/trace-viewer.git@387589c31348c6c4b384f06b3bee38c3a4c10ff7',
     'src/third_party/undoview':
         Var('git_url') + '/chromium/deps/undoview.git@3ba503e248f3cdbd81b78325a24ece0984637559',
     'src/third_party/v8-i18n':

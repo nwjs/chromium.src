@@ -125,7 +125,8 @@ class ToolbarView : public views::AccessiblePaneView,
   virtual void OnInputInProgress(bool in_progress) OVERRIDE;
 
   // Overridden from chrome::search::SearchModelObserver:
-  virtual void ModeChanged(const chrome::search::Mode& mode) OVERRIDE;
+  virtual void ModeChanged(const chrome::search::Mode& old_mode,
+                           const chrome::search::Mode& new_mode) OVERRIDE;
 
   // Overridden from CommandObserver:
   virtual void EnabledStateChangedForCommand(int id, bool enabled) OVERRIDE;
@@ -152,8 +153,8 @@ class ToolbarView : public views::AccessiblePaneView,
       int* formats,
       std::set<OSExchangeData::CustomFormat>* custom_formats) OVERRIDE;
   virtual bool CanDrop(const ui::OSExchangeData& data) OVERRIDE;
-  virtual int OnDragUpdated(const views::DropTargetEvent& event) OVERRIDE;
-  virtual int OnPerformDrop(const views::DropTargetEvent& event) OVERRIDE;
+  virtual int OnDragUpdated(const ui::DropTargetEvent& event) OVERRIDE;
+  virtual int OnPerformDrop(const ui::DropTargetEvent& event) OVERRIDE;
   virtual void OnThemeChanged() OVERRIDE;
   virtual std::string GetClassName() const OVERRIDE;
   virtual bool AcceleratorPressed(const ui::Accelerator& acc) OVERRIDE;

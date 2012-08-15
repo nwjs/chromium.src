@@ -14,9 +14,9 @@
 #include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/common/url_constants.h"
 #include "grit/theme_resources.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
-#include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/fill_layout.h"
@@ -293,7 +293,8 @@ void SearchViewController::StackAtTop() {
 void SearchViewController::InstantReady() {
 }
 
-void SearchViewController::ModeChanged(const chrome::search::Mode& mode) {
+void SearchViewController::ModeChanged(const chrome::search::Mode& old_mode,
+                                       const chrome::search::Mode& new_mode) {
   UpdateState();
 }
 

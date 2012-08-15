@@ -1914,8 +1914,8 @@ TEST_F(TemplateURLServiceSyncTest, MergeInSyncTemplateURL) {
     TemplateURL* local_turl = CreateTestTemplateURL(
         local_keyword, local_url, local_guid, local_last_modified);
     model()->Add(local_turl);
-    TemplateURL* sync_turl = CreateTestTemplateURL(
-        sync_keyword, sync_url, sync_guid, sync_last_modified);
+    scoped_ptr<TemplateURL> sync_turl(CreateTestTemplateURL(
+        sync_keyword, sync_url, sync_guid, sync_last_modified));
 
     SyncDataMap sync_data;
     if (test_cases[i].synced_at_start == SYNC ||
@@ -1932,7 +1932,7 @@ TEST_F(TemplateURLServiceSyncTest, MergeInSyncTemplateURL) {
         TemplateURLService::CreateSyncDataFromTemplateURL(*local_turl);
 
     syncer::SyncChangeList change_list;
-    model()->MergeInSyncTemplateURL(sync_turl, sync_data, &change_list,
+    model()->MergeInSyncTemplateURL(sync_turl.get(), sync_data, &change_list,
                                     &initial_data);
 
     // Check for expected updates, if any.

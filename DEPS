@@ -8,7 +8,7 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "125411",
+  "webkit_revision": "125583",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
@@ -41,28 +41,28 @@ vars = {
 
 deps = {
   "src/breakpad/src":
-    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@999",
+    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1008",
 
   "src/googleurl":
     (Var("googlecode_url") % "google-url") + "/trunk@175",
 
   "src/sandbox/linux/seccomp-legacy":
-    (Var("googlecode_url") % "seccompsandbox") + "/trunk@186",
+    (Var("googlecode_url") % "seccompsandbox") + "/trunk@187",
 
   "src/sdch/open-vcdiff":
     (Var("googlecode_url") % "open-vcdiff") + "/trunk@42",
 
   "src/testing/gtest":
-    (Var("googlecode_url") % "googletest") + "/trunk@617",
+    (Var("googlecode_url") % "googletest") + "/trunk@621",
 
   "src/testing/gmock":
     (Var("googlecode_url") % "googlemock") + "/trunk@405",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@1245",
+    (Var("googlecode_url") % "angleproject") + "/trunk@1250",
 
   "src/third_party/trace-viewer":
-    (Var("googlecode_url") % "trace-viewer") + "/trunk@103",
+    (Var("googlecode_url") % "trace-viewer") + "/trunk@116",
 
   # Note that this is *not* where we check out WebKit -- this just
   # puts some extra files into place for the real WebKit checkout to
@@ -499,7 +499,7 @@ deps_os = {
        Var("lss_revision")),
 
     "src/third_party/openssl":
-      "/trunk/deps/third_party/openssl@130472",
+      "/trunk/deps/third_party/openssl@151471",
 
     "src/third_party/WebKit/Tools/gdb":
       Var("webkit_trunk") + "/Tools/gdb@" + Var("webkit_revision"),

@@ -489,10 +489,11 @@ void ToolbarView::OnInputInProgress(bool in_progress) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // ToolbarView, chrome::search::SearchModelObserver implementation:
-void ToolbarView::ModeChanged(const chrome::search::Mode& mode) {
+void ToolbarView::ModeChanged(const chrome::search::Mode& old_mode,
+                              const chrome::search::Mode& new_mode) {
   // Layout location bar to determine the visibility of each of its child
   // view based on toolbar mode change.
-  if (mode.is_ntp())
+  if (new_mode.is_ntp())
     location_bar_->Layout();
 
   Layout();
@@ -810,7 +811,7 @@ bool ToolbarView::CanDrop(const ui::OSExchangeData& data) {
   return data.HasURL() || data.HasString();
 }
 
-int ToolbarView::OnDragUpdated(const views::DropTargetEvent& event) {
+int ToolbarView::OnDragUpdated(const ui::DropTargetEvent& event) {
   if (event.source_operations() & ui::DragDropTypes::DRAG_COPY) {
     return ui::DragDropTypes::DRAG_COPY;
   } else if (event.source_operations() & ui::DragDropTypes::DRAG_LINK) {
@@ -819,7 +820,7 @@ int ToolbarView::OnDragUpdated(const views::DropTargetEvent& event) {
   return ui::DragDropTypes::DRAG_NONE;
 }
 
-int ToolbarView::OnPerformDrop(const views::DropTargetEvent& event) {
+int ToolbarView::OnPerformDrop(const ui::DropTargetEvent& event) {
   return location_bar_->GetLocationEntry()->OnPerformDrop(event);
 }
 

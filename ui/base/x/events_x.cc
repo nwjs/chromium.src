@@ -758,10 +758,6 @@ int EventFlagsFromNative(const base::NativeEvent& native_event) {
 }
 
 base::TimeDelta EventTimeFromNative(const base::NativeEvent& native_event) {
-  // Synthetic events don't have native events.
-  if (!native_event)
-    return base::TimeDelta();
-
   switch(native_event->type) {
     case KeyPress:
     case KeyRelease:
@@ -861,6 +857,29 @@ bool IsMouseEvent(const base::NativeEvent& native_event) {
            xievent->evtype == XI_Motion;
   }
   return false;
+}
+
+int GetChangedMouseButtonFlagsFromNative(
+    const base::NativeEvent& native_event) {
+  switch (native_event->type) {
+    case ButtonPress:
+    case ButtonRelease:
+      return GetEventFlagsFromXState(native_event->xbutton.state);
+    case GenericEvent: {
+      XIDeviceEvent* xievent =
+          static_cast<XIDeviceEvent*>(native_event->xcookie.data);
+      switch (xievent->evtype) {
+        case XI_ButtonPress:
+        case XI_ButtonRelease:
+          return GetEventFlagsForButton(EventButtonFromNative(native_event));
+        default:
+          break;
+      }
+    }
+    default:
+      break;
+  }
+  return 0;
 }
 
 int GetMouseWheelOffset(const base::NativeEvent& native_event) {

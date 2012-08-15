@@ -525,8 +525,8 @@ void TestingAutomationProvider::CloseTab(int tab_handle,
                                          IPC::Message* reply_message) {
   if (tab_tracker_->ContainsHandle(tab_handle)) {
     NavigationController* controller = tab_tracker_->GetResource(tab_handle);
-    int index;
-    Browser* browser = browser::FindBrowserForController(controller, &index);
+    Browser* browser = browser::FindBrowserWithWebContents(
+        controller->GetWebContents());
     DCHECK(browser);
     new TabClosedNotificationObserver(this, wait_until_closed, reply_message,
                                       false);
@@ -1044,7 +1044,8 @@ void TestingAutomationProvider::GetTabIndex(int handle, int* tabstrip_index) {
 
   if (tab_tracker_->ContainsHandle(handle)) {
     NavigationController* tab = tab_tracker_->GetResource(handle);
-    Browser* browser = browser::FindBrowserForController(tab, NULL);
+    Browser* browser = browser::FindBrowserWithWebContents(
+        tab->GetWebContents());
     *tabstrip_index = chrome::GetIndexOfTab(browser, tab->GetWebContents());
   }
 }
@@ -2723,7 +2724,8 @@ void TestingAutomationProvider::GetDownloadsInfo(Browser* browser,
     for (std::vector<DownloadItem*>::iterator it = downloads.begin();
          it != downloads.end();
          it++) {  // Fill info about each download item.
-      list_of_downloads->Append(GetDictionaryFromDownloadItem(*it));
+      list_of_downloads->Append(GetDictionaryFromDownloadItem(
+          *it, browser->profile()->IsOffTheRecord()));
     }
   }
   return_value->Set("downloads", list_of_downloads);
@@ -2818,7 +2820,7 @@ void TestingAutomationProvider::PerformActionOnDownload(
   if (action == "open") {
     selected_item->AddObserver(
         new AutomationProviderDownloadUpdatedObserver(
-            this, reply_message, true));
+            this, reply_message, true, browser->profile()->IsOffTheRecord()));
     selected_item->OpenDownload();
   } else if (action == "toggle_open_files_like_this") {
     DownloadPrefs* prefs =
@@ -2841,16 +2843,16 @@ void TestingAutomationProvider::PerformActionOnDownload(
     selected_item->Delete(DownloadItem::DELETE_DUE_TO_USER_DISCARD);
   } else if (action == "save_dangerous_download") {
     selected_item->AddObserver(new AutomationProviderDownloadUpdatedObserver(
-        this, reply_message, false));
+        this, reply_message, false, browser->profile()->IsOffTheRecord()));
     selected_item->DangerousDownloadValidated();
   } else if (action == "toggle_pause") {
     selected_item->AddObserver(new AutomationProviderDownloadUpdatedObserver(
-        this, reply_message, false));
+        this, reply_message, false, browser->profile()->IsOffTheRecord()));
     // This will still return if download has already completed.
     selected_item->TogglePause();
   } else if (action == "cancel") {
     selected_item->AddObserver(new AutomationProviderDownloadUpdatedObserver(
-        this, reply_message, false));
+        this, reply_message, false, browser->profile()->IsOffTheRecord()));
     selected_item->Cancel(true);
   } else {
     AutomationJSONReply(this, reply_message)

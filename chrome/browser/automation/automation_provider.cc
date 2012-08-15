@@ -300,7 +300,7 @@ int AutomationProvider::GetIndexForNavigationController(
 
 // TODO(phajdan.jr): move to TestingAutomationProvider.
 DictionaryValue* AutomationProvider::GetDictionaryFromDownloadItem(
-    const DownloadItem* download) {
+    const DownloadItem* download, bool incognito) {
   std::map<DownloadItem::DownloadState, std::string> state_to_string;
   state_to_string[DownloadItem::IN_PROGRESS] = std::string("IN_PROGRESS");
   state_to_string[DownloadItem::CANCELLED] = std::string("CANCELLED");
@@ -325,7 +325,7 @@ DictionaryValue* AutomationProvider::GetDictionaryFromDownloadItem(
   dl_item_value->SetBoolean("open_when_complete",
                             download->GetOpenWhenComplete());
   dl_item_value->SetBoolean("is_temporary", download->IsTemporary());
-  dl_item_value->SetBoolean("is_otr", download->IsOtr());  // incognito
+  dl_item_value->SetBoolean("is_otr", incognito);
   dl_item_value->SetString("state", state_to_string[download->GetState()]);
   dl_item_value->SetString("safety_state",
                            safety_state_to_string[download->GetSafetyState()]);
@@ -468,11 +468,10 @@ bool AutomationProvider::Send(IPC::Message* msg) {
 
 Browser* AutomationProvider::FindAndActivateTab(
     NavigationController* controller) {
-  int tab_index;
-  Browser* browser = browser::FindBrowserForController(controller, &tab_index);
-  if (browser)
-    chrome::ActivateTabAt(browser, tab_index, true);
-  return browser;
+  content::WebContentsDelegate* d = controller->GetWebContents()->GetDelegate();
+  if (d)
+    d->ActivateContents(controller->GetWebContents());
+  return browser::FindBrowserWithWebContents(controller->GetWebContents());
 }
 
 void AutomationProvider::HandleFindRequest(

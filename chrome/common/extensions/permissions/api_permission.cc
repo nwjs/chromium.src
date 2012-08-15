@@ -12,7 +12,6 @@ namespace {
 
 const char kOldUnlimitedStoragePermission[] = "unlimited_storage";
 const char kWindowsPermission[] = "windows";
-const char kTemporaryBackgroundAlias[] = "background_alias_do_not_use";
 
 }  // namespace
 
@@ -156,6 +155,7 @@ void APIPermission::RegisterAllPermissions(
     // Platform-app permissions.
     { kSerial, "serial", kFlagCannotBeOptional },
     { kSocket, "socket", kFlagCannotBeOptional },
+    { kAppRuntime, "app.runtime" },
     { kAppWindow, "app.window" },
     { kAudioCapture, "audioCapture", kFlagNone,
       IDS_EXTENSION_PROMPT_WARNING_AUDIO_CAPTURE,
@@ -187,9 +187,6 @@ void APIPermission::RegisterAllPermissions(
   // Register aliases.
   info->RegisterAlias("unlimitedStorage", kOldUnlimitedStoragePermission);
   info->RegisterAlias("tabs", kWindowsPermission);
-  // TODO(mihaip): Should be removed for the M20 branch, see
-  // http://crbug.com/120447 for more details.
-  info->RegisterAlias("background", kTemporaryBackgroundAlias);
 }
 
 }  // namespace extensions

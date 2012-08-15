@@ -193,8 +193,6 @@
         'browser/autofill/autofill_download.h',
         'browser/autofill/autofill_external_delegate.cc',
         'browser/autofill/autofill_external_delegate.h',
-        'browser/autofill/autofill_external_delegate_gtk.cc',
-        'browser/autofill/autofill_external_delegate_gtk.h',
         'browser/autofill/autofill_feedback_infobar_delegate.cc',
         'browser/autofill/autofill_feedback_infobar_delegate.h',
         'browser/autofill/autofill_field.cc',
@@ -1478,8 +1476,8 @@
         'browser/metrics/tracking_synchronizer.cc',
         'browser/metrics/tracking_synchronizer.h',
         'browser/metrics/tracking_synchronizer_observer.h',
-        'browser/metrics/variations_service.cc',
-        'browser/metrics/variations_service.h',
+        'browser/metrics/variations/variations_service.cc',
+        'browser/metrics/variations/variations_service.h',
         'browser/native_window_notification_source.h',
         'browser/net/cache_stats.cc',
         'browser/net/cache_stats.h',
@@ -3075,6 +3073,8 @@
         'browser/ui/gtk/accelerators_gtk.h',
         'browser/ui/gtk/action_box_button_gtk.cc',
         'browser/ui/gtk/action_box_button_gtk.h',
+        'browser/ui/gtk/autofill/autofill_external_delegate_gtk.cc',
+        'browser/ui/gtk/autofill/autofill_external_delegate_gtk.h',
         'browser/ui/gtk/autofill/autofill_popup_view_gtk.cc',
         'browser/ui/gtk/autofill/autofill_popup_view_gtk.h',
         'browser/ui/gtk/avatar_menu_bubble_gtk.cc',
@@ -3205,6 +3205,8 @@
         'browser/ui/gtk/gtk_tree.h',
         'browser/ui/gtk/gtk_util.cc',
         'browser/ui/gtk/gtk_util.h',
+        'browser/ui/gtk/gtk_window_util.cc',
+        'browser/ui/gtk/gtk_window_util.h',
         'browser/ui/gtk/hover_controller_gtk.cc',
         'browser/ui/gtk/hover_controller_gtk.h',
         'browser/ui/gtk/hung_renderer_dialog_gtk.cc',
@@ -3398,6 +3400,7 @@
         'browser/ui/panels/panel_frame_view.cc',
         'browser/ui/panels/panel_frame_view.h',
         'browser/ui/panels/panel_gtk.cc',
+        'browser/ui/panels/panel_gtk.h',
         'browser/ui/panels/panel_host.cc',
         'browser/ui/panels/panel_host.h',
         'browser/ui/panels/panel_resize_controller.cc',
@@ -3410,6 +3413,8 @@
         'browser/ui/panels/panel_mouse_watcher_timer.cc',
         'browser/ui/panels/panel_strip.cc',
         'browser/ui/panels/panel_strip.h',
+        'browser/ui/panels/panel_titlebar_gtk.cc',
+        'browser/ui/panels/panel_titlebar_gtk.h',
         'browser/ui/panels/panel_titlebar_view_cocoa.h',
         'browser/ui/panels/panel_titlebar_view_cocoa.mm',
         'browser/ui/panels/panel_utils_cocoa.h',
@@ -4511,6 +4516,7 @@
         }, {  # safe_browsing==0
           'dependencies!': [
             'safe_browsing_report_proto',
+            '../third_party/libusb/libusb.gyp:libusb',
           ],
           'sources!': [
             'browser/renderer_host/safe_browsing_resource_throttle.cc',
@@ -4936,6 +4942,10 @@
           'dependencies': [
             'chrome_browser_jni_headers',
           ],
+          'sources': [
+            'browser/ui/webui/ntp/android/partner_bookmarks_shim.cc',
+            'browser/ui/webui/ntp/android/partner_bookmarks_shim.h',
+          ],
           'sources!': [
             'browser/bookmarks/bookmark_context_menu_controller.cc',
             # Bookmark export/import are handled via the BookmarkColumns
@@ -4973,7 +4983,9 @@
             'browser/page_cycler/page_cycler.cc',
             'browser/page_cycler/page_cycler.h',
             'browser/ui/browser.cc',
+            'browser/ui/browser_command_controller.cc',
             'browser/ui/browser_finder.cc',
+            'browser/ui/browser_instant_controller.cc',
             'browser/ui/browser_list.cc',
             'browser/ui/browser_navigator.cc',
             'browser/ui/browser_otr_state.cc',
@@ -5012,7 +5024,14 @@
           'sources/': [
             ['exclude', '^browser/captive_portal/'],
             ['exclude', '^browser/chrome_to_mobile'],
+            ['exclude', '^browser/first_run/'],
+            ['include', '^browser/first_run/first_run.cc'], # For ctor/dtor of a struct.
             ['exclude', '^browser/importer/'],
+            ['exclude', '^browser/lifetime/'],
+            ['exclude', '^browser/service/'],
+            ['exclude', '^browser/speech/'],
+            ['exclude', '^browser/sync/glue/app_'],
+            ['exclude', '^browser/sync/glue/extension_'],
             ['exclude', '^browser/ui/intents/'],
             ['exclude', '^browser/ui/omnibox/'],
             ['exclude', '^browser/ui/panels/'],
