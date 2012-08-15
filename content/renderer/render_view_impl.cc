@@ -2411,10 +2411,10 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
 #endif
   use_accelerated_video_decode &= !CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kDisableAcceleratedVideoDecode);
-  base::WeakPtr<WebGraphicsContext3DCommandBufferImpl> context3d =
+  WebGraphicsContext3DCommandBufferImpl* context3d =
       use_accelerated_video_decode ?
       RenderThreadImpl::current()->GetGpuVDAContext3D() :
-      base::WeakPtr<WebGraphicsContext3DCommandBufferImpl>();
+      NULL;
   if (context3d) {
     MessageLoop* factories_loop =
         RenderThreadImpl::current()->compositor_thread() ?
