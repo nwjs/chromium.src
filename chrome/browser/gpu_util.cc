@@ -187,8 +187,7 @@ void InitializeForceCompositingModeFieldTrial() {
 #endif
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
   // Only run the trial on the Canary and Dev channels.
-  if (channel != chrome::VersionInfo::CHANNEL_CANARY &&
-      channel != chrome::VersionInfo::CHANNEL_DEV)
+  if (channel != chrome::VersionInfo::CHANNEL_CANARY)
     return;
 #if defined(OS_WIN)
   // Don't run the trial on Windows XP.
