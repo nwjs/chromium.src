@@ -51,6 +51,10 @@ bool ChromeNetworkDelegate::g_allow_file_access_ = false;
 bool ChromeNetworkDelegate::g_allow_file_access_ = true;
 #endif
 
+// This remains false unless the --disable-extensions-http-throttling
+// flag is passed to the browser.
+bool ChromeNetworkDelegate::g_never_throttle_requests_ = false;
+
 namespace {
 
 // If the |request| failed due to problems with a proxy, forward the error to
@@ -131,7 +135,6 @@ ChromeNetworkDelegate::ChromeNetworkDelegate(
       cookie_settings_(cookie_settings),
       extension_info_map_(extension_info_map),
       enable_referrers_(enable_referrers),
-      never_throttle_requests_(false),
       url_blacklist_manager_(url_blacklist_manager) {
   DCHECK(event_router);
   DCHECK(enable_referrers);
@@ -140,8 +143,9 @@ ChromeNetworkDelegate::ChromeNetworkDelegate(
 
 ChromeNetworkDelegate::~ChromeNetworkDelegate() {}
 
+// static
 void ChromeNetworkDelegate::NeverThrottleRequests() {
-  never_throttle_requests_ = true;
+  g_never_throttle_requests_ = true;
 }
 
 // static
@@ -364,11 +368,11 @@ bool ChromeNetworkDelegate::OnCanAccessFile(const net::URLRequest& request,
 
 bool ChromeNetworkDelegate::OnCanThrottleRequest(
     const net::URLRequest& request) const {
-  if (never_throttle_requests_) {
+  if (g_never_throttle_requests_) {
     return false;
   }
 
-  return request.first_party_for_cookies().scheme() !=
+  return request.first_party_for_cookies().scheme() ==
       chrome::kExtensionScheme;
 }
 
