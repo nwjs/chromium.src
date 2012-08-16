@@ -75,8 +75,10 @@ bool ConductingPepperFlashFieldTrial() {
   // IsPepperFlashEnabledByDefault() puts PepperFlash above NPAPI
   // Flash.
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  if (channel == chrome::VersionInfo::CHANNEL_CANARY ||
-      channel == chrome::VersionInfo::CHANNEL_DEV)
+  if (channel == chrome::VersionInfo::CHANNEL_CANARY)
+    return true;
+
+  if (channel == chrome::VersionInfo::CHANNEL_DEV)
     return true;
 
   // TODO(shess): Don't expose for other channels, yet.
@@ -96,13 +98,12 @@ bool IsPepperFlashEnabledByDefault() {
   // For Linux, always try to use it (availability is checked elsewhere).
   return true;
 #elif defined(OS_MACOSX)
-  // PepperFlash is the default for CANARY and DEV.
+  // PepperFlash is the default for CANARY.
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
-  if (channel == chrome::VersionInfo::CHANNEL_CANARY ||
-      channel == chrome::VersionInfo::CHANNEL_DEV)
+  if (channel == chrome::VersionInfo::CHANNEL_CANARY)
     return true;
 
-  // PepperFlash is opt-in on any other channels where it is exposed.
+  // PepperFlash is opt-in on any other channels.
   return false;
 #else
   return false;
