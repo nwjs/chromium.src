@@ -600,16 +600,20 @@ Event::Event(const std::string& event_name,
              const std::string& event_args,
              const GURL& event_url,
              Profile* restrict_to_profile,
-             const std::string& cross_incognito_args,
+             const std::string& cross_incognito_args_param,
              EventRouter::UserGestureState user_gesture,
              const EventFilteringInfo& info)
     : event_name(event_name),
       event_args(Value::CreateStringValue(event_args)),
       event_url(event_url),
       restrict_to_profile(restrict_to_profile),
-      cross_incognito_args(Value::CreateStringValue(cross_incognito_args)),
+      cross_incognito_args(NULL),
       user_gesture(user_gesture),
       info(info) {
+  if (!cross_incognito_args_param.empty()) {
+    cross_incognito_args.reset(Value::CreateStringValue(
+        cross_incognito_args_param));
+  }
 }
 
 Event::Event(const std::string& event_name,
