@@ -9,7 +9,7 @@
 #include "base/message_pump.h"
 #include "base/time.h"
 #include "base/base_export.h"
-#include "third_party/node/uv/include/uv.h"
+#include "third_party/node/deps/uv/include/uv.h"
 
 namespace base {
 
