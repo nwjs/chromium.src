@@ -27,6 +27,7 @@
         '../third_party/modp_b64/modp_b64.gyp:modp_b64',
         'third_party/dynamic_annotations/dynamic_annotations.gyp:dynamic_annotations',
         '../third_party/libuv/uv.gyp:uv',
+        '../v8/tools/gyp/v8.gyp:v8',
       ],
       # TODO(gregoryd): direct_dependent_settings should be shared with the
       #  64-bit target, but it doesn't work due to a bug in gyp
