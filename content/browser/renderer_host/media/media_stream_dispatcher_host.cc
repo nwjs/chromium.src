@@ -145,16 +145,19 @@ void MediaStreamDispatcherHost::OnChannelClosing() {
 
   // Since the IPC channel is gone, cancel pending requests and close all
   // requested VideoCaptureDevices.
-  GetManager()->CancelRequests(this);
   for (StreamMap::iterator it = streams_.begin();
        it != streams_.end();
-       it++) {
+       ++it) {
     std::string label = it->first;
     GetManager()->StopGeneratedStream(label);
   }
+  // Clear the map after we have stopped all the streams.
+  streams_.clear();
 }
 
-MediaStreamDispatcherHost::~MediaStreamDispatcherHost() {}
+MediaStreamDispatcherHost::~MediaStreamDispatcherHost() {
+  DCHECK(streams_.empty());
+}
 
 void MediaStreamDispatcherHost::OnGenerateStream(
     int render_view_id,
