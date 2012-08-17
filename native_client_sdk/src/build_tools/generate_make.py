@@ -159,6 +159,8 @@ def GenerateRules(desc, tools):
         lpaths = target.get('LIBPATHS', [])
         ipaths = target.get('INCPATHS', [])
         makeobj.SetProject(project, ptype, defs=defs, incs=incs, libs=libs)
+	if ptype == 'main':
+	  rules += makeobj.GetPepperPlugin()
         for arch in arches:
           makeobj.SetArch(arch)
           for src in srcs.get('.c', []):
@@ -173,6 +175,7 @@ def GenerateRules(desc, tools):
 
   rules += GenerateCleanRules(tools, configs)
   rules += '\nall: $(ALL_TARGETS)\n'
+
   return '', rules
 
 
@@ -204,7 +207,7 @@ def GenerateReplacements(desc, tools):
 
 # 'KEY' : ( <TYPE>, [Accepted Values], <Required?>)
 DSC_FORMAT = {
-    'TOOLS' : (list, ['newlib', 'glibc', 'pnacl', 'win'], True),
+    'TOOLS' : (list, ['newlib', 'glibc', 'pnacl', 'win', 'linux'], True),
     'CONFIGS' : (list, ['Debug', 'Release'], False),
     'PREREQ' : (list, '', False),
     'TARGETS' : (list, {

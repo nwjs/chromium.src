@@ -148,7 +148,8 @@ IN_PROC_BROWSER_TEST_P(MediaTest, VideoBearWavPcm) {
   PlayAudio("bear_pcm.wav", GetParam());
 }
 
-IN_PROC_BROWSER_TEST_P(MediaTest, VideoTulipWebm) {
+// Flaky. http://crbug.com/143151
+IN_PROC_BROWSER_TEST_P(MediaTest, FLAKY_VideoTulipWebm) {
   PlayVideo("tulip2.webm", GetParam());
 }
 

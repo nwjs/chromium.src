@@ -50,6 +50,7 @@ extern const char kChromeUIKeyboardURL[];
 extern const char kChromeUIMemoryRedirectURL[];
 extern const char kChromeUIMemoryURL[];
 extern const char kChromeUIMetroFlowURL[];
+extern const char kChromeUINaClURL[];
 extern const char kChromeUINetInternalsURL[];
 extern const char kChromeUINewProfile[];
 extern const char kChromeUINewTabURL[];
@@ -69,6 +70,10 @@ extern const char kChromeUIThumbnailURL[];
 extern const char kChromeUIUberURL[];
 extern const char kChromeUIUberFrameURL[];
 extern const char kChromeUIVersionURL[];
+
+#if defined(OS_ANDROID)
+extern const char kChromeUIWelcomeURL[];
+#endif
 
 #if defined(OS_CHROMEOS)
 extern const char kChromeUIActivationMessage[];
@@ -162,6 +167,7 @@ extern const char kChromeUIMediaInternalsHost[];
 extern const char kChromeUIMemoryHost[];
 extern const char kChromeUIMemoryRedirectHost[];
 extern const char kChromeUIMetroFlowHost[];
+extern const char kChromeUINaClHost[];
 extern const char kChromeUINetInternalsHost[];
 extern const char kChromeUINewTabHost[];
 extern const char kChromeUIOmniboxHost[];
@@ -195,6 +201,10 @@ extern const char kChromeUIWorkersHost[];
 
 extern const char kChromeUIScreenshotPath[];
 extern const char kChromeUIThemePath[];
+
+#if defined(OS_ANDROID)
+extern const char kChromeUIWelcomeHost[];
+#endif
 
 #if defined(OS_LINUX) || defined(OS_OPENBSD)
 extern const char kChromeUILinuxProxyConfigHost[];
@@ -385,6 +395,7 @@ extern const char kExtensionResourceScheme[];
 #if defined(OS_CHROMEOS)
 extern const char kDriveScheme[];
 #endif
+
 #if defined(OS_ANDROID)
 extern const char kContentScheme[];
 // Special Android file paths.

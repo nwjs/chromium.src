@@ -231,8 +231,14 @@ void RootWindow::SetCursor(gfx::NativeCursor cursor) {
 }
 
 void RootWindow::ShowCursor(bool show) {
-  cursor_shown_ = show;
-  host_->ShowCursor(show);
+  // Send entered / exited so that visual state can be updated to match
+  // cursor state.
+  if (show != cursor_shown_) {
+    cursor_shown_ = show;
+    host_->ShowCursor(show);
+    Env::GetInstance()->SetCursorShown(show);
+    PostMouseMoveEventAfterWindowChange();
+  }
 }
 
 void RootWindow::MoveCursorTo(const gfx::Point& location_in_dip) {
@@ -332,9 +338,9 @@ void RootWindow::OnKeyboardMappingChanged() {
                     OnKeyboardMappingChanged(this));
 }
 
-void RootWindow::OnRootWindowHostClosed() {
+void RootWindow::OnRootWindowHostCloseRequested() {
   FOR_EACH_OBSERVER(RootWindowObserver, observers_,
-                    OnRootWindowHostClosed(this));
+                    OnRootWindowHostCloseRequested(this));
 }
 
 void RootWindow::AddRootWindowObserver(RootWindowObserver* observer) {

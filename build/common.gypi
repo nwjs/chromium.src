@@ -134,8 +134,8 @@
             'enable_hidpi%': 1,
           }],
 
-          # Enable touch UI on Metro and Chrome OS.
-          ['OS=="win" or chromeos==1', {
+          # Enable touch UI on Metro.
+          ['OS=="win"', {
             'enable_touch_ui%': 1,
           }],
         ],
@@ -297,11 +297,6 @@
       # thread. Set to 1 to turn on experimental support for out-of-process
       # plugins to make call of the main thread.
       'enable_pepper_threading%': 0,
-
-      # Include the PPAPI IPC proxy for NaCl. This is a work-in-progress; this
-      # allows us to build this feature locally without it affecting others
-      # working in affected subsystems like base and ipc.
-      'build_ppapi_ipc_proxy_untrusted%': 0,
 
       # Enables use of the session service, which is enabled by default.
       # Support for disabling depends on the platform.
@@ -562,7 +557,6 @@
     'use_gnome_keyring%': '<(use_gnome_keyring)',
     'linux_fpic%': '<(linux_fpic)',
     'enable_pepper_threading%': '<(enable_pepper_threading)',
-    'build_ppapi_ipc_proxy_untrusted%': '<(build_ppapi_ipc_proxy_untrusted)',
     'chromeos%': '<(chromeos)',
     'enable_viewport%': '<(enable_viewport)',
     'enable_hidpi%': '<(enable_hidpi)',
@@ -713,7 +707,7 @@
     # Needed for some of the largest modules.
     'msvs_debug_link_nonincremental%': '1',
 
-    # Turn on Use Library Dependency Inputs for linking chrome.dll on Windows
+    # Turns on Use Library Dependency Inputs for linking chrome.dll on Windows
     # to get incremental linking to be faster in debug builds.
     'incremental_chrome_dll%': '0',
 
@@ -900,6 +894,7 @@
       }],  # os_posix==1 and OS!="mac" and OS!="ios"
       ['OS=="ios"', {
         'disable_nacl%': 1,
+        'icu_use_data_file_flag%': 1,
         'use_system_bzip2%': 1,
         'use_system_libxml%': 1,
         'use_system_sqlite%': 1,
@@ -936,6 +931,9 @@
         'android_ndk_include': '<(android_ndk_sysroot)/usr/include',
         'android_ndk_lib': '<(android_ndk_sysroot)/usr/lib',
         'android_app_abi%': '<(android_app_abi)',
+
+        # Location of the "strip" binary, used by both gyp and scripts.
+        'android_strip%' : '<!(/bin/echo -n <(android_toolchain)/*-strip)',
 
         # Provides an absolute path to PRODUCT_DIR (e.g. out/Release). Used
         # to specify the output directory for Ant in the Android build.
@@ -1051,6 +1049,10 @@
         'conditions': [
           ['component=="shared_library"', {
             'win_use_allocator_shim%': 0,
+          }],
+          ['"<(GENERATOR)"=="ninja"', {
+            # Only enabled by default for ninja because it's buggy in VS.
+            'incremental_chrome_dll%': 1,
           }],
           # Whether to use multiple cores to compile with visual studio. This is
           # optional because it sometimes causes corruption on VS 2005.
@@ -1227,8 +1229,6 @@
       # TODO(rnk): Combine with tsan config to share the builder.
       # http://crbug.com/108155
       ['build_for_tool=="drmemory"', {
-        # DrMemory can't handle the debug CRT dll, so build static.
-        'component': 'static_library',
         # These runtime checks force initialization of stack vars which blocks
         # DrMemory's uninit detection.
         'win_debug_RuntimeChecks': '0',
@@ -1237,6 +1237,9 @@
         # Try to disable optimizations that mess up stacks in a release build.
         'win_release_InlineFunctionExpansion': '0',
         'win_release_OmitFramePointers': '0',
+        # Ditto for debug, to support bumping win_debug_Optimization.
+        'win_debug_InlineFunctionExpansion': 0,
+        'win_debug_OmitFramePointers': 0,
         # Keep the code under #ifndef NVALGRIND.
         'release_valgrind_build': 1,
       }],
@@ -2584,7 +2587,7 @@
             'libraries': [
               '-l<(android_stlport_library)',
               # Manually link the libgcc.a that the cross compiler uses.
-              '<!(${ANDROID_TOOLCHAIN}/*-gcc -print-libgcc-file-name)',
+              '<!(<(android_toolchain)/*-gcc -print-libgcc-file-name)',
               '-lc',
               '-ldl',
               '-lstdc++',
@@ -3336,9 +3339,9 @@
       # Hardcode the compiler names in the Makefile so that
       # it won't depend on the environment at make time.
       'make_global_settings': [
-        ['CC', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} ${ANDROID_TOOLCHAIN}/*-gcc)'],
-        ['CXX', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} ${ANDROID_TOOLCHAIN}/*-g++)'],
-        ['LINK', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} ${ANDROID_TOOLCHAIN}/*-gcc)'],
+        ['CC', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} <(android_toolchain)/*-gcc)'],
+        ['CXX', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} <(android_toolchain)/*-g++)'],
+        ['LINK', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} <(android_toolchain)/*-gcc)'],
         ['CC.host', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} <!(which gcc))'],
         ['CXX.host', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} <!(which g++))'],
         ['LINK.host', '<!(/bin/echo -n ${ANDROID_GOMA_WRAPPER} <!(which g++))'],

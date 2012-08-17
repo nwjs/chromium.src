@@ -58,6 +58,7 @@
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/win/mouse_wheel_util.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/image/image.h"
 #include "ui/views/button_drag_utils.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
@@ -531,8 +532,10 @@ OmniboxViewWin::OmniboxViewWin(OmniboxEditController* controller,
 OmniboxViewWin::~OmniboxViewWin() {
   // Explicitly release the text object model now that we're done with it, and
   // before we free the library. If the library gets unloaded before this
-  // released, it becomes garbage.
-  text_object_model_->Release();
+  // released, it becomes garbage. Note that since text_object_model_ is lazy
+  // initialized, it may still be null.
+  if (text_object_model_)
+    text_object_model_->Release();
 
   // We balance our reference count and unpatch when the last instance has
   // been destroyed.  This prevents us from relying on the AtExit or static
@@ -1336,10 +1339,8 @@ void OmniboxViewWin::OnCopy() {
   ui::ScopedClipboardWriter scw(g_browser_process->clipboard(),
                                 ui::Clipboard::BUFFER_STANDARD);
   scw.WriteText(text);
-  if (write_url) {
+  if (write_url)
     scw.WriteBookmark(text, url.spec());
-    scw.WriteHyperlink(net::EscapeForHTML(text), url.spec());
-  }
 }
 
 void OmniboxViewWin::OnCut() {
@@ -2489,11 +2490,11 @@ void OmniboxViewWin::StartDragIfNecessary(const CPoint& point) {
 
   if (write_url) {
     string16 title;
-    SkBitmap favicon;
+    gfx::Image favicon;
     if (is_all_selected)
       model()->GetDataForURLExport(&url, &title, &favicon);
-    button_drag_utils::SetURLAndDragImage(url, title, favicon, &data,
-                                          native_view_host_->GetWidget());
+    button_drag_utils::SetURLAndDragImage(url, title, favicon.AsImageSkia(),
+        &data, native_view_host_->GetWidget());
     supported_modes |= DROPEFFECT_LINK;
     content::RecordAction(UserMetricsAction("Omnibox_DragURL"));
   } else {

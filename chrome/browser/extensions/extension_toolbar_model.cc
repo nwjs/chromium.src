@@ -167,7 +167,7 @@ void ExtensionToolbarModel::Observe(
     // hides the browser action and then disables and enables the extension.
     if (list_with_extension)
       return;
-    if (extensions::switch_utils::IsActionBoxEnabled())
+    if (extensions::switch_utils::IsExtensionsInActionBoxEnabled())
       AddExtension(extension, &action_box_menu_items_);
     else if (service_->extension_prefs()->GetBrowserActionVisibility(extension))
       AddExtension(extension, &toolbar_items_);
@@ -176,7 +176,7 @@ void ExtensionToolbarModel::Observe(
       RemoveExtension(extension, list_with_extension);
   } else if (type ==
       chrome::NOTIFICATION_EXTENSION_BROWSER_ACTION_VISIBILITY_CHANGED) {
-    if (extensions::switch_utils::IsActionBoxEnabled()) {
+    if (extensions::switch_utils::IsExtensionsInActionBoxEnabled()) {
       // TODO(yefim): Implement this when implementing drag & drop
       // for action box menu.
     } else if (
@@ -200,12 +200,18 @@ void ExtensionToolbarModel::AddExtension(const Extension* extension,
       last_extension_removed_index_ < list->size()) {
     list->insert(list->begin() + last_extension_removed_index_,
                  make_scoped_refptr(extension));
-    FOR_EACH_OBSERVER(Observer, observers_,
-        BrowserActionAdded(extension, last_extension_removed_index_));
+    // TODO: figure out the right long term solution.
+    if (list == &toolbar_items_) {
+      FOR_EACH_OBSERVER(Observer, observers_,
+          BrowserActionAdded(extension, last_extension_removed_index_));
+    }
   } else {
     list->push_back(make_scoped_refptr(extension));
-    FOR_EACH_OBSERVER(Observer, observers_,
-                      BrowserActionAdded(extension, list->size() - 1));
+    // TODO: figure out the right long term solution.
+    if (list == &toolbar_items_) {
+      FOR_EACH_OBSERVER(Observer, observers_,
+                        BrowserActionAdded(extension, list->size() - 1));
+    }
   }
 
   last_extension_removed_ = "";
@@ -225,8 +231,11 @@ void ExtensionToolbarModel::RemoveExtension(const Extension* extension,
   last_extension_removed_index_ = pos - list->begin();
 
   list->erase(pos);
-  FOR_EACH_OBSERVER(Observer, observers_,
-                    BrowserActionRemoved(extension));
+  // TODO: figure out the right long term solution.
+  if (list == &toolbar_items_) {
+    FOR_EACH_OBSERVER(Observer, observers_,
+                      BrowserActionRemoved(extension));
+  }
 
   UpdatePrefs();
 }
@@ -250,7 +259,7 @@ extensions::ExtensionList* ExtensionToolbarModel::FindListWithExtension(
 void ExtensionToolbarModel::InitializeExtensionLists() {
   DCHECK(service_->is_ready());
 
-  if (extensions::switch_utils::IsActionBoxEnabled())
+  if (extensions::switch_utils::IsExtensionsInActionBoxEnabled())
     PopulateForActionBoxMode();
   else
     PopulateForNonActionBoxMode();

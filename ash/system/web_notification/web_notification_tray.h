@@ -116,8 +116,15 @@ class ASH_EXPORT WebNotificationTray : public internal::TrayBackgroundView {
   // Updates tray visibility login status of the system changes.
   void UpdateAfterLoginStatusChange(user::LoginStatus login_status);
 
+  // Returns true if the message center bubble is visible.
+  bool IsMessageCenterBubbleVisible() const;
+
+  // Returns true if the mouse is inside the notification bubble.
+  bool IsMouseInNotificationBubble() const;
+
   // Overridden from TrayBackgroundView.
   virtual void SetShelfAlignment(ShelfAlignment alignment) OVERRIDE;
+  virtual void AnchorUpdated() OVERRIDE;
 
   // Overridden from internal::ActionableView.
   virtual bool PerformAction(const ui::Event& event) OVERRIDE;

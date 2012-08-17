@@ -8,7 +8,7 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "125583",
+  "webkit_revision": "125707",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
@@ -18,7 +18,7 @@ vars = {
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
   "gtm_revision": "534",
 
-  "libjingle_revision": "168",
+  "libjingle_revision": "170",
   "libphonenumber_revision": "456",
   "libvpx_revision": "150392",
   "lss_revision": "11",
@@ -29,11 +29,11 @@ vars = {
   "ffmpeg_hash": "2079ffae30f8da6c6eed985cce00e04c31b40888",
 
   "sfntly_revision": "134",
-  "skia_revision": "5042",
+  "skia_revision": "5120",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
-  "v8_revision": "12253",
+  "v8_revision": "12323",
   "webrtc_revision": "2565",
   "jsoncpp_revision": "248",
   "nss_revision": "145873",
@@ -62,7 +62,7 @@ deps = {
     (Var("googlecode_url") % "angleproject") + "/trunk@1250",
 
   "src/third_party/trace-viewer":
-    (Var("googlecode_url") % "trace-viewer") + "/trunk@116",
+    (Var("googlecode_url") % "trace-viewer") + "/trunk@118",
 
   # Note that this is *not* where we check out WebKit -- this just
   # puts some extra files into place for the real WebKit checkout to
@@ -499,7 +499,7 @@ deps_os = {
        Var("lss_revision")),
 
     "src/third_party/openssl":
-      "/trunk/deps/third_party/openssl@151471",
+      "/trunk/deps/third_party/openssl@151890",
 
     "src/third_party/WebKit/Tools/gdb":
       Var("webkit_trunk") + "/Tools/gdb@" + Var("webkit_revision"),
@@ -513,7 +513,7 @@ deps_os = {
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@da46e4a834820ed16cba29428ced3c14badfb351",
+      "@aa39870b5d3e6d5305ba1ee200823460bf0a47e6",
   },
   "android": {
     "src/third_party/freetype":

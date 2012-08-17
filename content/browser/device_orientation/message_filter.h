@@ -10,16 +10,16 @@
 #include "content/browser/device_orientation/device_data.h"
 #include "content/public/browser/browser_message_filter.h"
 
-namespace device_orientation {
+namespace content {
 
 // Helper class that observes a Provider and forwards updates to a RenderView.
 class ObserverDelegate;
 
 class Provider;
 
-class MessageFilter : public content::BrowserMessageFilter {
+class MessageFilter : public BrowserMessageFilter {
  public:
-  // content::BrowserMessageFilter implementation.
+  // BrowserMessageFilter implementation.
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok) OVERRIDE = 0;
 
@@ -39,6 +39,6 @@ class MessageFilter : public content::BrowserMessageFilter {
   DeviceData::Type device_data_type_;
 };
 
-}  // namespace device_orientation
+}  // namespace content
 
 #endif  // CONTENT_BROWSER_DEVICE_ORIENTATION_MESSAGE_FILTER_H_

@@ -8,7 +8,7 @@
     # duplicated from chrome.gyp
     'chromium_code': 1,
 
-    'remoting_audio': 0,
+    'remoting_audio%': 0,
     'remoting_multi_process%': 0,
 
     # Use consistent strings across all platforms. Note that the plugin name
@@ -632,6 +632,8 @@
               'AdditionalDependencies': [
                 'wtsapi32.lib',
               ],
+              # 2 == /SUBSYSTEM:WINDOWS
+              'SubSystem': '2',
             },
           },
         },  # end of target 'remoting_service'
@@ -1339,7 +1341,6 @@
               '-lXdamage',
               '-lXfixes',
               '-lXtst',
-              '-lpam',
               '-lXext'
             ],
           },
@@ -1519,6 +1520,7 @@
           'msvs_settings': {
             'VCLinkerTool': {
               'AdditionalOptions': [
+                "\"/MANIFESTUAC:level='requireAdministrator' uiAccess='true'\"",
                 "\"/manifestdependency:type='win32' "
                     "name='Microsoft.Windows.Common-Controls' "
                     "version='6.0.0.0' "

@@ -522,6 +522,9 @@ const char kEnableExtensionActivityLogging[] =
 // Enables the extension activity UI.
 const char kEnableExtensionActivityUI[]     = "enable-extension-activity-ui";
 
+// Enables to show extensions in an action box.
+const char kEnableExtensionsInActionBox[] = "extensions-in-action-box";
+
 // Enables experimental timeline API.
 const char kEnableExtensionTimelineApi[]    = "enable-extension-timeline-api";
 
@@ -1071,6 +1074,9 @@ const char kProductVersion[]                = "product-version";
 // Selects directory of profile to associate with the first browser launched.
 const char kProfileDirectory[]              = "profile-directory";
 
+// Enables the Windows profile desktop shortcuts feature.
+const char kProfileDesktopShortcuts[]     = "enable-profile-desktop-shortcuts";
+
 // Starts the sampling based profiler for the browser process at startup. This
 // will only work if chrome has been built with the gyp variable profiling=1.
 // The output will go to the value of kProfilingFile.
@@ -1263,6 +1269,11 @@ const char kSyncInvalidateXmppLogin[]       = "sync-invalidate-xmpp-login";
 
 // Enable support for keystore key based encryption.
 const char kSyncKeystoreEncryption[] = "sync-keystore-encryption";
+
+// This flag causes sync to retry very quickly (see polling_constants.h) the
+// when it encounters an error, as the first step towards exponential backoff.
+const char kSyncShortInitialRetryOverride[] =
+    "sync-short-initial-retry-override";
 
 // Overrides the default notification method for sync.
 const char kSyncNotificationMethod[]        = "sync-notification-method";
@@ -1525,9 +1536,9 @@ const char kUseMockKeychain[]               = "use-mock-keychain";
 // modification or removal.
 const char kDisableDesktopShortcuts[]       = "disable-desktop-shortcuts";
 
-// Disables sync credential caching on Windows 8.
+// Enables sync credential caching on Windows 8.
 // See chrome/browser/sync/credential_cache_service_win.h.
-const char kDisableSyncCredentialCaching[]  = "disable-sync-credential-caching";
+const char kEnableSyncCredentialCaching[]    = "enable-sync-credential-caching";
 
 // For the DelegateExecute verb handler to launch Chrome in metro mode on
 // Windows 8 and higher.  Used when relaunching metro Chrome.

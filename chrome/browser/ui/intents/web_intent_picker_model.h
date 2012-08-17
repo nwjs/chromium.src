@@ -11,24 +11,19 @@
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
 #include "ui/gfx/image/image.h"
+#include "webkit/glue/web_intent_service_data.h"
 
 class WebIntentPickerModelObserver;
 
 // Model for the WebIntentPicker.
 class WebIntentPickerModel {
  public:
-  // The intent service disposition.
-  // TODO(gbillock): use the webkit_glue::WebIntentServiceData::Disposition
-  enum Disposition {
-    DISPOSITION_WINDOW,  // Display the intent service in a new window.
-    DISPOSITION_INLINE,  // Display the intent service in the picker.
-  };
-
   // An intent service to display in the picker.
   struct InstalledService {
-    InstalledService(const string16& title,
-                     const GURL& url,
-                     Disposition disposition);
+    InstalledService(
+        const string16& title,
+        const GURL& url,
+        webkit_glue::WebIntentServiceData::Disposition disposition);
     ~InstalledService();
 
     // The title of this service.
@@ -41,7 +36,7 @@ class WebIntentPickerModel {
     gfx::Image favicon;
 
     // The disposition to use when displaying this service.
-    Disposition disposition;
+    webkit_glue::WebIntentServiceData::Disposition disposition;
   };
 
   // A suggested extension to display in the picker.
@@ -84,9 +79,10 @@ class WebIntentPickerModel {
 
   // Add a new installed service with |title|, |url| and |disposition| to the
   // picker.
-  void AddInstalledService(const string16& title,
-                           const GURL& url,
-                           Disposition disposition);
+  void AddInstalledService(
+      const string16& title,
+      const GURL& url,
+      webkit_glue::WebIntentServiceData::Disposition disposition);
 
   // Remove an installed service from the picker at |index|.
   void RemoveInstalledServiceAt(size_t index);
@@ -108,14 +104,9 @@ class WebIntentPickerModel {
   // Update the favicon for the intent service at |index| to |image|.
   void UpdateFaviconAt(size_t index, const gfx::Image& image);
 
-  // Add a new suggested extension with |id|, |title| and |average_rating| to
-  // the picker.
-  void AddSuggestedExtension(const string16& title,
-                             const string16& id,
-                             double average_rating);
-
-  // Remove a suggested extension from the picker at |index|.
-  void RemoveSuggestedExtensionAt(size_t index);
+  // Add a list of suggested extensions to the model.
+  void AddSuggestedExtensions(
+      const std::vector<SuggestedExtension>& suggestions);
 
   // Return the suggested extension at |index|.
   const SuggestedExtension& GetSuggestedExtensionAt(size_t index) const;
@@ -156,9 +147,8 @@ class WebIntentPickerModel {
   // is owned by this model.
   std::vector<InstalledService*> installed_services_;
 
-  // A vector of all suggested extensions in the picker. Each element is owned
-  // by this model.
-  std::vector<SuggestedExtension*> suggested_extensions_;
+  // A vector of all suggested extensions in the picker.
+  std::vector<SuggestedExtension> suggested_extensions_;
 
   // The observer to send notifications to, or NULL if none. Not owned.
   WebIntentPickerModelObserver* observer_;

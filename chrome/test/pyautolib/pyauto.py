@@ -84,6 +84,7 @@ import history_info
 import omnibox_info
 import plugins_info
 import prefs_info
+from pyauto_errors import AutomationCommandFail
 from pyauto_errors import JavascriptRuntimeError
 from pyauto_errors import JSONInterfaceError
 from pyauto_errors import NTPThumbnailNotShownError
@@ -820,7 +821,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       debug: if True, displays debug info at each retry.
 
     Returns:
-      True, if returning when |function| evaluated to True
+      The return value of the calling function when |function| evaluates to
+          True.
       False, when returning due to timeout
     """
     if timeout == -1:  # Default
@@ -830,8 +832,9 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     debug_begin = begin
     while timeout is None or time.time() - begin <= timeout:
       retval = function(*args)
-      if (expect_retval is None and retval) or expect_retval == retval:
-        return True
+      if (expect_retval is None and retval) or \
+         (expect_retval is not None and expect_retval == retval):
+        return retval
       if debug and time.time() - debug_begin > 5:
         debug_begin += 5
         if function.func_name == (lambda: True).func_name:
@@ -1059,7 +1062,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       pyauto_errors.JSONInterfaceError if the automation call returns an error.
     """
     if timeout == -1:  # Default
-      timeout = self.action_max_timeout_ms()
+      timeout = self.action_timeout_ms()
     if windex is None:  # Do not target any window
       windex = -1
     result = self._SendJSONRequest(windex, json.dumps(cmd_dict), timeout)
@@ -1103,7 +1106,10 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
                                additional_info))
     ret_dict = json.loads(result)
     if ret_dict.has_key('error'):
-      raise JSONInterfaceError(ret_dict['error'])
+      if ret_dict.get('is_interface_error'):
+        raise JSONInterfaceError(ret_dict['error'])
+      else:
+        raise AutomationCommandFail(ret_dict['error'])
     return ret_dict
 
   def NavigateToURL(self, url, windex=0, tab_index=None, navigation_count=1):
@@ -5497,21 +5503,34 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
        connected_service_path in service_list['wifi_networks']:
        return service_list['wifi_networks'][connected_service_path]['name']
 
-  def GetServicePath(self, ssid):
-    """Returns the service path associated with an SSID.
+  def GetServicePath(self, ssid, encryption=None, timeout=30):
+    """Waits until the SSID is observed and returns its service path.
 
     Args:
       ssid: String defining the SSID we are searching for.
+      encryption: Encryption type of the network; either None to return the
+                  first instance of network that matches the ssid, '' for
+                  an empty network, 'PSK', 'WEP' or '8021X'.
+      timeout: Duration to wait for ssid to appear.
 
     Returns:
-      The service path or None if SSID does not exist.
+      The service path or None if SSID does not exist after timeout period.
     """
-    service_list = self.GetNetworkInfo()
-    service_list = service_list.get('wifi_networks', [])
-    for service_path, service_obj in service_list.iteritems():
-      if service_obj['name'] == ssid:
-        return service_path
-    return None
+    def _get_service_path():
+      service_list = self.GetNetworkInfo().get('wifi_networks', [])
+      for service_path, service_obj in service_list.iteritems():
+        service_encr = 'PSK' if service_obj['encryption'] in ['WPA', 'RSN'] \
+                       else service_obj['encryption']
+
+        if service_obj['name'] == ssid and \
+           (encryption == None or service_encr == encryption):
+          return service_path
+      self.NetworkScan()
+      return None
+
+    service_path = self.WaitUntil(_get_service_path, timeout=timeout,
+                                  retry_sleep=1)
+    return service_path or None
 
   def NetworkScan(self):
     """Causes ChromeOS to scan for available wifi networks.
@@ -6032,11 +6051,12 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     """Sets the timezone on ChromeOS. A user must be logged in.
 
     The timezone is the relative path to the timezone file in
-    /usr/share/zoneinfo. For example, /usr/share/zoneinfo/America/Los_Angeles
-    is 'America/Los_Angeles'.
+    /usr/share/zoneinfo. For example, /usr/share/zoneinfo/America/Los_Angeles is
+    'America/Los_Angeles'. For a list of valid timezones see
+    'chrome/browser/chromeos/system/timezone_settings.cc'.
 
     This method does not return indication of success or failure.
-    If the timezone is invalid, it falls back to UTC/GMT.
+    If the timezone is it falls back to a valid timezone.
 
     Raises:
       pyauto_errors.JSONInterfaceError if the automation call returns an error.

@@ -62,7 +62,8 @@ std::string GetChannelName(VersionInfo::Channel channel) {
   return "unknown";
 }
 
-VersionInfo::Channel g_current_channel = VersionInfo::CHANNEL_STABLE;
+const VersionInfo::Channel kDefaultChannel = VersionInfo::CHANNEL_STABLE;
+VersionInfo::Channel g_current_channel = kDefaultChannel;
 
 // TODO(aa): Can we replace all this manual parsing with JSON schema stuff?
 
@@ -246,9 +247,11 @@ std::string Feature::GetErrorMessage(Feature::Availability result) {
           name().c_str());
     case UNSUPPORTED_CHANNEL:
       return base::StringPrintf(
-          "'%s' requires Google Chrome %s channel or newer.",
+          "'%s' requires Google Chrome %s channel or newer, and we're running "
+              "on the %s channel.",
           name().c_str(),
-          GetChannelName(channel_).c_str());
+          GetChannelName(channel_).c_str(),
+          GetChannelName(GetCurrentChannel()).c_str());
   }
 
   return "";
@@ -332,6 +335,11 @@ chrome::VersionInfo::Channel Feature::GetCurrentChannel() {
 // static
 void Feature::SetCurrentChannel(VersionInfo::Channel channel) {
   g_current_channel = channel;
+}
+
+// static
+chrome::VersionInfo::Channel Feature::GetDefaultChannel() {
+  return kDefaultChannel;
 }
 
 }  // namespace

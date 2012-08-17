@@ -46,6 +46,7 @@
               '">@(input_jars_paths)"',
               '--output',
               '<(PRODUCT_DIR)/<(test_suite_name)_apk',
+              '--strip-binary=<(android_strip)',
               '--app_abi',
               '<(android_app_abi)',
               '--sdk-build=<(sdk_build)',
@@ -63,7 +64,6 @@
               '-DANDROID_TOOLCHAIN=<(android_toolchain)',
               '--ant-args',
               '-DCHROMIUM_SRC=<(ant_build_out)/../..',
-              '--ant-compile'
             ],
           }],
         }],  # 'OS == "android" and gtest_target_type == "shared_library"

@@ -275,7 +275,8 @@ void LocationBarView::Init(views::View* popup_parent_view) {
   zoom_view_ = new ZoomView(model_, delegate_);
   AddChildView(zoom_view_);
 
-  if (extensions::switch_utils::IsActionBoxEnabled() && browser_) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox) &&
+      browser_) {
     action_box_button_view_ = new ActionBoxButtonView(browser_, profile_);
     AddChildView(action_box_button_view_);
   } else if (browser_defaults::bookmarks_enabled && (mode_ == NORMAL)) {
@@ -398,6 +399,7 @@ void LocationBarView::ModeChanged(const chrome::search::Mode& old_mode,
 
 void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   RefreshContentSettingViews();
+  ZoomBubbleView::CloseBubble();
   zoom_view_->Update();
   RefreshPageActionViews();
 
@@ -449,6 +451,10 @@ void LocationBarView::InvalidatePageActions() {
         content::Source<LocationBar>(this),
         content::NotificationService::NoDetails());
   }
+}
+
+void LocationBarView::UpdateWebIntentsButton() {
+  // TODO(gbillock): implement this for views
 }
 
 void LocationBarView::OnFocus() {
@@ -1047,9 +1053,9 @@ void LocationBarView::OnSetFocus() {
   focus_manager->SetFocusedView(view_to_focus_);
 }
 
-SkBitmap LocationBarView::GetFavicon() const {
+gfx::Image LocationBarView::GetFavicon() const {
   return delegate_->GetTabContents()->favicon_tab_helper()->
-             GetFavicon().AsBitmap();
+             GetFavicon();
 }
 
 string16 LocationBarView::GetTitle() const {

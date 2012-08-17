@@ -41,7 +41,6 @@ class SystemTrayItem;
 namespace internal {
 class SystemTrayBubble;
 class SystemTrayContainer;
-class SystemTrayLayerAnimationObserver;
 }
 
 // There are different methods for creating bubble views.
@@ -54,9 +53,6 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
  public:
   explicit SystemTray(internal::StatusAreaWidget* status_area_widget);
   virtual ~SystemTray();
-
-  // Called after the tray has been added to the widget containing it.
-  void Initialize();
 
   // Creates the default set of items for the sytem tray.
   void CreateItems();
@@ -99,13 +95,14 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   // Temporarily hides/unhides the notification bubble.
   void SetHideNotifications(bool hidden);
 
+  // Returns true if the system bubble is visible.
+  bool IsSystemBubbleVisible() const;
+
   // Returns true if any bubble is visible.
   bool IsAnyBubbleVisible() const;
 
-  // Returns true if the launcher should show.
-  bool should_show_launcher() const {
-    return bubble_.get() && should_show_launcher_;
-  }
+  // Returns true if the mouse is inside the notification bubble.
+  bool IsMouseInNotificationBubble() const;
 
   AccessibilityObserver* accessibility_observer() const {
     return accessibility_observer_;
@@ -156,10 +153,11 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   bool CloseBubbleForTest() const;
 
   // Overridden from TrayBackgroundView.
+  virtual void Initialize() OVERRIDE;
   virtual void SetShelfAlignment(ShelfAlignment alignment) OVERRIDE;
+  virtual void AnchorUpdated() OVERRIDE;
 
  private:
-  friend class internal::SystemTrayLayerAnimationObserver;
   friend class internal::SystemTrayBubble;
 
   // Resets |bubble_| and clears any related state.
@@ -191,18 +189,11 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
   // |notification_items_|, or destroys it if there are no notification items.
   void UpdateNotificationBubble();
 
-  // Called when the anchor (tray or bubble) may have moved or changed.
-  void UpdateNotificationAnchor();
-
   // Overridden from internal::ActionableView.
   virtual bool PerformAction(const ui::Event& event) OVERRIDE;
 
   // Overridden from views::View.
-  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
-  virtual void OnMouseExited(const ui::MouseEvent& event) OVERRIDE;
-  virtual void AboutToRequestFocusFromTabTraversal(bool reverse) OVERRIDE;
   virtual void GetAccessibleState(ui::AccessibleViewState* state) OVERRIDE;
-  virtual void OnPaintFocusBorder(gfx::Canvas* canvas) OVERRIDE;
 
   // Owned items.
   ScopedVector<SystemTrayItem> items_;
@@ -235,12 +226,6 @@ class ASH_EXPORT SystemTray : public internal::TrayBackgroundView {
 
   // Bubble for notifications.
   scoped_ptr<internal::SystemTrayBubble> notification_bubble_;
-
-  // See description agove getter.
-  bool should_show_launcher_;
-
-  scoped_ptr<internal::SystemTrayLayerAnimationObserver>
-      layer_animation_observer_;
 
   // Keep track of the default view height so that when we create detailed
   // views directly (e.g. from a notification) we know what height to use.

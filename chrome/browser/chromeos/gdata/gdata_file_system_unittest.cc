@@ -17,10 +17,12 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/gdata/drive_api_parser.h"
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
 #include "chrome/browser/chromeos/gdata/gdata.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system.h"
 #include "chrome/browser/chromeos/gdata/gdata_test_util.h"
+#include "chrome/browser/chromeos/gdata/gdata_uploader.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/mock_directory_change_observer.h"
 #include "chrome/browser/chromeos/gdata/mock_gdata_cache_observer.h"
@@ -192,7 +194,8 @@ class MockDriveWebAppsRegistry : public DriveWebAppsRegistryInterface {
                                        ScopedVector<DriveWebAppInfo>* apps));
   MOCK_METHOD1(GetExtensionsForWebStoreApp,
                std::set<std::string>(const std::string& web_store_id));
-  MOCK_METHOD1(UpdateFromFeed, void(AccountMetadataFeed* metadata));
+  MOCK_METHOD1(UpdateFromFeed, void(const AccountMetadataFeed& metadata));
+  MOCK_METHOD1(UpdateFromApplicationList, void(const AppList& applist));
 };
 
 class GDataFileSystemTest : public testing::Test {
@@ -886,7 +889,7 @@ TEST_F(GDataFileSystemTest, DuplicatedAsyncInitialization) {
   EXPECT_CALL(*mock_doc_service_,
               GetDocuments(Eq(GURL()), _, _, _, _)).Times(1);
 
-  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   file_system_->GetEntryInfoByPath(
       FilePath(FILE_PATH_LITERAL("drive")), callback);
@@ -1223,7 +1226,7 @@ TEST_F(GDataFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
   mock_doc_service_->set_account_metadata(
       LoadJSONFile("account_metadata.json"));
   EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
-  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
   EXPECT_CALL(*mock_doc_service_, GetDocuments(_, _, _, _, _)).Times(0);
 
   // Kicks loading of cached file system and query for server update.
@@ -1235,13 +1238,16 @@ TEST_F(GDataFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
   mock_doc_service_->set_account_metadata(
       LoadJSONFile("account_metadata.json"));
   EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
-  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   file_system_->CheckForUpdates();
   test_util::RunBlockingPoolTask();
 }
 
 TEST_F(GDataFileSystemTest, TransferFileFromLocalToRemote_RegularFile) {
+  EXPECT_CALL(*mock_free_disk_space_checker_, AmountOfFreeDiskSpace())
+      .Times(AtLeast(1)).WillRepeatedly(Return(kLotsOfSpace));
+
   LoadRootFeedDocument("root_feed.json");
 
   // We'll add a file to the Drive root directory.
@@ -2046,6 +2052,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoEnoughSpaceButCanFreeUp) {
   // but then start reporting we have space. This is to emulate that
   // the disk space was freed up by removing temporary files.
   EXPECT_CALL(*mock_free_disk_space_checker_, AmountOfFreeDiskSpace())
+      .WillOnce(Return(file_size + kMinFreeSpace))
       .WillOnce(Return(0))
       .WillOnce(Return(file_size + kMinFreeSpace))
       .WillOnce(Return(file_size + kMinFreeSpace));
@@ -2134,6 +2141,9 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpaceButBecomeFull) {
 }
 
 TEST_F(GDataFileSystemTest, GetFileByPath_FromCache) {
+  EXPECT_CALL(*mock_free_disk_space_checker_, AmountOfFreeDiskSpace())
+      .Times(AtLeast(1)).WillRepeatedly(Return(kLotsOfSpace));
+
   LoadRootFeedDocument("root_feed.json");
 
   GetFileCallback callback =
@@ -2239,6 +2249,9 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId) {
 }
 
 TEST_F(GDataFileSystemTest, GetFileByResourceId_FromCache) {
+  EXPECT_CALL(*mock_free_disk_space_checker_, AmountOfFreeDiskSpace())
+      .Times(AtLeast(1)).WillRepeatedly(Return(kLotsOfSpace));
+
   LoadRootFeedDocument("root_feed.json");
 
   GetFileCallback callback =
@@ -2275,6 +2288,9 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId_FromCache) {
 }
 
 TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
+  EXPECT_CALL(*mock_free_disk_space_checker_, AmountOfFreeDiskSpace())
+      .Times(AtLeast(1)).WillRepeatedly(Return(kLotsOfSpace));
+
   LoadRootFeedDocument("root_feed.json");
 
   // This is a file defined in root_feed.json.
@@ -2478,7 +2494,7 @@ TEST_F(GDataFileSystemTest, ContentSearchWithNewEntry) {
   EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
   EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "", _, _))
       .Times(1);
-  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(NotNull())).Times(1);
+  EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   SearchCallback callback = base::Bind(&DriveSearchCallback,
       &message_loop_, kExpectedResults, ARRAYSIZE_UNSAFE(kExpectedResults));

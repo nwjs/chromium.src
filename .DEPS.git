@@ -11,7 +11,7 @@ vars = {
     'git_url':
          'http://git.chromium.org',
     'webkit_rev':
-         '@9bc477e798a86323339795571eb9bd0035d6cbad'
+         '@6a4f8c69fef1030df75976813bcdc2d4417c6bc6'
 }
 
 deps = {
@@ -64,7 +64,7 @@ deps = {
     'src/third_party/libexif/sources':
         Var('git_url') + '/chromium/deps/libexif/sources.git@d815c325bab0d1871d4c7e70600ecdfdab07db9e',
     'src/third_party/libjingle/source':
-        Var('git_url') + '/external/libjingle.git@d3b9e7bd886ac2e8ac514f74c9f59d7128ed9108',
+        Var('git_url') + '/external/libjingle.git@7e57ccfd0ab60b33671745eef516307d4ab9c3b3',
     'src/third_party/libjpeg_turbo':
         Var('git_url') + '/chromium/deps/libjpeg_turbo.git@4c160802ea6f1aa25abdc55f3e9540868420d86e',
     'src/third_party/libphonenumber/src/phonenumbers':
@@ -96,11 +96,11 @@ deps = {
     'src/third_party/sfntly/cpp/src':
         Var('git_url') + '/external/sfntly/cpp/src.git@cfb2f1743f0169ad8d01035458617bce97107539',
     'src/third_party/skia/gyp':
-        Var('git_url') + '/external/skia/gyp.git@664909195d1d538f1e541c7d1e5579a3aa91851d',
+        Var('git_url') + '/external/skia/gyp.git@360bd1416785dfe5b6e4073b6ffae4717cda87e0',
     'src/third_party/skia/include':
-        Var('git_url') + '/external/skia/include.git@f9486162ccb4a2ccbd4793768ae1b5a6050ab31c',
+        Var('git_url') + '/external/skia/include.git@3b406e7776668715fce278a806d84f8a55bcc53d',
     'src/third_party/skia/src':
-        Var('git_url') + '/external/skia/src.git@ec7bc3c060ca17e908f1226605904e0216ac0565',
+        Var('git_url') + '/external/skia/src.git@48d4c5ecc6a82ddd24bdb2c7fd0814b589a0448f',
     'src/third_party/smhasher/src':
         Var('git_url') + '/external/smhasher.git@6895dced6534c9a041ceba5cabed231d3b2d8518',
     'src/third_party/snappy/src':
@@ -110,7 +110,7 @@ deps = {
     'src/third_party/swig/Lib':
         Var('git_url') + '/chromium/deps/swig/Lib.git@549f0b084ad9c40ef42d111303d831eb8d91252e',
     'src/third_party/trace-viewer':
-        Var('git_url') + '/external/trace-viewer.git@387589c31348c6c4b384f06b3bee38c3a4c10ff7',
+        Var('git_url') + '/external/trace-viewer.git@f2b3d0002778ecf590e4f01b4141cdfa499267b3',
     'src/third_party/undoview':
         Var('git_url') + '/chromium/deps/undoview.git@3ba503e248f3cdbd81b78325a24ece0984637559',
     'src/third_party/v8-i18n':
@@ -134,7 +134,7 @@ deps = {
     'src/tools/page_cycler/acid3':
         Var('git_url') + '/chromium/deps/acid3.git@bed664c3c6f4200d2ab6b139bddb628dcef6f5ed',
     'src/v8':
-        Var('git_url') + '/external/v8.git@e775fee00bcdfcabc9c69eed20d76595de108b78',
+        Var('git_url') + '/external/v8.git@de64f721c489207a7b9018406d39c7fb04bb9424',
     'src/third_party/node':
         'https://github.com/zcbenz/node.git@master',
     'src/content/nw':
@@ -322,13 +322,18 @@ deps_os = {
         'src/chrome/tools/test/reference_build/chrome_linux':
             Var('git_url') + '/chromium/reference_builds/chrome_linux.git@53d4cfaf7032086779f2f4f40a9b6f21b7dbc3bf',
         'src/third_party/cros_system_api':
-            Var('git_url') + '/chromiumos/platform/system_api.git@da46e4a834820ed16cba29428ced3c14badfb351',
+            Var('git_url') + '/chromiumos/platform/system_api.git@aa39870b5d3e6d5305ba1ee200823460bf0a47e6',
         'src/third_party/gold':
             Var('git_url') + '/chromium/deps/gold.git@74c34c19eadc0135b189318e393e78ca1dd431aa',
         'src/third_party/libmtp':
             Var('git_url') + '/chromium/deps/libmtp.git@660f6055de613f5081da9864e71f50f48067f8ae',
         'src/third_party/lss':
             Var('git_url') + '/external/linux-syscall-support/lss.git@88a55e021b5cf8114901c5354894bfec13d13157',
+<<<<<<< HEAD
+=======
+        'src/third_party/openssl':
+            Var('git_url') + '/chromium/deps/openssl.git@8683c5fcd4f5761ec9cf6ad49320042dad62255e',
+>>>>>>> 5076da0803af60d99c643d1e6d3a14311a308bf9
         'src/third_party/swig/linux':
             Var('git_url') + '/chromium/deps/swig/linux.git@866b8e0e0e0cfe99ebe608260030916ca0c3f92d',
         'src/third_party/xdg-utils':

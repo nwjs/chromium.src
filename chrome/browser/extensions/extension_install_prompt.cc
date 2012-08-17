@@ -16,6 +16,7 @@
 #include "chrome/browser/extensions/bundle_installer.h"
 #include "chrome/browser/extensions/extension_install_dialog.h"
 #include "chrome/browser/extensions/extension_install_ui.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/token_service.h"
 #include "chrome/browser/signin/token_service_factory.h"
@@ -24,12 +25,14 @@
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
 #include "chrome/common/extensions/extension_resource.h"
 #include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/extensions/permissions/permission_set.h"
 #include "chrome/common/extensions/url_pattern.h"
+#include "chrome/common/pref_names.h"
 #include "content/public/browser/page_navigator.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -78,6 +81,14 @@ static const int kPermissionsHeaderIds[
   IDS_EXTENSION_PROMPT_WILL_NOW_HAVE_ACCESS_TO,
   IDS_EXTENSION_PROMPT_WANTS_ACCESS_TO,
 };
+static const int kOAuthHeaderIds[
+    ExtensionInstallPrompt::NUM_PROMPT_TYPES] = {
+  IDS_EXTENSION_PROMPT_OAUTH_HEADER,
+  0,  // Inline installs don't show OAuth permissions.
+  0,  // Bundle installs don't show OAuth permissions.
+  IDS_EXTENSION_PROMPT_OAUTH_REENABLE_HEADER,
+  IDS_EXTENSION_PROMPT_OAUTH_PERMISSIONS_HEADER,
+};
 
 namespace {
 
@@ -86,12 +97,13 @@ const int kIconSize = 69;
 
 }  // namespace
 
-ExtensionInstallPrompt::Prompt::Prompt(PromptType type)
+ExtensionInstallPrompt::Prompt::Prompt(Profile* profile, PromptType type)
     : type_(type),
       extension_(NULL),
       bundle_(NULL),
       average_rating_(0.0),
-      rating_count_(0) {
+      rating_count_(0),
+      profile_(profile) {
 }
 
 ExtensionInstallPrompt::Prompt::~Prompt() {
@@ -118,7 +130,6 @@ void ExtensionInstallPrompt::Prompt::SetInlineInstallWebstoreData(
 }
 
 string16 ExtensionInstallPrompt::Prompt::GetDialogTitle() const {
-
   int resource_id = kTitleIds[type_];
 
   if (type_ == INSTALL_PROMPT) {
@@ -162,8 +173,14 @@ string16 ExtensionInstallPrompt::Prompt::GetPermissionsHeading() const {
 }
 
 string16 ExtensionInstallPrompt::Prompt::GetOAuthHeading() const {
-  // TODO(estade): this should change based on type_.
-  return l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT_SCOPES_HEADING);
+  string16 username(ASCIIToUTF16("username@example.com"));
+  // |profile_| can be NULL in unit tests.
+  if (profile_) {
+    username = UTF8ToUTF16(profile_->GetPrefs()->GetString(
+        prefs::kGoogleServicesUsername));
+  }
+  int resource_id = kOAuthHeaderIds[type_];
+  return l10n_util::GetStringFUTF16(resource_id, username);
 }
 
 void ExtensionInstallPrompt::Prompt::AppendRatingStars(
@@ -270,7 +287,7 @@ ExtensionInstallPrompt::ExtensionInstallPrompt(
       extension_(NULL),
       install_ui_(ExtensionInstallUI::Create(profile)),
       delegate_(NULL),
-      prompt_(UNSET_PROMPT_TYPE),
+      prompt_(profile, UNSET_PROMPT_TYPE),
       prompt_type_(UNSET_PROMPT_TYPE),
       ALLOW_THIS_IN_INITIALIZER_LIST(tracker_(this)) {
 }
@@ -419,7 +436,7 @@ void ExtensionInstallPrompt::LoadImageIfNeeded() {
 
   // Load the image asynchronously. For the response, check OnImageLoaded.
   ExtensionResource image =
-      extension_->GetIconResource(ExtensionIconSet::EXTENSION_ICON_LARGE,
+      extension_->GetIconResource(extension_misc::EXTENSION_ICON_LARGE,
                                   ExtensionIconSet::MATCH_BIGGER);
   tracker_.LoadImage(extension_, image,
                      gfx::Size(kIconSize, kIconSize),

@@ -9,7 +9,7 @@
 #include "base/string_split.h"
 #include "chrome/browser/chromeos/login/default_user_images.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
-#include "chrome/browser/ui/webui/web_ui_util.cc"
+#include "chrome/browser/ui/webui/web_ui_util.h"
 #include "chrome/common/url_constants.h"
 #include "googleurl/src/url_parse.h"
 #include "grit/theme_resources.h"
@@ -31,21 +31,7 @@ void ParseRequest(const GURL& url,
                   bool* is_image_animated,
                   ui::ScaleFactor* scale_factor) {
   DCHECK(url.is_valid());
-
-  *email = url.path();
-  email->erase(0, 1);  // Strip initial slash.
-
-  // TODO(ivankr): when all chrome://userimage URLs have a valid @<scale>x,
-  // remove this and pass |email| instead of |&path| to ParsePathAndScale.
-  size_t pos = email->find('@');
-  if (pos != std::string::npos) {
-    pos = email->find('@', pos + 1);
-    if (pos != std::string::npos)
-      email->erase(pos);
-  }
-  std::string path;
-  web_ui_util::ParsePathAndScale(url, &path, scale_factor);
-
+  web_ui_util::ParsePathAndScale(url, email, scale_factor);
   std::string url_spec = url.possibly_invalid_spec();
   url_parse::Component query = url.parsed_for_possibly_invalid_spec().query;
   url_parse::Component key, value;
