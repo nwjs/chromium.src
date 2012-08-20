@@ -74,14 +74,14 @@
         }]
       ],
     },
-    { 
+    {
       # Experimental / in-progress targets that are expected to fail
       # but we still try to compile them on bots (turning the stage
       # orange, not red).
       'target_name': 'android_experimental',
       'type': 'none',
       'dependencies': [
-        '../chrome/chrome.gyp:unit_tests',
+        '../android_webview/lib/android_webview.gyp:libwebview',
       ],
     },
     {
@@ -90,7 +90,6 @@
       'target_name': 'android_in_progress',
       'type': 'none',
       'dependencies': [
-        '../android_webview/lib/android_webview.gyp:libwebview',
         '../content/content.gyp:content_browsertests',
       ],
     },

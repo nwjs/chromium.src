@@ -19,6 +19,8 @@
 #include "grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
+const char kDeleteOnEnumFail[] = "delete_on_enum_fail";
+
 CloudPrintConnector::CloudPrintConnector(
     Client* client,
     const std::string& proxy_id,
@@ -27,7 +29,8 @@ CloudPrintConnector::CloudPrintConnector(
   : client_(client),
     proxy_id_(proxy_id),
     cloud_print_server_url_(cloud_print_server_url),
-    next_response_handler_(NULL) {
+    next_response_handler_(NULL),
+    delete_on_enum_fail_(false) {
   if (print_system_settings) {
     // It is possible to have no print settings specified.
     print_system_settings_.reset(print_system_settings->DeepCopy());
@@ -42,6 +45,12 @@ bool CloudPrintConnector::InitPrintSystem() {
   if (!print_system_.get()) {
     NOTREACHED();
     return false;  // No memory.
+  }
+  if (print_system_settings_.get()) {
+    bool delete_on_enum_fail = false;
+    print_system_settings_->GetBoolean(kDeleteOnEnumFail,
+                                       &delete_on_enum_fail);
+    delete_on_enum_fail_ = delete_on_enum_fail;
   }
   cloud_print::PrintSystem::PrintSystemResult result = print_system_->Init();
   if (!result.succeeded()) {
@@ -111,8 +120,15 @@ void CloudPrintConnector::CheckForJobs(const std::string& reason,
     return;
   if (!printer_id.empty()) {
     JobHandlerMap::iterator index = job_handler_map_.find(printer_id);
-    if (index != job_handler_map_.end())
+    if (index != job_handler_map_.end()) {
       index->second->CheckForJobs(reason);
+    } else {
+      std::string status_message = l10n_util::GetStringUTF8(
+          IDS_CLOUD_PRINT_ZOMBIE_PRINTER);
+      LOG(ERROR) << "CP_CONNECTOR: " << status_message <<
+          " Printer_id: " << printer_id;
+      ReportUserMessage(kZombiePrinterMessageId, status_message);
+    }
   } else {
     for (JobHandlerMap::iterator index = job_handler_map_.begin();
          index != job_handler_map_.end(); index++) {
@@ -190,7 +206,7 @@ CloudPrintConnector::HandlePrinterListResponse(
   cloud_print::PrintSystem::PrintSystemResult result =
       print_system_->EnumeratePrinters(&local_printers);
   bool full_list = result.succeeded();
-  if (!result.succeeded()) {
+  if (!full_list) {
     std::string message = result.message();
     if (message.empty())
       message = l10n_util::GetStringFUTF8(IDS_CLOUD_PRINT_ENUM_FAILED,
@@ -213,10 +229,22 @@ CloudPrintConnector::HandlePrinterListResponse(
           InitJobHandlerForPrinter(printer_data);
         } else {
           // Cloud printer is not found on the local system.
-          if (full_list) {  // Delete only if we get the full list of printer.
-            std::string printer_id;
-            printer_data->GetString(kIdValue, &printer_id);
+          std::string printer_id;
+          printer_data->GetString(kIdValue, &printer_id);
+          if (full_list || delete_on_enum_fail_) {
+            // Delete if we get the full list of printers or
+            // |delete_on_enum_fail_| is set.
+            VLOG(1) << "CP_CONNECTOR: Deleting " << printer_name <<
+              " id: " << printer_id <<
+              " full_list: " << full_list <<
+              " delete_on_enum_fail: " << delete_on_enum_fail_;
             AddPendingDeleteTask(printer_id);
+          } else {
+            LOG(ERROR) << "CP_CONNECTOR: Printer: " << printer_name <<
+                " id: " << printer_id <<
+                " not found in print system and full printer list was" <<
+                " not received.  Printer will not be able to process" <<
+                " jobs.";
           }
         }
       } else {

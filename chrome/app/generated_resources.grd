@@ -318,7 +318,7 @@ are declared in build/common.gypi.
         Others
       </message>
       <message name="IDS_WEBSITE_SETTINGS_SITE_DATA_STATS_LINE" desc="The label text with the number of allowed and blocked cookies and site data objects.">
-        <ph name="DATA_SOURCE">$1<ex>foo.bar.org</ex></ph> (<ph name="ALLOWED_COUNT">$2<ex>6</ex></ph> Allowed / <ph name="BLOCKED_COUNT">$3<ex>0</ex></ph> Blocked)
+        <ph name="DATA_SOURCE">$1<ex>foo.bar.org</ex></ph> (<ph name="ALLOWED_COUNT">$2<ex>6</ex></ph> allowed / <ph name="BLOCKED_COUNT">$3<ex>0</ex></ph> blocked)
       </message>
       <message name="IDS_WEBSITE_SETTINGS_MENU_ITEM_DEFAULT_ALLOW" desc="The text of the menu item of a permissions menu on the Website Settings UI that resets the setting to the default setting which is allow.">
         Use global default (Allow)
@@ -4140,6 +4140,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         <message name="IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN" desc="Task manager WebCore CSS cache size column.">
           CSS cache
         </message>
+        <message name="IDS_TASK_MANAGER_VIDEO_MEMORY_COLUMN" desc="The text of the video memory usage column">
+          GPU Memory
+        </message>
         <message name="IDS_TASK_MANAGER_FPS_COLUMN" desc="The text of the FPS column">
           FPS
         </message>
@@ -4201,6 +4204,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         </message>
         <message name="IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN" desc="Task manager WebCore CSS cache size column.">
           CSS Cache
+        </message>
+        <message name="IDS_TASK_MANAGER_VIDEO_MEMORY_COLUMN" desc="The text of the video memory usage column">
+          GPU Memory
         </message>
         <message name="IDS_TASK_MANAGER_FPS_COLUMN" desc="The text of the FPS column">
           FPS
@@ -4395,8 +4401,14 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
       <message name="IDS_EXTENSION_PROMPT_STORE_LINK" desc="Anchor text for link to Chrome Web Store in app or extension installation dialog">
         View details
       </message>
-      <message name="IDS_EXTENSION_PROMPT_SCOPES_HEADING" desc="Heading above the OAuth2 scopes permissions.">
-        The app wants these scopes:
+      <message name="IDS_EXTENSION_PROMPT_OAUTH_HEADER" desc="A line of explanatory text that precedes all GAIA account permissions that an extension requests. This is shown during installation.">
+        On your <ph name="ACCOUNT_EMAIL">$1<ex>user@example.com</ex></ph> account, it can:
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_OAUTH_REENABLE_HEADER" desc="A line of explanatory text that precedes all GAIA account permissions that an extension requests. This is shown when an app is being re-enabled after new permissions have been requested.">
+        On your <ph name="ACCOUNT_EMAIL">$1<ex>user@example.com</ex></ph> account, it can now:
+      </message>
+      <message name="IDS_EXTENSION_PROMPT_OAUTH_PERMISSIONS_HEADER" desc="A line of explanatory text that precedes all GAIA account permissions that an extension might request. This is shown when an app requests permissions which are optional.">
+        On your <ph name="ACCOUNT_EMAIL">$1<ex>user@example.com</ex></ph> account, it could:
       </message>
 
       <if expr="pp_ifdef('android')">
@@ -4577,7 +4589,7 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
         Expected ID "<ph name="EXPECTED_ID">$1<ex>bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb</ex></ph>", but ID was "<ph name="NEW_ID">$2<ex>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</ex></ph>".
       </message>
       <message name="IDS_EXTENSION_INSTALL_DISALLOWED_ON_SITE" desc="Error displayed during installation of an extension when installation is not allowed from the current site.">
-        Extensions, apps, and user scripts can only be added from the Chrome Web Store.
+        Apps, extensions, and user scripts cannot be added from this website.
       </message>
       <message name="IDS_EXTENSION_INSTALL_UNEXPECTED_VERSION" desc="Error displayed during installation of a side-loaded app, extension, or theme when the version of the referenced extension does not match the version the developer declared during registration.">
         Expected version "<ph name="EXPECTED_VERSION">$1<ex>2.0</ex></ph>", but version was "<ph name="NEW_ID">$2<ex>1.0</ex></ph>".
@@ -5491,6 +5503,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ACTION_BOX_DESCRIPTION" desc="Description of the 'Action Box' lab.">
         Enables the "Action Box" experimental toolbar UI.
       </message>
+      <message name="IDS_FLAGS_EXTENSIONS_IN_ACTION_BOX_NAME" desc="Name of the 'Extensions in the Action Box' lab.">
+        Extensions in the Action box
+      </message>
+      <message name="IDS_FLAGS_EXTENSIONS_IN_ACTION_BOX_DESCRIPTION" desc="Description of the 'Extensions in the Action Box' lab.">
+        Enables to show "Extensions the Action Box" (Action box has to be enabled).
+      </message>
       <message name="IDS_FLAGS_SCRIPT_BADGES_NAME" desc="Name of the 'Script Badges' lab.">
         Script badges
       </message>
@@ -6331,6 +6349,14 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLASH_TITLE_MESSAGE" desc="Shown while loading until full list of modules is retrieved">
       About Flash
+      </message>
+
+      <!-- chrome://nacl strings -->
+      <message name="IDS_NACL_LOADING_MESSAGE" desc="Shown while loading until full list of modules is retrieved">
+        Loading...
+      </message>
+      <message name="IDS_NACL_TITLE_MESSAGE" desc="Shown while loading until full list of modules is retrieved">
+        About NaCl
       </message>
 
       <!-- about:version strings -->
@@ -7317,9 +7343,6 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
           Set Up Automatic Updates for All Users
         </message>
       </if>
-      <message name="IDS_ABOUT_CHROME_UPDATE_CHECK" desc="The Check for Updates button">
-        Update Now
-      </message>
       <message name="IDS_UPGRADE_CHECK_STARTED" desc="Status label: About to start checking for updates">
         Checking for updates...
       </message>
@@ -7399,6 +7422,9 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
       </message>
       <message name="IDS_CLOUD_PRINT_REGISTER_PRINTER_FAILED" desc="Status message to be sent to the server when we failed to retrieve information about a printer to register.">
         An error occurred while retrieving printer capabilities for printer <ph name="PRINTER_NAME">$1<ex>HP Laserjet 7900</ex></ph>. This printer could not be registered with <ph name="CLOUD_PRINT_NAME">$2<ex>Google Cloud Print</ex></ph>.
+      </message>
+      <message name="IDS_CLOUD_PRINT_ZOMBIE_PRINTER" desc="Status message to be sent to the server when we get a notification for a printer that we can't find locally.">
+        Received a notification for an unknown printer.
       </message>
       <message name="IDS_CLOUD_PRINT_XPS_UNAVAILABLE" desc="Status message to be sent to the Cloud Print server when the XPS framework is missing.">
         The <ph name="CLOUD_PRINT_NAME">$1<ex>Google Cloud Print</ex></ph> connector requires that the Microsoft XML Paper Specification Essentials Pack be installed.
@@ -9183,12 +9209,6 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_PLATFORM_LABEL" desc="Label for Platform">
         Platform
       </message>
-      <message name="IDS_ABOUT_PAGE_LOADING" desc="Label used for async data before data is available. Example is Chrome OS version.">
-        Loading&#x2026;
-      </message>
-      <message name="IDS_ABOUT_PAGE_MORE_INFO" desc="Title for _More_info_ link.">
-        More Info
-      </message>
       <message name="IDS_ABOUT_PAGE_CHANNEL" desc="The channel label under _More_Info_.">
         Channel
       </message>
@@ -9201,23 +9221,11 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_ABOUT_PAGE_CHANNEL_DEVELOPMENT" desc="The development option in the channel select.">
         Dev - Unstable
       </message>
-      <message name="IDS_ABOUT_PAGE_CHANNEL_CANARY" desc="The canary option in the channel select.">
-        Canary
-      </message>
-      <message name="IDS_ABOUT_PAGE_CHANNEL_WARNING_HEADER" desc="Text right before the warning body text.">
-        WARNING
-      </message>
-      <message name="IDS_ABOUT_PAGE_CHANNEL_WARNING_TEXT" desc="The warning text show on the release channel switching UI.">
-        The development channel is where ideas get tested, but can be very unstable at times. Please proceed with caution.
-      </message>
-      <message name="IDS_ABOUT_PAGE_CHECK_NOW" desc="Button title for checking for updates now.">
-        Check for update
-      </message>
 
       <message name="IDS_OPTIONS_STARTUP_GROUP_NAME" desc="The title of the startup group">
         On startup
       </message>
-      <message name="IDS_OPTIONS2_STARTUP_SHOW_NEWTAB" desc="The label of the 'Show home page' startup option radio button">
+      <message name="IDS_OPTIONS_STARTUP_SHOW_NEWTAB" desc="The label of the 'Show home page' startup option radio button">
         Open the New Tab page
       </message>
       <message name="IDS_OPTIONS_STARTUP_SHOW_DEFAULT_AND_NEWTAB" desc="The label of the 'Show home page' startup option radio button">
@@ -9229,13 +9237,10 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_OPTIONS_STARTUP_RESTORE_LAST_SESSION" desc="The label of the 'Continue where I left off' startup option radio button">
         Continue where I left off
       </message>
-      <message name="IDS_OPTIONS_STARTUP_SHOW_PAGES" desc="The label of the 'Show these pages:' startup option radio button on the old settings page">
-        Open the following pages:
-      </message>
-      <message name="IDS_OPTIONS2_STARTUP_SHOW_PAGES" desc="The label of the 'Show these pages:' startup option radio button">
+      <message name="IDS_OPTIONS_STARTUP_SHOW_PAGES" desc="The label of the 'Show these pages:' startup option radio button">
         Open a specific page or set of pages.
       </message>
-      <message name="IDS_OPTIONS2_STARTUP_SET_PAGES" desc="The link that is clicked to choose the set of pages that will be shown at startup">
+      <message name="IDS_OPTIONS_STARTUP_SET_PAGES" desc="The link that is clicked to choose the set of pages that will be shown at startup">
         Set pages
       </message>
       <message name="IDS_OPTIONS_STARTUP_PAGE_TOOLTIP" desc="A tooltip to display for a page in the list of pages to open on startup">
@@ -9250,7 +9255,7 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_OPTIONS_STARTUP_PAGES_PLACEHOLDER" desc="The placeholder text in the custom startup urls dialog">
         Enter URL...
       </message>
-      <message name="IDS_OPTIONS2_STARTUP_PAGES_DIALOG_TITLE" desc="The title of the dialog where the user chooses the set of pages that will be shown at startup">
+      <message name="IDS_OPTIONS_STARTUP_PAGES_DIALOG_TITLE" desc="The title of the dialog where the user chooses the set of pages that will be shown at startup">
         Startup pages
       </message>
       <message name="IDS_OPTIONS_STARTUP_USE_CURRENT" desc="The label of the 'Use Current' button for the custom startup urls list">
@@ -9265,19 +9270,16 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_OPTIONS_HOMEPAGE_GROUP_NAME" desc="The title of the home page group">
         Home page
       </message>
-      <message name="IDS_OPTIONS2_HOMEPAGE_TITLE" desc="The title of the home page overlay">
+      <message name="IDS_OPTIONS_HOMEPAGE_TITLE" desc="The title of the home page overlay">
         Home page
       </message>
       <message name="IDS_OPTIONS_TOOLBAR_GROUP_NAME" desc="The title of the toolbar group">
-        Toolbar
-      </message>
-      <message name="IDS_OPTIONS2_TOOLBAR_GROUP_NAME" desc="The title of the toolbar group">
         Toolbar appearance
       </message>
-      <message name="IDS_OPTIONS2_HOMEPAGE_DIALOG_LABEL" desc="The label for the homepage textbox in the dialog">
+      <message name="IDS_OPTIONS_HOMEPAGE_DIALOG_LABEL" desc="The label for the homepage textbox in the dialog">
         Home page:
       </message>
-      <message name="IDS_OPTIONS2_HOMEPAGE" desc="The label for the homepage selector">
+      <message name="IDS_OPTIONS_HOMEPAGE" desc="The label for the homepage selector">
         Home page:
       </message>
       <message name="IDS_OPTIONS_HOMEPAGE_USE_NEWTAB" desc="The title of the 'Use the New Tab page' for the home page radio">
@@ -12094,7 +12096,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_CUSTOMIZE_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
         Advanced...
       </message>
-      <message name="IDS_OPTIONS2_CUSTOMIZE_SYNC_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
+      <message name="IDS_OPTIONS_CUSTOMIZE_SYNC_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
         Advanced sync settings...
       </message>
       <message name="IDS_SYNC_STOP_SYNCING_BUTTON_LABEL" desc="The text to display on the button to indicate stop syncing functionality.">
@@ -13814,25 +13816,25 @@ Press any key to continue exploring.
       <message name="IDS_OPTIONS_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
         Keyboard settings...
       </message>
-      <message name="IDS_OPTIONS2_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
+      <message name="IDS_OPTIONS_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
         Keyboard settings
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SECTION">
         Pointer sensitivity:
       </message>
-      <message name="IDS_OPTIONS2_DEVICE_GROUP_POINTER_SECTION">
+      <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SECTION">
         Pointer speed:
       </message>
-      <message name="IDS_OPTIONS2_SETTINGS_MOUSE_SPEED_DESCRIPTION">
+      <message name="IDS_OPTIONS_SETTINGS_MOUSE_SPEED_DESCRIPTION">
         Mouse speed:
       </message>
-      <message name="IDS_OPTIONS2_SETTINGS_TOUCHPAD_SPEED_DESCRIPTION">
+      <message name="IDS_OPTIONS_SETTINGS_TOUCHPAD_SPEED_DESCRIPTION">
         Touchpad speed:
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
         Pointer settings...
       </message>
-      <message name="IDS_OPTIONS2_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
+      <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
         Pointer settings
       </message>
       <message name="IDS_OPTIONS_SETTINGS_SECTION_TITLE_TOUCHPAD">
@@ -17372,6 +17374,52 @@ Battery full
     <message name="IDS_MEDIA_GALLERIES_DIALOG_ADD_GALLERY_TITLE" desc="The title of the folder selection dialog for adding a new media gallery.">
       Add Media Gallery by Directory
     </message>
+
+    <!-- chrome://diagnostics strings -->
+    <if expr="pp_ifdef('chromeos')">
+      <message name="IDS_DIAGNOSTICS_DIAGNOSTICS_TITLE" desc="Title for the diagnostics page.">
+        Diagnostics
+      </message>
+      <message name="IDS_DIAGNOSTICS_CONNECTIVITY_TITLE" desc="Title for the connectivity tab.">
+        Connectivity
+      </message>
+      <message name="IDS_DIAGNOSTICS_LOADING" desc="Shown while loading the diagnostics page.">
+        Loading...
+      </message>
+      <message name="IDS_DIAGNOSTICS_ADAPTER_WLAN0" desc="Adapter name for wlan0 interface.">
+        Wi-Fi
+      </message>
+      <message name="IDS_DIAGNOSTICS_ADAPTER_ETH0" desc="Adapter name for eth0 interface.">
+        Ethernet 1
+      </message>
+      <message name="IDS_DIAGNOSTICS_ADAPTER_ETH1" desc="Adapter name for eth1 interface.">
+        Ethernet 2
+      </message>
+      <message name="IDS_DIAGNOSTICS_ADAPTER_WWAN0" desc="Adapter name for wwan0 interface.">
+        3G
+      </message>
+      <message name="IDS_DIAGNOSTICS_TESTING_HARDWARE" desc="Indicates testing network hardware.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>1. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing <ph name="ADAPTER_NAME">$2<ex>Wi-Fi</ex></ph> hardware...
+      </message>
+      <message name="IDS_DIAGNOSTICS_TESTING_CONNECTION_TO_ROUTER" desc="Indicates testing connection to router.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>2. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to router...
+      </message>
+      <message name="IDS_DIAGNOSTICS_TESTING_CONNECTION_TO_INTERNET" desc="Indicates testing connection to internet.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>3. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to internet...
+      </message>
+      <message name="IDS_DIAGNOSTICS_ADAPTER_DISABLED" desc="Indicates adapter is disabled.">
+        The <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter was not enabled.
+      </message>
+      <message name="IDS_DIAGNOSTICS_ADAPTER_NO_IP" desc="Indicates adapter does not have an IP address.">
+        The <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter does not have an IP address and cannot connect to the internet.
+      </message>
+      <message name="IDS_DIAGNOSTICS_ENABLE_ADAPTER" desc="Recommendation for enabling adapter.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph>Enable the <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter.
+      </message>
+      <message name="IDS_DIAGNOSTICS_FIX_CONNECTION_TO_ROUTER" desc="Recommendation for fixing connection to the router.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph><ph name="BEGIN_ITALIC">&lt;i&gt;</ph>Please ensure that<ph name="END_ITALIC">&lt;/i&gt;</ph><ph name="BR">&lt;br /&gt;</ph>1) you are trying to connect to the right network<ph name="BR2">&lt;br /&gt;</ph>2) you are using the right authentication method<ph name="BR3">&lt;br /&gt;</ph>3) your router is configured correctly<ph name="BR4">&lt;br /&gt;</ph><ph name="BEGIN2_ITALIC">&lt;i&gt;</ph>Try to<ph name="END2_ITALIC">&lt;/i&gt;</ph><ph name="BR5">&lt;br /&gt;</ph>1) connect to a different netowrk<ph name="BR6">&lt;br /&gt;</ph>2) reboot your router
+      </message>
+    </if>
 
     </messages>
 

@@ -35,7 +35,6 @@ class PageActionDecoration;
 class PlusDecoration;
 class Profile;
 class SelectedKeywordDecoration;
-class SkBitmap;
 class StarDecoration;
 class ToolbarModel;
 
@@ -69,6 +68,7 @@ class LocationBarViewMac : public LocationBar,
   virtual void UpdateContentSettingsIcons() OVERRIDE;
   virtual void UpdatePageActions() OVERRIDE;
   virtual void InvalidatePageActions() OVERRIDE;
+  virtual void UpdateWebIntentsButton() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
   virtual void Revert() OVERRIDE;
   virtual const OmniboxView* GetLocationEntry() const OVERRIDE;
@@ -126,6 +126,9 @@ class LocationBarViewMac : public LocationBar,
   void SetPreviewEnabledPageAction(ExtensionAction* page_action,
                                    bool preview_enabled);
 
+  // Retrieve the frame for the given |page_action|.
+  NSRect GetPageActionFrame(ExtensionAction* page_action);
+
   // Return |page_action|'s info-bubble point in window coordinates.
   // This function should always be called with a visible page action.
   // If |page_action| is not a page action or not visible, NOTREACHED()
@@ -149,7 +152,7 @@ class LocationBarViewMac : public LocationBar,
   virtual void OnInputInProgress(bool in_progress) OVERRIDE;
   virtual void OnKillFocus() OVERRIDE;
   virtual void OnSetFocus() OVERRIDE;
-  virtual SkBitmap GetFavicon() const OVERRIDE;
+  virtual gfx::Image GetFavicon() const OVERRIDE;
   virtual string16 GetTitle() const OVERRIDE;
   virtual InstantController* GetInstant() OVERRIDE;
   virtual TabContents* GetTabContents() const OVERRIDE;

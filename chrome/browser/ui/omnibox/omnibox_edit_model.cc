@@ -55,7 +55,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
 #include "googleurl/src/url_util.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image.h"
 
 using content::UserMetricsAction;
 using predictors::AutocompleteActionPredictor;
@@ -275,7 +275,7 @@ void OmniboxEditModel::OnChanged() {
 
 void OmniboxEditModel::GetDataForURLExport(GURL* url,
                                            string16* title,
-                                           SkBitmap* favicon) {
+                                           gfx::Image* favicon) {
   AutocompleteMatch match;
   GetInfoForCurrentText(&match, NULL);
   *url = match.destination_url;
@@ -979,6 +979,7 @@ void OmniboxEditModel::OnResultChanged(bool default_match_changed) {
     InternalSetUserText(UserTextFromDisplayText(view_->GetText()));
     has_temporary_text_ = false;
     PopupBoundsChangedTo(gfx::Rect());
+    NotifySearchTabHelper();
   }
 }
 
@@ -1101,7 +1102,7 @@ bool OmniboxEditModel::CreatedKeywordSearchByInsertingSpaceInMiddle(
 void OmniboxEditModel::NotifySearchTabHelper() {
   if (controller_->GetTabContents()) {
     controller_->GetTabContents()->search_tab_helper()->
-        OmniboxEditModelChanged(this);
+        OmniboxEditModelChanged(user_input_in_progress_, !in_revert_);
   }
 }
 

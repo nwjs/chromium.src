@@ -2362,6 +2362,13 @@ WebSharedWorker* RenderViewImpl::createSharedWorker(
   }
 }
 
+// TODO(wjia): remove the version without url when WebKit change is done.
+// http://webk.it/91301.
+WebMediaPlayer* RenderViewImpl::createMediaPlayer(
+    WebFrame* frame, const WebKit::WebURL& url, WebMediaPlayerClient* client) {
+  return createMediaPlayer(frame, client);
+}
+
 WebMediaPlayer* RenderViewImpl::createMediaPlayer(
     WebFrame* frame, WebMediaPlayerClient* client) {
   FOR_EACH_OBSERVER(
@@ -2396,18 +2403,10 @@ WebMediaPlayer* RenderViewImpl::createMediaPlayer(
     collection->AddAudioRenderer(audio_renderer);
   }
 
-  // Accelerated video decode is not enabled by default on Linux.
-  // crbug.com/137247
-  bool use_accelerated_video_decode = false;
-#if defined(OS_CHROMEOS)
-  use_accelerated_video_decode = true;
-#endif
-  use_accelerated_video_decode &= !CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableAcceleratedVideoDecode);
-  WebGraphicsContext3DCommandBufferImpl* context3d =
-      use_accelerated_video_decode ?
-      RenderThreadImpl::current()->GetGpuVDAContext3D() :
-      NULL;
+  WebGraphicsContext3DCommandBufferImpl* context3d = NULL;
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableAcceleratedVideoDecode))
+    context3d = RenderThreadImpl::current()->GetGpuVDAContext3D();
   if (context3d) {
     scoped_refptr<base::MessageLoopProxy> factories_loop =
         RenderThreadImpl::current()->compositor_thread() ?
@@ -2465,6 +2464,10 @@ void RenderViewImpl::loadURLExternally(
     WebFrame* frame, const WebURLRequest& request,
     WebNavigationPolicy policy) {
   loadURLExternally(frame, request, policy, WebString());
+}
+
+void RenderViewImpl::Repaint(const gfx::Size& size) {
+  OnMsgRepaint(size);
 }
 
 void RenderViewImpl::loadURLExternally(

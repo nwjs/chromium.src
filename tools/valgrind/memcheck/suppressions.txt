@@ -5777,6 +5777,40 @@
    fun:_ZN15ExtensionAction16RunIconAnimationEi
    fun:_ZN15ExtensionAction13SetAppearanceEiNS_10AppearanceE
 }
+{
+   bug_143431
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN11ManagedModeC2Ev
+   fun:_ZN12_GLOBAL__N_115FakeManagedModeC1Ev
+   fun:_ZN15ManagedModeTestC2Ev
+   fun:_ZN*ManagedModeTest_*
+}
+{
+   bug_143545
+   Memcheck:Uninitialized
+   fun:_ZN4aura10RootWindow10ShowCursorEb
+   fun:_ZN3ash5Shell10ShowCursorEb
+   fun:_ZN3ash13CursorManager10ShowCursorEb
+   fun:_ZN3ash4test11AshTestBase5SetUpEv
+}
+{
+   bug_143563
+   Memcheck:Leak
+   fun:_Znw*
+   ...
+   fun:_ZN16TaskManagerModel28RefreshVideoMemoryUsageStatsEv
+   fun:_ZN16TaskManagerModel7RefreshEv
+   fun:_ZN34TaskManagerTest_RefreshCalled_Test8TestBodyEv
+}
+{
+   bug_143565
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN8appcache19AppCacheStorageImpl10InitializeERK8FilePathPN4base16MessageLoopProxyES6_
+   fun:_ZN8appcache15AppCacheService10InitializeERK8FilePathPN4base16MessageLoopProxyES6_
+   fun:_ZN21ChromeAppCacheService20InitializeOnIOThreadERK8FilePathPN7content15ResourceContextE13scoped_refptrIN5quota20SpecialStoragePolicyEE
+}
 
 #-----------------------------------------------------------------------
 # 4. These only occur on our Google workstations

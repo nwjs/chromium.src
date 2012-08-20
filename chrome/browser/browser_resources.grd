@@ -19,6 +19,10 @@
         <structure name="IDR_ABOUT_MEMORY_HTML" file="resources\about_memory.html" flattenhtml="true" type="chrome_html" />
       </if>
       <structure name="IDR_ABOUT_VERSION_HTML" file="resources\about_version.html" flattenhtml="true" allowexternalscript="true" type="chrome_html" />
+      <if expr="pp_ifdef('android')">
+        <structure name="IDR_ABOUT_WELCOME_HTML" file="resources\about_welcome_android\about_welcome_android.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_ABOUT_WELCOME_CSS" file="resources\about_welcome_android\about_welcome_android.css" flattenhtml="true" type="chrome_html" />
+      </if>
       <if expr="pp_ifdef('chromeos')">
         <structure name="IDR_DEMO_USER_LOGIN_HTML" file="resources\chromeos\login\demo_user_login.html" flattenhtml="true" type="chrome_html" />
       </if>
@@ -32,10 +36,15 @@
         <structure name="IDR_LOGIN_HTML" file="resources\chromeos\login\login.html" flattenhtml="true" type="chrome_html" />
       </if>
       <structure name="IDR_NEW_INCOGNITO_TAB_THEME_CSS" file="resources\new_incognito_tab_theme.css" flattenhtml="true" type="chrome_html" />
-      <structure name="IDR_NEW_TAB_4_HTML" file="resources\ntp4\new_tab.html" flattenhtml="true" type="chrome_html" />
-      <structure name="IDR_NEW_TAB_4_THEME_CSS" file="resources\ntp4\new_tab_theme.css" flattenhtml="true" type="chrome_html" />
-      <structure name="IDR_NEW_TAB_SEARCH_HTML" file="resources\ntp_search\new_tab.html" flattenhtml="true" type="chrome_html" />
-      <structure name="IDR_NEW_TAB_SEARCH_THEME_CSS" file="resources\ntp_search\new_tab_theme.css" flattenhtml="true" type="chrome_html" />
+      <if expr="not pp_ifdef('android')">
+        <structure name="IDR_NEW_TAB_4_HTML" file="resources\ntp4\new_tab.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_NEW_TAB_4_THEME_CSS" file="resources\ntp4\new_tab_theme.css" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_NEW_TAB_SEARCH_HTML" file="resources\ntp_search\new_tab.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_NEW_TAB_SEARCH_THEME_CSS" file="resources\ntp_search\new_tab_theme.css" flattenhtml="true" type="chrome_html" />
+      </if>
+      <if expr="pp_ifdef('android')">
+        <structure name="IDR_NEW_TAB_ANDROID_HTML" file="resources\ntp_android\new_tab.html" flattenhtml="true" type="chrome_html" />
+      </if>
       <if expr="pp_ifdef('chromeos')">
         <structure name="IDR_OOBE_HTML" file="resources\chromeos\login\oobe.html" flattenhtml="true" type="chrome_html" />
       </if>
@@ -51,9 +60,15 @@
       <include name="IDR_ABOUT_FLASH_HTML" file="resources\about_flash.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_ABOUT_FLASH_JS" file="resources\about_flash.js" type="BINDATA" />
       <include name="IDR_ABOUT_MEMORY_JS" file="resources\about_memory.js" type="BINDATA" />
+      <include name="IDR_ABOUT_NACL_HTML" file="resources\about_nacl.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+      <include name="IDR_ABOUT_NACL_CSS" file="resources\about_nacl.css" flattenhtml="true" type="chrome_html" />
+      <include name="IDR_ABOUT_NACL_JS" file="resources\about_nacl.js" type="BINDATA" />
       <include name="IDR_ABOUT_STATS_HTML" file="resources\about_stats.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_ABOUT_STATS_JS" file="resources\about_stats.js" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_JS" file="resources\about_version.js" type="BINDATA" />
+      <if expr="pp_ifdef('android')">
+        <include name="IDR_ABOUT_WELCOME_JS" file="resources\about_welcome_android\about_welcome_android.js" type="BINDATA" />
+      </if>
       <include name="IDR_BOOKMARKS_MANIFEST" file="resources\bookmark_manager\manifest.json" type="BINDATA" />
       <if expr="is_posix and not is_macosx">
         <include name="IDR_CERTIFICATE_VIEWER_HTML" file="resources\certificate_viewer.html" type="BINDATA" />
@@ -70,25 +85,31 @@
       <include name="IDR_CRASHES_JS" file="resources\crashes.js" type="BINDATA" />
       <include name="IDR_CREDITS_HTML" file="resources\about_credits.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_CREDITS_JS" file="resources\about_credits.js" type="BINDATA" />
-      <include name="IDR_DOWNLOADS_JS" file="resources\downloads\downloads.js" type="BINDATA" />
-      <include name="IDR_EXTENSION_COMMAND_LIST_JS" file="resources\extensions\extension_command_list.js" flattenhtml="true" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_DOWNLOADS_JS" file="resources\downloads\downloads.js" type="BINDATA" />
+        <include name="IDR_EXTENSION_COMMAND_LIST_JS" file="resources\extensions\extension_command_list.js" flattenhtml="true" type="BINDATA" />
+      </if>
       <if expr="is_macosx">
         <include name="IDR_EXTENSIONS_INFOBAR_CSS" file="resources\extensions_infobar_mac.css" flattenhtml="true" type="BINDATA" />
       </if>
       <if expr="not is_macosx">
         <include name="IDR_EXTENSIONS_INFOBAR_CSS" file="resources\extensions_infobar.css" flattenhtml="true" type="BINDATA" />
       </if>
-      <include name="IDR_EXTENSION_LIST_JS" file="resources\extensions\extension_list.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_EXTENSION_ACTIVITY_HTML" file="resources\extensions\extension_activity.html" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_EXTENSION_ACTIVITY_JS" file="resources\extensions\extension_activity.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_EXTENSION_INFO_CSS" file="resources\extensions\extension_info.css" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_EXTENSION_INFO_HTML" file="resources\extensions\extension_info.html" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_EXTENSION_INFO_JS" file="resources\extensions\extension_info.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_EXTENSIONS_JS" file="resources\extensions\extensions.js" flattenhtml="true" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_EXTENSION_LIST_JS" file="resources\extensions\extension_list.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_EXTENSION_ACTIVITY_HTML" file="resources\extensions\extension_activity.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_EXTENSION_ACTIVITY_JS" file="resources\extensions\extension_activity.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_EXTENSION_INFO_CSS" file="resources\extensions\extension_info.css" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_EXTENSION_INFO_HTML" file="resources\extensions\extension_info.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_EXTENSION_INFO_JS" file="resources\extensions\extension_info.js" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_EXTENSIONS_JS" file="resources\extensions\extensions.js" flattenhtml="true" type="BINDATA" />
+      </if>
       <include name="IDR_FLAGS_HTML" file="resources\flags.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_FLAGS_HTML_WARNING" file="resources\flags_warning.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_FLAGS_JS" file="resources\flags.js" type="BINDATA" />
-      <include name="IDR_GAIA_LOGIN_HTML" file="sync\resources\gaia_login.html" flattenhtml="true" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_GAIA_LOGIN_HTML" file="sync\resources\gaia_login.html" flattenhtml="true" type="BINDATA" />
+      </if>
       <include name="IDR_HELP_JS" file="resources\help\help.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_GPU_BLACKLIST" file="resources\software_rendering_list.json" type="BINDATA" />
       <include name="IDR_GPU_INTERNALS_HTML" file="resources\gpu_internals\gpu_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -103,16 +124,27 @@
       <include name="IDR_INSTANT_JS" file="resources\instant\instant.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_MEDIA_INTERNALS_HTML" file="resources\media_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_MEDIA_INTERNALS_JS" file="resources\media_internals\media_internals.js" flattenhtml="true" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_PERFORMANCE_MONITOR_CHART_CSS" file="resources\performance_monitor\chart.css" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_PERFORMANCE_MONITOR_CHART_JS" file="resources\performance_monitor\chart.js" type="BINDATA" />
+        <include name="IDR_PERFORMANCE_MONITOR_HTML" file="resources\performance_monitor\chart.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_PERFORMANCE_MONITOR_JQUERY_FLOT_JS" file="..\..\third_party\flot\jquery.flot.min.js" type="BINDATA" />
+        <include name="IDR_PERFORMANCE_MONITOR_JQUERY_JS" file="..\..\third_party\flot\jquery.min.js" type="BINDATA" />
+      </if>
       <include name="IDR_PREDICTORS_HTML" file="resources\predictors\predictors.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PREDICTORS_JS" file="resources\predictors\predictors.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_NOTIFICATION_1LINE_HTML" file="resources\notification_1line.html" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_NOTIFICATION_2LINE_HTML" file="resources\notification_2line.html" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_NOTIFICATION_ICON_HTML" file="resources\notification_icon.html" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_NOTIFICATION_1LINE_HTML" file="resources\notification_1line.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_NOTIFICATION_2LINE_HTML" file="resources\notification_2line.html" flattenhtml="true" type="BINDATA" />
+        <include name="IDR_NOTIFICATION_ICON_HTML" file="resources\notification_icon.html" type="BINDATA" />
+      </if>
       <include name="IDR_OMNIBOX_HTML" file="resources\omnibox\omnibox.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_OMNIBOX_CSS" file="resources\omnibox\omnibox.css" type="BINDATA" />
       <include name="IDR_OMNIBOX_JS" file="resources\omnibox\omnibox.js" type="BINDATA" />
-      <include name="IDR_PLUGINS_HTML" file="resources\plugins.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_PLUGINS_JS" file="resources\plugins.js" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_PLUGINS_HTML" file="resources\plugins.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_PLUGINS_JS" file="resources\plugins.js" type="BINDATA" />
+      </if>
       <if expr="is_win">
         <include name="IDR_PLUGIN_DB_JSON" file="resources\plugin_metadata\plugins_win.json" type="BINDATA" />
       </if>
@@ -153,8 +185,10 @@
       <include name="IDR_SUGGESTIONS_INTERNALS_JS" file="resources\suggestions_internals\suggestions_internals.js" type="BINDATA" />
       <include name="IDR_SUGGESTIONS_PAGE_CSS" file="resources\ntp4\suggestions_page.css" type="BINDATA" />
       <include name="IDR_SUGGESTIONS_PAGE_JS" file="resources\ntp4\suggestions_page.js" type="BINDATA" />
-      <include name="IDR_TRACING_HTML" file="..\..\third_party\trace-viewer\src\about_tracing.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_TRACING_JS" file="..\..\third_party\trace-viewer\src\about_tracing.js" flattenhtml="true" type="BINDATA" />
+      <if expr="not pp_ifdef('android')">
+        <include name="IDR_TRACING_HTML" file="..\..\third_party\trace-viewer\src\about_tracing.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_TRACING_JS" file="..\..\third_party\trace-viewer\src\about_tracing.js" flattenhtml="true" type="BINDATA" />
+      </if>
       <include name="IDR_TRANSLATE_JS" file="resources\translate.js" type="BINDATA" />
       <include name="IDR_FEEDBACK_HTML" file="resources\feedback.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_FEEDBACK_HTML_INVALID" file="resources\feedback_invalid.html" allowexternalscript="true" flattenhtml="true" type="BINDATA" />
@@ -195,6 +229,9 @@
         <include name="IDR_DIAGNOSTICS_MAIN_CSS" file="resources\chromeos\diagnostics\main.css" type="BINDATA" />
         <include name="IDR_DIAGNOSTICS_MAIN_HTML" file="resources\chromeos\diagnostics\main.html" flattenhtml="true" type="BINDATA" />
         <include name="IDR_DIAGNOSTICS_MAIN_JS" file="resources\chromeos\diagnostics\main.js" type="BINDATA" />
+        <include name="IDR_DIAGNOSTICS_IMAGES_FAIL" file="resources\chromeos\diagnostics\fail.png" type="BINDATA" />
+        <include name="IDR_DIAGNOSTICS_IMAGES_TICK" file="resources\chromeos\diagnostics\tick.png" type="BINDATA" />
+        <include name="IDR_DIAGNOSTICS_IMAGES_WARNING" file="resources\chromeos\diagnostics\warning.png" type="BINDATA" />
         <include name="IDR_DRIVE_INTERNALS_CSS" file="resources\chromeos\drive_internals.css" type="BINDATA" />
         <include name="IDR_DRIVE_INTERNALS_HTML" file="resources\chromeos\drive_internals.html" flattenhtml="true" type="BINDATA" />
         <include name="IDR_DRIVE_INTERNALS_JS" file="resources\chromeos\drive_internals.js" type="BINDATA" />

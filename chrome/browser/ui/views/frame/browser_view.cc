@@ -116,8 +116,8 @@
 #include "ash/launcher/launcher_model.h"
 #include "ash/shell.h"
 #include "chrome/browser/ui/ash/ash_util.h"
+#include "chrome/browser/ui/ash/chrome_shell_delegate.h"
 #include "chrome/browser/ui/ash/launcher/browser_launcher_item_controller.h"
-#include "chrome/browser/ui/views/ash/chrome_shell_delegate.h"
 #include "chrome/browser/ui/ash/window_positioner.h"
 #elif defined(OS_WIN) && !defined(USE_AURA)
 #include "base/win/metro.h"
@@ -867,7 +867,8 @@ SkColor BrowserView::GetToolbarBackgroundColor(
       return theme_provider->GetColor(
           ThemeService::COLOR_SEARCH_NTP_BACKGROUND);
 
-    case chrome::search::Mode::MODE_SEARCH:
+    case chrome::search::Mode::MODE_SEARCH_SUGGESTIONS:
+    case chrome::search::Mode::MODE_SEARCH_RESULTS:
       return theme_provider->GetColor(
           ThemeService::COLOR_SEARCH_SEARCH_BACKGROUND);
 
@@ -889,7 +890,8 @@ gfx::ImageSkia* BrowserView::GetToolbarBackgroundImage(
     case chrome::search::Mode::MODE_NTP:
       return theme_provider->GetImageSkiaNamed(IDR_THEME_NTP_BACKGROUND);
 
-    case chrome::search::Mode::MODE_SEARCH:
+    case chrome::search::Mode::MODE_SEARCH_SUGGESTIONS:
+    case chrome::search::Mode::MODE_SEARCH_RESULTS:
     case chrome::search::Mode::MODE_DEFAULT:
     default:
       return theme_provider->GetImageSkiaNamed(IDR_THEME_TOOLBAR_SEARCH);
@@ -1537,7 +1539,7 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 
 gfx::ImageSkia BrowserView::GetWindowIcon() {
   if (browser_->is_app())
-    return browser_->GetCurrentPageIcon();
+    return browser_->GetCurrentPageIcon().AsImageSkia();
   return gfx::ImageSkia();
 }
 
@@ -1636,7 +1638,9 @@ bool BrowserView::GetSavedWindowPlacement(
     // assume none were given by the window.open() command.
     if (window_rect.x() == 0 && window_rect.y() == 0) {
       gfx::Size size = window_rect.size();
-      window_rect.set_origin(WindowSizer::GetDefaultPopupOrigin(size));
+      window_rect.set_origin(
+          WindowSizer::GetDefaultPopupOrigin(size,
+                                             browser_->host_desktop_type()));
     }
 
     *bounds = window_rect;

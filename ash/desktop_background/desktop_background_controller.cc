@@ -124,9 +124,9 @@ WallpaperLayout DesktopBackgroundController::GetWallpaperLayout() const {
   return CENTER_CROPPED;
 }
 
-SkBitmap DesktopBackgroundController::GetCurrentWallpaperImage() {
+gfx::ImageSkia DesktopBackgroundController::GetCurrentWallpaperImage() {
   if (desktop_background_mode_ != BACKGROUND_IMAGE)
-    return SkBitmap();
+    return gfx::ImageSkia();
   return GetWallpaper();
 }
 
@@ -239,10 +239,10 @@ void DesktopBackgroundController::MoveDesktopToUnlockedContainer() {
 }
 
 void DesktopBackgroundController::OnWindowDestroying(aura::Window* window) {
-   window->SetProperty(internal::kWindowDesktopComponent,
-       static_cast<internal::DesktopBackgroundWidgetController*>(NULL));
-   window->SetProperty(internal::kComponentWrapper,
-       static_cast<internal::ComponentWrapper*>(NULL));
+  window->SetProperty(internal::kWindowDesktopComponent,
+      static_cast<internal::DesktopBackgroundWidgetController*>(NULL));
+  window->SetProperty(internal::kComponentWrapper,
+      static_cast<internal::ComponentWrapper*>(NULL));
 }
 
 void DesktopBackgroundController::SetDesktopBackgroundImageMode() {
@@ -260,6 +260,11 @@ void DesktopBackgroundController::OnWallpaperLoadCompleted(
   wallpaper_op_ = NULL;
 }
 
+void DesktopBackgroundController::NotifyAnimationFinished() {
+  Shell* shell = Shell::GetInstance();
+  shell->user_wallpaper_delegate()->OnWallpaperAnimationFinished();
+}
+
 ui::Layer* DesktopBackgroundController::SetColorLayerForContainer(
     SkColor color,
     aura::RootWindow* root_window,
@@ -269,6 +274,11 @@ ui::Layer* DesktopBackgroundController::SetColorLayerForContainer(
 
   Shell::GetContainer(root_window,container_id)->
       layer()->Add(background_layer);
+
+  MessageLoop::current()->PostTask(FROM_HERE,
+      base::Bind(&DesktopBackgroundController::NotifyAnimationFinished,
+                 weak_ptr_factory_.GetWeakPtr()));
+
   return background_layer;
 }
 
@@ -319,7 +329,13 @@ void DesktopBackgroundController::ReparentBackgroundWidgets(int src_container,
     aura::RootWindow* root_window = *iter;
     if (root_window->GetProperty(internal::kComponentWrapper)) {
       internal::DesktopBackgroundWidgetController* component = root_window->
-          GetProperty(internal::kComponentWrapper)->component();
+          GetProperty(internal::kWindowDesktopComponent);
+      // Wallpaper animation may not finish at this point. Try to get component
+      // from kComponentWrapper instead.
+      if (!component) {
+        component = root_window->GetProperty(internal::kComponentWrapper)->
+            GetComponent(false);
+      }
       DCHECK(component);
       component->Reparent(root_window,
                           src_container,

@@ -321,6 +321,9 @@
         'widget/drop_helper.h',
         'widget/drop_target_win.cc',
         'widget/drop_target_win.h',
+        'widget/hwnd_message_handler.cc',
+        'widget/hwnd_message_handler.h',
+        'widget/hwnd_message_handler_delegate.h',
         'widget/root_view.cc',
         'widget/root_view.h',
         'widget/tooltip_manager_aura.cc',
@@ -350,6 +353,8 @@
         'widget/widget_observer.h',
         'widget/x11_desktop_handler.cc',
         'widget/x11_desktop_handler.h',
+        'widget/x11_desktop_window_move_client.cc',
+        'widget/x11_desktop_window_move_client.h',
         'widget/x11_window_event_filter.cc',
         'widget/x11_window_event_filter.h',
         'window/client_view.cc',
@@ -444,8 +449,18 @@
             'widget/widget_message_filter.h',
           ],
         }],
+        ['use_aura==1 or OS!="win"', {
+          'sources!': [
+            'widget/hwnd_message_handler.cc',
+            'widget/hwnd_message_handler.h',
+            'widget/hwnd_message_handler_delegate.h',
+          ],
+        }],
         ['OS!="win"', {
           'sources!': [
+            'widget/hwnd_message_handler.cc',
+            'widget/hwnd_message_handler.h',
+            'widget/hwnd_message_handler_delegate.h',
             'widget/widget_hwnd_utils.cc',
             'widget/widget_hwnd_utils.h',
           ],

@@ -364,6 +364,10 @@
         'disk_cache/stress_support.h',
         'disk_cache/trace.cc',
         'disk_cache/trace.h',
+        'dns/address_sorter.h',
+        'dns/address_sorter_posix.cc',
+        'dns/address_sorter_posix.h',
+        'dns/address_sorter_win.cc',
         'dns/dns_client.cc',
         'dns/dns_client.h',
         'dns/dns_config_service.cc',
@@ -1195,6 +1199,8 @@
         'disk_cache/entry_unittest.cc',
         'disk_cache/mapped_file_unittest.cc',
         'disk_cache/storage_block_unittest.cc',
+        'dns/address_sorter_posix_unittest.cc',
+        'dns/address_sorter_unittest.cc',
         'dns/dns_config_service_posix_unittest.cc',
         'dns/dns_config_service_unittest.cc',
         'dns/dns_config_service_win_unittest.cc',
@@ -1985,6 +1991,23 @@
           ],
           'export_dependent_settings': [
             '../base/base.gyp:base_java',
+          ],
+          'includes': [ '../build/java.gypi' ],
+        },
+        {
+          'target_name': 'net_javatests',
+          'type': 'none',
+          'variables': {
+            'package_name': 'net_javatests',
+            'java_in_dir': '../net/android/javatests',
+          },
+          'dependencies': [
+            '../base/base.gyp:base_java',
+            '../base/base.gyp:base_java_test_support',
+          ],
+          'export_dependent_settings': [
+            '../base/base.gyp:base_java',
+            '../base/base.gyp:base_java_test_support',
           ],
           'includes': [ '../build/java.gypi' ],
         },

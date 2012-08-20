@@ -57,28 +57,25 @@ class WorkspaceWindowResizerTest : public test::AshTestBase {
     aura::RootWindow* root = Shell::GetPrimaryRootWindow();
     root->SetHostSize(gfx::Size(800, kRootHeight));
 
-    aura::Window* default_container =
-        Shell::GetContainer(root, kShellWindowId_DefaultContainer);
-
     gfx::Rect root_bounds(root->bounds());
     EXPECT_EQ(kRootHeight, root_bounds.height());
     Shell::GetInstance()->SetDisplayWorkAreaInsets(root, gfx::Insets());
     window_.reset(new aura::Window(&delegate_));
     window_->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window_->Init(ui::LAYER_NOT_DRAWN);
-    window_->SetParent(default_container);
+    window_->SetParent(NULL);
     window_->set_id(1);
 
     window2_.reset(new aura::Window(&delegate2_));
     window2_->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window2_->Init(ui::LAYER_NOT_DRAWN);
-    window2_->SetParent(default_container);
+    window2_->SetParent(NULL);
     window2_->set_id(2);
 
     window3_.reset(new aura::Window(&delegate3_));
     window3_->SetType(aura::client::WINDOW_TYPE_NORMAL);
     window3_->Init(ui::LAYER_NOT_DRAWN);
-    window3_->SetParent(default_container);
+    window3_->SetParent(NULL);
     window3_->set_id(3);
   }
 
@@ -607,7 +604,8 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
     PhantomWindowController* controller =
         resizer->drag_phantom_window_controller_.get();
     ASSERT_TRUE(controller);
-    EXPECT_EQ(PhantomWindowController::STYLE_WINDOW, controller->style());
+    EXPECT_EQ(PhantomWindowController::STYLE_NONE, controller->style());
+    EXPECT_EQ(resizer->layer_, controller->layer());
     // |window_| should be opaque since the pointer is still on the primary
     // root window. The phantom should be semi-transparent.
     EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
@@ -618,7 +616,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
     EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
     controller = resizer->drag_phantom_window_controller_.get();
     ASSERT_TRUE(controller);
-    EXPECT_EQ(PhantomWindowController::STYLE_WINDOW, controller->style());
+    EXPECT_EQ(PhantomWindowController::STYLE_NONE, controller->style());
     // |window_| should be transparent, and the phantom should be opaque.
     EXPECT_GT(1.0f, window_->layer()->opacity());
     EXPECT_FLOAT_EQ(1.0f, controller->GetOpacity());

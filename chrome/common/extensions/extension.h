@@ -25,6 +25,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/permissions/api_permission.h"
+#include "chrome/common/extensions/permissions/api_permission_set.h"
 #include "chrome/common/extensions/permissions/permission_message.h"
 #include "chrome/common/extensions/user_script.h"
 #include "chrome/common/extensions/url_pattern.h"
@@ -98,12 +99,19 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   };
 
   // Used to record the reason an extension was disabled.
+  enum DeprecatedDisableReason {
+    DEPRECATED_DISABLE_UNKNOWN,
+    DEPRECATED_DISABLE_USER_ACTION,
+    DEPRECATED_DISABLE_PERMISSIONS_INCREASE,
+    DEPRECATED_DISABLE_RELOAD,
+    DEPRECATED_DISABLE_LAST,  // Not used.
+  };
+
   enum DisableReason {
-    DISABLE_UNKNOWN,
-    DISABLE_USER_ACTION,
-    DISABLE_PERMISSIONS_INCREASE,
-    DISABLE_RELOAD,
-    DISABLE_LAST,  // Not used.
+    DISABLE_NONE = 0,
+    DISABLE_USER_ACTION = 1 << 0,
+    DISABLE_PERMISSIONS_INCREASE = 1 << 1,
+    DISABLE_RELOAD = 1 << 2,
   };
 
   enum InstallType {
@@ -400,7 +408,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // called on the file thread. To easily load extension images on the UI
   // thread, see ImageLoadingTracker.
   static void DecodeIcon(const Extension* extension,
-                         ExtensionIconSet::Icons icon_size,
+                         int icon_size,
                          ExtensionIconSet::MatchType match_type,
                          scoped_ptr<SkBitmap>* result);
 
@@ -409,7 +417,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // file thread. To easily load extension images on the UI thread, see
   // ImageLoadingTracker.
   static void DecodeIcon(const Extension* extension,
-                         ExtensionIconSet::Icons icon_size,
+                         int icon_size,
                          scoped_ptr<SkBitmap>* result);
 
   // Given an icon_path and icon size, read it if present and decode it into
@@ -417,7 +425,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   // file thread. To easily load extension images on the UI thread, see
   // ImageLoadingTracker.
   static void DecodeIconFromPath(const FilePath& icon_path,
-                                 ExtensionIconSet::Icons icon_size,
+                                 int icon_size,
                                  scoped_ptr<SkBitmap>* result);
 
   // Returns the default extension/app icon (for extensions or apps that don't
@@ -441,6 +449,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   bool HasAPIPermission(APIPermission::ID permission) const;
   bool HasAPIPermission(const std::string& function_name) const;
   bool HasAPIPermissionForTab(int tab_id, APIPermission::ID permission) const;
+
+  bool CheckAPIPermissionWithDetail(APIPermission::ID permission,
+      const APIPermissionDetail::CheckParam* param) const;
 
   const URLPatternSet& GetEffectiveHostPermissions() const;
 

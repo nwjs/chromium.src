@@ -31,7 +31,6 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/common/page_transition_types.h"
 #include "googleurl/src/gurl.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/animation/animation_delegate.h"
 #include "ui/base/animation/slide_animation.h"
 #include "ui/base/gtk/gtk_signal.h"
@@ -46,11 +45,14 @@ class ContentSettingBubbleGtk;
 class ExtensionAction;
 class GtkThemeService;
 class OmniboxViewGtk;
-class SkBitmap;
 class ToolbarModel;
 
 namespace content {
 class WebContents;
+}
+
+namespace gfx {
+class Image;
 }
 
 namespace ui {
@@ -127,7 +129,7 @@ class LocationBarViewGtk : public OmniboxEditController,
   virtual void OnKillFocus() OVERRIDE;
   virtual void OnSetFocus() OVERRIDE;
   virtual void OnInputInProgress(bool in_progress) OVERRIDE;
-  virtual SkBitmap GetFavicon() const OVERRIDE;
+  virtual gfx::Image GetFavicon() const OVERRIDE;
   virtual string16 GetTitle() const OVERRIDE;
   virtual InstantController* GetInstant() OVERRIDE;
   virtual TabContents* GetTabContents() const OVERRIDE;
@@ -145,6 +147,7 @@ class LocationBarViewGtk : public OmniboxEditController,
   virtual void UpdateContentSettingsIcons() OVERRIDE;
   virtual void UpdatePageActions() OVERRIDE;
   virtual void InvalidatePageActions() OVERRIDE;
+  virtual void UpdateWebIntentsButton() OVERRIDE;
   virtual void SaveStateToContents(content::WebContents* contents) OVERRIDE;
   virtual void Revert() OVERRIDE;
   virtual const OmniboxView* GetLocationEntry() const OVERRIDE;
@@ -461,6 +464,10 @@ class LocationBarViewGtk : public OmniboxEditController,
   // Extension page action icons.
   ui::OwnedWidgetGtk page_action_hbox_;
   ScopedVector<PageActionViewGtk> page_action_views_;
+
+  // Control for web intents window disposition picker control.
+  ui::OwnedWidgetGtk web_intents_hbox_;
+  scoped_ptr<PageToolViewGtk> web_intents_button_view_;
 
   // The widget that contains our tab hints and the location bar.
   GtkWidget* entry_box_;

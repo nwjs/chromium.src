@@ -59,8 +59,6 @@ class ChromeEndureBaseTest(perf.BasePerfTest):
 
   _DMPROF_SCRIPT_PATH = os.path.join(_DMPROF_DIR_PATH, 'dmprof')
 
-  _CHROME_BIN_PATH = os.path.join(perf.BasePerfTest.BrowserPath(), 'chrome')
-
   def setUp(self):
     # The environment variables for the Deep Memory Profiler must be set
     # before perf.BasePerfTest.setUp() to inherit them to Chrome.
@@ -393,12 +391,8 @@ class ChromeEndureBaseTest(perf.BasePerfTest):
                            'endure.%05d.%s.json' % (proc_info['tab_pid'],
                                                     last_sequence_id)), 'w+')
           self._deep_memory_profile_proc = subprocess.Popen(
-              '%s --json %s %s %s' % (self._DMPROF_SCRIPT_PATH,
-                                      self._CHROME_BIN_PATH,
-                                      os.path.join(self._DMPROF_DIR_PATH,
-                                                   'policy.l0.txt'),
-                                      os.path.join(self._deep_tempdir,
-                                                   first_dump)),
+              '%s json %s' % (self._DMPROF_SCRIPT_PATH,
+                              os.path.join(self._deep_tempdir, first_dump)),
               shell=True, stdout=self._deep_memory_profile_json_file)
           # Don't wait for the new process since dmprof may take long time.
 
@@ -461,6 +455,8 @@ class ChromeEndureBaseTest(perf.BasePerfTest):
           json_data = json.load(json_f)
         if json_data['version'] == 'JSON_DEEP_1':
           deep_memory_profile_results = json_data['snapshots']
+        elif json_data['version'] == 'JSON_DEEP_2':
+          deep_memory_profile_results = json_data['policies']['l0']['snapshots']
       if deep_memory_profile_results:
         self._OutputPerfGraphValue(
             'DMP-TCMallocUsed', [
@@ -602,11 +598,13 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
 
     # Log into a test Google account and open up Gmail.
     self._LoginToGoogleAccount(account_key='test_google_account_gmail')
-    self.NavigateToURL('http://www.gmail.com')
-    loaded_tab_title = self.GetActiveTabTitle()
-    self.assertTrue(self._TAB_TITLE_SUBSTRING in loaded_tab_title,
-                    msg='Loaded tab title does not contain "%s": "%s"' %
-                        (self._TAB_TITLE_SUBSTRING, loaded_tab_title))
+    self.NavigateToURL(self._GetConfig().get('gmail_url'))
+    self.assertTrue(
+        self.WaitUntil(lambda: self._TAB_TITLE_SUBSTRING in
+                       self.GetActiveTabTitle(),
+                       timeout=60, expect_retval=True, retry_sleep=1),
+        msg='Timed out waiting for Gmail to load. Tab title is: %s' %
+        self.GetActiveTabTitle())
 
     self._driver = self.NewWebDriver()
     # Any call to wait.until() will raise an exception if the timeout is hit.
@@ -622,6 +620,15 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
     # Wait for the inbox to appear.
     self.WaitForDomNode('//a[starts-with(@title, "Inbox")]',
                         frame_xpath=self._FRAME_XPATH)
+
+    # Test whether latency dom element is available.
+    try:
+      self._GetLatencyDomElement(5000)
+      self._has_latency = True
+    except pyauto_errors.JSONInterfaceError:
+      logging.info('Skip recording latency as latency ' +
+                   'dom element is not available.')
+      self._has_latency = False
 
   def _SwitchToCanvasFrame(self, driver):
     """Switch the WebDriver to Gmail's 'canvas_frame', if it's available.
@@ -639,11 +646,20 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
     except selenium.common.exceptions.NoSuchFrameException:
       return False
 
-  def _GetLatencyDomElement(self):
-    """Returns a reference to the latency info element in the Gmail DOM."""
+  def _GetLatencyDomElement(self, timeout=-1):
+    """Returns a reference to the latency info element in the Gmail DOM.
+
+    Args:
+      timeout: The maximum amount of time (in milliseconds) to wait for
+               the latency dom element to appear, defaults to the
+               default automation timeout.
+    Returns:
+      A latency dom element.
+    """
     latency_xpath = (
         '//span[starts-with(text(), "Why was the last action slow?")]')
-    self.WaitForDomNode(latency_xpath, frame_xpath=self._FRAME_XPATH)
+    self.WaitForDomNode(latency_xpath, timeout=timeout,
+                        frame_xpath=self._FRAME_XPATH)
     return self._GetElement(self._driver.find_element_by_xpath, latency_xpath)
 
   def _WaitUntilDomElementRemoved(self, dom_element):
@@ -676,6 +692,9 @@ class ChromeEndureGmailTest(ChromeEndureBaseTest):
       action_description: A string description of what action is being
           performed.  Should not contain spaces.  For example, 'Compose'.
     """
+    if not self._has_latency:
+      element.click()
+      return
     latency_dom_element = self._GetLatencyDomElement()
     element.click()
     # Wait for the old latency value to be removed, before getting the new one.
@@ -940,7 +959,7 @@ class ChromeEndureDocsTest(ChromeEndureBaseTest):
 
     # Log into a test Google account and open up Google Docs.
     self._LoginToGoogleAccount()
-    self.NavigateToURL('http://docs.google.com')
+    self.NavigateToURL(self._GetConfig().get('docs_url'))
     self.assertTrue(
         self.WaitUntil(lambda: self._TAB_TITLE_SUBSTRING in
                                self.GetActiveTabTitle(),
@@ -1012,7 +1031,7 @@ class ChromeEndurePlusTest(ChromeEndureBaseTest):
 
     # Log into a test Google account and open up Google Plus.
     self._LoginToGoogleAccount()
-    self.NavigateToURL('http://plus.google.com')
+    self.NavigateToURL(self._GetConfig().get('plus_url'))
     loaded_tab_title = self.GetActiveTabTitle()
     self.assertTrue(self._TAB_TITLE_SUBSTRING in loaded_tab_title,
                     msg='Loaded tab title does not contain "%s": "%s"' %

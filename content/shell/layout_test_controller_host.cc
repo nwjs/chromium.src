@@ -4,9 +4,11 @@
 
 #include "content/shell/layout_test_controller_host.h"
 
+#include "base/command_line.h"
 #include "base/message_loop.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/shell/shell_messages.h"
+#include "content/shell/shell_switches.h"
 #include "webkit/support/webkit_support_gfx.h"
 
 namespace content {
@@ -116,11 +118,6 @@ void LayoutTestControllerHost::OnTextDump(const std::string& dump) {
 void LayoutTestControllerHost::OnImageDump(
     const std::string& actual_pixel_hash,
     const SkBitmap& image) {
-#if !defined(OS_ANDROID)
-  // DumpRenderTree is not currently supported for Android. Also, on Android
-  // the required webkit_support methods are not defined, so this method just
-  // doesn't compile.
-
   SkAutoLockPixels image_lock(image);
 
   printf("\nActualHash: %s\n", actual_pixel_hash.c_str());
@@ -139,7 +136,9 @@ void LayoutTestControllerHost::OnImageDump(
     bool discard_transparency = true;
 #endif
 
-    webkit_support::EncodeBGRAPNGWithChecksum(
+    bool success = false;
+#if defined(OS_ANDROID)
+    success = webkit_support::EncodeRGBAPNGWithChecksum(
         reinterpret_cast<const unsigned char*>(image.getPixels()),
         image.width(),
         image.height(),
@@ -147,14 +146,24 @@ void LayoutTestControllerHost::OnImageDump(
         discard_transparency,
         actual_pixel_hash,
         &png);
-
-    printf("Content-Type: image/png\n");
-    printf("Content-Length: %u\n", static_cast<unsigned>(png.size()));
-    fwrite(&png[0], 1, png.size(), stdout);
+#else
+    success = webkit_support::EncodeBGRAPNGWithChecksum(
+        reinterpret_cast<const unsigned char*>(image.getPixels()),
+        image.width(),
+        image.height(),
+        static_cast<int>(image.rowBytes()),
+        discard_transparency,
+        actual_pixel_hash,
+        &png);
+#endif
+    if (success) {
+      printf("Content-Type: image/png\n");
+      printf("Content-Length: %u\n", static_cast<unsigned>(png.size()));
+      fwrite(&png[0], 1, png.size(), stdout);
+    }
   }
 
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
-#endif
 }
 
 void LayoutTestControllerHost::OnNotifyDone() {
@@ -184,12 +193,14 @@ void LayoutTestControllerHost::OnDumpChildFramesAsText() {
 void LayoutTestControllerHost::OnWaitUntilDone() {
   if (wait_until_done_)
     return;
-  watchdog_.Reset(base::Bind(&LayoutTestControllerHost::TimeoutHandler,
-                             base::Unretained(this)));
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      watchdog_.callback(),
-      base::TimeDelta::FromMilliseconds(kTestTimeoutMilliseconds));
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoTimeout)) {
+    watchdog_.Reset(base::Bind(&LayoutTestControllerHost::TimeoutHandler,
+                               base::Unretained(this)));
+    MessageLoop::current()->PostDelayedTask(
+        FROM_HERE,
+        watchdog_.callback(),
+        base::TimeDelta::FromMilliseconds(kTestTimeoutMilliseconds));
+  }
   wait_until_done_ = true;
 }
 

@@ -75,6 +75,8 @@ WebKit::WebKitPlatformSupport* GetWebKitPlatformSupport();
 WebKit::WebPlugin* CreateWebPlugin(WebKit::WebFrame* frame,
                                    const WebKit::WebPluginParams& params);
 
+// TODO(wjia): remove this function after WebKit patch is landed.
+// http://webk.it/91301.
 // This is used by WebFrameClient::createMediaPlayer().
 WebKit::WebMediaPlayer* CreateMediaPlayer(
     WebKit::WebFrame* frame,
@@ -84,6 +86,20 @@ WebKit::WebMediaPlayer* CreateMediaPlayer(
 // This is used by WebFrameClient::createMediaPlayer().
 WebKit::WebMediaPlayer* CreateMediaPlayer(
     WebKit::WebFrame* frame,
+    const WebKit::WebURL& url,
+    WebKit::WebMediaPlayerClient* client,
+    webkit_media::MediaStreamClient* media_stream_client);
+
+// TODO(wjia): remove this function after WebKit patch is landed.
+// This is used by WebFrameClient::createMediaPlayer().
+WebKit::WebMediaPlayer* CreateMediaPlayer(
+    WebKit::WebFrame* frame,
+    WebKit::WebMediaPlayerClient* client);
+
+// This is used by WebFrameClient::createMediaPlayer().
+WebKit::WebMediaPlayer* CreateMediaPlayer(
+    WebKit::WebFrame* frame,
+    const WebKit::WebURL& url,
     WebKit::WebMediaPlayerClient* client);
 
 #if defined(OS_ANDROID)
@@ -233,8 +249,14 @@ WebKit::WebThemeEngine* GetThemeEngine();
 WebKit::WebURL GetDevToolsPathAsURL();
 
 // - FileSystem
-void OpenFileSystem(WebKit::WebFrame* frame, WebKit::WebFileSystem::Type type,
-    long long size, bool create, WebKit::WebFileSystemCallbacks* callbacks);
+void OpenFileSystem(WebKit::WebFrame* frame,
+                    WebKit::WebFileSystem::Type type,
+                    long long size,
+                    bool create,
+                    WebKit::WebFileSystemCallbacks* callbacks);
+void DeleteFileSystem(WebKit::WebFrame* frame,
+                      WebKit::WebFileSystem::Type type,
+                      WebKit::WebFileSystemCallbacks* callbacks);
 
 // Returns a filesystem ID for the newly created isolated filesystem.
 WebKit::WebString RegisterIsolatedFileSystem(

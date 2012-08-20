@@ -7,6 +7,7 @@
 #include <set>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/bookmarks/bookmark_manager_extension_api.h"
@@ -97,7 +98,7 @@ class ExtensionWebUIImageLoadingTracker : public ImageLoadingTracker::Observer {
   void Init() {
     if (extension_) {
       ExtensionResource icon_resource =
-          extension_->GetIconResource(ExtensionIconSet::EXTENSION_ICON_BITTY,
+          extension_->GetIconResource(extension_misc::EXTENSION_ICON_BITTY,
                                       ExtensionIconSet::MATCH_EXACTLY);
 
       tracker_.LoadImage(extension_, icon_resource,

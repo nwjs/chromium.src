@@ -42,6 +42,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_F5, ui::EF_NONE, CYCLE_FORWARD_LINEAR },
   { true, ui::VKEY_MEDIA_LAUNCH_APP1, ui::EF_NONE, CYCLE_FORWARD_LINEAR },
 #if defined(OS_CHROMEOS)
+  { true, ui::VKEY_WLAN, ui::EF_NONE, TOGGLE_WIFI },
   { true, ui::VKEY_BRIGHTNESS_DOWN, ui::EF_NONE, BRIGHTNESS_DOWN },
   { true, ui::VKEY_BRIGHTNESS_UP, ui::EF_NONE, BRIGHTNESS_UP },
   { true, ui::VKEY_KBD_BRIGHTNESS_DOWN, ui::EF_NONE, KEYBOARD_BRIGHTNESS_DOWN },
@@ -85,7 +86,7 @@ const AcceleratorData kAcceleratorData[] = {
   { true, ui::VKEY_LWIN, ui::EF_NONE, TOGGLE_APP_LIST },
   { true, ui::VKEY_MEDIA_LAUNCH_APP2, ui::EF_NONE, TOGGLE_APP_LIST },
   { true, ui::VKEY_BROWSER_SEARCH, ui::EF_NONE, TOGGLE_APP_LIST },
-  { true, ui::VKEY_LWIN, ui::EF_SHIFT_DOWN, TOGGLE_CAPS_LOCK },
+  { true, ui::VKEY_LWIN, ui::EF_ALT_DOWN, TOGGLE_CAPS_LOCK },
   { true, ui::VKEY_F6, ui::EF_NONE, BRIGHTNESS_DOWN },
   { true, ui::VKEY_F6, ui::EF_ALT_DOWN, KEYBOARD_BRIGHTNESS_DOWN },
   { true, ui::VKEY_F7, ui::EF_NONE, BRIGHTNESS_UP },

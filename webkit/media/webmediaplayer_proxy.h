@@ -62,7 +62,6 @@ class WebMediaPlayerProxy
 
   // Methods for Filter -> WebMediaPlayerImpl communication.
   void Repaint();
-  void SetOpaque(bool opaque);
 
   // Methods for WebMediaPlayerImpl -> Filter communication.
   void Paint(SkCanvas* canvas, const gfx::Rect& dest_rect, uint8_t alpha);
@@ -73,12 +72,6 @@ class WebMediaPlayerProxy
   bool DidPassCORSAccessCheck() const;
 
   void AbortDataSource();
-
-  // Methods for Pipeline -> WebMediaPlayerImpl communication.
-  void PipelineInitializationCallback(media::PipelineStatus status);
-  void PipelineSeekCallback(media::PipelineStatus status);
-  void PipelineEndedCallback(media::PipelineStatus status);
-  void PipelineErrorCallback(media::PipelineStatus error);
 
   // ChunkDemuxerClient implementation.
   virtual void DemuxerOpened(media::ChunkDemuxer* demuxer) OVERRIDE;
@@ -123,22 +116,6 @@ class WebMediaPlayerProxy
 
   // Invoke |webmediaplayer_| to perform a repaint.
   void RepaintTask();
-
-  // Notify |webmediaplayer_| that initialization has finished.
-  void PipelineInitializationTask(media::PipelineStatus status);
-
-  // Notify |webmediaplayer_| that a seek has finished.
-  void PipelineSeekTask(media::PipelineStatus status);
-
-  // Notify |webmediaplayer_| that the media has ended.
-  void PipelineEndedTask(media::PipelineStatus status);
-
-  // Notify |webmediaplayer_| that a pipeline error has occurred during
-  // playback.
-  void PipelineErrorTask(media::PipelineStatus error);
-
-  // Inform |webmediaplayer_| whether the video content is opaque.
-  void SetOpaqueTask(bool opaque);
 
   void DemuxerOpenedTask(const scoped_refptr<media::ChunkDemuxer>& demuxer);
   void DemuxerClosedTask();

@@ -55,7 +55,18 @@ void DesktopBackgroundWidgetController::Reparent(aura::RootWindow* root_window,
 }
 
 ComponentWrapper::ComponentWrapper(
-    DesktopBackgroundWidgetController* component) : component_(component) {
+    DesktopBackgroundWidgetController* component) {
+  component_.reset(component);
+}
+
+ComponentWrapper::~ComponentWrapper() {
+}
+
+DesktopBackgroundWidgetController* ComponentWrapper::GetComponent(
+    bool pass_ownership) {
+  if (pass_ownership)
+    return component_.release();
+  return component_.get();
 }
 
 }  // namespace internal

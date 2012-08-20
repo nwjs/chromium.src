@@ -135,15 +135,18 @@ class GpuBenchmarkingWrapper : public v8::Extension {
           "  return PrintToSkPicture(dirname);"
           "};"
           "chrome.gpuBenchmarking.beginSmoothScrollDown = "
-          "    function(scroll_far) {"
+          "    function(scroll_far, opt_callback) {"
           "  scroll_far = scroll_far || false;"
+          "  callback = opt_callback || function() { };"
           "  native function BeginSmoothScroll();"
-          "  return BeginSmoothScroll(true, scroll_far);"
+          "  return BeginSmoothScroll(true, scroll_far, callback);"
           "};"
-          "chrome.gpuBenchmarking.beginSmoothScrollUp = function(scroll_far) {"
+          "chrome.gpuBenchmarking.beginSmoothScrollUp = "
+          "    function(scroll_far, opt_callback) {"
           "  scroll_far = scroll_far || false;"
+          "  callback = opt_callback || function() { };"
           "  native function BeginSmoothScroll();"
-          "  return BeginSmoothScroll(false, scroll_far);"
+          "  return BeginSmoothScroll(false, scroll_far, callback);"
           "};"
           "chrome.gpuBenchmarking.runRenderingBenchmarks = function(filter) {"
           "  native function RunRenderingBenchmarks();"
@@ -181,26 +184,16 @@ class GpuBenchmarkingWrapper : public v8::Extension {
     render_view_impl->GetRenderingStats(stats);
 
     v8::Handle<v8::Object> stats_object = v8::Object::New();
-    if (stats.numAnimationFrames)
-      stats_object->Set(v8::String::New("numAnimationFrames"),
-                        v8::Integer::New(stats.numAnimationFrames),
-                        v8::ReadOnly);
-    if (stats.numFramesSentToScreen)
-      stats_object->Set(v8::String::New("numFramesSentToScreen"),
-                        v8::Integer::New(stats.numFramesSentToScreen),
-                        v8::ReadOnly);
-    if (stats.droppedFrameCount)
-      stats_object->Set(v8::String::New("droppedFrameCount"),
-                        v8::Integer::New(stats.droppedFrameCount),
-                        v8::ReadOnly);
-    if (stats.totalPaintTimeInSeconds)
-      stats_object->Set(v8::String::New("totalPaintTimeInSeconds"),
-                        v8::Number::New(stats.totalPaintTimeInSeconds),
-                        v8::ReadOnly);
-    if (stats.totalRasterizeTimeInSeconds)
-      stats_object->Set(v8::String::New("totalRasterizeTimeInSeconds"),
-                        v8::Number::New(stats.totalRasterizeTimeInSeconds),
-                        v8::ReadOnly);
+    stats_object->Set(v8::String::New("numAnimationFrames"),
+                      v8::Integer::New(stats.numAnimationFrames));
+    stats_object->Set(v8::String::New("numFramesSentToScreen"),
+                      v8::Integer::New(stats.numFramesSentToScreen));
+    stats_object->Set(v8::String::New("droppedFrameCount"),
+                      v8::Integer::New(stats.droppedFrameCount));
+    stats_object->Set(v8::String::New("totalPaintTimeInSeconds"),
+                      v8::Number::New(stats.totalPaintTimeInSeconds));
+    stats_object->Set(v8::String::New("totalRasterizeTimeInSeconds"),
+                      v8::Number::New(stats.totalRasterizeTimeInSeconds));
     return stats_object;
   }
 
@@ -224,8 +217,8 @@ class GpuBenchmarkingWrapper : public v8::Extension {
     if (!benchmark_support)
       return v8::Undefined();
 
-    FilePath dirpath;
-    dirpath = dirpath.AppendASCII(*dirname);
+    FilePath dirpath(FilePath::StringType(*dirname,
+                                          *dirname + dirname.length()));
     if (!file_util::CreateDirectory(dirpath) ||
         !file_util::PathIsWritable(dirpath)) {
       std::string msg("Path is not writable: ");
@@ -238,6 +231,21 @@ class GpuBenchmarkingWrapper : public v8::Extension {
     benchmark_support->paint(&recorder,
                              WebViewBenchmarkSupport::PaintModeEverything);
     return v8::Undefined();
+  }
+
+  static void OnSmoothScrollCompleted(v8::Persistent<v8::Function> callback,
+                                      v8::Persistent<v8::Context> context) {
+    v8::HandleScope scope;
+    v8::Context::Scope context_scope(context);
+    WebFrame* frame = WebFrame::frameForContext(context);
+    if (frame) {
+      frame->callFunctionEvenIfScriptDisabled(callback,
+                                              v8::Object::New(),
+                                              0,
+                                              NULL);
+    }
+    callback.Dispose();
+    context.Dispose();
   }
 
   static v8::Handle<v8::Value> BeginSmoothScroll(const v8::Arguments& args) {
@@ -253,13 +261,31 @@ class GpuBenchmarkingWrapper : public v8::Extension {
     if (!render_view_impl)
       return v8::Undefined();
 
-    if (args.Length() != 2 || !args[0]->IsBoolean() || !args[1]->IsBoolean())
+    if (args.Length() != 3 ||
+        !args[0]->IsBoolean() ||
+        !args[1]->IsBoolean() ||
+        !args[2]->IsFunction())
       return v8::False();
 
     bool scroll_down = args[0]->BooleanValue();
     bool scroll_far = args[1]->BooleanValue();
+    v8::Local<v8::Function> callback_local =
+        v8::Local<v8::Function>(v8::Function::Cast(*args[2]));
+    v8::Persistent<v8::Function> callback =
+        v8::Persistent<v8::Function>::New(callback_local);
+    v8::Persistent<v8::Context> context =
+        v8::Persistent<v8::Context>::New(web_frame->mainWorldScriptContext());
 
-    render_view_impl->BeginSmoothScroll(scroll_down, scroll_far);
+    // TODO(nduca): If the render_view_impl is destroyed while the gesture is in
+    // progress, we will leak the callback and context. This needs to be fixed,
+    // somehow.
+    render_view_impl->BeginSmoothScroll(
+        scroll_down,
+        scroll_far,
+        base::Bind(&OnSmoothScrollCompleted,
+                   callback,
+                   context));
+
     return v8::True();
   }
 

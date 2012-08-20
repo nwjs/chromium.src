@@ -348,9 +348,6 @@ const char kDisableIPPooling[]              = "disable-ip-pooling";
 const char kDisableNonFullscreenMouseLock[] =
     "disable-non-fullscreen-mouse-lock";
 
-// Avoid doing expensive animations upon login.
-const char kDisableLoginAnimations[]        = "disable-login-animations";
-
 // Disables the menu on the NTP for accessing sessions from other devices.
 const char kDisableNTPOtherSessionsMenu[]   = "disable-ntp-other-sessions-menu";
 
@@ -521,6 +518,9 @@ const char kEnableExtensionActivityLogging[] =
 
 // Enables the extension activity UI.
 const char kEnableExtensionActivityUI[]     = "enable-extension-activity-ui";
+
+// Enables to show extensions in an action box.
+const char kEnableExtensionsInActionBox[] = "extensions-in-action-box";
 
 // Enables experimental timeline API.
 const char kEnableExtensionTimelineApi[]    = "enable-extension-timeline-api";
@@ -951,6 +951,11 @@ const char kNotifyCloudPrintTokenExpired[]  = "notify-cp-token-expired";
 // Autoconfig (PAC) script.
 const char kNumPacThreads[]                 = "num-pac-threads";
 
+// Refactored (browserless) Panels are on by default in dev/canary/trunk.
+// Use this flag to revert to using the old-style (pre-refactor) Panels.
+// Flag will be removed after refactor is complete.
+const char kOldPanels[] = "old-panels";
+
 // Controls whether to use the fancy new scoring (takes into account
 // word breaks, does better balancing of topicality, recency, etc.) for
 // HistoryQuickProvider.
@@ -1070,6 +1075,9 @@ const char kProductVersion[]                = "product-version";
 
 // Selects directory of profile to associate with the first browser launched.
 const char kProfileDirectory[]              = "profile-directory";
+
+// Enables the Windows profile desktop shortcuts feature.
+const char kProfileDesktopShortcuts[]     = "enable-profile-desktop-shortcuts";
 
 // Starts the sampling based profiler for the browser process at startup. This
 // will only work if chrome has been built with the gyp variable profiling=1.
@@ -1264,6 +1272,11 @@ const char kSyncInvalidateXmppLogin[]       = "sync-invalidate-xmpp-login";
 // Enable support for keystore key based encryption.
 const char kSyncKeystoreEncryption[] = "sync-keystore-encryption";
 
+// This flag causes sync to retry very quickly (see polling_constants.h) the
+// when it encounters an error, as the first step towards exponential backoff.
+const char kSyncShortInitialRetryOverride[] =
+    "sync-short-initial-retry-override";
+
 // Overrides the default notification method for sync.
 const char kSyncNotificationMethod[]        = "sync-notification-method";
 
@@ -1375,8 +1388,14 @@ const char kDisableGData[]                  = "disable-gdata";
 // Disables new WebRTC implementation of user image picker.
 const char kDisableHtml5Camera[]            = "disable-html5-camera";
 
+// Avoid doing expensive animations upon login.
+const char kDisableLoginAnimations[]        = "disable-login-animations";
+
 // Disables new OOBE/sign in design.
 const char kDisableNewOobe[]                = "disable-new-oobe";
+
+// Avoid doing animations upon oobe.
+const char kDisableOobeAnimation[]          = "disable-oobe-animation";
 
 // Enables touchpad three-finger-click as middle button.
 const char kEnableTouchpadThreeFingerClick[]
@@ -1525,9 +1544,9 @@ const char kUseMockKeychain[]               = "use-mock-keychain";
 // modification or removal.
 const char kDisableDesktopShortcuts[]       = "disable-desktop-shortcuts";
 
-// Disables sync credential caching on Windows 8.
+// Enables sync credential caching on Windows 8.
 // See chrome/browser/sync/credential_cache_service_win.h.
-const char kDisableSyncCredentialCaching[]  = "disable-sync-credential-caching";
+const char kEnableSyncCredentialCaching[]    = "enable-sync-credential-caching";
 
 // For the DelegateExecute verb handler to launch Chrome in metro mode on
 // Windows 8 and higher.  Used when relaunching metro Chrome.

@@ -31,7 +31,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
-#include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/image/image.h"
 #include "ui/gfx/rect.h"
 
 using content::RenderViewHost;
@@ -506,9 +506,17 @@ void Panel::OnContentsAutoResized(const gfx::Size& new_content_size) {
   if (!panel_strip_)
     return;
 
-  panel_strip_->ResizePanelWindow(
-      this,
-      native_panel_->WindowSizeFromContentSize(new_content_size));
+  gfx::Size new_window_size =
+      native_panel_->WindowSizeFromContentSize(new_content_size);
+
+  // Ignore content auto resizes until window frame size is known.
+  // This reduces extra resizes when panel is first shown.
+  // After window frame size is known, it will trigger another content
+  // auto resize.
+  if (new_content_size == new_window_size)
+    return;
+
+  panel_strip_->ResizePanelWindow(this, new_window_size);
 }
 
 void Panel::OnWindowResizedByMouse(const gfx::Rect& new_bounds) {
@@ -750,7 +758,7 @@ void Panel::FormatTitleForDisplay(string16* title) {
   }
 }
 
-SkBitmap Panel::GetCurrentPageIcon() const {
+gfx::Image Panel::GetCurrentPageIcon() const {
   return panel_host_->GetPageIcon();
 }
 

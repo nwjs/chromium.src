@@ -383,6 +383,14 @@ WebPlugin* CreateWebPlugin(WebFrame* frame,
 
 WebKit::WebMediaPlayer* CreateMediaPlayer(
     WebFrame* frame,
+    const WebURL& url,
+    WebMediaPlayerClient* client,
+    webkit_media::MediaStreamClient* media_stream_client) {
+  return CreateMediaPlayer(frame, client, media_stream_client);
+}
+
+WebKit::WebMediaPlayer* CreateMediaPlayer(
+    WebFrame* frame,
     WebMediaPlayerClient* client,
     webkit_media::MediaStreamClient* media_stream_client) {
 #if defined(OS_ANDROID)
@@ -416,6 +424,13 @@ WebKit::WebMediaPlayer* CreateMediaPlayer(
     WebFrame* frame,
     WebMediaPlayerClient* client) {
   return CreateMediaPlayer(frame, client, NULL);
+}
+
+WebKit::WebMediaPlayer* CreateMediaPlayer(
+    WebFrame* frame,
+    const WebURL& url,
+    WebMediaPlayerClient* client) {
+  return CreateMediaPlayer(frame, url, client, NULL);
 }
 
 #if defined(OS_ANDROID)
@@ -802,6 +817,13 @@ void OpenFileSystem(WebFrame* frame, WebFileSystem::Type type,
   SimpleFileSystem* fileSystem = static_cast<SimpleFileSystem*>(
       test_environment->webkit_platform_support()->fileSystem());
   fileSystem->OpenFileSystem(frame, type, size, create, callbacks);
+}
+
+void DeleteFileSystem(WebFrame* frame, WebFileSystem::Type type,
+                      WebFileSystemCallbacks* callbacks) {
+  SimpleFileSystem* fileSystem = static_cast<SimpleFileSystem*>(
+      test_environment->webkit_platform_support()->fileSystem());
+  fileSystem->DeleteFileSystem(frame, type, callbacks);
 }
 
 WebKit::WebString RegisterIsolatedFileSystem(

@@ -31,8 +31,8 @@
 #include "chromeos/dbus/power_manager_client.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
-#include "skia/ext/image_operations.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/skia_util.h"
 
 using content::BrowserThread;
@@ -65,6 +65,33 @@ const char kNewWallpaperDateNodeName[] = "date";
 const char kNewWallpaperLayoutNodeName[] = "layout";
 const char kNewWallpaperFileNodeName[] = "file";
 const char kNewWallpaperTypeNodeName[] = "type";
+
+gfx::ImageSkia GetWallpaperThumbnail(const gfx::ImageSkia& wallpaper) {
+  gfx::ImageSkia thumbnail = gfx::ImageSkiaOperations::CreateResizedImage(
+      wallpaper,
+      skia::ImageOperations::RESIZE_LANCZOS3,
+      gfx::Size(kThumbnailWidth, kThumbnailHeight));
+
+  // Ideally, this would call thumbnail.GetRepresentations(). But since that
+  // isn't exposed on non-mac yet, we have to do this here.
+  std::vector<ui::ScaleFactor> scales = ui::GetSupportedScaleFactors();
+  for (size_t i = 0; i < scales.size(); ++i) {
+    if (wallpaper.HasRepresentation(scales[i]))
+      thumbnail.GetRepresentation(scales[i]);
+  }
+
+  return thumbnail;
+}
+
+gfx::ImageSkia ImageSkiaDeepCopy(const gfx::ImageSkia& image) {
+  gfx::ImageSkia copy;
+  std::vector<gfx::ImageSkiaRep> reps = image.image_reps();
+  for (std::vector<gfx::ImageSkiaRep>::iterator iter = reps.begin();
+      iter != reps.end(); ++iter) {
+    copy.AddRepresentation(*iter);
+  }
+  return copy;
+}
 
 }  // namespace
 
@@ -292,16 +319,15 @@ void WallpaperManager::RestartTimer() {
   }
 }
 
-void WallpaperManager::SaveUserWallpaperProperties(const std::string& email,
-                                                   User::WallpaperType type,
-                                                   int index) {
+void WallpaperManager::SetUserWallpaperProperties(const std::string& email,
+                                                  User::WallpaperType type,
+                                                  int index,
+                                                  bool is_persistent) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   current_user_wallpaper_type_ = type;
   current_user_wallpaper_index_ = index;
-  // Ephemeral users can not save data to local state. We just cache the index
-  // in memory for them.
-  if (UserManager::Get()->IsCurrentUserEphemeral())
+  if (!is_persistent)
     return;
 
   PrefService* local_state = g_browser_process->local_state();
@@ -333,15 +359,17 @@ void WallpaperManager::SetUserWallpaperFromFile(
                  delegate));
 }
 
-void WallpaperManager::SetInitialUserWallpaper(const std::string& username) {
+void WallpaperManager::SetInitialUserWallpaper(const std::string& username,
+                                               bool is_persistent) {
   current_user_wallpaper_type_ = User::DEFAULT;
   if (username == kGuestUser)
     current_user_wallpaper_index_ = ash::GetGuestWallpaperIndex();
   else
     current_user_wallpaper_index_ = ash::GetDefaultWallpaperIndex();
-  SaveUserWallpaperProperties(username,
-                              current_user_wallpaper_type_,
-                              current_user_wallpaper_index_);
+  SetUserWallpaperProperties(username,
+                             current_user_wallpaper_type_,
+                             current_user_wallpaper_index_,
+                             is_persistent);
 
   // Some browser tests do not have shell instance. And it is not necessary to
   // create a wallpaper for these tests. Add HasInstance check to prevent tests
@@ -397,19 +425,18 @@ void WallpaperManager::SetUserWallpaper(const std::string& email) {
   GetUserWallpaperProperties(email, &type, &index, &date);
   if (type == User::DAILY && date != base::Time::Now().LocalMidnight()) {
     index = ash::GetNextWallpaperIndex(index);
-    SaveUserWallpaperProperties(email, User::DAILY, index);
+    SetUserWallpaperProperties(email, User::DAILY, index,
+                               ShouldPersistDataForUser(email));
   } else if (type == User::CUSTOMIZED) {
-    gfx::ImageSkia custom_wallpaper;
-    if (GetCustomWallpaperFromCache(email, &custom_wallpaper)) {
-      // In customized mode, we use index pref to save the user selected
-      // wallpaper layout. See function SaveWallpaperToLocalState().
-      ash::WallpaperLayout layout = static_cast<ash::WallpaperLayout>(index);
-      ash::Shell::GetInstance()->desktop_background_controller()->
-          SetCustomWallpaper(custom_wallpaper, layout);
+    // For security reason, use default wallpaper instead of custom wallpaper
+    // at login screen. The security issue is tracked in issue 143198. Once it
+    // fixed, we should then only use custom wallpaper.
+    if (!UserManager::Get()->IsUserLoggedIn()) {
+      index = ash::GetDefaultWallpaperIndex();
     } else {
       FetchCustomWallpaper(email);
+      return;
     }
-    return;
   }
   ash::Shell::GetInstance()->desktop_background_controller()->
       SetDefaultWallpaper(index, false);
@@ -452,7 +479,7 @@ void WallpaperManager::BatchUpdateWallpaper() {
       base::Time current_date = base::Time::Now().LocalMidnight();
       if (type == User::DAILY && current_date != last_modification_date) {
         index = ash::GetNextWallpaperIndex(index);
-        SaveUserWallpaperProperties(email, type, index);
+        SetUserWallpaperProperties(email, type, index, true);
       }
       // Force a wallpaper update for logged in / last selected user.
       // TODO(bshe): Notify lock screen, wallpaper picker UI to update wallpaper
@@ -490,12 +517,8 @@ void WallpaperManager::CacheUserWallpaper(const std::string& email) {
   base::Time date;
   GetUserWallpaperProperties(email, &type, &index, &date);
   if (type == User::CUSTOMIZED) {
-    std::string wallpaper_path = GetWallpaperPathForUser(email, false).value();
-
-    // Uses WeakPtr here to make the request cancelable.
-    wallpaper_loader_->Start(wallpaper_path, 0,
-                             base::Bind(&WallpaperManager::CacheWallpaper,
-                                        weak_factory_.GetWeakPtr(), email));
+    ash::Shell::GetInstance()->desktop_background_controller()->
+        CacheDefaultWallpaper(ash::GetDefaultWallpaperIndex());
   } else {
     ash::Shell::GetInstance()->desktop_background_controller()->
         CacheDefaultWallpaper(index);
@@ -511,7 +534,8 @@ void WallpaperManager::CacheWallpaper(const std::string& email,
       BrowserThread::FILE,
       FROM_HERE,
       base::Bind(&WallpaperManager::CacheThumbnail,
-                 base::Unretained(this), email, wallpaper.image()));
+                 base::Unretained(this), email,
+                 ImageSkiaDeepCopy(wallpaper.image())));
 
   custom_wallpaper_cache_.insert(std::make_pair(email, wallpaper.image()));
 }
@@ -519,11 +543,7 @@ void WallpaperManager::CacheWallpaper(const std::string& email,
 void WallpaperManager::CacheThumbnail(const std::string& email,
                                       const gfx::ImageSkia& wallpaper) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-  gfx::ImageSkia thumbnail =
-      skia::ImageOperations::Resize(wallpaper,
-                                    skia::ImageOperations::RESIZE_LANCZOS3,
-                                    kThumbnailWidth, kThumbnailHeight);
-  custom_wallpaper_thumbnail_cache_[email] = thumbnail;
+  custom_wallpaper_thumbnail_cache_[email] = GetWallpaperThumbnail(wallpaper);
 }
 
 void WallpaperManager::FetchWallpaper(const std::string& email,
@@ -535,7 +555,8 @@ void WallpaperManager::FetchWallpaper(const std::string& email,
       BrowserThread::FILE,
       FROM_HERE,
       base::Bind(&WallpaperManager::CacheThumbnail,
-                 base::Unretained(this), email, wallpaper.image()));
+                 base::Unretained(this), email,
+                 ImageSkiaDeepCopy(wallpaper.image())));
 
   custom_wallpaper_cache_.insert(std::make_pair(email, wallpaper.image()));
   ash::Shell::GetInstance()->desktop_background_controller()->
@@ -582,12 +603,7 @@ void WallpaperManager::GenerateUserWallpaperThumbnail(
     base::WeakPtr<WallpaperDelegate> delegate,
     const gfx::ImageSkia& wallpaper) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-  gfx::ImageSkia thumbnail =
-      skia::ImageOperations::Resize(wallpaper,
-                                    skia::ImageOperations::RESIZE_LANCZOS3,
-                                    kThumbnailWidth, kThumbnailHeight);
-
-  custom_wallpaper_thumbnail_cache_[email] = thumbnail;
+  custom_wallpaper_thumbnail_cache_[email] = GetWallpaperThumbnail(wallpaper);
 
   // Notify thumbnail is ready.
   BrowserThread::PostTask(
@@ -623,12 +639,15 @@ void WallpaperManager::SetWallpaper(const std::string& username,
   std::string wallpaper_path =
       GetWallpaperPathForUser(username, false).value();
 
-  // TODO(bshe): Ephemeral user should not save custom wallpaper to disk.
-  BrowserThread::PostTask(
-      BrowserThread::FILE,
-      FROM_HERE,
-      base::Bind(&WallpaperManager::SaveWallpaper,
-                 base::Unretained(this), wallpaper_path, wallpaper));
+  bool is_persistent = ShouldPersistDataForUser(username);
+
+  if (is_persistent) {
+    BrowserThread::PostTask(
+        BrowserThread::FILE,
+        FROM_HERE,
+        base::Bind(&WallpaperManager::SaveWallpaper,
+                   base::Unretained(this), wallpaper_path, wallpaper));
+  }
 
   BrowserThread::PostTask(
       BrowserThread::FILE,
@@ -639,13 +658,18 @@ void WallpaperManager::SetWallpaper(const std::string& username,
 
   ash::Shell::GetInstance()->desktop_background_controller()->
       SetCustomWallpaper(wallpaper.image(), layout);
-  SaveUserWallpaperProperties(username, type, layout);
+  SetUserWallpaperProperties(username, type, layout, is_persistent);
+}
+
+bool WallpaperManager::ShouldPersistDataForUser(const std::string& email) {
+  UserManager* user_manager = UserManager::Get();
+  return !(email == user_manager->GetLoggedInUser().email() &&
+           user_manager->IsCurrentUserEphemeral());
 }
 
 void WallpaperManager::OnWallpaperLoaded(ash::WallpaperLayout layout,
                                          const UserImage& user_image) {
-  const SkBitmap& wallpaper = user_image.image();
-  SetWallpaperFromImageSkia(wallpaper, layout);
+  SetWallpaperFromImageSkia(user_image.image(), layout);
 }
 
 void WallpaperManager::SystemResumed() {

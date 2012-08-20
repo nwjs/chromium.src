@@ -240,15 +240,6 @@
         en-US
       </message>
 
-      <!-- The width and height of the About dialog box in characters and lines (See -->
-      <!-- above). -->
-      <message name="IDS_ABOUT_DIALOG_WIDTH_CHARS" use_name_for_id="true">
-        86
-      </message>
-      <message name="IDS_ABOUT_DIALOG_MINIMUM_HEIGHT_LINES" use_name_for_id="true">
-        4
-      </message>
-
       <!-- The width of the Crucial Notification bubble in characters (See above). -->
       <message name="IDS_CRUCIAL_NOTIFICATION_BUBBLE_WIDTH_CHARS" use_name_for_id="true">
         55
@@ -350,6 +341,11 @@
       <message name="IDS_CHROME_WELCOME_URL" translateable="false">
         http://www.google.com/chrome/intl/[GRITLANGCODE]/welcome.html
       </message>
+      <if expr="pp_ifdef('android')">
+        <message name="IDS_MOBILE_WELCOME_URL" translateable="false">
+          chrome://welcome
+        </message>
+      </if>
 
       <!-- The URL for Google Chrome OS welcome page. This is used for the -->
       <!-- pre populated thumbnails. -->

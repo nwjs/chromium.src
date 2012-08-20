@@ -589,6 +589,21 @@ enum NotificationType {
   // and the name of the command being added).
   NOTIFICATION_EXTENSION_COMMAND_ADDED,
 
+  // Sent when an extension command shortcut for a browser action is activated
+  // on Mac. The source is the profile and the details is a std::string
+  // containing an extension ID.
+  NOTIFICATION_EXTENSION_COMMAND_BROWSER_ACTION_MAC,
+
+  // Sent when an extension command shortcut for a page action is activated
+  // on Mac. The source is the profile and the details is a std::string
+  // containing an extension ID.
+  NOTIFICATION_EXTENSION_COMMAND_PAGE_ACTION_MAC,
+
+  // Sent when an extension command shortcut for a script badge is activated
+  // on Mac. The source is the profile and the details is a std::string
+  // containing an extension ID.
+  NOTIFICATION_EXTENSION_COMMAND_SCRIPT_BADGE_MAC,
+
   // A new extension RenderViewHost has been registered. The details are
   // the RenderViewHost*.
   NOTIFICATION_EXTENSION_VIEW_REGISTERED,
@@ -811,14 +826,14 @@ enum NotificationType {
 
   // Sync --------------------------------------------------------------------
 
-  // Sent when the syncer is blocked configuring.
-  NOTIFICATION_SYNC_CONFIGURE_BLOCKED,
-
-  // The sync service has started the configuration process.
-  NOTIFICATION_SYNC_CONFIGURE_START,
-
-  // The sync service is finished the configuration process.
+  // The sync service has finished the datatype configuration process. The
+  // source is the ProfileSyncService object of the Profile. There are no
+  // details.
   NOTIFICATION_SYNC_CONFIGURE_DONE,
+
+  // The sync service has started the datatype configuration process. The source
+  // is the ProfileSyncService object of the Profile. There are no details.
+  NOTIFICATION_SYNC_CONFIGURE_START,
 
   // A service is requesting a sync datatype refresh for the current profile.
   // The details value is a const syncer::ModelTypePayloadMap.

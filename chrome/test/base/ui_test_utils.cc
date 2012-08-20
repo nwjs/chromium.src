@@ -15,6 +15,7 @@
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/file_path.h"
+#include "base/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
@@ -105,8 +106,8 @@ class FindInPageNotificationObserver : public content::NotificationObserver {
   }
 
   int active_match_ordinal() const { return active_match_ordinal_; }
-
   int number_of_matches() const { return number_of_matches_; }
+  gfx::Rect selection_rect() const { return selection_rect_; }
 
   virtual void Observe(int type, const content::NotificationSource& source,
                        const content::NotificationDetails& details) {
@@ -115,8 +116,10 @@ class FindInPageNotificationObserver : public content::NotificationObserver {
       if (find_details->request_id() == current_find_request_id_) {
         // We get multiple responses and one of those will contain the ordinal.
         // This message comes to us before the final update is sent.
-        if (find_details->active_match_ordinal() > -1)
+        if (find_details->active_match_ordinal() > -1) {
           active_match_ordinal_ = find_details->active_match_ordinal();
+          selection_rect_ = find_details->selection_rect();
+        }
         if (find_details->final_update()) {
           number_of_matches_ = find_details->number_of_matches();
           message_loop_runner_->Quit();
@@ -136,6 +139,7 @@ class FindInPageNotificationObserver : public content::NotificationObserver {
   // we need to preserve it so we can send it later.
   int active_match_ordinal_;
   int number_of_matches_;
+  gfx::Rect selection_rect_;
   // The id of the current find request, obtained from WebContents. Allows us
   // to monitor when the search completes.
   int current_find_request_id_;
@@ -315,6 +319,48 @@ GURL GetTestUrl(const FilePath& dir, const FilePath& file) {
   return net::FilePathToFileURL(GetTestFilePath(dir, file));
 }
 
+bool GetRelativeBuildDirectory(FilePath* build_dir) {
+  // This function is used to find the build directory so TestServer can serve
+  // built files (nexes, etc).  TestServer expects a path relative to the source
+  // root.
+  FilePath exe_dir = CommandLine::ForCurrentProcess()->GetProgram().DirName();
+  FilePath src_dir;
+  if (!PathService::Get(base::DIR_SOURCE_ROOT, &src_dir))
+    return false;
+
+  // We must first generate absolute paths to SRC and EXE and from there
+  // generate a relative path.
+  if (!exe_dir.IsAbsolute())
+    file_util::AbsolutePath(&exe_dir);
+  if (!src_dir.IsAbsolute())
+    file_util::AbsolutePath(&src_dir);
+  if (!exe_dir.IsAbsolute())
+    return false;
+  if (!src_dir.IsAbsolute())
+    return false;
+
+  size_t match, exe_size, src_size;
+  std::vector<FilePath::StringType> src_parts, exe_parts;
+
+  // Determine point at which src and exe diverge.
+  exe_dir.GetComponents(&exe_parts);
+  src_dir.GetComponents(&src_parts);
+  exe_size = exe_parts.size();
+  src_size = src_parts.size();
+  for (match = 0; match < exe_size && match < src_size; ++match) {
+    if (exe_parts[match] != src_parts[match])
+      break;
+  }
+
+  // Create a relative path.
+  *build_dir = FilePath();
+  for (size_t tmp_itr = match; tmp_itr < src_size; ++tmp_itr)
+    *build_dir = build_dir->Append(FILE_PATH_LITERAL(".."));
+  for (; match < exe_size; ++match)
+    *build_dir = build_dir->Append(exe_parts[match]);
+  return true;
+}
+
 AppModalDialog* WaitForAppModalDialog() {
   content::WindowedNotificationObserver observer(
       chrome::NOTIFICATION_APP_MODAL_DIALOG_SHOWN,
@@ -324,12 +370,15 @@ AppModalDialog* WaitForAppModalDialog() {
 }
 
 int FindInPage(TabContents* tab_contents, const string16& search_string,
-               bool forward, bool match_case, int* ordinal) {
+               bool forward, bool match_case, int* ordinal,
+               gfx::Rect* selection_rect) {
   tab_contents->
       find_tab_helper()->StartFinding(search_string, forward, match_case);
   FindInPageNotificationObserver observer(tab_contents);
   if (ordinal)
     *ordinal = observer.active_match_ordinal();
+  if (selection_rect)
+    *selection_rect = observer.selection_rect();
   return observer.number_of_matches();
 }
 

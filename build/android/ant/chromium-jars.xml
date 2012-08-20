@@ -18,12 +18,12 @@
   <import file="common.xml"/>
 
   <path id="javac.custom.classpath">
-    <filelist dir="/" files="${INPUT_JARS_PATHS}"/>
+    <filelist files="${INPUT_JARS_PATHS}"/>
     <pathelement location="${ANDROID_SDK}/android.jar" />
   </path>
 
   <path id="javac.srcdirs.additional">
-    <filelist dir="/" files="${ADDITIONAL_SRC_DIRS}" />
+    <filelist files="${ADDITIONAL_SRC_DIRS}" />
   </path>
 
   <property-value name="javac.srcdir" value="src:${toString:javac.srcdirs.additional}"/>
@@ -65,6 +65,12 @@
     <!-- Create the distribution directory -->
     <mkdir dir="${lib.dir}" />
     <jar jarfile="${lib.dir}/chromium_${PACKAGE_NAME}.jar" basedir="${dest.dir}"/>
+
+    <!-- If Gyp thinks this output is stale but Ant doesn't, the modification
+         time should still be updated. Otherwise, this target will continue to
+         be rebuilt in future builds.
+    -->
+    <touch file="${lib.dir}/chromium_${PACKAGE_NAME}.jar"/>
   </target>
 
   <target name="clean" description="clean up">

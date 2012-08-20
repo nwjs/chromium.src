@@ -16,24 +16,23 @@
 #include "base/platform_file.h"
 #include "base/timer.h"
 #include "chrome/browser/chromeos/gdata/gdata_cache.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
+#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
-#include "chrome/browser/chromeos/gdata/gdata_files.h"
+#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_feed_loader.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_feed_processor.h"
 #include "chrome/browser/prefs/pref_change_registrar.h"
 #include "content/public/browser/notification_observer.h"
 
 namespace base {
-
 class SequencedTaskRunner;
-
-}  // namespace base
+}
 
 namespace gdata {
 
 class DocumentsServiceInterface;
 class DriveWebAppsRegistryInterface;
+class GDataUploaderInterface;
 class GDataWapiFeedLoader;
 struct UploadFileInfo;
 
@@ -556,14 +555,12 @@ class GDataFileSystem : public GDataFileSystemInterface,
   // reloaded, and in case of failure, restores the content origin of the root
   // directory.
   void OnUpdateChecked(ContentOrigin initial_origin,
-                       GDataFileError error,
-                       GDataEntry* entry);
+                       GDataFileError error);
 
-  // Runs the callback and notifies that the initial load is finished.
+  // Notifies that the initial load is finished and runs |callback|.
   // |callback| must not be null.
-  void RunAndNotifyInitialLoadFinished(const FindEntryCallback& callback,
-                                       GDataFileError error,
-                                       GDataEntry* entry);
+  void NotifyInitialLoadFinishedAndRun(const FileOperationCallback& callback,
+                                       GDataFileError error);
 
   // Helper function that completes bookkeeping tasks related to
   // completed file transfer.
@@ -616,34 +613,42 @@ class GDataFileSystem : public GDataFileSystemInterface,
                                       const FilePath& cache_file_path,
                                       bool* has_enough_space);
 
-  // Helper function used to perform synchronous file search on UI thread.
-  // |callback| must not be null.
-  void FindEntryByPathSyncOnUIThread(const FilePath& search_file_path,
-                                     const FindEntryCallback& callback);
-
   // Changes state of hosted documents visibility, triggers directory refresh.
   void SetHideHostedDocuments(bool hide);
 
   // Initializes preference change observer.
   void InitializePreferenceObserver();
 
-  // Called when an entry is found for GetEntryInfoByPath().
+  // Part of GetEntryInfoByPathOnUIThread()
+  // 1) Called when the feed is loaded.
+  // 2) Called when an entry is found.
   // |callback| must not be null.
-  void OnGetEntryInfo(const GetEntryInfoCallback& callback,
-                      GDataFileError error,
-                      GDataEntry* entry);
+  void GetEntryInfoByPathOnUIThreadAfterLoad(
+      const FilePath& file_path,
+      const GetEntryInfoCallback& callback,
+      GDataFileError error);
+  void GetEntryInfoByPathOnUIThreadAfterGetEntry(
+      const GetEntryInfoCallback& callback,
+      GDataFileError error,
+      scoped_ptr<GDataEntryProto> entry_proto);
 
-  // Called when an entry is found for ReadDirectoryByPath().
+  // Part of ReadDirectoryByPathOnUIThread()
+  // 1) Called when the feed is loaded.
+  // 2) Called when an entry is found.
   // |callback| must not be null.
-  void OnReadDirectory(const ReadDirectoryWithSettingCallback& callback,
-                       GDataFileError error,
-                       GDataEntry* entry);
+  void ReadDirectoryByPathOnUIThreadAfterLoad(
+      const FilePath& file_path,
+      const ReadDirectoryWithSettingCallback& callback,
+      GDataFileError error);
+  void ReadDirectoryByPathOnUIThreadAfterRead(
+      const ReadDirectoryWithSettingCallback& callback,
+      GDataFileError error,
+      scoped_ptr<GDataEntryProtoVector> entries);
 
-  // Finds file info by using virtual |file_path|. This call will also
-  // retrieve and refresh file system content from server and disk cache.
+  // Loads the feed from the cache or the server if not yet loaded. Runs
+  // |callback| upon the completion with the error code.
   // |callback| must not be null.
-  void FindEntryByPathAsyncOnUIThread(const FilePath& search_file_path,
-                                      const FindEntryCallback& callback);
+  void LoadFeedIfNeeded(const FileOperationCallback& callback);
 
   // Gets |file_path| from the file system after the file info is already
   // resolved with GetEntryInfoByPath(). This function is called by
@@ -730,16 +735,17 @@ class GDataFileSystem : public GDataFileSystemInterface,
                                         const FileOperationCallback& callback);
   void UpdateFileByEntryOnUIThread(const FileOperationCallback& callback,
                                    GDataEntry* entry);
-  void GetEntryInfoByPathAsyncOnUIThread(const FilePath& file_path,
-                                         const GetEntryInfoCallback& callback);
+  void GetEntryInfoByPathOnUIThread(const FilePath& file_path,
+                                    const GetEntryInfoCallback& callback);
   void GetEntryInfoByResourceIdOnUIThread(
       const std::string& resource_id,
       const GetEntryInfoWithFilePathCallback& callback);
-  void ReadDirectoryByPathAsyncOnUIThread(
+  void ReadDirectoryByPathOnUIThread(
       const FilePath& file_path,
       const ReadDirectoryWithSettingCallback& callback);
   void RequestDirectoryRefreshOnUIThread(const FilePath& file_path);
-  void OnRequestDirectoryRefresh(GetDocumentsParams* params,
+  void OnRequestDirectoryRefresh(const FilePath& directory_path,
+                                 GetDocumentsParams* params,
                                  GDataFileError error);
   void GetAvailableSpaceOnUIThread(const GetAvailableSpaceCallback& callback);
   void AddUploadedFileOnUIThread(UploadMode upload_mode,

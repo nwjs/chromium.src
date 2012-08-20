@@ -100,9 +100,9 @@ TEST_F(WebIntentPickerSheetControllerTest, NoRows) {
 TEST_F(WebIntentPickerSheetControllerTest, PopulatedRows) {
   WebIntentPickerModel model;
   model.AddInstalledService(string16(), GURL("http://example.org/intent.html"),
-      WebIntentPickerModel::DISPOSITION_WINDOW);
+      webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW);
   model.AddInstalledService(string16(), GURL("http://example.com/intent.html"),
-      WebIntentPickerModel::DISPOSITION_WINDOW);
+      webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW);
 
   [controller_ performLayoutWithModel:&model];
 
@@ -111,8 +111,10 @@ TEST_F(WebIntentPickerSheetControllerTest, PopulatedRows) {
 
 TEST_F(WebIntentPickerSheetControllerTest, SuggestionView) {
   WebIntentPickerModel model;
-
-  model.AddSuggestedExtension(string16(), string16(), 2.5);
+  std::vector<WebIntentPickerModel::SuggestedExtension> suggestions;
+  suggestions.push_back(WebIntentPickerModel::SuggestedExtension(
+      string16(), string16(), 2.5));
+  model.AddSuggestedExtensions(suggestions);
   [controller_ performLayoutWithModel:&model];
 
   // Get subviews.

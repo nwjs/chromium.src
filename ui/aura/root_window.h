@@ -109,6 +109,9 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   // Shows the root window host.
   void ShowRootWindow();
 
+  // Hides the root window host.
+  void HideRootWindow();
+
   RootWindowHostDelegate* AsRootWindowHostDelegate();
 
   // Sets the size of the root window.
@@ -167,7 +170,7 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   void OnKeyboardMappingChanged();
 
   // The system windowing system has sent a request that we close our window.
-  void OnRootWindowHostClosed();
+  void OnRootWindowHostCloseRequested();
 
   // Add/remove observer. There is no need to remove the observer if
   // the root window is being deleted. In particular, you SHOULD NOT remove
@@ -304,6 +307,7 @@ class AURA_EXPORT RootWindow : public ui::CompositorDelegate,
   virtual bool OnHostTouchEvent(ui::TouchEvent* event) OVERRIDE;
   virtual void OnHostLostCapture() OVERRIDE;
   virtual void OnHostPaint() OVERRIDE;
+  virtual void OnHostMoved(const gfx::Point& origin) OVERRIDE;
   virtual void OnHostResized(const gfx::Size& size) OVERRIDE;
   virtual float GetDeviceScaleFactor() OVERRIDE;
   virtual RootWindow* AsRootWindow() OVERRIDE;

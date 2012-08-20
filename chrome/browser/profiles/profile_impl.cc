@@ -85,6 +85,7 @@
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/user_metrics.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
@@ -315,11 +316,6 @@ ProfileImpl::ProfileImpl(const FilePath& path,
   } else {
     NOTREACHED();
   }
-
-  if (command_line->HasSwitch(switches::kEnableRestoreSessionState)) {
-    content::BrowserContext::GetDefaultDOMStorageContext(this)->
-        SetSaveSessionStorageOnDisk();
-  }
 }
 
 void ProfileImpl::DoFinalInit(bool is_new_profile) {
@@ -426,6 +422,12 @@ void ProfileImpl::DoFinalInit(bool is_new_profile) {
         BrowserThread::FILE, FROM_HERE,
         base::Bind(&EnsureReadmeFile, GetPath()),
         base::TimeDelta::FromMilliseconds(create_readme_delay_ms));
+
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableRestoreSessionState)) {
+    content::BrowserContext::GetDefaultStoragePartition(this)->
+        GetDOMStorageContext()->SetSaveSessionStorageOnDisk();
+  }
 
   // Creation has been finished.
   if (delegate_)

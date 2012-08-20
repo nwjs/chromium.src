@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/webui/chrome_web_ui_data_source.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/browser/ui/webui/shared_resources_data_source.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/url_constants.h"
 #include "content/public/browser/web_ui.h"
 #include "grit/browser_resources.h"
@@ -51,7 +52,7 @@ ExtensionActivityUI::ExtensionActivityUI(content::WebUI* web_ui)
 
 ExtensionActivityUI::~ExtensionActivityUI() {
   if (extension_)
-    ExtensionActivityLog::GetInstance()->RemoveObserver(extension_, this);
+    extensions::ActivityLog::GetInstance()->RemoveObserver(extension_, this);
 }
 
 void ExtensionActivityUI::HandleRequestExtensionData(
@@ -70,7 +71,7 @@ void ExtensionActivityUI::HandleRequestExtensionData(
 
   GURL icon =
       ExtensionIconSource::GetIconURL(extension_,
-                                      ExtensionIconSet::EXTENSION_ICON_MEDIUM,
+                                      extension_misc::EXTENSION_ICON_MEDIUM,
                                       ExtensionIconSet::MATCH_BIGGER,
                                       false, NULL);
 
@@ -87,12 +88,12 @@ void ExtensionActivityUI::HandleRequestExtensionData(
   web_ui()->CallJavascriptFunction("extension_activity.handleExtensionData",
                                    result);
 
-  ExtensionActivityLog::GetInstance()->AddObserver(extension_, this);
+  extensions::ActivityLog::GetInstance()->AddObserver(extension_, this);
 }
 
 void ExtensionActivityUI::OnExtensionActivity(
       const extensions::Extension* extension,
-      ExtensionActivityLog::Activity activity,
+      extensions::ActivityLog::Activity activity,
       const std::string& msg) {
   DictionaryValue result;
   result.SetInteger("activity", activity);

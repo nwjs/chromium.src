@@ -5,6 +5,7 @@
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/message_loop.h"
 #include "base/stl_util.h"
 #include "base/string_util.h"
@@ -51,6 +52,7 @@
 #import "chrome/browser/ui/omnibox/omnibox_popup_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/chrome_notification_types.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_action.h"
 #include "chrome/common/extensions/extension_resource.h"
@@ -65,6 +67,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/image/image.h"
 
 using content::WebContents;
 
@@ -119,7 +122,7 @@ LocationBarViewMac::LocationBarViewMac(
         RequestMobileListUpdate();
   }
 
-  if (extensions::switch_utils::IsActionBoxEnabled()) {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox)) {
     plus_decoration_.reset(new PlusDecoration(this, command_updater, browser_));
   }
 
@@ -235,6 +238,10 @@ void LocationBarViewMac::InvalidatePageActions() {
   }
 }
 
+void LocationBarViewMac::UpdateWebIntentsButton() {
+  // TODO(gbillock): Implement web intents tool for mac
+}
+
 void LocationBarViewMac::SaveStateToContents(WebContents* contents) {
   // TODO(shess): Why SaveStateToContents vs SaveStateToTab?
   omnibox_view_->SaveStateToTab(contents);
@@ -316,7 +323,7 @@ void LocationBarViewMac::OnKillFocus() {
   // Do nothing.
 }
 
-SkBitmap LocationBarViewMac::GetFavicon() const {
+gfx::Image LocationBarViewMac::GetFavicon() const {
   return browser_->GetCurrentPageIcon();
 }
 
@@ -397,15 +404,24 @@ void LocationBarViewMac::SetPreviewEnabledPageAction(
   decoration->UpdateVisibility(contents, GURL(toolbar_model_->GetText()));
 }
 
+NSRect LocationBarViewMac::GetPageActionFrame(ExtensionAction* page_action) {
+  PageActionDecoration* decoration = GetPageActionDecoration(page_action);
+  if (!decoration)
+    return NSZeroRect;
+
+  AutocompleteTextFieldCell* cell = [field_ cell];
+  NSRect frame = [cell frameForDecoration:decoration inFrame:[field_ bounds]];
+  DCHECK(!NSIsEmptyRect(frame));
+  return frame;
+}
+
 NSPoint LocationBarViewMac::GetPageActionBubblePoint(
     ExtensionAction* page_action) {
   PageActionDecoration* decoration = GetPageActionDecoration(page_action);
   if (!decoration)
     return NSZeroPoint;
 
-  AutocompleteTextFieldCell* cell = [field_ cell];
-  NSRect frame = [cell frameForDecoration:decoration inFrame:[field_ bounds]];
-  DCHECK(!NSIsEmptyRect(frame));
+  NSRect frame = GetPageActionFrame(page_action);
   if (NSIsEmptyRect(frame))
     return NSZeroPoint;
 

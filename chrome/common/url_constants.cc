@@ -57,10 +57,12 @@ const char kChromeUIKeyboardURL[] = "chrome://keyboard/";
 const char kChromeUIMemoryRedirectURL[] = "chrome://memory-redirect/";
 const char kChromeUIMemoryURL[] = "chrome://memory/";
 const char kChromeUIMetroFlowURL[] = "chrome://make-metro/";
+const char kChromeUINaClURL[] = "chrome://nacl/";
 const char kChromeUINetInternalsURL[] = "chrome://net-internals/";
 const char kChromeUINewProfile[] = "chrome://newprofile/";
 const char kChromeUINewTabURL[] = "chrome://newtab/";
 const char kChromeUIOmniboxURL[] = "chrome://omnibox/";
+const char kChromeUIPerformanceMonitorURL[] = "chrome://performance/";
 const char kChromeUIPluginsURL[] = "chrome://plugins/";
 const char kChromeUIPolicyURL[] = "chrome://policy/";
 const char kChromeUIPrintURL[] = "chrome://print/";
@@ -77,6 +79,10 @@ const char kChromeUIThumbnailURL[] = "chrome://thumb/";
 const char kChromeUIUberURL[] = "chrome://chrome/";
 const char kChromeUIUberFrameURL[] = "chrome://uber-frame/";
 const char kChromeUIVersionURL[] = "chrome://version/";
+
+#if defined(OS_ANDROID)
+const char kChromeUIWelcomeURL[] = "chrome://welcome/";
+#endif
 
 #if defined(OS_CHROMEOS)
 const char kChromeUIActivationMessage[] = "chrome://activationmessage/";
@@ -173,9 +179,11 @@ const char kChromeUIMediaInternalsHost[] = "media-internals";
 const char kChromeUIMemoryHost[] = "memory";
 const char kChromeUIMemoryRedirectHost[] = "memory-redirect";
 const char kChromeUIMetroFlowHost[] = "make-metro";
+const char kChromeUINaClHost[] = "nacl";
 const char kChromeUINetInternalsHost[] = "net-internals";
 const char kChromeUINewTabHost[] = "newtab";
 const char kChromeUIOmniboxHost[] = "omnibox";
+const char kChromeUIPerformanceMonitorHost[] = "performance";
 const char kChromeUIPluginsHost[] = "plugins";
 const char kChromeUIPolicyHost[] = "policy";
 const char kChromeUIPredictorsHost[] = "predictors";
@@ -206,6 +214,10 @@ const char kChromeUIWorkersHost[] = "workers";
 
 const char kChromeUIScreenshotPath[] = "screenshots";
 const char kChromeUIThemePath[] = "theme";
+
+#if defined(OS_ANDROID)
+const char kChromeUIWelcomeHost[] = "welcome";
+#endif
 
 #if defined(OS_LINUX) || defined(OS_OPENBSD)
 const char kChromeUILinuxProxyConfigHost[] = "linux-proxy-config";

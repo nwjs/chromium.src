@@ -106,7 +106,6 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "sync/api/sync_change.h"
 #include "sync/api/sync_error_factory.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "webkit/database/database_tracker.h"
 #include "webkit/database/database_util.h"
 
@@ -122,7 +121,6 @@
 #include "webkit/fileapi/file_system_mount_point_provider.h"
 #endif
 
-using base::Time;
 using content::BrowserContext;
 using content::BrowserThread;
 using content::DevToolsAgentHost;
@@ -261,16 +259,13 @@ bool ExtensionService::OnExternalExtensionUpdateUrlFound(
   return true;
 }
 
-const Extension* ExtensionService::GetInstalledApp(const GURL& url) {
+const Extension* ExtensionService::GetInstalledApp(const GURL& url) const {
   const Extension* extension = extensions_.GetExtensionOrAppByURL(
       ExtensionURLInfo(url));
-  if (extension && extension->is_app())
-    return extension;
-
-  return NULL;
+  return (extension && extension->is_app()) ? extension : NULL;
 }
 
-bool ExtensionService::IsInstalledApp(const GURL& url) {
+bool ExtensionService::IsInstalledApp(const GURL& url) const {
   return !!GetInstalledApp(url);
 }
 
@@ -280,11 +275,10 @@ void ExtensionService::SetInstalledAppForRenderer(int renderer_child_id,
 }
 
 const Extension* ExtensionService::GetInstalledAppForRenderer(
-    int renderer_child_id) {
-  InstalledAppMap::iterator i = installed_app_hosts_.find(renderer_child_id);
-  if (i == installed_app_hosts_.end())
-    return NULL;
-  return i->second;
+    int renderer_child_id) const {
+  InstalledAppMap::const_iterator i =
+      installed_app_hosts_.find(renderer_child_id);
+  return i == installed_app_hosts_.end() ? NULL : i->second;
 }
 
 // static
@@ -525,7 +519,11 @@ void ExtensionService::InitEventRouters() {
 
 const Extension* ExtensionService::GetExtensionById(
     const std::string& id, bool include_disabled) const {
-  return GetExtensionByIdInternal(id, true, include_disabled, false);
+  int include_mask = INCLUDE_ENABLED;
+  if (include_disabled) {
+    include_mask |= INCLUDE_DISABLED;
+  }
+  return GetExtensionByIdInternal(id, include_mask);
 }
 
 void ExtensionService::Init() {
@@ -568,8 +566,10 @@ bool ExtensionService::UpdateExtension(
   const extensions::PendingExtensionInfo* pending_extension_info =
       pending_extension_manager()->GetById(id);
 
+  int include_mask = INCLUDE_ENABLED;
+  include_mask |= INCLUDE_DISABLED;
   const Extension* extension =
-      GetExtensionByIdInternal(id, true, true, false);
+      GetExtensionByIdInternal(id, include_mask);
   if (!pending_extension_info && !extension) {
     LOG(WARNING) << "Will not update extension " << id
                  << " because it is not installed or pending";
@@ -803,8 +803,9 @@ bool ExtensionService::UninstallExtension(
 bool ExtensionService::IsExtensionEnabled(
     const std::string& extension_id) const {
   if (extensions_.Contains(extension_id) ||
-      terminated_extensions_.Contains(extension_id))
+      terminated_extensions_.Contains(extension_id)) {
     return true;
+  }
 
   if (disabled_extensions_.Contains(extension_id))
     return false;
@@ -827,10 +828,10 @@ void ExtensionService::EnableExtension(const std::string& extension_id) {
     return;
 
   extension_prefs_->SetExtensionState(extension_id, Extension::ENABLED);
-  extension_prefs_->RemoveDisableReason(extension_id);
+  extension_prefs_->ClearDisableReasons(extension_id);
 
-  const Extension* extension =
-      GetExtensionByIdInternal(extension_id, false, true, false);
+  const Extension* extension = GetExtensionByIdInternal(extension_id,
+      INCLUDE_DISABLED);
   // This can happen if sync enables an extension that is not
   // installed yet.
   if (!extension)
@@ -872,9 +873,11 @@ void ExtensionService::DisableExtension(
   }
 
   extension_prefs_->SetExtensionState(extension_id, Extension::DISABLED);
-  extension_prefs_->SetDisableReason(extension_id, disable_reason);
+  extension_prefs_->AddDisableReason(extension_id, disable_reason);
 
-  extension = GetExtensionByIdInternal(extension_id, true, false, true);
+  int include_mask = INCLUDE_ENABLED;
+  include_mask |= INCLUDE_TERMINATED;
+  extension = GetExtensionByIdInternal(extension_id, include_mask);
   if (!extension)
     return;
 
@@ -1576,7 +1579,7 @@ void ExtensionService::SetAppNotificationDisabled(
   SyncExtensionChangeIfNeeded(*extension);
 }
 
-bool ExtensionService::CanCrossIncognito(const Extension* extension) {
+bool ExtensionService::CanCrossIncognito(const Extension* extension) const {
   // We allow the extension to see events and data from another profile iff it
   // uses "spanning" behavior and it has incognito access. "split" mode
   // extensions only see events for a matching profile.
@@ -1608,7 +1611,7 @@ void ExtensionService::OnExtensionMoved(
     SyncExtensionChangeIfNeeded(*extension);
 }
 
-bool ExtensionService::AllowFileAccess(const Extension* extension) {
+bool ExtensionService::AllowFileAccess(const Extension* extension) const {
   return (CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kDisableExtensionsFileAccessCheck) ||
           extension_prefs_->AllowFileAccess(extension->id()));
@@ -1795,8 +1798,10 @@ void ExtensionService::UnloadExtension(
     const std::string& extension_id,
     extension_misc::UnloadedExtensionReason reason) {
   // Make sure the extension gets deleted after we return from this function.
+  int include_mask = INCLUDE_ENABLED;
+  include_mask |= INCLUDE_DISABLED;
   scoped_refptr<const Extension> extension(
-      GetExtensionByIdInternal(extension_id, true, true, false));
+      GetExtensionByIdInternal(extension_id, include_mask));
 
   // This method can be called via PostTask, so the extension may have been
   // unloaded by the time this runs.
@@ -1945,7 +1950,7 @@ void ExtensionService::AddExtension(const Extension* extension) {
         content::Source<Profile>(profile_),
         content::Details<const Extension>(extension));
 
-    if (extension_prefs_->GetDisableReason(extension->id()) ==
+    if (extension_prefs_->GetDisableReasons(extension->id()) &
         Extension::DISABLE_PERMISSIONS_INCREASE) {
       extensions::AddExtensionDisabledError(this, extension);
     }
@@ -2013,13 +2018,14 @@ void ExtensionService::InitializePermissions(const Extension* extension) {
   // still remember that "omnibox" had been granted, so that if the
   // extension once again includes "omnibox" in an upgrade, the extension
   // can upgrade without requiring this user's approval.
-  const Extension* old = GetExtensionByIdInternal(extension->id(),
-                                                  true, true, false);
+  int include_mask = INCLUDE_ENABLED;
+  include_mask |= INCLUDE_DISABLED;
+  const Extension* old =
+      GetExtensionByIdInternal(extension->id(), include_mask);
   bool is_extension_upgrade = old != NULL;
   bool is_privilege_increase = false;
   bool previously_disabled = false;
-  Extension::DisableReason disable_reason =
-      extension_prefs_->GetDisableReason(extension->id());
+  int disable_reasons = extension_prefs_->GetDisableReasons(extension->id());
 
   // We only need to compare the granted permissions to the current permissions
   // if the extension is not allowed to silently increase its permissions.
@@ -2056,18 +2062,17 @@ void ExtensionService::InitializePermissions(const Extension* extension) {
     // disabled on permissions increase.
     previously_disabled = extension_prefs_->IsExtensionDisabled(old->id());
     if (previously_disabled) {
-      Extension::DisableReason reason = extension_prefs_->GetDisableReason(
-          old->id());
-      if (reason == Extension::DISABLE_UNKNOWN) {
+      int reasons = extension_prefs_->GetDisableReasons(old->id());
+      if (reasons == Extension::DISABLE_NONE) {
         // Initialize the reason for legacy disabled extensions from whether the
         // extension already exceeded granted permissions.
         if (extension_prefs_->DidExtensionEscalatePermissions(old->id()))
-          disable_reason = Extension::DISABLE_PERMISSIONS_INCREASE;
+          disable_reasons = Extension::DISABLE_PERMISSIONS_INCREASE;
         else
-          disable_reason = Extension::DISABLE_USER_ACTION;
+          disable_reasons = Extension::DISABLE_USER_ACTION;
       }
     } else {
-      disable_reason = Extension::DISABLE_PERMISSIONS_INCREASE;
+      disable_reasons = Extension::DISABLE_PERMISSIONS_INCREASE;
     }
 
     // To upgrade an extension in place, unload the old one and
@@ -2085,7 +2090,9 @@ void ExtensionService::InitializePermissions(const Extension* extension) {
     }
     extension_prefs_->SetExtensionState(extension->id(), Extension::DISABLED);
     extension_prefs_->SetDidExtensionEscalatePermissions(extension, true);
-    extension_prefs_->SetDisableReason(extension->id(), disable_reason);
+    extension_prefs_->AddDisableReason(
+        extension->id(),
+        static_cast<Extension::DisableReason>(disable_reasons));
   }
 }
 
@@ -2151,8 +2158,10 @@ void ExtensionService::OnExtensionInstalled(
     }
   }
 
+  int include_mask = INCLUDE_ENABLED;
+  include_mask |= INCLUDE_DISABLED;
   // Do not record the install histograms for upgrades.
-  if (!GetExtensionByIdInternal(extension->id(), true, true, false)) {
+  if (!GetExtensionByIdInternal(extension->id(), include_mask)) {
     UMA_HISTOGRAM_ENUMERATION("Extensions.InstallType",
                               extension->GetType(), 100);
     RecordPermissionMessagesHistogram(
@@ -2188,20 +2197,19 @@ void ExtensionService::OnExtensionInstalled(
 }
 
 const Extension* ExtensionService::GetExtensionByIdInternal(
-    const std::string& id, bool include_enabled, bool include_disabled,
-    bool include_terminated) const {
+    const std::string& id, int include_mask) const {
   std::string lowercase_id = StringToLowerASCII(id);
-  if (include_enabled) {
+  if (include_mask & INCLUDE_ENABLED) {
     const Extension* extension = extensions_.GetByID(lowercase_id);
     if (extension)
       return extension;
   }
-  if (include_disabled) {
+  if (include_mask & INCLUDE_DISABLED) {
     const Extension* extension = disabled_extensions_.GetByID(lowercase_id);
     if (extension)
       return extension;
   }
-  if (include_terminated) {
+  if (include_mask & INCLUDE_TERMINATED) {
     const Extension* extension = terminated_extensions_.GetByID(lowercase_id);
     if (extension)
       return extension;
@@ -2223,12 +2231,15 @@ void ExtensionService::UntrackTerminatedExtension(const std::string& id) {
 
 const Extension* ExtensionService::GetTerminatedExtension(
     const std::string& id) const {
-  return GetExtensionByIdInternal(id, false, false, true);
+  return GetExtensionByIdInternal(id, INCLUDE_TERMINATED);
 }
 
 const Extension* ExtensionService::GetInstalledExtension(
     const std::string& id) const {
-  return GetExtensionByIdInternal(id, true, true, true);
+  int include_mask = INCLUDE_ENABLED;
+  include_mask |= INCLUDE_DISABLED;
+  include_mask |= INCLUDE_TERMINATED;
+  return GetExtensionByIdInternal(id, include_mask);
 }
 
 bool ExtensionService::ExtensionBindingsAllowed(const GURL& url) {
@@ -2449,9 +2460,13 @@ ExtensionIdSet ExtensionService::GetAppIds() const {
   return result;
 }
 
-bool ExtensionService::IsBackgroundPageReady(const Extension* extension) {
-  return (!extension->has_persistent_background_page() ||
-          extension_runtime_data_[extension->id()].background_page_ready);
+bool ExtensionService::IsBackgroundPageReady(const Extension* extension) const {
+  if (!extension->has_persistent_background_page())
+    return true;
+  ExtensionRuntimeDataMap::const_iterator it =
+      extension_runtime_data_.find(extension->id());
+  return it == extension_runtime_data_.end() ? false :
+                                               it->second.background_page_ready;
 }
 
 void ExtensionService::SetBackgroundPageReady(const Extension* extension) {
@@ -2463,8 +2478,11 @@ void ExtensionService::SetBackgroundPageReady(const Extension* extension) {
       content::NotificationService::NoDetails());
 }
 
-bool ExtensionService::IsBeingUpgraded(const Extension* extension) {
-  return extension_runtime_data_[extension->id()].being_upgraded;
+bool ExtensionService::IsBeingUpgraded(const Extension* extension) const {
+  ExtensionRuntimeDataMap::const_iterator it =
+      extension_runtime_data_.find(extension->id());
+  return it == extension_runtime_data_.end() ? false :
+                                               it->second.being_upgraded;
 }
 
 void ExtensionService::SetBeingUpgraded(const Extension* extension,
@@ -2472,8 +2490,11 @@ void ExtensionService::SetBeingUpgraded(const Extension* extension,
   extension_runtime_data_[extension->id()].being_upgraded = value;
 }
 
-bool ExtensionService::HasUsedWebRequest(const Extension* extension) {
-  return extension_runtime_data_[extension->id()].has_used_webrequest;
+bool ExtensionService::HasUsedWebRequest(const Extension* extension) const {
+  ExtensionRuntimeDataMap::const_iterator it =
+      extension_runtime_data_.find(extension->id());
+  return it == extension_runtime_data_.end() ? false :
+                                               it->second.has_used_webrequest;
 }
 
 void ExtensionService::SetHasUsedWebRequest(const Extension* extension,

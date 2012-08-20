@@ -156,14 +156,6 @@
             '../net/third_party/nss/ssl.gyp:*',
           ],
         }],
-        ['disable_nacl==0 and disable_nacl_untrusted==0', {
-          'dependencies': [
-            '../base/base_untrusted.gyp:*',
-            '../ipc/ipc_untrusted.gyp:*',
-            '../ppapi/ppapi_proxy_untrusted.gyp:*',
-            '../ppapi/ppapi_shared_untrusted.gyp:*',
-          ],
-        }],
       ],
     }, # target_name: All
     {
@@ -244,12 +236,6 @@
             '../sandbox/sandbox.gyp:sandbox_linux_unittests',
           ],
         }],
-        ['disable_nacl==0 and disable_nacl_untrusted==0', {
-          'dependencies': [
-            # TODO(bbudge): drop this when we have switched the NaCl proxy to IPC.
-            '../ppapi/ppapi_proxy_untrusted.gyp:ppapi_proxy_untrusted',
-          ],
-        }],
       ],
     }, # target_name: chromium_builder_tests
     {
@@ -327,6 +313,16 @@
             ['enable_automation==1 and (OS=="mac" or OS=="win" or (os_posix==1 and target_arch==python_arch))', {
               'dependencies': [
                 '../chrome/chrome.gyp:pyautolib',
+              ],
+            }],
+            ['OS=="mac"', {
+              'dependencies': [
+                '../remoting/remoting.gyp:remoting_me2me_host_archive',
+              ],
+            }],
+            ['OS=="win" and component != "shared_library" and wix_exists == "True" and sas_dll_exists == "True"', {
+              'dependencies': [
+                '../remoting/remoting.gyp:remoting_host_installation',
               ],
             }],
           ],
@@ -425,6 +421,15 @@
             '../remoting/remoting.gyp:remoting_unittests',
             '../third_party/cacheinvalidation/cacheinvalidation.gyp:cacheinvalidation_unittests',
             '../third_party/libphonenumber/libphonenumber.gyp:libphonenumber_unittests',
+          ],
+        },
+        {
+          'target_name': 'chromium_builder_asan_mac',
+          'type': 'none',
+          'dependencies': [
+            '../chrome/chrome.gyp:chrome',
+            '../net/net.gyp:dns_fuzz_stub',
+            '../webkit/webkit.gyp:pull_in_DumpRenderTree',
           ],
         },
         {
@@ -536,6 +541,7 @@
           'type': 'none',
           'dependencies': [
             '../base/base.gyp:base_unittests',
+            '../chrome/chrome.gyp:unit_tests',
             '../cloud_print/cloud_print.gyp:cloud_print_unittests',
             '../content/content.gyp:content_unittests',
             '../crypto/crypto.gyp:crypto_unittests',

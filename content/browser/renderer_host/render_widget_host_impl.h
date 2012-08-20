@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_RENDERER_HOST_RENDER_WIDGET_HOST_IMPL_H_
 
 #include <deque>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -231,6 +232,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   // when it has received a message.
   void ForwardGestureEvent(const WebKit::WebGestureEvent& gesture_event);
   virtual void ForwardTouchEvent(const WebKit::WebTouchEvent& touch_event);
+
+  // Forwards the given event immediately to the renderer.
+  void ForwardGestureEventImmediately(
+      const WebKit::WebGestureEvent& gesture_event);
 
 #if defined(TOOLKIT_GTK)
   // Give key press listeners a chance to handle this key press. This allow
@@ -511,7 +516,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
   void OnMsgUpdateIsDelayed();
   void OnMsgInputEventAck(WebKit::WebInputEvent::Type event_type,
                           bool processed);
-  void OnMsgBeginSmoothScroll(bool scroll_down, bool scroll_far);
+  void OnMsgBeginSmoothScroll(int gesture_id,
+                              bool scroll_down,
+                              bool scroll_far);
   void OnMsgSelectRangeAck();
   virtual void OnMsgFocus();
   virtual void OnMsgBlur();
@@ -787,7 +794,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl : virtual public RenderWidgetHost,
 
   base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_;
 
-  scoped_ptr<SmoothScrollGesture> active_smooth_scroll_gesture_;
+  typedef std::map<int, scoped_refptr<SmoothScrollGesture> >
+      SmoothScrollGestureMap;
+  SmoothScrollGestureMap active_smooth_scroll_gestures_;
 
   scoped_ptr<GestureEventFilter> gesture_event_filter_;
 

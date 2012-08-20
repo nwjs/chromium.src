@@ -21,6 +21,7 @@
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/gfx/screen.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/button/menu_button_listener.h"
@@ -716,6 +717,7 @@ class WebNotificationTray::Bubble : public TrayBubbleView::Host,
     init_params.bubble_width = kWebNotificationWidth;
     if (bubble_type == BUBBLE_TYPE_MESAGE_CENTER) {
       init_params.max_height = kWebNotificationBubbleMaxHeight;
+      init_params.can_activate = true;
     } else {
       init_params.arrow_color = kBackgroundColor;
       init_params.close_on_deactivate = false;
@@ -761,7 +763,12 @@ class WebNotificationTray::Bubble : public TrayBubbleView::Host,
         base::TimeDelta::FromMilliseconds(kUpdateDelayMs));
   }
 
+  bool IsVisible() const {
+    return bubble_widget_ && bubble_widget_->IsVisible();
+  }
+
   views::Widget* bubble_widget() const { return bubble_widget_; }
+  TrayBubbleView* bubble_view() const { return bubble_view_; }
 
   // Overridden from TrayBubbleView::Host.
   virtual void BubbleViewDestroyed() OVERRIDE {
@@ -771,15 +778,21 @@ class WebNotificationTray::Bubble : public TrayBubbleView::Host,
 
   virtual void OnMouseEnteredView() OVERRIDE {
     StopAutoCloseTimer();
+    tray_->UpdateShouldShowLauncher();
   }
 
   virtual void OnMouseExitedView() OVERRIDE {
     StartAutoCloseTimer();
+    tray_->UpdateShouldShowLauncher();
   }
 
   virtual void OnClickedOutsideView() OVERRIDE {
     // May delete |this|.
     tray_->HideMessageCenterBubble();
+  }
+
+  virtual string16 GetAccessibleName() OVERRIDE {
+    return tray_->GetAccessibleName();
   }
 
   // Overridden from views::WidgetObserver:
@@ -906,6 +919,7 @@ void WebNotificationTray::ShowMessageCenterBubble() {
   message_center_bubble_.reset(
       new Bubble(this, Bubble::BUBBLE_TYPE_MESAGE_CENTER));
   status_area_widget()->SetHideSystemNotifications(true);
+  UpdateShouldShowLauncher();
 }
 
 void WebNotificationTray::HideMessageCenterBubble() {
@@ -915,6 +929,7 @@ void WebNotificationTray::HideMessageCenterBubble() {
   show_message_center_on_unlock_ = false;
   notification_list_->SetIsVisible(false);
   status_area_widget()->SetHideSystemNotifications(false);
+  UpdateShouldShowLauncher();
 }
 
 void WebNotificationTray::ShowNotificationBubble() {
@@ -953,6 +968,17 @@ void WebNotificationTray::UpdateAfterLoginStatusChange(
   UpdateTray();
 }
 
+bool WebNotificationTray::IsMessageCenterBubbleVisible() const {
+  return (message_center_bubble() && message_center_bubble_->IsVisible());
+}
+
+bool WebNotificationTray::IsMouseInNotificationBubble() const {
+  if (!notification_bubble())
+    return false;
+  return notification_bubble_->bubble_view()->GetBoundsInScreen().Contains(
+      gfx::Screen::GetCursorScreenPoint());
+}
+
 void WebNotificationTray::SetShelfAlignment(ShelfAlignment alignment) {
   if (alignment == shelf_alignment())
     return;
@@ -964,6 +990,21 @@ void WebNotificationTray::SetShelfAlignment(ShelfAlignment alignment) {
   // Destroy any existing bubble so that it will be rebuilt correctly.
   HideMessageCenterBubble();
   HideNotificationBubble();
+}
+
+void WebNotificationTray::AnchorUpdated() {
+  if (notification_bubble_.get()) {
+    notification_bubble_->bubble_view()->UpdateBubble();
+    // Ensure that the notification buble is above the launcher/status area.
+    notification_bubble_->bubble_view()->GetWidget()->StackAtTop();
+  }
+  if (message_center_bubble_.get())
+    message_center_bubble_->bubble_view()->UpdateBubble();
+}
+
+string16 WebNotificationTray::GetAccessibleName() {
+  return l10n_util::GetStringUTF16(
+      IDS_ASH_WEB_NOTIFICATION_TRAY_ACCESSIBLE_NAME);
 }
 
 // Protected methods (invoked only from Bubble and its child classes)
@@ -1041,7 +1082,10 @@ void WebNotificationTray::UpdateTray() {
   count_label_->SetEnabledColor(
       (notification_list()->notifications().size() == 0) ?
       kMessageCountDimmedColor : kMessageCountColor);
-  SetVisible((status_area_widget()->login_status() != user::LOGGED_IN_NONE));
+  bool is_visible =
+      (status_area_widget()->login_status() != user::LOGGED_IN_NONE) &&
+      (status_area_widget()->login_status() != user::LOGGED_IN_LOCKED);
+  SetVisible(is_visible);
   Layout();
   SchedulePaint();
 }

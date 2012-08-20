@@ -24,6 +24,8 @@
 #include "base/win/windows_version.h"
 #include "build/build_config.h"
 #include "crypto/nss_util.h"
+#include "ipc/ipc_channel.h"
+#include "ipc/ipc_channel_proxy.h"
 #include "net/base/network_change_notifier.h"
 #include "net/socket/ssl_server_socket.h"
 #include "remoting/base/breakpad.h"
@@ -49,23 +51,32 @@
 #include "remoting/jingle_glue/xmpp_signal_strategy.h"
 #include "remoting/protocol/me2me_host_authenticator_factory.h"
 
+#if defined(OS_POSIX)
+#include "remoting/host/posix/sighup_listener.h"
+#endif  // defined(OS_POSIX)
+
 #if defined(OS_MACOSX)
+#include "base/mac/scoped_cftyperef.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "remoting/host/curtain_mode_mac.h"
-#include "remoting/host/sighup_listener_mac.h"
-#endif
+#endif  // defined(OS_MACOSX)
+
 // N.B. OS_WIN is defined by including src/base headers.
 #if defined(OS_WIN)
 #include <commctrl.h>
-#endif
+#endif  // defined(OS_WIN)
+
 #if defined(TOOLKIT_GTK)
 #include "ui/gfx/gtk_util.h"
-#endif
+#endif  // defined(TOOLKIT_GTK)
 
 namespace {
 
 // This is used for tagging system event logs.
 const char kApplicationName[] = "chromoting";
+
+// The command line switch specifying the name of the Chromoting IPC channel.
+const char kDaemonIpcSwitchName[] = "chromoting-ipc";
 
 // These are used for parsing the config-file locations from the command line,
 // and for defining the default locations if the switches are not present.
@@ -91,7 +102,8 @@ const char kOfficialOAuth2ClientSecret[] = "Bgur6DFiOMM1h8x-AQpuTQlK";
 namespace remoting {
 
 class HostProcess
-    : public HeartbeatSender::Listener {
+    : public HeartbeatSender::Listener,
+      public IPC::Listener {
  public:
   HostProcess()
       : message_loop_(MessageLoop::TYPE_UI),
@@ -103,7 +115,14 @@ class HostProcess
         allow_nat_traversal_(true),
         restarting_(false),
         shutting_down_(false),
-        exit_code_(kSuccessExitCode) {
+        exit_code_(kSuccessExitCode)
+#if defined(OS_MACOSX)
+      , curtain_(base::Bind(&HostProcess::OnDisconnectRequested,
+                            base::Unretained(this)),
+                 base::Bind(&HostProcess::OnDisconnectRequested,
+                            base::Unretained(this)))
+#endif
+  {
     context_.reset(
         new ChromotingHostContext(message_loop_.message_loop_proxy()));
     context_->Start();
@@ -114,6 +133,21 @@ class HostProcess
   }
 
   bool InitWithCommandLine(const CommandLine* cmd_line) {
+    // Connect to the daemon process.
+    std::string channel_name =
+        cmd_line->GetSwitchValueASCII(kDaemonIpcSwitchName);
+
+#if defined(REMOTING_MULTI_PROCESS)
+    if (channel_name.empty())
+      return false;
+#endif  // defined(REMOTING_MULTI_PROCESS)
+
+    if (!channel_name.empty()) {
+      daemon_channel_.reset(new IPC::ChannelProxy(
+          channel_name, IPC::Channel::MODE_CLIENT, this,
+          context_->network_task_runner()));
+    }
+
     FilePath default_config_dir = remoting::GetConfigDir();
     if (cmd_line->HasSwitch(kAuthConfigSwitchName)) {
       FilePath path = cmd_line->GetSwitchValuePath(kAuthConfigSwitchName);
@@ -180,7 +214,7 @@ class HostProcess
 #endif  // defined(OS_WIN)
 
   void ListenForConfigChanges() {
-#if defined(OS_MACOSX)
+#if defined(OS_POSIX)
     remoting::RegisterHupSignalHandler(
         base::Bind(&HostProcess::ConfigUpdatedDelayed, base::Unretained(this)));
 #elif defined(OS_WIN)
@@ -192,7 +226,7 @@ class HostProcess
     if (!config_watcher_->Watch(host_config_path_, delegate)) {
       LOG(ERROR) << "Couldn't watch file " << host_config_path_.value();
     }
-#endif
+#endif  // defined (OS_WIN)
   }
 
   void CreateAuthenticatorFactory() {
@@ -202,6 +236,11 @@ class HostProcess
             key_pair_.GenerateCertificate(),
             *key_pair_.private_key(), host_secret_hash_));
     host_->SetAuthenticatorFactory(factory.Pass());
+  }
+
+  // IPC::Listener implementation.
+  virtual bool OnMessageReceived(const IPC::Message& message) {
+    return false;
   }
 
   int Run() {
@@ -227,6 +266,7 @@ class HostProcess
     host_user_interface_.reset();
 #endif
 
+    daemon_channel_.reset();
     base::WaitableEvent done_event(true, false);
     policy_watcher_->StopWatching(&done_event);
     done_event.Wait();
@@ -319,6 +359,10 @@ class HostProcess
       return;
     }
 
+    if (!host_) {
+      StartHost();
+    }
+
     bool bool_value;
     std::string string_value;
     if (policies->GetString(policy_hack::PolicyWatcher::kHostDomainPolicyName,
@@ -328,6 +372,11 @@ class HostProcess
     if (policies->GetBoolean(policy_hack::PolicyWatcher::kNatPolicyName,
                              &bool_value)) {
       OnNatPolicyUpdate(bool_value);
+    }
+    if (policies->GetBoolean(
+            policy_hack::PolicyWatcher::kHostRequireCurtainPolicyName,
+            &bool_value)) {
+      OnCurtainPolicyUpdate(bool_value);
     }
   }
 
@@ -356,15 +405,44 @@ class HostProcess
     bool policy_changed = allow_nat_traversal_ != nat_traversal_enabled;
     allow_nat_traversal_ = nat_traversal_enabled;
 
-    if (host_) {
-      // Restart the host if the policy has changed while the host was
-      // online.
-      if (policy_changed)
-        RestartHost();
-    } else {
-      // Just start the host otherwise.
-      StartHost();
+    if (policy_changed) {
+      RestartHost();
     }
+  }
+
+  void OnCurtainPolicyUpdate(bool curtain_required) {
+#if defined(OS_MACOSX)
+    if (!context_->network_task_runner()->BelongsToCurrentThread()) {
+      context_->network_task_runner()->PostTask(FROM_HERE, base::Bind(
+          &HostProcess::OnCurtainPolicyUpdate, base::Unretained(this),
+          curtain_required));
+      return;
+    }
+
+    if (curtain_required) {
+      // If curtain mode is required, then we can't currently support remoting
+      // the login screen. This is because we don't curtain the login screen
+      // and the current daemon architecture means that the connction is closed
+      // immediately after login, leaving the host system uncurtained.
+      //
+      // TODO(jamiewalch): Fix this once we have implemented the multi-process
+      // daemon architecture (crbug.com/134894)
+      base::mac::ScopedCFTypeRef<CFDictionaryRef> session(
+          CGSessionCopyCurrentDictionary());
+      const void* logged_in = CFDictionaryGetValue(session,
+                                                   kCGSessionLoginDoneKey);
+      if (logged_in != kCFBooleanTrue) {
+        Shutdown(kLoginScreenNotSupportedExitCode);
+        return;
+      }
+
+      host_->AddStatusObserver(&curtain_);
+      curtain_.SetEnabled(true);
+    } else {
+      curtain_.SetEnabled(false);
+      host_->RemoveStatusObserver(&curtain_);
+    }
+#endif
   }
 
   void StartHost() {
@@ -447,12 +525,6 @@ class HostProcess
                           base::Unretained(this)));
 #endif
 
-#if defined(OS_MACOSX)
-    curtain_.Init(base::Bind(&HostProcess::OnDisconnectRequested,
-                             base::Unretained(this)));
-    host_->AddStatusObserver(&curtain_);
-#endif
-
     host_->Start();
 
     CreateAuthenticatorFactory();
@@ -528,6 +600,7 @@ class HostProcess
 
   MessageLoop message_loop_;
   scoped_ptr<ChromotingHostContext> context_;
+  scoped_ptr<IPC::ChannelProxy> daemon_channel_;
   scoped_ptr<net::NetworkChangeNotifier> network_change_notifier_;
 
   FilePath host_config_path_;

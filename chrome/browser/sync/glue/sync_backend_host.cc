@@ -78,6 +78,7 @@ using syncer::SyncCredentials;
 
 class SyncBackendHost::Core
     : public base::RefCountedThreadSafe<SyncBackendHost::Core>,
+      public syncer::SyncEncryptionHandler::Observer,
       public syncer::SyncManager::Observer,
       public syncer::SyncNotifierObserver {
  public:
@@ -96,20 +97,24 @@ class SyncBackendHost::Core
       syncer::ModelTypeSet restored_types) OVERRIDE;
   virtual void OnConnectionStatusChange(
       syncer::ConnectionStatus status) OVERRIDE;
+  virtual void OnStopSyncingPermanently() OVERRIDE;
+  virtual void OnUpdatedToken(const std::string& token) OVERRIDE;
+  virtual void OnActionableError(
+      const syncer::SyncProtocolError& sync_error) OVERRIDE;
+
+  // SyncEncryptionHandler::Observer implementation.
   virtual void OnPassphraseRequired(
       syncer::PassphraseRequiredReason reason,
       const sync_pb::EncryptedData& pending_keys) OVERRIDE;
   virtual void OnPassphraseAccepted() OVERRIDE;
   virtual void OnBootstrapTokenUpdated(
       const std::string& bootstrap_token) OVERRIDE;
-  virtual void OnStopSyncingPermanently() OVERRIDE;
-  virtual void OnUpdatedToken(const std::string& token) OVERRIDE;
   virtual void OnEncryptedTypesChanged(
       syncer::ModelTypeSet encrypted_types,
       bool encrypt_everything) OVERRIDE;
   virtual void OnEncryptionComplete() OVERRIDE;
-  virtual void OnActionableError(
-      const syncer::SyncProtocolError& sync_error) OVERRIDE;
+  virtual void OnCryptographerStateChanged(
+      syncer::Cryptographer* cryptographer) OVERRIDE;
 
   // syncer::SyncNotifierObserver implementation.
   virtual void OnNotificationsEnabled() OVERRIDE;
@@ -153,10 +158,9 @@ class SyncBackendHost::Core
   // reencrypt everything.
   void DoEnableEncryptEverything();
 
-  // Called to refresh encryption with the most recent passphrase
-  // and set of encrypted types. Also adds device information to the nigori
-  // node. |done_callback| is called on the sync thread.
-  void DoRefreshNigori(const base::Closure& done_callback);
+  // Called to load sync encryption state and re-encrypt any types
+  // needing encryption as necessary.
+  void DoAssociateNigori();
 
   // The shutdown order is a bit complicated:
   // 1) From |sync_thread_|, invoke the syncapi Shutdown call to do
@@ -415,6 +419,21 @@ void SyncBackendHost::Initialize(
   registrar_->GetModelSafeRoutingInfo(&routing_info);
   registrar_->GetWorkers(&workers);
 
+  InternalComponentsFactory::Switches factory_switches = {
+      InternalComponentsFactory::ENCRYPTION_LEGACY,
+      InternalComponentsFactory::BACKOFF_NORMAL
+  };
+
+  CommandLine* cl = CommandLine::ForCurrentProcess();
+  if (cl->HasSwitch(switches::kSyncKeystoreEncryption)) {
+    factory_switches.encryption_method =
+        InternalComponentsFactoryImpl::ENCRYPTION_KEYSTORE;
+  }
+  if (cl->HasSwitch(switches::kSyncShortInitialRetryOverride)) {
+    factory_switches.backoff_override =
+        InternalComponentsFactoryImpl::BACKOFF_SHORT_INITIAL_RETRY_OVERRIDE;
+  }
+
   initialization_state_ = CREATING_SYNC_MANAGER;
   InitCore(DoInitializeOptions(
       sync_thread_.message_loop(),
@@ -433,7 +452,7 @@ void SyncBackendHost::Initialize(
       delete_sync_data_folder,
       sync_prefs_->GetEncryptionBootstrapToken(),
       sync_prefs_->GetKeystoreEncryptionBootstrapToken(),
-      new InternalComponentsFactoryImpl(),
+      new InternalComponentsFactoryImpl(factory_switches),
       unrecoverable_error_handler,
       report_unrecoverable_error_function));
 }
@@ -623,6 +642,7 @@ void SyncBackendHost::Shutdown(bool sync_disabled) {
                       stop_sync_thread_time);
 
   registrar_.reset();
+  js_backend_.Reset();
   chrome_sync_notification_bridge_.reset();
   core_ = NULL;  // Releases reference to core_.
 }
@@ -742,8 +762,11 @@ bool SyncBackendHost::IsUsingExplicitPassphrase() {
   // otherwise we have no idea what kind of passphrase we are using. This will
   // NOTREACH in sync_manager and return false if we fail to load the nigori
   // node.
+  // TODO(zea): cache this value here, then make the encryption handler
+  // NonThreadSafe and only accessible from the sync thread.
   return IsNigoriEnabled() &&
-      core_->sync_manager()->IsUsingExplicitPassphrase();
+      core_->sync_manager()->GetEncryptionHandler()->
+          IsUsingExplicitPassphrase();
 }
 
 bool SyncBackendHost::IsCryptographerReady(
@@ -796,7 +819,9 @@ void SyncBackendHost::HandleSyncManagerInitializationOnFrontendLoop(
     const syncer::WeakHandle<syncer::JsBackend>& js_backend, bool success,
     syncer::ModelTypeSet restored_types) {
   registrar_->SetInitialTypes(restored_types);
-  HandleInitializationCompletedOnFrontendLoop(js_backend, success);
+  DCHECK(!js_backend_.IsInitialized());
+  js_backend_ = js_backend;
+  HandleInitializationCompletedOnFrontendLoop(success);
 }
 
 SyncBackendHost::DoInitializeOptions::DoInitializeOptions(
@@ -995,6 +1020,11 @@ void SyncBackendHost::Core::OnEncryptionComplete() {
       &SyncBackendHost::NotifyEncryptionComplete);
 }
 
+void SyncBackendHost::Core::OnCryptographerStateChanged(
+    syncer::Cryptographer* cryptographer) {
+  // Do nothing.
+}
+
 void SyncBackendHost::Core::OnActionableError(
     const syncer::SyncProtocolError& sync_error) {
   if (!sync_loop_)
@@ -1079,8 +1109,6 @@ void SyncBackendHost::Core::DoInitialize(const DoInitializeOptions& options) {
           options.sync_notifier_factory->CreateSyncNotifier())),
       options.restored_key_for_bootstrapping,
       options.restored_keystore_key_for_bootstrapping,
-      CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kSyncKeystoreEncryption),
       scoped_ptr<InternalComponentsFactory>(
           options.internal_components_factory),
       &encryptor_,
@@ -1133,30 +1161,33 @@ void SyncBackendHost::Core::DoStartSyncing(
   sync_manager_->StartSyncingNormally(routing_info);
 }
 
+void SyncBackendHost::Core::DoAssociateNigori() {
+  DCHECK_EQ(MessageLoop::current(), sync_loop_);
+  sync_manager_->GetEncryptionHandler()->AddObserver(this);
+  sync_manager_->GetEncryptionHandler()->Init();
+  host_.Call(FROM_HERE,
+             &SyncBackendHost::HandleInitializationCompletedOnFrontendLoop,
+             true);
+}
+
 void SyncBackendHost::Core::DoSetEncryptionPassphrase(
     const std::string& passphrase,
     bool is_explicit) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  sync_manager_->SetEncryptionPassphrase(passphrase, is_explicit);
+  sync_manager_->GetEncryptionHandler()->SetEncryptionPassphrase(
+      passphrase, is_explicit);
 }
 
 void SyncBackendHost::Core::DoSetDecryptionPassphrase(
     const std::string& passphrase) {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  sync_manager_->SetDecryptionPassphrase(passphrase);
+  sync_manager_->GetEncryptionHandler()->SetDecryptionPassphrase(
+      passphrase);
 }
 
 void SyncBackendHost::Core::DoEnableEncryptEverything() {
   DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  sync_manager_->EnableEncryptEverything();
-}
-
-void SyncBackendHost::Core::DoRefreshNigori(
-    const base::Closure& done_callback) {
-  DCHECK_EQ(MessageLoop::current(), sync_loop_);
-  chrome::VersionInfo version_info;
-  sync_manager_->RefreshNigori(version_info.CreateVersionString(),
-                               done_callback);
+  sync_manager_->GetEncryptionHandler()->EnableEncryptEverything();
 }
 
 void SyncBackendHost::Core::DoStopSyncManagerForShutdown(
@@ -1286,7 +1317,7 @@ void SyncBackendHost::OnNigoriDownloadRetry() {
 }
 
 void SyncBackendHost::HandleInitializationCompletedOnFrontendLoop(
-    const syncer::WeakHandle<syncer::JsBackend>& js_backend, bool success) {
+    bool success) {
   DCHECK_NE(initialization_state_, NOT_ATTEMPTED);
   if (!frontend_)
     return;
@@ -1298,6 +1329,7 @@ void SyncBackendHost::HandleInitializationCompletedOnFrontendLoop(
 
   DCHECK_EQ(MessageLoop::current(), frontend_loop_);
   if (!success) {
+    js_backend_.Reset();
     initialization_state_ = NOT_INITIALIZED;
     frontend_->OnBackendInitialized(
         syncer::WeakHandle<syncer::JsBackend>(), false);
@@ -1322,27 +1354,27 @@ void SyncBackendHost::HandleInitializationCompletedOnFrontendLoop(
           base::Bind(
               &SyncBackendHost::
                   HandleNigoriConfigurationCompletedOnFrontendLoop,
-              weak_ptr_factory_.GetWeakPtr(), js_backend),
+              weak_ptr_factory_.GetWeakPtr()),
           base::Bind(&SyncBackendHost::OnNigoriDownloadRetry,
                      weak_ptr_factory_.GetWeakPtr()));
       break;
     case DOWNLOADING_NIGORI:
-      initialization_state_ = REFRESHING_NIGORI;
+      initialization_state_ = ASSOCIATING_NIGORI;
       // Triggers OnEncryptedTypesChanged() and OnEncryptionComplete()
       // if necessary.
-      RefreshNigori(
-          base::Bind(
-              &SyncBackendHost::
-                  HandleInitializationCompletedOnFrontendLoop,
-              weak_ptr_factory_.GetWeakPtr(), js_backend, true));
+      sync_thread_.message_loop()->PostTask(
+          FROM_HERE,
+          base::Bind(&SyncBackendHost::Core::DoAssociateNigori,
+                     core_.get()));
       break;
-    case REFRESHING_NIGORI:
+    case ASSOCIATING_NIGORI:
       initialization_state_ = INITIALIZED;
       // Now that we've downloaded the nigori node, we can see if there are any
       // experimental types to enable. This should be done before we inform
       // the frontend to ensure they're visible in the customize screen.
       AddExperimentalTypes();
-      frontend_->OnBackendInitialized(js_backend, true);
+      frontend_->OnBackendInitialized(js_backend_, true);
+      js_backend_.Reset();
       break;
     default:
       NOTREACHED();
@@ -1430,6 +1462,7 @@ bool SyncBackendHost::CheckPassphraseAgainstCachedPendingKeys(
   nigori.InitByDerivation("localhost", "dummy", passphrase);
   std::string plaintext;
   bool result = nigori.Decrypt(cached_pending_keys_.blob(), &plaintext);
+  DVLOG_IF(1, result) << "Passphrase failed to decrypt pending keys.";
   return result;
 }
 
@@ -1503,32 +1536,9 @@ void SyncBackendHost::HandleConnectionStatusChangeOnFrontendLoop(
 }
 
 void SyncBackendHost::HandleNigoriConfigurationCompletedOnFrontendLoop(
-    const syncer::WeakHandle<syncer::JsBackend>& js_backend,
     const syncer::ModelTypeSet failed_configuration_types) {
   HandleInitializationCompletedOnFrontendLoop(
-      js_backend, failed_configuration_types.Empty());
-}
-
-namespace {
-
-// Needed because MessageLoop::PostTask is overloaded.
-void PostClosure(MessageLoop* message_loop,
-                 const tracked_objects::Location& from_here,
-                 const base::Closure& callback) {
-  message_loop->PostTask(from_here, callback);
-}
-
-}  // namespace
-
-void SyncBackendHost::RefreshNigori(const base::Closure& done_callback) {
-  DCHECK_EQ(MessageLoop::current(), frontend_loop_);
-  base::Closure sync_thread_done_callback =
-      base::Bind(&PostClosure,
-                 MessageLoop::current(), FROM_HERE, done_callback);
-  sync_thread_.message_loop()->PostTask(
-      FROM_HERE,
-      base::Bind(&SyncBackendHost::Core::DoRefreshNigori,
-                 core_.get(), sync_thread_done_callback));
+      failed_configuration_types.Empty());
 }
 
 #undef SDVLOG

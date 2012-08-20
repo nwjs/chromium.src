@@ -15,9 +15,7 @@
 #include "content/browser/device_orientation/data_fetcher_impl_android.h"
 #endif
 
-using content::BrowserThread;
-
-namespace device_orientation {
+namespace content {
 
 Provider* Provider::GetInstance() {
   if (!instance_) {
@@ -54,4 +52,4 @@ Provider::~Provider() {
 
 Provider* Provider::instance_ = NULL;
 
-} //  namespace device_orientation
+} //  namespace content

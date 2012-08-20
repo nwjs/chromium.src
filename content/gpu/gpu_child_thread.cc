@@ -17,6 +17,7 @@
 #include "content/gpu/gpu_watchdog_thread.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/result_codes.h"
 #include "ipc/ipc_channel_handle.h"
 #include "ipc/ipc_sync_message_filter.h"
 #include "ui/gl/gl_implementation.h"
@@ -98,6 +99,8 @@ bool GpuChildThread::OnControlMessageReceived(const IPC::Message& msg) {
   IPC_BEGIN_MESSAGE_MAP_EX(GpuChildThread, msg, msg_is_ok)
     IPC_MESSAGE_HANDLER(GpuMsg_Initialize, OnInitialize)
     IPC_MESSAGE_HANDLER(GpuMsg_CollectGraphicsInfo, OnCollectGraphicsInfo)
+    IPC_MESSAGE_HANDLER(GpuMsg_GetVideoMemoryUsageStats,
+                        OnGetVideoMemoryUsageStats)
     IPC_MESSAGE_HANDLER(GpuMsg_Clean, OnClean)
     IPC_MESSAGE_HANDLER(GpuMsg_Crash, OnCrash)
     IPC_MESSAGE_HANDLER(GpuMsg_Hang, OnHang)
@@ -114,8 +117,12 @@ bool GpuChildThread::OnControlMessageReceived(const IPC::Message& msg) {
 void GpuChildThread::OnInitialize() {
   if (dead_on_arrival_) {
     VLOG(1) << "Exiting GPU process due to errors during initialization";
-    MessageLoop::current()->Quit();
-    return;
+
+    // Exit with the exit code that would be returned if the GPU process was
+    // killed using task mamager so that it does not count as a crash.
+    // TODO(apatrick): this is temporary to see if this impacts the crash
+    // statistics. If it does then the crash accounting should be fixed.
+    exit(content::RESULT_CODE_KILLED);
   }
 
   // We don't need to pipe log messages if we are running the GPU thread in
@@ -214,6 +221,14 @@ void GpuChildThread::OnCollectGraphicsInfo() {
 #endif
   }
   Send(new GpuHostMsg_GraphicsInfoCollected(gpu_info_));
+}
+
+void GpuChildThread::OnGetVideoMemoryUsageStats() {
+  content::GPUVideoMemoryUsageStats video_memory_usage_stats;
+  if (gpu_channel_manager_.get())
+    gpu_channel_manager_->gpu_memory_manager()->GetVideoMemoryUsageStats(
+        video_memory_usage_stats);
+  Send(new GpuHostMsg_VideoMemoryUsageStats(video_memory_usage_stats));
 }
 
 void GpuChildThread::OnClean() {

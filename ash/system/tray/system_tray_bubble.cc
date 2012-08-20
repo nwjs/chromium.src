@@ -320,15 +320,21 @@ void SystemTrayBubble::BubbleViewDestroyed() {
 
 void SystemTrayBubble::OnMouseEnteredView() {
   StopAutoCloseTimer();
+  tray_->UpdateShouldShowLauncher();
 }
 
 void SystemTrayBubble::OnMouseExitedView() {
   RestartAutoCloseTimer();
+  tray_->UpdateShouldShowLauncher();
 }
 
 void SystemTrayBubble::OnClickedOutsideView() {
   if (bubble_type_ != BUBBLE_TYPE_NOTIFICATION)
     bubble_widget_->Close();
+}
+
+string16 SystemTrayBubble::GetAccessibleName() {
+  return tray_->GetAccessibleName();
 }
 
 void SystemTrayBubble::DestroyItemViews() {

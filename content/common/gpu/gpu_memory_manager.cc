@@ -12,9 +12,11 @@
 #include "base/command_line.h"
 #include "base/debug/trace_event.h"
 #include "base/message_loop.h"
+#include "base/process_util.h"
 #include "base/string_number_conversions.h"
 #include "content/common/gpu/gpu_command_buffer_stub.h"
 #include "content/common/gpu/gpu_memory_allocation.h"
+#include "content/common/gpu/gpu_memory_tracking.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 
 namespace {
@@ -86,12 +88,13 @@ GpuMemoryManager::GpuMemoryManager(GpuMemoryManagerClient* client,
 #if defined(OS_ANDROID)
     bytes_available_gpu_memory_ = 64 * 1024 * 1024;
 #else
-    bytes_available_gpu_memory_ = 448 * 1024 * 1024;
+    bytes_available_gpu_memory_ = 256 * 1024 * 1024;
 #endif
   }
 }
 
 GpuMemoryManager::~GpuMemoryManager() {
+  DCHECK(tracking_groups_.empty());
 }
 
 bool GpuMemoryManager::StubWithSurfaceComparator::operator()(
@@ -129,8 +132,7 @@ void GpuMemoryManager::ScheduleManage(bool immediate) {
 }
 
 void GpuMemoryManager::TrackMemoryAllocatedChange(size_t old_size,
-                                                  size_t new_size)
-{
+                                                  size_t new_size) {
   if (new_size < old_size) {
     size_t delta = old_size - new_size;
     DCHECK(bytes_allocated_current_ >= delta);
@@ -148,6 +150,34 @@ void GpuMemoryManager::TrackMemoryAllocatedChange(size_t old_size,
                       this,
                       bytes_allocated_current_);
   }
+}
+
+void GpuMemoryManager::AddTrackingGroup(
+    GpuMemoryTrackingGroup* tracking_group) {
+  tracking_groups_.insert(tracking_group);
+}
+
+void GpuMemoryManager::RemoveTrackingGroup(
+    GpuMemoryTrackingGroup* tracking_group) {
+  tracking_groups_.erase(tracking_group);
+}
+
+void GpuMemoryManager::GetVideoMemoryUsageStats(
+    content::GPUVideoMemoryUsageStats& video_memory_usage_stats) const {
+  // For each context group, assign its memory usage to its PID
+  video_memory_usage_stats.process_map.clear();
+  for (std::set<GpuMemoryTrackingGroup*>::const_iterator i =
+       tracking_groups_.begin(); i != tracking_groups_.end(); ++i) {
+    const GpuMemoryTrackingGroup* tracking_group = (*i);
+    video_memory_usage_stats.process_map[
+        tracking_group->GetPid()].video_memory += tracking_group->GetSize();
+  }
+
+  // Assign the total across all processes in the GPU process
+  video_memory_usage_stats.process_map[
+      base::GetCurrentProcId()].video_memory = bytes_allocated_current_;
+  video_memory_usage_stats.process_map[
+      base::GetCurrentProcId()].has_duplicates = true;
 }
 
 // The current Manage algorithm simply classifies contexts (stubs) into
@@ -262,6 +292,10 @@ void GpuMemoryManager::Manage() {
     bonus_allocation = CalculateBonusMemoryAllocationBasedOnSize(
         stubs_with_surface_foreground[0]->GetSurfaceSize());
 #endif
+  size_t stubs_with_surface_foreground_allocation = GetMinimumTabAllocation() +
+                                                    bonus_allocation;
+  if (stubs_with_surface_foreground_allocation >= GetMaximumTabAllocation())
+    stubs_with_surface_foreground_allocation = GetMaximumTabAllocation();
 
   stub_memory_stats_for_last_manage_.clear();
 
@@ -269,7 +303,7 @@ void GpuMemoryManager::Manage() {
   AssignMemoryAllocations(
       &stub_memory_stats_for_last_manage_,
       stubs_with_surface_foreground,
-      GpuMemoryAllocation(GetMinimumTabAllocation() + bonus_allocation,
+      GpuMemoryAllocation(stubs_with_surface_foreground_allocation,
           GpuMemoryAllocation::kHasFrontbuffer |
           GpuMemoryAllocation::kHasBackbuffer),
       true);

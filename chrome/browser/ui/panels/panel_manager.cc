@@ -88,6 +88,19 @@ bool PanelManager::ShouldUsePanels(const std::string& extension_id) {
   return true;
 }
 
+// static
+bool PanelManager::UseBrowserlessPanels() {
+  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kOldPanels))
+    return false;
+
+  // http://crbug.com/143506
+  // TODO(jennb): Remove after channel check can be used.
+// return chrome::VersionInfo::GetChannel() <= chrome::VersionInfo::CHANNEL_DEV;
+  // For now, use former flag to turn on browserless panels.
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kBrowserlessPanels);
+}
+
 PanelManager::PanelManager()
     : panel_mouse_watcher_(PanelMouseWatcher::Create()),
       auto_sizing_enabled_(true) {
