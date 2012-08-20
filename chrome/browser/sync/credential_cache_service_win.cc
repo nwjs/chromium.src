@@ -17,6 +17,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/signin_manager.h"
+#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/token_service.h"
 #include "chrome/browser/signin/token_service_factory.h"
 #include "chrome/browser/sync/glue/chrome_encryptor.h"
@@ -55,7 +56,11 @@ CredentialCacheService::CredentialCacheService(Profile* profile)
       weak_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
   if (profile_) {
     InitializeLocalCredentialCacheWriter();
-    if (ShouldLookForCachedCredentialsInAlternateProfile())
+    // If sync is not disabled, look for credentials in the alternate profile.
+    // Note that we do want to look for credentials in the alternate profile
+    // even if the local user is signed in, so that we can detect a sign out or
+    // reconfigure originating from the alternate profile.
+    if (!sync_prefs_.IsManaged())
       LookForCachedCredentialsInAlternateProfile();
   }
 }
@@ -65,32 +70,12 @@ CredentialCacheService::~CredentialCacheService() {
 }
 
 void CredentialCacheService::Shutdown() {
-  if (local_store_.get()) {
-    local_store_.release();
-  }
-
-  if (alternate_store_.get()) {
-    alternate_store_->RemoveObserver(this);
-    alternate_store_.release();
-  }
-}
-
-void CredentialCacheService::OnInitializationCompleted(bool succeeded) {
-  DCHECK(succeeded);
-  // When the local and alternate credential stores become available, begin
-  // consuming the alternate cached credentials. We must also wait for the local
-  // credential store because the credentials read from the alternate cache and
-  // applied locally must eventually get stored in the local cache.
-  if (alternate_store_.get() &&
-      alternate_store_->IsInitializationComplete() &&
-      local_store_.get() &&
-      local_store_->IsInitializationComplete()) {
-    ReadCachedCredentialsFromAlternateProfile();
-  }
-}
-
-void CredentialCacheService::OnPrefValueChanged(const std::string& key) {
-  // Nothing to do here, since credentials are cached silently.
+  if (local_store_.get())
+    local_store_->CommitPendingWrite();
+  local_store_observer_.release();
+  local_store_.release();
+  alternate_store_observer_.release();
+  alternate_store_.release();
 }
 
 void CredentialCacheService::Observe(
@@ -101,21 +86,73 @@ void CredentialCacheService::Observe(
   DCHECK(local_store_.get());
   switch (type) {
     case chrome::NOTIFICATION_PREF_CHANGED: {
+      // One of the two sync encryption tokens has changed. Update its value in
+      // the local cache.
       const std::string pref_name =
           *(content::Details<const std::string>(details).ptr());
-      if (pref_name == prefs::kGoogleServicesUsername ||
-          pref_name == prefs::kSyncEncryptionBootstrapToken) {
+      if (pref_name == prefs::kSyncEncryptionBootstrapToken) {
+        PackAndUpdateStringPref(pref_name,
+                                sync_prefs_.GetEncryptionBootstrapToken());
+      } else if (pref_name == prefs::kSyncKeystoreEncryptionBootstrapToken) {
         PackAndUpdateStringPref(
             pref_name,
-            profile_->GetPrefs()->GetString(pref_name.c_str()));
+            sync_prefs_.GetKeystoreEncryptionBootstrapToken());
       } else {
-        UpdateBooleanPref(pref_name,
-                          profile_->GetPrefs()->GetBoolean(pref_name.c_str()));
+        NOTREACHED() "Invalid pref name " << pref_name << ".";
+      }
+      break;
+    }
+
+    case chrome::NOTIFICATION_GOOGLE_SIGNED_OUT: {
+      // The user has signed out. Write blank values to the google username,
+      // encryption tokens and token service credentials in the local cache.
+      PackAndUpdateStringPref(prefs::kGoogleServicesUsername, std::string());
+      if (HasPref(local_store_, prefs::kSyncEncryptionBootstrapToken)) {
+        PackAndUpdateStringPref(prefs::kSyncEncryptionBootstrapToken,
+                                std::string());
+      }
+      if (HasPref(local_store_, prefs::kSyncKeystoreEncryptionBootstrapToken)) {
+        PackAndUpdateStringPref(prefs::kSyncKeystoreEncryptionBootstrapToken,
+                                std::string());
+      }
+      PackAndUpdateStringPref(GaiaConstants::kGaiaLsid, std::string());
+      PackAndUpdateStringPref(GaiaConstants::kGaiaSid, std::string());
+      break;
+    }
+
+    case chrome::NOTIFICATION_GOOGLE_SIGNIN_SUCCESSFUL: {
+      // The user has signed in. Write the new value of the google username to
+      // the local cache.
+      SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
+      PackAndUpdateStringPref(prefs::kGoogleServicesUsername,
+                              signin->GetAuthenticatedUsername());
+      break;
+    }
+
+    case chrome::NOTIFICATION_SYNC_CONFIGURE_START: {
+      // We have detected a sync sign in, auto-start or reconfigure. Write the
+      // latest sync preferences to the local cache.
+      WriteSyncPrefsToLocalCache();
+      break;
+    }
+
+    case chrome::NOTIFICATION_TOKEN_LOADING_FINISHED: {
+      // The token service has been fully initialized. Update the token service
+      // credentials in the local cache. This is a no-op if the cache already
+      // contains the latest values.
+      TokenService* token_service =
+          TokenServiceFactory::GetForProfile(profile_);
+      if (token_service->AreCredentialsValid()) {
+        GaiaAuthConsumer::ClientLoginResult credentials =
+            token_service->credentials();
+        PackAndUpdateStringPref(GaiaConstants::kGaiaLsid, credentials.lsid);
+        PackAndUpdateStringPref(GaiaConstants::kGaiaSid, credentials.sid);
       }
       break;
     }
 
     case chrome::NOTIFICATION_TOKEN_SERVICE_CREDENTIALS_UPDATED: {
+      // The token service has new credentials. Write them to the local cache.
       const TokenService::CredentialsUpdatedDetails& token_details =
           *(content::Details<const TokenService::CredentialsUpdatedDetails>(
               details).ptr());
@@ -125,6 +162,7 @@ void CredentialCacheService::Observe(
     }
 
     case chrome::NOTIFICATION_TOKENS_CLEARED: {
+      // Tokens have been cleared. Blank out lsid and sid in the local cache.
       PackAndUpdateStringPref(GaiaConstants::kGaiaLsid, std::string());
       PackAndUpdateStringPref(GaiaConstants::kGaiaSid, std::string());
       break;
@@ -135,6 +173,170 @@ void CredentialCacheService::Observe(
       break;
     }
   }
+}
+
+void CredentialCacheService::ReadCachedCredentialsFromAlternateProfile() {
+  // If the local user has signed in and signed out, we do not consume cached
+  // credentials from the alternate profile. There is nothing more to do, now or
+  // later on.
+  if (HasUserSignedOut())
+    return;
+
+  // Sanity check the alternate credential cache. Note that it is sufficient to
+  // have just one of the two sync encryption tokens. If any string credentials
+  // are outright missing even though the file exists, something is awry with
+  // the alternate profile store. There is no sense in flagging an error as the
+  // problem lies in a different profile directory. There is nothing to do now.
+  // We schedule a future read from the alternate credential cache and return.
+  DCHECK(alternate_store_.get());
+  if (!HasPref(alternate_store_, prefs::kGoogleServicesUsername) ||
+      !HasPref(alternate_store_, GaiaConstants::kGaiaLsid) ||
+      !HasPref(alternate_store_, GaiaConstants::kGaiaSid) ||
+      !(HasPref(alternate_store_, prefs::kSyncEncryptionBootstrapToken) ||
+        HasPref(alternate_store_,
+                prefs::kSyncKeystoreEncryptionBootstrapToken)) ||
+      !HasPref(alternate_store_, prefs::kSyncKeepEverythingSynced)) {
+    VLOG(1) << "Could not find cached credentials in \""
+            << GetCredentialPathInAlternateProfile().value() << "\".";
+    ScheduleNextReadFromAlternateCredentialCache();
+    return;
+  }
+
+  // Extract the google username, lsid and sid from the alternate credential
+  // cache.
+  std::string alternate_google_services_username =
+      GetAndUnpackStringPref(alternate_store_, prefs::kGoogleServicesUsername);
+  std::string alternate_lsid =
+      GetAndUnpackStringPref(alternate_store_, GaiaConstants::kGaiaLsid);
+  std::string alternate_sid =
+      GetAndUnpackStringPref(alternate_store_, GaiaConstants::kGaiaSid);
+
+  // Extract the sync encryption tokens from the alternate credential cache.
+  // Both tokens may not be found, since only one of them is used at any time.
+  std::string alternate_encryption_bootstrap_token;
+  if (HasPref(alternate_store_, prefs::kSyncEncryptionBootstrapToken)) {
+    alternate_encryption_bootstrap_token =
+        GetAndUnpackStringPref(alternate_store_,
+                               prefs::kSyncEncryptionBootstrapToken);
+  }
+  std::string alternate_keystore_encryption_bootstrap_token;
+  if (HasPref(alternate_store_, prefs::kSyncKeystoreEncryptionBootstrapToken)) {
+    alternate_keystore_encryption_bootstrap_token =
+        GetAndUnpackStringPref(alternate_store_,
+                               prefs::kSyncKeystoreEncryptionBootstrapToken);
+  }
+
+  // Sign out of sync if the alternate profile has signed out the same user.
+  // There is no need to schedule any more reads of the alternate profile
+  // cache because we only apply cached credentials for first-time sign-ins.
+  if (ShouldSignOutOfSync(alternate_google_services_username)) {
+    VLOG(1) << "User has signed out on the other profile. Signing out.";
+    InitiateSignOut();
+    return;
+  }
+
+  // Extract cached sync prefs from the alternate credential cache.
+  bool alternate_keep_everything_synced =
+      GetBooleanPref(alternate_store_, prefs::kSyncKeepEverythingSynced);
+  ProfileSyncService* service =
+      ProfileSyncServiceFactory::GetForProfile(profile_);
+  ModelTypeSet registered_types = service->GetRegisteredDataTypes();
+  ModelTypeSet alternate_preferred_types;
+  for (ModelTypeSet::Iterator it = registered_types.First();
+       it.Good();
+       it.Inc()) {
+    std::string datatype_pref_name =
+        browser_sync::SyncPrefs::GetPrefNameForDataType(it.Get());
+    if (!HasPref(alternate_store_, datatype_pref_name)) {
+      // If there is no cached pref for a specific data type, it means that the
+      // user originally signed in with an older version of Chrome, and then
+      // upgraded to a version with a new datatype. In such cases, we leave the
+      // default initial datatype setting as false while reading cached
+      // credentials, just like we do in SyncPrefs::RegisterPreferences.
+      VLOG(1) << "Could not find cached datatype pref for "
+              << datatype_pref_name << " in "
+              << GetCredentialPathInAlternateProfile().value() << ".";
+      continue;
+    }
+    if (GetBooleanPref(alternate_store_, datatype_pref_name))
+      alternate_preferred_types.Put(it.Get());
+  }
+
+  // Reconfigure if sync settings, encryption tokens or token service
+  // credentials have changed in the alternate profile, but for the same user
+  // that is signed in to the local profile.
+  if (MayReconfigureSync(alternate_google_services_username)) {
+    if (HaveSyncPrefsChanged(alternate_keep_everything_synced,
+                             alternate_preferred_types)) {
+      VLOG(1) << "Sync prefs have changed in other profile. Reconfiguring.";
+      service->OnUserChoseDatatypes(alternate_keep_everything_synced,
+                                    alternate_preferred_types);
+    }
+    if (HaveSyncEncryptionTokensChanged(
+        alternate_encryption_bootstrap_token,
+        alternate_keystore_encryption_bootstrap_token)) {
+      VLOG(1) << "Sync encryption tokens have changed in other profile.";
+      sync_prefs_.SetEncryptionBootstrapToken(
+          alternate_encryption_bootstrap_token);
+      sync_prefs_.SetKeystoreEncryptionBootstrapToken(
+          alternate_keystore_encryption_bootstrap_token);
+    }
+    if (HaveTokenServiceCredentialsChanged(alternate_lsid, alternate_sid)) {
+      VLOG(1) << "Token service credentials have changed in other profile.";
+      UpdateTokenServiceCredentials(alternate_lsid, alternate_sid);
+    }
+  }
+
+  // Sign in if we notice new cached credentials in the alternate profile.
+  if (ShouldSignInToSync(alternate_google_services_username,
+                         alternate_lsid,
+                         alternate_sid,
+                         alternate_encryption_bootstrap_token,
+                         alternate_keystore_encryption_bootstrap_token)) {
+    InitiateSignInWithCachedCredentials(
+        alternate_google_services_username,
+        alternate_encryption_bootstrap_token,
+        alternate_keystore_encryption_bootstrap_token,
+        alternate_keep_everything_synced,
+        alternate_preferred_types);
+    UpdateTokenServiceCredentials(alternate_lsid, alternate_sid);
+  }
+
+  // Schedule the next read from the alternate credential cache so that we can
+  // detect future reconfigures or sign outs.
+  ScheduleNextReadFromAlternateCredentialCache();
+}
+
+void CredentialCacheService::WriteSyncPrefsToLocalCache() {
+  UpdateBooleanPref(prefs::kSyncKeepEverythingSynced,
+                    sync_prefs_.HasKeepEverythingSynced());
+  ProfileSyncService* service =
+      ProfileSyncServiceFactory::GetForProfile(profile_);
+  ModelTypeSet registered_types = service->GetRegisteredDataTypes();
+  for (ModelTypeSet::Iterator it = registered_types.First();
+       it.Good();
+       it.Inc()) {
+    std::string datatype_pref_name =
+        browser_sync::SyncPrefs::GetPrefNameForDataType(it.Get());
+    UpdateBooleanPref(
+        datatype_pref_name,
+        profile_->GetPrefs()->GetBoolean(datatype_pref_name.c_str()));
+  }
+}
+
+void CredentialCacheService::ScheduleNextReadFromAlternateCredentialCache() {
+  // We must reinitialize |alternate_store_| here because the underlying
+  // credential file in the alternate profile might have changed, and we must
+  // re-read it afresh.
+  alternate_store_observer_.release();
+  alternate_store_.release();
+  next_read_.Reset(base::Bind(
+      &CredentialCacheService::LookForCachedCredentialsInAlternateProfile,
+      weak_factory_.GetWeakPtr()));
+  MessageLoop::current()->PostDelayedTask(
+      FROM_HERE,
+      next_read_.callback(),
+      TimeDelta::FromSeconds(kCredentialCachePollIntervalSecs));
 }
 
 bool CredentialCacheService::HasPref(scoped_refptr<JsonPrefStore> store,
@@ -207,6 +409,10 @@ void CredentialCacheService::PackAndUpdateStringPref(
       const std::string& pref_name,
       const std::string& new_value) {
   DCHECK(local_store_.get());
+  if (HasPref(local_store_, pref_name) &&
+      GetAndUnpackStringPref(local_store_, pref_name) == new_value) {
+    return;
+  }
   if (!HasUserSignedOut()) {
     local_store_->SetValueSilently(pref_name, PackCredential(new_value));
   } else {
@@ -220,6 +426,10 @@ void CredentialCacheService::PackAndUpdateStringPref(
 void CredentialCacheService::UpdateBooleanPref(const std::string& pref_name,
                                                bool new_value) {
   DCHECK(local_store_.get());
+  if (HasPref(local_store_, pref_name) &&
+      GetBooleanPref(local_store_, pref_name) == new_value) {
+    return;
+  }
   if (!HasUserSignedOut()) {
     local_store_->SetValueSilently(pref_name,
                                    base::Value::CreateBooleanValue(new_value));
@@ -263,6 +473,98 @@ bool CredentialCacheService::GetBooleanPref(
   return pref;
 }
 
+CredentialCacheService::LocalStoreObserver::LocalStoreObserver(
+    CredentialCacheService* service,
+    scoped_refptr<JsonPrefStore> local_store)
+    : service_(service),
+      local_store_(local_store) {
+  local_store_->AddObserver(this);
+}
+
+CredentialCacheService::LocalStoreObserver::~LocalStoreObserver() {
+  local_store_->RemoveObserver(this);
+}
+
+void CredentialCacheService::LocalStoreObserver::OnInitializationCompleted(
+    bool succeeded) {
+  // Note that |succeeded| will be true even if the local cache file wasn't
+  // found, so long as its parent dir (the chrome profile directory) was found.
+  // If |succeeded| is false, it means that the chrome profile directory is
+  // missing. In this case, there's nothing we can do other than DCHECK.
+  DCHECK(succeeded);
+
+  // During startup, we do a precautionary write of the google username,
+  // encryption tokens and sync prefs to the local cache in order to recover
+  // from the following cases:
+  // 1) There is no local credential cache, but the user is signed in. This
+  //    could happen if a signed-in user restarts chrome after upgrading from
+  //    an older version that didn't support credential caching.
+  // 2) There is a local credential cache, but we missed writing sync credential
+  //    updates to it in the past due to a crash, or due to the user exiting
+  //    chrome in the midst of a sign in, sign out or reconfigure.
+  // Note: If the local credential cache was already up-to-date, the operations
+  // below will be no-ops, and won't change the cache's last updated time. Also,
+  // if the user is not signed in and there is no local credential cache, we
+  // don't want to create a cache with empty values.
+  SigninManager* signin =
+      SigninManagerFactory::GetForProfile(service_->profile_);
+  if ((local_store_->GetReadError() == JsonPrefStore::PREF_READ_ERROR_NO_FILE &&
+       !signin->GetAuthenticatedUsername().empty()) ||
+      (local_store_->GetReadError() == JsonPrefStore::PREF_READ_ERROR_NONE)) {
+    service_->PackAndUpdateStringPref(prefs::kGoogleServicesUsername,
+                                      signin->GetAuthenticatedUsername());
+    if (!service_->sync_prefs_.GetEncryptionBootstrapToken().empty()) {
+      service_->PackAndUpdateStringPref(
+          prefs::kSyncEncryptionBootstrapToken,
+          service_->sync_prefs_.GetEncryptionBootstrapToken());
+    }
+    if (!service_->sync_prefs_.GetKeystoreEncryptionBootstrapToken().empty()) {
+      service_->PackAndUpdateStringPref(
+          prefs::kSyncKeystoreEncryptionBootstrapToken,
+          service_->sync_prefs_.GetKeystoreEncryptionBootstrapToken());
+    }
+    service_->WriteSyncPrefsToLocalCache();
+  }
+
+  // Now that the local credential cache is ready, start listening for events
+  // associated with various sync config changes.
+  service_->StartListeningForSyncConfigChanges();
+}
+
+void CredentialCacheService::LocalStoreObserver::OnPrefValueChanged(
+    const std::string& key) {
+  // Nothing to do here, since credentials are cached silently.
+}
+
+CredentialCacheService::AlternateStoreObserver::AlternateStoreObserver(
+    CredentialCacheService* service,
+    scoped_refptr<JsonPrefStore> alternate_store)
+    : service_(service),
+      alternate_store_(alternate_store) {
+  alternate_store_->AddObserver(this);
+}
+
+CredentialCacheService::AlternateStoreObserver::~AlternateStoreObserver() {
+  alternate_store_->RemoveObserver(this);
+}
+
+void CredentialCacheService::AlternateStoreObserver::OnInitializationCompleted(
+    bool succeeded) {
+  // If an alternate credential cache was found, begin consuming its contents.
+  // If not, schedule a future read.
+  if (succeeded &&
+      alternate_store_->GetReadError() == JsonPrefStore::PREF_READ_ERROR_NONE) {
+    service_->ReadCachedCredentialsFromAlternateProfile();
+  } else {
+    service_->ScheduleNextReadFromAlternateCredentialCache();
+  }
+}
+
+void CredentialCacheService::AlternateStoreObserver::OnPrefValueChanged(
+    const std::string& key) {
+  // Nothing to do here, since credentials are cached silently.
+}
+
 FilePath CredentialCacheService::GetCredentialPathInCurrentProfile() const {
   // The sync credential path in the default Desktop profile is
   // "%Appdata%\Local\Google\Chrome\User Data\Default\Sync Credentials", while
@@ -281,44 +583,44 @@ FilePath CredentialCacheService::GetCredentialPathInAlternateProfile() const {
   return alternate_default_profile_dir.Append(chrome::kSyncCredentialsFilename);
 }
 
-bool CredentialCacheService::ShouldLookForCachedCredentialsInAlternateProfile()
-    const {
-  // We must look for credentials in the alternate profile iff the following are
-  // true:
-  // 1) Sync is not disabled by policy.
-  // 2) Sync startup is not suppressed.
-  // Note that we do want to look for credentials in the alternate profile even
-  // if the local user is signed in, so we can detect a sign out originating
-  // from the alternate profile.
-  return !sync_prefs_.IsManaged() && !sync_prefs_.IsStartSuppressed();
-}
-
 void CredentialCacheService::InitializeLocalCredentialCacheWriter() {
   local_store_ = new JsonPrefStore(
       GetCredentialPathInCurrentProfile(),
       content::BrowserThread::GetMessageLoopProxyForThread(
           content::BrowserThread::FILE));
-  local_store_->AddObserver(this);
+  local_store_observer_ = new LocalStoreObserver(this, local_store_);
   local_store_->ReadPrefsAsync(NULL);
+}
 
-  // Register for notifications for updates to the sync credentials, which are
-  // stored in the PrefStore.
+void CredentialCacheService::StartListeningForSyncConfigChanges() {
+  // Register for notifications for google sign in and sign out.
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_GOOGLE_SIGNED_OUT,
+                 content::Source<Profile>(profile_));
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_GOOGLE_SIGNIN_SUCCESSFUL,
+                 content::Source<Profile>(profile_));
+
+  // Register for notifications for sync configuration changes that could occur
+  // during sign in or reconfiguration.
+  ProfileSyncService* service =
+      ProfileSyncServiceFactory::GetForProfile(profile_);
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_SYNC_CONFIGURE_START,
+                 content::Source<ProfileSyncService>(service));
+
+  // Register for notifications for updates to the sync encryption tokens, which
+  // are stored in the PrefStore.
   pref_registrar_.Init(profile_->GetPrefs());
   pref_registrar_.Add(prefs::kSyncEncryptionBootstrapToken, this);
-  pref_registrar_.Add(prefs::kGoogleServicesUsername, this);
-  pref_registrar_.Add(prefs::kSyncKeepEverythingSynced, this);
-  ModelTypeSet all_types = syncer::ModelTypeSet::All();
-  for (ModelTypeSet::Iterator it = all_types.First(); it.Good(); it.Inc()) {
-    if (it.Get() == NIGORI)  // The NIGORI preference is not persisted.
-      continue;
-    pref_registrar_.Add(
-        browser_sync::SyncPrefs::GetPrefNameForDataType(it.Get()),
-        this);
-  }
+  pref_registrar_.Add(prefs::kSyncKeystoreEncryptionBootstrapToken, this);
 
   // Register for notifications for updates to lsid and sid, which are stored in
   // the TokenService.
   TokenService* token_service = TokenServiceFactory::GetForProfile(profile_);
+  registrar_.Add(this,
+                 chrome::NOTIFICATION_TOKEN_LOADING_FINISHED,
+                 content::Source<TokenService>(token_service));
   registrar_.Add(this,
                  chrome::NOTIFICATION_TOKEN_SERVICE_CREDENTIALS_UPDATED,
                  content::Source<TokenService>(token_service));
@@ -327,24 +629,16 @@ void CredentialCacheService::InitializeLocalCredentialCacheWriter() {
                  content::Source<TokenService>(token_service));
 }
 
-void CredentialCacheService::InitializeAlternateCredentialCacheReader(
-    bool* should_initialize) {
-  // If |should_initialize| is false, there was no credential cache in the
-  // alternate profile directory, and there is nothing to do right now. Schedule
-  // another read in the future and exit.
-  DCHECK(should_initialize);
-  if (!*should_initialize) {
-    ScheduleNextReadFromAlternateCredentialCache();
-    return;
-  }
-
-  // A credential cache file was found in the alternate profile. Prepare to
-  // consume its contents.
+void CredentialCacheService::LookForCachedCredentialsInAlternateProfile() {
+  // Attempt to read cached credentials from the alternate profile. If no file
+  // exists, ReadPrefsAsync() will cause PREF_READ_ERROR_NO_FILE to be returned
+  // after initialization is complete.
   alternate_store_ = new JsonPrefStore(
       GetCredentialPathInAlternateProfile(),
       content::BrowserThread::GetMessageLoopProxyForThread(
           content::BrowserThread::FILE));
-  alternate_store_->AddObserver(this);
+  alternate_store_observer_ = new AlternateStoreObserver(this,
+                                                         alternate_store_);
   alternate_store_->ReadPrefsAsync(NULL);
 }
 
@@ -358,163 +652,49 @@ bool CredentialCacheService::HasUserSignedOut() {
                                 prefs::kGoogleServicesUsername).empty();
 }
 
-namespace {
-
-// Determines if there is a sync credential cache in the alternate profile.
-// Returns true via |result| if there is a credential cache file in the
-// alternate profile. Returns false otherwise.
-void AlternateCredentialCacheExists(
-    const FilePath& credential_path_in_alternate_profile,
-    bool* result) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::FILE));
-  DCHECK(result);
-  *result = file_util::PathExists(credential_path_in_alternate_profile);
-}
-
-}  // namespace
-
-void CredentialCacheService::LookForCachedCredentialsInAlternateProfile() {
-  bool* should_initialize = new bool(false);
-  content::BrowserThread::PostTaskAndReply(
-      content::BrowserThread::FILE,
-      FROM_HERE,
-      base::Bind(&AlternateCredentialCacheExists,
-                 GetCredentialPathInAlternateProfile(),
-                 should_initialize),
-      base::Bind(
-          &CredentialCacheService::InitializeAlternateCredentialCacheReader,
-          weak_factory_.GetWeakPtr(),
-          base::Owned(should_initialize)));
-}
-
-void CredentialCacheService::ReadCachedCredentialsFromAlternateProfile() {
-  // If the local user has signed in and signed out, we do not consume cached
-  // credentials from the alternate profile. There is nothing more to do, now or
-  // later on.
-  if (HasUserSignedOut())
-    return;
-
-  // Sanity check the alternate credential cache. If any string credentials
-  // are outright missing even though the file exists, something is awry with
-  // the alternate profile store. There is no sense in flagging an error as the
-  // problem lies in a different profile directory. There is nothing to do now.
-  // We schedule a future read from the alternate credential cache and return.
-  DCHECK(alternate_store_.get());
-  if (!HasPref(alternate_store_, prefs::kGoogleServicesUsername) ||
-      !HasPref(alternate_store_, GaiaConstants::kGaiaLsid) ||
-      !HasPref(alternate_store_, GaiaConstants::kGaiaSid) ||
-      !HasPref(alternate_store_, prefs::kSyncEncryptionBootstrapToken) ||
-      !HasPref(alternate_store_, prefs::kSyncKeepEverythingSynced)) {
-    VLOG(1) << "Could not find cached credentials in \""
-            << GetCredentialPathInAlternateProfile().value() << "\".";
-    ScheduleNextReadFromAlternateCredentialCache();
-    return;
-  }
-
-  // Extract cached credentials from the alternate credential cache.
-  std::string google_services_username =
-      GetAndUnpackStringPref(alternate_store_, prefs::kGoogleServicesUsername);
-  std::string lsid =
-      GetAndUnpackStringPref(alternate_store_, GaiaConstants::kGaiaLsid);
-  std::string sid =
-      GetAndUnpackStringPref(alternate_store_, GaiaConstants::kGaiaSid);
-  std::string encryption_bootstrap_token =
-      GetAndUnpackStringPref(alternate_store_,
-                             prefs::kSyncEncryptionBootstrapToken);
-
-  // Sign out of sync if the alternate profile has signed out the same user.
-  // There is no need to schedule any more reads of the alternate profile
-  // cache because we only apply cached credentials for first-time sign-ins.
-  if (ShouldSignOutOfSync(google_services_username)) {
-    VLOG(1) << "User has signed out on the other profile. Signing out.";
-    InitiateSignOut();
-    return;
-  }
-
-  // Extract cached sync prefs from the alternate credential cache.
-  bool keep_everything_synced =
-      GetBooleanPref(alternate_store_, prefs::kSyncKeepEverythingSynced);
-  ProfileSyncService* service =
-      ProfileSyncServiceFactory::GetForProfile(profile_);
-  ModelTypeSet registered_types = service->GetRegisteredDataTypes();
-  ModelTypeSet preferred_types;
-  for (ModelTypeSet::Iterator it = registered_types.First();
-       it.Good();
-       it.Inc()) {
-    std::string datatype_pref_name =
-        browser_sync::SyncPrefs::GetPrefNameForDataType(it.Get());
-    if (!HasPref(alternate_store_, datatype_pref_name)) {
-      // If there is no cached pref for a specific data type, it means that the
-      // user originally signed in with an older version of Chrome, and then
-      // upgraded to a version with a new datatype. In such cases, we leave the
-      // default initial datatype setting as false while reading cached
-      // credentials, just like we do in SyncPrefs::RegisterPreferences.
-      VLOG(1) << "Could not find cached datatype pref for "
-              << datatype_pref_name << " in "
-              << GetCredentialPathInAlternateProfile().value() << ".";
-      continue;
-    }
-    if (GetBooleanPref(alternate_store_, datatype_pref_name))
-      preferred_types.Put(it.Get());
-  }
-
-  // Reconfigure if sync settings or credentials have changed in the alternate
-  // profile, but for the same user that is signed in to the local profile.
-  if (MayReconfigureSync(google_services_username)) {
-    if (HaveSyncPrefsChanged(keep_everything_synced, preferred_types)) {
-      VLOG(1) << "Sync prefs have changed in other profile. Reconfiguring.";
-      service->OnUserChoseDatatypes(keep_everything_synced, preferred_types);
-    }
-    if (HaveTokenServiceCredentialsChanged(lsid, sid)) {
-      VLOG(1) << "Token service credentials have changed in other profile.";
-      UpdateTokenServiceCredentials(lsid, sid);
-    }
-  }
-
-  // Sign in if we notice new cached credentials in the alternate profile.
-  if (ShouldSignInToSync(google_services_username,
-                         lsid,
-                         sid,
-                         encryption_bootstrap_token)) {
-    InitiateSignInWithCachedCredentials(google_services_username,
-                                        encryption_bootstrap_token,
-                                        keep_everything_synced,
-                                        preferred_types);
-    UpdateTokenServiceCredentials(lsid, sid);
-  }
-
-  // Schedule the next read from the alternate credential cache so that we can
-  // detect future reconfigures or sign outs.
-  ScheduleNextReadFromAlternateCredentialCache();
-}
-
 void CredentialCacheService::InitiateSignInWithCachedCredentials(
     const std::string& google_services_username,
     const std::string& encryption_bootstrap_token,
+    const std::string& keystore_encryption_bootstrap_token,
     bool keep_everything_synced,
     ModelTypeSet preferred_types) {
-  // Update the google username in the SigninManager and PrefStore.
+  // Update the google username in the SigninManager and PrefStore. Also update
+  // its value in the local credential cache, since we will not send out
+  // NOTIFICATION_GOOGLE_SIGNIN_SUCCESSFUL in this case.
   ProfileSyncService* service =
       ProfileSyncServiceFactory::GetForProfile(profile_);
   service->signin()->SetAuthenticatedUsername(google_services_username);
   profile_->GetPrefs()->SetString(prefs::kGoogleServicesUsername,
                                   google_services_username);
+  PackAndUpdateStringPref(prefs::kGoogleServicesUsername,
+                          service->signin()->GetAuthenticatedUsername());
+
+  // Update sync encryption tokens after making sure at least one of them is
+  // non-empty.
+  DCHECK(!encryption_bootstrap_token.empty() ||
+         !keystore_encryption_bootstrap_token.empty());
+  if (!encryption_bootstrap_token.empty()) {
+    sync_prefs_.SetEncryptionBootstrapToken(encryption_bootstrap_token);
+  }
+  if (!keystore_encryption_bootstrap_token.empty()) {
+    sync_prefs_.SetKeystoreEncryptionBootstrapToken(
+        keystore_encryption_bootstrap_token);
+  }
 
   // Update the sync preferences.
   sync_prefs_.SetStartSuppressed(false);
   sync_prefs_.SetSyncSetupCompleted();
-  sync_prefs_.SetEncryptionBootstrapToken(encryption_bootstrap_token);
   sync_prefs_.SetKeepEverythingSynced(keep_everything_synced);
   sync_prefs_.SetPreferredDataTypes(service->GetRegisteredDataTypes(),
                                     preferred_types);
 }
 
 void CredentialCacheService::UpdateTokenServiceCredentials(
-    const std::string& lsid,
-    const std::string& sid) {
+    const std::string& alternate_lsid,
+    const std::string& alternate_sid) {
   GaiaAuthConsumer::ClientLoginResult login_result;
-  login_result.lsid = lsid;
-  login_result.sid = sid;
+  login_result.lsid = alternate_lsid;
+  login_result.sid = alternate_sid;
   TokenService* token_service = TokenServiceFactory::GetForProfile(profile_);
   token_service->UpdateCredentials(login_result);
   DCHECK(token_service->AreCredentialsValid());
@@ -528,29 +708,51 @@ void CredentialCacheService::InitiateSignOut() {
 }
 
 bool CredentialCacheService::HaveSyncPrefsChanged(
-    bool keep_everything_synced,
-    ModelTypeSet preferred_types) const {
+    bool alternate_keep_everything_synced,
+    ModelTypeSet alternate_preferred_types) const {
   ProfileSyncService* service =
       ProfileSyncServiceFactory::GetForProfile(profile_);
   ModelTypeSet local_preferred_types =
       sync_prefs_.GetPreferredDataTypes(service->GetRegisteredDataTypes());
   return
-      (keep_everything_synced != sync_prefs_.HasKeepEverythingSynced()) ||
-      !Difference(preferred_types, local_preferred_types).Empty();
+      (alternate_keep_everything_synced !=
+       sync_prefs_.HasKeepEverythingSynced()) ||
+      !alternate_preferred_types.Equals(local_preferred_types);
+}
+
+bool CredentialCacheService::HaveSyncEncryptionTokensChanged(
+    const std::string& alternate_encryption_bootstrap_token,
+    const std::string& alternate_keystore_encryption_bootstrap_token) {
+  std::string local_encryption_bootstrap_token;
+  if (HasPref(local_store_, prefs::kSyncEncryptionBootstrapToken)) {
+    local_encryption_bootstrap_token =
+        GetAndUnpackStringPref(local_store_,
+                               prefs::kSyncEncryptionBootstrapToken);
+  }
+  std::string local_keystore_encryption_bootstrap_token;
+  if (HasPref(local_store_, prefs::kSyncKeystoreEncryptionBootstrapToken)) {
+    local_keystore_encryption_bootstrap_token =
+        GetAndUnpackStringPref(local_store_,
+                               prefs::kSyncKeystoreEncryptionBootstrapToken);
+  }
+  return (local_encryption_bootstrap_token !=
+          alternate_encryption_bootstrap_token) ||
+         (local_keystore_encryption_bootstrap_token !=
+          alternate_keystore_encryption_bootstrap_token);
 }
 
 bool CredentialCacheService::HaveTokenServiceCredentialsChanged(
-    const std::string& lsid,
-    const std::string& sid) {
+    const std::string& alternate_lsid,
+    const std::string& alternate_sid) {
   std::string local_lsid =
       GetAndUnpackStringPref(local_store_, GaiaConstants::kGaiaLsid);
   std::string local_sid =
       GetAndUnpackStringPref(local_store_, GaiaConstants::kGaiaSid);
-  return local_lsid != lsid || local_sid != sid;
+  return local_lsid != alternate_lsid || local_sid != alternate_sid;
 }
 
 bool CredentialCacheService::ShouldSignOutOfSync(
-    const std::string& google_services_username) {
+    const std::string& alternate_google_services_username) {
   // We must sign out of sync iff:
   // 1) The user is signed in to the local profile.
   // 2) The user has never signed out of the local profile in the past.
@@ -561,14 +763,14 @@ bool CredentialCacheService::ShouldSignOutOfSync(
       ProfileSyncServiceFactory::GetForProfile(profile_);
   return !service->signin()->GetAuthenticatedUsername().empty() &&
          !HasUserSignedOut() &&
-         google_services_username.empty() &&
+         alternate_google_services_username.empty() &&
          !service->setup_in_progress() &&
          (GetLastUpdatedTime(alternate_store_) >
           GetLastUpdatedTime(local_store_));
 }
 
 bool CredentialCacheService::MayReconfigureSync(
-    const std::string& google_services_username) {
+    const std::string& alternate_google_services_username) {
   // We may attempt to reconfigure sync iff:
   // 1) The user is signed in to the local profile.
   // 2) The user has never signed out of the local profile in the past.
@@ -579,7 +781,7 @@ bool CredentialCacheService::MayReconfigureSync(
       ProfileSyncServiceFactory::GetForProfile(profile_);
   return !service->signin()->GetAuthenticatedUsername().empty() &&
          !HasUserSignedOut() &&
-         (google_services_username ==
+         (alternate_google_services_username ==
           service->signin()->GetAuthenticatedUsername()) &&
          !service->setup_in_progress() &&
          (GetLastUpdatedTime(alternate_store_) >
@@ -587,10 +789,11 @@ bool CredentialCacheService::MayReconfigureSync(
 }
 
 bool CredentialCacheService::ShouldSignInToSync(
-    const std::string& google_services_username,
-    const std::string& lsid,
-    const std::string& sid,
-    const std::string& encryption_bootstrap_token) {
+    const std::string& alternate_google_services_username,
+    const std::string& alternate_lsid,
+    const std::string& alternate_sid,
+    const std::string& alternate_encryption_bootstrap_token,
+    const std::string& alternate_keystore_encryption_bootstrap_token) {
   // We should sign in with cached credentials from the alternate profile iff:
   // 1) The user is not currently signed in to the local profile.
   // 2) The user has never signed out of the local profile in the past.
@@ -600,28 +803,12 @@ bool CredentialCacheService::ShouldSignInToSync(
       ProfileSyncServiceFactory::GetForProfile(profile_);
   return service->signin()->GetAuthenticatedUsername().empty() &&
          !HasUserSignedOut() &&
-         !google_services_username.empty() &&
-         !lsid.empty() &&
-         !sid.empty() &&
-         !encryption_bootstrap_token.empty() &&
+         !alternate_google_services_username.empty() &&
+         !alternate_lsid.empty() &&
+         !alternate_sid.empty() &&
+         !(alternate_encryption_bootstrap_token.empty() &&
+           alternate_keystore_encryption_bootstrap_token.empty()) &&
          !service->setup_in_progress();
-}
-
-void CredentialCacheService::ScheduleNextReadFromAlternateCredentialCache() {
-  // We must reinitialize |alternate_store_| here because the underlying
-  // credential file in the alternate profile might have changed, and we must
-  // re-read it afresh.
-  if (alternate_store_.get()) {
-    alternate_store_->RemoveObserver(this);
-    alternate_store_.release();
-  }
-  next_read_.Reset(base::Bind(
-      &CredentialCacheService::LookForCachedCredentialsInAlternateProfile,
-      weak_factory_.GetWeakPtr()));
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      next_read_.callback(),
-      TimeDelta::FromSeconds(kCredentialCachePollIntervalSecs));
 }
 
 }  // namespace syncer

@@ -159,6 +159,14 @@
             ],
         },],
       ],
+      'target_conditions' : [
+        [ 'OS == "ios"', {
+          'sources!': [
+            # This class is stubbed out on iOS.
+            'rsa_private_key.cc',
+          ],
+        }],
+      ],
       'sources': [
         # NOTE: all transitive dependencies of HMAC on windows need
         #     to be placed in the source list above.
@@ -204,6 +212,7 @@
         'random.cc',
         'rsa_private_key.cc',
         'rsa_private_key.h',
+        'rsa_private_key_ios.cc',
         'rsa_private_key_mac.cc',
         'rsa_private_key_nss.cc',
         'rsa_private_key_openssl.cc',

@@ -267,7 +267,7 @@
       '-omnibox.OmniboxTest.testCrazyFilenames',
       '-omnibox.OmniboxTest.testDifferentTypesOfResults',
       '-omnibox.OmniboxTest.testFetchHistoryResultItems',
-      '-omnibox.OmniboxTest.testGoogleSearch',
+      '-omnibox.OmniboxLiveTest.testGoogleSearch',
       '-omnibox.OmniboxTest.testInlineAutoComplete',
       '-omnibox.OmniboxTest.testSelect',
       '-omnibox.OmniboxTest.testSuggest',
@@ -577,7 +577,7 @@
       'omnibox.OmniboxTest.testCrazyFilenames',
       'omnibox.OmniboxTest.testDifferentTypesOfResults',
       'omnibox.OmniboxTest.testFetchHistoryResultItems',
-      'omnibox.OmniboxTest.testGoogleSearch',
+      'omnibox.OmniboxLiveTest.testGoogleSearch',
       'omnibox.OmniboxTest.testInlineAutoComplete',
       'omnibox.OmniboxTest.testSelect',
       'omnibox.OmniboxTest.testSuggest',
@@ -805,6 +805,14 @@
   # HTML5 media performance tests.
   'AV_PERF': {
      'linux': [
+       'media.audio_latency_perf',
+       'media.media_constrained_network_perf',
+       'media.media_scrub_perf',
+       'media.media_seek_perf',
+       'media.media_stat_perf',
+       'media.mixed_audio_latency_perf',
+     ],
+     'win': [
        'media.audio_latency_perf',
        'media.media_constrained_network_perf',
        'media.media_scrub_perf',

@@ -167,6 +167,9 @@ This file contains the strings for ash.
       <message name="IDS_AURA_APP_LIST_TITLE" desc="The title used for the Aura app list in the launcher">
         Apps
       </message>
+      <message name="IDS_AURA_APP_LIST_SYNCING_TITLE" desc="The title used for the Aura app list in the launcher to indicate loading/syncing apps.">
+        Syncing apps...
+      </message>
       <message name="IDS_AURA_NEW_TAB" desc="The text label of the New Tab menu item">
         New tab
       </message>
@@ -439,6 +442,9 @@ Press Search key to cancel.
       </message>
       <message name="IDS_ASH_WEB_NOTFICATION_TRAY_NO_MESSAGES" desc="The message displayed in the message center when there are no notifications.">
         You have no notifications. Relax!
+      </message>
+      <message name="IDS_ASH_WEB_NOTIFICATION_TRAY_ACCESSIBLE_NAME" desc="The accessible name of the web notification tray (message center).">
+        Message Center
       </message>
       <message name="IDS_ASH_MAXIMIZE_WINDOW" desc="A help text to show that when the button gets clicked the window get maximized.">
         Maximize

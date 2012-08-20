@@ -5,6 +5,7 @@
 #include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
 
 #include <leveldb/db.h>
+#include <utility>
 
 #include "base/message_loop_proxy.h"
 #include "base/string_number_conversions.h"
@@ -26,29 +27,6 @@ namespace {
 const char kDBKeyLargestChangestamp[] = "m:largest_changestamp";
 const char kDBKeyVersion[] = "m:version";
 const char kDBKeyResourceIdPrefix[] = "r:";
-
-// Returns true if |proto| is a valid proto as the root directory.
-// Used to reject incompatible proto.
-bool IsValidRootDirectoryProto(const GDataDirectoryProto& proto) {
-  const GDataEntryProto& entry_proto = proto.gdata_entry();
-  // The title field for the root directory was originally empty, then
-  // changed to "gdata", then changed to "drive". Discard the proto data if
-  // the older formats are detected. See crbug.com/128133 for details.
-  if (entry_proto.title() != "drive") {
-    LOG(ERROR) << "Incompatible proto detected (bad title): "
-               << entry_proto.title();
-    return false;
-  }
-  // The title field for the root directory was originally empty. Discard
-  // the proto data if the older format is detected.
-  if (entry_proto.resource_id() != kGDataRootDirectoryResourceId) {
-    LOG(ERROR) << "Incompatible proto detected (bad resource ID): "
-               << entry_proto.resource_id();
-    return false;
-  }
-
-  return true;
-}
 
 }  // namespace
 
@@ -235,7 +213,7 @@ void GDataDirectoryService::ClearRoot() {
   // Note that children have a reference to root_,
   // so we need to delete them here.
   root_->RemoveChildren();
-  RemoveEntryFromResourceMap(root_.get());
+  RemoveEntryFromResourceMap(root_->resource_id());
   DCHECK(resource_map_.empty());
   resource_map_.clear();
   root_.reset();
@@ -297,14 +275,19 @@ void GDataDirectoryService::RemoveEntryFromParent(
 }
 
 void GDataDirectoryService::AddEntryToResourceMap(GDataEntry* entry) {
-  // GDataFileSystem has already locked.
   DVLOG(1) << "AddEntryToResourceMap " << entry->resource_id();
-  resource_map_.insert(std::make_pair(entry->resource_id(), entry));
+  DCHECK(!entry->resource_id().empty());
+  std::pair<ResourceMap::iterator, bool> ret =
+      resource_map_.insert(std::make_pair(entry->resource_id(), entry));
+  DCHECK(ret.second);  // resource_id did not previously exist in the map.
 }
 
-void GDataDirectoryService::RemoveEntryFromResourceMap(GDataEntry* entry) {
-  // GDataFileSystem has already locked.
-  resource_map_.erase(entry->resource_id());
+void GDataDirectoryService::RemoveEntryFromResourceMap(
+    const std::string& resource_id) {
+  DVLOG(1) << "RemoveEntryFromResourceMap " << resource_id;
+  DCHECK(!resource_id.empty());
+  size_t ret = resource_map_.erase(resource_id);
+  DCHECK_EQ(1u, ret);  // resource_id was found in the map.
 }
 
 GDataEntry* GDataDirectoryService::FindEntryByPathSync(
@@ -327,13 +310,6 @@ GDataEntry* GDataDirectoryService::FindEntryByPathSync(
       current_dir = entry->AsGDataDirectory();
   }
   return NULL;
-}
-
-void GDataDirectoryService::FindEntryByPathAndRunSync(
-    const FilePath& search_file_path,
-    const FindEntryCallback& callback) {
-  GDataEntry* entry = FindEntryByPathSync(search_file_path);
-  callback.Run(entry ? GDATA_FILE_OK : GDATA_FILE_ERROR_NOT_FOUND, entry);
 }
 
 GDataEntry* GDataDirectoryService::GetEntryByResourceId(
@@ -469,6 +445,7 @@ void GDataDirectoryService::RefreshDirectoryInternal(
     return;
   }
 
+  DVLOG(1) << "RefreshDirectoryInternal";
   directory->RemoveChildFiles();
   // Add files from file_map.
   for (ResourceMap::const_iterator it = file_map.begin();
@@ -673,11 +650,7 @@ bool GDataDirectoryService::ParseFromString(
     return false;
   }
 
-  if (!IsValidRootDirectoryProto(proto.gdata_directory()))
-    return false;
-
-  if (!root_->FromProto(proto.gdata_directory()))
-    return false;
+  root_->FromProto(proto.gdata_directory());
 
   origin_ = FROM_CACHE;
   largest_changestamp_ = proto.largest_changestamp();
@@ -696,18 +669,12 @@ scoped_ptr<GDataEntry> GDataDirectoryService::FromProtoString(
     entry.reset(CreateGDataDirectory());
     // Call GDataEntry::FromProto instead of GDataDirectory::FromProto because
     // the proto does not include children.
-    if (!entry->FromProto(entry_proto)) {
-      NOTREACHED() << "FromProto (directory) failed";
-      entry.reset();
-    }
+    entry->FromProto(entry_proto);
   } else {
     scoped_ptr<GDataFile> file(CreateGDataFile());
     // Call GDataFile::FromProto.
-    if (file->FromProto(entry_proto)) {
-      entry.reset(file.release());
-    } else {
-      NOTREACHED() << "FromProto (file) failed";
-    }
+    file->FromProto(entry_proto);
+    entry.reset(file.release());
   }
   return entry.Pass();
 }

@@ -11,7 +11,7 @@ vars = {
     'git_url':
          'http://git.chromium.org',
     'webkit_rev':
-         '@6a4f8c69fef1030df75976813bcdc2d4417c6bc6'
+         '@30cb11b2b85f04133742cc62bf40b71788e942fb'
 }
 
 deps = {
@@ -26,9 +26,9 @@ deps = {
     'src/googleurl':
         Var('git_url') + '/external/google-url.git@05ba5f84d93b9ac5355d7d49281a93acd6089d68',
     'src/native_client':
-        Var('git_url') + '/native_client/src/native_client.git@7a73429ac9e18b67d730fcea05d01f98a3fce7f8',
+        Var('git_url') + '/native_client/src/native_client.git@7b5fcd7f5146b73df05612838ee6cf15a953caaf',
     'src/native_client_sdk/src/site_scons':
-        Var('git_url') + '/native_client/src/native_client/site_scons.git@863e3ade9901bc54bc8578b4257d6a75dbc61620',
+        Var('git_url') + '/native_client/src/native_client/site_scons.git@9f4b6fb199cc7bb06ddc23094a8cb5e30c16fddb',
     'src/sandbox/linux/seccomp-legacy':
         Var('git_url') + '/external/seccompsandbox.git@95fc762804a289168b66f3a9a9676ad9a9dd89a4',
     'src/sdch/open-vcdiff':
@@ -40,7 +40,7 @@ deps = {
     'src/third_party/WebKit':
         Var('webkit_url') + Var('webkit_rev'),
     'src/third_party/angle':
-        Var('git_url') + '/external/angleproject.git@75fe676331271d3b39d05352309bbaa7a994c5ae',
+        Var('git_url') + '/external/angleproject.git@0c007a9edfed41e1fc324d337704c5d150e60019',
     'src/third_party/bidichecker':
         Var('git_url') + '/external/bidichecker/lib.git@97f2aa645b74c28c57eca56992235c79850fa9e0',
     'src/third_party/cacheinvalidation/files/src/google':
@@ -130,7 +130,7 @@ deps = {
     'src/tools/grit':
         Var('git_url') + '/external/grit-i18n.git@3f70b8dfa4ce859b714f109beb29ffa8c396ce0b',
     'src/tools/gyp':
-        Var('git_url') + '/external/gyp.git@84f03b9a36029f21b40492e58851ca20268a54bf',
+        Var('git_url') + '/external/gyp.git@9906173b9c02491d6c88f43dd4338ddf2829aae0',
     'src/tools/page_cycler/acid3':
         Var('git_url') + '/chromium/deps/acid3.git@bed664c3c6f4200d2ab6b139bddb628dcef6f5ed',
     'src/v8':

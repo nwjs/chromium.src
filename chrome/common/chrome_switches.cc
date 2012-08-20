@@ -348,9 +348,6 @@ const char kDisableIPPooling[]              = "disable-ip-pooling";
 const char kDisableNonFullscreenMouseLock[] =
     "disable-non-fullscreen-mouse-lock";
 
-// Avoid doing expensive animations upon login.
-const char kDisableLoginAnimations[]        = "disable-login-animations";
-
 // Disables the menu on the NTP for accessing sessions from other devices.
 const char kDisableNTPOtherSessionsMenu[]   = "disable-ntp-other-sessions-menu";
 
@@ -954,6 +951,11 @@ const char kNotifyCloudPrintTokenExpired[]  = "notify-cp-token-expired";
 // Autoconfig (PAC) script.
 const char kNumPacThreads[]                 = "num-pac-threads";
 
+// Refactored (browserless) Panels are on by default in dev/canary/trunk.
+// Use this flag to revert to using the old-style (pre-refactor) Panels.
+// Flag will be removed after refactor is complete.
+const char kOldPanels[] = "old-panels";
+
 // Controls whether to use the fancy new scoring (takes into account
 // word breaks, does better balancing of topicality, recency, etc.) for
 // HistoryQuickProvider.
@@ -1386,8 +1388,14 @@ const char kDisableGData[]                  = "disable-gdata";
 // Disables new WebRTC implementation of user image picker.
 const char kDisableHtml5Camera[]            = "disable-html5-camera";
 
+// Avoid doing expensive animations upon login.
+const char kDisableLoginAnimations[]        = "disable-login-animations";
+
 // Disables new OOBE/sign in design.
 const char kDisableNewOobe[]                = "disable-new-oobe";
+
+// Avoid doing animations upon oobe.
+const char kDisableOobeAnimation[]          = "disable-oobe-animation";
 
 // Enables touchpad three-finger-click as middle button.
 const char kEnableTouchpadThreeFingerClick[]

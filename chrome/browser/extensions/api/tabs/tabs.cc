@@ -10,6 +10,7 @@
 
 #include "base/base64.h"
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/message_loop.h"
@@ -76,7 +77,6 @@
 
 #if defined(USE_ASH)
 #include "ash/ash_switches.h"
-#include "base/command_line.h"
 #include "chrome/browser/ui/views/ash/panel_view_aura.h"
 #endif
 
@@ -575,8 +575,7 @@ bool CreateWindowFunction::RunImpl() {
     std::string title =
         web_app::GenerateApplicationNameFromExtensionId(extension_id);
 #if !defined(USE_ASH)
-    if (CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kBrowserlessPanels)) {
+    if (PanelManager::UseBrowserlessPanels()) {
       // Note: Panels ignore all but the first url provided.
       Panel* panel = PanelManager::GetInstance()->CreatePanel(
           title, window_profile, urls[0], panel_bounds.size());

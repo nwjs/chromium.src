@@ -190,6 +190,15 @@ void InitFromDBCallback(GDataFileError expected_error,
   EXPECT_EQ(expected_error, actual_error);
 }
 
+// Callback for GDataDirectoryService::ReadDirectoryByPath.
+void ReadDirectoryByPathCallback(
+    scoped_ptr<GDataEntryProtoVector>* result,
+    GDataFileError error,
+    scoped_ptr<GDataEntryProtoVector> entries) {
+  EXPECT_EQ(GDATA_FILE_OK, error);
+  *result = entries.Pass();
+}
+
 }  // namespace
 
 TEST(GDataDirectoryServiceTest, VersionCheck) {
@@ -226,143 +235,6 @@ TEST(GDataDirectoryServiceTest, VersionCheck) {
   ASSERT_TRUE(proto.SerializeToString(&serialized_proto));
   // This should fail as the version is newer.
   ASSERT_FALSE(directory_service.ParseFromString(serialized_proto));
-}
-
-TEST(GDataDirectoryServiceTest, ParseFromString_DetectBadTitle) {
-  GDataRootDirectoryProto proto;
-  proto.set_version(kProtoVersion);
-
-  GDataEntryProto* mutable_entry =
-      proto.mutable_gdata_directory()->mutable_gdata_entry();
-  mutable_entry->mutable_file_info()->set_is_directory(true);
-  mutable_entry->set_resource_id(kGDataRootDirectoryResourceId);
-  mutable_entry->set_upload_url(kResumableCreateMediaUrl);
-
-  std::string serialized_proto;
-  ASSERT_TRUE(proto.SerializeToString(&serialized_proto));
-
-  GDataDirectoryService directory_service;
-  GDataDirectory* root(directory_service.root());
-  // This should fail as the title is empty.
-  // root.title() should be unchanged.
-  ASSERT_FALSE(directory_service.ParseFromString(serialized_proto));
-  ASSERT_EQ(kGDataRootDirectory, root->title());
-
-  // Setting the title to "gdata".
-  mutable_entry->set_title("gdata");
-  ASSERT_TRUE(proto.SerializeToString(&serialized_proto));
-
-  // This should fail as the title is not kGDataRootDirectory.
-  // root.title() should be unchanged.
-  ASSERT_FALSE(directory_service.ParseFromString(serialized_proto));
-  ASSERT_EQ(kGDataRootDirectory, root->title());
-
-  // Setting the title to kGDataRootDirectory.
-  mutable_entry->set_title(kGDataRootDirectory);
-  ASSERT_TRUE(proto.SerializeToString(&serialized_proto));
-
-  // This should succeed as the title is kGDataRootDirectory.
-  ASSERT_TRUE(directory_service.ParseFromString(serialized_proto));
-  ASSERT_EQ(kGDataRootDirectory, root->title());
-}
-
-TEST(GDataDirectoryServiceTest, ParseFromString_DetectBadResourceID) {
-  GDataRootDirectoryProto proto;
-  proto.set_version(kProtoVersion);
-
-  GDataEntryProto* mutable_entry =
-      proto.mutable_gdata_directory()->mutable_gdata_entry();
-  mutable_entry->mutable_file_info()->set_is_directory(true);
-  mutable_entry->set_title(kGDataRootDirectory);
-  mutable_entry->set_upload_url(kResumableCreateMediaUrl);
-
-  std::string serialized_proto;
-  ASSERT_TRUE(proto.SerializeToString(&serialized_proto));
-
-  GDataDirectoryService directory_service;
-  GDataDirectory* root(directory_service.root());
-  // This should fail as the resource ID is empty.
-  // root.resource_id() should be unchanged.
-  ASSERT_FALSE(directory_service.ParseFromString(serialized_proto));
-  EXPECT_EQ(kGDataRootDirectoryResourceId, root->resource_id());
-
-  // Set the correct resource ID.
-  mutable_entry->set_resource_id(kGDataRootDirectoryResourceId);
-  ASSERT_TRUE(proto.SerializeToString(&serialized_proto));
-
-  // This should succeed as the resource ID is correct.
-  ASSERT_TRUE(directory_service.ParseFromString(serialized_proto));
-  EXPECT_EQ(kGDataRootDirectoryResourceId, root->resource_id());
-}
-
-// We have a similar test in FromProto_DetectBadUploadUrl, but the test here
-// is to ensure that an error in GDataFile::FromProto() is properly
-// propagated to GDataRootDirectory::ParseFromString().
-TEST(GDataDirectoryServiceTest, ParseFromString_DetectNoUploadUrl) {
-  // Set up the root directory properly.
-  GDataRootDirectoryProto root_directory_proto;
-  root_directory_proto.set_version(kProtoVersion);
-
-  GDataEntryProto* mutable_entry =
-      root_directory_proto.mutable_gdata_directory()->mutable_gdata_entry();
-  mutable_entry->mutable_file_info()->set_is_directory(true);
-  mutable_entry->set_title(kGDataRootDirectory);
-  mutable_entry->set_resource_id(kGDataRootDirectoryResourceId);
-  mutable_entry->set_upload_url(kResumableCreateMediaUrl);
-
-  // Add an empty sub directory under the root directory. This directory is
-  // added to ensure that nothing is left when the parsing failed.
-  GDataDirectoryProto* sub_directory_proto =
-      root_directory_proto.mutable_gdata_directory()->add_child_directories();
-  sub_directory_proto->mutable_gdata_entry()->mutable_file_info()->
-      set_is_directory(true);
-  sub_directory_proto->mutable_gdata_entry()->set_title("empty");
-  sub_directory_proto->mutable_gdata_entry()->set_upload_url(
-      kResumableCreateMediaUrl);
-
-  // Add a sub directory under the root directory.
-  sub_directory_proto =
-      root_directory_proto.mutable_gdata_directory()->add_child_directories();
-  sub_directory_proto->mutable_gdata_entry()->mutable_file_info()->
-      set_is_directory(true);
-  sub_directory_proto->mutable_gdata_entry()->set_title("dir");
-  sub_directory_proto->mutable_gdata_entry()->set_upload_url(
-      kResumableCreateMediaUrl);
-
-  // Add a new file under the sub directory "dir".
-  GDataEntryProto* entry_proto =
-      sub_directory_proto->add_child_files();
-  entry_proto->set_title("test.txt");
-  entry_proto->mutable_file_specific_info()->set_file_md5("md5");
-
-  GDataDirectoryService directory_service;
-  GDataDirectory* root(directory_service.root());
-  // The origin is set to UNINITIALIZED by default.
-  ASSERT_EQ(UNINITIALIZED, directory_service.origin());
-  std::string serialized_proto;
-  // Serialize the proto and check if it's loaded.
-  // This should fail as the upload URL is not set for |entry_proto|.
-  ASSERT_TRUE(root_directory_proto.SerializeToString(&serialized_proto));
-  ASSERT_FALSE(directory_service.ParseFromString(serialized_proto));
-  // Nothing should be added to the root directory if the parse failed.
-  ASSERT_TRUE(root->child_files().empty());
-  ASSERT_TRUE(root->child_directories().empty());
-  // The origin should remain UNINITIALIZED because the loading failed.
-  ASSERT_EQ(UNINITIALIZED, directory_service.origin());
-
-  // Set an upload URL.
-  entry_proto->set_upload_url(kResumableEditMediaUrl);
-
-  // Serialize the proto and check if it's loaded.
-  // This should succeed as the upload URL is set for |entry_proto|.
-  ASSERT_TRUE(root_directory_proto.SerializeToString(&serialized_proto));
-  ASSERT_TRUE(directory_service.ParseFromString(serialized_proto));
-  // No file should be added to the root directory.
-  ASSERT_TRUE(root->child_files().empty());
-  // Two directories ("empty", "dir") should be added to the root directory.
-  ASSERT_EQ(2U, root->child_directories().size());
-  // The origin should change to FROM_CACHE because we loaded from the cache.
-  ASSERT_EQ(FROM_CACHE, directory_service.origin());
 }
 
 TEST(GDataDirectoryServiceTest, RefreshFile) {

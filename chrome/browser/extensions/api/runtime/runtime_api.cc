@@ -29,7 +29,12 @@ static void DispatchOnStartupEventImpl(
     Profile* profile,
     const std::string& extension_id,
     bool first_call,
-    ExtensionHost* unused) {
+    ExtensionHost* host) {
+  // A NULL host from the LazyBackgroundTaskQueue means the page failed to
+  // load. Give up.
+  if (!host && !first_call)
+    return;
+
   if (g_browser_process->IsShuttingDown() ||
       !g_browser_process->profile_manager()->IsValidProfile(profile))
     return;

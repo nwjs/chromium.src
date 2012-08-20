@@ -318,7 +318,7 @@ are declared in build/common.gypi.
         Others
       </message>
       <message name="IDS_WEBSITE_SETTINGS_SITE_DATA_STATS_LINE" desc="The label text with the number of allowed and blocked cookies and site data objects.">
-        <ph name="DATA_SOURCE">$1<ex>foo.bar.org</ex></ph> (<ph name="ALLOWED_COUNT">$2<ex>6</ex></ph> Allowed / <ph name="BLOCKED_COUNT">$3<ex>0</ex></ph> Blocked)
+        <ph name="DATA_SOURCE">$1<ex>foo.bar.org</ex></ph> (<ph name="ALLOWED_COUNT">$2<ex>6</ex></ph> allowed / <ph name="BLOCKED_COUNT">$3<ex>0</ex></ph> blocked)
       </message>
       <message name="IDS_WEBSITE_SETTINGS_MENU_ITEM_DEFAULT_ALLOW" desc="The text of the menu item of a permissions menu on the Website Settings UI that resets the setting to the default setting which is allow.">
         Use global default (Allow)
@@ -4140,6 +4140,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         <message name="IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN" desc="Task manager WebCore CSS cache size column.">
           CSS cache
         </message>
+        <message name="IDS_TASK_MANAGER_VIDEO_MEMORY_COLUMN" desc="The text of the video memory usage column">
+          GPU Memory
+        </message>
         <message name="IDS_TASK_MANAGER_FPS_COLUMN" desc="The text of the FPS column">
           FPS
         </message>
@@ -4201,6 +4204,9 @@ Public Exponent (<ph name="PUBLIC_EXPONENT_NUM_BITS">$3<ex>24</ex></ph> bits):
         </message>
         <message name="IDS_TASK_MANAGER_WEBCORE_CSS_CACHE_COLUMN" desc="Task manager WebCore CSS cache size column.">
           CSS Cache
+        </message>
+        <message name="IDS_TASK_MANAGER_VIDEO_MEMORY_COLUMN" desc="The text of the video memory usage column">
+          GPU Memory
         </message>
         <message name="IDS_TASK_MANAGER_FPS_COLUMN" desc="The text of the FPS column">
           FPS
@@ -7337,9 +7343,6 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
           Set Up Automatic Updates for All Users
         </message>
       </if>
-      <message name="IDS_ABOUT_CHROME_UPDATE_CHECK" desc="The Check for Updates button">
-        Update Now
-      </message>
       <message name="IDS_UPGRADE_CHECK_STARTED" desc="Status label: About to start checking for updates">
         Checking for updates...
       </message>
@@ -9206,12 +9209,6 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_PLATFORM_LABEL" desc="Label for Platform">
         Platform
       </message>
-      <message name="IDS_ABOUT_PAGE_LOADING" desc="Label used for async data before data is available. Example is Chrome OS version.">
-        Loading&#x2026;
-      </message>
-      <message name="IDS_ABOUT_PAGE_MORE_INFO" desc="Title for _More_info_ link.">
-        More Info
-      </message>
       <message name="IDS_ABOUT_PAGE_CHANNEL" desc="The channel label under _More_Info_.">
         Channel
       </message>
@@ -9224,23 +9221,11 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_ABOUT_PAGE_CHANNEL_DEVELOPMENT" desc="The development option in the channel select.">
         Dev - Unstable
       </message>
-      <message name="IDS_ABOUT_PAGE_CHANNEL_CANARY" desc="The canary option in the channel select.">
-        Canary
-      </message>
-      <message name="IDS_ABOUT_PAGE_CHANNEL_WARNING_HEADER" desc="Text right before the warning body text.">
-        WARNING
-      </message>
-      <message name="IDS_ABOUT_PAGE_CHANNEL_WARNING_TEXT" desc="The warning text show on the release channel switching UI.">
-        The development channel is where ideas get tested, but can be very unstable at times. Please proceed with caution.
-      </message>
-      <message name="IDS_ABOUT_PAGE_CHECK_NOW" desc="Button title for checking for updates now.">
-        Check for update
-      </message>
 
       <message name="IDS_OPTIONS_STARTUP_GROUP_NAME" desc="The title of the startup group">
         On startup
       </message>
-      <message name="IDS_OPTIONS2_STARTUP_SHOW_NEWTAB" desc="The label of the 'Show home page' startup option radio button">
+      <message name="IDS_OPTIONS_STARTUP_SHOW_NEWTAB" desc="The label of the 'Show home page' startup option radio button">
         Open the New Tab page
       </message>
       <message name="IDS_OPTIONS_STARTUP_SHOW_DEFAULT_AND_NEWTAB" desc="The label of the 'Show home page' startup option radio button">
@@ -9252,13 +9237,10 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_OPTIONS_STARTUP_RESTORE_LAST_SESSION" desc="The label of the 'Continue where I left off' startup option radio button">
         Continue where I left off
       </message>
-      <message name="IDS_OPTIONS_STARTUP_SHOW_PAGES" desc="The label of the 'Show these pages:' startup option radio button on the old settings page">
-        Open the following pages:
-      </message>
-      <message name="IDS_OPTIONS2_STARTUP_SHOW_PAGES" desc="The label of the 'Show these pages:' startup option radio button">
+      <message name="IDS_OPTIONS_STARTUP_SHOW_PAGES" desc="The label of the 'Show these pages:' startup option radio button">
         Open a specific page or set of pages.
       </message>
-      <message name="IDS_OPTIONS2_STARTUP_SET_PAGES" desc="The link that is clicked to choose the set of pages that will be shown at startup">
+      <message name="IDS_OPTIONS_STARTUP_SET_PAGES" desc="The link that is clicked to choose the set of pages that will be shown at startup">
         Set pages
       </message>
       <message name="IDS_OPTIONS_STARTUP_PAGE_TOOLTIP" desc="A tooltip to display for a page in the list of pages to open on startup">
@@ -9273,7 +9255,7 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_OPTIONS_STARTUP_PAGES_PLACEHOLDER" desc="The placeholder text in the custom startup urls dialog">
         Enter URL...
       </message>
-      <message name="IDS_OPTIONS2_STARTUP_PAGES_DIALOG_TITLE" desc="The title of the dialog where the user chooses the set of pages that will be shown at startup">
+      <message name="IDS_OPTIONS_STARTUP_PAGES_DIALOG_TITLE" desc="The title of the dialog where the user chooses the set of pages that will be shown at startup">
         Startup pages
       </message>
       <message name="IDS_OPTIONS_STARTUP_USE_CURRENT" desc="The label of the 'Use Current' button for the custom startup urls list">
@@ -9288,19 +9270,16 @@ Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME">$1<ex>Add/Remove Pr
       <message name="IDS_OPTIONS_HOMEPAGE_GROUP_NAME" desc="The title of the home page group">
         Home page
       </message>
-      <message name="IDS_OPTIONS2_HOMEPAGE_TITLE" desc="The title of the home page overlay">
+      <message name="IDS_OPTIONS_HOMEPAGE_TITLE" desc="The title of the home page overlay">
         Home page
       </message>
       <message name="IDS_OPTIONS_TOOLBAR_GROUP_NAME" desc="The title of the toolbar group">
-        Toolbar
-      </message>
-      <message name="IDS_OPTIONS2_TOOLBAR_GROUP_NAME" desc="The title of the toolbar group">
         Toolbar appearance
       </message>
-      <message name="IDS_OPTIONS2_HOMEPAGE_DIALOG_LABEL" desc="The label for the homepage textbox in the dialog">
+      <message name="IDS_OPTIONS_HOMEPAGE_DIALOG_LABEL" desc="The label for the homepage textbox in the dialog">
         Home page:
       </message>
-      <message name="IDS_OPTIONS2_HOMEPAGE" desc="The label for the homepage selector">
+      <message name="IDS_OPTIONS_HOMEPAGE" desc="The label for the homepage selector">
         Home page:
       </message>
       <message name="IDS_OPTIONS_HOMEPAGE_USE_NEWTAB" desc="The title of the 'Use the New Tab page' for the home page radio">
@@ -12117,7 +12096,7 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_SYNC_CUSTOMIZE_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
         Advanced...
       </message>
-      <message name="IDS_OPTIONS2_CUSTOMIZE_SYNC_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
+      <message name="IDS_OPTIONS_CUSTOMIZE_SYNC_BUTTON_LABEL" desc="The text to display on the button to customize which data types the user is syncing.">
         Advanced sync settings...
       </message>
       <message name="IDS_SYNC_STOP_SYNCING_BUTTON_LABEL" desc="The text to display on the button to indicate stop syncing functionality.">
@@ -13837,25 +13816,25 @@ Press any key to continue exploring.
       <message name="IDS_OPTIONS_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
         Keyboard settings...
       </message>
-      <message name="IDS_OPTIONS2_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
+      <message name="IDS_OPTIONS_DEVICE_GROUP_KEYBOARD_SETTINGS_BUTTON_TITLE">
         Keyboard settings
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SECTION">
         Pointer sensitivity:
       </message>
-      <message name="IDS_OPTIONS2_DEVICE_GROUP_POINTER_SECTION">
+      <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SECTION">
         Pointer speed:
       </message>
-      <message name="IDS_OPTIONS2_SETTINGS_MOUSE_SPEED_DESCRIPTION">
+      <message name="IDS_OPTIONS_SETTINGS_MOUSE_SPEED_DESCRIPTION">
         Mouse speed:
       </message>
-      <message name="IDS_OPTIONS2_SETTINGS_TOUCHPAD_SPEED_DESCRIPTION">
+      <message name="IDS_OPTIONS_SETTINGS_TOUCHPAD_SPEED_DESCRIPTION">
         Touchpad speed:
       </message>
       <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
         Pointer settings...
       </message>
-      <message name="IDS_OPTIONS2_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
+      <message name="IDS_OPTIONS_DEVICE_GROUP_POINTER_SETTINGS_BUTTON_TITLE">
         Pointer settings
       </message>
       <message name="IDS_OPTIONS_SETTINGS_SECTION_TITLE_TOUCHPAD">
