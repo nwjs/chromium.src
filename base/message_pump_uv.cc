@@ -30,10 +30,6 @@ namespace base {
 MessagePumpUV::MessagePumpUV()
     : keep_running_(true)
 {
-  int argc = 1;
-  char* argv[] = { (char*)"node", NULL };
-  node::SetupUv(argc, argv);
-
   uv_async_init(uv_default_loop(), &wakeup_event_, wakeup_callback);
 }
 
