@@ -34,6 +34,7 @@
         '../net/net.gyp:net',
         '../net/net.gyp:net_resources',
         '../skia/skia.gyp:skia',
+        '../third_party/node/node.gyp:node',
         '../ui/ui.gyp:ui',
         '../v8/tools/gyp/v8.gyp:v8',
         '../webkit/support/webkit_support.gyp:webkit_support',
