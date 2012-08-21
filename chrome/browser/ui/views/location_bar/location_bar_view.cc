@@ -396,6 +396,7 @@ void LocationBarView::ModeChanged(const chrome::search::Mode& mode) {
 
 void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   RefreshContentSettingViews();
+  ZoomBubbleView::CloseBubble();
   zoom_view_->Update();
   RefreshPageActionViews();
 
