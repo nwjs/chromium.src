@@ -270,8 +270,9 @@ void LocationBarView::Init(views::View* popup_parent_view) {
     content_blocked_view->SetVisible(false);
   }
 
-  zoom_view_ = new ZoomView(model_, delegate_);
-  AddChildView(zoom_view_);
+  // TODO(khorimoto): After zoom is finished, uncomment the following:
+  // zoom_view_ = new ZoomView(model_, delegate_);
+  // AddChildView(zoom_view_);
 
   if (extensions::switch_utils::IsActionBoxEnabled()) {
     action_box_button_view_ = new ActionBoxButtonView(
@@ -396,8 +397,9 @@ void LocationBarView::ModeChanged(const chrome::search::Mode& mode) {
 
 void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   RefreshContentSettingViews();
-  ZoomBubbleView::CloseBubble();
-  zoom_view_->Update();
+  // TODO(khorimoto): After zoom is finished, uncomment the following:
+  // ZoomBubbleView::CloseBubble();
+  // zoom_view_->Update();
   RefreshPageActionViews();
 
   bool star_enabled = star_view_ && !model_->input_in_progress() &&
@@ -504,19 +506,24 @@ void LocationBarView::ShowStarBubble(const GURL& url, bool newly_bookmarked) {
 }
 
 void LocationBarView::SetZoomIconTooltipPercent(int zoom_percent) {
+  if (!zoom_view_)
+    return;
   zoom_view_->SetZoomIconTooltipPercent(zoom_percent);
 }
 
 void LocationBarView::SetZoomIconState(
     ZoomController::ZoomIconState zoom_icon_state) {
-  zoom_view_->SetZoomIconState(zoom_icon_state);
+  if (!zoom_view_)
+    return;
 
+  zoom_view_->SetZoomIconState(zoom_icon_state);
   Layout();
   SchedulePaint();
 }
 
 void LocationBarView::ShowZoomBubble(int zoom_percent) {
-  ZoomBubbleView::ShowBubble(zoom_view_, GetTabContents(), true);
+  // TODO(khorimoto): After zoom is finished, uncomment the following:
+  // ZoomBubbleView::ShowBubble(zoom_view_, GetTabContents(), true);
 }
 
 void LocationBarView::ShowChromeToMobileBubble() {
@@ -669,7 +676,7 @@ void LocationBarView::Layout() {
     if ((*i)->visible())
       entry_width -= ((*i)->GetPreferredSize().width() + GetItemPadding());
   }
-  if (zoom_view_->visible())
+  if (zoom_view_ && zoom_view_->visible())
     entry_width -= zoom_view_->GetPreferredSize().width() + GetItemPadding();
   for (ContentSettingViews::const_iterator i(content_setting_views_.begin());
        i != content_setting_views_.end(); ++i) {
@@ -766,7 +773,7 @@ void LocationBarView::Layout() {
     }
   }
 
-  if (zoom_view_->visible()) {
+  if (zoom_view_ && zoom_view_->visible()) {
     int zoom_width = zoom_view_->GetPreferredSize().width();
     offset -= zoom_width;
     zoom_view_->SetBounds(offset, location_y, zoom_width, location_height);
