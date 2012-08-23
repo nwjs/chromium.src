@@ -1,4 +1,0 @@
-include_rules = [
-  "+google/cacheinvalidation/types.pb.h",
-  "+sync/notifier/sync_notifier_observer.h",
-]

@@ -287,7 +287,6 @@ void APIPermissionInfo::RegisterAllPermissions(
       kFlagCannotBeOptional,
       IDS_EXTENSION_PROMPT_WARNING_MEDIA_GALLERIES_ALL_GALLERIES,
       PermissionMessage::kMediaGalleriesAllGalleries },
-    { APIPermission::kPushMessaging, "pushMessaging", kFlagCannotBeOptional },
   };
 
   for (size_t i = 0; i < ARRAYSIZE_UNSAFE(PermissionsToRegister); ++i) {

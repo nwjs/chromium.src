@@ -286,9 +286,6 @@ class ExtensionService
   // Start up the extension event routers.
   void InitEventRouters();
 
-  // Called when the associated Profile is going to be destroyed.
-  void Shutdown();
-
   // Look up an extension by ID.  Does not include terminated
   // extensions.
   virtual const extensions::Extension* GetExtensionById(
