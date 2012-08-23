@@ -174,12 +174,6 @@ struct UniformData {
   GLenum type;
 };
 
-struct UniformDataComparer {
-  bool operator()(const UniformData& lhs, const UniformData& rhs) const {
-    return lhs.queried_name < rhs.queried_name;
-  }
-};
-
 }  // anonymous namespace
 
 void ProgramManager::ProgramInfo::Update() {
@@ -253,8 +247,6 @@ void ProgramManager::ProgramInfo::Update() {
       uniform_data_.push_back(data);
     }
   }
-
-  std::sort(uniform_data_.begin(), uniform_data_.end(), UniformDataComparer());
 
   for (size_t ii = 0; ii < uniform_data_.size(); ++ii) {
     const UniformData& data = uniform_data_[ii];
