@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {{+partials.header_head}}
+    <link href="{{static}}/css/api.css" rel="stylesheet" type="text/css">
+    {{+partials.title}}
+  </head>
+  <body>
+    {{+partials.header_body title:apps_title}}
+    <div id="gc-container">
+      {{+partials.apps_sidenav}}
+      <div id="gc-pagecontent">
+        <h1 class="page_title">chrome.{{api.name}}</h1>
+        {{?api.permissions.dev}}{{+partials.warning}}{{/}}
+        {{+partials.table_of_contents toc:intro.toc
+                                      samples_list:api.samples.apps
+                                      title:apps_title}}
+{{- This is unindented because it contains <pre> tags -}}
+{{+intro.intro is_apps:true}}
+        {{+partials.api_reference samples_list:api.samples.apps
+                                  title:apps_title}}
+      </div>
+    </div>
+  </body>
+  {{+partials.apps_footer}}
+</html>
