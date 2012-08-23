@@ -233,6 +233,7 @@ bool IsLocalePartiallyPopulated(const std::string& locale_name) {
 
 #if !defined(OS_MACOSX)
 bool IsLocaleAvailable(const std::string& locale) {
+#if 0
   // If locale has any illegal characters in it, we don't want to try to
   // load it because it may be pointing outside the locale data file directory.
   if (!file_util::IsFilenameLegal(ASCIIToUTF16(locale)))
@@ -247,6 +248,8 @@ bool IsLocaleAvailable(const std::string& locale) {
     return false;
 
   return ResourceBundle::GetSharedInstance().LocaleDataPakExists(locale);
+#endif
+  return true;
 }
 
 bool CheckAndResolveLocale(const std::string& locale,
