@@ -21,12 +21,13 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/event_router_forwarder.h"
-#include "chrome/browser/net/cache_stats.h"
+#include "chrome/browser/net/async_dns_field_trial.h"
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
 #include "chrome/browser/net/connect_interceptor.h"
 #include "chrome/browser/net/http_pipelining_compatibility_client.h"
+#include "chrome/browser/net/load_time_stats.h"
 #include "chrome/browser/net/pref_proxy_config_tracker.h"
 #include "chrome/browser/net/proxy_service_factory.h"
 #include "chrome/browser/net/sdch_dictionary_fetcher.h"
@@ -109,10 +110,13 @@ class SystemURLRequestContext : public URLRequestContextWithUserAgent {
 net::HostResolver* CreateGlobalHostResolver(net::NetLog* net_log) {
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
 
+  bool allow_async_dns_field_trial = true;
+
   size_t parallelism = net::HostResolver::kDefaultParallelism;
 
   // Use the concurrency override from the command-line, if any.
   if (command_line.HasSwitch(switches::kHostResolverParallelism)) {
+    allow_async_dns_field_trial = false;
     std::string s =
         command_line.GetSwitchValueASCII(switches::kHostResolverParallelism);
 
@@ -129,6 +133,7 @@ net::HostResolver* CreateGlobalHostResolver(net::NetLog* net_log) {
 
   // Use the retry attempts override from the command-line, if any.
   if (command_line.HasSwitch(switches::kHostResolverRetryAttempts)) {
+    allow_async_dns_field_trial = false;
     std::string s =
         command_line.GetSwitchValueASCII(switches::kHostResolverRetryAttempts);
     // Parse the switch (it should be a non-negative integer).
@@ -141,14 +146,24 @@ net::HostResolver* CreateGlobalHostResolver(net::NetLog* net_log) {
   }
 
   net::HostResolver* global_host_resolver = NULL;
+  bool use_async = false;
   if (command_line.HasSwitch(switches::kEnableAsyncDns)) {
-    global_host_resolver =
-        net::CreateAsyncHostResolver(parallelism, retry_attempts, net_log);
+    allow_async_dns_field_trial = false;
+    use_async = true;
+  } else if (command_line.HasSwitch(switches::kDisableAsyncDns)) {
+    allow_async_dns_field_trial = false;
+    use_async = false;
   }
 
-  if (!global_host_resolver) {
+  if (allow_async_dns_field_trial)
+    use_async = chrome_browser_net::ConfigureAsyncDnsFieldTrial();
+
+  if (use_async) {
     global_host_resolver =
-      net::CreateSystemHostResolver(parallelism, retry_attempts, net_log);
+        net::CreateAsyncHostResolver(parallelism, retry_attempts, net_log);
+  } else {
+    global_host_resolver =
+        net::CreateSystemHostResolver(parallelism, retry_attempts, net_log);
   }
 
   // Determine if we should disable IPv6 support.
@@ -432,7 +447,7 @@ void IOThread::Init() {
       new net::ServerBoundCertService(
           new net::DefaultServerBoundCertStore(NULL),
           base::WorkerPool::GetTaskRunner(true)));
-  globals_->cache_stats.reset(new chrome_browser_net::CacheStats());
+  globals_->load_time_stats.reset(new chrome_browser_net::LoadTimeStats());
   net::HttpNetworkSession::Params session_params;
   session_params.host_resolver = globals_->host_resolver.get();
   session_params.cert_verifier = globals_->cert_verifier.get();

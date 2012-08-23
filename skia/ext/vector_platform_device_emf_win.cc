@@ -15,6 +15,9 @@
 
 namespace skia {
 
+#define CHECK_FOR_NODRAW_ANNOTATION(paint) \
+    do { if (paint.isNoDrawAnnotation()) { return; } } while (0)
+
 // static
 SkDevice* VectorPlatformDeviceEmf::CreateDevice(
     int width, int height, bool is_opaque, HANDLE shared_section) {
@@ -97,8 +100,7 @@ VectorPlatformDeviceEmf::VectorPlatformDeviceEmf(HDC dc, const SkBitmap& bitmap)
     : SkDevice(bitmap),
       hdc_(dc),
       previous_brush_(NULL),
-      previous_pen_(NULL),
-      alpha_blend_used_(false) {
+      previous_pen_(NULL) {
   transform_.reset();
   SetPlatformDevice(this, this);
 }
@@ -173,6 +175,7 @@ void VectorPlatformDeviceEmf::drawPoints(const SkDraw& draw,
 void VectorPlatformDeviceEmf::drawRect(const SkDraw& draw,
                                        const SkRect& rect,
                                        const SkPaint& paint) {
+  CHECK_FOR_NODRAW_ANNOTATION(paint);
   if (paint.getPathEffect()) {
     // Draw a path instead.
     SkPath path_orginal;
@@ -210,6 +213,7 @@ void VectorPlatformDeviceEmf::drawPath(const SkDraw& draw,
                                        const SkPaint& paint,
                                        const SkMatrix* prePathMatrix,
                                        bool pathIsMutable) {
+  CHECK_FOR_NODRAW_ANNOTATION(paint);
   if (paint.getPathEffect()) {
     // Apply the path effect forehand.
     SkPath path_modified;
@@ -848,8 +852,6 @@ void VectorPlatformDeviceEmf::InternalDrawBitmap(const SkBitmap& bitmap,
     SkASSERT(result);
     result = SetStretchBltMode(dc, previous_mode);
     SkASSERT(result);
-
-    alpha_blend_used_ = true;
 
     ::SelectObject(bitmap_dc, static_cast<HBITMAP>(old_bitmap));
     DeleteObject(hbitmap);

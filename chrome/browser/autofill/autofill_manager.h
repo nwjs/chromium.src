@@ -19,10 +19,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
 #include "base/time.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/autofill/autofill_download.h"
 #include "chrome/browser/autofill/field_types.h"
 #include "chrome/browser/autofill/form_structure.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/sync/profile_sync_service_observer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -76,7 +76,7 @@ class AutofillManager : public content::NotificationObserver,
   explicit AutofillManager(TabContents* tab_contents);
 
   // Registers our Enable/Disable Autofill pref.
-  static void RegisterUserPrefs(PrefService* prefs);
+  static void RegisterUserPrefs(PrefServiceBase* prefs);
 
   // Set our external delegate.
   // TODO(jrg): consider passing delegate into the ctor.  That won't

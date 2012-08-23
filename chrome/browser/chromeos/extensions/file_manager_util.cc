@@ -14,12 +14,12 @@
 #include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/extensions/file_handler_util.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_files.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system.h"
-#include "chrome/browser/chromeos/gdata/gdata_files.h"
-#include "chrome/browser/chromeos/gdata/gdata_operation_registry.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/operation_registry.h"
 #include "chrome/browser/chromeos/media/media_player.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
@@ -47,6 +47,7 @@
 #include "net/base/escape.h"
 #include "net/base/net_util.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/gfx/screen.h"
 #include "webkit/fileapi/file_system_context.h"
 #include "webkit/fileapi/file_system_mount_point_provider.h"
 #include "webkit/fileapi/file_system_util.h"
@@ -59,7 +60,7 @@ using content::BrowserThread;
 using content::PluginService;
 using content::UserMetricsAction;
 using file_handler_util::FileTaskExecutor;
-using gdata::GDataOperationRegistry;
+using gdata::OperationRegistry;
 
 #define FILEBROWSER_EXTENSON_ID "hhaomjibdihmijegdhdafkllkbggdgoj"
 const char kFileBrowserDomain[] = FILEBROWSER_EXTENSON_ID;
@@ -83,6 +84,7 @@ const char kFileBrowserExtensionUrl[] = FILEBROWSER_URL("");
 const char kBaseFileBrowserUrl[] = FILEBROWSER_URL("main.html");
 const char kMediaPlayerUrl[] = FILEBROWSER_URL("mediaplayer.html");
 const char kVideoPlayerUrl[] = FILEBROWSER_URL("video_player.html");
+const char kActionChoiceUrl[] = FILEBROWSER_URL("action_choice.html");
 #undef FILEBROWSER_URL
 #undef FILEBROWSER_EXTENSON_ID
 
@@ -181,7 +183,7 @@ std::string GetDialogTypeAsString(
 DictionaryValue* ProgessStatusToDictionaryValue(
     Profile* profile,
     const GURL& origin_url,
-    const GDataOperationRegistry::ProgressStatus& status) {
+    const OperationRegistry::ProgressStatus& status) {
   scoped_ptr<DictionaryValue> result(new DictionaryValue());
   GURL file_url;
   if (file_manager_util::ConvertFileToFileSystemUrl(profile,
@@ -193,10 +195,10 @@ DictionaryValue* ProgessStatusToDictionaryValue(
   }
 
   result->SetString("transferState",
-      GDataOperationRegistry::OperationTransferStateToString(
+      OperationRegistry::OperationTransferStateToString(
           status.transfer_state));
   result->SetString("transferType",
-      GDataOperationRegistry::OperationTypeToString(status.operation_type));
+      OperationRegistry::OperationTypeToString(status.operation_type));
   result->SetInteger("processed", static_cast<int>(status.progress_current));
   result->SetInteger("total", static_cast<int>(status.progress_total));
   return result.release();
@@ -230,9 +232,9 @@ void ShowWarningMessageBox(Profile* profile, const FilePath& path) {
 // in a new tab with a URL computed based on the |file_type|
 void OnGDataFileFound(Profile* profile,
                       const FilePath& file_path,
-                      gdata::GDataFileType file_type,
+                      gdata::DriveFileType file_type,
                       gdata::GDataFileError error,
-                      scoped_ptr<gdata::GDataEntryProto> entry_proto) {
+                      scoped_ptr<gdata::DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
@@ -466,7 +468,35 @@ void OpenFileBrowser(const FilePath& path,
 }
 
 void ViewRemovableDrive(const FilePath& path) {
-  OpenFileBrowser(path, REUSE_ANY_FILE_MANAGER, "mountTriggered");
+  const int kDialogWidth = 410;
+  // TODO(dgozman): remove 50, which is a title height once popup window
+  // will have no title.
+  const int kDialogHeight = 332 + 50;
+
+  Profile* profile = ProfileManager::GetDefaultProfileOrOffTheRecord();
+
+  FilePath virtual_path;
+  if (!ConvertFileToRelativeFileSystemPath(profile, path, &virtual_path))
+    return;
+  std::string url = kActionChoiceUrl;
+  url += "#/" + net::EscapeUrlEncodedData(virtual_path.value(), false);
+  GURL dialog_url(url);
+
+  const gfx::Size screen = gfx::Screen::GetPrimaryDisplay().size();
+  const gfx::Rect bounds((screen.width() - kDialogWidth) / 2,
+                         (screen.height() - kDialogHeight) / 2,
+                         kDialogWidth,
+                         kDialogHeight);
+
+  Browser* browser = new Browser(
+      Browser::CreateParams::CreateForApp(Browser::TYPE_POPUP,
+                                          "action_choice",
+                                          bounds,
+                                          profile));
+
+  chrome::AddSelectedTabWithURL(browser, dialog_url,
+                                content::PAGE_TRANSITION_LINK);
+  browser->window()->Show();
 }
 
 void ShowFileInFolder(const FilePath& path) {
@@ -713,10 +743,10 @@ bool ShouldBeOpenedWithPdfPlugin(Profile* profile, const char* file_extension) {
 
 ListValue* ProgressStatusVectorToListValue(
     Profile* profile, const GURL& origin_url,
-    const std::vector<GDataOperationRegistry::ProgressStatus>& list) {
+    const std::vector<OperationRegistry::ProgressStatus>& list) {
   scoped_ptr<ListValue> result_list(new ListValue());
   for (std::vector<
-          GDataOperationRegistry::ProgressStatus>::const_iterator iter =
+          OperationRegistry::ProgressStatus>::const_iterator iter =
               list.begin();
        iter != list.end(); ++iter) {
     result_list->Append(

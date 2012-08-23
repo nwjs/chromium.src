@@ -73,7 +73,6 @@ extern const FilePath::CharType kManagedModePolicyFilename[];
 extern const FilePath::CharType kMediaCacheDirname[];
 extern const FilePath::CharType kNewTabThumbnailsFilename[];
 extern const FilePath::CharType kOBCertFilename[];
-extern const FilePath::CharType kOffTheRecordMediaCacheDirname[];
 extern const FilePath::CharType kPreferencesFilename[];
 extern const FilePath::CharType kReadmeFilename[];
 extern const FilePath::CharType kSafeBrowsingBaseFilename[];
@@ -96,7 +95,7 @@ extern const FilePath::CharType kPepperFlashPluginFilename[];
 extern const wchar_t kUserDataDirname[];
 
 #if defined(OS_CHROMEOS)
-extern const FilePath::CharType kGDataCacheDirname[];
+extern const FilePath::CharType kDriveCacheDirname[];
 #endif  // defined(OS_CHROMEOS)
 
 extern const bool kRecordModeEnabled;

@@ -70,7 +70,7 @@ gfx::ImageSkia ImageSkiaFromResizedNSImage(NSImage* image,
 
     SkBitmap bitmap(gfx::NSImageRepToSkBitmap(ns_image_rep,
         desired_size_for_scale, false));
-    if (bitmap.isNull() || bitmap.empty())
+    if (bitmap.isNull())
       continue;
 
     image_skia.AddRepresentation(gfx::ImageSkiaRep(bitmap,
@@ -86,7 +86,7 @@ gfx::ImageSkia ApplicationIconAtSize(int desired_size) {
 }
 
 NSImage* NSImageFromImageSkia(const gfx::ImageSkia& image_skia) {
-  if (image_skia.empty())
+  if (image_skia.isNull())
     return nil;
 
   scoped_nsobject<NSImage> image([[NSImage alloc] init]);
@@ -96,6 +96,26 @@ NSImage* NSImageFromImageSkia(const gfx::ImageSkia& image_skia) {
        it != image_reps.end(); ++it) {
     [image addRepresentation:
         gfx::SkBitmapToNSBitmapImageRep(it->sk_bitmap())];
+  }
+
+  [image setSize:NSMakeSize(image_skia.width(), image_skia.height())];
+  return [image.release() autorelease];
+}
+
+NSImage* NSImageFromImageSkiaWithColorSpace(const gfx::ImageSkia& image_skia,
+                                            CGColorSpaceRef color_space) {
+  if (image_skia.isNull())
+    return nil;
+
+  scoped_nsobject<NSImage> image([[NSImage alloc] init]);
+
+  const std::vector<gfx::ImageSkiaRep>& image_reps =
+      image_skia.GetRepresentations();
+  for (std::vector<gfx::ImageSkiaRep>::const_iterator it = image_reps.begin();
+       it != image_reps.end(); ++it) {
+    [image addRepresentation:
+        gfx::SkBitmapToNSBitmapImageRepWithColorSpace(it->sk_bitmap(),
+                                                      color_space)];
   }
 
   [image setSize:NSMakeSize(image_skia.width(), image_skia.height())];

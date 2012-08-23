@@ -362,6 +362,10 @@
 	path = third_party/python_26
 	url = http://git.chromium.org/chromium/deps/python_26.git
 	os = win
+[submodule "third_party/pywebsocket/src"]
+	path = third_party/pywebsocket/src
+	url = http://git.chromium.org/external/pywebsocket/src.git
+	os = all
 [submodule "third_party/safe_browsing/testing"]
 	path = third_party/safe_browsing/testing
 	url = http://git.chromium.org/external/google-safe-browsing/testing.git

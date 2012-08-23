@@ -10,8 +10,8 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/observer_list.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/command_observer.h"
-#include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/ui/search/search_model_observer.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -158,6 +158,9 @@ class ToolbarView : public views::AccessiblePaneView,
   virtual void OnThemeChanged() OVERRIDE;
   virtual std::string GetClassName() const OVERRIDE;
   virtual bool AcceleratorPressed(const ui::Accelerator& acc) OVERRIDE;
+
+  // Whether the wrench/hotdogs menu is currently showing.
+  bool IsWrenchMenuShowing() const;
 
   // The apparent horizontal space between most items, and the vertical padding
   // above and below them.

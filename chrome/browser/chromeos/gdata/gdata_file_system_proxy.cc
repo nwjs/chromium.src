@@ -11,9 +11,9 @@
 #include "base/platform_file.h"
 #include "base/string_util.h"
 #include "base/values.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_files.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/gdata_files.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "content/public/browser/browser_thread.h"
@@ -33,7 +33,7 @@ namespace gdata {
 
 namespace {
 
-const char kGDataRootDirectory[] = "drive";
+const char kDriveRootDirectory[] = "drive";
 const char kFeedField[] = "feed";
 
 // Helper function that creates platform file on blocking IO thread pool.
@@ -67,7 +67,7 @@ void OnGetFileByPathForOpen(
     GDataFileError gdata_error,
     const FilePath& local_path,
     const std::string& unused_mime_type,
-    GDataFileType file_type) {
+    DriveFileType file_type) {
   base::PlatformFileError error =
       util::GDataFileErrorToPlatformError(gdata_error);
   if (error != base::PLATFORM_FILE_OK) {
@@ -90,7 +90,6 @@ void OnGetFileByPathForOpen(
                  peer_handle,
                  base::Owned(platform_file),
                  base::Owned(open_error)));
-
 }
 
 // Helper function to run SnapshotFileCallback from
@@ -101,7 +100,7 @@ void CallSnapshotFileCallback(
     GDataFileError gdata_error,
     const FilePath& local_path,
     const std::string& unused_mime_type,
-    GDataFileType file_type) {
+    DriveFileType file_type) {
   scoped_refptr<ShareableFileReference> file_ref;
   base::PlatformFileError error =
       util::GDataFileErrorToPlatformError(gdata_error);
@@ -164,10 +163,10 @@ void DidCloseFileForTruncate(
 
 }  // namespace
 
-base::FileUtilProxy::Entry GDataEntryProtoToFileUtilProxyEntry(
-    const GDataEntryProto& proto) {
+base::FileUtilProxy::Entry DriveEntryProtoToFileUtilProxyEntry(
+    const DriveEntryProto& proto) {
   base::PlatformFileInfo file_info;
-  GDataEntry::ConvertProtoToPlatformFileInfo(proto.file_info(), &file_info);
+  DriveEntry::ConvertProtoToPlatformFileInfo(proto.file_info(), &file_info);
 
   base::FileUtilProxy::Entry entry;
   entry.name = proto.base_name();
@@ -583,7 +582,7 @@ void GDataFileSystemProxy::OnGetEntryInfoByPath(
     const FilePath& entry_path,
     const FileSystemOperationInterface::SnapshotFileCallback& callback,
     GDataFileError error,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   if (error != GDATA_FILE_OK || !entry_proto.get()) {
@@ -597,7 +596,7 @@ void GDataFileSystemProxy::OnGetEntryInfoByPath(
   }
 
   base::PlatformFileInfo file_info;
-  GDataEntry::ConvertProtoToPlatformFileInfo(
+  DriveEntry::ConvertProtoToPlatformFileInfo(
       entry_proto->file_info(),
       &file_info);
 
@@ -640,10 +639,10 @@ GDataFileSystemProxy::~GDataFileSystemProxy() {
 bool GDataFileSystemProxy::ValidateUrl(
     const FileSystemURL& url, FilePath* file_path) {
   // what platform you're on.
-  if (!url.is_valid() || url.type() != fileapi::kFileSystemTypeExternal) {
+  if (!url.is_valid() || url.type() != fileapi::kFileSystemTypeDrive) {
     return false;
   }
-  *file_path = url.path();
+  *file_path = url.virtual_path();
   return true;
 }
 
@@ -657,7 +656,7 @@ void GDataFileSystemProxy::OnGetMetadata(
     const FilePath& file_path,
     const FileSystemOperationInterface::GetMetadataCallback& callback,
     GDataFileError error,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   if (error != GDATA_FILE_OK) {
@@ -669,7 +668,7 @@ void GDataFileSystemProxy::OnGetMetadata(
   DCHECK(entry_proto.get());
 
   base::PlatformFileInfo file_info;
-  GDataEntry::ConvertProtoToPlatformFileInfo(
+  DriveEntry::ConvertProtoToPlatformFileInfo(
       entry_proto->file_info(),
       &file_info);
 
@@ -681,7 +680,7 @@ void GDataFileSystemProxy::OnReadDirectory(
     callback,
     GDataFileError error,
     bool hide_hosted_documents,
-    scoped_ptr<GDataEntryProtoVector> proto_entries) {
+    scoped_ptr<DriveEntryProtoVector> proto_entries) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   if (error != GDATA_FILE_OK) {
@@ -695,13 +694,13 @@ void GDataFileSystemProxy::OnReadDirectory(
   std::vector<base::FileUtilProxy::Entry> entries;
   // Convert gdata files to something File API stack can understand.
   for (size_t i = 0; i < proto_entries->size(); ++i) {
-    const GDataEntryProto& proto = (*proto_entries)[i];
+    const DriveEntryProto& proto = (*proto_entries)[i];
     if (proto.has_file_specific_info() &&
         proto.file_specific_info().is_hosted_document() &&
         hide_hosted_documents) {
       continue;
     }
-    entries.push_back(GDataEntryProtoToFileUtilProxyEntry(proto));
+    entries.push_back(DriveEntryProtoToFileUtilProxyEntry(proto));
   }
 
   callback.Run(base::PLATFORM_FILE_OK, entries, false);

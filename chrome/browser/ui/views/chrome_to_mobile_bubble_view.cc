@@ -128,13 +128,6 @@ views::View* ChromeToMobileBubbleView::GetInitiallyFocusedView() {
   return send_;
 }
 
-gfx::Rect ChromeToMobileBubbleView::GetAnchorRect() {
-  // Compensate for some built-in padding in the page action icon image.
-  gfx::Rect rect(BubbleDelegateView::GetAnchorRect());
-  rect.Inset(0, anchor_view() ? 5 : 0);
-  return rect;
-}
-
 void ChromeToMobileBubbleView::WindowClosing() {
   // We have to reset |bubble_| here, not in our destructor, because we'll be
   // destroyed asynchronously and the shown state will be checked before then.
@@ -331,11 +324,11 @@ ChromeToMobileBubbleView::ChromeToMobileBubbleView(views::View* anchor_view,
       send_copy_(NULL),
       send_(NULL),
       cancel_(NULL) {
+  // Compensate for built-in vertical padding in the anchor view's image.
+  set_anchor_insets(gfx::Insets(5, 0, 5, 0));
+
   // Generate the MHTML snapshot now to report its size in the bubble.
   service_->GenerateSnapshot(browser_, weak_ptr_factory_.GetWeakPtr());
-
-  // Request a mobile device list update.
-  service_->RequestMobileListUpdate();
 }
 
 void ChromeToMobileBubbleView::LinkClicked(views::Link* source,
@@ -368,7 +361,7 @@ void ChromeToMobileBubbleView::Send() {
   const DictionaryValue* mobile = NULL;
   if (mobiles->GetDictionary(selected_index, &mobile)) {
     FilePath snapshot = send_copy_->checked() ? snapshot_path_ : FilePath();
-    service_->SendToMobile(*mobile, snapshot, browser_,
+    service_->SendToMobile(mobile, snapshot, browser_,
                            weak_ptr_factory_.GetWeakPtr());
   } else {
     NOTREACHED();

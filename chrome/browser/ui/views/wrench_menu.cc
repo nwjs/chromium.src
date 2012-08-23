@@ -38,6 +38,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/canvas_image_source.h"
+#include "ui/gfx/image/image.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/button/image_button.h"
@@ -796,6 +797,10 @@ void WrenchMenu::RunMenu(views::MenuButton* host) {
     selected_menu_model_->ActivatedAt(selected_index_);
 }
 
+bool WrenchMenu::IsShowing() {
+  return menu_runner_.get() && menu_runner_->IsRunning();
+}
+
 string16 WrenchMenu::GetTooltipText(int id,
                                     const gfx::Point& p) const {
   return is_bookmark_command(id) ?
@@ -1081,9 +1086,9 @@ MenuItemView* WrenchMenu::AppendMenuItem(MenuItemView* parent,
     menu_item->SetVisible(model->IsVisibleAt(index));
 
     if (menu_type == MenuModel::TYPE_COMMAND && model->HasIcons()) {
-      gfx::ImageSkia icon;
+      gfx::Image icon;
       if (model->GetIconAt(index, &icon))
-        menu_item->SetIcon(icon);
+        menu_item->SetIcon(*icon.ToImageSkia());
     }
   }
 

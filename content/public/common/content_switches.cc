@@ -583,6 +583,10 @@ const char kSingleProcess[]                 = "single-process";
 // content. The switch is intended only for tests.
 const char kSkipGpuDataLoading[]            = "skip-gpu-data-loading";
 
+// GestureTapDown events are deferred by this many miillseconds before
+// sending them to the renderer.
+const char kTapDownDeferralTimeMs[]         = "tap-down-deferral-time";
+
 // Runs the security test for the renderer sandbox.
 const char kTestSandbox[]                   = "test-sandbox";
 
@@ -665,6 +669,9 @@ const char kUseMobileUserAgent[] = "use-mobile-user-agent";
 const char kGraphicsMode[]                  = "graphics-mode";
 const char kGraphicsModeValueBasic[]        = "basic";
 const char kGraphicsModeValueCompositor[]   = "compositor";
+
+// The telephony region (ISO country code) to use in phone number detection.
+const char kNetworkCountryIso[] = "network-country-iso";
 #endif
 
 #if defined(OS_POSIX)

@@ -23,7 +23,6 @@ class URLRequestContextGetter;
 }
 
 namespace quota {
-class QuotaManager;
 class SpecialStoragePolicy;
 }
 
@@ -56,7 +55,6 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
       StoragePartitionCallback;
 
   static DownloadManager* GetDownloadManager(BrowserContext* browser_context);
-  static quota::QuotaManager* GetQuotaManager(BrowserContext* browser_context);
   static IndexedDBContext* GetIndexedDBContext(BrowserContext* browser_context);
   static webkit_database::DatabaseTracker* GetDatabaseTracker(
       BrowserContext* browser_context);
@@ -102,20 +100,25 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
   // Returns the request context information associated with this context.  Call
   // this only on the UI thread, since it can send notifications that should
   // happen on the UI thread.
+  // TODO(creis): Remove this version in favor of the one below.
   virtual net::URLRequestContextGetter* GetRequestContext() = 0;
 
   // Returns the request context appropriate for the given renderer. If the
   // renderer process doesn't have an associated installed app, or if the
   // installed app's is_storage_isolated() returns false, this is equivalent to
   // calling GetRequestContext().
-  // TODO(creis): After isolated app storage is no longer an experimental
-  // feature, consider making this the default contract for GetRequestContext.
   virtual net::URLRequestContextGetter* GetRequestContextForRenderProcess(
       int renderer_child_id) = 0;
 
+  // Returns the default request context for media resources associated with
+  // this context.
+  // TODO(creis): Remove this version in favor of the one below.
+  virtual net::URLRequestContextGetter* GetMediaRequestContext() = 0;
+
   // Returns the request context for media resources associated with this
-  // context.
-  virtual net::URLRequestContextGetter* GetRequestContextForMedia() = 0;
+  // context and renderer process.
+  virtual net::URLRequestContextGetter* GetMediaRequestContextForRenderProcess(
+      int renderer_child_id) = 0;
 
   // Returns the resource context.
   virtual ResourceContext* GetResourceContext() = 0;

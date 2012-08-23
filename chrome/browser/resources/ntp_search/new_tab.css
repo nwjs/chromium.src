@@ -1,0 +1,36 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* -----------------------------------------------------------------------------
+   General Styles
+----------------------------------------------------------------------------- */
+
+body {
+  background: whiteSmoke;
+  /* TODO(pedrosimonetti): Confirm with designers/engineers what do we want
+   * to do regarding font family, once AFAIK we want to use Arial always. */
+  font-family: Arial;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+#card-slider-frame {
+  bottom: 0;
+  overflow: hidden;
+  position: absolute;
+  text-align: center;
+  width: 100%;
+}
+
+#page-list {
+  display: -webkit-box;
+  position: static;
+}
+
+#page-list-menu {
+  height: 14px;
+  margin: 8px auto 30px;
+  text-align: center;
+}

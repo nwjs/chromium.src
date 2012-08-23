@@ -3,10 +3,10 @@
 # found in the LICENSE file.
 
 import json
-import logging
 import os
 
 from file_system import FileNotFoundError
+import compiled_file_system as compiled_fs
 from handlebar_dict_generator import HandlebarDictGenerator
 import third_party.json_schema_compiler.json_comment_eater as json_comment_eater
 import third_party.json_schema_compiler.model as model
@@ -26,13 +26,17 @@ class _LazySamplesGetter(object):
 
 class APIDataSource(object):
   """This class fetches and loads JSON APIs from the FileSystem passed in with
-  |cache_builder|, so the APIs can be plugged into templates.
+  |cache_factory|, so the APIs can be plugged into templates.
   """
   class Factory(object):
-    def __init__(self, cache_builder, base_path, samples_factory):
-      self._permissions_cache = cache_builder.build(self._LoadPermissions)
-      self._json_cache = cache_builder.build(self._LoadJsonAPI)
-      self._idl_cache = cache_builder.build(self._LoadIdlAPI)
+    def __init__(self, cache_factory, base_path, samples_factory):
+      self._permissions_cache = cache_factory.Create(self._LoadPermissions,
+                                                     compiled_fs.PERMS)
+      self._json_cache = cache_factory.Create(self._LoadJsonAPI,
+                                              compiled_fs.JSON)
+      self._idl_cache = cache_factory.Create(self._LoadIdlAPI, compiled_fs.IDL)
+      self._idl_names_cache = cache_factory.Create(self._GetIDLNames,
+                                                   compiled_fs.IDL_NAMES)
       self._samples_factory = samples_factory
       self._base_path = base_path
 
@@ -40,6 +44,7 @@ class APIDataSource(object):
       return APIDataSource(self._permissions_cache,
                            self._json_cache,
                            self._idl_cache,
+                           self._idl_names_cache,
                            self._base_path,
                            self._samples_factory.Create(request))
 
@@ -53,16 +58,22 @@ class APIDataSource(object):
       idl = idl_parser.IDLParser().ParseData(api)
       return HandlebarDictGenerator(idl_schema.IDLSchema(idl).process()[0])
 
+    def _GetIDLNames(self, apis):
+      return [model.UnixName(os.path.splitext(api.split('/')[-1])[0])
+              for api in apis if api.endswith('.idl')]
+
   def __init__(self,
                permissions_cache,
                json_cache,
                idl_cache,
+               idl_names_cache,
                base_path,
                samples):
     self._base_path = base_path
     self._permissions_cache = permissions_cache
     self._json_cache = json_cache
     self._idl_cache = idl_cache
+    self._idl_names_cache = idl_names_cache
     self._samples = samples
 
   def _GetFeature(self, path):
@@ -98,16 +109,9 @@ class APIDataSource(object):
   def get(self, key):
     path, ext = os.path.splitext(key)
     unix_name = model.UnixName(path)
-    json_path = unix_name + '.json'
-    idl_path = unix_name + '.idl'
-    try:
-      return self._GenerateHandlebarContext(
-          self._json_cache.GetFromFile(self._base_path + '/' + json_path),
-          path)
-    except FileNotFoundError:
-      try:
-        return self._GenerateHandlebarContext(
-            self._idl_cache.GetFromFile(self._base_path + '/' + idl_path),
-            path)
-      except FileNotFoundError:
-        raise
+    idl_names = self._idl_names_cache.GetFromFileListing(self._base_path)
+    cache, ext = ((self._idl_cache, '.idl') if (unix_name in idl_names) else
+                  (self._json_cache, '.json'))
+    return self._GenerateHandlebarContext(
+        cache.GetFromFile('%s/%s%s' % (self._base_path, unix_name, ext)),
+        path)

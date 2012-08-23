@@ -44,6 +44,19 @@ def CopyFileFromDataDirToDownloadDir(test, file_path):
   download_dir = test.GetDownloadDirectory().value()
   shutil.copy(data_file, download_dir)
 
+
+def CopyFileFromContentDataDirToDownloadDir(test, file_path):
+  """Copy a file from content data directory to downloads directory.
+
+  Args:
+    test: derived from pyauto.PyUITest - base class for UI test cases.
+    path: path of the file relative to the data directory
+  """
+  data_file = os.path.join(test.ContentDataDir(), file_path)
+  download_dir = test.GetDownloadDirectory().value()
+  shutil.copy(data_file, download_dir)
+
+
 def DownloadFileFromDownloadsDataDir(test, file_name):
   """Download a file from downloads data directory, in first tab, first window.
 
@@ -120,11 +133,6 @@ def VerifyGoogleAccountCredsFilled(test, username, password, tab_index=0,
   # Not using assertEqual because if it fails it would end up dumping the
   # password (which is supposed to be private)
   test.assertTrue(passwd_value == password)
-
-
-def ClearPasswords(test):
-  """Clear saved passwords."""
-  test.ClearBrowsingData(['PASSWORDS'], 'EVERYTHING')
 
 
 def Shell2(cmd_string, bg=False):

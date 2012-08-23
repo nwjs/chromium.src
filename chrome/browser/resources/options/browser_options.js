@@ -245,6 +245,11 @@ cr.define('options', function() {
       }
 
       // Privacy section.
+      var winVerMatch = /Windows NT (\d+(?:\.\d+))?/.exec(navigator.userAgent);
+      var isWin8 = winVerMatch && winVerMatch[1] >= 6.2;
+      var win8Element = $('privacy-win8-data-settings');
+      if (win8Element)
+        win8Element.hidden = !isWin8;
       $('privacyContentSettingsButton').onclick = function(event) {
         OptionsPage.navigateToPage('content');
         OptionsPage.showTab($('cookies-nav-tab'));
@@ -759,10 +764,14 @@ cr.define('options', function() {
     onDefaultDownloadDirectoryChanged_: function(event) {
       $('downloadLocationPath').value = event.value.value;
       if (cr.isChromeOS) {
-        // On ChromeOS, strip out /special for drive paths, and
-        // /home/chronos/user for local files.
-        $('downloadLocationPath').value = $('downloadLocationPath').value.
-            replace(/^\/(special|home\/chronos\/user)/, '');
+        // On ChromeOS, replace /special/drive with Drive for drive paths, and
+        // /home/chronos/user/Downloads with Downloads for local files.
+        // Also replace '/' with ' > ' everywhere.
+        var path = $('downloadLocationPath').value;
+        path = path.replace(/^\/special\/drive/, 'Google Drive');
+        path = path.replace(/^\/home\/chronos\/user\//, '');
+        path = path.replace(/\//g, ' > ');
+        $('downloadLocationPath').value = path;
       }
     },
 

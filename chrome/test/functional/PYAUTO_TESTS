@@ -36,27 +36,22 @@
       'about_plugins_ui.AboutPluginsUITest',
       'apptest',
       'autofill',
-      'bookmark_bar',
       'bookmarks',
       'browser',
-      'browsing_data',
       'chromoting.it2me_basic',
       'codesign',
       'content',
       'cookies',
       'crash_reporter',
-      'databases',
       'downloads',
       'execute_javascript',
       'extensions',
-      'find_in_page',
       'flash',
       'fullscreen_mouselock',
       'history',
       'https',
       'gtalk.test_basic',
       'imports',
-      'indexeddb',
       'infobars',
       'instant',
       'multiprofile',
@@ -65,7 +60,6 @@
       'ntp',
       'omnibox',
       'passwords',
-      'pdf',
       'plugins',
       'plugins_check',
       'policy',
@@ -86,12 +80,6 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
-      # crbug.com/102798
-      '-autofill.AutofillTest.testMergeAggregatedProfilesWithSameAddress',
-      # crbug.com/99475
-      '-autofill.AutofillTest.testNoDuplicatePhoneNumsInPrefs',
-      # crbug.com/141443
-      '-browsing_data.BrowsingDataTest.testClearAutofillData',
       # crbug.com/123396
       '-fullscreen_mouselock.FullscreenMouselockTest.testPatternsForFSAndML',
       # crbug.com/132665
@@ -104,6 +92,9 @@
 
       # crosbug.com/136875
       '-fullscreen_mouselock.FullscreenMouselockTest.testTabFSDoesNotExitForAnchorLinks',
+      # crbug.com/142677
+      '-gtalk.test_basic.BasicTest.testCurrentVersion',
+      '-gtalk.test_basic.BasicTest.testRCVersion',
       # crbug.com/131874
       '-infobars.OneClickInfobarTest.testNoOneClickInfobarAfterCancel',
       # crbug.com/133315
@@ -112,6 +103,8 @@
       '-notifications',
       # crbug.com/99506
       '-notifications.NotificationsTest.testSpecialURLNotification',
+      # crbug.com/143308
+      '-omnibox.OmniboxLiveTest.testGoogleSearch',
       # crbug.com/71715
       '-omnibox.OmniboxTest.testHistoryResult',
       # crbug.com/123019
@@ -200,10 +193,6 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
-      # Keychain popups make autofill/password tests difficult: crbug.com/49378
-      '-autofill',
-      # Autofill on Mac. crbug.com/95165
-      '-browsing_data.BrowsingDataTest.testClearAutofillData',
       # codesign tests should run *after* signing. crbug.com/50481
       '-codesign',
       # crbug.com/124922
@@ -344,9 +333,6 @@
       # ==================================================
       # Disabled tests that need to be investigated/fixed.
       # ==================================================
-      # crosbug.com/19556
-      '-autofill.AutofillTest.testDisplayLineItemForEntriesWithNoCCNum',
-      '-autofill.AutofillTest.testPostalCodeAndStateLabelsBasedOnCountry',
       # crbug.com/132337
       '-autofill.AutofillTest.testTabOrderForEditAddress',
       # crosbug.com/27405
@@ -360,8 +346,6 @@
       '-extensions.ExtensionsTest.testAllowAccessFileURLs',
       '-extensions.ExtensionsTest.testAllowIncognitoExtension',
       '-extensions.ExtensionsTest.testDisableEnableExtension',
-      # Need internal data dirs in autotest package. crosbug.com/6855
-      '-find_in_page.FindMatchTests.testSearchInPDF',
       # crbug.com/134593
       '-gtalk.test_basic.BasicTest.testCurrentVersion',
       '-gtalk.test_basic.BasicTest.testRCVersion',
@@ -393,7 +377,6 @@
       # crbug.com/109035
       '-plugins.PluginsTest.testBlockPluginException',
       # Deal with i18n chars.  crosbug.com/12639
-      '-autofill.AutofillTest.testFillProfileCrazyCharacters',
       '-downloads.DownloadsTest.testCrazyFilenames',
       '-omnibox.OmniboxTest.testCrazyFilenames',
       # crosbug.com/16977
@@ -590,9 +573,6 @@
       '-extensions.ExtensionsTest.testAllowAccessFileURLs',
       # crbug.com/100365
       '-autofill.AutofillTest.testDisplayLineItemForEntriesWithNoCCNum',
-      # crbug.com/123419
-      '-browsing_data.BrowsingDataTest.testClearCookies',
-      '-databases.DatabasesTest.testDeleteAndUpdateDatabase',
       # crbug.com/109035
       '-youtube.YoutubeTest.testPlayerBytes',
       '-youtube.YoutubeTest.testPlayerResolution',
@@ -876,7 +856,6 @@
       '-policy_prefs_ui.PolicyPrefsUITest.testNoUserPoliciesNoBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testUserPoliciesShowBanner',
-      '-indexeddb.IndexedDBTest.testVersionChangeCrashResilience',
       '-popups.PopupsTest.testMultiplePopups',
       '-popups.PopupsTest.testPopupBlockedEverySec',
       '-search_engines.SearchEnginesTest.testDiscoverSearchEngine',

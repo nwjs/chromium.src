@@ -7,8 +7,8 @@
 
 #include "base/memory/scoped_nsobject.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/bookmarks/bookmark_model.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "content/public/browser/notification_registrar.h"
 #include "ui/base/ui_base_types.h"
@@ -55,9 +55,7 @@ class BrowserWindowCocoa : public BrowserWindow,
   virtual void SetDevToolsDockSide(DevToolsDockSide side) OVERRIDE;
   virtual void UpdateLoadingAnimations(bool should_animate) OVERRIDE;
   virtual void SetStarredState(bool is_starred) OVERRIDE;
-  virtual void SetZoomIconState(ZoomController::ZoomIconState state) OVERRIDE;
-  virtual void SetZoomIconTooltipPercent(int zoom_percent) OVERRIDE;
-  virtual void ShowZoomBubble(int zoom_percent) OVERRIDE;
+  virtual void ZoomChangedForActiveTab(bool can_show_bubble) OVERRIDE;
   virtual gfx::Rect GetRestoredBounds() const OVERRIDE;
   virtual gfx::Rect GetBounds() const OVERRIDE;
   virtual bool IsMaximized() const OVERRIDE;

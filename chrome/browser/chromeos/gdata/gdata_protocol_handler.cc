@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/gdata/gdata_protocol_handler.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -16,12 +17,10 @@
 #include "base/string_util.h"
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
-#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/gdata_operation_registry.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -70,7 +69,7 @@ struct MimeTypeReplacement {
 };
 
 const MimeTypeReplacement kMimeTypeReplacements[] = {
-    {"message/rfc822","multipart/related"} // Fixes MHTML
+  {"message/rfc822", "multipart/related"}  // Fixes MHTML
 };
 
 std::string FixupMimeType(const std::string& type) {
@@ -122,7 +121,7 @@ void GetFileSystemOnUIThread(GDataFileSystemInterface** file_system) {
 void CancelGDataDownloadOnUIThread(const FilePath& gdata_file_path) {
   GDataSystemService* system_service = GetSystemService();
   if (system_service)
-    system_service->docs_service()->operation_registry()->CancelForFilePath(
+    system_service->drive_service()->operation_registry()->CancelForFilePath(
         gdata_file_path);
 }
 
@@ -167,7 +166,7 @@ class GDataURLRequestJob : public net::URLRequestJob {
   void OnGetFileByResourceId(GDataFileError error,
                              const FilePath& local_file_path,
                              const std::string& mime_type,
-                             GDataFileType file_type);
+                             DriveFileType file_type);
 
   // Helper callback for GetFileSizeOnBlockingPool that sets |remaining_bytes_|
   // to |file_size|, and notifies result for Start().
@@ -177,7 +176,7 @@ class GDataURLRequestJob : public net::URLRequestJob {
   void OnGetEntryInfoByResourceId(const std::string& resource_id,
                                   GDataFileError error,
                                   const FilePath& gdata_file_path,
-                                  scoped_ptr<GDataEntryProto> entry_proto);
+                                  scoped_ptr<DriveEntryProto> entry_proto);
 
   // Helper methods for ReadRawData to open file and read from its corresponding
   // stream in a streaming fashion.
@@ -511,7 +510,7 @@ void GDataURLRequestJob::OnGetEntryInfoByResourceId(
     const std::string& resource_id,
     GDataFileError error,
     const FilePath& gdata_file_path,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
     error = GDATA_FILE_ERROR_NOT_FOUND;
 
@@ -658,7 +657,7 @@ void GDataURLRequestJob::OnGetFileByResourceId(
     GDataFileError error,
     const FilePath& local_file_path,
     const std::string& mime_type,
-    GDataFileType file_type) {
+    DriveFileType file_type) {
   DVLOG(1) << "Got OnGetFileByResourceId";
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 

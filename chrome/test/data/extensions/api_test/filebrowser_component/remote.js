@@ -119,7 +119,7 @@ TestRunner.prototype.runExecuteReadTask = function() {
 
   var self = this;
   var fileURL = this.fileEntry_.toURL();
-  chrome.fileBrowserPrivate.getFileTasks([fileURL],
+  chrome.fileBrowserPrivate.getFileTasks([fileURL], [],
     function(tasks) {
       if (!tasks || !tasks.length) {
         self.errorCallback_({message: 'No tasks registered'},
@@ -131,6 +131,41 @@ TestRunner.prototype.runExecuteReadTask = function() {
       // file handler that will execute it.
       chrome.fileBrowserPrivate.executeTask(tasks[0].taskId, [fileURL]);
     });
+};
+
+TestRunner.prototype.runCancelTest = function(fileName, type) {
+  var self = this;
+  chrome.test.assertTrue(!!this.directoryEntry_);
+  this.directoryEntry_.getFile(fileName, {},
+      function(entry) {
+        entry.createWriter(
+          function(writer) {
+            var sawAbort = false;
+
+            writer.onerror = self.errorCallback_.bind(self,
+                                                      'Error writing file: ');
+            writer.onabort = function(e) {
+              chrome.test.assertFalse(sawAbort);
+              sawAbort = true;
+            };
+            writer.onwritestart = function(e) {
+              writer.abort();
+            };
+            writer.onwrite = function(e) {
+              chrome.test.fail('onwrite is called after abort.');
+            };
+            writer.onwriteend = function(e) {
+              chrome.test.assertTrue(sawAbort);
+              chrome.test.succeed();
+            };
+            if (type == 'write')
+              writer.write(new Blob([kWriteData], {'type': 'text/plain'}));
+            else
+              writer.truncate(0);
+          },
+          self.errorCallback_.bind(self, 'Error creating writer: '));
+      },
+      self.errorCallback_.bind(self, 'Error opening file: '));
 };
 
 // Processes the response from file handler for which file task was executed.
@@ -247,6 +282,12 @@ chrome.test.runTests([function initTests() {
   },
   function readFileAfterTruncateLong() {
     testRunner.runReadFileTest(kFileName, kExpectedAfterTruncateLong);
+  },
+  function cancelWrite() {
+    testRunner.runCancelTest(kFileName, 'write');
+  },
+  function cancelTruncate() {
+    testRunner.runCancelTest(kFileName, 'truncate');
   },
   function createDir() {
     // Creates new directory.

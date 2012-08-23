@@ -195,70 +195,70 @@ TEST(SocketPermissionTest, Match) {
 }
 
 TEST(SocketPermissionTest, IPC) {
-  scoped_refptr<APIPermissionDetail> detail1;
-  scoped_refptr<APIPermissionDetail> detail2;
-
-  const APIPermission* permission =
+  const APIPermissionInfo* permission_info =
     PermissionsInfo::GetInstance()->GetByID(APIPermission::kSocket);
 
   {
     IPC::Message m;
 
-    detail1 = permission->CreateDetail();
-    detail2 = permission->CreateDetail();
+    scoped_ptr<APIPermission> permission1(
+        permission_info->CreateAPIPermission());
+    scoped_ptr<APIPermission> permission2(
+        permission_info->CreateAPIPermission());
 
-    detail1->Write(&m);
+    permission1->Write(&m);
     PickleIterator iter(m);
-    detail2->Read(&m, &iter);
+    permission2->Read(&m, &iter);
 
-    EXPECT_TRUE(detail1->Equal(detail2));
+    EXPECT_TRUE(permission1->Equal(permission2.get()));
   }
 
 
   {
     IPC::Message m;
 
-    detail1 = permission->CreateDetail();
-    detail2 = permission->CreateDetail();
+    scoped_ptr<APIPermission> permission1(
+        permission_info->CreateAPIPermission());
+    scoped_ptr<APIPermission> permission2(
+        permission_info->CreateAPIPermission());
 
     scoped_ptr<ListValue> value(new ListValue());
     value->Append(Value::CreateStringValue("tcp-connect:*.example.com:80"));
     value->Append(Value::CreateStringValue("udp-bind::8080"));
     value->Append(Value::CreateStringValue("udp-send-to::8888"));
-    CHECK(detail1->FromValue(value.get()));
+    CHECK(permission1->FromValue(value.get()));
 
-    EXPECT_FALSE(detail1->Equal(detail2));
+    EXPECT_FALSE(permission1->Equal(permission2.get()));
 
-    detail1->Write(&m);
+    permission1->Write(&m);
     PickleIterator iter(m);
-    detail2->Read(&m, &iter);
-    EXPECT_TRUE(detail1->Equal(detail2));
+    permission2->Read(&m, &iter);
+    EXPECT_TRUE(permission1->Equal(permission2.get()));
   }
 }
 
 TEST(SocketPermissionTest, Value) {
-  scoped_refptr<APIPermissionDetail> detail1;
-  scoped_refptr<APIPermissionDetail> detail2;
-
-  const APIPermission* permission =
+  const APIPermissionInfo* permission_info =
     PermissionsInfo::GetInstance()->GetByID(APIPermission::kSocket);
 
-  detail1 = permission->CreateDetail();
-  detail2 = permission->CreateDetail();
+  scoped_ptr<APIPermission> permission1(
+      permission_info->CreateAPIPermission());
+  scoped_ptr<APIPermission> permission2(
+      permission_info->CreateAPIPermission());
 
   scoped_ptr<ListValue> value(new ListValue());
   value->Append(Value::CreateStringValue("tcp-connect:*.example.com:80"));
   value->Append(Value::CreateStringValue("udp-bind::8080"));
   value->Append(Value::CreateStringValue("udp-send-to::8888"));
-  CHECK(detail1->FromValue(value.get()));
+  CHECK(permission1->FromValue(value.get()));
 
-  EXPECT_FALSE(detail1->Equal(detail2));
+  EXPECT_FALSE(permission1->Equal(permission2.get()));
 
   base::Value* vtmp = NULL;
-  detail1->ToValue(&vtmp);
+  permission1->ToValue(&vtmp);
   CHECK(vtmp);
-  CHECK(detail2->FromValue(vtmp));
-  EXPECT_TRUE(detail1->Equal(detail2));
+  CHECK(permission2->FromValue(vtmp));
+  EXPECT_TRUE(permission1->Equal(permission2.get()));
 
   delete vtmp;
 }

@@ -4,10 +4,7 @@
 
 #include "base/metrics/histogram_snapshot_manager.h"
 
-#include "base/compiler_specific.h"
-#include "base/debug/alias.h"
 #include "base/metrics/statistics_recorder.h"
-#include "base/string_util.h"
 
 using base::Histogram;
 using base::StatisticsRecorder;
@@ -47,12 +44,6 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
 
   int corruption = histogram.FindCorruption(snapshot);
 
-  char histogram_name_buf[128];
-  base::strlcpy(histogram_name_buf,
-                histogram_name.c_str(),
-                arraysize(histogram_name_buf));
-  base::debug::Alias(histogram_name_buf);
-
   // Crash if we detect that our histograms have been overwritten.  This may be
   // a fair distance from the memory smasher, but we hope to correlate these
   // crashes with other events, such as plugins, or usage patterns, etc.
@@ -64,9 +55,13 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
   // Checksum corruption might not have caused order corruption.
   CHECK_EQ(0, Histogram::RANGE_CHECKSUM_ERROR & corruption);
 
+  // Note, at this point corruption can only be COUNT_HIGH_ERROR or
+  // COUNT_LOW_ERROR and they never arise together, so we don't need to extract
+  // bits from corruption.
   if (corruption) {
     NOTREACHED();
-    histogram_flattener_->InconsistencyDetected(corruption);
+    histogram_flattener_->InconsistencyDetected(
+        static_cast<Histogram::Inconsistencies>(corruption));
     // Don't record corrupt data to metrics survices.
     if (NULL == inconsistencies_.get())
       inconsistencies_.reset(new ProblemMap);
@@ -74,7 +69,8 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
     if (old_corruption == (corruption | old_corruption))
       return;  // We've already seen this corruption for this histogram.
     (*inconsistencies_)[histogram_name] |= corruption;
-    histogram_flattener_->UniqueInconsistencyDetected(corruption);
+    histogram_flattener_->UniqueInconsistencyDetected(
+        static_cast<Histogram::Inconsistencies>(corruption));
     return;
   }
 
@@ -96,7 +92,7 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
       int problem = static_cast<int>(discrepancy);
       if (problem != discrepancy)
         problem = INT_MAX;
-      histogram_flattener_->SnapshotProblemResolved(problem);
+      histogram_flattener_->InconsistencyDetectedInLoggedCount(problem);
       // With no valid baseline, we'll act like we've recorded everything in our
       // snapshot.
       already_logged->Subtract(*already_logged);

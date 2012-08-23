@@ -23,11 +23,11 @@ class DownloadItem;
 
 namespace gdata {
 
-class DocumentsServiceInterface;
+class DriveServiceInterface;
 
 class GDataUploaderInterface {
  public:
-  ~GDataUploaderInterface() {}
+  virtual ~GDataUploaderInterface() {}
 
   // Uploads a new file specified by |upload_file_info|. Transfers ownership.
   // Returns the upload_id.
@@ -36,6 +36,12 @@ class GDataUploaderInterface {
   // See "Announcing scoped_ptr<>::Pass(). The latest in pointer ownership
   // technology!" thread on chromium-dev.
   virtual int UploadNewFile(scoped_ptr<UploadFileInfo> upload_file_info) = 0;
+
+  // Stream data to an existing file from data specified by |upload_file_info|.
+  // Transfers ownership. Returns the upload_id.
+  // TODO(zork): Do not use UploadFileInfo to pass data.  See: crbug.com/134819
+  virtual int StreamExistingFile(
+      scoped_ptr<UploadFileInfo> upload_file_info) = 0;
 
   // Uploads an existing file (a file that already exists on Drive)
   // specified by |local_file_path|. The existing file on Drive will be
@@ -59,11 +65,13 @@ class GDataUploaderInterface {
 
 class GDataUploader : public GDataUploaderInterface {
  public:
-  explicit GDataUploader(DocumentsServiceInterface* documents_service);
+  explicit GDataUploader(DriveServiceInterface* drive_service);
   virtual ~GDataUploader();
 
   // GDataUploaderInterface overrides.
   virtual int UploadNewFile(
+      scoped_ptr<UploadFileInfo> upload_file_info) OVERRIDE;
+  virtual int StreamExistingFile(
       scoped_ptr<UploadFileInfo> upload_file_info) OVERRIDE;
   virtual int UploadExistingFile(
       const GURL& upload_location,
@@ -87,7 +95,7 @@ class GDataUploader : public GDataUploaderInterface {
   // open operation is passed as |result|.
   void OpenCompletionCallback(int upload_id, int result);
 
-  // DocumentsService callback for InitiateUpload.
+  // DriveService callback for InitiateUpload.
   void OnUploadLocationReceived(int upload_id,
                                 GDataErrorCode code,
                                 const GURL& upload_location);
@@ -100,10 +108,10 @@ class GDataUploader : public GDataUploaderInterface {
       int bytes_to_read,
       int bytes_read);
 
-  // Calls DocumentsService's ResumeUpload with the current upload info.
+  // Calls DriveService's ResumeUpload with the current upload info.
   void ResumeUpload(int upload_id);
 
-  // DocumentsService callback for ResumeUpload.
+  // DriveService callback for ResumeUpload.
   void OnResumeUploadResponseReceived(int upload_id,
                                       const ResumeUploadResponse& response,
                                       scoped_ptr<DocumentEntry> entry);
@@ -124,10 +132,10 @@ class GDataUploader : public GDataUploaderInterface {
   // ID assigned to |upload_file_info|.
   int StartUploadFile(scoped_ptr<UploadFileInfo> upload_file_info);
 
-  // Pointers to DocumentsServiceInterface object owned by GDataSystemService.
+  // Pointers to DriveServiceInterface object owned by GDataSystemService.
   // The lifetime of this object is guaranteed to exceed that of the
   // GDataUploader instance.
-  DocumentsServiceInterface* documents_service_;
+  DriveServiceInterface* drive_service_;
 
   int next_upload_id_;  // id counter.
 

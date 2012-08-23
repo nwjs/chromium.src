@@ -16,10 +16,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/debugger/devtools_toggle_action.h"
 #include "chrome/browser/event_disposition.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
-#include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/sessions/session_id.h"
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper_delegate.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
@@ -668,10 +668,7 @@ class Browser : public TabStripModelObserver,
                                  bool starred) OVERRIDE;
 
   // Overridden from ZoomObserver:
-  virtual void OnZoomIconChanged(TabContents* source,
-                                 ZoomController::ZoomIconState state) OVERRIDE;
   virtual void OnZoomChanged(TabContents* source,
-                             int zoom_percent,
                              bool can_show_bubble) OVERRIDE;
 
   // Overridden from SelectFileDialog::Listener:

@@ -32,12 +32,12 @@ static const char* kBadURL3 = "http://www.badguys3.com/";
 namespace {
 
 // A SafeBrowingBlockingPage class that does not create windows.
-class TestSafeBrowsingBlockingPage :  public SafeBrowsingBlockingPage {
+class TestSafeBrowsingBlockingPage :  public SafeBrowsingBlockingPageV1 {
  public:
   TestSafeBrowsingBlockingPage(SafeBrowsingService* service,
                                WebContents* web_contents,
                                const UnsafeResourceList& unsafe_resources)
-      : SafeBrowsingBlockingPage(service, web_contents, unsafe_resources) {
+      : SafeBrowsingBlockingPageV1(service, web_contents, unsafe_resources) {
     // Don't delay details at all for the unittest.
     malware_details_proceed_delay_ms_ = 0;
 

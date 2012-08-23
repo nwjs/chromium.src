@@ -10,11 +10,12 @@
 #include "base/message_loop_proxy.h"
 #include "build/build_config.h"
 #include "remoting/base/constants.h"
-#include "remoting/base/encoder.h"
-#include "remoting/base/encoder_row_based.h"
-#include "remoting/base/encoder_vp8.h"
 #include "remoting/codec/audio_encoder.h"
+#include "remoting/codec/audio_encoder_speex.h"
 #include "remoting/codec/audio_encoder_verbatim.h"
+#include "remoting/codec/video_encoder.h"
+#include "remoting/codec/video_encoder_row_based.h"
+#include "remoting/codec/video_encoder_vp8.h"
 #include "remoting/host/audio_scheduler.h"
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/desktop_environment.h"
@@ -87,9 +88,7 @@ ChromotingHost::ChromotingHost(
     // with the NONE config.
     protocol_config_->mutable_audio_configs()->clear();
     protocol_config_->mutable_audio_configs()->push_back(
-        protocol::ChannelConfig(protocol::ChannelConfig::TRANSPORT_NONE,
-                                protocol::kDefaultStreamVersion,
-                                protocol::ChannelConfig::CODEC_VERBATIM));
+        protocol::ChannelConfig());
   }
 }
 
@@ -443,6 +442,8 @@ scoped_ptr<AudioEncoder> ChromotingHost::CreateAudioEncoder(
 
   if (audio_config.codec == protocol::ChannelConfig::CODEC_VERBATIM) {
     return scoped_ptr<AudioEncoder>(new AudioEncoderVerbatim());
+  } else if (audio_config.codec == protocol::ChannelConfig::CODEC_SPEEX) {
+    return scoped_ptr<AudioEncoder>(new AudioEncoderSpeex());
   }
 
   NOTIMPLEMENTED();

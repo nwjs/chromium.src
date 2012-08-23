@@ -56,6 +56,7 @@ v8.log
 /chrome/app/theme/google_chrome
 /chrome/browser/autofill/internal
 /chrome/browser/extensions/default_extensions/chromeos
+/chrome/browser/google/linkdoctor_internal
 /chrome/browser/intents/internal/
 /chrome/browser/performance_monitor/performance_monitor.xml
 /chrome/browser/protector/internal
@@ -200,6 +201,7 @@ v8.log
 /third_party/pymox/src
 /third_party/python_24
 /third_party/python_26
+/third_party/pywebsocket/src
 /third_party/safe_browsing/testing
 /third_party/scons-2.0.1
 /third_party/sfntly

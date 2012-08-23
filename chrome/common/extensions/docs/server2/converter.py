@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -37,8 +37,11 @@ IGNORED_FILES = [
 # names of the JSON files do not give enough information on the actual API name.
 CUSTOM_MAPPINGS = {
   'experimental_input_virtual_keyboard': 'experimental_input_virtualKeyboard',
+  'experimental_system_info_cpu': 'experimental_systemInfo_cpu',
+  'experimental_system_info_storage': 'experimental_systemInfo_storage',
   'input_ime': 'input_ime',
-  'app_window': 'app_window'
+  'app_runtime': 'app_runtime',
+  'app_window': 'app_window',
 }
 
 # These are the extension-only APIs that don't have explicit entries in
@@ -72,7 +75,7 @@ def _ReadFile(filename):
     return f.read()
 
 def _WriteFile(filename, data):
-  with open(filename, 'w+') as f:
+  with open(filename, 'wb+') as f:
     f.write(data)
 
 def _UnixName(name):
@@ -87,7 +90,7 @@ def _UnixName(name):
 def _GetDestinations(api_name, api_dir):
   if api_name in EXTENSIONS_ONLY:
     return ['extensions']
-  if api_name.startswith('app'):
+  if api_name.count('app') > 0:
     return ['apps']
   with open(os.path.join(api_dir, '_permission_features.json')) as f:
     permissions = json.loads(json_comment_eater.Nom(f.read()))
@@ -111,28 +114,28 @@ def _ListAllAPIs(dirname):
     else:
       all_files.extend([os.path.join(path, f) for f in files
                         if f.endswith('.json') or f.endswith('.idl')])
-  dirname = dirname.rstrip('/') + '/'
+  dirname = dirname.rstrip(os.sep) + os.sep
   return [f[len(dirname):] for f in all_files
           if os.path.splitext(f)[0].split('_')[-1] not in ['private',
                                                            'internal']]
 
 def _MakeArticleTemplate(filename, path):
-  return ('{{+partials.standard_%s_article article:intros.%s}}' %
+  return ('{{+partials.standard_%s_article article:intros.%s}}\n' %
           (path, filename))
 
 def _MakeAPITemplate(intro_name, path, api_name, has_intro):
   if has_intro:
-    return ('{{+partials.standard_%s_api api:apis.%s intro:intros.%s}}' %
+    return ('{{+partials.standard_%s_api api:apis.%s intro:intros.%s}}\n' %
             (path, api_name, intro_name))
   else:
-    return ('{{+partials.standard_%s_api api:apis.%s}}' %
+    return ('{{+partials.standard_%s_api api:apis.%s}}\n' %
             (path, api_name))
 
 def _GetAPIPath(name, api_dir):
   api_files = _ListAllAPIs(api_dir)
   for filename in api_files:
     if name == _UnixName(SanitizeAPIName(filename)):
-      return _UnixName(filename)
+      return _UnixName(filename).replace(os.sep, '/')
 
 def _CleanAPIs(source_dir, api_dir, intros_dest, template_dest, exclude):
   source_files = os.listdir(source_dir)
@@ -351,6 +354,7 @@ if __name__ == '__main__':
                     default=False,
                     help='replace existing files')
   (opts, args) = parser.parse_args()
+  args = [os.path.normpath(p) for p in args]
   if (not opts.file and len(args) != 6) or (opts.file and len(args) != 7):
     parser.error('incorrect number of arguments.')
 

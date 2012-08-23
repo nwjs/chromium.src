@@ -5,6 +5,7 @@
 #include "ipc/ipc_sync_channel.h"
 
 #include "base/bind.h"
+#include "base/debug/trace_event.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -12,6 +13,8 @@
 #include "base/synchronization/waitable_event_watcher.h"
 #include "base/thread_task_runner_handle.h"
 #include "base/threading/thread_local.h"
+#include "ipc/ipc_logging.h"
+#include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_sync_message.h"
 
 using base::TimeDelta;
@@ -307,9 +310,9 @@ bool SyncChannel::SyncContext::TryToUnblockListener(const Message* msg) {
     bool send_result = deserializers_.back().deserializer->
         SerializeOutputParameters(*msg);
     deserializers_.back().send_result = send_result;
-    LOG_IF(ERROR, !send_result) << "Couldn't deserialize reply message";
+    VLOG_IF(1, !send_result) << "Couldn't deserialize reply message";
   } else {
-    LOG(ERROR) << "Received error reply";
+    VLOG(1) << "Received error reply";
   }
   deserializers_.back().done_event->Signal();
 
@@ -363,7 +366,7 @@ void SyncChannel::SyncContext::OnChannelClosed() {
 void SyncChannel::SyncContext::OnSendTimeout(int message_id) {
   base::AutoLock auto_lock(deserializers_lock_);
   PendingSyncMessageQueue::iterator iter;
-  LOG(ERROR) << "Send timeout";
+  VLOG(1) << "Send timeout";
   for (iter = deserializers_.begin(); iter != deserializers_.end(); iter++) {
     if (iter->id == message_id) {
       iter->done_event->Signal();
@@ -375,7 +378,8 @@ void SyncChannel::SyncContext::OnSendTimeout(int message_id) {
 void SyncChannel::SyncContext::CancelPendingSends() {
   base::AutoLock auto_lock(deserializers_lock_);
   PendingSyncMessageQueue::iterator iter;
-  LOG(ERROR) << "Canceling pending sends";
+  // TODO(bauerb): Remove once http://crbug/141055 is fixed.
+  VLOG(1) << "Canceling pending sends";
   for (iter = deserializers_.begin(); iter != deserializers_.end(); iter++)
     iter->done_event->Signal();
 }
@@ -427,6 +431,17 @@ bool SyncChannel::Send(Message* message) {
 }
 
 bool SyncChannel::SendWithTimeout(Message* message, int timeout_ms) {
+#ifdef IPC_MESSAGE_LOG_ENABLED
+  Logging* logger = Logging::GetInstance();
+  std::string name;
+  logger->GetMessageText(message->type(), &name, message, NULL);
+  TRACE_EVENT1("task", "SyncChannel::SendWithTimeout",
+               "name", name);
+#else
+  TRACE_EVENT2("task", "SyncChannel::SendWithTimeout",
+               "class", IPC_MESSAGE_ID_CLASS(message->type()),
+               "line", IPC_MESSAGE_ID_LINE(message->type()));
+#endif
   if (!message->is_sync()) {
     ChannelProxy::Send(message);
     return true;
@@ -435,7 +450,7 @@ bool SyncChannel::SendWithTimeout(Message* message, int timeout_ms) {
   // *this* might get deleted in WaitForReply.
   scoped_refptr<SyncContext> context(sync_context());
   if (context->shutdown_event()->IsSignaled()) {
-    LOG(ERROR) << "shutdown event is signaled";
+    VLOG(1) << "shutdown event is signaled";
     delete message;
     return false;
   }

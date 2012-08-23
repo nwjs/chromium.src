@@ -33,6 +33,7 @@
 #include "chrome/browser/extensions/location_bar_controller.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -559,7 +560,7 @@ void LocationBarViewGtk::Init(bool popup_window_mode) {
     CreateStarButton();
     gtk_box_pack_end(GTK_BOX(hbox_.get()), star_.get(), FALSE, FALSE, 0);
 
-    // Also disable Chrome To Mobile for off-the-record and non-synced profiles,
+    // Disable Chrome To Mobile for off-the-record and non-synced profiles,
     // or if the feature is disabled by a command line flag or chrome://flags.
     if (!profile->IsOffTheRecord() && profile->IsSyncAccessible() &&
         ChromeToMobileService::IsChromeToMobileEnabled()) {
@@ -567,15 +568,12 @@ void LocationBarViewGtk::Init(bool popup_window_mode) {
       gtk_box_pack_end(GTK_BOX(hbox_.get()), chrome_to_mobile_view_.get(),
                        FALSE, FALSE, 0);
       command_updater_->AddCommandObserver(IDC_CHROME_TO_MOBILE_PAGE, this);
-      ChromeToMobileServiceFactory::GetForProfile(browser_->profile())->
-          RequestMobileListUpdate();
+      UpdateChromeToMobileIcon();
     }
   }
 
-  // TODO(khorimoto): Uncomment the following 2 lines when zoom icon/bubble
-  // implementation is complete for M23.
-  // CreateZoomButton();
-  // gtk_box_pack_end(GTK_BOX(hbox_.get()), zoom_.get(), FALSE, FALSE, 0);
+  CreateZoomButton();
+  gtk_box_pack_end(GTK_BOX(hbox_.get()), zoom_.get(), FALSE, FALSE, 0);
 
   content_setting_hbox_.Own(gtk_hbox_new(FALSE, kInnerPadding + 1));
   gtk_widget_set_name(content_setting_hbox_.get(),
@@ -1322,11 +1320,10 @@ void LocationBarViewGtk::SetKeywordLabel(const string16& keyword) {
     if (is_extension_keyword) {
       const TemplateURL* template_url =
           template_url_service->GetTemplateURLForKeyword(keyword);
-      const SkBitmap& bitmap = profile->GetExtensionService()->
+      gfx::Image image = profile->GetExtensionService()->
           GetOmniboxIcon(template_url->GetExtensionId());
-      GdkPixbuf* pixbuf = gfx::GdkPixbufFromSkBitmap(bitmap);
-      gtk_image_set_from_pixbuf(GTK_IMAGE(tab_to_search_magnifier_), pixbuf);
-      g_object_unref(pixbuf);
+      gtk_image_set_from_pixbuf(GTK_IMAGE(tab_to_search_magnifier_),
+                                image.ToGdkPixbuf());
     } else {
       ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
       gtk_image_set_from_pixbuf(GTK_IMAGE(tab_to_search_magnifier_),
@@ -1503,7 +1500,7 @@ gboolean LocationBarViewGtk::OnChromeToMobileButtonPress(
   return FALSE;
 }
 
-void LocationBarViewGtk::ShowZoomBubble(int zoom_percent) {
+void LocationBarViewGtk::ShowZoomBubble() {
   if (!zoom_.get() || toolbar_model_->input_in_progress())
     return;
 
@@ -1523,15 +1520,6 @@ void LocationBarViewGtk::ShowChromeToMobileBubble() {
   ChromeToMobileBubbleGtk::Show(GTK_IMAGE(chrome_to_mobile_image_), browser_);
 }
 
-void LocationBarViewGtk::SetZoomIconTooltipPercent(int zoom_percent) {
-  UpdateZoomIcon();
-}
-
-void LocationBarViewGtk::SetZoomIconState(
-    ZoomController::ZoomIconState zoom_icon_state) {
-  UpdateZoomIcon();
-}
-
 void LocationBarViewGtk::SetStarred(bool starred) {
   if (starred == starred_)
     return;
@@ -1540,29 +1528,35 @@ void LocationBarViewGtk::SetStarred(bool starred) {
   UpdateStarIcon();
 }
 
+void LocationBarViewGtk::ZoomChangedForActiveTab(bool can_show_bubble) {
+  UpdateZoomIcon();
+
+  if (can_show_bubble && gtk_widget_get_visible(zoom_.get()))
+    ShowZoomBubble();
+}
+
 void LocationBarViewGtk::UpdateZoomIcon() {
-  if (!zoom_.get() || !GetWebContents())
+  TabContents* tab_contents = GetTabContents();
+  if (!zoom_.get() || !tab_contents)
     return;
 
-  const ZoomController* zc = TabContents::FromWebContents(
-      GetWebContents())->zoom_controller();
-
-  if (toolbar_model_->input_in_progress() ||
-      zc->zoom_icon_state() == ZoomController::NONE) {
+  ZoomController* zoom_controller = tab_contents->zoom_controller();
+  if (!zoom_controller || zoom_controller->IsAtDefaultZoom() ||
+      toolbar_model_->input_in_progress()) {
     gtk_widget_hide(zoom_.get());
     ZoomBubbleGtk::Close();
     return;
   }
 
-  gtk_widget_show(zoom_.get());
-  int zoom_resource = zc->zoom_icon_state() == ZoomController::ZOOM_PLUS_ICON ?
-      IDR_ZOOM_PLUS : IDR_ZOOM_MINUS;
+  const int zoom_resource = zoom_controller->GetResourceForZoomLevel();
   gtk_image_set_from_pixbuf(GTK_IMAGE(zoom_image_),
       theme_service_->GetImageNamed(zoom_resource)->ToGdkPixbuf());
 
-  string16 tooltip = l10n_util::GetStringFUTF16Int(IDS_TOOLTIP_ZOOM,
-                                                   zc->zoom_percent());
+  string16 tooltip = l10n_util::GetStringFUTF16Int(
+      IDS_TOOLTIP_ZOOM, zoom_controller->zoom_percent());
   gtk_widget_set_tooltip_text(zoom_.get(), UTF16ToUTF8(tooltip).c_str());
+
+  gtk_widget_show(zoom_.get());
 }
 
 void LocationBarViewGtk::UpdateStarIcon() {

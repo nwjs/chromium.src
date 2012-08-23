@@ -276,6 +276,7 @@ class ThreadPool(object):
     if progress and timeout:
       while not self._tasks.join(timeout):
         progress.print_update()
+      progress.print_update()
     else:
       self._tasks.join()
     out = []
@@ -381,7 +382,7 @@ def gtest_list_tests(executable):
     raise Failure('Failed to run %s\n%s' % (executable, err), p.returncode)
   # pylint: disable=E1103
   if err and not err.startswith('Xlib:  extension "RANDR" missing on display '):
-    raise Failure('Unexpected spew:\n%s' % err, 1)
+    logging.error('Unexpected spew in gtest_list_tests:\n%s\n%s', err, cmd)
   return out
 
 
@@ -586,26 +587,6 @@ def run_test_cases(executable, test_cases, jobs, timeout, result_file):
       success.append(test_case)
     else:
       assert False, items
-
-  # Retry all the failures serially to see if they are just flaky when
-  # run at the same time.
-  if fail:
-    print 'Retrying failed tests serially.'
-    progress = Progress(len(fail))
-    function = Runner(
-        executable, os.getcwd(), timeout, progress, retry_count=1).map
-    test_cases_retry = fail[:]
-
-    for test_case in test_cases_retry:
-      output = function(test_case)
-      progress.print_update()
-      results[output[0]['test_case']].append(output)
-      if not output[0]['returncode']:
-        fail.remove(test_case)
-        flaky.append(test_case)
-
-    LogResults(result_file, results)
-    sys.stdout.write('\n')
 
   print 'Summary:'
   for test_case in sorted(flaky):

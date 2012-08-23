@@ -14,6 +14,7 @@ try:
   import google.appengine.api.urlfetch as urlfetch
 except ImportError:
   import re
+  from StringIO import StringIO
 
   FAKE_URL_FETCHER_CONFIGURATION = None
 
@@ -36,6 +37,13 @@ except ImportError:
         return v
     return None
 
+  class _RPC(object):
+    def __init__(self, result=None):
+      self.result = result
+
+    def get_result(self):
+      return self.result
+
   class FakeUrlFetch(object):
     """A fake urlfetch module that uses the current
     |FAKE_URL_FETCHER_CONFIGURATION| to map urls to fake fetchers.
@@ -46,21 +54,11 @@ except ImportError:
         self.headers = { 'content-type': 'none' }
         self.status_code = 200
 
-    class _RPC(object):
-      def __init__(self):
-        self.result = None
-
-      def wait(self):
-        pass
-
-      def get_result(self):
-        return self.result
-
     def fetch(self, url):
       return self._Response(_GetConfiguration(url).fetch(url))
 
     def create_rpc(self):
-      return self._RPC()
+      return _RPC()
 
     def make_fetch_call(self, rpc, url):
       rpc.result = self.fetch(url)
@@ -70,34 +68,82 @@ except ImportError:
     def __getattr__(self, attr):
       raise NotImplementedError()
 
-  blobstore = NotImplemented()
-  files = NotImplemented()
+  _BLOBS = {}
+  class FakeBlobstore(object):
+    class BlobReader(object):
+      def __init__(self, blob_key):
+        self._data = _BLOBS[blob_key].getvalue()
+
+      def read(self):
+        return self._data
+
+  blobstore = FakeBlobstore()
+
+  class FakeFileInterface(object):
+    """This class allows a StringIO object to be used in a with block like a
+    file.
+    """
+    def __init__(self, io):
+      self._io = io
+
+    def __exit__(self, *args):
+      pass
+
+    def write(self, data):
+      self._io.write(data)
+
+    def __enter__(self, *args):
+      return self._io
+
+  class FakeFiles(object):
+    _next_blobstore_key = 0
+    class blobstore(object):
+      @staticmethod
+      def create():
+        FakeFiles._next_blobstore_key += 1
+        return FakeFiles._next_blobstore_key
+
+      @staticmethod
+      def get_blob_key(filename):
+        return filename
+
+    def open(self, filename, mode):
+      _BLOBS[filename] = StringIO()
+      return FakeFileInterface(_BLOBS[filename])
+
+    def GetBlobKeys(self):
+      return _BLOBS.keys()
+
+    def finalize(self, filename):
+      pass
+
+  files = FakeFiles()
 
   class InMemoryMemcache(object):
-    """A memcache that stores items in memory instead of using the memcache
-    module.
+    """A fake memcache that does nothing.
     """
-    def __init__(self):
-      self._cache = {}
+    class Client(object):
+      def set_multi_async(self, mapping, namespace='', time=0):
+        return
 
-    def set(self, key, value, namespace, time=60):
-      if namespace not in self._cache:
-        self._cache[namespace] = {}
-      self._cache[namespace][key] = value
+      def get_multi_async(self, keys, namespace='', time=0):
+        return _RPC(result=dict((k, None) for k in keys))
 
-    def get(self, key, namespace):
-      if namespace not in self._cache:
-        return None
-      return self._cache[namespace].get(key, None)
+    def set(self, key, value, namespace='', time=0):
+      return
+
+    def get(self, key, namespace='', time=0):
+      return None
 
     def delete(self, key, namespace):
-      if namespace in self._cache:
-        self._cache[namespace].pop(key)
+      return
+
   memcache = InMemoryMemcache()
 
-  # A fake webapp.RequestHandler class for Handler to extend.
   class webapp(object):
     class RequestHandler(object):
+      """A fake webapp.RequestHandler class for Handler to extend.
+      """
       def __init__(self, request, response):
         self.request = request
         self.response = response
@@ -106,17 +152,32 @@ except ImportError:
         self.request.path = path
 
   class _Db_Result(object):
+    def __init__(self, data):
+      self._data = data
+
+    class _Result(object):
+      def __init__(self, value):
+        self.value = value
+
     def get(self):
-      return []
+      return self._Result(self._data)
 
   class db(object):
+    _store = {}
     class StringProperty(object):
       pass
 
     class Model(object):
+      def __init__(self, key_='', value=''):
+        self._key = key_
+        self._value = value
+
       @staticmethod
-      def gql(*args):
-        return _Db_Result()
+      def gql(query, key):
+        return _Db_Result(db._store.get(key, None))
+
+      def put(self):
+        db._store[self._key] = self._value
 
   class BlobReferenceProperty(object):
     pass

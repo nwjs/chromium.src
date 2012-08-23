@@ -16,6 +16,8 @@ class WebsiteSettingsUIBridge;
 // are displayed when the user clicks the favicon or security lock icon.
 @interface WebsiteSettingsBubbleController : BaseBubbleController {
  @private
+  TabContents* tabContents_;
+
   scoped_nsobject<NSView> contentView_;
   scoped_nsobject<NSSegmentedControl> segmentedControl_;
   scoped_nsobject<NSTabView> tabView_;
@@ -31,6 +33,9 @@ class WebsiteSettingsUIBridge;
 
   // Container for cookies info on the Permissions tab.
   NSView* cookiesView_;
+
+  // The link button for showing cookies and site data info.
+  NSButton* cookiesLinkButton_;
 
   // Container for permission info on the Permissions tab.
   NSView* permissionsView_;
@@ -57,9 +62,12 @@ class WebsiteSettingsUIBridge;
 }
 
 // Designated initializer. The controller will release itself when the bubble
-// is closed. |parentWindow| cannot be nil.
+// is closed. |parentWindow| cannot be nil. |tabContents| may be nil for
+// testing purposes.
 - (id)initWithParentWindow:(NSWindow*)parentWindow
-   websiteSettingsUIBridge:(WebsiteSettingsUIBridge*)bridge;
+   websiteSettingsUIBridge:(WebsiteSettingsUIBridge*)bridge
+               tabContents:(TabContents*)tabContents
+            isInternalPage:(BOOL)isInternalPage;
 
 - (void)permissionValueChanged:(id)sender;
 

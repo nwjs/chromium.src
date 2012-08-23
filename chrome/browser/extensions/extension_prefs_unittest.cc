@@ -11,9 +11,9 @@
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/values.h"
-#include "chrome/browser/extensions/extension_prefs.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/extensions/extension_pref_value_map.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
+#include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/extension_manifest_constants.h"
@@ -263,24 +263,24 @@ TEST_F(ExtensionPrefsEscalatePermissions, EscalatePermissions) {}
 class ExtensionPrefsGrantedPermissions : public ExtensionPrefsTest {
  public:
   virtual void Initialize() {
-    scoped_refptr<APIPermissionDetail> detail;
-    APIPermission* permission =
+    const APIPermissionInfo* permission_info =
       PermissionsInfo::GetInstance()->GetByID(APIPermission::kSocket);
 
     extension_id_ = prefs_.AddExtensionAndReturnId("test");
 
     api_perm_set1_.insert(APIPermission::kTab);
     api_perm_set1_.insert(APIPermission::kBookmark);
-    detail = permission->CreateDetail();
+    scoped_ptr<APIPermission> permission(
+        permission_info->CreateAPIPermission());
     {
       scoped_ptr<ListValue> value(new ListValue());
       value->Append(Value::CreateStringValue("tcp-connect:*.example.com:80"));
       value->Append(Value::CreateStringValue("udp-bind::8080"));
       value->Append(Value::CreateStringValue("udp-send-to::8888"));
-      if (!detail->FromValue(value.get()))
+      if (!permission->FromValue(value.get()))
         NOTREACHED();
     }
-    api_perm_set1_.insert(detail);
+    api_perm_set1_.insert(permission.release());
 
     api_perm_set2_.insert(APIPermission::kHistory);
 
@@ -492,7 +492,7 @@ class ExtensionPrefsBlacklist : public ExtensionPrefsTest {
 
     ExtensionList::const_iterator iter;
     for (iter = extensions_.begin(); iter != extensions_.end(); ++iter) {
-      EXPECT_FALSE(prefs()->IsExtensionBlacklisted((*iter)->id()));
+      EXPECT_TRUE(prefs()->UserMayLoad(*iter, NULL));
     }
     // Blacklist one installed and one not-installed extension id.
     std::set<std::string> blacklisted_ids;
@@ -502,15 +502,13 @@ class ExtensionPrefsBlacklist : public ExtensionPrefsTest {
   }
 
   virtual void Verify() {
-    // Make sure the two id's we expect to be blacklisted are.
-    EXPECT_TRUE(prefs()->IsExtensionBlacklisted(extensions_[0]->id()));
-    EXPECT_TRUE(prefs()->IsExtensionBlacklisted(not_installed_id_));
+    // Make sure the id we expect to be blacklisted is.
+    EXPECT_FALSE(prefs()->UserMayLoad(extensions_[0], NULL));
 
     // Make sure the other id's are not blacklisted.
     ExtensionList::const_iterator iter;
-    for (iter = extensions_.begin() + 1; iter != extensions_.end(); ++iter) {
-      EXPECT_FALSE(prefs()->IsExtensionBlacklisted((*iter)->id()));
-    }
+    for (iter = extensions_.begin() + 1; iter != extensions_.end(); ++iter)
+      EXPECT_TRUE(prefs()->UserMayLoad(*iter, NULL));
 
     // Make sure GetInstalledExtensionsInfo returns only the non-blacklisted
     // extensions data.

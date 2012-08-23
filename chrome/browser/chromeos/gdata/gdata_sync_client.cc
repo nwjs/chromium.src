@@ -4,8 +4,8 @@
 
 #include "chrome/browser/chromeos/gdata/gdata_sync_client.h"
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -15,9 +15,9 @@
 #include "base/file_util.h"
 #include "base/message_loop_proxy.h"
 #include "base/threading/sequenced_worker_pool.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
@@ -75,7 +75,7 @@ GDataSyncClient::SyncTask::SyncTask(SyncType in_sync_type,
 
 GDataSyncClient::GDataSyncClient(Profile* profile,
                                  GDataFileSystemInterface* file_system,
-                                 GDataCache* cache)
+                                 DriveCache* cache)
     : profile_(profile),
       file_system_(file_system),
       cache_(cache),
@@ -323,7 +323,7 @@ void GDataSyncClient::OnGetEntryInfoByResourceId(
     const std::string& resource_id,
     GDataFileError error,
     const FilePath& /* gdata_file_path */,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
@@ -347,7 +347,7 @@ void GDataSyncClient::OnGetCacheEntry(
     const std::string& resource_id,
     const std::string& latest_md5,
     bool success,
-    const GDataCacheEntry& cache_entry) {
+    const DriveCacheEntry& cache_entry) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (!success) {
@@ -403,7 +403,7 @@ void GDataSyncClient::OnFetchFileComplete(const SyncTask& sync_task,
                                           GDataFileError error,
                                           const FilePath& local_path,
                                           const std::string& ununsed_mime_type,
-                                          GDataFileType file_type) {
+                                          DriveFileType file_type) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (error == GDATA_FILE_OK) {

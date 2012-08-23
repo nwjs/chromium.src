@@ -137,25 +137,6 @@ class PyUITestBase {
            "Closes all windows and destroys the browser.") TearDown;
   virtual void TearDown();
 
-  %feature("docstring", "Timeout (in milli secs) for an action. "
-           "This value is also used as default for the WaitUntil() method.")
-      action_max_timeout_ms;
-  int action_max_timeout_ms() const;
-
-  %feature("docstring", "Get the timeout (in milli secs) for an automation "
-           "call") action_timeout_ms;
-  int action_timeout_ms();
-
-  %feature("docstring", "Set the timeout (in milli secs) for an automation "
-           "call.  This is an internal method.  Do not use this directly.  "
-           "Use ActionTimeoutChanger instead")
-      set_action_timeout_ms;
-  void set_action_timeout_ms(int timeout);
-
-  %feature("docstring", "Timeout (in milli secs) for large tests.")
-      large_test_timeout_ms;
-  int large_test_timeout_ms() const;
-
   %feature("docstring", "Launches the browser and IPC testing server.")
       LaunchBrowserAndServer;
   void LaunchBrowserAndServer();
@@ -209,8 +190,9 @@ class TestServer {
 
   // Initialize a TestServer listening on the specified host (IP or hostname).
   TestServer(Type type, const std::string& host, const FilePath& document_root);
-  // Initialize a HTTPS TestServer with a specific set of HTTPSOptions.
-  TestServer(const HTTPSOptions& https_options,
+  // Initialize a TestServer with a specific set of SSLOptions.
+  TestServer(Type type,
+             const SSLOptions& ssl_options,
              const FilePath& document_root);
 
   %feature("docstring", "Start TestServer over an ephemeral port") Start;
@@ -246,23 +228,23 @@ class TestServer {
 };
 
 }
-// HTTPSOptions
+// SSLOptions
 %feature("docstring",
-         "HTTPSOptions. Sets one of three types of a cert")
-    HTTPSOptions;
-struct HTTPSOptions {
+         "SSLOptions. Sets one of three types of a cert")
+    SSLOptions;
+struct SSLOptions {
   enum ServerCertificate {
     CERT_OK,
     CERT_MISMATCHED_NAME,
     CERT_EXPIRED,
   };
 
-  // Initialize a new HTTPSOptions that will use the specified certificate.
-  explicit HTTPSOptions(ServerCertificate cert);
+  // Initialize a new SSLOptions that will use the specified certificate.
+  explicit SSLOptions(ServerCertificate cert);
 };
 
 %{
-typedef net::TestServer::HTTPSOptions HTTPSOptions;
+typedef net::TestServer::SSLOptions SSLOptions;
 %}
 
 %pointer_class(int, int_ptr);

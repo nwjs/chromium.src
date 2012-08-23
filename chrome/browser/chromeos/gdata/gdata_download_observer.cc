@@ -4,11 +4,13 @@
 
 #include "chrome/browser/chromeos/gdata/gdata_download_observer.h"
 
+#include <string>
+
 #include "base/callback.h"
 #include "base/file_util.h"
 #include "base/supports_user_data.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
-#include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
@@ -38,7 +40,8 @@ class UploadingUserData : public DownloadCompletionBlocker {
  public:
   explicit UploadingUserData(GDataUploader* uploader)
       : uploader_(uploader),
-        upload_id_(-1) {
+        upload_id_(-1),
+        is_overwrite_(false) {
   }
   virtual ~UploadingUserData() {}
 
@@ -49,12 +52,23 @@ class UploadingUserData : public DownloadCompletionBlocker {
   const FilePath& virtual_dir_path() const { return virtual_dir_path_; }
   void set_entry(scoped_ptr<DocumentEntry> entry) { entry_ = entry.Pass(); }
   scoped_ptr<DocumentEntry> entry_passed() { return entry_.Pass(); }
+  void set_overwrite(bool overwrite) { is_overwrite_ = overwrite; }
+  bool is_overwrite() { return is_overwrite_; }
+  void set_resource_id(const std::string& resource_id) {
+    resource_id_ = resource_id;
+  }
+  const std::string& resource_id() const { return resource_id_; }
+  void set_md5(const std::string& md5) { md5_ = md5; }
+  const std::string& md5() const { return md5_; }
 
  private:
   GDataUploader* uploader_;
   int upload_id_;
   FilePath virtual_dir_path_;
   scoped_ptr<DocumentEntry> entry_;
+  bool is_overwrite_;
+  std::string resource_id_;
+  std::string md5_;
 
   DISALLOW_COPY_AND_ASSIGN(UploadingUserData);
 };
@@ -104,7 +118,7 @@ void SubstituteGDataDownloadPathInternal(Profile* profile,
   DVLOG(1) << "SubstituteGDataDownloadPathInternal";
 
   const FilePath gdata_tmp_download_dir = GetSystemService(profile)->cache()->
-      GetCacheDirectoryPath(GDataCache::CACHE_TYPE_TMP_DOWNLOADS);
+      GetCacheDirectoryPath(DriveCache::CACHE_TYPE_TMP_DOWNLOADS);
 
   // Swap the gdata path with a local path. Local path must be created
   // on a blocking thread.
@@ -136,7 +150,7 @@ void OnEntryFound(Profile* profile,
     const FilePath& gdata_dir_path,
     const base::Closure& substitute_callback,
     GDataFileError error,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   if (error == GDATA_FILE_ERROR_NOT_FOUND) {
     // Destination gdata directory doesn't exist, so create it.
     const bool is_exclusive = false, is_recursive = true;
@@ -151,7 +165,7 @@ void OnEntryFound(Profile* profile,
   }
 }
 
-// Callback for DocumentsService::Authenticate.
+// Callback for DriveServiceInterface::Authenticate.
 void OnAuthenticate(Profile* profile,
                     const FilePath& gdata_path,
                     const base::Closure& substitute_callback,
@@ -216,11 +230,11 @@ void GDataDownloadObserver::SubstituteGDataDownloadPath(Profile* profile,
   if (util::IsUnderGDataMountPoint(gdata_path)) {
     // Can't access drive if we're not authenticated.
     // We set off a chain of callbacks as follows:
-    // DocumentsService::Authenticate
+    // DriveServiceInterface::Authenticate
     //   OnAuthenticate calls GDataFileSystem::GetEntryInfoByPath
     //     OnEntryFound calls GDataFileSystem::CreateDirectory (if necessary)
     //       OnCreateDirectory calls SubstituteGDataDownloadPathInternal
-    GetSystemService(profile)->docs_service()->Authenticate(
+    GetSystemService(profile)->drive_service()->Authenticate(
         base::Bind(&OnAuthenticate, profile, gdata_path,
                    base::Bind(&SubstituteGDataDownloadPathInternal,
                               profile, callback)));
@@ -360,7 +374,7 @@ void GDataDownloadObserver::OnDownloadUpdated(DownloadItem* download) {
 
     case DownloadItem::COMPLETE:
       UploadDownloadItem(download);
-      MoveFileToGDataCache(download);
+      MoveFileToDriveCache(download);
       RemovePendingDownload(download);
       break;
 
@@ -476,29 +490,88 @@ void GDataDownloadObserver::CreateUploadFileInfo(DownloadItem* download) {
                  weak_ptr_factory_.GetWeakPtr(),
                  download->GetId());
 
-  // Get the GDataDirectory proto for the upload directory, then extract the
-  // initial upload URL in OnReadDirectoryByPath().
-  const FilePath upload_dir = upload_file_info->gdata_path.DirName();
+  // First check if |path| already exists. If so, we'll be overwriting an
+  // existing file.
+  const FilePath path = upload_file_info->gdata_path;
   file_system_->GetEntryInfoByPath(
-      upload_dir,
-      base::Bind(&GDataDownloadObserver::OnGetEntryInfoByPath,
-                 weak_ptr_factory_.GetWeakPtr(),
-                 download->GetId(),
-                 base::Passed(&upload_file_info)));
+      path,
+      base::Bind(
+          &GDataDownloadObserver::CreateUploadFileInfoAfterCheckExistence,
+          weak_ptr_factory_.GetWeakPtr(),
+          download->GetId(),
+          base::Passed(&upload_file_info)));
 }
 
-void GDataDownloadObserver::OnGetEntryInfoByPath(
+void GDataDownloadObserver::CreateUploadFileInfoAfterCheckExistence(
     int32 download_id,
     scoped_ptr<UploadFileInfo> upload_file_info,
     GDataFileError error,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(upload_file_info.get());
 
-  // TODO(hshi): if the upload directory is no longer valid, use the root
-  // directory instead.
-  upload_file_info->initial_upload_location =
-      entry_proto.get() ? GURL(entry_proto->upload_url()) : GURL();
+  if (entry_proto.get()) {
+    // Make sure this isn't a directory.
+    if (entry_proto->file_info().is_directory()) {
+      DVLOG(1) << "Filename conflicts with existing directory: "
+               << upload_file_info->title;
+      return;
+    }
+
+    // An entry already exists at the target path, so overwrite the existing
+    // file.
+    upload_file_info->initial_upload_location =
+        GURL(entry_proto->upload_url());
+    upload_file_info->title = "";
+
+    // Look up the DownloadItem for the |download_id|.
+    DownloadMap::iterator iter = pending_downloads_.find(download_id);
+    if (iter == pending_downloads_.end()) {
+      DVLOG(1) << "Pending download not found" << download_id;
+      return;
+    }
+    DownloadItem* download_item = iter->second;
+
+    UploadingUserData* upload_data = GetUploadingUserData(download_item);
+    DCHECK(upload_data);
+
+    upload_data->set_resource_id(entry_proto->resource_id());
+    upload_data->set_md5(entry_proto->file_specific_info().file_md5());
+    upload_data->set_overwrite(true);
+
+    StartUpload(download_id, upload_file_info.Pass());
+  } else {
+    // No file exists at the target path, so upload as a new file.
+
+    // Get the DriveDirectory proto for the upload directory, then extract the
+    // initial upload URL in OnReadDirectoryByPath().
+    const FilePath upload_dir = upload_file_info->gdata_path.DirName();
+    file_system_->GetEntryInfoByPath(
+        upload_dir,
+        base::Bind(
+            &GDataDownloadObserver::CreateUploadFileInfoAfterCheckTargetDir,
+            weak_ptr_factory_.GetWeakPtr(),
+            download_id,
+            base::Passed(&upload_file_info)));
+  }
+}
+
+void GDataDownloadObserver::CreateUploadFileInfoAfterCheckTargetDir(
+    int32 download_id,
+    scoped_ptr<UploadFileInfo> upload_file_info,
+    GDataFileError error,
+    scoped_ptr<DriveEntryProto> entry_proto) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(upload_file_info.get());
+
+  if (entry_proto.get()) {
+    // TODO(hshi): if the upload directory is no longer valid, use the root
+    // directory instead.
+    upload_file_info->initial_upload_location =
+        GURL(entry_proto->upload_url());
+  } else {
+    upload_file_info->initial_upload_location = GURL();
+  }
 
   StartUpload(download_id, upload_file_info.Pass());
 }
@@ -523,8 +596,15 @@ void GDataDownloadObserver::StartUpload(
   upload_data->set_virtual_dir_path(upload_file_info->gdata_path.DirName());
 
   // Start upload and save the upload id for future reference.
-  const int upload_id = gdata_uploader_->UploadNewFile(upload_file_info.Pass());
-  upload_data->set_upload_id(upload_id);
+  if (upload_data->is_overwrite()) {
+    const int upload_id =
+        gdata_uploader_->StreamExistingFile(upload_file_info.Pass());
+    upload_data->set_upload_id(upload_id);
+  } else {
+    const int upload_id =
+        gdata_uploader_->UploadNewFile(upload_file_info.Pass());
+    upload_data->set_upload_id(upload_id);
+  }
 }
 
 void GDataDownloadObserver::OnUploadComplete(
@@ -548,7 +628,7 @@ void GDataDownloadObserver::OnUploadComplete(
   DCHECK(upload_data);
 
   // Take ownership of the DocumentEntry from UploadFileInfo. This is used by
-  // GDataFileSystem::AddUploadedFile() to add the entry to GDataCache after the
+  // GDataFileSystem::AddUploadedFile() to add the entry to DriveCache after the
   // upload completes.
   upload_data->set_entry(upload_file_info->entry.Pass());
 
@@ -556,7 +636,7 @@ void GDataDownloadObserver::OnUploadComplete(
   upload_data->CompleteDownload();
 }
 
-void GDataDownloadObserver::MoveFileToGDataCache(DownloadItem* download) {
+void GDataDownloadObserver::MoveFileToDriveCache(DownloadItem* download) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   UploadingUserData* upload_data = GetUploadingUserData(download);
@@ -565,21 +645,30 @@ void GDataDownloadObserver::MoveFileToGDataCache(DownloadItem* download) {
     return;
   }
 
-  // Pass ownership of the DocumentEntry object to AddUploadedFile().
+  // Pass ownership of the DocumentEntry object.
   scoped_ptr<DocumentEntry> entry = upload_data->entry_passed();
   if (!entry.get()) {
     NOTREACHED();
     return;
   }
 
-  // Move downloaded file to gdata cache. Note that |content_file_path| should
-  // use the final target path when the download item is in COMPLETE state.
-  file_system_->AddUploadedFile(UPLOAD_NEW_FILE,
-                                upload_data->virtual_dir_path(),
-                                entry.Pass(),
-                                download->GetTargetFilePath(),
-                                GDataCache::FILE_OPERATION_MOVE,
-                                base::Bind(&base::DoNothing));
+  if (upload_data->is_overwrite()) {
+    file_system_->UpdateEntryData(upload_data->resource_id(),
+                                  upload_data->md5(),
+                                  entry.Pass(),
+                                  download->GetTargetFilePath(),
+                                  base::Bind(&base::DoNothing));
+  } else {
+    // Move downloaded file to gdata cache. Note that |content_file_path| should
+    // use the final target path (download->GetTargetFilePath()) when the
+    // download item has transitioned to the DownloadItem::COMPLETE state.
+    file_system_->AddUploadedFile(UPLOAD_NEW_FILE,
+                                  upload_data->virtual_dir_path(),
+                                  entry.Pass(),
+                                  download->GetTargetFilePath(),
+                                  DriveCache::FILE_OPERATION_MOVE,
+                                  base::Bind(&base::DoNothing));
+  }
 }
 
 }  // namespace gdata

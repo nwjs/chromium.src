@@ -14,9 +14,6 @@
       'target_name': 'ui',
       'type': '<(component)',
       'variables': { 'enable_wexit_time_destructors': 1, },
-      'includes': [
-        'base/ime/ime.gypi',
-      ],
       'dependencies': [
         '../base/base.gyp:base',
         '../base/base.gyp:base_i18n',
@@ -41,7 +38,26 @@
         '../third_party/icu/icu.gyp:icui18n',
         '../third_party/icu/icu.gyp:icuuc',
       ],
-      'sources': [
+      # iOS uses a small subset of ui. common_sources are the only files that
+      # are built on iOS.
+      'common_sources' : [
+        'gfx/point.cc',
+        'gfx/point.h',
+        'gfx/point_base.h',
+        'gfx/point3.h',
+        'gfx/rect.cc',
+        'gfx/rect.h',
+        'gfx/rect_base.h',
+        'gfx/rect_base_impl.h',
+        'gfx/scoped_ui_graphics_push_context_ios.h',
+        'gfx/scoped_ui_graphics_push_context_ios.mm',
+        'gfx/size.cc',
+        'gfx/size.h',
+        'gfx/size_base.h',
+        'gfx/size_base_impl.h',
+      ],
+      'all_sources': [
+        '<@(_common_sources)',
         'base/accelerators/accelerator.cc',
         'base/accelerators/accelerator.h',
         'base/accelerators/accelerator_cocoa.h',
@@ -314,6 +330,8 @@
         'base/win/shell.h',
         'base/win/singleton_hwnd.cc',
         'base/win/singleton_hwnd.h',
+        'base/win/tsf_text_store.cc',
+        'base/win/tsf_text_store.h',
         'base/win/window_impl.cc',
         'base/win/window_impl.h',
         'base/work_area_watcher_observer.h',
@@ -410,16 +428,8 @@
         'gfx/platform_font_mac.mm',
         'gfx/platform_font_win.h',
         'gfx/platform_font_win.cc',
-        'gfx/point.cc',
-        'gfx/point.h',
-        'gfx/point_base.h',
         'gfx/point_f.cc',
         'gfx/point_f.h',
-        'gfx/point3.h',
-        'gfx/rect.cc',
-        'gfx/rect.h',
-        'gfx/rect_base.h',
-        'gfx/rect_base_impl.h',
         'gfx/rect_f.cc',
         'gfx/rect_f.h',
         'gfx/render_text.cc',
@@ -446,10 +456,6 @@
         'gfx/selection_model.h',
         'gfx/shadow_value.cc',
         'gfx/shadow_value.h',
-        'gfx/size.cc',
-        'gfx/size.h',
-        'gfx/size_base.h',
-        'gfx/size_base_impl.h',
         'gfx/size_f.cc',
         'gfx/size_f.h',
         'gfx/skbitmap_operations.cc',
@@ -477,9 +483,15 @@
       ],
       'conditions': [
         ['OS!="ios"', {
+          'sources' : ['<@(_all_sources)'],
+          'includes': [
+            'base/ime/ime.gypi',
+          ],
           'dependencies': [
             '<(libjpeg_gyp_path):libjpeg',
           ],
+        }, {  # OS=="ios"
+          'sources' : ['<@(_common_sources)'],
         }],
         # TODO(asvitkine): Switch all platforms to use canvas_skia.cc.
         #                  http://crbug.com/105550
@@ -564,6 +576,7 @@
             'libraries': [
               '-lXcursor',  # For XCursor* function calls in x11_util.cc.
               '-lXrender',  # For XRender* function calls in x11_util.cc.
+              '-lXrandr',   # For XRR* function calls in x11_util.cc.
             ],
           },
           'conditions': [
@@ -695,23 +708,6 @@
           },
         }],
         ['OS=="ios"', {
-          'sources/': [
-            # iOS uses so little of ui that it is is easier to simply exclude
-            # everything and then just select the parts needed.
-            # TODO(ios): Add new files as they are made iOS ready.
-            ['exclude', '^base/'],
-            ['exclude', '^ui_controls/'],
-            ['exclude', '^gfx/'],
-            ['include', '^gfx/point\\.'],
-            ['include', '^gfx/point_base\\.h'],
-            ['include', '^gfx/point3\\.h'],
-            ['include', '^gfx/rect\\.'],
-            ['include', '^gfx/rect_base\\.h'],
-            ['include', '^gfx/rect_base_impl\\.h'],
-            ['include', '^gfx/size\\.'],
-            ['include', '^gfx/size_base\\.h'],
-            ['include', '^gfx/size_base_impl\\.h'],
-          ],
           'link_settings': {
             'libraries': [
               '$(SDKROOT)/System/Library/Frameworks/CoreGraphics.framework',
@@ -725,7 +721,9 @@
             ],
             'link_settings': {
               'libraries': [
-                '-lX11 -lXcursor',
+                '-lX11',
+                '-lXcursor',
+                '-lXrandr',  # For XRR* function calls in x11_util.cc.
               ],
             },
           },

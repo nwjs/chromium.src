@@ -59,32 +59,6 @@ namespace {
 // This matches Firefox behavior.
 const int kPixelsPerTick = 53;
 
-// Normalizes event.flags() to make it Windows/Mac compatible. Since the way
-// of setting modifier mask on X is very different than Windows/Mac as shown
-// in http://crbug.com/127142#c8, the normalization is necessary.
-int NormalizeEventFlags(const ui::KeyEvent& event) {
-  int mask = 0;
-  switch (event.key_code()) {
-    case ui::VKEY_CONTROL:
-      mask = ui::EF_CONTROL_DOWN;
-      break;
-    case ui::VKEY_SHIFT:
-      mask = ui::EF_SHIFT_DOWN;
-      break;
-    case ui::VKEY_MENU:
-      mask = ui::EF_ALT_DOWN;
-      break;
-    case ui::VKEY_CAPITAL:
-      mask = ui::EF_CAPS_LOCK_DOWN;
-      break;
-    default:
-      return event.flags();
-  }
-  if (event.type() == ui::ET_KEY_PRESSED)
-    return event.flags() | mask;
-  return event.flags() & ~mask;
-}
-
 int EventFlagsToWebEventModifiers(int flags) {
   int modifiers = 0;
   if (flags & ui::EF_SHIFT_DOWN)
@@ -315,8 +289,7 @@ WebKit::WebKeyboardEvent MakeWebKeyboardEventFromAuraEvent(
   XKeyEvent* native_key_event = &native_event->xkey;
 
   webkit_event.timeStampSeconds = event->time_stamp().InSecondsF();
-  webkit_event.modifiers =
-      EventFlagsToWebEventModifiers(NormalizeEventFlags(*event));
+  webkit_event.modifiers = EventFlagsToWebEventModifiers(event->flags());
 
   switch (native_event->type) {
     case KeyPress:
@@ -364,6 +337,11 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
   switch (event->type()) {
     case ui::ET_GESTURE_TAP:
       gesture_event.type = WebKit::WebInputEvent::GestureTap;
+      gesture_event.data.tap.tapCount = event->details().tap_count();
+      gesture_event.data.tap.width = event->details().bounding_box().width();
+      gesture_event.data.tap.height = event->details().bounding_box().height();
+      // TODO(rbyers): Stop setting deltaX once WebKit knows how to handle
+      // the other fields (here and below).  crbug.com/143237
       gesture_event.deltaX = event->details().tap_count();
       break;
     case ui::ET_GESTURE_TAP_DOWN:
@@ -377,6 +355,8 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       break;
     case ui::ET_GESTURE_SCROLL_UPDATE:
       gesture_event.type = WebKit::WebInputEvent::GestureScrollUpdate;
+      gesture_event.data.scrollUpdate.deltaX = event->details().scroll_x();
+      gesture_event.data.scrollUpdate.deltaY = event->details().scroll_y();
       gesture_event.deltaX = event->details().scroll_x();
       gesture_event.deltaY = event->details().scroll_y();
       break;
@@ -388,6 +368,7 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       break;
     case ui::ET_GESTURE_PINCH_UPDATE:
       gesture_event.type = WebKit::WebInputEvent::GesturePinchUpdate;
+      gesture_event.data.pinchUpdate.scale = event->details().scale();
       gesture_event.deltaX = event->details().scale();
       break;
     case ui::ET_GESTURE_PINCH_END:
@@ -395,6 +376,8 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       break;
     case ui::ET_SCROLL_FLING_START:
       gesture_event.type = WebKit::WebInputEvent::GestureFlingStart;
+      gesture_event.data.flingStart.velocityX = event->details().velocity_x();
+      gesture_event.data.flingStart.velocityY = event->details().velocity_y();
       gesture_event.deltaX = event->details().velocity_x();
       gesture_event.deltaY = event->details().velocity_y();
       break;
@@ -403,6 +386,10 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       break;
     case ui::ET_GESTURE_LONG_PRESS:
       gesture_event.type = WebKit::WebInputEvent::GestureLongPress;
+      gesture_event.data.longPress.width =
+          event->details().bounding_box().width();
+      gesture_event.data.longPress.height =
+          event->details().bounding_box().height();
       break;
     case ui::ET_GESTURE_TWO_FINGER_TAP:
       gesture_event.type = WebKit::WebInputEvent::GestureTwoFingerTap;
@@ -415,6 +402,8 @@ WebKit::WebGestureEvent MakeWebGestureEventFromAuraEvent(
       NOTREACHED() << "Unknown gesture type: " << event->type();
   }
 
+  // TODO(rbyers): Also stop setting boundingBox for all events (as for delta
+  // above).
   gesture_event.boundingBox = event->details().bounding_box();
   gesture_event.modifiers = EventFlagsToWebEventModifiers(event->flags());
   gesture_event.timeStampSeconds = event->time_stamp().InSecondsF();

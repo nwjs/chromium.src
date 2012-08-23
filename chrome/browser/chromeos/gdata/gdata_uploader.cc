@@ -8,8 +8,7 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
+#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 #include "content/public/browser/browser_thread.h"
@@ -31,8 +30,8 @@ const int kMaxFileOpenTries = 5;
 
 namespace gdata {
 
-GDataUploader::GDataUploader(DocumentsServiceInterface* documents_service)
-  : documents_service_(documents_service),
+GDataUploader::GDataUploader(DriveServiceInterface* drive_service)
+  : drive_service_(drive_service),
     next_upload_id_(0),
     ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
 }
@@ -52,6 +51,28 @@ int GDataUploader::UploadNewFile(scoped_ptr<UploadFileInfo> upload_file_info) {
   DCHECK_EQ(UPLOAD_INVALID, upload_file_info->upload_mode);
 
   upload_file_info->upload_mode = UPLOAD_NEW_FILE;
+
+  // When uploading a new file, we should retry file open as the file may
+  // not yet be ready. See comments in OpenCompletionCallback.
+  // TODO(satorux): The retry should be done only when we are uploading
+  // while downloading files from web sites (i.e. saving files to Drive).
+  upload_file_info->should_retry_file_open = true;
+  return StartUploadFile(upload_file_info.Pass());
+}
+
+int GDataUploader::StreamExistingFile(
+    scoped_ptr<UploadFileInfo> upload_file_info) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(upload_file_info.get());
+  DCHECK_EQ(upload_file_info->upload_id, -1);
+  DCHECK(!upload_file_info->file_path.empty());
+  DCHECK(!upload_file_info->gdata_path.empty());
+  DCHECK(upload_file_info->title.empty());
+  DCHECK(!upload_file_info->content_type.empty());
+  DCHECK(!upload_file_info->initial_upload_location.is_empty());
+  DCHECK_EQ(UPLOAD_INVALID, upload_file_info->upload_mode);
+
+  upload_file_info->upload_mode = UPLOAD_EXISTING_FILE;
 
   // When uploading a new file, we should retry file open as the file may
   // not yet be ready. See comments in OpenCompletionCallback.
@@ -240,7 +261,7 @@ void GDataUploader::OpenCompletionCallback(int upload_id, int result) {
                  GDATA_FILE_ERROR_ABORT);
     return;
   }
-  documents_service_->InitiateUpload(
+  drive_service_->InitiateUpload(
       InitiateUploadParams(upload_file_info->upload_mode,
                            upload_file_info->title,
                            upload_file_info->content_type,
@@ -366,7 +387,7 @@ void GDataUploader::ResumeUpload(int upload_id) {
   if (!upload_file_info)
     return;
 
-  documents_service_->ResumeUpload(
+  drive_service_->ResumeUpload(
       ResumeUploadParams(upload_file_info->upload_mode,
                          upload_file_info->start_range,
                          upload_file_info->end_range,

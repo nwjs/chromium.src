@@ -252,9 +252,12 @@
       </if>
       <structure type="chrome_scaled_image" name="IDR_FROZEN_TAB_ICON" file="frozen_tab.png" />
       <structure type="chrome_scaled_image" name="IDR_FULLSCREEN_MENU_BUTTON" file="fullscreen_menu_button.png" />
-      <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_ALLOWED_LOCATIONBAR_ICON" file="geolocation_allowed_locationbar_icon.png" />
-      <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_DENIED_LOCATIONBAR_ICON" file="geolocation_denied_locationbar_icon.png" />
+      <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_ALLOWED_LOCATIONBAR_ICON" file="allowed_location.png" />
+      <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_DENIED_LOCATIONBAR_ICON" file="blocked_location.png" />
       <structure type="chrome_scaled_image" name="IDR_GEOLOCATION_INFOBAR_ICON" file="infobar_geolocation.png" />
+      <if expr="pp_ifdef('_google_chrome')">
+         <structure type="chrome_scaled_image" name="IDR_GOOGLE_LOGO_LG" file="google_chrome/google_logo_lg.png" />
+      </if>
       <if expr="pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_GUEST_ICON" file="guest_icon.png" />
         <structure type="chrome_scaled_image" name="IDR_HELP_MENU" file="help_16.png" />
@@ -355,11 +358,10 @@
       <structure type="chrome_scaled_image" name="IDR_LOCATIONBG_POPUPMODE_EDGE" file="omnibox_popup_edge.png" />
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_LOCATIONBG_R" file="omnibox_r.png" />
-        <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_BORDER" file="omnibox_border.png" />
       </if>
       <if expr="pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_LOCATIONBG_R" file="common/browser_omnibox_right.png" />
-        <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_BORDER" file="ash/browser_omnibox_border.png" />
+        <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_BORDER" file="common/browser_omnibox_border.png" />
       </if>
       <if expr="is_macosx">
         <structure type="chrome_scaled_image" name="IDR_LOCATION_BAR_KEYWORD_HINT_TAB" file="keyword_hint_tab_mac.png" />
@@ -627,11 +629,11 @@
         <structure type="chrome_scaled_image" name="IDR_SHUTDOWN_ICON" file="shutdown_icon.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_SIDETABS_NEW_TAB" file="sidetabs_new_tab.png" />
-      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_EMPTY" file="speech_input_mic_empty.png" />
-      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_FULL" file="speech_input_mic_full.png" />
-      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_MASK" file="speech_input_mic_mask.png" />
-      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_NOISE" file="speech_input_mic_noise.png" />
-      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_SPINNER" file="speech_input_spinner.png" />
+      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_EMPTY" file="common/speech_input_mic_empty.png" />
+      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_FULL" file="common/speech_input_mic_full.png" />
+      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_MASK" file="common/speech_input_mic_mask.png" />
+      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_NOISE" file="common/speech_input_mic_noise.png" />
+      <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_SPINNER" file="common/speech_input_spinner.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_BALLOON_ICON" file="speech_input_tray_balloon_icon.png" />
       <if expr="is_linux or pp_ifdef('chromeos')">
         <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_TRAY_MIC_EMPTY" file="speech_input_tray_linux_mic_empty.png" />
@@ -667,7 +669,6 @@
         <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS" file="statusbar_network_bars.png" />
         <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS_DARK" file="statusbar_network_bars_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS_LIGHT" file="statusbar_network_bars_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_DISCONNECTED" file="statusbar_network_disconnected.png" />
         <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_EDGE_DARK" file="statusbar_network_edge_dark.png" />
         <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_EDGE_LIGHT" file="statusbar_network_edge_light.png" />
         <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_GPRS" file="statusbar_network_gprs.png" />

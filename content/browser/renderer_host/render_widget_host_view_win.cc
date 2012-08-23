@@ -390,18 +390,37 @@ WebKit::WebGestureEvent CreateWebGestureEvent(HWND hwnd,
   // Copy any event-type specific data.
   switch (gesture.type()) {
     case ui::ET_GESTURE_TAP:
+      gesture_event.data.tap.tapCount = gesture.details().tap_count();
+      gesture_event.data.tap.width =
+          gesture.details().bounding_box().width();
+      gesture_event.data.tap.height =
+          gesture.details().bounding_box().height();
+      // TODO(rbyers): Stop setting old fields once webkit is updated.
+      // crbug.com/143237
       gesture_event.deltaX = gesture.details().tap_count();
       break;
     case ui::ET_GESTURE_SCROLL_UPDATE:
+      gesture_event.data.scrollUpdate.deltaX = gesture.details().scroll_x();
+      gesture_event.data.scrollUpdate.deltaY = gesture.details().scroll_y();
       gesture_event.deltaX = gesture.details().scroll_x();
       gesture_event.deltaY = gesture.details().scroll_y();
       break;
     case ui::ET_GESTURE_PINCH_UPDATE:
+      gesture_event.data.pinchUpdate.scale = gesture.details().scale();
       gesture_event.deltaX = gesture.details().scale();
       break;
     case ui::ET_SCROLL_FLING_START:
+      gesture_event.data.flingStart.velocityX = gesture.details().velocity_x();
+      gesture_event.data.flingStart.velocityY = gesture.details().velocity_y();
       gesture_event.deltaX = gesture.details().velocity_x();
       gesture_event.deltaY = gesture.details().velocity_y();
+    case ui::ET_GESTURE_LONG_PRESS:
+      gesture_event.type = WebKit::WebInputEvent::GestureLongPress;
+      gesture_event.data.longPress.width =
+          gesture.details().bounding_box().width();
+      gesture_event.data.longPress.height =
+          gesture.details().bounding_box().height();
+      break;
     default:
       break;
   }
@@ -624,6 +643,9 @@ void RenderWidgetHostViewWin::WasHidden() {
 
   if (accelerated_surface_.get())
     accelerated_surface_->WasHidden();
+
+  if (GetBrowserAccessibilityManager())
+    GetBrowserAccessibilityManager()->WasHidden();
 }
 
 void RenderWidgetHostViewWin::SetSize(const gfx::Size& size) {
@@ -933,16 +955,15 @@ void RenderWidgetHostViewWin::SetIsLoading(bool is_loading) {
 }
 
 void RenderWidgetHostViewWin::TextInputStateChanged(
-    ui::TextInputType type,
-    bool can_compose_inline) {
+    const ViewHostMsg_TextInputState_Params& params) {
   // TODO(kinaba): currently, can_compose_inline is ignored and always treated
   // as true. We need to support "can_compose_inline=false" for PPAPI plugins
   // that may want to avoid drawing composition-text by themselves and pass
   // the responsibility to the browser.
-  bool is_enabled = (type != ui::TEXT_INPUT_TYPE_NONE &&
-      type != ui::TEXT_INPUT_TYPE_PASSWORD);
-  if (text_input_type_ != type) {
-    text_input_type_ = type;
+  bool is_enabled = (params.type != ui::TEXT_INPUT_TYPE_NONE &&
+      params.type != ui::TEXT_INPUT_TYPE_PASSWORD);
+  if (text_input_type_ != params.type) {
+    text_input_type_ = params.type;
     if (is_enabled)
       ime_input_.EnableIME(m_hWnd);
     else
@@ -1821,6 +1842,9 @@ LRESULT RenderWidgetHostViewWin::OnMouseEvent(UINT message, WPARAM wparam,
     }
   }
 
+  if (message == WM_LBUTTONDOWN && GetBrowserAccessibilityManager())
+    GetBrowserAccessibilityManager()->GotMouseDown();
+
   ForwardMouseEventToRenderer(message, wparam, lparam);
   return 0;
 }
@@ -2605,8 +2629,8 @@ LRESULT RenderWidgetHostViewWin::OnGetObject(UINT message, WPARAM wparam,
     // An MSAA client requestes our custom id. Assume that we have detected an
     // active windows screen reader.
     BrowserAccessibilityState::GetInstance()->OnScreenReaderDetected();
-    if (BrowserAccessibilityState::GetInstance()->IsAccessibleBrowser())
-      render_widget_host_->SetAccessibilityMode(AccessibilityModeComplete);
+    render_widget_host_->SetAccessibilityMode(
+        BrowserAccessibilityStateImpl::GetInstance()->GetAccessibilityMode());
 
     // Return with failure.
     return static_cast<LRESULT>(0L);

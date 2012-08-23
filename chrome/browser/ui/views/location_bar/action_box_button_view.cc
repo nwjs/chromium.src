@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/location_bar/action_box_button_view.h"
 
+#include "base/command_line.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/command_updater.h"
@@ -13,6 +14,7 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/action_box_menu.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
+#include "chrome/common/chrome_switches.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/accessibility/accessible_view_state.h"
@@ -71,6 +73,11 @@ SkColor ActionBoxButtonView::GetBorderColor() {
   }
 }
 
+bool ActionBoxButtonView::IsActionBoxEnabled() {
+  return CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kEnableActionBox);
+}
+
 void ActionBoxButtonView::GetAccessibleState(ui::AccessibleViewState* state) {
   MenuButton::GetAccessibleState(state);
   state->name = l10n_util::GetStringUTF16(IDS_ACCNAME_ACTION_BOX_BUTTON);
@@ -81,8 +88,8 @@ void ActionBoxButtonView::OnMenuButtonClicked(View* source,
   ExtensionService* extension_service =
       extensions::ExtensionSystem::Get(profile_)->extension_service();
 
-  ActionBoxMenuModel model(extension_service);
-  ActionBoxMenu action_box_menu(browser_, &model, starred_);
+  ActionBoxMenuModel model(browser_, extension_service, starred_);
+  ActionBoxMenu action_box_menu(browser_, &model);
   action_box_menu.Init();
   action_box_menu.RunMenu(this);
 }

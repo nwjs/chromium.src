@@ -29,10 +29,6 @@
 #include "chrome/browser/autocomplete/autocomplete_controller.h"
 #include "chrome/browser/autocomplete/autocomplete_match.h"
 #include "chrome/browser/autocomplete/autocomplete_result.h"
-#include "chrome/browser/autofill/autofill_manager.h"
-#include "chrome/browser/autofill/credit_card.h"
-#include "chrome/browser/autofill/personal_data_manager.h"
-#include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/automation/automation_browser_tracker.h"
 #include "chrome/browser/automation/automation_provider_json.h"
 #include "chrome/browser/automation/automation_provider_list.h"
@@ -45,8 +41,6 @@
 #include "chrome/browser/bookmarks/bookmark_storage.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_shutdown.h"
-#include "chrome/browser/browsing_data/browsing_data_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_remover.h"
 #include "chrome/browser/content_settings/host_content_settings_map.h"
 #include "chrome/browser/debugger/devtools_window.h"
 #include "chrome/browser/download/download_prefs.h"
@@ -1941,9 +1935,6 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
   browser_handler_map_["GetSavedPasswords"] =
       &TestingAutomationProvider::GetSavedPasswords;
 
-  browser_handler_map_["ClearBrowsingData"] =
-      &TestingAutomationProvider::ClearBrowsingData;
-
   browser_handler_map_["GetBlockedPopupsInfo"] =
       &TestingAutomationProvider::GetBlockedPopupsInfo;
   browser_handler_map_["UnblockAndLaunchBlockedPopup"] =
@@ -1961,19 +1952,6 @@ void TestingAutomationProvider::BuildJSONHandlerMaps() {
       &TestingAutomationProvider::SelectTranslateOption;
   browser_handler_map_["GetTranslateInfo"] =
       &TestingAutomationProvider::GetTranslateInfo;
-
-  browser_handler_map_["GetAutofillProfile"] =
-      &TestingAutomationProvider::GetAutofillProfile;
-  browser_handler_map_["FillAutofillProfile"] =
-      &TestingAutomationProvider::FillAutofillProfile;
-  browser_handler_map_["SubmitAutofillForm"] =
-      &TestingAutomationProvider::SubmitAutofillForm;
-  browser_handler_map_["AutofillTriggerSuggestions"] =
-      &TestingAutomationProvider::AutofillTriggerSuggestions;
-  browser_handler_map_["AutofillHighlightSuggestion"] =
-      &TestingAutomationProvider::AutofillHighlightSuggestion;
-  browser_handler_map_["AutofillAcceptSelection"] =
-      &TestingAutomationProvider::AutofillAcceptSelection;
 
   browser_handler_map_["GetAllNotifications"] =
       &TestingAutomationProvider::GetAllNotifications;
@@ -2175,7 +2153,7 @@ ListValue* TestingAutomationProvider::GetInfobarsInfo(WebContents* wc) {
   ListValue* infobars = new ListValue;
   InfoBarTabHelper* infobar_helper =
       TabContents::FromWebContents(wc)->infobar_tab_helper();
-  for (size_t i = 0; i < infobar_helper->infobar_count(); ++i) {
+  for (size_t i = 0; i < infobar_helper->GetInfoBarCount(); ++i) {
     DictionaryValue* infobar_item = new DictionaryValue;
     InfoBarDelegate* infobar = infobar_helper->GetInfoBarDelegateAt(i);
     switch (infobar->GetInfoBarAutomationType()) {
@@ -2267,7 +2245,7 @@ void TestingAutomationProvider::PerformActionOnInfobar(
 
   InfoBarDelegate* infobar = NULL;
   size_t infobar_index = static_cast<size_t>(infobar_index_int);
-  if (infobar_index >= infobar_helper->infobar_count()) {
+  if (infobar_index >= infobar_helper->GetInfoBarCount()) {
     reply.SendError(StringPrintf("No such infobar at index %" PRIuS,
                                  infobar_index));
     return;
@@ -3700,67 +3678,6 @@ void TestingAutomationProvider::GetSavedPasswords(
   // Observer deletes itself after sending the result.
 }
 
-// Refer to ClearBrowsingData() in chrome/test/pyautolib/pyauto.py for sample
-// json input.
-// Sample json output: {}
-void TestingAutomationProvider::ClearBrowsingData(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  std::map<std::string, BrowsingDataRemover::TimePeriod> string_to_time_period;
-  string_to_time_period["LAST_HOUR"] = BrowsingDataRemover::LAST_HOUR;
-  string_to_time_period["LAST_DAY"] = BrowsingDataRemover::LAST_DAY;
-  string_to_time_period["LAST_WEEK"] = BrowsingDataRemover::LAST_WEEK;
-  string_to_time_period["FOUR_WEEKS"] = BrowsingDataRemover::FOUR_WEEKS;
-  string_to_time_period["EVERYTHING"] = BrowsingDataRemover::EVERYTHING;
-
-  std::map<std::string, int> string_to_mask_value;
-  string_to_mask_value["HISTORY"] = BrowsingDataRemover::REMOVE_HISTORY;
-  string_to_mask_value["DOWNLOADS"] = BrowsingDataRemover::REMOVE_DOWNLOADS;
-  string_to_mask_value["COOKIES"] = BrowsingDataRemover::REMOVE_SITE_DATA;
-  string_to_mask_value["PASSWORDS"] = BrowsingDataRemover::REMOVE_PASSWORDS;
-  string_to_mask_value["FORM_DATA"] = BrowsingDataRemover::REMOVE_FORM_DATA;
-  string_to_mask_value["CACHE"] = BrowsingDataRemover::REMOVE_CACHE;
-
-  std::string time_period;
-  ListValue* to_remove;
-  if (!args->GetString("time_period", &time_period) ||
-      !args->GetList("to_remove", &to_remove)) {
-    AutomationJSONReply(this, reply_message)
-        .SendError("time_period must be a string and to_remove a list.");
-    return;
-  }
-
-  int remove_mask = 0;
-  int num_removals = to_remove->GetSize();
-  for (int i = 0; i < num_removals; i++) {
-    std::string removal;
-    // If the provided string is not part of the map, then error out.
-    if (!to_remove->GetString(i, &removal) ||
-        !ContainsKey(string_to_mask_value, removal)) {
-      AutomationJSONReply(this, reply_message)
-          .SendError("Invalid browsing data string found in to_remove.");
-      return;
-    }
-    remove_mask |= string_to_mask_value[removal];
-  }
-
-  if (!ContainsKey(string_to_time_period, time_period)) {
-    AutomationJSONReply(this, reply_message)
-        .SendError("Invalid string for time_period.");
-    return;
-  }
-
-  BrowsingDataRemover* remover = new BrowsingDataRemover(
-      profile(), string_to_time_period[time_period], base::Time::Now());
-
-  remover->AddObserver(
-      new AutomationProviderBrowsingDataObserver(this, reply_message));
-  remover->Remove(remove_mask, BrowsingDataHelper::UNPROTECTED_WEB);
-  // BrowsingDataRemover deletes itself using DeleteHelper.
-  // The observer also deletes itself after sending the reply.
-}
-
 namespace {
 
 // Get the TabContents from a dictionary of arguments.
@@ -3786,7 +3703,7 @@ TranslateInfoBarDelegate* GetTranslateInfoBarDelegate(
     WebContents* web_contents) {
   InfoBarTabHelper* infobar_helper =
       TabContents::FromWebContents(web_contents)->infobar_tab_helper();
-  for (size_t i = 0; i < infobar_helper->infobar_count(); i++) {
+  for (size_t i = 0; i < infobar_helper->GetInfoBarCount(); i++) {
     InfoBarDelegate* infobar = infobar_helper->GetInfoBarDelegateAt(i);
     if (infobar->AsTranslateInfoBarDelegate())
       return infobar->AsTranslateInfoBarDelegate();
@@ -4687,256 +4604,6 @@ void TestingAutomationProvider::AppendSwitchASCIIToCommandLine(
   reply.SendSuccess(NULL);
 }
 
-// Sample json input:
-//    { "command": "GetAutofillProfile" }
-// Refer to GetAutofillProfile() in chrome/test/pyautolib/pyauto.py for sample
-// json output.
-void TestingAutomationProvider::GetAutofillProfile(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  AutomationJSONReply reply(this, reply_message);
-  // Get the AutofillProfiles currently in the database.
-  int tab_index = 0;
-  if (!args->GetInteger("tab_index", &tab_index)) {
-    reply.SendError("Invalid or missing tab_index integer value.");
-    return;
-  }
-
-  TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
-  if (tab_contents) {
-    PersonalDataManager* pdm = PersonalDataManagerFactory::GetForProfile(
-        tab_contents->profile()->GetOriginalProfile());
-    if (pdm) {
-      std::vector<AutofillProfile*> autofill_profiles = pdm->profiles();
-      std::vector<CreditCard*> credit_cards = pdm->credit_cards();
-
-      ListValue* profiles = GetListFromAutofillProfiles(autofill_profiles);
-      ListValue* cards = GetListFromCreditCards(credit_cards);
-
-      scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
-
-      return_value->Set("profiles", profiles);
-      return_value->Set("credit_cards", cards);
-      reply.SendSuccess(return_value.get());
-    } else {
-      reply.SendError("No PersonalDataManager.");
-      return;
-    }
-  } else {
-    reply.SendError("No tab at that index.");
-    return;
-  }
-}
-
-// Refer to FillAutofillProfile() in chrome/test/pyautolib/pyauto.py for sample
-// json input.
-// Sample json output: {}
-void TestingAutomationProvider::FillAutofillProfile(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  ListValue* profiles = NULL;
-  ListValue* cards = NULL;
-
-  // It's ok for profiles/credit_cards elements to be missing.
-  args->GetList("profiles", &profiles);
-  args->GetList("credit_cards", &cards);
-
-  std::string error_mesg;
-
-  std::vector<AutofillProfile> autofill_profiles;
-  std::vector<CreditCard> credit_cards;
-  // Create an AutofillProfile for each of the dictionary profiles.
-  if (profiles) {
-    autofill_profiles = GetAutofillProfilesFromList(*profiles, &error_mesg);
-  }
-  // Create a CreditCard for each of the dictionary values.
-  if (cards) {
-    credit_cards = GetCreditCardsFromList(*cards, &error_mesg);
-  }
-  if (!error_mesg.empty()) {
-    AutomationJSONReply(this, reply_message).SendError(error_mesg);
-    return;
-  }
-
-  // Save the AutofillProfiles.
-  int tab_index = 0;
-  if (!args->GetInteger("tab_index", &tab_index)) {
-    AutomationJSONReply(this, reply_message).SendError(
-        "Invalid or missing tab_index integer");
-    return;
-  }
-
-  TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
-
-  if (tab_contents) {
-    PersonalDataManager* pdm =
-        PersonalDataManagerFactory::GetForProfile(tab_contents->profile());
-    if (pdm) {
-      if (profiles || cards) {
-        // This observer will delete itself.
-        AutofillChangedObserver* observer = new AutofillChangedObserver(
-            this, reply_message, autofill_profiles.size(), credit_cards.size());
-        observer->Init();
-
-        if (profiles)
-          pdm->SetProfiles(&autofill_profiles);
-        if (cards)
-          pdm->SetCreditCards(&credit_cards);
-
-        return;
-      }
-    } else {
-      AutomationJSONReply(this, reply_message).SendError(
-          "No PersonalDataManager.");
-      return;
-    }
-  } else {
-    AutomationJSONReply(this, reply_message).SendError("No tab at that index.");
-    return;
-  }
-  AutomationJSONReply(this, reply_message).SendSuccess(NULL);
-}
-
-void TestingAutomationProvider::SubmitAutofillForm(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  if (SendErrorIfModalDialogActive(this, reply_message))
-    return;
-
-  int tab_index;
-  if (!args->GetInteger("tab_index", &tab_index)) {
-    AutomationJSONReply(this, reply_message)
-        .SendError("'tab_index' missing or invalid.");
-    return;
-  }
-  TabContents* tab_contents = chrome::GetTabContentsAt(browser, tab_index);
-  if (!tab_contents) {
-    AutomationJSONReply(this, reply_message).SendError(
-        StringPrintf("No such tab at index %d", tab_index));
-    return;
-  }
-
-  string16 frame_xpath, javascript;
-  if (!args->GetString("frame_xpath", &frame_xpath)) {
-    AutomationJSONReply(this, reply_message)
-        .SendError("'frame_xpath' missing or invalid.");
-    return;
-  }
-  if (!args->GetString("javascript", &javascript)) {
-    AutomationJSONReply(this, reply_message)
-        .SendError("'javascript' missing or invalid.");
-    return;
-  }
-
-  PersonalDataManager* pdm = PersonalDataManagerFactory::GetForProfile(
-      tab_contents->profile()->GetOriginalProfile());
-  if (!pdm) {
-    AutomationJSONReply(this, reply_message)
-        .SendError("No PersonalDataManager.");
-    return;
-  }
-
-  // This observer will delete itself.
-  new AutofillFormSubmittedObserver(this, reply_message, pdm);
-
-  // Set the routing id of this message with the controller.
-  // This routing id needs to be remembered for the reverse
-  // communication while sending back the response of
-  // this javascript execution.
-  std::string set_automation_id;
-  base::SStringPrintf(&set_automation_id,
-                      "window.domAutomationController.setAutomationId(%d);",
-                      reply_message->routing_id());
-  tab_contents->web_contents()->GetRenderViewHost()->
-      ExecuteJavascriptInWebFrame(frame_xpath, UTF8ToUTF16(set_automation_id));
-  tab_contents->web_contents()->GetRenderViewHost()->
-      ExecuteJavascriptInWebFrame(frame_xpath, javascript);
-}
-
-void TestingAutomationProvider::AutofillTriggerSuggestions(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  int tab_index;
-  if (!args->GetInteger("tab_index", &tab_index)) {
-    AutomationJSONReply(this, reply_message).SendError(
-        "Invalid or missing args");
-    return;
-  }
-
-  WebContents* web_contents = chrome::GetWebContentsAt(browser, tab_index);
-  if (!web_contents) {
-    AutomationJSONReply(this, reply_message).SendError(
-        StringPrintf("No such tab at index %d", tab_index));
-    return;
-  }
-
-  new AutofillDisplayedObserver(
-      chrome::NOTIFICATION_AUTOFILL_DID_SHOW_SUGGESTIONS,
-      web_contents->GetRenderViewHost(), this, reply_message);
-  SendWebKeyPressEventAsync(ui::VKEY_DOWN, web_contents);
-}
-
-void TestingAutomationProvider::AutofillHighlightSuggestion(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  int tab_index;
-  if (!args->GetInteger("tab_index", &tab_index)) {
-    AutomationJSONReply(this, reply_message).SendError(
-        "Invalid or missing args");
-    return;
-  }
-
-  WebContents* web_contents = chrome::GetWebContentsAt(browser, tab_index);
-  if (!web_contents) {
-    AutomationJSONReply(this, reply_message).SendError(
-        StringPrintf("No such tab at index %d", tab_index));
-    return;
-  }
-
-  std::string direction;
-  if (!args->GetString("direction", &direction) || (direction != "up" &&
-                                                    direction != "down")) {
-    AutomationJSONReply(this, reply_message).SendError(
-        "Must specify a direction of either 'up' or 'down'.");
-    return;
-  }
-  int key_code = (direction == "up") ? ui::VKEY_UP : ui::VKEY_DOWN;
-
-  new AutofillDisplayedObserver(
-      chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-      web_contents->GetRenderViewHost(), this, reply_message);
-  SendWebKeyPressEventAsync(key_code, web_contents);
-}
-
-void TestingAutomationProvider::AutofillAcceptSelection(
-    Browser* browser,
-    DictionaryValue* args,
-    IPC::Message* reply_message) {
-  int tab_index;
-  if (!args->GetInteger("tab_index", &tab_index)) {
-    AutomationJSONReply(this, reply_message).SendError(
-        "Invalid or missing args");
-    return;
-  }
-
-  WebContents* web_contents = chrome::GetWebContentsAt(browser, tab_index);
-  if (!web_contents) {
-    AutomationJSONReply(this, reply_message).SendError(
-        StringPrintf("No such tab at index %d", tab_index));
-    return;
-  }
-
-  new AutofillDisplayedObserver(
-      chrome::NOTIFICATION_AUTOFILL_DID_FILL_FORM_DATA,
-      web_contents->GetRenderViewHost(), this, reply_message);
-  SendWebKeyPressEventAsync(ui::VKEY_RETURN, web_contents);
-}
-
 // Sample json output: { "success": true }
 void TestingAutomationProvider::SignInToSync(Browser* browser,
                                              DictionaryValue* args,
@@ -5166,184 +4833,6 @@ void TestingAutomationProvider::DisableSyncForDatatypes(
     return_value->SetBoolean("success", true);
     reply.SendSuccess(return_value.get());
   }
-}
-
-/* static */
-ListValue* TestingAutomationProvider::GetListFromAutofillProfiles(
-    const std::vector<AutofillProfile*>& autofill_profiles) {
-  ListValue* profiles = new ListValue;
-
-  std::map<AutofillFieldType, std::string> autofill_type_to_string
-      = GetAutofillFieldToStringMap();
-
-  // For each AutofillProfile, transform it to a dictionary object to return.
-  for (std::vector<AutofillProfile*>::const_iterator it =
-           autofill_profiles.begin();
-       it != autofill_profiles.end(); ++it) {
-    AutofillProfile* profile = *it;
-    DictionaryValue* profile_info = new DictionaryValue;
-    // For each of the types, if it has one or more values, add those values
-    // to the dictionary.
-    for (std::map<AutofillFieldType, std::string>::iterator
-         type_it = autofill_type_to_string.begin();
-         type_it != autofill_type_to_string.end(); ++type_it) {
-      std::vector<string16> value_list;
-      profile->GetMultiInfo(type_it->first, &value_list);
-      ListValue* values_to_return = new ListValue;
-      for (std::vector<string16>::iterator value_it = value_list.begin();
-           value_it != value_list.end(); ++value_it) {
-        string16 value = *value_it;
-        if (value.length())  // If there was something stored for that value.
-          values_to_return->Append(new StringValue(value));
-      }
-      if (!values_to_return->empty())
-        profile_info->Set(type_it->second, values_to_return);
-    }
-    profiles->Append(profile_info);
-  }
-  return profiles;
-}
-
-/* static */
-ListValue* TestingAutomationProvider::GetListFromCreditCards(
-    const std::vector<CreditCard*>& credit_cards) {
-  ListValue* cards = new ListValue;
-
-  std::map<AutofillFieldType, std::string> credit_card_type_to_string =
-      GetCreditCardFieldToStringMap();
-
-  // For each AutofillProfile, transform it to a dictionary object to return.
-  for (std::vector<CreditCard*>::const_iterator it =
-           credit_cards.begin();
-       it != credit_cards.end(); ++it) {
-    CreditCard* card = *it;
-    DictionaryValue* card_info = new DictionaryValue;
-    // For each of the types, if it has a value, add it to the dictionary.
-    for (std::map<AutofillFieldType, std::string>::iterator type_it =
-        credit_card_type_to_string.begin();
-        type_it != credit_card_type_to_string.end(); ++type_it) {
-      string16 value = card->GetInfo(type_it->first);
-      // If there was something stored for that value.
-      if (value.length()) {
-        card_info->SetString(type_it->second, value);
-      }
-    }
-    cards->Append(card_info);
-  }
-  return cards;
-}
-
-/* static */
-std::vector<AutofillProfile>
-TestingAutomationProvider::GetAutofillProfilesFromList(
-    const ListValue& profiles, std::string* error_message) {
-  std::vector<AutofillProfile> autofill_profiles;
-  const DictionaryValue* profile_info = NULL;
-  const ListValue* current_value = NULL;
-
-  std::map<AutofillFieldType, std::string> autofill_type_to_string =
-      GetAutofillFieldToStringMap();
-
-  int num_profiles = profiles.GetSize();
-  for (int i = 0; i < num_profiles; i++) {
-    profiles.GetDictionary(i, &profile_info);
-    AutofillProfile profile;
-    // Loop through the possible profile types and add those provided.
-    for (std::map<AutofillFieldType, std::string>::iterator type_it =
-         autofill_type_to_string.begin();
-         type_it != autofill_type_to_string.end(); ++type_it) {
-      if (profile_info->HasKey(type_it->second)) {
-        if (profile_info->GetList(type_it->second, &current_value)) {
-          std::vector<string16> value_list;
-          for (ListValue::const_iterator list_it = current_value->begin();
-               list_it != current_value->end(); ++list_it) {
-            string16 value;
-            if ((*list_it)->GetAsString(&value)) {
-              value_list.insert(value_list.end(), value);
-            } else {
-              *error_message = "All list values must be strings";
-              return autofill_profiles;
-            }
-          }
-          profile.SetMultiInfo(type_it->first, value_list);
-        } else {
-          *error_message= "All values must be lists";
-          return autofill_profiles;
-        }
-      }
-    }
-    autofill_profiles.push_back(profile);
-  }
-  return autofill_profiles;
-}
-
-/* static */
-std::vector<CreditCard> TestingAutomationProvider::GetCreditCardsFromList(
-    const ListValue& cards, std::string* error_message) {
-  std::vector<CreditCard> credit_cards;
-  const DictionaryValue* card_info = NULL;
-  string16 current_value;
-
-  std::map<AutofillFieldType, std::string> credit_card_type_to_string =
-      GetCreditCardFieldToStringMap();
-
-  int num_credit_cards = cards.GetSize();
-  for (int i = 0; i < num_credit_cards; i++) {
-    if (!cards.GetDictionary(i, &card_info))
-      continue;
-    CreditCard card;
-    // Loop through the possible credit card fields and add those provided.
-    for (std::map<AutofillFieldType, std::string>::iterator type_it =
-        credit_card_type_to_string.begin();
-        type_it != credit_card_type_to_string.end(); ++type_it) {
-      if (card_info->HasKey(type_it->second)) {
-        if (card_info->GetString(type_it->second, &current_value)) {
-          card.SetInfo(type_it->first, current_value);
-        } else {
-          *error_message= "All values must be strings";
-          break;
-        }
-      }
-    }
-    credit_cards.push_back(card);
-  }
-  return credit_cards;
-}
-
-/* static */
-std::map<AutofillFieldType, std::string>
-    TestingAutomationProvider::GetAutofillFieldToStringMap() {
-  std::map<AutofillFieldType, std::string> autofill_type_to_string;
-  // Strings ordered by order of fields when adding a profile in Autofill prefs.
-  autofill_type_to_string[NAME_FIRST] = "NAME_FIRST";
-  autofill_type_to_string[NAME_MIDDLE] = "NAME_MIDDLE";
-  autofill_type_to_string[NAME_LAST] = "NAME_LAST";
-  autofill_type_to_string[COMPANY_NAME] = "COMPANY_NAME";
-  autofill_type_to_string[EMAIL_ADDRESS] = "EMAIL_ADDRESS";
-  autofill_type_to_string[ADDRESS_HOME_LINE1] = "ADDRESS_HOME_LINE1";
-  autofill_type_to_string[ADDRESS_HOME_LINE2] = "ADDRESS_HOME_LINE2";
-  autofill_type_to_string[ADDRESS_HOME_CITY] = "ADDRESS_HOME_CITY";
-  autofill_type_to_string[ADDRESS_HOME_STATE] = "ADDRESS_HOME_STATE";
-  autofill_type_to_string[ADDRESS_HOME_ZIP] = "ADDRESS_HOME_ZIP";
-  autofill_type_to_string[ADDRESS_HOME_COUNTRY] = "ADDRESS_HOME_COUNTRY";
-  autofill_type_to_string[PHONE_HOME_COUNTRY_CODE] =
-      "PHONE_HOME_COUNTRY_CODE";
-  autofill_type_to_string[PHONE_HOME_CITY_CODE] = "PHONE_HOME_CITY_CODE";
-  autofill_type_to_string[PHONE_HOME_WHOLE_NUMBER] =
-      "PHONE_HOME_WHOLE_NUMBER";
-  return autofill_type_to_string;
-}
-
-/* static */
-std::map<AutofillFieldType, std::string>
-    TestingAutomationProvider::GetCreditCardFieldToStringMap() {
-  std::map<AutofillFieldType, std::string> credit_card_type_to_string;
-  credit_card_type_to_string[CREDIT_CARD_NAME] = "CREDIT_CARD_NAME";
-  credit_card_type_to_string[CREDIT_CARD_NUMBER] = "CREDIT_CARD_NUMBER";
-  credit_card_type_to_string[CREDIT_CARD_EXP_MONTH] = "CREDIT_CARD_EXP_MONTH";
-  credit_card_type_to_string[CREDIT_CARD_EXP_4_DIGIT_YEAR] =
-      "CREDIT_CARD_EXP_4_DIGIT_YEAR";
-  return credit_card_type_to_string;
 }
 
 // Refer to GetAllNotifications() in chrome/test/pyautolib/pyauto.py for

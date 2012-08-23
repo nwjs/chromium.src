@@ -11,8 +11,10 @@
 
 #include "base/platform_file.h"
 #include "base/values.h"
+#include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/media_gallery/media_file_system_registry.h"
 #include "chrome/browser/media_gallery/media_galleries_dialog_controller.h"
+#include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/common/extensions/api/experimental_media_galleries.h"
 #include "content/public/browser/child_process_security_policy.h"
@@ -55,9 +57,17 @@ bool MediaGalleriesGetMediaFileSystemsFunction::RunImpl() {
     ShowDialog();
     return true;
   } else if (interactive == "if_needed") {
-    // TODO(estade): implement.
+    std::vector<MediaFileSystemRegistry::MediaFSInfo> filesystems =
+        MediaFileSystemRegistry::GetInstance()->GetMediaFileSystemsForExtension(
+            render_view_host()->GetProcess(), *GetExtension());
+    if (filesystems.empty())
+      ShowDialog();
+    else
+      ReturnGalleries(filesystems);
+
+    return true;
   } else if (interactive == "no") {
-    ReturnGalleries();
+    GetAndReturnGalleries();
     return true;
   }
 
@@ -65,14 +75,16 @@ bool MediaGalleriesGetMediaFileSystemsFunction::RunImpl() {
   return false;
 }
 
-void MediaGalleriesGetMediaFileSystemsFunction::ReturnGalleries() {
-  const content::RenderProcessHost* rph = render_view_host()->GetProcess();
-  chrome::MediaFileSystemRegistry* media_fs_registry =
-      MediaFileSystemRegistry::GetInstance();
-  const std::vector<MediaFileSystemRegistry::MediaFSInfo> filesystems =
-      media_fs_registry->GetMediaFileSystemsForExtension(rph, *GetExtension());
+void MediaGalleriesGetMediaFileSystemsFunction::GetAndReturnGalleries() {
+  std::vector<MediaFileSystemRegistry::MediaFSInfo> filesystems =
+      MediaFileSystemRegistry::GetInstance()->GetMediaFileSystemsForExtension(
+          render_view_host()->GetProcess(), *GetExtension());
+  ReturnGalleries(filesystems);
+}
 
-  const int child_id = rph->GetID();
+void MediaGalleriesGetMediaFileSystemsFunction::ReturnGalleries(
+    const std::vector<MediaFileSystemRegistry::MediaFSInfo>& filesystems) {
+  const int child_id = render_view_host()->GetProcess()->GetID();
   base::ListValue* list = new base::ListValue();
   for (size_t i = 0; i < filesystems.size(); i++) {
     base::DictionaryValue* dict_value = new base::DictionaryValue();
@@ -103,17 +115,21 @@ void MediaGalleriesGetMediaFileSystemsFunction::ShowDialog() {
   TabContents* tab_contents =
       contents ? TabContents::FromWebContents(contents) : NULL;
   if (!tab_contents) {
-    // TODO(estade): for now it just gives up, but it might be nice to first
-    // attempt to find the active window for this extension.
-    ReturnGalleries();
-    return;
+    ShellWindow* window = ShellWindowRegistry::Get(profile())->
+        GetCurrentShellWindowForApp(GetExtension()->id());
+    if (window) {
+      tab_contents = window->tab_contents();
+    } else {
+      // Abort showing the dialog. TODO(estade) Perhaps return an error instead.
+      GetAndReturnGalleries();
+      return;
+    }
   }
 
   // Controller will delete itself.
-  new chrome::MediaGalleriesDialogController(
-      tab_contents, *GetExtension(),
-      base::Bind(&MediaGalleriesGetMediaFileSystemsFunction::ReturnGalleries,
-                 this));
+  base::Closure cb = base::Bind(
+      &MediaGalleriesGetMediaFileSystemsFunction::GetAndReturnGalleries, this);
+  new chrome::MediaGalleriesDialogController(tab_contents, *GetExtension(), cb);
 }
 
 // MediaGalleriesAssembleMediaFileFunction -------------------------------------

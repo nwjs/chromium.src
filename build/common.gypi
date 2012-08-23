@@ -460,8 +460,11 @@
         }],
 
         ['OS=="android"', {
-          'proprietary_codecs%': 1,
+          'enable_extensions%': 0,
+          'enable_printing%': 0,
+          'enable_themes%': 0,
           'enable_webrtc%': 0,
+          'proprietary_codecs%': 1,
           'remoting%': 0,
         }],
 
@@ -852,6 +855,12 @@
     # Native Client is enabled by default.
     'disable_nacl%': 0,
 
+    # Whether to build full debug version for Debug configuration on Android.
+    # Compared to full debug version, the default Debug configuration on Android
+    # has no full v8 debug, has size optimization and linker gc section, so that
+    # we can build a debug version with acceptable size and performance.
+    'android_full_debug%': 0,
+
     'sas_dll_exists': '<!(python <(DEPTH)/build/dir_exists.py <(sas_dll_path))',
     'wix_exists': '<!(python <(DEPTH)/build/dir_exists.py <(wix_path))',
 
@@ -898,6 +907,11 @@
         'use_system_bzip2%': 1,
         'use_system_libxml%': 1,
         'use_system_sqlite%': 1,
+
+        # The Mac SDK is set for iOS builds and passed through to Mac
+        # sub-builds. This allows the Mac sub-build SDK in an iOS build to be
+        # overridden from the command line the same way it is for a Mac build.
+        'mac_sdk%': '<!(python <(DEPTH)/build/mac/find_sdk.py 10.6)',
       }],
       ['OS=="android"', {
         # Location of Android NDK.
@@ -951,18 +965,13 @@
         'configuration_policy%': 0,
         'input_speech%': 0,
         'enable_web_intents%': 0,
-        'enable_extensions%': 0,
         'enable_automation%': 0,
-        'enable_printing%': 0,
         'java_bridge%': 1,
         'build_ffmpegsumo%': 0,
         'linux_use_tcmalloc%': 0,
 
         # Disable Native Client.
         'disable_nacl%': 1,
-
-        # Android does not support themes.
-        'enable_themes%': 0,
 
         # Android does not support background apps.
         'enable_background%': 0,
@@ -1029,7 +1038,7 @@
           }],
 
           ['branding=="Chrome" and buildtype=="Official"', {
-            'mac_sdk%': '10.6',
+            'mac_sdk%': '<!(python <(DEPTH)/build/mac/find_sdk.py --verify 10.6)',
             # Enable uploading crash dumps.
             'mac_breakpad_uploads%': 1,
             # Enable dumping symbols at build time for use by Mac Breakpad.
@@ -1050,8 +1059,11 @@
           ['component=="shared_library"', {
             'win_use_allocator_shim%': 0,
           }],
-          ['"<(GENERATOR)"=="ninja"', {
+          ['component=="shared_library" and "<(GENERATOR)"=="ninja"', {
             # Only enabled by default for ninja because it's buggy in VS.
+            # Not enabled for component=static_library because some targets
+            # are too large and the toolchain fails due to the size of the
+            # .obj files.
             'incremental_chrome_dll%': 1,
           }],
           # Whether to use multiple cores to compile with visual studio. This is
@@ -1546,6 +1558,11 @@
         'conditions': [
           ['win_z7!=0', {
             'msvs_settings': {
+              # Generates debug info when win_z7=1
+              # even if fastbuild=1 (that makes GenerateDebugInformation false).
+              'VCLinkerTool': {
+                'GenerateDebugInformation': 'true',
+              },
               'VCCLCompilerTool': {
                 'DebugInformationFormat': '1',
               }
@@ -1949,12 +1966,6 @@
               }],
             ],
           }],
-          # TODO(wangxianzhu): Remove this. This is temporarily kept before
-          # default build type switched to Debug.
-          # Android enables DCHECK()s on non-Official release builds.
-          ['OS=="android" and buildtype!="Official"', {
-            'defines!': ['NDEBUG'],
-          }],
         ],
       },
       #
@@ -2039,14 +2050,13 @@
               '-g',
             ],
             'conditions' : [
-              ['OS=="android"', {
+              ['OS=="android" and android_full_debug==0', {
                 # Some configurations are copied from Release_Base to reduce
                 # the binary size.
                 'variables': {
                   'debug_optimize%': 's',
                 },
                 'cflags': [
-                  '-fno-ident',
                   '-fomit-frame-pointer',
                   '-fdata-sections',
                   '-ffunction-sections',
@@ -2248,6 +2258,7 @@
                       # compiler (r5-r7). This can be verified using
                       # TestWebKitAPI's WTF.Checked_int8_t test.
                       '-fno-tree-sra',
+                      '-fuse-ld=gold',
                       '-Wno-psabi',
                     ],
                     # Android now supports .relro sections properly.
@@ -2257,6 +2268,7 @@
                     'ldflags': [
                         '-Wl,-z,relro',
                         '-Wl,-z,now',
+                        '-fuse-ld=gold',
                     ],
                     'conditions': [
                       ['arm_thumb == 1', {
@@ -2284,6 +2296,7 @@
                           '-mthumb-interwork',
                           '-finline-limit=64',
                           '-fno-tree-sra',
+                          '-fuse-ld=gold',
                           '-Wno-psabi',
                         ],
                       }],
@@ -2513,12 +2526,6 @@
         'libvpx_path': 'lib/linux/arm',
       },
       'target_defaults': {
-        # TODO(wangxianzhu): We used to build Release version with DCHECK
-        # by default. Now we build Release without DCHECK, and build Debug
-        # with size optimizations. Remove the following line after everyone
-        # knows how to deal with the change.
-        'default_configuration': 'Release',
-
         'variables': {
           'release_extra_cflags%': '',
         },

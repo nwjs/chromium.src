@@ -51,9 +51,6 @@ class MEDIA_EXPORT SourceBufferStream {
   // starting at |media_segment_start_time|.
   void OnNewMediaSegment(base::TimeDelta media_segment_start_time);
 
-  // Sets the start time of the stream.
-  void SetStartTime(base::TimeDelta stream_start_time);
-
   // Add the |buffers| to the SourceBufferStream. Buffers within the queue are
   // expected to be in order, but multiple calls to Append() may add buffers out
   // of order or overlapping. Assumes all buffers within |buffers| are in
@@ -223,9 +220,6 @@ class MEDIA_EXPORT SourceBufferStream {
   std::vector<AudioDecoderConfig*> audio_configs_;
   std::vector<VideoDecoderConfig*> video_configs_;
 
-  // The starting time of the stream.
-  base::TimeDelta stream_start_time_;
-
   // True if more data needs to be appended before the Seek() can complete,
   // false if no Seek() has been requested or the Seek() is completed.
   bool seek_pending_;
@@ -258,8 +252,14 @@ class MEDIA_EXPORT SourceBufferStream {
   // Stores the largest distance between two adjacent buffers in this stream.
   base::TimeDelta max_interbuffer_distance_;
 
-// The maximum amount of data in bytes the stream will keep in memory.
+  // The maximum amount of data in bytes the stream will keep in memory.
   int memory_limit_;
+
+  // Indicates that a kConfigChanged status has been reported by GetNextBuffer()
+  // and GetCurrentXXXDecoderConfig() must be called to update the current
+  // config. GetNextBuffer() must not be called again until
+  // GetCurrentXXXDecoderConfig() has been called.
+  bool config_change_pending_;
 
   DISALLOW_COPY_AND_ASSIGN(SourceBufferStream);
 };

@@ -24,6 +24,7 @@
 #include "gpu/command_buffer/service/program_cache.h"
 
 using base::TimeDelta;
+using base::TimeTicks;
 
 namespace gpu {
 namespace gles2 {
@@ -385,26 +386,28 @@ void ProgramManager::ProgramInfo::ExecuteBindAttribLocationCalls() {
 void ProgramManager::DoCompileShader(ShaderManager::ShaderInfo* info,
                                      ShaderTranslator* translator,
                                      FeatureInfo* feature_info) {
-  base::Time before = base::Time::Now();
+  TimeTicks before = TimeTicks::HighResNow();
   if (program_cache_ &&
       program_cache_->GetShaderCompilationStatus(info->source() ?
                                                  *info->source() : "") ==
           ProgramCache::COMPILATION_SUCCEEDED) {
     info->SetStatus(true, "", translator);
     info->FlagSourceAsCompiled(false);
-    UMA_HISTOGRAM_CUSTOM_COUNTS("GPU.ProgramCache.CompilationCacheHitTime",
-                                (base::Time::Now() - before).InMicroseconds(),
-                                0,
-                                TimeDelta::FromSeconds(1).InMicroseconds(),
-                                50);
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "GPU.ProgramCache.CompilationCacheHitTime",
+        (TimeTicks::HighResNow() - before).InMicroseconds(),
+        0,
+        TimeDelta::FromSeconds(1).InMicroseconds(),
+        50);
     return;
   }
   ForceCompileShader(info->source(), info, translator, feature_info);
-  UMA_HISTOGRAM_CUSTOM_COUNTS("GPU.ProgramCache.CompilationCacheMissTime",
-                              (base::Time::Now() - before).InMicroseconds(),
-                              0,
-                              TimeDelta::FromSeconds(1).InMicroseconds(),
-                              50);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "GPU.ProgramCache.CompilationCacheMissTime",
+      (TimeTicks::HighResNow() - before).InMicroseconds(),
+      0,
+      TimeDelta::FromSeconds(1).InMicroseconds(),
+      50);
 }
 
 void ProgramManager::ForceCompileShader(const std::string* source,
@@ -486,7 +489,7 @@ bool ProgramManager::ProgramInfo::Link(ShaderManager* manager,
   }
   ExecuteBindAttribLocationCalls();
 
-  base::Time before_time = base::Time::Now();
+  TimeTicks before_time = TimeTicks::HighResNow();
   bool link = true;
   ProgramCache* cache = manager_->program_cache_;
   if (cache) {
@@ -527,7 +530,7 @@ bool ProgramManager::ProgramInfo::Link(ShaderManager* manager,
   }
 
   if (link) {
-    before_time = base::Time::Now();
+    before_time = TimeTicks::HighResNow();
     if (cache && gfx::g_GL_ARB_get_program_binary) {
       glProgramParameteri(service_id(),
                           PROGRAM_BINARY_RETRIEVABLE_HINT,
@@ -540,21 +543,23 @@ bool ProgramManager::ProgramInfo::Link(ShaderManager* manager,
   glGetProgramiv(service_id(), GL_LINK_STATUS, &success);
   if (success == GL_TRUE) {
     Update();
-    if (cache && link) {
-      cache->SaveLinkedProgram(service_id(),
-                               attached_shaders_[0],
-                               attached_shaders_[1],
-                               &bind_attrib_location_map_);
+    if (link) {
+      if (cache) {
+        cache->SaveLinkedProgram(service_id(),
+                                 attached_shaders_[0],
+                                 attached_shaders_[1],
+                                 &bind_attrib_location_map_);
+      }
       UMA_HISTOGRAM_CUSTOM_COUNTS(
           "GPU.ProgramCache.BinaryCacheMissTime",
-          (base::Time::Now() - before_time).InMicroseconds(),
+          (TimeTicks::HighResNow() - before_time).InMicroseconds(),
           0,
           TimeDelta::FromSeconds(10).InMicroseconds(),
           50);
-    } else if (cache) {
+    } else {
       UMA_HISTOGRAM_CUSTOM_COUNTS(
           "GPU.ProgramCache.BinaryCacheHitTime",
-          (base::Time::Now() - before_time).InMicroseconds(),
+          (TimeTicks::HighResNow() - before_time).InMicroseconds(),
           0,
           TimeDelta::FromSeconds(1).InMicroseconds(),
           50);
@@ -576,6 +581,13 @@ void ProgramManager::ProgramInfo::Validate() {
 
 GLint ProgramManager::ProgramInfo::GetUniformFakeLocation(
     const std::string& name) const {
+  bool getting_array_location = false;
+  size_t open_pos = std::string::npos;
+  int index = 0;
+  if (!GLES2Util::ParseUniformName(
+      name, &open_pos, &index, &getting_array_location)) {
+    return -1;
+  }
   for (GLuint ii = 0; ii < uniform_infos_.size(); ++ii) {
     const UniformInfo& info = uniform_infos_[ii];
     if (!info.IsValid()) {
@@ -585,26 +597,12 @@ GLint ProgramManager::ProgramInfo::GetUniformFakeLocation(
         (info.is_array &&
          info.name.compare(0, info.name.size() - 3, name) == 0)) {
       return info.fake_location_base;
-    } else if (info.is_array &&
-               name.size() >= 3 && name[name.size() - 1] == ']') {
+    } else if (getting_array_location && info.is_array) {
       // Look for an array specification.
-      size_t open_pos = name.find_last_of('[');
-      if (open_pos != std::string::npos &&
-          open_pos < name.size() - 2 &&
-          info.name.size() > open_pos &&
+      size_t open_pos_2 = info.name.find_last_of('[');
+      if (open_pos_2 == open_pos &&
           name.compare(0, open_pos, info.name, 0, open_pos) == 0) {
-        GLint index = 0;
-        size_t last = name.size() - 1;
-        bool bad = false;
-        for (size_t pos = open_pos + 1; pos < last; ++pos) {
-          int8 digit = name[pos] - '0';
-          if (digit < 0 || digit > 9) {
-            bad = true;
-            break;
-          }
-          index = index * 10 + digit;
-        }
-        if (!bad && index >= 0 && index < info.size) {
+        if (index >= 0 && index < info.size) {
           return ProgramManager::MakeFakeLocation(
               info.fake_location_base, index);
         }

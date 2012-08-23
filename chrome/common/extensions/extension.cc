@@ -3338,7 +3338,7 @@ bool Extension::ParsePermissions(const char* key,
 
     for (size_t i = 0; i < permissions->GetSize(); ++i) {
       std::string permission_str;
-      const base::Value* permission_detail = NULL;
+      const base::Value* permission_value = NULL;
       if (!permissions->GetString(i, &permission_str)) {
         const base::DictionaryValue *dict = NULL;
         // permission should be a string or a single key dict.
@@ -3349,18 +3349,18 @@ bool Extension::ParsePermissions(const char* key,
         }
         base::DictionaryValue::Iterator it(*dict);
         permission_str = it.key();
-        permission_detail = &it.value();
+        permission_value = &it.value();
       }
 
       // NOTE: We need to get the APIPermission before the Feature
       // object because the feature system does not know about aliases.
-      APIPermission* permission =
+      const APIPermissionInfo* permission_info =
           PermissionsInfo::GetInstance()->GetByName(permission_str);
-      if (permission) {
+      if (permission_info) {
         extensions::SimpleFeatureProvider* permission_features =
             extensions::SimpleFeatureProvider::GetPermissionFeatures();
         extensions::Feature* feature =
-            permission_features->GetFeature(permission->name());
+            permission_features->GetFeature(permission_info->name());
 
         // The feature should exist since we just got an APIPermission
         // for it. The two systems should be updated together whenever a
@@ -3383,21 +3383,22 @@ bool Extension::ParsePermissions(const char* key,
           continue;
         }
 
-        if (permission->id() == APIPermission::kExperimental) {
+        if (permission_info->id() == APIPermission::kExperimental) {
           if (!CanSpecifyExperimentalPermission()) {
             *error = ASCIIToUTF16(errors::kExperimentalFlagRequired);
             return false;
           }
         }
 
-        scoped_refptr<APIPermissionDetail> detail = permission->CreateDetail();
-        if (!detail->FromValue(permission_detail)) {
+        scoped_ptr<APIPermission> permission(
+            permission_info->CreateAPIPermission());
+        if (!permission->FromValue(permission_value)) {
           *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
               errors::kInvalidPermission, base::IntToString(i));
           return false;
         }
 
-        api_permissions->insert(detail);
+        api_permissions->insert(permission.release());
         continue;
       }
 
@@ -3494,11 +3495,11 @@ bool Extension::HasAPIPermissionForTab(int tab_id,
          tab_specific_permissions->HasAPIPermission(permission);
 }
 
-bool Extension::CheckAPIPermissionWithDetail(APIPermission::ID permission,
-    const APIPermissionDetail::CheckParam* param) const {
+bool Extension::CheckAPIPermissionWithParam(APIPermission::ID permission,
+    const APIPermission::CheckParam* param) const {
   base::AutoLock auto_lock(runtime_data_lock_);
   return runtime_data_.GetActivePermissions()->
-      CheckAPIPermissionWithDetail(permission, param);
+      CheckAPIPermissionWithParam(permission, param);
 }
 
 const URLPatternSet& Extension::GetEffectiveHostPermissions() const {
@@ -3574,7 +3575,8 @@ bool Extension::HasMultipleUISurfaces() const {
   return num_surfaces > 1;
 }
 
-bool Extension::CanExecuteScriptOnPage(const GURL& page_url,
+bool Extension::CanExecuteScriptOnPage(const GURL& document_url,
+                                       const GURL& top_frame_url,
                                        int tab_id,
                                        const UserScript* script,
                                        std::string* error) const {
@@ -3585,7 +3587,7 @@ bool Extension::CanExecuteScriptOnPage(const GURL& page_url,
   // TODO(erikkay): This seems like the wrong test.  Shouldn't we we testing
   // against the store app extent?
   GURL store_url(extension_urls::GetWebstoreLaunchURL());
-  if ((page_url.host() == store_url.host()) &&
+  if ((document_url.host() == store_url.host()) &&
       !CanExecuteScriptEverywhere() &&
       !CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kAllowScriptingGallery)) {
@@ -3594,33 +3596,41 @@ bool Extension::CanExecuteScriptOnPage(const GURL& page_url,
     return false;
   }
 
-  if (page_url.SchemeIs(chrome::kChromeUIScheme) &&
-      !CanExecuteScriptEverywhere())
+  if (document_url.SchemeIs(chrome::kChromeUIScheme) &&
+      !CanExecuteScriptEverywhere()) {
     return false;
+  }
+
+  if (top_frame_url.SchemeIs(chrome::kExtensionScheme) &&
+      top_frame_url.GetOrigin() !=
+          GetBaseURLFromExtensionId(id()).GetOrigin() &&
+      !CanExecuteScriptEverywhere()) {
+    return false;
+  }
 
   // If a tab ID is specified, try the tab-specific permissions.
   if (tab_id >= 0) {
     scoped_refptr<const PermissionSet> tab_permissions =
         runtime_data_.GetTabSpecificPermissions(tab_id);
     if (tab_permissions.get() &&
-        tab_permissions->explicit_hosts().MatchesSecurityOrigin(page_url)) {
+        tab_permissions->explicit_hosts().MatchesSecurityOrigin(document_url)) {
       return true;
     }
   }
 
   // If a script is specified, use its matches.
   if (script)
-    return script->MatchesURL(page_url);
+    return script->MatchesURL(document_url);
 
   // Otherwise, see if this extension has permission to execute script
   // programmatically on pages.
   if (runtime_data_.GetActivePermissions()->HasExplicitAccessToOrigin(
-          page_url))
+          document_url))
     return true;
 
   if (error) {
     *error = ExtensionErrorUtils::FormatErrorMessage(errors::kCannotAccessPage,
-                                                     page_url.spec());
+                                                     document_url.spec());
   }
 
   return false;

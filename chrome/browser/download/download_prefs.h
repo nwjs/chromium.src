@@ -8,7 +8,7 @@
 #include <set>
 
 #include "base/file_path.h"
-#include "chrome/browser/prefs/pref_member.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 
 class Profile;
 
@@ -23,7 +23,7 @@ class DownloadPrefs {
   explicit DownloadPrefs(Profile* profile);
   ~DownloadPrefs();
 
-  static void RegisterUserPrefs(PrefService* prefs);
+  static void RegisterUserPrefs(PrefServiceBase* prefs);
 
   // Returns the DownloadPrefs corresponding to the given DownloadManager
   // or BrowserContext.

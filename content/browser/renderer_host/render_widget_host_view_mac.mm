@@ -585,11 +585,11 @@ void RenderWidgetHostViewMac::SetIsLoading(bool is_loading) {
 }
 
 void RenderWidgetHostViewMac::TextInputStateChanged(
-    ui::TextInputType type,
-    bool can_compose_inline) {
-  if (text_input_type_ != type || can_compose_inline_ != can_compose_inline) {
-    text_input_type_ = type;
-    can_compose_inline_ = can_compose_inline;
+    const ViewHostMsg_TextInputState_Params& params) {
+  if (text_input_type_ != params.type
+      || can_compose_inline_ != params.can_compose_inline) {
+    text_input_type_ = params.type;
+    can_compose_inline_ = params.can_compose_inline;
     if (HasFocus()) {
       SetTextInputActive(true);
 
@@ -1158,6 +1158,12 @@ bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
       ConvertCharacterRangeToCompositionRange(ui::Range(range));
   if (request_range_in_composition == ui::Range::InvalidRange())
     return false;
+
+  // If firstRectForCharacterRange in WebFrame is failed in renderer,
+  // ImeCompositionRangeChanged will be sent with empty vector.
+  if (composition_bounds_.empty())
+    return false;
+  DCHECK_EQ(composition_bounds_.size(), composition_range_.length());
 
   ui::Range ui_actual_range;
   *rect = NSRectFromCGRect(GetFirstRectForCompositionRange(

@@ -19,14 +19,11 @@ const AcceleratorData kAcceleratorData[] = {
   { false, ui::VKEY_LSHIFT, ui::EF_ALT_DOWN, NEXT_IME },
   { false, ui::VKEY_SHIFT, ui::EF_ALT_DOWN, NEXT_IME },
   { false, ui::VKEY_RSHIFT, ui::EF_ALT_DOWN, NEXT_IME },
-#if defined(OS_CHROMEOS)
-  // When X11 is in use, a modifier-only accelerator like Shift+Alt could be
-  // sent to the accelerator controller in unnormalized form (e.g. when
-  // NativeWidgetAura is focused). To handle such accelerators, the following 2
-  // entries are necessary. For more details, see crbug.com/127142#c8 and #c14.
-  { false, ui::VKEY_MENU, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, NEXT_IME },
-  { false, ui::VKEY_SHIFT, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN, NEXT_IME },
-#endif
+  // Single shift release turns off caps lock.
+  { false, ui::VKEY_LSHIFT, ui::EF_NONE, DISABLE_CAPS_LOCK },
+  { false, ui::VKEY_SHIFT, ui::EF_NONE, DISABLE_CAPS_LOCK },
+  { false, ui::VKEY_RSHIFT, ui::EF_NONE, DISABLE_CAPS_LOCK },
+
   { true, ui::VKEY_SPACE, ui::EF_CONTROL_DOWN, PREVIOUS_IME },
   // Shortcuts for Japanese IME.
   { true, ui::VKEY_CONVERT, ui::EF_NONE, SWITCH_IME },
@@ -196,6 +193,7 @@ const AcceleratorAction kActionsAllowedAtLoginOrLockScreen[] = {
 #if defined(OS_CHROMEOS)
   CYCLE_DISPLAY_MODE,
 #endif  // defined(OS_CHROMEOS)
+  DISABLE_CAPS_LOCK,
   KEYBOARD_BRIGHTNESS_DOWN,
   KEYBOARD_BRIGHTNESS_UP,
   NEXT_IME,

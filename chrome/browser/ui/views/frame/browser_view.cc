@@ -124,6 +124,7 @@
 #include "chrome/browser/jumplist_win.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_win.h"
 #include "ui/views/widget/native_widget_win.h"
+#include "ui/views/win/scoped_fullscreen_visibility.h"
 #endif
 
 #if defined(USE_AURA)
@@ -532,6 +533,13 @@ gfx::ImageSkia BrowserView::GetOTRAvatarIcon() const {
 }
 
 bool BrowserView::IsPositionInWindowCaption(const gfx::Point& point) {
+  if (window_switcher_button_) {
+    gfx::Point window_switcher_point(point);
+    views::View::ConvertPointToTarget(this, window_switcher_button_,
+                                      &window_switcher_point);
+    if (window_switcher_button_->HitTestPoint(window_switcher_point))
+      return false;
+  }
   return GetBrowserViewLayout()->IsPositionInWindowCaption(point);
 }
 
@@ -686,17 +694,9 @@ void BrowserView::SetStarredState(bool is_starred) {
   GetLocationBarView()->SetStarToggled(is_starred);
 }
 
-void BrowserView::SetZoomIconState(
-    ZoomController::ZoomIconState zoom_icon_state) {
-  GetLocationBarView()->SetZoomIconState(zoom_icon_state);
-}
-
-void BrowserView::SetZoomIconTooltipPercent(int zoom_percent) {
-  GetLocationBarView()->SetZoomIconTooltipPercent(zoom_percent);
-}
-
-void BrowserView::ShowZoomBubble(int zoom_percent) {
-  GetLocationBarView()->ShowZoomBubble(zoom_percent);
+void BrowserView::ZoomChangedForActiveTab(bool can_show_bubble) {
+  GetLocationBarView()->ZoomChangedForActiveTab(
+      can_show_bubble && !toolbar_->IsWrenchMenuShowing());
 }
 
 gfx::Rect BrowserView::GetRestoredBounds() const {
@@ -1935,8 +1935,9 @@ void BrowserView::Init() {
   views::View* omnibox_popup_view_parent = NULL;
   // SearchViewController doesn't work on windows yet.
 #if defined(USE_AURA)
-  if (chrome::search::IsInstantExtendedAPIEnabled(browser_->profile())) {
-    search_view_controller_.reset(new SearchViewController(contents_));
+  Profile* profile = browser_->profile();
+  if (chrome::search::IsInstantExtendedAPIEnabled(profile)) {
+    search_view_controller_.reset(new SearchViewController(profile, contents_));
     omnibox_popup_view_parent =
         search_view_controller_->omnibox_popup_view_parent();
   }
@@ -2239,8 +2240,7 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
 #endif
   }
 #if defined(OS_WIN) && !defined(USE_AURA)
-  static_cast<views::NativeWidgetWin*>(frame_->native_widget())->
-      PushForceHidden();
+  views::ScopedFullscreenVisibility visibility(frame_->GetNativeView());
 #endif
 
   if (type == FOR_METRO) {
@@ -2277,10 +2277,6 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
   // it's in its final position.
   ignore_layout_ = false;
   Layout();
-#if defined(OS_WIN) && !defined(USE_AURA)
-  static_cast<views::NativeWidgetWin*>(frame_->native_widget())->
-      PopForceHidden();
-#endif
 }
 
 void BrowserView::LoadAccelerators() {

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_CONTACTS_SERVICE_H_
 
 #include <set>
+#include <string>
 #include <vector>
 
 #include "base/basictypes.h"
@@ -29,8 +30,8 @@ class Contact;
 
 namespace gdata {
 
-class GDataAuthService;
-class GDataOperationRunner;
+class AuthService;
+class OperationRunner;
 
 // Interface for fetching a user's Google contacts via the Contacts API
 // (described at https://developers.google.com/google-apps/contacts/v3/).
@@ -66,10 +67,13 @@ class GDataContactsService : public GDataContactsServiceInterface {
   explicit GDataContactsService(Profile* profile);
   virtual ~GDataContactsService();
 
-  GDataAuthService* auth_service_for_testing();
+  AuthService* auth_service_for_testing();
 
   const std::string& cached_my_contacts_group_id_for_testing() const {
     return cached_my_contacts_group_id_;
+  }
+  void clear_cached_my_contacts_group_id_for_testing() {
+    cached_my_contacts_group_id_.clear();
   }
 
   void set_max_photo_downloads_per_second_for_testing(int max_downloads) {
@@ -103,7 +107,7 @@ class GDataContactsService : public GDataContactsServiceInterface {
 
   Profile* profile_;  // not owned
 
-  scoped_ptr<GDataOperationRunner> runner_;
+  scoped_ptr<OperationRunner> runner_;
 
   // Group ID for the "My Contacts" system contacts group.
   // Cached after a DownloadContactsRequest has completed.

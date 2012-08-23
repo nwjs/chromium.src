@@ -4,6 +4,9 @@
 
 #include "chrome/browser/chromeos/gdata/gdata_sync_client.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "base/bind.h"
 #include "base/file_path.h"
 #include "base/file_util.h"
@@ -15,7 +18,7 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/mock_network_library.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_test_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/mock_gdata_file_system.h"
@@ -47,7 +50,7 @@ ACTION_P(MockUpdateFileByResourceId, error) {
 
 // Action used to set mock expectations for GetFileInfoByResourceId().
 ACTION_P2(MockUpdateFileByResourceId, error, md5) {
-  scoped_ptr<GDataEntryProto> entry_proto(new GDataEntryProto);
+  scoped_ptr<DriveEntryProto> entry_proto(new DriveEntryProto);
   entry_proto->mutable_file_specific_info()->set_file_md5(md5);
   arg1.Run(error, FilePath(), entry_proto.Pass());
 }
@@ -76,7 +79,7 @@ class GDataSyncClientTest : public testing::Test {
     // Initialize the sync client.
     scoped_refptr<base::SequencedWorkerPool> pool =
         content::BrowserThread::GetBlockingPool();
-    cache_ = GDataCache::CreateGDataCacheOnUIThread(
+    cache_ = DriveCache::CreateDriveCacheOnUIThread(
         temp_dir_.path(),
         pool->GetSequencedTaskRunner(pool->GetSequenceToken()));
     sync_client_.reset(new GDataSyncClient(profile_.get(),
@@ -156,15 +159,15 @@ class GDataSyncClientTest : public testing::Test {
   void SetUpTestFiles() {
     // Create a directory in the temporary directory for pinned symlinks.
     const FilePath pinned_dir =
-        cache_->GetCacheDirectoryPath(GDataCache::CACHE_TYPE_PINNED);
+        cache_->GetCacheDirectoryPath(DriveCache::CACHE_TYPE_PINNED);
     ASSERT_TRUE(file_util::CreateDirectory(pinned_dir));
     // Create a directory in the temporary directory for persistent files.
     const FilePath persistent_dir =
-        cache_->GetCacheDirectoryPath(GDataCache::CACHE_TYPE_PERSISTENT);
+        cache_->GetCacheDirectoryPath(DriveCache::CACHE_TYPE_PERSISTENT);
     ASSERT_TRUE(file_util::CreateDirectory(persistent_dir));
     // Create a directory in the temporary directory for outgoing symlinks.
     const FilePath outgoing_dir =
-        cache_->GetCacheDirectoryPath(GDataCache::CACHE_TYPE_OUTGOING);
+        cache_->GetCacheDirectoryPath(DriveCache::CACHE_TYPE_OUTGOING);
     ASSERT_TRUE(file_util::CreateDirectory(outgoing_dir));
 
     // Create a symlink in the pinned directory to /dev/null.
@@ -240,7 +243,7 @@ class GDataSyncClientTest : public testing::Test {
   // ID.
   //
   // This is used for testing StartCheckingExistingPinnedFiles(), hence we
-  // are only interested in the MD5 value in GDataEntryProto.
+  // are only interested in the MD5 value in DriveEntryProto.
   void SetExpectationForGetFileInfoByResourceId(
       const std::string& resource_id,
       const std::string& new_md5) {
@@ -281,7 +284,7 @@ class GDataSyncClientTest : public testing::Test {
   ScopedTempDir temp_dir_;
   scoped_ptr<TestingProfile> profile_;
   scoped_ptr<StrictMock<MockGDataFileSystem> > mock_file_system_;
-  GDataCache* cache_;
+  DriveCache* cache_;
   scoped_ptr<GDataSyncClient> sync_client_;
   chromeos::MockNetworkLibrary* mock_network_library_;
   scoped_ptr<chromeos::Network> active_network_;

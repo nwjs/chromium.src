@@ -19,7 +19,7 @@ class Profile;
 namespace gdata {
 
 class DocumentEntry;
-class GDataEntryProto;
+class DriveEntryProto;
 class GDataFileSystemInterface;
 class GDataUploader;
 struct UploadFileInfo;
@@ -113,15 +113,24 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
   // Creates UploadFileInfo and initializes it using DownloadItem*.
   void CreateUploadFileInfo(content::DownloadItem* download);
 
+  // Callback for checking if the file already exists.  If so, the file is
+  // overwritten, and StartUpload() to actually start the upload.  If not, the
+  // directory is queried to determine where to store the file.
+  void CreateUploadFileInfoAfterCheckExistence(
+    int32 download_id,
+    scoped_ptr<UploadFileInfo> upload_file_info,
+    GDataFileError error,
+    scoped_ptr<DriveEntryProto> entry_proto);
+
   // Callback for handling results of GDataFileSystem::GetEntryInfoByPath()
-  // initiated by CreateUploadFileInfo(). This callback reads the directory
-  // entry to determine the upload path, then calls StartUpload() to actually
-  // start the upload.
-  void OnGetEntryInfoByPath(
+  // initiated by CreateUploadFileInfoAfterCheckExistence(). This callback
+  // reads the directory entry to determine the upload path, then calls
+  // StartUpload() to actually start the upload.
+  void CreateUploadFileInfoAfterCheckTargetDir(
       int32 download_id,
       scoped_ptr<UploadFileInfo> upload_file_info,
       GDataFileError error,
-      scoped_ptr<GDataEntryProto> entry_proto);
+      scoped_ptr<DriveEntryProto> entry_proto);
 
   // Starts the upload.
   void StartUpload(int32 download_id,
@@ -130,7 +139,7 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
   // Callback invoked by GDataUploader when the upload associated with
   // |download_id| has completed. |error| indicated whether the
   // call was successful. This function takes ownership of DocumentEntry from
-  // |upload_file_info| for use by MoveFileToGDataCache(). It also invokes the
+  // |upload_file_info| for use by MoveFileToDriveCache(). It also invokes the
   // MaybeCompleteDownload() method on the DownloadItem to allow it to complete.
   void OnUploadComplete(int32 download_id,
                         GDataFileError error,
@@ -138,7 +147,7 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
 
   // Moves the downloaded file to gdata cache.
   // Must be called after GDataDownloadObserver receives COMPLETE notification.
-  void MoveFileToGDataCache(content::DownloadItem* download);
+  void MoveFileToDriveCache(content::DownloadItem* download);
 
   // Private data.
   // The uploader owned by GDataSystemService. Used to trigger file uploads.

@@ -117,7 +117,7 @@ int location_bar_vert_spacing() {
     switch (ui::GetDisplayLayout()) {
       case ui::LAYOUT_ASH:
       case ui::LAYOUT_DESKTOP:
-        value = 4;
+        value = 5;
         break;
       case ui::LAYOUT_TOUCH:
         value = 6;
@@ -837,6 +837,10 @@ bool ToolbarView::AcceleratorPressed(const ui::Accelerator& accelerator) {
   if (focused_view == location_bar_)
     return false;  // Let location bar handle all accelerator events.
   return AccessiblePaneView::AcceleratorPressed(accelerator);
+}
+
+bool ToolbarView::IsWrenchMenuShowing() const {
+  return wrench_menu_.get() && wrench_menu_->IsShowing();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

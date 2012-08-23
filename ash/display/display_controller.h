@@ -51,7 +51,7 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
   aura::RootWindow* GetPrimaryRootWindow();
 
   // Returns the root window for |display_id|.
-  aura::RootWindow* GetRootWindowForDisplayId(int id);
+  aura::RootWindow* GetRootWindowForDisplayId(int64 id);
 
   // Closes all child windows in the all root windows.
   void CloseChildWindows();
@@ -100,11 +100,15 @@ class ASH_EXPORT DisplayController : public aura::DisplayObserver {
 
   // Creates a root window for |display| and stores it in the |root_windows_|
   // map.
-  aura::RootWindow* AddRootWindowForDisplay(const gfx::Display& display);
+  // TODO(oshima): remove |is_primary| when non extended desktop mode is
+  // removed.
+  aura::RootWindow* AddRootWindowForDisplay(const gfx::Display& display,
+                                            bool is_primary);
 
   void UpdateDisplayBoundsForLayout();
 
-  std::map<int, aura::RootWindow*> root_windows_;
+  // The mapping from display ID to its root window.
+  std::map<int64, aura::RootWindow*> root_windows_;
 
   SecondaryDisplayLayout secondary_display_layout_;
 

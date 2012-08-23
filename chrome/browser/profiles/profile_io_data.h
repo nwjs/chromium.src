@@ -14,9 +14,9 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/io_thread.h"
 #include "chrome/browser/net/chrome_url_request_context.h"
-#include "chrome/browser/prefs/pref_member.h"
 #include "content/public/browser/resource_context.h"
 #include "net/cookies/cookie_monster.h"
 #include "net/url_request/url_request_job_factory.h"
@@ -30,7 +30,7 @@ class ProtocolHandlerRegistry;
 class TransportSecurityPersister;
 
 namespace chrome_browser_net {
-class CacheStats;
+class LoadTimeStats;
 class HttpServerPropertiesManager;
 class ResourcePrefetchPredictorObserver;
 }
@@ -81,6 +81,9 @@ class ProfileIOData {
   ChromeURLRequestContext* GetExtensionsRequestContext() const;
   ChromeURLRequestContext* GetIsolatedAppRequestContext(
       ChromeURLRequestContext* main_context,
+      const std::string& app_id) const;
+  ChromeURLRequestContext* GetIsolatedMediaRequestContext(
+      ChromeURLRequestContext* media_context,
       const std::string& app_id) const;
 
   // These are useful when the Chrome layer is called from the content layer
@@ -135,9 +138,27 @@ class ProfileIOData {
   bool GetMetricsEnabledStateOnIOThread() const;
 
  protected:
+  // A URLRequestContext for media that owns its HTTP factory, to ensure
+  // it is deleted.
+  class MediaRequestContext : public ChromeURLRequestContext {
+   public:
+    explicit MediaRequestContext(
+        chrome_browser_net::LoadTimeStats* load_time_stats);
+
+    void SetHttpTransactionFactory(net::HttpTransactionFactory* http_factory);
+
+   private:
+    virtual ~MediaRequestContext();
+
+    scoped_ptr<net::HttpTransactionFactory> http_factory_;
+  };
+
+  // A URLRequestContext for apps that owns its cookie store and HTTP factory,
+  // to ensure they are deleted.
   class AppRequestContext : public ChromeURLRequestContext {
    public:
-    explicit AppRequestContext(chrome_browser_net::CacheStats* cache_stats);
+    explicit AppRequestContext(
+        chrome_browser_net::LoadTimeStats* load_time_stats);
 
     void SetCookieStore(net::CookieStore* cookie_store);
     void SetHttpTransactionFactory(net::HttpTransactionFactory* http_factory);
@@ -240,8 +261,8 @@ class ProfileIOData {
     return main_request_context_.get();
   }
 
-  chrome_browser_net::CacheStats* cache_stats() const {
-    return cache_stats_;
+  chrome_browser_net::LoadTimeStats* load_time_stats() const {
+    return load_time_stats_;
   }
 
   // Destroys the ResourceContext first, to cancel any URLRequests that are
@@ -271,7 +292,7 @@ class ProfileIOData {
   };
 
   typedef base::hash_map<std::string, ChromeURLRequestContext*>
-      AppRequestContextMap;
+      URLRequestContextMap;
 
   // --------------------------------------------
   // Virtual interface for subtypes to implement:
@@ -287,6 +308,12 @@ class ProfileIOData {
       ChromeURLRequestContext* main_context,
       const std::string& app_id) const = 0;
 
+  // Does an on-demand initialization of a media RequestContext for the given
+  // isolated app.
+  virtual ChromeURLRequestContext* InitializeMediaRequestContext(
+      ChromeURLRequestContext* original_context,
+      const std::string& app_id) const = 0;
+
   // These functions are used to transfer ownership of the lazily initialized
   // context from ProfileIOData to the URLRequestContextGetter.
   virtual ChromeURLRequestContext*
@@ -295,9 +322,13 @@ class ProfileIOData {
       AcquireIsolatedAppRequestContext(
           ChromeURLRequestContext* main_context,
           const std::string& app_id) const = 0;
+  virtual ChromeURLRequestContext*
+      AcquireIsolatedMediaRequestContext(
+          ChromeURLRequestContext* app_context,
+          const std::string& app_id) const = 0;
 
-  // Returns the CacheStats object to be used for this profile.
-  virtual chrome_browser_net::CacheStats* GetCacheStats(
+  // Returns the LoadTimeStats object to be used for this profile.
+  virtual chrome_browser_net::LoadTimeStats* GetLoadTimeStats(
       IOThread::Globals* io_thread_globals) const = 0;
 
   // The order *DOES* matter for the majority of these member variables, so
@@ -362,8 +393,9 @@ class ProfileIOData {
   // called.
   mutable scoped_ptr<ChromeURLRequestContext> main_request_context_;
   mutable scoped_ptr<ChromeURLRequestContext> extensions_request_context_;
-  // One AppRequestContext per isolated app.
-  mutable AppRequestContextMap app_request_context_map_;
+  // One URLRequestContext per isolated app for main and media requests.
+  mutable URLRequestContextMap app_request_context_map_;
+  mutable URLRequestContextMap isolated_media_request_context_map_;
 
   mutable scoped_ptr<ResourceContext> resource_context_;
 
@@ -373,7 +405,7 @@ class ProfileIOData {
   mutable scoped_ptr<chrome_browser_net::ResourcePrefetchPredictorObserver>
       resource_prefetch_predictor_observer_;
 
-  mutable chrome_browser_net::CacheStats* cache_stats_;
+  mutable chrome_browser_net::LoadTimeStats* load_time_stats_;
 
   // TODO(jhawkins): Remove once crbug.com/102004 is fixed.
   bool initialized_on_UI_thread_;

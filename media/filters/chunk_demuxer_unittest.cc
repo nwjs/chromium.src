@@ -359,18 +359,6 @@ class ChunkDemuxerTest : public testing::Test {
     return success;
   }
 
-  bool InitDemuxer_ExpectInitFailure() {
-    EXPECT_CALL(*client_, DemuxerOpened(_));
-    demuxer_->Initialize(
-        &host_, CreateInitDoneCB(
-            kDefaultDuration(), DEMUXER_ERROR_COULD_NOT_OPEN));
-
-    if (AddId(kSourceId, true, true) != ChunkDemuxer::kOk)
-      return false;
-
-    return AppendInitSegment(true, true, false);
-  }
-
   // Initializes the demuxer with data from 2 files with different
   // decoder configurations. This is used to test the decoder config change
   // logic.
@@ -380,14 +368,14 @@ class ChunkDemuxerTest : public testing::Test {
   // The resulting video stream returns data from each file for the following
   // time ranges.
   // bear-320x240.webm : [0-501)       [801-2737)
-  // bear-640x360.webm :       [501-801)
+  // bear-640x360.webm :       [527-793)
   //
   // bear-320x240.webm AudioDecoderConfig returns 3863 for its extra_data_size()
   // bear-640x360.webm AudioDecoderConfig returns 3935 for its extra_data_size()
   // The resulting audio stream returns data from each file for the following
   // time ranges.
-  // bear-320x240.webm : [0-464)       [779-2737)
-  // bear-640x360.webm :       [477-756)
+  // bear-320x240.webm : [0-524)       [779-2737)
+  // bear-640x360.webm :       [527-759)
   bool InitDemuxerWithConfigChangeData() {
     scoped_refptr<DecoderBuffer> bear1 = ReadTestDataFile("bear-320x240.webm");
     scoped_refptr<DecoderBuffer> bear2 = ReadTestDataFile("bear-640x360.webm");
@@ -411,15 +399,15 @@ class ChunkDemuxerTest : public testing::Test {
     // media/test/data/bear-320x240-manifest.js which were
     // generated from media/test/data/bear-640x360.webm and
     // media/test/data/bear-320x240.webm respectively.
-    if (!AppendData(bear2->GetData(), 4459))
+    if (!AppendData(bear2->GetData(), 4340))
       return false;
 
-    // Append a media segment that goes from [0.477000, 0.988000).
-    if (!AppendData(bear2->GetData() + 55173, 19021))
+    // Append a media segment that goes from [0.527000, 1.014000).
+    if (!AppendData(bear2->GetData() + 55290, 18785))
       return false;
-    CheckExpectedRanges(kSourceId, "{ [0,1002) [1201,2737) }");
+    CheckExpectedRanges(kSourceId, "{ [0,1028) [1201,2737) }");
 
-    // Append initialization segment for bear1 & fill gap with [770-1197)
+    // Append initialization segment for bear1 & fill gap with [779-1197)
     // segment.
     if (!AppendData(bear1->GetData(), 4370) ||
         !AppendData(bear1->GetData() + 72737, 28183)) {
@@ -748,10 +736,18 @@ TEST_F(ChunkDemuxerTest, TestInit) {
   }
 }
 
-// Makes sure that pipeline reports an error if Shutdown()
-// is called before the first cluster is passed to the demuxer.
-TEST_F(ChunkDemuxerTest, TestShutdownBeforeFirstCluster) {
-  ASSERT_TRUE(InitDemuxer_ExpectInitFailure());
+// Make sure that the demuxer reports an error if Shutdown()
+// is called before all the initialization segments are appended.
+TEST_F(ChunkDemuxerTest, TestShutdownBeforeAllInitSegmentsAppended) {
+  EXPECT_CALL(*client_, DemuxerOpened(_));
+  demuxer_->Initialize(
+      &host_, CreateInitDoneCB(
+          kDefaultDuration(), DEMUXER_ERROR_COULD_NOT_OPEN));
+
+  EXPECT_EQ(AddId("audio", true, false), ChunkDemuxer::kOk);
+  EXPECT_EQ(AddId("video", false, true), ChunkDemuxer::kOk);
+
+  EXPECT_TRUE(AppendInitSegment("audio", true, false, false));
 }
 
 // Test that Seek() completes successfully when the first cluster
@@ -777,14 +773,6 @@ TEST_F(ChunkDemuxerTest, TestAppendDataAfterSeek) {
   ASSERT_TRUE(AppendData(cluster->data(), cluster->size()));
 
   Checkpoint(2);
-}
-
-// Test that parsing errors are handled for clusters appended before init
-// completes.
-TEST_F(ChunkDemuxerTest, TestErrorWhileParsingClusterBeforeInitCompletes) {
-  ASSERT_TRUE(InitDemuxer_ExpectInitFailure());
-
-  ASSERT_TRUE(AppendGarbage());
 }
 
 // Test that parsing errors are handled for clusters appended after init.
@@ -1361,11 +1349,9 @@ TEST_F(ChunkDemuxerTest, TestParseErrorDuringInit) {
   EXPECT_CALL(*client_, DemuxerOpened(_));
   demuxer_->Initialize(
       &host_, CreateInitDoneCB(
-          kDefaultDuration(), DEMUXER_ERROR_COULD_NOT_OPEN));
+          kNoTimestamp(), DEMUXER_ERROR_COULD_NOT_OPEN));
 
   ASSERT_EQ(AddId(), ChunkDemuxer::kOk);
-
-  ASSERT_TRUE(AppendInitSegment(true, true, false));
 
   uint8 tmp = 0;
   ASSERT_TRUE(demuxer_->AppendData(kSourceId, &tmp, 1));
@@ -2054,11 +2040,7 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Video) {
   ReadUntilNotOkOrEndOfStream(stream, &status, &last_timestamp);
 
   ASSERT_EQ(status, DemuxerStream::kConfigChanged);
-  EXPECT_EQ(last_timestamp.InMilliseconds(), 467);
-
-  // Verify that another read will result in kConfigChanged being returned
-  // again.
-  ExpectConfigChanged(stream);
+  EXPECT_EQ(last_timestamp.InMilliseconds(), 501);
 
   // Fetch the new decoder config.
   const VideoDecoderConfig& video_config_2 = stream->video_decoder_config();
@@ -2066,15 +2048,12 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Video) {
   EXPECT_EQ(video_config_2.natural_size().width(), 640);
   EXPECT_EQ(video_config_2.natural_size().height(), 360);
 
-  ExpectRead(stream, 501);
+  ExpectRead(stream, 527);
 
   // Read until the next config change.
   ReadUntilNotOkOrEndOfStream(stream, &status, &last_timestamp);
   ASSERT_EQ(status, DemuxerStream::kConfigChanged);
-  EXPECT_EQ(last_timestamp.InMilliseconds(), 767);
-
-  // Verify we get another ConfigChanged status.
-  ExpectConfigChanged(stream);
+  EXPECT_EQ(last_timestamp.InMilliseconds(), 793);
 
   // Get the new config and verify that it matches the first one.
   ASSERT_TRUE(video_config_1.Matches(stream->video_decoder_config()));
@@ -2108,11 +2087,7 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Audio) {
   ReadUntilNotOkOrEndOfStream(stream, &status, &last_timestamp);
 
   ASSERT_EQ(status, DemuxerStream::kConfigChanged);
-  EXPECT_EQ(last_timestamp.InMilliseconds(), 464);
-
-  // Verify that another read will result in kConfigChanged being returned
-  // again.
-  ExpectConfigChanged(stream);
+  EXPECT_EQ(last_timestamp.InMilliseconds(), 524);
 
   // Fetch the new decoder config.
   const AudioDecoderConfig& audio_config_2 = stream->audio_decoder_config();
@@ -2120,15 +2095,12 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Audio) {
   EXPECT_EQ(audio_config_2.samples_per_second(), 44100);
   EXPECT_EQ(audio_config_2.extra_data_size(), 3935u);
 
-  ExpectRead(stream, 477);
+  ExpectRead(stream, 527);
 
   // Read until the next config change.
   ReadUntilNotOkOrEndOfStream(stream, &status, &last_timestamp);
   ASSERT_EQ(status, DemuxerStream::kConfigChanged);
-  EXPECT_EQ(last_timestamp.InMilliseconds(), 756);
-
-  // Verify we get another ConfigChanged status.
-  ExpectConfigChanged(stream);
+  EXPECT_EQ(last_timestamp.InMilliseconds(), 759);
 
   // Get the new config and verify that it matches the first one.
   ASSERT_TRUE(audio_config_1.Matches(stream->audio_decoder_config()));
@@ -2158,7 +2130,7 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Seek) {
   ExpectRead(stream, 0);
 
   // Seek to a location with a different config.
-  demuxer_->Seek(base::TimeDelta::FromMilliseconds(501),
+  demuxer_->Seek(base::TimeDelta::FromMilliseconds(527),
                  NewExpectedStatusCB(PIPELINE_OK));
 
   // Verify that the config change is signalled.
@@ -2171,7 +2143,7 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Seek) {
   EXPECT_EQ(video_config_2.natural_size().height(), 360);
 
   // Verify that Read() will return a buffer now.
-  ExpectRead(stream, 501);
+  ExpectRead(stream, 527);
 
   // Seek back to the beginning and verify we get another config change.
   demuxer_->Seek(base::TimeDelta::FromMilliseconds(0),
@@ -2183,7 +2155,7 @@ TEST_F(ChunkDemuxerTest, TestConfigChange_Seek) {
   // Seek to a location that requires a config change and then
   // seek to a new location that has the same configuration as
   // the start of the file without a Read() in the middle.
-  demuxer_->Seek(base::TimeDelta::FromMilliseconds(501),
+  demuxer_->Seek(base::TimeDelta::FromMilliseconds(527),
                  NewExpectedStatusCB(PIPELINE_OK));
   demuxer_->Seek(base::TimeDelta::FromMilliseconds(801),
                  NewExpectedStatusCB(PIPELINE_OK));
@@ -2200,6 +2172,10 @@ TEST_F(ChunkDemuxerTest, TestTimestampPositiveOffset) {
       kSourceId, base::TimeDelta::FromSeconds(30)));
   scoped_ptr<Cluster> cluster(GenerateCluster(0, 2));
   ASSERT_TRUE(AppendData(cluster->data(), cluster->size()));
+
+  demuxer_->StartWaitingForSeek();
+  demuxer_->Seek(base::TimeDelta::FromMilliseconds(30000),
+                 NewExpectedStatusCB(PIPELINE_OK));
 
   scoped_refptr<DemuxerStream> audio =
       demuxer_->GetStream(DemuxerStream::AUDIO);

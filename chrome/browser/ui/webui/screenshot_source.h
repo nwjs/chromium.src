@@ -14,7 +14,7 @@
 #include "chrome/browser/ui/webui/chrome_url_data_manager.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
+#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #endif
 
@@ -66,7 +66,7 @@ class ScreenshotSource : public ChromeURLDataManager::DataSource {
                                   gdata::GDataFileError error,
                                   const FilePath& file,
                                   const std::string& unused_mime_type,
-                                  gdata::GDataFileType file_type);
+                                  gdata::DriveFileType file_type);
 
 #endif
   // Sends the screenshot data to the requestor while caching it locally to the

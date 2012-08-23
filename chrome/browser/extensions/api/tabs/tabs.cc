@@ -557,7 +557,7 @@ bool CreateWindowFunction::RunImpl() {
       } else if (type_str == keys::kWindowTypeValuePanel) {
         extension_id = GetExtension()->id();
         bool use_panels = false;
-#if !defined(OS_ANDROID) && !defined(USE_ASH)
+#if !defined(OS_ANDROID)
         use_panels = PanelManager::ShouldUsePanels(extension_id);
 #endif
         if (use_panels)
@@ -1307,7 +1307,11 @@ bool UpdateTabFunction::UpdateURLIfPresent(DictionaryValue* update_props,
   // we need to check host permissions before allowing them.
   if (url.SchemeIs(chrome::kJavaScriptScheme)) {
     if (!GetExtension()->CanExecuteScriptOnPage(
-            tab_contents_->web_contents()->GetURL(), tab_id, NULL, &error_)) {
+            tab_contents_->web_contents()->GetURL(),
+            tab_contents_->web_contents()->GetURL(),
+            tab_id,
+            NULL,
+            &error_)) {
       return false;
     }
 

@@ -21,7 +21,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/font.h"
 #include "ui/gfx/rect.h"
-#include "ui/views/examples/examples_window.h"
+#include "ui/views/examples/examples_window_with_content.h"
 
 namespace ash {
 namespace shell {
@@ -117,7 +117,7 @@ class WindowTypeLauncherItem : public app_list::AppListItemModel {
       }
       case EXAMPLES_WINDOW: {
 #if !defined(OS_MACOSX)
-        views::examples::ShowExamplesWindow(
+        views::examples::ShowExamplesWindowWithContent(
             views::examples::DO_NOTHING_ON_CLOSE,
             ash::Shell::GetInstance()->browser_context());
 #endif

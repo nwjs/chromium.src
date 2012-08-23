@@ -96,6 +96,7 @@ const char ShellWindowFrameView::kViewClassName[] =
 
 ShellWindowFrameView::ShellWindowFrameView(ShellWindowViews* window)
     : window_(window),
+      frame_(NULL),
       close_button_(NULL) {
 }
 
@@ -334,6 +335,20 @@ ShellWindowViews::ShellWindowViews(ShellWindow* shell_window,
 
 views::View* ShellWindowViews::GetInitiallyFocusedView() {
   return web_view_;
+}
+
+bool ShellWindowViews::ShouldDescendIntoChildForEventHandling(
+    gfx::NativeView child,
+    const gfx::Point& location) {
+#if defined(USE_AURA)
+  DCHECK_EQ(child, web_view_->web_contents()->GetView()->GetNativeView());
+  // Shell window should claim mouse events that fall within the draggable
+  // region.
+  return !draggable_region_.get() ||
+         !draggable_region_->contains(location.x(), location.y());
+#else
+  return true;
+#endif
 }
 
 void ShellWindowViews::OnFocus() {
@@ -576,6 +591,11 @@ void ShellWindowViews::UpdateDraggableRegions(
 
   draggable_region_.reset(draggable_region);
   OnViewWasResized();
+}
+
+void ShellWindowViews::HandleKeyboardEvent(
+    const content::NativeWebKeyboardEvent& event) {
+  // No-op.
 }
 
 // static
