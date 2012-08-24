@@ -229,6 +229,8 @@ def Main(argv):
   parser.add_option('--bundle_id', dest='bundle_identifier',
       action='store', type='string', default=None,
       help='The bundle id of the binary')
+  parser.add_option('--version', dest='add_version', action='store', type='int',
+      default=False, help='Add version metadata [1 or 0]')
   (options, args) = parser.parse_args(argv)
 
   if len(args) > 0:
@@ -240,8 +242,9 @@ def Main(argv):
   plist = plistlib.readPlist(DEST_INFO_PLIST)
 
   # Insert the product version.
-  if not _AddVersionKeys(plist):
-    return 2
+  if options.add_version:
+    if not _AddVersionKeys(plist):
+      return 2
 
   # Add Breakpad if configured to do so.
   if options.use_breakpad:

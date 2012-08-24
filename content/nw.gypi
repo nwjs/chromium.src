@@ -393,7 +393,9 @@
               # Modify the Info.plist as needed.
               'postbuild_name': 'Tweak Info.plist',
               'action': ['../build/mac/tweak_info_plist.py',
-                         '--svn=1'],
+                         '--breakpad=0',
+                         '--keystone=0',
+                         '--svn=0'],
             },
             {
               # This postbuid step is responsible for creating the following
