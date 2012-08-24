@@ -1103,8 +1103,10 @@ Profile* BrowserCommandController::profile() {
 
 bool BrowserCommandController::IsFullScreenWindowOpen() {
 #if defined(USE_ASH)
-  aura::Window* window = ash::wm::GetActiveWindow();
-  return (window && ash::wm::IsWindowFullscreen(window));
+  // Returns true when a Pepper Flash window is maximized.
+  aura::Window* aura_window = ash::wm::GetActiveWindow();
+  return aura_window && ash::wm::IsWindowFullscreen(aura_window) &&
+      !window()->IsFullscreen();
 #else
   return false;
 #endif
