@@ -8,11 +8,11 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "125966",
+  "webkit_revision": "126390",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9499",
+  "nacl_revision": "9536",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
@@ -29,7 +29,7 @@ vars = {
   "ffmpeg_hash": "2079ffae30f8da6c6eed985cce00e04c31b40888",
 
   "sfntly_revision": "134",
-  "skia_revision": "5120",
+  "skia_revision": "5213",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
@@ -41,7 +41,7 @@ vars = {
 
 deps = {
   "src/breakpad/src":
-    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1008",
+    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1015",
 
   "src/googleurl":
     (Var("googlecode_url") % "google-url") + "/trunk@175",
@@ -100,7 +100,7 @@ deps = {
     (Var("googlecode_url") % "grit-i18n") + "/trunk@67",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1472",
+    (Var("googlecode_url") % "gyp") + "/trunk@1473",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -309,6 +309,9 @@ deps = {
 
   "src/third_party/webpagereplay":
     (Var("googlecode_url") % "web-page-replay") + "/trunk@489",
+
+  "src/third_party/pywebsocket/src":
+    (Var("googlecode_url") % "pywebsocket") + "/trunk/src@658",
 }
 
 
@@ -518,14 +521,14 @@ deps_os = {
   "android": {
     "src/third_party/freetype":
       Var("chromium_git") + "/chromium/src/third_party/freetype.git" +
-      "@1f74e4e7ad3ca4163b4578fc30da26a165dd55e7",
+      "@41c2c4116acca09389cc5fe2ea393eaada546422",
 
     "src/third_party/aosp":
       "/trunk/deps/third_party/aosp@148330",
 
     "src/third_party/android_tools":
       Var("chromium_git") + "/android_tools.git" +
-      "@e55ecc54323647741d921b03a03b848bc853d39c",
+      "@470254c5379907d6a71f8885ee2d8c616fa0b191",
   },
 }
 

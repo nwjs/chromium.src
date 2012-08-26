@@ -22,6 +22,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/location_bar_controller.h"
 #include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -45,6 +46,7 @@
 #import "chrome/browser/ui/cocoa/location_bar/plus_decoration.h"
 #import "chrome/browser/ui/cocoa/location_bar/selected_keyword_decoration.h"
 #import "chrome/browser/ui/cocoa/location_bar/star_decoration.h"
+#import "chrome/browser/ui/cocoa/location_bar/zoom_decoration.h"
 #import "chrome/browser/ui/cocoa/omnibox/omnibox_view_mac.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
@@ -64,7 +66,6 @@
 #include "grit/theme_resources.h"
 #include "net/base/net_util.h"
 #include "skia/ext/skia_utils_mac.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
@@ -102,6 +103,7 @@ LocationBarViewMac::LocationBarViewMac(
       plus_decoration_(NULL),
       star_decoration_(new StarDecoration(command_updater)),
       chrome_to_mobile_decoration_(NULL),
+      zoom_decoration_(new ZoomDecoration(toolbar_model)),
       keyword_hint_decoration_(
           new KeywordHintDecoration(OmniboxViewMac::GetFieldFont())),
       profile_(profile),
@@ -118,8 +120,7 @@ LocationBarViewMac::LocationBarViewMac(
     command_updater_->AddCommandObserver(IDC_CHROME_TO_MOBILE_PAGE, this);
     chrome_to_mobile_decoration_.reset(
         new ChromeToMobileDecoration(profile, command_updater));
-    ChromeToMobileServiceFactory::GetForProfile(profile)->
-        RequestMobileListUpdate();
+    UpdateChromeToMobileEnabled();
   }
 
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox)) {
@@ -253,6 +254,7 @@ void LocationBarViewMac::Update(const WebContents* contents,
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
   star_decoration_->SetVisible(star_enabled);
   UpdateChromeToMobileEnabled();
+  UpdateZoomDecoration();
   RefreshPageActionDecorations();
   RefreshContentSettingsDecorations();
   // OmniboxView restores state if the tab is non-NULL.
@@ -411,7 +413,6 @@ NSRect LocationBarViewMac::GetPageActionFrame(ExtensionAction* page_action) {
 
   AutocompleteTextFieldCell* cell = [field_ cell];
   NSRect frame = [cell frameForDecoration:decoration inFrame:[field_ bounds]];
-  DCHECK(!NSIsEmptyRect(frame));
   return frame;
 }
 
@@ -422,8 +423,13 @@ NSPoint LocationBarViewMac::GetPageActionBubblePoint(
     return NSZeroPoint;
 
   NSRect frame = GetPageActionFrame(page_action);
-  if (NSIsEmptyRect(frame))
+  if (NSIsEmptyRect(frame)) {
+    // The bubble point positioning assumes that the page action is visible. If
+    // not, something else needs to be done otherwise the bubble will appear
+    // near the top left corner (unanchored).
+    NOTREACHED();
     return NSZeroPoint;
+  }
 
   NSPoint bubble_point = decoration->GetBubblePointInFrame(frame);
   return [field_ convertPoint:bubble_point toView:nil];
@@ -474,6 +480,7 @@ void LocationBarViewMac::SetEditable(bool editable) {
   [field_ setEditable:editable ? YES : NO];
   star_decoration_->SetVisible(IsStarEnabled());
   UpdateChromeToMobileEnabled();
+  UpdateZoomDecoration();
   UpdatePageActions();
   Layout();
 }
@@ -482,9 +489,7 @@ bool LocationBarViewMac::IsEditable() {
   return [field_ isEditable] ? true : false;
 }
 
-void LocationBarViewMac::SetStarred(bool starred) {
-  star_decoration_->SetStarred(starred);
-
+void LocationBarViewMac::OnDecorationsChanged() {
   // TODO(shess): The field-editor frame and cursor rects should not
   // change, here.
   [field_ updateCursorAndToolTipRects];
@@ -492,14 +497,22 @@ void LocationBarViewMac::SetStarred(bool starred) {
   [field_ setNeedsDisplay:YES];
 }
 
+void LocationBarViewMac::SetStarred(bool starred) {
+  star_decoration_->SetStarred(starred);
+  OnDecorationsChanged();
+}
+
 void LocationBarViewMac::SetChromeToMobileDecorationLit(bool lit) {
   chrome_to_mobile_decoration_->SetLit(lit);
+  OnDecorationsChanged();
+}
 
-  // TODO(shess): The field-editor frame and cursor rects should not
-  // change, here.
-  [field_ updateCursorAndToolTipRects];
-  [field_ resetFieldEditorFrameIfNeeded];
-  [field_ setNeedsDisplay:YES];
+void LocationBarViewMac::ZoomChangedForActiveTab(bool can_show_bubble) {
+  UpdateZoomDecoration();
+  OnDecorationsChanged();
+
+  // TODO(dbeam): show a zoom bubble when |can_show_bubble| is true, the zoom
+  // decoration is showing, and the wrench menu isn't showing.
 }
 
 NSPoint LocationBarViewMac::GetBookmarkBubblePoint() const {
@@ -541,9 +554,8 @@ NSImage* LocationBarViewMac::GetKeywordImage(const string16& keyword) {
   const TemplateURL* template_url = TemplateURLServiceFactory::GetForProfile(
       profile_)->GetTemplateURLForKeyword(keyword);
   if (template_url && template_url->IsExtensionKeyword()) {
-    const SkBitmap& bitmap = profile_->GetExtensionService()->
-        GetOmniboxIcon(template_url->GetExtensionId());
-    return gfx::SkBitmapToNSImage(bitmap);
+    return profile_->GetExtensionService()->GetOmniboxIcon(
+        template_url->GetExtensionId()).AsNSImage();
   }
 
   return OmniboxViewMac::ImageForResource(IDR_OMNIBOX_SEARCH);
@@ -665,6 +677,7 @@ void LocationBarViewMac::Layout() {
   if (plus_decoration_.get())
     [cell addRightDecoration:plus_decoration_.get()];
   [cell addRightDecoration:star_decoration_.get()];
+  [cell addRightDecoration:zoom_decoration_.get()];
   if (chrome_to_mobile_decoration_.get())
     [cell addRightDecoration:chrome_to_mobile_decoration_.get()];
 
@@ -718,10 +731,7 @@ void LocationBarViewMac::Layout() {
   // TODO(shess): Anytime the field editor might have changed, the
   // cursor rects almost certainly should have changed.  The tooltips
   // might change even when the rects don't change.
-  [field_ resetFieldEditorFrameIfNeeded];
-  [field_ updateCursorAndToolTipRects];
-
-  [field_ setNeedsDisplay:YES];
+  OnDecorationsChanged();
 }
 
 void LocationBarViewMac::RedrawDecoration(LocationBarDecoration* decoration) {
@@ -748,4 +758,12 @@ void LocationBarViewMac::UpdateChromeToMobileEnabled() {
       ChromeToMobileServiceFactory::GetForProfile(profile_)->HasMobiles();
   chrome_to_mobile_decoration_->SetVisible(enabled);
   command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE, enabled);
+}
+
+void LocationBarViewMac::UpdateZoomDecoration() {
+  TabContents* tab_contents = GetTabContents();
+  if (!tab_contents)
+    return;
+
+  zoom_decoration_->Update(tab_contents->zoom_controller());
 }

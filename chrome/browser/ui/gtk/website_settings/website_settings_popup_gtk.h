@@ -65,23 +65,15 @@ class WebsiteSettingsPopupGtk : public WebsiteSettingsUI,
   // BubbleDelegateGtk implementation.
   virtual void BubbleClosing(BubbleGtk* bubble, bool closed_by_escape) OVERRIDE;
 
-
   virtual ~WebsiteSettingsPopupGtk();
 
   // Layouts the different sections retrieved from the model.
   void InitContents();
 
-  // Removes all children of |container|.
-  void ClearContainer(GtkWidget* container);
-
-  // Creates a popup section and returns a virtual box that contains the
-  // section content.
-  GtkWidget* CreateSection(std::string section_title,
-                           GtkWidget* section_content);
-
   // Callbacks for the link buttons.
   CHROMEGTK_CALLBACK_0(WebsiteSettingsPopupGtk, void, OnCookiesLinkClicked);
   CHROMEGTK_CALLBACK_0(WebsiteSettingsPopupGtk, void, OnViewCertLinkClicked);
+  CHROMEGTK_CALLBACK_0(WebsiteSettingsPopupGtk, void, OnCloseButtonClicked);
 
   // Parent window.
   GtkWindow* parent_;
@@ -119,8 +111,12 @@ class WebsiteSettingsPopupGtk : public WebsiteSettingsUI,
   // Container for the permissions section content.
   GtkWidget* permissions_section_contents_;
 
-  // Container for the identity tab content.
-  GtkWidget* identity_tab_contents_;
+  // Container for the remote host (website) identity section of the connection
+  // tab.
+  GtkWidget* identity_contents_;
+
+  // Container for the connection section of the connection tab.
+  GtkWidget* connection_contents_;
 
   // Container for the information about the first visit date of the website.
   GtkWidget* first_visit_contents_;

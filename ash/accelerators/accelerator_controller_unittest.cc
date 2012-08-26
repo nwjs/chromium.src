@@ -600,6 +600,26 @@ TEST_F(AcceleratorControllerTest, GlobalAccelerators) {
     EXPECT_TRUE(GetController()->Process(
         ui::Accelerator(ui::VKEY_LWIN, ui::EF_NONE)));
   }
+  // DisableCapsLock
+  {
+    // Handled only on key release.
+    EXPECT_FALSE(GetController()->Process(
+        ui::Accelerator(ui::VKEY_LSHIFT, ui::EF_NONE)));
+    EXPECT_TRUE(GetController()->Process(
+        ReleaseAccelerator(ui::VKEY_SHIFT, ui::EF_NONE)));
+    EXPECT_FALSE(GetController()->Process(
+        ui::Accelerator(ui::VKEY_RSHIFT, ui::EF_NONE)));
+    EXPECT_TRUE(GetController()->Process(
+        ReleaseAccelerator(ui::VKEY_LSHIFT, ui::EF_NONE)));
+    EXPECT_FALSE(GetController()->Process(
+        ui::Accelerator(ui::VKEY_SHIFT, ui::EF_NONE)));
+    EXPECT_TRUE(GetController()->Process(
+        ReleaseAccelerator(ui::VKEY_RSHIFT, ui::EF_NONE)));
+
+    // Do not handle when a shift pressed with other keys.
+    EXPECT_FALSE(GetController()->Process(
+        ReleaseAccelerator(ui::VKEY_A, ui::EF_SHIFT_DOWN)));
+  }
   // ToggleCapsLock
   {
     EXPECT_FALSE(GetController()->Process(
@@ -931,11 +951,9 @@ TEST_F(AcceleratorControllerTest, ImeGlobalAccelerators) {
   // Test IME shortcuts again with unnormalized accelerators (Chrome OS only).
   {
     const ui::Accelerator shift_alt_press(ui::VKEY_MENU, ui::EF_SHIFT_DOWN);
-    const ReleaseAccelerator shift_alt(ui::VKEY_MENU,
-                                       ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN);
+    const ReleaseAccelerator shift_alt(ui::VKEY_MENU, ui::EF_SHIFT_DOWN);
     const ui::Accelerator alt_shift_press(ui::VKEY_SHIFT, ui::EF_ALT_DOWN);
-    const ReleaseAccelerator alt_shift(ui::VKEY_SHIFT,
-                                       ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN);
+    const ReleaseAccelerator alt_shift(ui::VKEY_SHIFT, ui::EF_ALT_DOWN);
 
     DummyImeControlDelegate* delegate = new DummyImeControlDelegate(true);
     GetController()->SetImeControlDelegate(

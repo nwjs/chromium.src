@@ -5,10 +5,13 @@
 #ifndef CHROME_BROWSER_CHROMEOS_GDATA_GDATA_WAPI_FEED_LOADER_H_
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_WAPI_FEED_LOADER_H_
 
+#include <string>
+#include <vector>
+
 #include "base/callback.h"
 #include "base/file_path.h"
 #include "base/observer_list.h"
-#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
+#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "googleurl/src/gurl.h"
 
@@ -18,10 +21,10 @@ class Value;
 
 namespace gdata {
 
-class DriveWebAppsRegistryInterface;
 class DocumentFeed;
-class DocumentsServiceInterface;
-class GDataCache;
+class DriveCache;
+class DriveServiceInterface;
+class DriveWebAppsRegistryInterface;
 struct GetDocumentsUiState;
 
 // Set of parameters sent to LoadDocumentFeedCallback callback.
@@ -94,10 +97,10 @@ class GDataWapiFeedLoader {
   };
 
   GDataWapiFeedLoader(
-      GDataDirectoryService* directory_service,
-      DocumentsServiceInterface* documents_service,
+      DriveResourceMetadata* resource_metadata,
+      DriveServiceInterface* drive_service,
       DriveWebAppsRegistryInterface* webapps_registry,
-      GDataCache* cache,
+      DriveCache* cache,
       scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_);
   ~GDataWapiFeedLoader();
 
@@ -189,8 +192,7 @@ class GDataWapiFeedLoader {
       GDataErrorCode status,
       scoped_ptr<base::Value> feed_data);
 
-  // Callback for handling response from
-  // |GDataDocumentsService::GetApplicationList|.
+  // Callback for handling response from |DriveAPIService::GetApplicationInfo|.
   // If the application list is successfully parsed, passes the list to
   // Drive webapps registry.
   void OnGetApplicationList(GDataErrorCode status,
@@ -204,7 +206,7 @@ class GDataWapiFeedLoader {
   void OnFeedFromServerLoaded(GetDocumentsParams* params,
                               GDataFileError error);
 
-  // Callback for handling response from |GDataDocumentsService::GetDocuments|.
+  // Callback for handling response from |GDataWapiService::GetDocuments|.
   // Invokes |callback| when done.
   // |callback| must not be null.
   void OnGetDocuments(
@@ -215,7 +217,7 @@ class GDataWapiFeedLoader {
       GDataErrorCode status,
       scoped_ptr<base::Value> data);
 
-  // Callback for handling response from |GDataDocumentsService::GetChanglist|.
+  // Callback for handling response from |DriveAPIService::GetChanglist|.
   // Invokes |callback| when done.
   // |callback| must not be null.
   void OnGetChangelist(ContentOrigin initial_origin,
@@ -232,10 +234,10 @@ class GDataWapiFeedLoader {
   void OnNotifyDocumentFeedFetched(
       base::WeakPtr<GetDocumentsUiState> ui_state);
 
-  GDataDirectoryService* directory_service_;  // Not owned.
-  DocumentsServiceInterface* documents_service_;  // Not owned.
+  DriveResourceMetadata* resource_metadata_;  // Not owned.
+  DriveServiceInterface* drive_service_;  // Not owned.
   DriveWebAppsRegistryInterface* webapps_registry_;  // Not owned.
-  GDataCache* cache_;  // Not owned.
+  DriveCache* cache_;  // Not owned.
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   ObserverList<Observer> observers_;
 

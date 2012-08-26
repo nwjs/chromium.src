@@ -16,10 +16,10 @@
 #include "base/memory/linked_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "base/property_bag.h"
 #include "base/string16.h"
 #include "base/time.h"
 #include "base/tuple.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/extensions/app_shortcut_manager.h"
 #include "chrome/browser/extensions/app_sync_bundle.h"
 #include "chrome/browser/extensions/extension_icon_manager.h"
@@ -33,7 +33,6 @@
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/extensions/pending_extension_manager.h"
 #include "chrome/browser/extensions/process_map.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_set.h"
@@ -119,7 +118,7 @@ class ExtensionServiceInterface : public syncer::SyncableService {
 
   virtual void UpdateExtensionBlacklist(
     const std::vector<std::string>& blacklist) = 0;
-  virtual void CheckAdminBlacklist() = 0;
+  virtual void CheckManagementPolicy() = 0;
 
   // Safe to call multiple times in a row.
   //
@@ -272,9 +271,6 @@ class ExtensionService
   bool HasUsedWebRequest(const extensions::Extension* extension) const;
   void SetHasUsedWebRequest(const extensions::Extension* extension, bool value);
 
-  // Getter for the extension's runtime data PropertyBag.
-  base::PropertyBag* GetPropertyBag(const extensions::Extension* extension);
-
   // Initialize and start all installed extensions.
   void Init();
 
@@ -289,6 +285,9 @@ class ExtensionService
 
   // Start up the extension event routers.
   void InitEventRouters();
+
+  // Called when the associated Profile is going to be destroyed.
+  void Shutdown();
 
   // Look up an extension by ID.  Does not include terminated
   // extensions.
@@ -382,11 +381,11 @@ class ExtensionService
   bool ExtensionBindingsAllowed(const GURL& url);
 
   // Returns the icon to display in the omnibox for the given extension.
-  const SkBitmap& GetOmniboxIcon(const std::string& extension_id);
+  gfx::Image GetOmniboxIcon(const std::string& extension_id);
 
   // Returns the icon to display in the omnibox popup window for the given
   // extension.
-  const SkBitmap& GetOmniboxPopupIcon(const std::string& extension_id);
+  gfx::Image GetOmniboxPopupIcon(const std::string& extension_id);
 
   // Called when the initial extensions load has completed.
   virtual void OnLoadedInstalledExtensions();
@@ -411,10 +410,10 @@ class ExtensionService
   virtual void UpdateExtensionBlacklist(
       const std::vector<std::string>& blacklist) OVERRIDE;
 
-  // Go through each extension and unload those that the network admin has
-  // put on the blacklist (not to be confused with the Google-managed blacklist)
-  // set of extensions.
-  virtual void CheckAdminBlacklist() OVERRIDE;
+  // Go through each extension and unload those that are not allowed to run by
+  // management policy providers (ie. network admin and Google-managed
+  // blacklist).
+  virtual void CheckManagementPolicy() OVERRIDE;
 
   virtual void CheckForUpdatesSoon() OVERRIDE;
 
@@ -638,9 +637,6 @@ class ExtensionService
 
     // True if the extension has used the webRequest API.
     bool has_used_webrequest;
-
-    // Generic bag of runtime data that users can associate with extensions.
-    base::PropertyBag property_bag;
 
     ExtensionRuntimeData();
     ~ExtensionRuntimeData();

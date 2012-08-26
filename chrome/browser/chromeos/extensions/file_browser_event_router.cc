@@ -9,10 +9,11 @@
 #include "base/message_loop.h"
 #include "base/stl_util.h"
 #include "base/values.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/extensions/file_browser_notifications.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
-#include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
+#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/login/base_login_display_host.h"
@@ -21,7 +22,6 @@
 #include "chrome/browser/extensions/event_names.h"
 #include "chrome/browser/extensions/event_router.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_dependency_manager.h"
@@ -114,7 +114,7 @@ void FileBrowserEventRouter::ShutdownOnUIThread() {
       GDataSystemServiceFactory::FindForProfile(profile_);
   if (system_service) {
     system_service->file_system()->RemoveObserver(this);
-    system_service->docs_service()->operation_registry()->RemoveObserver(this);
+    system_service->drive_service()->operation_registry()->RemoveObserver(this);
   }
 
   chromeos::NetworkLibrary* network_library =
@@ -144,7 +144,7 @@ void FileBrowserEventRouter::ObserveFileSystemEvents() {
     NOTREACHED();
     return;
   }
-  system_service->docs_service()->operation_registry()->AddObserver(this);
+  system_service->drive_service()->operation_registry()->AddObserver(this);
   system_service->file_system()->AddObserver(this);
 
   chromeos::NetworkLibrary* network_library =
@@ -233,7 +233,7 @@ void FileBrowserEventRouter::MountDrive(
   gdata::GDataSystemService* system_service =
       gdata::GDataSystemServiceFactory::GetForProfile(profile_);
   if (system_service) {
-    system_service->docs_service()->Authenticate(
+    system_service->drive_service()->Authenticate(
         base::Bind(&FileBrowserEventRouter::OnAuthenticated,
                    this,
                    callback));
@@ -357,7 +357,7 @@ void FileBrowserEventRouter::MountCompleted(
       FilePath source_path(mount_info.source_path);
       gdata::GDataSystemService* system_service =
           gdata::GDataSystemServiceFactory::GetForProfile(profile_);
-      gdata::GDataCache* cache =
+      gdata::DriveCache* cache =
           system_service ? system_service->cache() : NULL;
       if (cache) {
         cache->SetMountedStateOnUIThread(
@@ -413,7 +413,7 @@ void FileBrowserEventRouter::Observe(
 }
 
 void FileBrowserEventRouter::OnProgressUpdate(
-    const std::vector<gdata::GDataOperationRegistry::ProgressStatus>& list) {
+    const std::vector<gdata::OperationRegistry::ProgressStatus>& list) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   scoped_ptr<ListValue> event_list(

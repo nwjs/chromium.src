@@ -9,17 +9,17 @@
 #include <vector>
 
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/chromeos/gdata/gdata_cache.h"
-#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
+#include "chrome/browser/chromeos/gdata/drive_cache.h"
+#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/gdata/gdata_operations.h"
 #include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 
 namespace gdata {
 
 class DocumentEntry;
-class GDataDirectoryProto;
-class GDataEntryProto;
-class GDataFileProto;
+class DriveEntryProto;
+
+typedef std::vector<DriveEntryProto> DriveEntryProtoVector;
 
 // Information about search result returned by Search Async callback.
 // This is data needed to create a file system entry that will be used by file
@@ -38,18 +38,7 @@ struct SearchResultInfo {
 typedef base::Callback<void(GDataFileError error,
                             const FilePath& file_path,
                             const std::string& mime_type,
-                            GDataFileType file_type)> GetFileCallback;
-
-// Used to get entry info from the file system, with the gdata file path.
-// If |error| is not GDATA_FILE_OK, |file_info| is set to NULL.
-//
-// |gdata_file_path| parameter is provided as GDataEntryProto does not contain
-// the gdata file path (i.e. only contains the base name without parent
-// directory names).
-typedef base::Callback<void(GDataFileError error,
-                            const FilePath& gdata_file_path,
-                            scoped_ptr<GDataEntryProto> file_proto)>
-    GetEntryInfoWithFilePathCallback;
+                            DriveFileType file_type)> GetFileCallback;
 
 // Used to read a directory from the file system.
 // Similar to ReadDirectoryCallback but this one provides
@@ -58,7 +47,7 @@ typedef base::Callback<void(GDataFileError error,
 // |entries| are contents, both files and directories, of the directory.
 typedef base::Callback<void(GDataFileError error,
                             bool hide_hosted_documents,
-                            scoped_ptr<GDataEntryProtoVector> entries)>
+                            scoped_ptr<DriveEntryProtoVector> entries)>
     ReadDirectoryWithSettingCallback;
 
 // Used to get drive content search results.
@@ -294,7 +283,7 @@ class GDataFileSystemInterface {
   // bit committed. We should eliminate the restriction. crbug.com/134558.
   //
   // Can be called from UI/IO thread. |callback| and is run on the calling
-  // thread.
+  // thread.  |callback| must not be null.
   virtual void UpdateFileByResourceId(
       const std::string& resource_id,
       const FileOperationCallback& callback) = 0;
@@ -360,7 +349,17 @@ class GDataFileSystemInterface {
                                const FilePath& virtual_dir_path,
                                scoped_ptr<DocumentEntry> entry,
                                const FilePath& file_content_path,
-                               GDataCache::FileOperationType cache_operation,
+                               DriveCache::FileOperationType cache_operation,
+                               const base::Closure& callback) = 0;
+
+  // Updates the data associated with the file referenced by |resource_id| and
+  // |md5|.  The data is copied from |file_content_path|.
+  //
+  // |callback| will be called on the UI thread upon completion of operation.
+  virtual void UpdateEntryData(const std::string& resource_id,
+                               const std::string& md5,
+                               scoped_ptr<DocumentEntry> entry,
+                               const FilePath& file_content_path,
                                const base::Closure& callback) = 0;
 };
 

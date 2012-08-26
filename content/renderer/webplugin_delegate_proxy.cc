@@ -73,6 +73,28 @@ using WebKit::WebInputEvent;
 using WebKit::WebString;
 using WebKit::WebView;
 
+namespace {
+
+class ScopedLogLevel {
+ public:
+  ScopedLogLevel(int level);
+  ~ScopedLogLevel();
+
+ private:
+  int old_level_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedLogLevel);
+};
+
+ScopedLogLevel::ScopedLogLevel(int level)
+    : old_level_(logging::GetMinLogLevel()) {
+  logging::SetMinLogLevel(level);
+}
+
+ScopedLogLevel::~ScopedLogLevel() {
+  logging::SetMinLogLevel(old_level_);
+}
+
 // Proxy for WebPluginResourceClient.  The object owns itself after creation,
 // deleting itself after its callback has been called.
 class ResourceClientProxy : public webkit::npapi::WebPluginResourceClient {
@@ -168,6 +190,8 @@ class ResourceClientProxy : public webkit::npapi::WebPluginResourceClient {
   // For e.g. response for a HTTP byte range request.
   bool multibyte_response_expected_;
 };
+
+}  // namespace
 
 WebPluginDelegateProxy::WebPluginDelegateProxy(
     const std::string& mime_type,
@@ -277,54 +301,73 @@ bool WebPluginDelegateProxy::Initialize(
     const std::vector<std::string>& arg_values,
     webkit::npapi::WebPlugin* plugin,
     bool load_manually) {
+  // TODO(shess): Attempt to work around http://crbug.com/97285 and
+  // http://crbug.com/141055 by retrying the connection.  Reports seem
+  // to indicate that the plugin hasn't crashed, and that the problem
+  // is not 100% persistent.
+  const size_t kAttempts = 2;
+
+  bool result = false;
+  scoped_refptr<PluginChannelHost> channel_host;
+  int instance_id = 0;
+
+  for (size_t attempt = 0; !result && attempt < kAttempts; attempt++) {
 #if defined(OS_MACOSX)
-  // TODO(shess): Debugging for http://crbug.com/97285 .  See comment
-  // in plugin_channel_host.cc.
-  scoped_ptr<AutoReset<bool> > track_nested_removes(new AutoReset<bool>(
-      PluginChannelHost::GetRemoveTrackingFlag(), true));
+    // TODO(shess): Debugging for http://crbug.com/97285 .  See comment
+    // in plugin_channel_host.cc.
+    scoped_ptr<AutoReset<bool> > track_nested_removes(new AutoReset<bool>(
+        PluginChannelHost::GetRemoveTrackingFlag(), true));
 #endif
 
-  IPC::ChannelHandle channel_handle;
-  if (!RenderThreadImpl::current()->Send(new ViewHostMsg_OpenChannelToPlugin(
-          render_view_->routing_id(), url, page_url_, mime_type_,
-          &channel_handle, &info_))) {
-    return false;
-  }
-
-  if (channel_handle.name.empty()) {
-    // We got an invalid handle.  Either the plugin couldn't be found (which
-    // shouldn't happen, since if we got here the plugin should exist) or the
-    // plugin crashed on initialization.
-    if (!info_.path.empty()) {
-      render_view_->PluginCrashed(info_.path);
-      LOG(ERROR) << "Plug-in crashed on start";
-
-      // Return true so that the plugin widget is created and we can paint the
-      // crashed plugin there.
-      return true;
+    IPC::ChannelHandle channel_handle;
+    if (!RenderThreadImpl::current()->Send(new ViewHostMsg_OpenChannelToPlugin(
+            render_view_->routing_id(), url, page_url_, mime_type_,
+            &channel_handle, &info_))) {
+      continue;
     }
-    LOG(ERROR) << "Plug-in couldn't be found";
-    return false;
-  }
 
-  scoped_refptr<PluginChannelHost> channel_host(
-      PluginChannelHost::GetPluginChannelHost(
-          channel_handle, ChildProcess::current()->io_message_loop_proxy()));
-  if (!channel_host.get()) {
-    LOG(ERROR) << "Couldn't get PluginChannelHost";
-    return false;
-  }
+    if (channel_handle.name.empty()) {
+      // We got an invalid handle.  Either the plugin couldn't be found (which
+      // shouldn't happen, since if we got here the plugin should exist) or the
+      // plugin crashed on initialization.
+      if (!info_.path.empty()) {
+        render_view_->PluginCrashed(info_.path);
+        LOG(ERROR) << "Plug-in crashed on start";
+
+        // Return true so that the plugin widget is created and we can paint the
+        // crashed plugin there.
+        return true;
+      }
+      LOG(ERROR) << "Plug-in couldn't be found";
+      return false;
+    }
+
+    channel_host =
+        PluginChannelHost::GetPluginChannelHost(
+            channel_handle, ChildProcess::current()->io_message_loop_proxy());
+    if (!channel_host.get()) {
+      LOG(ERROR) << "Couldn't get PluginChannelHost";
+      continue;
+    }
 #if defined(OS_MACOSX)
-  track_nested_removes.reset();
+    track_nested_removes.reset();
 #endif
 
-  int instance_id;
-  bool result = channel_host->Send(new PluginMsg_CreateInstance(
-      mime_type_, &instance_id));
-  if (!result) {
-    LOG(ERROR) << "Couldn't send PluginMsg_CreateInstance";
-    return false;
+    {
+      // TODO(bauerb): Debugging for http://crbug.com/141055.
+      ScopedLogLevel log_level(-2);  // Equivalent to --v=2
+      result = channel_host->Send(new PluginMsg_CreateInstance(
+          mime_type_, &instance_id));
+      if (!result) {
+        LOG(ERROR) << "Couldn't send PluginMsg_CreateInstance";
+        continue;
+      }
+    }
   }
+
+  // Failed too often, give up.
+  if (!result)
+    return false;
 
   channel_host_ = channel_host;
   instance_id_ = instance_id;
@@ -1120,10 +1163,12 @@ void WebPluginDelegateProxy::OnNotifyIMEStatus(int input_type,
   if (!render_view_)
     return;
 
+  ViewHostMsg_TextInputState_Params params;
+  params.type = static_cast<ui::TextInputType>(input_type);
+  params.can_compose_inline = true;
   render_view_->Send(new ViewHostMsg_TextInputStateChanged(
       render_view_->routing_id(),
-      static_cast<ui::TextInputType>(input_type),
-      true));
+      params));
 
   render_view_->Send(new ViewHostMsg_SelectionBoundsChanged(
       render_view_->routing_id(),

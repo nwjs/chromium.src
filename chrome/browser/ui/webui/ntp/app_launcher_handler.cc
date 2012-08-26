@@ -116,7 +116,7 @@ void AppLauncherHandler::CreateAppInfo(
   // impede our ability to determine directionality.
   string16 name = UTF8ToUTF16(extension->name());
   base::i18n::UnadjustStringForLocaleDirection(&name);
-  NewTabUI::SetURLTitleAndDirection(value, name, extension->GetFullLaunchURL());
+  NewTabUI::SetUrlTitleAndDirection(value, name, extension->GetFullLaunchURL());
 
   bool enabled = service->IsExtensionEnabled(extension->id()) &&
       !service->GetTerminatedExtension(extension->id());
@@ -221,7 +221,7 @@ void AppLauncherHandler::RegisterMessages() {
       base::Bind(&AppLauncherHandler::HandleGenerateAppForLink,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("recordAppLaunchByURL",
-      base::Bind(&AppLauncherHandler::HandleRecordAppLaunchByURL,
+      base::Bind(&AppLauncherHandler::HandleRecordAppLaunchByUrl,
                  base::Unretained(this)));
   web_ui()->RegisterMessageCallback("closeNotification",
       base::Bind(&AppLauncherHandler::HandleNotificationClose,
@@ -709,7 +709,7 @@ void AppLauncherHandler::HandleGenerateAppForLink(const ListValue* args) {
   favicon_consumer_.SetClientData(favicon_service, h, install_info.release());
 }
 
-void AppLauncherHandler::HandleRecordAppLaunchByURL(
+void AppLauncherHandler::HandleRecordAppLaunchByUrl(
     const base::ListValue* args) {
   std::string url;
   CHECK(args->GetString(0, &url));
@@ -720,7 +720,7 @@ void AppLauncherHandler::HandleRecordAppLaunchByURL(
       static_cast<extension_misc::AppLaunchBucket>(static_cast<int>(source));
   CHECK(source < extension_misc::APP_LAUNCH_BUCKET_BOUNDARY);
 
-  RecordAppLaunchByURL(Profile::FromWebUI(web_ui()), url, bucket);
+  RecordAppLaunchByUrl(Profile::FromWebUI(web_ui()), url, bucket);
 }
 
 void AppLauncherHandler::HandleNotificationClose(const ListValue* args) {
@@ -792,7 +792,7 @@ void AppLauncherHandler::SetAppToBeHighlighted() {
 }
 
 // static
-void AppLauncherHandler::RegisterUserPrefs(PrefService* pref_service) {
+void AppLauncherHandler::RegisterUserPrefs(PrefServiceBase* pref_service) {
   pref_service->RegisterListPref(prefs::kNtpAppPageNames,
                                  PrefService::SYNCABLE_PREF);
 }
@@ -822,7 +822,7 @@ void AppLauncherHandler::RecordAppLaunchByID(
 }
 
 // static
-void AppLauncherHandler::RecordAppLaunchByURL(
+void AppLauncherHandler::RecordAppLaunchByUrl(
     Profile* profile,
     std::string escaped_url,
     extension_misc::AppLaunchBucket bucket) {

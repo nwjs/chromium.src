@@ -10,7 +10,7 @@
 #include "base/message_loop_proxy.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/io_thread.h"
-#include "chrome/browser/net/cache_stats.h"
+#include "chrome/browser/net/load_time_stats.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_io_data.h"
@@ -84,6 +84,33 @@ class FactoryForIsolatedApp : public ChromeURLRequestContextFactory {
   virtual ChromeURLRequestContext* Create() OVERRIDE {
     // We will copy most of the state from the main request context.
     return profile_io_data_->GetIsolatedAppRequestContext(
+        main_request_context_getter_->GetIOContext(), app_id_);
+  }
+
+ private:
+  const ProfileIOData* const profile_io_data_;
+  const std::string app_id_;
+  scoped_refptr<ChromeURLRequestContextGetter>
+      main_request_context_getter_;
+};
+
+// Factory that creates the media ChromeURLRequestContext for a given isolated
+// app.  The media context is based on the corresponding isolated app's context.
+// Takes the |main_context| for the profile so that it can find or create the
+// isolated app's context if necessary.
+class FactoryForIsolatedMedia : public ChromeURLRequestContextFactory {
+ public:
+  FactoryForIsolatedMedia(const ProfileIOData* profile_io_data,
+                          const std::string& app_id,
+                          ChromeURLRequestContextGetter* main_context)
+      : profile_io_data_(profile_io_data),
+        app_id_(app_id),
+        main_request_context_getter_(main_context) {}
+
+  virtual ChromeURLRequestContext* Create() OVERRIDE {
+    // We will copy most of the state from the corresopnding app's
+    // request context, which we obtain using the main context.
+    return profile_io_data_->GetIsolatedMediaRequestContext(
         main_request_context_getter_->GetIOContext(), app_id_);
   }
 
@@ -198,6 +225,20 @@ ChromeURLRequestContextGetter::CreateOriginalForIsolatedApp(
 
 // static
 ChromeURLRequestContextGetter*
+ChromeURLRequestContextGetter::CreateOriginalForIsolatedMedia(
+    Profile* profile,
+    const ProfileIOData* profile_io_data,
+    const std::string& app_id) {
+  DCHECK(!profile->IsOffTheRecord());
+  ChromeURLRequestContextGetter* main_context =
+      static_cast<ChromeURLRequestContextGetter*>(profile->GetRequestContext());
+  return new ChromeURLRequestContextGetter(
+      profile,
+      new FactoryForIsolatedMedia(profile_io_data, app_id, main_context));
+}
+
+// static
+ChromeURLRequestContextGetter*
 ChromeURLRequestContextGetter::CreateOffTheRecord(
     Profile* profile, const ProfileIOData* profile_io_data) {
   DCHECK(profile->IsOffTheRecord());
@@ -293,19 +334,19 @@ void ChromeURLRequestContextGetter::OnDefaultCharsetChange(
 
 ChromeURLRequestContext::ChromeURLRequestContext(
     ContextType type,
-    chrome_browser_net::CacheStats* cache_stats)
+    chrome_browser_net::LoadTimeStats* load_time_stats)
     : ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)),
       is_incognito_(false),
-      cache_stats_(cache_stats) {
+      load_time_stats_(load_time_stats) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  if (cache_stats_)
-    cache_stats_->RegisterURLRequestContext(this, type);
+  if (load_time_stats_)
+    load_time_stats_->RegisterURLRequestContext(this, type);
 }
 
 ChromeURLRequestContext::~ChromeURLRequestContext() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
-  if (cache_stats_)
-    cache_stats_->UnregisterURLRequestContext(this);
+  if (load_time_stats_)
+    load_time_stats_->UnregisterURLRequestContext(this);
 }
 
 void ChromeURLRequestContext::CopyFrom(ChromeURLRequestContext* other) {

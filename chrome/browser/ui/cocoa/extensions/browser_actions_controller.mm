@@ -213,7 +213,9 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
         if (!extension)
           break;
         BrowserActionButton* button = [owner_ buttonForExtension:extension];
-        [owner_ browserActionClicked:button];
+        // |button| can be nil when the browser action has its button hidden.
+        if (button)
+          [owner_ browserActionClicked:button];
         break;
       }
       default:
@@ -586,7 +588,8 @@ class ExtensionServiceObserverBridge : public content::NotificationObserver,
     }
     CGFloat intersectionWidth =
         NSWidth(NSIntersectionRect([containerView_ bounds], buttonFrame));
-    CGFloat alpha = std::max(0.0f, intersectionWidth / NSWidth(buttonFrame));
+    CGFloat alpha = std::max(static_cast<CGFloat>(0.0),
+                             intersectionWidth / NSWidth(buttonFrame));
     [button setAlphaValue:alpha];
     [button setNeedsDisplay:YES];
   }

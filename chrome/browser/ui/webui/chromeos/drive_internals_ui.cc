@@ -11,10 +11,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
 #include "base/sys_info.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
-#include "chrome/browser/chromeos/gdata/gdata_auth_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_cache.h"
-#include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
+#include "chrome/browser/chromeos/gdata/auth_service.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_cache.h"
+#include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
@@ -99,7 +99,7 @@ void GetFreeDiskSpace(const FilePath& home_path,
 
 // Formats |entry| into text.
 std::string FormatEntry(const FilePath& path,
-                        const gdata::GDataEntryProto& entry) {
+                        const gdata::DriveEntryProto& entry) {
   using base::StringAppendF;
   using gdata::util::FormatTimeAsString;
 
@@ -134,7 +134,7 @@ std::string FormatEntry(const FilePath& path,
                 FormatTimeAsString(creation_time).c_str());
 
   if (entry.has_file_specific_info()) {
-    const gdata::GDataFileSpecificInfo& file_specific_info =
+    const gdata::DriveFileSpecificInfo& file_specific_info =
         entry.file_specific_info();
     StringAppendF(&out, "    thumbnail_url: %s\n",
                   file_specific_info.thumbnail_url().c_str());
@@ -182,7 +182,7 @@ class DriveInternalsWebUIHandler : public content::WebUIMessageHandler {
   void OnReadDirectoryByPath(const FilePath& parent_path,
                              gdata::GDataFileError error,
                              bool hide_hosted_documents,
-                             scoped_ptr<gdata::GDataEntryProtoVector> entries);
+                             scoped_ptr<gdata::DriveEntryProtoVector> entries);
 
   // Called when GetResourceIdsOfAllFilesOnUIThread() is complete.
   void OnGetResourceIdsOfAllFiles(
@@ -191,7 +191,7 @@ class DriveInternalsWebUIHandler : public content::WebUIMessageHandler {
   // Called when GetCacheEntryOnUIThread() is complete.
   void OnGetCacheEntry(const std::string& resource_id,
                        bool success,
-                       const gdata::GDataCacheEntry& cache_entry);
+                       const gdata::DriveCacheEntry& cache_entry);
 
   // Called when GetFreeDiskSpace() is complete.
   void OnGetFreeDiskSpace(base::DictionaryValue* local_storage_summary);
@@ -222,22 +222,21 @@ void DriveInternalsWebUIHandler::OnPageLoaded(const base::ListValue* args) {
   if (!system_service)
     return;
 
-  gdata::DocumentsServiceInterface* documents_service =
-      system_service->docs_service();
-  DCHECK(documents_service);
+  gdata::DriveServiceInterface* drive_service = system_service->drive_service();
+  DCHECK(drive_service);
 
   // Update the auth status section.
   base::DictionaryValue auth_status;
   auth_status.SetBoolean("has-refresh-token",
-                         documents_service->HasRefreshToken());
+                         drive_service->HasRefreshToken());
   auth_status.SetBoolean("has-access-token",
-                         documents_service->HasAccessToken());
+                         drive_service->HasAccessToken());
   web_ui()->CallJavascriptFunction("updateAuthStatus", auth_status);
 
   // Start updating the GCache contents section.
   Profile* profile = Profile::FromWebUI(web_ui());
   const FilePath root_path =
-      gdata::GDataCache::GetCacheRootPath(profile);
+      gdata::DriveCache::GetCacheRootPath(profile);
   base::ListValue* gcache_contents = new ListValue;
   base::DictionaryValue* gcache_summary = new DictionaryValue;
   BrowserThread::PostBlockingPoolTaskAndReply(
@@ -277,11 +276,11 @@ void DriveInternalsWebUIHandler::OnGetGCacheContents(
 
   // Start updating the file system tree section, if we have access token.
   gdata::GDataSystemService* system_service = GetSystemService();
-  if (!system_service->docs_service()->HasAccessToken())
+  if (!system_service->drive_service()->HasAccessToken())
     return;
 
   // Start rendering the file system tree as text.
-  const FilePath root_path = FilePath(gdata::kGDataRootDirectory);
+  const FilePath root_path = FilePath(gdata::kDriveRootDirectory);
   ++num_pending_reads_;
   system_service->file_system()->ReadDirectoryByPath(
       root_path,
@@ -294,14 +293,14 @@ void DriveInternalsWebUIHandler::OnReadDirectoryByPath(
     const FilePath& parent_path,
     gdata::GDataFileError error,
     bool hide_hosted_documents,
-    scoped_ptr<gdata::GDataEntryProtoVector> entries) {
+    scoped_ptr<gdata::DriveEntryProtoVector> entries) {
   --num_pending_reads_;
   if (error == gdata::GDATA_FILE_OK) {
     DCHECK(entries.get());
 
     std::string file_system_as_text;
     for (size_t i = 0; i < entries->size(); ++i) {
-      const gdata::GDataEntryProto& entry = (*entries)[i];
+      const gdata::DriveEntryProto& entry = (*entries)[i];
       const FilePath current_path = parent_path.Append(
           FilePath::FromUTF8Unsafe(entry.base_name()));
 
@@ -349,7 +348,7 @@ void DriveInternalsWebUIHandler::OnGetResourceIdsOfAllFiles(
 void DriveInternalsWebUIHandler::OnGetCacheEntry(
     const std::string& resource_id,
     bool success,
-    const gdata::GDataCacheEntry& cache_entry) {
+    const gdata::DriveCacheEntry& cache_entry) {
   if (!success) {
     LOG(ERROR) << "Failed to get cache entry: " << resource_id;
     return;

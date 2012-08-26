@@ -25,7 +25,7 @@
 #include "ui/views/controls/button/text_button.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_runner.h"
-#include "ui/views/examples/examples_window.h"
+#include "ui/views/examples/examples_window_with_content.h"
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/widget/widget.h"
 
@@ -337,7 +337,7 @@ void WindowTypeLauncher::ButtonPressed(views::Button* sender,
   }
 #if !defined(OS_MACOSX)
   else if (sender == examples_button_) {
-    views::examples::ShowExamplesWindow(
+    views::examples::ShowExamplesWindowWithContent(
         views::examples::DO_NOTHING_ON_CLOSE,
         ash::Shell::GetInstance()->browser_context());
   }

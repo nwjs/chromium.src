@@ -33,16 +33,19 @@ struct ChannelConfig {
     CODEC_ZIP,
     CODEC_VP8,
     CODEC_VORBIS,
+    CODEC_SPEEX,
   };
 
+  // The constructor that creates a config with transport field set to
+  // TRANSPORT_NONE which indicates that corresponding channel is disabled.
   ChannelConfig();
+
+  // Creates a channel config with the specified parameters.
   ChannelConfig(TransportType transport, int version, Codec codec);
 
   // operator== is overloaded so that std::find() works with
   // std::vector<ChannelConfig>.
   bool operator==(const ChannelConfig& b) const;
-
-  void Reset();
 
   TransportType transport;
   int version;
@@ -146,6 +149,9 @@ class CandidateSessionConfig {
   static scoped_ptr<CandidateSessionConfig> CreateFrom(
       const SessionConfig& config);
   static scoped_ptr<CandidateSessionConfig> CreateDefault();
+
+  // Helper method that modifies |config| to enable audio support.
+  static void EnableAudioChannel(CandidateSessionConfig* config);
 
  private:
   CandidateSessionConfig();

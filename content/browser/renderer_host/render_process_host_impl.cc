@@ -188,7 +188,9 @@ class RendererURLRequestContextSelector
                                     int render_child_id)
       : request_context_(browser_context->GetRequestContextForRenderProcess(
                              render_child_id)),
-        media_request_context_(browser_context->GetRequestContextForMedia()) {
+        media_request_context_(
+            browser_context->GetMediaRequestContextForRenderProcess(
+                render_child_id)) {
   }
 
   virtual net::URLRequestContext* GetRequestContext(
@@ -802,6 +804,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kJavaScriptFlags,
     switches::kLoggingLevel,
     switches::kOldCheckboxStyle,
+#if defined(OS_ANDROID)
+    switches::kNetworkCountryIso,
+#endif
     switches::kNoReferrers,
     switches::kNoSandbox,
     switches::kPpapiOutOfProcess,

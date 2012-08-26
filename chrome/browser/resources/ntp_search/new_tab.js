@@ -87,7 +87,9 @@ cr.define('ntp', function() {
     this.initialize(getRequiredElement('page-list'),
                     getRequiredElement('dot-list'),
                     getRequiredElement('card-slider-frame'),
+                    // TODO(pedrosimonetti): Remove the Trash component.
                     getRequiredElement('trash'),
+                    // TODO(pedrosimonetti): Remove page switchers.
                     pageSwitcherStart, pageSwitcherEnd);
   }
 
@@ -95,7 +97,7 @@ cr.define('ntp', function() {
     __proto__: ntp.PageListView.prototype,
 
     /** @inheritDoc */
-    appendTilePage: function(page, title, titleIsEditable, opt_refNode) {
+    appendTilePage: function(page, title, opt_refNode) {
       ntp.PageListView.prototype.appendTilePage.apply(this, arguments);
 
       if (infoBubble)
@@ -107,11 +109,6 @@ cr.define('ntp', function() {
    * Invoked at startup once the DOM is available to initialize the app.
    */
   function onLoad() {
-    sectionsToWaitFor = loadTimeData.getBoolean('showApps') ? 2 : 1;
-    if (loadTimeData.getBoolean('isSuggestionsPageEnabled'))
-      sectionsToWaitFor++;
-    measureNavDots();
-
     // Load the current theme colors.
     themeChanged();
 
@@ -121,9 +118,6 @@ cr.define('ntp', function() {
     notificationContainer.addEventListener(
         'webkitTransitionEnd', onNotificationTransitionEnd);
 
-    cr.ui.decorate($('recently-closed-menu-button'), ntp.RecentMenuButton);
-    chrome.send('getRecentlyClosedTabs');
-
     if (loadTimeData.getBoolean('showOtherSessionsMenu')) {
       otherSessionsButton = getRequiredElement('other-sessions-menu-button');
       cr.ui.decorate(otherSessionsButton, ntp.OtherSessionsMenuButton);
@@ -131,29 +125,14 @@ cr.define('ntp', function() {
     }
 
     var mostVisited = new ntp.MostVisitedPage();
-    // Move the footer into the most visited page if we are in "bare minimum"
-    // mode.
-    if (document.body.classList.contains('bare-minimum'))
-      mostVisited.appendFooter(getRequiredElement('footer'));
     newTabView.appendTilePage(mostVisited,
-                              loadTimeData.getString('mostvisited'),
-                              false);
+                              loadTimeData.getString('mostvisited'));
     chrome.send('getMostVisited');
 
-    if (loadTimeData.getBoolean('isSuggestionsPageEnabled')) {
-      var suggestions_script = document.createElement('script');
-      suggestions_script.src = 'suggestions_page.js';
-      suggestions_script.onload = function() {
-         newTabView.appendTilePage(new ntp.SuggestionsPage(),
-                                   loadTimeData.getString('suggestions'),
-                                   false,
-                                   (newTabView.appsPages.length > 0) ?
-                                       newTabView.appsPages[0] : null);
-         chrome.send('getSuggestions');
-         cr.dispatchSimpleEvent(document, 'sectionready', true, true);
-      };
-      document.querySelector('head').appendChild(suggestions_script);
-    }
+    var recentlyClosed = new ntp.RecentlyClosedPage();
+    newTabView.appendTilePage(recentlyClosed,
+                              loadTimeData.getString('recentlyclosed'));
+    chrome.send('getRecentlyClosedTabs');
 
     var webStoreLink = loadTimeData.getString('webStoreLink');
     var url = appendParam(webStoreLink, 'utm_source', 'chrome-ntp-launcher');
@@ -262,24 +241,6 @@ cr.define('ntp', function() {
       readyCallbacks.push(callback);
     else
       window.setTimeout(callback, 0);  // Do soon after, but asynchronously.
-  }
-
-  /**
-   * Fills in an invisible div with the 'Most Visited' string so that
-   * its length may be measured and the nav dots sized accordingly.
-   */
-  function measureNavDots() {
-    var measuringDiv = $('fontMeasuringDiv');
-    measuringDiv.textContent = loadTimeData.getString('mostvisited');
-    // The 4 is for border and padding.
-    var pxWidth = Math.max(measuringDiv.clientWidth * 1.15 + 4, 80);
-
-    var styleElement = document.createElement('style');
-    styleElement.type = 'text/css';
-    // max-width is used because if we run out of space, the nav dots will be
-    // shrunk.
-    styleElement.textContent = '.dot { max-width: ' + pxWidth + 'px; }';
-    document.querySelector('head').appendChild(styleElement);
   }
 
   function themeChanged(opt_hasAttribution) {
@@ -432,8 +393,8 @@ cr.define('ntp', function() {
       notificationContainer.hidden = true;
   }
 
-  function setRecentlyClosedTabs(dataItems) {
-    $('recently-closed-menu-button').dataItems = dataItems;
+  function setRecentlyClosedTabs(data) {
+    newTabView.recentlyClosedPage.data = data;
   }
 
   function setMostVisitedPages(data, hasBlacklistedUrls) {
@@ -445,17 +406,8 @@ cr.define('ntp', function() {
     newTabView.suggestionsPage.data = data;
   }
 
-  /**
-   * Set the dominant color for a node. This will be called in response to
-   * getFaviconDominantColor. The node represented by |id| better have a setter
-   * for stripeColor.
-   * @param {string} id The ID of a node.
-   * @param {string} color The color represented as a CSS string.
-   */
-  function setStripeColor(id, color) {
-    var node = $(id);
-    if (node)
-      node.stripeColor = color;
+  function getThumbnailUrl(url) {
+    return 'chrome://thumb/' + url;
   }
 
   /**
@@ -530,10 +482,6 @@ cr.define('ntp', function() {
     return newTabView.appsReordered.apply(newTabView, arguments);
   }
 
-  function enterRearrangeMode() {
-    return newTabView.enterRearrangeMode.apply(newTabView, arguments);
-  }
-
   function setForeignSessions(sessionList, isTabSyncEnabled) {
     if (otherSessionsButton)
       otherSessionsButton.setForeignSessions(sessionList, isTabSyncEnabled);
@@ -551,14 +499,6 @@ cr.define('ntp', function() {
     return newTabView.cardSlider;
   }
 
-  function leaveRearrangeMode() {
-    return newTabView.leaveRearrangeMode.apply(newTabView, arguments);
-  }
-
-  function saveAppPageName() {
-    return newTabView.saveAppPageName.apply(newTabView, arguments);
-  }
-
   function setAppToBeHighlighted(appId) {
     newTabView.highlightAppId = appId;
   }
@@ -569,21 +509,18 @@ cr.define('ntp', function() {
     appMoved: appMoved,
     appRemoved: appRemoved,
     appsPrefChangeCallback: appsPrefChangeCallback,
-    enterRearrangeMode: enterRearrangeMode,
     getAppsCallback: getAppsCallback,
     getAppsPageIndex: getAppsPageIndex,
     getCardSlider: getCardSlider,
+    getThumbnailUrl: getThumbnailUrl,
     onLoad: onLoad,
-    leaveRearrangeMode: leaveRearrangeMode,
     NtpFollowAction: NtpFollowAction,
-    saveAppPageName: saveAppPageName,
     setAppToBeHighlighted: setAppToBeHighlighted,
     setBookmarkBarAttached: setBookmarkBarAttached,
     setForeignSessions: setForeignSessions,
     setMostVisitedPages: setMostVisitedPages,
     setSuggestionsPages: setSuggestionsPages,
     setRecentlyClosedTabs: setRecentlyClosedTabs,
-    setStripeColor: setStripeColor,
     showNotification: showNotification,
     themeChanged: themeChanged,
     updateLogin: updateLogin

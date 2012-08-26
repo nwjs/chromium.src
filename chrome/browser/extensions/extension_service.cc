@@ -517,6 +517,10 @@ void ExtensionService::InitEventRouters() {
   event_routers_initialized_ = true;
 }
 
+void ExtensionService::Shutdown() {
+  push_messaging_event_router_->Shutdown();
+}
+
 const Extension* ExtensionService::GetExtensionById(
     const std::string& id, bool include_disabled) const {
   int include_mask = INCLUDE_ENABLED;
@@ -1125,26 +1129,11 @@ void ExtensionService::UpdateExtensionBlacklist(
   // Use this set to indicate if an extension in the blacklist has been used.
   std::set<std::string> blacklist_set;
   for (unsigned int i = 0; i < blacklist.size(); ++i) {
-    if (Extension::IdIsValid(blacklist[i])) {
+    if (Extension::IdIsValid(blacklist[i]))
       blacklist_set.insert(blacklist[i]);
-    }
   }
   extension_prefs_->UpdateBlacklist(blacklist_set);
-  std::vector<std::string> to_be_removed;
-  // Loop current extensions, unload installed extensions.
-  for (ExtensionSet::const_iterator iter = extensions_.begin();
-       iter != extensions_.end(); ++iter) {
-    const Extension* extension = (*iter);
-    if (blacklist_set.find(extension->id()) != blacklist_set.end()) {
-      to_be_removed.push_back(extension->id());
-    }
-  }
-
-  // UnloadExtension will change the extensions_ list. So, we should
-  // call it outside the iterator loop.
-  for (unsigned int i = 0; i < to_be_removed.size(); ++i) {
-    UnloadExtension(to_be_removed[i], extension_misc::UNLOAD_REASON_DISABLE);
-  }
+  CheckManagementPolicy();
 }
 
 Profile* ExtensionService::profile() {
@@ -1171,15 +1160,14 @@ extensions::ExtensionUpdater* ExtensionService::updater() {
   return updater_.get();
 }
 
-void ExtensionService::CheckAdminBlacklist() {
+void ExtensionService::CheckManagementPolicy() {
   std::vector<std::string> to_be_removed;
   // Loop through extensions list, unload installed extensions.
   for (ExtensionSet::const_iterator iter = extensions_.begin();
        iter != extensions_.end(); ++iter) {
     const Extension* extension = (*iter);
-    if (!system_->management_policy()->UserMayLoad(extension, NULL)) {
+    if (!system_->management_policy()->UserMayLoad(extension, NULL))
       to_be_removed.push_back(extension->id());
-    }
   }
 
   // UnloadExtension will change the extensions_ list. So, we should
@@ -1747,7 +1735,7 @@ bool ExtensionService::PopulateExtensionErrorUI(
         }
       }
     }
-    if (extension_prefs_->IsExtensionBlacklisted(e->id())) {
+    if (!extension_prefs_->UserMayLoad(e, NULL)) {
       if (!extension_prefs_->IsBlacklistedExtensionAcknowledged(e->id())) {
         extension_error_ui->AddBlacklistedExtension(e->id());
         needs_alert = true;
@@ -2250,14 +2238,14 @@ bool ExtensionService::ExtensionBindingsAllowed(const GURL& url) {
                        extension->location() == Extension::COMPONENT);
 }
 
-const SkBitmap& ExtensionService::GetOmniboxIcon(
+gfx::Image ExtensionService::GetOmniboxIcon(
     const std::string& extension_id) {
-  return omnibox_icon_manager_.GetIcon(extension_id);
+  return gfx::Image(omnibox_icon_manager_.GetIcon(extension_id));
 }
 
-const SkBitmap& ExtensionService::GetOmniboxPopupIcon(
+gfx::Image ExtensionService::GetOmniboxPopupIcon(
     const std::string& extension_id) {
-  return omnibox_popup_icon_manager_.GetIcon(extension_id);
+  return gfx::Image(omnibox_popup_icon_manager_.GetIcon(extension_id));
 }
 
 bool ExtensionService::OnExternalExtensionFileFound(
@@ -2429,7 +2417,8 @@ void ExtensionService::Observe(int type,
       std::string* pref_name = content::Details<std::string>(details).ptr();
       if (*pref_name == prefs::kExtensionInstallAllowList ||
           *pref_name == prefs::kExtensionInstallDenyList) {
-        CheckAdminBlacklist();
+        IdentifyAlertableExtensions();
+        CheckManagementPolicy();
       } else {
         NOTREACHED() << "Unexpected preference name.";
       }
@@ -2500,11 +2489,6 @@ bool ExtensionService::HasUsedWebRequest(const Extension* extension) const {
 void ExtensionService::SetHasUsedWebRequest(const Extension* extension,
                                             bool value) {
   extension_runtime_data_[extension->id()].has_used_webrequest = value;
-}
-
-base::PropertyBag* ExtensionService::GetPropertyBag(
-    const Extension* extension) {
-  return &extension_runtime_data_[extension->id()].property_bag;
 }
 
 void ExtensionService::RegisterNaClModule(const GURL& url,

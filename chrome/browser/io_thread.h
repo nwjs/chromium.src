@@ -12,8 +12,8 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/net/ssl_config_service_manager.h"
-#include "chrome/browser/prefs/pref_member.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browser_thread_delegate.h"
 #include "net/base/network_change_notifier.h"
@@ -24,8 +24,8 @@ class PrefService;
 class SystemURLRequestContextGetter;
 
 namespace chrome_browser_net {
-class CacheStats;
 class HttpPipeliningCompatibilityClient;
+class LoadTimeStats;
 }
 
 namespace extensions {
@@ -112,7 +112,7 @@ class IOThread : public content::BrowserThreadDelegate {
         extension_event_router_forwarder;
     scoped_ptr<chrome_browser_net::HttpPipeliningCompatibilityClient>
         http_pipelining_compatibility_client;
-    scoped_ptr<chrome_browser_net::CacheStats> cache_stats;
+    scoped_ptr<chrome_browser_net::LoadTimeStats> load_time_stats;
   };
 
   // |net_log| must either outlive the IOThread or be NULL.

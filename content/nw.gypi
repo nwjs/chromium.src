@@ -52,12 +52,6 @@
         'nw/src/common/zip_internal.h',
         'nw/src/geolocation/shell_access_token_store.cc',
         'nw/src/geolocation/shell_access_token_store.h',
-        'nw/src/layout_test_controller.cc',
-        'nw/src/layout_test_controller.h',
-        'nw/src/layout_test_controller_bindings.cc',
-        'nw/src/layout_test_controller_bindings.h',
-        'nw/src/layout_test_controller_host.cc',
-        'nw/src/layout_test_controller_host.h',
         'nw/src/nw_version.h',
         'nw/src/nw_package.h',
         'nw/src/nw_package.cc',
@@ -399,7 +393,9 @@
               # Modify the Info.plist as needed.
               'postbuild_name': 'Tweak Info.plist',
               'action': ['../build/mac/tweak_info_plist.py',
-                         '--svn=1'],
+                         '--breakpad=0',
+                         '--keystone=0',
+                         '--svn=0'],
             },
             {
               # This postbuid step is responsible for creating the following

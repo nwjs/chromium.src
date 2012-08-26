@@ -85,6 +85,7 @@ import omnibox_info
 import plugins_info
 import prefs_info
 from pyauto_errors import AutomationCommandFail
+from pyauto_errors import AutomationCommandTimeout
 from pyauto_errors import JavascriptRuntimeError
 from pyauto_errors import JSONInterfaceError
 from pyauto_errors import NTPThumbnailNotShownError
@@ -92,6 +93,7 @@ import pyauto_utils
 import simplejson as json  # found in third_party
 
 _CHROME_DRIVER_FACTORY = None
+_DEFAULT_AUTOMATION_TIMEOUT = 45
 _HTTP_SERVER = None
 _REMOTE_PROXY = None
 _OPTIONS = None
@@ -135,6 +137,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     # Fetch provided keyword args, or fill in defaults.
     clear_profile = kwargs.get('clear_profile', True)
     homepage = kwargs.get('homepage', 'about:blank')
+    self._automation_timeout = _DEFAULT_AUTOMATION_TIMEOUT * 1000
 
     pyautolib.PyUITestBase.__init__(self, clear_profile, homepage)
     self.Initialize(pyautolib.FilePath(self.BrowserPath()))
@@ -785,7 +788,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     return PyUITest.EvalDataFrom(private_file)
 
   def WaitUntil(self, function, timeout=-1, retry_sleep=0.25, args=[],
-                expect_retval=None, debug=True):
+                expect_retval=None, return_retval=False, debug=True):
     """Poll on a condition until timeout.
 
     Waits until the |function| evalues to |expect_retval| or until |timeout|
@@ -818,23 +821,27 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
                      exit criteria. In case this is None (the default),
                      |function|'s return value is checked for truth,
                      so 'non-empty-string' should match with True
+      return_retval: If True, return the value returned by the last call to
+                     |function()|
       debug: if True, displays debug info at each retry.
 
     Returns:
-      The return value of the calling function when |function| evaluates to
-          True.
+      The return value of the |function| (when return_retval == True)
+      True, if returning when |function| evaluated to True (when
+          return_retval == False)
       False, when returning due to timeout
     """
     if timeout == -1:  # Default
-      timeout = self.action_max_timeout_ms() / 1000.0
+      timeout = self._automation_timeout / 1000.0
     assert callable(function), "function should be a callable"
     begin = time.time()
     debug_begin = begin
+    retval = None
     while timeout is None or time.time() - begin <= timeout:
       retval = function(*args)
       if (expect_retval is None and retval) or \
          (expect_retval is not None and expect_retval == retval):
-        return retval
+        return retval if return_retval else True
       if debug and time.time() - debug_begin > 5:
         debug_begin += 5
         if function.func_name == (lambda: True).func_name:
@@ -849,7 +856,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
                       True if expect_retval is None else expect_retval,
                       retval)
       time.sleep(retry_sleep)
-    return False
+    return retval if return_retval else False
 
   def StartSyncServer(self):
     """Start a local sync server.
@@ -942,11 +949,11 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     logging.debug('Stopped HTTPS server.')
 
   class ActionTimeoutChanger(object):
-    """Facilitate temporary changes to action_timeout_ms.
+    """Facilitate temporary changes to PyAuto command timeout.
 
     Automatically resets to original timeout when object is destroyed.
     """
-    _saved_timeout = -1  # Saved value for action_timeout_ms
+    _saved_timeout = -1  # Saved timeout value
 
     def __init__(self, ui_test, new_timeout):
       """Initialize.
@@ -955,15 +962,13 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
         ui_test: a PyUITest object
         new_timeout: new timeout to use (in milli secs)
       """
-      self._saved_timeout = ui_test.action_timeout_ms()
-      if new_timeout != self._saved_timeout:
-        ui_test.set_action_timeout_ms(new_timeout)
+      self._saved_timeout = ui_test._automation_timeout
+      ui_test._automation_timeout = new_timeout
       self._ui_test = ui_test
 
     def __del__(self):
       """Reset command_execution_timeout_ms to original value."""
-      if self._ui_test.action_timeout_ms() != self._saved_timeout:
-        self._ui_test.set_action_timeout_ms(self._saved_timeout)
+      self._ui_test._automation_timeout = self._saved_timeout
 
   class JavascriptExecutor(object):
     """Abstract base class for JavaScript injection.
@@ -1028,7 +1033,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     """
     result = self._SendJSONRequest(-1,
              json.dumps({'command': 'GetBrowserInfo',}),
-             self.action_max_timeout_ms())
+             self._automation_timeout)
     if not result:
       # The diagnostic command did not complete, Chrome is probably in a bad
       # state
@@ -1062,7 +1067,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       pyauto_errors.JSONInterfaceError if the automation call returns an error.
     """
     if timeout == -1:  # Default
-      timeout = self.action_timeout_ms()
+      timeout = self._automation_timeout
     if windex is None:  # Do not target any window
       windex = -1
     result = self._SendJSONRequest(windex, json.dumps(cmd_dict), timeout)
@@ -1106,7 +1111,9 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
                                additional_info))
     ret_dict = json.loads(result)
     if ret_dict.has_key('error'):
-      if ret_dict.get('is_interface_error'):
+      if ret_dict.get('is_interface_timeout'):
+        raise AutomationCommandTimeout(ret_dict['error'])
+      elif ret_dict.get('is_interface_error'):
         raise JSONInterfaceError(ret_dict['error'])
       else:
         raise AutomationCommandFail(ret_dict['error'])
@@ -1666,38 +1673,6 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     """
     return self.GetBookmarkBarStatus(windex)['visible']
 
-  def IsBookmarkBarDetached(self, windex=0):
-    """Returns whether the bookmark bar is detached.
-
-    Args:
-      windex: Integer index of the browser window to use; defaults to the first
-          window.
-
-    Returns:
-      True if the bookmark bar is detached, false otherwise.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    return self.GetBookmarkBarStatus(windex)['detached']
-
-  def WaitForBookmarkBarVisibilityChange(self, wait_for_open, windex=0):
-    """Waits until the bookmark bar is either visible or not visible.
-
-    Args:
-      wait_for_open: If True, wait until bookmark bar is visible; otherwise wait
-          until bookmark bar is not visible.
-      windex: Integer index of the browser window to use; defaults to the first
-          window.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    def IsChanged(wait_for_open, windex):
-      status = self.GetBookmarkBarStatus(windex)
-      return status['visible'] == wait_for_open and not status['animating']
-    return self.WaitUntil(lambda: IsChanged(wait_for_open, windex))
-
   def AddBookmarkGroup(self, parent_id, index, title, windex=0):
     """Adds a bookmark folder.
 
@@ -1858,9 +1833,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       an instance of downloads_info.DownloadInfo
     """
     return download_info.DownloadInfo(
-        self._SendJSONRequest(
-            windex, json.dumps({'command': 'GetDownloadsInfo'}),
-            self.action_max_timeout_ms()))
+        self._GetResultFromJSONRequest({'command': 'GetDownloadsInfo'},
+                                       windex=windex))
 
   def GetOmniboxInfo(self, windex=0):
     """Return info about Omnibox.
@@ -1886,9 +1860,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       an instance of omnibox_info.OmniboxInfo
     """
     return omnibox_info.OmniboxInfo(
-        self._SendJSONRequest(windex,
-                              json.dumps({'command': 'GetOmniboxInfo'}),
-                              self.action_max_timeout_ms()))
+        self._GetResultFromJSONRequest({'command': 'GetOmniboxInfo'},
+                                       windex=windex))
 
   def SetOmniboxText(self, text, windex=0):
     """Enter text into the omnibox. This shifts focus to the omnibox.
@@ -2212,9 +2185,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       an instance of prefs_info.PrefsInfo
     """
     return prefs_info.PrefsInfo(
-        self._SendJSONRequest(-1,
-                              json.dumps({'command': 'GetLocalStatePrefsInfo'}),
-                              self.action_max_timeout_ms()))
+        self._GetResultFromJSONRequest({'command': 'GetLocalStatePrefsInfo'},
+                                       windex=None))
 
   def SetLocalStatePrefs(self, path, value):
     """Set local state preference for the given path.
@@ -2263,8 +2235,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       'windex': windex,
     }
     return prefs_info.PrefsInfo(
-        self._SendJSONRequest(-1, json.dumps(cmd_dict),
-                              self.action_max_timeout_ms()))
+        self._GetResultFromJSONRequest(cmd_dict, windex=None))
 
   def SetPrefs(self, path, value, windex=0):
     """Set preference for the given path.
@@ -2786,7 +2757,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     }
     return self._GetResultFromJSONRequest(cmd_dict, windex=None)
 
-  def GetHistoryInfo(self, search_text=''):
+  def GetHistoryInfo(self, search_text='', windex=0):
     """Return info about browsing history.
 
     Args:
@@ -2797,6 +2768,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
                    When non-empty, the history items returned will contain a
                    "snippet" field corresponding to the snippet visible in
                    the chrome://history/ UI.
+      windex: index of the browser window, defaults to 0.
 
     Returns:
       an instance of history_info.HistoryInfo
@@ -2806,8 +2778,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       'search_text': search_text,
     }
     return history_info.HistoryInfo(
-        self._SendJSONRequest(0, json.dumps(cmd_dict),
-                              self.action_max_timeout_ms()))
+        self._GetResultFromJSONRequest(cmd_dict, windex=windex))
 
   def GetTranslateInfo(self, tab_index=0, window_index=0):
     """Returns info about translate for the given page.
@@ -3214,235 +3185,6 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
 
     return self.WaitUntil(lambda: _IsExtensionViewClosed())
 
-  def FillAutofillProfile(self, profiles=None, credit_cards=None,
-                          tab_index=0, window_index=0):
-    """Set the autofill profile to contain the given profiles and credit cards.
-
-    If profiles or credit_cards are specified, they will overwrite existing
-    profiles and credit cards. To update profiles and credit cards, get the
-    existing ones with the GetAutofillProfile function and then append new
-    profiles to the list and call this function.
-
-    Autofill profiles (not credit cards) support multiple values for some of the
-    fields. To account for this, all values in a profile must be specified as
-    a list of strings. If a form field only has a single value associated with
-    it, that value must still be specified as a list containing a single string.
-
-    Args:
-      profiles: (optional) a list of dictionaries representing each profile to
-      add. Example:
-      [{
-        'NAME_FIRST': ['Bob',],
-        'NAME_LAST': ['Smith',],
-        'ADDRESS_HOME_ZIP': ['94043',],
-      },
-      {
-        'EMAIL_ADDRESS': ['sue@example.com',],
-        'COMPANY_NAME': ['Company X',],
-      }]
-
-      Other possible keys are:
-      'NAME_FIRST', 'NAME_MIDDLE', 'NAME_LAST', 'EMAIL_ADDRESS',
-      'COMPANY_NAME', 'ADDRESS_HOME_LINE1', 'ADDRESS_HOME_LINE2',
-      'ADDRESS_HOME_CITY', 'ADDRESS_HOME_STATE', 'ADDRESS_HOME_ZIP',
-      'ADDRESS_HOME_COUNTRY', 'PHONE_HOME_WHOLE_NUMBER'
-
-      credit_cards: (optional) a list of dictionaries representing each credit
-      card to add. Example:
-      [{
-        'CREDIT_CARD_NAME': 'Bob C. Smith',
-        'CREDIT_CARD_NUMBER': '5555555555554444',
-        'CREDIT_CARD_EXP_MONTH': '12',
-        'CREDIT_CARD_EXP_4_DIGIT_YEAR': '2011'
-      },
-      {
-        'CREDIT_CARD_NAME': 'Bob C. Smith',
-        'CREDIT_CARD_NUMBER': '4111111111111111',
-        'CREDIT_CARD_TYPE': 'Visa'
-      }
-
-      Other possible keys are:
-      'CREDIT_CARD_NAME', 'CREDIT_CARD_NUMBER', 'CREDIT_CARD_EXP_MONTH',
-      'CREDIT_CARD_EXP_4_DIGIT_YEAR'
-
-      All values must be strings.
-
-      tab_index: tab index, defaults to 0.
-
-      window_index: window index, defaults to 0.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    cmd_dict = {  # Prepare command for the json interface
-      'command': 'FillAutofillProfile',
-      'tab_index': tab_index,
-      'profiles': profiles,
-      'credit_cards': credit_cards
-    }
-    self._GetResultFromJSONRequest(cmd_dict, windex=window_index)
-
-  def GetAutofillProfile(self, tab_index=0, window_index=0):
-    """Returns all autofill profile and credit card information.
-
-    The format of the returned dictionary is described above in
-    FillAutofillProfile. The general format is:
-    {'profiles': [list of profile dictionaries as described above],
-     'credit_cards': [list of credit card dictionaries as described above]}
-
-    Args:
-       tab_index: tab index, defaults to 0.
-       window_index: window index, defaults to 0.
-
-    Raises:
-       pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    cmd_dict = {  # Prepare command for the json interface
-      'command': 'GetAutofillProfile',
-      'tab_index': tab_index
-    }
-    return self._GetResultFromJSONRequest(cmd_dict, windex=window_index)
-
-  def SubmitAutofillForm(self, js, frame_xpath='', tab_index=0, windex=0):
-    """Submits a webpage autofill form and waits for autofill to be updated.
-
-    This function should be called when submitting autofill profiles via
-    webpage forms.  It waits until the autofill data has been updated internally
-    before returning.
-
-    Args:
-      js: The string Javascript code that can be injected into the given webpage
-          to submit an autofill form.  This Javascript MUST submit the form.
-      frame_xpath: The string xpath for the frame in which to inject javascript.
-      tab_index: Integer index of the tab to work on; defaults to 0 (first tab).
-      windex: Integer index of the browser window to use; defaults to 0
-              (first window).
-    """
-    cmd_dict = {  # Prepare command for the json interface.
-      'command': 'SubmitAutofillForm',
-      'javascript': js,
-      'frame_xpath': frame_xpath,
-      'tab_index': tab_index,
-    }
-    self._GetResultFromJSONRequest(cmd_dict, windex=windex)
-
-  def AutofillTriggerSuggestions(self, field_id=None, tab_index=0, windex=0):
-    """Focuses a webpage form field and triggers the autofill popup in it.
-
-    This function focuses the specified input field in a webpage form, then
-    causes the autofill popup to appear in that field.  The underlying
-    automation hook sends a "down arrow" keypress event to trigger the autofill
-    popup.  This function waits until the popup is displayed before returning.
-
-    Args:
-      field_id: The string ID of the webpage form field to focus.  Can be
-                'None' (the default), in which case nothing is focused.  This
-                can be useful if the field has already been focused by other
-                means.
-      tab_index: Integer index of the tab to work on; defaults to 0 (first tab).
-      windex: Integer index of the browser window to work on; defaults to 0
-              (first window).
-
-    Returns:
-      True, if no errors were encountered, or False otherwise.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    # Focus the field with the specified ID, if necessary.
-    if field_id:
-      if not self.JavascriptFocusElementById(field_id, tab_index, windex):
-        return False
-
-    # Cause the autofill popup to be shown in the focused form field.
-    cmd_dict = {
-      'command': 'AutofillTriggerSuggestions',
-      'tab_index': tab_index,
-    }
-    self._GetResultFromJSONRequest(cmd_dict, windex=windex)
-    return True
-
-  def AutofillHighlightSuggestion(self, direction, tab_index=0, windex=0):
-    """Highlights the previous or next suggestion in an existing autofill popup.
-
-    This function assumes that an existing autofill popup is currently displayed
-    in a webpage form.  The underlying automation hook sends either a
-    "down arrow" or an "up arrow" keypress event to cause the next or previous
-    suggestion to be highlighted, respectively.  This function waits until
-    autofill displays a preview of the form's filled state before returning.
-
-    Use AutofillTriggerSuggestions() to trigger the autofill popup before
-    calling this function.  Use AutofillAcceptSelection() after calling this
-    function to accept a selection.
-
-    Args:
-      direction: The string direction in which to highlight an autofill
-                 suggestion.  Must be either "up" or "down".
-      tab_index: Integer index of the tab to work on; defaults to 0 (first tab).
-      windex: Integer index of the browser window to work on; defaults to 0
-              (first window).
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    assert direction in ('up', 'down')
-    cmd_dict = {
-      'command': 'AutofillHighlightSuggestion',
-      'direction': direction,
-      'tab_index': tab_index,
-    }
-    self._GetResultFromJSONRequest(cmd_dict, windex=windex)
-
-  def AutofillAcceptSelection(self, tab_index=0, windex=0):
-    """Accepts the current selection in an already-displayed autofill popup.
-
-    This function assumes that a profile is already highlighted in an existing
-    autofill popup in a webpage form.  The underlying automation hook sends a
-    "return" keypress event to cause the highlighted profile to be accepted.
-    This function waits for the webpage form to be filled in with autofill data
-    before returning.  This function does not submit the webpage form.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    cmd_dict = {
-      'command': 'AutofillAcceptSelection',
-      'tab_index': tab_index,
-    }
-    self._GetResultFromJSONRequest(cmd_dict, windex=windex)
-
-  def AutofillPopulateForm(self, field_id, profile_index=0, tab_index=0,
-                           windex=0):
-    """Populates a webpage form using autofill data and keypress events.
-
-    This function focuses the specified input field in the form, and then
-    sends keypress events to the associated tab to cause the form to be
-    populated with information from the requested autofill profile.
-
-    Args:
-      field_id: The string ID of the webpage form field to focus for autofill
-                purposes.
-      profile_index: The index of the profile in the autofill popup to use to
-                     populate the form; defaults to 0 (first profile).
-      tab_index: Integer index of the tab to work on; defaults to 0 (first tab).
-      windex: Integer index of the browser window to work on; defaults to 0
-              (first window).
-
-    Returns:
-      True, if the webpage form is populated successfully, or False if not.
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if an automation call returns an error.
-    """
-    if not self.AutofillTriggerSuggestions(field_id, tab_index, windex):
-      return False
-
-    for _ in range(profile_index + 1):
-      self.AutofillHighlightSuggestion('down', tab_index, windex)
-
-    self.AutofillAcceptSelection(tab_index, windex)
-    return True
-
   def AddHistoryItem(self, item):
     """Forge a history item for Chrome.
 
@@ -3467,7 +3209,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       raise JSONInterfaceError('must specify url')
     self._GetResultFromJSONRequest(cmd_dict)
 
-  def GetPluginsInfo(self):
+  def GetPluginsInfo(self, windex=0):
     """Return info about plugins.
 
     This is the info available from about:plugins
@@ -3476,8 +3218,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       an instance of plugins_info.PluginsInfo
     """
     return plugins_info.PluginsInfo(
-        self._SendJSONRequest(0, json.dumps({'command': 'GetPluginsInfo'}),
-                              self.action_max_timeout_ms()))
+        self._GetResultFromJSONRequest({'command': 'GetPluginsInfo'},
+                                       windex=windex))
 
   def EnablePlugin(self, path):
     """Enable the plugin at the given path.
@@ -3571,28 +3313,6 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       'import_items': import_items
     }
     return self._GetResultFromJSONRequest(cmd_dict, windex=windex)
-
-  def ClearBrowsingData(self, to_remove, time_period):
-    """Clear the specified browsing data. Implements the features available in
-       the "ClearBrowsingData" UI.
-
-    Args:
-      to_remove: a list of strings indicating which types of browsing data
-                 should be removed. Strings that can be in the list are:
-                 HISTORY, DOWNLOADS, COOKIES, PASSWORDS, FORM_DATA, CACHE
-      time_period: a string indicating the time period for the removal.
-                   Possible strings are:
-                   LAST_HOUR, LAST_DAY, LAST_WEEK, FOUR_WEEKS, EVERYTHING
-
-    Raises:
-      pyauto_errors.JSONInterfaceError if the automation call returns an error.
-    """
-    cmd_dict = {  # Prepare command for the json interface
-      'command': 'ClearBrowsingData',
-      'to_remove': to_remove,
-      'time_period': time_period
-    }
-    return self._GetResultFromJSONRequest(cmd_dict)
 
   def AddSavedPassword(self, password_dict, windex=0):
     """Adds the given username-password combination to the saved passwords.
@@ -4302,29 +4022,6 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     js = '%s(%s)' % (function, ', '.join(converted_args))
     logging.debug('Executing javascript: %s', js)
     return self.ExecuteJavascript(js, tab_index, windex)
-
-  def JavascriptFocusElementById(self, field_id, tab_index=0, windex=0):
-    """Uses Javascript to focus an element with the given ID in a webpage.
-
-    Args:
-      field_id: The string ID of the webpage form field to focus.
-      tab_index: Integer index of the tab to work on; defaults to 0 (first tab).
-      windex: Integer index of the browser window to work on; defaults to 0
-              (first window).
-
-    Returns:
-      True, on success, or False on failure.
-    """
-    focus_field_js = """
-        var field = document.getElementById("%s");
-        if (!field) {
-          window.domAutomationController.send("error");
-        } else {
-          field.focus();
-          window.domAutomationController.send("done");
-        }
-    """ % field_id
-    return self.ExecuteJavascript(focus_field_js, tab_index, windex) == 'done'
 
   def SignInToSync(self, username, password):
     """Signs in to sync using the given username and password.
@@ -5302,8 +4999,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
         'command': 'UnlockScreen',
         'password': password,
     }
-    result = self._GetResultFromJSONRequest(
-        cmd_dict, windex=None, timeout=self.large_test_timeout_ms())
+    result = self._GetResultFromJSONRequest(cmd_dict, windex=None)
     return result.get('error_string')
 
   def SignoutInScreenLocker(self):
@@ -5516,7 +5212,7 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
     Returns:
       The service path or None if SSID does not exist after timeout period.
     """
-    def _get_service_path():
+    def _GetServicePath():
       service_list = self.GetNetworkInfo().get('wifi_networks', [])
       for service_path, service_obj in service_list.iteritems():
         service_encr = 'PSK' if service_obj['encryption'] in ['WPA', 'RSN'] \
@@ -5528,8 +5224,8 @@ class PyUITest(pyautolib.PyUITestBase, unittest.TestCase):
       self.NetworkScan()
       return None
 
-    service_path = self.WaitUntil(_get_service_path, timeout=timeout,
-                                  retry_sleep=1)
+    service_path = self.WaitUntil(_GetServicePath, timeout=timeout,
+                                  retry_sleep=1, return_retval=True)
     return service_path or None
 
   def NetworkScan(self):

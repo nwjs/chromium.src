@@ -143,6 +143,7 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
+#include "chrome/browser/ui/zoom/zoom_controller.h"
 #include "chrome/browser/upgrade_detector.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_constants.h"
@@ -915,7 +916,7 @@ void Browser::RegisterProtocolHandlerHelper(WebContents* web_contents,
                                                  registry,
                                                  handler);
 
-  for (size_t i = 0; i < infobar_helper->infobar_count(); i++) {
+  for (size_t i = 0; i < infobar_helper->GetInfoBarCount(); i++) {
     InfoBarDelegate* delegate = infobar_helper->GetInfoBarDelegateAt(i);
     RegisterProtocolHandlerInfoBarDelegate* cast_delegate =
         delegate->AsRegisterProtocolHandlerInfoBarDelegate();
@@ -962,7 +963,7 @@ void Browser::RequestMediaAccessPermissionHelper(
   if (!controller->DismissInfoBarAndTakeActionOnSettings()) {
     InfoBarTabHelper* infobar_helper = tab->infobar_tab_helper();
     InfoBarDelegate* old_infobar = NULL;
-    for (size_t i = 0; i < infobar_helper->infobar_count(); ++i) {
+    for (size_t i = 0; i < infobar_helper->GetInfoBarCount(); ++i) {
       old_infobar = infobar_helper->GetInfoBarDelegateAt(i)->
           AsMediaStreamInfoBarDelegate();
       if (old_infobar)
@@ -1765,21 +1766,10 @@ void Browser::URLStarredChanged(TabContents* source, bool starred) {
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, ZoomObserver implementation:
 
-void Browser::OnZoomIconChanged(TabContents* source,
-                                ZoomController::ZoomIconState state) {
-  if (source == chrome::GetActiveTabContents(this))
-    window_->SetZoomIconState(state);
-}
-
-void Browser::OnZoomChanged(TabContents* source,
-                            int zoom_percent,
-                            bool can_show_bubble) {
+void Browser::OnZoomChanged(TabContents* source, bool can_show_bubble) {
   if (source == chrome::GetActiveTabContents(this)) {
-    window_->SetZoomIconTooltipPercent(zoom_percent);
-
     // Only show the zoom bubble for zoom changes in the active window.
-    if (can_show_bubble && window_->IsActive())
-      window_->ShowZoomBubble(zoom_percent);
+    window_->ZoomChangedForActiveTab(can_show_bubble && window_->IsActive());
   }
 }
 

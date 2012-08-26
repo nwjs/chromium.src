@@ -158,6 +158,9 @@ const char kCipherSuiteBlacklist[]          = "cipher-suite-blacklist";
 // expiration of credentials during testing.
 const char kClearTokenService[]             = "clear-token-service";
 
+// Supplies custom client login to OAuth2 URL for testing purposes.
+const char kClientLoginToOAuth2Url[]        = "client-login-to-oauth2-url";
+
 // Used with kCloudPrintFile. Tells Chrome to delete the file when finished
 // displaying the print dialog.
 const char kCloudPrintDeleteFile[]          = "cloud-print-delete-file";
@@ -246,6 +249,9 @@ const char kDiagnostics[]                   = "diagnostics";
 // Replaces the audio IPC layer for <audio> and <video> with a mock audio
 // device, useful when using remote desktop or machines without sound cards.
 // This is temporary until we fix the underlying problem.
+
+// Disables the experimental asynchronous DNS client.
+const char kDisableAsyncDns[]               = "disable-async-dns";
 
 // Disables asynchronous spellchecking features for all time. Disabling this
 // feature also disables unified spellchecking.
@@ -650,6 +656,10 @@ const char kDisableSyncTabs[]               = "disable-sync-tabs";
 // Enables context menu for selecting groups of tabs.
 const char kEnableTabGroupsContextMenu[]    = "enable-tab-groups-context-menu";
 
+// Enable Text Service Framework(TSF) for text inputting instead of IMM32. This
+// flag is ignored on Metro environment.
+const char kEnableTextServiceFramework[] = "enable-text-service-framework";
+
 // Spawns threads to watch for excessive delays in specified message loops.
 // User should set breakpoints on Alarm() to examine problematic thread.
 //
@@ -951,6 +961,21 @@ const char kNotifyCloudPrintTokenExpired[]  = "notify-cp-token-expired";
 // Autoconfig (PAC) script.
 const char kNumPacThreads[]                 = "num-pac-threads";
 
+// Specifies custom OAuth1 login scope for testing purposes.
+const char kOAuth1LoginScope[]              = "oauth1-login-scope";
+
+// Specifies custom OAuth2 client id for testing purposes.
+const char kOAuth2ClientId[]                = "oauth2-client-id";
+
+// Specifies custom OAuth2 client secret for testing purposes.
+const char kOAuth2ClientSecret[]            = "oauth2-client-secret";
+
+// Specifies custom OAuth2 issue token URL for testing purposes.
+const char kOAuth2IssueTokenUrl[]           = "oauth2-issue-token-url";
+
+// Specifies custom OAuth2 token URL for testing purposes.
+const char kOAuth2TokenUrl[]                = "oauth2-token-url";
+
 // Refactored (browserless) Panels are on by default in dev/canary/trunk.
 // Use this flag to revert to using the old-style (pre-refactor) Panels.
 // Flag will be removed after refactor is complete.
@@ -1065,6 +1090,9 @@ const char kPrerenderModeSwitchValueDisabled[] = "disabled";
 const char kPrerenderModeSwitchValueEnabled[] = "enabled";
 //   prefetch_only: No prerendering, but enables prefetching.
 const char kPrerenderModeSwitchValuePrefetchOnly[] = "prefetch_only";
+
+// Enable conversion from vector to raster for any page.
+const char kPrintRaster[]              = "print-raster";
 
 // Disable saving the printer and settings between sessions.
 const char kPrintSettingsReset[]       = "print-settings-reset";

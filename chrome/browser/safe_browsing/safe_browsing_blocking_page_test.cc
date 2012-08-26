@@ -183,12 +183,12 @@ class TestMalwareDetailsFactory : public MalwareDetailsFactory {
 };
 
 // A SafeBrowingBlockingPage class that lets us wait until it's hidden.
-class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPage {
+class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPageV1 {
  public:
   TestSafeBrowsingBlockingPage(SafeBrowsingService* service,
                                WebContents* web_contents,
                                const UnsafeResourceList& unsafe_resources)
-      : SafeBrowsingBlockingPage(service, web_contents, unsafe_resources),
+      : SafeBrowsingBlockingPageV1(service, web_contents, unsafe_resources),
         wait_for_delete_(false) {
     // Don't wait the whole 3 seconds for the browser test.
     malware_details_proceed_delay_ms_ = 100;
@@ -380,15 +380,21 @@ class SafeBrowsingBlockingPageTest : public InProcessBrowserTest {
     content::RenderViewHost* rvh = interstitial->GetRenderViewHostForTesting();
     if (!rvh)
       return false;
+    // Wait until all <script> tags have executed, including jstemplate.
+    // TODO(joaodasilva): it would be nice to avoid the busy loop, though in
+    // practice it spins at most once or twice.
+    std::string ready_state;
+    do {
+      scoped_ptr<base::Value> value(rvh->ExecuteJavascriptAndGetValue(
+          string16(),
+          ASCIIToUTF16("document.readyState")));
+      if (!value.get() || !value->GetAsString(&ready_state))
+        return false;
+    } while (ready_state != "complete");
+    // Now get the display style for the "proceed anyway" <div>.
     scoped_ptr<base::Value> value(rvh->ExecuteJavascriptAndGetValue(
         string16(),
         ASCIIToUTF16(
-            // Make sure jstemplate has processed the page.
-            // TODO(joaodasilva): it would be better to make sure all the
-            // <script> tags have executed before injecting more javascript.
-            "var root = document.getElementById('template_root');\n"
-            "jstProcess(new JsEvalContext(templateData), root);\n"
-            // Now inspect the "proceed anyway" <div>.
             "var list = document.querySelectorAll("
             "    'div[jsdisplay=\"!proceedDisabled\"]');\n"
             "if (list.length == 1)\n"

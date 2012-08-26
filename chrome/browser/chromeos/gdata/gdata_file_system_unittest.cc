@@ -17,16 +17,16 @@
 #include "base/threading/sequenced_worker_pool.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
+#include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_api_parser.h"
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
-#include "chrome/browser/chromeos/gdata/gdata.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system.h"
 #include "chrome/browser/chromeos/gdata/gdata_test_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_uploader.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/mock_directory_change_observer.h"
-#include "chrome/browser/chromeos/gdata/mock_gdata_cache_observer.h"
-#include "chrome/browser/chromeos/gdata/mock_gdata_documents_service.h"
+#include "chrome/browser/chromeos/gdata/mock_drive_cache_observer.h"
+#include "chrome/browser/chromeos/gdata/mock_drive_service.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/browser_thread.h"
@@ -76,7 +76,7 @@ void DriveSearchCallback(
 }
 
 // Action used to set mock expectations for
-// DocumentsService::GetDocumentEntry().
+// DriveServiceInterface::GetDocumentEntry().
 ACTION_P2(MockGetDocumentEntry, status, value) {
   base::MessageLoopProxy::current()->PostTask(FROM_HERE,
       base::Bind(arg1, status, base::Passed(value)));
@@ -132,7 +132,7 @@ base::Value* LoadJSONFile(const std::string& base_name) {
 }
 
 // Counts the number of files (not directories) in |entries|.
-int CountFiles(const GDataEntryProtoVector& entries) {
+int CountFiles(const DriveEntryProtoVector& entries) {
   int num_files = 0;
   for (size_t i = 0; i < entries.size(); ++i) {
     if (!entries[i].file_info().is_directory())
@@ -172,6 +172,10 @@ class MockGDataUploader : public GDataUploaderInterface {
     return kUploadId;
   }
 
+  // This function is not mockable by gmock.
+  virtual int StreamExistingFile(
+      scoped_ptr<UploadFileInfo> upload_file_info) OVERRIDE { return 0; }
+
   MOCK_METHOD6(UploadExistingFile,
                int(const GURL& upload_location,
                const FilePath& gdata_file_path,
@@ -205,12 +209,12 @@ class GDataFileSystemTest : public testing::Test {
         io_thread_(content::BrowserThread::IO),
         cache_(NULL),
         file_system_(NULL),
-        mock_doc_service_(NULL),
+        mock_drive_service_(NULL),
         mock_webapps_registry_(NULL),
         num_callback_invocations_(0),
         expected_error_(GDATA_FILE_OK),
         expected_cache_state_(0),
-        expected_sub_dir_type_(GDataCache::CACHE_TYPE_META),
+        expected_sub_dir_type_(DriveCache::CACHE_TYPE_META),
         expected_success_(true),
         expect_outgoing_symlink_(false),
         root_feed_changestamp_(0) {
@@ -226,9 +230,9 @@ class GDataFileSystemTest : public testing::Test {
 
     // Allocate and keep a pointer to the mock, and inject it into the
     // GDataFileSystem object, which will own the mock object.
-    mock_doc_service_ = new StrictMock<MockDocumentsService>;
+    mock_drive_service_ = new StrictMock<MockDriveService>;
 
-    EXPECT_CALL(*mock_doc_service_, Initialize(profile_.get())).Times(1);
+    EXPECT_CALL(*mock_drive_service_, Initialize(profile_.get())).Times(1);
 
     // Likewise, this will be owned by GDataFileSystem.
     mock_free_disk_space_checker_ = new StrictMock<MockFreeDiskSpaceGetter>;
@@ -239,8 +243,8 @@ class GDataFileSystemTest : public testing::Test {
     blocking_task_runner_ =
         pool->GetSequencedTaskRunner(pool->GetSequenceToken());
 
-    cache_ = GDataCache::CreateGDataCacheOnUIThread(
-        GDataCache::GetCacheRootPath(profile_.get()), blocking_task_runner_);
+    cache_ = DriveCache::CreateDriveCacheOnUIThread(
+        DriveCache::GetCacheRootPath(profile_.get()), blocking_task_runner_);
 
     mock_uploader_.reset(new StrictMock<MockGDataUploader>);
     mock_webapps_registry_.reset(new StrictMock<MockDriveWebAppsRegistry>);
@@ -248,12 +252,12 @@ class GDataFileSystemTest : public testing::Test {
     ASSERT_FALSE(file_system_);
     file_system_ = new GDataFileSystem(profile_.get(),
                                        cache_,
-                                       mock_doc_service_,
+                                       mock_drive_service_,
                                        mock_uploader_.get(),
                                        mock_webapps_registry_.get(),
                                        blocking_task_runner_);
 
-    mock_cache_observer_.reset(new StrictMock<MockGDataCacheObserver>);
+    mock_cache_observer_.reset(new StrictMock<MockDriveCacheObserver>);
     cache_->AddObserver(mock_cache_observer_.get());
 
     mock_directory_observer_.reset(new StrictMock<MockDirectoryChangeObserver>);
@@ -266,11 +270,11 @@ class GDataFileSystemTest : public testing::Test {
 
   virtual void TearDown() OVERRIDE {
     ASSERT_TRUE(file_system_);
-    EXPECT_CALL(*mock_doc_service_, CancelAll()).Times(1);
+    EXPECT_CALL(*mock_drive_service_, CancelAll()).Times(1);
     delete file_system_;
     file_system_ = NULL;
-    delete mock_doc_service_;
-    mock_doc_service_ = NULL;
+    delete mock_drive_service_;
+    mock_drive_service_ = NULL;
     SetFreeDiskSpaceGetterForTesting(NULL);
     cache_->DestroyOnUIThread();
     // The cache destruction requires to post a task to the blocking pool.
@@ -347,12 +351,12 @@ class GDataFileSystemTest : public testing::Test {
                                const std::string& md5) {
     return cache_->GetCacheFilePath(resource_id,
                                     md5,
-                                    GDataCache::CACHE_TYPE_TMP,
-                                    GDataCache::CACHED_FILE_FROM_SERVER);
+                                    DriveCache::CACHE_TYPE_TMP,
+                                    DriveCache::CACHED_FILE_FROM_SERVER);
   }
 
   // Gets entry info by path synchronously.
-  scoped_ptr<GDataEntryProto> GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> GetEntryInfoByPathSync(
       const FilePath& file_path) {
     file_system_->GetEntryInfoByPath(
         file_path,
@@ -364,7 +368,7 @@ class GDataFileSystemTest : public testing::Test {
   }
 
   // Gets directory info by path synchronously.
-  scoped_ptr<GDataEntryProtoVector> ReadDirectoryByPathSync(
+  scoped_ptr<DriveEntryProtoVector> ReadDirectoryByPathSync(
       const FilePath& file_path) {
     file_system_->ReadDirectoryByPath(
         file_path,
@@ -383,7 +387,7 @@ class GDataFileSystemTest : public testing::Test {
 
   // Gets the resource ID of |file_path|. Returns an empty string if not found.
   std::string GetResourceIdByPath(const FilePath& file_path) {
-    scoped_ptr<GDataEntryProto> entry_proto =
+    scoped_ptr<DriveEntryProto> entry_proto =
         GetEntryInfoByPathSync(file_path);
     if (entry_proto.get())
       return entry_proto->resource_id();
@@ -394,7 +398,7 @@ class GDataFileSystemTest : public testing::Test {
   // Helper function to call GetCacheEntry from origin thread.
   bool GetCacheEntryFromOriginThread(const std::string& resource_id,
                                      const std::string& md5,
-                                     GDataCacheEntry* cache_entry) {
+                                     DriveCacheEntry* cache_entry) {
     bool result = false;
     blocking_task_runner_->PostTask(
         FROM_HERE,
@@ -412,7 +416,7 @@ class GDataFileSystemTest : public testing::Test {
   void GetCacheEntryFromOriginThreadInternal(
       const std::string& resource_id,
       const std::string& md5,
-      GDataCacheEntry* cache_entry,
+      DriveCacheEntry* cache_entry,
       bool* result) {
     *result = cache_->GetCacheEntry(resource_id, md5, cache_entry);
   }
@@ -420,7 +424,7 @@ class GDataFileSystemTest : public testing::Test {
   // Returns true if the cache entry exists for the given resource ID and MD5.
   bool CacheEntryExists(const std::string& resource_id,
                         const std::string& md5) {
-    GDataCacheEntry cache_entry;
+    DriveCacheEntry cache_entry;
     return GetCacheEntryFromOriginThread(resource_id, md5, &cache_entry);
   }
 
@@ -430,8 +434,8 @@ class GDataFileSystemTest : public testing::Test {
     const FilePath file_path = cache_->GetCacheFilePath(
         resource_id,
         md5,
-        GDataCache::CACHE_TYPE_TMP,
-        GDataCache::CACHED_FILE_FROM_SERVER);
+        DriveCache::CACHE_TYPE_TMP,
+        DriveCache::CACHED_FILE_FROM_SERVER);
     return file_util::PathExists(file_path);
   }
 
@@ -441,14 +445,14 @@ class GDataFileSystemTest : public testing::Test {
       const FilePath& source_path,
       GDataFileError expected_error,
       int expected_cache_state,
-      GDataCache::CacheSubDirectoryType expected_sub_dir_type) {
+      DriveCache::CacheSubDirectoryType expected_sub_dir_type) {
     expected_error_ = expected_error;
     expected_cache_state_ = expected_cache_state;
     expected_sub_dir_type_ = expected_sub_dir_type;
 
     cache_->StoreOnUIThread(
         resource_id, md5, source_path,
-        GDataCache::FILE_OPERATION_COPY,
+        DriveCache::FILE_OPERATION_COPY,
         base::Bind(&GDataFileSystemTest::VerifyCacheFileState,
                    base::Unretained(this)));
 
@@ -460,7 +464,7 @@ class GDataFileSystemTest : public testing::Test {
       const std::string& md5,
       GDataFileError expected_error,
       int expected_cache_state,
-      GDataCache::CacheSubDirectoryType expected_sub_dir_type) {
+      DriveCache::CacheSubDirectoryType expected_sub_dir_type) {
     expected_error_ = expected_error;
     expected_cache_state_ = expected_cache_state;
     expected_sub_dir_type_ = expected_sub_dir_type;
@@ -478,7 +482,7 @@ class GDataFileSystemTest : public testing::Test {
       const std::string& md5,
       GDataFileError expected_error,
       int expected_cache_state,
-      GDataCache::CacheSubDirectoryType expected_sub_dir_type) {
+      DriveCache::CacheSubDirectoryType expected_sub_dir_type) {
     expected_error_ = expected_error;
     expected_cache_state_ = expected_cache_state;
     expected_sub_dir_type_ = expected_sub_dir_type;
@@ -515,7 +519,7 @@ class GDataFileSystemTest : public testing::Test {
       const std::string& md5,
       GDataFileError expected_error,
       int expected_cache_state,
-      GDataCache::CacheSubDirectoryType expected_sub_dir_type) {
+      DriveCache::CacheSubDirectoryType expected_sub_dir_type) {
     expected_error_ = expected_error;
     expected_cache_state_ = expected_cache_state;
     expected_sub_dir_type_ = expected_sub_dir_type;
@@ -540,7 +544,7 @@ class GDataFileSystemTest : public testing::Test {
     expected_cache_state_ = (test_util::TEST_CACHE_STATE_PRESENT |
                              test_util::TEST_CACHE_STATE_DIRTY |
                              test_util::TEST_CACHE_STATE_PERSISTENT);
-    expected_sub_dir_type_ = GDataCache::CACHE_TYPE_PERSISTENT;
+    expected_sub_dir_type_ = DriveCache::CACHE_TYPE_PERSISTENT;
     expect_outgoing_symlink_ = false;
     VerifyMarkDirty(error, resource_id, md5, cache_file_path);
   }
@@ -555,7 +559,7 @@ class GDataFileSystemTest : public testing::Test {
     expected_cache_state_ = (test_util::TEST_CACHE_STATE_PRESENT |
                              test_util::TEST_CACHE_STATE_DIRTY |
                              test_util::TEST_CACHE_STATE_PERSISTENT);
-    expected_sub_dir_type_ = GDataCache::CACHE_TYPE_PERSISTENT;
+    expected_sub_dir_type_ = DriveCache::CACHE_TYPE_PERSISTENT;
     expect_outgoing_symlink_ = true;
     VerifyCacheFileState(error, resource_id, md5);
   }
@@ -568,7 +572,7 @@ class GDataFileSystemTest : public testing::Test {
     EXPECT_EQ(expected_error_, error);
 
     // Verify cache map.
-    GDataCacheEntry cache_entry;
+    DriveCacheEntry cache_entry;
     const bool cache_entry_found =
         GetCacheEntryFromOriginThread(resource_id, md5, &cache_entry);
     if (test_util::ToCacheEntry(expected_cache_state_).is_present() ||
@@ -578,7 +582,7 @@ class GDataFileSystemTest : public testing::Test {
           test_util::ToCacheEntry(expected_cache_state_),
           cache_entry));
       EXPECT_EQ(expected_sub_dir_type_,
-                GDataCache::GetSubDirectoryType(cache_entry));
+                DriveCache::GetSubDirectoryType(cache_entry));
     } else {
       EXPECT_FALSE(cache_entry_found);
     }
@@ -589,11 +593,11 @@ class GDataFileSystemTest : public testing::Test {
         md5,
         test_util::ToCacheEntry(expected_cache_state_).is_pinned() ||
         test_util::ToCacheEntry(expected_cache_state_).is_dirty() ?
-                GDataCache::CACHE_TYPE_PERSISTENT :
-                GDataCache::CACHE_TYPE_TMP,
+                DriveCache::CACHE_TYPE_PERSISTENT :
+                DriveCache::CACHE_TYPE_TMP,
         test_util::ToCacheEntry(expected_cache_state_).is_dirty() ?
-            GDataCache::CACHED_FILE_LOCALLY_MODIFIED :
-            GDataCache::CACHED_FILE_FROM_SERVER);
+            DriveCache::CACHED_FILE_LOCALLY_MODIFIED :
+            DriveCache::CACHED_FILE_FROM_SERVER);
     bool exists = file_util::PathExists(dest_path);
     if (test_util::ToCacheEntry(expected_cache_state_).is_present())
       EXPECT_TRUE(exists);
@@ -604,8 +608,8 @@ class GDataFileSystemTest : public testing::Test {
     FilePath symlink_path = cache_->GetCacheFilePath(
         resource_id,
         std::string(),
-        GDataCache::CACHE_TYPE_PINNED,
-        GDataCache::CACHED_FILE_FROM_SERVER);
+        DriveCache::CACHE_TYPE_PINNED,
+        DriveCache::CACHED_FILE_FROM_SERVER);
     // Check that pin symlink exists, without dereferencing to target path.
     exists = file_util::IsLink(symlink_path);
     if (test_util::ToCacheEntry(expected_cache_state_).is_pinned()) {
@@ -624,8 +628,8 @@ class GDataFileSystemTest : public testing::Test {
     symlink_path = cache_->GetCacheFilePath(
         resource_id,
         std::string(),
-        GDataCache::CACHE_TYPE_OUTGOING,
-        GDataCache::CACHED_FILE_FROM_SERVER);
+        DriveCache::CACHE_TYPE_OUTGOING,
+        DriveCache::CACHED_FILE_FROM_SERVER);
     // Check that outgoing symlink exists, without dereferencing to target path.
     exists = file_util::IsLink(symlink_path);
     if (expect_outgoing_symlink_ &&
@@ -643,7 +647,7 @@ class GDataFileSystemTest : public testing::Test {
 
   void SetExpectationsForGetDocumentEntry(scoped_ptr<base::Value>* document,
                                           const std::string& resource_id) {
-    EXPECT_CALL(*mock_doc_service_, GetDocumentEntry(resource_id, _))
+    EXPECT_CALL(*mock_drive_service_, GetDocumentEntry(resource_id, _))
         .WillOnce(MockGetDocumentEntry(gdata::HTTP_SUCCESS, document));
   }
 
@@ -661,19 +665,19 @@ class GDataFileSystemTest : public testing::Test {
   // Sets the changestamp to 654321, equal to that of "account_metadata.json"
   // test data, indicating the cache is holding the latest file system info.
   void SaveTestFileSystem() {
-    GDataRootDirectoryProto root;
+    DriveRootDirectoryProto root;
     root.set_version(kProtoVersion);
     root.set_largest_changestamp(654321);
-    GDataDirectoryProto* root_dir = root.mutable_gdata_directory();
-    GDataEntryProto* dir_base = root_dir->mutable_gdata_entry();
+    DriveDirectoryProto* root_dir = root.mutable_gdata_directory();
+    DriveEntryProto* dir_base = root_dir->mutable_gdata_entry();
     PlatformFileInfoProto* platform_info = dir_base->mutable_file_info();
     dir_base->set_title("drive");
-    dir_base->set_resource_id(kGDataRootDirectoryResourceId);
+    dir_base->set_resource_id(kDriveRootDirectoryResourceId);
     dir_base->set_upload_url("http://resumable-create-media/1");
     platform_info->set_is_directory(true);
 
     // drive/File1
-    GDataEntryProto* file = root_dir->add_child_files();
+    DriveEntryProto* file = root_dir->add_child_files();
     file->set_title("File1");
     file->set_resource_id("resource_id:File1");
     file->set_upload_url("http://resumable-edit-media/1");
@@ -683,7 +687,7 @@ class GDataFileSystemTest : public testing::Test {
     platform_info->set_size(1048576);
 
     // drive/Dir1
-    GDataDirectoryProto* dir1 = root_dir->add_child_directories();
+    DriveDirectoryProto* dir1 = root_dir->add_child_directories();
     dir_base = dir1->mutable_gdata_entry();
     dir_base->set_title("Dir1");
     dir_base->set_resource_id("resource_id:Dir1");
@@ -702,7 +706,7 @@ class GDataFileSystemTest : public testing::Test {
     platform_info->set_size(555);
 
     // drive/Dir1/SubDir2
-    GDataDirectoryProto* dir2 = dir1->add_child_directories();
+    DriveDirectoryProto* dir2 = dir1->add_child_directories();
     dir_base = dir2->mutable_gdata_entry();
     dir_base->set_title("SubDir2");
     dir_base->set_resource_id("resource_id:SubDir2");
@@ -735,7 +739,7 @@ class GDataFileSystemTest : public testing::Test {
 
   // Verifies that |file_path| is a valid JSON file for the hosted document
   // associated with |entry| (i.e. |url| and |resource_id| match).
-  void VerifyHostedDocumentJSONFile(const GDataEntryProto& entry_proto,
+  void VerifyHostedDocumentJSONFile(const DriveEntryProto& entry_proto,
                                     const FilePath& file_path) {
     std::string error;
     JSONFileValueSerializer serializer(file_path);
@@ -769,7 +773,7 @@ class GDataFileSystemTest : public testing::Test {
     virtual void GetFileCallback(GDataFileError error,
                                  const FilePath& file_path,
                                  const std::string& mime_type,
-                                 GDataFileType file_type) {
+                                 DriveFileType file_type) {
       last_error_ = error;
       download_path_ = file_path;
       mime_type_ = mime_type;
@@ -804,7 +808,7 @@ class GDataFileSystemTest : public testing::Test {
 
     virtual void GetEntryInfoCallback(
         GDataFileError error,
-        scoped_ptr<GDataEntryProto> entry_proto) {
+        scoped_ptr<DriveEntryProto> entry_proto) {
       last_error_ = error;
       entry_proto_ = entry_proto.Pass();
     }
@@ -812,7 +816,7 @@ class GDataFileSystemTest : public testing::Test {
     virtual void ReadDirectoryCallback(
         GDataFileError error,
         bool /* hide_hosted_documents */,
-        scoped_ptr<GDataEntryProtoVector> entries) {
+        scoped_ptr<DriveEntryProtoVector> entries) {
       last_error_ = error;
       directory_entries_ = entries.Pass();
     }
@@ -821,11 +825,11 @@ class GDataFileSystemTest : public testing::Test {
     FilePath download_path_;
     FilePath opened_file_path_;
     std::string mime_type_;
-    GDataFileType file_type_;
+    DriveFileType file_type_;
     int64 quota_bytes_total_;
     int64 quota_bytes_used_;
-    scoped_ptr<GDataEntryProto> entry_proto_;
-    scoped_ptr<GDataEntryProtoVector> directory_entries_;
+    scoped_ptr<DriveEntryProto> entry_proto_;
+    scoped_ptr<DriveEntryProtoVector> directory_entries_;
 
    protected:
     virtual ~CallbackHelper() {}
@@ -842,19 +846,19 @@ class GDataFileSystemTest : public testing::Test {
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
   scoped_ptr<TestingProfile> profile_;
   scoped_refptr<CallbackHelper> callback_helper_;
-  GDataCache* cache_;
+  DriveCache* cache_;
   scoped_ptr<StrictMock<MockGDataUploader> > mock_uploader_;
   GDataFileSystem* file_system_;
-  StrictMock<MockDocumentsService>* mock_doc_service_;
+  StrictMock<MockDriveService>* mock_drive_service_;
   scoped_ptr<StrictMock<MockDriveWebAppsRegistry> > mock_webapps_registry_;
   StrictMock<MockFreeDiskSpaceGetter>* mock_free_disk_space_checker_;
-  scoped_ptr<StrictMock<MockGDataCacheObserver> > mock_cache_observer_;
+  scoped_ptr<StrictMock<MockDriveCacheObserver> > mock_cache_observer_;
   scoped_ptr<StrictMock<MockDirectoryChangeObserver> > mock_directory_observer_;
 
   int num_callback_invocations_;
   GDataFileError expected_error_;
   int expected_cache_state_;
-  GDataCache::CacheSubDirectoryType expected_sub_dir_type_;
+  DriveCache::CacheSubDirectoryType expected_sub_dir_type_;
   bool expected_success_;
   bool expect_outgoing_symlink_;
   std::string expected_file_extension_;
@@ -870,7 +874,7 @@ void AsyncInitializationCallback(
     const FilePath& expected_file_path,
     MessageLoop* message_loop,
     GDataFileError error,
-    scoped_ptr<GDataEntryProto> entry_proto) {
+    scoped_ptr<DriveEntryProto> entry_proto) {
   ASSERT_EQ(GDATA_FILE_OK, error);
   ASSERT_TRUE(entry_proto.get());
   ASSERT_TRUE(entry_proto->file_info().is_directory());
@@ -890,8 +894,8 @@ TEST_F(GDataFileSystemTest, DuplicatedAsyncInitialization) {
       FilePath(FILE_PATH_LITERAL("drive")),
       &message_loop_);
 
-  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_drive_service_,
               GetDocuments(Eq(GURL()), _, _, _, _)).Times(1);
 
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
@@ -908,10 +912,10 @@ TEST_F(GDataFileSystemTest, SearchRootDirectory) {
   LoadRootFeedDocument("root_feed.json");
 
   const FilePath kFilePath = FilePath(FILE_PATH_LITERAL("drive"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(
       FilePath(FILE_PATH_LITERAL(kFilePath)));
   ASSERT_TRUE(entry.get());
-  EXPECT_EQ(kGDataRootDirectoryResourceId, entry->resource_id());
+  EXPECT_EQ(kDriveRootDirectoryResourceId, entry->resource_id());
 }
 
 TEST_F(GDataFileSystemTest, SearchExistingFile) {
@@ -919,7 +923,7 @@ TEST_F(GDataFileSystemTest, SearchExistingFile) {
 
   const FilePath kFilePath = FilePath(
       FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
   ASSERT_TRUE(entry.get());
   EXPECT_EQ("file:2_file_resource_id", entry->resource_id());
 }
@@ -929,7 +933,7 @@ TEST_F(GDataFileSystemTest, SearchExistingDocument) {
 
   const FilePath kFilePath = FilePath(
       FILE_PATH_LITERAL("drive/Document 1.gdoc"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
   ASSERT_TRUE(entry.get());
   EXPECT_EQ("document:5_document_resource_id", entry->resource_id());
 }
@@ -939,7 +943,7 @@ TEST_F(GDataFileSystemTest, SearchNonExistingFile) {
 
   const FilePath kFilePath = FilePath(
       FILE_PATH_LITERAL("drive/nonexisting.file"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
   ASSERT_FALSE(entry.get());
 }
 
@@ -948,7 +952,7 @@ TEST_F(GDataFileSystemTest, SearchEncodedFileNames) {
 
   const FilePath kFilePath1 = FilePath(
       FILE_PATH_LITERAL("drive/Slash / in file 1.txt"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath1);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath1);
   ASSERT_FALSE(entry.get());
 
   const FilePath kFilePath2 = FilePath::FromUTF8Unsafe(
@@ -969,7 +973,7 @@ TEST_F(GDataFileSystemTest, SearchEncodedFileNamesLoadingRoot) {
 
   const FilePath kFilePath1 = FilePath(
       FILE_PATH_LITERAL("drive/Slash / in file 1.txt"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath1);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath1);
   ASSERT_FALSE(entry.get());
 
   const FilePath kFilePath2 = FilePath::FromUTF8Unsafe(
@@ -990,7 +994,7 @@ TEST_F(GDataFileSystemTest, SearchDuplicateNames) {
 
   const FilePath kFilePath1 = FilePath(
       FILE_PATH_LITERAL("drive/Duplicate Name.txt"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath1);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath1);
   ASSERT_TRUE(entry.get());
   EXPECT_EQ("file:3_file_resource_id", entry->resource_id());
 
@@ -1006,7 +1010,7 @@ TEST_F(GDataFileSystemTest, SearchExistingDirectory) {
 
   const FilePath kFilePath = FilePath(
       FILE_PATH_LITERAL("drive/Directory 1"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
   ASSERT_TRUE(entry.get());
   ASSERT_EQ("folder:1_folder_resource_id", entry->resource_id());
 }
@@ -1016,7 +1020,7 @@ TEST_F(GDataFileSystemTest, SearchInSubdir) {
 
   const FilePath kFilePath = FilePath(
       FILE_PATH_LITERAL("drive/Directory 1/SubDirectory File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
   ASSERT_TRUE(entry.get());
   ASSERT_EQ("file:subdirectory_file_1_id", entry->resource_id());
 }
@@ -1028,7 +1032,7 @@ TEST_F(GDataFileSystemTest, SearchInSubSubdir) {
   const FilePath kFilePath = FilePath(
       FILE_PATH_LITERAL("drive/Directory 1/Sub Directory Folder/"
                         "Sub Sub Directory Folder"));
-  scoped_ptr<GDataEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
+  scoped_ptr<DriveEntryProto> entry = GetEntryInfoByPathSync(kFilePath);
   ASSERT_TRUE(entry.get());
   ASSERT_EQ("folder:sub_sub_directory_folder_id", entry->resource_id());
 }
@@ -1228,11 +1232,11 @@ TEST_F(GDataFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
 
   // SaveTestFileSystem and "account_metadata.json" have the same changestamp,
   // so no request for new feeds (i.e., call to GetDocuments) should happen.
-  mock_doc_service_->set_account_metadata(
+  mock_drive_service_->set_account_metadata(
       LoadJSONFile("account_metadata.json"));
-  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
-  EXPECT_CALL(*mock_doc_service_, GetDocuments(_, _, _, _, _)).Times(0);
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(_, _, _, _, _)).Times(0);
 
   // Kicks loading of cached file system and query for server update.
   EXPECT_TRUE(EntryExists(FilePath(FILE_PATH_LITERAL("drive/File1"))));
@@ -1240,9 +1244,9 @@ TEST_F(GDataFileSystemTest, CachedFeadLoadingThenServerFeedLoading) {
   // Since the file system has verified that it holds the latest snapshot,
   // it should change its state to FROM_SERVER, which admits periodic refresh.
   // To test it, call CheckForUpdates and verify it does try to check updates.
-  mock_doc_service_->set_account_metadata(
+  mock_drive_service_->set_account_metadata(
       LoadJSONFile("account_metadata.json"));
-  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
   file_system_->CheckForUpdates();
@@ -1313,13 +1317,13 @@ TEST_F(GDataFileSystemTest, TransferFileFromLocalToRemote_HostedDocument) {
   // We'll copy a hosted document using CopyDocument.
   // ".gdoc" suffix should be stripped when copying.
   scoped_ptr<base::Value> document(LoadJSONFile("uploaded_document.json"));
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               CopyDocument(kResourceId,
                            FILE_PATH_LITERAL("Document 1"),
                            _))
       .WillOnce(MockCopyDocument(gdata::HTTP_SUCCESS, &document));
   // We'll then add the hosted document to the destination directory.
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               AddResourceToDirectory(_, _, _)).Times(1);
 
   FileOperationCallback callback =
@@ -1349,7 +1353,7 @@ TEST_F(GDataFileSystemTest, TransferFileFromRemoteToLocal_RegularFile) {
   FilePath local_dest_file_path = temp_dir.path().Append("local_copy.txt");
 
   FilePath remote_src_file_path(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> file = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> file = GetEntryInfoByPathSync(
       remote_src_file_path);
   FilePath cache_file = GetCachePathForFile(
       file->resource_id(),
@@ -1361,15 +1365,15 @@ TEST_F(GDataFileSystemTest, TransferFileFromRemoteToLocal_RegularFile) {
       .Times(2).WillRepeatedly(Return(file_size + kMinFreeSpace));
 
   const std::string remote_src_file_data = "Test file data";
-  mock_doc_service_->set_file_data(new std::string(remote_src_file_data));
+  mock_drive_service_->set_file_data(new std::string(remote_src_file_data));
 
   // Before Download starts metadata from server will be fetched.
   // We will read content url from the result.
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is obtained with the mock DocumentsService.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is obtained with the mock DriveService.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(remote_src_file_path,
                            cache_file,
                            GURL("https://file_content_url_changed/"),
@@ -1409,7 +1413,7 @@ TEST_F(GDataFileSystemTest, TransferFileFromRemoteToLocal_HostedDocument) {
 
   EXPECT_EQ(GDATA_FILE_OK, callback_helper_->last_error_);
 
-  scoped_ptr<GDataEntryProto> entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> entry_proto = GetEntryInfoByPathSync(
       remote_src_file_path);
   ASSERT_TRUE(entry_proto.get());
   VerifyHostedDocumentJSONFile(*entry_proto, local_dest_file_path);
@@ -1443,7 +1447,7 @@ TEST_F(GDataFileSystemTest, CopyFileToNonExistingDirectory) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_path_resource_id =
@@ -1476,7 +1480,7 @@ TEST_F(GDataFileSystemTest, CopyFileToInvalidPath) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
@@ -1484,7 +1488,7 @@ TEST_F(GDataFileSystemTest, CopyFileToInvalidPath) {
   EXPECT_FALSE(src_entry_proto->edit_url().empty());
 
   ASSERT_TRUE(EntryExists(dest_parent_path));
-  scoped_ptr<GDataEntryProto> dest_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> dest_entry_proto = GetEntryInfoByPathSync(
       dest_parent_path);
   ASSERT_TRUE(dest_entry_proto.get());
 
@@ -1514,13 +1518,13 @@ TEST_F(GDataFileSystemTest, RenameFile) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
       src_entry_proto->resource_id();
 
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               RenameResource(GURL(src_entry_proto->edit_url()),
                              FILE_PATH_LITERAL("Test.log"), _));
 
@@ -1548,7 +1552,7 @@ TEST_F(GDataFileSystemTest, MoveFileFromRootToSubDirectory) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
@@ -1556,16 +1560,16 @@ TEST_F(GDataFileSystemTest, MoveFileFromRootToSubDirectory) {
   EXPECT_FALSE(src_entry_proto->edit_url().empty());
 
   ASSERT_TRUE(EntryExists(dest_parent_path));
-  scoped_ptr<GDataEntryProto> dest_parent_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> dest_parent_proto = GetEntryInfoByPathSync(
       dest_parent_path);
   ASSERT_TRUE(dest_parent_proto.get());
   ASSERT_TRUE(dest_parent_proto->file_info().is_directory());
   EXPECT_FALSE(dest_parent_proto->content_url().empty());
 
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               RenameResource(GURL(src_entry_proto->edit_url()),
                              FILE_PATH_LITERAL("Test.log"), _));
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               AddResourceToDirectory(
                   GURL(dest_parent_proto->content_url()),
                   GURL(src_entry_proto->edit_url()), _));
@@ -1598,7 +1602,7 @@ TEST_F(GDataFileSystemTest, MoveFileFromSubDirectoryToRoot) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
@@ -1606,16 +1610,16 @@ TEST_F(GDataFileSystemTest, MoveFileFromSubDirectoryToRoot) {
   EXPECT_FALSE(src_entry_proto->edit_url().empty());
 
   ASSERT_TRUE(EntryExists(src_parent_path));
-  scoped_ptr<GDataEntryProto> src_parent_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_parent_proto = GetEntryInfoByPathSync(
       src_parent_path);
   ASSERT_TRUE(src_parent_proto.get());
   ASSERT_TRUE(src_parent_proto->file_info().is_directory());
   EXPECT_FALSE(src_parent_proto->content_url().empty());
 
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               RenameResource(GURL(src_entry_proto->edit_url()),
                              FILE_PATH_LITERAL("Test.log"), _));
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               RemoveResourceFromDirectory(
                   GURL(src_parent_proto->content_url()),
                   GURL(src_entry_proto->edit_url()),
@@ -1656,7 +1660,7 @@ TEST_F(GDataFileSystemTest, MoveFileBetweenSubDirectories) {
   AddDirectoryFromFile(dest_parent_path, "directory_entry_atom.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
@@ -1664,14 +1668,14 @@ TEST_F(GDataFileSystemTest, MoveFileBetweenSubDirectories) {
   EXPECT_FALSE(src_entry_proto->edit_url().empty());
 
   ASSERT_TRUE(EntryExists(src_parent_path));
-  scoped_ptr<GDataEntryProto> src_parent_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_parent_proto = GetEntryInfoByPathSync(
       src_parent_path);
   ASSERT_TRUE(src_parent_proto.get());
   ASSERT_TRUE(src_parent_proto->file_info().is_directory());
   EXPECT_FALSE(src_parent_proto->content_url().empty());
 
   ASSERT_TRUE(EntryExists(dest_parent_path));
-  scoped_ptr<GDataEntryProto> dest_parent_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> dest_parent_proto = GetEntryInfoByPathSync(
       dest_parent_path);
   ASSERT_TRUE(dest_parent_proto.get());
   ASSERT_TRUE(dest_parent_proto->file_info().is_directory());
@@ -1679,15 +1683,15 @@ TEST_F(GDataFileSystemTest, MoveFileBetweenSubDirectories) {
 
   EXPECT_FALSE(EntryExists(interim_file_path));
 
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               RenameResource(GURL(src_entry_proto->edit_url()),
                              FILE_PATH_LITERAL("Test.log"), _));
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               RemoveResourceFromDirectory(
                   GURL(src_parent_proto->content_url()),
                   GURL(src_entry_proto->edit_url()),
                   src_file_resource_id, _));
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               AddResourceToDirectory(
                   GURL(dest_parent_proto->content_url()),
                   GURL(src_entry_proto->edit_url()),
@@ -1746,7 +1750,7 @@ TEST_F(GDataFileSystemTest, MoveFileToNonExistingDirectory) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
@@ -1779,7 +1783,7 @@ TEST_F(GDataFileSystemTest, MoveFileToInvalidPath) {
   LoadRootFeedDocument("root_feed.json");
 
   ASSERT_TRUE(EntryExists(src_file_path));
-  scoped_ptr<GDataEntryProto> src_entry_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> src_entry_proto = GetEntryInfoByPathSync(
       src_file_path);
   ASSERT_TRUE(src_entry_proto.get());
   std::string src_file_resource_id =
@@ -1787,7 +1791,7 @@ TEST_F(GDataFileSystemTest, MoveFileToInvalidPath) {
   EXPECT_FALSE(src_entry_proto->edit_url().empty());
 
   ASSERT_TRUE(EntryExists(dest_parent_path));
-  scoped_ptr<GDataEntryProto> dest_parent_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> dest_parent_proto = GetEntryInfoByPathSync(
       dest_parent_path);
   ASSERT_TRUE(dest_parent_proto.get());
 
@@ -1815,18 +1819,18 @@ TEST_F(GDataFileSystemTest, RemoveEntries) {
       FILE_PATH_LITERAL("drive/Directory 1/SubDirectory File 1.txt"));
 
   ASSERT_TRUE(EntryExists(file_in_root));
-  scoped_ptr<GDataEntryProto> file_in_root_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> file_in_root_proto = GetEntryInfoByPathSync(
       file_in_root);
   ASSERT_TRUE(file_in_root_proto.get());
 
   ASSERT_TRUE(EntryExists(dir_in_root));
-  scoped_ptr<GDataEntryProto> dir_in_root_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> dir_in_root_proto = GetEntryInfoByPathSync(
       dir_in_root);
   ASSERT_TRUE(dir_in_root_proto.get());
   ASSERT_TRUE(dir_in_root_proto->file_info().is_directory());
 
   ASSERT_TRUE(EntryExists(file_in_subdir));
-  scoped_ptr<GDataEntryProto> file_in_subdir_proto = GetEntryInfoByPathSync(
+  scoped_ptr<DriveEntryProto> file_in_subdir_proto = GetEntryInfoByPathSync(
       file_in_subdir);
   ASSERT_TRUE(file_in_subdir_proto.get());
 
@@ -1940,7 +1944,7 @@ TEST_F(GDataFileSystemTest, FindFirstMissingParentDirectory) {
 // Create a directory through the document service
 TEST_F(GDataFileSystemTest, CreateDirectoryWithService) {
   LoadRootFeedDocument("root_feed.json");
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               CreateDirectory(_, "Sample Directory Title", _)).Times(1);
   EXPECT_CALL(*mock_directory_observer_, OnDirectoryChanged(
       Eq(FilePath(FILE_PATH_LITERAL("drive"))))).Times(1);
@@ -1967,7 +1971,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpace) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -1982,8 +1986,8 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpace) {
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is obtained with the mock DocumentsService.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is obtained with the mock DriveService.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(file_in_root,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),
@@ -2008,7 +2012,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoSpaceAtAll) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2022,9 +2026,8 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoSpaceAtAll) {
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is not obtained with the mock DocumentsService, because of no
-  // space.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is not obtained with the mock DriveService, because of no space.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(file_in_root,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),
@@ -2047,7 +2050,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoEnoughSpaceButCanFreeUp) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2068,7 +2071,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoEnoughSpaceButCanFreeUp) {
                    GetTestFilePath("root_feed.json"),
                    GDATA_FILE_OK,
                    test_util::TEST_CACHE_STATE_PRESENT,
-                   GDataCache::CACHE_TYPE_TMP);
+                   DriveCache::CACHE_TYPE_TMP);
   ASSERT_TRUE(CacheEntryExists("<resource_id>", "<md5>"));
   ASSERT_TRUE(CacheFileExists("<resource_id>", "<md5>"));
 
@@ -2077,9 +2080,9 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_NoEnoughSpaceButCanFreeUp) {
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is obtained with the mock DocumentsService, because of we freed
-  // up the space.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is obtained with the mock DriveService, because of we freed up the
+  // space.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(file_in_root,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),
@@ -2109,7 +2112,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpaceButBecomeFull) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2129,8 +2132,8 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromGData_EnoughSpaceButBecomeFull) {
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is obtained with the mock DocumentsService.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is obtained with the mock DriveService.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(file_in_root,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),
@@ -2156,7 +2159,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromCache) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2167,13 +2170,13 @@ TEST_F(GDataFileSystemTest, GetFileByPath_FromCache) {
                    GetTestFilePath("root_feed.json"),
                    GDATA_FILE_OK,
                    test_util::TEST_CACHE_STATE_PRESENT,
-                   GDataCache::CACHE_TYPE_TMP);
+                   DriveCache::CACHE_TYPE_TMP);
 
   // Make sure we don't fetch metadata for downloading file.
-  EXPECT_CALL(*mock_doc_service_, GetDocumentEntry(_, _)).Times(0);
+  EXPECT_CALL(*mock_drive_service_, GetDocumentEntry(_, _)).Times(0);
 
   // Make sure we don't call downloads at all.
-  EXPECT_CALL(*mock_doc_service_,
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(file_in_root,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),
@@ -2197,7 +2200,7 @@ TEST_F(GDataFileSystemTest, GetFileByPath_HostedDocument) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/Document 1.gdoc"));
-  scoped_ptr<GDataEntryProto> src_entry_proto =
+  scoped_ptr<DriveEntryProto> src_entry_proto =
       GetEntryInfoByPathSync(file_in_root);
   ASSERT_TRUE(src_entry_proto.get());
 
@@ -2224,7 +2227,7 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2234,9 +2237,9 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId) {
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is obtained with the mock DocumentsService, because it's not
-  // stored in the cache.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is obtained with the mock DriveService, because it's not stored in
+  // the cache.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(file_in_root,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),
@@ -2264,7 +2267,7 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId_FromCache) {
                  callback_helper_.get());
 
   FilePath file_in_root(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(file_in_root));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2275,11 +2278,11 @@ TEST_F(GDataFileSystemTest, GetFileByResourceId_FromCache) {
                    GetTestFilePath("root_feed.json"),
                    GDATA_FILE_OK,
                    test_util::TEST_CACHE_STATE_PRESENT,
-                   GDataCache::CACHE_TYPE_TMP);
+                   DriveCache::CACHE_TYPE_TMP);
 
   // The file is obtained from the cache.
   // Make sure we don't call downloads at all.
-  EXPECT_CALL(*mock_doc_service_, DownloadFile(_, _, _, _, _))
+  EXPECT_CALL(*mock_drive_service_, DownloadFile(_, _, _, _, _))
       .Times(0);
 
   file_system_->GetFileByResourceId(entry_proto->resource_id(),
@@ -2309,12 +2312,12 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
           kMd5,
           GDATA_FILE_OK,
           test_util::TEST_CACHE_STATE_PINNED,
-          GDataCache::CACHE_TYPE_TMP);
+          DriveCache::CACHE_TYPE_TMP);
 
   // First store a file to cache. A cache file will be created at:
   // GCache/v1/persistent/<kResourceId>.<kMd5>
   const FilePath original_cache_file_path =
-      GDataCache::GetCacheRootPath(profile_.get())
+      DriveCache::GetCacheRootPath(profile_.get())
       .AppendASCII("persistent")
       .AppendASCII(kResourceId + "." + kMd5);
   TestStoreToCache(kResourceId,
@@ -2324,7 +2327,7 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
                    test_util::TEST_CACHE_STATE_PRESENT |
                    test_util::TEST_CACHE_STATE_PINNED |
                    test_util::TEST_CACHE_STATE_PERSISTENT,
-                   GDataCache::CACHE_TYPE_PERSISTENT);
+                   DriveCache::CACHE_TYPE_PERSISTENT);
   ASSERT_TRUE(file_util::PathExists(original_cache_file_path));
 
   // Add the dirty bit. The cache file will be renamed to
@@ -2336,9 +2339,9 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
                 test_util::TEST_CACHE_STATE_PINNED |
                 test_util::TEST_CACHE_STATE_DIRTY |
                 test_util::TEST_CACHE_STATE_PERSISTENT,
-                GDataCache::CACHE_TYPE_PERSISTENT);
+                DriveCache::CACHE_TYPE_PERSISTENT);
   const FilePath dirty_cache_file_path =
-      GDataCache::GetCacheRootPath(profile_.get())
+      DriveCache::GetCacheRootPath(profile_.get())
       .AppendASCII("persistent")
       .AppendASCII(kResourceId + ".local");
   ASSERT_FALSE(file_util::PathExists(original_cache_file_path));
@@ -2361,9 +2364,9 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
                   test_util::TEST_CACHE_STATE_PINNED |
                   test_util::TEST_CACHE_STATE_DIRTY |
                   test_util::TEST_CACHE_STATE_PERSISTENT,
-                  GDataCache::CACHE_TYPE_PERSISTENT);
+                  DriveCache::CACHE_TYPE_PERSISTENT);
   const FilePath outgoing_symlink_path =
-      GDataCache::GetCacheRootPath(profile_.get())
+      DriveCache::GetCacheRootPath(profile_.get())
       .AppendASCII("outgoing")
       .AppendASCII(kResourceId);
   ASSERT_TRUE(file_util::PathExists(dirty_cache_file_path));
@@ -2408,7 +2411,7 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
 
   // We'll notify the directory change to the observer upon completion.
   EXPECT_CALL(*mock_directory_observer_,
-              OnDirectoryChanged(Eq(FilePath(kGDataRootDirectory)))).Times(1);
+              OnDirectoryChanged(Eq(FilePath(kDriveRootDirectory)))).Times(1);
 
   // The callback will be called upon completion of
   // UpdateFileByResourceId().
@@ -2418,7 +2421,7 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_PersistentFile) {
 
   // Check the number of files in the root directory. We'll compare the
   // number after updating a file.
-  scoped_ptr<GDataEntryProtoVector> root_directory_entries(
+  scoped_ptr<DriveEntryProtoVector> root_directory_entries(
       ReadDirectoryByPathSync(FilePath::FromUTF8Unsafe("drive")));
   ASSERT_TRUE(root_directory_entries.get());
   const int num_files_in_root = CountFiles(*root_directory_entries);
@@ -2458,9 +2461,9 @@ TEST_F(GDataFileSystemTest, UpdateFileByResourceId_NonexistentFile) {
 TEST_F(GDataFileSystemTest, ContentSearch) {
   LoadRootFeedDocument("root_feed.json");
 
-  mock_doc_service_->set_search_result("search_result_feed.json");
+  mock_drive_service_->set_search_result("search_result_feed.json");
 
-  EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
       .Times(1);
 
   const SearchResultPair kExpectedResults[] = {
@@ -2481,10 +2484,10 @@ TEST_F(GDataFileSystemTest, ContentSearchWithNewEntry) {
   // Search result returning two entries "Directory 1/" and
   // "Directory 1/SubDirectory Newly Added File.txt". The latter is not
   // contained in the root feed.
-  mock_doc_service_->set_search_result(
+  mock_drive_service_->set_search_result(
       "search_result_with_new_entry_feed.json");
 
-  EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
       .Times(1);
 
   // As the result of the first Search(), only entries in the current file
@@ -2496,8 +2499,8 @@ TEST_F(GDataFileSystemTest, ContentSearchWithNewEntry) {
   // At the same time, unknown entry should trigger delta feed request.
   // This will cause notification to observers (e.g., File Browser) so that
   // they can request search again.
-  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_)).Times(1);
-  EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "", _, _))
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_)).Times(1);
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "", _, _))
       .Times(1);
   EXPECT_CALL(*mock_webapps_registry_, UpdateFromFeed(_)).Times(1);
 
@@ -2511,9 +2514,9 @@ TEST_F(GDataFileSystemTest, ContentSearchWithNewEntry) {
 TEST_F(GDataFileSystemTest, ContentSearchEmptyResult) {
   LoadRootFeedDocument("root_feed.json");
 
-  mock_doc_service_->set_search_result("empty_feed.json");
+  mock_drive_service_->set_search_result("empty_feed.json");
 
-  EXPECT_CALL(*mock_doc_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
+  EXPECT_CALL(*mock_drive_service_, GetDocuments(Eq(GURL()), _, "foo", _, _))
       .Times(1);
 
   const SearchResultPair* expected_results = NULL;
@@ -2530,7 +2533,7 @@ TEST_F(GDataFileSystemTest, GetAvailableSpace) {
       base::Bind(&CallbackHelper::GetAvailableSpaceCallback,
                  callback_helper_.get());
 
-  EXPECT_CALL(*mock_doc_service_, GetAccountMetadata(_));
+  EXPECT_CALL(*mock_drive_service_, GetAccountMetadata(_));
 
   file_system_->GetAvailableSpace(callback);
   test_util::RunBlockingPoolTask();
@@ -2542,14 +2545,14 @@ TEST_F(GDataFileSystemTest, RequestDirectoryRefresh) {
   LoadRootFeedDocument("root_feed.json");
 
   // We'll fetch documents in the root directory with its resource ID.
-  EXPECT_CALL(*mock_doc_service_,
-              GetDocuments(Eq(GURL()), _, _, kGDataRootDirectoryResourceId, _))
+  EXPECT_CALL(*mock_drive_service_,
+              GetDocuments(Eq(GURL()), _, _, kDriveRootDirectoryResourceId, _))
       .Times(1);
   // We'll notify the directory change to the observer.
   EXPECT_CALL(*mock_directory_observer_,
-              OnDirectoryChanged(Eq(FilePath(kGDataRootDirectory)))).Times(1);
+              OnDirectoryChanged(Eq(FilePath(kDriveRootDirectory)))).Times(1);
 
-  file_system_->RequestDirectoryRefresh(FilePath(kGDataRootDirectory));
+  file_system_->RequestDirectoryRefresh(FilePath(kDriveRootDirectory));
   test_util::RunBlockingPoolTask();
 }
 
@@ -2564,7 +2567,7 @@ TEST_F(GDataFileSystemTest, OpenAndCloseFile) {
                  callback_helper_.get());
 
   const FilePath kFileInRoot(FILE_PATH_LITERAL("drive/File 1.txt"));
-  scoped_ptr<GDataEntryProto> entry_proto(GetEntryInfoByPathSync(kFileInRoot));
+  scoped_ptr<DriveEntryProto> entry_proto(GetEntryInfoByPathSync(kFileInRoot));
   FilePath downloaded_file = GetCachePathForFile(
       entry_proto->resource_id(),
       entry_proto->file_specific_info().file_md5());
@@ -2582,15 +2585,15 @@ TEST_F(GDataFileSystemTest, OpenAndCloseFile) {
       .Times(2).WillRepeatedly(Return(file_size + kMinFreeSpace));
 
   const std::string kExpectedFileData = "test file data";
-  mock_doc_service_->set_file_data(new std::string(kExpectedFileData));
+  mock_drive_service_->set_file_data(new std::string(kExpectedFileData));
 
   // Before Download starts metadata from server will be fetched.
   // We will read content url from the result.
   scoped_ptr<base::Value> document(LoadJSONFile("document_to_download.json"));
   SetExpectationsForGetDocumentEntry(&document, "file:2_file_resource_id");
 
-  // The file is obtained with the mock DocumentsService.
-  EXPECT_CALL(*mock_doc_service_,
+  // The file is obtained with the mock DriveService.
+  EXPECT_CALL(*mock_drive_service_,
               DownloadFile(kFileInRoot,
                            downloaded_file,
                            GURL("https://file_content_url_changed/"),

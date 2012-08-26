@@ -148,6 +148,14 @@ const Experiment::Choice kPointerLockUIChoices[] = {
     switches::kDisablePointerLock, ""}
 };
 
+const Experiment::Choice kAsyncDnsChoices[] = {
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT, "", "" },
+  { IDS_GENERIC_EXPERIMENT_CHOICE_DISABLED,
+    switches::kDisableAsyncDns, ""},
+  { IDS_GENERIC_EXPERIMENT_CHOICE_ENABLED,
+    switches::kEnableAsyncDns, ""}
+};
+
 
 // RECORDING USER METRICS FOR FLAGS:
 // -----------------------------------------------------------------------------
@@ -223,6 +231,15 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kPrintSettingsReset)
   },
+#if defined(OS_WIN)
+  {
+    "print-raster",
+    IDS_FLAGS_PRINT_RASTER_NAME,
+    IDS_FLAGS_PRINT_RASTER_DESCRIPTION,
+    kOsWin,
+    SINGLE_VALUE_TYPE(switches::kPrintRaster)
+  },
+#endif  // OS_WIN
   {
     "crxless-web-apps",
     IDS_FLAGS_CRXLESS_WEB_APPS_NAME,
@@ -365,13 +382,6 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ACTION_BOX_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableActionBox),
-  },
-  {
-    "extensions-in-action-box",
-    IDS_FLAGS_EXTENSIONS_IN_ACTION_BOX_NAME,
-    IDS_FLAGS_EXTENSIONS_IN_ACTION_BOX_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableExtensionsInActionBox),
   },
   {
     "script-badges",
@@ -520,8 +530,8 @@ const Experiment kExperiments[] = {
     "enable-async-dns",
     IDS_FLAGS_ENABLE_ASYNC_DNS_NAME,
     IDS_FLAGS_ENABLE_ASYNC_DNS_DESCRIPTION,
-    kOsWin | kOsMac | kOsLinux | kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kEnableAsyncDns)
+    kOsWin | kOsMac | kOsLinux,
+    MULTI_VALUE_TYPE(kAsyncDnsChoices)
   },
   {
     "enable-video-track",
@@ -714,6 +724,13 @@ const Experiment kExperiments[] = {
   },
 #if defined(OS_CHROMEOS)
   {
+    "disable-bezel-touch",
+    IDS_DISABLE_BEZEL_TOUCH_NAME,
+    IDS_DISABLE_BEZEL_TOUCH_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kDisableBezelTouch)
+  },
+  {
     "no-discard-tabs",
     IDS_FLAGS_NO_DISCARD_TABS_NAME,
     IDS_FLAGS_NO_DISCARD_TABS_DESCRIPTION,
@@ -851,6 +868,13 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_DISABLE_BOOT_ANIMATION_DESCRIPTION,
     kOsCrOS,
     SINGLE_VALUE_TYPE(switches::kDisableBootAnimation),
+  },
+  {
+    "enable-workspace2",
+    IDS_FLAGS_ENABLE_WORKSPACE2,
+    IDS_FLAGS_ENABLE_WORKSPACE2_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshEnableWorkspace2),
   },
 #endif
   {

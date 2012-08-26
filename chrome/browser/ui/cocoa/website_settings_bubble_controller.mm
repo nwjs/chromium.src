@@ -6,12 +6,15 @@
 
 #include "base/string_number_conversions.h"
 #include "base/sys_string_conversions.h"
+#import "chrome/browser/ui/browser_dialogs.h"
 #import "chrome/browser/ui/cocoa/browser_window_controller.h"
+#import "chrome/browser/ui/cocoa/hyperlink_button_cell.h"
 #import "chrome/browser/ui/cocoa/info_bubble_view.h"
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "content/public/browser/cert_store.h"
+#include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "grit/ui_resources.h"
@@ -29,7 +32,10 @@ const CGFloat kWindowWidth = 380;
 const CGFloat kVerticalSpacing = 10;
 
 // Padding between the window frame and content.
-const CGFloat kFramePadding = 10;
+const CGFloat kFramePadding = 20;
+
+// Padding between the window frame and content for the internal page bubble.
+const CGFloat kInternalPageFramePadding = 10;
 
 // Spacing between the optional headline and description text views.
 const CGFloat kHeadlineSpacing = 2;
@@ -37,8 +43,14 @@ const CGFloat kHeadlineSpacing = 2;
 // Spacing between images on the Connection tab and the text.
 const CGFloat kConnectionImageSpacing = 10;
 
+// Spacing between the image and text for internal pages.
+const CGFloat kInternalPageImageSpacing = 10;
+
 // Square size of the images on the Connections tab.
 const CGFloat kConnectionImageSize = 30;
+
+// Square size of the image that is shown for internal pages.
+const CGFloat kInternalPageImageSize = 26;
 
 // Square size of the permission images.
 const CGFloat kPermissionImageSize = 19;
@@ -50,14 +62,11 @@ const CGFloat kPermissionImageYAdjust = 1;
 // Spacing between a permission image and the text.
 const CGFloat kPermissionImageSpacing = 3;
 
-// The amount of padding given to tab view contents.
-const CGFloat kTabViewContentsPadding = kFramePadding;
-
 // The spacing between individual items in the Permissions tab.
 const CGFloat kPermissionsTabSpacing = 8;
 
 // The extra space to the left of the first tab in the tab strip.
-const CGFloat kTabStripXPadding = 19;
+const CGFloat kTabStripXPadding = kFramePadding - 1;
 
 // The amount of space between the visual borders of adjacent tabs.
 const CGFloat kTabSpacing = 4;
@@ -76,14 +85,6 @@ const CGFloat kTabLabelTopPadding = 20;
 
 // The amount of padding to leave on either side of the tab label.
 const CGFloat kTabLabelXPadding = 12;
-
-// In the permission changing menu, the order of the menu items (which
-// correspond to different content settings).
-const ContentSetting kPermissionsMenuSettings[] = {
-  CONTENT_SETTING_ALLOW,
-  CONTENT_SETTING_BLOCK,
-  CONTENT_SETTING_DEFAULT
-};
 
 // Return the text color to use for the indentity status when the site's
 // identity has been verified.
@@ -230,8 +231,12 @@ NSColor* IdentityVerifiedTextColor() {
 @implementation WebsiteSettingsBubbleController
 
 - (id)initWithParentWindow:(NSWindow*)parentWindow
-   websiteSettingsUIBridge:(WebsiteSettingsUIBridge*)bridge {
+   websiteSettingsUIBridge:(WebsiteSettingsUIBridge*)bridge
+               tabContents:(TabContents*)tabContents
+            isInternalPage:(BOOL)isInternalPage {
   DCHECK(parentWindow);
+
+  tabContents_ = tabContents;
 
   // Use an arbitrary height; it will be changed in performLayout.
   NSRect contentRect = NSMakeRect(0, 0, kWindowWidth, 1);
@@ -246,7 +251,20 @@ NSColor* IdentityVerifiedTextColor() {
                        parentWindow:parentWindow
                          anchoredAt:NSZeroPoint])) {
     [[self bubble] setArrowLocation:info_bubble::kTopLeft];
-    [self initializeContents];
+
+    // Create the container view that uses flipped coordinates.
+    NSRect contentFrame = NSMakeRect(0, 0, kWindowWidth, 300);
+    contentView_.reset(
+        [[WebsiteSettingsContentView alloc] initWithFrame:contentFrame]);
+
+    // Replace the window's content.
+    [[[self window] contentView] setSubviews:
+        [NSArray arrayWithObject:contentView_.get()]];
+
+    if (isInternalPage)
+      [self initializeContentsForInternalPage];
+    else
+      [self initializeContents];
 
     bridge_.reset(bridge);
     bridge_->set_bubble_controller(self);
@@ -254,8 +272,48 @@ NSColor* IdentityVerifiedTextColor() {
   return self;
 }
 
+- (void)windowWillClose:(NSNotification*)notification {
+  if (presenter_.get())
+    presenter_->OnUIClosing();
+  [super windowWillClose:notification];
+}
+
 - (void)setPresenter:(WebsiteSettings*)presenter {
   presenter_.reset(presenter);
+}
+
+// Create the subviews for the bubble for internal Chrome pages.
+- (void)initializeContentsForInternalPage {
+  ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+
+  NSPoint controlOrigin = NSMakePoint(
+      kInternalPageFramePadding,
+      kInternalPageFramePadding + info_bubble::kBubbleArrowHeight);
+  NSSize imageSize = NSMakeSize(kInternalPageImageSize,
+                                kInternalPageImageSize);
+  NSImageView* imageView = [self addImageWithSize:imageSize
+                                           toView:contentView_
+                                          atPoint:controlOrigin];
+  [imageView setImage:rb.GetNativeImageNamed(IDR_PRODUCT_LOGO_26).ToNSImage()];
+
+  controlOrigin.x += NSWidth([imageView frame]) + kInternalPageImageSpacing;
+  string16 text = l10n_util::GetStringUTF16(IDS_PAGE_INFO_INTERNAL_PAGE);
+  NSTextField* textField = [self addText:text
+                                withSize:[NSFont smallSystemFontSize]
+                                    bold:NO
+                                  toView:contentView_
+                                 atPoint:controlOrigin];
+  // Center the text vertically with the image.
+  NSRect textFrame = [textField frame];
+  textFrame.origin.y += (imageSize.height - NSHeight(textFrame)) / 2;
+  [textField setFrame:textFrame];
+
+  // Adjust the contentView to fit everything.
+  CGFloat maxY = std::max(NSMaxY([imageView frame]), NSMaxY(textFrame));
+  [contentView_ setFrame:NSMakeRect(
+      0, 0, kWindowWidth, maxY + kInternalPageFramePadding)];
+
+  [self sizeAndPositionWindow];
 }
 
 // Create the subviews for the website settings bubble.
@@ -264,11 +322,6 @@ NSColor* IdentityVerifiedTextColor() {
   NSPoint controlOrigin = NSMakePoint(
       kFramePadding,
       kFramePadding + info_bubble::kBubbleArrowHeight);
-
-  // Create the container view that uses flipped coordinates.
-  NSRect contentFrame = NSMakeRect(0, 0, kWindowWidth, 300);
-  contentView_.reset(
-      [[WebsiteSettingsContentView alloc] initWithFrame:contentFrame]);
 
   // Create a text field (empty for now) to show the site identity.
   identityField_ = [self addText:string16()
@@ -337,10 +390,6 @@ NSColor* IdentityVerifiedTextColor() {
   permissionsTabContentView_ = [self addPermissionsTabToTabView:tabView_];
   [self addConnectionTabToTabView:tabView_];
 
-  // Replace the window's content.
-  [[[self window] contentView] setSubviews:
-      [NSArray arrayWithObject:contentView_.get()]];
-
   [self performLayout];
 }
 
@@ -363,7 +412,23 @@ NSColor* IdentityVerifiedTextColor() {
   [contentView addSubview:cookiesView_];
   [contentView addSubview:permissionsView_];
 
+  // Create the link button to view cookies and site data.
+  // Its position will be set in performLayout.
+  NSString* cookieButtonText = l10n_util::GetNSString(
+      IDS_WEBSITE_SETTINGS_SHOW_SITE_DATA);
+  cookiesLinkButton_ = [self addLinkButtonWithText:cookieButtonText
+                                            toView:contentView];
+  [cookiesLinkButton_ setTarget:self];
+  [cookiesLinkButton_ setAction:@selector(showCookiesAndSiteData:)];
+
   return contentView.get();
+}
+
+// Handler for the link button below the list of cookies.
+- (void)showCookiesAndSiteData:(id)sender {
+  [self close];
+  DCHECK(tabContents_);
+  chrome::ShowCollectedCookiesDialog(tabContents_);
 }
 
 // Create the contents of the Connection tab and add it to the given tab view.
@@ -373,16 +438,17 @@ NSColor* IdentityVerifiedTextColor() {
   scoped_nsobject<NSView> contentView([[WebsiteSettingsContentView alloc]
       initWithFrame:[tabView_ contentRect]]);
 
-  // Place all the text at the same position. It will be adjusted in
-  // performLayout.
+  // Place all the text and images at the same position. The positions will be
+  // adjusted in performLayout.
   NSPoint textPosition = NSMakePoint(
-      kTabViewContentsPadding + kConnectionImageSize + kConnectionImageSpacing,
-      kTabViewContentsPadding);
+      kFramePadding + kConnectionImageSize + kConnectionImageSpacing,
+      kFramePadding);
+  NSPoint imagePosition = NSMakePoint(kFramePadding, kFramePadding);
   NSSize imageSize = NSMakeSize(kConnectionImageSize, kConnectionImageSize);
 
   identityStatusIcon_ = [self addImageWithSize:imageSize
                                         toView:contentView
-                                      atOffset:kTabViewContentsPadding];
+                                       atPoint:imagePosition];
   identityStatusDescriptionField_ =
       [self addText:string16()
            withSize:[NSFont smallSystemFontSize]
@@ -393,7 +459,7 @@ NSColor* IdentityVerifiedTextColor() {
 
   connectionStatusIcon_ = [self addImageWithSize:imageSize
                                           toView:contentView
-                                        atOffset:kTabViewContentsPadding];
+                                         atPoint:imagePosition];
   connectionStatusDescriptionField_ =
       [self addText:string16()
            withSize:[NSFont smallSystemFontSize]
@@ -404,7 +470,7 @@ NSColor* IdentityVerifiedTextColor() {
 
   firstVisitIcon_ = [self addImageWithSize:imageSize
                                     toView:contentView
-                                  atOffset:kTabViewContentsPadding];
+                                   atPoint:imagePosition];
   firstVisitHeaderField_ =
       [self addText:l10n_util::GetStringUTF16(IDS_PAGE_INFO_SITE_INFO_TITLE)
            withSize:[NSFont smallSystemFontSize]
@@ -443,8 +509,20 @@ NSColor* IdentityVerifiedTextColor() {
   yPos = [self setYPositionOfView:identityStatusField_ to:yPos];
 
   // Lay out the Permissions tab.
+  NSRect cookiesViewFrame = [cookiesView_ frame];
+  cookiesViewFrame.origin.y = kFramePadding;
+  [cookiesView_ setFrame:cookiesViewFrame];
+
+  // Put the link button for cookies and site data just below the cookie info.
+  NSRect linkButtonFrame = [cookiesLinkButton_ frame];
+  linkButtonFrame.origin.y = NSMaxY(cookiesViewFrame);
+  linkButtonFrame.origin.x = kFramePadding;
+  [cookiesLinkButton_ setFrame:linkButtonFrame];
+
+  // Put the permission info just below the link button.
   NSRect permissionsViewFrame = [permissionsView_ frame];
-  permissionsViewFrame.origin.y = NSMaxY([cookiesView_ frame]);
+  permissionsViewFrame.origin.y =
+      NSMaxY(linkButtonFrame) + kFramePadding;
   [permissionsView_ setFrame:permissionsViewFrame];
 
   // Lay out the Connection tab.
@@ -492,9 +570,7 @@ NSColor* IdentityVerifiedTextColor() {
       NSMaxY([firstVisitIcon_ frame ]));
   connectionTabHeight += kVerticalSpacing;
 
-  CGFloat permissionsTabHeight =
-      NSHeight([cookiesView_ frame]) + NSHeight([permissionsView_ frame]);
-
+  CGFloat permissionsTabHeight = NSMaxY([permissionsView_ frame]);
   CGFloat tabContentHeight = std::max(connectionTabHeight,
                                       permissionsTabHeight);
   tabViewFrame.size.height = tabContentHeight +
@@ -505,8 +581,12 @@ NSColor* IdentityVerifiedTextColor() {
   [contentView_ setFrame:NSMakeRect(
       0, 0, kWindowWidth, NSMaxY([tabView_ frame]))];
 
-  // Now adjust and position the window.
+  [self sizeAndPositionWindow];
+}
 
+// Adjust the size of the window to match the size of the content, and position
+// the bubble anchor appropriately.
+- (void)sizeAndPositionWindow {
   NSRect windowFrame =
       NSMakeRect(0, 0, kWindowWidth, NSHeight([contentView_ frame]));
   windowFrame.size = [[[self window] contentView] convertSize:windowFrame.size
@@ -591,8 +671,8 @@ NSColor* IdentityVerifiedTextColor() {
 // position and the given y position. Return the new NSImageView.
 - (NSImageView*)addImageWithSize:(NSSize)size
                           toView:(NSView*)view
-                        atOffset:(CGFloat)offset {
-  NSRect frame = NSMakeRect(kFramePadding, offset, size.width, size.height);
+                         atPoint:(NSPoint)point {
+  NSRect frame = NSMakeRect(point.x, point.y, size.width, size.height);
   scoped_nsobject<NSImageView> imageView(
       [[NSImageView alloc] initWithFrame:frame]);
   [imageView setImageFrameStyle:NSImageFrameNone];
@@ -612,33 +692,22 @@ NSColor* IdentityVerifiedTextColor() {
   return spacer;
 }
 
-// Sets the button title appropriately based on the current setting and the
-// default setting.
-- (void)setTitleOfButton:(NSPopUpButton*)button {
-  ContentSetting setting = [self contentSettingForButton:button];
+// Add a link button with the given text to |view|.
+- (NSButton*)addLinkButtonWithText:(NSString*)text toView:(NSView*)view {
+  // Frame size is arbitrary; it will be adjusted by the layout tweaker.
+  NSRect frame = NSMakeRect(kFramePadding, 0, 100, 10);
+  scoped_nsobject<NSButton> button([[NSButton alloc] initWithFrame:frame]);
+  scoped_nsobject<HyperlinkButtonCell> cell(
+      [[HyperlinkButtonCell alloc] initTextCell:text]);
+  [cell setControlSize:NSSmallControlSize];
+  [button setCell:cell.get()];
+  [button setButtonType:NSMomentaryPushInButton];
+  [button setBezelStyle:NSRegularSquareBezelStyle];
+  [view addSubview:button.get()];
 
-  // All menu items are tagged with the default setting.
-  ContentSetting defaultSetting = static_cast<ContentSetting>(
-      [[button selectedItem] tag]);
-
-  // Update the title to match the current permission setting.
-  scoped_nsobject<NSMenuItem> titleItem([[NSMenuItem alloc] init]);
-  [titleItem setTitle:base::SysUTF16ToNSString(
-      WebsiteSettingsUI::PermissionActionToUIString(
-          setting, defaultSetting, content_settings::SETTING_SOURCE_USER))];
-  [[button cell] setUsesItemFromMenu:NO];
-  [[button cell] setMenuItem:titleItem.get()];
-  [button sizeToFit];
-}
-
-- (ContentSetting)contentSettingForButton:(NSPopUpButton*)button {
-  // Determine the setting based on the index of the selected menu item.
-  NSUInteger buttonIndex = [button indexOfSelectedItem];
-  if (buttonIndex >= arraysize(kPermissionsMenuSettings)) {
-    NOTREACHED();
-    return CONTENT_SETTING_DEFAULT;
-  }
-  return kPermissionsMenuSettings[buttonIndex];
+  // Call size-to-fit to fixup for the localized string.
+  [GTMUILocalizerAndLayoutTweaker sizeToFitView:button.get()];
+  return button.get();
 }
 
 // Add a pop-up button for |permissionInfo| to the given view.
@@ -657,33 +726,43 @@ NSColor* IdentityVerifiedTextColor() {
   [button setShowsBorderOnlyWhileMouseInside:YES];
   [[button cell] setHighlightsBy:NSCellLightsByGray];
 
-  // Create the popup menu.
-  for (unsigned int i = 0; i < arraysize(kPermissionsMenuSettings); ++i) {
-    ContentSetting setting = kPermissionsMenuSettings[i];
-    if (setting == CONTENT_SETTING_DEFAULT) {
-      [button addItemWithTitle:l10n_util::GetNSStringF(
-          IDS_WEBSITE_SETTINGS_DEFAULT_PERMISSION_LABEL,
-          WebsiteSettingsUI::PermissionValueToUIString(
-              permissionInfo.default_setting))];
-    } else {
-      [button addItemWithTitle:l10n_util::GetNSStringF(
-          IDS_WEBSITE_SETTINGS_PERMISSION_LABEL,
-          WebsiteSettingsUI::PermissionValueToUIString(setting))];
-    }
-    // Tag all of the menu items with the default setting. It's required to
-    // generate the button title (e.g. "Allowed by default").
-    [[button lastItem] setTag:permissionInfo.default_setting];
-
-    // Select the item corresponding to the current setting.
-    if (setting == permissionInfo.setting)
-      [button selectItem:[button lastItem]];
-  }
   [button setTag:permissionInfo.type];
-
   [button setAction:@selector(permissionValueChanged:)];
   [button setTarget:self];
 
-  [self setTitleOfButton:button];
+  // Create the popup menu.
+
+  [button addItemWithTitle:l10n_util::GetNSStringF(
+      IDS_WEBSITE_SETTINGS_PERMISSION_LABEL,
+      WebsiteSettingsUI::PermissionValueToUIString(CONTENT_SETTING_ALLOW))];
+  [[button lastItem] setTag:CONTENT_SETTING_ALLOW];
+
+  // Fullscreen permission does not support "Always block".
+  if (permissionInfo.type != CONTENT_SETTINGS_TYPE_FULLSCREEN) {
+    [button addItemWithTitle:l10n_util::GetNSStringF(
+        IDS_WEBSITE_SETTINGS_PERMISSION_LABEL,
+        WebsiteSettingsUI::PermissionValueToUIString(CONTENT_SETTING_BLOCK))];
+    [[button lastItem] setTag:CONTENT_SETTING_BLOCK];
+  }
+
+  [button addItemWithTitle:l10n_util::GetNSStringF(
+      IDS_WEBSITE_SETTINGS_DEFAULT_PERMISSION_LABEL,
+      WebsiteSettingsUI::PermissionValueToUIString(
+          permissionInfo.default_setting))];
+  [[button lastItem] setTag:CONTENT_SETTING_DEFAULT];
+
+  [button selectItemWithTag:permissionInfo.setting];
+
+  // Set the button title.
+  scoped_nsobject<NSMenuItem> titleItem([[NSMenuItem alloc] init]);
+  string16 buttonTitle = WebsiteSettingsUI::PermissionActionToUIString(
+      permissionInfo.setting,
+      permissionInfo.default_setting,
+      permissionInfo.source);
+  [titleItem setTitle:base::SysUTF16ToNSString(buttonTitle)];
+  [[button cell] setUsesItemFromMenu:NO];
+  [[button cell] setMenuItem:titleItem.get()];
+  [button sizeToFit];
 
   [view addSubview:button.get()];
   return button.get();
@@ -698,9 +777,8 @@ NSColor* IdentityVerifiedTextColor() {
   DCHECK([sender isKindOfClass:[NSPopUpButton class]]);
   NSPopUpButton* button = static_cast<NSPopUpButton*>(sender);
   ContentSettingsType type = static_cast<ContentSettingsType>([button tag]);
-  ContentSetting newSetting = [self contentSettingForButton:button];
-
-  [self setTitleOfButton:button];
+  ContentSetting newSetting = static_cast<ContentSetting>(
+      [[button selectedItem] tag]);
   if (presenter_.get())
     presenter_->OnSitePermissionChanged(type, newSetting);
 }
@@ -719,7 +797,7 @@ NSColor* IdentityVerifiedTextColor() {
       permissionInfo.type, setting).ToNSImage();
   NSImageView* imageView = [self addImageWithSize:[image size]
                                            toView:view
-                                         atOffset:point.y];
+                                          atPoint:point];
   [imageView setImage:image];
   point.x += kPermissionImageSize + kPermissionImageSpacing;
 
@@ -778,7 +856,7 @@ NSColor* IdentityVerifiedTextColor() {
       CONTENT_SETTINGS_TYPE_COOKIES, CONTENT_SETTING_ALLOW).ToNSImage();
   NSImageView* imageView = [self addImageWithSize:[image size]
                                            toView:view
-                                         atOffset:point.y];
+                                          atPoint:point];
   [imageView setImage:image];
   point.x += kPermissionImageSize + kPermissionImageSpacing;
 
@@ -833,48 +911,58 @@ NSColor* IdentityVerifiedTextColor() {
 
 - (void)setCookieInfo:(const CookieInfoList&)cookieInfoList {
   [cookiesView_ setSubviews:[NSArray array]];
-  NSPoint controlOrigin = NSMakePoint(kFramePadding, kFramePadding);
+  NSPoint controlOrigin = NSMakePoint(kFramePadding, 0);
 
-  NSTextField* header = [self addText:ASCIIToUTF16("Cookies")
+  string16 sectionTitle = l10n_util::GetStringUTF16(
+      IDS_WEBSITE_SETTINGS_TITLE_SITE_DATA);
+  NSTextField* header = [self addText:sectionTitle
                              withSize:[NSFont smallSystemFontSize]
                                  bold:YES
                                toView:cookiesView_
                               atPoint:controlOrigin];
   [self sizeTextFieldHeightToFit:header];
-  controlOrigin.y += NSHeight([header frame]) + kPermissionsTabSpacing;
+  controlOrigin.y += NSHeight([header frame]);
 
   for (CookieInfoList::const_iterator it = cookieInfoList.begin();
        it != cookieInfoList.end();
        ++it) {
+    controlOrigin.y += kPermissionsTabSpacing;
     CGFloat rowHeight = [self addCookieInfo:*it
                                      toView:cookiesView_
                                     atPoint:controlOrigin];
-    controlOrigin.y += rowHeight + kPermissionsTabSpacing;
+    controlOrigin.y += rowHeight;
   }
+
+  controlOrigin.y += kPermissionsTabSpacing;
   [cookiesView_ setFrameSize:NSMakeSize(kWindowWidth, controlOrigin.y)];
+  [self performLayout];
 }
 
 - (void)setPermissionInfo:(const PermissionInfoList&)permissionInfoList {
   [permissionsView_ setSubviews:[NSArray array]];
-  NSPoint controlOrigin = NSMakePoint(kFramePadding, kFramePadding);
+  NSPoint controlOrigin = NSMakePoint(kFramePadding, 0);
 
-  NSTextField* header = [self addText:ASCIIToUTF16("Permissions")
+  string16 sectionTitle = l10n_util::GetStringUTF16(
+      IDS_WEBSITE_SETTINGS_TITLE_SITE_PERMISSIONS);
+  NSTextField* header = [self addText:sectionTitle
                              withSize:[NSFont smallSystemFontSize]
                                  bold:YES
                                toView:permissionsView_
                               atPoint:controlOrigin];
   [self sizeTextFieldHeightToFit:header];
-  controlOrigin.y += NSHeight([header frame]) + kPermissionsTabSpacing;
+  controlOrigin.y += NSHeight([header frame]);
 
   for (PermissionInfoList::const_iterator permission =
            permissionInfoList.begin();
        permission != permissionInfoList.end();
        ++permission) {
+    controlOrigin.y += kPermissionsTabSpacing;
     CGFloat rowHeight = [self addPermission:*permission
                                      toView:permissionsView_
                                     atPoint:controlOrigin];
-    controlOrigin.y += rowHeight + kPermissionsTabSpacing;
+    controlOrigin.y += rowHeight;
   }
+  controlOrigin.y += kFramePadding;
   [permissionsView_ setFrameSize:NSMakeSize(kWindowWidth, controlOrigin.y)];
 }
 
@@ -905,25 +993,32 @@ void WebsiteSettingsUIBridge::Show(gfx::NativeWindow parent,
                                    TabContents* tab_contents,
                                    const GURL& url,
                                    const content::SSLStatus& ssl) {
+  bool is_internal_page = url.SchemeIs(chrome::kChromeInternalScheme) ||
+                          url.SchemeIs(chrome::kChromeUIScheme);
+
   // Create the bridge. This will be owned by the bubble controller.
   WebsiteSettingsUIBridge* bridge = new WebsiteSettingsUIBridge();
 
   // Create the bubble controller. It will dealloc itself when it closes.
   WebsiteSettingsBubbleController* bubble_controller =
       [[WebsiteSettingsBubbleController alloc] initWithParentWindow:parent
-          websiteSettingsUIBridge:bridge];
+          websiteSettingsUIBridge:bridge
+          tabContents:tab_contents
+          isInternalPage:is_internal_page];
 
-  // Initialize the presenter, which holds the model and controls the UI.
-  // This is also owned by the bubble controller.
-  WebsiteSettings* presenter = new WebsiteSettings(
-      bridge,
-      profile,
-      tab_contents->content_settings(),
-      tab_contents->infobar_tab_helper(),
-      url,
-      ssl,
-      content::CertStore::GetInstance());
-  [bubble_controller setPresenter:presenter];
+  if (!is_internal_page) {
+    // Initialize the presenter, which holds the model and controls the UI.
+    // This is also owned by the bubble controller.
+    WebsiteSettings* presenter = new WebsiteSettings(
+        bridge,
+        profile,
+        tab_contents->content_settings(),
+        tab_contents->infobar_tab_helper(),
+        url,
+        ssl,
+        content::CertStore::GetInstance());
+    [bubble_controller setPresenter:presenter];
+  }
 
   [bubble_controller showWindow:nil];
 }

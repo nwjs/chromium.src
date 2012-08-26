@@ -5,7 +5,6 @@
 #include "ash/system/web_notification/web_notification_tray.h"
 
 #include "ash/system/status_area_widget.h"
-#include "ash/system/tray/system_tray.h"
 #include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_views.h"
@@ -859,6 +858,10 @@ WebNotificationTray::WebNotificationTray(
 }
 
 WebNotificationTray::~WebNotificationTray() {
+  // Release any child views that might have back pointers before ~View().
+  notification_list_.reset();
+  message_center_bubble_.reset();
+  notification_bubble_.reset();
 }
 
 void WebNotificationTray::SetDelegate(Delegate* delegate) {

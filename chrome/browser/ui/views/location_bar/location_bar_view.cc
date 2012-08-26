@@ -21,6 +21,7 @@
 #include "chrome/browser/extensions/location_bar_controller.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
+#include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url.h"
 #include "chrome/browser/search_engines/template_url_service.h"
@@ -53,7 +54,6 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_views.h"
 #include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/common/chrome_notification_types.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_switch_utils.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/notification_service.h"
@@ -128,6 +128,13 @@ const int LocationBarView::kNormalHorizontalEdgeThickness = 2;
 const int LocationBarView::kVerticalEdgeThickness = 3;
 const int LocationBarView::kIconInternalPadding = 2;
 const int LocationBarView::kBubbleHorizontalPadding = 1;
+#if defined(OS_CHROMEOS)
+const SkColor LocationBarView::kOmniboxBackgroundColor =
+    SkColorSetARGB(0, 255, 255, 255);
+#else
+const SkColor LocationBarView::kOmniboxBackgroundColor =
+    SkColorSetARGB(255, 255, 255, 255);
+#endif
 const char LocationBarView::kViewClassName[] =
     "browser/ui/views/location_bar/LocationBarView";
 
@@ -276,28 +283,28 @@ void LocationBarView::Init(views::View* popup_parent_view) {
   zoom_view_ = new ZoomView(model_, delegate_);
   AddChildView(zoom_view_);
 
-  if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox) &&
-      browser_) {
-    action_box_button_view_ = new ActionBoxButtonView(browser_, profile_);
-    AddChildView(action_box_button_view_);
-  } else if (browser_defaults::bookmarks_enabled && (mode_ == NORMAL)) {
+  if (browser_defaults::bookmarks_enabled && (mode_ == NORMAL)) {
     // Note: condition above means that the star and ChromeToMobile icons are
     // hidden in popups and in the app launcher.
     star_view_ = new StarView(command_updater_);
     AddChildView(star_view_);
     star_view_->SetVisible(true);
 
-    // Also disable Chrome To Mobile for off-the-record and non-synced profiles,
+    // Disable Chrome To Mobile for off-the-record and non-synced profiles,
     // or if the feature is disabled by a command line flag or chrome://flags.
     if (!profile_->IsOffTheRecord() && profile_->IsSyncAccessible() &&
         ChromeToMobileService::IsChromeToMobileEnabled()) {
       chrome_to_mobile_view_ = new ChromeToMobileView(this, command_updater_);
       AddChildView(chrome_to_mobile_view_);
-      ChromeToMobileService* service =
-          ChromeToMobileServiceFactory::GetForProfile(profile_);
-      service->RequestMobileListUpdate();
-      chrome_to_mobile_view_->SetVisible(service->HasMobiles());
+      chrome_to_mobile_view_->SetVisible(
+          ChromeToMobileServiceFactory::GetForProfile(profile_)->HasMobiles());
     }
+  }
+  if (ActionBoxButtonView::IsActionBoxEnabled() && browser_) {
+    action_box_button_view_ = new ActionBoxButtonView(browser_, profile_);
+    AddChildView(action_box_button_view_);
+    if (star_view_)
+      star_view_->SetVisible(false);
   }
 
   registrar_.Add(this,
@@ -325,7 +332,7 @@ SkColor LocationBarView::GetColor(ToolbarModel::SecurityLevel security_level,
     case SELECTED_TEXT: return color_utils::GetSysSkColor(COLOR_HIGHLIGHTTEXT);
 #else
     // TODO(beng): source from theme provider.
-    case BACKGROUND:    return SK_ColorWHITE;
+    case BACKGROUND:    return LocationBarView::kOmniboxBackgroundColor;
     case TEXT:          return SK_ColorBLACK;
     case SELECTED_TEXT: return SK_ColorWHITE;
 #endif
@@ -401,14 +408,14 @@ void LocationBarView::ModeChanged(const chrome::search::Mode& old_mode,
 void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   RefreshContentSettingViews();
   ZoomBubbleView::CloseBubble();
-  zoom_view_->Update();
+  RefreshZoomView();
   RefreshPageActionViews();
 
   bool star_enabled = star_view_ && !model_->input_in_progress() &&
                       edit_bookmarks_enabled_.GetValue();
 
   command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
-  if (star_view_)
+  if (star_view_ && !ActionBoxButtonView::IsActionBoxEnabled())
     star_view_->SetVisible(star_enabled);
 
   bool enabled = chrome_to_mobile_view_ && !model_->input_in_progress() &&
@@ -505,28 +512,36 @@ views::View* LocationBarView::GetPageActionView(ExtensionAction *page_action) {
 void LocationBarView::SetStarToggled(bool on) {
   if (star_view_)
     star_view_->SetToggled(on);
-  if (action_box_button_view_)
+
+  if (action_box_button_view_) {
     action_box_button_view_->set_starred(on);
+    if (star_view_ && (star_view_->visible() != on)) {
+      star_view_->SetVisible(on);
+      Layout();
+    }
+  }
 }
 
 void LocationBarView::ShowStarBubble(const GURL& url, bool newly_bookmarked) {
   chrome::ShowBookmarkBubbleView(star_view_, profile_, url, newly_bookmarked);
 }
 
-void LocationBarView::SetZoomIconTooltipPercent(int zoom_percent) {
-  zoom_view_->SetZoomIconTooltipPercent(zoom_percent);
-}
-
-void LocationBarView::SetZoomIconState(
-    ZoomController::ZoomIconState zoom_icon_state) {
-  zoom_view_->SetZoomIconState(zoom_icon_state);
+void LocationBarView::ZoomChangedForActiveTab(bool can_show_bubble) {
+  DCHECK(zoom_view_);
+  RefreshZoomView();
 
   Layout();
   SchedulePaint();
+
+  if (can_show_bubble && zoom_view_->visible())
+    ZoomBubbleView::ShowBubble(zoom_view_, GetTabContents(), true);
 }
 
-void LocationBarView::ShowZoomBubble(int zoom_percent) {
-  ZoomBubbleView::ShowBubble(zoom_view_, GetTabContents(), true);
+void LocationBarView::RefreshZoomView() {
+  DCHECK(zoom_view_);
+  TabContents* tab_contents = GetTabContents();
+  if (tab_contents)
+    zoom_view_->Update(tab_contents->zoom_controller());
 }
 
 void LocationBarView::ShowChromeToMobileBubble() {
@@ -717,10 +732,9 @@ void LocationBarView::Layout() {
           TemplateURLServiceFactory::GetForProfile(profile_)->
           GetTemplateURLForKeyword(keyword);
       if (template_url && template_url->IsExtensionKeyword()) {
-        const SkBitmap& bitmap =
-            profile_->GetExtensionService()->GetOmniboxIcon(
-                template_url->GetExtensionId());
-        selected_keyword_view_->SetImage(bitmap);
+        gfx::Image image = profile_->GetExtensionService()->GetOmniboxIcon(
+            template_url->GetExtensionId());
+        selected_keyword_view_->SetImage(image.AsImageSkia());
         selected_keyword_view_->set_is_extension_icon(true);
       } else {
         ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();

@@ -16,11 +16,11 @@
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
 #include "base/tuple.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/content_settings/content_settings_observer.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/common/content_settings.h"
-#include "chrome/common/content_settings_types.h"
 #include "chrome/common/content_settings_pattern.h"
+#include "chrome/common/content_settings_types.h"
 
 namespace base {
 class Value;
@@ -39,9 +39,9 @@ class HostContentSettingsMap
       public base::RefCountedThreadSafe<HostContentSettingsMap> {
  public:
   enum ProviderType {
-    PLATFORM_APP_PROVIDER = 0,
+    INTERNAL_EXTENSION_PROVIDER = 0,
     POLICY_PROVIDER,
-    EXTENSION_PROVIDER,
+    CUSTOM_EXTENSION_PROVIDER,
     PREF_PROVIDER,
     DEFAULT_PROVIDER,
     NUM_PROVIDER_TYPES,

@@ -8,13 +8,9 @@ import os
 from StringIO import StringIO
 import unittest
 
-import appengine_memcache as memcache
 from fake_fetchers import ConfigureFakeFetchers
 
 KNOWN_FAILURES = [
-  # Apps samples fails because it requires fetching data from github.com.
-  # This should be tested though: http://crbug.com/141910.
-  'apps/samples.html',
 ]
 
 ConfigureFakeFetchers()
@@ -43,11 +39,11 @@ class IntegrationTest(unittest.TestCase):
     for path, dirs, files in os.walk(base_path):
       for name in files:
         filename = os.path.join(path, name)
-        if (filename.split('/', 2)[-1] in KNOWN_FAILURES or
+        if (filename.split(os.sep, 2)[-1] in KNOWN_FAILURES or
             '.' in path or
             name.startswith('.')):
           continue
-        request = _MockRequest(filename.split('/', 2)[-1])
+        request = _MockRequest(filename.split(os.sep, 2)[-1])
         response = _MockResponse()
         Handler(request, response, local_path='../..').get()
         self.assertEqual(200, response.status)
@@ -70,16 +66,12 @@ class IntegrationTest(unittest.TestCase):
       self.assertEqual(200, response.status)
       self.assertTrue(response.out.getvalue())
 
-  def testWarmupRequest(self):
-    request = _MockRequest('_ah/warmup')
+  def testCron(self):
+    request = _MockRequest('/cron/trunk')
     response = _MockResponse()
     Handler(request, response, local_path='../..').get()
     self.assertEqual(200, response.status)
-    # Test that the pages were rendered by checking the size of the output.
-    # In python 2.6 there is no 'assertGreater' method.
-    value = response.out.getvalue()
-    self.assertTrue(len(value) > 100000,
-                    msg='Response is too small, probably empty: %s' % value)
+    self.assertEqual('Success', response.out.getvalue())
 
 if __name__ == '__main__':
   unittest.main()

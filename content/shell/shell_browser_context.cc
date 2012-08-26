@@ -83,7 +83,11 @@ bool ShellBrowserContext::IsOffTheRecord() const {
 }
 
 DownloadManagerDelegate* ShellBrowserContext::GetDownloadManagerDelegate()  {
+  DownloadManager* manager = BrowserContext::GetDownloadManager(this);
+
   download_manager_delegate_ = new ShellDownloadManagerDelegate();
+  download_manager_delegate_->SetDownloadManager(manager);
+
   return download_manager_delegate_.get();
 }
 
@@ -104,7 +108,13 @@ net::URLRequestContextGetter*
 }
 
 net::URLRequestContextGetter*
-    ShellBrowserContext::GetRequestContextForMedia()  {
+    ShellBrowserContext::GetMediaRequestContext()  {
+  return GetRequestContext();
+}
+
+net::URLRequestContextGetter*
+    ShellBrowserContext::GetMediaRequestContextForRenderProcess(
+        int renderer_child_id)  {
   return GetRequestContext();
 }
 

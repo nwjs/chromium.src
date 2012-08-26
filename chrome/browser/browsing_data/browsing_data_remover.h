@@ -13,9 +13,9 @@
 #include "base/sequenced_task_runner_helpers.h"
 #include "base/synchronization/waitable_event_watcher.h"
 #include "base/time.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/cancelable_request.h"
 #include "chrome/browser/pepper_flash_settings_manager.h"
-#include "chrome/browser/prefs/pref_member.h"
 #include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -279,6 +279,13 @@ class BrowsingDataRemover : public content::NotificationObserver,
   // NotifyAndDeleteIfDone.
   void OnClearedServerBoundCerts();
 
+  // Callback on the DB thread so that we can wait for the form data to be
+  // cleared.
+  void FormDataDBThreadHop();
+
+  // Callback from the above method.
+  void OnClearedFormData();
+
   // Calculate the begin time for the deletion range specified by |time_period|.
   base::Time CalculateBeginDeleteTime(TimePeriod time_period);
 
@@ -341,6 +348,7 @@ class BrowsingDataRemover : public content::NotificationObserver,
   bool waiting_for_clear_plugin_data_;
   bool waiting_for_clear_quota_managed_data_;
   bool waiting_for_clear_content_licenses_;
+  bool waiting_for_clear_form_;
 
   // Tracking how many origins need to be deleted, and whether we're finished
   // gathering origins.

@@ -60,10 +60,12 @@ class UI_EXPORT ImageSkia {
   // done.
   ImageSkia& operator=(const SkBitmap& other);
 
+#if defined(OS_WIN)
   // Converts to gfx::ImageSkiaRep and SkBitmap.
   // TODO(pkotwicz): This is temporary till conversion to gfx::ImageSkia is
   // done.
-  operator SkBitmap&() const;
+  operator SkBitmap&() const { return GetBitmap(); }
+#endif
 
   ~ImageSkia();
 
@@ -95,9 +97,6 @@ class UI_EXPORT ImageSkia {
   std::vector<ImageSkiaRep> GetRepresentations() const;
 #endif  // OS_MACOSX
 
-  // Returns true if object is null or its size is empty.
-  bool empty() const;
-
   // Returns true if this is a null object.
   // TODO(pkotwicz): Merge this function into empty().
   bool isNull() const { return storage_ == NULL; }
@@ -107,17 +106,12 @@ class UI_EXPORT ImageSkia {
   int height() const;
   gfx::Size size() const;
 
-  // Wrapper function for SkBitmap::extractBitmap.
-  // Deprecated, use ImageSkiaOperations::ExtractSubset instead.
-  // TODO(pkotwicz): Remove this function.
-  bool extractSubset(ImageSkia* dst, const SkIRect& subset) const;
-
   // Returns pointer to 1x bitmap contained by this object. If there is no 1x
   // bitmap, the bitmap whose scale factor is closest to 1x is returned.
   // This function should only be used in unittests and on platforms which do
   // not support scale factors other than 1x.
   // TODO(pkotwicz): Return null SkBitmap when the object has no 1x bitmap.
-  const SkBitmap* bitmap() const { return &operator SkBitmap&(); }
+  const SkBitmap* bitmap() const { return &GetBitmap(); }
 
   // Returns a vector with the image reps contained in this object.
   // There is no guarantee that this will return all images rep for
@@ -130,6 +124,8 @@ class UI_EXPORT ImageSkia {
   // Initialize ImageSkiaStorage with passed in parameters.
   // If the image rep's bitmap is empty, ImageStorage is set to NULL.
   void Init(const gfx::ImageSkiaRep& image_rep);
+
+  SkBitmap& GetBitmap() const;
 
   // A refptr so that ImageRepSkia can be copied cheaply.
   scoped_refptr<internal::ImageSkiaStorage> storage_;

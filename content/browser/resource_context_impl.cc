@@ -30,7 +30,7 @@
 #include "webkit/fileapi/file_system_url_request_job_factory.h"
 
 // Key names on ResourceContext.
-static const char* kAppCacheServicKeyName = "content_appcache_service_tracker";
+static const char* kAppCacheServiceKeyName = "content_appcache_service_tracker";
 static const char* kBlobStorageContextKeyName = "content_blob_storage_context";
 static const char* kDatabaseTrackerKeyName = "content_database_tracker";
 static const char* kFileSystemContextKeyName = "content_file_system_context";
@@ -184,7 +184,7 @@ void InitializeRequestContext(
 AppCacheService* ResourceContext::GetAppCacheService(ResourceContext* context) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   return UserDataAdapter<ChromeAppCacheService>::Get(
-      context, kAppCacheServicKeyName);
+      context, kAppCacheServiceKeyName);
 }
 
 ResourceContext::ResourceContext() {
@@ -255,7 +255,7 @@ void InitializeResourceContext(BrowserContext* browser_context) {
       new UserDataAdapter<webkit_database::DatabaseTracker>(
           BrowserContext::GetDatabaseTracker(browser_context)));
   resource_context->SetUserData(
-      kAppCacheServicKeyName,
+      kAppCacheServiceKeyName,
       new UserDataAdapter<ChromeAppCacheService>(
           static_cast<ChromeAppCacheService*>(
               BrowserContext::GetAppCacheService(browser_context))));
@@ -277,6 +277,8 @@ void InitializeResourceContext(BrowserContext* browser_context) {
 
   // Add content's URLRequestContext's hooks.
   // Check first to avoid memory leak in unittests.
+  // TODO(creis): Do equivalent initializations for isolated app and isolated
+  // media request contexts.
   if (BrowserThread::IsMessageLoopValid(BrowserThread::IO)) {
     BrowserThread::PostTask(
         BrowserThread::IO, FROM_HERE,
@@ -288,7 +290,7 @@ void InitializeResourceContext(BrowserContext* browser_context) {
         base::Bind(&InitializeRequestContext,
                    resource_context,
                    make_scoped_refptr(
-                       browser_context->GetRequestContextForMedia())));
+                       browser_context->GetMediaRequestContext())));
   }
 }
 

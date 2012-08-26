@@ -1278,6 +1278,15 @@ class Strace(ApiBase):
           return
         self._handle_file(args[0], False)
 
+      @parse_args(r'^AT_FDCWD, \"(.*?)\", ([A-Z\_\|]+)(|, \d+)$', False)
+      def handle_openat(self, args, _result):
+        # TODO(maruel): Implelement relative open if necessary instead of the
+        # AT_FDCWD flag, let's hope not since this means tracking all active
+        # directory handles.
+        if 'O_DIRECTORY' in args[1]:
+          return
+        self._handle_file(args[0], False)
+
       @parse_args(r'^\"(.+?)\", \".+?\"(\.\.\.)?, \d+$', False)
       def handle_readlink(self, args, _result):
         self._handle_file(args[0], False)
@@ -2447,7 +2456,7 @@ class LogmanTrace(ApiBase):
 
     def handle_Process_End(self, line):
       pid = line[self.PID]
-      if pid in self._process_lookup:
+      if self._process_lookup.get(pid):
         logging.info('Terminated: %d' % pid)
         self._process_lookup[pid] = None
       else:
@@ -2482,7 +2491,7 @@ class LogmanTrace(ApiBase):
         proc = self.Process(self.blacklist, pid, None)
         self.root_process = proc
         ppid = None
-      elif ppid in self._process_lookup:
+      elif self._process_lookup.get(ppid):
         proc = self.Process(self.blacklist, pid, None)
         self._process_lookup[ppid].children.append(proc)
       else:

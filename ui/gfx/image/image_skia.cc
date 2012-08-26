@@ -237,10 +237,6 @@ std::vector<ImageSkiaRep> ImageSkia::GetRepresentations() const {
 
 #endif  // OS_MACOSX
 
-bool ImageSkia::empty() const {
-  return isNull() || storage_->size().IsEmpty();
-}
-
 int ImageSkia::width() const {
   return isNull() ? 0 : storage_->size().width();
 }
@@ -251,12 +247,6 @@ gfx::Size ImageSkia::size() const {
 
 int ImageSkia::height() const {
   return isNull() ? 0 : storage_->size().height();
-}
-
-bool ImageSkia::extractSubset(ImageSkia* dst, const SkIRect& subset) const {
-  gfx::Rect rect(subset.x(), subset.y(), subset.width(), subset.height());
-  *dst = ImageSkiaOperations::ExtractSubset(*this, rect);
-  return (!dst->isNull());
 }
 
 std::vector<ImageSkiaRep> ImageSkia::image_reps() const {
@@ -276,7 +266,18 @@ std::vector<ImageSkiaRep> ImageSkia::image_reps() const {
   return image_reps;
 }
 
-ImageSkia::operator SkBitmap&() const {
+void ImageSkia::Init(const ImageSkiaRep& image_rep) {
+  // TODO(pkotwicz): The image should be null whenever image rep is null.
+  if (image_rep.sk_bitmap().empty()) {
+    storage_ = NULL;
+    return;
+  }
+  storage_ = new internal::ImageSkiaStorage(
+      NULL, gfx::Size(image_rep.GetWidth(), image_rep.GetHeight()));
+  storage_->image_reps().push_back(image_rep);
+}
+
+SkBitmap& ImageSkia::GetBitmap() const {
   if (isNull()) {
     // Callers expect a ImageSkiaRep even if it is |isNull()|.
     // TODO(pkotwicz): Fix this.
@@ -288,17 +289,6 @@ ImageSkia::operator SkBitmap&() const {
   if (it != storage_->image_reps().end())
     return it->mutable_sk_bitmap();
   return NullImageRep().mutable_sk_bitmap();
-}
-
-void ImageSkia::Init(const ImageSkiaRep& image_rep) {
-  // TODO(pkotwicz): The image should be null whenever image rep is null.
-  if (image_rep.sk_bitmap().empty()) {
-    storage_ = NULL;
-    return;
-  }
-  storage_ = new internal::ImageSkiaStorage(
-      NULL, gfx::Size(image_rep.GetWidth(), image_rep.GetHeight()));
-  storage_->image_reps().push_back(image_rep);
 }
 
 }  // namespace gfx

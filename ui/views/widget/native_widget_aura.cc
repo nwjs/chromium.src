@@ -339,9 +339,11 @@ InputMethod* NativeWidgetAura::CreateInputMethod() {
   aura::RootWindow* root_window = window_->GetRootWindow();
   ui::InputMethod* host =
       root_window->GetProperty(aura::client::kRootWindowInputMethodKey);
-  InputMethod* input_method = new InputMethodBridge(this, host);
-  input_method->Init(GetWidget());
-  return input_method;
+  return new InputMethodBridge(this, host);
+}
+
+internal::InputMethodDelegate* NativeWidgetAura::GetInputMethodDelegate() {
+  return this;
 }
 
 void NativeWidgetAura::CenterWindow(const gfx::Size& size) {
@@ -761,6 +763,11 @@ int NativeWidgetAura::GetNonClientComponent(const gfx::Point& point) const {
 bool NativeWidgetAura::ShouldDescendIntoChildForEventHandling(
       aura::Window* child,
       const gfx::Point& location) {
+  views::WidgetDelegate* widget_delegate = GetWidget()->widget_delegate();
+  if (widget_delegate &&
+      !widget_delegate->ShouldDescendIntoChildForEventHandling(child, location))
+    return false;
+
   // Don't descend into |child| if there is a view with a Layer that contains
   // the point and is stacked above |child|s layer.
   typedef std::vector<ui::Layer*> Layers;

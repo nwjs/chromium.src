@@ -18,6 +18,7 @@
 #include "content/browser/renderer_host/web_input_event_aura.h"
 #include "content/common/gpu/client/gl_helper.h"
 #include "content/common/gpu/gpu_messages.h"
+#include "content/common/view_messages.h"
 #include "content/port/browser/render_widget_host_view_port.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_view_host.h"
@@ -381,11 +382,11 @@ void RenderWidgetHostViewAura::SetIsLoading(bool is_loading) {
 }
 
 void RenderWidgetHostViewAura::TextInputStateChanged(
-    ui::TextInputType type,
-    bool can_compose_inline) {
-  if (text_input_type_ != type || can_compose_inline_ != can_compose_inline) {
-    text_input_type_ = type;
-    can_compose_inline_ = can_compose_inline;
+    const ViewHostMsg_TextInputState_Params& params) {
+  if (text_input_type_ != params.type
+      || can_compose_inline_ != params.can_compose_inline) {
+    text_input_type_ = params.type;
+    can_compose_inline_ = params.can_compose_inline;
     GetInputMethod()->OnTextInputTypeChanged(this);
   }
 }
@@ -481,9 +482,6 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
     const base::Callback<void(bool)>& callback,
     skia::PlatformCanvas* output) {
   base::ScopedClosureRunner scoped_callback_runner(base::Bind(callback, false));
-  ui::Compositor* compositor = GetCompositor();
-  if (!compositor)
-    return;
 
   std::map<uint64, scoped_refptr<ui::Texture> >::iterator it =
       image_transport_clients_.find(current_surface_);
@@ -499,7 +497,7 @@ void RenderWidgetHostViewAura::CopyFromCompositingSurface(
     return;
 
   ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
-  GLHelper* gl_helper = factory->GetGLHelper(compositor);
+  GLHelper* gl_helper = factory->GetGLHelper();
   if (!gl_helper)
     return;
 
@@ -872,10 +870,9 @@ void RenderWidgetHostViewAura::SetScrollOffsetPinning(
 }
 
 gfx::GLSurfaceHandle RenderWidgetHostViewAura::GetCompositingSurface() {
-  ui::Compositor* compositor = GetCompositor();
-  if (shared_surface_handle_.is_null() && compositor) {
+  if (shared_surface_handle_.is_null()) {
     ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
-    shared_surface_handle_ = factory->CreateSharedSurfaceHandle(compositor);
+    shared_surface_handle_ = factory->CreateSharedSurfaceHandle();
     factory->AddObserver(this);
   }
   return shared_surface_handle_;
@@ -1359,7 +1356,7 @@ void RenderWidgetHostViewAura::OnPaint(gfx::Canvas* canvas) {
     static_cast<BackingStoreAura*>(backing_store)->SkiaShowRect(gfx::Point(),
                                                                 canvas);
   } else if (aura::Env::GetInstance()->render_white_bg()) {
-    canvas->FillRect(gfx::Rect(window_->bounds().size()), SK_ColorWHITE);
+    canvas->DrawColor(SK_ColorWHITE);
   }
 }
 
@@ -1448,7 +1445,7 @@ void RenderWidgetHostViewAura::OnCompositingAborted(
 ////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, ImageTransportFactoryObserver implementation:
 
-void RenderWidgetHostViewAura::OnLostResources(ui::Compositor* compositor) {
+void RenderWidgetHostViewAura::OnLostResources() {
   image_transport_clients_.clear();
   current_surface_ = 0;
   protection_state_id_ = 0;
@@ -1461,7 +1458,7 @@ void RenderWidgetHostViewAura::OnLostResources(ui::Compositor* compositor) {
   DCHECK(!shared_surface_handle_.is_null());
   ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
   factory->DestroySharedSurfaceHandle(shared_surface_handle_);
-  shared_surface_handle_ = factory->CreateSharedSurfaceHandle(compositor);
+  shared_surface_handle_ = factory->CreateSharedSurfaceHandle();
   host_->CompositingSurfaceUpdated();
   host_->ScheduleComposite();
 }
@@ -1612,7 +1609,7 @@ void RenderWidgetHostViewAura::InsertSyncPointAndACK(
   // sync point will not be waited for in the GPU process.
   if (compositor) {
     ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
-    sync_point = factory->InsertSyncPoint(compositor);
+    sync_point = factory->InsertSyncPoint();
   }
 
   RenderWidgetHostImpl::AcknowledgeBufferPresent(

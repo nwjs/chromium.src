@@ -9,7 +9,6 @@
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/property_bag.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class AlternateErrorPageTabObserver;
@@ -66,7 +65,7 @@ class SearchTabHelper;
 }
 
 namespace chrome_browser_net {
-class CacheStatsTabHelper;
+class LoadTimeStatsTabHelper;
 }
 
 namespace extensions {
@@ -258,10 +257,6 @@ class TabContents : public content::WebContentsObserver {
   virtual void UserAgentOverrideSet(const std::string& user_agent) OVERRIDE;
 
  private:
-  // Used to retrieve this object from |web_contents_|, which is placed in
-  // its property bag to avoid adding additional interfaces.
-  static base::PropertyAccessor<TabContents*>* property_accessor();
-
   // Tab Helpers ---------------------------------------------------------------
   // (These provide API for callers and have a getter function listed in the
   // "Tab Helpers" section in the member functions area, above.)
@@ -272,7 +267,8 @@ class TabContents : public content::WebContentsObserver {
   scoped_ptr<AutomationTabHelper> automation_tab_helper_;
   scoped_ptr<BlockedContentTabHelper> blocked_content_tab_helper_;
   scoped_ptr<BookmarkTabHelper> bookmark_tab_helper_;
-  scoped_ptr<chrome_browser_net::CacheStatsTabHelper> cache_stats_tab_helper_;
+  scoped_ptr<chrome_browser_net::LoadTimeStatsTabHelper>
+  load_time_stats_tab_helper_;
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
   scoped_ptr<captive_portal::CaptivePortalTabHelper> captive_portal_tab_helper_;
 #endif

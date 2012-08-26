@@ -11,6 +11,8 @@
 #include "ppapi/c/ppb_instance.h"
 #include "ppapi/c/ppb_messaging.h"
 #include "ppapi/c/ppb_mouse_lock.h"
+#include "ppapi/c/private/pp_content_decryptor.h"
+#include "ppapi/proxy/content_decryptor_private_serializer.h"
 #include "ppapi/proxy/enter_proxy.h"
 #include "ppapi/proxy/host_dispatcher.h"
 #include "ppapi/proxy/plugin_dispatcher.h"
@@ -47,6 +49,12 @@ void RequestSurroundingText(PP_Instance instance) {
   PluginDispatcher* dispatcher = PluginDispatcher::GetForInstance(instance);
   if (!dispatcher)
     return;  // Instance has gone away while message was pending.
+
+  InstanceData* data = dispatcher->GetInstanceData(instance);
+  DCHECK(data);  // Should have it, since we still have a dispatcher.
+  data->is_request_surrounding_text_pending = false;
+  if (!data->should_do_request_surrounding_text)
+    return;
 
   // Just fake out a RequestSurroundingText message to the proxy for the PPP
   // interface.
@@ -473,45 +481,61 @@ void PPB_Instance_Proxy::KeyError(PP_Instance instance,
 
 void PPB_Instance_Proxy::DeliverBlock(PP_Instance instance,
                                       PP_Resource decrypted_block,
-                                      int32_t request_id) {
+                                      const PP_DecryptedBlockInfo* block_info) {
   Resource* object =
       PpapiGlobals::Get()->GetResourceTracker()->GetResource(decrypted_block);
   if (!object || object->pp_instance() != instance)
     return;
+
+  std::string serialized_block_info;
+  if (!SerializeBlockInfo(*block_info, &serialized_block_info))
+    return;
+
   dispatcher()->Send(
       new PpapiHostMsg_PPBInstance_DeliverBlock(API_ID_PPB_INSTANCE,
           instance,
           object->host_resource().host_resource(),
-          request_id));
+          serialized_block_info));
 }
 
 void PPB_Instance_Proxy::DeliverFrame(PP_Instance instance,
                                       PP_Resource decrypted_frame,
-                                      int32_t request_id) {
+                                      const PP_DecryptedBlockInfo* block_info) {
   Resource* object =
       PpapiGlobals::Get()->GetResourceTracker()->GetResource(decrypted_frame);
   if (!object || object->pp_instance() != instance)
     return;
+
+  std::string serialized_block_info;
+  if (!SerializeBlockInfo(*block_info, &serialized_block_info))
+    return;
+
   dispatcher()->Send(new PpapiHostMsg_PPBInstance_DeliverFrame(
           API_ID_PPB_INSTANCE,
           instance,
           object->host_resource().host_resource(),
-          request_id));
+          serialized_block_info));
 }
 
-void PPB_Instance_Proxy::DeliverSamples(PP_Instance instance,
-                                        PP_Resource decrypted_samples,
-                                        int32_t request_id) {
+void PPB_Instance_Proxy::DeliverSamples(
+    PP_Instance instance,
+    PP_Resource decrypted_samples,
+    const PP_DecryptedBlockInfo* block_info) {
   Resource* object =
       PpapiGlobals::Get()->GetResourceTracker()->GetResource(decrypted_samples);
   if (!object || object->pp_instance() != instance)
     return;
+
+  std::string serialized_block_info;
+  if (!SerializeBlockInfo(*block_info, &serialized_block_info))
+      return;
+
   dispatcher()->Send(
       new PpapiHostMsg_PPBInstance_DeliverSamples(
           API_ID_PPB_INSTANCE,
           instance,
           object->host_resource().host_resource(),
-          request_id));
+          serialized_block_info));
 }
 
 #endif  // !defined(OS_NACL)
@@ -589,6 +613,7 @@ PP_Bool PPB_Instance_Proxy::GetDefaultPrintSettings(
 
 void PPB_Instance_Proxy::SetTextInputType(PP_Instance instance,
                                           PP_TextInput_Type type) {
+  CancelAnyPendingRequestSurroundingText(instance);
   dispatcher()->Send(new PpapiHostMsg_PPBInstance_SetTextInputType(
       API_ID_PPB_INSTANCE, instance, type));
 }
@@ -601,6 +626,7 @@ void PPB_Instance_Proxy::UpdateCaretPosition(PP_Instance instance,
 }
 
 void PPB_Instance_Proxy::CancelCompositionText(PP_Instance instance) {
+  CancelAnyPendingRequestSurroundingText(instance);
   dispatcher()->Send(new PpapiHostMsg_PPBInstance_CancelCompositionText(
       API_ID_PPB_INSTANCE, instance));
 }
@@ -616,9 +642,19 @@ void PPB_Instance_Proxy::SelectionChanged(PP_Instance instance) {
   // we'll need to reevanuate whether we want to do the round trip instead.
   //
   // Be careful to post a task to avoid reentering the plugin.
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&RequestSurroundingText, instance));
+
+  InstanceData* data =
+      static_cast<PluginDispatcher*>(dispatcher())->GetInstanceData(instance);
+  if (!data)
+    return;
+  data->should_do_request_surrounding_text = true;
+
+  if (!data->is_request_surrounding_text_pending) {
+    MessageLoop::current()->PostTask(
+        FROM_HERE,
+        base::Bind(&RequestSurroundingText, instance));
+    data->is_request_surrounding_text_pending = true;
+  }
 }
 
 void PPB_Instance_Proxy::UpdateSurroundingText(PP_Instance instance,
@@ -905,28 +941,43 @@ void PPB_Instance_Proxy::OnHostMsgKeyError(
   }
 }
 
-void PPB_Instance_Proxy::OnHostMsgDeliverBlock(PP_Instance instance,
-                                               PP_Resource decrypted_block,
-                                               int32_t request_id) {
+void PPB_Instance_Proxy::OnHostMsgDeliverBlock(
+    PP_Instance instance,
+    PP_Resource decrypted_block,
+    const std::string& serialized_block_info) {
+  PP_DecryptedBlockInfo block_info;
+  if (!DeserializeBlockInfo(serialized_block_info, &block_info))
+    return;
+
   EnterInstanceNoLock enter(instance);
   if (enter.succeeded())
-    enter.functions()->DeliverBlock(instance, decrypted_block, request_id);
+    enter.functions()->DeliverBlock(instance, decrypted_block, &block_info);
 }
 
-void PPB_Instance_Proxy::OnHostMsgDeliverFrame(PP_Instance instance,
-                                               PP_Resource decrypted_frame,
-                                               int32_t request_id) {
+void PPB_Instance_Proxy::OnHostMsgDeliverFrame(
+    PP_Instance instance,
+    PP_Resource decrypted_frame,
+    const std::string& serialized_block_info) {
+  PP_DecryptedBlockInfo block_info;
+  if (!DeserializeBlockInfo(serialized_block_info, &block_info))
+    return;
+
   EnterInstanceNoLock enter(instance);
   if (enter.succeeded())
-    enter.functions()->DeliverFrame(instance, decrypted_frame, request_id);
+    enter.functions()->DeliverFrame(instance, decrypted_frame, &block_info);
 }
 
-void PPB_Instance_Proxy::OnHostMsgDeliverSamples(PP_Instance instance,
-                                                 PP_Resource decrypted_samples,
-                                                 int32_t request_id) {
+void PPB_Instance_Proxy::OnHostMsgDeliverSamples(
+    PP_Instance instance,
+    PP_Resource decrypted_samples,
+    const std::string& serialized_block_info) {
+  PP_DecryptedBlockInfo block_info;
+  if (!DeserializeBlockInfo(serialized_block_info, &block_info))
+    return;
+
   EnterInstanceNoLock enter(instance);
   if (enter.succeeded())
-    enter.functions()->DeliverSamples(instance, decrypted_samples, request_id);
+    enter.functions()->DeliverSamples(instance, decrypted_samples, &block_info);
 }
 
 #endif  // !defined(OS_NACL)
@@ -996,6 +1047,15 @@ void PPB_Instance_Proxy::MouseLockCompleteInHost(int32_t result,
                                                  PP_Instance instance) {
   dispatcher()->Send(new PpapiMsg_PPBInstance_MouseLockComplete(
       API_ID_PPB_INSTANCE, instance, result));
+}
+
+void PPB_Instance_Proxy::CancelAnyPendingRequestSurroundingText(
+    PP_Instance instance) {
+  InstanceData* data = static_cast<PluginDispatcher*>(dispatcher())->
+      GetInstanceData(instance);
+  if (!data)
+    return;  // Instance was probably deleted.
+  data->should_do_request_surrounding_text = false;
 }
 
 }  // namespace proxy

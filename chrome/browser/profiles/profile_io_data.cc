@@ -28,12 +28,12 @@
 #include "chrome/browser/extensions/extension_resource_protocols.h"
 #include "chrome/browser/extensions/extension_system.h"
 #include "chrome/browser/io_thread.h"
-#include "chrome/browser/net/cache_stats.h"
 #include "chrome/browser/net/chrome_cookie_notification_details.h"
 #include "chrome/browser/net/chrome_fraudulent_certificate_reporter.h"
 #include "chrome/browser/net/chrome_net_log.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/http_server_properties_manager.h"
+#include "chrome/browser/net/load_time_stats.h"
 #include "chrome/browser/net/proxy_service_factory.h"
 #include "chrome/browser/net/resource_prefetch_predictor_observer.h"
 #include "chrome/browser/net/transport_security_persister.h"
@@ -225,10 +225,24 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
   BrowserContext::EnsureResourceContextInitialized(profile);
 }
 
+ProfileIOData::MediaRequestContext::MediaRequestContext(
+    chrome_browser_net::LoadTimeStats* load_time_stats)
+    : ChromeURLRequestContext(ChromeURLRequestContext::CONTEXT_TYPE_MEDIA,
+                              load_time_stats) {
+}
+
+void ProfileIOData::MediaRequestContext::SetHttpTransactionFactory(
+    net::HttpTransactionFactory* http_factory) {
+  http_factory_.reset(http_factory);
+  set_http_transaction_factory(http_factory);
+}
+
+ProfileIOData::MediaRequestContext::~MediaRequestContext() {}
+
 ProfileIOData::AppRequestContext::AppRequestContext(
-    chrome_browser_net::CacheStats* cache_stats)
+    chrome_browser_net::LoadTimeStats* load_time_stats)
     : ChromeURLRequestContext(ChromeURLRequestContext::CONTEXT_TYPE_APP,
-                              cache_stats) {
+                              load_time_stats) {
 }
 
 void ProfileIOData::AppRequestContext::SetCookieStore(
@@ -272,8 +286,14 @@ ProfileIOData::~ProfileIOData() {
     main_request_context_->AssertNoURLRequests();
   if (extensions_request_context_.get())
     extensions_request_context_->AssertNoURLRequests();
-  for (AppRequestContextMap::iterator it = app_request_context_map_.begin();
+  for (URLRequestContextMap::iterator it = app_request_context_map_.begin();
        it != app_request_context_map_.end(); ++it) {
+    it->second->AssertNoURLRequests();
+    delete it->second;
+  }
+  for (URLRequestContextMap::iterator it =
+           isolated_media_request_context_map_.begin();
+       it != isolated_media_request_context_map_.end(); ++it) {
     it->second->AssertNoURLRequests();
     delete it->second;
   }
@@ -352,12 +372,32 @@ ProfileIOData::GetIsolatedAppRequestContext(
     ChromeURLRequestContext* main_context,
     const std::string& app_id) const {
   LazyInitialize();
-  ChromeURLRequestContext* context;
+  ChromeURLRequestContext* context = NULL;
   if (ContainsKey(app_request_context_map_, app_id)) {
     context = app_request_context_map_[app_id];
   } else {
     context = AcquireIsolatedAppRequestContext(main_context, app_id);
     app_request_context_map_[app_id] = context;
+  }
+  DCHECK(context);
+  return context;
+}
+
+ChromeURLRequestContext*
+ProfileIOData::GetIsolatedMediaRequestContext(
+    ChromeURLRequestContext* main_context,
+    const std::string& app_id) const {
+  LazyInitialize();
+  ChromeURLRequestContext* context = NULL;
+  if (ContainsKey(isolated_media_request_context_map_, app_id)) {
+    context = isolated_media_request_context_map_[app_id];
+  } else {
+    // Get the app context as the starting point for the media context,
+    // so that it uses the app's cookie store.
+    ChromeURLRequestContext* app_context = GetIsolatedAppRequestContext(
+        main_context, app_id);
+    context = AcquireIsolatedMediaRequestContext(app_context, app_id);
+    isolated_media_request_context_map_[app_id] = context;
   }
   DCHECK(context);
   return context;
@@ -466,16 +506,16 @@ void ProfileIOData::LazyInitialize() const {
   IOThread* const io_thread = profile_params_->io_thread;
   IOThread::Globals* const io_thread_globals = io_thread->globals();
   const CommandLine& command_line = *CommandLine::ForCurrentProcess();
-  cache_stats_ = GetCacheStats(io_thread_globals);
+  load_time_stats_ = GetLoadTimeStats(io_thread_globals);
 
   // Create the common request contexts.
   main_request_context_.reset(
       new ChromeURLRequestContext(ChromeURLRequestContext::CONTEXT_TYPE_MAIN,
-                                  cache_stats_));
+                                  load_time_stats_));
   extensions_request_context_.reset(
       new ChromeURLRequestContext(
           ChromeURLRequestContext::CONTEXT_TYPE_EXTENSIONS,
-          cache_stats_));
+          load_time_stats_));
 
   chrome_url_data_manager_backend_.reset(new ChromeURLDataManagerBackend);
 
@@ -491,7 +531,7 @@ void ProfileIOData::LazyInitialize() const {
         profile_params_->profile,
         profile_params_->cookie_settings,
         &enable_referrers_,
-        cache_stats_));
+        load_time_stats_));
 
   fraudulent_certificate_reporter_.reset(
       new chrome_browser_net::ChromeFraudulentCertificateReporter(
@@ -566,10 +606,6 @@ void ProfileIOData::SetUpJobFactoryDefaults(
       chrome::kChromeUIScheme,
       ChromeURLDataManagerBackend::CreateProtocolHandler(
           chrome_url_data_manager_backend_.get()));
-  DCHECK(set_protocol);
-  set_protocol = job_factory->SetProtocolHandler(
-      chrome::kChromeDevToolsScheme,
-      CreateDevToolsProtocolHandler(chrome_url_data_manager_backend_.get()));
   DCHECK(set_protocol);
   set_protocol = job_factory->SetProtocolHandler(
       chrome::kDataScheme, new net::DataProtocolHandler());

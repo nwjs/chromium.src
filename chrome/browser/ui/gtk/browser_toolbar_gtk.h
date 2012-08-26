@@ -10,8 +10,8 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "chrome/browser/api/prefs/pref_member.h"
 #include "chrome/browser/command_observer.h"
-#include "chrome/browser/prefs/pref_member.h"
 #include "chrome/browser/ui/gtk/custom_button.h"
 #include "chrome/browser/ui/gtk/menu_gtk.h"
 #include "chrome/browser/ui/toolbar/wrench_menu_model.h"
@@ -103,6 +103,9 @@ class BrowserToolbarGtk : public CommandObserver,
   virtual void Observe(int type,
                        const content::NotificationSource& source,
                        const content::NotificationDetails& details) OVERRIDE;
+
+  // Whether the wrench/hotdogs menu is currently visible to the user.
+  bool IsWrenchMenuShowing() const;
 
   // Message that we should react to a state change.
   void UpdateWebContents(content::WebContents* contents,

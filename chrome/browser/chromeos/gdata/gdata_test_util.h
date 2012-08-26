@@ -6,15 +6,17 @@
 #define CHROME_BROWSER_CHROMEOS_GDATA_GDATA_TEST_UTIL_H_
 
 #include "base/memory/scoped_ptr.h"
-#include "chrome/browser/chromeos/gdata/gdata_directory_service.h"
+#include "chrome/browser/chromeos/gdata/drive_resource_metadata.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 
 class FilePath;
 
 namespace gdata {
 
-class GDataEntryProto;
-class GDataCacheEntry;
+class DriveCacheEntry;
+class DriveEntryProto;
+
+typedef std::vector<DriveEntryProto> DriveEntryProtoVector;
 
 namespace test_util {
 
@@ -27,8 +29,8 @@ namespace test_util {
 // repeatedly.
 void RunBlockingPoolTask();
 
-// This is a bitmask of cache states in GDataCacheEntry. Used only in tests.
-enum TestGDataCacheState {
+// This is a bitmask of cache states in DriveCacheEntry. Used only in tests.
+enum TestDriveCacheState {
   TEST_CACHE_STATE_NONE       = 0,
   TEST_CACHE_STATE_PINNED     = 1 << 0,
   TEST_CACHE_STATE_PRESENT    = 1 << 1,
@@ -37,12 +39,12 @@ enum TestGDataCacheState {
   TEST_CACHE_STATE_PERSISTENT = 1 << 4,
 };
 
-// Converts |cache_state| which is a bit mask of TestGDataCacheState, to a
-// GDataCacheEntry.
-GDataCacheEntry ToCacheEntry(int cache_state);
+// Converts |cache_state| which is a bit mask of TestDriveCacheState, to a
+// DriveCacheEntry.
+DriveCacheEntry ToCacheEntry(int cache_state);
 
 // Returns true if the cache state of the given two cache entries are equal.
-bool CacheStatesEqual(const GDataCacheEntry& a, const GDataCacheEntry& b);
+bool CacheStatesEqual(const DriveCacheEntry& a, const DriveCacheEntry& b);
 
 // Copies |error| to |output|. Used to run asynchronous functions that take
 // FileOperationCallback from tests.
@@ -61,21 +63,33 @@ void CopyResultsFromFileMoveCallback(GDataFileError* out_error,
 // GetEntryInfoCallback from tests.
 void CopyResultsFromGetEntryInfoCallback(
     GDataFileError* out_error,
-    scoped_ptr<GDataEntryProto>* out_entry_proto,
+    scoped_ptr<DriveEntryProto>* out_entry_proto,
     GDataFileError error,
-    scoped_ptr<GDataEntryProto> entry_proto);
+    scoped_ptr<DriveEntryProto> entry_proto);
 
 // Copies |error| and |entries| to |out_error| and |out_entries|
 // respectively. Used to run asynchronous functions that take
 // GetEntryInfoCallback from tests.
 void CopyResultsFromReadDirectoryCallback(
     GDataFileError* out_error,
-    scoped_ptr<GDataEntryProtoVector>* out_entries,
+    scoped_ptr<DriveEntryProtoVector>* out_entries,
     GDataFileError error,
-    scoped_ptr<GDataEntryProtoVector> entries);
+    scoped_ptr<DriveEntryProtoVector> entries);
 
-// Copies |result| |out_result|. Used to run asynchronous functions that take
-// GetEntryInfoPairCallback from tests.
+// Copies |error|, |drive_file_path|, and |entry_proto| to |out_error|,
+// |out_drive_file_path|, and |out_entry_proto| respectively. Used to run
+// asynchronous functions that take GetEntryInfoWithFilePathCallback from
+// tests.
+void CopyResultsFromGetEntryInfoWithFilePathCallback(
+    GDataFileError* out_error,
+    FilePath* out_drive_file_path,
+    scoped_ptr<DriveEntryProto>* out_entry_proto,
+    GDataFileError error,
+    const FilePath& drive_file_path,
+    scoped_ptr<DriveEntryProto> entry_proto);
+
+// Copies |result| to |out_result|. Used to run asynchronous functions
+// that take GetEntryInfoPairCallback from tests.
 void CopyResultsFromGetEntryInfoPairCallback(
     scoped_ptr<EntryInfoPairResult>* out_result,
     scoped_ptr<EntryInfoPairResult> result);

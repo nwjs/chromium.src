@@ -370,7 +370,7 @@ bool AcceleratorController::PerformAction(int action,
   ash::Shell* shell = ash::Shell::GetInstance();
   bool at_login_screen = false;
 #if defined(OS_CHROMEOS)
-  at_login_screen = (shell->delegate() && !shell->delegate()->IsUserLoggedIn());
+  at_login_screen = shell->delegate() && !shell->delegate()->IsSessionStarted();
 #endif
   bool at_lock_screen = shell->IsScreenLocked();
 
@@ -475,6 +475,11 @@ bool AcceleratorController::PerformAction(int action,
       if (Shell::GetInstance()->delegate()->IsSpokenFeedbackEnabled())
         return false;
       ash::Shell::GetInstance()->ToggleAppList();
+      return true;
+    case DISABLE_CAPS_LOCK:
+      // TODO(mazda): Handle this using |caps_lock_delegate_|.
+      if (shell->tray_delegate()->IsCapsLockOn())
+        shell->tray_delegate()->SetCapsLockEnabled(false);
       return true;
     case TOGGLE_CAPS_LOCK:
       if (caps_lock_delegate_.get())

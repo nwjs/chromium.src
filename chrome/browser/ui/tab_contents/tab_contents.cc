@@ -18,7 +18,7 @@
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/infobars/infobar_tab_helper.h"
-#include "chrome/browser/net/cache_stats.h"
+#include "chrome/browser/net/load_time_stats.h"
 #include "chrome/browser/omnibox_search_hint.h"
 #include "chrome/browser/password_manager/password_manager.h"
 #include "chrome/browser/password_manager/password_manager_delegate_impl.h"
@@ -64,8 +64,18 @@ using content::WebContents;
 
 namespace {
 
-static base::LazyInstance<base::PropertyAccessor<TabContents*> >
-    g_tab_contents_property_accessor = LAZY_INSTANCE_INITIALIZER;
+const char kTabContentsUserDataKey[] = "TabContentsUserData";
+
+class TabContentsUserData : public base::SupportsUserData::Data {
+ public:
+  explicit TabContentsUserData(TabContents* tab_contents)
+      : tab_contents_(tab_contents) {}
+  virtual ~TabContentsUserData() {}
+  TabContents* tab_contents() { return tab_contents_; }
+
+ private:
+  TabContents* tab_contents_;  // unowned
+};
 
 }  // namespace
 
@@ -81,9 +91,9 @@ TabContents::TabContents(WebContents* contents)
 
   chrome::SetViewType(contents, chrome::VIEW_TYPE_TAB_CONTENTS);
 
-  // Stash this in the property bag so it can be retrieved without having to
-  // go to a Browser.
-  property_accessor()->SetProperty(contents->GetPropertyBag(), this);
+  // Stash this in the WebContents.
+  contents->SetUserData(&kTabContentsUserDataKey,
+                        new TabContentsUserData(this));
 
   // Create the tab helpers.
   // restore_tab_helper because it sets up the tab ID, and other helpers may
@@ -105,8 +115,8 @@ TabContents::TabContents(WebContents* contents)
 #endif
   blocked_content_tab_helper_.reset(new BlockedContentTabHelper(this));
   bookmark_tab_helper_.reset(new BookmarkTabHelper(this));
-  cache_stats_tab_helper_.reset(
-      new chrome_browser_net::CacheStatsTabHelper(this));
+  load_time_stats_tab_helper_.reset(
+      new chrome_browser_net::LoadTimeStatsTabHelper(this));
 #if defined(ENABLE_CAPTIVE_PORTAL_DETECTION)
   captive_portal_tab_helper_.reset(
       new captive_portal::CaptivePortalTabHelper(profile(), web_contents()));
@@ -205,10 +215,6 @@ TabContents::~TabContents() {
   infobar_tab_helper_.reset();
 }
 
-base::PropertyAccessor<TabContents*>* TabContents::property_accessor() {
-  return g_tab_contents_property_accessor.Pointer();
-}
-
 TabContents* TabContents::Clone() {
   WebContents* new_web_contents = web_contents()->Clone();
   TabContents* new_tab_contents = new TabContents(new_web_contents);
@@ -222,18 +228,18 @@ TabContents* TabContents::Clone() {
 
 // static
 TabContents* TabContents::FromWebContents(WebContents* contents) {
-  TabContents** tab_contents =
-      property_accessor()->GetProperty(contents->GetPropertyBag());
+  TabContentsUserData* user_data = static_cast<TabContentsUserData*>(
+      contents->GetUserData(&kTabContentsUserDataKey));
 
-  return tab_contents ? *tab_contents : NULL;
+  return user_data ? user_data->tab_contents() : NULL;
 }
 
 // static
 const TabContents* TabContents::FromWebContents(const WebContents* contents) {
-  TabContents* const* tab_contents =
-      property_accessor()->GetProperty(contents->GetPropertyBag());
+  TabContentsUserData* user_data = static_cast<TabContentsUserData*>(
+      contents->GetUserData(&kTabContentsUserDataKey));
 
-  return tab_contents ? *tab_contents : NULL;
+  return user_data ? user_data->tab_contents() : NULL;
 }
 
 WebContents* TabContents::web_contents() const {

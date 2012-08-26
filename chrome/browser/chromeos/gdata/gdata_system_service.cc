@@ -7,16 +7,17 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/gdata/drive_api_service.h"
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
 #include "chrome/browser/chromeos/gdata/file_write_helper.h"
 #include "chrome/browser/chromeos/gdata/gdata_contacts_service.h"
-#include "chrome/browser/chromeos/gdata/gdata_documents_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_download_observer.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system.h"
 #include "chrome/browser/chromeos/gdata/gdata_file_system_proxy.h"
 #include "chrome/browser/chromeos/gdata/gdata_sync_client.h"
 #include "chrome/browser/chromeos/gdata/gdata_uploader.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
+#include "chrome/browser/chromeos/gdata/gdata_wapi_service.h"
 #include "chrome/browser/download/download_service.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -33,7 +34,7 @@ namespace gdata {
 namespace {
 
 // Used in test to setup system service.
-DocumentsServiceInterface* g_test_documents_service = NULL;
+DriveServiceInterface* g_test_drive_service = NULL;
 const std::string* g_test_cache_root = NULL;
 
 }  // namespace
@@ -54,19 +55,19 @@ GDataSystemService::~GDataSystemService() {
 }
 
 void GDataSystemService::Initialize(
-    DocumentsServiceInterface* documents_service,
+    DriveServiceInterface* drive_service,
     const FilePath& cache_root) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  documents_service_.reset(documents_service);
-  cache_ = GDataCache::CreateGDataCacheOnUIThread(
+  drive_service_.reset(drive_service);
+  cache_ = DriveCache::CreateDriveCacheOnUIThread(
       cache_root,
       blocking_task_runner_);
-  uploader_.reset(new GDataUploader(docs_service()));
+  uploader_.reset(new GDataUploader(drive_service_.get()));
   webapps_registry_.reset(new DriveWebAppsRegistry);
   file_system_.reset(new GDataFileSystem(profile_,
                                          cache(),
-                                         docs_service(),
+                                         drive_service_.get(),
                                          uploader(),
                                          webapps_registry(),
                                          blocking_task_runner_));
@@ -86,7 +87,7 @@ void GDataSystemService::Initialize(
   download_observer_->Initialize(
       download_manager,
       cache_->GetCacheDirectoryPath(
-          GDataCache::CACHE_TYPE_TMP_DOWNLOADS));
+          DriveCache::CACHE_TYPE_TMP_DOWNLOADS));
 
   AddDriveMountPoint();
   contacts_service_->Initialize();
@@ -104,7 +105,7 @@ void GDataSystemService::Shutdown() {
   file_system_.reset();
   webapps_registry_.reset();
   uploader_.reset();
-  documents_service_.reset();
+  drive_service_.reset();
 }
 
 void GDataSystemService::ClearCacheAndRemountFileSystem(
@@ -112,7 +113,7 @@ void GDataSystemService::ClearCacheAndRemountFileSystem(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   RemoveDriveMountPoint();
-  docs_service()->CancelAll();
+  drive_service()->CancelAll();
   cache_->ClearAllOnUIThread(
       base::Bind(&GDataSystemService::AddBackDriveMountPoint,
                  weak_ptr_factory_.GetWeakPtr(),
@@ -190,11 +191,11 @@ GDataSystemServiceFactory::~GDataSystemServiceFactory() {
 }
 
 // static
-void GDataSystemServiceFactory::set_documents_service_for_test(
-    DocumentsServiceInterface* documents_service) {
-  if (g_test_documents_service)
-    delete g_test_documents_service;
-  g_test_documents_service = documents_service;
+void GDataSystemServiceFactory::set_drive_service_for_test(
+    DriveServiceInterface* drive_service) {
+  if (g_test_drive_service)
+    delete g_test_drive_service;
+  g_test_drive_service = drive_service;
 }
 
 // static
@@ -209,18 +210,22 @@ ProfileKeyedService* GDataSystemServiceFactory::BuildServiceInstanceFor(
     Profile* profile) const {
   GDataSystemService* service = new GDataSystemService(profile);
 
-  DocumentsServiceInterface* documents_service =
-      g_test_documents_service ? g_test_documents_service :
-                                 new DocumentsService();
-  g_test_documents_service = NULL;
+  DriveServiceInterface* drive_service = g_test_drive_service;
+  g_test_drive_service = NULL;
+  if (!drive_service) {
+    if (util::IsDriveV2ApiEnabled())
+      drive_service = new DriveAPIService();
+    else
+      drive_service = new GDataWapiService();
+  }
 
   FilePath cache_root =
       g_test_cache_root ? FilePath(*g_test_cache_root) :
-                          GDataCache::GetCacheRootPath(profile);
+                          DriveCache::GetCacheRootPath(profile);
   delete g_test_cache_root;
   g_test_cache_root = NULL;
 
-  service->Initialize(documents_service, cache_root);
+  service->Initialize(drive_service, cache_root);
   return service;
 }
 

@@ -18,9 +18,9 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/timer.h"
+#include "chrome/browser/api/prefs/pref_change_registrar.h"
 #include "chrome/browser/extensions/extension_prefs.h"
 #include "chrome/browser/extensions/shell_window_registry.h"
-#include "chrome/browser/prefs/pref_change_registrar.h"
 #include "chrome/browser/sync/profile_sync_service_observer.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -40,15 +40,16 @@ class ActivationClient;
 
 }
 
-class BrowserLauncherItemController;
 class BrowserLauncherItemControllerTest;
+class LauncherItemController;
 class PrefService;
 class Profile;
 class ProfileSyncService;
 class TabContents;
 
-// ChromeLauncherController manages the launcher items needed for tabbed
-// browsers (BrowserLauncherItemController) and browser shortcuts.
+// ChromeLauncherController manages the launcher items needed for content
+// windows: tabbed browsers (BrowserLauncherItemController), browser shortcuts,
+// and App windows.
 class ChromeLauncherController
     : public ash::LauncherDelegate,
       public ash::LauncherModelObserver,
@@ -109,13 +110,13 @@ class ChromeLauncherController
 
   // Creates a new tabbed item on the launcher for |controller|.
   ash::LauncherID CreateTabbedLauncherItem(
-      BrowserLauncherItemController* controller,
+      LauncherItemController* controller,
       IncognitoState is_incognito,
       ash::LauncherItemStatus status);
 
   // Creates a new app item on the launcher for |controller|.
   ash::LauncherID CreateAppLauncherItem(
-      BrowserLauncherItemController* controller,
+      LauncherItemController* controller,
       const std::string& app_id,
       ash::LauncherItemStatus status);
 
@@ -275,9 +276,8 @@ class ChromeLauncherController
     // ID of the app.
     std::string app_id;
 
-    // The BrowserLauncherItemController this item came from. NULL if a
-    // shortcut.
-    BrowserLauncherItemController* controller;
+    // The LauncherItemController this item came from. NULL if a shortcut.
+    LauncherItemController* controller;
   };
 
   typedef std::map<ash::LauncherID, Item> IDToItemMap;
@@ -318,13 +318,15 @@ class ChromeLauncherController
   // Creates an app launcher to insert at |index|. Note that |index| may be
   // adjusted by the model to meet ordering constraints.
   ash::LauncherID InsertAppLauncherItem(
-      BrowserLauncherItemController* controller,
+      LauncherItemController* controller,
       const std::string& app_id,
       ash::LauncherItemStatus status,
       int index);
 
-  // Checks whether sync is completed and no pending synced extension install
-  // and calls StopLoadingAnimation when both conditions are met.
+  // Checks whether app sync status and starts/stops loading animation
+  // accordingly. If sync has not setup, do nothing. If sync is completed and
+  // there is no pending synced extension install, call StopLoadingAnimation.
+  // Otherwise, call StartLoadingAnimation.
   void CheckAppSync();
 
   void StartLoadingAnimation();
