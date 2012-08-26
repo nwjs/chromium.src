@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_CHROMEOS_KIOSK_MODE_KIOSK_MODE_IDLE_LOGOUT_H_
 #define CHROME_BROWSER_CHROMEOS_KIOSK_MODE_KIOSK_MODE_IDLE_LOGOUT_H_
 
-#include "ash/wm/user_activity_observer.h"
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "chromeos/dbus/power_manager_client.h"
@@ -14,8 +13,7 @@
 
 namespace chromeos {
 
-class KioskModeIdleLogout : public ash::UserActivityObserver,
-                            public PowerManagerClient::Observer,
+class KioskModeIdleLogout : public PowerManagerClient::Observer,
                             public content::NotificationObserver {
  public:
   static void Initialize();
@@ -35,11 +33,10 @@ class KioskModeIdleLogout : public ash::UserActivityObserver,
 
   // Overridden from PowerManagerClient::Observer:
   virtual void IdleNotify(int64 threshold) OVERRIDE;
-
-  // UserActivityObserver::Observer overrides:
-  virtual void OnUserActivity() OVERRIDE;
+  virtual void ActiveNotify() OVERRIDE;
 
   void SetupIdleNotifications();
+  void RequestNextActiveNotification();
   void RequestNextIdleNotification();
 
   content::NotificationRegistrar registrar_;
