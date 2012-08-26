@@ -39,7 +39,7 @@
           'toolkit_views%': 0,
 
           # Use OpenSSL instead of NSS. Under development: see http://crbug.com/62803
-          'use_openssl%': 1,
+          'use_openssl%': 0,
 
           'use_ibus%': 0,
 
