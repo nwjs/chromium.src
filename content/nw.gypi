@@ -110,6 +110,8 @@
         'nw/src/shell_switches.h',
         'nw/src/shell_url_request_context_getter.cc',
         'nw/src/shell_url_request_context_getter.h',
+        'nw/src/prerenderer/prerenderer_client.cc',
+        'nw/src/prerenderer/prerenderer_client.h',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
