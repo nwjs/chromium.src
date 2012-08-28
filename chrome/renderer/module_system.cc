@@ -61,8 +61,8 @@ bool ModuleSystem::IsPresentInCurrentContext() {
 void ModuleSystem::DumpException(v8::Handle<v8::Message> message) {
   std::string resource_name = "<unknown resource>";
   if (!message->GetScriptResourceName().IsEmpty()) {
-    resource_name = *v8::String::Utf8Value(
-                 message->GetScriptResourceName()->ToString());
+    resource_name =
+        *v8::String::Utf8Value(message->GetScriptResourceName()->ToString());
   }
 
   std::string error_message = "<no error message>";
