@@ -18,7 +18,8 @@ bool ConfigureAsyncDnsFieldTrial() {
   const base::FieldTrial::Probability kAsyncDnsDivisor = 100;
   base::FieldTrial::Probability enabled_probability = 0;
 
-  if (chrome::VersionInfo::GetChannel() <= chrome::VersionInfo::CHANNEL_DEV)
+  // TODO(szym): expand to DEV channel after fixing http://crbug.com/121085
+  if (chrome::VersionInfo::GetChannel() <= chrome::VersionInfo::CHANNEL_CANARY)
     enabled_probability = 50;
 
   scoped_refptr<base::FieldTrial> trial(

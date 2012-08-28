@@ -10,6 +10,7 @@
     '../gpu/gpu.gyp:gpu_ipc',
     '../ipc/ipc.gyp:ipc',
     '../media/media.gyp:media',
+    '../media/media.gyp:shared_memory_support',
     '../net/net.gyp:net',
     '../ppapi/ppapi_internal.gyp:ppapi_shared',
     '../skia/skia.gyp:skia',
@@ -22,6 +23,7 @@
     '../webkit/support/webkit_support.gyp:blob',
     '../webkit/support/webkit_support.gyp:database',
     '../webkit/support/webkit_support.gyp:fileapi',
+    '../webkit/support/webkit_support.gyp:webkit_base',
   ],
   'include_dirs': [
     '..',

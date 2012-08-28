@@ -12,21 +12,27 @@
 namespace remoting {
 
 TEST(EncodeDecodeTest, EncodeAndDecodeZlib) {
-  scoped_ptr<EncoderRowBased> encoder(EncoderRowBased::CreateZlibEncoder());
-  scoped_ptr<DecoderRowBased> decoder(DecoderRowBased::CreateZlibDecoder());
-  TestEncoderDecoder(encoder.get(), decoder.get(), true);
+  scoped_ptr<VideoEncoderRowBased> encoder(
+      VideoEncoderRowBased::CreateZlibEncoder());
+  scoped_ptr<VideoDecoderRowBased> decoder(
+      VideoDecoderRowBased::CreateZlibDecoder());
+  TestVideoEncoderDecoder(encoder.get(), decoder.get(), true);
 }
 
 TEST(EncodeDecodeTest, EncodeAndDecodeSmallOutputBufferZlib) {
-  scoped_ptr<EncoderRowBased> encoder(EncoderRowBased::CreateZlibEncoder(64));
-  scoped_ptr<DecoderRowBased> decoder(DecoderRowBased::CreateZlibDecoder());
-  TestEncoderDecoder(encoder.get(), decoder.get(), true);
+  scoped_ptr<VideoEncoderRowBased> encoder(
+      VideoEncoderRowBased::CreateZlibEncoder(64));
+  scoped_ptr<VideoDecoderRowBased> decoder(
+      VideoDecoderRowBased::CreateZlibDecoder());
+  TestVideoEncoderDecoder(encoder.get(), decoder.get(), true);
 }
 
 TEST(EncodeDecodeTest, EncodeAndDecodeNoneStrictZlib) {
-  scoped_ptr<EncoderRowBased> encoder(EncoderRowBased::CreateZlibEncoder());
-  scoped_ptr<DecoderRowBased> decoder(DecoderRowBased::CreateZlibDecoder());
-  TestEncoderDecoder(encoder.get(), decoder.get(), false);
+  scoped_ptr<VideoEncoderRowBased> encoder(
+      VideoEncoderRowBased::CreateZlibEncoder());
+  scoped_ptr<VideoDecoderRowBased> decoder(
+      VideoDecoderRowBased::CreateZlibDecoder());
+  TestVideoEncoderDecoder(encoder.get(), decoder.get(), false);
 }
 
 }  // namespace remoting

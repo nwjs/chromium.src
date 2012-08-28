@@ -13,6 +13,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebContentLayerClient.h"
+#include "third_party/WebKit/Source/Platform/chromium/public/WebExternalTextureLayerClient.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebLayer.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebContentLayer.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebSolidColorLayer.h"
@@ -46,7 +47,8 @@ class Texture;
 // NULL, but the children are not deleted.
 class COMPOSITOR_EXPORT Layer
     : public LayerAnimationDelegate,
-      NON_EXPORTED_BASE(public WebKit::WebContentLayerClient) {
+      NON_EXPORTED_BASE(public WebKit::WebContentLayerClient),
+      NON_EXPORTED_BASE(public WebKit::WebExternalTextureLayerClient) {
  public:
   Layer();
   explicit Layer(LayerType type);
@@ -130,6 +132,10 @@ class COMPOSITOR_EXPORT Layer
   // texture (resulting alpha = opacity * alpha).
   float opacity() const { return opacity_; }
   void SetOpacity(float opacity);
+
+  // Returns the actual opacity, which the opacity of this layer multipled by
+  // the combined opacity of the parent.
+  float GetCombinedOpacity() const;
 
   // Blur pixels by this amount in anything below the layer and visible through
   // the layer.
@@ -255,17 +261,14 @@ class COMPOSITOR_EXPORT Layer
   // WebContentLayerClient
   virtual void paintContents(WebKit::WebCanvas*,
                              const WebKit::WebRect& clip,
-#if defined(WEBCONTENTLAYERCLIENT_FLOAT_OPAQUE_RECT)
                              WebKit::WebFloatRect& opaque);
-#else
-                             WebKit::WebRect& opaque);
-#endif
 
-#if defined(WEBLAYER_IS_PURE_VIRTUAL)
   WebKit::WebLayer* web_layer() { return web_layer_; }
-#else
-  WebKit::WebLayer web_layer() { return web_layer_; }
-#endif
+
+  // WebExternalTextureLayerClient
+  virtual unsigned prepareTexture(
+      WebKit::WebTextureUpdater& /* updater */) OVERRIDE;
+  virtual WebKit::WebGraphicsContext3D* context() OVERRIDE;
 
   float device_scale_factor() const { return device_scale_factor_; }
 
@@ -275,12 +278,6 @@ class COMPOSITOR_EXPORT Layer
   bool force_render_surface() const { return force_render_surface_; }
 
  private:
-  // TODO(vollick): Eventually, if a non-leaf node has an opacity of less than
-  // 1.0, we'll render to a separate texture, and then apply the alpha.
-  // Currently, we multiply our opacity by all our ancestor's opacities and
-  // use the combined result, but this is only temporary.
-  float GetCombinedOpacity() const;
-
   // Stacks |child| above or below |other|.  Helper method for StackAbove() and
   // StackBelow().
   void StackRelativeTo(Layer* child, Layer* other, bool above);
@@ -380,16 +377,12 @@ class COMPOSITOR_EXPORT Layer
 
   scoped_ptr<LayerAnimator> animator_;
 
-#if defined(WEBLAYER_IS_PURE_VIRTUAL)
   // Ownership of the layer is held through one of the strongly typed layer
   // pointers, depending on which sort of layer this is.
   scoped_ptr<WebKit::WebContentLayer> content_layer_;
   scoped_ptr<WebKit::WebExternalTextureLayer> texture_layer_;
   scoped_ptr<WebKit::WebSolidColorLayer> solid_color_layer_;
   WebKit::WebLayer* web_layer_;
-#else
-  WebKit::WebLayer web_layer_;
-#endif
   bool web_layer_is_accelerated_;
   bool show_debug_borders_;
 

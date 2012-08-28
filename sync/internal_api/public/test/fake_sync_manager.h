@@ -10,7 +10,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
 #include "sync/internal_api/public/sync_manager.h"
-#include "sync/notifier/sync_notifier_registrar.h"
+#include "sync/notifier/invalidator_registrar.h"
 
 namespace base {
 class SequencedTaskRunner;
@@ -54,7 +54,7 @@ class FakeSyncManager : public SyncManager {
   ModelTypeSet GetAndResetEnabledTypes();
 
   // Posts a method to invalidate the given IDs on the sync thread.
-  void Invalidate(const ObjectIdPayloadMap& id_payloads,
+  void Invalidate(const ObjectIdStateMap& id_state_map,
                   IncomingNotificationSource source);
 
   // Posts a method to enable notifications on the sync thread.
@@ -81,7 +81,7 @@ class FakeSyncManager : public SyncManager {
       ExtensionsActivityMonitor* extensions_activity_monitor,
       ChangeDelegate* change_delegate,
       const SyncCredentials& credentials,
-      scoped_ptr<SyncNotifier> sync_notifier,
+      scoped_ptr<Invalidator> invalidator,
       const std::string& restored_key_for_bootstrapping,
       const std::string& restored_keystore_key_for_bootstrapping,
       scoped_ptr<InternalComponentsFactory> internal_components_factory,
@@ -97,12 +97,12 @@ class FakeSyncManager : public SyncManager {
   virtual void UpdateCredentials(const SyncCredentials& credentials) OVERRIDE;
   virtual void UpdateEnabledTypes(const ModelTypeSet& types) OVERRIDE;
   virtual void RegisterInvalidationHandler(
-      SyncNotifierObserver* handler) OVERRIDE;
+      InvalidationHandler* handler) OVERRIDE;
   virtual void UpdateRegisteredInvalidationIds(
-      SyncNotifierObserver* handler,
+      InvalidationHandler* handler,
       const ObjectIdSet& ids) OVERRIDE;
   virtual void UnregisterInvalidationHandler(
-      SyncNotifierObserver* handler) OVERRIDE;
+      InvalidationHandler* handler) OVERRIDE;
   virtual void StartSyncingNormally(
       const ModelSafeRoutingInfo& routing_info) OVERRIDE;
   virtual void ConfigureSyncer(
@@ -125,7 +125,7 @@ class FakeSyncManager : public SyncManager {
 
  private:
   void InvalidateOnSyncThread(
-      const ObjectIdPayloadMap& id_payloads,
+      const ObjectIdStateMap& id_state_map,
       IncomingNotificationSource source);
   void EnableNotificationsOnSyncThread();
   void DisableNotificationsOnSyncThread(NotificationsDisabledReason reason);
@@ -149,8 +149,8 @@ class FakeSyncManager : public SyncManager {
   // The set of types that have been enabled.
   ModelTypeSet enabled_types_;
 
-  // Faked notifier state.
-  SyncNotifierRegistrar registrar_;
+  // Faked invalidator state.
+  InvalidatorRegistrar registrar_;
 
   scoped_ptr<FakeSyncEncryptionHandler> fake_encryption_handler_;
 

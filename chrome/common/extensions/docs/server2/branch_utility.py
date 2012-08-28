@@ -8,9 +8,9 @@ import object_store
 import operator
 
 class BranchUtility(object):
-  def __init__(self, base_path, default_branch, fetcher, object_store):
+  def __init__(self, base_path, default_branches, fetcher, object_store):
     self._base_path = base_path
-    self._default_branch = default_branch
+    self._default_branches = default_branches
     self._fetcher = fetcher
     self._object_store = object_store
 
@@ -27,7 +27,10 @@ class BranchUtility(object):
     if first in ['trunk', 'dev', 'beta', 'stable']:
       return (first, second)
     else:
-      return (self._default_branch, path)
+      doc_type = path.split('/')[0]
+      if doc_type in self._default_branches:
+        return (self._default_branches[doc_type], path)
+      return (self._default_branches['extensions'], path)
 
   def GetBranchNumberForChannelName(self, channel_name):
     """Returns the branch number for a channel name. If the |channel_name| is
@@ -40,8 +43,7 @@ class BranchUtility(object):
       return channel_name
 
     branch_number = self._object_store.Get(channel_name + '.' + self._base_path,
-                                           object_store.BRANCH_UTILITY,
-                                           time=86400).Get()
+                                           object_store.BRANCH_UTILITY).Get()
     if branch_number is not None:
       return branch_number
 
@@ -63,10 +65,8 @@ class BranchUtility(object):
                              None,
                              operator.itemgetter(1),
                              True)
-    # Cache for 24 hours.
     self._object_store.Set(channel_name + '.' + self._base_path,
                            sorted_branches[0][0],
-                           object_store.BRANCH_UTILITY,
-                           time=86400)
+                           object_store.BRANCH_UTILITY)
 
     return sorted_branches[0][0]

@@ -36,12 +36,8 @@
       'about_plugins_ui.AboutPluginsUITest',
       'apptest',
       'autofill',
-      'bookmarks',
-      'browser',
       'chromoting.it2me_basic',
       'codesign',
-      'content',
-      'cookies',
       'crash_reporter',
       'downloads',
       'execute_javascript',
@@ -49,7 +45,6 @@
       'flash',
       'fullscreen_mouselock',
       'history',
-      'https',
       'gtalk.test_basic',
       'imports',
       'infobars',
@@ -67,13 +62,11 @@
       'popups',
       'prefs',
       'prefs_ui',
-      'protector',
       'pyauto_webdriver',
       'search_engines',
       'shortcuts',
       'special_tabs',
       'sync.SyncTest',
-      'test_basic',
       'test_pyauto',
       'themes',
 
@@ -146,9 +139,6 @@
 
       # Mysteriously broken?
       # crbug.com/138857
-      '-bookmarks.BookmarksTest.testAddBookmarksInMultiProfileIncognito',
-      '-bookmarks.BookmarksTest.testEditBookmarksInMultiProfileIncognito',
-      '-bookmarks.BookmarksTest.testRemoveBookmarksInMultiProfileIncognito',
       '-multiprofile.MultiprofileTest.testMakeSearchEngineDefaultInMultiprofile',
     ],
 
@@ -237,7 +227,6 @@
       # ===========================
       # Permanently-disabled tests.
       # ===========================
-      '-browser.BrowserTest.testWindowResize',  # Details at: crbug.com/44963
       # crbug.com/104206
       '-notifications.NotificationsTest.testKillNotificationProcess',
       # Several omnibox tests do not show omnibox results when run
@@ -300,8 +289,6 @@
       # ===========================
       # Permanently-disabled tests.
       # ===========================
-      # You cannot resize the browser window on ChromeOS.
-      '-browser.BrowserTest.testWindowResize',
       # ChromeOS doesn't yet support the chromoting host.
       '-chromoting.it2me_basic',
       # No codesign verification on ChromeOS.
@@ -312,21 +299,12 @@
       # So one-click infobar tests do tno apply to chromeos.
       '-infobars.OneClickInfobarTest',
       # Multi-profile doesn't apply to chromeos yet.
-      '-bookmarks.BookmarksTest.testAddBookmarkInMultiProfile',
-      '-bookmarks.BookmarksTest.testRemoveBookmarksInMultiProfile',
-      '-bookmarks.BookmarksTest.testEditBookmarksInMultiProfile',
-      '-bookmarks.BookmarksTest.testAddBookmarksInMultiProfileIncognito',
-      '-bookmarks.BookmarksTest.testRemoveBookmarksInMultiProfileIncognito',
-      '-bookmarks.BookmarksTest.testEditBookmarksInMultiProfileIncognito',
-      '-bookmarks.BookmarksTest.testSearchBookmarksInMultiProfile',
       '-multiprofile',
       '-ntp.NTPTest.testDifferentProfileNotAppearInMostVisited',
       # These require a custom setup on ChromeOS and have their own suite for
       # this platform.
       '-policy',
       '-policy_prefs_ui',
-      # No Protector on ChromeOS.
-      '-protector',
       # You cannot adjust the downloads directory on ChromeOS.
       '-prefs.PrefsTest.testDownloadDirPref',
 
@@ -335,8 +313,6 @@
       # ==================================================
       # crbug.com/132337
       '-autofill.AutofillTest.testTabOrderForEditAddress',
-      # crosbug.com/27405
-      '-browser.BrowserTest.testKillAndReloadSharedProcess',
       # crbug.com/129469
       '-chromeos_prefs.ChromeosPrefsTest.testCaptureUserPhoto',
       # Downloads panel stays even after declining a download.
@@ -349,9 +325,6 @@
       # crbug.com/134593
       '-gtalk.test_basic.BasicTest.testCurrentVersion',
       '-gtalk.test_basic.BasicTest.testRCVersion',
-      # crbug.com/129498
-      '-https.SSLTest.testSSLCertAuthorityOK',
-      '-https.SSLTest.testSSLCertOK',
       # crosbug.com/24496
       '-infobars.InfobarTest.testPluginCrashForMultiTabs',
       # crbug.com/109035
@@ -514,8 +487,6 @@
       # crbug.com/105948
       '-autofill.AutofillTest.testDisplayLineItemForEntriesWithNoCCNum',
       '-autofill.AutofillTest.testPostalCodeAndStateLabelsBasedOnCountry',
-      # crbug.com/115707
-      '-browser.BrowserTest.testMaxProcess',
       # crbug.com/111289
       '-extensions.ExtensionsTest.testAllowAccessFileURLs',
       # crbug.com/113090
@@ -528,8 +499,6 @@
       '-translate.TranslateTest.testSeveralLanguages',
       # crbug.com/95621
       '-youtube.YoutubeTest.testPlayerStatus',
-      # crbug.com/140047
-      '-protector.ProtectorSessionStartupTest.testDetectSessionStartupChangeAndApply',
     ],
 
     'mac': [
@@ -850,8 +819,6 @@
       '-translate.TranslateTest.testSeveralLanguages',
       '-translate.TranslateTest.testBarNotVisibleOnSSLErrorPage',
       '-ntp.NTPTest.testLaunchAppFullScreen',
-      '-https.SSLTest.testSSLCertOK',
-      '-https.SSLTest.testSSLCertAuthorityOK',
       '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
       '-policy_prefs_ui.PolicyPrefsUITest.testNoUserPoliciesNoBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',

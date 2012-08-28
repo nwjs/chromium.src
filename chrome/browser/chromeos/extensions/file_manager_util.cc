@@ -15,9 +15,9 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/extensions/file_handler_util.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system.h"
 #include "chrome/browser/chromeos/gdata/drive_files.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system.h"
-#include "chrome/browser/chromeos/gdata/gdata_system_service.h"
+#include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/operation_registry.h"
 #include "chrome/browser/chromeos/media/media_player.h"
@@ -233,14 +233,14 @@ void ShowWarningMessageBox(Profile* profile, const FilePath& path) {
 void OnGDataFileFound(Profile* profile,
                       const FilePath& file_path,
                       gdata::DriveFileType file_type,
-                      gdata::GDataFileError error,
+                      gdata::DriveFileError error,
                       scoped_ptr<gdata::DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
-    error = gdata::GDATA_FILE_ERROR_NOT_FOUND;
+    error = gdata::DRIVE_FILE_ERROR_NOT_FOUND;
 
-  if (error == gdata::GDATA_FILE_OK) {
+  if (error == gdata::DRIVE_FILE_OK) {
     GURL page_url;
     if (file_type == gdata::REGULAR_FILE) {
       page_url = gdata::util::GetFileResourceUrl(
@@ -255,6 +255,17 @@ void OnGDataFileFound(Profile* profile,
   } else {
     ShowWarningMessageBox(profile, file_path);
   }
+}
+
+// Called when a crx file on GData was downloaded.
+void OnCRXDownloadCallback(Browser* browser,
+                           gdata::DriveFileError error,
+                           const FilePath& file,
+                           const std::string& unused_mime_type,
+                           gdata::DriveFileType file_type) {
+  if (error != gdata::DRIVE_FILE_OK || file_type != gdata::REGULAR_FILE)
+    return;
+  InstallCRX(browser, file);
 }
 
 }  // namespace
@@ -625,8 +636,8 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
     // Override gdata resource to point to internal handler instead of file:
     // URL.
     if (gdata::util::GetSpecialRemoteRootPath().IsParent(path)) {
-      gdata::GDataSystemService* system_service =
-          gdata::GDataSystemServiceFactory::GetForProfile(profile);
+      gdata::DriveSystemService* system_service =
+          gdata::DriveSystemServiceFactory::GetForProfile(profile);
       if (!system_service)
         return false;
 
@@ -643,8 +654,8 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
   if (IsSupportedGDocsExtension(file_extension.data())) {
     if (gdata::util::GetSpecialRemoteRootPath().IsParent(path)) {
       // The file is on Google Docs. Get the Docs from the GData service.
-      gdata::GDataSystemService* system_service =
-          gdata::GDataSystemServiceFactory::GetForProfile(profile);
+      gdata::DriveSystemService* system_service =
+          gdata::DriveSystemServiceFactory::GetForProfile(profile);
       if (!system_service)
         return false;
 
@@ -695,7 +706,18 @@ bool ExecuteBuiltinHandler(Browser* browser, const FilePath& path,
   }
 
   if (IsCRXFile(file_extension.data())) {
-    InstallCRX(browser, path);
+    if (gdata::util::IsUnderGDataMountPoint(path)) {
+      gdata::DriveSystemService* system_service =
+          gdata::DriveSystemServiceFactory::GetForProfile(profile);
+      if (!system_service)
+        return false;
+      system_service->file_system()->GetFileByPath(
+          gdata::util::ExtractGDataPath(path),
+          base::Bind(&OnCRXDownloadCallback, browser),
+          gdata::GetContentCallback());
+    } else {
+      InstallCRX(browser, path);
+    }
     return true;
   }
 

@@ -29,6 +29,7 @@ class Widget;
 
 namespace ash {
 
+class CapsLockDelegate;
 class LauncherDelegate;
 class LauncherModel;
 struct LauncherItem;
@@ -129,6 +130,9 @@ class ASH_EXPORT ShellDelegate {
   // Creates a user wallpaper delegate. Shell takes ownership of the delegate.
   virtual UserWallpaperDelegate* CreateUserWallpaperDelegate() = 0;
 
+  // Creates a caps lock delegate. Shell takes ownership of the delegate.
+  virtual CapsLockDelegate* CreateCapsLockDelegate() = 0;
+
   // Creates a user action client. Shell takes ownership of the object.
   virtual aura::client::UserActionClient* CreateUserActionClient() = 0;
 
@@ -137,6 +141,15 @@ class ASH_EXPORT ShellDelegate {
 
   // Records that the user performed an action.
   virtual void RecordUserMetricsAction(UserMetricsAction action) = 0;
+
+  // Handles the Next Track Media shortcut key.
+  virtual void HandleMediaNextTrack() = 0;
+
+  // Handles the Play/Pause Toggle Media shortcut key.
+  virtual void HandleMediaPlayPause() = 0;
+
+  // Handles the Previous Track Media shortcut key.
+  virtual void HandleMediaPrevTrack() = 0;
 };
 
 }  // namespace ash

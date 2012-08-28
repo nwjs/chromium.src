@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "ash/caps_lock_delegate_stub.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/test/test_launcher_delegate.h"
@@ -108,6 +109,10 @@ UserWallpaperDelegate* TestShellDelegate::CreateUserWallpaperDelegate() {
   return NULL;
 }
 
+CapsLockDelegate* TestShellDelegate::CreateCapsLockDelegate() {
+  return new CapsLockDelegateStub;
+}
+
 aura::client::UserActionClient* TestShellDelegate::CreateUserActionClient() {
   return NULL;
 }
@@ -116,6 +121,15 @@ void TestShellDelegate::OpenFeedbackPage() {
 }
 
 void TestShellDelegate::RecordUserMetricsAction(UserMetricsAction action) {
+}
+
+void TestShellDelegate::HandleMediaNextTrack() {
+}
+
+void TestShellDelegate::HandleMediaPlayPause() {
+}
+
+void TestShellDelegate::HandleMediaPrevTrack() {
 }
 
 }  // namespace test

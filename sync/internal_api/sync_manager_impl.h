@@ -22,8 +22,8 @@
 #include "sync/internal_api/public/sync_manager.h"
 #include "sync/internal_api/sync_encryption_handler_impl.h"
 #include "sync/js/js_backend.h"
+#include "sync/notifier/invalidation_handler.h"
 #include "sync/notifier/notifications_disabled_reason.h"
-#include "sync/notifier/sync_notifier_observer.h"
 #include "sync/syncable/directory_change_delegate.h"
 #include "sync/util/cryptographer.h"
 #include "sync/util/time.h"
@@ -48,7 +48,7 @@ class SyncSessionContext;
 // same thread.
 class SyncManagerImpl : public SyncManager,
                         public net::NetworkChangeNotifier::IPAddressObserver,
-                        public SyncNotifierObserver,
+                        public InvalidationHandler,
                         public JsBackend,
                         public SyncEngineEventListener,
                         public ServerConnectionEventListener,
@@ -72,7 +72,7 @@ class SyncManagerImpl : public SyncManager,
       ExtensionsActivityMonitor* extensions_activity_monitor,
       SyncManager::ChangeDelegate* change_delegate,
       const SyncCredentials& credentials,
-      scoped_ptr<SyncNotifier> sync_notifier,
+      scoped_ptr<Invalidator> invalidator,
       const std::string& restored_key_for_bootstrapping,
       const std::string& restored_keystore_key_for_bootstrapping,
       scoped_ptr<InternalComponentsFactory> internal_components_factory,
@@ -89,12 +89,12 @@ class SyncManagerImpl : public SyncManager,
   virtual void UpdateEnabledTypes(
       const ModelTypeSet& enabled_types) OVERRIDE;
   virtual void RegisterInvalidationHandler(
-      SyncNotifierObserver* handler) OVERRIDE;
+      InvalidationHandler* handler) OVERRIDE;
   virtual void UpdateRegisteredInvalidationIds(
-      SyncNotifierObserver* handler,
+      InvalidationHandler* handler,
       const ObjectIdSet& ids) OVERRIDE;
   virtual void UnregisterInvalidationHandler(
-      SyncNotifierObserver* handler) OVERRIDE;
+      InvalidationHandler* handler) OVERRIDE;
   virtual void StartSyncingNormally(
       const ModelSafeRoutingInfo& routing_info) OVERRIDE;
   virtual void ConfigureSyncer(
@@ -128,6 +128,7 @@ class SyncManagerImpl : public SyncManager,
   virtual void OnEncryptionComplete() OVERRIDE;
   virtual void OnCryptographerStateChanged(
       Cryptographer* cryptographer) OVERRIDE;
+  virtual void OnPassphraseStateChanged(PassphraseState state) OVERRIDE;
 
   // Return the currently active (validated) username for use with syncable
   // types.
@@ -166,12 +167,12 @@ class SyncManagerImpl : public SyncManager,
       const syncable::ImmutableWriteTransactionInfo& write_transaction_info,
       syncable::BaseTransaction* trans) OVERRIDE;
 
-  // SyncNotifierObserver implementation.
+  // InvalidationHandler implementation.
   virtual void OnNotificationsEnabled() OVERRIDE;
   virtual void OnNotificationsDisabled(
       NotificationsDisabledReason reason) OVERRIDE;
   virtual void OnIncomingNotification(
-      const ObjectIdPayloadMap& id_payloads,
+      const ObjectIdStateMap& id_state_map,
       IncomingNotificationSource source) OVERRIDE;
 
   // Called only by our NetworkChangeNotifier.
@@ -255,7 +256,7 @@ class SyncManagerImpl : public SyncManager,
   // Called for every notification. This updates the notification statistics
   // to be displayed in about:sync.
   void UpdateNotificationInfo(
-      const ModelTypePayloadMap& type_payloads);
+      const ModelTypeStateMap& type_state_map);
 
   // Checks for server reachabilty and requests a nudge.
   void OnIPAddressChangedImpl();
@@ -331,8 +332,8 @@ class SyncManagerImpl : public SyncManager,
   // Start()ed.
   scoped_ptr<SyncScheduler> scheduler_;
 
-  // The SyncNotifier which notifies us when updates need to be downloaded.
-  scoped_ptr<SyncNotifier> sync_notifier_;
+  // The Invalidator which notifies us when updates need to be downloaded.
+  scoped_ptr<Invalidator> invalidator_;
 
   // A multi-purpose status watch object that aggregates stats from various
   // sync components.

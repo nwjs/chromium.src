@@ -60,8 +60,8 @@
 #include "base/path_service.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/gdata_system_service.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_interface.h"
+#include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/chromeos/system/syslogs_provider.h"
@@ -123,10 +123,10 @@ bool ScreenshotGDataTimestampComp(const gdata::DriveEntryProto& entry1,
 void ReadDirectoryCallback(size_t max_saved,
                            std::vector<std::string>* saved_screenshots,
                            base::Closure callback,
-                           gdata::GDataFileError error,
+                           gdata::DriveFileError error,
                            bool hide_hosted_documents,
                            scoped_ptr<gdata::DriveEntryProtoVector> entries) {
-  if (error != gdata::GDATA_FILE_OK) {
+  if (error != gdata::DRIVE_FILE_OK) {
     callback.Run();
     return;
   }
@@ -584,8 +584,8 @@ void FeedbackHandler::RefreshSavedScreenshotsCallback(
 void FeedbackHandler::GetMostRecentScreenshotsGData(
     const FilePath& filepath, std::vector<std::string>* saved_screenshots,
     size_t max_saved, base::Closure callback) {
-  gdata::GDataFileSystemInterface* file_system =
-      gdata::GDataSystemServiceFactory::GetForProfile(
+  gdata::DriveFileSystemInterface* file_system =
+      gdata::DriveSystemServiceFactory::GetForProfile(
           Profile::FromWebUI(web_ui()))->file_system();
   file_system->ReadDirectoryByPath(
       gdata::util::ExtractGDataPath(filepath),

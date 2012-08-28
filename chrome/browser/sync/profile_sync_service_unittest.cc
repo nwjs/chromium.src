@@ -25,7 +25,8 @@
 #include "sync/js/js_arg_list.h"
 #include "sync/js/js_event_details.h"
 #include "sync/js/js_test_util.h"
-#include "sync/notifier/mock_sync_notifier_observer.h"
+#include "sync/notifier/fake_invalidation_handler.h"
+#include "sync/notifier/object_id_state_map_test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/glue/webkit_glue.h"
@@ -370,66 +371,62 @@ TEST_F(ProfileSyncServiceTest, FailToOpenDatabase) {
 }
 
 // Register for some IDs with the ProfileSyncService and trigger some
-// invalidation messages.  They should be received by the observer.
+// invalidation messages.  They should be received by the handler.
 // Then unregister and trigger the invalidation messages again.  Those
-// shouldn't be received by the observer.
+// shouldn't be received by the handler.
 TEST_F(ProfileSyncServiceTest, UpdateRegisteredInvalidationIds) {
   StartSyncService();
 
   syncer::ObjectIdSet ids;
   ids.insert(invalidation::ObjectId(1, "id1"));
   ids.insert(invalidation::ObjectId(2, "id2"));
-  const syncer::ObjectIdPayloadMap& payloads =
-      syncer::ObjectIdSetToPayloadMap(ids, "payload");
+  const syncer::ObjectIdStateMap& states =
+      syncer::ObjectIdSetToStateMap(ids, "payload");
 
-  StrictMock<syncer::MockSyncNotifierObserver> observer;
-  EXPECT_CALL(observer, OnNotificationsEnabled());
-  EXPECT_CALL(observer, OnIncomingNotification(
-      payloads, syncer::REMOTE_NOTIFICATION));
-  EXPECT_CALL(observer, OnNotificationsDisabled(
-      syncer::TRANSIENT_NOTIFICATION_ERROR));
+  syncer::FakeInvalidationHandler handler;
 
-  service_->RegisterInvalidationHandler(&observer);
-  service_->UpdateRegisteredInvalidationIds(&observer, ids);
+  service_->RegisterInvalidationHandler(&handler);
+  service_->UpdateRegisteredInvalidationIds(&handler, ids);
 
   SyncBackendHostForProfileSyncTest* const backend =
       service_->GetBackendForTest();
 
   backend->EmitOnNotificationsEnabled();
-  backend->EmitOnIncomingNotification(payloads, syncer::REMOTE_NOTIFICATION);
+  EXPECT_EQ(syncer::NO_NOTIFICATION_ERROR,
+            handler.GetNotificationsDisabledReason());
+
+  backend->EmitOnIncomingNotification(states, syncer::REMOTE_NOTIFICATION);
+  EXPECT_THAT(states, Eq(handler.GetLastNotificationIdStateMap()));
+  EXPECT_EQ(syncer::REMOTE_NOTIFICATION, handler.GetLastNotificationSource());
+
   backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
+  EXPECT_EQ(syncer::TRANSIENT_NOTIFICATION_ERROR,
+            handler.GetNotificationsDisabledReason());
 
-  Mock::VerifyAndClearExpectations(&observer);
+  Mock::VerifyAndClearExpectations(&handler);
 
-  service_->UnregisterInvalidationHandler(&observer);
+  service_->UnregisterInvalidationHandler(&handler);
 
   backend->EmitOnNotificationsEnabled();
-  backend->EmitOnIncomingNotification(payloads, syncer::REMOTE_NOTIFICATION);
+  backend->EmitOnIncomingNotification(states, syncer::REMOTE_NOTIFICATION);
   backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
 }
 
 // Register for some IDs with the ProfileSyncService, restart sync,
 // and trigger some invalidation messages.  They should still be
-// received by the observer.
+// received by the handler.
 TEST_F(ProfileSyncServiceTest, UpdateRegisteredInvalidationIdsPersistence) {
   StartSyncService();
 
   syncer::ObjectIdSet ids;
   ids.insert(invalidation::ObjectId(3, "id3"));
-  const syncer::ObjectIdPayloadMap& payloads =
-      syncer::ObjectIdSetToPayloadMap(ids, "payload");
+  const syncer::ObjectIdStateMap& states =
+      syncer::ObjectIdSetToStateMap(ids, "payload");
 
-  StrictMock<syncer::MockSyncNotifierObserver> observer;
-  EXPECT_CALL(observer, OnNotificationsEnabled());
-  EXPECT_CALL(observer, OnIncomingNotification(
-      payloads, syncer::REMOTE_NOTIFICATION));
-  // This may get called more than once, as a real notifier is
-  // created.
-  EXPECT_CALL(observer, OnNotificationsDisabled(
-      syncer::TRANSIENT_NOTIFICATION_ERROR)).Times(AtLeast(1));
+  syncer::FakeInvalidationHandler handler;
 
-  service_->RegisterInvalidationHandler(&observer);
-  service_->UpdateRegisteredInvalidationIds(&observer, ids);
+  service_->RegisterInvalidationHandler(&handler);
+  service_->UpdateRegisteredInvalidationIds(&handler, ids);
 
   service_->StopAndSuppress();
   service_->UnsuppressAndStart();
@@ -438,8 +435,16 @@ TEST_F(ProfileSyncServiceTest, UpdateRegisteredInvalidationIdsPersistence) {
       service_->GetBackendForTest();
 
   backend->EmitOnNotificationsEnabled();
-  backend->EmitOnIncomingNotification(payloads, syncer::REMOTE_NOTIFICATION);
+  EXPECT_EQ(syncer::NO_NOTIFICATION_ERROR,
+            handler.GetNotificationsDisabledReason());
+
+  backend->EmitOnIncomingNotification(states, syncer::REMOTE_NOTIFICATION);
+  EXPECT_THAT(states, Eq(handler.GetLastNotificationIdStateMap()));
+  EXPECT_EQ(syncer::REMOTE_NOTIFICATION, handler.GetLastNotificationSource());
+
   backend->EmitOnNotificationsDisabled(syncer::TRANSIENT_NOTIFICATION_ERROR);
+  EXPECT_EQ(syncer::TRANSIENT_NOTIFICATION_ERROR,
+            handler.GetNotificationsDisabledReason());
 }
 
 }  // namespace

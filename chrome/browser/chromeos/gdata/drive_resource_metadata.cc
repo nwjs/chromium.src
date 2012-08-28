@@ -28,9 +28,15 @@ const char kDBKeyLargestChangestamp[] = "m:largest_changestamp";
 const char kDBKeyVersion[] = "m:version";
 const char kDBKeyResourceIdPrefix[] = "r:";
 
+// Posts |error| to |callback| asynchronously.
+void PostError(const FileMoveCallback& callback, DriveFileError error) {
+  base::MessageLoopProxy::current()->PostTask(FROM_HERE,
+      base::Bind(callback, error, FilePath()));
+}
+
 }  // namespace
 
-EntryInfoResult::EntryInfoResult() : error(GDATA_FILE_ERROR_FAILED) {
+EntryInfoResult::EntryInfoResult() : error(DRIVE_FILE_ERROR_FAILED) {
 }
 
 EntryInfoResult::~EntryInfoResult() {
@@ -220,17 +226,39 @@ void DriveResourceMetadata::ClearRoot() {
 }
 
 void DriveResourceMetadata::AddEntryToDirectory(
-    DriveDirectory* directory,
-    DriveEntry* new_entry,
+    const FilePath& directory_path,
+    scoped_ptr<DocumentEntry> doc_entry,
     const FileMoveCallback& callback) {
-  DCHECK(directory);
-  DCHECK(new_entry);
+  DCHECK(!directory_path.empty());
   DCHECK(!callback.is_null());
+
+  if (!doc_entry.get()) {
+    PostError(callback, DRIVE_FILE_ERROR_FAILED);
+    return;
+  }
+
+  DriveEntry* new_entry = FromDocumentEntry(*doc_entry);
+  if (!new_entry) {
+    PostError(callback, DRIVE_FILE_ERROR_FAILED);
+    return;
+  }
+
+  DriveEntry* dir_entry = FindEntryByPathSync(directory_path);
+  if (!dir_entry) {
+    PostError(callback, DRIVE_FILE_ERROR_NOT_FOUND);
+    return;
+  }
+
+  DriveDirectory* directory = dir_entry->AsDriveDirectory();
+  if (!directory) {
+    PostError(callback, DRIVE_FILE_ERROR_NOT_A_DIRECTORY);
+    return;
+  }
 
   directory->AddEntry(new_entry);
   DVLOG(1) << "AddEntryToDirectory " << new_entry->GetFilePath().value();
   base::MessageLoopProxy::current()->PostTask(FROM_HERE,
-      base::Bind(callback, GDATA_FILE_OK, new_entry->GetFilePath()));
+      base::Bind(callback, DRIVE_FILE_OK, new_entry->GetFilePath()));
 }
 
 void DriveResourceMetadata::MoveEntryToDirectory(
@@ -246,15 +274,15 @@ void DriveResourceMetadata::MoveEntryToDirectory(
 
   DriveEntry* destination = FindEntryByPathSync(directory_path);
   FilePath moved_file_path;
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
   if (!destination) {
-    error = GDATA_FILE_ERROR_NOT_FOUND;
+    error = DRIVE_FILE_ERROR_NOT_FOUND;
   } else if (!destination->AsDriveDirectory()) {
-    error = GDATA_FILE_ERROR_NOT_A_DIRECTORY;
+    error = DRIVE_FILE_ERROR_NOT_A_DIRECTORY;
   } else {
     destination->AsDriveDirectory()->AddEntry(entry);
     moved_file_path = entry->GetFilePath();
-    error = GDATA_FILE_OK;
+    error = DRIVE_FILE_OK;
   }
   DVLOG(1) << "MoveEntryToDirectory " << moved_file_path.value();
   base::MessageLoopProxy::current()->PostTask(
@@ -262,16 +290,41 @@ void DriveResourceMetadata::MoveEntryToDirectory(
 }
 
 void DriveResourceMetadata::RemoveEntryFromParent(
-    DriveEntry* entry,
+    const std::string& resource_id,
     const FileMoveCallback& callback) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!callback.is_null());
+
+  // Disallow deletion of root.
+  if (resource_id == kDriveRootDirectoryResourceId) {
+    base::MessageLoopProxy::current()->PostTask(FROM_HERE,
+        base::Bind(callback, DRIVE_FILE_ERROR_ACCESS_DENIED, FilePath()));
+    return;
+  }
+
+  GetEntryByResourceIdAsync(resource_id,
+      base::Bind(&DriveResourceMetadata::RemoveEntryFromParentInternal,
+                 callback));
+}
+
+// static
+void DriveResourceMetadata::RemoveEntryFromParentInternal(
+    const FileMoveCallback& callback,
+    DriveEntry* entry) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  DCHECK(!callback.is_null());
+
+  if (!entry) {
+    callback.Run(DRIVE_FILE_ERROR_NOT_FOUND, FilePath());
+    return;
+  }
+
   DriveDirectory* parent = entry->parent();
   DCHECK(parent);
-  DCHECK(!callback.is_null());
-  DVLOG(1) << "RemoveEntryFromParent " << entry->GetFilePath().value();
 
+  DVLOG(1) << "RemoveEntryFromParent " << entry->GetFilePath().value();
   parent->RemoveEntry(entry);
-  base::MessageLoopProxy::current()->PostTask(FROM_HERE,
-      base::Bind(callback, GDATA_FILE_OK, parent->GetFilePath()));
+  callback.Run(DRIVE_FILE_OK, parent->GetFilePath());
 }
 
 void DriveResourceMetadata::AddEntryToResourceMap(DriveEntry* entry) {
@@ -336,17 +389,17 @@ void DriveResourceMetadata::GetEntryInfoByResourceId(
   DCHECK(!callback.is_null());
 
   scoped_ptr<DriveEntryProto> entry_proto;
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
   FilePath drive_file_path;
 
   DriveEntry* entry = GetEntryByResourceId(resource_id);
   if (entry) {
     entry_proto.reset(new DriveEntryProto);
     entry->ToProtoFull(entry_proto.get());
-    error = GDATA_FILE_OK;
+    error = DRIVE_FILE_OK;
     drive_file_path = entry->GetFilePath();
   } else {
-    error = GDATA_FILE_ERROR_NOT_FOUND;
+    error = DRIVE_FILE_ERROR_NOT_FOUND;
   }
 
   base::MessageLoopProxy::current()->PostTask(
@@ -364,15 +417,15 @@ void DriveResourceMetadata::GetEntryInfoByPath(
   DCHECK(!callback.is_null());
 
   scoped_ptr<DriveEntryProto> entry_proto;
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
 
   DriveEntry* entry = FindEntryByPathSync(path);
   if (entry) {
     entry_proto.reset(new DriveEntryProto);
     entry->ToProtoFull(entry_proto.get());
-    error = GDATA_FILE_OK;
+    error = DRIVE_FILE_OK;
   } else {
-    error = GDATA_FILE_ERROR_NOT_FOUND;
+    error = DRIVE_FILE_ERROR_NOT_FOUND;
   }
 
   base::MessageLoopProxy::current()->PostTask(
@@ -387,16 +440,16 @@ void DriveResourceMetadata::ReadDirectoryByPath(
   DCHECK(!callback.is_null());
 
   scoped_ptr<DriveEntryProtoVector> entries;
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
 
   DriveEntry* entry = FindEntryByPathSync(path);
   if (entry && entry->AsDriveDirectory()) {
     entries = entry->AsDriveDirectory()->ToProtoVector();
-    error = GDATA_FILE_OK;
+    error = DRIVE_FILE_OK;
   } else if (entry && !entry->AsDriveDirectory()) {
-    error = GDATA_FILE_ERROR_NOT_A_DIRECTORY;
+    error = DRIVE_FILE_ERROR_NOT_A_DIRECTORY;
   } else {
-    error = GDATA_FILE_ERROR_NOT_FOUND;
+    error = DRIVE_FILE_ERROR_NOT_FOUND;
   }
 
   base::MessageLoopProxy::current()->PostTask(
@@ -466,13 +519,13 @@ void DriveResourceMetadata::RefreshDirectoryInternal(
   DCHECK(!callback.is_null());
 
   if (!directory_entry) {
-    callback.Run(GDATA_FILE_ERROR_NOT_FOUND, FilePath());
+    callback.Run(DRIVE_FILE_ERROR_NOT_FOUND, FilePath());
     return;
   }
 
   DriveDirectory* directory = directory_entry->AsDriveDirectory();
   if (!directory) {
-    callback.Run(GDATA_FILE_ERROR_NOT_A_DIRECTORY, FilePath());
+    callback.Run(DRIVE_FILE_ERROR_NOT_A_DIRECTORY, FilePath());
     return;
   }
 
@@ -488,7 +541,7 @@ void DriveResourceMetadata::RefreshDirectoryInternal(
     directory->AddEntry(entry.release());
   }
 
-  callback.Run(GDATA_FILE_OK, directory->GetFilePath());
+  callback.Run(DRIVE_FILE_OK, directory->GetFilePath());
 }
 
 void DriveResourceMetadata::InitFromDB(
@@ -501,7 +554,7 @@ void DriveResourceMetadata::InitFromDB(
 
   if (resource_metadata_db_.get()) {
     if (!callback.is_null())
-      callback.Run(GDATA_FILE_ERROR_FAILED);
+      callback.Run(DRIVE_FILE_ERROR_FAILED);
     return;
   }
 
@@ -533,7 +586,7 @@ void DriveResourceMetadata::InitResourceMap(
   if (serialized_resources->empty()) {
     origin_ = INITIALIZING;
     if (!callback.is_null())
-      callback.Run(GDATA_FILE_ERROR_NOT_FOUND);
+      callback.Run(DRIVE_FILE_ERROR_NOT_FOUND);
     return;
   }
 
@@ -546,7 +599,7 @@ void DriveResourceMetadata::InitResourceMap(
       !base::StringToInt(iter->second, &version) ||
       version != kProtoVersion) {
     if (!callback.is_null())
-      callback.Run(GDATA_FILE_ERROR_FAILED);
+      callback.Run(DRIVE_FILE_ERROR_FAILED);
     return;
   }
   serialized_resources->erase(iter);
@@ -557,7 +610,7 @@ void DriveResourceMetadata::InitResourceMap(
       !base::StringToInt64(iter->second, &largest_changestamp_)) {
     NOTREACHED() << "Could not find/parse largest_changestamp";
     if (!callback.is_null())
-      callback.Run(GDATA_FILE_ERROR_FAILED);
+      callback.Run(DRIVE_FILE_ERROR_FAILED);
     return;
   } else {
     DVLOG(1) << "InitResourceMap largest_changestamp_" << largest_changestamp_;
@@ -616,7 +669,7 @@ void DriveResourceMetadata::InitResourceMap(
   origin_ = FROM_CACHE;
 
   if (!callback.is_null())
-    callback.Run(GDATA_FILE_OK);
+    callback.Run(DRIVE_FILE_OK);
 }
 
 void DriveResourceMetadata::SaveToDB() {
@@ -714,7 +767,7 @@ void DriveResourceMetadata::GetEntryInfoPairByPathsAfterGetFirst(
     const FilePath& first_path,
     const FilePath& second_path,
     const GetEntryInfoPairCallback& callback,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());
@@ -725,7 +778,7 @@ void DriveResourceMetadata::GetEntryInfoPairByPathsAfterGetFirst(
   result->first.proto = entry_proto.Pass();
 
   // If the first one is not found, don't continue.
-  if (error != GDATA_FILE_OK) {
+  if (error != DRIVE_FILE_OK) {
     callback.Run(result.Pass());
     return;
   }
@@ -744,7 +797,7 @@ void DriveResourceMetadata::GetEntryInfoPairByPathsAfterGetSecond(
     const FilePath& second_path,
     const GetEntryInfoPairCallback& callback,
     scoped_ptr<EntryInfoPairResult> result,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(!callback.is_null());

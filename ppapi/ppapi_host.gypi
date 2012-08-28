@@ -10,9 +10,11 @@
       'dependencies': [
         'ppapi.gyp:ppapi_c',
         'ppapi_internal.gyp:ppapi_proxy',
+        'ppapi_internal.gyp:ppapi_ipc',
         'ppapi_internal.gyp:ppapi_shared',
         '../base/base.gyp:base',
         '../ipc/ipc.gyp:ipc',
+        '../media/media.gyp:shared_memory_support',
         '../ui/surface/surface.gyp:surface',
       ],
       'defines': [

@@ -61,9 +61,12 @@
 #include "chrome/browser/extensions/external_provider_impl.h"
 #include "chrome/browser/extensions/external_provider_interface.h"
 #include "chrome/browser/extensions/installed_loader.h"
+#include "chrome/browser/extensions/lazy_background_task_queue.h"
 #include "chrome/browser/extensions/pending_extension_manager.h"
 #include "chrome/browser/extensions/permissions_updater.h"
+#include "chrome/browser/extensions/platform_app_launcher.h"
 #include "chrome/browser/extensions/settings/settings_frontend.h"
+#include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/extensions/window_event_router.h"
@@ -108,7 +111,6 @@
 #include "sync/api/sync_error_factory.h"
 #include "webkit/database/database_tracker.h"
 #include "webkit/database/database_util.h"
-
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/extensions/bluetooth_event_router.h"
@@ -518,7 +520,8 @@ void ExtensionService::InitEventRouters() {
 }
 
 void ExtensionService::Shutdown() {
-  push_messaging_event_router_->Shutdown();
+  if (push_messaging_event_router_.get())
+    push_messaging_event_router_->Shutdown();
 }
 
 const Extension* ExtensionService::GetExtensionById(
@@ -624,6 +627,9 @@ bool ExtensionService::UpdateExtension(
   if (extension && extension->from_bookmark())
     creation_flags |= Extension::FROM_BOOKMARK;
 
+  if (extension && extension->was_installed_by_default())
+    creation_flags |= Extension::WAS_INSTALLED_BY_DEFAULT;
+
   installer->set_creation_flags(creation_flags);
 
   installer->set_delete_source(true);
@@ -661,6 +667,12 @@ void ExtensionService::ReloadExtension(const std::string& extension_id) {
           content::DevToolsManager::GetInstance()->DetachClientHost(agent);
       if (devtools_cookie >= 0)
         orphaned_dev_tools_[extension_id] = devtools_cookie;
+    }
+
+    if (current_extension->is_platform_app() &&
+        !extensions::ShellWindowRegistry::Get(profile_)->
+            GetShellWindowsForApp(extension_id).empty()) {
+      relaunch_app_ids_.insert(extension_id);
     }
 
     path = current_extension->path();
@@ -1953,6 +1965,7 @@ void ExtensionService::AddExtension(const Extension* extension) {
   extensions_.Insert(scoped_extension);
   SyncExtensionChangeIfNeeded(*extension);
   NotifyExtensionLoaded(extension);
+  QueueRestoreAppWindow(extension);
 }
 
 void ExtensionService::InitializePermissions(const Extension* extension) {
@@ -2260,25 +2273,36 @@ bool ExtensionService::OnExternalExtensionFileFound(
   if (extension_prefs_->IsExternalExtensionUninstalled(id))
     return false;
 
-  DCHECK(version);
-
   // Before even bothering to unpack, check and see if we already have this
   // version. This is important because these extensions are going to get
   // installed on every startup.
   const Extension* existing = GetExtensionById(id, true);
+
   if (existing) {
-    switch (existing->version()->CompareTo(*version)) {
-      case -1:  // existing version is older, we should upgrade
-        break;
-      case 0:  // existing version is same, do nothing
-        return false;
-      case 1:  // existing version is newer, uh-oh
-        LOG(WARNING) << "Found external version of extension " << id
-                     << "that is older than current version. Current version "
-                     << "is: " << existing->VersionString() << ". New version "
-                     << "is: " << version->GetString()
-                     << ". Keeping current version.";
-        return false;
+    // The default apps will have the location set as INTERNAL. Since older
+    // default apps are installed as EXTERNAL, we override them. However, if the
+    // app is already installed as internal, then do the version check.
+    // TODO (grv) : Remove after Q1-2013.
+    bool is_default_apps_migration =
+        (location == Extension::INTERNAL &&
+         Extension::IsExternalLocation(existing->location()));
+
+    if (!is_default_apps_migration) {
+      DCHECK(version);
+
+      switch (existing->version()->CompareTo(*version)) {
+        case -1:  // existing version is older, we should upgrade
+          break;
+        case 0:  // existing version is same, do nothing
+          return false;
+        case 1:  // existing version is newer, uh-oh
+          LOG(WARNING) << "Found external version of extension " << id
+                       << "that is older than current version. Current version "
+                       << "is: " << existing->VersionString() << ". New "
+                       << "version is: " << version->GetString()
+                       << ". Keeping current version.";
+          return false;
+      }
     }
   }
 
@@ -2563,4 +2587,32 @@ ExtensionService::NaClModuleInfoList::iterator
       return iter;
   }
   return nacl_module_list_.end();
+}
+
+void ExtensionService::QueueRestoreAppWindow(const Extension* extension) {
+  std::set<std::string>::iterator relaunch_iter =
+      relaunch_app_ids_.find(extension->id());
+  if (relaunch_iter != relaunch_app_ids_.end()) {
+    extensions::LazyBackgroundTaskQueue* queue =
+        system_->lazy_background_task_queue();
+    if (queue->ShouldEnqueueTask(profile(), extension)) {
+      queue->AddPendingTask(profile(), extension->id(),
+                            base::Bind(&ExtensionService::LaunchApplication));
+    }
+
+    relaunch_app_ids_.erase(relaunch_iter);
+  }
+}
+
+// static
+void ExtensionService::LaunchApplication(
+    extensions::ExtensionHost* extension_host) {
+  if (!extension_host)
+    return;
+
+#if !defined(OS_ANDROID)
+  extensions::LaunchPlatformApp(extension_host->profile(),
+                                extension_host->extension(),
+                                NULL, FilePath());
+#endif
 }

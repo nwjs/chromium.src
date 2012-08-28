@@ -137,27 +137,6 @@ struct ParamTraits<net::UploadElement> {
         m->WriteData(p.bytes(), static_cast<int>(p.bytes_length()));
         break;
       }
-      case net::UploadElement::TYPE_CHUNK: {
-        std::string chunk_length = StringPrintf(
-            "%X\r\n", static_cast<unsigned int>(p.bytes_length()));
-        std::vector<char> bytes;
-        bytes.insert(bytes.end(), chunk_length.data(),
-                     chunk_length.data() + chunk_length.length());
-        const char* data = p.bytes();
-        bytes.insert(bytes.end(), data, data + p.bytes_length());
-        const char* crlf = "\r\n";
-        bytes.insert(bytes.end(), crlf, crlf + strlen(crlf));
-        if (p.is_last_chunk()) {
-          const char* end_of_data = "0\r\n\r\n";
-          bytes.insert(bytes.end(), end_of_data,
-                       end_of_data + strlen(end_of_data));
-        }
-        m->WriteData(&bytes[0], static_cast<int>(bytes.size()));
-        // If this element is part of a chunk upload then send over information
-        // indicating if this is the last chunk.
-        WriteParam(m, p.is_last_chunk());
-        break;
-      }
       default: {
         DCHECK(p.type() == net::UploadElement::TYPE_FILE);
         WriteParam(m, p.file_path());
@@ -179,21 +158,6 @@ struct ParamTraits<net::UploadElement> {
         if (!m->ReadData(iter, &data, &len))
           return false;
         r->SetToBytes(data, len);
-        break;
-      }
-      case net::UploadElement::TYPE_CHUNK: {
-        const char* data;
-        int len;
-        if (!m->ReadData(iter, &data, &len))
-          return false;
-        r->SetToBytes(data, len);
-        // If this element is part of a chunk upload then we need to explicitly
-        // set the type of the element and whether it is the last chunk.
-        bool is_last_chunk = false;
-        if (!ReadParam(m, iter, &is_last_chunk))
-          return false;
-        r->set_type(net::UploadElement::TYPE_CHUNK);
-        r->set_is_last_chunk(is_last_chunk);
         break;
       }
       default: {
@@ -228,6 +192,7 @@ void ParamTraits<scoped_refptr<net::UploadData> >::Write(Message* m,
     WriteParam(m, *p->elements());
     WriteParam(m, p->identifier());
     WriteParam(m, p->is_chunked());
+    WriteParam(m, p->last_chunk_appended());
   }
 }
 
@@ -248,10 +213,14 @@ bool ParamTraits<scoped_refptr<net::UploadData> >::Read(const Message* m,
   bool is_chunked = false;
   if (!ReadParam(m, iter, &is_chunked))
     return false;
+  bool last_chunk_appended = false;
+  if (!ReadParam(m, iter, &last_chunk_appended))
+    return false;
   *r = new net::UploadData;
   (*r)->swap_elements(&elements);
   (*r)->set_identifier(identifier);
   (*r)->set_is_chunked(is_chunked);
+  (*r)->set_last_chunk_appended(last_chunk_appended);
   return true;
 }
 
@@ -260,73 +229,74 @@ void ParamTraits<scoped_refptr<net::UploadData> >::Log(const param_type& p,
   l->append("<net::UploadData>");
 }
 
-template <>
-struct ParamTraits<webkit_glue::ResourceRequestBody::Element> {
-  typedef webkit_glue::ResourceRequestBody::Element param_type;
-  static void Write(Message* m, const param_type& p) {
-    WriteParam(m, static_cast<int>(p.type()));
-    switch (p.type()) {
-      case webkit_glue::ResourceRequestBody::TYPE_BYTES: {
-        m->WriteData(p.bytes(), static_cast<int>(p.bytes_length()));
-        break;
-      }
-      case webkit_glue::ResourceRequestBody::TYPE_FILE: {
-        WriteParam(m, p.file_path());
-        WriteParam(m, p.file_range_offset());
-        WriteParam(m, p.file_range_length());
-        WriteParam(m, p.expected_file_modification_time());
-        break;
-      }
-      default: {
-        WriteParam(m, p.blob_url());
-        break;
-      }
+void ParamTraits<webkit_base::DataElement>::Write(
+    Message* m, const param_type& p) {
+  WriteParam(m, static_cast<int>(p.type()));
+  switch (p.type()) {
+    case webkit_base::DataElement::TYPE_BYTES: {
+      m->WriteData(p.bytes(), static_cast<int>(p.length()));
+      break;
+    }
+    case webkit_base::DataElement::TYPE_FILE: {
+      WriteParam(m, p.path());
+      WriteParam(m, p.offset());
+      WriteParam(m, p.length());
+      WriteParam(m, p.expected_modification_time());
+      break;
+    }
+    default: {
+      WriteParam(m, p.url());
+      break;
     }
   }
-  static bool Read(const Message* m, PickleIterator* iter, param_type* r) {
-    int type;
-    if (!ReadParam(m, iter, &type))
-      return false;
-    switch (type) {
-      case webkit_glue::ResourceRequestBody::TYPE_BYTES: {
-        const char* data;
-        int len;
-        if (!m->ReadData(iter, &data, &len))
-          return false;
-        r->SetToBytes(data, len);
-        break;
-      }
-      case webkit_glue::ResourceRequestBody::TYPE_FILE: {
-        FilePath file_path;
-        uint64 offset, length;
-        base::Time expected_modification_time;
-        if (!ReadParam(m, iter, &file_path))
-          return false;
-        if (!ReadParam(m, iter, &offset))
-          return false;
-        if (!ReadParam(m, iter, &length))
-          return false;
-        if (!ReadParam(m, iter, &expected_modification_time))
-          return false;
-        r->SetToFilePathRange(file_path, offset, length,
-                              expected_modification_time);
-        break;
-      }
-      default: {
-        DCHECK(type == webkit_glue::ResourceRequestBody::TYPE_BLOB);
-        GURL blob_url;
-        if (!ReadParam(m, iter, &blob_url))
-          return false;
-        r->SetToBlobUrl(blob_url);
-        break;
-      }
+}
+
+bool ParamTraits<webkit_base::DataElement>::Read(
+    const Message* m, PickleIterator* iter, param_type* r) {
+  int type;
+  if (!ReadParam(m, iter, &type))
+    return false;
+  switch (type) {
+    case webkit_base::DataElement::TYPE_BYTES: {
+      const char* data;
+      int len;
+      if (!m->ReadData(iter, &data, &len))
+        return false;
+      r->SetToBytes(data, len);
+      break;
     }
-    return true;
+    case webkit_base::DataElement::TYPE_FILE: {
+      FilePath file_path;
+      uint64 offset, length;
+      base::Time expected_modification_time;
+      if (!ReadParam(m, iter, &file_path))
+        return false;
+      if (!ReadParam(m, iter, &offset))
+        return false;
+      if (!ReadParam(m, iter, &length))
+        return false;
+      if (!ReadParam(m, iter, &expected_modification_time))
+        return false;
+      r->SetToFilePathRange(file_path, offset, length,
+                            expected_modification_time);
+      break;
+    }
+    default: {
+      DCHECK(type == webkit_base::DataElement::TYPE_BLOB);
+      GURL blob_url;
+      if (!ReadParam(m, iter, &blob_url))
+        return false;
+      r->SetToBlobUrl(blob_url);
+      break;
+    }
   }
-  static void Log(const param_type& p, std::string* l) {
-    l->append("<webkit_glue::ResourceRequestBody::Element>");
-  }
-};
+  return true;
+}
+
+void ParamTraits<webkit_base::DataElement>::Log(
+    const param_type& p, std::string* l) {
+  l->append("<webkit_base::DataElement>");
+}
 
 void ParamTraits<scoped_refptr<webkit_glue::ResourceRequestBody> >::Write(
     Message* m,
@@ -347,7 +317,7 @@ bool ParamTraits<scoped_refptr<webkit_glue::ResourceRequestBody> >::Read(
     return false;
   if (!has_object)
     return true;
-  std::vector<webkit_glue::ResourceRequestBody::Element> elements;
+  std::vector<webkit_base::DataElement> elements;
   if (!ReadParam(m, iter, &elements))
     return false;
   int64 identifier;

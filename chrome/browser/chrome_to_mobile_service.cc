@@ -376,13 +376,15 @@ void ChromeToMobileService::OnNotificationsDisabled(
 }
 
 void ChromeToMobileService::OnIncomingNotification(
-    const syncer::ObjectIdPayloadMap& id_payloads,
+    const syncer::ObjectIdStateMap& id_state_map,
     syncer::IncomingNotificationSource source) {
-  DCHECK_EQ(id_payloads.size(), 1U);
-  DCHECK_EQ(id_payloads.count(invalidation::ObjectId(
+  DCHECK_EQ(1U, id_state_map.size());
+  DCHECK_EQ(1U, id_state_map.count(invalidation::ObjectId(
       ipc::invalidation::ObjectSource::CHROME_COMPONENTS,
-      kSyncInvalidationObjectIdChromeToMobileDeviceList)), 1U);
+      kSyncInvalidationObjectIdChromeToMobileDeviceList)));
   RequestDeviceSearch();
+  // TODO(msw|akalin): This may not necessarily mean notifications are enabled.
+  OnNotificationsEnabled();
 }
 
 const std::string& ChromeToMobileService::GetAccessTokenForTest() const {
@@ -509,7 +511,6 @@ void ChromeToMobileService::RequestAccessToken() {
 }
 
 void ChromeToMobileService::RequestDeviceSearch() {
-  DCHECK(sync_invalidation_enabled_);
   if (access_token_.empty()) {
     // Enqueue this task to perform after obtaining an access token.
     task_queue_.push(base::Bind(&ChromeToMobileService::RequestDeviceSearch,

@@ -450,11 +450,11 @@ cr.define('options', function() {
 
       // Display management section (CrOS only).
       if (cr.isChromeOS) {
-        $('display-options-button').onclick = function(event) {
+        $('display-options').onclick = function(event) {
           OptionsPage.navigateToPage('display');
           chrome.send('coreOptionsUserMetricsAction',
                       ['Options_Display']);
-        }
+        };
       }
 
       // Background mode section.
@@ -766,11 +766,11 @@ cr.define('options', function() {
       if (cr.isChromeOS) {
         // On ChromeOS, replace /special/drive with Drive for drive paths, and
         // /home/chronos/user/Downloads with Downloads for local files.
-        // Also replace '/' with ' > ' everywhere.
+        // Also replace '/' with ' \u203a ' (angled quote sign) everywhere.
         var path = $('downloadLocationPath').value;
         path = path.replace(/^\/special\/drive/, 'Google Drive');
         path = path.replace(/^\/home\/chronos\/user\//, '');
-        path = path.replace(/\//g, ' > ');
+        path = path.replace(/\//g, ' \u203a ');
         $('downloadLocationPath').value = path;
       }
     },

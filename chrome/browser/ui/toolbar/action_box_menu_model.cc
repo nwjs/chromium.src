@@ -7,6 +7,9 @@
 #include "base/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/extension_toolbar_model.h"
+#include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -25,8 +28,7 @@ const int kFirstExtensionCommandId = 0xE000;
 // ActionBoxMenuModel
 
 ActionBoxMenuModel::ActionBoxMenuModel(Browser* browser,
-                                       ExtensionService* extension_service,
-                                       bool starred)
+                                       ExtensionService* extension_service)
     : ALLOW_THIS_IN_INITIALIZER_LIST(ui::SimpleMenuModel(this)),
       browser_(browser),
       extension_service_(extension_service) {
@@ -34,6 +36,9 @@ ActionBoxMenuModel::ActionBoxMenuModel(Browser* browser,
   InsertItemWithStringIdAt(0, IDC_CHROME_TO_MOBILE_PAGE,
                            IDS_CHROME_TO_MOBILE_BUBBLE_TOOLTIP);
   SetIcon(0, rb.GetNativeImageNamed(IDR_MOBILE));
+
+  TabContents* current_tab_contents = chrome::GetActiveTabContents(browser);
+  bool starred = current_tab_contents->bookmark_tab_helper()->is_starred();
   InsertItemWithStringIdAt(1, IDC_BOOKMARK_PAGE,
                            starred ? IDS_TOOLTIP_STARRED : IDS_TOOLTIP_STAR);
   SetIcon(1, rb.GetNativeImageNamed(starred ? IDR_STAR_LIT : IDR_STAR));
@@ -42,7 +47,7 @@ ActionBoxMenuModel::ActionBoxMenuModel(Browser* browser,
   int command_id = kFirstExtensionCommandId;
   const extensions::ExtensionList& action_box_items = action_box_menu_items();
   if (!action_box_items.empty()) {
-    AddSeparator();
+    AddSeparator(ui::NORMAL_SEPARATOR);
     for (size_t i = 0; i < action_box_items.size(); ++i) {
       const extensions::Extension* extension = action_box_items[i];
       AddItem(command_id, UTF8ToUTF16(extension->name()));

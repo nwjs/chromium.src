@@ -27,6 +27,7 @@
 #include "chrome/browser/task_manager/task_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/global_error/global_error.h"
@@ -97,7 +98,7 @@ void EncodingMenuModel::Build() {
     int id = it->first;
     string16& label = it->second;
     if (id == 0) {
-      AddSeparator();
+      AddSeparator(ui::NORMAL_SEPARATOR);
     } else {
       if (id == IDC_ENCODING_AUTO_DETECT) {
         AddCheckItem(id, label);
@@ -172,7 +173,7 @@ ToolsMenuModel::~ToolsMenuModel() {}
 void ToolsMenuModel::Build(Browser* browser) {
 #if !defined(OS_CHROMEOS) && !defined(OS_MACOSX)
   AddItemWithStringId(IDC_CREATE_SHORTCUTS, IDS_CREATE_SHORTCUTS);
-  AddSeparator();
+  AddSeparator(ui::NORMAL_SEPARATOR);
 #endif
 
   AddItemWithStringId(IDC_MANAGE_EXTENSIONS, IDS_SHOW_EXTENSIONS);
@@ -182,12 +183,12 @@ void ToolsMenuModel::Build(Browser* browser) {
 
   AddItemWithStringId(IDC_CLEAR_BROWSING_DATA, IDS_CLEAR_BROWSING_DATA);
 
-  AddSeparator();
+  AddSeparator(ui::NORMAL_SEPARATOR);
 
 #if !defined(OS_CHROMEOS)
   // Show IDC_FEEDBACK in "Tools" menu for non-ChromeOS platforms.
   AddItemWithStringId(IDC_FEEDBACK, IDS_FEEDBACK);
-  AddSeparator();
+  AddSeparator(ui::NORMAL_SEPARATOR);
 #endif
 
   encoding_menu_model_.reset(new EncodingMenuModel(browser));
@@ -198,7 +199,7 @@ void ToolsMenuModel::Build(Browser* browser) {
   AddItemWithStringId(IDC_DEV_TOOLS_CONSOLE, IDS_DEV_TOOLS_CONSOLE);
 
 #if defined(ENABLE_PROFILING) && !defined(NO_TCMALLOC)
-  AddSeparator();
+  AddSeparator(ui::NORMAL_SEPARATOR);
   AddCheckItemWithStringId(IDC_PROFILING_ENABLED, IDS_PROFILING_ENABLED);
 #endif
 }
@@ -450,9 +451,37 @@ WrenchMenuModel::WrenchMenuModel()
 }
 
 void WrenchMenuModel::Build() {
-  bool is_touch_menu = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
+  // TODO(skuhne): Remove special casing when only the new menu style is left.
+#if defined(USE_AURA)
+  bool is_new_menu = true;
+#else
+  bool is_new_menu = ui::GetDisplayLayout() == ui::LAYOUT_TOUCH;
+#endif
+
+#if defined(USE_AURA)
+  if (is_new_menu)
+    AddSeparator(ui::SPACING_SEPARATOR);
+#endif
 
   AddItemWithStringId(IDC_NEW_TAB, IDS_NEW_TAB);
+#if defined(OS_WIN)
+  if (base::win::IsMetroProcess()) {
+    // In Metro, we only show the New Window options if there isn't already
+    // a the window of the requested type (incognito or not) that is available.
+    if (browser_->profile()->IsOffTheRecord()) {
+      if (browser::FindBrowserWithProfile(
+              browser_->profile()->GetOriginalProfile(),
+              browser_->host_desktop_type()) == NULL) {
+        AddItemWithStringId(IDC_NEW_WINDOW, IDS_NEW_WINDOW);
+      }
+    } else if (!browser_->profile()->HasOffTheRecordProfile()) {
+      AddItemWithStringId(IDC_NEW_INCOGNITO_WINDOW, IDS_NEW_INCOGNITO_WINDOW);
+    }
+  } else {
+    AddItemWithStringId(IDC_NEW_WINDOW, IDS_NEW_WINDOW);
+    AddItemWithStringId(IDC_NEW_INCOGNITO_WINDOW, IDS_NEW_INCOGNITO_WINDOW);
+  }
+#else  // defined(OS_WIN)
   AddItemWithStringId(IDC_NEW_WINDOW, IDS_NEW_WINDOW);
 #if defined(OS_CHROMEOS)
   if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kGuestSession))
@@ -461,6 +490,8 @@ void WrenchMenuModel::Build() {
   AddItemWithStringId(IDC_NEW_INCOGNITO_WINDOW, IDS_NEW_INCOGNITO_WINDOW);
 #endif
 
+#endif  // else of defined(OS_WIN)
+
   AddItemWithStringId(IDC_PIN_TO_START_SCREEN, IDS_PIN_TO_START_SCREEN);
   bookmark_sub_menu_model_.reset(new BookmarkSubMenuModel(this, browser_));
   AddSubMenuWithStringId(IDC_BOOKMARKS_MENU, IDS_BOOKMARKS_MENU,
@@ -468,10 +499,10 @@ void WrenchMenuModel::Build() {
 
   // Append the full menu including separators. The final separator only gets
   // appended when this is a touch menu - otherwise it would get added twice.
-  CreateCutCopyPasteMenu(is_touch_menu);
+  CreateCutCopyPasteMenu(is_new_menu);
 
-  if (!is_touch_menu)
-    CreateZoomMenu();
+  if (!is_new_menu)
+    CreateZoomMenu(is_new_menu);
 
   AddItemWithStringId(IDC_SAVE_PAGE, IDS_SAVE_PAGE);
   AddItemWithStringId(IDC_FIND, IDS_FIND);
@@ -479,19 +510,19 @@ void WrenchMenuModel::Build() {
 
   tools_menu_model_.reset(new ToolsMenuModel(this, browser_));
   // In case of touch this is the last item.
-  if (!is_touch_menu) {
+  if (!is_new_menu) {
     AddSubMenuWithStringId(IDC_ZOOM_MENU, IDS_TOOLS_MENU,
                            tools_menu_model_.get());
   }
 
-  if (is_touch_menu)
-    CreateZoomMenu();
+  if (is_new_menu)
+    CreateZoomMenu(is_new_menu);
   else
-    AddSeparator();
+    AddSeparator(ui::NORMAL_SEPARATOR);
 
   AddItemWithStringId(IDC_SHOW_HISTORY, IDS_SHOW_HISTORY);
   AddItemWithStringId(IDC_SHOW_DOWNLOADS, IDS_SHOW_DOWNLOADS);
-  AddSeparator();
+  AddSeparator(ui::NORMAL_SEPARATOR);
 
   if (browser_defaults::kShowSyncSetupMenuItem &&
       browser_->profile()->GetOriginalProfile()->IsSyncAccessible()) {
@@ -499,21 +530,24 @@ void WrenchMenuModel::Build() {
         l10n_util::GetStringUTF16(IDS_SHORT_PRODUCT_NAME);
     AddItem(IDC_SHOW_SYNC_SETUP, l10n_util::GetStringFUTF16(
         IDS_SYNC_MENU_PRE_SYNCED_LABEL, short_product_name));
-    AddSeparator();
+    AddSeparator(ui::NORMAL_SEPARATOR);
   }
 
   AddItemWithStringId(IDC_OPTIONS, IDS_SETTINGS);
 
 // On ChromeOS-Touch, we don't want the about/background pages menu options.
 #if defined(OS_CHROMEOS)
-  if (!is_touch_menu)
+  if (!is_new_menu)
 #endif
   {
     AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
-    string16 num_background_pages = base::FormatNumber(
-        TaskManager::GetBackgroundPageCount());
-    AddItem(IDC_VIEW_BACKGROUND_PAGES, l10n_util::GetStringFUTF16(
-        IDS_VIEW_BACKGROUND_PAGES, num_background_pages));
+    // We use the task manager to show background pages.
+    if (chrome::CanOpenTaskManager()) {
+      string16 num_background_pages = base::FormatNumber(
+          TaskManager::GetBackgroundPageCount());
+      AddItem(IDC_VIEW_BACKGROUND_PAGES, l10n_util::GetStringFUTF16(
+          IDS_VIEW_BACKGROUND_PAGES, num_background_pages));
+    }
   }
 
   if (browser_defaults::kShowUpgradeMenuItem)
@@ -527,7 +561,7 @@ void WrenchMenuModel::Build() {
               GetNativeImageNamed(IDR_CONFLICT_MENU));
 #endif
 
-  if (!is_touch_menu) {
+  if (!is_new_menu) {
     AddItemWithStringId(IDC_HELP_PAGE_VIA_MENU, IDS_HELP_PAGE);
 
     if (browser_defaults::kShowHelpMenuItemIcon) {
@@ -542,7 +576,7 @@ void WrenchMenuModel::Build() {
 
   AddGlobalErrorMenuItems();
 
-  if (is_touch_menu) {
+  if (is_new_menu) {
     AddSubMenuWithStringId(IDC_ZOOM_MENU, IDS_MORE_TOOLS_MENU,
                            tools_menu_model_.get());
   }
@@ -552,10 +586,15 @@ void WrenchMenuModel::Build() {
     if (!base::win::IsMetroProcess())
 #endif
     {
-      AddSeparator();
+      AddSeparator(ui::NORMAL_SEPARATOR);
       AddItemWithStringId(IDC_EXIT, IDS_EXIT);
     }
   }
+
+#if defined(USE_AURA)
+  if (is_new_menu)
+    AddSeparator(ui::SPACING_SEPARATOR);
+#endif
 }
 
 void WrenchMenuModel::AddGlobalErrorMenuItems() {
@@ -581,8 +620,8 @@ void WrenchMenuModel::AddGlobalErrorMenuItems() {
   }
 }
 
-void WrenchMenuModel::CreateCutCopyPasteMenu(bool append_final_separator) {
-  AddSeparator();
+void WrenchMenuModel::CreateCutCopyPasteMenu(bool new_menu) {
+  AddSeparator(new_menu ? ui::LOWER_SEPARATOR: ui::NORMAL_SEPARATOR);
 
 #if defined(OS_POSIX) && !defined(TOOLKIT_VIEWS)
   // WARNING: Mac does not use the ButtonMenuItemModel, but instead defines the
@@ -601,13 +640,13 @@ void WrenchMenuModel::CreateCutCopyPasteMenu(bool append_final_separator) {
   AddItemWithStringId(IDC_PASTE, IDS_PASTE);
 #endif
 
-  if (append_final_separator)
-    AddSeparator();
+  if (new_menu)
+    AddSeparator(ui::UPPER_SEPARATOR);
 }
 
-void WrenchMenuModel::CreateZoomMenu() {
+void WrenchMenuModel::CreateZoomMenu(bool new_menu) {
   // This menu needs to be enclosed by separators.
-  AddSeparator();
+  AddSeparator(new_menu ? ui::LOWER_SEPARATOR: ui::NORMAL_SEPARATOR);
 
 #if defined(OS_POSIX) && !defined(TOOLKIT_VIEWS)
   // WARNING: Mac does not use the ButtonMenuItemModel, but instead defines the
@@ -633,7 +672,7 @@ void WrenchMenuModel::CreateZoomMenu() {
   AddItemWithStringId(IDC_FULLSCREEN, IDS_FULLSCREEN);
 #endif
 
-  AddSeparator();
+  AddSeparator(new_menu ? ui::UPPER_SEPARATOR: ui::NORMAL_SEPARATOR);
 }
 
 void WrenchMenuModel::UpdateZoomControls() {

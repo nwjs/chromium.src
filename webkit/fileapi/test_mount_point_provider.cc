@@ -114,9 +114,8 @@ FilePath TestMountPointProvider::GetFileSystemRootPathOnFileThread(
   return success ? base_path_ : FilePath();
 }
 
-bool TestMountPointProvider::IsAccessAllowed(
-    const GURL& origin_url, FileSystemType type, const FilePath& virtual_path) {
-  return type == fileapi::kFileSystemTypeTest;
+bool TestMountPointProvider::IsAccessAllowed(const FileSystemURL& url) {
+  return url.type() == fileapi::kFileSystemTypeTest;
 }
 
 bool TestMountPointProvider::IsRestrictedFileName(
@@ -133,8 +132,7 @@ FilePath TestMountPointProvider::GetPathForPermissionsCheck(
   return base_path_.Append(virtual_path);
 }
 
-FileSystemOperationInterface*
-TestMountPointProvider::CreateFileSystemOperation(
+FileSystemOperation* TestMountPointProvider::CreateFileSystemOperation(
     const FileSystemURL& url,
     FileSystemContext* context) const {
   scoped_ptr<FileSystemOperationContext> operation_context(

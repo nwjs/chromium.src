@@ -7,7 +7,7 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "chrome/browser/ui/ash/app_list/app_list_controller.h"
+#include "chrome/browser/ui/app_list/app_list_controller.h"
 
 class AppListControllerAsh : public AppListController {
  public:
@@ -24,9 +24,6 @@ class AppListControllerAsh : public AppListController {
   virtual void ActivateApp(Profile* profile,
                            const std::string& extension_id,
                            int event_flags) OVERRIDE;
-  virtual void OpenApp(Profile* profile,
-                       const std::string& extension_id,
-                       int event_flags) OVERRIDE;
 
   DISALLOW_COPY_AND_ASSIGN(AppListControllerAsh);
 };

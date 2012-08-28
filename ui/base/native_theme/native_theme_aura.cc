@@ -107,8 +107,12 @@ SkColor NativeThemeAura::GetSystemColor(ColorId color_id) const {
     case kColorId_FocusedMenuItemBackgroundColor:
       return kFocusedMenuItemBackgroundColor;
     case kColorId_MenuSeparatorColor:
+#if defined(USE_AURA)
+      return kMenuSeparatorColorTouch;
+#else
       return ui::GetDisplayLayout() == ui::LAYOUT_TOUCH ?
                  kMenuSeparatorColorTouch : kMenuSeparatorColor;
+#endif
 
     // Label
     case kColorId_LabelEnabledColor:
@@ -221,14 +225,6 @@ void NativeThemeAura::PaintScrollbarTrack(
                      center_width, center->height());
     }
   }
-}
-
-void NativeThemeAura::PaintArrowButton(SkCanvas* canvas,
-                                       const gfx::Rect& rect,
-                                       Part part,
-                                       State state) const {
-  // TODO(jamescook): Should this paint something?  We used to DCHECK() here
-  // that the rect was empty, but that was failing on about: UI pages.
 }
 
 void NativeThemeAura::PaintScrollbarThumb(SkCanvas* canvas,

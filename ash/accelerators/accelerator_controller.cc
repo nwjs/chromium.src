@@ -241,6 +241,21 @@ bool HandleMagnifyScreen(int delta_index) {
   return true;
 }
 
+bool HandleMediaNextTrack() {
+  Shell::GetInstance()->delegate()->HandleMediaNextTrack();
+  return true;
+}
+
+bool HandleMediaPlayPause() {
+  Shell::GetInstance()->delegate()->HandleMediaPlayPause();
+  return true;
+}
+
+bool HandleMediaPrevTrack() {
+  Shell::GetInstance()->delegate()->HandleMediaPrevTrack();
+  return true;
+}
+
 #if !defined(NDEBUG)
 bool HandlePrintLayerHierarchy() {
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
@@ -477,14 +492,12 @@ bool AcceleratorController::PerformAction(int action,
       ash::Shell::GetInstance()->ToggleAppList();
       return true;
     case DISABLE_CAPS_LOCK:
-      // TODO(mazda): Handle this using |caps_lock_delegate_|.
-      if (shell->tray_delegate()->IsCapsLockOn())
-        shell->tray_delegate()->SetCapsLockEnabled(false);
+      if (shell->caps_lock_delegate()->IsCapsLockEnabled())
+        shell->caps_lock_delegate()->SetCapsLockEnabled(false);
       return true;
     case TOGGLE_CAPS_LOCK:
-      if (caps_lock_delegate_.get())
-        return caps_lock_delegate_->HandleToggleCapsLock();
-      break;
+      shell->caps_lock_delegate()->ToggleCapsLock();
+      return true;
     case BRIGHTNESS_DOWN:
       if (brightness_control_delegate_.get())
         return brightness_control_delegate_->HandleBrightnessDown(accelerator);
@@ -663,6 +676,12 @@ bool AcceleratorController::PerformAction(int action,
       return HandleMagnifyScreen(1);
     case MAGNIFY_SCREEN_ZOOM_OUT:
       return HandleMagnifyScreen(-1);
+    case MEDIA_NEXT_TRACK:
+      return HandleMediaNextTrack();
+    case MEDIA_PLAY_PAUSE:
+       return HandleMediaPlayPause();
+    case MEDIA_PREV_TRACK:
+       return HandleMediaPrevTrack();
 #if !defined(NDEBUG)
     case PRINT_LAYER_HIERARCHY:
       return HandlePrintLayerHierarchy();
@@ -680,11 +699,6 @@ bool AcceleratorController::PerformAction(int action,
 void AcceleratorController::SetBrightnessControlDelegate(
     scoped_ptr<BrightnessControlDelegate> brightness_control_delegate) {
   brightness_control_delegate_.swap(brightness_control_delegate);
-}
-
-void AcceleratorController::SetCapsLockDelegate(
-    scoped_ptr<CapsLockDelegate> caps_lock_delegate) {
-  caps_lock_delegate_.swap(caps_lock_delegate);
 }
 
 void AcceleratorController::SetImeControlDelegate(

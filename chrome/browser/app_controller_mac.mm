@@ -672,7 +672,8 @@ const AEEventClass kAECloudPrintUninstallClass = 'GCPu';
       if ([self userWillWaitForInProgressDownloads:downloadCount]) {
         // Create a new browser window (if necessary) and navigate to the
         // downloads page if the user chooses to wait.
-        Browser* browser = browser::FindBrowserWithProfile(profiles[i]);
+        Browser* browser = browser::FindBrowserWithProfile(
+            profiles[i], chrome::HOST_DESKTOP_TYPE_NATIVE);
         if (!browser) {
           browser = new Browser(Browser::CreateParams(profiles[i]));
           browser->window()->Show();
@@ -1197,19 +1198,27 @@ const AEEventClass kAECloudPrintUninstallClass = 'GCPu';
   NSMenu* dockMenu = [[[NSMenu alloc] initWithTitle: @""] autorelease];
   Profile* profile = [self lastProfile];
 
-  NSString* titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_WINDOW_MAC);
+  BOOL handled = [profileMenuController_ insertItemsIntoMenu:dockMenu
+                                                    atOffset:0
+                                                    fromDock:YES];
+
+  if (!handled) {
+    NSString* titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_WINDOW_MAC);
+    scoped_nsobject<NSMenuItem> item(
+        [[NSMenuItem alloc] initWithTitle:titleStr
+                                   action:@selector(commandFromDock:)
+                            keyEquivalent:@""]);
+    [item setTarget:self];
+    [item setTag:IDC_NEW_WINDOW];
+    [dockMenu addItem:item];
+  }
+
+  NSString* titleStr =
+      l10n_util::GetNSStringWithFixup(IDS_NEW_INCOGNITO_WINDOW_MAC);
   scoped_nsobject<NSMenuItem> item(
       [[NSMenuItem alloc] initWithTitle:titleStr
                                  action:@selector(commandFromDock:)
                           keyEquivalent:@""]);
-  [item setTarget:self];
-  [item setTag:IDC_NEW_WINDOW];
-  [dockMenu addItem:item];
-
-  titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_INCOGNITO_WINDOW_MAC);
-  item.reset([[NSMenuItem alloc] initWithTitle:titleStr
-                                        action:@selector(commandFromDock:)
-                                 keyEquivalent:@""]);
   [item setTarget:self];
   [item setTag:IDC_NEW_INCOGNITO_WINDOW];
   [dockMenu addItem:item];

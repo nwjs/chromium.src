@@ -14,10 +14,12 @@
 class ContentsContainer;
 class LocationBarContainer;
 class TabContents;
+class ToolbarView;
 
 namespace chrome {
 namespace search {
 class SearchModel;
+class ToolbarSearchAnimator;
 }
 }
 
@@ -41,8 +43,11 @@ class SearchViewController
     : public chrome::search::SearchModelObserver,
       public ui::ImplicitAnimationObserver {
  public:
-  SearchViewController(content::BrowserContext* browser_context,
-                       ContentsContainer* contents_container);
+  SearchViewController(
+      content::BrowserContext* browser_context,
+      ContentsContainer* contents_container,
+      chrome::search::ToolbarSearchAnimator* toolbar_search_animator,
+      ToolbarView* toolbar_view);
   virtual ~SearchViewController();
 
   views::View* omnibox_popup_view_parent();
@@ -120,6 +125,12 @@ class SearchViewController
 
   // Where the overlay is placed.  Weak.
   ContentsContainer* contents_container_;
+
+  // Weak.
+  chrome::search::ToolbarSearchAnimator* toolbar_search_animator_;
+
+  // The browser's toolbar view.  Weak.
+  ToolbarView* toolbar_view_;
 
   // Weak.
   LocationBarContainer* location_bar_container_;

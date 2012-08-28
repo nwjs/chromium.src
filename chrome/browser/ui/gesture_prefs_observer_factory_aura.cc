@@ -64,6 +64,7 @@ const char* kPrefsToObserve[] = {
   prefs::kRailBreakProportion,
   prefs::kRailStartProportion,
   prefs::kSemiLongPressTimeInSeconds,
+  prefs::kTouchScreenFlingAccelerationAdjustment,
 };
 
 GesturePrefsObserver::GesturePrefsObserver(PrefService* prefs)
@@ -112,6 +113,9 @@ void GesturePrefsObserver::Update() {
   GestureConfiguration::set_max_touch_move_in_pixels_for_click(
       prefs_->GetDouble(
           prefs::kMaxTouchMoveInPixelsForClick));
+  GestureConfiguration::set_max_distance_between_taps_for_double_tap(
+      prefs_->GetDouble(
+          prefs::kMaxDistanceBetweenTapsForDoubleTap));
   GestureConfiguration::set_min_distance_for_pinch_scroll_in_pixels(
       prefs_->GetDouble(
           prefs::kMinDistanceForPinchScrollInPixels));
@@ -142,6 +146,9 @@ void GesturePrefsObserver::Update() {
   GestureConfiguration::set_rail_start_proportion(
       prefs_->GetDouble(
           prefs::kRailStartProportion));
+  GestureConfiguration::set_touchscreen_fling_acceleration_adjustment(
+      prefs_->GetDouble(
+          prefs::kTouchScreenFlingAccelerationAdjustment));
 }
 
 }  // namespace
@@ -197,6 +204,10 @@ void GesturePrefsObserverFactoryAura::RegisterUserPrefs(PrefService* prefs) {
       GestureConfiguration::max_touch_move_in_pixels_for_click(),
       PrefService::UNSYNCABLE_PREF);
   prefs->RegisterDoublePref(
+      prefs::kMaxDistanceBetweenTapsForDoubleTap,
+      GestureConfiguration::max_distance_between_taps_for_double_tap(),
+      PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterDoublePref(
       prefs::kMinDistanceForPinchScrollInPixels,
       GestureConfiguration::min_distance_for_pinch_scroll_in_pixels(),
       PrefService::UNSYNCABLE_PREF);
@@ -235,6 +246,10 @@ void GesturePrefsObserverFactoryAura::RegisterUserPrefs(PrefService* prefs) {
   prefs->RegisterDoublePref(
       prefs::kRailStartProportion,
       GestureConfiguration::rail_start_proportion(),
+      PrefService::UNSYNCABLE_PREF);
+  prefs->RegisterDoublePref(
+      prefs::kTouchScreenFlingAccelerationAdjustment,
+      GestureConfiguration::touchscreen_fling_acceleration_adjustment(),
       PrefService::UNSYNCABLE_PREF);
 }
 

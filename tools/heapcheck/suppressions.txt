@@ -1403,36 +1403,6 @@
   fun:GtkThemeService::GetDefaultFavicon
 }
 {
-   bug_131668_a
-   Heapcheck:Leak
-   ...
-   fun:history::InMemoryURLIndex::PostRestoreFromCacheFileTask
-   fun:history::InMemoryURLIndex::Init
-   fun:HistoryService::Init
-   fun:TestingProfile::CreateHistoryService
-   fun:ShortcutsProviderTest::SetUp
-}
-{
-   bug_131668_b
-   Heapcheck:Leak
-   fun:std::basic_string::_Rep::_S_create
-   fun:base::PrepareForUTF8Output
-   fun:UTF16ToUTF8
-   fun:UTF16ToUTF8
-   fun:l10n_util::GetStringUTF8
-   fun:::CreateLocaleDefaultValue
-   fun:PrefService::RegisterLocalizedStringPref
-   fun:PrefsTabHelper::RegisterUserPrefs
-   fun:browser::RegisterUserPrefs
-   fun:TestingProfile::CreateTestingPrefService
-   fun:TestingProfile::GetPrefs
-   fun:ProfileKeyedBaseFactory::RegisterUserPrefsOnProfile
-   fun:ProfileDependencyManager::CreateProfileServices
-   fun:TestingProfile::Init
-   fun:TestingProfile::TestingProfile
-   fun:ShortcutsProviderTest::SetUp
-}
-{
    bug_132431
    Heapcheck:Leak
    ...
@@ -1504,4 +1474,38 @@
    fun:appcache::AppCacheStorageImpl::Initialize
    fun:appcache::AppCacheService::Initialize
    fun:ChromeAppCacheService::InitializeOnIOThread
+}
+{
+   bug_144913
+   Heapcheck:Leak
+   ...
+   fun:DBusThreadManagerImpl
+   fun:chromeos::DBusThreadManager::Initialize
+   fun:chromeos::KioskModeIdleLogoutTest::SetUp
+}
+{
+   bug_144913_b
+   Heapcheck:Leak
+   fun:chromeos::DBusThreadManager::Initialize
+   fun:chromeos::KioskModeIdleLogoutTest::SetUp
+}
+{
+   bug_144913_c
+   Heapcheck:Leak
+   fun:MessageLoop::MessageLoop
+   fun:MessageLoopForUI::MessageLoopForUI
+   fun:AshTestBase
+   fun:KioskModeIdleLogoutTest
+   fun:KioskModeIdleLogoutTest_CheckObserversAfterUserLogin_Test
+   fun:testing::internal::TestFactoryImpl::CreateTest
+}
+{
+   bug_144913_d
+   Heapcheck:Leak
+   fun:MessageLoop::MessageLoop
+   fun:MessageLoopForUI::MessageLoopForUI
+   fun:AshTestBase
+   fun:KioskModeIdleLogoutTest
+   fun:KioskModeIdleLogoutTest_CheckObserversBeforeUserLogin_Test
+   fun:testing::internal::TestFactoryImpl::CreateTest
 }

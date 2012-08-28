@@ -87,8 +87,7 @@ FilePath IsolatedMountPointProvider::GetFileSystemRootPathOnFileThread(
   return FilePath();
 }
 
-bool IsolatedMountPointProvider::IsAccessAllowed(
-    const GURL& origin_url, FileSystemType type, const FilePath& virtual_path) {
+bool IsolatedMountPointProvider::IsAccessAllowed(const FileSystemURL& url) {
   return true;
 }
 
@@ -102,7 +101,6 @@ bool IsolatedMountPointProvider::IsRestrictedFileName(
 FileSystemFileUtil* IsolatedMountPointProvider::GetFileUtil(
     FileSystemType type) {
   switch (type) {
-    case kFileSystemTypeIsolated:
     case kFileSystemTypeNativeLocal:
       return isolated_file_util_.get();
     case kFileSystemTypeDragged:
@@ -126,8 +124,7 @@ FilePath IsolatedMountPointProvider::GetPathForPermissionsCheck(
   return FilePath();
 }
 
-FileSystemOperationInterface*
-IsolatedMountPointProvider::CreateFileSystemOperation(
+FileSystemOperation* IsolatedMountPointProvider::CreateFileSystemOperation(
     const FileSystemURL& url,
     FileSystemContext* context) const {
   scoped_ptr<FileSystemOperationContext> operation_context(

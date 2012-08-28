@@ -28,6 +28,7 @@
 #include "chrome/browser/chromeos/login/webui_login_display.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/io_thread.h"
+#include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_notification_types.h"
 #include "chrome/common/chrome_switches.h"
@@ -77,7 +78,7 @@ const char kKeyCanRemove[] = "canRemove";
 const char kKeyOauthTokenStatus[] = "oauthTokenStatus";
 
 // Max number of users to show.
-const int kMaxUsers = 5;
+const size_t kMaxUsers = 5;
 
 const char kReasonNetworkChanged[] = "network changed";
 const char kReasonProxyChanged[] = "proxy changed";
@@ -360,6 +361,11 @@ void SigninScreenHandler::GetLocalizedStrings(
       l10n_util::GetStringUTF16(IDS_OFFLINE_LOGIN_HTML));
   localized_strings->SetString("removeUser",
       l10n_util::GetStringUTF16(IDS_LOGIN_REMOVE));
+  localized_strings->SetString("disabledAddUserTooltip",
+      l10n_util::GetStringUTF16(
+          g_browser_process->browser_policy_connector()->IsEnterpriseManaged() ?
+            IDS_DISABLED_ADD_USER_TOOLTIP_ENTERPRISE :
+            IDS_DISABLED_ADD_USER_TOOLTIP));
 
   if (chromeos::KioskModeSettings::Get()->IsKioskModeEnabled()) {
     localized_strings->SetString("demoLoginMessage",
@@ -387,7 +393,10 @@ void SigninScreenHandler::Show(bool oobe_ui) {
     input_method::InputMethodManager::GetInstance()->GetXKeyboard()->
         SetCapsLockEnabled(false);
 
-    ShowScreen(kAccountPickerScreen, NULL);
+    DictionaryValue params;
+    params.SetBoolean("disableAddUser",
+                      DoRestrictedUsersMatchExistingOnScreen());
+    ShowScreen(kAccountPickerScreen, &params);
   }
 }
 
@@ -600,10 +609,12 @@ void SigninScreenHandler::OnCapsLockChange(bool enabled) {
 void SigninScreenHandler::Observe(int type,
                                   const content::NotificationSource& source,
                                   const content::NotificationDetails& details) {
-  if (type == chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED)
+  if (type == chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED) {
     UpdateAuthExtension();
-  else
+    UpdateAddButtonStatus();
+  } else {
     NOTREACHED() << "Unexpected notification " << type;
+  }
 }
 
 void SigninScreenHandler::OnDnsCleared() {
@@ -701,6 +712,12 @@ void SigninScreenHandler::UpdateAuthExtension() {
   UpdateAuthParamsFromSettings(&params, CrosSettings::Get());
   web_ui()->CallJavascriptFunction("login.GaiaSigninScreen.updateAuthExtension",
                                    params);
+}
+
+void SigninScreenHandler::UpdateAddButtonStatus() {
+  base::FundamentalValue disabled(DoRestrictedUsersMatchExistingOnScreen());
+  web_ui()->CallJavascriptFunction(
+      "cr.ui.login.DisplayManager.updateAddUserButtonStatus", disabled);
 }
 
 void SigninScreenHandler::ShowSigninScreenForCreds(
@@ -833,6 +850,7 @@ void SigninScreenHandler::HandleRemoveUser(const base::ListValue* args) {
   }
 
   delegate_->RemoveUser(email);
+  UpdateAddButtonStatus();
 }
 
 void SigninScreenHandler::HandleShowAddUser(const base::ListValue* args) {
@@ -1110,6 +1128,29 @@ void SigninScreenHandler::MaybePreloadAuthExtension() {
         network_state_informer_->active_network_service_path();
     LoadAuthExtension(true, true, false);
   }
+}
+
+bool SigninScreenHandler::DoRestrictedUsersMatchExistingOnScreen() {
+  CrosSettings* cros_settings = CrosSettings::Get();
+  bool allow_new_user = false;
+  cros_settings->GetBoolean(kAccountsPrefAllowNewUser, &allow_new_user);
+  if (allow_new_user)
+    return false;
+  const UserList& users = UserManager::Get()->GetUsers();
+  if (!delegate_ || users.size() > kMaxUsers - delegate_->IsShowGuest()) {
+    return false;
+  }
+  const base::ListValue* existing = NULL;
+  if (!cros_settings->GetList(kAccountsPrefUsers, &existing) ||
+      !existing || users.size() != existing->GetSize()) {
+    return false;
+  }
+  for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
+    if (!cros_settings->FindEmailInList(kAccountsPrefUsers, (*it)->email())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace chromeos

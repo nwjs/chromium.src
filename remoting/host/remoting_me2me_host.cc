@@ -86,9 +86,6 @@ const char kHostConfigSwitchName[] = "host-config";
 const FilePath::CharType kDefaultHostConfigFile[] =
     FILE_PATH_LITERAL("host.json");
 
-const int kMinPortNumber = 12400;
-const int kMaxPortNumber = 12409;
-
 const char kUnofficialOAuth2ClientId[] =
     "440925447803-2pi3v45bff6tp1rde2f7q6lgbor3o5uj.apps.googleusercontent.com";
 const char kUnofficialOAuth2ClientSecret[] = "W2ieEsG-R1gIA4MMurGrgMc_";
@@ -249,8 +246,25 @@ class HostProcess
     }
 
 #if defined(OS_MACOSX) || defined(OS_WIN)
-    host_user_interface_.reset(new HostUserInterface(context_.get()));
-#endif
+    bool want_user_interface = true;
+
+#if defined(OS_MACOSX)
+    // Don't try to display any UI on top of the system's login screen as this
+    // is rejected by the Window Server on OS X 10.7.4, and prevents the
+    // capturer from working (http://crbug.com/140984).
+    base::mac::ScopedCFTypeRef<CFDictionaryRef> session(
+        CGSessionCopyCurrentDictionary());
+    const void* logged_in = CFDictionaryGetValue(session,
+                                                 kCGSessionLoginDoneKey);
+    if (logged_in != kCFBooleanTrue) {
+      want_user_interface = false;
+    }
+#endif  // OS_MACOSX
+
+    if (want_user_interface) {
+      host_user_interface_.reset(new HostUserInterface(context_.get()));
+    }
+#endif  // OS_MACOSX || OS_WIN
 
     StartWatchingPolicy();
 
@@ -498,8 +512,8 @@ class HostProcess
         NetworkSettings::NAT_TRAVERSAL_ENABLED :
         NetworkSettings::NAT_TRAVERSAL_DISABLED);
     if (!allow_nat_traversal_) {
-      network_settings.min_port = kMinPortNumber;
-      network_settings.max_port = kMaxPortNumber;
+      network_settings.min_port = NetworkSettings::kDefaultMinPort;
+      network_settings.max_port = NetworkSettings::kDefaultMaxPort;
     }
 
     host_ = new ChromotingHost(
@@ -520,9 +534,11 @@ class HostProcess
     host_event_logger_ = HostEventLogger::Create(host_, kApplicationName);
 
 #if defined(OS_MACOSX) || defined(OS_WIN)
-    host_user_interface_->Start(
-        host_, base::Bind(&HostProcess::OnDisconnectRequested,
-                          base::Unretained(this)));
+    if (host_user_interface_.get()) {
+      host_user_interface_->Start(
+          host_, base::Bind(&HostProcess::OnDisconnectRequested,
+                            base::Unretained(this)));
+    }
 #endif
 
     host_->Start();

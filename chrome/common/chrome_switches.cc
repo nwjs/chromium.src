@@ -427,6 +427,9 @@ const char kDisableTranslate[]              = "disable-translate";
 // Disables the backend service for web resources.
 const char kDisableWebResources[]           = "disable-web-resources";
 
+// Disables the website settings UI.
+const char kDisableWebsiteSettings[]         = "disable-website-settings";
+
 // Some tests seem to require the application to close when the last
 // browser window is closed. Thus, we need a switch to force this behavior
 // for ChromeOS Aura, disable "zero window mode".
@@ -539,9 +542,6 @@ const char kEnableFramelessConstrainedDialogs[] =
 // By default, cookies are not allowed on file://. They are needed for testing,
 // for example page cycler and layout tests. See bug 1157243.
 const char kEnableFileCookies[]             = "enable-file-cookies";
-
-// Enable High DPI rendering in Chrome PDF Viewer on High DPI displays.
-const char kEnableHighDPIPDFPlugin[]        = "enable-hidpi-pdf-plugin";
 
 // Enable HTTP pipelining. Attempt to pipeline HTTP connections. Heuristics will
 // try to figure out if pipelining can be used for a given host and request.
@@ -667,10 +667,6 @@ const char kEnableTextServiceFramework[] = "enable-text-service-framework";
 //
 // Order of the listed sub-arguments does not matter.
 const char kEnableWatchdog[]                = "enable-watchdog";
-
-// Enable Website Settings. The Website Settings UI will replace the Page Info
-// Bubble.
-const char kEnableWebsiteSettings[]         = "enable-website-settings";
 
 // Uses WebSocket over SPDY.
 const char kEnableWebSocketOverSpdy[]       = "enable-websocket-over-spdy";
@@ -1432,9 +1428,6 @@ const char kEnableTouchpadThreeFingerClick[]
 // Skips OAuth part of ChromeOS login process.
 const char kSkipOAuthLogin[]                = "skip-oauth-login";
 
-// Enables device policy support on ChromeOS.
-const char kEnableDevicePolicy[]            = "enable-device-policy";
-
 // Enables Drive v2 API instead of Google Documents List API.
 const char kEnableDriveV2Api[]              = "enable-drive-v2-api";
 
@@ -1448,8 +1441,8 @@ const char kEnableGView[]                   = "enable-gview";
 // Enable Kiosk mode for ChromeOS
 const char kEnableKioskMode[]               = "enable-kiosk-mode";
 
-// Enables support for policy-configured networks.
-const char kEnableONCPolicy[]               = "enable-onc-policy";
+// Enables the new wallpaper picker UI.
+const char kEnableNewWallpaperUI[]          = "enable-new-wallpaper-ui";
 
 // Enables static ip configuration. This flag should be removed when it's on by
 // default.
@@ -1459,9 +1452,6 @@ const char kEnableStaticIPConfig[]          = "enable-static-ip-config";
 // supported by ChromeOS.
 const char kEnableUnsupportedBluetoothDevices[] =
     "enable-unsupported-bluetooth-devices";
-
-// Enables the experimental wallpaper picker UI.
-const char kExperimentalWallpaperUI[] = "experimental-wallpaper-ui";
 
 // Passed to Chrome on first boot. Not passed on restart after sign out.
 const char kFirstBoot[] = "first-boot";

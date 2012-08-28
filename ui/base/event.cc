@@ -23,6 +23,8 @@ namespace {
 
 base::NativeEvent CopyNativeEvent(const base::NativeEvent& event) {
 #if defined(USE_X11)
+  if (!event || event->type == GenericEvent)
+    return NULL;
   XEvent* copy = new XEvent;
   *copy = *event;
   return copy;
@@ -74,11 +76,15 @@ Event::Event(const base::NativeEvent& native_event,
 }
 
 Event::Event(const Event& copy)
-    : native_event_(copy.native_event_),
+    : native_event_(::CopyNativeEvent(copy.native_event_)),
       type_(copy.type_),
       time_stamp_(copy.time_stamp_),
       flags_(copy.flags_),
       delete_native_event_(false) {
+#if defined(USE_X11)
+  if (native_event_)
+    delete_native_event_ = true;
+#endif
 }
 
 void Event::Init() {
@@ -114,14 +120,6 @@ LocatedEvent::LocatedEvent(EventType type,
       root_location_(root_location),
       valid_system_location_(false),
       system_location_(0, 0) {
-}
-
-LocatedEvent::LocatedEvent(const LocatedEvent& model)
-    : Event(model),
-      location_(model.location_),
-      root_location_(model.root_location_),
-      valid_system_location_(model.valid_system_location_),
-      system_location_(model.system_location_) {
 }
 
 void LocatedEvent::UpdateForRootTransform(const Transform& root_transform) {
@@ -239,20 +237,12 @@ void MouseEvent::SetClickCount(int click_count) {
   set_flags(f);
 }
 
-MouseEvent::MouseEvent(const MouseEvent& model) : LocatedEvent(model) {
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // MouseWheelEvent
 
 MouseWheelEvent::MouseWheelEvent(const base::NativeEvent& native_event)
     : MouseEvent(native_event),
       offset_(GetMouseWheelOffset(native_event)) {
-}
-
-MouseWheelEvent::MouseWheelEvent(const MouseEvent& mouse_event)
-    : MouseEvent(mouse_event),
-      offset_(GetMouseWheelOffset(mouse_event.native_event())) {
 }
 
 MouseWheelEvent::MouseWheelEvent(const ScrollEvent& scroll_event)

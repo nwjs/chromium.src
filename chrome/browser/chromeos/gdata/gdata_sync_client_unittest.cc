@@ -21,7 +21,7 @@
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/gdata_test_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
-#include "chrome/browser/chromeos/gdata/mock_gdata_file_system.h"
+#include "chrome/browser/chromeos/gdata/mock_drive_file_system.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
@@ -61,7 +61,7 @@ class GDataSyncClientTest : public testing::Test {
       : ui_thread_(content::BrowserThread::UI, &message_loop_),
         io_thread_(content::BrowserThread::IO),
         profile_(new TestingProfile),
-        mock_file_system_(new StrictMock<MockGDataFileSystem>),
+        mock_file_system_(new StrictMock<MockDriveFileSystem>),
         mock_network_library_(NULL) {
   }
 
@@ -217,28 +217,28 @@ class GDataSyncClientTest : public testing::Test {
             pinned_dir.AppendASCII("resource_id_dirty")));
   }
 
-  // Sets the expectation for MockGDataFileSystem::GetFileByResourceId(),
+  // Sets the expectation for MockDriveFileSystem::GetFileByResourceId(),
   // that simulates successful retrieval of a file for the given resource ID.
   void SetExpectationForGetFileByResourceId(const std::string& resource_id) {
     EXPECT_CALL(*mock_file_system_,
                 GetFileByResourceId(resource_id, _, _))
         .WillOnce(MockGetFileByResourceId(
-            GDATA_FILE_OK,
+            DRIVE_FILE_OK,
             FilePath::FromUTF8Unsafe("local_path_does_not_matter"),
             std::string("mime_type_does_not_matter"),
             REGULAR_FILE));
   }
 
-  // Sets the expectation for MockGDataFileSystem::UpdateFileByResourceId(),
+  // Sets the expectation for MockDriveFileSystem::UpdateFileByResourceId(),
   // that simulates successful uploading of a file for the given resource ID.
   void SetExpectationForUpdateFileByResourceId(
       const std::string& resource_id) {
     EXPECT_CALL(*mock_file_system_,
                 UpdateFileByResourceId(resource_id, _))
-        .WillOnce(MockUpdateFileByResourceId(GDATA_FILE_OK));
+        .WillOnce(MockUpdateFileByResourceId(DRIVE_FILE_OK));
   }
 
-  // Sets the expectation for MockGDataFileSystem::GetFileInfoByResourceId(),
+  // Sets the expectation for MockDriveFileSystem::GetFileInfoByResourceId(),
   // that simulates successful retrieval of file info for the given resource
   // ID.
   //
@@ -250,7 +250,7 @@ class GDataSyncClientTest : public testing::Test {
   EXPECT_CALL(*mock_file_system_,
               GetEntryInfoByResourceId(resource_id, _))
       .WillOnce(MockUpdateFileByResourceId(
-          GDATA_FILE_OK,
+          DRIVE_FILE_OK,
           new_md5));
   }
 
@@ -283,7 +283,7 @@ class GDataSyncClientTest : public testing::Test {
   content::TestBrowserThread io_thread_;
   ScopedTempDir temp_dir_;
   scoped_ptr<TestingProfile> profile_;
-  scoped_ptr<StrictMock<MockGDataFileSystem> > mock_file_system_;
+  scoped_ptr<StrictMock<MockDriveFileSystem> > mock_file_system_;
   DriveCache* cache_;
   scoped_ptr<GDataSyncClient> sync_client_;
   chromeos::MockNetworkLibrary* mock_network_library_;
@@ -330,7 +330,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be fetched or uploaded by GDataFileSystem, once
+  // These files will be fetched or uploaded by DriveFileSystem, once
   // StartSyncLoop() starts.
   SetExpectationForGetFileByResourceId("resource_id_not_fetched_foo");
   SetExpectationForGetFileByResourceId("resource_id_not_fetched_bar");
@@ -349,7 +349,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_Offline) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be neither fetched nor uploaded not by GDataFileSystem,
+  // These files will be neither fetched nor uploaded not by DriveFileSystem,
   // as network is not connected.
 
   sync_client_->StartSyncLoop();
@@ -368,7 +368,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_ResumedConnection) {
   EXPECT_CALL(*mock_file_system_, GetFileByResourceId(resource_id, _, _))
       .WillOnce(DoAll(
           InvokeWithoutArgs(this, &GDataSyncClientTest::ConnectToNone),
-          MockGetFileByResourceId(GDATA_FILE_ERROR_NO_CONNECTION,
+          MockGetFileByResourceId(DRIVE_FILE_ERROR_NO_CONNECTION,
                                   file_path,
                                   mime_type,
                                   REGULAR_FILE)));
@@ -378,7 +378,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_ResumedConnection) {
   // Expect fetch retry on network reconnection.
   EXPECT_CALL(*mock_file_system_, GetFileByResourceId(resource_id, _, _))
       .WillOnce(MockGetFileByResourceId(
-          GDATA_FILE_OK, file_path, mime_type, REGULAR_FILE));
+          DRIVE_FILE_OK, file_path, mime_type, REGULAR_FILE));
 
   ConnectToWifi();
 }
@@ -392,7 +392,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_CelluarDisabled) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be neither fetched nor uploaded not by GDataFileSystem,
+  // These files will be neither fetched nor uploaded not by DriveFileSystem,
   // as fetching over cellular network is disabled by default.
 
   // Then connect to cellular. This will kick off StartSyncLoop().
@@ -411,7 +411,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_CelluarEnabled) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be fetched or uploaded by GDataFileSystem, as syncing
+  // These files will be fetched or uploaded by DriveFileSystem, as syncing
   // over cellular network is explicitly enabled.
   SetExpectationForGetFileByResourceId("resource_id_not_fetched_foo");
   SetExpectationForGetFileByResourceId("resource_id_not_fetched_bar");
@@ -431,7 +431,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_WimaxDisabled) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be neither fetched nor uploaded not by GDataFileSystem,
+  // These files will be neither fetched nor uploaded not by DriveFileSystem,
   // as syncing over wimax network is disabled by default.
 
   // Then connect to wimax. This will kick off StartSyncLoop().
@@ -450,7 +450,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_CelluarEnabledWithWimax) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be fetched or uploaded by GDataFileSystem, as syncing
+  // These files will be fetched or uploaded by DriveFileSystem, as syncing
   // over cellular network, which includes wimax, is explicitly enabled.
   SetExpectationForGetFileByResourceId("resource_id_not_fetched_foo");
   SetExpectationForGetFileByResourceId("resource_id_not_fetched_bar");
@@ -473,7 +473,7 @@ TEST_F(GDataSyncClientTest, StartSyncLoop_GDataDisabled) {
   AddResourceIdToFetch("resource_id_not_fetched_baz");
   AddResourceIdToUpload("resource_id_dirty");
 
-  // These files will be neither fetched nor uploaded not by GDataFileSystem,
+  // These files will be neither fetched nor uploaded not by DriveFileSystem,
   // as the GData feature is disabled.
 
   sync_client_->StartSyncLoop();
@@ -541,13 +541,13 @@ TEST_F(GDataSyncClientTest, ExistingPinnedFiles) {
   // test cache directory.
   cache_->RequestInitializeOnUIThread();
 
-  // Set the expectation so that the MockGDataFileSystem returns "new_md5"
+  // Set the expectation so that the MockDriveFileSystem returns "new_md5"
   // for "resource_id_fetched". This simulates that the file is updated on
   // the server side, and the new MD5 is obtained from the server (i.e. the
   // local cach file is stale).
   SetExpectationForGetFileInfoByResourceId("resource_id_fetched",
                                            "new_md5");
-  // Set the expectation so that the MockGDataFileSystem returns "some_md5"
+  // Set the expectation so that the MockDriveFileSystem returns "some_md5"
   // for "resource_id_dirty". The MD5 on the server is always different from
   // the MD5 of a dirty file, which is set to "local". We should not collect
   // this by StartCheckingExistingPinnedFiles().

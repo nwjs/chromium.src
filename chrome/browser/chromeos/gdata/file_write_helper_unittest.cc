@@ -8,7 +8,7 @@
 #include "base/message_loop.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/chromeos/gdata/gdata_test_util.h"
-#include "chrome/browser/chromeos/gdata/mock_gdata_file_system.h"
+#include "chrome/browser/chromeos/gdata/mock_drive_file_system.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -36,9 +36,9 @@ ACTION_P(MockCloseFile, error) {
     arg1.Run(error);
 }
 
-void RecordOpenFileCallbackArguments(GDataFileError* error,
+void RecordOpenFileCallbackArguments(DriveFileError* error,
                                      FilePath* path,
-                                     GDataFileError error_arg,
+                                     DriveFileError error_arg,
                                      const FilePath& path_arg) {
   base::ThreadRestrictions::AssertIOAllowed();
   *error = error_arg;
@@ -51,13 +51,13 @@ class FileWriteHelperTest : public testing::Test {
  public:
   FileWriteHelperTest()
       : ui_thread_(content::BrowserThread::UI, &message_loop_),
-        mock_file_system_(new StrictMock<MockGDataFileSystem>) {
+        mock_file_system_(new StrictMock<MockDriveFileSystem>) {
   }
 
  protected:
   MessageLoopForUI message_loop_;
   content::TestBrowserThread ui_thread_;
-  scoped_ptr< StrictMock<MockGDataFileSystem> > mock_file_system_;
+  scoped_ptr< StrictMock<MockDriveFileSystem> > mock_file_system_;
 };
 
 TEST_F(FileWriteHelperTest, PrepareFileForWritingSuccess) {
@@ -65,20 +65,20 @@ TEST_F(FileWriteHelperTest, PrepareFileForWritingSuccess) {
   const FilePath kLocalPath("/tmp/dummy.txt");
 
   EXPECT_CALL(*mock_file_system_, CreateFile(kDrivePath, false, _))
-      .WillOnce(MockCreateFile(GDATA_FILE_OK));
+      .WillOnce(MockCreateFile(DRIVE_FILE_OK));
   EXPECT_CALL(*mock_file_system_, OpenFile(kDrivePath, _))
-      .WillOnce(MockOpenFile(GDATA_FILE_OK, kLocalPath));
+      .WillOnce(MockOpenFile(DRIVE_FILE_OK, kLocalPath));
   EXPECT_CALL(*mock_file_system_, CloseFile(kDrivePath, _))
-      .WillOnce(MockCloseFile(GDATA_FILE_OK));
+      .WillOnce(MockCloseFile(DRIVE_FILE_OK));
 
   FileWriteHelper file_write_helper(mock_file_system_.get());
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
   FilePath path;
   file_write_helper.PrepareWritableFileAndRun(
       kDrivePath, base::Bind(&RecordOpenFileCallbackArguments, &error, &path));
   test_util::RunBlockingPoolTask();
 
-  EXPECT_EQ(GDATA_FILE_OK, error);
+  EXPECT_EQ(DRIVE_FILE_OK, error);
   EXPECT_EQ(kLocalPath, path);
 }
 
@@ -86,18 +86,18 @@ TEST_F(FileWriteHelperTest, PrepareFileForWritingCreateFail) {
   const FilePath kDrivePath("/drive/file.txt");
 
   EXPECT_CALL(*mock_file_system_, CreateFile(kDrivePath, false, _))
-      .WillOnce(MockCreateFile(GDATA_FILE_ERROR_ACCESS_DENIED));
+      .WillOnce(MockCreateFile(DRIVE_FILE_ERROR_ACCESS_DENIED));
   EXPECT_CALL(*mock_file_system_, OpenFile(_, _)).Times(0);
   EXPECT_CALL(*mock_file_system_, CloseFile(_, _)).Times(0);
 
   FileWriteHelper file_write_helper(mock_file_system_.get());
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
   FilePath path;
   file_write_helper.PrepareWritableFileAndRun(
       kDrivePath, base::Bind(&RecordOpenFileCallbackArguments, &error, &path));
   test_util::RunBlockingPoolTask();
 
-  EXPECT_EQ(GDATA_FILE_ERROR_ACCESS_DENIED, error);
+  EXPECT_EQ(DRIVE_FILE_ERROR_ACCESS_DENIED, error);
   EXPECT_EQ(FilePath(), path);
 }
 
@@ -105,19 +105,19 @@ TEST_F(FileWriteHelperTest, PrepareFileForWritingOpenFail) {
   const FilePath kDrivePath("/drive/file.txt");
 
   EXPECT_CALL(*mock_file_system_, CreateFile(kDrivePath, false, _))
-      .WillOnce(MockCreateFile(GDATA_FILE_OK));
+      .WillOnce(MockCreateFile(DRIVE_FILE_OK));
   EXPECT_CALL(*mock_file_system_, OpenFile(kDrivePath, _))
-      .WillOnce(MockOpenFile(GDATA_FILE_ERROR_IN_USE, FilePath()));
+      .WillOnce(MockOpenFile(DRIVE_FILE_ERROR_IN_USE, FilePath()));
   EXPECT_CALL(*mock_file_system_, CloseFile(_, _)).Times(0);
 
   FileWriteHelper file_write_helper(mock_file_system_.get());
-  GDataFileError error = GDATA_FILE_ERROR_FAILED;
+  DriveFileError error = DRIVE_FILE_ERROR_FAILED;
   FilePath path;
   file_write_helper.PrepareWritableFileAndRun(
       kDrivePath, base::Bind(&RecordOpenFileCallbackArguments, &error, &path));
   test_util::RunBlockingPoolTask();
 
-  EXPECT_EQ(GDATA_FILE_ERROR_IN_USE, error);
+  EXPECT_EQ(DRIVE_FILE_ERROR_IN_USE, error);
   EXPECT_EQ(FilePath(), path);
 }
 

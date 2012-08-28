@@ -158,7 +158,7 @@ void BrowserFrameWin::CloseImmersiveFrame() {
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserFrameWin, views::NativeWidgetWin overrides:
 
-int BrowserFrameWin::GetShowState() const {
+int BrowserFrameWin::GetInitialShowState() const {
   if (explicit_show_state != -1)
     return explicit_show_state;
 
@@ -169,12 +169,12 @@ int BrowserFrameWin::GetShowState() const {
   return si.wShowWindow;
 }
 
-gfx::Insets BrowserFrameWin::GetClientAreaInsets() const {
+bool BrowserFrameWin::GetClientAreaInsets(gfx::Insets* insets) const {
   // Use the default client insets for an opaque frame or a glass popup/app
   // frame.
   if (!GetWidget()->ShouldUseNativeFrame() ||
       !browser_view_->IsBrowserTypeNormal()) {
-    return NativeWidgetWin::GetClientAreaInsets();
+    return false;
   }
 
   int border_thickness = GetSystemMetrics(SM_CXSIZEFRAME);
@@ -184,7 +184,8 @@ gfx::Insets BrowserFrameWin::GetClientAreaInsets() const {
     border_thickness = 0;
   else if (!IsMaximized())
     border_thickness -= kClientEdgeThickness;
-  return gfx::Insets(0, border_thickness, border_thickness, border_thickness);
+  insets->Set(0, border_thickness, border_thickness, border_thickness);
+  return true;
 }
 
 void BrowserFrameWin::UpdateFrameAfterFrameChange() {
@@ -443,13 +444,13 @@ void BrowserFrameWin::UpdateDWMFrame() {
 }
 
 void BrowserFrameWin::BuildSystemMenuForBrowserWindow() {
-  system_menu_contents_->AddSeparator();
+  system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
 
   if (chrome::CanOpenTaskManager()) {
     system_menu_contents_->AddItemWithStringId(IDC_TASK_MANAGER,
                                                IDS_TASK_MANAGER);
   }
-  system_menu_contents_->AddSeparator();
+  system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
   system_menu_contents_->AddItemWithStringId(IDC_RESTORE_TAB, IDS_RESTORE_TAB);
   system_menu_contents_->AddItemWithStringId(IDC_NEW_TAB, IDS_NEW_TAB);
   AddFrameToggleItems();
@@ -460,11 +461,11 @@ void BrowserFrameWin::BuildSystemMenuForBrowserWindow() {
 void BrowserFrameWin::BuildSystemMenuForAppOrPopupWindow() {
   Browser* browser = browser_view()->browser();
   if (browser->is_app() && chrome::CanOpenTaskManager()) {
-    system_menu_contents_->AddSeparator();
+    system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
     system_menu_contents_->AddItemWithStringId(IDC_TASK_MANAGER,
                                                IDS_TASK_MANAGER);
   }
-  system_menu_contents_->AddSeparator();
+  system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
   encoding_menu_contents_.reset(new EncodingMenuModel(browser));
   system_menu_contents_->AddSubMenuWithStringId(IDC_ENCODING_MENU,
                                                 IDS_ENCODING_MENU,
@@ -474,11 +475,11 @@ void BrowserFrameWin::BuildSystemMenuForAppOrPopupWindow() {
                                                 zoom_menu_contents_.get());
   system_menu_contents_->AddItemWithStringId(IDC_PRINT, IDS_PRINT);
   system_menu_contents_->AddItemWithStringId(IDC_FIND, IDS_FIND);
-  system_menu_contents_->AddSeparator();
+  system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
   system_menu_contents_->AddItemWithStringId(IDC_PASTE, IDS_PASTE);
   system_menu_contents_->AddItemWithStringId(IDC_COPY, IDS_COPY);
   system_menu_contents_->AddItemWithStringId(IDC_CUT, IDS_CUT);
-  system_menu_contents_->AddSeparator();
+  system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
   if (browser->is_app()) {
     system_menu_contents_->AddItemWithStringId(IDC_NEW_TAB,
                                                IDS_APP_MENU_NEW_WEB_PAGE);
@@ -486,7 +487,7 @@ void BrowserFrameWin::BuildSystemMenuForAppOrPopupWindow() {
     system_menu_contents_->AddItemWithStringId(IDC_SHOW_AS_TAB,
                                                IDS_SHOW_AS_TAB);
   }
-  system_menu_contents_->AddSeparator();
+  system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
   system_menu_contents_->AddItemWithStringId(IDC_RELOAD, IDS_APP_MENU_RELOAD);
   system_menu_contents_->AddItemWithStringId(IDC_FORWARD,
                                              IDS_CONTENT_CONTEXT_FORWARD);
@@ -498,7 +499,7 @@ void BrowserFrameWin::BuildSystemMenuForAppOrPopupWindow() {
 void BrowserFrameWin::AddFrameToggleItems() {
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDebugEnableFrameToggle)) {
-    system_menu_contents_->AddSeparator();
+    system_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
     system_menu_contents_->AddItem(IDC_DEBUG_FRAME_TOGGLE,
                                    L"Toggle Frame Type");
   }

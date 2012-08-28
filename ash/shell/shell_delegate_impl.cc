@@ -4,6 +4,7 @@
 
 #include "ash/shell/shell_delegate_impl.h"
 
+#include "ash/caps_lock_delegate_stub.h"
 #include "ash/shell/example_factory.h"
 #include "ash/shell/launcher_delegate_impl.h"
 #include "ash/shell/toplevel_window.h"
@@ -123,6 +124,10 @@ ash::UserWallpaperDelegate* ShellDelegateImpl::CreateUserWallpaperDelegate() {
   return NULL;
 }
 
+ash::CapsLockDelegate* ShellDelegateImpl::CreateCapsLockDelegate() {
+  return new CapsLockDelegateStub;
+}
+
 aura::client::UserActionClient* ShellDelegateImpl::CreateUserActionClient() {
   return NULL;
 }
@@ -131,6 +136,15 @@ void ShellDelegateImpl::OpenFeedbackPage() {
 }
 
 void ShellDelegateImpl::RecordUserMetricsAction(UserMetricsAction action) {
+}
+
+void ShellDelegateImpl::HandleMediaNextTrack() {
+}
+
+void ShellDelegateImpl::HandleMediaPlayPause() {
+}
+
+void ShellDelegateImpl::HandleMediaPrevTrack() {
 }
 
 }  // namespace shell

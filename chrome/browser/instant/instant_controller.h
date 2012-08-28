@@ -11,6 +11,7 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/string16.h"
 #include "base/timer.h"
@@ -23,6 +24,7 @@
 #include "ui/gfx/rect.h"
 
 struct AutocompleteMatch;
+class AutocompleteProvider;
 class InstantControllerDelegate;
 class InstantLoader;
 class PrefService;
@@ -55,11 +57,14 @@ class InstantController : public InstantLoaderDelegate {
   //   HIDDEN: Same as SUGGEST, without the inline autocompletion.
   //   SILENT: Same as HIDDEN, without issuing queries as the user types. The
   //       query is sent only after the user presses <Enter>.
+  //   EXTENDED: Similar to INSTANT, but with extended functionality, such as
+  //       rendering suggestions within the preview and previews of URLs.
   enum Mode {
     INSTANT,
     SUGGEST,
     HIDDEN,
     SILENT,
+    EXTENDED,
   };
 
   InstantController(InstantControllerDelegate* delegate, Mode mode);
@@ -72,19 +77,22 @@ class InstantController : public InstantLoaderDelegate {
   static bool IsEnabled(Profile* profile);
 
   // Invoked as the user types into the omnibox. |user_text| is what the user
-  // has typed. |suggested_text| is the current inline autocomplete text. It
-  // may be replaced by Instant's autocomplete suggestion, if any. If |verbatim|
-  // is true, search results are shown for |user_text| rather than the best
-  // guess as to what Instant thinks the user means. Returns true if the update
-  // is processed by Instant (i.e., if |match| is a search rather than a URL).
+  // has typed. |full_text| is what the omnibox is showing. These may differ if
+  // the user typed only some text, and the rest was inline autocompleted. If
+  // |verbatim| is true, search results are shown for the exact omnibox text,
+  // rather than the best guess as to what the user means. Returns true if the
+  // update is accepted (i.e., if |match| is a search rather than a URL).
   bool Update(const AutocompleteMatch& match,
               const string16& user_text,
-              bool verbatim,
-              string16* suggested_text,
-              InstantCompleteBehavior* complete_behavior);
+              const string16& full_text,
+              bool verbatim);
 
   // Sets the bounds of the omnibox dropdown, in screen coordinates.
   void SetOmniboxBounds(const gfx::Rect& bounds);
+
+  // Send autocomplete results from |providers| to the preview page.
+  void HandleAutocompleteResults(
+      const std::vector<AutocompleteProvider*>& providers);
 
   // The preview TabContents. May be NULL if ReleasePreviewContents() has been
   // called, with no subsequent successful call to Update(). InstantController
@@ -145,10 +153,24 @@ class InstantController : public InstantLoaderDelegate {
 #endif
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(InstantTest, InstantLoaderRefresh);
+
   // Creates a new loader if necessary (for example, if the |instant_url| has
   // changed since the last time we created the loader).
   void ResetLoader(const std::string& instant_url,
                    const TabContents* active_tab);
+
+  // Ensures that the |loader_| uses the default Instant URL, recreating it if
+  // necessary. Will not do anything if the Instant URL could not be determined
+  // or the active tab is NULL (browser is shutting down).
+  void CreateDefaultLoader();
+
+  // If the |loader_| is not showing, it is deleted and recreated. Else the
+  // refresh is skipped and the next refresh is scheduled.
+  void OnStaleLoader();
+
+  // Calls OnStaleLoader if |stale_loader_timer_| is not running.
+  void MaybeOnStaleLoader();
 
   // Destroys the |loader_| and its preview contents.
   void DeleteLoader();
@@ -183,9 +205,7 @@ class InstantController : public InstantLoaderDelegate {
   // pointer comparisons.
   const void* last_active_tab_;
 
-  // The most recent full omnibox query text known to us. If this is empty, it
-  // could also mean that the omnibox text was a URL (or something else that
-  // we shouldn't be processing).
+  // The most recent full_text passed to Update().
   string16 last_full_text_;
 
   // The most recent user_text passed to Update().
@@ -217,6 +237,9 @@ class InstantController : public InstantLoaderDelegate {
 
   // Timer used to update the bounds of the omnibox.
   base::OneShotTimer<InstantController> update_bounds_timer_;
+
+  // Timer used to ensure that the Instant page does not get too stale.
+  base::OneShotTimer<InstantController> stale_loader_timer_;
 
   // For each key K => value N, the map says that we found that the search
   // engine identified by Instant URL K didn't support the Instant API in each

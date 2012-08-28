@@ -4828,7 +4828,6 @@
    fun:LinearScaleYUVToRGB32RowWithRange_C
    fun:_ZN5media23ScaleYUVToRGB32WithRectEPKhS1_S1_Phiiiiiiiiiii
    fun:_ZN8remoting29ConvertAndScaleYUVToRGB32RectEPKhS1_S1_iiRK7SkTSizeIiERK7SkIRectPhiS5_S8_S8_
-   fun:_ZN8remoting14YuvToRgbTester7RunTestE7SkTSizeIiERK7SkIRect
 }
 {
    bug_115251_1
@@ -5420,19 +5419,6 @@
    fun:_ZN3WTFL19wtfThreadEntryPointEPv
 }
 {
-   bug_131668
-   Memcheck:Leak
-   fun:_Znw*
-   fun:_ZN4base8internal20PostTaskAndReplyImpl16PostTaskAndReplyERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEESA_
-   fun:_ZN4base10TaskRunner16PostTaskAndReplyERKN15tracked_objects8LocationERKNS_8CallbackIFvvEEES9_
-   fun:_ZN7content13BrowserThread16PostTaskAndReplyENS0_2IDERKN15tracked_objects8LocationERKN4base8CallbackIFvvEEESB_
-   fun:_ZN7history16InMemoryURLIndex28PostRestoreFromCacheFileTaskEv
-   fun:_ZN7history16InMemoryURLIndex4InitEv
-   fun:_ZN14HistoryService4InitERK8FilePathP15BookmarkServiceb
-   fun:_ZN14TestingProfile20CreateHistoryServiceEbb
-   fun:_ZN21ShortcutsProviderTest5SetUpEv
-}
-{
    bug_133167_a
    Memcheck:Uninitialized
    fun:vp8_encode_bool
@@ -5793,6 +5779,44 @@
    fun:_ZN8appcache19AppCacheStorageImpl10InitializeERK8FilePathPN4base16MessageLoopProxyES6_
    fun:_ZN8appcache15AppCacheService10InitializeERK8FilePathPN4base16MessageLoopProxyES6_
    fun:_ZN21ChromeAppCacheService20InitializeOnIOThreadERK8FilePathPN7content15ResourceContextE13scoped_refptrIN5quota20SpecialStoragePolicyEE
+}
+{
+   bug_144913
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN8chromeos30BluetoothAdapterClientStubImplC1Ev
+   fun:_ZN8chromeos22BluetoothAdapterClient6CreateENS_28DBusClientImplementationTypeEPN4dbus3BusEPNS_22BluetoothManagerClientE
+   fun:_ZN8chromeos21DBusThreadManagerImplC1ENS_28DBusClientImplementationTypeE
+   fun:_ZN8chromeos17DBusThreadManager10InitializeEv
+   fun:_ZN8chromeos23KioskModeIdleLogoutTest5SetUpEv
+}
+{
+   bug_144913_b
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZN8chromeos17DBusThreadManager10InitializeEv
+   fun:_ZN8chromeos23KioskModeIdleLogoutTest5SetUpEv
+}
+{
+   bug_144913_c
+   Memcheck:Leak
+   fun:_Znw*
+   ...
+   fun:_ZN8chromeos21DBusThreadManagerImplC1ENS_28DBusClientImplementationTypeE
+   fun:_ZN8chromeos17DBusThreadManager10InitializeEv
+   fun:_ZN8chromeos23KioskModeIdleLogoutTest5SetUpEv
+}
+{
+   bug_144930
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZL20cachedPaintLuminancef
+}
+{
+   bug_144930_b
+   Memcheck:Leak
+   fun:_Znw*
+   fun:_ZL21cachedDeviceLuminancef
 }
 
 #-----------------------------------------------------------------------

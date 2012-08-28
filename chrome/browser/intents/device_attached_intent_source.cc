@@ -4,7 +4,7 @@
 
 #include "chrome/browser/intents/device_attached_intent_source.h"
 
-#include <string>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/file_path.h"
@@ -23,13 +23,6 @@
 #include "webkit/fileapi/isolated_context.h"
 #include "webkit/glue/web_intent_data.h"
 #include "webkit/glue/web_intent_service_data.h"
-#include "webkit/fileapi/media/media_file_system_config.h"
-
-#if defined(SUPPORT_MEDIA_FILESYSTEM)
-#include "webkit/fileapi/media/media_device_map_service.h"
-
-using fileapi::MediaDeviceMapService;
-#endif
 
 using base::SystemMonitor;
 using chrome::MediaStorageUtil;
@@ -52,7 +45,7 @@ class DispatchIntentTaskHelper
  public:
   DispatchIntentTaskHelper(
       const base::WeakPtr<DeviceAttachedIntentSource> source,
-      SystemMonitor::MediaDeviceInfo device_info)
+      SystemMonitor::RemovableStorageInfo device_info)
       : source_(source),
         device_info_(device_info) {
   }
@@ -75,7 +68,7 @@ class DispatchIntentTaskHelper
 
   // Store the device info. This is used while registering the device as file
   // system.
-  const SystemMonitor::MediaDeviceInfo device_info_;
+  const SystemMonitor::RemovableStorageInfo device_info_;
 
   DISALLOW_COPY_AND_ASSIGN(DispatchIntentTaskHelper);
 };
@@ -96,7 +89,7 @@ DeviceAttachedIntentSource::~DeviceAttachedIntentSource() {
     sys_monitor->RemoveDevicesChangedObserver(this);
 }
 
-void DeviceAttachedIntentSource::OnMediaDeviceAttached(
+void DeviceAttachedIntentSource::OnRemovableStorageAttached(
     const std::string& id,
     const string16& name,
     const FilePath::StringType& location) {
@@ -111,7 +104,7 @@ void DeviceAttachedIntentSource::OnMediaDeviceAttached(
   // TODO(kmadhusu): Handle all device types. http://crbug.com/140353.
   MediaStorageUtil::Type type;
   MediaStorageUtil::CrackDeviceId(id, &type, NULL);
-  if (type == MediaStorageUtil::USB_MTP)
+  if (type == MediaStorageUtil::MTP_OR_PTP)
     return;
   DCHECK(MediaStorageUtil::IsRemovableDevice(id));
 
@@ -120,7 +113,7 @@ void DeviceAttachedIntentSource::OnMediaDeviceAttached(
   if (!device_path.IsAbsolute() || device_path.ReferencesParent())
     return;
 
-  SystemMonitor::MediaDeviceInfo device_info(id, name, location);
+  SystemMonitor::RemovableStorageInfo device_info(id, name, location);
   scoped_refptr<DispatchIntentTaskHelper> task = new DispatchIntentTaskHelper(
       AsWeakPtr(), device_info);
   WebIntentsRegistryFactory::GetForProfile(browser_->profile())->
@@ -131,14 +124,16 @@ void DeviceAttachedIntentSource::OnMediaDeviceAttached(
 }
 
 void DeviceAttachedIntentSource::DispatchIntentsForService(
-    const base::SystemMonitor::MediaDeviceInfo& device_info) {
+    const base::SystemMonitor::RemovableStorageInfo& device_info) {
   // Store the media device info locally.
-  device_id_map_.insert(std::make_pair(device_info.unique_id, device_info));
+  device_id_map_.insert(std::make_pair(device_info.device_id, device_info));
 
   std::string device_name(UTF16ToUTF8(device_info.name));
   const FilePath device_path(device_info.location);
 
   // TODO(kinuko, kmadhusu): Use a different file system type for MTP.
+  // TODO(kmadhusu): To manage the registered file systems efficiently, register
+  // the attached device media file system using MediaFileSystemRegistry.
   const std::string fs_id = fileapi::IsolatedContext::GetInstance()->
       RegisterFileSystemForPath(fileapi::kFileSystemTypeNativeMedia,
                                 device_path, &device_name);
@@ -151,24 +146,13 @@ void DeviceAttachedIntentSource::DispatchIntentsForService(
                                content::WebIntentsDispatcher::Create(intent));
 }
 
-void DeviceAttachedIntentSource::OnMediaDeviceDetached(const std::string& id) {
+void DeviceAttachedIntentSource::OnRemovableStorageDetached(
+    const std::string& id) {
   DeviceIdToInfoMap::iterator it = device_id_map_.find(id);
   if (it == device_id_map_.end())
     return;
 
-  // TODO(kmadhusu) This should be something like
-  // RevokeFileSystemByDevice(std::string)
   FilePath path(it->second.location);
   fileapi::IsolatedContext::GetInstance()->RevokeFileSystemByPath(path);
-
-#if defined(SUPPORT_MEDIA_FILESYSTEM)
-  // TODO(kmadhusu, vandebo): Clean up this code. http://crbug.com/140340.
-  MediaStorageUtil::Type type;
-  MediaStorageUtil::CrackDeviceId(it->second.unique_id, &type, NULL);
-  if (type == MediaStorageUtil::USB_MTP) {
-    MediaDeviceMapService::GetInstance()->RemoveMediaDevice(
-        it->second.location);
-  }
-#endif
   device_id_map_.erase(it);
 }

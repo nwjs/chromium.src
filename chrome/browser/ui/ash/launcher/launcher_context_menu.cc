@@ -27,7 +27,11 @@ LauncherContextMenu::LauncherContextMenu(ChromeLauncherController* controller,
       AddItem(
           MENU_PIN,
           l10n_util::GetStringUTF16(IDS_LAUNCHER_CONTEXT_MENU_UNPIN));
-      AddSeparator();
+      if (controller->IsOpen(item->id)) {
+        AddItem(MENU_CLOSE,
+                l10n_util::GetStringUTF16(IDS_LAUNCHER_CONTEXT_MENU_CLOSE));
+      }
+      AddSeparator(ui::NORMAL_SEPARATOR);
       AddCheckItemWithStringId(
           LAUNCH_TYPE_REGULAR_TAB,
           IDS_APP_CONTEXT_MENU_OPEN_REGULAR);
@@ -61,7 +65,7 @@ LauncherContextMenu::LauncherContextMenu(ChromeLauncherController* controller,
                 l10n_util::GetStringUTF16(IDS_LAUNCHER_CONTEXT_MENU_CLOSE));
       }
     }
-    AddSeparator();
+    AddSeparator(ui::NORMAL_SEPARATOR);
   }
   AddCheckItemWithStringId(
       MENU_AUTO_HIDE, ash::LauncherContextMenu::GetAutoHideResourceStringId());

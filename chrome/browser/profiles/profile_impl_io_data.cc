@@ -37,7 +37,7 @@
 #include "net/http/http_cache.h"
 #include "net/url_request/file_protocol_handler.h"
 #include "net/url_request/ftp_protocol_handler.h"
-#include "net/url_request/url_request_job_factory.h"
+#include "net/url_request/url_request_job_factory_impl.h"
 #include "webkit/quota/special_storage_policy.h"
 
 using content::BrowserThread;
@@ -451,22 +451,23 @@ void ProfileImplIOData::LazyInitializeInternal(
   // media cache.
   media_request_context_.reset(InitializeMediaRequestContext(main_context, ""));
 
-  main_job_factory_.reset(new net::URLRequestJobFactory);
-  media_request_job_factory_.reset(new net::URLRequestJobFactory);
-  extensions_job_factory_.reset(new net::URLRequestJobFactory);
+  main_job_factory_.reset(new net::URLRequestJobFactoryImpl);
+  media_request_job_factory_.reset(new net::URLRequestJobFactoryImpl);
+  extensions_job_factory_.reset(new net::URLRequestJobFactoryImpl);
 
   int set_protocol = main_job_factory_->SetProtocolHandler(
-      chrome::kFileScheme, new net::FileProtocolHandler(network_delegate()));
+      chrome::kFileScheme, new net::FileProtocolHandler());
   DCHECK(set_protocol);
   set_protocol = media_request_job_factory_->SetProtocolHandler(
-      chrome::kFileScheme, new net::FileProtocolHandler(network_delegate()));
+      chrome::kFileScheme, new net::FileProtocolHandler());
   DCHECK(set_protocol);
-  // TODO(shalev): Without a network_delegate this protocol handler will never
+  // TODO(shalev): The extensions_job_factory has a NULL NetworkDelegate.
+  // Without a network_delegate, this protocol handler will never
   // handle file: requests, but as a side effect it makes
   // job_factory::IsHandledProtocol return true, which prevents attempts to
   // handle the protocol externally.
   set_protocol = extensions_job_factory_->SetProtocolHandler(
-      chrome::kFileScheme, new net::FileProtocolHandler(NULL));
+      chrome::kFileScheme, new net::FileProtocolHandler());
   DCHECK(set_protocol);
 
   set_protocol = main_job_factory_->SetProtocolHandler(
@@ -662,8 +663,7 @@ void ProfileImplIOData::CreateFtpProtocolHandler(
     net::FtpAuthCache* ftp_auth_cache) const {
   job_factory->SetProtocolHandler(
       chrome::kFtpScheme,
-      new net::FtpProtocolHandler(network_delegate(),
-                                  ftp_factory_.get(),
+      new net::FtpProtocolHandler(ftp_factory_.get(),
                                   ftp_auth_cache));
 }
 

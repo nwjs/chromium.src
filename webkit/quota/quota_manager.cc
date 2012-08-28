@@ -77,11 +77,21 @@ const int QuotaManager::kEvictionIntervalInMilliSeconds =
 void CallGetUsageAndQuotaCallback(
     const QuotaManager::GetUsageAndQuotaCallback& callback,
     bool unlimited,
+    bool is_installed_app,
     QuotaStatusCode status,
     const QuotaAndUsage& quota_and_usage) {
-  int64 usage =
-      unlimited ? quota_and_usage.unlimited_usage : quota_and_usage.usage;
-  int64 quota = unlimited ? QuotaManager::kNoLimit : quota_and_usage.quota;
+  int64 usage;
+  int64 quota;
+
+  if (unlimited) {
+    usage = quota_and_usage.unlimited_usage;
+    quota = is_installed_app ? quota_and_usage.available_disk_space :
+        QuotaManager::kNoLimit;
+  } else {
+    usage = quota_and_usage.usage;
+    quota = quota_and_usage.quota;
+  }
+
   callback.Run(status, usage, quota);
 }
 
@@ -126,6 +136,8 @@ class QuotaManager::UsageAndQuotaDispatcherTask : public QuotaTask {
   void DidGetHostUsage(const std::string& host, StorageType type, int64 usage) {
     DCHECK_EQ(this->host(), host);
     DCHECK_EQ(this->type(), type);
+    if (quota_status_ == kQuotaStatusUnknown)
+      quota_status_ = kQuotaStatusOk;
     host_usage_ = usage;
     CheckCompleted();
   }
@@ -368,9 +380,9 @@ class QuotaManager::UsageAndQuotaDispatcherTaskForTemporary
 
  protected:
   virtual void RunBody() OVERRIDE {
-    manager()->temporary_usage_tracker_->GetGlobalUsage(
+    manager()->GetUsageTracker(type())->GetGlobalUsage(
         NewWaitableGlobalUsageCallback());
-    manager()->temporary_usage_tracker_->GetHostUsage(
+    manager()->GetUsageTracker(type())->GetHostUsage(
         host(), NewWaitableHostUsageCallback());
     manager()->GetAvailableSpace(NewWaitableAvailableSpaceCallback());
   }
@@ -402,10 +414,11 @@ class QuotaManager::UsageAndQuotaDispatcherTaskForPersistent
 
  protected:
   virtual void RunBody() OVERRIDE {
-    manager()->persistent_usage_tracker_->GetHostUsage(
+    manager()->GetUsageTracker(type())->GetHostUsage(
         host(), NewWaitableHostUsageCallback());
     manager()->GetPersistentHostQuota(
         host(), NewWaitableHostQuotaCallback());
+    manager()->GetAvailableSpace(NewWaitableAvailableSpaceCallback());
   }
 
   virtual void DispatchCallbacks() OVERRIDE {
@@ -424,7 +437,7 @@ class QuotaManager::UsageAndQuotaDispatcherTaskForTemporaryGlobal
 
  protected:
   virtual void RunBody() OVERRIDE {
-    manager()->temporary_usage_tracker_->GetGlobalUsage(
+    manager()->GetUsageTracker(type())->GetGlobalUsage(
         NewWaitableGlobalUsageCallback());
     manager()->GetAvailableSpace(NewWaitableAvailableSpaceCallback());
   }
@@ -957,7 +970,9 @@ class QuotaManager::AvailableSpaceQueryTask : public QuotaThreadTask {
       : QuotaThreadTask(manager, manager->db_thread_),
         profile_path_(manager->profile_path_),
         space_(-1),
+        get_disk_space_fn_(manager->get_disk_space_fn_),
         callback_(callback) {
+    DCHECK(get_disk_space_fn_);
   }
 
  protected:
@@ -965,7 +980,7 @@ class QuotaManager::AvailableSpaceQueryTask : public QuotaThreadTask {
 
   // QuotaThreadTask:
   virtual void RunOnTargetThread() OVERRIDE {
-    space_ = base::SysInfo::AmountOfFreeDiskSpace(profile_path_);
+    space_ = get_disk_space_fn_(profile_path_);
   }
 
   virtual void Aborted() OVERRIDE {
@@ -979,6 +994,7 @@ class QuotaManager::AvailableSpaceQueryTask : public QuotaThreadTask {
  private:
   FilePath profile_path_;
   int64 space_;
+  GetAvailableDiskSpaceFn get_disk_space_fn_;
   AvailableSpaceCallback callback_;
 };
 
@@ -1200,7 +1216,8 @@ QuotaManager::QuotaManager(bool is_incognito,
     temporary_quota_override_(-1),
     desired_available_space_(-1),
     special_storage_policy_(special_storage_policy),
-    weak_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+    weak_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
+    get_disk_space_fn_(&base::SysInfo::AmountOfFreeDiskSpace) {
 }
 
 void QuotaManager::GetUsageInfo(const GetUsageInfoCallback& callback) {
@@ -1212,9 +1229,10 @@ void QuotaManager::GetUsageInfo(const GetUsageInfoCallback& callback) {
 void QuotaManager::GetUsageAndQuota(
     const GURL& origin, StorageType type,
     const GetUsageAndQuotaCallback& callback) {
-  GetUsageAndQuotaInternal(origin, type, false /* global */,
-                           base::Bind(&CallGetUsageAndQuotaCallback,
-                                      callback, IsStorageUnlimited(origin)));
+  GetUsageAndQuotaInternal(
+      origin, type, false /* global */,
+      base::Bind(&CallGetUsageAndQuotaCallback, callback,
+                 IsStorageUnlimited(origin), IsInstalledApp(origin)));
 }
 
 void QuotaManager::GetAvailableSpace(const AvailableSpaceCallback& callback) {
@@ -1432,17 +1450,16 @@ void QuotaManager::DeleteHostData(const std::string& host,
 }
 
 bool QuotaManager::ResetUsageTracker(StorageType type) {
+  DCHECK(GetUsageTracker(type));
+  if (GetUsageTracker(type)->IsWorking())
+    return false;
   switch (type) {
     case kStorageTypeTemporary:
-      if (temporary_usage_tracker_->IsWorking())
-        return false;
       temporary_usage_tracker_.reset(
           new UsageTracker(clients_, kStorageTypeTemporary,
                            special_storage_policy_));
       return true;
     case kStorageTypePersistent:
-      if (persistent_usage_tracker_->IsWorking())
-        return false;
       persistent_usage_tracker_.reset(
           new UsageTracker(clients_, kStorageTypePersistent,
                            special_storage_policy_));
@@ -1469,18 +1486,8 @@ void QuotaManager::GetCachedOrigins(
     StorageType type, std::set<GURL>* origins) {
   DCHECK(origins);
   LazyInitialize();
-  switch (type) {
-    case kStorageTypeTemporary:
-      DCHECK(temporary_usage_tracker_.get());
-      temporary_usage_tracker_->GetCachedOrigins(origins);
-      return;
-    case kStorageTypePersistent:
-      DCHECK(persistent_usage_tracker_.get());
-      persistent_usage_tracker_->GetCachedOrigins(origins);
-      return;
-    default:
-      NOTREACHED();
-  }
+  DCHECK(GetUsageTracker(type));
+  GetUsageTracker(type)->GetCachedOrigins(origins);
 }
 
 void QuotaManager::NotifyStorageAccessedInternal(

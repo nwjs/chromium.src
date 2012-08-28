@@ -386,7 +386,8 @@ Browser::Browser(const CreateParams& params)
   toolbar_model_.reset(new ToolbarModel(toolbar_model_delegate_.get()));
   search_model_.reset(new chrome::search::SearchModel(NULL));
   search_delegate_.reset(
-      new chrome::search::SearchDelegate(search_model_.get()));
+      new chrome::search::SearchDelegate(search_model_.get(),
+                                         toolbar_model_.get()));
 
   registrar_.Add(this, content::NOTIFICATION_SSL_VISIBLE_STATE_CHANGED,
                  content::NotificationService::AllSources());
@@ -420,8 +421,12 @@ Browser::Browser(const CreateParams& params)
                              profile_->GetPrefs(), NULL);
 
   instant_controller_.reset(new chrome::BrowserInstantController(this));
+
+#if 0
+  // Disabled for M22. See http://crbug.com/144326.
   device_attached_intent_source_.reset(
       new DeviceAttachedIntentSource(this, (this)));
+#endif
 
   UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_INIT);
 
@@ -1516,7 +1521,7 @@ void Browser::WebContentsCreated(WebContents* source_contents,
   // will later be inserted into this browser using Browser::Navigate via
   // AddNewContents. The latter will retrieve the newly created TabContents from
   // WebContents object.
-  new TabContents(new_contents);
+  TabContents::Factory::CreateTabContents(new_contents);
 
   // Notify.
   RetargetingDetails details;

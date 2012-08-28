@@ -247,6 +247,10 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
     // |ERROR_ON_PRIVATE_KEY| means that private keys inside an
     // extension should be errors rather than warnings.
     ERROR_ON_PRIVATE_KEY = 1 << 6,
+
+    // |WAS_INSTALLED_BY_DEFAULT| installed by default when the profile was
+    // created.
+    WAS_INSTALLED_BY_DEFAULT = 1 << 7,
   };
 
   static scoped_refptr<Extension> Create(const FilePath& path,
@@ -660,6 +664,7 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   }
   const GURL& options_url() const { return options_url_; }
   const GURL& devtools_url() const { return devtools_url_; }
+  const GURL& details_url() const { return details_url_;}
   const PermissionSet* optional_permission_set() const {
     return optional_permission_set_.get();
   }
@@ -694,6 +699,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
   int creation_flags() const { return creation_flags_; }
   bool from_webstore() const { return (creation_flags_ & FROM_WEBSTORE) != 0; }
   bool from_bookmark() const { return (creation_flags_ & FROM_BOOKMARK) != 0; }
+  bool was_installed_by_default() const {
+    return (creation_flags_ & WAS_INSTALLED_BY_DEFAULT) != 0;
+  }
 
   // App-related.
   bool is_app() const {
@@ -1057,6 +1065,9 @@ class Extension : public base::RefCountedThreadSafe<Extension> {
 
   // Optional URL to a devtools extension page.
   GURL devtools_url_;
+
+  // URL to the webstore page of the extension.
+  GURL details_url_;
 
   // The public key used to sign the contents of the crx package.
   std::string public_key_;

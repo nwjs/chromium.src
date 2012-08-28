@@ -264,10 +264,11 @@ InstantLoader::InstantLoader(InstantLoaderDelegate* delegate,
                              const TabContents* tab_contents)
     : loader_delegate_(delegate),
       preview_contents_(
-          new TabContents(content::WebContents::CreateWithSessionStorage(
-            tab_contents->profile(), NULL, MSG_ROUTING_NONE,
-            tab_contents->web_contents(),
-            tab_contents->web_contents()->GetController().
+          TabContents::Factory::CreateTabContents(
+              content::WebContents::CreateWithSessionStorage(
+                  tab_contents->profile(), NULL, MSG_ROUTING_NONE,
+                  tab_contents->web_contents(),
+                  tab_contents->web_contents()->GetController().
                                           GetSessionStorageNamespaceMap()))),
       supports_instant_(false),
       instant_url_(instant_url) {
@@ -300,6 +301,14 @@ void InstantLoader::SetOmniboxBounds(const gfx::Rect& bounds) {
   content::RenderViewHost* rvh =
       preview_contents_->web_contents()->GetRenderViewHost();
   rvh->Send(new ChromeViewMsg_SearchBoxResize(rvh->GetRoutingID(), bounds));
+}
+
+void InstantLoader::SendAutocompleteResults(
+    const std::vector<InstantAutocompleteResult>& results) {
+  content::RenderViewHost* rvh =
+      preview_contents_->web_contents()->GetRenderViewHost();
+  rvh->Send(new ChromeViewMsg_SearchBoxAutocompleteResults(rvh->GetRoutingID(),
+                                                           results));
 }
 
 TabContents* InstantLoader::ReleasePreviewContents(InstantCommitType type,

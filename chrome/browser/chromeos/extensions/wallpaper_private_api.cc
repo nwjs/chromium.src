@@ -32,16 +32,20 @@ bool WallpaperStringsFunction::RunImpl() {
   DictionaryValue* dict = new DictionaryValue();
   SetResult(dict);
 
-#define SET_STRING(ns, id) \
-  dict->SetString(#id, l10n_util::GetStringUTF16(ns##_##id))
-  SET_STRING(IDS_WALLPAPER_MANAGER, SEARCH_TEXT_LABEL);
-  SET_STRING(IDS_WALLPAPER_MANAGER, AUTHOR_LABEL);
-  SET_STRING(IDS_WALLPAPER_MANAGER, CUSTOM_CATEGORY_LABEL);
-  SET_STRING(IDS_WALLPAPER_MANAGER, SELECT_CUSTOM_LABEL);
-  SET_STRING(IDS_WALLPAPER_MANAGER, POSITION_LABEL);
-  SET_STRING(IDS_WALLPAPER_MANAGER, COLOR_LABEL);
-  SET_STRING(IDS_WALLPAPER_MANAGER, PREVIEW_LABEL);
-  SET_STRING(IDS_OPTIONS, SET_WALLPAPER_DAILY);
+#define SET_STRING(id, idr) \
+  dict->SetString(id, l10n_util::GetStringUTF16(idr))
+  SET_STRING("searchTextLabel", IDS_WALLPAPER_MANAGER_SEARCH_TEXT_LABEL);
+  SET_STRING("authorLabel", IDS_WALLPAPER_MANAGER_AUTHOR_LABEL);
+  SET_STRING("customCategoryLabel",
+             IDS_WALLPAPER_MANAGER_CUSTOM_CATEGORY_LABEL);
+  SET_STRING("selectCustomLabel",
+             IDS_WALLPAPER_MANAGER_SELECT_CUSTOM_LABEL);
+  SET_STRING("positionLabel", IDS_WALLPAPER_MANAGER_POSITION_LABEL);
+  SET_STRING("colorLabel", IDS_WALLPAPER_MANAGER_COLOR_LABEL);
+  SET_STRING("previewLabel", IDS_WALLPAPER_MANAGER_PREVIEW_LABEL);
+  SET_STRING("downloadingLabel", IDS_WALLPAPER_MANAGER_DOWNLOADING_LABEL);
+  SET_STRING("setWallpaperDaily", IDS_OPTIONS_SET_WALLPAPER_DAILY);
+  SET_STRING("searchTextLabel", IDS_WALLPAPER_MANAGER_SEARCH_TEXT_LABEL);
 #undef SET_STRING
 
   ChromeURLDataManager::DataSource::SetFontAndTextDirection(dict);
@@ -179,8 +183,15 @@ void WallpaperSetWallpaperFunction::SetDecodedWallpaper() {
   chromeos::WallpaperManager* wallpaper_manager =
       chromeos::WallpaperManager::Get();
   wallpaper_manager->SetWallpaperFromImageSkia(wallpaper_, layout_);
-  wallpaper_manager->SaveUserWallpaperInfo(email_, file_name_, layout_,
-                                           chromeos::User::DEFAULT);
+  bool is_persistent =
+      !chromeos::UserManager::Get()->IsCurrentUserEphemeral();
+  chromeos::WallpaperInfo info = {
+      file_name_,
+      layout_,
+      chromeos::User::ONLINE,
+      base::Time::Now().LocalMidnight()
+  };
+  wallpaper_manager->SetUserWallpaperInfo(email_, info, is_persistent);
   wallpaper_decoder_ = NULL;
   SendResponse(true);
 }

@@ -26,7 +26,7 @@ class DriveResourceMetadata;
 class PlatformFileInfoProto;
 
 // Used to read a directory from the file system.
-// If |error| is not GDATA_FILE_OK, |entries| is set to NULL.
+// If |error| is not DRIVE_FILE_OK, |entries| is set to NULL.
 // |entries| are contents, both files and directories, of the directory.
 typedef std::vector<DriveEntryProto> DriveEntryProtoVector;
 
@@ -117,7 +117,7 @@ class DriveEntry {
   bool is_deleted() const { return deleted_; }
 
   // Returns virtual file path representing this file system entry. This path
-  // corresponds to file path expected by public methods of GDataFileSystem
+  // corresponds to file path expected by public methods of DriveFileSystem
   // class.
   FilePath GetFilePath() const;
 

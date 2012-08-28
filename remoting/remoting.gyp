@@ -157,6 +157,7 @@
       'webapp/menu_button.js',
       'webapp/oauth2.js',
       'webapp/oauth2_callback.html',
+      'webapp/oauth2_callback.js',
       'webapp/plugin_settings.js',
       'webapp/remoting.js',
       'webapp/scale-to-fit.png',
@@ -1151,8 +1152,6 @@
         'base/stoppable.h',
         'base/util.cc',
         'base/util.h',
-        # TODO(kxing): Seperate the audio and video codec files into a separate
-        # target.
         'codec/audio_decoder.cc',
         'codec/audio_decoder.h',
         'codec/audio_decoder_speex.cc',
@@ -1263,6 +1262,8 @@
         'host/local_input_monitor_win.cc',
         'host/log_to_server.cc',
         'host/log_to_server.h',
+        'host/mac/scoped_pixel_buffer_object.cc',
+        'host/mac/scoped_pixel_buffer_object.h',
         'host/mouse_clamping_filter.cc',
         'host/mouse_clamping_filter.h',
         'host/mouse_move_observer.h',

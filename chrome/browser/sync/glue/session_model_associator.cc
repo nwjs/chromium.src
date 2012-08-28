@@ -13,6 +13,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/threading/sequenced_worker_pool.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -30,7 +31,7 @@
 #include "content/public/browser/notification_service.h"
 #include "sync/api/sync_error.h"
 #include "sync/internal_api/public/base/model_type.h"
-#include "sync/internal_api/public/base/model_type_payload_map.h"
+#include "sync/internal_api/public/base/model_type_state_map.h"
 #include "sync/internal_api/public/read_node.h"
 #include "sync/internal_api/public/read_transaction.h"
 #include "sync/internal_api/public/write_node.h"
@@ -541,7 +542,7 @@ void SessionModelAssociator::LoadFaviconForTab(TabLink* tab_link) {
   if (!command_line.HasSwitch(switches::kSyncTabFavicons))
     return;
   FaviconService* favicon_service =
-      profile_->GetFaviconService(Profile::EXPLICIT_ACCESS);
+      FaviconServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
   if (!favicon_service)
     return;
   SessionID::id_type tab_id = tab_link->tab()->GetSessionId();
@@ -551,7 +552,7 @@ void SessionModelAssociator::LoadFaviconForTab(TabLink* tab_link) {
   }
   DVLOG(1) << "Triggering favicon load for url " << tab_link->url().spec();
   FaviconService::Handle handle = favicon_service->GetFaviconForURL(
-      tab_link->url(), history::FAVICON, &load_consumer_,
+      profile_, tab_link->url(), history::FAVICON, &load_consumer_,
       base::Bind(&SessionModelAssociator::OnFaviconDataAvailable,
                  AsWeakPtr()));
   load_consumer_.SetClientData(favicon_service, handle, tab_id);
@@ -566,7 +567,8 @@ void SessionModelAssociator::OnFaviconDataAvailable(
     return;
   SessionID::id_type tab_id =
       load_consumer_.GetClientData(
-          profile_->GetFaviconService(Profile::EXPLICIT_ACCESS), handle);
+          FaviconServiceFactory::GetForProfile(
+              profile_, Profile::EXPLICIT_ACCESS), handle);
   TabLinksMap::iterator iter = tab_map_.find(tab_id);
   if (iter == tab_map_.end()) {
     DVLOG(1) << "Ignoring favicon for closed tab " << tab_id;
@@ -1410,12 +1412,12 @@ void SessionModelAssociator::TabNodePool::FreeTabNode(int64 sync_id) {
 void SessionModelAssociator::AttemptSessionsDataRefresh() const {
   DVLOG(1) << "Triggering sync refresh for sessions datatype.";
   const syncer::ModelType type = syncer::SESSIONS;
-  syncer::ModelTypePayloadMap payload_map;
-  payload_map[type] = "";
+  syncer::ModelTypeStateMap state_map;
+  state_map.insert(std::make_pair(type, syncer::InvalidationState()));
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_SYNC_REFRESH_LOCAL,
       content::Source<Profile>(profile_),
-      content::Details<const syncer::ModelTypePayloadMap>(&payload_map));
+      content::Details<const syncer::ModelTypeStateMap>(&state_map));
 }
 
 bool SessionModelAssociator::GetLocalSession(
@@ -1593,8 +1595,7 @@ void SessionModelAssociator::BlockUntilLocalChangeForTest(
 bool SessionModelAssociator::CryptoReadyIfNecessary() {
   // We only access the cryptographer while holding a transaction.
   syncer::ReadTransaction trans(FROM_HERE, sync_service_->GetUserShare());
-  const syncer::ModelTypeSet encrypted_types =
-      syncer::GetEncryptedTypes(&trans);
+  const syncer::ModelTypeSet encrypted_types = trans.GetEncryptedTypes();
   return !encrypted_types.Has(SESSIONS) ||
          sync_service_->IsCryptographerReady(&trans);
 }

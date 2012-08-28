@@ -48,7 +48,7 @@ const NameMapElement<ChannelConfig::Codec> kCodecs[] = {
   { ChannelConfig::CODEC_VERBATIM, "verbatim" },
   { ChannelConfig::CODEC_VP8, "vp8" },
   { ChannelConfig::CODEC_ZIP, "zip" },
-  { ChannelConfig::CODEC_VORBIS, "vorbis" },
+  { ChannelConfig::CODEC_OPUS, "opus" },
   { ChannelConfig::CODEC_SPEEX, "speex" },
 };
 
@@ -63,14 +63,18 @@ XmlElement* FormatChannelConfig(const ChannelConfig& config,
   result->AddAttr(QName(kDefaultNs, kTransportAttr),
                   ValueToName(kTransports, config.transport));
 
-  if (config.transport != ChannelConfig::TRANSPORT_NONE) {
-    result->AddAttr(QName(kDefaultNs, kVersionAttr),
-                    base::IntToString(config.version));
+  // TODO(sergeyu): Here we add version and codec attributes even when transport
+  // is set to NONE. This is needed for backward compatibility only. Fix this
+  // code once the current stable version is able to cope with missing version
+  // and codec attributes.
+  // crbug.com/144053
 
-    if (config.codec != ChannelConfig::CODEC_UNDEFINED) {
-      result->AddAttr(QName(kDefaultNs, kCodecAttr),
-                      ValueToName(kCodecs, config.codec));
-    }
+  result->AddAttr(QName(kDefaultNs, kVersionAttr),
+                  base::IntToString(config.version));
+
+  if (config.codec != ChannelConfig::CODEC_UNDEFINED) {
+    result->AddAttr(QName(kDefaultNs, kCodecAttr),
+                    ValueToName(kCodecs, config.codec));
   }
 
   return result;
@@ -134,7 +138,7 @@ ContentDescription* ContentDescription::Copy() const {
 //     <control transport="stream" version="1" />
 //     <event transport="datagram" version="1" />
 //     <video transport="stream" codec="vp8" version="1" />
-//     <audio transport="stream" codec="vorbis" version="1" />
+//     <audio transport="stream" codec="opus" version="1" />
 //     <authentication>
 //      Message created by Authenticator implementation.
 //     </authentication>
@@ -163,7 +167,16 @@ XmlElement* ContentDescription::ToXml() const {
 
   for (it = config()->audio_configs().begin();
        it != config()->audio_configs().end(); ++it) {
-    root->AddElement(FormatChannelConfig(*it, kAudioTag));
+    ChannelConfig config = *it;
+    if (config.transport == ChannelConfig::TRANSPORT_NONE) {
+      // Older client and host may expect the following values for for the
+      // version and codec for the NONE audio config.
+      // TODO(sergeyu): Remove this code once the current version supports.
+      // crbug.com/144053
+      config.version = 2;
+      config.codec = ChannelConfig::CODEC_VERBATIM;
+    }
+    root->AddElement(FormatChannelConfig(config, kAudioTag));
   }
 
   // Older endpoints require an initial-resolution tag, but otherwise ignore it.

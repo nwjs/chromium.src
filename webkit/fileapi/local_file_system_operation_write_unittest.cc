@@ -13,7 +13,7 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_job.h"
-#include "net/url_request/url_request_job_factory.h"
+#include "net/url_request/url_request_job_factory_impl.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "webkit/blob/blob_data.h"
 #include "webkit/blob/blob_storage_controller.h"
@@ -99,12 +99,12 @@ class LocalFileSystemOperationWriteTest
   }
 
   // Callback function for recording test results.
-  FileSystemOperationInterface::WriteCallback RecordWriteCallback() {
+  FileSystemOperation::WriteCallback RecordWriteCallback() {
     return base::Bind(&LocalFileSystemOperationWriteTest::DidWrite,
                       AsWeakPtr());
   }
 
-  FileSystemOperationInterface::StatusCallback RecordCancelCallback() {
+  FileSystemOperation::StatusCallback RecordCancelCallback() {
     return base::Bind(&LocalFileSystemOperationWriteTest::DidCancel,
                       AsWeakPtr());
   }
@@ -160,9 +160,11 @@ class TestProtocolHandler : public net::URLRequestJobFactory::ProtocolHandler {
   virtual ~TestProtocolHandler() {}
 
   virtual net::URLRequestJob* MaybeCreateJob(
-      net::URLRequest* request) const OVERRIDE {
+      net::URLRequest* request,
+      net::NetworkDelegate* network_delegate) const OVERRIDE {
     return new webkit_blob::BlobURLRequestJob(
         request,
+        network_delegate,
         blob_storage_controller_->GetBlobDataFromUrl(request->url()),
         base::MessageLoopProxy::current());
   }
@@ -190,7 +192,7 @@ class TestURLRequestContext : public net::URLRequestContext {
   }
 
  private:
-  net::URLRequestJobFactory job_factory_;
+  net::URLRequestJobFactoryImpl job_factory_;
   scoped_ptr<webkit_blob::BlobStorageController> blob_storage_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(TestURLRequestContext);
@@ -355,7 +357,7 @@ TEST_F(LocalFileSystemOperationWriteTest, TestImmediateCancelSuccessfulWrite) {
   url_request_context.blob_storage_controller()->AddFinishedBlob(
       blob_url, blob_data);
 
-  FileSystemOperationInterface* write_operation = operation();
+  FileSystemOperation* write_operation = operation();
   write_operation->Write(&url_request_context, URLForPath(virtual_path_),
                          blob_url, 0, RecordWriteCallback());
   write_operation->Cancel(RecordCancelCallback());
@@ -383,7 +385,7 @@ TEST_F(LocalFileSystemOperationWriteTest, TestImmediateCancelFailingWrite) {
   url_request_context.blob_storage_controller()->AddFinishedBlob(
       blob_url, blob_data);
 
-  FileSystemOperationInterface* write_operation = operation();
+  FileSystemOperation* write_operation = operation();
   write_operation->Write(&url_request_context,
                          URLForPath(FilePath(FILE_PATH_LITERAL("nonexist"))),
                          blob_url, 0, RecordWriteCallback());

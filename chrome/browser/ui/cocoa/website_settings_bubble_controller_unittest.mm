@@ -9,7 +9,10 @@
 #include "testing/gtest_mac.h"
 
 @interface WebsiteSettingsBubbleController (ExposedForTesting)
+- (NSSegmentedControl*)segmentedControl;
+- (NSTabView*)tabView;
 - (NSView*)permissionsView;
+- (NSView*)connectionTabContentView;
 - (NSImageView*)identityStatusIcon;
 - (NSTextField*)identityStatusDescriptionField;
 - (NSImageView*)connectionStatusIcon;
@@ -18,8 +21,18 @@
 @end
 
 @implementation WebsiteSettingsBubbleController (ExposedForTesting)
+- (NSSegmentedControl*)segmentedControl {
+  return segmentedControl_.get();
+}
+- (NSTabView*)tabView {
+  return tabView_.get();
+}
 - (NSView*)permissionsView {
   return permissionsView_;
+}
+
+- (NSView*)connectionTabContentView {
+  return connectionTabContentView_;
 }
 
 - (NSImageView*)identityStatusIcon {
@@ -110,6 +123,14 @@ class WebsiteSettingsBubbleControllerTest : public CocoaTest {
     return nil;
   }
 
+  NSView* FindSubviewOfClass(NSView* parent_view, Class a_class) {
+    for (NSView* view in [parent_view subviews]) {
+      if ([view isKindOfClass:a_class])
+        return view;
+    }
+    return nil;
+  }
+
   WebsiteSettingsBubbleController* controller_;  // Weak, owns self.
   NSWindow* window_;  // Weak, owned by controller.
 };
@@ -150,6 +171,7 @@ TEST_F(WebsiteSettingsBubbleControllerTest, SetIdentityInfo) {
   info.identity_status_description = std::string("Identity1");
   info.connection_status = WebsiteSettings::SITE_CONNECTION_STATUS_UNKNOWN;
   info.connection_status_description = std::string("Connection1");
+  info.cert_id = 0;
 
   CreateBubble();
 
@@ -169,12 +191,27 @@ TEST_F(WebsiteSettingsBubbleControllerTest, SetIdentityInfo) {
   // Icons should be the same when they are both unknown.
   EXPECT_EQ(identity_icon, connection_icon);
 
+  // Ensure that the link button for certificate info is not there.
+  NSView* link_button = FindSubviewOfClass(
+      [controller_ connectionTabContentView], [NSButton class]);
+  EXPECT_FALSE(link_button);
+
   info.identity_status = WebsiteSettings::SITE_IDENTITY_STATUS_CERT;
   info.connection_status = WebsiteSettings::SITE_CONNECTION_STATUS_ENCRYPTED;
+  info.cert_id = 1;
   bridge_->SetIdentityInfo(const_cast<WebsiteSettingsUI::IdentityInfo&>(info));
 
   EXPECT_NE(identity_icon, [[controller_ identityStatusIcon] image]);
   EXPECT_NE(connection_icon, [[controller_ connectionStatusIcon] image]);
+
+  // The certificate info button should be there now.
+  link_button = FindSubviewOfClass(
+      [controller_ connectionTabContentView], [NSButton class]);
+  EXPECT_TRUE(link_button);
+
+  // Check that it has a target and action linked up.
+  EXPECT_TRUE([static_cast<NSButton*>(link_button) target]);
+  EXPECT_TRUE([static_cast<NSButton*>(link_button) action]);
 }
 
 TEST_F(WebsiteSettingsBubbleControllerTest, SetFirstVisit) {
@@ -187,7 +224,7 @@ TEST_F(WebsiteSettingsBubbleControllerTest, SetFirstVisit) {
 TEST_F(WebsiteSettingsBubbleControllerTest, SetPermissionInfo) {
   CreateBubble();
 
-  ContentSettingsType kTestPermissionTypes[] = {
+  const ContentSettingsType kTestPermissionTypes[] = {
     // NOTE: FULLSCREEN does not support "Always block", so it must appear as
     // one of the first three permissions.
     CONTENT_SETTINGS_TYPE_FULLSCREEN,
@@ -201,7 +238,7 @@ TEST_F(WebsiteSettingsBubbleControllerTest, SetPermissionInfo) {
     CONTENT_SETTINGS_TYPE_MEDIASTREAM,
   };
 
-  ContentSetting kTestSettings[] = {
+  const ContentSetting kTestSettings[] = {
     CONTENT_SETTING_DEFAULT,
     CONTENT_SETTING_DEFAULT,
     CONTENT_SETTING_DEFAULT,
@@ -213,13 +250,13 @@ TEST_F(WebsiteSettingsBubbleControllerTest, SetPermissionInfo) {
     CONTENT_SETTING_BLOCK,
   };
 
-  ContentSetting kTestDefaultSettings[] = {
+  const ContentSetting kTestDefaultSettings[] = {
     CONTENT_SETTING_ALLOW,
     CONTENT_SETTING_BLOCK,
     CONTENT_SETTING_ASK
   };
 
-  content_settings::SettingSource kTestSettingSources[] = {
+  const content_settings::SettingSource kTestSettingSources[] = {
     content_settings::SETTING_SOURCE_USER,
     content_settings::SETTING_SOURCE_USER,
     content_settings::SETTING_SOURCE_USER,
@@ -270,6 +307,22 @@ TEST_F(WebsiteSettingsBubbleControllerTest, SetPermissionInfo) {
     }
   }
   EXPECT_EQ(arraysize(kTestPermissionTypes), [labels count]);
+}
+
+TEST_F(WebsiteSettingsBubbleControllerTest, SetSelectedTab) {
+  CreateBubble();
+  NSSegmentedControl* segmentedControl = [controller_ segmentedControl];
+  NSTabView* tabView = [controller_ tabView];
+
+  // Test whether SetSelectedTab properly changes both the segmented control
+  // (which implements the tabs) as well as the visible tab contents.
+  // NOTE: This implicitly (and deliberately) tests that the tabs appear in a
+  // specific order: Permissions, Connection.
+  EXPECT_EQ(0, [segmentedControl selectedSegment]);
+  EXPECT_EQ(0, [tabView indexOfTabViewItem:[tabView selectedTabViewItem]]);
+  bridge_->SetSelectedTab(WebsiteSettingsUI::TAB_ID_CONNECTION);
+  EXPECT_EQ(1, [segmentedControl selectedSegment]);
+  EXPECT_EQ(1, [tabView indexOfTabViewItem:[tabView selectedTabViewItem]]);
 }
 
 }  // namespace

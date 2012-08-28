@@ -7,7 +7,9 @@
 #include "base/command_line.h"
 #include "base/i18n/case_conversion.h"
 #include "base/metrics/histogram.h"
-#include "chrome/browser/autocomplete/autocomplete_match.h"
+#include "base/utf_string_conversions.h"
+#include "chrome/browser/autocomplete/autocomplete_provider.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/history.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_tab_helper.h"
@@ -52,12 +54,17 @@ const int kUpdateBoundsDelayMS = 1000;
 // before we give up and blacklist it for the rest of the browsing session.
 const int kMaxInstantSupportFailures = 10;
 
+// If an Instant page has not been used in these many milliseconds, it is
+// reloaded so that the page does not become stale.
+const int kStaleLoaderTimeoutMS = 3 * 3600 * 1000;
+
 std::string ModeToString(InstantController::Mode mode) {
   switch (mode) {
     case InstantController::INSTANT:  return "_Instant";
     case InstantController::SUGGEST:  return "_Suggest";
     case InstantController::HIDDEN:   return "_Hidden";
     case InstantController::SILENT:   return "_Silent";
+    case InstantController::EXTENDED: return "_Extended";
   }
 
   NOTREACHED();
@@ -141,9 +148,8 @@ bool InstantController::IsEnabled(Profile* profile) {
 
 bool InstantController::Update(const AutocompleteMatch& match,
                                const string16& user_text,
-                               bool verbatim,
-                               string16* suggested_text,
-                               InstantCompleteBehavior* complete_behavior) {
+                               const string16& full_text,
+                               bool verbatim) {
   const TabContents* active_tab = delegate_->GetActiveTabContents();
 
   // We could get here with no active tab if the Browser is closing.
@@ -161,16 +167,10 @@ bool InstantController::Update(const AutocompleteMatch& match,
     return false;
   }
 
-  string16 full_text = user_text + *suggested_text;
-
   if (full_text.empty()) {
     Hide();
     return false;
   }
-
-  // The presence of any suggested_text implies verbatim.
-  DCHECK(suggested_text->empty() || verbatim)
-      << user_text << "|" << *suggested_text;
 
   ResetLoader(instant_url, active_tab);
   last_active_tab_ = active_tab;
@@ -179,17 +179,19 @@ bool InstantController::Update(const AutocompleteMatch& match,
   url_for_history_ = match.destination_url;
   last_transition_type_ = match.transition;
 
+  // In EXTENDED mode, we send only |user_text| as the query text. In all other
+  // modes, we use the entire |full_text|.
+  const string16& query_text = mode_ == EXTENDED ? user_text : full_text;
+  string16 last_query_text =
+      mode_ == EXTENDED ? last_user_text_ : last_full_text_;
   last_user_text_ = user_text;
+  last_full_text_ = full_text;
 
   // Don't send an update to the loader if the query text hasn't changed.
-  if (full_text == last_full_text_ && verbatim == last_verbatim_) {
-    // Since we are updating |suggested_text|, shouldn't we also update
-    // |last_full_text_|? No. There's no guarantee that our suggestion will
-    // actually be inline autocompleted. For example, it may get trumped by
-    // a history suggestion. If our suggestion does make it, the omnibox will
-    // call Update() again, at which time we'll update |last_full_text_|.
-    *suggested_text = last_suggestion_.text;
-    *complete_behavior = last_suggestion_.behavior;
+  if (query_text == last_query_text && verbatim == last_verbatim_) {
+    // Reuse the last suggestion, as it's still valid.
+    delegate_->SetSuggestedText(last_suggestion_.text,
+                                last_suggestion_.behavior);
 
     // We need to call Show() here because of this:
     // 1. User has typed a query (say Q). Instant overlay is showing results.
@@ -197,22 +199,19 @@ bool InstantController::Update(const AutocompleteMatch& match,
     //    these cause the overlay to Hide().
     // 3. User arrows-up to Q or types Q again. The last text we processed is
     //    still Q, so we don't Update() the loader, but we do need to Show().
-    if (loader_processed_last_update_ && mode_ == INSTANT)
+    if (loader_processed_last_update_ &&
+        (mode_ == INSTANT || mode_ == EXTENDED)) {
       Show();
+    }
     return true;
   }
 
-  last_full_text_ = full_text;
   last_verbatim_ = verbatim;
   loader_processed_last_update_ = false;
-
-  // Reset the last suggestion, as it's no longer valid.
-  suggested_text->clear();
   last_suggestion_ = InstantSuggestion();
-  *complete_behavior = INSTANT_COMPLETE_NOW;
 
   if (mode_ != SILENT) {
-    loader_->Update(last_full_text_, last_verbatim_);
+    loader_->Update(query_text, verbatim);
 
     content::NotificationService::current()->Notify(
         chrome::NOTIFICATION_INSTANT_CONTROLLER_UPDATED,
@@ -220,13 +219,16 @@ bool InstantController::Update(const AutocompleteMatch& match,
         content::NotificationService::NoDetails());
   }
 
+  // We don't have suggestions yet, but need to reset any existing "gray text".
+  delegate_->SetSuggestedText(string16(), INSTANT_COMPLETE_NOW);
+
   return true;
 }
 
 // TODO(tonyg): This method only fires when the omnibox bounds change. It also
 // needs to fire when the preview bounds change (e.g.: open/close info bar).
 void InstantController::SetOmniboxBounds(const gfx::Rect& bounds) {
-  if (omnibox_bounds_ == bounds || mode_ != INSTANT)
+  if (omnibox_bounds_ == bounds || (mode_ != INSTANT && mode_ != EXTENDED))
     return;
 
   omnibox_bounds_ = bounds;
@@ -238,6 +240,33 @@ void InstantController::SetOmniboxBounds(const gfx::Rect& bounds) {
         base::TimeDelta::FromMilliseconds(kUpdateBoundsDelayMS), this,
         &InstantController::SendBoundsToPage);
   }
+}
+
+void InstantController::HandleAutocompleteResults(
+    const std::vector<AutocompleteProvider*>& providers) {
+  if (mode_ != EXTENDED || !GetPreviewContents())
+    return;
+
+  std::vector<InstantAutocompleteResult> results;
+  for (ACProviders::const_iterator provider = providers.begin();
+       provider != providers.end(); ++provider) {
+    for (ACMatches::const_iterator match = (*provider)->matches().begin();
+         match != (*provider)->matches().end(); ++match) {
+      InstantAutocompleteResult result;
+      result.provider = UTF8ToUTF16((*provider)->name());
+      result.is_search =
+          match->type == AutocompleteMatch::SEARCH_WHAT_YOU_TYPED ||
+          match->type == AutocompleteMatch::SEARCH_HISTORY ||
+          match->type == AutocompleteMatch::SEARCH_SUGGEST ||
+          match->type == AutocompleteMatch::SEARCH_OTHER_ENGINE;
+      result.contents = match->description;
+      result.destination_url = match->destination_url;
+      result.relevance = match->relevance;
+      results.push_back(result);
+    }
+  }
+
+  loader_->SendAutocompleteResults(results);
 }
 
 TabContents* InstantController::GetPreviewContents() const {
@@ -264,6 +293,11 @@ TabContents* InstantController::CommitCurrentPreview(InstantCommitType type) {
   preview->web_contents()->GetController().CopyStateFromAndPrune(
       &active_tab->web_contents()->GetController());
   delegate_->CommitInstant(preview);
+
+  // Try to create another loader immediately so that it is ready for the next
+  // user interaction.
+  CreateDefaultLoader();
+
   return preview;
 }
 
@@ -287,8 +321,8 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
     preview->history_tab_helper()->UpdateHistoryPageTitle(*entry);
 
     // Update the favicon.
-    FaviconService* favicon_service =
-        preview->profile()->GetFaviconService(Profile::EXPLICIT_ACCESS);
+    FaviconService* favicon_service = FaviconServiceFactory::GetForProfile(
+        preview->profile(), Profile::EXPLICIT_ACCESS);
     if (favicon_service && entry->GetFavicon().valid &&
         entry->GetFavicon().image.IsEmpty()) {
       std::vector<unsigned char> image_data;
@@ -324,24 +358,31 @@ TabContents* InstantController::ReleasePreviewContents(InstantCommitType type) {
   return preview;
 }
 
-// TODO(sreeram): Since we never delete the loader except when committing
-// Instant, the loader may have a very stale page. Reload it when stale.
 void InstantController::OnAutocompleteLostFocus(
     gfx::NativeView view_gaining_focus) {
   DCHECK(!is_showing_ || GetPreviewContents());
 
-  // If the preview is not showing, nothing to do.
-  if (!is_showing_ || !GetPreviewContents())
+  // If there is no preview, nothing to do.
+  if (!GetPreviewContents())
     return;
 
+  // If the preview is not showing, only need to check for loader staleness.
+  if (!is_showing_) {
+    MaybeOnStaleLoader();
+    return;
+  }
+
 #if defined(OS_MACOSX)
-  if (!loader_->IsPointerDownFromActivate())
+  if (!loader_->IsPointerDownFromActivate()) {
     Hide();
+    MaybeOnStaleLoader();
+  }
 #else
   content::RenderWidgetHostView* rwhv =
       GetPreviewContents()->web_contents()->GetRenderWidgetHostView();
   if (!view_gaining_focus || !rwhv) {
     Hide();
+    MaybeOnStaleLoader();
     return;
   }
 
@@ -371,8 +412,10 @@ void InstantController::OnAutocompleteLostFocus(
 
     // If the mouse is not down, focus is not going to the renderer. Someone
     // else moved focus and we shouldn't commit.
-    if (!loader_->IsPointerDownFromActivate())
+    if (!loader_->IsPointerDownFromActivate()) {
       Hide();
+      MaybeOnStaleLoader();
+    }
 
     return;
   }
@@ -394,27 +437,12 @@ void InstantController::OnAutocompleteLostFocus(
   }
 
   Hide();
+  MaybeOnStaleLoader();
 #endif
 }
 
 void InstantController::OnAutocompleteGotFocus() {
-  const TabContents* active_tab = delegate_->GetActiveTabContents();
-
-  // We could get here with no active tab if the Browser is closing.
-  if (!active_tab)
-    return;
-
-  // Since we don't have any autocomplete match to work with, we'll just use
-  // the default search provider's Instant URL.
-  const TemplateURL* template_url =
-      TemplateURLServiceFactory::GetForProfile(active_tab->profile())->
-                                 GetDefaultSearchProvider();
-
-  std::string instant_url;
-  if (!GetInstantURL(template_url, &instant_url))
-    return;
-
-  ResetLoader(instant_url, active_tab);
+  CreateDefaultLoader();
 }
 
 bool InstantController::commit_on_pointer_release() const {
@@ -512,10 +540,50 @@ void InstantController::ResetLoader(const std::string& instant_url,
     DeleteLoader();
 
   if (!GetPreviewContents()) {
+    DCHECK(!loader_.get());
     loader_.reset(new InstantLoader(this, instant_url, active_tab));
     loader_->Init();
     AddPreviewUsageForHistogram(mode_, PREVIEW_CREATED);
+
+    // Reset the loader timer.
+    stale_loader_timer_.Stop();
+    stale_loader_timer_.Start(
+        FROM_HERE,
+        base::TimeDelta::FromMilliseconds(kStaleLoaderTimeoutMS), this,
+        &InstantController::OnStaleLoader);
   }
+}
+
+void InstantController::CreateDefaultLoader() {
+  const TabContents* active_tab = delegate_->GetActiveTabContents();
+
+  // We could get here with no active tab if the Browser is closing.
+  if (!active_tab)
+    return;
+
+  const TemplateURL* template_url =
+      TemplateURLServiceFactory::GetForProfile(active_tab->profile())->
+                                 GetDefaultSearchProvider();
+  std::string instant_url;
+  if (!GetInstantURL(template_url, &instant_url))
+    return;
+
+  ResetLoader(instant_url, active_tab);
+}
+
+void InstantController::OnStaleLoader() {
+  // If the loader is showing, do not delete it. It will get deleted the next
+  // time the autocomplete loses focus.
+  if (is_showing_)
+    return;
+
+  DeleteLoader();
+  CreateDefaultLoader();
+}
+
+void InstantController::MaybeOnStaleLoader() {
+  if (!stale_loader_timer_.IsRunning())
+    OnStaleLoader();
 }
 
 void InstantController::DeleteLoader() {
@@ -586,11 +654,33 @@ bool InstantController::GetInstantURL(const TemplateURL* template_url,
   *instant_url = instant_url_ref.ReplaceSearchTerms(
       TemplateURLRef::SearchTermsArgs(string16()));
 
+  // Extended mode should always use HTTPS. TODO(sreeram): This section can be
+  // removed if TemplateURLs supported "https://{google:host}/..." instead of
+  // only supporting "{google:baseURL}...".
+  if (mode_ == EXTENDED) {
+    GURL url_obj(*instant_url);
+    if (!url_obj.is_valid())
+      return false;
+
+    if (!url_obj.SchemeIsSecure()) {
+      const std::string new_scheme = "https";
+      const std::string new_port = "443";
+      GURL::Replacements secure;
+      secure.SetSchemeStr(new_scheme);
+      secure.SetPortStr(new_port);
+      url_obj = url_obj.ReplaceComponents(secure);
+
+      if (!url_obj.is_valid())
+        return false;
+
+      *instant_url = url_obj.spec();
+    }
+  }
+
   std::map<std::string, int>::const_iterator iter =
       blacklisted_urls_.find(*instant_url);
   if (iter != blacklisted_urls_.end() &&
       iter->second > kMaxInstantSupportFailures) {
-    instant_url->clear();
     return false;
   }
 

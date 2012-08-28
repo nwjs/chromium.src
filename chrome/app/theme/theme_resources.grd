@@ -281,8 +281,7 @@
         <structure type="chrome_scaled_image" name="IDR_HOME_P" file="common/browser_home_pressed.png" />
       </if>
       <if expr="pp_ifdef('chromeos')">
-        <structure type="chrome_scaled_image" name="IDR_ICON_ADD_USER24" file="icon_add_user24.png" />
-        <structure type="chrome_scaled_image" name="IDR_ICON_ADD_USER_WHITE" file="icon_add_user_white.png" />
+        <structure type="chrome_scaled_image" name="IDR_ICON_ADD_USER24" file="icon_add_user24.png" />        
         <structure type="chrome_scaled_image" name="IDR_ICON_POWER24" file="icon_power24.png" />
         <structure type="chrome_scaled_image" name="IDR_ICON_POWER_WHITE" file="icon_power_white.png" />
       </if>
@@ -329,8 +328,14 @@
       <structure type="chrome_scaled_image" name="IDR_INFOBAR_COOKIE" file="infobar_cookie.png" />
       <structure type="chrome_scaled_image" name="IDR_INFOBAR_DESKTOP_NOTIFICATIONS" file="infobar_desktop_notifications.png" />
       <structure type="chrome_scaled_image" name="IDR_INFOBAR_INCOMPLETE" file="infobar_incomplete.png" />
-      <structure type="chrome_scaled_image" name="IDR_INFOBAR_MEDIA_STREAM_CAMERA" file="infobar_camera.png" />
-      <structure type="chrome_scaled_image" name="IDR_INFOBAR_MEDIA_STREAM_MIC" file="infobar_microphone.png" />
+      <if expr="is_macosx">
+        <structure type="chrome_scaled_image" name="IDR_INFOBAR_MEDIA_STREAM_CAMERA" file="webrtc_macosx_webcam.png" />
+        <structure type="chrome_scaled_image" name="IDR_INFOBAR_MEDIA_STREAM_MIC" file="webrtc_macosx_mic.png" />
+      </if>
+      <if expr="not is_macosx">
+        <structure type="chrome_scaled_image" name="IDR_INFOBAR_MEDIA_STREAM_CAMERA" file="webrtc_webcam.png" />
+       <structure type="chrome_scaled_image" name="IDR_INFOBAR_MEDIA_STREAM_MIC" file="webrtc_mic.png" />
+      </if>
       <structure type="chrome_scaled_image" name="IDR_INFOBAR_MULTIPLE_DOWNLOADS" file="infobar_multiple_downloads.png" />
       <structure type="chrome_scaled_image" name="IDR_INFOBAR_PLUGIN_CRASHED" file="infobar_plugin_crashed.png" />
       <structure type="chrome_scaled_image" name="IDR_INFOBAR_PLUGIN_INSTALL" file="infobar_plugin.png" />
@@ -427,10 +432,10 @@
       <structure type="chrome_scaled_image" name="IDR_MOBILE" file="mobile.png" />
       <structure type="chrome_scaled_image" name="IDR_MOBILE_LIT" file="mobile_lit.png" />
       <if expr="pp_ifdef('chromeos')">
-        <structure type="chrome_scaled_image" name="IDR_NETWORK_HIDE_PASSWORD" file="network_hide_password.png" />
-        <structure type="chrome_scaled_image" name="IDR_NETWORK_HIDE_PASSWORD_HOVER" file="network_hide_password_hover.png" />
-        <structure type="chrome_scaled_image" name="IDR_NETWORK_SHOW_PASSWORD" file="network_show_password.png" />
-        <structure type="chrome_scaled_image" name="IDR_NETWORK_SHOW_PASSWORD_HOVER" file="network_show_password_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_NETWORK_HIDE_PASSWORD" file="cros/network_hide_password.png" />
+        <structure type="chrome_scaled_image" name="IDR_NETWORK_HIDE_PASSWORD_HOVER" file="cros/network_hide_password_hover.png" />
+        <structure type="chrome_scaled_image" name="IDR_NETWORK_SHOW_PASSWORD" file="cros/network_show_password.png" />
+        <structure type="chrome_scaled_image" name="IDR_NETWORK_SHOW_PASSWORD_HOVER" file="cros/network_show_password_hover.png" />
       </if>
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_NEWTAB_BUTTON" file="newtab.png" />
@@ -625,9 +630,6 @@
       <structure type="chrome_scaled_image" name="IDR_SEARCH_ENGINE_CHANGE_BADGE" file="protector_search_badge.png" />
       <structure type="chrome_scaled_image" name="IDR_SEARCH_ENGINE_CHANGE_MENU" file="protector_search_menu.png" />
       <structure type="chrome_scaled_image" name="IDR_SETTINGS_FAVICON" file="settings_favicon.png" />
-      <if expr="pp_ifdef('chromeos')">
-        <structure type="chrome_scaled_image" name="IDR_SHUTDOWN_ICON" file="shutdown_icon.png" />
-      </if>
       <structure type="chrome_scaled_image" name="IDR_SIDETABS_NEW_TAB" file="sidetabs_new_tab.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_EMPTY" file="common/speech_input_mic_empty.png" />
       <structure type="chrome_scaled_image" name="IDR_SPEECH_INPUT_MIC_FULL" file="common/speech_input_mic_full.png" />
@@ -653,36 +655,33 @@
       <structure type="chrome_scaled_image" name="IDR_STAR" file="star.png" />
       <structure type="chrome_scaled_image" name="IDR_STAR_LIT" file="star_lit.png" />
       <if expr="pp_ifdef('chromeos')">
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_1X" file="statusbar_network_1x.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_1X_ERROR" file="statusbar_network_1x_error.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_1X_UNKNOWN" file="statusbar_network_1x_unknown.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_DARK" file="statusbar_network_3g_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_ERROR" file="statusbar_network_3g_error.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_LIGHT" file="statusbar_network_3g_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_UNKNOWN" file="statusbar_network_3g_unknown.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_WARN" file="statusbar_network_3g_warn.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_4G_DARK" file="statusbar_network_4g_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_4G_LIGHT" file="statusbar_network_4g_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ARCS" file="statusbar_network_arcs.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ARCS_DARK" file="statusbar_network_arcs_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ARCS_LIGHT" file="statusbar_network_arcs_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS" file="statusbar_network_bars.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS_DARK" file="statusbar_network_bars_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS_LIGHT" file="statusbar_network_bars_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_EDGE_DARK" file="statusbar_network_edge_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_EDGE_LIGHT" file="statusbar_network_edge_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_GPRS" file="statusbar_network_gprs.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_HSPA" file="statusbar_network_hspa.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_HSPA_PLUS" file="statusbar_network_hspa_plus.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_LTE" file="statusbar_network_lte.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_LTE_ADVANCED" file="statusbar_network_lte_advanced.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ROAMING_DARK" file="statusbar_network_roaming_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ROAMING_LIGHT" file="statusbar_network_roaming_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_SECURE_DARK" file="statusbar_network_secure_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_SECURE_LIGHT" file="statusbar_network_secure_light.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_VPN" file="statusbar_vpn_dark.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_VPN_BADGE" file="statusbar_network_vpn_badge.png" />
-        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_WIRED" file="statusbar_wired.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_1X" file="cros/statusbar_network_1x.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_1X_ERROR" file="cros/statusbar_network_1x_error.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_1X_UNKNOWN" file="cros/statusbar_network_1x_unknown.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_DARK" file="cros/statusbar_network_3g_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_ERROR" file="cros/statusbar_network_3g_error.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_LIGHT" file="cros/statusbar_network_3g_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_3G_UNKNOWN" file="cros/statusbar_network_3g_unknown.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_4G_DARK" file="cros/statusbar_network_4g_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_4G_LIGHT" file="cros/statusbar_network_4g_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ARCS_DARK" file="cros/statusbar_network_arcs_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ARCS_LIGHT" file="cros/statusbar_network_arcs_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS_DARK" file="cros/statusbar_network_bars_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_BARS_LIGHT" file="cros/statusbar_network_bars_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_EDGE_DARK" file="cros/statusbar_network_edge_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_EDGE_LIGHT" file="cros/statusbar_network_edge_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_GPRS" file="cros/statusbar_network_gprs.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_HSPA" file="cros/statusbar_network_hspa.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_HSPA_PLUS" file="cros/statusbar_network_hspa_plus.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_LTE" file="cros/statusbar_network_lte.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_LTE_ADVANCED" file="cros/statusbar_network_lte_advanced.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ROAMING_DARK" file="cros/statusbar_network_roaming_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_ROAMING_LIGHT" file="cros/statusbar_network_roaming_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_SECURE_DARK" file="cros/statusbar_network_secure_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_NETWORK_SECURE_LIGHT" file="cros/statusbar_network_secure_light.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_VPN" file="cros/statusbar_vpn_dark.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_VPN_BADGE" file="cros/statusbar_network_vpn_badge.png" />
+        <structure type="chrome_scaled_image" name="IDR_STATUSBAR_WIRED" file="cros/statusbar_wired.png" />
       </if>
       <if expr="not pp_ifdef('toolkit_views')">
         <structure type="chrome_scaled_image" name="IDR_STOP" file="stop.png" />
@@ -833,8 +832,7 @@
         <structure type="chrome_scaled_image" name="IDR_USER_IMAGE_INITIALIZING" file="initializing_video.png" />
         <structure type="chrome_scaled_image" name="IDR_USER_IMAGE_NO_VIDEO" file="no_video.png" />
         <structure type="chrome_scaled_image" name="IDR_USER_IMAGE_RECYCLE" file="discard_wide.png" />
-        <structure type="chrome_scaled_image" name="IDR_VOLUME_BUBBLE_DOWN_ICON" file="volume_down_icon.png" />
-        <structure type="chrome_scaled_image" name="IDR_VOLUME_BUBBLE_MUTE_ICON" file="volume_mute_icon.png" />
+        <structure type="chrome_scaled_image" name="IDR_VOLUME_BUBBLE_DOWN_ICON" file="volume_down_icon.png" />        
         <structure type="chrome_scaled_image" name="IDR_VOLUME_BUBBLE_UP_ICON" file="volume_up_icon.png" />
       </if>
       <structure type="chrome_scaled_image" name="IDR_WARNING" file="alert_small.png" />

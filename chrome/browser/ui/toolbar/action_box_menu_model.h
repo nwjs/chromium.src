@@ -18,16 +18,15 @@ namespace extensions {
 class Extension;
 }
 
-// A menu model that builds the contents of the action box menu.
+// A menu model that builds the contents of the action box menu. This model
+// should be built on demand since its content reflects the state of the browser
+// at creation time.
 class ActionBoxMenuModel : public ui::SimpleMenuModel,
                            public ui::SimpleMenuModel::Delegate,
                            public content::NotificationObserver {
  public:
-  // |starred| - true when the current page is bookmarked and thus the star icon
-  // should be drawn in the "starred" rather than "unstarred" state.
   ActionBoxMenuModel(Browser* browser,
-                     ExtensionService* extension_service,
-                     bool starred);
+                     ExtensionService* extension_service);
   virtual ~ActionBoxMenuModel();
 
   // Returns true if item associated with an extension.
@@ -37,13 +36,6 @@ class ActionBoxMenuModel : public ui::SimpleMenuModel,
   // or NULL if it is not an extension item.
   const extensions::Extension* GetExtensionAt(int index);
 
- private:
-  const extensions::ExtensionList& action_box_menu_items() {
-    return extension_service_->toolbar_model()->action_box_menu_items();
-  }
-
-  typedef std::map<int, std::string> IdToEntensionIdMap;
-
   // Overridden from ui::SimpleMenuModel::Delegate:
   virtual bool IsCommandIdChecked(int command_id) const OVERRIDE;
   virtual bool IsCommandIdEnabled(int command_id) const OVERRIDE;
@@ -51,6 +43,13 @@ class ActionBoxMenuModel : public ui::SimpleMenuModel,
       int command_id,
       ui::Accelerator* accelerator) OVERRIDE;
   virtual void ExecuteCommand(int command_id) OVERRIDE;
+
+ private:
+  const extensions::ExtensionList& action_box_menu_items() {
+    return extension_service_->toolbar_model()->action_box_menu_items();
+  }
+
+  typedef std::map<int, std::string> IdToEntensionIdMap;
 
   // Overridden from content::NotificationObserver:
   virtual void Observe(int type,

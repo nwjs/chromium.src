@@ -30,6 +30,14 @@ using aura::Window;
 namespace ash {
 namespace internal {
 
+namespace {
+
+bool GetWindowOverlapsShelf() {
+  return Shell::GetInstance()->shelf()->window_overlaps_shelf();
+}
+
+}  // namespace
+
 class WorkspaceManager2Test : public test::AshTestBase {
  public:
   WorkspaceManager2Test() : manager_(NULL) {}
@@ -452,11 +460,22 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   generator.MoveMouseTo(0, 0);
 
   scoped_ptr<Window> w1(CreateTestWindow());
-  w1->SetBounds(gfx::Rect(0, 1, 101, 102));
+  const gfx::Rect w1_bounds(0, 1, 101, 102);
+  ShelfLayoutManager* shelf = Shell::GetInstance()->shelf();
+  const gfx::Rect touches_shelf_bounds(
+      0, shelf->GetIdealBounds().y() - 10, 101, 102);
+  // Move |w1| to overlap the shelf.
+  w1->SetBounds(touches_shelf_bounds);
+  EXPECT_FALSE(GetWindowOverlapsShelf());
+
+  // Make it visible, since visible shelf overlaps should be true.
+  w1->Show();
+  EXPECT_TRUE(GetWindowOverlapsShelf());
+
+  wm::ActivateWindow(w1.get());
+  w1->SetBounds(w1_bounds);
   w1->Show();
   wm::ActivateWindow(w1.get());
-
-  ShelfLayoutManager* shelf = Shell::GetInstance()->shelf();
 
   EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
 
@@ -478,6 +497,15 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
   EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
+  EXPECT_FALSE(GetWindowOverlapsShelf());
+
+  // Move window so it obscures shelf.
+  w1->SetBounds(touches_shelf_bounds);
+  EXPECT_TRUE(GetWindowOverlapsShelf());
+
+  // Move it back.
+  w1->SetBounds(w1_bounds);
+  EXPECT_FALSE(GetWindowOverlapsShelf());
 
   // Maximize again.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
@@ -509,7 +537,8 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   EXPECT_EQ(0, active_index());
   EXPECT_EQ(ShelfLayoutManager::VISIBLE, shelf->visibility_state());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
-  EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(w2.get()).ToString(),
+  EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(
+                w2->parent()).ToString(),
             w2->bounds().ToString());
 
   // Switch to w2.
@@ -520,6 +549,20 @@ TEST_F(WorkspaceManager2Test, ShelfStateUpdated) {
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
   EXPECT_EQ(ScreenAsh::GetMaximizedWindowBoundsInParent(w2.get()).ToString(),
             w2->bounds().ToString());
+
+  // Turn off auto-hide, switch back to w2 (maximized) and verify overlap.
+  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
+  wm::ActivateWindow(w2.get());
+  EXPECT_FALSE(GetWindowOverlapsShelf());
+
+  // Move w1 to overlap shelf, it shouldn't change window overlaps shelf since
+  // the window isn't in the visible workspace.
+  w1->SetBounds(touches_shelf_bounds);
+  EXPECT_FALSE(GetWindowOverlapsShelf());
+
+  // Activate w1. Since w1 is visible the overlap state should be true.
+  wm::ActivateWindow(w1.get());
+  EXPECT_TRUE(GetWindowOverlapsShelf());
 }
 
 // Verifies persist across all workspaces.
@@ -551,17 +594,18 @@ TEST_F(WorkspaceManager2Test, PersistAcrossAllWorkspaces) {
   EXPECT_EQ(w2.get(), workspaces()[0]->window()->children()[0]);
   EXPECT_EQ(w1.get(), workspaces()[0]->window()->children()[1]);
 
-  // Repeat, but this time minimize. The minimize window should end up in
+  // Repeat, but this time minimize. The minimized window should end up in
   // pending.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
+  ASSERT_EQ("1 P=M1 active=0", StateString());
   w2.reset(CreateTestWindow());
   SetPersistsAcrossAllWorkspaces(
       w2.get(),
       WINDOW_PERSISTS_ACROSS_ALL_WORKSPACES_VALUE_YES);
   w2->Show();
-  ASSERT_EQ("1 M1 active=1", StateString());
+  ASSERT_EQ("1 P=M1 active=0", StateString());
   wm::ActivateWindow(w2.get());
-  ASSERT_EQ("0 M2 active=1", StateString());
+  ASSERT_EQ("1 P=M1 active=0", StateString());
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MINIMIZED);
   ASSERT_EQ("1 P=M1 active=0", StateString());
   EXPECT_EQ(w2.get(), workspaces()[0]->window()->children()[0]);
@@ -760,5 +804,89 @@ TEST_F(WorkspaceManager2Test, MoveTransientOnMaximize) {
   ASSERT_EQ("3 active=0", StateString());
 }
 
+// Verifies window visibility during various workspace changes.
+TEST_F(WorkspaceManager2Test, VisibilityTests) {
+  scoped_ptr<Window> w1(CreateTestWindow());
+  w1->Show();
+  EXPECT_TRUE(w1->IsVisible());
+  EXPECT_EQ(1.0f, w1->layer()->GetCombinedOpacity());
+
+  // Create another window, activate it and maximized it.
+  scoped_ptr<Window> w2(CreateTestWindow());
+  w2->Show();
+  wm::ActivateWindow(w2.get());
+  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
+  EXPECT_TRUE(w2->IsVisible());
+  EXPECT_EQ(1.0f, w2->layer()->GetCombinedOpacity());
+  EXPECT_FALSE(w1->IsVisible());
+
+  // Switch to w1. |w1| should be visible and |w2| hidden.
+  wm::ActivateWindow(w1.get());
+  EXPECT_TRUE(w1->IsVisible());
+  EXPECT_EQ(1.0f, w1->layer()->GetCombinedOpacity());
+  EXPECT_FALSE(w2->IsVisible());
+
+  // Switch back to |w2|.
+  wm::ActivateWindow(w2.get());
+  EXPECT_TRUE(w2->IsVisible());
+  EXPECT_EQ(1.0f, w2->layer()->GetCombinedOpacity());
+  EXPECT_FALSE(w1->IsVisible());
+
+  // Restore |w2|, both windows should be visible.
+  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
+  EXPECT_TRUE(w1->IsVisible());
+  EXPECT_EQ(1.0f, w1->layer()->GetCombinedOpacity());
+  EXPECT_TRUE(w2->IsVisible());
+  EXPECT_EQ(1.0f, w2->layer()->GetCombinedOpacity());
+
+  // Maximize |w2| again, then close it.
+  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
+  w2->Hide();
+  EXPECT_FALSE(w2->IsVisible());
+  EXPECT_EQ(1.0f, w1->layer()->GetCombinedOpacity());
+  EXPECT_TRUE(w1->IsVisible());
+
+  // Create |w2| and make it fullscreen.
+  w2.reset(CreateTestWindow());
+  w2->Show();
+  wm::ActivateWindow(w2.get());
+  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_FULLSCREEN);
+  EXPECT_TRUE(w2->IsVisible());
+  EXPECT_EQ(1.0f, w2->layer()->GetCombinedOpacity());
+  EXPECT_FALSE(w1->IsVisible());
+
+  // Close |w2|.
+  w2.reset();
+  EXPECT_EQ(1.0f, w1->layer()->GetCombinedOpacity());
+  EXPECT_TRUE(w1->IsVisible());
+}
+
+// Verifies windows that are offscreen don't move when switching workspaces.
+TEST_F(WorkspaceManager2Test, DontMoveOnSwitch) {
+  aura::test::EventGenerator generator(
+      Shell::GetPrimaryRootWindow(), gfx::Point());
+  generator.MoveMouseTo(0, 0);
+
+  scoped_ptr<Window> w1(CreateTestWindow());
+  const gfx::Rect w1_bounds(0, 1, 101, 102);
+  ShelfLayoutManager* shelf = Shell::GetInstance()->shelf();
+  const gfx::Rect touches_shelf_bounds(
+      0, shelf->GetIdealBounds().y() - 10, 101, 102);
+  // Move |w1| to overlap the shelf.
+  w1->SetBounds(touches_shelf_bounds);
+  w1->Show();
+  wm::ActivateWindow(w1.get());
+
+  // Create another window and maximize it.
+  scoped_ptr<Window> w2(CreateTestWindow());
+  w2->SetBounds(gfx::Rect(10, 11, 250, 251));
+  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
+  w2->Show();
+  wm::ActivateWindow(w2.get());
+
+  // Switch to w1.
+  wm::ActivateWindow(w1.get());
+  EXPECT_EQ(touches_shelf_bounds.ToString(), w1->bounds().ToString());
+}
 }  // namespace internal
 }  // namespace ash

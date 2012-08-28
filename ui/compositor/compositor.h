@@ -100,6 +100,7 @@ class COMPOSITOR_EXPORT Texture : public base::RefCounted<Texture> {
   void set_texture_id(unsigned int id) { texture_id_ = id; }
   bool flipped() const { return flipped_; }
   gfx::Size size() const { return size_; }
+  virtual WebKit::WebGraphicsContext3D* HostContext3D() = 0;
 
  protected:
   virtual ~Texture();
@@ -240,12 +241,8 @@ class COMPOSITOR_EXPORT Compositor
   ObserverList<CompositorObserver> observer_list_;
 
   gfx::AcceleratedWidget widget_;
-#if defined(WEBLAYER_IS_PURE_VIRTUAL)
   scoped_ptr<WebKit::WebLayer> root_web_layer_;
-#else
-  WebKit::WebLayer root_web_layer_;
-#endif
-  WebKit::WebLayerTreeView host_;
+  scoped_ptr<WebKit::WebLayerTreeView> host_;
 
   // This is set to true when the swap buffers has been posted and we're waiting
   // for completion.

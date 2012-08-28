@@ -9,19 +9,20 @@
 
 #include "ash/accelerators/focus_manager_factory.h"
 #include "ash/ash_switches.h"
+#include "ash/caps_lock_delegate_stub.h"
 #include "ash/desktop_background/desktop_background_controller.h"
 #include "ash/desktop_background/desktop_background_resources.h"
 #include "ash/desktop_background/desktop_background_view.h"
-#include "ash/drag_drop/drag_drop_controller.h"
-#include "ash/focus_cycler.h"
-#include "ash/high_contrast/high_contrast_controller.h"
-#include "ash/launcher/launcher.h"
-#include "ash/magnifier/magnification_controller.h"
 #include "ash/display/display_controller.h"
 #include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/display/multi_display_manager.h"
 #include "ash/display/screen_position_controller.h"
 #include "ash/display/secondary_display_view.h"
+#include "ash/drag_drop/drag_drop_controller.h"
+#include "ash/focus_cycler.h"
+#include "ash/high_contrast/high_contrast_controller.h"
+#include "ash/launcher/launcher.h"
+#include "ash/magnifier/magnification_controller.h"
 #include "ash/root_window_controller.h"
 #include "ash/screen_ash.h"
 #include "ash/shell_context_menu.h"
@@ -61,8 +62,8 @@
 #include "ash/wm/visibility_controller.h"
 #include "ash/wm/window_cycle_controller.h"
 #include "ash/wm/window_modality_controller.h"
-#include "ash/wm/window_util.h"
 #include "ash/wm/window_properties.h"
+#include "ash/wm/window_util.h"
 #include "ash/wm/workspace/workspace_event_filter.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
@@ -71,10 +72,10 @@
 #include "grit/ui_resources.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/user_action_client.h"
+#include "ui/aura/display_manager.h"
 #include "ui/aura/env.h"
 #include "ui/aura/focus_manager.h"
 #include "ui/aura/layout_manager.h"
-#include "ui/aura/display_manager.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/shared/compound_event_filter.h"
 #include "ui/aura/shared/input_method_event_filter.h"
@@ -421,6 +422,12 @@ void Shell::Init() {
     AddEnvEventFilter(touch_observer_hud_.get());
   }
 
+  if (internal::DisplayController::IsExtendedDesktopEnabled()) {
+    mouse_cursor_filter_.reset(
+        new internal::MouseCursorEventFilter(display_controller_.get()));
+    AddEnvEventFilter(mouse_cursor_filter_.get());
+  }
+
   // Create Controllers that may need root window.
   // TODO(oshima): Move as many controllers before creating
   // RootWindowController as possible.
@@ -435,12 +442,6 @@ void Shell::Init() {
   magnification_controller_.reset(
       internal::MagnificationController::CreateInstance());
 
-  if (internal::DisplayController::IsExtendedDesktopEnabled()) {
-    mouse_cursor_filter_.reset(
-        new internal::MouseCursorEventFilter(display_controller_.get()));
-    AddEnvEventFilter(mouse_cursor_filter_.get());
-  }
-
   high_contrast_controller_.reset(new HighContrastController);
   video_detector_.reset(new VideoDetector);
   window_cycle_controller_.reset(
@@ -451,6 +452,12 @@ void Shell::Init() {
   AddEnvEventFilter(tooltip_controller_.get());
 
   InitRootWindowController(root_window_controller);
+
+  // StatusAreaWidget uses Shell's CapsLockDelegate.
+  if (delegate_.get())
+    caps_lock_delegate_.reset(delegate_->CreateCapsLockDelegate());
+  else
+    caps_lock_delegate_.reset(new CapsLockDelegateStub);
 
   // Initialize Primary RootWindow specific items.
   status_area_widget_ = new internal::StatusAreaWidget();
@@ -507,6 +514,12 @@ size_t Shell::GetEnvEventFilterCount() const {
 
 void Shell::ShowBackgroundMenu(views::Widget* widget,
                                const gfx::Point& location) {
+  // No context menus if user have not logged in.
+  if (!delegate_.get() || !delegate_->IsUserLoggedIn())
+    return;
+  // No context menus when screen is locked.
+  if (IsScreenLocked())
+    return;
   if (shell_context_menu_.get())
     shell_context_menu_->ShowMenu(widget, location);
 }
@@ -677,10 +690,10 @@ void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
     CreateSecondaryDisplayWidget(container);
     container->Show();
     root->layout_manager()->OnWindowResized();
-    root->ShowRootWindow();
     aura::client::SetCaptureClient(root, capture_controller_.get());
     aura::client::SetScreenPositionClient(
         root, screen_position_controller_.get());
+    root->ShowRootWindow();
   }
 }
 

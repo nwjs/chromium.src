@@ -11,18 +11,21 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "webkit/fileapi/file_stream_writer.h"
-#include "webkit/fileapi/file_system_operation_interface.h"
 #include "webkit/fileapi/file_system_url.h"
 
 namespace net {
 class IOBuffer;
 }
 
+namespace webkit_blob {
+class ShareableFileReference;
+}
+
 namespace fileapi {
 
 class RemoteFileSystemProxyInterface;
 
-// FileStreamWriter interface for writing to a file on GData file system.
+// FileStreamWriter interface for writing to a file on remote file system.
 class RemoteFileStreamWriter : public fileapi::FileStreamWriter {
  public:
   // Creates a writer for a file on |remote_filesystem| with path url |url|

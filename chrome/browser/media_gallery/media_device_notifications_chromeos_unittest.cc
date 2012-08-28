@@ -14,8 +14,8 @@
 #include "base/system_monitor/system_monitor.h"
 #include "base/test/mock_devices_changed_observer.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/chromeos/disks/mock_disk_mount_manager.h"
 #include "chrome/browser/media_gallery/media_storage_util.h"
+#include "chromeos/disks/mock_disk_mount_manager.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -36,7 +36,7 @@ const char kMountPointB[] = "mnt_b";
 
 std::string GetDCIMDeviceId(const std::string& unique_id) {
   return chrome::MediaStorageUtil::MakeDeviceId(
-      chrome::MediaStorageUtil::USB_MASS_STORAGE_WITH_DCIM, unique_id);
+      chrome::MediaStorageUtil::REMOVABLE_MASS_STORAGE_WITH_DCIM, unique_id);
 }
 
 class MediaDeviceNotificationsTest : public testing::Test {
@@ -163,13 +163,14 @@ TEST_F(MediaDeviceNotificationsTest, BasicAttachDetach) {
                                               disks::MOUNT_CONDITION_NONE);
   const std::string kUniqueId0 = "FFFF-FFFF";
   EXPECT_CALL(observer(),
-              OnMediaDeviceAttached(GetDCIMDeviceId(kUniqueId0),
-                                    ASCIIToUTF16(kDevice1Name),
-                                    mount_path1.value()))
+              OnRemovableStorageAttached(GetDCIMDeviceId(kUniqueId0),
+                                         ASCIIToUTF16(kDevice1Name),
+                                         mount_path1.value()))
       .InSequence(mock_sequence);
   MountDevice(MOUNT_ERROR_NONE, mount_info, kUniqueId0);
 
-  EXPECT_CALL(observer(), OnMediaDeviceDetached(GetDCIMDeviceId(kUniqueId0)))
+  EXPECT_CALL(observer(),
+              OnRemovableStorageDetached(GetDCIMDeviceId(kUniqueId0)))
       .InSequence(mock_sequence);
   UnmountDevice(MOUNT_ERROR_NONE, mount_info);
 
@@ -182,13 +183,14 @@ TEST_F(MediaDeviceNotificationsTest, BasicAttachDetach) {
   const std::string kUniqueId1 = "FFF0-FFF0";
 
   EXPECT_CALL(observer(),
-              OnMediaDeviceAttached(GetDCIMDeviceId(kUniqueId1),
-                                    ASCIIToUTF16(kDevice2Name),
-                                    mount_path2.value()))
+              OnRemovableStorageAttached(GetDCIMDeviceId(kUniqueId1),
+                                         ASCIIToUTF16(kDevice2Name),
+                                         mount_path2.value()))
       .InSequence(mock_sequence);
   MountDevice(MOUNT_ERROR_NONE, mount_info2, kUniqueId1);
 
-  EXPECT_CALL(observer(), OnMediaDeviceDetached(GetDCIMDeviceId(kUniqueId1)))
+  EXPECT_CALL(observer(),
+              OnRemovableStorageDetached(GetDCIMDeviceId(kUniqueId1)))
       .InSequence(mock_sequence);
   UnmountDevice(MOUNT_ERROR_NONE, mount_info2);
 }
@@ -203,7 +205,7 @@ TEST_F(MediaDeviceNotificationsTest, DCIM) {
                                               mount_path.value(),
                                               MOUNT_TYPE_DEVICE,
                                               disks::MOUNT_CONDITION_NONE);
-  EXPECT_CALL(observer(), OnMediaDeviceAttached(_, _, _)).Times(0);
+  EXPECT_CALL(observer(), OnRemovableStorageAttached(_, _, _)).Times(0);
   MountDevice(MOUNT_ERROR_NONE, mount_info, kUniqueId);
 }
 
@@ -219,18 +221,18 @@ TEST_F(MediaDeviceNotificationsTest, Ignore) {
                                               mount_path.value(),
                                               MOUNT_TYPE_DEVICE,
                                               disks::MOUNT_CONDITION_NONE);
-  EXPECT_CALL(observer(), OnMediaDeviceAttached(_, _, _)).Times(0);
+  EXPECT_CALL(observer(), OnRemovableStorageAttached(_, _, _)).Times(0);
   MountDevice(MOUNT_ERROR_UNKNOWN, mount_info, kUniqueId);
 
   // Not a device
   mount_info.mount_type = MOUNT_TYPE_ARCHIVE;
-  EXPECT_CALL(observer(), OnMediaDeviceAttached(_, _, _)).Times(0);
+  EXPECT_CALL(observer(), OnRemovableStorageAttached(_, _, _)).Times(0);
   MountDevice(MOUNT_ERROR_NONE, mount_info, kUniqueId);
 
   // Unsupported file system.
   mount_info.mount_type = MOUNT_TYPE_DEVICE;
   mount_info.mount_condition = disks::MOUNT_CONDITION_UNSUPPORTED_FILESYSTEM;
-  EXPECT_CALL(observer(), OnMediaDeviceAttached(_, _, _)).Times(0);
+  EXPECT_CALL(observer(), OnRemovableStorageAttached(_, _, _)).Times(0);
   MountDevice(MOUNT_ERROR_NONE, mount_info, kUniqueId);
 }
 
