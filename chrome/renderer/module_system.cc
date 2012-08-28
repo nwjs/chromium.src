@@ -59,11 +59,23 @@ bool ModuleSystem::IsPresentInCurrentContext() {
 
 // static
 void ModuleSystem::DumpException(v8::Handle<v8::Message> message) {
-  LOG(ERROR) << "["
-             << *v8::String::Utf8Value(
-                 message->GetScriptResourceName()->ToString())
-             << "(" << message->GetLineNumber() << ")] "
-             << *v8::String::Utf8Value(message->Get());
+  std::string resource_name = "<unknown resource>";
+  if (!message->GetScriptResourceName().IsEmpty()) {
+    resource_name = *v8::String::Utf8Value(
+                 message->GetScriptResourceName()->ToString());
+  }
+
+  std::string error_message = "<no error message>";
+  if (!message->Get().IsEmpty())
+    error_message = *v8::String::Utf8Value(message->Get());
+
+  std::string stack_trace = "<stack trace unavailable>";
+  if (!try_catch.StackTrace().IsEmpty())
+    stack_trace = *v8::String::Utf8Value(try_catch.StackTrace());
+
+  LOG(ERROR) << "[" << resource_name << "(" << message->GetLineNumber() << ")] "
+             << error_message
+             << "{" << stack_trace << "}";
 }
 
 void ModuleSystem::Require(const std::string& module_name) {
