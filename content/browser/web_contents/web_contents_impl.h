@@ -257,6 +257,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void DidChooseColorInColorChooser(int color_chooser_id,
                                             SkColor color) OVERRIDE;
   virtual void DidEndColorChooser(int color_chooser_id) OVERRIDE;
+  virtual WebKit::WebWindowFeatures GetWindowFeatures() const OVERRIDE;
 
   // Implementation of PageNavigator.
   virtual content::WebContents* OpenURL(
@@ -812,6 +813,9 @@ class CONTENT_EXPORT WebContentsImpl
   // Used during IPC message dispatching so that the handlers can get a pointer
   // to the RVH through which the message was received.
   content::RenderViewHost* message_source_;
+
+  // Saved window features
+  WebKit::WebWindowFeatures window_features_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsImpl);
 };

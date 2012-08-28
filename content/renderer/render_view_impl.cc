@@ -1709,6 +1709,7 @@ WebView* RenderViewImpl::createView(
       creator->document().securityOrigin().toString().utf8();
   params.opener_suppressed = creator->willSuppressOpenerInNewFrame();
   params.disposition = NavigationPolicyToDisposition(policy);
+  params.window_features = features;
   if (!request.isNull())
     params.target_url = request.url();
 

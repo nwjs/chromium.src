@@ -17,6 +17,7 @@
 #include "content/public/browser/web_ui.h"
 #include "ipc/ipc_sender.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "ui/gfx/native_widget_types.h"
 #include "webkit/glue/window_open_disposition.h"
 
@@ -391,6 +392,9 @@ class WebContents : public PageNavigator,
 
   // Does this have an opener associated with it?
   virtual bool HasOpener() const = 0;
+
+  // Return the window features
+  virtual WebKit::WebWindowFeatures GetWindowFeatures() const = 0;
 };
 
 }  // namespace content

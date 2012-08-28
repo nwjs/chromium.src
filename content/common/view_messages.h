@@ -36,6 +36,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPluginAction.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebPopupType.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebScreenInfo.h"
+#include "third_party/WebKit/Source/WebKit/chromium/public/WebWindowFeatures.h"
 #include "ui/base/dialogs/selected_file_info.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/range/range.h"
@@ -130,6 +131,27 @@ IPC_STRUCT_TRAITS_BEGIN(WebKit::WebScreenInfo)
   IPC_STRUCT_TRAITS_MEMBER(isMonochrome)
   IPC_STRUCT_TRAITS_MEMBER(rect)
   IPC_STRUCT_TRAITS_MEMBER(availableRect)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(WebKit::WebWindowFeatures)
+  IPC_STRUCT_TRAITS_MEMBER(x)
+  IPC_STRUCT_TRAITS_MEMBER(xSet)
+  IPC_STRUCT_TRAITS_MEMBER(y)
+  IPC_STRUCT_TRAITS_MEMBER(ySet)
+  IPC_STRUCT_TRAITS_MEMBER(width)
+  IPC_STRUCT_TRAITS_MEMBER(widthSet)
+  IPC_STRUCT_TRAITS_MEMBER(height)
+  IPC_STRUCT_TRAITS_MEMBER(heightSet)
+
+  IPC_STRUCT_TRAITS_MEMBER(menuBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(statusBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(toolBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(locationBarVisible)
+  IPC_STRUCT_TRAITS_MEMBER(scrollbarsVisible)
+  IPC_STRUCT_TRAITS_MEMBER(resizable)
+
+  IPC_STRUCT_TRAITS_MEMBER(fullscreen)
+  IPC_STRUCT_TRAITS_MEMBER(dialog)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(webkit_glue::WebPreferences)
@@ -411,6 +433,9 @@ IPC_STRUCT_BEGIN(ViewHostMsg_CreateWindow_Params)
   // The URL that will be loaded in the new window (empty if none has been
   // sepcified).
   IPC_STRUCT_MEMBER(GURL, target_url)
+
+  // The window features
+  IPC_STRUCT_MEMBER(WebKit::WebWindowFeatures, window_features)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(ViewHostMsg_TextInputState_Params)
