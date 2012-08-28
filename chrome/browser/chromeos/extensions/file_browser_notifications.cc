@@ -153,14 +153,18 @@ class FileBrowserNotifications::NotificationMessage {
   }
 
   ~NotificationMessage() {
-    if (system_notification_.get() && system_notification_->visible())
-      system_notification_->Hide();
   }
 
   void Show() {
     if (system_notification_.get())
       system_notification_->Show(message_, false, false);
     // Ash notifications are shown automatically (only) when created.
+  }
+
+  void Hide() {
+    if (system_notification_.get() && system_notification_->visible())
+      system_notification_->Hide();
+    // Ash notifications are hidden automatically.
   }
 
   void set_message(const string16& message) { message_ = message; }
@@ -391,6 +395,7 @@ void FileBrowserNotifications::ShowNotificationById(
 void FileBrowserNotifications::HideNotificationById(const std::string& id) {
   NotificationMap::iterator it = notification_map_.find(id);
   if (it != notification_map_.end()) {
+    it->second->Hide();
     delete it->second;
     notification_map_.erase(it);
   } else {
