@@ -88,7 +88,7 @@ TEST_F(UserActivityDetectorTest, Basic) {
   observer_->reset_stats();
 
   base::TimeDelta advance_delta =
-      base::TimeDelta::FromSeconds(UserActivityDetector::kNotifyIntervalMs);
+      base::TimeDelta::FromSeconds(UserActivityDetector::kNotifyIntervalSec);
   AdvanceTime(advance_delta);
   aura::MouseEvent mouse_event(
       ui::ET_MOUSE_MOVED, gfx::Point(), gfx::Point(), ui::EF_NONE);
@@ -122,25 +122,22 @@ TEST_F(UserActivityDetectorTest, RateLimitNotifications) {
   EXPECT_EQ(1, observer_->num_invocations());
   observer_->reset_stats();
 
-  // It shouldn't be notified if a second event occurs
-  // in the same instant in time.
+  // It shouldn't be notified if a second event occurs in the same second,
+  // though.
   EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
   EXPECT_EQ(0, observer_->num_invocations());
   observer_->reset_stats();
 
   // Advance the time, but not quite enough for another notification to be sent.
   AdvanceTime(
-      base::TimeDelta::FromMilliseconds(
-          UserActivityDetector::kNotifyIntervalMs - 100));
+      base::TimeDelta::FromSeconds(
+          UserActivityDetector::kNotifyIntervalSec - 1));
   EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
   EXPECT_EQ(0, observer_->num_invocations());
   observer_->reset_stats();
 
-  // Advance time by the notification interval, definitely moving out of the
-  // rate limit. This should let us trigger another notification.
-  AdvanceTime(base::TimeDelta::FromMilliseconds(
-      UserActivityDetector::kNotifyIntervalMs));
-
+  // One second later, we should send a notification again.
+  AdvanceTime(base::TimeDelta::FromSeconds(1));
   EXPECT_FALSE(detector_->PreHandleKeyEvent(window.get(), &event));
   EXPECT_EQ(1, observer_->num_invocations());
 }
