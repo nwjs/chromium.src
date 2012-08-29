@@ -54,24 +54,24 @@ class ConsumeGestureEventFilter : public EventFilter {
 
  private:
   // Overridden from EventFilter.
-  virtual bool PreHandleKeyEvent(Window* target, ui::KeyEvent* event) OVERRIDE {
+  virtual bool PreHandleKeyEvent(Window* target, KeyEvent* event) OVERRIDE {
     return false;
   }
 
   virtual bool PreHandleMouseEvent(Window* target,
-                                   ui::MouseEvent* event) OVERRIDE {
+                                   MouseEvent* event) OVERRIDE {
     return false;
   }
 
   virtual ui::TouchStatus PreHandleTouchEvent(
       Window* target,
-      ui::TouchEvent* event) OVERRIDE {
+      TouchEvent* event) OVERRIDE {
     return ui::TOUCH_STATUS_UNKNOWN;
   }
 
   virtual ui::GestureStatus PreHandleGestureEvent(
       Window* target,
-      ui::GestureEvent* event) OVERRIDE {
+      GestureEvent* event) OVERRIDE {
     return ui::GESTURE_STATUS_CONSUMED;
   }
 
