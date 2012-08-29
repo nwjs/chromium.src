@@ -20,7 +20,7 @@
                 "type": "array",
                 // TODO(vandebo) Specify the item type with isInstanceOf when
                 // http://crbug.com/119372 is resolved.
-                "items": { "type": "object"}
+                "items": { "type": "object", "additionalProperties": { "type": "any" } }
               }
             ]
           }
@@ -41,12 +41,14 @@
             // TODO(vandebo) Make this a non-optional FileEntry when
             // http://crbug.com/119372 is resolved.
             "type": "object",
+            "additionalProperties": { "type": "any" },
             "optional": true,
             "name": "mediaFile"
           }
         ],
         "returns": {
           "type": "object",
+          "additionalProperties": { "type": "any" },
           "optional": true
         }
       },
@@ -62,6 +64,7 @@
             // TODO(vandebo) Make this a non-optional Blob when
             // http://crbug.com/119372 is resolved.
             "type": "object",
+            "additionalProperties": { "type": "any" },
             "optional": true,
             "name": "mediaFileContents"
           },
@@ -69,6 +72,7 @@
             // TODO(vandebo) Make this a non-optional Metafile when
             // http://crbug.com/119372 is resolved.
             "type": "object",
+            "additionalProperties": { "type": "any" },
             "optional": true,
             "name": "metadata"
           },
@@ -81,6 +85,7 @@
                 // TODO(vandebo) Make this an optional Blob when
                 // http://crbug.com/119372 is resolved.
                 "type": "object",
+                "additionalProperties": { "type": "any" },
                 "optional": true
               }
             ]

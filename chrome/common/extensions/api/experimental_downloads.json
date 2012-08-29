@@ -516,7 +516,7 @@
             "type": "function",
             "optional": true,
             "parameters": [
-              {"name": "items", "type": "array"}
+              {"name": "items", "items": {"$ref": "DownloadItem"}}
             ]
           }
         ]
@@ -536,6 +536,7 @@
               {
                 "name": "ids",
                 "type": "array",
+                "items": { "type": "integer" },
                 "description": "The identifiers of the downloads that were erased."
               }
             ]
