@@ -97,7 +97,8 @@ TestCompletionCallback::TestCompletionCallback(PP_Instance instance)
       //                 what the tests currently expect.
       callback_type_(PP_OPTIONAL),
       post_quit_task_(false),
-      instance_(instance) {
+      instance_(instance),
+      delegate_(NULL) {
 }
 
 TestCompletionCallback::TestCompletionCallback(PP_Instance instance,
@@ -107,7 +108,8 @@ TestCompletionCallback::TestCompletionCallback(PP_Instance instance,
       result_(PP_OK_COMPLETIONPENDING),
       callback_type_(force_async ? PP_REQUIRED : PP_OPTIONAL),
       post_quit_task_(false),
-      instance_(instance) {
+      instance_(instance),
+      delegate_(NULL) {
 }
 
 TestCompletionCallback::TestCompletionCallback(PP_Instance instance,
@@ -117,7 +119,8 @@ TestCompletionCallback::TestCompletionCallback(PP_Instance instance,
       result_(PP_OK_COMPLETIONPENDING),
       callback_type_(callback_type),
       post_quit_task_(false),
-      instance_(instance) {
+      instance_(instance),
+      delegate_(NULL) {
 }
 
 int32_t TestCompletionCallback::WaitForResult() {
@@ -198,6 +201,7 @@ void TestCompletionCallback::Reset() {
   result_ = PP_OK_COMPLETIONPENDING;
   have_result_ = false;
   post_quit_task_ = false;
+  delegate_ = NULL;
   errors_.clear();
 }
 
@@ -208,6 +212,8 @@ void TestCompletionCallback::Handler(void* user_data, int32_t result) {
   PP_DCHECK(!callback->have_result_);
   callback->result_ = result;
   callback->have_result_ = true;
+  if (callback->delegate_)
+    callback->delegate_->OnCallback(user_data, result);
   if (callback->post_quit_task_) {
     callback->post_quit_task_ = false;
     GetTestingInterface()->QuitMessageLoop(callback->instance_);
