@@ -101,8 +101,7 @@ base::Value* CreateUsersWhitelist(const base::Value *pref_value) {
 }  // namespace
 
 CoreChromeOSOptionsHandler::CoreChromeOSOptionsHandler()
-    : handling_change_(false),
-      pointer_factory_(this) {
+    : pointer_factory_(this) {
 }
 
 CoreChromeOSOptionsHandler::~CoreChromeOSOptionsHandler() {
@@ -194,9 +193,7 @@ void CoreChromeOSOptionsHandler::SetPref(const std::string& pref_name,
   }
   if (!CrosSettings::IsCrosSettings(pref_name))
     return ::options2::CoreOptionsHandler::SetPref(pref_name, value, metric);
-  handling_change_ = true;
   CrosSettings::Get()->Set(pref_name, *value);
-  handling_change_ = false;
 
   ProcessUserMetric(value, metric);
 }
@@ -223,9 +220,6 @@ void CoreChromeOSOptionsHandler::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  // Ignore the notification if this instance had caused it.
-  if (handling_change_)
-    return;
   if (type == chrome::NOTIFICATION_SYSTEM_SETTING_CHANGED) {
     NotifySettingsChanged(content::Details<std::string>(details).ptr());
     return;
