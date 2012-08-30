@@ -1617,6 +1617,9 @@
       }],
     ],  # conditions for 'target_defaults'
     'target_conditions': [
+      [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+        'ldflags': [ '-rdynamic' ],
+      }],
       ['enable_wexit_time_destructors==1', {
         'conditions': [
           [ 'clang==1', {
