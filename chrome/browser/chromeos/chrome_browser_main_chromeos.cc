@@ -19,9 +19,7 @@
 #include "chrome/browser/chromeos/audio/audio_handler.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
-#include "chrome/browser/chromeos/cryptohome/async_method_caller.h"
 #include "chrome/browser/chromeos/dbus/cros_dbus_service.h"
-#include "chrome/browser/chromeos/disks/disk_mount_manager.h"
 #include "chrome/browser/chromeos/external_metrics.h"
 #include "chrome/browser/chromeos/imageburner/burn_manager.h"
 #include "chrome/browser/chromeos/input_method/input_method_manager.h"
@@ -72,9 +70,11 @@
 #include "chrome/common/chrome_version_info.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/cryptohome/async_method_caller.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
 #include "chromeos/dbus/session_manager_client.h"
+#include "chromeos/disks/disk_mount_manager.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/main_function_params.h"
 #include "grit/platform_locale_settings.h"
@@ -384,9 +384,12 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
 
     // Initialize user policy before creating the profile so the profile
     // initialization code sees policy settings.
-    g_browser_process->browser_policy_connector()->InitializeUserPolicy(
-        username, false  /* wait_for_policy_fetch */);
-    chromeos::UserManager::Get()->SessionStarted();
+    // Guest accounts are not subject to user policy.
+    if (!chromeos::UserManager::Get()->IsLoggedInAsGuest()) {
+      g_browser_process->browser_policy_connector()->InitializeUserPolicy(
+          username, false  /* wait_for_policy_fetch */);
+      chromeos::UserManager::Get()->SessionStarted();
+    }
   }
 
   // In Aura builds this will initialize ash::Shell.
@@ -413,12 +416,10 @@ void ChromeBrowserMainPartsChromeos::PostProfileInit() {
       profile()->GetPrefs()->SetBoolean(prefs::kUseSharedProxies, false);
   }
 
-  if (parsed_command_line().HasSwitch(switches::kEnableONCPolicy)) {
-    network_config_updater_.reset(
-        new policy::NetworkConfigurationUpdater(
-            g_browser_process->policy_service(),
-            chromeos::CrosLibrary::Get()->GetNetworkLibrary()));
-  }
+  network_config_updater_.reset(
+      new policy::NetworkConfigurationUpdater(
+          g_browser_process->policy_service(),
+          chromeos::CrosLibrary::Get()->GetNetworkLibrary()));
 
   // Make sure that wallpaper boot transition and other delays in OOBE
   // are disabled for tests by default.

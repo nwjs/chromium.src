@@ -20,7 +20,7 @@ namespace gdata {
 
 class DocumentEntry;
 class DriveEntryProto;
-class GDataFileSystemInterface;
+class DriveFileSystemInterface;
 class GDataUploader;
 struct UploadFileInfo;
 
@@ -30,7 +30,7 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
                               public content::DownloadItem::Observer {
  public:
   GDataDownloadObserver(GDataUploader* uploader,
-                        GDataFileSystemInterface* file_system);
+                        DriveFileSystemInterface* file_system);
   virtual ~GDataDownloadObserver();
 
   // Become an observer of  DownloadManager.
@@ -119,17 +119,17 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
   void CreateUploadFileInfoAfterCheckExistence(
     int32 download_id,
     scoped_ptr<UploadFileInfo> upload_file_info,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto);
 
-  // Callback for handling results of GDataFileSystem::GetEntryInfoByPath()
+  // Callback for handling results of DriveFileSystem::GetEntryInfoByPath()
   // initiated by CreateUploadFileInfoAfterCheckExistence(). This callback
   // reads the directory entry to determine the upload path, then calls
   // StartUpload() to actually start the upload.
   void CreateUploadFileInfoAfterCheckTargetDir(
       int32 download_id,
       scoped_ptr<UploadFileInfo> upload_file_info,
-      GDataFileError error,
+      DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // Starts the upload.
@@ -142,7 +142,7 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
   // |upload_file_info| for use by MoveFileToDriveCache(). It also invokes the
   // MaybeCompleteDownload() method on the DownloadItem to allow it to complete.
   void OnUploadComplete(int32 download_id,
-                        GDataFileError error,
+                        DriveFileError error,
                         scoped_ptr<UploadFileInfo> upload_file_info);
 
   // Moves the downloaded file to gdata cache.
@@ -150,10 +150,10 @@ class GDataDownloadObserver : public content::DownloadManager::Observer,
   void MoveFileToDriveCache(content::DownloadItem* download);
 
   // Private data.
-  // The uploader owned by GDataSystemService. Used to trigger file uploads.
+  // The uploader owned by DriveSystemService. Used to trigger file uploads.
   GDataUploader* gdata_uploader_;
-  // The file system owned by GDataSystemService.
-  GDataFileSystemInterface* file_system_;
+  // The file system owned by DriveSystemService.
+  DriveFileSystemInterface* file_system_;
   // Observe the DownloadManager for new downloads.
   content::DownloadManager* download_manager_;
 

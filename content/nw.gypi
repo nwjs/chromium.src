@@ -52,9 +52,11 @@
         'nw/src/common/zip_internal.h',
         'nw/src/geolocation/shell_access_token_store.cc',
         'nw/src/geolocation/shell_access_token_store.h',
-        'nw/src/nw_version.h',
-        'nw/src/nw_package.h',
+        'nw/src/nw_about_handler.cc',
+        'nw/src/nw_about_handler.h',
         'nw/src/nw_package.cc',
+        'nw/src/nw_package.h',
+        'nw/src/nw_version.h',
         'nw/src/paths_mac.h',
         'nw/src/paths_mac.mm',
         'nw/src/shell.cc',
@@ -396,8 +398,7 @@
               'postbuild_name': 'Tweak Info.plist',
               'action': ['../build/mac/tweak_info_plist.py',
                          '--breakpad=0',
-                         '--keystone=0',
-                         '--svn=0'],
+                         '--keystone=0'],
             },
             {
               # This postbuid step is responsible for creating the following
@@ -513,8 +514,7 @@
               'postbuild_name': 'Tweak Info.plist',
               'action': ['../build/mac/tweak_info_plist.py',
                          '--breakpad=0',
-                         '--keystone=0',
-                         '--svn=0'],
+                         '--keystone=0'],
             },
             {
               # Make sure there isn't any Objective-C in the helper app's

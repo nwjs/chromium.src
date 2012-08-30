@@ -11,8 +11,7 @@
 #include "google/cacheinvalidation/include/invalidation-client-factory.h"
 #include "jingle/notifier/listener/push_client.h"
 #include "net/url_request/url_request_context.h"
-#include "sync/internal_api/public/base/model_type_payload_map.h"
-#include "sync/notifier/sync_notifier_observer.h"
+#include "sync/notifier/invalidation_handler.h"
 #include "talk/xmpp/jid.h"
 #include "talk/xmpp/xmppclientsettings.h"
 
@@ -36,19 +35,19 @@ InvalidationNotifier::~InvalidationNotifier() {
   DCHECK(CalledOnValidThread());
 }
 
-void InvalidationNotifier::RegisterHandler(SyncNotifierObserver* handler) {
+void InvalidationNotifier::RegisterHandler(InvalidationHandler* handler) {
   DCHECK(CalledOnValidThread());
   registrar_.RegisterHandler(handler);
 }
 
-void InvalidationNotifier::UpdateRegisteredIds(SyncNotifierObserver* handler,
+void InvalidationNotifier::UpdateRegisteredIds(InvalidationHandler* handler,
                                                const ObjectIdSet& ids) {
   DCHECK(CalledOnValidThread());
   registrar_.UpdateRegisteredIds(handler, ids);
   invalidation_client_.UpdateRegisteredIds(registrar_.GetAllRegisteredIds());
 }
 
-void InvalidationNotifier::UnregisterHandler(SyncNotifierObserver* handler) {
+void InvalidationNotifier::UnregisterHandler(InvalidationHandler* handler) {
   DCHECK(CalledOnValidThread());
   registrar_.UnregisterHandler(handler);
 }
@@ -100,9 +99,9 @@ void InvalidationNotifier::SendNotification(ModelTypeSet changed_types) {
   // Do nothing.
 }
 
-void InvalidationNotifier::OnInvalidate(const ObjectIdPayloadMap& id_payloads) {
+void InvalidationNotifier::OnInvalidate(const ObjectIdStateMap& id_state_map) {
   DCHECK(CalledOnValidThread());
-  registrar_.DispatchInvalidationsToHandlers(id_payloads, REMOTE_NOTIFICATION);
+  registrar_.DispatchInvalidationsToHandlers(id_state_map, REMOTE_NOTIFICATION);
 }
 
 void InvalidationNotifier::OnNotificationsEnabled() {

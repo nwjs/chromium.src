@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/extensions/file_browser_private_api.h"
 
+#include <sys/statvfs.h>
 #include <utility>
 
 #include "base/base64.h"
@@ -18,13 +19,12 @@
 #include "base/values.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/cros/network_library.h"
-#include "chrome/browser/chromeos/disks/disk_mount_manager.h"
 #include "chrome/browser/chromeos/extensions/file_handler_util.h"
 #include "chrome/browser/chromeos/extensions/file_manager_util.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
+#include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/gdata/drive_webapps_registry.h"
-#include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
 #include "chrome/browser/chromeos/gdata/gdata_wapi_parser.h"
 #include "chrome/browser/chromeos/gdata/operation_registry.h"
@@ -45,6 +45,7 @@
 #include "chrome/common/extensions/extension_icon_set.h"
 #include "chrome/common/extensions/file_browser_handler.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/disks/disk_mount_manager.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -199,8 +200,8 @@ void AddGDataMountPoint(
                              file_handler_util::GetReadWritePermissions());
 
   // Grant R/W permission for tmp and pinned cache folder.
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile);
   // |system_service| is NULL if incognito window / guest login.
   if (!system_service || !system_service->file_system())
     return;
@@ -251,6 +252,26 @@ GURL FindPreferredIcon(const InstalledApp::IconList& icons,
         result = iter->second;
   }
   return result;
+}
+
+// Retrieves total and remaining available size on |mount_path|.
+void GetSizeStatsOnFileThread(const std::string& mount_path,
+                              size_t* total_size_kb,
+                              size_t* remaining_size_kb) {
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
+
+  uint64_t total_size_in_bytes = 0;
+  uint64_t remaining_size_in_bytes = 0;
+
+  struct statvfs stat = {};  // Zero-clear
+  if (statvfs(mount_path.c_str(), &stat) == 0) {
+    total_size_in_bytes =
+        static_cast<uint64_t>(stat.f_blocks) * stat.f_frsize;
+    remaining_size_in_bytes =
+        static_cast<uint64_t>(stat.f_bfree) * stat.f_frsize;
+  }
+  *total_size_kb = static_cast<size_t>(total_size_in_bytes / 1024);
+  *remaining_size_kb = static_cast<size_t>(remaining_size_in_bytes / 1024);
 }
 
 }  // namespace
@@ -398,7 +419,7 @@ void RequestLocalFileSystemFunction::RespondSuccessOnUIThread(
   SetResult(dict);
   dict->SetString("name", name);
   dict->SetString("path", root_path.spec());
-  dict->SetInteger("error", gdata::GDATA_FILE_OK);
+  dict->SetInteger("error", gdata::DRIVE_FILE_OK);
   SendResponse(true);
 }
 
@@ -592,8 +613,8 @@ bool GetFileTasksFileBrowserFunction::FindDriveAppTasks(
   if (file_info_list.empty())
     return true;
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   // |system_service| is NULL if incognito window / guest login. We return true
   // in this case because there might be other extension tasks, even if we don't
   // have any to add.
@@ -853,7 +874,7 @@ void FileBrowserFunction::GetLocalPathsOnFileThread(
 
     // If "localPath" parameter is set, use it as the real path.
     // TODO(satorux): Eventually, we should be able to get the real path
-    // from GDataFileSystem instead of passing through with filesystem
+    // from DriveFileSystem instead of passing through with filesystem
     // URLs. crosbug.com/27510.
     //
     // TODO(satorux): GURL::query() is not yet supported for filesystem:
@@ -1096,8 +1117,8 @@ void AddMountFunction::GetLocalPathsResponseOnUIThread(
   const FilePath& source_path = files[0].local_path;
   const FilePath::StringType& display_name = files[0].display_name;
   // Check if the source path is under GData cache directory.
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   gdata::DriveCache* cache = system_service ? system_service->cache() : NULL;
   if (cache && cache->IsUnderDriveCacheDirectory(source_path)) {
     cache->SetMountedStateOnUIThread(
@@ -1107,13 +1128,13 @@ void AddMountFunction::GetLocalPathsResponseOnUIThread(
                    display_name));
   } else {
     OnMountedStateSet(mount_type_str, display_name,
-                      gdata::GDATA_FILE_OK, source_path);
+                      gdata::DRIVE_FILE_OK, source_path);
   }
 }
 
 void AddMountFunction::OnMountedStateSet(const std::string& mount_type,
                                          const FilePath::StringType& file_name,
-                                         gdata::GDataFileError error,
+                                         gdata::DriveFileError error,
                                          const FilePath& file_path) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DiskMountManager* disk_mount_manager = DiskMountManager::GetInstance();
@@ -1226,10 +1247,10 @@ void GetSizeStatsFunction::GetLocalPathsResponseOnUIThread(
   }
 
   if (files[0].file_path == gdata::util::GetGDataMountPointPath()) {
-    gdata::GDataSystemService* system_service =
-        gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+    gdata::DriveSystemService* system_service =
+        gdata::DriveSystemServiceFactory::GetForProfile(profile_);
 
-    gdata::GDataFileSystemInterface* file_system =
+    gdata::DriveFileSystemInterface* file_system =
         system_service->file_system();
 
     file_system->GetAvailableSpace(
@@ -1247,12 +1268,12 @@ void GetSizeStatsFunction::GetLocalPathsResponseOnUIThread(
 }
 
 void GetSizeStatsFunction::GetGDataAvailableSpaceCallback(
-    gdata::GDataFileError error,
+    gdata::DriveFileError error,
     int64 bytes_total,
     int64 bytes_used) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (error == gdata::GDATA_FILE_OK) {
+  if (error == gdata::DRIVE_FILE_OK) {
     int64 bytes_remaining = bytes_total - bytes_used;
     GetSizeStatsCallbackOnUIThread(static_cast<size_t>(bytes_total/1024),
                                    static_cast<size_t>(bytes_remaining/1024));
@@ -1268,8 +1289,7 @@ void GetSizeStatsFunction::CallGetSizeStatsOnFileThread(
 
   size_t total_size_kb = 0;
   size_t remaining_size_kb = 0;
-  DiskMountManager::GetInstance()->
-      GetSizeStatsOnFileThread(mount_path, &total_size_kb, &remaining_size_kb);
+  GetSizeStatsOnFileThread(mount_path, &total_size_kb, &remaining_size_kb);
 
   BrowserThread::PostTask(
       BrowserThread::UI, FROM_HERE,
@@ -1461,6 +1481,13 @@ bool FileDialogStringsFunction::RunImpl() {
   SET_STRING(IDS_FILE_BROWSER, ACTION_WATCH);
   SET_STRING(IDS_FILE_BROWSER, ACTION_LISTEN);
   SET_STRING(IDS_FILE_BROWSER, INSTALL_CRX);
+
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_NO_IMAGES);
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_ITEMS_SELECTED);
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_MOSAIC);
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_SLIDE);
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_DELETE);
+  SET_STRING(IDS_FILE_BROWSER, GALLERY_SLIDESHOW);
 
   SET_STRING(IDS_FILE_BROWSER, GALLERY_EDIT);
   SET_STRING(IDS_FILE_BROWSER, GALLERY_SHARE);
@@ -1727,7 +1754,7 @@ void GetGDataFilePropertiesFunction::DoOperation(
   // Nothing to do here so simply call OnOperationComplete().
   OnOperationComplete(file_path,
                       property_dict,
-                      gdata::GDATA_FILE_OK,
+                      gdata::DRIVE_FILE_OK,
                       entry_proto.Pass());
 }
 
@@ -1768,8 +1795,8 @@ void GetGDataFilePropertiesFunction::GetNextFileProperties() {
   file_properties_->Append(property_dict);
 
   // Start getting the file info.
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   system_service->file_system()->GetEntryInfoByPath(
       file_path,
       base::Bind(&GetGDataFilePropertiesFunction::OnGetFileInfo,
@@ -1789,14 +1816,14 @@ void GetGDataFilePropertiesFunction::CompleteGetFileProperties() {
 void GetGDataFilePropertiesFunction::OnGetFileInfo(
     const FilePath& file_path,
     base::DictionaryValue* property_dict,
-    gdata::GDataFileError error,
+    gdata::DriveFileError error,
     scoped_ptr<gdata::DriveEntryProto> entry_proto) {
   DCHECK(property_dict);
 
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
-    error = gdata::GDATA_FILE_ERROR_NOT_FOUND;
+    error = gdata::DRIVE_FILE_ERROR_NOT_FOUND;
 
-  if (error == gdata::GDATA_FILE_OK)
+  if (error == gdata::DRIVE_FILE_OK)
     DoOperation(file_path, property_dict, entry_proto.Pass());
   else
     OnOperationComplete(file_path, property_dict, error, entry_proto.Pass());
@@ -1805,12 +1832,12 @@ void GetGDataFilePropertiesFunction::OnGetFileInfo(
 void GetGDataFilePropertiesFunction::OnOperationComplete(
     const FilePath& file_path,
     base::DictionaryValue* property_dict,
-    gdata::GDataFileError error,
+    gdata::DriveFileError error,
     scoped_ptr<gdata::DriveEntryProto> entry_proto) {
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
-    error = gdata::GDATA_FILE_ERROR_NOT_FOUND;
+    error = gdata::DRIVE_FILE_ERROR_NOT_FOUND;
 
-  if (error != gdata::GDATA_FILE_OK) {
+  if (error != gdata::DRIVE_FILE_OK) {
     property_dict->SetInteger("errorCode", error);
     CompleteGetFileProperties();
     return;
@@ -1833,8 +1860,8 @@ void GetGDataFilePropertiesFunction::OnOperationComplete(
   property_dict->SetString("contentMimeType",
                            file_specific_info.content_mime_type());
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
 
   // Get drive WebApps that can accept this file.
   ScopedVector<gdata::DriveWebAppInfo> web_apps;
@@ -1917,8 +1944,8 @@ void PinGDataFileFunction::DoOperation(
     scoped_ptr<gdata::DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   // This is subtle but we should take references of resource_id and md5
   // before |file_info| is passed to |callback| by base::Passed(). Otherwise,
   // file_info->whatever() crashes.
@@ -1941,7 +1968,7 @@ void PinGDataFileFunction::OnPinStateSet(
     const FilePath& path,
     base::DictionaryValue* properties,
     scoped_ptr<gdata::DriveEntryProto> entry_proto,
-    gdata::GDataFileError error,
+    gdata::DriveFileError error,
     const std::string& /* resource_id */,
     const std::string& /* md5 */) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -2043,8 +2070,8 @@ void GetGDataFilesFunction::GetFileOrSendResponse() {
     return;
   }
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   DCHECK(system_service);
 
   // Get the file on the top of the queue.
@@ -2057,13 +2084,13 @@ void GetGDataFilesFunction::GetFileOrSendResponse() {
 
 
 void GetGDataFilesFunction::OnFileReady(
-    gdata::GDataFileError error,
+    gdata::DriveFileError error,
     const FilePath& local_path,
     const std::string& unused_mime_type,
     gdata::DriveFileType file_type) {
   FilePath gdata_path = remaining_gdata_paths_.front();
 
-  if (error == gdata::GDATA_FILE_OK) {
+  if (error == gdata::DRIVE_FILE_OK) {
     local_paths_->Append(Value::CreateStringValue(local_path.value()));
     DVLOG(1) << "Got " << gdata_path.value() << " as " << local_path.value();
 
@@ -2089,8 +2116,8 @@ GetFileTransfersFunction::GetFileTransfersFunction() {}
 GetFileTransfersFunction::~GetFileTransfersFunction() {}
 
 ListValue* GetFileTransfersFunction::GetFileTransfersList() {
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   if (!system_service)
     return NULL;
 
@@ -2144,8 +2171,8 @@ bool CancelFileTransfersFunction::RunImpl() {
 void CancelFileTransfersFunction::GetLocalPathsResponseOnUIThread(
     const SelectedFileInfoList& files) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   if (!system_service) {
     SendResponse(false);
     return;
@@ -2207,8 +2234,8 @@ void TransferFileFunction::GetLocalPathsResponseOnUIThread(
     return;
   }
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   if (!system_service) {
     SendResponse(false);
     return;
@@ -2230,27 +2257,27 @@ void TransferFileFunction::GetLocalPathsResponseOnUIThread(
         destination_file,
         base::Bind(&TransferFileFunction::OnTransferCompleted, this));
   } else if (!source_file_under_gdata && destination_file_under_gdata) {
-    // Transfer a file from local to gdata file system
+    // Transfer a file from local to Drive file system
     destination_file = gdata::util::ExtractGDataPath(destination_file);
     system_service->file_system()->TransferFileFromLocalToRemote(
         source_file,
         destination_file,
         base::Bind(&TransferFileFunction::OnTransferCompleted, this));
   } else {
-    // Local-to-local or gdata-to-gdata file transfers should be done via
+    // Local-to-local or Drive-to-Drive file transfers should be done via
     // FileEntry.copyTo in the File API and are thus not supported here.
     NOTREACHED();
     SendResponse(false);
   }
 }
 
-void TransferFileFunction::OnTransferCompleted(gdata::GDataFileError error) {
-  if (error == gdata::GDATA_FILE_OK) {
+void TransferFileFunction::OnTransferCompleted(gdata::DriveFileError error) {
+  if (error == gdata::DRIVE_FILE_OK) {
     SendResponse(true);
   } else {
     error_ = base::StringPrintf("%d", static_cast<int>(
         fileapi::PlatformFileErrorToWebFileError(
-            gdata::util::GDataFileErrorToPlatformError(error))));
+            gdata::util::DriveFileErrorToPlatformError(error))));
     SendResponse(false);
   }
 }
@@ -2329,8 +2356,8 @@ void SearchDriveFunction::OnFileSystemOpened(
   file_system_name_ = file_system_name;
   file_system_url_ = file_system_url;
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   if (!system_service || !system_service->file_system()) {
     SendResponse(false);
     return;
@@ -2342,10 +2369,10 @@ void SearchDriveFunction::OnFileSystemOpened(
 }
 
 void SearchDriveFunction::OnSearch(
-    gdata::GDataFileError error,
+    gdata::DriveFileError error,
     const GURL& next_feed,
     scoped_ptr<std::vector<gdata::SearchResultInfo> > results) {
-  if (error != gdata::GDATA_FILE_OK) {
+  if (error != gdata::DRIVE_FILE_OK) {
     SendResponse(false);
     return;
   }
@@ -2353,7 +2380,7 @@ void SearchDriveFunction::OnSearch(
   DCHECK(results.get());
 
   base::ListValue* entries = new ListValue();
-  // Convert gdata files to something File API stack can understand.
+  // Convert Drive files to something File API stack can understand.
   for (size_t i = 0; i < results->size(); ++i) {
     DictionaryValue* entry = new DictionaryValue();
     entry->SetString("fileSystemName", file_system_name_);
@@ -2373,8 +2400,8 @@ void SearchDriveFunction::OnSearch(
 }
 
 bool ClearDriveCacheFunction::RunImpl() {
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   // |system_service| is NULL if incognito window / guest login.
   if (!system_service || !system_service->file_system())
     return false;
@@ -2417,8 +2444,8 @@ bool RequestDirectoryRefreshFunction::RunImpl() {
   if (!args_->GetString(0, &file_url_as_string))
     return false;
 
-  gdata::GDataSystemService* system_service =
-      gdata::GDataSystemServiceFactory::GetForProfile(profile_);
+  gdata::DriveSystemService* system_service =
+      gdata::DriveSystemServiceFactory::GetForProfile(profile_);
   if (!system_service || !system_service->file_system())
     return false;
 

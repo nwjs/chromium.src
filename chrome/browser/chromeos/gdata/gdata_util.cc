@@ -23,9 +23,9 @@
 #include "base/time.h"
 #include "base/tracked_objects.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_interface.h"
+#include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/gdata/file_write_helper.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/gdata_system_service.h"
 #include "chrome/browser/chromeos/login/user.h"
 #include "chrome/browser/chromeos/login/user_manager.h"
 #include "chrome/browser/prefs/pref_service.h"
@@ -61,21 +61,21 @@ const int kReadOnlyFilePermissions = base::PLATFORM_FILE_OPEN |
                                      base::PLATFORM_FILE_EXCLUSIVE_READ |
                                      base::PLATFORM_FILE_ASYNC;
 
-GDataFileSystemInterface* GetGDataFileSystem(Profile* profile) {
-  GDataSystemService* system_service =
-      GDataSystemServiceFactory::GetForProfile(profile);
+DriveFileSystemInterface* GetDriveFileSystem(Profile* profile) {
+  DriveSystemService* system_service =
+      DriveSystemServiceFactory::GetForProfile(profile);
   return system_service ? system_service->file_system() : NULL;
 }
 
 DriveCache* GetDriveCache(Profile* profile) {
-  GDataSystemService* system_service =
-      GDataSystemServiceFactory::GetForProfile(profile);
+  DriveSystemService* system_service =
+      DriveSystemServiceFactory::GetForProfile(profile);
   return system_service ? system_service->cache() : NULL;
 }
 
 FileWriteHelper* GetFileWriteHelper(Profile* profile) {
-  GDataSystemService* system_service =
-      GDataSystemServiceFactory::GetForProfile(profile);
+  DriveSystemService* system_service =
+      DriveSystemServiceFactory::GetForProfile(profile);
   return system_service ? system_service->file_write_helper() : NULL;
 }
 
@@ -113,13 +113,13 @@ void OpenEditURLUIThread(Profile* profile, const GURL* edit_url) {
 // Invoked upon completion of GetEntryInfoByResourceId initiated by
 // ModifyGDataFileResourceUrl.
 void OnGetEntryInfoByResourceId(Profile* profile,
-                               const std::string& resource_id,
-                               GDataFileError error,
-                               const FilePath& /* gdata_file_path */,
-                               scoped_ptr<DriveEntryProto> entry_proto) {
+                                const std::string& resource_id,
+                                DriveFileError error,
+                                const FilePath& /* gdata_file_path */,
+                                scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  if (error != GDATA_FILE_OK)
+  if (error != DRIVE_FILE_OK)
     return;
 
   DCHECK(entry_proto.get());
@@ -135,17 +135,17 @@ void OnGetEntryInfoForInsertDriveCachePathsPermissions(
     Profile* profile,
     std::vector<std::pair<FilePath, int> >* cache_paths,
     const base::Closure& callback,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(profile);
   DCHECK(cache_paths);
   DCHECK(!callback.is_null());
 
   if (entry_proto.get() && !entry_proto->has_file_specific_info())
-    error = GDATA_FILE_ERROR_NOT_FOUND;
+    error = DRIVE_FILE_ERROR_NOT_FOUND;
 
   DriveCache* cache = GetDriveCache(profile);
-  if (!cache || error != GDATA_FILE_OK) {
+  if (!cache || error != DRIVE_FILE_OK) {
     callback.Run();
     return;
   }
@@ -238,7 +238,7 @@ void ModifyGDataFileResourceUrl(Profile* profile,
                                 GURL* url) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
-  GDataFileSystemInterface* file_system = GetGDataFileSystem(profile);
+  DriveFileSystemInterface* file_system = GetDriveFileSystem(profile);
   if (!file_system)
     return;
   DriveCache* cache = GetDriveCache(profile);
@@ -302,7 +302,7 @@ void InsertDriveCachePathsPermissions(
   DCHECK(cache_paths);
   DCHECK(!callback.is_null());
 
-  GDataFileSystemInterface* file_system = GetGDataFileSystem(profile);
+  DriveFileSystemInterface* file_system = GetDriveFileSystem(profile);
   if (!file_system || gdata_paths->empty()) {
     callback.Run();
     return;
@@ -418,58 +418,58 @@ bool IsDriveV2ApiEnabled() {
   return enabled;
 }
 
-base::PlatformFileError GDataFileErrorToPlatformError(
-    gdata::GDataFileError error) {
+base::PlatformFileError DriveFileErrorToPlatformError(
+    gdata::DriveFileError error) {
   switch (error) {
-    case gdata::GDATA_FILE_OK:
+    case gdata::DRIVE_FILE_OK:
       return base::PLATFORM_FILE_OK;
 
-    case gdata::GDATA_FILE_ERROR_FAILED:
+    case gdata::DRIVE_FILE_ERROR_FAILED:
       return base::PLATFORM_FILE_ERROR_FAILED;
 
-    case gdata::GDATA_FILE_ERROR_IN_USE:
+    case gdata::DRIVE_FILE_ERROR_IN_USE:
       return base::PLATFORM_FILE_ERROR_IN_USE;
 
-    case gdata::GDATA_FILE_ERROR_EXISTS:
+    case gdata::DRIVE_FILE_ERROR_EXISTS:
       return base::PLATFORM_FILE_ERROR_EXISTS;
 
-    case gdata::GDATA_FILE_ERROR_NOT_FOUND:
+    case gdata::DRIVE_FILE_ERROR_NOT_FOUND:
       return base::PLATFORM_FILE_ERROR_NOT_FOUND;
 
-    case gdata::GDATA_FILE_ERROR_ACCESS_DENIED:
+    case gdata::DRIVE_FILE_ERROR_ACCESS_DENIED:
       return base::PLATFORM_FILE_ERROR_ACCESS_DENIED;
 
-    case gdata::GDATA_FILE_ERROR_TOO_MANY_OPENED:
+    case gdata::DRIVE_FILE_ERROR_TOO_MANY_OPENED:
       return base::PLATFORM_FILE_ERROR_TOO_MANY_OPENED;
 
-    case gdata::GDATA_FILE_ERROR_NO_MEMORY:
+    case gdata::DRIVE_FILE_ERROR_NO_MEMORY:
       return base::PLATFORM_FILE_ERROR_NO_MEMORY;
 
-    case gdata::GDATA_FILE_ERROR_NO_SPACE:
+    case gdata::DRIVE_FILE_ERROR_NO_SPACE:
       return base::PLATFORM_FILE_ERROR_NO_SPACE;
 
-    case gdata::GDATA_FILE_ERROR_NOT_A_DIRECTORY:
+    case gdata::DRIVE_FILE_ERROR_NOT_A_DIRECTORY:
       return base::PLATFORM_FILE_ERROR_NOT_A_DIRECTORY;
 
-    case gdata::GDATA_FILE_ERROR_INVALID_OPERATION:
+    case gdata::DRIVE_FILE_ERROR_INVALID_OPERATION:
       return base::PLATFORM_FILE_ERROR_INVALID_OPERATION;
 
-    case gdata::GDATA_FILE_ERROR_SECURITY:
+    case gdata::DRIVE_FILE_ERROR_SECURITY:
       return base::PLATFORM_FILE_ERROR_SECURITY;
 
-    case gdata::GDATA_FILE_ERROR_ABORT:
+    case gdata::DRIVE_FILE_ERROR_ABORT:
       return base::PLATFORM_FILE_ERROR_ABORT;
 
-    case gdata::GDATA_FILE_ERROR_NOT_A_FILE:
+    case gdata::DRIVE_FILE_ERROR_NOT_A_FILE:
       return base::PLATFORM_FILE_ERROR_NOT_A_FILE;
 
-    case gdata::GDATA_FILE_ERROR_NOT_EMPTY:
+    case gdata::DRIVE_FILE_ERROR_NOT_EMPTY:
       return base::PLATFORM_FILE_ERROR_NOT_EMPTY;
 
-    case gdata::GDATA_FILE_ERROR_INVALID_URL:
+    case gdata::DRIVE_FILE_ERROR_INVALID_URL:
       return base::PLATFORM_FILE_ERROR_INVALID_URL;
 
-    case gdata::GDATA_FILE_ERROR_NO_CONNECTION:
+    case gdata::DRIVE_FILE_ERROR_NO_CONNECTION:
       return base::PLATFORM_FILE_ERROR_FAILED;
   }
 
@@ -610,28 +610,28 @@ void PrepareWritableFileAndRun(Profile* profile,
   } else {
     if (!callback.is_null()) {
       content::BrowserThread::GetBlockingPool()->PostTask(
-          FROM_HERE, base::Bind(callback, GDATA_FILE_OK, path));
+          FROM_HERE, base::Bind(callback, DRIVE_FILE_OK, path));
     }
   }
 }
 
-GDataFileError GDataToGDataFileError(GDataErrorCode status) {
+DriveFileError GDataToDriveFileError(GDataErrorCode status) {
   switch (status) {
     case HTTP_SUCCESS:
     case HTTP_CREATED:
-      return GDATA_FILE_OK;
+      return DRIVE_FILE_OK;
     case HTTP_UNAUTHORIZED:
     case HTTP_FORBIDDEN:
-      return GDATA_FILE_ERROR_ACCESS_DENIED;
+      return DRIVE_FILE_ERROR_ACCESS_DENIED;
     case HTTP_NOT_FOUND:
-      return GDATA_FILE_ERROR_NOT_FOUND;
+      return DRIVE_FILE_ERROR_NOT_FOUND;
     case GDATA_PARSE_ERROR:
     case GDATA_FILE_ERROR:
-      return GDATA_FILE_ERROR_ABORT;
+      return DRIVE_FILE_ERROR_ABORT;
     case GDATA_NO_CONNECTION:
-      return GDATA_FILE_ERROR_NO_CONNECTION;
+      return DRIVE_FILE_ERROR_NO_CONNECTION;
     default:
-      return GDATA_FILE_ERROR_FAILED;
+      return DRIVE_FILE_ERROR_FAILED;
   }
 }
 

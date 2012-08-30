@@ -250,9 +250,8 @@ void LocationBarViewMac::SaveStateToContents(WebContents* contents) {
 
 void LocationBarViewMac::Update(const WebContents* contents,
                                 bool should_restore_state) {
-  bool star_enabled = IsStarEnabled();
-  command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, star_enabled);
-  star_decoration_->SetVisible(star_enabled);
+  command_updater_->UpdateCommandEnabled(IDC_BOOKMARK_PAGE, IsStarEnabled());
+  UpdateStarDecorationVisibility();
   UpdateChromeToMobileEnabled();
   UpdateZoomDecoration();
   RefreshPageActionDecorations();
@@ -403,7 +402,7 @@ void LocationBarViewMac::SetPreviewEnabledPageAction(
     return;
 
   decoration->set_preview_enabled(preview_enabled);
-  decoration->UpdateVisibility(contents, GURL(toolbar_model_->GetText()));
+  decoration->UpdateVisibility(contents, toolbar_model_->GetURL());
 }
 
 NSRect LocationBarViewMac::GetPageActionFrame(ExtensionAction* page_action) {
@@ -478,7 +477,7 @@ void LocationBarViewMac::TestPageActionPressed(size_t index) {
 
 void LocationBarViewMac::SetEditable(bool editable) {
   [field_ setEditable:editable ? YES : NO];
-  star_decoration_->SetVisible(IsStarEnabled());
+  UpdateStarDecorationVisibility();
   UpdateChromeToMobileEnabled();
   UpdateZoomDecoration();
   UpdatePageActions();
@@ -499,6 +498,7 @@ void LocationBarViewMac::OnDecorationsChanged() {
 
 void LocationBarViewMac::SetStarred(bool starred) {
   star_decoration_->SetStarred(starred);
+  UpdateStarDecorationVisibility();
   OnDecorationsChanged();
 }
 
@@ -513,6 +513,11 @@ void LocationBarViewMac::ZoomChangedForActiveTab(bool can_show_bubble) {
 
   // TODO(dbeam): show a zoom bubble when |can_show_bubble| is true, the zoom
   // decoration is showing, and the wrench menu isn't showing.
+}
+
+NSPoint LocationBarViewMac::GetActionBoxAnchorPoint() const {
+  NSPoint point = plus_decoration_->GetActionBoxAnchorPoint();
+  return [field_ convertPoint:point toView:nil];
 }
 
 NSPoint LocationBarViewMac::GetBookmarkBubblePoint() const {
@@ -584,7 +589,7 @@ void LocationBarViewMac::Observe(int type,
     }
 
     case chrome::NOTIFICATION_PREF_CHANGED:
-      star_decoration_->SetVisible(IsStarEnabled());
+      UpdateStarDecorationVisibility();
       UpdateChromeToMobileEnabled();
       OnChanged();
       break;
@@ -652,7 +657,7 @@ void LocationBarViewMac::RefreshPageActionDecorations() {
     }
   }
 
-  GURL url = GURL(toolbar_model_->GetText());
+  GURL url = toolbar_model_->GetURL();
   for (size_t i = 0; i < page_action_decorations_.size(); ++i) {
     page_action_decorations_[i]->UpdateVisibility(
         toolbar_model_->input_in_progress() ?
@@ -766,4 +771,14 @@ void LocationBarViewMac::UpdateZoomDecoration() {
     return;
 
   zoom_decoration_->Update(tab_contents->zoom_controller());
+}
+
+void LocationBarViewMac::UpdateStarDecorationVisibility() {
+  bool action_box_enabled =
+      CommandLine::ForCurrentProcess()->HasSwitch(switches::kEnableActionBox);
+  // If the action box is enabled, only show the star if it's lit.
+  bool visible = IsStarEnabled();
+  if (!star_decoration_->starred() && action_box_enabled)
+    visible = false;
+  star_decoration_->SetVisible(visible);
 }

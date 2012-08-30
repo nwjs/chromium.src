@@ -50,7 +50,7 @@ def trace_and_merge(result, test):
       [sys.executable, 'isolate.py', 'merge', '-r', result])
 
 
-def run_all(result):
+def run_all(result, shard_index, shard_count):
   """Runs all the tests. Returns the tests that failed or None on failure.
 
   Assumes run_test_cases.py is implicitly called.
@@ -59,8 +59,10 @@ def run_all(result):
   os.close(handle)
   env = os.environ.copy()
   env['RUN_TEST_CASES_RESULT_FILE'] = result_file
-  subprocess.call(
-      [sys.executable, 'isolate.py', 'run', '-r', result], env=env)
+  env['GTEST_SHARD_INDEX'] = str(shard_index)
+  env['GTEST_TOTAL_SHARDS'] = str(shard_count)
+  cmd = [sys.executable, 'isolate.py', 'run', '-r', result]
+  subprocess.call(cmd, env=env)
   if not os.path.isfile(result_file):
     print >> sys.stderr, 'Failed to find %s' % result_file
     return None
@@ -105,7 +107,7 @@ def trace_and_verify(result, test):
   return run(result, test)
 
 
-def fix_all(result):
+def fix_all(result, shard_index, shard_count):
   """Runs all the test cases in a gtest executable and trace the failing tests.
 
   Returns True on success.
@@ -119,7 +121,7 @@ def fix_all(result):
       print >> 'Please unset %s' % i
       return False
 
-  test_cases = run_all(result)
+  test_cases = run_all(result, shard_index, shard_count)
   if test_cases is None:
     return False
 
@@ -161,14 +163,20 @@ def fix_all(result):
 
 
 def main():
-  if len(sys.argv) != 2:
-    print >> sys.stderr, 'Use with the name of the test only, e.g. "unit_tests"'
-    return 1
+  parser = run_test_cases.OptionParserWithTestSharding(
+      usage='%prog <option> [test]')
+  parser.add_option('-d', '--dir', default='../../out/Release',
+                    help='The directory containing the the test executable and '
+                    'result file. Defaults to %default')
+  options, args = parser.parse_args()
 
-  basename = sys.argv[1]
-  executable = '../../out/Release/%s' % basename
+  if len(args) != 1:
+    parser.error('Use with the name of the test only, e.g. unit_tests')
+
+  basename = args[0]
+  executable = os.path.join(options.dir, basename)
   result = '%s.results' % executable
-  if sys.platform == 'win32':
+  if sys.platform in('win32', 'cygwin'):
     executable += '.exe'
   if not os.path.isfile(executable):
     print >> sys.stderr, (
@@ -179,7 +187,7 @@ def main():
         '%s doesn\'t exist, please build %s_run' % (result, basename))
     return 1
 
-  return not fix_all(result)
+  return not fix_all(result, options.index, options.shards)
 
 
 if __name__ == '__main__':

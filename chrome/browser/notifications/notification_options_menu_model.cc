@@ -6,11 +6,11 @@
 
 #include <string>
 
-#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/notifications/balloon.h"
 #include "chrome/browser/notifications/balloon_collection.h"
 #include "chrome/browser/notifications/desktop_notification_service.h"
 #include "chrome/browser/notifications/desktop_notification_service_factory.h"
@@ -48,7 +48,7 @@ CornerSelectionMenuModel::CornerSelectionMenuModel(Balloon* balloon)
   AddRadioItem(kCornerDefault,
                l10n_util::GetStringUTF16(IDS_NOTIFICATION_POSITION_DEFAULT),
                kCornerGroupId);
-  AddSeparator();
+  AddSeparator(ui::NORMAL_SEPARATOR);
   AddRadioItem(kCornerUpperLeft,
                l10n_util::GetStringUTF16(IDS_NOTIFICATION_POSITION_UPPER_LEFT),
                kCornerGroupId);

@@ -5,6 +5,7 @@
 #ifndef WEBKIT_PLUGINS_PPAPI_PPAPI_PLUGIN_INSTANCE_H_
 #define WEBKIT_PLUGINS_PPAPI_PPAPI_PLUGIN_INSTANCE_H_
 
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/string16.h"
 #include "googleurl/src/gurl.h"
+#include "media/base/decryptor.h"
 #include "ppapi/c/dev/pp_cursor_type_dev.h"
 #include "ppapi/c/dev/ppp_printing_dev.h"
 #include "ppapi/c/dev/ppp_find_dev.h"
@@ -40,6 +42,7 @@
 #include "ppapi/c/private/ppp_instance_private.h"
 #include "ppapi/shared_impl/ppb_instance_shared.h"
 #include "ppapi/shared_impl/ppb_view_shared.h"
+#include "ppapi/thunk/ppb_gamepad_api.h"
 #include "ppapi/thunk/resource_creation_api.h"
 #include "ppapi/shared_impl/tracked_callback.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
@@ -66,6 +69,11 @@ class WebPluginContainer;
 struct WebCompositionUnderline;
 struct WebCursorInfo;
 struct WebPrintParams;
+}
+
+namespace media {
+class DecoderBuffer;
+class DecryptorClient;
 }
 
 namespace ppapi {
@@ -242,17 +250,19 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
 
   // Provides access to PPP_ContentDecryptor_Private.
   // TODO(tomfinegan): Move decryptor methods to delegate class.
-  typedef base::Callback<void(void*, int)> DecryptedDataCB;
+  void set_decrypt_client(media::DecryptorClient* client);
   bool GenerateKeyRequest(const std::string& key_system,
                           const std::string& init_data);
   bool AddKey(const std::string& session_id,
               const std::string& key,
               const std::string& init_data);
   bool CancelKeyRequest(const std::string& session_id);
-  bool Decrypt(const base::StringPiece& encypted_block,
-               const DecryptedDataCB& callback);
-  bool DecryptAndDecode(const base::StringPiece& encypted_block,
-                        const DecryptedDataCB& callback);
+  bool Decrypt(const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
+               const media::Decryptor::DecryptCB& decrypt_cb);
+  // TODO(xhwang): Update this when we need to support decrypt and decode.
+  bool DecryptAndDecode(
+      const scoped_refptr<media::DecoderBuffer>& encrypted_buffer,
+      const media::Decryptor::DecryptCB& decrypt_cb);
 
   // There are 2 implementations of the fullscreen interface
   // PPB_FlashFullscreen is used by Pepper Flash.
@@ -320,10 +330,6 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
                    bool from_user_action);
   bool IsRectTopmost(const gfx::Rect& rect);
 
-  // Implementation of PPB_Gamepad.
-  void SampleGamepads(PP_Instance instance, PP_GamepadsSampleData* data)
-      OVERRIDE;
-
   // Implementation of PPP_Messaging.
   void HandleMessage(PP_Var message);
 
@@ -340,7 +346,7 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   void OnLockMouseACK(bool succeeded);
   // A mouse lock was in place, but has been lost.
   void OnMouseLockLost();
-  // A mouse lock is enabled and mouse events are being delievered.
+  // A mouse lock is enabled and mouse events are being delivered.
   void HandleMouseLockedInputEvent(const WebKit::WebMouseEvent& event);
 
   // Simulates an input event to the plugin by passing it down to WebKit,
@@ -379,6 +385,8 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   virtual PP_Bool GetScreenSize(PP_Instance instance, PP_Size* size)
       OVERRIDE;
   virtual ::ppapi::thunk::PPB_Flash_API* GetFlashAPI() OVERRIDE;
+  virtual ::ppapi::thunk::PPB_Gamepad_API* GetGamepadAPI(PP_Instance instance)
+      OVERRIDE;
   virtual int32_t RequestInputEvents(PP_Instance instance,
                                      uint32_t event_classes) OVERRIDE;
   virtual int32_t RequestFilteringInputEvents(PP_Instance instance,
@@ -462,6 +470,16 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   bool ResetAsProxied();
 
  private:
+  // Implements PPB_Gamepad_API. This is just to avoid having an excessive
+  // number of interfaces implemented by PluginInstance.
+  class GamepadImpl : public ::ppapi::thunk::PPB_Gamepad_API {
+   public:
+    explicit GamepadImpl(PluginDelegate* delegate);
+    virtual void Sample(PP_GamepadsSampleData* data) OVERRIDE;
+   private:
+    PluginDelegate* delegate_;
+  };
+
   // See the static Create functions above for creating PluginInstance objects.
   // This constructor is private so that we can hide the PPP_Instance_Combined
   // details while still having 1 constructor to maintain for member
@@ -642,6 +660,8 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   std::vector<PP_PrintPageNumberRange_Dev> ranges_;
 #endif  // OS_LINUX || OS_WIN
 
+  GamepadImpl gamepad_impl_;
+
   // The plugin print interface.
   const PPP_Printing_Dev* plugin_print_interface_;
 
@@ -727,6 +747,11 @@ class WEBKIT_PLUGINS_EXPORT PluginInstance :
   // This is NULL unless HandleDocumentLoad has called. In that case, we store
   // the pointer so we can re-send it later if we are reset to talk to NaCl.
   scoped_refptr<PPB_URLLoader_Impl> document_loader_;
+
+  media::DecryptorClient* decryptor_client_;
+  uint32_t next_decryption_request_id_;
+  typedef std::map<uint32_t, media::Decryptor::DecryptCB> DecryptionCBMap;
+  DecryptionCBMap pending_decryption_cbs_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginInstance);
 };

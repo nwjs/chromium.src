@@ -221,9 +221,9 @@ void PrintToPdfCallback(Metafile* metafile, const FilePath& path) {
 
 #ifdef OS_CHROMEOS
 void PrintToPdfCallbackWithCheck(Metafile* metafile,
-                                 gdata::GDataFileError error,
+                                 gdata::DriveFileError error,
                                  const FilePath& path) {
-  if (error != gdata::GDATA_FILE_OK) {
+  if (error != gdata::DRIVE_FILE_OK) {
     LOG(ERROR) << "Save to pdf failed to write: " << error;
   } else {
     metafile->SaveTo(path);
@@ -343,8 +343,8 @@ void PrintPreviewHandler::HandleGetPreview(const ListValue* args) {
   // Add an additional key in order to identify |print_preview_ui| later on
   // when calling PrintPreviewUI::GetCurrentPrintPreviewStatus() on the IO
   // thread.
-  settings->SetString(printing::kPreviewUIAddr,
-                      print_preview_ui->GetPrintPreviewUIAddress());
+  settings->SetInteger(printing::kPreviewUIID,
+                       print_preview_ui->GetIDForPrintPreviewUI());
 
   // Increment request count.
   ++regenerate_preview_request_count_;

@@ -44,6 +44,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/search/search.h"
+#include "chrome/browser/ui/search/search_delegate.h"
 #include "chrome/browser/ui/search/search_model.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
@@ -1588,6 +1589,10 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
   // If IsFullscreen() is true, we've just changed into fullscreen mode, and
   // we're catching the going-into-fullscreen sizing and positioning calls,
   // which we want to ignore.
+#if defined(OS_WIN) && !defined(USE_AURA)
+  if (base::win::IsMetroProcess())
+    return;
+#endif
   if (!IsFullscreen() && chrome::ShouldSaveWindowPlacement(browser_.get())) {
     WidgetDelegate::SaveWindowPlacement(bounds, show_state);
     chrome::SaveWindowPlacement(browser_.get(), bounds, show_state);
@@ -1932,19 +1937,21 @@ void BrowserView::Init() {
   contents_container_->set_id(VIEW_ID_TAB_CONTAINER);
   contents_ = new ContentsContainer(contents_container_);
 
+  toolbar_ = new ToolbarView(browser_.get());
+  AddChildView(toolbar_);
+
   views::View* omnibox_popup_view_parent = NULL;
   // SearchViewController doesn't work on windows yet.
 #if defined(USE_AURA)
   Profile* profile = browser_->profile();
   if (chrome::search::IsInstantExtendedAPIEnabled(profile)) {
-    search_view_controller_.reset(new SearchViewController(profile, contents_));
+    search_view_controller_.reset(new SearchViewController(profile, contents_,
+        &browser()->search_delegate()->toolbar_search_animator(), toolbar_));
     omnibox_popup_view_parent =
         search_view_controller_->omnibox_popup_view_parent();
   }
 #endif
 
-  toolbar_ = new ToolbarView(browser_.get());
-  AddChildView(toolbar_);
   toolbar_->Init(this, omnibox_popup_view_parent);
 
 #if defined(USE_AURA)

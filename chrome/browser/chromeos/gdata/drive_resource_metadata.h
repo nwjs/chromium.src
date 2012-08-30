@@ -64,38 +64,33 @@ const char kDriveRootDirectoryResourceId[] = "folder:root";
 // drive.proto.
 const int32 kProtoVersion = 2;
 
-// Callback type used to get result of file search.
-// If |error| is not PLATFORM_FILE_OK, |entry| is set to NULL.
-typedef base::Callback<void(GDataFileError error, DriveEntry* entry)>
-    FindEntryCallback;
-
 // Used for file operations like removing files.
-typedef base::Callback<void(GDataFileError error)>
+typedef base::Callback<void(DriveFileError error)>
     FileOperationCallback;
 
 // Callback similar to FileOperationCallback but with a given |file_path|.
 // Used for operations that change a file path like moving files.
-typedef base::Callback<void(GDataFileError error,
+typedef base::Callback<void(DriveFileError error,
                             const FilePath& file_path)>
     FileMoveCallback;
 
 // Used to get entry info from the file system.
-// If |error| is not GDATA_FILE_OK, |entry_info| is set to NULL.
-typedef base::Callback<void(GDataFileError error,
+// If |error| is not DRIVE_FILE_OK, |entry_info| is set to NULL.
+typedef base::Callback<void(DriveFileError error,
                             scoped_ptr<DriveEntryProto> entry_proto)>
     GetEntryInfoCallback;
 
-typedef base::Callback<void(GDataFileError error,
+typedef base::Callback<void(DriveFileError error,
                             scoped_ptr<DriveEntryProtoVector> entries)>
     ReadDirectoryCallback;
 
 // Used to get entry info from the file system, with the Drive file path.
-// If |error| is not GDATA_FILE_OK, |entry_proto| is set to NULL.
+// If |error| is not DRIVE_FILE_OK, |entry_proto| is set to NULL.
 //
 // |drive_file_path| parameter is provided as DriveEntryProto does not contain
 // the Drive file path (i.e. only contains the base name without parent
 // directory names).
-typedef base::Callback<void(GDataFileError error,
+typedef base::Callback<void(DriveFileError error,
                             const FilePath& drive_file_path,
                             scoped_ptr<DriveEntryProto> entry_proto)>
     GetEntryInfoWithFilePathCallback;
@@ -106,7 +101,7 @@ struct EntryInfoResult {
   ~EntryInfoResult();
 
   FilePath path;
-  GDataFileError error;
+  DriveFileError error;
   scoped_ptr<DriveEntryProto> proto;
 };
 
@@ -168,12 +163,11 @@ class DriveResourceMetadata {
   // Sets root directory resource id and initialize the root entry.
   void InitializeRootEntry(const std::string& root_id);
 
-  // Add |new entry| to |directory| and invoke the callback asynchronously.
+  // Add |doc entry| to directory with path |directory_path| and invoke the
+  // callback asynchronously.
   // |callback| may not be null.
-  // TODO(achuith,satorux): Use DriveEntryProto instead for new_entry.
-  // crbug.com/142048
-  void AddEntryToDirectory(DriveDirectory* directory,
-                           DriveEntry* new_entry,
+  void AddEntryToDirectory(const FilePath& directory_path,
+                           scoped_ptr<DocumentEntry> doc_entry,
                            const FileMoveCallback& callback);
 
   // Moves |entry| to |directory_path| asynchronously. Removes entry from
@@ -183,9 +177,9 @@ class DriveResourceMetadata {
                             DriveEntry* entry,
                             const FileMoveCallback& callback);
 
-  // Removes |entry| from its parent. Calls |callback| with the path of the
-  // parent directory. |callback| may not be null.
-  void RemoveEntryFromParent(DriveEntry* entry,
+  // Removes entry with |resource_id| from its parent. Calls |callback| with the
+  // path of the parent directory. |callback| may not be null.
+  void RemoveEntryFromParent(const std::string& resource_id,
                              const FileMoveCallback& callback);
 
   // Adds the entry to resource map.
@@ -283,7 +277,7 @@ class DriveResourceMetadata {
       const FilePath& first_path,
       const FilePath& second_path,
       const GetEntryInfoPairCallback& callback,
-      GDataFileError error,
+      DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // Continues with GetIntroInfoPairByPaths after the second DriveEntry has been
@@ -292,7 +286,7 @@ class DriveResourceMetadata {
       const FilePath& second_path,
       const GetEntryInfoPairCallback& callback,
       scoped_ptr<EntryInfoPairResult> result,
-      GDataFileError error,
+      DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // These internal functions need friend access to private DriveDirectory
@@ -306,6 +300,11 @@ class DriveResourceMetadata {
   static void RefreshDirectoryInternal(const ResourceMap& file_map,
                                        const FileMoveCallback& callback,
                                        DriveEntry* directory_entry);
+
+  // Removes |entry| from its parent and calls |callback|.
+  // |callback| may not be null.
+  static void RemoveEntryFromParentInternal(const FileMoveCallback& callback,
+                                            DriveEntry* entry);
 
   // Private data members.
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;

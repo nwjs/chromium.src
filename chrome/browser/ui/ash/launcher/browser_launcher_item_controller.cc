@@ -46,7 +46,7 @@ BrowserLauncherItemController::~BrowserLauncherItemController() {
   tab_model_->RemoveObserver(this);
   window_->RemoveObserver(this);
   if (launcher_id() > 0)
-    launcher_controller()->LauncherItemClosed(launcher_id());
+    launcher_controller()->CloseLauncherItem(launcher_id());
 }
 
 void BrowserLauncherItemController::Init() {
@@ -112,8 +112,8 @@ void BrowserLauncherItemController::BrowserActivationStateChanged() {
   UpdateItemStatus();
 }
 
-string16 BrowserLauncherItemController::GetTitle() const {
-  if (type() == TYPE_TABBED) {
+string16 BrowserLauncherItemController::GetTitle() {
+  if (type() == TYPE_TABBED || type() == TYPE_EXTENSION_PANEL) {
     const content::WebContents* contents =
         tab_model_->GetActiveTabContents()->web_contents();
     if (contents)

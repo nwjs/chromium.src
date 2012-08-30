@@ -361,7 +361,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, CancelBeforeUnloadResetsURL) {
   // Wait for the ShouldClose_ACK to arrive.  We can detect it by waiting for
   // the pending RVH to be destroyed.
   host_destroyed_observer.Wait();
-  EXPECT_EQ(url.spec(), UTF16ToUTF8(browser()->toolbar_model()->GetText()));
+  EXPECT_EQ(url, browser()->toolbar_model()->GetURL());
 
   // Clear the beforeunload handler so the test can easily exit.
   chrome::GetActiveWebContents(browser())->GetRenderViewHost()->
@@ -1596,4 +1596,19 @@ IN_PROC_BROWSER_TEST_F(AppModeTest, EnableAppModeTest) {
 
   // Verify the browser is in application mode.
   EXPECT_TRUE(browser()->IsApplication());
+}
+
+// Confirm about:version contains some expected content.
+IN_PROC_BROWSER_TEST_F(BrowserTest, AboutVersion) {
+  ui_test_utils::NavigateToURL(browser(), GURL(chrome::kAboutVersionURL));
+  TabContents* tab = chrome::GetActiveTabContents(browser());
+  ASSERT_GT(ui_test_utils::FindInPage(tab, ASCIIToUTF16("WebKit"), true, true,
+                                      NULL, NULL),
+            0);
+  ASSERT_GT(ui_test_utils::FindInPage(tab, ASCIIToUTF16("OS"), true, true,
+                                      NULL, NULL),
+            0);
+  ASSERT_GT(ui_test_utils::FindInPage(tab, ASCIIToUTF16("JavaScript"), true,
+                                      true, NULL, NULL),
+            0);
 }

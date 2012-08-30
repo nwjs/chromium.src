@@ -13,6 +13,7 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "chrome/browser/favicon/favicon_service.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/intents/default_web_intent_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -113,7 +114,7 @@ class WebIntentPickerMock : public WebIntentPicker,
   }
 
   // WebIntentPicker implementation.
-  virtual void Close() OVERRIDE {}
+  virtual void Close() OVERRIDE { StopWaiting(); }
   virtual void SetActionString(const string16& action) OVERRIDE {}
   virtual void OnExtensionInstallSuccess(const std::string& id) OVERRIDE {
     num_extensions_installed_++;
@@ -152,8 +153,10 @@ class WebIntentPickerMock : public WebIntentPicker,
 
   void StopWaiting() {
     pending_async_completed_ = true;
-    if (message_loop_started_)
+    if (message_loop_started_) {
+      message_loop_started_ = false;
       MessageLoop::current()->Quit();
+    }
   }
 
   int num_installed_services_;
@@ -237,8 +240,8 @@ class WebIntentPickerControllerBrowserTest : public InProcessBrowserTest {
 
     web_data_service_ = WebDataServiceFactory::GetForProfile(
         GetBrowser()->profile(), Profile::EXPLICIT_ACCESS);
-    favicon_service_ =
-        GetBrowser()->profile()->GetFaviconService(Profile::EXPLICIT_ACCESS);
+    favicon_service_ = FaviconServiceFactory::GetForProfile(
+        GetBrowser()->profile(), Profile::EXPLICIT_ACCESS);
     controller_ = chrome::GetActiveTabContents(GetBrowser())->
         web_intent_picker_controller();
 

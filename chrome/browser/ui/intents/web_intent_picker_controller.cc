@@ -14,6 +14,7 @@
 #include "chrome/browser/extensions/platform_app_launcher.h"
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/favicon/favicon_service.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/intents/cws_intents_registry_factory.h"
 #include "chrome/browser/intents/default_web_intent_service.h"
 #include "chrome/browser/intents/web_intents_registry_factory.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/intents/web_intent_picker.h"
 #include "chrome/browser/ui/intents/web_intent_picker_model.h"
@@ -69,7 +71,8 @@ const int kMinThrobberDisplayTimeMs = 2000;
 
 // Gets the favicon service for the profile in |tab_contents|.
 FaviconService* GetFaviconService(TabContents* tab_contents) {
-  return tab_contents->profile()->GetFaviconService(Profile::EXPLICIT_ACCESS);
+  return FaviconServiceFactory::GetForProfile(tab_contents->profile(),
+                                              Profile::EXPLICIT_ACCESS);
 }
 
 // Gets the web intents registry for the profile in |tab_contents|.
@@ -191,10 +194,6 @@ void WebIntentPickerController::SetIntentsDispatcher(
 void WebIntentPickerController::ShowDialog(const string16& action,
                                            const string16& type) {
 
-  // As soon as the dialog is requested, block all input events
-  // on the original tab.
-  tab_contents_->constrained_window_tab_helper()->BlockTabContent(true);
-
   // Only show a picker once.
   // TODO(gbillock): There's a hole potentially admitting multiple
   // in-flight dispatches since we don't create the picker
@@ -248,6 +247,9 @@ void WebIntentPickerController::ShowDialog(const string16& action,
     }
   }
 
+  // As soon as the dialog is requested, block all input events
+  // on the original tab.
+  tab_contents_->constrained_window_tab_helper()->BlockTabContent(true);
   SetDialogState(kPickerSetup);
 
   pending_async_count_++;
@@ -411,9 +413,8 @@ void WebIntentPickerController::OnPickerClosed() {
 
 void WebIntentPickerController::OnChooseAnotherService() {
   DCHECK(intents_dispatcher_);
-  DCHECK(!service_tab_);  // Can only be invoked from inline disposition.
 
- intents_dispatcher_->ResetDispatch();
+  intents_dispatcher_->ResetDispatch();
 }
 
 void WebIntentPickerController::OnClosing() {
@@ -503,6 +504,7 @@ void WebIntentPickerController::AddServiceToModel(
 
   pending_async_count_++;
   FaviconService::Handle handle = favicon_service->GetFaviconForURL(
+      tab_contents_->profile(),
       service.service_url,
       history::FAVICON,
       &favicon_consumer_,
@@ -690,6 +692,24 @@ void WebIntentPickerController::OnIntentDataArrived() {
     OnPickerEvent(kPickerEventAsyncDataComplete);
 }
 
+void WebIntentPickerController::Reset() {
+  // Abandon all callbacks.
+  weak_ptr_factory_.InvalidateWeakPtrs();
+  timer_factory_.InvalidateWeakPtrs();
+
+  // Reset state associated with callbacks.
+  pending_async_count_ = 0;
+  pending_registry_calls_count_ = 0;
+  pending_cws_request_ = false;
+
+  // Reset picker.
+  picker_model_.reset(new WebIntentPickerModel());
+  picker_shown_ = false;
+
+  DCHECK(tab_contents_);
+  tab_contents_->constrained_window_tab_helper()->BlockTabContent(false);
+}
+
 // static
 void WebIntentPickerController::DecodeExtensionIconAndResize(
     scoped_ptr<std::string> icon_response,
@@ -733,6 +753,8 @@ void WebIntentPickerController::OnExtensionIconUnavailable(
 void WebIntentPickerController::SetWindowDispositionSource(
     content::WebContents* source,
     content::WebIntentsDispatcher* dispatcher) {
+  DCHECK(source);
+  DCHECK(dispatcher);
   window_disposition_source_ = source;
   if (window_disposition_source_) {
     // This object is self-deleting when the source WebContents is destroyed.
@@ -751,11 +773,13 @@ void WebIntentPickerController::SetWindowDispositionSource(
 void WebIntentPickerController::SourceWebContentsDestroyed(
     content::WebContents* source) {
   window_disposition_source_ = NULL;
+  // TODO(gbillock): redraw location bar to kill button
 }
 
 void WebIntentPickerController::SourceDispatcherReplied(
     webkit_glue::WebIntentReplyType reply_type) {
   source_intents_dispatcher_ = NULL;
+  // TODO(gbillock): redraw location bar to kill button
 }
 
 bool WebIntentPickerController::ShowLocationBarPickerTool() {
@@ -802,6 +826,37 @@ void WebIntentPickerController::OnPickerEvent(WebIntentPickerEvent event) {
       NOTREACHED();
       break;
   }
+}
+
+void WebIntentPickerController::LocationBarPickerToolClicked() {
+  DCHECK(tab_contents_);
+  if (window_disposition_source_ && source_intents_dispatcher_) {
+    Browser* service_browser =
+        browser::FindBrowserWithWebContents(tab_contents_->web_contents());
+    if (!service_browser) return;
+
+    TabContents* client_tab =
+        TabContents::FromWebContents(window_disposition_source_);
+    Browser* client_browser =
+        browser::FindBrowserWithWebContents(window_disposition_source_);
+    if (!client_browser || !client_tab) return;
+    int client_index =
+        client_browser->tab_strip_model()->GetIndexOfTabContents(client_tab);
+    DCHECK(client_index != TabStripModel::kNoTab);
+
+    source_intents_dispatcher_->ResetDispatch();
+
+    chrome::CloseWebContents(service_browser, tab_contents_->web_contents());
+
+    // Re-open the other tab and activate the picker.
+    client_browser->window()->Activate();
+    client_browser->tab_strip_model()->ActivateTabAt(client_index, true);
+    // TODO(gbillock): better call? we want to re-activate the picker, which was
+    // potentially just open.
+    client_tab->web_intent_picker_controller()->CreatePicker();
+  }
+  // TODO(gbillock): figure out what we ought to do in this case. Probably
+  // nothing? Refresh the location bar?
 }
 
 void WebIntentPickerController::AsyncOperationFinished() {
@@ -862,8 +917,7 @@ void WebIntentPickerController::SetDialogState(WebIntentPickerState state) {
       break;
 
     case kPickerHidden:
-      // Once the picker dialog is closed, abandon all pending callbacks.
-      weak_ptr_factory_.InvalidateWeakPtrs();
+      Reset();
       break;
 
     default:

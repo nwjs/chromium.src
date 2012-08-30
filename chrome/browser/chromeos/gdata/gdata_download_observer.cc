@@ -10,9 +10,9 @@
 #include "base/file_util.h"
 #include "base/supports_user_data.h"
 #include "chrome/browser/chromeos/gdata/drive.pb.h"
+#include "chrome/browser/chromeos/gdata/drive_file_system_interface.h"
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
-#include "chrome/browser/chromeos/gdata/gdata_file_system_interface.h"
-#include "chrome/browser/chromeos/gdata/gdata_system_service.h"
+#include "chrome/browser/chromeos/gdata/drive_system_service.h"
 #include "chrome/browser/chromeos/gdata/gdata_upload_file_info.h"
 #include "chrome/browser/chromeos/gdata/gdata_uploader.h"
 #include "chrome/browser/chromeos/gdata/gdata_util.h"
@@ -103,9 +103,9 @@ void RunSubstituteGDataDownloadCallback(
   callback.Run(*file_path);
 }
 
-GDataSystemService* GetSystemService(Profile* profile) {
-  GDataSystemService* system_service =
-      GDataSystemServiceFactory::GetForProfile(
+DriveSystemService* GetSystemService(Profile* profile) {
+  DriveSystemService* system_service =
+      DriveSystemServiceFactory::GetForProfile(
         profile ? profile : ProfileManager::GetDefaultProfile());
   DCHECK(system_service);
   return system_service;
@@ -133,11 +133,11 @@ void SubstituteGDataDownloadPathInternal(Profile* profile,
                  base::Owned(gdata_tmp_download_path)));
 }
 
-// Callback for GDataFileSystem::CreateDirectory.
+// Callback for DriveFileSystem::CreateDirectory.
 void OnCreateDirectory(const base::Closure& substitute_callback,
-                       GDataFileError error) {
+                       DriveFileError error) {
   DVLOG(1) << "OnCreateDirectory " << error;
-  if (error == GDATA_FILE_OK) {
+  if (error == DRIVE_FILE_OK) {
     substitute_callback.Run();
   } else {
     // TODO(achuith): Handle this.
@@ -145,19 +145,19 @@ void OnCreateDirectory(const base::Closure& substitute_callback,
   }
 }
 
-// Callback for GDataFileSystem::GetEntryInfoByPath.
+// Callback for DriveFileSystem::GetEntryInfoByPath.
 void OnEntryFound(Profile* profile,
     const FilePath& gdata_dir_path,
     const base::Closure& substitute_callback,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
-  if (error == GDATA_FILE_ERROR_NOT_FOUND) {
+  if (error == DRIVE_FILE_ERROR_NOT_FOUND) {
     // Destination gdata directory doesn't exist, so create it.
     const bool is_exclusive = false, is_recursive = true;
     GetSystemService(profile)->file_system()->CreateDirectory(
         gdata_dir_path, is_exclusive, is_recursive,
         base::Bind(&OnCreateDirectory, substitute_callback));
-  } else if (error == GDATA_FILE_OK) {
+  } else if (error == DRIVE_FILE_OK) {
     substitute_callback.Run();
   } else {
     // TODO(achuith): Handle this.
@@ -176,7 +176,7 @@ void OnAuthenticate(Profile* profile,
   if (error == HTTP_SUCCESS) {
     const FilePath gdata_dir_path =
         util::ExtractGDataPath(gdata_path.DirName());
-    // Ensure the directory exists. This also forces GDataFileSystem to
+    // Ensure the directory exists. This also forces DriveFileSystem to
     // initialize GDataRootDirectory.
     GetSystemService(profile)->file_system()->GetEntryInfoByPath(
         gdata_dir_path,
@@ -192,7 +192,7 @@ void OnAuthenticate(Profile* profile,
 
 GDataDownloadObserver::GDataDownloadObserver(
     GDataUploader* uploader,
-    GDataFileSystemInterface* file_system)
+    DriveFileSystemInterface* file_system)
     : gdata_uploader_(uploader),
       file_system_(file_system),
       download_manager_(NULL),
@@ -231,8 +231,8 @@ void GDataDownloadObserver::SubstituteGDataDownloadPath(Profile* profile,
     // Can't access drive if we're not authenticated.
     // We set off a chain of callbacks as follows:
     // DriveServiceInterface::Authenticate
-    //   OnAuthenticate calls GDataFileSystem::GetEntryInfoByPath
-    //     OnEntryFound calls GDataFileSystem::CreateDirectory (if necessary)
+    //   OnAuthenticate calls DriveFileSystem::GetEntryInfoByPath
+    //     OnEntryFound calls DriveFileSystem::CreateDirectory (if necessary)
     //       OnCreateDirectory calls SubstituteGDataDownloadPathInternal
     GetSystemService(profile)->drive_service()->Authenticate(
         base::Bind(&OnAuthenticate, profile, gdata_path,
@@ -505,7 +505,7 @@ void GDataDownloadObserver::CreateUploadFileInfo(DownloadItem* download) {
 void GDataDownloadObserver::CreateUploadFileInfoAfterCheckExistence(
     int32 download_id,
     scoped_ptr<UploadFileInfo> upload_file_info,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(upload_file_info.get());
@@ -559,7 +559,7 @@ void GDataDownloadObserver::CreateUploadFileInfoAfterCheckExistence(
 void GDataDownloadObserver::CreateUploadFileInfoAfterCheckTargetDir(
     int32 download_id,
     scoped_ptr<UploadFileInfo> upload_file_info,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<DriveEntryProto> entry_proto) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(upload_file_info.get());
@@ -609,7 +609,7 @@ void GDataDownloadObserver::StartUpload(
 
 void GDataDownloadObserver::OnUploadComplete(
     int32 download_id,
-    GDataFileError error,
+    DriveFileError error,
     scoped_ptr<UploadFileInfo> upload_file_info) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(upload_file_info.get());
@@ -628,7 +628,7 @@ void GDataDownloadObserver::OnUploadComplete(
   DCHECK(upload_data);
 
   // Take ownership of the DocumentEntry from UploadFileInfo. This is used by
-  // GDataFileSystem::AddUploadedFile() to add the entry to DriveCache after the
+  // DriveFileSystem::AddUploadedFile() to add the entry to DriveCache after the
   // upload completes.
   upload_data->set_entry(upload_file_info->entry.Pass());
 

@@ -14,9 +14,11 @@
 #include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/search/search_types.h"
 #include "chrome/browser/ui/search/search_ui.h"
+#include "chrome/browser/ui/search/toolbar_search_animator.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/views/frame/contents_container.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_container.h"
+#include "chrome/browser/ui/views/toolbar_view.h"
 #include "chrome/browser/ui/webui/instant_ui.h"
 #include "chrome/common/url_constants.h"
 #include "grit/theme_resources.h"
@@ -222,9 +224,13 @@ void SearchViewController::OmniboxPopupViewParent::ChildPreferredSizeChanged(
 
 SearchViewController::SearchViewController(
     content::BrowserContext* browser_context,
-    ContentsContainer* contents_container)
+    ContentsContainer* contents_container,
+    chrome::search::ToolbarSearchAnimator* toolbar_search_animator,
+    ToolbarView* toolbar_view)
     : browser_context_(browser_context),
       contents_container_(contents_container),
+      toolbar_search_animator_(toolbar_search_animator),
+      toolbar_view_(toolbar_view),
       location_bar_container_(NULL),
       state_(STATE_NOT_VISIBLE),
       tab_contents_(NULL),
@@ -281,7 +287,16 @@ void SearchViewController::InstantReady() {
 
 void SearchViewController::ModeChanged(const chrome::search::Mode& old_mode,
                                        const chrome::search::Mode& new_mode) {
-  UpdateState();
+  // When the mode changes from |SEARCH_SUGGESTIONS| to |DEFAULT| and omnibox
+  // popup is still visible i.e. still retracting, delay state update, until the
+  // omnibox popup has finished retracting and |PopupVisibilityChanged| has been
+  // called; this persists all the necessary views for the duration of
+  // the animated retraction of the omnibox popup.
+  if (!(old_mode.mode == chrome::search::Mode::MODE_SEARCH_SUGGESTIONS &&
+        new_mode.is_default() &&
+        omnibox_popup_view_parent_->is_child_visible())) {
+    UpdateState();
+  }
 }
 
 void SearchViewController::OnImplicitAnimationsCompleted() {
@@ -340,6 +355,10 @@ void SearchViewController::SetState(State state) {
     case STATE_NTP:
       DestroyViews();
       CreateViews();
+      // In |CreateViews|, the main web contents view was reparented, so force
+      // a search re-layout by |toolbar_view_| to re-position the omnibox per
+      // the new bounds of web contents view.
+      toolbar_view_->LayoutForSearch();
       break;
 
     case STATE_NTP_ANIMATING:
@@ -500,6 +519,8 @@ void SearchViewController::PopupVisibilityChanged() {
   if (state_ != STATE_NTP_ANIMATING ||
       !omnibox_popup_view_parent_->is_child_visible()) {
     UpdateState();
+    if (!omnibox_popup_view_parent_->is_child_visible())
+      toolbar_search_animator_->OnOmniboxPopupClosed();
   }
 }
 

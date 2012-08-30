@@ -12,7 +12,6 @@
 #include "chrome/browser/chromeos/gdata/auth_service.h"
 #include "chrome/browser/chromeos/gdata/drive_service_interface.h"
 #include "chrome/browser/chromeos/gdata/gdata_operations.h"
-#include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 
 class FilePath;
 class GURL;
@@ -27,8 +26,8 @@ class OperationRunner;
 // works as a thin wrapper for the API.
 class DriveAPIService : public DriveServiceInterface {
  public:
-  // Instance is usually created by GDataSystemServiceFactory and owned by
-  // GDataFileSystem.
+  // Instance is usually created by DriveSystemServiceFactory and owned by
+  // DriveFileSystem.
   DriveAPIService();
   virtual ~DriveAPIService();
 

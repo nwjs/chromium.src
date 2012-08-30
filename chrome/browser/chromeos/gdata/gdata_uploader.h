@@ -121,7 +121,7 @@ class GDataUploader : public GDataUploaderInterface {
 
   // Handle failed uploads.
   void UploadFailed(scoped_ptr<UploadFileInfo> upload_file_info,
-                    GDataFileError error);
+                    DriveFileError error);
 
   // Removes |upload_id| from UploadFileInfoMap |pending_uploads_|.
   // Note that this does not delete the UploadFileInfo object itself,
@@ -132,7 +132,7 @@ class GDataUploader : public GDataUploaderInterface {
   // ID assigned to |upload_file_info|.
   int StartUploadFile(scoped_ptr<UploadFileInfo> upload_file_info);
 
-  // Pointers to DriveServiceInterface object owned by GDataSystemService.
+  // Pointers to DriveServiceInterface object owned by DriveSystemService.
   // The lifetime of this object is guaranteed to exceed that of the
   // GDataUploader instance.
   DriveServiceInterface* drive_service_;

@@ -985,6 +985,8 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_AsyncOpenFile_ACK, OnAsyncFileOpened)
     IPC_MESSAGE_HANDLER(ViewMsg_PpapiBrokerChannelCreated,
                         OnPpapiBrokerChannelCreated)
+    IPC_MESSAGE_HANDLER(ViewMsg_PpapiBrokerPermissionResult,
+                        OnPpapiBrokerPermissionResult)
     IPC_MESSAGE_HANDLER(ViewMsg_GetAllSavableResourceLinksForCurrentPage,
                         OnGetAllSavableResourceLinksForCurrentPage)
     IPC_MESSAGE_HANDLER(
@@ -1709,6 +1711,7 @@ WebView* RenderViewImpl::createView(
       creator->document().securityOrigin().toString().utf8();
   params.opener_suppressed = creator->willSuppressOpenerInNewFrame();
   params.disposition = NavigationPolicyToDisposition(policy);
+  params.window_features = features;
   if (!request.isNull())
     params.target_url = request.url();
 
@@ -2402,15 +2405,8 @@ WebSharedWorker* RenderViewImpl::createSharedWorker(
   }
 }
 
-// TODO(wjia): remove the version without url when WebKit change is done.
-// http://webk.it/91301.
 WebMediaPlayer* RenderViewImpl::createMediaPlayer(
     WebFrame* frame, const WebKit::WebURL& url, WebMediaPlayerClient* client) {
-  return createMediaPlayer(frame, client);
-}
-
-WebMediaPlayer* RenderViewImpl::createMediaPlayer(
-    WebFrame* frame, WebMediaPlayerClient* client) {
   FOR_EACH_OBSERVER(
       RenderViewObserver, observers_, WillCreateMediaPlayer(frame, client));
 
@@ -3627,7 +3623,7 @@ WebGraphicsContext3D* RenderViewImpl::CreateGraphicsContext3D(
     if (webview()->mainFrame())
       url = GURL(webview()->mainFrame()->document().url());
     else
-      url = GURL("chrome://gpu/RenderViewImpl::createGraphicsContext3D");
+      url = GURL("chrome://gpu/RenderViewImpl::CreateGraphicsContext3D");
 
     scoped_ptr<WebGraphicsContext3DCommandBufferImpl> context(
         new WebGraphicsContext3DCommandBufferImpl(
@@ -5342,7 +5338,7 @@ void RenderViewImpl::OnWasShown(bool needs_repainting) {
 
 bool RenderViewImpl::SupportsAsynchronousSwapBuffers() {
   // Contexts using the command buffer support asynchronous swapbuffers.
-  // See RenderViewImpl::createGraphicsContext3D().
+  // See RenderViewImpl::createOutputSurface().
   if (WebWidgetHandlesCompositorScheduling() ||
       CommandLine::ForCurrentProcess()->HasSwitch(switches::kInProcessWebGL))
     return false;
@@ -5831,6 +5827,12 @@ void RenderViewImpl::OnPpapiBrokerChannelCreated(
     const IPC::ChannelHandle& handle) {
   pepper_delegate_.OnPpapiBrokerChannelCreated(request_id,
                                                handle);
+}
+
+void RenderViewImpl::OnPpapiBrokerPermissionResult(
+    int request_id,
+    bool result) {
+  pepper_delegate_.OnPpapiBrokerPermissionResult(request_id, result);
 }
 
 #if defined(OS_MACOSX)

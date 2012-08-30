@@ -57,10 +57,11 @@ class DebugInfoEventListener : public SyncManager::Observer,
   virtual void OnEncryptionComplete() OVERRIDE;
   virtual void OnCryptographerStateChanged(
       Cryptographer* cryptographer) OVERRIDE;
+  virtual void OnPassphraseStateChanged(PassphraseState state) OVERRIDE;
 
   // Sync manager events.
   void OnNudgeFromDatatype(ModelType datatype);
-  void OnIncomingNotification(const ModelTypePayloadMap& type_payloads);
+  void OnIncomingNotification(const ModelTypeStateMap& type_state_map);
 
   // DebugInfoGetter Implementation.
   virtual void GetAndClearDebugInfo(sync_pb::DebugInfo* debug_info) OVERRIDE;

@@ -527,26 +527,6 @@ extern const char kNtpCustomLogoStart[];
 extern const char kNtpCustomLogoEnd[];
 extern const char kNtpPromoVersion[];
 extern const char kNtpPromoLocale[];
-extern const char kNtpPromoStart[];
-extern const char kNtpPromoEnd[];
-extern const char kNtpPromoLine[];
-#if defined(OS_ANDROID)
-extern const char kNtpPromoLineLong[];
-extern const char kNtpPromoActionType[];
-extern const char kNtpPromoActionArgs[];
-#endif  // defined(OS_ANDROID)
-extern const char kNtpPromoClosed[];
-extern const char kNtpPromoGroup[];
-extern const char kNtpPromoNumGroups[];
-extern const char kNtpPromoInitialSegment[];
-extern const char kNtpPromoIncrement[];
-extern const char kNtpPromoGroupTimeSlice[];
-extern const char kNtpPromoGroupMax[];
-extern const char kNtpPromoViews[];
-extern const char kNtpPromoViewsMax[];
-extern const char kNtpPromoPlatform[];
-extern const char kNtpPromoBuild[];
-extern const char kNtpPromoGplusRequired[];
 extern const char kNtpWebStoreEnabled[];
 extern const char kNtpAppPageNames[];
 
@@ -712,6 +692,8 @@ extern const char kDevicePolicyRefreshRate[];
 extern const char kUserPolicyRefreshRate[];
 extern const char kLoadCloudPolicyOnSignin[];
 
+extern const char kSessionRestoreFilesCycled[];
+
 extern const char kRecoveryComponentVersion[];
 extern const char kComponentUpdaterState[];
 
@@ -727,6 +709,7 @@ extern const char kUseDefaultPinnedApps[];
 extern const char kPinnedLauncherApps[];
 
 extern const char kLongPressTimeInSeconds[];
+extern const char kMaxDistanceBetweenTapsForDoubleTap[];
 extern const char kMaxDistanceForTwoFingerTapInPixels[];
 extern const char kMaxSecondsBetweenDoubleClick[];
 extern const char kMaxSeparationForGestureTouchesInPixels[];
@@ -744,6 +727,7 @@ extern const char kPointsBufferedForVelocity[];
 extern const char kRailBreakProportion[];
 extern const char kRailStartProportion[];
 extern const char kSemiLongPressTimeInSeconds[];
+extern const char kTouchScreenFlingAccelerationAdjustment[];
 #endif
 
 extern const char kInManagedMode[];

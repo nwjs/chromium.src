@@ -65,8 +65,8 @@ void CrosMountPointProvider::ValidateFileSystemRoot(
     fileapi::FileSystemType type,
     bool create,
     const ValidateFileSystemCallback& callback) {
+  DCHECK(fileapi::IsolatedContext::IsIsolatedType(type));
   // Nothing to validate for external filesystem.
-  DCHECK(type == fileapi::kFileSystemTypeExternal);
   callback.Run(base::PLATFORM_FILE_OK);
 }
 
@@ -75,7 +75,7 @@ FilePath CrosMountPointProvider::GetFileSystemRootPathOnFileThread(
     fileapi::FileSystemType type,
     const FilePath& virtual_path,
     bool create) {
-  DCHECK(type == fileapi::kFileSystemTypeExternal);
+  DCHECK(fileapi::IsolatedContext::IsIsolatedType(type));
   fileapi::FileSystemURL url(origin_url, type, virtual_path);
   if (!url.is_valid())
     return FilePath();
@@ -87,16 +87,17 @@ FilePath CrosMountPointProvider::GetFileSystemRootPathOnFileThread(
   return root_path.DirName();
 }
 
-bool CrosMountPointProvider::IsAccessAllowed(const GURL& origin_url,
-                                             fileapi::FileSystemType type,
-                                             const FilePath& virtual_path) {
-  // TODO(kinuko): this should call CanHandleURL() once
-  // http://crbug.com/142267 is fixed.
-  if (type != fileapi::kFileSystemTypeNativeLocal &&
-      type != fileapi::kFileSystemTypeDrive)
+bool CrosMountPointProvider::IsAccessAllowed(
+    const fileapi::FileSystemURL& url) {
+  if (!CanHandleURL(url))
     return false;
 
+  // No extra check is needed for isolated file systems.
+  if (url.mount_type() == fileapi::kFileSystemTypeIsolated)
+    return true;
+
   // Permit access to mount points from internal WebUI.
+  const GURL& origin_url = url.origin();
   if (origin_url.SchemeIs(kChromeUIScheme))
     return true;
 
@@ -106,7 +107,7 @@ bool CrosMountPointProvider::IsAccessAllowed(const GURL& origin_url,
     return false;
 
   return file_access_permissions_->HasAccessPermission(extension_id,
-                                                       virtual_path);
+                                                       url.virtual_path());
 }
 
 // TODO(zelidrag): Share this code with SandboxMountPointProvider impl.
@@ -215,8 +216,7 @@ FilePath CrosMountPointProvider::GetPathForPermissionsCheck(
   return virtual_path;
 }
 
-fileapi::FileSystemOperationInterface*
-CrosMountPointProvider::CreateFileSystemOperation(
+fileapi::FileSystemOperation* CrosMountPointProvider::CreateFileSystemOperation(
     const fileapi::FileSystemURL& url,
     fileapi::FileSystemContext* context) const {
   if (url.type() == fileapi::kFileSystemTypeDrive) {

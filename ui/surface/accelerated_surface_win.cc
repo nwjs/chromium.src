@@ -689,6 +689,7 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
   if (!present_thread_->device()) {
     if (!completion_task.is_null())
       completion_task.Run(false, base::TimeTicks(), base::TimeDelta());
+    TRACE_EVENT0("gpu", "EarlyOut_NoDevice");
     return;
   }
 
@@ -697,8 +698,10 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
       base::Bind(completion_task, true, base::TimeTicks(), base::TimeDelta()));
 
   // If invalidated, do nothing, the window is gone.
-  if (!window_)
+  if (!window_) {
+    TRACE_EVENT0("gpu", "EarlyOut_NoWindow");
     return;
+  }
 
   // If the window is a different size than the swap chain that is being
   // presented then drop the frame.
@@ -706,6 +709,11 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
   GetClientRect(window_, &window_rect);
   if (hidden_ && (window_rect.right != size.width() ||
       window_rect.bottom != size.height())) {
+    TRACE_EVENT2("gpu", "EarlyOut_WrongWindowSize",
+                 "backwidth", size.width(), "backheight", size.height());
+    TRACE_EVENT2("gpu", "EarlyOut_WrongWindowSize2",
+                 "windowwidth", window_rect.right,
+                 "windowheight", window_rect.bottom);
     return;
   }
 
@@ -758,15 +766,19 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
 
   base::win::ScopedComPtr<IDirect3DSurface9> source_surface;
   hr = source_texture_->GetSurfaceLevel(0, source_surface.Receive());
-  if (FAILED(hr))
+  if (FAILED(hr)) {
+    TRACE_EVENT0("gpu", "EarlyOut_NoSurfaceLevel");
     return;
+  }
 
   base::win::ScopedComPtr<IDirect3DSurface9> dest_surface;
   hr = swap_chain_->GetBackBuffer(0,
                                   D3DBACKBUFFER_TYPE_MONO,
                                   dest_surface.Receive());
-  if (FAILED(hr))
+  if (FAILED(hr)) {
+    TRACE_EVENT0("gpu", "EarlyOut_NoBackbuffer");
     return;
+  }
 
   RECT rect = {
     0, 0,
@@ -849,6 +861,10 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
     }
   }
 
+  // Disable call to DwmGetCompositionTimingInfo until we figure out why it
+  // causes a flicker of the last software window during tab switch and
+  // navigate. crbug.com/143854
+#if 0
   {
     TRACE_EVENT0("gpu", "GetPresentationStats");
     base::TimeTicks timebase;
@@ -866,6 +882,7 @@ void AcceleratedPresenter::DoPresentAndAcknowledge(
                  "timebase", timebase.ToInternalValue(),
                  "interval", interval.ToInternalValue());
   }
+#endif
 
   hidden_ = false;
 }

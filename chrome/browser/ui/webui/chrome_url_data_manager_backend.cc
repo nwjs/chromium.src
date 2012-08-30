@@ -88,12 +88,25 @@ class ChromeURLContentSecurityPolicyExceptionSet
   }
 };
 
-// It is OK to add URLs to this set which slightly reduces the CSP for them.
-class ChromeURLContentSecurityPolicyObjectTagSet
-    : public std::set<std::string> {
+// It is OK to add URLs to these maps which map specific URLs to custom CSP
+// directives thereby slightly reducing the protection applied to the page.
+class ChromeURLObjectSrcExceptionMap
+    : public std::map<std::string, std::string> {
  public:
-  ChromeURLContentSecurityPolicyObjectTagSet() : std::set<std::string>() {
-    insert(chrome::kChromeUIPrintHost);
+  ChromeURLObjectSrcExceptionMap() : std::map<std::string, std::string>() {
+    insert(std::pair<std::string, std::string>(
+        chrome::kChromeUIPrintHost, "object-src 'self';"));
+  }
+};
+
+class ChromeURLFrameSrcExceptionMap
+    : public std::map<std::string, std::string> {
+ public:
+  ChromeURLFrameSrcExceptionMap() : std::map<std::string, std::string>() {
+    insert(std::pair<std::string, std::string>(
+        chrome::kChromeUIUberHost, "frame-src chrome:;"));
+    insert(std::pair<std::string, std::string>(
+        chrome::kChromeUIUberFrameHost, "frame-src chrome:;"));
   }
 };
 
@@ -101,9 +114,11 @@ base::LazyInstance<ChromeURLContentSecurityPolicyExceptionSet>
     g_chrome_url_content_security_policy_exception_set =
         LAZY_INSTANCE_INITIALIZER;
 
-base::LazyInstance<ChromeURLContentSecurityPolicyObjectTagSet>
-    g_chrome_url_content_security_policy_object_tag_set =
-        LAZY_INSTANCE_INITIALIZER;
+base::LazyInstance<ChromeURLObjectSrcExceptionMap>
+    g_chrome_url_object_src_exception_map = LAZY_INSTANCE_INITIALIZER;
+
+base::LazyInstance<ChromeURLFrameSrcExceptionMap>
+    g_chrome_url_frame_src_exception_map = LAZY_INSTANCE_INITIALIZER;
 
 // Determine the least-privileged content security policy header, if any,
 // that is compatible with a given WebUI URL, and append it to the existing
@@ -115,15 +130,49 @@ void AddContentSecurityPolicyHeader(
 
   if (exceptions->find(url.host()) == exceptions->end()) {
     std::string base = kChromeURLContentSecurityPolicyHeaderBase;
-    ChromeURLContentSecurityPolicyObjectTagSet* object_tag_set =
-        g_chrome_url_content_security_policy_object_tag_set.Pointer();
 
-    base.append(object_tag_set->find(url.host()) == object_tag_set->end() ?
-                "object-src 'none';" :
-                "object-src 'self';");
+    ChromeURLObjectSrcExceptionMap* object_map =
+        g_chrome_url_object_src_exception_map.Pointer();
+    ChromeURLObjectSrcExceptionMap::iterator object_iter =
+        object_map->find(url.host());
+    base.append(object_iter == object_map->end() ?
+                "object-src 'none';" : object_iter->second);
+
+    ChromeURLFrameSrcExceptionMap* frame_map =
+        g_chrome_url_frame_src_exception_map.Pointer();
+    ChromeURLFrameSrcExceptionMap::iterator frame_iter =
+        frame_map->find(url.host());
+    base.append(frame_iter == frame_map->end() ?
+                "frame-src 'none';" : frame_iter->second);
 
     headers->AddHeader(base);
   }
+}
+
+const char kChromeURLXFrameOptionsHeader[] = "X-Frame-Options: DENY";
+
+// It is OK to add exceptions to this set as needed.
+class ChromeURLXFrameOptionsExceptionSet
+    : public std::set<std::string> {
+ public:
+  ChromeURLXFrameOptionsExceptionSet() : std::set<std::string>() {
+    insert(chrome::kChromeUIExtensionsFrameHost);
+    insert(chrome::kChromeUIHelpFrameHost);
+    insert(chrome::kChromeUIHistoryFrameHost);
+    insert(chrome::kChromeUISettingsFrameHost);
+    insert(chrome::kChromeUIUberFrameHost);
+  }
+};
+
+base::LazyInstance<ChromeURLXFrameOptionsExceptionSet>
+    g_chrome_url_x_frame_options_exception_set = LAZY_INSTANCE_INITIALIZER;
+
+void AddXFrameOptionsHeader(
+    const GURL& url, net::HttpResponseHeaders* headers) {
+  ChromeURLXFrameOptionsExceptionSet* exceptions =
+      g_chrome_url_x_frame_options_exception_set.Pointer();
+  if (exceptions->find(url.host()) == exceptions->end())
+    headers->AddHeader(kChromeURLXFrameOptionsHeader);
 }
 
 // Parse a URL into the components used to resolve its request. |source_name|
@@ -162,6 +211,7 @@ class URLRequestChromeJob : public net::URLRequestJob,
                             public base::SupportsWeakPtr<URLRequestChromeJob> {
  public:
   URLRequestChromeJob(net::URLRequest* request,
+                      net::NetworkDelegate* network_delegate,
                       ChromeURLDataManagerBackend* backend);
 
   // net::URLRequestJob implementation.
@@ -223,8 +273,9 @@ class URLRequestChromeJob : public net::URLRequestJob,
 };
 
 URLRequestChromeJob::URLRequestChromeJob(net::URLRequest* request,
+                                         net::NetworkDelegate* network_delegate,
                                          ChromeURLDataManagerBackend* backend)
-    : net::URLRequestJob(request, request->context()->network_delegate()),
+    : net::URLRequestJob(request, network_delegate),
       data_offset_(0),
       pending_buf_size_(0),
       allow_caching_(true),
@@ -265,6 +316,7 @@ void URLRequestChromeJob::GetResponseInfo(net::HttpResponseInfo* info) {
   // indistiguishable from other error types. Instant relies on getting a 200.
   info->headers = new net::HttpResponseHeaders("HTTP/1.1 200 OK");
   AddContentSecurityPolicyHeader(request_->url(), info->headers);
+  AddXFrameOptionsHeader(request_->url(), info->headers);
   if (!allow_caching_)
     info->headers->AddHeader("Cache-Control: no-cache");
 }
@@ -361,7 +413,8 @@ class ChromeProtocolHandler
   ~ChromeProtocolHandler();
 
   virtual net::URLRequestJob* MaybeCreateJob(
-      net::URLRequest* request) const OVERRIDE;
+      net::URLRequest* request,
+      net::NetworkDelegate* network_delegate) const OVERRIDE;
 
  private:
   // These members are owned by ProfileIOData, which owns this ProtocolHandler.
@@ -377,11 +430,11 @@ ChromeProtocolHandler::ChromeProtocolHandler(
 ChromeProtocolHandler::~ChromeProtocolHandler() {}
 
 net::URLRequestJob* ChromeProtocolHandler::MaybeCreateJob(
-    net::URLRequest* request) const {
+    net::URLRequest* request, net::NetworkDelegate* network_delegate) const {
   DCHECK(request);
 
   // Fall back to using a custom handler
-  return new URLRequestChromeJob(request, backend_);
+  return new URLRequestChromeJob(request, network_delegate, backend_);
 }
 
 }  // namespace
@@ -573,7 +626,8 @@ class DevToolsJobFactory
   virtual ~DevToolsJobFactory();
 
   virtual net::URLRequestJob* MaybeCreateJob(
-      net::URLRequest* request) const OVERRIDE;
+      net::URLRequest* request,
+      net::NetworkDelegate* network_delegate) const OVERRIDE;
 
  private:
   // |backend_| and |network_delegate_| are owned by ProfileIOData, which owns
@@ -594,14 +648,15 @@ DevToolsJobFactory::DevToolsJobFactory(ChromeURLDataManagerBackend* backend,
 DevToolsJobFactory::~DevToolsJobFactory() {}
 
 net::URLRequestJob*
-DevToolsJobFactory::MaybeCreateJob(net::URLRequest* request) const {
+DevToolsJobFactory::MaybeCreateJob(
+    net::URLRequest* request, net::NetworkDelegate* network_delegate) const {
   if (ShouldLoadFromDisk()) {
     FilePath path;
     if (IsSupportedURL(request->url(), &path))
-      return new net::URLRequestFileJob(request, path, network_delegate_);
+      return new net::URLRequestFileJob(request, network_delegate, path);
   }
 
-  return new URLRequestChromeJob(request, backend_);
+  return new URLRequestChromeJob(request, network_delegate, backend_);
 }
 
 }  // namespace

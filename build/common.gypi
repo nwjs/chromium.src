@@ -714,6 +714,14 @@
     # to get incremental linking to be faster in debug builds.
     'incremental_chrome_dll%': '0',
 
+    # The default settings for third party code for treating
+    # warnings-as-errors. Ideally, this would not be required, however there
+    # is some third party code that takes a long time to fix/roll. So, this
+    # flag allows us to have warnings as errors in general to prevent
+    # regressions in most modules, while working on the bits that are
+    # remaining.
+    'win_third_party_warn_as_error%': 'true',
+
     # This is the location of the sandbox binary. Chrome looks for this before
     # running the zygote process. If found, and SUID, it will be used to
     # sandbox the zygote process and, thus, all renderer processes.
@@ -1684,10 +1692,17 @@
             'msvs_settings': {
               'VCCLCompilerTool': {
                 'WarningLevel': '3',
-                'WarnAsError': 'false', # TODO(maruel): Enable it.
+                'WarnAsError': '<(win_third_party_warn_as_error)',
                 'Detect64BitPortabilityProblems': 'false',
               },
             },
+            'conditions': [
+              ['buildtype=="Official"', {
+                'msvs_settings': {
+                  'VCCLCompilerTool': { 'WarnAsError': 'false' },
+                }
+              }],
+            ],
           }],
           # TODO(darin): Unfortunately, some third_party code depends on base/
           [ 'OS=="win" and component=="shared_library"', {
@@ -2889,21 +2904,6 @@
               'OTHER_CFLAGS': [
                 '-faddress-sanitizer',
               ],
-              'OTHER_LDFLAGS': [
-                '-faddress-sanitizer',
-                # The symbols below are referenced in the ASan runtime
-                # library (compiled on OS X 10.6), but may be unavailable
-                # on the prior OS X versions. Because Chromium is currently
-                # targeting 10.5.0, we need to explicitly mark these
-                # symbols as dynamic_lookup.
-                '-Wl,-U,_malloc_default_purgeable_zone',
-                '-Wl,-U,_malloc_zone_memalign',
-                '-Wl,-U,_dispatch_sync_f',
-                '-Wl,-U,_dispatch_async_f',
-                '-Wl,-U,_dispatch_barrier_async_f',
-                '-Wl,-U,_dispatch_group_async_f',
-                '-Wl,-U,_dispatch_after_f',
-              ],
             },
             'defines': [
               'ADDRESS_SANITIZER',
@@ -2913,6 +2913,27 @@
         'target_conditions': [
           ['_type!="static_library"', {
             'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-search_paths_first']},
+            'conditions': [
+              ['asan==1', {
+                'xcode_settings': {
+                  'OTHER_LDFLAGS': [
+                    '-faddress-sanitizer',
+                    # The symbols below are referenced in the ASan runtime
+                    # library (compiled on OS X 10.6), but may be unavailable
+                    # on the prior OS X versions. Because Chromium is
+                    # currently targeting 10.5.0, we need to explicitly mark
+                    # these symbols as dynamic_lookup.
+                    '-Wl,-U,_malloc_default_purgeable_zone',
+                    '-Wl,-U,_malloc_zone_memalign',
+                    '-Wl,-U,_dispatch_sync_f',
+                    '-Wl,-U,_dispatch_async_f',
+                    '-Wl,-U,_dispatch_barrier_async_f',
+                    '-Wl,-U,_dispatch_group_async_f',
+                    '-Wl,-U,_dispatch_after_f',
+                  ],
+                },
+              }],
+            ],
           }],
           ['_mac_bundle', {
             'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-ObjC']},

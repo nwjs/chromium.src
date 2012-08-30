@@ -33,11 +33,14 @@ import url_constants
 # The branch that the server will default to when no branch is specified in the
 # URL. This is necessary because it is not possible to pass flags to the script
 # handler.
-DEFAULT_BRANCH = 'local'
+# Production settings:
+# DEFAULT_BRANCHES = { 'extensions': 'stable', 'apps': 'trunk' }
+# Dev settings:
+DEFAULT_BRANCHES = { 'extensions': 'local', 'apps': 'local' }
 
 BRANCH_UTILITY_MEMCACHE = InMemoryObjectStore('branch_utility')
 BRANCH_UTILITY = BranchUtility(url_constants.OMAHA_PROXY_URL,
-                               DEFAULT_BRANCH,
+                               DEFAULT_BRANCHES,
                                AppEngineUrlFetcher(None),
                                BRANCH_UTILITY_MEMCACHE)
 
@@ -90,7 +93,7 @@ def _GetInstanceForBranch(channel_name, local_path):
       cache_factory,
       [INTRO_PATH, ARTICLE_PATH])
   samples_data_source_factory = SamplesDataSource.Factory(
-      branch,
+      channel_name,
       file_system,
       GITHUB_FILE_SYSTEM,
       cache_factory,
@@ -110,8 +113,7 @@ def _GetInstanceForBranch(channel_name, local_path):
       PRIVATE_TEMPLATE_PATH)
   example_zipper = ExampleZipper(file_system,
                                  cache_factory,
-                                 DOCS_PATH,
-                                 EXAMPLES_PATH)
+                                 DOCS_PATH)
   SERVER_INSTANCES[branch] = ServerInstance(
       template_data_source_factory,
       example_zipper,
@@ -159,22 +161,26 @@ class Handler(webapp.RequestHandler):
                                                               self.request,
                                                               self.response)
 
-  def _Render(self, files, branch):
+  def _Render(self, files, channel):
     original_response = self.response
     for f in files:
-      path = branch + f.split(PUBLIC_TEMPLATE_PATH)[-1]
+      path = channel + f.split(PUBLIC_TEMPLATE_PATH)[-1]
       self.request = _MockRequest(path)
       self.response = _MockResponse()
-      self._HandleGet(path)
+      try:
+        self._HandleGet(path)
+      except Exception as e:
+        logging.error('Error rendering %s: %s' % (path, str(e)))
     self.response = original_response
 
   def _HandleCron(self, path):
-    branch = path.split('/')[-1]
+    channel = path.split('/')[-1]
+    branch = BRANCH_UTILITY.GetBranchNumberForChannelName(channel)
     logging.info('Running cron job for %s.' % branch)
     branch_memcache = InMemoryObjectStore(branch)
     file_system = _CreateMemcacheFileSystem(branch, branch_memcache)
     factory = CompiledFileSystem.Factory(file_system, branch_memcache)
-    render_cache = factory.Create(lambda x: self._Render(x, branch),
+    render_cache = factory.Create(lambda x: self._Render(x, channel),
                                   compiled_fs.RENDER)
     render_cache.GetFromFileListing(PUBLIC_TEMPLATE_PATH)
     self.response.out.write('Success')

@@ -257,6 +257,7 @@ class CONTENT_EXPORT WebContentsImpl
   virtual void DidChooseColorInColorChooser(int color_chooser_id,
                                             SkColor color) OVERRIDE;
   virtual void DidEndColorChooser(int color_chooser_id) OVERRIDE;
+  virtual WebKit::WebWindowFeatures GetWindowFeatures() const OVERRIDE;
 
   // Implementation of PageNavigator.
   virtual content::WebContents* OpenURL(
@@ -485,6 +486,10 @@ class CONTENT_EXPORT WebContentsImpl
                       bool success,
                       const string16& user_input);
 
+  // Callback function when requesting permission to access the PPAPI broker.
+  // |result| is true if permission was granted.
+  void OnPpapiBrokerPermissionResult(int request_id, bool result);
+
   // IPC message handlers.
   void OnRegisterIntentService(const webkit_glue::WebIntentServiceData& data,
                                bool user_gesture);
@@ -534,6 +539,9 @@ class CONTENT_EXPORT WebContentsImpl
   void OnWebUISend(const GURL& source_url,
                    const std::string& name,
                    const base::ListValue& args);
+  void OnRequestPpapiBrokerPermission(int request_id,
+                                      const GURL& url,
+                                      const FilePath& plugin_path);
 
   // Changes the IsLoading state and notifies delegate as needed
   // |details| is used to provide details on the load that just finished
@@ -812,6 +820,9 @@ class CONTENT_EXPORT WebContentsImpl
   // Used during IPC message dispatching so that the handlers can get a pointer
   // to the RVH through which the message was received.
   content::RenderViewHost* message_source_;
+
+  // Saved window features
+  WebKit::WebWindowFeatures window_features_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsImpl);
 };

@@ -96,6 +96,10 @@ void DebugInfoEventListener::OnCryptographerStateChanged(
   cryptographer_ready_ = cryptographer->is_ready();
 }
 
+void DebugInfoEventListener::OnPassphraseStateChanged(PassphraseState state) {
+  CreateAndAddEvent(sync_pb::DebugEventInfo::PASSPHRASE_STATE_CHANGED);
+}
+
 void DebugInfoEventListener::OnActionableError(
     const SyncProtocolError& sync_error) {
   CreateAndAddEvent(sync_pb::DebugEventInfo::ACTIONABLE_ERROR);
@@ -109,9 +113,9 @@ void DebugInfoEventListener::OnNudgeFromDatatype(ModelType datatype) {
 }
 
 void DebugInfoEventListener::OnIncomingNotification(
-     const ModelTypePayloadMap& type_payloads) {
+     const ModelTypeStateMap& type_state_map) {
   sync_pb::DebugEventInfo event_info;
-  ModelTypeSet types = ModelTypePayloadMapToEnumSet(type_payloads);
+  ModelTypeSet types = ModelTypeStateMapToSet(type_state_map);
 
   for (ModelTypeSet::Iterator it = types.First(); it.Good(); it.Inc()) {
     event_info.add_datatypes_notified_from_server(

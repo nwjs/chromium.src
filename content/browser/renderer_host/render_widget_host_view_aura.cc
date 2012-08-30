@@ -720,7 +720,7 @@ void RenderWidgetHostViewAura::AcceleratedSurfacePostSubBuffer(
     // Damage may not have been DIP aligned, so inflate damage to compensate
     // for any round-off error.
     rect_to_paint.Inset(-1, -1);
-    rect_to_paint.Intersect(window_->bounds());
+    rect_to_paint = rect_to_paint.Intersect(window_->bounds());
 
     window_->SchedulePaintInRect(rect_to_paint);
 
@@ -1224,7 +1224,7 @@ bool RenderWidgetHostViewAura::OnMouseEvent(ui::MouseEvent* event) {
 
   if (event->type() == ui::ET_MOUSEWHEEL) {
     WebKit::WebMouseWheelEvent mouse_wheel_event =
-        MakeWebMouseWheelEvent(event);
+        MakeWebMouseWheelEvent(static_cast<ui::MouseWheelEvent*>(event));
     if (mouse_wheel_event.deltaX != 0 || mouse_wheel_event.deltaY != 0)
       host_->ForwardWheelEvent(mouse_wheel_event);
   } else if (event->type() == ui::ET_SCROLL) {

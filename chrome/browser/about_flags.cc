@@ -759,13 +759,6 @@ const Experiment kExperiments[] = {
     kOsCrOS,
     SINGLE_VALUE_TYPE_AND_VALUE(switches::kForceDeviceScaleFactor, "2")
   },
-  {
-    "enable-hidpi-pdf-plugin",
-    IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_NAME,
-    IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_DESCRIPTION,
-    kOsCrOS | kOsMac,
-    SINGLE_VALUE_TYPE(switches::kEnableHighDPIPDFPlugin)
-  },
 #if defined(OS_CHROMEOS)
   {
     "allow-touchpad-three-finger-click",
@@ -828,11 +821,11 @@ const Experiment kExperiments[] = {
 #endif  // defined(USE_ASH)
 #if defined(OS_CHROMEOS)
   {
-    "experimental-wallpaper-ui",
-    IDS_FLAGS_EXPERIMENTAL_WALLPAPER_UI_NAME,
-    IDS_FLAGS_EXPERIMENTAL_WALLPAPER_UI_DESCRIPTION,
+    "new-wallpaper-ui",
+    IDS_FLAGS_NEW_WALLPAPER_UI_NAME,
+    IDS_FLAGS_NEW_WALLPAPER_UI_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kExperimentalWallpaperUI)
+    SINGLE_VALUE_TYPE(switches::kEnableNewWallpaperUI)
   },
   {
     "enable-drive-v2-api",
@@ -930,11 +923,11 @@ const Experiment kExperiments[] = {
   },
 #endif
   {
-    "enable-website-settings",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_ENABLE_WEBSITE_SETTINGS_NAME,
-    IDS_FLAGS_ENABLE_WEBSITE_SETTINGS_DESCRIPTION,
+    "disable-website-settings",  // FLAGS:RECORD_UMA
+    IDS_FLAGS_DISABLE_WEBSITE_SETTINGS_NAME,
+    IDS_FLAGS_DISABLE_WEBSITE_SETTINGS_DESCRIPTION,
     kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnableWebsiteSettings),
+    SINGLE_VALUE_TYPE(switches::kDisableWebsiteSettings),
   },
 };
 

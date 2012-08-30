@@ -66,27 +66,8 @@ def Main(args):
       # See http://crbug.com/132395
       tests_to_disable.append('run_inbrowser_test_runner')
 
-    if sys.platform in ('win32', 'cygwin') and not is_win64:
-      # The Breakpad tests have started failing on 32-bit Windows (but
-      # not 64-bit Windows) because Chromium is producing an excess
-      # crash dump.
-      # See http://code.google.com/p/chromium/issues/detail?id=143413
-      # TODO(mseaborn): Change the tests to ignore the excess crash
-      # dump until we find out what is causing it.
-      tests_to_disable.extend([
-          'run_inbrowser_trusted_crash_in_startup_test',
-          'run_inbrowser_crash_in_syscall_test',
-          'run_inbrowser_untrusted_crash_test',
-          ])
-
   if sys.platform in ('win32', 'cygwin'):
     tests_to_disable.append('run_ppapi_ppp_input_event_browser_test')
-
-  # Webkit seems to be slightly buggy and breaking this test.  Disabled so
-  # Webkit's DEPS can be rolled.
-  # See: http://crbug.com/143973
-  # TODO(ncbray) re-enable.
-  tests_to_disable.append('run_ppapi_ppp_input_event_browser_test')
 
   script_dir = os.path.dirname(os.path.abspath(__file__))
   test_dir = os.path.dirname(script_dir)

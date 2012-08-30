@@ -533,9 +533,6 @@ class RenderViewImpl : public RenderWidget,
       const WebKit::WebString& name, unsigned long long documentId);
   virtual WebKit::WebMediaPlayer* createMediaPlayer(
       WebKit::WebFrame* frame,
-      WebKit::WebMediaPlayerClient* client);
-  virtual WebKit::WebMediaPlayer* createMediaPlayer(
-      WebKit::WebFrame* frame,
       const WebKit::WebURL& url,
       WebKit::WebMediaPlayerClient* client);
   virtual WebKit::WebApplicationCacheHost* createApplicationCacheHost(
@@ -911,6 +908,7 @@ class RenderViewImpl : public RenderWidget,
                          int message_id);
   void OnPpapiBrokerChannelCreated(int request_id,
                                    const IPC::ChannelHandle& handle);
+  void OnPpapiBrokerPermissionResult(int request_id, bool result);
   void OnCancelDownload(int32 download_id);
   void OnClearFocusedNode();
   void OnClosePage();
@@ -1468,7 +1466,7 @@ class RenderViewImpl : public RenderWidget,
   // This graphics context is initialized once GuestReady() is called.
   WebGraphicsContext3DCommandBufferImpl* guest_uninitialized_context_;
 
-  // These are the attributes originally passed into createGraphicsContext3D
+  // These are the attributes originally passed into createOutputSurface
   // before the guest_to_embedder_channel was ready.
   WebKit::WebGraphicsContext3D::Attributes guest_attributes_;
 

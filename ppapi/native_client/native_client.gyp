@@ -4,7 +4,7 @@
 
 {
   'includes': [
-    '../../native_client/build/untrusted.gypi',
+    '../../build/common_untrusted.gypi',
   ],
   'conditions': [
     ['disable_nacl==0 and disable_nacl_untrusted==0', {
@@ -76,6 +76,8 @@
               '-lsrpc',
               '-limc_syscalls',
               '-lplatform',
+              '-lbase_untrusted',
+              '-lshared_memory_support_untrusted',
               '-lgio',
               '-Wl,--end-group',
               '-lm',
@@ -113,7 +115,9 @@
             # once native_client/build/untrusted.gypi no longer needs them.
             'extra_deps64': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libimc_syscalls.a',
@@ -121,7 +125,9 @@
             ],
             'extra_deps32': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libimc_syscalls.a',
@@ -129,7 +135,9 @@
             ],
             'extra_deps_newlib64': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libimc_syscalls.a',
@@ -137,7 +145,9 @@
             ],
             'extra_deps_newlib32': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libimc_syscalls.a',
@@ -145,7 +155,9 @@
             ],
             'extra_deps_glibc64': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libimc_syscalls.a',
@@ -153,7 +165,9 @@
             ],
             'extra_deps_glibc32': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libimc_syscalls.a',
@@ -161,7 +175,9 @@
             ],
             'extra_deps_arm': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libppruntime.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libimc_syscalls.a',
@@ -170,6 +186,8 @@
           },
           'dependencies': [
             'src/shared/ppapi_proxy/ppapi_proxy_untrusted.gyp:ppruntime_lib',
+            '../../base/base_untrusted.gyp:base_untrusted',
+            '../../media/media_untrusted.gyp:shared_memory_support_untrusted',
             '../../native_client/src/untrusted/irt/irt.gyp:irt_browser_lib',
             '../../native_client/src/shared/srpc/srpc.gyp:srpc_lib',
             '../../native_client/src/shared/platform/platform.gyp:platform_lib',
@@ -177,10 +195,6 @@
             '../../native_client/src/shared/gio/gio.gyp:gio_lib',
           ],
         },
-      ],
-    }],
-    ['disable_nacl==0 and disable_nacl_untrusted==0 and target_arch!="arm"', {
-      'targets': [
         {
           'target_name': 'nacl_ipc_irt',
           'type': 'none',
@@ -201,6 +215,7 @@
               '-Wl,--start-group',
               '-lirt_browser',
               '-lppapi_proxy_untrusted',
+              '-lppapi_ipc_untrusted',
               '-lppapi_shared_untrusted',
               '-lgles2_implementation_untrusted',
               '-lgles2_cmd_helper_untrusted',
@@ -210,6 +225,7 @@
               '-lgpu_ipc_untrusted',
               '-lipc_untrusted',
               '-lbase_untrusted',
+              '-lshared_memory_support_untrusted',
               '-lsrpc',
               '-limc_syscalls',
               '-lplatform',
@@ -250,6 +266,7 @@
             # once native_client/build/untrusted.gypi no longer needs them.
             'extra_deps64': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libcommand_buffer_client_untrusted.a',
@@ -260,6 +277,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libimc_syscalls.a',
@@ -267,6 +285,7 @@
             ],
             'extra_deps32': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libcommand_buffer_client_untrusted.a',
@@ -277,6 +296,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libimc_syscalls.a',
@@ -284,6 +304,7 @@
             ],
             'extra_deps_newlib64': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libcommand_buffer_client_untrusted.a',
@@ -294,6 +315,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib64/libimc_syscalls.a',
@@ -301,6 +323,7 @@
             ],
             'extra_deps_newlib32': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libcommand_buffer_client_untrusted.a',
@@ -311,6 +334,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/lib32/libimc_syscalls.a',
@@ -318,6 +342,7 @@
             ],
             'extra_deps_glibc64': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libcommand_buffer_client_untrusted.a',
@@ -328,6 +353,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib64/libimc_syscalls.a',
@@ -335,6 +361,7 @@
             ],
             'extra_deps_glibc32': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libcommand_buffer_client_untrusted.a',
@@ -345,6 +372,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_glibc/lib32/libimc_syscalls.a',
@@ -352,6 +380,7 @@
             ],
             'extra_deps_arm': [
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libppapi_proxy_untrusted.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libppapi_ipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libppapi_shared_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libgles2_implementation_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libcommand_buffer_client_untrusted.a',
@@ -362,6 +391,7 @@
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libipc_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libbase_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libirt_browser.a',
+              '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libshared_memory_support_untrusted.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libsrpc.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libplatform.a',
               '<(SHARED_INTERMEDIATE_DIR)/tc_newlib/libarm/libimc_syscalls.a',
@@ -370,6 +400,7 @@
           },
           'dependencies': [
             '../ppapi_ipc_proxy_untrusted.gyp:ppapi_proxy_untrusted',
+            '../ppapi_ipc_untrusted.gyp:ppapi_ipc_untrusted',
             '../ppapi_shared_untrusted.gyp:ppapi_shared_untrusted',
             '../../gpu/command_buffer/command_buffer_untrusted.gyp:gles2_utils_untrusted',
             '../../gpu/gpu_untrusted.gyp:command_buffer_client_untrusted',
@@ -379,6 +410,7 @@
             '../../gpu/gpu_untrusted.gyp:gpu_ipc_untrusted',
             '../../ipc/ipc_untrusted.gyp:ipc_untrusted',
             '../../base/base_untrusted.gyp:base_untrusted',
+            '../../media/media_untrusted.gyp:shared_memory_support_untrusted',
             '../../native_client/src/untrusted/irt/irt.gyp:irt_browser_lib',
             '../../native_client/src/shared/srpc/srpc.gyp:srpc_lib',
             '../../native_client/src/shared/platform/platform.gyp:platform_lib',

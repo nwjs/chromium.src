@@ -22,6 +22,7 @@ _EXCLUDED_PATHS = (
     r"^v8[\\\/].*",
     r".*MakeFile$",
     r".+_autogen\.h$",
+    r"^cc[\\\/].*",
 )
 
 
@@ -139,15 +140,6 @@ _BANNED_CPP_FUNCTIONS = (
     ),
     (
       'browser::FindLastActiveWithProfile',
-      (
-       'This function is deprecated and we\'re working on removing it. Pass',
-       'more context to get a Browser*, like a WebContents, window, or session',
-       'id. Talk to ben@ or jam@ for more information.',
-      ),
-      True,
-    ),
-    (
-      'browser::FindBrowserWithProfile',
       (
        'This function is deprecated and we\'re working on removing it. Pass',
        'more context to get a Browser*, like a WebContents, window, or session',

@@ -1479,61 +1479,6 @@ const char kNtpPromoVersion[] = "ntp.promo_version";
 // The last locale the promo was fetched for.
 const char kNtpPromoLocale[] = "ntp.promo_locale";
 
-// Whether promo should be shown to Dev builds, Beta and Dev, or all builds.
-const char kNtpPromoBuild[] = "ntp.promo_build";
-
-// True if user has explicitly closed the promo line.
-const char kNtpPromoClosed[] = "ntp.promo_closed";
-
-// Users are randomly divided into 100 groups in order to slowly roll out
-// special promos.
-const char kNtpPromoGroup[] = "ntp.promo_group";
-
-// Number of promo groups (buckets).
-const char kNtpPromoNumGroups[] = "ntp.promo_num_groups";
-
-// Initial segment of the groups to show the promo to.
-const char kNtpPromoInitialSegment[] = "ntp.promo_initial_segment";
-
-// Number of additional segments to show this promo to every time slice.
-const char kNtpPromoIncrement[] = "ntp.promo_increment";
-
-// Amount of time each promo group should be shown a promo that is being slowly
-// rolled out, in seconds.
-const char kNtpPromoGroupTimeSlice[] = "ntp.promo_group_timeslice";
-
-// Number of groups to roll out this promo to.
-const char kNtpPromoGroupMax[] = "ntp.promo_group_max";
-
-// Number of views of this promo.
-const char kNtpPromoViews[] = "ntp.promo_views";
-
-// Max number of views of this promo.
-const char kNtpPromoViewsMax[] = "ntp.promo_views_max";
-
-// Target platform for this promo.
-const char kNtpPromoPlatform[] = "ntp.promo_platform";
-
-// Promo line from server.
-const char kNtpPromoLine[] = "ntp.promo_line";
-
-#if defined(OS_ANDROID)
-// Promo line from server (long).
-const char kNtpPromoLineLong[] = "ntp.promo_line_long";
-// Promo action that needs to be triggered
-const char kNtpPromoActionType[] = "ntp.promo_action_type";
-// Promo action arguments
-const char kNtpPromoActionArgs[] = "ntp.promo_action_args";
-#endif  // defined(OS_ANDROID)
-
-// Dates between which the NTP should show a promotional line downloaded
-// from the promo server.
-const char kNtpPromoStart[] = "ntp.promo_start";
-const char kNtpPromoEnd[] = "ntp.promo_end";
-
-// True if this promo should only be shown to G+ users.
-const char kNtpPromoGplusRequired[] = "ntp.gplus_required";
-
 // Boolean indicating whether the web store is active for the current locale.
 const char kNtpWebStoreEnabled[] = "ntp.webstore_enabled";
 
@@ -1855,6 +1800,9 @@ const char kTabStripLayoutType[] = "tab_strip_layout_type";
 // If true, cloud policy for the user is loaded once the user signs in.
 const char kLoadCloudPolicyOnSignin[] = "policy.load_cloud_policy_on_signin";
 
+// Debug information for SessionBackend.
+const char kSessionRestoreFilesCycled[] = "session_restore.files_cycled";
+
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
 
@@ -1998,6 +1946,8 @@ const char kPinnedLauncherApps[] =
 
 const char kLongPressTimeInSeconds[] =
     "gesture.long_press_time_in_seconds";
+const char kMaxDistanceBetweenTapsForDoubleTap[] =
+    "gesture.max_distance_between_taps_for_double_tap";
 const char kMaxDistanceForTwoFingerTapInPixels[] =
     "gesture.max_distance_for_two_finger_tap_in_pixels";
 const char kMaxSecondsBetweenDoubleClick[] =
@@ -2032,6 +1982,8 @@ const char kRailStartProportion[] =
     "gesture.rail_start_proportion";
 const char kSemiLongPressTimeInSeconds[] =
     "gesture.semi_long_press_time_in_seconds";
+const char kTouchScreenFlingAccelerationAdjustment[] =
+    "gesture.touchscreen_fling_acceleration_adjustment";
 #endif
 
 // Indicates whether the browser is in managed mode.

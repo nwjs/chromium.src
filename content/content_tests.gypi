@@ -216,6 +216,7 @@
         '../ipc/ipc.gyp:test_support_ipc',
         '../jingle/jingle.gyp:jingle_glue_test_util',
         '../media/media.gyp:media_test_support',
+        '../media/media.gyp:shared_memory_support',
         '../net/net.gyp:net_test_support',
         '../skia/skia.gyp:skia',
         '../testing/gmock.gyp:gmock',
@@ -233,6 +234,7 @@
         '../webkit/support/webkit_support.gyp:fileapi',
         '../webkit/support/webkit_support.gyp:glue',
         '../webkit/support/webkit_support.gyp:quota',
+        '../webkit/support/webkit_support.gyp:webkit_base',
         '../webkit/support/webkit_support.gyp:webkit_media',
         '../webkit/webkit.gyp:test_shell_test_support',
       ],
@@ -542,6 +544,7 @@
         '../net/net.gyp:net_test_support',
         '../ppapi/ppapi_internal.gyp:ppapi_host',
         '../ppapi/ppapi_internal.gyp:ppapi_proxy',
+        '../ppapi/ppapi_internal.gyp:ppapi_ipc',
         '../ppapi/ppapi_internal.gyp:ppapi_shared',
         '../ppapi/ppapi_internal.gyp:ppapi_unittest_shared',
         '../skia/skia.gyp:skia',
@@ -574,7 +577,6 @@
         'browser/fileapi/file_system_browsertest.cc',
         'browser/in_process_webkit/indexed_db_browsertest.cc',
         'browser/in_process_webkit/indexed_db_layout_browsertest.cc',
-        'browser/indexed_db/idbbindingutilities_browsertest.cc',
         'browser/media_browsertest.cc',
         'browser/plugin_data_remover_impl_browsertest.cc',
         'browser/plugin_browsertest.cc',
@@ -817,6 +819,9 @@
             {
               'action_name': 'content_shell_test_generate_apk',
               'inputs': [
+                '<(PRODUCT_DIR)/lib.java/chromium_base_javatests.jar',
+                '<(PRODUCT_DIR)/lib.java/chromium_net_javatests.jar',
+                '<(PRODUCT_DIR)/lib.java/chromium_content_javatests.jar',
                 '<(DEPTH)/content/shell/android/javatests/content_shell_test_apk.xml',
                 '<(DEPTH)/content/shell/android/javatests/AndroidManifest.xml',
                 '<!@(find <(DEPTH)/content/shell/android/javatests/ -name "*.java")'

@@ -23,7 +23,7 @@
 #include "net/test/test_server.h"
 #include "net/url_request/url_request_context_storage.h"
 #include "net/url_request/url_request_file_job.h"
-#include "net/url_request/url_request_job_factory.h"
+#include "net/url_request/url_request_job_factory_impl.h"
 #include "net/url_request/url_request_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
@@ -49,19 +49,21 @@ struct FetchResult {
 class CheckNoRevocationFlagSetInterceptor :
     public URLRequestJobFactory::Interceptor {
  public:
-  virtual URLRequestJob* MaybeIntercept(URLRequest* request) const OVERRIDE {
+  virtual URLRequestJob* MaybeIntercept(
+      URLRequest* request, NetworkDelegate* network_delegate) const OVERRIDE {
     EXPECT_TRUE(request->load_flags() & LOAD_DISABLE_CERT_REVOCATION_CHECKING);
     return NULL;
   }
 
-  virtual URLRequestJob* MaybeInterceptRedirect(const GURL& location,
-                                                URLRequest* request)
-      const OVERRIDE {
+  virtual URLRequestJob* MaybeInterceptRedirect(
+      const GURL& location,
+      URLRequest* request,
+      NetworkDelegate* network_delegate) const OVERRIDE {
     return NULL;
   }
 
-  virtual URLRequestJob* MaybeInterceptResponse(URLRequest* request)
-      const OVERRIDE{
+  virtual URLRequestJob* MaybeInterceptResponse(
+      URLRequest* request, NetworkDelegate* network_delegate) const OVERRIDE {
     return NULL;
   }
 };
@@ -88,7 +90,7 @@ class RequestContext : public URLRequestContext {
     storage_.set_http_transaction_factory(new HttpCache(
         network_session,
         HttpCache::DefaultBackend::InMemory(0)));
-    url_request_job_factory_.reset(new URLRequestJobFactory);
+    url_request_job_factory_.reset(new URLRequestJobFactoryImpl);
     set_job_factory(url_request_job_factory_.get());
     url_request_job_factory_->AddInterceptor(
         new CheckNoRevocationFlagSetInterceptor);

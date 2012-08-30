@@ -9,9 +9,11 @@
 #include <limits>
 #include <stdio.h>
 
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "base/run_loop.h"
 #include "base/time.h"
+#include "content/nw/src/shell_switches.h"
 #include "third_party/node/deps/uv/include/uv.h"
 
 #if !defined(OS_IOS)
@@ -685,6 +687,9 @@ bool MessagePumpMac::IsHandlingSendEvent() {
 // static
 MessagePump* MessagePumpMac::Create(bool forNode) {
   if ([NSThread isMainThread]) {
+    if (!CommandLine::ForCurrentProcess()->HasSwitch(switches::kmNodejs))
+      forNode = false;
+
 #if defined(OS_IOS)
     return new MessagePumpUIApplication;
 #else

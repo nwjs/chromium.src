@@ -41,7 +41,6 @@ class Rect;
 namespace views {
 
 class DropTargetWin;
-class FullscreenHandler;
 class HWNDMessageHandler;
 class InputMethodDelegate;
 class RootView;
@@ -85,11 +84,6 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   // Show the window with the specified show command.
   void Show(int show_state);
 
-  // Disable Layered Window updates by setting to false.
-  void set_can_update_layered_window(bool can_update_layered_window) {
-    can_update_layered_window_ = can_update_layered_window;
-  }
-
   // Obtain the view event with the given MSAA child id.  Used in
   // NativeViewAccessibilityWin::get_accChild to support requests for
   // children of windowless controls.  May return NULL
@@ -112,6 +106,8 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   void SetMetroSnapFullscreen(bool metro_snap);
 
   bool IsInMetroSnapMode() const;
+
+  void SetCanUpdateLayeredWindow(bool can_update);
 
   BOOL IsWindow() const {
     return ::IsWindow(GetNativeView());
@@ -428,23 +424,8 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   // behavior.
   virtual void OnFinalMessage(HWND window);
 
-  // Retrieve the show state of the window. This is one of the SW_SHOW* flags
-  // passed into Windows' ShowWindow method. For normal windows this defaults
-  // to SW_SHOWNORMAL, however windows (e.g. the main window) can override this
-  // method to provide different values (e.g. retrieve the user's specified
-  // show state from the shortcut starutp info).
-  virtual int GetShowState() const;
-
-  // Returns the insets of the client area relative to the non-client area of
-  // the window. Override this function instead of OnNCCalcSize, which is
-  // crazily complicated.
-  virtual gfx::Insets GetClientAreaInsets() const;
-
   // Called when a MSAA screen reader client is detected.
   virtual void OnScreenReaderDetected();
-
-  // Executes the specified SC_command.
-  void ExecuteSystemMenuCommand(int command);
 
   // The TooltipManager. This is NULL if there is a problem creating the
   // underlying tooltip window.
@@ -453,15 +434,6 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   scoped_ptr<TooltipManagerWin> tooltip_manager_;
 
   scoped_refptr<DropTargetWin> drop_target_;
-
-  const gfx::Rect& invalid_rect() const { return invalid_rect_; }
-
- private:
-  typedef ScopedVector<ui::ViewProp> ViewProps;
-
-  // TODO(beng): This friendship can be removed once all methods relating to
-  //             this object being a WindowImpl are moved to HWNDMessageHandler.
-  friend HWNDMessageHandler;
 
   // Overridden from HWNDMessageHandlerDelegate:
   virtual bool IsWidgetWindow() const OVERRIDE;
@@ -472,11 +444,22 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   virtual bool CanResize() const OVERRIDE;
   virtual bool CanMaximize() const OVERRIDE;
   virtual bool CanActivate() const OVERRIDE;
+  virtual bool CanSaveFocus() const OVERRIDE;
+  virtual void SaveFocusOnDeactivate() OVERRIDE;
+  virtual void RestoreFocusOnActivate() OVERRIDE;
+  virtual void RestoreFocusOnEnable() OVERRIDE;
+  virtual bool IsModal() const OVERRIDE;
+  virtual int GetInitialShowState() const OVERRIDE;
   virtual bool WillProcessWorkAreaChange() const OVERRIDE;
   virtual int GetNonClientComponent(const gfx::Point& point) const OVERRIDE;
   virtual void GetWindowMask(const gfx::Size& size, gfx::Path* path) OVERRIDE;
+  virtual bool GetClientAreaInsets(gfx::Insets* insets) const OVERRIDE;
   virtual void GetMinMaxSize(gfx::Size* min_size,
                              gfx::Size* max_size) const OVERRIDE;
+  virtual gfx::Size GetRootViewSize() const OVERRIDE;
+  virtual void ResetWindowControls() OVERRIDE;
+  virtual void UpdateFrame() OVERRIDE;
+  virtual void PaintLayeredWindow(gfx::Canvas* canvas) OVERRIDE;
   virtual gfx::NativeViewAccessible GetNativeViewAccessible() OVERRIDE;
   virtual InputMethod* GetInputMethod() OVERRIDE;
   virtual void HandleAppDeactivated() OVERRIDE;
@@ -485,8 +468,11 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   virtual void HandleCaptureLost() OVERRIDE;
   virtual void HandleClose() OVERRIDE;
   virtual bool HandleCommand(int command) OVERRIDE;
+  virtual void HandleAccelerator(const ui::Accelerator& accelerator) OVERRIDE;
   virtual void HandleCreate() OVERRIDE;
-  virtual void HandleDestroy() OVERRIDE;
+  virtual void HandleDestroying() OVERRIDE;
+  virtual void HandleDestroyed() OVERRIDE;
+  virtual bool HandleInitialFocus() OVERRIDE;
   virtual void HandleDisplayChange() OVERRIDE;
   virtual void HandleGlassModeChange() OVERRIDE;
   virtual void HandleBeginWMSizeMove() OVERRIDE;
@@ -499,6 +485,8 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   virtual void HandleNativeBlur(HWND focused_window) OVERRIDE;
   virtual bool HandleMouseEvent(const ui::MouseEvent& event) OVERRIDE;
   virtual bool HandleKeyEvent(const ui::KeyEvent& event) OVERRIDE;
+  virtual bool HandlePaintAccelerated(const gfx::Rect& invalid_rect) OVERRIDE;
+  virtual void HandlePaint(gfx::Canvas* canvas) OVERRIDE;
   virtual void HandleScreenReaderDetected() OVERRIDE;
   virtual bool HandleTooltipNotify(int w_param,
                                    NMHDR* l_param,
@@ -508,82 +496,24 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
                                       LPARAM l_param) OVERRIDE;
   virtual NativeWidgetWin* AsNativeWidgetWin() OVERRIDE;
 
-  // Called after the WM_ACTIVATE message has been processed by the default
-  // windows procedure.
-  static void PostProcessActivateMessage(NativeWidgetWin* widget,
-                                         int activation_state);
+ private:
+  typedef ScopedVector<ui::ViewProp> ViewProps;
+
+  // TODO(beng): This friendship can be removed once all methods relating to
+  //             this object being a WindowImpl are moved to HWNDMessageHandler.
+  friend HWNDMessageHandler;
 
   void SetInitParams(const Widget::InitParams& params);
 
-  // Synchronously paints the invalid contents of the Widget.
-  void RedrawInvalidRect();
-
-  // Synchronously updates the invalid contents of the Widget. Valid for
-  // layered windows only.
-  void RedrawLayeredWindowContents();
-
   // Determines whether the delegate expects the client size or the window size.
   bool WidgetSizeIsClientSize() const;
-
-  // Stops ignoring SetWindowPos() requests (see below).
-  void StopIgnoringPosChanges() { ignore_window_pos_changes_ = false; }
-
-  void RestoreEnabledIfNecessary();
-
-  void SetInitialFocus();
-
-  // Notifies any owned windows that we're closing.
-  void NotifyOwnedWindowsParentClosing();
 
   // A delegate implementation that handles events received here.
   // See class documentation for Widget in widget.h for a note about ownership.
   internal::NativeWidgetDelegate* delegate_;
 
-  // The following factory is used for calls to close the NativeWidgetWin
-  // instance.
-  base::WeakPtrFactory<NativeWidgetWin> close_widget_factory_;
-
-  // Should we keep an off-screen buffer? This is false by default, set to true
-  // when WS_EX_LAYERED is specified before the native window is created.
-  //
-  // NOTE: this is intended to be used with a layered window (a window with an
-  // extended window style of WS_EX_LAYERED). If you are using a layered window
-  // and NOT changing the layered alpha or anything else, then leave this value
-  // alone. OTOH if you are invoking SetLayeredWindowAttributes then you'll
-  // most likely want to set this to false, or after changing the alpha toggle
-  // the extended style bit to false than back to true. See MSDN for more
-  // details.
-  bool use_layered_buffer_;
-
-  // The default alpha to be applied to the layered window.
-  BYTE layered_alpha_;
-
-  // A canvas that contains the window contents in the case of a layered
-  // window.
-  scoped_ptr<gfx::Canvas> layered_window_contents_;
-
-  // We must track the invalid rect ourselves, for two reasons:
-  // For layered windows, Windows will not do this properly with
-  // InvalidateRect()/GetUpdateRect(). (In fact, it'll return misleading
-  // information from GetUpdateRect()).
-  // We also need to keep track of the invalid rectangle for the RootView should
-  // we need to paint the non-client area. The data supplied to WM_NCPAINT seems
-  // to be insufficient.
-  gfx::Rect invalid_rect_;
-
-  // A factory that allows us to schedule a redraw for layered windows.
-  base::WeakPtrFactory<NativeWidgetWin> paint_layered_window_factory_;
-
   // See class documentation for Widget in widget.h for a note about ownership.
   Widget::InitParams::Ownership ownership_;
-
-  // True if we are allowed to update the layered window from the DIB backing
-  // store if necessary.
-  bool can_update_layered_window_;
-
-  // Whether the focus should be restored next time we get enabled.  Needed to
-  // restore focus correctly when Windows modal dialogs are displayed.
-  bool restore_focus_when_enabled_;
 
   // Instance of accessibility information and handling for MSAA root
   base::win::ScopedComPtr<IAccessible> accessibility_root_;
@@ -602,33 +532,11 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   // we always mod this value with the max view events above .
   int accessibility_view_events_index_;
 
-  // The last cursor that was active before the current one was selected. Saved
-  // so that we can restore it.
-  gfx::NativeCursor previous_cursor_;
-
   ViewProps props_;
 
   // The window styles before we modified them for the drag frame appearance.
   DWORD drag_frame_saved_window_style_;
   DWORD drag_frame_saved_window_ex_style_;
-
-  // When true, this flag makes us discard incoming SetWindowPos() requests that
-  // only change our position/size.  (We still allow changes to Z-order,
-  // activation, etc.)
-  bool ignore_window_pos_changes_;
-
-  // The following factory is used to ignore SetWindowPos() calls for short time
-  // periods.
-  base::WeakPtrFactory<NativeWidgetWin> ignore_pos_changes_factory_;
-
-  // The last-seen monitor containing us, and its rect and work area.  These are
-  // used to catch updates to the rect and work area and react accordingly.
-  HMONITOR last_monitor_;
-  gfx::Rect last_monitor_rect_, last_work_area_;
-
-  // Whether all ancestors have been enabled. This is only used if is_modal_ is
-  // true.
-  bool restored_enabled_;
 
   // True if the widget is going to have a non_client_view. We cache this value
   // rather than asking the Widget for the non_client_view so that we know at
@@ -636,7 +544,6 @@ class VIEWS_EXPORT NativeWidgetWin : public ui::WindowImpl,
   bool has_non_client_view_;
 
   scoped_ptr<HWNDMessageHandler> message_handler_;
-  scoped_ptr<FullscreenHandler> fullscreen_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetWin);
 };

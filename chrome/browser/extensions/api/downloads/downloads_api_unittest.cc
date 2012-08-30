@@ -44,12 +44,13 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_job.h"
+#include "net/url_request/url_request_job_factory_impl.h"
 #include "net/url_request/url_request_job_factory.h"
 #include "webkit/blob/blob_data.h"
 #include "webkit/blob/blob_storage_controller.h"
 #include "webkit/blob/blob_url_request_job.h"
 #include "webkit/fileapi/file_system_context.h"
-#include "webkit/fileapi/file_system_operation_interface.h"
+#include "webkit/fileapi/file_system_operation.h"
 #include "webkit/fileapi/file_system_url.h"
 
 using content::BrowserContext;
@@ -626,9 +627,11 @@ class TestProtocolHandler : public net::URLRequestJobFactory::ProtocolHandler {
   virtual ~TestProtocolHandler() {}
 
   virtual net::URLRequestJob* MaybeCreateJob(
-      net::URLRequest* request) const OVERRIDE {
+      net::URLRequest* request,
+      net::NetworkDelegate* network_delegate) const OVERRIDE {
     return new webkit_blob::BlobURLRequestJob(
         request,
+        network_delegate,
         blob_storage_controller_->GetBlobDataFromUrl(request->url()),
         base::MessageLoopProxy::current());
   }
@@ -656,7 +659,7 @@ class TestURLRequestContext : public net::URLRequestContext {
   }
 
  private:
-  net::URLRequestJobFactory job_factory_;
+  net::URLRequestJobFactoryImpl job_factory_;
   scoped_ptr<webkit_blob::BlobStorageController> blob_storage_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(TestURLRequestContext);
@@ -718,7 +721,7 @@ class HTML5FileWriter {
         &HTML5FileWriter::CreateFile, base::Unretained(this))));
   }
 
-  fileapi::FileSystemOperationInterface* operation() {
+  fileapi::FileSystemOperation* operation() {
     return fs_->CreateFileSystemOperation(fileapi::FileSystemURL(GURL(root_)));
   }
 

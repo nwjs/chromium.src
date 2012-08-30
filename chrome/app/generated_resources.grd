@@ -5456,12 +5456,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_FORCE_HIGH_DPI_DESCRIPTION" desc="Description of the 'Force high DPI mode' lab.">
         Overrides the device display density to force the use of high DPI mode and assets.
       </message>
-      <message name="IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_NAME" desc="Name of the 'Enable high DPI PDF Plugin' lab.">
-        Enable high DPI Chrome PDF Viewer
-      </message>
-      <message name="IDS_FLAGS_ENABLE_HIGH_DPI_PDF_PLUGIN_DESCRIPTION" desc="Description of the 'Enable high DPI PDF Plugin' lab.">
-        Enables high DPI mode for the Chrome PDF Viewer on high DPI displays.
-      </message>
       <message name="IDS_FLAGS_IGNORE_GPU_BLACKLIST_NAME" desc="Name of the 'Ignore GPU blacklist' lab.">
         Override software rendering list
       </message>
@@ -5790,11 +5784,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_POINTER_LOCK_DESCRIPTION" desc="Description for the flag to enable the mouse lock feature.">
         Web pages may capture the mouse pointer and remove it from the user's control. The mouse movement data is directed solely to the web application. Users can escape by pressing the 'Esc' key.
       </message>
-      <message name="IDS_FLAGS_ENABLE_WEBSITE_SETTINGS_NAME" desc="Title for the flag to enable the website settings feature.">
-        Website Settings UI
+      <message name="IDS_FLAGS_DISABLE_WEBSITE_SETTINGS_NAME" desc="Title for the flag to enable the website settings feature.">
+        Disable the Website Settings UI
       </message>
-      <message name="IDS_FLAGS_ENABLE_WEBSITE_SETTINGS_DESCRIPTION" desc="Title for the flag to enable the website settings feature.">
-        Enables the Website Settings UI. The Website Settings UI replaces the page info bubble and provides an easy way to configure site-specific settings.
+      <message name="IDS_FLAGS_DISABLE_WEBSITE_SETTINGS_DESCRIPTION" desc="Title for the flag to enable the website settings feature.">
+        Disables the Website Settings UI that replaces the page info bubble and provides an easy way to configure site-specific settings.
       </message>
       
       <message name="IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT" desc="Generic 'Default' experiment choice option name. E.G. shown in multi value options in about:flags.">
@@ -5967,11 +5961,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ALLOW_NACL_SOCKET_API_DESCRIPTION" desc="Description for the NaCl Socket API feature.">
         Allows applications to use NaCl Socket API. Use only to test NaCl plugins.
       </message>
-      <message name="IDS_FLAGS_EXPERIMENTAL_WALLPAPER_UI_NAME" desc="Name of the flag to enable experimental wallpaper picker ui in chromeos.">
-        Experimental Wallpaper UI.
+      <message name="IDS_FLAGS_NEW_WALLPAPER_UI_NAME" desc="Name of the flag to enable new wallpaper picker UI in ChromeOS.">
+        The new wallpaper picker UI.
       </message>
-      <message name="IDS_FLAGS_EXPERIMENTAL_WALLPAPER_UI_DESCRIPTION" desc="Description of the flag to enabel experimental wallpaper picker ui in chromeos.">
-        Enables the experimental wallpaper UI.
+      <message name="IDS_FLAGS_NEW_WALLPAPER_UI_DESCRIPTION" desc="Description of the flag to enable new wallpaper picker UI in ChromeOS.">
+        Enables the new wallpaper picker UI.
       </message>
       <message name="IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_NAME" desc="Name of the flag to disable extended desktop in ash.">
         Disable extended desktop support.
@@ -8172,9 +8166,6 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
       <message name="IDS_ERRORPAGES_HEADING_WEAK_SERVER_EPHEMERAL_DH_KEY" desc="Heading of the error page when the server has a weak Diffie-Hellman public key. Diffie-Hellman is a technical term and the conjuction of two names so may be best left untranslated. 'key' here is used as the technical name for a large number with certain mathematical properties that allow it to be used to encrypt and decrypt data. 'weak' here means that the number is too small to resist an exhaustive attempt to find certain mathematical structures in it, the secrecy of which is critical.">
         Server has a weak ephemeral Diffie-Hellman public key
       </message>
-      <message name="IDS_ERRORPAGES_HEADING_ESET_ANTI_VIRUS_SSL_INTERCEPTION" desc="Heading of the error page when we detect that ESET anti-virus is running and intercepting our HTTPS connections. 'ESET' is a product name and may be best left untranslated.">
-        Cannot make secure connection because of ESET anti-virus
-      </message>
       <message name="IDS_ERRORPAGES_HEADING_BLOCKED" desc="Heading of the error page when a request is blocked by an extension.">
         This webpage was blocked by an extension
       </message>
@@ -8391,51 +8382,6 @@ The following plug-in is unresponsive: <ph name="PLUGIN_NAME">$1
         <ph name="PRODUCT_NAME">&lt;span jscontent="productName"&gt;&lt;/span&gt;<ex>Google Chrome</ex></ph>
         won't use insecure connections in order to protect your privacy.
       </message>
-
-      <if expr="pp_ifdef('android')">
-        <message name="IDS_ERRORPAGES_SUMMARY_ESET_ANTI_VIRUS_SSL_INTERCEPTION" desc="Mobile: Summary in the error page when we detect that ESET anti-virus is running and intercepting our HTTPS connections. 'ESET' is a product name and may be best left untranslated. 'Learn more' should be the contents of IDS_LEARN_MORE.">
-          <ph name="PRODUCT_NAME">&lt;span jscontent="productName"&gt;&lt;/span&gt;<ex>Google Chrome</ex></ph>
-          has detected that an ESET product is intercepting secure connections.
-          This is typically not a security issue as the ESET software is
-          usually running on the same mobile device. However, due to an intolerance
-          to specific aspects of
-          <ph name="PRODUCT_NAME">&lt;span jscontent="productName"&gt;&lt;/span&gt;<ex>Google Chrome</ex></ph>'s
-          secure connections, ESET products have to be configured to not
-          perform this interception. Click the 'Learn more' link for
-          instructions.
-        </message>
-
-        <message name="IDS_ERRORPAGES_SUMMARY_NETNANNY_SSL_INTERCEPTION" desc="Mobile: Summary in the error page when we detect that NetNanny is running and intercepting our HTTPS connections. 'NetNanny' is a product name and may be best left untranslated. 'Learn more' should be the contents of IDS_LEARN_MORE.">
-          <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> has detected that
-          NetNanny is intercepting secure connections. This is typically
-          not a security issue as the NetNanny software is usually running on the
-          same mobile device. However, due to an intolerance to specific aspects of
-          Chrome's secure connections, NetNanny has to be configured to not
-          perform this interception. Click the 'Learn more' link for instructions.
-        </message>
-      </if>
-      <if expr="not pp_ifdef('android')">
-        <message name="IDS_ERRORPAGES_SUMMARY_ESET_ANTI_VIRUS_SSL_INTERCEPTION" desc="Summary in the error page when we detect that ESET anti-virus is running and intercepting our HTTPS connections. 'ESET' is a product name and may be best left untranslated. 'Learn more' should be the contents of IDS_LEARN_MORE.">
-          <ph name="PRODUCT_NAME">&lt;span jscontent="productName"&gt;&lt;/span&gt;<ex>Google Chrome</ex></ph>
-          has detected that an ESET product is intercepting secure connections.
-          This is typically not a security issue as the ESET software is
-          usually running on the same computer. However, due to an intolerance
-          to specific aspects of
-          <ph name="PRODUCT_NAME">&lt;span jscontent="productName"&gt;&lt;/span&gt;<ex>Google Chrome</ex></ph>'s
-          secure connections, ESET products have to be configured to not
-          perform this interception. Click the 'Learn more' link for
-          instructions.
-        </message>
-
-        <message name="IDS_ERRORPAGES_SUMMARY_NETNANNY_SSL_INTERCEPTION" desc="Summary in the error page when we detect that NetNanny is running and intercepting our HTTPS connections. 'NetNanny' is a product name and may be best left untranslated. 'Learn more' should be the contents of IDS_LEARN_MORE.">
-          <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> has detected that
-          NetNanny is intercepting secure connections. This is typically
-          not a security issue as the NetNanny software is usually running on the
-          same computer. However, due to an intolerance to specific aspects of
-          Chrome's secure connections, NetNanny has to be configured to not
-          perform this interception. Click the 'Learn more' link for instructions.
-        </message>
-      </if>
 
       <message name="IDS_ERRORPAGES_DETAILS_TEMPLATE" desc="On the bottom of the error page text, there is a box that includes extra information for tech savvy users.">
         Error <ph name="ERROR_NUMBER">$1<ex>5</ex></ph> (<ph name="ERROR_NAME">$2<ex>net::ERR_FILE_NOT_FOUND</ex></ph>): <ph name="ERROR_TEXT">$3<ex>The requested file is not found.</ex></ph>
@@ -10157,6 +10103,10 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
                  desc="Text for the context menu item that takes the user to the options of an app. (In sentence case.)">
           Options
         </message>
+        <message name="IDS_NEW_TAB_APP_DETAILS"
+                 desc="Text for the context menu item that takes the user to the app in Web Store. (In sentence case.)">
+          View in Web Store
+        </message>
         <message name="IDS_NEW_TAB_APP_DISABLE_NOTIFICATIONS"
                  desc="Text for the context menu item to disable app notifications (In sentence case.)">
           Disable notifications
@@ -10199,6 +10149,10 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
         <message name="IDS_NEW_TAB_APP_OPTIONS"
                  desc="Text for the context menu item that takes the user to the options of an app. (In title case.)">
           Options
+        </message>
+        <message name="IDS_NEW_TAB_APP_DETAILS"
+                 desc="Text for the context menu item that takes the user to the app in Web Store. (In title case.)">
+          View in Web Store
         </message>
         <message name="IDS_NEW_TAB_APP_DISABLE_NOTIFICATIONS"
                  desc="Text for the context menu item to disable app notifications (In title case.)">
@@ -11069,7 +11023,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_WALLPAPER_MANAGER_PREVIEW_LABEL" desc="Custom wallpaper preview label.">
         Preview:
       </message>
- 
+      <message name="IDS_WALLPAPER_MANAGER_DOWNLOADING_LABEL" desc="Downloading in progress label.">
+        Downloading
+      </message>
+
       <!-- File Browser -->
       <message name="IDS_FILE_BROWSER_ROOT_DIRECTORY_LABEL" desc="Root directory label.">
         Files
@@ -11220,6 +11177,26 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_INSTALL_CRX" desc="Title of the action for installing extension from CRX file.">
         Open
+      </message>
+
+      <message name="IDS_FILE_BROWSER_GALLERY_NO_IMAGES" desc="In the Gallery, the message that there are no images in this directory.">
+        No images in this directory.
+      </message>
+      <message name="IDS_FILE_BROWSER_GALLERY_ITEMS_SELECTED" desc="In the Gallery, the message showing the selected item count.">
+        <ph name="COUNT">$1<ex>3</ex></ph> items selected
+      </message>
+
+      <message name="IDS_FILE_BROWSER_GALLERY_MOSAIC" desc="In the Gallery, the title on the button that switches to the mosaic view.">
+        Mosaic view
+      </message>
+      <message name="IDS_FILE_BROWSER_GALLERY_SLIDE" desc="In the Gallery, the title on the button that switches to the slide view.">
+        Slide view
+      </message>
+      <message name="IDS_FILE_BROWSER_GALLERY_SLIDESHOW" desc="In the Gallery, the title on the button that starts the slide show.">
+        Slide show
+      </message>
+      <message name="IDS_FILE_BROWSER_GALLERY_DELETE" desc="In the Gallery, the title on the button that deletes selected images.">
+        Delete
       </message>
 
       <message name="IDS_FILE_BROWSER_GALLERY_EDIT" desc="In the Gallery, the title on the button shows/hides editing buttons.">
@@ -13322,6 +13299,12 @@ Press any key to continue exploring.
       <message name="IDS_CHECKING_FOR_UPDATES" desc="Notification for checking for update">
         Checking for updates
       </message>
+      <message name="IDS_UPDATE_VERIFYING" desc="Message that the system is verifying an update">
+	Verifying...
+      </message>
+      <message name="IDS_UPDATE_FINALIZING" desc="Message that the system is finalizing an update">
+	Finalizing...
+      </message>
       <message name="IDS_IMAGEBURN_HEADER_TITLE" desc="Title that is displayed on image burning webpage ">
         Create OS Recovery Media
       </message>
@@ -13571,15 +13554,6 @@ Press any key to continue exploring.
       <message name="IDS_UPDATE_AVAILABLE" desc="Notification for available update">
         System update available. Preparing to download&#x2026;
       </message>
-      <message name="IDS_UPDATE_DOWNLOADING" desc="Notification for update download progress">
-        System update downloading: <ph name="PERCENT">$1<ex>10</ex></ph>&#37; complete.
-      </message>
-      <message name="IDS_UPDATE_VERIFYING" desc="Notification for update verifying">
-        Verifying system update&#x2026;
-      </message>
-      <message name="IDS_UPDATE_FINALIZING" desc="Notification for update finalizing">
-        Finalizing system update&#x2026;
-      </message>
       <message name="IDS_UPDATE_COMPLETED" desc="Notification for update completed">
         System update complete. Please restart the system.
       </message>
@@ -13588,6 +13562,9 @@ Press any key to continue exploring.
       </message>
       <message name="IDS_INSTALLING_UPDATE_DESC" desc="Additional info shown on the updates installation screen during OOBE">
         Your computer will restart when the update is complete.
+      </message>
+      <message name="IDS_DOWNLOADING" desc="The format for ETA during the update downloading stage">
+	Downloading: <ph name="STATUS">$1<ex>Less than 1 minute left</ex></ph>
       </message>
       <message name="IDS_DOWNLOADING_TIME_LEFT_LONG" desc="The status text for downloading estimated time left, when estimated time is more than one hour">
 	More than 1 hour left
@@ -13687,6 +13664,12 @@ Press any key to continue exploring.
       </message>
       <message name="IDS_LOGIN_REMOVE">
         Remove
+      </message>
+      <message name="IDS_DISABLED_ADD_USER_TOOLTIP" desc="Tooltip over disabled Add user button">
+        The owner of this device has disabled new users from being added
+      </message>
+      <message name="IDS_DISABLED_ADD_USER_TOOLTIP_ENTERPRISE" desc="Tooltip over disabled Add user button">
+        The administrator of this device has disabled new users from being added
       </message>
       <message name="IDS_KIOSK_MODE_LOGIN_MESSAGE">
         Click to start
@@ -13887,9 +13870,6 @@ Press any key to continue exploring.
       <message name="IDS_OPTIONS_SETTINGS_SECTION_TITLE_ACCESSIBILITY">
         Accessibility
       </message>
-      <message name="IDS_OPTIONS_SETTINGS_SECTION_TITLE_DISPLAY">
-        Display
-      </message>
       <message name="IDS_OPTIONS_SETTINGS_TIMEZONE_DESCRIPTION" desc="In the settings tab, the text next to the timezone combobox.">
         Time zone:
       </message>
@@ -14030,6 +14010,9 @@ Press any key to continue exploring.
       </message>
       <message name="IDS_OPTIONS_SETTINGS_ACCESSIBILITY_VIRTUAL_KEYBOARD_DESCRIPTION" desc="In the settings tab, the text next to the checkbox for virtual keyboard.">
         Enable virtual keyboard
+      </message>
+      <message name="IDS_OPTIONS_SETTINGS_DISPLAY_OPTIONS_BUTTON_LABEL" desc="Label for the button opening display settings tab.">
+        Display settings
       </message>
       <message name="IDS_OPTIONS_SETTINGS_DISPLAY_OPTIONS_TAB_TITLE" desc="Title for the display settings tab.">
         Manage displays
@@ -16059,6 +16042,12 @@ Battery full
       <message name="IDS_KEYBOARD_OVERLAY_JAVASCRIPT_CONSOLE" desc="The text in the keyboard overlay to explain the shortcut.">
         JavaScript Console
       </message>
+      <message name="IDS_KEYBOARD_OVERLAY_KEYBOARD_BRIGHT_DOWN" desc="The text in the keyboard overlay to explain the shortcut (decrease the keyboard brightness).">
+        Decrease key brightness
+      </message>
+      <message name="IDS_KEYBOARD_OVERLAY_KEYBOARD_BRIGHT_UP" desc="The text in the keyboard overlay to explain the shortcut (increase the keyboard brightness).">
+        Increase key brightness
+      </message>
       <message name="IDS_KEYBOARD_OVERLAY_LOCK_SCREEN" desc="The text in the keyboard overlay to explain the shortcut (lock the screen).">
         Lock screen
       </message>
@@ -17217,15 +17206,6 @@ Battery full
 
     <!-- Aura strings -->
     <if expr="pp_ifdef('use_ash')">
-      <message name="IDS_SEARCH_BOX_HINT" desc="Hint text for the search box in app list window.">
-        Search
-      </message>
-      <message name="IDS_APP_LIST_CONTEXT_MENU_PIN" desc="Title text for the 'pin' context menu item of an app list item.">
-        Pin to Launcher
-      </message>
-      <message name="IDS_APP_LIST_CONTEXT_MENU_UNPIN" desc="Title text for the 'unpin' context menu item of an app list item.">
-        Unpin from Launcher
-      </message>
       <message name="IDS_LAUNCHER_CONTEXT_MENU_CLOSE" desc="Title text for the 'close' context menu item of the launcher">
         Close
       </message>
@@ -17401,6 +17381,17 @@ Battery full
       Add Media Gallery by Directory
     </message>
 
+    <!-- App List. -->
+    <message name="IDS_APP_LIST_CONTEXT_MENU_PIN" desc="Title text for the 'pin' context menu item of an app list item.">
+      Pin to Launcher
+    </message>
+    <message name="IDS_APP_LIST_CONTEXT_MENU_UNPIN" desc="Title text for the 'unpin' context menu item of an app list item.">
+      Unpin from Launcher
+    </message>
+    <message name="IDS_SEARCH_BOX_HINT" desc="Hint text for the search box in app list window.">
+      Search
+    </message>
+
     <!-- chrome://diagnostics strings -->
     <if expr="pp_ifdef('chromeos')">
       <message name="IDS_DIAGNOSTICS_DIAGNOSTICS_TITLE" desc="Title for the diagnostics page.">
@@ -17425,7 +17416,7 @@ Battery full
         3G
       </message>
       <message name="IDS_DIAGNOSTICS_TESTING_HARDWARE" desc="Indicates testing network hardware.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>1. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing <ph name="ADAPTER_NAME">$2<ex>Wi-Fi</ex></ph> hardware...
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>1. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> hardware...
       </message>
       <message name="IDS_DIAGNOSTICS_TESTING_CONNECTION_TO_ROUTER" desc="Indicates testing connection to router.">
         <ph name="BEGIN_BOLD">&lt;b&gt;</ph>2. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to router...
