@@ -1321,8 +1321,17 @@ void GDataFileSystem::RemoveOnUIThreadAfterGetEntryInfo(
     }
     return;
   }
-
   DCHECK(entry_proto.get());
+
+  // The edit URL can be empty for some reason.
+  if (entry_proto->edit_url().empty()) {
+    if (!callback.is_null()) {
+      base::MessageLoopProxy::current()->PostTask(
+          FROM_HERE, base::Bind(callback, GDATA_FILE_ERROR_NOT_FOUND));
+    }
+    return;
+  }
+
   documents_service_->DeleteDocument(
       GURL(entry_proto->edit_url()),
       base::Bind(&GDataFileSystem::OnRemovedDocument,
