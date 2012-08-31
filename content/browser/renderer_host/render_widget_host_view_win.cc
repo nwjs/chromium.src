@@ -418,7 +418,10 @@ class LocalGestureEvent :
     data().globalY = screen_point.y;
     data().type = ConvertToWebInputEvent(type_);
     data().boundingBox = details.bounding_box();
-
+    data().modifiers =
+        (base::win::IsShiftPressed() ? WebKit::WebGestureEvent::ShiftKey : 0)
+        | (base::win::IsCtrlPressed() ? WebKit::WebGestureEvent::ControlKey : 0)
+        | (base::win::IsAltPressed() ? WebKit::WebGestureEvent::AltKey : 0);
     // Copy any event-type specific data.
     switch (type_) {
       case ui::ET_GESTURE_TAP:
@@ -2382,6 +2385,8 @@ LRESULT RenderWidgetHostViewWin::OnGestureEvent(
       UINT message, WPARAM wparam, LPARAM lparam, BOOL& handled) {
   TRACE_EVENT0("browser", "RenderWidgetHostViewWin::OnGestureEvent");
 
+  // Note that as of M22, touch events are enabled by default on Windows.
+  // This code should not be reachable.
   DCHECK(!touch_events_enabled_);
   handled = FALSE;
 
