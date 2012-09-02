@@ -45,7 +45,7 @@ static bool ShouldInstallInProfile(Profile* profile) {
       // always the case (http:/crbug.com/145351).
       chrome::VersionInfo version_info;
       bool is_new_profile =
-          profile_->WasCreatedByVersionOrLater(version_info.Version().c_str());
+          profile->WasCreatedByVersionOrLater(version_info.Version().c_str());
       // Android excludes most of the first run code, so it can't determine
       // if this is a first run. That's OK though, because Android doesn't
       // use default apps in general.
