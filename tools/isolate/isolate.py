@@ -270,7 +270,8 @@ def recreate_tree(outdir, indir, infiles, action, as_sha1):
   assert action in (
       run_test_from_archive.HARDLINK,
       run_test_from_archive.SYMLINK,
-      run_test_from_archive.COPY)
+      run_test_from_archive.COPY,
+      run_test_from_archive.COPY_READABLE_ALL)
   outdir = os.path.normpath(outdir)
   if not os.path.isdir(outdir):
     logging.info ('Creating %s' % outdir)
@@ -364,8 +365,12 @@ class Flattenable(object):
   MEMBERS = ()
 
   def flatten(self):
-    """Returns a json-serializable version of itself."""
-    return dict((member, getattr(self, member)) for member in self.MEMBERS)
+    """Returns a json-serializable version of itself.
+
+    Skips None entries.
+    """
+    items = ((member, getattr(self, member)) for member in self.MEMBERS)
+    return dict((member, value) for member, value in items if value is not None)
 
   @classmethod
   def load(cls, data):
@@ -568,13 +573,13 @@ class CompleteState(object):
   def save_files(self):
     """Saves both self.result and self.saved_state."""
     logging.debug('Dumping to %s' % self.result_file)
-    trace_inputs.write_json(self.result_file, self.result.flatten(), False)
+    trace_inputs.write_json(self.result_file, self.result.flatten(), True)
     total_bytes = sum(i.get('size', 0) for i in self.result.files.itervalues())
     if total_bytes:
       logging.debug('Total size: %d bytes' % total_bytes)
     saved_state_file = result_to_state(self.result_file)
     logging.debug('Dumping to %s' % saved_state_file)
-    trace_inputs.write_json(saved_state_file, self.saved_state.flatten(), False)
+    trace_inputs.write_json(saved_state_file, self.saved_state.flatten(), True)
 
   @property
   def root_dir(self):
@@ -690,7 +695,7 @@ def CMDhashtable(args):
         outdir=options.outdir,
         indir=complete_state.root_dir,
         infiles=complete_state.result.files,
-        action=run_test_from_archive.HARDLINK,
+        action=run_test_from_archive.COPY_READABLE_ALL,
         as_sha1=True)
 
     complete_state.save_files()
@@ -712,7 +717,8 @@ def CMDhashtable(args):
         return 0
 
     run_test_from_archive.link_file(
-        outfile, complete_state.result_file, run_test_from_archive.HARDLINK)
+        outfile, complete_state.result_file,
+        run_test_from_archive.COPY_READABLE_ALL)
     success = True
     return 0
   finally:

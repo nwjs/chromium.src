@@ -104,6 +104,8 @@ enum IPCMessageStart {
   ChromotingMsgStart,
   OldBrowserPluginMsgStart,
   BrowserPluginMsgStart,
+  HyphenatorMsgStart,
+  AndroidWebViewMsgStart,
   LastIPCMsgStart      // Must come last.
 };
 

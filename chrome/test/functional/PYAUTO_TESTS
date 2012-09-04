@@ -42,29 +42,22 @@
       'downloads',
       'execute_javascript',
       'extensions',
-      'flash',
       'fullscreen_mouselock',
-      'history',
       'gtalk.test_basic',
       'imports',
       'infobars',
       'instant',
       'multiprofile',
-      'navigation',
       'notifications',
       'ntp',
       'omnibox',
       'passwords',
-      'plugins',
-      'plugins_check',
       'policy',
       'policy_prefs_ui',
-      'popups',
       'prefs',
       'prefs_ui',
       'pyauto_webdriver',
       'search_engines',
-      'shortcuts',
       'special_tabs',
       'sync.SyncTest',
       'test_pyauto',
@@ -85,9 +78,6 @@
 
       # crosbug.com/136875
       '-fullscreen_mouselock.FullscreenMouselockTest.testTabFSDoesNotExitForAnchorLinks',
-      # crbug.com/142677
-      '-gtalk.test_basic.BasicTest.testCurrentVersion',
-      '-gtalk.test_basic.BasicTest.testRCVersion',
       # crbug.com/131874
       '-infobars.OneClickInfobarTest.testNoOneClickInfobarAfterCancel',
       # crbug.com/133315
@@ -104,34 +94,20 @@
       '-omnibox.OmniboxTest.testAutoCompleteForNonAsciiSearch',
       # crbug.com/137041
       '-omnibox.OmniboxTest.testDifferentTypesOfResults',
-      # crbug.com/86524
-      '-plugins.PluginsTest.testAllowPluginException',
-      # crbug.com/97140
-      '-plugins.PluginsTest.testDisableEnableAllPlugins',
-      # crbug.com/85307
-      '-plugins.PluginsTest.testKillAndReloadAllPlugins',
       # crbug.com/115427
       '-policy.PolicyTest.testAlwaysAuthorizePlugins',
       # crbug.com/118054
       '-policy.PolicyTest.testApplicationLocaleValue',
-      # crbug.com/131258
-      '-policy.PolicyTest.testDefaultSearchProviderOptions',
       # crbug.com/96896
       '-policy.PolicyTest.testEnabledPlugins',
       # crbug.com/118123
       '-policy.PolicyTest.testExtensionInstallFromForceList',
-      # crbug.com/47935
-      '-popups.PopupsTest.testBlockedPopupNotShowInHistory',
-      # crbug.com/83827
-      '-popups.PopupsTest.testUnblockedPopupAddedToOmnibox',
       # crbug.com/85600
       '-prefs.PrefsTest.testNavigationStateOnSessionRestore',
       # crbug.com/112051
       '-prefs_ui.PrefsUITest.testChangeExceptionBehaviorUI',
       # crbug.com/88593
       '-sync.SyncTest.testPersonalStuffSyncSection',
-      # crbug.com/95140
-      '-translate.TranslateTest.testGoBackAndForwardToTranslatePage',
       # crbug.com/124913
       '-infobars.OneClickInfobarTest.testNoSameIDSigninForTwoProfiles',
       # crbug.com/124280
@@ -207,8 +183,6 @@
       '-omnibox.OmniboxTest.testContentHistory',
       # Keychain popups make autofill/password tests difficult: crbug.com/49378
       '-passwords',
-      # crbug.com/97140
-      '-plugins.PluginsTest.testDisableEnableAllPlugins',
       # crbug.com/130094
       '-policy',
       '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
@@ -339,16 +313,12 @@
       '-passwords.PasswordTest.testClearFetchedCredForNewUserName',
       '-passwords.PasswordTest.testSavedPasswordInTabsAndWindows',
       # onunload popups get created in the same window on chromeos
-      # crosbug.com/14924
-      '-popups.PopupsTest.testPopupsLaunchWhenTabIsClosed',
       # Session restore not working with PyAuto.  crosbug.com/12648
       '-prefs.PrefsTest.testNavigationStateOnSessionRestore',
       '-prefs.PrefsTest.testSessionRestoreURLs',
       '-prefs.PrefsTest.testSessionRestore',
       # sync tests were running into a secondary passphrase. crosbug.com/15016.
       '-sync',
-      # crbug.com/109035
-      '-plugins.PluginsTest.testBlockPluginException',
       # Deal with i18n chars.  crosbug.com/12639
       '-downloads.DownloadsTest.testCrazyFilenames',
       '-omnibox.OmniboxTest.testCrazyFilenames',
@@ -383,11 +353,6 @@
       # Permanently-disabled tests.
       # ===========================
       '-infobars.InfobarTest.testPluginCrashForMultiTabs',
-      '-flash.FlashTest.testCanLoadFlash',
-      '-flash.FlashTest.testFlashLoadsAfterKill',
-      '-flash.FlashTest.testFlashIncognitoMode',
-      '-flash.FlashTest.testFlashWithMultipleTabs',
-      '-flash.FlashTest.testSingleFlashPluginProcess',
       '-ntp.NTPTest.testGetAppsWhenInstallApp',
       '-ntp.NTPTest.testLaunchAppNewWindow',
       '-ntp.NTPTest.testLaunchAppPinnedTab',
@@ -411,9 +376,6 @@
       '-passwords.PasswordTest.testLoginCredsNotShownInIncognito',
       '-passwords.PasswordTest.testNeverSavePasswords',
       '-passwords.PasswordTest.testPasswordInfobarShowsForBlockedDomain',
-      '-plugins.PluginsTest.testBlockAllPlugins',
-      '-popups.PopupsTest.testMultiplePopups',
-      '-popups.PopupsTest.testPopupBlockedEverySec',
     ],
 
     'win': [
@@ -446,7 +408,6 @@
       'about_plugins_ui.ChromeAboutPluginsUITest',
       'media.media_basic_playback',
       'nacl_sdk',
-      'translate',
       'youtube',
 
       # ===========================
@@ -461,14 +422,8 @@
       # The source is behind.  Waiting for dev to automate the update.
       # crbug.com/109160
       '-execute_javascript.ExecuteJavascriptTest.testExecuteJavascriptInExtension',
-      # crbug.com/132272
-      '-shortcuts.ShortcutsTest.testHelpShortcut',
       # crbug.com/132285
       '-special_tabs.SpecialTabsTest.testSpecialURLTabs',
-      # crbug.com/129802
-      '-translate.TranslateTest.testAlwaysTranslateLanguageButton',
-      '-translate.TranslateTest.testChangeTargetLanguageAlwaysTranslate',
-      '-translate.TranslateTest.testToggleTranslateOption',
     ],
 
     'win': [
@@ -495,8 +450,6 @@
       '-gpu.GpuTest.test2dCanvas',
       # crbug.com/125424
       '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
-      # crbug.com/115646
-      '-translate.TranslateTest.testSeveralLanguages',
       # crbug.com/95621
       '-youtube.YoutubeTest.testPlayerStatus',
     ],
@@ -553,14 +506,6 @@
       # ===========================
       # No NaCl support on ChromeOS.
       '-nacl_sdk',
-
-      # ==================================================
-      # Disabled tests that need to be investigated/fixed.
-      # ==================================================
-      # Session restore not working with PyAuto.  crosbug.com/12648
-      '-translate.TranslateTest.testSessionRestore',
-      # Deal with i18n chars.  crosbug.com/12639
-      '-translate.TranslateTest.testDownloadsNotTranslated',
     ],
   },
 
@@ -711,8 +656,6 @@
       # This tests the value "0" for the RestoreOnStartup policy, which is not
       # supported on ChromeOS.
       '-policy.PolicyTest.testStartupOptionsHomepage',
-      # crbug.com/131258 crosbug.com/32068
-      '-policy.PolicyTest.testDefaultSearchProviderOptions',
       # crosbug.com/32069
       '-policy.PolicyTest.testTranslateEnabled',
     ],
@@ -778,8 +721,6 @@
       'media_stream_infobar',
       'webrtc_brutality_test',
       'webrtc_call',
-      # crbug.com/140465
-      '-webrtc_brutality_test.WebrtcBrutalityTest.testRepeatedGetUserMediaRequests'
     ],
   },
 
@@ -816,15 +757,11 @@
       '-omnibox',
       '-special_tabs',
       '-youtube.YoutubeTest.testPlayerStatus',
-      '-translate.TranslateTest.testSeveralLanguages',
-      '-translate.TranslateTest.testBarNotVisibleOnSSLErrorPage',
       '-ntp.NTPTest.testLaunchAppFullScreen',
       '-media.media_basic_playback.MediaConstrainedNetworkPerfTest.testBasicPlaybackMatrix',
       '-policy_prefs_ui.PolicyPrefsUITest.testNoUserPoliciesNoBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testToggleUserPolicyTogglesBanner',
       '-policy_prefs_ui.PolicyPrefsUITest.testUserPoliciesShowBanner',
-      '-popups.PopupsTest.testMultiplePopups',
-      '-popups.PopupsTest.testPopupBlockedEverySec',
       '-search_engines.SearchEnginesTest.testDiscoverSearchEngine',
       '-ntp.NTPTest.testUninstallApp',
       '-ntp.NTPTest.testLaunchAppWithDefaultSettings',

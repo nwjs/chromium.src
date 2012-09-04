@@ -25,9 +25,6 @@ import build_server
 build_server.main()
 
 from fake_fetchers import ConfigureFakeFetchers
-ConfigureFakeFetchers()
-
-from handler import Handler
 
 class Response(object):
   def __init__(self):
@@ -42,6 +39,7 @@ class Request(object):
   def __init__(self, path):
     self.headers = {}
     self.path = path
+    self.url = 'http://localhost' + path
 
 def _GetLocalPath():
   return os.path.join(sys.argv[0].rsplit('/', 1)[0], os.pardir, os.pardir)
@@ -89,6 +87,9 @@ if __name__ == '__main__':
   print('')
   print('  http://localhost:%s' % opts.port)
   print('')
+
+  ConfigureFakeFetchers(os.path.join(opts.directory, 'docs', 'server2'))
+  from handler import Handler
 
   RequestHandler.local_path = opts.directory
   server = HTTPServer(('', int(opts.port)), RequestHandler)

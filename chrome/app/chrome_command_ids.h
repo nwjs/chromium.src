@@ -78,6 +78,7 @@
 #define IDC_ADVANCED_PRINT              35007
 #define IDC_CHROME_TO_MOBILE_PAGE       35008
 #define IDC_PRINT_TO_DESTINATION        35009
+#define IDC_SHARE_PAGE                  35010
 
 // When adding a new encoding to this list, be sure to append it to the
 // EncodingMenuController::kValidEncodingIds array in
@@ -181,6 +182,7 @@
 #define IDC_EXTENSION_ERRORS            40031
 #define IDC_SHOW_SYNC_ERROR             40032
 #define IDC_SHOW_SETTINGS_CHANGE_FIRST  40033
+#define IDC_DEV_TOOLS_TOGGLE            40034
 #define IDC_SHOW_SETTINGS_CHANGE_LAST   40133
 #define IDC_SHOW_AVATAR_MENU            40134
 #define IDC_EXTENSION_DISABLED_FIRST    40135

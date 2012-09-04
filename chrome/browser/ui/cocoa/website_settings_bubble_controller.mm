@@ -4,6 +4,8 @@
 
 #import "chrome/browser/ui/cocoa/website_settings_bubble_controller.h"
 
+#include <cmath>
+
 #include "base/string_number_conversions.h"
 #include "base/sys_string_conversions.h"
 #import "chrome/browser/certificate_viewer.h"
@@ -14,7 +16,10 @@
 #import "chrome/browser/ui/cocoa/info_bubble_window.h"
 #import "chrome/browser/ui/cocoa/location_bar/location_bar_view_mac.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
+#include "chrome/common/url_constants.h"
 #include "content/public/browser/cert_store.h"
+#include "content/public/browser/page_navigator.h"
+#include "content/public/browser/web_contents.h"
 #include "grit/chromium_strings.h"
 #include "grit/generated_resources.h"
 #include "grit/theme_resources.h"
@@ -27,7 +32,7 @@ namespace {
 
 // The width of the window, in view coordinates. The height will be determined
 // by the content.
-const CGFloat kWindowWidth = 380;
+const CGFloat kWindowWidth = 310;
 
 // Spacing in between sections.
 const CGFloat kVerticalSpacing = 10;
@@ -38,8 +43,8 @@ const CGFloat kFramePadding = 20;
 // Padding between the window frame and content for the internal page bubble.
 const CGFloat kInternalPageFramePadding = 10;
 
-// Spacing between the optional headline and description text views.
-const CGFloat kHeadlineSpacing = 2;
+// Spacing between the headlines and description text on the Connection tab.
+const CGFloat kConnectionHeadlineSpacing = 2;
 
 // Spacing between images on the Connection tab and the text.
 const CGFloat kConnectionImageSpacing = 10;
@@ -64,7 +69,10 @@ const CGFloat kPermissionImageYAdjust = 1;
 const CGFloat kPermissionImageSpacing = 3;
 
 // The spacing between individual items in the Permissions tab.
-const CGFloat kPermissionsTabSpacing = 8;
+const CGFloat kPermissionsTabSpacing = 12;
+
+// Extra spacing after a headline on the Permissions tab.
+const CGFloat kPermissionsHeadlineSpacing = 2;
 
 // The extra space to the left of the first tab in the tab strip.
 const CGFloat kTabStripXPadding = kFramePadding - 1;
@@ -190,8 +198,9 @@ NSColor* IdentityVerifiedTextColor() {
     rect.origin.x += [self widthForSegment:i];
   }
   int xAdjust = segment == 0 ? kTabStripXPadding : 0;
-  rect.size.width = [self widthForSegment:segment] - kTabSpacing - xAdjust;
-  rect.origin.x += kTabSpacing / 2 + xAdjust;
+  rect.size.width = std::floor(
+      [self widthForSegment:segment] - kTabSpacing - xAdjust);
+  rect.origin.x = std::floor(rect.origin.x + kTabSpacing / 2 + xAdjust);
 
   return rect;
 }
@@ -330,7 +339,8 @@ NSColor* IdentityVerifiedTextColor() {
                             bold:YES
                           toView:contentView_
                          atPoint:controlOrigin];
-  controlOrigin.y += NSHeight([identityField_ frame]) + kHeadlineSpacing;
+  controlOrigin.y +=
+      NSHeight([identityField_ frame]) + kConnectionHeadlineSpacing;
 
   // Create a text field to identity status (e.g. verified, not verified).
   identityStatusField_ = [self addText:string16()
@@ -346,7 +356,7 @@ NSColor* IdentityVerifiedTextColor() {
       [[NSSegmentedControl alloc] initWithFrame:initialFrame]);
   [segmentedControl_ setCell:
       [[[WebsiteSettingsTabSegmentedCell alloc] init] autorelease]];
-  [segmentedControl_ setSegmentCount:2];
+  [segmentedControl_ setSegmentCount:WebsiteSettingsUI::NUM_TAB_IDS];
   [segmentedControl_ setTarget:self];
   [segmentedControl_ setAction:@selector(tabSelected:)];
 
@@ -363,6 +373,8 @@ NSColor* IdentityVerifiedTextColor() {
                    forSegment:WebsiteSettingsUI::TAB_ID_PERMISSIONS];
   NSSize textSize = [label sizeWithAttributes:textAttributes];
   CGFloat tabWidth = textSize.width + 2 * kTabLabelXPadding;
+  [segmentedControl_ setWidth:tabWidth + kTabStripXPadding
+                   forSegment:WebsiteSettingsUI::TAB_ID_PERMISSIONS];
 
   // Create the "Connection" tab.
   label = l10n_util::GetNSString(IDS_WEBSITE_SETTINGS_TAB_LABEL_CONNECTION);
@@ -370,13 +382,17 @@ NSColor* IdentityVerifiedTextColor() {
   [segmentedControl_ setLabel:label
                    forSegment:WebsiteSettingsUI::TAB_ID_CONNECTION];
 
+  DCHECK_EQ([segmentedControl_ segmentCount], WebsiteSettingsUI::NUM_TAB_IDS);
+
   // Make both tabs the width of the widest. The first segment has some
   // additional padding that is not part of the tab, which is used for drawing
   // the background of the tab strip.
   tabWidth = std::max(tabWidth,
                       textSize.width + 2 * kTabLabelXPadding);
-  [segmentedControl_ setWidth:tabWidth + kTabStripXPadding forSegment:0];
-  [segmentedControl_ setWidth:tabWidth forSegment:1];
+  [segmentedControl_ setWidth:tabWidth + kTabStripXPadding
+                   forSegment:WebsiteSettingsUI::TAB_ID_PERMISSIONS];
+  [segmentedControl_ setWidth:tabWidth
+                   forSegment:WebsiteSettingsUI::TAB_ID_CONNECTION];
 
   [segmentedControl_ setFont:smallSystemFont];
   [contentView_ addSubview:segmentedControl_];
@@ -441,6 +457,16 @@ NSColor* IdentityVerifiedTextColor() {
                             certificateId_);
 }
 
+// Handler for the link to show help information about the connection tab.
+- (void)showHelpPage:(id)sender {
+  tabContents_->web_contents()->OpenURL(content::OpenURLParams(
+      GURL(chrome::kPageInfoHelpCenterURL),
+      content::Referrer(),
+      NEW_FOREGROUND_TAB,
+      content::PAGE_TRANSITION_LINK,
+      false));
+}
+
 // Create the contents of the Connection tab and add it to the given tab view.
 // Returns a weak reference to the tab view item's view.
 - (NSView*)addConnectionTabToTabView:(NSTabView*)tabView {
@@ -495,6 +521,14 @@ NSColor* IdentityVerifiedTextColor() {
              toView:contentView.get()
             atPoint:textPosition];
 
+  separatorAfterFirstVisit_ = [self addSeparatorToView:contentView];
+  NSString* helpButtonText = l10n_util::GetNSString(
+      IDS_PAGE_INFO_HELP_CENTER_LINK);
+  helpButton_ = [self addLinkButtonWithText:helpButtonText
+                                     toView:contentView];
+  [helpButton_ setTarget:self];
+  [helpButton_ setAction:@selector(showHelpPage:)];
+
   [item setView:contentView.get()];
   [tabView_ insertTabViewItem:item.get()
                       atIndex:WebsiteSettingsUI::TAB_ID_CONNECTION];
@@ -517,7 +551,7 @@ NSColor* IdentityVerifiedTextColor() {
   // Place the identity status immediately below the identity.
   [self sizeTextFieldHeightToFit:identityField_];
   [self sizeTextFieldHeightToFit:identityStatusField_];
-  CGFloat yPos = NSMaxY([identityField_ frame]) + kHeadlineSpacing;
+  CGFloat yPos = NSMaxY([identityField_ frame]) + kConnectionHeadlineSpacing;
   yPos = [self setYPositionOfView:identityStatusField_ to:yPos];
 
   // Lay out the Permissions tab.
@@ -565,9 +599,13 @@ NSColor* IdentityVerifiedTextColor() {
   [self setYPositionOfView:firstVisitIcon_ to:yPos];
   [self sizeTextFieldHeightToFit:firstVisitHeaderField_];
   yPos = [self setYPositionOfView:firstVisitHeaderField_ to:yPos];
-  yPos += kHeadlineSpacing;
+  yPos += kConnectionHeadlineSpacing;
   [self sizeTextFieldHeightToFit:firstVisitDescriptionField_];
-  [self setYPositionOfView:firstVisitDescriptionField_ to:yPos];
+  yPos = [self setYPositionOfView:firstVisitDescriptionField_ to:yPos];
+  yPos = [self setYPositionOfView:separatorAfterFirstVisit_
+                               to:yPos + kVerticalSpacing];
+  yPos += kVerticalSpacing;
+  [self setYPositionOfView:helpButton_ to:yPos];
 
   // Adjust the tab view size and place it below the identity status.
 
@@ -844,7 +882,13 @@ NSColor* IdentityVerifiedTextColor() {
   // Align the icon with the text.
   [self alignPermissionIcon:imageView withTextField:label];
 
-  return std::max(NSHeight([label frame]), NSHeight([button frame]));
+  // Permissions specified by policy or an extension cannot be changed.
+  if (permissionInfo.source == content_settings::SETTING_SOURCE_EXTENSION ||
+      permissionInfo.source == content_settings::SETTING_SOURCE_POLICY) {
+    [button setEnabled:NO];
+  }
+
+  return NSHeight([label frame]);
 }
 
 // Align an image with a text field by vertically centering the image on
@@ -950,7 +994,7 @@ NSColor* IdentityVerifiedTextColor() {
                                toView:cookiesView_
                               atPoint:controlOrigin];
   [self sizeTextFieldHeightToFit:header];
-  controlOrigin.y += NSHeight([header frame]);
+  controlOrigin.y += NSHeight([header frame]) + kPermissionsHeadlineSpacing;
 
   for (CookieInfoList::const_iterator it = cookieInfoList.begin();
        it != cookieInfoList.end();
@@ -979,7 +1023,7 @@ NSColor* IdentityVerifiedTextColor() {
                                toView:permissionsView_
                               atPoint:controlOrigin];
   [self sizeTextFieldHeightToFit:header];
-  controlOrigin.y += NSHeight([header frame]);
+  controlOrigin.y += NSHeight([header frame]) + kPermissionsHeadlineSpacing;
 
   for (PermissionInfoList::const_iterator permission =
            permissionInfoList.begin();

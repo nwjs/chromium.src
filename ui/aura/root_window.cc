@@ -26,6 +26,7 @@
 #include "ui/aura/root_window_observer.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
+#include "ui/aura/window_tracker.h"
 #include "ui/base/event.h"
 #include "ui/base/gestures/gesture_recognizer.h"
 #include "ui/base/gestures/gesture_types.h"
@@ -117,9 +118,13 @@ RootWindow::RootWindow(const gfx::Rect& initial_bounds)
       mouse_button_flags_(0),
       touch_ids_down_(0),
       last_cursor_(ui::kCursorNull),
+      // TODO(ivankr): this currently tracks the default state in
+      // RootWindowHostLinux. Other platforms do not implement ShowCursor().
+      cursor_shown_(true),
       mouse_pressed_handler_(NULL),
       mouse_moved_handler_(NULL),
       mouse_event_dispatch_target_(NULL),
+      event_dispatch_target_(NULL),
       ALLOW_THIS_IN_INITIALIZER_LIST(
           gesture_recognizer_(ui::GestureRecognizer::Create(this))),
       synthesize_mouse_move_(false),
@@ -296,9 +301,8 @@ bool RootWindow::DispatchGestureEvent(ui::GestureEvent* event) {
   }
 
   if (target) {
-    ui::GestureEvent translated_event(
-        *event, static_cast<Window*>(this), target);
-    ui::GestureStatus status = ProcessGestureEvent(target, &translated_event);
+    event->ConvertLocationToTarget(static_cast<Window*>(this), target);
+    ui::GestureStatus status = ProcessGestureEvent(target, event);
     return status != ui::GESTURE_STATUS_UNKNOWN;
   }
 
@@ -618,51 +622,26 @@ void RootWindow::HandleMouseMoved(const ui::MouseEvent& event, Window* target) {
 }
 
 bool RootWindow::ProcessMouseEvent(Window* target, ui::MouseEvent* event) {
-  if (!target->IsVisible())
-    return false;
-
-  EventFilters filters;
-  GetEventFiltersToNotify(target->parent(), &filters);
-  for (EventFilters::const_reverse_iterator it = filters.rbegin(),
-           rend = filters.rend();
-       it != rend; ++it) {
-    if ((*it)->PreHandleMouseEvent(target, event))
-      return true;
-  }
-
-  if (!target->delegate())
-    return false;
-  return target->delegate()->OnMouseEvent(event);
+  AutoReset<Window*> reset(&event_dispatch_target_, target);
+  if (ProcessEvent(target, event) != ui::ER_UNHANDLED)
+    return true;
+  return false;
 }
 
 bool RootWindow::ProcessKeyEvent(Window* target, ui::KeyEvent* event) {
-  EventFilters filters;
-
-  if (!target) {
-    // When no window is focused, send the key event to |this| so event filters
-    // for the window could check if the key is a global shortcut like Alt+Tab.
+  if (!target)
     target = this;
-    GetEventFiltersToNotify(this, &filters);
-  } else {
-    if (!target->IsVisible())
-      return false;
-    GetEventFiltersToNotify(target->parent(), &filters);
-  }
-
-  for (EventFilters::const_reverse_iterator it = filters.rbegin(),
-           rend = filters.rend();
-       it != rend; ++it) {
-    if ((*it)->PreHandleKeyEvent(target, event))
-      return true;
-  }
-
-  if (!target->delegate())
-    return false;
-  return target->delegate()->OnKeyEvent(event);
+  AutoReset<Window*> reset(&event_dispatch_target_, target);
+  if (ProcessEvent(target, event) != ui::ER_UNHANDLED)
+    return true;
+  return false;
 }
 
 ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
                                               ui::TouchEvent* event) {
+  if (ProcessEvent(NULL, event) != ui::ER_UNHANDLED)
+    return ui::TOUCH_STATUS_CONTINUE;
+
   if (!target->IsVisible())
     return ui::TOUCH_STATUS_UNKNOWN;
 
@@ -671,6 +650,11 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
     GetEventFiltersToNotify(target, &filters);
   else
     GetEventFiltersToNotify(target->parent(), &filters);
+
+  // |target| can be deleted by any of the handlers below.
+  WindowTracker tracker;
+  tracker.Add(target);
+
   for (EventFilters::const_reverse_iterator it = filters.rbegin(),
            rend = filters.rend();
        it != rend; ++it) {
@@ -679,35 +663,23 @@ ui::TouchStatus RootWindow::ProcessTouchEvent(Window* target,
       return status;
   }
 
-  if (target->delegate())
-    return target->delegate()->OnTouchEvent(event);
+  if (tracker.Contains(target) && target->delegate()) {
+    ui::TouchStatus status = target->delegate()->OnTouchEvent(event);
+    if (status != ui::TOUCH_STATUS_UNKNOWN)
+      return status;
+  }
 
   return ui::TOUCH_STATUS_UNKNOWN;
 }
 
 ui::GestureStatus RootWindow::ProcessGestureEvent(Window* target,
                                                   ui::GestureEvent* event) {
-  if (!target->IsVisible())
-    return ui::GESTURE_STATUS_UNKNOWN;
-
-  EventFilters filters;
-  if (target == this)
-    GetEventFiltersToNotify(target, &filters);
-  else
-    GetEventFiltersToNotify(target->parent(), &filters);
-  ui::GestureStatus status = ui::GESTURE_STATUS_UNKNOWN;
-  for (EventFilters::const_reverse_iterator it = filters.rbegin(),
-           rend = filters.rend();
-       it != rend; ++it) {
-    status = (*it)->PreHandleGestureEvent(target, event);
-    if (status != ui::GESTURE_STATUS_UNKNOWN)
-      return status;
-  }
-
-  if (target->delegate())
-    status = target->delegate()->OnGestureEvent(event);
-
-  return status;
+  if (!target)
+    target = this;
+  AutoReset<Window*> reset(&event_dispatch_target_, target);
+  if (ProcessEvent(target, event) != ui::ER_UNHANDLED)
+    return ui::GESTURE_STATUS_CONSUMED;
+  return ui::GESTURE_STATUS_UNKNOWN;
 }
 
 bool RootWindow::ProcessGestures(ui::GestureRecognizer::Gestures* gestures) {
@@ -773,6 +745,8 @@ void RootWindow::OnWindowHidden(Window* invisible, bool destroyed) {
     mouse_moved_handler_ = NULL;
   if (invisible->Contains(mouse_event_dispatch_target_))
     mouse_event_dispatch_target_ = NULL;
+  if (invisible->Contains(event_dispatch_target_))
+    event_dispatch_target_ = NULL;
   gesture_recognizer_->FlushTouchQueue(invisible);
 }
 
@@ -780,6 +754,19 @@ void RootWindow::OnWindowAddedToRootWindow(Window* attached) {
   if (attached->IsVisible() &&
       attached->ContainsPointInRoot(GetLastMouseLocationInRoot()))
     PostMouseMoveEventAfterWindowChange();
+}
+
+bool RootWindow::CanDispatchToTarget(ui::EventTarget* target) {
+  return event_dispatch_target_ == target;
+}
+
+void RootWindow::ProcessPreTargetList(ui::EventHandlerList* list) {
+  if (Env::GetInstance()->event_filter())
+    list->insert(list->begin(), Env::GetInstance()->event_filter());
+}
+
+void RootWindow::ProcessPostTargetList(ui::EventHandlerList* list) {
+  // TODO(sad):
 }
 
 bool RootWindow::DispatchLongPressGestureEvent(ui::GestureEvent* event) {
@@ -860,9 +847,9 @@ bool RootWindow::OnHostScrollEvent(ui::ScrollEvent* event) {
     Window::ConvertPointToTarget(this, target, &location_in_window);
     if (IsNonClientLocation(target, location_in_window))
       flags |= ui::EF_IS_NON_CLIENT;
-    ui::ScrollEvent translated_event(
-        *event, static_cast<Window*>(this), target, event->type(), flags);
-    return ProcessMouseEvent(target, &translated_event);
+    event->set_flags(flags);
+    event->ConvertLocationToTarget(static_cast<Window*>(this), target);
+    return ProcessMouseEvent(target, event);
   }
   return false;
 }
@@ -1025,16 +1012,9 @@ bool RootWindow::DispatchMouseEventToTarget(ui::MouseEvent* event,
     Window::ConvertPointToTarget(this, target, &location_in_window);
     if (IsNonClientLocation(target, location_in_window))
       flags |= ui::EF_IS_NON_CLIENT;
-    if (event->type() == ui::ET_MOUSEWHEEL) {
-      ui::MouseWheelEvent translated_event(
-          *static_cast<ui::MouseWheelEvent*>(event),
-          static_cast<Window*>(this), target, event->type(), flags);
-      return ProcessMouseEvent(target, &translated_event);
-    } else {
-      ui::MouseEvent translated_event(
-          *event, static_cast<Window*>(this), target, event->type(), flags);
-      return ProcessMouseEvent(target, &translated_event);
-    }
+    event->set_flags(flags);
+    event->ConvertLocationToTarget(static_cast<Window*>(this), target);
+    return ProcessMouseEvent(target, event);
   }
   return false;
 }

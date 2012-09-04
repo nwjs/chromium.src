@@ -102,3 +102,8 @@ bool ChromiumBinariesDistribution::GetChromeChannel(string16* channel) {
   NOTREACHED();
   return false;
 }
+
+bool ChromiumBinariesDistribution::GetCommandExecuteImplClsid(
+    string16* handler_class_uuid) {
+  return false;
+}

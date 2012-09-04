@@ -73,7 +73,7 @@ namespace extensions {
 
 namespace {
 
-const int kModernManifestVersion = 1;
+const int kModernManifestVersion = 2;
 const int kPEMOutputColumns = 65;
 
 const char kOverrideExtentUrlPatternFormat[] = "chrome://%s/*";
@@ -1358,18 +1358,10 @@ bool Extension::LoadManifestVersion(string16* error) {
       manifest_version_ < kModernManifestVersion &&
       !CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kAllowLegacyExtensionManifests)) {
-      *error = ASCIIToUTF16(errors::kInvalidManifestVersion);
-      return false;
-  }
-
-  if (location() == LOAD && manifest_version_ == 1) {
-    install_warnings_.push_back(Extension::InstallWarning(
-        Extension::InstallWarning::FORMAT_HTML,
-        l10n_util::GetStringFUTF8(
-            IDS_EXTENSION_MANIFEST_VERSION_OLD,
-            ASCIIToUTF16("<a href='http://code.google.com/chrome/extensions/"
-                         "manifestVersion.html' target='_blank'>"),
-            ASCIIToUTF16("</a>"))));
+    *error = ExtensionErrorUtils::FormatErrorMessageUTF16(
+        errors::kInvalidManifestVersionOld,
+        base::IntToString(kModernManifestVersion));
+    return false;
   }
 
   return true;
@@ -2724,7 +2716,7 @@ bool Extension::LoadContentSecurityPolicy(string16* error) {
     }
     if (manifest_version_ >= 2 &&
         !ContentSecurityPolicyIsSecure(content_security_policy)) {
-      *error = ASCIIToUTF16(errors::kInvalidContentSecurityPolicy);
+      *error = ASCIIToUTF16(errors::kInsecureContentSecurityPolicy);
       return false;
     }
 
@@ -3134,6 +3126,7 @@ bool Extension::InitFromValue(int flags, string16* error) {
   // app.window API to platform apps, with no dependency on any permissions.
   // See http://crbug.com/120069.
   if (is_platform_app()) {
+    api_permissions.insert(APIPermission::kAppCurrentWindowInternal);
     api_permissions.insert(APIPermission::kAppRuntime);
     api_permissions.insert(APIPermission::kAppWindow);
   }
@@ -3380,13 +3373,12 @@ bool Extension::ParsePermissions(const char* key,
                 GetType(),
                 extensions::Feature::ConvertLocation(location()),
                 manifest_version());
-        if (availability != extensions::Feature::IS_AVAILABLE) {
+        if (!availability.is_available()) {
           // Don't fail, but warn the developer that the manifest contains
           // unrecognized permissions. This may happen legitimately if the
           // extensions requests platform- or channel-specific permissions.
-          install_warnings_.push_back(
-              InstallWarning(InstallWarning::FORMAT_TEXT,
-                             feature->GetErrorMessage(availability)));
+          install_warnings_.push_back(InstallWarning(
+              InstallWarning::FORMAT_TEXT, availability.message()));
           continue;
         }
 

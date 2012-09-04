@@ -6,7 +6,9 @@
 #define UI_AURA_EVENT_FILTER_H_
 
 #include "base/basictypes.h"
+#include "base/compiler_specific.h"
 #include "ui/aura/aura_export.h"
+#include "ui/base/events/event_handler.h"
 #include "ui/base/events.h"
 
 namespace ui {
@@ -32,7 +34,7 @@ class Window;
 // collecting a list of EventFilters. This list is notified in reverse order
 // (i.e. descending, from the Desktop's own event filter). Each filter gets a
 // chance to prevent further processing of the event and/or take other actions.
-class AURA_EXPORT EventFilter {
+class AURA_EXPORT EventFilter : public ui::EventHandler {
  public:
   virtual ~EventFilter() {}
 
@@ -47,19 +49,29 @@ class AURA_EXPORT EventFilter {
   // filter may still perform some action, the return value simply indicates
   // that further processing can occur.
 
-  virtual bool PreHandleKeyEvent(Window* target, ui::KeyEvent* event) = 0;
-  virtual bool PreHandleMouseEvent(Window* target, ui::MouseEvent* event) = 0;
+  virtual bool PreHandleKeyEvent(Window* target, ui::KeyEvent* event);
+  virtual bool PreHandleMouseEvent(Window* target, ui::MouseEvent* event);
 
   // Returns a value other than ui::TOUCH_STATUS_UNKNOWN if the event is
   // consumed.
   virtual ui::TouchStatus PreHandleTouchEvent(Window* target,
-                                              ui::TouchEvent* event) = 0;
+                                              ui::TouchEvent* event);
 
   // Returns a value other than ui::GESTURE_STATUS_UNKNOWN if the gesture is
   // consumed.
-  virtual ui::GestureStatus PreHandleGestureEvent(
-      Window* target,
-      ui::GestureEvent* event) = 0;
+  virtual ui::GestureStatus PreHandleGestureEvent(Window* target,
+                                                  ui::GestureEvent* event);
+
+  virtual ui::EventResult OnKeyEvent(ui::EventTarget* target,
+                                     ui::KeyEvent* event) OVERRIDE;
+  virtual ui::EventResult OnMouseEvent(ui::EventTarget* target,
+                                       ui::MouseEvent* event) OVERRIDE;
+  virtual ui::EventResult OnScrollEvent(ui::EventTarget* target,
+                                        ui::ScrollEvent* event) OVERRIDE;
+  virtual ui::TouchStatus OnTouchEvent(ui::EventTarget* target,
+                                       ui::TouchEvent* event) OVERRIDE;
+  virtual ui::EventResult OnGestureEvent(ui::EventTarget* target,
+                                         ui::GestureEvent* e) OVERRIDE;
 };
 
 }  // namespace aura

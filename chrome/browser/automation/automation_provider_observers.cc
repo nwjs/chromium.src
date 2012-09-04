@@ -49,13 +49,10 @@
 #include "chrome/browser/renderer_host/chrome_render_message_filter.h"
 #include "chrome/browser/search_engines/template_url_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/sessions/restore_tab_helper.h"
+#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/sessions/tab_restore_service.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/tab_contents/thumbnail_generator.h"
-#include "chrome/browser/translate/page_translated_details.h"
-#include "chrome/browser/translate/translate_infobar_delegate.h"
-#include "chrome/browser/translate/translate_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -386,20 +383,16 @@ void TabStripNotificationObserver::Observe(
     int type,
     const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  if (type == notification_) {
-    if (type == chrome::NOTIFICATION_TAB_PARENTED) {
-      ObserveTab(&(content::Source<TabContents>(source).ptr()->
-                     web_contents()->GetController()));
-    } else if (type == content::NOTIFICATION_WEB_CONTENTS_DESTROYED) {
-      ObserveTab(&(content::Source<content::WebContents>(source).ptr()->
-                     GetController()));
-    } else {
-      ObserveTab(content::Source<NavigationController>(source).ptr());
-    }
-    delete this;
+  DCHECK_EQ(notification_, type);
+  if (type == chrome::NOTIFICATION_TAB_PARENTED) {
+    ObserveTab(&content::Source<TabContents>(source)->web_contents()->
+        GetController());
+  } else if (type == content::NOTIFICATION_WEB_CONTENTS_DESTROYED) {
+    ObserveTab(&content::Source<content::WebContents>(source)->GetController());
   } else {
-    NOTREACHED();
+    ObserveTab(content::Source<NavigationController>(source).ptr());
   }
+  delete this;
 }
 
 TabAppendedNotificationObserver::TabAppendedNotificationObserver(
@@ -441,11 +434,9 @@ TabClosedNotificationObserver::TabClosedNotificationObserver(
     bool wait_until_closed,
     IPC::Message* reply_message,
     bool use_json_interface)
-    : TabStripNotificationObserver(
-      wait_until_closed
-          ? static_cast<int>(content::NOTIFICATION_WEB_CONTENTS_DESTROYED)
-          : static_cast<int>(chrome::NOTIFICATION_TAB_CLOSING),
-          automation),
+    : TabStripNotificationObserver((wait_until_closed ?
+          static_cast<int>(content::NOTIFICATION_WEB_CONTENTS_DESTROYED) :
+          static_cast<int>(chrome::NOTIFICATION_TAB_CLOSING)), automation),
       reply_message_(reply_message),
       use_json_interface_(use_json_interface),
       for_browser_command_(false) {
@@ -810,7 +801,8 @@ BrowserOpenedNotificationObserver::~BrowserOpenedNotificationObserver() {
 }
 
 void BrowserOpenedNotificationObserver::Observe(
-    int type, const content::NotificationSource& source,
+    int type,
+    const content::NotificationSource& source,
     const content::NotificationDetails& details) {
   if (!automation_) {
     delete this;
@@ -822,13 +814,14 @@ void BrowserOpenedNotificationObserver::Observe(
     // to stop loading.
     new_window_id_ = ExtensionTabUtil::GetWindowId(
         content::Source<Browser>(source).ptr());
-  } else if (type == content::NOTIFICATION_LOAD_STOP) {
+  } else {
+    DCHECK_EQ(content::NOTIFICATION_LOAD_STOP, type);
     // Only send the result if the loaded tab is in the new window.
     NavigationController* controller =
         content::Source<NavigationController>(source).ptr();
     TabContents* tab =
         TabContents::FromWebContents(controller->GetWebContents());
-    int window_id = tab ? tab->restore_tab_helper()->window_id().id() : -1;
+    int window_id = tab ? tab->session_tab_helper()->window_id().id() : -1;
     if (window_id == new_window_id_) {
       if (use_json_interface_) {
         AutomationJSONReply(automation_,
@@ -843,8 +836,6 @@ void BrowserOpenedNotificationObserver::Observe(
       delete this;
       return;
     }
-  } else {
-    NOTREACHED();
   }
 }
 
@@ -871,7 +862,7 @@ BrowserClosedNotificationObserver::~BrowserClosedNotificationObserver() {}
 void BrowserClosedNotificationObserver::Observe(
     int type, const content::NotificationSource& source,
     const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_BROWSER_CLOSED);
+  DCHECK_EQ(chrome::NOTIFICATION_BROWSER_CLOSED, type);
 
   if (!automation_) {
     delete this;
@@ -1174,16 +1165,15 @@ void DomOperationObserver::Observe(
       OnDomOperationCompleted(dom_op_details->json);
   } else if (type == chrome::NOTIFICATION_APP_MODAL_DIALOG_SHOWN) {
     OnModalDialogShown();
-  } else if (type == chrome::NOTIFICATION_WEB_CONTENT_SETTINGS_CHANGED) {
+  } else {
+    DCHECK_EQ(chrome::NOTIFICATION_WEB_CONTENT_SETTINGS_CHANGED, type);
     WebContents* web_contents = content::Source<WebContents>(source).ptr();
     if (web_contents) {
       TabContents* tab_contents = TabContents::FromWebContents(web_contents);
-      if (tab_contents &&
-          tab_contents->content_settings() &&
+      if (tab_contents && tab_contents->content_settings() &&
           tab_contents->content_settings()->IsContentBlocked(
-              CONTENT_SETTINGS_TYPE_JAVASCRIPT)) {
+              CONTENT_SETTINGS_TYPE_JAVASCRIPT))
         OnJavascriptBlocked();
-      }
     }
   }
 }
@@ -1259,104 +1249,6 @@ void MetricEventDurationObserver::Observe(
       content::Details<MetricEventDurationDetails>(details).ptr();
   durations_[metric_event_duration->event_name] =
       metric_event_duration->duration_ms;
-}
-
-PageTranslatedObserver::PageTranslatedObserver(AutomationProvider* automation,
-                                               IPC::Message* reply_message,
-                                               WebContents* web_contents)
-  : automation_(automation->AsWeakPtr()),
-    reply_message_(reply_message) {
-  registrar_.Add(this, chrome::NOTIFICATION_PAGE_TRANSLATED,
-                 content::Source<WebContents>(web_contents));
-}
-
-PageTranslatedObserver::~PageTranslatedObserver() {}
-
-void PageTranslatedObserver::Observe(
-    int type,
-    const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  if (!automation_) {
-    delete this;
-    return;
-  }
-
-  DCHECK(type == chrome::NOTIFICATION_PAGE_TRANSLATED);
-  AutomationJSONReply reply(automation_, reply_message_.release());
-
-  PageTranslatedDetails* translated_details =
-      content::Details<PageTranslatedDetails>(details).ptr();
-  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
-  return_value->SetBoolean(
-      "translation_success",
-      translated_details->error_type == TranslateErrors::NONE);
-  reply.SendSuccess(return_value.get());
-  delete this;
-}
-
-TabLanguageDeterminedObserver::TabLanguageDeterminedObserver(
-    AutomationProvider* automation, IPC::Message* reply_message,
-    WebContents* web_contents, TranslateInfoBarDelegate* translate_bar)
-    : automation_(automation->AsWeakPtr()),
-      reply_message_(reply_message),
-      web_contents_(web_contents),
-      translate_bar_(translate_bar) {
-  registrar_.Add(this, chrome::NOTIFICATION_TAB_LANGUAGE_DETERMINED,
-                 content::Source<WebContents>(web_contents_));
-}
-
-TabLanguageDeterminedObserver::~TabLanguageDeterminedObserver() {}
-
-void TabLanguageDeterminedObserver::Observe(
-    int type, const content::NotificationSource& source,
-    const content::NotificationDetails& details) {
-  DCHECK(type == chrome::NOTIFICATION_TAB_LANGUAGE_DETERMINED);
-
-  if (!automation_) {
-    delete this;
-    return;
-  }
-
-  TranslateTabHelper* helper =
-      TabContents::FromWebContents(web_contents_)->translate_tab_helper();
-  scoped_ptr<DictionaryValue> return_value(new DictionaryValue);
-  return_value->SetBoolean("page_translated",
-                           helper->language_state().IsPageTranslated());
-  return_value->SetBoolean(
-      "can_translate_page", TranslatePrefs::CanTranslate(
-          automation_->profile()->GetPrefs(),
-          helper->language_state().original_language(),
-          web_contents_->GetURL()));
-  return_value->SetString("original_language",
-                          helper->language_state().original_language());
-  if (translate_bar_) {
-    DictionaryValue* bar_info = new DictionaryValue;
-    std::map<TranslateInfoBarDelegate::Type, std::string> type_to_string;
-    type_to_string[TranslateInfoBarDelegate::BEFORE_TRANSLATE] =
-        "BEFORE_TRANSLATE";
-    type_to_string[TranslateInfoBarDelegate::TRANSLATING] =
-        "TRANSLATING";
-    type_to_string[TranslateInfoBarDelegate::AFTER_TRANSLATE] =
-        "AFTER_TRANSLATE";
-    type_to_string[TranslateInfoBarDelegate::TRANSLATION_ERROR] =
-        "TRANSLATION_ERROR";
-
-    if (translate_bar_->type() == TranslateInfoBarDelegate::BEFORE_TRANSLATE) {
-      bar_info->SetBoolean("always_translate_lang_button_showing",
-                           translate_bar_->ShouldShowAlwaysTranslateButton());
-      bar_info->SetBoolean("never_translate_lang_button_showing",
-                           translate_bar_->ShouldShowNeverTranslateButton());
-    }
-    bar_info->SetString("bar_state", type_to_string[translate_bar_->type()]);
-    bar_info->SetString("target_lang_code",
-                        translate_bar_->GetTargetLanguageCode());
-    bar_info->SetString("original_lang_code",
-                        translate_bar_->GetOriginalLanguageCode());
-    return_value->Set("translate_bar", bar_info);
-  }
-  AutomationJSONReply(automation_, reply_message_.release())
-      .SendSuccess(return_value.get());
-  delete this;
 }
 
 InfoBarCountObserver::InfoBarCountObserver(AutomationProvider* automation,
@@ -2193,36 +2085,23 @@ AppLaunchObserver::~AppLaunchObserver() {}
 void AppLaunchObserver::Observe(int type,
                                 const content::NotificationSource& source,
                                 const content::NotificationDetails& details) {
-  if (type == content::NOTIFICATION_LOAD_STOP) {
-    if (launch_container_ == extension_misc::LAUNCH_TAB) {
-      // The app has been launched in the new tab.
-      if (automation_) {
-        AutomationJSONReply(automation_,
-                            reply_message_.release()).SendSuccess(NULL);
-      }
-      delete this;
-      return;
-    } else {
-      // The app has launched only if the loaded tab is in the new window.
-      NavigationController* controller =
-          content::Source<NavigationController>(source).ptr();
-      TabContents* tab =
-          TabContents::FromWebContents(controller->GetWebContents());
-      int window_id = tab ? tab->restore_tab_helper()->window_id().id() : -1;
-      if (window_id == new_window_id_) {
-        if (automation_) {
-          AutomationJSONReply(automation_,
-                              reply_message_.release()).SendSuccess(NULL);
-        }
-        delete this;
-        return;
-      }
+  if (type == chrome::NOTIFICATION_BROWSER_WINDOW_READY) {
+    new_window_id_ =
+        ExtensionTabUtil::GetWindowId(content::Source<Browser>(source).ptr());
+    return;
+  }
+
+  DCHECK_EQ(content::NOTIFICATION_LOAD_STOP, type);
+  TabContents* tab = TabContents::FromWebContents(
+      content::Source<NavigationController>(source)->GetWebContents());
+  if ((launch_container_ == extension_misc::LAUNCH_TAB) ||
+      (tab &&
+          (tab->session_tab_helper()->window_id().id() == new_window_id_))) {
+    if (automation_) {
+      AutomationJSONReply(automation_,
+                          reply_message_.release()).SendSuccess(NULL);
     }
-  } else if (type == chrome::NOTIFICATION_BROWSER_WINDOW_READY) {
-    new_window_id_ = ExtensionTabUtil::GetWindowId(
-        content::Source<Browser>(source).ptr());
-  } else {
-    NOTREACHED();
+    delete this;
   }
 }
 
@@ -2858,13 +2737,14 @@ void BrowserOpenedWithNewProfileNotificationObserver::Observe(
     // to stop loading.
     new_window_id_ = ExtensionTabUtil::GetWindowId(
         content::Source<Browser>(source).ptr());
-  } else if (type == content::NOTIFICATION_LOAD_STOP) {
+  } else {
+    DCHECK_EQ(content::NOTIFICATION_LOAD_STOP, type);
     // Only send the result if the loaded tab is in the new window.
     NavigationController* controller =
         content::Source<NavigationController>(source).ptr();
     TabContents* tab =
         TabContents::FromWebContents(controller->GetWebContents());
-    int window_id = tab ? tab->restore_tab_helper()->window_id().id() : -1;
+    int window_id = tab ? tab->session_tab_helper()->window_id().id() : -1;
     if (window_id == new_window_id_) {
       if (automation_) {
         AutomationJSONReply(automation_, reply_message_.release())
@@ -2872,8 +2752,6 @@ void BrowserOpenedWithNewProfileNotificationObserver::Observe(
       }
       delete this;
     }
-  } else {
-    NOTREACHED();
   }
 }
 
@@ -2974,7 +2852,7 @@ void BrowserOpenedWithExistingProfileNotificationObserver::Observe(
         content::Source<NavigationController>(source).ptr();
     TabContents* tab = TabContents::FromWebContents(
         controller->GetWebContents());
-    int window_id = tab ? tab->restore_tab_helper()->window_id().id() : -1;
+    int window_id = tab ? tab->session_tab_helper()->window_id().id() : -1;
     if (window_id == new_window_id_ && --num_loads_ == 0) {
       if (automation_) {
         AutomationJSONReply(automation_, reply_message_.release())

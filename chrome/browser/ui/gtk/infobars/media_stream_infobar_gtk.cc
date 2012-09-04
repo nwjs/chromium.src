@@ -16,7 +16,7 @@
 #include "ui/base/gtk/gtk_signal_registrar.h"
 #include "ui/base/l10n/l10n_util.h"
 
-InfoBar* MediaStreamInfoBarDelegate::CreateInfoBar(InfoBarTabService* owner) {
+InfoBar* MediaStreamInfoBarDelegate::CreateInfoBar(InfoBarService* owner) {
   DCHECK(owner);
   return new MediaStreamInfoBarGtk(static_cast<InfoBarTabHelper*>(owner), this);
 }
@@ -25,7 +25,7 @@ MediaStreamInfoBarGtk::MediaStreamInfoBarGtk(
     InfoBarTabHelper* owner,
     MediaStreamInfoBarDelegate* delegate)
     : InfoBarGtk(owner, delegate) {
-  devices_menu_model_ = new MediaStreamDevicesMenuModel(delegate);
+  devices_menu_model_.reset(new MediaStreamDevicesMenuModel(delegate));
   Init();
 }
 
@@ -74,7 +74,7 @@ void MediaStreamInfoBarGtk::Init() {
 }
 
 void MediaStreamInfoBarGtk::OnDevicesClicked(GtkWidget* sender) {
-  ShowMenuWithModel(sender, NULL, devices_menu_model_);
+  ShowMenuWithModel(sender, NULL, devices_menu_model_.get());
 }
 
 void MediaStreamInfoBarGtk::OnAllowButton(GtkWidget* widget) {

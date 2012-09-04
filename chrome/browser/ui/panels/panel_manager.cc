@@ -28,6 +28,10 @@
 #include "ui/base/x/x11_util.h"
 #endif
 
+#if defined(OS_WIN)
+#include "base/win/metro.h"
+#endif
+
 namespace {
 // Width of spacing around panel strip and the left/right edges of the screen.
 const int kPanelStripLeftMargin = 6;
@@ -74,6 +78,12 @@ bool PanelManager::ShouldUsePanels(const std::string& extension_id) {
   }
 #endif  // TOOLKIT_GTK
 
+#if defined(OS_WIN)
+  // No panels in Metro mode.
+  if (base::win::IsMetroProcess())
+    return false;
+#endif // OS_WIN
+
   chrome::VersionInfo::Channel channel = chrome::VersionInfo::GetChannel();
   if (channel == chrome::VersionInfo::CHANNEL_STABLE ||
       channel == chrome::VersionInfo::CHANNEL_BETA) {
@@ -93,12 +103,7 @@ bool PanelManager::UseBrowserlessPanels() {
   if (CommandLine::ForCurrentProcess()->HasSwitch(switches::kOldPanels))
     return false;
 
-  // http://crbug.com/143506
-  // TODO(jennb): Remove after channel check can be used.
-// return chrome::VersionInfo::GetChannel() <= chrome::VersionInfo::CHANNEL_DEV;
-  // For now, use former flag to turn on browserless panels.
-  return CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kBrowserlessPanels);
+  return chrome::VersionInfo::GetChannel() <= chrome::VersionInfo::CHANNEL_DEV;
 }
 
 PanelManager::PanelManager()

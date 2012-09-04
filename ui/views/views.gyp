@@ -35,7 +35,6 @@
         '../../third_party/icu/icu.gyp:icuuc',
         '../base/strings/ui_strings.gyp:ui_strings',
         '../compositor/compositor.gyp:compositor',
-        '../web_dialogs/web_dialogs.gyp:web_dialogs',
         '../ui.gyp:ui',
         '../ui.gyp:ui_resources',
       ],
@@ -235,10 +234,6 @@
         'controls/tree/tree_view_views.h',
         'controls/tree/tree_view_win.cc',
         'controls/tree/tree_view_win.h',
-        'controls/webview/web_dialog_view.cc',
-        'controls/webview/web_dialog_view.h',
-        'controls/webview/webview.cc',
-        'controls/webview/webview.h',
         'debug_utils.cc',
         'debug_utils.h',
         'drag_controller.h',
@@ -453,17 +448,6 @@
             'widget/widget_message_filter.h',
           ],
         }],
-        ['use_aura==1 or OS!="win"', {
-          'sources!': [
-            'win/fullscreen_handler.cc',
-            'win/fullscreen_handler.h',
-            'win/hwnd_message_handler.cc',
-            'win/hwnd_message_handler.h',
-            'win/hwnd_message_handler_delegate.h',
-            'win/scoped_fullscreen_visibility.cc',
-            'win/scoped_fullscreen_visibility.h',
-          ],
-        }],
         ['OS!="win"', {
           'sources!': [
             'win/fullscreen_handler.cc',
@@ -489,13 +473,13 @@
         '../../skia/skia.gyp:skia',
         '../../testing/gtest.gyp:gtest',
         '../ui.gyp:ui',
+        'controls/webview/webview.gyp:webview',
         'views',
       ],
       'include_dirs': [
         '..',
       ],
       'sources': [
-        'test/test_tooltip_client.h',
         'test/test_views_delegate.cc',
         'test/test_views_delegate.h',
         'test/views_test_base.cc',
@@ -701,6 +685,7 @@
         '../../third_party/icu/icu.gyp:icuuc',
         '../ui.gyp:ui',
         '../ui.gyp:ui_resources',
+        'controls/webview/webview.gyp:webview',
         'views',
       ],
       'include_dirs': [

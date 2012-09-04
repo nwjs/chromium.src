@@ -1435,7 +1435,27 @@ TEST_F(NavigationControllerTest, InPage) {
   EXPECT_TRUE(notifications.Check1AndReset(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED));
 
-  // First navigation.
+  // Ensure main page navigation to same url respects the was_within_same_page
+  // hint provided in the params.
+  ViewHostMsg_FrameNavigate_Params self_params;
+  self_params.page_id = 0;
+  self_params.url = url1;
+  self_params.transition = content::PAGE_TRANSITION_LINK;
+  self_params.should_update_history = false;
+  self_params.gesture = NavigationGestureUser;
+  self_params.is_post = false;
+  self_params.content_state = webkit_glue::CreateHistoryStateForURL(GURL(url1));
+  self_params.was_within_same_page = true;
+
+  content::LoadCommittedDetails details;
+  EXPECT_TRUE(controller.RendererDidNavigate(self_params, &details));
+  EXPECT_TRUE(notifications.Check1AndReset(
+      content::NOTIFICATION_NAV_ENTRY_COMMITTED));
+  EXPECT_TRUE(details.is_in_page);
+  EXPECT_TRUE(details.did_replace_entry);
+  EXPECT_EQ(1, controller.GetEntryCount());
+
+  // Fragment navigation to a new page_id.
   const GURL url2("http://foo#a");
   ViewHostMsg_FrameNavigate_Params params;
   params.page_id = 1;
@@ -1447,7 +1467,6 @@ TEST_F(NavigationControllerTest, InPage) {
   params.content_state = webkit_glue::CreateHistoryStateForURL(GURL(url2));
 
   // This should generate a new entry.
-  content::LoadCommittedDetails details;
   EXPECT_TRUE(controller.RendererDidNavigate(params, &details));
   EXPECT_TRUE(notifications.Check1AndReset(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED));
@@ -1504,6 +1523,8 @@ TEST_F(NavigationControllerTest, InPage) {
   EXPECT_TRUE(notifications.Check1AndReset(
       content::NOTIFICATION_NAV_ENTRY_COMMITTED));
   EXPECT_FALSE(details.is_in_page);
+  EXPECT_EQ(3, controller.GetEntryCount());
+  EXPECT_EQ(2, controller.GetCurrentEntryIndex());
 }
 
 TEST_F(NavigationControllerTest, InPage_Replace) {
@@ -2064,13 +2085,51 @@ TEST_F(NavigationControllerTest, TransientEntry) {
   test_rvh()->SendNavigate(3, url3);
   EXPECT_EQ(url3, controller.GetVisibleEntry()->GetURL());
 
-  // Ensure the URLS are correct.
+  // Ensure the URLs are correct.
   EXPECT_EQ(controller.GetEntryCount(), 5);
   EXPECT_EQ(controller.GetEntryAtIndex(0)->GetURL(), url0);
   EXPECT_EQ(controller.GetEntryAtIndex(1)->GetURL(), url1);
   EXPECT_EQ(controller.GetEntryAtIndex(2)->GetURL(), url2);
   EXPECT_EQ(controller.GetEntryAtIndex(3)->GetURL(), url3);
   EXPECT_EQ(controller.GetEntryAtIndex(4)->GetURL(), url4);
+}
+
+// Test that Reload initiates a new navigation to a transient entry's URL.
+TEST_F(NavigationControllerTest, ReloadTransient) {
+  NavigationControllerImpl& controller = controller_impl();
+  const GURL url0("http://foo/0");
+  const GURL url1("http://foo/1");
+  const GURL transient_url("http://foo/transient");
+
+  // Load |url0|, and start a pending navigation to |url1|.
+  controller.LoadURL(
+      url0, content::Referrer(), content::PAGE_TRANSITION_TYPED, std::string());
+  test_rvh()->SendNavigate(0, url0);
+  controller.LoadURL(
+      url1, content::Referrer(), content::PAGE_TRANSITION_TYPED, std::string());
+
+  // A transient entry is added, interrupting the navigation.
+  NavigationEntryImpl* transient_entry = new NavigationEntryImpl;
+  transient_entry->SetURL(transient_url);
+  controller.AddTransientEntry(transient_entry);
+  EXPECT_TRUE(controller.GetTransientEntry());
+  EXPECT_EQ(transient_url, controller.GetActiveEntry()->GetURL());
+
+  // The page is reloaded, which should remove the pending entry for |url1| and
+  // the transient entry for |transient_url|, and start a navigation to
+  // |transient_url|.
+  controller.Reload(true);
+  EXPECT_FALSE(controller.GetTransientEntry());
+  EXPECT_TRUE(controller.GetPendingEntry());
+  EXPECT_EQ(transient_url, controller.GetActiveEntry()->GetURL());
+  ASSERT_EQ(controller.GetEntryCount(), 1);
+  EXPECT_EQ(controller.GetEntryAtIndex(0)->GetURL(), url0);
+
+  // Load of |transient_url| completes.
+  test_rvh()->SendNavigate(1, transient_url);
+  ASSERT_EQ(controller.GetEntryCount(), 2);
+  EXPECT_EQ(controller.GetEntryAtIndex(0)->GetURL(), url0);
+  EXPECT_EQ(controller.GetEntryAtIndex(1)->GetURL(), transient_url);
 }
 
 // Tests that the URLs for renderer-initiated navigations are not displayed to

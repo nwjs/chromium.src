@@ -41,6 +41,7 @@
       'sources': [
         'base/sync_export.h',
         'internal_api/public/base/enum_set.h',
+        'internal_api/public/base/invalidation_state.cc',
         'internal_api/public/base/invalidation_state.h',
         'internal_api/public/base/model_type.h',
         'internal_api/public/base/model_type_state_map.cc',
@@ -73,6 +74,8 @@
         'internal_api/public/util/weak_handle.h',
         'engine/all_status.cc',
         'engine/all_status.h',
+        'engine/apply_control_data_updates.cc',
+        'engine/apply_control_data_updates.h',
         'engine/apply_updates_command.cc',
         'engine/apply_updates_command.h',
         'engine/backoff_delay_provider.cc',
@@ -83,6 +86,8 @@
         'engine/commit.h',
         'engine/conflict_resolver.cc',
         'engine/conflict_resolver.h',
+        'engine/conflict_util.cc',
+        'engine/conflict_util.h',
         'engine/download_updates_command.cc',
         'engine/download_updates_command.h',
         'engine/get_commit_ids_command.cc',
@@ -484,6 +489,7 @@
         'notifier/fake_invalidator.h',
         'notifier/fake_invalidation_handler.cc',
         'notifier/fake_invalidation_handler.h',
+        'notifier/invalidator_test_template.h',
         'notifier/object_id_state_map_test_util.cc',
         'notifier/object_id_state_map_test_util.h',
       ],
@@ -573,7 +579,6 @@
         'test_support_sync',
       ],
       'direct_dependent_settings': {
-        'variables': { 'enable_wexit_time_destructors': 1, },
         'include_dirs': [
           '..',
         ],
@@ -582,6 +587,7 @@
           'internal_api/public/base/model_type_state_map_unittest.cc',
           'internal_api/public/engine/model_safe_worker_unittest.cc',
           'internal_api/public/util/immutable_unittest.cc',
+          'engine/apply_control_data_updates_unittest.cc',
           'engine/apply_updates_command_unittest.cc',
           'engine/backoff_delay_provider_unittest.cc',
           'engine/build_commit_command_unittest.cc',
@@ -590,10 +596,10 @@
           'engine/process_commit_response_command_unittest.cc',
           'engine/process_updates_command_unittest.cc',
           'engine/resolve_conflicts_command_unittest.cc',
-          'engine/syncer_proto_util_unittest.cc',
-          'engine/syncer_unittest.cc',
           'engine/sync_scheduler_unittest.cc',
           'engine/sync_scheduler_whitebox_unittest.cc',
+          'engine/syncer_proto_util_unittest.cc',
+          'engine/syncer_unittest.cc',
           'engine/throttled_data_type_tracker_unittest.cc',
           'engine/traffic_recorder_unittest.cc',
           'engine/verify_updates_command_unittest.cc',
@@ -659,7 +665,6 @@
         'test_support_sync_notifier',
       ],
       'direct_dependent_settings': {
-        'variables': { 'enable_wexit_time_destructors': 1, },
         'include_dirs': [
           '..',
         ],
@@ -671,6 +676,7 @@
             'sources': [
               'notifier/chrome_invalidation_client_unittest.cc',
               'notifier/chrome_system_resources_unittest.cc',
+              'notifier/fake_invalidator_unittest.cc',
               'notifier/invalidation_notifier_unittest.cc',
               'notifier/invalidator_registrar_unittest.cc',
               'notifier/non_blocking_invalidator_unittest.cc',
@@ -719,7 +725,6 @@
         'test_support_syncapi_core',
       ],
       'direct_dependent_settings': {
-        'variables': { 'enable_wexit_time_destructors': 1, },
         'include_dirs': [
           '..',
         ],
@@ -765,7 +770,6 @@
         'test_support_syncapi_service',
       ],
       'direct_dependent_settings': {
-        'variables': { 'enable_wexit_time_destructors': 1, },
         'include_dirs': [
           '..',
         ],
@@ -780,6 +784,8 @@
     {
       'target_name': 'sync_unit_tests',
       'type': '<(gtest_target_type)',
+      # Typed-parametrized tests generate exit-time destructors.
+      'variables': { 'enable_wexit_time_destructors': 0, },
       'dependencies': [
         '../base/base.gyp:run_all_unittests',
         'sync_tests',

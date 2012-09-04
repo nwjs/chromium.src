@@ -312,6 +312,9 @@
       # Enable the task manager by default.
       'enable_task_manager%': 1,
 
+      # Enable FTP support by default.
+      'disable_ftp_support%': 0,
+
       # XInput2 multitouch support is disabled by default (use_xi2_mt=0).
       # Setting to non-zero value enables XI2 MT. When XI2 MT is enabled,
       # the input value also defines the required XI2 minor minimum version.
@@ -470,6 +473,7 @@
 
         ['OS=="ios"', {
           'enable_automation%': 0,
+          'disable_ftp_support%': 1,
           'remoting%': 0,
         }],
 
@@ -528,6 +532,11 @@
         # compositor.
         ['OS!="mac" and OS!="android"', {
           'use_canvas_skia%': 1,
+        }],
+
+        ['chromeos==1', {
+          # When building for ChromeOS we dont want Chromium to use libjpeg_turbo.
+          'use_libjpeg_turbo%': 0,
         }],
 
         ['OS=="android"', {
@@ -609,11 +618,13 @@
     'enable_automation%': '<(enable_automation)',
     'enable_printing%': '<(enable_printing)',
     'enable_captive_portal_detection%': '<(enable_captive_portal_detection)',
+    'disable_ftp_support%': '<(disable_ftp_support)',
     'force_rlz_use_chrome_net%': '<(force_rlz_use_chrome_net)',
     'enable_task_manager%': '<(enable_task_manager)',
     'sas_dll_path%': '<(sas_dll_path)',
     'wix_path%': '<(wix_path)',
     'android_upstream_bringup%': '<(android_upstream_bringup)',
+    'use_libjpeg_turbo%': '<(use_libjpeg_turbo)',
     'use_system_libjpeg%': '<(use_system_libjpeg)',
     'android_build_type%': '<(android_build_type)',
 
@@ -1203,13 +1214,11 @@
 
       ['asan==1', {
         'clang%': 1,
-        # Do not use Chrome plugins for Clang. The Clang version in
-        # third_party/asan may be different from the default one.
-        # TODO(glider): this isn't true anymore, need to check if we can use the
-        # plugins now.
-        'clang_use_chrome_plugins%': 0,
       }],
-
+      ['asan==1 and OS=="mac"', {
+        # See http://crbug.com/145503.
+        'component': "static_library",
+      }],
       ['tsan==1', {
         'clang%': 1,
       }],
@@ -1398,6 +1407,9 @@
       }],
       ['use_ash==1', {
         'defines': ['USE_ASH=1'],
+      }],
+      ['use_libjpeg_turbo==1', {
+        'defines': ['USE_LIBJPEG_TURBO=1'],
       }],
       ['use_nss==1', {
         'defines': ['USE_NSS=1'],
@@ -1622,6 +1634,9 @@
       }],
       ['enable_captive_portal_detection==1', {
         'defines': ['ENABLE_CAPTIVE_PORTAL_DETECTION=1'],
+      }],
+      ['disable_ftp_support==1', {
+        'defines': ['DISABLE_FTP_SUPPORT=1'],
       }],
     ],  # conditions for 'target_defaults'
     'target_conditions': [
@@ -2915,18 +2930,6 @@
                 'xcode_settings': {
                   'OTHER_LDFLAGS': [
                     '-faddress-sanitizer',
-                    # The symbols below are referenced in the ASan runtime
-                    # library (compiled on OS X 10.6), but may be unavailable
-                    # on the prior OS X versions. Because Chromium is
-                    # currently targeting 10.5.0, we need to explicitly mark
-                    # these symbols as dynamic_lookup.
-                    '-Wl,-U,_malloc_default_purgeable_zone',
-                    '-Wl,-U,_malloc_zone_memalign',
-                    '-Wl,-U,_dispatch_sync_f',
-                    '-Wl,-U,_dispatch_async_f',
-                    '-Wl,-U,_dispatch_barrier_async_f',
-                    '-Wl,-U,_dispatch_group_async_f',
-                    '-Wl,-U,_dispatch_after_f',
                   ],
                 },
               }],

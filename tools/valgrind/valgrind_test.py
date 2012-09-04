@@ -363,6 +363,8 @@ class ValgrindTool(BaseTool):
 
     if self._options.trace_children:
       proc += ["--trace-children=yes"]
+      proc += ["--trace-children-skip='*dbus-daemon*'"]
+      proc += ["--trace-children-skip='*dbus-launch*'"]
       proc += ["--trace-children-skip='*perl*'"]
       proc += ["--trace-children-skip='*python*'"]
 
@@ -914,7 +916,7 @@ class DrMemory(BaseTool):
     proc += ["-callstack_srcfile_prefix",
              "build\\src,chromium\\src,crt_build\\self_x86"]
     proc += ["-callstack_modname_hide",
-             "*.exe,chrome.dll"]
+             "*drmemory*,chrome.dll"]
 
     boring_callers = common.BoringCallers(mangled=False, use_re_wildcards=False)
     # TODO(timurrrr): In fact, we want "starting from .." instead of "below .."

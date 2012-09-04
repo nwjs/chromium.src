@@ -494,7 +494,9 @@ const char kNetworkPredictionEnabled[] = "dns_prefetching.enabled";
 const char kDefaultAppsInstallState[] = "default_apps_install_state";
 
 #if defined(OS_CHROMEOS)
-// An integer pref to initially mute volume if 1.
+// An integer pref to initially mute volume if 1. This pref is ignored if
+// |kAudioOutputAllowed| is set to false, but its value is preserved, therefore
+// when the policy is lifted the original mute state is restored.
 const char kAudioMute[] = "settings.audio.mute";
 
 // TODO(derat): This is deprecated in favor of |kAudioVolumePercent|; remove it
@@ -741,6 +743,11 @@ const char kSecondaryDisplayLayout[] = "settings.display.secondary_layout";
 // An integer pref that specifies how far the secondary display is positioned
 // from the edge of the primary display.
 const char kSecondaryDisplayOffset[] = "settings.display.secondary_offset";
+
+// A dictionary pref that specifies per-display layout/offset information.
+// Its key is the ID of the display and its value is a dictionary for the
+// layout/offset information.
+const char kSecondaryDisplays[] = "settings.display.secondary_displays";
 #endif  // defined(OS_CHROMEOS)
 
 // The disabled messages in IPC logging.
@@ -1286,9 +1293,13 @@ const char kSelectFileLastDirectory[] = "selectfile.last_directory";
 // Boolean that specifies if file selection dialogs are shown.
 const char kAllowFileSelectionDialogs[] = "select_file_dialogs.allowed";
 
-// Map of timestamps of the last used file browser tasks.
-const char kLastUsedFileBrowserHandlers[] =
-    "filebrowser.handler.lastused";
+// Map of default tasks, associated by MIME type.
+const char kDefaultTasksByMimeType[] =
+    "filebrowser.tasks.default_by_mime_type";
+
+// Map of default tasks, associated by file suffix.
+const char kDefaultTasksBySuffix[] =
+    "filebrowser.tasks.default_by_suffix";
 
 // Extensions which should be opened upon completion.
 const char kDownloadExtensionsToOpen[] = "download.extensions_to_open";
@@ -1478,6 +1489,9 @@ const char kNtpPromoVersion[] = "ntp.promo_version";
 
 // The last locale the promo was fetched for.
 const char kNtpPromoLocale[] = "ntp.promo_locale";
+
+// True if a desktop sync session was found for this user.
+const char kNtpPromoDesktopSessionFound[] = "ntp.promo_desktop_session_found";
 
 // Boolean indicating whether the web store is active for the current locale.
 const char kNtpWebStoreEnabled[] = "ntp.webstore_enabled";
@@ -1728,9 +1742,9 @@ const char kGSSAPILibraryName[] = "auth.gssapi_library_name";
 const char kAllowCrossOriginAuthPrompt[] = "auth.allow_cross_origin_prompt";
 
 #if defined(OS_CHROMEOS)
-// Dictionary for transient storage of settings that should go into signed
+// Dictionary for transient storage of settings that should go into device
 // settings storage before owner has been assigned.
-const char kSignedSettingsCache[] = "signed_settings_cache";
+const char kDeviceSettingsCache[] = "signed_settings_cache";
 
 // The hardware keyboard layout of the device. This should look like
 // "xkb:us::eng".
@@ -1767,6 +1781,15 @@ const char kSyncSpareBootstrapToken[] = "sync.spare_bootstrap_token";
 // A pref holding the value of the policy used to disable mounting of external
 // storage for the user.
 const char kExternalStorageDisabled[] = "hardware.external_storage_disabled";
+
+// A pref holding the value of the policy used to disable playing audio on
+// ChromeOS devices. This pref overrides |kAudioMute| but does not overwrite
+// it, therefore when the policy is lifted the original mute state is restored.
+const char kAudioOutputAllowed[] = "hardware.audio_output_enabled";
+
+// A pref holding the value of the policy used to disable capturing audio on
+// ChromeOS devices.
+const char kAudioCaptureAllowed[] = "hardware.audio_capture_enabled";
 
 // A dictionary that maps usernames to wallpaper properties.
 const char kUsersWallpaperInfo[] = "user_wallpaper_info";

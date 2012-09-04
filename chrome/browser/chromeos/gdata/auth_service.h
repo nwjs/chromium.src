@@ -6,10 +6,9 @@
 #define CHROME_BROWSER_CHROMEOS_GDATA_AUTH_SERVICE_H_
 
 #include <string>
+#include <vector>
 
-#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop_proxy.h"
 #include "base/observer_list.h"
 #include "chrome/browser/chromeos/gdata/gdata_errorcode.h"
 #include "chrome/browser/chromeos/gdata/operations_base.h"
@@ -38,7 +37,7 @@ class AuthService : public content::NotificationObserver {
     virtual ~Observer() {}
   };
 
-  AuthService();
+  explicit AuthService(const std::vector<std::string>& scopes);
   virtual ~AuthService();
 
   // Adds and removes the observer. AddObserver() should be called before
@@ -50,7 +49,7 @@ class AuthService : public content::NotificationObserver {
   // refresh token.
   void Initialize(Profile* profile);
 
-  // Starts fetching OAuth2 auth token from the refresh token.
+  // Starts fetching OAuth2 auth token from the refresh token for |scopes_|.
   void StartAuthentication(OperationRegistry* registry,
                            const AuthStatusCallback& callback);
 
@@ -69,12 +68,6 @@ class AuthService : public content::NotificationObserver {
   // Clears OAuth2 access token.
   void ClearAccessToken() { access_token_.clear(); }
 
-  // Callback for AuthOperation (InternalAuthStatusCallback).
-  void OnAuthCompleted(scoped_refptr<base::MessageLoopProxy> relay_proxy,
-                       const AuthStatusCallback& callback,
-                       GDataErrorCode error,
-                       const std::string& access_token);
-
   // Overridden from content::NotificationObserver:
   virtual void Observe(int type,
                        const content::NotificationSource& source,
@@ -87,14 +80,18 @@ class AuthService : public content::NotificationObserver {
 
  private:
   // Helper function for StartAuthentication() call.
-  void StartAuthenticationOnUIThread(
-      OperationRegistry* registry,
-      scoped_refptr<base::MessageLoopProxy> relay_proxy,
-      const AuthStatusCallback& callback);
+  void StartAuthenticationOnUIThread(OperationRegistry* registry,
+                                     const AuthStatusCallback& callback);
+
+  // Callback for AuthOperation (InternalAuthStatusCallback).
+  void OnAuthCompleted(const AuthStatusCallback& callback,
+                       GDataErrorCode error,
+                       const std::string& access_token);
 
   Profile* profile_;
   std::string refresh_token_;
   std::string access_token_;
+  std::vector<std::string> scopes_;
   ObserverList<Observer> observers_;
 
   content::NotificationRegistrar registrar_;

@@ -419,8 +419,6 @@ cr.define('print_preview', function() {
      * @private
      */
     openSystemPrintDialog_: function() {
-      assert(this.uiState_ == PrintPreview.UiState_.READY,
-             'Opening system dialog when not in ready state: ' + this.uiState_);
       setIsVisible($('system-dialog-throbber'), true);
       this.setIsEnabled_(false);
       this.uiState_ = PrintPreview.UiState_.OPENING_NATIVE_PRINT_DIALOG;
@@ -475,7 +473,20 @@ cr.define('print_preview', function() {
           this.onCloudPrintSubmitDone_.bind(this));
       this.tracker.add(
           this.cloudPrintInterface_,
-          cloudprint.CloudPrintInterface.EventType.ERROR,
+          cloudprint.CloudPrintInterface.EventType.SEARCH_FAILED,
+          this.onCloudPrintError_.bind(this));
+      this.tracker.add(
+          this.cloudPrintInterface_,
+          cloudprint.CloudPrintInterface.EventType.SUBMIT_FAILED,
+          this.onCloudPrintError_.bind(this));
+      this.tracker.add(
+          this.cloudPrintInterface_,
+          cloudprint.CloudPrintInterface.EventType.PRINTER_FAILED,
+          this.onCloudPrintError_.bind(this));
+      this.tracker.add(
+          this.cloudPrintInterface_,
+          cloudprint.CloudPrintInterface.EventType.
+              UPDATE_PRINTER_TOS_ACCEPTANCE_FAILED,
           this.onCloudPrintError_.bind(this));
 
       this.userInfo_.setCloudPrintInterface(this.cloudPrintInterface_);
@@ -551,12 +562,18 @@ cr.define('print_preview', function() {
      * @private
      */
     onCloudPrintError_: function(event) {
-      if (event.message == '403') {
+      if (event.status == 403) {
         this.destinationSearch_.showCloudPrintPromo();
-      } else if (event.message == '0') {
+      } else if (event.status == 0) {
         return; // Ignore, the system does not have internet connectivity.
       } else {
         this.printHeader_.setErrorMessage(event.message);
+      }
+      if (event.status == 200) {
+        console.error('Google Cloud Print Error: (' + event.errorCode + ') ' +
+                      event.message);
+      } else {
+        console.error('Google Cloud Print Error: HTTP status ' + event.status);
       }
     },
 
@@ -678,6 +695,7 @@ cr.define('print_preview', function() {
      */
     onSettingsInvalid_: function() {
       this.uiState_ = PrintPreview.UiState_.ERROR;
+      console.error('Invalid settings error reported from native layer');
       this.previewArea_.showCustomMessage(
           localStrings.getString('invalidPrinterSettings'));
     },

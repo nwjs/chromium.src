@@ -60,22 +60,6 @@ class PolicyTest(policy_base.PolicyTestBase):
         return x['pid']
     return None
 
-  def _IsBlocked(self, url):
-    """Returns true if navigating to |url| is blocked."""
-    self.NavigateToURL(url)
-    blocked = self.GetActiveTabTitle() == url + ' is not available'
-    ret = self.ExecuteJavascript("""
-        var hasError = false;
-        var error = document.getElementById('errorDetails');
-        if (error) {
-          hasError = error.textContent.indexOf('Error 138') == 0;
-        }
-        domAutomationController.send(hasError.toString());
-    """)
-    ret = ret == 'true'
-    self.assertEqual(blocked, ret)
-    return blocked
-
   def _IsJavascriptEnabled(self):
     """Returns true if Javascript is enabled, false otherwise."""
     try:
@@ -131,30 +115,6 @@ class PolicyTest(policy_base.PolicyTestBase):
       total += 1
     self.assertFalse(fails, msg='%d of %d policies failed.\n%s' %
                      (len(fails), total, '\n'.join(fails)))
-
-  def testBlacklistPolicy(self):
-    """Tests the URLBlacklist and URLWhitelist policies."""
-    # This is an end to end test and not an exaustive test of the filter format.
-    policy = {
-      'URLBlacklist': [
-        'news.google.com',
-        'chromium.org',
-      ],
-      'URLWhitelist': [
-        'dev.chromium.org',
-        'chromium.org/chromium-os',
-      ]
-    }
-    self.SetUserPolicy(policy)
-
-    self.assertTrue(self._IsBlocked('http://news.google.com/'))
-    self.assertFalse(self._IsBlocked('http://www.google.com/'))
-    self.assertFalse(self._IsBlocked('http://google.com/'))
-
-    self.assertTrue(self._IsBlocked('http://chromium.org/'))
-    self.assertTrue(self._IsBlocked('http://www.chromium.org/'))
-    self.assertFalse(self._IsBlocked('http://dev.chromium.org/'))
-    self.assertFalse(self._IsBlocked('http://chromium.org/chromium-os/testing'))
 
   def testJavascriptPolicies(self):
     """Tests the Javascript policies."""
@@ -384,120 +344,6 @@ class PolicyTest(policy_base.PolicyTestBase):
     self.assertFalse(self.WaitForInfobarCount(1))
     pid = self._GetPluginPID('Java')
     self.assertTrue(pid, 'No plugin process for java')
-
-  def testSetDownloadDirectory(self):
-    """Verify download directory and prompt cannot be modified."""
-    # Check for changing the download directory location
-    download_default_dir = self.GetDownloadDirectory().value()
-    self.assertEqual(
-        download_default_dir,
-        self.GetPrefsInfo().Prefs()['download']['default_directory'],
-        msg='Downloads directory is not set correctly.')
-    self.SetPrefs(pyauto.kDownloadDefaultDirectory, 'download')
-    new_download_dir = os.path.abspath(os.path.join(download_default_dir,
-                                                    os.pardir))
-    policy = {'DownloadDirectory': new_download_dir}
-    self.SetUserPolicy(policy)
-    self.assertEqual(
-        new_download_dir,
-        self.GetPrefsInfo().Prefs()['download']['default_directory'],
-        msg='Downloads directory is not set correctly.')
-    self.assertRaises(
-        pyauto.JSONInterfaceError,
-        lambda: self.SetPrefs(pyauto.kDownloadDefaultDirectory,
-                              'download'))
-    # Check for changing the option 'Ask for each download'
-    self.assertRaises(
-        pyauto.JSONInterfaceError,
-        lambda: self.SetPrefs(pyauto.kPromptForDownload, True))
-
-  def testIncognitoEnabled(self):
-    """Verify that incognito window can be launched."""
-    policy = {'IncognitoEnabled': False}
-    self.SetUserPolicy(policy)
-    self.assertRaises(
-        pyauto_errors.JSONInterfaceError,
-        lambda: self.ApplyAccelerator(pyauto.IDC_NEW_INCOGNITO_WINDOW))
-    self.assertEquals(1, self.GetBrowserWindowCount())
-    policy = {'IncognitoEnabled': True}
-    self.SetUserPolicy(policy)
-    self.RunCommand(pyauto.IDC_NEW_INCOGNITO_WINDOW)
-    self.assertEquals(2, self.GetBrowserWindowCount())
-
-  def testSavingBrowserHistoryDisabled(self):
-    """Verify that browsing history is not being saved."""
-    policy = {'SavingBrowserHistoryDisabled': True}
-    self.SetUserPolicy(policy)
-    url = self.GetFileURLForPath(os.path.join(self.DataDir(), 'empty.html'))
-    self.NavigateToURL(url)
-    self.assertFalse(self.GetHistoryInfo().History(),
-                     msg='History is being saved.')
-    policy = {'SavingBrowserHistoryDisabled': False}
-    self.SetUserPolicy(policy)
-    self.NavigateToURL(url)
-    self.assertTrue(self.GetHistoryInfo().History(),
-                     msg='History not is being saved.')
-
-  def testTranslateEnabled(self):
-    """Verify that translate happens if policy enables it."""
-    policy = {'TranslateEnabled': True}
-    self.SetUserPolicy(policy)
-    self.assertTrue(self.GetPrefsInfo().Prefs(pyauto.kEnableTranslate))
-    url = self.GetFileURLForDataPath('translate', 'es', 'google.html')
-    self.NavigateToURL(url)
-    self.assertTrue(self.WaitForInfobarCount(1))
-    translate_info = self.GetTranslateInfo()
-    self.assertEqual('es', translate_info['original_language'])
-    self.assertFalse(translate_info['page_translated'])
-    self.assertTrue(translate_info['can_translate_page'])
-    self.assertTrue('translate_bar' in translate_info)
-    self.assertFalse(self._GetPrefIsManagedError(pyauto.kEnableTranslate, True))
-    policy = {'TranslateEnabled': False}
-    self.SetUserPolicy(policy)
-    self.assertFalse(self.GetPrefsInfo().Prefs(pyauto.kEnableTranslate))
-    self.NavigateToURL(url)
-    self.assertFalse(self.WaitForInfobarCount(1))
-    self.assertFalse(self._GetPrefIsManagedError(pyauto.kEnableTranslate,
-                                                 False))
-
-  def testDefaultSearchProviderOptions(self):
-    """Verify a default search is performed when using omnibox."""
-    policy = {
-      'DefaultSearchProviderEnabled': True,
-      'DefaultSearchProviderEncodings': ['UTF-8', 'UTF-16', 'GB2312',
-                                         'ISO-8859-1'],
-      'DefaultSearchProviderIconURL': 'http://search.my.company/favicon.ico',
-      'DefaultSearchProviderInstantURL': ('http://search.my.company/'
-                                          'suggest?q={searchTerms}'),
-      'DefaultSearchProviderKeyword': 'mis',
-      'DefaultSearchProviderName': 'My Intranet Search',
-      'DefaultSearchProviderSearchURL': ('http://search.my.company/'
-                                         'search?q={searchTerms}'),
-      'DefaultSearchProviderSuggestURL': ('http://search.my.company/'
-                                          'suggest?q={searchTerms}'),
-    }
-    self.SetUserPolicy(policy)
-    self.assertFalse(
-        self._GetPrefIsManagedError(pyauto.kDefaultSearchProviderEnabled, True))
-    intranet_engine = [x for x in self.GetSearchEngineInfo()
-                       if x['keyword'] == 'mis']
-    self.assertTrue(intranet_engine)
-    self.assertTrue(intranet_engine[0]['is_default'])
-    self.SetOmniboxText('google chrome')
-    self.WaitUntilOmniboxQueryDone()
-    self.OmniboxAcceptInput()
-    self.assertTrue('search.my.company' in self.GetActiveTabURL().spec())
-    policy = {
-      'DefaultSearchProviderEnabled': False,
-    }
-    self.SetUserPolicy(policy)
-    self.assertFalse(
-        self._GetPrefIsManagedError(pyauto.kDefaultSearchProviderEnabled,
-                                    False))
-    self.SetOmniboxText('deli')
-    self.WaitUntilOmniboxQueryDone()
-    self.assertRaises(pyauto.JSONInterfaceError,
-                      lambda: self.OmniboxAcceptInput())
 
   # Needed for extension tests
   _GOOD_CRX_ID = 'ldnnhddmnhbkjipkidpdiheffobcpfmf'

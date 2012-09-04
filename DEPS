@@ -8,17 +8,17 @@ vars = {
   "sourceforge_url": "http://%(repo)s.svn.sourceforge.net/svnroot/%(repo)s",
   "webkit_trunk": "http://svn.webkit.org/repository/webkit/trunk",
   "nacl_trunk": "http://src.chromium.org/native_client/trunk",
-  "webkit_revision": "126787",
+  "webkit_revision": "127410",
   "chromium_git": "http://git.chromium.org/git",
   "chromiumos_git": "http://git.chromium.org/chromiumos",
   "swig_revision": "69281",
-  "nacl_revision": "9555",
+  "nacl_revision": "9612",
   # After changing nacl_revision, run 'glient sync' and check native_client/DEPS
   # to update other nacl_*_revision's.
   "nacl_tools_revision": "9330",  # native_client/DEPS: tools_rev
   "gtm_revision": "534",
 
-  "libjingle_revision": "175",
+  "libjingle_revision": "177",
   "libphonenumber_revision": "456",
   "libvpx_revision": "152423",
   "lss_revision": "11",
@@ -29,19 +29,19 @@ vars = {
   "ffmpeg_hash": "2079ffae30f8da6c6eed985cce00e04c31b40888",
 
   "sfntly_revision": "134",
-  "skia_revision": "5283",
+  "skia_revision": "5360",
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and V8 without interference from each other.
   "v8_revision": "12377",
-  "webrtc_revision": "2653",
+  "webrtc_revision": "2662",
   "jsoncpp_revision": "248",
-  "nss_revision": "145873",
+  "nss_revision": "154476",
 }
 
 deps = {
   "src/breakpad/src":
-    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1015",
+    (Var("googlecode_url") % "google-breakpad") + "/trunk/src@1020",
 
   "src/googleurl":
     (Var("googlecode_url") % "google-url") + "/trunk@178",
@@ -59,10 +59,10 @@ deps = {
     (Var("googlecode_url") % "googlemock") + "/trunk@405",
 
   "src/third_party/angle":
-    (Var("googlecode_url") % "angleproject") + "/trunk@1264",
+    (Var("googlecode_url") % "angleproject") + "/trunk@1267",
 
   "src/third_party/trace-viewer":
-    (Var("googlecode_url") % "trace-viewer") + "/trunk@118",
+    (Var("googlecode_url") % "trace-viewer") + "/trunk@144",
 
   # Note that this is *not* where we check out WebKit -- this just
   # puts some extra files into place for the real WebKit checkout to
@@ -100,7 +100,7 @@ deps = {
     (Var("googlecode_url") % "grit-i18n") + "/trunk@67",
 
   "src/tools/gyp":
-    (Var("googlecode_url") % "gyp") + "/trunk@1479",
+    (Var("googlecode_url") % "gyp") + "/trunk@1490",
 
   "src/v8":
     (Var("googlecode_url") % "v8") + "/trunk@" + Var("v8_revision"),
@@ -253,7 +253,7 @@ deps = {
     "/trunk/deps/third_party/speex@149334",
 
   "src/third_party/yasm/source/patched-yasm":
-    "/trunk/deps/third_party/yasm/patched-yasm@134927",
+    "/trunk/deps/third_party/yasm/patched-yasm@154697",
 
   "src/third_party/libjpeg_turbo":
     "/trunk/deps/third_party/libjpeg_turbo@149334",
@@ -280,7 +280,7 @@ deps = {
         "/trunk/jsoncpp/src/lib_json@" + Var("jsoncpp_revision"),
 
   "src/third_party/libyuv":
-    (Var("googlecode_url") % "libyuv") + "/trunk@319",
+    (Var("googlecode_url") % "libyuv") + "/trunk@338",
 
   "src/third_party/mozc/session":
     (Var("googlecode_url") % "mozc") + "/trunk/src/session@83",
@@ -308,10 +308,10 @@ deps = {
     "/trunk/tools/deps2git@148781",
 
   "src/third_party/webpagereplay":
-    (Var("googlecode_url") % "web-page-replay") + "/trunk@489",
+    (Var("googlecode_url") % "web-page-replay") + "/trunk@494",
 
   "src/third_party/pywebsocket/src":
-    (Var("googlecode_url") % "pywebsocket") + "/trunk/src@658",
+    (Var("googlecode_url") % "pywebsocket") + "/trunk/src@661",
 }
 
 
@@ -516,7 +516,7 @@ deps_os = {
     # For Chromium OS.
     "src/third_party/cros_system_api":
       Var("chromiumos_git") + "/platform/system_api.git" +
-      "@aa39870b5d3e6d5305ba1ee200823460bf0a47e6",
+      "@f648289dfe3c51cb5e4b93b0b5e1642978df0295",
   },
   "android": {
     "src/third_party/freetype":
@@ -528,7 +528,7 @@ deps_os = {
 
     "src/third_party/android_tools":
       Var("chromium_git") + "/android_tools.git" +
-      "@470254c5379907d6a71f8885ee2d8c616fa0b191",
+      "@e1bf0d38fe01f7ada8ff7ba96321c9af8c06d7c2",
   },
 }
 

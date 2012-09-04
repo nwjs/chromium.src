@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "chrome/browser/chrome_page_zoom.h"
+#include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/favicon/favicon_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -108,6 +109,31 @@ void PanelHost::NavigationStateChanged(const content::WebContents* source,
     panel_->UpdateTitleBar();
 }
 
+void PanelHost::AddNewContents(content::WebContents* source,
+                               content::WebContents* new_contents,
+                               WindowOpenDisposition disposition,
+                               const gfx::Rect& initial_pos,
+                               bool user_gesture) {
+  chrome::NavigateParams navigate_params(profile_, new_contents->GetURL(),
+                                         content::PAGE_TRANSITION_LINK);
+  // Create a TabContents because the NavigateParams takes a TabContents,
+  // not a WebContents, for the target_contents.
+  TabContents* new_tab_contents = TabContents::FromWebContents(new_contents);
+  if (!new_tab_contents)
+    new_tab_contents = TabContents::Factory::CreateTabContents(new_contents);
+  navigate_params.target_contents = new_tab_contents;
+
+  // Force all links to open in a new tab, even if they were trying to open a
+  // window.
+  navigate_params.disposition =
+      disposition == NEW_BACKGROUND_TAB ? disposition : NEW_FOREGROUND_TAB;
+
+  navigate_params.window_bounds = initial_pos;
+  navigate_params.user_gesture = user_gesture;
+  navigate_params.extension_app_id = panel_->extension_id();
+  chrome::Navigate(&navigate_params);
+}
+
 void PanelHost::ActivateContents(content::WebContents* contents) {
   panel_->Activate();
 }
@@ -159,6 +185,12 @@ void PanelHost::WebContentsFocused(content::WebContents* contents) {
 void PanelHost::ResizeDueToAutoResize(content::WebContents* web_contents,
                                       const gfx::Size& new_size) {
   panel_->OnContentsAutoResized(new_size);
+}
+
+void PanelHost::RenderViewCreated(content::RenderViewHost* render_view_host) {
+  extensions::WindowController* window = GetExtensionWindowController();
+  render_view_host->Send(new ExtensionMsg_UpdateBrowserWindowId(
+      render_view_host->GetRoutingID(), window->GetWindowId()));
 }
 
 void PanelHost::RenderViewGone(base::TerminationStatus status) {

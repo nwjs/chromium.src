@@ -305,7 +305,7 @@ ModelTypeSet SyncManagerImpl::GetTypesWithEmptyProgressMarkerToken(
 
 void SyncManagerImpl::ConfigureSyncer(
     ConfigureReason reason,
-    const ModelTypeSet& types_to_config,
+    ModelTypeSet types_to_config,
     const ModelSafeRoutingInfo& new_routing_info,
     const base::Closure& ready_task,
     const base::Closure& retry_task) {
@@ -385,7 +385,9 @@ void SyncManagerImpl::Init(
 
   sync_encryption_handler_.reset(new SyncEncryptionHandlerImpl(
       &share_,
-      encryptor));
+      encryptor,
+      restored_key_for_bootstrapping,
+      restored_keystore_key_for_bootstrapping));
   sync_encryption_handler_->AddObserver(this);
   sync_encryption_handler_->AddObserver(&debug_info_event_listener_);
   sync_encryption_handler_->AddObserver(&js_sync_encryption_handler_observer_);
@@ -465,15 +467,6 @@ void SyncManagerImpl::Init(
 
   UpdateCredentials(credentials);
 
-  // Cryptographer should only be accessed while holding a
-  // transaction.  Grabbing the user share for the transaction
-  // checks the initialization state, so this must come after
-  // |initialized_| is set to true.
-  ReadTransaction trans(FROM_HERE, GetUserShare());
-  trans.GetCryptographer()->Bootstrap(restored_key_for_bootstrapping);
-  trans.GetCryptographer()->BootstrapKeystoreKey(
-      restored_keystore_key_for_bootstrapping);
-
   FOR_EACH_OBSERVER(SyncManager::Observer, observers_,
                     OnInitializationComplete(
                         MakeWeakHandle(weak_ptr_factory_.GetWeakPtr()),
@@ -539,7 +532,8 @@ void SyncManagerImpl::OnPassphraseAccepted() {
 }
 
 void SyncManagerImpl::OnBootstrapTokenUpdated(
-    const std::string& bootstrap_token) {
+    const std::string& bootstrap_token,
+    BootstrapTokenType type) {
   // Does nothing.
 }
 
@@ -657,8 +651,7 @@ void SyncManagerImpl::UpdateCredentials(
   scheduler_->OnCredentialsUpdated();
 }
 
-void SyncManagerImpl::UpdateEnabledTypes(
-    const ModelTypeSet& enabled_types) {
+void SyncManagerImpl::UpdateEnabledTypes(ModelTypeSet enabled_types) {
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(initialized_);
   invalidator_->UpdateRegisteredIds(
@@ -686,11 +679,6 @@ void SyncManagerImpl::UnregisterInvalidationHandler(
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(initialized_);
   invalidator_->UnregisterHandler(handler);
-}
-
-bool SyncManagerImpl::GetKeystoreKeyBootstrapToken(std::string* token) {
-  ReadTransaction trans(FROM_HERE, GetUserShare());
-  return trans.GetCryptographer()->GetKeystoreKeyBootstrapToken(token);
 }
 
 void SyncManagerImpl::AddObserver(SyncManager::Observer* observer) {
@@ -1020,9 +1008,9 @@ void SyncManagerImpl::OnSyncEngineEvent(const SyncEngineEvent& event) {
         (event.snapshot.model_neutral_state().num_successful_commits > 0);
     if (is_notifiable_commit) {
       if (invalidator_.get()) {
-        const ModelTypeSet changed_types =
-            ModelTypeStateMapToSet(event.snapshot.source().types);
-        invalidator_->SendNotification(changed_types);
+        const ObjectIdStateMap& id_state_map =
+            ModelTypeStateMapToObjectIdStateMap(event.snapshot.source().types);
+        invalidator_->SendNotification(id_state_map);
       } else {
         DVLOG(1) << "Not sending notification: invalidator_ is NULL";
       }

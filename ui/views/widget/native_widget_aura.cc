@@ -10,6 +10,7 @@
 #include "ui/aura/client/activation_change_observer.h"
 #include "ui/aura/client/activation_client.h"
 #include "ui/aura/client/aura_constants.h"
+#include "ui/aura/client/cursor_client.h"
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/client/stacking_client.h"
@@ -239,9 +240,6 @@ void NativeWidgetAura::InitNativeWidget(const Widget::InitParams& params) {
 
 NonClientFrameView* NativeWidgetAura::CreateNonClientFrameView() {
   return NULL;
-}
-
-void NativeWidgetAura::UpdateFrameAfterFrameChange() {
 }
 
 bool NativeWidgetAura::ShouldUseNativeFrame() const {
@@ -548,8 +546,11 @@ bool NativeWidgetAura::IsVisible() const {
 }
 
 void NativeWidgetAura::Activate() {
-  aura::client::GetActivationClient(window_->GetRootWindow())->ActivateWindow(
-      window_);
+  // We don't necessarily have a root window yet. This can happen with
+  // constrained windows.
+  if (window_->GetRootWindow())
+    aura::client::GetActivationClient(window_->GetRootWindow())->ActivateWindow(
+        window_);
 }
 
 void NativeWidgetAura::Deactivate() {
@@ -639,7 +640,10 @@ void NativeWidgetAura::SchedulePaintInRect(const gfx::Rect& rect) {
 
 void NativeWidgetAura::SetCursor(gfx::NativeCursor cursor) {
   cursor_ = cursor;
-  window_->GetRootWindow()->SetCursor(cursor);
+  aura::client::CursorClient* cursor_client =
+      aura::client::GetCursorClient(window_->GetRootWindow());
+  if (cursor_client)
+    cursor_client->SetCursor(cursor);
 }
 
 void NativeWidgetAura::ClearNativeFocus() {
@@ -1001,7 +1005,7 @@ void NativeWidgetPrivate::GetAllChildWidgets(gfx::NativeView native_view,
     // Code expects widget for |native_view| to be added to |children|.
     NativeWidgetAura* native_widget = static_cast<NativeWidgetAura*>(
         GetNativeWidgetForNativeView(native_view));
-    if (native_widget->GetWidget())
+    if (native_widget && native_widget->GetWidget())
       children->insert(native_widget->GetWidget());
   }
 

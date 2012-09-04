@@ -103,6 +103,9 @@ const int kMouseMoveCountBeforeConsiderReal = 3;
 const char kNewTabButtonFieldTrialName[] = "NewTabButton";
 const char kNewTabButtonFieldTrialPlusGroupName[] = "Plus";
 
+// Amount of time we delay before resizing after a close from a touch.
+const int kTouchResizeLayoutTimeMS = 2000;
+
 // Horizontal offset for the new tab button to bring it closer to the
 // rightmost tab.
 int newtab_button_h_offset() {
@@ -590,7 +593,7 @@ TabStrip::TabStrip(TabStripController* controller,
       ALLOW_THIS_IN_INITIALIZER_LIST(bounds_animator_(this)),
       layout_type_(TAB_STRIP_LAYOUT_SHRINK),
       adjust_layout_(false),
-      reset_to_shrink_on_release_(false),
+      reset_to_shrink_on_exit_(false),
       mouse_move_count_(0) {
   Init();
 }
@@ -618,8 +621,21 @@ void TabStrip::SetLayoutType(TabStripLayoutType layout_type,
   if (layout_type == layout_type_)
     return;
 
+  const int active_index = controller_->GetActiveIndex();
+  int active_center = 0;
+  if (active_index != -1) {
+    active_center = ideal_bounds(active_index).x() +
+        ideal_bounds(active_index).width() / 2;
+  }
   layout_type_ = layout_type;
+  SetResetToShrinkOnExit(false);
   SwapLayoutIfNecessary();
+  // When transitioning to stacked try to keep the active tab centered.
+  if (touch_layout_.get() && active_index != -1) {
+    touch_layout_->SetActiveTabLocation(
+        active_center - ideal_bounds(active_index).width() / 2);
+    AnimateToIdealBounds();
+  }
 }
 
 gfx::Rect TabStrip::GetNewTabButtonBounds() {
@@ -731,7 +747,7 @@ void TabStrip::SetTabData(int model_index, const TabRendererData& data) {
   SwapLayoutIfNecessary();
 }
 
-void TabStrip::PrepareForCloseAt(int model_index) {
+void TabStrip::PrepareForCloseAt(int model_index, CloseTabSource source) {
   if (!in_tab_close_ && IsAnimating()) {
     // Cancel any current animations. We do this as remove uses the current
     // ideal bounds and we need to know ideal bounds is in a good state.
@@ -739,14 +755,6 @@ void TabStrip::PrepareForCloseAt(int model_index) {
   }
 
   if (!GetWidget())
-    return;
-
-  // If the user closes the tab from a touch device don't wait for the mouse to
-  // move out of the tab strip (it may never happen).
-  // TODO: maybe we should use a delay on touch devices.
-  const ui::Event* event = GetWidget()->GetCurrentEvent();
-  if (event && event->type() == ui::ET_MOUSE_RELEASED &&
-      event->flags() & ui::EF_FROM_TOUCH)
     return;
 
   int model_count = GetModelCount();
@@ -766,7 +774,12 @@ void TabStrip::PrepareForCloseAt(int model_index) {
   }
 
   in_tab_close_ = true;
-  AddMessageLoopObserver();
+  resize_layout_timer_.Stop();
+  if (source == CLOSE_TAB_FROM_TOUCH) {
+    StartResizeLayoutTabsFromTouchTimer();
+  } else {
+    AddMessageLoopObserver();
+  }
 }
 
 void TabStrip::SetSelection(const TabStripSelectionModel& old_selection,
@@ -924,7 +937,7 @@ void TabStrip::AddSelectionFromAnchorTo(BaseTab* tab) {
     controller_->AddSelectionFromAnchorTo(model_index);
 }
 
-void TabStrip::CloseTab(BaseTab* tab) {
+void TabStrip::CloseTab(BaseTab* tab, CloseTabSource source) {
   if (tab->closing()) {
     // If the tab is already closing, close the next tab. We do this so that the
     // user can rapidly close tabs by clicking the close button and not have
@@ -935,7 +948,7 @@ void TabStrip::CloseTab(BaseTab* tab) {
           std::find(i->second.begin(), i->second.end(), tab);
       if (j != i->second.end()) {
         if (i->first + 1 < GetModelCount())
-          controller_->CloseTab(i->first + 1);
+          controller_->CloseTab(i->first + 1, source);
         return;
       }
     }
@@ -946,7 +959,7 @@ void TabStrip::CloseTab(BaseTab* tab) {
   }
   int model_index = GetModelIndexOfBaseTab(tab);
   if (IsValidModelIndex(model_index))
-    controller_->CloseTab(model_index);
+    controller_->CloseTab(model_index, source);
 }
 
 void TabStrip::ShowContextMenuForTab(BaseTab* tab, const gfx::Point& p) {
@@ -1059,11 +1072,11 @@ void TabStrip::ContinueDrag(views::View* view, const gfx::Point& location) {
   }
 }
 
-bool TabStrip::EndDrag(bool canceled) {
+bool TabStrip::EndDrag(EndDragReason reason) {
   if (!drag_controller_.get())
     return false;
   bool started_drag = drag_controller_->started_drag();
-  drag_controller_->EndDrag(canceled);
+  drag_controller_->EndDrag(reason);
   return started_drag;
 }
 
@@ -1142,6 +1155,11 @@ bool TabStrip::IsInstantExtendedAPIEnabled() {
 
 void TabStrip::MouseMovedOutOfHost() {
   ResizeLayoutTabs();
+  if (reset_to_shrink_on_exit_) {
+    reset_to_shrink_on_exit_ = false;
+    SetLayoutType(TAB_STRIP_LAYOUT_SHRINK, true);
+    controller_->LayoutTypeMaybeChanged();
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1339,16 +1357,7 @@ views::View* TabStrip::GetEventHandlerForPoint(const gfx::Point& point) {
       if (view)
         return view;
     }
-
-    int active_tab_index = touch_layout_->active_index();
-    Tab* tab = NULL;
-    if (active_tab_index != -1) {
-      tab = FindTabForEvent(point, active_tab_index, -1);
-      if (!tab)
-        tab = FindTabForEvent(point, active_tab_index + 1, 1);
-    } else if (tab_count()) {
-      tab = FindTabForEvent(point, 0, 1);
-    }
+    Tab* tab = FindTabForEvent(point);
     if (tab)
       return ConvertPointToViewAndGetEventHandler(this, tab, point);
   }
@@ -1408,23 +1417,28 @@ bool TabStrip::OnMouseDragged(const ui::MouseEvent& event) {
 }
 
 void TabStrip::OnMouseReleased(const ui::MouseEvent& event) {
-  EndDrag(false);
+  EndDrag(END_DRAG_COMPLETE);
   UpdateLayoutTypeFromMouseEvent(this, event);
 }
 
 void TabStrip::OnMouseCaptureLost() {
-  EndDrag(true);
+  EndDrag(END_DRAG_CAPTURE_LOST);
 }
 
 void TabStrip::OnMouseMoved(const ui::MouseEvent& event) {
   UpdateLayoutTypeFromMouseEvent(this, event);
 }
 
+void TabStrip::OnMouseEntered(const ui::MouseEvent& event) {
+  SetResetToShrinkOnExit(true);
+}
+
 ui::GestureStatus TabStrip::OnGestureEvent(
     const ui::GestureEvent& event) {
+  SetResetToShrinkOnExit(false);
   switch (event.type()) {
     case ui::ET_GESTURE_END:
-      EndDrag(false);
+      EndDrag(END_DRAG_COMPLETE);
       if (adjust_layout_) {
         SetLayoutType(TAB_STRIP_LAYOUT_STACKED, true);
         controller_->LayoutTypeMaybeChanged();
@@ -1441,7 +1455,7 @@ ui::GestureStatus TabStrip::OnGestureEvent(
       break;
 
     case ui::ET_GESTURE_BEGIN:
-      EndDrag(true);
+      EndDrag(END_DRAG_CANCEL);
       break;
 
     default:
@@ -1461,6 +1475,8 @@ void TabStrip::GetCurrentTabWidths(double* unselected_width,
 
 void TabStrip::Init() {
   set_id(VIEW_ID_TAB_STRIP);
+  // So we get enter/exit on children to switch layout type.
+  set_notify_enter_exit_on_child(true);
   newtab_button_bounds_.SetRect(0,
                                 0,
                                 newtab_button_asset_width(),
@@ -1810,23 +1826,18 @@ void TabStrip::PaintClosingTabs(gfx::Canvas* canvas, int index) {
 
 void TabStrip::UpdateLayoutTypeFromMouseEvent(views::View* source,
                                               const ui::MouseEvent& event) {
-  if (!adjust_layout_)
+  if (!GetAdjustLayout())
     return;
-
-#if !defined(OS_CHROMEOS)
-  if (ui::GetDisplayLayout() != ui::LAYOUT_TOUCH)
-    return;
-#endif
 
   // The following code attempts to switch to TAB_STRIP_LAYOUT_SHRINK when the
-  // mouse is used, and TAB_STRIP_LAYOUT_STACKED when a touch device is
-  // used. This is made problematic by windows generating mouse move events that
-  // do not clearly indicate the move is the result of a touch device. This
-  // assumes a real mouse is used if |kMouseMoveCountBeforeConsiderReal| mouse
-  // move events are received within the time window |kMouseMoveTimeMS|.
-  // At the time we get a mouse press we know whether its from a touch device
-  // or not, but we don't layout then else everything shifts. Instead we wait
-  // for the release.
+  // mouse exits the tabstrip (or the mouse is pressed on a stacked tab) and
+  // TAB_STRIP_LAYOUT_STACKED when a touch device is used. This is made
+  // problematic by windows generating mouse move events that do not clearly
+  // indicate the move is the result of a touch device. This assumes a real
+  // mouse is used if |kMouseMoveCountBeforeConsiderReal| mouse move events are
+  // received within the time window |kMouseMoveTimeMS|.  At the time we get a
+  // mouse press we know whether its from a touch device or not, but we don't
+  // layout then else everything shifts. Instead we wait for the release.
   //
   // TODO(sky): revisit this when touch events are really plumbed through.
 
@@ -1834,19 +1845,23 @@ void TabStrip::UpdateLayoutTypeFromMouseEvent(views::View* source,
     case ui::ET_MOUSE_PRESSED:
       mouse_move_count_ = 0;
       last_mouse_move_time_ = base::TimeTicks();
-      reset_to_shrink_on_release_ =
-          ((event.flags() & ui::EF_FROM_TOUCH) == 0);
+      SetResetToShrinkOnExit((event.flags() & ui::EF_FROM_TOUCH) == 0);
+      if (reset_to_shrink_on_exit_ && touch_layout_.get()) {
+        gfx::Point tab_strip_point(event.location());
+        views::View::ConvertPointToTarget(source, this, &tab_strip_point);
+        Tab* tab = FindTabForEvent(tab_strip_point);
+        if (tab && touch_layout_->IsStacked(GetModelIndexOfBaseTab(tab))) {
+          SetLayoutType(TAB_STRIP_LAYOUT_SHRINK, true);
+          controller_->LayoutTypeMaybeChanged();
+        }
+      }
       break;
 
     case ui::ET_MOUSE_MOVED: {
-#if !defined(OS_WIN)
-      SetLayoutType(TAB_STRIP_LAYOUT_SHRINK, true);
-      break;
-#endif
-      // Switch to shrink if the mouse enters and it's not a synthesized event.
-      // We ignore synthesized events as EF_FROM_TOUCH is not necessarily set
-      // correctly (highlighting the close button doesn't set the flags
-      // correctly).
+#if defined(USE_ASH)
+      // Ash does not synthesize mouse events from touch events.
+      SetResetToShrinkOnExit(true);
+#else
       gfx::Point location(event.location());
       ConvertPointToTarget(source, this, &location);
       if (location == last_mouse_move_location_)
@@ -1856,11 +1871,8 @@ void TabStrip::UpdateLayoutTypeFromMouseEvent(views::View* source,
           (event.flags() & ui::EF_IS_SYNTHESIZED) == 0) {
         if ((base::TimeTicks::Now() - last_mouse_move_time_).InMilliseconds() <
             kMouseMoveTimeMS) {
-          if (mouse_move_count_++ == kMouseMoveCountBeforeConsiderReal) {
-            SetLayoutType(TAB_STRIP_LAYOUT_SHRINK, true);
-            // Don't notify the controller here. We only want to commit the
-            // change to other tabstrips on a release.
-          }
+          if (mouse_move_count_++ == kMouseMoveCountBeforeConsiderReal)
+            SetResetToShrinkOnExit(true);
         } else {
           mouse_move_count_ = 1;
           last_mouse_move_time_ = base::TimeTicks::Now();
@@ -1868,6 +1880,7 @@ void TabStrip::UpdateLayoutTypeFromMouseEvent(views::View* source,
       } else {
         last_mouse_move_time_ = base::TimeTicks();
       }
+#endif
       break;
     }
 
@@ -1875,15 +1888,12 @@ void TabStrip::UpdateLayoutTypeFromMouseEvent(views::View* source,
       gfx::Point location(event.location());
       ConvertPointToTarget(source, this, &location);
       last_mouse_move_location_ = location;
-
       mouse_move_count_ = 0;
       last_mouse_move_time_ = base::TimeTicks();
-
-      if ((event.flags() & ui::EF_FROM_TOUCH) == ui::EF_FROM_TOUCH)
+      if ((event.flags() & ui::EF_FROM_TOUCH) == ui::EF_FROM_TOUCH) {
         SetLayoutType(TAB_STRIP_LAYOUT_STACKED, true);
-      else if (reset_to_shrink_on_release_)
-        SetLayoutType(TAB_STRIP_LAYOUT_SHRINK, true);
-      controller_->LayoutTypeMaybeChanged();
+        controller_->LayoutTypeMaybeChanged();
+      }
       break;
     }
 
@@ -2000,6 +2010,21 @@ void TabStrip::ResizeLayoutTabs() {
   // size.
   if (abs(first_tab->width() - w) > 1)
     StartResizeLayoutAnimation();
+}
+
+void TabStrip::ResizeLayoutTabsFromTouch() {
+  // Don't resize if the user is interacting with the tabstrip.
+  if (!drag_controller_.get())
+    ResizeLayoutTabs();
+  else
+    StartResizeLayoutTabsFromTouchTimer();
+}
+
+void TabStrip::StartResizeLayoutTabsFromTouchTimer() {
+  resize_layout_timer_.Stop();
+  resize_layout_timer_.Start(
+      FROM_HERE, base::TimeDelta::FromMilliseconds(kTouchResizeLayoutTimeMS),
+      this, &TabStrip::ResizeLayoutTabsFromTouch);
 }
 
 void TabStrip::SetTabBoundsForDrag(const std::vector<gfx::Rect>& tab_bounds) {
@@ -2326,7 +2351,23 @@ int TabStrip::GetStartXForNormalTabs() const {
       kMiniToNonMiniGap;
 }
 
-Tab* TabStrip::FindTabForEvent(const gfx::Point& point, int start, int delta) {
+Tab* TabStrip::FindTabForEvent(const gfx::Point& point) {
+  DCHECK(touch_layout_.get());
+  int active_tab_index = touch_layout_->active_index();
+  Tab* tab = NULL;
+  if (active_tab_index != -1) {
+    tab = FindTabForEventFrom(point, active_tab_index, -1);
+    if (!tab)
+      tab = FindTabForEventFrom(point, active_tab_index + 1, 1);
+  } else if (tab_count()) {
+    tab = FindTabForEventFrom(point, 0, 1);
+  }
+  return tab;
+}
+
+Tab* TabStrip::FindTabForEventFrom(const gfx::Point& point,
+                                   int start,
+                                   int delta) {
   // |start| equals tab_count() when there are only pinned tabs.
   if (start == tab_count())
     start += delta;
@@ -2367,6 +2408,7 @@ void TabStrip::SwapLayoutIfNecessary() {
   } else {
     touch_layout_.reset();
   }
+  PrepareForAnimation();
   GenerateIdealBounds();
   AnimateToIdealBounds();
 }
@@ -2383,4 +2425,34 @@ bool TabStrip::NeedsTouchLayout() const {
   int available_width = width() - x - new_tab_button_width();
   return (Tab::GetTouchWidth() * normal_count +
           tab_h_offset() * (normal_count - 1)) > available_width;
+}
+
+void TabStrip::SetResetToShrinkOnExit(bool value) {
+  if (!GetAdjustLayout())
+    return;
+
+  if (value && layout_type_ == TAB_STRIP_LAYOUT_SHRINK)
+    value = false;  // We're already at TAB_STRIP_LAYOUT_SHRINK.
+
+  if (value == reset_to_shrink_on_exit_)
+    return;
+
+  reset_to_shrink_on_exit_ = value;
+  // Add an observer so we know when the mouse moves out of the tabstrip.
+  if (reset_to_shrink_on_exit_)
+    AddMessageLoopObserver();
+  else
+    RemoveMessageLoopObserver();
+}
+
+bool TabStrip::GetAdjustLayout() const {
+  if (!adjust_layout_)
+    return false;
+
+#if !defined(OS_CHROMEOS)
+  if (ui::GetDisplayLayout() != ui::LAYOUT_TOUCH)
+    return false;
+#endif
+
+  return true;
 }

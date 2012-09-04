@@ -34,7 +34,6 @@
 #include "chrome/browser/chromeos/login/user_image.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
-#include "chrome/browser/chromeos/settings/ownership_service.h"
 #include "chrome/browser/policy/browser_policy_connector.h"
 #include "chrome/browser/prefs/pref_service.h"
 #include "chrome/browser/prefs/scoped_user_pref_update.h"
@@ -188,7 +187,7 @@ void RemoveUserInternal(const std::string& user_email,
 }  // namespace
 
 UserManagerImpl::UserManagerImpl()
-    : ALLOW_THIS_IN_INITIALIZER_LIST(image_loader_(new UserImageLoader)),
+    : image_loader_(new UserImageLoader(ImageDecoder::DEFAULT_CODEC)),
       logged_in_user_(NULL),
       session_started_(false),
       is_current_user_owner_(false),
@@ -203,7 +202,7 @@ UserManagerImpl::UserManagerImpl()
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   MigrateWallpaperData();
-  registrar_.Add(this, chrome::NOTIFICATION_OWNER_KEY_FETCH_ATTEMPT_SUCCEEDED,
+  registrar_.Add(this, chrome::NOTIFICATION_OWNERSHIP_STATUS_CHANGED,
       content::NotificationService::AllSources());
   registrar_.Add(this, chrome::NOTIFICATION_PROFILE_ADDED,
       content::NotificationService::AllSources());
@@ -212,7 +211,7 @@ UserManagerImpl::UserManagerImpl()
 
 UserManagerImpl::~UserManagerImpl() {
   // Can't use STLDeleteElements because of the private destructor of User.
-  for (size_t i = 0; i < users_.size();++i)
+  for (size_t i = 0; i < users_.size(); ++i)
     delete users_[i];
   users_.clear();
   if (is_current_user_ephemeral_)
@@ -547,7 +546,7 @@ void UserManagerImpl::SetLoggedInUserCustomWallpaperLayout(
       GetWallpaperPathForUser(username, false).value();
   SaveWallpaperToLocalState(username, file_path, layout, User::CUSTOMIZED);
   // Load wallpaper from file.
-  WallpaperManager::Get()->OnUserSelected(username);
+  WallpaperManager::Get()->SetUserWallpaper(username);
 }
 
 void UserManagerImpl::SaveUserImageFromFile(const std::string& username,
@@ -585,13 +584,9 @@ void UserManagerImpl::Observe(int type,
                               const content::NotificationSource& source,
                               const content::NotificationDetails& details) {
   switch (type) {
-    case chrome::NOTIFICATION_OWNER_KEY_FETCH_ATTEMPT_SUCCEEDED:
-      BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-                              base::Bind(&UserManagerImpl::CheckOwnership,
-                                         base::Unretained(this)));
-      BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-          base::Bind(&UserManagerImpl::RetrieveTrustedDevicePolicies,
-          base::Unretained(this)));
+    case chrome::NOTIFICATION_OWNERSHIP_STATUS_CHANGED:
+      CheckOwnership();
+      RetrieveTrustedDevicePolicies();
       break;
     case chrome::NOTIFICATION_PROFILE_ADDED:
       if (IsUserLoggedIn() && !IsLoggedInAsGuest()) {
@@ -618,13 +613,13 @@ void UserManagerImpl::OnStateChanged() {
       state != AuthError::CONNECTION_FAILED &&
       state != AuthError::SERVICE_UNAVAILABLE &&
       state != AuthError::REQUEST_CANCELED) {
-      // Invalidate OAuth token to force Gaia sign-in flow. This is needed
-      // because sign-out/sign-in solution is suggested to the user.
-      // TODO(altimofeev): this code isn't needed after crosbug.com/25978 is
-      // implemented.
-      DVLOG(1) << "Invalidate OAuth token because of a sync error.";
-      SaveUserOAuthStatus(GetLoggedInUser().email(),
-                          User::OAUTH_TOKEN_STATUS_INVALID);
+    // Invalidate OAuth token to force Gaia sign-in flow. This is needed
+    // because sign-out/sign-in solution is suggested to the user.
+    // TODO(altimofeev): this code isn't needed after crosbug.com/25978 is
+    // implemented.
+    DVLOG(1) << "Invalidate OAuth token because of a sync error.";
+    SaveUserOAuthStatus(GetLoggedInUser().email(),
+                        User::OAUTH_TOKEN_STATUS_INVALID);
   }
 }
 
@@ -675,12 +670,35 @@ bool UserManagerImpl::IsSessionStarted() const {
   return session_started_;
 }
 
-void UserManagerImpl::AddObserver(Observer* obs) {
+bool UserManagerImpl::IsEphemeralUser(const std::string& email) const {
+  // The guest and stub user always are ephemeral.
+  if (email == kGuestUser || email == kStubUser)
+    return true;
+
+  // The currently logged-in user is ephemeral iff logged in as ephemeral.
+  if (logged_in_user_ && (email == logged_in_user_->email()))
+    return is_current_user_ephemeral_;
+
+  // The owner and any users found in the persistent list are never ephemeral.
+  if (email == owner_email_  || FindUserInList(email))
+    return false;
+
+  // Any other user is ephemeral when:
+  // a) Going through the regular login flow and ephemeral users are enabled.
+  //    - or -
+  // b) The browser is restarting after a crash.
+  return AreEphemeralUsersEnabled() ||
+         (base::chromeos::IsRunningOnChromeOS() &&
+          !CommandLine::ForCurrentProcess()->
+              HasSwitch(switches::kLoginManager));
+}
+
+void UserManagerImpl::AddObserver(UserManager::Observer* obs) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   observer_list_.AddObserver(obs);
 }
 
-void UserManagerImpl::RemoveObserver(Observer* obs) {
+void UserManagerImpl::RemoveObserver(UserManager::Observer* obs) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   observer_list_.RemoveObserver(obs);
 }
@@ -692,10 +710,8 @@ const gfx::ImageSkia& UserManagerImpl::DownloadedProfileImage() const {
 
 void UserManagerImpl::NotifyLocalStateChanged() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  FOR_EACH_OBSERVER(
-    Observer,
-    observer_list_,
-    LocalStateChanged(this));
+  FOR_EACH_OBSERVER(UserManager::Observer, observer_list_,
+                    LocalStateChanged(this));
 }
 
 FilePath UserManagerImpl::GetImagePathForUser(const std::string& username) {
@@ -722,8 +738,6 @@ void UserManagerImpl::EnsureUsersLoaded() {
   const DictionaryValue* prefs_display_emails =
       local_state->GetDictionary(UserManager::kUserDisplayEmail);
 
-  int user_image_size = GetCurrentUserImageSize();
-
   if (prefs_users) {
     for (ListValue::const_iterator it = prefs_users->begin();
          it != prefs_users->end(); ++it) {
@@ -749,7 +763,7 @@ void UserManagerImpl::EnsureUsersLoaded() {
               DCHECK(!image_path.empty());
               // Load user image asynchronously.
               image_loader_->Start(
-                  image_path, user_image_size,
+                  image_path, 0  /* no resize */,
                   base::Bind(&UserManagerImpl::SetUserImage,
                              base::Unretained(this),
                              email, image_index, GURL()));
@@ -779,7 +793,7 @@ void UserManagerImpl::EnsureUsersLoaded() {
               if (!image_path.empty()) {
                 // Load user image asynchronously.
                 image_loader_->Start(
-                    image_path, user_image_size,
+                    image_path, 0  /* no resize */,
                     base::Bind(&UserManagerImpl::SetUserImage,
                                base::Unretained(this),
                                email, image_index, image_gurl));
@@ -856,29 +870,6 @@ bool UserManagerImpl::AreEphemeralUsersEnabled() const {
       !owner_email_.empty());
 }
 
-bool UserManagerImpl::IsEphemeralUser(const std::string& email) const {
-  // The guest and stub user always are ephemeral.
-  if (email == kGuestUser || email == kStubUser)
-    return true;
-
-  // The currently logged-in user is ephemeral iff logged in as ephemeral.
-  if (logged_in_user_ && (email == logged_in_user_->email()))
-    return is_current_user_ephemeral_;
-
-  // The owner and any users found in the persistent list are never ephemeral.
-  if (email == owner_email_  || FindUserInList(email))
-    return false;
-
-  // Any other user is ephemeral when:
-  // a) Going through the regular login flow and ephemeral users are enabled.
-  //    - or -
-  // b) The browser is restarting after a crash.
-  return AreEphemeralUsersEnabled() ||
-         (base::chromeos::IsRunningOnChromeOS() &&
-          !CommandLine::ForCurrentProcess()->
-              HasSwitch(switches::kLoginManager));
-}
-
 const User* UserManagerImpl::FindUserInList(const std::string& email) const {
   const UserList& users = GetUsers();
   for (UserList::const_iterator it = users.begin(); it != users.end(); ++it) {
@@ -897,10 +888,9 @@ void UserManagerImpl::NotifyOnLogin() {
 
   CrosLibrary::Get()->GetCertLibrary()->LoadKeyStore();
 
-  // Schedules current user ownership check on file thread.
-  BrowserThread::PostTask(BrowserThread::FILE, FROM_HERE,
-                          base::Bind(&UserManagerImpl::CheckOwnership,
-                                     base::Unretained(this)));
+  // Indicate to DeviceSettingsService that the owner key may have become
+  // available.
+  DeviceSettingsService::Get()->SetUsername(logged_in_user_->email());
 }
 
 void UserManagerImpl::SetInitialUserImage(const std::string& username) {
@@ -1157,32 +1147,18 @@ void UserManagerImpl::DeleteUserImage(const FilePath& image_path) {
   }
 }
 
-void UserManagerImpl::UpdateOwnership(bool is_owner) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+void UserManagerImpl::UpdateOwnership(
+    DeviceSettingsService::OwnershipStatus status,
+    bool is_owner) {
+  VLOG(1) << "Current user " << (is_owner ? "is owner" : "is not owner");
 
   SetCurrentUserIsOwner(is_owner);
-  content::NotificationService::current()->Notify(
-      chrome::NOTIFICATION_OWNERSHIP_CHECKED,
-      content::NotificationService::AllSources(),
-      content::NotificationService::NoDetails());
-  if (is_owner) {
-    // Also update cached value.
-    CrosSettings::Get()->SetString(kDeviceOwner, GetLoggedInUser().email());
-  }
 }
 
 void UserManagerImpl::CheckOwnership() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::FILE));
-  bool is_owner = OwnershipService::GetSharedInstance()->IsCurrentUserOwner();
-  VLOG(1) << "Current user " << (is_owner ? "is owner" : "is not owner");
-
-  // UserManagerImpl should be accessed only on UI thread.
-  BrowserThread::PostTask(
-      BrowserThread::UI,
-      FROM_HERE,
+  DeviceSettingsService::Get()->GetOwnershipStatusAsync(
       base::Bind(&UserManagerImpl::UpdateOwnership,
-                 base::Unretained(this),
-                 is_owner));
+                 base::Unretained(this)));
 }
 
 // ProfileDownloaderDelegate override.
@@ -1353,6 +1329,14 @@ void UserManagerImpl::RemoveUserFromListInternal(const std::string& email) {
       base::Bind(&UserManagerImpl::DeleteUserImage,
                  base::Unretained(this),
                  wallpaper_path));
+  FilePath wallpaper_original_path = WallpaperManager::Get()->
+      GetOriginalWallpaperPathForUser(email);
+  BrowserThread::PostTask(
+      BrowserThread::FILE,
+      FROM_HERE,
+      base::Bind(&UserManagerImpl::DeleteUserImage,
+                 base::Unretained(this),
+                 wallpaper_original_path));
 
   DictionaryPrefUpdate prefs_images_update(prefs, kUserImages);
   std::string image_path_string;

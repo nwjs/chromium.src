@@ -84,6 +84,10 @@ void AppListView::InitAsBubble(
   // Resets default background since AppListBubbleBorder paints background.
   GetBubbleFrameView()->set_background(NULL);
 
+  contents_view_->SetPaintToLayer(true);
+  contents_view_->SetFillsBoundsOpaquely(false);
+  contents_view_->layer()->SetMasksToBounds(true);
+
   CreateModel();
 }
 
@@ -191,6 +195,13 @@ void AppListView::QueryChanged(SearchBoxView* sender) {
 void AppListView::OpenResult(const SearchResult& result, int event_flags) {
   if (delegate_.get())
     delegate_->OpenSearchResult(result, event_flags);
+}
+
+void AppListView::InvokeResultAction(const SearchResult& result,
+                                     int action_index,
+                                     int event_flags) {
+  if (delegate_.get())
+    delegate_->InvokeSearchResultAction(result, action_index, event_flags);
 }
 
 }  // namespace app_list

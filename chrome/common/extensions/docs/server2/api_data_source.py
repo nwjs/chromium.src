@@ -91,14 +91,14 @@ class APIDataSource(object):
       return None
     if api_perms['channel'] == 'dev':
       api_perms['dev'] = True
+    elif api_perms['channel'] == 'beta':
+      api_perms['beta'] = True
     return api_perms
 
   def _GenerateHandlebarContext(self, handlebar, path):
     return_dict = {
       'permissions': self._GetFeature(path),
-      # Disabled to help with performance until we figure out
-      # http://crbug.com/142011.
-      'samples': None # _LazySamplesGetter(path, self._samples)
+      'samples': _LazySamplesGetter(path, self._samples)
     }
     return_dict.update(handlebar.Generate())
     return return_dict

@@ -1,6 +1,7 @@
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+import inspector_backend
 
 class EvaluateException(Exception):
   pass
@@ -19,7 +20,25 @@ class TabRuntime(object):
   def _OnClose(self):
     pass
 
+  def Execute(self, expr):
+    """Executes expr
+
+    If the expression failed to evaluate, EvaluateException will be raised.
+    """
+    self.Evaluate(expr + "; 0;");
+
   def Evaluate(self, expr):
+    """Evalutes expr and returns the JSONized result.
+
+    Consider using Execute for cases where the result of the expression is not
+    needed.
+
+    If evaluation throws in javascript, a python EvaluateException will
+    be raised.
+
+    If the result of the evaluation cannot be JSONized, then an
+    EvaluationException will be raised.
+    """
     request = {
       "method": "Runtime.evaluate",
       "params": {

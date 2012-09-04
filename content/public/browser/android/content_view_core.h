@@ -35,6 +35,18 @@ class ContentViewCore {
                                  WebContents* web_contents);
   static ContentViewCore* GetNativeContentViewCore(JNIEnv* env, jobject obj);
 
+  // --------------------------------------------------------------------------
+  // Methods called from Java via JNI
+  // --------------------------------------------------------------------------
+
+  virtual int GetNativeImeAdapter(JNIEnv* env, jobject obj) = 0;
+
+  // --------------------------------------------------------------------------
+  // Methods called from native code
+  // --------------------------------------------------------------------------
+
+  virtual base::android::ScopedJavaLocalRef<jobject> GetJavaObject() = 0;
+
  protected:
   virtual ~ContentViewCore() {};
 };

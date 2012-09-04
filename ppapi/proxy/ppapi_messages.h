@@ -35,6 +35,7 @@
 #include "ppapi/c/private/ppb_host_resolver_private.h"
 #include "ppapi/c/private/ppb_net_address_private.h"
 #include "ppapi/c/private/ppb_tcp_socket_private.h"
+#include "ppapi/c/private/ppb_udp_socket_private.h"
 #include "ppapi/c/private/ppp_flash_browser_operations.h"
 #include "ppapi/proxy/ppapi_param_traits.h"
 #include "ppapi/proxy/ppapi_proxy_export.h"
@@ -63,8 +64,8 @@ IPC_ENUM_TRAITS(PP_FlashSetting)
 IPC_ENUM_TRAITS(PP_InputEvent_MouseButton)
 IPC_ENUM_TRAITS(PP_InputEvent_Type)
 IPC_ENUM_TRAITS(PP_NetAddressFamily_Private)
-IPC_ENUM_TRAITS(PP_NetworkListType_Private)
 IPC_ENUM_TRAITS(PP_NetworkListState_Private)
+IPC_ENUM_TRAITS(PP_NetworkListType_Private)
 IPC_ENUM_TRAITS(PP_PrintOrientation_Dev)
 IPC_ENUM_TRAITS(PP_PrintOutputFormat_Dev)
 IPC_ENUM_TRAITS(PP_PrintScalingOption_Dev)
@@ -265,6 +266,14 @@ IPC_MESSAGE_CONTROL1(PpapiMsg_LoadPlugin, FilePath /* path */)
 IPC_MESSAGE_CONTROL2(PpapiMsg_CreateChannel,
                      int /* renderer_id */,
                      bool /* incognito */)
+
+// Creates a channel to talk to a renderer. This message is only used by the
+// NaCl IPC proxy. It is intercepted by NaClIPCAdapter, which creates the
+// actual channel and rewrites the message for the untrusted side.
+IPC_MESSAGE_CONTROL3(PpapiMsg_CreateNaClChannel,
+                     int /* renderer_id */,
+                     bool /* incognito */,
+                     ppapi::proxy::SerializedHandle /* channel_handle */)
 
 // Each plugin may be referenced by multiple renderers. We need the instance
 // IDs to be unique within a plugin, despite coming from different renderers,
@@ -1441,6 +1450,11 @@ IPC_SYNC_MESSAGE_CONTROL2_1(PpapiHostMsg_PPBUDPSocket_Create,
                             int32 /* routing_id */,
                             uint32 /* plugin_dispatcher_id */,
                             uint32 /* socket_id */)
+IPC_MESSAGE_CONTROL4(PpapiHostMsg_PPBUDPSocket_SetBoolSocketFeature,
+                     int32 /* routing_id */,
+                     uint32 /* socket_id */,
+                     int32_t /* name */,
+                     bool /* value */)
 IPC_MESSAGE_CONTROL3(PpapiHostMsg_PPBUDPSocket_Bind,
                      int32 /* routing_id */,
                      uint32 /* socket_id */,

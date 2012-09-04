@@ -30,7 +30,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/renderer_host/chrome_render_message_filter.h"
-#include "chrome/browser/renderer_host/web_cache_manager.h"
+#include "chrome/common/extensions/api/web_request.h"
 #include "chrome/common/extensions/event_filtering_info.h"
 #include "chrome/common/extensions/extension.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -59,6 +59,7 @@ using extensions::web_navigation_api_helpers::GetFrameId;
 
 namespace helpers = extension_web_request_api_helpers;
 namespace keys = extension_web_request_api_constants;
+namespace web_request = extensions::api::web_request;
 
 namespace {
 
@@ -243,10 +244,6 @@ void NotifyWebRequestAPIUsed(void* profile_id, const Extension* extension) {
     if (host->GetBrowserContext() == browser_context)
       SendExtensionWebRequestStatusToHost(host);
   }
-}
-
-void ClearCacheOnNavigationOnUI() {
-  WebCacheManager::GetInstance()->ClearCacheOnNavigation();
 }
 
 }  // namespace
@@ -1058,8 +1055,7 @@ void ExtensionWebRequestEventRouter::RemoveEventListener(
 
   listeners_[profile][event_name].erase(listener);
 
-  BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-                          base::Bind(&ClearCacheOnNavigationOnUI));
+  helpers::ClearCacheOnNavigation();
 }
 
 void ExtensionWebRequestEventRouter::OnOTRProfileCreated(
@@ -1557,7 +1553,10 @@ void ExtensionWebRequestEventRouter::ClearSignaled(uint64 request_id,
 class ClearCacheQuotaHeuristic : public QuotaLimitHeuristic {
  public:
   ClearCacheQuotaHeuristic(const Config& config, BucketMapper* map)
-      : QuotaLimitHeuristic(config, map),
+      : QuotaLimitHeuristic(
+            config,
+            map,
+            "MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES"),
         callback_registered_(false),
         weak_ptr_factory_(this) {}
   virtual ~ClearCacheQuotaHeuristic() {}
@@ -1670,8 +1669,7 @@ bool WebRequestAddEventListener::RunImpl() {
           extra_info_spec, ipc_sender_weak());
   EXTENSION_FUNCTION_VALIDATE(success);
 
-  BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-                          base::Bind(&ClearCacheOnNavigationOnUI));
+  helpers::ClearCacheOnNavigation();
 
   BrowserThread::PostTask(BrowserThread::UI, FROM_HERE, base::Bind(
       &NotifyWebRequestAPIUsed,
@@ -1791,8 +1789,9 @@ bool WebRequestEventHandled::RunImpl() {
 void WebRequestHandlerBehaviorChanged::GetQuotaLimitHeuristics(
     QuotaLimitHeuristics* heuristics) const {
   QuotaLimitHeuristic::Config config = {
-    20,                               // Refill 20 tokens per interval.
-    base::TimeDelta::FromMinutes(10)  // 10 minutes refill interval.
+    // See web_request.json for current value.
+    web_request::MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES,
+    base::TimeDelta::FromMinutes(10)
   };
   QuotaLimitHeuristic::BucketMapper* bucket_mapper =
       new QuotaLimitHeuristic::SingletonBucketMapper();
@@ -1801,7 +1800,8 @@ void WebRequestHandlerBehaviorChanged::GetQuotaLimitHeuristics(
   heuristics->push_back(heuristic);
 }
 
-void WebRequestHandlerBehaviorChanged::OnQuotaExceeded() {
+void WebRequestHandlerBehaviorChanged::OnQuotaExceeded(
+    const std::string& violation_error) {
   // Post warning message.
   std::set<std::string> extension_ids;
   extension_ids.insert(extension_id());
@@ -1818,8 +1818,7 @@ void WebRequestHandlerBehaviorChanged::OnQuotaExceeded() {
 }
 
 bool WebRequestHandlerBehaviorChanged::RunImpl() {
-  BrowserThread::PostTask(BrowserThread::UI, FROM_HERE,
-                          base::Bind(&ClearCacheOnNavigationOnUI));
+  helpers::ClearCacheOnNavigation();
   return true;
 }
 

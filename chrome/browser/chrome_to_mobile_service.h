@@ -97,8 +97,7 @@ class ChromeToMobileService : public ProfileKeyedService,
     JobType type;
   };
 
-  // Returns whether Chrome To Mobile is enabled. Check for the 'disable' or
-  // 'enable' command line switches, otherwise relay the default enabled state.
+  // Returns whether Chrome To Mobile is enabled (gated on the Action Box UI).
   static bool IsChromeToMobileEnabled();
 
   // Register the user prefs associated with this service.
@@ -182,7 +181,7 @@ class ChromeToMobileService : public ProfileKeyedService,
                            bool success);
 
   // Create a cloud print job submission request for a URL or snapshot.
-  net::URLFetcher* CreateRequest(const JobData& data);
+  net::URLFetcher* CreateRequest();
 
   // Initialize cloud print URLFetcher requests.
   void InitRequest(net::URLFetcher* request);

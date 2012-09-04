@@ -51,7 +51,6 @@
 #include "chrome/browser/ui/webui/task_manager/task_manager_ui.h"
 #include "chrome/browser/ui/webui/test_chrome_web_ui_controller_factory.h"
 #include "chrome/browser/ui/webui/tracing_ui.h"
-#include "chrome/browser/ui/webui/uber/uber_ui.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_switch_utils.h"
@@ -66,6 +65,8 @@
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/ui/webui/welcome_ui_android.h"
+#else
+#include "chrome/browser/ui/webui/uber/uber_ui.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -230,10 +231,6 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<WebDialogUI>;
   if (url.host() == chrome::kChromeUITracingHost)
     return &NewWebUI<TracingUI>;
-  if (url.host() == chrome::kChromeUIUberFrameHost)
-    return &NewWebUI<UberFrameUI>;
-  if (url.host() == chrome::kChromeUIUberHost)
-    return &NewWebUI<UberUI>;
 
   /****************************************************************************
    * OS Specific #defines
@@ -253,6 +250,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<options::OptionsUI>;
   if (url.host() == chrome::kChromeUISuggestionsInternalsHost)
     return &NewWebUI<SuggestionsInternalsUI>;
+  if (url.host() == chrome::kChromeUIUberFrameHost)
+    return &NewWebUI<UberFrameUI>;
+  if (url.host() == chrome::kChromeUIUberHost)
+    return &NewWebUI<UberUI>;
   // chrome://flags is currently unsupported on Android.
   if (url.host() == chrome::kChromeUIFlagsHost)
     return &NewWebUI<FlagsUI>;
@@ -479,13 +480,16 @@ void ChromeWebUIControllerFactory::GetFaviconForURL(
       url.host() != extension_misc::kBookmarkManagerId) {
     ExtensionWebUI::GetFaviconForURL(profile, request, url);
   } else {
-    history::FaviconData favicon;
-    favicon.image_data = scoped_refptr<base::RefCountedMemory>(
-        GetFaviconResourceBytes(url));
-    favicon.known_icon = favicon.image_data.get() != NULL &&
-                             favicon.image_data->size() > 0;
-    favicon.icon_type = history::FAVICON;
-    request->ForwardResultAsync(request->handle(), favicon);
+    scoped_refptr<base::RefCountedMemory> bitmap(GetFaviconResourceBytes(url));
+    std::vector<history::FaviconBitmapResult> favicon_bitmap_results;
+    if (bitmap.get() && bitmap->size()) {
+      history::FaviconBitmapResult bitmap_result;
+      bitmap_result.bitmap_data = bitmap;
+      bitmap_result.icon_type = history::FAVICON;
+      favicon_bitmap_results.push_back(bitmap_result);
+    }
+    request->ForwardResultAsync(request->handle(), favicon_bitmap_results,
+                                history::IconURLSizesMap());
   }
 }
 

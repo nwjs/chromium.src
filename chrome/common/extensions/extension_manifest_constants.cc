@@ -329,7 +329,11 @@ const char kInvalidLaunchValueContainer[] =
 const char kInvalidManifest[] =
     "Manifest file is invalid.";
 const char kInvalidManifestVersion[] =
-    "The 'manifest_version' key must be present and set to 2 (without quotes).";
+    "Invalid value for 'manifest_version'. Must be an integer greater than "
+    "zero.";
+const char kInvalidManifestVersionOld[] =
+    "The 'manifest_version' key must be present and set to * (without quotes). "
+    "See developer.chrome.com/extensions/manifestVersion.html for details.";
 const char kInvalidMatch[] =
     "Invalid value for 'content_scripts[*].matches[*]': *";
 const char kInvalidMatchCount[] =
@@ -452,6 +456,13 @@ const char kInvalidWebURLs[] =
     "Invalid value for 'app.urls'.";
 const char kInvalidZipHash[] =
     "Required key 'zip_hash' is missing or invalid.";
+const char kInsecureContentSecurityPolicy[] =
+    "Invalid value for 'content_security_policy': The 'script-src' and"
+    " 'object-src' directives can only whitelist secure resources. You may"
+    " include any of the following sources: \"'self'\", \"http://127.0.0.1\","
+    " \"http://localhost\", or any \"https://\" or \"chrome-extension://\""
+    " origin. For more information, see"
+    " http://developer.chrome.com/extensions/contentSecurityPolicy.html";
 const char kLaunchPathAndExtentAreExclusive[] =
     "The 'app.launch.local_path' and 'app.urls' keys cannot both be set.";
 const char kLaunchPathAndURLAreExclusive[] =

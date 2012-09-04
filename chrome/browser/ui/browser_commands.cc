@@ -62,10 +62,12 @@
 #include "content/public/browser/user_metrics.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_view.h"
+#include "content/public/browser/web_intents_dispatcher.h"
 #include "content/public/common/content_restriction.h"
 #include "content/public/common/renderer_preferences.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/escape.h"
+#include "webkit/glue/web_intent_data.h"
 #include "webkit/glue/webkit_glue.h"
 
 #if defined(OS_MACOSX)
@@ -131,17 +133,6 @@ WebContents* GetOrCloneTabForDisposition(Browser* browser,
 void ReloadInternal(Browser* browser,
                     WindowOpenDisposition disposition,
                     bool ignore_cache) {
-  // If we are showing an interstitial, treat this as an OpenURL.
-  WebContents* current_tab = GetActiveWebContents(browser);
-  if (current_tab && current_tab->ShowingInterstitialPage()) {
-    NavigationEntry* entry = current_tab->GetController().GetActiveEntry();
-    DCHECK(entry);  // Should exist if interstitial is showing.
-    browser->OpenURL(OpenURLParams(
-        entry->GetURL(), Referrer(), disposition,
-        content::PAGE_TRANSITION_RELOAD, false));
-    return;
-  }
-
   // As this is caused by a user action, give the focus to the page.
   //
   // Also notify RenderViewHostDelegate of the user gesture; this is
@@ -670,6 +661,18 @@ void ShowChromeToMobileBubble(Browser* browser) {
     browser->window()->ShowChromeToMobileBubble();
 }
 
+void ShareCurrentPage(Browser* browser) {
+  const GURL& current_url = chrome::GetActiveWebContents(browser)->GetURL();
+  webkit_glue::WebIntentData intent_data(
+      ASCIIToUTF16("http://webintents.org/share"),
+      ASCIIToUTF16("text/uri-list"),
+      UTF8ToUTF16(current_url.spec()));
+  scoped_ptr<content::WebIntentsDispatcher> dispatcher(
+      content::WebIntentsDispatcher::Create(intent_data));
+  static_cast<content::WebContentsDelegate*>(browser)->
+      WebIntentDispatch(NULL, dispatcher.release());
+}
+
 void Print(Browser* browser) {
   if (browser->profile()->GetPrefs()->GetBoolean(
       prefs::kPrintPreviewDisabled)) {
@@ -817,10 +820,7 @@ void ToggleDevToolsWindow(Browser* browser, DevToolsToggleAction action) {
     content::RecordAction(UserMetricsAction("DevTools_ToggleConsole"));
   else
     content::RecordAction(UserMetricsAction("DevTools_ToggleWindow"));
-
-  DevToolsWindow::ToggleDevToolsWindow(
-      GetActiveWebContents(browser)->GetRenderViewHost(),
-      action);
+  DevToolsWindow::ToggleDevToolsWindow(browser, action);
 }
 
 bool CanOpenTaskManager() {

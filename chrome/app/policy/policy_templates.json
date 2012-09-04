@@ -112,7 +112,7 @@
 #   persistent IDs for all fields (but not for groups!) are needed. These are
 #   specified by the 'id' keys of each policy. NEVER CHANGE EXISTING IDs,
 #   because doing so would break the deployed wire format!
-#   For your editing convenience: highest ID currently used: 158
+#   For your editing convenience: highest ID currently used: 160
 #
 # Placeholders:
 #   The following placeholder strings are automatically substituted:
@@ -1250,7 +1250,7 @@
           'caption': '''Configure the list of force-installed extensions''',
           'desc': '''Allows you to specify a list of extensions that will be installed silently, without user interaction.
 
-          Each item of the list is a string that contains an extension ID and an update URL delimited by a semicolon (<ph name="SEMICOLON">;</ph>). The extension ID is the 32-letter string found e.g. on <ph name="CHROME_EXTENSIONS_LINK">chrome://extensions</ph> when in developer mode. The update URL should point to an Update Manifest XML document as described at <ph name="LINK_TO_EXTENSION_DOC1">http://code.google.com/chrome/extensions/autoupdate.html</ph>.
+          Each item of the list is a string that contains an extension ID and an update URL delimited by a semicolon (<ph name="SEMICOLON">;</ph>). The extension ID is the 32-letter string found e.g. on <ph name="CHROME_EXTENSIONS_LINK">chrome://extensions</ph> when in developer mode. The update URL should point to an Update Manifest XML document as described at <ph name="LINK_TO_EXTENSION_DOC1">http://code.google.com/chrome/extensions/autoupdate.html</ph>. Note that the update URL set in this policy is only used for the initial installation; subsequent updates of the extension will use the update URL indicated in the extension's manifest.
 
           For each item, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will retrieve the extension specified by the extension ID from the update service at the specified update URL and silently install it.
 
@@ -3147,6 +3147,40 @@
       This policy affects all types of storage media. For example: USB flash drives, external hard drives, SD and other memory cards, optical storage etc. Internal storage is not affected, therefore files saved in the Download folder can still be accessed. Google Drive is also not affected by this policy.
 
       If this setting is disabled or not configured then users can use all supported types of external storage on their device.''',
+    },
+    {
+      'name': 'AudioOutputAllowed',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:0.23-'],
+      'features': {'dynamic_refresh': True},
+      'example_value': False,
+      'id': 159,
+      'caption': '''Allow playing audio''',
+      'desc': '''Allow playing audio.
+
+      When this policy is set to false, audio output will not be available on the device while the user is logged in.
+
+      This policy affects all types of audio output and not only the built-in speakers. Audio accessability features are also inhibited by this policy. Do not enable this policy if a screen reader is required for the user.
+
+      If this setting is set to true or not configured then users can use all supported audio outputs on their device.''',
+    },
+    {
+      'name': 'AudioCaptureAllowed',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:0.23-'],
+      'features': {'dynamic_refresh': True},
+      'example_value': False,
+      'id': 160,
+      'caption': '''Allow capturing audio''',
+      'desc': '''Allow capturing audio.
+
+      When this policy is set to false, audio capturing will not be available on the device while the user is logged in.
+
+      This policy affects all types of audio inputs and not only the built-in microphone.
+
+      If this setting is set to true or not configured then users can use all supported audio inputs on their device.''',
     },
     {
       'name': 'DisableScreenshots',

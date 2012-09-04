@@ -83,14 +83,46 @@ const quota::StorageType kPersistent = quota::kStorageTypePersistent;
 const quota::QuotaClient::ID kClientFile = quota::QuotaClient::kFileSystem;
 const quota::QuotaClient::ID kClientDB = quota::QuotaClient::kIndexedDatabase;
 
-}  // namespace
+void PopulateTestQuotaManagedNonBrowsingData(quota::MockQuotaManager* manager) {
+  manager->AddOrigin(kOriginDevTools, kTemporary, kClientFile, base::Time());
+  manager->AddOrigin(kOriginDevTools, kPersistent, kClientFile, base::Time());
+  manager->AddOrigin(kOriginExt, kTemporary, kClientFile, base::Time());
+  manager->AddOrigin(kOriginExt, kPersistent, kClientFile, base::Time());
+}
 
-class BrowsingDataRemoverTester : public BrowsingDataRemover::Observer {
+void PopulateTestQuotaManagedPersistentData(quota::MockQuotaManager* manager) {
+  manager->AddOrigin(kOrigin2, kPersistent, kClientFile, base::Time());
+  manager->AddOrigin(kOrigin3, kPersistent, kClientFile,
+      base::Time::Now() - base::TimeDelta::FromDays(1));
+
+  EXPECT_FALSE(manager->OriginHasData(kOrigin1, kPersistent, kClientFile));
+  EXPECT_TRUE(manager->OriginHasData(kOrigin2, kPersistent, kClientFile));
+  EXPECT_TRUE(manager->OriginHasData(kOrigin3, kPersistent, kClientFile));
+}
+
+void PopulateTestQuotaManagedTemporaryData(quota::MockQuotaManager* manager) {
+  manager->AddOrigin(kOrigin1, kTemporary, kClientFile, base::Time::Now());
+  manager->AddOrigin(kOrigin3, kTemporary, kClientFile,
+      base::Time::Now() - base::TimeDelta::FromDays(1));
+
+  EXPECT_TRUE(manager->OriginHasData(kOrigin1, kTemporary, kClientFile));
+  EXPECT_FALSE(manager->OriginHasData(kOrigin2, kTemporary, kClientFile));
+  EXPECT_TRUE(manager->OriginHasData(kOrigin3, kTemporary, kClientFile));
+}
+
+void PopulateTestQuotaManagedData(quota::MockQuotaManager* manager) {
+  // Set up kOrigin1 with a temporary quota, kOrigin2 with a persistent
+  // quota, and kOrigin3 with both. kOrigin1 is modified now, kOrigin2
+  // is modified at the beginning of time, and kOrigin3 is modified one day
+  // ago.
+  PopulateTestQuotaManagedPersistentData(manager);
+  PopulateTestQuotaManagedTemporaryData(manager);
+}
+
+class AwaitCompletionHelper : public BrowsingDataRemover::Observer {
  public:
-  BrowsingDataRemoverTester()
-      : start_(false),
-        already_quit_(false) {}
-  virtual ~BrowsingDataRemoverTester() {}
+  AwaitCompletionHelper() : start_(false), already_quit_(false) {}
+  virtual ~AwaitCompletionHelper() {}
 
   void BlockUntilNotified() {
     if (!already_quit_) {
@@ -101,12 +133,6 @@ class BrowsingDataRemoverTester : public BrowsingDataRemover::Observer {
       DCHECK(!start_);
       already_quit_ = false;
     }
-  }
-
- protected:
-  // BrowsingDataRemover::Observer implementation.
-  virtual void OnBrowsingDataRemoverDone() {
-    Notify();
   }
 
   void Notify() {
@@ -120,18 +146,26 @@ class BrowsingDataRemoverTester : public BrowsingDataRemover::Observer {
     }
   }
 
+ protected:
+  // BrowsingDataRemover::Observer implementation.
+  virtual void OnBrowsingDataRemoverDone() {
+    Notify();
+  }
+
  private:
   // Helps prevent from running message_loop, if the callback invoked
   // immediately.
   bool start_;
   bool already_quit_;
 
-  DISALLOW_COPY_AND_ASSIGN(BrowsingDataRemoverTester);
+  DISALLOW_COPY_AND_ASSIGN(AwaitCompletionHelper);
 };
+
+}  // namespace
 
 // Testers -------------------------------------------------------------------
 
-class RemoveCookieTester : public BrowsingDataRemoverTester {
+class RemoveCookieTester {
  public:
   RemoveCookieTester() : get_cookie_success_(false) {
   }
@@ -143,7 +177,7 @@ class RemoveCookieTester : public BrowsingDataRemoverTester {
         kOrigin1, net::CookieOptions(),
         base::Bind(&RemoveCookieTester::GetCookieCallback,
                    base::Unretained(this)));
-    BlockUntilNotified();
+    await_completion_.BlockUntilNotified();
     return get_cookie_success_;
   }
 
@@ -152,7 +186,7 @@ class RemoveCookieTester : public BrowsingDataRemoverTester {
         kOrigin1, "A=1", net::CookieOptions(),
         base::Bind(&RemoveCookieTester::SetCookieCallback,
                    base::Unretained(this)));
-    BlockUntilNotified();
+    await_completion_.BlockUntilNotified();
   }
 
  protected:
@@ -168,16 +202,16 @@ class RemoveCookieTester : public BrowsingDataRemoverTester {
       EXPECT_EQ("", cookies);
       get_cookie_success_ = false;
     }
-    Notify();
+    await_completion_.Notify();
   }
 
   void SetCookieCallback(bool result) {
     ASSERT_TRUE(result);
-    Notify();
+    await_completion_.Notify();
   }
 
   bool get_cookie_success_;
-
+  AwaitCompletionHelper await_completion_;
   net::CookieStore* monster_;
 
   DISALLOW_COPY_AND_ASSIGN(RemoveCookieTester);
@@ -225,7 +259,7 @@ class RemoveSafeBrowsingCookieTester : public RemoveCookieTester {
 };
 #endif
 
-class RemoveServerBoundCertTester : public BrowsingDataRemoverTester {
+class RemoveServerBoundCertTester {
  public:
   explicit RemoveServerBoundCertTester(TestingProfile* profile) {
     profile->CreateRequestContext();
@@ -270,7 +304,7 @@ class RemoveServerBoundCertTester : public BrowsingDataRemoverTester {
   DISALLOW_COPY_AND_ASSIGN(RemoveServerBoundCertTester);
 };
 
-class RemoveHistoryTester : public BrowsingDataRemoverTester {
+class RemoveHistoryTester {
  public:
   explicit RemoveHistoryTester(TestingProfile* profile)
       : query_url_success_(false) {
@@ -287,7 +321,7 @@ class RemoveHistoryTester : public BrowsingDataRemoverTester {
         &consumer_,
         base::Bind(&RemoveHistoryTester::SaveResultAndQuit,
                    base::Unretained(this)));
-    BlockUntilNotified();
+    await_completion_.BlockUntilNotified();
     return query_url_success_;
   }
 
@@ -304,9 +338,8 @@ class RemoveHistoryTester : public BrowsingDataRemoverTester {
                          const history::URLRow*,
                          history::VisitVector*) {
     query_url_success_ = success;
-    Notify();
+    await_completion_.Notify();
   }
-
 
   // For History requests.
   CancelableRequestConsumer consumer_;
@@ -315,11 +348,12 @@ class RemoveHistoryTester : public BrowsingDataRemoverTester {
   // TestingProfile owns the history service; we shouldn't delete it.
   HistoryService* history_service_;
 
+  AwaitCompletionHelper await_completion_;
+
   DISALLOW_COPY_AND_ASSIGN(RemoveHistoryTester);
 };
 
-class RemoveAutofillTester : public BrowsingDataRemoverTester,
-                             public PersonalDataManagerObserver {
+class RemoveAutofillTester : public PersonalDataManagerObserver {
  public:
   explicit RemoveAutofillTester(TestingProfile* profile)
       : personal_data_manager_(
@@ -369,7 +403,7 @@ class RemoveAutofillTester : public BrowsingDataRemoverTester,
   DISALLOW_COPY_AND_ASSIGN(RemoveAutofillTester);
 };
 
-class RemoveLocalStorageTester : public BrowsingDataRemoverTester {
+class RemoveLocalStorageTester {
  public:
   explicit RemoveLocalStorageTester(TestingProfile* profile)
       : profile_(profile), dom_storage_context_(NULL) {
@@ -381,7 +415,7 @@ class RemoveLocalStorageTester : public BrowsingDataRemoverTester {
   // Returns true, if the given origin URL exists.
   bool DOMStorageExistsForOrigin(const GURL& origin) {
     GetUsageInfo();
-    BlockUntilNotified();
+    await_completion_.BlockUntilNotified();
     for (size_t i = 0; i < infos_.size(); ++i) {
       if (origin == infos_[i].origin)
         return true;
@@ -421,7 +455,7 @@ class RemoveLocalStorageTester : public BrowsingDataRemoverTester {
   void OnGotUsageInfo(
       const std::vector<dom_storage::DomStorageContext::UsageInfo>& infos) {
     infos_ = infos;
-    Notify();
+    await_completion_.Notify();
   }
 
   // We don't own these pointers.
@@ -430,53 +464,9 @@ class RemoveLocalStorageTester : public BrowsingDataRemoverTester {
 
   std::vector<dom_storage::DomStorageContext::UsageInfo> infos_;
 
+  AwaitCompletionHelper await_completion_;
+
   DISALLOW_COPY_AND_ASSIGN(RemoveLocalStorageTester);
-};
-class RemoveQuotaManagedDataTester : public BrowsingDataRemoverTester {
- public:
-  RemoveQuotaManagedDataTester() {}
-  virtual ~RemoveQuotaManagedDataTester() {}
-
-  void PopulateTestQuotaManagedData(quota::MockQuotaManager* manager) {
-    // Set up kOrigin1 with a temporary quota, kOrigin2 with a persistent
-    // quota, and kOrigin3 with both. kOrigin1 is modified now, kOrigin2
-    // is modified at the beginning of time, and kOrigin3 is modified one day
-    // ago.
-    PopulateTestQuotaManagedPersistentData(manager);
-    PopulateTestQuotaManagedTemporaryData(manager);
-  }
-
-  void PopulateTestQuotaManagedNonBrowsingData(
-      quota::MockQuotaManager* manager) {
-    manager->AddOrigin(kOriginDevTools, kTemporary, kClientFile, base::Time());
-    manager->AddOrigin(kOriginDevTools, kPersistent, kClientFile, base::Time());
-    manager->AddOrigin(kOriginExt, kTemporary, kClientFile, base::Time());
-    manager->AddOrigin(kOriginExt, kPersistent, kClientFile, base::Time());
-  }
-
-  void PopulateTestQuotaManagedPersistentData(
-      quota::MockQuotaManager* manager) {
-    manager->AddOrigin(kOrigin2, kPersistent, kClientFile, base::Time());
-    manager->AddOrigin(kOrigin3, kPersistent, kClientFile,
-        base::Time::Now() - base::TimeDelta::FromDays(1));
-
-    EXPECT_FALSE(manager->OriginHasData(kOrigin1, kPersistent, kClientFile));
-    EXPECT_TRUE(manager->OriginHasData(kOrigin2, kPersistent, kClientFile));
-    EXPECT_TRUE(manager->OriginHasData(kOrigin3, kPersistent, kClientFile));
-  }
-
-  void PopulateTestQuotaManagedTemporaryData(quota::MockQuotaManager* manager) {
-    manager->AddOrigin(kOrigin1, kTemporary, kClientFile, base::Time::Now());
-    manager->AddOrigin(kOrigin3, kTemporary, kClientFile,
-        base::Time::Now() - base::TimeDelta::FromDays(1));
-
-    EXPECT_TRUE(manager->OriginHasData(kOrigin1, kTemporary, kClientFile));
-    EXPECT_FALSE(manager->OriginHasData(kOrigin2, kTemporary, kClientFile));
-    EXPECT_TRUE(manager->OriginHasData(kOrigin3, kTemporary, kClientFile));
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(RemoveQuotaManagedDataTester);
 };
 
 // Test Class ----------------------------------------------------------------
@@ -512,15 +502,16 @@ class BrowsingDataRemoverTest : public testing::Test,
 
   void BlockUntilBrowsingDataRemoved(BrowsingDataRemover::TimePeriod period,
                                      int remove_mask,
-                                     bool include_protected_origins,
-                                     BrowsingDataRemoverTester* tester) {
+                                     bool include_protected_origins) {
     BrowsingDataRemover* remover = new BrowsingDataRemover(
         profile_.get(), period,
         // Pick a time that's a bit into the future, since there could be
         // pending writes.
         base::Time::Now() + base::TimeDelta::FromSeconds(10));
     remover->OverrideQuotaManagerForTesting(GetMockManager());
-    remover->AddObserver(tester);
+
+    AwaitCompletionHelper await_completion;
+    remover->AddObserver(&await_completion);
 
     called_with_details_.reset(new BrowsingDataRemover::NotificationDetails());
 
@@ -529,25 +520,26 @@ class BrowsingDataRemoverTest : public testing::Test,
     if (include_protected_origins)
       origin_set_mask |= BrowsingDataHelper::PROTECTED_WEB;
     remover->Remove(remove_mask, origin_set_mask);
-    tester->BlockUntilNotified();
+    await_completion.BlockUntilNotified();
   }
 
   void BlockUntilOriginDataRemoved(BrowsingDataRemover::TimePeriod period,
                                    int remove_mask,
-                                   const GURL& remove_origin,
-                                   BrowsingDataRemoverTester* tester) {
+                                   const GURL& remove_origin) {
     BrowsingDataRemover* remover = new BrowsingDataRemover(
         profile_.get(), period,
         base::Time::Now() + base::TimeDelta::FromMilliseconds(10));
     remover->OverrideQuotaManagerForTesting(GetMockManager());
-    remover->AddObserver(tester);
+
+    AwaitCompletionHelper await_completion;
+    remover->AddObserver(&await_completion);
 
     called_with_details_.reset(new BrowsingDataRemover::NotificationDetails());
 
     // BrowsingDataRemover deletes itself when it completes.
     remover->RemoveImpl(remove_mask, remove_origin,
         BrowsingDataHelper::UNPROTECTED_WEB);
-    tester->BlockUntilNotified();
+    await_completion.BlockUntilNotified();
   }
 
   TestingProfile* GetProfile() {
@@ -593,9 +585,6 @@ class BrowsingDataRemoverTest : public testing::Test,
     registrar_.RemoveAll();
   }
 
- protected:
-  RemoveQuotaManagedDataTester tester_;
-
  private:
   scoped_ptr<BrowsingDataRemover::NotificationDetails> called_with_details_;
   content::NotificationRegistrar registrar_;
@@ -618,214 +607,203 @@ class BrowsingDataRemoverTest : public testing::Test,
 // Tests ---------------------------------------------------------------------
 
 TEST_F(BrowsingDataRemoverTest, RemoveCookieForever) {
-  scoped_ptr<RemoveProfileCookieTester> tester(
-      new RemoveProfileCookieTester(GetProfile()));
+  RemoveProfileCookieTester tester(GetProfile());
 
-  tester->AddCookie();
-  ASSERT_TRUE(tester->ContainsCookie());
+  tester.AddCookie();
+  ASSERT_TRUE(tester.ContainsCookie());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_COOKIES, false, tester.get());
+      BrowsingDataRemover::REMOVE_COOKIES, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_COOKIES, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->ContainsCookie());
+  EXPECT_FALSE(tester.ContainsCookie());
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveCookieLastHour) {
-  scoped_ptr<RemoveProfileCookieTester> tester(
-      new RemoveProfileCookieTester(GetProfile()));
+  RemoveProfileCookieTester tester(GetProfile());
 
-  tester->AddCookie();
-  ASSERT_TRUE(tester->ContainsCookie());
+  tester.AddCookie();
+  ASSERT_TRUE(tester.ContainsCookie());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_HOUR,
-      BrowsingDataRemover::REMOVE_COOKIES, false, tester.get());
+      BrowsingDataRemover::REMOVE_COOKIES, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_COOKIES, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->ContainsCookie());
+  EXPECT_FALSE(tester.ContainsCookie());
 }
 
 #if defined(ENABLE_SAFE_BROWSING)
 TEST_F(BrowsingDataRemoverTest, RemoveSafeBrowsingCookieForever) {
-  scoped_ptr<RemoveSafeBrowsingCookieTester> tester(
-      new RemoveSafeBrowsingCookieTester());
+  RemoveSafeBrowsingCookieTester tester;
 
-  tester->AddCookie();
-  ASSERT_TRUE(tester->ContainsCookie());
+  tester.AddCookie();
+  ASSERT_TRUE(tester.ContainsCookie());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_COOKIES, false, tester.get());
+      BrowsingDataRemover::REMOVE_COOKIES, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_COOKIES, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->ContainsCookie());
+  EXPECT_FALSE(tester.ContainsCookie());
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveSafeBrowsingCookieLastHour) {
-  scoped_ptr<RemoveSafeBrowsingCookieTester> tester(
-      new RemoveSafeBrowsingCookieTester());
+  RemoveSafeBrowsingCookieTester tester;
 
-  tester->AddCookie();
-  ASSERT_TRUE(tester->ContainsCookie());
+  tester.AddCookie();
+  ASSERT_TRUE(tester.ContainsCookie());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_HOUR,
-      BrowsingDataRemover::REMOVE_COOKIES, false, tester.get());
+      BrowsingDataRemover::REMOVE_COOKIES, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_COOKIES, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
   // Removing with time period other than EVERYTHING should not clear safe
   // browsing cookies.
-  EXPECT_TRUE(tester->ContainsCookie());
+  EXPECT_TRUE(tester.ContainsCookie());
 }
 #endif
 
 TEST_F(BrowsingDataRemoverTest, RemoveServerBoundCertForever) {
-  scoped_ptr<RemoveServerBoundCertTester> tester(
-      new RemoveServerBoundCertTester(GetProfile()));
+  RemoveServerBoundCertTester tester(GetProfile());
 
-  tester->AddServerBoundCert(kTestOrigin1);
-  EXPECT_EQ(1, tester->ServerBoundCertCount());
+  tester.AddServerBoundCert(kTestOrigin1);
+  EXPECT_EQ(1, tester.ServerBoundCertCount());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS, false, tester.get());
+      BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_EQ(0, tester->ServerBoundCertCount());
+  EXPECT_EQ(0, tester.ServerBoundCertCount());
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveServerBoundCertLastHour) {
-  scoped_ptr<RemoveServerBoundCertTester> tester(
-      new RemoveServerBoundCertTester(GetProfile()));
+  RemoveServerBoundCertTester tester(GetProfile());
 
   base::Time now = base::Time::Now();
-  tester->AddServerBoundCert(kTestOrigin1);
-  tester->AddServerBoundCertWithTimes(kTestOrigin2,
-                                      now - base::TimeDelta::FromHours(2),
-                                      now);
-  EXPECT_EQ(2, tester->ServerBoundCertCount());
+  tester.AddServerBoundCert(kTestOrigin1);
+  tester.AddServerBoundCertWithTimes(kTestOrigin2,
+                                     now - base::TimeDelta::FromHours(2),
+                                     now);
+  EXPECT_EQ(2, tester.ServerBoundCertCount());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_HOUR,
-      BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS, false, tester.get());
+      BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_SERVER_BOUND_CERTS, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_EQ(1, tester->ServerBoundCertCount());
+  EXPECT_EQ(1, tester.ServerBoundCertCount());
   net::ServerBoundCertStore::ServerBoundCertList certs;
-  tester->GetCertStore()->GetAllServerBoundCerts(&certs);
+  tester.GetCertStore()->GetAllServerBoundCerts(&certs);
   EXPECT_EQ(kTestOrigin2, certs.front().server_identifier());
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveUnprotectedLocalStorageForever) {
   // Protect kOrigin1.
   scoped_refptr<MockExtensionSpecialStoragePolicy> mock_policy =
-          new MockExtensionSpecialStoragePolicy;
+      new MockExtensionSpecialStoragePolicy;
   mock_policy->AddProtected(kOrigin1.GetOrigin());
   GetProfile()->SetExtensionSpecialStoragePolicy(mock_policy);
 
-  scoped_ptr<RemoveLocalStorageTester> tester(
-      new RemoveLocalStorageTester(GetProfile()));
+  RemoveLocalStorageTester tester(GetProfile());
 
-  tester->AddDOMStorageTestData();
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin1));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin2));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin3));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOriginExt));
+  tester.AddDOMStorageTestData();
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin1));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin2));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin3));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOriginExt));
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_LOCAL_STORAGE, false, &tester_);
+      BrowsingDataRemover::REMOVE_LOCAL_STORAGE, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_LOCAL_STORAGE, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin1));
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin2));
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin3));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOriginExt));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin1));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin2));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin3));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOriginExt));
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveProtectedLocalStorageForever) {
   // Protect kOrigin1.
   scoped_refptr<MockExtensionSpecialStoragePolicy> mock_policy =
-          new MockExtensionSpecialStoragePolicy;
+      new MockExtensionSpecialStoragePolicy;
   mock_policy->AddProtected(kOrigin1.GetOrigin());
   GetProfile()->SetExtensionSpecialStoragePolicy(mock_policy);
 
-  scoped_ptr<RemoveLocalStorageTester> tester(
-      new RemoveLocalStorageTester(GetProfile()));
+  RemoveLocalStorageTester tester(GetProfile());
 
-  tester->AddDOMStorageTestData();
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin1));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin2));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin3));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOriginExt));
+  tester.AddDOMStorageTestData();
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin1));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin2));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin3));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOriginExt));
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_LOCAL_STORAGE, true, &tester_);
+      BrowsingDataRemover::REMOVE_LOCAL_STORAGE, true);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_LOCAL_STORAGE, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::PROTECTED_WEB |
       BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin1));
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin2));
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin3));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOriginExt));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin1));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin2));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin3));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOriginExt));
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveLocalStorageForLastWeek) {
-  scoped_ptr<RemoveLocalStorageTester> tester(
-      new RemoveLocalStorageTester(GetProfile()));
+  RemoveLocalStorageTester tester(GetProfile());
 
-  tester->AddDOMStorageTestData();
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin1));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin2));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin3));
+  tester.AddDOMStorageTestData();
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin1));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin2));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin3));
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_WEEK,
-      BrowsingDataRemover::REMOVE_LOCAL_STORAGE, false, &tester_);
+      BrowsingDataRemover::REMOVE_LOCAL_STORAGE, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_LOCAL_STORAGE, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin1));
-  EXPECT_FALSE(tester->DOMStorageExistsForOrigin(kOrigin2));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOrigin3));
-  EXPECT_TRUE(tester->DOMStorageExistsForOrigin(kOriginExt));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin1));
+  EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin2));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin3));
+  EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOriginExt));
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveHistoryForever) {
-  scoped_ptr<RemoveHistoryTester> tester(
-      new RemoveHistoryTester(GetProfile()));
+  RemoveHistoryTester tester(GetProfile());
 
-  tester->AddHistory(kOrigin1, base::Time::Now());
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin1));
+  tester.AddHistory(kOrigin1, base::Time::Now());
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin1));
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_HISTORY, false, tester.get());
+      BrowsingDataRemover::REMOVE_HISTORY, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_HISTORY, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->HistoryContainsURL(kOrigin1));
+  EXPECT_FALSE(tester.HistoryContainsURL(kOrigin1));
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveHistoryForLastHour) {
-  scoped_ptr<RemoveHistoryTester> tester(
-      new RemoveHistoryTester(GetProfile()));
+  RemoveHistoryTester tester(GetProfile());
 
   base::Time two_hours_ago = base::Time::Now() - base::TimeDelta::FromHours(2);
 
-  tester->AddHistory(kOrigin1, base::Time::Now());
-  tester->AddHistory(kOrigin2, two_hours_ago);
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin1));
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin2));
+  tester.AddHistory(kOrigin1, base::Time::Now());
+  tester.AddHistory(kOrigin2, two_hours_ago);
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin1));
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin2));
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_HOUR,
-      BrowsingDataRemover::REMOVE_HISTORY, false, tester.get());
+      BrowsingDataRemover::REMOVE_HISTORY, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_HISTORY, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_FALSE(tester->HistoryContainsURL(kOrigin1));
-  EXPECT_TRUE(tester->HistoryContainsURL(kOrigin2));
+  EXPECT_FALSE(tester.HistoryContainsURL(kOrigin1));
+  EXPECT_TRUE(tester.HistoryContainsURL(kOrigin2));
 }
 
 TEST_F(BrowsingDataRemoverTest, QuotaClientMaskGeneration) {
@@ -853,12 +831,12 @@ TEST_F(BrowsingDataRemoverTest, QuotaClientMaskGeneration) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverBoth) {
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -880,12 +858,12 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverBoth) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverOnlyTemporary) {
-  tester_.PopulateTestQuotaManagedTemporaryData(GetMockManager());
+  PopulateTestQuotaManagedTemporaryData(GetMockManager());
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -907,12 +885,12 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverOnlyTemporary) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverOnlyPersistent) {
-  tester_.PopulateTestQuotaManagedPersistentData(GetMockManager());
+  PopulateTestQuotaManagedPersistentData(GetMockManager());
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -935,11 +913,12 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverOnlyPersistent) {
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverNeither) {
   GetMockManager();  // Creates the QuotaManager instance.
+
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -961,14 +940,14 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverNeither) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverSpecificOrigin) {
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
 
   // Remove Origin 1.
   BlockUntilOriginDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_INDEXEDDB |
-      BrowsingDataRemover::REMOVE_WEBSQL, kOrigin1, &tester_);
+      BrowsingDataRemover::REMOVE_WEBSQL, kOrigin1);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
@@ -990,13 +969,13 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForeverSpecificOrigin) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForLastHour) {
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_HOUR,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -1018,13 +997,13 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForLastHour) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForLastWeek) {
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::LAST_WEEK,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -1048,17 +1027,17 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedDataForLastWeek) {
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedUnprotectedOrigins) {
   // Protect kOrigin1.
   scoped_refptr<MockExtensionSpecialStoragePolicy> mock_policy =
-          new MockExtensionSpecialStoragePolicy;
+      new MockExtensionSpecialStoragePolicy;
   mock_policy->AddProtected(kOrigin1.GetOrigin());
   GetProfile()->SetExtensionSpecialStoragePolicy(mock_policy);
 
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
       BrowsingDataRemover::REMOVE_APPCACHE |
-      BrowsingDataRemover::REMOVE_INDEXEDDB, false, &tester_);
+      BrowsingDataRemover::REMOVE_INDEXEDDB, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_WEBSQL |
@@ -1082,18 +1061,18 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedUnprotectedOrigins) {
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedProtectedSpecificOrigin) {
   // Protect kOrigin1.
   scoped_refptr<MockExtensionSpecialStoragePolicy> mock_policy =
-          new MockExtensionSpecialStoragePolicy;
+      new MockExtensionSpecialStoragePolicy;
   mock_policy->AddProtected(kOrigin1.GetOrigin());
   GetProfile()->SetExtensionSpecialStoragePolicy(mock_policy);
 
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
 
   // Try to remove kOrigin1. Expect failure.
   BlockUntilOriginDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_INDEXEDDB |
-      BrowsingDataRemover::REMOVE_WEBSQL, kOrigin1, &tester_);
+      BrowsingDataRemover::REMOVE_WEBSQL, kOrigin1);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
@@ -1117,18 +1096,18 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedProtectedSpecificOrigin) {
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedProtectedOrigins) {
   // Protect kOrigin1.
   scoped_refptr<MockExtensionSpecialStoragePolicy> mock_policy =
-          new MockExtensionSpecialStoragePolicy;
+      new MockExtensionSpecialStoragePolicy;
   mock_policy->AddProtected(kOrigin1.GetOrigin());
   GetProfile()->SetExtensionSpecialStoragePolicy(mock_policy);
 
-  tester_.PopulateTestQuotaManagedData(GetMockManager());
+  PopulateTestQuotaManagedData(GetMockManager());
 
   // Try to remove kOrigin1. Expect success.
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_INDEXEDDB |
-      BrowsingDataRemover::REMOVE_WEBSQL, true, &tester_);
+      BrowsingDataRemover::REMOVE_WEBSQL, true);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
@@ -1151,13 +1130,13 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedProtectedOrigins) {
 }
 
 TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedIgnoreExtensionsAndDevTools) {
-  tester_.PopulateTestQuotaManagedNonBrowsingData(GetMockManager());
+  PopulateTestQuotaManagedNonBrowsingData(GetMockManager());
 
   BlockUntilBrowsingDataRemoved(BrowsingDataRemover::EVERYTHING,
       BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
       BrowsingDataRemover::REMOVE_INDEXEDDB |
-      BrowsingDataRemover::REMOVE_WEBSQL, false, &tester_);
+      BrowsingDataRemover::REMOVE_WEBSQL, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_APPCACHE |
       BrowsingDataRemover::REMOVE_FILE_SYSTEMS |
@@ -1177,60 +1156,57 @@ TEST_F(BrowsingDataRemoverTest, RemoveQuotaManagedIgnoreExtensionsAndDevTools) {
 }
 
 TEST_F(BrowsingDataRemoverTest, OriginBasedHistoryRemoval) {
-  scoped_ptr<RemoveHistoryTester> tester(
-      new RemoveHistoryTester(GetProfile()));
+  RemoveHistoryTester tester(GetProfile());
 
   base::Time two_hours_ago = base::Time::Now() - base::TimeDelta::FromHours(2);
 
-  tester->AddHistory(kOrigin1, base::Time::Now());
-  tester->AddHistory(kOrigin2, two_hours_ago);
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin1));
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin2));
+  tester.AddHistory(kOrigin1, base::Time::Now());
+  tester.AddHistory(kOrigin2, two_hours_ago);
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin1));
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin2));
 
   BlockUntilOriginDataRemoved(BrowsingDataRemover::EVERYTHING,
-      BrowsingDataRemover::REMOVE_HISTORY, kOrigin2, tester.get());
+      BrowsingDataRemover::REMOVE_HISTORY, kOrigin2);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_HISTORY, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_TRUE(tester->HistoryContainsURL(kOrigin1));
-  EXPECT_FALSE(tester->HistoryContainsURL(kOrigin2));
+  EXPECT_TRUE(tester.HistoryContainsURL(kOrigin1));
+  EXPECT_FALSE(tester.HistoryContainsURL(kOrigin2));
 }
 
 TEST_F(BrowsingDataRemoverTest, OriginAndTimeBasedHistoryRemoval) {
-  scoped_ptr<RemoveHistoryTester> tester(
-      new RemoveHistoryTester(GetProfile()));
+  RemoveHistoryTester tester(GetProfile());
 
   base::Time two_hours_ago = base::Time::Now() - base::TimeDelta::FromHours(2);
 
-  tester->AddHistory(kOrigin1, base::Time::Now());
-  tester->AddHistory(kOrigin2, two_hours_ago);
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin1));
-  ASSERT_TRUE(tester->HistoryContainsURL(kOrigin2));
+  tester.AddHistory(kOrigin1, base::Time::Now());
+  tester.AddHistory(kOrigin2, two_hours_ago);
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin1));
+  ASSERT_TRUE(tester.HistoryContainsURL(kOrigin2));
 
   BlockUntilOriginDataRemoved(BrowsingDataRemover::LAST_HOUR,
-      BrowsingDataRemover::REMOVE_HISTORY, kOrigin2, tester.get());
+      BrowsingDataRemover::REMOVE_HISTORY, kOrigin2);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_HISTORY, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  EXPECT_TRUE(tester->HistoryContainsURL(kOrigin1));
-  EXPECT_TRUE(tester->HistoryContainsURL(kOrigin2));
+  EXPECT_TRUE(tester.HistoryContainsURL(kOrigin1));
+  EXPECT_TRUE(tester.HistoryContainsURL(kOrigin2));
 }
 
 // Verify that clearing autofill form data works.
 TEST_F(BrowsingDataRemoverTest, AutofillRemoval) {
   GetProfile()->CreateWebDataService();
-  scoped_ptr<RemoveAutofillTester> tester(
-      new RemoveAutofillTester(GetProfile()));
+  RemoveAutofillTester tester(GetProfile());
 
-  ASSERT_FALSE(tester->HasProfile());
-  tester->AddProfile();
-  ASSERT_TRUE(tester->HasProfile());
+  ASSERT_FALSE(tester.HasProfile());
+  tester.AddProfile();
+  ASSERT_TRUE(tester.HasProfile());
 
   BlockUntilBrowsingDataRemoved(
       BrowsingDataRemover::LAST_HOUR,
-      BrowsingDataRemover::REMOVE_FORM_DATA, false, tester.get());
+      BrowsingDataRemover::REMOVE_FORM_DATA, false);
 
   EXPECT_EQ(BrowsingDataRemover::REMOVE_FORM_DATA, GetRemovalMask());
   EXPECT_EQ(BrowsingDataHelper::UNPROTECTED_WEB, GetOriginSetMask());
-  ASSERT_FALSE(tester->HasProfile());
+  ASSERT_FALSE(tester.HasProfile());
 }

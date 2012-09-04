@@ -345,7 +345,7 @@ const Experiment kExperiments[] = {
     "enable-nacl-exception-handling",  // FLAGS:RECORD_UMA
     IDS_FLAGS_ENABLE_NACL_EXCEPTION_HANDLING_NAME,
     IDS_FLAGS_ENABLE_NACL_EXCEPTION_HANDLING_DESCRIPTION,
-    kOsWin,
+    kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableNaClExceptionHandling)
   },
   {
@@ -614,13 +614,6 @@ const Experiment kExperiments[] = {
     SINGLE_VALUE_TYPE(switches::kDisableSoftwareRasterizer)
   },
   {
-    "enable-peer-connection",
-    IDS_FLAGS_PEER_CONNECTION_NAME,
-    IDS_FLAGS_PEER_CONNECTION_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kEnablePeerConnection)
-  },
-  {
     "enable-shadow-dom",
     IDS_FLAGS_SHADOW_DOM_NAME,
     IDS_FLAGS_SHADOW_DOM_DESCRIPTION,
@@ -692,13 +685,6 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kEnableDiscoveryInNewTabPage)
   },
-  {
-    "disable-chrome-to-mobile",  // FLAGS:RECORD_UMA
-    IDS_FLAGS_DISABLE_CHROME_TO_MOBILE_NAME,
-    IDS_FLAGS_DISABLE_CHROME_TO_MOBILE_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(switches::kDisableChromeToMobile)
-  },
 #if defined(GOOGLE_CHROME_BUILD)
   {
     "disable-asynchronous-spellchecking",
@@ -724,11 +710,11 @@ const Experiment kExperiments[] = {
   },
 #if defined(OS_CHROMEOS)
   {
-    "disable-bezel-touch",
-    IDS_DISABLE_BEZEL_TOUCH_NAME,
-    IDS_DISABLE_BEZEL_TOUCH_DESCRIPTION,
+    "enable-bezel-touch",
+    IDS_ENABLE_BEZEL_TOUCH_NAME,
+    IDS_ENABLE_BEZEL_TOUCH_DESCRIPTION,
     kOsCrOS,
-    SINGLE_VALUE_TYPE(switches::kDisableBezelTouch)
+    SINGLE_VALUE_TYPE(switches::kEnableBezelTouch)
   },
   {
     "no-discard-tabs",
@@ -810,13 +796,6 @@ const Experiment kExperiments[] = {
     IDS_FLAGS_ENABLE_APP_LIST_SHOW_APPS_ONLY_DESCRIPTION,
     kOsAll,
     SINGLE_VALUE_TYPE(app_list::switches::kAppListShowAppsOnly),
-  },
-  {
-    "ash-extended-desktop-disabled",
-    IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_NAME,
-    IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_DESCRIPTION,
-    kOsAll,
-    SINGLE_VALUE_TYPE(ash::switches::kAshExtendedDesktopDisabled)
   },
 #endif  // defined(USE_ASH)
 #if defined(OS_CHROMEOS)
@@ -929,6 +908,21 @@ const Experiment kExperiments[] = {
     kOsAll,
     SINGLE_VALUE_TYPE(switches::kDisableWebsiteSettings),
   },
+  {
+    "enable-contacts",
+    IDS_FLAGS_ENABLE_CONTACTS_NAME,
+    IDS_FLAGS_ENABLE_CONTACTS_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(switches::kEnableContacts)
+  },
+#if defined(USE_ASH)
+  { "ash-enable-advanced-gestures",
+    IDS_FLAGS_ENABLE_ADVANCED_GESTURES_NAME,
+    IDS_FLAGS_ENABLE_ADVANCED_GESTURES_DESCRIPTION,
+    kOsCrOS,
+    SINGLE_VALUE_TYPE(ash::switches::kAshEnableAdvancedGestures),
+  },
+#endif
 };
 
 const Experiment* experiments = kExperiments;

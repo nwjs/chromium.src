@@ -196,6 +196,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/plugin_service.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/user_metrics.h"
 #include "net/base/load_flags.h"
 #include "net/url_request/url_fetcher.h"
 #include "webkit/plugins/webplugininfo.h"
@@ -276,6 +277,10 @@ ResponseStatus ResponseCodeToStatus(int response_code) {
 // more than 13 bits of entropy, so use this max to return a number between 1
 // and 2^13 = 8192 as the entropy source.
 const uint32 kMaxLowEntropySize = (1 << 13);
+
+// Default prefs value for prefs::kMetricsLowEntropySource to indicate that the
+// value has not yet been set.
+const int kLowEntropySourceNotSet = -1;
 
 // Generates a new non-identifying entropy source used to seed persistent
 // activities.
@@ -413,7 +418,8 @@ class MetricsMemoryDetails : public MemoryDetails {
 void MetricsService::RegisterPrefs(PrefService* local_state) {
   DCHECK(IsSingleThreaded());
   local_state->RegisterStringPref(prefs::kMetricsClientID, "");
-  local_state->RegisterIntegerPref(prefs::kMetricsLowEntropySource, 0);
+  local_state->RegisterIntegerPref(prefs::kMetricsLowEntropySource,
+                                   kLowEntropySourceNotSet);
   local_state->RegisterInt64Pref(prefs::kMetricsClientIDTimestamp, 0);
   local_state->RegisterInt64Pref(prefs::kStabilityLaunchTimeSec, 0);
   local_state->RegisterInt64Pref(prefs::kStabilityLastTimestampSec, 0);
@@ -1024,9 +1030,15 @@ int MetricsService::GetLowEntropySource() {
   // Only try to load the value from prefs if the user did not request a reset.
   // Otherwise, skip to generating a new value.
   if (!command_line->HasSwitch(switches::kResetVariationState)) {
-    low_entropy_source_ = pref->GetInteger(prefs::kMetricsLowEntropySource);
-    if (low_entropy_source_)
+    const int value = pref->GetInteger(prefs::kMetricsLowEntropySource);
+    if (value != kLowEntropySourceNotSet) {
+      // Ensure the prefs value is in the range [0, kMaxLowEntropySize). Old
+      // versions of the code would generate values in the range of [1, 8192],
+      // so the below line ensures 8192 gets mapped to 0 and also guards against
+      // the case of corrupted values.
+      low_entropy_source_ = value % kMaxLowEntropySize;
       return low_entropy_source_;
+    }
   }
 
   low_entropy_source_ = GenerateLowEntropySource();
@@ -1582,6 +1594,7 @@ void MetricsService::IncrementLongPrefsValue(const char* path) {
 }
 
 void MetricsService::LogLoadStarted() {
+  content::RecordAction(content::UserMetricsAction("PageLoad"));
   HISTOGRAM_ENUMERATION("Chrome.UmaPageloadCounter", 1, 2);
   IncrementPrefValue(prefs::kStabilityPageLoadCount);
   IncrementLongPrefsValue(prefs::kUninstallMetricsPageLoadCount);

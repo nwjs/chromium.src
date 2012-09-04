@@ -12,9 +12,10 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/memory/ref_counted.h"
 #include "base/string16.h"
+#include "chrome/browser/history/history.h"
 #include "chrome/browser/ui/view_ids.h"
-#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -34,11 +35,8 @@
 class AppModalDialog;
 class BookmarkModel;
 class Browser;
-class CommandLine;
-class ExtensionAction;
 class FilePath;
-class HistoryService;
-class MessageLoop;
+class LocationBar;
 class Profile;
 class SkBitmap;
 class TabContents;
@@ -131,7 +129,7 @@ FilePath GetTestFilePath(const FilePath& dir, const FilePath& file);
 GURL GetTestUrl(const FilePath& dir, const FilePath& file);
 
 // Generate the path of the build directory, relative to the source root.
-bool GetRelativeBuildDirectory(FilePath *build_dir);
+bool GetRelativeBuildDirectory(FilePath* build_dir);
 
 // Blocks until an application modal dialog is showns and returns it.
 AppModalDialog* WaitForAppModalDialog();
@@ -171,6 +169,13 @@ void WaitForTemplateURLServiceToLoad(TemplateURLService* service);
 
 // Blocks until the |history_service|'s history finishes loading.
 void WaitForHistoryToLoad(HistoryService* history_service);
+
+// Download the given file and waits for the download to complete.
+void DownloadURL(Browser* browser, const GURL& download_url);
+
+// Send the given text to the omnibox and wait until it's updated.
+void SendToOmniboxAndSubmit(LocationBar* location_bar,
+                            const std::string& input);
 
 // Brings the native window for |browser| to the foreground. Returns true on
 // success.
@@ -259,7 +264,7 @@ class WindowedNotificationObserverWithDetails
 
   virtual void Observe(int type,
                        const content::NotificationSource& source,
-                       const content::NotificationDetails& details) {
+                       const content::NotificationDetails& details) OVERRIDE {
     const U* details_ptr = content::Details<U>(details).ptr();
     if (details_ptr)
       details_[source.map_key()] = *details_ptr;
@@ -437,6 +442,28 @@ void ClickTask(ui_controls::MouseButton button,
                const base::Closure& followup);
 
 }  // namespace internal
+
+// Enumerates all history contents on the backend thread. Returns them in
+// descending order by time.
+class HistoryEnumerator {
+ public:
+  explicit HistoryEnumerator(Profile* profile);
+  ~HistoryEnumerator();
+
+  std::vector<GURL>& urls() { return urls_; }
+
+ private:
+  void HistoryQueryComplete(
+      const base::Closure& quit_task,
+      HistoryService::Handle request_handle,
+      history::QueryResults* results);
+
+  std::vector<GURL> urls_;
+
+  CancelableRequestConsumer consumer_;
+
+  DISALLOW_COPY_AND_ASSIGN(HistoryEnumerator);
+};
 
 }  // namespace ui_test_utils
 

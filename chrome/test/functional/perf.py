@@ -324,28 +324,27 @@ class BasePerfTest(pyauto.PyUITest):
         existing_lines = f.readlines()
     existing_lines = map(eval, map(lambda x: x.strip(), existing_lines))
 
-    seen_key = graph_name + '|' + description
+    seen_key = graph_name
+    # We assume that the first line |existing_lines[0]| is the latest.
     if units_x:
-      points = []
+      new_line = {
+        'rev': revision,
+        'traces': { description: [] }
+      }
       if seen_key in self._seen_graph_lines:
         # We've added points previously for this graph line in the current
         # test execution, so retrieve the original set of points specified in
         # the most recent revision in the data file.
-        points = existing_lines[0]['traces'][description]
+        new_line = existing_lines[0]
+        if not description in new_line['traces']:
+          new_line['traces'][description] = []
       for x_value, y_value in value:
-        points.append([str(x_value), str(y_value)])
-      new_traces = {
-        description: points
-      }
+        new_line['traces'][description].append([str(x_value), str(y_value)])
     else:
-      new_traces = {
-        description: [str(value), str(0.0)]
+      new_line = {
+        'rev': revision,
+        'traces': { description: [str(value), str(0.0)] }
       }
-
-    new_line = {
-      'rev': revision,
-      'traces': new_traces
-    }
 
     if seen_key in self._seen_graph_lines:
       # Update results for the most recent revision.
@@ -2275,9 +2274,9 @@ class PageCyclerReplay(object):
     return FormatChromePath(cls._PATHS[key], **kwargs)
 
   @classmethod
-  def ReplayServer(cls, test_name):
+  def ReplayServer(cls, test_name, replay_options=None):
     archive_path = cls.Path('archive', test_name=test_name)
-    return webpagereplay.ReplayServer(archive_path)
+    return webpagereplay.ReplayServer(archive_path, replay_options)
 
 
 class PageCyclerNetSimTest(BasePageCyclerTest):
@@ -2310,8 +2309,9 @@ class PageCyclerNetSimTest(BasePageCyclerTest):
       test_name: name for archive (.wpr) and config (.js) files.
       description: a string description for the test
     """
-    with PageCyclerReplay.ReplayServer(test_name) as replay_server:
-      if replay_server.is_record_mode:
+    replay_options = None
+    with PageCyclerReplay.ReplayServer(test_name, replay_options) as server:
+      if server.is_record_mode:
         self._num_iterations = 1
       super_self = super(PageCyclerNetSimTest, self)
       super_self.RunPageCyclerTest(test_name, description)

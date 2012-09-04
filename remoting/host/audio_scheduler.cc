@@ -17,30 +17,30 @@
 namespace remoting {
 
 AudioScheduler::AudioScheduler(
-    scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner,
+    scoped_refptr<base::SingleThreadTaskRunner> audio_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner> network_task_runner,
     AudioCapturer* audio_capturer,
     scoped_ptr<AudioEncoder> audio_encoder,
     protocol::AudioStub* audio_stub)
-    : capture_task_runner_(capture_task_runner),
+    : audio_task_runner_(audio_task_runner),
       network_task_runner_(network_task_runner),
       audio_capturer_(audio_capturer),
       audio_encoder_(audio_encoder.Pass()),
       audio_stub_(audio_stub),
       network_stopped_(false) {
-  DCHECK(capture_task_runner_);
+  DCHECK(audio_task_runner_);
   DCHECK(network_task_runner_);
   DCHECK(audio_capturer_);
   DCHECK(audio_stub_);
-  capture_task_runner_->PostTask(
+  audio_task_runner_->PostTask(
       FROM_HERE, base::Bind(&AudioScheduler::DoStart, this));
 }
 
 void AudioScheduler::Stop(const base::Closure& done_task) {
   DCHECK(!done_task.is_null());
 
-  if (!capture_task_runner_->BelongsToCurrentThread()) {
-    capture_task_runner_->PostTask(FROM_HERE, base::Bind(
+  if (!audio_task_runner_->BelongsToCurrentThread()) {
+    audio_task_runner_->PostTask(FROM_HERE, base::Bind(
         &AudioScheduler::Stop, this, done_task));
     return;
   }
@@ -62,15 +62,20 @@ AudioScheduler::~AudioScheduler() {
 
 void AudioScheduler::NotifyAudioPacketCaptured(
     scoped_ptr<AudioPacket> packet) {
+  DCHECK(packet.get());
   scoped_ptr<AudioPacket> encoded_packet =
       audio_encoder_->Encode(packet.Pass());
-  network_task_runner_->PostTask(
-      FROM_HERE, base::Bind(&AudioScheduler::DoSendAudioPacket,
-                            this, base::Passed(encoded_packet.Pass())));
+
+  // The audio encoder returns a NULL audio packet if there's no audio to send.
+  if (encoded_packet.get()) {
+    network_task_runner_->PostTask(
+        FROM_HERE, base::Bind(&AudioScheduler::DoSendAudioPacket,
+                              this, base::Passed(encoded_packet.Pass())));
+  }
 }
 
 void AudioScheduler::DoStart() {
-  DCHECK(capture_task_runner_->BelongsToCurrentThread());
+  DCHECK(audio_task_runner_->BelongsToCurrentThread());
 
   // TODO(kxing): Do something with the return value.
   audio_capturer_->Start(
@@ -79,6 +84,7 @@ void AudioScheduler::DoStart() {
 
 void AudioScheduler::DoSendAudioPacket(scoped_ptr<AudioPacket> packet) {
   DCHECK(network_task_runner_->BelongsToCurrentThread());
+  DCHECK(packet.get());
 
   if (network_stopped_ || !audio_stub_)
     return;

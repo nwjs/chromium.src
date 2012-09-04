@@ -6,6 +6,8 @@
 
 #include "base/command_line.h"
 #include "base/message_loop.h"
+#include "base/run_loop.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/shell/shell.h"
@@ -21,6 +23,78 @@ namespace {
 const int kTestTimeoutMilliseconds = 30 * 1000;
 }  // namespace
 
+// WebKitTestResultPrinter ----------------------------------------------------
+
+WebKitTestResultPrinter::WebKitTestResultPrinter()
+    : state_(BEFORE_TEST) {
+}
+
+WebKitTestResultPrinter::~WebKitTestResultPrinter() {
+}
+
+void WebKitTestResultPrinter::PrintTextHeader() {
+  DCHECK_EQ(state_, BEFORE_TEST);
+  printf("Content-Type: text/plain\n");
+  state_ = IN_TEXT_BLOCK;
+}
+
+void WebKitTestResultPrinter::PrintTextBlock(const std::string& block) {
+  DCHECK_EQ(state_, IN_TEXT_BLOCK);
+  printf("%s", block.c_str());
+}
+
+void WebKitTestResultPrinter::PrintTextFooter() {
+  if (state_ != IN_TEXT_BLOCK)
+    return;
+  printf("#EOF\n");
+  fprintf(stderr, "#EOF\n");
+  state_ = IN_IMAGE_BLOCK;
+}
+
+void WebKitTestResultPrinter::PrintImageHeader(
+    const std::string& actual_hash,
+    const std::string& expected_hash) {
+  if (state_ != IN_IMAGE_BLOCK)
+    return;
+  printf("\nActualHash: %s\n", actual_hash.c_str());
+  if (!expected_hash.empty())
+    printf("\nExpectedHash: %s\n", expected_hash.c_str());
+}
+
+void WebKitTestResultPrinter::PrintImageBlock(
+    const std::vector<unsigned char>& png_image) {
+  if (state_ != IN_IMAGE_BLOCK)
+    return;
+  printf("Content-Type: image/png\n");
+  printf("Content-Length: %u\n", static_cast<unsigned>(png_image.size()));
+  fwrite(&png_image[0], 1, png_image.size(), stdout);
+}
+
+void WebKitTestResultPrinter::PrintImageFooter() {
+  if (state_ != IN_IMAGE_BLOCK)
+    return;
+  printf("#EOF\n");
+  state_ = AFTER_TEST;
+}
+
+void WebKitTestResultPrinter::AddMessage(const std::string& message) {
+  if (state_ != IN_TEXT_BLOCK)
+    return;
+  printf("%s\n", message.c_str());
+}
+
+void WebKitTestResultPrinter::AddErrorMessage(const std::string& message) {
+  if (state_ != IN_TEXT_BLOCK)
+    return;
+  printf("%s\n", message.c_str());
+  fprintf(stderr, "%s\n", message.c_str());
+  PrintTextFooter();
+  PrintImageFooter();
+  MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+}
+
+// WebKitTestController -------------------------------------------------------
+
 WebKitTestController* WebKitTestController::instance_ = NULL;
 
 // static
@@ -33,8 +107,6 @@ WebKitTestController::WebKitTestController() {
   CHECK(!instance_);
   instance_ = this;
 
-  ResetAfterLayoutTest();
-
   content::ShellBrowserContext* browser_context =
       static_cast<content::ShellContentBrowserClient*>(
           content::GetContentClient()->browser())->browser_context();
@@ -45,6 +117,7 @@ WebKitTestController::WebKitTestController() {
       MSG_ROUTING_NONE,
       NULL);
   Observe(main_window_->web_contents());
+  ResetAfterLayoutTest();
 }
 
 WebKitTestController::~WebKitTestController() {
@@ -55,16 +128,27 @@ WebKitTestController::~WebKitTestController() {
   instance_ = NULL;
 }
 
-void WebKitTestController::PrepareForLayoutTest(
-    const GURL& test_url, const std::string& expected_pixel_hash) {
+bool WebKitTestController::PrepareForLayoutTest(
+    const GURL& test_url,
+    bool enable_pixel_dumping,
+    const std::string& expected_pixel_hash) {
   DCHECK(CalledOnValidThread());
-  DCHECK(main_window_);
+  if (!main_window_)
+    return false;
+  enable_pixel_dumping_ = enable_pixel_dumping;
   expected_pixel_hash_ = expected_pixel_hash;
+  printer_.reset();
+  printer_.PrintTextHeader();
   main_window_->LoadURL(test_url);
+  return true;
 }
 
 bool WebKitTestController::ResetAfterLayoutTest() {
   DCHECK(CalledOnValidThread());
+  printer_.PrintTextFooter();
+  printer_.PrintImageFooter();
+  pumping_messages_ = false;
+  enable_pixel_dumping_ = false;
   expected_pixel_hash_.clear();
   captured_dump_ = false;
   dump_as_text_ = false;
@@ -73,15 +157,24 @@ bool WebKitTestController::ResetAfterLayoutTest() {
   should_stay_on_page_after_handling_before_unload_ = false;
   wait_until_done_ = false;
   watchdog_.Cancel();
-  return main_window_ != NULL;
+  if (!main_window_)
+    return false;
+  if (main_window_->web_contents()->GetController().GetEntryCount() > 0) {
+    // Reset the WebContents for the next test.
+    // TODO(jochen): Reset it more thoroughly.
+    main_window_->web_contents()->GetController().GoToIndex(0);
+  }
+  renderer_crashed_ = false;
+  // Wait for the main_window_ to finish loading.
+  pumping_messages_ = true;
+  base::RunLoop run_loop;
+  run_loop.Run();
+  pumping_messages_ = false;
+  return !renderer_crashed_;
 }
 
-void WebKitTestController::LoadFinished(Shell* window) {
-  if (wait_until_done_)
-    return;
-
-  if (window == main_window_)
-    CaptureDump();
+void WebKitTestController::RendererUnresponsive() {
+  printer_.AddErrorMessage("#PROCESS UNRESPONSIVE - renderer");
 }
 
 void WebKitTestController::NotifyDone() {
@@ -108,26 +201,39 @@ void WebKitTestController::WaitUntilDone() {
 void WebKitTestController::NotImplemented(
     const std::string& object_name,
     const std::string& property_name) {
-  if (captured_dump_)
-    return;
-  printf("FAIL: NOT IMPLEMENTED: %s.%s\n",
-         object_name.c_str(), property_name.c_str());
-  fprintf(stderr, "FAIL: NOT IMPLEMENTED: %s.%s\n",
-          object_name.c_str(), property_name.c_str());
-  watchdog_.Cancel();
-  CaptureDump();
+  printer_.AddErrorMessage(
+      std::string("FAIL: NOT IMPLEMENTED: ") +
+      object_name + "." + property_name);
+}
+
+bool WebKitTestController::OnMessageReceived(const IPC::Message& message) {
+  bool handled = true;
+  IPC_BEGIN_MESSAGE_MAP(WebKitTestController, message)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_DidFinishLoad, OnDidFinishLoad)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_TextDump, OnTextDump)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_ImageDump, OnImageDump)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+
+  return handled;
+}
+
+void WebKitTestController::PluginCrashed(const FilePath& plugin_path) {
+  printer_.AddErrorMessage("#CRASHED - plugin");
+}
+
+void WebKitTestController::RenderViewGone(base::TerminationStatus status) {
+  renderer_crashed_ = true;
+  printer_.AddErrorMessage("#CRASHED - renderer");
 }
 
 void WebKitTestController::WebContentsDestroyed(WebContents* web_contents) {
   main_window_ = NULL;
-  printf("FAIL: main window was destroyed\n");
-  fprintf(stderr, "FAIL: main window was destroyed\n");
-  watchdog_.Cancel();
-  MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+  printer_.AddErrorMessage("FAIL: main window was destroyed");
 }
 
 void WebKitTestController::CaptureDump() {
-  if (captured_dump_ || !main_window_)
+  if (captured_dump_ || !main_window_ || !printer_.in_text_block())
     return;
   captured_dump_ = true;
 
@@ -139,7 +245,7 @@ void WebKitTestController::CaptureDump() {
       dump_as_text_,
       is_printing_,
       dump_child_frames_));
-  if (!dump_as_text_) {
+  if (!dump_as_text_ && enable_pixel_dumping_) {
     render_view_host->Send(new ShellViewMsg_CaptureImageDump(
         render_view_host->GetRoutingID(),
         expected_pixel_hash_));
@@ -147,69 +253,30 @@ void WebKitTestController::CaptureDump() {
 }
 
 void WebKitTestController::TimeoutHandler() {
-  printf("FAIL: Timed out waiting for notifyDone to be called\n");
-  fprintf(stderr, "FAIL: Timed out waiting for notifyDone to be called\n");
+  printer_.AddErrorMessage(
+      "FAIL: Timed out waiting for notifyDone to be called");
+}
+
+void WebKitTestController::OnDidFinishLoad() {
+  if (pumping_messages_) {
+    MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+    return;
+  }
+  if (wait_until_done_)
+    return;
   CaptureDump();
 }
 
-WebKitTestRunnerHost::WebKitTestRunnerHost(
-    RenderViewHost* render_view_host)
-    : RenderViewHostObserver(render_view_host) {
-}
-
-WebKitTestRunnerHost::~WebKitTestRunnerHost() {
-}
-
-bool WebKitTestRunnerHost::OnMessageReceived(
-    const IPC::Message& message) {
-  bool handled = true;
-  IPC_BEGIN_MESSAGE_MAP(WebKitTestRunnerHost, message)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_DidFinishLoad, OnDidFinishLoad)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_TextDump, OnTextDump)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_ImageDump, OnImageDump)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_NotifyDone, OnNotifyDone)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_DumpAsText, OnDumpAsText)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_DumpChildFramesAsText,
-                        OnDumpChildFramesAsText)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_SetPrinting, OnSetPrinting)
-    IPC_MESSAGE_HANDLER(
-        ShellViewHostMsg_SetShouldStayOnPageAfterHandlingBeforeUnload,
-        OnSetShouldStayOnPageAfterHandlingBeforeUnload)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_WaitUntilDone, OnWaitUntilDone)
-    IPC_MESSAGE_HANDLER(ShellViewHostMsg_NotImplemented, OnNotImplemented)
-    IPC_MESSAGE_UNHANDLED(handled = false)
-  IPC_END_MESSAGE_MAP()
-
-  return handled;
-}
-
-void WebKitTestRunnerHost::OnDidFinishLoad() {
-  WebKitTestController::Get()->LoadFinished(
-      Shell::FromRenderViewHost(render_view_host()));
-}
-
-void WebKitTestRunnerHost::OnTextDump(const std::string& dump) {
-  printf("%s#EOF\n", dump.c_str());
-  fprintf(stderr, "#EOF\n");
-
-  if (WebKitTestController::Get()->dump_as_text())
-    MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
-}
-
-void WebKitTestRunnerHost::OnImageDump(
+void WebKitTestController::OnImageDump(
     const std::string& actual_pixel_hash,
     const SkBitmap& image) {
   SkAutoLockPixels image_lock(image);
 
-  printf("\nActualHash: %s\n", actual_pixel_hash.c_str());
-  std::string expected_pixel_hash =
-      WebKitTestController::Get()->expected_pixel_hash();
-  if (!expected_pixel_hash.empty())
-    printf("\nExpectedHash: %s\n", expected_pixel_hash.c_str());
+  printer_.PrintImageHeader(actual_pixel_hash, expected_pixel_hash_);
 
   // Only encode and dump the png if the hashes don't match. Encoding the
   // image is really expensive.
-  if (actual_pixel_hash != expected_pixel_hash) {
+  if (actual_pixel_hash != expected_pixel_hash_) {
     std::vector<unsigned char> png;
 
     // Only the expected PNGs for Mac have a valid alpha channel.
@@ -239,14 +306,50 @@ void WebKitTestRunnerHost::OnImageDump(
         actual_pixel_hash,
         &png);
 #endif
-    if (success) {
-      printf("Content-Type: image/png\n");
-      printf("Content-Length: %u\n", static_cast<unsigned>(png.size()));
-      fwrite(&png[0], 1, png.size(), stdout);
-    }
+    if (success)
+      printer_.PrintImageBlock(png);
   }
-
+  printer_.PrintImageFooter();
   MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+}
+
+void WebKitTestController::OnTextDump(const std::string& dump) {
+  printer_.PrintTextBlock(dump);
+  printer_.PrintTextFooter();
+  if (dump_as_text_ || !enable_pixel_dumping_) {
+    printer_.PrintImageFooter();
+    MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+  }
+}
+
+// WebKitTestRunnerHost -------------------------------------------------------
+
+WebKitTestRunnerHost::WebKitTestRunnerHost(
+    RenderViewHost* render_view_host)
+    : RenderViewHostObserver(render_view_host) {
+}
+
+WebKitTestRunnerHost::~WebKitTestRunnerHost() {
+}
+
+bool WebKitTestRunnerHost::OnMessageReceived(
+    const IPC::Message& message) {
+  bool handled = true;
+  IPC_BEGIN_MESSAGE_MAP(WebKitTestRunnerHost, message)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_NotifyDone, OnNotifyDone)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_DumpAsText, OnDumpAsText)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_DumpChildFramesAsText,
+                        OnDumpChildFramesAsText)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_SetPrinting, OnSetPrinting)
+    IPC_MESSAGE_HANDLER(
+        ShellViewHostMsg_SetShouldStayOnPageAfterHandlingBeforeUnload,
+        OnSetShouldStayOnPageAfterHandlingBeforeUnload)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_WaitUntilDone, OnWaitUntilDone)
+    IPC_MESSAGE_HANDLER(ShellViewHostMsg_NotImplemented, OnNotImplemented)
+    IPC_MESSAGE_UNHANDLED(handled = false)
+  IPC_END_MESSAGE_MAP()
+
+  return handled;
 }
 
 void WebKitTestRunnerHost::OnNotifyDone() {

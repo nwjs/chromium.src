@@ -16,6 +16,7 @@
 #include "chrome/browser/favicon/favicon_service.h"
 #include "chrome/browser/intents/cws_intents_registry.h"
 #include "chrome/browser/intents/web_intents_registry.h"
+#include "chrome/browser/intents/web_intents_reporting.h"
 #include "chrome/browser/ui/intents/web_intent_picker_delegate.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -167,9 +168,10 @@ class WebIntentPickerController
   void WebIntentServicesForExplicitIntent(
       const std::vector<webkit_glue::WebIntentServiceData>& services);
 
-  // Called when FaviconData is returned from the FaviconService.
-  void OnFaviconDataAvailable(FaviconService::Handle handle,
-                              history::FaviconData favicon_data);
+  // Called when a favicon is returned from the FaviconService.
+  void OnFaviconDataAvailable(
+      FaviconService::Handle handle,
+      const history::FaviconImageResult& image_result);
 
   // Called when IntentExtensionInfo is returned from the CWSIntentsRegistry.
   void OnCWSIntentServicesAvailable(
@@ -274,6 +276,12 @@ class WebIntentPickerController
 
   // Timer factory for minimum display time of "waiting" dialog.
   base::WeakPtrFactory<WebIntentPickerController> timer_factory_;
+
+  // Bucket identifier for UMA reporting. Saved off in a field
+  // to avoid repeated calculation of the bucket across
+  // multiple UMA calls. Should be recalculated each time
+  // |intents_dispatcher_| is set.
+  web_intents::UMABucket uma_bucket_;
 
   DISALLOW_COPY_AND_ASSIGN(WebIntentPickerController);
 };

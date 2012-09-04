@@ -18,6 +18,8 @@
 #include "chrome/browser/intents/cws_intents_registry_factory.h"
 #include "chrome/browser/intents/default_web_intent_service.h"
 #include "chrome/browser/intents/web_intents_registry_factory.h"
+#include "chrome/browser/intents/web_intents_reporting.h"
+#include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_contents/tab_util.h"
 #include "chrome/browser/ui/browser.h"
@@ -55,13 +57,6 @@ using extensions::WebstoreInstaller;
 
 namespace {
 
-const char kShareActionURL[] = "http://webintents.org/share";
-const char kEditActionURL[] = "http://webintents.org/edit";
-const char kViewActionURL[] = "http://webintents.org/view";
-const char kPickActionURL[] = "http://webintents.org/pick";
-const char kSubscribeActionURL[] = "http://webintents.org/subscribe";
-const char kSaveActionURL[] = "http://webintents.org/save";
-
 // Maximum amount of time to delay displaying dialog while waiting for data.
 const int kMaxHiddenSetupTimeMs = 200;
 
@@ -87,17 +82,17 @@ CWSIntentsRegistry* GetCWSIntentsRegistry(TabContents* tab_contents) {
 
 // Returns the action-specific string for |action|.
 string16 GetIntentActionString(const std::string& action) {
-  if (!action.compare(kShareActionURL))
+  if (!action.compare(web_intents::kActionShare))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_SHARE);
-  else if (!action.compare(kEditActionURL))
+  else if (!action.compare(web_intents::kActionEdit))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_EDIT);
-  else if (!action.compare(kViewActionURL))
+  else if (!action.compare(web_intents::kActionView))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_VIEW);
-  else if (!action.compare(kPickActionURL))
+  else if (!action.compare(web_intents::kActionPick))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_PICK);
-  else if (!action.compare(kSubscribeActionURL))
+  else if (!action.compare(web_intents::kActionSubscribe))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_SUBSCRIBE);
-  else if (!action.compare(kSaveActionURL))
+  else if (!action.compare(web_intents::kActionSave))
     return l10n_util::GetStringUTF16(IDS_WEB_INTENTS_ACTION_SAVE);
   else
     return l10n_util::GetStringUTF16(IDS_INTENT_PICKER_CHOOSE_SERVICE);
@@ -190,9 +185,16 @@ void WebIntentPickerController::SetIntentsDispatcher(
   intents_dispatcher_->RegisterReplyNotification(
       base::Bind(&WebIntentPickerController::OnSendReturnMessage,
                  weak_ptr_factory_.GetWeakPtr()));
+
+  // Initialize the reporting bucket.
+  const webkit_glue::WebIntentData& intent = intents_dispatcher_->GetIntent();
+  uma_bucket_ = web_intents::ToUMABucket(intent.action, intent.type);
 }
+
+// TODO(smckay): rename this "StartActivity".
 void WebIntentPickerController::ShowDialog(const string16& action,
                                            const string16& type) {
+  web_intents::RecordIntentDispatched(uma_bucket_);
 
   // Only show a picker once.
   // TODO(gbillock): There's a hole potentially admitting multiple
@@ -289,16 +291,15 @@ void WebIntentPickerController::Observe(
 void WebIntentPickerController::OnServiceChosen(
     const GURL& url,
     webkit_glue::WebIntentServiceData::Disposition disposition) {
+  web_intents::RecordServiceInvoke(uma_bucket_);
   ExtensionService* service = tab_contents_->profile()->GetExtensionService();
   DCHECK(service);
   const extensions::Extension* extension = service->GetInstalledApp(url);
+
+  // TODO(smckay): this basically smells like another disposition.
   if (extension && extension->is_platform_app()) {
     extensions::LaunchPlatformAppWithWebIntent(tab_contents_->profile(),
-        extension, intents_dispatcher_->GetIntent());
-    // TODO(benwells): hook up return pathway to allow platform app to post
-    // success or failure.
-    intents_dispatcher_->SendReplyMessage(
-        webkit_glue::WEB_INTENT_REPLY_SUCCESS, string16());
+        extension, intents_dispatcher_, tab_contents_->web_contents());
     ClosePicker();
     return;
   }
@@ -312,8 +313,6 @@ void WebIntentPickerController::OnServiceChosen(
       break;
 
     case webkit_glue::WebIntentServiceData::DISPOSITION_WINDOW: {
-      Browser* browser = browser::FindBrowserWithWebContents(
-          tab_contents_->web_contents());
       TabContents* contents = chrome::TabContentsFactory(
           tab_contents_->profile(),
           tab_util::GetSiteInstanceForNewTab(
@@ -331,7 +330,7 @@ void WebIntentPickerController::OnServiceChosen(
       // This call performs all the tab strip manipulation, notifications, etc.
       // Since we're passing in a target_contents, it assumes that we will
       // navigate the page ourselves, though.
-      chrome::NavigateParams params(browser, url,
+      chrome::NavigateParams params(tab_contents_->profile(), url,
                                     content::PAGE_TRANSITION_AUTO_BOOKMARK);
       params.target_contents = contents;
       params.disposition = NEW_FOREGROUND_TAB;
@@ -374,10 +373,8 @@ void WebIntentPickerController::OnExtensionInstallRequested(
 
 void WebIntentPickerController::OnExtensionLinkClicked(const std::string& id) {
   // Navigate from source tab.
-  Browser* browser =
-      browser::FindBrowserWithWebContents(tab_contents_->web_contents());
   GURL extension_url(extension_urls::GetWebstoreItemDetailURLPrefix() + id);
-  chrome::NavigateParams params(browser, extension_url,
+  chrome::NavigateParams params(tab_contents_->profile(), extension_url,
                                 content::PAGE_TRANSITION_AUTO_BOOKMARK);
   params.disposition = NEW_FOREGROUND_TAB;
   chrome::Navigate(&params);
@@ -385,12 +382,10 @@ void WebIntentPickerController::OnExtensionLinkClicked(const std::string& id) {
 
 void WebIntentPickerController::OnSuggestionsLinkClicked() {
   // Navigate from source tab.
-  Browser* browser =
-      browser::FindBrowserWithWebContents(tab_contents_->web_contents());
   GURL query_url = extension_urls::GetWebstoreIntentQueryURL(
       UTF16ToUTF8(picker_model_->action()),
       UTF16ToUTF8(picker_model_->type()));
-  chrome::NavigateParams params(browser, query_url,
+  chrome::NavigateParams params(tab_contents_->profile(), query_url,
                                 content::PAGE_TRANSITION_AUTO_BOOKMARK);
   params.disposition = NEW_FOREGROUND_TAB;
   chrome::Navigate(&params);
@@ -406,6 +401,7 @@ void WebIntentPickerController::OnPickerClosed() {
   } else {
     intents_dispatcher_->SendReplyMessage(
         webkit_glue::WEB_INTENT_PICKER_CANCELLED, string16());
+    web_intents::RecordPickerCancel(uma_bucket_);
   }
 
   ClosePicker();
@@ -413,12 +409,12 @@ void WebIntentPickerController::OnPickerClosed() {
 
 void WebIntentPickerController::OnChooseAnotherService() {
   DCHECK(intents_dispatcher_);
-
+  web_intents::RecordChooseAnotherService(uma_bucket_);
   intents_dispatcher_->ResetDispatch();
 }
 
 void WebIntentPickerController::OnClosing() {
-  picker_shown_ = false;
+  SetDialogState(kPickerHidden);
   picker_ = NULL;
 }
 
@@ -503,10 +499,11 @@ void WebIntentPickerController::AddServiceToModel(
       service.disposition);
 
   pending_async_count_++;
-  FaviconService::Handle handle = favicon_service->GetFaviconForURL(
+  FaviconService::Handle handle = favicon_service->GetFaviconImageForURL(
       tab_contents_->profile(),
       service.service_url,
       history::FAVICON,
+      gfx::kFaviconSize,
       &favicon_consumer_,
       base::Bind(
           &WebIntentPickerController::OnFaviconDataAvailable,
@@ -580,18 +577,12 @@ void WebIntentPickerController::RegistryCallsCompleted() {
 }
 
 void WebIntentPickerController::OnFaviconDataAvailable(
-    FaviconService::Handle handle, history::FaviconData favicon_data) {
+    FaviconService::Handle handle,
+    const history::FaviconImageResult& image_result) {
   size_t index = favicon_consumer_.GetClientDataForCurrentRequest();
-  if (favicon_data.is_valid()) {
-    SkBitmap icon_bitmap;
-
-    if (gfx::PNGCodec::Decode(favicon_data.image_data->front(),
-                              favicon_data.image_data->size(),
-                              &icon_bitmap)) {
-      gfx::Image icon_image(icon_bitmap);
-      picker_model_->UpdateFaviconAt(index, icon_image);
-      return;
-    }
+  if (!image_result.image.IsEmpty()) {
+    picker_model_->UpdateFaviconAt(index, image_result.image);
+    return;
   }
 
   AsyncOperationFinished();
@@ -886,8 +877,7 @@ void WebIntentPickerController::SetDialogState(WebIntentPickerState state) {
 
   switch (state) {
     case kPickerSetup:
-      DCHECK(dialog_state_ == kPickerHidden);
-
+      DCHECK_EQ(dialog_state_, kPickerHidden);
       // Post timer CWS pending
       MessageLoop::current()->PostDelayedTask(FROM_HERE,
           base::Bind(&WebIntentPickerController::OnPickerEvent,
@@ -897,7 +887,7 @@ void WebIntentPickerController::SetDialogState(WebIntentPickerState state) {
       break;
 
     case kPickerWaiting:
-      DCHECK(dialog_state_ == kPickerSetup);
+      DCHECK_EQ(dialog_state_, kPickerSetup);
       // Waiting dialog can be dismissed after minimum wait time.
       MessageLoop::current()->PostDelayedTask(FROM_HERE,
           base::Bind(&WebIntentPickerController::OnPickerEvent,
@@ -907,7 +897,7 @@ void WebIntentPickerController::SetDialogState(WebIntentPickerState state) {
       break;
 
     case kPickerWaitLong:
-      DCHECK(dialog_state_ == kPickerWaiting);
+      DCHECK_EQ(dialog_state_, kPickerWaiting);
       break;
 
     case kPickerMain:
@@ -933,13 +923,13 @@ void WebIntentPickerController::SetDialogState(WebIntentPickerState state) {
     CreatePicker();
 }
 
-
 void WebIntentPickerController::CreatePicker() {
   // If picker is non-NULL, it was set by a test.
   if (picker_ == NULL)
     picker_ = WebIntentPicker::Create(tab_contents_, this, picker_model_.get());
   picker_->SetActionString(GetIntentActionString(
       UTF16ToUTF8(picker_model_->action())));
+  web_intents::RecordPickerShow(uma_bucket_);
   picker_shown_ = true;
 }
 

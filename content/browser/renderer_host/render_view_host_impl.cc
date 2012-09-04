@@ -11,6 +11,7 @@
 
 #include "base/i18n/rtl.h"
 #include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
 #include "base/message_loop.h"
 #include "base/stl_util.h"
 #include "base/string_util.h"
@@ -28,6 +29,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/common/accessibility_messages.h"
+#include "content/common/content_constants_internal.h"
 #include "content/common/desktop_notification_messages.h"
 #include "content/common/drag_messages.h"
 #include "content/common/inter_process_time_ticks_converter.h"
@@ -169,7 +171,6 @@ RenderViewHostImpl::RenderViewHostImpl(
       session_storage_namespace_(
           static_cast<SessionStorageNamespaceImpl*>(session_storage)),
       save_accessibility_tree_for_testing_(false),
-      send_accessibility_updated_notifications_(false),
       render_view_termination_status_(base::TERMINATION_STATUS_STILL_RUNNING) {
   DCHECK(session_storage_namespace_);
   DCHECK(instance_);
@@ -930,6 +931,7 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
                         OnDomOperationResponse)
     IPC_MESSAGE_HANDLER(AccessibilityHostMsg_Notifications,
                         OnAccessibilityNotifications)
+    IPC_MESSAGE_HANDLER(ViewHostMsg_FrameTreeUpdated, OnFrameTreeUpdated)
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(
         handled = RenderWidgetHostImpl::OnMessageReceived(msg))
@@ -1134,6 +1136,21 @@ void RenderViewHostImpl::OnMsgNavigate(const IPC::Message& msg) {
   FilterURL(policy, renderer_id, true, &validated_params.password_form.action);
 
   delegate_->DidNavigate(this, validated_params);
+
+  // For top level navigations, if there is no frame tree present for this
+  // instance (for example when the window is first created), then create
+  // an unnamed one with the proper frame id from the renderer.
+  // This should be done after we called DidNavigate, since updating the frame
+  // tree expects the render view being updated to be the active one.
+  if (content::PageTransitionIsMainFrame(validated_params.transition)) {
+    if (frame_tree_.empty()) {
+      base::DictionaryValue tree;
+      tree.SetString(content::kFrameTreeNodeNameKey, std::string());
+      tree.SetInteger(content::kFrameTreeNodeIdKey, validated_params.frame_id);
+      base::JSONWriter::Write(&tree, &frame_tree_);
+      delegate_->DidUpdateFrameTree(this);
+    }
+  }
 }
 
 void RenderViewHostImpl::OnMsgUpdateState(int32 page_id,
@@ -1620,6 +1637,17 @@ webkit_glue::WebPreferences RenderViewHostImpl::GetWebkitPreferences() {
   return delegate_->GetWebkitPrefs();
 }
 
+void RenderViewHostImpl::UpdateFrameTree(
+    int process_id,
+    int route_id,
+    const std::string& frame_tree) {
+  frame_tree_ = frame_tree;
+  Send(new ViewMsg_UpdateFrameTree(GetRoutingID(),
+                                   process_id,
+                                   route_id,
+                                   frame_tree_));
+}
+
 void RenderViewHostImpl::UpdateWebkitPreferences(
     const webkit_glue::WebPreferences& prefs) {
   Send(new ViewMsg_UpdateWebPreferences(GetRoutingID(), prefs));
@@ -1712,30 +1740,27 @@ void RenderViewHostImpl::OnAccessibilityNotifications(
   if (view_ && !is_swapped_out_)
     view_->OnAccessibilityNotifications(params);
 
-  if (!params.empty()) {
-    for (unsigned i = 0; i < params.size(); i++) {
-      const AccessibilityHostMsg_NotificationParams& param = params[i];
+  for (unsigned i = 0; i < params.size(); i++) {
+    const AccessibilityHostMsg_NotificationParams& param = params[i];
+    AccessibilityNotification src_type = param.notification_type;
 
-      if ((param.notification_type == AccessibilityNotificationLayoutComplete ||
-           param.notification_type == AccessibilityNotificationLoadComplete) &&
-          save_accessibility_tree_for_testing_) {
-        accessibility_tree_ = param.acc_tree;
-
-        // Only notify for non-blank pages.
-        if (accessibility_tree_.children.size() > 0)
-          content::NotificationService::current()->Notify(
-              content::NOTIFICATION_RENDER_VIEW_HOST_ACCESSIBILITY_TREE_UPDATED,
-              content::Source<RenderViewHost>(this),
-              content::NotificationService::NoDetails());
-      }
+    if ((src_type == AccessibilityNotificationLayoutComplete ||
+         src_type == AccessibilityNotificationLoadComplete) &&
+        save_accessibility_tree_for_testing_) {
+      accessibility_tree_ = param.acc_tree;
     }
-  }
 
-  if (send_accessibility_updated_notifications_) {
+    NotificationType dst_type;
+    if (src_type == AccessibilityNotificationLoadComplete)
+      dst_type = content::NOTIFICATION_ACCESSIBILITY_LOAD_COMPLETE;
+    else if (src_type == AccessibilityNotificationLayoutComplete)
+      dst_type = content::NOTIFICATION_ACCESSIBILITY_LAYOUT_COMPLETE;
+    else
+      dst_type = content::NOTIFICATION_ACCESSIBILITY_OTHER;
     content::NotificationService::current()->Notify(
-        content::NOTIFICATION_RENDER_VIEW_HOST_ACCESSIBILITY_TREE_UPDATED,
-        content::Source<RenderViewHost>(this),
-        content::NotificationService::NoDetails());
+          dst_type,
+          content::Source<RenderViewHost>(this),
+          content::NotificationService::NoDetails());
   }
 
   Send(new AccessibilityMsg_Notifications_ACK(GetRoutingID()));
@@ -1853,6 +1878,11 @@ void RenderViewHostImpl::OnDomOperationResponse(
       content::NOTIFICATION_DOM_OPERATION_RESPONSE,
       content::Source<RenderViewHost>(this),
       content::Details<DomOperationNotificationDetails>(&details));
+}
+
+void RenderViewHostImpl::OnFrameTreeUpdated(const std::string& frame_tree) {
+  frame_tree_ = frame_tree;
+  delegate_->DidUpdateFrameTree(this);
 }
 
 void RenderViewHostImpl::SetSwappedOut(bool is_swapped_out) {

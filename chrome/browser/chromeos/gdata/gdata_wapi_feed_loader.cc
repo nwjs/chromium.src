@@ -11,7 +11,6 @@
 #include "base/format_macros.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "base/message_loop.h"
 #include "base/metrics/histogram.h"
 #include "base/stringprintf.h"
 #include "base/threading/sequenced_worker_pool.h"
@@ -247,7 +246,7 @@ GDataWapiFeedLoader::GDataWapiFeedLoader(
       webapps_registry_(webapps_registry),
       cache_(cache),
       blocking_task_runner_(blocking_task_runner),
-      weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)) {
+      ALLOW_THIS_IN_INITIALIZER_LIST(weak_ptr_factory_(this)) {
 }
 
 GDataWapiFeedLoader::~GDataWapiFeedLoader() {
@@ -513,6 +512,8 @@ void GDataWapiFeedLoader::SearchFromServer(
     const std::string& search_query,
     const GURL& next_feed,
     const LoadDocumentFeedCallback& feed_load_callback) {
+  DCHECK(!feed_load_callback.is_null());
+
   LoadFeedParams params(initial_origin, feed_load_callback);
   params.search_query = search_query;
   params.feed_to_load = next_feed;
@@ -621,7 +622,7 @@ void GDataWapiFeedLoader::OnGetDocuments(
     if ((ui_state->num_fetched_documents - ui_state->num_showing_documents)
         < kFetchUiUpdateStep) {
       // Currently the UI update is stopped. Start UI periodic callback.
-      MessageLoop::current()->PostTask(
+      base::MessageLoopProxy::current()->PostTask(
           FROM_HERE,
           base::Bind(&GDataWapiFeedLoader::OnNotifyDocumentFeedFetched,
                      weak_ptr_factory_.GetWeakPtr(),
@@ -736,7 +737,7 @@ void GDataWapiFeedLoader::OnGetChangelist(
     if ((ui_state->num_fetched_documents - ui_state->num_showing_documents)
         < kFetchUiUpdateStep) {
       // Currently the UI update is stopped. Start UI periodic callback.
-      MessageLoop::current()->PostTask(
+      base::MessageLoopProxy::current()->PostTask(
           FROM_HERE,
           base::Bind(&GDataWapiFeedLoader::OnNotifyDocumentFeedFetched,
                      weak_ptr_factory_.GetWeakPtr(),
@@ -806,7 +807,7 @@ void GDataWapiFeedLoader::OnNotifyDocumentFeedFetched(
       // UI update timing.
       base::TimeDelta remaining_duration =
           ui_state->feed_fetching_elapsed_time - elapsed_time;
-      MessageLoop::current()->PostDelayedTask(
+      base::MessageLoopProxy::current()->PostDelayedTask(
           FROM_HERE,
           base::Bind(&GDataWapiFeedLoader::OnNotifyDocumentFeedFetched,
                      weak_ptr_factory_.GetWeakPtr(),

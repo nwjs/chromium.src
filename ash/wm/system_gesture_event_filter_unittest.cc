@@ -4,8 +4,8 @@
 
 #include "ash/wm/system_gesture_event_filter.h"
 
-#include "base/timer.h"
 #include "ash/accelerators/accelerator_controller.h"
+#include "ash/ash_switches.h"
 #include "ash/launcher/launcher.h"
 #include "ash/launcher/launcher_model.h"
 #include "ash/shell.h"
@@ -14,12 +14,16 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/test/test_launcher_delegate.h"
 #include "ash/volume_control_delegate.h"
+#include "ash/wm/gestures/long_press_affordance_handler.h"
 #include "ash/wm/window_util.h"
+#include "base/command_line.h"
 #include "base/time.h"
+#include "base/timer.h"
 #include "ui/aura/root_window.h"
 #include "ui/aura/test/event_generator.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/base/event.h"
+#include "ui/base/ui_base_switches.h"
 #include "ui/gfx/screen.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -126,13 +130,13 @@ class SystemGestureEventFilterTest : public AshTestBase {
   SystemGestureEventFilterTest() : AshTestBase() {}
   virtual ~SystemGestureEventFilterTest() {}
 
-  internal::LongPressAffordanceAnimation* GetLongPressAffordance() {
+  internal::LongPressAffordanceHandler* GetLongPressAffordance() {
     Shell::TestApi shell_test(Shell::GetInstance());
     return shell_test.system_gesture_event_filter()->
         long_press_affordance_.get();
   }
 
-  base::OneShotTimer<internal::LongPressAffordanceAnimation>*
+  base::OneShotTimer<internal::LongPressAffordanceHandler>*
       GetLongPressAffordanceTimer() {
     return &GetLongPressAffordance()->timer_;
   }
@@ -144,6 +148,15 @@ class SystemGestureEventFilterTest : public AshTestBase {
   views::View* GetLongPressAffordanceView() {
     return reinterpret_cast<views::View*>(
         GetLongPressAffordance()->view_.get());
+  }
+
+  // Overridden from AshTestBase:
+  virtual void SetUp() OVERRIDE {
+    CommandLine::ForCurrentProcess()->AppendSwitch(
+        ash::switches::kAshEnableAdvancedGestures);
+    CommandLine::ForCurrentProcess()->AppendSwitch(
+        ::switches::kEnableBezelTouch);
+    test::AshTestBase::SetUp();
   }
 
  private:
@@ -479,7 +492,7 @@ TEST_F(SystemGestureEventFilterTest, LongPressAffordanceStateOnCaptureLoss) {
   root_window->AsRootWindowHostDelegate()->OnHostTouchEvent(&press);
   EXPECT_TRUE(window1->HasCapture());
 
-  base::OneShotTimer<internal::LongPressAffordanceAnimation>* timer =
+  base::OneShotTimer<internal::LongPressAffordanceHandler>* timer =
       GetLongPressAffordanceTimer();
   EXPECT_TRUE(timer->IsRunning());
   EXPECT_EQ(kTouchId, GetLongPressAffordanceTouchId());
@@ -539,6 +552,62 @@ TEST_F(SystemGestureEventFilterTest, MultiFingerSwipeGestures) {
   EXPECT_TRUE(wm::IsWindowMaximized(toplevel->GetNativeWindow()));
 
   toplevel->Restore();
+
+  // Swipe right to snap.
+  gfx::Rect normal_bounds = toplevel->GetWindowBoundsInScreen();
+  generator.GestureMultiFingerScroll(kTouchPoints, points, 15, kSteps, 150, 0);
+  gfx::Rect right_tile_bounds = toplevel->GetWindowBoundsInScreen();
+  EXPECT_NE(normal_bounds.ToString(), right_tile_bounds.ToString());
+
+  // Swipe left to snap.
+  gfx::Point left_points[kTouchPoints];
+  for (int i = 0; i < kTouchPoints; ++i) {
+    left_points[i] = points[i];
+    left_points[i].Offset(right_tile_bounds.x(), right_tile_bounds.y());
+  }
+  generator.GestureMultiFingerScroll(kTouchPoints, left_points, 15, kSteps,
+      -150, 0);
+  gfx::Rect left_tile_bounds = toplevel->GetWindowBoundsInScreen();
+  EXPECT_NE(normal_bounds.ToString(), left_tile_bounds.ToString());
+  EXPECT_NE(right_tile_bounds.ToString(), left_tile_bounds.ToString());
+
+  // Swipe right again.
+  generator.GestureMultiFingerScroll(kTouchPoints, points, 15, kSteps, 150, 0);
+  gfx::Rect current_bounds = toplevel->GetWindowBoundsInScreen();
+  EXPECT_NE(current_bounds.ToString(), left_tile_bounds.ToString());
+  EXPECT_EQ(current_bounds.ToString(), right_tile_bounds.ToString());
+}
+
+TEST_F(SystemGestureEventFilterTest, TwoFingerDrag) {
+  gfx::Rect bounds(0, 0, 100, 100);
+  aura::RootWindow* root_window = Shell::GetPrimaryRootWindow();
+  views::Widget* toplevel = views::Widget::CreateWindowWithBounds(
+      new ResizableWidgetDelegate, bounds);
+  toplevel->Show();
+
+  const int kSteps = 15;
+  const int kTouchPoints = 2;
+  gfx::Point points[kTouchPoints] = {
+    gfx::Point(10, 30),
+    gfx::Point(30, 20),
+  };
+
+  aura::test::EventGenerator generator(root_window,
+                                       toplevel->GetNativeWindow());
+
+  // Swipe down to minimize.
+  generator.GestureMultiFingerScroll(kTouchPoints, points, 15, kSteps, 0, 150);
+  EXPECT_TRUE(wm::IsWindowMinimized(toplevel->GetNativeWindow()));
+
+  toplevel->Restore();
+  toplevel->GetNativeWindow()->SetBounds(bounds);
+
+  // Swipe up to maximize.
+  generator.GestureMultiFingerScroll(kTouchPoints, points, 15, kSteps, 0, -150);
+  EXPECT_TRUE(wm::IsWindowMaximized(toplevel->GetNativeWindow()));
+
+  toplevel->Restore();
+  toplevel->GetNativeWindow()->SetBounds(bounds);
 
   // Swipe right to snap.
   gfx::Rect normal_bounds = toplevel->GetWindowBoundsInScreen();

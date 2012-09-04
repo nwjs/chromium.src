@@ -38,7 +38,6 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/browser_dialogs.h"
 #include "chrome/browser/ui/views/location_bar/action_box_button_view.h"
-#include "chrome/browser/ui/views/location_bar/chrome_to_mobile_view.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/ev_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/keyword_hint_view.h"
@@ -138,6 +137,12 @@ const SkColor LocationBarView::kOmniboxBackgroundColor =
 const char LocationBarView::kViewClassName[] =
     "browser/ui/views/location_bar/LocationBarView";
 
+static const int kCSBubbleBackgroundImages[] = {
+  IDR_OMNIBOX_CS_BUBBLE_BACKGROUND_L,
+  IDR_OMNIBOX_CS_BUBBLE_BACKGROUND_C,
+  IDR_OMNIBOX_CS_BUBBLE_BACKGROUND_R,
+};
+
 static const int kEVBubbleBackgroundImages[] = {
   IDR_OMNIBOX_EV_BUBBLE_BACKGROUND_L,
   IDR_OMNIBOX_EV_BUBBLE_BACKGROUND_C,
@@ -192,7 +197,6 @@ LocationBarView::LocationBarView(Browser* browser,
       zoom_view_(NULL),
       star_view_(NULL),
       action_box_button_view_(NULL),
-      chrome_to_mobile_view_(NULL),
       mode_(mode),
       show_focus_rect_(false),
       template_url_service_(NULL),
@@ -274,7 +278,8 @@ void LocationBarView::Init(views::View* popup_parent_view) {
 
   for (int i = 0; i < CONTENT_SETTINGS_NUM_TYPES; ++i) {
     ContentSettingImageView* content_blocked_view =
-        new ContentSettingImageView(static_cast<ContentSettingsType>(i), this);
+        new ContentSettingImageView(static_cast<ContentSettingsType>(i),
+                                    kCSBubbleBackgroundImages, this);
     content_setting_views_.push_back(content_blocked_view);
     AddChildView(content_blocked_view);
     content_blocked_view->SetVisible(false);
@@ -284,24 +289,14 @@ void LocationBarView::Init(views::View* popup_parent_view) {
   AddChildView(zoom_view_);
 
   if (browser_defaults::bookmarks_enabled && (mode_ == NORMAL)) {
-    // Note: condition above means that the star and ChromeToMobile icons are
-    // hidden in popups and in the app launcher.
+    // Note: condition above means that the star icon is hidden in popups and in
+    // the app launcher.
     star_view_ = new StarView(command_updater_);
     AddChildView(star_view_);
     star_view_->SetVisible(true);
-
-    // Disable Chrome To Mobile for off-the-record and non-synced profiles,
-    // or if the feature is disabled by a command line flag or chrome://flags.
-    if (!profile_->IsOffTheRecord() && profile_->IsSyncAccessible() &&
-        ChromeToMobileService::IsChromeToMobileEnabled()) {
-      chrome_to_mobile_view_ = new ChromeToMobileView(this, command_updater_);
-      AddChildView(chrome_to_mobile_view_);
-      chrome_to_mobile_view_->SetVisible(
-          ChromeToMobileServiceFactory::GetForProfile(profile_)->HasMobiles());
-    }
   }
   if (ActionBoxButtonView::IsActionBoxEnabled() && browser_) {
-    action_box_button_view_ = new ActionBoxButtonView(browser_, profile_);
+    action_box_button_view_ = new ActionBoxButtonView(browser_);
     AddChildView(action_box_button_view_);
     if (star_view_)
       star_view_->SetVisible(false);
@@ -395,7 +390,7 @@ void LocationBarView::SetAnimationOffset(int offset) {
 void LocationBarView::ModeChanged(const chrome::search::Mode& old_mode,
                                   const chrome::search::Mode& new_mode) {
 #if defined(USE_AURA)
-  if (new_mode.is_search() && new_mode.animate) {
+  if (new_mode.animate && old_mode.is_ntp() && new_mode.is_search()) {
     // Fade in so the icons don't pop.
     StartFadeAnimation();
   } else {
@@ -418,9 +413,11 @@ void LocationBarView::Update(const WebContents* tab_for_state_restoring) {
   if (star_view_ && !ActionBoxButtonView::IsActionBoxEnabled())
     star_view_->SetVisible(star_enabled);
 
-  bool enabled = chrome_to_mobile_view_ && !model_->input_in_progress() &&
-      ChromeToMobileServiceFactory::GetForProfile(profile_)->HasMobiles();
-  command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE, enabled);
+  ChromeToMobileService* chrome_to_mobile_service =
+      ChromeToMobileServiceFactory::GetForProfile(profile_);
+  command_updater_->UpdateCommandEnabled(IDC_CHROME_TO_MOBILE_PAGE,
+      !model_->input_in_progress() && chrome_to_mobile_service &&
+          chrome_to_mobile_service->HasMobiles());
 
   // Don't Update in app launcher mode so that the location entry does not show
   // a URL or security background.
@@ -544,8 +541,8 @@ void LocationBarView::RefreshZoomView() {
 }
 
 void LocationBarView::ShowChromeToMobileBubble() {
-  Browser* browser = GetBrowserFromDelegate(delegate_);
-  chrome::ShowChromeToMobileBubbleView(chrome_to_mobile_view_, browser);
+  chrome::ShowChromeToMobileBubbleView(action_box_button_view_,
+                                       GetBrowserFromDelegate(delegate_));
 }
 
 gfx::Point LocationBarView::GetLocationEntryOrigin() const {
@@ -681,10 +678,6 @@ void LocationBarView::Layout() {
 
   if (star_view_ && star_view_->visible())
     entry_width -= star_view_->GetPreferredSize().width() + GetItemPadding();
-  if (chrome_to_mobile_view_ && chrome_to_mobile_view_->visible()) {
-    entry_width -= chrome_to_mobile_view_->GetPreferredSize().width() +
-        GetItemPadding();
-  }
   int action_box_button_width = location_height;
   if (action_box_button_view_)
     entry_width -= action_box_button_width + GetItemPadding();
@@ -703,8 +696,8 @@ void LocationBarView::Layout() {
   // The gap between the edit and whatever is to its right is shortened.
   entry_width += kEditInternalSpace;
 
-  // Size the EV bubble after taking star/ChromeToMobile/page actions/content
-  // settings out of |entry_width| so we won't take too much space.
+  // Size the EV bubble after taking star/page actions/content settings out of
+  // |entry_width| so we won't take too much space.
   if (ev_bubble_width) {
     // Try to elide the bubble to be no larger than half the total available
     // space, but never elide it any smaller than 150 px.
@@ -767,16 +760,6 @@ void LocationBarView::Layout() {
     offset -= GetItemPadding() - star_view_->GetBuiltInHorizontalPadding();
   }
 
-  if (chrome_to_mobile_view_ && chrome_to_mobile_view_->visible()) {
-    offset += chrome_to_mobile_view_->GetBuiltInHorizontalPadding();
-    int icon_width = chrome_to_mobile_view_->GetPreferredSize().width();
-    offset -= icon_width;
-    chrome_to_mobile_view_->SetBounds(offset, location_y,
-                                      icon_width, location_height);
-    offset -= GetItemPadding() -
-        chrome_to_mobile_view_->GetBuiltInHorizontalPadding();
-  }
-
   for (PageActionViews::const_iterator i(page_action_views_.begin());
        i != page_action_views_.end(); ++i) {
     if ((*i)->visible()) {
@@ -804,8 +787,8 @@ void LocationBarView::Layout() {
       offset += (*i)->GetBuiltInHorizontalPadding();
       int content_blocked_width = (*i)->GetPreferredSize().width();
       offset -= content_blocked_width;
-      (*i)->SetBounds(offset, location_y, content_blocked_width,
-                      location_height);
+      (*i)->SetBounds(offset, location_y + kBubbleVerticalPadding,
+                      content_blocked_width, (*i)->GetPreferredSize().height());
       offset -= GetItemPadding() - (*i)->GetBuiltInHorizontalPadding();
     }
   }
@@ -1149,9 +1132,7 @@ void LocationBarView::RefreshPageActionViews() {
     DeletePageActionViews();  // Delete the old views (if any).
 
     page_action_views_.resize(page_actions_.size());
-    View* right_anchor = chrome_to_mobile_view_;
-    if (!right_anchor)
-      right_anchor = star_view_;
+    View* right_anchor = star_view_;
     if (!right_anchor)
       right_anchor = action_box_button_view_;
     DCHECK(right_anchor);

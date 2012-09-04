@@ -4,7 +4,7 @@
 
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/browser_action_test_util.h"
-#include "chrome/browser/sessions/restore_tab_helper.h"
+#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
@@ -20,10 +20,7 @@ using content::WebContents;
 
 class CommandsApiTest : public ExtensionApiTest {
  public:
-  CommandsApiTest() {
-    CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kEnableExperimentalExtensionApis);
-  }
+  CommandsApiTest() {}
   virtual ~CommandsApiTest() {}
 
  protected:
@@ -115,15 +112,15 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, PageAction) {
 
   // Make sure it appears and is the right one.
   ASSERT_TRUE(WaitForPageActionVisibilityChangeTo(1));
-  int tab_id = chrome::GetActiveTabContents(browser())->restore_tab_helper()->
+  int tab_id = chrome::GetActiveTabContents(browser())->session_tab_helper()->
       session_id().id();
   ExtensionAction* action = extension->page_action();
   ASSERT_TRUE(action);
   EXPECT_EQ("Make this page red", action->GetTitle(tab_id));
 
-  // Activate the shortcut (Ctrl+Shift+F).
+  // Activate the shortcut (Alt+Shift+F).
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(
-      browser(), ui::VKEY_F, true, true, false, false));
+      browser(), ui::VKEY_F, false, true, true, false));
 
   // Verify the command worked (the page action turns the page red).
   WebContents* tab = chrome::GetActiveWebContents(browser());

@@ -30,6 +30,7 @@ class SequencedTaskRunner;
 
 namespace gdata {
 
+class DriveFunctionRemove;
 class DriveServiceInterface;
 class DriveWebAppsRegistryInterface;
 class GDataUploaderInterface;
@@ -138,6 +139,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
   virtual void OnDocumentFeedFetched(int num_accumulated_entries) OVERRIDE;
   virtual void OnFeedFromServerLoaded() OVERRIDE;
 
+  DriveResourceMetadata* ResourceMetadata() { return resource_metadata_.get(); }
+
   // Used in tests to load the root feed from the cache.
   void LoadRootFeedFromCacheForTesting();
 
@@ -152,16 +155,46 @@ class DriveFileSystem : public DriveFileSystemInterface,
   friend class DriveFileSystemTest;
   FRIEND_TEST_ALL_PREFIXES(DriveFileSystemTest,
                            FindFirstMissingParentDirectory);
-
   // Defines possible search results of FindFirstMissingParentDirectory().
-  enum FindMissingDirectoryResult {
+  enum FindFirstMissingParentDirectoryError {
     // Target directory found, it's not a directory.
-    FOUND_INVALID,
+    FIND_FIRST_FOUND_INVALID,
     // Found missing directory segment while searching for given directory.
-    FOUND_MISSING,
+    FIND_FIRST_FOUND_MISSING,
     // Found target directory, it already exists.
-    DIRECTORY_ALREADY_PRESENT,
+    FIND_FIRST_DIRECTORY_ALREADY_PRESENT,
   };
+
+  // The result struct for FindFirstMissingParentDirectory().
+  struct FindFirstMissingParentDirectoryResult {
+    FindFirstMissingParentDirectoryResult();
+    ~FindFirstMissingParentDirectoryResult();
+
+    // Initializes the struct.
+    void Init(FindFirstMissingParentDirectoryError error,
+              FilePath first_missing_parent_path,
+              GURL last_dir_content_url);
+
+    FindFirstMissingParentDirectoryError error;
+    // The following two fields are provided when |error| is set to
+    // FIND_FIRST_FOUND_MISSING. Otherwise, the two fields are undefined.
+
+    // Suppose "drive/foo/bar/baz/qux" is being checked, and only
+    // "drive/foo/bar" is present, "drive/foo/bar/baz" is the first missing
+    // parent path.
+    FilePath first_missing_parent_path;
+
+    // The content URL of the last found directory. In the above example, the
+    // content URL of "drive/foo/bar". Note that this value is empty if the
+    // last found directory is the root of Drive.
+    GURL last_dir_content_url;
+  };
+
+  // Callback for FindFirstMissingParentDirectory().
+  typedef base::Callback<void(
+      const FindFirstMissingParentDirectoryResult& result)>
+      FindFirstMissingParentDirectoryCallback;
+
 
   // Defines set of parameters passes to intermediate callbacks during
   // execution of CreateDirectory() method.
@@ -194,14 +227,29 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Struct used for AddUploadedFile.
   struct AddUploadedFileParams;
 
+  // Struct used by UpdateEntryData.
+  struct UpdateEntryParams;
+
   // Callback passed to |LoadFeedFromServer| from |Search| method.
   // |callback| is that should be run with data received from
-  // |LoadFeedFromServer|.
+  // |LoadFeedFromServer|. |callback| must not be null.
   // |params| params used for getting document feed for content search.
   // |error| error code returned by |LoadFeedFromServer|.
   void OnSearch(const SearchCallback& callback,
                 GetDocumentsParams* params,
                 DriveFileError error);
+
+  // Callback for DriveResourceMetadata::RefreshFile, from OnSearch.
+  // Adds |drive_file_path| to |results|. When |entry_proto| is not present in
+  // the local file system snapshot, it is not added to |results|. Instead,
+  // CheckForUpdates is called. Runs |callback| with |results|.
+  // |callback| may be null.
+  void AddToSearchResults(
+      std::vector<SearchResultInfo>* results,
+      const base::Closure& callback,
+      DriveFileError error,
+      const FilePath& drive_file_path,
+      scoped_ptr<DriveEntryProto> entry_proto);
 
   // Part of TransferFileFromLocalToRemote(). Called after
   // GetEntryInfoByPath() is complete.
@@ -257,6 +305,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
 
   // Invoked upon completion of GetEntryInfoByPath initiated by
   // GetFileByPath. It then continues to invoke GetResolvedFileByPath.
+  // |get_file_callback| must not be null.
+  // |get_content_callback| may be null.
   void OnGetEntryInfoCompleteForGetFileByPath(
       const FilePath& file_path,
       const GetFileCallback& get_file_callback,
@@ -509,14 +559,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                        GDataErrorCode status,
                                        const GURL& document_url);
 
-  // Callback for DriveServiceInterface::DeleteDocument. Removes the entry with
-  // |resource_id| from the local snapshot of the filesystem and the cache.
-  // |document_url| is unused. |callback| must not be null.
-  void RemoveResourceLocally(const FileOperationCallback& callback,
-                             const std::string& resource_id,
-                             GDataErrorCode status,
-                             const GURL& document_url);
-
   // Callback when an entry is moved to another directory on the client side.
   // Notifies the directory change and runs |callback|.
   // |callback| must not be null.
@@ -541,21 +583,21 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const FilePath& directory_path);
 
   // Continues to add an uploaded file after existing entry has been deleted.
-  void ContinueAddUploadedFile(AddUploadedFileParams* params,
+  void ContinueAddUploadedFile(scoped_ptr<AddUploadedFileParams> params,
                                DriveFileError error,
                                const FilePath& file_path);
 
   // Adds the uploaded file to the cache.
-  void AddUploadedFileToCache(AddUploadedFileParams* params,
+  void AddUploadedFileToCache(scoped_ptr<AddUploadedFileParams> params,
                               DriveFileError error,
                               const FilePath& file_path);
 
   // Given non-existing |directory_path|, finds the first missing parent
   // directory of |directory_path|.
-  FindMissingDirectoryResult FindFirstMissingParentDirectory(
+  // |callback| must not be null.
+  void FindFirstMissingParentDirectory(
       const FilePath& directory_path,
-      GURL* last_dir_content_url,
-      FilePath* first_missing_parent_path);
+      const FindFirstMissingParentDirectoryCallback& callback);
 
   // Callback for handling results of ReloadFeedFromServerIfNeeded() initiated
   // from CheckForUpdates(). This callback checks whether feed is successfully
@@ -605,13 +647,20 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // Callback for |drive_service_->GetDocumentEntry|.
   // It is called before file download. If GetDocumentEntry was successful,
   // file download procedure is started for the file. The file is downloaded
-  // from the content url extracted from the fetched metadata to
-  // |cache_file_path|. Also, available space checks are done using file size
-  // from the fetched metadata.
-  void OnGetDocumentEntry(const FilePath& cache_file_path,
-                          const GetFileFromCacheParams& params,
+  // from the content url extracted from the fetched metadata.
+  void OnGetDocumentEntry(const GetFileFromCacheParams& params,
                           GDataErrorCode status,
                           scoped_ptr<base::Value> data);
+
+  // Check available space using file size from the fetched metadata. Called
+  // from OnGetDocumentEntry after RefreshFile is complete.
+  void CheckForSpaceBeforeDownload(
+      const GetFileFromCacheParams& params,
+      int64 file_size,
+      const GURL& content_url,
+      DriveFileError error,
+      const FilePath& drive_file_path,
+      scoped_ptr<DriveEntryProto> entry_proto);
 
   // Starts downloading a file if we have enough disk space indicated by
   // |has_enough_space|.
@@ -657,16 +706,16 @@ class DriveFileSystem : public DriveFileSystemInterface,
   // |callback| must not be null.
   void LoadFeedIfNeeded(const FileOperationCallback& callback);
 
-  // Gets |file_path| from the file system after the file info is already
-  // resolved with GetEntryInfoByPath(). This function is called by
-  // OnGetEntryInfoCompleteForGetFileByPath and
-  // OnGetEntryInfoCompleteForOpenFile.
+  // Gets the file at |file_path| from the cache (if found in the cache),
+  // or the server (if not found in the cache) after the file info is
+  // already resolved with GetEntryInfoByPath() or GetEntryInfoByResourceId().
+  // |get_file_callback| must not be null.
+  // |get_content_callback| may be null.
   void GetResolvedFileByPath(
       const FilePath& file_path,
       const GetFileCallback& get_file_callback,
       const GetContentCallback& get_content_callback,
-      DriveFileError error,
-      const DriveEntryProto* entry_proto);
+      scoped_ptr<DriveEntryProto> entry_proto);
 
   // Part of UpdateFileByResourceId(). Called when
   // DriveDirectory::GetEntryInfoByResourceId() is complete.
@@ -674,7 +723,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
   void UpdateFileByEntryInfo(
       const FileOperationCallback& callback,
       DriveFileError error,
-      const FilePath& /* drive_file_path */,
+      const FilePath& drive_file_path,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // Part of UpdateFileByResourceId().
@@ -697,7 +746,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                           int64* file_size);
 
   // Part of UpdateFileByResourceId().
-  // Callback for GDataRootDirectory::GetEntryByResourceIdAsync.
+  // Callback for GDataRootDirectory::GetEntryInfoByResourceId.
   // |callback| must not be null.
   void OnGetFileCompleteForUpdateFileByEntry(
       const FileOperationCallback& callback,
@@ -731,6 +780,7 @@ class DriveFileSystem : public DriveFileSystemInterface,
                       const FilePath& dest_file_path,
                       const FileOperationCallback& callback);
   void RemoveOnUIThread(const FilePath& file_path,
+                        bool is_recursive,
                         const FileOperationCallback& callback);
   void CreateDirectoryOnUIThread(const FilePath& directory_path,
                                  bool is_exclusive,
@@ -747,13 +797,6 @@ class DriveFileSystem : public DriveFileSystemInterface,
       const std::string& resource_id,
       const GetFileCallback& get_file_callback,
       const GetContentCallback& get_content_callback);
-  void GetFileByEntryOnUIThread(
-      const GetFileCallback& get_file_callback,
-      const GetContentCallback& get_content_callback,
-      DriveEntry* entry);
-  void GetEntryInfoByEntryOnUIThread(
-      const GetEntryInfoWithFilePathCallback& callback,
-      DriveEntry* entry);
   void UpdateFileByResourceIdOnUIThread(const std::string& resource_id,
                                         const FileOperationCallback& callback);
   void GetEntryInfoByPathOnUIThread(const FilePath& file_path,
@@ -775,11 +818,38 @@ class DriveFileSystem : public DriveFileSystemInterface,
                                  const FilePath& file_content_path,
                                  DriveCache::FileOperationType cache_operation,
                                  const base::Closure& callback);
-  void UpdateEntryDataOnUIThread(const std::string& resource_id,
-                                 const std::string& md5,
-                                 scoped_ptr<DocumentEntry> entry,
-                                 const FilePath& file_content_path,
-                                 const base::Closure& callback);
+  void UpdateEntryDataOnUIThread(const UpdateEntryParams& params,
+                                 scoped_ptr<DocumentEntry> entry);
+
+  // Part of CreateDirectory(). Called after
+  // FindFirstMissingParentDirectory() is complete.
+  // |callback| must not be null.
+  void CreateDirectoryAfterFindFirstMissingPath(
+      const FilePath& directory_path,
+      bool is_exclusive,
+      bool is_recursive,
+      const FileOperationCallback& callback,
+      const FindFirstMissingParentDirectoryResult& result);
+
+  // Part of GetEntryInfoByResourceId(). Called after
+  // DriveResourceMetadata::GetEntryInfoByResourceId() is complete.
+  // |callback| must not be null.
+  void GetEntryInfoByResourceIdAfterGetEntry(
+      const GetEntryInfoWithFilePathCallback& callback,
+      DriveFileError error,
+      const FilePath& file_path,
+      scoped_ptr<DriveEntryProto> entry_proto);
+
+  // Part of GetFileByResourceIdOnUIThread(). Called after
+  // DriveResourceMetadata::GetEntryInfoByResourceId() is complete.
+  // |get_file_callback| must not be null.
+  // |get_content_callback| may be null.
+  void GetFileByResourceIdAfterGetEntry(
+      const GetFileCallback& get_file_callback,
+      const GetContentCallback& get_content_callback,
+      DriveFileError error,
+      const FilePath& file_path,
+      scoped_ptr<DriveEntryProto> entry_proto);
 
   // Part of CopyOnUIThread(). Called after GetEntryInfoPairByPaths() is
   // complete. |callback| must not be null.
@@ -795,19 +865,18 @@ class DriveFileSystem : public DriveFileSystemInterface,
     const FileOperationCallback& callback,
     scoped_ptr<EntryInfoPairResult> result);
 
-  // Part of RemoveOnUIThread(). Called after GetEntryInfoByPath() is
-  // complete.
-  // |callback| must not be null.
-  void RemoveOnUIThreadAfterGetEntryInfo(
-      const FileOperationCallback& callback,
-      DriveFileError error,
-      scoped_ptr<DriveEntryProto> entry_proto);
-
   // Part of RequestDirectoryRefreshOnUIThread(). Called after
   // GetEntryInfoByPath() is complete.
   void RequestDirectoryRefreshOnUIThreadAfterGetEntryInfo(
       const FilePath& file_path,
       DriveFileError error,
+      scoped_ptr<DriveEntryProto> entry_proto);
+
+  // Part of UpdateEntryDataOnUIThread(). Called after RefreshFile is complete.
+  void UpdateCacheEntryOnUIThread(
+      const UpdateEntryParams& params,
+      DriveFileError error,
+      const FilePath& drive_file_path,
       scoped_ptr<DriveEntryProto> entry_proto);
 
   // Part of GetEntryByResourceId and GetEntryByPath. Checks whether there is a
@@ -870,6 +939,8 @@ class DriveFileSystem : public DriveFileSystemInterface,
   ObserverList<DriveFileSystemInterface::Observer> observers_;
 
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;
+
+  scoped_ptr<DriveFunctionRemove> remove_function_;
 
   // WeakPtrFactory and WeakPtr bound to the UI thread.
   // Note: These should remain the last member so they'll be destroyed and

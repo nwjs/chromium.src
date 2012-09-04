@@ -2,7 +2,8 @@
 <html i18n-values="dir:textdirection;">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,
+                                   maximum-scale=1.0, user-scalable=no">
     <title i18n-content="title"></title>
     <link rel="stylesheet" href="ntp_android.css">
     <link rel="stylesheet" href="bookmarks.css">
@@ -14,6 +15,7 @@
     <link rel="stylesheet" href="incognito_tab.css">
     <!-- template data placeholder -->
     <script src="../shared/js/cr.js"></script>
+    <script src="../shared/js/parse_html_subset.js"></script>
     <script src="ntp_android.js"></script>
     <script>
       var MOCK = document.location.host != "newtab";
@@ -35,13 +37,14 @@
         </div>
         <div class="center-empty-container" id="sync_promo" style="display: none;">
           <div id="promo_message_on_sync_promo_legacy" class="center-empty-content" i18n-values=".innerHTML:syncPromo"></div>
+          <div id="promo_message_on_sync_promo_received" class="center-empty-content" style="display: none;"></div>
         </div>
         <div class="center-empty-container" id="sync_loading" style="display: none;">
           <div class="center-empty-content" i18n-values=".innerHTML:syncLoading"></div>
         </div>
         <div class="page-list" id="open_tabs_list" style="display: none;"></div>
+        <div class="page-list" id="promo_vc_list" style="display: none;"></div>
         <div class="page-list" id="snapshots_list" style="display: none;"></div>
-        <div id="promo_message_on_open_tabs" class="promo-message" style="display: none;"></div>
       </div>
       <div class="main-section" id="bookmarks_container">
         <div id="bookmarks_contents">

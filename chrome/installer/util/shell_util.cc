@@ -205,8 +205,7 @@ class RegistryEntry {
 
   // This method returns a list of all the registry entries that
   // are needed to register this installation's ProgId and AppId.
-  // These entries should be registered in HKCU for user-level installs and in
-  // HKLM for system-level installs.
+  // These entries need to be registered in HKLM prior to Win8.
   static void GetProgIdEntries(BrowserDistribution* dist,
                                const string16& chrome_exe,
                                const string16& suffix,
@@ -222,7 +221,7 @@ class RegistryEntry {
     // see also install_worker.cc's AddDelegateExecuteWorkItems.
     bool set_delegate_execute =
         IsChromeMetroSupported() &&
-        dist->GetDelegateExecuteHandlerData(&delegate_guid, NULL, NULL, NULL) &&
+        dist->GetCommandExecuteImplClsid(&delegate_guid) &&
         InstallUtil::HasDelegateExecuteHandler(dist, chrome_exe);
 
     // DelegateExecute ProgId. Needed for Chrome Metro in Windows 8.
@@ -397,8 +396,7 @@ class RegistryEntry {
   //    http://msdn.microsoft.com/en-us/library/windows/desktop/ee872121
   //  - File Associations
   //    http://msdn.microsoft.com/en-us/library/bb166549
-  // These entries should be registered in HKCU for user-level installs and in
-  // HKLM for system-level installs.
+  // These entries need to be registered in HKLM prior to Win8.
   static void GetAppRegistrationEntries(const string16& chrome_exe,
                                         const string16& suffix,
                                         ScopedVector<RegistryEntry>* entries) {
@@ -619,6 +617,13 @@ bool AreEntriesRegistered(const ScopedVector<RegistryEntry>& entries,
 
 // Checks that all required registry entries for Chrome are already present
 // on this computer.
+// Note: between r133333 and r154145 we were registering parts of Chrome in HKCU
+// and parts in HKLM for user-level installs; we now always register everything
+// under a single registry root. Not doing so caused http://crbug.com/144910 for
+// users who first-installed Chrome in that revision range (those users are
+// still impacted by http://crbug.com/144910). This method will keep returning
+// true for affected users (i.e. who have all the registrations, but over both
+// registry roots).
 bool IsChromeRegistered(BrowserDistribution* dist,
                         const string16& chrome_exe,
                         const string16& suffix) {
@@ -750,9 +755,7 @@ uint32 ConvertShellUtilShortcutOptionsToFileUtil(uint32 options) {
 void RemoveBadWindows8RegistrationIfNeeded(
     BrowserDistribution* dist,
     const string16& chrome_exe) {
-  string16 handler_guid;
-
-  if (dist->GetDelegateExecuteHandlerData(&handler_guid, NULL, NULL, NULL) &&
+  if (dist->GetCommandExecuteImplClsid(NULL) &&
       (!InstallUtil::HasDelegateExecuteHandler(dist, chrome_exe) ||
        !IsChromeMetroSupported())) {
     // There's no need to rollback, so forgo the usual work item lists and just
@@ -1457,9 +1460,7 @@ bool ShellUtil::RegisterChromeBrowser(BrowserDistribution* dist,
                                              &progid_and_appreg_entries);
     RegistryEntry::GetShellIntegrationEntries(
         dist, chrome_exe, suffix, &shell_entries);
-    return AddRegistryEntries(user_level ? HKEY_CURRENT_USER :
-                                           HKEY_LOCAL_MACHINE,
-                              progid_and_appreg_entries) &&
+    return AddRegistryEntries(root, progid_and_appreg_entries) &&
            AddRegistryEntries(root, shell_entries);
   }
 
@@ -1624,6 +1625,33 @@ bool ShellUtil::RemoveChromeQuickLaunchShortcut(BrowserDistribution* dist,
   }
 
   return ret;
+}
+
+void ShellUtil::RemoveChromeStartScreenShortcuts(BrowserDistribution* dist,
+                                                 const string16& chrome_exe) {
+  if (base::win::GetVersion() < base::win::VERSION_WIN8)
+    return;
+
+  FilePath app_shortcuts_path;
+  if (!PathService::Get(base::DIR_APP_SHORTCUTS, &app_shortcuts_path)) {
+    LOG(ERROR) << "Could not get application shortcuts location to delete"
+               << " start screen shortcuts.";
+    return;
+  }
+
+  app_shortcuts_path = app_shortcuts_path.Append(
+      GetBrowserModelId(dist, chrome_exe));
+  if (!file_util::DirectoryExists(app_shortcuts_path)) {
+    VLOG(1) << "No start screen shortcuts to delete.";
+    return;
+  }
+
+  VLOG(1) << "Removing start screen shortcuts from "
+          << app_shortcuts_path.value();
+  if (!file_util::Delete(app_shortcuts_path, true)) {
+    LOG(ERROR) << "Failed to remove start screen shortcuts from "
+               << app_shortcuts_path.value();
+  }
 }
 
 bool ShellUtil::UpdateChromeShortcut(BrowserDistribution* dist,

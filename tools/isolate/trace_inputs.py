@@ -554,13 +554,14 @@ def write_json(filepath_or_handle, data, dense):
   """
   if hasattr(filepath_or_handle, 'write'):
     if dense:
-      filepath_or_handle.write(json.dumps(data, separators=(',',':')))
+      filepath_or_handle.write(
+          json.dumps(data, sort_keys=True, separators=(',',':')))
     else:
       filepath_or_handle.write(json.dumps(data, sort_keys=True, indent=2))
   else:
     with open(filepath_or_handle, 'wb') as f:
       if dense:
-        json.dump(data, f, separators=(',',':'))
+        json.dump(data, f, sort_keys=True, separators=(',',':'))
       else:
         json.dump(data, f, sort_keys=True, indent=2)
 
@@ -1032,7 +1033,8 @@ class Strace(ApiBase):
       RE_SIGNAL = re.compile(r'^--- SIG[A-Z]+ .+ ---')
       # A process didn't handle a signal. Ignore any junk appearing before,
       # because the process was forcibly killed so it won't open any new file.
-      RE_KILLED = re.compile(r'^.*\+\+\+ killed by ([A-Z]+) \+\+\+$')
+      RE_KILLED = re.compile(
+          r'^.*\+\+\+ killed by ([A-Z]+)( \(core dumped\))? \+\+\+$')
       # A call was canceled. Ignore any prefix.
       RE_UNAVAILABLE = re.compile(r'^.*\)\s*= \? <unavailable>$')
       # Happens when strace fails to even get the function name.
@@ -1141,7 +1143,7 @@ class Strace(ApiBase):
         try:
           match = self.RE_KILLED.match(line)
           if match:
-            # Converts a '+++ killied by Foo +++' trace into an exit_group().
+            # Converts a '+++ killed by Foo +++' trace into an exit_group().
             self.handle_exit_group(match.group(1), None)
             return
 

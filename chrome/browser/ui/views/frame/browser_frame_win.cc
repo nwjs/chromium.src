@@ -188,40 +188,87 @@ bool BrowserFrameWin::GetClientAreaInsets(gfx::Insets* insets) const {
   return true;
 }
 
-void BrowserFrameWin::UpdateFrameAfterFrameChange() {
+void BrowserFrameWin::HandleFrameChanged() {
   // We need to update the glass region on or off before the base class adjusts
   // the window region.
   UpdateDWMFrame();
-  NativeWidgetWin::UpdateFrameAfterFrameChange();
+  NativeWidgetWin::HandleFrameChanged();
 }
 
-void BrowserFrameWin::OnEndSession(BOOL ending, UINT logoff) {
-  browser::SessionEnding();
+bool BrowserFrameWin::PreHandleMSG(UINT message,
+                                   WPARAM w_param,
+                                   LPARAM l_param,
+                                   LRESULT* result) {
+  static const UINT metro_navigation_search_message =
+      RegisterWindowMessage(chrome::kMetroNavigationAndSearchMessage);
+
+  static const UINT metro_get_current_tab_info_message =
+      RegisterWindowMessage(chrome::kMetroGetCurrentTabInfoMessage);
+
+  if (message == metro_navigation_search_message) {
+    HandleMetroNavSearchRequest(w_param, l_param);
+    return false;
+  } else if (message == metro_get_current_tab_info_message) {
+    GetMetroCurrentTabInfo(w_param);
+    return false;
+  }
+
+  switch (message) {
+  case WM_ACTIVATE:
+    if (LOWORD(w_param) != WA_INACTIVE)
+      CacheMinimizeButtonDelta();
+    return false;
+  case WM_PRINT:
+    if (base::win::IsMetroProcess()) {
+      // This message is sent by the AnimateWindow API which is used in metro
+      // mode to flip between active chrome windows.
+      RECT client_rect = {0};
+      ::GetClientRect(GetNativeView(), &client_rect);
+      HDC dest_dc = reinterpret_cast<HDC>(w_param);
+      DCHECK(dest_dc);
+      HDC src_dc = ::GetDC(GetNativeView());
+      ::BitBlt(dest_dc, 0, 0, client_rect.right - client_rect.left,
+               client_rect.bottom - client_rect.top, src_dc, 0, 0,
+               SRCCOPY);
+      ::ReleaseDC(GetNativeView(), src_dc);
+      *result = 0;
+      return true;
+    }
+    return false;
+  case WM_ENDSESSION:
+    browser::SessionEnding();
+    return true;
+  case WM_INITMENUPOPUP:
+    system_menu_->UpdateStates();
+    return true;
+  }
+  return false;
 }
 
-void BrowserFrameWin::OnInitMenuPopup(HMENU menu, UINT position,
-                                      BOOL is_system_menu) {
-  system_menu_->UpdateStates();
-}
+void BrowserFrameWin::PostHandleMSG(UINT message,
+                                    WPARAM w_param,
+                                    LPARAM l_param) {
+  switch (message) {
+  case WM_WINDOWPOSCHANGED:
+    UpdateDWMFrame();
 
-void BrowserFrameWin::OnWindowPosChanged(WINDOWPOS* window_pos) {
-  NativeWidgetWin::OnWindowPosChanged(window_pos);
-  UpdateDWMFrame();
-
-  // Windows lies to us about the position of the minimize button before a
-  // window is visible.  We use this position to place the OTR avatar in RTL
-  // mode, so when the window is shown, we need to re-layout and schedule a
-  // paint for the non-client frame view so that the icon top has the correct
-  // position when the window becomes visible.  This fixes bugs where the icon
-  // appears to overlay the minimize button.
-  // Note that we will call Layout every time SetWindowPos is called with
-  // SWP_SHOWWINDOW, however callers typically are careful about not specifying
-  // this flag unless necessary to avoid flicker.
-  // This may be invoked during creation on XP and before the non_client_view
-  // has been created.
-  if (window_pos->flags & SWP_SHOWWINDOW && GetWidget()->non_client_view()) {
-    GetWidget()->non_client_view()->Layout();
-    GetWidget()->non_client_view()->SchedulePaint();
+    // Windows lies to us about the position of the minimize button before a
+    // window is visible.  We use this position to place the OTR avatar in RTL
+    // mode, so when the window is shown, we need to re-layout and schedule a
+    // paint for the non-client frame view so that the icon top has the correct
+    // position when the window becomes visible.  This fixes bugs where the icon
+    // appears to overlay the minimize button.
+    // Note that we will call Layout every time SetWindowPos is called with
+    // SWP_SHOWWINDOW, however callers typically are careful about not
+    // specifying this flag unless necessary to avoid flicker.
+    // This may be invoked during creation on XP and before the non_client_view
+    // has been created.
+    WINDOWPOS* window_pos = reinterpret_cast<WINDOWPOS*>(l_param);
+    if (window_pos->flags & SWP_SHOWWINDOW && GetWidget()->non_client_view()) {
+      GetWidget()->non_client_view()->Layout();
+      GetWidget()->non_client_view()->SchedulePaint();
+    }
+    break;
   }
 }
 
@@ -267,12 +314,6 @@ void BrowserFrameWin::ShowWithWindowState(ui::WindowShowState show_state) {
 void BrowserFrameWin::Close() {
   CloseImmersiveFrame();
   views::NativeWidgetWin::Close();
-}
-
-void BrowserFrameWin::OnActivate(UINT action, BOOL minimized, HWND window) {
-  if (action != WA_INACTIVE)
-    CacheMinimizeButtonDelta();
-  views::NativeWidgetWin::OnActivate(action, minimized, window);
 }
 
 void BrowserFrameWin::FrameTypeChanged() {
@@ -346,7 +387,7 @@ int BrowserFrameWin::GetMinimizeButtonOffset() const {
   DCHECK(cached_minimize_button_x_delta_);
 
   RECT client_rect = {0};
-  GetClientRect(&client_rect);
+  GetClientRect(GetNativeView(), &client_rect);
 
   if (base::i18n::IsRTL())
     return cached_minimize_button_x_delta_;
@@ -369,36 +410,6 @@ void BrowserFrameWin::ButtonPressed(views::Button* sender,
       ::GetProcAddress(metro, "FlipFrameWindows"));
   if (flip_window_fn)
     flip_window_fn();
-}
-
-LRESULT BrowserFrameWin::OnWndProc(UINT message,
-                                   WPARAM w_param,
-                                   LPARAM l_param) {
-  static const UINT metro_navigation_search_message =
-      RegisterWindowMessage(chrome::kMetroNavigationAndSearchMessage);
-
-  static const UINT metro_get_current_tab_info_message =
-      RegisterWindowMessage(chrome::kMetroGetCurrentTabInfoMessage);
-
-  if (message == metro_navigation_search_message) {
-    HandleMetroNavSearchRequest(w_param, l_param);
-  } else if (message == metro_get_current_tab_info_message) {
-    GetMetroCurrentTabInfo(w_param);
-  } else if (message == WM_PRINT && base::win::IsMetroProcess()) {
-    // This message is sent by the AnimateWindow API which is used in metro
-    // mode to flip between active chrome windows.
-    RECT client_rect = {0};
-    ::GetClientRect(GetNativeView(), &client_rect);
-    HDC dest_dc = reinterpret_cast<HDC>(w_param);
-    DCHECK(dest_dc);
-    HDC src_dc = ::GetDC(GetNativeView());
-    ::BitBlt(dest_dc, 0, 0, client_rect.right - client_rect.left,
-             client_rect.bottom - client_rect.top, src_dc, 0, 0,
-             SRCCOPY);
-    ::ReleaseDC(GetNativeView(), src_dc);
-    return 0;
-  }
-  return views::NativeWidgetWin::OnWndProc(message, w_param, l_param);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -579,7 +590,7 @@ void BrowserFrameWin::CacheMinimizeButtonDelta() {
     return;
 
   RECT rect = {0};
-  GetClientRect(&rect);
+  GetClientRect(GetNativeView(), &rect);
   // Calculate and cache the value of the minimize button delta, i.e. the
   // offset to be applied to the left or right edge of the client rect
   // depending on whether the language is RTL or not.

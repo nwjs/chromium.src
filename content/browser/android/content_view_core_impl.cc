@@ -27,12 +27,14 @@
 #include "content/public/browser/notification_source.h"
 #include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_client.h"
 #include "content/public/common/page_transition_types.h"
 #include "jni/ContentViewCore_jni.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebBindings.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebInputEvent.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/android/WebInputEventFactory.h"
 #include "ui/gfx/android/java_bitmap.h"
+#include "webkit/glue/user_agent.h"
 #include "webkit/glue/webmenuitem.h"
 
 using base::android::AttachCurrentThread;
@@ -95,6 +97,16 @@ ContentViewCoreImpl::ContentViewCoreImpl(JNIEnv* env, jobject obj,
   notification_registrar_.Add(this,
                               NOTIFICATION_EXECUTE_JAVASCRIPT_RESULT,
                               NotificationService::AllSources());
+
+  // Currently, the only use case we have for overriding a user agent involves
+  // spoofing a desktop Linux user agent for "Request desktop site".
+  // Automatically set it for all WebContents so that it is available when a
+  // NavigationEntry requires the user agent to be overridden.
+  const char kLinuxInfoStr[] = "X11; Linux x86_64";
+  std::string product = content::GetContentClient()->GetProduct();
+  std::string spoofed_ua =
+      webkit_glue::BuildUserAgentFromOSAndProduct(kLinuxInfoStr, product);
+  web_contents->SetUserAgentOverride(spoofed_ua);
 }
 
 ContentViewCoreImpl::~ContentViewCoreImpl() {
@@ -149,6 +161,11 @@ RenderWidgetHostViewAndroid*
   if (web_contents_)
     rwhv = web_contents_->GetRenderWidgetHostView();
   return static_cast<RenderWidgetHostViewAndroid*>(rwhv);
+}
+
+ScopedJavaLocalRef<jobject> ContentViewCoreImpl::GetJavaObject() {
+  JNIEnv* env = AttachCurrentThread();
+  return java_ref_.get(env);
 }
 
 // ----------------------------------------------------------------------------
@@ -260,9 +277,18 @@ jboolean ContentViewCoreImpl::TouchEvent(JNIEnv* env,
 void ContentViewCoreImpl::SendGestureEvent(WebInputEvent::Type type,
                                            long time_ms, int x, int y,
                                            float dx, float dy,
-                                           bool link_preview_tap) {
+                                           bool disambiguation_popup_tap) {
   WebKit::WebGestureEvent event = WebInputEventFactory::gestureEvent(
       type, time_ms / 1000.0, x, y, dx, dy, 0);
+
+  // TODO(trchen): derive a proper padding value from device dpi
+  const int touchPadding = 48;
+  if ((type == WebInputEvent::GestureTap
+      || type == WebInputEvent::GestureLongPress)
+      && !disambiguation_popup_tap)
+    event.boundingBox = WebKit::WebRect(x - touchPadding, y - touchPadding,
+                                        2 * touchPadding, 2 * touchPadding);
+
   if (GetRenderWidgetHostViewAndroid())
     GetRenderWidgetHostViewAndroid()->GestureEvent(event);
 }
@@ -295,9 +321,10 @@ void ContentViewCoreImpl::FlingCancel(JNIEnv* env, jobject obj, jlong time_ms) {
 }
 
 void ContentViewCoreImpl::SingleTap(JNIEnv* env, jobject obj, jlong time_ms,
-                                    jint x, jint y, jboolean link_preview_tap) {
+                                    jint x, jint y,
+                                    jboolean disambiguation_popup_tap) {
   SendGestureEvent(
-      WebInputEvent::GestureTap, time_ms, x, y, 0, 0, link_preview_tap);
+      WebInputEvent::GestureTap, time_ms, x, y, 0, 0, disambiguation_popup_tap);
 }
 
 void ContentViewCoreImpl::ShowPressState(JNIEnv* env, jobject obj,
@@ -312,9 +339,11 @@ void ContentViewCoreImpl::DoubleTap(JNIEnv* env, jobject obj, jlong time_ms,
 }
 
 void ContentViewCoreImpl::LongPress(JNIEnv* env, jobject obj, jlong time_ms,
-                                    jint x, jint y, jboolean link_preview_tap) {
+                                    jint x, jint y,
+                                    jboolean disambiguation_popup_tap) {
   SendGestureEvent(
-      WebInputEvent::GestureLongPress, time_ms, x, y, 0, 0, link_preview_tap);
+      WebInputEvent::GestureLongPress, time_ms, x, y, 0, 0,
+      disambiguation_popup_tap);
 }
 
 void ContentViewCoreImpl::PinchBegin(JNIEnv* env, jobject obj, jlong time_ms,
@@ -447,6 +476,13 @@ int ContentViewCoreImpl::GetNavigationHistory(JNIEnv* env,
   return controller.GetCurrentEntryIndex();
 }
 
+int ContentViewCoreImpl::GetNativeImeAdapter(JNIEnv* env, jobject obj) {
+  RenderWidgetHostViewAndroid* rwhva = GetRenderWidgetHostViewAndroid();
+  if (!rwhva)
+    return 0;
+  return rwhva->GetNativeImeAdapter();
+}
+
 // --------------------------------------------------------------------------
 // Methods called from native code
 // --------------------------------------------------------------------------
@@ -486,6 +522,28 @@ jint EvaluateJavaScript(JNIEnv* env, jobject obj, jstring script) {
 
 void ContentViewCoreImpl::OnTabCrashed(const base::ProcessHandle handle) {
   NOTIMPLEMENTED() << "not upstreamed yet";
+}
+
+void ContentViewCoreImpl::ImeUpdateAdapter(int native_ime_adapter,
+                                           int text_input_type,
+                                           const std::string& text,
+                                           int selection_start,
+                                           int selection_end,
+                                           int composition_start,
+                                           int composition_end,
+                                           bool show_ime_if_needed) {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null())
+    return;
+
+  ScopedJavaLocalRef<jstring> jstring_text = ConvertUTF8ToJavaString(env, text);
+  Java_ContentViewCore_imeUpdateAdapter(env, obj.obj(),
+                                        native_ime_adapter, text_input_type,
+                                        jstring_text.obj(),
+                                        selection_start, selection_end,
+                                        composition_start, composition_end,
+                                        show_ime_if_needed);
 }
 
 void ContentViewCoreImpl::SetTitle(const string16& title) {

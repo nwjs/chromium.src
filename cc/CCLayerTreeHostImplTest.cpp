@@ -7,13 +7,13 @@
 #include "CCLayerTreeHostImpl.h"
 
 #include "CCAnimationTestCommon.h"
+#include "CCGeometryTestUtils.h"
 #include "CCHeadsUpDisplayLayerImpl.h"
 #include "CCIOSurfaceLayerImpl.h"
 #include "CCLayerImpl.h"
 #include "CCLayerTestCommon.h"
 #include "CCLayerTilingData.h"
-#include "CCLayerTreeTestCommon.h"
-#include "CCQuadCuller.h"
+#include "CCQuadSink.h"
 #include "CCRenderPassDrawQuad.h"
 #include "CCRendererGL.h"
 #include "CCScrollbarGeometryFixedThumb.h"
@@ -378,6 +378,24 @@ TEST_F(CCLayerTreeHostImplTest, nonFastScrollableRegionWithOffset)
 
     // This point is still inside the non-fast region.
     EXPECT_EQ(m_hostImpl->scrollBegin(IntPoint(10, 10), CCInputHandlerClient::Wheel), CCInputHandlerClient::ScrollOnMainThread);
+}
+
+TEST_F(CCLayerTreeHostImplTest, maxScrollPositionChangedByDeviceScaleFactor)
+{
+    setupScrollAndContentsLayers(IntSize(100, 100));
+
+    float deviceScaleFactor = 2;
+    IntSize layoutViewport(25, 25);
+    IntSize deviceViewport(layoutViewport);
+    deviceViewport.scale(deviceScaleFactor);
+    m_hostImpl->setViewportSize(layoutViewport, deviceViewport);
+    m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
+    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), IntSize(25, 25));
+
+    deviceScaleFactor = 1;
+    m_hostImpl->setViewportSize(layoutViewport, layoutViewport);
+    m_hostImpl->setDeviceScaleFactor(deviceScaleFactor);
+    EXPECT_EQ(m_hostImpl->rootLayer()->maxScrollPosition(), IntSize(75, 75));
 }
 
 TEST_F(CCLayerTreeHostImplTest, pinchGesture)
@@ -1326,7 +1344,7 @@ class BlendStateCheckLayer : public CCLayerImpl {
 public:
     static PassOwnPtr<BlendStateCheckLayer> create(int id, CCResourceProvider* resourceProvider) { return adoptPtr(new BlendStateCheckLayer(id, resourceProvider)); }
 
-    virtual void appendQuads(CCQuadSink& quadSink, bool&) OVERRIDE
+    virtual void appendQuads(CCQuadSink& quadSink, CCAppendQuadsData& appendQuadsData) OVERRIDE
     {
         m_quadsAppended = true;
 
@@ -1341,7 +1359,7 @@ public:
         testBlendingDrawQuad->setQuadVisibleRect(m_quadVisibleRect);
         EXPECT_EQ(m_blend, testBlendingDrawQuad->needsBlending());
         EXPECT_EQ(m_hasRenderSurface, !!renderSurface());
-        quadSink.append(testBlendingDrawQuad.release());
+        quadSink.append(testBlendingDrawQuad.release(), appendQuadsData);
     }
 
     void setExpectation(bool blend, bool hasRenderSurface)
@@ -1860,14 +1878,14 @@ class FakeLayerWithQuads : public CCLayerImpl {
 public:
     static PassOwnPtr<FakeLayerWithQuads> create(int id) { return adoptPtr(new FakeLayerWithQuads(id)); }
 
-    virtual void appendQuads(CCQuadSink& quadSink, bool&) OVERRIDE
+    virtual void appendQuads(CCQuadSink& quadSink, CCAppendQuadsData& appendQuadsData) OVERRIDE
     {
         CCSharedQuadState* sharedQuadState = quadSink.useSharedQuadState(createSharedQuadState());
 
         SkColor gray = SkColorSetRGB(100, 100, 100);
         IntRect quadRect(IntPoint(0, 0), contentBounds());
         OwnPtr<CCDrawQuad> myQuad = CCSolidColorDrawQuad::create(sharedQuadState, quadRect, gray);
-        quadSink.append(myQuad.release());
+        quadSink.append(myQuad.release(), appendQuadsData);
     }
 
 private:
@@ -2782,7 +2800,7 @@ TEST_F(CCLayerTreeHostImplTest, textureCachingWithClipping)
         EXPECT_LT(quadVisibleRect.width(), 100);
 
         // Verify that the render surface texture is *not* clipped.
-        EXPECT_INT_RECT_EQ(IntRect(0, 0, 100, 100), frame.renderPasses[0]->outputRect());
+        EXPECT_RECT_EQ(IntRect(0, 0, 100, 100), frame.renderPasses[0]->outputRect());
 
         EXPECT_EQ(CCDrawQuad::RenderPass, frame.renderPasses[1]->quadList()[0]->material());
         CCRenderPassDrawQuad* quad = static_cast<CCRenderPassDrawQuad*>(frame.renderPasses[1]->quadList()[0].get());

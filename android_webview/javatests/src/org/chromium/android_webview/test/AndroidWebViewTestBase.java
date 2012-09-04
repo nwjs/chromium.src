@@ -8,9 +8,11 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.View;
+import android.view.ViewGroup;
 
 import org.chromium.android_webview.AndroidWebViewUtil;
 import org.chromium.android_webview.AwContents;
+import org.chromium.android_webview.AwContentsClient;
 import org.chromium.content.browser.ContentSettings;
 import org.chromium.content.browser.ContentView;
 import org.chromium.content.browser.ContentViewClient;
@@ -20,6 +22,7 @@ import org.chromium.content.browser.test.CallbackHelper;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -32,6 +35,8 @@ import java.util.concurrent.TimeoutException;
 public class AndroidWebViewTestBase
         extends ActivityInstrumentationTestCase2<AndroidWebViewTestRunnerActivity> {
     protected static int WAIT_TIMEOUT_SECONDS = 15;
+    protected static final boolean NORMAL_VIEW = false;
+    protected static final boolean INCOGNITO_VIEW = true;
 
     public AndroidWebViewTestBase() {
         super(AndroidWebViewTestRunnerActivity.class);
@@ -123,12 +128,63 @@ public class AndroidWebViewTestBase
         });
     }
 
-    protected ContentView createContentView(boolean incognito,
-                                            ContentViewClient contentViewClient) {
+    protected AwTestContainerView createAwTestContainerView(final boolean incognito,
+            final AwContentsClient contentsClient) {
+        return createAwTestContainerView(incognito, new AwTestContainerView(getActivity()),
+                contentsClient);
+    }
+
+    protected AwTestContainerView createAwTestContainerView(final boolean incognito,
+            final AwTestContainerView testContainerView,
+            final AwContentsClient contentsClient) {
         int nativeWebContents = AndroidWebViewUtil.createNativeWebContents(incognito);
-        ContentView contentView = ContentView.newInstance(getActivity(), nativeWebContents,
-                                                          ContentView.PERSONALITY_VIEW);
-        contentView.setContentViewClient(contentViewClient);
-        return contentView;
+        ContentViewCore contentViewCore =
+            new ContentViewCore(getActivity(), testContainerView,
+                    testContainerView.getInternalAccessDelegate(), nativeWebContents,
+                    ContentViewCore.PERSONALITY_VIEW);
+        testContainerView.initialize(contentViewCore,
+                new AwContents(testContainerView, testContainerView.getInternalAccessDelegate(),
+                            contentViewCore, contentsClient, incognito, false));
+        getActivity().addView(testContainerView);
+        return testContainerView;
+    }
+
+    protected AwTestContainerView createAwTestContainerViewOnMainSync(
+            final AwContentsClient client) throws Exception {
+        return createAwTestContainerViewOnMainSync(NORMAL_VIEW, client);
+    }
+
+    protected AwTestContainerView createAwTestContainerViewOnMainSync(
+            final boolean incognito,
+            final AwContentsClient client) throws Exception {
+        final AtomicReference<AwTestContainerView> testContainerView =
+            new AtomicReference<AwTestContainerView>();
+        final Context context = getActivity();
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                testContainerView.set(createAwTestContainerView(incognito, client));
+            }
+        });
+        return testContainerView.get();
+    }
+
+    protected String getTitleOnUiThread(final ContentViewCore contentViewCore) throws Throwable {
+        return runTestOnUiThreadAndGetResult(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                return contentViewCore.getTitle();
+            }
+        });
+    }
+
+    protected ContentSettings getContentSettingsOnUiThread(
+            final ContentViewCore contentViewCore) throws Throwable {
+        return runTestOnUiThreadAndGetResult(new Callable<ContentSettings>() {
+            @Override
+            public ContentSettings call() throws Exception {
+                return contentViewCore.getContentSettings();
+            }
+        });
     }
 }

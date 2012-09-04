@@ -9,6 +9,8 @@
 #include "base/mac/mac_util.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
+#include "chrome/browser/extensions/api/commands/command_service.h"
+#include "chrome/browser/extensions/api/commands/command_service_factory.h"
 #include "chrome/browser/extensions/bundle_installer.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -34,6 +36,7 @@
 using content::BrowserThread;
 using extensions::BundleInstaller;
 using extensions::Extension;
+using extensions::UnloadedExtensionInfo;
 
 // C++ class that receives EXTENSION_LOADED notifications and proxies them back
 // to |controller|.
@@ -65,7 +68,7 @@ class ExtensionLoadedNotificationObserver
       }
     } else if (type == chrome::NOTIFICATION_EXTENSION_UNLOADED) {
       const Extension* extension =
-          content::Details<const Extension>(details).ptr();
+          content::Details<const UnloadedExtensionInfo>(details)->extension;
       if (extension == [controller_ extension]) {
         [controller_ performSelectorOnMainThread:@selector(extensionUnloaded:)
                                       withObject:controller_
@@ -110,10 +113,10 @@ class ExtensionLoadedNotificationObserver
     } else if (extension->browser_action()) {
       type_ = extension_installed_bubble::kBrowserAction;
     } else if (extension->page_action() &&
-               !extension->page_action()->default_icon_path().empty()) {
+             extension->is_verbose_install_message()) {
       type_ = extension_installed_bubble::kPageAction;
     } else {
-      NOTREACHED();  // kGeneric installs handled in extension_install_prompt.
+      type_ = extension_installed_bubble::kGeneric;
     }
 
     if (type_ == extension_installed_bubble::kBundle) {
@@ -207,16 +210,18 @@ class ExtensionLoadedNotificationObserver
           locationBarView->GetPageActionBubblePoint(extension_->page_action());
       break;
     }
-    case extension_installed_bubble::kBundle: {
+    case extension_installed_bubble::kBundle:
+    case extension_installed_bubble::kGeneric: {
+      // Point at the bottom of the wrench menu.
       NSView* wrenchButton =
           [[window->cocoa_controller() toolbarController] wrenchButton];
       const NSRect bounds = [wrenchButton bounds];
-      NSPoint anchor = NSMakePoint(NSMidX(bounds), NSMidY(bounds));
+      NSPoint anchor = NSMakePoint(NSMidX(bounds), NSMaxY(bounds));
       arrowPoint = [wrenchButton convertPoint:anchor toView:nil];
       break;
     }
     default: {
-      NOTREACHED() << "Generic extension type not allowed in install bubble.";
+      NOTREACHED();
     }
   }
   return arrowPoint;
@@ -225,8 +230,6 @@ class ExtensionLoadedNotificationObserver
 // Override -[BaseBubbleController showWindow:] to tweak bubble location and
 // set up UI elements.
 - (void)showWindow:(id)sender {
-  // Generic extensions get an infobar rather than a bubble.
-  DCHECK(type_ != extension_installed_bubble::kGeneric);
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
 
   // Load nib and calculate height based on messages to be shown.
@@ -274,6 +277,43 @@ class ExtensionLoadedNotificationObserver
   return window;
 }
 
+- (NSString*)installMessageForExtensionAction {
+  extensions::CommandService* command_service =
+      extensions::CommandServiceFactory::GetForProfile(browser_->profile());
+  if (type_ == extension_installed_bubble::kPageAction) {
+    extensions::Command page_action_command;
+    if (extension_->page_action_command() &&
+        command_service->GetPageActionCommand(
+            extension_->id(),
+            extensions::CommandService::ACTIVE_ONLY,
+            &page_action_command,
+            NULL)) {
+      return l10n_util::GetNSStringF(
+          IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO_WITH_SHORTCUT,
+          page_action_command.accelerator().GetShortcutText());
+    } else {
+      return l10n_util::GetNSString(
+          IDS_EXTENSION_INSTALLED_PAGE_ACTION_INFO);
+    }
+  } else {
+    CHECK_EQ(extension_installed_bubble::kBrowserAction, type_);
+    extensions::Command browser_action_command;
+    if (extension_->browser_action_command() &&
+        command_service->GetBrowserActionCommand(
+            extension_->id(),
+            extensions::CommandService::ACTIVE_ONLY,
+            &browser_action_command,
+            NULL)) {
+      return l10n_util::GetNSStringF(
+          IDS_EXTENSION_INSTALLED_BROWSER_ACTION_INFO_WITH_SHORTCUT,
+          browser_action_command.accelerator().GetShortcutText());
+    } else {
+      return l10n_util::GetNSString(
+          IDS_EXTENSION_INSTALLED_BROWSER_ACTION_INFO);
+    }
+  }
+}
+
 // Calculate the height of each install message, resizing messages in their
 // frames to fit window width.  Return the new window height, based on the
 // total of all message heights.
@@ -295,7 +335,9 @@ class ExtensionLoadedNotificationObserver
   }
 
   // If type is page action, include a special message about page actions.
-  if (type_ == extension_installed_bubble::kPageAction) {
+  if (type_ == extension_installed_bubble::kBrowserAction ||
+      type_ == extension_installed_bubble::kPageAction) {
+    [extraInfoMsg_ setStringValue:[self installMessageForExtensionAction]];
     [extraInfoMsg_ setHidden:NO];
     [[extraInfoMsg_ cell]
         setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
@@ -420,8 +462,7 @@ class ExtensionLoadedNotificationObserver
       extensionMessageFrame1.size.height +
       extension_installed_bubble::kOuterVerticalMargin);
   [extensionInstalledMsg_ setFrame:extensionMessageFrame1];
-  if (type_ == extension_installed_bubble::kPageAction ||
-      type_ == extension_installed_bubble::kOmniboxKeyword) {
+  if (extension_->is_verbose_install_message()) {
     // The extra message is only shown when appropriate.
     NSRect extraMessageFrame = [extraInfoMsg_ frame];
     extraMessageFrame.origin.y = extensionMessageFrame1.origin.y - (

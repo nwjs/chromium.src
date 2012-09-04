@@ -366,7 +366,7 @@ cr.define('options', function() {
         var value = event.target.options[event.target.selectedIndex].value;
         Preferences.setIntegerPref(
              'webkit.webprefs.default_fixed_font_size',
-             value - OptionsPage.SIZE_DIFFERENCE_FIXED_STANDARD, '');
+             value - OptionsPage.SIZE_DIFFERENCE_FIXED_STANDARD, true);
         chrome.send('defaultFontSizeAction', [String(value)]);
       };
       $('defaultZoomFactor').onchange = function(event) {
@@ -535,6 +535,9 @@ cr.define('options', function() {
         section.classList.add('sliding');
         section.style.height =
             container.offsetHeight + 'px';
+        // Force an update of the list of paired Bluetooth devices.
+        if (cr.isChromeOS)
+           $('bluetooth-paired-devices-list').refresh();
       }, 0);
     },
 

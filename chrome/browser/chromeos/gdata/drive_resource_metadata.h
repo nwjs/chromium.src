@@ -122,9 +122,6 @@ typedef base::Callback<void(scoped_ptr<EntryInfoPairResult> pair_result)>
 // Class to handle DriveEntry* lookups, add/remove DriveEntry*.
 class DriveResourceMetadata {
  public:
-  // Callback for GetEntryByResourceIdAsync.
-  typedef base::Callback<void(DriveEntry* entry)> GetEntryByResourceIdCallback;
-
   // Map of resource id and serialized DriveEntry.
   typedef std::map<std::string, std::string> SerializedMap;
   // Map of resource id strings to DriveEntry*.
@@ -152,33 +149,33 @@ class DriveResourceMetadata {
   void set_origin(ContentOrigin value) { origin_ = value; }
 
   // Creates a DriveEntry from a DocumentEntry.
-  DriveEntry* FromDocumentEntry(const DocumentEntry& doc);
+  scoped_ptr<DriveEntry> FromDocumentEntry(const DocumentEntry& doc);
 
   // Creates a DriveFile instance.
-  DriveFile* CreateDriveFile();
+  scoped_ptr<DriveFile> CreateDriveFile();
 
   // Creates a DriveDirectory instance.
-  DriveDirectory* CreateDriveDirectory();
+  scoped_ptr<DriveDirectory> CreateDriveDirectory();
 
   // Sets root directory resource id and initialize the root entry.
   void InitializeRootEntry(const std::string& root_id);
 
   // Add |doc entry| to directory with path |directory_path| and invoke the
   // callback asynchronously.
-  // |callback| may not be null.
+  // |callback| must not be null.
   void AddEntryToDirectory(const FilePath& directory_path,
                            scoped_ptr<DocumentEntry> doc_entry,
                            const FileMoveCallback& callback);
 
   // Moves |entry| to |directory_path| asynchronously. Removes entry from
   // previous parent. Must be called on UI thread. |callback| is called on the
-  // UI thread. |callback| may not be null.
+  // UI thread. |callback| must not be null.
   void MoveEntryToDirectory(const FilePath& directory_path,
                             DriveEntry* entry,
                             const FileMoveCallback& callback);
 
   // Removes entry with |resource_id| from its parent. Calls |callback| with the
-  // path of the parent directory. |callback| may not be null.
+  // path of the parent directory. |callback| must not be null.
   void RemoveEntryFromParent(const std::string& resource_id,
                              const FileMoveCallback& callback);
 
@@ -196,12 +193,6 @@ class DriveResourceMetadata {
   // TODO(satorux): Remove this in favor of GetEntryInfoByResourceId()
   // but can be difficult. See crbug.com/137374
   DriveEntry* GetEntryByResourceId(const std::string& resource_id);
-
-  // Returns the DriveEntry* in the callback with the corresponding
-  // |resource_id|. TODO(satorux): Remove this in favor of
-  // GetEntryInfoByResourceId(). crbug.com/137512
-  void GetEntryByResourceIdAsync(const std::string& resource_id,
-                                 const GetEntryByResourceIdCallback& callback);
 
   // Finds an entry (a file or a directory) by |resource_id|.
   //
@@ -237,12 +228,16 @@ class DriveResourceMetadata {
       const FilePath& second_path,
       const GetEntryInfoPairCallback& callback);
 
-  // Replaces file entry with the same resource id as |fresh_file| with its
-  // fresh value |fresh_file|.
-  void RefreshFile(scoped_ptr<DriveFile> fresh_file);
+  // Replaces a file entry with the same resource id as |doc_entry| by deleting
+  // the existing entry, creating a new DriveFile from |doc_entry|, and adding
+  // it to the parent of the old entry. For directories, this just returns the
+  // existing directory proto. |callback| is run with the error, file path and
+  // proto of the entry. |callback| must not be null.
+  void RefreshFile(scoped_ptr<DocumentEntry> doc_entry,
+                   const GetEntryInfoWithFilePathCallback& callback);
 
   // Removes all child files of |directory| and replace with file_map.
-  // |callback| is called with the directory path. |callback| may not be null.
+  // |callback| is called with the directory path. |callback| must not be null.
   void RefreshDirectory(const std::string& directory_resource_id,
                         const ResourceMap& file_map,
                         const FileMoveCallback& callback);
@@ -288,23 +283,6 @@ class DriveResourceMetadata {
       scoped_ptr<EntryInfoPairResult> result,
       DriveFileError error,
       scoped_ptr<DriveEntryProto> entry_proto);
-
-  // These internal functions need friend access to private DriveDirectory
-  // methods.
-  // Replaces file entry |old_entry| with its fresh value |fresh_file|.
-  static void RefreshFileInternal(scoped_ptr<DriveFile> fresh_file,
-                                  DriveEntry* old_entry);
-
-  // Removes all child files of |directory| and replace with file_map.
-  // |callback| may not be null.
-  static void RefreshDirectoryInternal(const ResourceMap& file_map,
-                                       const FileMoveCallback& callback,
-                                       DriveEntry* directory_entry);
-
-  // Removes |entry| from its parent and calls |callback|.
-  // |callback| may not be null.
-  static void RemoveEntryFromParentInternal(const FileMoveCallback& callback,
-                                            DriveEntry* entry);
 
   // Private data members.
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_;

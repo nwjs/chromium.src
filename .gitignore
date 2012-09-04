@@ -1,16 +1,16 @@
 *.Makefile
 *.gypcmd
-*.mk
+*.host.mk
 *.ncb
 *.ninja
 *.opensdf
 *.props
 *.pyc
 *.rules
-*.scons
 *.sdf
 *.sln
 *.suo
+*.target.mk
 *.targets
 *.user
 *.vcproj
@@ -26,6 +26,7 @@
 *~
 .*.sw?
 .DS_Store
+.classpath
 .cproject
 .gdb_history
 .gdbinit

@@ -66,6 +66,7 @@
 #include "ui/base/view_prop.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/grid_layout.h"
+#include "ui/views/win/hwnd_message_handler.h"
 
 using content::BrowserThread;
 using content::LoadNotificationDetails;
@@ -164,7 +165,7 @@ bool ExternalTabContainerWin::Init(Profile* profile,
                                    const GURL& referrer,
                                    bool infobars_enabled,
                                    bool route_all_top_level_navigations) {
-  if (IsWindow()) {
+  if (IsWindow(GetNativeView())) {
     NOTREACHED();
     return false;
   }
@@ -173,13 +174,13 @@ bool ExternalTabContainerWin::Init(Profile* profile,
   handle_top_level_requests_ = handle_top_level_requests;
   route_all_top_level_navigations_ = route_all_top_level_navigations;
 
-  set_window_style(WS_POPUP | WS_CLIPCHILDREN);
+  GetMessageHandler()->set_window_style(WS_POPUP | WS_CLIPCHILDREN);
 
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
   params.bounds = bounds;
   params.native_widget = this;
   GetWidget()->Init(params);
-  if (!IsWindow()) {
+  if (!IsWindow(GetNativeView())) {
     NOTREACHED();
     return false;
   }
@@ -243,7 +244,9 @@ bool ExternalTabContainerWin::Init(Profile* profile,
   // Note that it's important to do this before we call SetParent since
   // during the SetParent call we will otherwise get a WA_ACTIVATE call
   // that causes us to steal the current focus.
-  SetWindowLong(GWL_STYLE, (GetWindowLong(GWL_STYLE) & ~WS_POPUP) | style);
+  SetWindowLong(
+      GetNativeView(), GWL_STYLE,
+      (GetWindowLong(GetNativeView(), GWL_STYLE) & ~WS_POPUP) | style);
 
   // Now apply the parenting and style
   if (parent)
@@ -591,7 +594,7 @@ void ExternalTabContainerWin::ContentsZoomChange(bool zoom_in) {
 }
 
 gfx::NativeWindow ExternalTabContainerWin::GetFrameNativeWindow() {
-  return hwnd();
+  return GetNativeView();
 }
 
 bool ExternalTabContainerWin::TakeFocus(content::WebContents* source,
@@ -943,19 +946,23 @@ void ExternalTabContainerWin::Observe(
 ////////////////////////////////////////////////////////////////////////////////
 // ExternalTabContainer, views::NativeWidgetWin overrides:
 
-LRESULT ExternalTabContainerWin::OnCreate(LPCREATESTRUCT create_struct) {
-  LRESULT result = views::NativeWidgetWin::OnCreate(create_struct);
-  if (result == 0) {
-    // Grab a reference here which will be released in OnFinalMessage
-    AddRef();
+bool ExternalTabContainerWin::PreHandleMSG(UINT message,
+                                           WPARAM w_param,
+                                           LPARAM l_param,
+                                           LRESULT* result) {
+  if (message == WM_DESTROY) {
+    prop_.reset();
+    Uninitialize();
   }
-  return result;
+  return false;
 }
 
-void ExternalTabContainerWin::OnDestroy() {
-  prop_.reset();
-  Uninitialize();
-  NativeWidgetWin::OnDestroy();
+void ExternalTabContainerWin::PostHandleMSG(UINT message,
+                                            WPARAM w_param,
+                                            LPARAM l_param) {
+    // Grab a reference here which will be released in OnFinalMessage
+  if (message == WM_CREATE)
+    AddRef();
 }
 
 void ExternalTabContainerWin::OnFinalMessage(HWND window) {
@@ -1062,17 +1069,26 @@ bool ExternalTabContainerWin::AcceleratorPressed(
     case IDC_DEV_TOOLS:
       DevToolsWindow::ToggleDevToolsWindow(
           tab_contents_->web_contents()->GetRenderViewHost(),
-          DEVTOOLS_TOGGLE_ACTION_NONE);
+          false,
+          DEVTOOLS_TOGGLE_ACTION_SHOW);
       break;
     case IDC_DEV_TOOLS_CONSOLE:
       DevToolsWindow::ToggleDevToolsWindow(
           tab_contents_->web_contents()->GetRenderViewHost(),
+          false,
           DEVTOOLS_TOGGLE_ACTION_SHOW_CONSOLE);
       break;
     case IDC_DEV_TOOLS_INSPECT:
       DevToolsWindow::ToggleDevToolsWindow(
           tab_contents_->web_contents()->GetRenderViewHost(),
+          false,
           DEVTOOLS_TOGGLE_ACTION_INSPECT);
+      break;
+    case IDC_DEV_TOOLS_TOGGLE:
+      DevToolsWindow::ToggleDevToolsWindow(
+          tab_contents_->web_contents()->GetRenderViewHost(),
+          false,
+          DEVTOOLS_TOGGLE_ACTION_TOGGLE);
       break;
     default:
       NOTREACHED() << "Unsupported accelerator: " << command_id;

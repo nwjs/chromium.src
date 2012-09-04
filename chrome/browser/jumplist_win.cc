@@ -44,6 +44,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/favicon_size.h"
 #include "ui/gfx/icon_util.h"
 
 using content::BrowserThread;
@@ -689,27 +690,32 @@ void JumpList::AddWindow(const TabRestoreService::Window* window,
   }
 }
 
-bool JumpList::StartLoadingFavicon() {
+void JumpList::StartLoadingFavicon() {
   GURL url;
   {
     base::AutoLock auto_lock(list_lock_);
-    if (icon_urls_.empty())
-      return false;
+    if (icon_urls_.empty()) {
+      // No more favicons are needed by the application JumpList. Schedule a
+      // RunUpdate call.
+      BrowserThread::PostTask(
+          BrowserThread::FILE, FROM_HERE,
+          base::Bind(&JumpList::RunUpdate, this));
+      return;
+    }
     // Ask FaviconService if it has a favicon of a URL.
     // When FaviconService has one, it will call OnFaviconDataAvailable().
     url = GURL(icon_urls_.front().first);
   }
   FaviconService* favicon_service =
       FaviconServiceFactory::GetForProfile(profile_, Profile::EXPLICIT_ACCESS);
-  handle_ = favicon_service->GetFaviconForURL(
-      profile_, url, history::FAVICON, &favicon_consumer_,
+  handle_ = favicon_service->GetFaviconImageForURL(
+      profile_, url, history::FAVICON, gfx::kFaviconSize, &favicon_consumer_,
       base::Bind(&JumpList::OnFaviconDataAvailable, base::Unretained(this)));
-  return true;
 }
 
 void JumpList::OnFaviconDataAvailable(
     FaviconService::Handle handle,
-    history::FaviconData favicon) {
+    const history::FaviconImageResult& image_result) {
   // If there is currently a favicon request in progress, it is now outdated,
   // as we have received another, so nullify the handle from the old request.
   handle_ = NULL;
@@ -718,24 +724,16 @@ void JumpList::OnFaviconDataAvailable(
     base::AutoLock auto_lock(list_lock_);
     // Attach the received data to the ShellLinkItem object.
     // This data will be decoded by the RunUpdate method.
-    if (favicon.is_valid()) {
+    if (!image_result.image.IsEmpty()) {
       if (!icon_urls_.empty() && icon_urls_.front().second)
-        icon_urls_.front().second->SetIconData(favicon.image_data);
+        icon_urls_.front().second->SetIconData(image_result.image.AsBitmap());
     }
 
     if (!icon_urls_.empty())
       icon_urls_.pop_front();
   }
-  // if we need to load more favicons, we send another query and exit.
-  if (StartLoadingFavicon())
-    return;
-
-  // Finished loading all favicons needed by the application JumpList.
-  // We use a RunnableMethod that creates icon files, and we post it to
-  // the file thread.
-  BrowserThread::PostTask(
-      BrowserThread::FILE, FROM_HERE,
-      base::Bind(&JumpList::RunUpdate, this));
+  // Check whether we need to load more favicons.
+  StartLoadingFavicon();
 }
 
 void JumpList::RunUpdate() {
@@ -764,11 +762,11 @@ void JumpList::RunUpdate() {
   file_util::CreateDirectory(icon_dir_);
 
   // Create temporary icon files for shortcuts in the "Most Visited" category.
-  DecodeIconData(local_most_visited_pages);
+  CreateIconFiles(local_most_visited_pages);
 
   // Create temporary icon files for shortcuts in the "Recently Closed"
   // category.
-  DecodeIconData(local_recently_closed_pages);
+  CreateIconFiles(local_recently_closed_pages);
 
   // We finished collecting all resources needed for updating an appliation
   // JumpList. So, create a new JumpList and replace the current JumpList
@@ -777,17 +775,11 @@ void JumpList::RunUpdate() {
                  local_recently_closed_pages);
 }
 
-void JumpList::DecodeIconData(const ShellLinkItemList& item_list) {
+void JumpList::CreateIconFiles(const ShellLinkItemList& item_list) {
   for (ShellLinkItemList::const_iterator item = item_list.begin();
       item != item_list.end(); ++item) {
-    SkBitmap icon_bitmap;
-    if ((*item)->data().get() &&
-        gfx::PNGCodec::Decode((*item)->data()->front(),
-                              (*item)->data()->size(),
-                              &icon_bitmap)) {
-      FilePath icon_path;
-      if (CreateIconFile(icon_bitmap, icon_dir_, &icon_path))
-        (*item)->SetIcon(icon_path.value(), 0, true);
-    }
+    FilePath icon_path;
+    if (CreateIconFile((*item)->data(), icon_dir_, &icon_path))
+      (*item)->SetIcon(icon_path.value(), 0, true);
   }
 }

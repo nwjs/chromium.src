@@ -418,8 +418,8 @@ WebKit::WebGestureEvent CreateWebGestureEvent(HWND hwnd,
       gesture_event.data.flingStart.velocityY = gesture.details().velocity_y();
       gesture_event.deltaX = gesture.details().velocity_x();
       gesture_event.deltaY = gesture.details().velocity_y();
+      break;
     case ui::ET_GESTURE_LONG_PRESS:
-      gesture_event.type = WebKit::WebInputEvent::GestureLongPress;
       gesture_event.data.longPress.width =
           gesture.details().bounding_box().width();
       gesture_event.data.longPress.height =
@@ -964,14 +964,9 @@ void RenderWidgetHostViewWin::TextInputStateChanged(
   // as true. We need to support "can_compose_inline=false" for PPAPI plugins
   // that may want to avoid drawing composition-text by themselves and pass
   // the responsibility to the browser.
-  bool is_enabled = (params.type != ui::TEXT_INPUT_TYPE_NONE &&
-      params.type != ui::TEXT_INPUT_TYPE_PASSWORD);
   if (text_input_type_ != params.type) {
     text_input_type_ = params.type;
-    if (is_enabled)
-      ime_input_.EnableIME(m_hWnd);
-    else
-      ime_input_.DisableIME(m_hWnd);
+    UpdateIMEState();
   }
 }
 
@@ -1265,6 +1260,7 @@ LRESULT RenderWidgetHostViewWin::OnCreate(CREATESTRUCT* create_struct) {
     SetToTouchMode();
   else
     SetToGestureMode();
+  UpdateIMEState();
 
   return 0;
 }
@@ -3052,6 +3048,15 @@ LRESULT RenderWidgetHostViewWin::OnQueryCharPosition(
   position->cLineHeight = target_rect.bottom - target_rect.top;
   position->rcDocument = document_rect;
   return 1;
+}
+
+void RenderWidgetHostViewWin::UpdateIMEState() {
+  if (text_input_type_ != ui::TEXT_INPUT_TYPE_NONE &&
+      text_input_type_ != ui::TEXT_INPUT_TYPE_PASSWORD) {
+    ime_input_.EnableIME(m_hWnd);
+  } else {
+    ime_input_.DisableIME(m_hWnd);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

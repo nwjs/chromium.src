@@ -59,6 +59,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/url_request/url_request.h"
+#include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_job.h"
 #include "webkit/appcache/appcache_interfaces.h"
 #include "webkit/blob/blob_storage_controller.h"
@@ -416,7 +417,7 @@ class RequestProxy
   // actions performed on the owner's thread.
 
   void AsyncStart(RequestParams* params) {
-    request_.reset(new net::URLRequest(params->url, this, g_request_context));
+    request_.reset(g_request_context->CreateRequest(params->url, this));
     request_->set_method(params->method);
     request_->set_first_party_for_cookies(params->first_party_for_cookies);
     request_->set_referrer(params->referrer.spec());
@@ -618,32 +619,29 @@ class RequestProxy
       return;
     }
 
-    // GetContentLengthSync() may perform file IO, but it's ok here, as file
-    // IO is not prohibited in IOThread defined in the file.
-    uint64 size = request_->get_upload_mutable()->GetContentLengthSync();
-    uint64 position = request_->GetUploadProgress();
-    if (position == last_upload_position_)
+    net::UploadProgress progress = request_->GetUploadProgress();
+    if (progress.position() == last_upload_position_)
       return;  // no progress made since last time
 
     const uint64 kHalfPercentIncrements = 200;
     const base::TimeDelta kOneSecond = base::TimeDelta::FromMilliseconds(1000);
 
-    uint64 amt_since_last = position - last_upload_position_;
+    uint64 amt_since_last = progress.position() - last_upload_position_;
     base::TimeDelta time_since_last = base::TimeTicks::Now() -
                                       last_upload_ticks_;
 
-    bool is_finished = (size == position);
-    bool enough_new_progress = (amt_since_last > (size /
+    bool is_finished = (progress.size() == progress.position());
+    bool enough_new_progress = (amt_since_last > (progress.size() /
                                                   kHalfPercentIncrements));
     bool too_much_time_passed = time_since_last > kOneSecond;
 
     if (is_finished || enough_new_progress || too_much_time_passed) {
       owner_loop_->PostTask(
           FROM_HERE,
-          base::Bind(&RequestProxy::NotifyUploadProgress, this, position,
-                     size));
+          base::Bind(&RequestProxy::NotifyUploadProgress, this,
+                     progress.position(), progress.size()));
       last_upload_ticks_ = base::TimeTicks::Now();
-      last_upload_position_ = position;
+      last_upload_position_ = progress.position();
     }
   }
 

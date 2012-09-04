@@ -15,6 +15,7 @@
 #include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/indexed_db_context.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/common/content_constants.h"
 #include "net/base/completion_callback.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/cookie_monster.h"
@@ -81,7 +82,10 @@ DataDeleter::DataDeleter(
     const GURL& storage_origin,
     bool is_storage_isolated)
     : extension_id_(extension_id) {
-  database_tracker_ = BrowserContext::GetDatabaseTracker(profile);
+  // TODO(michaeln): Delete from the right StoragePartition.
+  // http://crbug.com/85127
+  database_tracker_ = BrowserContext::GetDefaultStoragePartition(profile)->
+      GetDatabaseTracker();
   // Pick the right request context depending on whether it's an extension,
   // isolated app, or regular app.
   if (storage_origin.SchemeIs(chrome::kExtensionScheme)) {
@@ -90,7 +94,7 @@ DataDeleter::DataDeleter(
     extension_request_context_ =
         profile->GetRequestContextForIsolatedApp(extension_id);
     isolated_app_path_ = profile->GetPath().
-        Append(chrome::kIsolatedAppStateDirname).AppendASCII(extension_id);
+        Append(content::kStoragePartitionDirname).AppendASCII(extension_id);
   } else {
     extension_request_context_ = profile->GetRequestContext();
   }

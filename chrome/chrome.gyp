@@ -216,7 +216,9 @@
         }],
         ['OS=="android"', {
           'sources!': [
+            'browser/debugger/browser_list_tabcontents_provider.cc',
             'browser/debugger/devtools_window.cc',
+            'browser/debugger/remote_debugging_server.cc',
           ],
         }],
       ],
@@ -1063,6 +1065,9 @@
         },
       ]},  # 'targets'
     ],  # OS=="win"
+    ['chromeos==1', {
+      'includes': [ 'chrome_browser_chromeos.gypi' ],
+    }],  # chromeos==1
     ['OS=="android"',
       {
       'targets': [

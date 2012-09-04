@@ -8,7 +8,7 @@
     # duplicated from chrome.gyp
     'chromium_code': 1,
 
-    'remoting_audio%': 0,
+    'remoting_audio%': 1,
     'remoting_multi_process%': 0,
 
     # The version is composed from major & minor versions specific to remoting
@@ -1209,7 +1209,6 @@
         'host/clipboard_win.cc',
         'host/composite_host_config.cc',
         'host/composite_host_config.h',
-        'host/constants.cc',
         'host/constants.h',
         'host/constants_mac.cc',
         'host/constants_mac.h',
@@ -1227,6 +1226,8 @@
         'host/disconnect_window_mac.h',
         'host/disconnect_window_mac.mm',
         'host/disconnect_window_win.cc',
+        'host/dns_blackhole_checker.cc',
+        'host/dns_blackhole_checker.h',
         'host/event_executor.h',
         'host/event_executor_linux.cc',
         'host/event_executor_mac.cc',

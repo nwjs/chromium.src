@@ -398,6 +398,7 @@
               ],
               'include_dirs': [
                 'src',
+                'src/third_party',
               ],
               'link_settings': {
                 'libraries': [
@@ -527,10 +528,14 @@
               'cflags': ['-Wa,-mimplicit-it=always'],
             }],
             ['OS=="android"', {
-              'sources!':[
-                'src/common/linux/elf_core_dump.cc',
-                'src/common/linux/elf_core_dump.h',
+              'include_dirs': [
+                'src/common/android/include',
               ],
+              'direct_dependent_settings': {
+                'include_dirs': [
+                  'src/common/android/include',
+                ],
+              },
             }],
           ],
 
@@ -619,6 +624,14 @@
               'cflags': [
                 # See http://crbug.com/138571#c18
                 '-Wno-unused-value',
+              ],
+            }],
+            ['OS=="android"', {
+              'libraries': [
+                '-llog',
+              ],
+              'include_dirs': [
+                'src/common/android/include',
               ],
             }],
           ],

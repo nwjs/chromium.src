@@ -127,6 +127,17 @@ void ProcessGoogleUpdateItems(
   }
 }
 
+void ProcessOnOsUpgradeWorkItems(
+    const installer::InstallerState& installer_state,
+    const installer::Product& product) {
+  scoped_ptr<WorkItemList> work_item_list(
+      WorkItem::CreateNoRollbackWorkItemList());
+  AddOsUpgradeWorkItems(installer_state, NULL, NULL, product,
+                        work_item_list.get());
+  if (!work_item_list->Do())
+    LOG(ERROR) << "Failed to remove on-os-upgrade command.";
+}
+
 // Adds or removes the quick-enable-cf command to the binaries' version key in
 // the registry as needed.
 void ProcessQuickEnableWorkItems(
@@ -249,8 +260,11 @@ void CloseChromeFrameHelperProcess() {
 // We try to remove the standard desktop shortcut but if that fails we try
 // to remove the alternate desktop shortcut. Only one of them should be
 // present in a given install but at this point we don't know which one.
+// We remove all start screen secondary tiles by removing the folder Windows
+// uses to store this installation's tiles.
 void DeleteChromeShortcuts(const InstallerState& installer_state,
-                           const Product& product) {
+                           const Product& product,
+                           const string16& chrome_exe) {
   if (!product.is_chrome()) {
     VLOG(1) << __FUNCTION__ " called for non-CHROME distribution";
     return;
@@ -299,6 +313,9 @@ void DeleteChromeShortcuts(const InstallerState& installer_state,
     if (!file_util::Delete(shortcut_path, true))
       LOG(ERROR) << "Failed to delete folder: " << shortcut_path.value();
   }
+
+  ShellUtil::RemoveChromeStartScreenShortcuts(product.distribution(),
+                                              chrome_exe);
 }
 
 bool ScheduleParentAndGrandparentForDeletion(const FilePath& path) {
@@ -769,8 +786,8 @@ const wchar_t kChromeExtProgId[] = L"ChromiumExt";
 
 // Builds and executes a work item list to remove DelegateExecute verb handler
 // work items for |product|.  This will be a noop for products whose
-// corresponding BrowserDistribution implementations do not publish
-// DelegateExecute data via an implementation of GetDelegateExecuteHandlerData.
+// corresponding BrowserDistribution implementations do not publish a CLSID via
+// GetCommandExecuteImplClsid.
 bool ProcessDelegateExecuteWorkItems(const InstallerState& installer_state,
                                      const Product& product) {
   scoped_ptr<WorkItemList> item_list(WorkItem::CreateNoRollbackWorkItemList());
@@ -984,7 +1001,7 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
         ASCIIToUTF16(chrome::kInitialProfile));
 
     // First delete shortcuts from Start->Programs, Desktop & Quick Launch.
-    DeleteChromeShortcuts(installer_state, product);
+    DeleteChromeShortcuts(installer_state, product, chrome_exe);
   }
 
   // Delete the registry keys (Uninstall key and Version key).
@@ -1065,6 +1082,8 @@ InstallStatus UninstallProduct(const InstallationState& original_state,
     }
 
     ProcessDelegateExecuteWorkItems(installer_state, product);
+
+    ProcessOnOsUpgradeWorkItems(installer_state, product);
 
 // TODO(gab): This is only disabled for M22 as the shortcut CL using Active
 // Setup will not make it in M22.

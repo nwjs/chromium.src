@@ -8,13 +8,14 @@
 #include "base/string16.h"
 #include "base/time.h"
 #include "base/utf_string_conversions.h"
-#include "chrome/browser/api/infobars/infobar_tab_service.h"
+#include "chrome/browser/api/infobars/infobar_service.h"
 #include "chrome/browser/autofill/autofill_cc_infobar_delegate.h"
 #include "chrome/browser/autofill/autofill_common_test.h"
 #include "chrome/browser/autofill/autofill_manager.h"
 #include "chrome/browser/autofill/autofill_metrics.h"
 #include "chrome/browser/autofill/personal_data_manager.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
+#include "chrome/browser/ui/autofill/tab_autofill_manager_delegate.h"
 #include "chrome/browser/ui/tab_contents/tab_contents.h"
 #include "chrome/browser/ui/tab_contents/test_tab_contents.h"
 #include "chrome/browser/webdata/web_data_service.h"
@@ -174,7 +175,8 @@ class TestAutofillManager : public AutofillManager {
  public:
   TestAutofillManager(TabContents* tab_contents,
                       TestPersonalDataManager* personal_manager)
-      : AutofillManager(tab_contents, personal_manager),
+      : AutofillManager(&autofill_delegate_, tab_contents, personal_manager),
+        autofill_delegate_(tab_contents),
         autofill_enabled_(true),
         did_finish_async_form_submit_(false),
         message_loop_is_running_(false) {
@@ -244,6 +246,8 @@ class TestAutofillManager : public AutofillManager {
  private:
   // AutofillManager is ref counted.
   virtual ~TestAutofillManager() {}
+
+  TabAutofillManagerDelegate autofill_delegate_;
 
   bool autofill_enabled_;
   bool did_finish_async_form_submit_;
@@ -316,7 +320,7 @@ AutofillCCInfoBarDelegate* AutofillMetricsTest::CreateDelegate(
   if (created_card)
     *created_card = credit_card;
   return new AutofillCCInfoBarDelegate(
-      InfoBarTabService::ForTab(tab_contents()),
+      InfoBarService::ForTab(tab_contents()),
       credit_card,
       &personal_data_,
       metric_logger);

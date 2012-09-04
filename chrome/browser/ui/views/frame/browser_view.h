@@ -226,8 +226,16 @@ class BrowserView : public BrowserWindow,
   gfx::ImageSkia* GetToolbarBackgroundImage(chrome::search::Mode::Type mode);
 
 #if defined(USE_ASH)
+  // Test support.
   BrowserLauncherItemController* launcher_item_controller() const {
     return launcher_item_controller_.get();
+  }
+#endif
+
+#if defined(USE_AURA)
+  // Test support.
+  SearchViewController* search_view_controller() const {
+    return search_view_controller_.get();
   }
 #endif
 
@@ -339,8 +347,8 @@ class BrowserView : public BrowserWindow,
   virtual void ShowAvatarBubbleFromAvatarButton() OVERRIDE;
   virtual void ShowPasswordGenerationBubble(
       const gfx::Rect& rect,
-      autofill::PasswordGenerator* password_generator,
-      const webkit::forms::PasswordForm& form) OVERRIDE;
+      const webkit::forms::PasswordForm& form,
+      autofill::PasswordGenerator* password_generator) OVERRIDE;
 
   // Overridden from BrowserWindowTesting:
   virtual BookmarkBarView* GetBookmarkBarView() const OVERRIDE;

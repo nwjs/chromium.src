@@ -18,10 +18,8 @@ include_rules = [
   "!chrome/browser/autocomplete/history_provider_util.h",
   "!chrome/browser/autocomplete/history_url_provider.h",
   "!chrome/browser/autocomplete/url_prefix.h",
-  "!chrome/browser/bookmarks/bookmark_codec.h",
   "!chrome/browser/bookmarks/bookmark_model.h",
   "!chrome/browser/bookmarks/bookmark_model_factory.h",
-  "!chrome/browser/bookmarks/bookmark_service.h",
   "!chrome/browser/browser_process.h",
   "!chrome/browser/cancelable_request.h",
   "!chrome/browser/chromeos/login/existing_user_controller.h",
@@ -44,16 +42,15 @@ include_rules = [
 ]
 
 specific_include_rules = {
+  # Browser tests, by definition, need access to the browser objects.
+  '.*_(api|browser|extension_)test\.cc': [
+    "+chrome/browser",
+  ],
   # TODO(erikwright): Bring this list to zero.
   #
   # Do not add to the list of temporarily-allowed dependencies below,
   # and please do not introduce more #includes of these files.
   '.*_[a-z]*test\.cc': [
     "!chrome/browser/bookmarks/bookmark_utils.h",
-    "!chrome/browser/extensions/extension_apitest.h",
-    "!chrome/browser/extensions/extension_function_test_utils.h",
-    "!chrome/browser/ui/browser.h",
-    "!chrome/browser/ui/browser_tabstrip.h",
-    "!chrome/browser/ui/view_ids.h",
   ]
 }

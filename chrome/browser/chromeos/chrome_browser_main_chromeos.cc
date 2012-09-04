@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "ash/shell.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/chromeos/chromeos_version.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/audio/audio_handler.h"
 #include "chrome/browser/chromeos/boot_times_loader.h"
+#include "chrome/browser/chromeos/contacts/contact_manager.h"
 #include "chrome/browser/chromeos/cros/cros_library.h"
 #include "chrome/browser/chromeos/dbus/cros_dbus_service.h"
 #include "chrome/browser/chromeos/external_metrics.h"
@@ -35,6 +37,7 @@
 #include "chrome/browser/chromeos/login/wallpaper_manager.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/low_memory_observer.h"
+#include "chrome/browser/chromeos/mtp/media_transfer_protocol_manager.h"
 #include "chrome/browser/chromeos/net/cros_network_change_notifier_factory.h"
 #include "chrome/browser/chromeos/net/network_change_notifier_chromeos.h"
 #include "chrome/browser/chromeos/oom_priority_manager.h"
@@ -48,8 +51,8 @@
 #include "chrome/browser/chromeos/power/screen_lock_observer.h"
 #include "chrome/browser/chromeos/power/user_activity_notifier.h"
 #include "chrome/browser/chromeos/power/video_activity_notifier.h"
-#include "chrome/browser/chromeos/settings/ownership_service.h"
-#include "chrome/browser/chromeos/settings/session_manager_observer.h"
+#include "chrome/browser/chromeos/settings/device_settings_service.h"
+#include "chrome/browser/chromeos/settings/owner_key_util.h"
 #include "chrome/browser/chromeos/system/statistics_provider.h"
 #include "chrome/browser/chromeos/system_key_event_listener.h"
 #include "chrome/browser/chromeos/upgrade_detector_chromeos.h"
@@ -75,6 +78,7 @@
 #include "chromeos/dbus/power_manager_client.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "chromeos/disks/disk_mount_manager.h"
+#include "chromeos/display/output_configurator.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/main_function_params.h"
 #include "grit/platform_locale_settings.h"
@@ -157,6 +161,12 @@ class StubLogin : public chromeos::LoginStatusConsumer,
 
 void OptionallyRunChromeOSLoginManager(const CommandLine& parsed_command_line,
                                        Profile* profile) {
+  // Login should always use dual display if there is an external display.
+  chromeos::OutputConfigurator* output_configurator =
+      ash::Shell::GetInstance()->output_configurator();
+  if (output_configurator->connected_output_count() > 1)
+    output_configurator->SetDisplayMode(chromeos::STATE_DUAL_PRIMARY_ONLY);
+
   if (parsed_command_line.HasSwitch(switches::kLoginManager)) {
     std::string first_screen =
         parsed_command_line.GetSwitchValueASCII(switches::kLoginScreen);
@@ -207,6 +217,7 @@ ChromeBrowserMainPartsChromeos::~ChromeBrowserMainPartsChromeos() {
   if (chromeos::KioskModeSettings::Get()->IsKioskModeEnabled())
     chromeos::ShutdownKioskModeScreensaver();
   cryptohome::AsyncMethodCaller::Shutdown();
+  chromeos::mtp::MediaTransferProtocolManager::Shutdown();
   chromeos::disks::DiskMountManager::Shutdown();
 
   // CrosLibrary is shut down before DBusThreadManager even though the former
@@ -291,11 +302,14 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopStart() {
 
   chromeos::CrosDBusService::Initialize();
 
-  // Initialize the session manager observer so that we'll take actions
-  // per signals sent from the session manager.
-  session_manager_observer_.reset(new chromeos::SessionManagerObserver);
+  // Initialize the device settings service so that we'll take actions per
+  // signals sent from the session manager.
+  chromeos::DeviceSettingsService::Get()->Initialize(
+      chromeos::DBusThreadManager::Get()->GetSessionManagerClient(),
+      chromeos::OwnerKeyUtil::Create());
 
   chromeos::disks::DiskMountManager::Initialize();
+  chromeos::mtp::MediaTransferProtocolManager::Initialize();
   cryptohome::AsyncMethodCaller::Initialize();
 
   // Initialize the network change notifier for Chrome OS. The network
@@ -345,7 +359,7 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
   chromeos::BootTimesLoader::Get()->RecordChromeMainStats();
 
   // Trigger prefetching of ownership status.
-  chromeos::OwnershipService::GetSharedInstance()->Prewarm();
+  chromeos::DeviceSettingsService::Get()->Load();
 
   // -- This used to be in ChromeBrowserMainParts::PreMainMessageLoopRun()
   // -- just before CreateProfile().
@@ -366,6 +380,11 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
   // Allow access to file:// on ChromeOS for tests.
   if (parsed_command_line().HasSwitch(switches::kAllowFileAccess))
     ChromeNetworkDelegate::AllowAccessToAllFiles();
+
+  if (parsed_command_line().HasSwitch(switches::kEnableContacts)) {
+    contact_manager_.reset(new contacts::ContactManager());
+    contact_manager_->Init();
+  }
 
   // There are two use cases for kLoginUser:
   //   1) if passed in tandem with kLoginPassword, to drive a "StubLogin"
@@ -388,8 +407,8 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
     if (!chromeos::UserManager::Get()->IsLoggedInAsGuest()) {
       g_browser_process->browser_policy_connector()->InitializeUserPolicy(
           username, false  /* wait_for_policy_fetch */);
-      chromeos::UserManager::Get()->SessionStarted();
     }
+    chromeos::UserManager::Get()->SessionStarted();
   }
 
   // In Aura builds this will initialize ash::Shell.
@@ -511,9 +530,11 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
   if (chromeos::CrosNetworkChangeNotifierFactory::GetInstance())
     chromeos::CrosNetworkChangeNotifierFactory::GetInstance()->Shutdown();
 
+  // Tell DeviceSettingsService to stop talking to session_manager.
+  chromeos::DeviceSettingsService::Get()->Shutdown();
+
   // We should remove observers attached to D-Bus clients before
   // DBusThreadManager is shut down.
-  session_manager_observer_.reset();
   screen_lock_observer_.reset();
   resume_observer_.reset();
   brightness_observer_.reset();
@@ -540,9 +561,10 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
   power_button_observer_.reset();
   screen_dimming_observer_.reset();
 
-  // Delete the NetworkConfigurationUpdater while |g_browser_process| is still
-  // alive.
+  // Delete NetworkConfigurationUpdater and ContactManager while
+  // |g_browser_process| is still alive.
   network_config_updater_.reset();
+  contact_manager_.reset();
 
   ChromeBrowserMainPartsLinux::PostMainMessageLoopRun();
 }

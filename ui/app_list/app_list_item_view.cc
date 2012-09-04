@@ -104,16 +104,8 @@ class AppListItemView::IconOperation
         skia::ImageOperations::RESIZE_BEST, size_));
     gfx::ImageSkia shadow(
         gfx::ImageSkiaOperations::CreateImageWithDropShadow(resized, shadows_));
-
-    // The following statement causes shadowed image being generated for all
-    // existing image reps in |image_|. This is needed so that expensive shadow
-    // generation does not run on UI thread.
-    gfx::ImageSkia::ImageSkiaReps image_reps = image_.image_reps();
-    for (gfx::ImageSkia::ImageSkiaReps::const_iterator it = image_reps.begin();
-         it != image_reps.end(); ++it) {
-      shadow.GetRepresentation(it->scale_factor());
-    }
     image_ = shadow;
+    image_.MakeThreadSafe();
   }
 
   void Cancel() {
@@ -312,6 +304,15 @@ void AppListItemView::StateChanged() {
     model_->SetHighlighted(false);
     title_->SetEnabledColor(kTitleColor);
   }
+}
+
+bool AppListItemView::ShouldEnterPushedState(const ui::Event& event) {
+  // Don't enter pushed state for ET_GESTURE_TAP_DOWN so that hover gray
+  // background does not show up during scroll.
+  if (event.type() == ui::ET_GESTURE_TAP_DOWN)
+    return false;
+
+  return views::CustomButton::ShouldEnterPushedState(event);
 }
 
 }  // namespace app_list

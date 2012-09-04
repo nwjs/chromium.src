@@ -1492,8 +1492,14 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderQuickQuit) {
                    0);
 }
 
+#if defined(OS_LINUX)
+// http://crbug.com/145248
+#define MAYBE_PrerenderInfiniteLoop DISABLED_PrerenderInfiniteLoop
+#else
+#define MAYBE_PrerenderInfiniteLoop PrerenderInfiniteLoop
+#endif
 // Checks that we don't prerender in an infinite loop.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderInfiniteLoop) {
+IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MAYBE_PrerenderInfiniteLoop) {
   const char* const kHtmlFileA = "files/prerender/prerender_infinite_a.html";
   const char* const kHtmlFileB = "files/prerender/prerender_infinite_b.html";
 
@@ -1517,9 +1523,17 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderInfiniteLoop) {
   EXPECT_FALSE(UrlIsPending(kHtmlFileB));
 }
 
+#if defined(OS_LINUX) || defined(OS_WIN)
+// http://crbug.com/145248
+#define MAYBE_PrerenderInfiniteLoopMultiple \
+        DISABLED_PrerenderInfiniteLoopMultiple
+#else
+#define MAYBE_PrerenderInfiniteLoopMultiple PrerenderInfiniteLoopMultiple
+#endif
 // Checks that we don't prerender in an infinite loop and multiple links are
 // handled correctly.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderInfiniteLoopMultiple) {
+IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
+                       MAYBE_PrerenderInfiniteLoopMultiple) {
   const char* const kHtmlFileA =
       "files/prerender/prerender_infinite_a_multiple.html";
   const char* const kHtmlFileB =
@@ -1633,7 +1647,14 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MAYBE_PrerenderHTML5Audio) {
 
 // Checks that audio loads are deferred on prerendering and played back when
 // the prerender is swapped in if autoplay is set.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, PrerenderHTML5AudioAutoplay) {
+// Periodically fails on chrome-os.  See http://crbug.com/145263
+#if defined(OS_CHROMEOS)
+#define MAYBE_PrerenderHTML5AudioAutoplay DISABLED_PrerenderHTML5AudioAutoplay
+#else
+#define MAYBE_PrerenderHTML5AudioAutoplay PrerenderHTML5AudioAutoplay
+#endif
+IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
+                       MAYBE_PrerenderHTML5AudioAutoplay) {
   PrerenderTestURL("files/prerender/prerender_html5_audio_autoplay.html",
                    FINAL_STATUS_USED,
                    1);

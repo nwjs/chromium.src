@@ -6,11 +6,9 @@
 
 #include "base/time.h"
 #include "base/values.h"
-#include "chrome/browser/extensions/shell_window_registry.h"
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/common/extensions/api/app_window.h"
-#include "chrome/common/extensions/extension_error_utils.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
@@ -23,26 +21,9 @@ namespace Create = app_window::Create;
 namespace extensions {
 
 namespace app_window_constants {
-const char kNoAssociatedShellWindow[] =
-    "The context from which the function was called did not have an "
-    "associated shell window.";
+const char kInvalidWindowId[] =
+    "The window id can not be more than 256 characters long.";
 };
-
-bool AppWindowExtensionFunction::RunImpl() {
-  ShellWindowRegistry* registry = ShellWindowRegistry::Get(profile());
-  CHECK(registry);
-  content::RenderViewHost* rvh = render_view_host();
-  if (!rvh)
-    // No need to set an error, since we won't return to the caller anyway if
-    // there's no RVH.
-    return false;
-  ShellWindow* window = registry->GetShellWindowForRenderViewHost(rvh);
-  if (!window) {
-    error_ = app_window_constants::kNoAssociatedShellWindow;
-    return false;
-  }
-  return RunWithWindow(window);
-}
 
 const char kNoneFrameOption[] = "none";
 
@@ -58,14 +39,42 @@ bool AppWindowCreateFunction::RunImpl() {
   ShellWindow::CreateParams create_params;
   app_window::CreateWindowOptions* options = params->options.get();
   if (options) {
-    if (options->width.get())
-      create_params.bounds.set_width(*options->width.get());
-    if (options->height.get())
-      create_params.bounds.set_height(*options->height.get());
-    if (options->left.get())
-      create_params.bounds.set_x(*options->left.get());
-    if (options->top.get())
-      create_params.bounds.set_y(*options->top.get());
+    if (options->id.get()) {
+      // TODO(mek): use URL if no id specified?
+      // Limit length of id to 256 characters.
+      if (options->id->length() > 256) {
+        error_ = app_window_constants::kInvalidWindowId;
+        return false;
+      }
+
+      create_params.window_key = *options->id;
+    }
+
+    if (options->default_width.get())
+      create_params.bounds.set_width(*options->default_width.get());
+    if (options->default_height.get())
+      create_params.bounds.set_height(*options->default_height.get());
+    if (options->default_left.get())
+      create_params.bounds.set_x(*options->default_left.get());
+    if (options->default_top.get())
+      create_params.bounds.set_y(*options->default_top.get());
+
+
+    if (options->width.get() || options->height.get()) {
+      if (options->width.get())
+        create_params.bounds.set_width(*options->width.get());
+      if (options->height.get())
+        create_params.bounds.set_height(*options->height.get());
+      create_params.restore_size = false;
+    }
+
+    if (options->left.get() || options->top.get()) {
+      if (options->left.get())
+        create_params.bounds.set_x(*options->left.get());
+      if (options->top.get())
+        create_params.bounds.set_y(*options->top.get());
+      create_params.restore_position = false;
+    }
 
     if (options->frame.get()) {
       create_params.frame = *options->frame == kNoneFrameOption ?
@@ -110,26 +119,6 @@ bool AppWindowCreateFunction::RunImpl() {
   int view_id = created_contents->GetRenderViewHost()->GetRoutingID();
 
   SetResult(base::Value::CreateIntegerValue(view_id));
-  return true;
-}
-
-bool AppWindowFocusFunction::RunWithWindow(ShellWindow* window) {
-  window->GetBaseWindow()->Activate();
-  return true;
-}
-
-bool AppWindowMaximizeFunction::RunWithWindow(ShellWindow* window) {
-  window->GetBaseWindow()->Maximize();
-  return true;
-}
-
-bool AppWindowMinimizeFunction::RunWithWindow(ShellWindow* window) {
-  window->GetBaseWindow()->Minimize();
-  return true;
-}
-
-bool AppWindowRestoreFunction::RunWithWindow(ShellWindow* window) {
-  window->GetBaseWindow()->Restore();
   return true;
 }
 

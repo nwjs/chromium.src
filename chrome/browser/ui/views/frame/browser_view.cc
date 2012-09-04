@@ -580,7 +580,7 @@ void BrowserView::Show() {
 
   browser()->OnWindowDidShow();
 
-  browser::MaybeShowInvertBubbleView(browser_.get(), contents_);
+  chrome::MaybeShowInvertBubbleView(browser_.get(), contents_);
 }
 
 void BrowserView::ShowInactive() {
@@ -782,6 +782,7 @@ void BrowserView::FullScreenStateChanged() {
 
 #if defined(OS_WIN)
 void BrowserView::SetMetroSnapMode(bool enable) {
+  HISTOGRAM_COUNTS("Metro.SnapModeToggle", enable);
   ProcessFullscreen(enable, FOR_METRO, GURL(), FEB_TYPE_NONE);
 }
 
@@ -1207,7 +1208,7 @@ void BrowserView::ShowWebsiteSettings(Profile* profile,
                                       bool show_history) {
   WebsiteSettingsPopupView::ShowPopup(
       GetLocationBarView()->location_icon_view(), profile,
-      tab_contents, url, ssl);
+      tab_contents, url, ssl, browser_.get());
 }
 
 void BrowserView::ShowAppMenu() {
@@ -1877,7 +1878,7 @@ bool BrowserView::SplitHandleMoved(views::SingleSplitView* sender) {
 }
 
 void BrowserView::OnSysColorChange() {
-  browser::MaybeShowInvertBubbleView(browser_.get(), contents_);
+  chrome::MaybeShowInvertBubbleView(browser_.get(), contents_);
 }
 
 int BrowserView::GetOTRIconResourceID() const {
@@ -1940,19 +1941,19 @@ void BrowserView::Init() {
   toolbar_ = new ToolbarView(browser_.get());
   AddChildView(toolbar_);
 
-  views::View* omnibox_popup_view_parent = NULL;
+  views::View* omnibox_popup_parent = NULL;
   // SearchViewController doesn't work on windows yet.
 #if defined(USE_AURA)
   Profile* profile = browser_->profile();
   if (chrome::search::IsInstantExtendedAPIEnabled(profile)) {
     search_view_controller_.reset(new SearchViewController(profile, contents_,
         &browser()->search_delegate()->toolbar_search_animator(), toolbar_));
-    omnibox_popup_view_parent =
-        search_view_controller_->omnibox_popup_view_parent();
+    omnibox_popup_parent =
+        search_view_controller_->omnibox_popup_parent();
   }
 #endif
 
-  toolbar_->Init(this, omnibox_popup_view_parent);
+  toolbar_->Init(this, omnibox_popup_parent);
 
 #if defined(USE_AURA)
   if (search_view_controller_.get()) {
@@ -2551,8 +2552,8 @@ void BrowserView::ShowAvatarBubbleFromAvatarButton() {
 
 void BrowserView::ShowPasswordGenerationBubble(
     const gfx::Rect& rect,
-    autofill::PasswordGenerator* password_generator,
-    const webkit::forms::PasswordForm& form) {
+    const webkit::forms::PasswordForm& form,
+    autofill::PasswordGenerator* password_generator) {
   // Create a rect in the content bounds that the bubble will point to.
   gfx::Point origin(rect.origin());
   views::View::ConvertPointToScreen(GetTabContentsContainerView(), &origin);

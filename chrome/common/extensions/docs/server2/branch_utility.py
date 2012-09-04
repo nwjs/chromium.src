@@ -14,9 +14,13 @@ class BranchUtility(object):
     self._fetcher = fetcher
     self._object_store = object_store
 
+  def GetAllBranchNames(self):
+    # TODO(aa): Do we need to include 'local'?
+    return ['dev', 'beta', 'stable', 'trunk', 'local']
+
   def GetAllBranchNumbers(self):
-    return [self.GetBranchNumberForChannelName(branch)
-            for branch in ['dev', 'beta', 'stable', 'trunk', 'local']]
+    return [(branch, self.GetBranchNumberForChannelName(branch))
+            for branch in self.GetAllBranchNames()]
 
   def SplitChannelNameFromPath(self, path):
     try:
@@ -25,12 +29,12 @@ class BranchUtility(object):
       first = path
       second = ''
     if first in ['trunk', 'dev', 'beta', 'stable']:
-      return (first, second)
+      return (first, second, False)
     else:
       doc_type = path.split('/')[0]
       if doc_type in self._default_branches:
-        return (self._default_branches[doc_type], path)
-      return (self._default_branches['extensions'], path)
+        return (self._default_branches[doc_type], path, False)
+      return (self._default_branches['extensions'], path, True)
 
   def GetBranchNumberForChannelName(self, channel_name):
     """Returns the branch number for a channel name. If the |channel_name| is
@@ -56,10 +60,11 @@ class BranchUtility(object):
       for version in entry['versions']:
         if version['channel'] != channel_name:
           continue
-        if version['true_branch'] not in branch_numbers:
-          branch_numbers[version['true_branch']] = 0
+        branch = version['version'].split('.')[2]
+        if branch not in branch_numbers:
+          branch_numbers[branch] = 0
         else:
-          branch_numbers[version['true_branch']] += 1
+          branch_numbers[branch] += 1
 
     sorted_branches = sorted(branch_numbers.iteritems(),
                              None,

@@ -116,7 +116,8 @@ class PepperPluginDelegateImpl
       const gfx::Rect& paint_bounds,
       TransportDIB** dib,
       gfx::Rect* location,
-      gfx::Rect* clip);
+      gfx::Rect* clip,
+      float* scale_factor);
 
   // Called by RenderView when ViewMsg_AsyncOpenFile_ACK.
   void OnAsyncFileOpened(base::PlatformFileError error_code,
@@ -304,6 +305,11 @@ class PepperPluginDelegateImpl
       uint32 socket_id) OVERRIDE;
 
   virtual uint32 UDPSocketCreate() OVERRIDE;
+  virtual void UDPSocketSetBoolSocketFeature(
+      webkit::ppapi::PPB_UDPSocket_Private_Impl* socket,
+      uint32 socket_id,
+      int32_t name,
+      bool value) OVERRIDE;
   virtual void UDPSocketBind(
       webkit::ppapi::PPB_UDPSocket_Private_Impl* socket,
       uint32 socket_id,

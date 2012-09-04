@@ -13,6 +13,8 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/debug/trace_event.h"
+#include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/message_loop_proxy.h"
@@ -29,6 +31,7 @@
 #include "content/common/appcache/appcache_dispatcher.h"
 #include "content/common/child_thread.h"
 #include "content/common/clipboard_messages.h"
+#include "content/common/content_constants_internal.h"
 #include "content/common/database_messages.h"
 #include "content/common/drag_messages.h"
 #include "content/common/fileapi/file_system_dispatcher.h"
@@ -366,6 +369,14 @@ static RenderViewImpl* FromRoutingID(int32 routing_id) {
       ChildThread::current()->ResolveRoute(routing_id));
 }
 
+static WebKit::WebFrame* FindFrameByID(WebKit::WebFrame* root, int frame_id) {
+  for (WebFrame* frame = root; frame; frame = frame->traverseNext(false)) {
+    if (frame->identifier() == frame_id)
+      return frame;
+  }
+  return NULL;
+}
+
 static void GetRedirectChain(WebDataSource* ds, std::vector<GURL>* result) {
   WebVector<WebURL> urls;
   ds->redirectChain(urls);
@@ -468,6 +479,31 @@ static bool IsNonLocalTopLevelNavigation(const GURL& url,
       return true;
   }
   return false;
+}
+
+// Recursively walks the frame tree and serializes it to JSON as described in
+// the comment for ViewMsg_UpdateFrameTree.  If |exclude_frame_subtree| is not
+// NULL, the subtree for the frame is not included in the serialized form.
+// This is used when a frame is going to be removed from the tree.
+static void ConstructFrameTree(WebKit::WebFrame* frame,
+                               WebKit::WebFrame* exclude_frame_subtree,
+                               base::DictionaryValue* dict) {
+  dict->SetString(content::kFrameTreeNodeNameKey,
+                  UTF16ToUTF8(frame->assignedName()).c_str());
+  dict->SetInteger(content::kFrameTreeNodeIdKey, frame->identifier());
+
+  WebFrame* child = frame->firstChild();
+  ListValue* children = new ListValue();
+  for (; child; child = child->nextSibling()) {
+    if (child == exclude_frame_subtree)
+      continue;
+
+    base::DictionaryValue* d = new base::DictionaryValue();
+    ConstructFrameTree(child, exclude_frame_subtree, d);
+    children->Append(d);
+  }
+  if (children->GetSize() > 0)
+    dict->Set(content::kFrameTreeNodeSubtreeKey, children);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -582,6 +618,10 @@ RenderViewImpl::RenderViewImpl(
       guest_to_embedder_channel_(guest_to_embedder_channel),
       guest_pp_instance_(0),
       guest_uninitialized_context_(NULL),
+      updating_frame_tree_(false),
+      pending_frame_tree_update_(false),
+      target_process_id_(0),
+      target_routing_id_(0),
       ALLOW_THIS_IN_INITIALIZER_LIST(pepper_delegate_(this)) {
   set_throttle_input_events(renderer_prefs.throttle_input_events);
   routing_id_ = routing_id;
@@ -692,7 +732,6 @@ RenderViewImpl::RenderViewImpl(
 
   // If we have an opener_id but we weren't created by a renderer, then
   // it's the browser asking us to set our opener to another RenderView.
-  // TODO(creis): This doesn't yet handle openers that are subframes.
   if (opener_id != MSG_ROUTING_NONE && !is_renderer_created) {
     RenderViewImpl* opener_view = FromRoutingID(opener_id);
     if (opener_view)
@@ -702,7 +741,7 @@ RenderViewImpl::RenderViewImpl(
   // If we are initially swapped out, navigate to kSwappedOutURL.
   // This ensures we are in a unique origin that others cannot script.
   if (is_swapped_out_)
-    NavigateToSwappedOutURL();
+    NavigateToSwappedOutURL(webview()->mainFrame());
 }
 
 RenderViewImpl::~RenderViewImpl() {
@@ -1007,6 +1046,7 @@ bool RenderViewImpl::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_HANDLER(ViewMsg_EnableViewSourceMode, OnEnableViewSourceMode)
     IPC_MESSAGE_HANDLER(JavaBridgeMsg_Init, OnJavaBridgeInit)
     IPC_MESSAGE_HANDLER(ViewMsg_SetAccessibilityMode, OnSetAccessibilityMode)
+    IPC_MESSAGE_HANDLER(ViewMsg_UpdateFrameTree, OnUpdatedFrameTree)
 
     // Have the super handle all other messages.
     IPC_MESSAGE_UNHANDLED(handled = RenderWidget::OnMessageReceived(message))
@@ -1165,6 +1205,8 @@ void RenderViewImpl::OnNavigate(const ViewMsg_Navigate_Params& params) {
 
   // In case LoadRequest failed before DidCreateDataSource was called.
   pending_navigation_params_.reset();
+
+  UNSHIPPED_TRACE_EVENT_INSTANT0("test_tracing", "RenderViewImpl::OnNavigate");
 }
 
 bool RenderViewImpl::IsBackForwardToStaleEntry(
@@ -1719,6 +1761,7 @@ WebView* RenderViewImpl::createView(
   int32 surface_id = 0;
   int64 cloned_session_storage_namespace_id;
 
+  creator->consumeUserGesture();
   RenderThread::Get()->Send(
       new ViewHostMsg_CreateWindow(params,
                                    &routing_id,
@@ -1900,6 +1943,11 @@ void RenderViewImpl::didStopLoading() {
   }
 
   is_loading_ = false;
+
+  if (pending_frame_tree_update_) {
+    pending_frame_tree_update_ = false;
+    SendUpdatedFrameTree(NULL);
+  }
 
   // NOTE: For now we're doing the safest thing, and sending out notification
   // when done loading. This currently isn't an issue as the favicon is only
@@ -2488,7 +2536,25 @@ WebCookieJar* RenderViewImpl::cookieJar(WebFrame* frame) {
   return &cookie_jar_;
 }
 
+void RenderViewImpl::didCreateFrame(WebFrame* parent, WebFrame* child) {
+  if (is_loading_) {
+    pending_frame_tree_update_ = true;
+    return;
+  }
+  if (!updating_frame_tree_)
+    SendUpdatedFrameTree(NULL);
+}
+
 void RenderViewImpl::frameDetached(WebFrame* frame) {
+  if (is_loading_) {
+    pending_frame_tree_update_ = true;
+    // Make sure observers are notified, even if we return right away.
+    FOR_EACH_OBSERVER(RenderViewObserver, observers_, FrameDetached(frame));
+    return;
+  }
+  if (!updating_frame_tree_)
+    SendUpdatedFrameTree(frame);
+
   FOR_EACH_OBSERVER(RenderViewObserver, observers_, FrameDetached(frame));
 }
 
@@ -2763,16 +2829,15 @@ void RenderViewImpl::willSubmitForm(WebFrame* frame,
   document_state->set_searchable_form_url(web_searchable_form_data.url());
   document_state->set_searchable_form_encoding(
       web_searchable_form_data.encoding().utf8());
-  PasswordForm* password_form_data =
+  scoped_ptr<PasswordForm> password_form_data =
       PasswordFormDomManager::CreatePasswordForm(form);
-  document_state->set_password_form_data(password_form_data);
 
   // In order to save the password that the user actually typed and not one
   // that may have gotten transformed by the site prior to submit, recover it
   // from the form contents already stored by |willSendSubmitEvent| into the
   // dataSource's NavigationState (as opposed to the provisionalDataSource's,
   // which is what we're storing into now.)
-  if (password_form_data) {
+  if (password_form_data.get()) {
     DocumentState* old_document_state =
         DocumentState::FromDataSource(frame->dataSource());
     if (old_document_state) {
@@ -2781,6 +2846,8 @@ void RenderViewImpl::willSubmitForm(WebFrame* frame,
         password_form_data->password_value = old_form_data->password_value;
     }
   }
+
+  document_state->set_password_form_data(password_form_data.Pass());
 
   FOR_EACH_OBSERVER(
       RenderViewObserver, observers_, WillSubmitForm(frame, form));
@@ -3205,6 +3272,15 @@ void RenderViewImpl::didCommitProvisionalLoad(WebFrame* frame,
 
   // Check whether we have new encoding name.
   UpdateEncoding(frame, frame->view()->pageEncoding().utf8());
+
+  if (!frame->parent()) {  // Only for top frames.
+    RenderThreadImpl* render_thread_impl = RenderThreadImpl::current();
+    if (render_thread_impl) {  // Can be NULL in tests.
+      render_thread_impl->histogram_customizer()->
+          RenderViewNavigatedToHost(GURL(GetLoadingUrl(frame)).host(),
+                                    g_view_map.Get().size());
+    }
+  }
 }
 
 void RenderViewImpl::didClearWindowObject(WebFrame* frame) {
@@ -3641,6 +3717,66 @@ WebGraphicsContext3D* RenderViewImpl::CreateGraphicsContext3D(
   }
 }
 
+// The browser process needs to know the shape of the tree, as well as the names
+// and ids of all frames. This allows it to properly route JavaScript messages
+// across processes and frames. The serialization format is described in the
+// comments of the ViewMsg_FrameTreeUpdated message.
+// This function sends those updates to the browser and updates the RVH
+// corresponding to this object. It must be called on any events that modify
+// the tree structure or the names of any frames.
+void RenderViewImpl::SendUpdatedFrameTree(
+    WebKit::WebFrame* exclude_frame_subtree) {
+  std::string json;
+  base::DictionaryValue tree;
+
+  ConstructFrameTree(webview()->mainFrame(), exclude_frame_subtree, &tree);
+  base::JSONWriter::Write(&tree, &json);
+
+  Send(new ViewHostMsg_FrameTreeUpdated(routing_id_, json));
+}
+
+void RenderViewImpl::CreateFrameTree(WebKit::WebFrame* frame,
+                                     DictionaryValue* frame_tree) {
+  NavigateToSwappedOutURL(frame);
+
+  string16 name;
+  if (frame_tree->GetString(content::kFrameTreeNodeNameKey, &name) &&
+      name != string16()) {
+    frame->setName(name);
+  }
+
+  int remote_id;
+  if (frame_tree->GetInteger(content::kFrameTreeNodeIdKey, &remote_id))
+    active_frame_id_map_.insert(std::pair<int, int>(frame->identifier(),
+                                                    remote_id));
+
+  ListValue* children;
+  if (!frame_tree->GetList(content::kFrameTreeNodeSubtreeKey, &children))
+    return;
+
+  base::DictionaryValue* child;
+  for (size_t i = 0; i < children->GetSize(); ++i) {
+    if (!children->GetDictionary(i, &child))
+      continue;
+    WebElement element = frame->document().createElement("iframe");
+    if (frame->document().body().appendChild(element)) {
+      WebFrame* subframe = WebFrame::fromFrameOwnerElement(element);
+      if (subframe)
+        CreateFrameTree(subframe, child);
+    } else {
+      LOG(ERROR) << "Failed to append created iframe element.";
+    }
+  }
+}
+
+WebKit::WebFrame* RenderViewImpl::GetFrameByMappedID(int frame_id) {
+  std::map<int, int>::iterator it = active_frame_id_map_.find(frame_id);
+  if (it == active_frame_id_map_.end())
+    return NULL;
+
+  return FindFrameByID(webview()->mainFrame(), it->second);
+}
+
 void RenderViewImpl::EnsureMediaStreamImpl() {
   if (!RenderThreadImpl::current())  // Will be NULL during unit tests.
     return;
@@ -3856,7 +3992,8 @@ void RenderViewImpl::dispatchIntent(
 }
 
 bool RenderViewImpl::willCheckAndDispatchMessageEvent(
-    WebKit::WebFrame* source,
+    WebKit::WebFrame* sourceFrame,
+    WebKit::WebFrame* targetFrame,
     WebKit::WebSecurityOrigin target_origin,
     WebKit::WebDOMMessageEvent event) {
   if (!is_swapped_out_)
@@ -3871,11 +4008,25 @@ bool RenderViewImpl::willCheckAndDispatchMessageEvent(
   // Include the routing ID for the source frame, which the browser process
   // will translate into the routing ID for the equivalent frame in the target
   // process.
-  // TODO(creis): Support source subframes.
   params.source_routing_id = MSG_ROUTING_NONE;
-  RenderViewImpl* source_view = FromWebView(source->view());
+  RenderViewImpl* source_view = FromWebView(sourceFrame->view());
   if (source_view)
     params.source_routing_id = source_view->routing_id();
+  params.source_frame_id = sourceFrame->identifier();
+
+  // Include the process, route, and frame IDs of the target frame. This allows
+  // the browser to detect races between this message being sent and the target
+  // frame no longer being valid.
+  params.target_process_id = target_process_id_;
+  params.target_routing_id = target_routing_id_;
+
+  std::map<int,int>::iterator it = active_frame_id_map_.find(
+      targetFrame->identifier());
+  if (it != active_frame_id_map_.end()) {
+    params.target_frame_id = it->second;
+  } else {
+    params.target_frame_id = 0;
+  }
 
   Send(new ViewHostMsg_RouteMessageEvent(routing_id_, params));
   return true;
@@ -4605,16 +4756,19 @@ void RenderViewImpl::OnScriptEvalRequest(const string16& frame_xpath,
 
 void RenderViewImpl::OnPostMessageEvent(
     const ViewMsg_PostMessage_Params& params) {
-  // TODO(creis): Support sending to subframes.
-  WebFrame* frame = webview()->mainFrame();
+  // Find the target frame of this message. The source tags the message with
+  // |target_frame_id|, so use it to locate the frame.
+  WebFrame* frame = FindFrameByID(webview()->mainFrame(),
+                                  params.target_frame_id);
+  if (!frame)
+    return;
 
   // Find the source frame if it exists.
-  // TODO(creis): Support source subframes.
   WebFrame* source_frame = NULL;
   if (params.source_routing_id != MSG_ROUTING_NONE) {
     RenderViewImpl* source_view = FromRoutingID(params.source_routing_id);
     if (source_view)
-      source_frame = source_view->webview()->mainFrame();
+      source_frame = source_view->GetFrameByMappedID(params.source_frame_id);
   }
 
   // Create an event with the message.  The final parameter to initMessageEvent
@@ -4963,7 +5117,7 @@ void RenderViewImpl::OnSwapOut(const ViewMsg_SwapOut_Params& params) {
     // run a second time, thanks to a check in FrameLoader::stopLoading.
     // TODO(creis): Need to add a better way to do this that avoids running the
     // beforeunload handler. For now, we just run it a second time silently.
-    NavigateToSwappedOutURL();
+    NavigateToSwappedOutURL(webview()->mainFrame());
 
     // Let WebKit know that this view is hidden so it can drop resources and
     // stop compositing.
@@ -4974,14 +5128,14 @@ void RenderViewImpl::OnSwapOut(const ViewMsg_SwapOut_Params& params) {
   Send(new ViewHostMsg_SwapOut_ACK(routing_id_, params));
 }
 
-void RenderViewImpl::NavigateToSwappedOutURL() {
+void RenderViewImpl::NavigateToSwappedOutURL(WebKit::WebFrame* frame) {
   // We use loadRequest instead of loadHTMLString because the former commits
   // synchronously.  Otherwise a new navigation can interrupt the navigation
   // to content::kSwappedOutURL. If that happens to be to the page we had been
   // showing, then WebKit will never send a commit and we'll be left spinning.
   GURL swappedOutURL(content::kSwappedOutURL);
   WebURLRequest request(swappedOutURL);
-  webview()->mainFrame()->loadRequest(request);
+  frame->loadRequest(request);
 }
 
 void RenderViewImpl::OnClosePage() {
@@ -5155,9 +5309,10 @@ webkit::ppapi::PluginInstance* RenderViewImpl::GetBitmapForOptimizedPluginPaint(
     const gfx::Rect& paint_bounds,
     TransportDIB** dib,
     gfx::Rect* location,
-    gfx::Rect* clip) {
+    gfx::Rect* clip,
+    float* scale_factor) {
   return pepper_delegate_.GetBitmapForOptimizedPluginPaint(
-      paint_bounds, dib, location, clip);
+      paint_bounds, dib, location, clip, scale_factor);
 }
 
 gfx::Point RenderViewImpl::GetScrollOffset() {
@@ -5892,4 +6047,23 @@ void RenderViewImpl::OnJavaBridgeInit() {
 #if defined(ENABLE_JAVA_BRIDGE)
   java_bridge_dispatcher_ = new JavaBridgeDispatcher(this);
 #endif
+}
+
+void RenderViewImpl::OnUpdatedFrameTree(
+    int process_id,
+    int route_id,
+    const std::string& frame_tree) {
+  base::DictionaryValue* frames = NULL;
+  scoped_ptr<base::Value> tree(base::JSONReader::Read(frame_tree));
+  if (tree.get() && tree->IsType(base::Value::TYPE_DICTIONARY))
+    tree->GetAsDictionary(&frames);
+
+  updating_frame_tree_ = true;
+  active_frame_id_map_.clear();
+
+  target_process_id_ = process_id;
+  target_routing_id_ = route_id;
+  CreateFrameTree(webview()->mainFrame(), frames);
+
+  updating_frame_tree_ = false;
 }

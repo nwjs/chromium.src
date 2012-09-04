@@ -18,6 +18,40 @@ namespace content {
 
 class Shell;
 
+class WebKitTestResultPrinter {
+ public:
+  WebKitTestResultPrinter();
+  ~WebKitTestResultPrinter();
+
+  void reset() {
+    state_ = BEFORE_TEST;
+  }
+  bool in_text_block() const { return state_ == IN_TEXT_BLOCK; }
+
+  void PrintTextHeader();
+  void PrintTextBlock(const std::string& block);
+  void PrintTextFooter();
+
+  void PrintImageHeader(const std::string& actual_hash,
+                        const std::string& expected_hash);
+  void PrintImageBlock(const std::vector<unsigned char>& png_image);
+  void PrintImageFooter();
+
+  void AddMessage(const std::string& message);
+  void AddErrorMessage(const std::string& message);
+
+ private:
+  enum State {
+    BEFORE_TEST,
+    IN_TEXT_BLOCK,
+    IN_IMAGE_BLOCK,
+    AFTER_TEST
+  };
+  State state_;
+
+  DISALLOW_COPY_AND_ASSIGN(WebKitTestResultPrinter);
+};
+
 class WebKitTestController : public base::NonThreadSafe,
                              public WebContentsObserver {
  public:
@@ -26,14 +60,23 @@ class WebKitTestController : public base::NonThreadSafe,
   WebKitTestController();
   virtual ~WebKitTestController();
 
-  void PrepareForLayoutTest(const GURL& test_url,
+  // True if the controller is ready for testing.
+  bool PrepareForLayoutTest(const GURL& test_url,
+                            bool enable_pixel_dumping,
                             const std::string& expected_pixel_hash);
   // True if the controller was reset successfully.
   bool ResetAfterLayoutTest();
 
-  const std::string& expected_pixel_hash() const {
-    return expected_pixel_hash_;
-  }
+  void RendererUnresponsive();
+
+  WebKitTestResultPrinter& printer() { return printer_; }
+
+  // Interface for WebKitTestRunnerHost.
+  void NotifyDone();
+  void WaitUntilDone();
+  void NotImplemented(const std::string& object_name,
+                      const std::string& method_name);
+
   bool should_stay_on_page_after_handling_before_unload() const {
     return should_stay_on_page_after_handling_before_unload_;
   }
@@ -51,23 +94,30 @@ class WebKitTestController : public base::NonThreadSafe,
   bool is_printing() const { return is_printing_; }
   void set_is_printing(bool is_printing) { is_printing_ = is_printing; }
 
-  void LoadFinished(Shell* window);
-  void NotifyDone();
-  void WaitUntilDone();
-  void NotImplemented(const std::string& object_name,
-                      const std::string& method_name);
+  // WebContentsObserver implementation.
+  virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
+  virtual void PluginCrashed(const FilePath& plugin_path) OVERRIDE;
+  virtual void RenderViewGone(base::TerminationStatus status) OVERRIDE;
+  virtual void WebContentsDestroyed(WebContents* web_contents) OVERRIDE;
 
  private:
   static WebKitTestController* instance_;
 
-  // WebContentsObserver implementation.
-  virtual void WebContentsDestroyed(WebContents* web_contents) OVERRIDE;
-
   void CaptureDump();
   void TimeoutHandler();
 
+  // Message handlers.
+  void OnDidFinishLoad();
+  void OnImageDump(const std::string& actual_pixel_hash, const SkBitmap& image);
+  void OnTextDump(const std::string& dump);
+
+  WebKitTestResultPrinter printer_;
+
   Shell* main_window_;
 
+  bool pumping_messages_;
+  bool renderer_crashed_;
+  bool enable_pixel_dumping_;
   std::string expected_pixel_hash_;
 
   bool captured_dump_;
@@ -92,11 +142,6 @@ class WebKitTestRunnerHost : public RenderViewHostObserver {
   virtual bool OnMessageReceived(const IPC::Message& message) OVERRIDE;
 
  private:
-  // Message handlers.
-  void OnDidFinishLoad();
-  void OnTextDump(const std::string& dump);
-  void OnImageDump(const std::string& actual_pixel_hash, const SkBitmap& image);
-
   // testRunner handlers.
   void OnNotifyDone();
   void OnDumpAsText();

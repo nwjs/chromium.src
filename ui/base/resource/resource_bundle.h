@@ -152,6 +152,11 @@ class UI_EXPORT ResourceBundle {
   // Same as above but using an already open file.
   void AddDataPackFromFile(base::PlatformFile file, ScaleFactor scale_factor);
 
+  // Same as AddDataPackFromPath but does not log an error if the pack fails to
+  // load.
+  void AddOptionalDataPackFromPath(const FilePath& path,
+                                   ScaleFactor scale_factor);
+
   // Changes the locale for an already-initialized ResourceBundle, returning the
   // name of the newly-loaded locale.  Future calls to get strings will return
   // the strings for this new locale.  This has no effect on existing or future
@@ -243,6 +248,9 @@ class UI_EXPORT ResourceBundle {
   FRIEND_TEST_ALL_PREFIXES(ResourceBundle, LoadDataResourceBytes);
   FRIEND_TEST_ALL_PREFIXES(ResourceBundle, LocaleDataPakExists);
 
+  class ResourceBundleImageSource;
+  friend class ResourceBundleImageSource;
+
   // Ctor/dtor are private, since we're a singleton.
   explicit ResourceBundle(Delegate* delegate);
   ~ResourceBundle();
@@ -252,6 +260,12 @@ class UI_EXPORT ResourceBundle {
 
   // Load the main resources.
   void LoadCommonResources();
+
+  // Implementation for AddDataPackFromPath and AddOptionalDataPackFromPath, if
+  // the pack is not |optional| logs an error on failure to load.
+  void AddDataPackFromPathInternal(const FilePath& path,
+                                   ScaleFactor scale_factor,
+                                   bool optional);
 
   // Try to load the locale specific strings from an external data module.
   // Returns the locale that is loaded.
@@ -269,9 +283,13 @@ class UI_EXPORT ResourceBundle {
   void LoadFontsIfNecessary();
 
   // Creates and returns a new SkBitmap given the data file to look in and the
-  // resource id.  It's up to the caller to free the returned bitmap when
+  // |resource_id|.  It's up to the caller to free the returned bitmap when
   // done.
-  SkBitmap* LoadBitmap(const ResourceHandle& dll_inst, int resource_id);
+  SkBitmap* LoadBitmap(const ResourceHandle& dll_inst, int resource_id) const;
+
+  // Creates and returns a new SkBitmap for |resource_id| and |scale_factor|.
+  // Returns NULL if the resource does not exist.
+  SkBitmap* LoadBitmap(int resource_id, ScaleFactor scale_factor) const;
 
   // Returns an empty image for when a resource cannot be loaded. This is a
   // bright red bitmap.
@@ -309,8 +327,6 @@ class UI_EXPORT ResourceBundle {
   scoped_ptr<gfx::Font> large_font_;
   scoped_ptr<gfx::Font> large_bold_font_;
   scoped_ptr<gfx::Font> web_font_;
-
-  static ResourceBundle* g_shared_instance_;
 
   FilePath overridden_pak_path_;
 

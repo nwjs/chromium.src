@@ -65,6 +65,7 @@
             '../third_party/WebKit/Source/WebKit/chromium/All.gyp:*',
             '../third_party/WebKit/Source/WebKit/chromium/WebKit.gyp:generate_devtools_zip',
             '../v8/tools/gyp/v8.gyp:*',
+            '../webkit/compositor_bindings/compositor_bindings_tests.gyp:*',
             '../webkit/support/webkit_support.gyp:*',
             '../webkit/webkit.gyp:*',
             '<(libjpeg_gyp_path):*',
@@ -137,14 +138,15 @@
         }],
         ['toolkit_views==1', {
           'dependencies': [
+            '../ui/views/controls/webview/webview.gyp:*',
             '../ui/views/views.gyp:*',
           ],
         }],
         ['use_aura==1', {
           'dependencies': [
+            '../ash/ash.gyp:*',
             '../ui/aura/aura.gyp:*',
             '../ui/oak/oak.gyp:*',
-            '../ash/ash.gyp:*',
           ],
         }],
         ['remoting==1', {

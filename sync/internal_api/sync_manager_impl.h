@@ -86,8 +86,7 @@ class SyncManagerImpl : public SyncManager,
       ModelTypeSet types) OVERRIDE;
   virtual bool PurgePartiallySyncedTypes() OVERRIDE;
   virtual void UpdateCredentials(const SyncCredentials& credentials) OVERRIDE;
-  virtual void UpdateEnabledTypes(
-      const ModelTypeSet& enabled_types) OVERRIDE;
+  virtual void UpdateEnabledTypes(ModelTypeSet enabled_types) OVERRIDE;
   virtual void RegisterInvalidationHandler(
       InvalidationHandler* handler) OVERRIDE;
   virtual void UpdateRegisteredInvalidationIds(
@@ -99,14 +98,13 @@ class SyncManagerImpl : public SyncManager,
       const ModelSafeRoutingInfo& routing_info) OVERRIDE;
   virtual void ConfigureSyncer(
       ConfigureReason reason,
-      const ModelTypeSet& types_to_config,
+      ModelTypeSet types_to_config,
       const ModelSafeRoutingInfo& new_routing_info,
       const base::Closure& ready_task,
       const base::Closure& retry_task) OVERRIDE;
   virtual void AddObserver(SyncManager::Observer* observer) OVERRIDE;
   virtual void RemoveObserver(SyncManager::Observer* observer) OVERRIDE;
   virtual SyncStatus GetDetailedStatus() const OVERRIDE;
-  virtual bool GetKeystoreKeyBootstrapToken(std::string* token) OVERRIDE;
   virtual void SaveChanges() OVERRIDE;
   virtual void StopSyncingForShutdown(const base::Closure& callback) OVERRIDE;
   virtual void ShutdownOnSyncThread() OVERRIDE;
@@ -121,7 +119,8 @@ class SyncManagerImpl : public SyncManager,
       const sync_pb::EncryptedData& pending_keys) OVERRIDE;
   virtual void OnPassphraseAccepted() OVERRIDE;
   virtual void OnBootstrapTokenUpdated(
-      const std::string& bootstrap_token) OVERRIDE;
+      const std::string& bootstrap_token,
+      BootstrapTokenType type) OVERRIDE;
   virtual void OnEncryptedTypesChanged(
       ModelTypeSet encrypted_types,
       bool encrypt_everything) OVERRIDE;

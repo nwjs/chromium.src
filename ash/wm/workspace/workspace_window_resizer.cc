@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include "ash/display/display_controller.h"
+#include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "ash/wm/coordinate_conversion.h"
@@ -70,7 +71,9 @@ const int WorkspaceWindowResizer::kMinOnscreenHeight = 32;
 
 WorkspaceWindowResizer::~WorkspaceWindowResizer() {
   Shell* shell = Shell::GetInstance();
-  shell->display_controller()->set_dont_warp_mouse(false);
+  shell->mouse_cursor_filter()->set_mouse_warp_mode(
+      MouseCursorEventFilter::WARP_ALWAYS);
+  shell->mouse_cursor_filter()->HideSharedEdgeIndicator();
   shell->cursor_manager()->UnlockCursor();
 
   // Delete phantom controllers first so that they will never see the deleted
@@ -80,6 +83,9 @@ WorkspaceWindowResizer::~WorkspaceWindowResizer() {
 
   if (layer_)
     wm::DeepDeleteLayers(layer_);
+
+  if (destroyed_)
+    *destroyed_ = true;
 }
 
 // static
@@ -130,17 +136,22 @@ void WorkspaceWindowResizer::Drag(const gfx::Point& location, int event_flags) {
   else
     snap_phantom_window_controller_.reset();
 
+  if (!attached_windows_.empty())
+    LayoutAttachedWindows(bounds, grid_size);
+  if (bounds != window()->bounds()) {
+    bool destroyed = false;
+    destroyed_ = &destroyed;
+    window()->SetBounds(bounds);
+    if (destroyed)
+      return;
+    destroyed_ = NULL;
+  }
   // Show a phantom window for dragging in another root window.
   if (HasSecondaryRootWindow())
     UpdateDragPhantomWindow(bounds, in_original_root);
   else
     drag_phantom_window_controller_.reset();
 
-  if (!attached_windows_.empty())
-    LayoutAttachedWindows(bounds, grid_size);
-  if (bounds != window()->bounds())
-    window()->SetBounds(bounds);
-  // WARNING: we may have been deleted.
 }
 
 void WorkspaceWindowResizer::CompleteDrag(int event_flags) {
@@ -197,6 +208,7 @@ void WorkspaceWindowResizer::RevertDrag() {
   window()->layer()->SetOpacity(details_.initial_opacity);
   drag_phantom_window_controller_.reset();
   snap_phantom_window_controller_.reset();
+  Shell::GetInstance()->mouse_cursor_filter()->HideSharedEdgeIndicator();
 
   if (!did_move_or_resize_)
     return;
@@ -233,7 +245,8 @@ WorkspaceWindowResizer::WorkspaceWindowResizer(
       total_initial_size_(0),
       snap_type_(SNAP_NONE),
       num_mouse_moves_since_bounds_change_(0),
-      layer_(NULL) {
+      layer_(NULL),
+      destroyed_(NULL) {
   DCHECK(details_.is_resizable);
 
   Shell* shell = Shell::GetInstance();
@@ -242,9 +255,16 @@ WorkspaceWindowResizer::WorkspaceWindowResizer(
   // The pointer should be confined in one display during resizing a window
   // because the window cannot span two displays at the same time anyway. The
   // exception is window/tab dragging operation. During that operation,
-  // |dont_warp_mouse_| should be set to false so that the user could move a
+  // |mouse_warp_mode_| should be set to WARP_DRAG so that the user could move a
   // window/tab to another display.
-  shell->display_controller()->set_dont_warp_mouse(!ShouldAllowMouseWarp());
+  MouseCursorEventFilter* mouse_cursor_filter = shell->mouse_cursor_filter();
+  mouse_cursor_filter->set_mouse_warp_mode(
+      ShouldAllowMouseWarp() ?
+      MouseCursorEventFilter::WARP_DRAG : MouseCursorEventFilter::WARP_NONE);
+  if (ShouldAllowMouseWarp()) {
+    mouse_cursor_filter->ShowSharedEdgeIndicator(
+        details.window->GetRootWindow());
+  }
 
   // Only support attaching to the right/bottom.
   DCHECK(attached_windows_.empty() ||
@@ -482,14 +502,13 @@ void WorkspaceWindowResizer::UpdateDragPhantomWindow(const gfx::Rect& bounds,
       drag_phantom_window_controller_.reset(
           new PhantomWindowController(window()));
       drag_phantom_window_controller_->set_style(
-          PhantomWindowController::STYLE_NONE);
+          PhantomWindowController::STYLE_DRAGGING);
       // Always show the drag phantom on the |another_root| window.
       drag_phantom_window_controller_->SetDestinationDisplay(
           gfx::Screen::GetDisplayMatching(another_root->GetBoundsInScreen()));
       if (!layer_)
         RecreateWindowLayers();
-      drag_phantom_window_controller_->set_layer(layer_);
-      drag_phantom_window_controller_->Show(bounds_in_screen);
+      drag_phantom_window_controller_->Show(bounds_in_screen, layer_);
     } else {
       // No animation.
       drag_phantom_window_controller_->SetBounds(bounds_in_screen);
@@ -529,7 +548,7 @@ void WorkspaceWindowResizer::UpdateSnapPhantomWindow(const gfx::Point& location,
         new PhantomWindowController(window()));
   }
   snap_phantom_window_controller_->Show(ScreenAsh::ConvertRectToScreen(
-      window()->parent(), snap_sizer_->target_bounds()));
+      window()->parent(), snap_sizer_->target_bounds()), NULL);
 }
 
 void WorkspaceWindowResizer::RestackWindows() {
@@ -584,6 +603,9 @@ bool WorkspaceWindowResizer::ShouldAllowMouseWarp() const {
 void WorkspaceWindowResizer::RecreateWindowLayers() {
   DCHECK(!layer_);
   layer_ = wm::RecreateWindowLayers(window());
+  // RecreateWindowLayers() creates fresh layers. Reset the bounds so the layers
+  // get the right bounds and are updated.
+  window()->SetBounds(layer_->bounds());
   layer_->set_delegate(window()->layer()->delegate());
   // Place the layer at (0, 0) of the PhantomWindowController's window.
   gfx::Rect layer_bounds = layer_->bounds();

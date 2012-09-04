@@ -64,9 +64,6 @@ ValueStoreFrontendTest.GetExistingData
 # crbug.com/139421
 ChromeSelectFilePolicyTest.ExpectAsynchronousListenerCall
 
-# crbug.com/139412
-UserStyleSheetWatcherTest.StyleLoad
-
 # http://crbug.com/139033
 ChromeDownloadManagerDelegateTest.StartDownload_PromptAlways
 
@@ -142,6 +139,9 @@ AutofillManagerTest.UpdatePasswordGenerationState
 # crbug.com/144227
 ExtensionIconImageTest.*
 
-# crbug.com/144161
-PasswordStoreDefaultTest.NonASCIIData
-PasswordStoreTest.IgnoreOldWwwGoogleLogins
+# crbug.com/145799
+SQLiteCursorTest.Run
+
+# crbug.com/145843
+EntropyProviderTest.UseOneTimeRandomizationSHA1
+EntropyProviderTest.UseOneTimeRandomizationPermuted

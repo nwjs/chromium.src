@@ -9,6 +9,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/ref_counted.h"
+#include "base/timer.h"
 #include "chrome/browser/ui/tabs/tab_strip_layout_type.h"
 #include "chrome/browser/ui/views/tabs/base_tab.h"
 #include "chrome/browser/ui/views/tabs/tab_controller.h"
@@ -94,7 +95,7 @@ class TabStrip : public views::View,
   // (the user clicked the tab close button or middle clicked the tab). This is
   // invoked from Close. Because of unload handlers Close is not always
   // immediately followed by RemoveTabAt.
-  void PrepareForCloseAt(int model_index);
+  void PrepareForCloseAt(int model_index, CloseTabSource source);
 
   // Invoked when the selection changes from |old_selection| to
   // |new_selection|.
@@ -167,7 +168,7 @@ class TabStrip : public views::View,
   virtual void ExtendSelectionTo(BaseTab* tab) OVERRIDE;
   virtual void ToggleSelected(BaseTab* tab) OVERRIDE;
   virtual void AddSelectionFromAnchorTo(BaseTab* tab) OVERRIDE;
-  virtual void CloseTab(BaseTab* tab) OVERRIDE;
+  virtual void CloseTab(BaseTab* tab, CloseTabSource source) OVERRIDE;
   virtual void ShowContextMenuForTab(BaseTab* tab,
                                      const gfx::Point& p) OVERRIDE;
   virtual bool IsActiveTab(const BaseTab* tab) const OVERRIDE;
@@ -179,7 +180,7 @@ class TabStrip : public views::View,
       const TabStripSelectionModel& original_selection) OVERRIDE;
   virtual void ContinueDrag(views::View* view,
                             const gfx::Point& location) OVERRIDE;
-  virtual bool EndDrag(bool canceled) OVERRIDE;
+  virtual bool EndDrag(EndDragReason reason) OVERRIDE;
   virtual BaseTab* GetTabAt(BaseTab* tab,
                             const gfx::Point& tab_in_tab_coordinates) OVERRIDE;
   virtual void ClickActiveTab(const BaseTab* tab) const OVERRIDE;
@@ -228,6 +229,7 @@ class TabStrip : public views::View,
   virtual void OnMouseReleased(const ui::MouseEvent& event) OVERRIDE;
   virtual void OnMouseCaptureLost() OVERRIDE;
   virtual void OnMouseMoved(const ui::MouseEvent& event) OVERRIDE;
+  virtual void OnMouseEntered(const ui::MouseEvent& event) OVERRIDE;
   virtual ui::GestureStatus OnGestureEvent(
       const ui::GestureEvent& event) OVERRIDE;
 
@@ -384,6 +386,13 @@ class TabStrip : public views::View,
   // Perform an animated resize-relayout of the TabStrip immediately.
   void ResizeLayoutTabs();
 
+  // Invokes ResizeLayoutTabs() as long as we're not in a drag session. If we
+  // are in a drag session this restarts the timer.
+  void ResizeLayoutTabsFromTouch();
+
+  // Restarts |resize_layout_timer_|.
+  void StartResizeLayoutTabsFromTouchTimer();
+
   // Sets the bounds of the tabs to |tab_bounds|.
   void SetTabBoundsForDrag(const std::vector<gfx::Rect>& tab_bounds);
 
@@ -448,9 +457,13 @@ class TabStrip : public views::View,
   // Returns the position normal tabs start at.
   int GetStartXForNormalTabs() const;
 
+  // Returns the tab to use for event handling. This uses FindTabForEventFrom()
+  // to do the actual searching.
+  Tab* FindTabForEvent(const gfx::Point& point);
+
   // Returns the tab to use for event handling starting at index |start| and
   // iterating by |delta|.
-  Tab* FindTabForEvent(const gfx::Point& point, int start, int delta);
+  Tab* FindTabForEventFrom(const gfx::Point& point, int start, int delta);
 
   // Returns the x-coordinates of the tabs.
   std::vector<int> GetTabXCoordinates();
@@ -460,6 +473,14 @@ class TabStrip : public views::View,
 
   // Returns true if |touch_layout_| is needed.
   bool NeedsTouchLayout() const;
+
+  // Sets the value of |reset_to_shrink_on_exit_|. If true |mouse_watcher_| is
+  // used to track when the mouse truly exits the tabstrip and the layout type
+  // is reset.
+  void SetResetToShrinkOnExit(bool value);
+
+  // Should the layout dynamically adjust?
+  bool GetAdjustLayout() const;
 
   // -- Member Variables ------------------------------------------------------
 
@@ -510,6 +531,10 @@ class TabStrip : public views::View,
   // container. This is that animation container.
   scoped_refptr<ui::AnimationContainer> animation_container_;
 
+  // MouseWatcher is used for two things:
+  // . When a tab is closed to reset the layout.
+  // . When a mouse is used and the layout dynamically adjusts and is currently
+  //   TAB_STRIP_LAYOUT_STACKED.
   scoped_ptr<views::MouseWatcher> mouse_watcher_;
 
   // The controller for a drag initiated from a Tab. Valid for the lifetime of
@@ -529,9 +554,9 @@ class TabStrip : public views::View,
   // Only used while in touch mode.
   scoped_ptr<TouchTabStripLayout> touch_layout_;
 
-  // If true the layout type is set to TAB_STRIP_LAYOUT_SHRINK when the mouse is
-  // released.
-  bool reset_to_shrink_on_release_;
+  // If true the layout type is set to TAB_STRIP_LAYOUT_SHRINK when the mouse
+  // exits the tabstrip (as determined using MouseWatcher).
+  bool reset_to_shrink_on_exit_;
 
   // Location of the mouse at the time of the last move.
   gfx::Point last_mouse_move_location_;
@@ -541,6 +566,10 @@ class TabStrip : public views::View,
 
   // Number of mouse moves.
   int mouse_move_count_;
+
+  // Timer used when a tab is closed and we need to relayout. Only used when a
+  // tab close comes from a touch device.
+  base::OneShotTimer<TabStrip> resize_layout_timer_;
 
   DISALLOW_COPY_AND_ASSIGN(TabStrip);
 };

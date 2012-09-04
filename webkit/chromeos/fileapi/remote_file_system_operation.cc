@@ -9,6 +9,7 @@
 #include "base/platform_file.h"
 #include "base/values.h"
 #include "googleurl/src/gurl.h"
+#include "net/url_request/url_request_context.h"
 #include "webkit/chromeos/fileapi/remote_file_stream_writer.h"
 #include "webkit/fileapi/file_system_callback_dispatcher.h"
 #include "webkit/fileapi/file_system_url.h"
@@ -126,8 +127,8 @@ void RemoteFileSystemOperation::Write(
                                                   url,
                                                   offset))));
 
-  scoped_ptr<net::URLRequest> blob_request(new net::URLRequest(
-      blob_url, file_writer_delegate_.get(), url_request_context));
+  scoped_ptr<net::URLRequest> blob_request(url_request_context->CreateRequest(
+      blob_url, file_writer_delegate_.get()));
 
   file_writer_delegate_->Start(blob_request.Pass());
 }
@@ -177,7 +178,13 @@ void RemoteFileSystemOperation::TouchFile(const FileSystemURL& url,
                                           const base::Time& last_access_time,
                                           const base::Time& last_modified_time,
                                           const StatusCallback& callback) {
-  NOTIMPLEMENTED();
+  DCHECK(SetPendingOperationType(kOperationTouchFile));
+  remote_proxy_->TouchFile(
+      url,
+      last_access_time,
+      last_modified_time,
+      base::Bind(&RemoteFileSystemOperation::DidFinishFileOperation,
+                 base::Owned(this), callback));
 }
 
 void RemoteFileSystemOperation::OpenFile(const FileSystemURL& url,

@@ -63,6 +63,7 @@
 #include "chrome/browser/infobars/infobar_tab_helper.h"
 #include "chrome/browser/intents/device_attached_intent_source.h"
 #include "chrome/browser/intents/register_intent_handler_infobar_delegate.h"
+#include "chrome/browser/intents/web_intents_reporting.h"
 #include "chrome/browser/intents/web_intents_util.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/media/media_stream_devices_controller.h"
@@ -78,9 +79,9 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/repost_form_warning_controller.h"
-#include "chrome/browser/sessions/restore_tab_helper.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
+#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/sessions/session_types.h"
 #include "chrome/browser/sessions/tab_restore_service.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
@@ -93,7 +94,6 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/app_modal_dialogs/javascript_dialog_creator.h"
-#include "chrome/browser/ui/blocked_content/blocked_content_tab_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -111,7 +111,6 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
-#include "chrome/browser/ui/constrained_window_tab_helper.h"
 #include "chrome/browser/ui/extensions/shell_window.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
@@ -129,7 +128,6 @@
 #include "chrome/browser/ui/search/search.h"
 #include "chrome/browser/ui/search/search_delegate.h"
 #include "chrome/browser/ui/search/search_model.h"
-#include "chrome/browser/ui/search_engines/search_engine_tab_helper.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
@@ -143,7 +141,6 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
-#include "chrome/browser/ui/zoom/zoom_controller.h"
 #include "chrome/browser/upgrade_detector.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_constants.h"
@@ -1025,8 +1022,8 @@ WebContents* Browser::OpenURL(const OpenURLParams& params) {
 void Browser::TabInsertedAt(TabContents* contents,
                             int index,
                             bool foreground) {
-  SetAsDelegate(contents, this);
-  contents->restore_tab_helper()->SetWindowID(session_id());
+  SetAsDelegate(contents->web_contents(), this);
+  contents->session_tab_helper()->SetWindowID(session_id());
 
   SyncHistoryWithTabs(index);
 
@@ -1052,7 +1049,7 @@ void Browser::TabClosingAt(TabStripModel* tab_strip_model,
       content::NotificationService::NoDetails());
 
   // Sever the WebContents' connection back to us.
-  SetAsDelegate(contents, NULL);
+  SetAsDelegate(contents->web_contents(), NULL);
 }
 
 void Browser::TabDetachedAt(TabContents* contents, int index) {
@@ -1184,7 +1181,7 @@ void Browser::TabPinnedStateChanged(TabContents* contents, int index) {
   if (session_service) {
     session_service->SetPinnedState(
         session_id(),
-        chrome::GetTabContentsAt(this, index)->restore_tab_helper()->
+        chrome::GetTabContentsAt(this, index)->session_tab_helper()->
             session_id(),
         tab_strip_model_->IsTabPinned(index));
   }
@@ -1516,12 +1513,11 @@ void Browser::WebContentsCreated(WebContents* source_contents,
                                  int64 source_frame_id,
                                  const GURL& target_url,
                                  WebContents* new_contents) {
-  // Create a TabContents now, so all observers are in place, as the network
+  // Adopt the WebContents now, so all observers are in place, as the network
   // requests for its initial navigation will start immediately. The WebContents
   // will later be inserted into this browser using Browser::Navigate via
-  // AddNewContents. The latter will retrieve the newly created TabContents from
-  // WebContents object.
-  TabContents::Factory::CreateTabContents(new_contents);
+  // AddNewContents.
+  AdoptAsTabContents(new_contents);
 
   // Notify.
   RetargetingDetails details;
@@ -1655,10 +1651,12 @@ void Browser::RegisterIntentHandler(
 void Browser::WebIntentDispatch(
     WebContents* web_contents,
     content::WebIntentsDispatcher* intents_dispatcher) {
-  if (!web_intents::IsWebIntentsEnabledForProfile(profile_))
+  if (!web_intents::IsWebIntentsEnabledForProfile(profile_)) {
+    web_intents::RecordIntentsDispatchDisabled();
     return;
+  }
 
-  UMA_HISTOGRAM_COUNTS("WebIntents.Dispatch", 1);
+  web_intents::RecordIntentDispatchRequested();
 
   if (!web_contents) {
     // Intent is system-caused and the picker will show over the currently
@@ -2081,10 +2079,10 @@ void Browser::SyncHistoryWithTabs(int index) {
       TabContents* tab = chrome::GetTabContentsAt(this, i);
       if (tab) {
         session_service->SetTabIndexInWindow(
-            session_id(), tab->restore_tab_helper()->session_id(), i);
+            session_id(), tab->session_tab_helper()->session_id(), i);
         session_service->SetPinnedState(
             session_id(),
-            tab->restore_tab_helper()->session_id(),
+            tab->session_tab_helper()->session_id(),
             tab_strip_model_->IsTabPinned(i));
       }
     }
@@ -2118,19 +2116,6 @@ bool Browser::CanCloseWithInProgressDownloads() {
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, Assorted utility functions (private):
 
-void Browser::SetAsDelegate(TabContents* tab, Browser* delegate) {
-  // WebContents...
-  tab->web_contents()->SetDelegate(delegate);
-
-  // ...and all the helpers.
-  tab->blocked_content_tab_helper()->set_delegate(delegate);
-  tab->bookmark_tab_helper()->set_delegate(delegate);
-  tab->zoom_controller()->set_observer(delegate);
-  tab->constrained_window_tab_helper()->set_delegate(delegate);
-  tab->core_tab_helper()->set_delegate(delegate);
-  tab->search_engine_tab_helper()->set_delegate(delegate);
-}
-
 void Browser::CloseFrame() {
   window_->Close();
 }
@@ -2152,7 +2137,7 @@ void Browser::TabDetachedAtImpl(TabContents* contents, int index,
       SyncHistoryWithTabs(0);
   }
 
-  SetAsDelegate(contents, NULL);
+  SetAsDelegate(contents->web_contents(), NULL);
   RemoveScheduledUpdatesFor(contents->web_contents());
 
   if (find_bar_controller_.get() && index == active_index()) {

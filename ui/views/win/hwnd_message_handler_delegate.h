@@ -37,6 +37,8 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   virtual bool CanMaximize() const = 0;
   virtual bool CanActivate() const = 0;
 
+  virtual bool WidgetSizeIsClientSize() const = 0;
+
   // Returns true if the delegate has a focus saving mechanism that should be
   // used when the window is activated and deactivated.
   virtual bool CanSaveFocus() const = 0;
@@ -70,7 +72,6 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   virtual gfx::Size GetRootViewSize() const = 0;
 
   virtual void ResetWindowControls() = 0;
-  virtual void UpdateFrame() = 0;
 
   virtual void PaintLayeredWindow(gfx::Canvas* canvas) = 0;
 
@@ -124,9 +125,6 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // Called when display settings are adjusted on the system.
   virtual void HandleDisplayChange() = 0;
 
-  // Called when the system changes from glass to non-glass or vice versa.
-  virtual void HandleGlassModeChange() = 0;
-
   // Called when the user begins or ends a size/move operation using the window
   // manager.
   virtual void HandleBeginWMSizeMove() = 0;
@@ -145,6 +143,9 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // size.
   virtual void HandleClientSizeChanged(const gfx::Size& new_size) = 0;
 
+  // Called when the window's frame has changed.
+  virtual void HandleFrameChanged() = 0;
+
   // Called when focus shifted to this HWND from |last_focused_window|.
   virtual void HandleNativeFocus(HWND last_focused_window) = 0;
 
@@ -155,9 +156,25 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
   // handled by the delegate.
   virtual bool HandleMouseEvent(const ui::MouseEvent& event) = 0;
 
-  // Called when a key event is received. Returns true if the event was handled
-  // by the delegate.
+  // Called when a translated key event is received (i.e. post IME translation.)
+  // Returns true if the event was handled by the delegate.
   virtual bool HandleKeyEvent(const ui::KeyEvent& event) = 0;
+
+  // Called when an untranslated key event is received (i.e. pre-IME
+  // translation). Returns true if the event was sent to the input method.
+  virtual bool HandleUntranslatedKeyEvent(const ui::KeyEvent& event) = 0;
+
+  // Called when an IME message needs to be processed by the delegate. Returns
+  // true if the event was handled and no default processing should be
+  // performed.
+  virtual bool HandleIMEMessage(UINT message,
+                                WPARAM w_param,
+                                LPARAM l_param,
+                                LRESULT* result) = 0;
+
+  // Called when the system input language changes.
+  virtual void HandleInputLanguageChange(DWORD character_set,
+                                         HKL input_language_id) = 0;
 
   // Called to compel the delegate to paint |invalid_rect| accelerated. Returns
   // true if accelerated painting was performed.
@@ -179,9 +196,22 @@ class VIEWS_EXPORT HWNDMessageHandlerDelegate {
                                       WPARAM w_param,
                                       LPARAM l_param) = 0;
 
-  // This is provided for methods that need to call private methods on NWW.
-  // TODO(beng): should be removed once HWNDMessageHandler is the WindowImpl.
-  virtual NativeWidgetWin* AsNativeWidgetWin() = 0;
+  // Catch-all message handling and filtering. Called before
+  // HWNDMessageHandler's built-in handling, which may pre-empt some
+  // expectations in Views/Aura if messages are consumed. Returns true if the
+  // message was consumed by the delegate and should not be processed further
+  // by the HWNDMessageHandler. In this case, |result| is returned. |result| is
+  // not modified otherwise.
+  virtual bool PreHandleMSG(UINT message,
+                            WPARAM w_param,
+                            LPARAM l_param,
+                            LRESULT* result) = 0;
+
+  // Like PreHandleMSG, but called after HWNDMessageHandler's built-in handling
+  // has run and after DefWindowProc.
+  virtual void PostHandleMSG(UINT message,
+                             WPARAM w_param,
+                             LPARAM l_param) = 0;
 
  protected:
   virtual ~HWNDMessageHandlerDelegate() {}

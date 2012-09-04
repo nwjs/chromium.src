@@ -43,6 +43,9 @@ const int kPopupWidth = 400;
 // The max width of the text labels on the connection tab.
 const int kConnectionTabTextWidth = 300;
 
+// The padding used for sections on the connection tab.
+const int kConnectionTabSectionPadding = 10;
+
 // The background color of the tabs if a theme other than the native GTK theme
 // is selected.
 const GdkColor kBackgroundColor = GDK_COLOR_RGB(0xff, 0xff, 0xff);
@@ -69,13 +72,13 @@ void ClearContainer(GtkWidget* container) {
   }
 }
 
-void  SetConnectionSection(GtkWidget* section_box,
-                           const gfx::Image& icon,
-                           GtkWidget* content_box) {
+void SetConnectionSection(GtkWidget* section_box,
+                          const gfx::Image& icon,
+                          GtkWidget* content_box) {
   DCHECK(section_box);
   ClearContainer(section_box);
-  const int kSectionPadding = 10;
-  gtk_container_set_border_width(GTK_CONTAINER(section_box), kSectionPadding);
+  gtk_container_set_border_width(GTK_CONTAINER(section_box),
+                                 kConnectionTabSectionPadding);
 
   GtkWidget* hbox = gtk_hbox_new(FALSE, ui::kControlSpacing);
 
@@ -216,6 +219,7 @@ WebsiteSettingsPopupGtk::WebsiteSettingsPopupGtk(
       identity_contents_(NULL),
       connection_contents_(NULL),
       first_visit_contents_(NULL),
+      notebook_(NULL),
       presenter_(NULL) {
   BrowserWindowGtk* browser_window =
       BrowserWindowGtk::GetBrowserWindowForNativeWindow(parent);
@@ -311,35 +315,50 @@ void WebsiteSettingsPopupGtk::InitContents() {
   first_visit_contents_ = gtk_vbox_new(FALSE, ui::kControlSpacing);
   gtk_box_pack_start(GTK_BOX(connection_tab), first_visit_contents_, FALSE,
                      FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(connection_tab), gtk_hseparator_new(), FALSE,
+                     FALSE, 0);
+
+  GtkWidget* help_link = theme_service_->BuildChromeLinkButton(
+      l10n_util::GetStringUTF8(IDS_PAGE_INFO_HELP_CENTER_LINK));
+  GtkWidget* help_link_hbox = gtk_hbox_new(FALSE, 0);
+  gtk_container_set_border_width(GTK_CONTAINER(help_link_hbox),
+                                 kConnectionTabSectionPadding);
+  gtk_box_pack_start(GTK_BOX(help_link_hbox), help_link, FALSE, FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(connection_tab), help_link_hbox, FALSE, FALSE, 0);
+  g_signal_connect(help_link, "clicked",
+                   G_CALLBACK(OnHelpLinkClickedThunk), this);
 
   // Create tab container and add all tabs.
-  GtkWidget* notebook = gtk_notebook_new();
+  notebook_ = gtk_notebook_new();
   if (theme_service_->UsingNativeTheme())
-    gtk_widget_modify_bg(notebook, GTK_STATE_NORMAL, NULL);
+    gtk_widget_modify_bg(notebook_, GTK_STATE_NORMAL, NULL);
   else
-    gtk_widget_modify_bg(notebook, GTK_STATE_NORMAL, &kBackgroundColor);
+    gtk_widget_modify_bg(notebook_, GTK_STATE_NORMAL, &kBackgroundColor);
 
   GtkWidget* label = theme_service_->BuildLabel(
       l10n_util::GetStringUTF8(IDS_WEBSITE_SETTINGS_TAB_LABEL_PERMISSIONS),
       ui::kGdkBlack);
   gtk_widget_show(label);
-  gtk_notebook_append_page(
-      GTK_NOTEBOOK(notebook), permission_tab_contents, label);
+  gtk_notebook_insert_page(GTK_NOTEBOOK(notebook_), permission_tab_contents,
+                           label, TAB_ID_PERMISSIONS);
 
   label = theme_service_->BuildLabel(
       l10n_util::GetStringUTF8(IDS_WEBSITE_SETTINGS_TAB_LABEL_CONNECTION),
       ui::kGdkBlack);
   gtk_widget_show(label);
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), connection_tab, label);
+  gtk_notebook_insert_page(GTK_NOTEBOOK(notebook_), connection_tab, label,
+                           TAB_ID_CONNECTION);
 
-  gtk_box_pack_start(GTK_BOX(contents_), notebook, FALSE, FALSE, 0);
+  DCHECK_EQ(gtk_notebook_get_n_pages(GTK_NOTEBOOK(notebook_)), NUM_TAB_IDS);
+
+  gtk_box_pack_start(GTK_BOX(contents_), notebook_, FALSE, FALSE, 0);
   gtk_widget_show_all(contents_);
 }
 
 void WebsiteSettingsPopupGtk::OnPermissionChanged(
     PermissionSelector* selector) {
-  presenter_->OnSitePermissionChanged(selector->type(),
-                                      selector->setting());
+  presenter_->OnSitePermissionChanged(selector->GetType(),
+                                      selector->GetSetting());
 }
 
 void WebsiteSettingsPopupGtk::OnComboboxShown() {
@@ -531,15 +550,22 @@ void WebsiteSettingsPopupGtk::SetPermissionInfo(
            theme_service_,
            permission->type,
            permission->setting,
-           permission->default_setting);
+           permission->default_setting,
+           permission->source);
     selector->AddObserver(this);
-    GtkWidget* hbox = selector->CreateUI();
+    GtkWidget* hbox = selector->widget();
     selectors_.push_back(selector);
     gtk_box_pack_start(GTK_BOX(permissions_section_contents_), hbox, FALSE,
                        FALSE, 0);
   }
 
   gtk_widget_show_all(permissions_section_contents_);
+}
+
+void WebsiteSettingsPopupGtk::SetSelectedTab(TabId tab_id) {
+  DCHECK(notebook_);
+  gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook_),
+                                static_cast<gint>(tab_id));
 }
 
 void WebsiteSettingsPopupGtk::OnCookiesLinkClicked(GtkWidget* widget) {
@@ -556,5 +582,14 @@ void WebsiteSettingsPopupGtk::OnViewCertLinkClicked(GtkWidget* widget) {
 }
 
 void WebsiteSettingsPopupGtk::OnCloseButtonClicked(GtkWidget* widget) {
+  bubble_->Close();
+}
+
+void WebsiteSettingsPopupGtk::OnHelpLinkClicked(GtkWidget* widget) {
+  browser_->OpenURL(OpenURLParams(GURL(chrome::kPageInfoHelpCenterURL),
+                    content::Referrer(),
+                    NEW_FOREGROUND_TAB,
+                    content::PAGE_TRANSITION_LINK,
+                     false));
   bubble_->Close();
 }

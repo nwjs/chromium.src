@@ -49,13 +49,19 @@ SyncEncryptionHandlerImpl::Vault::~Vault() {
 
 SyncEncryptionHandlerImpl::SyncEncryptionHandlerImpl(
     UserShare* user_share,
-    Encryptor* encryptor)
+    Encryptor* encryptor,
+    const std::string& restored_key_for_bootstrapping,
+    const std::string& restored_keystore_key_for_bootstrapping)
     : weak_ptr_factory_(ALLOW_THIS_IN_INITIALIZER_LIST(this)),
       user_share_(user_share),
       vault_unsafe_(encryptor, SensitiveTypes()),
       encrypt_everything_(false),
       passphrase_state_(IMPLICIT_PASSPHRASE),
+      keystore_key_(restored_keystore_key_for_bootstrapping),
       nigori_overwrite_count_(0) {
+  // We only bootstrap the user provided passphrase. The keystore key is handled
+  // at Init time once we're sure the nigori is downloaded.
+  vault_unsafe_.cryptographer.Bootstrap(restored_key_for_bootstrapping);
 }
 
 SyncEncryptionHandlerImpl::~SyncEncryptionHandlerImpl() {}
@@ -369,14 +375,14 @@ void SyncEncryptionHandlerImpl::EnableEncryptEverything() {
   ModelTypeSet* encrypted_types =
       &UnlockVaultMutable(trans.GetWrappedTrans())->encrypted_types;
   if (encrypt_everything_) {
-    DCHECK(encrypted_types->Equals(ModelTypeSet::All()));
+    DCHECK(encrypted_types->Equals(UserTypes()));
     return;
   }
   DVLOG(1) << "Enabling encrypt everything.";
   encrypt_everything_ = true;
   // Change |encrypted_types_| directly to avoid sending more than one
   // notification.
-  *encrypted_types = ModelTypeSet::All();
+  *encrypted_types = UserTypes();
   FOR_EACH_OBSERVER(
       Observer, observers_,
       OnEncryptedTypesChanged(*encrypted_types, encrypt_everything_));
@@ -424,6 +430,27 @@ void SyncEncryptionHandlerImpl::UpdateNigoriFromEncryptedTypes(
                                            nigori);
 }
 
+bool SyncEncryptionHandlerImpl::NeedKeystoreKey(
+    syncable::BaseTransaction* const trans) const {
+  return keystore_key_.empty();
+}
+
+bool SyncEncryptionHandlerImpl::SetKeystoreKey(
+    const std::string& key,
+    syncable::BaseTransaction* const trans) {
+  if (!keystore_key_.empty() || key.empty())
+    return false;
+  keystore_key_ = key;
+
+  // TODO(zea): trigger migration if necessary.
+
+  DVLOG(1) << "Keystore bootstrap token updated.";
+  FOR_EACH_OBSERVER(SyncEncryptionHandler::Observer, observers_,
+                    OnBootstrapTokenUpdated(key,
+                                            KEYSTORE_BOOTSTRAP_TOKEN));
+  return true;
+}
+
 ModelTypeSet SyncEncryptionHandlerImpl::GetEncryptedTypes(
     syncable::BaseTransaction* const trans) const {
   return UnlockVault(trans).encrypted_types;
@@ -450,7 +477,7 @@ void SyncEncryptionHandlerImpl::ReEncryptEverything(
   for (ModelTypeSet::Iterator iter =
            UnlockVault(trans->GetWrappedTrans()).encrypted_types.First();
        iter.Good(); iter.Inc()) {
-    if (iter.Get() == PASSWORDS || iter.Get() == NIGORI)
+    if (iter.Get() == PASSWORDS || IsControlType(iter.Get()))
       continue; // These types handle encryption differently.
 
     ReadNode type_root(trans);
@@ -635,13 +662,13 @@ bool SyncEncryptionHandlerImpl::UpdateEncryptedTypesFromNigori(
   if (nigori.encrypt_everything()) {
     if (!encrypt_everything_) {
       encrypt_everything_ = true;
-      *encrypted_types = ModelTypeSet::All();
+      *encrypted_types = UserTypes();
       DVLOG(1) << "Enabling encrypt everything via nigori node update";
       FOR_EACH_OBSERVER(
           Observer, observers_,
           OnEncryptedTypesChanged(*encrypted_types, encrypt_everything_));
     }
-    DCHECK(encrypted_types->Equals(ModelTypeSet::All()));
+    DCHECK(encrypted_types->Equals(UserTypes()));
     return true;
   }
 
@@ -656,12 +683,12 @@ bool SyncEncryptionHandlerImpl::UpdateEncryptedTypesFromNigori(
       !Difference(nigori_encrypted_types, SensitiveTypes()).Empty()) {
     if (!encrypt_everything_) {
       encrypt_everything_ = true;
-      *encrypted_types = ModelTypeSet::All();
+      *encrypted_types = UserTypes();
       FOR_EACH_OBSERVER(
           Observer, observers_,
           OnEncryptedTypesChanged(*encrypted_types, encrypt_everything_));
     }
-    DCHECK(encrypted_types->Equals(ModelTypeSet::All()));
+    DCHECK(encrypted_types->Equals(UserTypes()));
     return false;
   }
 
@@ -688,7 +715,8 @@ void SyncEncryptionHandlerImpl::FinishSetPassphrase(
   if (!bootstrap_token.empty()) {
     DVLOG(1) << "Passphrase bootstrap token updated.";
     FOR_EACH_OBSERVER(SyncEncryptionHandler::Observer, observers_,
-                      OnBootstrapTokenUpdated(bootstrap_token));
+                      OnBootstrapTokenUpdated(bootstrap_token,
+                                              PASSPHRASE_BOOTSTRAP_TOKEN));
   }
 
   const Cryptographer& cryptographer =
@@ -710,6 +738,8 @@ void SyncEncryptionHandlerImpl::FinishSetPassphrase(
   }
 
   DCHECK(cryptographer.is_ready());
+
+  // TODO(zea): trigger migration if necessary.
 
   sync_pb::NigoriSpecifics specifics(nigori_node->GetNigoriSpecifics());
   // Does not modify specifics.encrypted() if the original decrypted data was
@@ -737,6 +767,10 @@ void SyncEncryptionHandlerImpl::MergeEncryptedTypes(
     ModelTypeSet new_encrypted_types,
     syncable::BaseTransaction* const trans) {
   DCHECK(thread_checker_.CalledOnValidThread());
+
+  // Only UserTypes may be encrypted.
+  DCHECK(UserTypes().HasAll(new_encrypted_types));
+
   ModelTypeSet* encrypted_types = &UnlockVaultMutable(trans)->encrypted_types;
   if (!encrypted_types->HasAll(new_encrypted_types)) {
     *encrypted_types = new_encrypted_types;

@@ -129,11 +129,6 @@ const char kAutomationClientChannelID[]     = "automation-channel";
 const char kAutomationReinitializeOnChannelError[] =
     "automation-reinitialize-on-channel-error";
 
-// Use the (in-progress) refactor of desktop Panel windows which does not
-// require a Browser. Flag will be removed after refactor is ready to replace
-// existing BrowserWindow Panels.
-const char kBrowserlessPanels[] = "browserless-panels";
-
 // How often (in seconds) to check for updates. Should only be used for testing
 // purposes.
 const char kCheckForUpdateIntervalSec[]     = "check-for-update-interval";
@@ -234,10 +229,6 @@ const char kDebugEnableFrameToggle[]        = "debug-enable-frame-toggle";
 // Enables support to debug printing subsystem.
 const char kDebugPrint[]                    = "debug-print";
 
-// For the experimental identity API, do not grant scopes unless the user has
-// explicitly approved them.
-const char kDemandUserScopeApproval[]        = "demand-user-scope-approval";
-
 // Specifies the URL at which to fetch configuration policy from the device
 // management backend. Specifying this switch turns on managed policy from the
 // device management backend.
@@ -275,9 +266,6 @@ const char kDisableBackgroundNetworking[]   = "disable-background-networking";
 
 // Disables the bundled PPAPI version of Flash (if it's enabled by default).
 const char kDisableBundledPpapiFlash[]      = "disable-bundled-ppapi-flash";
-
-// Disables Chrome To Mobile.
-const char kDisableChromeToMobile[]         = "disable-chrome-to-mobile";
 
 // Disables the client-side phishing detection feature. Note that even if
 // client-side phishing detection is enabled, it will only be active if the
@@ -487,10 +475,6 @@ const char kEnableBundledPpapiFlash[]       = "enable-bundled-ppapi-flash";
 // account.  When disabled, Chrome will use the ClientLogin flow instead.
 const char kEnableClientOAuthSignin[]       = "enable-client-oauth-signin";
 
-// Enables Chrome To Mobile.
-// This switch is not currently respected; use the disable switch instead.
-const char kEnableChromeToMobile[]          = "enable-chrome-to-mobile";
-
 // Enables the new cloud policy stack.
 const char kEnableCloudPolicyService[]      = "enable-cloud-policy-service";
 
@@ -501,6 +485,10 @@ const char kEnableCloudPrintProxy[]         = "enable-cloud-print-proxy";
 // Enables establishing a backup TCP connection if a specified timeout is
 // exceeded.
 const char kEnableConnectBackupJobs[]       = "enable-connect-backup-jobs";
+
+// Enables fetching the user's contacts from Google and showing them in the
+// Chrome OS apps list.
+const char kEnableContacts[]                = "enable-contacts";
 
 // Enables web developers to create apps for Chrome without using crx packages.
 const char kEnableCrxlessWebApps[]          = "enable-crxless-web-apps";
@@ -529,7 +517,7 @@ const char kEnableExtensionActivityLogging[] =
 const char kEnableExtensionActivityUI[]     = "enable-extension-activity-ui";
 
 // Enables to show extensions in an action box.
-const char kEnableExtensionsInActionBox[] = "extensions-in-action-box";
+const char kEnableExtensionsInActionBox[]   = "extensions-in-action-box";
 
 // Enables experimental timeline API.
 const char kEnableExtensionTimelineApi[]    = "enable-extension-timeline-api";

@@ -175,16 +175,15 @@ enum NotificationType {
   // closed tab.  No details are expected.
   //
   // See also NOTIFICATION_TAB_CONTENTS_DESTROYED, which is sent when the
-  // TabContents is destroyed, and
-  // content::NOTIFICATION_WEB_CONTENTS_DESTROYED, which is sent when the
-  // WebContents containing the NavigationController is destroyed.
+  // TabContents is destroyed, and content::NOTIFICATION_WEB_CONTENTS_DESTROYED,
+  // which is sent when the WebContents containing the NavigationController is
+  // destroyed.
   NOTIFICATION_TAB_CLOSING,
 
-  // Sent when a TabContents is being destroyed.  At this point it's safe
-  // to call TabContents member functions, which is not true of the
-  // similar content::NOTIFICATION_WEB_CONTENTS_DESTROYED that fires later
-  // during teardown.  The source is a Source<TabContents>.  There are no
-  // details.
+  // Sent when a TabContents is being destroyed.  At this point it's safe to
+  // call TabContents member functions, which is not true of the similar
+  // content::NOTIFICATION_WEB_CONTENTS_DESTROYED that fires later during
+  // teardown.  The source is a Source<TabContents>.  There are no details.
   NOTIFICATION_TAB_CONTENTS_DESTROYED,
 
   // Stuff inside the tabs ---------------------------------------------------
@@ -1069,6 +1068,12 @@ enum NotificationType {
 
   // Sent after UserManager checked ownership status of logged in user.
   NOTIFICATION_OWNERSHIP_CHECKED,
+
+  // Sent by DeviceSettingsService to indicate that the ownership status
+  // changed. If you can, please use DeviceSettingsService::Observer instead.
+  // Other singleton-based services can't use that because Observer
+  // unregistration is impossible due to unpredictable deletion order.
+  NOTIFICATION_OWNERSHIP_STATUS_CHANGED,
 
   // This is sent to a ChromeOS settings observer when a system setting is
   // changed. The source is the CrosSettings and the details a std::string of

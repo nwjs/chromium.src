@@ -55,6 +55,13 @@ class UI_EXPORT Event {
   bool IsCapsLockDown() const { return (flags_ & EF_CAPS_LOCK_DOWN) != 0; }
   bool IsAltDown() const { return (flags_ & EF_ALT_DOWN) != 0; }
 
+  bool IsKeyEvent() const {
+    return type_ == ET_KEY_PRESSED ||
+           type_ == ET_KEY_RELEASED ||
+           type_ == ET_TRANSLATED_KEY_PRESS ||
+           type_ == ET_TRANSLATED_KEY_RELEASE;
+  }
+
   bool IsMouseEvent() const {
     return type_ == ET_MOUSE_PRESSED ||
            type_ == ET_MOUSE_DRAGGED ||
@@ -71,6 +78,42 @@ class UI_EXPORT Event {
            type_ == ET_TOUCH_MOVED ||
            type_ == ET_TOUCH_STATIONARY ||
            type_ == ET_TOUCH_CANCELLED;
+  }
+
+  bool IsGestureEvent() const {
+    switch (type_) {
+      case ET_GESTURE_SCROLL_BEGIN:
+      case ET_GESTURE_SCROLL_END:
+      case ET_GESTURE_SCROLL_UPDATE:
+      case ET_GESTURE_TAP:
+      case ET_GESTURE_TAP_DOWN:
+      case ET_GESTURE_BEGIN:
+      case ET_GESTURE_END:
+      case ET_GESTURE_DOUBLE_TAP:
+      case ET_GESTURE_TWO_FINGER_TAP:
+      case ET_GESTURE_PINCH_BEGIN:
+      case ET_GESTURE_PINCH_END:
+      case ET_GESTURE_PINCH_UPDATE:
+      case ET_GESTURE_LONG_PRESS:
+      case ET_GESTURE_MULTIFINGER_SWIPE:
+        return true;
+
+      case ET_SCROLL_FLING_CANCEL:
+      case ET_SCROLL_FLING_START:
+        // These can be ScrollEvents too. But for ScrollEvents have valid native
+        // events. No gesture events have native events.
+        return !HasNativeEvent();
+
+      default:
+        break;
+    }
+    return false;
+  }
+
+  bool IsScrollEvent() const {
+    return type_ == ET_SCROLL ||
+           ((type_ == ET_SCROLL_FLING_START ||
+             type_ == ET_SCROLL_FLING_CANCEL) && HasNativeEvent());
   }
 
   bool IsScrollGestureEvent() const {
@@ -147,6 +190,11 @@ class UI_EXPORT LocatedEvent : public Event {
   // This is applied to both |location_| and |root_location_|.
   virtual void UpdateForRootTransform(const Transform& root_transform);
 
+  template <class T> void ConvertLocationToTarget(T* source, T* target) {
+    if (target && target != source)
+      T::ConvertPointToTarget(source, target, &location_);
+  }
+
  protected:
   explicit LocatedEvent(const base::NativeEvent& native_event);
 
@@ -162,8 +210,7 @@ class UI_EXPORT LocatedEvent : public Event {
         system_location_(model.system_location_) {
     // TODO(erg): May need to create system_location_ by converting location to
     // system coordinates here.
-    if (target && target != source)
-      T::ConvertPointToTarget(source, target, &location_);
+    ConvertLocationToTarget(source, target);
   }
 
   // Used for synthetic events in testing.

@@ -15,6 +15,9 @@
 #include "ash/wm/property_util.h"
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
+#include "base/json/json_value_converter.h"
+#include "base/string_piece.h"
+#include "base/values.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/root_window.h"
@@ -23,20 +26,107 @@
 #include "ui/gfx/display.h"
 #include "ui/gfx/screen.h"
 
+#if defined(OS_CHROMEOS)
+#include "base/chromeos/chromeos_version.h"
+#endif
+
 namespace ash {
-namespace internal {
 namespace {
+
+// The maximum value for 'offset' in DisplayLayout in case of outliers.  Need
+// to change this value in case to support even larger displays.
+const int kMaxValidOffset = 10000;
 
 // The number of pixels to overlap between the primary and secondary displays,
 // in case that the offset value is too large.
 const int kMinimumOverlapForInvalidOffset = 50;
 
+bool GetPositionFromString(const base::StringPiece& position,
+                           DisplayLayout::Position* field) {
+  if (position == "top") {
+    *field = DisplayLayout::TOP;
+    return true;
+  } else if (position == "bottom") {
+    *field = DisplayLayout::BOTTOM;
+    return true;
+  } else if (position == "right") {
+    *field = DisplayLayout::RIGHT;
+    return true;
+  } else if (position == "left") {
+    *field = DisplayLayout::LEFT;
+    return true;
+  }
+  LOG(ERROR) << "Invalid position value: " << position;
+
+  return false;
 }
 
-DisplayController::DisplayController()
-    : secondary_display_layout_(RIGHT),
-      secondary_display_offset_(0),
-      dont_warp_mouse_(false) {
+}  // namespace
+
+DisplayLayout::DisplayLayout()
+    : position(RIGHT),
+      offset(0) {}
+
+DisplayLayout::DisplayLayout(DisplayLayout::Position position, int offset)
+    : position(position),
+      offset(offset) {
+  DCHECK_LE(TOP, position);
+  DCHECK_GE(LEFT, position);
+
+  // Set the default value to |position| in case position is invalid.  DCHECKs
+  // above doesn't stop in Release builds.
+  if (TOP > position || LEFT < position)
+    this->position = RIGHT;
+
+  DCHECK_GE(kMaxValidOffset, abs(offset));
+}
+
+// static
+bool DisplayLayout::ConvertFromValue(const base::Value& value,
+                                     DisplayLayout* layout) {
+  base::JSONValueConverter<DisplayLayout> converter;
+  return converter.Convert(value, layout);
+}
+
+// static
+bool DisplayLayout::ConvertToValue(const DisplayLayout& layout,
+                                   base::Value* value) {
+  base::DictionaryValue* dict_value = NULL;
+  if (!value->GetAsDictionary(&dict_value) || dict_value == NULL)
+    return false;
+
+  std::string position_value;
+  switch (layout.position) {
+    case TOP:
+      position_value = "top";
+      break;
+    case BOTTOM:
+      position_value = "bottom";
+      break;
+    case RIGHT:
+      position_value = "right";
+      break;
+    case LEFT:
+      position_value = "left";
+      break;
+    default:
+      return false;
+  }
+
+  dict_value->SetString("position", position_value);
+  dict_value->SetInteger("offset", layout.offset);
+  return true;
+}
+
+// static
+void DisplayLayout::RegisterJSONConverter(
+    base::JSONValueConverter<DisplayLayout>* converter) {
+  converter->RegisterCustomField<Position>(
+      "position", &DisplayLayout::position, &GetPositionFromString);
+  converter->RegisterIntField("offset", &DisplayLayout::offset);
+}
+
+DisplayController::DisplayController() {
   aura::Env::GetInstance()->display_manager()->AddObserver(this);
 }
 
@@ -48,12 +138,8 @@ DisplayController::~DisplayController() {
            root_windows_.rbegin(); it != root_windows_.rend(); ++it) {
     internal::RootWindowController* controller =
         GetRootWindowController(it->second);
-    // RootWindow may not have RootWindowController in non
-    // extended desktop mode.
-    if (controller)
-      delete controller;
-    else
-      delete it->second;
+    DCHECK(controller);
+    delete controller;
   }
 }
 
@@ -61,7 +147,7 @@ void DisplayController::InitPrimaryDisplay() {
   aura::DisplayManager* display_manager =
       aura::Env::GetInstance()->display_manager();
   const gfx::Display* display = display_manager->GetDisplayAt(0);
-  aura::RootWindow* root = AddRootWindowForDisplay(*display, true);
+  aura::RootWindow* root = AddRootWindowForDisplay(*display);
   root->SetHostBounds(display->bounds_in_pixel());
 }
 
@@ -70,8 +156,26 @@ void DisplayController::InitSecondaryDisplays() {
       aura::Env::GetInstance()->display_manager();
   for (size_t i = 1; i < display_manager->GetNumDisplays(); ++i) {
     const gfx::Display* display = display_manager->GetDisplayAt(i);
-    aura::RootWindow* root = AddRootWindowForDisplay(*display, false);
+    aura::RootWindow* root = AddRootWindowForDisplay(*display);
     Shell::GetInstance()->InitRootWindowForSecondaryDisplay(root);
+  }
+  CommandLine* command_line = CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kAshSecondaryDisplayLayout)) {
+    std::string value = command_line->GetSwitchValueASCII(
+        switches::kAshSecondaryDisplayLayout);
+    char layout;
+    int offset;
+    if (sscanf(value.c_str(), "%c,%d", &layout, &offset) == 2) {
+      if (layout == 't')
+        default_display_layout_.position = DisplayLayout::TOP;
+      else if (layout == 'b')
+        default_display_layout_.position = DisplayLayout::BOTTOM;
+      else if (layout == 'r')
+        default_display_layout_.position = DisplayLayout::RIGHT;
+      else if (layout == 'l')
+        default_display_layout_.position = DisplayLayout::LEFT;
+      default_display_layout_.offset = offset;
+    }
   }
   UpdateDisplayBoundsForLayout();
 }
@@ -128,62 +232,25 @@ DisplayController::GetAllRootWindowControllers() {
   return controllers;
 }
 
-void DisplayController::SetSecondaryDisplayLayout(
-    SecondaryDisplayLayout layout) {
-  secondary_display_layout_ = layout;
+void DisplayController::SetDefaultDisplayLayout(const DisplayLayout& layout) {
+  default_display_layout_ = layout;
   UpdateDisplayBoundsForLayout();
 }
 
-void DisplayController::SetSecondaryDisplayOffset(int offset) {
-  secondary_display_offset_ = offset;
+void DisplayController::SetLayoutForDisplayName(const std::string& name,
+                                                const DisplayLayout& layout) {
+  secondary_layouts_[name] = layout;
   UpdateDisplayBoundsForLayout();
 }
 
-bool DisplayController::WarpMouseCursorIfNecessary(
-    aura::RootWindow* current_root,
-    const gfx::Point& point_in_root) {
-  if (root_windows_.size() < 2 || dont_warp_mouse_)
-    return false;
-  const float scale = ui::GetDeviceScaleFactor(current_root->layer());
+const DisplayLayout& DisplayController::GetLayoutForDisplayName(
+    const std::string& name) {
+  std::map<std::string, DisplayLayout>::const_iterator it =
+      secondary_layouts_.find(name);
 
-  // The pointer might be outside the |current_root|. Get the root window where
-  // the pointer is currently on.
-  std::pair<aura::RootWindow*, gfx::Point> actual_location =
-      wm::GetRootWindowRelativeToWindow(current_root, point_in_root);
-  current_root = actual_location.first;
-  // Don't use |point_in_root| below. Instead, use |actual_location.second|
-  // which is in |actual_location.first|'s coordinates.
-
-  gfx::Rect root_bounds = current_root->bounds();
-  int offset_x = 0;
-  int offset_y = 0;
-  if (actual_location.second.x() <= root_bounds.x()) {
-    // Use -2, not -1, to avoid infinite loop of pointer warp.
-    offset_x = -2 * scale;
-  } else if (actual_location.second.x() >= root_bounds.right() - 1) {
-    offset_x = 2 * scale;
-  } else if (actual_location.second.y() <= root_bounds.y()) {
-    offset_y = -2 * scale;
-  } else if (actual_location.second.y() >= root_bounds.bottom() - 1) {
-    offset_y = 2 * scale;
-  } else {
-    return false;
-  }
-
-  gfx::Point point_in_screen(actual_location.second);
-  wm::ConvertPointToScreen(current_root, &point_in_screen);
-  point_in_screen.Offset(offset_x, offset_y);
-
-  aura::RootWindow* dst_root = wm::GetRootWindowAt(point_in_screen);
-  gfx::Point point_in_dst_root(point_in_screen);
-  wm::ConvertPointFromScreen(dst_root, &point_in_dst_root);
-
-  if (dst_root->bounds().Contains(point_in_dst_root)) {
-    DCHECK_NE(dst_root, current_root);
-    dst_root->MoveCursorTo(point_in_dst_root);
-    return true;
-  }
-  return false;
+  if (it != secondary_layouts_.end())
+    return it->second;
+  return default_display_layout_;
 }
 
 void DisplayController::OnDisplayBoundsChanged(const gfx::Display& display) {
@@ -192,12 +259,8 @@ void DisplayController::OnDisplayBoundsChanged(const gfx::Display& display) {
 }
 
 void DisplayController::OnDisplayAdded(const gfx::Display& display) {
-  if (root_windows_.empty()) {
-    root_windows_[display.id()] = Shell::GetPrimaryRootWindow();
-    Shell::GetPrimaryRootWindow()->SetHostBounds(display.bounds_in_pixel());
-    return;
-  }
-  aura::RootWindow* root = AddRootWindowForDisplay(display, false);
+  DCHECK(!root_windows_.empty());
+  aura::RootWindow* root = AddRootWindowForDisplay(display);
   Shell::GetInstance()->InitRootWindowForSecondaryDisplay(root);
   UpdateDisplayBoundsForLayout();
 }
@@ -206,15 +269,15 @@ void DisplayController::OnDisplayRemoved(const gfx::Display& display) {
   aura::RootWindow* root = root_windows_[display.id()];
   DCHECK(root);
   // Primary display should never be removed by DisplayManager.
-  DCHECK(root != Shell::GetPrimaryRootWindow());
+  DCHECK(root != GetPrimaryRootWindow());
   // Display for root window will be deleted when the Primary RootWindow
   // is deleted by the Shell.
-  if (root != Shell::GetPrimaryRootWindow()) {
+  if (root != GetPrimaryRootWindow()) {
     root_windows_.erase(display.id());
     internal::RootWindowController* controller =
         GetRootWindowController(root);
     if (controller) {
-      controller->MoveWindowsTo(Shell::GetPrimaryRootWindow());
+      controller->MoveWindowsTo(GetPrimaryRootWindow());
       delete controller;
     } else {
       delete root;
@@ -222,48 +285,48 @@ void DisplayController::OnDisplayRemoved(const gfx::Display& display) {
   }
 }
 
-// static
-bool DisplayController::IsExtendedDesktopEnabled(){
-  static bool extended_desktop_disabled =
-      CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kAshExtendedDesktopDisabled);
-  return !extended_desktop_disabled;
-}
-
 aura::RootWindow* DisplayController::AddRootWindowForDisplay(
-    const gfx::Display& display, bool is_primary) {
+    const gfx::Display& display) {
+  static bool force_constrain_pointer_to_root =
+      CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kAshConstrainPointerToRoot);
+
   aura::RootWindow* root = aura::Env::GetInstance()->display_manager()->
       CreateRootWindowForDisplay(display);
   root_windows_[display.id()] = root;
-  // Confine the cursor within the window if
-  // 1) Extended desktop is enabled or
-  // 2) the display is primary display and the host window
-  // is set to be fullscreen (this is old behavior).
-  if (IsExtendedDesktopEnabled() ||
-      (aura::DisplayManager::use_fullscreen_host_window() && is_primary)) {
+
+#if defined(OS_CHROMEOS)
+  if (base::chromeos::IsRunningOnChromeOS() || force_constrain_pointer_to_root)
     root->ConfineCursorToWindow();
-  }
+#endif
   return root;
 }
 
 void DisplayController::UpdateDisplayBoundsForLayout() {
-  if (!IsExtendedDesktopEnabled() || gfx::Screen::GetNumDisplays() <= 1) {
+  if (gfx::Screen::GetNumDisplays() <= 1)
     return;
-  }
+
   DCHECK_EQ(2, gfx::Screen::GetNumDisplays());
   aura::DisplayManager* display_manager =
       aura::Env::GetInstance()->display_manager();
   const gfx::Rect& primary_bounds = display_manager->GetDisplayAt(0)->bounds();
   gfx::Display* secondary_display = display_manager->GetDisplayAt(1);
+  const std::string& secondary_name = display_manager->GetDisplayNameAt(1);
   const gfx::Rect& secondary_bounds = secondary_display->bounds();
   gfx::Point new_secondary_origin = primary_bounds.origin();
 
-  // TODO(oshima|mukai): Implement more flexible layout.
+  const DisplayLayout* layout = &default_display_layout_;
+  std::map<std::string, DisplayLayout>::const_iterator iter =
+      secondary_layouts_.find(secondary_name);
+  if (iter != secondary_layouts_.end())
+    layout = &iter->second;
+
+  DisplayLayout::Position position = layout->position;
 
   // Ignore the offset in case the secondary display doesn't share edges with
   // the primary display.
-  int offset = secondary_display_offset_;
-  if (secondary_display_layout_ == TOP || secondary_display_layout_ == BOTTOM) {
+  int offset = layout->offset;
+  if (position == DisplayLayout::TOP || position == DisplayLayout::BOTTOM) {
     offset = std::min(
         offset, primary_bounds.width() - kMinimumOverlapForInvalidOffset);
     offset = std::max(
@@ -274,17 +337,17 @@ void DisplayController::UpdateDisplayBoundsForLayout() {
     offset = std::max(
         offset, -secondary_bounds.height() + kMinimumOverlapForInvalidOffset);
   }
-  switch (secondary_display_layout_) {
-    case TOP:
+  switch (position) {
+    case DisplayLayout::TOP:
       new_secondary_origin.Offset(offset, -secondary_bounds.height());
       break;
-    case RIGHT:
+    case DisplayLayout::RIGHT:
       new_secondary_origin.Offset(primary_bounds.width(), offset);
       break;
-    case BOTTOM:
+    case DisplayLayout::BOTTOM:
       new_secondary_origin.Offset(offset, primary_bounds.height());
       break;
-    case LEFT:
+    case DisplayLayout::LEFT:
       new_secondary_origin.Offset(-secondary_bounds.width(), offset);
       break;
   }
@@ -294,5 +357,4 @@ void DisplayController::UpdateDisplayBoundsForLayout() {
   secondary_display->UpdateWorkAreaFromInsets(insets);
 }
 
-}  // namespace internal
 }  // namespace ash

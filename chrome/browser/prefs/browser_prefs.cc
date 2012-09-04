@@ -95,7 +95,7 @@
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/preferences.h"
 #include "chrome/browser/chromeos/proxy_config_service_impl.h"
-#include "chrome/browser/chromeos/settings/signed_settings_cache.h"
+#include "chrome/browser/chromeos/settings/device_settings_cache.h"
 #include "chrome/browser/chromeos/status/data_promo_notification.h"
 #include "chrome/browser/policy/auto_enrollment_client.h"
 #include "chrome/browser/policy/device_status_collector.h"
@@ -109,6 +109,10 @@
 
 #if !defined(OS_ANDROID)
 #include "chrome/browser/chrome_to_mobile_service.h"
+#endif
+
+#if defined(OS_ANDROID)
+#include "chrome/browser/ui/webui/ntp/android/promo_handler.h"
 #endif
 
 namespace {
@@ -179,7 +183,7 @@ void RegisterLocalState(PrefService* local_state) {
   chromeos::ProxyConfigServiceImpl::RegisterPrefs(local_state);
   chromeos::UserManager::RegisterPrefs(local_state);
   chromeos::ServicesCustomizationDocument::RegisterPrefs(local_state);
-  chromeos::signed_settings_cache::RegisterPrefs(local_state);
+  chromeos::device_settings_cache::RegisterPrefs(local_state);
   chromeos::WallpaperManager::RegisterPrefs(local_state);
   chromeos::WizardController::RegisterPrefs(local_state);
   policy::AutoEnrollmentClient::RegisterPrefs(local_state);
@@ -232,6 +236,10 @@ void RegisterUserPrefs(PrefService* user_prefs) {
 
 #if defined(OS_ANDROID)
   geolocation::RegisterUserPrefs(user_prefs);
+#endif
+
+#if defined(OS_ANDROID)
+  PromoHandler::RegisterUserPrefs(user_prefs);
 #endif
 
 #if defined(USE_ASH)

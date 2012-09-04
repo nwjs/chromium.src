@@ -140,8 +140,10 @@ TEST_PPAPI_IN_PROCESS(Core)
 TEST_PPAPI_OUT_OF_PROCESS(Core)
 TEST_PPAPI_NACL_VIA_HTTP(Core)
 
+#if defined(OS_CHROMEOS)
+#define MAYBE_InputEvent InputEvent
+#elif defined(OS_LINUX)
 // Times out on Linux. http://crbug.com/108859
-#if defined(OS_LINUX)
 #define MAYBE_InputEvent DISABLED_InputEvent
 #elif defined(OS_MACOSX)
 // Flaky on Mac. http://crbug.com/109258
@@ -215,9 +217,16 @@ TEST_PPAPI_OUT_OF_PROCESS(BrowserFont)
 TEST_PPAPI_IN_PROCESS(Buffer)
 TEST_PPAPI_OUT_OF_PROCESS(Buffer)
 
-TEST_PPAPI_OUT_OF_PROCESS_WITH_SSL_SERVER(TCPSocketPrivate)
-TEST_PPAPI_IN_PROCESS_WITH_SSL_SERVER(TCPSocketPrivate)
-TEST_PPAPI_NACL_WITH_SSL_SERVER(TCPSocketPrivate)
+// Fails on Windows tryserver. http://crbug.com/145734
+#if defined(OS_WIN)
+#define MAYBE_TCPSocketPrivate DISABLED_TCPSocketPrivate
+#else
+#define MAYBE_TCPSocketPrivate TCPSocketPrivate
+#endif
+
+TEST_PPAPI_OUT_OF_PROCESS_WITH_SSL_SERVER(MAYBE_TCPSocketPrivate)
+TEST_PPAPI_IN_PROCESS_WITH_SSL_SERVER(MAYBE_TCPSocketPrivate)
+TEST_PPAPI_NACL_WITH_SSL_SERVER(MAYBE_TCPSocketPrivate)
 
 TEST_PPAPI_OUT_OF_PROCESS_WITH_SSL_SERVER(TCPSocketPrivateTrusted)
 TEST_PPAPI_IN_PROCESS_WITH_SSL_SERVER(TCPSocketPrivateTrusted)
@@ -516,6 +525,9 @@ IN_PROC_BROWSER_TEST_F(OutOfProcessPPAPITest, MAYBE_OutOfProcessFlashFullscreen)
 #if defined(OS_MACOSX)
 // http://crbug.com/103912
 #define MAYBE_Fullscreen DISABLED_Fullscreen
+#elif defined(OS_LINUX)
+// http://crbug.com/146008
+#define MAYBE_Fullscreen DISABLED_Fullscreen
 #else
 #define MAYBE_Fullscreen Fullscreen
 #endif
@@ -811,6 +823,15 @@ TEST_PPAPI_OUT_OF_PROCESS(FlashMessageLoop_RunWithoutQuit)
 TEST_PPAPI_IN_PROCESS(MouseCursor)
 TEST_PPAPI_OUT_OF_PROCESS(MouseCursor)
 TEST_PPAPI_NACL_VIA_HTTP(MouseCursor)
+
+// PPB_MessageLoop is only supported out-of-process.
+// TODO(dmichael): Enable for NaCl with the IPC proxy. crbug.com/116317
+TEST_PPAPI_OUT_OF_PROCESS(MessageLoop_Basics)
+// Note to sheriffs: MessageLoop_Post starts a thread, which has a history of
+// slowness, particularly on Windows XP. If this test times out, please try
+// marking it SLOW_ before disabling.
+//    - dmichael
+TEST_PPAPI_OUT_OF_PROCESS(MessageLoop_Post)
 
 // Only enabled in out-of-process mode.
 TEST_PPAPI_OUT_OF_PROCESS(FlashFile_CreateTemporaryFile)

@@ -267,6 +267,7 @@ extern const char kOAuth1Secret[];
 extern const char kEnableCrosDRM[];
 extern const char kSecondaryDisplayLayout[];
 extern const char kSecondaryDisplayOffset[];
+extern const char kSecondaryDisplays[];
 #endif  // defined(OS_CHROMEOS)
 extern const char kIpcDisabledMessages[];
 extern const char kShowHomeButton[];
@@ -454,7 +455,8 @@ extern const char kSaveFileDefaultDirectory[];
 extern const char kSaveFileType[];
 
 extern const char kAllowFileSelectionDialogs[];
-extern const char kLastUsedFileBrowserHandlers[];
+extern const char kDefaultTasksByMimeType[];
+extern const char kDefaultTasksBySuffix[];
 
 extern const char kSelectFileLastDirectory[];
 
@@ -527,6 +529,7 @@ extern const char kNtpCustomLogoStart[];
 extern const char kNtpCustomLogoEnd[];
 extern const char kNtpPromoVersion[];
 extern const char kNtpPromoLocale[];
+extern const char kNtpPromoDesktopSessionFound[];
 extern const char kNtpWebStoreEnabled[];
 extern const char kNtpAppPageNames[];
 
@@ -646,7 +649,7 @@ extern const char kManagedNotificationsBlockedForUrls[];
 extern const char kManagedAutoSelectCertificateForUrls[];
 
 #if defined(OS_CHROMEOS)
-extern const char kSignedSettingsCache[];
+extern const char kDeviceSettingsCache[];
 extern const char kHardwareKeyboardLayout[];
 extern const char kCarrierDealPromoShown[];
 extern const char kShouldAutoEnroll[];
@@ -656,6 +659,8 @@ extern const char kDeviceLocation[];
 extern const char kSyncSpareBootstrapToken[];
 extern const char kExternalStorageDisabled[];
 extern const char kUsersWallpaperInfo[];
+extern const char kAudioOutputAllowed[];
+extern const char kAudioCaptureAllowed[];
 #endif
 
 extern const char kClearPluginLSODataEnabled[];

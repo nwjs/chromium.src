@@ -11,6 +11,7 @@
       'CCDamageTrackerTest.cpp',
       'CCDelayBasedTimeSourceTest.cpp',
       'CCFrameRateControllerTest.cpp',
+      'CCHeadsUpDisplayTest.cpp',
       'CCKeyframedAnimationCurveTest.cpp',
       'CCLayerAnimationControllerTest.cpp',
       'CCLayerImplTest.cpp',
@@ -39,14 +40,15 @@
       'CCThreadedTest.h',
       'CCTiledLayerImplTest.cpp',
       'CCTimerTest.cpp',
+    ],
+    'cc_tests_support_files': [
       'test/CCAnimationTestCommon.cpp',
       'test/CCAnimationTestCommon.h',
+      'test/CCGeometryTestUtils.cpp',
+      'test/CCGeometryTestUtils.h',
       'test/CCLayerTestCommon.cpp',
       'test/CCLayerTestCommon.h',
-      'test/CCLayerTreeTestCommon.h',
-      'test/CCLayerTreeTestCommon.h',
       'test/CCOcclusionTrackerTestCommon.h',
-      'test/CCSchedulerTestCommon.h',
       'test/CCSchedulerTestCommon.h',
       'test/CCTestCommon.h',
       'test/CCTiledLayerTestCommon.cpp',
@@ -59,26 +61,33 @@
       'test/FakeWebGraphicsContext3D.h',
       'test/FakeWebScrollbarThemeGeometry.h',
       'test/MockCCQuadCuller.h',
-    ]
+    ],
   },
-  'conditions': [
-    ['use_libcc_for_compositor==1 and component!="shared_library"', {
-      'targets': [
-        {
-          'target_name': 'cc_unittests',
-          'type': 'executable',
+  'targets': [
+    {
+      'target_name': 'cc_unittests',
+      'type': 'executable',
+      'dependencies': [
+        '../base/base.gyp:test_support_base',
+        '../testing/gtest.gyp:gtest',
+        '../testing/gmock.gyp:gmock',
+      ],
+      'sources': [
+        'test/run_all_unittests.cc',
+      ],
+      'conditions': [
+        ['use_libcc_for_compositor==1 and component!="shared_library"', {
           'dependencies': [
-            '<(DEPTH)/base/base.gyp:test_support_base',
-            '<(DEPTH)/testing/gtest.gyp:gtest',
-            '<(DEPTH)/testing/gmock.gyp:gmock',
-            '<(DEPTH)/webkit/support/webkit_support.gyp:webkit_support',
-            '<(DEPTH)/skia/skia.gyp:skia',
+            '../skia/skia.gyp:skia',
             # We have to depend on WTF directly to pick up the correct defines for WTF headers - for instance USE_SYSTEM_MALLOC.
-            '<(DEPTH)/third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
-            '<(DEPTH)/third_party/WebKit/Source/Platform/Platform.gyp/Platform.gyp:webkit_platform',
+            '../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
+            '../third_party/WebKit/Source/Platform/Platform.gyp/Platform.gyp:webkit_platform',
+            '../webkit/support/webkit_support.gyp:webkit_support',
             'cc.gyp:cc',
+            'cc_test_support',
           ],
           'defines': [
+            'USE_LIBCC_FOR_COMPOSITOR',
             'WTF_USE_ACCELERATED_COMPOSITING=1',
           ],
           'include_dirs': [
@@ -88,17 +97,39 @@
           ],
           'sources': [
             '<@(cc_tests_source_files)',
-            'test/run_all_unittests.cc',
+          ],
+        }],
+      ],
+    },
+  ],
+  'conditions': [
+    ['use_libcc_for_compositor==1 and component!="shared_library"', {
+      'targets': [
+        {
+          'target_name': 'cc_test_support',
+          'type': 'static_library',
+          'defines': [
+            'WTF_USE_ACCELERATED_COMPOSITING=1',
+          ],
+          'include_dirs': [
+            'stubs',
+            'test',
+            '.',
+            '..',
+          ],
+          'dependencies': [
+            '../ui/gl/gl.gyp:gl',
+            '../testing/gtest.gyp:gtest',
+            '../testing/gmock.gyp:gmock',
+            '../skia/skia.gyp:skia',
+            '../third_party/WebKit/Source/WTF/WTF.gyp/WTF.gyp:wtf',
+            '../third_party/WebKit/Source/Platform/Platform.gyp/Platform.gyp:webkit_platform',
+          ],
+          'sources': [
+            '<@(cc_tests_support_files)',
           ],
         },
       ],
-    }, {
-      'targets': [
-        {
-          'target_name': 'cc_unittests',
-          'type': 'none',
-        }
-      ]
     }],
   ],
 }

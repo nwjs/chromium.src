@@ -90,41 +90,6 @@ VisitRow::VisitRow(URLID arg_url_id,
 VisitRow::~VisitRow() {
 }
 
-// Favicons -------------------------------------------------------------------
-
-ImportedFaviconUsage::ImportedFaviconUsage() {
-}
-
-ImportedFaviconUsage::~ImportedFaviconUsage() {
-}
-
-// StarredEntry ----------------------------------------------------------------
-
-StarredEntry::StarredEntry()
-    : id(0),
-      parent_folder_id(0),
-      folder_id(0),
-      visual_order(0),
-      type(URL),
-      url_id(0) {
-}
-
-StarredEntry::~StarredEntry() {
-}
-
-void StarredEntry::Swap(StarredEntry* other) {
-  std::swap(id, other->id);
-  title.swap(other->title);
-  std::swap(date_added, other->date_added);
-  std::swap(parent_folder_id, other->parent_folder_id);
-  std::swap(folder_id, other->folder_id);
-  std::swap(visual_order, other->visual_order);
-  std::swap(type, other->type);
-  url.Swap(&other->url);
-  std::swap(url_id, other->url_id);
-  std::swap(date_folder_modified, other->date_folder_modified);
-}
-
 // URLResult -------------------------------------------------------------------
 
 URLResult::URLResult() {
@@ -429,18 +394,31 @@ IconMapping::IconMapping()
 
 IconMapping::~IconMapping() {}
 
-// FaviconData ----------------------------------------------------------------
+// FaviconBitmapResult --------------------------------------------------------
 
-FaviconData::FaviconData()
-  : known_icon(false),
-    expired(false),
-    icon_type(history::INVALID_ICON) {
+FaviconBitmapResult::FaviconBitmapResult()
+    : expired(false),
+      icon_type(history::INVALID_ICON) {
 }
 
-FaviconData::~FaviconData() {}
+FaviconBitmapResult::~FaviconBitmapResult() {
+}
 
-bool FaviconData::is_valid() {
-  return known_icon && image_data.get() && image_data->size();
+// FaviconImageResult ---------------------------------------------------------
+
+FaviconImageResult::FaviconImageResult() {
+}
+
+FaviconImageResult::~FaviconImageResult() {
+}
+
+// FaviconSizes --------------------------------------------------------------
+
+const FaviconSizes& GetDefaultFaviconSizes() {
+  CR_DEFINE_STATIC_LOCAL(FaviconSizes, kDefaultFaviconSizes, ());
+  if (kDefaultFaviconSizes.empty())
+    kDefaultFaviconSizes.push_back(gfx::Size());
+  return kDefaultFaviconSizes;
 }
 
 // FaviconBitmap --------------------------------------------------------------
@@ -451,6 +429,14 @@ FaviconBitmap::FaviconBitmap()
 }
 
 FaviconBitmap::~FaviconBitmap() {
+}
+
+// ImportedFaviconUsage --------------------------------------------------------
+
+ImportedFaviconUsage::ImportedFaviconUsage() {
+}
+
+ImportedFaviconUsage::~ImportedFaviconUsage() {
 }
 
 }  // namespace history

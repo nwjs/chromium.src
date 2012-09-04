@@ -5,8 +5,7 @@
 #include "chrome/browser/history/android/android_provider_backend.h"
 
 #include "base/i18n/case_conversion.h"
-#include "chrome/browser/bookmarks/bookmark_service.h"
-#include "chrome/common/chrome_notification_types.h"
+#include "chrome/browser/api/bookmarks/bookmark_service.h"
 #include "chrome/browser/history/android/android_time.h"
 #include "chrome/browser/history/android/android_urls_sql_handler.h"
 #include "chrome/browser/history/android/bookmark_model_sql_handler.h"
@@ -16,6 +15,7 @@
 #include "chrome/browser/history/history_backend.h"
 #include "chrome/browser/history/history_database.h"
 #include "chrome/browser/history/thumbnail_database.h"
+#include "chrome/common/chrome_notification_types.h"
 #include "content/public/common/page_transition_types.h"
 #include "sql/connection.h"
 
@@ -966,11 +966,13 @@ bool AndroidProviderBackend::SimulateUpdateURL(
 
   FaviconID favicon_id = statement->statement()->ColumnInt64(4);
   if (favicon_id) {
-    scoped_refptr<base::RefCountedMemory> favicon;
-    if (!thumbnail_db_->GetFavicon(favicon_id, NULL, &favicon, NULL, NULL))
+    std::vector<FaviconBitmap> favicon_bitmaps;
+    if (!thumbnail_db_->GetFaviconBitmaps(favicon_id, &favicon_bitmaps))
       return false;
-    if (favicon.get() && favicon->size())
-      new_row.set_favicon(favicon);
+   scoped_refptr<base::RefCountedMemory> bitmap_data =
+       favicon_bitmaps[0].bitmap_data;
+   if (bitmap_data.get() && bitmap_data->size())
+      new_row.set_favicon(bitmap_data);
     favicon_details->urls.insert(old_url_row.url());
     favicon_details->urls.insert(row.url());
   }

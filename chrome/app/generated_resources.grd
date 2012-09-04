@@ -330,10 +330,10 @@ are declared in build/common.gypi.
         Use global default (Ask)
       </message>
       <message name="IDS_WEBSITE_SETTINGS_MENU_ITEM_ALLOW" desc="The text of the menu item of a permissions menu on the Website Settings UI that sets the setting to allow.">
-        Always allow
+        Always allow on this site
       </message>
       <message name="IDS_WEBSITE_SETTINGS_MENU_ITEM_BLOCK" desc="The text of the menu item of a permissions menu on the Website Settings UI that sets the setting to allow.">
-        Always block
+        Always block on this site
       </message>
       <message name="IDS_WEBSITE_SETTINGS_DEFAULT_PERMISSION_LABEL" desc="The label for the global default setting that is used in a permissions dropdown.">
         Use global default (<ph name="PERMISSION_VALUE">$1<ex>allow</ex></ph>)
@@ -4491,7 +4491,7 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
         Write to files that you have opened in the application
       </message>
       <message name="IDS_EXTENSION_PROMPT_WARNING_MEDIA_GALLERIES_ALL_GALLERIES" desc="Permission string for access to all of the user's media galleries.">
-        Access all known media files on your device
+        Access photos, music, and other media from your computer
       </message>
 
       <!-- Extension/App error messages -->
@@ -4655,17 +4655,17 @@ Update checks have repeatedly failed for the extension "<ph name="EXTENSION_NAME
       <message name="IDS_EXTENSION_CONTAINS_PRIVATE_KEY" desc="Error message when an extension includes a file containing a private key.">
         This extension includes the key file '<ph name="KEY_PATH">$1<ex>relative/path/to/file.pem</ex></ph>'. You probably don't want to do that.
       </message>
-
-      <!-- This version of the message is used temporarily, until we have the
-           blog post up describing the transition process. -->
-      <message name="IDS_EXTENSION_MANIFEST_VERSION_OLD" desc="Warning message when a developer tries to load an extension that uses a manifest version that will soon be disallowed.">
-        Support for manifest version 1 is being phased out. Please <ph name="LINK_START">$1<ex>&lt;a&gt;</ex></ph>upgrade to version 2<ph name="LINK_END">$2<ex>&lt;/a&gt;</ex></ph>.
+      <message name="IDS_EXTENSION_PACKAGE_DIRECTORY_ERROR" desc="Message for when an error occurs while trying to create the temporary directory needed to unzip a packaged extension or app.">
+        Could not create directory for unzipping: '<ph name="DIRECTORY_PATH">$1<ex>profile/Extensions/CRX_INSTALL</ex></ph>'
       </message>
-
-      <!-- We'll switch to this version of the message once we have a blog post
-           written for the first link. -->
-      <message name="IDS_EXTENSION_MANIFEST_VERSION_OLD_2_LINKS" desc="Warning message when a developer tries to load an extension that uses a manifest version that will soon be disallowed.">
-        Support for manifest version 1 is being <ph name="LINK_START_1">$1<ex>&lt;a&gt;</ex></ph>phased out<ph name="LINK_END_1">$2<ex>&lt;/a&gt;</ex></ph>. Please <ph name="LINK_START_2">$3<ex>&lt;a&gt;</ex></ph>upgrade to version 2<ph name="LINK_END_2">$4<ex>&lt;/a&gt;</ex></ph>.
+      <message name="IDS_EXTENSION_PACKAGE_UNZIP_ERROR" desc="Message for when an error occurs while unzipping a packaged extension or app.">
+        Could not unzip extension
+      </message>
+      <message name="IDS_EXTENSION_PACKAGE_IMAGE_PATH_ERROR" desc="Error message for when a packaged extension or app contains a reference to an image that could be outside the package.">
+        Illegal path (absolute or relative with '..'): '<ph name="IMAGE_PATH">$1<ex>../image.png</ex></ph>'
+      </message>
+      <message name="IDS_EXTENSION_PACKAGE_IMAGE_ERROR" desc="Message for when an error occurs while trying to decode an image found within a packaged extension or app.">
+        Could not decode image: '<ph name="IMAGE_NAME">$1<ex>image.png</ex></ph>'
       </message>
 
       <!-- Extension installed bubble -->
@@ -5390,11 +5390,11 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_ENABLE_TOUCH_EVENTS_DESCRIPTION" desc="Description of the enable touch-events flag.">
         Enables experimental support for touch screens.
       </message>
-      <message name="IDS_DISABLE_BEZEL_TOUCH_NAME" desc="Title of the disable bezel touch actions flag." >
-        Disable bezel touch actions
+      <message name="IDS_ENABLE_BEZEL_TOUCH_NAME" desc="Title of the enble bezel touch actions flag." >
+        Enable bezel touch actions
       </message>
-      <message name="IDS_DISABLE_BEZEL_TOUCH_DESCRIPTION" desc="Description of the disable bezel touch actions flag.">
-        Disable bezel touch actions.
+      <message name="IDS_ENABLE_BEZEL_TOUCH_DESCRIPTION" desc="Description of the enable bezel touch actions flag.">
+        Enable bezel touch actions.
       </message>
       <message name="IDS_FLAGS_CONFLICTS_CHECK_NAME" desc="Title of the run conflicts check flag">
         Check for known conflicts with 3rd party modules.
@@ -5790,7 +5790,14 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_DISABLE_WEBSITE_SETTINGS_DESCRIPTION" desc="Title for the flag to enable the website settings feature.">
         Disables the Website Settings UI that replaces the page info bubble and provides an easy way to configure site-specific settings.
       </message>
-      
+
+      <message name="IDS_FLAGS_ENABLE_ADVANCED_GESTURES_NAME" desc="Title for the flag to enable advanced gestures.">
+        Enable advance gestures
+      </message>
+      <message name="IDS_FLAGS_ENABLE_ADVANCED_GESTURES_DESCRIPTION" desc="Title for the flag to enable advanced gestures.">
+        Enables advanced gestures (e.g. 4-finger pinch to minimize window etc.).
+      </message>
+
       <message name="IDS_GENERIC_EXPERIMENT_CHOICE_DEFAULT" desc="Generic 'Default' experiment choice option name. E.G. shown in multi value options in about:flags.">
         Default
       </message>
@@ -5844,12 +5851,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_FLAGS_DISABLE_SOFTWARE_RASTERIZER_DESCRIPTION" desc="Description for the flag to disable using a software renderer.">
         Don't fall back to a 3D software rasterizer when the GPU cannot be used.
-      </message>
-      <message name="IDS_FLAGS_PEER_CONNECTION_NAME" desc="Name for the flag to enable PeerConnection.">
-        Enable PeerConnection.
-      </message>
-      <message name="IDS_FLAGS_PEER_CONNECTION_DESCRIPTION" desc="Description for the flag to enable PeerConnection.">
-        Enable PeerConnection APIs for WebRTC functionality. More info at webrtc.org.
       </message>
       <message name="IDS_FLAGS_SHADOW_DOM_NAME" desc="Name for the flag to enable Shadow DOM.">
         Enable Shadow DOM.
@@ -5911,18 +5912,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_ENABLE_DEVTOOLS_EXPERIMENTS_DESCRIPTION" desc="Description for the flag to enable experiments in Developer Tools.">
         Enable Developer Tools experiments. Use Settings panel in Developer Tools to toggle individual experiments.
       </message>
-      <message name="IDS_FLAGS_DISABLE_CHROME_TO_MOBILE_NAME" desc="Name for the flag to disable Chrome To Mobile">
-        Disable Chrome To Mobile.
-      </message>
-      <message name="IDS_FLAGS_DISABLE_CHROME_TO_MOBILE_DESCRIPTION" desc="Description for the flag to disable Chrome To Mobile.">
-        Disable the Chrome To Mobile page action, which allows you to send page URLs and offline copies to Chrome on your mobile device.
-      </message>
-      <message name="IDS_FLAGS_ENABLE_CHROME_TO_MOBILE_NAME" desc="Name for the flag to enable Chrome To Mobile">
-        Enable Chrome To Mobile.
-      </message>
-      <message name="IDS_FLAGS_ENABLE_CHROME_TO_MOBILE_DESCRIPTION" desc="Description for the flag to enable Chrome To Mobile.">
-        Enable the Chrome To Mobile page action, which allows you to send page URLs and offline copies to Chrome on your mobile device.
-      </message>
       <message name="IDS_FLAGS_DISABLE_ASYNCHRONOUS_SPELLCHECKING" desc="Title for the flag to disable asynchronous spellchecking.">
         Disable Asynchronous Spellchecking
       </message>
@@ -5967,12 +5956,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_FLAGS_NEW_WALLPAPER_UI_DESCRIPTION" desc="Description of the flag to enable new wallpaper picker UI in ChromeOS.">
         Enables the new wallpaper picker UI.
       </message>
-      <message name="IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_NAME" desc="Name of the flag to disable extended desktop in ash.">
-        Disable extended desktop support.
-      </message>
-      <message name="IDS_FLAGS_DISABLE_ASH_EXTENDED_DESKTOP_DESCRIPTION" desc="Description of the flag to disable extended desktop in ash.">
-        Disable extended desktop, which allows you to open a browser in secondary displays.
-      </message>
       <message name="IDS_FLAGS_DISABLE_ASH_NOTIFY_NAME" desc="Name of the flag to enable applist v2 in ash.">
         Disable Ash notifications.
       </message>
@@ -5995,13 +5978,19 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Enable Views Textfield.
       </message>
       <message name="IDS_FLAGS_ENABLE_VIEWS_TEXTFIELD_DESCRIPTION" desc="Description of the flag to use NativeTextfieldViews instead of NativeTextfieldWin.">
-        Enables an experimental textfield for application UI; does not effect web content.
+        Enables an experimental textfield for application UI; does not affect web content.
       </message>
       <message name="IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_NAME" desc="Name of the flag to use when drawing constrained dialogs using the new frameless style.">
         Enable Experimental Frameless Dialogs.
       </message>
       <message name="IDS_FLAGS_ENABLE_FRAMELESS_DIALOG_DESCRIPTION" desc="Description of the flag to use NativeTextfieldViews instead of NativeTextfieldWin.">
         Enables an experimental frame treatment on certain dialogs.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_CONTACTS_NAME" desc="Name of the 'Enable contacts' lab.">
+        Enable contacts integration.
+      </message>
+      <message name="IDS_FLAGS_ENABLE_CONTACTS_DESCRIPTION" desc="Description of the 'Enable contacts' lab.">
+        Enables downloading Google contacts and displaying them in the App List.
       </message>
 
       <if expr="pp_ifdef('chromeos')">
@@ -6034,7 +6023,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         </message>
         <message name="IDS_FLAGS_DISABLE_NEW_OOBE_DESCRIPTION" desc="Description for the flag to disable new design for OOBE / sign in flows.">
           Disables new design for OOBE / sign in flows.
-        </message>        
+        </message>
         <message name="IDS_FLAGS_DISABLE_BOOT_ANIMATION" desc="Name for the flag to disable wallpaper boot animation (except for OOBE).">
           Disable boot animation.
         </message>
@@ -6407,6 +6396,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_ABOUT_VERSION_PATH_NOTFOUND" desc="label for the non-existent path on the about:version page">
         No such file or directory
       </message>
+      <message name="IDS_ABOUT_VERSION_VARIATIONS" desc="label for the variations list on the about:version page">
+        Variations
+      </message>
 
       <!-- JavaScript Dialog Box strings -->
       <message name="IDS_JAVASCRIPT_ALERT_DEFAULT_TITLE" desc="Title for JavaScript alert originating from a webpage if there is no hostname to display">
@@ -6575,6 +6567,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_CHROME_TO_MOBILE" desc="The text for chrome to mobile menu item">
         Send tab to device
+      </message>
+      <message name="IDS_SHARE_PAGE" desc="The text for the Share Page action box menu item">
+        Share this page
       </message>
 
       <!--Accessible name/action strings-->
@@ -10097,7 +10092,10 @@ experiment id: "<ph name="EXPERIMENT_ID">$5<ex>ar1</ex></ph>"
          desc="Tooltip text for the button that removes/blacklists the thumbnail. Once removed the thumbnail will not show up on the new tab page again.">
         Don't show on this page
       </message>
-
+      <message name="IDS_NEW_TAB_TILE_GRID_ACCESSIBLE_DESCRIPTION"
+         desc="Help message for screenreader users, spoken when navigating to a tile grid for the first time.">
+        Use left and right arrow keys to navigate.
+      </message>
       <if expr="not pp_ifdef('use_titlecase')">
         <message name="IDS_NEW_TAB_APP_OPTIONS"
                  desc="Text for the context menu item that takes the user to the options of an app. (In sentence case.)">
@@ -11026,6 +11024,13 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_WALLPAPER_MANAGER_DOWNLOADING_LABEL" desc="Downloading in progress label.">
         Downloading
       </message>
+      <message name="IDS_WALLPAPER_MANAGER_SHOW_CUSTOM_WALLPAPER_ON_START_WARNING" desc="The string displayed to user when set custom wallpaper">
+        Your wallpaper will be shown on the login screens and your desktop background.
+      </message>
+      <message name="IDS_WALLPAPER_MANAGER_NOT_SHOW_CUSTOM_WALLPAPER_ON_START_WARNING" desc="The string displayed to user when set custom wallpaper">
+        Your wallpaper will be displayed on your desktop background only.
+      </message>
+
 
       <!-- File Browser -->
       <message name="IDS_FILE_BROWSER_ROOT_DIRECTORY_LABEL" desc="Root directory label.">
@@ -11198,6 +11203,9 @@ Some features may be unavailable.  Please check that the profile exists and you 
       <message name="IDS_FILE_BROWSER_GALLERY_DELETE" desc="In the Gallery, the title on the button that deletes selected images.">
         Delete
       </message>
+      <message name="IDS_FILE_BROWSER_SEND_TO_DRIVE" desc="Title of the action for copying file to Drive.">
+        Send to Google Drive
+      </message>
 
       <message name="IDS_FILE_BROWSER_GALLERY_EDIT" desc="In the Gallery, the title on the button shows/hides editing buttons.">
         Edit
@@ -11354,6 +11362,10 @@ Some features may be unavailable.  Please check that the profile exists and you 
       </message>
       <message name="IDS_FILE_BROWSER_CUT_BUTTON_LABEL" desc="Button Label.">
         Cut
+      </message>
+      
+      <message name="IDS_FILE_BROWSER_OPEN_WITH_BUTTON_LABEL" desc="Menu item label, showing dialog to choose application to open selected files">
+        Open with...
       </message>
 
       <message name="IDS_FILE_BROWSER_TRANSFER_ITEMS_REMAINING" desc="File Manager status message. 'Item' is used here as a generic term for file or directory. 'Transferring' is used in the sense 'copying or moving files'.">
@@ -16999,6 +17011,9 @@ Battery full
     <message name="IDS_INTENT_PICKER_WAIT_FOR_CWS" desc="Prompt indicating to the user that Chrome is currently waiting for results from the Chrome Web Store">
       Waiting for Chrome Web Store
     </message>
+    <message name="IDS_INTENT_PICKER_SELECT_INTENT" desc="Button text that, when clicked, allows the user to select the associated intent">
+      Select
+    </message>
 
     <!-- Web Intents common actions -->
     <message name="IDS_WEB_INTENTS_ACTION_SHARE" desc="Question asking the user to pick a service for the 'share' action.">
@@ -17184,7 +17199,7 @@ Battery full
     <message name="IDS_PROFILES_SINGLE_USER_MESSAGE" desc="Text to display in the multi-profiles section when there is only one user">
       You are currently the only <ph name="PRODUCT_NAME">$1<ex>Chrome</ex></ph> user.
     </message>
-    
+
     <!-- Create Profile Dialog -->
     <message name="IDS_PROFILES_CREATE_TITLE" desc="Title of the create profile dialog">
       Create profile
@@ -17348,14 +17363,14 @@ Battery full
 
     <!-- Media Galleries. -->
     <message name="IDS_MEDIA_GALLERIES_DIALOG_HEADER" desc="Header for media gallery permissions dialog.">
-      Media Galleries settings for <ph name="EXTENSION">$1<ex>PhotoEditr</ex></ph>
+      Media access settings for <ph name="EXTENSION">$1<ex>PhotoEditr</ex></ph>
     </message>
-    <message name="IDS_MEDIA_GALLERIES_DIALOG_READ_SUBTEXT" desc="Explanatory text for the read permission.">
-      <ph name="EXTENSION">$1<ex>PhotoEditr</ex></ph> will be able to read the media files in any gallery you select.
+    <message name="IDS_MEDIA_GALLERIES_DIALOG_SUBTEXT" desc="Explanatory text for the media gallery access permission.">
+      Which media (folders and collections of folders) can <ph name="EXTENSION">$1<ex>PhotoEditr</ex></ph> read and write?
     </message>
     <if expr="pp_ifdef('use_titlecase')">
       <message name="IDS_MEDIA_GALLERIES_DIALOG_ADD_GALLERY" desc="In title case: Button for adding a new gallery by choosing a folder.">
-        Add Gallery
+        Add...
       </message>
       <message name="IDS_MEDIA_GALLERIES_DIALOG_CANCEL" desc="In title case: The text for the cancel button on the media galleries configuration dialog.">
         Cancel
@@ -17367,7 +17382,7 @@ Battery full
     <if expr="not pp_ifdef('use_titlecase')">
       <message name="IDS_MEDIA_GALLERIES_DIALOG_ADD_GALLERY" desc="In sentence case: Button for adding a new gallery by choosing a folder."
                meaning="In sentence case: Button for adding a new gallery by choosing a folder.">
-        Add gallery
+        Add...
       </message>
       <message name="IDS_MEDIA_GALLERIES_DIALOG_CANCEL" desc="In sentence case: The text for the cancel button on the media galleries configuration dialog.">
         Cancel
@@ -17382,6 +17397,18 @@ Battery full
     </message>
 
     <!-- App List. -->
+    <message name="IDS_APP_LIST_CONTACT_CHAT_TOOLTIP" desc="Tooltip text for the 'chat' icon displayed next to a contact search result.">
+      Chat
+    </message>
+    <message name="IDS_APP_LIST_CONTACT_EMAIL_TOOLTIP" desc="Tooltip text for the 'email' icon displayed next to a contact search result.">
+      Send email
+    </message>
+    <message name="IDS_APP_LIST_CONTACT_PHONE_TOOLTIP" desc="Tooltip text for the 'phone' icon displayed next to a contact search result.">
+      Call phone
+    </message>
+    <message name="IDS_APP_LIST_CONTACT_VIDEO_TOOLTIP" desc="Tooltip text for the 'video' icon displayed next to a contact search result.">
+      Start Hangout
+    </message>
     <message name="IDS_APP_LIST_CONTEXT_MENU_PIN" desc="Title text for the 'pin' context menu item of an app list item.">
       Pin to Launcher
     </message>
@@ -17400,8 +17427,14 @@ Battery full
       <message name="IDS_DIAGNOSTICS_CONNECTIVITY_TITLE" desc="Title for the connectivity tab.">
         Connectivity
       </message>
+      <message name="IDS_DIAGNOSTICS_REFRESH" desc="Title for the refresh button.">
+        Run again
+      </message>
       <message name="IDS_DIAGNOSTICS_LOADING" desc="Shown while loading the diagnostics page.">
         Loading...
+      </message>
+      <message name="IDS_DIAGNOSTICS_CHOOSE_ADAPTER" desc="Prompts to choose the network adapter to be tested.">
+        Choose the adapter you would like to use to connect to the internet...
       </message>
       <message name="IDS_DIAGNOSTICS_ADAPTER_WLAN0" desc="Adapter name for wlan0 interface.">
         Wi-Fi
@@ -17416,13 +17449,13 @@ Battery full
         3G
       </message>
       <message name="IDS_DIAGNOSTICS_TESTING_HARDWARE" desc="Indicates testing network hardware.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>1. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> hardware...
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>1. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> hardware
       </message>
       <message name="IDS_DIAGNOSTICS_TESTING_CONNECTION_TO_ROUTER" desc="Indicates testing connection to router.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>2. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to router...
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>2. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to router
       </message>
       <message name="IDS_DIAGNOSTICS_TESTING_CONNECTION_TO_INTERNET" desc="Indicates testing connection to internet.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>3. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to internet...
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>3. <ph name="END_BOLD">&lt;/b&gt;</ph>Testing connection to internet
       </message>
       <message name="IDS_DIAGNOSTICS_ADAPTER_DISABLED" desc="Indicates adapter is disabled.">
         The <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter was not enabled.
@@ -17430,11 +17463,23 @@ Battery full
       <message name="IDS_DIAGNOSTICS_ADAPTER_NO_IP" desc="Indicates adapter does not have an IP address.">
         The <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter does not have an IP address and cannot connect to the internet.
       </message>
-      <message name="IDS_DIAGNOSTICS_ENABLE_ADAPTER" desc="Recommendation for enabling adapter.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph>Enable the <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter.
+      <message name="IDS_DIAGNOSTICS_GATEWAY_NOT_CONNECTED_TO_INTERNET" desc="Indicates gateway is not connected to the internet.">
+        Your gateway is not connected to the internet.
       </message>
-      <message name="IDS_DIAGNOSTICS_FIX_CONNECTION_TO_ROUTER" desc="Recommendation for fixing connection to the router.">
-        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph><ph name="BEGIN_ITALIC">&lt;i&gt;</ph>Please ensure that<ph name="END_ITALIC">&lt;/i&gt;</ph><ph name="BR">&lt;br /&gt;</ph>1) you are trying to connect to the right network<ph name="BR2">&lt;br /&gt;</ph>2) you are using the right authentication method<ph name="BR3">&lt;br /&gt;</ph>3) your router is configured correctly<ph name="BR4">&lt;br /&gt;</ph><ph name="BEGIN2_ITALIC">&lt;i&gt;</ph>Try to<ph name="END2_ITALIC">&lt;/i&gt;</ph><ph name="BR5">&lt;br /&gt;</ph>1) connect to a different netowrk<ph name="BR6">&lt;br /&gt;</ph>2) reboot your router
+      <message name="IDS_DIAGNOSTICS_ENABLE_ADAPTER" desc="Recommendation for enabling adapter.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph>Enable <ph name="ADAPTER_NAME">$1<ex>Wi-Fi</ex></ph> adapter.
+      </message>
+      <message name="IDS_DIAGNOSTICS_FIX_NO_IP_WIFI" desc="Recommendation for fixing Wi-Fi adapter without IP address assigned.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph><ph name="BEGIN_ITALIC">&lt;i&gt;</ph>Please ensure that<ph name="END_ITALIC">&lt;/i&gt;</ph><ph name="BR">&lt;br /&gt;</ph>1) you have selected a wireless network.<ph name="BR2">&lt;br /&gt;</ph>2) you have permission to connect to the network you are trying to connect to.<ph name="BR3">&lt;br /&gt;</ph>3) you are using the right authentication method (password, encryption).<ph name="BR4">&lt;br /&gt;</ph>4) your router is configured correctly. Check that the DHCP server is enabled and that the MAC address filtering is configured correctly, if enabled.
+      </message>
+      <message name="IDS_DIAGNOSTICS_FIX_NO_IP_ETHERNET" desc="Recommendation for fixing ethernet adapter without IP address assigned.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph><ph name="BEGIN_ITALIC">&lt;i&gt;</ph>Please ensure that<ph name="END_ITALIC">&lt;/i&gt;</ph><ph name="BR">&lt;br /&gt;</ph>1) the ethernet cable is plugged in.<ph name="BR2">&lt;br /&gt;</ph>2) your router is configured correctly. Check that the DHCP server is enabled and that the MAC address filtering is confiugred correctly, if enabled.
+      </message>
+      <message name="IDS_DIAGNOSTICS_FIX_NO_IP_3G" desc="Recommendation for fixing 3G adapter without IP address assigned.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph><ph name="BEGIN_ITALIC">&lt;i&gt;</ph>Please ensure that<ph name="END_ITALIC">&lt;/i&gt;</ph><ph name="BR">&lt;br /&gt;</ph>1) you are in a location with strong 3G coverage.
+      </message>
+      <message name="IDS_DIAGNOSTICS_FIX_GATEWAY_CONNECTION" desc="Recommendation for fixing gateway connection to the internet.">
+        <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Recommendation: <ph name="END_BOLD">&lt;/b&gt;</ph>Ensure that you have chosen the right gateway and that your gateway is configured correctly.
       </message>
     </if>
 

@@ -23,6 +23,10 @@ class UserActivityNotifier;
 class VideoActivityNotifier;
 }  // namespace chromeos
 
+namespace contacts {
+class ContactManager;
+}  // namespace contacts
+
 namespace policy {
 class NetworkConfigurationUpdater;
 }  // namespace policy
@@ -53,11 +57,11 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   // Set up field trial for low memory headroom settings.
   void SetupLowMemoryHeadroomFieldTrial();
 
+  scoped_ptr<contacts::ContactManager> contact_manager_;
   scoped_ptr<chromeos::BrightnessObserver> brightness_observer_;
   scoped_ptr<chromeos::OutputObserver> output_observer_;
   scoped_ptr<chromeos::ResumeObserver> resume_observer_;
   scoped_ptr<chromeos::ScreenLockObserver> screen_lock_observer_;
-  scoped_ptr<chromeos::SessionManagerObserver> session_manager_observer_;
   scoped_ptr<chromeos::PowerButtonObserver> power_button_observer_;
   scoped_ptr<chromeos::PowerStateOverride> power_state_override_;
   scoped_ptr<chromeos::UserActivityNotifier> user_activity_notifier_;

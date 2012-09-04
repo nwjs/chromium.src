@@ -151,6 +151,8 @@
           'guid.h',
           'guid_posix.cc',
           'guid_win.cc',
+          'hash.cc',
+          'hash.h',
           'hash_tables.h',
           'hi_res_timer_manager_posix.cc',
           'hi_res_timer_manager_win.cc',
@@ -575,9 +577,11 @@
             'sources!': [
               'base_paths_posix.cc',
               'files/file_path_watcher_kqueue.cc',
+              'files/file_path_watcher_stub.cc',
               'system_monitor/system_monitor_posix.cc',
             ],
             'sources/': [
+              ['include', '^files/file_path_watcher_linux\\.cc$'],
               ['include', '^process_util_linux\\.cc$'],
               ['include', '^sys_info_linux\\.cc$'],
               ['include', '^sys_string_conversions_posix\\.cc$'],

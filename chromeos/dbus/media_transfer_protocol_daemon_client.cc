@@ -204,6 +204,40 @@ class MediaTransferProtocolDaemonClientImpl
   }
 
   // MediaTransferProtocolDaemonClient override.
+  virtual void GetFileInfoByPath(const std::string& handle,
+                                 const std::string& path,
+                                 const GetFileInfoCallback& callback,
+                                 const ErrorCallback& error_callback) {
+    dbus::MethodCall method_call(mtpd::kMtpdInterface, "GetFileInfoByPath");
+    dbus::MessageWriter writer(&method_call);
+    writer.AppendString(handle);
+    writer.AppendString(path);
+    proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::Bind(&MediaTransferProtocolDaemonClientImpl::OnGetFileInfo,
+                   weak_ptr_factory_.GetWeakPtr(),
+                   callback,
+                   error_callback));
+  }
+
+  // MediaTransferProtocolDaemonClient override.
+  virtual void GetFileInfoById(const std::string& handle,
+                               uint32 file_id,
+                               const GetFileInfoCallback& callback,
+                               const ErrorCallback& error_callback) {
+    dbus::MethodCall method_call(mtpd::kMtpdInterface, "GetFileInfoById");
+    dbus::MessageWriter writer(&method_call);
+    writer.AppendString(handle);
+    writer.AppendUint32(file_id);
+    proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::Bind(&MediaTransferProtocolDaemonClientImpl::OnGetFileInfo,
+                   weak_ptr_factory_.GetWeakPtr(),
+                   callback,
+                   error_callback));
+  }
+
+  // MediaTransferProtocolDaemonClient override.
   virtual void SetUpConnections(
       const MTPStorageEventHandler& handler) OVERRIDE {
     static const SignalEventTuple kSignalEventTuples[] = {
@@ -342,6 +376,20 @@ class MediaTransferProtocolDaemonClientImpl
     callback.Run(data);
   }
 
+  // Handles the result of GetFileInfoByPath/Id and calls |callback| or
+  // |error_callback|.
+  void OnGetFileInfo(const GetFileInfoCallback& callback,
+                     const ErrorCallback& error_callback,
+                     dbus::Response* response) {
+    if (!response) {
+      error_callback.Run();
+      return;
+    }
+
+    FileEntry file_entry(response);
+    callback.Run(file_entry);
+  }
+
   // Handles MTPStorageAttached/Dettached signals and calls |handler|.
   void OnMTPStorageSignal(MTPStorageEventHandler handler,
                           bool is_attach,
@@ -410,6 +458,15 @@ class MediaTransferProtocolDaemonClientStubImpl
                             uint32 file_id,
                             const ReadFileCallback& callback,
                             const ErrorCallback& error_callback) OVERRIDE {}
+  virtual void GetFileInfoByPath(
+      const std::string& handle,
+      const std::string& path,
+      const GetFileInfoCallback& callback,
+      const ErrorCallback& error_callback) OVERRIDE {}
+  virtual void GetFileInfoById(const std::string& handle,
+                               uint32 file_id,
+                               const GetFileInfoCallback& callback,
+                               const ErrorCallback& error_callback) OVERRIDE {}
   virtual void SetUpConnections(
       const MTPStorageEventHandler& handler) OVERRIDE {}
 
@@ -421,6 +478,18 @@ class MediaTransferProtocolDaemonClientStubImpl
 
 ////////////////////////////////////////////////////////////////////////////////
 // StorageInfo
+
+StorageInfo::StorageInfo()
+    : vendor_id_(0),
+      product_id_(0),
+      device_flags_(0),
+      storage_type_(0),
+      filesystem_type_(0),
+      access_capability_(0),
+      max_capacity_(0),
+      free_space_in_bytes_(0),
+      free_space_in_objects_(0) {
+}
 
 StorageInfo::StorageInfo(const std::string& storage_name,
                          dbus::Response* response)
@@ -483,6 +552,13 @@ void StorageInfo::InitializeFromResponse(dbus::Response* response) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // FileEntry
+
+FileEntry::FileEntry()
+    : item_id_(0),
+      parent_id_(0),
+      file_size_(0),
+      file_type_(FILE_TYPE_UNKNOWN) {
+}
 
 FileEntry::FileEntry(dbus::Response* response)
     : item_id_(0),

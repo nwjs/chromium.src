@@ -103,8 +103,13 @@ void ConfigureEntriesForRestore(
 }
 
 // See NavigationController::IsURLInPageNavigation for how this works and why.
-bool AreURLsInPageNavigation(const GURL& existing_url, const GURL& new_url) {
-  if (existing_url == new_url || !new_url.has_ref()) {
+bool AreURLsInPageNavigation(const GURL& existing_url,
+                             const GURL& new_url,
+                             bool renderer_says_in_page) {
+  if (existing_url == new_url)
+    return renderer_says_in_page;
+
+  if (!new_url.has_ref()) {
     // TODO(jcampan): what about when navigating back from a ref URL to the top
     // non ref URL? Nothing is loaded in that case but we return false here.
     // The user could also navigate from the ref URL to the non ref URL by
@@ -248,9 +253,19 @@ void NavigationControllerImpl::ReloadOriginalRequestURL(bool check_for_repost) {
 
 void NavigationControllerImpl::ReloadInternal(bool check_for_repost,
                                               ReloadType reload_type) {
-  // Reloading a transient entry does nothing.
-  if (transient_entry_index_ != -1)
+  if (transient_entry_index_ != -1) {
+    // If an interstitial is showing, treat a reload as a navigation to the
+    // transient entry's URL.
+    content::NavigationEntryImpl* active_entry =
+        NavigationEntryImpl::FromNavigationEntry(GetActiveEntry());
+    if (!active_entry)
+      return;
+    LoadURL(active_entry->GetURL(),
+            content::Referrer(),
+            content::PAGE_TRANSITION_RELOAD,
+            active_entry->extra_headers());
     return;
+  }
 
   DiscardNonCommittedEntriesInternal();
   int current_index = GetCurrentEntryIndex();
@@ -679,19 +694,19 @@ bool NavigationControllerImpl::RendererDidNavigate(
   // If we are doing a cross-site reload, we need to replace the existing
   // navigation entry, not add another entry to the history. This has the side
   // effect of removing forward browsing history, if such existed.
-  if (pending_entry_ != NULL) {
-    details->did_replace_entry = pending_entry_->is_cross_site_reload();
-  }
+  details->did_replace_entry =
+      pending_entry_ && pending_entry_->is_cross_site_reload();
 
   // is_in_page must be computed before the entry gets committed.
-  details->is_in_page = IsURLInPageNavigation(params.url);
+  details->is_in_page = IsURLInPageNavigation(
+      params.url, params.was_within_same_page);
 
   // Do navigation-type specific actions. These will make and commit an entry.
   details->type = ClassifyNavigation(params);
 
   switch (details->type) {
     case content::NAVIGATION_TYPE_NEW_PAGE:
-      RendererDidNavigateToNewPage(params, &(details->did_replace_entry));
+      RendererDidNavigateToNewPage(params, details->did_replace_entry);
       break;
     case content::NAVIGATION_TYPE_EXISTING_PAGE:
       RendererDidNavigateToExistingPage(params);
@@ -700,7 +715,7 @@ bool NavigationControllerImpl::RendererDidNavigate(
       RendererDidNavigateToSamePage(params);
       break;
     case content::NAVIGATION_TYPE_IN_PAGE:
-      RendererDidNavigateInPage(params, &(details->did_replace_entry));
+      RendererDidNavigateInPage(params, &details->did_replace_entry);
       break;
     case content::NAVIGATION_TYPE_NEW_SUBFRAME:
       RendererDidNavigateNewSubframe(params);
@@ -871,8 +886,10 @@ content::NavigationType NavigationControllerImpl::ClassifyNavigation(
   // the time this doesn't matter since WebKit doesn't tell us about subframe
   // navigations that don't actually navigate, but it can happen when there is
   // an encoding override (it always sends a navigation request).
-  if (AreURLsInPageNavigation(existing_entry->GetURL(), params.url))
+  if (AreURLsInPageNavigation(existing_entry->GetURL(), params.url,
+                              params.was_within_same_page)) {
     return content::NAVIGATION_TYPE_IN_PAGE;
+  }
 
   // Since we weeded out "new" navigations above, we know this is an existing
   // (back/forward) navigation.
@@ -890,7 +907,7 @@ bool NavigationControllerImpl::IsRedirect(
 }
 
 void NavigationControllerImpl::RendererDidNavigateToNewPage(
-    const ViewHostMsg_FrameNavigate_Params& params, bool* did_replace_entry) {
+   const ViewHostMsg_FrameNavigate_Params& params, bool replace_entry) {
   NavigationEntryImpl* new_entry;
   bool update_virtual_url;
   if (pending_entry_) {
@@ -926,7 +943,7 @@ void NavigationControllerImpl::RendererDidNavigateToNewPage(
   new_entry->SetOriginalRequestURL(params.original_request_url);
   new_entry->SetIsOverridingUserAgent(params.is_overriding_user_agent);
 
-  InsertOrReplaceEntry(new_entry, *did_replace_entry);
+  InsertOrReplaceEntry(new_entry, replace_entry);
 }
 
 void NavigationControllerImpl::RendererDidNavigateToExistingPage(
@@ -1079,11 +1096,11 @@ int NavigationControllerImpl::GetIndexOfEntry(
   return (i == entries_.end()) ? -1 : static_cast<int>(i - entries_.begin());
 }
 
-bool NavigationControllerImpl::IsURLInPageNavigation(const GURL& url) const {
+bool NavigationControllerImpl::IsURLInPageNavigation(
+    const GURL& url, bool renderer_says_in_page) const {
   NavigationEntry* last_committed = GetLastCommittedEntry();
-  if (!last_committed)
-    return false;
-  return AreURLsInPageNavigation(last_committed->GetURL(), url);
+  return last_committed && AreURLsInPageNavigation(
+      last_committed->GetURL(), url, renderer_says_in_page);
 }
 
 void NavigationControllerImpl::CopyStateFrom(

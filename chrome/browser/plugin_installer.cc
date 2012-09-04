@@ -26,6 +26,7 @@
 #include "content/public/browser/resource_dispatcher_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/url_request/url_request.h"
+#include "net/url_request/url_request_context.h"
 #include "webkit/plugins/npapi/plugin_group.h"
 
 using content::BrowserContext;
@@ -45,10 +46,8 @@ void BeginDownload(
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
 
   ResourceDispatcherHost* rdh = ResourceDispatcherHost::Get();
-  scoped_ptr<net::URLRequest> request(new net::URLRequest(
-      url,
-      NULL,
-      resource_context->GetRequestContext()));
+  scoped_ptr<net::URLRequest> request(
+      resource_context->GetRequestContext()->CreateRequest(url, NULL));
   net::Error error = rdh->BeginDownload(
       request.Pass(),
       false,  // is_content_initiated
@@ -72,9 +71,11 @@ PluginInstaller::PluginInstaller(const std::string& identifier,
                                  const string16& name,
                                  bool url_for_display,
                                  const GURL& plugin_url,
-                                 const GURL& help_url)
+                                 const GURL& help_url,
+                                 const string16& group_name_matcher)
     : identifier_(identifier),
       name_(name),
+      group_name_matcher_(group_name_matcher),
       url_for_display_(url_for_display),
       plugin_url_(plugin_url),
       help_url_(help_url),
@@ -249,4 +250,8 @@ void PluginInstaller::DownloadCancelled() {
   DCHECK_EQ(INSTALLER_STATE_DOWNLOADING, state_);
   state_ = INSTALLER_STATE_IDLE;
   FOR_EACH_OBSERVER(PluginInstallerObserver, observers_, DownloadCancelled());
+}
+
+bool PluginInstaller::MatchesPlugin(const webkit::WebPluginInfo& plugin) {
+  return plugin.name.find(group_name_matcher_) != string16::npos;
 }

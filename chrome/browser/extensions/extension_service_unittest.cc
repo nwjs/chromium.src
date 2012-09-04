@@ -30,7 +30,6 @@
 #include "chrome/browser/extensions/app_sync_data.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
-#include "chrome/browser/extensions/default_apps.h"
 #include "chrome/browser/extensions/extension_creator.h"
 #include "chrome/browser/extensions/extension_error_reporter.h"
 #include "chrome/browser/extensions/extension_error_ui.h"
@@ -74,6 +73,7 @@
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/plugin_service.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/test/test_browser_thread.h"
 #include "googleurl/src/gurl.h"
@@ -599,15 +599,17 @@ class ExtensionServiceTest
   // method directly.  Instead, use InstallCrx(), which waits for
   // the crx to be installed and does extra error checking.
   void StartCRXInstall(const FilePath& crx_path) {
-    StartCRXInstall(crx_path, false);
+    StartCRXInstall(crx_path, Extension::NO_FLAGS);
   }
 
-  void StartCRXInstall(const FilePath& crx_path, bool from_webstore) {
+  void StartCRXInstall(const FilePath& crx_path, int creation_flags) {
     ASSERT_TRUE(file_util::PathExists(crx_path))
         << "Path does not exist: "<< crx_path.value().c_str();
     scoped_refptr<CrxInstaller> installer(CrxInstaller::Create(service_, NULL));
-    installer->set_allow_silent_install(true);
-    installer->set_is_gallery_install(from_webstore);
+    installer->set_creation_flags(creation_flags);
+    if (!(creation_flags & Extension::WAS_INSTALLED_BY_DEFAULT)) {
+      installer->set_allow_silent_install(true);
+    }
     installer->InstallCrx(crx_path);
   }
 
@@ -619,32 +621,47 @@ class ExtensionServiceTest
 
   const Extension* PackAndInstallCRX(const FilePath& dir_path,
                                      const FilePath& pem_path,
-                                     InstallState install_state) {
+                                     InstallState install_state,
+                                     int creation_flags) {
     FilePath crx_path;
     ScopedTempDir temp_dir;
     EXPECT_TRUE(temp_dir.CreateUniqueTempDir());
     crx_path = temp_dir.path().AppendASCII("temp.crx");
 
     PackCRX(dir_path, pem_path, crx_path);
-    return InstallCRX(crx_path, install_state);
+    return InstallCRX(crx_path, install_state, creation_flags);
+  }
+
+  const Extension* PackAndInstallCRX(const FilePath& dir_path,
+                                     const FilePath& pem_path,
+                                     InstallState install_state) {
+    return PackAndInstallCRX(dir_path, pem_path, install_state,
+                             Extension::NO_FLAGS);
   }
 
   const Extension* PackAndInstallCRX(const FilePath& dir_path,
                                      InstallState install_state) {
-    return PackAndInstallCRX(dir_path, FilePath(), install_state);
+    return PackAndInstallCRX(dir_path, FilePath(), install_state,
+                             Extension::NO_FLAGS);
+  }
+
+  const Extension* InstallCRX(const FilePath& path,
+                              InstallState install_state,
+                              int creation_flags) {
+    StartCRXInstall(path, creation_flags);
+    return WaitForCrxInstall(path, install_state);
   }
 
   // Attempts to install an extension. Use INSTALL_FAILED if the installation
   // is expected to fail.
   const Extension* InstallCRX(const FilePath& path,
                               InstallState install_state) {
-    StartCRXInstall(path);
-    return WaitForCrxInstall(path, install_state);
+    return InstallCRX(path, install_state, Extension::NO_FLAGS);
   }
 
   const Extension* InstallCRXFromWebStore(const FilePath& path,
                                           InstallState install_state) {
-    StartCRXInstall(path, true);
+    StartCRXInstall(path, Extension::FROM_WEBSTORE);
     return WaitForCrxInstall(path, install_state);
   }
 
@@ -1506,6 +1523,51 @@ TEST_F(ExtensionServiceTest, GrantedPermissions) {
   EXPECT_EQ(expected_host_perms, known_perms->effective_hosts());
 }
 
+
+#if !defined(OS_CHROMEOS)
+// This tests that the granted permissions preferences are correctly set for
+// default apps.
+TEST_F(ExtensionServiceTest, DefaultAppsGrantedPermissions) {
+  InitializeEmptyExtensionService();
+  InitializeRequestContext();
+  FilePath path = data_dir_
+      .AppendASCII("permissions");
+
+  FilePath pem_path = path.AppendASCII("unknown.pem");
+  path = path.AppendASCII("unknown");
+
+  ASSERT_TRUE(file_util::PathExists(pem_path));
+  ASSERT_TRUE(file_util::PathExists(path));
+
+  ExtensionPrefs* prefs = service_->extension_prefs();
+
+  APIPermissionSet expected_api_perms;
+  URLPatternSet expected_host_perms;
+
+  // Make sure there aren't any granted permissions before the
+  // extension is installed.
+  scoped_refptr<PermissionSet> known_perms(
+      prefs->GetGrantedPermissions(permissions_crx));
+  EXPECT_FALSE(known_perms.get());
+
+  const Extension* extension = PackAndInstallCRX(
+      path, pem_path, INSTALL_NEW, Extension::WAS_INSTALLED_BY_DEFAULT);
+
+  EXPECT_EQ(0u, GetErrors().size());
+  ASSERT_EQ(1u, service_->extensions()->size());
+  EXPECT_EQ(permissions_crx, extension->id());
+
+  // Verify that the valid API permissions have been recognized.
+  expected_api_perms.insert(APIPermission::kTab);
+
+  known_perms = prefs->GetGrantedPermissions(extension->id());
+  EXPECT_TRUE(known_perms.get());
+  EXPECT_FALSE(known_perms->IsEmpty());
+  EXPECT_EQ(expected_api_perms, known_perms->apis());
+  EXPECT_FALSE(known_perms->HasEffectiveFullAccess());
+}
+#endif
+
 #if !defined(OS_CHROMEOS)
 // Tests that the granted permissions full_access bit gets set correctly when
 // an extension contains an NPAPI plugin. Don't run this test on Chrome OS
@@ -2081,7 +2143,15 @@ TEST_F(ExtensionServiceTest, EnsureCWSOrdinalsInitialized) {
       sorting->GetAppLaunchOrdinal(extension_misc::kWebStoreAppId).IsValid());
 }
 
-TEST_F(ExtensionServiceTest, InstallAppsWithUnlimitedStorage) {
+// Flaky failures on Vista. http://crbug.com/145381
+#if defined(OS_WIN)
+#define MAYBE_InstallAppsWithUnlimitedStorage \
+    DISABLED_InstallAppsWithUnlimitedStorage
+#else
+#define MAYBE_InstallAppsWithUnlimitedStorage InstallAppsWithUnlimitedStorage
+#endif
+
+TEST_F(ExtensionServiceTest, MAYBE_InstallAppsWithUnlimitedStorage) {
   InitializeEmptyExtensionService();
   InitializeRequestContext();
   EXPECT_TRUE(service_->extensions()->is_empty());
@@ -3427,7 +3497,8 @@ TEST_F(ExtensionServiceTest, ClearExtensionData) {
 
   // Open a database.
   webkit_database::DatabaseTracker* db_tracker =
-      BrowserContext::GetDatabaseTracker(profile_.get());
+      BrowserContext::GetDefaultStoragePartition(profile_.get())->
+          GetDatabaseTracker();
   string16 db_name = UTF8ToUTF16("db");
   string16 description = UTF8ToUTF16("db_description");
   int64 size;
@@ -3538,7 +3609,8 @@ TEST_F(ExtensionServiceTest, ClearAppData) {
 
   // Open a database.
   webkit_database::DatabaseTracker* db_tracker =
-      BrowserContext::GetDatabaseTracker(profile_.get());
+      BrowserContext::GetDefaultStoragePartition(profile_.get())->
+          GetDatabaseTracker();
   string16 db_name = UTF8ToUTF16("db");
   string16 description = UTF8ToUTF16("db_description");
   int64 size;
@@ -3827,54 +3899,6 @@ TEST_F(ExtensionServiceTest, ExternalInstallPref) {
   AddMockExternalProvider(pref_provider);
   TestExternalProvider(pref_provider, Extension::EXTERNAL_PREF);
 }
-
-#if !defined(OS_CHROMEOS)
-// Chrome OS has different way of installing default apps.
-TEST_F(ExtensionServiceTest, DefaultAppsInstall) {
-  scoped_ptr<TestingProfile> profile(new TestingProfile());
-
-  // The default apps should be installed if kDefaultAppsInstallState
-  // is unknown.
-  EXPECT_TRUE(default_apps::ShouldInstallInProfile(profile.get()));
-  int state = profile->GetPrefs()->GetInteger(prefs::kDefaultAppsInstallState);
-  EXPECT_TRUE(state == default_apps::kAlreadyInstalledDefaultApps);
-
-  // The default apps should only be installed once.
-  EXPECT_FALSE(default_apps::ShouldInstallInProfile(profile.get()));
-  state = profile->GetPrefs()->GetInteger(prefs::kDefaultAppsInstallState);
-  EXPECT_TRUE(state == default_apps::kAlreadyInstalledDefaultApps);
-
-  // The default apps should not be installed if the state is
-  // kNeverProvideDefaultApps
-  profile->GetPrefs()->SetInteger(prefs::kDefaultAppsInstallState,
-      default_apps::kNeverInstallDefaultApps);
-  EXPECT_FALSE(default_apps::ShouldInstallInProfile(profile.get()));
-  state = profile->GetPrefs()->GetInteger(prefs::kDefaultAppsInstallState);
-  EXPECT_TRUE(state == default_apps::kNeverInstallDefaultApps);
-
-  // The old default apps with kAlwaysInstallDefaultAppss should be migrated.
-  profile->GetPrefs()->SetInteger(prefs::kDefaultAppsInstallState,
-      default_apps::kProvideLegacyDefaultApps);
-  EXPECT_TRUE(default_apps::ShouldInstallInProfile(profile.get()));
-  state = profile->GetPrefs()->GetInteger(prefs::kDefaultAppsInstallState);
-  EXPECT_TRUE(state == default_apps::kAlreadyInstalledDefaultApps);
-
-  class DefaultTestingProfile : public TestingProfile {
-    virtual  bool WasCreatedByVersionOrLater(
-        const std::string& version) OVERRIDE {
-      return false;
-    }
-  };
-  profile.reset(new DefaultTestingProfile);
-  // The old default apps with kProvideLegacyDefaultApps should be migrated
-  // even if the profile version is older than Chrome version.
-  profile->GetPrefs()->SetInteger(prefs::kDefaultAppsInstallState,
-      default_apps::kProvideLegacyDefaultApps);
-  EXPECT_TRUE(default_apps::ShouldInstallInProfile(profile.get()));
-  state = profile->GetPrefs()->GetInteger(prefs::kDefaultAppsInstallState);
-  EXPECT_TRUE(state == default_apps::kAlreadyInstalledDefaultApps);
-}
-#endif
 
 TEST_F(ExtensionServiceTest, ExternalInstallPrefUpdateUrl) {
   // This should all work, even when normal extension installation is disabled.

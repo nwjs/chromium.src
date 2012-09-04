@@ -693,7 +693,8 @@ class SyncEncryptionHandlerObserverMock
                void(PassphraseRequiredReason,
                     const sync_pb::EncryptedData&));  // NOLINT
   MOCK_METHOD0(OnPassphraseAccepted, void());  // NOLINT
-  MOCK_METHOD1(OnBootstrapTokenUpdated, void(const std::string&));  // NOLINT
+  MOCK_METHOD2(OnBootstrapTokenUpdated,
+               void(const std::string&, BootstrapTokenType type));  // NOLINT
   MOCK_METHOD2(OnEncryptedTypesChanged,
                void(ModelTypeSet, bool));  // NOLINT
   MOCK_METHOD0(OnEncryptionComplete, void());  // NOLINT
@@ -1423,7 +1424,7 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithNoData) {
   EXPECT_TRUE(SetUpEncryption(WRITE_TO_NIGORI, DEFAULT_ENCRYPTION));
   EXPECT_CALL(encryption_observer_,
               OnEncryptedTypesChanged(
-                  HasModelTypes(ModelTypeSet::All()), true));
+                  HasModelTypes(UserTypes()), true));
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   sync_manager_.GetEncryptionHandler()->EnableEncryptEverything();
   EXPECT_TRUE(EncryptEverythingEnabledForTest());
@@ -1477,14 +1478,14 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
 
   EXPECT_CALL(encryption_observer_,
               OnEncryptedTypesChanged(
-                  HasModelTypes(ModelTypeSet::All()), true));
+                  HasModelTypes(UserTypes()), true));
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   sync_manager_.GetEncryptionHandler()->EnableEncryptEverything();
   EXPECT_TRUE(EncryptEverythingEnabledForTest());
   {
     ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
     EXPECT_TRUE(GetEncryptedTypesWithTrans(&trans).Equals(
-        ModelTypeSet::All()));
+        UserTypes()));
     EXPECT_TRUE(syncable::VerifyDataTypeEncryptionForTest(
         trans.GetWrappedTrans(),
         BOOKMARKS,
@@ -1501,7 +1502,8 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
 
   // Trigger's a ReEncryptEverything with new passphrase.
   testing::Mock::VerifyAndClearExpectations(&encryption_observer_);
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1512,7 +1514,7 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
   EXPECT_TRUE(EncryptEverythingEnabledForTest());
   {
     ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
-    EXPECT_TRUE(GetEncryptedTypesWithTrans(&trans).Equals(ModelTypeSet::All()));
+    EXPECT_TRUE(GetEncryptedTypesWithTrans(&trans).Equals(UserTypes()));
     EXPECT_TRUE(syncable::VerifyDataTypeEncryptionForTest(
         trans.GetWrappedTrans(),
         BOOKMARKS,
@@ -1529,7 +1531,8 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
   // Calling EncryptDataTypes with an empty encrypted types should not trigger
   // a reencryption and should just notify immediately.
   testing::Mock::VerifyAndClearExpectations(&encryption_observer_);
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_)).Times(0);
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN)).Times(0);
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted()).Times(0);
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete()).Times(0);
   sync_manager_.GetEncryptionHandler()->EnableEncryptEverything();
@@ -1540,7 +1543,8 @@ TEST_F(SyncManagerTest, EncryptDataTypesWithData) {
 // (case 1 in SyncManager::SyncInternal::SetEncryptionPassphrase)
 TEST_F(SyncManagerTest, SetInitialGaiaPass) {
   EXPECT_FALSE(SetUpEncryption(DONT_WRITE_NIGORI, UNINITIALIZED));
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1574,7 +1578,8 @@ TEST_F(SyncManagerTest, UpdateGaiaPass) {
     cryptographer->GetBootstrapToken(&bootstrap_token);
     verifier.Bootstrap(bootstrap_token);
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1621,7 +1626,8 @@ TEST_F(SyncManagerTest, SetPassphraseWithPassword) {
     data.set_password_value("secret");
     password_node.SetPasswordSpecifics(data);
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+    EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1678,7 +1684,8 @@ TEST_F(SyncManagerTest, SupplyPendingGAIAPass) {
     EXPECT_TRUE(cryptographer->has_pending_keys());
     node.SetNigoriSpecifics(nigori);
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1732,7 +1739,8 @@ TEST_F(SyncManagerTest, SupplyPendingOldGAIAPass) {
   // The bootstrap token should have been updated. Save it to ensure it's based
   // on the new GAIA password.
   std::string bootstrap_token;
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_))
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN))
       .WillOnce(SaveArg<0>(&bootstrap_token));
   EXPECT_CALL(encryption_observer_, OnPassphraseRequired(_,_));
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1754,7 +1762,8 @@ TEST_F(SyncManagerTest, SupplyPendingOldGAIAPass) {
     other_cryptographer.GetKeys(&encrypted);
     EXPECT_TRUE(cryptographer->CanDecrypt(encrypted));
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1807,7 +1816,8 @@ TEST_F(SyncManagerTest, SupplyPendingExplicitPass) {
     nigori.set_using_explicit_passphrase(true);
     node.SetNigoriSpecifics(nigori);
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1850,7 +1860,8 @@ TEST_F(SyncManagerTest, SupplyPendingGAIAPassUserProvided) {
     cryptographer->SetPendingKeys(nigori.encrypted());
     EXPECT_FALSE(cryptographer->is_ready());
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1882,7 +1893,8 @@ TEST_F(SyncManagerTest, SetPassphraseWithEmptyPasswordNode) {
     EXPECT_EQ(WriteNode::INIT_SUCCESS, result);
     node_id = password_node.GetId();
   }
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -1995,14 +2007,14 @@ TEST_F(SyncManagerTest, EncryptBookmarksWithLegacyData) {
 
   EXPECT_CALL(encryption_observer_,
               OnEncryptedTypesChanged(
-                  HasModelTypes(ModelTypeSet::All()), true));
+                  HasModelTypes(UserTypes()), true));
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   sync_manager_.GetEncryptionHandler()->EnableEncryptEverything();
   EXPECT_TRUE(EncryptEverythingEnabledForTest());
 
   {
     ReadTransaction trans(FROM_HERE, sync_manager_.GetUserShare());
-    EXPECT_TRUE(GetEncryptedTypesWithTrans(&trans).Equals(ModelTypeSet::All()));
+    EXPECT_TRUE(GetEncryptedTypesWithTrans(&trans).Equals(UserTypes()));
     EXPECT_TRUE(syncable::VerifyDataTypeEncryptionForTest(
         trans.GetWrappedTrans(),
         BOOKMARKS,
@@ -2082,7 +2094,7 @@ TEST_F(SyncManagerTest, UpdateEntryWithEncryption) {
   // Encrypt the datatatype, should set is_unsynced.
   EXPECT_CALL(encryption_observer_,
               OnEncryptedTypesChanged(
-                  HasModelTypes(ModelTypeSet::All()), true));
+                  HasModelTypes(UserTypes()), true));
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_TRUE(SetUpEncryption(WRITE_TO_NIGORI, FULL_ENCRYPTION));
 
@@ -2108,7 +2120,8 @@ TEST_F(SyncManagerTest, UpdateEntryWithEncryption) {
 
   // Set a new passphrase. Should set is_unsynced.
   testing::Mock::VerifyAndClearExpectations(&encryption_observer_);
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -2306,7 +2319,8 @@ TEST_F(SyncManagerTest, UpdatePasswordNewPassphrase) {
 
   // Set a new passphrase. Should set is_unsynced.
   testing::Mock::VerifyAndClearExpectations(&encryption_observer_);
-  EXPECT_CALL(encryption_observer_, OnBootstrapTokenUpdated(_));
+  EXPECT_CALL(encryption_observer_,
+              OnBootstrapTokenUpdated(_, PASSPHRASE_BOOTSTRAP_TOKEN));
   EXPECT_CALL(encryption_observer_, OnPassphraseAccepted());
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -2405,7 +2419,7 @@ TEST_F(SyncManagerTest, SetBookmarkTitleWithEncryption) {
   // Encrypt the datatatype, should set is_unsynced.
   EXPECT_CALL(encryption_observer_,
               OnEncryptedTypesChanged(
-                  HasModelTypes(ModelTypeSet::All()), true));
+                  HasModelTypes(UserTypes()), true));
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_TRUE(SetUpEncryption(WRITE_TO_NIGORI, FULL_ENCRYPTION));
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));
@@ -2502,7 +2516,7 @@ TEST_F(SyncManagerTest, SetNonBookmarkTitleWithEncryption) {
   // Encrypt the datatatype, should set is_unsynced.
   EXPECT_CALL(encryption_observer_,
               OnEncryptedTypesChanged(
-                  HasModelTypes(ModelTypeSet::All()), true));
+                  HasModelTypes(UserTypes()), true));
   EXPECT_CALL(encryption_observer_, OnEncryptionComplete());
   EXPECT_TRUE(SetUpEncryption(WRITE_TO_NIGORI, FULL_ENCRYPTION));
   EXPECT_CALL(encryption_observer_, OnCryptographerStateChanged(_));

@@ -100,8 +100,8 @@
 
 #if defined(OS_CHROMEOS)
 #include "ash/display/output_configurator_animation.h"
+#include "base/message_pump_aurax11.h"
 #include "chromeos/display/output_configurator.h"
-#include "ui/aura/dispatcher_linux.h"
 #endif  // defined(OS_CHROMEOS)
 
 namespace ash {
@@ -184,8 +184,7 @@ Shell::Shell(ShellDelegate* delegate)
       env_filter_(NULL),
       delegate_(delegate),
 #if defined(OS_CHROMEOS)
-      output_configurator_(new chromeos::OutputConfigurator(
-          internal::DisplayController::IsExtendedDesktopEnabled())),
+      output_configurator_(new chromeos::OutputConfigurator()),
       output_configurator_animation_(
           new internal::OutputConfiguratorAnimation()),
 #endif  // defined(OS_CHROMEOS)
@@ -197,9 +196,8 @@ Shell::Shell(ShellDelegate* delegate)
   ui_controls::InstallUIControlsAura(internal::CreateUIControls());
 #if defined(OS_CHROMEOS)
   output_configurator_->AddObserver(output_configurator_animation_.get());
-  static_cast<aura::DispatcherLinux*>(
-      aura::Env::GetInstance()->GetDispatcher())->AddDispatcherForRootWindow(
-          output_configurator());
+  base::MessagePumpAuraX11::Current()->AddDispatcherForRootWindow(
+      output_configurator());
 #endif  // defined(OS_CHROMEOS)
 }
 
@@ -279,10 +277,8 @@ Shell::~Shell() {
 
 #if defined(OS_CHROMEOS)
   output_configurator_->RemoveObserver(output_configurator_animation_.get());
-  // Remove OutputConfigurator from Dispatcher.
-  static_cast<aura::DispatcherLinux*>(
-      aura::Env::GetInstance()->GetDispatcher())->RemoveDispatcherForRootWindow(
-          output_configurator());
+  base::MessagePumpAuraX11::Current()->RemoveDispatcherForRootWindow(
+      output_configurator());
 #endif  // defined(OS_CHROMEOS)
 }
 
@@ -348,7 +344,6 @@ aura::Window* Shell::GetContainer(aura::RootWindow* root_window,
 
 // static
 std::vector<aura::Window*> Shell::GetAllContainers(int container_id) {
-  // TODO(oshima): Support multiple root windows.
   std::vector<aura::Window*> containers;
   aura::Window* container = GetPrimaryRootWindow()->GetChildById(container_id);
   if (container)
@@ -372,7 +367,7 @@ void Shell::Init() {
       new internal::ActivationController(focus_manager_.get()));
 
   screen_position_controller_.reset(new internal::ScreenPositionController);
-  display_controller_.reset(new internal::DisplayController);
+  display_controller_.reset(new DisplayController);
   display_controller_->InitPrimaryDisplay();
   aura::RootWindow* root_window = display_controller_->GetPrimaryRootWindow();
   active_root_window_ = root_window;
@@ -422,11 +417,8 @@ void Shell::Init() {
     AddEnvEventFilter(touch_observer_hud_.get());
   }
 
-  if (internal::DisplayController::IsExtendedDesktopEnabled()) {
-    mouse_cursor_filter_.reset(
-        new internal::MouseCursorEventFilter(display_controller_.get()));
-    AddEnvEventFilter(mouse_cursor_filter_.get());
-  }
+  mouse_cursor_filter_.reset(new internal::MouseCursorEventFilter());
+  AddEnvEventFilter(mouse_cursor_filter_.get());
 
   // Create Controllers that may need root window.
   // TODO(oshima): Move as many controllers before creating
@@ -462,7 +454,9 @@ void Shell::Init() {
   // Initialize Primary RootWindow specific items.
   status_area_widget_ = new internal::StatusAreaWidget();
   status_area_widget_->CreateTrayViews(delegate_.get());
-  status_area_widget_->Show();
+  // Login screen manages status area visibility by itself.
+  if (delegate_.get() && delegate_->IsSessionStarted())
+    status_area_widget_->Show();
 
   focus_cycler_.reset(new internal::FocusCycler());
   focus_cycler_->AddWidget(status_area_widget_);
@@ -669,32 +663,15 @@ int Shell::GetGridSize() const {
 
 void Shell::InitRootWindowForSecondaryDisplay(aura::RootWindow* root) {
   root->set_focus_manager(focus_manager_.get());
-  if (internal::DisplayController::IsExtendedDesktopEnabled()) {
-    internal::RootWindowController* controller =
-        new internal::RootWindowController(root);
-    controller->CreateContainers();
-    InitRootWindowController(controller);
-    controller->root_window_layout()->OnWindowResized();
-    desktop_background_controller_->OnRootWindowAdded(root);
-    root->ShowRootWindow();
-    // Activate new root for testing.
-    active_root_window_ = root;
-  } else {
-    root->SetFocusWhenShown(false);
-    root->SetLayoutManager(new internal::RootWindowLayoutManager(root));
-    aura::Window* container = new aura::Window(NULL);
-    container->SetName("SecondaryDisplayContainer");
-    container->Init(ui::LAYER_NOT_DRAWN);
-    root->AddChild(container);
-    container->SetLayoutManager(new internal::BaseLayoutManager(root));
-    CreateSecondaryDisplayWidget(container);
-    container->Show();
-    root->layout_manager()->OnWindowResized();
-    aura::client::SetCaptureClient(root, capture_controller_.get());
-    aura::client::SetScreenPositionClient(
-        root, screen_position_controller_.get());
-    root->ShowRootWindow();
-  }
+  internal::RootWindowController* controller =
+      new internal::RootWindowController(root);
+  controller->CreateContainers();
+  InitRootWindowController(controller);
+  controller->root_window_layout()->OnWindowResized();
+  desktop_background_controller_->OnRootWindowAdded(root);
+  root->ShowRootWindow();
+  // Activate new root for testing.
+  active_root_window_ = root;
 }
 
 void Shell::InitRootWindowController(

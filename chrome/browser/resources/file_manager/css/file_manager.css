@@ -679,7 +679,11 @@ button#detail-view:not([disabled]) {
   cursor: pointer;
 }
 
-.filename-label > :hover,
+grid .filename-label > :hover {
+  text-decoration: underline;
+}
+
+list .filename-label > :hover,
 .breadcrumb-path:not(.breadcrumb-last):hover {
   color: rgb(17, 85, 204);
   text-decoration: underline;
@@ -780,6 +784,7 @@ body[type='full-page'] .thumbnail-grid .thumbnail-bottom {
   background-position: 5px center;
   background-repeat: no-repeat;
   background-size: 16px 16px;
+  line-height: 39px;
   padding-left: 26px;
 }
 
@@ -1541,4 +1546,9 @@ button:focus {
 
 #new-folder {
   margin-right: 30px;
+}
+
+#default-action-dialog {
+  min-width: 300px;
+  width: auto;
 }

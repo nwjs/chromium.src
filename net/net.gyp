@@ -22,6 +22,12 @@
       }, {
         'posix_avoid_mmap%': 0,
       }],
+      ['OS=="ios"', {
+        # Websockets and socket stream are not used on iOS.
+        'enable_websockets%': 0,
+      }, {
+        'enable_websockets%': 1,
+      }],
     ],
   },
   'includes': [
@@ -271,6 +277,7 @@
         'base/upload_data_stream.h',
         'base/upload_element.cc',
         'base/upload_element.h',
+        'base/upload_progress.h',
         'base/winsock_init.cc',
         'base/winsock_init.h',
         'base/winsock_util.cc',
@@ -334,8 +341,6 @@
         'disk_cache/file_lock.h',
         'disk_cache/file_posix.cc',
         'disk_cache/file_win.cc',
-        'disk_cache/hash.cc',
-        'disk_cache/hash.h',
         'disk_cache/histogram_macros.h',
         'disk_cache/in_flight_backend_io.cc',
         'disk_cache/in_flight_backend_io.h',
@@ -378,9 +383,6 @@
         'dns/dns_config_service_posix.h',
         'dns/dns_config_service_win.cc',
         'dns/dns_config_service_win.h',
-        'dns/dns_config_watcher.h',
-        'dns/dns_config_watcher_posix.cc',
-        'dns/dns_config_watcher_win.cc',
         'dns/dns_hosts.cc',
         'dns/dns_hosts.h',
         'dns/dns_protocol.h',
@@ -589,8 +591,6 @@
         'proxy/proxy_resolver_script.h',
         'proxy/proxy_resolver_script_data.cc',
         'proxy/proxy_resolver_script_data.h',
-        'proxy/proxy_resolver_v8.cc',
-        'proxy/proxy_resolver_v8.h',
         'proxy/proxy_resolver_winhttp.cc',
         'proxy/proxy_resolver_winhttp.h',
         'proxy/proxy_retry_info.h',
@@ -670,8 +670,6 @@
         'socket/tcp_server_socket_win.h',
         'socket/transport_client_socket_pool.cc',
         'socket/transport_client_socket_pool.h',
-        'socket/web_socket_server_socket.cc',
-        'socket/web_socket_server_socket.h',
         'socket_stream/socket_stream.cc',
         'socket_stream/socket_stream.h',
         'socket_stream/socket_stream_job.cc',
@@ -820,12 +818,6 @@
         '../base/base.gyp:base',
       ],
       'conditions': [
-        ['OS != "ios"', {
-          'dependencies': [
-            # The v8 gyp file is not available in the iOS tree.
-            '../v8/tools/gyp/v8.gyp:v8',
-          ],
-        }],
         ['chromeos==1', {
           'sources!': [
              'base/network_change_notifier_linux.cc',
@@ -883,6 +875,18 @@
             'disk_cache/mapped_file_avoid_mmap_posix.cc',
           ],
         }],
+        [ 'disable_ftp_support==1', {
+            'sources/': [
+              ['exclude', '^ftp/'],
+            ],
+            'sources!': [
+              'url_request/ftp_protocol_handler.cc',
+              'url_request/ftp_protocol_handler.h',
+              'url_request/url_request_ftp_job.cc',
+              'url_request/url_request_ftp_job.h',
+            ],
+          },
+        ],
         ['use_openssl==1', {
             'sources!': [
               'base/cert_database_nss.cc',
@@ -999,6 +1003,16 @@
               'base/cert_verify_proc_nss.h',
             ],
         }],
+        [ 'enable_websockets != 1', {
+            'sources/': [
+              ['exclude', '^socket_stream/'],
+              ['exclude', '^websockets/'],
+            ],
+            'sources!': [
+              'spdy/spdy_websocket_stream.cc',
+              'spdy/spdy_websocket_stream.h',
+            ],
+        }],
         [ 'OS == "win"', {
             'sources!': [
               'http/http_auth_handler_ntlm_portable.cc',
@@ -1075,6 +1089,7 @@
               ['include', '^http/http_util\\.'],
               ['include', '^http/http_util_icu\\.cc$'],
               ['include', '^http/http_version\\.h$'],
+              ['include', '^url_request/url_request_job_manager\\.'],
             ],
           },
         ],
@@ -1122,6 +1137,35 @@
       ],
     },
     {
+      'target_name': 'net_with_v8',
+      'type': '<(component)',
+      'variables': { 'enable_wexit_time_destructors': 1, },
+      'dependencies': [
+        '../base/base.gyp:base',
+        '../build/temp_gyp/googleurl.gyp:googleurl',
+        'net'
+      ],
+      'defines': [
+        'NET_IMPLEMENTATION',
+      ],
+      'sources': [
+        'proxy/proxy_resolver_v8.cc',
+        'proxy/proxy_resolver_v8.h',
+        'proxy/proxy_service_v8.cc',
+        'proxy/proxy_service_v8.h',
+      ],
+      'conditions': [
+        ['OS != "ios"',
+          {
+            'dependencies': [
+              # The v8 gyp file is not available in the iOS tree.
+              '../v8/tools/gyp/v8.gyp:v8',
+            ],
+          }
+        ],
+      ],
+    },
+    {
       'target_name': 'net_unittests',
       'type': '<(gtest_target_type)',
       'dependencies': [
@@ -1134,6 +1178,7 @@
         '../third_party/zlib/zlib.gyp:zlib',
         'net',
         'net_test_support',
+        'net_with_v8',
       ],
       'sources': [
         'base/address_list_unittest.cc',
@@ -1190,7 +1235,6 @@
         'base/transport_security_state_unittest.cc',
         'base/unix_domain_socket_posix_unittest.cc',
         'base/upload_data_stream_unittest.cc',
-        'base/upload_data_unittest.cc',
         'base/x509_certificate_unittest.cc',
         'base/x509_cert_types_unittest.cc',
         'base/x509_util_nss_unittest.cc',
@@ -1312,7 +1356,6 @@
         'socket/tcp_server_socket_unittest.cc',
         'socket/transport_client_socket_pool_unittest.cc',
         'socket/transport_client_socket_unittest.cc',
-        'socket/web_socket_server_socket_unittest.cc',
         'socket_stream/socket_stream_metrics_unittest.cc',
         'socket_stream/socket_stream_unittest.cc',
         'spdy/buffered_spdy_framer_spdy3_unittest.cc',
@@ -1441,6 +1484,22 @@
             ],
           },
         ],
+        [ 'enable_websockets != 1', {
+            'sources/': [
+              ['exclude', '^socket_stream/'],
+              ['exclude', '^websockets/'],
+              ['exclude', '^spdy/spdy_websocket_stream_spdy._unittest\\.cc$'],
+            ],
+        }],
+        [ 'disable_ftp_support==1', {
+            'sources/': [
+              ['exclude', '^ftp/'],
+            ],
+            'sources!': [
+              'url_request/url_request_ftp_job_unittest.cc',
+            ],
+          },
+        ],
         [ 'OS == "win"', {
             'sources!': [
               'dns/dns_config_service_posix_unittest.cc',
@@ -1525,6 +1584,7 @@
         '../testing/gtest.gyp:gtest',
         'net',
         'net_test_support',
+        'net_with_v8',
       ],
       'sources': [
         'cookies/cookie_monster_perftest.cc',
@@ -1560,6 +1620,7 @@
         '../base/base.gyp:test_support_base',
         '../testing/gtest.gyp:gtest',
         'net',
+        'net_with_v8',
       ],
       'export_dependent_settings': [
         '../base/base.gyp:base',
@@ -1759,6 +1820,7 @@
             '../build/temp_gyp/googleurl.gyp:googleurl',
             '../testing/gtest.gyp:gtest',
             'net',
+            'net_with_v8',
           ],
           'sources': [
             'tools/fetch/fetch_client.cc',
@@ -1805,6 +1867,7 @@
           'dependencies': [
             '../base/base.gyp:base',
             'net',
+            'net_with_v8',
           ],
           'sources': [
             'tools/net_watcher/net_watcher.cc',

@@ -662,6 +662,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermission::kAppNotifications);
   skip.insert(APIPermission::kAppRuntime);
   skip.insert(APIPermission::kAppWindow);
+  skip.insert(APIPermission::kAppCurrentWindowInternal);
   skip.insert(APIPermission::kBrowserTag);
   skip.insert(APIPermission::kBrowsingData);
   skip.insert(APIPermission::kContextMenus);
@@ -692,10 +693,6 @@ TEST(PermissionsTest, PermissionMessages) {
   // This permission requires explicit user action (context menu handler)
   // so we won't prompt for it for now.
   skip.insert(APIPermission::kFileBrowserHandler);
-
-  // This permission requires explicit user action (shortcut) so we don't
-  // prompt for it.
-  skip.insert(APIPermission::kCommands);
 
   // These permissions require explicit user action (configuration dialog)
   // so we don't prompt for them at install time.

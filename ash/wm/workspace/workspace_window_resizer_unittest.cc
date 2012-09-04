@@ -4,12 +4,13 @@
 
 #include "ash/wm/workspace/workspace_window_resizer.h"
 
-#include "ash/display/display_controller.h"
+#include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/screen_ash.h"
 #include "ash/shell.h"
 #include "ash/shell_window_ids.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/property_util.h"
+#include "ash/wm/shelf_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "ash/wm/workspace/phantom_window_controller.h"
 #include "base/string_number_conversions.h"
@@ -18,6 +19,7 @@
 #include "ui/base/hit_test.h"
 #include "ui/gfx/insets.h"
 #include "ui/gfx/screen.h"
+#include "ui/views/widget/widget.h"
 
 namespace ash {
 namespace internal {
@@ -490,6 +492,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiMonitors) {
   // The secondary display is logically on the right, but on the system (e.g. X)
   // layer, it's below the primary one. See UpdateDisplay() in ash_test_base.cc.
   UpdateDisplay("800x600,800x600");
+  Shell::GetInstance()->shelf()->LayoutShelf();
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
   ASSERT_EQ(2U, root_windows.size());
 
@@ -554,6 +557,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_WindowDragWithMultiMonitors) {
 TEST_F(WorkspaceWindowResizerTest,
        MAYBE_WindowDragWithMultiMonitorsRightToLeft) {
   UpdateDisplay("800x600,800x600");
+  Shell::GetInstance()->shelf()->LayoutShelf();
   Shell::RootWindowList root_windows = Shell::GetAllRootWindows();
   ASSERT_EQ(2U, root_windows.size());
 
@@ -604,8 +608,14 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
     PhantomWindowController* controller =
         resizer->drag_phantom_window_controller_.get();
     ASSERT_TRUE(controller);
-    EXPECT_EQ(PhantomWindowController::STYLE_NONE, controller->style());
-    EXPECT_EQ(resizer->layer_, controller->layer());
+    EXPECT_EQ(PhantomWindowController::STYLE_DRAGGING, controller->style());
+
+    // Check if |resizer->layer_| is properly set to the phantom widget.
+    const std::vector<ui::Layer*>& layers =
+        controller->phantom_widget_->GetNativeWindow()->layer()->children();
+    EXPECT_FALSE(layers.empty());
+    EXPECT_EQ(resizer->layer_, layers.back());
+
     // |window_| should be opaque since the pointer is still on the primary
     // root window. The phantom should be semi-transparent.
     EXPECT_FLOAT_EQ(1.0f, window_->layer()->opacity());
@@ -616,7 +626,7 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
     EXPECT_FALSE(resizer->snap_phantom_window_controller_.get());
     controller = resizer->drag_phantom_window_controller_.get();
     ASSERT_TRUE(controller);
-    EXPECT_EQ(PhantomWindowController::STYLE_NONE, controller->style());
+    EXPECT_EQ(PhantomWindowController::STYLE_DRAGGING, controller->style());
     // |window_| should be transparent, and the phantom should be opaque.
     EXPECT_GT(1.0f, window_->layer()->opacity());
     EXPECT_FLOAT_EQ(1.0f, controller->GetOpacity());
@@ -645,47 +655,57 @@ TEST_F(WorkspaceWindowResizerTest, MAYBE_PhantomStyle) {
   }
 }
 
-// Verifies if the resizer sets and resets DisplayController::dont_warp_mouse_
-// as expected.
+// Verifies if the resizer sets and resets
+// MouseCursorEventFilter::mouse_warp_mode_ as expected.
 TEST_F(WorkspaceWindowResizerTest, WarpMousePointer) {
-  DisplayController* controller = Shell::GetInstance()->display_controller();
-  ASSERT_TRUE(controller);
+  MouseCursorEventFilter* event_filter =
+      Shell::GetInstance()->mouse_cursor_filter();
+  ASSERT_TRUE(event_filter);
   window_->SetBounds(gfx::Rect(0, 0, 50, 60));
 
-  EXPECT_FALSE(controller->dont_warp_mouse_);
+  EXPECT_EQ(MouseCursorEventFilter::WARP_ALWAYS,
+            event_filter->mouse_warp_mode_);
   {
     scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
         window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
     // While dragging a window, warp should be allowed.
-    EXPECT_FALSE(controller->dont_warp_mouse_);
+    EXPECT_EQ(MouseCursorEventFilter::WARP_DRAG,
+              event_filter->mouse_warp_mode_);
     resizer->CompleteDrag(0);
   }
-  EXPECT_FALSE(controller->dont_warp_mouse_);
+  EXPECT_EQ(MouseCursorEventFilter::WARP_ALWAYS,
+            event_filter->mouse_warp_mode_);
 
   {
     scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
         window_.get(), gfx::Point(), HTCAPTION, empty_windows()));
-    EXPECT_FALSE(controller->dont_warp_mouse_);
+    EXPECT_EQ(MouseCursorEventFilter::WARP_DRAG,
+              event_filter->mouse_warp_mode_);
     resizer->RevertDrag();
   }
-  EXPECT_FALSE(controller->dont_warp_mouse_);
+  EXPECT_EQ(MouseCursorEventFilter::WARP_ALWAYS,
+            event_filter->mouse_warp_mode_);
 
   {
     scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
         window_.get(), gfx::Point(), HTRIGHT, empty_windows()));
     // While resizing a window, warp should NOT be allowed.
-    EXPECT_TRUE(controller->dont_warp_mouse_);
+    EXPECT_EQ(MouseCursorEventFilter::WARP_NONE,
+              event_filter->mouse_warp_mode_);
     resizer->CompleteDrag(0);
   }
-  EXPECT_FALSE(controller->dont_warp_mouse_);
+  EXPECT_EQ(MouseCursorEventFilter::WARP_ALWAYS,
+            event_filter->mouse_warp_mode_);
 
   {
     scoped_ptr<WorkspaceWindowResizer> resizer(WorkspaceWindowResizer::Create(
         window_.get(), gfx::Point(), HTRIGHT, empty_windows()));
-    EXPECT_TRUE(controller->dont_warp_mouse_);
+    EXPECT_EQ(MouseCursorEventFilter::WARP_NONE,
+              event_filter->mouse_warp_mode_);
     resizer->RevertDrag();
   }
-  EXPECT_FALSE(controller->dont_warp_mouse_);
+  EXPECT_EQ(MouseCursorEventFilter::WARP_ALWAYS,
+            event_filter->mouse_warp_mode_);
 }
 
 // Verifies windows are correctly restacked when reordering multiple windows.
@@ -727,6 +747,8 @@ TEST_F(WorkspaceWindowResizerTest, RestackAttached) {
 TEST_F(WorkspaceWindowResizerTest, DontDragOffBottom) {
   Shell::GetInstance()->SetDisplayWorkAreaInsets(
       Shell::GetPrimaryRootWindow(), gfx::Insets(0, 0, 10, 0));
+
+  ASSERT_EQ(1, gfx::Screen::GetNumDisplays());
 
   window_->SetBounds(gfx::Rect(100, 200, 300, 400));
   SetGridSize(0);
@@ -884,5 +906,5 @@ TEST_F(WorkspaceWindowResizerTest, CtrlCompleteDragMoveToExactPosition) {
   EXPECT_EQ("106,124 320x160", window_->bounds().ToString());
 }
 
-}  // namespace test
+}  // namespace internal
 }  // namespace ash

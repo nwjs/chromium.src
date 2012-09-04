@@ -246,6 +246,7 @@ namespace extension_manifest_errors {
   extern const char kInvalidLaunchValueContainer[];
   extern const char kInvalidManifest[];
   extern const char kInvalidManifestVersion[];
+  extern const char kInvalidManifestVersionOld[];
   extern const char kInvalidMatch[];
   extern const char kInvalidMatchCount[];
   extern const char kInvalidMatches[];
@@ -306,6 +307,7 @@ namespace extension_manifest_errors {
   extern const char kInvalidWebURL[];
   extern const char kInvalidWebURLs[];
   extern const char kInvalidZipHash[];
+  extern const char kInsecureContentSecurityPolicy[];
   extern const char kLaunchPathAndExtentAreExclusive[];
   extern const char kLaunchPathAndURLAreExclusive[];
   extern const char kLaunchURLRequired[];

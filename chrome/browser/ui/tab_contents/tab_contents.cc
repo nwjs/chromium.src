@@ -27,14 +27,13 @@
 #include "chrome/browser/printing/print_preview_message_handler.h"
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_tab_observer.h"
-#include "chrome/browser/sessions/restore_tab_helper.h"
-#include "chrome/browser/sessions/session_service.h"
-#include "chrome/browser/sessions/session_service_factory.h"
+#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
 #include "chrome/browser/tab_contents/tab_contents_ssl_helper.h"
 #include "chrome/browser/tab_contents/thumbnail_generator.h"
 #include "chrome/browser/translate/translate_tab_helper.h"
 #include "chrome/browser/ui/alternate_error_tab_observer.h"
+#include "chrome/browser/ui/autofill/tab_autofill_manager_delegate.h"
 #include "chrome/browser/ui/blocked_content/blocked_content_tab_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
 #include "chrome/browser/ui/constrained_window_tab_helper.h"
@@ -106,12 +105,13 @@ TabContents::TabContents(WebContents* contents)
                         new TabContentsUserData(this));
 
   // Create the tab helpers.
-  // restore_tab_helper because it sets up the tab ID, and other helpers may
+  // session_tab_helper because it sets up the tab ID, and other helpers may
   // rely on that.
-  restore_tab_helper_.reset(new RestoreTabHelper(contents));
+  session_tab_helper_.reset(new SessionTabHelper(contents));
 
   autocomplete_history_manager_.reset(new AutocompleteHistoryManager(contents));
-  autofill_manager_ = new AutofillManager(this);
+  autofill_delegate_.reset(new TabAutofillManagerDelegate(this));
+  autofill_manager_ = new AutofillManager(autofill_delegate_.get(), this);
   if (CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kExternalAutofillPopup)) {
     autofill_external_delegate_.reset(
@@ -205,16 +205,6 @@ TabContents::TabContents(WebContents* contents)
 TabContents::~TabContents() {
   in_destructor_ = true;
 
-  // Need to reset |thumbnail_generator_| here before |web_contents_| is
-  // deleted because destructing |web_contents_| can end up causing the
-  // thumbnailer to generate a thumbnail. Since TabContents can be
-  // destructed during shutdown, trying to generate a thumbnail by sending an
-  // IPC message to the GPU process is not safe. Sending
-  // chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED can also cause the thumbnailer
-  // to generate a thumbnail, so this must be placed before sending the
-  // notification.
-  thumbnail_generator_.reset();
-
   content::NotificationService::current()->Notify(
       chrome::NOTIFICATION_TAB_CONTENTS_DESTROYED,
       content::Source<TabContents>(this),
@@ -268,16 +258,4 @@ void TabContents::WebContentsDestroyed(WebContents* tab) {
   // destructor. Otherwise it's very likely we (or one of the helpers we own)
   // will attempt to access the WebContents and we'll crash.
   DCHECK(in_destructor_);
-}
-
-void TabContents::UserAgentOverrideSet(const std::string& user_agent) {
-#if defined(ENABLE_SESSION_SERVICE)
-  SessionService* session =
-      SessionServiceFactory::GetForProfile(profile());
-  if (session) {
-    session->SetTabUserAgentOverride(restore_tab_helper()->window_id(),
-                                     restore_tab_helper()->session_id(),
-                                     user_agent);
-  }
-#endif
 }

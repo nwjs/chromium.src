@@ -96,7 +96,7 @@ ChromotingHost::~ChromotingHost() {
   DCHECK(clients_.empty());
 }
 
-void ChromotingHost::Start() {
+void ChromotingHost::Start(const std::string& xmpp_login) {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
 
   LOG(INFO) << "Starting host";
@@ -105,6 +105,9 @@ void ChromotingHost::Start() {
   if (state_ != kInitial)
     return;
   state_ = kStarted;
+
+  FOR_EACH_OBSERVER(HostStatusObserver, status_observers_,
+                    OnStart(xmpp_login));
 
   // Start the SessionManager, supplying this ChromotingHost as the listener.
   session_manager_->Init(signal_strategy_, this);
@@ -235,7 +238,7 @@ void ChromotingHost::OnSessionChannelsConnected(ClientSession* client) {
     scoped_ptr<AudioEncoder> audio_encoder =
         CreateAudioEncoder(client->connection()->session()->config());
     audio_scheduler_ = new AudioScheduler(
-        context_->capture_task_runner(),
+        context_->audio_task_runner(),
         context_->network_task_runner(),
         desktop_environment_->audio_capturer(),
         audio_encoder.Pass(),

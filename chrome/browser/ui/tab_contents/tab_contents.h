@@ -13,8 +13,8 @@
 
 class AlternateErrorPageTabObserver;
 class AutocompleteHistoryManager;
-class AutofillManager;
 class AutofillExternalDelegate;
+class AutofillManager;
 class AutomationTabHelper;
 class BasePanelBrowserTest;
 class BlockedContentTabHelper;
@@ -44,17 +44,19 @@ class NavigationMetricsRecorder;
 class OffscreenTabContentsCreator;
 class OldBasePanelBrowserTest;
 class OmniboxSearchHint;
+class PanelHost;
 class PasswordManager;
 class PasswordManagerDelegate;
 class PDFTabObserver;
 class PluginObserver;
 class PrefsTabHelper;
 class Profile;
-class RestoreTabHelper;
 class SadTabHelper;
 class SearchEngineTabHelper;
+class SessionTabHelper;
 class ShellWindow;
 class SnapshotTabHelper;
+class TabAutofillManagerDelegate;
 class TabContentsSSLHelper;
 class TabContentsTestHarness;
 class TabSpecificContentSettings;
@@ -75,6 +77,10 @@ class ZoomController;
 #if defined(ENABLE_ONE_CLICK_SIGNIN)
 class OneClickSigninHelper;
 #endif
+
+namespace android_webview {
+class AwBrowserDependencyFactoryImpl;
+}
 
 namespace browser_sync {
 class SyncedTabDelegate;
@@ -142,6 +148,7 @@ class TabContents : public content::WebContentsObserver {
     // more code to construct instances. Explicitly befriend those who currently
     // do so.
 
+    friend class android_webview::AwBrowserDependencyFactoryImpl;
     friend class BasePanelBrowserTest;
     friend class Browser;
     friend class BrowserCommandsTabContentsCreator;
@@ -160,6 +167,7 @@ class TabContents : public content::WebContentsObserver {
     friend class InstantLoader;
     friend class OldBasePanelBrowserTest;
     friend class OffscreenTabContentsCreator;
+    friend class PanelHost;
     friend class prerender::PrerenderContents;
     friend class ShellWindow;
     friend class TabContentsTestHarness;
@@ -268,14 +276,6 @@ class TabContents : public content::WebContentsObserver {
     return print_view_manager_.get();
   }
 
-  RestoreTabHelper* restore_tab_helper() {
-    return restore_tab_helper_.get();
-  }
-
-  const RestoreTabHelper* restore_tab_helper() const {
-    return restore_tab_helper_.get();
-  }
-
   SadTabHelper* sad_tab_helper() { return sad_tab_helper_.get(); }
 
   SearchEngineTabHelper* search_engine_tab_helper() {
@@ -284,6 +284,14 @@ class TabContents : public content::WebContentsObserver {
 
   chrome::search::SearchTabHelper* search_tab_helper() {
     return search_tab_helper_.get();
+  }
+
+  SessionTabHelper* session_tab_helper() {
+    return session_tab_helper_.get();
+  }
+
+  const SessionTabHelper* session_tab_helper() const {
+    return session_tab_helper_.get();
   }
 
   SnapshotTabHelper* snapshot_tab_helper() {
@@ -321,7 +329,6 @@ class TabContents : public content::WebContentsObserver {
 
   // content::WebContentsObserver overrides:
   virtual void WebContentsDestroyed(content::WebContents* tab) OVERRIDE;
-  virtual void UserAgentOverrideSet(const std::string& user_agent) OVERRIDE;
 
  private:
   friend class TabContentsFactory;
@@ -340,6 +347,7 @@ class TabContents : public content::WebContentsObserver {
 
   scoped_ptr<AutocompleteHistoryManager> autocomplete_history_manager_;
   scoped_refptr<AutofillManager> autofill_manager_;
+  scoped_ptr<TabAutofillManagerDelegate> autofill_delegate_;
   scoped_ptr<AutofillExternalDelegate> autofill_external_delegate_;
   scoped_ptr<AutomationTabHelper> automation_tab_helper_;
   scoped_ptr<BlockedContentTabHelper> blocked_content_tab_helper_;
@@ -370,10 +378,10 @@ class TabContents : public content::WebContentsObserver {
   // Handles print job for this contents.
   scoped_ptr<printing::PrintViewManager> print_view_manager_;
 
-  scoped_ptr<RestoreTabHelper> restore_tab_helper_;
   scoped_ptr<SadTabHelper> sad_tab_helper_;
   scoped_ptr<SearchEngineTabHelper> search_engine_tab_helper_;
   scoped_ptr<chrome::search::SearchTabHelper> search_tab_helper_;
+  scoped_ptr<SessionTabHelper> session_tab_helper_;
   scoped_ptr<SnapshotTabHelper> snapshot_tab_helper_;
   scoped_ptr<TabContentsSSLHelper> ssl_helper_;
   scoped_ptr<browser_sync::SyncedTabDelegate> synced_tab_delegate_;

@@ -339,8 +339,7 @@ class SyncManager {
   virtual void UpdateCredentials(const SyncCredentials& credentials) = 0;
 
   // Called when the user disables or enables a sync type.
-  virtual void UpdateEnabledTypes(
-      const ModelTypeSet& enabled_types) = 0;
+  virtual void UpdateEnabledTypes(ModelTypeSet enabled_types) = 0;
 
   // Forwards to the underlying invalidator (see comments in invalidator.h).
   virtual void RegisterInvalidationHandler(
@@ -369,7 +368,7 @@ class SyncManager {
   //              does finish.
   virtual void ConfigureSyncer(
       ConfigureReason reason,
-      const ModelTypeSet& types_to_config,
+      ModelTypeSet types_to_config,
       const ModelSafeRoutingInfo& new_routing_info,
       const base::Closure& ready_task,
       const base::Closure& retry_task) = 0;
@@ -386,10 +385,6 @@ class SyncManager {
 
   // Status-related getter.  May be called on any thread.
   virtual SyncStatus GetDetailedStatus() const = 0;
-
-  // Extracts the keystore encryption bootstrap token if a keystore key existed.
-  // Returns true if bootstrap token successfully extracted, false otherwise.
-  virtual bool GetKeystoreKeyBootstrapToken(std::string* token) = 0;
 
   // Call periodically from a database-safe thread to persist recent changes
   // to the syncapi model.
