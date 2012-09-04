@@ -126,6 +126,7 @@ bool PathProviderWin(int key, FilePath* result) {
       cur = executableDir.DirName().DirName();
       break;
     }
+#if 0
     case base::DIR_APP_SHORTCUTS: {
       if (win::GetVersion() < win::VERSION_WIN8)
         return false;
@@ -138,6 +139,7 @@ bool PathProviderWin(int key, FilePath* result) {
       cur = FilePath(string16(path_buf));
       break;
     }
+#endif
     default:
       return false;
   }
