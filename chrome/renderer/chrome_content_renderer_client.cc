@@ -597,10 +597,21 @@ bool ChromeContentRendererClient::IsNaClAllowed(
   // under development, invocations from whitelisted URLs, and all invocations
   // if --enable-nacl is set.
   bool is_nacl_allowed =
-      is_extension_from_webstore ||
-      is_extension_unrestricted ||
-      is_whitelisted_url ||
-      is_nacl_unrestricted;
+#if defined(__arm__)
+    // The ARM ABI is not quite stable, so only allow NaCl for
+    // unrestricted extensions (i.e. built-in and under development),
+    // and for the QuickOffice webstore app.
+    // See http://crbug.com/145694
+    // TODO(dschuff): remove this when the ABI is stable
+    (is_extension_from_webstore &&
+     manifest_url.SchemeIs("chrome-extension") &&
+     manifest_url.host() == "gbkeegbaiigmenfmjfclcdgdpimamgkj") ||
+#else
+    is_extension_from_webstore ||
+    is_whitelisted_url ||
+#endif
+    is_extension_unrestricted ||
+    is_nacl_unrestricted;
   if (is_nacl_allowed) {
     bool app_can_use_dev_interfaces =
         // NaCl PDF viewer extension
