@@ -2049,7 +2049,7 @@
           '-Wno-missing-field-initializers',
           # Don't export any symbols (for example, to plugins we dlopen()).
           # Note: this is *required* to make some plugins work.
-          '-fvisibility=hidden',
+          # '-fvisibility=hidden',
           '-pipe',
         ],
         'cflags_cc': [
@@ -2057,7 +2057,7 @@
           '-fno-threadsafe-statics',
           # Make inline functions have hidden visiblity by default.
           # Surprisingly, not covered by -fvisibility=hidden.
-          '-fvisibility-inlines-hidden',
+          # '-fvisibility-inlines-hidden',
           # GCC turns on -Wsign-compare for C++ under -Wall, but clang doesn't,
           # so we specify it explicitly.
           # TODO(fischman): remove this if http://llvm.org/PR10448 obsoletes it.
@@ -2800,9 +2800,9 @@
           'GCC_ENABLE_CPP_RTTI': 'NO',              # -fno-rtti
           'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
           # GCC_INLINES_ARE_PRIVATE_EXTERN maps to -fvisibility-inlines-hidden
-          'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
+          # 'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
           'GCC_OBJC_CALL_CXX_CDTORS': 'YES',        # -fobjc-call-cxx-cdtors
-          'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
+          # 'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
           'GCC_TREAT_WARNINGS_AS_ERRORS': 'NO',    # -Werror
           'GCC_VERSION': '4.2',
