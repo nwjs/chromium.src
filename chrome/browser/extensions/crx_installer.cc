@@ -505,6 +505,8 @@ void CrxInstaller::CompleteInstall() {
     return;
   }
 
+  std::string extension_id = extension_->id();
+
   // This is lame, but we must reload the extension because absolute paths
   // inside the content scripts are established inside InitFromValue() and we
   // just moved the extension.
@@ -518,9 +520,13 @@ void CrxInstaller::CompleteInstall() {
       install_source_,
       extension_->creation_flags() | Extension::REQUIRE_KEY,
       &error);
-  CHECK(error.empty()) << error;
 
-  ReportSuccessFromFileThread();
+  if (extension_) {
+    ReportSuccessFromFileThread();
+  } else {
+    LOG(ERROR) << error << " " << extension_id << " " << download_url_.spec();
+    ReportFailureFromFileThread(CrxInstallerError(UTF8ToUTF16(error)));
+  }
 }
 
 void CrxInstaller::ReportFailureFromFileThread(const CrxInstallerError& error) {
