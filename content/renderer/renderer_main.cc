@@ -29,6 +29,7 @@
 #include "content/renderer/renderer_main_platform_delegate.h"
 #include "ui/base/ui_base_switches.h"
 #include "third_party/node/src/node.h"
+#include "third_party/node/src/req_wrap.h"
 #include "webkit/plugins/ppapi/ppapi_interface_factory.h"
 
 #if defined(OS_MACOSX)
@@ -228,12 +229,12 @@ int RendererMain(const content::MainFunctionParams& parameters) {
       v8::Locker locker;
       v8::HandleScope scope;
 
-      v8::Persistent<v8::Context> context = v8::Context::New();
-      v8::Context::Scope context_scope(context);
+      node::g_context = v8::Context::New();
+      v8::Context::Scope context_scope(node::g_context);
 
       int argc = 1;
       char* argv[] = { (char*)"node", NULL };
-      node::SetupContext(argc, argv, context->Global());
+      node::SetupContext(argc, argv, node::g_context->Global());
 
       if (run_loop) {
 #if defined(OS_MACOSX)
