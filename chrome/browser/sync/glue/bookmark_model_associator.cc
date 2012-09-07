@@ -397,19 +397,23 @@ syncer::SyncError BookmarkModelAssociator::BuildAssociations() {
   // and Other Bookmarks.
   error = AssociateTaggedPermanentNode(bookmark_model_->other_node(),
                                        kOtherBookmarksTag);
-  if (error.IsSet())
+  if (error.IsSet()) {
     return error;
+  }
 
   error = AssociateTaggedPermanentNode(bookmark_model_->bookmark_bar_node(),
                                        kBookmarkBarTag);
-  if (error.IsSet())
+  if (error.IsSet()) {
     return error;
+  }
 
-  error = AssociateTaggedPermanentNode(bookmark_model_->mobile_node(),
-                                       kMobileBookmarksTag);
-  if (error.IsSet() && expect_mobile_bookmarks_folder_)
-    return error;
-  error = syncer::SyncError();
+  if (expect_mobile_bookmarks_folder_) {
+    error = AssociateTaggedPermanentNode(bookmark_model_->mobile_node(),
+                                         kMobileBookmarksTag);
+    if (error.IsSet()) {
+      return error;
+    }
+  }
 
   int64 bookmark_bar_sync_id = GetSyncIdFromChromeId(
       bookmark_model_->bookmark_bar_node()->id());
