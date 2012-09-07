@@ -67,7 +67,6 @@
         'nw/src/paths_mac.mm',
         'nw/src/shell.cc',
         'nw/src/shell.h',
-        'nw/src/shell_android.cc',
         'nw/src/shell_aura.cc',
         'nw/src/shell_gtk.cc',
         'nw/src/shell_mac.mm',
@@ -88,7 +87,6 @@
         'nw/src/shell_content_renderer_client.cc',
         'nw/src/shell_content_renderer_client.h',
         'nw/src/shell_devtools_delegate.cc',
-        'nw/src/shell_devtools_delegate_android.cc',
         'nw/src/shell_devtools_delegate.h',
         'nw/src/shell_download_manager_delegate.cc',
         'nw/src/shell_download_manager_delegate.h',
@@ -150,23 +148,6 @@
             },
           },
         }],  # OS=="win"
-        ['OS=="android"', {
-          'dependencies': [
-            'nw_jni_headers',
-          ],
-          'include_dirs': [
-            '<(SHARED_INTERMEDIATE_DIR)/content/nw',
-          ],
-          'sources!': [
-            'nw/src/shell_devtools_delegate.cc',
-          ],
-        }, {  # else: OS!="android"
-          'dependencies': [
-            # This dependency is for running DRT against the content shell, and
-            # this combination is not yet supported on Android.
-            '../webkit/support/webkit_support.gyp:webkit_support',
-          ],
-        }],  # OS=="android"
         ['os_posix==1 and use_aura==1 and linux_use_tcmalloc==1', {
           'dependencies': [
             # This is needed by content/app/content_main_runner.cc
@@ -280,19 +261,11 @@
             '<(repack_path)',
             '<@(pak_inputs)',
           ],
+          'outputs': [
+            '<(PRODUCT_DIR)/nw.pak',
+          ],
           'action': ['python', '<(repack_path)', '<@(_outputs)',
                      '<@(pak_inputs)'],
-          'conditions': [
-            ['OS!="android"', {
-              'outputs': [
-                '<(PRODUCT_DIR)/nw.pak',
-              ],
-            }, {
-              'outputs': [
-                '<(PRODUCT_DIR)/nw/assets/nw.pak',
-              ],
-            }],
-          ],
         },
       ],
     },
@@ -545,142 +518,5 @@
         },  # target nw_helper_app
       ],
     }],  # OS=="mac"
-    ['OS=="android"', {
-      'targets': [
-        {
-          # TODO(jrg): Update this action and other jni generators to only
-          # require specifying the java directory and generate the rest.
-          'target_name': 'nw_jni_headers',
-          'type': 'none',
-          'sources': [
-            'nw/src/android/java/src/org/chromium/nw/ShellManager.java',
-            'nw/src/android/java/src/org/chromium/nw/Shell.java',
-          ],
-          'variables': {
-            'jni_gen_dir': 'content/nw',
-          },
-          'includes': [ '../build/jni_generator.gypi' ],
-        },
-        {
-          'target_name': 'libnw_content_view',
-          'type': 'shared_library',
-          'dependencies': [
-            'nw_jni_headers',
-            'nw_lib',
-            'nw_pak',
-            # Skia is necessary to ensure the dependencies needed by
-            # WebContents are included.
-            '../skia/skia.gyp:skia',
-            '<(DEPTH)/media/media.gyp:player_android',
-          ],
-          'include_dirs': [
-            '<(SHARED_INTERMEDIATE_DIR)/content/nw',
-          ],
-          'sources': [
-            'nw/src/android/draw_context.cc',
-            'nw/src/android/draw_context.h',
-            'nw/src/android/shell_library_loader.cc',
-            'nw/src/android/shell_library_loader.h',
-            'nw/src/android/shell_manager.cc',
-            'nw/src/android/shell_manager.h',
-          ],
-          'sources!': [
-            'nw/src/shell_main.cc',
-            'nw/src/shell_main.h',
-          ],
-          'conditions': [
-            ['android_build_type==1', {
-              'ldflags': [
-                '-lgabi++',  # For rtti
-              ],
-            }],
-          ],
-        },
-        {
-          'target_name': 'nw_apk',
-          'type': 'none',
-          'actions': [
-            {
-              'action_name': 'copy_base_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_base.jar'],
-              'outputs': ['<(PRODUCT_DIR)/nw/java/libs/chromium_base.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_net_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_net.jar'],
-              'outputs': ['<(PRODUCT_DIR)/nw/java/libs/chromium_net.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_media_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_media.jar'],
-              'outputs': ['<(PRODUCT_DIR)/nw/java/libs/chromium_media.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_content_jar',
-              'inputs': ['<(PRODUCT_DIR)/lib.java/chromium_content.jar'],
-              'outputs': ['<(PRODUCT_DIR)/nw/java/libs/chromium_content.jar'],
-              'action': ['cp', '<@(_inputs)', '<@(_outputs)'],
-            },
-            {
-              'action_name': 'copy_and_strip_so',
-              'inputs': ['<(SHARED_LIB_DIR)/libnw_content_view.so'],
-              'outputs': ['<(PRODUCT_DIR)/nw/libs/<(android_app_abi)/libnw_content_view.so'],
-              'action': [
-                '<!(/bin/echo -n $STRIP)',
-                '--strip-unneeded',  # All symbols not needed for relocation.
-                '<@(_inputs)',
-                '-o',
-                '<@(_outputs)',
-              ],
-            },
-            {
-              'action_name': 'nw_apk',
-              'inputs': [
-                'nw/src/android/java/nw_apk.xml',
-                'nw/src/android/java/AndroidManifest.xml',
-                '<!@(find shell/android/java -name "*.java")',
-                '<!@(find shell/android/res -name "*")',
-                '<(PRODUCT_DIR)/nw/java/libs/chromium_base.jar',
-                '<(PRODUCT_DIR)/nw/java/libs/chromium_net.jar',
-                '<(PRODUCT_DIR)/nw/java/libs/chromium_media.jar',
-                '<(PRODUCT_DIR)/nw/java/libs/chromium_content.jar',
-                '<(PRODUCT_DIR)/nw/assets/nw.pak',
-                '<(PRODUCT_DIR)/nw/libs/<(android_app_abi)/libnw_content_view.so',
-              ],
-              'outputs': [
-                # Awkwardly, we build a Debug APK even when gyp is in
-                # Release mode.  I don't think it matters (e.g. we're
-                # probably happy to not codesign) but naming should be
-                # fixed.
-                '<(PRODUCT_DIR)/nw/ContentShell-debug.apk',
-              ],
-              'action': [
-                # Pass the build type to ant. Currently it only assumes
-                # debug mode in java. Release mode will break the current
-                # workflow.
-                'nw/src/content_shell_ant_helper.sh',
-                'ant',
-                '-DPRODUCT_DIR=<(ant_build_out)',
-                '-DAPP_ABI=<(android_app_abi)',
-                '-DANDROID_SDK=<(android_sdk)',
-                '-DANDROID_SDK_ROOT=<(android_sdk_root)',
-                '-DANDROID_SDK_TOOLS=<(android_sdk_tools)',
-                '-DANDROID_SDK_VERSION=<(android_sdk_version)',
-                '-DANDROID_TOOLCHAIN=<(android_toolchain)',
-                '-buildfile',
-                'nw/src/android/java/nw_apk.xml',
-                '<(CONFIGURATION_NAME)',
-              ],
-              'dependencies': [
-                'content_java',
-              ],
-            }
-          ],
-        },
-      ],
-    }],  # OS=="android"
   ]
 }
