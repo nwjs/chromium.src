@@ -2053,6 +2053,7 @@ bool RenderViewImpl::runFileChooser(
     ipc_params.mode = content::FileChooserParams::Save;
   else
     ipc_params.mode = content::FileChooserParams::Open;
+  ipc_params.extract_directory = params.extractDirectory;
   ipc_params.title = params.title;
   ipc_params.default_file_name =
       webkit_glue::WebStringToFilePath(params.initialValue);
