@@ -44,6 +44,12 @@
         '..',
       ],
       'sources': [
+        'nw/src/browser/file_select_helper.cc',
+        'nw/src/browser/file_select_helper.h',
+        'nw/src/browser/platform_util_common_linux.cc',
+        'nw/src/browser/platform_util_mac.mm',
+        'nw/src/browser/platform_util_win.cc',
+        'nw/src/browser/platform_util.h',
         'nw/src/common/zip.cc',
         'nw/src/common/zip.h',
         'nw/src/common/zip_reader.cc',
