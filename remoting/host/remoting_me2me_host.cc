@@ -209,8 +209,25 @@ class HostProcess
     }
 
 #if defined(OS_MACOSX) || defined(OS_WIN)
-    host_user_interface_.reset(new HostUserInterface(context_.get()));
-#endif
+     bool want_user_interface = true;
+
+#if defined(OS_MACOSX)
+     // Don't try to display any UI on top of the system's login screen as this
+     // is rejected by the Window Server on OS X 10.7.4, and prevents the
+     // capturer from working (http://crbug.com/140984).
+
+     // TODO(lambroslambrou): Use a better technique of detecting whether we're
+     // running in the LoginWindow context, and refactor this into a separate
+     // function to be used here and in CurtainMode::ActivateCurtain().
+     if (getuid() == 0) {
+       want_user_interface = false;
+     }
+#endif  // OS_MACOSX
+
+     if (want_user_interface) {
+       host_user_interface_.reset(new HostUserInterface(context_.get()));
+     }
+#endif  // OS_MACOSX || OS_WIN
 
     StartWatchingPolicy();
 
@@ -441,9 +458,11 @@ class HostProcess
     host_event_logger_ = HostEventLogger::Create(host_, kApplicationName);
 
 #if defined(OS_MACOSX) || defined(OS_WIN)
-    host_user_interface_->Start(
-        host_, base::Bind(&HostProcess::OnDisconnectRequested,
-                          base::Unretained(this)));
+    if (host_user_interface_.get()) {
+      host_user_interface_->Start(
+          host_, base::Bind(&HostProcess::OnDisconnectRequested,
+                            base::Unretained(this)));
+    }
 #endif
 
     host_->Start();
