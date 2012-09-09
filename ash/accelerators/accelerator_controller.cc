@@ -648,6 +648,12 @@ bool AcceleratorController::PerformAction(int action,
       return HandleMagnifyScreen(1);
     case MAGNIFY_SCREEN_ZOOM_OUT:
       return HandleMagnifyScreen(-1);
+    case POWER_PRESSED:  // fallthrough
+    case POWER_RELEASED:
+       // We don't do anything with these at present, but we consume them to
+       // prevent them from getting passed to apps -- see
+       // http://crbug.com/146609.
+       return true;
 #if !defined(NDEBUG)
     case PRINT_LAYER_HIERARCHY:
       return HandlePrintLayerHierarchy();
