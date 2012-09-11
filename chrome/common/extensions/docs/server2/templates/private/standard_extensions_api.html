@@ -12,11 +12,22 @@
       <div id="gc-pagecontent">
         <h1 class="page_title">chrome.{{api.name}}</h1>
         {{?api.permissions.dev}}{{+partials.warning}}{{/}}
-        {{+partials.table_of_contents toc:intro.toc
+        {{?intro.toc}}
+        {{+partials.table_of_contents toc_items:intro.toc
+                                      has_toc:true
+                                      api:api
                                       samples_list:api.samples.extensions
                                       title:extensions_title}}
+        {{:intro.toc}}
+        {{+partials.table_of_contents has_toc:false
+                                      api:api
+                                      samples_list:api.samples.extensions
+                                      title:extensions_title}}
+        {{/intro.toc}}
 {{- This is unindented because it contains <pre> tags -}}
+{{?intro}}
 {{+intro.intro is_apps:false}}
+{{/intro}}
         {{+partials.api_reference samples_list:api.samples.extensions
                                   title:extensions_title}}
       </div>
