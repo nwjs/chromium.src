@@ -9,6 +9,7 @@
 #include "ui/app_list/app_list_item_view.h"
 #include "ui/app_list/pagination_model.h"
 #include "ui/views/border.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 
@@ -285,7 +286,10 @@ void AppsGridView::SetSelectedItemByIndex(int index) {
     selected_item_index_ = -1;
   } else {
     selected_item_index_ = index;
-    GetItemViewAtIndex(selected_item_index_)->SchedulePaint();
+    AppListItemView* selected_view = GetItemViewAtIndex(selected_item_index_);
+    selected_view->SchedulePaint();
+    GetWidget()->NotifyAccessibilityEvent(
+        selected_view, ui::AccessibilityTypes::EVENT_FOCUS, true);
 
     if (tiles_per_page()) {
       pagination_model_->SelectPage(selected_item_index_ / tiles_per_page(),
