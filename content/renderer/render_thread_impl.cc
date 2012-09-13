@@ -77,13 +77,9 @@
 #include "media/base/media.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_util.h"
-<<<<<<< HEAD
 #include "third_party/node/src/node.h"
-#include "third_party/WebKit/Source/Platform/chromium/public/WebCompositor.h"
-=======
 #include "third_party/WebKit/Source/Platform/chromium/public/Platform.h"
 #include "third_party/WebKit/Source/Platform/chromium/public/WebCompositorSupport.h"
->>>>>>> 69bfc514fb662ef58d1b0b0d87f515ff90cb69f5
 #include "third_party/WebKit/Source/Platform/chromium/public/WebString.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebColorName.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebDatabase.h"
