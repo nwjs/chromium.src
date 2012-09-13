@@ -13,7 +13,7 @@ namespace browser {
 string16 LocalizedObsoleteOSString() {
   // TODO(mark): Change kEndOfTheLine to true immediately prior to the last
   // build on the Chrome 21 branch.
-  const bool kEndOfTheLine = false;
+  const bool kEndOfTheLine = true;
 
   return l10n_util::GetStringFUTF16(
       kEndOfTheLine ? IDS_MAC_10_5_LEOPARD_OBSOLETE_NOW :
